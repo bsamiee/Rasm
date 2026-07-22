@@ -24,7 +24,7 @@ This folder is stateless over ports by construction — every durable obligation
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Folder-specific libraries admitted here; versions centralize in `pnpm-workspace.yaml` and corroborate against this folder's `.api/`.
+Domain-specific libraries admitted by this folder; versions centralize in `pnpm-workspace.yaml` and corroborate against this folder's `.api/`.
 
 [CRYPTO_TOKEN]:
 - `jose`
@@ -45,7 +45,7 @@ Folder-specific libraries admitted here; versions centralize in `pnpm-workspace.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Shared TypeScript substrate consumed from the branch registry; `libs/typescript/.planning/README.md` and `libs/typescript/.api/` own the contracts and evidence.
+Shared substrate consumed from the Ts registry; the registry and its charters own the full contracts, and `libs/typescript/.api/` holds the shared API evidence.
 
 [EFFECT_RUNTIME]:
 - `effect`

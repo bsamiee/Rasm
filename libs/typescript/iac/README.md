@@ -14,7 +14,7 @@ Nothing depends on this plane at runtime; its outputs cross back only as typed e
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Deploy-plane libraries admitted by this folder; `pnpm-workspace.yaml` centralizes versions and the adjacent `.api/` folder holds the API evidence.
+Domain-specific libraries admitted by this folder; versions centralize in `pnpm-workspace.yaml` and corroborate against this folder's `.api/`.
 
 [ENGINE]:
 - `@pulumi/pulumi`
@@ -49,7 +49,7 @@ Deploy-plane libraries admitted by this folder; `pnpm-workspace.yaml` centralize
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Shared TypeScript substrate consumed from the registry; `libs/typescript/.planning/README.md` and the sibling `libs/typescript/.api/` folder own the full contracts and evidence.
+Shared substrate consumed from the Ts registry; the registry and its charters own the full contracts, and `libs/typescript/.api/` holds the shared API evidence.
 
 [TYPING_RAILS]:
 - `effect`

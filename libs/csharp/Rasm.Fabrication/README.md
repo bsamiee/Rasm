@@ -99,7 +99,7 @@ Every manufacturing process folds through a single `FabricationPolicy` dispatch 
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Fabrication-specific libraries admitted by this folder; versions centralize in the C# manifest and corroborate against this folder's `.api/`. Vendored natives ride `vendor/runtimes/` outside NuGet restore.
+Domain-specific libraries admitted by this folder; versions centralize in `Directory.Packages.props` and corroborate against this folder's `.api/`.
 
 [GEOMETRY_ENGINES]:
 - `Clipper2` — line-space offset and boolean-clip substrate.

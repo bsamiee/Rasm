@@ -1,20 +1,20 @@
 # [RASM_RHINO_API_RHINOCOMMON_DOCUMENT]
 
-`RhinoDoc` owns document identity across the live and headless runtimes — the component-table roster, the lifecycle and mutation event families, undo records, the model and page unit and tolerance regimes, and object-table mutation. Every table is a typed component collection reached from the one document handle keyed by `RuntimeSerialNumber`, and every structural change surfaces as an event the package binds rather than polls. Headless documents expose the identical table, event, and undo surface, which makes the document handle the single seam the exchange and block catalogs open geometry through.
+`RhinoDoc` owns document identity across the live and headless runtimes: one handle keyed by `RuntimeSerialNumber` projects every typed component table, and every structural change surfaces as a bound event rather than a polled state. Headless documents expose the identical table, event, and undo surface behind the `IsHeadless` discriminant, making the handle the single host-boundary seam for document geometry.
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `RhinoCommon`
-- package: `RhinoCommon`
-- license: proprietary host SDK
-- namespace: `Rhino`, `Rhino.DocObjects`, `Rhino.DocObjects.Tables`, `Rhino.DocObjects.Custom`, `Rhino.Collections`
-- asset: `RhinoCommon.dll` — the in-process managed host assembly, verified by direct decompile
+[PACKAGE_SURFACE]: RhinoCommon document surface
+- host: `RhinoCommon` (Rhino host runtime, in-process)
+- assembly: `RhinoCommon.dll` — verified by direct decompile
+- namespaces: `Rhino`, `Rhino.DocObjects`, `Rhino.DocObjects.Tables`, `Rhino.DocObjects.Custom`, `Rhino.Collections`
+- kernel: `Rasm` (host-agnostic vocabularies and numeric owners composed, never re-derived)
+- substrate: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`
 - rail: host
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document root and identity
-- rail: host
 
 | [INDEX] | [SYMBOL]               | [KIND] | [CAPABILITY]                                                                     |
 | :-----: | :--------------------- | :----- | :------------------------------------------------------------------------------- |
@@ -31,7 +31,6 @@
 |  [11]   | `AnimationProperties`  | class  | disposable document animation-capture spec behind `RhinoDoc.AnimationProperties` |
 
 [PUBLIC_TYPE_SCOPE]: the component-table roster
-- rail: host
 
 | [INDEX] | [SYMBOL]                      | [KIND] | [CAPABILITY]                                                              |
 | :-----: | :---------------------------- | :----- | :------------------------------------------------------------------------ |
@@ -61,7 +60,6 @@
 |  [24]   | `ManifestTable`               | table  | cross-table component manifest keyed by `ModelComponentType`              |
 
 [PUBLIC_TYPE_SCOPE]: object carriers and query
-- rail: host
 
 | [INDEX] | [SYMBOL]                   | [KIND]     | [CAPABILITY]                                             |
 | :-----: | :------------------------- | :--------- | :------------------------------------------------------- |
@@ -75,22 +73,18 @@
 |  [08]   | `PickContext`              | class      | pick projection consumed by `PickObjects`                |
 
 [PUBLIC_TYPE_SCOPE]: event and undo carriers
-- rail: host
-
 - `DocumentOpenEventArgs` / `DocumentSaveEventArgs` / `DocumentEventArgs` — lifecycle open, save, and document-scope payloads
 - `UnitsChangedWithScalingEventArgs` / `WorksessionFileChangedEventArgs` — unit-scale and worksession-file-change payloads
 - `RhinoObjectEventArgs` / `RhinoReplaceObjectEventArgs` / `RhinoModifyObjectAttributesEventArgs` — object add, delete, replace, and attribute payloads
 - `RhinoTransformObjectsEventArgs` / `RhinoAfterTransformObjectsEventArgs` — before and after transform payloads
 - `LayerTableEventArgs` / `MaterialTableEventArgs` / `GroupTableEventArgs` — core table-mutation payloads
 - `InstanceDefinitionTableEventArgs` / `SectionStyleTableEventArgs` / `MarkupTableEventArgs` / `PageViewGroupTableEventArgs` — definition, section-style, markup, and page-group table payloads
-- `LightTableEventArgs` — `Document : RhinoDoc` / `EventType : LightTableEventType` / `LightIndex : int` / `OldState : Light` / `NewState : LightObject`; the prior state is a bare `Light` while the current state lazily resolves `Document.Lights[LightIndex]` as a `LightObject`, so the two sides never share a `ModelComponent` shape
+- `LightTableEventArgs` — `Document : RhinoDoc` / `EventType : LightTableEventType` / `LightIndex : int` / `OldState : Light` / `NewState : LightObject`; the prior state is a bare `Light` while the current lazily resolves `Document.Lights[LightIndex]` as a `LightObject`, so the two sides never share a `ModelComponent` shape
 - `CustomUndoEventArgs` — custom non-geometry undo payload folded into an undo record
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: identity and lifecycle
-- rail: host
-
 - `RhinoDoc.RuntimeSerialNumber : uint` — carries the stable document key
 - `RhinoDoc.FromRuntimeSerialNumber(uint serialNumber) : RhinoDoc` — re-resolve the handle across a callback boundary
 - `RhinoDoc.OpenDocuments(bool includeHeadless) : RhinoDoc[]` — enumerate live and headless documents
@@ -104,8 +98,6 @@
 - `RhinoDoc.TimeoutActiveGet() : void` — cancel an active interactive get on the document
 
 [ENTRYPOINT_SCOPE]: component-table accessors
-- rail: host
-
 - `RhinoDoc.Objects : ObjectTable` / `Layers : LayerTable` / `Materials : MaterialTable` / `Groups : GroupTable`
 - `RhinoDoc.Views : ViewTable` / `NamedViews : NamedViewTable` / `InstanceDefinitions : InstanceDefinitionTable`
 - `RhinoDoc.NamedConstructionPlanes : NamedConstructionPlaneTable` / `NamedPositions : NamedPositionTable` / `NamedLayerStates : NamedLayerStateTable`
@@ -113,12 +105,10 @@
 - `RhinoDoc.RenderMaterials : RenderMaterialTable` / `RenderEnvironments : RenderEnvironmentTable` / `RenderTextures : RenderTextureTable`
 - `RhinoDoc.Linetypes : LinetypeTable` / `Lights : LightTable` / `DimStyles : DimStyleTable` / `HatchPatterns : HatchPatternTable`
 - `RhinoDoc.Bitmaps : BitmapTable` / `Strings : StringTable` / `Manifest : ManifestTable`
-- `RhinoDoc.Fonts : FontTable` — obsolete DimStyles wrapper behind a dead accessor, so `FontTable.FindOrCreate` never composes; face binding probes `DimStyles` rows (`DimensionStyle.Font` get/set, `Font.FromQuartetProperties(quartetName, bold, italic) : Font` null on an unresolvable quartet) and lands `DimStyleTable.Add(dimstyle, reference) : int`
+- face binding routes through `DimStyles` rows — `DimensionStyle.Font` get/set, `Font.FromQuartetProperties(quartetName, bold, italic) : Font` null on an unresolvable quartet, landed by `DimStyleTable.Add(dimstyle, reference) : int`
 - `LinetypeTable.PurgeUnused() : int` / `DimStyleTable.PurgeUnused() : int` / `HatchPatternTable.PurgeUnused() : int` / `InstanceDefinitionTable.PurgeUnused() : int`
 
 [ENTRYPOINT_SCOPE]: units and tolerances
-- rail: host
-
 - `RhinoDoc.ModelAbsoluteTolerance` / `ModelRelativeTolerance` / `ModelAngleToleranceRadians` / `ModelAngleToleranceDegrees : double`
 - `RhinoDoc.PageAbsoluteTolerance` / `PageRelativeTolerance` / `PageAngleToleranceRadians` / `PageAngleToleranceDegrees : double`
 - `RhinoDoc.ModelUnits` / `PageUnits : LengthUnit`; `ModelUnitSystem` / `PageUnitSystem : UnitSystem`
@@ -132,8 +122,6 @@
 - `RhinoDoc.SetCustomUnitSystem(bool modelUnits, string customUnitName, double metersPerCustomUnit, bool scale) : bool`
 
 [ENTRYPOINT_SCOPE]: unit and scale text
-- rail: host
-
 - `Rhino.LengthValue.Create(string s, StringParserSettings ps, out bool parsedAll) : LengthValue` — locale-aware length parse; `parsedAll` proves whole-string consumption, `IsUnset()` marks failure
 - `Rhino.LengthValue.Create(double length, UnitSystem us, StringFormat format[, uint localeId])` / `Create(double length, LengthUnit units, StringFormat format[, uint localeId]) : LengthValue` — format a value into length text
 - `LengthValue.LengthString : string` / `Units : LengthUnit` / `UnitSystem : UnitSystem` / `ParseSettings : StringParserSettings` / `ContextLocaleId : uint` / `ContextAngleUnitSystem : AngleUnitSystem`
@@ -143,12 +131,10 @@
 - `ScaleValue.LeftToRightScale` / `RightToLeftScale : double`; `LeftLengthValue()` / `RightLengthValue() : LengthValue` — a unitless ratio parses to `LengthUnit.None` on both sides
 - `ScaleValue.ScaleStringFormat` — nested `byte` enum: `None` / `RatioFormat` / `EquationFormat` / `FractionFormat` / `Unset`
 - `Rhino.Input.StringParserSettings.DefaultParseSettings` / `ParseSettingsRadians` / `ParseSettingsDegrees` / `ParseSettingsIntegerNumber` / `ParseSettingsRationalNumber` / `ParseSettingsDoubleNumber` / `ParseSettingsRealNumber` / `ParseSettingsEmpty : StringParserSettings` — shared preset statics with inert `Dispose`; mutating a preset poisons every later parse process-wide
-- `StringParserSettings.DefaultLengthUnitSystem : UnitSystem` / `DefaultAngleUnitSystem : AngleUnitSystem` / `PreferedLocaleId : uint` plus the per-token `Parse*` grammar booleans (`ParseFeetInches`, `ParseSurveyorsNotation`, `ParseCommaAsDecimalPoint`, `ParseArithmeticExpression`, ...)
+- `StringParserSettings.DefaultLengthUnitSystem : UnitSystem` / `DefaultAngleUnitSystem : AngleUnitSystem` / `PreferedLocaleId : uint` with the per-token `Parse*` grammar booleans (`ParseFeetInches`, `ParseSurveyorsNotation`, `ParseCommaAsDecimalPoint`, `ParseArithmeticExpression`, ...)
 - `Rhino.Input.StringParser.ParseLengthExpession(string expression, StringParserSettings parse_settings_in, UnitSystem output_unit_system, out double value_out) : int` / `ParseAngleExpressionDegrees(string, out double)` / `ParseAngleExpressionRadians(string, out double) : bool` / `ParseNumber(string, int, StringParserSettings, ref StringParserSettings, out double) : int` — the host misspells `Expession` in the length/angle expression members
 
 [ENTRYPOINT_SCOPE]: animation-capture spec
-- rail: host
-
 - `RhinoDoc.AnimationProperties : AnimationProperties` — GET mints a detached native copy, SET commits it; in-place mutation without the set-back is inert
 - `new AnimationProperties()` / `new AnimationProperties(AnimationProperties source)` — fresh or copied spec; `Dispose()` releases the native carrier
 - `AnimationProperties.CaptureTypes` — nested `uint` enum: `Path` / `Turntable` / `Flythrough` / `DaySunStudy` / `SeasonalSunStudy` / `None`; `CaptureType : CaptureTypes` selects the motion kind
@@ -161,25 +147,21 @@
 - `AnimationProperties.Images` / `Dates : string[]` — host-written frame receipts; `LightIndex : int` is host preview state
 
 [ENTRYPOINT_SCOPE]: undo records
-- rail: host
-
 - `RhinoDoc.BeginUndoRecord(string description) : uint` / `EndUndoRecord(uint undoRecordSerialNumber) : bool` — bracket a mutation into one record
 - `RhinoDoc.AddCustomUndoEvent(string description, EventHandler<CustomUndoEventArgs> handler) : bool` / `AddCustomUndoEvent(string description, EventHandler<CustomUndoEventArgs> handler, object tag) : bool`
 - `RhinoDoc.ClearUndoRecords(bool purgeDeletedObjects) : void` / `ClearUndoRecords(uint undoSerialNumber, bool purgeDeletedObjects) : void` / `ClearRedoRecords() : void`
 - `RhinoDoc.Undo() : bool` / `Redo() : bool`; `UndoActive` / `RedoActive : bool` — replay discriminants
 - `RhinoDoc.UndoRecordingEnabled : bool` (get/set) / `UndoRecordingIsActive : bool` / `CurrentUndoRecordSerialNumber : uint` — record enlistment state
-- `Rhino.ApplicationSettings.HistorySettings` (static) — `RecordingEnabled : bool` / `RecordNextCommand : bool` (arms recording for one command only) / `UpdateEnabled : bool` / `ObjectLockingEnabled : bool` (history-bearing objects behave locked, editable only through inputs) / `BrokenRecordWarningEnabled : bool` — the five process-wide history governance switches, all get/set
+- `Rhino.ApplicationSettings.HistorySettings` (static) — `RecordingEnabled : bool` / `RecordNextCommand : bool` (arms recording for one command only) / `UpdateEnabled : bool` / `ObjectLockingEnabled : bool` (history-bearing objects behave locked, editable only through inputs) / `BrokenRecordWarningEnabled : bool` — the process-wide history governance switches, all get/set
 
 [ENTRYPOINT_SCOPE]: object-table mutation
-- rail: host
-
 - `ObjectTable.Add(GeometryBase geometry, ObjectAttributes attributes, HistoryRecord history, bool reference) : Guid`
 - `ObjectTable.AddOrderedPointCloud(int xCt, int yCt, int zCt, Point3d[] box, ObjectAttributes attributes, HistoryRecord history, bool reference) : Guid`
 - `ObjectTable.Replace(Guid objectId, GeometryBase geometry, bool ignoreModes) : bool`
-- `ObjectTable.Delete(RhinoObject obj, bool quiet, bool ignoreModes) : bool` / `Delete(IEnumerable<Guid> objectIds, bool quiet) : int`
+- `ObjectTable.Delete(RhinoObject obj, bool quiet, bool ignoreModes) : bool` / `Delete(IEnumerable<Guid> objectIds, bool quiet) : int` / `Delete(Guid objectId, bool quiet) : bool`
 - `ObjectTable.Transform(Guid objectId, Transform xform, bool deleteOriginal) : Guid` / `TransformWithHistory(Guid objectId, Transform xform) : Guid` / `TransformWithHistory(ObjRef objref, Transform xform) : Guid` / `TransformWithHistory(RhinoObject obj, Transform xform) : Guid`
-- typed add family with history threading — every `Add<Kind>` mutation carries a `(..., ObjectAttributes attributes, HistoryRecord history, bool reference)` overload: `AddPoint` (Point3d and `Rhino.Geometry.Point`), `AddPointCloud` (PointCloud and IEnumerable<Point3d>), `AddClippingPlane` (single and plural viewport ids), `AddLine`, `AddPolyline`, `AddArc`, `AddCircle`, `AddEllipse`, `AddRectangle`, `AddBox`, `AddSphere`, `AddCurve`, `AddTextDot`, `AddText` (TextEntity plus two raw-string forms), `AddLeader`, `AddLinearDimension`, `AddRadialDimension`, `AddAngularDimension`, `AddOrdinateDimension`, `AddCentermark`, `AddSurface`, `AddExtrusion`, `AddSubD`, `AddMesh` (one with `requireValidMesh`), `AddBrep` (one with `splitKinkySurfaces`), `AddClippingPlaneSurface`, `AddInstanceObject`, `AddHatch`, `AddMorphControl`; plus `AddRhinoObject(Custom{Brep,Curve,Mesh,Point}Object, HistoryRecord history) : void` for the custom-object kinds.
-- `ObjectTable.HistoryRecordCount : int` — document history-record census; no public history-record table exists, so this property is the only table-level history read.
+- typed add family with history threading — every `Add<Kind>` mutation carries a `(..., ObjectAttributes attributes, HistoryRecord history, bool reference)` overload: `AddPoint` (Point3d and `Rhino.Geometry.Point`), `AddPointCloud` (PointCloud and IEnumerable<Point3d>), `AddClippingPlane` (single and plural viewport ids), `AddLine`, `AddPolyline`, `AddArc`, `AddCircle`, `AddEllipse`, `AddRectangle`, `AddBox`, `AddSphere`, `AddCurve`, `AddTextDot`, `AddText` (TextEntity and two raw-string forms), `AddLeader`, `AddLinearDimension`, `AddRadialDimension`, `AddAngularDimension`, `AddOrdinateDimension`, `AddCentermark`, `AddSurface`, `AddExtrusion`, `AddSubD`, `AddMesh` (one with `requireValidMesh`), `AddBrep` (one with `splitKinkySurfaces`), `AddClippingPlaneSurface`, `AddInstanceObject`, `AddHatch`, `AddMorphControl`; and `AddRhinoObject(Custom{Brep,Curve,Mesh,Point}Object, HistoryRecord history) : void` for the custom-object kinds.
+- `ObjectTable.HistoryRecordCount : int` — document history-record census; no public history-record table exists, so this property is the only table-level history read
 - `ObjectTable.ModifyAttributes(Guid objectId, ObjectAttributes newAttributes, bool quiet) : bool`
 - `ObjectTable.Hide` / `Show` / `Lock` / `Unlock` `(Guid objectId, bool ignoreLayerMode) : bool` — object-mode transitions
 - `ObjectTable.Select(IEnumerable<Guid> objectIds, bool select, bool syncHighlight, bool persistentSelect, bool ignoreGripsState, bool ignoreLayerLocking, bool ignoreLayerVisibility) : int`
@@ -191,8 +173,6 @@
 - `LayerTable.PurgeUnused() : int` / `GroupTable.PurgeUnused() : int`
 
 [ENTRYPOINT_SCOPE]: view and named-view tables
-- rail: host
-
 - `ViewTable.ImportPageView(string filename, Guid mainViewportId, string pageName) : bool` — import a page view from an archive
 - `ViewTable.Redraw(bool deferred) : void` / `ViewTable.PageViewCount : int`
 - `ViewTable.EnableRedraw(bool enable, bool redrawDocument, bool redrawLayers) : void` / `RedrawEnabled : bool` — suppression bracket state
@@ -203,19 +183,17 @@
 - `NamedViewTable.RestoreAnimatedConstantTime(int index, RhinoViewport viewport, int frames, int ms_delay) : bool`
 - `NamedViewTable.Add(string name, Guid viewportId) : int` / `FindByName(string name) : int`
 - `NamedViewTable.Rename(int index, string newName) : bool` / `Delete(int index) : bool` — string-keyed overloads exist beside both
-- `ViewTable.GetViewList(ViewTypeFilter filter) : RhinoView[]` — filtered census; `ViewTypeFilter` lives in `Rhino.Display`, and the `(bool, bool)` overload is `[Obsolete]`
+- `ViewTable.GetViewList(ViewTypeFilter filter) : RhinoView[]` — filtered census; `ViewTypeFilter` lives in `Rhino.Display`
 - `ViewTable.Find(string mainViewportName, bool compareCase) : RhinoView` / `Find(Guid mainViewportId) : RhinoView` — main-viewport resolution only; detail ids silently miss
 - `ViewTable.GetPageViews() : RhinoPageView[]`
 - `ViewTable.AddPageView(string title) : RhinoPageView` / `AddPageView(string title, double pageWidth, double pageHeight) : RhinoPageView`
-- `ViewTable.Delete(RhinoView view) : bool` / `ActiveView : RhinoView` (get/set) / `Redraw() : void` — no reorder member exists; page order is host-owned.
+- `ViewTable.Delete(RhinoView view) : bool` / `ActiveView : RhinoView` (get/set) / `Redraw() : void` — no reorder member exists; page order is host-owned
 - `PageViewGroupTable.FindName(string name) : PageViewGroup` / `FindIndex(int index) : PageViewGroup` / `Add(PageViewGroup group, IEnumerable<RhinoPageView> pages) : int`; `PageViewGroup.Name` / `Index`
 - `PageViewGroup()` — public ctor with settable `Name`, minted before the table `Add`
 - `RhinoPageView.Duplicate(bool duplicatePageGeometry) : RhinoPageView` — copies the page, optionally with its geometry
 - `RhinoPageView.GetPageViewGroupList() : int[]` / `IsInPageViewGroup(int groupIndex) : bool` / `AddToPageViewGroup(int groupIndex) : bool` / `RemoveFromPageViewGroup(int groupIndex) : bool` — group membership per page
 
 [ENTRYPOINT_SCOPE]: named layer states and named positions
-- rail: host
-
 - `NamedLayerStateTable.Save(string name, Guid viewportId) : int` / `Restore(string name, RestoreLayerProperties properties, Guid viewportId) : bool`
 - `NamedLayerStateTable.Rename(string oldName, string newName) : bool` / `Delete(string name) : bool` / `Import(string filename) : int` / `Names : string[]`
 - `NamedPositionTable.Save(string name, IEnumerable<Guid> objectIds) : Guid` / `Restore(string name) : bool` / `Update(string name) : bool`
@@ -223,8 +201,6 @@
 - `RestoreLayerProperties` — carries the host restore-scope flags `NamedLayerStateTable.Restore` consumes
 
 [ENTRYPOINT_SCOPE]: per-viewport layer overrides and clipping planes
-- rail: host
-
 - `Layer.SetPerViewportColor(Guid viewportId, Color color)` / `DeletePerViewportColor(Guid viewportId)`
 - `Layer.SetPerViewportVisible(Guid viewportId, bool visible)` / `DeletePerViewportVisible(Guid viewportId)`
 - `Layer.SetPerViewportPersistentVisibility(Guid viewportId, bool persistentVisibility)` / `UnsetPerViewportPersistentVisibility(Guid viewportId)`
@@ -232,26 +208,21 @@
 - `Layer.SetPerViewportPlotWeight(Guid viewportId, double plotWeight)` / `DeletePerViewportPlotWeight(Guid viewportId)` / `DeletePerViewportSettings(Guid viewportId)`
 - `LayerTable.FindByFullPath(string layerPath, int notFoundReturnValue) : int` / indexer `this[int index] : Layer`
 - `ObjectTable.AddClippingPlane(Plane plane, double uMagnitude, double vMagnitude, IEnumerable<Guid> clippedViewportIds, ObjectAttributes attributes) : Guid`
-- `ObjectTable.FindClippingPlanesForViewport(RhinoViewport viewport) : ClippingPlaneObject[]` / `FindId(Guid objectId) : RhinoObject`
-- `ObjectTable.ModifyAttributes(Guid objectId, ObjectAttributes newAttributes, bool quiet) : bool` / `Transform(Guid objectId, Transform xform, bool deleteOriginal) : Guid` / `Delete(Guid objectId, bool quiet) : bool`
+- `ObjectTable.FindClippingPlanesForViewport(RhinoViewport viewport) : ClippingPlaneObject[]`
 - `ClippingPlaneObject.AddClipViewport(RhinoViewport viewport, bool commit) : bool` / `RemoveClipViewport(RhinoViewport viewport, bool commit) : bool` / `ClippingPlaneGeometry`
 - `ClippingPlaneSurface.ViewportIds() : Guid[]` / `SetClipParticipation(IEnumerable<Guid> objectIds, IEnumerable<int> layerIndices, bool isExclusionList)`
 
 [ENTRYPOINT_SCOPE]: light table
-- rail: host
-
 - `LightTable.Add(Light light) : int` / `Add(Light light, ObjectAttributes attributes) : int` — index of the added light, `-1` on failure
 - `LightTable.Modify(Guid id, Light light) : bool` / `Modify(int index, Light light) : bool` — the id form resolves through `Find` with deleted lights included
 - `LightTable.Delete(int index, bool quiet) : bool` / `Delete(LightObject item) : bool` / `Undelete(int index) : bool`
-- `LightTable.Find(Guid id, bool ignoreDeleted) : int` / `FindName(string name) : LightObject` / `FindNameHash(NameHash nameHash) : LightObject` / `FindIndex(int index) : LightObject` — deleted lights have no name; the index form is discouraged host-side in favor of ids
+- `LightTable.Find(Guid id, bool ignoreDeleted) : int` / `FindName(string name) : LightObject` / `FindNameHash(NameHash nameHash) : LightObject` / `FindIndex(int index) : LightObject` — deleted lights have no name; the index form is host-discouraged in favor of ids
 - `LightTable.Count : int` — excludes `Sun` and `Skylight`; indexer `this[int index] : LightObject` null on a purged slot
 - `LightTable.Sun : Sun` / `Skylight : Skylight` — RDK-gated accessors throwing `RdkNotLoadedException` when the RDK is absent
-- `LightTable.DefaultLight : LightObject` — the fallback light Rhino renders with when no document light illuminates the scene
+- `LightTable.DefaultLight : LightObject` — fallback light `Rhino` renders with when no document light illuminates the scene
 - `LightTable.ComponentType : ModelComponentType` — `ModelComponentType.RenderLight`; the table enumerates as `IEnumerable<LightObject>`
 
 [ENTRYPOINT_SCOPE]: earth anchor and document state
-- rail: host
-
 - `RhinoDoc.EarthAnchorPoint : EarthAnchorPoint` (get/set, disposable) / `Modified : bool` / `Name : string` / `Path : string` / `RenderSettings.Sun : Sun`
 - `EarthAnchorPoint.EarthBasepointLatitude` / `EarthBasepointLongitude` / `EarthBasepointElevation : double` / `EarthBasepointElevationCoordinateSystem : int`
 - `EarthAnchorPoint.ModelBasePoint : Point3d` / `ModelNorth` / `ModelEast : Vector3d` / `Name` / `Description : string`
@@ -260,16 +231,12 @@
 - `Sun.Latitude` / `Longitude` / `North : double` (get/set)
 
 [ENTRYPOINT_SCOPE]: lifecycle events
-- rail: host
-
 - `RhinoDoc.BeginOpenDocument` / `EndOpenDocument` / `EndOpenDocumentInitialViewUpdate : EventHandler<DocumentOpenEventArgs>`
 - `RhinoDoc.BeginSaveDocument` / `EndSaveDocument : EventHandler<DocumentSaveEventArgs>`
 - `RhinoDoc.CloseDocument` / `NewDocument` / `ActiveDocumentChanged` / `DocumentPropertiesChanged : EventHandler<DocumentEventArgs>`
 - `RhinoDoc.UnitsChangedWithScaling : EventHandler<UnitsChangedWithScalingEventArgs>` / `WorksessionFileChanged : EventHandler<WorksessionFileChangedEventArgs>`
 
 [ENTRYPOINT_SCOPE]: object and table events
-- rail: host
-
 - `RhinoDoc.AddRhinoObject` / `DeleteRhinoObject : EventHandler<RhinoObjectEventArgs>` / `ReplaceRhinoObject : EventHandler<RhinoReplaceObjectEventArgs>`
 - `RhinoDoc.ModifyObjectAttributes : EventHandler<RhinoModifyObjectAttributesEventArgs>`
 - `RhinoDoc.BeforeTransformObjects : EventHandler<RhinoTransformObjectsEventArgs>` / `AfterTransformObjects : EventHandler<RhinoAfterTransformObjectsEventArgs>`
@@ -288,7 +255,7 @@
 - one `RhinoDoc` handle keyed by `RuntimeSerialNumber` projects every table; `FromRuntimeSerialNumber` re-resolves that handle inside a host callback where the reference is not carried
 - live and headless documents expose one identical table, event, and undo surface; `IsHeadless` is the only discriminant a consumer branches on
 - every table component is a `ModelComponent` keyed by `ModelComponentType`; the owning table mutates, and the component never writes itself back
-- structural change is delivered through the object, table, and lifecycle event families; a `BeginTransformObjects`/`AfterTransformObjects` pair brackets a transform the same way a table event brackets a table edit
+- structural change is delivered through the object, table, and lifecycle event families; a `BeforeTransformObjects`/`AfterTransformObjects` pair brackets a transform the same way a table event brackets a table edit
 - undo is a bracketed record between `BeginUndoRecord` and `EndUndoRecord`, and `AddCustomUndoEvent` folds non-geometry state into that same record
 
 [STACKING]:

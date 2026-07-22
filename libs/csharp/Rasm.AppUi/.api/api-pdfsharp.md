@@ -41,70 +41,70 @@
 
 [GRAPHICS_TYPES]: `PdfSharp.Drawing` device-independent drawing surface.
 
-| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                     |
-| :-----: | :------------------------ | :------------ | :------------------------------- |
-|  [01]   | `XGraphics`               | sealed class  | draw context over page/image/form |
-|  [02]   | `XPen`                    | sealed class  | stroke                           |
-|  [03]   | `XBrush`                  | abstract class | fill base                       |
-|  [04]   | `XSolidBrush`             | sealed class  | solid fill                       |
-|  [05]   | `XLinearGradientBrush`    | sealed class  | gradient fill                    |
-|  [06]   | `XColor`                  | struct        | color value                      |
-|  [07]   | `XColors`                 | static class  | named-color vocabulary           |
-|  [08]   | `XFont`                   | sealed class  | font                             |
-|  [09]   | `XFontStyleEx`            | enum          | font style                       |
-|  [10]   | `XPdfFontOptions`         | class         | font-embedding policy            |
-|  [11]   | `XStringFormat`           | class         | text alignment format            |
-|  [12]   | `XStringFormats`          | static class  | format vocabulary                |
-|  [13]   | `XImage`                  | class         | raster image                     |
-|  [14]   | `XBitmapImage`            | sealed class  | in-memory bitmap                 |
-|  [15]   | `XPdfForm`                | class         | imported PDF page as draw source |
-|  [16]   | `XForm`                   | class         | reusable draw template           |
-|  [17]   | `XGraphicsPath`           | sealed class  | vector path                      |
-|  [18]   | `XGraphicsState`          | sealed class  | saved transform/clip state       |
-|  [19]   | `XGraphicsContainer`      | sealed class  | nested container state           |
-|  [20]   | `XMatrix`                 | struct        | affine transform                 |
-|  [21]   | `XPoint`                  | struct        | point                            |
-|  [22]   | `XRect`                   | struct        | rectangle                        |
-|  [23]   | `XSize`                   | struct        | size                             |
-|  [24]   | `XVector`                 | struct        | vector                           |
-|  [25]   | `XUnit`                   | struct        | typed length unit                |
-|  [26]   | `XGraphicsPdfPageOptions` | enum          | page-append policy               |
-|  [27]   | `XGraphicsUnit`           | enum          | context unit                     |
-|  [28]   | `XPageDirection`          | enum          | page origin direction            |
-|  [29]   | `XFillMode`               | enum          | fill rule                        |
-|  [30]   | `XLineCap`                | enum          | stroke cap                       |
-|  [31]   | `XLineJoin`               | enum          | stroke join                      |
-|  [32]   | `XTextFormatter`          | class         | wrapped multi-line text layout   |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]  | [CAPABILITY]                      |
+| :-----: | :------------------------ | :------------- | :-------------------------------- |
+|  [01]   | `XGraphics`               | sealed class   | draw context over page/image/form |
+|  [02]   | `XPen`                    | sealed class   | stroke                            |
+|  [03]   | `XBrush`                  | abstract class | fill base                         |
+|  [04]   | `XSolidBrush`             | sealed class   | solid fill                        |
+|  [05]   | `XLinearGradientBrush`    | sealed class   | gradient fill                     |
+|  [06]   | `XColor`                  | struct         | color value                       |
+|  [07]   | `XColors`                 | static class   | named-color vocabulary            |
+|  [08]   | `XFont`                   | sealed class   | font                              |
+|  [09]   | `XFontStyleEx`            | enum           | font style                        |
+|  [10]   | `XPdfFontOptions`         | class          | font-embedding policy             |
+|  [11]   | `XStringFormat`           | class          | text alignment format             |
+|  [12]   | `XStringFormats`          | static class   | format vocabulary                 |
+|  [13]   | `XImage`                  | class          | raster image                      |
+|  [14]   | `XBitmapImage`            | sealed class   | in-memory bitmap                  |
+|  [15]   | `XPdfForm`                | class          | imported PDF page as draw source  |
+|  [16]   | `XForm`                   | class          | reusable draw template            |
+|  [17]   | `XGraphicsPath`           | sealed class   | vector path                       |
+|  [18]   | `XGraphicsState`          | sealed class   | saved transform/clip state        |
+|  [19]   | `XGraphicsContainer`      | sealed class   | nested container state            |
+|  [20]   | `XMatrix`                 | struct         | affine transform                  |
+|  [21]   | `XPoint`                  | struct         | point                             |
+|  [22]   | `XRect`                   | struct         | rectangle                         |
+|  [23]   | `XSize`                   | struct         | size                              |
+|  [24]   | `XVector`                 | struct         | vector                            |
+|  [25]   | `XUnit`                   | struct         | typed length unit                 |
+|  [26]   | `XGraphicsPdfPageOptions` | enum           | page-append policy                |
+|  [27]   | `XGraphicsUnit`           | enum           | context unit                      |
+|  [28]   | `XPageDirection`          | enum           | page origin direction             |
+|  [29]   | `XFillMode`               | enum           | fill rule                         |
+|  [30]   | `XLineCap`                | enum           | stroke cap                        |
+|  [31]   | `XLineJoin`               | enum           | stroke join                       |
+|  [32]   | `XTextFormatter`          | class          | wrapped multi-line text layout    |
 
 [SECURITY_TYPES]: `PdfSharp.Pdf.Security` + `PdfSharp.Pdf.Signatures` encryption and signing.
 
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                             |
-| :-----: | :----------------------------- | :------------ | :--------------------------------------- |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                               |
+| :-----: | :----------------------------- | :------------ | :----------------------------------------- |
 |  [01]   | `PdfSecuritySettings`          | sealed class  | encryption and `Permit*` permission policy |
-|  [02]   | `PdfStandardSecurityHandler`   | sealed class  | passwords and encryption-level selection |
-|  [03]   | `PdfDefaultEncryption`         | enum          | encryption level                         |
-|  [04]   | `DigitalSignatureHandler`      | class         | signature attachment                     |
-|  [05]   | `DigitalSignatureOptions`      | class         | signature appearance and placement       |
-|  [06]   | `IDigitalSigner`               | interface     | pluggable signer contract                |
-|  [07]   | `PdfSharpDefaultSigner`        | class         | ready CMS signer                         |
-|  [08]   | `IAnnotationAppearanceHandler` | interface     | signature appearance contract            |
-|  [09]   | `PdfCryptFilter`               | class         | crypt filter                             |
+|  [02]   | `PdfStandardSecurityHandler`   | sealed class  | passwords and encryption-level selection   |
+|  [03]   | `PdfDefaultEncryption`         | enum          | encryption level                           |
+|  [04]   | `DigitalSignatureHandler`      | class         | signature attachment                       |
+|  [05]   | `DigitalSignatureOptions`      | class         | signature appearance and placement         |
+|  [06]   | `IDigitalSigner`               | interface     | pluggable signer contract                  |
+|  [07]   | `PdfSharpDefaultSigner`        | class         | ready CMS signer                           |
+|  [08]   | `IAnnotationAppearanceHandler` | interface     | signature appearance contract              |
+|  [09]   | `PdfCryptFilter`               | class         | crypt filter                               |
 
 [CONTENT_TYPES]: `PdfSharp.Pdf.AcroForms` / `Annotations` / `Content` / `Structure` / `Actions` / `UniversalAccessibility`.
 
-| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]  | [CAPABILITY]                    |
-| :-----: | :---------------------- | :------------- | :------------------------------ |
-|  [01]   | `PdfAcroForm`           | sealed class   | AcroForm root                   |
-|  [02]   | `PdfAcroField`          | abstract class | typed form-field tree           |
-|  [03]   | `PdfLinkAnnotation`     | sealed class   | link annotation                 |
-|  [04]   | `PdfTextAnnotation`     | sealed class   | markup annotation               |
-|  [05]   | `PdfAnnotations`        | sealed class   | annotation set                  |
-|  [06]   | `ContentReader`         | static class   | content-stream reader           |
-|  [07]   | `CObject`               | abstract class | parsed content-operator model   |
-|  [08]   | `UAManager`             | class          | tagged-PDF / PDF-UA manager     |
-|  [09]   | `PdfStructureTreeRoot`  | sealed class   | logical structure tree          |
-|  [10]   | `PdfGoToAction`         | sealed class   | intra-document goto action      |
-|  [11]   | `PdfEmbeddedGoToAction` | sealed class   | embedded-file goto action       |
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]  | [CAPABILITY]                  |
+| :-----: | :---------------------- | :------------- | :---------------------------- |
+|  [01]   | `PdfAcroForm`           | sealed class   | AcroForm root                 |
+|  [02]   | `PdfAcroField`          | abstract class | typed form-field tree         |
+|  [03]   | `PdfLinkAnnotation`     | sealed class   | link annotation               |
+|  [04]   | `PdfTextAnnotation`     | sealed class   | markup annotation             |
+|  [05]   | `PdfAnnotations`        | sealed class   | annotation set                |
+|  [06]   | `ContentReader`         | static class   | content-stream reader         |
+|  [07]   | `CObject`               | abstract class | parsed content-operator model |
+|  [08]   | `UAManager`             | class          | tagged-PDF / PDF-UA manager   |
+|  [09]   | `PdfStructureTreeRoot`  | sealed class   | logical structure tree        |
+|  [10]   | `PdfGoToAction`         | sealed class   | intra-document goto action    |
+|  [11]   | `PdfEmbeddedGoToAction` | sealed class   | embedded-file goto action     |
 
 [REPORT_TYPES]: `MigraDoc.DocumentObjectModel` flow-content DOM.
 
@@ -140,61 +140,69 @@
 
 [RENDER_TYPES]: `MigraDoc.Rendering` flow-to-PDF renderer.
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [CAPABILITY]                          |
-| :-----: | :-------------------- | :------------ | :------------------------------------ |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [CAPABILITY]                           |
+| :-----: | :-------------------- | :------------ | :------------------------------------- |
 |  [01]   | `PdfDocumentRenderer` | class         | paginate and render onto `PdfDocument` |
-|  [02]   | `DocumentRenderer`    | class         | per-page render over `XGraphics`      |
-|  [03]   | `FormattedDocument`   | class         | paginated document with page geometry |
-|  [04]   | `RtfDocumentRenderer` | class         | RTF emit                              |
+|  [02]   | `DocumentRenderer`    | class         | per-page render over `XGraphics`       |
+|  [03]   | `FormattedDocument`   | class         | paginated document with page geometry  |
+|  [04]   | `RtfDocumentRenderer` | class         | RTF emit                               |
 
 ## [03]-[ENTRYPOINTS]
 
 [DOCUMENT_LIFECYCLE]: `PdfDocument` and `PdfReader` create, persist, open, and inspect.
 
-| [INDEX] | [SURFACE]                                                | [SHAPE]  | [CAPABILITY]                              |
-| :-----: | :------------------------------------------------------- | :------- | :---------------------------------------- |
-|  [01]   | `new PdfDocument()`                                      | ctor     | author a document                         |
-|  [02]   | `AddPage()` / `AddPage(PdfPage)` / `InsertPage(int, PdfPage)` | instance | append or insert pages               |
-|  [03]   | `Save(string)` / `Save(Stream, bool)`                   | instance | persist                                   |
-|  [04]   | `SaveAsync(string)` / `SaveAsync(Stream, bool)`         | instance | async persist                             |
-|  [05]   | `CanSave(ref string)`                                   | instance | preflight check                           |
-|  [06]   | `PdfReader.Open(string, PdfDocumentOpenMode, PdfReaderOptions?)` | static | open for import, modify, or info-only |
-|  [07]   | `PdfReader.TestPdfFile(string\|Stream\|byte[]) -> int`  | static   | validate without a full parse             |
-|  [08]   | `Info` / `Options` / `Settings` / `Outlines` / `SecuritySettings` / `PageCount` / `Version` | property | read metadata, policy, bookmarks, encryption |
+| [INDEX] | [SURFACE]                                                        | [SHAPE]  | [CAPABILITY]                                   |
+| :-----: | :--------------------------------------------------------------- | :------- | :--------------------------------------------- |
+|  [01]   | `new PdfDocument()`                                              | ctor     | author a document                              |
+|  [02]   | `AddPage()` / `AddPage(PdfPage)` / `InsertPage(int, PdfPage)`    | instance | append or insert pages                         |
+|  [03]   | `Save(string)` / `Save(Stream, bool)`                            | instance | persist                                        |
+|  [04]   | `SaveAsync(string)` / `SaveAsync(Stream, bool)`                  | instance | async persist                                  |
+|  [05]   | `CanSave(ref string)`                                            | instance | preflight check                                |
+|  [06]   | `PdfReader.Open(string, PdfDocumentOpenMode, PdfReaderOptions?)` | static   | open for import, modify, or info-only          |
+|  [07]   | `PdfReader.TestPdfFile(string\|Stream\|byte[]) -> int`           | static   | validate without a full parse                  |
+|  [08]   | `Info` / `Options` / `Settings`                                  | property | metadata, output policy, font/trim settings    |
+|  [09]   | `Outlines` / `SecuritySettings` / `PageCount` / `Version`        | property | bookmarks, encryption, page count, PDF version |
 
 [DRAWING]: `XGraphics` context creation and the draw algebra.
 
-| [INDEX] | [SURFACE]                                                      | [SHAPE]  | [CAPABILITY]                       |
-| :-----: | :------------------------------------------------------------- | :------- | :--------------------------------- |
-|  [01]   | `XGraphics.FromPdfPage(PdfPage, XGraphicsPdfPageOptions?, XGraphicsUnit?, XPageDirection?)` | factory | draw onto a page   |
-|  [02]   | `XGraphics.FromImage(XImage)`                                 | factory  | draw onto an image                 |
-|  [03]   | `XGraphics.CreateMeasureContext(XSize, XGraphicsUnit, XPageDirection)` | factory | measure-only context      |
-|  [04]   | `XGraphics.FromPdfForm(XPdfForm)` / `FromForm(XForm)`         | factory  | draw onto a reusable form          |
-|  [05]   | `DrawString(string, XFont, XBrush, XPoint\|XRect, XStringFormat?)` | instance | point- or rect-anchored text  |
-|  [06]   | `DrawImage(XImage, ...)`                                      | instance | draw image, `XPdfForm` for page merge |
-|  [07]   | `DrawLine` / `DrawRectangle` / `DrawEllipse` / `DrawBezier` / `DrawCurve` / `DrawPolygon` / `DrawPath` / `DrawArc` | instance | vector-draw algebra |
-|  [08]   | `Save() -> XGraphicsState` / `Restore(XGraphicsState)` / `BeginContainer` / `EndContainer` | instance | transform and clip state stack |
-|  [09]   | `RotateTransform` / `TranslateTransform` / `ScaleTransform`   | instance | accumulate transforms              |
-|  [10]   | `new XTextFormatter(XGraphics){ Alignment }.DrawString(string, XFont, XBrush, XRect)` | instance | wrapped multi-line text |
+| [INDEX] | [SURFACE]                                                                             | [SHAPE]  | [CAPABILITY]                          |
+| :-----: | :------------------------------------------------------------------------------------ | :------- | :------------------------------------ |
+|  [01]   | `XGraphics.FromPdfPage(PdfPage, XGraphicsPdfPageOptions?, ...)`                       | factory  | draw onto a page                      |
+|  [02]   | `XGraphics.FromImage(XImage)`                                                         | factory  | draw onto an image                    |
+|  [03]   | `XGraphics.CreateMeasureContext(XSize, XGraphicsUnit, XPageDirection)`                | factory  | measure-only context                  |
+|  [04]   | `XGraphics.FromPdfForm(XPdfForm)` / `FromForm(XForm)`                                 | factory  | draw onto a reusable form             |
+|  [05]   | `DrawString(string, XFont, XBrush, XPoint\|XRect, XStringFormat?)`                    | instance | point- or rect-anchored text          |
+|  [06]   | `DrawImage(XImage, ...)`                                                              | instance | draw image, `XPdfForm` for page merge |
+|  [07]   | `DrawLine` / `DrawRectangle` / `DrawEllipse` / `DrawBezier`                           | instance | line and curve vector-draw algebra    |
+|  [08]   | `DrawCurve` / `DrawPolygon` / `DrawPath` / `DrawArc`                                  | instance | path and arc vector-draw algebra      |
+|  [09]   | `Save() -> XGraphicsState` / `Restore(XGraphicsState)`                                | instance | transform/clip state save-restore     |
+|  [10]   | `BeginContainer` / `EndContainer`                                                     | instance | nested container state                |
+|  [11]   | `RotateTransform` / `TranslateTransform` / `ScaleTransform`                           | instance | accumulate transforms                 |
+|  [12]   | `new XTextFormatter(XGraphics){ Alignment }.DrawString(string, XFont, XBrush, XRect)` | instance | wrapped multi-line text               |
 
 [SECURITY_SIGNING]: encryption and digital signature.
 
-| [INDEX] | [SURFACE]                                                                 | [SHAPE]  | [CAPABILITY]                           |
-| :-----: | :------------------------------------------------------------------------ | :------- | :------------------------------------- |
-|  [01]   | `SecuritySettings.DocumentSecurityLevel` / `SecurityHandler.UserPassword` / `OwnerPassword` | property | document passwords     |
-|  [02]   | `SecurityHandler.SetEncryptionToV5(bool)` / `SetEncryptionToV4UsingAES(bool)` / `SetEncryptionToNoneAndResetPasswords()` | instance | AES-256, AES-128, or cleared encryption |
-|  [03]   | `SecuritySettings.PermitPrint` / `PermitModifyDocument` / `PermitExtractContent` / `PermitAnnotations` / `PermitFormsFill` / `PermitAssembleDocument` | property | access-permission flags |
-|  [04]   | `DigitalSignatureHandler.ForDocument(PdfDocument, IDigitalSigner, DigitalSignatureOptions)` | static | attach a visible or invisible signature |
-|  [05]   | `DigitalSignatureOptions { Reason; Location; ContactInfo; Rectangle; PageIndex; AppearanceHandler }` | property | signature appearance and placement |
+| [INDEX] | [SURFACE]                                                                        | [SHAPE]  | [CAPABILITY]                       |
+| :-----: | :------------------------------------------------------------------------------- | :------- | :--------------------------------- |
+|  [01]   | `SecuritySettings.DocumentSecurityLevel`                                         | property | encryption level selection         |
+|  [02]   | `SecurityHandler.UserPassword` / `OwnerPassword`                                 | property | document passwords                 |
+|  [03]   | `SecurityHandler.SetEncryptionToV5(bool)` / `SetEncryptionToV4UsingAES(bool)`    | instance | AES-256 or AES-128 encryption      |
+|  [04]   | `SetEncryptionToNoneAndResetPasswords()`                                         | instance | reset encryption and passwords     |
+|  [05]   | `SecuritySettings.PermitPrint` / `PermitModifyDocument` / `PermitExtractContent` | property | access-permission flags            |
+|  [06]   | `PermitAnnotations` / `PermitFormsFill` / `PermitAssembleDocument`               | property | access-permission flags            |
+|  [07]   | `DigitalSignatureHandler.ForDocument(PdfDocument, IDigitalSigner, ...)`          | static   | attach a document signature        |
+|  [08]   | `DigitalSignatureOptions { Reason; Location; ContactInfo }`                      | property | signature reason and contact       |
+|  [09]   | `DigitalSignatureOptions { Rectangle; PageIndex; AppearanceHandler }`            | property | signature placement and appearance |
 
 [REPORT_RENDER]: MigraDoc flow `Document` to `PdfDocument`.
 
-| [INDEX] | [SURFACE]                                                     | [SHAPE]  | [CAPABILITY]                              |
-| :-----: | :----------------------------------------------------------- | :------- | :---------------------------------------- |
-|  [01]   | `Document.AddSection() -> Section` / `Section.AddParagraph()` / `AddTable()` / `AddImage()` / `Document.Styles[...]` | instance | author flow content and styles |
-|  [02]   | `new PdfDocumentRenderer { Document = doc }.RenderDocument()` | instance | paginate and render onto a `PdfDocument`   |
-|  [03]   | `PdfDocumentRenderer.Save(string)` / `.PdfDocument`          | instance | persist or expose the underlying document |
-|  [04]   | `DocumentRenderer.PrepareDocument()` / `RenderPage(XGraphics, int)` | instance | mix flow content with precise layout |
+| [INDEX] | [SURFACE]                                                           | [SHAPE]  | [CAPABILITY]                              |
+| :-----: | :------------------------------------------------------------------ | :------- | :---------------------------------------- |
+|  [01]   | `Document.AddSection() -> Section` / `Document.Styles[...]`         | instance | author flow content and styles            |
+|  [02]   | `Section.AddParagraph()` / `AddTable()` / `AddImage()`              | instance | author flow content and styles            |
+|  [03]   | `new PdfDocumentRenderer { Document = doc }.RenderDocument()`       | instance | paginate and render onto a `PdfDocument`  |
+|  [04]   | `PdfDocumentRenderer.Save(string)` / `.PdfDocument`                 | instance | persist or expose the underlying document |
+|  [05]   | `DocumentRenderer.PrepareDocument()` / `RenderPage(XGraphics, int)` | instance | mix flow content with precise layout      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

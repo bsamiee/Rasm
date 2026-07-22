@@ -70,14 +70,14 @@ Every row is consumed by `viewer/scene/glb`.
 - rail: scene
 - Both renderers take `{ canvas, antialias, alpha?, powerPreference? }`; every row serves `viewer/scene/glb`.
 
-| [INDEX] | [SURFACE]                                                                                | [ENTRY_FAMILY]       | [CONSUMER]              |
-| :-----: | :--------------------------------------------------------------------------------------- | :------------------- | :---------------------- |
-|  [01]   | `new WebGLRenderer(opts)` / `.setPixelRatio` / `.setSize`                                | build renderer       | WebGL2 canvas backend   |
-|  [02]   | `new WebGPURenderer(opts)` / `await renderer.init()` / `.hasFeature(name)`               | build (async)        | WebGPU async backend    |
-|  [03]   | `renderer.setAnimationLoop(fn)` / `.render(s, c)` / `.renderAsync(s, c)`                 | frame loop           | RAF loop, submit        |
-|  [04]   | `renderer.outputColorSpace` / `.toneMapping` / `.toneMappingExposure` / `.setClearColor` | output policy        | display contract        |
-|  [05]   | `renderer.compileAsync(s, c)` / `renderer.dispose()` / `computeAsync(node)`              | precompile / dispose | pre-warm, dispose       |
-|  [06]   | `renderer.info` — `.render` / `.compute` / `.memory` / `.autoReset` / `.reset()`         | counter surface      | probe metric sink       |
+| [INDEX] | [SURFACE]                                                                                | [ENTRY_FAMILY]       | [CONSUMER]            |
+| :-----: | :--------------------------------------------------------------------------------------- | :------------------- | :-------------------- |
+|  [01]   | `new WebGLRenderer(opts)` / `.setPixelRatio` / `.setSize`                                | build renderer       | WebGL2 canvas backend |
+|  [02]   | `new WebGPURenderer(opts)` / `await renderer.init()` / `.hasFeature(name)`               | build (async)        | WebGPU async backend  |
+|  [03]   | `renderer.setAnimationLoop(fn)` / `.render(s, c)` / `.renderAsync(s, c)`                 | frame loop           | RAF loop, submit      |
+|  [04]   | `renderer.outputColorSpace` / `.toneMapping` / `.toneMappingExposure` / `.setClearColor` | output policy        | display contract      |
+|  [05]   | `renderer.compileAsync(s, c)` / `renderer.dispose()` / `computeAsync(node)`              | precompile / dispose | pre-warm, dispose     |
+|  [06]   | `renderer.info` — `.render` / `.compute` / `.memory` / `.autoReset` / `.reset()`         | counter surface      | probe metric sink     |
 
 - [02]-[WEBGPU_UPGRADE]: `hasFeature` (post-`init()`; `hasFeatureAsync` deprecated) gates the upgrade, resolving to `GPUDevice.features.has(name)` (`.api/webgpu-types.md`); the `null` loop pauses under `<Activity>` hidden.
 - [06]-[COUNTER_SURFACE]: the unified `Renderer` base (so `WebGPURenderer` included) carries `info.render` `{calls, frameCalls, drawCalls, triangles, points, lines, timestamp}`, `info.compute` `{calls, frameCalls, timestamp}`, and `info.memory` `{geometries, textures, texturesSize, attributes, attributesSize, programs, renderTargets, readbackBuffers, uniformBuffers, total, …}` — the legacy `render.calls`/`render.triangles`/`memory.geometries`/`memory.textures` spellings hold, widened by per-frame and byte-grade members; an app-managed loop sets `info.autoReset = false` and calls `info.reset()` once per frame.

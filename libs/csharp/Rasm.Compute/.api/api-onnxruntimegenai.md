@@ -1,295 +1,193 @@
 # [RASM_COMPUTE_API_ONNXRUNTIMEGENAI]
 
-`Microsoft.ML.OnnxRuntimeGenAI` supplies the generative token-streaming runtime —
-process-global init, model/config handles, tokenizer and chat-template assembly,
-generator search options and structured-output guidance, the per-step token loop,
-multimodal image/audio encoding via `MultiModalProcessor` and `StreamingProcessor`,
-LoRA adapter hot-swap, GPU-device and native-log control via `Utils`, and the sole
-generative fault rail; `Microsoft.Extensions.AI.Abstractions` supplies the `IChatClient`
-contract that the built-in `OnnxRuntimeGenAIChatClient` composes over the same handle
-chain for the M.E.AI streaming consumer. Both serve the Compute model rail's
-`GENERATIVE_RUN` cluster; the generated tokens stage their byte buffers through the
-`api-recyclable-stream` pool and the structured-output arm constrains generation in
-the native layer rather than validating output managed-side. This page is HOST-LOCAL
-and carries no TS_PROJECTION.
+`Microsoft.ML.OnnxRuntimeGenAI` owns the Compute model rail's generative token-streaming runtime over a LIFO native-handle chain, and `Microsoft.Extensions.AI.Abstractions` supplies the `IChatClient` contract the built-in `OnnxRuntimeGenAIChatClient` composes over that same chain for the M.E.AI streaming consumer. Structured output constrains in the native layer through `SetGuidance` rather than managed-side, generated token buffers stage through the `api-recyclable-stream` pool, and both feed the model rail's `GENERATIVE_RUN` cluster. This page is HOST-LOCAL and carries no TS_PROJECTION.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.ML.OnnxRuntimeGenAI`
-- package: `Microsoft.ML.OnnxRuntimeGenAI` (direct pin; native meta-package)
-- license: MIT (ONNX Runtime GenAI; nuspec `license type="file"`, `microsoft/onnxruntime-genai`)
-- managed-assembly: transitive `Microsoft.ML.OnnxRuntimeGenAI.Managed` → the `net10.0` consumer binds `lib/net8.0/Microsoft.ML.OnnxRuntimeGenAI.dll` (the facade also ships `netstandard2.0` + `net9.0-{android,ios,maccatalyst}` variants; only `net8.0` is the bound desktop asset)
-[NATIVE_FLOOR]:
-The package depends on `Microsoft.ML.OnnxRuntime`; the central pin resolves it to the asset the inference engine `api-onnxruntime` owns. The genai native payload co-locates per-RID BESIDE the base `libonnxruntime` payload, and the per-RID base-runtime ABI matrix and EP/device roster stay owned by `api-onnxruntime#NATIVE_RUNTIME`, NOT restated here.
-- native-rids: `linux-arm64`, `linux-x64`, `osx-arm64`, `win-arm64`, `win-x64` (+ `android`/`ios` archive forms) — the genai payload set, which is the subset of `api-onnxruntime`'s base-runtime RIDs that the genai meta-package also publishes; the `osx-arm64` runtime is the verified host asset, so a model run with no matching genai-AND-base RID payload faults at native init
+- package: `Microsoft.ML.OnnxRuntimeGenAI` (MIT, `microsoft/onnxruntime-genai`)
+- assembly: transitive `Microsoft.ML.OnnxRuntimeGenAI.Managed`; the `net10.0` consumer binds `lib/net8.0/Microsoft.ML.OnnxRuntimeGenAI.dll`
 - namespace: `Microsoft.ML.OnnxRuntimeGenAI`
-- asset: native-only meta-package (`build/native` props/targets + `ort_genai.h`) plus the managed facade via the transitive `.Managed` package
+- asset: native-only meta-package (`build/native` props/targets, `ort_genai.h`) with the managed facade
+- depends: `Microsoft.ML.OnnxRuntime` — the genai native payload co-locates per-RID beside the base `libonnxruntime` payload; `api-onnxruntime` owns the base ABI matrix and EP roster
 - rail: model
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.AI.Abstractions`
-- package: `Microsoft.Extensions.AI.Abstractions` (direct pin)
-- license: MIT (`dotnet/extensions`)
-- assembly: `Microsoft.Extensions.AI.Abstractions` → the `net10.0` consumer binds `lib/net10.0`
+- package: `Microsoft.Extensions.AI.Abstractions` (MIT, `dotnet/extensions`)
+- assembly: `Microsoft.Extensions.AI.Abstractions`; the `net10.0` consumer binds `lib/net10.0`
 - namespace: `Microsoft.Extensions.AI`
-- asset: managed abstractions; the GenAI facade's transitive floor is but the central pin wins, so the `IChatClient` surface is the 10.x contract
+- asset: managed abstractions; `IChatClient` resolves here for the M.E.AI streaming consumer
 - rail: model
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: handle chain and generation contracts
-- rail: model
 
-| [INDEX] | [SYMBOL]                    | [PACKAGE_ROLE]            | [CAPABILITY]                                           |
-| :-----: | :-------------------------- | :------------------------ | :----------------------------------------------------- |
-|  [01]   | `OgaHandle`                 | process-global handle     | owns native init/teardown (LIFO outermost)             |
-|  [02]   | `Config`                    | model configuration       | configures model dir, providers, and model data        |
-|  [03]   | `Model`                     | model root                | loads the generative model                             |
-|  [04]   | `Tokenizer`                 | tokenizer root            | encodes prompts, applies chat template                 |
-|  [05]   | `TokenizerStream`           | incremental decoder       | decodes one token per step                             |
-|  [06]   | `Sequences`                 | token-sequence carrier    | carries encoded/generated token sequences              |
-|  [07]   | `GeneratorParams`           | generation policy         | carries search options and guidance                    |
-|  [08]   | `Generator`                 | generation engine         | runs the per-step token loop                           |
-|  [09]   | `Adapters`                  | LoRA adapter registry     | loads/unloads named LoRA adapters (`SafeHandle`)       |
-|  [10]   | `OnnxRuntimeGenAIException` | fault rail                | the sole generative exception type                     |
-|  [11]   | `NamedTensors`              | named-tensor batch        | opaque batch of named tensors for multimodal injection |
-|  [12]   | `Tensor`                    | native tensor carrier     | wraps a native buffer with shape and element type      |
-|  [13]   | `ElementType`               | tensor element enum       | `enum ElementType : long` — ONNX element discriminant  |
-|  [14]   | `Images`                    | image media loader        | loads images from paths or raw byte buffers            |
-|  [15]   | `Audios`                    | audio media loader        | loads audios from paths or raw byte buffers            |
-|  [16]   | `MultiModalProcessor`       | multimodal processor      | encodes image/audio/text batches into `NamedTensors`   |
-|  [17]   | `StreamingProcessor`        | streaming audio processor | incremental audio chunking to `NamedTensors`           |
-|  [18]   | `Utils`                     | static native control     | GPU device id + native log toggles (process-global)    |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CAPABILITY]                                            |
+| :-----: | :-------------------------- | :------------ | :------------------------------------------------------ |
+|  [01]   | `OgaHandle`                 | class         | native init/teardown, LIFO outermost                    |
+|  [02]   | `Config`                    | class         | model dir, providers, and in-memory model data          |
+|  [03]   | `Model`                     | class         | loads the generative model                              |
+|  [04]   | `Tokenizer`                 | class         | encodes prompts, applies the chat template              |
+|  [05]   | `TokenizerStream`           | class         | decodes one token per step                              |
+|  [06]   | `Sequences`                 | class         | carries encoded/generated token sequences               |
+|  [07]   | `GeneratorParams`           | class         | search options and structured-output guidance           |
+|  [08]   | `Generator`                 | class         | runs the per-step token loop                            |
+|  [09]   | `Adapters`                  | class         | `SafeHandle` registry of named LoRA adapters            |
+|  [10]   | `OnnxRuntimeGenAIException` | class         | sole generative fault rail                              |
+|  [11]   | `NamedTensors`              | class         | opaque named-tensor batch for multimodal injection      |
+|  [12]   | `Tensor`                    | class         | native buffer with shape and `ElementType`              |
+|  [13]   | `ElementType`               | enum          | `enum ElementType : long` ONNX element discriminant     |
+|  [14]   | `Images`                    | class         | loads images from paths or byte buffers                 |
+|  [15]   | `Audios`                    | class         | loads audios from paths or byte buffers                 |
+|  [16]   | `MultiModalProcessor`       | class         | encodes image/audio/text batches into `NamedTensors`    |
+|  [17]   | `StreamingProcessor`        | class         | incremental audio chunking to `NamedTensors`            |
+|  [18]   | `Utils`                     | class         | static process-global GPU-device and native-log control |
 
 [PUBLIC_TYPE_SCOPE]: M.E.AI projection
-- rail: model
-- note: `OnnxRuntimeGenAIChatClient` and `OnnxRuntimeGenAIChatClientOptions` are the only M.E.AI types defined IN the GenAI facade; `IChatClient`/`ChatResponse`/`ChatResponseUpdate`/`ChatMessage`/`ChatOptions` are owned by `Microsoft.Extensions.AI.Abstractions` (`api-extensions-ai`).
+- note: the genai facade defines only these two types; `IChatClient`, `ChatResponse`, `ChatResponseUpdate`, `ChatMessage`, and `ChatOptions` resolve from `api-extensions-ai`.
 
-| [INDEX] | [SYMBOL]                            | [PACKAGE_ROLE]      | [CAPABILITY]                                                   |
-| :-----: | :---------------------------------- | :------------------ | :------------------------------------------------------------- |
-|  [01]   | `OnnxRuntimeGenAIChatClient`        | `IChatClient` impl  | `sealed`; streaming chat, owns its `Model`/`Config` lifetime   |
-|  [02]   | `OnnxRuntimeGenAIChatClientOptions` | client policy       | `sealed`; `StopSequences`, `PromptFormatter`, `EnableCaching`  |
-|  [03]   | `IChatClient`                       | M.E.AI contract     | response and streaming-response surface (abstractions package) |
-|  [04]   | `ChatResponse`                      | M.E.AI response     | non-streaming response carrier (abstractions package)          |
-|  [05]   | `ChatResponseUpdate`                | M.E.AI update       | streaming incremental update carrier (abstractions package)    |
-|  [06]   | `ChatMessage` / `ChatOptions`       | M.E.AI message/opts | role-tagged message + per-call options (abstractions package)  |
+| [INDEX] | [SYMBOL]                            | [TYPE_FAMILY] | [CAPABILITY]                                                 |
+| :-----: | :---------------------------------- | :------------ | :----------------------------------------------------------- |
+|  [01]   | `OnnxRuntimeGenAIChatClient`        | class         | `sealed : IChatClient`; streaming chat over an owned `Model` |
+|  [02]   | `OnnxRuntimeGenAIChatClientOptions` | class         | `StopSequences`, `PromptFormatter`, `EnableCaching` policy   |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: process and model lifecycle
-- rail: model
 
-| [INDEX] | [SURFACE]                                              | [CAPABILITY]                                     |
-| :-----: | :----------------------------------------------------- | :----------------------------------------------- |
-|  [01]   | `new OgaHandle()`                                      | process-global init (`IDisposable`)              |
-|  [02]   | `new Config(string)`                                   | reads `{modelPath}/genai_config.json`            |
-|  [03]   | `Config.ClearProviders`                                | removes all configured providers                 |
-|  [04]   | `Config.AppendProvider`                                | injects an execution provider                    |
-|  [05]   | `Config.SetProviderOption`                             | sets a provider option key                       |
-|  [06]   | `Config.Overlay`                                       | applies a JSON config overlay                    |
-|  [07]   | `Config.AddModelData`                                  | injects in-memory model file data                |
-|  [08]   | `Config.RemoveModelData`                               | removes a previously added in-memory model file  |
-|  [09]   | `Config.SetDecoderProviderOptionsHardwareDeviceType`   | sets hardware device type for decoder provider   |
-|  [10]   | `Config.SetDecoderProviderOptionsHardwareDeviceId`     | sets hardware device ID for decoder provider     |
-|  [11]   | `Config.SetDecoderProviderOptionsHardwareVendorId`     | sets hardware vendor ID for decoder provider     |
-|  [12]   | `Config.ClearDecoderProviderOptionsHardwareDeviceType` | clears hardware device type for decoder provider |
-|  [13]   | `Config.ClearDecoderProviderOptionsHardwareDeviceId`   | clears hardware device ID for decoder provider   |
-|  [14]   | `Config.ClearDecoderProviderOptionsHardwareVendorId`   | clears hardware vendor ID for decoder provider   |
-|  [15]   | `new Model(string)`                                    | loads the model directly from path               |
-|  [16]   | `new Model(Config)`                                    | loads the model from config                      |
-|  [17]   | `Model.GetModelType`                                   | reports the model type string                    |
-
-- [01]: `OgaHandle()`
-- [02]: `Config(string modelPath)`
-- [03]: `void ClearProviders()`
-- [04]: `void AppendProvider(string provider)`
-- [05]: `void SetProviderOption(string provider, string option, string value)`
-- [06]: `void Overlay(string json)`
-- [07]: `void AddModelData(string modelFilename, byte[] modelData)`
-- [08]: `void RemoveModelData(string modelFilename)`
-- [09]: `void SetDecoderProviderOptionsHardwareDeviceType(string provider, string hardware_device_type)`
-- [10]: `void SetDecoderProviderOptionsHardwareDeviceId(string provider, uint hardware_device_id)`
-- [11]: `void SetDecoderProviderOptionsHardwareVendorId(string provider, uint hardware_vendor_id)`
-- [12]: `void ClearDecoderProviderOptionsHardwareDeviceType(string provider)`
-- [13]: `void ClearDecoderProviderOptionsHardwareDeviceId(string provider)`
-- [14]: `void ClearDecoderProviderOptionsHardwareVendorId(string provider)`
-- [15]: `Model(string modelPath)`
-- [16]: `Model(Config config)`
-- [17]: `string GetModelType()`
+| [INDEX] | [SURFACE]                                                            | [SHAPE]  | [CAPABILITY]                          |
+| :-----: | :------------------------------------------------------------------- | :------- | :------------------------------------ |
+|  [01]   | `new OgaHandle()`                                                    | ctor     | process-global init (`IDisposable`)   |
+|  [02]   | `new Config(string)`                                                 | ctor     | reads `{modelPath}/genai_config.json` |
+|  [03]   | `Config.ClearProviders()`                                            | instance | removes all configured providers      |
+|  [04]   | `Config.AppendProvider(string)`                                      | instance | injects an execution provider         |
+|  [05]   | `Config.SetProviderOption(string, string, string)`                   | instance | sets a provider option key            |
+|  [06]   | `Config.Overlay(string)`                                             | instance | applies a JSON config overlay         |
+|  [07]   | `Config.AddModelData(string, byte[])`                                | instance | injects in-memory model file data     |
+|  [08]   | `Config.RemoveModelData(string)`                                     | instance | removes added in-memory model data    |
+|  [09]   | `Config.SetDecoderProviderOptionsHardwareDeviceType(string, string)` | instance | sets decoder hardware device type     |
+|  [10]   | `Config.SetDecoderProviderOptionsHardwareDeviceId(string, uint)`     | instance | sets decoder hardware device id       |
+|  [11]   | `Config.SetDecoderProviderOptionsHardwareVendorId(string, uint)`     | instance | sets decoder hardware vendor id       |
+|  [12]   | `Config.ClearDecoderProviderOptionsHardwareDeviceType(string)`       | instance | clears decoder hardware device type   |
+|  [13]   | `Config.ClearDecoderProviderOptionsHardwareDeviceId(string)`         | instance | clears decoder hardware device id     |
+|  [14]   | `Config.ClearDecoderProviderOptionsHardwareVendorId(string)`         | instance | clears decoder hardware vendor id     |
+|  [15]   | `new Model(string)`                                                  | ctor     | loads the model from a path           |
+|  [16]   | `new Model(Config)`                                                  | ctor     | loads the model from a config         |
+|  [17]   | `Model.GetModelType() -> string`                                     | instance | reports the model type string         |
 
 [ENTRYPOINT_SCOPE]: tokenization and chat template
-- rail: model
 
-| [INDEX] | [SURFACE]                     | [CAPABILITY]                           |
-| :-----: | :---------------------------- | :------------------------------------- |
-|  [01]   | `new Tokenizer(Model)`        | builds the tokenizer over a model      |
-|  [02]   | `Tokenizer.CreateStream`      | sole `TokenizerStream` source          |
-|  [03]   | `Tokenizer.ApplyChatTemplate` | assembles the prompt natively          |
-|  [04]   | `Tokenizer.Encode`            | encodes one string to a `Sequences`    |
-|  [05]   | `Tokenizer.EncodeBatch`       | encodes a batch of strings             |
-|  [06]   | `Tokenizer.Decode`            | decodes a full token span to string    |
-|  [07]   | `Tokenizer.DecodeBatch`       | decodes all sequences in a `Sequences` |
-|  [08]   | `Tokenizer.UpdateOptions`     | sets tokenizer option key-value pairs  |
-|  [09]   | `Tokenizer.GetBosTokenId`     | returns the beginning-of-sequence ID   |
-|  [10]   | `Tokenizer.GetEosTokenIds`    | returns all end-of-sequence IDs        |
-|  [11]   | `Tokenizer.GetPadTokenId`     | returns the padding token ID           |
-|  [12]   | `TokenizerStream.Decode`      | decodes one token incrementally        |
-
-- [01]: `Tokenizer(Model model)`
-- [02]: `TokenizerStream CreateStream()`
-- [03]: `string ApplyChatTemplate(string template_str, string messages, string tools, bool add_generation_prompt)`
-- [04]: `Sequences Encode(string str)`
-- [05]: `Sequences EncodeBatch(string[] strings)`
-- [06]: `string Decode(ReadOnlySpan<int> sequence)`
-- [07]: `string[] DecodeBatch(Sequences sequences)`
-- [08]: `void UpdateOptions(Dictionary<string, string> options)`
-- [09]: `int GetBosTokenId()`
-- [10]: `ReadOnlySpan<int> GetEosTokenIds()`
-- [11]: `int GetPadTokenId()`
-- [12]: `string Decode(int token)`
+| [INDEX] | [SURFACE]                                                             | [SHAPE]  | [CAPABILITY]                    |
+| :-----: | :-------------------------------------------------------------------- | :------- | :------------------------------ |
+|  [01]   | `new Tokenizer(Model)`                                                | ctor     | builds the tokenizer            |
+|  [02]   | `Tokenizer.CreateStream() -> TokenizerStream`                         | instance | sole `TokenizerStream` source   |
+|  [03]   | `Tokenizer.ApplyChatTemplate(string, string, string, bool) -> string` | instance | assembles the prompt natively   |
+|  [04]   | `Tokenizer.Encode(string) -> Sequences`                               | instance | encodes one string              |
+|  [05]   | `Tokenizer.EncodeBatch(string[]) -> Sequences`                        | instance | encodes a batch of strings      |
+|  [06]   | `Tokenizer.Decode(ReadOnlySpan<int>) -> string`                       | instance | decodes a full token span       |
+|  [07]   | `Tokenizer.DecodeBatch(Sequences) -> string[]`                        | instance | decodes all sequences           |
+|  [08]   | `Tokenizer.UpdateOptions(Dictionary<string, string>)`                 | instance | sets tokenizer option pairs     |
+|  [09]   | `Tokenizer.GetBosTokenId() -> int`                                    | instance | beginning-of-sequence id        |
+|  [10]   | `Tokenizer.GetEosTokenIds() -> ReadOnlySpan<int>`                     | instance | all end-of-sequence ids         |
+|  [11]   | `Tokenizer.GetPadTokenId() -> int`                                    | instance | padding token id                |
+|  [12]   | `TokenizerStream.Decode(int) -> string`                               | instance | decodes one token incrementally |
 
 [ENTRYPOINT_SCOPE]: Sequences token carrier
-- rail: model
+- note: created by `Tokenizer.Encode`/`EncodeBatch` or `Generator.GetSequence`; direct construction is internal.
 
-`Sequences` is created by `Tokenizer.Encode`/`EncodeBatch` or returned by `Generator.GetSequence`; direct construction is internal only.
-
-| [INDEX] | [SURFACE]                | [CALL_SHAPE]                                  | [CAPABILITY]                                         |
-| :-----: | :----------------------- | :-------------------------------------------- | :--------------------------------------------------- |
-|  [01]   | `Sequences.NumSequences` | `ulong NumSequences { get; }`                 | count of sequences in the batch                      |
-|  [02]   | `Sequences[ulong]`       | `ReadOnlySpan<int> this[ulong sequenceIndex]` | span view over one sequence by index                 |
-|  [03]   | `Sequences.Append`       | `void Append(int token, ulong sequenceIndex)` | appends one token to the sequence at `sequenceIndex` |
+| [INDEX] | [SURFACE]                               | [SHAPE]  | [CAPABILITY]                         |
+| :-----: | :-------------------------------------- | :------- | :----------------------------------- |
+|  [01]   | `Sequences.NumSequences -> ulong`       | property | count of sequences in the batch      |
+|  [02]   | `Sequences[ulong] -> ReadOnlySpan<int>` | property | span view over one sequence by index |
+|  [03]   | `Sequences.Append(int, ulong)`          | instance | appends one token at `sequenceIndex` |
 
 [ENTRYPOINT_SCOPE]: generation loop and search options
-- rail: model
 
-`SetSearchOption` admits numeric (`double`) and bool values only; `SetGuidance` carries type, data, and FFTokens policy. `GetSearchNumber`/`GetSearchBool` read back any previously-set option.
-
-| [INDEX] | [SURFACE]              | [CAPABILITY]                           |
-| :-----: | :--------------------- | :------------------------------------- |
-|  [01]   | `new GeneratorParams`  | builds generation params               |
-|  [02]   | `SetSearchOption`      | numeric search option                  |
-|  [03]   | `SetSearchOption`      | flag search option                     |
-|  [04]   | `GetSearchNumber`      | reads back a numeric search option     |
-|  [05]   | `GetSearchBool`        | reads back a bool search option        |
-|  [06]   | `SetGuidance`          | structured-output constraint           |
-|  [07]   | `new Generator`        | builds the generator                   |
-|  [08]   | `AppendTokenSequences` | seeds the prompt tokens                |
-|  [09]   | `AppendTokens`         | re-feeds token span                    |
-|  [10]   | `RewindTo`             | rewinds sequence to given length       |
-|  [11]   | `GenerateNextToken`    | advances one step                      |
-|  [12]   | `IsDone`               | terminates generation                  |
-|  [13]   | `GetSequence`          | view over native token memory          |
-|  [14]   | `GetNextTokens`        | span of most-recently generated tokens |
-|  [15]   | `TokenCount`           | current sequence token count           |
-|  [16]   | `SetActiveAdapter`     | hot-swaps the active LoRA adapter      |
-|  [17]   | `SetModelInput`        | injects a named model input tensor     |
-|  [18]   | `SetInputs`            | injects a named-tensor batch           |
-|  [19]   | `GetInput`             | retrieves a named input tensor         |
-|  [20]   | `GetOutput`            | retrieves a named output tensor        |
-|  [21]   | `SetRuntimeOption`     | sets a generator runtime option        |
-
-- [01]: `GeneratorParams(Model model)`
-- [02]: `void SetSearchOption(string searchOption, double value)`
-- [03]: `void SetSearchOption(string searchOption, bool value)`
-- [04]: `double GetSearchNumber(string searchOption)`
-- [05]: `bool GetSearchBool(string searchOption)`
-- [06]: `void SetGuidance(string type, string data, bool enableFFTokens = false)`
-- [07]: `Generator(Model model, GeneratorParams generatorParams)`
-- [08]: `void AppendTokenSequences(Sequences sequences)`
-- [09]: `void AppendTokens(ReadOnlySpan<int> inputIDs)`
-- [10]: `void RewindTo(ulong newLength)`
-- [11]: `void GenerateNextToken()`
-- [12]: `bool IsDone()`
-- [13]: `ReadOnlySpan<int> GetSequence(ulong index)`
-- [14]: `ReadOnlySpan<int> GetNextTokens()`
-- [15]: `ulong TokenCount()`
-- [16]: `void SetActiveAdapter(Adapters adapters, string adapterName)`
-- [17]: `void SetModelInput(string name, Tensor value)`
-- [18]: `void SetInputs(NamedTensors namedTensors)`
-- [19]: `Tensor GetInput(string inputName)`
-- [20]: `Tensor GetOutput(string outputName)`
-- [21]: `void SetRuntimeOption(string key, string value)`
+| [INDEX] | [SURFACE]                                           | [SHAPE]  | [CAPABILITY]                       |
+| :-----: | :-------------------------------------------------- | :------- | :--------------------------------- |
+|  [01]   | `new GeneratorParams(Model)`                        | ctor     | builds generation params           |
+|  [02]   | `GeneratorParams.SetSearchOption(string, double)`   | instance | numeric search option              |
+|  [03]   | `GeneratorParams.SetSearchOption(string, bool)`     | instance | flag search option                 |
+|  [04]   | `GeneratorParams.GetSearchNumber(string) -> double` | instance | reads a numeric option             |
+|  [05]   | `GeneratorParams.GetSearchBool(string) -> bool`     | instance | reads a bool option                |
+|  [06]   | `GeneratorParams.SetGuidance(string, string, bool)` | instance | structured-output constraint       |
+|  [07]   | `new Generator(Model, GeneratorParams)`             | ctor     | builds the generator               |
+|  [08]   | `Generator.AppendTokenSequences(Sequences)`         | instance | seeds prompt tokens                |
+|  [09]   | `Generator.AppendTokens(ReadOnlySpan<int>)`         | instance | re-feeds a token span              |
+|  [10]   | `Generator.RewindTo(ulong)`                         | instance | rewinds sequence to a length       |
+|  [11]   | `Generator.GenerateNextToken()`                     | instance | advances one step                  |
+|  [12]   | `Generator.IsDone() -> bool`                        | instance | terminates generation              |
+|  [13]   | `Generator.GetSequence(ulong) -> ReadOnlySpan<int>` | instance | view over native token memory      |
+|  [14]   | `Generator.GetNextTokens() -> ReadOnlySpan<int>`    | instance | most-recently generated tokens     |
+|  [15]   | `Generator.TokenCount() -> ulong`                   | instance | current sequence token count       |
+|  [16]   | `Generator.SetActiveAdapter(Adapters, string)`      | instance | hot-swaps the active LoRA adapter  |
+|  [17]   | `Generator.SetModelInput(string, Tensor)`           | instance | injects a named model input tensor |
+|  [18]   | `Generator.SetInputs(NamedTensors)`                 | instance | injects a named-tensor batch       |
+|  [19]   | `Generator.GetInput(string) -> Tensor`              | instance | retrieves a named input tensor     |
+|  [20]   | `Generator.GetOutput(string) -> Tensor`             | instance | retrieves a named output tensor    |
+|  [21]   | `Generator.SetRuntimeOption(string, string)`        | instance | sets a generator runtime option    |
 
 [ENTRYPOINT_SCOPE]: LoRA adapter management
-- rail: model
+- note: `Adapters : SafeHandle`, created per `Model` and living for the adapter set's lifetime.
 
-`Adapters : SafeHandle`; created per `Model`, lives for the adapter set's lifetime.
-
-| [INDEX] | [SURFACE]             | [CALL_SHAPE]                                               | [CAPABILITY]                         |
-| :-----: | :-------------------- | :--------------------------------------------------------- | :----------------------------------- |
-|  [01]   | `new Adapters(Model)` | `Adapters(Model model)`                                    | creates the adapter registry         |
-|  [02]   | `LoadAdapter`         | `void LoadAdapter(string adapterPath, string adapterName)` | loads a named LoRA adapter from path |
-|  [03]   | `UnloadAdapter`       | `void UnloadAdapter(string adapterName)`                   | unloads a named LoRA adapter         |
+| [INDEX] | [SURFACE]                              | [SHAPE]  | [CAPABILITY]                         |
+| :-----: | :------------------------------------- | :------- | :----------------------------------- |
+|  [01]   | `new Adapters(Model)`                  | ctor     | creates the adapter registry         |
+|  [02]   | `Adapters.LoadAdapter(string, string)` | instance | loads a named LoRA adapter from path |
+|  [03]   | `Adapters.UnloadAdapter(string)`       | instance | unloads a named LoRA adapter         |
 
 [ENTRYPOINT_SCOPE]: GenAI Tensor and ElementType
-- rail: model
+- note: `Tensor` here is `Microsoft.ML.OnnxRuntimeGenAI.Tensor`, an OGA-owned buffer distinct from `System.Numerics.Tensors.Tensor<T>`.
 
-`Tensor` in this namespace is `Microsoft.ML.OnnxRuntimeGenAI.Tensor` — a native-handle carrier distinct from `System.Numerics.Tensors.Tensor<T>`. It wraps an OGA-owned buffer with a shape and `ElementType` discriminant.
+| [INDEX] | [SURFACE]                                  | [SHAPE]  | [CAPABILITY]                           |
+| :-----: | :----------------------------------------- | :------- | :------------------------------------- |
+|  [01]   | `new Tensor(nint, long[], ElementType)`    | ctor     | wraps a raw pointer buffer as a tensor |
+|  [02]   | `Tensor.Type() -> ElementType`             | instance | element type discriminant              |
+|  [03]   | `Tensor.Shape() -> long[]`                 | instance | dimension sizes                        |
+|  [04]   | `Tensor.NumElements() -> long`             | instance | total element count                    |
+|  [05]   | `Tensor.GetData<T>() -> ReadOnlySpan<T>`   | instance | native buffer as a typed span          |
+|  [06]   | `Tensor.ElementsFromShape(long[]) -> long` | static   | element count from a shape array       |
 
-| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                        | [CAPABILITY]                                     |
-| :-----: | :------------------------- | :-------------------------------------------------- | :----------------------------------------------- |
-|  [01]   | `new Tensor`               | `Tensor(nint data, long[] shape, ElementType type)` | wraps a raw pointer buffer as a named OGA tensor |
-|  [02]   | `Tensor.Type`              | `ElementType Type()`                                | returns the element type discriminant            |
-|  [03]   | `Tensor.Shape`             | `long[] Shape()`                                    | returns the dimension sizes                      |
-|  [04]   | `Tensor.NumElements`       | `long NumElements()`                                | returns the total element count                  |
-|  [05]   | `Tensor.GetData<T>`        | `ReadOnlySpan<T> GetData<T>()`                      | exposes the native buffer as a typed span        |
-|  [06]   | `Tensor.ElementsFromShape` | `static long ElementsFromShape(long[] shape)`       | computes element count from a shape array        |
-
-`ElementType` values: `undefined`, `float32`, `uint8`, `int8`, `uint16`, `int16`, `int32`, `int64`, `string_t`, `bool_t`, `float16`, `float64`, `uint32`, `uint64`.
+`ElementType`: `undefined` `float32` `uint8` `int8` `uint16` `int16` `int32` `int64` `string_t` `bool_t` `float16` `float64` `uint32` `uint64`
 
 [ENTRYPOINT_SCOPE]: image and audio media loaders
-- rail: model
+- note: `Images` and `Audios` are `IDisposable` with static `Load` factories only, no public constructor.
 
-`Images` and `Audios` are `IDisposable`; both expose only static `Load` factories — no public constructor.
-
-| [INDEX] | [SURFACE]               | [CALL_SHAPE]                                | [CAPABILITY]                           |
-| :-----: | :---------------------- | :------------------------------------------ | :------------------------------------- |
-|  [01]   | `Images.Load(string[])` | `static Images Load(string[] imagePaths)`   | loads images from file paths           |
-|  [02]   | `Images.Load(byte[])`   | `static Images Load(byte[] imageBytesData)` | loads one image from a raw byte buffer |
-|  [03]   | `Audios.Load(string[])` | `static Audios Load(string[] audioPaths)`   | loads audios from file paths           |
-|  [04]   | `Audios.Load(byte[])`   | `static Audios Load(byte[] audioBytesData)` | loads one audio from a raw byte buffer |
+| [INDEX] | [SURFACE]                         | [SHAPE] | [CAPABILITY]                       |
+| :-----: | :-------------------------------- | :------ | :--------------------------------- |
+|  [01]   | `Images.Load(string[]) -> Images` | static  | loads images from file paths       |
+|  [02]   | `Images.Load(byte[]) -> Images`   | static  | loads one image from a byte buffer |
+|  [03]   | `Audios.Load(string[]) -> Audios` | static  | loads audios from file paths       |
+|  [04]   | `Audios.Load(byte[]) -> Audios`   | static  | loads one audio from a byte buffer |
 
 [ENTRYPOINT_SCOPE]: MultiModalProcessor
-- rail: model
+- note: `MultiModalProcessor : IDisposable`, built per `Model`; every `Process*` returns `NamedTensors` that feed `Generator.SetInputs`.
 
-`MultiModalProcessor : IDisposable` is constructed per `Model`; it encodes prompt+media batches into `NamedTensors` that feed `Generator.SetInputs`. It also exposes a `CreateStream` factory mirroring `Tokenizer.CreateStream`.
-
-| [INDEX] | [SURFACE]                                    | [CAPABILITY]                                                |
-| :-----: | :------------------------------------------- | :---------------------------------------------------------- |
-|  [01]   | `new MultiModalProcessor(Model)`             | creates the processor for a model                           |
-|  [02]   | `MultiModalProcessor.ProcessImages`          | encodes one prompt + images into named tensors              |
-|  [03]   | `MultiModalProcessor.ProcessImages`          | encodes a batch of prompts + images into named tensors      |
-|  [04]   | `MultiModalProcessor.ProcessAudios`          | encodes one prompt + audios into named tensors              |
-|  [05]   | `MultiModalProcessor.ProcessAudios`          | encodes a batch of prompts + audios into named tensors      |
-|  [06]   | `MultiModalProcessor.ProcessImagesAndAudios` | encodes one prompt + images + audios                        |
-|  [07]   | `MultiModalProcessor.ProcessImagesAndAudios` | encodes batch of prompts + images + audios                  |
-|  [08]   | `MultiModalProcessor.Decode`                 | decodes a full token span to string                         |
-|  [09]   | `MultiModalProcessor.CreateStream`           | creates an incremental `TokenizerStream` from the processor |
-
-- [01]: `MultiModalProcessor(Model model)`
-- [02]: `NamedTensors ProcessImages(string prompt, Images images)`
-- [03]: `NamedTensors ProcessImages(string[] prompts, Images images)`
-- [04]: `NamedTensors ProcessAudios(string prompt, Audios audios)`
-- [05]: `NamedTensors ProcessAudios(string[] prompts, Audios audios)`
-- [06]: `NamedTensors ProcessImagesAndAudios(string prompt, Images images, Audios audios)`
-- [07]: `NamedTensors ProcessImagesAndAudios(string[] prompts, Images images, Audios audios)`
-- [08]: `string Decode(ReadOnlySpan<int> sequence)`
-- [09]: `TokenizerStream CreateStream()`
+| [INDEX] | [SURFACE]                                                              | [SHAPE]  | [CAPABILITY]                          |
+| :-----: | :--------------------------------------------------------------------- | :------- | :------------------------------------ |
+|  [01]   | `new MultiModalProcessor(Model)`                                       | ctor     | creates the processor                 |
+|  [02]   | `MultiModalProcessor.ProcessImages(string, Images)`                    | instance | one prompt + images                   |
+|  [03]   | `MultiModalProcessor.ProcessImages(string[], Images)`                  | instance | batch prompts + images                |
+|  [04]   | `MultiModalProcessor.ProcessAudios(string, Audios)`                    | instance | one prompt + audios                   |
+|  [05]   | `MultiModalProcessor.ProcessAudios(string[], Audios)`                  | instance | batch prompts + audios                |
+|  [06]   | `MultiModalProcessor.ProcessImagesAndAudios(string, Images, Audios)`   | instance | one prompt + images + audios          |
+|  [07]   | `MultiModalProcessor.ProcessImagesAndAudios(string[], Images, Audios)` | instance | batch + images + audios               |
+|  [08]   | `MultiModalProcessor.Decode(ReadOnlySpan<int>) -> string`              | instance | decodes a full token span             |
+|  [09]   | `MultiModalProcessor.CreateStream() -> TokenizerStream`                | instance | incremental stream from the processor |
 
 [ENTRYPOINT_SCOPE]: StreamingProcessor
-- rail: model
+- note: `StreamingProcessor : IDisposable`; `Process` returns `null` until enough context accumulates, `Flush` drains remaining state.
 
-`StreamingProcessor : IDisposable` handles incremental audio chunk delivery. `Process` returns `null` until enough context is accumulated; `Flush` drains remaining state.
-
-| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                               | [CAPABILITY]                                          |
-| :-----: | :------------------------------ | :----------------------------------------- | :---------------------------------------------------- |
-|  [01]   | `new StreamingProcessor(Model)` | `StreamingProcessor(Model model)`          | creates the streaming processor for a model           |
-|  [02]   | `StreamingProcessor.Process`    | `NamedTensors? Process(float[] audioData)` | feeds an audio chunk; returns tensors when ready      |
-|  [03]   | `StreamingProcessor.Flush`      | `NamedTensors? Flush()`                    | drains remaining state; returns final tensors or null |
-|  [04]   | `StreamingProcessor.SetOption`  | `void SetOption(string key, string value)` | sets a processor option                               |
-|  [05]   | `StreamingProcessor.GetOption`  | `string GetOption(string key)`             | gets a processor option value                         |
+| [INDEX] | [SURFACE]                                              | [SHAPE]  | [CAPABILITY]                      |
+| :-----: | :----------------------------------------------------- | :------- | :-------------------------------- |
+|  [01]   | `new StreamingProcessor(Model)`                        | ctor     | creates the streaming processor   |
+|  [02]   | `StreamingProcessor.Process(float[]) -> NamedTensors?` | instance | feeds a chunk; tensors when ready |
+|  [03]   | `StreamingProcessor.Flush() -> NamedTensors?`          | instance | drains remaining state            |
+|  [04]   | `StreamingProcessor.SetOption(string, string)`         | instance | sets a processor option           |
+|  [05]   | `StreamingProcessor.GetOption(string) -> string`       | instance | gets a processor option value     |
 
 [ENTRYPOINT_SCOPE]: recognized `SetSearchOption` key strings
-- rail: model-lane#GENERATIVE_RUN
 
 | [INDEX] | [KEY_STRING]         | [VALUE_TYPE] | [CAPABILITY]                               |
 | :-----: | :------------------- | :----------- | :----------------------------------------- |
@@ -305,97 +203,62 @@ The package depends on `Microsoft.ML.OnnxRuntime`; the central pin resolves it t
 |  [10]   | `early_stopping`     | `bool`       | halts beam search when all beams reach EOS |
 
 [ENTRYPOINT_SCOPE]: GPU device and native-log control (`Utils`)
-- rail: model
-- note: `Utils` is a static process-global control surface; the GPU device id selects the CUDA/DML device before model load and the log toggles drive the native ORT logger.
+- note: `Utils` is static process-global; the GPU device id selects the CUDA/DML device before model load, and the log toggles drive the native ORT logger.
 
-| [INDEX] | [SURFACE]                     | [CALL_SHAPE]                                          | [CAPABILITY]                                 |
-| :-----: | :---------------------------- | :---------------------------------------------------- | :------------------------------------------- |
-|  [01]   | `Utils.SetCurrentGpuDeviceId` | `static void SetCurrentGpuDeviceId(int device_id)`    | selects the active GPU device for model load |
-|  [02]   | `Utils.GetCurrentGpuDeviceId` | `static int GetCurrentGpuDeviceId()`                  | reads the active GPU device id               |
-|  [03]   | `Utils.SetLogBool`            | `static void SetLogBool(string name, bool value)`     | toggles a native ORT log flag                |
-|  [04]   | `Utils.SetLogString`          | `static void SetLogString(string name, string value)` | sets a native ORT log string option          |
+| [INDEX] | [SURFACE]                              | [SHAPE] | [CAPABILITY]                        |
+| :-----: | :------------------------------------- | :------ | :---------------------------------- |
+|  [01]   | `Utils.SetCurrentGpuDeviceId(int)`     | static  | selects the active GPU device       |
+|  [02]   | `Utils.GetCurrentGpuDeviceId() -> int` | static  | reads the active GPU device id      |
+|  [03]   | `Utils.SetLogBool(string, bool)`       | static  | toggles a native ORT log flag       |
+|  [04]   | `Utils.SetLogString(string, string)`   | static  | sets a native ORT log string option |
 
 [ENTRYPOINT_SCOPE]: M.E.AI chat client
-- rail: model
-- note: the ctor admits three handle forms with an `owns*` lifetime flag; the `string`/`Config` forms build the `Model` internally. The streaming/response/`GetService` surface comes from `IChatClient` in `api-extensions-ai`.
+- note: each ctor takes a trailing `OnnxRuntimeGenAIChatClientOptions?`; the `string`/`Config` ctors build the `Model` internally, and the response and streaming surface is `IChatClient` from `api-extensions-ai`.
 
-| [INDEX] | [SURFACE]                                | [CAPABILITY]                                          |
-| :-----: | :--------------------------------------- | :---------------------------------------------------- |
-|  [01]   | `new OnnxRuntimeGenAIChatClient(string)` | builds the `Model` from a path and owns it            |
-|  [02]   | `new OnnxRuntimeGenAIChatClient(Model)`  | wraps an existing `Model`; `ownsModel` gates disposal |
-|  [03]   | `new OnnxRuntimeGenAIChatClient(Config)` | builds the `Model` from a `Config` (provider-tuned)   |
-|  [04]   | `IChatClient.GetResponseAsync`           | non-streaming response                                |
-|  [05]   | `IChatClient.GetStreamingResponseAsync`  | streaming response                                    |
-
-- [01]: `OnnxRuntimeGenAIChatClient(string modelPath, OnnxRuntimeGenAIChatClientOptions? options = null)`
-- [02]: `OnnxRuntimeGenAIChatClient(Model model, bool ownsModel = true, OnnxRuntimeGenAIChatClientOptions? options = null)`
-- [03]: `OnnxRuntimeGenAIChatClient(Config config, bool ownsConfig = true, OnnxRuntimeGenAIChatClientOptions? options = null)`
-- [04]: `Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage>, ChatOptions? = null, CancellationToken = default)`
-- [05]: `IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage>, ChatOptions? = null, CancellationToken = default)`
+| [INDEX] | [SURFACE]                                      | [SHAPE]  | [CAPABILITY]                                     |
+| :-----: | :--------------------------------------------- | :------- | :----------------------------------------------- |
+|  [01]   | `new OnnxRuntimeGenAIChatClient(string)`       | ctor     | builds `Model` from a path, owns it              |
+|  [02]   | `new OnnxRuntimeGenAIChatClient(Model, bool)`  | ctor     | wraps a `Model`; `ownsModel` gates disposal      |
+|  [03]   | `new OnnxRuntimeGenAIChatClient(Config, bool)` | ctor     | builds `Model` from a `Config`                   |
+|  [04]   | `IChatClient.GetResponseAsync(...)`            | instance | non-streaming `Task<ChatResponse>`               |
+|  [05]   | `IChatClient.GetStreamingResponseAsync(...)`   | instance | streaming `IAsyncEnumerable<ChatResponseUpdate>` |
 
 [ENTRYPOINT_SCOPE]: `OnnxRuntimeGenAIChatClientOptions`
-- rail: model
-- note: the client-policy bag; `PromptFormatter` overrides the default chat-template assembly and `StopSequences`/`EnableCaching` tune the M.E.AI streaming loop.
 
-| [INDEX] | [SURFACE]         | [CAPABILITY]                                |
-| :-----: | :---------------- | :------------------------------------------ |
-|  [01]   | `StopSequences`   | halts generation on any listed sequence     |
-|  [02]   | `PromptFormatter` | replaces the default chat-template assembly |
-|  [03]   | `EnableCaching`   | reuses generator state across turns         |
-
-- [01]: `IList<string>? StopSequences { get; set; }`
-- [02]: `Func<IEnumerable<ChatMessage>, ChatOptions?, string>? PromptFormatter { get; set; }`
-- [03]: `bool EnableCaching { get; set; }`
+| [INDEX] | [SURFACE]         | [SHAPE]  | [CAPABILITY]                                 |
+| :-----: | :---------------- | :------- | :------------------------------------------- |
+|  [01]   | `StopSequences`   | property | halts generation on any listed sequence      |
+|  [02]   | `PromptFormatter` | property | overrides the default chat-template assembly |
+|  [03]   | `EnableCaching`   | property | reuses generator state across turns          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[HANDLE_CHAIN]:
-- Every GenAI type is `IDisposable` wrapping a native handle; the `using` order is LIFO with `OgaHandle` outermost (process-global init/teardown).
-- `Config(modelDir)` opens `{modelDir}/genai_config.json`; a missing or malformed model directory faults `OnnxRuntimeGenAIException` at construction.
-- `Model` admits both `Model(string modelPath)` (direct path) and `Model(Config config)` (config-driven); provider selection rides `Config.AppendProvider`/`SetProviderOption` before `new Model(config)`, never per generation.
-- `Adapters : SafeHandle` — `ReleaseHandle` calls `OgaDestroyAdapters`; the managed GC boundary is `SafeHandle`, not `IDisposable`.
+[TOPOLOGY]:
+- Every GenAI type wraps a native handle and disposes; `using` order is LIFO with `OgaHandle` outermost for process-global init/teardown, and `Adapters : SafeHandle` releases through `OgaDestroyAdapters` at the GC boundary rather than `IDisposable`.
+- `Config(modelDir)` opens `{modelDir}/genai_config.json`; provider selection rides `Config.AppendProvider`/`SetProviderOption` before `new Model(config)`, never per generation.
+- `OnnxRuntimeGenAIException` is the sole fault rail at `Model`/`Config` construction and across the generation loop; a missing or malformed model directory faults it at construction.
+- `SetSearchOption` takes `double` or `bool` only, with no string overload and no `TrySetSearchOption`; an unrecognized key is unvalidated managed-side and faults `OnnxRuntimeGenAIException` from the native layer.
+- `Generator.GetSequence(ulong)` and `GetNextTokens()` return `ReadOnlySpan<int>` views over native memory owned by the live `Generator`; the newest token copies out before the next step and never retains past the loop.
+- `TokenizerStream` comes only from `Tokenizer.CreateStream()`; `TokenizerStream.Decode(int)` decodes one token, distinct from `Tokenizer.Decode(ReadOnlySpan<int>)` over a full span.
+- `Generator.AppendTokens`/`AppendTokenSequences` re-feed the tool-call arm's typed results, `RewindTo(ulong)` rewinds a partial turn, and `Generator.SetActiveAdapter` hot-swaps a LoRA adapter mid-generation over an `Adapters` set loaded per name.
+- `MultiModalProcessor` encodes vision/audio prompts into `NamedTensors` that feed `Generator.SetInputs`; `StreamingProcessor.Process(float[])` returns `null` until a VAD boundary and `Flush()` drains the final fragment.
+- `Tensor` is `Microsoft.ML.OnnxRuntimeGenAI.Tensor`, qualified on any boundary shared with `System.Numerics.Tensors.Tensor<T>`, and `Tensor.GetData<T>()` spans native memory owned by the live `Tensor` that copies out before disposal.
+- `OnnxRuntimeGenAIChatClient` is `sealed : IChatClient, IDisposable` over three ctors — path, `(Model, ownsModel)`, `(Config, ownsConfig)` — with no `(Model, options)` two-arg form, the `owns*` flag governing whether the client disposes the handle, and `OnnxRuntimeGenAIChatClientOptions.PromptFormatter` the override seam for `Tokenizer.ApplyChatTemplate` when the M.E.AI consumer owns prompt assembly.
+- `Utils` is the static process-global control: `SetCurrentGpuDeviceId(int)` sets the global device before model load ahead of the per-decoder `Config.SetDecoderProviderOptionsHardwareDeviceId`, and `SetLogBool`/`SetLogString` are the sole handle to the native ORT logger.
 
-[GENERATION_LOOP]:
-- Numeric search options pass as `double` and flags as `bool`; there is no string-valued `SetSearchOption` overload. `TrySetSearchOption` does not exist in this binary.
-- Key strings are not validated at the managed boundary; an unrecognized key propagates to native and faults `OnnxRuntimeGenAIException` from the native layer.
-- `GetSequence(ulong)` returns a `ReadOnlySpan<int>` view over native memory owned by the live `Generator`; the newest token (`sequence[^1]`) copies out before the next iteration and never retains past the loop.
-- `GetNextTokens()` returns the most recently generated token span; distinct from `GetSequence(ulong)` which returns a full sequence view.
-- `TokenizerStream` is obtained ONLY through `Tokenizer.CreateStream()`; `TokenizerStream` has no public constructor; `TokenizerStream.Decode(int)` takes a single `int`, not a `ReadOnlySpan<int>`.
-- `Tokenizer.Decode(ReadOnlySpan<int>)` decodes a full span; `TokenizerStream.Decode(int)` decodes one token incrementally — these are distinct operations.
-- `Tokenizer.ApplyChatTemplate` takes four arguments: `(string template_str, string messages, string tools, bool add_generation_prompt)`.
-- The tool-call arm re-feeds typed results through `Generator.AppendTokens`/`AppendTokenSequences` or rewinds a partial turn through `RewindTo(ulong)`.
-- LoRA hot-swap calls `Generator.SetActiveAdapter(Adapters adapters, string adapterName)` mid-generation; `Adapters` is loaded per-name via `LoadAdapter(string path, string name)`.
-
-[MULTIMODAL_LAW]:
-- `Images.Load` and `Audios.Load` have no public constructor; both are produced via the static factory family only.
-- `MultiModalProcessor` is the encoding path for vision/audio models; it produces `NamedTensors` that feed `Generator.SetInputs`.
-- `StreamingProcessor` handles incremental audio: `Process(float[])` returns `null` until a VAD boundary; `Flush()` drains the final fragment.
-- `Tensor` in this namespace is `Microsoft.ML.OnnxRuntimeGenAI.Tensor`; qualify on any boundary where `System.Numerics.Tensors.Tensor<T>` also appears.
-- `GetData<T>()` returns a `ReadOnlySpan<T>` backed by native memory owned by the live `Tensor`; copy out before disposal.
-
-[FAULT_LAW]:
-- `OnnxRuntimeGenAIException` is the sole fault rail at `Model`/`Config` construction and across the generation loop; it lifts to `ComputeFault.ModelRejected` at the boundary, never a per-call catch.
-
-[MEAI_PROJECTION]:
-- `OnnxRuntimeGenAIChatClient` is `sealed : IChatClient, IDisposable`; the ctor admits `(string modelPath, …)`, `(Model, bool ownsModel = true, …)`, and `(Config, bool ownsConfig = true, …)` — there is NO `(Model, options)` two-arg form, and the `owns*` flag governs whether the client disposes the underlying handle.
-- `OnnxRuntimeGenAIChatClientOptions` is the only policy bag — `StopSequences`/`PromptFormatter`/`EnableCaching`; `PromptFormatter` (`Func<IEnumerable<ChatMessage>, ChatOptions?, string>?`) is the override seam for `Tokenizer.ApplyChatTemplate` when the M.E.AI consumer owns prompt assembly.
-- `IChatClient`/`ChatResponse`/`ChatResponseUpdate`/`ChatMessage`/`ChatOptions` resolve from `api-extensions-ai`; the GenAI facade defines only the client and its options, so a second managed chat-message model beside `ChatMessage` is the rejected form.
-
-[NATIVE_CONTROL]:
-- `Utils` is a static process-global control: `SetCurrentGpuDeviceId(int)` selects the device BEFORE model load (provider device selection is `Config.SetDecoderProviderOptionsHardwareDeviceId` per-decoder; `Utils` is the global default), and `SetLogBool`/`SetLogString` drive the native ORT logger — there is no managed log abstraction over them.
-- The native floor is `Microsoft.ML.OnnxRuntime >= 1.23.0` (central-pinned to `1.27.0`); the genai runtime composes the inference engine `api-onnxruntime` owns. The provider strings `Config.AppendProvider` accepts, the option keys `Config.SetProviderOption` sets, and the device selectors `Config.SetDecoderProviderOptionsHardware{DeviceType,DeviceId,VendorId}` bind are the EP roster + `OrtHardwareDevice` (`Type`/`VendorId`/`DeviceId`) discovery owned by `api-onnxruntime#EXECUTION_PROVIDER_SELECTION`; the per-RID native payload availability (which accelerated provider exists on which RID) is owned by `api-onnxruntime`'s `[PACKAGE_ASSET_SCOPE]: per-RID native ABI matrix`. This lane restates neither — a decoder provider selected here that has no native payload on the host RID faults at native init.
-
-[STAGING_INTEGRATION]:
-- Token/tensor byte buffers stage through the `api-recyclable-stream` pool, not ad hoc arrays; `Tensor.GetData<T>()` and `GetSequence(ulong)` return native-backed `ReadOnlySpan<T>` views that copy into a rented stream only at the edge.
-- A structured generative artifact crossing the wire is a `Runtime/wire#PROTO_VOCABULARY` `api-protobuf` message, not a managed DTO; the model-rejection fault lifts to `ComputeFault.ModelRejected` at the boundary.
+[STACKING]:
+- `api-onnxruntime`(`.api/api-onnxruntime.md`): the genai runtime composes the base inference engine; the EP strings `Config.AppendProvider` accepts, the `Config.SetProviderOption` keys, and the `Config.SetDecoderProviderOptionsHardware{DeviceType,DeviceId,VendorId}` selectors bind that catalog's EP roster and `OrtHardwareDevice` discovery, and its per-RID native ABI matrix owns payload availability; the genai payload ships the subset of those RIDs it publishes (`osx-arm64` the host asset), so a decoder provider with no matching genai-and-base payload faults at native init.
+- `api-recyclable-stream`(`.api/api-recyclable-stream.md`): `Tensor.GetData<T>()` and `Generator.GetSequence(ulong)` native-backed `ReadOnlySpan<T>` views copy into a rented `RecyclableMemoryStream` at the edge, never ad hoc arrays.
+- `api-extensions-ai`(`.api/api-extensions-ai.md`): `IChatClient`, `ChatResponse`, `ChatResponseUpdate`, `ChatMessage`, and `ChatOptions` resolve there, and `OnnxRuntimeGenAIChatClient` implements `IChatClient` over the same handle chain, so a second managed chat-message model beside `ChatMessage` never enters.
+- `api-protobuf`(`.api/api-protobuf.md`): a structured generative artifact crossing the wire is a `Runtime/wire#PROTO_VOCABULARY` message, never a managed DTO.
+- `Model` rail `GENERATIVE_RUN`: token streaming folds the LIFO handle chain as a run mode, and the model-rejection fault lifts to `ComputeFault.ModelRejected` at the boundary rather than a per-call catch.
 
 [LOCAL_ADMISSION]:
-- Token-streaming is a run mode on the owned model lane; a `GenerativeService`, `ChatClient`, `Conversation`, or `PromptService` wrapper is the rejected form.
-- The built-in `OnnxRuntimeGenAIChatClient : IChatClient` composes the same handle chain when the M.E.AI streaming abstraction is the consumer — it is the admitted projection, never a hand-rolled one.
-- Grammar-constrained structured output is enforced at generation through `SetGuidance`; a managed JSON-schema validator over the output is the rejected form.
+- Token streaming is a run mode on the owned model lane, and grammar-constrained structured output is enforced at generation through `SetGuidance`; a `GenerativeService`/`ChatClient`/`Conversation`/`PromptService` wrapper or a managed JSON-schema output validator is the rejected form.
+- `OnnxRuntimeGenAIChatClient : IChatClient` is the admitted M.E.AI projection over the shared handle chain, never a hand-rolled one.
 
 [RAIL_LAW]:
-- Package: `Microsoft.ML.OnnxRuntimeGenAI` (MIT, native + `.Managed` net8.0) + `Microsoft.Extensions.AI.Abstractions` (MIT, net10.0)
-- Owns: generative token-streaming runtime, multimodal encoding, streaming audio, GPU-device/native-log control via `Utils`, and the `OnnxRuntimeGenAIChatClient` `IChatClient` projection
-- Accept: model-dir generative runs over the LIFO handle chain; multimodal `Images`/`Audios` + `MultiModalProcessor` pipelines; incremental `StreamingProcessor` audio paths; M.E.AI streaming via the three admitted ctors stacked onto the `api-recyclable-stream` staging pool
-- Reject: chat-client/conversation/prompt service families; managed output validators; a second managed chat-message model beside `ChatMessage`; the phantom `(Model, options)` ctor; `System.Numerics.Tensors.Tensor<T>` confused with `Microsoft.ML.OnnxRuntimeGenAI.Tensor`; a model run with no matching native RID payload
+- Package: `Microsoft.ML.OnnxRuntimeGenAI` + `Microsoft.Extensions.AI.Abstractions`
+- Owns: generative token-streaming runtime, multimodal encoding, streaming audio, `Utils` GPU-device/native-log control, and the `OnnxRuntimeGenAIChatClient` `IChatClient` projection
+- Accept: model-dir generative runs over the LIFO handle chain; `Images`/`Audios` + `MultiModalProcessor` multimodal pipelines; incremental `StreamingProcessor` audio; M.E.AI streaming through the three admitted ctors staged onto the `api-recyclable-stream` pool
+- Reject: chat-client/conversation/prompt service families; managed output validators; a second managed chat-message model beside `ChatMessage`; the phantom `(Model, options)` ctor; `System.Numerics.Tensors.Tensor<T>` confused with the GenAI `Tensor`; a model run with no matching native RID payload

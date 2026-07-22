@@ -1,88 +1,76 @@
 # [RASM_BIM_API_DOTBIM]
 
-`dotbim` is the pure-managed read+write codec for the `.bim` open exchange format — a single
-flat JSON document of a shared `Mesh` pool (raw triangle soup: flat `Coordinates` + `Indices`)
-plus placed `Element` instances that reference a mesh by id and carry a rigid placement
-(`Vector` translation + quaternion `Rotation`), a `Guid`, a free `Type` string, an RGBA
-`Color`, optional per-face colors, and a `string→string` `Info` bag. It is the
-instancing-friendly, low-ceremony interchange beside the heavyweight authoring formats:
-geometry is mesh-only (no BREP, no parametrics, no schema graph), the whole model serializes
-through `System.Text.Json`, and identity is the element `Guid`. The codec owns the object
-graph and the `.bim` file round-trip; it does not tessellate, validate semantics, or own
-materials.
+`dotbim` is the pure-managed read+write codec for the `.bim` open exchange format: one flat `System.Text.Json` document pooling shared meshes beneath placed `Element` instances that reference a mesh by id and carry a rigid placement. Instancing is the distinguishing law — N repeated objects are N lightweight `Element` placements over one shared `Mesh`, the low-ceremony interchange beside heavyweight authoring formats. This codec owns the `.bim` object graph and file round-trip alone; it never tessellates, validates semantics, or owns materials.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `dotbim`
-- package: `dotbim`
-- license: MIT
+- package: `dotbim` (MIT)
 - assembly: `dotbim`
 - namespace: `dotbim`
-- asset: `netstandard2.0` only; the `net10.0` consumer binds `lib/netstandard2.0` (single TFM, binds forward)
-- serialization: `System.Text.Json` (every public member carries a snake_case `[JsonPropertyName]`; the `.bim` wire is STJ, not Newtonsoft)
-- transitive-floor: `System.Text.Json` (; inbox-superseded on `net10.0`)
+- asset: `netstandard2.0` single TFM; the `net10.0` consumer binds `lib/netstandard2.0` forward
+- serialization: `System.Text.Json`; every public member carries a snake_case `[JsonPropertyName]`
 - rail: interchange
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: document, mesh, instance
-- namespace: `dotbim`
-- rail: interchange
+[PUBLIC_TYPE_SCOPE]: document root, shared mesh pool, placed instance
 
-The wire is deliberately flat: `File` owns a `Meshes` pool and an `Elements` list; an `Element` is one placement of one pooled mesh (the instancing seam — many elements share one `Mesh` by `MeshId`).
+| [INDEX] | [SYMBOL]  | [TYPE_FAMILY] | [CAPABILITY]                       |
+| :-----: | :-------- | :------------ | :--------------------------------- |
+|  [01]   | `File`    | class         | document root over the mesh pool   |
+|  [02]   | `Mesh`    | class         | shared geometry pooled by `MeshId` |
+|  [03]   | `Element` | class         | one placement of one pooled mesh   |
 
-| [INDEX] | [SYMBOL]  | [CAPABILITY]                                                                                                                |
-| :-----: | :-------- | :-------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `File`    | document root — `Meshes` (`List<Mesh>` pool), `Elements` (`List<Element>`), `SchemaVersion`, `Info`                         |
-|  [02]   | `Mesh`    | shared geometry — `MeshId` (`"mesh_id"` pool key), `Coordinates` (`List<double>` flat XYZ), `Indices` (`List<int>` corners) |
-|  [03]   | `Element` | placed instance — `MeshId`, `Vector`, `Rotation`, `Guid`, `Type`, `Color`, `FaceColors` (`List<int>` per-face RGBA), `Info` |
+[File]: `Meshes` `Elements` `SchemaVersion` `Info`
+[Mesh]: `MeshId` `Coordinates` `Indices`
+[Element]: `MeshId` `Vector` `Rotation` `Guid` `Type` `Color` `FaceColors` `Info`
 
 [PUBLIC_TYPE_SCOPE]: placement and color value types
-- namespace: `dotbim`
-- rail: interchange
 
-| [INDEX] | [SYMBOL]   | [CAPABILITY]                                                                                        |
-| :-----: | :--------- | :-------------------------------------------------------------------------------------------------- |
-|  [01]   | `Vector`   | `struct` translation — `X`/`Y`/`Z` (`double`, `"x"`/`"y"`/`"z"`); the element origin in model space |
-|  [02]   | `Rotation` | `struct` quaternion orientation — `Qx`/`Qy`/`Qz`/`Qw` (`double`, `"qx"`…`"qw"`), NOT Euler angles   |
-|  [03]   | `Color`    | `struct` RGBA — `R`/`G`/`B`/`A` (`int`, `"r"`…`"a"`), each channel bounded `0..255`                 |
+| [INDEX] | [SYMBOL]   | [TYPE_FAMILY] | [CAPABILITY]                   |
+| :-----: | :--------- | :------------ | :----------------------------- |
+|  [01]   | `Vector`   | struct        | translation in model space     |
+|  [02]   | `Rotation` | struct        | unit-quaternion orientation    |
+|  [03]   | `Color`    | struct        | RGBA channels bounded `0..255` |
+
+[Vector]: `X` `Y` `Z`
+[Rotation]: `Qx` `Qy` `Qz` `Qw`
+[Color]: `R` `G` `B` `A`
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: file round-trip
-- namespace: `dotbim`
-- rail: interchange
 
-The codec is the two `File` members; there is no separate reader/writer/options type. Both enforce the `.bim` extension and route through `System.Text.Json`.
+`File.Read` and `File.Save` are the entire codec; no reader, writer, or options type exists.
 
-| [INDEX] | [SURFACE]   | [CALL_SHAPE]                        | [CAPABILITY]                                                    |
-| :-----: | :---------- | :---------------------------------- | :-------------------------------------------------------------- |
-|  [01]   | `File.Read` | `static (string path) → File`       | `JsonSerializer.Deserialize<File>` of the file text             |
-|  [02]   | `File.Save` | `(string path, bool format = true)` | `JsonSerializer.Serialize` to `path` (`WriteIndented = format`) |
+| [INDEX] | [SURFACE]                   | [SHAPE]  | [CAPABILITY]                           |
+| :-----: | :-------------------------- | :------- | :------------------------------------- |
+|  [01]   | `File.Read(string) -> File` | static   | deserialize a `.bim` file to the graph |
+|  [02]   | `File.Save(string, bool)`   | instance | serialize the graph to a `.bim` path   |
+
+- `File.Save`: `format` (default `true`) selects `JsonSerializer` `WriteIndented`; both members reject a non-`.bim` path with `ArgumentException`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[INSTANCING_LAW]:
-- geometry lives once in `File.Meshes`; an `Element` is a lightweight placement referencing `Mesh.MeshId` plus a rigid transform — N repeated objects are N `Element`s over one shared `Mesh`, never N copied vertex buffers. Decode resolves an element to its mesh by matching `Element.MeshId == Mesh.MeshId`.
-- the placement is `Vector` (translation) + `Rotation` (unit quaternion `Qx,Qy,Qz,Qw`); compose them into a 4×4 (or rigid) transform to bake an element into world space. `Rotation` is a quaternion — never read it as Euler angles.
-- `Mesh.Coordinates` is a flat `double` stream of XYZ triples; `Mesh.Indices` is a flat `int` stream of triangle corners (3 per face). Vertex `i` is `Coordinates[3i..3i+3]`; face `f` is `Indices[3f..3f+3]`.
+[TOPOLOGY]:
+- Geometry lives once in `File.Meshes`; an `Element` references a `Mesh` by `MeshId` under a rigid transform, so decode resolves an element to its mesh by matching `Element.MeshId == Mesh.MeshId`.
+- Placement composes `Vector` translation with `Rotation`, a unit quaternion (`Qx,Qy,Qz,Qw`) folded into a rigid 4×4 to bake an element into world space; `Rotation` is never read as Euler angles.
+- `Mesh.Coordinates` is a flat `double` XYZ stream and `Mesh.Indices` a flat `int` triangle-corner stream: vertex `i` is `Coordinates[3i..3i+3]`, face `f` is `Indices[3f..3f+3]`.
+- Property setters validate on build: `Color` channels reject outside `0..255`, `Mesh.MeshId` rejects `< 0`, and `Element.Guid` rejects a malformed GUID with `ArgumentException`, so a structurally-invalid graph fails before `Save`.
+- `Element.Color` is the whole-object color; `Element.FaceColors` is the optional per-face RGBA override stream and wins over `Color` where present.
 
-[COLOR_LAW]:
-- the codec validates at the property setter, not only at parse: `Color` channels (`int`) reject outside `0..255`, `Mesh.MeshId` rejects `< 0`, and `Element.Guid` rejects a malformed GUID — each throws `ArgumentException`, so building a `File` graph through the typed setters fails a structurally-invalid model before `Save`, never on a downstream consumer.
-- Element-level `Color` is the whole-object color; `Element.FaceColors` is the optional per-face override stream (RGBA quadruples aligned to the mesh faces) and wins over `Color` where present.
-
-[INTEGRATION_STACK]:
-- canonical-carrier leg: a `Mesh` (coordinates+indices) decodes into the canonical kernel mesh and an `Element` (mesh ref + `Vector`/`Rotation` placement + `Guid` + `Type` + `Color` + `Info`) maps onto a `BimElement` instance with its placement transform at the `Exchange/import` boundary; `dotbim.*` types never leak past the codec — internal code holds canonical Bim shapes keyed by the element `Guid`.
-- mesh-codec siblings: `dotbim` is the lightweight JSON sibling of the binary mesh exchanges — `SharpGLTF` (`api-sharpgltf`, glTF/GLB with PBR materials + scene graph), `AssimpNetter` (`api-assimpnetter`, the many-format importer), and the compression legs `Alimer.MeshOptimizer` (`api-alimer-meshoptimizer`) / `Openize.Drako` (`api-openize-drako`); all four meet at the same canonical triangle mesh, so a model imported as `.bim` re-exports as glTF (and vice-versa) through the shared carrier, and `dotbim`'s flat soup is the form to feed the optimizer/Draco legs before a heavier export.
-- IFC-beside leg: `dotbim` is the preview/issue-payload/low-friction exchange that rides beside the authoritative `GeometryGym` IFC semantic model (`api-geometrygym-ifc`) and `USD` (`api-usd`) — an `Element.Info` bag carries the round-trip metadata (IFC class, name, property snapshot) so a `.bim` export of an IFC view preserves the semantic tags as strings without re-encoding the IFC graph; on re-import the `Info` keys re-bind to the canonical element.
-- identity leg: a `File.Save` produces canonical `.bim` JSON whose UTF-8 bytes feed `System.IO.Hashing` `XxHash3`/`XxHash128` (`libs/csharp/.api/api-hashing.md`) for the snapshot content key, joining the IFC/glTF/USD exports on one content-identity rail; the element `Guid` is the stable per-object identity across re-exports.
+[STACKING]:
+- `SharpGLTF`(`.api/api-sharpgltf.md`), `AssimpNetter`(`.api/api-assimpnetter.md`), `Alimer.MeshOptimizer`(`.api/api-alimer-meshoptimizer.md`), `Openize.Drako`(`.api/api-openize-drako.md`): every mesh sibling meets `dotbim` at the canonical triangle mesh, so a `.bim` model re-exports as glTF through the shared carrier and its flat `Coordinates`/`Indices` soup feeds the meshopt and Draco compressors before a heavier export.
+- `GeometryGymIFC`(`.api/api-geometrygym-ifc.md`), `USD`(`.api/api-usd.md`): `dotbim` is the preview and issue-payload exchange beside the authoritative semantic model; an `Element.Info` bag carries round-trip metadata (IFC class, name, property snapshot) so a `.bim` export of an IFC view preserves the semantic tags as strings and re-binds them on re-import.
+- `System.IO.Hashing`(`libs/csharp/.api/api-hashing.md`): a `File.Save` produces canonical `.bim` UTF-8 bytes that feed the snapshot content key, and the element `Guid` is the stable per-object identity across re-exports.
+- within-library: a `Mesh` decodes into the canonical kernel mesh and an `Element` (mesh ref, `Vector`/`Rotation` placement, `Guid`, `Type`, `Color`, `Info`) maps onto a `BimElement` at the `Exchange/import` boundary keyed by `Guid`; `dotbim.*` types never leak past the codec.
 
 [LOCAL_ADMISSION]:
-- `.bim` import enters through `File.Read`, resolves each `Element` to its pooled `Mesh` by `MeshId`, bakes the `Vector`/`Rotation` placement, and maps onto canonical Bim carriers keyed by `Guid`.
-- `.bim` export enters through a canonical→`File` build (mesh pooling by shared geometry, element placement decomposition into `Vector`+quaternion `Rotation`, `Info`-bag metadata projection) then `File.Save(path, format)`.
+- `.bim` import enters through `File.Read`, resolving each `Element` to its pooled `Mesh` by `MeshId` and baking the `Vector`/`Rotation` placement; export enters through a canonical-to-`File` build — mesh pooling by shared geometry, placement decomposition into `Vector` and quaternion `Rotation`, `Info`-bag metadata projection — then `File.Save`.
 
 [RAIL_LAW]:
 - Package: `dotbim`
-- Owns: the `.bim` open-format read+write — the shared `Mesh` pool, the placed `Element` instance model (transform + `Guid` + `Type` + `Color`/`FaceColors` + `Info`), and the `System.Text.Json` file round-trip
-- Accept: lightweight mesh+metadata interchange, preview/issue payloads, instancing-preserving external model exchange beside IFC/glTF/USD
-- Reject: BREP/parametric/schema geometry (mesh-only), tessellation (consumes meshes, never builds them), material/appearance systems (glTF/USD own PBR), IFC semantics (GeometryGym), and leaking `dotbim.*` types past the codec boundary
+- Owns: the `.bim` open-format read+write — the shared `Mesh` pool, the placed `Element` model, and the `System.Text.Json` file round-trip
+- Accept: lightweight mesh-and-metadata interchange, preview and issue payloads, instancing-preserving model exchange beside IFC/glTF/USD
+- Reject: BREP/parametric/schema geometry, tessellation, material and appearance systems, IFC semantics, and any `dotbim.*` type crossing the codec boundary

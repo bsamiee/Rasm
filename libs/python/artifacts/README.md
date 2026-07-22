@@ -112,7 +112,7 @@ It folds data, compute, and geometry outputs — and any structured payload — 
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Domain libraries admitted by this folder; versions centralize in the one Python manifest and corroborate against this folder's `.api/`. Native system dependencies stay outside the registry, owned by the provisioning surface that supplies them.
+Shared substrate consumed from the Py registry; the registry and its charters own the full contracts, and `libs/python/.api/` holds the shared API evidence.
 
 [DOCUMENTS]:
 - `reportlab`

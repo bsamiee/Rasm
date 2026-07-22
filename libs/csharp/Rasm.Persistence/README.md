@@ -46,10 +46,9 @@ It persists the graph over a Marten append substrate, depends up on the `Rasm.El
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Persistence-domain libraries admitted by this folder; versions centralize in the C# manifest and corroborate against this folder's `.api/`.
+Domain-specific libraries admitted by this folder; versions centralize in `Directory.Packages.props` and corroborate against this folder's `.api/`.
 
-[RELATIONAL_TIER]:
-PostgreSQL/EF managed stack and the embedded-SQLite floor — the closed relational system-of-record tier.
+[RELATIONAL_TIER]: PostgreSQL/EF managed stack and the embedded-SQLite floor — the closed relational system-of-record tier.
 - `Npgsql`
 - `Npgsql.EntityFrameworkCore.PostgreSQL`
 - `Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite`
@@ -71,8 +70,7 @@ PostgreSQL/EF managed stack and the embedded-SQLite floor — the closed relatio
 - `SQLitePCLRaw.bundle_e_sqlite3`
 - `SQLitePCLRaw.bundle_e_sqlite3mc` — SQLite3 Multiple Ciphers native bundle; the encrypted embedded floor keying `Store/provisioning#EMBEDDED_FLOOR` under a KMS-custodied data key, superseding the plain bundle where the cipher floor mounts
 
-[SERVER_EXTENSIONS]:
-PostgreSQL 18 SQL-provisioned extensions carrying no managed assembly; the `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension` roster is authoritative and supersets this consumer-facing list with the base-bridge rows only the verification fold admits. Roster keys carry the server `CREATE EXTENSION` spelling; cards here carry the package spelling. Each carries a folder `.api/` catalogue of its SQL surface.
+[SERVER_EXTENSIONS]: PostgreSQL 18 SQL-provisioned extensions carrying no managed assembly; the `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension` roster is authoritative and supersets this consumer-facing list with the base-bridge rows only the verification fold admits. Roster keys carry the server `CREATE EXTENSION` spelling; cards here carry the package spelling. Each carries a folder `.api/` catalogue of its SQL surface.
 - `timescaledb` — hypertable, continuous-aggregate, retention, and columnstore
 - `timescaledb_toolkit` — hyperfunction and time-weighted-aggregate layer over `timescaledb`
 - `pg_duckdb` — in-PG DuckDB analytical bridge, distinct from the in-process `DuckDB.NET` lane
@@ -93,8 +91,7 @@ PostgreSQL 18 SQL-provisioned extensions carrying no managed assembly; the `Stor
 - `pg_graphql` — in-Postgres GraphQL schema and resolver reflection
 - `pg_net` — asynchronous non-blocking HTTP/HTTPS from SQL
 
-[SCALEOUT_BACKENDS]:
-Dedicated scale-out store clients and embedded KV engines beyond the relational tier, each a distinct backend class.
+[SCALEOUT_BACKENDS]: Dedicated scale-out store clients and embedded KV engines beyond the relational tier, each a distinct backend class.
 - `ClickHouse.Driver` — distributed columnar OLAP client; the billion-row lane beyond in-PG TimescaleDB and DuckDB
 - `ScyllaDBCSharpDriver` — CQL wide-column client driving ScyllaDB and Cassandra over one protocol
 - `Qdrant.Client` — scale-out vector store; the billion-scale ANN class beyond in-PG `pgvector`
@@ -102,8 +99,7 @@ Dedicated scale-out store clients and embedded KV engines beyond the relational 
 - `rocksdb` — embedded LSM-tree write-optimized KV/log engine
 - `LightningDB` — LMDB memory-mapped B+tree read-optimized MVCC engine
 
-[COLUMNAR_AND_CODECS]:
-In-process columnar analytics stack and the serialization, interchange, and compression codec belt.
+[COLUMNAR_AND_CODECS]: In-process columnar analytics stack and the serialization, interchange, and compression codec belt.
 - `DuckDB.NET.Data.Full` — drives the in-process DuckDB columnar lane, distinct from the `pg_duckdb` server bridge
 - `Apache.Arrow`
 - `Apache.Arrow.Flight`
@@ -131,8 +127,7 @@ In-process columnar analytics stack and the serialization, interchange, and comp
 - `MPXJ.Net` — MS-Project, P6, and Asta schedule-file codec the `Sep`/`MiniExcel` lanes lack
 - `Sep`
 
-[APPEND_AND_EGRESS]:
-Marten append substrate, the out-of-Rhino sync transports, and the CDC change-egress pipeline.
+[APPEND_AND_EGRESS]: Marten append substrate, the out-of-Rhino sync transports, and the CDC change-egress pipeline.
 - `Marten` — PostgreSQL event store; `GraphDelta` bodies fold `ElementGraph` via `AggregateStreamAsync` AS-OF
 - `Microsoft.Extensions.Compliance.Redaction`
 - `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
@@ -155,8 +150,7 @@ Marten append substrate, the out-of-Rhino sync transports, and the CDC change-eg
 - `DotPulsar` — Apache Pulsar binary-protocol client; backs `EgressSink.Pulsar`
 - `MQTTnet` — MQTT v5 client with QoS-1 `PublishAsync` PUBACK evidence and the v5 UserProperties tracing carrier; backs `EgressSink.Mqtt`
 
-[OBJECT_CACHE_KMS]:
-Cloud object stores, the Redis cache backplane, and KMS custody.
+[OBJECT_CACHE_KMS]: Cloud object stores, the Redis cache backplane, and KMS custody.
 - `AWSSDK.S3`
 - `OpenTelemetry.Instrumentation.AWS` — one root registration spanning both AWSSDK legs: the `AWSSDK.S3` object-store transfers and the `AWSSDK.KeyManagementService` custody calls, hooking the shared `AWSSDK.Core` pipeline into the AppHost-root trace
 - `Azure.Storage.Blobs`
@@ -171,10 +165,9 @@ Cloud object stores, the Redis cache backplane, and KMS custody.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Cross-cutting C# substrate Persistence consumes; package charters live in `libs/csharp/.planning/README.md` and shared API evidence lives in `libs/csharp/.api/`.
+Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
 
-[SEAM_REFERENCES]:
-Upward ProjectReferences — alignment by contract, never a sibling AEC peer reference.
+[SEAM_REFERENCES]: Upward ProjectReferences — alignment by contract, never a sibling AEC peer reference.
 - `Rasm.Element` — carries the AEC-DOMAIN seam contracts persisted as the system of record
 - `Rasm` — mints the KERNEL seed-zero `XxHash128` content-hash the codec composes
 
@@ -202,7 +195,6 @@ Upward ProjectReferences — alignment by contract, never a sibling AEC peer ref
 - `CommunityToolkit.HighPerformance` — spans, memory pools, and bit primitives on the cache and object-store path
 - `System.Numerics.Tensors` — SIMD `TensorPrimitives` backing the `VECTOR_CODEBOOK` PQ k-means and ADC scan
 
-[TEST_SUBSTRATE]:
-Binds in the branch test and benchmark projects, never the package csproj.
+[TEST_SUBSTRATE]: Binds in the branch test and benchmark projects, never the package csproj.
 - `Verify.XunitV3`
 - `BenchmarkDotNet`

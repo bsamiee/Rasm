@@ -1,175 +1,129 @@
 # [RASM_GRASSHOPPER_API_GH2_SPECIAL_OBJECTS]
 
-`Grasshopper2.Parameters.Special` contains the native interactive parameters, editors, displays, schedulers, and connection-routing objects supplied by the installed Grasshopper 2 plug-in. Most types derive `Parameter` or `Parameter<T>`; `Listen` derives `GenericParameter`, and `TimerObject` derives `DocumentObject`. Public deserialization constructors accept `GrasshopperIO.IReader`, and the corresponding objects persist through public `Store(IWriter)` overrides. Canvas attributes are created by protected overrides and are not consumer entrypoints.
+`Grasshopper2.Parameters.Special` owns the interactive document objects the installed Grasshopper 2 plug-in supplies: value inputs, editors, samplers, pickers, data panels, the expiry scheduler, and the shout/listen/relay connection routers. Every type derives the `Parameter`/`Parameter<T>` value contract — `Listen` on `GenericParameter`, `TimerObject` on `DocumentObject` — and round-trips through the host IO archive.
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `Grasshopper2` 'installed Rhino WIP Grasshopper 2 SDK'
-- assembly: `Grasshopper2.dll` from the managed `Grasshopper2Plugin.rhp` payload
+[PACKAGE_SURFACE]: host assembly `Grasshopper2`
+- package: `Grasshopper2` (Rhino 9 WIP Grasshopper 2 plug-in SDK; not a NuGet pin — the in-process `Grasshopper2.dll` under `Grasshopper2Plugin.rhp` is the resolved asset)
+- assembly: `Grasshopper2`
 - namespace: `Grasshopper2.Parameters.Special`
-- adjacent namespaces: `Grasshopper2.Data`, `Grasshopper2.Parameters`, `Grasshopper2.Types.Colour`, `Grasshopper2.UI`, `GrasshopperIO`
-- value carriers: `double`, `decimal`, `bool`, `string`, `object`, `DateTime`, `Complex`, `Angle`, `ITree`, `IPear`, `Colour`, `Gradient`, `DisplayMaterial`, `Maths.Constant`, `MetaName`, `IPreset`
-- rail: in-process document-object API
+- adjacent namespaces: `Grasshopper2.Data`, `Grasshopper2.Parameters`, `Grasshopper2.Types.Colour`, `Grasshopper2.UI`, `GrasshopperIO` resolve the value carriers, pears, and IO seams
+- rail: host-grasshopper special objects
 
-## [02]-[PUBLIC_TYPES_AND_CONSTRUCTION]
+## [02]-[PUBLIC_TYPES]
 
-[CONSTRUCTION_SCOPE]: value inputs
-- rail: public constructors
-- note: every row also exposes a public `#ctor(IReader)` deserialization constructor.
+[PUBLIC_TYPE_SCOPE]: interactive special objects, ordered by role family. Every type also carries a public `()` and `(IReader)` deserialization constructor; the parameterized constructor rides its `[03]` roster line.
 
-| [INDEX] | [TYPE]               | [BASE]              | [CONSTRUCTORS]                                                                         |
-| :-----: | :------------------- | :------------------ | :------------------------------------------------------------------------------------- |
-|  [01]   | `NumberSliderObject` | `Parameter<double>` | `()`; `(string userName, UiNumber number)`                                             |
-|  [02]   | `NumberPickerObject` | `Parameter<double>` | `()`; `(string userName, double number)`                                               |
-|  [03]   | `ToggleObject`       | `Parameter<bool>`   | `()`; `(bool state)`                                                                   |
-|  [04]   | `ButtonObject`       | `Parameter`         | `()`; `(IPear up, IPear down)`                                                         |
-|  [05]   | `ValueObject`        | `Parameter`         | `()`; `(string userName, string content, Notation notations)`                          |
-|  [06]   | `TextInputObject`    | `Parameter<string>` | `()`; `(string userName, string content)`                                              |
-|  [07]   | `ColourSwatchObject` | `Parameter<Colour>` | `()`; `(string userName, Colour colour, string palette = null, bool discrete = false)` |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]                | [CAPABILITY]                                      |
+| :-----: | :--------------------- | :--------------------------- | :------------------------------------------------ |
+|  [01]   | `NumberSliderObject`   | `Parameter<double>`          | drag-slider numeric input                         |
+|  [02]   | `NumberPickerObject`   | `Parameter<double>`          | stepped numeric picker                            |
+|  [03]   | `ToggleObject`         | `Parameter<bool>`            | boolean toggle with named states                  |
+|  [04]   | `ButtonObject`         | `Parameter`                  | momentary button emitting up/down trees           |
+|  [05]   | `ValueObject`          | `Parameter`                  | notation-typed value input                        |
+|  [06]   | `TextInputObject`      | `Parameter<string>`          | multi-line text input                             |
+|  [07]   | `ColourSwatchObject`   | `Parameter<Colour>`          | palette colour swatch                             |
+|  [08]   | `GradientEditorObject` | `Parameter<Gradient>`        | gradient grip editor                              |
+|  [09]   | `FunctionEditorObject` | `Parameter<Function>`        | expression editor                                 |
+|  [10]   | `MaterialEditorObject` | `Parameter<DisplayMaterial>` | display-material editor                           |
+|  [11]   | `ImageSamplerObject`   | `Parameter`                  | image coordinate sampler                          |
+|  [12]   | `HistogramObject`      | `Parameter<double>`          | bucketed histogram display                        |
+|  [13]   | `QuickGraphObject`     | `Parameter<double>`          | quick numeric graph display                       |
+|  [14]   | `ProtractorObject`     | `Parameter<Angle>`           | angle protractor input                            |
+|  [15]   | `PresetPickerObject`   | `Parameter`                  | multi-select preset picker                        |
+|  [16]   | `ComplexPickerObject`  | `Parameter<Complex>`         | complex-number picker                             |
+|  [17]   | `ConstantPickerObject` | `Parameter`                  | math-constant picker                              |
+|  [18]   | `MetaNamePickerObject` | `Parameter<MetaName>`        | meta-name key picker                              |
+|  [19]   | `TemporalPickerObject` | `Parameter<DateTime>`        | date/time picker                                  |
+|  [20]   | `ValueListObject`      | `Parameter`                  | selectable value list                             |
+|  [21]   | `TimerObject`          | `DocumentObject`             | schedules expiry for an object-id target set      |
+|  [22]   | `PathMapperObject`     | `Parameter`                  | remaps paths through parsed notation              |
+|  [23]   | `DataPanelObject`      | `Parameter`                  | projects tree values into a panel                 |
+|  [24]   | `DataRecorderObject`   | `Parameter`                  | retains successive input trees                    |
+|  [25]   | `TreeViewerObject`     | `Parameter`                  | visualizes tree topology                          |
+|  [26]   | `Shout`                | `Parameter`                  | broadcasts tree data or marks a cluster output    |
+|  [27]   | `Listen`               | `GenericParameter`           | resolves a shout, file dependency, or cluster pin |
+|  [28]   | `Relay`                | `Parameter`                  | relays, freezes, and safely reconnects wires      |
 
-[CONSTRUCTION_SCOPE]: editors, samplers, pickers, and lists
-- rail: public constructors
-- note: `params Complex[]` is the declared final parameter of `ComplexPickerObject`; every row also exposes a public `#ctor(IReader)` constructor.
+## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [TYPE]                 | [BASE]                       | [CONSTRUCTORS]                                      |
-| :-----: | :--------------------- | :--------------------------- | :-------------------------------------------------- |
-|  [01]   | `GradientEditorObject` | `Parameter<Gradient>`        | `()`; `(string userName, GripGradient gradient)`    |
-|  [02]   | `FunctionEditorObject` | `Parameter<Function>`        | `()`; `(string userName, Function function)`        |
-|  [03]   | `MaterialEditorObject` | `Parameter<DisplayMaterial>` | `()`; `(string userName, DisplayMaterial material)` |
-|  [04]   | `ImageSamplerObject`   | `Parameter`                  | `()`                                                |
-|  [05]   | `HistogramObject`      | `Parameter<double>`          | `()`                                                |
-|  [06]   | `QuickGraphObject`     | `Parameter<double>`          | `()`                                                |
-|  [07]   | `ProtractorObject`     | `Parameter<Angle>`           | `()`; `(string userName, Angle angle)`              |
-|  [08]   | `PresetPickerObject`   | `Parameter`                  | `()`; `(string userName)`                           |
-|  [09]   | `ComplexPickerObject`  | `Parameter<Complex>`         | `()`; `(string userName, params Complex[] values)`  |
-|  [10]   | `ConstantPickerObject` | `Parameter`                  | `()`; `(string userName, Maths.Constant constant)`  |
-|  [11]   | `MetaNamePickerObject` | `Parameter<MetaName>`        | `()`; `(string userName, MetaName key)`             |
-|  [12]   | `TemporalPickerObject` | `Parameter<DateTime>`        | `()`; `(string userName, DateTime value)`           |
-|  [13]   | `ValueListObject`      | `Parameter`                  | `()`                                                |
+Each roster line carries one type's constructor and public members grouped by access; a caveat line states behavior a signature cannot show. `params Complex[]` is the declared final parameter of `ComplexPickerObject`.
 
-[CONSTRUCTION_SCOPE]: data, utility, and routing objects
-- rail: public constructors
-- note: every row exposes `()` and `(IReader reader)` as its complete public constructor set.
+[ENTRYPOINT_SCOPE]: value inputs
+- `NumberSliderObject` — ctor `(string, UiNumber)`; get `InternalSlider: Slider` `InternalNumber: UiNumber`; get/set `GripDisplay` `GripColour` `GripFormat`
+- `NumberPickerObject` — ctor `(string, double)`; get `InternalPicker: NumberPicker` `InternalNumber: decimal`; get/set `GripColour` `SnapToTicks`
+- `ToggleObject` — ctor `(bool)`; get/set `ToggleState`; get/private-set `TrueName` `FalseName` `TrueInfo` `FalseInfo`; event `StateNamesChanged`
+- `ButtonObject` — ctor `(IPear, IPear)`; get/set `Action` `UpTree` `DownTree` `UpColour` `DownColour` `UpText` `DownText`; method `Press()` `Release()`
+- `ValueObject` — ctor `(string, string, Notation)`; get/private-set `Text: string` `Value: object`; get/set `Notations`; method `AssignTextAndValue(string)`
+- `TextInputObject` — ctor `(string, string)`; get `Values: string[]`; get/internal-set `OneEntryPerLine`; get/set `Contents` `Escaping`
+- `ColourSwatchObject` — ctor `(string, Colour, string, bool)`; get/internal-set `Colour` `Palette` `Discrete`; method `SetColour(Colour, bool)`
+- `ButtonObject(IPear, IPear)`: a null pear leaves its tree unset, and a null `down` selects `ButtonAction.Single`.
+- `ValueObject.AssignTextAndValue`: null or empty text normalizes to `Text == string.Empty` and `Value == null`.
+- `TextInputObject.Values`: an empty array, never null; `Contents` reads an empty string when its backing value is null.
+- `ColourSwatchObject`: rejects a null constructor colour, while `SetColour` accepts a null colour at runtime.
 
-| [INDEX] | [TYPE]               | [BASE]             | [CAPABILITY]                                      |
-| :-----: | :------------------- | :----------------- | :------------------------------------------------ |
-|  [01]   | `TimerObject`        | `DocumentObject`   | schedules expiry for an object-id target set      |
-|  [02]   | `PathMapperObject`   | `Parameter`        | remaps paths through parsed notation              |
-|  [03]   | `DataPanelObject`    | `Parameter`        | projects tree values into a configurable panel    |
-|  [04]   | `DataRecorderObject` | `Parameter`        | retains successive input trees                    |
-|  [05]   | `TreeViewerObject`   | `Parameter`        | visualizes tree topology                          |
-|  [06]   | `Shout`              | `Parameter`        | broadcasts tree data or marks a cluster output    |
-|  [07]   | `Listen`             | `GenericParameter` | resolves a shout, file dependency, or cluster pin |
-|  [08]   | `Relay`              | `Parameter`        | relays, freezes, and safely reconnects wires      |
+[ENTRYPOINT_SCOPE]: editors and samplers
+- `GradientEditorObject` — ctor `(string, GripGradient)`; get `Gradient: Gradient`; get/set `Parameter0` `Parameter1` `Interaction`
+- `FunctionEditorObject` — ctor `(string, Function)`; get `Editor: FunctionEditorBase`
+- `MaterialEditorObject` — ctor `(string, DisplayMaterial)`; get/set `ForeRotation` `BackRotation` `IdenticalForeAndBack` `Material`
+- `ImageSamplerObject` — get `DisplayImage: Bitmap`; get/private-set `Image: Bitmap`; get/set `ImageUri` `Normalised` `Luminance` `LimitBehaviour` `DrawSamples`
+- `HistogramObject` — get `BucketCountText` `Pins`; get/set `Style` `Palette` `BucketCount` `BucketRange`
+- `QuickGraphObject` — get `Pins`
+- `ProtractorObject` — ctor `(string, Angle)`; get/set `Mode` `Angle`
+- `GradientEditorObject.Interaction`: null normalizes to the `Matter` interaction.
+- `FunctionEditorObject.Editor`: a read-only property carrying a mutable editor.
+- `MaterialEditorObject.Material`: null replaced lazily with a default material.
+- `ImageSamplerObject`: `ImageUri` and `DisplayImage` are nullable, and public image mutation is URI based.
 
-## [03]-[PUBLIC_STATE]
+[ENTRYPOINT_SCOPE]: pickers and lists
+- `PresetPickerObject` — ctor `(string)`; get `AvailablePresets` `SelectedNames`; get/set `UserNames` `MultiSelect` `Scroll0` `Scroll1`
+- `ComplexPickerObject` — ctor `(string, params Complex[])`; get/internal-set `Values: Complex[]`
+- `ConstantPickerObject` — ctor `(string, Maths.Constant)`; get/set `Constant: Maths.Constant`
+- `MetaNamePickerObject` — ctor `(string, MetaName)`; get/set `MetaKey: MetaName`
+- `TemporalPickerObject` — ctor `(string, DateTime)`; get/internal-set `Date: DateTime`
+- `ValueListObject` — get `ItemCount` `Items`; method `Pear(int)` `ItemSelected(int)`; get/set `Mode`; method `SelectPrev` `SelectNext` `SelectItem` `DeselectItem`; event `StateChanged`
+- `PresetPickerObject.UserNames`: null denotes no user-authored selection; `SelectedNames` falls back user names, then available presets, then an empty array, never null.
+- `PresetPickerObject.SelectedPresets(out int[], out IPreset[])`: equal-length, non-null arrays, two empty when no available preset resolves.
+- `PresetCollection`: a public type with an internal constructor obtained through `AvailablePresets`; `AvailablePresetsChanged` and `SelectedPresetsChanged` are assignable delegate fields, not events.
+- `ValueListObject.Items`: value/meta pears only; the internal `ValueListItem` carrier and the `Set(ValueListItem[], bool)`/`RepairSelection()` members withhold any public list-replacement surface, so public code inspects items and mutates selection alone.
 
-[STATE_SCOPE]: value inputs
-- rail: public members
-- note: access is stated explicitly because several properties expose mutable host objects while withholding a property setter.
+[ENTRYPOINT_SCOPE]: data, utility, and connection routing
+- `TimerObject` — get `DelayText` `DelayDisplayText` `TargetCount` `TargetIds` `Targets`; get/set `Delay` `Running` `Manual`; method `IsTarget` `AddTarget` `RemoveTarget`
+- `PathMapperObject` — get `Mappings: PathMappings`; get/set `Notation` `OmitUnaffected` `WarnAboutPaths` `WarnAboutSites`
+- `DataPanelObject` — get/set `VerticalOffset` `ShowColumns` `ShowPaths` `ShowIndices` `ShowTypes` `ShowItems` `ShowMetas`; method `ChangeDisplay`
+- `DataRecorderObject` — get `IsEmpty` `Valence`; get/set `Paused` `MergeTrees` `FrameLimit`; method `ClearRecordedData()`
+- `TreeViewerObject` — get/set `CanvasDisplay` `ViewportDisplay` `DisplayGradient`
+- `Shout` — get/set `ClusterOutput` `StreamData` `StreamPath` `StreamBackup`; method `UpdateNomenBasedOnState()`
+- `Listen` — get `ShoutId` `CurrentDependency`; get/set `DependencyIndex` `DependencyA`..`DependencyD` `ClusterInput` `ClusterIndex`; method `UpdateNomenBasedOnState()`
+- `Relay` — get `FrozenDataIsStale` `FrozenCachedData` `DisplayName`; get/set `Frozen`; method `SafeDisconnect()` `ResolveDisplayName()`
+- `TimerObject.TargetIds`: an empty array, never null; `Targets` omits unresolved identifiers and yields nothing when the timer has no document.
+- `PathMapperObject.Notation`: null normalizes to an empty string.
+- `DataRecorderObject.IsEmpty`: evaluates `_buckets.Count > 0`, so it reads true when recorded buckets exist despite the member name and XML summary.
+- `TreeViewerObject.DisplayGradient` and `Shout.StreamPath`: nullable.
+- `Listen.ShoutId`: `Guid.Empty` under name-based resolution; `CurrentDependency` returns null when `DependencyIndex` selects none of the four dependency slots.
+- `Relay.Frozen`: setting true captures `State.Data.Tree()` into `FrozenCachedData`, marks the cache current, suppresses recipient expiration, and serves the captured tree during collection; upstream expiration marks it stale, and thawing clears the cache, expires the relay when the captured data went stale, and resets the flag, so `FrozenCachedData` is nullable whenever thawed or unrestored.
+- `Relay.SafeDisconnect()`: returns an `ActionList`, copies every relay input to every downstream parameter, disconnects both sides, refreshes downstream relay names, and expires the downstream parameters; `ResolveDisplayName()` derives the name from `UserName` or the distinct sorted names propagated by upstream relays.
 
-| [INDEX] | [TYPE]               | [MEMBERS]                                                 | [ACCESS]              |
-| :-----: | :------------------- | :-------------------------------------------------------- | :-------------------- |
-|  [01]   | `NumberSliderObject` | `InternalSlider: Slider`; `InternalNumber: UiNumber`      | get                   |
-|  [02]   | `NumberSliderObject` | `GripDisplay`; `GripColour`; `GripFormat`                 | get/set               |
-|  [03]   | `NumberPickerObject` | `InternalPicker: NumberPicker`; `InternalNumber: decimal` | get                   |
-|  [04]   | `NumberPickerObject` | `GripColour`; `SnapToTicks`                               | get/set               |
-|  [05]   | `ToggleObject`       | `ToggleState`                                             | get/set               |
-|  [06]   | `ToggleObject`       | `TrueName`; `FalseName`; `TrueInfo`; `FalseInfo`          | get/private set       |
-|  [07]   | `ToggleObject`       | `StateNamesChanged`                                       | event                 |
-|  [08]   | `ButtonObject`       | `Action`; `UpTree`; `DownTree`                            | get/set               |
-|  [09]   | `ButtonObject`       | `UpColour`; `DownColour`; `UpText`; `DownText`            | get/set               |
-|  [10]   | `ButtonObject`       | `Press()`; `Release()`                                    | method                |
-|  [11]   | `ValueObject`        | `Text: string`; `Value: object`                           | get/private set       |
-|  [12]   | `ValueObject`        | `Notations`; `AssignTextAndValue(string)`                 | get/set; method       |
-|  [13]   | `TextInputObject`    | `Values: string[]`; `OneEntryPerLine`                     | get; get/internal set |
-|  [14]   | `TextInputObject`    | `Contents`; `Escaping`                                    | get/set               |
-|  [15]   | `ColourSwatchObject` | `Colour`; `Palette`; `Discrete`                           | get/internal set      |
-|  [16]   | `ColourSwatchObject` | `SetColour(Colour, bool immediate)`                       | method                |
+## [04]-[IMPLEMENTATION_LAW]
 
-`ButtonObject(IPear up, IPear down)` accepts null pears; a null pear leaves the corresponding tree unset, and a null `down` selects `ButtonAction.Single`. `ValueObject.AssignTextAndValue` normalizes null or empty text to `Text == string.Empty` and `Value == null`. `TextInputObject.Values` returns an empty array rather than null, and `Contents` reads as an empty string when its backing value is null. `ColourSwatchObject` rejects a null constructor colour, while `SetColour` accepts a null colour at runtime.
+[TOPOLOGY]:
+- Every object round-trips through its public `(IReader)` constructor and its `Store(IWriter)` override; a domain value crosses the archive only as that IO pair.
+- Canvas attributes come from protected `CreateAttributes()` overrides; a consumer reads them off the inherited document-object surface and never invokes the concrete factory.
+- Image sampling (`SampleContinuous`) and list replacement (`ValueListItem`, `Set(ValueListItem[], bool)`, `RepairSelection()`) are internal or private; the public surface samples through `ImageUri` and mutates list selection alone.
+- A read that can miss states its miss in the value, not an exception: `TargetIds`/`SelectedNames`/`Values` normalize to empty, `Notation`/`Contents` to empty strings, and `StreamPath`/`CurrentDependency`/`FrozenCachedData`/`DisplayGradient` return null on the unset path.
 
-[STATE_SCOPE]: editors and samplers
-- rail: public members
-- note: reference values accepted as `null` are normalized by the installed implementation where stated.
+[STACKING]:
+- `api-languageext`(`libs/csharp/.api/api-languageext.md`): nullable state reads (`Shout.StreamPath`, `Listen.CurrentDependency`, `Relay.FrozenCachedData`, `TreeViewerObject.DisplayGradient`) lower to `Option<T>`; a construction that rejects null (`ColourSwatchObject` colour) folds to `Fin<T>` where the reject maps to `Error`; the empty-array normalizers (`TimerObject.TargetIds`, `PresetPickerObject.SelectedNames`, `TextInputObject.Values`) carry as `Seq<T>`; `Relay.SafeDisconnect() -> ActionList` sequences through `Eff`; and slider/toggle/button interactive state rides an `Atom` cell.
+- `api-thinktecture-runtime-extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): the host discriminants — `Notation`, `ButtonAction`, `ProtractorObject.Mode`, `HistogramObject.Style`, `LimitBehaviour`, `ValueListObject.Mode` — are owned as `[SmartEnum]` vocabularies so a state branch dispatches through exhaustive `Switch`, and a `Colour`/`Gradient`/`Angle`/`Complex` value carrier folds to a `[ComplexValueObject]` with structural equality.
+- `api-gh2-io`: `(IReader)` construction and `Store(IWriter)` round-trip enter the archive through `IReader`/`IWriter`; `api-gh2-document`: every object joins the graph as a `DocumentObject`, and `TimerObject` expiry scheduling and `Relay.SafeDisconnect` mutation seal into one `ActionList`; `api-gh2-canvas`: protected `CreateAttributes` attributes read off the canvas; `api-gh2-components`: `IPear`/`ITree` data and the `Parameter<T>` value contract flow through these objects.
 
-| [INDEX] | [TYPE]                 | [MEMBERS]                                                          | [ACCESS]        |
-| :-----: | :--------------------- | :----------------------------------------------------------------- | :-------------- |
-|  [01]   | `GradientEditorObject` | `Parameter0`; `Parameter1`; `Interaction`                          | get/set         |
-|  [02]   | `GradientEditorObject` | `Gradient: Gradient`                                               | get             |
-|  [03]   | `FunctionEditorObject` | `Editor: FunctionEditorBase`                                       | get             |
-|  [04]   | `MaterialEditorObject` | `ForeRotation`; `BackRotation`; `IdenticalForeAndBack`; `Material` | get/set         |
-|  [05]   | `ImageSamplerObject`   | `Image: Bitmap`                                                    | get/private set |
-|  [06]   | `ImageSamplerObject`   | `DisplayImage: Bitmap`                                             | get             |
-|  [07]   | `ImageSamplerObject`   | `ImageUri`; `Normalised`; `Luminance`                              | get/set         |
-|  [08]   | `ImageSamplerObject`   | `LimitBehaviour`; `DrawSamples`                                    | get/set         |
-|  [09]   | `HistogramObject`      | `Style`; `Palette`; `BucketCount`; `BucketRange`                   | get/set         |
-|  [10]   | `HistogramObject`      | `BucketCountText`; `Pins`                                          | get             |
-|  [11]   | `QuickGraphObject`     | `Pins`                                                             | get             |
-|  [12]   | `ProtractorObject`     | `Mode`; `Angle`                                                    | get/set         |
+[LOCAL_ADMISSION]:
+- These special objects are the Rasm.Grasshopper folder's interactive-parameter domain; each composes the Rasm kernel for host-agnostic logic and never references a sibling Rasm package.
+- A value enters through the typed `Parameter<T>` contract; the internal `ValueListItem`/`SampleContinuous` members are not admitted, and canvas attributes arrive from the protected factory the base owns.
 
-`GradientEditorObject.Interaction` normalizes null to the `Matter` interaction. `FunctionEditorObject.Editor` is a read-only property carrying a mutable editor. `MaterialEditorObject.Material` replaces null lazily with a default material. `ImageSamplerObject.ImageUri` and `DisplayImage` are nullable; public image mutation is URI based.
-
-[STATE_SCOPE]: pickers and lists
-- rail: public members
-- note: selected preset names and list values use distinct public mutation surfaces.
-
-| [INDEX] | [TYPE]                 | [MEMBERS]                                                        | [ACCESS]         |
-| :-----: | :--------------------- | :--------------------------------------------------------------- | :--------------- |
-|  [01]   | `PresetPickerObject`   | `AvailablePresets`; `SelectedNames`                              | get              |
-|  [02]   | `PresetPickerObject`   | `UserNames`; `MultiSelect`; `Scroll0`; `Scroll1`                 | get/set          |
-|  [03]   | `ComplexPickerObject`  | `Values: Complex[]`                                              | get/internal set |
-|  [04]   | `ConstantPickerObject` | `Constant: Maths.Constant`                                       | get/set          |
-|  [05]   | `MetaNamePickerObject` | `MetaKey: MetaName`                                              | get/set          |
-|  [06]   | `TemporalPickerObject` | `Date: DateTime`                                                 | get/internal set |
-|  [07]   | `ValueListObject`      | `ItemCount`; `Items`; `Pear(int)`; `ItemSelected(int)`           | get; method      |
-|  [08]   | `ValueListObject`      | `Mode`; `SelectPrev`; `SelectNext`; `SelectItem`; `DeselectItem` | get/set; method  |
-|  [09]   | `ValueListObject`      | `StateChanged`                                                   | event            |
-
-`PresetPickerObject.UserNames` accepts `null`, which denotes no user-authored selection. `SelectedNames` returns `UserNames`, then the available preset fallback, then an empty array; it does not return `null`. `SelectedPresets(out int[] indices, out IPreset[] presets)` returns equal-length, non-null arrays, including two empty arrays when no available preset resolves. `PresetCollection` is public, but its constructor is internal; consumers obtain it through `AvailablePresets`. The public delegate fields `AvailablePresetsChanged` and `SelectedPresetsChanged` are assignable fields rather than C# events.
-
-`ValueListObject.Items` exposes value/meta pears only. The installed `ValueListItem` carrier is internal, `Set(ValueListItem[], bool)` is internal, and `RepairSelection()` is private. The SDK therefore has no public item-list replacement surface; public code can inspect items and mutate selection only.
-
-[STATE_SCOPE]: data and utility objects
-- rail: public members
-
-| [INDEX] | [TYPE]               | [MEMBERS]                                                              | [ACCESS]        |
-| :-----: | :------------------- | :--------------------------------------------------------------------- | :-------------- |
-|  [01]   | `TimerObject`        | `Delay`; `Running`; `Manual`                                           | get/set         |
-|  [02]   | `TimerObject`        | `DelayText`; `DelayDisplayText`; `TargetCount`; `TargetIds`; `Targets` | get             |
-|  [03]   | `TimerObject`        | `IsTarget`; `AddTarget`; `RemoveTarget`                                | method          |
-|  [04]   | `PathMapperObject`   | `Notation`; `OmitUnaffected`; `WarnAboutPaths`; `WarnAboutSites`       | get/set         |
-|  [05]   | `PathMapperObject`   | `Mappings: PathMappings`                                               | get             |
-|  [06]   | `DataPanelObject`    | `VerticalOffset`; `ShowColumns`; `ShowPaths`; `ShowIndices`            | get/set         |
-|  [07]   | `DataPanelObject`    | `ShowTypes`; `ShowItems`; `ShowMetas`; `ChangeDisplay`                 | get/set; method |
-|  [08]   | `DataRecorderObject` | `Paused`; `MergeTrees`; `FrameLimit`                                   | get/set         |
-|  [09]   | `DataRecorderObject` | `IsEmpty`; `Valence`; `ClearRecordedData()`                            | get; method     |
-|  [10]   | `TreeViewerObject`   | `CanvasDisplay`; `ViewportDisplay`; `DisplayGradient`                  | get/set         |
-
-`TimerObject.TargetIds` returns an empty array rather than `null`, while `Targets` omits unresolved identifiers and yields no values when the timer has no document. `PathMapperObject.Notation` normalizes `null` to an empty string. `TreeViewerObject.DisplayGradient` is nullable. In the installed build, `DataRecorderObject.IsEmpty` evaluates `_buckets.Count > 0`; its returned value is therefore true when recorded buckets exist despite the member name and XML summary.
-
-[STATE_SCOPE]: connection routing
-- rail: public members
-
-| [INDEX] | [TYPE]   | [MEMBERS]                                                   | [ACCESS]        |
-| :-----: | :------- | :---------------------------------------------------------- | :-------------- |
-|  [01]   | `Shout`  | `ClusterOutput`; `StreamData`; `StreamPath`; `StreamBackup` | get/set         |
-|  [02]   | `Shout`  | `UpdateNomenBasedOnState()`                                 | method          |
-|  [03]   | `Listen` | `ShoutId`; `CurrentDependency`                              | get             |
-|  [04]   | `Listen` | `DependencyIndex`; `DependencyA`..`DependencyD`             | get/set         |
-|  [05]   | `Listen` | `ClusterInput`; `ClusterIndex`; `UpdateNomenBasedOnState()` | get/set; method |
-|  [06]   | `Relay`  | `Frozen`                                                    | get/set         |
-|  [07]   | `Relay`  | `FrozenDataIsStale`; `FrozenCachedData`; `DisplayName`      | get             |
-|  [08]   | `Relay`  | `SafeDisconnect()`; `ResolveDisplayName()`                  | method          |
-
-`Shout.StreamPath` is nullable. `Listen.ShoutId` uses `Guid.Empty` when name-based resolution is active, and `CurrentDependency` returns null when `DependencyIndex` does not select one of the four dependency slots. The surrounding cluster lookup and binomial resolver methods are private or internal and are not consumer surfaces.
-
-Setting `Relay.Frozen` to true captures `State.Data.Tree()` into `FrozenCachedData`, marks the cache current, suppresses recipient expiration, and serves the captured tree during collection. Upstream expiration marks the cache stale. Thawing clears the cache, expires the relay when the captured data became stale, and resets the stale flag. `FrozenCachedData` is therefore nullable whenever the relay is thawed or no cache was restored. `SafeDisconnect()` returns an `ActionList`, copies every relay input connection to every downstream parameter, disconnects both sides of the relay, refreshes downstream relay names, and expires the downstream parameters. `ResolveDisplayName()` derives the display name from `UserName` or the distinct sorted names propagated by upstream relays.
-
-## [04]-[NON_PUBLIC_BOUNDARIES]
-
-[IMAGE_SAMPLING]: the installed assembly declares `private static Colour SampleContinuous(Eto.Drawing.BitmapData data, int w, int h, float x, float y, SamplingLimit edge)`. The return carrier is `Grasshopper2.Types.Colour.Colour`, but the method is not callable through the public SDK. `ImageSamplerObject` exposes image assignment through `ImageUri` and performs coordinate sampling only inside its own solution processing.
-
-[LIST_ASSIGNMENT]: `ValueListObject.Set(ValueListItem[], bool)` and `ValueListObject.RepairSelection()` are not public. A consumer cannot construct the internal `ValueListItem` type or replace the list through those members.
-
-[CANVAS_ATTRIBUTES]: every concrete `CreateAttributes()` override in this catalogue is protected. Consumers obtain attributes from the inherited document-object surface after the object creates them; they do not invoke the concrete factory directly.
+[RAIL_LAW]:
+- Package: `Grasshopper2` (interactive special objects)
+- Owns: the `Grasshopper2.Parameters.Special` value inputs, editors, samplers, pickers, data and utility panels, the expiry scheduler, and the shout/listen/relay routers
+- Accept: parameter construction, public state read and mutation, interactive method invocation, and IO round-trip over these objects
+- Reject: document graph mutation (`api-gh2-document`), canvas paint and picking (`api-gh2-canvas`), component declaration and pin typing (`api-gh2-components`), and the internal sampling and list-assignment members

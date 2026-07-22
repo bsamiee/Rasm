@@ -63,8 +63,8 @@
 - consumer: `serve/api` unless the cell names another rail
 - `HttpApiEndpoint.get(name)`/`.post`/`.del` carry `.setPath`/`.setPayload(schema)`/`.addSuccess`/`.addError`; `HttpApiGroup.make(name)` carries `.add(endpoint)`/`.addError`/`.prefix`/`.middleware(tag)`; `HttpApi.make(id)` carries `.add(group)`/`.addError`/`.annotate`/`.middleware`. `HttpApiBuilder.group(api, name, (h) => h.handle(endpointName, handler))` binds handlers; `.api(api)`/`.serve(middleware?)`/`toWebHandler(api, options)` yield the api/serve `Layer` or web handler. `HttpApiBuilder.middlewareCors(options)`/`.middlewareOpenApi()`/`.securityDecode`; `HttpApiClient.make(api, { baseUrl, transformClient })`; `OpenApi.fromApi(api)`/`HttpApiScalar.layer()`/`HttpApiSwagger.layer()`.
 
-| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY]   | [CONSUMER]                                                        |
-| :-----: | :----------------------------------------------------- | :--------------- | :---------------------------------------------------------------- |
+| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY]   | [CONSUMER]                                                 |
+| :-----: | :----------------------------------------------------- | :--------------- | :--------------------------------------------------------- |
 |  [01]   | `HttpApiEndpoint.get` / `.post` / `.del`               | declare endpoint | path, request, success, error `Schema`s                    |
 |  [02]   | `HttpApiGroup.make(name)`                              | declare group    | domain folders build a group; errors + mw ride it          |
 |  [03]   | `HttpApi.make(id)`                                     | assemble api     | one `HttpApi` from selected groups                         |

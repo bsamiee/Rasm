@@ -1,151 +1,150 @@
 # [RASM_BIM_API_SPECKLE]
 
-`Speckle.Sdk` and `Speckle.Objects` supply the receive-side object-graph the `Exchange/import#SPECKLE_SEAM` folds onto the canonical carriers: the `Base` dynamic root with its `id`/`applicationId`/`speckle_type` identity, the `BaseExtensions` deduplicating `Flatten`/`TryGetDisplayValue`/`IsDisplayableObject` traversal, the `Units` metre-conversion surface, the `Mesh`/`Brep` display geometry, and the `DataObject` host-object family with its typed-parameter `properties` dictionary. This folder-local catalogue records the Bim-seam members — `Mesh.vertexNormals`, `DataObject.properties`, and the host-object subtypes — the cross-folder Persistence sync catalogue elides.
+`Speckle.Sdk` and `Speckle.Objects` own the receive-side `Base` object-graph: the dynamic graph root, the deduplicating `Flatten` traversal, the display-mesh geometry, the metre-conversion surface, and the `DataObject` host-object family over a typed-parameter dictionary. Every member folds onto the canonical Bim carriers at the exchange import seam, and a non-display `Brep`/`Surface`/`Curve` with no `displayValue` hands off to the Compute tessellation companion.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Speckle.Sdk`
-- package: `Speckle.Sdk`
-- license: Apache-2.0
+- package: `Speckle.Sdk` (Apache-2.0, AEC Systems Ltd)
 - assembly: `Speckle.Sdk`
 - namespace: `Speckle.Sdk.Models`, `Speckle.Sdk.Models.Extensions`, `Speckle.Sdk.Models.GraphTraversal`, `Speckle.Sdk.Common`
-- asset: net10.0, net8.0, netstandard2.0; the net10.0 consumer binds the `lib/net10.0` asset
-- asset: IL-only managed assembly; ILRepacks its closure (GraphQL.Client, STJ) — the host-neutral exchange assembly consumes it, never the in-Rhino plugin ALC
+- asset: net10.0, net8.0, netstandard2.0; the net10.0 consumer binds `lib/net10.0`
+- abi: IL-only managed assembly ILRepacking its closure (GraphQL.Client, STJ); the host-neutral exchange assembly binds it, never the in-Rhino plugin ALC
 - rail: interchange
 
 [PACKAGE_SURFACE]: `Speckle.Objects`
-- package: `Speckle.Objects`
-- license: Apache-2.0
+- package: `Speckle.Objects` (Apache-2.0, AEC Systems Ltd)
 - assembly: `Speckle.Objects`
 - namespace: `Speckle.Objects.Geometry`, `Speckle.Objects.Data`, `Speckle.Objects`
-- asset: net10.0, net8.0, netstandard2.0; the net10.0 consumer binds the `lib/net10.0` asset
+- asset: net10.0, net8.0, netstandard2.0; the net10.0 consumer binds `lib/net10.0`
 - rail: interchange
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: object-graph root and traversal
-- rail: interchange
 
-| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [ROLE]                                                                      |
-| :-----: | :--------------------- | :------------ | :-------------------------------------------------------------------------- |
-|  [01]   | `Base`                 | dynamic class | graph root; `DynamicBase`/`ISpeckleObject`, dynamic detached-member carrier |
-|  [02]   | `BaseExtensions`       | static class  | dedup `Flatten`/`Traverse` walk plus display-value and parameter accessors  |
-|  [03]   | `BaseRecursionBreaker` | delegate      | `bool (Base)` predicate halting the `Flatten`/`Traverse` descent            |
-|  [04]   | `TraversalContext`     | class         | walk node carrying `Current`/`Parent`/`PropName` for spatial reconstruction |
-|  [05]   | `Units`                | static class  | unit-string constants plus `GetConversionFactor` metre scaling              |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [CAPABILITY]                                                       |
+| :-----: | :--------------------- | :------------ | :----------------------------------------------------------------- |
+|  [01]   | `Base`                 | dynamic class | graph root; `DynamicBase`/`ISpeckleObject` detached-member carrier |
+|  [02]   | `BaseExtensions`       | static class  | dedup traversal, display-value, and parameter accessors            |
+|  [03]   | `BaseRecursionBreaker` | delegate      | `bool(Base)` descent predicate nested in `BaseExtensions`          |
+|  [04]   | `TraversalContext`     | class         | walk node reconstructing spatial containment                       |
+|  [05]   | `Units`                | static class  | unit-string constants and the metre-scaling factor                 |
 
 [PUBLIC_TYPE_SCOPE]: display geometry
-- rail: interchange
 
-| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]  | [ROLE]                                                                              |
-| :-----: | :----------------- | :------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `Mesh`             | geometry class | flat `vertices`/`vertexNormals` `List<double>`, length-prefixed `faces` `List<int>` |
-|  [02]   | `Brep`             | geometry class | NURBS solid; `displayValue` `List<Mesh>` via `IDisplayValue<List<Mesh>>`            |
-|  [03]   | `IDisplayValue<T>` | interface      | covariant `displayValue` contract over the display-mesh payload type                |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]  | [CAPABILITY]                                                     |
+| :-----: | :----------------- | :------------- | :--------------------------------------------------------------- |
+|  [01]   | `Mesh`             | geometry class | flat `vertices`/`vertexNormals` doubles, length-prefixed `faces` |
+|  [02]   | `Brep`             | geometry class | NURBS solid carrying `displayValue` `List<Mesh>`                 |
+|  [03]   | `IDisplayValue<T>` | interface      | covariant `displayValue` contract over the payload type          |
 
 [PUBLIC_TYPE_SCOPE]: host-object data family
-- rail: interchange
 
-| [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [ROLE]                                                                             |
-| :-----: | :--------------- | :------------ | :--------------------------------------------------------------------------------- |
-|  [01]   | `DataObject`     | data class    | base host object; `IDataObject`/`IProperties`/`IDisplayValue<IReadOnlyList<Base>>` |
-|  [02]   | `RevitObject`    | data subtype  | adds `type`/`family`/`category`/`level`/`location`/`elements`                      |
-|  [03]   | `TeklaObject`    | data subtype  | adds `type`/`elements`                                                             |
-|  [04]   | `ArchicadObject` | data subtype  | Archicad host element; `DataObject` parameter dictionary                           |
-|  [05]   | `Civil3dObject`  | data subtype  | Civil3D host element; `DataObject` parameter dictionary                            |
-|  [06]   | `AutocadObject`  | data subtype  | AutoCAD host element; `DataObject` parameter dictionary                            |
-|  [07]   | `RhinoObject`    | data subtype  | Rhino host element; `DataObject` parameter dictionary                              |
+Every subtype extends `DataObject`, inheriting `name`/`displayValue`/`properties` over host-specific typed columns.
 
-[HOST_SUBTYPE_ROSTER]: `DataObject` subtypes
-- `ArcgisObject`, `ArchicadObject`, `AutocadObject`, `Civil3dObject`, `EtabsObject`, `MicrostationObject`, `NavisworksObject`, `RevitObject`, `RhinoObject`, `TeklaObject`, `TsdObject` — each extends `DataObject` and carries the inherited `name`/`displayValue`/`properties` plus host-specific typed columns.
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [CAPABILITY]                                                     |
+| :-----: | :------------------- | :------------ | :--------------------------------------------------------------- |
+|  [01]   | `DataObject`         | data class    | base host object; `IDataObject`/`IProperties`/`IDisplayValue<…>` |
+|  [02]   | `RevitObject`        | data subtype  | adds `type`/`family`/`category`/`level`/`location`/`elements`    |
+|  [03]   | `TeklaObject`        | data subtype  | adds `type`/`elements`                                           |
+|  [04]   | `ArcgisObject`       | data subtype  | ArcGIS host element                                              |
+|  [05]   | `ArchicadObject`     | data subtype  | Archicad host element                                            |
+|  [06]   | `AutocadObject`      | data subtype  | AutoCAD host element                                             |
+|  [07]   | `Civil3dObject`      | data subtype  | Civil3D host element                                             |
+|  [08]   | `EtabsObject`        | data subtype  | ETABS host element                                               |
+|  [09]   | `MicrostationObject` | data subtype  | MicroStation host element                                        |
+|  [10]   | `NavisworksObject`   | data subtype  | Navisworks host element                                          |
+|  [11]   | `RhinoObject`        | data subtype  | Rhino host element                                               |
+|  [12]   | `TsdObject`          | data subtype  | Tekla Structural Designer host element                           |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Base` — identity and count
-- rail: interchange
 
-| [INDEX] | [SURFACE]                 | [ENTRY_FAMILY] | [RAIL]                                    |
-| :-----: | :------------------------ | :------------- | :---------------------------------------- |
-|  [01]   | `id` property             | identity       | `string?`; the content-hash node id       |
-|  [02]   | `applicationId` property  | identity       | `string?`; the host-application stable id |
-|  [03]   | `speckle_type` property   | discriminant   | `string`; the `[SpeckleType]` type token  |
-|  [04]   | `GetTotalChildrenCount()` | count          | `long`; total detached descendant count   |
+| [INDEX] | [SURFACE]                 | [SHAPE]  | [CAPABILITY]                                       |
+| :-----: | :------------------------ | :------- | :------------------------------------------------- |
+|  [01]   | `id`                      | property | `string?` content-hash node id, null until decoded |
+|  [02]   | `applicationId`           | property | `string?` host-application stable id               |
+|  [03]   | `speckle_type`            | property | `string` `[SpeckleType]` token, get-only           |
+|  [04]   | `GetTotalChildrenCount()` | instance | `long` total detached descendant count             |
 
 [ENTRYPOINT_SCOPE]: `BaseExtensions` — traversal and display
-- rail: interchange
 
-| [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY] | [RAIL]                                              |
-| :-----: | :-------------------------------------------------- | :------------- | :-------------------------------------------------- |
-|  [01]   | `Flatten(this Base, BaseRecursionBreaker? = null)`  | dedup walk     | `IEnumerable<Base>`; caches on `Base.id`            |
-|  [02]   | `Traverse(this Base, BaseRecursionBreaker)`         | walk           | `IEnumerable<Base>`; breaker-gated descent          |
-|  [03]   | `TraverseWithPath(this Base, BaseRecursionBreaker)` | walk           | `IEnumerable<(string[], Base)>`; path-carrying walk |
-|  [04]   | `TryGetDisplayValue(this Base)`                     | display        | `IReadOnlyList<Base>?`; the display-node list       |
-|  [05]   | `TryGetDisplayValue<T>(this Base) where T: Base`    | display        | `IReadOnlyList<T>?`; typed display-node list        |
-|  [06]   | `IsDisplayableObject(this Base)`                    | predicate      | `bool`; true when a renderable display value exists |
-|  [07]   | `TryGetName(this Base)`                             | name           | `string?`; the node display name                    |
+`BaseExtensions` extends `Base` with static traversal and display accessors.
+
+| [INDEX] | [SURFACE]                                      | [SHAPE] | [CAPABILITY]                                        |
+| :-----: | :--------------------------------------------- | :------ | :-------------------------------------------------- |
+|  [01]   | `Flatten(Base, BaseRecursionBreaker?)`         | static  | `IEnumerable<Base>` dedup walk caching on `Base.id` |
+|  [02]   | `Traverse(Base, BaseRecursionBreaker)`         | static  | `IEnumerable<Base>` breaker-gated depth-first walk  |
+|  [03]   | `TraverseWithPath(Base, BaseRecursionBreaker)` | static  | `IEnumerable<(string[], Base)>` path-carrying walk  |
+|  [04]   | `TryGetDisplayValue(Base)`                     | static  | `IReadOnlyList<Base>?` display-node list            |
+|  [05]   | `TryGetDisplayValue<T>(Base)`                  | static  | `IReadOnlyList<T>?` typed list, `T : Base`          |
+|  [06]   | `IsDisplayableObject(Base)`                    | static  | `bool`, true when a display value exists            |
+|  [07]   | `TryGetName(Base)`                             | static  | `string?` node display name                         |
 
 [ENTRYPOINT_SCOPE]: `Units` — metre conversion
-- rail: interchange
 
-| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [RAIL]                                        |
-| :-----: | :---------------------------------------------- | :------------- | :-------------------------------------------- |
-|  [01]   | `Meters` constant                               | unit token     | `"m"`; the canonical kernel-frame target unit |
-|  [02]   | `Millimeters`/`Centimeters`/`Kilometers`        | unit token     | `"mm"`/`"cm"`/`"km"` metric tokens            |
-|  [03]   | `Inches`/`Feet`/`Yards`/`Miles`                 | unit token     | `"in"`/`"ft"`/`"yd"`/`"mi"` imperial tokens   |
-|  [04]   | `GetConversionFactor(string? from, string? to)` | scale          | `double`; the source-to-target metre scale    |
-|  [05]   | `IsUnitSupported(string unit)`                  | predicate      | `bool`; recognized-unit gate                  |
+| [INDEX] | [SURFACE]                                | [SHAPE] | [CAPABILITY]                                |
+| :-----: | :--------------------------------------- | :------ | :------------------------------------------ |
+|  [01]   | `Meters`                                 | const   | `"m"` canonical kernel-frame target unit    |
+|  [02]   | `Millimeters`/`Centimeters`/`Kilometers` | const   | `"mm"`/`"cm"`/`"km"` metric tokens          |
+|  [03]   | `Inches`/`Feet`/`Yards`/`Miles`          | const   | `"in"`/`"ft"`/`"yd"`/`"mi"` imperial tokens |
+|  [04]   | `GetConversionFactor(string?, string?)`  | static  | `double` source-to-target metre scale       |
+|  [05]   | `IsUnitSupported(string)`                | static  | `bool` recognized-unit gate                 |
 
 [ENTRYPOINT_SCOPE]: `Mesh` — display geometry
-- rail: interchange
 
-| [INDEX] | [SURFACE]                     | [ENTRY_FAMILY] | [RAIL]                                                         |
-| :-----: | :---------------------------- | :------------- | :------------------------------------------------------------- |
-|  [01]   | `vertices` property           | flat positions | `required List<double>`; flat `x,y,z` triples                  |
-|  [02]   | `vertexNormals` property      | flat normals   | `List<double>`; flat `x,y,z` per vertex, empty when absent     |
-|  [03]   | `faces` property              | n-gon indices  | `required List<int>`; length-prefixed `[n, i0, … i(n-1)]` runs |
-|  [04]   | `units` property              | unit token     | `required string`; the mesh's source unit                      |
-|  [05]   | `colors`/`textureCoordinates` | channels       | `List<int>`/`List<double>` optional vertex channels            |
-|  [06]   | `VerticesCount` property      | count          | `int`; `vertices.Count / 3`                                    |
-|  [07]   | `GetPoint(int index)`         | accessor       | `Point` at the vertex index                                    |
+| [INDEX] | [SURFACE]                     | [SHAPE]  | [CAPABILITY]                                         |
+| :-----: | :---------------------------- | :------- | :--------------------------------------------------- |
+|  [01]   | `vertices`                    | property | `required List<double>` flat `x,y,z` triples         |
+|  [02]   | `vertexNormals`               | property | `List<double>` flat per-vertex normals, may be empty |
+|  [03]   | `faces`                       | property | `required List<int>` length-prefixed `[n, i0…]` runs |
+|  [04]   | `units`                       | property | `required string` source unit                        |
+|  [05]   | `colors`/`textureCoordinates` | property | `List<int>`/`List<double>` optional vertex channels  |
+|  [06]   | `VerticesCount`               | property | `int` = `vertices.Count / 3`                         |
+|  [07]   | `GetPoint(int)`               | instance | `Point` at the vertex index                          |
 
 [ENTRYPOINT_SCOPE]: `DataObject` — host semantics
-- rail: interchange
 
-| [INDEX] | [SURFACE]                                      | [ENTRY_FAMILY] | [RAIL]                                                      |
-| :-----: | :--------------------------------------------- | :------------- | :---------------------------------------------------------- |
-|  [01]   | `name` property                                | label          | `required string`; the host element name                    |
-|  [02]   | `displayValue` property                        | geometry       | `required List<Base>`; the renderable display nodes         |
-|  [03]   | `properties` property                          | parameters     | `required Dictionary<string, object?>`; the host parameters |
-|  [04]   | `RevitObject.type`/`family`/`category`/`level` | host columns   | typed Revit element classification                          |
-|  [05]   | `RevitObject.elements`/`TeklaObject.elements`  | nesting        | `List<RevitObject>`/`List<TeklaObject>` child set           |
+| [INDEX] | [SURFACE]                                      | [SHAPE]  | [CAPABILITY]                                       |
+| :-----: | :--------------------------------------------- | :------- | :------------------------------------------------- |
+|  [01]   | `name`                                         | property | `required string` host element name                |
+|  [02]   | `displayValue`                                 | property | `required List<Base>` renderable display nodes     |
+|  [03]   | `properties`                                   | property | `required Dictionary<string, object?>` host params |
+|  [04]   | `RevitObject.type`/`family`/`category`/`level` | property | typed Revit element classification                 |
+|  [05]   | `RevitObject.elements`/`TeklaObject.elements`  | property | `List<RevitObject>`/`List<TeklaObject>` child set  |
 
 [ENTRYPOINT_SCOPE]: `TraversalContext` — walk node
-- rail: interchange
 
-| [INDEX] | [SURFACE]           | [ENTRY_FAMILY] | [RAIL]                                                   |
-| :-----: | :------------------ | :------------- | :------------------------------------------------------- |
-|  [01]   | `Current` property  | node           | `Base`; the node at this walk position                   |
-|  [02]   | `Parent` property   | chain          | `TraversalContext?`; the containment-reconstruction link |
-|  [03]   | `PropName` property | edge           | `string?`; the member name the parent reached through    |
+| [INDEX] | [SURFACE]  | [SHAPE]  | [CAPABILITY]                                        |
+| :-----: | :--------- | :------- | :-------------------------------------------------- |
+|  [01]   | `Current`  | property | `Base` node at this walk position                   |
+|  [02]   | `Parent`   | property | `TraversalContext?` containment-reconstruction link |
+|  [03]   | `PropName` | property | `string?` member name the parent reached through    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[SPECKLE_TOPOLOGY]:
-- `Base` is a `DynamicBase`: detached members live in a dynamic bag, so the seam reads typed members through the package surface and never reflects the dynamic bag directly
-- `BaseExtensions.Flatten` is the single deduplicating traversal — it caches on `Base.id`, so the seam never re-walks the tree or hand-rolls a `DynamicBase.GetMembers` recursion
-- `TryGetDisplayValue`/`IsDisplayableObject` own the displayable-node vocabulary; a per-type `is Mesh`/`is Brep` ladder is the rejected form
-- `Mesh.faces` is a length-prefixed n-gon encoding (`[n, i0, … i(n-1)]` runs), not a flat triangle list; the seam fans each n-gon over a triangle fan at the boundary
-- `Mesh.vertexNormals` is a flat `List<double>` parallel to `vertices`; a normal channel is present only when `vertexNormals.Count == vertices.Count`
-- `Brep` carries `displayValue` `List<Mesh>` and no managed NURBS evaluator; a non-mesh `Brep`/`Surface`/`Curve` with no `displayValue` routes to the companion tessellation rail
-- `DataObject.properties` is `Dictionary<string, object?>`; the host subtypes (`RevitObject`/`TeklaObject`/…) add typed columns over the same inherited parameter dictionary
+[TOPOLOGY]:
+- `Base` is a `DynamicBase`; the seam reads typed members through the package surface and never reflects the dynamic bag.
+- `Flatten` is the sole deduplicating traversal, caching on `Base.id`; the seam never hand-rolls a `DynamicBase` recursion.
+- `TryGetDisplayValue`/`IsDisplayableObject` own the displayable-node vocabulary; a per-type `is Mesh`/`is Brep` ladder is the rejected form.
+- `Mesh.faces` fans each length-prefixed n-gon to a triangle fan at the boundary.
+- `Mesh.vertexNormals` carries a normal channel only when `vertexNormals.Count == vertices.Count`.
+- `Brep` ships no managed NURBS evaluator; a non-mesh `Brep`/`Surface`/`Curve` lacking `displayValue` routes to the tessellation companion.
+- Host subtypes add typed columns over the one inherited `properties` dictionary.
+
+[STACKING]:
+- `dotbim`(`.api/api-dotbim`), `SharpGLTF`(`.api/api-sharpgltf`), `AssimpNetter`(`.api/api-assimpnetter`): every display `Mesh` fans to the shared canonical triangle carrier these codecs decode into, so a received Speckle model re-exports through any of them.
+- `Exchange/import` seam: `root.Flatten()` splits to `OfType<Mesh>` geometry and `OfType<DataObject>` semantics onto the canonical carriers, `Units.GetConversionFactor(mesh.units, Units.Meters)` scaling every mesh to the kernel metre frame; a `displayValue`-less `Brep`/`Surface`/`Curve` hands to the Compute tessellation companion.
 
 [LOCAL_ADMISSION]:
-- Display fold: `root.Flatten` → per-node `TryGetDisplayValue?.OfType<Mesh>` → fan each `Mesh.faces` n-gon to triangles → scale by `Units.GetConversionFactor(mesh.units, Units.Meters)`.
-- Semantic fold: `root.Flatten().OfType<DataObject>()` → project `name`/`speckle_type`/`applicationId` and flatten `properties` to typed parameter rows.
-- Containment: read `TraversalContext.Parent` chain to reconstruct the spatial node containment.
+- Display fold: `root.Flatten` → per-node `TryGetDisplayValue?.OfType<Mesh>` → fan `faces` n-gons to triangles → scale by `Units.GetConversionFactor(mesh.units, Units.Meters)`.
+- Semantic fold: `root.Flatten().OfType<DataObject>()` → project `name`/`speckle_type`/`applicationId`, flatten `properties` to typed parameter rows.
+- Containment: walk the `TraversalContext.Parent` chain to reconstruct spatial node containment.
 
 [RAIL_LAW]:
 - Package: `Speckle.Sdk`, `Speckle.Objects`
 - Owns: the receive-side `Base` object-graph, the dedup traversal, the display-mesh geometry, and the host-object semantic family
-- Accept: an already-deserialized `Base` root through the package-owned `Flatten`/`TryGetDisplayValue` surface
-- Reject: a hand-rolled `Base`-graph recursion, a per-type display ladder, a managed Speckle BRep tessellator, and a second `IOperations.Receive` reference inside the import seam
+- Accept: an already-deserialized `Base` root through the package `Flatten`/`TryGetDisplayValue` surface
+- Reject: a hand-rolled `Base`-graph recursion, a per-type display ladder, a managed Speckle BRep tessellator, and a second `IOperations.Receive` in the import seam

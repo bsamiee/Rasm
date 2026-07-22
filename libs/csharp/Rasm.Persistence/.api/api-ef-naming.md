@@ -1,96 +1,69 @@
 # [RASM_PERSISTENCE_API_EF_NAMING]
 
-`EFCore.NamingConventions` rewrites the relational model's table, column, key, index, and constraint
-names through a single EF Core convention plugin so the schema names follow one policy
-(snake_case, lower, upper, camelCase, UPPER_SNAKE_CASE) instead of the CLR PascalCase default. The
-consumption surface is the `Use*NamingConvention` extensions on `DbContextOptionsBuilder`; the
-rewriters, the plugin, and the convention live under `EFCore.NamingConventions.Internal` and are
-extension points, not direct call surfaces. Policy is applied as schema facts at model-build time, so
-generated migrations carry the rewritten names.
+`EFCore.NamingConventions` binds one casing policy to every relational identifier EF Core derives — table, view, column, JSON container column, key, foreign-key constraint, and index — as a model-build convention displacing the CLR PascalCase default, so the runtime model and the migrations scaffolded from it carry the same names with no second naming pass.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `EFCore.NamingConventions`
-- package: `EFCore.NamingConventions`
-- license: Apache-2.0
-- target: `net10.0`
+- package: `EFCore.NamingConventions` (`Apache-2.0`, Shay Rojansky)
 - assembly: `EFCore.NamingConventions`
-- namespace (consumption): `Microsoft.EntityFrameworkCore` (`Use*NamingConvention` builder extensions), `Microsoft.Extensions.DependencyInjection` (`NamingConventionsServiceCollectionExtensions`)
-- namespace (extension points): `EFCore.NamingConventions.Internal` (`INameRewriter`, the rewriter rows, `NamingConvention`, `NamingConventionSetPlugin`, `NameRewritingConvention`, `NamingConventionsOptionsExtension`)
-- asset: runtime library
+- namespace: `Microsoft.EntityFrameworkCore`, `Microsoft.Extensions.DependencyInjection` (consumption); `EFCore.NamingConventions.Internal` (extension points)
 - rail: schema-tooling
 
 ## [02]-[PUBLIC_TYPES]
 
-[NAMING_TYPES]: convention plugin, rewriter contract, and rewriter rows
-- rail: schema-tooling
+[NAMING_TYPES]: policy carrier, convention installer, and the rewrite contract — every `Internal` symbol ships `public` and `virtual`, and each rewriter row takes a `CultureInfo` constructor argument, so casing is locale-parameterized rather than pinned to the invariant culture and `UpperSnakeCaseNameRewriter` derives its result from `SnakeCaseNameRewriter`.
 
-Every symbol below is `EFCore.NamingConventions.Internal`-namespaced and `public`; consumers extend the
-policy through the `INameRewriter` contract plus the DI plugin, never by referencing a sealed rewriter
-type. The five built-in rewriters are the `NamingConvention` enum cases the `Use*` extensions select.
+| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY] | [CAPABILITY]                                           |
+| :-----: | :--------------------------------------------- | :------------ | :----------------------------------------------------- |
+|  [01]   | `NamingConventionsExtensions`                  | class         | the `Use*NamingConvention` builder-extension family    |
+|  [02]   | `NamingConventionsServiceCollectionExtensions` | class         | DI registration of the convention plugin               |
+|  [03]   | `INameRewriter`                                | interface     | the one per-identifier rewrite hook                    |
+|  [04]   | `NamingConvention`                             | enum          | the casing-policy case vocabulary                      |
+|  [05]   | `NamingConventionsOptionsExtension`            | class         | `IDbContextOptionsExtension` carrying policy + culture |
+|  [06]   | `NamingConventionSetPlugin`                    | class         | `IConventionSetPlugin` selecting the rewriter row      |
+|  [07]   | `NameRewritingConvention`                      | class         | applies one rewriter across the model-build hooks      |
 
-| [INDEX] | [SYMBOL]                     | [PACKAGE_ROLE]         | [CAPABILITY]                                                            |
-| :-----: | :--------------------------- | :--------------------- | :---------------------------------------------------------------------- |
-|  [01]   | `INameRewriter`              | rewriter contract      | `string RewriteName(string name)` — the extension point                 |
-|  [02]   | `NamingConvention`           | policy enum            | `None`/`SnakeCase`/`LowerCase`/`CamelCase`/`UpperCase`/`UpperSnakeCase` |
-|  [03]   | `NamingConventionSetPlugin`  | `IConventionSetPlugin` | injects `NameRewritingConvention` into the convention set               |
-|  [04]   | `NameRewritingConvention`    | model convention       | applies the rewriter across entity/property/key/FK/index add events     |
-|  [05]   | `SnakeCaseNameRewriter`      | rewriter row           | writes snake_case (culture-aware)                                       |
-|  [06]   | `LowerCaseNameRewriter`      | rewriter row           | writes lowercase                                                        |
-|  [07]   | `UpperCaseNameRewriter`      | rewriter row           | writes UPPERCASE                                                        |
-|  [08]   | `CamelCaseNameRewriter`      | rewriter row           | writes camelCase                                                        |
-|  [09]   | `UpperSnakeCaseNameRewriter` | rewriter row           | writes UPPER_SNAKE_CASE (`: SnakeCaseNameRewriter`)                     |
+`[NamingConvention]`: `None` `SnakeCase` `LowerCase` `CamelCase` `UpperCase` `UpperSnakeCase`
 
-`INameRewriter` contract:
-- `string RewriteName(string name)` — the single rewrite hook every built-in rewriter implements and a custom convention overrides; `NameRewritingConvention` calls it once per emitted table/column/key/index/constraint identifier.
-
-Each built-in rewriter takes a `CultureInfo culture` constructor argument, so casing is culture-aware (the Turkish-I problem is parameterizable, not hardcoded to the invariant culture).
+`[INameRewriter rows]`: `SnakeCaseNameRewriter` `LowerCaseNameRewriter` `UpperCaseNameRewriter` `CamelCaseNameRewriter` `UpperSnakeCaseNameRewriter`
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: naming policy operations (namespace `Microsoft.EntityFrameworkCore`)
-- rail: schema-tooling
+[ENTRYPOINT_SCOPE]: policy admission and the extension points beneath it. Every `Use*NamingConvention` takes `(DbContextOptionsBuilder, CultureInfo? = null)`, returns the builder, and mirrors as `<TContext>` over `DbContextOptionsBuilder<TContext>`, so `OnConfiguring` and a typed `AddDbContext<T>` registration both apply the policy without a cast.
 
-Every policy extension carries an optional `CultureInfo? culture = null` argument and a generic
-`<TContext>` mirror; the non-generic form returns `DbContextOptionsBuilder` and the generic form
-returns `DbContextOptionsBuilder<TContext>`, so both `OnConfiguring` and a typed `AddDbContext<T>`
-registration apply the policy without a cast. Applying a convention adds (or amends) one
-`NamingConventionsOptionsExtension` on the options.
+`[NamingConventionsExtensions]`: `UseSnakeCaseNamingConvention` `UseLowerCaseNamingConvention` `UseUpperCaseNamingConvention` `UseCamelCaseNamingConvention` `UseUpperSnakeCaseNamingConvention`
 
-| [INDEX] | [SURFACE]                           | [CALL_SHAPE]                                                           | [CAPABILITY]            |
-| :-----: | :---------------------------------- | :--------------------------------------------------------------------- | :---------------------- |
-|  [01]   | `UseSnakeCaseNamingConvention`      | `(DbContextOptionsBuilder, CultureInfo? = null)` + `<TContext>` mirror | snake_case schema names |
-|  [02]   | `UseLowerCaseNamingConvention`      | `(DbContextOptionsBuilder, CultureInfo? = null)` + `<TContext>` mirror | lowercase schema names  |
-|  [03]   | `UseUpperCaseNamingConvention`      | `(DbContextOptionsBuilder, CultureInfo? = null)` + `<TContext>` mirror | UPPERCASE schema names  |
-|  [04]   | `UseCamelCaseNamingConvention`      | `(DbContextOptionsBuilder, CultureInfo? = null)` + `<TContext>` mirror | camelCase schema names  |
-|  [05]   | `UseUpperSnakeCaseNamingConvention` | `(DbContextOptionsBuilder, CultureInfo? = null)` + `<TContext>` mirror | UPPER_SNAKE_CASE names  |
+`[NamingConventionsOptionsExtension]`: `WithSnakeCaseNamingConvention` `WithLowerCaseNamingConvention` `WithUpperCaseNamingConvention` `WithCamelCaseNamingConvention` `WithUpperSnakeCaseNamingConvention` `WithoutNaming` — each `(CultureInfo? = null)` returning the re-minted extension, the disarming form taking none; a hand-composed `DbContextOptions` mounts policy here without the builder.
 
-`NamingConventionsServiceCollectionExtensions.AddEntityFrameworkNamingConventions(this IServiceCollection) : IServiceCollection` (namespace `Microsoft.Extensions.DependencyInjection`) admits the convention services into the DI container — the registration path the `Use*` extensions rely on; a host wiring the convention through explicit service registration uses this surface rather than the options builder.
+| [INDEX] | [SURFACE]                                                                          | [SHAPE]  | [CAPABILITY]                         |
+| :-----: | :--------------------------------------------------------------------------------- | :------- | :----------------------------------- |
+|  [01]   | `AddEntityFrameworkNamingConventions(IServiceCollection)`                          | static   | registers the plugin in DI           |
+|  [02]   | `RewriteName(string) -> string`                                                    | instance | the per-identifier rewrite hook      |
+|  [03]   | `ModifyConventions(ConventionSet) -> ConventionSet`                                | instance | installs the rewriting convention    |
+|  [04]   | `NameRewritingConvention(ProviderConventionSetBuilderDependencies, INameRewriter)` | ctor     | binds a custom rewriter to the model |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[NAMING_POLICY]:
-- namespace (consumption): `Microsoft.EntityFrameworkCore`; namespace (extension points): `EFCore.NamingConventions.Internal`
-- entry root: `DbContextOptionsBuilder` (or `DbContextOptionsBuilder<TContext>`) via one `Use*NamingConvention` call carrying an optional `CultureInfo?`
-- convention root: `NamingConventionSetPlugin` injects `NameRewritingConvention`, which calls `INameRewriter.RewriteName` per identifier across the entity/property/key/FK/index/finalizing convention hooks
-- options root: `NamingConventionsOptionsExtension` (one per options instance; `Use*` amends the existing extension rather than stacking)
-- rewriter root: the five `*NameRewriter` rows (`Internal`), selected by the `NamingConvention` enum; culture-aware via the `CultureInfo` ctor argument
-- schema role: relational table, column, key, index, and constraint names
+[TOPOLOGY]:
+- Every identifier the relational model derives passes `INameRewriter.RewriteName` once at model build, so migration DDL and the runtime model agree by construction.
+- One `NamingConventionsOptionsExtension` carries the policy per options instance: a `Use*` call reads the extension already mounted and re-mints it, so a second call re-points the casing instead of stacking a second rewrite pass.
+- Every rewrite lands at convention configuration source, so a name pinned through `ToTable`, `HasColumnName`, or `HasName` survives verbatim and `NamingConvention.None` returns the convention set untouched.
+- `NamingConventionSetPlugin` maps the enum case to its rewriter row and admits no custom one, so a bespoke policy constructs `NameRewritingConvention` against its own `INameRewriter` and mounts it through a sibling `IConventionSetPlugin`.
 
 [STACKING]:
-- Owning pages: relational naming is a schema-identity fact on `Element/identity`, applied uniformly across the provider store profiles (`Store/provisioning`) from one `Use*` call rather than a per-provider patch.
-- The naming convention applies ON TOP of the relational provider mapping: it rewrites the names EF Core emits for tables/columns/keys/indexes after the provider (`Npgsql.EntityFrameworkCore.PostgreSQL`) and the store-profile mapping decide the model, so snake_case lands uniformly across the Postgres and SQLite profiles from one `Use*` call rather than per-provider naming patches.
-- A custom `INameRewriter` (e.g. a domain prefix scheme) composes through the same `NamingConventionSetPlugin` seam as a built-in rewriter, so an additional naming policy is one convention registration, not a hand-written `IEntityTypeAddedConvention`.
-- Because the convention rewrites at model-build time, the generated EF migrations (`Microsoft.EntityFrameworkCore.Design`) carry the rewritten names as schema facts, so the migration DDL and the runtime model agree without a second naming pass.
+- `api-npgsql-ef`(`.api/api-npgsql-ef.md`): rides the same `DbContextOptionsBuilder` as `UseNpgsql` — the provider decides the relational model and this convention rewrites the identifiers it emits, so one call covers every PostgreSQL table, column, key, and index.
+- `api-ef-sqlite`(`.api/api-ef-sqlite.md`): the same one call binds the `UseSqlite` profile, so both store profiles carry one casing policy rather than a per-provider patch.
+- `api-thinktecture-ef`(`.api/api-thinktecture-ef.md`): `UseThinktectureValueConverters` and `Use*NamingConvention` mount as peer options extensions on one builder — generated converters decide column types, this convention decides column names, and neither orders the other.
+- `api-ef-design`(`.api/api-ef-design.md`): `OperationExecutor` scaffolds migrations and compiles models over already-rewritten names, so emitted DDL and the `Optimize` compiled model need no naming fixup.
+- within-lib: `Element/identity` chains `UseSnakeCaseNamingConvention()` into `ConverterRail.Compose` on the one `IdentityContext`, leaving `IdentityShape`/`NodeCellShape` to carry only what conventions cannot derive.
 
 [LOCAL_ADMISSION]:
-- Naming convention is schema policy and cannot hide inside provider-specific setup; it enters through one `Use*NamingConvention` call on the shared options builder, with `CultureInfo?` explicit where casing is locale-sensitive.
-- Store profiles share one naming policy unless a profile explicitly overrides it.
-- Generated migrations reflect naming policy as schema facts, not formatting preferences.
-- A custom rewriter extends `INameRewriter` and is admitted through the plugin; referencing a sealed `*NameRewriter` row directly is the rejected form.
+- Store profiles share one policy, and a profile that diverges declares the override at its own options composition.
+- A casing flip is a schema change rather than a formatting preference: the migration it generates renames real database objects.
 
 [RAIL_LAW]:
 - Package: `EFCore.NamingConventions`
-- Owns: relational naming convention policy (table/column/key/index/constraint identifiers)
-- Accept: unified schema naming via one `Use*` call, culture-explicit, with custom rewriters through `INameRewriter`
-- Reject: hand-written provider naming patches and direct references to the `Internal` rewriter rows
+- Owns: relational identifier casing across table, view, column, JSON container, key, constraint, and index names
+- Accept: one `Use*` admission per options builder, culture-explicit, extended through `INameRewriter`
+- Reject: hand-written provider naming patches and hand-rolled model-build naming conventions

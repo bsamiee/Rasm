@@ -1,43 +1,32 @@
 # [RASM_PERSISTENCE_API_ADBC_BIGQUERY]
 
-`Apache.Arrow.Adbc.Drivers.BigQuery` supplies the concrete Google BigQuery ADBC driver — `BigQueryDriver`
-(`AdbcDriver`), `BigQueryDatabase` (`AdbcDatabase`), and `BigQueryConnection` (`AdbcConnection`) — that
-opens a BigQuery warehouse from an `IReadOnlyDictionary<string,string>` parameter map and returns query
-results as Arrow `RecordBatch` streams over the `BigQuery Storage Read API`. It is a CONCRETE
-implementation of the `Apache.Arrow.Adbc` abstraction: the driver-selection surface, the
-`adbc.bigquery.*` connection-string vocabulary, the OAuth / service-account / Entra-ID
-(`Azure AD` workload-identity-federation) auth posture, the token-refresh callback, and the
-integration seams live here; `api-arrow.md` owns the base query/metadata/result-stream contract.
+`Apache.Arrow.Adbc.Drivers.BigQuery` mints the concrete Google BigQuery ADBC driver — `BigQueryDriver`, `BigQueryDatabase`, and `BigQueryConnection` — opening a warehouse from an `IReadOnlyDictionary<string,string>` parameter map and returning Arrow `RecordBatch` streams over the BigQuery Storage Read API. This driver owns the `adbc.bigquery.*` connection vocabulary, the OAuth / service-account / Entra-ID auth discriminant, and the `UpdateToken` callback that heals token expiry without re-opening; the base query, metadata, and result-stream contract rides `api-arrow.md`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Apache.Arrow.Adbc.Drivers.BigQuery`
-- package: `Apache.Arrow.Adbc.Drivers.BigQuery`
-- license: Apache-2.0 (`licenses.nuget.org/Apache-2.0`)
+- package: `Apache.Arrow.Adbc.Drivers.BigQuery` (Apache-2.0)
 - assembly: `Apache.Arrow.Adbc.Drivers.BigQuery`
 - namespace: `Apache.Arrow.Adbc.Drivers.BigQuery`
-- asset: runtime library, pure-managed AnyCPU, NO native RID asset (over `Google.Cloud.BigQuery.V2` / `Google.Apis.Auth`). Multi-TFM `net8.0` / `netstandard2.0` / `net472`; the consumer `net10.0` binds the highest asset `lib/net8.0` — no `net10.0`/`net9.0` asset ships, so `net8.0` is the consumed surface. The public surface is `BigQueryDriver` / `BigQueryDatabase` / `BigQueryConnection`; the `BigQueryParameters` / `BigQueryConstants` key holders are `internal` but their `const string` values ARE the connection contract (they key the `Open` dictionary) — the wire vocabulary.
+- asset: pure-managed AnyCPU runtime library, no native RID asset; the `net10.0` consumer binds `lib/net8.0`, the highest shipped TFM
 - rail: query egress
-- ABI floor: `Apache.Arrow.Adbc` is a PRE-1.0 contract over the abstract `AdbcDriver`/`AdbcConnection` members this driver overrides. `BigQueryConnection` extends the driver framework's `TracingConnection` (a `System.Diagnostics.ActivitySource` integration) and implements `ITokenProtectedResource` (an `internal` interface) — the `internal` Thrift/tracing infrastructure is not consumer surface. The `Interop.Snowflake`/`Interop.FlightSql` siblings are REJECTED (no `osx-arm64` native asset).
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: driver entrypoints (concrete `Apache.Arrow.Adbc`)
-- rail: query egress
 
-| [INDEX] | [SYMBOL]             | [PACKAGE_ROLE]   | [CAPABILITY]                                                                        |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]    | [CAPABILITY]                                                                        |
 | :-----: | :------------------- | :--------------- | :---------------------------------------------------------------------------------- |
 |  [01]   | `BigQueryDriver`     | `AdbcDriver`     | `.Open(parameters)` -> BigQuery `AdbcDatabase`                                      |
 |  [02]   | `BigQueryDatabase`   | `AdbcDatabase`   | `.Connect(options)` -> `BigQueryConnection`                                         |
 |  [03]   | `BigQueryConnection` | `AdbcConnection` | `TracingConnection`+`ITokenProtectedResource`; metadata + statement + token refresh |
 
 [PUBLIC_TYPE_SCOPE]: connection-string parameter vocabulary (`internal` key holders, public contract)
-- rail: query egress
 
-| [INDEX] | [SYMBOL]             | [PACKAGE_ROLE] | [CAPABILITY]                                                                        |
-| :-----: | :------------------- | :------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `BigQueryParameters` | key holder     | the `adbc.bigquery.*` `const string` keys populating the `Open` map                 |
-|  [02]   | `BigQueryConstants`  | value holder   | the value vocabulary — auth / Entra-STS / default literals / autodetect ([01]-[04]) |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [CAPABILITY]                                                                        |
+| :-----: | :------------------- | :------------ | :---------------------------------------------------------------------------------- |
+|  [01]   | `BigQueryParameters` | key holder    | the `adbc.bigquery.*` `const string` keys populating the `Open` map                 |
+|  [02]   | `BigQueryConstants`  | value holder  | the value vocabulary — auth / Entra-STS / default literals / autodetect ([01]-[04]) |
 
 - [01]-[AUTH]: `user`/`aad`/`service` auth-type discriminants.
 - [02]-[ENTRA_STS]: `EntraStsTokenEndpoint`/`EntraGrantType`/`EntraSubjectTokenType`/`EntraRequestedTokenType`/`EntraIdScope` token-exchange endpoints.
@@ -47,10 +36,8 @@ integration seams live here; `api-arrow.md` owns the base query/metadata/result-
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: driver open + connection surface
-- rail: query egress
 
-`BigQueryDriver.Open` mints the `AdbcDatabase`; every other surface below is a `BigQueryConnection` member (the
-constructor, then instance members).
+`BigQueryDriver.Open` mints the `AdbcDatabase`; every surface below is a `BigQueryConnection` member, the constructor first, then instance members.
 
 | [INDEX] | [SURFACE]                                                                                | [CAPABILITY]                                |
 | :-----: | :--------------------------------------------------------------------------------------- | :------------------------------------------ |
@@ -65,10 +52,8 @@ constructor, then instance members).
 |  [09]   | `GetInfo(IReadOnlyList<AdbcInfoCode>)` / `GetTableTypes()`                               | driver-info + table-type Arrow streams      |
 
 [ENTRYPOINT_SCOPE]: connection-string parameter keys (`BigQueryParameters`)
-- rail: query egress
 
-`AuthenticationType` takes a `BigQueryConstants` discriminant ([DRIVER_ALGEBRA]); set
-`BigQueryConstants.DetectProjectId` on `ProjectId` to auto-detect the project from credentials.
+`AuthenticationType` takes a `BigQueryConstants` discriminant; `BigQueryConstants.DetectProjectId` on `ProjectId` auto-detects the project from credentials.
 
 | [INDEX] | [SURFACE]                                                                                     | [CAPABILITY]                             |
 | :-----: | :-------------------------------------------------------------------------------------------- | :--------------------------------------- |
@@ -82,63 +67,28 @@ constructor, then instance members).
 |  [08]   | `MaximumRetryAttempts`/`RetryDelayMs`                                                         | retry budget over transient faults       |
 |  [09]   | `IncludeConstraintsWithGetObjects`/`IncludePublicProjectId`                                   | metadata policy (FK, public-data)        |
 
-[ENTRYPOINT_SCOPE]: inherited base surface (`api-arrow.md`)
-- rail: query egress
-
-SQL execution is the base `Apache.Arrow.Adbc` surface: `AdbcStatement.SqlQuery` set + `ExecuteQuery()` ->
-`QueryResult.Stream` (`IArrowArrayStream`); parameter binding + `ExecuteUpdate` for DML; transaction
-properties on `AdbcConnection`. The driver overrides those abstract members; `api-arrow.md` owns that
-contract.
-
 ## [04]-[IMPLEMENTATION_LAW]
 
-[DRIVER_ALGEBRA]:
-- driver root: `BigQueryDriver` -> `BigQueryDatabase` -> `BigQueryConnection`
-- config root: the `IReadOnlyDictionary<string,string>` parameter map keyed by `BigQueryParameters` constants
-- auth discriminant root: `BigQueryConstants.{UserAuthenticationType, EntraIdAuthenticationType, ServiceAccountAuthenticationType}` mapped onto `BigQueryParameters.AuthenticationType`
-- token-refresh root: `BigQueryConnection.UpdateToken` (`Func<Task>?`) + `TokenRequiresUpdate(Exception)`
-- result root: Arrow `RecordBatch` over `IArrowArrayStream` (the base `Apache.Arrow.Adbc` contract)
-- tracing root: `BigQueryConnection : TracingConnection` (an `ActivitySource` integration)
-
-[PARAMETER_CONTRACT]:
-- There is NO typed options class — the `adbc.bigquery.*` parameter dictionary IS the API. A consumer maps its
-  own typed config record onto the `BigQueryParameters` keys (which are `internal` but stable wire strings), never a strongly-typed object.
-- Auth is a three-flow discriminant: `service` (a `JsonCredential` service-account key), `user` (an OAuth
-  `ClientId`/`ClientSecret`/`RefreshToken` triple), and `aad` (Entra-ID workload-identity-federation through the
-  `BigQueryConstants` STS token-exchange endpoints with an `AudienceUri`).
-- Token expiry is HEALED, not failed: the driver calls `UpdateToken` (a `Func<Task>?` the consumer sets) when
-  `TokenRequiresUpdate(ex)` is true — the boundary wires this to its KMS/KeyVault credential refresh, never a re-open.
-
-[LOCAL_ADMISSION]:
-- The driver is admitted ONLY through the Persistence Query-federation boundary that owns the parameter-map
-  construction; the `adbc.bigquery.*` key strings and credential material never leak into an interior signature.
-- The `UpdateToken` callback is the credential-refresh seam: it is set at the boundary to the redacted-credential
-  source, so a token rotation never re-opens the connection and never logs the token.
-- Result `RecordBatch` streams are consumed through the base-package `IArrowArrayStream` and projected to the
-  canonical Arrow owner — the driver is a SOURCE adapter, not a data model.
+[TOPOLOGY]:
+- driver chain: `BigQueryDriver` -> `BigQueryDatabase` -> `BigQueryConnection`, opened from the `IReadOnlyDictionary<string,string>` map keyed by `BigQueryParameters` constants — the `adbc.bigquery.*` dictionary IS the API, no typed options class
+- auth discriminant: `BigQueryConstants.{UserAuthenticationType, EntraIdAuthenticationType, ServiceAccountAuthenticationType}` on `BigQueryParameters.AuthenticationType` selects `service` (a `JsonCredential` key), `user` (an OAuth `ClientId`/`ClientSecret`/`RefreshToken` triple), or `aad` (Entra-ID workload-identity-federation over the `BigQueryConstants` STS endpoints with an `AudienceUri`)
+- token refresh: expiry heals through `UpdateToken` (`Func<Task>?`) when `TokenRequiresUpdate(Exception)` is true, never a re-open
+- result: Arrow `RecordBatch` over `IArrowArrayStream`, the base `Apache.Arrow.Adbc` contract
+- tracing: `BigQueryConnection : TracingConnection`, an `ActivitySource` integration
 
 [STACKING]:
-- base-abstraction seam: the driver IS the concrete `AdbcDriver` for the `Apache.Arrow.Adbc` abstraction in
-  `api-arrow.md`. The `Query/federation#FEDERATED_PLAN` rail selects `BigQueryDriver` by backend, opens it with a parameter map,
-  and reads results through the base `QueryResult.Stream` `IArrowArrayStream` — the SAME egress shape as the
-  Spark/Hive/Impala drivers (`api-adbc-apache.md`) and distinct from the in-process DuckDB path (`api-duckdb.md`).
-- arrow-result seam: BigQuery results arrive as Arrow `RecordBatch`es over the Storage Read API, so a warehouse
-  query result and an in-process Arrow batch are the SAME `Apache.Arrow` type (`api-arrow.md`) — directly
-  writable to Parquet (`api-parquetsharp.md`) or a Delta table (`api-deltalake.md`) with zero re-materialization.
-- credential seam: the auth parameter set (`JsonCredential`, `ClientSecret`, `RefreshToken`) and the `UpdateToken`
-  refresh callback compose with the KMS/KeyVault/GCP-KMS credential owners (`api-aws-kms.md`, `api-azure-keyvault.md`,
-  `api-google-kms.md`) and the redaction owner (`api-redaction.md`) — credentials flow from the secret store into
-  the parameter map and the refresh callback, never inline literals, and never reach a log sink.
-- tracing seam: `BigQueryConnection : TracingConnection` emits `ActivitySource` spans, so a federated BigQuery
-  query nests under the same OpenTelemetry trace the Npgsql/OTel owner (`libs/csharp/.api/api-npgsql-opentelemetry.md`) opens — one
-  distributed trace spans the in-PG path and the warehouse egress.
+- `api-arrow.md`: `BigQueryDriver` IS the concrete `AdbcDriver` for the `Apache.Arrow.Adbc` abstraction — the federation rail selects it by backend, opens it with a parameter map, and reads results through the base `QueryResult.Stream` `IArrowArrayStream`, the same egress shape as the Spark/Hive/Impala drivers (`api-adbc-apache.md`) and distinct from in-process DuckDB (`api-duckdb.md`)
+- `api-arrow.md`: BigQuery results arrive as Arrow `RecordBatch` over the Storage Read API, so a warehouse result and an in-process batch are one `Apache.Arrow` type — directly writable to Parquet (`api-parquetsharp.md`) or a Delta table (`api-deltalake.md`) with zero re-materialization
+- `api-aws-kms.md`/`api-azure-keyvault.md`/`api-google-kms.md` + `api-redaction.md`: the auth parameter set (`JsonCredential`, `ClientSecret`, `RefreshToken`) and the `UpdateToken` refresh callback draw credentials from the secret store into the parameter map and refresh hook, never inline literals and never a log sink
+- `api-npgsql-opentelemetry.md`: `BigQueryConnection : TracingConnection` emits `ActivitySource` spans, so a federated BigQuery query nests under the same OpenTelemetry trace the in-PG path opens
+
+[LOCAL_ADMISSION]:
+- this driver admits ONLY through the Persistence Query-federation boundary that owns parameter-map construction; its `adbc.bigquery.*` key strings and credential material never leak into an interior signature
+- `UpdateToken` is the credential-refresh seam, set at the boundary to the redacted-credential source, so a token rotation never re-opens the connection and never logs the token
+- result `RecordBatch` streams consume through the base `IArrowArrayStream` and project to the canonical Arrow owner — the driver is a SOURCE adapter, never a data model
 
 [RAIL_LAW]:
-- Package: `Apache.Arrow.Adbc.Drivers.BigQuery` `0.23.0` (Apache-2.0, pure-managed AnyCPU, `net10.0` binds `net8.0`, PRE-1.0 ADBC contract)
-- Owns: the concrete BigQuery ADBC driver (`BigQueryDriver`/`BigQueryDatabase`/`BigQueryConnection`), the
-  `adbc.bigquery.*` connection-string vocabulary, the OAuth/service-account/Entra-ID auth posture, the
-  `UpdateToken` refresh callback, and the `TracingConnection` span integration
-- Accept: a BigQuery warehouse opened through the Query-federation boundary, configured by the typed parameter
-  map with credentials sourced from the secret store, returning Arrow `RecordBatch` streams over the base contract
-- Reject: an `adbc.bigquery.*` key or credential string in an interior signature; a token re-open where
-  `UpdateToken` heals; a `RecordBatch` re-materialization away from the Arrow owner; an `Interop.*` driver (no `osx-arm64` native asset)
+- Package: `Apache.Arrow.Adbc.Drivers.BigQuery`
+- Owns: the concrete BigQuery ADBC driver (`BigQueryDriver`/`BigQueryDatabase`/`BigQueryConnection`), the `adbc.bigquery.*` connection vocabulary, the OAuth/service-account/Entra-ID auth posture, the `UpdateToken` refresh callback, and the `TracingConnection` span integration
+- Accept: a BigQuery warehouse opened through the Query-federation boundary, configured by the parameter map with credentials sourced from the secret store, returning Arrow `RecordBatch` streams over the base contract
+- Reject: an `adbc.bigquery.*` key or credential string in an interior signature; a token re-open where `UpdateToken` heals; a `RecordBatch` re-materialization away from the Arrow owner; an `Interop.*` driver (no `osx-arm64` native asset)

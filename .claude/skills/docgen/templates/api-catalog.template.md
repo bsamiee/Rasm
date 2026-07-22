@@ -36,20 +36,20 @@ Optional-by-condition, omitted when it decides nothing: `target`, `abi`, `plane`
 
 [PUBLIC_TYPE_SCOPE]: <what this cluster of types is>
 
-| [INDEX] | [SYMBOL]    | [TYPE_FAMILY]      | [CAPABILITY]                |
-| :-----: | :---------- | :----------------- | :-------------------------- |
-|  [01]   | `<Symbol>`  | <family-1-2-words> | <capability-phrase>         |
-|  [02]   | `Shape`     | union              | the closed shape vocabulary |
-|  [03]   | `Variant`   | smart-enum         | the bounded case set        |
+| [INDEX] | [SYMBOL]   | [TYPE_FAMILY]      | [CAPABILITY]                |
+| :-----: | :--------- | :----------------- | :-------------------------- |
+|  [01]   | `<Symbol>` | <family-1-2-words> | <capability-phrase>         |
+|  [02]   | `Shape`    | union              | the closed shape vocabulary |
+|  [03]   | `Variant`  | smart-enum         | the bounded case set        |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: <what these surfaces do>
 
-| [INDEX] | [SURFACE]                     | [SHAPE]  | [CAPABILITY]                       |
-| :-----: | :---------------------------- | :------- | :--------------------------------- |
-|  [01]   | `Shape.refine(Variant)`       | instance | refine one shape to canonical form |
-|  [02]   | `Shape.of(Type) -> Refined`   | factory  | admit a raw value to the surface   |
+| [INDEX] | [SURFACE]                   | [SHAPE]  | [CAPABILITY]                       |
+| :-----: | :-------------------------- | :------- | :--------------------------------- |
+|  [01]   | `Shape.refine(Variant)`     | instance | refine one shape to canonical form |
+|  [02]   | `Shape.of(Type) -> Refined` | factory  | admit a raw value to the surface   |
 
 <!-- source-only: one member per row, signature abbreviated per the schema rule above. A load-bearing behavioral caveat a signature cannot show — a discarded return, an in-place mutation, a null-despite-signature — rides one `- \`Owner.member\`: <caveat>` line after the table, never a wider cell and never a torn card. -->
 

@@ -7,7 +7,7 @@ carrying producer identity, probed producer version, and content _fingerprint.
 """
 
 import annotationlib  # PEP 749: STRING annotations avoid evaluating unresolvable forward refs
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import difflib
 from enum import StrEnum
 from functools import lru_cache
@@ -77,6 +77,19 @@ class Fidelity(StrEnum):
     DECLARED = "declared"  # parsed .d.ts ambient declarations
 
 
+class _Outcome(StrEnum):
+    """Classification of one ilspycmd decompile attempt.
+
+    MISS is the typed "Could not find type definition" verdict regardless of exit code; FAULT covers every
+    other nonzero exit or exit-0 stderr fault, so a tool failure never masquerades as a symbol miss.
+    """
+
+    HIT = "hit"  # exit 0 with decompiled source on stdout
+    MISS = "miss"  # type definition absent from this assembly's type system
+    EMPTY = "empty"  # clean exit, empty output, silent stderr: a genuine soft miss
+    FAULT = "fault"  # operational failure: nonzero exit or an exit-0 stderr fault
+
+
 @runtime_checkable
 class Oracle(Protocol):
     """API boundary port: one frozen adapter per source provenance."""
@@ -138,6 +151,91 @@ _TFM_NETCOREAPP: re.Pattern[str] = re.compile(r"^netcoreapp(\d+)\.(\d+)$")
 _TFM_NETSTANDARD: re.Pattern[str] = re.compile(r"^netstandard(\d+)\.(\d+)$")
 _TFM_NETFRAMEWORK: re.Pattern[str] = re.compile(r"^net(4\d{1,2})$")
 _TARGET_FRAMEWORK: re.Pattern[str] = re.compile(r"<TargetFramework>\s*net(\d+)\.(\d+)\s*</TargetFramework>")
+# ilspycmd's typed not-found verdict; it can ride stderr under any exit code, so classification keys on the text.
+_ILSPY_MISS: str = "Could not find type definition"
+# ilspycmd decompiler-crash markers (an ICSharpCode.Decompiler transform bug on one method aborts the whole
+# type); stderr tail-clips under the stream cap, so the trace-frame marker — present throughout the stack —
+# detects a crash whose "Error decompiling" head was clipped. The rail retries the attempt at the downgraded
+# language version, whose simpler transform pipeline decompiles the type cleanly, and stamps the fallback note.
+_ILSPY_CRASH: tuple[str, ...] = ("Error decompiling", "ICSharpCode.Decompiler")
+_ILSPY_LV_FALLBACK: tuple[str, ...] = ("-lv", "CSharp7_3")
+# XMLDoc ids arity-mark generics (`N types, ``N methods); the CLR reflection tail is single-backtick only.
+_ARITY: re.Pattern[str] = re.compile(r"`+\d+")
+_ARITY_TAIL: re.Pattern[str] = re.compile(r"^(?P<base>.+)`(?P<n>\d+)$")
+# ECMA-335 #~ table schemas: column tokens are u2/u4 fixed, S/G/B heap indexes, I:<tid> simple indexes, and
+# C:<family> coded indexes. Row widths derive from these schemas so the reader can skip every table between
+# TypeDef (0x02) and NestedClass (0x29); an unknown present table id aborts the parse fail-open.
+_MD_TABLES: dict[int, tuple[str, ...]] = {
+    0x00: ("u2", "S", "G", "G", "G"),
+    0x01: ("C:ResolutionScope", "S", "S"),
+    0x02: ("u4", "S", "S", "C:TypeDefOrRef", "I:04", "I:06"),
+    0x03: ("I:04",),
+    0x04: ("u2", "S", "B"),
+    0x05: ("I:06",),
+    0x06: ("u4", "u2", "u2", "S", "B", "I:08"),
+    0x07: ("I:08",),
+    0x08: ("u2", "u2", "S"),
+    0x09: ("I:02", "C:TypeDefOrRef"),
+    0x0A: ("C:MemberRefParent", "S", "B"),
+    0x0B: ("u2", "C:HasConstant", "B"),
+    0x0C: ("C:HasCustomAttribute", "C:CustomAttributeType", "B"),
+    0x0D: ("C:HasFieldMarshal", "B"),
+    0x0E: ("u2", "C:HasDeclSecurity", "B"),
+    0x0F: ("u2", "u4", "I:02"),
+    0x10: ("u4", "I:04"),
+    0x11: ("B",),
+    0x12: ("I:02", "I:14"),
+    0x13: ("I:14",),
+    0x14: ("u2", "S", "C:TypeDefOrRef"),
+    0x15: ("I:02", "I:17"),
+    0x16: ("I:17",),
+    0x17: ("u2", "S", "B"),
+    0x18: ("u2", "I:06", "C:HasSemantics"),
+    0x19: ("I:02", "C:MethodDefOrRef", "C:MethodDefOrRef"),
+    0x1A: ("S",),
+    0x1B: ("B",),
+    0x1C: ("u2", "C:MemberForwarded", "S", "I:1A"),
+    0x1D: ("u4", "I:04"),
+    0x1E: ("u4", "u4"),
+    0x1F: ("u4",),
+    0x20: ("u4", "u2", "u2", "u2", "u2", "u4", "B", "S", "S"),
+    0x21: ("u4",),
+    0x22: ("u4", "u4", "u4"),
+    0x23: ("u2", "u2", "u2", "u2", "u4", "B", "S", "S", "B"),
+    0x24: ("u4", "I:23"),
+    0x25: ("u4", "u4", "u4", "I:23"),
+    0x26: ("u4", "S", "B"),
+    0x27: ("u4", "u4", "S", "S", "C:Implementation"),
+    0x28: ("u4", "u4", "S", "C:Implementation"),
+    0x29: ("I:02", "I:02"),
+    0x2A: ("u2", "u2", "C:TypeOrMethodDef", "S"),
+    0x2B: ("C:MethodDefOrRef", "B"),
+    0x2C: ("I:2A", "C:TypeDefOrRef"),
+}
+# Coded-index families (ECMA-335 II.24.2.6); zero entries hold unused tag slots so tag-bit widths stay exact.
+_MD_FAMILIES: dict[str, tuple[int, ...]] = {
+    "TypeDefOrRef": (0x02, 0x01, 0x1B),
+    "HasConstant": (0x04, 0x08, 0x17),
+    "HasCustomAttribute": (
+        *(0x06, 0x04, 0x01, 0x02, 0x08, 0x09, 0x0A, 0x00, 0x0E, 0x17, 0x14),
+        *(0x11, 0x1A, 0x1B, 0x20, 0x23, 0x26, 0x27, 0x28, 0x2A, 0x2C, 0x2B),
+    ),
+    "HasFieldMarshal": (0x04, 0x08),
+    "HasDeclSecurity": (0x02, 0x06, 0x20),
+    "MemberRefParent": (0x02, 0x01, 0x1A, 0x06, 0x1B),
+    "HasSemantics": (0x14, 0x17),
+    "MethodDefOrRef": (0x06, 0x0A),
+    "MemberForwarded": (0x04, 0x06),
+    "Implementation": (0x26, 0x23, 0x27),
+    "CustomAttributeType": (0, 0, 0x06, 0x0A, 0),
+    "ResolutionScope": (0x00, 0x1A, 0x23, 0x01),
+    "TypeOrMethodDef": (0x02, 0x06),
+}
+_MD_MAGIC: int = 0x424A5342
+_MD_FIXED: dict[str, int] = {"u2": 2, "u4": 4}
+_MD_HEAP_BIT: dict[str, int] = {"S": 1, "G": 2, "B": 4}
+# Surface-cache file shape (`<16-hex>.json` or `unresolved.json`); the write-time reaper removes only these.
+_FINGERPRINT_FILE: re.Pattern[str] = re.compile(r"(?:[0-9a-f]{16}|unresolved)\.json")
 # Producer identities stamped into typed cache entries; a mismatched producer is a cache miss, never a parse guess.
 _ILSPY_PRODUCER: str = "ilspycmd"
 _PY_PRODUCER: str = "py-api"
@@ -168,12 +266,44 @@ _DECL_NODES: frozenset[str] = frozenset((
     "interface_declaration",
     "type_alias_declaration",
     "enum_declaration",
+    "internal_module",
     "function_signature",
     "method_signature",
     "property_signature",
     "public_field_definition",
     "variable_declarator",
 ))
+# Flat symbol lookups prefer type-level declarations over value/member-level ones sharing the name, so an
+# interface's `Effect` property never shadows the `Effect` type the query names; document order breaks ties.
+_DECL_RANK: dict[str, int] = {
+    "class_declaration": 0,
+    "abstract_class_declaration": 0,
+    "interface_declaration": 0,
+    "type_alias_declaration": 0,
+    "enum_declaration": 0,
+    "internal_module": 0,
+    "function_signature": 1,
+    "variable_declarator": 1,
+    "method_signature": 2,
+    "property_signature": 2,
+    "public_field_definition": 2,
+}
+_RANK_EXPORT: int = 8  # export-alias fallback outranks nothing but a miss
+_RANK_NONE: int = 99  # no declaration and no export alias in this file
+# Declaration-node kinds projected onto the member-truth band a report consumer reads typed.
+_TS_KIND: dict[str, str] = {
+    "class_declaration": "class",
+    "abstract_class_declaration": "class",
+    "interface_declaration": "interface",
+    "type_alias_declaration": "type-alias",
+    "enum_declaration": "enum",
+    "internal_module": "namespace",
+    "function_signature": "function",
+    "variable_declarator": "const",
+    "method_signature": "method",
+    "property_signature": "property",
+    "public_field_definition": "field",
+}
 _EXPORT_SPEC: frozenset[str] = frozenset(("export_specifier",))
 _TYPE_CAP: str = "type"  # roster capture-name vocabulary: every INPROC/tree-sitter declaration row caps under this name
 _INSPECT_KINDS: tuple[tuple[str, Callable[[object], bool]], ...] = (
@@ -207,7 +337,12 @@ class Source:
 
 @dataclass(frozen=True, slots=True)
 class Surface:
-    """Type roster listed from one source, with its cache path and raw listing."""
+    """Type roster listed from one source, with its cache path, raw listing, and reflection-name map.
+
+    ``reflection`` maps each display FQN (dotted, arity-free, as the roster renders it) to its CLR reflection
+    names (backtick arity, ``+`` nested separators) read from assembly metadata; one display name fans to
+    several reflection names when arities collide. Empty for INPROC sources.
+    """
 
     source: Source
     types: tuple[str, ...]
@@ -215,6 +350,7 @@ class Surface:
     by_namespace: dict[str, tuple[str, ...]]
     cache: str
     raw: str
+    reflection: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
 
 class CacheEntry(Base, frozen=True):
@@ -653,10 +789,12 @@ def tsdecl_source(settings: AssaySettings, key: str) -> Source | None:
             return None
         case pkg_dir:
             manifest = _json_fields(pkg_dir / "package.json", "types", "typings", "version")
-            # package.json `types`/`typings` wins over the `index.d.ts` convention.
+            # package.json `types`/`typings` wins over the `index.d.ts` convention. Declarations walk the whole
+            # package tree (an entry that only re-exports nested files rosters nothing otherwise), skipping the
+            # package's own vendored node_modules.
             declared = pkg_dir / (manifest["types"] or manifest["typings"] or _DTS_ENTRY)
             entry = declared if declared.is_file() else None
-            siblings = tuple(sorted((entry.parent if entry is not None else pkg_dir).glob(_DTS_GLOB)))
+            siblings = tuple(sorted(p for p in pkg_dir.rglob(_DTS_GLOB) if _NODE_MODULES not in p.relative_to(pkg_dir).parts))
             assets = tuple(dict.fromkeys((*((entry,) if entry is not None else ()), *siblings)))
             # pnpm store dir encodes `{mangled}@version(+peer)(_hash)`; strip the peer/hash suffixes.
             pnpm = next((d.name.removeprefix(f"{mangled}@").split("+", 1)[0].split("_", 1)[0] for d in sorted(store.glob(f"{mangled}@*"))), "")
@@ -756,6 +894,143 @@ def to_api_source(source: Source, *, status: RailStatus | None = None, selected:
     )
 
 
+# --- [ECMA335_METADATA]
+
+
+def _cli_streams(raw: bytes) -> tuple[bytes, bytes] | None:
+    # PE -> COFF -> optional-header data directory 14 (CLI) -> metadata root -> (#~|#-, #Strings) payloads.
+    pe = int.from_bytes(raw[0x3C:0x40], "little")
+    if raw[pe : pe + 4] != b"PE\x00\x00":
+        return None
+    section_count = int.from_bytes(raw[pe + 6 : pe + 8], "little")
+    opt = pe + 24
+    opt_size = int.from_bytes(raw[pe + 20 : pe + 22], "little")
+    dirs = opt + (96 if int.from_bytes(raw[opt : opt + 2], "little") == 0x10B else 112)
+    table = opt + opt_size
+    sections = tuple(
+        (
+            int.from_bytes(raw[base + 12 : base + 16], "little"),  # virtual address
+            int.from_bytes(raw[base + 8 : base + 12], "little"),  # virtual size
+            int.from_bytes(raw[base + 20 : base + 24], "little"),  # raw pointer
+        )
+        for index in range(section_count)
+        for base in (table + 40 * index,)
+    )
+
+    def off(rva: int) -> int | None:
+        return next((pointer + (rva - address) for address, size, pointer in sections if address <= rva < address + size), None)
+
+    cli = off(int.from_bytes(raw[dirs + 112 : dirs + 116], "little"))
+    md = off(int.from_bytes(raw[cli + 8 : cli + 12], "little")) if cli is not None else None
+    if md is None or int.from_bytes(raw[md : md + 4], "little") != _MD_MAGIC:
+        return None
+    version_len = int.from_bytes(raw[md + 12 : md + 16], "little")
+    stream_count = int.from_bytes(raw[md + 16 + version_len + 2 : md + 16 + version_len + 4], "little")
+    cursor, streams = md + 16 + version_len + 4, dict[str, bytes]()
+    for _ in range(stream_count):
+        payload_off = int.from_bytes(raw[cursor : cursor + 4], "little")
+        payload_size = int.from_bytes(raw[cursor + 4 : cursor + 8], "little")
+        terminator = raw.index(b"\x00", cursor + 8)
+        streams[raw[cursor + 8 : terminator].decode("ascii", errors="replace")] = raw[md + payload_off : md + payload_off + payload_size]
+        cursor = cursor + 8 + ((terminator - (cursor + 8)) // 4 + 1) * 4
+    tables = streams.get("#~") or streams.get("#-")
+    strings = streams.get("#Strings")
+    return None if tables is None or strings is None else (tables, strings)
+
+
+def _md_width(token: str, heap: int, counts: dict[int, int]) -> int:
+    match token:
+        case "u2" | "u4":
+            return _MD_FIXED[token]
+        case "S" | "G" | "B":
+            return 4 if heap & _MD_HEAP_BIT[token] else 2
+        case _ if token.startswith("I:"):
+            return 4 if counts.get(int(token.removeprefix("I:"), 16), 0) > 0xFFFF else 2
+        case _:
+            family = _MD_FAMILIES[token.removeprefix("C:")]
+            tag = max(1, (len(family) - 1).bit_length())
+            return 4 if max((counts.get(member, 0) for member in family), default=0) >= 1 << (16 - tag) else 2
+
+
+def _heap_str(strings: bytes, index: int) -> str:
+    terminator = strings.find(b"\x00", index)
+    return strings[index:terminator].decode("utf-8", errors="replace") if 0 <= index < len(strings) and terminator >= 0 else ""
+
+
+def _typedef_reflection(raw: bytes) -> tuple[str, ...]:
+    # TypeDef names carry the backtick arity verbatim in metadata; NestedClass supplies the `+` chain.
+    match _cli_streams(raw):
+        case None:
+            return ()
+        case (tables, strings):
+            heap = tables[6]
+            valid = int.from_bytes(tables[8:16], "little")
+            present = tuple(index for index in range(64) if valid >> index & 1)
+            if any(tid not in _MD_TABLES for tid in present):
+                return ()
+            counts = {tid: int.from_bytes(tables[24 + 4 * slot : 28 + 4 * slot], "little") for slot, tid in enumerate(present)}
+            widths = {tid: sum(_md_width(token, heap, counts) for token in _MD_TABLES[tid]) for tid in present}
+            offsets, cursor = dict[int, int](), 24 + 4 * len(present)
+            for tid in present:
+                offsets[tid] = cursor
+                cursor += widths[tid] * counts[tid]
+            string_width = _md_width("S", heap, counts)
+            typedef_width = _md_width("I:02", heap, counts)
+            own = tuple(
+                (
+                    _heap_str(strings, int.from_bytes(tables[at + 4 + string_width : at + 4 + 2 * string_width], "little")),
+                    _heap_str(strings, int.from_bytes(tables[at + 4 : at + 4 + string_width], "little")),
+                )
+                for row in range(counts.get(0x02, 0))
+                for at in (offsets.get(0x02, 0) + row * widths.get(0x02, 0),)
+            )
+            nested_base, nested_width = offsets.get(0x29, 0), widths.get(0x29, 0)
+            enclosing = {
+                nested - 1: parent - 1
+                for row in range(counts.get(0x29, 0))
+                for at in (nested_base + row * nested_width,)
+                for nested in (int.from_bytes(tables[at : at + typedef_width], "little"),)
+                for parent in (int.from_bytes(tables[at + typedef_width : at + 2 * typedef_width], "little"),)
+            }
+
+            def full(index: int, seen: frozenset[int]) -> str:
+                namespace, name = own[index]
+                parent = enclosing.get(index)
+                if parent is None or parent in seen or not 0 <= parent < len(own):
+                    return f"{namespace}.{name}" if namespace else name
+                return f"{full(parent, seen | {index})}+{name}"
+
+            return tuple(name for index in range(len(own)) for name in (full(index, frozenset()),) if "<" not in name)
+
+
+@lru_cache(maxsize=64)
+def _reflection_names_at(path_str: str, size: int, mtime_ns: int) -> tuple[str, ...]:
+    _ = (size, mtime_ns)  # lru_cache key slots: a rewritten assembly re-reads, an unchanged one replays
+    try:
+        return _typedef_reflection(Path(path_str).read_bytes())
+    except OSError, ValueError, IndexError:
+        return ()
+
+
+def reflection_map(assemblies: tuple[Path, ...]) -> dict[str, tuple[str, ...]]:
+    """Map each display FQN to its CLR reflection names across the source's assemblies.
+
+    Returns:
+        Display name (dotted, arity-free) to reflection names (backtick arity, ``+`` nesting), sorted per key.
+    """
+    names = tuple(
+        dict.fromkeys(
+            name
+            for path in assemblies
+            if path.is_file()
+            for st in (path.stat(),)
+            for name in _reflection_names_at(str(path), st.st_size, st.st_mtime_ns)
+        )
+    )
+    rows = sorted((_ARITY.sub("", name).replace("+", "."), name) for name in names)
+    return {display: tuple(name for _, name in group) for display, group in itertools.groupby(rows, key=operator.itemgetter(0))}
+
+
 # --- [ILSPY_PORT]
 
 
@@ -814,26 +1089,88 @@ def _roster_parser(version: str) -> Callable[[str], tuple[str, ...]]:
     return next(parser for pattern, parser in _ROSTER_PARSERS if pattern.search(numeric) is not None)
 
 
-def _run_decompile(settings: AssaySettings, executor: Executor, fqn: str, assemblies: tuple[Path, ...]) -> Result[Completed, Fault]:
-    # Ref assemblies precede lib assemblies; the first non-empty successful decompile wins, and a clean run with
-    # empty output stays a Completed soft miss (the caller's roster/search fallback). Every attempt exiting nonzero
-    # is an operational Fault carrying the aggregated stderr — the fqn came from the live roster, so silence here
-    # would mask a broken tool (an absent manifest row, a failed spawn) as a symbol miss and degrade into fuzzy search.
-    ordered = sorted(assemblies, key=lambda a: ("/ref/" not in a.as_posix(), a.as_posix().casefold()))
+def split_arity(symbol: str) -> tuple[str, int]:
+    """Split an explicit reflection-arity tail off a queried symbol.
+
+    Returns:
+        (base symbol, arity); arity 0 when the symbol carries no backtick tail.
+    """
+    match _ARITY_TAIL.fullmatch(symbol):
+        case None:
+            return (symbol, 0)
+        case found:
+            return (found.group("base"), int(found.group("n")))
+
+
+def _classify(done: Completed) -> _Outcome:
+    stderr = done.stderr.decode(errors="replace")
+    match (done.returncode, bool(done.stdout), _ILSPY_MISS in stderr):
+        case (_, _, True):
+            return _Outcome.MISS
+        case (0, True, _):
+            return _Outcome.HIT
+        case (0, False, _) if not stderr.strip():
+            return _Outcome.EMPTY
+        case _:
+            return _Outcome.FAULT
+
+
+def _attempt_spelling(
+    settings: AssaySettings, executor: Executor, tool: Tool, spelling: str, ordered: tuple[Path, ...], refs: tuple[str, ...]
+) -> tuple[_Outcome, Completed | None, tuple[str, ...], bool]:
+    # Assemblies scan ref-first with early exit on the first hit; fault stderr accrues across the scan. A
+    # decompiler crash retries the same pair once at the downgraded language version before counting as a fault.
+    outcome: _Outcome = _Outcome.MISS
+    faults: tuple[str, ...] = ()
+    for assembly in ordered:
+        done = _invoke(settings, executor, tool, ToolArgs(assembly=str(assembly), fqn=spelling, refs=refs))
+        downgraded = False
+        if _classify(done) is _Outcome.FAULT and any(marker in done.stderr.decode(errors="replace") for marker in _ILSPY_CRASH):
+            done = _invoke(settings, executor, tool, ToolArgs(assembly=str(assembly), fqn=spelling, langversion=_ILSPY_LV_FALLBACK, refs=refs))
+            downgraded = True
+        match _classify(done):
+            case _Outcome.HIT:
+                return (_Outcome.HIT, done, faults, downgraded)
+            case _Outcome.FAULT:
+                outcome = _Outcome.FAULT
+                faults = (*faults, done.stderr.decode(errors="replace").strip() or f"ilspycmd exit {done.returncode} on {assembly.name}")
+            case _Outcome.EMPTY if outcome is _Outcome.MISS:
+                outcome = _Outcome.EMPTY
+            case _:
+                pass
+    return (outcome, None, faults, False)
+
+
+def _run_decompile(settings: AssaySettings, executor: Executor, symbol: str, surface: Surface) -> Result[Completed, Fault]:
+    # The reflection map supplies the CLR spellings (backtick arity, `+` nesting) the display FQN elides; every
+    # colliding arity decompiles and the bodies join under per-spelling headers. A typed not-found on every
+    # spelling is a Completed soft miss (the caller's roster/search fallback); any real tool failure is an
+    # operational Fault carrying the aggregated stderr, never a silent degradation into fuzzy search.
+    base, arity = split_arity(symbol)
+    ordered = tuple(sorted(surface.source.assemblies, key=lambda a: ("/ref/" not in a.as_posix(), a.as_posix().casefold())))
+    refs = tuple(part for parent in dict.fromkeys(str(a.parent) for a in ordered) for part in ("-r", parent))
+    spellings = surface.reflection.get(base, (symbol,))
+    selected = (tuple(s for s in spellings if s.endswith(f"`{arity}")) or spellings) if arity else spellings
     match _api_row(Language.CSHARP, Mode.LIST):
         case None:
-            return Error(Fault(("api", "decompile", fqn), status=RailStatus.FAULTED, message="no ilspycmd catalog row"))
+            return Error(Fault(("api", "decompile", symbol), status=RailStatus.FAULTED, message="no ilspycmd catalog row"))
         case Tool() as tool:
-            attempts = tuple(_invoke(settings, executor, tool, ToolArgs(fqn=fqn, assembly=str(asm))) for asm in ordered)
-            match next((d for d in attempts if d.returncode == 0 and d.stdout), None) or next((d for d in attempts if d.returncode == 0), None):
-                case Completed() as done:
-                    return Ok(done)
-                case None:
-                    detail = (
-                        "\n".join(dict.fromkeys(d.stderr.decode(errors="replace").strip() for d in attempts if d.stderr))
-                        or f"ilspycmd failed on every assembly for '{fqn}'"
-                    )
-                    return Error(Fault(("api", "decompile", fqn), status=RailStatus.FAULTED, message=detail[:1024]))
+            swept = tuple((spelling, _attempt_spelling(settings, executor, tool, spelling, ordered, refs)) for spelling in selected)
+            hits = tuple(
+                (f"{spelling} (lv=CSharp7_3)" if downgraded else spelling, done)
+                for spelling, (outcome, done, _, downgraded) in swept
+                if outcome is _Outcome.HIT and done is not None
+            )
+            match (hits, any(outcome is _Outcome.FAULT for _, (outcome, _, _, _) in swept)):
+                case ((), True):
+                    detail = "\n".join(dict.fromkeys(line for _, (_, _, lines, _) in swept for line in lines))
+                    return Error(Fault(("api", "decompile", symbol), status=RailStatus.FAULTED, message=detail[:1024]))
+                case ((), False):
+                    note = f"no type definition for '{symbol}' (tried: {', '.join(selected)})"
+                    return Ok(receipt(("api", "decompile", symbol), 0, notes=(note,)))
+                case _:
+                    body = hits[0][1].stdout if len(hits) == 1 else b"\n".join(f"// --- {sp} ---\n".encode() + done.stdout for sp, done in hits)
+                    return Ok(receipt(("api", "decompile", symbol), 0, stdout=body, notes=(f"decompiled: {', '.join(sp for sp, _ in hits)}",)))
 
 
 # --- [SURFACE_CACHE]
@@ -858,7 +1195,20 @@ def _cache_read(settings: AssaySettings, path: str, *, producer: str, content_fi
 
 def _cache_write(settings: AssaySettings, path: str, entry: CacheEntry) -> None:
     # transaction=True commits atomically so a concurrent reader never decodes a torn entry into a rebuild loop.
-    settings.store().write_bytes_path(msgspec.json.encode(entry), path, transaction=True)
+    store = settings.store()
+    store.write_bytes_path(msgspec.json.encode(entry), path, transaction=True)
+    # One live fingerprint per key: superseded entries (an updated DLL, a bumped package) reap on write, so the
+    # per-key cache dir never accretes stale fingerprints across host or dependency upgrades.
+    stale = tuple(
+        sibling
+        for sibling in store.walk(*path.removeprefix(f"{store.root}/").split("/")[:-1])
+        if isinstance(sibling, str) and sibling != path and _FINGERPRINT_FILE.fullmatch(sibling.rsplit("/", 1)[-1]) is not None
+    )
+    for sibling in stale:
+        try:
+            store.remove_path(sibling)
+        except FileNotFoundError:
+            _ = store.exists_path(sibling)  # a concurrent reaper already removed it
 
 
 # --- [SURFACE]
@@ -875,7 +1225,15 @@ def _roster(source: Source, cache: str, types: tuple[str, ...], raw: str) -> Sur
     namespace_of = {fqn: _namespace_of(fqn, type_set) for fqn in types}
     namespaces = tuple(sorted({ns for ns in namespace_of.values() if ns}))
     by_namespace = {ns: tuple(fqn for fqn in types if namespace_of[fqn] == ns) for ns in namespaces}
-    return Surface(source=source, types=types, namespaces=namespaces, by_namespace=by_namespace, cache=cache, raw=raw)
+    return Surface(
+        source=source,
+        types=types,
+        namespaces=namespaces,
+        by_namespace=by_namespace,
+        cache=cache,
+        raw=raw,
+        reflection=reflection_map(source.assemblies),
+    )
 
 
 def _parse_inproc(source: Source, cache: str, payload: str) -> Surface:
@@ -1033,12 +1391,26 @@ def _walk_attrs(root: object, parts: tuple[str, ...]) -> object | None:
             return root
 
 
+def _py_kind(obj: object) -> str:
+    kinds: tuple[tuple[str, Callable[[object], bool]], ...] = (
+        ("class", inspect.isclass),
+        ("module", inspect.ismodule),
+        ("method", inspect.ismethod),
+        ("function", inspect.isfunction),
+        ("function", inspect.isbuiltin),
+        ("property", lambda o: isinstance(o, property)),
+        ("type-alias", lambda o: isinstance(o, TypeAliasType)),
+    )
+    return next((kind for kind, predicate in kinds if predicate(obj)), type(obj).__name__)
+
+
 def _member_captures(obj: object, symbol: str) -> tuple[Capture, ...]:
     sig, sig_cut = _clip(f"{symbol}{_signature(obj)}", _SIG_CAP)
     doc, doc_cut = _clip(inspect.getdoc(obj) or "", _SIG_CAP)
     full, full_cut = _clip(_object_source(obj) or _live_surface(obj, symbol), NAME_CAP * 8)
     return (
         Capture(name="signature", text=sig, file=str(getattr(obj, "__module__", "")), line=0, truncated=sig_cut),
+        Capture(name="kind", text=_py_kind(obj), file="", line=0),
         Capture(name="doc", text=doc, file="", line=0, truncated=doc_cut),
         Capture(name="full", text=full, file="", line=0, truncated=full_cut),
     )
@@ -1092,13 +1464,20 @@ def _object_source(obj: object) -> str:
 def _tsdecl_thunk(source: Source, symbol: str) -> InprocThunk:
     def run(_check: Check) -> Completed:
         parser = TSParser(ts_language(_TS_GRAMMAR))  # parser is mutable: never cached, one per thunk run
-        captures = tuple(cap for path in source.asset_paths for cap in _ts_captures(parser, path, symbol))
+        match symbol:
+            case "":
+                captures = tuple(cap for path in source.asset_paths for cap in _ts_captures(parser, path))
+            case _:
+                # One winner across the whole declaration tree: files rank by their best declaration kind, so a
+                # member-level namesake in an early file never shadows the type-level declaration in a later one.
+                ranked = tuple((rank, caps) for path in source.asset_paths for rank, caps in (_ts_member_ranked(parser, path, symbol),) if caps)
+                captures = min(ranked, key=operator.itemgetter(0))[1] if ranked else ()
         return receipt(("ts-api", "member" if symbol else "surface", source.key, symbol), 0, stdout=CAPTURE_ENCODER.encode(captures))
 
     return run
 
 
-def _ts_captures(parser: TSParser, path: Path, symbol: str) -> tuple[Capture, ...]:
+def _ts_captures(parser: TSParser, path: Path) -> tuple[Capture, ...]:
     try:
         src = path.read_bytes()
     except OSError:
@@ -1106,11 +1485,42 @@ def _ts_captures(parser: TSParser, path: Path, symbol: str) -> tuple[Capture, ..
     root = parser.parse(src).root_node
     is_dts = path.name.endswith(".d.ts")
     parse_fault = (Capture(name="parse_error", text="tree-sitter parse error", file=path.name, line=1, parse_error=True),) if root.has_error else ()
-    match symbol:
-        case "":
-            return (*parse_fault, *_ts_declared(root, path, is_dts=is_dts), *_export_specs(root, path))
-        case _:
-            return (*parse_fault, *_ts_member(root, symbol, path, is_dts=is_dts))
+    return (*parse_fault, *_ts_declared(root, path, is_dts=is_dts), *_export_specs(root, path))
+
+
+def _ts_member_ranked(parser: TSParser, path: Path, symbol: str) -> tuple[int, tuple[Capture, ...]]:
+    try:
+        src = path.read_bytes()
+    except OSError:
+        return (_RANK_NONE, ())
+    root = parser.parse(src).root_node
+    is_dts = path.name.endswith(".d.ts")
+    parse_fault = (Capture(name="parse_error", text="tree-sitter parse error", file=path.name, line=1, parse_error=True),) if root.has_error else ()
+    owner, _dot, target = symbol.rpartition(".")
+    # An owner segment also names a declaration FILE (`Effect.gen` -> Effect.d.ts top level): a target the
+    # owner type does not nest falls back to that module's top level, and the file-owner bonus makes the
+    # module's own declaration beat same-named exports scattered across sibling modules.
+    file_owner = bool(owner) and path.name.split(".d.", 1)[0] == owner.rsplit(".", 1)[-1]
+    owner_node = _find_decl(root, owner, is_dts=is_dts) if owner else None
+    nested = _find_decl(owner_node, target, is_dts=None) if owner_node is not None else None
+    flat = _find_decl(root, target, is_dts=is_dts) if nested is None and (owner_node is None or file_owner) else None
+    node = nested if nested is not None else flat
+    match node:
+        case None:
+            specs = _export_specs(root, path, target)
+            return (_RANK_EXPORT, (*parse_fault, *specs)) if specs else (_RANK_NONE, ())
+        case node:
+            full = node_text(node)
+            sig, sig_cut = _clip(full.splitlines()[0] if full else "", _SIG_CAP)
+            doc, doc_cut = _clip(_ts_doc(node), _SIG_CAP)
+            captures = (
+                _span_capture("signature", sig, node, path, truncated=sig_cut),
+                Capture(name="kind", text=_TS_KIND.get(node.type, node.type), file=path.name, line=node.start_point.row + 1),
+                Capture(name="full", text=full[:_FULL_CAP], file=path.name, line=node.start_point.row + 1, truncated=len(full) > _FULL_CAP),
+                *((Capture(name="doc", text=doc, file=path.name, line=node.start_point.row + 1, truncated=doc_cut),) if doc else ()),
+            )
+            rank = _DECL_RANK.get(node.type, _RANK_EXPORT)
+            return (rank - 4 if file_owner else rank, (*parse_fault, *captures))
 
 
 def _span_capture(name: str, text: str, node: Node, path: Path, *, truncated: bool = False) -> Capture:
@@ -1149,35 +1559,12 @@ def _ts_declared(root: Node, path: Path, *, is_dts: bool) -> tuple[Capture, ...]
 
 def _find_decl(scope: Node, target: str, *, is_dts: bool | None) -> Node | None:
     # is_dts None skips the export gate: owner-scoped members inherit the owner's export.
-    return next(
-        (
-            n
-            for n in _walk(scope, _DECL_NODES)
-            if (name := n.child_by_field_name("name")) is not None
-            and node_text(name) == target
-            and (is_dts is None or _exported(name, is_dts=is_dts))
-        ),
-        None,
+    matched = tuple(
+        n
+        for n in _walk(scope, _DECL_NODES)
+        if (name := n.child_by_field_name("name")) is not None and node_text(name) == target and (is_dts is None or _exported(name, is_dts=is_dts))
     )
-
-
-def _ts_member(root: Node, symbol: str, path: Path, *, is_dts: bool) -> tuple[Capture, ...]:
-    # Owner-qualified lookups search the owner first; flat lookups anchor to exported declarations.
-    owner, _dot, target = symbol.rpartition(".")
-    owner_node = _find_decl(root, owner, is_dts=is_dts) if owner else None
-    node = _find_decl(owner_node, target, is_dts=None) if owner_node is not None else _find_decl(root, target, is_dts=is_dts)
-    match node:
-        case None:
-            return _export_specs(root, path, target)
-        case node:
-            full = node_text(node)
-            sig, sig_cut = _clip(full.splitlines()[0] if full else "", _SIG_CAP)
-            doc, doc_cut = _clip(_ts_doc(node), _SIG_CAP)
-            return (
-                _span_capture("signature", sig, node, path, truncated=sig_cut),
-                Capture(name="full", text=full[:_FULL_CAP], file=path.name, line=node.start_point.row + 1, truncated=len(full) > _FULL_CAP),
-                *((Capture(name="doc", text=doc, file=path.name, line=node.start_point.row + 1, truncated=doc_cut),) if doc else ()),
-            )
+    return min(matched, key=lambda n: _DECL_RANK.get(n.type, len(_DECL_RANK)), default=None)
 
 
 def _ts_doc(node: Node) -> str:
@@ -1233,15 +1620,16 @@ def xml_doc(source: Source, symbol: str) -> str:
     Returns:
         Stripped summary text clipped at the signature cap, or ``""`` when no member matches.
     """
-    # Strips the XMLDoc kind prefix (M:/T:) and parameter list, then matches on a dotted-segment boundary.
-    needle = symbol.casefold()
+    # Strips the XMLDoc kind prefix (M:/T:), the parameter list, and generic arity marks (`N types, ``N
+    # methods), then matches on a dotted-segment boundary — a generic symbol matches its arity-marked id.
+    needle = _ARITY.sub("", symbol).casefold()
     return next(
         (
             "".join(member.itertext()).strip()[:_SIG_CAP]
             for path in source.xmls
             if path.is_file()
             for member in (_xml_members(path))
-            for name in (member.get("name", "").split(":", 1)[-1].split("(", 1)[0].casefold(),)
+            for name in (_ARITY.sub("", member.get("name", "").split(":", 1)[-1].split("(", 1)[0]).casefold(),)
             if name == needle or name.endswith("." + needle)
         ),
         "",
@@ -1298,13 +1686,13 @@ class _CsOracle(_Adapter):
         return _cs_surface(self.settings, self.source, self.executor)
 
     def member(self, scope: ArtifactScope, surface: Surface, symbol: str) -> Result[Completed, Fault]:
-        """Decompile one ranked type through the LIST row.
+        """Decompile one ranked type through the LIST row, resolving CLR reflection spellings from the surface.
 
         Returns:
-            The decompile receipt, or a fault when the LIST catalog row is absent.
+            The decompile receipt (soft miss on a typed not-found), or a fault when the tool itself fails.
         """
-        _ = (scope, surface)
-        return _run_decompile(self.settings, self.executor, symbol, self.source.assemblies)
+        _ = scope
+        return _run_decompile(self.settings, self.executor, symbol, surface)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1404,9 +1792,11 @@ __all__ = [
     "rank_candidates",
     "rank_namespace",
     "rank_type",
+    "reflection_map",
     "resolve_key",
     "rhino_app",
     "safe_key",
+    "split_arity",
     "tfm_rank",
     "to_api_source",
     "tsdecl_names",

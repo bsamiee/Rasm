@@ -1,12 +1,14 @@
 # [RASM_RHINO_API_RHINOCOMMON_CUSTOM_OBJECTS]
 
-This catalog owns the one quarantined host-subclass authoring surface: `CustomBrepObject`, `CustomCurveObject`, `CustomMeshObject`, and `CustomPointObject` as `ClassIdAttribute`-registered derivations whose protected `RhinoObject` virtuals forward every host callback to a value-typed override program; `CustomObjectGrips` and `CustomGripObject` as the delegate-populated grip authoring surface; `GripObject` as the value-shaped grip edit surface; and the `Rhino.UI` grip-widget carriers. Subclassing lives only at the registration boundary, mirroring the command adapter and the analysis- and realtime-program registration the commands and display catalogs already sanction. Live-object read and mutate, attributes, and the history triad stay with the objects catalog, table placement and event binding stay with the document catalog, pick projection stays with the commands catalog, and geometry custody stays with the geometry catalog. No derivation here owns domain state or dispatch; each is a registration shim over an immutable program.
+This catalog owns the quarantined host-subclass authoring boundary: `ClassIdAttribute`-registered `RhinoObject` derivations whose protected virtuals forward every host callback to a value-typed override program, the delegate-populated custom-grip authoring surface, the value-shaped `GripObject` edit surface, and the `Rhino.UI` on-canvas grip widgets. Subclassing enters only at the registration boundary, and no derivation owns domain state or dispatch — each is a registration shim over an immutable program.
+
+Object read/mutate and history route to the objects catalog, placement and events to the document catalog, pick projection to the commands catalog, and geometry custody to the geometry catalog.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: RhinoCommon custom-object and grip authoring
 - host: `RhinoCommon` (Rhino host runtime, in-process)
-- assembly: `RhinoCommon.dll` — verified by direct decompile
+- assembly: `RhinoCommon.dll`
 - namespaces: `Rhino.DocObjects`, `Rhino.DocObjects.Custom`, `Rhino.UI`
 - kernel: `Rasm` (host-agnostic vocabularies and numeric owners composed, never re-derived)
 - substrate: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`
@@ -15,7 +17,6 @@ This catalog owns the one quarantined host-subclass authoring surface: `CustomBr
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: custom object derivations
-- rail: custom-authoring-boundary
 
 | [INDEX] | [SYMBOL]            | [KIND]                        | [CAPABILITY]                                                    |
 | :-----: | :------------------ | :---------------------------- | :-------------------------------------------------------------- |
@@ -26,7 +27,6 @@ This catalog owns the one quarantined host-subclass authoring surface: `CustomBr
 |  [05]   | `ClassIdAttribute`  | sealed attribute              | GUID registration stamp resolving a subclass at construction    |
 
 [PUBLIC_TYPE_SCOPE]: grip authoring and editing
-- rail: custom-authoring-boundary
 
 | [INDEX] | [SYMBOL]                  | [KIND]                        | [CAPABILITY]                                                      |
 | :-----: | :------------------------ | :---------------------------- | :---------------------------------------------------------------- |
@@ -38,7 +38,6 @@ This catalog owns the one quarantined host-subclass authoring surface: `CustomBr
 |  [06]   | `TurnOnGripsEventHandler` | delegate                      | grips-enabler callback registered against a custom-grips type     |
 
 [PUBLIC_TYPE_SCOPE]: on-canvas grip widgets
-- rail: custom-authoring-boundary
 
 | [INDEX] | [SYMBOL]                           | [KIND]                           | [CAPABILITY]                                                 |
 | :-----: | :--------------------------------- | :------------------------------- | :----------------------------------------------------------- |
@@ -64,7 +63,7 @@ This catalog owns the one quarantined host-subclass authoring surface: `CustomBr
 
 [CUSTOM_OBJECT_HOOKS]:
 - `Rhino.DocObjects.RhinoObject.OnDraw(DrawEventArgs e) : void` — protected draw override; a custom kind forwards to a draw-mark composition against the display catalog.
-- `Rhino.DocObjects.RhinoObject.OnDuplicate(RhinoObject source) : void` — the sole copy hook rebuilding derived state from the source; `DuplicateGeometry()` is public and non-virtual, never an override point.
+- `Rhino.DocObjects.RhinoObject.OnDuplicate(RhinoObject source) : void` — sole copy hook rebuilding derived state from the source; `DuplicateGeometry()` is public and non-virtual, never an override point.
 - `Rhino.DocObjects.RhinoObject.OnTransform(Transform transform) : void` / `OnSpaceMorph(SpaceMorph morph) : void` — transform and morph hooks applying the deformation to backing geometry.
 - `Rhino.DocObjects.RhinoObject.OnAddToDocument(RhinoDoc doc) : void` / `OnDeleteFromDocument(RhinoDoc doc) : void` — document-membership lifecycle hooks.
 - `Rhino.DocObjects.RhinoObject.OnPick(PickContext context) : IEnumerable<ObjRef>` / `OnPicked(PickContext context, IEnumerable<ObjRef> pickedItems) : void` — pick-participation hooks; the projection off the returned refs stays with the commands catalog.
@@ -72,7 +71,7 @@ This catalog owns the one quarantined host-subclass authoring surface: `CustomBr
 - hook-roster closure: `OnDraw`, `GetBoundingBox`, `GetTightBoundingBox`, `OnDuplicate`, `OnDeleteFromDocument`, `OnAddToDocument`, `OnPick`, `OnPicked`, `OnSelectionChanged`, `OnTransform`, `OnSpaceMorph` is the complete protected-virtual set — no `OnGeometryChanged`, `OnAttributesChanged`, or `OnFlash` exists.
 
 [CUSTOM_GRIPS_AUTHORING]:
-- `Rhino.DocObjects.Custom.TurnOnGripsEventHandler(RhinoObject rhObj) : void` — the enabler delegate signature.
+- `Rhino.DocObjects.Custom.TurnOnGripsEventHandler(RhinoObject rhObj) : void` — enabler delegate signature.
 - `Rhino.DocObjects.Custom.CustomObjectGrips.RegisterGripsEnabler(TurnOnGripsEventHandler enabler, Type customGripsType) : void` — registers the enabler Rhino invokes to turn grips on; resolution keys on the grips type's own `[Guid]` (`GetType().GUID`), never `ClassIdAttribute`, throws `ArgumentException` on a non-`CustomObjectGrips` type, and re-registering a GUID replaces its enabler.
 - `Rhino.DocObjects.Custom.CustomObjectGrips.CustomObjectGrips()` (protected) / `AddGrip(CustomGripObject grip) : void` (protected) / `Grip(int index) : CustomGripObject` (public, throws `ArgumentOutOfRangeException` out of bounds) / `GripCount : int` / `OwnerObject : RhinoObject` — grip-set population is subclass-only; the roster reads are public.
 - `Rhino.DocObjects.Custom.CustomObjectGrips.NewLocation : bool` (get/set — derived classes clear it after a temp-display update) / `GripsMoved : bool` (get) — per-instance rebuild gates; `Dragging() : bool` is `public static` and answers the GLOBAL drag state, never an instance flag.
@@ -91,7 +90,7 @@ This catalog owns the one quarantined host-subclass authoring surface: `CustomBr
 - `Rhino.DocObjects.Custom.GripsDrawEventArgs : DrawEventArgs` — `DrawStaticStuff : bool` / `DrawDynamicStuff : bool` — which pass this callback serves; `ControlPolygonStyle : int` (get/set: `0` none, `1` solid, `2` dotted) / `GripColor : Color` / `LockedGripColor : Color` / `SelectedGripColor : Color` (get/set).
 - `Rhino.DocObjects.Custom.GripsDrawEventArgs.GripStatusCount : int` / `GripStatus(int index) : GripStatus` — lazily materialized per-grip draw state.
 - `Rhino.DocObjects.Custom.GripsDrawEventArgs.DrawControlPolygonLine(Line line, GripStatus startStatus, GripStatus endStatus) : void` / `DrawControlPolygonLine(Line line, int startStatus, int endStatus) : void` / `DrawControlPolygonLine(Point3d start, Point3d end, int startStatus, int endStatus) : void` / `RestoreViewportSettings() : void` — control-polygon drawing and viewport-state restore.
-- `Rhino.DocObjects.Custom.GripStatus` — the public surface is exactly `Culled : bool` (get/set) and `Visible : bool` (get); constructed only by `GripsDrawEventArgs.GripStatus(int)`.
+- `Rhino.DocObjects.Custom.GripStatus` — public surface is exactly `Culled : bool` (get/set) and `Visible : bool` (get); constructed only by `GripsDrawEventArgs.GripStatus(int)`.
 
 [GRIP_EDIT_SURFACE]:
 - `Rhino.DocObjects.GripObject.CurrentLocation : Point3d` / `OriginalLocation : Point3d` / `Moved : bool` / `Weight : double` / `OwnerId : Guid` / `Index : int` — grip position, movement state, weight, and owner identity.
@@ -110,7 +109,7 @@ This catalog owns the one quarantined host-subclass authoring surface: `CustomBr
 - `Rhino.UI.DirectionGripUserInterfaceObject.DirectionGripUserInterfaceObject(Point3d location, Vector3d direction)` — axis-constrained variant minted at a location and direction; `GripDirection : Vector3d` / `DirectionLineLength : float` / `ArrowShape : GripUserInterfaceObjectShape` / `ArrowRadius : float` / `OneWay : bool` / `GripPointVisible : bool` shape the arrow glyph, and `ArrowsVisibleInViewport(RhinoViewport viewport) : bool` reads per-viewport arrow visibility.
 - `Rhino.UI.RotationGripUserInterfaceObject.RotationGripUserInterfaceObject(Plane plane, double radius)` — rotation variant minted on a plane and radius; `GripPointVisible : bool` toggles the center grip, and `ArcVisibleInViewport(RhinoViewport viewport) : bool` reads per-viewport arc visibility.
 - `Rhino.UI.GripUserInterfaceObject.GripUserInterfaceObject()` (protected) / `OnDrag(Point3d newLocation, MouseState mouse) : void` (protected virtual) — the widgets are derivation surfaces too: the drag channel is a protected virtual, and `Rhino.UI.RotationGripUserInterfaceObject.OnRotationDrag(double angle, MouseState mouse) : void` (protected virtual) defaults to rotating the plane about its Z axis.
-- `Rhino.UI.TextDotUserInterfaceObject.TextDotUserInterfaceObject(Point3d location, string text)` — the text-dot widget; `Text : string` / `TextColor : Color` / `TextHeight : int` / `MouseOverTextHeight : int` / `DotBackgroundColor : Color` / `DotBorderColor : Color` (all get/set).
+- `Rhino.UI.TextDotUserInterfaceObject.TextDotUserInterfaceObject(Point3d location, string text)` — text-dot widget; `Text : string` / `TextColor : Color` / `TextHeight : int` / `MouseOverTextHeight : int` / `DotBackgroundColor : Color` / `DotBorderColor : Color` (all get/set).
 
 [WIDGET_BASE_AND_REGISTRATION]:
 - `Rhino.UI.UserInterfaceObjectBase` (abstract) — `Visible : bool` (get/set; invisible widgets neither draw nor receive mouse events) / `BoundToActiveView : bool` (get/set) / `RegisterForAllDocuments() : bool` / `Unregister() : void` / `IsRegistered() : bool` — visibility and the all-documents registration path.
@@ -120,8 +119,8 @@ This catalog owns the one quarantined host-subclass authoring surface: `CustomBr
 ## [04]-[IMPLEMENTATION_LAW]
 
 [AUTHORING_TOPOLOGY]:
-- Rhino owns construction: it instantiates a `ClassIdAttribute`-stamped subclass and invokes its protected virtuals, so each custom kind is one thin sealed adapter forwarding every host callback — draw, duplicate, transform, morph, pick, selection, document membership — to a value-typed override program of `Func<..., Fin<...>>` hooks and union-typed draw-mark and transform-policy payloads.
-- grips register the same way: `RegisterGripsEnabler` binds an enabler keyed on the grips type's own `[Guid]`, `NewGeometry` fires once at drag end returning geometry as a pure function of grip positions, and the instance `GripsMoved`/`NewLocation` flags plus the static `Dragging()` probe gate temp-display rebuilds.
+- Rhino owns construction: it instantiates a `ClassIdAttribute`-stamped subclass and invokes its protected virtuals, so each custom kind is one thin sealed adapter forwarding every host callback to a value-typed override program of `Func<..., Fin<...>>` hooks over union-typed draw-mark and transform-policy payloads.
+- grips register the same way: `RegisterGripsEnabler` binds an enabler keyed on the grips type's own `[Guid]`, `NewGeometry` fires once at drag end returning geometry as a pure function of grip positions, and the instance `GripsMoved`/`NewLocation` flags and the static `Dragging()` probe gate temp-display rebuilds.
 - `GripObject` needs no subclassing — its move, weight, and parameter reads are value-shaped edits of an existing grip resolved from `RhinoObject.GetGrips` in the objects catalog.
 - grip widgets are constructed carriers AND derivation surfaces: visual state, constraints, and snap targets are plain values, while the drag channel (`OnDrag`/`OnRotationDrag`) and the base mouse roster are protected virtuals a thin shim forwards to a value program; registration rides the document `ViewUserInterfaceTable`.
 

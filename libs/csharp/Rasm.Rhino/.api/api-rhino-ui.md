@@ -1,12 +1,12 @@
 # [RASM_RHINO_API_RHINO_UI]
 
-`Rhino.UI` boundary owns host integration for native chrome: panel and page registration and lifecycle, the Eto host bridge that gives a document-owned window to an Eto control and styles it as native, the built-in native dialogs, the gumball manipulator, the mouse-callback and in-viewport interaction surface, the status-bar and toolbar/RUI state, and the SVG/preview resource utilities. This surface spans two host assemblies — `RhinoEtoApp` and `EtoExtensions` resolve from `Rhino.UI.dll`, while `Panels`, `StatusBar`, `StackedDialogPage`, `DrawingUtilities`, and the `RhinoApp` UI-thread members resolve from `RhinoCommon.dll`. Eto framework itself (controls, layouts, drawing, runtime dispatch) is owned by the folder's Eto catalogs (`api-eto-forms.md`, `api-eto-drawing.md`, `api-eto-runtime.md`); this boundary owns only the seam that hosts an Eto surface inside Rhino, and the in-viewport `UserInterfaceObject` family that draws through the display pipeline of `api-rhinocommon-display.md`.
+`Rhino.UI` owns Rhino host integration for native chrome: panel and page registration and lifecycle, the Eto host bridge (document-owned window, native styling, semi-modal presentation), native dialogs, the gumball manipulator, the mouse-callback and in-viewport interaction surface, status-bar and toolbar/RUI state, and SVG and preview resources. This boundary owns only the seam hosting an Eto surface inside Rhino and the in-viewport `UserInterfaceObject` family drawn through the display pipeline; the Eto framework composes through the host bridge, never re-implemented here.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `RhinoCommon` + `Rhino.UI` (host UI bridge)
 - package: `RhinoCommon` (with `Rhino.UI` companion assembly)
-- license: proprietary McNeel SDK (host-provided, not centrally pinned)
+- license: proprietary McNeel SDK (host-provided)
 - assembly: `Rhino.UI.dll` (`RhinoEtoApp`, `EtoExtensions`, dialog and control hosts)
 - assembly: `RhinoCommon.dll` (`Panels`, `StatusBar`, `StackedDialogPage`, `DrawingUtilities`, gumball, mouse, toolbar, UI-thread)
 - namespace: `Rhino.UI` (panels, dialogs, pages, mouse, status, toolbar, resources, in-viewport UI objects)
@@ -19,9 +19,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: panels, pages, and the Eto host bridge
-- rail: host-boundary native-ui
-
-`Panels` owns registration, opening, sibling opening, floating, closing, visibility, dock bars, icons, and show/close events. `RhinoEtoApp` resolves the application- or document-owned `Eto.Forms.Window` that parents an Eto surface.
 
 | [INDEX] | [SYMBOL]                        | [KIND]          | [CAPABILITY]                          |
 | :-----: | :------------------------------ | :-------------- | :------------------------------------ |
@@ -40,9 +37,6 @@
 |  [13]   | `LocalizeStringPair`            | localized label | English/localized caption pair        |
 
 [PUBLIC_TYPE_SCOPE]: dialogs, gumball, and mouse interaction
-- rail: host-boundary native-ui
-
-`Dialogs` owns color, message, text, list-box, multi-list, check-list, property-list, edit-box, number-box, layer, linetype, print-width, and sun dialogs. `GumballDisplayConduit` drives pre-, gumball-, and total transforms. `MouseCallback` owns move, down, up, double-click, enter, hover, and leave hooks with begin/end pairs.
 
 | [INDEX] | [SYMBOL]                    | [KIND]          | [CAPABILITY]                     |
 | :-----: | :-------------------------- | :-------------- | :------------------------------- |
@@ -61,7 +55,6 @@
 |  [13]   | `WaitCursor`                | cursor          | scoped wait cursor               |
 
 [PUBLIC_TYPE_SCOPE]: in-viewport UI objects
-- rail: host-boundary native-ui
 
 | [INDEX] | [SYMBOL]                           | [KIND]            | [CAPABILITY]                  |
 | :-----: | :--------------------------------- | :---------------- | :---------------------------- |
@@ -76,9 +69,6 @@
 |  [09]   | `CommandPromptChangedEventArgs`    | prompt state      | prompt, default, and options  |
 
 [PUBLIC_TYPE_SCOPE]: status, toolbar, and resources
-- rail: host-boundary native-ui
-
-`StatusBar` owns command-prompt, message, distance, number, point, and progress panes. `DrawingUtilities` owns SVG, bitmap, icon, mesh-preview, curve-preview, and linetype-preview resources.
 
 | [INDEX] | [SYMBOL]                       | [KIND]           | [CAPABILITY]                     |
 | :-----: | :----------------------------- | :--------------- | :------------------------------- |
@@ -94,9 +84,8 @@
 
 [PUBLIC_TYPE_SCOPE]: RDK data-source provider identities
 - namespace: `Rhino.UI.Controls.DataSource`
-- rail: host-boundary native-ui
 
-`DataSource.ProviderIds` is the RDK data-provider identity roster — a static `Guid` set naming the sun, environment, render-settings, content-database, decal, and post-effect providers a UI data source binds; `EventArgs`/`EventInfoArgs` are the read-only event payloads a provider raises. Full `Rhino.UI.dll` control library (collapsible sections, layouts, panels, buttons, numeric/text controls, viewport control) is `api-rhino-ui-controls.md`; `Rhino.UI.Controls.ThumbnailUI` is a dead RDK-legacy surface (every member `[deprecated 6.6]` or an unimplemented stub) and admits nothing.
+`DataSource.ProviderIds` mints the RDK data-provider identity `Guid` roster a UI data source binds; `DataSource.EventArgs`/`EventInfoArgs` are the read-only event payloads a provider raises.
 
 | [INDEX] | [SYMBOL]                   | [KIND]        | [CAPABILITY]                                                            |
 | :-----: | :------------------------- | :------------ | :---------------------------------------------------------------------- |
@@ -107,7 +96,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Panels`, pages, and the Eto host bridge
-- rail: host-boundary native-ui
 
 | [INDEX] | [SURFACE]                                                                 | [CALL_SHAPE] | [CAPABILITY]                   |
 | :-----: | :------------------------------------------------------------------------ | :----------- | :----------------------------- |
@@ -187,10 +175,9 @@
 |  [74]   | `StackedDialogPage.NavigationTextColor` (get/set)                         | page         | Windows navigation color       |
 |  [75]   | `StackedDialogPage.NavigationTextIsBold` (get/set)                        | page         | Windows navigation bold        |
 
-`ThemeSettings.ThemeChanged` is a public static `EventHandler` field subscribed through `+=`; the notifier behind `EtoExtensions` is private.
+`ThemeSettings.ThemeChanged` is a public static `EventHandler` field subscribed through `+=`; the `EtoExtensions` notifier behind it is private.
 
 [ENTRYPOINT_SCOPE]: dialogs, gumball, and mouse callbacks
-- rail: host-boundary native-ui
 
 | [INDEX] | [SURFACE]                                                                                 | [CALL_SHAPE] | [CAPABILITY]              |
 | :-----: | :---------------------------------------------------------------------------------------- | :----------- | :------------------------ |
@@ -227,7 +214,6 @@
 |  [31]   | `MouseCursor.SetToolTip(string)`                                                          | read         | set cursor tooltip        |
 
 [ENTRYPOINT_SCOPE]: in-viewport UI objects
-- rail: host-boundary native-ui
 
 | [INDEX] | [SURFACE]                                                                 | [CALL_SHAPE] | [CAPABILITY]                  |
 | :-----: | :------------------------------------------------------------------------ | :----------- | :---------------------------- |
@@ -263,75 +249,72 @@
 |  [30]   | `MouseState.View`                                                         | state        | read picked view              |
 
 [ENTRYPOINT_SCOPE]: status, toolbar, resources, and UI thread
-- rail: host-boundary native-ui
 
-A trailing `kind` channel of `DrawingUtilities.CreateLinetypePreviewGeometryEx` selects `0` dash fill, `1` curve-shape stroke, or `2` text-shape even-odd fill.
+`DrawingUtilities.CreateLinetypePreviewGeometryEx` reads a trailing `kind` channel: `0` dash fill, `1` curve-shape stroke, `2` text-shape even-odd fill.
 
-| [INDEX] | [SURFACE]                                                                                        | [KIND]   | [CAPABILITY]            |
-| :-----: | :----------------------------------------------------------------------------------------------- | :------- | :---------------------- |
-|  [01]   | `StatusBar.ShowProgressMeter(uint, int, int, string, bool, bool)`                                | status   | show progress meter     |
-|  [02]   | `StatusBar.UpdateProgressMeter(uint, string, int, bool)`                                         | status   | update progress meter   |
-|  [03]   | `StatusBar.HideProgressMeter(uint)`                                                              | status   | hide progress meter     |
-|  [04]   | `RuiUpdateUi.RegisterMenuItem(Guid, Guid, Guid, UpdateMenuItemEventHandler)`                     | menu     | register menu item      |
-|  [05]   | `RuiUpdateUi.Enabled`                                                                            | menu     | mutate enabled state    |
-|  [06]   | `RuiUpdateUi.Checked`                                                                            | menu     | mutate checked state    |
-|  [07]   | `RuiUpdateUi.RadioChecked`                                                                       | menu     | mutate radio state      |
-|  [08]   | `RuiUpdateUi.Text`                                                                               | menu     | mutate item text        |
-|  [09]   | `ToolbarFileCollection.Open(string)`                                                             | toolbar  | open `.rui` file        |
-|  [10]   | `ToolbarFileCollection.FindByPath(string)`                                                       | toolbar  | find `.rui` file        |
-|  [11]   | `ToolbarFile.GetToolbar(int)`                                                                    | toolbar  | index toolbar           |
-|  [12]   | `DrawingUtilities.BitmapFromSvg(string, int, int, bool)`                                         | resource | rasterize SVG bitmap    |
-|  [13]   | `DrawingUtilities.PixelsFromSvg(string, int, int, bool, Color, bool)`                            | resource | rasterize SVG pixels    |
-|  [14]   | `DrawingUtilities.CreateMeshPreviewImage(RhinoDoc, IEnumerable<Mesh>, IEnumerable<Color>, Size)` | resource | create mesh preview     |
-|  [15]   | `DrawingUtilities.CreateLinetypePreviewGeometryEx(Curve, Linetype, int, int, double, int)`       | resource | create linetype preview |
-|  [16]   | `RhinoApp.InvokeOnUiThread(Delegate, params object[])`                                           | thread   | marshal to UI thread    |
-|  [17]   | `RhinoApp.InvokeAndWait(Action)`                                                                 | thread   | marshal synchronously   |
-|  [18]   | `RhinoApp.IsOnMainThread`                                                                        | thread   | test main thread        |
-|  [19]   | `RhinoView.ShowToast(...)`                                                                       | thread   | show viewport toast     |
-|  [20]   | `ToolbarFileCollection.FindByName(string, bool)`                                                 | toolbar  | find `.rui` by name     |
-|  [21]   | `ToolbarFileCollection.SidebarIsVisible` / `MruSidebarIsVisible` (static get/set)                | toolbar  | sidebar visibility      |
-|  [22]   | `ToolbarFile.Save()` / `SaveAs(string)` / `Close(bool prompt)` (each `→ bool`)                   | toolbar  | persist or close file   |
-|  [23]   | `ToolbarFile.GetGroup(int)` / `GetGroup(string)`                                                 | toolbar  | index or name a group   |
-|  [24]   | `ToolbarGroup.Visible` (get/set) / `IsDocked`                                                    | toolbar  | group visibility state  |
-|  [25]   | `Toolbar.BitmapSize` / `TabSize` (static `Size` get/set)                                         | toolbar  | global toolbar sizing   |
-|  [26]   | `StatusBar.SetMessagePane(string)` / `ClearMessagePane()`                                        | status   | message pane write      |
-|  [27]   | `StatusBar.SetDistancePane(double)` / `SetNumberPane(double)` / `SetPointPane(Point3d)`          | status   | value pane writes       |
-|  [28]   | `DrawingUtilities.IconFromResource(string, Size, Assembly)`                                      | resource | load sized icon         |
-|  [29]   | `DrawingUtilities.BitmapFromIconResource(string, Size, Assembly)`                                | resource | load icon bitmap        |
-|  [30]   | `DrawingUtilities.ImageFromResource(string, Assembly)`                                           | resource | load drawing image      |
-|  [31]   | `DrawingUtilities.LoadBitmapWithScaleDown(string, int, Assembly)`                                | resource | load reduced bitmap     |
-|  [32]   | `DrawingUtilities.LoadIconWithScaleDown(string, int, Assembly)`                                  | resource | load reduced icon       |
-|  [33]   | `DrawingUtilities.CreateCurvePreviewGeometry(Curve, Linetype, int, int)`                         | resource | create curve preview    |
-|  [34]   | `NamedColorList.Default`                                                                         | resource | default named palette   |
-|  [35]   | `WaitCursor()` / `Dispose()`                                                                     | cursor   | scope host wait cursor  |
+| [INDEX] | [SURFACE]                                                                                        | [CALL_SHAPE] | [CAPABILITY]           |
+| :-----: | :----------------------------------------------------------------------------------------------- | :----------- | :--------------------- |
+|  [01]   | `StatusBar.ShowProgressMeter(uint, int, int, string, bool, bool)`                                | status       | show progress meter    |
+|  [02]   | `StatusBar.UpdateProgressMeter(uint, string, int, bool)`                                         | status       | update progress meter  |
+|  [03]   | `StatusBar.HideProgressMeter(uint)`                                                              | status       | hide progress meter    |
+|  [04]   | `RuiUpdateUi.RegisterMenuItem(Guid, Guid, Guid, UpdateMenuItemEventHandler)`                     | menu         | register menu item     |
+|  [05]   | `RuiUpdateUi.Enabled`                                                                            | menu         | mutate enabled state   |
+|  [06]   | `RuiUpdateUi.Checked`                                                                            | menu         | mutate checked state   |
+|  [07]   | `RuiUpdateUi.RadioChecked`                                                                       | menu         | mutate radio state     |
+|  [08]   | `RuiUpdateUi.Text`                                                                               | menu         | mutate item text       |
+|  [09]   | `ToolbarFileCollection.Open(string)`                                                             | toolbar      | open `.rui` file       |
+|  [10]   | `ToolbarFileCollection.FindByPath(string)`                                                       | toolbar      | find `.rui` file       |
+|  [11]   | `ToolbarFile.GetToolbar(int)`                                                                    | toolbar      | index toolbar          |
+|  [12]   | `DrawingUtilities.BitmapFromSvg(string, int, int, bool)`                                         | resource     | rasterize SVG bitmap   |
+|  [13]   | `DrawingUtilities.PixelsFromSvg(string, int, int, bool, Color, bool)`                            | resource     | rasterize SVG pixels   |
+|  [14]   | `DrawingUtilities.CreateMeshPreviewImage(RhinoDoc, IEnumerable<Mesh>, IEnumerable<Color>, Size)` | resource     | create mesh preview    |
+|  [15]   | `DrawingUtilities.CreateLinetypePreviewGeometryEx(Curve, Linetype, int, int, double, int)`       | resource     | linetype preview       |
+|  [16]   | `RhinoApp.InvokeOnUiThread(Delegate, params object[])`                                           | thread       | marshal to UI thread   |
+|  [17]   | `RhinoApp.InvokeAndWait(Action)`                                                                 | thread       | marshal synchronously  |
+|  [18]   | `RhinoApp.IsOnMainThread`                                                                        | thread       | test main thread       |
+|  [19]   | `RhinoView.ShowToast(...)`                                                                       | thread       | show viewport toast    |
+|  [20]   | `ToolbarFileCollection.FindByName(string, bool)`                                                 | toolbar      | find `.rui` by name    |
+|  [21]   | `ToolbarFileCollection.SidebarIsVisible` / `MruSidebarIsVisible` (static get/set)                | toolbar      | sidebar visibility     |
+|  [22]   | `ToolbarFile.Save()` / `SaveAs(string)` / `Close(bool prompt)` (each `→ bool`)                   | toolbar      | persist or close file  |
+|  [23]   | `ToolbarFile.GetGroup(int)` / `GetGroup(string)`                                                 | toolbar      | index or name a group  |
+|  [24]   | `ToolbarGroup.Visible` (get/set) / `IsDocked`                                                    | toolbar      | group visibility state |
+|  [25]   | `Toolbar.BitmapSize` / `TabSize` (static `Size` get/set)                                         | toolbar      | global toolbar sizing  |
+|  [26]   | `StatusBar.SetMessagePane(string)` / `ClearMessagePane()`                                        | status       | message pane write     |
+|  [27]   | `StatusBar.SetDistancePane(double)` / `SetNumberPane(double)` / `SetPointPane(Point3d)`          | status       | value pane writes      |
+|  [28]   | `DrawingUtilities.IconFromResource(string, Size, Assembly)`                                      | resource     | load sized icon        |
+|  [29]   | `DrawingUtilities.BitmapFromIconResource(string, Size, Assembly)`                                | resource     | load icon bitmap       |
+|  [30]   | `DrawingUtilities.ImageFromResource(string, Assembly)`                                           | resource     | load drawing image     |
+|  [31]   | `DrawingUtilities.LoadBitmapWithScaleDown(string, int, Assembly)`                                | resource     | load reduced bitmap    |
+|  [32]   | `DrawingUtilities.LoadIconWithScaleDown(string, int, Assembly)`                                  | resource     | load reduced icon      |
+|  [33]   | `DrawingUtilities.CreateCurvePreviewGeometry(Curve, Linetype, int, int)`                         | resource     | create curve preview   |
+|  [34]   | `NamedColorList.Default`                                                                         | resource     | default named palette  |
+|  [35]   | `WaitCursor()` / `Dispose()`                                                                     | cursor       | scope host wait cursor |
 
 [ENTRYPOINT_SCOPE]: `Localization` — locale identity and unit-aware formatting
-- rail: host-boundary native-ui
 
-`Localization` is a `RhinoCommon.dll` static in the `Rhino.UI` namespace. Its `LocalizeString`/`LocalizeCommandName`/`LocalizeDialogItem`/`LocalizeForm` family resolves plug-in XML string tables and returns the English input unchanged when none ship; the locale-identity and unit-formatting members are table-free. Unit-aware `FormatNumber` overloads order `(value, units, mode, precision, appendUnitSystemName)`.
+`Localization` is a `RhinoCommon.dll` static in `Rhino.UI`; its `LocalizeString`/`LocalizeCommandName`/`LocalizeDialogItem`/`LocalizeForm` family resolves plug-in XML string tables and returns the English input unchanged when none ship, while the locale-identity and unit-formatting members are table-free.
 
-| [INDEX] | [SURFACE]                                                                                 | [KIND]     | [CAPABILITY]                   |
-| :-----: | :---------------------------------------------------------------------------------------- | :--------- | :----------------------------- |
-|  [01]   | `CurrentLanguageId : int`                                                                 | locale     | host language LCID (1033 = en) |
-|  [02]   | `RunningAsEnglish : bool`                                                                 | locale     | English-locale discriminant    |
-|  [03]   | `LogicalSort(string string1, string string2) : int`                                       | locale     | digit-aware string comparison  |
-|  [04]   | `UnitSystemName(UnitSystem, bool capitalize, bool singular, bool abbreviate) : string`    | formatting | localized unit-system name     |
-|  [05]   | `FormatNumber(double, UnitSystem, DistanceDisplayMode, int, bool) : string`               | formatting | unit-aware number text         |
-|  [06]   | `FormatNumber(double, LengthUnit, DistanceDisplayMode, int, bool) : string`               | formatting | length-unit number text        |
-|  [07]   | `FormatNumber(double x) : string`                                                         | formatting | locale number text             |
-|  [08]   | `FormatDistanceAndTolerance(double, UnitSystem, DimensionStyle, bool alternate) : string` | formatting | style-driven distance text     |
-|  [09]   | `FormatArea(double, UnitSystem, DimensionStyle, bool alternate) : string`                 | formatting | style-driven area text         |
-|  [10]   | `FormatVolume(double, UnitSystem, DimensionStyle, bool alternate) : string`               | formatting | style-driven volume text       |
-|  [11]   | `LocalizeString(string english, int contextId) : string`                                  | string map | plug-in string-table lookup    |
-|  [12]   | `LocalizeCommandName(string english) : string`                                            | string map | command-name lookup            |
-|  [13]   | `LocalizeCommandOptionName(string english, int contextId) : LocalizeStringPair`           | string map | option-name pair               |
-|  [14]   | `LocalizeCommandOptionValue(string english, int contextId) : LocalizeStringPair`          | string map | option-value pair              |
+| [INDEX] | [SURFACE]                                                                                 | [CALL_SHAPE] | [CAPABILITY]                |
+| :-----: | :---------------------------------------------------------------------------------------- | :----------- | :-------------------------- |
+|  [01]   | `CurrentLanguageId : int`                                                                 | locale       | host language LCID          |
+|  [02]   | `RunningAsEnglish : bool`                                                                 | locale       | English-locale discriminant |
+|  [03]   | `LogicalSort(string string1, string string2) : int`                                       | locale       | digit-aware sort            |
+|  [04]   | `UnitSystemName(UnitSystem, bool capitalize, bool singular, bool abbreviate) : string`    | formatting   | localized unit-system name  |
+|  [05]   | `FormatNumber(double, UnitSystem, DistanceDisplayMode, int, bool) : string`               | formatting   | unit-aware number text      |
+|  [06]   | `FormatNumber(double, LengthUnit, DistanceDisplayMode, int, bool) : string`               | formatting   | length-unit number text     |
+|  [07]   | `FormatNumber(double x) : string`                                                         | formatting   | locale number text          |
+|  [08]   | `FormatDistanceAndTolerance(double, UnitSystem, DimensionStyle, bool alternate) : string` | formatting   | style-driven distance text  |
+|  [09]   | `FormatArea(double, UnitSystem, DimensionStyle, bool alternate) : string`                 | formatting   | style-driven area text      |
+|  [10]   | `FormatVolume(double, UnitSystem, DimensionStyle, bool alternate) : string`               | formatting   | style-driven volume text    |
+|  [11]   | `LocalizeString(string english, int contextId) : string`                                  | string map   | plug-in string-table lookup |
+|  [12]   | `LocalizeCommandName(string english) : string`                                            | string map   | command-name lookup         |
+|  [13]   | `LocalizeCommandOptionName(string english, int contextId) : LocalizeStringPair`           | string map   | option-name pair            |
+|  [14]   | `LocalizeCommandOptionValue(string english, int contextId) : LocalizeStringPair`          | string map   | option-value pair           |
 
 [ENTRYPOINT_SCOPE]: RDK data-source provider identities
 - namespace: `Rhino.UI.Controls.DataSource`
-- rail: host-boundary native-ui
 
-`ProviderIds` members are static `Guid` getters grouped by concern; a UI data source binds a provider by its identity, and the event payloads carry the changed data type.
+`ProviderIds` members are static `Guid` getters; a UI data source binds a provider by its identity, and the event payloads carry the changed data type.
 
 - `DataSource.ProviderIds` render-settings ids: `Sun`, `CurrentEnvironment`, `RhinoSettings`, `Skylight`, `GroundPlane`, `Dithering`, `LinearWorkflow`, `RenderChannels`.
 - `DataSource.ProviderIds` content and decal ids: `ContentDatabase`, `ContentLookup`, `ContentSelection`, `ContentParam`, `Decals`.
@@ -340,23 +323,23 @@ A trailing `kind` channel of `DrawingUtilities.CreateLinetypePreviewGeometryEx` 
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[UI_TOPOLOGY]:
-- Native chrome registers once per plug-in and lives in one owner: `Panels.RegisterPanel` seats a panel type, `StackedDialogPage`/`OptionsDialogPage`/`ObjectPropertiesPage` seat pages, and the returned host resolves instances through `GetPanel`/`GetPanels<T>` — a second registration of the same type is the collapsed form.
-- Eto host bridge is the only path from an Eto surface to a Rhino window: `RhinoEtoApp` resolves the document-owned parent, `EtoExtensions.UseRhinoStyle` applies native styling, and `ShowSemiModal`/`Show` present it against a document; the Eto control tree itself is authored through the folder Eto catalogs, and the bridge never re-implements a control.
-- Interaction has two tiers: `MouseCallback` is the document-wide viewport mouse hook (begin/end phase pairs), while a `UserInterfaceObjectBase` and its grip/slider subclasses are registered in-viewport widgets that draw through the display pipeline and receive a picked `MouseState`. A gumball is the third, dedicated manipulator — a `GumballDisplayConduit` seated from a `GumballObject`, never a hand-rolled grip cluster.
-- Every host callback runs on the UI thread: work that touches document or UI state from a background context marshals through `RhinoApp.InvokeOnUiThread`/`InvokeAndWait`, gated by `IsOnMainThread` — a direct cross-thread UI mutation is the deleted form.
+[TOPOLOGY]:
+- Native chrome registers once per plug-in in one owner: `Panels.RegisterPanel` seats a panel type, `StackedDialogPage`/`OptionsDialogPage`/`ObjectPropertiesPage` seat pages, and the host resolves instances through `GetPanel`/`GetPanels<T>`; a second registration of the same type is the collapsed form.
+- Every Eto surface reaches a Rhino window through the host bridge alone: `RhinoEtoApp` resolves the document-owned parent, `EtoExtensions.UseRhinoStyle` applies native styling, and `ShowSemiModal`/`Show` present it against a document; the control tree is authored through the folder Eto catalogs, never re-implemented by the bridge.
+- Interaction runs two tiers: `MouseCallback` is the document-wide viewport mouse hook with begin/end phase pairs, while `UserInterfaceObjectBase` and its grip/slider subclasses are registered in-viewport widgets that draw through the display pipeline and receive a picked `MouseState`; a gumball is the dedicated third manipulator — a `GumballDisplayConduit` seated from a `GumballObject`, never a hand-rolled grip cluster.
+- Every host callback runs on the UI thread: work touching document or UI state from a background context marshals through `RhinoApp.InvokeOnUiThread`/`InvokeAndWait`, gated by `IsOnMainThread`.
 
 [STACKING]:
-- `api-eto-forms.md` / `api-eto-drawing.md` / `api-eto-runtime.md`: the Eto framework is the folder's own sub-domain; this boundary composes it through the host bridge only. A panel or dialog's content is an Eto control tree from those catalogs; `Rhino.UI` supplies the window ownership, native styling, and semi-modal presentation the tree lacks on its own.
-- `api-languageext.md`(`../../.api/api-languageext.md`): panel registration, page activation, dialog results, and resource loads are trapped onto the rail — `Try.lift(() => Panels.RegisterPanel(...)).Run()` and `Optional(Dialogs.ShowColorDialog(...)).ToFin(error)`; a dialog result or a loaded preview image crosses as `Fin<A>`, never as a nullable host handle.
-- `api-thinktecture-runtime-extensions.md`(`../../.api/api-thinktecture-runtime-extensions.md`): the host UI enums (`PanelType`, `FloatPanelMode`, `ShowPanelReason`, `MouseButton`, `GumballMode`, `PropertyPageType`, the dialog button/icon selectors) map at the edge to `[SmartEnum]` owners, and a panel/page `Guid` is a `[ValueObject<Guid>]`; the domain composes the bounded owner.
+- `api-eto-forms.md`/`api-eto-drawing.md`/`api-eto-runtime.md`: a panel or dialog's content is an Eto control tree from those catalogs; this boundary supplies the window ownership, native styling, and semi-modal presentation the tree lacks.
+- `api-languageext.md`(`../../.api/api-languageext.md`): panel registration, page activation, dialog results, and resource loads trap onto the rail — `Try.lift(() => Panels.RegisterPanel(...)).Run()` and `Optional(Dialogs.ShowColorDialog(...)).ToFin(error)`; a dialog result or a loaded preview image crosses as `Fin<A>`, never a nullable host handle.
+- `api-thinktecture-runtime-extensions.md`(`../../.api/api-thinktecture-runtime-extensions.md`): host UI enums (`PanelType`, `FloatPanelMode`, `ShowPanelReason`, `MouseButton`, `GumballMode`, `PropertyPageType`, the dialog button/icon selectors) map at the edge to `[SmartEnum]` owners, and a panel/page `Guid` is a `[ValueObject<Guid>]`.
 - `api-rhinocommon-display.md`: in-viewport `UserInterfaceObjectBase.OnDraw` receives a `DrawEventArgs` and draws through the same `DisplayPipeline` the display catalog owns, and the gumball is a display conduit — the UI widget is a pipeline participant, not a private renderer.
-- `api-rhino-ui-controls.md`: full `Rhino.UI.dll` control library (collapsible-section family, layout/panel/button/label/color/list/numeric-text controls, `ViewportControl`) composes into a panel or page hosted through this boundary; a `DataSource.ProviderIds` `Guid` binds a UI data source, and an `EventInfoArgs.EventInfoPtr` native pointer traps at the edge, never crossing into a domain signature.
+- `api-rhino-ui-controls.md`: `Rhino.UI.dll`'s full control library composes into a panel or page hosted through this boundary; a `DataSource.ProviderIds` `Guid` binds a UI data source, and an `EventInfoArgs.EventInfoPtr` native pointer traps at the edge, never crossing into a domain signature.
 
 [LOCAL_ADMISSION]:
-- `Rhino.UI` types are host handles trapped and mapped at the boundary; a `Panels` registration id, a `Dialogs` result, or a `MouseState` never appears in a domain signature — the domain sees a `Fin<A>`, a bounded owner, or a canonical shape.
+- `Rhino.UI` types are host handles trapped and mapped at the boundary; a `Panels` id, a `Dialogs` result, or a `MouseState` never enters a domain signature — the domain sees a `Fin<A>`, a bounded owner, or a canonical shape.
 - One panel type, one page host, one gumball conduit, and one mouse hook own their concern; a parallel registration or a second hook drawing the same overlay is the collapsed form.
-- `Rhino.UI.Controls.DataSource.EventInfoArgs.EventInfoPtr` is a raw native pointer trapped at the boundary and never a domain field; the dead `Rhino.UI.Controls.ThumbnailUI` surface (deprecated 6.6, stub implementations) is never admitted.
+- `Rhino.UI.Controls.DataSource.EventInfoArgs.EventInfoPtr` is a raw native pointer trapped at the boundary, never a domain field; the dead `Rhino.UI.Controls.ThumbnailUI` surface is never admitted.
 
 [RAIL_LAW]:
 - Package: `RhinoCommon` + `Rhino.UI` (host UI bridge)

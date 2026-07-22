@@ -41,7 +41,7 @@ Every AEC peer projects its foreign source through `IElementProjection` and neve
 
 ## [02]-[DOMAIN_PACKAGES]
 
-No domain package lands here — the host-neutral, provider-free seam. GeometryGym, VividOrange, NetTopologySuite, and the IFC and geospatial codecs all live in the AEC peers that project onto this graph.
+No domain package lands here — the host-neutral, provider-free seam. Domain codecs all live in the AEC peers that project onto this graph.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 

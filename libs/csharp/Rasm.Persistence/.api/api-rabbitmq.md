@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_RABBITMQ]
 
-`RabbitMQ.Client` is the official AMQP 0-9-1 protocol client in its fully-async v7 form, backing `EgressSink.RabbitMq` (`Version/egress#EGRESS_SINK`). The v7 surface is a clean break from v6: connection and channel creation, publish, consume, ack/nack, and all topology (`exchange`/`queue`/`binding`) admin are `Task`/`ValueTask`-returning and `CancellationToken`-aware; publisher confirms are a first-class `CreateChannelOptions` policy with a built-in `RateLimiter` (no manual `WaitForConfirms`); `BasicPublishAsync<TProperties>` is generic over `IReadOnlyBasicProperties, IAmqpHeader` so properties carry no boxing; and W3C trace-context propagation is built into `RabbitMQActivitySource`. This is the routing-rich messaging lane distinct from the Kafka log/changefeed (`api-kafka`): RabbitMQ owns topic/direct/fanout/headers exchange routing, per-message TTL/priority, and ack-based work-queue semantics where Kafka owns the partitioned append log. The `CloudNative.CloudEvents` envelope rides on top; `RabbitMQ.Client` owns only the publish/consume/ack, never the envelope shape.
+`RabbitMQ.Client` owns the AMQP 0-9-1 routing-rich egress lane backing `EgressSink.RabbitMq`: async connection and channel lifecycle, publisher-confirm publish, ack-based consume, and exchange/queue/binding topology, every op `Task`/`ValueTask`-returning and `CancellationToken`-aware. Exchange routing across topic, direct, fanout, and headers types, per-message TTL and priority, and ack-based work-queue dispatch are its owned capability; the `CloudNative.CloudEvents` envelope rides the message body, owned here for publish, consume, and ack, never for its shape.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -10,17 +10,13 @@
 - assembly: `RabbitMQ.Client`
 - namespace: `RabbitMQ.Client`, `RabbitMQ.Client.Events`, `RabbitMQ.Client.Exceptions`
 - target: multi-target (`net8.0`, `netstandard2.0`); the `net10.0` consumer binds `lib/net8.0` — pure-managed AnyCPU, no native runtime
-- xml docs: `RabbitMQ.Client.xml` ships beside the assembly; member intent is doc-comment-sourced
 - rail: amqp-egress
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: connection and channel roots
-- rail: amqp-egress
 
-`IConnectionFactory`/`ConnectionFactory` build connections from a `Uri` or host/port + credentials; `AutomaticRecoveryEnabled` (default `true`), `TopologyRecoveryEnabled` (default `true`), and `NetworkRecoveryInterval` (default 5s) drive transparent reconnection and topology replay. `IConnection.CreateChannelAsync(CreateChannelOptions?)` opens a channel (the AMQP multiplexed session); `IConnection.UpdateSecretAsync` rotates the OAuth2 token on a live connection. `IChannel` is the unit of all publish/consume/topology work and is not thread-safe for concurrent publishes on one instance.
-
-| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY]     | [RAIL]                                                 |
+| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY]     | [CAPABILITY]                                           |
 | :-----: | :---------------------------------------------- | :---------------- | :----------------------------------------------------- |
 |  [01]   | `IConnectionFactory`                            | factory contract  | builds connections, recovery policy                    |
 |  [02]   | `ConnectionFactory`                             | factory           | concrete factory + recovery defaults                   |
@@ -34,11 +30,8 @@
 |  [10]   | `.OutstandingPublisherConfirmationsRateLimiter` | confirm limiter   | default `ThrottlingRateLimiter(128, 50)` back-pressure |
 
 [PUBLIC_TYPE_SCOPE]: message, properties, and consumer family
-- rail: amqp-egress
 
-`IReadOnlyBasicProperties`/`IBasicProperties`/`BasicProperties` carry the AMQP message metadata: `Persistent`/`DeliveryMode` (durable message), `Headers` (the header-exchange + CloudEvents attribute carrier), `CorrelationId`, `ReplyTo`/`ReplyToAddress` (RPC), `Expiration` (per-message TTL), `Priority`, `ContentType`/`ContentEncoding`, `MessageId`, `Timestamp`. `IAsyncBasicConsumer`/`AsyncEventingBasicConsumer` is the v7 consumer; its `ReceivedAsync` event delivers `BasicDeliverEventArgs` with the body as `ReadOnlyMemory<byte>`.
-
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]     | [RAIL]                                |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]     | [CAPABILITY]                          |
 | :-----: | :----------------------------- | :---------------- | :------------------------------------ |
 |  [01]   | `IReadOnlyBasicProperties`     | properties read   | message metadata accessor             |
 |  [02]   | `IBasicProperties`             | properties write  | mutable message metadata              |
@@ -56,11 +49,8 @@
 |  [14]   | `CachedString`                 | interned string   | pre-encoded exchange/routing-key key  |
 
 [PUBLIC_TYPE_SCOPE]: routing, observability, and exception family
-- rail: amqp-egress
 
-`ExchangeType` names the exchange kinds (`Direct`/`Fanout`/`Topic`/`Headers`); `Headers` carries the well-known header keys. `RabbitMQActivitySource` is the built-in OpenTelemetry seam: `PublisherSourceName`/`SubscriberSourceName` are the `ActivitySource` names, and `ContextInjector`/`ContextExtractor` propagate W3C trace context through message headers.
-
-| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY]    | [RAIL]                                   |
+| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY]    | [CAPABILITY]                             |
 | :-----: | :--------------------------------------------- | :--------------- | :--------------------------------------- |
 |  [01]   | `ExchangeType`                                 | routing enum     | `Direct`/`Fanout`/`Topic`/`Headers`      |
 |  [02]   | `PublicationAddress`                           | address value    | exchange + routing-key address           |
@@ -75,11 +65,8 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: connect and open channel
-- rail: amqp-egress
 
-`CreateChannelOptions(publisherConfirmationsEnabled, publisherConfirmationTrackingEnabled, outstandingPublisherConfirmationsRateLimiter?, consumerDispatchConcurrency?)` is the v7 confirms policy: with tracking enabled, `BasicPublishAsync` itself awaits the broker ack and throws on nack, replacing the v6 manual `WaitForConfirmsOrDie`. The `OutstandingPublisherConfirmationsRateLimiter` (default `ThrottlingRateLimiter(128, 50)`) bounds in-flight unconfirmed publishes.
-
-| [INDEX] | [SURFACE]                                                                     | [CALL_SHAPE]  | [CAPABILITY]                            |
+| [INDEX] | [SURFACE]                                                                     | [SHAPE]       | [CAPABILITY]                            |
 | :-----: | :---------------------------------------------------------------------------- | :------------ | :-------------------------------------- |
 |  [01]   | `new ConnectionFactory { Uri = … }`                                           | factory init  | configures endpoint + credentials       |
 |  [02]   | `ConnectionFactory.CreateConnectionAsync(ct)`                                 | async connect | opens a recovering connection           |
@@ -90,11 +77,8 @@
 |  [07]   | `IConnection.CloseAsync(reasonCode, reasonText, timeout, abort, ct)`          | async close   | graceful connection close               |
 
 [ENTRYPOINT_SCOPE]: topology declaration
-- rail: amqp-egress
 
-Every surface is an `IChannel` method, idempotent server-side and carrying `noWait`/`passive`/`arguments` so quorum-queue and dead-letter arguments (`x-queue-type`, `x-dead-letter-exchange`, `x-message-ttl`, `x-max-priority`) pass through the `arguments` dictionary.
-
-| [INDEX] | [SURFACE]                                                              | [CALL_SHAPE]   | [CAPABILITY]                        |
+| [INDEX] | [SURFACE]                                                              | [SHAPE]        | [CAPABILITY]                        |
 | :-----: | :--------------------------------------------------------------------- | :------------- | :---------------------------------- |
 |  [01]   | `ExchangeDeclareAsync(exchange, type, durable, autoDelete, …)`         | async topology | declares an exchange                |
 |  [02]   | `QueueDeclareAsync(queue, durable, exclusive, autoDelete, …)`          | async topology | declares a queue → `QueueDeclareOk` |
@@ -104,11 +88,8 @@ Every surface is an `IChannel` method, idempotent server-side and carrying `noWa
 |  [06]   | `MessageCountAsync(queue, ct)` / `ConsumerCountAsync(queue, ct)`       | async probe    | queue depth / consumer count        |
 
 [ENTRYPOINT_SCOPE]: publish, consume, and acknowledge
-- rail: amqp-egress
 
-`BasicPublishAsync<TProperties>` has a `(string exchange, string routingKey, …)` overload and a `(CachedString exchange, CachedString routingKey, …)` overload for pre-interned hot-path keys; both take `mandatory`, the generic `basicProperties`, and a `ReadOnlyMemory<byte>` body. `BasicConsumeAsync` binds an `IAsyncBasicConsumer`; `BasicQosAsync` sets the prefetch window for fair work-queue dispatch.
-
-| [INDEX] | [SURFACE]                                                           | [CALL_SHAPE]  | [CAPABILITY]                              |
+| [INDEX] | [SURFACE]                                                           | [SHAPE]       | [CAPABILITY]                              |
 | :-----: | :------------------------------------------------------------------ | :------------ | :---------------------------------------- |
 |  [01]   | `IChannel.BasicPublishAsync<T>(exchange, routingKey, mandatory, …)` | async publish | publishes; confirms if tracking on        |
 |  [02]   | `IChannel.BasicPublishAsync<T>(CachedString exchange, …)`           | async publish | hot-path publish with interned keys       |
@@ -121,47 +102,44 @@ Every surface is an `IChannel` method, idempotent server-side and carrying `noWa
 |  [09]   | `IChannel.BasicRejectAsync(deliveryTag, requeue, ct)`               | async reject  | rejects one delivery                      |
 |  [10]   | `IChannel.BasicCancelAsync(consumerTag, noWait, ct)`                | async cancel  | cancels a consumer                        |
 |  [11]   | `AsyncEventingBasicConsumer.ReceivedAsync += handler`               | event wire    | `BasicDeliverEventArgs` delivery callback |
-|  [12]   | `IChannel.TxSelectAsync` / `TxCommitAsync` / `TxRollbackAsync`      | async tx      | AMQP transaction (legacy vs. confirms)    |
+|  [12]   | `IChannel.TxSelectAsync` / `TxCommitAsync` / `TxRollbackAsync`      | async tx      | AMQP transaction alternative to confirms  |
 
 [ENTRYPOINT_SCOPE]: recovery and observability wiring
-- rail: amqp-egress
 
-Each `IConnection` recovery event subscribes via `+= handler`; the `RabbitMQActivitySource` rows are the OTel trace-context seam.
-
-| [INDEX] | [SURFACE]                                                            | [CALL_SHAPE] | [CAPABILITY]                         |
-| :-----: | :------------------------------------------------------------------- | :----------- | :----------------------------------- |
-|  [01]   | `IConnection.RecoverySucceededAsync`                                 | event wire   | fires after automatic recovery       |
-|  [02]   | `IConnection.ConnectionRecoveryErrorAsync`                           | event wire   | fires on a recovery attempt failure  |
-|  [03]   | `IConnection.ConnectionBlockedAsync`                                 | event wire   | broker flow-control / resource alarm |
-|  [04]   | `IConnection.ConnectionShutdownAsync` / `CallbackExceptionAsync`     | event wire   | shutdown / callback-fault hook       |
-|  [05]   | `RabbitMQActivitySource.ContextInjector` / `ContextExtractor`        | telemetry    | W3C trace-context via headers        |
-|  [06]   | `RabbitMQActivitySource.{PublisherSourceName, SubscriberSourceName}` | telemetry    | `ActivitySource` names for OTel      |
+| [INDEX] | [SURFACE]                                                            | [SHAPE]    | [CAPABILITY]                         |
+| :-----: | :------------------------------------------------------------------- | :--------- | :----------------------------------- |
+|  [01]   | `IConnection.RecoverySucceededAsync`                                 | event wire | fires after automatic recovery       |
+|  [02]   | `IConnection.ConnectionRecoveryErrorAsync`                           | event wire | fires on a recovery attempt failure  |
+|  [03]   | `IConnection.ConnectionBlockedAsync`                                 | event wire | broker flow-control / resource alarm |
+|  [04]   | `IConnection.ConnectionShutdownAsync` / `CallbackExceptionAsync`     | event wire | shutdown / callback-fault hook       |
+|  [05]   | `RabbitMQActivitySource.ContextInjector` / `ContextExtractor`        | telemetry  | W3C trace-context via headers        |
+|  [06]   | `RabbitMQActivitySource.{PublisherSourceName, SubscriberSourceName}` | telemetry  | `ActivitySource` names for OTel      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[RABBITMQ_TOPOLOGY]:
-- v7 is fully async: there is NO synchronous `IModel`/`CreateModel`/`BasicPublish`. `IConnection`→`IChannel` replaces `IConnection`→`IModel`; every operation is `Task`/`ValueTask`. `BasicAckAsync`/`BasicNackAsync`/`BasicRejectAsync`/`GetNextPublishSequenceNumberAsync`/`BasicPublishAsync` are `ValueTask` (hot path); topology and consume are `Task`.
-- `IChannel` is the multiplexed AMQP session over one TCP `IConnection`; it is single-writer for publishes — concurrent publishes need separate channels or external serialization. `consumerDispatchConcurrency` on `CreateChannelOptions` controls parallel consumer-callback dispatch.
-- publisher confirms are the durable-publish mechanism, not transactions: `CreateChannelOptions(publisherConfirmationsEnabled: true, publisherConfirmationTrackingEnabled: true)` makes `BasicPublishAsync` await the broker ack and throw on nack; the `OutstandingPublisherConfirmationsRateLimiter` bounds in-flight unconfirmed publishes. AMQP `Tx*` is the legacy alternative and is rejected on the durable egress path.
-- automatic + topology recovery (both on by default) transparently reconnect and replay declared exchanges/queues/bindings/consumers after a connection drop; `RecoverySucceededAsync`/`ConnectionRecoveryErrorAsync` observe it.
-- the message body is `ReadOnlyMemory<byte>` end to end (publish and `BasicDeliverEventArgs.Body`) — zero-copy, no `byte[]` allocation per message.
-
-[LOCAL_ADMISSION]:
-- `EgressSink.RabbitMq` builds one `IConnection` per broker and one `IChannel` per publishing path through `CreateChannelAsync` with confirms tracking enabled; the channel's confirm policy is fixed at open, never per-publish.
-- at-least-once egress: `BasicPublishAsync` awaits the confirm; a nack (surfaced as a throw under tracking, or via `BasicNackEventArgs` under manual tracking) triggers the retry rail. `mandatory: true` plus a `BasicReturnEventArgs` handler routes an unroutable message to dead-letter rather than silently dropping it.
-- the consumer side uses `BasicQosAsync` prefetch + manual `BasicAckAsync`/`BasicNackAsync(requeue)` so the ack never outruns durable downstream apply; `autoAck` is rejected on the durable work-queue path.
-- durable topology: queues are declared `durable: true` with `x-queue-type=quorum` and a dead-letter exchange in `arguments`; per-message TTL/priority ride `BasicProperties.Expiration`/`Priority`. The declaration is idempotent and replayed by topology recovery.
-- routing vs. log: RabbitMQ owns routing-rich egress (topic/headers exchange, RPC `ReplyTo`, priority); the partitioned append-log changefeed stays on Kafka (`api-kafka`). The two are distinct `EgressSink` rows, never collapsed.
+[TOPOLOGY]:
+- Every connection, channel, publish, consume, and topology op returns `Task`/`ValueTask` and takes a `CancellationToken`; `BasicAckAsync`/`BasicNackAsync`/`BasicRejectAsync`/`GetNextPublishSequenceNumberAsync`/`BasicPublishAsync` return `ValueTask` on the hot path, topology and consume return `Task`.
+- `IChannel` multiplexes one AMQP session over a single TCP `IConnection` and is single-writer for publishes; concurrent publishes need separate channels or external serialization, and `consumerDispatchConcurrency` on `CreateChannelOptions` bounds parallel consumer-callback dispatch.
+- Publisher confirms are the durable-publish mechanism: `CreateChannelOptions(publisherConfirmationsEnabled: true, publisherConfirmationTrackingEnabled: true)` makes `BasicPublishAsync` await the broker ack and throw on nack, the `OutstandingPublisherConfirmationsRateLimiter` bounding in-flight unconfirmed publishes; AMQP `Tx*` is the alternative transaction mechanism, rejected on the durable egress path where confirms apply.
+- Automatic and topology recovery, both on by default, reconnect and replay declared exchanges, queues, bindings, and consumers after a connection drop; `RecoverySucceededAsync`/`ConnectionRecoveryErrorAsync` observe it.
+- `ReadOnlyMemory<byte>` carries the message body end to end across publish and `BasicDeliverEventArgs.Body`, no per-message `byte[]` allocation.
 
 [STACKING]:
-- CloudEvents envelope: the message body is the CloudEvents-framed payload and the CloudEvents attributes (`traceparent`, `redacted`, `sequence`) ride `BasicProperties.Headers`, so a headers-exchange binding filters on attributes without parsing the body — built via `CloudNative.CloudEvents` (`api-cloudevents`); `RabbitMQ.Client` owns only the publish/ack, never the envelope. This mirrors the Kafka binding's header-carried-attributes pattern exactly.
-- telemetry: `RabbitMQActivitySource.ContextInjector`/`ContextExtractor` propagate W3C trace context through `BasicProperties.Headers`, and the publisher/subscriber `ActivitySource`s register with the AppHost `telemetry` OpenTelemetry pipeline — the publish/consume span is first-class, not a bespoke logger. The redacted op payload is framed by the redaction codec (`api-redaction`) before publish.
-- credential rotation: `IConnection.UpdateSecretAsync` rotates an OAuth2 token on the live connection, the AMQP counterpart to Kafka's `SetSaslCredentials`/`SetOAuthBearerTokenRefreshHandler` — the runtime token authority (`OpenIddict.Client`) is the shared seam binding broker auth to the token provider; `ICredentialsProvider` is the periodic-refresh form.
-- retry/back-pressure: the `OutstandingPublisherConfirmationsRateLimiter` (a `System.Threading.RateLimiting.RateLimiter`) is the in-flight bound; transient connect/publish faults retry through the `Polly`/`stamina`-shaped engine rail, never a hand-rolled loop. `ConnectionBlockedAsync` (broker resource alarm) feeds the same back-pressure shed the Kafka consumer-lag probe drives.
-- snapshot/DLQ residence: dead-lettered messages and shovel/backup snapshots share the object-store residence (`api-objectstore`/`Minio`) with the other egress sinks via the `Store/blobstore` lane.
+- `CloudNative.CloudEvents` (`api-cloudevents`) frames the body and rides its attributes (`traceparent`, `redacted`, `sequence`) on `BasicProperties.Headers`, so a headers-exchange binding filters on attributes without parsing the body; `RabbitMQ.Client` owns only the publish and ack.
+- `RabbitMQActivitySource.ContextInjector`/`ContextExtractor` propagate W3C trace context through `BasicProperties.Headers` and the publisher/subscriber `ActivitySource`s register with the AppHost `telemetry` OpenTelemetry pipeline; the redacted op payload is framed by the redaction codec (`api-redaction`) before publish.
+- `IConnection.UpdateSecretAsync` rotates an OAuth2 token on the live connection and `ICredentialsProvider` is the periodic-refresh form; the runtime token authority (`OpenIddict.Client`) is the shared seam binding broker auth to the token provider.
+- `OutstandingPublisherConfirmationsRateLimiter` (a `System.Threading.RateLimiting.RateLimiter`) bounds in-flight publishes and transient connect/publish faults retry through the `Polly`/`stamina` engine rail; `ConnectionBlockedAsync` feeds the broker-resource-alarm back-pressure shed.
+- Dead-lettered messages and shovel/backup snapshots share the object-store residence (`api-objectstore`/`Minio`) with the other egress sinks through the `Store/blobstore` lane.
+
+[LOCAL_ADMISSION]:
+- `EgressSink.RabbitMq` builds one `IConnection` per broker and one `IChannel` per publishing path via `CreateChannelAsync` with confirm tracking enabled; the channel confirm policy is fixed at open, never per-publish.
+- At-least-once egress: `BasicPublishAsync` awaits the confirm and a nack triggers the retry rail; `mandatory: true` with a `BasicReturnEventArgs` handler routes an unroutable message to dead-letter rather than dropping it.
+- `BasicQosAsync` prefetch and manual `BasicAckAsync`/`BasicNackAsync(requeue)` keep the ack from outrunning durable downstream apply; `autoAck` is rejected on the durable work-queue path.
+- Durable topology declares queues `durable: true` with `x-queue-type=quorum` and a dead-letter exchange in `arguments`, per-message TTL and priority riding `BasicProperties.Expiration`/`Priority`; the declaration is idempotent and replayed by topology recovery.
+- RabbitMQ owns routing-rich egress — topic and headers exchange, RPC `ReplyTo`, priority — and the partitioned append-log changefeed stays on Kafka (`api-kafka`); the two are distinct `EgressSink` rows, never collapsed.
 
 [RAIL_LAW]:
 - Package: `RabbitMQ.Client`
-- Owns: AMQP 0-9-1 routing-rich egress — connection/channel lifecycle, exchange/queue/binding topology, publisher-confirm publish, ack-based consume, and built-in trace-context propagation
-- Accept: the async `IConnection`/`IChannel` v7 surface, `CreateChannelOptions` publisher confirms with the rate limiter, generic `BasicPublishAsync<T>`, manual `BasicQosAsync`+`BasicAckAsync`/`BasicNackAsync`, and `RabbitMQActivitySource` propagation
-- Reject: the removed synchronous `IModel`/`BasicPublish` surface, AMQP `Tx*` on the durable path where confirms exist, `autoAck` on the durable work queue, and a hand-rolled trace-context/retry implementation where the client owns it
+- Owns: AMQP 0-9-1 routing-rich egress — connection and channel lifecycle, exchange/queue/binding topology, publisher-confirm publish, ack-based consume, and built-in trace-context propagation
+- Accept: the async `IConnection`/`IChannel` surface, `CreateChannelOptions` publisher confirms with the rate limiter, generic `BasicPublishAsync<T>`, manual `BasicQosAsync` with `BasicAckAsync`/`BasicNackAsync`, and `RabbitMQActivitySource` propagation
+- Reject: a hand-rolled AMQP framing or confirm-tracking loop, AMQP `Tx*` on the durable path where confirms apply, `autoAck` on the durable work queue, and a hand-rolled trace-context or retry implementation where the client owns it

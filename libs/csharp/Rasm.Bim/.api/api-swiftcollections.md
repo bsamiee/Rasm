@@ -1,124 +1,93 @@
 # [RASM_BIM_API_SWIFTCOLLECTIONS]
 
-`SwiftCollections.Lean` is the 3D AABB broad-phase owner backing the
-`Model/systems#INTERFERENCE` clash-candidate build and the
-`Review/coordination#COORDINATION` `ClashProposal` fold, replacing the O(N^2)
-pairwise element test. The `SwiftCollections.Query` namespace provides three
-interchangeable spatial structures over one generic AABB contract
-(`IBoundVolume<TVolume>`): a refittable `SwiftBVH` (SAH-cost insertion, the
-default broad-phase), a `SwiftOctree`, and a `SwiftSpatialHash` — each exposing
-the identical `Insert(key, bounds)` / `UpdateEntryBounds` / `Query(bounds,
-results)` / `Remove` surface, so the clash engine is written once against the
-contract and the structure is a tuning choice. The built-in `BoundVolume` is a
-`System.Numerics.Vector3` AABB; the handle-stable `SwiftBucket`/`SwiftSparseMap`
-collections back the entity-id↔volume registry without per-element allocation.
+`SwiftCollections.Lean` owns the 3D AABB broad-phase behind the `Model/systems#INTERFERENCE` clash-candidate build and the `Review/coordination#COORDINATION` `ClashProposal` fold. `SwiftBVH`, `SwiftOctree`, and `SwiftSpatialHash` implement one generic `IBoundVolume<TVolume>` contract, so the clash engine binds the contract once and the concrete structure is a tuning choice; the handle-stable `SwiftBucket`/`SwiftSparseMap` collections hold the element-id↔volume registry with zero per-element allocation.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `SwiftCollections.Lean`
-- package: `SwiftCollections.Lean`
-- license: file `LICENSE` (MIT)
+- package: `SwiftCollections.Lean` (MIT)
 - assembly: `SwiftCollections`
-- namespace: `SwiftCollections.Query`, `SwiftCollections`, `SwiftCollections.Pool`, `SwiftCollections.Dimensions`, `SwiftCollections.Diagnostics`
-- asset: multi-target net8.0 + netstandard2.1; the net10.0 consumer binds `lib/net8.0` (highest applicable; `BoundVolume` uses `System.Numerics.Vector3`, AnyCPU, no `runtimes/` folder) — `.Lean` is the MemoryPack-free variant
-- asset: managed transitive `Chronicler.Core.Lean (the zero-dep diagnostic core), floor-pinned centrally
+- namespace: `SwiftCollections.Query`, `SwiftCollections`
+- asset: multi-target net8.0 + netstandard2.1; the net10.0 consumer binds `lib/net8.0` (AnyCPU, no `runtimes/` folder), the MemoryPack-free `.Lean` variant carrying `Chronicler.Core.Lean` as its zero-dep diagnostic core
 - rail: clash
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: spatial broad-phase structures
-- package: `SwiftCollections.Lean`
-- namespace: `SwiftCollections.Query`
-- rail: clash
-- note: `SwiftBVH`/`SwiftOctree`/`SwiftSpatialHash` each ship a `<TKey>` form (built-in `BoundVolume`) and a `<TKey, TVolume>` form (custom `IBoundVolume<TVolume>`)
 
-| [INDEX] | [SYMBOL]                  | [CAPABILITY]                                                                                           |
-| :-----: | :------------------------ | :----------------------------------------------------------------------------------------------------- |
-|  [01]   | `SwiftBVH`                | refittable BVH; SAH-cost insertion, `EnsureCapacity`, `NodePool`/`RootNode` — the default broad-phase  |
-|  [02]   | `SwiftOctree`             | spatial octree; depth/node-capacity bounded subdivision with merge-on-remove                           |
-|  [03]   | `SwiftSpatialHash`        | uniform-grid spatial hash; adds `QueryNeighborhood` over the padded cell ring                          |
-|  [04]   | `BoundVolume`             | `struct` `Vector3` AABB; `Union`/`Intersects`/`GetCost` (SAH)/`BoundsEquals`, `Center`/`Size`/`Volume` |
-|  [05]   | `IBoundVolume<TVolume>`   | generic AABB contract `Union`/`Intersects`/`GetCost`/`BoundsEquals`; plugs all three structures        |
-|  [06]   | `SwiftOctreeOptions`      | `(int maxDepth, int nodeCapacity[, bool enableMergeOnRemove])` octree tuning struct                    |
-|  [07]   | `SwiftSpatialHashOptions` | `(int neighborhoodPadding)`, static `.Default`; the `QueryNeighborhood` ring radius                    |
+Each of `SwiftBVH`/`SwiftOctree`/`SwiftSpatialHash` ships a built-in `<TKey>` form over `BoundVolume` and a `<TKey, TVolume>` form over a custom `IBoundVolume<TVolume>` with its partition strategy.
+
+| [INDEX] | [SYMBOL]                            | [TYPE_FAMILY] | [CAPABILITY]                                                            |
+| :-----: | :---------------------------------- | :------------ | :---------------------------------------------------------------------- |
+|  [01]   | `SwiftBVH`                          | class         | refittable BVH; SAH-cost insertion, `NodePool`/`RootNode` default phase |
+|  [02]   | `SwiftOctree`                       | class         | depth/node-capacity bounded subdivision with merge-on-remove            |
+|  [03]   | `SwiftSpatialHash`                  | class         | uniform-grid hash; `QueryNeighborhood` over the padded cell ring        |
+|  [04]   | `BoundVolume`                       | struct        | `Vector3` AABB: `Union`/`Intersects`/`GetCost`/`BoundsEquals`           |
+|  [05]   | `IBoundVolume<TVolume>`             | interface     | generic AABB contract plugging all three structures                     |
+|  [06]   | `SwiftOctreeOptions`                | struct        | `MaxDepth`/`NodeCapacity`/`EnableMergeOnRemove` tuning                  |
+|  [07]   | `SwiftSpatialHashOptions`           | struct        | `NeighborhoodPadding`, static `.Default` — the neighborhood ring        |
+|  [08]   | `IOctreeBoundsPartitioner<TVolume>` | interface     | pluggable octree bounds-partition strategy                              |
+|  [09]   | `ISpatialHashCellMapper<TVolume>`   | interface     | pluggable spatial-hash cell-mapping strategy                            |
 
 [PUBLIC_TYPE_SCOPE]: handle-stable backing collections
-- package: `SwiftCollections.Lean`
-- namespace: `SwiftCollections`
-- rail: clash
 
-The clash registry maps a `BimElement` GlobalId to its AABB; these allocation-
-conscious structures hold that mapping with stable integer handles so a model
-update mutates one slot instead of rebuilding the index.
+Each backing collection holds the `BimElement` GlobalId→AABB mapping under stable integer handles, so a model update mutates one slot instead of rebuilding the index.
 
-| [INDEX] | [SYMBOL]                           | [CAPABILITY]                                                                                    |
-| :-----: | :--------------------------------- | :---------------------------------------------------------------------------------------------- |
-|  [01]   | `SwiftBucket<T>`                   | dense slab, stable int handles: `int Add(T)`, `TryRemoveAt`/`TryGetValue`, `PeakCount`          |
-|  [02]   | `SwiftSparseMap<T>`                | sparse int-keyed map; O(1) add/remove/lookup — the GlobalId-hash→volume registry                |
-|  [03]   | `SwiftSparseSet`                   | sparse int set for the candidate-pair dedupe                                                    |
-|  [04]   | `SwiftList<T>` / `SwiftHashSet<T>` | low-overhead list/set for the `Query` sink; both `: IStateBacked<SwiftArrayState<T>>`           |
-|  [05]   | `IStateBacked<TState>`             | snapshot/restore contract; registry collections implement it, spatial `Query` structures do not |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [CAPABILITY]                                                             |
+| :-----: | :--------------------- | :------------ | :----------------------------------------------------------------------- |
+|  [01]   | `SwiftBucket<T>`       | class         | stable-handle dense slab: `Add`/`TryRemoveAt`/`TryGetValue`, `PeakCount` |
+|  [02]   | `SwiftSparseMap<T>`    | class         | sparse int-keyed map; O(1) add/remove/lookup — the GlobalId→volume map   |
+|  [03]   | `SwiftSparseSet`       | class         | sparse int set for the candidate-pair dedupe                             |
+|  [04]   | `SwiftList<T>`         | class         | low-overhead ordered `Query` sink; `IStateBacked<SwiftArrayState<T>>`    |
+|  [05]   | `SwiftHashSet<T>`      | class         | deduped `Query` sink; `IStateBacked<SwiftArrayState<T>>`                 |
+|  [06]   | `IStateBacked<TState>` | interface     | `State` snapshot property + state ctor; spatial structures omit it       |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: broad-phase build and query
-- package: `SwiftCollections.Lean`
-- namespace: `SwiftCollections.Query`
-- rail: clash
 
-All three structures share this polymorphic surface (`TKey` = element handle,
-`TVolume` = AABB); the design binds the contract, not a concrete structure.
+`TKey` is the element handle and `TVolume` the AABB; the design binds this shared surface, not a concrete structure.
 
-| [INDEX] | [SURFACE]                                                        | [CAPABILITY]                                                   |
-| :-----: | :--------------------------------------------------------------- | :------------------------------------------------------------- |
-|  [01]   | `new SwiftBVH<T>(int capacity)`                                  | pre-sized BVH; `SwiftOctree`/`SwiftSpatialHash` take options   |
-|  [02]   | `Insert(TKey key, TVolume bounds)` → `bool`                      | inserts an element AABB into the index                         |
-|  [03]   | `UpdateEntryBounds(TKey key, TVolume newBounds)`                 | in-place refit of a moved element, no full rebuild             |
-|  [04]   | `Remove(TKey key)` → `bool`                                      | removes an element from the index                              |
-|  [05]   | `Query(TVolume queryBounds, ICollection<TKey> results)`          | sink of entries overlapping `queryBounds` — the candidate set  |
-|  [06]   | `SwiftSpatialHash.QueryNeighborhood(TVolume, ICollection<TKey>)` | widens the query by the padded cell ring (proximity/clearance) |
-|  [07]   | `TryGetBounds(TKey key, out TVolume bounds)` → `bool`            | reads back a stored AABB (octree/spatial-hash)                 |
-|  [08]   | `Contains(TKey key)` → `bool` / `Count`                          | membership and entry count                                     |
-|  [09]   | `EnsureCapacity(int capacity)` / `Clear()`                       | pre-grow the node pool / reset for the next snapshot           |
+| [INDEX] | [SURFACE]                                                                    | [SHAPE]  | [CAPABILITY]                             |
+| :-----: | :--------------------------------------------------------------------------- | :------- | :--------------------------------------- |
+|  [01]   | `new SwiftBVH(int)`                                                          | ctor     | pre-sized BVH node pool                  |
+|  [02]   | `new SwiftOctree(TVolume, SwiftOctreeOptions, IOctreeBoundsPartitioner)`     | ctor     | bounded subdivision, pluggable partition |
+|  [03]   | `new SwiftSpatialHash(int, ISpatialHashCellMapper, SwiftSpatialHashOptions)` | ctor     | uniform grid, pluggable cell mapper      |
+|  [04]   | `Insert(TKey, TVolume) -> bool`                                              | instance | index an element AABB                    |
+|  [05]   | `UpdateEntryBounds(TKey, TVolume)`                                           | instance | in-place refit of a moved element        |
+|  [06]   | `Query(TVolume, ICollection<TKey>)`                                          | instance | sink of overlapping entries — candidates |
+|  [07]   | `SwiftSpatialHash.QueryNeighborhood(TVolume, ICollection<TKey>)`             | instance | widen the query by the padded cell ring  |
+|  [08]   | `Remove(TKey) -> bool`                                                       | instance | drop an element from the index           |
+|  [09]   | `TryGetBounds(TKey, out TVolume) -> bool`                                    | instance | read back a stored AABB (octree/hash)    |
+|  [10]   | `Contains(TKey) -> bool` / `Count`                                           | instance | membership and entry count               |
+|  [11]   | `EnsureCapacity(int)` / `Clear()`                                            | instance | pre-grow the node pool / reset           |
 
 [ENTRYPOINT_SCOPE]: BoundVolume — AABB algebra
-- package: `SwiftCollections.Lean`
-- namespace: `SwiftCollections.Query`
-- rail: clash
 
-| [INDEX] | [SURFACE]                                | [CALL_SHAPE]                          | [CAPABILITY]                                          |
-| :-----: | :--------------------------------------- | :------------------------------------ | :---------------------------------------------------- |
-|  [01]   | `new BoundVolume`                        | `(Vector3 min, Vector3 max)`          | constructs an AABB from a geometry bounding box       |
-|  [02]   | `BoundVolume.Union`                      | `(BoundVolume other)` → `BoundVolume` | merged AABB — the BVH internal-node bound             |
-|  [03]   | `BoundVolume.Intersects`                 | `(BoundVolume other)` → `bool`        | AABB overlap test — the broad-phase predicate         |
-|  [04]   | `BoundVolume.GetCost`                    | `(BoundVolume other)` → `long`        | SAH surface-area cost driving BVH insertion placement |
-|  [05]   | `BoundVolume.Center` / `Size` / `Volume` | properties                            | derived AABB metrics                                  |
+| [INDEX] | [SURFACE]                                       | [SHAPE]  | [CAPABILITY]                                |
+| :-----: | :---------------------------------------------- | :------- | :------------------------------------------ |
+|  [01]   | `new BoundVolume(Vector3, Vector3)`             | ctor     | AABB from a geometry bounding box           |
+|  [02]   | `BoundVolume.Union(BoundVolume) -> BoundVolume` | instance | merged AABB — the BVH internal-node bound   |
+|  [03]   | `BoundVolume.Intersects(BoundVolume) -> bool`   | instance | AABB overlap — the broad-phase predicate    |
+|  [04]   | `BoundVolume.GetCost(BoundVolume) -> long`      | instance | SAH surface-area cost driving BVH insertion |
+|  [05]   | `BoundVolume.Center` / `Size` / `Volume`        | property | derived AABB metrics                        |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[IDENTITY_PROFILE]:
-- namespace: `SwiftCollections.Query`
-- broad-phase root: `SwiftBVH<TKey, TVolume>` (default) over `SwiftOctree` / `SwiftSpatialHash`
-- volume contract: `IBoundVolume<TVolume>` (`Union`/`Intersects`/`GetCost`/`BoundsEquals`)
-- built-in volume: `BoundVolume` (`Vector3` AABB)
-- receipt root: structure kind, entry count, and candidate-pair count
+[TOPOLOGY]:
+- Every structure binds one `IBoundVolume<TVolume>` contract (`Union`/`Intersects`/`GetCost`/`BoundsEquals`), so the clash engine folds through a single code path and the concrete structure and volume type are tuning choices, never forked implementations.
 
-[CLASH_COMPOSE]:
-- structure-polymorphic broad-phase: the INTERFERENCE engine binds the shared `Insert`/`UpdateEntryBounds`/`Query` surface, so `SwiftBVH` (default, SAH-cost), `SwiftOctree`, and `SwiftSpatialHash` are interchangeable behind one code path — the structure is a `CoordinationRule` tuning choice, never three forked clash implementations.
-- two-phase clash: this package is the BROAD phase — `Query(elementBounds, results)` returns AABB-overlapping candidates; the NARROW phase (exact mesh/solid intersection) is the kernel `Rasm` geometry concern. The `ClashProposal` fold consumes the candidate set, runs the narrow test, and authors a `BcfTopic` (`Smino.Bcf.Toolkit`) per confirmed clash — broad-phase, narrow-phase, and issue-exchange are three distinct owners meeting at the candidate set and the `ElementPredicate` algebra.
-- 3D vs. 2D index split: `SwiftBVH`/`SwiftOctree` own the 3D AABB broad-phase (volumetric clash); `NetTopologySuite`'s STRtree/Quadtree owns the 2D planar Simple-Features index (georeferenced-BIM overlay). The COORDINATION owner selects the 3D index for element-vs-element clash and the NTS 2D index for footprint/site predicates — neither reimplements the other's dimension.
-- incremental refit: `UpdateEntryBounds` refits a single moved element in place, so a `ModelDiff`'s `moved` arm updates only the changed AABBs instead of rebuilding the whole BVH — the clash re-run over a design iteration is incremental.
-- handle-stable registry: `SwiftSparseMap<T>`/`SwiftBucket<T>` hold the GlobalId-hash→`BoundVolume` map with stable integer handles (`TKey`), so the `Insert`/`UpdateEntryBounds`/`Remove` keys never re-hash a GlobalId string per query, and `Clear` + reuse resets the index for the next snapshot with zero re-allocation.
-- snapshot receipt: the spatial `Query` structures expose no state snapshot, but the `IStateBacked`-backed registry collections (`SwiftSparseMap`/`SwiftBucket`/`SwiftList`) do — a deterministic, replayable `ClashProposal` receipt snapshots the GlobalId→AABB registry and the candidate-pair buffer, then re-builds the index by replaying `Insert` over the restored registry.
+[STACKING]:
+- `NetTopologySuite`(`.api/api-nettopologysuite`): `SwiftBVH`/`SwiftOctree` own the 3D AABB volumetric broad-phase while the NTS `STRtree<TItem>`/`Quadtree<TItem>` own the 2D planar Simple-Features index — the COORDINATION owner routes element-vs-element clash to the 3D index and footprint/site predicates to the NTS 2D index, neither reimplementing the other's dimension.
+- `Smino.Bcf.Toolkit`(`.api/api-smino-bcf-toolkit`): the `ClashProposal` fold consumes the `Query` candidate set, runs the narrow-phase exact test, and authors one `BcfTopic` per confirmed clash through `BcfBuilder.AddMarkup` → `Build` → `Worker.ToBcf` — broad-phase, narrow-phase, and issue exchange meet at the candidate set and the `ElementPredicate` algebra.
+- within-lib: the INTERFERENCE engine binds the shared `Insert`/`UpdateEntryBounds`/`Query` surface, so `SwiftBVH`, `SwiftOctree`, and `SwiftSpatialHash` are one code path selected by a `CoordinationRule` row; `UpdateEntryBounds` refits a single moved element so a `ModelDiff` `moved` arm re-runs the clash incrementally, and the `IStateBacked` registry (`SwiftSparseMap`/`SwiftBucket`) snapshots the GlobalId→`BoundVolume` map for a replayable `ClashProposal` receipt.
 
 [LOCAL_ADMISSION]:
-- `SwiftCollections.Lean` provides spatial broad-phase indexing and allocation-conscious collections only; it carries no exact-intersection geometry, no clash policy, and no issue model.
-- Narrow-phase intersection, clash rules, and `BcfTopic` authoring are kernel/COORDINATION concerns, never the index's.
-- Structure kind, entry count, and candidate-pair count are receipt facts the INTERFERENCE/COORDINATION fold records.
-- The broader `SwiftCollections.Pool`/`Dimensions`/`Diagnostics` surfaces are general-purpose; this folder admits the package for `SwiftCollections.Query` and the handle-stable registry collections, not as a general logging or pooling owner.
+- `SwiftCollections.Query` and the handle-stable registry collections are admitted for broad-phase indexing only; the general-purpose `Pool`/`Dimensions`/`Diagnostics` surfaces are not this folder's owners.
+- Narrow-phase exact intersection, clash policy, and `BcfTopic` authoring stay COORDINATION concerns; structure kind, entry count, and candidate-pair count are the receipt facts the INTERFERENCE/COORDINATION fold records.
 
 [RAIL_LAW]:
 - Package: `SwiftCollections.Lean`
 - Owns: 3D AABB broad-phase (BVH/octree/spatial-hash) candidate generation
 - Accept: the INTERFERENCE clash-candidate build and the COORDINATION clash fold's broad phase
-- Reject: exact narrow-phase intersection, clash policy/rules, the 2D planar Simple-Features index (NTS), the BCF issue model
+- Reject: exact narrow-phase intersection, clash policy, the 2D planar Simple-Features index, the BCF issue model

@@ -214,7 +214,6 @@ One `IDocumentSession` commits the `GraphDelta` event and the identity row toget
 ## [06]-[PROHIBITIONS]
 
 Deleted patterns the owner regions foreclose:
-
 - NEVER a public type outside a sub-domain owner region; a new capability is a row, case, or policy value on a budgeted owner.
 - NEVER a bespoke op-log store beneath Marten, a per-node stream grain, or a whole-graph event body; per-model streams carry the `GraphDelta`.
 - NEVER route an interactive-correctness read to an async projection; strong-consistency reads block on non-stale data through the inline projection.

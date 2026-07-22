@@ -13,7 +13,7 @@ Core imports nothing host-bound and nothing from the branch; every other folder 
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Folder-specific libraries admitted by core; versions centralize in `pnpm-workspace.yaml` and corroborate against this folder's `.api/`.
+Domain-specific libraries admitted by this folder; versions centralize in `pnpm-workspace.yaml` and corroborate against this folder's `.api/`.
 
 [DECODE_SUBSTRATE]:
 - `@bufbuild/protobuf`
@@ -39,7 +39,7 @@ Folder-specific libraries admitted by core; versions centralize in `pnpm-workspa
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Shared substrate consumed from the branch registry; `libs/typescript/.planning/README.md` and its charters own the full contracts, and `libs/typescript/.api/` holds the shared API evidence.
+Shared substrate consumed from the Ts registry; the registry and its charters own the full contracts, and `libs/typescript/.api/` holds the shared API evidence.
 
 [TYPING_RAILS]:
 - `effect`

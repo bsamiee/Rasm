@@ -56,6 +56,7 @@ from tools.assay.oracle import (
     rhino_app,
     safe_key,
     Source,  # noqa: TC001  # beartype resolves report-projection annotations at runtime under PEP 649
+    split_arity,
     Surface,  # noqa: TC001  # beartype resolves report-projection annotations at runtime under PEP 649
     to_api_source,
     tsdecl_names,
@@ -85,6 +86,9 @@ _DECL_SHAPE: re.Pattern[str] = re.compile(
     r"|event|const|unsafe|extern|async|new|implicit|explicit|operator|class|struct|interface|enum|delegate|record)\b"
 )
 _ANCHOR_HIDDEN: tuple[str, ...] = ("///", "namespace ", "using ")  # doc/header lines never anchor a declaration window
+# Signature-derived member truth: two-word access modifiers scan before their one-word prefixes.
+_CS_ACCESS: tuple[str, ...] = ("protected internal", "private protected", "public", "internal", "protected", "private")
+_CS_KIND: frozenset[str] = frozenset(("class", "struct", "interface", "enum", "delegate", "record"))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -157,6 +161,13 @@ def shape_of(symbol: str) -> SymbolShape:
             return SymbolShape.MEMBER
 
 
+def _signature_truth(signature: str) -> tuple[str, str]:
+    # Explicit interface members and interface bodies carry no access modifier; the parse never invents one.
+    accessibility = next((access for access in _CS_ACCESS if signature.startswith(access)), "")
+    kind = next((token for token in signature.split() if token in _CS_KIND), "")
+    return accessibility, kind or ("method" if "(" in signature else "member")
+
+
 def _source_notes(source: Source) -> tuple[str, ...]:
     # The consumer-bound TFM rides a note beside fidelity so a notes-first reader sees which framework was decompiled.
     tfm = (f"tfm: {source.tfm}",) if source.kind is SourceKind.NUGET and source.tfm else ()
@@ -195,6 +206,11 @@ def _api_detail(  # noqa: PLR0913  # single ApiSurface constructor surface; keyw
     doc: str = "",
     preview: str = "",
     member: str = "",
+    accessibility: str = "",
+    kind: str = "",
+    arity: int = 0,
+    owner: str = "",
+    reflection: tuple[str, ...] = (),
     truncated: bool = False,
     lines: int = 0,
     selected: int = 0,
@@ -207,6 +223,11 @@ def _api_detail(  # noqa: PLR0913  # single ApiSurface constructor surface; keyw
         doc=doc,
         preview=preview,
         member=member,
+        accessibility=accessibility,
+        member_kind=kind,
+        arity=arity,
+        owner=owner,
+        reflection=reflection,
         truncated=truncated,
         lines=lines,
         selected=selected,
@@ -432,11 +453,13 @@ def _query_shape(settings: AssaySettings, scope: ArtifactScope, orc: Oracle, sur
 
 
 def _resolve_namespace(settings: AssaySettings, scope: ArtifactScope, orc: Oracle, surface: Surface, p: ApiParams) -> Result[Report, Fault]:
-    # Type-suffix match wins over exact namespace roster; no match falls through to search.
-    type_fqn = rank_type(surface.types, p.symbol)
-    owned = surface.by_namespace.get(rank_namespace(surface, p.symbol), ()) if not type_fqn else ()
+    # Type-suffix match wins over exact namespace roster; no match falls through to search. Ranking runs on the
+    # arity-free base and an explicit backtick arity re-qualifies the resolved type for the member leg.
+    base, arity = split_arity(p.symbol)
+    type_fqn = rank_type(surface.types, base)
+    owned = surface.by_namespace.get(rank_namespace(surface, base), ()) if not type_fqn else ()
     return (
-        _member_report(settings, scope, orc, surface, type_fqn, SymbolShape.TYPE, p)
+        _member_report(settings, scope, orc, surface, f"{type_fqn}`{arity}" if arity else type_fqn, SymbolShape.TYPE, p)
         if type_fqn
         else Ok(_roster_report(settings, surface, SymbolShape.NAMESPACE, owned, p))
         if owned
@@ -486,16 +509,24 @@ def _member_anchor(lines: tuple[str, ...], needle: str) -> tuple[int, ...]:
 def _cs_member(  # decompile rendering uses its locals as independent pipeline stages
     settings: AssaySettings, scope: ArtifactScope, orc: Oracle, surface: Surface, symbol: str, shape: SymbolShape, p: ApiParams
 ) -> Result[Report, Fault]:
-    head, _, tail = symbol.rpartition(".")
-    direct = rank_type(surface.types, symbol)
+    # Ranking runs arity-free (the roster displays bare names); an explicit backtick arity re-qualifies the
+    # resolved FQN so the oracle narrows its reflection spellings to the requested instantiation.
+    base, arity = split_arity(symbol)
+    head, _, tail = base.rpartition(".")
+    direct = rank_type(surface.types, base)
     fqn = direct or rank_type(surface.types, head)
     if not fqn:
         return Ok(_decompile_report(settings, scope, orc, surface, shape, "", "", "", "", 0, truncated=False, p=p))
-    match orc.member(scope, surface, fqn):
+    match orc.member(scope, surface, f"{fqn}`{arity}" if arity else fqn):
+        case Result(tag="ok", ok=done) if done.returncode == 0 and not done.stdout:
+            # A roster-resolved type whose every reflection spelling missed is a typed resolution gap; ranked
+            # candidates answer better than a search hit re-asserting the roster row the decompiler cannot find.
+            miss = Completed(("api", "query", surface.source.key), 0, status=RailStatus.UNSUPPORTED, notes=done.notes)
+            return Ok(fold(Claim.API, "query", (miss,), detail=ApiResolution(candidates=rank_candidates(surface.types, base), reason="partial")))
         case Result(tag="ok", ok=done):
             text = done.stdout.decode(errors="replace")
             lines = tuple(line for line in text.splitlines() if not p.grep or p.grep.casefold() in line.casefold())
-            declared = _member_anchor(lines, tail or symbol.rsplit(".", 1)[-1])
+            declared = _member_anchor(lines, tail or base.rsplit(".", 1)[-1])
             if not declared and not direct and head and done.returncode == 0 and text:
                 # The head-resolved owner never declares the member: ranked candidates answer better than an unrelated window.
                 return Ok(_decompile_report(settings, scope, orc, surface, shape, "", "", "", "", 0, truncated=False, p=p))
@@ -513,12 +544,13 @@ def _cs_member(  # decompile rendering uses its locals as independent pipeline s
                     surface,
                     shape,
                     sig,
-                    xml_doc(surface.source, symbol),
+                    xml_doc(surface.source, base),
                     "\n".join(window),
                     text,
                     selected,
                     truncated=truncated,
                     p=p,
+                    evidence=done.notes,
                 )
             )
         case Result(error=fault):
@@ -548,6 +580,7 @@ def _inproc_member(
             len(lines),
             truncated=not p.full and len(lines) > len(window),
             p=p,
+            kind=captured.get("kind", ""),
         )
 
     return orc.member(scope, surface, symbol).map(_build)
@@ -680,6 +713,8 @@ def _decompile_report(  # noqa: PLR0913, PLR0917  # all slots are structural cal
     *,
     truncated: bool,
     p: ApiParams,
+    evidence: tuple[str, ...] = (),
+    kind: str = "",
 ) -> Report:
     # Empty signatures try namespace roster before falling to fuzzy search.
     match signature:
@@ -688,15 +723,21 @@ def _decompile_report(  # noqa: PLR0913, PLR0917  # all slots are structural cal
             owned = surface.by_namespace.get(ns_key, ()) if ns_key != p.symbol or ns_key in surface.by_namespace else ()
             return _roster_report(settings, surface, SymbolShape.NAMESPACE, owned, p) if owned else _search_report(settings, scope, orc, surface, p)
         case _:
-            direct_fqn = rank_type(surface.types, p.symbol)
-            head = p.symbol.rpartition(".")[0]
+            base, queried_arity = split_arity(p.symbol)
+            direct_fqn = rank_type(surface.types, base)
+            head = base.rpartition(".")[0]
             resolved_fqn = direct_fqn or (rank_type(surface.types, head) if head else "")
             is_member = shape is SymbolShape.MEMBER or bool(head and resolved_fqn and not direct_fqn)
             final_shape = SymbolShape.MEMBER if is_member else SymbolShape.TYPE
-            member_name = p.symbol.rpartition(".")[2]
+            member_name = base.rpartition(".")[2]
             suffix = {SourceKind.PYDIST: ".py", SourceKind.TSDECL: ".d.ts"}.get(surface.source.kind, ".cs")
             # The full decompiled body rides an artifact only when the inline window truncates; untruncated output rides the preview.
             artifact = _artifact(settings, surface.source, f"decompile{suffix}", full) if truncated else None
+            # Member-truth band: reflection spellings and arity from the metadata map, accessibility and kind
+            # from the decompiled signature; an INPROC kind capture wins over the parse.
+            reflections = surface.reflection.get(resolved_fqn, ())
+            arities = tuple(dict.fromkeys(split_arity(name)[1] for name in reflections))
+            accessibility, parsed_kind = _signature_truth(signature)
             detail = _api_detail(
                 surface.source,
                 final_shape,
@@ -704,6 +745,11 @@ def _decompile_report(  # noqa: PLR0913, PLR0917  # all slots are structural cal
                 doc=doc,
                 preview=window,
                 member=member_name if is_member else "",
+                accessibility=accessibility,
+                kind=kind or parsed_kind,
+                arity=queried_arity or (arities[0] if len(arities) == 1 else 0),
+                owner=resolved_fqn,
+                reflection=reflections,
                 truncated=truncated,
                 lines=selected,
                 selected=selected,
@@ -715,7 +761,7 @@ def _decompile_report(  # noqa: PLR0913, PLR0917  # all slots are structural cal
                 ("api", "query", surface.source.key),
                 0,
                 status=RailStatus.OK,
-                notes=(f"{selected} selected lines", *_source_notes(surface.source), *window_note),
+                notes=(f"{selected} selected lines", *_source_notes(surface.source), *evidence, *window_note),
             )
             # The requested identity is the canonical owner qualified by the member segment for a member, the resolved type otherwise,
             # so results[0].text round-trips the exact queried FQN every verification consumer keys on.

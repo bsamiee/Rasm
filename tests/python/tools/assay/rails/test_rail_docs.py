@@ -9,7 +9,7 @@ import pytest
 
 from tests.python._testkit.spec import assert_error, assert_ok
 from tests.python.tools.assay.kit import SeamExecutor
-from tools.assay.core.model import Claim, Completed, Fault, RailStatus, receipt
+from tools.assay.core.model import Claim, Completed, Fault, RailStatus, receipt, Runner
 from tools.assay.rails.docs import check, DocsParams, FaultedPromotion
 
 
@@ -103,12 +103,15 @@ def test_check_builds_one_check_per_engine_per_file_and_threads_dependencies(ass
 
     assert_ok(check(assay_root.settings, scope, DocsParams(paths=files), executor))
 
-    assert len(captured) == 5, "the docs claim fans every skill engine over every routed file it owns"
+    assert len(captured) == 7, "the docs claim fans every skill engine over every routed file it owns"
     pairs = {(chk.tool.name, chk.args.input) for chk in captured}
-    expected = {("validate-mermaid", f) for f in files} | {("prose-gate", f) for f in markdown}
+    expected = {("validate-mermaid", f) for f in files} | {(engine, f) for engine in ("prose-gate", "planning-gate") for f in markdown}
     assert pairs == expected, f"engine x owned-file product broke: {pairs}"
     scripts = {"validate-mermaid": "validate_mermaid.py", "prose-gate": "prose_gate.py"}
     for chk in captured:
+        if chk.tool.runner is Runner.INPROC:
+            assert chk.thunk is not None, "an INPROC engine check carries its thunk"
+            continue
         cmd = chk.args.fill(chk.tool.command)
         assert cmd[:3] == ("uv", "run", "--no-project"), "engines launch through the project-free uv runner"
         assert cmd[3].endswith(scripts[chk.tool.name]), f"{chk.tool.name} argv resolves the wrong engine script: {cmd[3]}"

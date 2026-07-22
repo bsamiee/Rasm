@@ -14,7 +14,7 @@ Its bar is one-truth rendering: every state fact binds through the one atom brid
 
 ## [02]-[DOMAIN_PACKAGES]
 
-UI-specific libraries admitted by this folder; versions centralize in `pnpm-workspace.yaml` and corroborate against this folder's `.api/`, a typings-only package corroborating through its runtime twin's catalogue.
+Domain-specific libraries admitted by this folder; versions centralize in `pnpm-workspace.yaml` and corroborate against this folder's `.api/`.
 
 [REACT_RUNTIME]:
 - `react`
@@ -101,7 +101,7 @@ UI-specific libraries admitted by this folder; versions centralize in `pnpm-work
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Shared TypeScript substrate consumed from the workspace registry; the registry and its charters own the full contracts, and `libs/typescript/.api/` holds the shared API evidence.
+Shared substrate consumed from the Ts registry; the registry and its charters own the full contracts, and `libs/typescript/.api/` holds the shared API evidence.
 
 [EFFECT_CORE]:
 - `effect`

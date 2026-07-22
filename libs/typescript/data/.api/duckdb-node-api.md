@@ -30,17 +30,17 @@ Result types name their producing call: `DuckDBResult` from `run`/`stream`, `Duc
 - rail: lane/olap
 - Every execute/read is a `connection` member; `instance.closeSync()` and `connection.disconnectSync()` (alias `closeSync()`) are the release arms. Extension SQL admits `httpfs`/`postgres`/`sqlite`/`ducklake`/`iceberg`/`delta`/`spatial`/`vss`/`fts`.
 
-| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY] | [CONSUMER]                                                            |
-| :-----: | :------------------------------------------------------------ | :------------- | :-------------------------------------------------------------------- |
-|  [01]   | `DuckDBInstance.create(path, config?)`                        | engine acquire | `":memory:"` or file path, `{ threads }`; acquire arm                 |
-|  [02]   | `instance.connect()` → `DuckDBConnection`                     | session lease  | scoped connection per analytical unit of work                         |
-|  [03]   | `run(sql, values?, types?)`                                   | execute        | DDL/DML to completion                                                 |
-|  [04]   | `runAndReadAll(sql, values?, types?)`                         | materialize    | bounded result sets → reader                                          |
-|  [05]   | `streamAndReadUntil` / `streamAndReadAll` / `runAndReadUntil` | stream read    | incremental readers to `targetRowCount`; `Stream` lift                |
-|  [06]   | `stream(sql, values?, types?)` → `DuckDBResult`               | native stream  | chunk-lazy result; `yieldRowObjects()` no re-buffer                   |
-|  [07]   | `prepare(sql)` → `prepared.bind(values, types?)`              | prepared       | repeated parameterized analytics; `.run()`/`.stream()`                |
-|  [08]   | `quotedString(input)` / `quotedIdentifier(input)`             | SQL mint       | injection-safe splice for ATTACH/INSTALL mints                        |
-|  [09]   | `ATTACH` / `INSTALL` / `LOAD` as SQL                          | extension SQL  | capability admission is a statement, never an API                     |
+| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY] | [CONSUMER]                                             |
+| :-----: | :------------------------------------------------------------ | :------------- | :----------------------------------------------------- |
+|  [01]   | `DuckDBInstance.create(path, config?)`                        | engine acquire | `":memory:"` or file path, `{ threads }`; acquire arm  |
+|  [02]   | `instance.connect()` → `DuckDBConnection`                     | session lease  | scoped connection per analytical unit of work          |
+|  [03]   | `run(sql, values?, types?)`                                   | execute        | DDL/DML to completion                                  |
+|  [04]   | `runAndReadAll(sql, values?, types?)`                         | materialize    | bounded result sets → reader                           |
+|  [05]   | `streamAndReadUntil` / `streamAndReadAll` / `runAndReadUntil` | stream read    | incremental readers to `targetRowCount`; `Stream` lift |
+|  [06]   | `stream(sql, values?, types?)` → `DuckDBResult`               | native stream  | chunk-lazy result; `yieldRowObjects()` no re-buffer    |
+|  [07]   | `prepare(sql)` → `prepared.bind(values, types?)`              | prepared       | repeated parameterized analytics; `.run()`/`.stream()` |
+|  [08]   | `quotedString(input)` / `quotedIdentifier(input)`             | SQL mint       | injection-safe splice for ATTACH/INSTALL mints         |
+|  [09]   | `ATTACH` / `INSTALL` / `LOAD` as SQL                          | extension SQL  | capability admission is a statement, never an API      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

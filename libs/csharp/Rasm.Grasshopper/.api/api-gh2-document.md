@@ -1,22 +1,21 @@
 # [RASM_GRASSHOPPER_API_GH2_DOCUMENT]
 
-`Grasshopper2` is the Rhino 9 WIP visual-programming host, and its document graph is the single mutable authority over the canvas definition — a `Document` owns an `ObjectList`, the `DocumentMethods` verb surface, `History` undo branching, a `SolutionServer`, persistence, display, dependencies, notes, hashes, custom values, and modification state. Every structural change enters through `DocumentMethods` (or `Grasshopper2.Parameters.Connections` for wire mutation) paired with a `Grasshopper2.Undo.ActionList`, so a mutation and its undo record are one act. Graph traversal is `Grasshopper2.Doc.Connectivity` over `ConnectiveObject`s, and execution is `SolutionServer` publishing the solution event family over `Solution`/`SolutionRecord` phase state.
+`Grasshopper2` is the Rhino 9 WIP visual-programming host, and its `Document` is the single mutable authority over one canvas definition. Every structural change enters through `DocumentMethods` (or `Grasshopper2.Parameters.Connections` for wire mutation) paired with a `Grasshopper2.Undo.ActionList`, so a mutation and its undo record seal as one act. Graph traversal reads through `Grasshopper2.Doc.Connectivity` over `ConnectiveObject`s, and execution runs on `SolutionServer` publishing the solution lifecycle over `Solution`/`SolutionRecord` phase state.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Grasshopper2` document graph
 - host: `Grasshopper2.dll` inside `Grasshopper2Plugin.rhp`, loaded in-process by Rhino 9 WIP
-- namespace: `Grasshopper2.Doc` — `Document`, `DocumentMethods`, `ObjectList`, `Connectivity`, `IDocumentObject`, `SolutionServer`, `Solution`, `WireEnds`, `KeyedValues`
+- namespace: `Grasshopper2.Doc` — document graph, object list, connectivity, solution server
 - namespace: `Grasshopper2.Doc.Attributes` — `IAttributes` layout and draw contract
-- namespace: `Grasshopper2.Parameters` — `Connections` wire mutation, `IParameter`, `IPin`, `PinRepair`
-- namespace: `Grasshopper2.Undo` / `Grasshopper2.Undo.Actions` — `History`, `ActionList`, `Node`, `Record`, `VerbNoun`
-- namespace: `Grasshopper2.Framework` — `Snippet`; `GrasshopperIO` — `IWriter`/`IStorable` persistence seam
+- namespace: `Grasshopper2.Parameters` — wire mutation, parameter and pin endpoints
+- namespace: `Grasshopper2.Undo` / `Grasshopper2.Undo.Actions` — undo history and action records
+- namespace: `Grasshopper2.Framework` / `GrasshopperIO` — snippet and `IWriter`/`IStorable` persistence seam
 - rail: gh2-document-graph
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document, mutation verbs, object list
-- rail: gh2-document-graph
 
 | [INDEX] | [SYMBOL]          | [KIND] | [CAPABILITY]                                                                           |
 | :-----: | :---------------- | :----- | :------------------------------------------------------------------------------------- |
@@ -27,9 +26,6 @@
 |  [05]   | `WireEnds`        | struct | a `(Source, Target)` `Guid` pair naming one wire by its endpoint ids                   |
 
 [PUBLIC_TYPE_SCOPE]: object identity, attributes, keyed values
-- rail: gh2-document-graph
-
-`IAttributes.Owner` is the `IDocumentObject` back-reference consumed by pivot-undo construction; its remaining surface is pivot, bounds, snapping, move, layout, and draw.
 
 | [INDEX] | [SYMBOL]              | [KIND]    | [CAPABILITY]                             |
 | :-----: | :-------------------- | :-------- | :--------------------------------------- |
@@ -39,7 +35,6 @@
 |  [04]   | `IParameter` / `IPin` | interface | local and global connection endpoints    |
 
 [PUBLIC_TYPE_SCOPE]: graph traversal and connection mutation
-- rail: gh2-document-graph
 
 | [INDEX] | [SYMBOL]           | [KIND]       | [CAPABILITY]                                                                                |
 | :-----: | :----------------- | :----------- | :------------------------------------------------------------------------------------------ |
@@ -48,26 +43,24 @@
 |  [03]   | `Connections`      | static class | write-side wire mutation under `Grasshopper2.Parameters`, each `ActionList`-recorded        |
 
 [PUBLIC_TYPE_SCOPE]: solution execution and undo history
-- rail: gh2-document-graph
 
-| [INDEX] | [SYMBOL]          | [KIND] | [CAPABILITY]                                                                        |
-| :-----: | :---------------- | :----- | :---------------------------------------------------------------------------------- |
-|  [01]   | `SolutionServer`  | class  | the execution controller — start, stop, delayed expiry, and the six-event lifecycle |
-|  [02]   | `Solution`        | class  | one in-flight run — id, phase, invalid parameters, cooperative cancellation         |
-|  [03]   | `SolutionRecord`  | class  | a completed run — culmination, expired/solved counts, progress                      |
-|  [04]   | `History`         | class  | undo as a `Node` tree — do, undo, redo, and branch navigation                       |
-|  [05]   | `ActionList`      | class  | the mutation-action buffer a verb fills, sealed into a `Record` by `VerbNoun`       |
-|  [06]   | `Node` / `Record` | class  | an undo-tree node and the replayable action record it carries                       |
-|  [07]   | `VerbNoun`        | struct | the verb-plus-noun label naming one undoable act                                    |
+| [INDEX] | [SYMBOL]          | [KIND] | [CAPABILITY]                                                                   |
+| :-----: | :---------------- | :----- | :----------------------------------------------------------------------------- |
+|  [01]   | `SolutionServer`  | class  | the execution controller — start, stop, delayed expiry, and solution lifecycle |
+|  [02]   | `Solution`        | class  | one in-flight run — id, phase, invalid parameters, cooperative cancellation    |
+|  [03]   | `SolutionRecord`  | class  | a completed run — culmination, expired/solved counts, progress                 |
+|  [04]   | `History`         | class  | undo as a `Node` tree — do, undo, redo, and branch navigation                  |
+|  [05]   | `ActionList`      | class  | the mutation-action buffer a verb fills, sealed into a `Record` by `VerbNoun`  |
+|  [06]   | `Node` / `Record` | class  | an undo-tree node and the replayable action record it carries                  |
+|  [07]   | `VerbNoun`        | struct | the verb-plus-noun label naming one undoable act                               |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document lifecycle, persistence, state
-- rail: gh2-document-graph
 
-New documents are minted through `NewInertDocument`, `NewInactiveDocument`, and `NewActiveDocument`; facets read through `File`, `Display`, `Dependencies`, `Notes`, `Hash`, `NamedViews`, `Globals`, and `CustomValues`.
+[Document facets]: `File` `Display` `Dependencies` `Notes` `Hash` `NamedViews` `Globals` `CustomValues`
 
-| [INDEX] | [SURFACE]                                            | [CALL_SHAPE]              | [CAPABILITY]                                 |
+| [INDEX] | [SURFACE]                                            | [SHAPE]                   | [CAPABILITY]                                 |
 | :-----: | :--------------------------------------------------- | :------------------------ | :------------------------------------------- |
 |  [01]   | `Document.New*Document`                              | static → `Document`       | mint at the inert, inactive, or active tier  |
 |  [02]   | `Document.AllDocuments`                              | static property           | the live open-document roster                |
@@ -78,11 +71,10 @@ New documents are minted through `NewInertDocument`, `NewInactiveDocument`, and 
 |  [07]   | `Document.Modify` / `Unmodify`                       | `()`                      | raise and clear the modified flag            |
 
 [ENTRYPOINT_SCOPE]: mutation verbs (`DocumentMethods`)
-- rail: gh2-document-graph
 
-Whole-graph selection state is `SelectAll`, `DeselectAll`, and `InvertSelection`; each verb below takes a trailing `ActionList`.
+[Whole-graph selection]: `SelectAll` `DeselectAll` `InvertSelection`
 
-| [INDEX] | [SURFACE]                                                | [CALL_SHAPE]                   | [CAPABILITY]                          |
+| [INDEX] | [SURFACE]                                                | [SHAPE]                        | [CAPABILITY]                          |
 | :-----: | :------------------------------------------------------- | :----------------------------- | :------------------------------------ |
 |  [01]   | `DropObject` / `DropSnippet`                             | `(object, PointF, …)`          | drop an object or snippet at a point  |
 |  [02]   | `DeleteSelection` / `DeleteObjects`                      | `(…, WireEnds[], …)`           | delete selection or an explicit set   |
@@ -98,11 +90,10 @@ Whole-graph selection state is `SelectAll`, `DeselectAll`, and `InvertSelection`
 |  [12]   | `AddDependency` / `ShowDependencyGraph`                  | `(PointF, …)` / `()`           | add and reveal dependencies           |
 
 [ENTRYPOINT_SCOPE]: object list, traversal, connection mutation
-- rail: gh2-document-graph
 
-`ObjectList` projects the graph through `Forwards`, `Backwards`, `Groups`, `ActiveObjects`, `ExpiredObjects`, `AllWires`, `SelectedWires`, `AttributeBounds`, and `PivotBounds`. Neighbour reach is `FindImmediateInputs`/`FindImmediateOutputs` and `FindAllInputs`/`FindAllOutputs`.
+[ObjectList projections]: `Forwards` `Backwards` `Groups` `ActiveObjects` `ExpiredObjects` `AllWires` `SelectedWires` `AttributeBounds` `PivotBounds`
 
-| [INDEX] | [SURFACE]                                                        | [CALL_SHAPE]               | [CAPABILITY]                         |
+| [INDEX] | [SURFACE]                                                        | [SHAPE]                    | [CAPABILITY]                         |
 | :-----: | :--------------------------------------------------------------- | :------------------------- | :----------------------------------- |
 |  [01]   | `ObjectList.Find` / `FindParameter`                              | `(Guid)`                   | resolve an object or parameter by id |
 |  [02]   | `ObjectList.SearchUpstream` / `SearchDownstream`                 | `(IParameter)`             | transitive parameter reach one way   |
@@ -119,11 +110,15 @@ Whole-graph selection state is `SelectAll`, `DeselectAll`, and `InvertSelection`
 |  [13]   | `Connections.CopyAllInputs` / `MigrateAllOutputs`                | `(IParameter×2, …)`        | duplicate or move a wire set         |
 
 [ENTRYPOINT_SCOPE]: object identity, solution, undo
-- rail: gh2-document-graph
 
-The solution lifecycle events are `SolutionAboutToStart` (`SolutionIdEventArgs`: `Document`/`Id`), `SolutionStarted`, `SolutionStopped`, `SolutionCancelled`, `SolutionCompleted` (all `SolutionEventArgs`: `Solution`/`SolutionId`/`Document`), and `SolutionFaulted` (`SolutionExceptionEventArgs` adds `Exception`), fired in that order; a `SolutionRecord` carries `Culmination`, `ExpiredCount`, `SolvedCount`, and `Progress`. `Document` publishes `ModifiedChanged` (`DocumentModifiedEventArgs`), `StateChanged` (`DocumentStateEventArgs` — both `DocumentEventArgs<T>` with `Document`/`Oldstate`/`NewState`), and `ParentChanged` (`BeforeAfterEventArgs<Document, IDocumentParent>` with `Owner`/`Old`/`New`). `ObjectList` publishes ten events: `ObjectAdded` (`AfterAddObjectEventArgs`), `ObjectRemoved` (`AfterRemoveObjectEventArgs`), `ObjectNameChanged` (`ObjectNameEventArgs`), `ObjectInstanceIdChanged` (`ObjectGuidEventArgs` with `OldId`/`NewId`), and `ObjectSelectionChanged`/`ObjectExpired`/`ObjectEnabledChanged`/`ObjectRelevanceChanged`/`ObjectLayoutChanged`/`ObjectDisplayChanged` (all `ObjectEventArgs` with `Object`). `History` publishes seven: `Undone`/`Redone`/`Modified` (`UndoEventArgs`), `NodeAdded`/`NodeRemoved`/`NodeMerged` (`UndoNodeEventArgs`), and `NodeMoved` (`UndoNodeMovedEventArgs` with `Nodes`/`OldParent`/`NewParent`).
+Solution events fire in the listed lifecycle order; document, object-list, and history events fire per mutation. Each event binds its family `EventArgs`.
 
-`PivotAction(IDocumentObject)` snapshots the pre-move pivot, and its `Extends` relation collapses consecutive nudges into one undo record.
+[Solution events]: `SolutionAboutToStart` (`SolutionIdEventArgs`), `SolutionStarted` `SolutionStopped` `SolutionCancelled` `SolutionCompleted` (`SolutionEventArgs`), `SolutionFaulted` (`SolutionExceptionEventArgs`, adds `Exception`)
+[Document events]: `ModifiedChanged` `StateChanged` (`DocumentEventArgs<T>`), `ParentChanged` (`BeforeAfterEventArgs<Document, IDocumentParent>`)
+[ObjectList events]: `ObjectAdded` `ObjectRemoved` `ObjectNameChanged` `ObjectInstanceIdChanged`, and `ObjectSelectionChanged` `ObjectExpired` `ObjectEnabledChanged` `ObjectRelevanceChanged` `ObjectLayoutChanged` `ObjectDisplayChanged` (`ObjectEventArgs`)
+[History events]: `Undone` `Redone` `Modified` (`UndoEventArgs`), `NodeAdded` `NodeRemoved` `NodeMerged` (`UndoNodeEventArgs`), `NodeMoved` (`UndoNodeMovedEventArgs`)
+
+`PivotAction(IDocumentObject)` snapshots the pre-move pivot; its `Extends` relation folds consecutive nudges into one undo record.
 
 | [INDEX] | [SURFACE]                                        | [SHAPE]      | [CAPABILITY]                     |
 | :-----: | :----------------------------------------------- | :----------- | :------------------------------- |
@@ -143,20 +138,20 @@ The solution lifecycle events are `SolutionAboutToStart` (`SolutionIdEventArgs`:
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[GH2_DOCUMENT_TOPOLOGY]:
-- One `Document` is the single authority over its graph; the `ObjectList` is the membership index and `Connectivity` the read view, and no object exists in the graph without an `ObjectList` entry.
-- Every structural mutation carries an `ActionList`; `DocumentMethods` and `Grasshopper2.Parameters.Connections` fill it, and `History.Do`/`ActionList.ToRecord` seal it into the undo tree under one `VerbNoun`, so mutation and undo are inseparable.
+[TOPOLOGY]:
+- One `Document` is the single authority over its graph; `ObjectList` is the membership index and `Connectivity` the read view, and no object exists in the graph without an `ObjectList` entry.
+- Every structural mutation carries an `ActionList`; `DocumentMethods` and `Grasshopper2.Parameters.Connections` fill it, and `History.Do`/`ActionList.ToRecord` seal it into the undo tree under one `VerbNoun`.
 - Wire topology reads through `Grasshopper2.Doc.Connectivity` over `ConnectiveObject`s and writes through `Grasshopper2.Parameters.Connections` over `IParameter`s; a `WireEnds` names one wire by its source and target ids.
-- Execution is `SolutionServer`-owned: `Start` opens a run, `Solution` carries its phase and cancellation, the six-event family publishes lifecycle, and a `SolutionRecord` records culmination and counts.
+- Execution is `SolutionServer`-owned: `Start` opens a run, `Solution` carries phase and cancellation, the solution event family publishes lifecycle, and a `SolutionRecord` records culmination and counts.
 - Undo is a branching `Node` tree, not a linear stack; `FindCommonAncestor`/`FindShortestPath` reconcile branches and `PromoteChild` re-roots one.
 
 [STACKING]:
-- `api-languageext`: document load and `Store` fold onto `Fin<Document>`; `ObjectList.Find`/`FindParameter` and `KeyedValues.Get<T>` become `Option`-returning lookups; a `SolutionServer` run lowers to `Eff<SolutionRecord>` whose `SolutionFaulted`/`SolutionCancelled` map to `Error`; `MigrateObjects` and clipboard paste accumulate per-object faults through `Validation<Error, Seq<IDocumentObject>>`; `ObjectList` projections carry as `Seq`/`HashMap`, and `Solution.Phase`/`SolutionRecord.Progress` ride an `Atom` cell.
-- `api-thinktecture-runtime-extensions`: the host discriminants — `SolutionMode`, `ClipboardKind`, `PasteBehaviour`, `AutoSaveReason`, `SelectionMode`, `PinRepair`, undo `VerbNoun`, and `SolutionRecord.Culmination` — are owned as `[SmartEnum]`/`[Union]` vocabularies so a mutation verb dispatches through exhaustive `Switch`, and a `WireEnds` endpoint pair is a `[ComplexValueObject]` with structural equality.
+- `api-languageext`(`.api/api-languageext.md`): `Store` and document load fold onto `Fin<Document>`; `ObjectList.Find`/`FindParameter` and `KeyedValues.Get<T>` return `Option`; a `SolutionServer` run lowers to `Eff<SolutionRecord>` with `SolutionFaulted`/`SolutionCancelled` mapping to `Error`; `MigrateObjects` and clipboard paste accumulate faults through `Validation<Error, Seq<IDocumentObject>>`; `ObjectList` projections carry as `Seq`/`HashMap` and `Solution.Phase`/`SolutionRecord.Progress` ride an `Atom` cell.
+- `api-thinktecture-runtime-extensions`(`.api/api-thinktecture-runtime-extensions.md`): host discriminants — `SolutionMode`, `ClipboardKind`, `PasteBehaviour`, `AutoSaveReason`, `SelectionMode`, `PinRepair`, `VerbNoun`, `SolutionRecord.Culmination` — own `[SmartEnum]`/`[Union]` vocabularies so a mutation verb dispatches through exhaustive `Switch`, and a `WireEnds` endpoint pair is a `[ComplexValueObject]` with structural equality.
 
 [LOCAL_ADMISSION]:
-- The document graph is the Rasm.Grasshopper folder's own domain; it composes the Rasm kernel for host-agnostic logic and never references a sibling Rasm package.
-- Every mutation enters the folder's owner through one `ActionList`-carrying verb; a mutation without its undo record is not admitted.
+- `Rasm.Grasshopper` owns the document graph as its folder domain, composing the Rasm kernel for host-agnostic logic and referencing no sibling Rasm package.
+- Every mutation enters the folder owner through one `ActionList`-carrying verb; a mutation without its undo record is not admitted.
 
 [RAIL_LAW]:
 - Package: `Grasshopper2` (document graph)

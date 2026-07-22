@@ -34,7 +34,7 @@ One rail carries the whole cycle: every engine round normalizes into one finding
 
 Every session is its own campaign: rounds number from 1, the session's first launch deletes any pre-existing `.cache/review/` state whole — never archived, never resumed, never numbered from — and the campaign close deletes it again once the final round's `round` row prints its delta. Mid-campaign round dirs survive until then: normalize provenance, `--dedup-against`, and the harvest recurrence census read prior rounds.
 
-Every round runs on two custody lanes that never mix: work under review — the harvest's `libs/` corpus-ledger landings included — stays uncommitted or on its slice commits, while the distillation lane — reviewer configs, `docs/`, `tools/`, `.claude/` infra — pushes to origin's default branch on landing, because hosted engines read only the indexed default branch.
+Every round runs on two custody lanes that never mix: work under review — the harvest's corpus-ledger landings in `libs/` and the `tests/` registries included — stays uncommitted or on its slice commits, while the distillation lane — reviewer configs, `docs/`, `tools/`, `.claude/` infra — pushes to origin's default branch on landing, because hosted engines read only the indexed default branch.
 
 Step order never proves a drain, the owning receipt does: `reconcile` surfaces `routing.pending`, `round` refuses `routing-undrained` while it is non-empty, and `harvest`/`round` refuse a partial lane-report set.
 
@@ -172,7 +172,7 @@ Per lane the rail writes `lane-<letter>.json` and `lane-<letter>-brief.md`; disp
 }
 ```
 
-`axis` and `shape` are fixer-stamped, never inferred; a blank `shape` counts under `unstamped` in `LaneStat.shapes`. `files` is the lane's actually-touched roster, not its assigned set.
+`axis` and `shape` are fixer-stamped, never inferred; a blank `shape` counts under `unstamped` in `LaneStat.shapes`. `files` is the lane's touched roster, not its assigned set.
 
 A `capability` row carrying a `members`, `roster`, or `symbols` list feeds the `reference_*` memory proposals; `uncertain` alone carries no mined structure, its rows reprinted verbatim by the feed. `model` keys the grade cohorts casefolded at reconcile.
 

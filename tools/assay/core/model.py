@@ -340,6 +340,7 @@ class ToolArgs(Base, frozen=True, cache_hash=True):
     globs: tuple[str, ...] = ()
     input: str = ""
     language: str = ""
+    langversion: tuple[str, ...] = ()
     max_children: str = ""
     max_cpu: str = ""
     output: str = ""
@@ -347,6 +348,7 @@ class ToolArgs(Base, frozen=True, cache_hash=True):
     platform: str = ""
     project: str = ""
     props: tuple[str, ...] = ()
+    refs: tuple[str, ...] = ()
     sarif_dir: str = ""
     scope: tuple[str, ...] = ()
     sink: str = ""
@@ -571,7 +573,12 @@ class ApiSource(Detail, frozen=True, tag="api-source"):
 
 
 class ApiSurface(Detail, frozen=True, tag="api"):
-    """API surface detail."""
+    """API surface detail.
+
+    ``accessibility``/``kind``/``arity``/``owner``/``reflection`` are the member-truth band: derived from the
+    decompiled signature, the INPROC kind capture, and the metadata reflection map, so a verification consumer
+    reads them typed instead of re-parsing the preview.
+    """
 
     source: ApiSource = ApiSource()
     shape: SymbolShape = SymbolShape.SEARCH
@@ -579,6 +586,11 @@ class ApiSurface(Detail, frozen=True, tag="api"):
     doc: str = ""
     preview: str = ""
     member: str = ""
+    accessibility: str = ""
+    member_kind: str = ""
+    arity: Annotated[int, msgspec.Meta(ge=0)] = 0
+    owner: str = ""
+    reflection: tuple[str, ...] = ()
     truncated: bool = False
     lines: Annotated[int, msgspec.Meta(ge=0)] = 0
     selected: Annotated[int, msgspec.Meta(ge=0)] = 0

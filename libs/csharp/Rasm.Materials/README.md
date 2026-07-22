@@ -36,14 +36,14 @@ Component rows feed generated assemblies and fabrication physics, capacity recei
 - [23]-[SUSTAINABILITY](.planning/Properties/sustainability.md): Lifecycle impact, unit-cost basis, and classification rows.
 
 [PROJECTION]:
-- [24]-[PROJECTION](.planning/Projection/component.md): One `ComponentProjector` minting Type Objects and material subgraphs.
+- [24]-[PROJECTION](.planning/Projection/component.md): `ComponentProjector` mints Type Objects and material subgraphs.
 - [25]-[OBSERVABILITY](.planning/Projection/observability.md): `MaterialsFact`, latency, and descriptor policy; signal rails stay blocked.
 - [26]-[BENCHMARKS](.planning/Projection/benchmarks.md): Content-bound `BenchKernel` workload corpus with catalog-blocked receipt gating.
 - [27]-[ANALYTICS](.planning/Projection/analytics.md): Composite-key schemas and parameterized folds; SI selectors stay blocked.
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Domain packages admitted by this folder; versions centralize in the one C# manifest and corroborate against this folder's `.api/`.
+Domain-specific libraries admitted by this folder; versions centralize in `Directory.Packages.props` and corroborate against this folder's `.api/`.
 
 [SECTION_CAPACITY]:
 - `VividOrange.Profiles.Catalogue` — AISC and EN typed profiles grounding the section seed in published data.

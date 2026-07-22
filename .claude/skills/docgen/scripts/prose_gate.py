@@ -8,6 +8,7 @@
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from collections.abc import Callable, Iterable
+import copy
 from enum import StrEnum
 from itertools import pairwise
 from pathlib import Path
@@ -42,6 +43,7 @@ class Check(StrEnum):
     COUPLED_LINK = "coupled-link"
     DEAD_RELATIVE_LINK = "dead-relative-link"
     EM_DASH = "em-dash"
+    FENCE_CONFIG = "fence-config"
     FENCE_GEOMETRY = "fence-geometry"
     FENCE_INTENT = "fence-intent"
     FENCE_LANGUAGE = "fence-language"
@@ -215,6 +217,15 @@ MERMAID_ANIMATE = re.compile(r"^\s*[\w-]+@\{[^}]*\banimat(?:e|ion)\b[^}]*\}\s*$"
 # Body statements carrying css-property styling (todayMarker strings, venn style rows); `rect rgb(...)` stays — its grammar embeds the color.
 MERMAID_BODY_CSS = re.compile(r"(?:stroke|fill|color|opacity)\s*:\s*\S")
 MERMAID_BOX_COLOR = re.compile(r"^(\s*box\s+)rgba?\([^)]*\)")
+# Required-payload law inverts the styling law: a flowchart fence opens on the standing ELK block, and every family whose renderer emits
+# the accessibility directives carries both directly under its declaration. Mute families reject or swallow the directives, so their
+# relation sentence sits beside the fence instead.
+ACCESSIBILITY = ("accTitle", "accDescr")
+MERMAID_ELK_KEYS = ("layout: elk", "curve: linear", "padding: 25")
+MERMAID_ELK_BLOCK = ("---", "config:", "  layout: elk", "  flowchart:", "    curve: linear", "    padding: 25", "---")
+MERMAID_FAMILY = re.compile(r"^[A-Za-z0-9]+")
+MERMAID_LAYOUT = frozenset({"flowchart"})
+MERMAID_MUTE = frozenset({"block", "eventmodeling", "ishikawa", "kanban", "mindmap", "sankey", "timeline", "venn"})
 # Block 2600-27BF covers warning/exclamation/info pictographs; the arrow blocks stay legal for codemap glyphs.
 EMOJI = re.compile(r"[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B50\u2139\uFE0F]")
 PROMPT_LINE = re.compile(r"^\s*(?:\$|\u276F|PS>)\s+\S")
@@ -392,6 +403,12 @@ PATTERNS: tuple[tuple[Check, re.Pattern[str], Status, str], ...] = (
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
+class Front(StrEnum):
+    PENDING = "pending"
+    OPEN = "open"
+    CLOSED = "closed"
+
+
 class Repair(StrEnum):
     HEADER = "header-rubric"
     INDEX = "index-column"
@@ -403,6 +420,7 @@ class Repair(StrEnum):
     LEADER = "list-leader"
     DIVIDER = "section-divider"
     SPACING = "table-spacing"
+    CONFIG = "fence-config"
     STYLE = "fence-style"
     WHITESPACE = "trailing-whitespace"
     SKIP = "unfixable"
@@ -421,6 +439,21 @@ class Change(msgspec.Struct, frozen=True):
     kind: Repair
     before: str
     after: str
+
+
+class Diagram(msgspec.Struct, frozen=True):
+    # Fence-body census carried line by line: frontmatter phase, the indent of a flagged styling block, the declaration
+    # the body opens on, the accessibility directives it names, and the canonical config keys its frontmatter carries.
+    mermaid: bool = False
+    front: Front = Front.CLOSED
+    styling: int | None = None
+    header: str = ""
+    directives: frozenset[str] = frozenset()
+    keys: frozenset[str] = frozenset()
+
+
+PLAIN_FENCE = Diagram()
+MERMAID_FENCE = Diagram(mermaid=True, front=Front.PENDING)
 
 
 class Span(msgspec.Struct, frozen=True):
@@ -630,60 +663,86 @@ def label_context(after: str, beyond: str) -> tuple[bool, bool, bool]:
     return gap, bool(LIST_ITEM.match(follow)) and not follow.lstrip().startswith("|"), follow.lstrip().startswith("|")
 
 
+def family(header: str) -> str:
+    # Declaration family from a fence header: the leading word alone, so `stateDiagram-v2`, `radar-beta`, and `flowchart LR` all key.
+    matched = MERMAID_FAMILY.match(header)
+    return matched.group().lower() if matched else ""
+
+
+def diagrammed(path: Path, line: str, number: int, state: Diagram, scope: bool) -> tuple[Diagram, tuple[Row, ...]]:
+    # One pass advances the mermaid body state and censuses payload; styling rows fire only inside a durable-doc scope.
+    trimmed = line.strip()
+    if state.front is Front.PENDING:
+        opens = trimmed == "---"
+        return copy.replace(state, front=Front.OPEN if opens else Front.CLOSED, header="" if opens else trimmed), ()
+    if state.front is Front.OPEN:
+        if trimmed == "---":
+            return copy.replace(state, front=Front.CLOSED, styling=None), ()
+        depth = len(line) - len(line.lstrip())
+        if state.styling is not None and depth > state.styling:
+            return state, ()  # nested payload of a flagged styling block; one row per block
+        if scope and (MERMAID_STYLE_KEY.match(line) or MERMAID_HEX_VALUE.search(line)):
+            detail = f"styling key in a durable-doc mermaid fence: {trimmed[:60]}"
+            return copy.replace(state, styling=depth), (row(path, number, Check.FENCE_STYLE, "fail", detail),)
+        carried = state.keys | {trimmed} if trimmed in MERMAID_ELK_KEYS else state.keys
+        return copy.replace(state, styling=None, keys=carried), ()
+    named = state.directives | {name for name in ACCESSIBILITY if trimmed.startswith(name)}
+    settled = copy.replace(state, header=state.header or trimmed, directives=named)
+    if not scope:
+        return settled, ()
+    if MERMAID_STYLE_LINE.match(line) or MERMAID_CLASS_ASSIGN.match(line) or MERMAID_ANIMATE.match(line):
+        detail = f"styling statement in a durable-doc mermaid fence: {trimmed[:60]}"
+    elif MERMAID_CLASS_TAIL.search(line):
+        detail = "':::' class tail in a durable-doc mermaid fence"
+    elif MERMAID_BOX_COLOR.match(line) or (MERMAID_BODY_CSS.search(line) and not trimmed.startswith("rect")):
+        detail = f"css styling on a durable-doc mermaid line: {trimmed[:60]}"
+    else:
+        return settled, ()
+    return settled, (row(path, number, Check.FENCE_STYLE, "fail", detail),)
+
+
+def sealed(path: Path, start: int, state: Diagram, scope: bool) -> tuple[Row, ...]:
+    # Close-time required-payload verdict: the declaration opens the body, both directives follow it, a flowchart carries the ELK block.
+    if not (state.mermaid and scope):
+        return ()
+    lead = state.header.split(":", 1)[0]
+    if lead in ACCESSIBILITY:
+        detail = f"`{lead}` opens the fence body; the declaration leads and the directives follow it"
+        return (row(path, start, Check.FENCE_CONFIG, "fail", detail),)
+    kind = family(state.header)
+    rows: list[Row] = []
+    absent = tuple(name for name in ACCESSIBILITY if name not in state.directives)
+    if absent and kind not in MERMAID_MUTE:
+        rows.append(row(path, start, Check.FENCE_INTENT, "fail", f"mermaid fence lacks {' and '.join(absent)} under its declaration"))
+    if kind in MERMAID_LAYOUT and (keys := tuple(key for key in MERMAID_ELK_KEYS if key not in state.keys)):
+        rows.append(row(path, start, Check.FENCE_CONFIG, "fail", f"{kind} fence frontmatter lacks `{'`, `'.join(keys)}`"))
+    return tuple(rows)
+
+
 def fenced(
-    path: Path,
-    line: str,
-    number: int,
-    fence: tuple[str, int, int, str, int],
-    mermaid: tuple[bool, int, int | None],
-    styled_scope: bool,
-    mermaid_gate: bool,
-    cap: int,
-) -> tuple[bool, tuple[bool, int, int | None], tuple[Row, ...]]:
-    # Fence-interior census: geometry, intent misuse, mermaid styling, and comment openers; returns (closed, mermaid state, rows).
+    path: Path, line: str, number: int, fence: tuple[str, int, int, str, int], state: Diagram, scope: bool, cap: int
+) -> tuple[bool, Diagram, tuple[Row, ...]]:
+    # Fence-interior census: geometry, intent misuse, mermaid payload, and comment openers; returns (closed, fence state, rows).
     rows: list[Row] = []
     glyph, width, start, info, margin = fence
-    access, fm, style_indent = mermaid
     if fence_closes(FENCE.match(line), glyph, width, margin):
-        if not access and mermaid_gate:
-            rows.append(row(path, start, Check.FENCE_INTENT, "fail", "mermaid fence lacks accTitle/accDescr accessibility directives"))
-        return True, (access, fm, style_indent), tuple(rows)
+        return True, state, sealed(path, start, state, scope)
     trimmed = line.strip()
     if ("codemap" in info or "seams" in info or any(mark in line for mark in GLYPHS)) and len(line) > cap:
         rows.append(row(path, number, Check.FENCE_GEOMETRY, "fail", f"line {len(line)} > cap {cap}"))
-    elif info.startswith("mermaid") and ("accTitle" in line or "accDescr" in line):
-        access = True
     elif "copy-safe" in info and PROMPT_LINE.match(line):
         rows.append(row(path, number, Check.FENCE_INTENT, "fail", "copy-safe fence line carries a shell prompt"))
     elif "copy-safe" in info and PLACEHOLDER.search(line):
         rows.append(row(path, number, Check.FENCE_INTENT, "fail", "copy-safe fence carries a placeholder slot; the body is a template"))
     elif "output-only" in info and PROMPT_LINE.match(line):
         rows.append(row(path, number, Check.FENCE_INTENT, "fail", "prompt-led command rides an output-only fence; the body is a run instruction"))
-    if info.startswith("mermaid") and styled_scope:
-        if fm == 0:
-            fm = 1 if trimmed == "---" else 2
-        elif fm == 1:
-            if trimmed == "---":
-                fm, style_indent = 2, None
-            else:
-                depth = len(line) - len(line.lstrip())
-                if style_indent is not None and depth > style_indent:
-                    pass  # nested payload of a flagged styling block; one row per block
-                elif MERMAID_STYLE_KEY.match(line) or MERMAID_HEX_VALUE.search(line):
-                    rows.append(row(path, number, Check.FENCE_STYLE, "fail", f"styling key in a durable-doc mermaid fence: {trimmed[:60]}"))
-                    style_indent = depth
-                else:
-                    style_indent = None
-        elif MERMAID_STYLE_LINE.match(line) or MERMAID_CLASS_ASSIGN.match(line) or MERMAID_ANIMATE.match(line):
-            rows.append(row(path, number, Check.FENCE_STYLE, "fail", f"styling statement in a durable-doc mermaid fence: {trimmed[:60]}"))
-        elif MERMAID_CLASS_TAIL.search(line):
-            rows.append(row(path, number, Check.FENCE_STYLE, "fail", "':::' class tail in a durable-doc mermaid fence"))
-        elif MERMAID_BOX_COLOR.match(line) or (MERMAID_BODY_CSS.search(line) and not trimmed.startswith("rect")):
-            rows.append(row(path, number, Check.FENCE_STYLE, "fail", f"css styling on a durable-doc mermaid line: {trimmed[:60]}"))
+    if state.mermaid:
+        state, payload_rows = diagrammed(path, line, number, state, scope)
+        rows.extend(payload_rows)
     mark = FENCE_MARKERS.get(info.split()[0] if info else "", "")
     if mark and trimmed.startswith(mark) and COMMENT_ARTICLE.match(trimmed.removeprefix(mark).lstrip()):
         rows.append(row(path, number, Check.ARTICLE_OPENER, "fail", "fence comment opens on 'the'; lead with the constraint's owner or verb"))
-    return False, (access, fm, style_indent), tuple(rows)
+    return False, state, tuple(rows)
 
 
 def lex(path: Path, text: str, cap: int) -> tuple[Document, tuple[Row, ...]]:
@@ -696,9 +755,8 @@ def lex(path: Path, text: str, cap: int) -> tuple[Document, tuple[Row, ...]]:
     lists: list[ListEntry] = []
     rows: list[Row] = []
     fence: tuple[str, int, int, str, int] | None = None
-    mermaid: tuple[bool, int, int | None] = (True, 2, None)
-    mermaid_gate = text.count("```mermaid") <= 2 and not ({"templates", "examples"} & set(path.parts))
-    styled_scope = "templates" not in path.parts and not teaching(path)
+    diagram = PLAIN_FENCE
+    payload_scope = "templates" not in path.parts and not teaching(path)
     plain_run = False
     last_rubric = ""
     template = "templates" in path.parts
@@ -740,13 +798,12 @@ def lex(path: Path, text: str, cap: int) -> tuple[Document, tuple[Row, ...]]:
                     )
                 )
             fence = (marker[0], len(marker), number, info.lower(), len(matched.group("indent")))
-            access = "mermaid" not in tokens[:1] if tokens else True
-            mermaid = (access, 2 if access else 0, None)
+            diagram = MERMAID_FENCE if tokens[:1] == ["mermaid"] else PLAIN_FENCE
             n += 1
             continue
         if fence is not None:
             plain_run = False
-            closed, mermaid, fenced_rows = fenced(path, line, number, fence, mermaid, styled_scope, mermaid_gate, cap)
+            closed, diagram, fenced_rows = fenced(path, line, number, fence, diagram, payload_scope, cap)
             rows.extend(fenced_rows)
             if closed:
                 fence = None
@@ -1832,7 +1889,18 @@ def _strip_fm_styling(block: list[str]) -> tuple[list[str], int]:
         block = out
 
 
-def stripped_mermaid(lines: list[str]) -> tuple[list[str], tuple[Change, ...]]:
+def _elk_frontmatter(front: list[str], header: str, indent: str, at: int) -> tuple[list[str], tuple[Change, ...]]:
+    # Layout-family completion: a bare fence takes the standing block whole, a partial one names its absent keys for hand repair.
+    carried = {entry.strip() for entry in front}
+    absent = tuple(key for key in MERMAID_ELK_KEYS if key not in carried)
+    if family(header) not in MERMAID_LAYOUT or not absent:
+        return front, ()
+    if front:
+        return front, (Change(at, Repair.SKIP, ", ".join(absent), "frontmatter carries other keys; merge the absent keys by hand"),)
+    return [f"{indent}{entry}" for entry in MERMAID_ELK_BLOCK], (Change(at, Repair.CONFIG, "<none>", "standing ELK config block"),)
+
+
+def repaired_mermaid(lines: list[str]) -> tuple[list[str], tuple[Change, ...]]:
     out: list[str] = []
     changes: list[Change] = []
     index, total = 0, len(lines)
@@ -1843,7 +1911,8 @@ def stripped_mermaid(lines: list[str]) -> tuple[list[str], tuple[Change, ...]]:
             out.append(line)
             index += 1
             continue
-        glyph, width, margin = opened.group("marker")[0], len(opened.group("marker")), len(opened.group("indent"))
+        indent = opened.group("indent")
+        glyph, width, margin = opened.group("marker")[0], len(opened.group("marker")), len(indent)
         body: list[str] = []
         cursor = index + 1
         while cursor < total:
@@ -1852,16 +1921,18 @@ def stripped_mermaid(lines: list[str]) -> tuple[list[str], tuple[Change, ...]]:
             body.append(lines[cursor])
             cursor += 1
         fm_end = next((i for i, entry in enumerate(body[1:], 1) if entry.strip() == "---"), -1) if body and body[0].strip() == "---" else -1
+        front: list[str] = []
         kept: list[str] = []
+        base = index + 2
         if fm_end >= 0:
             fm_block, dropped = _strip_fm_styling(body[1:fm_end])
             if dropped:
-                changes.append(Change(index + 2, Repair.STYLE, f"{dropped} styling frontmatter blocks", "<stripped>"))
-            kept.extend(["---", *fm_block, "---"] if any(entry.strip() for entry in fm_block) else [])
-            body = body[fm_end + 1 :]
+                changes.append(Change(base, Repair.STYLE, f"{dropped} styling frontmatter blocks", "<stripped>"))
+            front = [f"{indent}---", *fm_block, f"{indent}---"] if any(entry.strip() for entry in fm_block) else []
+            body, base = body[fm_end + 1 :], base + fm_end + 1
         for offset, source in enumerate(body):
             trimmed = source.strip()
-            at = index + 2 + offset
+            at = base + offset
             if MERMAID_STYLE_LINE.match(source) or MERMAID_CLASS_ASSIGN.match(source) or MERMAID_ANIMATE.match(source):
                 changes.append(Change(at, Repair.STYLE, trimmed[:60], "<stripped>"))
                 continue
@@ -1876,7 +1947,11 @@ def stripped_mermaid(lines: list[str]) -> tuple[list[str], tuple[Change, ...]]:
                 changes.append(Change(at, Repair.STYLE, trimmed[:60], "<class tail stripped>"))
                 entry = MERMAID_CLASS_TAIL.sub("", entry)
             kept.append(entry)
+        header = next((entry.strip() for entry in kept if entry.strip()), "")
+        front, elk_changes = _elk_frontmatter(front, header, indent, index + 2)
+        changes.extend(elk_changes)
         out.append(line)
+        out.extend(front)
         out.extend(kept)
         if cursor < total:
             out.append(lines[cursor])
@@ -1921,8 +1996,8 @@ def repaired_text(path: Path, text: str, cap: int) -> tuple[str, tuple[Change, .
         lines, line_changes = repaired_lines(lines, frontmatter_end(tuple(lines)))
         changes.extend(line_changes)
     if not template and not teaching(path):
-        lines, style_changes = stripped_mermaid(lines)
-        changes.extend(style_changes)
+        lines, payload_changes = repaired_mermaid(lines)
+        changes.extend(payload_changes)
     lines, hug_changes = hugged_labels(lines)
     changes.extend(hug_changes)
     doc, _ = lex(path, "\n".join(lines), cap)

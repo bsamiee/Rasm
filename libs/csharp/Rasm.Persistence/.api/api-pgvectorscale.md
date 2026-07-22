@@ -1,37 +1,17 @@
 # [RASM_PERSISTENCE_API_PGVECTORSCALE]
 
-`pgvectorscale` (the project/repo name; the installed extension is `vectorscale`) supplies the
-`diskann` index access method over a `pgvector` `vector(N)` column — a disk-backed StreamingDiskANN
-graph with statistical binary quantization (SBQ) that scales approximate-nearest-neighbour search
-beyond RAM-resident HNSW. It carries no managed assembly: every surface is server-side SQL the
-`Store/provisioning#SERVER_EXTENSIONS` `ServerExtension` row's `CreateSql` carries (the `CREATE EXTENSION` install), the diskann index DDL projecting through a `ProvisionSql` `Fin<string>`
-that lands into `MigrationBuilder.Sql` on the EF migration rail (`Element/identity#SCHEMA_VERDICT`), and the `Query/retrieval#FUSION_AND_REUSE`
-planner routes a `pgvector` distance query through transparently. The companion is preload-free — it
-registers through its index AM, so it is correctly absent from the `ClusterConfig`
-`shared_preload_libraries` row — and runs in-process inside the PG18 server tier, never linked into
-managed code. It installs `CASCADE` (`CREATE EXTENSION IF NOT EXISTS vectorscale CASCADE`) to pull
-its `vector` (pgvector) dependency in one step.
+`pgvectorscale` (installed extension `vectorscale`) mints the `diskann` index access method over a pgvector `vector(N)` column — a disk-backed StreamingDiskANN graph with statistical binary quantization (SBQ) that scales approximate-nearest-neighbour search past RAM-resident HNSW. Every surface is server-side SQL, no managed assembly: the diskann index DDL feeds the search-provisioning rail through the EF migration boundary, and a pgvector distance query planner-routes through the index transparently.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pgvectorscale` / extension `vectorscale`
-- package: server-side PostgreSQL extension (Rust/pgrx, not a NuGet package); repo `timescale/pgvectorscale`, installed name `vectorscale`
-- access method: `diskann`; depends on `vector` (pgvector) — installed via `CASCADE`
-- namespace: SQL (`CREATE INDEX ... USING diskann`, `diskann.*` session GUCs)
-- license: PostgreSQL License (Timescale) — the in-DB deployment is the license boundary, no managed linkage
-- registration: index-AM, preload-free — absent from `ClusterConfig.Rows` `shared_preload_libraries` by design; the `ServerExtension("vectorscale", AccessMethod: "diskann", Cascade: true)` row carries its install story
-- consumed by: the `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension` `CreateSql` (the diskann index DDL through the EF `MigrationBuilder.Sql` rail), `VectorMetric`/`FusionRank` (`Query/retrieval#FUSION_AND_REUSE`), the `vector_cosine_ops`/`vector_l2_ops`/`vector_ip_ops` ops classes shared with `api-pgvector-ef.md`
+- package: `vectorscale` (PostgreSQL License, Timescale) — server-side Rust/pgrx extension, repo `timescale/pgvectorscale`
+- asset: server SQL, no managed assembly; `diskann` access method over pgvector `vector`, `CASCADE`-installed; SQL surface is `CREATE INDEX ... USING diskann` and `diskann.*` session GUCs
 - rail: search-provisioning, search-lanes
 
 ## [02]-[INDEX_DDL]
 
-The `diskann` index builds over a `vector(N)` column under one ops class. The column stays the
-`EmbeddingArity.Dense` `vector` store type — `halfvec`/`sparsevec` over diskann are not catalogued
-(held under `Query/retrieval#SEARCH_PROVISIONING_PROBE`). One BM25-style restriction does not apply; a
-table may carry multiple diskann indexes over distinct vector columns. The ops-class row IS the
-`Store/provisioning#SERVER_EXTENSIONS` `DiskAnnOps` `[SmartEnum<string>]`: `DiskAnnOps.Cosine`/`L2`/`InnerProduct`
-each carry the `Key` (ops-class) and the `Operator`, and the EF query path reuses the catalogued
-`api-pgvector-ef.md` distance `DbFunctions` so the same operator drives both index build and query.
+`diskann` builds over one `vector(N)` column under one ops class; the column stays the `EmbeddingArity.Dense` `vector` store type the pgvector plugin maps (`api-pgvector-ef.md`), and a table carries multiple diskann indexes over distinct columns. `DiskAnnOps` (`[SmartEnum<string>]`, `Store/provisioning#SERVER_EXTENSIONS`) is the ops-class row — `Key` and `Operator` per case — reusing the catalogued pgvector distance `DbFunctions` so one operator drives both build and query.
 
 | [INDEX] | [OPS_CLASS]         | [OPERATOR] | [DISTANCE]          | [PGVECTOR_FN]     | [DISKANNOPS]              |
 | :-----: | :------------------ | :--------- | :------------------ | :---------------- | :------------------------ |
@@ -39,24 +19,14 @@ each carry the `Key` (ops-class) and the `Operator`, and the EF query path reuse
 |  [02]   | `vector_l2_ops`     | `<->`      | L2 / euclidean      | `L2Distance`      | `DiskAnnOps.L2`           |
 |  [03]   | `vector_ip_ops`     | `<#>`      | negative inner-prod | `MaxInnerProduct` | `DiskAnnOps.InnerProduct` |
 
-`CREATE INDEX <name> ON <table> USING diskann (<column> <ops_class>) WITH (<build-options>)` is the
-canonical build. The `ServerExtension` `CreateSql` over (Index, Table, Column, DiskAnnOps Ops, DiskAnnOptions Options)`
-case emits `CREATE INDEX CONCURRENTLY` (no `ACCESS EXCLUSIVE` table lock) carrying the full options
-map. The `<#>` inner-product operator is rejected against a `storage_layout = plain` build — SBQ
-requires `memory_optimized` — and `ProvisionSql` surfaces that as `Fin<string>.Fail(<diskann-ip-on-plain-layout:…>)`
-to the deploy-gate caller BEFORE any `Sql()` lands, never a runtime PG error.
-
 ## [03]-[BUILD_OPTIONS]
 
-The `WITH (...)` storage parameters the `Store/provisioning#SERVER_EXTENSIONS` `DiskAnnOptions` record projects
-(`DiskAnnOptions.Default` pins `MemoryOptimized` / `NumNeighbors:50` / `SearchListSize:100` /
-`MaxAlpha:1.2` / `NumDimensions:0` / `NumBitsPerDimension:0`). `DiskAnnLayout` is a `[SmartEnum]`
-(`MemoryOptimized`/`Plain`). Sentinel values resolve at build time from the column dimensionality.
+`DiskAnnOptions` projects the `WITH (...)` storage parameters; `DiskAnnLayout` (`[SmartEnum]`) carries `MemoryOptimized`/`Plain`.
 
 | [INDEX] | [WITH_KEY]               | [FIELD]               | [TYPE]  | [DEFAULT]          | [SEMANTICS]                                            |
 | :-----: | :----------------------- | :-------------------- | :------ | :----------------- | :----------------------------------------------------- |
 |  [01]   | `storage_layout`         | `StorageLayout`       | text    | `memory_optimized` | `memory_optimized` enables SBQ; `plain` = full vectors |
-|  [02]   | `num_neighbors`          | `NumNeighbors`        | integer | `50`               | graph degree; `-1` derives degree from dimensionality  |
+|  [02]   | `num_neighbors`          | `NumNeighbors`        | integer | `50`               | max neighbors per node (graph degree)                  |
 |  [03]   | `search_list_size`       | `SearchListSize`      | integer | `100`              | build-time candidate-list breadth                      |
 |  [04]   | `max_alpha`              | `MaxAlpha`            | double  | `1.2`              | graph density / pruning aggression                     |
 |  [05]   | `num_dimensions`         | `NumDimensions`       | integer | `0`                | dimensions to index; `0` indexes all                   |
@@ -64,33 +34,30 @@ The `WITH (...)` storage parameters the `Store/provisioning#SERVER_EXTENSIONS` `
 
 ## [04]-[QUERY_GUC]
 
-The session GUC the planner reads at query time to widen the search-list breadth for a diskann scan;
-set per-session or per-transaction, never a build option.
+Session GUCs the planner reads to widen a diskann scan, `SET LOCAL` per session/transaction by the `Query/retrieval#SEARCH_PROVISIONING_PROBE` binder.
 
 | [INDEX] | [GUC]                            | [DEFAULT] | [SEMANTICS]                                        |
 | :-----: | :------------------------------- | :-------- | :------------------------------------------------- |
 |  [01]   | `diskann.query_search_list_size` | `100`     | query-time candidate-list breadth; higher = recall |
 |  [02]   | `diskann.query_rescore`          | `50`      | full-precision rescore count after SBQ pre-filter  |
 
-These GUCs are a SEARCH-LANE concern, never a build option — they are `SET LOCAL` per session/
-transaction by the `Query/retrieval#SEARCH_PROVISIONING_PROBE` binder, distinct from the `WITH (...)` build map the
-`ServerExtension` `CreateSql` (the diskann index DDL through the EF `MigrationBuilder.Sql` rail) owns. A build-time `query_*` knob is the rejected spelling.
-
 ## [05]-[IMPLEMENTATION_LAW]
 
-[DISKANN_TOPOLOGY]:
-- Index-AM, preload-free: `vectorscale` registers `diskann` as an access method, so it never enters `ClusterConfig.Rows` `shared_preload_libraries`. The `ServerExtension("vectorscale", AccessMethod: "diskann", Cascade: true)` row emits `CREATE EXTENSION IF NOT EXISTS vectorscale CASCADE`, pulling its `vector` (pgvector) dependency in one DDL step.
-- No managed assembly, no EF translator: the index DDL lands through `MigrationBuilder.Sql` via the `ServerExtension` `CreateSql` (the diskann index DDL on the EF migration rail, `Element/identity#SCHEMA_VERDICT`); the column stays the `EmbeddingArity.Dense` `vector(N)` store type the pgvector EF plugin maps, so a diskann index adds NO parallel vector column.
-- Provisioning gate: the `<#>`-on-`storage_layout=plain` rejection is a typed `Fin.Fail` from `ProvisionSql`, caught at the deploy gate before `Sql()` lands — SBQ requires `memory_optimized`.
-- Build vs query split: `DiskAnnOptions` (`storage_layout`/`num_neighbors`/`search_list_size`/`max_alpha`/`num_dimensions`/`num_bits_per_dimension`) is the build-time `WITH` map owned by `Store/provisioning#SERVER_EXTENSIONS`; `diskann.query_search_list_size`/`query_rescore` are the query-time GUCs owned by the search lane. Disjoint owners, never crossed.
+[TOPOLOGY]:
+- `vectorscale` registers `diskann` as an access method, so the `ServerExtension("vectorscale", AccessMethod: "diskann", Cascade: true)` row emits `CREATE EXTENSION IF NOT EXISTS vectorscale CASCADE` and stays off the `ClusterConfig` `shared_preload_libraries` row.
+- Index DDL lands through `MigrationBuilder.Sql` via `ServerExtension` `CreateSql` (`Element/identity#SCHEMA_VERDICT`), emitting `CREATE INDEX CONCURRENTLY ... USING diskann (<col> <ops_class>) WITH (<options>)`; the column stays the pgvector-mapped `vector(N)` type, so a diskann index adds no parallel vector column.
+- `DiskAnnOptions` is the build-time `WITH` map owned by `Store/provisioning#SERVER_EXTENSIONS`; the `diskann.query_*` GUCs are the query-time search-lane knobs — disjoint owners.
 
-[SEARCH_LANE_STACK]:
-- Transparent route: a `vector(N)` distance query ordered by the catalogued pgvector distance function (`CosineDistance`/`L2Distance`/`MaxInnerProduct`, `api-pgvector-ef.md`) is planner-routed through the diskann index with no query rewrite — the `VectorMetric.Order` `Switch` projects the `ORDER BY` distance `Expression` and the planner picks diskann over the exact scan.
-- Route observability: the `store.vector.route` fact discriminates exact-scan vs HNSW vs IVFFlat vs diskann; the always-present exact brute-force scan stays the correctness baseline so a route degradation is observable. diskann complements, never replaces, RAM-resident HNSW — it scales disk-backed ANN beyond memory.
-- Hybrid fusion: `FusionRank.Fuse` (`Query/retrieval#FUSION_AND_REUSE`) composes the diskann vector branch and the `pg_search` BM25 branch (`api-pg-search.md`) in one reciprocal-rank-fusion CTE — `SUM(1.0 / (rrfConstant + rank))` with `rrfConstant=60` — projecting identities (not re-materializing both payloads) and needing no learned reranker. The dense embedding the vector branch probes is generated upstream at `Compute/models#INFERENCE_MODES`.
+[STACKING]:
+- `api-pgvector-ef.md`: `DiskAnnOps.Cosine`/`L2`/`InnerProduct` reuse the catalogued `CosineDistance`/`L2Distance`/`MaxInnerProduct` distance functions, one operator driving both build and the `VectorMetric.Order` `Switch`-projected `ORDER BY`; a `vector(N)` distance query planner-routes through diskann with no rewrite, the always-present exact scan staying the `store.vector.route` correctness baseline diskann complements past RAM-resident HNSW.
+- `api-pg-search.md`: `FusionRank.Fuse` composes the diskann vector branch with the `pg_search` BM25 branch in one reciprocal-rank-fusion CTE projecting identities, no learned reranker (`Query/retrieval#FUSION_AND_REUSE`); the probed embedding is generated upstream at `Compute/models#INFERENCE_MODES`.
+
+[LOCAL_ADMISSION]:
+- A `<#>` inner-product build against `storage_layout = plain` is a typed `ProvisionSql` `Fin.Fail` caught at the deploy gate before `Sql()` lands — SBQ requires `memory_optimized`.
+- `vectorscale` installs through its `ServerExtension` `CASCADE` row, never a `shared_preload_libraries` entry and never linked into managed code.
 
 [RAIL_LAW]:
-- Package: `pgvectorscale` / extension `vectorscale` (server-side, in the deploy-image PG18)
+- Package: `vectorscale` (server-side, deploy-image PG18)
 - Owns: the `diskann` disk-backed StreamingDiskANN + SBQ ANN index over a pgvector `vector(N)` column
-- Accept: `CREATE EXTENSION ... vectorscale CASCADE` install, the `ServerExtension` `CreateSql` `CREATE INDEX CONCURRENTLY ... USING diskann` (the diskann index DDL through the EF `MigrationBuilder.Sql` rail) with the `DiskAnnOptions` `WITH` map against `DiskAnnOps` ops classes, the catalogued pgvector distance functions for query, the `diskann.query_*` GUCs `SET LOCAL` by the search-lane binder, the `FusionRank.Fuse` RRF stack with the pg_search branch
-- Reject: linking the extension into managed code, a parallel vector column beside the existing pgvector column, a `<#>`-on-`plain` build, a build-time `query_*` knob or a query-time build option, treating `pgvectorscale` as the installed extension name (it is `vectorscale`), placing it on the `shared_preload_libraries` row (it is index-AM, preload-free)
+- Accept: the `CASCADE` install, `CREATE INDEX CONCURRENTLY ... USING diskann` with the `DiskAnnOptions` `WITH` map against `DiskAnnOps` ops classes, catalogued pgvector distance functions for query, the `diskann.query_*` GUCs `SET LOCAL` by the search-lane binder, the `FusionRank.Fuse` RRF stack with the pg_search branch
+- Reject: linking into managed code, a parallel vector column beside the pgvector column, a `<#>`-on-`plain` build, a build-time `query_*` knob or a query-time build option, a `shared_preload_libraries` placement

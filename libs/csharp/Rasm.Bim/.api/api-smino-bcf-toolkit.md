@@ -1,179 +1,123 @@
 # [RASM_BIM_API_SMINO_BCF_TOOLKIT]
 
-`Smino.Bcf.Toolkit` is the BCF (BIM Collaboration Format) codec backing the
-`Review/issues#BCF_ARCHIVE` `.bcfzip` round-trip and the `Review/coordination#COORDINATION`
-issue-board domain owner. The unifying primitive is `Worker` — a polymorphic
-converter whose overloads discriminate by sink shape (file path, `Stream`, or
-target `BcfVersionEnum`) and async vs. sync, folding a version-tagged `IBcf`
-object root to and from the zipped container and the BCF-API JSON resource model.
-Each BCF generation ( and) is a typed object graph under one `IBcf`
-interface, so the `BcfTopic`/`BcfComment`/`BcfViewpoint` host-neutral records
-project from a single discriminated source regardless of file version.
-`BcfVersion.TryParse` accepts only the version strings `""` and `""`; the
-`"//"` phrasing in the manifest pin is not borne out — BCF input is
-rejected as `Unsupported BCF version`, so the codec's real coverage is BCF + 3.0.
+`Smino.Bcf.Toolkit` owns the BCF (BIM Collaboration Format) codec — the `.bcfzip` container and BCF-API JSON round-trip behind the COORDINATION issue board. `Worker` is the one converter, its overloads discriminating by sink shape (path, `Stream`, target `BcfVersionEnum`) and async-vs-sync to fold a version-tagged `IBcf` graph to and from the zipped container. `IBcf` discriminates `Bcf30.Bcf` and `Bcf21.Bcf`, so the host-neutral `BcfTopic`/`BcfComment`/`BcfViewpoint` projection reads one interface root at any format version; `BcfVersion.TryParse` admits `2.1` and `3.0`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Smino.Bcf.Toolkit`
-- package: `Smino.Bcf.Toolkit`
-- license: file `LICENSE` (Apache-2.0)
+- package: `Smino.Bcf.Toolkit` (Apache-2.0, `LICENSE` file)
 - assembly: `bcf-toolkit`
-- namespace: `BcfToolkit`, `BcfToolkit.Model`, `BcfToolkit.Model.Bcf30`, `BcfToolkit.Model.Bcf21`, `BcfToolkit.Model.Interfaces`, `BcfToolkit.Utils`
-- asset: net9.0 single TFM; the net10.0 consumer binds `lib/net9.0` (pure-managed AnyCPU, no `runtimes/` folder)
-- asset: managed transitive closure `Json.Net, `Newtonsoft.Json 13.0.x`, `RecursiveDataAnnotationsValidation 2.x`, `Serilog 4.x`, `System.CommandLine (CLI-binder surface, unused by the library entrypoints); `Json.Net` + `RecursiveDataAnnotationsValidation` + `Newtonsoft.Json` floor-pinned centrally for lockfile determinism
+- namespace: `BcfToolkit`, `BcfToolkit.Model`, `BcfToolkit.Model.Bcf30`, `BcfToolkit.Model.Bcf21`, `BcfToolkit.Model.Interfaces`, `BcfToolkit.Builder.Bcf30`, `BcfToolkit.Builder.Bcf21`, `BcfToolkit.Utils`
+- asset: net9.0 single TFM, bound by the net10.0 consumer as `lib/net9.0`; pure-managed AnyCPU, no `runtimes/` folder
+- dependency: `Json.Net`, `Newtonsoft.Json`, `RecursiveDataAnnotationsValidation`, `Serilog`, `System.CommandLine`, `System.Text.RegularExpressions` — the `System.CommandLine` binder and `Serilog` sink drive the package's own CLI tool host, unreached by the library entrypoints
 - rail: review
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: converter and version axis
-- package: `Smino.Bcf.Toolkit`
-- namespace: `BcfToolkit`, `BcfToolkit.Model`
-- rail: review
+[PUBLIC_TYPE_SCOPE]: converter, version axis, header payload
 
-| [INDEX] | [SYMBOL]         | [CAPABILITY]                                                                                                       |
-| :-----: | :--------------- | :----------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Worker`         | the converter engine; file/stream/version-overloaded `Convert`/`ToBcf`/`ToJson`/`BcfFromStream` round-trip surface |
-|  [02]   | `BcfVersionEnum` | target-version discriminant: `Bcf21` (the `Model.Bcf21` graph) and `Bcf30`; `BcfVersion.TryParse`/`ToString`       |
-|  [03]   | `BcfVersion`     | static version helpers over `BcfVersionEnum`                                                                       |
-|  [04]   | `FileData`       | header-file payload carrier (referenced model bytes inside the container)                                          |
+| [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [CAPABILITY]                                                                     |
+| :-----: | :--------------- | :------------ | :------------------------------------------------------------------------------- |
+|  [01]   | `Worker`         | class         | the converter engine; file/stream/version-overloaded round-trip surface in [03]  |
+|  [02]   | `BcfVersionEnum` | enum          | target-version discriminant: `Bcf21` (2.1), `Bcf30` (3.0)                        |
+|  [03]   | `BcfVersion`     | static class  | version helpers — `TryParse(string/IBcf/Type)` throws on unsupported, `ToString` |
+|  [04]   | `FileData`       | class         | header-file payload carrier: referenced model bytes inside the container         |
 
-[PUBLIC_TYPE_SCOPE]: version-agnostic interface contract
-- package: `Smino.Bcf.Toolkit`
-- namespace: `BcfToolkit.Model.Interfaces`
-- rail: review
+[PUBLIC_TYPE_SCOPE]: version-agnostic interface contract — `IBcf` is the discriminated root both `Bcf30.Bcf`/`Bcf21.Bcf` implement, and the interfaces are thin markers: `ITopic` declares only `Guid`, so the status/type/priority/date/label detail rides the concrete `Topic` and the projection narrows `IBcf`→`IMarkup` then reads the concrete topic for detail columns.
 
-`IBcf` is the discriminated root every concrete `Bcf30.Bcf`/`Bcf21.Bcf`
-implements; the host-neutral `BcfTopic`/`BcfComment` projection reads through
-these interfaces so version selection never forks the projection code. The
-interfaces are deliberately thin markers — `ITopic` declares only `Guid`, and the
-rich status/priority/date/label fields live on the concrete `Bcf30.Topic` /
-`Bcf21.Topic` classes; the projection narrows from `IBcf`→`IMarkup` then reads the
-concrete topic for the detail columns.
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [CAPABILITY]                                                                                      |
+| :-----: | :------------------- | :------------ | :------------------------------------------------------------------------------------------------ |
+|  [01]   | `IBcf`               | interface     | container root the projection narrows from (`Markups`/`Extensions`/`Project`/`Version`)           |
+|  [02]   | `IMarkup`            | interface     | one topic markup unit: topic, comments, viewpoints (detail on concrete `Markup`)                  |
+|  [03]   | `ITopic`             | interface     | issue-record marker declaring `Guid`; status/type/priority/dates/labels on `Topic`                |
+|  [04]   | `IComment`           | interface     | threaded-comment marker (author/date/text, viewpoint back-reference on `Comment`)                 |
+|  [05]   | `IViewPoint`         | interface     | viewpoint-reference marker binding a topic to its `IVisualizationInfo`                            |
+|  [06]   | `IVisualizationInfo` | interface     | saved-view marker: camera, component visibility, clipping, lines, bitmaps                         |
+|  [07]   | `IOrthogonalCamera`  | interface     | orthographic camera marker                                                                        |
+|  [08]   | `IPerspectiveCamera` | interface     | perspective camera marker                                                                         |
+|  [09]   | `IComponent`         | interface     | referenced-model-element marker (IFC GUID, authoring-tool id) in a selection                      |
+|  [10]   | `IVisibility`        | interface     | default-visibility plus per-component exceptions marker for a viewpoint                           |
+|  [11]   | `IClippingPlane`     | interface     | section/clipping-plane marker in a viewpoint                                                      |
+|  [12]   | `IExtensions`        | interface     | project extension marker: topic types, statuses, priorities, labels, users, stages, snippet types |
+|  [13]   | `IProject`           | interface     | project-identity marker (name, project guid)                                                      |
+|  [14]   | `IDocumentInfo`      | interface     | BCF document-library marker                                                                       |
 
-| [INDEX] | [SYMBOL]             | [CAPABILITY]                                                                                                  |
-| :-----: | :------------------- | :------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `IBcf`               | container root the projection narrows from (concrete `Markups`/`Extensions`/`Project`/`Version`)              |
-|  [02]   | `IMarkup`            | one topic markup unit marker: the topic + its comments + viewpoints (detail on the concrete `Markup`)         |
-|  [03]   | `ITopic`             | issue-record marker; declares `Guid` — status/type/priority/assignee/dates/labels are on the concrete `Topic` |
-|  [04]   | `IComment`           | threaded-comment marker (author/date/text + viewpoint back-reference on the concrete `Comment`)               |
-|  [05]   | `IViewPoint`         | viewpoint-reference marker binding a topic to its `IVisualizationInfo`                                        |
-|  [06]   | `IVisualizationInfo` | saved-view marker: camera + component visibility + clipping + lines + bitmaps                                 |
-|  [07]   | `IOrthogonalCamera`  | the orthographic camera marker                                                                                |
-|  [08]   | `IPerspectiveCamera` | the perspective camera marker                                                                                 |
-|  [09]   | `IComponent`         | referenced-model-element marker (IFC GUID + authoring-tool id) inside a viewpoint selection/visibility        |
-|  [10]   | `IVisibility`        | default-visibility + per-component exceptions marker for a viewpoint                                          |
-|  [11]   | `IClippingPlane`     | section/clipping-plane marker in a viewpoint                                                                  |
-|  [12]   | `IExtensions`        | project extension marker: topic types, statuses, priorities, labels, users, stages, snippet types             |
-|  [13]   | `IProject`           | project-identity marker (name + project guid)                                                                 |
-|  [14]   | `IDocumentInfo`      | BCF document-library marker                                                                                   |
+[PUBLIC_TYPE_SCOPE]: concrete schema object graphs — each row names the type in `Bcf30` and, unless the row prefixes `Bcf30.`, its `Bcf21` twin
 
-[PUBLIC_TYPE_SCOPE]: concrete schema object graphs
-- package: `Smino.Bcf.Toolkit`
-- namespace: `BcfToolkit.Model.Bcf30`, `BcfToolkit.Model.Bcf21`
-- rail: review
-
-| [INDEX] | [SYMBOL]                          | [CAPABILITY]                                                                                |
-| :-----: | :-------------------------------- | :------------------------------------------------------------------------------------------ |
-|  [01]   | `Bcf30.Bcf`                       | BCF root; members in `[01]-[BCFROOT]`                                                       |
-|  [02]   | `Bcf21.Bcf`                       | BCF root: the same shape minus the document library                                         |
-|  [03]   | `Bcf30.Markup` / `Bcf21.Markup`   | concrete markup: `Topic` + `Comment` list + `ViewPoint` list                                |
-|  [04]   | `Bcf30.Topic` / `Bcf21.Topic`     | issue record; status/type/priority/labels/assignee/dates/related-topics/document-references |
-|  [05]   | `Bcf30.Comment` / `Bcf21.Comment` | concrete threaded comment; `CommentViewpoint` back-reference                                |
-|  [06]   | `Bcf30.VisualizationInfo`         | concrete saved view; members in `[06]-[VIZINFO]`                                            |
-|  [07]   | `Bcf30.Components`                | selection/visibility/coloring component sets inside a viewpoint                             |
-|  [08]   | `ComponentSelection`              | the selection component set                                                                 |
-|  [09]   | `ComponentVisibility`             | the visibility component set                                                                |
-|  [10]   | `Bcf30.Point` / `Direction`       | camera position/direction/up vectors (geometry of `OrthogonalCamera`/`PerspectiveCamera`)   |
-|  [11]   | `Bcf30.Extensions`                | project extensions; enum vocabularies the `SignOff` state machine + topic-type axis read    |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                                                                         |
+| :-----: | :------------------------ | :------------ | :----------------------------------------------------------------------------------- |
+|  [01]   | `Bcf30.Bcf`               | class         | BCF root; members in `[01]-[BCFROOT]`                                                |
+|  [02]   | `Bcf21.Bcf`               | class         | BCF root, the same shape minus the document library                                  |
+|  [03]   | `Markup`                  | class         | concrete markup: `Topic`, `Comment` list, `ViewPoint` list                           |
+|  [04]   | `Topic`                   | class         | issue record; status/type/priority/labels/assignee/dates/related/document-refs       |
+|  [05]   | `Comment`                 | class         | concrete threaded comment; `CommentViewpoint` back-reference                         |
+|  [06]   | `Bcf30.VisualizationInfo` | class         | concrete saved view; members in `[06]-[VIZINFO]`                                     |
+|  [07]   | `Bcf30.Components`        | class         | selection/visibility/coloring component sets inside a viewpoint                      |
+|  [08]   | `ComponentSelection`      | class         | the selection component set                                                          |
+|  [09]   | `ComponentVisibility`     | class         | the visibility component set                                                         |
+|  [10]   | `Bcf30.Point`             | class         | camera position vector                                                               |
+|  [11]   | `Bcf30.Direction`         | class         | camera direction/up vector                                                           |
+|  [12]   | `Bcf30.Extensions`        | class         | project extensions; enum vocabularies the `SignOff` machine and topic-type axis read |
 
 - [01]-[BCFROOT]: `Bcf30.Bcf` — `ConcurrentBag<Markup> Markups`, `DocumentInfo? Document`, `Extensions`, `ProjectInfo? Project`, `Version`.
 - [06]-[VIZINFO]: `Bcf30.VisualizationInfo` — `OrthogonalCamera`/`PerspectiveCamera`, `Components`, lines, clipping planes, bitmaps.
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: Worker — round-trip conversion
-- package: `Smino.Bcf.Toolkit`
-- namespace: `BcfToolkit`
-- owner: every `[SURFACE]` is a `Worker` method
-- rail: review
+[ENTRYPOINT_SCOPE]: `Worker` — round-trip conversion
 
-| [INDEX] | [SURFACE]       | [CAPABILITY]                                                                                                        |
-| :-----: | :-------------- | :------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `Convert`       | `(string source, string target)` → `Task`; path→path conversion auto-detecting source/target by extension           |
-|  [02]   | `BcfFromStream` | `(Stream stream)` → `Task<Bcf>`; reads a `.bcfzip` stream into the typed `Bcf` object root                          |
-|  [03]   | `ToBcf`         | `(IBcf bcf, string target)` → `Task`; writes a model to a `.bcfzip` file                                            |
-|  [04]   | `ToBcf`         | `(IBcf bcf, BcfVersionEnum targetVersion)` → `Task<Stream>`; in-memory `.bcfzip` stream at a chosen version         |
-|  [05]   | `ToBcf`         | `(IBcf bcf, BcfVersionEnum targetVersion, CancellationToken)` → `Task<Stream>`; cancellable stream serialization    |
-|  [06]   | `ToBcf`         | `(IBcf bcf, BcfVersionEnum targetVersion, Stream stream[, CancellationToken])`; sync write to a caller-owned stream |
-|  [07]   | `ToJson`        | `(IBcf bcf, string target)` → `Task`; writes the BCF-API JSON resource model to a folder/file                       |
+| [INDEX] | [SURFACE]                                                        | [SHAPE]  | [CAPABILITY]                                            |
+| :-----: | :--------------------------------------------------------------- | :------- | :------------------------------------------------------ |
+|  [01]   | `Convert(string, string)`                                        | instance | path→path, auto-detecting source/target by extension    |
+|  [02]   | `BcfFromStream(Stream) -> Task<Bcf>`                             | instance | reads a `.bcfzip` stream into the typed `Bcf` root      |
+|  [03]   | `ToBcf(IBcf, string)`                                            | instance | writes a model to a `.bcfzip` file                      |
+|  [04]   | `ToBcf(IBcf, BcfVersionEnum) -> Task<Stream>`                    | instance | in-memory `.bcfzip` stream at a chosen version          |
+|  [05]   | `ToBcf(IBcf, BcfVersionEnum, CancellationToken) -> Task<Stream>` | instance | cancellable stream serialization                        |
+|  [06]   | `ToBcf(IBcf, BcfVersionEnum, Stream[, CancellationToken])`       | instance | sync write to a caller-owned stream                     |
+|  [07]   | `ToJson(IBcf, string)`                                           | instance | writes the BCF-API JSON resource model to a folder/file |
 
-[ENTRYPOINT_SCOPE]: BcfExtensions — streaming part parse
-- package: `Smino.Bcf.Toolkit`
-- namespace: `BcfToolkit.Utils`
-- owner: every `[SURFACE]` is a `BcfExtensions` method
-- rail: review
+[ENTRYPOINT_SCOPE]: `BcfExtensions` — per-part stream parse beneath `Worker`, reading a single container member without a full deserialize
 
-`BcfExtensions` exposes the per-part stream parse beneath `Worker` for callers
-that read a single container member without a full deserialize.
+| [INDEX] | [SURFACE]                                                                           | [SHAPE] | [CAPABILITY]                   |
+| :-----: | :---------------------------------------------------------------------------------- | :------ | :----------------------------- |
+|  [01]   | `GetVersionFromStreamArchive(Stream) -> Task<BcfVersionEnum?>`                      | static  | sniffs the container version   |
+|  [02]   | `ParseMarkups<TMarkup, TVisualizationInfo>(Stream) -> Task<ConcurrentBag<TMarkup>>` | static  | streams markups and viewpoints |
+|  [03]   | `ParseExtensions<TExtensions>(Stream) -> Task<TExtensions>`                         | static  | extension vocabularies         |
+|  [04]   | `ParseProject<TProjectInfo>(Stream) -> Task<TProjectInfo?>`                         | static  | project identity member        |
+|  [05]   | `ParseDocuments<TDocumentInfo>(Stream) -> Task<TDocumentInfo?>`                     | static  | BCF document library member    |
 
-| [INDEX] | [SURFACE]                     | [CALL_SHAPE]                                                             | [CAPABILITY]                 |
-| :-----: | :---------------------------- | :----------------------------------------------------------------------- | :--------------------------- |
-|  [01]   | `GetVersionFromStreamArchive` | `(Stream stream)` → `Task<BcfVersionEnum?>`                              | sniffs the container version |
-|  [02]   | `ParseMarkups`                | `<TMarkup, TVisualizationInfo>(Stream)` → `Task<ConcurrentBag<TMarkup>>` | streams markups+viewpoints   |
-|  [03]   | `ParseExtensions`             | `<TExtensions>(Stream)` → `Task<TExtensions>`                            | extension vocabularies       |
-|  [04]   | `ParseProject`                | `<TProjectInfo>(Stream)` → `Task<TProjectInfo?>`                         | project identity member      |
-|  [05]   | `ParseDocuments`              | `<TDocumentInfo>(Stream)` → `Task<TDocumentInfo?>`                       | BCF document library member  |
+[ENTRYPOINT_SCOPE]: `BcfBuilder` — fluent authoring, the surface the `ClashProposal`→`BcfTopic` fold composes; every builder implements `IBuilder<T>.Build()`/`IDefaultBuilder<T>.WithDefaults()` and the root also `IFromStreamBuilder<T>.BuildFromStream(Stream)`, nested `Action<TBuilder>` closures authoring the markup/topic/comment/component/camera tree
 
-[ENTRYPOINT_SCOPE]: fluent builders — authoring BCF from scratch
-- package: `Smino.Bcf.Toolkit`
-- namespace: `BcfToolkit.Builder.Bcf30`, `BcfToolkit.Builder.Bcf21`
-- owner: `[01]`-`[07]` are `BcfBuilder` methods; the nested per-node builders are in `[08]-[NESTED]`
-- rail: review
+| [INDEX] | [SURFACE]                                        | [SHAPE]  | [CAPABILITY]                                                     |
+| :-----: | :----------------------------------------------- | :------- | :--------------------------------------------------------------- |
+|  [01]   | `AddMarkup(Action<MarkupBuilder>) -> BcfBuilder` | instance | adds a topic markup; `AddMarkups(List<Markup>, bool)` bulk form  |
+|  [02]   | `SetProject(Action<ProjectInfoBuilder>)`         | instance | sets project identity; `ProjectInfo?` concrete overload          |
+|  [03]   | `SetExtensions(Action<ExtensionsBuilder>)`       | instance | sets extension vocabularies; `Extensions` concrete overload      |
+|  [04]   | `SetDocument(Action<DocumentInfoBuilder>)`       | instance | sets document library; `DocumentInfo?` concrete overload         |
+|  [05]   | `WithDefaults() -> BcfBuilder`                   | instance | seeds default extension vocabularies                             |
+|  [06]   | `Build() -> Bcf`                                 | instance | materializes the typed `IBcf` root for `Worker.ToBcf`            |
+|  [07]   | `BuildFromStream(Stream) -> Task<Bcf>`           | instance | reads an existing `.bcfzip` into a builder for edit-then-`Build` |
 
-The `Builder.Bcf30`/`Builder.Bcf21` namespaces are the fluent authoring surface
-the `ClashProposal`→`BcfTopic` fold composes; every builder implements
-`IBuilder<T>.Build()` / `IDefaultBuilder<T>.WithDefaults()` and the root also
-`IFromStreamBuilder<T>.BuildFromStream(Stream)`. Nested `Action<TBuilder>`
-closures author the markup/topic/comment/component/camera tree without
-materializing a partial object graph by hand.
-
-| [INDEX] | [SURFACE]         | [CAPABILITY]                                                                                                     |
-| :-----: | :---------------- | :--------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `AddMarkup`       | `(Action<MarkupBuilder>)` → `BcfBuilder`; adds a topic markup, `AddMarkups(List<Markup>, bool update)` bulk form |
-|  [02]   | `SetProject`      | `(Action<…Builder>)` or `(concrete)` → `BcfBuilder`; sets project identity                                       |
-|  [03]   | `SetExtensions`   | `(Action<…Builder>)` or `(concrete)` → `BcfBuilder`; sets extension vocabularies                                 |
-|  [04]   | `SetDocument`     | `(Action<…Builder>)` or `(concrete)` → `BcfBuilder`; sets document library                                       |
-|  [05]   | `WithDefaults`    | `()` → `BcfBuilder`; seeds default extension vocabularies                                                        |
-|  [06]   | `Build`           | `()` → `Bcf`; materializes the typed `IBcf` root for `Worker.ToBcf`                                              |
-|  [07]   | `BuildFromStream` | `(Stream source)` → `Task<Bcf>`; reads an existing `.bcfzip` into a builder for edit-then-`Build`                |
-
-- [08]-[NESTED]: per-node fluent builders nested inside `AddMarkup`, each an `Action<TBuilder>` leaf with chainable setters — `MarkupBuilder` (`SetGuid`/`SetTitle`/`SetTopicType`/`SetTopicStatus`/`SetPriority`/`SetCreationAuthor`/`AddComment(Action<CommentBuilder>)`/`AddViewPoint(Action<ViewPointBuilder>)`), `CommentBuilder` (`SetGuid`/`SetAuthor`/`SetComment`/`SetDate`/`SetViewPointGuid`), `ViewPointBuilder` (`SetGuid`), plus `ComponentBuilder` and `CameraBuilder`.
+- [08]-[NESTED]: per-node builders nested inside `AddMarkup`, each an `Action<TBuilder>` leaf with chainable setters — `MarkupBuilder` (`SetGuid`/`SetTitle`/`SetTopicType`/`SetTopicStatus`/`SetPriority`/`SetCreationAuthor`/`AddComment`/`AddViewPoint`), `CommentBuilder` (`SetGuid`/`SetAuthor`/`SetComment`/`SetDate`/`SetViewPointGuid`), `ViewPointBuilder` (`SetGuid`), `ComponentBuilder`, `CameraBuilder`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[IDENTITY_PROFILE]:
-- namespace: `BcfToolkit`
-- converter root: `Worker` (sink-shape + version overloaded)
-- model root: `IBcf` discriminated over `Bcf30.Bcf` / `Bcf21.Bcf`
-- version axis: `BcfVersionEnum` (`Bcf21` =, `Bcf30` =; no parse path)
-- receipt root: source version, topic count, and target serialization shape
+[TOPOLOGY]:
+- `Worker` folds a version-tagged `IBcf` graph, and the host-neutral `BcfTopic`/`BcfComment`/`BcfViewpoint` projection reads through `IBcf`/`ITopic`/`IComment`/`IViewPoint` — never a concrete `Bcf30`/`Bcf21` type — so the projection is written once and `BcfVersionEnum` selects only the read/write asset.
+- `Worker.ToBcf` discriminates path vs. in-memory `Stream` vs. caller-owned `Stream`, async vs. sync, on overload; `Worker.ToBcf(bcf, Bcf30)` over a `Bcf21`-sourced `IBcf` up-converts mixed-version exchange to one internal generation.
+- `BcfExtensions.GetVersionFromStreamArchive` sniffs the container version before `ParseMarkups`/`ParseExtensions` materialize only the needed members, so a topic-roster import skips the full object-graph deserialize.
 
-[CODEC_COMPOSE]:
-- version-agnostic projection: the host-neutral `BcfTopic`/`BcfComment`/`BcfViewpoint` records project from `IBcf`/`ITopic`/`IComment`/`IViewPoint`, NOT from a concrete `Bcf30`/`Bcf21` type, so the projection fold is written once and `BcfVersionEnum` selects only the read/write asset — the discriminated interface is the collapse point that keeps the COORDINATION owner free of per-version arms.
-- one converter, three sinks: `Worker.ToBcf` discriminates path vs. in-memory `Stream` vs. caller-owned `Stream`, and async vs. sync, on overload — the design composes the cancellable `Task<Stream>` form under the structured-concurrency rail and folds any throw to `BcfFault.CodecReject` via the `Fin<T>` boundary, never letting a `Worker` exception escape the codec seam.
-- version migration: `Worker.ToBcf(bcf, Bcf30)` over a `Bcf21`-sourced `IBcf` is the → up-conversion the COORDINATION board uses to normalize mixed-version issue exchange to a single internal generation.
-- streaming sniff-then-read: `BcfExtensions.GetVersionFromStreamArchive` selects the version before `ParseMarkups`/`ParseExtensions` materialize only the needed container members — the ISSUES import avoids a full object-graph deserialize when it needs only the topic roster.
-- review-rail stack: the BCF `Extensions` status/type/priority vocabularies feed the `SignOff` `[SmartEnum]` BCF state machine in COORDINATION; the topic GUID joins a `BcfTopic` to the `ElementSet` it references through `IComponent` IFC GUIDs, and the `ClashProposal` fold authors a `BcfTopic` from `Model/systems#INTERFERENCE` clash evidence via `BcfBuilder.AddMarkup(...)` → `Build()` → `Worker.ToBcf(bcf, Bcf30)`. The same topic-author fold also lands an IDS audit failure on the board: the `api-ids-lib` `Audit` (over the `Xbim.InformationSpecifications` spec model) emits `BufferedValidationIssue` rows whose `Line`/`Position`/`Message` author one `BcfTopic`/`BcfComment` per non-conformance (the provenance carried as topic/comment free-text — BCF has no structured line column). So BCF is the issue-exchange wire and IDS is the requirement-audit wire, meeting at TWO seams: the shared `Model/query#ELEMENT_SET` `ElementPredicate` algebra at read time, and the audit-failure-to-`BcfTopic` handoff at write time.
+[STACKING]:
+- `ids-lib`(`.api/api-ids-lib.md`): `Coordination.Raise` folds each non-conforming `IdsAudit` (the ids-lib `Audit` `BufferedValidationIssue` `Level`/`Message`/`Line`/`Position` per facet) onto one `BcfTopic` with one `BcfComment` per failing facet — the write-time IDS→BCF handoff, provenance carried as topic/comment free-text since BCF has no structured line column.
+- COORDINATION owner: the `ClashProposal` fold authors a `BcfTopic` from `Model/systems#INTERFERENCE` clash evidence through `BcfBuilder.AddMarkup(...)` → `Build()` → `Worker.ToBcf(bcf, Bcf30)`; the BCF `Extensions` status/type/priority vocabularies feed the `SignOff` `[SmartEnum]` state machine; the topic GUID joins a `BcfTopic` to its `ElementSet` through `IComponent` IFC GUIDs on the shared `Model/query#ELEMENT_SET` `ElementPredicate` algebra at read time; any `Worker` throw folds to `Model/faults#FAULT_BAND` `BimFault.CodecReject` at the Persistence `Ingest/issue` codec boundary.
 
 [LOCAL_ADMISSION]:
-- `Smino.Bcf.Toolkit` reads and writes BCF containers and the BCF-API JSON model only; it carries no issue-board lifecycle, no clash detection, and no IFC model graph.
-- The BCF state machine, the clash→topic authoring fold, and the `ElementSet` join are COORDINATION domain concerns, never the codec's.
-- Source `BcfVersionEnum`, topic count, and target serialization shape are receipt facts the ISSUES/COORDINATION fold records.
-- The bundled `System.CommandLine` binder + `Serilog` sink are the package's own CLI tool surface; the design composes `Worker`/`BcfExtensions` directly and never invokes the CLI.
+- `Smino.Bcf.Toolkit` reads and writes BCF containers and the BCF-API JSON model only — the issue-board lifecycle, clash detection, IFC model graph, state machine, clash→topic fold, and `ElementSet` join are COORDINATION concerns.
+- source `BcfVersionEnum`, topic count, and target serialization shape are the receipt facts the ISSUES/COORDINATION fold records.
+- `System.CommandLine` binder and `Serilog` sink form the package's own CLI host; the design composes `Worker`/`BcfExtensions` directly.
 
 [RAIL_LAW]:
 - Package: `Smino.Bcf.Toolkit`
-- Owns: BCF / container and BCF-API JSON round-trip
+- Owns: BCF container and BCF-API JSON round-trip
 - Accept: the `.bcfzip` ISSUES codec and the COORDINATION issue-exchange wire
 - Reject: issue-board lifecycle/state, clash detection, IFC model graph, the bundled CLI host

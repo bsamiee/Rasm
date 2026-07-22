@@ -1,117 +1,81 @@
 # [RASM_GRASSHOPPER_API_GH2_INTERACTION]
 
-`Grasshopper2` routes every canvas pointer, key, and layout event through one responsive dispatch spine — `Grasshopper2.UI.Flex.IFlexControl` registers `IResponsive` handlers, focuses them, and relays mouse, key, and text input as a `Response` verdict that governs event capture and redraw. Object dragging is `Grasshopper2.UI.Canvas.ObjectDragInteraction` over a live `Document`; alignment and gap snapping are `SnappingConstraints` producing `SnappingAction`s under `SnappingSettings`; numeric-space snapping is `Grasshopper2.UI.Snap.SnapSpace`; and stretch layout is `StretchLayoutSolver` with `ResizingFrame` owning the resize-edge state. This surface crosses the `Grasshopper2.Doc` object graph at `Document` and `IDocumentObject` and reports geometry in `Eto.Drawing` coordinates.
+`Grasshopper2` canvas interaction drives object dragging, alignment and gap snapping, numeric-space snapping, stretch layout distribution, and interactive edge resize over a live `Document`, reporting geometry in `Eto.Drawing` coordinates. Canvas-rectangle snapping against document objects (`SnappingConstraints`) stays distinct from abstract numeric-lattice snapping (`SnapSpace`). Every interaction registers as an `IResponsive` on the `api-gh2-flex` `IFlexControl` seam, which owns the responsive dispatch spine this surface enters through.
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `Grasshopper2` canvas interaction
-- host: `Grasshopper2.dll` inside `Grasshopper2Plugin.rhp`, loaded in-process by Rhino 9 WIP
-- namespace: `Grasshopper2.UI.Flex` — `IFlexControl`, `IResponsive`, `Response`, `ResponseMouseArgs`, `Responses`
-- namespace: `Grasshopper2.UI.Canvas` — `ObjectDragInteraction`, `SnappingConstraints`, `SnappingSettings`, `SnappingAction`
-- namespace: `Grasshopper2.UI.Snap` — `SnapSpace` numeric snapping
-- namespace: `Grasshopper2.UI` — `StretchLayoutSolver`, `ResizingFrame`
-- crossing: `Grasshopper2.Doc` — `Document`, `IDocumentObject`; `Eto.Drawing` — `PointF`, `RectangleF`, `SizeF`, `Padding`, `Graphics`
+[PACKAGE_SURFACE]: host assembly `Grasshopper2`
+- package: `Grasshopper2` (Rhino 9 WIP host plug-in bundle; not a NuGet pin — the in-process `Grasshopper2.dll` under `Grasshopper2Plugin.rhp` is the resolved asset)
+- assembly: `Grasshopper2`
+- namespace: `Grasshopper2.UI.Canvas` (`ObjectDragInteraction`, `SnappingConstraints`, `SnappingSettings`, `SnappingAction`)
+- namespace: `Grasshopper2.UI.Snap` (`SnapSpace`)
+- namespace: `Grasshopper2.UI` (`StretchLayoutSolver`, `ResizingFrame`)
+- asset: host assembly; `/Applications/RhinoWIP.app/Contents/Frameworks/RhCore.framework/Versions/Current/Resources/ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.dll` resolved from the installed RhinoWIP bundle
 - rail: gh2-interaction
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: responsive dispatch spine (`Grasshopper2.UI.Flex`)
-- rail: gh2-interaction
+[PUBLIC_TYPE_SCOPE]: canvas drag, snapping, and layout types
 
-| [INDEX] | [SYMBOL]            | [KIND]    | [CAPABILITY]                                                                              |
-| :-----: | :------------------ | :-------- | :---------------------------------------------------------------------------------------- |
-|  [01]   | `IFlexControl`      | interface | the canvas host seam — focus stack, responsive registration, window select, coordinates   |
-|  [02]   | `IResponsive`       | interface | one registered interaction handler, addressed through its `Responder`                     |
-|  [03]   | `Response`          | enum      | the event verdict — `Ignored`, `Release`, `Handled`, `Capture` — governing propagation    |
-|  [04]   | `ResponseMouseArgs` | class     | a mouse event in control and content coordinates with buttons, modifiers, delta, pressure |
-|  [05]   | `Responses`         | class     | the relay folding raw mouse, key, and text events into `Response`-returning handler calls |
-
-[PUBLIC_TYPE_SCOPE]: object drag and snapping (`Grasshopper2.UI.Canvas`)
-- rail: gh2-interaction
-
-| [INDEX] | [SYMBOL]                | [KIND] | [CAPABILITY]                                                                     |
-| :-----: | :---------------------- | :----- | :------------------------------------------------------------------------------- |
-|  [01]   | `ObjectDragInteraction` | class  | a live drag of document objects — control, document, count, first/last points    |
-|  [02]   | `SnappingConstraints`   | class  | the per-document snap target set — feedback boxes and rectangle or wire snapping |
-|  [03]   | `SnappingSettings`      | class  | the active snap rule, feedback, gap, and radius policy the solver reads          |
-|  [04]   | `SnappingAction`        | class  | one resolved snap adjustment produced as an out-parameter                        |
-
-[PUBLIC_TYPE_SCOPE]: numeric snapping and layout (`Grasshopper2.UI.Snap`, `Grasshopper2.UI`)
-- rail: gh2-interaction
-
-| [INDEX] | [SYMBOL]              | [KIND] | [CAPABILITY]                                                                      |
-| :-----: | :-------------------- | :----- | :-------------------------------------------------------------------------------- |
-|  [01]   | `SnapSpace`           | class  | a numeric snap lattice over `ISnapElement`s — orthogonal grids, merge, snapping   |
-|  [02]   | `StretchLayoutSolver` | class  | a min/preferred/max stretch solver distributing a total across segments           |
-|  [03]   | `ResizingFrame`       | class  | an interactive resize of a bounded rectangle — per-edge state and cursor hit-test |
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY] | [CAPABILITY]                                                                     |
+| :-----: | :---------------------- | :------------ | :------------------------------------------------------------------------------- |
+|  [01]   | `ObjectDragInteraction` | class         | live drag of document objects — control, document, count, first point, responder |
+|  [02]   | `SnappingConstraints`   | class         | per-document snap target set — feedback boxes, rectangle and wire snapping       |
+|  [03]   | `SnappingSettings`      | class         | active snap rule, feedback, gap, and radius policy the solver reads              |
+|  [04]   | `SnappingAction`        | class         | one resolved snap adjustment                                                     |
+|  [05]   | `SnapSpace`             | class         | numeric snap lattice over `ISnapElement`s — orthogonal grids, merge, snap        |
+|  [06]   | `StretchLayoutSolver`   | class         | min/ideal/max stretch solver distributing a total across segments                |
+|  [07]   | `ResizingFrame`         | class         | interactive resize of a bounded rectangle — per-edge state and cursor hit-test   |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: focus, registration, responsive relay
-- rail: gh2-interaction
-
-The pointer relay is `MouseOver`, `MouseLeave`, `MouseDown`, `MouseDrag`, `MouseUp`, `MouseWheel`, `MouseSingleClick`, and `MouseDoubleClick`; a `ResponseMouseArgs` carries `ControlLocation`, `ContentLocation`, `Buttons`, `Modifiers`, `Delta`, `Pressure`, and `Handled`.
-
-| [INDEX] | [SURFACE]                                            | [CALL_SHAPE]          | [CAPABILITY]                            |
-| :-----: | :--------------------------------------------------- | :-------------------- | :-------------------------------------- |
-|  [01]   | `IFlexControl.PushFocus` / `PopFocus`                | `(IResponsive)`       | grant and release exclusive focus       |
-|  [02]   | `IFlexControl.RegisterIResponsive` / `Unregister…`   | `(IResponsive)`       | add or drop a handler                   |
-|  [03]   | `IFlexControl.ResponsivesForwards`                   | property              | the ordered live responsive set         |
-|  [04]   | `IFlexControl.BeginWindowSelect` / `EndWindowSelect` | `()`                  | open and close window selection         |
-|  [05]   | `Responses.Invoke*Relay`                             | `(Func, args)`        | drive a handler and fold its `Response` |
-|  [06]   | `Responses.Mouse*`                                   | `(ResponseMouseArgs)` | the pointer family returning `Response` |
-|  [07]   | `Responses.KeyDown` / `KeyUp` / `TextInput`          | `(KeyEventArgs, …)`   | keyboard and text → `Response`          |
-|  [08]   | `Responses.RedrawRequired` / `OnRedrawRequired`      | event / `()`          | request a canvas repaint                |
-|  [09]   | `ResponseMouseArgs.ContentLocation` / `Pressure`     | property              | dual-coordinate state and pressure      |
-
 [ENTRYPOINT_SCOPE]: object drag and constraint snapping
-- rail: gh2-interaction
 
-A drag exposes `Control`, `Document`, `Count`, `FirstPoint`, and `Responder` (a nested `DragResponsive` carrying the `Orthogonal` toggle); `LastPoint` is PRIVATE — never drag evidence.
+A drag exposes `Control`, `Document`, `Count`, `FirstPoint`, and `Responder` (a nested `DragResponsive` carrying the `Orthogonal` toggle); `LastPoint` is private and never drag evidence.
 
-| [INDEX] | [SURFACE]                                | [SHAPE]         | [CAPABILITY]             |
-| :-----: | :--------------------------------------- | :-------------- | :----------------------- |
-|  [01]   | `new ObjectDragInteraction`              | host + doc + at | begin canvas drag        |
-|  [02]   | `ObjectDragInteraction.*`                | properties      | drag state and responder |
-|  [03]   | `SnappingConstraints.CreateFromDocument` | doc + excluded  | drag-specific snap set   |
-|  [04]   | `SnappingConstraints.SnapRectangle`      | frame + outs    | X/Y frame snap           |
-|  [05]   | `SnappingConstraints.SnapWires`          | two overloads   | wire-alignment snap      |
-|  [06]   | `SnappingConstraints.DrawSnappingBoxes`  | graphics        | snap-target feedback     |
+| [INDEX] | [SURFACE]                                | [SHAPE]                   | [CAPABILITY]                   |
+| :-----: | :--------------------------------------- | :------------------------ | :----------------------------- |
+|  [01]   | `new ObjectDragInteraction`              | host + doc + anchor       | begin a canvas drag            |
+|  [02]   | `ObjectDragInteraction.*`                | properties                | drag state and responder       |
+|  [03]   | `SnappingConstraints.CreateFromDocument` | doc + filter ids          | snap set excluding dragged ids |
+|  [04]   | `SnappingConstraints.SnapRectangle`      | frame + settings, out ×2  | X/Y frame snap                 |
+|  [05]   | `SnappingConstraints.SnapWires`          | static → `SnappingAction` | wire-alignment snap            |
+|  [06]   | `SnappingConstraints.DrawSnappingBoxes`  | graphics                  | snap-target feedback           |
 
 [ENTRYPOINT_SCOPE]: numeric snapping, stretch layout, resize
-- rail: gh2-interaction
 
-`ResizingFrame` edge flags are `ResizeTopEdge`, `ResizeLeftEdge`, `ResizeRightEdge`, and `ResizeBottomEdge`.
+`ResizingFrame` edge state is `ResizeTopEdge`, `ResizeLeftEdge`, `ResizeRightEdge`, and `ResizeBottomEdge`.
 
-| [INDEX] | [SURFACE]                                     | [SHAPE]     | [CAPABILITY]                 |
-| :-----: | :-------------------------------------------- | :---------- | :--------------------------- |
-|  [01]   | `SnapSpace.Create` / `CreateOrthogonal`       | two forms   | element or grid lattice      |
-|  [02]   | `SnapSpace.Merge` / `Empty`                   | monoid      | composition and identity     |
-|  [03]   | `SnapSpace.Snap`                              | pair + outs | snapped pair and rule        |
-|  [04]   | `StretchLayoutSolver.Add` / `Solve` / `Round` | solver      | segment, residual, rounding  |
-|  [05]   | `new ResizingFrame`                           | bounds      | size- and snap-bounded frame |
-|  [06]   | `ResizingFrame.Begin` / `Continue`            | points      | resize lifecycle             |
-|  [07]   | `ResizingFrame.CursorAt`                      | point + pad | edge cursor                  |
+| [INDEX] | [SURFACE]                                     | [SHAPE]                    | [CAPABILITY]                 |
+| :-----: | :-------------------------------------------- | :------------------------- | :--------------------------- |
+|  [01]   | `SnapSpace.Create` / `CreateOrthogonal`       | element or grid            | build a numeric lattice      |
+|  [02]   | `SnapSpace.Merge` / `Empty`                   | monoid                     | composition and identity     |
+|  [03]   | `SnapSpace.Snap`                              | pair + cutoff, out ×2      | snapped pair and rule        |
+|  [04]   | `StretchLayoutSolver.Add` / `Solve` / `Round` | min/ideal/max → residual   | segment, distribute, round   |
+|  [05]   | `new ResizingFrame`                           | bounds + min/max + snap    | size- and snap-bounded frame |
+|  [06]   | `ResizingFrame.Begin` / `Continue`            | mouse + edges              | resize lifecycle             |
+|  [07]   | `ResizingFrame.CursorAt`                      | mouse + padding → `Cursor` | edge cursor                  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[GH2_INTERACTION_TOPOLOGY]:
-- Every canvas event enters through `Grasshopper2.UI.Flex.IFlexControl` and reaches handlers as registered `IResponsive`s; `PushFocus` grants one handler exclusive delivery until `PopFocus`, and the handler's `Response` verdict — `Handled`, `Capture`, `Release`, or `Ignored` — decides propagation and focus retention.
-- Pointer events carry `ResponseMouseArgs` in both control and content coordinates; a handler snaps at content coordinates and paints at control coordinates, and its `RedrawRequired` request schedules the repaint rather than painting inline.
-- `ObjectDragInteraction` owns a live object drag over a `Document`; `SnappingConstraints.CreateFromDocument` excludes the dragged ids, and `SnapRectangle`/`SnapWires` return `SnappingAction` out-parameters under a `SnappingSettings` policy.
-- Numeric snapping is `Grasshopper2.UI.Snap.SnapSpace`, distinct from the canvas `SnappingConstraints`: a `SnapSpace` snaps abstract coordinate pairs against a lattice while constraints snap canvas rectangles against document objects.
-- Layout is two owners — `StretchLayoutSolver` distributes one length across min/preferred/max segments, and `ResizingFrame` holds the per-edge resize state bounded by size limits and the same snapping surface.
+[TOPOLOGY]:
+- `ObjectDragInteraction` runs a live drag over a `Document` from an anchor; a handler registered on the `api-gh2-flex` `IFlexControl` seam snaps at content coordinates and paints at control coordinates.
+- `SnappingConstraints.CreateFromDocument` builds the drag snap set excluding the dragged ids; `SnapRectangle` yields X and Y `SnappingAction` out-parameters and `SnapWires` returns one `SnappingAction`, both under a `SnappingSettings` rule/feedback/gap/radius policy.
+- Numeric snapping is `SnapSpace`, distinct from canvas `SnappingConstraints`: `SnapSpace` snaps abstract coordinate pairs against a lattice while constraints snap canvas rectangles against document objects.
+- Layout splits two owners — `StretchLayoutSolver` distributes one length across min/ideal/max segments, and `ResizingFrame` holds per-edge resize state bounded by size limits and the same snapping surface.
 
 [STACKING]:
-- `api-languageext`: the responsive relay returns `Response`, and the folder lifts the mouse, key, and text relays onto one polymorphic `Eff<Response>` handler so a drag, snap, or resize gesture is one effect; `SnappingConstraints.SnapRectangle`/`SnapWires` out-parameters surface as `Option<SnappingAction>`; `SnapSpace.Snap` and `StretchLayoutSolver.Solve` fold onto `Fin`; and the live `IFlexControl.ResponsivesForwards` set carries as `Seq<IResponsive>`.
-- `api-thinktecture-runtime-extensions`: `Response` is owned as a `[SmartEnum]` so relay dispatch is exhaustive; the pointer, key, and text event kinds collapse into one `[Union]` interaction event that the responsive spine matches; and `ResizingFrame`'s four edge flags and a `SnappingSettings` rule/feedback/gap/radius policy are `[ComplexValueObject]` records with structural equality.
+- `api-languageext`(`libs/csharp/.api/api-languageext.md`): `SnapRectangle`'s X/Y out-parameters and `SnapWires`'s return surface as `Option<SnappingAction>`; `SnapSpace.Snap` and `StretchLayoutSolver.Solve` fold onto `Fin` where an unsatisfiable target maps to `Error`; a drag over `ObjectDragInteraction` sequences its snap-resolve steps through `Eff` and carries the excluded-id set as a `Seq<Guid>`.
+- `api-thinktecture-runtime-extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): `ResizingFrame`'s four edge flags collapse into one `[Union]` resize-edge state, `SnappingSettings` rule/feedback/gap/radius is a `[ComplexValueObject]` with structural equality, and `SnappingAction` is owned as a `[ValueObject]` snap adjustment equatable as one value.
+- Rasm.Grasshopper folder: interaction handlers thread canvas geometry through the Rasm kernel's host-agnostic owners, never a second in-folder snap or easing derivation.
 
 [LOCAL_ADMISSION]:
-- Canvas interaction is the Rasm.Grasshopper folder's own domain; it composes the Rasm kernel for host-agnostic geometry and easing math and never references a sibling Rasm package.
-- An interaction enters the folder's owner as an `IResponsive` registered on an `IFlexControl`; a handler that paints or mutates outside the `Response`/`RedrawRequired` contract is not admitted.
+- Canvas interaction is the Rasm.Grasshopper folder's own domain, composing the Rasm kernel for host-agnostic geometry and referencing no sibling Rasm package.
+- An interaction enters as an `IResponsive` registered on the `api-gh2-flex` `IFlexControl` seam; a handler painting or mutating outside the flex `Response`/`RedrawRequired` contract is not admitted.
+- Snapping enters through `SnappingConstraints` for canvas rectangles or `SnapSpace` for numeric pairs; a hand-rolled alignment or grid solve is the deleted form.
 
 [RAIL_LAW]:
 - Package: `Grasshopper2` (canvas interaction)
-- Owns: responsive event dispatch, object dragging, constraint and numeric snapping, stretch layout, and interactive resize over document objects
-- Accept: `IResponsive` registration, `Response`-returning event handling, snap resolution, and layout and resize solving
-- Reject: canvas paint and skinning (`api-gh2-canvas`), editor chrome and toolbars (`api-gh2-editor`), the document graph and mutation verbs (`api-gh2-document`), and animation timing (`api-gh2-flex`)
+- Owns: object dragging, constraint and numeric snapping, stretch layout distribution, and interactive edge resize over document objects
+- Accept: drag construction, snap resolution, lattice snapping, and layout and resize solving
+- Reject: responsive event dispatch and the `IFlexControl` seam (`api-gh2-flex`), canvas paint and skinning (`api-gh2-canvas`), editor chrome and toolbars (`api-gh2-editor`), and the document graph and mutation verbs (`api-gh2-document`)

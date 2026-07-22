@@ -207,14 +207,17 @@ reviews:
             - A csproj groups references under concern labels matching the folder README cards, never version-bearing.
             - A dependency admission is a same-change multi-surface fact — central manifest row, consuming csproj reference, folder README registry row, and .api catalogue tier move together, and a package present in one surface but missing from another is registry drift.
             - A README package card row is the backticked package id plus at most one dash-led charter clause; a version pin, a parenthetical, an .api link, or multi-line depth is a finding — capability depth belongs to the .api catalogue.
-        - path: "tests/**"
+        - path: "{tests/**,libs/typescript/**/*.spec.ts,libs/typescript/**/*.test.ts}"
           instructions: |-
-            - Test law is tests/README.md — judge against it.
+            - Test law is tests/README.md with the owning language README (tests/<language>/README.md) — judge against them, never generic coverage convention.
+            - Estate and language-tree RULINGS.md registries (tests/RULINGS.md, tests/<language>/RULINGS.md) are settled law: a finding re-litigating a row is void with the row as refutation, and a diff exposing a homeless testing discriminant earns the new ruling row at the narrowest owning tier.
             - A test falsifies production behavior with an independent oracle: existence tests, mirror tests asserting a constructed value's own fields, and specs proving only that their own doubles were called are findings; a refuting witness that survives, or sits trivially outside the domain, exposes a tautology.
             - Rail outcomes prove through the kit gates, never raw carrier-flag inspection or failure-message substrings; numeric equality proves under an explicit tolerance regime with a named metric row, and NaN admits nothing.
-            - Time-dependent behavior takes an injected clock advanced deterministically — a unit-lane sleep or wall-clock read is the named defect.
+            - Kit gates by language: Spec.Succ/Fail/FailCategory asserting the closed-family case-type name never message text; assert_ok/assert_error/assert_error_status on the status sentinel; typed Data.TaggedError tag assertion. isinstance narrowing a wire union to its arm is the sanctioned Python form, and a message substring is legal only beside its status-identity check.
+            - Time-dependent behavior takes an injected clock advanced deterministically — a unit-lane sleep or wall-clock read is the named defect; time.sleep inside a spawned subprocess argv proving TIMEOUT, Date.now() in k6 probes, and epoch fixtures in clock suites are the wall-clock subjects themselves, never findings.
+            - integration is reserved for the real process or IO boundary — an in-process spec over doubles claiming the lane hides the missing boundary proof.
             - A spec-local helper, tolerance constant, generator, or double shadowing an existing _testkit owner extends the kit, never duplicates beside a spec, and a spec-local tame-band generator is a coverage illusion.
-            - A capability blocked on an unbuilt producer is a named skip carrying its activation condition — a vacuous green over an absent producer is a finding.
+            - A capability blocked on an unbuilt producer is a named skip carrying its activation condition — a vacuous green over an absent producer is a finding, and every fold, gauge, matrix, and coverage census refuses an empty input set as proving nothing.
             - A snapshot captures only what an independent producer emits; snapshotting a self-constructed value, or reflexively re-accepting a verified-diff, is a finding.
             - Graph under test is the production composition with edges re-provided — a substitute is a Layer against the same Tag with interior edges real, and a proof against a hand-assembled parallel graph proves only the parallel graph.
             - Every kit capability lands with its falsification twin proving it can fail; kit import rides the exports-map or project-graph surface (sanctioned, with magic values in specs) — a relative-path reach-around into kit internals is the finding.
@@ -419,6 +422,10 @@ knowledge_base:
               applyTo: "libs/**"
             - files: libs/**/RULINGS.md
               applyTo: libs/**
+            - files: tests/**/README.md
+              applyTo: "tests/**, libs/typescript/**/*.spec.ts, libs/typescript/**/*.test.ts"
+            - files: tests/**/RULINGS.md
+              applyTo: "tests/**, libs/typescript/**/*.spec.ts, libs/typescript/**/*.test.ts"
     learnings:
         scope: local
         approval_delay: 0

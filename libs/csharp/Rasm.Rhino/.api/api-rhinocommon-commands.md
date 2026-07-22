@@ -1,6 +1,6 @@
 # [RASM_RHINO_API_RHINOCOMMON_COMMANDS]
 
-This catalog owns the interactive command boundary: the `Rhino.Commands.Command` lifecycle (registration identity, execution, history replay, begin/end/undo signals), `RhinoApp` UI-thread marshalling and script dispatch, `RhinoGet` one-shot modal acquisition, and the `Rhino.Input.Custom` getter family that carries prompts, defaults, command-line options, object-selection policy, constrained dynamic point picking, and transform capture. Every acquisition resolves to a `GetResult`/`Result` outcome and every geometry payload crosses at the boundary the geometry catalog owns; the boundary projects host outcomes onto the `LanguageExt` rails and wraps the closed host vocabularies as `Thinktecture` generated owners.
+This catalog owns the interactive command boundary: the `Rhino.Commands.Command` lifecycle, `RhinoApp` UI-thread marshalling and script dispatch, `RhinoGet` one-shot modal acquisition, and the `Rhino.Input.Custom` getter family carrying command-line options, selection policy, constrained point picking, and transform capture. Every acquisition resolves to a `GetResult`/`Result` the boundary projects onto `LanguageExt` rails; every geometry payload crosses at the geometry catalog's boundary, and the closed host vocabularies wrap as `Thinktecture` generated owners.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -95,7 +95,7 @@ This catalog owns the interactive command boundary: the `Rhino.Commands.Command`
 - `Rhino.RhinoApp.Idle : EventHandler` — application-idle signal.
 - `Rhino.RhinoApp.MainLoop : EventHandler` — per-main-loop-tick signal.
 - `Rhino.RhinoApp.CommandPrompt : string` — current command-prompt text.
-- `Rhino.RhinoApp.CommandPromptChanged : EventHandler<Rhino.UI.CommandPromptChangedEventArgs>` — prompt-change signal; `Prompt`, `PromptDefault`, and the `CommandLineOption[] Options` roster are callback-scoped snapshots, and option handles never survive the event callback.
+- `Rhino.RhinoApp.CommandPromptChanged : EventHandler<Rhino.UI.CommandPromptChangedEventArgs>` — prompt-change signal; `Prompt`, `PromptDefault`, and the `CommandLineOption[] Options` roster are callback-scoped snapshots that never survive the event callback.
 - `Rhino.RhinoApp.RunScript(string script, bool echo) : bool` — active-document script execution.
 - `Rhino.RhinoApp.RunScript(uint documentSerialNumber, string script, bool echo) : bool` — targeted-document script execution.
 - `Rhino.RhinoApp.RunScript(uint documentSerialNumber, string script, string mruDisplayString, bool echo) : bool` — targeted-document script execution with an MRU display string.
@@ -126,7 +126,7 @@ This catalog owns the interactive command boundary: the `Rhino.Commands.Command`
 - `Rhino.Input.RhinoGet.InGetPoint(RhinoDoc doc) : bool` — active point-getter state probe.
 - `Rhino.Input.RhinoGet.InGetObject(RhinoDoc doc) : bool` — active object-getter state probe.
 - `Rhino.RhinoDoc.InGetPoint : bool` — document-scoped active point-getter probe.
-- every `out` object, array, view, viewport, or geometry payload is admitted only when the returned `Result` is `Success`; cancellation, nothing, and failure leave the payload non-admitted, and each returned `ObjRef` remains caller-disposed.
+- every `out` object, array, view, viewport, or geometry payload is admitted only when the returned `Result` is `Success`, and each returned `ObjRef` remains caller-disposed.
 
 [GETTER_PROMPTS_AND_DEFAULTS]:
 - `Rhino.Input.Custom.GetBaseClass.SetCommandPrompt(string prompt) : void` — sets the getter prompt.
@@ -152,7 +152,7 @@ This catalog owns the interactive command boundary: the `Rhino.Commands.Command`
 - `Rhino.Input.Custom.GetBaseClass.AddOptionEnumSelectionList<T>(string englishOptionName, IEnumerable<T> enumSelection, int listCurrentIndex) : int where T : struct, IConvertible` — registers a filtered enum option list.
 - `Rhino.Input.Custom.GetBaseClass.GetSelectedEnumValue<T>() : T` / `GetSelectedEnumValueFromSelectionList<T>(IEnumerable<T> selectionList) : T where T : struct, IConvertible` — resolves the selected enum value against the registered complete or filtered roster.
 - `Rhino.Input.Custom.GetBaseClass.ClearCommandOptions() : void` — clears every registered option before a replacement registration pass.
-- `OptionToggle`, `OptionDouble`, `OptionInteger`, `OptionString`, and `OptionColor` implement `IDisposable`; the owner that constructs a carrier retains it through every getter call using the registered option and disposes it after the getter window closes.
+- `OptionToggle`, `OptionDouble`, `OptionInteger`, `OptionString`, and `OptionColor` implement `IDisposable`; the constructing owner retains the carrier across every getter call using it and disposes it after the getter window closes.
 
 [GETTER_ACCEPT_POLICY]:
 - `Rhino.Input.Custom.GetBaseClass.EnableTransparentCommands(bool enable) : void` — permits transparent-command interruption.
@@ -165,15 +165,15 @@ This catalog owns the interactive command boundary: the `Rhino.Commands.Command`
 - `Rhino.Input.Custom.GetBaseClass.AcceptString(bool enable) : void` — accepts a string terminal.
 
 [GETTER_RESULT]:
-- `Rhino.Input.Custom.GetBaseClass.Result() : GetResult` — the terminal getter outcome discriminant.
-- `Rhino.Input.Custom.GetBaseClass.CommandResult() : Result` — the getter outcome projected as a command `Result`.
-- `Rhino.Input.Custom.GetBaseClass.Option() : CommandLineOption` — the pointer-backed selected option, or `null` unless `Result()` is `GetResult.Option`; it never outlives its getter.
-- `Rhino.Input.Custom.GetBaseClass.OptionIndex() : int` — the selected option index, or `-1` when no option exists.
+- `Rhino.Input.Custom.GetBaseClass.Result() : GetResult` — answers the terminal getter outcome discriminant.
+- `Rhino.Input.Custom.GetBaseClass.CommandResult() : Result` — projects the getter outcome as a command `Result`.
+- `Rhino.Input.Custom.GetBaseClass.Option() : CommandLineOption` — answers the pointer-backed selected option, `null` unless `Result()` is `GetResult.Option`, and never outlives its getter.
+- `Rhino.Input.Custom.GetBaseClass.OptionIndex() : int` — answers the selected option index, `-1` when no option exists.
 - `Rhino.Input.Custom.GetBaseClass.Number() : double` / `Point() : Point3d` / `Vector() : Vector3d` / `Color() : Color` — typed terminal payload reads gated by their corresponding `GetResult` cases.
-- `Rhino.Input.Custom.GetBaseClass.View() : RhinoView` — the picked view, or `null` when the terminal carries no view.
+- `Rhino.Input.Custom.GetBaseClass.View() : RhinoView` — answers the picked view, `null` when the terminal carries no view.
 - `Rhino.Input.Custom.GetBaseClass.PickRectangle() : Rectangle` / `Point2d() : System.Drawing.Point` / `Rectangle2d() : Rectangle` / `Line2d() : System.Drawing.Point[]` — screen-space terminal payloads.
 - `Rhino.Input.Custom.GetBaseClass.GotDefault() : bool` — whether the terminal outcome was the seeded default.
-- `Rhino.Input.Custom.GetBaseClass.StringResult() : string` — the acquired string payload; absent native text projects as `string.Empty`.
+- `Rhino.Input.Custom.GetBaseClass.StringResult() : string` — answers the acquired string payload; absent native text projects as `string.Empty`.
 - `Rhino.Input.Custom.GetBaseClass.SetWaitDuration(int milliseconds) : void` — arms the `GetResult.Timeout` terminal.
 - `Rhino.Input.Custom.GetBaseClass.SetOptionVaries(int optionIndex, bool varies) : void` — marks an option value as varying.
 - `Rhino.Input.Custom.GetBaseClass : IDisposable` with public `Dispose()` — every getter lifetime rides a using scope or lease, and every pointer-backed option or result projection stays inside that lifetime.
@@ -227,10 +227,10 @@ This catalog owns the interactive command boundary: the `Rhino.Commands.Command`
 - `Rhino.Input.Custom.GetPoint.EnableNoRedrawOnExit(bool noRedraw) : void` / `FullFrameRedrawDuringGet : bool { get; set; }` — redraw policy across and during the get.
 - `Rhino.Input.Custom.GetPoint.DrawLineFromPoint(Point3d startPoint, bool showDistanceInStatusBar) : void` / `EnableDrawLineFromPoint(bool enable) : void` — rubber-band line policy.
 - `Rhino.Input.Custom.GetPoint.AddSnapPoints(Point3d[] points) : int` / `AddConstructionPoints(Point3d[] points) : int` / `GetSnapPoints() : Point3d[]` / `GetConstructionPoints() : Point3d[]` — bulk snap/construction registration and readback.
-- `Rhino.Input.Custom.GetPoint.TryGetBasePoint(out Point3d basePoint) : bool` — the seeded base-point read.
-- `Rhino.Input.Custom.GetPoint.OsnapEventType : OsnapModes` — the snap kind the dynamic events report.
+- `Rhino.Input.Custom.GetPoint.TryGetBasePoint(out Point3d basePoint) : bool` — reads the seeded base point.
+- `Rhino.Input.Custom.GetPoint.OsnapEventType : OsnapModes` — reports the snap kind the dynamic events carry.
 - `Rhino.Input.Custom.GetNumber.SetLowerLimit(double lowerLimit, bool strictlyGreaterThan) : void` / `SetUpperLimit(double upperLimit, bool strictlyLessThan) : void`; `GetInteger` carries the same pair over `int` — numeric window gates.
-- `Rhino.RhinoApp.WriteLine(string message) : void` — the command-line transcript write the interaction receipts compose.
+- `Rhino.RhinoApp.WriteLine(string message) : void` — writes the command-line transcript the interaction receipts compose.
 
 [TRANSFORM_ACQUISITION]:
 - `Rhino.Input.Custom.GetTransform.CalculateTransform(RhinoViewport viewport, Point3d point) : Transform` — resolves the transform from the current pick.
@@ -239,9 +239,9 @@ This catalog owns the interactive command boundary: the `Rhino.Commands.Command`
 ## [04]-[IMPLEMENTATION_LAW]
 
 [COMMAND_TOPOLOGY]:
-- `Command` owns identity and the `RunCommand`/`ReplayHistory` execution seam; `RhinoApp` owns thread affinity and script dispatch; `RhinoGet` owns one-shot modal acquisition; the `Rhino.Input.Custom` getters own multi-step interactive acquisition with options, constraints, and dynamic draw. Acquisition state (`InGet`/`InGetPoint`/`InGetObject`) is read from `RhinoGet` and `RhinoDoc`, never inferred.
-- every getter terminates in a `GetResult`, a command terminates in a `Result`, and both discriminants carry the cancel and nothing outcomes distinctly from failure; the boundary reads the discriminant and never treats a cancel as an error.
-- all mutating and prompt-bearing calls run on the UI thread; off-thread work marshals through `RhinoApp.InvokeOnUiThread` (fire-and-forget) or `RhinoApp.InvokeAndWait` (blocking), gated by `IsOnMainThread`/`InvokeRequired`.
+- `Command` owns identity and the `RunCommand`/`ReplayHistory` execution seam; `RhinoApp` owns thread affinity and script dispatch; `RhinoGet` owns one-shot modal acquisition; the `Rhino.Input.Custom` getters own multi-step acquisition with options, constraints, and dynamic draw. Acquisition state (`InGet`/`InGetPoint`/`InGetObject`) reads from `RhinoGet` and `RhinoDoc`, never inferred.
+- every getter terminates in a `GetResult` and every command in a `Result`, both separating cancel and nothing from failure; the boundary reads the discriminant, never treating a cancel as an error.
+- mutating and prompt-bearing calls run on the UI thread; off-thread work marshals through `RhinoApp.InvokeOnUiThread` (fire-and-forget) or `RhinoApp.InvokeAndWait` (blocking), gated by `IsOnMainThread`/`InvokeRequired`.
 
 [STACKING]:
 - `LanguageExt.Core`(`api-languageext`): a successful `Result`/`GetResult` payload projects to `Fin<A>.Succ`, fault terminals project to typed `Error`, and `Cancel`/`Nothing` remain explicit non-fault union cases; a bounded multi-object `GetMultiple` fans per-candidate acceptance into `Validation<Error, Seq<ObjRef>>`; detached object projections and option rosters land as `Seq<A>`/`Arr<A>`, and a nullable acquired value lifts to `Option<A>`.
@@ -249,7 +249,7 @@ This catalog owns the interactive command boundary: the `Rhino.Commands.Command`
 - `Rasm` kernel: bounded numeric ranges, unit values, and easing/interpolation for dynamic-draw feedback compose the kernel owners; the boundary re-derives none of them.
 
 [LOCAL_ADMISSION]:
-- a command enters through a `Command`-derived owner whose `RunCommand` returns a projected `Result`; interactive acquisition enters through a getter owner that registers options and defaults, applies the accept policy, runs `Get`/`GetMultiple`/`GetXform`, and projects the `GetResult` onto a `Fin` rail keyed to the acquired payload.
+- a command enters through a `Command`-derived owner whose `RunCommand` returns a projected `Result`; interactive acquisition enters through a getter owner that registers options and defaults, applies the accept policy, runs `Get`/`GetMultiple`/`GetXform`, and projects the `GetResult` onto a `Fin` rail keyed to the payload.
 - host getter and option carrier types never leak past the boundary; downstream code holds the projected rail value and the canonical geometry payload the geometry catalog admits.
 
 [RAIL_LAW]:

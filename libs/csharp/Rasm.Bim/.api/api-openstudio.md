@@ -1,173 +1,134 @@
 # [RASM_BIM_API_OPENSTUDIO]
 
-`NREL.OpenStudio.macOS-arm64` is the osx-arm64 SWIG-generated C# binding to the NREL
-OpenStudio SDK — the whole-building-energy-modeling engine that owns the OSM model, the
-EnergyPlus IDF/IDD object layer, and the translator matrix to and from EnergyPlus, gbXML,
-SDD, three.js/glTF, FloorspaceJS, ISO, Radiance, and CONTAM. The managed `OpenStudio.dll`
-(5390 generated types, namespace `OpenStudio`) marshals into a bundled native runtime
-(`libopenstudiolib.dylib` + the three `libopenstudio_*_csharp.dylib` SWIG shims); every
-wrapper owns a native handle and is `IDisposable`. It is the EnergyPlus leg of the Bim
-energy-model exchange owner — the OSM/IDF runtime sibling to the `HoneybeeSchema`
-(`api-honeybee-schema`) HBJSON authoring leg, meeting it at gbXML and the canonical Bim
-energy model.
+`NREL.OpenStudio.macOS-arm64` is the osx-arm64 SWIG-generated C# binding to the NREL OpenStudio SDK: it owns the OSM model, the EnergyPlus IDF/IDD object store, and the forward/reverse translator matrix between a `Model` and the neutral energy and geometry formats. `OpenStudio.dll` marshals a bundled RID-locked native runtime, and every managed wrapper holds a native handle under `IDisposable`. This is the OSM/IDF runtime leg of the Bim energy-model exchange, meeting the `HoneybeeSchema` HBJSON authoring leg at gbXML; the EnergyPlus solver stays Compute-owned.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `NREL.OpenStudio.macOS-arm64`
-- package: `NREL.OpenStudio.macOS-arm64`
-- license: NREL OpenStudio License (the `LICENSE.md` at `github.com/NREL/OpenStudio` — a permissive BSD-3-Clause-derived license; the nuspec carries a `licenseUrl`, no SPDX expression)
+- package: `NREL.OpenStudio.macOS-arm64` (NREL OpenStudio License, permissive BSD-3-derived; NREL Alliance for Sustainable Energy)
 - assembly: `OpenStudio` (`lib/netstandard2.0/OpenStudio.dll`, the managed SWIG wrapper)
-- namespace: `OpenStudio` (the full 5390-type generated surface: the model/translator/utility domain types plus the `Optional<T>` (~743) and `*Vector` (~722) SWIG marshaling families) + 38 per-SWIG-module `OpenStudio*PINVOKE` marshaling classes (`OpenStudioModelPINVOKE`, `OpenStudioEnergyPlusPINVOKE`, `OpenStudioOSVersionPINVOKE`, `OpenStudioGBXMLPINVOKE`, …)
-- asset: managed binding TFM `netstandard2.0` (binds forward under net10.0); the runtime is RID-LOCKED to `osx-arm64`
-- native: `runtimes/osx-arm64/native/libopenstudiolib.dylib` (the SDK) + `libopenstudio_csharp.dylib` / `libopenstudio_model_csharp.dylib` / `libopenstudio_translators_csharp.dylib` (the SWIG P/Invoke shims); `build/OpenStudio.targets` copies the dylibs next to the consumer output
-- platform: this package is the macOS-arm64 RID member of a per-RID family — a Windows/Linux host admits the sibling `NREL.OpenStudio.win-x64` / `NREL.OpenStudio.linux-x64` package; the managed API is identical, only the native runtime differs
-- dependency: empty net-standard dependency group (the native runtime is fully bundled; no managed transitive deps)
-- consumer: `libs/csharp/Rasm.Bim` (the IFC↔OSM/gbXML SEMANTIC exchange owner) — co-owned with `libs/csharp/Rasm.Compute` (the disjoint whole-building-energy SIMULATION owner, `Rasm.Compute/.api/api-openstudio`) on the one central pin; the two folder-scoped catalogs frame disjoint rails (Bim exchanges IFC↔OSM semantics, Compute simulates the canonical seam graph), aligned not coupled
+- namespace: `OpenStudio` (the model/translator/utility domain types, the `Optional<T>` and `*Vector` SWIG marshaling families, and the per-module `OpenStudio*PINVOKE` DllImport classes)
+- asset: managed binding TFM `netstandard2.0`, binding forward under net10.0; the native runtime is RID-locked to `osx-arm64`
+- native: `runtimes/osx-arm64/native/libopenstudiolib.dylib` (the SDK) with the `libopenstudio_csharp` / `libopenstudio_model_csharp` / `libopenstudio_translators_csharp` P/Invoke shims; `build/OpenStudio.targets` copies the dylibs next to consumer output
+- platform: the macOS-arm64 member of a per-RID family; a Windows or Linux host binds the sibling `win-x64` / `linux-x64` package with an identical managed API over a different native runtime
+- dependency: empty net-standard dependency group; the native runtime is fully bundled with no managed transitive deps
+- consumer: `libs/csharp/Rasm.Bim` (IFC↔OSM/gbXML semantic exchange), `libs/csharp/Rasm.Compute` (whole-building-energy simulation)
 - rail: energy
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: SWIG marshaling primitives
-- package: `NREL.OpenStudio.macOS-arm64`
-- namespace: `OpenStudio`
-- rail: energy
 
-Every wrapper holds a native `HandleRef` (`swigCPtr`) with a `cMemoryOwn` flag and implements `IDisposable`; the C++ STL/Boost shapes surface as the families below, not as BCL collections.
+| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY] | [CAPABILITY]                                             |
+| :-----: | :---------------------------- | :------------ | :------------------------------------------------------- |
+|  [01]   | `Optional<T>` family          | class         | `boost::optional` may-miss carrier; gate then unwrap     |
+|  [02]   | `*Vector` family              | class         | `std::vector` marshaling, `IList`-shaped plural carrier  |
+|  [03]   | `Path` / `OptionalPath`       | class         | `boost::filesystem::path`; no `Path(string)` ctor        |
+|  [04]   | `UUID`                        | class         | object identity handle, the `getObject(UUID)` key        |
+|  [05]   | `OpenStudioUtilitiesCore`     | class         | SWIG global-function host for path and UUID construction |
+|  [06]   | `Logger` / `LogMessageVector` | class         | native log sink; the translator diagnostics carrier      |
+|  [07]   | `ProgressBar`                 | class         | SWIG director delivering native progress callbacks       |
 
-| [INDEX] | [SYMBOL]                      | [CAPABILITY]                                                                                        |
-| :-----: | :---------------------------- | :-------------------------------------------------------------------------------------------------- |
-|  [01]   | `Optional<T>` family          | `boost::optional`; `is_initialized()`/`isNull()`, `get()`, `value_or(T)`, `set(T)`, `reset()`       |
-|  [02]   | `*Vector` family              | `std::vector` marshaling; `IList`-shaped (indexer, `Count`, `Add`), the plural-result carrier       |
-|  [03]   | `Path` / `OptionalPath`       | `boost::filesystem::path`; NO `Path(string)` ctor — use `OpenStudioUtilitiesCore.toPath`/`toString` |
-|  [04]   | `UUID`                        | handle (`createUUID()`/`toUUID(string)`); `WorkspaceObject` identity, `getObject(UUID)` key         |
-|  [05]   | `OpenStudioUtilitiesCore`     | SWIG global-function host (`toPath`/`toString`/`createUUID`/`toUUID`); not the `*PINVOKE` shims     |
-|  [06]   | `Logger` / `LogMessageVector` | native log sink; `LogLevel` verbosity, translator `warnings()`/`errors()` → `LogMessageVector`      |
-|  [07]   | `ProgressBar`                 | SWIG director — `protected ProgressBar()` ctor, `virtual onPercentageUpdated(double percentage)`    |
+- `Optional<T>`: `is_initialized()` `isNull()` `get()` `value_or(T)` `set(T)` `reset()`.
+- `OpenStudioUtilitiesCore`: `toPath(string)` `toString(Path)` `createUUID()` `toUUID(string)`.
+- `ProgressBar`: `protected ProgressBar()` ctor, `virtual onPercentageUpdated(double)` override sink.
 
-[PUBLIC_TYPE_SCOPE]: model + IDF/IDD object store
-- package: `NREL.OpenStudio.macOS-arm64`
-- namespace: `OpenStudio`
-- rail: energy
+[PUBLIC_TYPE_SCOPE]: model and IDF/IDD object store
 
-| [INDEX] | [SYMBOL]                            | [CAPABILITY]                                                                               |
-| :-----: | :---------------------------------- | :----------------------------------------------------------------------------------------- |
-|  [01]   | `Model`                             | the OSM model (`: Workspace`); the model-object getter root — roster in `[01]-[MODEL]`     |
-|  [02]   | `Workspace`                         | the generic IDD-object store backing `Model` and an IDF — roster in `[02]-[WORKSPACE]`     |
-|  [03]   | `IdfFile` / `OptionalIdfFile`       | the EnergyPlus IDF text model (`IdfFile.load(Path, IddFileType)` → `OptionalIdfFile`)      |
-|  [04]   | `IddFile` / `Idd` / `IddObjectType` | the EnergyPlus Input Data Dictionary; `IddObjectType` is the typed `getObjectsByType` key  |
-|  [05]   | `ModelObject`                       | base of every model object; the `ModelObjectVector` element + `translateModelObject` input |
-|  [06]   | leaf `ModelObject`s                 | `Building`, `Space`, `Surface`, `ThermalZone`, `Construction`, `Schedule`                  |
+| [INDEX] | [SYMBOL]                            | [TYPE_FAMILY] | [CAPABILITY]                                                 |
+| :-----: | :---------------------------------- | :------------ | :----------------------------------------------------------- |
+|  [01]   | `Model`                             | class         | the OSM model (`: Workspace`), the model-object getter root  |
+|  [02]   | `Workspace`                         | class         | the generic IDD-object store backing `Model` and an IDF      |
+|  [03]   | `IdfFile` / `OptionalIdfFile`       | class         | the EnergyPlus IDF text model                                |
+|  [04]   | `IddFile` / `Idd` / `IddObjectType` | class         | the Input Data Dictionary; `IddObjectType` keys the type get |
+|  [05]   | `ModelObject`                       | class         | base of every model object, the `translateModelObject` input |
+|  [06]   | leaf `ModelObject`s                 | class         | `Building` `Space` `Surface` `ThermalZone` `Construction`    |
 
-- [01]-[MODEL]: ctors `Model()`/`Model(IdfFile)`/`Model(Workspace)`/`Model(Model)`; `modelObjects(bool sorted)` → `ModelObjectVector`; `getModelObjectLists*`. Load/save are `[03]`'s.
-- [02]-[WORKSPACE]: `getObjectsByType(IddObjectType)` → `WorkspaceObjectVector`; `getObjectByTypeAndName(IddObjectType, name)` → `OptionalWorkspaceObject`; `getObject(UUID)`; `objects(bool sorted)`; `versionObject`; `save(Path, bool overwrite)`.
+- `Model`: ctors `Model()` `Model(IdfFile)` `Model(Workspace)` `Model(Model)`; `modelObjects(bool sorted)` → `ModelObjectVector`; load and save are `[03]`'s.
+- `Workspace`: `getObjectsByType(IddObjectType)` → `WorkspaceObjectVector`; `getObjectByTypeAndName(IddObjectType, string)` → `OptionalWorkspaceObject`; `getObject(UUID)`; `objects(bool sorted)`; `save(Path, bool overwrite)`.
 
-[PUBLIC_TYPE_SCOPE]: translators (the exchange matrix)
-- package: `NREL.OpenStudio.macOS-arm64`
-- namespace: `OpenStudio`
-- rail: energy
+[PUBLIC_TYPE_SCOPE]: translators — the exchange matrix
 
-Each translator is `IDisposable`, exposes `warnings()`/`errors()` → `LogMessageVector`, and takes an optional `ProgressBar` — a managed subclass over the `[07]` director row receives native progress through its `onPercentageUpdated(double)` override (`translateModel(Model, ProgressBar)`, `modelToGbXML(Model, Path, ProgressBar)`/`modelToGbXMLString(Model, ProgressBar)`, `loadModel(Path, ProgressBar)` on both reverse translators). "Forward" = `Model` → external format; "Reverse" = external → `Model`/`OptionalModel`.
+Each translator is `IDisposable`, exposes `warnings()`/`errors()` → `LogMessageVector`, and takes an optional `ProgressBar`; forward runs `Model` → external format, reverse runs external → `Model`/`OptionalModel`.
 
-| [INDEX] | [SYMBOL]                                                       | [CAPABILITY]                                                          |
-| :-----: | :------------------------------------------------------------- | :-------------------------------------------------------------------- |
-|  [01]   | `EnergyPlusForwardTranslator`                                  | `translateModel(Model)` → `Workspace`; options `[01]-[E+FWD]`         |
-|  [02]   | `EnergyPlusReverseTranslator`                                  | `translateWorkspace(Workspace, ProgressBar, bool clearLogSink)`       |
-|  [03]   | `GbXMLForwardTranslator` / `GbXMLReverseTranslator`            | gbXML ↔ `Model` — the BIM/IFC bridge to other energy tools            |
-|  [04]   | `SddForwardTranslator` / `SddReverseTranslator`                | CBECC SDD (California compliance) ↔ `Model`                           |
-|  [05]   | `ThreeJSForwardTranslator` / `ThreeJSReverseTranslator`        | three.js geometry for web preview                                     |
-|  [06]   | `GltfForwardTranslator`                                        | glTF geometry export for web preview                                  |
-|  [07]   | `FloorplanJSForwardTranslator` / `FloorspaceReverseTranslator` | FloorspaceJS 2D floor-editor exchange                                 |
-|  [08]   | `ISOModelForwardTranslator`                                    | the ISO 13790 monthly-model export                                    |
-|  [09]   | `RadianceForwardTranslator`                                    | the Radiance daylight export                                          |
-|  [10]   | `ContamForwardTranslator`                                      | the CONTAM airflow export                                             |
-|  [11]   | `VersionTranslator`                                            | robust OSM loader — upgrades an older `.osm`; roster `[11]-[VERSION]` |
+| [INDEX] | [SYMBOL]                                                       | [TYPE_FAMILY] | [CAPABILITY]                                 |
+| :-----: | :------------------------------------------------------------- | :------------ | :------------------------------------------- |
+|  [01]   | `EnergyPlusForwardTranslator`                                  | class         | `translateModel(Model)` → `Workspace`        |
+|  [02]   | `EnergyPlusReverseTranslator`                                  | class         | `translateWorkspace(Workspace…)` → `Model`   |
+|  [03]   | `GbXMLForwardTranslator` / `GbXMLReverseTranslator`            | class         | gbXML ↔ `Model`, the BIM/IFC energy bridge   |
+|  [04]   | `SddForwardTranslator` / `SddReverseTranslator`                | class         | CBECC SDD (California compliance) ↔ `Model`  |
+|  [05]   | `ThreeJSForwardTranslator` / `ThreeJSReverseTranslator`        | class         | three.js geometry for web preview            |
+|  [06]   | `GltfForwardTranslator`                                        | class         | glTF geometry export for web preview         |
+|  [07]   | `FloorplanJSForwardTranslator` / `FloorspaceReverseTranslator` | class         | FloorspaceJS 2D floor-editor exchange        |
+|  [08]   | `ISOModelForwardTranslator`                                    | class         | ISO 13790 monthly-model export               |
+|  [09]   | `RadianceForwardTranslator`                                    | class         | Radiance daylight export                     |
+|  [10]   | `ContamForwardTranslator`                                      | class         | CONTAM airflow export                        |
+|  [11]   | `VersionTranslator`                                            | class         | robust `.osm` loader upgrading an older file |
 
-- [01]-[E+FWD]: `translateModelObject(ModelObject)` → `Workspace`; `forwardTranslatorOptions()`/`setForwardTranslatorOptions(ForwardTranslatorOptions)`; `setKeepRunControlSpecialDays`; `setIPTabularOutput`.
-- [11]-[VERSION]: `loadModel(Path[, ProgressBar])` → `OptionalModel`; `loadModelFromString(string[, ProgressBar])` → `OptionalModel`; `loadComponent(Path)` → `OptionalComponent`; `originalVersion` → `VersionString`. It supersedes `Model.load` whenever the file version is not guaranteed current.
+- `EnergyPlusForwardTranslator`: `translateModelObject(ModelObject)` → `Workspace`; `forwardTranslatorOptions()` / `setForwardTranslatorOptions(ForwardTranslatorOptions)`; `setKeepRunControlSpecialDays(bool)`; `setIPTabularOutput(bool)`.
+- `VersionTranslator`: `loadModel(Path[, ProgressBar])` → `OptionalModel`; `loadModelFromString(string[, ProgressBar])` → `OptionalModel`; `loadComponent(Path)` → `OptionalComponent`; `originalVersion()` → `VersionString`. It supersedes `Model.load` when the file version is not guaranteed current.
 
 [PUBLIC_TYPE_SCOPE]: files, results, workflow
-- package: `NREL.OpenStudio.macOS-arm64`
-- namespace: `OpenStudio`
-- rail: energy
 
-| [INDEX] | [SYMBOL]                    | [CAPABILITY]                                                                                     |
-| :-----: | :-------------------------- | :----------------------------------------------------------------------------------------------- |
-|  [01]   | `EpwFile`                   | the EnergyPlus weather file (`EpwFile(Path)`); `WeatherFile`/`SimulationControl` context         |
-|  [02]   | `SqlFile`                   | the EnergyPlus results SQLite (`SqlFile(Path)`); typed hourly/annual accessors — post-run reader |
-|  [03]   | `WorkflowJSON` / `OSRunner` | the OpenStudio Workflow (OSW) + measure runner over a model                                      |
-|  [04]   | `VersionString`             | a parsed OpenStudio version (`VersionTranslator.originalVersion` output)                         |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CAPABILITY]                                                |
+| :-----: | :-------------------------- | :------------ | :---------------------------------------------------------- |
+|  [01]   | `EpwFile`                   | class         | the EnergyPlus weather file (`EpwFile(Path)`)               |
+|  [02]   | `SqlFile`                   | class         | the EnergyPlus results SQLite (`SqlFile(Path)`), post-run   |
+|  [03]   | `WorkflowJSON` / `OSRunner` | class         | the OpenStudio Workflow (OSW) and measure runner            |
+|  [04]   | `VersionString`             | class         | a parsed OpenStudio version, the `VersionTranslator` output |
 
 [PUBLIC_TYPE_SCOPE]: CLR enums
-- package: `NREL.OpenStudio.macOS-arm64`
-- namespace: `OpenStudio`
-- rail: energy
 
-Only nine true CLR enums exist; most OpenStudio "enumerations" are SWIG `*Enum`/`EnumBase` string-classes (e.g. `IddObjectType`), not CLR enums — match on their string value.
+Only these types are true CLR enums; most OpenStudio "enumerations" are SWIG `*Enum`/`EnumBase` string-classes such as `IddObjectType`, matched on string value.
 
-| [INDEX] | [SYMBOL]                                                  | [CAPABILITY]                                                     |
-| :-----: | :-------------------------------------------------------- | :--------------------------------------------------------------- |
-|  [01]   | `LogLevel`                                                | the `Logger` verbosity band (`Trace`…`Fatal`)                    |
-|  [02]   | `FloatFormat`                                             | numeric formatting for IDF/text emit                             |
-|  [03]   | `InterpMethod` / `ExtrapMethod`                           | interpolation/extrapolation policy for time-series/curve lookups |
-|  [04]   | `ThreeSide` / `XMLValidatorType` / `ModelicaCompilerType` | three.js side culling, XML validator selection, Modelica target  |
+| [INDEX] | [SYMBOL]                                                  | [TYPE_FAMILY] | [CAPABILITY]                                           |
+| :-----: | :-------------------------------------------------------- | :------------ | :----------------------------------------------------- |
+|  [01]   | `LogLevel`                                                | enum          | the `Logger` verbosity band (`Trace`…`Fatal`)          |
+|  [02]   | `FloatFormat`                                             | enum          | numeric formatting for IDF/text emit                   |
+|  [03]   | `InterpMethod` / `ExtrapMethod`                           | enum          | interp/extrap policy for time-series and curve lookups |
+|  [04]   | `ThreeSide` / `XMLValidatorType` / `ModelicaCompilerType` | enum          | three.js side culling, XML validator, Modelica target  |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: load / save a model
-- package: `NREL.OpenStudio.macOS-arm64`
-- namespace: `OpenStudio`
-- rail: energy
+[ENTRYPOINT_SCOPE]: load and save a model
 
-Every load/get returning an `Optional<T>` gates on `is_initialized()` before `get()` (`[04]`).
-
-| [INDEX] | [ENTRYPOINT]                                                                 | [CAPABILITY]                                    |
-| :-----: | :--------------------------------------------------------------------------- | :---------------------------------------------- |
-|  [01]   | `VersionTranslator.loadModel(Path pathToOldOsm)` → `OptionalModel`           | robust `.osm` read; upgrades to the SDK version |
-|  [02]   | `Model.load(Path osmPath, Path workflowJSONPath)` (static) → `OptionalModel` | direct load when the file is current            |
-|  [03]   | `model.save(Path, bool overwrite)` → `bool`                                  | persist to `.osm` (inherited from `Workspace`)  |
-|  [04]   | `IdfFile.load(Path, IddFileType)` (static) → `OptionalIdfFile`               | read an EnergyPlus IDF into the workspace       |
+| [INDEX] | [SURFACE]                                             | [SHAPE]  | [CAPABILITY]                             |
+| :-----: | :---------------------------------------------------- | :------- | :--------------------------------------- |
+|  [01]   | `VersionTranslator.loadModel(Path)` → `OptionalModel` | instance | robust `.osm` read, upgrades the version |
+|  [02]   | `Model.load(Path, Path)` → `OptionalModel`            | static   | direct load when the file is current     |
+|  [03]   | `model.save(Path, bool)` → `bool`                     | instance | persist to `.osm`, from `Workspace`      |
+|  [04]   | `IdfFile.load(Path, IddFileType)` → `OptionalIdfFile` | static   | read an EnergyPlus IDF into the store    |
 
 [ENTRYPOINT_SCOPE]: translate
-- package: `NREL.OpenStudio.macOS-arm64`
-- namespace: `OpenStudio`
-- rail: energy
 
-`EnergyPlusReverseTranslator.translateWorkspace` takes `(Workspace, ProgressBar, bool clearLogSink)` and returns a `Model`.
-
-| [INDEX] | [ENTRYPOINT]                                                               | [CAPABILITY]                                       |
-| :-----: | :------------------------------------------------------------------------- | :------------------------------------------------- |
-|  [01]   | `new EnergyPlusForwardTranslator().translateModel(Model)` → `Workspace`    | OSM → EnergyPlus IDF; then `errors()`/`warnings()` |
-|  [02]   | `new EnergyPlusReverseTranslator().translateWorkspace(…)`                  | EnergyPlus IDF → OSM                               |
-|  [03]   | `new GbXMLReverseTranslator().loadModel(Path gbXmlPath)` → `OptionalModel` | gbXML → OSM (the BIM/IFC bridge)                   |
-|  [04]   | `new SqlFile(Path)` + typed getters                                        | read the EnergyPlus results SQLite after a run     |
+| [INDEX] | [SURFACE]                                                           | [SHAPE]  | [CAPABILITY]                           |
+| :-----: | :------------------------------------------------------------------ | :------- | :------------------------------------- |
+|  [01]   | `EnergyPlusForwardTranslator().translateModel(Model)` → `Workspace` | instance | OSM → EnergyPlus IDF, then diagnostics |
+|  [02]   | `EnergyPlusReverseTranslator().translateWorkspace(…)` → `Model`     | instance | EnergyPlus IDF → OSM                   |
+|  [03]   | `GbXMLReverseTranslator().loadModel(Path)` → `OptionalModel`        | instance | gbXML → OSM, the BIM/IFC bridge        |
+|  [04]   | `SqlFile(Path)` with typed getters                                  | ctor     | read the EnergyPlus results SQLite     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[NATIVE_BOUNDARY]:
-- this is a SWIG binding over a bundled C++ runtime; the managed types are thin wrappers around native handles. `build/OpenStudio.targets` stages `libopenstudiolib.dylib` and the three `libopenstudio_*_csharp.dylib` shims next to the consumer output — they MUST ship with the app, and the package is RID-locked to `osx-arm64`. A Windows/Linux build admits the sibling per-RID package; never assume one runtime asset is portable.
-- the `*PINVOKE` classes are the DllImport surface into the native shims; they are an implementation detail, not a call surface — drive the public `OpenStudio.*` wrappers only.
+[TOPOLOGY]:
+- Every managed type is a thin wrapper around a native handle (`HandleRef swigCPtr` with a `cMemoryOwn` flag) under `IDisposable`; drive the public `OpenStudio.*` wrappers, never the `OpenStudio*PINVOKE` DllImport classes. `build/OpenStudio.targets` stages the native dylibs next to consumer output, RID-locked to `osx-arm64`.
+- Every wrapper owns native memory, so `Model`, each translator, `SqlFile`, `EpwFile`, and every `Optional*`/`*Vector` result binds under `using` or `Dispose()`; a dropped handle leaks memory the GC cannot reclaim deterministically. Model mutation is not thread-safe: the native SDK admits one logical owner per `Model`, translators run sequentially, and a translation offloads as one unit of work over this single-threaded boundary.
+- Any load or get that can miss returns an `Optional<T>`; the law is `is_initialized()` (or `!isNull()`) then `get()`, else `value_or(default)`, and a bare `get()` on an empty optional faults in native code. Lower the `Optional<T>` onto a `Fin<T>`/`Option<T>` at the Exchange boundary so internal code never sees the SWIG optional.
+- Every file API takes a `Path` built with `OpenStudioUtilitiesCore.toPath(string)` and read back with `toString(Path)`; a raw `string` does not compile against the file overloads.
 
-[DISPOSAL_AND_THREADING]:
-- every wrapper owns native memory (`cMemoryOwn`); wrap `Model`, every translator, `SqlFile`, `EpwFile`, and the `Optional*`/`*Vector` results in `using` or call `Dispose()` — a dropped handle leaks native memory the GC cannot reclaim deterministically. A `*Vector` returned from a getter is itself disposable.
-- the native SDK is not thread-safe for concurrent model mutation; serialize access to one `Model` (one logical owner per model) and run translators sequentially. This is the single-threaded-native boundary the Rasm concurrency rail brackets — offload a translation as one unit of work, not a parallel fan-out over shared model state.
-
-[OPTIONAL_DISCIPLINE]:
-- any load/get that can miss returns an `Optional<T>`; the law is `is_initialized()` (or `!isNull()`) THEN `get()`, or `value_or(default)`. A bare `get()` on an empty optional faults in native code. Lower the `Optional<T>` onto a `Fin<T>`/`Option<T>` at the Exchange boundary so internal code never sees the SWIG optional.
-- `Path` is mandatory at every file API: build it with `OpenStudioUtilitiesCore.toPath(string)` (there is no `Path(string)` ctor) and read it back with `OpenStudioUtilitiesCore.toString(path)`; passing a raw `string` does not compile against the file overloads.
-
-[STACK_INTEGRATION]:
-- Honeybee seam: `HoneybeeSchema` (`api-honeybee-schema`) is the authored HBJSON model; OpenStudio is the EnergyPlus runtime model. They meet at gbXML (`GbXMLReverseTranslator.loadModel`) and the canonical Bim energy model; the full HBJSON->OSM path is the external `honeybee-openstudio` Python step, with OpenStudio owning the OSM/IDF runtime side.
-- IFC seam: a GeometryGym IFC building (`api-geometrygym-ifc`) exports gbXML, which `GbXMLReverseTranslator` ingests into a `Model` — IFC spaces/zones become OSM spaces/thermal zones at the `Exchange/import` boundary; the energy model is derived from the BIM model, never re-authored.
-- geometry-export seam: `GltfForwardTranslator`/`ThreeJSForwardTranslator` emit a model's geometry for web preview, joining the same `Exchange/export` delivery rail as the glTF/3D-Tiles legs (`api-sharpgltf-3dtiles`) — OpenStudio is the energy source, those are the delivery encodings.
-- results seam: after an EnergyPlus run, `SqlFile` reads the results SQLite; the typed outputs land in the Bim analysis receipts and, keyed by content hash, in the `Rasm.Persistence` artifact index.
-- identity seam: a saved `.osm`/IDF string (UTF-8 bytes) feeds `System.IO.Hashing` — `XxHash3` for the fast in-process fingerprint, `XxHash128` for the collision-resistant persisted content key (`libs/csharp/.api/api-hashing.md`) — the same content-identity rail (the `Rasm.Persistence` artifact index) as the other energy/IFC exports.
+[STACKING]:
+- `HoneybeeSchema`(`.api/api-honeybee-schema`): the HBJSON authored model meets this OSM/IDF runtime at gbXML — `GbXMLReverseTranslator.loadModel` ingests the shared gbXML — and at the canonical Bim energy model; the full HBJSON→OSM path runs the external `honeybee-openstudio` Python step.
+- `GeometryGymIFC`(`.api/api-geometrygym-ifc`): an IFC building exports gbXML, `GbXMLReverseTranslator.loadModel` folds it into a `Model`, and IFC spaces and zones become OSM spaces and thermal zones at the Exchange/import boundary.
+- `SharpGLTF.Ext.3DTiles`(`.api/api-sharpgltf-3dtiles`): `GltfForwardTranslator` and `ThreeJSForwardTranslator` emit a model's geometry onto the Exchange/export delivery rail the glTF and 3D-Tiles legs share.
+- `System.IO.Hashing`(`libs/csharp/.api/api-hashing`): a saved `.osm`/IDF UTF-8 string feeds `XxHash3` for the in-process fingerprint and `XxHash128` for the persisted content key into the `Rasm.Persistence` artifact index.
+- within-lib: the Bim Energy Exchange lowers each `Optional<Model>` onto `Fin<Model>`, captures translator `errors()`/`warnings()` as a typed receipt, and offloads a translation as one unit of work.
 
 [LOCAL_ADMISSION]:
-- model read enters through `new VersionTranslator.loadModel(path)` (version-robust) returning an `OptionalModel` lowered to a `Fin<Model>`; model write enters through `model.save(path, overwrite)`.
-- translation enters through the matching `*Translator` instance under a `using`, with `errors()`/`warnings()` captured as a typed receipt; the rejected forms are calling `get()` on an unchecked optional, passing a raw `string` where a `Path` is required, leaking native handles by skipping `Dispose`, and assuming the osx-arm64 runtime on another platform.
+- Model read enters through `VersionTranslator.loadModel(path)` returning an `OptionalModel` lowered to `Fin<Model>`; model write enters through `model.save(path, overwrite)`.
+- Translation enters through the matching `*Translator` under a `using`, capturing `errors()`/`warnings()` as a typed receipt.
 
 [RAIL_LAW]:
 - Package: `NREL.OpenStudio.macOS-arm64` (assembly `OpenStudio`)
-- Owns: the OpenStudio OSM model + EnergyPlus IDF/IDD object store, the translator matrix (EnergyPlus/gbXML/SDD/three.js/glTF/FloorspaceJS/ISO/Radiance/CONTAM forward+reverse), the `VersionTranslator` robust loader, the weather/results/workflow files, and the SWIG native-handle marshaling
-- Accept: OSM load/save/version-upgrade, model<->EnergyPlus/gbXML/SDD translation, EnergyPlus results reading, the osx-arm64 native-runtime energy rail
-- Reject: HBJSON authoring (`HoneybeeSchema` owns it), IFC semantics (GeometryGym owns it), running the EnergyPlus solver itself (the external EnergyPlus binary does — this binding produces its input and reads its output), cross-platform native portability (each RID admits its own package), and leaking `OpenStudio.*` SWIG handles past the Exchange boundary
+- Owns: the OSM model and EnergyPlus IDF/IDD object store, the forward/reverse translator matrix, the `VersionTranslator` robust loader, the weather/results/workflow files, and the SWIG native-handle marshaling
+- Accept: OSM load/save/version-upgrade, `Model` ↔ EnergyPlus/gbXML/SDD translation, EnergyPlus results reading, the osx-arm64 native energy rail
+- Reject: HBJSON authoring (`HoneybeeSchema` owns it), IFC semantics (GeometryGym owns it), running the EnergyPlus solver (the external binary does), cross-platform native portability (each RID admits its own package), and leaking `OpenStudio.*` handles past the Exchange boundary

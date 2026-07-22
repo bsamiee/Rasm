@@ -1,184 +1,154 @@
 # [RASM_PERSISTENCE_API_ZSTD]
 
-`ZstdSharp.Port` is a pure-managed C#-to-C# port of libzstd: the `Compressor`/`Decompressor`
-one-shot codec over `ReadOnlySpan<byte>`/`byte[]`/`ArraySegment<byte>` (with `TryWrap`/
-`TryUnwrap` no-throw twins and `GetCompressBound` sizing), the `WrapStream`/`UnwrapStream`/
-`FlushStream` incremental engine returning `System.Buffers.OperationStatus`, the
-`CompressionStream`/`DecompressionStream` `Stream` adapters with a full async mirror
-(`WriteAsync`/`ReadAsync`/`FlushAsync`/`DisposeAsync` over `Memory<byte>`), the advanced
-`ZSTD_cParameter`/`ZSTD_dParameter` tuning surface (long-distance matching, multithreading,
-strategy, window/hash/chain logs, content-size/checksum/dictID frame flags), trained-
-dictionary support (`LoadDictionary` + `DictBuilder.TrainFromBuffer`/`TrainFromBufferFastCover`),
-and `SetPledgedSrcSize` for known-length single-frame embedding. It is the first-class
-standalone Zstandard snapshot/blob codec sitting beside `K4os.Compression.LZ4`'s
-self-describing-frame codec on the `CompressionPolicy` axis; distinct from the in-codec compression that `MessagePackCompression.Lz4BlockArray` and
-the Arrow `ICompressionCodecFactory` own, never double-framing them.
+`ZstdSharp.Port` transpiles libzstd into managed C#, so Zstandard compression ships with no native runtime and no RID-specific asset. It owns the high-ratio half of the snapshot-compression axis: a reusable context tuned across the full advanced parameter surface, an `OperationStatus` pump for payloads past one contiguous buffer, and trained dictionaries for the small-similar-blob regime. A payload frames exactly once here, so a body its serializer or IPC stream already compressed pairs with an uncompressed policy row.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ZstdSharp.Port`
-- package: `ZstdSharp.Port`
-- license: MIT (Oleg Stepanischev) — `github.com/oleg-st/ZstdSharp`
-- assembly: `ZstdSharp` (note: assembly name differs from the package id `ZstdSharp.Port`)
-- namespace: `ZstdSharp` (public codec), `ZstdSharp.Unsafe` (libzstd-mirroring parameter/strategy/error enums + raw `Methods.ZSTD_*` bindings)
-- target: multi-target (`net462`, `netcoreapp3.1`, `net5.0`..`net9.0`, `netstandard2.0`, `netstandard2.1`); the `net10.0` consumer binds `lib/net9.0` (highest available)
-- asset: pure-managed runtime library, AnyCPU, NO native runtime — libzstd transpiled to C#; the `net9.0` asset has zero package dependencies (`System.Memory`/`...Unsafe` polyfills only on the legacy floors)
-- abi: `Span<byte>`/`ReadOnlySpan<byte>`/`Memory<byte>` + `System.Buffers.OperationStatus`; `Compressor`/`Decompressor` are `IDisposable` and hold unmanaged-style cctx/dctx wrappers
+- package: `ZstdSharp.Port` (`MIT`, Oleg Stepanischev)
+- assembly: `ZstdSharp`
+- namespace: `ZstdSharp`, `ZstdSharp.Unsafe`
+- target: the `net10.0` consumer binds `lib/net9.0`
+- asset: pure-managed AnyCPU runtime library, no native runtime
+- abi: spans in, `System.Buffers.OperationStatus` out of the pump; `Compressor` and `Decompressor` are `IDisposable`
 - rail: snapshot-codec
 
 ## [02]-[PUBLIC_TYPES]
 
-[CODEC_TYPES]: codec roots + stream adapters + dictionary builder (namespace `ZstdSharp`)
-- rail: snapshot-codec
+[CODEC_TYPES]: codec contexts, stream adapters, trainer, fault (`ZstdSharp`)
 
-`Compressor`/`Decompressor` own a reusable cctx/dctx (set parameters once, `Wrap`/`Unwrap`
-many) and MUST be disposed. The `Stream` adapters wrap an inner `Stream` with a `leaveOpen`
-and a `preserveCompressor` knob and supply the async mirror.
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [CAPABILITY]                                                      |
+| :-----: | :-------------------- | :------------ | :---------------------------------------------------------------- |
+|  [01]   | `Compressor`          | class         | `IDisposable` cctx; level, parameters, dictionary, one-shot, pump |
+|  [02]   | `Decompressor`        | class         | `IDisposable` dctx; parameter, dictionary, one-shot, pump         |
+|  [03]   | `CompressionStream`   | class         | `: Stream` write-only; sync and async write over a cctx           |
+|  [04]   | `DecompressionStream` | class         | `: Stream` read-only; sync and async read over a dctx             |
+|  [05]   | `DictBuilder`         | static class  | trains a dictionary from sample blobs                             |
+|  [06]   | `ZstdException`       | class         | `: Exception`; carries `ZSTD_ErrorCode Code`                      |
 
-| [INDEX] | [SYMBOL]              | [PACKAGE_ROLE]                    |
-| :-----: | :-------------------- | :-------------------------------- |
-|  [01]   | `Compressor`          | one-shot + streaming compressor   |
-|  [02]   | `Decompressor`        | one-shot + streaming decompressor |
-|  [03]   | `CompressionStream`   | write-side `Stream`               |
-|  [04]   | `DecompressionStream` | read-side `Stream`                |
-|  [05]   | `DictBuilder`         | dictionary trainer                |
-|  [06]   | `ZstdException`       | typed codec fault                 |
+[PARAMETER_TYPES]: libzstd advanced-API mirrors (`ZstdSharp.Unsafe`)
 
-- [01]-[COMPRESSOR]: `IDisposable`; `Level`, `SetParameter`/`GetParameter`, `LoadDictionary`, `Wrap`/`TryWrap`, `WrapStream`/`FlushStream`, `SetPledgedSrcSize`.
-- [02]-[DECOMPRESSOR]: `IDisposable`; `SetParameter`/`GetParameter`, `LoadDictionary`, `GetDecompressedSize`, `Unwrap`/`TryUnwrap`, `UnwrapStream`.
-- [03]-[COMPRESSIONSTREAM]: `: Stream` (write-only); `Write`/`WriteAsync`, `Flush`/`FlushAsync`, `DisposeAsync`, `SetParameter`, `LoadDictionary`, `SetPledgedSrcSize`.
-- [04]-[DECOMPRESSIONSTREAM]: `: Stream` (read-only); `Read`/`ReadAsync`, `checkEndOfStream` guard, `SetParameter`, `LoadDictionary`.
-- [05]-[DICTBUILDER]: static; `TrainFromBuffer`, `TrainFromBufferFastCover` (level / `ZDICT_fastCover_params_t`).
-- [06]-[ZSTDEXCEPTION]: `: Exception`; carries `ZSTD_ErrorCode Code` — the boundary the rail folds into `Fin`.
+`SetParameter` is the one knob entry into the surface below, and `Methods` exposes the raw libzstd entry points the managed types wrap.
 
-[PARAMETER_ENUMS]: libzstd advanced-API mirrors (namespace `ZstdSharp.Unsafe`)
-- rail: snapshot-codec
+| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [CAPABILITY]                                              |
+| :-----: | :------------------------- | :------------ | :-------------------------------------------------------- |
+|  [01]   | `ZSTD_cParameter`          | enum          | compress knobs, one per libzstd `ZSTD_c_*`                |
+|  [02]   | `ZSTD_dParameter`          | enum          | `ZSTD_d_windowLogMax` is the stable decode knob           |
+|  [03]   | `ZSTD_strategy`            | enum          | match-finder ladder, fast through btultra2                |
+|  [04]   | `ZSTD_EndDirective`        | enum          | `continue`/`flush`/`end`, mapped from `isFinalBlock`      |
+|  [05]   | `ZSTD_ErrorCode`           | enum          | libzstd fault code on `ZstdException.Code`                |
+|  [06]   | `ZSTD_bounds`              | struct        | `error`, `lowerBound`, `upperBound` for one parameter     |
+|  [07]   | `ZDICT_fastCover_params_t` | struct        | FastCover trainer knobs                                   |
+|  [08]   | `ZDICT_params_t`           | struct        | `compressionLevel`, `notificationLevel`, `dictID`         |
+|  [09]   | `Methods`                  | static class  | raw `ZSTD_*`/`ZDICT_*` bindings under the managed surface |
 
-The full advanced tuning surface — not just a level int. `SetParameter(ZSTD_cParameter, int)`
-is the canonical knob; the unstable params (`>=500`) are excluded. Each enum's values ride the
-keyed list below.
+[ZSTD_cParameter]: `ZSTD_c_compressionLevel` `ZSTD_c_windowLog` `ZSTD_c_hashLog` `ZSTD_c_chainLog` `ZSTD_c_searchLog` `ZSTD_c_minMatch` `ZSTD_c_targetLength` `ZSTD_c_strategy` `ZSTD_c_targetCBlockSize` `ZSTD_c_enableLongDistanceMatching` `ZSTD_c_ldmHashLog` `ZSTD_c_ldmMinMatch` `ZSTD_c_ldmBucketSizeLog` `ZSTD_c_ldmHashRateLog` `ZSTD_c_contentSizeFlag` `ZSTD_c_checksumFlag` `ZSTD_c_dictIDFlag` `ZSTD_c_nbWorkers` `ZSTD_c_jobSize` `ZSTD_c_overlapLog`
 
-| [INDEX] | [SYMBOL]                   | [PACKAGE_ROLE]       |
-| :-----: | :------------------------- | :------------------- |
-|  [01]   | `ZSTD_cParameter`          | compress parameters  |
-|  [02]   | `ZSTD_dParameter`          | decompress parameter |
-|  [03]   | `ZSTD_strategy`            | match strategy       |
-|  [04]   | `ZSTD_EndDirective`        | flush directive      |
-|  [05]   | `ZSTD_ErrorCode`           | error code           |
-|  [06]   | `ZDICT_fastCover_params_t` | training params      |
+[ZSTD_strategy]: `ZSTD_fast` `ZSTD_dfast` `ZSTD_greedy` `ZSTD_lazy` `ZSTD_lazy2` `ZSTD_btlazy2` `ZSTD_btopt` `ZSTD_btultra` `ZSTD_btultra2`
 
-- [01]-[ZSTD_CPARAMETER]: `ZSTD_c_compressionLevel`, `windowLog`/`hashLog`/`chainLog`/`searchLog`/`minMatch`/`targetLength`, `strategy`, `enableLongDistanceMatching`+`ldm*`, `contentSizeFlag`/`checksumFlag`/`dictIDFlag`, `nbWorkers`/`jobSize`/`overlapLog`, `targetCBlockSize`.
-- [02]-[ZSTD_DPARAMETER]: `ZSTD_d_windowLogMax` (the lone stable decode knob).
-- [03]-[ZSTD_STRATEGY]: `ZSTD_fast`/`dfast`/`greedy`/`lazy`/`lazy2`/`btlazy2`/`btopt`/`btultra`/`btultra2`.
-- [04]-[ZSTD_ENDDIRECTIVE]: `ZSTD_e_continue`/`ZSTD_e_flush`/`ZSTD_e_end` — mapped INTERNALLY from `WrapStream`'s `bool isFinalBlock`, not a public `WrapStream` parameter.
-- [05]-[ZSTD_ERRORCODE]: the libzstd error enum on `ZstdException.Code`.
-- [06]-[ZDICT_FASTCOVER_PARAMS_T]: struct controlling the FastCover dictionary trainer (`k`/`d`/`steps`/`nbThreads`/...).
+[ZDICT_fastCover_params_t]: `k` `d` `f` `steps` `nbThreads` `splitPoint` `accel` `shrinkDict` `shrinkDictMaxRegression` `zParams`
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: one-shot codec (`Compressor`/`Decompressor`)
-- rail: snapshot-codec
+[ENTRYPOINT_SCOPE]: one-shot codec
 
-`Wrap` returns a freshly-allocated `Span<byte>`; the span/array overloads write into a caller
-buffer sized by `GetCompressBound`. `TryWrap`/`TryUnwrap` are the no-throw twins returning a
-`bool` + `out int written` — the rail-composable form. `Decompressor.GetDecompressedSize`
-reads the frame's stored content size when `contentSizeFlag` was set at compress time.
+`byte[]`, `byte[]`-offset, and `ArraySegment<byte>` overloads mirror each `Compressor` span form; `Decompressor` mirrors every form but `ArraySegment` on `Unwrap`.
 
-| [INDEX] | [SURFACE]                                                          | [CALL_SHAPE]       | [CAPABILITY]                                   |
-| :-----: | :----------------------------------------------------------------- | :----------------- | :--------------------------------------------- |
-|  [01]   | `new Compressor(int level = 3)`                                    | constructor        | reusable compress context; default level 3     |
-|  [02]   | `Compressor.MinCompressionLevel` / `MaxCompressionLevel`           | static prop        | libzstd level bounds (negative fast .. 22)     |
-|  [03]   | `Compressor.GetCompressBound(int)` / `GetCompressBoundLong(ulong)` | static             | worst-case compressed size for dest alloc      |
-|  [04]   | `Compressor.Wrap(src)`                                             | one-shot           | compress -> new `Span<byte>`                   |
-|  [05]   | `Compressor.Wrap(src, dest)`                                       | one-shot           | compress into caller buffer; written length    |
-|  [06]   | `Compressor.TryWrap(src, dest, out int written)`                   | one-shot           | no-throw compress; `false` if `dest` too small |
-|  [07]   | `new Decompressor()` / `Decompressor.GetDecompressedSize(src)`     | constructor/static | reusable decompress context / frame size       |
-|  [08]   | `Decompressor.Unwrap(src, maxDecompressedSize = int.MaxValue)`     | one-shot           | decompress -> new `Span<byte>`, capped         |
-|  [09]   | `Decompressor.Unwrap(src, dest)` / `TryUnwrap(…, out int written)` | one-shot           | decompress into caller buffer / no-throw twin  |
+| [INDEX] | [SURFACE]                                                                 | [SHAPE]  | [CAPABILITY]                                |
+| :-----: | :------------------------------------------------------------------------ | :------- | :------------------------------------------ |
+|  [01]   | `new Compressor(int)`                                                     | ctor     | reusable cctx at a starting level           |
+|  [02]   | `Compressor.MinCompressionLevel -> int`                                   | property | static lower level bound                    |
+|  [03]   | `Compressor.MaxCompressionLevel -> int`                                   | property | static upper level bound                    |
+|  [04]   | `Compressor.Level`                                                        | property | re-applies `ZSTD_c_compressionLevel` on set |
+|  [05]   | `Compressor.GetCompressBound(int) -> int`                                 | static   | worst-case compressed size for a buffer     |
+|  [06]   | `Compressor.GetCompressBoundLong(ulong) -> ulong`                         | static   | the same bound past `int` range             |
+|  [07]   | `Compressor.Wrap(ReadOnlySpan<byte>) -> Span<byte>`                       | instance | compress into a freshly minted buffer       |
+|  [08]   | `Compressor.Wrap(ReadOnlySpan<byte>, Span<byte>) -> int`                  | instance | compress into a caller buffer               |
+|  [09]   | `Compressor.TryWrap(ReadOnlySpan<byte>, Span<byte>, out int) -> bool`     | instance | no-throw compress; `false` on short dest    |
+|  [10]   | `new Decompressor()`                                                      | ctor     | reusable dctx                               |
+|  [11]   | `Decompressor.GetDecompressedSize(ReadOnlySpan<byte>) -> ulong`           | static   | decoded size stored in the frame header     |
+|  [12]   | `Decompressor.Unwrap(ReadOnlySpan<byte>, int) -> Span<byte>`              | instance | decompress into a minted buffer, capped     |
+|  [13]   | `Decompressor.Unwrap(ReadOnlySpan<byte>, Span<byte>) -> int`              | instance | decompress into a caller buffer             |
+|  [14]   | `Decompressor.TryUnwrap(ReadOnlySpan<byte>, Span<byte>, out int) -> bool` | instance | no-throw decompress                         |
 
-[ENTRYPOINT_SCOPE]: advanced tuning + dictionaries + pledged size
-- rail: snapshot-codec
+[ENTRYPOINT_SCOPE]: context configuration, dictionaries, bounds
 
-The catalog-level codec is configured through `SetParameter`, not a bare level. Long-distance
-matching and the multithread params are the large-snapshot knobs; the frame flags govern
-whether the frame self-describes its size and carries a checksum. Rows [01]-[05] are
-`Compressor.SetParameter(ZSTD_cParameter, int)` calls carrying the named param.
+Both `LoadDictionary` legs take a `byte[]` or a span; every `DictBuilder` trainer takes `(IEnumerable<byte[]> samples, …, int dictCapacity)` defaulted to `DefaultDictCapacity`.
 
-| [INDEX] | [SURFACE]                                                     | [CALL_SHAPE]    | [CAPABILITY]                                      |
-| :-----: | :------------------------------------------------------------ | :-------------- | :------------------------------------------------ |
-|  [01]   | `ZSTD_c_compressionLevel, n`                                  | tuning          | per-context level (mirrors the ctor level)        |
-|  [02]   | `ZSTD_c_enableLongDistanceMatching, 1` + `ldm*`               | tuning          | LDM for large redundant snapshots                 |
-|  [03]   | `ZSTD_c_nbWorkers, n` / `jobSize` / `overlapLog`              | tuning          | multithreaded compression of one frame            |
-|  [04]   | `ZSTD_c_checksumFlag, 1` / `contentSizeFlag` / `dictIDFlag`   | tuning          | frame integrity / self-describing size / dict id  |
-|  [05]   | `ZSTD_c_strategy, (int)ZSTD_strategy.ZSTD_btultra2`           | tuning          | match-finder strategy                             |
-|  [06]   | `Compressor.SetPledgedSrcSize(ulong)`                         | streaming setup | pledge size before a streaming frame              |
-|  [07]   | `LoadDictionary(src)` on `Compressor`/`Decompressor`          | dictionary      | install a trained dictionary on the context       |
-|  [08]   | `DictBuilder.TrainFromBuffer(samples, dictCapacity = 112640)` | training        | train a dictionary from sample blobs              |
-|  [09]   | `TrainFromBufferFastCover(samples, level \| params, ...)`     | training        | `DictBuilder` FastCover trainer (faster, tunable) |
-|  [10]   | `Compressor.ResetStream()` / `Decompressor.ResetStream()`     | streaming setup | reset streaming session state between frames      |
+| [INDEX] | [SURFACE]                                                                         | [SHAPE]  | [CAPABILITY]                            |
+| :-----: | :-------------------------------------------------------------------------------- | :------- | :-------------------------------------- |
+|  [01]   | `Compressor.SetParameter(ZSTD_cParameter, int)`                                   | instance | set one compress knob                   |
+|  [02]   | `Compressor.GetParameter(ZSTD_cParameter) -> int`                                 | instance | read one compress knob back             |
+|  [03]   | `Decompressor.SetParameter(ZSTD_dParameter, int)`                                 | instance | bound the decode window                 |
+|  [04]   | `Decompressor.GetParameter(ZSTD_dParameter) -> int`                               | instance | read the decode knob back               |
+|  [05]   | `Compressor.LoadDictionary(ReadOnlySpan<byte>)`                                   | instance | install a trained dictionary on a cctx  |
+|  [06]   | `Decompressor.LoadDictionary(ReadOnlySpan<byte>)`                                 | instance | install the same dictionary on a dctx   |
+|  [07]   | `DictBuilder.TrainFromBuffer(…) -> byte[]`                                        | static   | train from sample blobs                 |
+|  [08]   | `DictBuilder.TrainFromBufferFastCover(…, int level) -> Span<byte>`                | static   | FastCover training at a level           |
+|  [09]   | `DictBuilder.TrainFromBufferFastCover(…, ZDICT_fastCover_params_t) -> Span<byte>` | static   | FastCover training under explicit knobs |
+|  [10]   | `Methods.ZSTD_cParam_getBounds(ZSTD_cParameter) -> ZSTD_bounds`                   | static   | admissible range for a compress knob    |
+|  [11]   | `Methods.ZSTD_dParam_getBounds(ZSTD_dParameter) -> ZSTD_bounds`                   | static   | admissible range for the decode knob    |
+|  [12]   | `Methods.ZSTD_getDictID_fromFrame(void*, nuint) -> uint`                          | static   | dictionary id a frame was built against |
+|  [13]   | `Methods.ZSTD_findDecompressedSize(void*, nuint) -> ulong`                        | static   | decoded size across every frame         |
 
-[ENTRYPOINT_SCOPE]: incremental engine (`OperationStatus`-driven)
-- rail: snapshot-codec
+[ENTRYPOINT_SCOPE]: incremental pump
 
-The buffer-pump core under the `Stream` adapters: `WrapStream`/`UnwrapStream`/`FlushStream`
-consume from `source`, write to `destination`, report `out int bytesConsumed`/`bytesWritten`,
-and return `System.Buffers.OperationStatus` — `Done`/`DestinationTooSmall`/`NeedMoreData` —
-the exact shape a `PipeWriter`/`IBufferWriter<byte>` pump loops on. The public frame-boundary
-control is the `bool isFinalBlock` flag on `WrapStream`/`FlushStream`, NOT a `ZSTD_EndDirective`
-overload — the `continue`/`flush`/`end` directive is mapped internally from `isFinalBlock`.
+Every pump member takes `(ReadOnlySpan<byte> source, Span<byte> destination, out int bytesConsumed, out int bytesWritten)` and returns `OperationStatus`.
 
-Every pump member takes `(ReadOnlySpan<byte> source, Span<byte> destination, out int bytesConsumed,
-out int bytesWritten)`; the table carries only the receiver and the frame-boundary flag.
+| [INDEX] | [SURFACE]                                           | [SHAPE]  | [CAPABILITY]                                |
+| :-----: | :-------------------------------------------------- | :------- | :------------------------------------------ |
+|  [01]   | `Compressor.WrapStream(…, bool isFinalBlock)`       | instance | compress one chunk; the flag closes a frame |
+|  [02]   | `Compressor.FlushStream(Span<byte>, out int)`       | instance | drain pending output                        |
+|  [03]   | `Compressor.FlushStream(Span<byte>, out int, bool)` | instance | drain, closing the frame on the flag        |
+|  [04]   | `Decompressor.UnwrapStream(…)`                      | instance | decompress one chunk                        |
+|  [05]   | `Compressor.SetPledgedSrcSize(ulong)`               | instance | declare frame length before the first chunk |
+|  [06]   | `Compressor.ResetStream()`                          | instance | clear cctx session state between frames     |
+|  [07]   | `Decompressor.ResetStream()`                        | instance | clear dctx session state between frames     |
 
-| [INDEX] | [SURFACE]                                                 | [RETURNS]         | [CAPABILITY]                                        |
-| :-----: | :-------------------------------------------------------- | :---------------- | :-------------------------------------------------- |
-|  [01]   | `Compressor.WrapStream(…, bool isFinalBlock)`             | `OperationStatus` | compress one chunk; `isFinalBlock` closes the frame |
-|  [02]   | `Compressor.FlushStream(destination, out bytesWritten)`   | `OperationStatus` | drain output / close frame on `isFinalBlock`        |
-|  [03]   | `Decompressor.UnwrapStream(…)`                            | `OperationStatus` | decompress one chunk incrementally                  |
-|  [04]   | `Compressor.ResetStream()` / `Decompressor.ResetStream()` | `void`            | clears streaming session state between frames       |
+[ENTRYPOINT_SCOPE]: `Stream` adapters
 
-[ENTRYPOINT_SCOPE]: `Stream` adapters + async mirror
-- rail: snapshot-codec
+Every blocking member carries an async twin over `Memory<byte>` with a `CancellationToken`. Ctor defaults are `level = 3`, `bufferSize = 0`, `leaveOpen = true`, `checkEndOfStream = true`, and `preserveCompressor`/`preserveDecompressor = true`, so an adapter neither closes the caller's stream nor disposes a shared context.
 
-Every blocking `Stream` member has an async twin over `Memory<byte>`/`ReadOnlyMemory<byte>`
-with a `CancellationToken`. `CompressionStream` is write-only (`CanRead=false`),
-`DecompressionStream` read-only; the second ctor of each accepts a pre-configured
-`Compressor`/`Decompressor` so the parameter/dictionary setup is shared. Ctor defaults are
-`level = 3`, `bufferSize = 0`, `leaveOpen = true`, `preserveCompressor = true`, `checkEndOfStream = true`.
+| [INDEX] | [SURFACE]                                                                          | [SHAPE]  | [CAPABILITY]                        |
+| :-----: | :--------------------------------------------------------------------------------- | :------- | :---------------------------------- |
+|  [01]   | `CompressionStream(Stream, int, int, bool)`                                        | ctor     | wrap a sink at a level              |
+|  [02]   | `CompressionStream(Stream, Compressor, int, bool, bool)`                           | ctor     | wrap a sink over a tuned context    |
+|  [03]   | `CompressionStream.Write(ReadOnlySpan<byte>)`                                      | instance | blocking block write                |
+|  [04]   | `CompressionStream.WriteAsync(ReadOnlyMemory<byte>, CancellationToken)`            | instance | async block write                   |
+|  [05]   | `CompressionStream.DisposeAsync() -> ValueTask`                                    | instance | async close, emitting a final frame |
+|  [06]   | `CompressionStream.SetPledgedSrcSize(ulong)`                                       | instance | pledge frame length on the adapter  |
+|  [07]   | `DecompressionStream(Stream, int, bool, bool)`                                     | ctor     | wrap a source                       |
+|  [08]   | `DecompressionStream(Stream, Decompressor, int, bool, bool, bool)`                 | ctor     | wrap a source over a tuned context  |
+|  [09]   | `DecompressionStream.Read(Span<byte>) -> int`                                      | instance | blocking block read                 |
+|  [10]   | `DecompressionStream.ReadAsync(Memory<byte>, CancellationToken) -> ValueTask<int>` | instance | async block read                    |
 
-| [INDEX] | [SURFACE]                                               | [CALL_SHAPE] | [CAPABILITY]                                      |
-| :-----: | :------------------------------------------------------ | :----------- | :------------------------------------------------ |
-|  [01]   | `new CompressionStream(Stream, int level = 3)`          | constructor  | wrap a sink for streaming compression             |
-|  [02]   | `new CompressionStream(Stream, Compressor, …)`          | constructor  | reuse a tuned `Compressor` (`preserveCompressor`) |
-|  [03]   | `CompressionStream.Write(src)` / `WriteAsync(mem, ct)`  | stream call  | sync / async block write                          |
-|  [04]   | `CompressionStream.FlushAsync` / `DisposeAsync`         | stream call  | async flush / async close (emits final frame)     |
-|  [05]   | `new DecompressionStream(Stream, …)`                    | constructor  | wrap a source for streaming decompression         |
-|  [06]   | `DecompressionStream.Read(dest)` / `ReadAsync(mem, ct)` | stream call  | sync / async block read                           |
+- `CompressionStream`/`DecompressionStream`: each adapter re-exposes `SetParameter`, `GetParameter`, and `LoadDictionary` against its own context.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[COMPRESSION_PROFILE]:
-- one-shot: `Compressor.Wrap`/`Decompressor.Unwrap` over span/array/`ArraySegment`; the destination must be sized by `GetCompressBound`, and `TryWrap`/`TryUnwrap` are the no-throw twins. `Decompressor.GetDecompressedSize` reads the frame's content size only when `ZSTD_c_contentSizeFlag` was set at compress time.
-- context reuse: `Compressor`/`Decompressor` hold a reusable cctx/dctx and are `IDisposable` — set parameters and the dictionary once, then `Wrap`/`Unwrap` many; `ResetStream` clears streaming state between frames. They are the owned-value form, never a per-call allocation.
-- streaming: the `WrapStream`/`UnwrapStream`/`FlushStream` core returns `System.Buffers.OperationStatus` and pumps `source -> destination` with `out` consumed/written counts; the `bool isFinalBlock` flag on `WrapStream`/`FlushStream` is the public frame-boundary control (the engine maps it to the libzstd `ZSTD_EndDirective` `continue`/`flush`/`end` internally), and `SetPledgedSrcSize` lets a known-length streaming frame still carry a size header.
-- tuning: the level is one knob among the `ZSTD_cParameter` surface — long-distance matching (`ZSTD_c_enableLongDistanceMatching` + `ldm*`), multithreading (`nbWorkers`/`jobSize`/`overlapLog`), `strategy`, the window/hash/chain/search logs, and the `contentSizeFlag`/`checksumFlag`/`dictIDFlag` frame flags are all set through `SetParameter`. Unstable params (`>=500`) are excluded.
-- dictionaries: `DictBuilder.TrainFromBuffer`/`TrainFromBufferFastCover` train a dictionary from sample blobs; `LoadDictionary` installs it on both sides — the small-similar-blob regime where a shared dictionary dominates raw ratio.
+[TOPOLOGY]:
+- `Compressor` and `Decompressor` hold a context across many calls — level, parameters, and dictionary set once, `Wrap`/`Unwrap` many, disposal at the owning scope — and a parallel fan gives each worker its own context.
+- `ZSTD_c_contentSizeFlag` writes the decoded size into the frame header and `GetDecompressedSize` reads it back, so a framed payload round-trips with no sidecar length.
+- `ZSTD_c_checksumFlag` seals a frame-integrity word inside the frame while the content address folds the stored bytes separately, so the two facts survive a codec change independently.
+- `Wrap` mints its own buffer where the two-span form writes into a `GetCompressBound`-sized destination, and `TryWrap`/`TryUnwrap` report a short destination as `false` instead of a throw.
+- `OperationStatus` discriminates every pump step: `NeedMoreData` asks for input, `DestinationTooSmall` for room, `Done` closes the step.
+
+[STACKING]:
+- `api-lz4`(`.api/api-lz4.md`): `LZ4Pickler` owns the low-latency self-describing frame and this surface the high-ratio one, so `CompressionPolicy` selects exactly one per payload.
+- `api-arrow`(`.api/api-arrow.md`): `Apache.Arrow.Compression.CompressionCodecFactory` compresses `Zstd` inside the Arrow IPC stream, so a batch arrives framed and its policy row adds no outer frame.
+- `api-messagepack`(`.api/api-messagepack.md`): `MessagePackCompression.Lz4BlockArray` frames inside the serializer, so that codec pairs with the uncompressed policy row.
+- `api-hashing`(`../../.api/api-hashing.md`): `Crc32.HashToUInt32` seals the snapshot header prefix and `XxHash3.HashToUInt64` tags each chunk over bytes this codec produced, keeping frame checksum and content address distinct.
+- `api-highperformance`(`../../.api/api-highperformance.md`): `ArrayPoolBufferWriter<byte>.GetSpan` rents the pump's destination and `Advance` commits `bytesWritten`, so a streamed frame costs one pooled rental.
+- `Element/codec#COMPRESSION_HASHING`: `ZstdFrame.Pack` sets `contentSizeFlag` and `checksumFlag` on every frame, adds `enableLongDistanceMatching` with `ZSTD_btultra2` on the archival row, and `PackStream`/`UnpackStream` drive the adapters as the one streaming residence on the compression axis.
 
 [LOCAL_ADMISSION]:
-- `CompressionPolicy.Zstd*` (`Element/codec#COMPRESSION_HASHING`) configures a `Compressor` through `SetParameter` (level + `contentSizeFlag` so the frame self-describes its decoded size + `checksumFlag` for a frame-embedded integrity tag), so the snapshot header stores only the `CompressionId`, never a sidecar length.
-- payloads above the streaming threshold pump through `WrapStream`/`FlushStream` (or the `CompressionStream` adapter) sized to a fixed segment, so a large snapshot never materializes one contiguous compressed buffer; the one-shot `Wrap(src, dest)` destination is bounded by `GetCompressBound`.
-- `Compressor`/`Decompressor` are owned values disposed at the codec-scope boundary; under parallel snapshot writes each worker holds its own context (the cctx is not thread-shared), threaded through the same Task/`anyio` fan the surrounding pipeline uses.
-- `ZstdException` (`Code` = `ZSTD_ErrorCode`) is mapped to a typed `Fin`/`Validation` failure at the codec boundary; the no-throw `TryWrap`/`TryUnwrap` are preferred so a too-small destination is a `bool`, never a thrown exception through the receipt path.
-- the trained-dictionary blob, level, frame flags, and pledged size are receipt data on the `CompressionPolicy` row; compression never obscures redaction, retention, or schema receipts, and the `checksumFlag` frame checksum complements (never replaces) the `Crc32`/`XxHash128` integrity tag the snapshot rail computes over the framed bytes.
-
-[STACKING_LAW]:
-- codec axis: Zstd sits beside `K4os.Compression.LZ4` (`api-lz4`) on the `CompressionPolicy` snapshot-codec axis — LZ4 owns the lowest-latency self-describing-frame path, Zstd owns the higher-ratio path with dictionary + LDM + multithread tuning; the policy row selects one, and a payload is framed exactly once.
-- Arrow IPC boundary: `Apache.Arrow.Compression` (`api-arrow`) owns Arrow-IPC `Zstd` block compression through its `ICompressionCodecFactory` and floor-pins `ZstdSharp.Port` as a transitive — the Arrow columnar path compresses inside the IPC stream, so a Zstd-compressed Arrow batch is NEVER re-framed through this standalone `Compressor`; this owner is the snapshot/blob codec for the non-Arrow payloads (`SnapshotCodec.JsonStj`, `FileRaw`, CBOR/MessagePack blobs).
-- MessagePack boundary: a `SnapshotCodec.MessagePackBinary` payload carrying `MessagePackCompression.Lz4BlockArray` owns its compression in-codec and pairs with `CompressionPolicy.None` — double-framing it through Zstd is the rejected form, identical to the LZ4 double-frame law.
-- integrity: the framed bytes feed `System.IO.Hashing` (`api-hashing`) `XxHash128`/`Crc32` for the snapshot integrity tag independently of the codec's optional `checksumFlag`, so the integrity receipt is codec-agnostic and survives a codec change.
+- `CompressionPolicy.Zstd` and `ZstdHigh` are the admitted rows, each a level with its archival flag; a further profile is one more row against the same frame helper.
+- A payload past one contiguous buffer rides `PackStream`/`UnpackStream`, and a one-shot destination stays bounded by `GetCompressBound`.
+- `ZstdException` maps to a typed `Fin` failure at the codec boundary, so the no-throw twins keep a short destination on the value rail.
+- Level, frame flags, dictionary id, and pledged size project as receipt data on the policy row.
 
 [RAIL_LAW]:
 - Package: `ZstdSharp.Port`
-- Owns: standalone Zstandard compression — one-shot span/array codec, the `OperationStatus` streaming engine, the `CompressionStream`/`DecompressionStream` async-mirrored `Stream` adapters, the advanced `ZSTD_cParameter` tuning surface (LDM / multithread / strategy / frame flags), and trained-dictionary support
-- Accept: `CompressionPolicy.Zstd*` snapshot/blob payloads configured via `SetParameter`; `WrapStream`/`FlushStream` (or the stream adapter) for large payloads; `Wrap(src, dest)` into a `GetCompressBound`-sized buffer; `LoadDictionary` for the small-similar-blob regime; `TryWrap`/`TryUnwrap` no-throw twins folded into `Fin`
-- Reject: re-framing a Zstd-compressed Arrow IPC batch (`Apache.Arrow.Compression` owns it in-stream); double-framing a MessagePack `Lz4BlockArray` payload; a thrown `ZstdException` crossing the receipt boundary in place of a typed `Fin` failure; a sidecar decoded-length where `contentSizeFlag` already self-describes the frame; sharing one `Compressor` context across parallel workers; using the unstable `ZSTD_c_experimentalParam*` parameter family
+- Owns: Zstandard compression for snapshot and blob payloads — one-shot span codec, the `OperationStatus` pump, async-mirrored `Stream` adapters, the advanced parameter surface, and trained dictionaries
+- Accept: `CompressionPolicy` rows configured through `SetParameter`; `GetCompressBound`-sized one-shot destinations; the pump or the adapters for large payloads; `LoadDictionary` for the small-similar-blob regime; `TryWrap`/`TryUnwrap` folded into `Fin`
+- Reject: a second frame over a body its serializer or IPC stream already compressed; a sidecar decoded length where `contentSizeFlag` self-describes the frame; one context shared across parallel workers; a thrown `ZstdException` crossing the receipt boundary; a `ZSTD_c_experimentalParam*` value in a policy row

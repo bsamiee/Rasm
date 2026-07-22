@@ -1,12 +1,12 @@
 # [RASM_RHINO_API_RHINOCOMMON_OBJECTS]
 
-This catalog owns the live document-object surface: `RhinoObject` identity, state, subobject selection and highlight, mesh and render-mesh caches, texture and material resolution, on-object visual analysis, object frame, and section extraction; `ObjectAttributes` as the typed per-object display, source-vocabulary, per-viewport override, section-style, hatch, group, and frame program; and the parametric-history triad `HistoryRecord` (slot authoring), `ReplayHistoryData` (slot reads), and `ReplayHistoryResult` (geometry-update dispatch). Pick projection off `ObjRef` stays with the commands catalog, id-addressed table mutation and event binding stay with the document catalog, geometry custody stays with the geometry catalog, custom-object subclassing and grip editing move to the custom-objects catalog, and user strings and user data cross into the persistence catalog. Every live `RhinoObject` and `ObjectAttributes` value resolves inside the owning document grant and never leases outward.
+This catalog owns the live document-object surface: `RhinoObject` read and staged mutate, `ObjectAttributes` as the typed per-object display and override program, and the parametric-history triad `HistoryRecord`, `ReplayHistoryData`, and `ReplayHistoryResult`. Every live `RhinoObject` and `ObjectAttributes` value resolves inside the owning document grant and never leases outward.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: RhinoCommon live-object surface
 - host: `RhinoCommon` (Rhino host runtime, in-process)
-- assembly: `RhinoCommon.dll` — verified by direct decompile
+- assembly: `RhinoCommon.dll`
 - namespaces: `Rhino.DocObjects`, `Rhino.Geometry`, `Rhino.Render`, `Rhino.Render.CustomRenderMeshes`, `Rhino.Commands`, `Rhino.UI.Gumball`, `Rhino.FileIO`
 - kernel: `Rasm` (host-agnostic vocabularies and numeric owners composed, never re-derived)
 - substrate: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`
@@ -15,7 +15,6 @@ This catalog owns the live document-object surface: `RhinoObject` identity, stat
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: live object and attributes
-- rail: object-boundary
 
 | [INDEX] | [SYMBOL]           | [KIND]     | [CAPABILITY]                                                                   |
 | :-----: | :----------------- | :--------- | :----------------------------------------------------------------------------- |
@@ -24,7 +23,6 @@ This catalog owns the live document-object surface: `RhinoObject` identity, stat
 |  [03]   | `ObjectFrameFlags` | flags enum | object-frame read policy on `RhinoObject` and `ObjectAttributes`               |
 
 [PUBLIC_TYPE_SCOPE]: parametric-history triad
-- rail: object-boundary
 
 | [INDEX] | [SYMBOL]              | [KIND]               | [CAPABILITY]                                                         |
 | :-----: | :-------------------- | :------------------- | :------------------------------------------------------------------- |
@@ -60,7 +58,7 @@ This catalog owns the live document-object surface: `RhinoObject` identity, stat
 - `Rhino.DocObjects.RhinoObject.IsSolid` / `IsDeletable` / `IsPictureFrame` / `IsInstanceDefinitionGeometry : bool` — structural discriminants.
 - `Rhino.DocObjects.RhinoObject.WorksessionReferenceSerialNumber` / `ReferenceModelSerialNumber` / `InstanceDefinitionModelSerialNumber : uint` — reference-provenance serials.
 - `Rhino.DocObjects.RhinoObject.Geometry : GeometryBase` / `Attributes : ObjectAttributes` — the geometry-plus-attributes pair every object composes; attribute set duplicates the incoming value and stamps the object id.
-- `Rhino.DocObjects.RhinoObject.CommitChanges() : bool` — flushes edited geometry and attributes back through the table; an edited attribute set never persists without it, and `true` means changes actually moved into the document — `false` on a clean working copy is a no-op, not a failure.
+- `Rhino.DocObjects.RhinoObject.CommitChanges() : bool` — flushes edited geometry and attributes back through the table; an edited attribute set never persists without it, and `true` means changes moved into the document — `false` on a clean working copy is a no-op, not a failure.
 - `Rhino.DocObjects.RhinoObject.DuplicateGeometry() : GeometryBase` / `MemoryEstimate() : uint` — detached geometry copy and byte-footprint probe; `DuplicateGeometry` is public and non-virtual, so only `OnDuplicate` is the copy hook.
 - `Rhino.DocObjects.RhinoObject.ShortDescription(bool plural) : string` / `ShortDescriptionWithClosedStatus(bool prepend, bool plural, out int status) : string` / `Description(TextLog textLog) : void` — human-facing kind labels.
 - `Rhino.DocObjects.RhinoObject.NextRuntimeSerialNumber : uint` (static) — peeks the next serial the object table will mint.
@@ -68,12 +66,12 @@ This catalog owns the live document-object surface: `RhinoObject` identity, stat
 - `Rhino.DocObjects.RhinoObject.GetTightBoundingBox(IEnumerable<RhinoObject> rhinoObjects, out BoundingBox boundingBox) : bool` / `GetTightBoundingBox(IEnumerable<RhinoObject> rhinoObjects, Plane plane, out BoundingBox boundingBox) : bool` (static) — batch tight extent over an object set, world or plane-framed.
 
 [OBJECT_SUBCLASSES]:
-- concrete kind classes each carry a live-cast accessor plus a detached copy: `BrepObject.BrepGeometry : Brep` / `DuplicateBrepGeometry() : Brep`, `CurveObject.CurveGeometry : Curve` / `DuplicateCurveGeometry() : Curve`, `MeshObject.MeshGeometry : Mesh` / `DuplicateMeshGeometry() : Mesh`, `PointObject.PointGeometry : Point` / `DuplicatePointGeometry() : Point`, `SurfaceObject.SurfaceGeometry : Surface` / `DuplicateSurfaceGeometry() : Surface`, `ExtrusionObject.ExtrusionGeometry : Extrusion` / `DuplicateExtrusionGeometry() : Extrusion`, `PointCloudObject.PointCloudGeometry : PointCloud` / `DuplicatePointCloudGeometry() : PointCloud`.
+- concrete kind classes each carry a live-cast accessor and a detached copy: `BrepObject.BrepGeometry : Brep` / `DuplicateBrepGeometry() : Brep`, `CurveObject.CurveGeometry : Curve` / `DuplicateCurveGeometry() : Curve`, `MeshObject.MeshGeometry : Mesh` / `DuplicateMeshGeometry() : Mesh`, `PointObject.PointGeometry : Point` / `DuplicatePointGeometry() : Point`, `SurfaceObject.SurfaceGeometry : Surface` / `DuplicateSurfaceGeometry() : Surface`, `ExtrusionObject.ExtrusionGeometry : Extrusion` / `DuplicateExtrusionGeometry() : Extrusion`, `PointCloudObject.PointCloudGeometry : PointCloud` / `DuplicatePointCloudGeometry() : PointCloud`.
 - `Rhino.DocObjects.SubDObject` carries no typed geometry accessor — SubD reads go through the base `Geometry` member.
 - `Rhino.DocObjects.InstanceObject` — `InstanceXform : Transform` / `InsertionPoint : Point3d` / `InstanceDefinition : InstanceDefinition` / `UsesDefinition(int definitionIndex, out int nestingLevel) : bool` / `SubObjectFromComponentIndex(ComponentIndex ci) : RhinoObject`; the `Explode` overloads live in the blocks catalog's operation rail.
 
 [LIGHT_OBJECT]:
-- `Rhino.DocObjects.LightObject : RhinoObject` — the light table's component object; `ComponentType : ModelComponentType` answers `ModelComponentType.RenderLight`.
+- `Rhino.DocObjects.LightObject : RhinoObject` — light-table component object; `ComponentType : ModelComponentType` answers `ModelComponentType.RenderLight`.
 - `Rhino.DocObjects.LightObject.LightGeometry : Light` — live-cast accessor over the base `Geometry`; `DuplicateLightGeometry() : Light` is the detached copy.
 - `Rhino.DocObjects.LightObject.Index : int` (get/set, override) — forwards `Light.LightIndex`, so the object's table index and its geometry's index are one slot.
 - light mutation lands through `LightTable.Modify`, never `CommitChanges` on a detached `Light`; the table rows live in the document catalog's light-table scope.
@@ -98,8 +96,8 @@ This catalog owns the live document-object surface: `RhinoObject` identity, stat
 - `GetMeshes` custody — the returned meshes are non-owning const wrappers parented to the object (built through `ObjRef(parent, pGeometry)` over the cached pointer, never a duplicate), so mutation does not persist, the wrapper dies with the object's cache, and an owning consumer duplicates before the parent changes.
 - `Rhino.DocObjects.RhinoObject.IsMeshable(MeshType meshType) : bool` / `GetRenderMeshParameters() : MeshingParameters` / `GetRenderMeshParameters(bool returnDocumentParametersIfUnset) : MeshingParameters` / `SetRenderMeshParameters(MeshingParameters mp) : bool` — meshability and per-object meshing policy; both `GetRenderMeshParameters` overloads mint a fresh caller-owned disposable `MeshingParameters`, never a borrowed carrier.
 - `Rhino.DocObjects.RhinoObject.MeshObjects(IEnumerable<RhinoObject> rhinoObjects, MeshingParameters parameters, out Mesh[] meshes, out ObjectAttributes[] attributes) : Result` — batch meshing; the output mesh and attribute arrays are caller-owned, and three further overloads add a worker-thread flag, a simple-dialog `ref`, and a UI-style/transform pair.
-- `Rhino.DocObjects.RhinoObject.RenderMeshes(MeshType mt, ViewportInfo vp, List<InstanceObject> ancestry, ref RenderMeshProvider.Flags flags, PlugIn plugin, DisplayPipelineAttributes attrs) : RenderMeshes` — the live custom-render-mesh accessor; static `GetRenderMeshes`/`GetRenderMeshesWithUpdatedTCs` are obsolete against it.
-- `Rhino.DocObjects.RhinoObject.HasCustomRenderMeshes(MeshType mt, ViewportInfo vp, ref RenderMeshProvider.Flags flags, PlugIn plugin, DisplayPipelineAttributes attrs) : bool` / `CustomRenderMeshesBoundingBox(MeshType mt, ViewportInfo vp, ref RenderMeshProvider.Flags flags, PlugIn plugin, DisplayPipelineAttributes attrs, out BoundingBox boundingBox) : bool` — custom-render-mesh presence and extent; the `RenderPrimitiveList` accessors are obsolete against these.
+- `Rhino.DocObjects.RhinoObject.RenderMeshes(MeshType mt, ViewportInfo vp, List<InstanceObject> ancestry, ref RenderMeshProvider.Flags flags, PlugIn plugin, DisplayPipelineAttributes attrs) : RenderMeshes` — live custom-render-mesh accessor.
+- `Rhino.DocObjects.RhinoObject.HasCustomRenderMeshes(MeshType mt, ViewportInfo vp, ref RenderMeshProvider.Flags flags, PlugIn plugin, DisplayPipelineAttributes attrs) : bool` / `CustomRenderMeshesBoundingBox(MeshType mt, ViewportInfo vp, ref RenderMeshProvider.Flags flags, PlugIn plugin, DisplayPipelineAttributes attrs, out BoundingBox boundingBox) : bool` — custom-render-mesh presence and extent.
 - `Rhino.DocObjects.RhinoObject.GetCustomRenderMeshParameter(Guid providerId, string parameterName) : IConvertible` / `SetCustomRenderMeshParameter(Guid providerId, string parameterName, object value) : void` — provider-keyed render-mesh parameters.
 - `Rhino.DocObjects.RhinoObject.GetFillSurfaces(RhinoObject rhinoObject, IEnumerable<ClippingPlaneObject> clippingPlaneObjects, bool unclippedFills) : Brep[]` — section-fill surfaces against clipping planes; two lighter overloads drop the fill flag and the plane collection.
 
@@ -111,7 +109,7 @@ This catalog owns the live document-object surface: `RhinoObject` identity, stat
 - `Rhino.DocObjects.RhinoObject.RenderMaterial : RenderMaterial` / `HasSubobjectMaterials : bool` / `SubobjectMaterialComponents : ComponentIndex[]` — object render material and per-component material carriers.
 
 [COMPONENT_MATERIAL_CARRIERS]:
-- `Rhino.DocObjects.MaterialRefs : IDictionary<Guid, MaterialRef>` — per-plug-in material references keyed by plug-in id: `this[Guid key] : MaterialRef` (get throws `KeyNotFoundException`, set is add-or-replace) / `Count : int` / `Add(Guid key, MaterialRef value) : void` / `Remove(Guid key) : bool` / `ContainsKey(Guid key) : bool` / `TryGetValue(Guid key, out MaterialRef value) : bool` / `Clear() : void` / `Create(MaterialRefCreateParams createParams) : MaterialRef` (the sole constructor path; caller disposes the temp). Populating the dictionary slows every rendering-material query on the object — prefer `MaterialIndex` when one material suffices.
+- `Rhino.DocObjects.MaterialRefs : IDictionary<Guid, MaterialRef>` — per-plug-in material references keyed by plug-in id: `this[Guid key] : MaterialRef` (get throws `KeyNotFoundException`, set is add-or-replace) / `Count : int` / `Add(Guid key, MaterialRef value) : void` / `Remove(Guid key) : bool` / `ContainsKey(Guid key) : bool` / `TryGetValue(Guid key, out MaterialRef value) : bool` / `Clear() : void` / `Create(MaterialRefCreateParams createParams) : MaterialRef` (the sole constructor path; caller disposes the temp). Populating the dictionary slows every rendering-material query on the object; `MaterialIndex` is the single-material path.
 - `Rhino.DocObjects.MaterialRef : IDisposable` — `MaterialSource : ObjectMaterialSource` / `PlugInId : Guid` / `FrontFaceMaterialId : Guid` / `BackFaceMaterialId : Guid` / `FrontFaceMaterialIndex : int` / `BackFaceMaterialIndex : int` — the front/back per-face material carrier `HasSubobjectMaterials` fans out to; all reads, both constructors internal, and a `Create` product is a temp instance the caller disposes after `Add` copies it.
 - `Rhino.DocObjects.MaterialRefCreateParams` — plain get/set carrier with an implicit default constructor: `PlugInId : Guid` / `MaterialSource : ObjectMaterialSource` / `FrontFaceMaterialId : Guid` / `FrontFaceMaterialIndex : int` / `BackFaceMaterialId : Guid` / `BackFaceMaterialIndex : int`.
 - `MaterialRefs.Create` trap — the native marshalling pushes the front-face values through the back-face slot and back-face through front, so front and back swap across the boundary; consume the factory verbatim so a host repair never double-swaps.
@@ -131,7 +129,7 @@ This catalog owns the live document-object surface: `RhinoObject` identity, stat
 - `Rhino.DocObjects.RhinoObject.AnalysisModeChanged : EventHandler<RhinoObjectAnalysisModeChangedEventArgs>` (static event) — the notification seam paired with `EnableVisualAnalysisMode`.
 
 [OBJECT_FRAME_SECTIONS]:
-- `Rhino.DocObjects.RhinoObject.ObjectFrame() : Plane` / `ObjectFrame(ObjectFrameFlags flags) : Plane` — object-frame reads; the `RhinoObject.SetObjectFrame` overloads are obsolete, so frame writes route to `ObjectAttributes.SetObjectFrame`.
+- `Rhino.DocObjects.RhinoObject.ObjectFrame() : Plane` / `ObjectFrame(ObjectFrameFlags flags) : Plane` — object-frame reads; frame writes route to `ObjectAttributes.SetObjectFrame`.
 - `Rhino.DocObjects.RhinoObject.TryGetGumballFrame(out GumballFrame frame) : bool` / `TryGetGumballFrameForCurrentAlignment(out GumballFrame frame) : bool` — gumball-alignment frame reads.
 - `Rhino.DocObjects.RhinoObject.HasDynamicTransform : bool` / `GetDynamicTransform(out Transform transform) : bool` — in-flight drag-transform probe.
 - `Rhino.DocObjects.RhinoObject.CreateSections(Plane plane, string name, double tolerance, out ObjectAttributes[] objectAttributes) : GeometryBase[]` / `CreateSlices(Plane centerPlane, string name, double thickness, double tolerance, out ObjectAttributes[] objectAttributes) : GeometryBase[]` — section and slice extraction, each returning geometry paired with per-piece attributes.
@@ -164,13 +162,13 @@ This catalog owns the live document-object surface: `RhinoObject` identity, stat
 
 [ATTRIBUTE_GROUPS_FRAME_RENDER]:
 - `Rhino.DocObjects.ObjectAttributes.GetGroupList() : int[]` / `GroupCount : int` / `IsInGroup(int groupIndex) : bool` / `AddToGroup(int groupIndex) : void` / `RemoveFromGroup(int groupIndex) : void` / `RemoveFromAllGroups() : void` — group membership as an index set.
-- `Rhino.DocObjects.ObjectAttributes.ObjectFrame() : Plane` / `SetObjectFrame(Transform xform) : void` / `SetObjectFrame(Plane plane) : void` — the live object-frame home replacing the obsolete `RhinoObject.SetObjectFrame`.
+- `Rhino.DocObjects.ObjectAttributes.ObjectFrame() : Plane` / `SetObjectFrame(Transform xform) : void` / `SetObjectFrame(Plane plane) : void` — the object-frame write home.
 - `Rhino.DocObjects.ObjectAttributes.RenderMaterial : RenderMaterial` / `Decals : Decals` / `MaterialRefs : MaterialRefs` / `File3dmMeshModifiers : File3dmMeshModifiers` — render-content carriers on the attribute set.
 - `Rhino.DocObjects.ObjectAttributes.CustomMeshingParameters : MeshingParameters` / `EnableCustomMeshingParameters : bool` — per-object meshing-parameter override.
-- `Rhino.Render.Decals : IEnumerable<Decal>` — `Add(Decal decal) : uint` (returns the decal `CRC`, `0` implies failure; throws `DecalReadOnlyException` on a read-only attribute set) / `Remove(Decal decal) : bool` / `RemoveAllDecals() : void`; `Clear()` is obsolete against `RemoveAllDecals`, and the collection carries no indexer and no `Count`.
-- `Rhino.Render.Decal.Create(DecalCreateParams createParams) : Decal` (static, null on native failure) — the decal mint; instance surface: `CRC : int` / `Mapping : DecalMapping` / `Projection : DecalProjection` / `Origin : Point3d` / `VectorUp : Vector3d` / `VectorAcross : Vector3d` / `Transparency : double` / `MapToInside : bool` / `IsVisible : bool` / `Height : double` / `Radius : double` / `StartLatitude` / `EndLatitude` / `StartLongitude` / `EndLongitude : double` (get-only) / `TextureInstanceId : Guid` / `GetTextureMapping() : TextureMapping` / `TryGetColor(Point3d point, Vector3d normal, ref Color4f colInOut, ref Point2d uvOut) : bool` / `HorzSweep`/`SetHorzSweep`, `VertSweep`/`SetVertSweep`, `GetUVBounds`/`SetUVBounds` over `double` bounds; `DecalMapping`/`DecalProjection` duplicate properties are obsolete aliases of `Mapping`/`Projection`.
+- `Rhino.Render.Decals : IEnumerable<Decal>` — `Add(Decal decal) : uint` (returns the decal `CRC`, `0` implies failure; throws `DecalReadOnlyException` on a read-only attribute set) / `Remove(Decal decal) : bool` / `RemoveAllDecals() : void`; the collection carries no indexer and no `Count`.
+- `Rhino.Render.Decal.Create(DecalCreateParams createParams) : Decal` (static, null on native failure) — the decal mint; instance surface: `CRC : int` / `Mapping : DecalMapping` / `Projection : DecalProjection` / `Origin : Point3d` / `VectorUp : Vector3d` / `VectorAcross : Vector3d` / `Transparency : double` / `MapToInside : bool` / `IsVisible : bool` / `Height : double` / `Radius : double` / `StartLatitude` / `EndLatitude` / `StartLongitude` / `EndLongitude : double` (get-only) / `TextureInstanceId : Guid` / `GetTextureMapping() : TextureMapping` / `TryGetColor(Point3d point, Vector3d normal, ref Color4f colInOut, ref Point2d uvOut) : bool` / `HorzSweep`/`SetHorzSweep`, `VertSweep`/`SetVertSweep`, `GetUVBounds`/`SetUVBounds` over `double` bounds.
 - `Rhino.Render.DecalCreateParams` — all-get/set carrier: `TextureInstanceId : Guid` / `DecalMapping : DecalMapping` / `DecalProjection : DecalProjection` / `MapToInside : bool` / `Transparency : double` / `Origin : Point3d` / `VectorUp : Vector3d` / `VectorAcross : Vector3d` / `Height : double` / `Radius : double` / `StartLatitude` / `EndLatitude` / `StartLongitude` / `EndLongitude : double` / `MinU` / `MinV` / `MaxU` / `MaxV : double`.
-- decal traps — `StartLatitude`/`EndLatitude` carry the HORIZONTAL sweep and `StartLongitude`/`EndLongitude` the VERTICAL (the host inverts the names; prefer `HorzSweep`/`VertSweep`); several live `Decal` setters call through the const pointer so mutating an enumerated instance does not persist — author decals through `DecalCreateParams` + `Decal.Create` + `Decals.Add`.
+- decal traps — `StartLatitude`/`EndLatitude` carry the HORIZONTAL sweep and `StartLongitude`/`EndLongitude` the VERTICAL (the host inverts the names; `HorzSweep`/`VertSweep` read true); several live `Decal` setters call through the const pointer so mutating an enumerated instance does not persist — author decals through `DecalCreateParams` + `Decal.Create` + `Decals.Add`.
 - `Rhino.FileIO.File3dmMeshModifiers` — five nullable render-modifier accessors, null when absent: `Displacement : File3dmDisplacement` / `EdgeSoftening : File3dmEdgeSoftening` / `Thickening : File3dmThickening` / `CurvePiping : File3dmCurvePiping` / `ShutLining : File3dmShutLining`.
 
 [HISTORY_RECORD_SLOTS]:
@@ -180,7 +178,7 @@ This catalog owns the live document-object surface: `RhinoObject` identity, stat
 - `Rhino.DocObjects.HistoryRecord.SetObjRef(int id, ObjRef value) : bool` / `SetPoint3dOnObject(int id, ObjRef objref, Point3d value) : bool` — object-reference slots; both register a history dependency that arms replay when the referenced object changes.
 - `Rhino.DocObjects.ObjRef.ObjRef(RhinoDoc doc, Guid id, ComponentIndex ci)` reconstructs a document-bound object or subobject reference from detached identity; `ObjectId : Guid` and `GeometryComponentIndex : ComponentIndex` project that identity before `Dispose()` releases the native reference.
 - `Rhino.DocObjects.HistoryRecord.SetBools(int id, IEnumerable<bool> values) : bool` / `SetInts(int id, IEnumerable<int> values) : bool` / `SetDoubles(int id, IEnumerable<double> values) : bool` / `SetPoint3ds(int id, IEnumerable<Point3d> values) : bool` / `SetVector3ds(int id, IEnumerable<Vector3d> values) : bool` / `SetColors(int id, IEnumerable<Color> values) : bool` / `SetGuids(int id, IEnumerable<Guid> values) : bool` / `SetStrings(int id, IEnumerable<string> values) : bool` — plural slot setters keyed by the same int id space.
-- `Rhino.DocObjects.HistoryRecord.Handle : nint` — the wrapped native record pointer, read-only interop access beside the `Dispose` lifecycle.
+- `Rhino.DocObjects.HistoryRecord.Handle : nint` — wrapped native record pointer; read-only interop access beside `Dispose`.
 - `Rhino.DocObjects.HistoryRecord.Dispose() : void` — releases the native record; a record threads into one `ObjectTable.Add`/`TransformWithHistory` and is never reused.
 
 [HISTORY_REPLAY_READS]:
@@ -191,7 +189,7 @@ This catalog owns the live document-object surface: `RhinoObject` identity, stat
 - host lifecycle: the wrapper constructs `ReplayHistoryData` in a `using` scope and disposes it the moment `Command.ReplayHistory` returns, so no reader, result, or recovered `ObjRef` survives the callback; an exception in the override is swallowed into the exception report and the native callback answers `0`.
 
 [HISTORY_RESULT_DISPATCH]:
-- `Rhino.DocObjects.ReplayHistoryResult.ExistingObject : RhinoObject` — the object a replay updates in place; a replay drives `UpdateTo*` and never `ObjectTable.Add`/`Replace`.
+- `Rhino.DocObjects.ReplayHistoryResult.ExistingObject : RhinoObject` — object a replay updates in place; replay drives `UpdateTo*` and never `ObjectTable.Add`/`Replace`.
 - `Rhino.DocObjects.ReplayHistoryResult.UpdateToPoint(Point3d point, ObjectAttributes attributes) : bool` / `UpdateToTextDot(TextDot dot, ObjectAttributes attributes) : bool` / `UpdateToLine(Point3d from, Point3d to, ObjectAttributes attributes) : bool` / `UpdateToPolyline(IEnumerable<Point3d> points, ObjectAttributes attributes) : bool` — point, text-dot, and open-form updates.
 - `Rhino.DocObjects.ReplayHistoryResult.UpdateToArc(Arc arc, ObjectAttributes attributes) : bool` / `UpdateToCircle(Circle circle, ObjectAttributes attributes) : bool` / `UpdateToEllipse(Ellipse ellipse, ObjectAttributes attributes) : bool` / `UpdateToSphere(Sphere sphere, ObjectAttributes attributes) : bool` / `UpdateToCurve(Curve curve, ObjectAttributes attributes) : bool` / `UpdateToSurface(Surface surface, ObjectAttributes attributes) : bool` — analytic-primitive and free-form curve/surface updates.
 - `Rhino.DocObjects.ReplayHistoryResult.UpdateToExtrusion(Extrusion extrusion, ObjectAttributes attributes) : bool` / `UpdateToMesh(Mesh mesh, ObjectAttributes attributes) : bool` / `UpdateToSubD(SubD subD, ObjectAttributes attributes) : bool` / `UpdateToBrep(Brep brep, ObjectAttributes attributes) : bool` — solid and mesh-family updates.
@@ -202,11 +200,11 @@ This catalog owns the live document-object surface: `RhinoObject` identity, stat
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[OBJECT_TOPOLOGY]:
-- one `RhinoObject` is geometry plus one `ObjectAttributes` set, both resolved from the document by id inside a session grant; `RuntimeSerialNumber` keys the object and `FromRuntimeSerialNumber` re-resolves it where a host callback drops the reference.
-- attribute edits stage on a duplicated set and never persist until `CommitChanges`, so a read-modify-write pass mutates a working copy and flushes once; the id-addressed `ObjectTable.ModifyAttributes` mutation in the document catalog is the alternate write path.
-- source vocabularies decide resolution: each display value reads from layer, object, parent, material, display, or sectioner per its `*Source` enum, and the `Draw*`/`Computed*` members return the effective value that resolution yields against a document and viewport.
-- per-viewport state is three override families — display mode, hide-in-detail, and active-in-viewport — each a query/add/remove set keyed by viewport or detail id, never a single scalar.
+[TOPOLOGY]:
+- one `RhinoObject` is geometry and one `ObjectAttributes` set, both resolved by id inside a session grant; `RuntimeSerialNumber` keys the object and `FromRuntimeSerialNumber` re-resolves it across a dropped host callback.
+- attribute edits stage on a duplicated set and persist only at `CommitChanges`; the id-addressed `ObjectTable.ModifyAttributes` in the document catalog is the alternate write path.
+- each display value resolves from layer, object, parent, material, display, or sectioner per its `*Source` enum, and the `Draw*`/`Computed*` members return the resolved effective value against a document and viewport.
+- per-viewport state is three override families — display mode, hide-in-detail, active-in-viewport — each a query/add/remove set keyed by viewport or detail id, never a scalar.
 - history is a directed object graph: `HistoryParents`/`HistoryChildren` are the edges, a `HistoryRecord` is the per-object construction receipt, and replay re-runs a command against the recorded slots.
 
 [STACKING]:

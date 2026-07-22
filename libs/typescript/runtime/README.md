@@ -16,7 +16,7 @@ It imports core, security, and data and is composed by the interface and deploy 
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Runtime-specific libraries admitted by this folder; versions centralize in `pnpm-workspace.yaml` and corroborate against this folder's `.api/`.
+Domain-specific libraries admitted by this folder; versions centralize in `pnpm-workspace.yaml` and corroborate against this folder's `.api/`.
 
 [DISTRIBUTION]:
 - `@effect/cluster`
@@ -101,7 +101,7 @@ Runtime-specific libraries admitted by this folder; versions centralize in `pnpm
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Shared substrate consumed from the TypeScript registry; the registry and its charters own the full contracts, and `libs/typescript/.api/` holds the shared API evidence.
+Shared substrate consumed from the Ts registry; the registry and its charters own the full contracts, and `libs/typescript/.api/` holds the shared API evidence.
 
 [RAILS]:
 - `effect`

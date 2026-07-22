@@ -51,7 +51,7 @@ It references no sibling package, admitting the kernel only as a boundary contra
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Host assemblies resolve from the installed Rhino application; folder `.api/` catalogues carry the Grasshopper2, GrasshopperIO, RhinoCommon, Rhino.UI, Eto, and macOS-native admitted surfaces, so every fence member verifies against a folder catalog. `System.Drawing.Common` stays a compile-time GDI carrier folded into the GH1-icon boundary of `api-gh2-standard-components`, never a standalone catalog.
+Host assemblies admitted by this folder bind as `Directory.Build.props` host references from the installed Rhino bundle — never manifest package rows — and this folder's `.api/` corroborates each surface.
 
 [MANAGED_HOST]:
 - `Grasshopper2` — hosts the component, canvas, document, and solution surface
@@ -69,7 +69,7 @@ Host assemblies resolve from the installed Rhino application; folder `.api/` cat
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Shared substrate consumed from the C# registry with the folder-specific recency cache; the registry and `libs/csharp/.api/` own the full contracts.
+Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`

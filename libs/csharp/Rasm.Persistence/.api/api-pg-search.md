@@ -1,113 +1,96 @@
 # [RASM_PERSISTENCE_API_PG_SEARCH]
 
-`pg_search` (ParadeDB) supplies the `bm25` index access method and the `pdb` query-builder schema —
-a Tantivy-backed BM25 full-text engine providing high-power lexical relevance over a PostgreSQL
-table beside the always-present native `tsvector`/`ts_rank` baseline. It carries no managed assembly:
-every surface is server-side SQL the `Store/provisioning#SERVER_EXTENSIONS` `Bm25Predicate`/`IndexSpec.Bm25`
-fold emits and the `Query/retrieval#FUSION_AND_REUSE` `FusionRank.Fuse` BM25 branch matches through. Only
-the `pdb.*` builders and the bare column operators are emitted; `paradedb.*` is absent. The extension is
-preload-gated (it rides the `ClusterConfig` `shared_preload_libraries` row), runs in-process inside the
-PG18 server tier under its AGPL boundary at the DB deployment, and is never linked into managed code.
+`pg_search` mints the `bm25` index access method and the `pdb` query schema over a PostgreSQL table: a Tantivy-backed BM25 engine whose builders, bare operators, and cast modifiers lower to server SQL, and whose score, snippet, and aggregate projections anchor on the index `key_field`. Every surface is server-side SQL carrying no managed assembly. It is the branch's lexical-relevance owner — the search-provisioning rail emits its index DDL and the hybrid-fusion CTE ranks its BM25 branch beside the pgvector dense branch.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pg_search`
-- package: `pg_search` (ParadeDB) — server-side PostgreSQL extension, not a NuGet package
-- version line: `0.24.x` (v2 `pdb.*` API; `paradedb.*` removed)
-- license: AGPL-3.0 — confined to the PG server tier; never linked into managed code
-- access method: `bm25` (`USING bm25`)
-- abi / runtime: PG18 in-process extension, `shared_preload_libraries`-gated; built on `pgrx`/Tantivy
-- namespace: SQL `pdb` schema; `@@@` match operator; `|||`/`&&&`/`===`/`###` bare column operators; `##`/`##>` proximity operators inside `@@@`
-- asset: server extension, preload-gated
+- package: `pg_search` (AGPL-3.0, ParadeDB) — server-side PostgreSQL extension
+- asset: server SQL only — the `bm25` access method with the `pdb` schema of builders, cast types, and projections
+- abi: in-process `pgrx`/Tantivy extension, `shared_preload_libraries`-gated at the server tier
+- namespace: `pdb`
 - rail: search-provisioning, search-lanes, hybrid-fusion
 
-## [02]-[INDEX_DDL]
+## [02]-[PUBLIC_TYPES]
 
-`CREATE INDEX <name> ON <table> USING bm25 (<key_field>, <text-cols...>) WITH (key_field = '<col>')`.
-The `key_field` column (a) carries a `UNIQUE` constraint — usually the table `PRIMARY KEY`, (b) is
-listed first in the column list, and (c) is untokenized if it is a text field. Exactly one BM25 index
-per table is the constraint. Index every column that appears in search, sort, group, filter, or
-aggregation — most PG types are admitted (text, json, numeric, timestamp, range, boolean, array). The
-`key_field` is the join anchor every `pdb.score`/`pdb.snippet` projection references.
+[PDB_TYPES]: the access method and the cast types a predicate or an indexed column composes through, stacking in cast order.
 
-## [03]-[MATCH_OPERATORS]
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]  | [CAPABILITY]                                   |
+| :-----: | :--------------------------- | :------------- | :--------------------------------------------- |
+|  [01]   | `bm25`                       | access method  | index kind a `CREATE INDEX ... USING` declares |
+|  [02]   | `pdb.fuzzy(int, bool, bool)` | cast type      | edit distance, prefix mode, transposition cost |
+|  [03]   | `pdb.boost(float)`           | cast type      | relevance-weight multiplier                    |
+|  [04]   | `pdb.const(float)`           | cast type      | constant score for the wrapped predicate       |
+|  [05]   | `pdb.slop(int)`              | cast type      | phrase-position slack                          |
+|  [06]   | `pdb.unicode_words`          | tokenizer cast | default word-boundary split, lowercased        |
+|  [07]   | `pdb.ngram(int, int)`        | tokenizer cast | gram windows for partial matching              |
+|  [08]   | `pdb.icu`                    | tokenizer cast | Unicode segmentation across mixed languages    |
+|  [09]   | `pdb.whitespace`             | tokenizer cast | whitespace split                               |
 
-The `@@@` operator matches a column (or `key_field`, for document-level builders) against a `pdb.*`
-builder on its right. The bare column operators match a literal directly without `@@@`. The proximity
-operators compose inside an `@@@` expression.
+- `pdb.fuzzy`: second and third arguments default `f`, so `pdb.fuzzy(1)` is `pdb.fuzzy(1, f, f)`; highlighting does not apply to a fuzzy match.
 
-| [INDEX] | [SURFACE]            | [FORM]                        | [SEMANTICS]                               |
-| :-----: | :------------------- | :---------------------------- | :---------------------------------------- |
-|  [01]   | `@@@` + builder      | `col @@@ pdb.parse('q')`      | match column/key against a `pdb` builder  |
-|  [02]   | `\|\|\|` (any-token) | `col \|\|\| 'a b'`            | any of the tokens (disjunction)           |
-|  [03]   | `&&&` (all-token)    | `col &&& 'a b'`               | all of the tokens (conjunction)           |
-|  [04]   | `===` (exact-term)   | `col === 'term'`              | exact un-analyzed token match             |
-|  [05]   | `###` (phrase)       | `col ### 'a b'`               | ordered phrase (term presence + position) |
-|  [06]   | `##` (proximity)     | `col @@@ ('a' ## 2 ## 'b')`   | terms within N tokens, any order          |
-|  [07]   | `##>` (ordered prox) | `col @@@ ('a' ##> 2 ##> 'b')` | terms within N tokens, left term first    |
+## [03]-[ENTRYPOINTS]
 
-## [04]-[PDB_BUILDERS]
+`CREATE INDEX <name> ON <table> USING bm25 (<key_field>, <col>, …) WITH (key_field = '<col>')` mints the one BM25 index a table carries: `key_field` leads the column list, carries a `UNIQUE` constraint, and stays untokenized when it is a text field. Index every column reached by search, sort, group, filter, or aggregation, and select a per-column tokenizer as a cast on the indexed expression — `(description::pdb.icu)`.
 
-The `pdb.*` query builders the `Bm25Predicate` union projects to the right of `@@@`; each `[SIGNATURE]`
-drops the leading builder name carried in `[BUILDER]`. The cast-wrapper modifiers (`::pdb.*`) compose
-over any inner predicate and stack in cast order (`'shose'::pdb.fuzzy(2)::pdb.boost(2)` applies typo
-tolerance then a score multiplier); `::pdb.fuzzy` allows `distance` up to 2 with `prefix`/
-`transposition_cost_one` defaulting `f`.
+[MATCH_SURFACE]: `@@@` takes a column or the `key_field` on its left and a `pdb` builder on its right; a bare operator takes a literal, a text array of finalized tokens, or a cast-wrapped literal.
 
-| [INDEX] | [BUILDER]            | [SIGNATURE]                                                      | [SEMANTICS]                               |
-| :-----: | :------------------- | :--------------------------------------------------------------- | :---------------------------------------- |
-|  [01]   | `pdb.parse`          | `('q', lenient => bool, conjunction_mode => bool)`               | free-text Tantivy query-string parse      |
-|  [02]   | `pdb.match`          | `('q', distance => n, prefix => bool, conjunction_mode => bool)` | analyzed per-field fuzzy match            |
-|  [03]   | `pdb.range_term`     | `('v', relation => 'r', range_type => 't')`                      | range-membership term                     |
-|  [04]   | `pdb.phrase_prefix`  | `(ARRAY['a','b'], max_expansions => n)`                          | phrase with prefix-expanded last term     |
-|  [05]   | `pdb.more_like_this` | `('doc_id', fields => ARRAY[...], max_query_terms => n)`         | similar-document retrieval (key-anchored) |
-|  [06]   | `pdb.regex`          | `('pattern')`                                                    | regex term match                          |
-|  [07]   | `pdb.all`            | `()`                                                             | match-all                                 |
-|  [08]   | `::pdb.fuzzy`        | `<inner>::pdb.fuzzy(distance, prefix, transposition_cost_one)`   | fuzzy edit-distance modifier              |
-|  [09]   | `::pdb.boost`        | `<inner>::pdb.boost(factor)`                                     | relevance-weight modifier                 |
-|  [10]   | `::pdb.const`        | `<inner>::pdb.const(score)`                                      | constant-score modifier                   |
-|  [11]   | `::pdb.slop`         | `<inner>::pdb.slop(distance)`                                    | phrase-proximity slack modifier           |
+| [INDEX] | [SURFACE]                                                  | [SHAPE]  | [CAPABILITY]                                   |
+| :-----: | :--------------------------------------------------------- | :------- | :--------------------------------------------- |
+|  [01]   | `col @@@ <builder>`                                        | operator | route a column or key to a `pdb` builder       |
+|  [02]   | `col \|\|\| 'a b'`                                         | operator | any tokenized term — disjunction               |
+|  [03]   | `col &&& 'a b'`                                            | operator | all tokenized terms — conjunction              |
+|  [04]   | `col === 'term'`                                           | operator | one finalized token, un-analyzed               |
+|  [05]   | `col === ARRAY['a', 'b']`                                  | operator | term set — any one finalized token             |
+|  [06]   | `col ### 'a b'`                                            | operator | ordered phrase over token positions            |
+|  [07]   | `col @@@ ('a' ## n ## 'b')`                                | operator | terms within n tokens, either order            |
+|  [08]   | `col @@@ ('a' ##> n ##> 'b')`                              | operator | terms within n tokens, left term first         |
+|  [09]   | `pdb.parse('q', lenient, conjunction_mode)`                | builder  | Tantivy query-string parse over user text      |
+|  [10]   | `pdb.regex('pattern')`                                     | builder  | regex term match                               |
+|  [11]   | `pdb.regex_phrase(ARRAY['re'], slop, max_expansions)`      | builder  | ordered sequence of regex terms                |
+|  [12]   | `pdb.phrase_prefix(ARRAY['a', 'pre'], max_expansions)`     | builder  | phrase with a prefix-expanded last term        |
+|  [13]   | `pdb.more_like_this(<key>, ARRAY['col'], max_query_terms)` | builder  | similar-document retrieval off a key value     |
+|  [14]   | `pdb.range_term(<value>)`                                  | builder  | ranges containing the value                    |
+|  [15]   | `pdb.range_term(<range>, '<relation>')`                    | builder  | range relation against the query range         |
+|  [16]   | `pdb.all()`                                                | builder  | force a Top-K or aggregate plan onto the index |
+|  [17]   | `pdb.prox_regex('pattern', max_expansions)`                | operand  | regex token inside a proximity expression      |
+|  [18]   | `pdb.prox_array('a', 'b')`                                 | operand  | token alternatives inside a proximity form     |
 
-Analyzed (tokenized) matching has two forms: the per-field `pdb.match` builder of row `[02]` (carrying
-its own fuzzy `distance`/`prefix`, the `Bm25Predicate.Match` case) on the right of `@@@`, and the bare
-`|||`/`&&&` column operators of section `[03]` (optionally with a tokenizer cast, e.g.
-`'running shoes'::pdb.whitespace`) the `Bm25Predicate` `AnyToken`/`AllToken` cases own.
+- `pdb.range_term`: relation values are `Within`, `Intersects`, and `Contains`; the query range casts to the column's range type.
+- `pdb.more_like_this`: takes the source row's `key_field` value first, matches every indexed field by default, and ignores JSON fields.
 
-## [05]-[SCORE_SNIPPET]
+[PROJECTIONS]: relevance, highlight, and facet surfaces over the matched set, each anchored on the index `key_field`. `pdb.snippet` and `pdb.snippets` default `start_tag => '<b>'`, `end_tag => '</b>'`, and `max_num_chars => 150`.
 
-The relevance and highlight projections, anchored on the index `key_field` column. Each is raw SQL
-through `FromSql`/`SqlQuery`, never an EF-translated member; each `[SIGNATURE]` drops the leading
-function name carried in `[FUNCTION]`. The snippet functions default `start_tag => '<b>'`,
-`end_tag => '</b>'`, `max_num_chars => 150`, and `pdb.snippets` adds `sort_by => 'score'`.
+| [INDEX] | [SURFACE]                                                                          | [SHAPE]  | [CAPABILITY]                         |
+| :-----: | :--------------------------------------------------------------------------------- | :------- | :----------------------------------- |
+|  [01]   | `pdb.score(<key_col>)`                                                             | function | BM25 relevance score                 |
+|  [02]   | `pdb.snippet(col, start_tag, end_tag, max_num_chars)`                              | function | single best highlighted fragment     |
+|  [03]   | `pdb.snippets(col, start_tag, end_tag, max_num_chars, "limit", "offset", sort_by)` | function | ranked array of fragments            |
+|  [04]   | `pdb.snippet_positions(col)`                                                       | function | `[start, end)` byte-offset pairs     |
+|  [05]   | `pdb.agg('<es-json>')`                                                             | function | Elasticsearch-shaped facet aggregate |
 
-| [INDEX] | [FUNCTION]              | [SIGNATURE]                                                            | [RETURNS]                         |
-| :-----: | :---------------------- | :--------------------------------------------------------------------- | :-------------------------------- |
-|  [01]   | `pdb.score`             | `(<key_col>)`                                                          | BM25 relevance score              |
-|  [02]   | `pdb.snippet`           | `(col, start_tag, end_tag, max_num_chars)`                             | one highlighted fragment          |
-|  [03]   | `pdb.snippets`          | `(col, start_tag, end_tag, max_num_chars, "limit", "offset", sort_by)` | ranked fragment set               |
-|  [04]   | `pdb.snippet_positions` | `(col)`                                                                | match-position offsets            |
-|  [05]   | `pdb.agg`               | `('<es_json>') OVER ()`                                                | Elasticsearch-style aggs / facets |
+- `pdb.agg`: reads the index's columnar side and composes with `GROUP BY`; several aggregates ride one target list as sibling projections.
+- Highlighting costs a per-row extraction, so a snippet query carries a `LIMIT` that bounds the fragment count.
 
-## [06]-[STACKING]
+## [04]-[IMPLEMENTATION_LAW]
 
-- The `Query/retrieval#LEXICAL_ALGEBRA` `Bm25Predicate` `[Union]` is the C# projection of section
-  `[04]` — one union case per builder/operator/cast, `Bm25Predicate.Sql()` switching to the exact SQL
-  string; the `SearchProjection` static surface is the C# projection of section `[05]`
-  (`Score`/`Snippet`/`Snippets`/`SnippetPositions`/`Agg`). A new builder, operator, or cast is one
-  union case, never a sibling method, so the catalog's member set is the union's case roster.
-- The `Query/retrieval#FUSION_AND_REUSE` `FusionRank.Fuse` composes the BM25 route ONTO the pgvector dense
-  route inside one reciprocal-rank-fusion CTE: the BM25 branch matches `corpus @@@ pdb.parse($terms)`
-  and orders by `pdb.score(<key_col>)` (the index's declared `key_field` anchor), the vector branch
-  orders by the `EmbeddingArity` distance operator, and `1.0 / (rrfConstant + rank)` is summed across
-  branches — so BM25 lexical relevance and pgvector semantic similarity fuse into one top-k without a
-  learned reranker, and a profile without `pg_search` preloaded degrades the BM25 branch to the native
-  `ts_rank` baseline inside the same CTE (the fused result stays correct at reduced lexical power).
-- BM25 carries no EF translator, so the index DDL lands via raw `MigrationBuilder.Sql` on the EF
-  migration rail (`Element/identity#SCHEMA_VERDICT`) and every query projection rides `FromSql`/`SqlQuery` on the same boundary as the
-  native `websearch_to_tsquery`/`ts_rank`/`ts_headline` baseline; the `key_field` join anchor is the
-  content key the fusion re-queries the row store by, so the fusion projects identities rather than
-  re-materializing both candidate payloads.
-- Query values arrive pre-escaped from the search-lane binder (the `Bm25Predicate` constructors carry
-  already-bound string columns/terms), never raw runtime input; the AGPL boundary stays the DB
-  deployment because `pg_search` runs in-process inside the PG server and is never linked into managed
-  code.
+[TOPOLOGY]:
+- Every match lowers to one expression whose left side is an admitted column or the declared `key_field` and whose right side is a builder, a literal, or a cast chain; each cast wraps its inner predicate and appends its own cast, so composition is structural rather than string concatenation at the call site.
+- Score and snippet projections read the posting lists the match already consumed, so relevance and highlighting are projections over the matched set rather than a second scan.
+
+[STACKING]:
+- `api-pgvector-ef`(`.api/api-pgvector-ef.md`): the BM25 branch orders by `pdb.score(<key_col>)` while the dense branch orders by `VectorDbFunctionsExtensions.CosineDistance`; one reciprocal-rank-fusion CTE sums `1.0 / (k + rank)` across both, fusing lexical relevance and vector similarity into one top-k with no learned reranker.
+- `api-pgvectorscale`(`.api/api-pgvectorscale.md`): `diskann` and `bm25` are peer access methods over the same rows, and the `key_field` value is the identity both branches project, so the fusion re-queries the row store once instead of materializing two candidate payloads.
+- `api-npgsql-ef`(`.api/api-npgsql-ef.md`): index DDL lands as raw SQL on the migration rail and every `pdb` projection rides `RelationalDatabaseFacadeExtensions.SqlQuery<T>(FormattableString)`, so the lexical lane reaches the caller as a composable `IQueryable<T>`.
+- `api-timescaledb`(`.api/api-timescaledb.md`): `pg_search` rides one `shared_preload_libraries` row beside the other preload-gated extensions, never a self-provisioned `CREATE EXTENSION` annotation.
+- Within-lib: the search-lane owner closes this whole surface as one union whose `Sql(column)` switch emits the exact expression — a new builder, operator, or cast is one case, and the tokenizer and modifier axes compose inside the case rather than as sibling methods; identifiers admit through the `Identifier` trust gate and every free-text payload crosses the one quote-doubling literal seam.
+
+[LOCAL_ADMISSION]:
+- `pg_search` runs in-process inside the PostgreSQL server tier, so the AGPL boundary stops at the database deployment and the folder composes the extension as server SQL alone.
+- Lexical relevance selects the BM25 arm wherever the server profile preloads the extension; a profile without it selects the native `ts_rank` arm inside the same fusion CTE, so the fused result stays correct at reduced lexical power and the arm taken is branch-lineage evidence.
+
+[RAIL_LAW]:
+- Package: `pg_search`
+- Owns: BM25 lexical relevance over a PostgreSQL table — the `bm25` index, the `pdb` builder, operator, and cast predicate algebra, and the score, snippet, and facet projections anchored on `key_field`.
+- Accept: index DDL emitted on the migration rail; predicates composed as builder-plus-cast chains lowered by one switch; `pdb.score` ordering inside the fusion CTE; bounded `pdb.snippet`/`pdb.snippets` highlighting; `pdb.agg` facets over the matched set.
+- Reject: a hand-rolled BM25 or trigram ranker beside the index; a second BM25 index on one table; call-site string concatenation of predicate SQL; a parallel aggregation engine where `pdb.agg` projects over the matched set.

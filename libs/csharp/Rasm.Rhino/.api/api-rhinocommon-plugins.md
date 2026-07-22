@@ -1,6 +1,6 @@
 # [RASM_RHINO_API_RHINOCOMMON_PLUGINS]
 
-`Rhino.PlugIns` owns the package that binds managed code into the host: the `PlugIn` base with its load, command-registration, document-serialization, options-page, and settings lifecycle; the specialized `RenderPlugIn`, `DigitizerPlugIn`, and the `FileImportPlugIn`/`FileExportPlugIn` file-dialog dispatch; and the full license surface — build type, capabilities, lease, status, and the Zoo/CloudZoo acquisition rail. A plug-in is discovered by id, loaded on a declared schedule, and every host-facing capability is a `protected virtual` hook the subclass overrides, never a registration call scattered across the package.
+`Rhino.PlugIns` binds managed code into the host through one subclassed `PlugIn` per package, its render, digitizer, and file-dialog specializations, and the license surface that owns the Zoo/CloudZoo entitlement rail.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -8,13 +8,12 @@
 - package: `RhinoCommon`
 - license: proprietary host SDK
 - namespace: `Rhino.PlugIns`, `Rhino.FileIO` (`FileType`)
-- asset: `RhinoCommon.dll` — the in-process managed host assembly, verified by direct decompile
+- asset: `RhinoCommon.dll` — the in-process managed host assembly
 - rail: host
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: plug-in base and specializations
-- rail: host
 
 | [INDEX] | [SYMBOL]                     | [KIND]           | [CAPABILITY]                                                            |
 | :-----: | :--------------------------- | :--------------- | :---------------------------------------------------------------------- |
@@ -29,7 +28,6 @@
 |  [09]   | `LicenseIdAttribute`         | sealed attribute | binds a license id to a plug-in for entitlement discovery               |
 
 [PUBLIC_TYPE_SCOPE]: file-dialog registration and dispatch carriers
-- rail: host
 
 | [INDEX] | [SYMBOL]           | [KIND] | [CAPABILITY]                                                         |
 | :-----: | :----------------- | :----- | :------------------------------------------------------------------- |
@@ -39,10 +37,7 @@
 |  [04]   | `FileWriteOptions` | class  | host write-dispatch mode passed into export                          |
 |  [05]   | `WriteFileResult`  | enum   | export outcome reported back to the host dialog                      |
 
-`FileWriteOptions` write-policy members and `WriteFileResult` values are owned as the document write surface by `api-rhinocommon-fileio.md`; this catalog names them in the dispatch contract, that catalog owns their member detail.
-
 [PUBLIC_TYPE_SCOPE]: license surface
-- rail: host
 
 | [INDEX] | [SYMBOL]                       | [KIND]     | [CAPABILITY]                                                        |
 | :-----: | :----------------------------- | :--------- | :------------------------------------------------------------------ |
@@ -54,8 +49,6 @@
 |  [06]   | `LicenseLeaseChangedEventArgs` | event args | CloudZoo lease change payload                                       |
 
 [PUBLIC_TYPE_SCOPE]: policy vocabularies
-- rail: host
-
 - `PlugInType` — flags plug-in kind (`Render`/`FileImport`/`FileExport`/`Digitizer`/`Utility`/`DisplayPipeline`/`DisplayEngine`/`Any`)
 - `PlugInLoadTime` — load schedule (`Disabled`/`AtStartup`/`WhenNeeded`/`WhenNeededIgnoreDockingBars`/`WhenNeededOrOptionsDialog`/`WhenNeededOrTabbedDockBar`)
 - `LoadReturnCode` (`Success`/`ErrorShowDialog`/`ErrorNoDialog`), `LoadPlugInResult` (`Success`/`SuccessAlreadyLoaded`/`ErrorUnknown`), `ValidateResult` (`Success`/`ErrorShowMessage`/`ErrorHideMessage`)
@@ -65,8 +58,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: plug-in identity, discovery, and load
-- rail: host
-
 - `PlugIn.Id : Guid` / `PlugInId : Guid` / `Name : string` / `Version : string` / `Description : string` / `Assembly : Assembly` / `LoadTime : PlugInLoadTime` / `AddToHelpMenu : bool` — plug-in facts
 - `PlugIn.Find(Guid plugInId) : PlugIn` / `Find(Assembly pluginAssembly) : PlugIn` / `GetPlugInInfo(Guid pluginId) : PlugInInfo` — resolve a loaded plug-in
 - `PlugIn.LoadPlugIn(string path, out Guid plugInId) : LoadPlugInResult` / `LoadPlugIn(Guid pluginId[, bool loadQuietly, bool forceLoad]) : bool` / `PlugInExists(Guid id, out bool loaded, out bool loadProtected) : bool`
@@ -75,8 +66,6 @@
 - `PlugIn.SetLoadProtection(Guid pluginId, bool loadSilently) : void` / `GetLoadProtection(Guid pluginId, out bool loadSilently) : bool` / `GetEnglishCommandNames(Guid pluginId) : string[]`
 
 [ENTRYPOINT_SCOPE]: plug-in lifecycle overrides
-- rail: host
-
 - `protected virtual OnLoad(ref string errorMessage) : LoadReturnCode` / `OnShutdown() : void` / `ResetMessageBoxes() : void` — load and shutdown hooks
 - `protected virtual CreateCommands() : void` / `RegisterCommand(Command command) : bool`; `GetCommands() : Command[]`; `HostUtils.RegisterDynamicCommand` composes the runtime command family of `api-rhinocommon-commands.md`
 - `protected virtual GetPlugInObject() : object` / `DisplayHelp(nint windowHandle) : bool` / `Icon(Size size) : Bitmap`
@@ -84,14 +73,10 @@
 - `protected virtual OptionsDialogPages(List<OptionsDialogPage> pages) : void` / `DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) : void` / `ObjectPropertiesPages(ObjectPropertiesPageCollection collection) : void`
 
 [ENTRYPOINT_SCOPE]: plug-in settings
-- rail: host
-
 - `PlugIn.GetPluginSettings(Guid plugInId, bool load) : PersistentSettings` / `SavePluginSettings(Guid plugInId) : void` / `SaveSettings() : void` / `CommandSettings(string name) : PersistentSettings` — the settings tree, whose typed writer surface `api-rhinocommon-persistence.md` owns
-- `PlugIn.SettingsSaved : EventHandler<PersistentSettingsSavedEventArgs>` — the change notification (owned as an event by `api-rhinocommon-persistence.md`); `RaiseOnPlugInSettingsSavedEvent()` / `FlushSettingsSavedQueue()`
+- `PlugIn.SettingsSaved : EventHandler<PersistentSettingsSavedEventArgs>` — fires the change notification `api-rhinocommon-persistence.md` owns; `RaiseOnPlugInSettingsSavedEvent()` / `FlushSettingsSavedQueue()` raise and drain it
 
 [ENTRYPOINT_SCOPE]: render plug-in
-- rail: host
-
 - `protected abstract Render(RhinoDoc doc, RunMode mode, bool fastPreview) : Result` / `protected virtual RenderWindow(RhinoDoc doc, RunMode modes, bool fastPreview, RhinoView view, Rectangle rect, bool inWindow[, bool blowup]) : Result` — the render entry
 - `protected virtual CreatePreview(CreatePreviewEventArgs args) : void` / `CreateTexture2dPreview(CreateTexture2dPreviewEventArgs args) : void` / `PreviewRenderType() : PreviewRenderTypes`
 - `protected virtual SupportsFeature(RenderFeature feature) : bool` / `CurrentRendererSupportsFeature(RenderFeature feature) : bool` (static) / `SupportedOutputTypes() : List<Rhino.FileIO.FileType>` / `SupportedChannels : Guid[]` / `InitialChannelToDisplay : Guid` / `CustomChannelName(Guid id) : string`
@@ -99,14 +84,10 @@
 - material UI: `OnAssignMaterial(nint parent, RhinoDoc doc, ref Material material) : bool` / `OnEditMaterial(...)` / `OnCreateMaterial(...)` and their `Enable*Button` gates; `SunCustomSections(List<ICollapsibleSection> sections)` / `RenderSettingsCustomSections(...)`; the render-content and change-queue surfaces are owned by `api-rhinocommon-rendercontent.md` and the render catalogs
 
 [ENTRYPOINT_SCOPE]: digitizer plug-in
-- rail: host
-
 - `protected abstract DigitizerUnitSystem : UnitSystem` / `PointTolerance : double` / `EnableDigitizer(bool enable) : bool` — the digitizer contract
 - `DigitizerPlugIn.SendPoint(Point3d point, MouseButton mousebuttons, bool shiftKey, bool controlKey) : void` / `SendRay(Ray3d ray, MouseButton mousebuttons, bool shiftKey, bool controlKey) : void` — feed digitized input into the host
 
 [ENTRYPOINT_SCOPE]: file-dialog registration and dispatch
-- rail: host
-
 - `new FileTypeList(string description, string extension)` — a registration list seeded with one type
 - `FileTypeList.AddFileType(string description, string extension) : int` / `AddFileType(string description, string extension, bool showOptionsButtonInFileDialog) : int` / `AddFileType(string description, string extension1, string extension2) : int` / `AddFileType(string description, IEnumerable<string> extensions, bool showOptionsButtonInFileDialog) : int` — each returns the dispatch index the later read/write receives
 - `new FileType(string extension, string description)` / `FileType.Description : string` / `FileType.Extension : string`
@@ -115,8 +96,6 @@
 - `new FileReadOptions()` / `Dispose() : void`; `ImportMode` / `OpenMode` / `NewMode` / `InsertMode` / `ImportReferenceMode` / `BatchMode : bool` (get/set) — the host intent axes an engine consults for merge-versus-open behavior; `UseScaleGeometry` / `ScaleGeometry : bool`; `OptionsDictionary : ArchivableDictionary` — the per-format option payload the dialog lane threads
 
 [ENTRYPOINT_SCOPE]: licensing
-- rail: host
-
 - `PlugIn.GetLicense(LicenseCapabilities licenseCapabilities, string textMask, ValidateProductKeyDelegate validateProductKeyDelegate, OnLeaseChangedDelegate leaseChanged) : bool` / the `LicenseBuildType` overload / `AskUserForLicense(...) : bool` / `ReturnLicense() : bool` / `GetLicenseOwner(out string registeredOwner, out string registeredOrganization) : bool` / `SetLicenseCapabilities(string textMask, LicenseCapabilities capabilities, Guid licenseId) : void`
 - `LicenseUtils.GetLicenseStatus() : LicenseStatus[]` / `GetOneLicenseStatus(Guid productid) : LicenseStatus` / `GetLicenseCapabilities(int filter) : LicenseCapabilities` / `CheckOutLicense(Guid productId) : bool` / `CheckInLicense(Guid productId) : bool` / `ReturnLicense(Guid productId) : bool` / `ConvertLicense(Guid productId) : bool` / `IsCheckOutEnabled() : bool`
 - `LicenseUtils.LoginToCloudZoo() : bool` / `LogoutOfCloudZoo() : bool` / `ShowBuyLicenseUi(Guid productId) : void` / `ShowLicenseValidationUi(string cdkey) : bool`
@@ -124,18 +103,18 @@
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[PLUGIN_TOPOLOGY]:
-- one `PlugIn` owns a package: identity is a `Guid`, capability is a `protected virtual` override hook, and the host invokes the hook on the declared `PlugInLoadTime` schedule rather than the package calling a scattered registration API
-- specialization is subclassing: `RenderPlugIn`, `DigitizerPlugIn`, `FileImportPlugIn`, and `FileExportPlugIn` derive `PlugIn` and add their own abstract contract, so a package picks exactly one base per concern
-- file-dialog dispatch is index-keyed: `AddFileTypes` populates a `FileTypeList` whose `AddFileType` returns the index the later `ReadFile`/`WriteFile` receives, and the plug-in discriminates on that index, never on a re-parsed path extension
-- per-plug-in document state serializes through `ShouldCallWriteDocument`→`WriteDocument`/`ReadDocument` against the host `BinaryArchive*`, distinct from the standalone `File3dm` archive of `api-rhinocommon-fileio.md`
-- settings are a `PersistentSettings` tree keyed by plug-in id, and license capability is a flag set acquired through the Zoo/CloudZoo rail rather than a hand-rolled key check
+[TOPOLOGY]:
+- one `PlugIn` per package: identity a `Guid`, capability a `protected virtual` hook the host invokes on the declared `PlugInLoadTime` schedule, never a scattered registration call
+- `RenderPlugIn`, `DigitizerPlugIn`, `FileImportPlugIn`, and `FileExportPlugIn` subclass `PlugIn` with their own abstract contract; a package picks one base per concern
+- file-dialog dispatch is index-keyed: `AddFileType` returns the index the later `ReadFile`/`WriteFile` receives, and the plug-in discriminates on that index, never a re-parsed path extension
+- per-plug-in document state serializes through `ShouldCallWriteDocument`→`WriteDocument`/`ReadDocument` against the host `BinaryArchive*`
+- settings are a `PersistentSettings` tree keyed by plug-in id; license capability is a `LicenseCapabilities` flag set acquired through the Zoo/CloudZoo rail, never a hand-rolled key check
 
 [STACKING]:
 - `LanguageExt`(`libs/csharp/.api/api-languageext.md`): the `ReadFile` `Result` and `WriteFile` `WriteFileResult` fold to `Fin<A>`, the registered-index-to-handler binding is a `HashMap` lookup, `Find`/`GetPluginSettings` nullable resolves fold to `Option<A>`, and the license `GetLicense`/`CheckOutLicense` bool outcomes fold to `Fin<Unit>` carrying the fault
 - `Thinktecture.Runtime.Extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): the registered file-type roster wraps as a keyed `SmartEnum` indexed by the `AddFileType` return, collapsing extension, description, and index into one owner the dispatch switches on; `PlugInType`, `PlugInLoadTime`, `LicenseType`, `LicenseBuildType`, and `LicenseCapabilities` map to `SmartEnum`/flag owners, and a plug-in `Guid` wraps as a `ValueObject<Guid>`
 - `api-rhinocommon-fileio.md`: `FileWriteOptions`/`WriteFileResult` write-policy detail and the direct format engines compose there; this catalog owns only their dispatch-contract role
-- `api-rhinocommon-persistence.md`: the `PersistentSettings` node and `SettingsSaved` event compose there; `api-rhinocommon-rendercontent.md` and the render catalogs own the `RenderPlugIn` content-registration and change-queue surfaces
+- `api-rhinocommon-persistence.md`: `PersistentSettings` node and `SettingsSaved` event compose there; `api-rhinocommon-rendercontent.md` and the render catalogs own the `RenderPlugIn` content-registration and change-queue surfaces
 
 [LOCAL_ADMISSION]:
 - a package binds into the host through exactly one `PlugIn` subclass per concern, overriding its virtual hooks, never a free-standing registration call
@@ -147,8 +126,3 @@
 - Owns: the plug-in base and its render/digitizer/file-import/file-export specializations, native file-dialog registration and dispatch, and the full license surface
 - Accept: schedule-driven load, virtual-hook capability, index-keyed file dispatch, per-plug-in document serialization, Zoo/CloudZoo license acquisition
 - Reject: scattered registration outside the plug-in owner, path-string dispatch, standalone archive reads, and re-documentation of the write-policy, persistence, and render-content surfaces other catalogs own
-
-[NAMESPACE_CENSUS]:
-- covered public surface: `Rhino.PlugIns` full — the plug-in base and specializations, file-dialog registration and dispatch carriers, the license surface, and the policy enums; absorbs the former `api-rhinocommon-file-plugins.md` in full
-- cross-referenced, never duplicated: `FileWriteOptions`/`WriteFileResult` write policy (owned by `api-rhinocommon-fileio.md`), `PersistentSettings`/`SettingsSaved` (owned by `api-rhinocommon-persistence.md`), the `RenderPlugIn` content/change-queue surfaces (owned by the render catalogs), the runtime command family (owned by `api-rhinocommon-commands.md`)
-- access-excluded (internal, never lands): `CustomRenderSaveFileType` (singular), `VerifyFromZooCommon`, and the plug-in delegate/callback types the host reserves

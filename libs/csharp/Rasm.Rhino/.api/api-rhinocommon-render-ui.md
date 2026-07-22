@@ -1,6 +1,6 @@
 # [RASM_RHINO_API_RHINOCOMMON_RENDER_UI]
 
-`Rhino.Render` owns the render-editor UI backing surface: `DataSources` carries the content-editor view settings (`Modes`/`Shapes`/`Sizes` thumbnail layout, `AssignBys` assignment policy, `MetaData` preview descriptor) and the `RhinoSettings` bridge that binds the editor to the document `RenderSettings`, active view, current renderer, and custom render sizes; `RenderPanels` and `RenderTabs` register and resolve a plug-in's custom render-window panels and side-pane tabs by session; `Rhino.Render.UI.WorldMapDayNight` renders the sun-editor day/night world map; and the `ParameterNames.PhysicallyBased`, `ChildSlotNames.PhysicallyBased`, and `RenderMaterial.BasicMaterialParameterNames` owners hold the named-parameter and child-slot vocabulary a content editor binds. `api-rhinocommon-rendercontent.md` owns the `RenderContent`/`RenderContentCollection`/`ContentFactory` object model these settings and the named parameters address; `api-rhinocommon-rendersettings.md` owns the `RenderSettings` aggregate the `RhinoSettings` bridge reads and writes; `api-rhinocommon-document.md` owns the `RhinoDoc`/`RhinoView`/`ViewInfo` carriers the bridge binds; and `api-rhino-ui.md` owns the `Rhino.UI.Controls.ICollapsibleSection` and `Rhino.UI.ObjectPropertiesPage` UI carriers a registered panel or tab body composes.
+`Rhino.Render` owns the render-editor UI backing surface: the `RhinoSettings` editor-to-document bridge, the bounded layout and assignment vocabulary, the `RenderPanels`/`RenderTabs` custom panel and tab registries keyed by render session, the `WorldMapDayNight` sun-editor map, and the PBR and basic named-parameter and child-slot constant owners a content editor binds. Native `RhinoSettings`/`MetaData` wrappers and the `DataSources` editor internals stay host-side; a detached value record crosses the boundary.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -15,37 +15,34 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: editor data sources and settings bridge
-- rail: render-editor-UI boundary
 
 `RhinoSettings` and `MetaData` are `sealed : IDisposable` native wrappers; the view/shape/size/assign vocabularies are bounded enums.
 
-| [INDEX] | [SYMBOL]        | [KIND]             | [CAPABILITY]                                                       |
-| :-----: | :-------------- | :----------------- | :----------------------------------------------------------------- |
-|  [01]   | `RhinoSettings` | settings bridge    | render/preview settings, renderer id, active/rendering view, sizes |
-|  [02]   | `MetaData`      | preview meta       | per-content geometry descriptor and content-instance id            |
-|  [03]   | `Modes`         | view-mode enum     | grid/list/tree editor layout                                       |
-|  [04]   | `Shapes`        | thumbnail enum     | square/wide thumbnail aspect                                       |
-|  [05]   | `Sizes`         | thumbnail enum     | tiny-to-large thumbnail size                                       |
-|  [06]   | `AssignBys`     | assign-policy enum | layer/parent/object/plug-in assignment policy                      |
+| [INDEX] | [SYMBOL]        | [TYPE_FAMILY]   | [CAPABILITY]                                                       |
+| :-----: | :-------------- | :-------------- | :----------------------------------------------------------------- |
+|  [01]   | `RhinoSettings` | settings bridge | render/preview settings, renderer id, active/rendering view, sizes |
+|  [02]   | `MetaData`      | preview meta    | per-content geometry descriptor and content-instance id            |
+|  [03]   | `Modes`         | enum            | grid/list/tree editor layout                                       |
+|  [04]   | `Shapes`        | enum            | square/wide thumbnail aspect                                       |
+|  [05]   | `Sizes`         | enum            | tiny-to-large thumbnail size                                       |
+|  [06]   | `AssignBys`     | enum            | layer/parent/object/plug-in assignment policy                      |
 
 [PUBLIC_TYPE_SCOPE]: custom panel/tab registration and sun-editor map
-- rail: render-editor-UI boundary
 
 `RenderPanels`/`RenderTabs` are `sealed` host-provided registries (internal constructor); `WorldMapDayNight` is a `sealed : IDisposable` map renderer. A registered panel or tab `Type` carries a `System.Runtime.InteropServices.GuidAttribute`.
 
-| [INDEX] | [SYMBOL]           | [KIND]          | [CAPABILITY]                                                      |
-| :-----: | :----------------- | :-------------- | :---------------------------------------------------------------- |
-|  [01]   | `RenderPanels`     | panel registry  | register and resolve custom render-window panels by session       |
-|  [02]   | `RenderTabs`       | tab registry    | register and resolve custom side-pane tabs, derive UI/session ids |
-|  [03]   | `RenderPanelType`  | panel-kind enum | custom render-UI panel kind                                       |
-|  [04]   | `WorldMapDayNight` | map renderer    | day/night world-map bitmap and lat-long-to-pixel mapping          |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]  | [CAPABILITY]                                                      |
+| :-----: | :----------------- | :------------- | :---------------------------------------------------------------- |
+|  [01]   | `RenderPanels`     | panel registry | register and resolve custom render-window panels by session       |
+|  [02]   | `RenderTabs`       | tab registry   | register and resolve custom side-pane tabs, derive UI/session ids |
+|  [03]   | `RenderPanelType`  | enum           | custom render-UI panel kind                                       |
+|  [04]   | `WorldMapDayNight` | map renderer   | day/night world-map bitmap and lat-long-to-pixel mapping          |
 
 [PUBLIC_TYPE_SCOPE]: named-parameter and child-slot constant owners
-- rail: render-editor-UI boundary
 
-Each owner is a static class of name constants a content editor and the `RenderContent.GetParameter`/`SetParameter` surface bind.
+Each owner is a static class of name constants the `RenderContent.GetParameter`/`SetParameter` surface binds.
 
-| [INDEX] | [SYMBOL]                                     | [KIND]            | [CAPABILITY]                                         |
+| [INDEX] | [SYMBOL]                                     | [TYPE_FAMILY]     | [CAPABILITY]                                         |
 | :-----: | :------------------------------------------- | :---------------- | :--------------------------------------------------- |
 |  [01]   | `ParameterNames.PhysicallyBased`             | PBR param names   | physically-based material named-parameter vocabulary |
 |  [02]   | `ChildSlotNames.PhysicallyBased`             | PBR slot names    | physically-based texture child-slot vocabulary       |
@@ -56,7 +53,7 @@ Each owner is a static class of name constants a content editor and the `RenderC
 - `public enum Rhino.Render.DataSources.Shapes` — `Square = 0`, `Wide = 1`.
 - `public enum Rhino.Render.DataSources.Sizes` — `Unset = 0`, `Tiny = 1`, `Small = 2`, `Medium = 3`, `Large = 4`.
 - `public enum Rhino.Render.DataSources.AssignBys` — `Unset = 0`, `Layer = 1`, `Parent = 2`, `Object = 3`, `Varies = 4`, `PlugIn = 5`.
-- `public enum Rhino.Render.RenderPanelType` — `RenderWindow = 0`; the custom-panel kind hosted in the render output window.
+- `public enum Rhino.Render.RenderPanelType` — `RenderWindow = 0`, the custom-panel kind hosted in the render output window.
 - `public enum Rhino.Render.RenderPanels.ExtraSidePanePosition` — `Left = 0`, `Top = 1`, `Right = 2`, `Bottom = 3`.
 
 ## [03]-[ENTRYPOINTS]
@@ -71,7 +68,7 @@ Each owner is a static class of name constants a content editor and the `RenderC
 - `Rhino.Render.DataSources.MetaData.Geometry() : string` / `ContentInstanceId() : Guid` / `CppPointer : nint` / `Dispose() : void` — the preview meta-data descriptor and content-instance id; `MetaData : IDisposable`.
 
 [PANEL_TAB_REGISTRATION]:
-- `Rhino.Render.RenderPanels.RegisterPanel(PlugIn plugin, RenderPanelType renderPanelType, Type panelType, Guid renderEngineId, string caption, bool alwaysShow, bool initialShow) : void` / `RegisterPanel(PlugIn, RenderPanelType, Type, Guid renderEngineId, string caption, bool alwaysShow, bool initialShow, ExtraSidePanePosition pos) : void` — register a custom render-window panel; `panelType` carries a `GuidAttribute` or the call throws `ArgumentException`.
+- `Rhino.Render.RenderPanels.RegisterPanel(PlugIn plugin, RenderPanelType renderPanelType, Type panelType, string caption, bool alwaysShow, bool initialShow) : void` / `RegisterPanel(PlugIn, RenderPanelType, Type, Guid renderEngineId, string caption, bool alwaysShow, bool initialShow, ExtraSidePanePosition pos) : void` — register a custom render-window panel; `panelType` carries a `GuidAttribute` or the call throws `ArgumentException`.
 - `Rhino.Render.RenderPanels.FromRenderSessionId(PlugIn plugIn, Type panelType, Guid renderSessionId) : object` — resolve the registered panel instance for a render session.
 - `Rhino.Render.RenderTabs.RegisterTab(PlugIn plugin, Type tabType, Guid renderEngineId, string caption, Icon icon) : void` — register a custom side-pane tab; `tabType` carries a `GuidAttribute`, and `Icon` is `System.Drawing.Icon`.
 - `Rhino.Render.RenderTabs.FromRenderSessionId(PlugIn plugIn, Type tabType, Guid renderSessionId) : object` / `SidePaneUiIdFromTab(object tab) : Guid` / `SessionIdFromTab(object tab) : Guid` — resolve a registered tab and derive its side-pane UI and session ids.
@@ -88,28 +85,26 @@ Each owner is a static class of name constants a content editor and the `RenderC
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[EDITOR_UI_TOPOLOGY]:
-- `RhinoSettings` is the single editor-to-document bridge: it reads and writes the document `RenderSettings`, the current renderer id, the active/rendering view, and the custom render sizes — a domain owner binds through it rather than re-reading the document, and a parallel settings mirror beside it is the deleted form.
-- View, thumbnail, and assign vocabularies are bounded: `Modes`/`Shapes`/`Sizes`/`AssignBys` enumerate the editor layout and assignment policy, and a stringly editor-mode or assign key beside them is rejected.
-- Panel and tab registration is one owner each: `RenderPanels` registers custom render-window panels and `RenderTabs` custom side-pane tabs, both keyed by a `GuidAttribute`-decorated `Type` and resolved by render-session id — a panel or tab minted outside these registries never appears in the render editor.
-- Named parameters are constant owners: `ParameterNames.PhysicallyBased`/`ChildSlotNames.PhysicallyBased`/`RenderMaterial.BasicMaterialParameterNames` name the parameters and child slots the `RenderContent.GetParameter`/`SetParameter` surface addresses — a literal parameter string beside these owners is the deleted form.
-- Editor internals stay host-side: the `DataSources.PreviewSettings`/`ContentEditorSettings`/`NewContentControlAssignBy`/`RdkBackEnd`/`RdkRenderSettingsBackEnd`/`RdkContentUIs` types, the whole `Rhino.Render.UICommands` and `Rhino.Render.Controls.Definitions` namespaces, and the obsolete `Rhino.Render.UI.IUserInterfaceSection`/`UserInterfaceSection` interfaces are internal or obsolete and never cross the boundary.
-- UI sections seat through the `Rhino.UI.Controls.ICollapsibleSection` family `api-rhino-ui.md` owns, never the obsolete `UserInterfaceSection` interface.
+[TOPOLOGY]:
+- `RhinoSettings` is the single editor-to-document bridge: one owner reads and writes the document `RenderSettings`, the current renderer id, the active/rendering view, and the custom render sizes, so a domain owner binds through it rather than re-reading the document.
+- `Modes`/`Shapes`/`Sizes`/`AssignBys` bound the editor layout and assignment policy; the editor mode and assign key are these enums.
+- `RenderPanels` registers custom render-window panels and `RenderTabs` custom side-pane tabs, both keyed by a `GuidAttribute`-decorated `Type` and resolved by render-session id.
+- `ParameterNames.PhysicallyBased`/`ChildSlotNames.PhysicallyBased`/`RenderMaterial.BasicMaterialParameterNames` are the constant owners the `RenderContent.GetParameter`/`SetParameter` surface addresses.
+- Editor internals stay host-side: the `DataSources` back-ends and the `Rhino.Render.UICommands`/`Rhino.Render.Controls.Definitions` namespaces are internal and never cross the boundary, and a UI section seats through the `Rhino.UI.Controls.ICollapsibleSection` family `api-rhino-ui.md` owns.
 
 [STACKING]:
-- `LanguageExt.Core`(`../../.api/api-languageext.md`): a `RhinoSettings`/`MetaData`/`WorldMapDayNight` `IDisposable` rides a `using` bounded by `Eff`; a settings read projects a detached value record, a `ViewSupportsShading` predicate crosses as `bool`, and a panel/tab registration outcome crosses as `Fin<Unit>`; `FromRenderSessionId` returning `object` lifts to `Option<A>` after an edge cast.
-- `Thinktecture.Runtime.Extensions`(`../../.api/api-thinktecture-runtime-extensions.md`): `Modes`, `Shapes`, `Sizes`, `AssignBys`, `RenderPanelType`, and `ExtraSidePanePosition` map at the edge to `[SmartEnum]` owners; the PBR/basic parameter-name sets collapse to one generated `[SmartEnum<string>]` name vocabulary keyed on the parameter the content surface addresses.
+- `LanguageExt.Core`(`../../.api/api-languageext.md`): a `RhinoSettings`/`MetaData`/`WorldMapDayNight` `IDisposable` rides a `using` bounded by `Eff`; a settings read projects a detached value record, a `ViewSupportsShading` predicate crosses as `bool`, a panel/tab registration crosses as `Fin<Unit>`, and `FromRenderSessionId` returning `object` lifts to `Option<A>` after an edge cast.
+- `Thinktecture.Runtime.Extensions`(`../../.api/api-thinktecture-runtime-extensions.md`): `Modes`, `Shapes`, `Sizes`, `AssignBys`, `RenderPanelType`, and `ExtraSidePanePosition` map at the edge to `[SmartEnum]` owners, and the PBR/basic parameter-name sets collapse to one generated `[SmartEnum<string>]` name vocabulary keyed on the parameter the content surface addresses.
 - `api-rhinocommon-rendersettings.md`: `RhinoSettings.GetRenderSettings`/`SetRenderSettings` bridge the document `RenderSettings` aggregate — settings own the configuration, this catalog owns the editor binding.
-- `api-rhinocommon-rendercontent.md`: PBR/basic parameter names address `RenderContent.GetParameter`/`SetParameter`, and a registered panel or tab edits `RenderContent`; the content catalog owns the content, this catalog owns the UI vocabulary and registration.
+- `api-rhinocommon-rendercontent.md`: PBR/basic parameter names address `RenderContent.GetParameter`/`SetParameter`, and a registered panel or tab edits `RenderContent` — the content catalog owns the content, this catalog owns the UI vocabulary and registration.
 - `api-rhinocommon-document.md` and `api-rhino-ui.md`: `RhinoDoc`/`RhinoView`/`ViewInfo`/`TextureType` bind the settings bridge and child-slot resolver, and a registered panel or tab body composes `Rhino.UI.Controls.ICollapsibleSection`/`Rhino.UI.ObjectPropertiesPage` — the document and UI catalogs own the carriers, this catalog owns the render-editor seam.
 
 [LOCAL_ADMISSION]:
-- Editor state enters through `RhinoSettings`/`MetaData`, mutates inside the `using` grant, and commits through the settings bridge; a detached value record leaves the boundary, never a live `RhinoSettings` or `MetaData`.
-- A custom panel or tab enters through `RenderPanels.RegisterPanel`/`RenderTabs.RegisterTab` with a `GuidAttribute`-decorated `Type` and resolves by render-session id; a panel or tab minted beside the registry is rejected.
-- Named parameters enter through the constant owners, never a literal parameter string; the editor layout enters through the bounded `Modes`/`Shapes`/`Sizes`/`AssignBys` vocabulary.
+- Editor state enters through `RhinoSettings`/`MetaData`, mutates inside the `using` grant, and commits through the settings bridge; a detached value record leaves the boundary.
+- A custom panel or tab enters through `RenderPanels.RegisterPanel`/`RenderTabs.RegisterTab` with a `GuidAttribute`-decorated `Type` and resolves by render-session id; named parameters and editor layout enter through the constant owners and the bounded `Modes`/`Shapes`/`Sizes`/`AssignBys` vocabulary.
 
 [RAIL_LAW]:
 - Surface: `Rhino.Render.DataSources` + `Rhino.Render.UI` + `Rhino.Render.ParameterNames` + `Rhino.Render.ChildSlotNames` + the `Rhino.Render` panel/tab-registration and basic-parameter-name slice
-- Owns: the `RhinoSettings` editor-to-document bridge, the `MetaData` preview descriptor, the `Modes`/`Shapes`/`Sizes`/`AssignBys` editor vocabulary, the `RenderPanels`/`RenderTabs` custom panel/tab registries, the `WorldMapDayNight` sun-editor map, and the PBR/basic named-parameter and child-slot constant owners.
+- Owns: the render-editor seam — the `RhinoSettings` editor-to-document bridge, the `MetaData` preview descriptor, the `Modes`/`Shapes`/`Sizes`/`AssignBys` vocabulary, the `RenderPanels`/`RenderTabs` registries, the `WorldMapDayNight` map, and the PBR/basic named-parameter and child-slot constant owners.
 - Accept: editor settings read and mutation through the `RhinoSettings` bridge with a `using` window; panel/tab registration over a `GuidAttribute`-keyed `Type` resolved by session; named parameters composed from the constant owners; editor vocabulary mapped to bounded owners at the edge.
-- Reject: a parallel settings mirror beside `RhinoSettings`, a stringly editor-mode or assign key, a literal parameter string beside the name owners, a panel or tab minted outside the registries, the internal `DataSources`/`UICommands`/`Controls.Definitions` types re-surfaced, the obsolete `UserInterfaceSection` interfaces catalogued, and a live `RhinoSettings`/`MetaData` escaping into a domain signature.
+- Reject: a parallel settings mirror beside `RhinoSettings`, a stringly editor-mode or assign key or a literal parameter string beside the bounded and constant owners, a panel or tab minted outside the registries, and a live `RhinoSettings`/`MetaData` escaping into a domain signature.

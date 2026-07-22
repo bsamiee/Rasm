@@ -1,14 +1,14 @@
 # [RASM_PERSISTENCE_API_SPECKLE]
 
-`Speckle.Sdk` supplies the object-graph `Base` model, the dynamic detach/chunk serialisation, the DI-resolved `IOperations` send/receive surface, the transport family, and the GraphQL `IClient`. `Speckle.Objects` supplies the geometry roster and the `Speckle.Objects.Data` host-object family layered on `Base`. Both bind the Persistence `SyncTransport.SpeckleLikeDiff` case (owned at `Version/ledger#SYNC_TRANSPORTS`, dispatched through `SyncPump.Offer`): the INSTANCE `IOperations.Send`/`Receive` resolve from DI (never `static Operations.Send`, which does not exist), and the `Send` tuple's `rootObjId` is the content hash that maps to the existing `UInt128 ContentKey`.
+`Speckle.Sdk` owns the `Base` object-graph model, its dynamic detach/chunk serialisation, the DI-resolved `IOperations` send/receive surface, the transport family, and the GraphQL `IClient`; `Speckle.Objects` layers the geometry roster and the `Speckle.Objects.Data` host-object family onto `Base`. This surface feeds the Persistence sync rail's `SyncTransport.SpeckleLikeDiff` case: the send `rootObjId` is the content hash mapping to `UInt128 ContentKey`, dispatched through `SyncPump.Offer`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Speckle.Sdk`
 - package: `Speckle.Sdk`
 - assembly: `Speckle.Sdk`
-- companion: `Speckle.Sdk.Dependencies` (`2026.6.0`; transitive; ILRepacks `Polly`, `Open.ChannelExtensions`, `Microsoft.Extensions.ObjectPool`, and the serialisation-V2 send/receive channel pipeline into one assembly)
-- transitive: `GraphQL.Client`, `Microsoft.Data.Sqlite` (carries native `e_sqlite3` via `SQLitePCLRaw`), `System.Text.Json`, `Speckle.Newtonsoft.Json`, `Speckle.DoubleNumerics`
+- companion: `Speckle.Sdk.Dependencies` (transitive; ILRepacks `Polly`, `Open.ChannelExtensions`, `Microsoft.Extensions.ObjectPool`, and the serialisation-V2 send/receive channel pipeline into one assembly)
+- transitive: `GraphQL.Client`, `Microsoft.Data.Sqlite` (native `e_sqlite3` via `SQLitePCLRaw`), `System.Text.Json`, `Speckle.Newtonsoft.Json`, `Speckle.DoubleNumerics`
 - namespace: `Speckle.Sdk`, `Speckle.Sdk.Api`, `Speckle.Sdk.Models`, `Speckle.Sdk.Transports`, `Speckle.Sdk.Serialisation`, `Speckle.Sdk.Credentials`
 - target frameworks: `net10.0`, `net8.0`, `netstandard2.0`
 - asset: runtime library
@@ -17,18 +17,15 @@
 [PACKAGE_SURFACE]: `Speckle.Objects`
 - package: `Speckle.Objects`
 - assembly: `Speckle.Objects`
-- companion: `Speckle.Sdk` (`2026.6.0`; supplies the `Base`/`ISpeckleObject` base graph)
+- companion: `Speckle.Sdk` (supplies the `Base`/`ISpeckleObject` base graph)
 - namespace: `Speckle.Objects`, `Speckle.Objects.Geometry`, `Speckle.Objects.Data`, `Speckle.Objects.Primitive`, `Speckle.Objects.Other`, `Speckle.Objects.Annotation`
 - target frameworks: `net10.0`, `net8.0`, `netstandard2.0`
 - asset: runtime library
 - rail: sync
 
-The in-Rhino plugin assembly never references `Speckle.Sdk` or `Speckle.Objects`; the Speckle surface lives OUTSIDE-RHINO on the companion/sidecar target, where `Speckle.Sdk.Dependencies` repacks the Polly + channel + object-pool + serialisation-V2 closure into one assembly so the SDK's own dependency graph stays isolated from the host. The in-Rhino assembly composes only the canonical `SyncTransport.SpeckleLikeDiff` case and never loads the Speckle assemblies.
-
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: `Speckle.Sdk` object-graph model and attributes
-- rail: sync
 
 | [INDEX] | [SYMBOL]                              | [TYPE_FAMILY] | [CAPABILITY]                                              |
 | :-----: | :------------------------------------ | :------------ | :-------------------------------------------------------- |
@@ -37,10 +34,11 @@ The in-Rhino plugin assembly never references `Speckle.Sdk` or `Speckle.Objects`
 |  [03]   | `DetachPropertyAttribute : Attribute` | attribute     | sealed; `Detachable` (default `true`)                     |
 |  [04]   | `ChunkableAttribute : Attribute`      | attribute     | sealed; `MaxObjCountPerChunk` (default `1000`)            |
 
-[PUBLIC_TYPE_SCOPE]: `Speckle.Sdk` operations, client, transports
-- rail: sync
+- `Base`: `id` is null until the graph is deserialized from a transport; `GetTotalChildrenCount()` counts the detachable children and itself.
 
-Each concrete transport is `sealed` and implements `ITransport, IBlobCapableTransport, ICloneable`; the SYMBOL column carries only the distinguishing base.
+[PUBLIC_TYPE_SCOPE]: `Speckle.Sdk` operations, client, transports
+
+Each concrete transport is `sealed : ITransport, IBlobCapableTransport, ICloneable`; the `[SYMBOL]` cell carries only its distinguishing base.
 
 | [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]       | [CAPABILITY]                                                      |
 | :-----: | :---------------------------------------- | :------------------ | :---------------------------------------------------------------- |
@@ -56,7 +54,6 @@ Each concrete transport is `sealed` and implements `ITransport, IBlobCapableTran
 |  [10]   | `ProgressArgs`                            | progress value      | `readonly record struct (ProgressEvent, long Count, long? Total)` |
 
 [PUBLIC_TYPE_SCOPE]: `Speckle.Sdk` serialisation, credentials, DI
-- rail: sync
 
 | [INDEX] | [SYMBOL]                                            | [TYPE_FAMILY] | [CAPABILITY]                                                      |
 | :-----: | :-------------------------------------------------- | :------------ | :---------------------------------------------------------------- |
@@ -67,10 +64,19 @@ Each concrete transport is `sealed` and implements `ITransport, IBlobCapableTran
 |  [05]   | `Application` (`record (string Name, string Slug)`) | DI input      | host-application identity for registration                        |
 |  [06]   | `SpeckleSdkOptions` (`record`)                      | DI input      | `(Application, ApplicationVersion, SpeckleVersion?, Assemblies?)` |
 
-[PUBLIC_TYPE_SCOPE]: `Speckle.Objects.Geometry` roster
-- rail: sync
+- `Account`: `id` is a lazy MD5 of `email + url`; `serverInfo` (`ServerInfo`), `userInfo` (`UserInfo`), and `isDefault` ride the record, and `GetHashedEmail()`/`GetHashedServer()` hash the credentials.
 
-Every roster type derives `Base` except `BrepX : RawEncodedObject`; the SYMBOL column drops the shared `: Base`.
+[PUBLIC_TYPE_SCOPE]: `Speckle.Sdk` boundary fault types
+
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                                  |
+| :-----: | :----------------------------- | :------------ | :-------------------------------------------- |
+|  [01]   | `SpeckleException : Exception` | exception     | serialize/send failure base fault             |
+|  [02]   | `TransportException`           | exception     | `: SpeckleException`; save/copy/retrieve      |
+|  [03]   | `SpeckleDeserializeException`  | exception     | `: SpeckleException`; requested-object decode |
+
+[PUBLIC_TYPE_SCOPE]: `Speckle.Objects.Geometry` roster
+
+Every roster type derives `Base` except `BrepX : RawEncodedObject`; the `[SYMBOL]` cell drops the shared `: Base`.
 
 | [INDEX] | [SYMBOL]     | [TYPE_FAMILY] | [CAPABILITY]                                                                                     |
 | :-----: | :----------- | :------------ | :----------------------------------------------------------------------------------------------- |
@@ -92,10 +98,11 @@ Every roster type derives `Base` except `BrepX : RawEncodedObject`; the SYMBOL c
 |  [16]   | `Box`        | geometry      | `IHasVolume`, `IHasArea`, `IHasBoundingBox`                                                      |
 |  [17]   | `Pointcloud` | geometry      | `IHasBoundingBox`, `ITransformable<Pointcloud>`                                                  |
 
-[PUBLIC_TYPE_SCOPE]: `Speckle.Objects.Data` host-object family
-- rail: sync
+- `Mesh`: required `vertices` (`List<double>`), `faces` (`List<int>`), `units` (`string`); optional `colors` (`List<int>` ARGB) and `textureCoordinates` (`List<double>`); `VerticesCount` is `vertices.Count / 3`.
 
-The family base is `DataObject : Base, IDataObject, IProperties, IDisplayValue<IReadOnlyList<Base>>`; each host-object row derives `DataObject` and adds its host marker interface (SYMBOL `: DataObject, I<Host>Object`).
+[PUBLIC_TYPE_SCOPE]: `Speckle.Objects.Data` host-object family
+
+Family base `DataObject : Base, IDataObject, IProperties, IDisplayValue<IReadOnlyList<Base>>` seats each host row, which derives it and adds its host marker (`[SYMBOL]` = `: DataObject, I<Host>Object`).
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY]    | [CAPABILITY]                               |
 | :-----: | :------------------- | :--------------- | :----------------------------------------- |
@@ -112,51 +119,43 @@ The family base is `DataObject : Base, IDataObject, IProperties, IDisplayValue<I
 |  [11]   | `MicrostationObject` | host-object      | MicroStation-sourced data object           |
 |  [12]   | `TsdObject`          | host-object      | TSD-sourced data object                    |
 
-The model exposes no `BuiltElements` namespace and no typed built-element classes; the unified `Speckle.Objects.Data` family is the sole host-object roster. Built-element geometry rides `DataObject.displayValue` as `List<Base>` (`IDisplayValue<IReadOnlyList<Base>>`), distinct from `Brep.displayValue` (`List<Mesh>`); `IDisplayValue<out T>` is the generic display-value contract.
+`Speckle.Objects.Data` is the sole host-object roster; built-element geometry rides `DataObject.displayValue` as `List<Base>` (`IDisplayValue<IReadOnlyList<Base>>`), distinct from `Brep.displayValue` (`List<Mesh>`). `IDisplayValue<out T>` is the generic display-value contract.
 
 ## [03]-[ENTRYPOINTS]
 
-[SPECKLE_SYNC]: INSTANCE `IOperations` send/receive over the DI-resolved surface
-- rail: sync
+[SPECKLE_SYNC]: `IOperations` send/receive over the DI-resolved surface
 
-```csharp signature
-// --- transport-bound send: rootObjId is the content hash -> UInt128 ContentKey; the multi-transport form takes no implicit local cache ---
-Task<(string rootObjId, IReadOnlyDictionary<string, ObjectReference> convertedReferences)> Send(Base value, IServerTransport transport, bool useDefaultCache, IProgress<ProgressArgs>? onProgressAction = null, CancellationToken cancellationToken = default)
-Task<(string rootObjId, IReadOnlyDictionary<string, ObjectReference> convertedReferences)> Send(Base value, ITransport transport, bool useDefaultCache, IProgress<ProgressArgs>? onProgressAction = null, CancellationToken cancellationToken = default)
-Task<(string rootObjId, IReadOnlyDictionary<string, ObjectReference> convertedReferences)> Send(Base value, IReadOnlyCollection<ITransport> transports, IProgress<ProgressArgs>? onProgressAction = null, CancellationToken cancellationToken = default)
-// --- local-then-remote receive ---
-Task<Base> Receive(string objectId, ITransport? remoteTransport = null, ITransport? localTransport = null, IProgress<ProgressArgs>? onProgressAction = null, CancellationToken cancellationToken = default)
-// --- URL-bound serialisation-V2 pipeline; bypasses the explicit transport stack ---
-Task<SerializeProcessResults> Send2(Uri url, string streamId, string? authorizationToken, Base value, IProgress<ProgressArgs>? onProgressAction, CancellationToken cancellationToken, SerializeProcessOptions? options = null)
-Task<Base> Receive2(Uri url, string streamId, string objectId, string? authorizationToken, IProgress<ProgressArgs>? onProgressAction, CancellationToken cancellationToken, DeserializeProcessOptions? options = null)
-// --- object-to-JSON / JSON-to-Base; SerializeNew runs the System.Text.Json pipeline ---
-string Serialize(Base value, CancellationToken cancellationToken = default)
-string SerializeNew(Base value)
-Task<Base> DeserializeAsync(string value, CancellationToken cancellationToken = default)
-```
+Every member is instance, resolved from DI off the wired provider, and trails `IProgress<ProgressArgs>?` progress and a `CancellationToken`.
 
-`IOperations` is resolved from DI (`Operations(ILogger<Operations>, ISdkActivityFactory, ISdkMetricsFactory, ISerializeProcessFactory, IDeserializeProcessFactory) : IOperations`); the `Operations` type carries no static `Send`/`Receive`, so the `SpeckleLikeDiff` rail binds the instance members only. That rail uses the transport-bound `Send`/`Receive` overloads (entries `[1]`-`[3]`, `[5]`); `Send2`/`Receive2` are the URL-bound serialisation-V2 pipeline overloads that bypass the explicit transport stack. The `Send` tuple's `rootObjId` (first element) is the content hash of the sent graph and maps directly to the Persistence `UInt128 ContentKey`; `convertedReferences` carries the detached-child `ObjectReference` map. `Receive` returns the root `Base` for the requested `objectId`.
+| [INDEX] | [SURFACE]                                                                  | [CAPABILITY]                          |
+| :-----: | :------------------------------------------------------------------------- | :------------------------------------ |
+|  [01]   | `IOperations.Send(Base, IServerTransport, bool) -> (rootObjId, refs)`      | server-store send with cache flag     |
+|  [02]   | `IOperations.Send(Base, ITransport, bool) -> (rootObjId, refs)`            | single-transport send with cache flag |
+|  [03]   | `IOperations.Send(Base, IReadOnlyCollection<ITransport>)`                  | multi-transport send, no local cache  |
+|  [04]   | `IOperations.Receive(string, ITransport?, ITransport?) -> Base`            | local-then-remote receive             |
+|  [05]   | `IOperations.Send2(Uri, string, string?, Base) -> SerializeProcessResults` | URL-bound V2 send pipeline            |
+|  [06]   | `IOperations.Receive2(Uri, string, string, string?) -> Base`               | URL-bound V2 receive pipeline         |
+|  [07]   | `IOperations.Serialize(Base) -> string`                                    | object graph to JSON                  |
+|  [08]   | `IOperations.SerializeNew(Base) -> string`                                 | V2 System.Text.Json serialize         |
+|  [09]   | `IOperations.DeserializeAsync(string) -> Base`                             | JSON to `Base`                        |
 
-V2 pipeline tuning (`Send2`/`Receive2`): `SerializeProcessOptions(bool SkipCacheRead = false, bool SkipCacheWrite = false, bool SkipServer = false, bool SkipFindTotalObjects = false)` plus settable `MaxHttpSendBatchSize`/`MaxCacheBatchSize`/`MaxParallelism` knobs gate the send pipeline's cache and HTTP batching; `DeserializeProcessOptions(bool SkipCache = false, bool ThrowOnMissingReferences = true, bool SkipInvalidConverts = false, int? MaxParallelism = null, bool SkipServer = false)` gates the receive pipeline. `Send2` returns `SerializeProcessResults(string RootId, IReadOnlyDictionary<Id, ObjectReference> ConvertedReferences)` — the result dictionary keys on the Speckle `Id` value type (NOT `string`), where `RootId` is the same content hash as the transport-bound `Send` tuple's `rootObjId`.
+- `Send2`/`Receive2` gate the V2 pipeline through `SerializeProcessOptions(SkipCacheRead, SkipCacheWrite, SkipServer, SkipFindTotalObjects)` with settable `MaxHttpSendBatchSize`/`MaxCacheBatchSize`/`MaxParallelism`, and `DeserializeProcessOptions(SkipCache, ThrowOnMissingReferences, SkipInvalidConverts, MaxParallelism, SkipServer)`.
+- `SerializeProcessResults` is a `readonly record struct (string RootId, IReadOnlyDictionary<Id, ObjectReference> ConvertedReferences)`: `RootId` is the send content hash, and the reference map keys on the Speckle `Id` value type, never `string`.
 
 [SPECKLE_TRANSPORT]: transport and serializer construction
-- rail: sync
 
-```csharp signature
-// --- transport constructors: remote server store / local SQLite cache / in-process store ---
-ServerTransport(ISpeckleHttp http, ISdkActivityFactory activityFactory, Account account, string streamId, int timeoutSeconds = 60, string? blobStorageFolder = null)
-SQLiteTransport(string? basePath = null, string? applicationName = null, string? scope = null)
-MemoryTransport(ConcurrentDictionary<string, string>? objects = null, bool blobStorageEnabled = false, string? basePath = null, string? applicationName = null)
-// --- write-transport serializer + deserializer ---
-SpeckleObjectSerializer(IReadOnlyCollection<ITransport> writeTransports, IProgress<ProgressArgs>? onProgressAction = null, bool trackDetachedChildren = false, CancellationToken cancellationToken = default)
-string SpeckleObjectSerializer.Serialize(Base baseObj)
-ValueTask<Base> SpeckleObjectDeserializer.DeserializeAsync(string? rootObjectJson)
-```
+| [INDEX] | [SURFACE]                                                                           | [SHAPE]  | [CAPABILITY]               |
+| :-----: | :---------------------------------------------------------------------------------- | :------- | :------------------------- |
+|  [01]   | `ServerTransport(ISpeckleHttp, ISdkActivityFactory, Account, string, int, string?)` | ctor     | remote server object store |
+|  [02]   | `SQLiteTransport(string?, string?, string?)`                                        | ctor     | default local SQLite cache |
+|  [03]   | `MemoryTransport(ConcurrentDictionary?, bool, string?, string?)`                    | ctor     | in-process object store    |
+|  [04]   | `SpeckleObjectSerializer(IReadOnlyCollection<ITransport>, IProgress?, bool)`        | ctor     | write-transport serializer |
+|  [05]   | `SpeckleObjectSerializer.Serialize(Base) -> string`                                 | instance | serialize graph to JSON    |
+|  [06]   | `SpeckleObjectDeserializer.DeserializeAsync(string?) -> ValueTask<Base>`            | instance | deserialize JSON to `Base` |
 
 [SPECKLE_DI]: `AddSpeckleSdk` registration on `IServiceCollection` (namespace `Speckle.Sdk`)
-- rail: sync
 
-Every overload is `IServiceCollection AddSpeckleSdk(this IServiceCollection serviceCollection, …)`, and the application overloads lead with `Application application, string applicationVersion`; the SURFACE column carries only the trailing parameters that distinguish each.
+Every overload is `IServiceCollection AddSpeckleSdk(this IServiceCollection, …)`; the application overloads lead with `Application application, string applicationVersion`, and the `[SURFACE]` cell carries only the distinguishing trailing parameters.
 
 | [INDEX] | [SURFACE]                                                                 | [CAPABILITY]                 |
 | :-----: | :------------------------------------------------------------------------ | :--------------------------- |
@@ -165,27 +164,26 @@ Every overload is `IServiceCollection AddSpeckleSdk(this IServiceCollection serv
 |  [03]   | `string? speckleVersion, params Assembly[] assemblies`                    | params register              |
 |  [04]   | `params Assembly[] assemblies`                                            | params register (no version) |
 
-`AddSpeckleSdk` registers `IOperations`, `IClient`, the transport factories, and the serialisation pipeline into the container; the `SpeckleLikeDiff` rail resolves `IOperations` from the wired provider. `Base` member surface: `id` (`string?`, null until the graph is deserialized from a transport), `applicationId` (`string?`), `speckle_type` (`string`, derived type discriminator), `GetId(bool decompose = false)` (`[Obsolete]`; full-serialize content hash matching the `Operations` send path), `GetTotalChildrenCount()`. `Account`: `token`, `refreshToken`, `serverInfo` (`ServerInfo`), `userInfo` (`UserInfo`), `id` (lazy MD5 of `email + url`), `isDefault`, `isOnline` (`[Obsolete]`), `GetHashedEmail()`, `GetHashedServer()`. `Mesh`: `vertices` (`List<double>`, required), `faces` (`List<int>`, required), `colors` (`List<int>`, ARGB), `textureCoordinates` (`List<double>`), `units` (`string`, required); `VerticesCount` is `vertices.Count / 3`.
+- `AddSpeckleSdk` registers `IOperations`, `IClient`, the transport factories, and the serialisation pipeline; the `SpeckleLikeDiff` rail resolves `IOperations` from the wired provider.
 
-## [04]-[ERROR_TAXONOMY]
+## [04]-[IMPLEMENTATION_LAW]
 
-[BOUNDARY_FAULTS]: SDK exception surfaces lifted at the Speckle sync edge
-- rail: sync
+[TOPOLOGY]:
+- `IOperations` resolves from DI; `Operations` declares no static `Send`/`Receive`, so the `SpeckleLikeDiff` rail binds the instance surface alone.
+- Transport-bound `Send`/`Receive` drive the explicit transport stack; `Send2`/`Receive2` run the URL-bound serialisation-V2 pipeline that bypasses it.
+- `Send`/`Receive` lift `ArgumentException`/`ArgumentNullException` on a null graph, missing `objectId`, or empty transport set, `OperationCanceledException` on the token, and `HttpRequestException` at the HTTP layer.
 
-| [INDEX] | [THROWN]                                                    | [DISCRIMINANT]                             |
-| :-----: | :---------------------------------------------------------- | :----------------------------------------- |
-|  [01]   | `Speckle.Sdk.SpeckleException`                              | serialization/send failure base fault      |
-|  [02]   | `Speckle.Sdk.Transports.TransportException`                 | transport save/copy/retrieve failure       |
-|  [03]   | `Speckle.Sdk.Serialisation.SpeckleDeserializeException`     | deserialization of requested object failed |
-|  [04]   | `System.Net.Http.HttpRequestException`                      | HTTP-layer server fault                    |
-|  [05]   | `System.OperationCanceledException`                         | `cancellationToken` requested cancellation |
-|  [06]   | `System.ArgumentNullException` / `System.ArgumentException` | null `value`/`objectId` or no transports   |
+[STACKING]:
+- `api-thinktecture-serialization`/`api-messagepack`: parallel codec rails, never composed inline. Speckle owns its own `Base`-graph serialiser (`SpeckleObjectSerializer`, the V2 pipeline, content hashing) and never routes through the snapshot codecs; a Rasm owner marshals to a Speckle `Base`/`DataObject` (or `displayValue` geometry) at the `Version/ledger#SYNC_TRANSPORTS` `SpeckleSend` seam, then Speckle's serialiser hashes and stores it — no double-encoding.
+- within-lib: the rail composes `Send` over a `ServerTransport` + `SQLiteTransport` pair for remote-plus-local-cache, or `Send2` for the URL pipeline; `SyncPump.Offer` maps the resulting `rootObjId` to the existing `UInt128 ContentKey`.
 
-## [05]-[CATALOGUE_LAW]
+[LOCAL_ADMISSION]:
+- `Speckle.Sdk`/`Speckle.Objects` run OUTSIDE-RHINO on the companion target; the in-Rhino assembly composes only the `SyncTransport.SpeckleLikeDiff` case and never references the Speckle assemblies. `Speckle.Sdk.Dependencies` repacks the Polly + channel + object-pool + serialisation-V2 closure so the SDK dependency graph stays isolated from the host.
+- `ServerInfo`/`UserInfo` acquisition and the `Account` token lifecycle are connection input from app roots, not a Persistence fence member.
+- `Version/ledger#SYNC_TRANSPORTS` owns the `rootObjId`→`ContentKey` projection, gated by the `SyncFault.SpeckleMarshal` drift fault; this catalog records only that the send tuple's first element and `SerializeProcessResults.RootId` are the content hash.
 
-[PACKAGE_SCOPE]:
-- Package pages carry external package API facts; the `SyncTransport.SpeckleLikeDiff` case, the `SyncPump.Offer` dispatch, and the `ContentKey` mapping are owned at `Version/ledger#SYNC_TRANSPORTS`.
-- The `rootObjId`-to-`ContentKey` projection is owned at `Version/ledger#SYNC_TRANSPORTS` (the `SyncFault.SpeckleMarshal` drift fault gates it); this catalogue records only that the `Send` tuple's first element (and `SerializeProcessResults.RootId`) is the content hash.
-- Codec lane separation: Speckle owns its OWN `Base`-graph serialiser (`SpeckleObjectSerializer`/V2 pipeline, MD5/SHA content hashing) — it does NOT route through the `api-thinktecture-serialization`/`api-messagepack` snapshot codecs, which own the in-process `[ValueObject]`/`[SmartEnum]` snapshot lane. The two are parallel sync/codec rails that meet only at the `SyncTransport` case algebra: a Rasm domain owner is projected to a Speckle `Base`/`DataObject` (or `displayValue` geometry) at the `Version/ledger#SYNC_TRANSPORTS` `SpeckleSend` marshal seam, then Speckle's own serialiser hashes and stores it. No double-encoding.
-- `ServerInfo`/`UserInfo` credential acquisition and the `Account` token lifecycle are connection input handed over by app roots, not a Persistence fence member.
-- `Speckle.Sdk` runs OUTSIDE-RHINO; `Speckle.Sdk.Dependencies` repacks the SDK's Polly + channel + serialisation-V2 closure into one assembly, and the in-Rhino assembly composes only the canonical `SyncTransport.SpeckleLikeDiff` case and never references the Speckle assemblies.
+[RAIL_LAW]:
+- Packages: `Speckle.Sdk`, `Speckle.Objects`
+- Owns: the `Base` object-graph model, its detach/chunk serialisation, and the DI-resolved send/receive/transport surface feeding the `SpeckleLikeDiff` sync case
+- Accept: instance `IOperations.Send`/`Receive`/`Send2` off the wired provider over a declared transport set; a Rasm owner marshalled to `Base`/`DataObject` at the sync seam
+- Reject: `static Operations.Send`, a hand-rolled `Base`-graph serialiser beside `SpeckleObjectSerializer`, a snapshot-codec payload double-encoded through Speckle

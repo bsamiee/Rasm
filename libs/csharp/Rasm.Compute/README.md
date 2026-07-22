@@ -69,7 +69,7 @@ One intent rail admits every execution request once, a substrate axis routes it 
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Compute-domain libraries admitted by this folder; versions centralize in the C# manifest and corroborate against the adjacent `.api/`. Source-vendored solvers compile from pinned upstreams outside NuGet restore, their natives Forge-provisioned.
+Domain-specific libraries admitted by this folder; versions centralize in `Directory.Packages.props` and corroborate against this folder's `.api/`.
 
 [NUMERIC_ACCELERATION]:
 - `MathNet.Numerics.Providers.MKL` — MKL native `LinearProvider` backend.
@@ -116,7 +116,7 @@ Compute-domain libraries admitted by this folder; versions centralize in the C# 
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Shared substrate Compute consumes from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
+Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`

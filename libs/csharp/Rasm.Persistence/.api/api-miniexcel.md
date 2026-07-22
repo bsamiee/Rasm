@@ -1,253 +1,160 @@
 # [RASM_PERSISTENCE_API_MINIEXCEL]
 
-`MiniExcel` is a zero-template, streaming spreadsheet codec shaped around one static façade
-(`MiniExcelLibs.MiniExcel`) over `Stream`/path: it reads `.xlsx`/`.csv` forward-only into lazy
-`IEnumerable<dynamic>` (`ExpandoObject` rows), strongly-typed `IEnumerable<T>` (attribute-mapped
-POCOs), `IDataReader` (`MiniExcelDataReader`), or a materialized `DataTable`, with cell-range
-windowing (`QueryRange` by `A1:C3` string or by row/column index), header-row and start-cell
-control, and a shared-strings disk cache so a million-row workbook never fully resides in memory.
-It writes any `IEnumerable`/`IDataReader`/`DataTable`/anonymous-object value into a worksheet
-(`SaveAs`), appends/overwrites a sheet in an existing file (`Insert`), and renders a workbook
-from an `.xlsx` template (`SaveAsByTemplate`) with `{{value}}`/`{{collection.field}}` placeholders,
-merged-cell folding (`MergeSameCells`), embedded pictures (`AddPicture`), and direct
-CSV↔XLSX transcoding. Column mapping, format, width, index, hidden, and ignore are declared by
-attribute or by a runtime `DynamicExcelColumn` (with a `CustomFormatter` delegate). It is the
-spreadsheet boundary the `Sep` delimited lane cannot reach and the `Apache.Arrow`/`DuckDB`
-columnar lane is the wrong shape for: the `MiniExcelDataReader : IDataReader` projection feeds the
-identical downstream record rail — the NodaTime/Thinktecture wire converters, the linq2db/EF
-bulk-copy path, and the Arrow/DuckDB columnar materializer — that a CSV ingress feeds, retiring
-`Sylvan.Data.Excel` as the spreadsheet codec.
+`MiniExcel` owns zero-template streaming spreadsheet interchange: one static façade reads `.xlsx`/`.csv` forward-only into lazy `dynamic`, typed, or `IDataReader` rows under a shared-strings disk cache, and writes any enumerable, reader, table, or anonymous value through direct, template, and transcode egress. Column, sheet, style, range, and picture binding ride declared policy values, so workbook size never bounds memory. Persistence routes its spreadsheet lane here, taking row shape alone into the record rail the delimited codec also feeds.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MiniExcel`
-- package: `MiniExcel`
-- license: Apache-2.0 (Wei Lin / Mini-Software team)
+- package: `MiniExcel` (`Apache-2.0`, Mini-Software team)
 - assembly: `MiniExcel`
-- namespace: `MiniExcelLibs` (façade + reader); `MiniExcelLibs.Attributes` (column/sheet mapping); `MiniExcelLibs.Csv` (`CsvConfiguration`); `MiniExcelLibs.OpenXml` (`OpenXmlConfiguration`, sheet/style vocabulary, `Models.ExcelRange`); `MiniExcelLibs.Picture` (`MiniExcelPicture`); `MiniExcelLibs.Exceptions`; the `OpenXml.SaveByTemplate`/`OpenXml.Styles`/`Utils`/`Zip`/`WriteAdapter` types and the `Excel{Reader,Writer,Template}Factory`→internal `IExcelReader`/`IExcelWriter`/`IExcelTemplate` providers are implementation
-- target: multi-target (`net10.0`/`net9.0`/`net8.0`/`netstandard2.0`/`net461`/`net45`); the `net10.0` consumer binds `lib/net10.0`
-- asset: pure-managed runtime library, AnyCPU, no native runtime (self-contained OpenXML zip + CSV reader/writer; uses source-generated `Regex` for cell/template parsing)
-- abi: a static façade whose ingress/egress methods exist as both a `string path` overload and a `this Stream` extension; reads project to `dynamic`/`T`/`IDictionary<string,object>`/`IDataReader`/`DataTable`; the reader is `IDataReader`+`IAsyncDisposable`; row enumeration is lazy (`yield`), only `QueryAsDataTable` and the `[Obsolete]` variants materialize
+- namespace: `MiniExcelLibs` (façade, reader, configuration base); `MiniExcelLibs.Attributes`; `MiniExcelLibs.Csv`; `MiniExcelLibs.OpenXml` and `.Models`; `MiniExcelLibs.Picture`; `MiniExcelLibs.Exceptions`
+- asset: pure-managed AnyCPU runtime library; self-contained OpenXML zip and CSV reader/writer over source-generated `Regex` cell and template parsing
+- target: net10.0 (multi-targets net45/net461/netstandard2.0/net8.0/net9.0/net10.0; the net10.0 asset binds)
+- abi: every façade op carries a `string path` overload and a `this Stream` extension overload, and every ingress and egress op an `*Async` mirror returning the sync result in a `Task` and taking `CancellationToken`; ingress is `yield`-lazy end to end
 - rail: interchange-codec
 
 ## [02]-[PUBLIC_TYPES]
 
-[FACADE_TYPE]: the single static ingress/egress entry (namespace `MiniExcelLibs`)
-- rail: interchange-codec
+[CODEC_TYPES]: the façade, its streaming reader, and the format-keyed policy bag
 
-`MiniExcel` is a `static class`; every operation has a `string path` overload (opens a shared-read
-`FileStream`) and a `this Stream` extension overload (caller owns the stream). `excelType`
-defaults to `UNKNOWN` on the path overloads (sniffed from the extension) and to `XLSX` on most
-stream overloads (no filename to sniff).
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                                                     |
+| :-----: | :------------------------ | :------------ | :--------------------------------------------------------------- |
+|  [01]   | `MiniExcel`               | class         | `static`; the sole ingress and egress façade                     |
+|  [02]   | `MiniExcelDataReader`     | class         | `: MiniExcelDataReaderBase`; one lazy row enumerator as a reader |
+|  [03]   | `MiniExcelDataReaderBase` | class         | `abstract`; typed getters, async row surface, disposal           |
+|  [04]   | `IMiniExcelDataReader`    | interface     | `: IDataReader, IDataRecord, IDisposable, IAsyncDisposable`      |
+|  [05]   | `ExcelType`               | enum          | `XLSX`/`CSV`/`UNKNOWN`; the format discriminant                  |
+|  [06]   | `IConfiguration`          | interface     | the policy slot every op accepts; `null` takes the default       |
+|  [07]   | `Configuration`           | class         | `abstract`; the shared culture, column, and buffer policy        |
+|  [08]   | `OpenXmlConfiguration`    | class         | `: Configuration`; the `.xlsx` policy                            |
+|  [09]   | `CsvConfiguration`        | class         | `: Configuration`; the `.csv` policy                             |
+|  [10]   | `DateOnlyConversionMode`  | enum          | `None`/`RequireMidnight`/`IgnoreTimePart` serial admission       |
 
-| [INDEX] | [SYMBOL]                  | [PACKAGE_ROLE]      | [CAPABILITY]                                                                           |
-| :-----: | :------------------------ | :------------------ | :------------------------------------------------------------------------------------- |
-|  [01]   | `MiniExcel`               | static façade       | the sole static façade; each op = path + `this Stream` overload, `*Async` mirror       |
-|  [02]   | `MiniExcelDataReader`     | ingress reader      | `: MiniExcelDataReaderBase`; a lazy `Query` enumerator as `IDataReader` over one sheet |
-|  [03]   | `MiniExcelDataReaderBase` | reader base         | `abstract`; the `IMiniExcelDataReader`/`IDataReader`/`IAsyncDisposable` skeleton       |
-|  [04]   | `IMiniExcelDataReader`    | reader contract     | `: IDataReader, IDataRecord, IDisposable, IAsyncDisposable`; adds the async row API    |
-|  [05]   | `ExcelType`               | format discriminant | `XLSX` / `CSV` / `UNKNOWN` (sniff from extension/stream) — the `excelType` selector    |
+`AutoFilter`, `TrimColumnNames`, `EnableSharedStringCache`, `EnableWriteNullValueCell`, `EnableConvertByteArray`, `EnableWriteFilePath`, `IgnoreTemplateParameterMissing`, `ReadLineBreaksWithinQuotes`, and `QuoteWhitespaces` default true; `BufferSize` 524288, `FreezeRowCount` 1, `SharedStringCacheSize` 5 MiB, `SharedStringCachePath` the temp directory, `MinWidth` 8.42857143, `MaxWidth` 200, `Seperator` `,`, `NewLine` CRLF, `Culture` invariant.
 
-[CONFIGURATION_TYPES]: the codec policy bag (namespaces `MiniExcelLibs`, `MiniExcelLibs.Csv`, `MiniExcelLibs.OpenXml`)
-- rail: interchange-codec
+- `Configuration`: `Culture` `DynamicColumns` `BufferSize` `FastMode` `DynamicColumnFirst` `DateOnlyConversionMode`
+- `OpenXmlConfiguration`: `FillMergedCells` `TableStyles` `AutoFilter` `RightToLeft` `FreezeRowCount` `FreezeColumnCount` `IgnoreEmptyRows` `TrimColumnNames` `EnableSharedStringCache` `SharedStringCacheSize` `SharedStringCachePath` `StyleOptions` `DynamicSheets` `EnableAutoWidth` `MinWidth` `MaxWidth` `EnableWriteNullValueCell` `WriteEmptyStringAsNull` `EnableConvertByteArray` `EnableWriteFilePath` `IgnoreTemplateParameterMissing`
+- `CsvConfiguration`: `Seperator` `NewLine` `ReadLineBreaksWithinQuotes` `ReadEmptyStringAsNull` `AlwaysQuote` `QuoteWhitespaces` `SplitFn` `StreamReaderFunc` `StreamWriterFunc`
 
-`IConfiguration` is the empty marker the façade accepts; `Configuration` is the shared abstract
-base; `OpenXmlConfiguration` and `CsvConfiguration` are the two concrete policies. Pass the
-matching concrete type for the `ExcelType` in play.
+[MAPPING_TYPES]: declarative and runtime column and sheet binding
 
-| [INDEX] | [SYMBOL]                 | [PACKAGE_ROLE]   | [CAPABILITY]                                                                          |
-| :-----: | :----------------------- | :--------------- | :------------------------------------------------------------------------------------ |
-|  [01]   | `IConfiguration`         | marker interface | the policy slot every `Query`/`SaveAs`/`Insert` overload accepts (`= null` → default) |
-|  [02]   | `Configuration`          | abstract base    | the shared base — culture, dynamic columns, buffer, fast-mode, date-only mode         |
-|  [03]   | `OpenXmlConfiguration`   | `.xlsx` policy   | `: Configuration`; freeze panes, auto-filter, shared-string cache, styles, auto width |
-|  [04]   | `CsvConfiguration`       | `.csv` policy    | `: Configuration`; separator, newline, quote policy, encoding hooks, `SplitFn`        |
-|  [05]   | `DateOnlyConversionMode` | date-cell policy | `None`/`RequireMidnight`/`IgnoreTimePart` — `DateOnly` date-time-serial read mode     |
+`ExcelColumnAttribute` binds `Name` `Aliases` `Index` `IndexName` `Format` `Width` `Hidden` `Ignore` `Type` in one declaration; each single-purpose attribute derives from `Attribute` directly and owns one differently-named property, so a binder reading them reads nine distinct member names.
 
-[PROPERTIES]: the settable config members and defaults.
-- [02]-[CONFIGURATION]: `Culture` (`InvariantCulture`), `DynamicColumns` (`DynamicExcelColumn[]`), `BufferSize` (524288), `FastMode`, `DynamicColumnFirst`, `DateOnlyConversionMode`
-- [03]-[OPENXMLCONFIGURATION]: `FillMergedCells`, `TableStyles`, `AutoFilter` (true), `RightToLeft`, `FreezeRowCount` (1)/`FreezeColumnCount`, `IgnoreEmptyRows`, `TrimColumnNames` (true), `EnableSharedStringCache` (true)/`SharedStringCacheSize` (5 MiB)/`SharedStringCachePath`, `StyleOptions`, `DynamicSheets`, `EnableAutoWidth`/`MinWidth`/`MaxWidth`, `EnableWriteNullValueCell`/`WriteEmptyStringAsNull`, `EnableConvertByteArray`, `IgnoreTemplateParameterMissing`
-- [04]-[CSVCONFIGURATION]: `Seperator` (`,`), `NewLine` (`\r\n`), `ReadLineBreaksWithinQuotes` (true), `ReadEmptyStringAsNull`, `AlwaysQuote`/`QuoteWhitespaces`, `SplitFn` (`Func<string,string[]>`), `StreamReaderFunc`/`StreamWriterFunc` (encoding hooks, default UTF-8 BOM)
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CAPABILITY]                                                        |
+| :-----: | :-------------------------- | :------------ | :------------------------------------------------------------------ |
+|  [01]   | `ExcelColumnAttribute`      | class         | the unified column binder                                           |
+|  [02]   | `ColumnType`                | enum          | `Value`/`Formula`; writes a literal cell or an Excel formula        |
+|  [03]   | `DynamicExcelColumn`        | class         | `: ExcelColumnAttribute`; `Key` + `CustomFormatter` cell projection |
+|  [04]   | `ExcelColumnNameAttribute`  | class         | `ExcelColumnName` + `Aliases` header binding                        |
+|  [05]   | `ExcelColumnIndexAttribute` | class         | `ExcelColumnIndex` from an ordinal or a column letter               |
+|  [06]   | `ExcelFormatAttribute`      | class         | `Format`; the cell number-format string                             |
+|  [07]   | `ExcelColumnWidthAttribute` | class         | `ExcelColumnWidth`; explicit column width                           |
+|  [08]   | `ExcelHiddenAttribute`      | class         | `ExcelHidden`; hides the column                                     |
+|  [09]   | `ExcelIgnoreAttribute`      | class         | `ExcelIgnore`; skips the member                                     |
+|  [10]   | `ExcelSheetAttribute`       | class         | `Name` + `State`; worksheet name and visibility                     |
+|  [11]   | `DynamicExcelSheet`         | class         | `: ExcelSheetAttribute`; `Key`-addressed runtime sheet              |
 
-[MAPPING_ATTRIBUTES]: declarative POCO↔column/sheet binding (namespace `MiniExcelLibs.Attributes`)
-- rail: interchange-codec
+[WORKBOOK_TYPES]: sheet, style, range, and picture vocabulary
 
-`ExcelColumnAttribute` is the unified column binder (name/alias/index/format/width/hidden/ignore/
-type in one attribute); the single-purpose attributes are narrower aliases. `DynamicExcelColumn`
-is the runtime (no-recompile) form supplied through `Configuration.DynamicColumns`.
+`OpenXmlStyleOptions` and `OpenXmlHeaderStyle` each carry `HorizontalAlignment` and `VerticalAlignment`, so a header stance and a body stance set alignment independently; `MiniExcelPicture` sizes through `WidthPx` (80) and `HeightPx` (24).
 
-| [INDEX] | [SYMBOL]                    | [PACKAGE_ROLE]      | [CAPABILITY]                                                                      |
-| :-----: | :-------------------------- | :------------------ | :-------------------------------------------------------------------------------- |
-|  [01]   | `ExcelColumnAttribute`      | unified column bind | `Name`/`Aliases`/`Index`/`IndexName`/`Format`/`Width`/`Hidden`/`Ignore`/`Type`    |
-|  [02]   | `ColumnType`                | column kind         | `Value` / `Formula` — write the cell as a literal value or an Excel formula       |
-|  [03]   | `DynamicExcelColumn`        | runtime column      | `: ExcelColumnAttribute`; `(string key)`, `CustomFormatter` `Func<object,object>` |
-|  [04]   | `ExcelColumnNameAttribute`  | name + alias        | ctor `(string name, string[] aliases = null)` — header-name binding               |
-|  [05]   | `ExcelColumnIndexAttribute` | ordinal             | ctor `(int)` or `(string columnName)` — fixed column position                     |
-|  [06]   | `ExcelFormatAttribute`      | number/date format  | ctor `(string format)` — the cell number-format string                            |
-|  [07]   | `ExcelColumnWidthAttribute` | column width        | ctor `(double)` — explicit column width                                           |
-|  [08]   | `ExcelHiddenAttribute`      | hidden column       | ctor `(bool = true)`                                                              |
-|  [09]   | `ExcelIgnoreAttribute`      | skip member         | ctor `(bool = true)`                                                              |
-|  [10]   | `ExcelSheetAttribute`       | sheet bind          | `Name`, `State` (`SheetState`) — worksheet name + visibility on a POCO type       |
-|  [11]   | `DynamicExcelSheet`         | runtime sheet       | `: ExcelSheetAttribute`; `(string key)` via `OpenXmlConfiguration.DynamicSheets`  |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                                              |
+| :-----: | :------------------------ | :------------ | :-------------------------------------------------------- |
+|  [01]   | `SheetInfo`               | class         | `Id`/`Index`/`Name`/`State`/`Active` sheet descriptor     |
+|  [02]   | `SheetState`              | enum          | `Visible`/`Hidden`/`VeryHidden`                           |
+|  [03]   | `TableStyles`             | enum          | `None`/`Default` table preset                             |
+|  [04]   | `OpenXmlStyleOptions`     | class         | `HeaderStyle` + `WrapCellContents` cell policy            |
+|  [05]   | `OpenXmlHeaderStyle`      | class         | `WrapText` + `BackgroundColor`                            |
+|  [06]   | `HorizontalCellAlignment` | enum          | `Left`/`Center`/`Right`                                   |
+|  [07]   | `VerticalCellAlignment`   | enum          | `Bottom`/`Center`/`Top`                                   |
+|  [08]   | `ExcelRange`              | class         | `StartCell`/`EndCell` + `Rows`/`Columns` used-range       |
+|  [09]   | `ExcelRangeElement`       | class         | `StartIndex`/`EndIndex`/`Count`; a 1-based inclusive axis |
+|  [10]   | `MiniExcelPicture`        | class         | `ImageBytes`/`SheetName`/`PictureType`/`CellAddress`      |
 
-[WORKBOOK_VOCABULARY]: sheet, style, range, and picture surface (namespaces `MiniExcelLibs.OpenXml`, `MiniExcelLibs.OpenXml.Models`, `MiniExcelLibs.Picture`)
-- rail: interchange-codec
-- style rows `OpenXmlStyleOptions`/`OpenXmlHeaderStyle` both carry `HorizontalAlignment`/`VerticalAlignment`
+[FAULT_TYPES]: the typed read and serialize faults the boundary lifts
 
-| [INDEX] | [SYMBOL]                  | [PACKAGE_ROLE]     | [CAPABILITY]                                                                        |
-| :-----: | :------------------------ | :----------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `SheetInfo`               | sheet descriptor   | `Id`/`Index`/`Name`/`State` (`SheetState`)/`Active`                                 |
-|  [02]   | `SheetState`              | sheet visibility   | `Visible` / `Hidden` / `VeryHidden`                                                 |
-|  [03]   | `TableStyles`             | table style preset | `None` / `Default` (`OpenXmlConfiguration.TableStyles`)                             |
-|  [04]   | `OpenXmlStyleOptions`     | cell style policy  | `HeaderStyle` (`OpenXmlHeaderStyle`), `WrapCellContents`                            |
-|  [05]   | `OpenXmlHeaderStyle`      | header style       | `WrapText`, `BackgroundColor` (`System.Drawing.Color`)                              |
-|  [06]   | `HorizontalCellAlignment` | horizontal align   | `Left` / `Center` / `Right`                                                         |
-|  [07]   | `VerticalCellAlignment`   | vertical align     | `Bottom` / `Center` / `Top`                                                         |
-|  [08]   | `ExcelRange`              | sheet dimension    | `StartCell`/`EndCell` + `Rows`/`Columns` (`ExcelRangeElement`)                      |
-|  [09]   | `ExcelRangeElement`       | range axis         | `StartIndex`/`EndIndex`/`Count` (1-based inclusive axis span)                       |
-|  [10]   | `MiniExcelPicture`        | embedded image     | `ImageBytes`/`SheetName`/`PictureType`/`CellAddress`/`WidthPx` (80)/`HeightPx` (24) |
+| [INDEX] | [SYMBOL]                            | [TYPE_FAMILY] | [CAPABILITY]                                               |
+| :-----: | :---------------------------------- | :------------ | :--------------------------------------------------------- |
+|  [01]   | `ExcelColumnNotFoundException`      | class         | `: KeyNotFoundException`; a member with no matching header |
+|  [02]   | `ExcelInvalidCastException`         | class         | `: InvalidCastException`; a cell the member cannot take    |
+|  [03]   | `MiniExcelNotSerializableException` | class         | `: InvalidOperationException`; a write member that resists |
 
-[FAULT_TYPES]: typed read/serialize faults (namespace `MiniExcelLibs.Exceptions`)
-- rail: interchange-codec
-
-| [INDEX] | [SYMBOL]                            | [PACKAGE_ROLE]    | [CAPABILITY]                                                              |
-| :-----: | :---------------------------------- | :---------------- | :------------------------------------------------------------------------ |
-|  [01]   | `ExcelColumnNotFoundException`      | missing column    | `: KeyNotFoundException`; a `Query<T>` member with no matching header     |
-|  [02]   | `ExcelInvalidCastException`         | cell cast failure | the `TabularFault.CellCast` lift source (decompile-verified)              |
-|  [03]   | `MiniExcelNotSerializableException` | egress reject     | the `TabularFault.NotSerializable` lift source (decompile-verified)       |
-|  [04]   | `ExcelInvalidCastException`         | cell cast fault   | `: InvalidCastException`; a cell that cannot coerce to the typed member   |
-|  [05]   | `MiniExcelNotSerializableException` | non-serializable  | `: InvalidOperationException`; a write value member that cannot serialize |
-
-[MEMBERS]: the typed fault members each exception carries.
-- [01]-[EXCELCOLUMNNOTFOUNDEXCEPTION]: `ColumnName`/`ColumnAliases`/`ColumnIndex`/`RowIndex`/`Headers`/`RowValues`
-- [02]-[EXCELINVALIDCASTEXCEPTION]: `ColumnName`/`Row`/`InvalidCastType`
-- [03]-[MINIEXCELNOTSERIALIZABLEEXCEPTION]: `Member`
-- [04]-[EXCELINVALIDCASTEXCEPTION]: `ColumnName`/`Row`/`Value`/`InvalidCastType`
-- [05]-[MINIEXCELNOTSERIALIZABLEEXCEPTION]: `Member` (`MemberInfo`)
+- `ExcelColumnNotFoundException`: `ColumnName` `ColumnAliases` `ColumnIndex` `RowIndex` `Headers` `RowValues`
+- `ExcelInvalidCastException`: `ColumnName` `Row` `Value` `InvalidCastType`
+- `MiniExcelNotSerializableException`: `Member` (`MemberInfo`)
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: ingress — lazy row enumeration (sync + async mirror)
-- rail: interchange-codec
-- surface-root: `MiniExcel` (path overload + `this Stream` extension overload)
+[ENTRYPOINT_SCOPE]: ingress — row enumeration, windowing, reader projection, sheet introspection
 
-`Query<T>` materializes one POCO per row (attribute-mapped); `Query` yields a `dynamic`
-(`ExpandoObject`) per row whose members are the header names (when `useHeaderRow: true`) or the
-`A`/`B`/`C` column letters. Both are lazy `yield` enumerables — back-pressured, never fully
-buffered. `startCell` (`"A1"`) skips a leading block; `sheetName` selects a worksheet (first sheet
-when `null`). Every overload has a `string path` and a `this Stream` form sharing the tail
-`(sheetName?, ExcelType=UNKNOWN, startCell="A1", IConfiguration?)`; `QueryAsync` adds a `CancellationToken`.
+Every read carries the tail `(sheetName, ExcelType, startCell, IConfiguration)`; the path overload sniffs `UNKNOWN` from the extension while a `Stream` overload names `XLSX` or `CSV`. `Query` keys each `ExpandoObject` by header name under `useHeaderRow`, by `A`/`B`/`C` column letter otherwise; the `GetColumns`/`GetSheet*` probes resolve shape without reading the body.
 
-| [INDEX] | [SURFACE]                                             | [RETURNS]                     | [CAPABILITY]                                |
-| :-----: | :---------------------------------------------------- | :---------------------------- | :------------------------------------------ |
-|  [01]   | `MiniExcel.Query<T>(string path, …)`                  | `IEnumerable<T>` (lazy)       | typed POCO rows by attribute mapping        |
-|  [02]   | `stream.Query<T>(…)`                                  | `IEnumerable<T>` (lazy)       | typed rows over a caller-owned stream       |
-|  [03]   | `MiniExcel.Query(string path, useHeaderRow=false, …)` | `IEnumerable<dynamic>` (lazy) | dynamic `ExpandoObject` rows                |
-|  [04]   | `stream.Query(useHeaderRow=false, …)`                 | `IEnumerable<dynamic>` (lazy) | dynamic rows over a stream                  |
-|  [05]   | `MiniExcel.QueryAsync<T>` / `QueryAsync`              | `Task<IEnumerable<…>>`        | async-launched mirror of `Query`/`Query<T>` |
+| [INDEX] | [SURFACE]                                                          | [SHAPE] | [CAPABILITY]                                   |
+| :-----: | :----------------------------------------------------------------- | :------ | :--------------------------------------------- |
+|  [01]   | `Query<T>(…, bool) -> IEnumerable<T>`                              | static  | attribute-mapped rows, `T : class, new()`      |
+|  [02]   | `Query(…, bool) -> IEnumerable<dynamic>`                           | static  | `ExpandoObject` rows keyed by header or letter |
+|  [03]   | `QueryRange(…, string, string) -> IEnumerable<dynamic>`            | static  | window by an `A1:C3` cell pair                 |
+|  [04]   | `QueryRange(…, int, int, int?, int?) -> IEnumerable<dynamic>`      | static  | 1-based index window; `null` = sheet edge      |
+|  [05]   | `GetReader(…) -> MiniExcelDataReader`                              | static  | streaming `IDataReader` over a sheet           |
+|  [06]   | `GetColumns(…) -> ICollection<string>`                             | static  | first-row column keys                          |
+|  [07]   | `GetSheetNames(…, OpenXmlConfiguration) -> List<string>`           | static  | worksheet roster                               |
+|  [08]   | `GetSheetInformations(…, OpenXmlConfiguration) -> List<SheetInfo>` | static  | per-sheet descriptor roster                    |
+|  [09]   | `GetSheetDimensions(…) -> IList<ExcelRange>`                       | static  | used-range dimension per sheet                 |
 
-[ENTRYPOINT_SCOPE]: ingress — cell-range windowing
-- rail: interchange-codec
+- `QueryRange`: owns windowing alone and yields `dynamic`, so a typed windowed read binds that window through the caller's own projection.
+- `QueryAsync`: every form but the `Stream` typed one wraps the sync read in `Task.Run`, so it launches asynchronously over synchronous I/O.
 
-`QueryRange` reads a sub-rectangle by an `A1:C3`-style `startCell`/`endCell` pair, or by 1-based
-`startRowIndex`/`startColumnIndex` + nullable `endRowIndex`/`endColumnIndex` (null = to the
-sheet edge). Each form has a `string path` and `this Stream` overload sharing the common
-`(useHeaderRow=false, sheetName?, ExcelType=UNKNOWN, …, IConfiguration?)`. The public façade exposes
-the `dynamic` form; the typed `QueryRange<T>` lives on the internal reader contract, so a typed range
-read combines `Query<T>` with `startCell`/window policy.
+[ENTRYPOINT_SCOPE]: egress — write, append, template, adorn, transcode
 
-| [INDEX] | [SURFACE]                                                         | [RETURNS]              | [CAPABILITY]                     |
-| :-----: | :---------------------------------------------------------------- | :--------------------- | :------------------------------- |
-|  [01]   | `MiniExcel.QueryRange(path, …, startCell, endCell)`               | `IEnumerable<dynamic>` | window by `A1:C3` cell string    |
-|  [02]   | `stream.QueryRange(…, startCell, endCell)`                        | `IEnumerable<dynamic>` | cell-string window over a stream |
-|  [03]   | `MiniExcel.QueryRange(path, …, startRowIndex, …, endColumnIndex)` | `IEnumerable<dynamic>` | window by row/column index       |
-|  [04]   | `stream.QueryRange(…, startRowIndex, …, endColumnIndex)`          | `IEnumerable<dynamic>` | index window over a stream       |
+`SaveAs` and `Insert` share `(value, printHeader, sheetName, ExcelType, IConfiguration)`, `SaveAs` adding `overwriteFile` and `Insert` `overwriteSheet`; `value` is any `IEnumerable`, `IDataReader`, `DataTable`, or anonymous object. CSV `Insert` appends to the file, XLSX `Insert` defaults its configuration to `FastMode`, and either write path rejects `.xlsm` with `NotSupportedException`.
 
-[ENTRYPOINT_SCOPE]: ingress — `IDataReader` + `DataTable` + introspection
-- rail: interchange-codec
+| [INDEX] | [SURFACE]                                                | [SHAPE] | [CAPABILITY]                                   |
+| :-----: | :------------------------------------------------------- | :------ | :--------------------------------------------- |
+|  [01]   | `SaveAs(…, object, …) -> int[]`                          | static  | writes a workbook; per-sheet row counts        |
+|  [02]   | `Insert(…, object, …) -> int`                            | static  | appends or overwrites one sheet in place       |
+|  [03]   | `SaveAsByTemplate(…, string\|Stream\|byte[], object, …)` | static  | renders `{{value}}`/`{{collection.field}}`     |
+|  [04]   | `MergeSameCells(…, string\|byte[], ExcelType, …)`        | static  | folds repeated column values into merged cells |
+|  [05]   | `AddPicture(…, params MiniExcelPicture[])`               | static  | embeds images at cell addresses                |
+|  [06]   | `ConvertCsvToXlsx(string\|Stream, string\|Stream)`       | static  | streams a delimited file into a workbook       |
+|  [07]   | `ConvertXlsxToCsv(string\|Stream, string\|Stream)`       | static  | streams a workbook into a delimited file       |
 
-`GetReader` is the bulk-rail seam: a `MiniExcelDataReader : IDataReader` streaming one sheet, the
-shape `linq2db`/EF bulk-copy and the Arrow/DuckDB materializer consume. `QueryAsDataTable` (and its
-async form) is `[Obsolete]` because it buffers the whole sheet — use the reader or `Query` for
-streaming. `GetColumns`/`GetSheetNames`/`GetSheetInformations`/`GetSheetDimensions` introspect
-without reading the body. `GetReader`/`GetColumns`/`QueryAsDataTable` share
-`(path/stream, useHeaderRow, sheetName?, ExcelType=UNKNOWN, startCell="A1", IConfiguration?)`;
-`GetSheetNames`/`GetSheetInformations` take `(path/stream, OpenXmlConfiguration?)`, `GetSheetDimensions(path/stream)`.
+[ENTRYPOINT_SCOPE]: `MiniExcelDataReader` — the streaming row API
 
-| [INDEX] | [SURFACE]                                    | [RETURNS]             | [CAPABILITY]                                             |
-| :-----: | :------------------------------------------- | :-------------------- | :------------------------------------------------------- |
-|  [01]   | `MiniExcel.GetReader(path/stream, …)`        | `MiniExcelDataReader` | streaming `IDataReader` over one sheet                   |
-|  [02]   | `MiniExcel.GetColumns(path/stream, …)`       | `ICollection<string>` | first-row column keys (header names or `A`/`B`/…)        |
-|  [03]   | `MiniExcel.GetSheetNames(…)`                 | `List<string>`        | worksheet roster                                         |
-|  [04]   | `MiniExcel.GetSheetInformations(…)`          | `List<SheetInfo>`     | per-sheet `Id`/`Index`/`Name`/`State`/`Active`           |
-|  [05]   | `MiniExcel.GetSheetDimensions(…)`            | `IList<ExcelRange>`   | used-range dimension per sheet                           |
-|  [06]   | `MiniExcel.QueryAsDataTable(…)` `[Obsolete]` | `DataTable`           | full-buffer materialization (avoid; `useHeaderRow=true`) |
+`MiniExcelDataReader` reads forward-only over one sheet, its first `Read` surfacing the row captured at construction; disposal releases the inner stream and enumerator. `MiniExcelDataReaderBase` supplies every typed getter over an ordinal: `GetBoolean` `GetByte` `GetBytes` `GetChar` `GetChars` `GetDataTypeName` `GetDateTime` `GetDecimal` `GetDouble` `GetFieldType` `GetFloat` `GetGuid` `GetInt16` `GetInt32` `GetInt64` `GetSchemaTable` `GetString` `GetValues` `IsDBNull`.
 
-[ENTRYPOINT_SCOPE]: egress — write, insert, template, picture, transcode (sync + async mirror)
-- rail: interchange-codec
+| [INDEX] | [SURFACE]                                 | [SHAPE]  | [CAPABILITY]                       |
+| :-----: | :---------------------------------------- | :------- | :--------------------------------- |
+|  [01]   | `Read()` / `ReadAsync(CancellationToken)` | instance | advance one row                    |
+|  [02]   | `GetValue(int)` / `GetValueAsync(int, …)` | instance | current-row value, sync and async  |
+|  [03]   | `GetName(int)` / `GetNameAsync(int, …)`   | instance | column name at an ordinal          |
+|  [04]   | `GetOrdinal(string)` / `FieldCount`       | instance | name-to-ordinal, live column width |
+|  [05]   | `NextResult()` / `NextResultAsync(…)`     | instance | advance past one result set        |
+|  [06]   | `Close/CloseAsync/Dispose/DisposeAsync()` | instance | release stream and enumerator      |
 
-`SaveAs` writes a fresh file/sheet from any `IEnumerable`/`IDataReader`/`DataTable`/anonymous-object
-`value`; `Insert` appends or overwrites a sheet in an existing workbook (`overwriteSheet`); CSV
-`Insert` uses `FileMode.Append`, XLSX `Insert` defaults the config to `FastMode = true`.
-`SaveAsByTemplate` renders an `.xlsx` template with `{{value}}`/`{{collection.field}}` placeholders.
-`.xlsm` is rejected by `SaveAs`/`Insert`. `SaveAs`/`Insert` share
-`(value, printHeader=true, sheetName="Sheet1", ExcelType=UNKNOWN|XLSX, IConfiguration?)`, `SaveAs` adding
-`overwriteFile=false` and `Insert` `overwriteSheet=false`; `SaveAsByTemplate(path|Stream, templatePath|Stream|byte[], value, IConfiguration?)`,
-`MergeSameCells(mergedFilePath|Stream, path|byte[], ExcelType=XLSX, IConfiguration?)`, `AddPicture(path|Stream, params MiniExcelPicture[])`.
-Each carries an `*Async` mirror — `SaveAsAsync`/`InsertAsync`/`SaveAsByTemplateAsync`/`MergeSameCellsAsync(…, CancellationToken)` returning `Task`/`Task<int>`/`Task<int[]>`.
-
-| [INDEX] | [SURFACE]                                         | [RETURNS] | [CAPABILITY]                                           |
-| :-----: | :------------------------------------------------ | :-------- | :----------------------------------------------------- |
-|  [01]   | `MiniExcel.SaveAs(string path, value, …)`         | `int[]`   | write a workbook; per-sheet row counts                 |
-|  [02]   | `stream.SaveAs(value, …)`                         | `int[]`   | write into a caller-owned stream                       |
-|  [03]   | `MiniExcel.Insert(path/stream, value, …)`         | `int`     | append/overwrite a sheet in an existing file           |
-|  [04]   | `MiniExcel.SaveAsByTemplate(…)`                   | `void`    | render a workbook from an `.xlsx` template             |
-|  [05]   | `MiniExcel.MergeSameCells(…)`                     | `void`    | fold vertically-repeated cell values into merged cells |
-|  [06]   | `MiniExcel.AddPicture(…)`                         | `void`    | embed `MiniExcelPicture[]` images at cell addresses    |
-|  [07]   | `MiniExcel.ConvertCsvToXlsx` / `ConvertXlsxToCsv` | `void`    | direct CSV↔XLSX transcode (stream the rows, no buffer) |
-
-[ENTRYPOINT_SCOPE]: `MiniExcelDataReader` — the streaming `IDataReader` row API
-- rail: interchange-codec
-
-The reader is forward-only over one sheet; `Read` advances (the first `Read` surfaces the row
-captured at construction), `GetValue(i)`/`GetName(i)`/`GetOrdinal(name)`/`FieldCount` index the
-current row, the inherited `MiniExcelDataReaderBase` supplies the typed getters and the async
-(`ReadAsync`/`GetValueAsync`/`NextResultAsync`/`CloseAsync`) surface; `Dispose`/`DisposeAsync`
-release the inner stream + enumerator. Each member below is a `reader` call.
-
-| [INDEX] | [SURFACE]                                                                                   | [CAPABILITY]                      |
-| :-----: | :------------------------------------------------------------------------------------------ | :-------------------------------- |
-|  [01]   | `Read()/ReadAsync(CancellationToken)`                                                       | advance one row                   |
-|  [02]   | `GetValue(int)/GetValueAsync(int,…)/GetValues(object[])`                                    | boxed / async / bulk row value    |
-|  [03]   | `GetName(int)/GetNameAsync(int,…)/GetOrdinal(string)/FieldCount`                            | header name ↔ ordinal, live width |
-|  [04]   | `GetString/GetInt32/GetDouble/GetDecimal/GetDateTime/GetBoolean/GetGuid(int)/IsDBNull(int)` | inherited typed ADO.NET getters   |
-|  [05]   | `NextResult()/NextResultAsync(…)/Close()/CloseAsync()/Dispose()/DisposeAsync()`             | result advance / lifecycle        |
+- `MiniExcelDataReaderBase`: `this[int]`, `this[string]`, `Depth`, `IsClosed`, and `RecordsAffected` return base defaults; `GetValue` indexes the current row.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[INTERCHANGE_PROFILE]:
-- ingress root: `MiniExcel.Query`/`Query<T>`/`QueryRange` — lazy `yield` enumerables over `.xlsx`/`.csv`; `Query<T>` attribute-maps to a POCO, `Query` yields a header-keyed `ExpandoObject`. `GetReader` projects the same stream as a `MiniExcelDataReader : IDataReader` for the bulk/columnar rail.
-- egress root: `MiniExcel.SaveAs`/`Insert` — write any `IEnumerable`/`IDataReader`/`DataTable`/anonymous value into a worksheet; `SaveAsByTemplate` renders an `.xlsx` template; `int[]`/`int` return the per-sheet row counts.
-- format selector: `ExcelType` (`XLSX`/`CSV`/`UNKNOWN`) — `UNKNOWN` sniffs from the path extension; a `Stream` overload requires an explicit `XLSX`/`CSV`. `.xlsm` is unsupported on the write path.
-- policy seam: `IConfiguration` — `OpenXmlConfiguration` for `.xlsx` (shared-string disk cache, freeze panes, auto-filter, style options, merged-cell fill, dynamic sheets, auto width) and `CsvConfiguration` for `.csv` (separator, newline, quote policy, encoding hooks, custom `SplitFn`); never an ad-hoc inline literal.
-- mapping seam: `ExcelColumnAttribute`/`ExcelSheetAttribute` on the POCO, or `Configuration.DynamicColumns` (`DynamicExcelColumn` with a `CustomFormatter` delegate) and `OpenXmlConfiguration.DynamicSheets` for the no-recompile runtime form.
-
-[LOCAL_ADMISSION]:
-- MiniExcel is the spreadsheet + CSV codec for tabular interchange profiles (`Ingest/schedule`, `Catalog/cost` import-export, `Ingest/tabular` element ingress) where the source is `.xlsx` or `.csv`; profile options live on a typed `OpenXmlConfiguration`/`CsvConfiguration`, never inlined.
-- a typed read uses `Query<T>` with `ExcelColumnAttribute`/`ExcelColumnNameAttribute` aliases (never positional magic-index `dynamic` access on a known schema); a `Query<T>` against a missing header surfaces `ExcelColumnNotFoundException` and a bad cell `ExcelInvalidCastException`, both folded into a typed `Fin`/`Validation` failure at the row boundary rather than thrown through the receipt path.
-- a large read streams through `Query`/`GetReader` (lazy `yield`), keeping `OpenXmlConfiguration.EnableSharedStringCache` on so the shared-strings table spills to `SharedStringCachePath`; `QueryAsDataTable` is `[Obsolete]` (whole-sheet buffer) and is used only where a `DataTable` is the explicit boundary contract.
-- an egress reuses the reader/lane rail the query produces (`SaveAs(stream, dataReader)` / `Insert`), so a schedule/cost/catalog export never re-materializes a table; report-shaped output uses `SaveAsByTemplate` with placeholder binding instead of cell-by-cell writes.
+[TOPOLOGY]:
+- Every op folds through one `IConfiguration` policy value selected by the `ExcelType` in play — `OpenXmlConfiguration` for `.xlsx`, `CsvConfiguration` for `.csv` — so format, style, mapping, and cache posture arrive as one declaration rather than per-call arguments.
+- Ingress is lazy end to end: `Query`, `QueryRange`, and `GetReader` all `yield` from one provider enumeration, the path overloads holding the shared-read `FileStream` open only for the enumeration's life, and `EnableSharedStringCache` spilling the shared-strings table to `SharedStringCachePath` so workbook size never bounds memory.
 
 [STACKING]:
-- delimited sibling: MiniExcel and `Sep` (`api-sep`) are the two tabular-text-and-spreadsheet codecs — `Sep` owns high-throughput delimited text over zero-allocation `ReadOnlySpan<char>` rows, MiniExcel owns `.xlsx` workbooks (and a convenience CSV path via `CsvConfiguration`); the profile selects one by source format, and both project into the SAME downstream record rail. `Sep` remains the performance-critical CSV codec; MiniExcel's CSV leg exists for symmetric xlsx↔csv transcode (`ConvertXlsxToCsv`/`ConvertCsvToXlsx`).
-- retired codec: MiniExcel replaces `Sylvan.Data.Excel` as the spreadsheet codec — the `DbDataReader`-only Sylvan surface is superseded by MiniExcel's `dynamic`/`T`/`IDataReader`/`DataTable` ingress plus template/picture/merged-cell egress; the former Sylvan catalog and any `Sylvan.Data.Excel` design-page reference are retired (no `Sylvan` `PackageReference` remains in the folder csproj).
-- bulk ingress: `MiniExcel.GetReader` yields a `MiniExcelDataReader : IDataReader` — an `IDataReader` source for `LinqToDBForEFTools.BulkCopy`/`BulkCopyAsync` (`api-linq2db-ef`), so a spreadsheet streams into PostgreSQL binary COPY through the same bulk rail a CSV uses; both arrive as a reader.
-- columnar edge: MiniExcel is the spreadsheet/CSV codec only; `Apache.Arrow`/`DuckDB.NET`/`ParquetSharp` own the binary columnar path. A spreadsheet ingress reads rows, the record rail projects them, and the columnar rail materializes the Arrow batch — MiniExcel never re-implements a columnar reader, and a `.xlsx` is never treated as a columnar file.
-- wire converters: a typed read feeds the NodaTime STJ converters (`api-nodatime-stj`) and the Thinktecture value-object/smart-enum factories — `Query<T>` maps a header to a POCO member, a `DynamicExcelColumn.CustomFormatter` (`Func<object,object>`) projects an `Instant`/`LocalDate`/value-object cell at the boundary, and `DateOnlyConversionMode` governs a `DateOnly` target; the semantic type is minted by the wire rail, MiniExcel only delivers the cell.
-- element ingress (`Rasm.Element`): MiniExcel is the `Ingest/tabular` codec — a workbook/CSV of element rows reads through `Query<T>`/`GetReader`, the per-app tabular→element map (the wire-composition owner) projects each row into an `ElementGraph` node, and a catalog/cost/schedule egress writes element-derived tables back through `SaveAs`/`SaveAsByTemplate`; the codec never knows the element graph, only the row shape at the wire.
-- redaction/egress: the reader→writer bridge re-emits an `IDataReader` (optionally wrapped by a redacting `DbDataReader` decorator applying `Microsoft.Extensions.Compliance.Redaction` per column) into a worksheet, so a redacted spreadsheet export streams without materializing the table.
+- `Sep`(`.api/api-sep.md`): peer codec on one record rail — Sep owns SIMD delimited text over `ReadOnlySpan<char>` rows, MiniExcel owns `.xlsx` workbooks and the symmetric `ConvertXlsxToCsv`/`ConvertCsvToXlsx` transcode; source format selects the owner and both deliver the same anonymous row stream downstream.
+- `linq2db.EntityFrameworkCore`(`.api/api-linq2db-ef.md`): a typed row sequence sources `LinqToDBForEFTools.BulkCopyAsync<T>` into PostgreSQL binary COPY, and `BulkCopy`/`BulkCopyAsync` bind `IEnumerable<T>`/`IAsyncEnumerable<T>`, so the typed enumerable is the bulk source and the reader never is.
+- `Apache.Arrow`(`.api/api-arrow.md`)/`DuckDB.NET`(`.api/api-duckdb.md`): `GetReader`'s `MiniExcelDataReader : IDataReader` is the row source the columnar materializer pulls, and the binary columnar path stays theirs — a workbook is never read as a columnar file.
+- `NodaTime.Serialization.SystemTextJson`(`.api/api-nodatime-stj.md`)/`Thinktecture.Runtime.Extensions.Json`(`.api/api-thinktecture-json.md`): a header-keyed `dynamic` row binds through the composed wire converters, minting `Instant`, `LocalDate`, value-object, and smart-enum cells; `DateOnlyConversionMode` governs `DateOnly` admission and `DynamicExcelColumn.CustomFormatter` projects the cell on the dynamic, reader, and write legs.
+- `Microsoft.Extensions.Compliance.Redaction`(`.api/api-redaction.md`): the façade exposes no reader-to-writer copy bridge, so a redacted export resolves one `Redactor` per column from the field's `DataClassificationSet` and rewrites each classified cell in the row enumerable before `SaveAs`.
+- within-lib: `Ingest/tabular` folds typed read, dynamic scan, streaming reader, sheet probe, write, append, template render, adorn, and transcode onto one spec value, so the path-versus-stream overload pair collapses to one source case; a typed read binds header-keyed `dynamic` rows through the wire projection rather than `Query<T>`, whose `where T : class, new()` reflective binder neither invokes `CustomFormatter` nor mints a semantic type.
+
+[LOCAL_ADMISSION]:
+- MiniExcel is the spreadsheet and symmetric-CSV codec for tabular interchange profiles; read and write posture is a declared `OpenXmlConfiguration`/`CsvConfiguration` value.
+- Column and sheet binding rides `ExcelColumnAttribute`/`ExcelSheetAttribute` on the type, or `DynamicColumns`/`DynamicSheets` for the runtime form the profile registers.
+- `ExcelColumnNotFoundException`, `ExcelInvalidCastException`, and `MiniExcelNotSerializableException` lift through one funnel into a typed `Validation` at the row boundary, accumulating independent row faults across the sheet.
+- Report-shaped output renders through `SaveAsByTemplate` with placeholder binding and finishes through `MergeSameCells`/`AddPicture`; header and cell styling ride the `OpenXmlStyleOptions` policy value.
 
 [RAIL_LAW]:
 - Package: `MiniExcel`
-- Owns: spreadsheet + CSV interchange — lazy `dynamic`/typed/`IDataReader`/`DataTable` `.xlsx`/`.csv` ingress with header-row, start-cell, and cell-range windowing; attribute and runtime (`DynamicExcelColumn`) column/sheet mapping; `IEnumerable`/`IDataReader`/`DataTable`/anonymous-object egress; `.xlsx` template rendering, merged-cell folding, embedded pictures, and CSV↔XLSX transcode; the shared-string disk cache for memory-bounded large workbooks.
-- Accept: profile-declared spreadsheet/CSV reads/writes through the static façade; `Query<T>` attribute-mapped typed reads with `ExcelColumnNotFoundException`/`ExcelInvalidCastException` folded into `Fin`; `GetReader` `IDataReader` streamed into the bulk/columnar rail; `OpenXmlConfiguration`/`CsvConfiguration` typed policy; `SaveAsByTemplate` for report-shaped output.
-- Reject: hand-rolled OpenXML/CSV parsing; `QueryAsDataTable` whole-sheet buffering on a streaming path; positional magic-index `dynamic` access on a known schema; treating a spreadsheet as a columnar file (`Apache.Arrow`/`DuckDB`/`ParquetSharp` own the binary path); high-throughput delimited parsing that `Sep` owns; citing the internal `IExcelReader`/`IExcelWriter`/`Excel*Factory`/`Utils`/`Zip`/`WriteAdapter` types or the retired `Sylvan.Data.Excel` surface.
+- Owns: spreadsheet and CSV interchange — lazy dynamic, typed, and `IDataReader` ingress with header, start-cell, and range windowing; attribute and runtime column and sheet mapping; enumerable, reader, table, and anonymous egress; template rendering, merged-cell folding, embedded pictures, transcode, and the shared-strings disk cache.
+- Accept: profile-declared reads and writes through the façade; typed row faults folded into `Validation`; `GetReader` streamed into the columnar rail; a typed row sequence streamed into the bulk rail; `SaveAsByTemplate` for report output.
+- Reject: hand-rolled OpenXML or CSV parsing; a whole-sheet materialization on a streaming path; positional magic-index `dynamic` access against a known schema; a workbook read as a columnar file, which `Apache.Arrow`/`DuckDB.NET`/`ParquetSharp` own; high-throughput delimited parsing, which `Sep` owns.

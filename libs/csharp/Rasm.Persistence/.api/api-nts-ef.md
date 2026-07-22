@@ -1,74 +1,41 @@
 # [RASM_PERSISTENCE_API_NTS_EF]
 
-Three coupled packages form one spatial rail. `NetTopologySuite` (transitive `2.6.0`) is
-the geometry model and topology engine — the `Geometry` algebra, `GeometryFactory`, and
-`Coordinate`. `Npgsql.NetTopologySuite` admits the PostGIS geometry/geography wire codecs on
-the ADO `NpgsqlDataSource`/`INpgsqlTypeMapper` so an `NpgsqlCommand` reads/writes NTS types
-directly. `Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite` plugs that into EF Core:
-geometry/geography column type-mappings with per-property SRID, member/method/aggregate
-translators that emit PostGIS SQL, the `EF.Functions` PostGIS extension surface, the PostGIS
-extension-adding convention, a JSON-column geometry reader/writer, and scaffolding/design
-services. Wire admission and the EF plugin pair — neither stands alone.
+`Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite` maps `NetTopologySuite` geometry onto PostGIS `geometry`/`geography` columns for the EF Core PostgreSQL provider: per-property-SRID type-mapping, member/method/aggregate translators emitting PostGIS SQL, the `EF.Functions` spatial surface, and the `CREATE EXTENSION postgis` finalizing convention. It composes the substrate geometry model and the `Npgsql.NetTopologySuite` ADO wire codec, feeding the PostgreSQL store profile's spatial mapping.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite`
-- package: `Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite`
-- license: `PostgreSQL`
+- package: `Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite` (`PostgreSQL`, Npgsql)
 - assembly: `Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite`
 - namespace: `Microsoft.EntityFrameworkCore` (builder), `Npgsql.EntityFrameworkCore.PostgreSQL.*` (plugins)
-- provider package: `Npgsql.EntityFrameworkCore.PostgreSQL`
-- asset: runtime library
-- target: net10.0 (single-target; binds cleanly)
-- rail: store-provider
-
-[PACKAGE_SURFACE]: `Npgsql.NetTopologySuite`
-- package: `Npgsql.NetTopologySuite`
-- license: `PostgreSQL`
-- assembly: `Npgsql.NetTopologySuite`
-- namespace: `Npgsql`
-- ADO package: `Npgsql`
-- asset: runtime library
-- target: net8.0 (consumer-bound fallback; the package's highest lib TFM is net8.0, which the
-  net10.0 consumer binds — no net10.0 asset exists)
-- rail: store-provider
-
-[PACKAGE_SURFACE]: `NetTopologySuite`
-- package: `NetTopologySuite`
-- license: `BSD-3-Clause`
-- assembly: `NetTopologySuite`
-- namespace: `NetTopologySuite.Geometries`
-- asset: transitive runtime library
-- target: netstandard2.1 (consumer-bound; multi-targets netstandard2.0/2.1 — the net10.0
-  consumer binds netstandard2.1)
-- rail: spatial-values
+- depends: `Npgsql.EntityFrameworkCore.PostgreSQL` provider, `NetTopologySuite` model, `Npgsql.NetTopologySuite` wire codec
+- asset: runtime library, net10.0
+- rail: store-provider spatial mapping
 
 ## [02]-[PUBLIC_TYPES]
 
 [PLUGIN_TYPES]: EF plugin admission and translation services
-- rail: store-provider
 
-| [INDEX] | [SYMBOL]                                                    | [PACKAGE_ROLE]       | [CAPABILITY]                                        |
+| [INDEX] | [SYMBOL]                                                    | [TYPE_FAMILY]        | [CAPABILITY]                                        |
 | :-----: | :---------------------------------------------------------- | :------------------- | :-------------------------------------------------- |
-|  [01]   | `NpgsqlNetTopologySuiteDbContextOptionsBuilderExtensions`   | builder extension    | admits plugin (provider-options seam)               |
+|  [01]   | `NpgsqlNetTopologySuiteDbContextOptionsBuilderExtensions`   | builder extension    | admits plugin via provider-options seam             |
 |  [02]   | `NpgsqlNetTopologySuiteServiceCollectionExtensions`         | service extension    | admits plugin services                              |
 |  [03]   | `NpgsqlNetTopologySuiteDbFunctionsExtensions`               | function surface     | projects PostGIS functions on `EF.Functions`        |
 |  [04]   | `NpgsqlNetTopologySuiteOptionsExtension`                    | options extension    | `IDbContextOptionsExtension`; carries plugin policy |
 |  [05]   | `NetTopologySuiteDataSourceConfigurationPlugin`             | data source plugin   | `INpgsqlDataSourceConfigurationPlugin`              |
 |  [06]   | `NpgsqlNetTopologySuiteTypeMappingSourcePlugin`             | mapping plugin       | `IRelationalTypeMappingSourcePlugin`                |
 |  [07]   | `NpgsqlGeometryTypeMapping<TGeometry>`                      | geometry mapping     | `RelationalGeometryTypeMapping`; geometry+geography |
-|  [08]   | `NpgsqlJsonGeometryWktReaderWriter`                         | JSON value writer    | `JsonValueReaderWriter<Geometry>`; WKT              |
+|  [08]   | `NpgsqlJsonGeometryWktReaderWriter`                         | JSON value writer    | `JsonValueReaderWriter<Geometry>`; WKT in `jsonb`   |
 |  [09]   | `NpgsqlNetTopologySuiteMethodCallTranslatorPlugin`          | method plugin        | `IMethodCallTranslatorPlugin`                       |
 |  [10]   | `NpgsqlNetTopologySuiteMemberTranslatorPlugin`              | member plugin        | `IMemberTranslatorPlugin`                           |
 |  [11]   | `NpgsqlNetTopologySuiteAggregateMethodCallTranslatorPlugin` | aggregate plugin     | `IAggregateMethodCallTranslatorPlugin`              |
-|  [12]   | `NpgsqlNetTopologySuiteAggregateMethodTranslator`           | aggregate translator | emits `ST_Union`/`ST_Extent`/… SQL                  |
-|  [13]   | `NpgsqlGeometryMemberTranslator`                            | member translator    | emits `.Area`/`.Length`/`.Centroid`/… SQL           |
-|  [14]   | `NpgsqlGeometryMethodTranslator`                            | method translator    | emits `.Distance`/`.Intersects`/`.Buffer`/… SQL     |
+|  [12]   | `NpgsqlNetTopologySuiteAggregateMethodTranslator`           | aggregate translator | emits `ST_Union`/`ST_Extent` SQL                    |
+|  [13]   | `NpgsqlGeometryMemberTranslator`                            | member translator    | emits `.Area`/`.Length`/`.Centroid` SQL             |
+|  [14]   | `NpgsqlGeometryMethodTranslator`                            | method translator    | emits `.Distance`/`.Intersects`/`.Buffer` SQL       |
 
 [PLUGIN_TYPES]: EF plugin conventions and scaffolding
-- rail: store-provider
 
-| [INDEX] | [SYMBOL]                                          | [PACKAGE_ROLE]     | [CAPABILITY]                                                  |
+| [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]      | [CAPABILITY]                                                  |
 | :-----: | :------------------------------------------------ | :----------------- | :------------------------------------------------------------ |
 |  [01]   | `NpgsqlNetTopologySuiteConventionSetPlugin`       | convention plugin  | `IConventionSetPlugin`; adds PostGIS convention               |
 |  [02]   | `NpgsqlNetTopologySuiteExtensionAddingConvention` | convention         | `IModelFinalizingConvention`; adds `CREATE EXTENSION postgis` |
@@ -77,63 +44,20 @@ services. Wire admission and the EF plugin pair — neither stands alone.
 |  [05]   | `NpgsqlNetTopologySuiteCodeGeneratorPlugin`       | scaffolding plugin | `ProviderCodeGeneratorPlugin`; emits admission                |
 |  [06]   | `NpgsqlNetTopologySuiteDesignTimeServices`        | design services    | `IDesignTimeServices`; admits design tooling                  |
 
-[WIRE_TYPES]: ADO wire admission (`Npgsql.NetTopologySuite` — single public type)
-- rail: store-provider
-
-| [INDEX] | [SYMBOL]                           | [PACKAGE_ROLE]        | [CAPABILITY]                                                 |
-| :-----: | :--------------------------------- | :-------------------- | :----------------------------------------------------------- |
-|  [01]   | `NpgsqlNetTopologySuiteExtensions` | type-mapper extension | admits geometry wire codecs on the data source / type mapper |
-
-[GEOMETRY_TYPES]: NetTopologySuite geometry model + value supports
-- rail: spatial-values
-
-`Geometry` is the abstract root carrying the predicate/operation/projection algebra
-([03] geometry algebra); the concrete subtypes are constructed through `GeometryFactory`,
-never `new`. `Coordinate` carries `X`/`Y` plus optional `Z`/`M`; `Ordinates`
-(`None`/`XY=3`/`XYZ=7`/`XYM`/`XYZM`/`AllOrdinates`) and `PrecisionModel`
-(`Floating`/`FloatingSingle`/`Fixed`) parameterize the factory and the wire admission.
-
-| [INDEX] | [SYMBOL]                                          | [PACKAGE_ROLE]   | [CAPABILITY]                                                 |
-| :-----: | :------------------------------------------------ | :--------------- | :----------------------------------------------------------- |
-|  [01]   | `Geometry`                                        | geometry root    | predicate/operation/projection algebra (abstract)            |
-|  [02]   | `Point`                                           | point geometry   | `X`/`Y`/`Z`/`M` ordinates                                    |
-|  [03]   | `LineString`                                      | curve geometry   | ordered coordinate sequence                                  |
-|  [04]   | `LinearRing`                                      | ring geometry    | closed coordinate sequence                                   |
-|  [05]   | `Polygon`                                         | surface geometry | exterior shell + interior holes                              |
-|  [06]   | `MultiPoint` / `MultiLineString` / `MultiPolygon` | collections      | homogeneous collections                                      |
-|  [07]   | `GeometryCollection`                              | collection       | heterogeneous geometry collection                            |
-|  [08]   | `GeometryFactory`                                 | factory          | constructs geometries with SRID/precision/ordinates          |
-|  [09]   | `Coordinate`                                      | coordinate value | `X`/`Y` + optional `Z`/`M`                                   |
-|  [10]   | `Envelope`                                        | bounding box     | `MinX`/`MaxX`/`MinY`/`MaxY`/`Width`/`Height`/`Area`/`Centre` |
-|  [11]   | `Ordinates`                                       | ordinate flags   | `None`/`XY`/`XYZ`/`XYM`/`XYZM`/`AllOrdinates`                |
-|  [12]   | `PrecisionModel`                                  | precision policy | `Floating`/`FloatingSingle`/`Fixed`                          |
-
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: plugin + wire admission
-- rail: store-provider
+[ENTRYPOINT_SCOPE]: EF plugin admission
 
-`UseNetTopologySuite` appears on three seams with the same four optional parameters
-(`CoordinateSequenceFactory?`, `PrecisionModel?`, `Ordinates handleOrdinates = None`,
-`bool geographyAsDefault = false`): the EF `NpgsqlDbContextOptionsBuilder`, the ADO
-`INpgsqlTypeMapper`, and the generic `<TMapper> where TMapper : INpgsqlTypeMapper` data-source
-seam. The EF builder and the ADO mapper admission pair — the EF plugin maps columns, the ADO
-wire codec moves the bytes.
+`UseNetTopologySuite` on the EF `NpgsqlDbContextOptionsBuilder` carries the four optional policy parameters (`CoordinateSequenceFactory?`, `PrecisionModel?`, `Ordinates handleOrdinates = None`, `bool geographyAsDefault = false`); the ADO data-source seam of the same name is `api-npgsql-nts.md`, and admission binds both.
 
 | [INDEX] | [SURFACE]                                                           | [CAPABILITY]                                       |
 | :-----: | :------------------------------------------------------------------ | :------------------------------------------------- |
 |  [01]   | `UseNetTopologySuite(…)` on `NpgsqlDbContextOptionsBuilder`         | EF provider-option seam; precision/ordinate policy |
 |  [02]   | `AddEntityFrameworkNpgsqlNetTopologySuite(this IServiceCollection)` | service-extension seam; registers plugin services  |
-|  [03]   | `UseNetTopologySuite(this INpgsqlTypeMapper, …)`                    | type-mapper seam; admits wire codecs               |
-|  [04]   | `UseNetTopologySuite<TMapper>(this TMapper, …)`                     | data-source seam; admits wire codecs               |
 
 [ENTRYPOINT_SCOPE]: PostGIS SQL function projections (`EF.Functions` extensions)
-- rail: store-provider
 
-`DbFunctions` extensions translated to PostGIS in a LINQ predicate/order — never client-eval.
-`Distance`/`IsWithinDistance` carry a `bool useSpheroid` selecting `ST_DistanceSpheroid` vs.
-`ST_Distance`; `DistanceKnn` emits the `<->` KNN operator for index-ordered nearest-neighbour;
-`Transform`/`Force2D` are generic over `TGeometry : Geometry`.
+`DbFunctions` extensions translate to PostGIS in a LINQ predicate or order-by and throw on client evaluation. `Distance`/`IsWithinDistance` carry `bool useSpheroid` selecting `ST_DistanceSpheroid` over `ST_Distance`; `DistanceKnn` emits the `<->` KNN operator for index-ordered nearest-neighbour; `Transform`/`Force2D` are generic over `TGeometry : Geometry`.
 
 | [INDEX] | [SURFACE]                                                                     | [RETURNS]   | [POSTGIS]                             |
 | :-----: | :---------------------------------------------------------------------------- | :---------- | :------------------------------------ |
@@ -143,95 +67,27 @@ wire codec moves the bytes.
 |  [04]   | `EF.Functions.Transform<TGeometry>(TGeometry, int srid)`                      | `TGeometry` | `ST_Transform`                        |
 |  [05]   | `EF.Functions.Force2D<TGeometry>(TGeometry)`                                  | `TGeometry` | `ST_Force2D`                          |
 
-[ENTRYPOINT_SCOPE]: geometry construction (`GeometryFactory`)
-- rail: spatial-values
-
-A `GeometryFactory(precisionModel, srid, coordinateSequenceFactory, services)` (or the
-`PrecisionModel`-only ctor / `GeometryFactory.Default`/`Fixed`/`FloatingSingle` statics)
-stamps SRID + precision onto every geometry it creates. Construct through the factory; the
-empty-arg `Create*()` forms build empties.
-
-| [INDEX] | [SURFACE]                                                             | [RETURNS]                       | [CAPABILITY]        |
-| :-----: | :-------------------------------------------------------------------- | :------------------------------ | :------------------ |
-|  [01]   | `CreatePoint(Coordinate)` / `CreatePoint()`                           | `Point`                         | point (or empty)    |
-|  [02]   | `CreateLineString(Coordinate[])` / `CreateLinearRing(Coordinate[])`   | `LineString`/`LinearRing`       | curve / ring        |
-|  [03]   | `CreatePolygon(LinearRing shell, LinearRing[] holes)`                 | `Polygon`                       | shell + holes       |
-|  [04]   | `CreateMultiPointFromCoords` / `CreateMultiPoint(CoordinateSequence)` | `MultiPoint`                    | point collection    |
-|  [05]   | `CreateGeometryCollection(Geometry[])` / `CreateEmpty(Dimension)`     | `GeometryCollection`/`Geometry` | mixed / typed empty |
-
-[ENTRYPOINT_SCOPE]: geometry algebra (`Geometry`) — predicates, operations, projections
-- rail: spatial-values
-
-The model-side algebra (DE-9IM topology engine); the EF translators map a subset of these
-to PostGIS SQL, the rest run client-side on a materialized geometry. The catalog documents
-the load-bearing surface, not a 3-method sketch.
-
-| [INDEX] | [SURFACE]                                                               | [RETURNS]                   | [CAPABILITY]                  |
-| :-----: | :---------------------------------------------------------------------- | :-------------------------- | :---------------------------- |
-|  [01]   | `Intersects` / `Contains` / `Within` / `Covers` / `CoveredBy`           | `bool`                      | DE-9IM topological predicates |
-|  [02]   | `Overlaps` / `Touches` / `Crosses` / `Disjoint` / `EqualsTopologically` | `bool`                      | DE-9IM topological predicates |
-|  [03]   | `Relate(Geometry)` / `Relate(Geometry, string pattern)`                 | `IntersectionMatrix`/`bool` | DE-9IM matrix / pattern test  |
-|  [04]   | `Distance(Geometry)` / `IsWithinDistance(Geometry, double)`             | `double`/`bool`             | cartesian distance/proximity  |
-|  [05]   | `Buffer(double[, quadrantSegments / EndCapStyle / BufferParameters])`   | `Geometry`                  | dilation; cap/segment policy  |
-|  [06]   | `ConvexHull()` / `Centroid` / `InteriorPoint` / `PointOnSurface`        | `Geometry`/`Point`          | derived geometries            |
-|  [07]   | `Area` / `Length` / `IsValid` / `IsSimple` / `IsRectangle` / `IsEmpty`  | `double`/`bool`             | metrics + validity            |
-|  [08]   | `Envelope` / `EnvelopeInternal`                                         | `Geometry`/`Envelope`       | bounding geometry / box value |
-|  [09]   | `SRID` (get/set) / `NumGeometries` / `GetGeometryN(int)` / `Factory`    | `int`/`Geometry`            | identity + collection access  |
-|  [10]   | `AsText()` / `ToText()` / `AsBinary()` / `ToBinary()`                   | `string`/`byte[]`           | WKT / WKB projection          |
-
 ## [04]-[IMPLEMENTATION_LAW]
 
-[STORE_PROFILE]:
-- profile: the NetTopologySuite stack is the spatial mapping policy for the PostgreSQL store
-  profile — one model (`NetTopologySuite`), one wire codec (`Npgsql.NetTopologySuite`), one
-  EF plugin (`Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite`)
-- admission root: `UseNetTopologySuite` on the EF provider options AND the data-source/type
-  mapper — both, paired
-- mapping root: `NpgsqlGeometryTypeMapping<TGeometry>` with per-property SRID;
-  `geographyAsDefault` selects `geography` over `geometry` columns
-- query root: member/method/aggregate translators -> PostGIS SQL; `EF.Functions.*` for
-  spheroid/KNN/transform functions
-- convention root: `NpgsqlNetTopologySuiteExtensionAddingConvention` finalizes
-  `CREATE EXTENSION postgis` on the model
+[TOPOLOGY]:
+- Every spatial column maps through `NpgsqlGeometryTypeMapping<TGeometry>` carrying per-property SRID; `geographyAsDefault` selects `geography` over `geometry`.
+- Member/method/aggregate translators emit PostGIS SQL for a LINQ predicate or order-by; an untranslated operation runs client-side on a materialized geometry, while `EF.Functions.*` are server-only and throw on client evaluation.
+- `NpgsqlNetTopologySuiteExtensionAddingConvention` finalizes `CREATE EXTENSION postgis` on the model.
+
+[STACKING]:
+- `Npgsql.NetTopologySuite`(`.api/api-npgsql-nts.md`): the ADO wire seam — this plugin's `UseNetTopologySuite` registers the column mapping and translators while the data-source codec moves the bytes, and `NetTopologySuiteDataSourceConfigurationPlugin` auto-applies so the provider's pooled data source carries the binary codec.
+- `NetTopologySuite`(`libs/csharp/.api/api-nettopologysuite.md`): the geometry model this plugin maps — `GeometryFactory`-constructed `Geometry` and the DE-9IM algebra the translators project to PostGIS SQL.
+- `NetTopologySuite.IO.GeoJSON4STJ`(`.api/api-nts-io.md`): a `geometry` column persists as PostGIS binary, but the same `Geometry` serializes to GeoJSON at the web egress boundary through the GeoJSON4STJ converters on the shared `JsonSerializerOptions`.
+- `linq2db`(`.api/api-linq2db-ef.md`): geometry columns survive `BulkCopy` with `BulkCopyType.ProviderSpecific` because the bridge reuses this EF model's geometry mapping and the Npgsql binary COPY writer emits the codec's wire form.
+- identity spatial tier: the `Element/identity` geometry/geography column is GiST-indexed for `DistanceKnn` (`<->`) and `IsWithinDistance` (`ST_DWithin`) predicate pushdown — the index-ordered nearest-neighbour sibling of the pgvector ANN order-by.
 
 [LOCAL_ADMISSION]:
-- Spatial mapping enters only through the PostgreSQL store-profile declaration; the EF plugin
-  admission and the ADO data-source admission are declared together — neither stands alone.
-- Persisted spatial semantics use `NetTopologySuite` types per the spatial-values rail;
-  per-property SRID is mapping policy, never an inline literal.
-- `NpgsqlJsonGeometryWktReaderWriter` is the geometry-in-a-`jsonb`-column path: a geometry
-  nested inside an owned-entity JSON document serializes as WKT through this
-  `JsonValueReaderWriter<Geometry>`, distinct from a top-level PostGIS geometry column.
-- SQL function projections (`EF.Functions.*`) are query facts and stay inside profile queries
-  — they are PostGIS-translated, never client-evaluated.
-
-[STACKING_LAW]:
-- ADO wire + EF plugin: `Npgsql.NetTopologySuite.UseNetTopologySuite` on the
-  `NpgsqlDataSourceBuilder` registers the binary geometry codec; the EF
-  `UseNetTopologySuite` registers the column mapping + translators. The data-source plugin
-  (`NetTopologySuiteDataSourceConfigurationPlugin`) is auto-applied so the EF provider's
-  pooled data source carries the codec.
-- STJ geometry (GeoJSON): the spatial-values rail meets the wire rail at
-  `NetTopologySuite.IO.GeoJSON4STJ` (`api-nts-io`) — a geometry column persists as PostGIS
-  binary, but the same `Geometry` serializes to GeoJSON for the web/egress boundary through
-  the GeoJSON4STJ STJ converters, reusing the configured `JsonSerializerOptions` that also
-  carries NodaTime and Thinktecture converters.
-- spatial index at the identity tier: the geometry/geography column the `Element/identity`
-  spatial tier carries beside its `Cell`/`Embedding` locators is GiST-indexed for `DistanceKnn`
-  (`<->`) and `IsWithinDistance` (`ST_DWithin`) predicate pushdown; the KNN order-by is the
-  `Query/retrieval#FUSION_AND_REUSE` `RetrievalBranch` spatial sibling of the pgvector ANN order-by,
-  both index-ordered nearest-neighbour seams the fusion fold ranks.
-- linq2db bulk: geometry columns survive `BulkCopy` with `BulkCopyType.ProviderSpecific`
-  (`api-linq2db-ef`) because the bridge reuses the EF model's geometry mapping; the Npgsql
-  binary COPY writer emits the geometry codec's wire form.
+- Spatial mapping enters through the PostgreSQL store-profile declaration; the EF plugin admission and the ADO data-source admission are declared together, neither standing alone.
+- Persisted spatial semantics carry `NetTopologySuite` types; per-property SRID is mapping policy, never an inline literal.
+- `NpgsqlJsonGeometryWktReaderWriter` serializes a geometry nested inside an owned-entity JSON document as WKT through `JsonValueReaderWriter<Geometry>`, distinct from a top-level PostGIS `geometry` column.
 
 [RAIL_LAW]:
-- Packages: `Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite`, `Npgsql.NetTopologySuite`,
-  `NetTopologySuite`
-- Own: geometry mapping/translation for the PostgreSQL EF provider, geometry wire codecs on
-  the ADO data source, and the `NetTopologySuite` geometry model + algebra
-- Accept: profile-declared `UseNetTopologySuite` admission (EF options + data source paired);
-  per-property SRID mapping; PostGIS-translated `EF.Functions.*` predicates
-- Reject: WKT strings or raw `byte[]` columns standing in for geometry contracts;
-  `new Point(…)` over `GeometryFactory` construction; client-evaluated spatial predicates;
-  EF plugin admission without the paired ADO wire admission
+- Package: `Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite`
+- Owns: geometry/geography column mapping, member/method/aggregate translation to PostGIS SQL, the `EF.Functions` spatial surface, and the `CREATE EXTENSION postgis` convention for the PostgreSQL EF provider
+- Accept: profile-declared `UseNetTopologySuite` on the EF provider options paired with the ADO data-source codec; per-property SRID mapping; PostGIS-translated `EF.Functions.*` predicates
+- Reject: WKT strings or raw `byte[]` columns standing in for geometry contracts; `new Point(…)` over `GeometryFactory` construction; client-evaluated spatial predicates; EF plugin admission without the paired ADO wire codec

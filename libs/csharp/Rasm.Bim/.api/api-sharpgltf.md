@@ -1,160 +1,127 @@
 # [RASM_BIM_API_SHARPGLTF]
 
-`SharpGLTF` supplies glTF schema read/write (`SharpGLTF.Core`), high-level
-scene/mesh/material builders (`SharpGLTF.Toolkit`), and runtime decode/instancing
-for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packages.
+`SharpGLTF` owns glTF 2.0 schema I/O, typed scene and mesh authoring, and runtime scene instancing: `SharpGLTF.Core` mints the read/write contexts and the `ModelRoot` logical-resource model, `SharpGLTF.Toolkit` folds typed vertex fragments through scene, mesh, and material builders into a `ModelRoot`, and `SharpGLTF.Runtime` templatizes a `Schema2.Scene` for per-instance animation decode. Core carries the extension framework but no geometry codec — Draco and meshopt encode ride sibling packages that rewrite the authored buffer views.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `SharpGLTF.Core`
-- package: `SharpGLTF.Core`
-- license: MIT
+- package: `SharpGLTF.Core` (MIT)
 - assembly: `SharpGLTF.Core`
-- namespace: `SharpGLTF.Schema2`
-- namespace: `SharpGLTF.Memory`
-- namespace: `SharpGLTF.Validation`
-- namespace: `SharpGLTF.Animations`
+- namespace: `SharpGLTF.Schema2`, `SharpGLTF.Memory`, `SharpGLTF.Validation`, `SharpGLTF.Animations`, `SharpGLTF.IO`
 - namespace: `SharpGLTF.Transforms` (owns `SparseWeight8`, `IGeometryTransform`)
-- namespace: `SharpGLTF.IO`
-- asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0; the net10.0 consumer binds the `lib/net10.0` asset
+- asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0; net10.0 consumer binds `lib/net10.0`
 - rail: geometry
 
 [PACKAGE_SURFACE]: `SharpGLTF.Toolkit`
-- package: `SharpGLTF.Toolkit`
-- license: MIT
+- package: `SharpGLTF.Toolkit` (MIT)
 - assembly: `SharpGLTF.Toolkit`
-- namespace: `SharpGLTF.Scenes`
-- namespace: `SharpGLTF.Geometry`
-- namespace: `SharpGLTF.Geometry.VertexTypes`
-- namespace: `SharpGLTF.Materials`
-- asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0; the net10.0 consumer binds the `lib/net10.0` asset
+- namespace: `SharpGLTF.Scenes`, `SharpGLTF.Geometry`, `SharpGLTF.Geometry.VertexTypes`, `SharpGLTF.Materials`
+- asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0; net10.0 consumer binds `lib/net10.0`
 - rail: geometry
 
 [PACKAGE_SURFACE]: `SharpGLTF.Runtime`
-- package: `SharpGLTF.Runtime`
-- license: MIT
+- package: `SharpGLTF.Runtime` (MIT)
 - assembly: `SharpGLTF.Runtime`
-- namespace: `SharpGLTF.Runtime`
-- namespace: `SharpGLTF`
-- asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0; the net10.0 consumer binds the `lib/net10.0` asset
+- namespace: `SharpGLTF.Runtime`, `SharpGLTF`
+- asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0; net10.0 consumer binds `lib/net10.0`
 - rail: geometry
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: Schema2 — model root and I/O contexts
-- package: `SharpGLTF.Core`
-- namespace: `SharpGLTF.Schema2`
-- rail: geometry
+[PUBLIC_TYPE_SCOPE]: Schema2 model root and I/O contexts
 
-| [INDEX] | [SYMBOL]             | [CAPABILITY]                                                                                    |
-| :-----: | :------------------- | :---------------------------------------------------------------------------------------------- |
-|  [01]   | `ModelRoot`          | glTF root; owns the typed read-lists in `[01]-[LOGICAL]`                                        |
-|  [02]   | `ReadContext`        | context for reading glTF/GLB from file, stream, or bytes                                        |
-|  [03]   | `ReadSettings`       | validation policy and URI-resolution options for read                                           |
-|  [04]   | `WriteContext`       | context for writing glTF/GLB to file, stream, or callback                                       |
-|  [05]   | `WriteSettings`      | validation and buffer-merge options for write                                                   |
-|  [06]   | `ExtensionsFactory`  | global extension registry; `RegisterExtension<TParent,TExt>` adds types                         |
-|  [07]   | `LogicalChildOfRoot` | base for all logical resources; `LogicalParent` walks a resource back to its owning `ModelRoot` |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [CAPABILITY]                                                       |
+| :-----: | :------------------- | :------------ | :----------------------------------------------------------------- |
+|  [01]   | `ModelRoot`          | class         | glTF root; owns the typed read-lists in `[01]-[LOGICAL]`           |
+|  [02]   | `ReadContext`        | class         | reads glTF/GLB from file, stream, or in-memory satellite map       |
+|  [03]   | `ReadSettings`       | class         | validation policy and URI-resolution options for read              |
+|  [04]   | `WriteContext`       | class         | writes glTF/GLB to file, stream, or callback                       |
+|  [05]   | `WriteSettings`      | class         | write policy; members in `[05]-[WRITESET]`                         |
+|  [06]   | `ExtensionsFactory`  | class         | static global extension registry                                   |
+|  [07]   | `LogicalChildOfRoot` | class         | abstract base for logical resources; `LogicalParent` walks to root |
 
 - [01]-[LOGICAL]: `ModelRoot` typed read-lists — `LogicalMeshes`, `LogicalBufferViews`, `LogicalBuffers`, `LogicalAccessors`, `LogicalMaterials`, `LogicalNodes`; each element's `LogicalParent` walks back to the owning root.
+- [05]-[WRITESET]: `WriteSettings` — `MergeBuffers` (default `true`, merges `LogicalBuffers` pre-serialize), `BuffersMaxSize` (merged-chunk byte cap, glTF-only when merging), `JsonIndented`/`JsonOptions` (STJ writer options), `ImageWriting` (`ResourceWriteMode`: `BufferView` embeds GLB-native, `EmbeddedAsBase64` embeds glTF-JSON only), `ImageWriteCallback` (per-image override), `JsonPostprocessor` (raw-JSON transform pass), `Validation` (`ValidationMode`, both read and write).
 
-[PUBLIC_TYPE_SCOPE]: Schema2 — scene graph and logical resources
-- package: `SharpGLTF.Core`
-- namespace: `SharpGLTF.Schema2`
-- rail: geometry
+[PUBLIC_TYPE_SCOPE]: Schema2 scene graph and logical resources
 
-| [INDEX] | [SYMBOL]           | [CAPABILITY]                                                                                                |
-| :-----: | :----------------- | :---------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Scene`            | root nodes of a scene                                                                                       |
-|  [02]   | `Node`             | scene-graph node (mesh, skin, TRS, children); members in `[02]-[NODE]`                                      |
-|  [03]   | `Mesh`             | set of `MeshPrimitive`; `Primitives` (`IReadOnlyList<MeshPrimitive>`), `LogicalParent` (owning `ModelRoot`) |
-|  [04]   | `MeshPrimitive`    | geometry + material + attribute accessors; members in `[04]-[PRIM]`                                         |
-|  [05]   | `Accessor`         | typed buffer-view element view (scalar/vec/matrix); members in `[05]-[ACCESSOR]`                            |
-|  [06]   | `BufferView`       | contiguous `Buffer` subset; members in `[06]-[BUFVIEW]`                                                     |
-|  [07]   | `Buffer`           | raw binary blob (internal/external URI); members in `[07]-[BUFFER]`                                         |
-|  [08]   | `Material`         | material appearance; PBR metallic-roughness and channel parameters reached through `FindChannel`            |
-|  [09]   | `MaterialChannel`  | `readonly struct` channel projection; carries texture or parameter values                                   |
-|  [10]   | `Texture`          | texture + sampler binding                                                                                   |
-|  [11]   | `TextureSampler`   | wrap and filter modes                                                                                       |
-|  [12]   | `Image`            | image data; URI or buffer-view embedded                                                                     |
-|  [13]   | `Skin`             | joints and inverse-bind matrices for skeletal mesh                                                          |
-|  [14]   | `Animation`        | keyframe animation; owns channels and per-channel samplers                                                  |
-|  [15]   | `AnimationChannel` | binds an animation sampler to a node property; owns keyframes and the channel target                        |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [CAPABILITY]                                                           |
+| :-----: | :----------------- | :------------ | :--------------------------------------------------------------------- |
+|  [01]   | `Scene`            | class         | root nodes of a scene                                                  |
+|  [02]   | `Node`             | class         | scene-graph node (mesh, skin, TRS, children); members in `[02]-[NODE]` |
+|  [03]   | `Mesh`             | class         | set of `MeshPrimitive`; `Primitives`, `LogicalParent`                  |
+|  [04]   | `MeshPrimitive`    | class         | geometry, material, attribute accessors; members in `[04]-[PRIM]`      |
+|  [05]   | `Accessor`         | class         | typed buffer-view element view; members in `[05]-[ACCESSOR]`           |
+|  [06]   | `BufferView`       | class         | contiguous `Buffer` subset; members in `[06]-[BUFVIEW]`                |
+|  [07]   | `Buffer`           | class         | raw binary blob (internal or external URI); members in `[07]-[BUFFER]` |
+|  [08]   | `Material`         | class         | PBR metallic-roughness and channel parameters through `FindChannel`    |
+|  [09]   | `MaterialChannel`  | struct        | channel projection carrying texture or parameter values                |
+|  [10]   | `Texture`          | class         | texture and sampler binding                                            |
+|  [11]   | `TextureSampler`   | class         | wrap and filter modes                                                  |
+|  [12]   | `Image`            | class         | image data; URI or buffer-view embedded                                |
+|  [13]   | `Skin`             | class         | joints and inverse-bind matrices for a skeletal mesh                   |
+|  [14]   | `Animation`        | class         | keyframe animation; owns channels and per-channel samplers             |
+|  [15]   | `AnimationChannel` | class         | binds a sampler to a node property; owns keyframes and channel target  |
 
-- [02]-[NODE]: `Node` — `WorldMatrix` (`Matrix4x4`, composed local-to-world), `GetGpuInstancing()`/`UseGpuInstancing()` → `MeshGpuInstancing`, static `Flatten(IVisualNodeContainer)` → `IEnumerable<Node>` depth-first scene walk.
-- [04]-[PRIM]: `MeshPrimitive` — `LogicalParent` (owning `Mesh`, so `prim.LogicalParent.LogicalParent` reaches the `ModelRoot`); `GetVertexAccessor(string)`/`GetIndexAccessor()` → `Accessor`.
-- [05]-[ACCESSOR]: `Accessor` — `AsScalarArray()`/`AsVector2Array()`/`AsVector3Array()`/`AsIndicesArray()` → `IAccessorArray<T>` typed element views reading `SourceBufferView.Content` (a bufferView-less accessor — the KHR_draco spec shape — backs no region, so a typed-view `Fill` is no write-back there); `SetData(BufferView, int byteOffset, int count, AttributeFormat)`/`SetDataFrom(Accessor)` re-point the accessor — the Draco write-back lane is `ModelRoot.UseBufferView` + `SetData`.
-- [06]-[BUFVIEW]: `BufferView` — `Content` (`ArraySegment<byte>`), the raw view bytes a compressed-buffer-view decode reads; `IsIndexBuffer`/`IsVertexBuffer` (`bool`, the `BufferMode` target discriminant).
-- [07]-[BUFFER]: `Buffer` — `Content` (`byte[]`, the whole model-backed buffer); the EXT_meshopt_compression slice reads `LogicalBuffers[i].Content` at the extension's buffer/byteOffset/byteLength, never the fallback view's own region.
+- [02]-[NODE]: `Node.WorldMatrix` (`Matrix4x4` local-to-world), `GetGpuInstancing()`/`UseGpuInstancing()` → `MeshGpuInstancing`, static `Flatten(IVisualNodeContainer)` → depth-first `IEnumerable<Node>`.
+- [04]-[PRIM]: `MeshPrimitive.LogicalParent` (owning `Mesh`; `.LogicalParent.LogicalParent` reaches the `ModelRoot`), `GetVertexAccessor(string)`/`GetIndexAccessor()` → `Accessor`.
+- [05]-[ACCESSOR]: `Accessor.AsScalarArray()`/`AsVector2Array()`/`AsVector3Array()`/`AsIndicesArray()` → `IAccessorArray<T>` over `SourceBufferView.Content`; `SetData(BufferView, int, int, AttributeFormat)`/`SetDataFrom(Accessor)` re-point the accessor. A bufferView-less accessor (the KHR_draco shape) backs no region, so a typed-view `Fill` writes nothing — the Draco write-back lane is `ModelRoot.UseBufferView` + `SetData`.
+- [06]-[BUFVIEW]: `BufferView.Content` (`ArraySegment<byte>`, the raw bytes a compressed-view decode reads); `IsIndexBuffer`/`IsVertexBuffer` are the `BufferMode` target discriminants.
+- [07]-[BUFFER]: `Buffer.Content` (`byte[]`, the whole model-backed buffer); the EXT_meshopt_compression slice reads `LogicalBuffers[i].Content` at the extension buffer/offset/length, never a fallback view's own region.
 
-[PUBLIC_TYPE_SCOPE]: Schema2 — scene graph extensions
-- package: `SharpGLTF.Core`
-- namespace: `SharpGLTF.Schema2`
-- rail: geometry
+[PUBLIC_TYPE_SCOPE]: Schema2 scene-graph extensions
 
-| [INDEX] | [SYMBOL]            | [CAPABILITY]                                                                                                 |
-| :-----: | :------------------ | :----------------------------------------------------------------------------------------------------------- |
-|  [01]   | `MeshGpuInstancing` | KHR_mesh_gpu_instancing; `Count`, `GetLocalMatrix(int)`/`GetWorldMatrix(int)` → `Matrix4x4` per-instance TRS |
-|  [02]   | `PunctualLight`     | KHR_lights_punctual: directional, point, spot                                                                |
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]                                                                                |
+| :-----: | :------------------ | :------------ | :------------------------------------------------------------------------------------------ |
+|  [01]   | `MeshGpuInstancing` | class         | KHR_mesh_gpu_instancing; `Count`, `GetLocalMatrix(int)`/`GetWorldMatrix(int)` → `Matrix4x4` |
+|  [02]   | `PunctualLight`     | class         | KHR_lights_punctual: directional, point, spot                                               |
 
-[PUBLIC_TYPE_SCOPE]: Schema2 — encoding enums and accessor descriptors
-- package: `SharpGLTF.Core`
-- namespace: `SharpGLTF.Schema2`, `SharpGLTF.Memory`
-- rail: geometry
+[PUBLIC_TYPE_SCOPE]: Schema2/Memory encoding enums and accessor descriptors
 
-| [INDEX] | [SYMBOL]                     | [CAPABILITY]                                                     |
-| :-----: | :--------------------------- | :--------------------------------------------------------------- |
-|  [01]   | `DimensionType`              | `SCALAR`, `VEC2`, `VEC3`, `VEC4`, `MAT2`, `MAT3`, `MAT4`         |
-|  [02]   | `EncodingType`               | `BYTE`, `UBYTE`, `SHORT`, `USHORT`, `UINT`, `FLOAT`              |
-|  [03]   | `IndexEncodingType`          | `UNSIGNED_BYTE`, `UNSIGNED_SHORT`, `UNSIGNED_INT`                |
-|  [04]   | `ResourceWriteMode`          | `Default`, `SatelliteFile`, `EmbeddedAsBase64`, `BufferView`     |
-|  [05]   | `AlphaMode`                  | `OPAQUE`, `MASK`, `BLEND`                                        |
-|  [06]   | `PrimitiveType`              | `POINTS`, `LINES`, `TRIANGLES`, etc.                             |
-|  [07]   | `AnimationInterpolationMode` | `LINEAR`, `STEP`, `CUBICSPLINE`                                  |
-|  [08]   | `PropertyPath`               | animated property: `translation`, `rotation`, `scale`, `weights` |
-|  [09]   | `MemoryAccessor`             | wraps a `BufferView` memory region; projects typed arrays        |
-|  [10]   | `MemoryAccessInfo`           | describes item format: name, byte offset, stride, format         |
-|  [11]   | `MemoryImage`                | in-memory image bytes; detects PNG/JPG/KTX2/DDS/WebP             |
-|  [12]   | `AttributeFormat`            | encoding/decoding descriptor for vertex attribute bytes          |
-|  [13]   | `BufferMode`                 | `ARRAY_BUFFER`, `ELEMENT_ARRAY_BUFFER` hints                     |
-|  [14]   | `CameraType`                 | `PERSPECTIVE`, `ORTHOGRAPHIC`                                    |
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY] | [CAPABILITY]                                                     |
+| :-----: | :--------------------------- | :------------ | :--------------------------------------------------------------- |
+|  [01]   | `DimensionType`              | enum          | `SCALAR`, `VEC2`, `VEC3`, `VEC4`, `MAT2`, `MAT3`, `MAT4`         |
+|  [02]   | `EncodingType`               | enum          | `BYTE`, `UBYTE`, `SHORT`, `USHORT`, `UINT`, `FLOAT`              |
+|  [03]   | `IndexEncodingType`          | enum          | `UNSIGNED_BYTE`, `UNSIGNED_SHORT`, `UNSIGNED_INT`                |
+|  [04]   | `ResourceWriteMode`          | enum          | `Default`, `SatelliteFile`, `EmbeddedAsBase64`, `BufferView`     |
+|  [05]   | `AlphaMode`                  | enum          | `OPAQUE`, `MASK`, `BLEND`                                        |
+|  [06]   | `PrimitiveType`              | enum          | `POINTS`, `LINES`, `TRIANGLES`, and the strip/fan forms          |
+|  [07]   | `AnimationInterpolationMode` | enum          | `LINEAR`, `STEP`, `CUBICSPLINE`                                  |
+|  [08]   | `PropertyPath`               | enum          | animated property: `translation`, `rotation`, `scale`, `weights` |
+|  [09]   | `MemoryAccessor`             | class         | wraps a `BufferView` region; projects typed arrays               |
+|  [10]   | `MemoryAccessInfo`           | struct        | item format: name, byte offset, stride, format                   |
+|  [11]   | `MemoryImage`                | struct        | in-memory image bytes; detects PNG/JPG/KTX2/DDS/WebP             |
+|  [12]   | `AttributeFormat`            | struct        | encode/decode descriptor for vertex attribute bytes              |
+|  [13]   | `BufferMode`                 | enum          | `ARRAY_BUFFER`, `ELEMENT_ARRAY_BUFFER` hints                     |
+|  [14]   | `CameraType`                 | enum          | `PERSPECTIVE`, `ORTHOGRAPHIC`                                    |
 
-[PUBLIC_TYPE_SCOPE]: Schema2 — typed memory array views
-- package: `SharpGLTF.Core`
-- namespace: `SharpGLTF.Memory`
-- rail: geometry
+[PUBLIC_TYPE_SCOPE]: Memory typed array views
 
-| [INDEX] | [SYMBOL]          | [CAPABILITY]                                                                                            |
-| :-----: | :---------------- | :------------------------------------------------------------------------------------------------------ |
-|  [01]   | `ScalarArray`     | `Memory<byte>` view, scalar accessor data                                                               |
-|  [02]   | `Vector2Array`    | `Memory<byte>` view, Vector2 accessor data                                                              |
-|  [03]   | `Vector3Array`    | `Memory<byte>` view, Vector3 accessor data; `Fill(IEnumerable<Vector3>, int dstStart = 0)` writes back  |
-|  [04]   | `Vector4Array`    | `Memory<byte>` view, Vector4 accessor data                                                              |
-|  [05]   | `QuaternionArray` | `Memory<byte>` view, quaternion accessor data                                                           |
-|  [06]   | `Matrix4x4Array`  | `Memory<byte>` view, matrix4x4 accessor data                                                            |
-|  [07]   | `IntegerArray`    | `Memory<byte>` view, index accessor data; `Fill(IEnumerable<int>/<uint>, int dstStart = 0)` writes back |
-|  [08]   | `ColorArray`      | `Memory<byte>` view, color accessor data                                                                |
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [CAPABILITY]                                                                       |
+| :-----: | :---------------- | :------------ | :--------------------------------------------------------------------------------- |
+|  [01]   | `ScalarArray`     | struct        | `Memory<byte>` view over scalar accessor data                                      |
+|  [02]   | `Vector2Array`    | struct        | `Memory<byte>` view over Vector2 accessor data                                     |
+|  [03]   | `Vector3Array`    | struct        | Vector3 accessor view; `Fill(IEnumerable<Vector3>, int dstStart = 0)` writes back  |
+|  [04]   | `Vector4Array`    | struct        | `Memory<byte>` view over Vector4 accessor data                                     |
+|  [05]   | `QuaternionArray` | struct        | `Memory<byte>` view over quaternion accessor data                                  |
+|  [06]   | `Matrix4x4Array`  | struct        | `Memory<byte>` view over matrix4x4 accessor data                                   |
+|  [07]   | `IntegerArray`    | struct        | index accessor view; `Fill(IEnumerable<int>/<uint>, int dstStart = 0)` writes back |
+|  [08]   | `ColorArray`      | struct        | `Memory<byte>` view over color accessor data                                       |
 
-[PUBLIC_TYPE_SCOPE]: Schema2 — validation
-- package: `SharpGLTF.Core`
-- namespace: `SharpGLTF.Validation`
-- rail: geometry
+[PUBLIC_TYPE_SCOPE]: Validation
 
-| [INDEX] | [SYMBOL]            | [CAPABILITY]                                                           |
-| :-----: | :------------------ | :--------------------------------------------------------------------- |
-|  [01]   | `ValidationMode`    | `Skip`, `TryFix`, `Strict` — controls validation policy for read/write |
-|  [02]   | `ValidationContext` | utility class used during model validation traversal                   |
-|  [03]   | `ModelException`    | base exception from glTF serialization or validation                   |
-|  [04]   | `SchemaException`   | invalid JSON document                                                  |
-|  [05]   | `SemanticException` | invalid semantic values within a valid document                        |
-|  [06]   | `LinkException`     | invalid inter-object relationships                                     |
-|  [07]   | `DataException`     | invalid binary data                                                    |
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]                                      |
+| :-----: | :------------------ | :------------ | :------------------------------------------------ |
+|  [01]   | `ValidationMode`    | enum          | `Skip`, `TryFix`, `Strict` read/write policy      |
+|  [02]   | `ValidationContext` | struct        | validation-traversal state carrier                |
+|  [03]   | `ModelException`    | class         | base for glTF serialization or validation failure |
+|  [04]   | `SchemaException`   | class         | invalid JSON document                             |
+|  [05]   | `SemanticException` | class         | invalid semantic values in a valid document       |
+|  [06]   | `LinkException`     | class         | invalid inter-object relationships                |
+|  [07]   | `DataException`     | class         | invalid binary data                               |
 
-[INBOX_EXTENSION_SCOPE]: Schema2 — KHR material extensions (PBR and shading)
-- package: `SharpGLTF.Core`
-- namespace: `SharpGLTF.Schema2`
-- access: `internal` extension classes serialized in-box; authored and read through the public `Material` and `MaterialChannel` surface, never named directly
-- rail: geometry
+[INBOX_EXTENSION_SCOPE]: Schema2 KHR material extensions (PBR and shading)
+- access: `internal` extension classes serialized in-box, authored and read through the public `Material`/`MaterialChannel` surface, never named directly
 
 | [INDEX] | [EXTENSION]                           | [CAPABILITY]                  |
 | :-----: | :------------------------------------ | :---------------------------- |
@@ -172,22 +139,16 @@ for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packa
 |  [12]   | `KHR_materials_diffuse_transmission`  | diffuse transmission          |
 |  [13]   | `KHR_materials_pbrSpecularGlossiness` | specular-gloss model          |
 
-[PUBLIC_TYPE_SCOPE]: Schema2 — KHR texture and metadata extensions
-- package: `SharpGLTF.Core`
-- namespace: `SharpGLTF.Schema2`
-- rail: geometry
+[PUBLIC_TYPE_SCOPE]: Schema2 KHR texture and metadata extensions
 
-| [INDEX] | [SYMBOL]             | [CAPABILITY]                                              |
-| :-----: | :------------------- | :-------------------------------------------------------- |
-|  [01]   | `TextureTransform`   | KHR_texture_transform; public; UV shift/scale per texture |
-|  [02]   | `XmpPackets`         | KHR_xmp_json_ld model-level XMP metadata packet list      |
-|  [03]   | `XmpPacketReference` | KHR_xmp_json_ld per-entity XMP packet index reference     |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [CAPABILITY]                                          |
+| :-----: | :------------------- | :------------ | :---------------------------------------------------- |
+|  [01]   | `TextureTransform`   | class         | KHR_texture_transform; UV shift/scale per texture     |
+|  [02]   | `XmpPackets`         | class         | KHR_xmp_json_ld model-level XMP metadata packet list  |
+|  [03]   | `XmpPacketReference` | class         | KHR_xmp_json_ld per-entity XMP packet index reference |
 
-[INBOX_EXTENSION_SCOPE]: Schema2 — KHR/MSFT/EXT texture and animation extensions
-- package: `SharpGLTF.Core`
-- namespace: `SharpGLTF.Schema2`
-- access: `internal` extension classes serialized in-box; reached through the public `Texture`, `TextureSampler`, and `Animation` surface, never named directly
-- rail: geometry
+[INBOX_EXTENSION_SCOPE]: Schema2 KHR/MSFT/EXT texture and animation extensions
+- access: `internal` extension classes serialized in-box, reached through the public `Texture`/`TextureSampler`/`Animation` surface, never named directly
 
 | [INDEX] | [EXTENSION]             | [CAPABILITY]                  |
 | :-----: | :---------------------- | :---------------------------- |
@@ -196,339 +157,249 @@ for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packa
 |  [03]   | `EXT_texture_webp`      | WebP texture                  |
 |  [04]   | `KHR_animation_pointer` | JSON-pointer animation target |
 
-[PUBLIC_TYPE_SCOPE]: Toolkit — scene and mesh builders
-- package: `SharpGLTF.Toolkit`
-- namespace: `SharpGLTF.Scenes`, `SharpGLTF.Geometry`
-- rail: geometry
+[PUBLIC_TYPE_SCOPE]: Toolkit scene and mesh builders
 
-| [INDEX] | [SYMBOL]                             | [CAPABILITY]                                                                                   |
-| :-----: | :----------------------------------- | :--------------------------------------------------------------------------------------------- |
-|  [01]   | `SceneBuilder`                       | root scene; holds instances referencing meshes, cameras, lights                                |
-|  [02]   | `NodeBuilder`                        | hierarchical armature node; carries animatable TRS, scale, rotation                            |
-|  [03]   | `InstanceBuilder`                    | one renderable instance in the scene; content + transform                                      |
-|  [04]   | `MeshBuilder<TMat,TvG,TvM,TvS>`      | typed mesh builder; owns `PrimitiveBuilder` per material                                       |
-|  [05]   | `IMeshBuilder<TMat>`                 | interface for mesh builders used by `SceneBuilder.AddRigidMesh`                                |
-|  [06]   | `PrimitiveBuilder<TMat,TvG,TvM,TvS>` | builds point/line/triangle primitives; `AddTriangle`, `AddQuadrangle`                          |
-|  [07]   | `VertexBuilder<TvG,TvM,TvS>`         | typed vertex struct: geometry + material + skinning fragments                                  |
-|  [08]   | `VertexBufferColumns`                | column-per-attribute vertex buffer; transpose layout                                           |
-|  [09]   | `SceneBuilderSchema2Settings`        | conversion options: `UseStridedBuffers` (strided vs streamed), merge, GPU instancing threshold |
+| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY] | [CAPABILITY]                                                    |
+| :-----: | :----------------------------------- | :------------ | :-------------------------------------------------------------- |
+|  [01]   | `SceneBuilder`                       | class         | root scene; holds instances referencing meshes, cameras, lights |
+|  [02]   | `NodeBuilder`                        | class         | hierarchical armature node; animatable TRS, scale, rotation     |
+|  [03]   | `InstanceBuilder`                    | class         | one renderable instance; content plus transform                 |
+|  [04]   | `MeshBuilder<TMat,TvG,TvM,TvS>`      | class         | typed mesh builder; owns a `PrimitiveBuilder` per material      |
+|  [05]   | `IMeshBuilder<TMat>`                 | interface     | mesh-builder contract for `SceneBuilder.AddRigidMesh`           |
+|  [06]   | `PrimitiveBuilder<TMat,TvG,TvM,TvS>` | class         | builds point/line/triangle primitives                           |
+|  [07]   | `VertexBuilder<TvG,TvM,TvS>`         | struct        | typed vertex: geometry, material, skinning fragments            |
+|  [08]   | `VertexBufferColumns`                | class         | column-per-attribute vertex buffer; transpose layout            |
+|  [09]   | `SceneBuilderSchema2Settings`        | struct        | `UseStridedBuffers`, buffer merge, GPU instancing threshold     |
 
-`PackedMeshBuilder<TMat>` is `internal`; it packs `IMeshBuilder` collections into a Schema2 mesh during `ToGltf2` and is never named by a consumer.
+[PUBLIC_TYPE_SCOPE]: Toolkit vertex geometry and material fragments
 
-[PUBLIC_TYPE_SCOPE]: Toolkit — vertex geometry and material fragments
-- package: `SharpGLTF.Toolkit`
-- namespace: `SharpGLTF.Geometry.VertexTypes`
-- rail: geometry
+| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY] | [CAPABILITY]                                    |
+| :-----: | :---------------------------- | :------------ | :---------------------------------------------- |
+|  [01]   | `VertexPosition`              | struct        | position-only geometry fragment                 |
+|  [02]   | `VertexPositionNormal`        | struct        | position + normal geometry fragment             |
+|  [03]   | `VertexPositionNormalTangent` | struct        | position + normal + tangent geometry fragment   |
+|  [04]   | `VertexGeometryDelta`         | struct        | morph-target position/normal/tangent delta      |
+|  [05]   | `VertexEmpty`                 | struct        | empty material or skinning fragment placeholder |
+|  [06]   | `VertexColor1`                | struct        | 1-color material fragment                       |
+|  [07]   | `VertexColor2`                | struct        | 2-color material fragment                       |
+|  [08]   | `VertexTexture1`              | struct        | 1-UV material fragment                          |
+|  [09]   | `VertexTexture2`              | struct        | 2-UV material fragment                          |
+|  [10]   | `VertexColor1Texture1`        | struct        | 1-color + 1-UV material fragment                |
+|  [11]   | `VertexColor1Texture2`        | struct        | 1-color + 2-UV material fragment                |
+|  [12]   | `VertexColor2Texture1`        | struct        | 2-color + 1-UV material fragment                |
+|  [13]   | `VertexColor2Texture2`        | struct        | 2-color + 2-UV material fragment                |
+|  [14]   | `VertexMaterialDelta`         | struct        | morph-target color + UV delta                   |
+|  [15]   | `VertexJoints4`               | struct        | 4-joint skinning fragment                       |
+|  [16]   | `VertexJoints8`               | struct        | 8-joint skinning fragment                       |
 
-| [INDEX] | [SYMBOL]                      | [CAPABILITY]                                    |
-| :-----: | :---------------------------- | :---------------------------------------------- |
-|  [01]   | `VertexPosition`              | position-only geometry fragment                 |
-|  [02]   | `VertexPositionNormal`        | position + normal geometry fragment             |
-|  [03]   | `VertexPositionNormalTangent` | position + normal + tangent geometry fragment   |
-|  [04]   | `VertexGeometryDelta`         | morph-target position/normal/tangent delta      |
-|  [05]   | `VertexEmpty`                 | empty material or skinning fragment placeholder |
-|  [06]   | `VertexColor1`                | 1-color material fragment                       |
-|  [07]   | `VertexColor2`                | 2-color material fragment                       |
-|  [08]   | `VertexTexture1`              | 1-UV material fragment                          |
-|  [09]   | `VertexTexture2`              | 2-UV material fragment                          |
-|  [10]   | `VertexColor1Texture1`        | 1-color + 1-UV material fragment                |
-|  [11]   | `VertexColor1Texture2`        | 1-color + 2-UV material fragment                |
-|  [12]   | `VertexColor2Texture1`        | 2-color + 1-UV material fragment                |
-|  [13]   | `VertexColor2Texture2`        | 2-color + 2-UV material fragment                |
-|  [14]   | `VertexMaterialDelta`         | morph-target color + UV delta                   |
-|  [15]   | `VertexJoints4`               | 4-joint skinning fragment                       |
-|  [16]   | `VertexJoints8`               | 8-joint skinning fragment                       |
+[PUBLIC_TYPE_SCOPE]: Toolkit vertex fragment interfaces
 
-[PUBLIC_TYPE_SCOPE]: Toolkit — vertex fragment interfaces
-- package: `SharpGLTF.Toolkit`
-- namespace: `SharpGLTF.Geometry.VertexTypes`
-- rail: geometry
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [CAPABILITY]                                                                              |
+| :-----: | :---------------- | :------------ | :---------------------------------------------------------------------------------------- |
+|  [01]   | `IVertexGeometry` | interface     | geometry-fragment contract                                                                |
+|  [02]   | `IVertexMaterial` | interface     | `MaxColors`/`MaxTextCoords`, `GetColor(int)`/`GetTexCoord(int)`, `SetColor`/`SetTexCoord` |
+|  [03]   | `IVertexSkinning` | interface     | skinning-fragment contract                                                                |
+|  [04]   | `IVertexCustom`   | interface     | custom-attribute fragment (`: IVertexMaterial`); members in `[04]-[VCUSTOM]`              |
 
-| [INDEX] | [SYMBOL]          | [CAPABILITY]                                                                                                       |
-| :-----: | :---------------- | :----------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `IVertexGeometry` | interface for geometry fragments                                                                                   |
-|  [02]   | `IVertexMaterial` | material fragment iface; `MaxColors`/`MaxTextCoords`, `GetColor(int)`/`GetTexCoord(int)`, `SetColor`/`SetTexCoord` |
-|  [03]   | `IVertexSkinning` | interface for skinning fragments                                                                                   |
-|  [04]   | `IVertexCustom`   | custom-attribute fragment iface (`: IVertexMaterial, IVertexReflection`); members in `[04]-[VCUSTOM]`              |
+- [04]-[VCUSTOM]: `IVertexCustom.CustomAttributes` (`IEnumerable<string>`), `TryGetCustomAttribute(string, out object)`, `SetCustomAttribute(string, object)`; a `_FEATURE_ID_n` custom-attribute fragment implements the `IVertexMaterial`/`IVertexReflection` pair, assembled through the `VertexBuilder<TvG,TvM,TvS>` `(in TvG, in TvM)` ctor overload.
 
-- [04]-[VCUSTOM]: `IVertexCustom` — `CustomAttributes` (`IEnumerable<string>`), `TryGetCustomAttribute(string, out object)`, `SetCustomAttribute(string, object)`; a `_FEATURE_ID_n` custom-attribute vertex fragment implements the `IVertexMaterial`/`IVertexReflection` pair, and the `VertexBuilder<TvG,TvM,TvS>` `(in TvG, in TvM)` ctor overload assembles it.
+[PUBLIC_TYPE_SCOPE]: Toolkit material and morph builders
 
-[PUBLIC_TYPE_SCOPE]: Toolkit — material and morph builders
-- package: `SharpGLTF.Toolkit`
-- namespace: `SharpGLTF.Materials`, `SharpGLTF.Geometry`
-- rail: geometry
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [CAPABILITY]                                                          |
+| :-----: | :-------------------- | :------------ | :-------------------------------------------------------------------- |
+|  [01]   | `MaterialBuilder`     | class         | root material; shader, alpha mode, double-sided, fallback             |
+|  [02]   | `ChannelBuilder`      | class         | material channel; `TextureBuilder` and scalar parameters              |
+|  [03]   | `TextureBuilder`      | class         | texture reference; primary/fallback images, transform, coord set      |
+|  [04]   | `ImageBuilder`        | class         | in-memory image content with optional alternate write file name       |
+|  [05]   | `AlphaMode`           | enum          | `Opaque`, `Mask`, `Blend` (Toolkit-local mirror of the Schema2 enum)  |
+|  [06]   | `KnownChannel`        | enum          | typed channel key the channel mutators discriminate on                |
+|  [07]   | `KnownProperty`       | enum          | channel parameter key (`BaseColor`, `Metallic`, …)                    |
+|  [08]   | `IMorphTargetBuilder` | interface     | per-vertex morph-delta contract                                       |
+|  [09]   | `MorphTargetBuilder`  | class         | mesh-level morph target; `SetVertexDelta` by position or geometry key |
+|  [10]   | `CameraBuilder`       | class         | perspective or orthographic camera; `ZNear`, `ZFar`, `VerticalFOV`    |
+|  [11]   | `LightBuilder`        | class         | directional, point, or spot light; `Color`, `Intensity`, `Range`      |
 
-| [INDEX] | [SYMBOL]              | [CAPABILITY]                                                                                                   |
-| :-----: | :-------------------- | :------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `MaterialBuilder`     | root material; sets shader, alpha mode, double-sided, fallback                                                 |
-|  [02]   | `ChannelBuilder`      | material channel; holds `TextureBuilder` and scalar parameter values                                           |
-|  [03]   | `TextureBuilder`      | texture reference; primary + fallback images, transform, coord set                                             |
-|  [04]   | `ImageBuilder`        | in-memory image content with optional alternate write file name                                                |
-|  [05]   | `AlphaMode`           | `Opaque`, `Mask`, `Blend` (Toolkit-local mirror of Schema2 enum)                                               |
-|  [06]   | `KnownProperty`       | enumeration of channel parameter keys (BaseColor, Metallic, etc.)                                              |
-|  [07]   | `IMorphTargetBuilder` | interface for setting per-vertex morph target deltas; the per-primitive implementation behind it is `internal` |
-|  [08]   | `MorphTargetBuilder`  | mesh-level morph target; `SetVertexDelta` by position or geometry key                                          |
-|  [09]   | `CameraBuilder`       | perspective or orthographic camera; `ZNear`, `ZFar`, `VerticalFOV`                                             |
-|  [10]   | `LightBuilder`        | directional, point, or spot light with `Color`, `Intensity`, `Range`                                           |
+[PUBLIC_TYPE_SCOPE]: Runtime scene template and instancing
+- access: `ArmatureTemplate`, `NodeTemplate`, `DrawableTemplate` (and rigid/skinned subtypes), `MaterialTemplate` are `internal`; a consumer reaches the templatized scene through `SceneTemplate` and drives per-instance state through the public instance types, with `DrawableInstance.Template` exposing the internal drawable through the public `IDrawableTemplate`
 
-[PUBLIC_TYPE_SCOPE]: Runtime — scene template and instancing
-- package: `SharpGLTF.Runtime`
-- namespace: `SharpGLTF.Runtime`
-- rail: geometry
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [CAPABILITY]                                                             |
+| :-----: | :----------------- | :------------ | :----------------------------------------------------------------------- |
+|  [01]   | `SceneTemplate`    | class         | templatized scene from a `Schema2.Scene`; creates `SceneInstance` copies |
+|  [02]   | `SceneInstance`    | class         | independent mutable state of a `SceneTemplate`; owns `ArmatureInstance`  |
+|  [03]   | `ArmatureInstance` | class         | per-instance bone transform state                                        |
+|  [04]   | `NodeInstance`     | class         | per-instance node transform state; `LocalMatrix`, `ModelMatrix`          |
+|  [05]   | `DrawableInstance` | struct        | `Template` (what), `Transform` (where), `InstanceCount`                  |
+|  [06]   | `RuntimeOptions`   | class         | `IsolateMemory`, `GpuMeshInstancing`, `ExtrasConverterCallback`          |
 
-The template types (`ArmatureTemplate`, `NodeTemplate`, `DrawableTemplate` and its rigid/skinned subtypes, `MaterialTemplate`) are `internal`; a consumer reaches the templatized scene only through `SceneTemplate` and drives per-instance state through the public instance types below. `DrawableInstance.Template` exposes the internal drawable through the public `IDrawableTemplate` contract.
+[PUBLIC_TYPE_SCOPE]: Runtime mesh decode contracts
+- access: `VertexNormalsFactory`/`VertexTangentsFactory` are `internal` static kernels (smooth-normal, MikkTSpace-tangent) running inside the decode path, not consumer-callable
 
-| [INDEX] | [SYMBOL]           | [CAPABILITY]                                                                |
-| :-----: | :----------------- | :-------------------------------------------------------------------------- |
-|  [01]   | `SceneTemplate`    | templatized scene from a `Schema2.Scene`; creates `SceneInstance` copies    |
-|  [02]   | `SceneInstance`    | independent mutable state of a `SceneTemplate`; owns `ArmatureInstance`     |
-|  [03]   | `ArmatureInstance` | per-instance bone transform state; `SetAnimationFrame`, `SetPoseTransforms` |
-|  [04]   | `NodeInstance`     | per-instance node transform state; `LocalMatrix`, `ModelMatrix`             |
-|  [05]   | `DrawableInstance` | struct: `Template` (what) + `Transform` (where) + `InstanceCount`           |
-|  [06]   | `RuntimeOptions`   | `IsolateMemory`, `GpuMeshInstancing`, `ExtrasConverterCallback`             |
-
-[PUBLIC_TYPE_SCOPE]: Runtime — mesh decode contracts
-- package: `SharpGLTF.Runtime`
-- namespace: `SharpGLTF.Runtime`
-- rail: geometry
-
-| [INDEX] | [SYMBOL]                      | [CAPABILITY]                                                                                           |
-| :-----: | :---------------------------- | :----------------------------------------------------------------------------------------------------- |
-|  [01]   | `IMeshDecoder<TMat>`          | mesh decode interface; name, extras, logical index, primitives                                         |
-|  [02]   | `IMeshPrimitiveDecoder`       | prim decode iface; `GetPosition(int)`/`GetNormal(int)` untransformed, `TriangleIndices`, UV/color/skin |
-|  [03]   | `IMeshPrimitiveDecoder<TMat>` | typed variant carrying material reference                                                              |
-|  [04]   | `MeshDecoder`                 | static utility; `Decode()` extension on `Mesh` and `IReadOnlyList<Mesh>`                               |
-
-`VertexNormalsFactory` and `VertexTangentsFactory` are `internal` static kernels (smooth-normal and MikkTSpace-tangent generation); they run inside the decode path and are not consumer-callable.
+| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY] | [CAPABILITY]                                                                        |
+| :-----: | :---------------------------- | :------------ | :---------------------------------------------------------------------------------- |
+|  [01]   | `IMeshDecoder<TMat>`          | interface     | mesh decode; name, extras, logical index, primitives                                |
+|  [02]   | `IMeshPrimitiveDecoder`       | interface     | `GetPosition(int)`/`GetNormal(int)` untransformed, `TriangleIndices`, UV/color/skin |
+|  [03]   | `IMeshPrimitiveDecoder<TMat>` | interface     | typed variant carrying a material reference                                         |
+|  [04]   | `MeshDecoder`                 | class         | static utility; `Decode()` extension on `Mesh` and `IReadOnlyList<Mesh>`            |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: ModelRoot — read
-- package: `SharpGLTF.Core`
-- namespace: `SharpGLTF.Schema2`
-- owners: `Load`/`ParseGLB`/`ReadGLB`/`GetSatellitePaths` on `ModelRoot`; the `Read*` and `IdentifyBinaryContainer` on `ReadContext`
-- rail: geometry
+[ENTRYPOINT_SCOPE]: ModelRoot and ReadContext — read
 
-| [INDEX] | [SURFACE]                 | [CALL_SHAPE]                          | [CAPABILITY]                                 |
-| :-----: | :------------------------ | :------------------------------------ | :------------------------------------------- |
-|  [01]   | `Load`                    | `(string, ReadSettings?)`             | reads glTF or GLB from file path             |
-|  [02]   | `ParseGLB`                | `(ArraySegment<byte>, ReadSettings?)` | parses GLB from byte array                   |
-|  [03]   | `ReadGLB`                 | `(Stream, ReadSettings?)`             | reads GLB from a stream                      |
-|  [04]   | `ReadSchema2`             | `(string)` or `(Stream)`              | reads from context-relative file or stream   |
-|  [05]   | `ReadTextSchema2`         | `(Stream)`                            | forces text glTF parse                       |
-|  [06]   | `ReadBinarySchema2`       | `(Stream)`                            | forces binary GLB parse                      |
-|  [07]   | `IdentifyBinaryContainer` | `(Stream)`                            | returns whether stream is glTF or GLB        |
-|  [08]   | `GetSatellitePaths`       | `(string)`                            | returns satellite file paths for a glTF path |
+| [INDEX] | [SURFACE]                                                   | [SHAPE]  | [CAPABILITY]                                                |
+| :-----: | :---------------------------------------------------------- | :------- | :---------------------------------------------------------- |
+|  [01]   | `ModelRoot.Load(string, ReadSettings?)`                     | static   | reads glTF or GLB from a file path                          |
+|  [02]   | `ModelRoot.ParseGLB(ArraySegment<byte>, ReadSettings?)`     | static   | parses GLB from a byte segment                              |
+|  [03]   | `ModelRoot.ReadGLB(Stream, ReadSettings?)`                  | static   | reads GLB from a stream                                     |
+|  [04]   | `ModelRoot.GetSatellitePaths(string)`                       | static   | satellite file paths for a glTF path                        |
+|  [05]   | `ReadContext.ReadSchema2(string)`                           | instance | reads a context-relative resource name or stream            |
+|  [06]   | `ReadContext.ReadTextSchema2(Stream)`                       | instance | forces text glTF parse                                      |
+|  [07]   | `ReadContext.ReadBinarySchema2(Stream)`                     | instance | forces binary GLB parse                                     |
+|  [08]   | `ReadContext.IdentifyBinaryContainer(Stream) -> bool`       | static   | whether a stream is glTF or GLB                             |
+|  [09]   | `ReadContext.ReadJson(Stream) -> string`                    | static   | GLB JSON chunk; raw-DOM read for a dropped extension        |
+|  [10]   | `ReadContext.ReadJsonBytes(Stream) -> ReadOnlyMemory<byte>` | static   | raw JSON bytes of the GLB chunk                             |
+|  [11]   | `ReadContext.Validation`                                    | property | per-context `ValidationMode`; `Skip` admits a fallback view |
 
-- [09]-[READJSON]: `ReadContext.ReadJson` / `ReadJsonBytes` `(Stream)` → `string` / `ReadOnlyMemory<byte>` — extracts the JSON chunk from a GLB container, the raw-DOM read for an extension SharpGLTF drops (Draco/meshopt).
-- [10]-[FROMDICT]: `ReadContext.CreateFromDictionary(IReadOnlyDictionary<string, ArraySegment<byte>>, bool checkExtensions = true)` — static factory over an in-memory satellite map, the file-system-free multi-part `.gltf` decode.
-- [11]-[VALIDATION]: `ReadContext.Validation` (`ValidationMode` get/set) — per-context validation posture; `Skip` admits a fallback-less compressed view the decode then probes loud.
+- `ReadContext.CreateFromDictionary(IReadOnlyDictionary<string, ArraySegment<byte>>, bool)` (static factory) — file-system-free multi-part `.gltf` decode from an in-memory satellite map.
 
-[ENTRYPOINT_SCOPE]: ModelRoot — write
-- package: `SharpGLTF.Core`
-- namespace: `SharpGLTF.Schema2`
-- rail: geometry
+[ENTRYPOINT_SCOPE]: ModelRoot and WriteContext — write
 
-| [INDEX] | [SURFACE]                         | [CALL_SHAPE]                              | [CAPABILITY]                                   |
-| :-----: | :-------------------------------- | :---------------------------------------- | :--------------------------------------------- |
-|  [01]   | `ModelRoot.Save`                  | `(string, WriteSettings?)`                | writes glTF or GLB by file extension           |
-|  [02]   | `ModelRoot.SaveGLB`               | `(string, WriteSettings?)`                | writes binary GLB to file                      |
-|  [03]   | `ModelRoot.SaveGLTF`              | `(string, WriteSettings?)`                | writes text glTF to file                       |
-|  [04]   | `ModelRoot.WriteGLB`              | `(WriteSettings?)` → `ArraySegment<byte>` | serializes GLB to a byte segment               |
-|  [05]   | `ModelRoot.WriteGLB`              | `(Stream, WriteSettings?)`                | writes GLB to stream                           |
-|  [06]   | `WriteContext.WriteTextSchema2`   | `(string, ModelRoot)`                     | writes text schema to context output           |
-|  [07]   | `WriteContext.WriteBinarySchema2` | `(string, ModelRoot)`                     | writes binary schema to context output         |
-|  [08]   | `ModelRoot.GetJsonPreview`        | `()`                                      | returns JSON text preview without side effects |
+| [INDEX] | [SURFACE]                                                  | [SHAPE]  | [CAPABILITY]                           |
+| :-----: | :--------------------------------------------------------- | :------- | :------------------------------------- |
+|  [01]   | `ModelRoot.Save(string, WriteSettings?)`                   | instance | writes glTF or GLB by file extension   |
+|  [02]   | `ModelRoot.SaveGLB(string, WriteSettings?)`                | instance | writes binary GLB to file              |
+|  [03]   | `ModelRoot.SaveGLTF(string, WriteSettings?)`               | instance | writes text glTF to file               |
+|  [04]   | `ModelRoot.WriteGLB(WriteSettings?) -> ArraySegment<byte>` | instance | serializes GLB to a byte segment       |
+|  [05]   | `ModelRoot.WriteGLB(Stream, WriteSettings?)`               | instance | writes GLB to a stream                 |
+|  [06]   | `WriteContext.WriteTextSchema2(string, ModelRoot)`         | instance | writes text schema to context output   |
+|  [07]   | `WriteContext.WriteBinarySchema2(string, ModelRoot)`       | instance | writes binary schema to context output |
+|  [08]   | `ModelRoot.GetJsonPreview() -> string`                     | instance | JSON text preview without side effects |
 
 [ENTRYPOINT_SCOPE]: ModelRoot — construction and mutation
-- package: `SharpGLTF.Core`
-- namespace: `SharpGLTF.Schema2`
-- rail: geometry
 
-| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                  | [CAPABILITY]                               |
-| :-----: | :------------------------------ | :---------------------------- | :----------------------------------------- |
-|  [01]   | `ModelRoot.CreateModel`         | `()` (static)                 | creates an empty `ModelRoot`               |
-|  [02]   | `ModelRoot.DeepClone`           | `()`                          | creates a full structural clone            |
-|  [03]   | `ModelRoot.UseScene`            | `(string)` or `(int)`         | creates or reuses a named scene            |
-|  [04]   | `ModelRoot.CreateMesh`          | `(string)`                    | creates a new logical mesh                 |
-|  [05]   | `ModelRoot.CreateMaterial`      | `(string)`                    | creates a new logical material             |
-|  [06]   | `ModelRoot.CreateAccessor`      | `(string)`                    | creates a new logical accessor             |
-|  [07]   | `ModelRoot.CreateAnimation`     | `(string)`                    | creates a new animation                    |
-|  [08]   | `ModelRoot.UseBuffer`           | `(byte[])`                    | creates or reuses a buffer from byte array |
-|  [09]   | `ModelRoot.UseBufferView`       | overloads                     | creates or reuses a buffer view            |
-|  [10]   | `ModelRoot.MergeBuffers`        | `()` or `(int)`               | consolidates logical buffers               |
-|  [11]   | `ModelRoot.IsolateMemory`       | `()`                          | refreshes internal memory buffers          |
-|  [12]   | `ModelRoot.ApplyBasisTransform` | `(Matrix4x4, string)`         | applies world transform to all scenes      |
-|  [13]   | `ModelRoot.UseImage`            | `(MemoryImage)`               | creates or reuses an image                 |
-|  [14]   | `ModelRoot.UseTexture`          | `(Image, TextureSampler)`     | creates or reuses a texture                |
-|  [15]   | `ModelRoot.UseTextureSampler`   | wrap/filter args              | creates or reuses a texture sampler        |
-|  [16]   | `ModelRoot.CreateSkin`          | `(string)`                    | creates a new skin                         |
-|  [17]   | `ModelRoot.CreatePunctualLight` | `(string, PunctualLightType)` | creates a KHR punctual light               |
+| [INDEX] | [SURFACE]                                                      | [SHAPE]  | [CAPABILITY]                               |
+| :-----: | :------------------------------------------------------------- | :------- | :----------------------------------------- |
+|  [01]   | `ModelRoot.CreateModel()`                                      | factory  | creates an empty `ModelRoot`               |
+|  [02]   | `ModelRoot.DeepClone()`                                        | instance | full structural clone                      |
+|  [03]   | `ModelRoot.UseScene(string)`                                   | instance | creates or reuses a named or indexed scene |
+|  [04]   | `ModelRoot.CreateMesh(string)`                                 | instance | creates a logical mesh                     |
+|  [05]   | `ModelRoot.CreateMaterial(string)`                             | instance | creates a logical material                 |
+|  [06]   | `ModelRoot.CreateAccessor(string)`                             | instance | creates a logical accessor                 |
+|  [07]   | `ModelRoot.CreateAnimation(string)`                            | instance | creates an animation                       |
+|  [08]   | `ModelRoot.UseBuffer(byte[])`                                  | instance | creates or reuses a buffer                 |
+|  [09]   | `ModelRoot.UseBufferView(Buffer, int, int?, int, BufferMode?)` | instance | creates or reuses a buffer view            |
+|  [10]   | `ModelRoot.MergeBuffers(int?)`                                 | instance | consolidates logical buffers               |
+|  [11]   | `ModelRoot.IsolateMemory()`                                    | instance | refreshes internal memory buffers          |
+|  [12]   | `ModelRoot.ApplyBasisTransform(Matrix4x4, string)`             | instance | applies a world transform to all scenes    |
+|  [13]   | `ModelRoot.UseImage(MemoryImage)`                              | instance | creates or reuses an image                 |
+|  [14]   | `ModelRoot.UseTexture(Image, TextureSampler?)`                 | instance | creates or reuses a texture                |
+|  [15]   | `ModelRoot.UseTextureSampler(wrap, filter)`                    | instance | creates or reuses a texture sampler        |
+|  [16]   | `ModelRoot.CreateSkin(string)`                                 | instance | creates a skin                             |
+|  [17]   | `ModelRoot.CreatePunctualLight(string, PunctualLightType)`     | instance | creates a KHR punctual light               |
 
 [ENTRYPOINT_SCOPE]: Animation — keyframe channel authoring
-- package: `SharpGLTF.Core`
-- namespace: `SharpGLTF.Schema2`
-- owner: every `[SURFACE]` is an `Animation` channel method
-- call: `(Node, IReadOnlyDictionary<float, TValue>, bool linear = true)` per channel; `CreateVisibilityChannel` omits `linear` (`STEP`), `CreateMorphChannel` adds `int morphCount`
-- rail: geometry
+- carry: each TRS/morph channel takes `(Node, IReadOnlyDictionary<float, TValue> keyframes, bool linear = true)` — the caller supplies the float-seconds → value map; the channel allocates its own `AnimationSampler`, `linear` selects `LINEAR`/`STEP`, and a `(TangentIn, Value, TangentOut)` tuple-keyframe overload forces `CUBICSPLINE`; the visibility channel omits `linear` and is `STEP` by construction
 
-`ModelRoot.CreateAnimation(name)` returns the `Animation` added to `LogicalAnimations`; the per-node keyframe channels below each allocate their own `AnimationSampler` (the `bool linear` selects `AnimationInterpolationMode.LINEAR`/`STEP`, the tuple overloads force `CUBICSPLINE`). The keyframe argument is the float-seconds → value map, so the time axis is supplied by the caller. `CreateVisibilityChannel` emits the `KHR_node_visibility` per-node boolean track and is `STEP`-interpolated by construction (no `linear` parameter); the extension is authored through this channel, never a named `JsonSerializable` class — so its `KhrExtension` row carries `Registrar=None`.
+| [INDEX] | [SURFACE]                                                      | [SHAPE]  | [CAPABILITY]                                               |
+| :-----: | :------------------------------------------------------------- | :------- | :--------------------------------------------------------- |
+|  [01]   | `Animation.CreateVisibilityChannel`                            | instance | `bool` → `KHR_node_visibility` per-node track, `STEP`      |
+|  [02]   | `Animation.CreateScaleChannel`                                 | instance | `Vector3` → per-node scale TRS track                       |
+|  [03]   | `Animation.CreateTranslationChannel`                           | instance | `Vector3` → per-node translation TRS track                 |
+|  [04]   | `Animation.CreateRotationChannel`                              | instance | `Quaternion` → per-node rotation TRS track                 |
+|  [05]   | `Animation.CreateMorphChannel`                                 | instance | `TWeights` → per-node morph-weight track, `int morphCount` |
+|  [06]   | `Animation.CreateMaterialPropertyChannel(Material, string, …)` | instance | `KHR_animation_pointer` material-channel track             |
+|  [07]   | `Animation.DangerousCreatePointerChannel(string, …)`           | instance | `KHR_animation_pointer` arbitrary-DOM target track         |
 
-| [INDEX] | [SURFACE]                            | [CAPABILITY]                                               |
-| :-----: | :----------------------------------- | :--------------------------------------------------------- |
-|  [01]   | `Animation.CreateVisibilityChannel`  | `bool` → `KHR_node_visibility` per-node visibility, `STEP` |
-|  [02]   | `Animation.CreateScaleChannel`       | `Vector3` → per-node scale TRS track                       |
-|  [03]   | `Animation.CreateTranslationChannel` | `Vector3` → per-node translation TRS track                 |
-|  [04]   | `Animation.CreateRotationChannel`    | `Quaternion` → per-node rotation TRS track                 |
-|  [05]   | `Animation.CreateMorphChannel`       | `TWeights` → per-node morph-weight track                   |
-
-- [06]-[MATCHAN]: `Animation.CreateMaterialPropertyChannel(Material, string propertyName, IReadOnlyDictionary<float, T>, bool)` — `KHR_animation_pointer` material-channel track.
-- [07]-[PTRCHAN]: `Animation.DangerousCreatePointerChannel(string pointerPath, IReadOnlyDictionary<float, T>, bool, bool)` — `KHR_animation_pointer` arbitrary-DOM target track.
-
-The scale/translation/rotation/morph channels each carry a second `(TangentIn, Value, TangentOut)` tuple-keyframe overload forcing `CUBICSPLINE` interpolation. `KHR_node_visibility` and `KHR_animation_pointer` are the in-box scene-rail extensions reached only through these channel members, never named — consistent with the `internal`-extension policy the material/texture rows above hold.
+`KHR_node_visibility` and `KHR_animation_pointer` are in-box scene-rail extensions reached only through these channels, never named — the same `internal`-extension policy the material/texture rows hold, so the visibility channel's `KhrExtension` row carries `Registrar=None`.
 
 [ENTRYPOINT_SCOPE]: SceneBuilder — mesh placement and output
-- package: `SharpGLTF.Toolkit`
-- namespace: `SharpGLTF.Scenes`
-- rail: geometry
 
-| [INDEX] | [SURFACE]                          | [CALL_SHAPE]                                      | [CAPABILITY]                               |
-| :-----: | :--------------------------------- | :------------------------------------------------ | :----------------------------------------- |
-|  [01]   | `SceneBuilder.AddRigidMesh`        | `(IMeshBuilder<M>, NodeBuilder)`                  | adds mesh attached to animatable node      |
-|  [02]   | `SceneBuilder.AddRigidMesh`        | `(IMeshBuilder<M>, AffineTransform)`              | adds mesh at fixed world transform         |
-|  [03]   | `SceneBuilder.AddRigidMesh`        | `(IMeshBuilder<M>, NodeBuilder, AffineTransform)` | adds mesh relative to node                 |
-|  [04]   | `SceneBuilder.ToGltf2`             | `()` or `(SceneBuilderSchema2Settings)`           | converts builder to `ModelRoot`            |
-|  [05]   | `SceneBuilder.ToGltf2`             | `(IEnumerable<SceneBuilder>, settings)`           | converts multiple scenes to `ModelRoot`    |
-|  [06]   | `SceneBuilder.AddScene`            | `(SceneBuilder, Matrix4x4)`                       | merges another scene with offset transform |
-|  [07]   | `SceneBuilder.ApplyBasisTransform` | `(Matrix4x4, string)`                             | transforms all instances in this scene     |
-|  [08]   | `SceneBuilder.FindArmatures`       | `()`                                              | returns unique armature roots              |
+| [INDEX] | [SURFACE]                                                                  | [SHAPE]  | [CAPABILITY]                              |
+| :-----: | :------------------------------------------------------------------------- | :------- | :---------------------------------------- |
+|  [01]   | `SceneBuilder.AddRigidMesh(IMeshBuilder<M>, NodeBuilder)`                  | instance | mesh attached to an animatable node       |
+|  [02]   | `SceneBuilder.AddRigidMesh(IMeshBuilder<M>, AffineTransform)`              | instance | mesh at a fixed world transform           |
+|  [03]   | `SceneBuilder.AddRigidMesh(IMeshBuilder<M>, NodeBuilder, AffineTransform)` | instance | mesh relative to a node                   |
+|  [04]   | `SceneBuilder.ToGltf2(SceneBuilderSchema2Settings?) -> ModelRoot`          | instance | converts this builder to a `ModelRoot`    |
+|  [05]   | `SceneBuilder.ToGltf2(IEnumerable<SceneBuilder>, settings)`                | static   | converts multiple scenes to a `ModelRoot` |
+|  [06]   | `SceneBuilder.AddScene(SceneBuilder, Matrix4x4)`                           | instance | merges another scene with an offset       |
+|  [07]   | `SceneBuilder.ApplyBasisTransform(Matrix4x4, string)`                      | instance | transforms all instances in this scene    |
+|  [08]   | `SceneBuilder.FindArmatures()`                                             | instance | unique armature roots                     |
 
-[ENTRYPOINT_SCOPE]: MeshBuilder — primitive assembly
-- package: `SharpGLTF.Toolkit`
-- namespace: `SharpGLTF.Geometry`
-- rail: geometry
+[ENTRYPOINT_SCOPE]: MeshBuilder and PrimitiveBuilder — primitive assembly
 
-| [INDEX] | [SURFACE]                              | [CALL_SHAPE]                           | [CAPABILITY]                               |
-| :-----: | :------------------------------------- | :------------------------------------- | :----------------------------------------- |
-|  [01]   | `MeshBuilder<M,vG,vM,vS>.UsePrimitive` | `(material, verticesPerPrimitive)`     | creates or reuses a primitive for material |
-|  [02]   | `MeshBuilder.TransformVertices`        | `(Func<VertexBuilder, VertexBuilder>)` | transforms all vertices in place           |
-|  [03]   | `PrimitiveBuilder.AddTriangle`         | `(v0, v1, v2)`                         | adds a triangle from three typed vertices  |
-|  [04]   | `PrimitiveBuilder.AddQuadrangle`       | `(v0, v1, v2, v3)`                     | adds a quad, auto-split to two triangles   |
-|  [05]   | `PrimitiveBuilder.AddLine`             | `(v0, v1)`                             | adds a line segment                        |
-|  [06]   | `PrimitiveBuilder.AddPoint`            | `(v0)`                                 | adds a point                               |
+| [INDEX] | [SURFACE]                                                           | [SHAPE]  | [CAPABILITY]                               |
+| :-----: | :------------------------------------------------------------------ | :------- | :----------------------------------------- |
+|  [01]   | `MeshBuilder.UsePrimitive(material, int)`                           | instance | creates or reuses a primitive for material |
+|  [02]   | `MeshBuilder.TransformVertices(Func<VertexBuilder, VertexBuilder>)` | instance | transforms all vertices in place           |
+|  [03]   | `PrimitiveBuilder.AddTriangle(v0, v1, v2)`                          | instance | adds a triangle from three typed vertices  |
+|  [04]   | `PrimitiveBuilder.AddQuadrangle(v0, v1, v2, v3)`                    | instance | adds a quad, auto-split to two triangles   |
+|  [05]   | `PrimitiveBuilder.AddLine(v0, v1)`                                  | instance | adds a line segment                        |
+|  [06]   | `PrimitiveBuilder.AddPoint(v0)`                                     | instance | adds a point                               |
 
 [ENTRYPOINT_SCOPE]: MaterialBuilder — shader and channel configuration
-- package: `SharpGLTF.Toolkit`
-- namespace: `SharpGLTF.Materials`
-- owner: `[01]`-`[11]` are `MaterialBuilder` fluent methods
-- rail: geometry
+- fluent: every surface returns `MaterialBuilder`, chaining shader selection, channel mutation, and fallback
 
-| [INDEX] | [SURFACE]                      | [CALL_SHAPE]                                               | [CAPABILITY]                           |
-| :-----: | :----------------------------- | :--------------------------------------------------------- | :------------------------------------- |
-|  [01]   | `WithMetallicRoughnessShader`  | `()`                                                       | selects PBR metallic-roughness shader  |
-|  [02]   | `WithSpecularGlossinessShader` | `()`                                                       | selects KHR specular-glossiness shader |
-|  [03]   | `WithUnlitShader`              | `()`                                                       | selects KHR_materials_unlit shader     |
-|  [04]   | `WithShader`                   | `(string)`                                                 | selects shader by name string          |
-|  [05]   | `UseChannel`                   | `(KnownChannel)` or `(string)` → `ChannelBuilder`          | gets/creates a channel for mutation    |
-|  [06]   | `WithChannelParam`             | `(KnownChannel, KnownProperty, object)`                    | sets a channel scalar parameter        |
-|  [07]   | `WithChannelParam`             | `(KnownChannel, Vector4)`                                  | sets a channel vector parameter        |
-|  [08]   | `WithChannelImage`             | `(KnownChannel, ImageBuilder)` or `(string, ImageBuilder)` | binds a channel texture image          |
-|  [09]   | `WithAlpha`                    | `(AlphaMode = OPAQUE, float alphaCutoff =)`                | sets alpha mode + mask cutoff          |
-|  [10]   | `WithDoubleSide`               | `(bool)`                                                   | enables back-face rendering            |
-|  [11]   | `WithFallback`                 | `(MaterialBuilder)`                                        | chains a fallback material             |
+| [INDEX] | [SURFACE]                                               | [SHAPE]  | [CAPABILITY]                           |
+| :-----: | :------------------------------------------------------ | :------- | :------------------------------------- |
+|  [01]   | `WithMetallicRoughnessShader()`                         | instance | selects PBR metallic-roughness shader  |
+|  [02]   | `WithSpecularGlossinessShader()`                        | instance | selects KHR specular-glossiness shader |
+|  [03]   | `WithUnlitShader()`                                     | instance | selects KHR_materials_unlit shader     |
+|  [04]   | `WithShader(string)`                                    | instance | selects a shader by name               |
+|  [05]   | `UseChannel(KnownChannel/string) -> ChannelBuilder`     | instance | gets or creates a channel for mutation |
+|  [06]   | `WithChannelParam(KnownChannel, KnownProperty, object)` | instance | sets a channel scalar parameter        |
+|  [07]   | `WithChannelParam(KnownChannel, Vector4)`               | instance | sets a channel vector parameter        |
+|  [08]   | `WithChannelImage(KnownChannel, ImageBuilder)`          | instance | binds a channel texture image          |
+|  [09]   | `WithAlpha(AlphaMode = OPAQUE, float alphaCutoff)`      | instance | sets alpha mode and mask cutoff        |
+|  [10]   | `WithDoubleSide(bool)`                                  | instance | enables back-face rendering            |
+|  [11]   | `WithFallback(MaterialBuilder)`                         | instance | chains a fallback material             |
 
-- [12]-[KNOWNKEYS]: `KnownChannel` / `KnownProperty` enums — typed channel keys (`BaseColor`, `MetallicRoughness`, `Normal`, `Emissive`, …) and property keys, the typed path the channel mutators discriminate on.
+[ENTRYPOINT_SCOPE]: SceneTemplate and ArmatureInstance — runtime decode
 
-[ENTRYPOINT_SCOPE]: SceneTemplate — runtime decode
-- package: `SharpGLTF.Runtime`
-- namespace: `SharpGLTF.Runtime`
-- rail: geometry
-
-| [INDEX] | [SURFACE]                            | [CALL_SHAPE]                              | [CAPABILITY]                               |
-| :-----: | :----------------------------------- | :---------------------------------------- | :----------------------------------------- |
-|  [01]   | `SceneTemplate.Create`               | `(Scene, RuntimeOptions?)` (static)       | creates template from a `Schema2.Scene`    |
-|  [02]   | `SceneTemplate.CreateInstance`       | `()`                                      | creates an independent `SceneInstance`     |
-|  [03]   | `ArmatureInstance.SetAnimationFrame` | `(int trackIndex, float time, bool loop)` | advances bone transforms to animation time |
-|  [04]   | `ArmatureInstance.SetPoseTransforms` | `()`                                      | resets all bones to rest pose              |
-|  [05]   | `ArmatureInstance.SetLocalMatrix`    | `(string nodeName, Matrix4x4)`            | overrides a bone's local-space matrix      |
-|  [06]   | `ArmatureInstance.SetModelMatrix`    | `(string nodeName, Matrix4x4)`            | overrides a bone's model-space matrix      |
+| [INDEX] | [SURFACE]                                              | [SHAPE]  | [CAPABILITY]                               |
+| :-----: | :----------------------------------------------------- | :------- | :----------------------------------------- |
+|  [01]   | `SceneTemplate.Create(Scene, RuntimeOptions?)`         | factory  | templatizes a `Schema2.Scene`              |
+|  [02]   | `SceneTemplate.CreateInstance()`                       | instance | creates an independent `SceneInstance`     |
+|  [03]   | `ArmatureInstance.SetAnimationFrame(int, float, bool)` | instance | advances bone transforms to animation time |
+|  [04]   | `ArmatureInstance.SetPoseTransforms()`                 | instance | resets all bones to rest pose              |
+|  [05]   | `ArmatureInstance.SetLocalMatrix(string, Matrix4x4)`   | instance | overrides a bone's local-space matrix      |
+|  [06]   | `ArmatureInstance.SetModelMatrix(string, Matrix4x4)`   | instance | overrides a bone's model-space matrix      |
 
 [ENTRYPOINT_SCOPE]: MeshDecoder — decode reads
-- package: `SharpGLTF.Runtime`
-- namespace: `SharpGLTF.Runtime`
-- call: the `MeshDecoder.Get*` reads (`GetPosition`, `GetNormal`/`GetTangent`, `GetTextureCoord`, `GetColor`) are extensions `(this IMeshPrimitiveDecoder, int vertexIdx[, int setIndex], IGeometryTransform xform)`
-- rail: geometry
+- carry: the `Get*` reads are extensions `(this IMeshPrimitiveDecoder, int vertexIdx[, int setIndex], IGeometryTransform xform)`
 
-| [INDEX] | [SURFACE]                               | [CAPABILITY]                                                                         |
-| :-----: | :-------------------------------------- | :----------------------------------------------------------------------------------- |
-|  [01]   | `MeshDecoder.Decode`                    | `(this Mesh` or `IReadOnlyList<Mesh>, RuntimeOptions?)` → `IMeshDecoder<Material>[]` |
-|  [02]   | `MeshDecoder.GetPosition`               | `Vector3` position, optionally transformed                                           |
-|  [03]   | `MeshDecoder.GetNormal`/`GetTangent`    | `Vector3`/`Vector4` normal/tangent (generated if absent)                             |
-|  [04]   | `MeshDecoder.GetTextureCoord`           | `Vector2` UV for a texture set (+ `setIndex`)                                        |
-|  [05]   | `MeshDecoder.GetColor`                  | `Vector4` vertex color (+ `colorSetIndex`)                                           |
-|  [06]   | `IMeshPrimitiveDecoder.GetSkinWeights`  | `(int vertexIndex)` → `SparseWeight8` (ns `SharpGLTF.Transforms`)                    |
-|  [07]   | `IMeshPrimitiveDecoder.TriangleIndices` | property → `IEnumerable<(int,int,int)>` triangle index tuples                        |
+| [INDEX] | [SURFACE]                                                            | [SHAPE]  | [CAPABILITY]                                           |
+| :-----: | :------------------------------------------------------------------- | :------- | :----------------------------------------------------- |
+|  [01]   | `MeshDecoder.Decode(this Mesh/IReadOnlyList<Mesh>, RuntimeOptions?)` | static   | → `IMeshDecoder<Material>[]`                           |
+|  [02]   | `MeshDecoder.GetPosition() -> Vector3`                               | static   | position, optionally transformed                       |
+|  [03]   | `MeshDecoder.GetNormal()`/`GetTangent()`                             | static   | `Vector3`/`Vector4` normal/tangent, auto-gen if absent |
+|  [04]   | `MeshDecoder.GetTextureCoord()`                                      | static   | `Vector2` UV for a texture set (+ `setIndex`)          |
+|  [05]   | `MeshDecoder.GetColor()`                                             | static   | `Vector4` vertex color (+ `colorSetIndex`)             |
+|  [06]   | `IMeshPrimitiveDecoder.GetSkinWeights(int)`                          | static   | → `SparseWeight8` (`SharpGLTF.Transforms`)             |
+|  [07]   | `IMeshPrimitiveDecoder.TriangleIndices`                              | property | → `IEnumerable<(int,int,int)>` triangle index tuples   |
 
-- [08]-[BSPHERE]: `MeshDecoder.EvaluateBoundingSphere(this SceneTemplate, IMeshDecoder<Material>[], float samplingTimeStep = 1)` → `(Vector3 Center, float Radius)` — animation-aware bounding sphere.
-- [09]-[BBOX]: `MeshDecoder.EvaluateBoundingBox(this SceneInstance, IReadOnlyList<IMeshDecoder<TMat>>)` → `(Vector3 Min, Vector3 Max)` — per-instance AABB after pose evaluation.
+- `MeshDecoder.EvaluateBoundingSphere(this SceneTemplate, IMeshDecoder<Material>[], float)` (static) → `(Vector3 Center, float Radius)`, animation-aware.
+- `MeshDecoder.EvaluateBoundingBox(this SceneInstance, IReadOnlyList<IMeshDecoder<TMat>>)` (static) → `(Vector3 Min, Vector3 Max)`, per-instance AABB after pose.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[GLTF_IO]:
-- read root: `ModelRoot.Load` (file) / `ModelRoot.ParseGLB` (bytes) / `ModelRoot.ReadGLB` (stream)
-- write root: `ModelRoot.Save` selects format by extension; `ModelRoot.WriteGLB` produces bytes
-- validation: `ReadSettings.Validation` and `WriteSettings.Validation` accept `ValidationMode.Skip`, `TryFix`, or `Strict`
-- custom URI resolution: configure `ReadContext` with a file-reader delegate before calling `ReadSchema2`
+[TOPOLOGY]:
+- I/O folds through `ModelRoot`: read enters `Load` (file), `ParseGLB` (bytes), or `ReadGLB` (stream); write enters `Save` (format by extension) or `WriteGLB` (bytes); `ReadSettings.Validation` and `WriteSettings.Validation` thread `ValidationMode` at both ends, and a custom URI resolver rides a `ReadContext` file-reader delegate set before `ReadSchema2`.
+- Toolkit build folds `VertexBuilder<TvG,TvM,TvS>` (geometry + material + skinning fragment) → `MeshBuilder` → `SceneBuilder.AddRigidMesh` → `SceneBuilder.ToGltf2()` → `ModelRoot`; `SceneBuilderSchema2Settings` drives strided buffers, buffer merge, and GPU-instancing threshold, and `MaterialBuilder` mutates channels through `UseChannel(KnownChannel)`.
+- Runtime decode folds `SceneTemplate.Create(scene)` → `CreateInstance()` → `SetAnimationFrame` per tick; `SceneInstance` enumerates `DrawableInstance` (its `Template.LogicalMeshIndex` selects the mesh, `Transform` carries the `IGeometryTransform`), and `LogicalMeshes.Decode()` yields `IMeshDecoder<Material>[]` whose normals and MikkTSpace tangents generate inside the decode under the `internal` `VertexNormalsFactory`/`VertexTangentsFactory` kernels.
+- Every extension registers at `ExtensionsFactory.RegisterExtension<TParent,TExt>(name)` before any read or write that touches it; the KHR/MSFT/EXT material, texture, and scene extensions ship in-box, and a custom extension implements `JsonSerializable` and registers on the same factory.
+- Core carries the extension framework but zero geometry codec: no type matches `KHR_draco_mesh_compression` or `EXT_meshopt_compression` in the assembly, so `RuntimeOptions.IsolateMemory`/`GpuMeshInstancing`/`ExtrasConverterCallback` is the single decode-policy carrier and encode routes to a sibling codec.
 
-[WRITE_SETTINGS]:
-- `MergeBuffers` (`bool`, default `true`) — merges all `ModelRoot.LogicalBuffers` into one before serialization
-- `BuffersMaxSize` (`int`, default `int.MaxValue`) — splits the merged buffer into chunks at this byte cap; only applies when `MergeBuffers` is `true` and format is glTF (not GLB)
-- `JsonIndented` (`bool`) — delegates to `JsonWriterOptions.Indented`; set `true` for human-readable output
-- `JsonOptions` (`JsonWriterOptions`) — full STJ writer options; `JsonIndented` is a convenience forwarder into this field
-- `ImageWriting` (`ResourceWriteMode`) — controls how images are stored: `Default` / `SatelliteFile` / `EmbeddedAsBase64` / `BufferView`; `BufferView` embeds images into the binary buffer (GLB-native form); `EmbeddedAsBase64` embeds into JSON only for glTF, not GLB
-- `ImageWriteCallback` (`ImageWriterCallback`) — per-image hook that overrides `ImageWriting` for individual images; receives the image and returns `ResourceWriteMode`
-- `JsonPostprocessor` (`JsonFilterCallback`) — post-processes the raw JSON text string before it is written; use for custom escape or transform passes
-- `Validation` (`ValidationMode`) — validation strictness; applies at both read and write time through the matching settings class
-
-[COMPRESSION_LAW]:
-- `SharpGLTF.Core` ships no Draco encode surface and no meshopt encode surface in this build; the package has zero types matching `KHR_draco_mesh_compression` or `EXT_meshopt_compression` in the member assembly scope.
-- KHR_draco_mesh_compression read-side support is registered via `ExtensionsFactory.RegisterExtension<MeshPrimitive, TDracoExt>(name)` when a separately compiled Draco decode adapter is provided by the caller; the core library carries only the extension framework, not the codec.
-- EXT_meshopt_compression and vertex quantization helpers are not present in Core; these are caller-provided or require a separate SharpGLTF extension package if available.
-- Consumers requiring Draco decode must supply a `JsonSerializable`-derived extension class and register it before any read call; no encode path exists in this version.
-
-[EXTENSION_REGISTRATION]:
-- `ExtensionsFactory.RegisterExtension<TParent, TExt>(string name)` — registers a globally available extension type
-- KHR extensions included in-box: clearcoat, transmission, volume, ior, iridescence, sheen, anisotropy, emissive strength, dispersion, diffuse transmission, unlit, specular, specular-gloss, mesh-gpu-instancing, lights-punctual, texture-transform, texture-basisu, texture-dds, texture-webp, animation-pointer, xmp-json-ld
-- custom extensions: implement from `JsonSerializable`; register before any read/write call
-
-[TOOLKIT_BUILD]:
-- primary path: `MeshBuilder<M,vG,vM,vS>` → `SceneBuilder.AddRigidMesh` → `SceneBuilder.ToGltf2()` → `ModelRoot`
-- vertex type selection: compose `VertexBuilder<TvG, TvM, TvS>` from geometry fragment + material fragment + skinning fragment
-- material builder: `new MaterialBuilder(name).WithMetallicRoughnessShader()` then set channels via `UseChannel(key)`
-- skinned mesh: add via `AddSkinnedMesh(mesh, Matrix4x4.Identity, joints)` where joints are `NodeBuilder` instances
-- output settings: `SceneBuilderSchema2Settings` controls strided buffers, buffer merge, GPU instancing threshold
-
-[RUNTIME_DECODE]:
-- instancing path: `SceneTemplate.Create(schema2Scene)` → `SceneTemplate.CreateInstance()` → drive `SetAnimationFrame` per tick
-- draw loop: enumerate `SceneInstance` (it is `IEnumerable<DrawableInstance>`) → each `DrawableInstance.Template.LogicalMeshIndex` selects the mesh, `DrawableInstance.Transform` carries `IGeometryTransform`
-- mesh decode: `model.LogicalMeshes.Decode()` returns `IMeshDecoder<Material>[]`; each primitive exposes typed vertex accessors
-- normal/tangent generation: the decode path computes smooth normals and MikkTSpace tangents through `internal` factory kernels; consumers read the generated values through `IMeshPrimitiveDecoder.GetNormal`/`GetTangent`
-
-[INTEGRATION_STACK]:
-- compression leg: `SharpGLTF.Core` carries NO Draco/meshopt encoder (member absence — see `COMPRESSION_LAW`); the encode legs stack the sibling-admitted `Openize.Drako` (`KHR_draco_mesh_compression`) and `Alimer.Bindings.MeshOptimizer` (`EXT_meshopt_compression`), both catalogued separately and both Compute-side outside-Rhino. The `ModelRoot` is authored uncompressed here, then the encode adapter rewrites the buffer-views — SharpGLTF owns the schema, the sibling owns the codec.
-- structural-metadata leg: per-tile `EXT_structural_metadata`/`EXT_mesh_features` (3D Tiles) lives in `SharpGLTF.Ext.3DTiles` (`api-sharpgltf-3dtiles`, separate package + `OneOf` transitive), NOT Core — the same `ModelRoot`/`MeshPrimitive` is the shared mutation target across both packages.
-- georeference leg: an imported `ModelRoot`'s decoded vertex span (`MeshDecoder.Decode` → `IMeshPrimitiveDecoder`) feeds the `Semantics/georeference#GEODETIC_TRANSFORM` `ProjNET` batch reproject before the frame normalization, so a glTF asset lands in the shared projected frame; the decode's `IGeometryTransform` arg and the ProjNET `Span` batch are two stages of one ingest rail.
-- identity leg: a `ModelRoot.WriteGLB(WriteSettings)` byte segment (or a `MemoryAccessor` buffer region) feeds `System.IO.Hashing` `XxHash3`/`XxHash128` via `Append` (`libs/csharp/.api/api-hashing.md`) zero-copy over the produced `ArraySegment<byte>` — `XxHash3` is the fast in-process export snapshot fingerprint, `XxHash128` (`GetCurrentHashAsUInt128`) the persisted, collision-resistant GLB content key the `Rasm.Persistence` artifact index is content-addressed by, so the glTF export anchors the same XxHash128-keyed content-identity rail the IFC/CityJSON/FBX siblings join.
-- decode policy: `RuntimeOptions` (`IsolateMemory`, `GpuMeshInstancing`, `ExtrasConverterCallback`) is the single decode-policy carrier threaded through `SceneTemplate.Create` and `MeshDecoder.Decode`; the normal/tangent generation runs inside that decode under the `internal` `VertexNormalsFactory`/`VertexTangentsFactory` kernels, never re-implemented.
+[STACKING]:
+- `Openize.Drako`(`.api/api-openize-drako.md`) and `Alimer.Bindings.MeshOptimizer`(`.api/api-alimer-meshoptimizer.md`): the `ModelRoot` is authored uncompressed, then one export-codec dispatch row selects the Draco (`KHR_draco_mesh_compression`) or meshopt (`EXT_meshopt_compression`) encode leg, which rewrites the buffer-view payload — SharpGLTF owns the schema, the sibling owns the codec, both Compute-side outside Rhino.
+- `SharpGLTF.Ext.3DTiles`(`.api/api-sharpgltf-3dtiles.md`): per-tile `EXT_structural_metadata`/`EXT_mesh_features` overlays register on the shared `ExtensionsFactory` and mutate the same `ModelRoot`/`MeshPrimitive`/`Node` this surface authors.
+- `ProjNET`(`.api/api-projnet.md`): a decoded vertex span (`MeshDecoder.Decode` → `IMeshPrimitiveDecoder`) feeds the `Semantics/georeference` `MathTransform` batch reproject before frame normalization — the decode's `IGeometryTransform` arg and the ProjNET `Span<double>` batch are two stages of one ingest rail.
+- `System.IO.Hashing`(`libs/csharp/.api/api-hashing.md`): a `ModelRoot.WriteGLB(WriteSettings) -> ArraySegment<byte>` segment feeds `XxHash3`/`XxHash128` through `Append` zero-copy — `XxHash3` the fast export-snapshot fingerprint, `XxHash128` the persisted GLB content key the `Rasm.Persistence` artifact index is addressed by, joining the same content-identity rail the IFC/CityJSON/FBX siblings hold.
 
 [LOCAL_ADMISSION]:
-- geometry export enters through `SceneBuilder` → `ToGltf2()` → `ModelRoot.Save*` or `WriteGLB`.
-- geometry import enters through `ModelRoot.Load*` or `ReadContext.ReadSchema2`.
-- runtime scene evaluation enters through `SceneTemplate.Create` → `CreateInstance` → animation frame drive.
-- extension admission must register at `ExtensionsFactory` before any read or write that uses that extension.
+- Export enters `SceneBuilder.ToGltf2()` → `ModelRoot.Save*`/`WriteGLB`; import enters `ModelRoot.Load*` or `ReadContext.ReadSchema2`; runtime evaluation enters `SceneTemplate.Create` → `CreateInstance` → animation frame drive.
+- Extension admission registers at `ExtensionsFactory` before any read or write that uses that extension.
 
 [RAIL_LAW]:
 - Packages: `SharpGLTF.Core`, `SharpGLTF.Toolkit`, `SharpGLTF.Runtime`
 - Owns: glTF read/write, typed mesh building, runtime scene instancing
 - Accept: geometry exchange, asset authoring, runtime mesh evaluation
-- Reject: rendering pipeline, GPU resource management, image decode
+- Reject: rendering pipeline, GPU resource management, image decode, geometry codec

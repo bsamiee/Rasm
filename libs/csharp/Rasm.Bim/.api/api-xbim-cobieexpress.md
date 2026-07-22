@@ -1,67 +1,24 @@
 # [RASM_BIM_API_XBIM_COBIEEXPRESS]
 
-The three-assembly COBie EXPRESS digital-handover stack: `Xbim.CobieExpress` is the COBie schema
-ENTITY MODEL (the asset-information graph — `CobieFacility`/`CobieFloor`/`CobieSpace`/`CobieZone`/
-`CobieType`/`CobieComponent`/`CobieSystem`/`CobieSpare`/`CobieResource`/`CobieJob`/`CobieDocument`/
-`CobieAttribute`/`CobieContact`/`CobieIssue`/`CobieImpact`/`CobieConnection`/`CobieCoordinate` over
-the shared `CobieAsset`/`CobieReferencedObject`/`CobiePickValue` bases, plus the
-`EntityFactoryCobieExpress`); `Xbim.IO.CobieExpress` is the `CobieModel` STORE (a full `IModel` —
-STEP21/Esent/zip open-save, the `ExportToTable`/`ImportFromTable` COBie-spreadsheet bridge over
-`Xbim.IO.Table`, transactions, `InsertCopy`, inverse/entity caching); and `Xbim.CobieExpress.Exchanger`
-is the turnkey IFC→COBie converter (`IfcToCoBieExpressExchanger`/`CobieExpressConverter` driving the
-`MappingIfc*ToCobie*` mapping family under `EntityIdentifierMode`/`SystemExtractionMode`/`OutputFilters`).
-COBie is the FM ASSET-REGISTER export — the post-construction operations handover (spaces, equipment
-types and instances, systems, spares, maintenance jobs, documents, contacts, and their attributes) —
-so this is a leg of the `Exchange/export#EXPORT_RAIL` complementing the geometry (`SharpGLTF`) and
-model-graph (`GeometryGym DatabaseIfc`) export arms. The LOAD-BEARING BOUNDARY: the exchanger reads
-an xBIM `Xbim.Common.IModel` (`Xbim.Ifc4.Interfaces.IIfcBuilding`), a PARALLEL IFC stack to Rasm's
-GeometryGym semantic authority (`api-geometrygym-ifc`), so the canonical path AUTHORS the `CobieModel`
-DIRECTLY from the `Model/elements#ELEMENT_MODEL` `BimModel`/`ElementSet` + properties through the store
-API (never standing up a second in-memory IFC graph), and the exchanger is admissible ONLY as a TERMINAL
-one-way file→file handover off the persisted `.ifc` (a transient xBIM read, never a held authority). It
-is pure-managed under CDDL-1.0 (`requireLicenseAcceptance=false`), beside the `Xbim.Properties`
-(`api-xbim-properties`) and `Xbim.InformationSpecifications` (`api-xbim-informationspecifications`)
-siblings under the same xBIM lineage and license posture.
+`Xbim.CobieExpress` owns the COBie EXPRESS FM asset-register: an operations-handover schema, the `CobieModel` STEP21/Esent/spreadsheet store, and the turnkey IFC→COBie converter. COBie feeds `Exchange/export#EXPORT_RAIL` as the FM digital-handover export leg, carrying the asset information the geometry and IFC-graph arms omit. Its exchanger reads a PARALLEL xBIM `IModel`, never Rasm's GeometryGym authority, so the canonical path authors the `CobieModel` from the `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph`, the exchanger admitted only as a terminal `.ifc` file→file handover.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Xbim.CobieExpress` (entity model) · `Xbim.IO.CobieExpress` (store) · `Xbim.CobieExpress.Exchanger` (converter)
-- package: `Xbim.CobieExpress` + `Xbim.IO.CobieExpress` + `Xbim.CobieExpress.Exchanger` — three direct
- csproj pins under the "COBie Exchange" group
- `Xbim.Common`/`Xbim.Ifc`/`Xbim.Ifc4` + `Xbim.IO.Table` (the packages' own
- nuspecs floor the core at; the central pin lifts the consumed assemblies to)
-- license: CDDL-1.0 (`license type="expression"`, xBimTeam) with `requireLicenseAcceptance=false` — the
- weak-copyleft file-level reciprocity is satisfied by referencing the unmodified NuGet binaries, never
- vendoring or modifying source (the same posture as `Xbim.Properties`/`Xbim.InformationSpecifications`)
-- assembly: `Xbim.CobieExpress` / `Xbim.IO.CobieExpress` / `Xbim.CobieExpress.Exchanger` → the
- `net10.0` consumer binds `lib/netstandard2.0` for each (each multi-targets `netstandard2.0`+`net472`;
- `net472` is.NET-Framework-only and incompatible with net10, so `netstandard2.0` is the bound asset);
- pure-managed AnyCPU IL, ALC-safe, no native asset
-- namespace: `Xbim.CobieExpress` (+ `.Interfaces` `ICobie*` mirror) for the entity model;
- `Xbim.IO.CobieExpress` (+ `.Resolvers`) for the `CobieModel` store; `Xbim.CobieExpress.Exchanger`
- (+ `.Conversion`/`.Classifications`/`.FilterHelper`/`.IfcHelpers`) for the IFC→COBie converter
-- transitive: `Xbim.Common` (the `IModel`/`IPersistEntity`/`ITransaction`/`ExpressMetaData`
- EXPRESS runtime the entity model rides); `Xbim.IO.Table` (the COBie-spreadsheet `ModelMapping`
- the store's `ExportToTable`/`ImportFromTable` uses); `Xbim.Ifc`/`Xbim.Ifc4` (the xBIM IFC
- reader the EXCHANGER consumes as its source — the parallel-authority surface, see boundary);
- `Microsoft.Extensions.Logging.Abstractions`, `Newtonsoft.Json`, `System.Configuration.ConfigurationManager`
- (exchanger config/log)
-- scope: the COBie EXPRESS FM-handover asset-information schema, its STEP21/Esent/spreadsheet store, and
- the turnkey IFC→COBie conversion; NOT an IFC semantic authority (GeometryGym owns that), NOT a
- geometry store (COBie carries only `CobieCoordinate` placement points), NOT a property-template source
- (`Xbim.Properties` owns Pset templates)
-- rail: `Exchange/export#EXPORT_RAIL` (the FM digital-handover export leg)
+- package: `Xbim.CobieExpress` + `Xbim.IO.CobieExpress` + `Xbim.CobieExpress.Exchanger`, three direct pins in the COBie Exchange manifest group over `Xbim.Common`/`Xbim.Ifc`/`Xbim.Ifc4`/`Xbim.IO.Table`
+- license: CDDL-1.0 (xBimTeam, `requireLicenseAcceptance=false`) — weak-copyleft file-level reciprocity satisfied by referencing the unmodified NuGet binaries, never vendoring or modifying source
+- assembly: `Xbim.CobieExpress` / `Xbim.IO.CobieExpress` / `Xbim.CobieExpress.Exchanger` — net10 binds `lib/netstandard2.0` (each also ships `net472`), pure-managed AnyCPU IL, ALC-safe, no native asset
+- namespace: `Xbim.CobieExpress` (+ `.Interfaces` `ICobie*`) entity model; `Xbim.IO.CobieExpress` (+ `.Resolvers`) `CobieModel` store; `Xbim.CobieExpress.Exchanger` (+ `.Conversion`/`.Classifications`/`.FilterHelper`/`.IfcHelpers`) converter
+- transitive: `Xbim.Common` (the `IModel`/`IPersistEntity`/`ITransaction`/`ExpressMetaData` EXPRESS runtime); `Xbim.IO.Table` (the COBie-spreadsheet `ModelMapping` behind `ExportToTable`/`ImportFromTable`); `Xbim.Ifc`/`Xbim.Ifc4` (the parallel xBIM IFC stack the exchanger reads); `Microsoft.Extensions.Logging.Abstractions`, `Newtonsoft.Json`, `System.Configuration.ConfigurationManager` (exchanger config/log)
+- scope: the COBie EXPRESS FM-handover asset schema, its STEP21/Esent/spreadsheet store, and the turnkey IFC→COBie conversion
+- rail: `Exchange/export#EXPORT_RAIL` — the FM digital-handover export leg
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: COBie entity model + shared bases (`Xbim.CobieExpress`)
-- rail: export
-- note: every entity is an `IPersistEntity` in a `CobieModel`; the inheritance spine is
- `PersistEntity` → `CobieReferencedObject` (external-id + provenance) → `CobieAsset` (named asset with
- categories/attributes/documents/impacts/representations) → `CobieTypeOrComponent` → `CobieType`/
- `CobieComponent`. Author entities through `model.Instances.New<TEntity>()` inside a transaction.
+- note: every entity is an `IPersistEntity`; author through `model.Instances.New<TEntity>()` inside a `BeginTransaction` scope.
 
-| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]          | [RAIL]                                                              |
+| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]          | [CAPABILITY]                                                        |
 | :-----: | :---------------------------------------- | :--------------------- | :------------------------------------------------------------------ |
 |  [01]   | `CobieReferencedObject` (abstract)        | provenance base        | externally-keyed provenance head (members [01])                     |
 |  [02]   | `CobieAsset` (abstract)                   | named-asset base       | `: CobieReferencedObject`; named asset (members [02])               |
@@ -88,12 +45,9 @@ siblings under the same xBIM lineage and license posture.
 - [13]-[VALUE]: `StringValue`/`IntegerValue`/`FloatValue`/`BooleanValue`/`DateTimeValue`.
 
 [PUBLIC_TYPE_SCOPE]: the `CobieModel` store (`Xbim.IO.CobieExpress`)
-- rail: export
-- note: `CobieModel: IModel, IDisposable` is the full xBIM model store over the COBie schema — it
- holds the entity graph, the transaction log, and the serialization surface; author through
- `Instances.New<T>()` in a `BeginTransaction` scope and serialize through the save family.
+- note: `CobieModel : IModel, IDisposable` holds the entity graph, transaction log, and serialization surface; author in a `BeginTransaction` scope, serialize through the save family.
 
-| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]    | [RAIL]                                                                     |
+| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]    | [CAPABILITY]                                                               |
 | :-----: | :------------------------------------- | :--------------- | :------------------------------------------------------------------------- |
 |  [01]   | `CobieModel`                           | model store      | `: IModel, IDisposable` — the COBie entity store (members [01])            |
 |  [02]   | `COBieModelProviderFactory`            | provider factory | `: IModelProviderFactory` — model-provider wiring (`CreateProvider`/`Use`) |
@@ -104,13 +58,9 @@ siblings under the same xBIM lineage and license posture.
 - [01]-[STORE]: `CobieModel` exposes `Instances`/`Metadata`/`ModelFactors`/`SchemaVersion` + transactions.
 
 [PUBLIC_TYPE_SCOPE]: the IFC→COBie exchanger (`Xbim.CobieExpress.Exchanger`)
-- rail: export
-- note: the exchanger consumes an xBIM `IModel` source (`IIfcBuilding`), NOT the GeometryGym authority
- — the parallel-IFC-stack boundary; use it only as a terminal file→file handover off the persisted
- `.ifc`. The mapping family (`MappingIfc*ToCobie*`) is internal; the public surface is the converter +
- its parameter/mode types.
+- note: the `MappingIfc*ToCobie*` family is internal; the public surface is the converter and its parameter/mode types.
 
-| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]       | [RAIL]                                                                     |
+| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]       | [CAPABILITY]                                                               |
 | :-----: | :--------------------------------- | :------------------ | :------------------------------------------------------------------------- |
 |  [01]   | `IfcToCoBieExpressExchanger`       | exchanger           | `: XbimExchanger<IModel, IModel>`; `Convert()` → `CobieFacility`           |
 |  [02]   | `CobieExpressConverter`            | turnkey converter   | `: ICobieConverter`; `Run(...)` → `Task<IModel>`, runs exchanger + commits |
@@ -129,108 +79,66 @@ siblings under the same xBIM lineage and license posture.
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: canonical path — author the `CobieModel` directly (GeometryGym authority respected)
-- rail: export
-- note: the canonical Rasm path builds the COBie register FROM the `BimModel`/`ElementSet` + properties
- through the store API, with NO xBIM IFC reader — `BimElement` → `CobieComponent`, its type →
- `CobieType`, spatial parent → `CobieFloor`/`CobieSpace`, Pset → `CobieAttribute`.
+[ENTRYPOINT_SCOPE]: author the `CobieModel` directly (canonical path)
+- note: the canonical Rasm path builds the register from the `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph` `Element`s + properties with NO xBIM IFC reader — `Element` → `CobieComponent`, its type → `CobieType`, spatial parent → `CobieFloor`/`CobieSpace`, Pset → `CobieAttribute`.
 
-| [INDEX] | [SURFACE]                                                                     | [ENTRY_FAMILY] | [RAIL]                              |
-| :-----: | :---------------------------------------------------------------------------- | :------------- | :---------------------------------- |
-|  [01]   | `new CobieModel()` / `(IModel)` / `(string esentDbFile)`                      | construct      | in-memory or Esent-backed store     |
-|  [02]   | `using var txn = model.BeginTransaction(name)` … `txn.Commit()`               | transaction    | author in a transaction scope       |
-|  [03]   | `model.Instances.New<T>()`                                                    | author         | author an entity (types [03])       |
-|  [04]   | `model.SetDefaultEntityInfo(date, email, givenName, familyName)`              | provenance     | default provenance stamp            |
-|  [05]   | `asset.Categories` / `asset.Attributes` / `asset.Documents`                   | author         | add attributes/categories/documents |
-|  [06]   | `InsertCopy<T>(toCopy, mappings, propTransform, includeInverses, keepLabels)` | author         | deep-copy an entity + inverses      |
-
-- [03]-[AUTHOR]: `New<CobieFacility>`/`New<CobieFloor>`/`New<CobieSpace>`/`New<CobieType>`/`New<CobieComponent>`/`New<CobieSystem>`/`New<CobieAttribute>`.
+| [INDEX] | [SURFACE]                                                                             | [SHAPE]  | [CAPABILITY]                       |
+| :-----: | :------------------------------------------------------------------------------------ | :------- | :--------------------------------- |
+|  [01]   | `new CobieModel()` / `(IModel)` / `(string)`                                          | ctor     | in-memory or Esent-backed store    |
+|  [02]   | `model.BeginTransaction(string) -> ITransaction`                                      | instance | author scope; `txn.Commit()` seals |
+|  [03]   | `model.Instances.New<T>()`                                                            | instance | author an entity (types [03])      |
+|  [04]   | `model.SetDefaultEntityInfo(DateTime, string, string, string) -> CobieCreatedInfo`    | instance | default provenance stamp           |
+|  [05]   | `asset.Categories` / `asset.Attributes` / `asset.Documents`                           | property | attribute/category/document sets   |
+|  [06]   | `model.InsertCopy<T>(T, XbimInstanceHandleMap, PropertyTranformDelegate, bool, bool)` | instance | deep-copy an entity + inverses     |
 
 [ENTRYPOINT_SCOPE]: serialization and the COBie-spreadsheet bridge
-- rail: export
-- note: the COBie register serializes to the EXPRESS STEP21 form, the COBie spreadsheet (XLS/XLSX), or
- Esent; the spreadsheet `ExportToTable` is the canonical FM-handover deliverable.
+- note: the register serializes to EXPRESS STEP21, the COBie spreadsheet (XLS/XLSX), or Esent; `ExportToTable` is the canonical FM-handover deliverable.
 
-| [INDEX] | [SURFACE]                                                                     | [ENTRY_FAMILY]     | [RAIL]                       |
-| :-----: | :---------------------------------------------------------------------------- | :----------------- | :--------------------------- |
-|  [01]   | `model.SaveAsStep21` / `SaveAsStep21Zip` / `SaveAsEsent`                      | save               | STEP/zip/Esent forms         |
-|  [02]   | `model.ExportToTable(file, out report, mapping, template)`                    | save (spreadsheet) | FM XLS/XLSX deliverable      |
-|  [03]   | `model.ExportToTable(Stream, ExcelTypeEnum, out report, mapping, template)`   | save (spreadsheet) | stream overload              |
-|  [04]   | `CobieModel.OpenStep21` / `OpenStep21Zip` / `OpenEsent`                       | open               | re-open a register           |
-|  [05]   | `CobieModel.ImportFromTable(file, out report, mapping = null)` → `CobieModel` | open (spreadsheet) | round-trip a spreadsheet     |
-|  [06]   | `CobieModel.GetMapping()` → `ModelMapping`                                    | mapping            | default column/sheet mapping |
+| [INDEX] | [SURFACE]                                                                        | [SHAPE]  | [CAPABILITY]                 |
+| :-----: | :------------------------------------------------------------------------------- | :------- | :--------------------------- |
+|  [01]   | `model.SaveAsStep21` / `SaveAsStep21Zip` / `SaveAsEsent`                         | instance | STEP/zip/Esent forms         |
+|  [02]   | `model.ExportToTable(string, out string, ModelMapping?, Stream?)`                | instance | FM XLS/XLSX deliverable      |
+|  [03]   | `model.ExportToTable(Stream, ExcelTypeEnum, out string, ModelMapping?, Stream?)` | instance | stream overload              |
+|  [04]   | `CobieModel.OpenStep21` / `OpenStep21Zip` / `OpenEsent`                          | static   | re-open a register           |
+|  [05]   | `CobieModel.ImportFromTable(string, out string, ModelMapping?) -> CobieModel`    | static   | round-trip a spreadsheet     |
+|  [06]   | `CobieModel.GetMapping() -> ModelMapping`                                        | static   | default column/sheet mapping |
 
 [ENTRYPOINT_SCOPE]: turnkey IFC→COBie conversion (terminal file→file handover only)
-- rail: export
-- note: the exchanger reads an xBIM `IModel` (NOT GeometryGym) — admissible only as a terminal one-way
- transform off the persisted `.ifc`, never a held second authority; the source xBIM model is opened,
- converted, and disposed within the export call.
+- note: the exchanger reads an xBIM `IModel` (never GeometryGym) — admissible only as a terminal one-way transform off the persisted `.ifc`, opened/converted/disposed within the call.
 
-| [INDEX] | [SURFACE]                                                                      | [ENTRY_FAMILY] | [RAIL]                                 |
-| :-----: | :----------------------------------------------------------------------------- | :------------- | :------------------------------------- |
-|  [01]   | `new CobieExpressConverter(logger).Run(params)` → `Task<IModel>`               | convert        | turnkey async conversion (params [01]) |
-|  [02]   | `new IfcToCoBieExpressExchanger(...).Convert()` → `IModel`                     | convert        | lower-level exchanger (ctor [02])      |
-|  [03]   | `CobieConversionParams { ExtId, SysMode, Filter, ConfigFile, ReportProgress }` | configure      | id-mode/system/filter knobs            |
+| [INDEX] | [SURFACE]                                                                      | [SHAPE]  | [CAPABILITY]                           |
+| :-----: | :----------------------------------------------------------------------------- | :------- | :------------------------------------- |
+|  [01]   | `new CobieExpressConverter(logger).Run(CobieConversionParams) -> Task<IModel>` | instance | turnkey async conversion (params [01]) |
+|  [02]   | `new IfcToCoBieExpressExchanger(...).Convert() -> IModel`                      | instance | lower-level exchanger (ctor [02])      |
+|  [03]   | `CobieConversionParams { ExtId, SysMode, Filter, ConfigFile, ReportProgress }` | ctor     | id-mode/system/filter knobs            |
 
-- [01]-[RUN]: typical params — `Source = xbimIfcModel`, `NewCobieModel = () => new CobieModel`, `ExtId = GloballyUniqueIds`, `SysMode = System | Types`, `Filter = OutputFilters.Default`.
+- [01]-[RUN]: `Source = xbimIfcModel`, `NewCobieModel = () => new CobieModel`, `ExtId = GloballyUniqueIds`, `SysMode = System | Types`, `Filter = OutputFilters.Default`.
 - [02]-[EXCHANGER]: ctor `(source, target, reportProgress, filter, configFile, extId, sysMode, classify)`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[ENTITY_TOPOLOGY]:
-- the COBie schema is an EXPRESS entity model over `Xbim.Common` — every entity is an
- `IPersistEntity` activated lazily in a `CobieModel`, authored only inside a `BeginTransaction` scope,
- and the inverse navigation (`CobieAsset.CausingIssues`/`AffectedBy`) is index-backed
-- the inheritance spine carries the shared facets once: `CobieReferencedObject` owns the external-id +
- `CobieCreatedInfo` provenance, `CobieAsset` owns the name/description + the `IOptionalItemSet<T>`
- category/attribute/document/impact/representation collections, `CobieTypeOrComponent` splits into the
- `CobieType` (equipment catalogue) and `CobieComponent` (installed instance) — the canonical COBie
- type↔instance distinction
-- the `CobiePickValue` hierarchy is the closed dictionary tier (categories, roles, asset/job/issue/spare
- types, units, currencies) — these are the enumeration vocabularies COBie rows reference, authored once
- per model and shared
-- the `CobieAttribute` is the Pset bridge: one attribute is a (name, `AttributeValue` select over
- `StringValue`/`IntegerValue`/`FloatValue`/`BooleanValue`/`DateTimeValue`, optional unit) carried on
- `CobieAsset.Attributes` — the COBie projection of an IFC property
+[TOPOLOGY]:
+- `Xbim.CobieExpress` is an EXPRESS entity model over `Xbim.Common` — every entity is an `IPersistEntity` activated lazily in a `CobieModel`, authored inside a `BeginTransaction` scope, and inverse navigation (`CobieAsset.CausingIssues`/`AffectedBy`) is index-backed
+- `CobieReferencedObject` heads the inheritance spine that carries shared facets once: it owns the external-id + `CobieCreatedInfo` provenance, `CobieAsset` owns the name/description + the `IOptionalItemSet<T>` category/attribute/document/impact/representation collections, and `CobieTypeOrComponent` splits into `CobieType` (equipment catalogue) and `CobieComponent` (installed instance)
+- `CobiePickValue` heads the closed dictionary tier (categories, roles, asset/job/issue/spare types, units, currencies) — the enumeration vocabularies COBie rows reference, authored once per model and shared
+- `CobieAttribute` bridges the Pset: a (name, `AttributeValue` select over `StringValue`/`IntegerValue`/`FloatValue`/`BooleanValue`/`DateTimeValue`, optional unit) carried on `CobieAsset.Attributes` — the COBie projection of an IFC property
+- `IfcToCoBieExpressExchanger` reads the xBIM `Xbim.Ifc`/`Xbim.Ifc4` toolkit (`IIfcBuilding`/`IIfcSpace`/`IIfcTypeObject`), a separate IFC implementation from Rasm's GeometryGym semantic authority (`api-geometrygym-ifc`); the two never share an in-memory graph
 
-[BOUNDARY] — the xBIM parallel-IFC-stack (load-bearing):
-- the EXCHANGER (`IfcToCoBieExpressExchanger`/`CobieExpressConverter`) reads an xBIM `Xbim.Common.IModel`
- with `Xbim.Ifc4.Interfaces.IIfcBuilding`/`IIfcSpace`/`IIfcTypeObject` entities — this is the xBIM IFC
- toolkit (`Xbim.Ifc`/`Xbim.Ifc4`), a SEPARATE IFC implementation from Rasm's GeometryGym
- semantic authority (`api-geometrygym-ifc`); the two never share an in-memory graph
-- canonical Rasm path: AUTHOR the `CobieModel` directly from the seam `Rasm.Element/Graph/element#ELEMENT_GRAPH`
- `ElementGraph` baked `Element`s + their `Semantics/properties#PROPERTY_TEMPLATES`-typed property/quantity bags
- through the store API — no xBIM IFC reader is stood up, GeometryGym stays the sole authority, and the COBie
- register is a projection of the seam graph (the retired `BimModel`/`ElementSet` is gone)
-- terminal-handover path (guarded): the turnkey `CobieExpressConverter.Run` reading the persisted `.ifc`
- through `Xbim.Ifc.IfcStore.Open` is admissible ONLY as a one-way file→file transform at the export
- edge — the xBIM model is opened, converted, and disposed inside the call, never retained as a second
- authority; holding an xBIM `IModel` alongside the GeometryGym `IfcSemanticModel` as a live source is
- the rejected form
-
-[INTEGRATION_STACK]:
-- with `Exchange/export#EXPORT_RAIL`: COBie is a new export leg beside the geometry (`SharpGLTF`) and
- IFC-graph (`GeometryGym DatabaseIfc`) arms — a `InterchangeCodec.Cobie` arm and `InterchangeFormat`
- rows (COBie XLSX via `ExportToTable`, COBie STEP21 via `SaveAsStep21`, COBie JSON), the `ExportArtifact`
- bytes content-keyed by the same `Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING` `InterchangeIdentity`
- the GLB/IFC export seals; COBie carries the FM ASSET-INFORMATION the geometry/IFC arms do not
-- with `Semantics/properties#PROPERTY_TEMPLATES` (`api-xbim-properties`): the `CobieAttribute` rows are the
- COBie projection of the Pset properties — the same Pset vocabulary the `Xbim.Properties` template
- defines and the GeometryGym model carries, mapped onto `CobieAttribute` (name + `AttributeValue` +
- unit), never a re-typed property model
-- with `Planning/cost#ESTIMATE` (`api-nodamoney`) + `UnitsNet` (`libs/csharp/.api/api-unitsnet.md`): the `CobieCurrencyUnit`/`CobieAreaUnit`/`CobieLinearUnit`/`CobieVolumeUnit` pick-values are stamped from the `NodaMoney` `Currency` and the `UnitsNet` SI units the cost/quantity owners hold, so the COBie register's units agree with the model's typed money/measures
-- with `VividOrange.Stages` (`api-vividorange-stages`): the COBie `CobiePhase`/`CobieStageType`/ `CobieImpactStage` draw their stage vocabulary from the project-lifecycle taxonomy, so the design phase and the handover phase share one stage vocabulary
-- with `NodaTime` (`libs/csharp/.api/api-nodatime.md`): the `CobieCreatedInfo.CreatedOn` provenance instant is stamped from the model `ClockPolicy`, never a BCL `DateTime.Now` at the call site
+[STACKING]:
+- `Exchange/export#EXPORT_RAIL`: COBie is one export leg beside the geometry (`SharpGLTF`) and IFC-graph (`GeometryGym DatabaseIfc`) arms — an `InterchangeCodec.Cobie` arm and `InterchangeFormat` rows (XLSX via `ExportToTable`, STEP21 via `SaveAsStep21`, JSON), the `ExportArtifact` bytes content-keyed by the shared `Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING` `InterchangeIdentity`
+- `Semantics/properties#PROPERTY_TEMPLATES` (`api-xbim-properties`): the `CobieAttribute` rows project the Pset properties onto (name + `AttributeValue` + unit), the same Pset vocabulary the template defines, never a re-typed property model
+- `Planning/cost#ESTIMATE` (`api-nodamoney`) + `UnitsNet` (`libs/csharp/.api/api-unitsnet.md`): the `CobieCurrencyUnit`/`CobieAreaUnit`/`CobieLinearUnit`/`CobieVolumeUnit` pick-values stamp from the `NodaMoney` `Currency` and `UnitsNet` SI units the cost/quantity owners hold
+- `VividOrange.Stages` (`api-vividorange-stages`): the `CobiePhase`/`CobieStageType`/`CobieImpactStage` draw their stage vocabulary from the project-lifecycle taxonomy
+- `NodaTime` (`libs/csharp/.api/api-nodatime.md`): the `CobieCreatedInfo.CreatedOn` provenance instant stamps from the model `ClockPolicy`, never a BCL `DateTime.Now` at the call site
 
 [LOCAL_ADMISSION]:
-- the FM-handover asset register is the `CobieModel`, AUTHORED from the `BimModel`/`ElementSet` + properties through `Instances.New<T>()` in a transaction — a hand-rolled COBie spreadsheet writer or a parallel asset-register model beside `CobieModel` is the rejected form
-- the IFC→COBie exchanger's xBIM source is admitted ONLY as a terminal `.ifc`-file→COBie transform; a retained xBIM `IModel` as a live second authority alongside GeometryGym is the named boundary violation
-- COBie attributes are the Pset projection (`api-xbim-properties` vocabulary), units the `NodaMoney`/`UnitsNet` projection, phases the `VividOrange.Stages` projection, provenance the `NodaTime` `ClockPolicy` projection — never a fresh vocabulary minted in the COBie owner
-- the COBie spreadsheet (`ExportToTable`) is the canonical FM deliverable; STEP21 (`SaveAsStep21`) is the interchange form; Esent is a working-store backend, not a deliverable
+- `CobieModel` is the FM-handover asset register, authored from the `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph` `Element`s + properties through `Instances.New<T>()` in a transaction; a hand-rolled COBie spreadsheet writer or a parallel asset-register model beside it is the rejected form
+- `IfcToCoBieExpressExchanger` admits its xBIM source ONLY as a terminal `.ifc`-file→COBie transform opened/converted/disposed inside the export call; a retained xBIM `IModel` as a live second authority alongside GeometryGym is the boundary violation
+- COBie attributes project the Pset vocabulary (`api-xbim-properties`), units the `NodaMoney`/`UnitsNet` owners, phases `VividOrange.Stages`, provenance the `NodaTime` `ClockPolicy` — never a fresh vocabulary minted in the COBie owner
+- `ExportToTable` mints the canonical COBie-spreadsheet FM deliverable, `SaveAsStep21` the STEP21 interchange form, Esent a working-store backend
 
 [RAIL_LAW]:
-- Package: `Xbim.CobieExpress` + `Xbim.IO.CobieExpress` + `Xbim.CobieExpress.Exchanger` (CDDL-1.0, `requireLicenseAcceptance=false`, pure-managed `lib/netstandard2.0` AnyCPU IL binding forward under net10; transitive `Xbim.Common`/`Xbim.IO.Table` + the xBIM `Xbim.Ifc`/`Xbim.Ifc4` IFC stack the exchanger reads)
-- Owns: the COBie EXPRESS FM digital-handover asset-information schema (facility/floor/space/zone, type/component, system, spare/resource/job, document/contact/attribute/issue/impact/connection/ coordinate + the pick-value dictionaries), the `CobieModel` store (STEP21/Esent/spreadsheet IO, transactions, `ExportToTable`/`ImportFromTable`), and the turnkey IFC→COBie converter
-- Accept: the canonical `CobieModel` authored DIRECTLY from the seam `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph` baked `Element`s
- - `Semantics/properties#PROPERTY_TEMPLATES` Pset attributes + `VividOrange.Stages` phases + `NodaMoney`/`UnitsNet` units + `NodaTime` provenance, serialized as the COBie spreadsheet/STEP21 export leg of `Exchange/export#EXPORT_RAIL` content-keyed by the shared `InterchangeIdentity`
-- Reject: standing up the xBIM `Xbim.Ifc`/`Xbim.Ifc4` reader as a second in-memory IFC authority beside GeometryGym (the exchanger is a terminal `.ifc`-file→COBie transform only); a hand-rolled COBie spreadsheet writer or a parallel asset-register model beside `CobieModel`; re-typing the Pset/unit/ phase vocabulary instead of projecting the `Xbim.Properties`/`UnitsNet`/`NodaMoney`/`VividOrange.Stages` owners; binding the `net472` asset (net10 binds `netstandard2.0`); vendoring or modifying the CDDL-1.0 source rather than referencing the binary
+- Package: `Xbim.CobieExpress` + `Xbim.IO.CobieExpress` + `Xbim.CobieExpress.Exchanger` (CDDL-1.0, `requireLicenseAcceptance=false`, pure-managed `lib/netstandard2.0` AnyCPU IL under net10; transitive `Xbim.Common`/`Xbim.IO.Table` + the xBIM `Xbim.Ifc`/`Xbim.Ifc4` stack the exchanger reads)
+- Owns: the COBie EXPRESS FM digital-handover asset-information schema, the `CobieModel` store (STEP21/Esent/spreadsheet IO, transactions, `ExportToTable`/`ImportFromTable`), and the turnkey IFC→COBie converter
+- Accept: the `CobieModel` authored directly from the `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph` `Element`s + `Semantics/properties#PROPERTY_TEMPLATES` Pset attributes + `VividOrange.Stages` phases + `NodaMoney`/`UnitsNet` units + `NodaTime` provenance, serialized as the COBie spreadsheet/STEP21 export leg of `Exchange/export#EXPORT_RAIL` content-keyed by the shared `InterchangeIdentity`
+- Reject: standing up the xBIM `Xbim.Ifc`/`Xbim.Ifc4` reader as a second in-memory IFC authority beside GeometryGym; a hand-rolled COBie spreadsheet writer or a parallel asset-register model beside `CobieModel`; re-typing the Pset/unit/phase vocabulary instead of projecting the owners; binding the `net472` asset (net10 binds `netstandard2.0`); vendoring or modifying the CDDL-1.0 source rather than referencing the binary

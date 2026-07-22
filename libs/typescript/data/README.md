@@ -15,7 +15,7 @@ A backend enters as a semantic-guarantee row on its owning lane, never a sibling
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Data-specific libraries admitted by this folder; versions centralize in `pnpm-workspace.yaml` and corroborate against the adjacent `.api/` folder.
+Domain-specific libraries admitted by this folder; versions centralize in `pnpm-workspace.yaml` and corroborate against this folder's `.api/`.
 
 [RELATIONAL]:
 - `@effect/sql`
@@ -55,7 +55,7 @@ Data-specific libraries admitted by this folder; versions centralize in `pnpm-wo
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Cross-cutting TypeScript substrate this folder consumes; the canonical registry and charters live in `libs/typescript/.planning/README.md` and the adjacent `libs/typescript/.api/` folder.
+Shared substrate consumed from the Ts registry; the registry and its charters own the full contracts, and `libs/typescript/.api/` holds the shared API evidence.
 
 [TYPING_RAILS]:
 - `effect`

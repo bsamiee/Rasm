@@ -1,37 +1,33 @@
 # [RASM_FABRICATION_API_DSTV_NET]
 
-`DSTV.Net` is the DSTV / NC1 (Tekla / NC) steel-fabrication exchange READER beside the neutral G-code AST under the Fabrication cut-program owner. It parses a DSTV `.nc1` profile-cut program — the `ST` header block plus the hole (`BO`), numeration (`SI`), cut (`SC`), bend (`KA`), and contour (`AK`/`IK`/`KO`/`PU`) feature blocks — into an immutable `IDstv` record tree: a rich `IDstvHeader` steel-piece descriptor (profile code, section dimensions, end cuts, weight, steel grade, piece/order identifications) and an `IEnumerable<DstvElement>` of holes, slots, cuts, bends, numerations, and contours, every located element carrying a flange `FlCode` and `(XCoord, YCoord)`. Parsing is async (`ParseAsync` over a `string` or `TextReader`) and fails through a typed `ParseException` hierarchy that carries the source `LineNumber`, so the ingress lowers cleanly into the Fabrication `Fin`/`Validation` boundary and the band-2700 `FabricationFault` rail. The parsed holes/slots/contours map to the `Clipper2` (`api-clipper2`) polygon-algebra floor for nesting and projection and are content-addressed by `System.IO.Hashing` `XxHash128` (`libs/csharp/.api/api-hashing.md`); DSTV/NC1 EMISSION is the Fabrication posting owner's own dialect writer (DSTV.Net ships no writer — only a debug `ToSvg()` preview).
+`DSTV.Net` owns the DSTV / NC1 (Tekla / NC) steel-fabrication READ leg under the Fabrication cut-program owner: `DstvReader.ParseAsync` lowers an `.nc1` profile-cut program — the `ST` steel-piece header with the hole (`BO`), slot, cut (`SC`), bend (`KA`), numeration (`SI`), and contour (`AK`/`IK`/`KO`/`PU`) feature blocks — into an immutable `IDstv` record tree, and every failure is a `ParseException` subtype carrying the source `LineNumber`. It reads only: `.nc1` emission is the Fabrication posting owner's own `PostDialect` writer, and `ToSvg()` is a debug preview, never a drafting rail.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `DSTV.Net`
-- package: `DSTV.Net`
-- license: `Apache-2.0`
+- package: `DSTV.Net` (`Apache-2.0`)
 - assembly: `DSTV.Net`
-- namespace roots: `DSTV.Net.Contracts`, `DSTV.Net.Data`, `DSTV.Net.Enums`, `DSTV.Net.Exceptions`, `DSTV.Net.Implementations`, `DSTV.Net.Extensions`, `DSTV.Net`
-- asset: pure-managed AnyCPU IL, multi-target `net9.0` / `net8.0` / `net7.0` / `net6.0` / `netstandard2.0` (no native asset, no RID burden); the `net10.0` consumer binds `lib/net9.0/DSTV.Net.dll`
+- namespace: `DSTV.Net.Contracts`, `DSTV.Net.Data`, `DSTV.Net.Enums`, `DSTV.Net.Exceptions`, `DSTV.Net.Implementations`
+- asset: pure-managed AnyCPU IL, no native or RID burden; the `net10.0` consumer binds `lib/net9.0/DSTV.Net.dll`
 - rail: cut-program (DSTV/NC1 read leg)
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: parse contracts — `DSTV.Net.Contracts`
-- rail: cut-program
 
 | [INDEX] | [SYMBOL]      | [TYPE_FAMILY]      | [CAPABILITY]                                                                        |
 | :-----: | :------------ | :----------------- | :---------------------------------------------------------------------------------- |
 |  [01]   | `IDstvReader` | reader contract    | `ParseAsync(string)` / `ParseAsync(TextReader)` → `Task<IDstv>`                     |
 |  [02]   | `IDstv`       | document contract  | parsed program: `Header` (`IDstvHeader?`) + `Elements` (`IEnumerable<DstvElement>`) |
-|  [03]   | `IDstvHeader` | header contract    | the steel-piece `ST`-block descriptor (25 typed fields)                             |
+|  [03]   | `IDstvHeader` | header contract    | the steel-piece `ST`-block descriptor                                               |
 |  [04]   | `ISplitter`   | tokenizer contract | `string[] Split(string)` — a DSTV line-field splitting strategy                     |
 
 [PUBLIC_TYPE_SCOPE]: located-element record tree — `DSTV.Net.Data`
-- rail: cut-program
-- All feature elements are immutable C# `record`s rooted at `DstvElement`; `LocatedElement` adds the `(FlCode, XCoord, YCoord)` flange-coordinate base with a `Deconstruct`. Inheritance is load-bearing: `DstvSlot` IS a `DstvHole`, `DstvSkewedPoint` IS a `DstvContourPoint`.
 
 | [INDEX] | [SYMBOL]           | [TYPE_FAMILY]   | [CAPABILITY]                                                                                 |
 | :-----: | :----------------- | :-------------- | :------------------------------------------------------------------------------------------- |
-|  [01]   | `DstvElement`      | record root     | abstract feature base; virtual `ToSvg()`                                                     |
-|  [02]   | `LocatedElement`   | located base    | `(FlCode, XCoord, YCoord)` flange + coordinate, `Deconstruct`                                |
+|  [01]   | `DstvElement`      | record base     | feature record base; virtual `ToSvg()`                                                       |
+|  [02]   | `LocatedElement`   | located base    | abstract `(FlCode, XCoord, YCoord)` flange + coordinate, `Deconstruct`                       |
 |  [03]   | `DstvHole`         | feature record  | `(Diameter, Depth)` round hole (`BO` block); `CreateHole(string)`                            |
 |  [04]   | `DstvSlot`         | feature record  | `(SlotLength, SlotWidth, SlotAngle)` slotted hole — a `DstvHole` subtype                     |
 |  [05]   | `DstvCut`          | feature record  | flame/saw cut (`SC` block); `CreateCut(string)`                                              |
@@ -40,11 +36,10 @@
 |  [08]   | `DstvContourPoint` | contour vertex  | `(IsNotch, Radius)` outer/inner-contour vertex; `CreatePoint(string)`                        |
 |  [09]   | `DstvSkewedPoint`  | contour vertex  | bevelled vertex `(FirstAngle/Blunting, SecondAngle/Blunting)` — a `DstvContourPoint` subtype |
 |  [10]   | `Contour`          | contour record  | `ContourType` + `IReadOnlyList<DstvContourPoint>`; `CreateSeveralContours(points, type)`     |
-|  [11]   | `DstvHeader`       | header record   | the `IDstvHeader` impl (the 25 `ST`-block fields)                                            |
+|  [11]   | `DstvHeader`       | header record   | the `IDstvHeader` impl of the `ST`-block descriptor                                          |
 |  [12]   | `DstvRecord`       | document record | the `IDstv` impl: `init` `Header` + `Elements`; whole-piece `ToSvg()`                        |
 
 [PUBLIC_TYPE_SCOPE]: header fields — `IDstvHeader` / `DstvHeader`
-- rail: cut-program
 
 | [INDEX] | [FIELD_GROUP]    | [FIELDS]                                                                                                         |
 | :-----: | :--------------- | :--------------------------------------------------------------------------------------------------------------- |
@@ -56,55 +51,48 @@
 |  [06]   | free text        | `Text1InfoOnPiece` … `Text4InfoOnPiece`                                                                          |
 
 [PUBLIC_TYPE_SCOPE]: DSTV vocabularies — `DSTV.Net.Enums`
-- rail: cut-program
-- Every `CodeProfile` member carries a `[Description]` label.
 
 | [INDEX] | [SYMBOL]      | [TYPE_FAMILY] | [CAPABILITY]                                                                              |
 | :-----: | :------------ | :------------ | :---------------------------------------------------------------------------------------- |
 |  [01]   | `CodeProfile` | profile enum  | `I`/`L`/`U`/`B`(plate)/`RU`(round)/`RO`(round tube)/`M`(rect. tube)/`C`/`T`/`SO`(special) |
 |  [02]   | `ContourType` | contour enum  | `AK`(outer)/`IK`(inner)/`BO`/`SI`/`SC`/`KA`/`KO`/`PU`/`None` block-code discriminant      |
 
-[PUBLIC_TYPE_SCOPE]: typed parse-error rail — `DSTV.Net.Exceptions`
-- rail: cut-program
-- `ParseException` is the abstract base (`: Exception`) carrying `int? LineNumber` from the reader context; every concrete case is a `ParseException` subtype, so the boundary catches one base and folds `LineNumber` into the `FabricationFault` diagnostic.
+Every `CodeProfile` member carries a `[Description]` label; the enum value is the canonical discriminant.
 
-| [INDEX] | [SYMBOL]                                         | [CAPABILITY]                                |
-| :-----: | :----------------------------------------------- | :------------------------------------------ |
-|  [01]   | `ParseException`                                 | abstract base; `LineNumber` source location |
-|  [02]   | `DstvParseException`                             | general DSTV structural parse failure       |
-|  [03]   | `MissingStartOfFileException`                    | absent `ST` start-of-file block             |
-|  [04]   | `UnexpectedCharacterException`                   | malformed token character                   |
-|  [05]   | `UnexpectedEndException`                         | premature end of program                    |
-|  [06]   | `IntegerParseException` / `DoubleParseException` | numeric field coercion failure              |
-|  [07]   | `EnumParseException`                             | unknown `CodeProfile`/`ContourType` code    |
-|  [08]   | `TupleParseException`                            | malformed coordinate/field tuple            |
-|  [09]   | `FreeTextTooLargeException`                      | over-length `TextNInfoOnPiece` field        |
+[PUBLIC_TYPE_SCOPE]: typed parse-error rail — `DSTV.Net.Exceptions`
+
+| [INDEX] | [SYMBOL]                                         | [CAPABILITY]                                     |
+| :-----: | :----------------------------------------------- | :----------------------------------------------- |
+|  [01]   | `ParseException`                                 | abstract base; `int? LineNumber` source location |
+|  [02]   | `DstvParseException`                             | general DSTV structural parse failure            |
+|  [03]   | `MissingStartOfFileException`                    | absent `ST` start-of-file block                  |
+|  [04]   | `UnexpectedCharacterException`                   | malformed token character                        |
+|  [05]   | `UnexpectedEndException`                         | premature end of program                         |
+|  [06]   | `IntegerParseException` / `DoubleParseException` | numeric field coercion failure                   |
+|  [07]   | `EnumParseException<TEnum>`                      | unknown `CodeProfile`/`ContourType` code         |
+|  [08]   | `TupleParseException<TType>`                     | malformed coordinate/field tuple                 |
+|  [09]   | `FreeTextTooLargeException`                      | over-length `TextNInfoOnPiece` field             |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: async parse — `DstvReader` (`IDstvReader`)
-- rail: cut-program
-- The sealed concrete reader is `DSTV.Net.Implementations.DstvReader`; the `ISplitter` strategies (`RoughSplitter`/`FineSplitter`/`DotSplitter`/`PositionNumericSplitter`) and the block sub-readers (`HeaderReader`/`BodyReader`/`ReaderContext`) live in the same `Implementations` namespace — `IDstvReader`/`IDstv`/`ISplitter` are the contracts a custom ingress composes against.
 
-| [INDEX] | [SURFACE]                       | [ENTRY_FAMILY] | [CAPABILITY]                                                                    |
-| :-----: | :------------------------------ | :------------- | :------------------------------------------------------------------------------ |
-|  [01]   | `new DstvReader()`              | constructor    | the sealed default reader (`DSTV.Net.Implementations.DstvReader : IDstvReader`) |
-|  [02]   | `ParseAsync(string dstvData)`   | parse          | parse an in-memory `.nc1` string → `Task<IDstv>`                                |
-|  [03]   | `ParseAsync(TextReader reader)` | parse          | parse a streamed `TextReader` (file/network) → `Task<IDstv>`                    |
+| [INDEX] | [SURFACE]                | [SHAPE]  | [CAPABILITY]                                                      |
+| :-----: | :----------------------- | :------- | :---------------------------------------------------------------- |
+|  [01]   | `new DstvReader()`       | ctor     | the sealed default reader (`DSTV.Net.Implementations.DstvReader`) |
+|  [02]   | `ParseAsync(string)`     | instance | parse an in-memory `.nc1` string → `Task<IDstv>`                  |
+|  [03]   | `ParseAsync(TextReader)` | instance | parse a streamed `TextReader` (file/network) → `Task<IDstv>`      |
 
 [ENTRYPOINT_SCOPE]: result navigation — `IDstv` / `DstvRecord`
-- rail: cut-program
 
-| [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY] | [CAPABILITY]                                                |
-| :-----: | :------------------------------------------- | :------------- | :---------------------------------------------------------- |
-|  [01]   | `IDstv.Header` (`IDstvHeader?`)              | accessor       | the steel-piece descriptor (null if header-less fragment)   |
-|  [02]   | `IDstv.Elements` (`IEnumerable<…>`)          | accessor       | lazy feature sequence — pattern-match per record subtype    |
-|  [03]   | `Contour.PointList` / `.Points`              | accessor       | `IReadOnlyList<DstvContourPoint>` outer/inner boundary      |
-|  [04]   | `DstvElement.ToSvg()` / `DstvRecord.ToSvg()` | preview        | per-feature / whole-piece SVG string (debug/visual preview) |
+| [INDEX] | [SURFACE]                       | [SHAPE]  | [CAPABILITY]                                                |
+| :-----: | :------------------------------ | :------- | :---------------------------------------------------------- |
+|  [01]   | `IDstv.Header` (`IDstvHeader?`) | property | the steel-piece descriptor (null on a header-less fragment) |
+|  [02]   | `IDstv.Elements`                | property | lazy `IEnumerable<DstvElement>` — pattern-match per subtype |
+|  [03]   | `Contour.PointList` / `.Points` | property | `IReadOnlyList<DstvContourPoint>` outer/inner boundary      |
+|  [04]   | `DstvElement.ToSvg()`           | instance | per-feature / whole-piece SVG string (debug preview)        |
 
-[ENTRYPOINT_SCOPE]: record factories — `DSTV.Net.Data`
-- rail: cut-program
-- The per-block `Create*(string)` factories parse one DSTV data line into the typed record — the unit the reader composes; they are the seam a custom ingress reuses without re-tokenizing.
+[ENTRYPOINT_SCOPE]: record factories — `DSTV.Net.Data`. Each `Create*` is a static factory parsing one DSTV data line into the typed record — the seam a custom ingress reuses without re-tokenizing.
 
 | [INDEX] | [SURFACE]                                            | [CAPABILITY]                               |
 | :-----: | :--------------------------------------------------- | :----------------------------------------- |
@@ -117,27 +105,23 @@
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[INGRESS_PROFILE]:
-- entry: `DstvReader.ParseAsync` is the ONE ingress; it is async over both an in-memory `string` and a streamed `TextReader`, so a file-backed parse never pre-buffers the whole program.
-- model: the result is an immutable `record` tree — `DstvRecord(Header, Elements)` with `init`-only members; consumers pattern-match the `DstvElement` sequence by record subtype (`DstvHole`/`DstvSlot`/`DstvCut`/`DstvBend`/`Contour`/`DstvNumeration`), never mutate it.
-- vocabulary: `CodeProfile` and `ContourType` are the DSTV block codes; their `[Description]` metadata is the human label, the enum value the canonical discriminant.
+[TOPOLOGY]:
+- `DstvReader.ParseAsync` is the ONE ingress, async over both an in-memory `string` and a streamed `TextReader`, so a file-backed parse never pre-buffers the whole program; the result is an immutable `init`-only `record` tree consumers pattern-match by `DstvElement` subtype, never mutate.
+- `CodeProfile` and `ContourType` are the DSTV block-code discriminants; the `[Description]` metadata is the human label, the enum value the canonical discriminant.
+- numeric/enum/tuple coercion failures are distinct `ParseException` cases (`DoubleParseException`/`IntegerParseException`/`EnumParseException<TEnum>`/`TupleParseException<TType>`), so a diagnostic names the exact malformed field class without string-matching a message.
 
-[ERROR_RAIL]:
-- every failure is a `ParseException` subtype carrying `LineNumber`; catch the abstract base ONCE at the boundary and lower it into a `LanguageExt` `Fin`/`Validation` failure rather than letting it escape — the `ParseException.LineNumber` becomes the band-2700 `FabricationFault` source location.
-- numeric/enum/tuple coercion failures are distinct cases (`DoubleParseException`/`IntegerParseException`/`EnumParseException`/`TupleParseException`), so a diagnostic can name the exact malformed field class without string-matching a message.
-
-[STACKING_SEAM]:
-- the parsed `DstvHole`/`DstvSlot`/`Contour` `(XCoord, YCoord)` flange coordinates map to `Clipper2` `Path64`/`PathD` (`api-clipper2`): contour boundaries become subject paths and holes/slots become clip paths for the true-shape `Nesting/nfp` pack and the `Documentation/projection` screen clip — DSTV.Net delivers the read geometry, `Clipper2` owns the polygon algebra.
-- a parsed piece is content-addressed for the nesting/remnant lineage by `System.IO.Hashing` `XxHash128.HashToUInt128` (`libs/csharp/.api/api-hashing.md`) over the canonical header+feature bytes, so an identical `.nc1` re-parse keys to the same `Stock`/part identity.
-- `ToSvg()` is a DEBUG/preview projection only; it is NOT the drafting rail — DXF/DWG read is `ACadSharp` and DXF/DWG WRITE is the AppUi two-format ACadSharp drafting leg, neither routed through DSTV.Net.
+[STACKING]:
+- `Clipper2`(`.api/api-clipper2`): parsed `DstvHole`/`DstvSlot`/`Contour` `(XCoord, YCoord)` flange coordinates map to `Path64`/`PathD` — contour boundaries become subject paths and holes/slots clip paths for the true-shape `Nesting/nfp` pack and the `Documentation/projection` screen clip; DSTV.Net delivers read geometry, `Clipper2` owns the polygon algebra.
+- `System.IO.Hashing`(`.api/api-hashing`): `XxHash128.HashToUInt128` content-addresses a parsed piece over its canonical header+feature bytes, so an identical `.nc1` re-parse keys to the same `Stock`/part identity for the nesting/remnant lineage.
+- within-lib: the per-block `Create*` factories are the seam a custom Fabrication ingress reuses without re-tokenizing; records project into the kernel `Loop`/polygon and the `Process/family` profile/feature vocabulary at ingress.
 
 [LOCAL_ADMISSION]:
-- DSTV.Net is READ-ONLY: it has no `.nc1` writer. The Fabrication cut-program owner EMITS DSTV/NC1 through its own `PostDialect` writer beside the G-code AST; DSTV.Net supplies the inbound read model and the `IDstvHeader`/feature vocabulary the emitter mirrors, never the emission itself.
-- boundary-map at the `DstvElement`/`IDstvHeader` seam: project the records into the kernel `Loop`/polygon and the `Process/family` profile/feature vocabulary at ingress; do not thread DSTV.Net record types deep into the toolpath/nesting kernels.
-- `await` the `ParseAsync` task at the boundary and convert `Task<IDstv>` → `Fin<IDstv>`; the typed `ParseException` rail is the failure source, not a sentinel/null `Header`.
+- DSTV.Net is READ-ONLY with no `.nc1` writer; the Fabrication cut-program owner emits DSTV/NC1 through its own `PostDialect` writer beside the G-code AST, mirroring the `IDstvHeader`/feature vocabulary DSTV.Net supplies.
+- boundary-map at the `DstvElement`/`IDstvHeader` seam: project records into the kernel `Loop`/polygon and `Process/family` vocabulary at ingress, never thread DSTV.Net record types into the toolpath/nesting kernels.
+- `await` `ParseAsync` at the boundary and convert `Task<IDstv>` → `Fin<IDstv>`, catching the abstract `ParseException` once and lowering its `LineNumber` into the `FabricationFault` rail; the typed rail is the failure source, never a sentinel or null `Header`.
 
 [RAIL_LAW]:
 - Package: `DSTV.Net`
 - Owns: DSTV / NC1 (Tekla / NC) steel-profile cut-program PARSING — the `ST` header descriptor and the hole/slot/cut/bend/numeration/contour feature record tree
-- Accept: `DstvReader.ParseAsync` ingress over `string`/`TextReader`; the immutable `IDstv`/`DstvElement` record tree; the typed `ParseException` (`LineNumber`) rail folded into `Fin`/`FabricationFault`; the `Clipper2` polygon-algebra (`api-clipper2`) and `XxHash128` content-identity (`libs/csharp/.api/api-hashing.md`) seams
-- Reject: treating DSTV.Net as a WRITER (it parses only; emission is the posting owner's `PostDialect`); `ToSvg()` as a drafting rail (use `ACadSharp` for CAD); exception-escape past the boundary (lower `ParseException` into `Fin`); threading DSTV record types past the ingress boundary-map
+- Accept: `DstvReader.ParseAsync` over `string`/`TextReader`; the immutable `IDstv`/`DstvElement` tree; the typed `ParseException` (`LineNumber`) rail folded into `Fin`/`FabricationFault`; the `Clipper2` polygon-algebra and `XxHash128` content-identity seams
+- Reject: DSTV.Net as a writer (emission is the posting owner's `PostDialect`); `ToSvg()` as a drafting rail; exception escape past the boundary; threading DSTV record types past the ingress boundary-map

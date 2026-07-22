@@ -148,20 +148,20 @@
 
 The linked FFmpeg build publishes its registered names as module-level sets — `av.codecs_available`, `av.bitstream_filters_available`, and `av.filter.filters_available` — so codec, bsf, and filter admission is a membership probe before `add_stream`/`BitStreamFilterContext`/`Graph.add`, never a deep `*NotFoundError` raise. `av.codec.hwaccel.hwdevices_available()` is a CALL returning the hardware device-type name list, and `HWAccel(device_type, allow_software_fallback)` is the decode-acceleration context `av.open(hwaccel=)` consumes. Multi-input filters wire per context: `FilterContext.link_to(input_, output_idx, input_idx)` binds explicit pads where `Graph.link_nodes` raises `ArgumentError 22`, and `FilterContext.push`/`pull` drive one source among several where the single-source `Graph.push` cannot disambiguate; a dynamic-input filter (`amix`) reports an empty static `Filter(name).inputs` tuple, so arity travels as caller data. `av.time_base` is the 1e6 container timestamp denominator and `Frame.time` the derived presentation seconds (`pts * time_base`); `OutputContainer.metadata` accepts container tags before the header writes.
 
-| [INDEX] | [SURFACE]                                     | [CALL_SHAPE]                                         | [CAPABILITY]                             |
-| :-----: | :-------------------------------------------- | :--------------------------------------------------- | :--------------------------------------- |
-|  [01]   | `av.codecs_available`                         | module attr -> `set[str]`                            | registered encoder/decoder names         |
-|  [02]   | `av.bitstream_filters_available`              | module attr -> `set[str]`                            | registered bitstream-filter names        |
-|  [03]   | `av.filter.filters_available`                 | module attr -> `set[str]`                            | registered libavfilter names             |
-|  [04]   | `av.codec.hwaccel.hwdevices_available`        | `hwdevices_available() -> list[str]`                 | hardware decode device-type names        |
-|  [05]   | `av.codec.hwaccel.HWAccel`                    | `HWAccel(device_type, allow_software_fallback, ...)` | GPU decode context for `open(hwaccel=)`  |
-|  [06]   | `FilterContext.link_to`                       | `link_to(input_, output_idx=0, input_idx=0) -> None` | explicit-pad multi-input wiring          |
-|  [07]   | `FilterContext.push` / `.pull`                | `push(frame) -> None`; `pull() -> Frame`             | per-source drive in a multi-input graph  |
-|  [08]   | `av.library_versions`                         | module attr -> `dict[str, tuple]`                    | bundled libav majors                     |
-|  [09]   | `ffmpeg_version_info`                          | module attr -> `str`                                 | ffmpeg build string                      |
-|  [10]   | `av.time_base`                                | module attr -> `int` (1_000_000)                     | container timestamp denominator          |
-|  [11]   | `Frame.time`                                  | property -> `float \| None`                          | presentation seconds `pts * time_base`   |
-|  [12]   | `OutputContainer.metadata`                    | `dict[str, str]` (mutable before header write)       | container tags (title/artist/comment)    |
+| [INDEX] | [SURFACE]                              | [CALL_SHAPE]                                         | [CAPABILITY]                            |
+| :-----: | :------------------------------------- | :--------------------------------------------------- | :-------------------------------------- |
+|  [01]   | `av.codecs_available`                  | module attr -> `set[str]`                            | registered encoder/decoder names        |
+|  [02]   | `av.bitstream_filters_available`       | module attr -> `set[str]`                            | registered bitstream-filter names       |
+|  [03]   | `av.filter.filters_available`          | module attr -> `set[str]`                            | registered libavfilter names            |
+|  [04]   | `av.codec.hwaccel.hwdevices_available` | `hwdevices_available() -> list[str]`                 | hardware decode device-type names       |
+|  [05]   | `av.codec.hwaccel.HWAccel`             | `HWAccel(device_type, allow_software_fallback, ...)` | GPU decode context for `open(hwaccel=)` |
+|  [06]   | `FilterContext.link_to`                | `link_to(input_, output_idx=0, input_idx=0) -> None` | explicit-pad multi-input wiring         |
+|  [07]   | `FilterContext.push` / `.pull`         | `push(frame) -> None`; `pull() -> Frame`             | per-source drive in a multi-input graph |
+|  [08]   | `av.library_versions`                  | module attr -> `dict[str, tuple]`                    | bundled libav majors                    |
+|  [09]   | `ffmpeg_version_info`                  | module attr -> `str`                                 | ffmpeg build string                     |
+|  [10]   | `av.time_base`                         | module attr -> `int` (1_000_000)                     | container timestamp denominator         |
+|  [11]   | `Frame.time`                           | property -> `float \| None`                          | presentation seconds `pts * time_base`  |
+|  [12]   | `OutputContainer.metadata`             | `dict[str, str]` (mutable before header write)       | container tags (title/artist/comment)   |
 
 [ENTRYPOINT_SCOPE]: stream and codec-context configuration
 - rail: media

@@ -75,7 +75,7 @@ Renderer resolution walks the workspace first — `node_modules/.bin/mmdc` from 
 ## [05]-[CONTRACT]
 
 - A fence body is structural payload alone: the declaration, nodes, edges, labels, subgraphs, accessibility directives, and functional layout keys; appearance belongs to the reader's renderer, and a deliverable that explicitly wants a themed render loads [references/theming.md](references/theming.md).
-- Fence frontmatter is optional and functional — `layout: elk` with `flowchart.curve: linear` where ELK's orthogonal routing earns its legibility, per-type geometry knobs, `title:` — and a fence opening with `%%{init:...}%%` converts to frontmatter.
+- Fence frontmatter is functional alone: a flowchart fence opens on the standing `config:` block — `layout: elk` with `flowchart.curve: linear` and `flowchart.padding: 25` — every other family carries only its own geometry knobs and `title:`, and a fence opening with `%%{init:...}%%` converts to frontmatter.
 - `accTitle` and `accDescr` follow the header on every committed diagram, stating the encoded relation so the exported SVG reads outside its source.
 - `block`, `mindmap`, `sankey`, and `venn` refuse the directives, `ishikawa` mis-handles them as nodes, and `kanban` as columns, so their relation sentence sits beside the fence; `timeline` and `eventmodeling` parse them but emit nothing into the SVG, so their relation sentence rides beside the fence too.
 - Node and edge labels carry concept names, never mechanism detail — the owning page carries the bytes.

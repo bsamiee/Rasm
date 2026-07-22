@@ -1,103 +1,84 @@
 # [RASM_COMPUTE_API_MICROSOFT_Z3]
 
-`Microsoft.Z3` is the managed .NET binding to the Z3 SMT theorem prover: a first-order satisfiability engine over the combined theories of linear/nonlinear real and integer arithmetic (NRA/NIA), booleans, bit-vectors, arrays, and uninterpreted functions. Its value to the federation is VERIFY-and-EXPLAIN — a typed rule set lowers to Z3 assertions and the solver returns `SATISFIABLE` with a witnessing `Model`, `UNSATISFIABLE` with an `UnsatCore` naming the exact conflicting constraints, or `UNKNOWN`; it is the orthogonal complement of `Google.OrTools` CP-SAT (which OPTIMIZES). It is the rule-satisfaction owner of `Solver/satisfy` — a rule verdict either enriches an existing discipline's `AssessmentResult` (riding that discipline's route) or, when it must persist as its own content-keyed `Node.Assessment` the `Analysis/assessment` Sweep dispatches, earns a seam `Discipline.Compliance` row.
+`Microsoft.Z3` binds the Z3 SMT theorem prover: a first-order satisfiability engine over combined theories of real and integer arithmetic (NRA/NIA), booleans, bit-vectors, arrays, and uninterpreted functions. A typed rule set lowers to assertions and the solver returns `SATISFIABLE` with a witnessing `Model`, `UNSATISFIABLE` with an `UnsatCore` naming the exact conflicting constraints, or `UNKNOWN` — the verify-and-explain complement of the `Google.OrTools` CP-SAT lane that optimizes.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Z3`
-- package: `Microsoft.Z3`
-- license: MIT
-- assembly: `Microsoft.Z3` (managed wrapper over the native `libz3`)
+- package: `Microsoft.Z3` (MIT)
+- assembly: `Microsoft.Z3` (`netstandard2.0` managed wrapper P/Invoking native `libz3`)
 - namespace: `Microsoft.Z3`
-- asset: netstandard2.0 managed wrapper P/Invoking `libz3`; the native library is bundled per-RID for win-x64/osx-x64. The osx-arm64 `libz3` is Forge-provisioned from the upstream 4.15.x arm64-osx release — the managed wrapper restores clean, the native is provisioned separately and faults at init when absent; a `Context` operation on osx-arm64 without the provisioned `libz3` faults at native init, never silently degrading
+- asset: managed wrapper with per-RID `libz3` for win-x64 and osx-x64; the osx-arm64 `libz3` is Forge-provisioned, so a `Context` operation on osx-arm64 without it faults at native init rather than degrading silently
 - rail: satisfaction
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: context, expressions, sorts
-- namespace: `Microsoft.Z3`
-- rail: satisfaction
-- the `Mk*` builder call shapes live in [03]
 
-| [INDEX] | [SYMBOL]    | [CAPABILITY]                                                                                                   |
-| :-----: | :---------- | :------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Context`   | AST factory/arena `: IDisposable`; ctor `Context()`/`Context(Dictionary<string,string> settings)`              |
-|  [02]   | `Expr`      | AST-node base the sorted terms refine; `Sort`, `Simplify()`, `Substitute(from, to)`                            |
-|  [03]   | `BoolExpr`  | boolean-sorted term `Solver.Assert` takes; boolean/comparison `Mk*` builders return it                         |
-|  [04]   | `ArithExpr` | numeric-sorted terms (`IntExpr`/`RealExpr`); `IntNum`/`RatNum` literals (`.Numerator`/`.Denominator`/`.Int64`) |
-|  [05]   | `Sort`      | term type; `Context.BoolSort`/`IntSort`/`RealSort` cached instances constants mint against                     |
-|  [06]   | `FuncDecl`  | (uninterpreted) fn/const decl + its `Symbol` name; `Model.ConstDecls`/`FuncDecls` enumerate them               |
+| [INDEX] | [SYMBOL]    | [TYPE_FAMILY] | [CAPABILITY]                                                                              |
+| :-----: | :---------- | :------------ | :---------------------------------------------------------------------------------------- |
+|  [01]   | `Context`   | class         | AST factory and arena `: IDisposable`; `Context()` or a settings-dictionary ctor          |
+|  [02]   | `Expr`      | class         | AST-node base the sorted terms refine; carries `Sort`, `Simplify`, `Substitute`           |
+|  [03]   | `BoolExpr`  | class         | boolean-sorted term `Solver.Assert` takes; boolean and comparison builders return it      |
+|  [04]   | `ArithExpr` | class         | numeric term (`IntExpr`/`RealExpr`); `IntNum`/`RatNum` carry `Numerator`/`Denominator`    |
+|  [05]   | `Sort`      | class         | term type; cached `BoolSort`/`IntSort`/`RealSort` instances constants mint against        |
+|  [06]   | `FuncDecl`  | class         | uninterpreted fn/const decl and its `Symbol`; `Model.ConstDecls`/`FuncDecls` enumerate it |
 
 [PUBLIC_TYPE_SCOPE]: solver, model, verdict
-- namespace: `Microsoft.Z3`
-- rail: satisfaction
 
-| [INDEX] | [SYMBOL]   | [CAPABILITY]                                                                                                          |
-| :-----: | :--------- | :-------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Solver`   | incremental assertion stack `: IDisposable`; assert/check/explain in [03]; `Model`/`UnsatCore`/`Statistics`/`Params`  |
-|  [02]   | `Status`   | the verdict enum `SATISFIABLE`/`UNSATISFIABLE`/`UNKNOWN` — lowered onto the `AssessmentResult`                        |
-|  [03]   | `Model`    | satisfying assignment `: IDisposable`; `Evaluate`/`Eval`, `ConstInterp`, `ConstDecls`/`FuncDecls`, `NumConsts`        |
-|  [04]   | `Optimize` | optimizing solver (`Context.MkOptimize()`); `MkMaximize`/`MkMinimize` objectives — recorded, not the rule-verify path |
-|  [05]   | `Params`   | solver config `Context.MkParams()`, `Params.Add(name, value)`; `Tactic`/`Goal` custom-strategy machinery              |
+| [INDEX] | [SYMBOL]   | [TYPE_FAMILY] | [CAPABILITY]                                                                                       |
+| :-----: | :--------- | :------------ | :------------------------------------------------------------------------------------------------- |
+|  [01]   | `Solver`   | class         | incremental assertion stack `: IDisposable`; carries `Model`/`UnsatCore`/`Statistics`/`Params`     |
+|  [02]   | `Status`   | enum          | verdict `SATISFIABLE`/`UNSATISFIABLE`/`UNKNOWN` lowered onto the `AssessmentResult`                |
+|  [03]   | `Model`    | class         | satisfying assignment `: IDisposable`; `Evaluate`/`Eval`, `ConstInterp`, `ConstDecls`, `NumConsts` |
+|  [04]   | `Optimize` | class         | optimizing solver from `MkOptimize`; `MkMaximize`/`MkMinimize` objectives off the verify path      |
+|  [05]   | `Params`   | class         | solver config from `MkParams`; `Add(name, value)`, `Tactic`/`Goal` strategy machinery              |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: build constants and constraints — `Context`
-- namespace: `Microsoft.Z3`
-- rail: satisfaction
 
-| [INDEX] | [SURFACE]                                              | [CALL_SHAPE]                                                    |
-| :-----: | :----------------------------------------------------- | :-------------------------------------------------------------- |
-|  [01]   | `ctx.MkRealConst` / `MkIntConst` / `MkBoolConst`       | `(string name)` → `RealExpr`/`IntExpr`/`BoolExpr`               |
-|  [02]   | `ctx.MkReal` / `MkInt`                                 | `(string / int / long)` → `RatNum`/`IntNum`                     |
-|  [03]   | `ctx.MkAdd` / `MkMul` / `MkSub` / `MkDiv` / `MkPower`  | `(params ArithExpr[])` → `ArithExpr`                            |
-|  [04]   | `ctx.MkGe` / `MkLe` / `MkGt` / `MkLt` / `MkEq`         | `(Expr, Expr)` → `BoolExpr`                                     |
-|  [05]   | `ctx.MkAnd` / `MkOr` / `MkNot` / `MkImplies` / `MkIff` | `(params BoolExpr[])` / `(BoolExpr, BoolExpr)` → `BoolExpr`     |
-|  [06]   | `ctx.MkXor`                                            | `(BoolExpr, BoolExpr)` / `(IEnumerable<BoolExpr>)` → `BoolExpr` |
-|  [07]   | `ctx.MkITE` / `MkUnaryMinus`                           | `(BoolExpr, Expr, Expr)` → `Expr` / `(ArithExpr)` → `ArithExpr` |
-|  [08]   | `ctx.MkSolver` / `MkOptimize`                          | `()` / `(string logic)` → `Solver` / `Optimize`                 |
+| [INDEX] | [SURFACE]                                                     | [SHAPE] | [CAPABILITY]                                         |
+| :-----: | :------------------------------------------------------------ | :------ | :--------------------------------------------------- |
+|  [01]   | `MkRealConst / MkIntConst / MkBoolConst(string)`              | factory | mint a free variable of the given sort               |
+|  [02]   | `MkReal / MkInt(string\|int\|long)`                           | factory | numeric literals; a `"num/den"` rational is exact    |
+|  [03]   | `MkAdd / MkMul / MkSub / MkDiv / MkPower(params ArithExpr[])` | factory | arithmetic terms over NRA/NIA                        |
+|  [04]   | `MkGe / MkLe / MkGt / MkLt / MkEq(Expr, Expr)`                | factory | relational atoms of a rule constraint                |
+|  [05]   | `MkAnd / MkOr / MkNot / MkImplies / MkIff(BoolExpr…)`         | factory | boolean combinators composing a rule set             |
+|  [06]   | `MkXor(BoolExpr, BoolExpr) / (IEnumerable<BoolExpr>)`         | factory | exclusive-or over a pair or a set                    |
+|  [07]   | `MkITE(BoolExpr, Expr, Expr) / MkUnaryMinus(ArithExpr)`       | factory | guarded rectifier and unary-negate terms             |
+|  [08]   | `MkSolver / MkOptimize() / (string logic)`                    | factory | `Solver`/`Optimize`; `"QF_NRA"` selects the fragment |
 
-- [01]-[CONST]: mint a free variable of the given sort — the rule-variable seeds.
-- [02]-[LITERAL]: numeric literals (a rational from a `"num/den"` string is exact).
-- [03]-[ARITH]: arithmetic terms — NONLINEAR `MkMul`/`MkPower` drive the NRA/NIA theory Z3 owns and CP-SAT cannot.
-- [04]-[RELATION]: the relational atoms a rule constraint is built from.
-- [05]-[BOOLEAN]: the boolean combinators composing a rule set.
-- [07]-[RECTIFIER]: `MkITE` lowers `abs`/`signum`/`min`/`max` rectifiers as guarded terms; the result downcasts to `ArithExpr` at the caller.
-- [06]-[ENGINE]: the solve engine (a named logic e.g. `"QF_NRA"` selects the theory fragment).
+- `MkMul`/`MkPower`: nonlinear terms drive the NRA/NIA theory the CP-SAT lane cannot reach.
+- `MkITE`: lowers `abs`/`signum`/`min`/`max` rectifiers as guarded terms, the result downcast to `ArithExpr` at the caller.
 
 [ENTRYPOINT_SCOPE]: assert, check, explain — `Solver`
-- namespace: `Microsoft.Z3`
-- rail: satisfaction
-- composition law: the rule set asserts through `AssertAndTrack` (each constraint paired with a boolean tracking literal named for the rule), `Check()` returns the `Status`, and on `UNSATISFIABLE` the `UnsatCore` tracking literals name the exact violated rules the `AssessmentResult` reports.
 
-| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                                                              |
-| :-----: | :------------------------------ | :------------------------------------------------------------------------ |
-|  [01]   | `s.Assert` / `s.AssertAndTrack` | `(params BoolExpr[])` / `(BoolExpr constraint, BoolExpr trackingLiteral)` |
-|  [02]   | `s.Check`                       | `(params Expr[] assumptions)` → `Status`                                  |
-|  [03]   | `s.Model`                       | `→ Model` (valid after a `SATISFIABLE` check)                             |
-|  [04]   | `s.UnsatCore`                   | `→ BoolExpr[]` (valid after an `UNSATISFIABLE` check)                     |
-|  [05]   | `s.Push` / `s.Pop`              | `()` / `(uint n)`                                                         |
-
-- [01]-[ASSERT]: add constraints; the tracked form is REQUIRED for a named unsat core.
-- [02]-[CHECK]: the SAT/UNSAT/UNKNOWN verdict; assumptions scope a query without a `Push`/`Pop`.
-- [03]-[MODEL]: the witnessing assignment; `model.Evaluate(v)` reads each rule variable.
-- [04]-[EXPLAIN]: the minimal conflicting tracking literals — the exact violated rule names.
-- [05]-[FRAME]: scope a backtrackable assertion frame for incremental what-if checks.
+| [INDEX] | [SURFACE]                                                        | [SHAPE]  | [CAPABILITY]                                           |
+| :-----: | :--------------------------------------------------------------- | :------- | :----------------------------------------------------- |
+|  [01]   | `Assert(params BoolExpr[]) / AssertAndTrack(BoolExpr, BoolExpr)` | instance | add constraints; the tracked form feeds the unsat core |
+|  [02]   | `Check(params Expr[]) -> Status`                                 | instance | SAT/UNSAT/UNKNOWN verdict; assumptions scope a query   |
+|  [03]   | `Model -> Model`                                                 | property | witnessing assignment after `SATISFIABLE`              |
+|  [04]   | `UnsatCore -> BoolExpr[]`                                        | property | minimal conflicting literals — violated rule names     |
+|  [05]   | `Push() / Pop(uint)`                                             | instance | backtrackable assertion frame for what-if checks       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[CONTEXT_ARENA]:
-- ONE `Context` owns every `Expr`/`Sort`/`Solver`/`Model` for a solve and is disposed at the boundary (`using`), releasing the native AST arena; an expression minted by one context is never mixed into another. A rule-verify pass builds a fresh context per content-keyed request, asserts, checks, projects the verdict, and disposes — the native handles never outlive the `AssessmentResult`.
-- Z3 is single-threaded per context; a parallel sweep runs one context per worker (the `Analysis/assessment` Sweep's `JobGraph` fan-out), never a shared context.
+[TOPOLOGY]:
+- ONE `Context` owns every `Expr`/`Sort`/`Solver`/`Model` for a solve and disposes at the boundary, releasing the native AST arena; a term minted by one context never mixes into another. A rule-verify pass builds a fresh context per content-keyed request, asserts, checks, projects the verdict, and disposes, so the native handles never outlive the `AssessmentResult`.
+- Z3 is single-threaded per context, so a parallel sweep runs one context per worker over the `Analysis/assessment` Sweep `JobGraph` fan-out.
 
 [STACKING]:
-- `Solver/satisfy#RULE_SATISFACTION`: a typed rule set lowers to Z3 assertions NATURALLY from `SymbolicExpr` — the CAS (`api-angourimath.md`) is the lowering source, its `Entity` tree walked to `Context.Mk*` terms. The verdict surfaces as an `AssessmentResult`: `SATISFIABLE` carries the `Model` witness, `UNSATISFIABLE` the `UnsatCore` naming the violated rules, `UNKNOWN` a typed `(Solve, Numeric)` shortfall. CP-SAT OPTIMIZES, Z3 VERIFIES-and-EXPLAINS — orthogonal concerns, never a second optimizer.
-- `Symbolic/expression` (the lowering source): a `SymbolicExpr` constraint (`==`/`<=`/`>=` over a units-checked expression) lowers term-by-term to `MkEq`/`MkLe`/`MkGe`; nonlinear terms (`MkMul`/`MkPower`) reach the NRA/NIA theory the CP-SAT lane cannot express.
-- `Runtime/scheduling` (the Sweep substrate): a rule-verify job is a `JobGraph` node keyed by the rule-set + input content key; one `Context` per job, disposed at completion.
-- `Google.OrTools` (`api-ortools.md`): the DISJOINT sibling — OrTools CP-SAT/MILP finds an optimal feasible assignment, Z3 proves a fixed assignment satisfies (or names why not); a compliance check that must EXPLAIN its failure is Z3's, an objective to minimize is OrTools'.
+- `Symbolic/expression`(`api-angourimath.md`): the lowering source — a `SymbolicExpr` constraint (`==`/`<=`/`>=` over a units-checked expression) lowers term-by-term to `MkEq`/`MkLe`/`MkGe`, its `Entity` tree walked to `Context.Mk*` terms, and nonlinear `MkMul`/`MkPower` reach the NRA/NIA theory the CP-SAT lane cannot express.
+- `Google.OrTools`(`api-ortools.md`): the disjoint sibling — CP-SAT/MILP finds an optimal feasible assignment where Z3 proves a fixed assignment satisfies or names why not; a compliance check that must explain its failure is Z3's, an objective to minimize is OrTools'.
+- `Solver/satisfy`: composes the folder rule-verify — a typed rule set lowers to assertions, `AssertAndTrack` pairs each constraint with a rule-named literal, and the verdict projects to `AssessmentResult` (`Model` witness on SAT, `UnsatCore` rule names on UNSAT, a typed `(Solve, Numeric)` shortfall on UNKNOWN).
+- `Runtime/scheduling`: a rule-verify job is a `JobGraph` node keyed by the rule-set and input content key, one `Context` per job disposed at completion.
+
+[LOCAL_ADMISSION]:
+- `Solver/satisfy` owns rule satisfaction: a verdict enriches an existing discipline's `AssessmentResult` on that discipline's route, or persists as its own content-keyed `Node.Assessment` the `Analysis/assessment` Sweep dispatches under a seam `Discipline.Compliance` row.
 
 [RAIL_LAW]:
-- Package: `Microsoft.Z3` `4.12.2` (MIT, netstandard2.0 managed wrapper; osx-arm64 `libz3` Forge-provisioned)
-- Owns: SMT satisfiability + explanation over NRA/NIA/boolean/bit-vector/array/UF theories — `Context` AST construction, `Solver` incremental assert/check, `Model` witness extraction, `UnsatCore` conflict explanation, `Optimize` objectives
-- Accept: a typed rule set lowered from `SymbolicExpr`, verified for SAT/UNSAT with a witnessing model or a rule-naming unsat core, surfaced as an `AssessmentResult`
-- Reject: an optimization objective where CP-SAT/MILP belongs (Z3 verifies, OrTools optimizes); a shared context across sweep workers; a native `libz3` assumption on osx-arm64 absent the Forge provisioning; a `Context`/`Model`/`Solver` leaked past the `AssessmentResult` boundary
+- Package: `Microsoft.Z3`
+- Owns: SMT satisfiability and explanation over NRA/NIA, boolean, bit-vector, array, and UF theories — `Context` construction, `Solver` incremental assert/check, `Model` witness extraction, `UnsatCore` conflict explanation, `Optimize` objectives
+- Accept: a typed rule set lowered from `SymbolicExpr`, verified SAT/UNSAT with a witnessing model or a rule-naming unsat core
+- Reject: an optimization objective CP-SAT/MILP owns; a context shared across sweep workers; a `libz3` assumption on osx-arm64 absent the Forge provisioning; a `Context`/`Model`/`Solver` leaked past the `AssessmentResult` boundary

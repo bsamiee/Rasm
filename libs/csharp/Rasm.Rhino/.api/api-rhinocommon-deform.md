@@ -1,6 +1,6 @@
 # [RASM_RHINO_API_RHINOCOMMON_DEFORM]
 
-This catalog owns the host-fidelity nonlinear deformation and flattening boundary: the `SpaceMorph` abstract engine and its concrete `Rhino.Geometry.Morphs` implementations (bend, flow, maelstrom, splop, sporph, stretch, taper, twist, mesh-cage), the `MorphControl` interactive deformer, and the `Unroller`/`Squisher`/`MeshUnwrapper` flattening set. A morph deforms any `GeometryBase` in place along a type-agnostic point map, standing beside the geometry catalog's linear `Transform` mutation and the kernel's host-neutral DEC UV-flattening in `Rasm/Processing/flatten`, which own different altitudes and are never re-derived here. Every engine P/Invokes `rhcommon_c` and returns geometry bit-compatible with Rhino's own commands; the flatteners are disposable native resources, and every outcome projects onto the `LanguageExt` rails.
+This catalog owns the host-fidelity nonlinear deformation and flattening boundary: the `SpaceMorph` engine, its `Rhino.Geometry.Morphs` implementations, the `MorphControl` deformer, and the `Unroller`/`Squisher`/`MeshUnwrapper` flatteners. A morph deforms any `GeometryBase` in place along a type-agnostic point map; the flatteners are disposable native resources. Every engine P/Invokes `rhcommon_c` and returns geometry bit-compatible with Rhino's commands; the boundary never re-derives kernel-altitude DEC UV-flattening or linear motion.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -15,9 +15,8 @@ This catalog owns the host-fidelity nonlinear deformation and flattening boundar
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: morph engines
-- rail: deformation
 
-| [INDEX] | [SYMBOL]              | [KIND]          | [CAPABILITY]                                                  |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]   | [CAPABILITY]                                                  |
 | :-----: | :-------------------- | :-------------- | :------------------------------------------------------------ |
 |  [01]   | `SpaceMorph`          | abstract base   | type-agnostic point map over any `GeometryBase`, tuning knobs |
 |  [02]   | `BendSpaceMorph`      | morph           | bend about a spine between start and end points               |
@@ -32,76 +31,136 @@ This catalog owns the host-fidelity nonlinear deformation and flattening boundar
 |  [11]   | `MorphControl`        | native geometry | interactive curve-to-curve or surface deformer                |
 
 [PUBLIC_TYPE_SCOPE]: flattening engines
-- rail: deformation
 
-| [INDEX] | [SYMBOL]           | [KIND]         | [CAPABILITY]                                                     |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]  | [CAPABILITY]                                                     |
 | :-----: | :----------------- | :------------- | :--------------------------------------------------------------- |
 |  [01]   | `Unroller`         | flattener      | unroll developable surfaces/breps with following geometry        |
 |  [02]   | `Squisher`         | disposable     | stress-relaxed flatten of surfaces and meshes with mark tracking |
 |  [03]   | `SquishParameters` | config carrier | spring constants, deformation mode, topology and mapping policy  |
 |  [04]   | `MeshUnwrapper`    | disposable     | uv-unwrap a mesh set by an unwrap algorithm                      |
 
-[ENUM_ROSTERS]:
-- `public enum Rhino.Geometry.MeshUnwrapMethod` — `LSCM`, `ABFPP`, `ARAP`.
-- `public enum Rhino.Geometry.SquishFlatteningAlgorithm` — `Geometric`, `PhysicalStress`.
-- `public enum Rhino.Geometry.SquishDeformation` — `Free`, `StretchMostly`, `StretchOnly`, `CompressMostly`, `CompressOnly`, `Custom`.
+[PUBLIC_TYPE_SCOPE]: closed flattening vocabularies
+
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CAPABILITY]                         |
+| :-----: | :-------------------------- | :------------ | :----------------------------------- |
+|  [01]   | `MeshUnwrapMethod`          | enum          | uv-unwrap algorithm selector         |
+|  [02]   | `SquishFlatteningAlgorithm` | enum          | geometric or physical-stress flatten |
+|  [03]   | `SquishDeformation`         | enum          | stretch/compress deformation mode    |
+
+- `[MeshUnwrapMethod]`: `LSCM` `ABFPP` `ARAP`
+- `[SquishFlatteningAlgorithm]`: `Geometric` `PhysicalStress`
+- `[SquishDeformation]`: `Free` `StretchMostly` `StretchOnly` `CompressMostly` `CompressOnly` `Custom`
 
 ## [03]-[ENTRYPOINTS]
 
-[MORPH_BASE]:
-- `Rhino.Geometry.SpaceMorph.Morph(GeometryBase geometry) : bool` — deforms any geometry in place along the concrete point map; a `false` return signals the geometry could not morph.
-- `Rhino.Geometry.SpaceMorph.Morph(ref Plane plane) : bool` — morphs a plane frame by its origin and axes.
-- `Rhino.Geometry.SpaceMorph.MorphPoint(Point3d point) : Point3d` — the abstract per-point map each concrete morph defines.
-- `Rhino.Geometry.SpaceMorph.IsMorphable(GeometryBase geometry) : bool` — whether a geometry kind supports morphing.
-- `Rhino.Geometry.SpaceMorph.Tolerance : double` / `QuickPreview : bool` / `PreserveStructure : bool` — the deformation tolerance and the preview and control-point-preservation knobs shared by every morph.
+[ENTRYPOINT_SCOPE]: space-morph engine
 
-[MORPH_KINDS]:
-- `Rhino.Geometry.Morphs.BendSpaceMorph(Point3d start, Point3d end, Point3d point, double angle, bool straight, bool symmetric)` — bends about the start-end spine to a target angle; the no-angle overload bends toward the third point.
-- `Rhino.Geometry.Morphs.FlowSpaceMorph(Curve curve0, Curve curve1, bool reverseCurve0, bool reverseCurve1, bool preventStretching)` — reflows geometry from a base curve onto a target curve with reversal and stretch control; the `(curve0, curve1, preventStretching)` overload drops the reversals.
-- `Rhino.Geometry.Morphs.MaelstromSpaceMorph(Plane plane, double radius0, double radius1, double angle)` — spirals geometry between two radii about a plane by an angle.
-- `Rhino.Geometry.Morphs.SplopSpaceMorph(Plane plane, Surface surface, Point2d surfaceParam, double scale, double angle)` — maps a plane region onto a surface uv location with scale and rotation.
-- `Rhino.Geometry.Morphs.SporphSpaceMorph(Surface surface0, Surface surface1, Point2d surface0Param, Point2d surface1Param)` — reflows from a base surface onto a target surface aligned at uv params; the two-surface overload auto-aligns, and `ConstrainNormal : Vector3d` (`get/set`) pins the morph normal.
-- `Rhino.Geometry.Morphs.StretchSpaceMorph(Point3d start, Point3d end, double length)` — stretches along the axis to a length; the `(start, end, Point3d point)` overload stretches to a point.
-- `Rhino.Geometry.Morphs.TaperSpaceMorph(Point3d start, Point3d end, double startRadius, double endRadius, bool bFlat, bool infiniteTaper)` — radial taper along an axis between two radii.
-- `Rhino.Geometry.Morphs.TwistSpaceMorph()` — twists about `TwistAxis : Line` by `TwistAngleRadians : double`, with `InfiniteTwist : bool` extending the twist past the axis ends.
-- `Rhino.Geometry.Morphs.MeshCageMorph(Mesh referenceMesh, Mesh targetMesh)` — cage deformation of arbitrary geometry through a reference/target mesh pair; every concrete morph subclass carries `Dispose()` (the `SpaceMorph` base is not `IDisposable`), `IsValid`, and the abstract `MorphPoint(Point3d)` override, and `IsMorphable(GeometryBase)` is a `SpaceMorph` static.
-- `Rhino.Geometry.Morphs.MeshMorphMesh` is `internal` (host-reserved), so vertex-position mapping through a reference/adjusted mesh pair has no accessible surface; `MeshCageMorph` is the sole public mesh-driven deformer.
+| [INDEX] | [SURFACE]                                     | [SHAPE]  | [CAPABILITY]                         |
+| :-----: | :-------------------------------------------- | :------- | :----------------------------------- |
+|  [01]   | `SpaceMorph.Morph(GeometryBase) : bool`       | instance | deform any geometry in place         |
+|  [02]   | `SpaceMorph.Morph(ref Plane) : bool`          | instance | morph a plane frame by origin/axes   |
+|  [03]   | `SpaceMorph.MorphPoint(Point3d) : Point3d`    | instance | abstract per-point deformation map   |
+|  [04]   | `SpaceMorph.IsMorphable(GeometryBase) : bool` | static   | gate a geometry kind before morphing |
 
-[MORPH_CONTROL]:
-- `Rhino.Geometry.MorphControl(NurbsCurve originCurve, NurbsCurve targetCurve)` — an interactive deformer driven by an origin-to-target curve pair.
-- `Rhino.Geometry.MorphControl.Morph(GeometryBase geometry) : bool` — applies the control deformation to geometry.
-- `Rhino.Geometry.MorphControl.SpaceMorphTolerance : double` / `QuickPreview : bool` / `PreserveStructure : bool` / `Curve : NurbsCurve` / `Surface : NurbsSurface` — the tuning knobs and the driving curve/surface reads.
+- `[SPACE_MORPH_KNOBS]`: `Tolerance` `QuickPreview` `PreserveStructure`
+- `SpaceMorph.Morph`: a `false` return marks a geometry the morph rejected.
 
-[UNROLL]:
-- `Rhino.Geometry.Unroller(Brep brep)` / `Unroller(Surface surface)` — constructs an unroller over a developable brep or surface.
-- `Rhino.Geometry.Unroller.AddFollowingGeometry(IEnumerable<Curve> curves) : void` — registers geometry to carry into the flattened frame; the full overload roster covers `Curve`, `IEnumerable<Point3d>`, `Point3d`, `Point`, `IEnumerable<TextDot>`, `TextDot`, `(IEnumerable<Point3d> dotLocations, IEnumerable<string> dotText)`, and `(Point3d dotLocation, string dotText)`, so dot rows never require a minted `TextDot`.
-- `Rhino.Geometry.Unroller.PerformUnroll(out Curve[] unrolledCurves, out Point3d[] unrolledPoints, out TextDot[] unrolledDots) : Brep[]` — unrolls and returns the flattened breps beside the carried geometry; the `(List<Brep> flatbreps)` overload returns a follow-geometry count.
-- `Rhino.Geometry.Unroller.FollowingGeometryIndex(Curve curve) : int` — the index of a carried curve or dot in the unroll output.
+[ENTRYPOINT_SCOPE]: morph constructors
 
-[SQUISH]:
-- `Rhino.Geometry.Squisher()` — constructs a squisher; the instance is `IDisposable` and rides a using scope or lease.
-- `Rhino.Geometry.Squisher.SquishSurface(SquishParameters sp, Surface surface, IEnumerable<GeometryBase> marks, List<GeometryBase> squished_marks_out) : Brep` — stress-relaxes a surface to a flat brep, mapping marks into the caller-owned output list; the no-marks overload drops them.
-- `Rhino.Geometry.Squisher.SquishMesh(SquishParameters sp, Mesh mesh3d, IEnumerable<GeometryBase> marks, List<GeometryBase> squished_marks_out) : Mesh` — flattens a mesh with mark tracking.
-- `Rhino.Geometry.Squisher.SquishCurve(Curve curve) : PolylineCurve` / `SquishTextDot(TextDot textDot) : TextDot` / `SquishPoint(Point3d point, out Point3d squishedPoint) : bool` — per-object mapping into the flattened frame after a squish.
-- `Rhino.Geometry.Squisher.Get2dMesh() : Mesh` / `Get3dMesh() : Mesh` / `GetLengthConstrained2dLines() : Line[]` / `GetLengthConstrained3dLines() : Line[]` / `GetAreaConstrainedTrianglesIndices() : MeshFace[]` — the flattened and source triangulations and their length/area constraint diagnostics; `GetMesh2dEdges()`/`GetMesh3dEdges()` alias `GetLengthConstrained2dLines()`/`GetLengthConstrained3dLines()` and return identical data, so a consumer reads one pair, never both.
-- `Rhino.Geometry.Squisher.Is2dPatternSquished(GeometryBase geometry) : bool` / `SquishBack2dMarks(GeometryBase squishedGeometry, IEnumerable<GeometryBase> marks) : IEnumerable<GeometryBase>` — the static probe and inverse-mapping of flattened marks back to 3d.
-- `Rhino.Geometry.SquishParameters.Default : SquishParameters` — the standing preset; `PreserveTopology : bool`, `SaveMapping : bool`, `BoundaryStretchConstant`/`BoundaryCompressConstant`/`InteriorStretchConstant`/`InteriorCompressConstant : double`, `AbsoluteLimit : double`, and `Algorithm : SquishFlatteningAlgorithm` are the policy knobs.
-- `Rhino.Geometry.SquishParameters.SetDeformation(SquishDeformation deformation, bool bPreserveBoundary, double boundaryStretchConstant, double boundaryCompressConstant, double interiorStretchConstant, double interiorCompressConstant) : void` / `SetSpringConstants(double boundaryBias, double deformationBias) : void` / `GetSpringConstants(out double boundaryBias, out double deformationBias) : bool` — the deformation-mode and spring-bias seams; deformation is set-only with no read-back property, and the carrier is `IDisposable`.
+| [INDEX] | [SURFACE]                                                       | [SHAPE] | [CAPABILITY]                          |
+| :-----: | :-------------------------------------------------------------- | :------ | :------------------------------------ |
+|  [01]   | `BendSpaceMorph(Point3d, Point3d, Point3d, double, bool, bool)` | ctor    | bend about the start-end spine        |
+|  [02]   | `FlowSpaceMorph(Curve, Curve, bool, bool, bool)`                | ctor    | reflow base curve onto target curve   |
+|  [03]   | `MaelstromSpaceMorph(Plane, double, double, double)`            | ctor    | spiral between two radii              |
+|  [04]   | `SplopSpaceMorph(Plane, Surface, Point2d, double, double)`      | ctor    | map a plane region onto surface uv    |
+|  [05]   | `SporphSpaceMorph(Surface, Surface, Point2d, Point2d)`          | ctor    | reflow one surface onto another       |
+|  [06]   | `StretchSpaceMorph(Point3d, Point3d, double)`                   | ctor    | axial stretch to a length             |
+|  [07]   | `TaperSpaceMorph(Point3d, Point3d, double, double, bool, bool)` | ctor    | radial taper between two radii        |
+|  [08]   | `TwistSpaceMorph()`                                             | ctor    | rotate about an axis per length       |
+|  [09]   | `MeshCageMorph(Mesh, Mesh)`                                     | ctor    | cage-deform via reference/target mesh |
 
-[UNWRAP]:
-- `Rhino.Geometry.MeshUnwrapper(Mesh mesh)` / `MeshUnwrapper(IEnumerable<Mesh> meshes)` — constructs an unwrapper over one or a set of meshes; the instance is `IDisposable` and `SymmetryPlane : Plane` is set-only, pinning a symmetry constraint the unwrap consumes.
-- `Rhino.Geometry.MeshUnwrapper.Unwrap(MeshUnwrapMethod method) : bool` — computes uv coordinates by the chosen unwrap algorithm and writes them onto the mesh texture coordinates.
+- `[SPORPH_KNOBS]`: `ConstrainNormal`
+- `[TWIST_KNOBS]`: `TwistAxis` `TwistAngleRadians` `InfiniteTwist`
+- `BendSpaceMorph(Point3d, Point3d, Point3d, bool, bool)`: no-angle overload bends toward the third point.
+- `FlowSpaceMorph(Curve, Curve, bool)`: overload drops the two reversal flags.
+- `SplopSpaceMorph`: `(Plane, Surface, Point2d)` and `(…, double scale)` overloads drop rotation and scale.
+- `StretchSpaceMorph(Point3d, Point3d, Point3d)`: overload stretches to a point.
+- `SporphSpaceMorph(Surface, Surface)`: overload auto-aligns the uv params.
+
+[ENTRYPOINT_SCOPE]: interactive morph control
+
+| [INDEX] | [SURFACE]                                 | [SHAPE]  | [CAPABILITY]                  |
+| :-----: | :---------------------------------------- | :------- | :---------------------------- |
+|  [01]   | `MorphControl(NurbsCurve, NurbsCurve)`    | ctor     | origin-to-target curve driver |
+|  [02]   | `MorphControl.Morph(GeometryBase) : bool` | instance | apply the control deformation |
+
+- `[MORPH_CONTROL_KNOBS]`: `SpaceMorphTolerance` `QuickPreview` `PreserveStructure` `Curve` `Surface`
+
+[ENTRYPOINT_SCOPE]: unroll flattener
+
+| [INDEX] | [SURFACE]                                                                    | [SHAPE]  | [CAPABILITY]                         |
+| :-----: | :--------------------------------------------------------------------------- | :------- | :----------------------------------- |
+|  [01]   | `Unroller(Brep)`                                                             | ctor     | unroller over a developable brep     |
+|  [02]   | `Unroller(Surface)`                                                          | ctor     | unroller over a developable surface  |
+|  [03]   | `Unroller.AddFollowingGeometry(...)`                                         | instance | carry geometry into the flat frame   |
+|  [04]   | `Unroller.PerformUnroll(out Curve[], out Point3d[], out TextDot[]) : Brep[]` | instance | unroll to flattened breps + geometry |
+|  [05]   | `Unroller.FollowingGeometryIndex(Curve) : int`                               | instance | index of a carried curve or dot      |
+
+- `[UNROLL_KNOBS]`: `ExplodeOutput` `ExplodeSpacing` `AbsoluteTolerance` `RelativeTolerance`
+- `Unroller.AddFollowingGeometry`: overloads cover `Curve`, `Point3d`, `Point`, `TextDot`, their `IEnumerable` forms, and `(Point3d, string)` dot pairs, so a dot row needs no minted `TextDot`.
+- `Unroller.PerformUnroll(List<Brep>)`: overload returns a follow-geometry count.
+- `Unroller.FollowingGeometryIndex`: a `TextDot` overload indexes carried dots.
+
+[ENTRYPOINT_SCOPE]: squish flattener
+
+| [INDEX] | [SURFACE]                                                             | [SHAPE]  | [CAPABILITY]                          |
+| :-----: | :-------------------------------------------------------------------- | :------- | :------------------------------------ |
+|  [01]   | `Squisher()`                                                          | ctor     | disposable squisher                   |
+|  [02]   | `Squisher.SquishSurface(SquishParameters, Surface) : Brep`            | instance | stress-relax a surface to a flat brep |
+|  [03]   | `Squisher.SquishMesh(SquishParameters, Mesh) : Mesh`                  | instance | flatten a mesh with mark tracking     |
+|  [04]   | `Squisher.SquishCurve(Curve) : PolylineCurve`                         | instance | map a curve into the flat frame       |
+|  [05]   | `Squisher.SquishTextDot(TextDot) : TextDot`                           | instance | map a dot into the flat frame         |
+|  [06]   | `Squisher.SquishPoint(Point3d, out Point3d) : bool`                   | instance | map a point into the flat frame       |
+|  [07]   | `Squisher.Is2dPatternSquished(GeometryBase) : bool`                   | static   | probe a squished pattern              |
+|  [08]   | `Squisher.SquishBack2dMarks(GeometryBase, IEnumerable<GeometryBase>)` | static   | inverse-map flattened marks to 3d     |
+
+- `[SQUISH_READS]`: `Get2dMesh` `Get3dMesh` `GetLengthConstrained2dLines` `GetLengthConstrained3dLines` `GetAreaConstrainedTrianglesIndices`
+- `Squisher.SquishSurface`/`SquishMesh`: a `(…, IEnumerable<GeometryBase>, List<GeometryBase>)` overload maps marks into a caller-owned list.
+- `Squisher.GetMesh2dEdges`/`GetMesh3dEdges`: alias the length-constrained line reads and return identical data, so a consumer reads one pair.
+
+[ENTRYPOINT_SCOPE]: squish policy carrier
+
+| [INDEX] | [SURFACE]                                                                                  | [SHAPE]  | [CAPABILITY]                     |
+| :-----: | :----------------------------------------------------------------------------------------- | :------- | :------------------------------- |
+|  [01]   | `SquishParameters.Default : SquishParameters`                                              | factory  | the standing preset              |
+|  [02]   | `SquishParameters.SetDeformation(SquishDeformation, bool, double, double, double, double)` | instance | set deformation mode + constants |
+|  [03]   | `SquishParameters.SetSpringConstants(double, double)`                                      | instance | set boundary/deformation bias    |
+|  [04]   | `SquishParameters.GetSpringConstants(out double, out double) : bool`                       | instance | read the spring biases           |
+
+- `[SQUISH_KNOBS]`: `PreserveTopology` `SaveMapping` `BoundaryStretchConstant` `BoundaryCompressConstant` `InteriorStretchConstant` `InteriorCompressConstant` `AbsoluteLimit` `Algorithm`
+- `SquishParameters.SetDeformation`: set-only, no read-back property; the carrier is `IDisposable`.
+
+[ENTRYPOINT_SCOPE]: mesh uv unwrap
+
+| [INDEX] | [SURFACE]                                       | [SHAPE]  | [CAPABILITY]                   |
+| :-----: | :---------------------------------------------- | :------- | :----------------------------- |
+|  [01]   | `MeshUnwrapper(Mesh)`                           | ctor     | unwrapper over one mesh        |
+|  [02]   | `MeshUnwrapper(IEnumerable<Mesh>)`              | ctor     | unwrapper over a mesh set      |
+|  [03]   | `MeshUnwrapper.Unwrap(MeshUnwrapMethod) : bool` | instance | compute uv onto texture coords |
+
+- `[UNWRAP_KNOBS]`: `SymmetryPlane` (set-only, pins a symmetry constraint the unwrap consumes)
+- `MeshUnwrapper`: disposable native resource.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[DEFORM_TOPOLOGY]:
-- `SpaceMorph` is a type-agnostic engine: `Morph(GeometryBase)` deforms any geometry along the concrete `MorphPoint` map in place, so the ten morphs discriminate on deformation kind rather than geometry type, and each carries the shared `Tolerance`, `QuickPreview`, and `PreserveStructure` knobs beside its own defining parameters; `IsMorphable` gates a geometry kind before the call.
-- `MorphControl` holds a persistent origin-to-target driver and morphs against it repeatedly, distinct from the one-shot `SpaceMorph` subclasses; it is itself a `GeometryBase` and follows the geometry catalog's custody rules.
-- flattening is a distinct host-fidelity altitude from the kernel's DEC UV-flatten: `Unroller` unrolls developable surfaces carrying following geometry, `Squisher` stress-relaxes non-developable surfaces and meshes under a `SquishParameters` spring model with forward and inverse mark mapping, and `MeshUnwrapper` computes uv by an unwrap algorithm; `Squisher` and `MeshUnwrapper` are native `IDisposable` resources.
+[TOPOLOGY]:
+- `SpaceMorph` is a type-agnostic engine: `Morph(GeometryBase)` deforms any geometry along the concrete `MorphPoint` map in place, so the morphs discriminate on deformation kind rather than geometry type, and `IsMorphable` gates a geometry kind before the call. Every concrete morph is `IDisposable` carrying `Dispose()`, `IsValid`, and the `MorphPoint(Point3d)` override, while the `SpaceMorph` base is not `IDisposable`; `MeshMorphMesh` is `internal`, leaving `MeshCageMorph` the sole public mesh-driven deformer.
+- `MorphControl` holds a persistent origin-to-target driver and morphs against it repeatedly, distinct from the one-shot morph subclasses; it is a `GeometryBase` and follows the geometry catalog's custody rules.
+- flattening is a distinct host-fidelity altitude from the kernel DEC UV-flatten: `Unroller` unrolls developable surfaces carrying following geometry, `Squisher` stress-relaxes non-developable surfaces and meshes under a `SquishParameters` spring model with forward and inverse mark mapping, and `MeshUnwrapper` computes uv by an unwrap algorithm; `Squisher` and `MeshUnwrapper` are native `IDisposable` resources.
 
 [STACKING]:
 - `LanguageExt.Core`(`api-languageext`): a `bool` morph or unwrap folds into a `Fin<Unit>` keyed to the mutated geometry, a nullable squish or unroll result lifts to `Option<Brep>`/`Option<Mesh>`, the unroll `Brep[]` and carried-geometry arrays land as `Seq<A>`, and the caller-owned squish mark lists and the `PerformUnroll` parallel `out` arrays fold into one detached flatten receipt.
-- `Thinktecture.Runtime.Extensions`(`api-thinktecture-runtime-extensions`): the closed flattening vocabularies — `MeshUnwrapMethod`, `SquishFlatteningAlgorithm`, and `SquishDeformation` — wrap as `[SmartEnum<TKey>]` owners; the morph kind models as a `[Union]` over the bend, flow, maelstrom, splop, sporph, stretch, taper, twist, mesh-cage, and mesh-morph arms, each binding its defining-parameter carrier.
+- `Thinktecture.Runtime.Extensions`(`api-thinktecture-runtime-extensions`): the closed flattening vocabularies — `MeshUnwrapMethod`, `SquishFlatteningAlgorithm`, and `SquishDeformation` — wrap as `[SmartEnum<TKey>]` owners; the morph kind models as a `[Union]` over the morph-kind arms, each binding its defining-parameter carrier.
 - `Rasm` kernel: host-neutral DEC UV-flattening and linear-motion transforms stand at the kernel altitude and the boundary re-derives none of them; radii, angles, lengths, spring constants, and tolerances compose the kernel numeric and unit owners before the native call.
 
 [LOCAL_ADMISSION]:
@@ -110,6 +169,6 @@ This catalog owns the host-fidelity nonlinear deformation and flattening boundar
 
 [RAIL_LAW]:
 - Surface: `Rhino.Geometry` + `Rhino.Geometry.Morphs` host-fidelity deformation and flattening
-- Owns: the space-morph engine and its ten deformations, the interactive morph-control deformer, and the unroll, squish, and mesh-unwrap flatteners.
+- Owns: the space-morph engine and its deformation family, the interactive morph-control deformer, and the unroll, squish, and mesh-unwrap flatteners.
 - Accept: native morph and flatten outcomes projected onto `Fin`/`Option`/`Seq` rails, parallel unroll `out` arrays and caller-owned squish mark lists folded into typed receipts, and disposable flatteners leased.
 - Reject: re-deriving kernel-altitude DEC flattening or linear motion, exception-style handling of `false` morph or unwrap results, retaining an undisposed native flattener, and leaking host morph/flattener types past the boundary.

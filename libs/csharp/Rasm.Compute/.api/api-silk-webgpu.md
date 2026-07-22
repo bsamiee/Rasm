@@ -1,38 +1,31 @@
 # [RASM_COMPUTE_API_SILK_WEBGPU]
 
-`Silk.NET.WebGPU` is the managed wgpu/Dawn binding generated against the canonical `webgpu.h` headers; the Compute lane consumes its GPGPU half — `WebGPU.GetApi()` is the static function-table root, a `Device` mints `Buffer`/`ShaderModule`/`BindGroupLayout`/`BindGroup`/`ComputePipeline`/`CommandEncoder`/`QuerySet`, a `CommandEncoder` records a `ComputePassEncoder` that binds a pipeline and `DispatchWorkgroups`, and the `Queue` submits the finished `CommandBuffer`. The Compute substrate holds no second device: the `ONE_WGPU_DEVICE` shared branch is the same `Device`/`Queue` the AppUi renderer owns (Metal-backed on macOS), here driven for compute-shader dispatch rather than the swapchain. The base binding carries only the standard `webgpu.h` surface; the wgpu-native-only compute extensions (`DevicePoll`, `QueueSubmitForIndex`, compute-pass pipeline-statistics queries, synchronous adapter enumeration, push constants) live in the companion `Silk.NET.WebGPU.Extensions.WGPU` `Wgpu` function table, also admitted in the central manifest — `Silk.NET.WebGPU.Native.WGPU` carries ONLY the native `libwgpu` binaries, never a managed surface, so the device-tick/readback-advance entrypoints are reached through `Wgpu`, not the native-runtime package.
-
-The whole surface is `unsafe`-pointer native methods generated from `webgpu.h`; Silk.NET emits a managed call form too — every descriptor-taking method has a paired `ref readonly <Descriptor>` overload beside the raw `<Descriptor>*` overload, so a call site passes a `Span<T>`/`stackalloc` descriptor by `in` reference rather than always pinning a pointer. The string-label overloads add a marshalled `string` form beside the `byte*` form. The Compute capsule prefers the `ref readonly` overload for descriptors (no manual pin) and the `byte*` form for hot WGSL/label paths it already owns as fixed buffers.
+`Silk.NET.WebGPU` binds the managed wgpu/Dawn surface over the canonical `webgpu.h` headers; the Compute lane drives its GPGPU half for compute-shader dispatch. `WebGPU.GetApi()` roots the `unsafe` function table where a `Device` mints compute resources, a `CommandEncoder` records a `ComputePassEncoder` dispatching workgroups, and the `Queue` retires the `CommandBuffer`. Compute holds no second device — `ONE_WGPU_DEVICE` is the renderer's `Device`/`Queue`, driven here for dispatch rather than the swapchain — and `Silk.NET.WebGPU.Extensions.WGPU` `Wgpu` carries the wgpu-native-only compute depth the base binding lacks.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Silk.NET.WebGPU`
-- package: `Silk.NET.WebGPU` (`2.23.0`)
-- package: `Silk.NET.WebGPU.Native.WGPU` (`2.23.0`) — native `libwgpu` runtime binaries only (no managed surface)
+- package: `Silk.NET.WebGPU` (`MIT`)
+- package: `Silk.NET.WebGPU.Native.WGPU` — native `libwgpu` runtime binaries only, no managed surface
 - assembly: `Silk.NET.WebGPU`
-- license: MIT
 - namespace: `Silk.NET.WebGPU`
-- asset: ships `net5.0`/`netcoreapp3.1`/`netstandard2.0`/`netstandard2.1`; the `net10.0` consumer binds the `net5.0` asset (the public surface is code-generated and TFM-invariant across these, so the decompile is authoritative regardless of which fallback resolves) + native wgpu binaries
-- rail: compute
-- roster: generated surface across 4 namespaces
+- asset: consumer binds the `net5.0` asset and the native wgpu binaries
 - abi: every entrypoint is an `unsafe` instance method on the `WebGPU : NativeAPI` function table; native handles (`Device`/`Queue`/`Buffer`/...) are pointer-wrapped structs released through `XxxRelease`/`XxxDestroy`, never `IDisposable`
+- rail: compute
 
 [PACKAGE_SURFACE]: `Silk.NET.WebGPU.Extensions.WGPU`
-- package: `Silk.NET.WebGPU.Extensions.WGPU` (`2.23.0`)
+- package: `Silk.NET.WebGPU.Extensions.WGPU` (`MIT`)
 - assembly: `Silk.NET.WebGPU.Extensions.WGPU`
-- license: MIT
 - namespace: `Silk.NET.WebGPU.Extensions.WGPU`
-- asset: ships `net5.0`/`netcoreapp3.1`/`netstandard2.0`/`netstandard2.1` (consumer binds `net5.0`, surface TFM-invariant); wgpu-native function extensions over the base binding
+- asset: consumer binds the `net5.0` asset; wgpu-native function extensions over the base binding
+- abi: `Wgpu.GetApi()` roots the wgpu-native function table over the shared device — device-tick, submission-index, pipeline-statistics, push-constant, and synchronous-adapter-enumeration entrypoints absent from `webgpu.h`
 - rail: compute
-- roster: wgpu-native extension surface across 3 namespaces
-- root: `Wgpu` — the wgpu-native function table acquired through `GetApi()` over the same shared device; carries the device-tick, submission-index, pipeline-statistics, push-constant, and synchronous-adapter-enumeration entrypoints absent from `webgpu.h`
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: device lifecycle and submission owners
-- rail: compute
 
-| [INDEX] | [SYMBOL]   | [TYPE_FAMILY]   | [RAIL]                       |
+| [INDEX] | [SYMBOL]   | [TYPE_FAMILY]   | [CAPABILITY]                 |
 | :-----: | :--------- | :-------------- | :--------------------------- |
 |  [01]   | `WebGPU`   | static API root | global entry, function table |
 |  [02]   | `Instance` | native handle   | adapter request root         |
@@ -41,9 +34,8 @@ The whole surface is `unsafe`-pointer native methods generated from `webgpu.h`; 
 |  [05]   | `Queue`    | native handle   | command submission, upload   |
 
 [PUBLIC_TYPE_SCOPE]: compute resource and dispatch owners
-- rail: compute
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [RAIL]                        |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [CAPABILITY]                  |
 | :-----: | :------------------- | :------------ | :---------------------------- |
 |  [01]   | `Buffer`             | native handle | storage/uniform/staging alloc |
 |  [02]   | `ShaderModule`       | native handle | WGSL/SPIR-V compute shader    |
@@ -57,38 +49,36 @@ The whole surface is `unsafe`-pointer native methods generated from `webgpu.h`; 
 |  [10]   | `QuerySet`           | native handle | timestamp query pool          |
 
 [PUBLIC_TYPE_SCOPE]: descriptor and enum value carriers
-- rail: compute
 
-| [INDEX] | [SYMBOL]                      | [KIND]     | [RAIL]                                                         |
-| :-----: | :---------------------------- | :--------- | :------------------------------------------------------------- |
-|  [01]   | `BufferDescriptor`            | descriptor | buffer alloc (`Usage`, `Size`, `MappedAtCreation`)             |
-|  [02]   | `ShaderModuleDescriptor`      | descriptor | shader module create (`NextInChain` source chain)              |
-|  [03]   | `ShaderModuleWGSLDescriptor`  | descriptor | WGSL source chain (`SType.ShaderModuleWgslDescriptor`)         |
-|  [04]   | `ShaderModuleSPIRVDescriptor` | descriptor | SPIR-V source chain (`Code`, `CodeSize`)                       |
-|  [05]   | `BindGroupLayoutDescriptor`   | descriptor | layout entries (`Entries`, `EntryCount`)                       |
-|  [06]   | `BindGroupLayoutEntry`        | descriptor | one binding slot (`Binding`, `Visibility`, `Buffer`)           |
-|  [07]   | `BufferBindingLayout`         | descriptor | binding kind (`Type`, `HasDynamicOffset`, `MinBindingSize`)    |
-|  [08]   | `BindGroupDescriptor`         | descriptor | bound entries (`Layout`, `Entries`)                            |
-|  [09]   | `BindGroupEntry`              | descriptor | one bound resource (`Binding`, `Buffer`, `Offset`, `Size`)     |
-|  [10]   | `PipelineLayoutDescriptor`    | descriptor | layout set (`BindGroupLayouts`)                                |
-|  [11]   | `ComputePipelineDescriptor`   | descriptor | compute pipeline (`Layout`, `Compute` stage)                   |
-|  [12]   | `ProgrammableStageDescriptor` | descriptor | `Module`, `EntryPoint`, `ConstantCount`, `Constants`           |
-|  [13]   | `ConstantEntry`               | descriptor | one WGSL `override` constant (`Key`, `Value` double)           |
-|  [14]   | `QuerySetDescriptor`          | descriptor | query-set alloc (`Type`, `Count`)                              |
-|  [15]   | `ComputePassDescriptor`       | descriptor | pass begin (`Label`, `TimestampWrites`)                        |
-|  [16]   | `ComputePassTimestampWrites`  | descriptor | `QuerySet`, `BeginningOfPassWriteIndex`, `EndOfPassWriteIndex` |
-|  [17]   | `SupportedLimits` / `Limits`  | struct     | `DeviceGetLimits` out-struct; `maxComputeWorkgroupSize*` etc.  |
-|  [18]   | `BufferUsage`                 | enum       | storage/uniform/copy/map/indirect/queryresolve                 |
-|  [19]   | `MapMode`                     | enum       | readback/upload map direction                                  |
-|  [20]   | `ShaderStage`                 | enum       | `Compute` visibility flag                                      |
-|  [21]   | `BufferBindingType`           | enum       | `Uniform`/`Storage`/`ReadOnlyStorage` binding kind             |
-|  [22]   | `BufferMapState`              | enum       | unmapped/pending/mapped poll                                   |
-|  [23]   | `QueryType`                   | enum       | timestamp/occlusion query kind                                 |
+| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY] | [CAPABILITY]                                                   |
+| :-----: | :---------------------------- | :------------ | :------------------------------------------------------------- |
+|  [01]   | `BufferDescriptor`            | descriptor    | buffer alloc (`Usage`, `Size`, `MappedAtCreation`)             |
+|  [02]   | `ShaderModuleDescriptor`      | descriptor    | shader module create (`NextInChain` source chain)              |
+|  [03]   | `ShaderModuleWGSLDescriptor`  | descriptor    | WGSL source chain (`SType.ShaderModuleWgslDescriptor`)         |
+|  [04]   | `ShaderModuleSPIRVDescriptor` | descriptor    | SPIR-V source chain (`Code`, `CodeSize`)                       |
+|  [05]   | `BindGroupLayoutDescriptor`   | descriptor    | layout entries (`Entries`, `EntryCount`)                       |
+|  [06]   | `BindGroupLayoutEntry`        | descriptor    | one binding slot (`Binding`, `Visibility`, `Buffer`)           |
+|  [07]   | `BufferBindingLayout`         | descriptor    | binding kind (`Type`, `HasDynamicOffset`, `MinBindingSize`)    |
+|  [08]   | `BindGroupDescriptor`         | descriptor    | bound entries (`Layout`, `Entries`)                            |
+|  [09]   | `BindGroupEntry`              | descriptor    | one bound resource (`Binding`, `Buffer`, `Offset`, `Size`)     |
+|  [10]   | `PipelineLayoutDescriptor`    | descriptor    | layout set (`BindGroupLayouts`)                                |
+|  [11]   | `ComputePipelineDescriptor`   | descriptor    | compute pipeline (`Layout`, `Compute` stage)                   |
+|  [12]   | `ProgrammableStageDescriptor` | descriptor    | `Module`, `EntryPoint`, `ConstantCount`, `Constants`           |
+|  [13]   | `ConstantEntry`               | descriptor    | one WGSL `override` constant (`Key`, `Value` double)           |
+|  [14]   | `QuerySetDescriptor`          | descriptor    | query-set alloc (`Type`, `Count`)                              |
+|  [15]   | `ComputePassDescriptor`       | descriptor    | pass begin (`Label`, `TimestampWrites`)                        |
+|  [16]   | `ComputePassTimestampWrites`  | descriptor    | `QuerySet`, `BeginningOfPassWriteIndex`, `EndOfPassWriteIndex` |
+|  [17]   | `SupportedLimits` / `Limits`  | struct        | `DeviceGetLimits` out-struct; `maxComputeWorkgroupSize*` etc.  |
+|  [18]   | `BufferUsage`                 | enum          | storage/uniform/copy/map/indirect/queryresolve                 |
+|  [19]   | `MapMode`                     | enum          | readback/upload map direction                                  |
+|  [20]   | `ShaderStage`                 | enum          | `Compute` visibility flag                                      |
+|  [21]   | `BufferBindingType`           | enum          | `Uniform`/`Storage`/`ReadOnlyStorage` binding kind             |
+|  [22]   | `BufferMapState`              | enum          | unmapped/pending/mapped poll                                   |
+|  [23]   | `QueryType`                   | enum          | timestamp/occlusion query kind                                 |
 
 [PUBLIC_TYPE_SCOPE]: wgpu-native extension owners (`Silk.NET.WebGPU.Extensions.WGPU`)
-- rail: compute
 
-| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]   | [RAIL]                                                            |
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]   | [CAPABILITY]                                                      |
 | :-----: | :--------------------------- | :-------------- | :---------------------------------------------------------------- |
 |  [01]   | `Wgpu`                       | static API root | `GetApi()` function table for the wgpu-native extension calls     |
 |  [02]   | `WrappedSubmissionIndex`     | struct          | `Queue` + submission `ulong` index pairing for `DevicePoll` wait  |
@@ -101,12 +91,11 @@ The whole surface is `unsafe`-pointer native methods generated from `webgpu.h`; 
 
 ## [03]-[ENTRYPOINTS]
 
-All entrypoints are `unsafe` instance methods on the `WebGPU.GetApi()` function-table root; every `[SURFACE]` below is a `WebGPU` method except the wgpu-native extension scope, whose surfaces are `Wgpu` (`Wgpu.GetApi()`) methods. Each descriptor-taking method ships two overloads — a raw `<Descriptor>*` form and a `ref readonly <Descriptor>` form — so a call site either pins a `Span<T>`/`stackalloc` descriptor and passes a pointer, or passes the `stackalloc` descriptor by `in` reference; both bind the same native call, neither is a managed convenience object wrapping the handle. The generic `<T0>(... ref T0 userdata)` overloads thread typed `unmanaged` userdata into the callback-bearing async entrypoints without a `void*` cast.
+Every `[SURFACE]` is a `WebGPU` instance method except the wgpu-native scope, whose surfaces are `Wgpu` methods. Each descriptor-taking call ships paired overloads — a raw `<Descriptor>*` form and a `ref readonly <Descriptor>` `in`-reference form binding the same native call — and the callback-bearing async entrypoints thread typed `unmanaged` userdata through `<T0>(... ref T0)` generic overloads without a `void*` cast.
 
 [ENTRYPOINT_SCOPE]: device and queue acquisition
-- rail: compute
 
-| [INDEX] | [SURFACE]                                                                       | [RAIL]           |
+| [INDEX] | [SURFACE]                                                                       | [CAPABILITY]     |
 | :-----: | :------------------------------------------------------------------------------ | :--------------- |
 |  [01]   | `WebGPU.GetApi()`                                                               | API root load    |
 |  [02]   | `CreateInstance(InstanceDescriptor*)`                                           | instance create  |
@@ -116,9 +105,8 @@ All entrypoints are `unsafe` instance methods on the `WebGPU.GetApi()` function-
 |  [06]   | `DeviceGetLimits(Device*, SupportedLimits*)`                                    | workgroup limits |
 
 [ENTRYPOINT_SCOPE]: compute resource and pipeline creation
-- rail: compute
 
-| [INDEX] | [SURFACE]                                                              | [RAIL]                 |
+| [INDEX] | [SURFACE]                                                              | [CAPABILITY]           |
 | :-----: | :--------------------------------------------------------------------- | :--------------------- |
 |  [01]   | `DeviceCreateBuffer(Device*, BufferDescriptor*)`                       | storage/staging alloc  |
 |  [02]   | `DeviceCreateShaderModule(Device*, ShaderModuleDescriptor*)`           | compute shader compile |
@@ -132,9 +120,8 @@ All entrypoints are `unsafe` instance methods on the `WebGPU.GetApi()` function-
 |  [10]   | `DeviceCreateQuerySet(Device*, QuerySetDescriptor*)`                   | timestamp query-set    |
 
 [ENTRYPOINT_SCOPE]: compute-handle release
-- rail: compute
 
-| [INDEX] | [SURFACE]                                        | [RAIL]            |
+| [INDEX] | [SURFACE]                                        | [CAPABILITY]      |
 | :-----: | :----------------------------------------------- | :---------------- |
 |  [01]   | `ShaderModuleRelease(ShaderModule*)`             | shader release    |
 |  [02]   | `BindGroupLayoutRelease(BindGroupLayout*)`       | layout release    |
@@ -147,9 +134,8 @@ All entrypoints are `unsafe` instance methods on the `WebGPU.GetApi()` function-
 |  [09]   | `BufferRelease(Buffer*)`                         | buffer release    |
 
 [ENTRYPOINT_SCOPE]: compute pass recording and submission
-- rail: compute
 
-| [INDEX] | [SURFACE]                                                                                                | [RAIL]                |
+| [INDEX] | [SURFACE]                                                                                                | [CAPABILITY]          |
 | :-----: | :------------------------------------------------------------------------------------------------------- | :-------------------- |
 |  [01]   | `CommandEncoderBeginComputePass(CommandEncoder*, ComputePassDescriptor*)`                                | compute pass begin    |
 |  [02]   | `ComputePassEncoderSetPipeline(ComputePassEncoder*, ComputePipeline*)`                                   | bind compute pipeline |
@@ -161,9 +147,8 @@ All entrypoints are `unsafe` instance methods on the `WebGPU.GetApi()` function-
 |  [08]   | `QueueSubmit(Queue*, nuint, CommandBuffer**)`                                                            | submit to GPU         |
 
 [ENTRYPOINT_SCOPE]: host transfer, readback, and timing
-- rail: compute
 
-| [INDEX] | [SURFACE]                                                                                  | [RAIL]                  |
+| [INDEX] | [SURFACE]                                                                                  | [CAPABILITY]            |
 | :-----: | :----------------------------------------------------------------------------------------- | :---------------------- |
 |  [01]   | `QueueWriteBuffer(Queue*, Buffer*, bufferOffset, void* data, nuint size)`                  | host-to-GPU upload      |
 |  [02]   | `CommandEncoderCopyBufferToBuffer(CommandEncoder*, src, srcOffset, dst, dstOffset, size)`  | device-side copy        |
@@ -177,9 +162,8 @@ All entrypoints are `unsafe` instance methods on the `WebGPU.GetApi()` function-
 |  [10]   | `QuerySetGetCount(QuerySet*)` / `QuerySetGetType(QuerySet*)`                               | query-set introspection |
 
 [ENTRYPOINT_SCOPE]: pass observability and debug grouping
-- rail: compute
 
-| [INDEX] | [SURFACE]                                                                     | [RAIL]                 |
+| [INDEX] | [SURFACE]                                                                     | [CAPABILITY]           |
 | :-----: | :---------------------------------------------------------------------------- | :--------------------- |
 |  [01]   | `ComputePassEncoderSetLabel(ComputePassEncoder*, byte* label)`                | pass label for capture |
 |  [02]   | `ComputePassEncoderInsertDebugMarker(ComputePassEncoder*, byte* markerLabel)` | inline debug marker    |
@@ -188,9 +172,8 @@ All entrypoints are `unsafe` instance methods on the `WebGPU.GetApi()` function-
 |  [05]   | `ComputePipelineSetLabel(ComputePipeline*, byte* label)`                      | pipeline label         |
 
 [ENTRYPOINT_SCOPE]: wgpu-native extension calls (`Wgpu.GetApi()`)
-- rail: compute
 
-| [INDEX] | [SURFACE]                                                                                    | [RAIL]                     |
+| [INDEX] | [SURFACE]                                                                                    | [CAPABILITY]               |
 | :-----: | :------------------------------------------------------------------------------------------- | :------------------------- |
 |  [01]   | `DevicePoll(Device*, Bool32 wait, WrappedSubmissionIndex* index)`                            | non-blocking device-tick   |
 |  [02]   | `QueueSubmitForIndex(Queue*, nuint count, CommandBuffer** commands)` → `ulong`               | submit + return wait index |
@@ -200,26 +183,27 @@ All entrypoints are `unsafe` instance methods on the `WebGPU.GetApi()` function-
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[COMPUTE_TOPOLOGY]:
-- `WebGPU.GetApi()` returns the function-table root; every native call is an instance method on that `WebGPU` object taking raw pointers to descriptor structs, so a call site marshals `stackalloc`/`Span<T>` descriptors and passes pointers, never a managed wrapper object.
-- The compute lifecycle is `Device` -> `ShaderModule` (`DeviceCreateShaderModule` with a `ShaderModuleWGSLDescriptor` WGSL chain or `ShaderModuleSPIRVDescriptor` SPIR-V chain) -> `BindGroupLayout` + `PipelineLayout` -> `ComputePipeline` (`ComputePipelineDescriptor.Compute` is a `ProgrammableStageDescriptor` naming the WGSL `EntryPoint` and a `ConstantCount`/`ConstantEntry` `override`-constant block) -> `BindGroup` binding the storage/uniform `Buffer` resources. The explicit-layout path (`DeviceCreatePipelineLayout` from `BindGroupLayoutDescriptor` rows) and the auto-layout path (a null `Layout`, then `ComputePipelineGetBindGroupLayout(pipeline, groupIndex)` reads the layout the WGSL `@group` declarations imply) are both available; the auto-layout path collapses the layout-descriptor authoring for a single-kernel op whose bindings the WGSL already declares.
-- `BufferDescriptor.Usage` is a `BufferUsage` flag set: `Storage` for read/write shader buffers, `Uniform` for constant blocks, `CopySrc`/`CopyDst` for device-side `CommandEncoderCopyBufferToBuffer`, `MapRead`/`MapWrite` for host mapping, `Indirect` for `DispatchWorkgroupsIndirect`, and `QueryResolve` for the resolved timestamp destination — a storage buffer carries `Storage | CopySrc`, a readback staging buffer carries `MapRead | CopyDst`.
-- `BindGroupLayoutEntry.Visibility` carries `ShaderStage.Compute` for compute bindings, and `BufferBindingLayout.Type` selects `BufferBindingType.Storage` / `ReadOnlyStorage` / `Uniform`; the `BindGroupEntry` binds the concrete `Buffer` with offset and size at the matching `Binding` slot.
-- A pass records `CommandEncoderBeginComputePass` -> `ComputePassEncoderSetPipeline` -> `ComputePassEncoderSetBindGroup` -> `ComputePassEncoderDispatchWorkgroups(x, y, z)` (or `DispatchWorkgroupsIndirect` reading the workgroup count from an `Indirect` buffer) -> `ComputePassEncoderEnd`; the encoder closes through `CommandEncoderFinish` into a `CommandBuffer` the `Queue` retires through `QueueSubmit`.
-- Readback is two-phase: `CommandEncoderCopyBufferToBuffer` copies the `Storage` result into a `MapRead` staging buffer, then after submission `BufferMapAsync(MapMode.Read, ...)` requests the mapping, `BufferGetMapState` polls `BufferMapState.Mapped`, `BufferGetMappedRange` yields the host pointer, and `BufferUnmap` releases it; `QueueOnSubmittedWorkDone` is the submission-completion callback that gates the map request.
-- A `QuerySet` of `QueryType.Timestamp` records GPU-side wall time at pass boundaries through `CommandEncoderWriteTimestamp` (or the `ComputePassDescriptor.TimestampWrites` `ComputePassTimestampWrites` begin/end-of-pass entries on `timestamp-query` feature support), and `CommandEncoderResolveQuerySet` copies the resolved nanosecond ticks into a `QueryResolve`/`CopySrc` buffer the readback path retires — the resolved per-pass GPU duration is the measured dispatch timeline, never a busy-wait fence; it stamps the `Tensor/dispatch#DEVICE_KERNELS` `ComputeReceipt.TensorRun` GPU-nanosecond duration and the winning `BenchmarkRow` device-route claim.
-- The wgpu-native `Wgpu` extension table adds the measured-execution depth the base binding lacks: `ComputePassEncoderBeginPipelineStatisticsQuery`/`EndPipelineStatisticsQuery` over a `QuerySetDescriptorExtras` `PipelineStatistics` query-set record per-pass `PipelineStatisticName` counters (compute-shader-invocation count and clipper/primitive statistics) that ride the same resolve-to-`QueryResolve` readback as the timestamp set, so a compute benchmark carries invocation counts beside wall time; `QueueSubmitForIndex` returns the `ulong` submission index that `DevicePoll(device, wait: true, WrappedSubmissionIndex)` blocks on for a deterministic non-busy-wait completion, and `DevicePoll(device, wait: false, …)` is the non-blocking device-tick that advances the readback map without `QueueOnSubmittedWorkDone` polling latency.
+[TOPOLOGY]:
+- `WebGPU.GetApi()` roots the function table; every op marshals `stackalloc`/`Span<T>` descriptors by pointer, never a managed wrapper — the Compute capsule binds the `ref readonly` descriptor overload (no manual pin) and reserves the `byte*` form for hot WGSL/label paths it owns as fixed buffers.
+- Compute lifecycle: `Device` -> `ShaderModule` (WGSL `ShaderModuleWGSLDescriptor` or SPIR-V `ShaderModuleSPIRVDescriptor` chain) -> `BindGroupLayout` + `PipelineLayout` -> `ComputePipeline` (`ComputePipelineDescriptor.Compute` names the WGSL `EntryPoint` and a `ConstantEntry` `override`-constant block) -> `BindGroup` over storage/uniform `Buffer`s. Explicit layout (`DeviceCreatePipelineLayout`) and auto layout (null `Layout`, then `ComputePipelineGetBindGroupLayout` reads what the WGSL `@group` declarations imply) both bind; auto-layout collapses layout authoring for a single-kernel op.
+- `BufferDescriptor.Usage` maps role to flags: `Storage` read/write buffers, `Uniform` constant blocks, `CopySrc`/`CopyDst` device copy, `MapRead`/`MapWrite` host mapping, `Indirect` for `DispatchWorkgroupsIndirect`, `QueryResolve` for resolved timestamps — a storage buffer carries `Storage | CopySrc`, a readback staging buffer `MapRead | CopyDst`. `BindGroupLayoutEntry.Visibility` carries `ShaderStage.Compute` and `BufferBindingLayout.Type` selects `Storage`/`ReadOnlyStorage`/`Uniform` at the matching `Binding` slot.
+- Pass record: `CommandEncoderBeginComputePass` -> `SetPipeline` -> `SetBindGroup` -> `DispatchWorkgroups(x, y, z)` (or `DispatchWorkgroupsIndirect` reading the count from an `Indirect` buffer) -> `End`; `CommandEncoderFinish` seals a `CommandBuffer` the `Queue` retires through `QueueSubmit`.
+- Readback is two-phase: `CommandEncoderCopyBufferToBuffer` copies the `Storage` result into a `MapRead` staging buffer, then `BufferMapAsync(MapMode.Read)` requests the map, `BufferGetMapState` polls `BufferMapState.Mapped`, `BufferGetMappedRange` yields the host pointer, `BufferUnmap` releases it; `QueueOnSubmittedWorkDone` gates the map request.
+- `QueryType.Timestamp` `QuerySet` stamps GPU wall time at pass boundaries (`CommandEncoderWriteTimestamp` or `ComputePassDescriptor.TimestampWrites`), and `CommandEncoderResolveQuerySet` copies the nanosecond ticks into a `QueryResolve`/`CopySrc` buffer — the resolved per-pass duration stamps the `ComputeReceipt.TensorRun` GPU-nanosecond field and the winning `BenchmarkRow` device-route claim.
+- `Wgpu` adds pipeline-statistics (`ComputePassEncoderBeginPipelineStatisticsQuery`/`EndPipelineStatisticsQuery` over a `QuerySetDescriptorExtras` set resolving `PipelineStatisticName` invocation counts beside wall time) and deterministic completion: `QueueSubmitForIndex` returns the `ulong` index `DevicePoll(wait: true, WrappedSubmissionIndex)` blocks on, and `DevicePoll(wait: false)` is the non-blocking device-tick advancing the readback map without `QueueOnSubmittedWorkDone` latency.
+
+[STACKING]:
+- `api-onnxruntime.md`(`.api/api-onnxruntime.md`): a WGPU storage `Buffer` and the model-lane ORT device value resolve ONE residency — the buffer's mapped pointer admits to an `OrtValue` through `OrtValue.CreateTensorValueWithData(OrtMemoryInfo, TensorElementType, long[], nint, long)` and an ORT device output binds back through `OrtIoBinding.BindOutputToDevice(string, OrtMemoryInfo)`, so the compute kernel and ONNX device inference share one physical allocation with no host round-trip; those residency members are owned by `api-onnxruntime.md`.
+- AppUi `ONE_WGPU_DEVICE`: the GPGPU substrate composes the renderer's already-acquired `Device`/`Queue` shared handle, and a device GEMM output feeding the render lane crosses the AppUi `ResidencyManifest.Mint` seam as the same physical `Buffer`.
+- within-lib: `TensorOpFamily` rows lower to compute dispatch — each op compiles one WGSL `ShaderModule`, builds a `ComputePipeline` + `BindGroupLayout`, and the dispatch executor binds the tensor storage `Buffer`s and issues `DispatchWorkgroups` over the op's declared launch geometry.
 
 [LOCAL_ADMISSION]:
-- The Compute lane holds no second device: `ONE_WGPU_DEVICE` is the same `Device`/`Queue` the AppUi renderer owns, so the GPGPU substrate composes the renderer's already-acquired handles instead of `CreateInstance`/`AdapterRequestDevice` a second time; the adapter/device request entrypoints stay in the AppUi boundary capsule that mints the shared device.
-- `TensorOpFamily` rows lower to compute-shader dispatch: each op compiles one WGSL `ShaderModule`, builds a `ComputePipeline` plus `BindGroupLayout`, and the dispatch executor binds the tensor storage `Buffer`s and issues `DispatchWorkgroups` over the tile/workgroup decomposition the op's launch geometry declares.
-- All native handles (`Device`, `Queue`, `Buffer`, `ShaderModule`, `BindGroupLayout`, `BindGroup`, `PipelineLayout`, `ComputePipeline`, `CommandEncoder`, `ComputePassEncoder`, `QuerySet`) release through their matching `XxxRelease`/`XxxDestroy` native call, not `IDisposable` — the owning boundary capsule pairs create-and-release in a `using`-equivalent scoped fold; the shared `Device`/`Queue` are released by the AppUi owner, not the Compute lane.
-- `DevicePoll`/device-tick advance is a wgpu-native extension absent from the base `webgpu.h` binding but PRESENT as `Wgpu.DevicePoll(Device*, Bool32 wait, WrappedSubmissionIndex*)` in the admitted `Silk.NET.WebGPU.Extensions.WGPU` package (NOT `Silk.NET.WebGPU.Native.WGPU`, which carries only native binaries) — the Compute readback path drives `DevicePoll` for the non-blocking map advance and `QueueSubmitForIndex` + `DevicePoll(wait: true, WrappedSubmissionIndex)` for a deterministic submission-completion wait, falling back to `QueueOnSubmittedWorkDone` + `BufferGetMapState` polling only where the extension table is not acquired.
-- The tensor storage `Buffer` and the model-lane ORT device value resolve ONE residency through `Tensor/residency#ORT_BRIDGE` `OrtResidency.DeviceResident` — a WGPU `Buffer` admits to an `OrtValue` through `OrtValue.CreateTensorValueWithData(OrtMemoryInfo, TensorElementType, long[], nint, long)` over the buffer's mapped pointer and an ORT device output binds back through `OrtIoBinding.BindOutputToDevice(string, OrtMemoryInfo)`, so the WebGPU compute kernel and the ONNX device inference share one physical allocation with no host round-trip; device-ness is the residency discriminant, never a second tensor owner. These ORT C-data residency members (`CreateTensorValueWithData`, `CreateAllocatedTensorValue`, `CreateTensorValueFromSystemNumericsTensorObject`, `BindOutputToDevice`) are owned by `api-onnxruntime.md`, not this binding — this is a forward cross-catalog dependency, so a rebuild of `api-onnxruntime.md` that renames them re-aligns this note. A device GEMM output feeding the render lane crosses the AppUi `ResidencyManifest.Mint` seam as the same physical `Buffer`.
+- Compute acquires no device: `ONE_WGPU_DEVICE` is the renderer's `Device`/`Queue`, so the adapter/device-request entrypoints stay in the AppUi boundary capsule that mints the shared device.
+- Native handles release through their matching `XxxRelease`/`XxxDestroy` in a scoped create-and-release fold, never `IDisposable`; the shared `Device`/`Queue` release at the AppUi owner, not the Compute lane.
+- `DevicePoll` and the device-tick live in `Silk.NET.WebGPU.Extensions.WGPU` (`Wgpu.DevicePoll`), not `Silk.NET.WebGPU.Native.WGPU` (native binaries only); the readback path drives `DevicePoll` for the non-blocking map advance and `QueueSubmitForIndex` + `DevicePoll(wait: true)` for deterministic completion, falling back to `QueueOnSubmittedWorkDone` + `BufferGetMapState` only where the extension table is not acquired.
 
 [RAIL_LAW]:
-- Package: `Silk.NET.WebGPU` (+ `Silk.NET.WebGPU.Native.WGPU` native binaries) and `Silk.NET.WebGPU.Extensions.WGPU` (`Wgpu` extension table)
-- License: MIT (all three packages)
-- Owns: the GPGPU half of the managed wgpu/Dawn binding — storage/uniform/staging buffer allocation, WGSL/SPIR-V compute shader compile, bind-group layout (explicit and `ComputePipelineGetBindGroupLayout` auto-derived) and pipeline create, compute pass recording, workgroup dispatch, queue submission, host transfer/readback mapping, timestamp and pipeline-statistics query resolution, and the `Wgpu.DevicePoll`/`QueueSubmitForIndex` device-tick/submission-wait for the `ONE_WGPU_DEVICE` branch.
-- Accept: `unsafe` descriptor calls on the `WebGPU.GetApi()` / `Wgpu.GetApi()` function-table roots — either `<Descriptor>*` raw-pointer or `ref readonly <Descriptor>` `in`-reference form — over the shared `Device`/`Queue` the AppUi renderer holds; native-handle scoped create-and-release pairs for compute-only resources; the `Wgpu` extension table for device-tick, submission-index, and pipeline-statistics calls.
-- Reject: a second `Device`/`Queue` acquisition inside the Compute lane; a managed convenience class wrapping the native handle into a renamed surface; attributing the device-tick to `Silk.NET.WebGPU.Native.WGPU` (it lives in `Silk.NET.WebGPU.Extensions.WGPU`); CPU-side fallback math where a `TensorOpFamily` row lowers to a compute-shader dispatch.
+- Package: `Silk.NET.WebGPU` + `Silk.NET.WebGPU.Native.WGPU` (native binaries) + `Silk.NET.WebGPU.Extensions.WGPU` (`Wgpu` table)
+- Owns: the GPGPU half of the managed wgpu/Dawn binding — buffer allocation, WGSL/SPIR-V compute compile, bind-group layout (explicit and `ComputePipelineGetBindGroupLayout` auto-derived) and pipeline create, pass recording, workgroup dispatch, queue submission, host readback mapping, timestamp and pipeline-statistics resolution, and the `Wgpu.DevicePoll`/`QueueSubmitForIndex` device-tick for the `ONE_WGPU_DEVICE` branch.
+- Accept: `unsafe` descriptor calls on `WebGPU.GetApi()`/`Wgpu.GetApi()` — `<Descriptor>*` raw-pointer or `ref readonly <Descriptor>` `in`-reference — over the shared `Device`/`Queue`; scoped create-and-release pairs for compute-only resources; the `Wgpu` table for device-tick, submission-index, and pipeline-statistics.
+- Reject: a second `Device`/`Queue` in the Compute lane; a managed class wrapping the native handle into a renamed surface; attributing the device-tick to `Silk.NET.WebGPU.Native.WGPU`; CPU fallback math where a `TensorOpFamily` row lowers to dispatch.

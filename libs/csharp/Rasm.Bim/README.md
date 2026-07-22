@@ -57,7 +57,7 @@ It projects GeometryGym models into canonical `ElementGraph` deltas over the `Ra
 
 ## [02]-[DOMAIN_PACKAGES]
 
-BIM-domain libraries admitted by this folder; versions centralize in the C# manifest and corroborate against this folder's `.api/`.
+Domain-specific libraries admitted by this folder; versions centralize in `Directory.Packages.props` and corroborate against this folder's `.api/`.
 
 [MODEL_INTERCHANGE]:
 - `GeometryGymIFC_Core` — sole IFC semantic-model surface.

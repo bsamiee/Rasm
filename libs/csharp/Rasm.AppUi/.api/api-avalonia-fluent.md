@@ -53,12 +53,12 @@
 
 [PALETTE_TOKENS]: `ColorPaletteResources` settable `Color` properties, each backing XAML key `System<Property>Color`; assigning the type-default `Color` clears the override
 
-| [INDEX] | [SURFACE]                                                                  | [SHAPE]  | [CAPABILITY]                                                             |
-| :-----: | :------------------------------------------------------------------------- | :------- | :----------------------------------------------------------------------- |
-|  [01]   | `ColorPaletteResources.Accent`             | property | accent seed override                             |
-|  [02]   | `ColorPaletteResources.AccentProperty`     | static   | bindable `DirectProperty<…, Color>`              |
-|  [03]   | `ColorPaletteResources.HasResources`       | property | true when `Accent` is set or any override exists |
-|  [04]   | `ColorPaletteResources.TryGetResource(…)`  | instance | resolves derived and overridden token keys       |
+| [INDEX] | [SURFACE]                                 | [SHAPE]  | [CAPABILITY]                                     |
+| :-----: | :---------------------------------------- | :------- | :----------------------------------------------- |
+|  [01]   | `ColorPaletteResources.Accent`            | property | accent seed override                             |
+|  [02]   | `ColorPaletteResources.AccentProperty`    | static   | bindable `DirectProperty<…, Color>`              |
+|  [03]   | `ColorPaletteResources.HasResources`      | property | true when `Accent` is set or any override exists |
+|  [04]   | `ColorPaletteResources.TryGetResource(…)` | instance | resolves derived and overridden token keys       |
 
 - `ColorPaletteResources.Accent`: a set derives `SystemAccentColor{Dark,Light}{1,2,3}` through `SystemAccentColors.CalculateAccentShades(Color)` and raises the resources-changed signal.
 - `ColorPaletteResources.TryGetResource(object, ThemeVariant?, out object?)`: resolves derived `SystemAccentColor*` shades and every overridden `System*Color` key.

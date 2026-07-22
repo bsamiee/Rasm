@@ -1,6 +1,6 @@
 # [TESTS]
 
-`tests/` is the polyglot proof estate: one adversarial kit per language, per-package suite homes, the live-host scenario rail, and the cross-language contract corpus. Everything under this root exists to falsify production behavior, and everything under it is rebuilt ground-up the moment a denser shape exists — kit files, suite folders, external test libraries, and tooling configuration alike. No workarounds, no aliasing, no band-aids, no backwards compatibility: breaking old tests is never a reason to preserve chaff, and a gate nobody can run is deleted, not kept as aspiration.
+`tests/` is the polyglot proof estate: one adversarial kit per language, per-package suite homes, the live-host scenario rail, and the cross-language contract corpus. Everything under this root exists to falsify production behavior and is rebuilt ground-up the moment a denser shape exists — kits, suites, test libraries, and tooling alike; breaking old tests is never a reason to preserve chaff, and a gate nobody can run is deleted. Settled decisions live in the estate and language-tree `RULINGS.md` registries — read before re-deciding, extended when a decision lacks a durable home.
 
 ## [01]-[LAYOUT]
 
@@ -36,7 +36,7 @@ tests/
 - Spec files follow the owning language's source casing.
 
 [KIT_LAW]:
-- Shared test logic lives in exactly one per-language kit: `tests/csharp/_testkit` (plus `_scenariokit` for the host-aware scenario SDK), `tests/python/_testkit`, and `tests/typescript/_testkit`.
+- Shared test logic lives in exactly one per-language kit: `tests/csharp/_testkit` (with `_scenariokit` for the host-aware scenario SDK), `tests/python/_testkit`, and `tests/typescript/_testkit`.
 - Kits never live under `libs/` — libs is the production plane.
 - Nothing cross-language lives inside a single language's tree; the neutral seams are `tests/contracts/`, `tests/containers.json` (the one container-image pin every language's container row resolves), proto descriptors, provisioned service containers, and the assay operator.
 
@@ -67,7 +67,7 @@ Every law family is witness-mandatory: registration carries a refuting witness t
 - Speculative-state tests: laws over states the production surface cannot construct.
 - Per-function spam: one thin test per function when a single generated domain covers the family.
 
-A failing law is evidence: investigate the production owner before weakening the test, and when the law found a real bug, fix the owner — never dilute the law into shape-only proof. Each language README carries the language spelling of these laws plus its own additional bans.
+A failing law is evidence: investigate the production owner before weakening the test, and when the law found a real bug, fix the owner — never dilute the law into shape-only proof. Each language README carries the language spelling of these laws with its own bans.
 
 ## [04]-[ARTIFACT_ROUTING]
 
@@ -90,7 +90,7 @@ Every tool writes reports under `.artifacts/` and temp/work state under `.cache/
 |  [13]   | Nx                | target outputs + cache               | `nx.json` targetDefaults                                         |
 |  [14]   | import-linter     | grimp cache                          | assay static rail invocation (`--cache-dir .cache/grimp`)        |
 
-Tool-admission litter rule: a change that admits or reconfigures any tool proves its caches and outputs land under `.cache/` or `.artifacts/` before it lands — routed through the tool's own documented configuration, config-file setting first, CLI flag second, never wrapper scripts or conftest shims. Gate: after the change's checks run, `git status` plus a root listing shows zero new root entries.
+Tool-admission litter rule: a change that admits or reconfigures any tool proves its caches and outputs land under `.cache/` or `.artifacts/` before it lands — routed through the tool's own documented configuration, config-file setting first, CLI flag second, never wrapper scripts or conftest shims. Gate: after the change's checks run, `git status` and a root listing show zero new root entries.
 
 ## [05]-[EXTENSION_PROTOCOL]
 
@@ -120,7 +120,7 @@ Per-package mirror law: where the ecosystem separates tests from source, suite h
 
 Scenario proof flows through one route, content to verdict:
 1. Content: scenarios live in `tests/csharp/scenarios` as source-only `[RhinoScenario]` statics composing the `Rasm.ScenarioKit` SDK; the project is an `AssayTestShell`, so the routing closure keeps it out of unit-test runs.
-2. Closure: `uv run python -m tools.assay bridge build` compiles the bridge plugin and stages scenario content plus its dependency closure for the host.
+2. Closure: `uv run python -m tools.assay bridge build` compiles the bridge plugin and stages scenario content with its dependency closure for the host.
 3. Evidence: the live RhinoWIP host executes the staged scenarios; `ScenarioContext` fact streams, manifests, and captures fold into the assay-owned artifact scopes.
 4. Verdict: `uv run python -m tools.assay bridge verify` folds the run into one bridge Envelope; `bridge status` reports host health, and `bridge quit` terminates the host cleanly.
 
@@ -136,13 +136,13 @@ Assay is the single mutation and coverage gate authority in all three languages;
 - Python's mutation lane is a staged gate under assay scored against its kill-floor; the lane law is [tests/python/README.md](python/README.md).
 - Zero mutant discovery is a failed rail in every language, never a green pass.
 - Both Stryker rails emit `mutation-testing-report-schema` JSON natively into `.artifacts/`; assay's kill-floor verdict is the single cross-language authority over the results.
-- Coverage aggregates as cobertura (C#) plus lcov (Python, TS) under `.artifacts/` — no invented merged format; each language-native reporter owns its output shape.
+- Coverage aggregates as cobertura (C#) and lcov (Python, TS) under `.artifacts/` — no invented merged format; each language-native reporter owns its output shape.
 
-Heavy-lane invocation law: the bounded lanes — unit, property, and benchmark sessions per language — may be launched directly by a human or an agent; mutation, solution-wide static, and bridge verify ride assay, which owns staging, governor caps, and artifact scopes. Defense-in-depth holds regardless of invoker: every heavy tool's auto-discovered configuration carries its own concurrency cap, per-run and per-test timeouts, an explicit mutate/target scope, and `.artifacts/`/`.cache/` output routing, so a bare invocation outside assay is small, self-limiting, and cheap to kill — never a machine-saturating sweep, never a root write.
+Heavy-lane invocation law: the bounded lanes — unit, property, and benchmark sessions — launch directly; mutation, solution-wide static, and bridge verify ride assay, which owns staging, governor caps, and artifact scopes. Defense-in-depth holds regardless of invoker: every heavy tool's auto-discovered configuration carries its own concurrency cap, per-run and per-test timeouts, an explicit mutate/target scope, and `.artifacts/`/`.cache/` routing, so a bare invocation outside assay is small, self-limiting, and cheap to kill.
 
 ## [08]-[CONTRACTS_CORPUS]
 
-`tests/contracts/` is the cross-language frozen corpus: wire bytes plus canonical JSON per seam and message, C#-produced, consumed read-only by Python and TypeScript. [tests/contracts/README.md](contracts/README.md) carries the full producer/consumer, layout, and regeneration law.
+`tests/contracts/` is the cross-language frozen corpus: wire bytes with canonical JSON per seam and message, C#-produced, consumed read-only by Python and TypeScript. [tests/contracts/README.md](contracts/README.md) carries the full producer/consumer, layout, and regeneration law.
 
 ## [09]-[TOOLING_AWARENESS]
 

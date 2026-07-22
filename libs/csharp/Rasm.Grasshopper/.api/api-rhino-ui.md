@@ -1,90 +1,92 @@
 # [RASM_GRASSHOPPER_API_RHINO_UI]
 
-`Rhino.UI` bridges Eto controls into Rhino chrome through one static `EtoExtensions` surface: `UseRhinoStyle` stamps native styling onto an Eto `Control`, the window family binds a form to a `RhinoDoc` and persists its screen position, and the conversion family carries `System.Drawing` GDI and Rhino `Color4f` values into `Eto.Drawing` — the same GDI-to-Eto bridge the GH1 interop icon boundary rides. Every member is catalog-verified against the installed RhinoWIP `Rhino.UI.dll`.
+`Rhino.UI` bridges Eto controls into Rhino chrome through the static `EtoExtensions` extension surface. Eto handler resolution and the AppKit native embedding seam stay outside this bridge.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: host assembly `Rhino.UI`
-- package: `Rhino.UI` (Rhino 9 WIP host UI bridge; not a NuGet pin — the in-process `Rhino.UI.dll` shipped in the Rhino application bundle is the resolved asset)
-- assembly: `Rhino.UI`
+- package: `Rhino.UI` (Rhino 9 WIP host UI bridge)
+- assembly: `Rhino.UI` (in-process host DLL from the RhinoWIP `RhCore.framework` bundle)
 - namespace: `Rhino.UI` (`EtoExtensions`)
-- asset: host assembly; `/Applications/RhinoWIP.app/Contents/Frameworks/RhCore.framework/Versions/Current/Resources/Rhino.UI.dll` resolved from the installed RhinoWIP bundle
 - rail: host-rhino
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the EtoExtensions bridge
-- namespace: `Rhino.UI`
-- rail: host-rhino
+[PUBLIC_TYPE_SCOPE]: the static extension surface
 
-`EtoExtensions` is a static extension surface over Eto `Control`/`Window`/`Form`/`Dialog<T>`; every member extends a managed Eto type with Rhino styling, document binding, position persistence, or a value conversion.
-
-| [INDEX] | [SYMBOL]        | [KIND] | [CAPABILITY]                                     |
-| :-----: | :-------------- | :----- | :----------------------------------------------- |
-|  [01]   | `EtoExtensions` | static | Rhino styling, doc binding, and value conversion |
+| [INDEX] | [SYMBOL]        | [TYPE_FAMILY] | [CAPABILITY]                                     |
+| :-----: | :-------------- | :------------ | :----------------------------------------------- |
+|  [01]   | `EtoExtensions` | static class  | Rhino styling, doc binding, and value conversion |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: Rhino styling
-- namespace: `Rhino.UI`
-- rail: host-rhino
 
-`UseRhinoStyle` is the styling seam behind `Eto/windows.md`'s `ChromeRow.Rhino` and `Shell/session.md`'s `SessionOp.StyleCase`; it stamps native chrome onto an Eto control in place.
+`UseRhinoStyle` stamps native chrome onto an Eto control in place.
 
-| [INDEX] | [SURFACE]               | [CALL_SHAPE]              | [CAPABILITY]                         |
-| :-----: | :---------------------- | :------------------------ | :----------------------------------- |
-|  [01]   | `Control.UseRhinoStyle` | `(this Control)` → `void` | apply Rhino chrome to an Eto control |
+| [INDEX] | [SURFACE]                 | [SHAPE]   | [CAPABILITY]                    |
+| :-----: | :------------------------ | :-------- | :------------------------------ |
+|  [01]   | `Control.UseRhinoStyle()` | extension | apply Rhino chrome to a control |
 
 [ENTRYPOINT_SCOPE]: Rhino-document window binding
-- namespace: `Rhino.UI`
-- rail: host-rhino
 
-Form and dialog members bind a window to a `RhinoDoc`, resolve the owning document back from a form, and persist a window's screen position keyed by a caller `Type`.
+Members bind a form to a `RhinoDoc`, resolve the document back, and persist window position keyed by a caller `Type`.
 
-| [INDEX] | [SURFACE]                                        | [CALL_SHAPE]                                   | [CAPABILITY]                        |
-| :-----: | :----------------------------------------------- | :--------------------------------------------- | :---------------------------------- |
-|  [01]   | `Form.Show`                                      | `(this Form, RhinoDoc)`                        | show a form bound to a document     |
-|  [02]   | `Form.GetRhinoDoc`                               | `(this Form)` → `RhinoDoc`                     | owning document lookup              |
-|  [03]   | `Dialog<T>.ShowSemiModal`                        | `(this Dialog<T>, RhinoDoc, Control)` → `T`    | semi-modal typed dialog             |
-|  [04]   | `WindowsFromDocument<T>`                         | `(RhinoDoc)` → `IEnumerable<T>`                | document-scoped window roster       |
-|  [05]   | `Window.LocalizeAndRestore`                      | `(this Window, Type)`                          | localize and restore layout         |
-|  [06]   | `Window.SavePosition` / `RestorePosition`        | `(this Window, Type)`                          | persist and restore screen position |
-|  [07]   | `Panel.PushPickButton` / `Window.PushPickButton` | `(this Panel/Window, EventHandler<EventArgs>)` | pick-button attachment              |
+| [INDEX] | [SURFACE]                                            | [SHAPE]   | [CAPABILITY]                       |
+| :-----: | :--------------------------------------------------- | :-------- | :--------------------------------- |
+|  [01]   | `Form.Show(RhinoDoc)`                                | extension | show a form bound to a document    |
+|  [02]   | `Form.GetRhinoDoc() -> RhinoDoc`                     | extension | owning document lookup             |
+|  [03]   | `Dialog<T>.ShowSemiModal(RhinoDoc, Control) -> T`    | extension | semi-modal typed dialog            |
+|  [04]   | `Dialog.ShowSemiModal(RhinoDoc, Control)`            | extension | semi-modal untyped dialog          |
+|  [05]   | `WindowsFromDocument<T>(RhinoDoc) -> IEnumerable<T>` | static    | document-scoped window roster      |
+|  [06]   | `Window.LocalizeAndRestore(Type)`                    | extension | localize and restore layout        |
+|  [07]   | `Window.SavePosition(Type)`                          | extension | persist screen position            |
+|  [08]   | `Window.RestorePosition(Type) -> bool`               | extension | restore screen position            |
+|  [09]   | `Panel.PushPickButton(EventHandler<EventArgs>)`      | extension | pick-button attachment on a panel  |
+|  [10]   | `Window.PushPickButton(EventHandler<EventArgs>)`     | extension | pick-button attachment on a window |
 
 [ENTRYPOINT_SCOPE]: GDI and Rhino value conversion
-- namespace: `Rhino.UI`
-- rail: host-rhino
 
-Conversion members carry `System.Drawing` GDI carriers and Rhino `Color4f`/`Font` values across into `Eto.Drawing`; `ToEto(System.Drawing.Bitmap)` is the same GDI-to-Eto bridge the GH1 interop icon seam rides, and the reverse `ToSystemDrawing` forms return to GDI at a native handoff.
+Members carry `System.Drawing` GDI and Rhino `Color4f`/`Font` carriers into `Eto.Drawing`; the reverse `ToSystemDrawing`/`ToSystemDrawingScreen` forms return to GDI at a native handoff.
 
-| [INDEX] | [SURFACE]                                     | [CALL_SHAPE]                                              | [CAPABILITY]                 |
-| :-----: | :-------------------------------------------- | :-------------------------------------------------------- | :--------------------------- |
-|  [01]   | `System.Drawing.Bitmap.ToEto`                 | `(this Bitmap[, bool])` → `Eto.Drawing.Bitmap`/`Image`    | GDI bitmap into Eto          |
-|  [02]   | `System.Drawing.Icon.ToEto`                   | `(this Icon, bool)` → `Eto.Drawing.Icon`                  | GDI icon into Eto            |
-|  [03]   | `System.Drawing.Color.ToEto`                  | `(this Color)` → `Eto.Drawing.Color`                      | GDI colour into Eto          |
-|  [04]   | `Eto.Drawing.Color.ToSystemDrawing`           | `(this Color)` → `System.Drawing.Color`                   | Eto colour back to GDI       |
-|  [05]   | `Color4f.ToEto` / `Color.ToColor4f`           | `(this Color4f)`/`(this Color)`                           | Rhino float colour bridge    |
-|  [06]   | `Rhino.DocObjects.Font.ToEto`                 | `(this Font, float, FontDecoration)` → `Eto.Drawing.Font` | Rhino font into Eto          |
-|  [07]   | `Point.ToEtoScreen` / `Rectangle.ToEtoScreen` | `(this Point/Rectangle, Screen)`                          | GDI screen geometry into Eto |
+| [INDEX] | [SURFACE]                                                   | [SHAPE]   | [CAPABILITY]                      |
+| :-----: | :---------------------------------------------------------- | :-------- | :-------------------------------- |
+|  [01]   | `Bitmap.ToEto() -> Eto.Bitmap`                              | extension | GDI bitmap into Eto               |
+|  [02]   | `Bitmap.ToEto(bool) -> Eto.Image`                           | extension | GDI bitmap into a sized image     |
+|  [03]   | `Icon.ToEto(bool) -> Eto.Icon`                              | extension | GDI icon into Eto                 |
+|  [04]   | `Color.ToEto() -> Eto.Color`                                | extension | GDI colour into Eto               |
+|  [05]   | `Eto.Color.ToSystemDrawing() -> Color`                      | extension | Eto colour back to GDI            |
+|  [06]   | `Color4f.ToEto() -> Eto.Color`                              | extension | Rhino float colour into Eto       |
+|  [07]   | `Eto.Color.ToColor4f() -> Color4f`                          | extension | Eto colour into Rhino float       |
+|  [08]   | `Font.ToEto(float, FontDecoration) -> Eto.Font`             | extension | Rhino font into a sized Eto font  |
+|  [09]   | `Font.ToEto() -> FontTypeface`                              | extension | Rhino font into an Eto typeface   |
+|  [10]   | `ToEto(string, string, float) -> Eto.Font`                  | static    | family/face/size into an Eto font |
+|  [11]   | `System.Drawing.Font.ToEto() -> Eto.Font`                   | extension | GDI font into Eto                 |
+|  [12]   | `Point.ToEtoScreen(Screen) -> Eto.PointF`                   | extension | GDI screen point into Eto         |
+|  [13]   | `Rectangle.ToEtoScreen(Screen) -> Eto.RectangleF`           | extension | GDI screen rect into Eto          |
+|  [14]   | `Eto.PointF.ToSystemDrawingScreen(Screen) -> Point`         | extension | Eto point back to GDI screen      |
+|  [15]   | `Eto.Point.ToSystemDrawingScreen(Screen) -> Point`          | extension | Eto pixel point back to GDI       |
+|  [16]   | `Eto.RectangleF.ToSystemDrawingScreen(Screen) -> Rectangle` | extension | Eto rect back to GDI screen       |
+|  [17]   | `Eto.Rectangle.ToSystemDrawingScreen(Screen) -> Rectangle`  | extension | Eto pixel rect back to GDI        |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[RHINO_UI_TOPOLOGY]:
-- `UseRhinoStyle` and folder-owned `StyleRow` cosmetics are two seams: a Rhino-styled surface routes through `SessionOp.StyleCase`, a `StyleRow` scopes folder cosmetics by tag, and a window wears both when a Rhino-styled surface also joins a folder style scope; neither seam re-implements the other
-- window binding pairs a form with a `RhinoDoc` at `Show(Form, RhinoDoc)` and resolves the document back through `GetRhinoDoc`; position persistence keys on a caller `Type` so a window restores its own screen slot across sessions
-- conversion members are the one bridge for GDI and Rhino colour, font, and image carriers into `Eto.Drawing`; `ToEto(System.Drawing.Bitmap)` is the exact GDI-to-Eto path the GH1 interop icon boundary composes
+[TOPOLOGY]:
+- `UseRhinoStyle` and folder-owned `StyleRow` cosmetics are two non-overlapping seams: a Rhino-styled surface routes through `SessionOp.StyleCase`, a `StyleRow` scopes folder cosmetics by tag, and a window wears both when a Rhino-styled surface also joins a folder style scope
+- window binding pairs a form with a `RhinoDoc` at `Show` and resolves it back through `GetRhinoDoc`; position persistence keys on a caller `Type`, so a window restores its own screen slot across sessions
+- conversion members are the one bridge for GDI and Rhino colour, font, and image carriers into `Eto.Drawing`, and `Bitmap.ToEto` is the exact path the GH1 interop icon boundary composes
 
 [STACKING]:
-- `api-languageext`(`libs/csharp/.api/api-languageext.md`): `UseRhinoStyle` and `Show(Form, RhinoDoc)` are side-effecting host calls lowered onto `Op.Side`/`Eff`; `GetRhinoDoc(Form)` null-gates through `Optional(...)` into `Option<RhinoDoc>`; a `WindowsFromDocument<T>` roster carries as a `Seq<T>`; a `RestorePosition` `bool` return folds to `Fin<Unit>`
-- `api-thinktecture-runtime-extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): a folder style scope is a `[SmartEnum]`/tag vocabulary the `StyleRow` reads, and the `FontDecoration` host enum projects onto a `[SmartEnum<TKey>]` owner where the folder attaches a decoration behaviour to a case
+- `api-languageext`(`libs/csharp/.api/api-languageext.md`): `UseRhinoStyle` and `Show` lower onto `Op.Side`/`Eff` as side-effecting host calls; `GetRhinoDoc` null-gates through `Optional(...)` into `Option<RhinoDoc>`; a `WindowsFromDocument<T>` roster carries as `Seq<T>`; `RestorePosition`'s `bool` folds to `Fin<Unit>`
+- `api-thinktecture-runtime-extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): a folder style scope is a `[SmartEnum]` tag vocabulary the `StyleRow` reads, and the `FontDecoration` host enum projects onto a `[SmartEnum<TKey>]` where a case attaches decoration behaviour
 
 [LOCAL_ADMISSION]:
-- styling enters through `UseRhinoStyle` at the `SessionOp.StyleCase` seam; a parallel hand-rolled Rhino-chrome stamp is the deleted form
-- GDI and Rhino carriers cross into Eto only through the `ToEto` conversion family; the GH1 interop icon bridge and any Rhino colour handoff reuse these members rather than re-deriving a conversion
-- Rhino-document window binding is `Show`/`GetRhinoDoc`; a folder owner never re-derives the form-to-document association
+- native styling enters through `UseRhinoStyle` at the `SessionOp.StyleCase` seam
+- GDI and Rhino carriers cross into `Eto.Drawing` only through the `ToEto`/`ToSystemDrawing` conversion family
+- form-to-document binding is `Show`/`GetRhinoDoc`; a folder owner composes these rather than re-deriving the association
 
 [RAIL_LAW]:
-- Package: `Rhino.UI` (Eto and Rhino UI bridge)
-- Owns: `UseRhinoStyle` native styling, Rhino-document window show and lookup, window position persistence, and the Eto ↔ `System.Drawing` ↔ Rhino colour, font, and image conversions
-- Accept: applying Rhino chrome to an Eto control, binding a form to a `RhinoDoc`, converting GDI and Rhino carriers into `Eto.Drawing`
-- Reject: Eto handler resolution and native embedding (`api-eto-platform`), the AppKit native seam (`api-macos-native`), GH2 chrome hosts (`api-gh2-editor`)
+- Package: `Rhino.UI`
+- Owns: `UseRhinoStyle` native styling, `RhinoDoc` window show and lookup, window position persistence, and the `System.Drawing`/Rhino `Color4f`/`Font` conversions into `Eto.Drawing`
+- Accept: Rhino chrome onto an Eto control, a form bound to a `RhinoDoc`, GDI and Rhino carriers converted into `Eto.Drawing`
+- Reject: a hand-rolled Rhino-chrome stamp, Eto handler resolution and native embedding (`api-eto-platform`), the AppKit native seam (`api-macos-native`), GH2 chrome hosts (`api-gh2-editor`)

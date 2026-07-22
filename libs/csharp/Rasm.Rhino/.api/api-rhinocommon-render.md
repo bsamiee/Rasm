@@ -1,6 +1,6 @@
 # [RASM_RHINO_API_RHINOCOMMON_RENDER]
 
-`Rhino.Render` owns the batch-renderer lifecycle and its framebuffer: `RenderPipeline` drives an abstract batch-render session over a `RhinoDoc`, populating a scene, running full-frame or view-region renders, and gating an in-flight run with pause/resume; `RenderWindow` is the render target, exposing standard framebuffer channels (`Channel`/`ChannelGPU` per-pixel read/write, image adjustment, wireframe channel, post-effect execution registration); `RenderTexture` yields a per-point `TextureEvaluator` or a simulated-texture bake for a texture that cannot evaluate live; and the `Rhino.Render.PostEffects` family (`PostEffect`, `PostEffectState`, `PostEffectUI`, `CustomPostEffectAttribute`, `PostEffectUuids`, `PostEffectExecutionControl`) registers and gates the post-processing effects the framebuffer runs. `api-rhinocommon-render-realtime.md` owns the disjoint realtime slice — `ChangeQueue` scene-change delivery, `RealtimeDisplayMode`, `AsyncRenderContext`, and `LightManagerSupport` — so this catalog draws the line at batch lifecycle, framebuffer channels, texture evaluation, and post-effects, never live scene-change delivery. `api-rhinocommon-rendercontent.md` owns the `RenderTexture` content authoring and `SimulatedTexture` bake carrier this catalog evaluates; `api-rhinocommon-rendersettings.md` owns the `RenderSettings` a render consumes and the `PostEffectCollection` the effects populate; and `api-rhinocommon-document.md` owns the `RhinoDoc`/`ViewInfo`/`ViewportInfo` carriers the pipeline and window bind.
+`Rhino.Render` owns the batch-render lifecycle and its framebuffer. `RenderPipeline` drives an abstract batch session over a `RhinoDoc` — scene population, full-frame or view-region render, pause/resume gating — into a `RenderWindow` render target exposing the standard framebuffer channels, `Channel`/`ChannelGPU` per-pixel access, image adjustment, and post-effect registration; `RenderTexture` yields a live per-point `TextureEvaluator` or a simulated-texture bake; and the `Rhino.Render.PostEffects` family registers and gates the post-processing effects the framebuffer runs. `api-rhinocommon-render-realtime.md` owns the disjoint realtime slice, drawing this catalog's line at batch lifecycle, framebuffer channels, texture evaluation, and post-effects. `api-rhinocommon-rendercontent.md` owns the `RenderTexture` content authoring and `SimulatedTexture` bake carrier this catalog evaluates; `api-rhinocommon-rendersettings.md` owns the `RenderSettings` a render consumes and the `PostEffectCollection` the effects populate; and `api-rhinocommon-document.md` owns the `RhinoDoc`/`ViewInfo`/`ViewportInfo` carriers the pipeline and window bind.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -17,8 +17,6 @@
 [PUBLIC_TYPE_SCOPE]: batch renderer, framebuffer, and texture evaluation
 - rail: batch-render boundary
 
-`RenderPipeline` is the abstract batch session a render engine subclasses; `RenderWindow` is the render target with its nested per-channel accessors; `RenderTexture` (evaluation slice) and `TextureEvaluator` yield live per-point color.
-
 | [INDEX] | [SYMBOL]                   | [KIND]             | [CAPABILITY]                                                       |
 | :-----: | :------------------------- | :----------------- | :----------------------------------------------------------------- |
 |  [01]   | `RenderPipeline`           | batch renderer     | `IDisposable` session: construct, populate scene, render, pause    |
@@ -31,8 +29,6 @@
 
 [PUBLIC_TYPE_SCOPE]: post-effect family
 - rail: batch-render boundary
-
-`PostEffect` is the abstract base a custom effect derives and `[CustomPostEffect]` registers; `PostEffectState`/`PostEffectUI` are host-handed state and UI collectors; `PostEffectExecutionControl` gates per-render execution.
 
 | [INDEX] | [SYMBOL]                     | [KIND]            | [CAPABILITY]                                                  |
 | :-----: | :--------------------------- | :---------------- | :------------------------------------------------------------ |
@@ -51,7 +47,7 @@
 - `public enum Rhino.Render.RenderTexture.TextureGeneration` — `Allow = 1`, `Disallow = 2`, `Skip = 3`; the `SimulateTexture` generation mode.
 - `public enum Rhino.Render.PostEffects.PostEffectType` — `Early`, `ToneMapping`, `Late`; the post-effect execution stage.
 - `[Flags] public enum Rhino.Render.PostEffects.PostEffectStyles` — `ExecuteForProductionRendering = 1`, `ExecuteForRealtimeRendering = 2`, `ExecuteForViewportDisplay = 4`, `Fixed = 0x100`, `DefaultShown = 0x200`, `DefaultOn = 0x400`.
-- `public enum Rhino.Render.PostEffects.PostEffectExecuteWhileRenderingOptions` — `Never = 0`, `Always = 1`, `UseDelay = 2`, `UseExecutionControl = 3`; `UseExecutionControl` (8.14) hands the per-frame decision to a registered `PostEffectExecutionControl`.
+- `public enum Rhino.Render.PostEffects.PostEffectExecuteWhileRenderingOptions` — `Never = 0`, `Always = 1`, `UseDelay = 2`, `UseExecutionControl = 3`; `UseExecutionControl` hands the per-frame decision to a registered `PostEffectExecutionControl`.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -77,8 +73,8 @@
 - `Rhino.Render.RenderWindow.RegisterPostEffectExecutionControl(PostEffectExecutionControl ec) : void` — register the per-render post-effect gate; `RenderWindow : IDisposable`, and `Cloned : EventHandler<RenderWindowClonedEventArgs>` is the static clone broadcast.
 
 [TEXTURE_EVALUATION]:
-- `Rhino.Render.RenderTexture.CreateEvaluator(RenderTexture.TextureEvaluatorFlags evaluatorFlags) : TextureEvaluator` — virtual per-point evaluator construction over the disable-axis flags; the parameterless overload is obsolete.
-- `Rhino.Render.RenderTexture.SimulateTexture(ref SimulatedTexture simulation, TextureGeneration tg, int size = -1, RhinoObject obj = null) : void` / `SimulatedTexture(TextureGeneration tg, int size = -1, RhinoObject obj = null) : SimulatedTexture` / `GenerateTextureSimulation(ref Bitmap bitmap, TextureEvaluatorFlags ef) : bool` — bake a `SimulatedTexture` for a texture that cannot evaluate live; the `bool isForDataOnly` simulate overload is obsolete.
+- `Rhino.Render.RenderTexture.CreateEvaluator(RenderTexture.TextureEvaluatorFlags evaluatorFlags) : TextureEvaluator` — virtual per-point evaluator construction over the disable-axis flags.
+- `Rhino.Render.RenderTexture.SimulateTexture(ref SimulatedTexture simulation, TextureGeneration tg, int size = -1, RhinoObject obj = null) : void` / `SimulatedTexture(TextureGeneration tg, int size = -1, RhinoObject obj = null) : SimulatedTexture` / `GenerateTextureSimulation(ref Bitmap bitmap, TextureEvaluatorFlags ef) : bool` — bake a `SimulatedTexture` for a texture that cannot evaluate live.
 - `Rhino.Render.TextureEvaluator.Initialize() : bool` / `GetColor(Point3d uvw, Vector3d duvwdx, Vector3d duvwdy) : Color4f` / `GetColor(Point3d uvw, Vector3d duvwdx, Vector3d duvwdy, ref Color4f color) : bool` — per-point color evaluation with UVW derivatives; `WriteToByteArray(int width, int height) : SimpleArrayByte` / `WriteToFloatArray(int width, int height) : SimpleArrayFloat` write a rasterized block; `TextureEvaluator : IDisposable`.
 
 [POST_EFFECTS]:
@@ -95,23 +91,22 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [RENDER_TOPOLOGY]:
-- `RenderPipeline` is the single batch owner: one abstract session subclass binds document, plug-in, size, and channels at protected construction, implements the four worker hooks (`OnRenderBegin`/`OnRenderWindowBegin` start the worker, `ContinueModal` polls it, `OnRenderEnd` settles it) and the scene-population virtuals, and `Render` runs it into a `RenderWindow` — the session is `IDisposable` and releases the native render session, while every `GetRenderWindow*` wrapper is caller-owned and disposes at its borrow.
-- Channel access is explicit and typed: `OpenChannel` selects a `StandardChannels` value, `Channel.SetValue`/`AddValue`/`SetValues` write per pixel or per block, `SetRGBAChannelColors` writes a `Color4f` block, and the GPU path is `ChannelGPU` with OpenGL/Metal texture handles — a raw framebuffer pointer beside an opened channel is the deleted form.
-- Texture evaluation splits live and baked: `CreateEvaluator` yields the per-point `TextureEvaluator` and `SimulateTexture` bakes a `SimulatedTexture` only where live evaluation is refused, gated by the `TextureGeneration` mode; the content authoring the texture graph carries is `api-rhinocommon-rendercontent.md`.
-- Post-effects are one registered family: a custom effect derives `PostEffect`, `[CustomPostEffect]` registers its type/styles/timing, `PostEffect.RegisterPostEffect` installs it, and per-render execution rides `PostEffectExecutionControl.ReadyToExecutePostEffect` registered on the `RenderWindow` — a private post-processing pass beside the registered effect is rejected, and the document effect collection is `RenderSettings.PostEffects` (`api-rhinocommon-rendersettings.md`).
-- Batch and realtime never merge: this catalog produces a finished window and runs post-effects, while `api-rhinocommon-render-realtime.md` participates per frame and streams scene changes.
+- `RenderPipeline` is the single batch owner: one abstract session subclass binds document, plug-in, size, and channels at protected construction, implements the four worker hooks (`OnRenderBegin`/`OnRenderWindowBegin` start, `ContinueModal` polls, `OnRenderEnd` settles) and the scene-population virtuals, and `Render` runs it into a `RenderWindow`; the session is `IDisposable` releasing the native render session, while every `GetRenderWindow*` wrapper is caller-owned and disposes at its borrow.
+- Channel access is explicit and typed: `OpenChannel` selects a `StandardChannels` value, `Channel.SetValue`/`AddValue`/`SetValues` write per pixel or per block, `SetRGBAChannelColors` writes a `Color4f` block, and the GPU path is `ChannelGPU` with OpenGL/Metal texture handles.
+- Texture evaluation splits live and baked: `CreateEvaluator` yields the per-point `TextureEvaluator`, and `SimulateTexture` bakes a `SimulatedTexture` only where live evaluation is refused, gated by the `TextureGeneration` mode.
+- Post-effects are one registered family: a custom effect derives `PostEffect`, `[CustomPostEffect]` registers its type/styles/timing, `PostEffect.RegisterPostEffect` installs it, and per-render execution rides `PostEffectExecutionControl.ReadyToExecutePostEffect` registered on the `RenderWindow`.
 
 [STACKING]:
-- `LanguageExt.Core`(`../../.api/api-languageext.md`): a `RenderPipeline`/`RenderWindow`/`RenderWindow.Channel`/`TextureEvaluator`/`PostEffectExecutionControl` `IDisposable` rides a `using` bounded by `Eff`; `Render` returning `RenderReturnCode` projects to `Fin<Unit>` with `Ok` as success; `RenderWindow.Create`/`GetBitmap` traps through `Try.lift(...).Run()` and a null crosses as `Fin<A>`; a channel or effect outcome projects onto the rail.
-- `Thinktecture.Runtime.Extensions`(`../../.api/api-thinktecture-runtime-extensions.md`): `RenderReturnCode`, `StandardChannels`, `RenderSuccessCode`, `TextureEvaluatorFlags`, `TextureGeneration`, `PostEffectType`, `PostEffectStyles`, and `PostEffectExecuteWhileRenderingOptions` map at the edge to `[SmartEnum]`/flag owners; a `RenderReturnCode` result folds into a `[Union]` outcome the domain matches, and the domain composes the bounded channel/effect vocabulary, never the raw host enum.
-- `api-rhinocommon-render-realtime.md`: `RenderPipeline`'s `AsyncRenderContext` overload and a realtime engine's `StartRenderer` consume the `RenderWindow` this catalog owns — the realtime catalog participates through the window, this catalog owns the window and its channels.
-- `api-rhinocommon-rendercontent.md`: `RenderTexture.CreateEvaluator`/`SimulateTexture` evaluate the content the content catalog authors, and `SimulatedTexture` is its bake carrier; the change scope `PostEffect.BeginChange(RenderContent.ChangeContexts)` names is the content change protocol.
+- `LanguageExt.Core`(`../../.api/api-languageext.md`): a `RenderPipeline`/`RenderWindow`/`RenderWindow.Channel`/`TextureEvaluator`/`PostEffectExecutionControl` `IDisposable` rides a `using` bounded by `Eff`; `Render` returning `RenderReturnCode` projects to `Fin<Unit>` with `Ok` as success; `RenderWindow.Create`/`GetBitmap` traps through `Try.lift(...).Run()` and a null crosses as `Fin<A>`.
+- `Thinktecture.Runtime.Extensions`(`../../.api/api-thinktecture-runtime-extensions.md`): `RenderReturnCode`, `StandardChannels`, `RenderSuccessCode`, `TextureEvaluatorFlags`, `TextureGeneration`, `PostEffectType`, `PostEffectStyles`, and `PostEffectExecuteWhileRenderingOptions` map at the edge to `[SmartEnum]`/flag owners; a `RenderReturnCode` result folds into a `[Union]` outcome the domain matches over the bounded channel/effect vocabulary.
+- `Rasm` kernel: `Color4f` channel writes through `Channel.SetValue`/`AddValue`/`SetRGBAChannelColors` and the `GetBitmap` read-back compose the kernel color owner, and `Size`/`Rectangle` render extents compose the kernel size owner; a re-derived color blend beside the composed kernel rail is the deleted form.
+- `api-rhinocommon-render-realtime.md`: `RenderPipeline`'s `AsyncRenderContext` overload and a realtime engine's `StartRenderer` consume the `RenderWindow` this catalog owns; the realtime catalog participates through the window, this catalog owns the window and its channels.
+- `api-rhinocommon-rendercontent.md`: `RenderTexture.CreateEvaluator`/`SimulateTexture` evaluate the content the content catalog authors, `SimulatedTexture` is its bake carrier, and the change scope `PostEffect.BeginChange(RenderContent.ChangeContexts)` names is the content change protocol.
 - `api-rhinocommon-rendersettings.md`: a render consumes a `RenderSettings`, and the post-effects populate the `RenderSettings.PostEffects : PostEffectCollection` container the settings catalog owns.
-- `api-rhinocommon-document.md`: `RenderPipeline` binds a `RhinoDoc` and `AddRenderMeshToScene`/`AddLightToScene` read the document geometry/light tables, and `RenderWindow.SetView`/`AddWireframeChannel` consume `ViewInfo`/`ViewportInfo` — the document catalog owns those carriers.
+- `api-rhinocommon-document.md`: `RenderPipeline` binds a `RhinoDoc` and `AddRenderMeshToScene`/`AddLightToScene` read the document geometry/light tables, and `RenderWindow.SetView`/`AddWireframeChannel` consume `ViewInfo`/`ViewportInfo` the document catalog owns.
 
 [LOCAL_ADMISSION]:
-- `Rhino.Render` batch types are host handles trapped and mapped at the boundary; a `RenderPipeline`, `RenderWindow`, `TextureEvaluator`, or `PostEffect` never appears in a domain signature — the domain sees a `Fin<A>`, a bounded owner, or a canonical shape.
-- `RenderPipeline` is the single batch-render owner, `RenderWindow` the single framebuffer owner, and `PostEffect` the single effect owner; a parallel render loop, raw framebuffer, or private post-processing pass beside them is the collapsed form.
+- `Rhino.Render` batch types are host handles trapped and mapped at the boundary; a `RenderPipeline`, `RenderWindow`, `TextureEvaluator`, or `PostEffect` never appears in a domain signature — the domain sees a `Fin<A>`, a bounded owner, or a canonical shape, and `RenderPipeline`/`RenderWindow`/`PostEffect` is the single batch/framebuffer/effect owner.
 
 [RAIL_LAW]:
 - Surface: `Rhino.Render` batch slice + `Rhino.Render.PostEffects`

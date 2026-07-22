@@ -1,43 +1,40 @@
 # [RASM_RHINO_API_RHINOCOMMON_FILEIO]
 
-`File3dm` owns standalone `.3dm` archives outside a live document: filtered and metadata-only reads, table mutation, write policy, nullable byte serialization, and preview ownership. Direct format engines accept typed option carriers for document-attached interchange, `FilePdf` owns vector page authoring, and `RhinoDoc` owns import, export, save, template, and general write lifecycles.
+`File3dm` owns the document-free `.3dm` archive — filtered and metadata reads, table mutation, write policy, nullable byte serialization, preview ownership. Each direct format engine folds a live `RhinoDoc` through its typed option carrier, `FilePdf` authors vector pages, and `RhinoDoc` owns import, export, save, template, and general write lifecycles.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `RhinoCommon`
-- package: `RhinoCommon`
-- license: proprietary host SDK
+- package: `RhinoCommon` (proprietary host SDK)
+- assembly: `RhinoCommon.dll` — in-process managed host assembly
 - namespace: `Rhino.FileIO`, `Rhino.DocObjects` (`EarthAnchorPoint`), `Rhino` (`RhinoDoc` document-attached I/O)
-- asset: `RhinoCommon.dll` — the in-process managed host assembly
 - rail: host
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the standalone archive
-- rail: host
 
-| [INDEX] | [SYMBOL]                         | [KIND]     | [CAPABILITY]                                                             |
-| :-----: | :------------------------------- | :--------- | :----------------------------------------------------------------------- |
-|  [01]   | `File3dm`                        | class      | document-free `.3dm` archive; filtered, metadata, byte, and table access |
-|  [02]   | `File3dmWriteOptions`            | class      | archive write policy; version, user data, render and analysis meshes     |
-|  [03]   | `File3dmSettings`                | class      | archive-level document settings                                          |
-|  [04]   | `File3dm.TableTypeFilter`        | flags enum | bounds a partial read to the required tables                             |
-|  [05]   | `File3dm.ObjectTypeFilter`       | flags enum | bounds a partial read to the required object kinds                       |
-|  [06]   | `ManifestTable`                  | table      | archive component manifest                                               |
-|  [07]   | `File3dmObjectTable`             | table      | archive object collection                                                |
-|  [08]   | `File3dmLayerTable`              | table      | archive layer collection                                                 |
-|  [09]   | `File3dmMaterialTable`           | table      | archive material collection                                              |
-|  [10]   | `File3dmGroupTable`              | table      | archive group collection                                                 |
-|  [11]   | `File3dmInstanceDefinitionTable` | table      | archive block definitions read by the block catalog                      |
-|  [12]   | `File3dmViewTable`               | table      | archive model and named views                                            |
-|  [13]   | `File3dmEmbeddedFiles`           | table      | files embedded in the archive                                            |
-|  [14]   | `File3dmRenderMaterials`         | table      | archive render materials                                                 |
-|  [15]   | `File3dmRenderEnvironments`      | table      | archive render environments                                              |
-|  [16]   | `File3dmRenderTextures`          | table      | archive render textures                                                  |
-|  [17]   | `EarthAnchorPoint`               | class      | earth-to-model georeference read from the header                         |
+| [INDEX] | [SYMBOL]                         | [TYPE_FAMILY] | [CAPABILITY]                                                             |
+| :-----: | :------------------------------- | :------------ | :----------------------------------------------------------------------- |
+|  [01]   | `File3dm`                        | class         | document-free `.3dm` archive; filtered, metadata, byte, and table access |
+|  [02]   | `File3dmWriteOptions`            | class         | archive write policy; version, user data, render and analysis meshes     |
+|  [03]   | `File3dmSettings`                | class         | archive-level document settings                                          |
+|  [04]   | `File3dm.TableTypeFilter`        | flags enum    | bounds a partial read to the required tables                             |
+|  [05]   | `File3dm.ObjectTypeFilter`       | flags enum    | bounds a partial read to the required object kinds                       |
+|  [06]   | `ManifestTable`                  | table         | archive component manifest                                               |
+|  [07]   | `File3dmObjectTable`             | table         | archive object collection                                                |
+|  [08]   | `File3dmLayerTable`              | table         | archive layer collection                                                 |
+|  [09]   | `File3dmMaterialTable`           | table         | archive material collection                                              |
+|  [10]   | `File3dmGroupTable`              | table         | archive group collection                                                 |
+|  [11]   | `File3dmInstanceDefinitionTable` | table         | archive block definitions read by the block catalog                      |
+|  [12]   | `File3dmViewTable`               | table         | archive model and named views                                            |
+|  [13]   | `File3dmEmbeddedFiles`           | table         | files embedded in the archive                                            |
+|  [14]   | `File3dmRenderMaterials`         | table         | archive render materials                                                 |
+|  [15]   | `File3dmRenderEnvironments`      | table         | archive render environments                                              |
+|  [16]   | `File3dmRenderTextures`          | table         | archive render textures                                                  |
+|  [17]   | `EarthAnchorPoint`               | class         | earth-to-model georeference read from the header                         |
 
-[PUBLIC_TYPE_SCOPE]: the direct format-engine roster
-- rail: host
+[PUBLIC_TYPE_SCOPE]: the direct format-engine roster — `[DIRECTION]` is the read/write support axis
 
 | [INDEX] | [SYMBOL]               | [DIRECTION]      | [CAPABILITY]                                                |
 | :-----: | :--------------------- | :--------------- | :---------------------------------------------------------- |
@@ -79,41 +76,39 @@
 |  [36]   | `FileXamlWriteOptions` | write dictionary | XAML export options; `ToDictionary` feeds `RhinoDoc.Export` |
 |  [37]   | `WriteFileResult`      | enum             | direct-engine write outcome                                 |
 
-Direct engines receive their typed option carrier directly; `RhinoDoc.Import`/`Export`/`ExportSelected` instead receive `ArchivableDictionary?`, and only option types that declare `ToDictionary()` project into that lane. `FileObjReadOptions(FileReadOptions)`, `FileObjWriteOptions(FileWriteOptions)`, and `FilePlyWriteOptions(FileWriteOptions)` consume the shared host carriers without declaring `ToDictionary()`.
+Each direct engine receives its typed option carrier directly; `RhinoDoc.Import`/`Export`/`ExportSelected` instead receive `ArchivableDictionary?`, and only option types declaring `ToDictionary()` project into that lane. `FileObjReadOptions(FileReadOptions)`, `FileObjWriteOptions(FileWriteOptions)`, and `FilePlyWriteOptions(FileWriteOptions)` consume the shared host carriers without declaring `ToDictionary()`.
 
-[PUBLIC_TYPE_SCOPE]: the per-format option parameter surface
-- rail: host
-
-- `FileDwgWriteOptions` nested enums — `AutocadVersion` (`Release12`, `Release13`, `Release14`, `Acad2000`, `Acad2004`, `Acad2007`, `Acad2010`, `Acad2013`, `Acad2018`; default `Acad2018`), `ExportMeshMode` (`Meshes`, `ThreeDFace`), `ExportSurfaceMode` (`Solids`, `Curves`, `Meshes`; default `Curves`), `ExportLineMode` (`Lines`, `Polylines`, `Splines`, `ThreeDPolylines`), `ExportArcMode` (`Lines`, `Arcs`, `Polybulges`, `Polylines`, `Splines`, `ThreeDPolylines`; default `Arcs`), `ExportSplineMode` (`Lines`, `Polylines`, `Splines`, `ThreeDPolylines`; default `Splines`), `ExportPolylineMode` (`Lines`, `Polylines`, `Splines`, `ThreeDPolylines`; default `Polylines`), `ExportPolycurveMode` (`Lines`, `Polybulges`, `Polylines`, `Splines`, `ThreeDPolylines`; default `Splines`), `FlattenMode` (`None`, `Cplane`, `View`), `ColorMethodType` (`ACI`, `RGB`; default `RGB`), `UseColorType` (`USEDISPLAY`, `USEPRINT`)
-- `FileDwgWriteOptions` members — `Name`, `Version`, `SimplifyTolerance` (0.05), `MinPointDistance` (1e-06); the curve-fit gate/value pairs `CurveUseMaxAngle`/`CurveMaxAngleDegrees` (true, 2.0 — `CurveMaxAngleRadians` mirrors the same backing value), `CurveUseChordHeight`/`CurveChordHeight` (false, 0.1), `CurveUseSegmentLength`/`CurveSegmentLength` (false, 1.0); `ExportMeshesAs`, `ExportSurfacesAs`, `ExportLinesAs`, `ExportArcsAs`, `ExportSplinesAs`, `ExportPolylinesAs`, `ExportPolycurvesAs`, `Flatten`, `SplitPolycurves` (true), `SplitSplines`, `Simplify`, `NoDxfHeader`, `IsDefault`, `FullLayerPath` (true), `ColorMethod`, `UseColor`, `PreserveArcNormals` (true), `UseLWPolylines`, `WriteThickCurves`; the copy constructor `FileDwgWriteOptions(FileDwgWriteOptions)`; the dictionary lanes `ToDictionary()`, `AddToDictionary(ArchivableDictionary)`, and `SetNamedParameters(NamedParametersEventArgs)`
+[PUBLIC_TYPE_SCOPE]: the per-format option parameter surface — `ToDictionary()` is present on every `*Options` type except the shared-carrier consumers above
+- `FileDwgWriteOptions` enums — `AutocadVersion` (`Release12`, `Release13`, `Release14`, `Acad2000`, `Acad2004`, `Acad2007`, `Acad2010`, `Acad2013`, `Acad2018`=default), `ExportMeshMode` (`Meshes`, `ThreeDFace`), `ExportSurfaceMode` (`Solids`, `Curves`=default, `Meshes`), `ExportLineMode` (`Lines`, `Polylines`, `Splines`, `ThreeDPolylines`), `ExportArcMode` (`Lines`, `Arcs`=default, `Polybulges`, `Polylines`, `Splines`, `ThreeDPolylines`), `ExportSplineMode`/`ExportPolylineMode`/`ExportPolycurveMode` over the same `Lines`/`Polylines`/`Splines`/`ThreeDPolylines`/`Polybulges` roster (defaults `Splines`/`Polylines`/`Splines`), `FlattenMode` (`None`, `Cplane`, `View`), `ColorMethodType` (`ACI`, `RGB`=default), `UseColorType` (`USEDISPLAY`, `USEPRINT`)
+- `FileDwgWriteOptions` members — `Name`, `Version`, `SimplifyTolerance` (0.05), `MinPointDistance` (1e-06); curve-fit gate/value pairs `CurveUseMaxAngle`/`CurveMaxAngleDegrees` (true, 2.0 — `CurveMaxAngleRadians` mirrors the same backing value), `CurveUseChordHeight`/`CurveChordHeight` (false, 0.1), `CurveUseSegmentLength`/`CurveSegmentLength` (false, 1.0); `ExportMeshesAs`, `ExportSurfacesAs`, `ExportLinesAs`, `ExportArcsAs`, `ExportSplinesAs`, `ExportPolylinesAs`, `ExportPolycurvesAs`, `Flatten`, `SplitPolycurves` (true), `SplitSplines`, `Simplify`, `NoDxfHeader`, `IsDefault`, `FullLayerPath` (true), `ColorMethod`, `UseColor`, `PreserveArcNormals` (true), `UseLWPolylines`, `WriteThickCurves`; `FileDwgWriteOptions(FileDwgWriteOptions)` copy ctor; `AddToDictionary(ArchivableDictionary)`, `SetNamedParameters(NamedParametersEventArgs)`
 - `FileDwgReadOptions` — `MeshPrecisionMode` (`Automatic`, `DoublePrecision`, `SinglePrecision`); `ImportUnreferencedLayers`/`ImportUnreferencedBlocks`/`ImportUnreferencedLinetypes` (all true), `ConvertWidePolylinesToSurfaces`, `IgnoreThickness`, `ConvertRegionsToCurves`, `MakeExtrusions` (true), `MeshPrecision`, `ModelUnits`/`LayoutUnits` (`UnitSystem`, `Millimeters`), `SetLayerMaterialToLayerColor`, `NestLayers`
-- `FileObjWriteOptions` nested enums — `AsciiEol` (`Crlf`, `Lf`, `Cr`), `CurveType` (`Polyline`, `Nurbs`; default `Nurbs`), `GeometryType` (`Nurbs`, `Mesh`; default `Mesh`), `ObjObjectNames` (`NoObjects`, `ObjectAsGroup`, `ObjectAsObject`), `ObjGroupNames` (`NoGroups`, `LayerAsGroup`, `GroupAsGroup`), `PolylineExportType` (`Bspline`, `Single`, `Multiple`; default `Bspline`), `VertexWelding` (`Normal`, `Welded`, `Unwelded`), `SubDMeshing` (`Surface`, `ControlNet`), `NGons` (`None`, `Preserve`, `Create`)
-- `FileObjWriteOptions` members — `ObjectType`, `ExportObjectNames`, `ExportGroupNameLayerNames`, `EolType`, `TrimCurveType`, `PolylineType`, `MeshType`, `SubDMeshType`, `SubDSurfaceMeshingDensity` (4), `ExportMaterialDefinitions` (true), `UseDisplayColorForMaterial` (true), `ExportTcs` (true), `ExportNormals` (true), `ExportVcs`/`VcsFormat` (false, 0), `ExportOpenMeshes` (true), `UseRenderMeshes`, `SortObjGroups` (true), `MergeNestedGroupingNames`, `MapZtoY`, `SignificantDigits` (17), `WrapLongLines`, `ExportAsTriangles`, `UnderbarMaterialNames`, `UseRelativeIndexing`, the ngon cluster `CreateNgons`/`NgonMode`/`MinNgonFaceCount` (2)/`IncludeUnweldedEdgesInNgons` (true)/`CullUnnecessaryVertexesInNgons` (true), `MeshParameters : MeshingParameters`; `GetTransform()` derives the Z-to-Y basis from `MapZtoY`; `AngleTolRadians` is a readonly field; `UseSimpleDialog` and `ActualFilePathOnMac` are host dialog plumbing
-- `FileObjReadOptions` — the group/object routing properties `UseObjGroupsAs : UseObjGsAs` (`IgnoreObjGroups`, `ObjGroupsAsLayers`, `ObjGroupsAsGroups`, `ObjGroupsAsObjects`; default `ObjGroupsAsObjects`) and `UseObjObjectsAs : UseObjOsAs` (`IgnoreObjObjects`, `ObjObjectsAsLayers`, `ObjObjectsAsGroups`, `ObjObjectsAsObjects`; default `IgnoreObjObjects`); `MapYtoZ`, `MorphTargetOnly`, `ReverseGroupOrder`, `IgnoreTextures`, `DisplayColorFromObjMaterial` (true), `Split32BitTextures`; `GetTransform()` mirrors the write-side basis
-- `FileIgsWriteOptions` nested enums — `IgesStringTypeMode` (`Unicode`, `BIG5`), `IgeswVersionMode` (`Igv52`=1, `Igv53`; default `Igv52`), `EolMode` (`Crlf`=1, `Cr`, `Lf`; default `Crlf`), `PointObjectsMode` (`PoSeparate`=116, `PoSets`=106; default `PoSeparate`), `MaxDegreeMode` (`MdNoLimit`=0, `Md3`=3, `Md5`=5), `SurfacesMode` (`Srf143`=143, `Srf144`=144, `Srf128`=128; default `Srf143`), `PolySurfacesMode` (`PsrfSeparate`=0, `PsrfUnorderedGroup`=402), `SolidsMode` (`SldSeparate`=0, `Sld184`=184, `SldManifoldBRep`=186, `SldUnorderedGroup`=402), `MeshesMode` (`MeshNone`=0, `Mesh10612`=12, `Mesh10613`=13)
-- `FileIgsWriteOptions` members — the header quartet `Author`/`Organization`/`Sender`/`Receiver`, `NotesInStartSection` (true), `Units` (`Millimeters`), `Tolerance` (0.001), `IgesStringType`, `IgesVersion`, `EolType`, `Scale` (1.0), `HideDependentObjects`, `DoublesUseE`, `NoZerosInTSection`, `RenderColorAsIgesColor`, `PointType`; the curve cluster `CurveMaxDegree`, `CompositeCurvesAsSingleBsplines`, `SimplifyCurves`, `FitRationalCurves`, `ClampCurveEndKnots`, `UseParentLabelOnCurves` (true), `ForceBezierKnotsOnCurves`, `FlagDependentCurvesAs03`; the surface cluster `SurfaceType`, `PolySurfaceType`, `MaxSurfaceDegree`, `SolidType`, `MeshType`, `SimplifySurfaces`, `FitRationalSurfaces`, `ClampSurfaceEndKnots`, `UseParentLabelOnSurfaces` (true), `ForceBezierKnotsOnSurfaces`, `FlagDependentSurfacesAs03`, `SplitClosedSurfaces`, `SplitBiPolarSurfaces`, `ForceTrimmedSurfaces`, `WriteNonPlanarUnitNormal` (true); `CatiaVersion`/`CatiaTolsize` (0, 100000.0); `ToDictionary()`
-- `FileGltfWriteOptions` — `SubDMeshing` (`Surface`, `ControlNet`); `MapZToY` (true), `ExportMaterials` (true), `CullBackfaces` (true), `UseDisplayColorForUnsetMaterials` (true), `SubDMeshType`, `SubDSurfaceMeshingDensity` (4), `ExportTextureCoordinates` (true), `ExportVertexNormals` (true), `ExportOpenMeshes` (true), `ExportVertexColors`, `ExportLayers`, `UseDracoCompression`; the Draco setters clamp silently — `DracoCompressionLevel` to `[1, 10]`, `DracoQuantizationBitsPosition`/`DracoQuantizationBitsNormal`/`DracoQuantizationBitsTextureCoordinate` to `[8, 32]`; `ToDictionary()`
-- `FileFbxWriteOptions` — `ObjectType` (`Nurbs`, `Mesh`; default `Mesh`), `MaterialType` (`Lambert`, `Phong`; default `Phong`), `FileType` (`Binary7`, `Ascii7`, `Binary6`, `Ascii6`; default `Binary7`); `SaveObjectsAs`, `SaveMaterialsAs`, `SaveFileAs`, `SaveViews` (true), `SaveLights` (true), `SaveVertexNormals` (true), `MapRhinoZtoFbxY`, `MeshingParameters`; `ToDictionary()`
-- `FileFbxReadOptions` — `Unweld`/`UnweldAngle` (true, 22.5), `ImportMeshesAsSubD`, `ImportLights` (true), `ImportCameras` (true), `MapFbxYtoRhinoZ`; `ToDictionary()`
-- `FileStpWriteOptions` — `StepSchema` (`SF_203`, `SF_214`, `SF_214_CC2`, `SF_242`; default `SF_203`); `Schema`, `Export2dCurves`, `ExportBlack` (true), `SplitClosedSurfaces`; `ToDictionary()`
-- `FileStpReadOptions` — `JoinSurfaces` (true), `LimitFaces`/`MaxFaceCount` (false, 2000); `ToDictionary()`
-- `FileSatWriteOptions` — `SatTypes` (`Default`, `ACIS15`, `ACIS20`, `ACIS30`, `ACIS40`, `AutoCAD`, `MechanicalDesktop`, `Inventor`, `SolidWorks`, `SolidEdge`); `Type`; `ToDictionary()`
-- `FileX_TWriteOptions` — `X_T_Types` (`Default`, `Edgecam`, `Mastercam`, `SolidEdge`, `SolidWorks`); `Type`; `ToDictionary()`
-- `FileSkpWriteOptions` — `SketchUpVersion` (`SketchUp3` through `SketchUp8`, `SketchUp2013` through `SketchUp2021`; default `SketchUp2021`); `Version`, `ExportPlanarRegionsAsPolygons` (true), `GroupObjects` (true), `MaxAngle` (15.0); `ToDictionary()`
-- `FileSkpReadOptions` — `ImportFacesAsMeshes` (true), `ImportCurves`, `JoinEdges` (true), `JoinFaces` (true), `Weld`/`WeldAngle` (true, 22.5), `UseGroupLayers`, `AddObjectsToGroups` (true), `EmbedTexturesInModel`, `UseSketchUpTextureWriter`, `DisplayColorBy` (int mode ordinal); `ToDictionary()`
-- `FileSvgReadOptions` — `ImportFillMode` (`AsCurves`, `AsHatches`, `AsTrimmedPlanes`; default `AsCurves`); `RetainGrouping`, `GroupMultiCurvePaths`, `ImportFilledObjectAs`; `ToDictionary()`
-- `FileAiReadOptions` / `FileAiWriteOptions` / `FileEpsReadOptions` — each carries a nested `Units` enum (`Inches`, `Centimeters`, `Millimeters`, `Points`) behind its unit property (`AiUnits` on both AI types, `EpsUnits`) plus `PreserveModelScale`, `RhinoScale` (1.0), and its own scale field (`AiScale`, `AIScale` — capital-AI on the write type, `EpsScale`; all 1.0); the write type adds `UseCMYK`, `ExportViewBoundary`, `ExportHatchesAsSolidFills` (true), `OrderLayers`; all three declare `ToDictionary()`
-- `FilePdfReadOptions` — `PDF_UNITS` (`inches`, `centimeters`, `millimeters`, `points` — lowercase host spellings); `PreserveModelScale`, `RhinoScale` (1.0), `PdfUnits`, `PDFScale` (1.0), `ImportFillsAsHatches` (true), `LoadText` (true); `ToDictionary()`
-- `FileTxtWriteOptions` — `DelimiterMode` (`Comma`, `Semicolon`, `Space`, `Tab`, `Other`); `Delimiter`, `DelimiterCharacter` (','), `Precision` (16), `ExportVertexColors` (true), `SurroundWithDoubleQuotes` (true); `ToDictionary()`
-- `FileTxtReadOptions` — `DelimiterMode` adds `Automatic` (the default); `Delimiter`, `DelimiterCharacter` (','), `CreatePointCloud` (true); `ToDictionary()`
-- `FileCsvWriteOptions` — column-inclusion booleans `Header` (true), `LayerName` (true), `LayerIndex`, `LayerColor`, `LayerHierarchy` (true), `GroupName`, `GroupIndexes`, `ObjectName` (true), `ObjectColor`, `ObjectID`, `ObjectMaterial`, `ObjectDescription` (true), `SurroundPointsWithDoubleQuotes` (true), `Length`, `Perimeter`, `Area`, `Volume`, `AreaCentroid`, `VolumeCentroid`, `AreaMoments`, `VolumeMoments`, `CumulativeMassProperties`, `AttributesKeys` (true), `AttributesTexts` (true), `ObjectKeys` (true), `ObjectsTexts` (true); `ToDictionary()`
-- `FileUsdWriteOptions` — `BlockHandling : USDExportBlockHandling` (namespace-level enum: `SeparateFiles`, `Ignore`, `Embedded`; default `SeparateFiles`), `DefaultLayer` (setter coerces null/empty to `"Default"`), `ModelName`, `ForceMeshes`, `IncludeUserStrings` (true), `MeshingParameters` (unset by default)
-- `FileXamlWriteOptions` — `AnimationMode` (`X`, `Y`, `Z`); `UseExistingRenderMeshes` (true), `AddRotationScrollbars`, `UseOriginForRotationCenter` (true), `AddRotationAnimation`, `AnimationAxis`, `MeshingParameters`; `ToDictionary()`
-- `FileGHSReadOptions` — `ReadViewType` (`Body`, `Profile`, `Plan`, `Wire`, `Solid`, `Camera`, `Custom`; default `Solid`); `AttachGhsData` (true), `RemoveColinearPoints` (true), `ViewType`
-- `FileNwdWriteOptions` — `Version : NavisWorksVersion` (namespace-level enum: `Navisworks2016`, `Navisworks2026`, `NavisworksCache`; default `Navisworks2016`), `MeshingParameters`
+- `FileObjWriteOptions` enums — `AsciiEol` (`Crlf`, `Lf`, `Cr`), `CurveType` (`Polyline`, `Nurbs`=default), `GeometryType` (`Nurbs`, `Mesh`=default), `ObjObjectNames` (`NoObjects`, `ObjectAsGroup`, `ObjectAsObject`), `ObjGroupNames` (`NoGroups`, `LayerAsGroup`, `GroupAsGroup`), `PolylineExportType` (`Bspline`=default, `Single`, `Multiple`), `VertexWelding` (`Normal`, `Welded`, `Unwelded`), `SubDMeshing` (`Surface`, `ControlNet`), `NGons` (`None`, `Preserve`, `Create`)
+- `FileObjWriteOptions` members — `ObjectType`, `ExportObjectNames`, `ExportGroupNameLayerNames`, `EolType`, `TrimCurveType`, `PolylineType`, `MeshType`, `SubDMeshType`, `SubDSurfaceMeshingDensity` (4), `ExportMaterialDefinitions` (true), `UseDisplayColorForMaterial` (true), `ExportTcs` (true), `ExportNormals` (true), `ExportVcs`/`VcsFormat` (false, 0), `ExportOpenMeshes` (true), `UseRenderMeshes`, `SortObjGroups` (true), `MergeNestedGroupingNames`, `MapZtoY`, `SignificantDigits` (17), `WrapLongLines`, `ExportAsTriangles`, `UnderbarMaterialNames`, `UseRelativeIndexing`, ngon cluster `CreateNgons`/`NgonMode`/`MinNgonFaceCount` (2)/`IncludeUnweldedEdgesInNgons` (true)/`CullUnnecessaryVertexesInNgons` (true), `MeshParameters : MeshingParameters`; `GetTransform()` derives the Z-to-Y basis from `MapZtoY`; `AngleTolRadians` is a readonly field; `UseSimpleDialog` and `ActualFilePathOnMac` are host dialog plumbing
+- `FileObjReadOptions` — group/object routing `UseObjGroupsAs : UseObjGsAs` (`IgnoreObjGroups`, `ObjGroupsAsLayers`, `ObjGroupsAsGroups`, `ObjGroupsAsObjects`=default) and `UseObjObjectsAs : UseObjOsAs` (`IgnoreObjObjects`=default, `ObjObjectsAsLayers`, `ObjObjectsAsGroups`, `ObjObjectsAsObjects`); `MapYtoZ`, `MorphTargetOnly`, `ReverseGroupOrder`, `IgnoreTextures`, `DisplayColorFromObjMaterial` (true), `Split32BitTextures`; `GetTransform()` mirrors the write-side basis
+- `FileIgsWriteOptions` enums — `IgesStringTypeMode` (`Unicode`, `BIG5`), `IgeswVersionMode` (`Igv52`=1=default, `Igv53`), `EolMode` (`Crlf`=1=default, `Cr`, `Lf`), `PointObjectsMode` (`PoSeparate`=116=default, `PoSets`=106), `MaxDegreeMode` (`MdNoLimit`=0, `Md3`=3, `Md5`=5), `SurfacesMode` (`Srf143`=143=default, `Srf144`=144, `Srf128`=128), `PolySurfacesMode` (`PsrfSeparate`=0, `PsrfUnorderedGroup`=402), `SolidsMode` (`SldSeparate`=0, `Sld184`=184, `SldManifoldBRep`=186, `SldUnorderedGroup`=402), `MeshesMode` (`MeshNone`=0, `Mesh10612`=12, `Mesh10613`=13)
+- `FileIgsWriteOptions` members — header quartet `Author`/`Organization`/`Sender`/`Receiver`, `NotesInStartSection` (true), `Units` (`Millimeters`), `Tolerance` (0.001), `IgesStringType`, `IgesVersion`, `EolType`, `Scale` (1.0), `HideDependentObjects`, `DoublesUseE`, `NoZerosInTSection`, `RenderColorAsIgesColor`, `PointType`; curve cluster `CurveMaxDegree`, `CompositeCurvesAsSingleBsplines`, `SimplifyCurves`, `FitRationalCurves`, `ClampCurveEndKnots`, `UseParentLabelOnCurves` (true), `ForceBezierKnotsOnCurves`, `FlagDependentCurvesAs03`; surface cluster `SurfaceType`, `PolySurfaceType`, `MaxSurfaceDegree`, `SolidType`, `MeshType`, `SimplifySurfaces`, `FitRationalSurfaces`, `ClampSurfaceEndKnots`, `UseParentLabelOnSurfaces` (true), `ForceBezierKnotsOnSurfaces`, `FlagDependentSurfacesAs03`, `SplitClosedSurfaces`, `SplitBiPolarSurfaces`, `ForceTrimmedSurfaces`, `WriteNonPlanarUnitNormal` (true); `CatiaVersion`/`CatiaTolsize` (0, 100000.0)
+- `FileGltfWriteOptions` — `SubDMeshing` (`Surface`, `ControlNet`); `MapZToY` (true), `ExportMaterials` (true), `CullBackfaces` (true), `UseDisplayColorForUnsetMaterials` (true), `SubDMeshType`, `SubDSurfaceMeshingDensity` (4), `ExportTextureCoordinates` (true), `ExportVertexNormals` (true), `ExportOpenMeshes` (true), `ExportVertexColors`, `ExportLayers`, `UseDracoCompression`; the Draco setters clamp silently — `DracoCompressionLevel` to `[1, 10]`, `DracoQuantizationBitsPosition`/`DracoQuantizationBitsNormal`/`DracoQuantizationBitsTextureCoordinate` to `[8, 32]`
+- `FileFbxWriteOptions` — `ObjectType` (`Nurbs`, `Mesh`=default), `MaterialType` (`Lambert`, `Phong`=default), `FileType` (`Binary7`=default, `Ascii7`, `Binary6`, `Ascii6`); `SaveObjectsAs`, `SaveMaterialsAs`, `SaveFileAs`, `SaveViews` (true), `SaveLights` (true), `SaveVertexNormals` (true), `MapRhinoZtoFbxY`, `MeshingParameters`
+- `FileFbxReadOptions` — `Unweld`/`UnweldAngle` (true, 22.5), `ImportMeshesAsSubD`, `ImportLights` (true), `ImportCameras` (true), `MapFbxYtoRhinoZ`
+- `FileStpWriteOptions` — `StepSchema` (`SF_203`=default, `SF_214`, `SF_214_CC2`, `SF_242`); `Schema`, `Export2dCurves`, `ExportBlack` (true), `SplitClosedSurfaces`
+- `FileStpReadOptions` — `JoinSurfaces` (true), `LimitFaces`/`MaxFaceCount` (false, 2000)
+- `FileSatWriteOptions` — `SatTypes` (`Default`, `ACIS15`, `ACIS20`, `ACIS30`, `ACIS40`, `AutoCAD`, `MechanicalDesktop`, `Inventor`, `SolidWorks`, `SolidEdge`); `Type`
+- `FileX_TWriteOptions` — `X_T_Types` (`Default`, `Edgecam`, `Mastercam`, `SolidEdge`, `SolidWorks`); `Type`
+- `FileSkpWriteOptions` — `SketchUpVersion` (`SketchUp3` through `SketchUp8`, `SketchUp2013` through `SketchUp2021`=default); `Version`, `ExportPlanarRegionsAsPolygons` (true), `GroupObjects` (true), `MaxAngle` (15.0)
+- `FileSkpReadOptions` — `ImportFacesAsMeshes` (true), `ImportCurves`, `JoinEdges` (true), `JoinFaces` (true), `Weld`/`WeldAngle` (true, 22.5), `UseGroupLayers`, `AddObjectsToGroups` (true), `EmbedTexturesInModel`, `UseSketchUpTextureWriter`, `DisplayColorBy` (int mode ordinal)
+- `FileSvgReadOptions` — `ImportFillMode` (`AsCurves`=default, `AsHatches`, `AsTrimmedPlanes`); `RetainGrouping`, `GroupMultiCurvePaths`, `ImportFilledObjectAs`
+- `FileAiReadOptions`/`FileAiWriteOptions`/`FileEpsReadOptions` — each carries a nested `Units` enum (`Inches`, `Centimeters`, `Millimeters`, `Points`) behind its unit property (`AiUnits` on both AI types, `EpsUnits`), `PreserveModelScale`, `RhinoScale` (1.0), and its own scale field (`AiScale`, `AIScale` capital-AI on the write type, `EpsScale`; all 1.0); the write type adds `UseCMYK`, `ExportViewBoundary`, `ExportHatchesAsSolidFills` (true), `OrderLayers`
+- `FilePdfReadOptions` — `PDF_UNITS` (`inches`, `centimeters`, `millimeters`, `points` — lowercase host spellings); `PreserveModelScale`, `RhinoScale` (1.0), `PdfUnits`, `PDFScale` (1.0), `ImportFillsAsHatches` (true), `LoadText` (true)
+- `FileTxtWriteOptions` — `DelimiterMode` (`Comma`, `Semicolon`, `Space`, `Tab`, `Other`); `Delimiter`, `DelimiterCharacter` (','), `Precision` (16), `ExportVertexColors` (true), `SurroundWithDoubleQuotes` (true)
+- `FileTxtReadOptions` — `DelimiterMode` adds `Automatic`=default; `Delimiter`, `DelimiterCharacter` (','), `CreatePointCloud` (true)
+- `FileCsvWriteOptions` — column-inclusion booleans `Header` (true), `LayerName` (true), `LayerIndex`, `LayerColor`, `LayerHierarchy` (true), `GroupName`, `GroupIndexes`, `ObjectName` (true), `ObjectColor`, `ObjectID`, `ObjectMaterial`, `ObjectDescription` (true), `SurroundPointsWithDoubleQuotes` (true), `Length`, `Perimeter`, `Area`, `Volume`, `AreaCentroid`, `VolumeCentroid`, `AreaMoments`, `VolumeMoments`, `CumulativeMassProperties`, `AttributesKeys` (true), `AttributesTexts` (true), `ObjectKeys` (true), `ObjectsTexts` (true)
+- `FileUsdWriteOptions` — `BlockHandling : USDExportBlockHandling` (namespace-level enum: `SeparateFiles`=default, `Ignore`, `Embedded`), `DefaultLayer` (setter coerces null/empty to `"Default"`), `ModelName`, `ForceMeshes`, `IncludeUserStrings` (true), `MeshingParameters` (unset by default)
+- `FileXamlWriteOptions` — `AnimationMode` (`X`, `Y`, `Z`); `UseExistingRenderMeshes` (true), `AddRotationScrollbars`, `UseOriginForRotationCenter` (true), `AddRotationAnimation`, `AnimationAxis`, `MeshingParameters`
+- `FileGHSReadOptions` — `ReadViewType` (`Body`, `Profile`, `Plan`, `Wire`, `Solid`=default, `Camera`, `Custom`); `AttachGhsData` (true), `RemoveColinearPoints` (true), `ViewType`
+- `FileNwdWriteOptions` — `Version : NavisWorksVersion` (namespace-level enum: `Navisworks2016`=default, `Navisworks2026`, `NavisworksCache`), `MeshingParameters`
 - `FileSlcWriteOptions` — `StartPoint` ((0,0,0)), `EndPoint` ((0,0,1)), `SliceDistance` (0.0381), `UseMeshes` (true), `AngleBetweenSegmentsDegrees` (5.0)
-- `FileVdaWriteOptions` — the header-string fields `SendingCompany`, `SendersName`, `TelephoneNumber`, `Address`, `ProjectName`, `ObjectCode`, `Variant`, `Confidentiality`, `DateEffective`, `CompanyName`, `ReceivingDepartment` plus `PointDeviationHairsAsMDI`
-- `File3mfWriteOptions` — `Title`, `Designer`, `Description`, `Copyright`, `LicenseTerms`, `Rating`, `MoveOutputToPositiveXYZOctant` (true), and the get-only `Metadata : Dictionary<string, string>`
+- `FileVdaWriteOptions` — header-string fields `SendingCompany`, `SendersName`, `TelephoneNumber`, `Address`, `ProjectName`, `ObjectCode`, `Variant`, `Confidentiality`, `DateEffective`, `CompanyName`, `ReceivingDepartment`, `PointDeviationHairsAsMDI`
+- `File3mfWriteOptions` — `Title`, `Designer`, `Description`, `Copyright`, `LicenseTerms`, `Rating`, `MoveOutputToPositiveXYZOctant` (true), get-only `Metadata : Dictionary<string, string>`
 - `File3dsWriteOptions` — `SaveViews` (true), `SaveLights` (true), `MeshingParameters`; `File3dsReadOptions` — `Unweld`/`UnweldAngle` (true, 22.5), `ImportLights` (true), `ImportCameras` (true)
 - `FileDgnReadOptions` — `ImportUnreferencedLayers`/`ImportUnreferencedBlocks` (both false — the DWG counterparts default true), `ImportUnreferencedLineStyles` (true), `ImportViews`, `GroupCellHeaders` (true)
 - `FileDstReadOptions` — `ImportJumps`; `FileSwReadOptions` — `ImportPartsAsBlocks`, `RotateYtoZ` (true), `ImportConstructionGeometry`
@@ -121,116 +116,118 @@ Direct engines receive their typed option carrier directly; `RhinoDoc.Import`/`E
 - `FileLwoWriteOptions` — `WriteVersion6` (true), `MeshingParameters`; `FileLwoReadOptions` — `Unweld`/`UnweldAngle` (true, 22.5)
 - `FileVrmlWriteOptions` — `Version` (1), `ExportTextureCoordinates`, `ExportVertexNormals`, `ExportVertexColors`, `MeshingParameters`; `FileX3dvWriteOptions` — the same roster without `Version`
 - `FilePlyWriteOptions` — `ExportASCII` (true), `ExportDoubles`, `ExportNormals` (true), `ExportColors`, `ExportMaterial`, `MeshingParameters`, `UseSimpleDialog` (host dialog plumbing); `FilePlyReadOptions` — `PLYModelUnits` (`Millimeters`)
-- `FileRawReadOptions` — `RawModelUnits` (`Millimeters`); `FileRawWriteOptions`, `FileAmfWriteOptions`, `FileCdWriteOptions`, `FileGtsWriteOptions`, `FileUdoWriteOptions`, `FilePovWriteOptions` — `MeshingParameters` only, with `FilePovWriteOptions` adding `ExportAsOneFile` (true)
-
-Exchange-relevant knobs include `File3dsWriteOptions.SaveViews`/`SaveLights`; the AI/EPS model-scale fields; the OBJ and PLY grouping, material, normal, and mesh fields; the DWG surface/color fields; `FileStlWriteOptions.BinaryFile`; the FBX object/view/light/normal fields; the SketchUp grouping field; the VRML/X3DV texture-coordinate and normal fields; the text/CSV column fields; the glTF Draco family; `FileUsdWriteOptions.ForceMeshes`/`IncludeUserStrings`/`BlockHandling`/`ModelName`; and `FileXamlWriteOptions.UseExistingRenderMeshes`.
+- `FileRawReadOptions` — `RawModelUnits` (`Millimeters`); `FileRawWriteOptions`, `FileAmfWriteOptions`, `FileCdWriteOptions`, `FileGtsWriteOptions`, `FileUdoWriteOptions`, `FilePovWriteOptions` — `MeshingParameters` only, `FilePovWriteOptions` adding `ExportAsOneFile` (true)
 
 [PUBLIC_TYPE_SCOPE]: PDF page authoring and document-attached I/O
-- rail: host
 
-| [INDEX] | [SYMBOL]                | [KIND]     | [CAPABILITY]                                                               |
-| :-----: | :---------------------- | :--------- | :------------------------------------------------------------------------- |
-|  [01]   | `FilePdf`               | class      | vector PDF page generation, drawing, and optional-content groups           |
-|  [02]   | `FilePdfReadOptions`    | class      | PDF import scale, unit, hatch, and text policy                             |
-|  [03]   | `FilePdfEventArgs`      | event args | payload for the static `PreWrite` stamp hook                               |
-|  [04]   | `PrintedPageDefinition` | class      | custom printed-page definition for `GetCustomPages`/`SetCustomPages`       |
-|  [05]   | `FileWriteOptions`      | class      | document write policy for `RhinoDoc.WriteFile`                             |
-|  [06]   | `ViewCaptureSettings`   | class      | page capture input to `FilePdf.AddPage`; the display catalog owns the type |
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY] | [CAPABILITY]                                                               |
+| :-----: | :---------------------- | :------------ | :------------------------------------------------------------------------- |
+|  [01]   | `FilePdf`               | class         | vector PDF page generation, drawing, and optional-content groups           |
+|  [02]   | `FilePdfReadOptions`    | class         | PDF import scale, unit, hatch, and text policy                             |
+|  [03]   | `FilePdfEventArgs`      | event args    | payload for the static `PreWrite` stamp hook                               |
+|  [04]   | `PrintedPageDefinition` | class         | custom printed-page definition for `GetCustomPages`/`SetCustomPages`       |
+|  [05]   | `FileWriteOptions`      | class         | document write policy for `RhinoDoc.WriteFile`                             |
+|  [06]   | `ViewCaptureSettings`   | class         | page capture input to `FilePdf.AddPage`; the display catalog owns the type |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: archive reads — filtered, metadata, and byte
-- rail: host
+[ENTRYPOINT_SCOPE]: archive reads — static, filtered, metadata, and byte
 
-- runtime-nullable `public static File3dm? File3dm.Read(string path)` / `Read(string path, File3dm.TableTypeFilter tableTypeFilterFilter, File3dm.ObjectTypeFilter objectTypeFilter)`; a missing path throws `FileNotFoundException`, while a native read failure returns `null`
-- runtime-nullable `public static File3dm? File3dm.ReadWithLog(string path, out string errorLog)` / `ReadWithLog(string path, File3dm.TableTypeFilter tableTypeFilterFilter, File3dm.ObjectTypeFilter objectTypeFilter, out string errorLog)`
-- runtime-nullable `public static File3dm? File3dm.FromByteArray(byte[] bytes)`
-- `public static string File3dm.ReadNotes(string path)` / `public static int ReadArchiveVersion(string path)`
-- `public static bool File3dm.ReadRevisionHistory(string path, out string createdBy, out string lastEditedBy, out int revision, out DateTime createdOn, out DateTime lastEditedOn)`
-- runtime-nullable `public static EarthAnchorPoint? File3dm.ReadEarthAnchorPoint(string path)`; the caller owns the returned disposable value
-- `public static void File3dm.ReadApplicationData(string path, out string applicationName, out string applicationUrl, out string applicationDetails)`
-- `public static ViewInfo[] File3dm.ReadPageViews(string path)` returns an empty array when the file is absent or the native read fails
-- runtime-nullable `public static Bitmap? File3dm.ReadPreviewImage(string path)` / `public static DimensionStyle[]? ReadDimensionStyles(string path)`; an absent path throws for both
+| [INDEX] | [SURFACE]                                                                                                    | [CAPABILITY]             |
+| :-----: | :----------------------------------------------------------------------------------------------------------- | :----------------------- |
+|  [01]   | `File3dm.Read(string [, TableTypeFilter, ObjectTypeFilter])` -> `File3dm?`                                   | full or filtered read    |
+|  [02]   | `File3dm.ReadWithLog(string [, TableTypeFilter, ObjectTypeFilter], out string)` -> `File3dm?`                | read with diagnostic log |
+|  [03]   | `File3dm.FromByteArray(byte[])` -> `File3dm?`                                                                | deserialize from bytes   |
+|  [04]   | `File3dm.ReadNotes(string)` -> `string`                                                                      | header notes             |
+|  [05]   | `File3dm.ReadArchiveVersion(string)` -> `int`                                                                | archive format version   |
+|  [06]   | `File3dm.ReadRevisionHistory(string, out string, out string, out int, out DateTime, out DateTime)` -> `bool` | revision identity        |
+|  [07]   | `File3dm.ReadEarthAnchorPoint(string)` -> `EarthAnchorPoint?`                                                | georeference             |
+|  [08]   | `File3dm.ReadApplicationData(string, out string, out string, out string)`                                    | authoring app identity   |
+|  [09]   | `File3dm.ReadPageViews(string)` -> `ViewInfo[]`                                                              | layout page views        |
+|  [10]   | `File3dm.ReadPreviewImage(string)` -> `Bitmap?`                                                              | stored preview           |
+|  [11]   | `File3dm.ReadDimensionStyles(string)` -> `DimensionStyle[]?`                                                 | archive dimension styles |
+
+- `File3dm.Read`: a missing path throws `FileNotFoundException`; a native read failure returns `null`.
+- `File3dm.ReadPageViews`: an absent file or native failure returns an empty array.
+- `File3dm.ReadPreviewImage` / `ReadDimensionStyles`: an absent path throws.
+- `File3dm.ReadEarthAnchorPoint`: caller owns the returned disposable value.
 
 [ENTRYPOINT_SCOPE]: archive writes, serialization, and validity
-- rail: host
 
-- `public static bool File3dm.WriteOneObject(string path, GeometryBase geometry)` / `public static bool WriteMultipleObjects(string path, IEnumerable<GeometryBase> geometry)` create standalone minimal archives
-- `public bool File3dm.Write(string path, int version)` / `public bool Write(string path, File3dmWriteOptions? options)`; `null` options create defaults
-- `public bool File3dm.WriteWithLog(string path, int version, out string errorLog)` / `public bool WriteWithLog(string path, File3dmWriteOptions? options, out string errorLog)`
-- runtime-nullable `public byte[]? File3dm.ToByteArray()` / `public byte[]? ToByteArray(File3dmWriteOptions? options)`; native serialization failure returns `null`
-- archive validity is per-object through `public bool CommonObject.IsValidWithLog(out string log)`; no archive-level validity method exists, and a read-time diagnostic comes only from the `ReadWithLog`/`WriteWithLog` error log
-- runtime-nullable `public Bitmap? File3dm.GetPreviewImage()` / `public void SetPreviewImage(Bitmap? image)`; the returned bitmap is caller-owned, `null` clears the stored preview, and a non-null image is copied into native storage during the call
+| [INDEX] | [SURFACE]                                                                        | [SHAPE]  | [CAPABILITY]               |
+| :-----: | :------------------------------------------------------------------------------- | :------- | :------------------------- |
+|  [01]   | `File3dm.WriteOneObject(string, GeometryBase)` -> `bool`                         | static   | standalone minimal archive |
+|  [02]   | `File3dm.WriteMultipleObjects(string, IEnumerable<GeometryBase>)` -> `bool`      | static   | standalone minimal archive |
+|  [03]   | `File3dm.Write(string, int)` / `Write(string, File3dmWriteOptions?)` -> `bool`   | instance | write archive              |
+|  [04]   | `File3dm.WriteWithLog(string, int / File3dmWriteOptions?, out string)` -> `bool` | instance | write with diagnostic log  |
+|  [05]   | `File3dm.ToByteArray([File3dmWriteOptions?])` -> `byte[]?`                       | instance | serialize to bytes         |
+|  [06]   | `File3dm.GetPreviewImage()` -> `Bitmap?` / `SetPreviewImage(Bitmap?)`            | instance | stored-preview get/set     |
+|  [07]   | `CommonObject.IsValidWithLog(out string)` -> `bool`                              | instance | per-object validity        |
+
+- `File3dm.Write` / `WriteWithLog`: `null` options create defaults.
+- `File3dm.ToByteArray`: a native serialization failure returns `null`; a consumer admits the value before hashing or dereferencing.
+- `File3dm.SetPreviewImage`: `null` clears the stored preview, a non-null image copies into native storage during the call, and the returned bitmap is caller-owned.
+- Archive validity is per-object only; no archive-level validity method exists, and a read-time diagnostic comes from the `ReadWithLog`/`WriteWithLog` error log.
 
 [ENTRYPOINT_SCOPE]: archive tables and write options
-- rail: host
+- table navigation: `File3dm.Settings : File3dmSettings`, `Manifest : ManifestTable`, `Objects : File3dmObjectTable`, `AllLayers : File3dmLayerTable`, `AllMaterials : File3dmMaterialTable`, `AllGroups : File3dmGroupTable`, `AllInstanceDefinitions : File3dmInstanceDefinitionTable`, `AllViews : File3dmViewTable`, `AllNamedViews : File3dmViewTable`, `EmbeddedFiles : File3dmEmbeddedFiles`, `RenderMaterials : File3dmRenderMaterials`, `RenderEnvironments : File3dmRenderEnvironments`, `RenderTextures : File3dmRenderTextures`, `AllDimStyles : File3dmDimStyleTable`
+- header identity: `File3dm.ArchiveVersion : int`, `Revision : int`, `CreatedBy`/`LastEditedBy : string`, `Created`/`LastEdited : DateTime`, `ApplicationName`/`ApplicationUrl`/`ApplicationDetails : string`, `EarthAnchorPoint : EarthAnchorPoint` (get/set, disposable)
+- `File3dmSettings.ModelUnits`/`PageUnits : LengthUnit` preserve built-in or custom unit identity and meters-per-unit scale; `ModelUnitSystem`/`PageUnitSystem : UnitSystem` are the enum-only projections
+- `File3dm.Strings : File3dmStringTable` — `SetString(string, string, string)` / `Delete(string, string)`; `File3dm.Notes : File3dmNotes` (get/set) — `File3dmNotes.Notes : string` writes through the parent archive when attached, beside `IsVisible`/`IsHtml`
+- `File3dm.TableTypeFilter` values: `StartSection`, `Properties`, `Settings`, `Bitmap`, `TextureMapping`, `Material`, `Linetype`, `Layer`, `Group`, `Font`, `Dimstyle`, `Light`, `Hatchpattern`, `SectionStyle`, `Markup`, `PageViewGroup`, `InstanceDefinition`, `ObjectTable`, `Historyrecord`, `UserTable`
+- `File3dmObject.Geometry : GeometryBase?` — an unrealized native pointer forces a guard before every geometry dereference; `Name`, `Id`, `Attributes` stay non-null projections
+- `File3dmObjectTable.Add(File3dmObject)` duplicates a component and throws `NotSupportedException` on native failure; `Add(GeometryBase, ObjectAttributes?)` -> `Guid` dispatches supported geometry kinds and throws `NotSupportedException` for an unsupported kind (no one-argument `Add(GeometryBase)`); typed overloads `AddPoint`, `AddCurve`, `AddExtrusion`, `AddMesh`, `AddBrep`, `AddSubD` each carry a no-attributes and an `ObjectAttributes?` overload returning `Guid`
+- `File3dmViewTable.FindName(string)` -> `ViewInfo?` / `Add(ViewInfo)` / `Delete(ViewInfo)` -> `bool`; `File3dmEmbeddedFile.Filename : string` (get) / `SaveToFile(string)` -> `bool`
+- `File3dmWriteOptions.Version : int` admits `0` or `[2, RhinoApp.ExeVersion]` (ctor defaults to `RhinoApp.ExeVersion`); `SaveUserData : bool` defaults true; `EnableRenderMeshes(ObjectType, bool)` / `EnableAnalysisMeshes(ObjectType, bool)` mutate per-kind flags — render meshes principally apply to brep, extrusion, and SubD, analysis meshes extend to mesh
 
-- `File3dm.Settings : File3dmSettings` / `Manifest : ManifestTable` / `Objects : File3dmObjectTable`
-- `File3dmSettings.ModelUnits : LengthUnit` / `PageUnits : LengthUnit` preserve built-in or custom unit identity and meters-per-unit scale; `ModelUnitSystem`/`PageUnitSystem : UnitSystem` are the enum-only projections
-- `File3dm.AllLayers : File3dmLayerTable` / `AllMaterials : File3dmMaterialTable` / `AllGroups : File3dmGroupTable` / `AllInstanceDefinitions : File3dmInstanceDefinitionTable`
-- `File3dm.AllViews : File3dmViewTable` / `AllNamedViews : File3dmViewTable` / `EmbeddedFiles : File3dmEmbeddedFiles`
-- `File3dm.RenderMaterials : File3dmRenderMaterials` / `RenderEnvironments : File3dmRenderEnvironments` / `RenderTextures : File3dmRenderTextures`
-- `File3dm.Strings : File3dmStringTable` — `SetString(string section, string entry, string value)` / `Delete(string section, string entry)`
-- `File3dm.Notes : File3dmNotes` (get/set) — `File3dmNotes.Notes : string` writes through the parent archive when attached, beside `IsVisible`/`IsHtml`
-- `File3dm.ArchiveVersion : int` / `Revision : int` / `CreatedBy`/`LastEditedBy : string` / `Created`/`LastEdited : DateTime` — the in-memory header identity
-- `File3dm.ApplicationName`/`ApplicationUrl`/`ApplicationDetails : string` / `EarthAnchorPoint : EarthAnchorPoint` (get/set, disposable) / `AllDimStyles : File3dmDimStyleTable`
-- `File3dm.TableTypeFilter` values: `StartSection`/`Properties`/`Settings`/`Bitmap`/`TextureMapping`/`Material`/`Linetype`/`Layer`/`Group`/`Font`/`Dimstyle`/`Light`/`Hatchpattern`/`SectionStyle`/`Markup`/`PageViewGroup`/`InstanceDefinition`/`ObjectTable`/`Historyrecord`/`UserTable`
-- runtime-nullable `public GeometryBase? File3dmObject.Geometry` — the native pointer can be unrealized, so every geometry read guards before dereference; `Name`, `Id`, and `Attributes` stay non-null projections
-- `public override void File3dmObjectTable.Add(File3dmObject item)` duplicates a model component and throws `NotSupportedException` when native addition fails
-- `public Guid File3dmObjectTable.Add(GeometryBase item, ObjectAttributes? attributes)` dispatches supported geometry kinds and throws `NotSupportedException` for an unsupported kind; no one-argument polymorphic `Add(GeometryBase)` exists
-- typed object-table overloads include `AddPoint`, `AddCurve`, `AddExtrusion`, `AddMesh`, `AddBrep`, and `AddSubD`, each with a no-attributes overload and an `ObjectAttributes?` overload returning `Guid`
-- runtime-nullable `public ViewInfo? File3dmViewTable.FindName(string name)` / `public void Add(ViewInfo item)` / `public bool Delete(ViewInfo item)`
-- `public string File3dmEmbeddedFile.Filename { get; }` / `public bool SaveToFile(string filename)`
-- `public int File3dmWriteOptions.Version { get; set; }` admits `0` or `[2, RhinoApp.ExeVersion]`; the constructor defaults to `RhinoApp.ExeVersion`. `public bool SaveUserData { get; set; }` defaults true
-- `public void File3dmWriteOptions.EnableRenderMeshes(ObjectType objectType, bool enable)` / `public void EnableAnalysisMeshes(ObjectType objectType, bool enable)` mutate the per-kind flags; render meshes principally apply to brep, extrusion, and SubD, while analysis meshes additionally apply to mesh
+[ENTRYPOINT_SCOPE]: document-attached exchange — instance on `RhinoDoc`
 
-[ENTRYPOINT_SCOPE]: document-attached exchange
-- rail: host
+| [INDEX] | [SURFACE]                                                                       | [CAPABILITY]                                    |
+| :-----: | :------------------------------------------------------------------------------ | :---------------------------------------------- |
+|  [01]   | `RhinoDoc.Import(string [, ArchivableDictionary?])` -> `bool`                   | import into document                            |
+|  [02]   | `RhinoDoc.Export(string [, ArchivableDictionary?])` -> `bool`                   | export document                                 |
+|  [03]   | `RhinoDoc.ExportSelected(string [, ArchivableDictionary?])` -> `bool`           | export selection                                |
+|  [04]   | `RhinoDoc.WriteFile(string, FileWriteOptions)` -> `bool`                        | general writer — plug-in, locking, temp, backup |
+|  [05]   | `RhinoDoc.Write3dmFile(string, FileWriteOptions)` -> `bool`                     | write `.3dm` without changing document identity |
+|  [06]   | `RhinoDoc.Save()` -> `bool`                                                     | write `RhinoDoc.Path`                           |
+|  [07]   | `RhinoDoc.SaveAs(string [, int [, bool, bool, bool, bool [, bool]]])` -> `bool` | save-as, updates document path on success       |
+|  [08]   | `RhinoDoc.SaveAsTemplate(string [, int])` -> `bool`                             | template save, preserves document path          |
 
-- `public bool RhinoDoc.Import(string filePath)` / `public bool Import(string filePath, ArchivableDictionary? options)`; `public bool Export(string filePath)` / `public bool Export(string filePath, ArchivableDictionary? options)`; `public bool ExportSelected(string filePath)` / `public bool ExportSelected(string filePath, ArchivableDictionary? options)`
-- `public bool RhinoDoc.WriteFile(string path, FileWriteOptions options)` is the general writer with plug-in, locking, temporary-file, and backup handling; `public bool Write3dmFile(string path, FileWriteOptions options)` writes `.3dm` without changing document identity
-- `public bool RhinoDoc.Save()` writes `RhinoDoc.Path` and throws `InvalidOperationException` when it is empty
-- `public bool RhinoDoc.SaveAs(string file3dmPath)` / `SaveAs(string file3dmPath, int version)` / `SaveAs(string file3dmPath, int version, bool saveSmall, bool saveTextures, bool saveGeometryOnly, bool savePluginData)` / `SaveAs(string file3dmPath, int version, bool saveSmall, bool saveTextures, bool saveGeometryOnly, bool savePluginData, bool useCompression)` update document path on success
-- `public bool RhinoDoc.SaveAsTemplate(string file3dmTemplatePath)` / `SaveAsTemplate(string file3dmTemplatePath, int version)` preserve document path and require a `.3dm` extension
-- `FileWriteOptions`: `UpdateDocumentPath`, `WriteSelectedObjectsOnly`, `IncludeRenderMeshes`, `IncludePreviewImage`, `IncludeBitmapTable`, `IncludeHistory`, `SuppressDialogBoxes`, `SuppressAllInput`, `WriteGeometryOnly`, `WriteUserData`, `CreateBackupFiles`, `CreateOtherBackupFiles`, and `UseCompression` are public mutable booleans; `WriteAsTemplate` is get-only
+- `RhinoDoc.Save`: an empty `RhinoDoc.Path` throws `InvalidOperationException`.
+- `RhinoDoc.SaveAsTemplate`: requires a `.3dm` extension.
+- `FileWriteOptions` mutable booleans: `UpdateDocumentPath`, `WriteSelectedObjectsOnly`, `IncludeRenderMeshes`, `IncludePreviewImage`, `IncludeBitmapTable`, `IncludeHistory`, `SuppressDialogBoxes`, `SuppressAllInput`, `WriteGeometryOnly`, `WriteUserData`, `CreateBackupFiles`, `CreateOtherBackupFiles`, `UseCompression`; `WriteAsTemplate` is get-only.
 
-[ENTRYPOINT_SCOPE]: direct format engines
-- rail: host
+[ENTRYPOINT_SCOPE]: direct format engines — static `Engine.Write`/`Engine.Read`
+- `Engine.Write(string, RhinoDoc, <Engine>WriteOptions)` returns `bool`, except `FileObj.Write` and `FilePly.Write` returning `WriteFileResult`; read-capable engines expose `Engine.Read(string, RhinoDoc, <Engine>ReadOptions)` -> `bool`, and roster [02] names each engine's read/write direction. Format selection lives in the chosen engine and its option carrier, never a re-parsed extension string.
 
-- `public static WriteFileResult FileObj.Write(string filename, RhinoDoc doc, FileObjWriteOptions options)` / `public static bool FileObj.Read(string filename, RhinoDoc doc, FileObjReadOptions options)`
-- `public static bool File3ds.Write(string path, RhinoDoc doc, File3dsWriteOptions options)` / `public static bool File3ds.Read(string path, RhinoDoc doc, File3dsReadOptions options)`
-- `public static bool FileAi.Write(string path, RhinoDoc doc, FileAiWriteOptions options)` / `public static bool FileAi.Read(string path, RhinoDoc doc, FileAiReadOptions options)`
-- `public static bool FileDwg.Write(string path, RhinoDoc doc, FileDwgWriteOptions options)` / `public static bool FileDwg.Read(string path, RhinoDoc doc, FileDwgReadOptions options)`
-- `public static bool FileFbx.Write(string path, RhinoDoc doc, FileFbxWriteOptions options)` / `public static bool FileFbx.Read(string path, RhinoDoc doc, FileFbxReadOptions options)`
-- `public static WriteFileResult FilePly.Write(string filename, RhinoDoc doc, FilePlyWriteOptions options)` / `public static bool FilePly.Read(string path, RhinoDoc doc, FilePlyReadOptions options)`
-- `public static bool FileSkp.Write(string filename, RhinoDoc doc, FileSkpWriteOptions options)` / `public static bool FileSkp.Read(string path, RhinoDoc doc, FileSkpReadOptions options)`
-- `public static bool FileStl.Write(string path, RhinoDoc doc, FileStlWriteOptions options)` / `public static bool FileStl.Read(string path, RhinoDoc doc, FileStlReadOptions options)`
-- `public static bool FileStp.Write(string filename, RhinoDoc doc, FileStpWriteOptions options)` / `public static bool FileStp.Read(string path, RhinoDoc doc, FileStpReadOptions options)`
-- `public static bool FileGltf.Write(string filename, RhinoDoc doc, FileGltfWriteOptions options)` / `public static bool FileIgs.Write(string path, RhinoDoc doc, FileIgsWriteOptions options)`
-- `public static bool FileNwd.Write(string path, RhinoDoc doc, FileNwdWriteOptions options)` / `public static bool FileUsd.Write(string path, RhinoDoc doc, FileUsdWriteOptions options)` / `public static bool FileX_T.Write(string filename, RhinoDoc doc, FileX_TWriteOptions options)`
-- `public static bool FileSvg.Read(string path, RhinoDoc doc, FileSvgReadOptions options)`
+[ENTRYPOINT_SCOPE]: PDF page authoring — instance on `FilePdf` except where marked
 
-[ENTRYPOINT_SCOPE]: PDF page authoring
-- rail: host
+| [INDEX] | [SURFACE]                                                                  | [SHAPE]  | [CAPABILITY]                     |
+| :-----: | :------------------------------------------------------------------------- | :------- | :------------------------------- |
+|  [01]   | `FilePdf.Create()` -> `FilePdf?`                                           | static   | plug-in lookup can return `null` |
+|  [02]   | `FilePdf.AddPage(ViewCaptureSettings)` / `AddPage(int, int, int)` -> `int` | instance | add a page                       |
+|  [03]   | `FilePdf.DrawPolyline(int, PointF[], Color, Color, float)`                 | instance | filled/stroked polyline          |
+|  [04]   | `FilePdf.DrawLine(int, PointF, PointF, Color, float)`                      | instance | stroked line                     |
+|  [05]   | `FilePdf.DrawBitmap(int, Bitmap, float, float, float, float, float)`       | instance | placed bitmap                    |
+|  [06]   | `FilePdf.LayersAsOptionalContentGroups : bool`                             | property | optional-content group emission  |
+|  [07]   | `FilePdf.PreWrite : EventHandler<FilePdfEventArgs>?`                       | static   | per-page pre-write stamp hook    |
+|  [08]   | `FilePdf.GetCustomPages()` -> `PrintedPageDefinition[]`                    | static   | read custom-page roster          |
+|  [09]   | `FilePdf.SetCustomPages(IEnumerable<PrintedPageDefinition>?)`              | static   | replace custom-page roster       |
+|  [10]   | `FilePdf.Write(string)` / `Write(Stream)`                                  | instance | commit document                  |
+|  [11]   | `FilePdf.Read(string, RhinoDoc, FilePdfReadOptions)` -> `bool`             | static   | PDF import                       |
 
-- runtime-nullable `public static FilePdf? FilePdf.Create()`; the PDF plug-in lookup can return `null`
-- `public abstract int FilePdf.AddPage(ViewCaptureSettings settings)` / `public abstract int AddPage(int widthInDots, int heightInDots, int dotsPerInch)`
-- `public abstract void FilePdf.DrawText(int pageNumber, string text, double x, double y, float heightPoints, Font onfont, Color fillColor, Color strokeColor, float strokeWidth, float angleDegrees, TextHorizontalAlignment horizontalAlignment, TextVerticalAlignment verticalAlignment)`
-- `public abstract void FilePdf.DrawPolyline(int pageNumber, PointF[] polyline, Color fillColor, Color strokeColor, float strokeWidth)`
-- `public void FilePdf.DrawLine(int pageNumber, PointF from, PointF to, Color strokeColor, float strokeWidth)`
-- `public abstract void FilePdf.DrawBitmap(int pageNumber, Bitmap bitmap, float left, float top, float width, float height, float rotationInDegrees)`
-- `public bool FilePdf.LayersAsOptionalContentGroups { get; set; }` — document-level state on the `FilePdf` instance read at emission, never per-page; runtime-nullable `public static event EventHandler<FilePdfEventArgs>? PreWrite`
-- `public static PrintedPageDefinition[] FilePdf.GetCustomPages()` / `public static void SetCustomPages(IEnumerable<PrintedPageDefinition>? pages)` — REPLACE semantics over the host-process-global custom-page list, so a writer saves and restores the prior roster; `null` clears the set
-- `public abstract void FilePdf.Write(string filename)` / `public abstract void Write(Stream stream)` / `public static bool Read(string path, RhinoDoc doc, FilePdfReadOptions options)`
-- `FilePdfReadOptions.PreserveModelScale : bool` / `RhinoScale : double` / `PdfUnits : FilePdfReadOptions.PDF_UNITS` / `PDFScale : double` / `ImportFillsAsHatches : bool` / `LoadText : bool`
+- `FilePdf.DrawText(int, string, double x, double y, float heightPoints, Font, Color fill, Color stroke, float strokeWidth, float angleDegrees, TextHorizontalAlignment, TextVerticalAlignment)` draws text on one page.
+- `FilePdf.LayersAsOptionalContentGroups`: document-level state read at emission, never per-page.
+- `FilePdf.SetCustomPages`: REPLACE semantics over the host-process-global custom-page list, so a writer saves and restores the prior roster; `null` clears the set.
+- `FilePdfReadOptions`: `PreserveModelScale : bool`, `RhinoScale : double`, `PdfUnits : FilePdfReadOptions.PDF_UNITS`, `PDFScale : double`, `ImportFillsAsHatches : bool`, `LoadText : bool`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[FILEIO_TOPOLOGY]:
+[TOPOLOGY]:
 - `File3dm` is document-free: it reads, mutates, serializes, and writes the archive without opening a `RhinoDoc`, and `TableTypeFilter`/`ObjectTypeFilter` bound a partial read to the required tables and object kinds
-- the metadata reads (`ReadNotes`, `ReadArchiveVersion`, `ReadRevisionHistory`, `ReadEarthAnchorPoint`, `ReadApplicationData`, `ReadPreviewImage`) touch the header without materializing geometry
-- byte serialization through `FromByteArray`/`ToByteArray` is runtime-nullable in both directions, and a consumer admits the value before hashing or dereferencing it
-- every direct engine takes a live `RhinoDoc` plus a typed `*Options` carrier and returns a `bool` or `WriteFileResult`; the roster is the one conversion surface, and format selection lives in which engine and options a caller picks, never a re-parsed extension string
+- metadata reads (`ReadNotes`, `ReadArchiveVersion`, `ReadRevisionHistory`, `ReadEarthAnchorPoint`, `ReadApplicationData`, `ReadPreviewImage`) touch the header without materializing geometry
+- byte serialization through `FromByteArray`/`ToByteArray` is runtime-nullable in both directions, and a consumer admits the value before hashing or dereferencing
+- every direct engine folds a live `RhinoDoc` and a typed `*Options` carrier to a `bool` or `WriteFileResult`; the roster is the one conversion surface, and format selection lives in the chosen engine and options
 - `FilePdf` authors vector pages directly, groups layers as optional content, and stamps every page through the static `PreWrite` hook before `Write` commits the document
 
 [STACKING]:
@@ -242,14 +239,10 @@ Exchange-relevant knobs include `File3dsWriteOptions.SaveViews`/`SaveLights`; th
 - standalone archive work enters through `File3dm`; document-attached I/O enters through the `RhinoDoc` operations, and the two paths never fork the same read
 - direct conversion enters through the owning engine's `Write`/`Read` with its typed options carrier
 - PDF page authoring enters through `FilePdf.Create` then the page and draw surface
+- `Rhino.FileIO.Nrbf` is host-private internal serialization glue with no public entry point; native file-dialog registration (`FileImportPlugIn`/`FileExportPlugIn`/`FileTypeList`/`FileReadOptions`) is owned by `api-rhinocommon-plugins.md`
 
 [RAIL_LAW]:
 - Package: `RhinoCommon`
 - Owns: the standalone `.3dm` archive, direct format conversion, PDF page authoring, document-attached exchange
 - Accept: filtered, metadata, and byte archive access, typed-option conversion, vector PDF authoring
 - Reject: document identity and table mutation, block-definition graph depth, native file-dialog registration
-
-[NAMESPACE_CENSUS]:
-- covered public surface: `Rhino.FileIO` (`File3dm` + archive tables, the direct format-engine roster and typed `*Options`, `FilePdf` page authoring), `Rhino` (document-attached I/O), `Rhino.DocObjects` (`EarthAnchorPoint`)
-- access-excluded (internal, never lands): `Rhino.FileIO.Nrbf` — the entire NRBF binary-serialization record surface (`ObjectReader`/`ObjectWriter`/`SerializationHeaderRecord`/`BinaryFormatter`/`RecordType`/`PrimitiveType`/`BinaryType`/`ISerializationRecord`/`ClassWithMembersAndTypesRecord`/… decompile-verified `internal`) is host-private serialization glue with no public entry point; the census weight counted internal types, not accessible surface
-- native file-dialog registration and dispatch (`FileImportPlugIn`/`FileExportPlugIn`/`FileTypeList`/`FileReadOptions`) are owned by `api-rhinocommon-plugins.md`

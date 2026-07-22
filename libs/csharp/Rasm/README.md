@@ -89,7 +89,7 @@
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Kernel-specific libraries admitted by this folder; versions centralize in the C# manifest and corroborate against this folder's `.api/`.
+Domain-specific libraries admitted by this folder; versions centralize in `Directory.Packages.props` and corroborate against this folder's `.api/`.
 
 [NUMERIC_FLOOR]:
 - `TYoshimura.DoubleDouble` — middle-precision tier of the predicate ladder.

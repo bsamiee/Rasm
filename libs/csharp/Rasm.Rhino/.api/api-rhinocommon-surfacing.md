@@ -1,6 +1,6 @@
 # [RASM_RHINO_API_RHINOCOMMON_SURFACING]
 
-This catalog owns the host-fidelity freeform surface and curve construction boundary: `NurbsSurface` network/rail-revolve/through-points/curve-on-surface/ruled/subd-friendly build, the `Surface`/`RevSurface`/`SumSurface`/`PlaneSurface` generation set, and the `Curve` host-op family — offset, offset-on-surface, fair/fit/rebuild/smooth/simplify, extend/trim/split by cutter, pull and project, plus blend/fillet/tween construction and `NurbsCurve` fitting. Every member P/Invokes `rhcommon_c` and returns geometry bit-compatible with Rhino's own commands, standing at the host boundary beside the kernel's host-neutral NURBS algebra in `Rasm/Parametric/curve` and `surface` (evaluate, divide, curvature, tessellate, pullback), which owns a different altitude and is never re-derived here. Curve-surface and curve-brep intersection belongs to `Rasm/Analysis/relations`, iso and contour extraction to `Rasm/Processing/extract`, and native custody to the geometry catalog; this surface projects native `Curve[]`/`Surface`/`bool`+`out` outcomes onto the `LanguageExt` rails.
+This catalog owns the host-fidelity freeform surface and curve construction boundary: the `NurbsSurface` build set, the `Surface`/`RevSurface`/`SumSurface`/`PlaneSurface` generation family, and the `Curve` host-op family — offset, refine, extend/trim/split, pull/project, and blend/fillet/tween/fit construction over `Curve` and `NurbsCurve`. Every member P/Invokes `rhcommon_c` and returns geometry bit-compatible with Rhino's commands; the boundary never re-derives the kernel-altitude host-neutral NURBS algebra owning evaluation, division, curvature, and tessellation, and routes intersection, iso/contour extraction, and native custody to their own catalogs. Native `bool`+`out` and nullable-or-array outcomes project onto the `LanguageExt` rails.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -15,9 +15,8 @@ This catalog owns the host-fidelity freeform surface and curve construction boun
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: surface owners
-- rail: surface-construction
 
-| [INDEX] | [SYMBOL]       | [KIND]          | [CAPABILITY]                                                             |
+| [INDEX] | [SYMBOL]       | [TYPE_FAMILY]   | [CAPABILITY]                                                             |
 | :-----: | :------------- | :-------------- | :----------------------------------------------------------------------- |
 |  [01]   | `NurbsSurface` | native geometry | network, rail-revolve, through-points, curve-on-surface, ruled build     |
 |  [02]   | `Surface`      | native base     | extrusion, periodic, soft-edit, rolling-ball fillet, tween-with-sampling |
@@ -25,112 +24,207 @@ This catalog owns the host-fidelity freeform surface and curve construction boun
 |  [04]   | `SumSurface`   | native geometry | translational-sweep surface from two curves or a curve and direction     |
 |  [05]   | `PlaneSurface` | native geometry | bounded plane through a box in a frame                                   |
 
-[PUBLIC_TYPE_SCOPE]: curve owners
-- rail: surface-construction
+[PUBLIC_TYPE_SCOPE]: curve owners and carriers
 
-| [INDEX] | [SYMBOL]     | [KIND]          | [CAPABILITY]                                                                |
-| :-----: | :----------- | :-------------- | :-------------------------------------------------------------------------- |
-|  [01]   | `Curve`      | native base     | offset, fair/fit/rebuild/smooth/simplify, extend/trim/split, pull, project  |
-|  [02]   | `NurbsCurve` | native geometry | fit-point, spline, spiral, parabola, arc-bezier, subd-friendly construction |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]   | [CAPABILITY]                                                                |
+| :-----: | :------------------------ | :-------------- | :-------------------------------------------------------------------------- |
+|  [01]   | `Curve`                   | native base     | offset, fair/fit/rebuild/smooth/simplify, extend/trim/split, pull, project  |
+|  [02]   | `NurbsCurve`              | native geometry | fit-point, spline, spiral, parabola, arc-bezier, subd-friendly construction |
+|  [03]   | `CurveBooleanRegions`     | disposable      | planar-boolean region carrier: region/segment/point projections             |
+|  [04]   | `RibbonOffsetParameters`  | config carrier  | ribbon-offset distance, blend, rebuild, and surface-method policy           |
+|  [05]   | `NurbsCurveFitParameters` | config carrier  | advanced-fit tangent, kink, smoothing, and point-count policy               |
 
-[ENUM_ROSTERS]:
-- `public enum Rhino.Geometry.CurveOffsetCornerStyle` — `None`, `Sharp`, `Round`, `Smooth`, `Chamfer`.
-- `public enum Rhino.Geometry.CurveOffsetEndStyle` — `None`, `Flat`, `Round`.
-- `public enum Rhino.Geometry.CurveExtensionStyle` — `Line`, `Arc`, `Smooth`.
-- `public enum Rhino.Geometry.CurveEnd` — `None = 0`, `Start = 1`, `End = 2`, `Both = 3`.
-- `public enum Rhino.Geometry.SmoothingCoordinateSystem` — `World`, `CPlane`, `Object`.
-- `[Flags] public enum Rhino.Geometry.CurveSimplifyOptions` — `None = 0`, `SplitAtFullyMultipleKnots = 1`, `RebuildLines = 2`, `RebuildArcs = 4`, `RebuildRationals = 8`, `AdjustG1 = 0x10`, `Merge = 0x20`, `All = 0x3F`.
+[PUBLIC_TYPE_SCOPE]: closed construction vocabularies
+
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CAPABILITY]                     |
+| :-----: | :-------------------------- | :------------ | :------------------------------- |
+|  [01]   | `CurveOffsetCornerStyle`    | enum          | offset corner-join policy        |
+|  [02]   | `CurveOffsetEndStyle`       | enum          | offset end-cap policy            |
+|  [03]   | `CurveExtensionStyle`       | enum          | extension geometry style         |
+|  [04]   | `CurveEnd`                  | enum          | curve-end selector               |
+|  [05]   | `SmoothingCoordinateSystem` | enum          | smoothing frame selector         |
+|  [06]   | `CurveSimplifyOptions`      | flags enum    | simplify span-rebuild flags      |
+|  [07]   | `CurveKnotStyle`            | enum          | interpolation knot spacing       |
+|  [08]   | `PreserveEnd`               | enum          | match-curve end-preservation     |
+|  [09]   | `RibbonOffsetSurfaceMethod` | enum          | ribbon surface-generation method |
+
+- `[CurveOffsetCornerStyle]`: `None` `Sharp` `Round` `Smooth` `Chamfer`
+- `[CurveOffsetEndStyle]`: `None` `Flat` `Round`
+- `[CurveExtensionStyle]`: `Line` `Arc` `Smooth`
+- `[CurveEnd]`: `None` `Start` `End` `Both`
+- `[SmoothingCoordinateSystem]`: `World` `CPlane` `Object`
+- `[CurveSimplifyOptions]`: `None` `SplitAtFullyMultipleKnots` `RebuildLines` `RebuildArcs` `RebuildRationals` `AdjustG1` `Merge` `All`
+- `[CurveKnotStyle]`: `Uniform` `Chord` `ChordSquareRoot` `UniformPeriodic` `ChordPeriodic` `ChordSquareRootPeriodic`
+- `[PreserveEnd]`: `None` `Position` `Tangency` `Curvature`
+- `[RibbonOffsetSurfaceMethod]`: `None` `Sweep2` `Sweep2NetworkSrf`
 
 ## [03]-[ENTRYPOINTS]
 
-[NURBSSURFACE_BUILD]:
-- `Rhino.Geometry.NurbsSurface.CreateNetworkSurface(IEnumerable<Curve> uCurves, int uContinuityStart, int uContinuityEnd, IEnumerable<Curve> vCurves, int vContinuityStart, int vContinuityEnd, double edgeTolerance, double interiorTolerance, double angleTolerance, out int error) : NurbsSurface` — fits a surface through a u/v curve network with per-boundary continuity; the `out int error` carries the failure code, and the `(curves, continuity, …)` overload auto-sorts one curve set.
-- `Rhino.Geometry.NurbsSurface.CreateRailRevolvedSurface(Curve profile, Curve rail, Line axis, bool scaleHeight) : NurbsSurface` — revolves a profile along a rail about an axis.
-- `Rhino.Geometry.NurbsSurface.CreateFromPoints(IEnumerable<Point3d> points, int uCount, int vCount, int uDegree, int vDegree) : NurbsSurface` — interpolates a control-point grid; `CreateThroughPoints(points, uCount, vCount, uDegree, vDegree, bool uClosed, bool vClosed)` fits through the points with closure flags.
-- `Rhino.Geometry.NurbsSurface.CreateFromCorners(Point3d corner1, Point3d corner2, Point3d corner3, Point3d corner4, double tolerance) : NurbsSurface` — four-corner bilinear surface; the three-corner overload builds a triangle.
-- `Rhino.Geometry.NurbsSurface.CreateRuledSurface(Curve curveA, Curve curveB) : NurbsSurface` — a ruled surface between two curves.
-- `Rhino.Geometry.NurbsSurface.CreateCurveOnSurface(Surface surface, IEnumerable<Point2d> points, double tolerance, bool periodic) : NurbsCurve` — a geodesic-fit curve through surface uv points; `CreateCurveOnSurfacePoints(surface, fixedPoints, tolerance, periodic, initCount, levels) : Point2d[]` returns the intermediate uv samples.
-- `Rhino.Geometry.NurbsSurface.CreateSubDFriendly(Surface surface) : NurbsSurface` — rebuilds a surface as a subd-compatible bicubic form.
-- `Rhino.Geometry.NurbsSurface.CreateFromPlane(Plane plane, Interval uInterval, Interval vInterval, int uDegree, int vDegree, int uPointCount, int vPointCount) : NurbsSurface` / `CreateFromCone(Cone)` / `CreateFromCylinder(Cylinder)` / `CreateFromSphere(Sphere)` / `CreateFromTorus(Torus)` — nurbs forms of the analytic primitives.
-- `Rhino.Geometry.NurbsSurface.MakeCompatible(Surface surface0, Surface surface1, out NurbsSurface nurb0, out NurbsSurface nurb1) : bool` — reparameterizes two surfaces to a shared knot and degree structure.
-- `Rhino.Geometry.NurbsSurface.MatchToCurve(IsoStatus side, Curve targetCurve, double maxEndDistance, double maxInteriorDistance, double matchTolerance, int maxLevel) : NurbsSurface` — matches one iso edge to a target curve.
+[ENTRYPOINT_SCOPE]: nurbs-surface build
 
-[SURFACE_BUILD]:
-- `Rhino.Geometry.Surface.CreateExtrusion(Curve profile, Vector3d direction) : Surface` / `CreateExtrusionToPoint(Curve profile, Point3d apexPoint) : Surface` — linear and tapered-to-apex extrusion surfaces.
-- `Rhino.Geometry.Surface.CreatePeriodicSurface(Surface surface, int direction, bool bSmooth) : Surface` — closes a surface periodically in one direction.
-- `Rhino.Geometry.Surface.CreateSoftEditSurface(Surface surface, Point2d uv, Vector3d delta, double uLength, double vLength, double tolerance, bool fixEnds) : Surface` — falloff-weighted local push of a surface point.
-- `Rhino.Geometry.Surface.CreateRollingBallFillet(Surface surfaceA, bool flipA, Surface surfaceB, bool flipB, double radius, double tolerance) : Surface[]` — rolling-ball fillet between two surfaces; the `(surfaceA, uvA, surfaceB, uvB, …)` overload seeds by uv and the `(surfaceA, surfaceB, …)` overload picks sides automatically.
-- `Rhino.Geometry.Surface.CreateTweenSurfacesWithSampling(Surface surface0, Surface surface1, int numSurfaces, int numSamples, double tolerance) : Surface[]` — intermediate surfaces sampled between two inputs.
-- `Rhino.Geometry.RevSurface.Create(Curve revoluteCurve, Line axisOfRevolution, double startAngleRadians, double endAngleRadians) : RevSurface` — revolves a profile curve through an angle sweep; the line-profile and no-angle overloads cover the degenerate and full-revolution cases, and `CreateFromCone(Cone)` / `CreateFromCylinder(Cylinder)` / `CreateFromSphere(Sphere)` / `CreateFromTorus(Torus)` build the analytic revolutions.
-- `Rhino.Geometry.SumSurface.Create(Curve curve, Vector3d extrusionDirection) : SumSurface` — translational-sweep surface from a curve and a direction; the `(Curve curveA, Curve curveB)` overload sums two curves into the translational surface.
-- `Rhino.Geometry.Surface.Fit(int uDegree, int vDegree, double fitTolerance) : Surface` / `Rebuild(int uDegree, int vDegree, int uPointCount, int vPointCount) : NurbsSurface` / `RebuildOneDirection(int direction, int pointCount, LoftType loftType, double refitTolerance) : NurbsSurface` — the instance fit-and-rebuild family.
-- `Rhino.Geometry.Surface.VariableOffset(double uMinvMin, double uMinvMax, double uMaxvMin, double uMaxvMax, double tolerance) : Surface` / `VariableOffset(double uMinvMin, double uMinvMax, double uMaxvMin, double uMaxvMax, IEnumerable<Point2d> interiorParameters, IEnumerable<double> interiorDistances, double tolerance) : Surface` — corner-distance offset construction, null on failure; the interior overload refuses mismatched parameter/distance counts.
-- `Rhino.Geometry.PlaneSurface.CreateThroughBox(Plane plane, BoundingBox box) : PlaneSurface` / `CreateThroughBox(Line lineInPlane, Vector3d vectorInPlane, BoundingBox box) : PlaneSurface` — a bounded plane sized to span a box, framed by a plane or a line and in-plane vector.
+Members dot off `NurbsSurface`.
 
-[CURVE_OFFSET_PULL]:
-- `Rhino.Geometry.Curve.Offset(Point3d directionPoint, Vector3d normal, double distance, double tolerance, double angleTolerance, bool loose, CurveOffsetCornerStyle cornerStyle, CurveOffsetEndStyle endStyle) : Curve[]` — planar offset with corner and end policy and a loose flag; the `(Plane, distance, tolerance, cornerStyle)` overload offsets in a plane.
-- `Rhino.Geometry.Curve.OffsetOnSurface(BrepFace face, double[] curveParameters, double[] offsetDistances, double fittingTolerance) : Curve[]` — variable-distance offset across a face keyed by parameter/distance parallel arrays; the constant-distance and through-point overloads accept `Surface` or `BrepFace`.
-- `Rhino.Geometry.Curve.OffsetNormalToSurface(Surface surface, double height) : Curve` / `OffsetTangentToSurface(Surface surface, double height) : Curve` — lifts a surface-lying curve normal or tangent to the surface.
-- `Rhino.Geometry.Curve.PullToBrepFace(BrepFace face, double tolerance) : Curve[]` — projects a curve onto a face along its normals; `Curve.PullToBrepFace(Curve curve, BrepFace face, double tolerance, bool loose) : Curve[]` is the static loose-fit form.
-- `Rhino.Geometry.Curve.PullToMesh(Mesh mesh, double tolerance) : PolylineCurve` — pulls a curve onto a mesh as a polyline along the mesh surface; the `(Mesh, tolerance, bool loose) : Curve` overload returns a loose-fit smooth curve.
+| [INDEX] | [SURFACE]                                                                      | [SHAPE]  | [CAPABILITY]                           |
+| :-----: | :----------------------------------------------------------------------------- | :------- | :------------------------------------- |
+|  [01]   | `CreateRailRevolvedSurface(Curve, Curve, Line, bool)`                          | static   | revolve a profile along a rail         |
+|  [02]   | `CreateFromPoints(IEnumerable<Point3d>, int, int, int, int)`                   | static   | interpolate a control-point grid       |
+|  [03]   | `CreateFromCorners(Point3d, Point3d, Point3d, Point3d, double)`                | static   | four-corner bilinear surface           |
+|  [04]   | `CreateRuledSurface(Curve, Curve)`                                             | static   | ruled surface between two curves       |
+|  [05]   | `CreateSubDFriendly(Surface)`                                                  | static   | rebuild as subd-compatible bicubic     |
+|  [06]   | `MakeCompatible(Surface, Surface, out NurbsSurface, out NurbsSurface) -> bool` | static   | reparameterize two to shared structure |
+|  [07]   | `MatchToCurve(IsoStatus, Curve, double, double, double, int)`                  | instance | match one iso edge to a target curve   |
 
-[CURVE_REFINE]:
-- `Rhino.Geometry.Curve.Fair(double distanceTolerance, double angleTolerance, int clampStart, int clampEnd, int iterations) : Curve` — smooths within a deviation budget under clamped ends.
-- `Rhino.Geometry.Curve.Fit(int degree, double fitTolerance, double angleTolerance) : Curve` — refits to a lower knot count within tolerance.
-- `Rhino.Geometry.Curve.Rebuild(int pointCount, int degree, bool preserveTangents) : NurbsCurve` — rebuilds to a fixed control-point count and degree.
-- `Rhino.Geometry.Curve.Smooth(double smoothFactor, bool bXSmooth, bool bYSmooth, bool bZSmooth, bool bFixBoundaries, SmoothingCoordinateSystem coordinateSystem, Plane plane) : Curve` — per-axis smoothing in a coordinate system; the no-plane overload uses world or cplane.
-- `Rhino.Geometry.Curve.Simplify(CurveSimplifyOptions options, double distanceTolerance, double angleToleranceRadians) : Curve` — replaces spans with lines/arcs per the option flags; `SimplifyEnd(CurveEnd end, …)` scopes it to one end.
-- `Rhino.Geometry.Curve.RemoveShortSegments(double tolerance) : bool` / `MakeClosed(double tolerance) : bool` — in-place short-segment removal and gap closure.
+- `NurbsSurface.CreateNetworkSurface(IEnumerable<Curve>, int, int, IEnumerable<Curve>, int, int, double, double, double, out int)`: fits through a u/v curve network with per-boundary continuity; `out int error` carries the failure code, and the `(curves, continuity, …)` overload auto-sorts one curve set.
+- `NurbsSurface.CreateThroughPoints(IEnumerable<Point3d>, int, int, int, int, bool, bool)`: fits through the points with u/v closure flags.
+- `NurbsSurface.CreateCurveOnSurface(Surface, IEnumerable<Point2d>, double, bool) -> NurbsCurve`: geodesic-fit curve through surface uv points; `CreateCurveOnSurfacePoints(surface, fixedPoints, tolerance, periodic, initCount, levels) -> Point2d[]` returns the intermediate uv samples.
+- `NurbsSurface.CreateFromPlane(Plane, Interval, Interval, int, int, int, int)`: nurbs form of a plane; `CreateFromCone/Cylinder/Sphere/Torus` build the analytic-primitive nurbs forms.
 
-[CURVE_EXTEND_TRIM_SPLIT]:
-- `Rhino.Geometry.Curve.Extend(CurveEnd side, double length, CurveExtensionStyle style) : Curve` — extends one end by length with a line, arc, or smooth style; the `(CurveEnd, CurveExtensionStyle, IEnumerable<GeometryBase>)` and `(…, Point3d endPoint)` overloads extend to geometry or a point.
-- `Rhino.Geometry.Curve.ExtendByLine(CurveEnd side, IEnumerable<GeometryBase> geometry) : Curve` / `ExtendByArc(CurveEnd side, IEnumerable<GeometryBase> geometry) : Curve` / `ExtendOnSurface(CurveEnd side, BrepFace face) : Curve` / `ExtendOnSurface(CurveEnd side, Surface surface) : Curve` — line, arc, and on-surface extension to bounding geometry; the on-surface pair extends across a trimmed `BrepFace` or an untrimmed `Surface`, `null` on failure.
-- `Rhino.Geometry.Curve.Trim(Interval domain) : Curve` / `Trim(CurveEnd side, double length) : Curve` / `TrimInterval(Interval domain) : bool` — sub-domain extraction and in-place interval trim.
-- `Rhino.Geometry.Curve.Split(Brep cutter, double tolerance, double angleToleranceRadians) : Curve[]` — splits at intersections with a brep, surface, plane, or parameter set; the `(double t)` and `(IEnumerable<double> t)` overloads split at parameters.
+[ENTRYPOINT_SCOPE]: surface build
 
-[CURVE_CONSTRUCT]:
-- `Rhino.Geometry.Curve.CreateBlendCurve(Curve curve0, double t0, bool reverse0, BlendContinuity continuity0, Curve curve1, double t1, bool reverse1, BlendContinuity continuity1) : Curve` — a blend between two curves at stations with per-end continuity; the `(curveA, curveB, continuity, bulgeA, bulgeB)` overload blends end-to-end with bulge control, and `CreateArcBlend(Point3d startPt, Vector3d startDir, Point3d endPt, Vector3d endDir, double controlPointLengthRatio) : Curve` / `CreateArcLineArcBlend(Point3d, Vector3d, Point3d, Vector3d, double radius) : Curve` are the direction-seeded arc-blend forms.
-- `Rhino.Geometry.Curve.CreateMatchCurve(Curve curve0, bool reverse0, BlendContinuity continuity, Curve curve1, bool reverse1, PreserveEnd preserve, bool average) : Curve[]` — matches one curve's end to another under continuity and end-preservation policy; `CreateMeanCurve(Curve curveA, Curve curveB, double angleToleranceRadians) : Curve` averages two curves into a mean curve.
-- `Rhino.Geometry.Curve.CreateFilletCurves(Curve curve0, Point3d point0, Curve curve1, Point3d point1, double radius, bool join, bool trim, bool arcExtension, double tolerance, double angleTolerance) : Curve[]` — a fillet arc between two curves picked near seed points; `CreateFillet(Curve, Curve, double radius, double t0Base, double t1Base) : Arc` returns the raw arc and `CreateFilletCornersCurve(Curve, double radius, double tolerance, double angleTolerance) : Curve` fillets every corner of one curve.
-- `Rhino.Geometry.Curve.CreateTweenCurves(Curve curve0, Curve curve1, int numCurves, double tolerance) : Curve[]` — intermediate curves between two inputs; `CreateTweenCurvesWithMatching(...)` reparameterizes first and `CreateTweenCurvesWithSampling(..., int numSamples, ...)` samples for dissimilar inputs.
-- `Rhino.Geometry.Curve.ProjectToBrep(IEnumerable<Curve> curves, IEnumerable<Brep> breps, Vector3d direction, double tolerance, out int[] curveIndices, out int[] brepIndices) : Curve[]` — projects curves onto breps along a direction with source-index maps; the single-curve/single-brep overloads drop the maps.
-- `Rhino.Geometry.Curve.ProjectToMesh(IEnumerable<Curve> curves, IEnumerable<Mesh> meshes, Vector3d direction, double tolerance) : Curve[]` / `ProjectToPlane(Curve curve, Plane plane) : Curve` — projection onto meshes and onto a plane.
-- `Rhino.Geometry.Curve.MakeEndsMeet(Curve curveA, bool adjustStartCurveA, Curve curveB, bool adjustStartCurveB) : bool` / `CreatePeriodicCurve(Curve curve, bool smooth) : Curve` — endpoint reconciliation and periodic closure.
-- `Rhino.Geometry.Curve.FilletSurfaceToRail(BrepFace faceWithCurve, BrepFace secondFace, double u1, double v1, int railDegree, int arcDegree, IEnumerable<double> arcSliders, int numBezierSrfs, bool extend, FilletSurfaceSplitType split_type, double tolerance, List<Brep> out_fillets, List<Brep> out_breps0, List<Brep> out_breps1, out double[] fitResults) : bool` — an INSTANCE method on the rail `Curve` receiver whose fillet, trimmed-input, and fit outputs land in the caller-owned lists.
+| [INDEX] | [SURFACE]                                             | [SHAPE]  | [CAPABILITY]                               |
+| :-----: | :---------------------------------------------------- | :------- | :----------------------------------------- |
+|  [01]   | `Surface.CreateExtrusion(Curve, Vector3d)`            | static   | linear extrusion surface                   |
+|  [02]   | `Surface.CreateExtrusionToPoint(Curve, Point3d)`      | static   | tapered-to-apex extrusion surface          |
+|  [03]   | `Surface.CreatePeriodicSurface(Surface, int, bool)`   | static   | close a surface periodically               |
+|  [04]   | `RevSurface.Create(Curve, Line, double, double)`      | static   | revolve a profile through an angle sweep   |
+|  [05]   | `SumSurface.Create(Curve, Vector3d)`                  | static   | translational sweep of a curve             |
+|  [06]   | `Surface.Fit(int, int, double)`                       | instance | fit to a lower knot count within tolerance |
+|  [07]   | `Surface.Rebuild(int, int, int, int) -> NurbsSurface` | instance | rebuild to fixed point count and degree    |
+|  [08]   | `PlaneSurface.CreateThroughBox(Plane, BoundingBox)`   | static   | bounded plane sized to span a box          |
 
-[NURBSCURVE_FIT]:
-- `Rhino.Geometry.NurbsCurve.CreateFromFitPoints(IEnumerable<Point3d> points, double tolerance, int degree, bool periodic, Vector3d startTangent, Vector3d endTangent) : NurbsCurve` — fits through points within tolerance under tangent constraints; the `(points, tolerance, periodic)` overload drops the tangents.
-- `Rhino.Geometry.NurbsCurve.CreateHSpline(IEnumerable<Point3d> points, Vector3d startTangent, Vector3d endTangent) : NurbsCurve` — an interpolating H-spline; the no-tangent overload free-ends.
-- `Rhino.Geometry.NurbsCurve.CreateSpiral(Curve railCurve, double t0, double t1, Point3d radiusPoint, double pitch, double turnCount, double radius0, double radius1, int pointsPerTurn) : NurbsCurve` — a spiral along a rail; the `(Point3d axisStart, Vector3d axisDir, …)` overload spirals about an axis.
-- `Rhino.Geometry.NurbsCurve.CreateParabolaFromVertex(Point3d vertex, Point3d startPoint, Point3d endPoint) : NurbsCurve` / `CreateNonRationalArcBezier(int degree, Point3d center, Point3d start, Point3d end, double radius, double tanSlider, double midSlider) : NurbsCurve` — parabola and non-rational arc-bezier construction.
-- `Rhino.Geometry.NurbsCurve.CreateSubDFriendly(Curve curve) : NurbsCurve` / `CreateSubDFriendly(Curve curve, int pointCount, bool periodicClosedCurve) : NurbsCurve` — subd-compatible rebuild; the bare-curve form picks the point count and open/closed structure from the source, the structured form fixes control-point count and periodic closure (`pointCount >= 6` when periodic, `>= 4` otherwise), and the `(IEnumerable<Point3d>, bool interpolatePoints, bool periodicClosedCurve)` overload builds from points.
-- `Rhino.Geometry.NurbsCurve.CreateFromArc(Arc arc, int degree, int cvCount) : NurbsCurve` / `CreateFromLine(Line line) : NurbsCurve` — analytic-to-nurbs conversion with control over span structure.
-- `Rhino.Geometry.NurbsCurve.MakeCompatible(IEnumerable<Curve> curves, Point3d startPt, Point3d endPt, int simplifyMethod, int numPoints, double refitTolerance, double angleTolerance) : NurbsCurve[]` — reparameterizes a set to a shared structure for lofting.
-- `Rhino.Geometry.NurbsCurve.CreateParabolaFromFocus(Point3d focus, Point3d startPoint, Point3d endPoint) : NurbsCurve` / `CreateParabolaFromPoints(Point3d startPoint, Point3d innerPoint, Point3d endPoint) : NurbsCurve` — the focus-seeded and three-point parabola siblings.
-- `Rhino.Geometry.NurbsCurve.CreateFromCircle(Circle circle[, int degree, int cvCount]) : NurbsCurve` / `CreateFromEllipse(Ellipse ellipse) : NurbsCurve` / `Create(bool periodic, int degree, IEnumerable<Point3d> points) : NurbsCurve` — the remaining analytic and control-point constructors.
+- `Surface.CreateSoftEditSurface(Surface, Point2d, Vector3d, double, double, double, bool)`: falloff-weighted local push of a surface point.
+- `Surface.CreateRollingBallFillet(Surface, bool, Surface, bool, double, double) -> Surface[]`: rolling-ball fillet between two surfaces; a `(surfaceA, uvA, surfaceB, uvB, …)` overload seeds by uv and a `(surfaceA, surfaceB, …)` overload picks sides automatically.
+- `Surface.CreateTweenSurfacesWithSampling(Surface, Surface, int, int, double) -> Surface[]`: intermediate surfaces sampled between two inputs.
+- `Surface.RebuildOneDirection(int, int, LoftType, double) -> NurbsSurface`: rebuild one direction under a loft type.
+- `Surface.VariableOffset(double, double, double, double, double)`: corner-distance offset, `null` on failure; the `(…, IEnumerable<Point2d>, IEnumerable<double>, double)` interior overload refuses mismatched parameter/distance counts.
+- `RevSurface.Create(Line, …)` and no-angle overloads cover the degenerate line-profile and full-revolution cases; `CreateFromCone/Cylinder/Sphere/Torus` build the analytic revolutions.
+- `SumSurface.Create(Curve, Curve)`: sums two curves into the translational surface.
+- `PlaneSurface.CreateThroughBox(Line, Vector3d, BoundingBox)`: frames the bounded plane by a line and in-plane vector.
 
-[CURVE_STATICS_AND_CARRIERS]:
-- `Rhino.Geometry.Curve.CreateInterpolatedCurve(IEnumerable<Point3d> points, int degree[, CurveKnotStyle knots[, Vector3d startTangent, Vector3d endTangent]]) : Curve` / `CreateControlPointCurve(IEnumerable<Point3d> points[, int degree]) : Curve` — interpolation and control-point fitting are `Curve` statics, never `NurbsCurve` members; `public enum CurveKnotStyle` — `Uniform`, `Chord`, `ChordSquareRoot`, `UniformPeriodic`, `ChordPeriodic`, `ChordSquareRootPeriodic`.
-- `Rhino.Geometry.Curve.CreateSoftEditCurve(Curve curve, double t, Vector3d delta, double length, bool fixEnds) : Curve` — falloff-weighted local push of a curve point.
-- `Rhino.Geometry.Curve.JoinCurves(IEnumerable<Curve> inputCurves[, double joinTolerance[, bool preserveDirection[, bool simpleJoin], out int[] key]]) : Curve[]` — joining with an optional result-to-source key map.
-- `Rhino.Geometry.Curve.CreateBooleanUnion(IEnumerable<Curve> curves, double tolerance[, out int[] indexMap]) : Curve[]` / `CreateBooleanIntersection(Curve curveA, Curve curveB, double tolerance) : Curve[]` / `CreateBooleanDifference(Curve curveA, Curve curveB, double tolerance) : Curve[]` / `CreateBooleanDifference(Curve curveA, IEnumerable<Curve> subtractors, double tolerance) : Curve[]` — planar curve booleans; every tolerance-less form is `[Obsolete]`.
-- `Rhino.Geometry.Curve.CreateBooleanRegions(IEnumerable<Curve> curves, Plane plane[, IEnumerable<Point3d> points], bool combineRegions, double tolerance) : CurveBooleanRegions` — yields the disposable region carrier: `RegionCount`/`PointCount`/`PlanarCurveCount : int`, `RegionCurves(int regionIndex) : Curve[]`, `RegionPointIndex(int pointIndex) : int`, `BoundaryCount(int)`/`SegmentCount(int, int)`/`SegmentDetails(int, int, int, out Interval subDomain, out bool reversed) : int`, `PlanarCurve(int) : Curve`.
-- `Rhino.Geometry.Curve.CreateCatenaryCurveThroughPoint / CreateCatenaryCurveFromLength / CreateCatenaryCurveFromParameter / CreateCatenaryCurveFromApex(Point3d catenary_start, Point3d catenary_end, Vector3d axis_dir, <shape argument>, bool bSmooth, int point_count, out Point3d apex_out, out double parameter_out, out double length_out, out double max_deviation_out) : Curve` — mints the hanging-curve family, one static per shape terminal with apex, parameter, length, and deviation evidence.
-- `Rhino.Geometry.Curve.CreateCurve2View(Curve curveA, Curve curveB, Vector3d vectorA, Vector3d vectorB, double tolerance, double angleTolerance) : Curve[]` / `CreateTextOutlines(string text, string font, double textHeight, int textStyle, bool closeLoops, Plane plane, double smallCapsScale, double tolerance) : Curve[]` — two-view intersection construction and glyph outlines.
-- `Rhino.Geometry.Curve.DoDirectionsMatch(Curve curveA, Curve curveB) : bool` — static direction-agreement predicate; true when both curves travel more or less the same way.
-- `Rhino.Geometry.Curve.RibbonOffset(RibbonOffsetParameters ribbonParameters, out Curve[] railCurves, out Curve[] crossSectionCurves, out Brep[] brepSurfaces) : Curve` — runs the carrier-driven ribbon offset; scalar overloads `(distance, blendRadius, directionPoint, normal, tolerance[, out Curve[] crossSections, out Surface[] ruledSurfaces | out double[] outputParameters, out double[] curveParameters])` predate it.
-- `Rhino.Geometry.RibbonOffsetParameters` — all `get/set`: `OffsetDistance : double`, `OffsetLocation : Point3d`, `OffsetTolerance : double`, `OffsetPlaneVector3d : Vector3d` (default `Vector3d.Unset`), `BlendRadius : double`, `RebuildPointCount : int` (0 disables), `RefitTolerance : double` (0 disables), `AlignCrossSections : bool`, `RibbonSurfaceGenerationMethod : RibbonOffsetSurfaceMethod`; `public enum RibbonOffsetSurfaceMethod` — `None = 0`, `Sweep2 = 1`, `Sweep2NetworkSrf = 2`.
-- `Rhino.Geometry.Curve.CreateNurbsCurveFit(Curve curve, Interval domain, NurbsCurveFitParameters rebuildOptions, out Line maximumSeparation, out double thisSeparationParameter, out double nurbsSeparationParameter) : NurbsCurve` — runs the advanced fit entry over its carrier.
-- `Rhino.Geometry.NurbsCurveFitParameters` (`ICloneable`, `IDisposable`) — `get/set`: `TangentMatching : TangentMatch`, `Degree`/`PointCount : int`, `SubDFriendly : bool`, `KinkAngleRadians`/`KinkAngleDegrees : double`, `KinkSplitting : KinkSplit`, `SmoothingIntensity`/`UniformityIntensity`/`CurvatureBiasIntensity : Intensity`, `SmoothingCoefficient`/`UniformityCoefficient`/`CurvatureBiasCoefficient : double`, `Closed`/`ApplyTangentMatchingAtKinks`/`OptimizeCurve : bool`, `PointCountRange : IndexPair`; nested `byte` enums `TangentMatch` (`None`, `AtStart`, `AtEnd`, `AtStartAndEnd`), `KinkSplit` (`None`, `AtG1Changes`, `AtLargeG2Changes`, `AtMediumG2Changes`, `AtSmallG2Changes`), `Intensity` (`None`, `Low`, `Moderate`, `Medium`, `High`, `Extreme`, `Custom`).
-- `public enum Rhino.Geometry.PreserveEnd` — `None = 0`, `Position = 1`, `Tangency = 2`, `Curvature = 3` — the `CreateMatchCurve` end-preservation vocabulary.
-- `Rhino.Geometry.Curve.Split(Plane plane, double tolerance, double angleToleranceRadians) : Curve[]` — runs the plane-cutter split beside the brep and surface forms; `Rebuild(int pointCount, int degree, bool preserveTangents) : NurbsCurve` and `Fair(double distanceTolerance, double angleTolerance, int clampStart, int clampEnd, int iterations) : Curve` take numerics only — no `RebuildCurveOptions` or `CurveKinkDefinition` carrier exists.
+[ENTRYPOINT_SCOPE]: curve offset and pull
+
+Members dot off `Curve`.
+
+| [INDEX] | [SURFACE]                                          | [SHAPE]  | [CAPABILITY]                          |
+| :-----: | :------------------------------------------------- | :------- | :------------------------------------ |
+|  [01]   | `OffsetNormalToSurface(Surface, double) -> Curve`  | instance | lift a surface-lying curve by normal  |
+|  [02]   | `OffsetTangentToSurface(Surface, double) -> Curve` | instance | lift a surface-lying curve by tangent |
+|  [03]   | `PullToBrepFace(BrepFace, double) -> Curve[]`      | instance | project onto a face along its normals |
+|  [04]   | `PullToMesh(Mesh, double) -> PolylineCurve`        | instance | pull onto a mesh as a polyline        |
+
+- `Curve.Offset(Point3d, Vector3d, double, double, double, bool, CurveOffsetCornerStyle, CurveOffsetEndStyle) -> Curve[]`: planar offset with corner/end policy and a loose flag; the `(Plane, distance, tolerance, cornerStyle)` overload offsets in a plane.
+- `Curve.OffsetOnSurface(BrepFace, double[], double[], double) -> Curve[]`: variable-distance offset across a face keyed by parameter/distance parallel arrays; constant-distance and through-point overloads accept `Surface` or `BrepFace`.
+- `Curve.PullToBrepFace(Curve, BrepFace, double, bool) -> Curve[]`: static loose-fit form.
+- `Curve.PullToMesh(Mesh, double, bool) -> Curve`: loose-fit smooth-curve overload.
+
+[ENTRYPOINT_SCOPE]: curve refine
+
+Members dot off `Curve`.
+
+| [INDEX] | [SURFACE]                                                                           | [SHAPE]  | [CAPABILITY]                            |
+| :-----: | :---------------------------------------------------------------------------------- | :------- | :-------------------------------------- |
+|  [01]   | `Fair(double, double, int, int, int) -> Curve`                                      | instance | smooth within a deviation budget        |
+|  [02]   | `Fit(int, double, double) -> Curve`                                                 | instance | refit to a lower knot count             |
+|  [03]   | `Rebuild(int, int, bool) -> NurbsCurve`                                             | instance | rebuild to fixed point count and degree |
+|  [04]   | `Smooth(double, bool, bool, bool, bool, SmoothingCoordinateSystem, Plane) -> Curve` | instance | per-axis smoothing in a frame           |
+|  [05]   | `Simplify(CurveSimplifyOptions, double, double) -> Curve`                           | instance | replace spans with lines/arcs per flags |
+|  [06]   | `RemoveShortSegments(double) -> bool`                                               | instance | in-place short-segment removal          |
+|  [07]   | `MakeClosed(double) -> bool`                                                        | instance | in-place gap closure                    |
+
+- `Curve.Smooth(double, bool, bool, bool, bool, SmoothingCoordinateSystem) -> Curve`: no-plane overload smooths in world or cplane.
+- `Curve.SimplifyEnd(CurveEnd, …) -> Curve`: scopes the simplify to one end.
+
+[ENTRYPOINT_SCOPE]: curve extend/trim/split
+
+Members dot off `Curve`.
+
+| [INDEX] | [SURFACE]                                                | [SHAPE]  | [CAPABILITY]                          |
+| :-----: | :------------------------------------------------------- | :------- | :------------------------------------ |
+|  [01]   | `Extend(CurveEnd, double, CurveExtensionStyle) -> Curve` | instance | extend one end by length with a style |
+|  [02]   | `ExtendOnSurface(CurveEnd, BrepFace) -> Curve`           | instance | extend across a trimmed face          |
+|  [03]   | `ExtendOnSurface(CurveEnd, Surface) -> Curve`            | instance | extend across an untrimmed surface    |
+|  [04]   | `Trim(Interval) -> Curve`                                | instance | sub-domain extraction                 |
+|  [05]   | `Trim(CurveEnd, double) -> Curve`                        | instance | trim one end by length                |
+|  [06]   | `TrimInterval(Interval) -> bool`                         | instance | in-place interval trim                |
+|  [07]   | `Split(Brep, double, double) -> Curve[]`                 | instance | split at intersections with a cutter  |
+|  [08]   | `Split(Plane, double, double) -> Curve[]`                | instance | split at a plane cutter               |
+
+- `Curve.Extend(CurveEnd, CurveExtensionStyle, IEnumerable<GeometryBase>) -> Curve` and `Extend(CurveEnd, …, Point3d) -> Curve`: extend to bounding geometry or a point.
+- `Curve.ExtendByLine(CurveEnd, IEnumerable<GeometryBase>) -> Curve` / `ExtendByArc(CurveEnd, IEnumerable<GeometryBase>) -> Curve`: line and arc extension to bounding geometry, `null` on failure.
+- `Curve.Split(double) -> Curve[]` and `Split(IEnumerable<double>) -> Curve[]`: split at parameters; the `Brep` cutter form also accepts a surface, plane, or parameter set.
+
+[ENTRYPOINT_SCOPE]: curve construct
+
+Members dot off `Curve`.
+
+| [INDEX] | [SURFACE]                                                               | [SHAPE] | [CAPABILITY]                           |
+| :-----: | :---------------------------------------------------------------------- | :------ | :------------------------------------- |
+|  [01]   | `CreateMeanCurve(Curve, Curve, double) -> Curve`                        | static  | average two curves into a mean curve   |
+|  [02]   | `CreateTweenCurves(Curve, Curve, int, double) -> Curve[]`               | static  | intermediate curves between two inputs |
+|  [03]   | `CreateArcBlend(Point3d, Vector3d, Point3d, Vector3d, double) -> Curve` | static  | direction-seeded arc blend             |
+|  [04]   | `MakeEndsMeet(Curve, bool, Curve, bool) -> bool`                        | static  | endpoint reconciliation of two curves  |
+|  [05]   | `CreatePeriodicCurve(Curve, bool) -> Curve`                             | static  | periodic closure of a curve            |
+
+- `Curve.CreateBlendCurve(Curve, double, bool, BlendContinuity, Curve, double, bool, BlendContinuity) -> Curve`: blend between two curves at stations with per-end continuity; a `(curveA, curveB, continuity, bulgeA, bulgeB)` overload blends end-to-end with bulge control; `CreateArcLineArcBlend(Point3d, Vector3d, Point3d, Vector3d, double) -> Curve` is the arc-line-arc form.
+- `Curve.CreateMatchCurve(Curve, bool, BlendContinuity, Curve, bool, PreserveEnd, bool) -> Curve[]`: match one curve's end to another under continuity and end-preservation policy.
+- `Curve.CreateFilletCurves(Curve, Point3d, Curve, Point3d, double, bool, bool, bool, double, double) -> Curve[]`: fillet arc between two curves picked near seed points; `CreateFillet(Curve, Curve, double, double, double) -> Arc` returns the raw arc and `CreateFilletCornersCurve(Curve, double, double, double) -> Curve` fillets every corner of one curve.
+- `Curve.CreateTweenCurvesWithMatching(…)` reparameterizes first; `CreateTweenCurvesWithSampling(…, int, …)` samples for dissimilar inputs.
+- `Curve.ProjectToBrep(IEnumerable<Curve>, IEnumerable<Brep>, Vector3d, double, out int[], out int[]) -> Curve[]`: project onto breps along a direction with source-index maps; single-curve/single-brep overloads drop the maps.
+- `Curve.ProjectToMesh(IEnumerable<Curve>, IEnumerable<Mesh>, Vector3d, double) -> Curve[]` / `ProjectToPlane(Curve, Plane) -> Curve`: projection onto meshes and a plane.
+- `Curve.FilletSurfaceToRail(BrepFace, BrepFace, double, double, int, int, IEnumerable<double>, int, bool, FilletSurfaceSplitType, double, List<Brep>, List<Brep>, List<Brep>, out double[]) -> bool`: an instance method on the rail `Curve` receiver whose fillet, trimmed-input, and fit outputs land in the caller-owned lists.
+
+[ENTRYPOINT_SCOPE]: nurbs-curve fit
+
+Members dot off `NurbsCurve`.
+
+| [INDEX] | [SURFACE]                                                 | [SHAPE] | [CAPABILITY]                          |
+| :-----: | :-------------------------------------------------------- | :------ | :------------------------------------ |
+|  [01]   | `CreateHSpline(IEnumerable<Point3d>, Vector3d, Vector3d)` | static  | interpolating H-spline under tangents |
+|  [02]   | `CreateParabolaFromVertex(Point3d, Point3d, Point3d)`     | static  | vertex-seeded parabola                |
+|  [03]   | `CreateParabolaFromFocus(Point3d, Point3d, Point3d)`      | static  | focus-seeded parabola                 |
+|  [04]   | `CreateFromArc(Arc, int, int)`                            | static  | arc-to-nurbs with span control        |
+|  [05]   | `CreateFromLine(Line)`                                    | static  | line-to-nurbs                         |
+|  [06]   | `Create(bool, int, IEnumerable<Point3d>)`                 | static  | control-point constructor             |
+
+- `NurbsCurve.CreateFromFitPoints(IEnumerable<Point3d>, double, int, bool, Vector3d, Vector3d)`: fit through points within tolerance under tangent constraints; the `(points, tolerance, periodic)` overload drops the tangents.
+- `NurbsCurve.CreateSpiral(Curve, double, double, Point3d, double, double, double, double, int)`: spiral along a rail; the `(Point3d, Vector3d, …)` overload spirals about an axis.
+- `NurbsCurve.CreateNonRationalArcBezier(int, Point3d, Point3d, Point3d, double, double, double)`: non-rational arc-bezier construction.
+- `NurbsCurve.CreateSubDFriendly(Curve)` / `CreateSubDFriendly(Curve, int, bool)`: subd-compatible rebuild; the bare form derives point count and closure from the source, the structured form fixes control-point count and periodic closure (`pointCount >= 6` when periodic, `>= 4` otherwise), and a `(IEnumerable<Point3d>, bool, bool)` overload builds from points.
+- `NurbsCurve.MakeCompatible(IEnumerable<Curve>, Point3d, Point3d, int, int, double, double) -> NurbsCurve[]`: reparameterize a set to a shared structure for lofting.
+- `NurbsCurve.CreateParabolaFromPoints(Point3d, Point3d, Point3d)` / `CreateFromCircle(Circle)` / `CreateFromEllipse(Ellipse)`: the three-point parabola and analytic-primitive constructors.
+
+[ENTRYPOINT_SCOPE]: curve statics and carriers
+
+Members dot off `Curve`.
+
+| [INDEX] | [SURFACE]                                                             | [SHAPE] | [CAPABILITY]                      |
+| :-----: | :-------------------------------------------------------------------- | :------ | :-------------------------------- |
+|  [01]   | `CreateControlPointCurve(IEnumerable<Point3d>, int) -> Curve`         | static  | control-point fitting             |
+|  [02]   | `CreateSoftEditCurve(Curve, double, Vector3d, double, bool) -> Curve` | static  | falloff-weighted local point push |
+|  [03]   | `DoDirectionsMatch(Curve, Curve) -> bool`                             | static  | direction-agreement predicate     |
+|  [04]   | `CreateBooleanIntersection(Curve, Curve, double) -> Curve[]`          | static  | planar curve intersection         |
+|  [05]   | `CreateBooleanDifference(Curve, Curve, double) -> Curve[]`            | static  | planar curve difference           |
+
+- `Curve.CreateInterpolatedCurve(IEnumerable<Point3d>, int[, CurveKnotStyle[, Vector3d, Vector3d]]) -> Curve`: interpolation is a `Curve` static, never a `NurbsCurve` member.
+- `Curve.JoinCurves(IEnumerable<Curve>[, double[, bool[, bool], out int[]]]) -> Curve[]`: join with an optional result-to-source key map.
+- `Curve.CreateBooleanUnion(IEnumerable<Curve>, double[, out int[]]) -> Curve[]` / `CreateBooleanDifference(Curve, IEnumerable<Curve>, double) -> Curve[]`: planar booleans keyed by tolerance, an optional result-to-source index map on union.
+- `Curve.CreateBooleanRegions(IEnumerable<Curve>, Plane[, IEnumerable<Point3d>], bool, double) -> CurveBooleanRegions`: yields the disposable region carrier.
+- `Curve.CreateCatenaryCurveFromApex(Point3d, Point3d, Vector3d, <shape arg>, bool, int, out Point3d, out double, out double, out double) -> Curve`: mints the hanging-curve family, one static per shape terminal (`ThroughPoint`/`FromLength`/`FromParameter`/`FromApex`) carrying apex, parameter, length, and deviation evidence.
+- `Curve.CreateCurve2View(Curve, Curve, Vector3d, Vector3d, double, double) -> Curve[]`: two-view intersection construction; `CreateTextOutlines(string, string, double, int, bool, Plane, double, double) -> Curve[]` mints glyph outlines.
+- `Curve.RibbonOffset(RibbonOffsetParameters, out Curve[], out Curve[], out Brep[]) -> Curve`: carrier-driven ribbon offset; scalar `(distance, blendRadius, directionPoint, normal, tolerance, …)` overloads predate it.
+- `Curve.CreateNurbsCurveFit(Curve, Interval, NurbsCurveFitParameters, out Line, out double, out double) -> NurbsCurve`: advanced fit over its carrier.
+- `[RIBBON_OFFSET_KNOBS]`: `OffsetDistance` `OffsetLocation` `OffsetTolerance` `OffsetPlaneVector3d` (`Vector3d.Unset` default) `BlendRadius` `RebuildPointCount` (0 disables) `RefitTolerance` (0 disables) `AlignCrossSections` `RibbonSurfaceGenerationMethod`
+- `[NURBS_FIT_KNOBS]`: `TangentMatching` `Degree` `PointCount` `SubDFriendly` `KinkAngleRadians` `KinkAngleDegrees` `KinkSplitting` `SmoothingIntensity` `UniformityIntensity` `CurvatureBiasIntensity` `SmoothingCoefficient` `UniformityCoefficient` `CurvatureBiasCoefficient` `Closed` `ApplyTangentMatchingAtKinks` `OptimizeCurve` `PointCountRange`
+- `[NURBS_FIT_ENUMS]`: `TangentMatch` (`None` `AtStart` `AtEnd` `AtStartAndEnd`) · `KinkSplit` (`None` `AtG1Changes` `AtLargeG2Changes` `AtMediumG2Changes` `AtSmallG2Changes`) · `Intensity` (`None` `Low` `Moderate` `Medium` `High` `Extreme` `Custom`)
+- `NurbsCurveFitParameters` is `ICloneable`, `IDisposable`; `RibbonOffsetParameters` carries all get/set.
+- `CurveBooleanRegions` reads: `RegionCount`/`PointCount`/`PlanarCurveCount -> int`, `RegionCurves(int) -> Curve[]`, `RegionPointIndex(int) -> int`, `BoundaryCount(int)`/`SegmentCount(int, int)`/`SegmentDetails(int, int, int, out Interval, out bool) -> int`, `PlanarCurve(int) -> Curve`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[SURFACE_TOPOLOGY]:
-- `NurbsSurface` construction returns `null` on failure and carries diagnostics through an `out int error` for the network and curve-on-surface builds; `MakeCompatible` and `MatchToCurve` reparameterize to shared or matched structure, and analytic-primitive nurbs forms feed the loft and network builders a compatible representation.
-- `Curve` host ops split by intent: `Offset`/`OffsetOnSurface`/`OffsetNormalToSurface` produce parallel geometry, `Fair`/`Fit`/`Rebuild`/`Smooth`/`Simplify` refine in place or return a refined copy, `Extend`/`Trim`/`Split` change extent by parameter or bounding geometry, and `PullToBrepFace`/`ProjectToBrep`/`ProjectToMesh` map a curve onto a target; variable-distance offset and multi-input projection carry parameter/distance and source-index parallel arrays.
-- freeform surface generation stays host-fidelity: `CreateNetworkSurface`, `CreateRailRevolvedSurface`, `CreateSoftEditSurface`, and `CreateRollingBallFillet` produce Rhino-command-identical geometry, distinct from the kernel's host-neutral surface algebra that owns evaluation and division at a lower altitude.
+[TOPOLOGY]:
+- `NurbsSurface` construction returns `null` on failure and carries diagnostics through `out int error` for the network and curve-on-surface builds; `MakeCompatible` and `MatchToCurve` reparameterize to shared or matched structure, and analytic-primitive nurbs forms feed the loft and network builders a compatible representation.
+- `Curve` host ops split by intent: offset/pull produce parallel geometry, fair/fit/rebuild/smooth/simplify refine in place or return a refined copy, extend/trim/split change extent by parameter or bounding geometry, and pull/project map a curve onto a target; variable-distance offset and multi-input projection carry parameter/distance and source-index parallel arrays.
+- freeform surface generation stays host-fidelity: `CreateNetworkSurface`, `CreateRailRevolvedSurface`, `CreateSoftEditSurface`, and `CreateRollingBallFillet` produce Rhino-command-identical geometry, distinct from the kernel's host-neutral surface algebra owning evaluation and division at a lower altitude.
 
 [STACKING]:
 - `LanguageExt.Core`(`api-languageext`): a nullable single build lifts to `Option<NurbsSurface>`/`Option<Curve>`, a possibly-null-or-empty `Curve[]`/`Surface[]` lands as `Seq<A>`, a `bool`-with-`out` op folds into a `Fin` keyed to the payload, the `out int error` network code and the projection source-index maps fold into a typed construction receipt, and the rolling-ball and tween arrays project as `Seq<Surface>`.
@@ -142,7 +236,7 @@ This catalog owns the host-fidelity freeform surface and curve construction boun
 - native `Surface`, `NurbsSurface`, `Curve`, and `NurbsCurve` values stay inside the construction grant; downstream code receives duplicated canonical geometry keyed by content hash, the typed construction receipt, or an explicitly owned geometry lease.
 
 [RAIL_LAW]:
-- Surface: `Rhino.Geometry` freeform surface and curve host-fidelity construction
+- Package: `RhinoCommon` (`Rhino.Geometry` freeform surface and curve host-fidelity construction)
 - Owns: nurbs-surface network/rail-revolve/through-points/curve-on-surface/ruled build, the surface/rev/sum/plane generation set, and the curve offset, refine, extend/trim/split, pull/project, and blend/fillet/tween/fit host ops.
 - Accept: native surface and curve outcomes projected onto `Fin`/`Option`/`Seq` rails, parameter/distance and source-index parallel arrays paired into rows, `out`-error and index maps folded into typed receipts.
 - Reject: re-deriving kernel-altitude NURBS evaluation and division, exception-style handling of null construction results, unpaired parallel-array inputs, and leaking host surface/curve types past the boundary.

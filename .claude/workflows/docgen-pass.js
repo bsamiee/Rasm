@@ -11,7 +11,7 @@ export const meta = {
         },
         {
             title: 'Analyze',
-            detail: 'a finder per folder-group under the pooled cap: docgen law read in full, the owner surfaces opened as fork targets, the ownership interrogation run, per-file findings and cross-file duplication returned, no edits',
+            detail: 'partitioned by unique visibility so no stage re-litigates another: a per-folder-group finder for prose tiers (ownership interrogation, per-file findings, cross-file duplication); for an `.api` tier a whole-tier cross-tier finder that holds the entire tier plus the language substrate in view and returns ONLY the cross-file duplication, substrate-registration, and stacking directives a per-file fixer cannot see — the per-file structural/version/legacy/member sweep is the fixer’s standing law, never re-enumerated here; no edits',
         },
         {
             title: 'Fix',
@@ -41,7 +41,8 @@ export const meta = {
 const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm';
 const CHAIN = ['/Users/bardiasamiee/.claude/CLAUDE.md', ROOT + '/CLAUDE.md']; // always-loaded fork surfaces: global [02] + project [02]
 const CAP = 14; // max agents in flight across the streamed group-chains; the harness slot ceiling itself (min(16, cores-2)), saturated with no reserved headroom
-const GROUP = 5; // finder files per analyze agent
+const GROUP = 5; // finder files per analyze agent (non-`.api` tiers)
+const TIER_GROUP = 40; // `.api`-tier finder ownership slice; each slice sees the WHOLE tier for routing, so the split balances read-load without fragmenting cross-file dedup
 const BATCH = 5; // pages per agent for both adversarial passes (Redteam, Verify); batching amortizes their shared cold-review law across a small file group
 const PROSE_LO = 45; // prose reduction band the receipt grades against, percent of baseline prose lines
 const PROSE_HI = 60;
@@ -130,6 +131,16 @@ const ownerOf = (p) => (underPlanning(p) ? p.slice(0, p.indexOf('/.planning')) :
 const rulingsCandidates = (owner) => [ROOT + '/' + owner + '/RULINGS.md', ROOT + '/' + owner + '/.planning/RULINGS.md'];
 const flatSlug = (p) => p.replace(/[^a-zA-Z0-9]+/g, '_');
 const dossierPath = (p) => DOSSIER_DIR + '/' + flatSlug(p) + '.md';
+
+// substrate `.api` root, language-agnostic across the three branches: a folder-tier catalog `libs/<lang>/<pkg>/.../.api/x.md` registers against `libs/<lang>/.api`;
+// a catalog already sitting at that substrate tier has no higher owner. The two-tier no-redirect law (campaign-method [03]) audits every folder catalog against this root.
+const langOf = (p) => (p.match(/^libs\/([^/]+)\//) || [])[1] || '';
+const substrateOf = (p) => {
+    const lang = langOf(p);
+    if (!lang) return '';
+    const sub = 'libs/' + lang + '/.api';
+    return p.startsWith(sub + '/') ? '' : sub;
+};
 
 // owner registries a page forks against: its own directory, the package-root folder registries, and the branch registries.
 // Folder README/ARCHITECTURE/RULINGS live at the package root (the component above `.planning`), never inside it; branch registries live at `libs/<lang>/.planning`.
@@ -540,6 +551,49 @@ const researchLaw =
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+// the `.api`-tier cross-file finder — the analyzer FLOOR the fixer builds up from, scoped to exactly the whole-tier view a per-file fixer cannot have. It does NOT enumerate the
+// per-file defect classes the fixer sweeps unconditionally (structural template drift, version/install anchors, legacy surface, signature bloat, run-on members) — re-reporting them
+// doubles work. Its three products are the fixer`s blind spot: cross-file duplication routing, two-tier substrate ownership (no-redirect law, language-agnostic), and the stacking graph.
+const apiTierMandate = (owned, wholeTier) => {
+    const substrates = [...new Set(wholeTier.map((f) => substrateOf(f.path)).filter(Boolean))];
+    return (
+        PREAMBLE +
+        '\n\n' +
+        ACID +
+        '\n\nYOU ARE THE .API CROSS-TIER FINDER. Your ONE product is the cross-file map a per-file fixer is structurally blind to, and that an `.api` run gets NOWHERE else — every ' +
+        '`.api` catalog closes at Fix, so a duplication or substrate-ownership defect you miss is never caught again. Report ONLY cross-file and cross-tier defects, exhaustive across the ' +
+        'WHOLE tier: the per-file classes — structural template drift, version/install anchors, legacy surface, signature bloat, run-on members — are the fixer`s standing law and never ' +
+        'your findings.' +
+        '\n\n' +
+        arm('and the `.api` catalog template ' + templatePath('api')) +
+        '\n\nYOU OWN FINDINGS for these ' +
+        owned.length +
+        ' target files: ' +
+        JSON.stringify(owned.map((f) => f.path)) +
+        '.\nTHE WHOLE TIER is in view for routing — a duplication winner may sit in ANY of these, and you OPEN it to confirm, never assume: ' +
+        JSON.stringify(wholeTier.map((f) => f.path)) +
+        '.' +
+        (substrates.length
+            ? '\nSUBSTRATE TIER(S) — the shared catalogue root each folder catalog registers against (enumerate each with `fd -e md . <root>`): ' + JSON.stringify(substrates) + '.'
+            : '') +
+        '\n\nREAD VIA TOOLS, never prompt-preload: use `rg`/`fd`/Read across the tier and substrate to build the map — never attempt to hold every catalog in context. `rg` a shared ' +
+        'member name, decision phrase, or roster across the tier to surface duplication fast, then Read the two catalogs to rule on the winner.' +
+        '\n\nTHREE cross-file products, each a finding on the file that must CHANGE:' +
+        '\n(1) DUPLICATION ROUTING — a decision, invariant, member roster, capability, or mechanism one catalog states that ANOTHER (target tier OR substrate) owns more fully. Route ' +
+        'it to the LOSER: record {fact, ownerSibling} in the loser`s crossFile, and add a finding (move=demote, direction naming the winner + its anchor). OPEN the winner and confirm ' +
+        'it carries the FULL fact at no narrower set — an unopened winner is an unproven route and the loser keeps its copy.' +
+        '\n(2) SUBSTRATE OWNERSHIP (campaign-method [03] no-redirect law) — a folder-tier catalog that duplicates, redirects to, or re-catalogues a package the SUBSTRATE tier already ' +
+        'carries is a defect: the folder REGISTERS the substrate package (a one-line pointer naming it), never re-documents its surface. Flag each (move=demote, direction ' +
+        '"REGISTER substrate <path>#<anchor>, drop the re-catalogue"). A package the substrate does NOT carry stays folder-owned — never invent a substrate move.' +
+        '\n(3) STACKING GRAPH — a `[STACKING]` / `[04]-[STACKING]` row that is one-word, missing, or names a sibling seam shallowly. Flag each (move=reframe, direction naming the real ' +
+        'sibling `.api` package and the exact composition shape `<sibling>`(`.api/<path>`): <seam>) so the fixer deepens it to operator depth against the real member.' +
+        apiStackingLaw +
+        '\n\nFOR EACH owned file carrying at least one cross-file/substrate/stacking finding, return {path, findings:[{class, anchor, problem, direction, move}], crossFile:[{fact, ' +
+        'ownerSibling}], indexStatus:"n/a", researchStatus:"n/a"}. Use the exact `[NN]-[CLASS]` heading from defects.md for class. A file with NO cross-file defect is OMITTED — the ' +
+        'fixer runs its own per-file depth pass regardless, so an omission is correct, never a gap. Make NO edits and run NO write tools. Return {files:[...]}.'
+    );
+};
+
 const analyzeMandate = (group) =>
     PREAMBLE +
     '\n\n' +
@@ -636,9 +690,22 @@ const fixMandate = (f, seed) => {
         ' lines. Also read the nearest ancestor README.md as your register exemplar if one exists — leads that legislate in owning voice, dense with the ' +
         "folder's own vocabulary, zero narration; your leads read as the same hand." +
         '\n\nFINDER FINDINGS for this file' +
-        (hasSeed ? ' (seed, not ceiling):' : ' (NONE — the finder pass DROPPED this file; run a full cold hostile hunt, no hints exist):') +
+        (hasSeed
+            ? f.kind === 'api'
+                ? ' (the cross-file / substrate / stacking FLOOR you EXECUTE — not hints to re-derive):'
+                : ' (seed, not ceiling):'
+            : f.kind === 'api'
+              ? ' (no cross-file defect routed here — normal: the cross-tier finder reports only real routes, so run your per-file depth pass and add nothing cross-file you cannot see):'
+              : ' (NONE — the finder pass DROPPED this file; run a full cold hostile hunt, no hints exist):') +
         '\n' +
         JSON.stringify(hasSeed ? { findings: seed.findings, crossFile: seed.crossFile } : { findings: [], crossFile: [] }) +
+        (f.kind === 'api'
+            ? '\n\nANALYZER FLOOR — the directives above are AUTHORITATIVE, not hints: a whole-tier finder held the ENTIRE `.api` tier and its language substrate in one view you lack ' +
+              'from this one file, and routed the cross-file duplication, substrate-registration, and stacking-deepening work. EXECUTE each — open the named winner/substrate owner, ' +
+              'confirm it carries the full fact, demote your copy per the DEMOTE-VERIFY law, deepen each flagged `[STACKING]` row to the named sibling seam. Your own pass adds the ' +
+              'per-file DEPTH the finder could not reach — template-true structure, decompile-verified member truth, version/legacy purge — above this floor, never a second cross-file ' +
+              'hunt: a cross-file defect the floor did not route is beyond one file`s view and stays.'
+            : '') +
         '\n\nTERRITORY — prose surfaces you rebuild: H1 leads, every section bullet and paragraph, list entries, table leads, and COMMENT LINES inside fences. ' +
         'UNTOUCHED — fence code bodies (signatures, types, members, cases, fields, logic, imports), mermaid diagram bodies, and section-divider comment lines ' +
         '(style-correct a wrong divider label, never delete one). You are a prose surgeon, never a design editor: no owner, case, member, or design decision changes.' +
@@ -1088,50 +1155,87 @@ const files = census.files
 // census file by path; Redteam and Remediate resolve an agent-returned receipt/grade back to its census file here and SKIP an unmatched one, so undefined never reaches a mandate (the `f.path` crash)
 const fileByPath = new Map(files.map((f) => [f.path, f]));
 
-// even finder batches: a flat GROUP-sized chunk over the path-sorted file list fills every group and never strands a folder's lone tail as a 1-file batch; the sort keeps same-folder pages adjacent for cross-file TWIN_TRUTH
-const groups = chunk(files, GROUP);
 const baseProse = files.reduce((a, f) => a + f.prose, 0);
 const baseComments = files.reduce((a, f) => a + f.comments, 0);
-log(files.length + ' pages, ' + groups.length + ' finder group(s), ' + baseProse + ' prose + ' + baseComments + ' comment baseline lines');
 
-// Analyze + Fix stream per finder group: one finder over the group of GROUP, then a fixer per file fired the instant that finder returns — no chain waits on a sibling group.
-// Redteam and Verify are NOT tied to the finder group: each is one GLOBAL pooled stage over every OK page from every group, batched at BATCH so every batch fills to BATCH and
-// each file is redteamed/verified exactly once. The finder needs the GROUP-wide cross-file view; the adversarial passes read each page`s own HEAD->now diff, so the finder group
-// is the wrong batch unit for them — per-group chunking strands lonely tail batches. Whole-corpus batching removes that and covers every file.
+// one fixer per file, all concurrent; each starts at its finder floor (an `.api` fixer executes the cross-file directives and adds per-file decompile depth; a prose fixer seeds off
+// its own findings) — a file with no seed runs its own hunt. Shared by both Analyze shapes so the Fix fan is identical.
+const fanFix = (list, seed) =>
+    Promise.all(
+        list.map((f) =>
+            run(() =>
+                agent(fixMandate(f, seed.get(f.path)), {
+                    label: 'fix:' + f.path.split('/').slice(-2).join('/'),
+                    phase: 'Fix',
+                    model: 'opus',
+                    effort: 'high',
+                    schema: FIX_SCHEMA,
+                }),
+            ),
+        ),
+    ).then((rs) => rs.filter(Boolean));
+
+// Analyze partitions by what each stage can UNIQUELY see, so no two stages re-litigate one fact. `.api`-tier mode: the finder owns ONLY the whole-tier cross-file / substrate /
+// stacking view (the fixer`s blind spot) and the per-file fixer owns the decompile-verified per-file depth (the finder`s blind spot) — the fixer starts at the finder floor and builds
+// up, never re-derives it. Non-`.api` tiers keep the per-group finder streamed into its fixers (its per-file findings feed Redteam/Verify downstream, a chain `.api` never runs).
+const apiFiles = files.filter((f) => f.kind === 'api');
+const apiTierMode = apiFiles.length >= 2 && apiFiles.length >= files.length * 0.8;
 let analyzed = 0;
-const fixChains = await Promise.all(
-    groups.map(async (g) => {
-        const analysis = await run(() =>
-            agent(analyzeMandate(g), {
-                label: 'find:' + g[0].path.split('/').slice(-2)[0] + '+' + g.length,
-                phase: 'Analyze',
-                model: 'opus',
-                effort: 'high',
-                schema: ANALYZE_SCHEMA,
-            }),
+let fixReceipts;
+if (apiTierMode) {
+    const nonApi = files.filter((f) => f.kind !== 'api');
+    log(files.length + ' `.api` pages, ' + Math.ceil(apiFiles.length / TIER_GROUP) + ' cross-tier finder(s), ' + baseProse + ' prose baseline lines');
+    const seedByPath = new Map();
+    // each finder OWNS a TIER_GROUP slice but sees the WHOLE tier for routing, so a duplication winner in another slice is opened and routed — never fragmented as a fixed window would
+    const tierMaps = await Promise.all(
+        chunk(apiFiles, TIER_GROUP).map((sub) =>
+            run(() =>
+                agent(apiTierMandate(sub, apiFiles), {
+                    label: 'find:tier+' + sub.length,
+                    phase: 'Analyze',
+                    model: 'opus',
+                    effort: 'high',
+                    schema: ANALYZE_SCHEMA,
+                }),
+            ),
+        ),
+    );
+    for (const m of tierMaps) if (m) for (const fr of m.files) seedByPath.set(fr.path, fr);
+    // a stray non-`.api` page in the folder (README/spec) keeps the standard per-file finder
+    if (nonApi.length) {
+        const resid = await Promise.all(
+            chunk(nonApi, GROUP).map((g) =>
+                run(() => agent(analyzeMandate(g), { label: 'find:resid+' + g.length, phase: 'Analyze', model: 'opus', effort: 'high', schema: ANALYZE_SCHEMA })),
+            ),
         );
-        const byPath = new Map();
-        if (analysis) for (const fr of analysis.files) byPath.set(fr.path, fr);
-        analyzed += byPath.size;
-        // Fix: one fixer per file, all concurrent — each seeds off its own file`s finding; a dropped finder hands empty seeds and every fixer runs its own cold hostile hunt
-        return (
-            await Promise.all(
-                g.map((f) =>
-                    run(() =>
-                        agent(fixMandate(f, byPath.get(f.path)), {
-                            label: 'fix:' + f.path.split('/').slice(-2).join('/'),
-                            phase: 'Fix',
-                            model: 'opus',
-                            effort: 'high',
-                            schema: FIX_SCHEMA,
-                        }),
-                    ),
-                ),
-            )
-        ).filter(Boolean);
-    }),
-);
-const fixReceipts = fixChains.flat().filter(Boolean);
+        for (const m of resid) if (m) for (const fr of m.files) seedByPath.set(fr.path, fr);
+    }
+    analyzed = seedByPath.size;
+    fixReceipts = await fanFix(files, seedByPath);
+} else {
+    // per-group stream: one finder over the group of GROUP, then a fixer per file fired the instant that finder returns — no chain waits on a sibling group. The sort keeps same-folder
+    // pages adjacent for cross-file TWIN_TRUTH; Redteam/Verify then pool globally (per-page HEAD->now diff, not the finder group) so no lonely tail batch strands.
+    const groups = chunk(files, GROUP);
+    log(files.length + ' pages, ' + groups.length + ' finder group(s), ' + baseProse + ' prose + ' + baseComments + ' comment baseline lines');
+    const fixChains = await Promise.all(
+        groups.map(async (g) => {
+            const analysis = await run(() =>
+                agent(analyzeMandate(g), {
+                    label: 'find:' + g[0].path.split('/').slice(-2)[0] + '+' + g.length,
+                    phase: 'Analyze',
+                    model: 'opus',
+                    effort: 'high',
+                    schema: ANALYZE_SCHEMA,
+                }),
+            );
+            const byPath = new Map();
+            if (analysis) for (const fr of analysis.files) byPath.set(fr.path, fr);
+            analyzed += byPath.size;
+            return fanFix(g, byPath);
+        }),
+    );
+    fixReceipts = fixChains.flat().filter(Boolean);
+}
 
 // Redteam: ONE global pooled stage over every OK-fixed page of an ADVERSARIAL kind (an `.api` catalog is excluded — it closed at Fix), batched at BATCH — full batches, cross-group,
 // each file redteamed once. Its receipt supersedes the fixer`s; a fixer that failed or whose red-team dropped keeps the fixer receipt so downstream Verify and the return still account for it.

@@ -1,26 +1,22 @@
 # [RASM_PERSISTENCE_API_AZURE_KEYVAULT]
 
-`Azure.Security.KeyVault.Keys` supplies the `KeyClient` for vault-side key CRUD and the
-`CryptographyClient` for key-wrap and envelope operations over Azure Key Vault and Managed HSM.
-It carries the `Keys.Cryptography` algorithm vocabularies (`KeyWrapAlgorithm`, `EncryptionAlgorithm`, `SignatureAlgorithm`) plus the `KeyVaultKey`/`JsonWebKey` material model. It is the `KmsProvider.Azure` arm of TWO Persistence delegate surfaces the `Element/identity#KMS_CUSTODY` `KmsProvider` `[SmartEnum<string>]` axis selects (the axis is owned by `Element/identity#KMS_CUSTODY`, not a `Store/encryption` page — that page does not exist): the ENVELOPE `EnvelopeKeyring` and the SIGNING `Element/identity#KMS_CUSTODY` `SigningKeyring`. The `CryptographyClient` is the single admitted KMS provider whose envelope arm exposes a native `WrapKey`/`UnwrapKey` verb pair (`RSA-OAEP-256` over the vault CMK), so the Azure arm wraps a DEK directly rather than through the `Encrypt`/`Decrypt`-as-wrap shim the AWS-KMS and GCP-KMS arms (`GenerateDataKey`/`Decrypt`/`ReEncrypt`) require, and whose signing arm exposes a first-class `Sign`/`Verify` (and `SignData`/`VerifyData`) over the `SignatureAlgorithm` axis the `SigningKeyring` binds. The `CryptographyClient(JsonWebKey)` local-only constructor is the path for an offline/cached wrap or verify that performs no vault round-trip.
+`Azure.Security.KeyVault.Keys` owns vault-side key custody and cryptography for the `azure` `KmsProvider` arm: `KeyClient` drives master-key CRUD, rotation, and secure-key-release over Azure Key Vault and Managed HSM, `CryptographyClient` drives the DEK envelope and asymmetric signing. Its `CryptographyClient.WrapKey`/`UnwrapKey` is a native vault key-wrap verb, so the Azure `EnvelopeKeyring` arm wraps a DEK directly rather than through an `Encrypt`/`Decrypt`-as-wrap shim, and its `Sign`/`Verify` binds the `SigningKeyring` arm over the precomputed `OpDigest`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Azure.Security.KeyVault.Keys`
-- package: `Azure.Security.KeyVault.Keys`
-- assembly: `Azure.Security.KeyVault.Keys` (`lib/net10.0`, consumer-bound; `net8.0`/`netstandard2.0` fallbacks present)
+- package: `Azure.Security.KeyVault.Keys` (`MIT`, Microsoft)
+- assembly: `Azure.Security.KeyVault.Keys` (`lib/net10.0` binds the `net10.0` consumer)
 - namespace: `Azure.Security.KeyVault.Keys`, `Azure.Security.KeyVault.Keys.Cryptography`
-- depends: `Azure.Core` (pipeline, `Response<T>`, `Pageable<T>`, `TokenCredential`); pairs with `Azure.Identity` for the credential at composition
-- service-version: `KeyClientOptions.ServiceVersion.V2025_07_01` is the `LatestVersion` default; pin lower only to target an older vault API
 - asset: runtime library
-- rail: encryption (the DEK envelope arm), signing (the `Element/identity#KMS_CUSTODY` `SigningKeyring` arm)
+- depends: `Azure.Core` (pipeline, `Response<T>`, `Pageable<T>`, `TokenCredential`), paired with `Azure.Identity` for the credential at composition
+- rail: encryption (the DEK envelope arm), signing (the `SigningKeyring` arm)
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client and cryptography family
-- rail: encryption
 
-| [INDEX] | [SYMBOL]                         | [TYPE_FAMILY]        | [RAIL]                                                              |
+| [INDEX] | [SYMBOL]                         | [TYPE_FAMILY]        | [CAPABILITY]                                                        |
 | :-----: | :------------------------------- | :------------------- | :------------------------------------------------------------------ |
 |  [01]   | `KeyClient`                      | management client    | key CRUD, backup, rotation, release over the vault                  |
 |  [02]   | `CryptographyClient`             | cryptography client  | wrap, unwrap, encrypt, decrypt, sign, verify; `IKeyEncryptionKey`   |
@@ -28,7 +24,7 @@ It carries the `Keys.Cryptography` algorithm vocabularies (`KeyWrapAlgorithm`, `
 |  [04]   | `KeyClientOptions`               | client options       | `ServiceVersion` and pipeline policy                                |
 |  [05]   | `CryptographyClientOptions`      | client options       | service version for the remote cryptography client                  |
 |  [06]   | `LocalCryptographyClientOptions` | client options       | options for the offline `JsonWebKey` cryptography constructor       |
-|  [07]   | `KeyVaultKey`                    | key resource         | `Key` (`JsonWebKey`) plus `Properties` (`KeyProperties`) carrier    |
+|  [07]   | `KeyVaultKey`                    | key resource         | `Key` (`JsonWebKey`) with `Properties` (`KeyProperties`) carrier    |
 |  [08]   | `JsonWebKey`                     | key material         | JWK key type, operations, curve, `ToRSA`/`ToECDsa`/`ToAes` material |
 |  [09]   | `KeyProperties`                  | key metadata         | `Name`, `Id` (`Uri`), `Version`, `Managed`, `ReleasePolicy`         |
 |  [10]   | `KeyVaultKeyIdentifier`          | identifier value     | parses `SourceId`/`VaultUri`/`Name`/`Version` from a key URI        |
@@ -38,9 +34,8 @@ It carries the `Keys.Cryptography` algorithm vocabularies (`KeyWrapAlgorithm`, `
 |  [14]   | `RSAKeyVault`                    | crypto bridge        | `RSA` over the vault key from `CryptographyClient.CreateRSA`        |
 
 [PUBLIC_TYPE_SCOPE]: algorithm and parameter vocabulary
-- rail: encryption
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]     | [RAIL]                                          |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]     | [CAPABILITY]                                    |
 | :-----: | :-------------------- | :---------------- | :---------------------------------------------- |
 |  [01]   | `KeyWrapAlgorithm`    | algorithm value   | key-wrap algorithm selector                     |
 |  [02]   | `EncryptionAlgorithm` | algorithm value   | encrypt/decrypt algorithm selector              |
@@ -50,12 +45,11 @@ It carries the `Keys.Cryptography` algorithm vocabularies (`KeyWrapAlgorithm`, `
 |  [06]   | `EncryptParameters`   | parameter carrier | algorithm-specific encrypt inputs               |
 |  [07]   | `DecryptParameters`   | parameter carrier | algorithm-specific decrypt inputs               |
 
-- [03]-[SIGNATURE_ALGORITHM]: `ES256`/`ES384`/`ES512`/`ES256K`, `PS256`/`PS384`/`PS512`, `RS256`/`RS384`/`RS512`, `HS256`/`HS384`/`HS512`; the `SigningKeyring` binds the ES/PS/RS rows.
+[SIGNATURE_ALGORITHM]: `ES256` `ES384` `ES512` `ES256K` `PS256` `PS384` `PS512` `RS256` `RS384` `RS512` `HS256` `HS384` `HS512`; the `SigningKeyring` binds the ES/PS/RS rows.
 
 [PUBLIC_TYPE_SCOPE]: operation result carriers
-- rail: encryption
 
-| [INDEX] | [SYMBOL]        | [TYPE_FAMILY] | [RAIL]                                                                                       |
+| [INDEX] | [SYMBOL]        | [TYPE_FAMILY] | [CAPABILITY]                                                                                 |
 | :-----: | :-------------- | :------------ | :------------------------------------------------------------------------------------------- |
 |  [01]   | `WrapResult`    | result value  | `EncryptedKey`, `KeyId`, `Algorithm` (`KeyWrapAlgorithm`)                                    |
 |  [02]   | `UnwrapResult`  | result value  | unwrapped `Key`, `KeyId`, `Algorithm` (`KeyWrapAlgorithm`)                                   |
@@ -67,100 +61,91 @@ It carries the `Keys.Cryptography` algorithm vocabularies (`KeyWrapAlgorithm`, `
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: key-wrap and envelope cryptography
-- rail: encryption
 
-| [INDEX] | [SURFACE]                                                                    | [ENTRY_FAMILY] | [RAIL]                                   |
-| :-----: | :--------------------------------------------------------------------------- | :------------- | :--------------------------------------- |
-|  [01]   | `CryptographyClient(Uri keyId, TokenCredential, CryptographyClientOptions?)` | remote ctor    | one key identifier; vault round-trip     |
-|  [02]   | `CryptographyClient(JsonWebKey, LocalCryptographyClientOptions?)`            | local ctor     | offline over cached JWK; no vault call   |
-|  [03]   | `WrapKey(KeyWrapAlgorithm, byte[] key, ct)`                                  | wrap           | wraps a DEK to `WrapResult`              |
-|  [04]   | `UnwrapKey(KeyWrapAlgorithm, byte[] encryptedKey, ct)`                       | unwrap         | unwraps to `UnwrapResult`                |
-|  [05]   | `Encrypt(EncryptionAlgorithm, byte[] plaintext, ct)`                         | encrypt        | direct encrypt to `EncryptResult`        |
-|  [06]   | `Encrypt(EncryptParameters, ct)`                                             | encrypt        | parameterized encrypt with `Iv`/`Aad`    |
-|  [07]   | `Decrypt(EncryptionAlgorithm, byte[] ciphertext, ct)`                        | decrypt        | direct decrypt to `DecryptResult`        |
-|  [08]   | `Decrypt(DecryptParameters, ct)`                                             | decrypt        | parameterized decrypt with `Iv`/`Aad`    |
-|  [09]   | `Sign(SignatureAlgorithm, byte[] digest, ct)`                                | sign           | signs a precomputed digest               |
-|  [10]   | `Verify(SignatureAlgorithm, byte[] digest, sig, ct)`                         | verify         | verifies a digest signature              |
-|  [11]   | `SignData(SignatureAlgorithm, byte[]\|Stream, ct)`                           | sign           | hashes then signs data                   |
-|  [12]   | `VerifyData(SignatureAlgorithm, byte[]\|Stream, sig)`                        | verify         | hashes then verifies data                |
-|  [13]   | `CreateRSA(ct)` / `CreateRSAAsync(ct)`                                       | crypto bridge  | public key → `RSAKeyVault` (`RSA`)       |
-|  [14]   | `KeyResolver(TokenCredential).Resolve(Uri keyId, ct)`                        | resolver       | key URI → bound `CryptographyClient`     |
-|  [15]   | `CryptographyClient.KeyId`                                                   | identity       | bound key id (`IKeyEncryptionKey.KeyId`) |
+| [INDEX] | [SURFACE]                                                                    | [SHAPE]  | [CAPABILITY]                             |
+| :-----: | :--------------------------------------------------------------------------- | :------- | :--------------------------------------- |
+|  [01]   | `CryptographyClient(Uri keyId, TokenCredential, CryptographyClientOptions?)` | ctor     | one key id, remote; vault round-trip     |
+|  [02]   | `CryptographyClient(JsonWebKey, LocalCryptographyClientOptions?)`            | ctor     | offline over cached JWK; no vault call   |
+|  [03]   | `WrapKey(KeyWrapAlgorithm, byte[] key, ct)`                                  | instance | wraps a DEK to `WrapResult`              |
+|  [04]   | `UnwrapKey(KeyWrapAlgorithm, byte[] encryptedKey, ct)`                       | instance | unwraps to `UnwrapResult`                |
+|  [05]   | `Encrypt(EncryptionAlgorithm, byte[] plaintext, ct)`                         | instance | direct encrypt to `EncryptResult`        |
+|  [06]   | `Encrypt(EncryptParameters, ct)`                                             | instance | parameterized encrypt with `Iv`/`Aad`    |
+|  [07]   | `Decrypt(EncryptionAlgorithm, byte[] ciphertext, ct)`                        | instance | direct decrypt to `DecryptResult`        |
+|  [08]   | `Decrypt(DecryptParameters, ct)`                                             | instance | parameterized decrypt with `Iv`/`Aad`    |
+|  [09]   | `Sign(SignatureAlgorithm, byte[] digest, ct)`                                | instance | signs a precomputed digest               |
+|  [10]   | `Verify(SignatureAlgorithm, byte[] digest, sig, ct)`                         | instance | verifies a digest signature              |
+|  [11]   | `SignData(SignatureAlgorithm, byte[]\|Stream, ct)`                           | instance | hashes then signs data                   |
+|  [12]   | `VerifyData(SignatureAlgorithm, byte[]\|Stream, sig)`                        | instance | hashes then verifies data                |
+|  [13]   | `CreateRSA(ct)` / `CreateRSAAsync(ct)`                                       | instance | public key → `RSAKeyVault` (`RSA`)       |
+|  [14]   | `KeyResolver(TokenCredential).Resolve(Uri keyId, ct)`                        | instance | key URI → bound `CryptographyClient`     |
+|  [15]   | `CryptographyClient.KeyId`                                                   | property | bound key id (`IKeyEncryptionKey.KeyId`) |
 
 [ENTRYPOINT_SCOPE]: key lifecycle management
-- rail: encryption
 
-| [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY]   | [RAIL]                                           |
-| :-----: | :-------------------------------------------------------- | :--------------- | :----------------------------------------------- |
-|  [01]   | `KeyClient(Uri vaultUri, TokenCredential)`                | constructor      | binds a client to one vault `Uri`                |
-|  [02]   | `CreateKey(name, KeyType, CreateKeyOptions?, ct)`         | create           | creates a key of the given `KeyType`             |
-|  [03]   | `CreateRsaKey(CreateRsaKeyOptions, ct)`                   | create           | RSA-specific key create                          |
-|  [04]   | `CreateEcKey(CreateEcKeyOptions, ct)`                     | create           | EC-specific key create                           |
-|  [05]   | `CreateOctKey(CreateOctKeyOptions, ct)`                   | create           | symmetric (Managed HSM) key create               |
-|  [06]   | `GetKey(name, version?, ct)`                              | read             | returns `Response<KeyVaultKey>`                  |
-|  [07]   | `GetKeyAttestation(name, version?, ct)`                   | read             | public key plus attestation blob (`KeyVaultKey`) |
-|  [08]   | `GetPropertiesOfKeys(ct)`                                 | list             | `Pageable<KeyProperties>` over all keys          |
-|  [09]   | `GetPropertiesOfKeyVersions(name, ct)`                    | list             | `Pageable<KeyProperties>` over key versions      |
-|  [10]   | `UpdateKeyProperties(KeyProperties, keyOps?, ct)`         | update           | updates attributes and permitted operations      |
-|  [11]   | `ImportKey(name, JsonWebKey, ct)`                         | import           | imports external key material                    |
-|  [12]   | `ImportKey(ImportKeyOptions, ct)`                         | import           | options-driven import with HSM flag              |
-|  [13]   | `StartDeleteKey(name, ct)`                                | delete           | `DeleteKeyOperation` long-running poller         |
-|  [14]   | `GetDeletedKey(name, ct)` / `GetDeletedKeys(ct)`          | soft-delete read | reads recoverable `DeletedKey` resources         |
-|  [15]   | `StartRecoverDeletedKey(name, ct)`                        | recover          | `RecoverDeletedKeyOperation` poller              |
-|  [16]   | `PurgeDeletedKey(name, ct)`                               | purge            | irreversible removal from soft-delete            |
-|  [17]   | `BackupKey(name, ct)` / `RestoreKeyBackup(byte[])`        | backup           | opaque vault-portable key blob round-trip        |
-|  [18]   | `RotateKey(name, ct)`                                     | rotate           | forces a new key version                         |
-|  [19]   | `GetKeyRotationPolicy(keyName, ct)`                       | rotation policy  | reads the `KeyRotationPolicy`                    |
-|  [20]   | `UpdateKeyRotationPolicy(keyName, KeyRotationPolicy, ct)` | rotation policy  | sets the `KeyRotationPolicy`                     |
-|  [21]   | `GetRandomBytes(count, ct)`                               | rng              | Managed HSM hardware random bytes                |
-|  [22]   | `ReleaseKey(name, targetAttestationToken, ct)`            | release          | secure-key-release to `ReleaseKeyResult`         |
-|  [23]   | `ReleaseKey(ReleaseKeyOptions, ct)`                       | release          | options-driven secure-key-release                |
-|  [24]   | `GetCryptographyClient(keyName, keyVersion?)`             | factory          | derives a `CryptographyClient` for one key       |
+| [INDEX] | [SURFACE]                                                 | [SHAPE]  | [CAPABILITY]                                     |
+| :-----: | :-------------------------------------------------------- | :------- | :----------------------------------------------- |
+|  [01]   | `KeyClient(Uri vaultUri, TokenCredential)`                | ctor     | binds a client to one vault `Uri`                |
+|  [02]   | `CreateKey(name, KeyType, CreateKeyOptions?, ct)`         | instance | creates a key of the given `KeyType`             |
+|  [03]   | `CreateRsaKey(CreateRsaKeyOptions, ct)`                   | instance | RSA-specific key create                          |
+|  [04]   | `CreateEcKey(CreateEcKeyOptions, ct)`                     | instance | EC-specific key create                           |
+|  [05]   | `CreateOctKey(CreateOctKeyOptions, ct)`                   | instance | symmetric (Managed HSM) key create               |
+|  [06]   | `GetKey(name, version?, ct)`                              | instance | returns `Response<KeyVaultKey>`                  |
+|  [07]   | `GetKeyAttestation(name, version?, ct)`                   | instance | public key plus attestation blob (`KeyVaultKey`) |
+|  [08]   | `GetPropertiesOfKeys(ct)`                                 | instance | `Pageable<KeyProperties>` over all keys          |
+|  [09]   | `GetPropertiesOfKeyVersions(name, ct)`                    | instance | `Pageable<KeyProperties>` over key versions      |
+|  [10]   | `UpdateKeyProperties(KeyProperties, keyOps?, ct)`         | instance | updates attributes and permitted operations      |
+|  [11]   | `ImportKey(name, JsonWebKey, ct)`                         | instance | imports external key material                    |
+|  [12]   | `ImportKey(ImportKeyOptions, ct)`                         | instance | options-driven import with HSM flag              |
+|  [13]   | `StartDeleteKey(name, ct)`                                | instance | `DeleteKeyOperation` long-running poller         |
+|  [14]   | `GetDeletedKey(name, ct)` / `GetDeletedKeys(ct)`          | instance | reads recoverable `DeletedKey` resources         |
+|  [15]   | `StartRecoverDeletedKey(name, ct)`                        | instance | `RecoverDeletedKeyOperation` poller              |
+|  [16]   | `PurgeDeletedKey(name, ct)`                               | instance | irreversible removal from soft-delete            |
+|  [17]   | `BackupKey(name, ct)` / `RestoreKeyBackup(byte[])`        | instance | opaque vault-portable key blob round-trip        |
+|  [18]   | `RotateKey(name, ct)`                                     | instance | forces a new key version                         |
+|  [19]   | `GetKeyRotationPolicy(keyName, ct)`                       | instance | reads the `KeyRotationPolicy`                    |
+|  [20]   | `UpdateKeyRotationPolicy(keyName, KeyRotationPolicy, ct)` | instance | sets the `KeyRotationPolicy`                     |
+|  [21]   | `GetRandomBytes(count, ct)`                               | instance | Managed HSM hardware random bytes                |
+|  [22]   | `ReleaseKey(name, targetAttestationToken, ct)`            | instance | secure-key-release to `ReleaseKeyResult`         |
+|  [23]   | `ReleaseKey(ReleaseKeyOptions, ct)`                       | instance | options-driven secure-key-release                |
+|  [24]   | `GetCryptographyClient(keyName, keyVersion?)`             | factory  | derives a `CryptographyClient` for one key       |
 
 [ENTRYPOINT_SCOPE]: algorithm selectors and identifier parse
-- rail: encryption
 
-| [INDEX] | [SURFACE]                                                                | [ENTRY_FAMILY]    | [RAIL]                                   |
-| :-----: | :----------------------------------------------------------------------- | :---------------- | :--------------------------------------- |
-|  [01]   | `KeyWrapAlgorithm.RsaOaep256` / `RsaOaep` / `Rsa15`                      | RSA wrap value    | wire `RSA-OAEP-256`/`RSA-OAEP`/`RSA1_5`  |
-|  [02]   | `KeyWrapAlgorithm.A128KW` / `A192KW` / `A256KW`                          | AES wrap value    | AES key-wrap algorithm constants         |
-|  [03]   | `KeyWrapAlgorithm.CkmAesKeyWrap` / `CkmAesKeyWrapPad`                    | CKM wrap value    | PKCS#11 AES key-wrap constants           |
-|  [04]   | `EncryptionAlgorithm.RsaOaep256` / `A256Gcm` / `A256CbcPad`              | encrypt value     | encrypt/decrypt algorithm constants      |
-|  [05]   | `EncryptParameters.{Rsa15,RsaOaep,RsaOaep256}Parameters(plaintext)`      | parameter factory | RSA encrypt parameter construction       |
-|  [06]   | `EncryptParameters.A{128,192,256}GcmParameters(plaintext, aad?)`         | parameter factory | AES-GCM encrypt params, optional AAD     |
-|  [07]   | `EncryptParameters.A{128,192,256}{Cbc,CbcPad}Parameters(plaintext, iv?)` | parameter factory | AES-CBC / AES-CBC-PAD encrypt parameters |
-|  [08]   | `DecryptParameters.*` (mirror set)                                       | parameter factory | decrypt inputs with `Iv`/`Aad`           |
-|  [09]   | `KeyVaultKeyIdentifier.TryCreate(Uri, out identifier)`                   | identifier parse  | non-throwing split of a key URI          |
-|  [10]   | `KeyVaultKeyIdentifier.SourceId` / `VaultUri` / `Name` / `Version`       | identifier value  | parsed key URI components                |
+| [INDEX] | [SURFACE]                                                                | [SHAPE]  | [CAPABILITY]                             |
+| :-----: | :----------------------------------------------------------------------- | :------- | :--------------------------------------- |
+|  [01]   | `KeyWrapAlgorithm.RsaOaep256` / `RsaOaep` / `Rsa15`                      | static   | wire `RSA-OAEP-256`/`RSA-OAEP`/`RSA1_5`  |
+|  [02]   | `KeyWrapAlgorithm.A128KW` / `A192KW` / `A256KW`                          | static   | AES key-wrap algorithm constants         |
+|  [03]   | `KeyWrapAlgorithm.CkmAesKeyWrap` / `CkmAesKeyWrapPad`                    | static   | PKCS#11 AES key-wrap constants           |
+|  [04]   | `EncryptionAlgorithm.RsaOaep256` / `A256Gcm` / `A256CbcPad`              | static   | encrypt/decrypt algorithm constants      |
+|  [05]   | `EncryptParameters.{Rsa15,RsaOaep,RsaOaep256}Parameters(plaintext)`      | factory  | RSA encrypt parameter construction       |
+|  [06]   | `EncryptParameters.A{128,192,256}GcmParameters(plaintext, aad?)`         | factory  | AES-GCM encrypt params, optional AAD     |
+|  [07]   | `EncryptParameters.A{128,192,256}{Cbc,CbcPad}Parameters(plaintext, iv?)` | factory  | AES-CBC / AES-CBC-PAD encrypt parameters |
+|  [08]   | `DecryptParameters.*` (mirror set)                                       | factory  | decrypt inputs with `Iv`/`Aad`           |
+|  [09]   | `KeyVaultKeyIdentifier.TryCreate(Uri, out identifier)`                   | static   | non-throwing split of a key URI          |
+|  [10]   | `KeyVaultKeyIdentifier.SourceId` / `VaultUri` / `Name` / `Version`       | property | parsed key URI components                |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[KEYVAULT_TOPOLOGY]:
-- Two namespaces carry the public surface: `Azure.Security.KeyVault.Keys` for management and `Azure.Security.KeyVault.Keys.Cryptography` for operations. The whole client surface rides `Azure.Core`: `Response<T>`/`Pageable<T>`/`AsyncPageable<T>` carriers, the `TokenCredential` from `Azure.Identity`, and `RequestFailedException` for transport faults — convert that exception to the page error rail once at the boundary, never inside the keyring delegates.
-- `KeyClient` binds to one vault `Uri` plus a `TokenCredential`; `CryptographyClient` binds to one key identifier `Uri` (remote) or one `JsonWebKey` (local).
-- `CryptographyClient` implements `IKeyEncryptionKey`; the remote constructor performs vault round-trips while the `CryptographyClient(JsonWebKey)` / `(JsonWebKey, LocalCryptographyClientOptions)` constructors perform the operation locally over cached material with no service call — the same surface, gated by which constructor built it. `KeyResolver` (`IKeyEncryptionKeyResolver`) resolves a key URI to a bound `CryptographyClient` on demand.
-- NATIVE WRAP: unlike AWS KMS and GCP KMS (which expose no wrap verb, forcing `Encrypt`/`Decrypt`/`ReEncrypt`-as-wrap), `CryptographyClient.WrapKey(KeyWrapAlgorithm, dek)` / `UnwrapKey` is a first-class vault verb. The Azure `EnvelopeKeyring` arm therefore wraps a DEK directly with `RSA-OAEP-256`; the AWS/GCP "KMS has no native wrap verb" law is those arms', not this one.
-- SIGNING: `CryptographyClient.Sign(SignatureAlgorithm, digest, ct)` / `Verify(SignatureAlgorithm, digest, signature, ct)` is the first-class signing verb the `Element/identity#KMS_CUSTODY` `SigningKeyring` `Sign`/`Verify` arm binds — `Sign` takes the PRECOMPUTED `OpDigest` (the seam already hashed the op bytes), `SignData`/`VerifyData` the hash-then-sign convenience the seam does not use; the `SignatureAlgorithm.WireName` maps `ES256`↔`es256`, `PS256`↔`ps256`, `RS256`↔`rs256` (and the 384/512 widths), so the keyring delegate edge is the only place the Azure algorithm dialect lives, and `VerifyResult.IsValid` is the boolean the keyring lifts to `Authentic`/`Forged`.
-- `KeyWrapAlgorithm`/`EncryptionAlgorithm`/`SignatureAlgorithm` are extensible `readonly struct` value types with static well-known members; equality is string-value based and a string converts implicitly — a future algorithm needs no library upgrade, just the wire string.
-- `KeyType` carries `Rsa`/`RsaHsm`/`Ec`/`EcHsm`/`Oct`/`OctHsm` (wire `RSA`/`RSA-HSM`/`EC`/`EC-HSM`/`oct`/`oct-HSM`); `KeyOperation` carries `Encrypt`, `Decrypt`, `Sign`, `Verify`, `WrapKey`, `UnwrapKey`, `Import`.
-- `WrapResult.EncryptedKey` is the wrapped key bytes; `UnwrapResult.Key` is the recovered key bytes; both carry `KeyId` and `Algorithm` for receipt round-trip. `EncryptResult` additionally carries `Iv`, `AuthenticationTag`, and `AdditionalAuthenticatedData` for the AES-GCM authenticated-encryption path.
-- `KeyVaultKey` is `Key` (`JsonWebKey`) plus `Properties` (`KeyProperties`); `KeyProperties.Id` (a `Uri`) and `KeyProperties.Version` pin the exact key version a wrap was performed against. `JsonWebKey` round-trips to BCL primitives via `ToRSA`/`ToECDsa`/`ToAes` and is constructed from `RSA`/`ECDsa`/`Aes` providers.
-- Sync members have async twins (`WrapKeyAsync`, `UnwrapKeyAsync`, `CreateKeyAsync`, `GetKeyAsync`); delete and recover are long-running operations (`DeleteKeyOperation`, `RecoverDeletedKeyOperation`).
-- `KeyVaultKeyIdentifier.TryCreate` is the non-throwing URI split (`SourceId`/`VaultUri`/`Name`/`Version`); it never validates that the URI references a live vault.
-- Secure-key-release: `GetKeyAttestation` returns the key plus its attestation blob and `ReleaseKey(name, targetAttestationToken)` / `ReleaseKey(ReleaseKeyOptions)` exports an exportable key to a `ReleaseKeyResult` under a confidential-compute attestation token — the path for moving a key into a TEE, distinct from the DEK-wrap rail.
+[TOPOLOGY]:
+- Two namespaces carry the surface — `Azure.Security.KeyVault.Keys` for management, `.Cryptography` for operations — and the whole client rides `Azure.Core`: `Response<T>`/`Pageable<T>`/`AsyncPageable<T>` carriers, `TokenCredential`, and `RequestFailedException` converted to the page error rail once at the boundary, never inside the keyring delegates.
+- `KeyClient` binds one vault `Uri` with a `TokenCredential`; `CryptographyClient` binds one key-identifier `Uri` (remote, vault round-trips) or one `JsonWebKey` (local, no service call), the same `IKeyEncryptionKey` surface gated by which constructor built it, and `KeyResolver` resolves a key URI to a bound `CryptographyClient` on demand.
+- `KeyWrapAlgorithm`/`EncryptionAlgorithm`/`SignatureAlgorithm` are extensible `readonly struct` values with string-based equality and implicit string conversion, so a new algorithm is a wire string.
+- Sync members carry async twins (`WrapKeyAsync`, `CreateKeyAsync`); delete and recover are long-running `DeleteKeyOperation`/`RecoverDeletedKeyOperation` pollers.
+- `KeyVaultKey` pairs `Key` (`JsonWebKey`) with `Properties` (`KeyProperties`); `KeyProperties.Id` (`Uri`) and `.Version` pin the exact key version a wrap ran against, and `JsonWebKey` round-trips to BCL `RSA`/`ECDsa`/`Aes` through `ToRSA`/`ToECDsa`/`ToAes`.
+
+[STACKING]:
+- `api-aws-kms`, `api-google-kms`: the peer `KmsProvider` arms bind the same `EnvelopeKeyring`/`SigningKeyring` delegate surfaces against their own members; the Azure arm alone exposes a native `WrapKey`/`UnwrapKey` vault verb, so its `Rewrap` is a `WrapKey` against the new key version, never the `Encrypt`/`Decrypt`-as-wrap those arms run.
+- `Element/identity` `KmsProvider` `[SmartEnum<string>]` axis: selects the `azure` arm (`NativeWrap: true`); `EnvelopeKeyring(Mint, Unwrap, Rewrap, Probe)` binds `Mint`→`WrapKey(RsaOaep256, dek)`, `Unwrap`→`UnwrapKey` zeroing the recovered `Key`, `Rewrap`→`WrapKey` under a new version, `Probe`→`KeyClient.GetKey` `KeyProperties`, and `SigningKeyring` `Sign`/`Verify` binds `CryptographyClient.Sign`/`Verify` over the precomputed `OpDigest` against a signing key distinct from the envelope CMK.
+- within-lib crypto bridge: `CryptographyClient.CreateRSA`→`RSAKeyVault` (`RSA` over the vault key) and `JsonWebKey.ToRSA`/`ToAes` rehydrate BCL primitives for the `CryptographyClient(JsonWebKey)` offline path, so a cached JWK wraps or verifies with no vault round-trip.
 
 [LOCAL_ADMISSION]:
-- This package is the `azure` arm (the `KmsProvider.Azure` row, `NativeWrap: true`) of the `Element/identity#KMS_CUSTODY` `KmsProvider` `[SmartEnum<string>]`. Its envelope `EnvelopeKeyring(Mint, Unwrap, Rewrap, Probe)` delegate quartet binds: `Mint` calls `CryptographyClient.WrapKey(KeyWrapAlgorithm.RsaOaep256, dek)` over a freshly generated DEK, `Unwrap` calls `UnwrapKey` and zeroes the recovered `UnwrapResult.Key` after the local bind, `Rewrap` re-wraps the persisted blob under a `destinationKeyId` (the native wrap verb means rotation is a `WrapKey` against the new version, not a decrypt-then-encrypt round trip, and the plaintext DEK never re-enters managed memory), and `Probe` resolves the key lifecycle through `KeyClient.GetKey` `KeyProperties.Enabled` → `KeyState`. The master key never leaves the vault.
-- The signing `Element/identity#KMS_CUSTODY` `SigningKeyring` `Sign`/`Verify` pair binds the SAME `CryptographyClient` against a separate asymmetric signing key: `Sign` calls `CryptographyClient.Sign(SignatureAlgorithm, opDigest, ct)` over the precomputed `OpDigest`, `Verify` calls `Verify(SignatureAlgorithm, opDigest, signature, ct)` reading `VerifyResult.IsValid`; the signing key is distinct from the envelope CMK, both resolved through the same per-open `SecretLease` handle (`Element/identity#KMS_CUSTODY`).
-- `KeyClient` owns the master-key lifecycle (`CreateRsaKey`, `RotateKey`, `GetKeyRotationPolicy`/`UpdateKeyRotationPolicy` with a `KeyRotationPolicy.ExpiresIn` cadence); the persistence path consumes a `CryptographyClient` derived through `GetCryptographyClient(keyName, keyVersion)` so the wrap binds to one explicit version.
-- The wrapped DEK persists onto `KeyEnvelope.WrappedDek` alongside `WrapResult.KeyId` (the `KeyArn`) and `WrapResult.Algorithm` so `Unwrap` rebinds to the exact key version; rotation produces a new version without invalidating prior-version unwrap, matching the page's `RotationPolicy.RetainVersions` ladder.
-- AAD parity: Azure `WrapKey`/`UnwrapKey` carry no native `EncryptionContext` parameter (unlike AWS `Decrypt`), so the page's per-partition AAD binding rides the `FrozenDictionary<string,string>` the keyring threads and is enforced application-side at the boundary rather than by the vault — a wrap whose AAD changes between mint and unwrap is the page's rejected form, surfaced before the call, not by a vault error.
-- Offline path: a cached `JsonWebKey` builds a `CryptographyClient(JsonWebKey, LocalCryptographyClientOptions)` that wraps/unwraps with no service round-trip — the path for a sidecar/headless unwrap where the per-open `SecretLease`-class handle already carries the resolved JWK, avoiding a vault call on the hot open.
-- `KeyVaultKeyIdentifier.TryCreate` parses a stored key URI into `VaultUri`/`Name`/`Version` at the configuration boundary; internal code holds the parsed components, not raw URIs.
-- The clients are long-lived and thread-safe; construct one per vault at composition (per the page's `SecretLease`-managed CMK access) and reuse across operations, never per wrap call.
+- `KeyClient` owns master-key lifecycle (`CreateRsaKey`, `RotateKey`, `GetKeyRotationPolicy`/`UpdateKeyRotationPolicy` on a `KeyRotationPolicy.ExpiresIn` cadence); the persistence path consumes a `CryptographyClient` from `GetCryptographyClient(keyName, keyVersion)`, so a wrap binds one explicit version and rotation mints a new version without invalidating prior-version unwrap.
+- `KeyEnvelope.WrappedDek` persists the wrapped DEK beside `WrapResult.KeyId` and `.Algorithm`; the recovered `UnwrapResult.Key` rehydrates the local cipher and zeroes immediately after the bind.
+- Azure `WrapKey`/`UnwrapKey` carry no `EncryptionContext` parameter, so per-partition AAD rides the `FrozenDictionary<string,string>` the keyring threads and is enforced application-side before the call; an AAD that changes between mint and unwrap is rejected before the call, never by a vault error.
+- `KeyVaultKeyIdentifier.TryCreate` parses a stored key URI into `VaultUri`/`Name`/`Version` at the configuration boundary, internal code holding the parsed components; clients are long-lived and thread-safe — one per vault at composition, never per wrap, consuming the per-open `SecretLease` CMK handle so this owner holds the client and AAD binding while the runtime lease owns the credential lifecycle.
 
 [RAIL_LAW]:
 - Package: `Azure.Security.KeyVault.Keys`
-- Owns: master-key custody, native key-wrap cryptography for the `azure` arm of the `Element/identity#KMS_CUSTODY` `EnvelopeKeyring`, AND native asymmetric Sign/Verify for the `Element/identity#KMS_CUSTODY` `SigningKeyring` arm
-- Accept: `CryptographyClient.WrapKey`/`UnwrapKey` for the DEK envelope, `CryptographyClient.Sign`/`Verify` over the precomputed `OpDigest` for the signing arm, the `CryptographyClient(JsonWebKey)` local path for an offline unwrap/verify, `KeyClient` for master-key CRUD/rotation, `KeyWrapAlgorithm`/`EncryptionAlgorithm`/`SignatureAlgorithm` well-known constants for algorithm selection, `Azure.Core` `Response<T>`/`Pageable<T>` carriers converted once at the boundary
-- Reject: exporting master key material (except the explicit attested `ReleaseKey` path), `Encrypt`/`Decrypt`-as-wrap when the native `WrapKey` verb exists, `SignData`/`VerifyData` (hash-then-sign) for an already-hashed `OpDigest`, local key-wrap reimplementation, per-operation client construction, raw key-URI strings inside internal code, `RequestFailedException` leaking past the keyring boundary
+- Owns: master-key custody, native key-wrap cryptography for the `azure` `EnvelopeKeyring` arm, and asymmetric Sign/Verify for the `SigningKeyring` arm
+- Accept: `CryptographyClient.WrapKey`/`UnwrapKey` for the DEK envelope, `Sign`/`Verify` over the precomputed `OpDigest`, the `CryptographyClient(JsonWebKey)` local path for an offline unwrap or verify, `KeyClient` for master-key CRUD/rotation and the attested `ReleaseKey` TEE export, well-known `KeyWrapAlgorithm`/`SignatureAlgorithm` constants, `Azure.Core` carriers converted once at the boundary
+- Reject: `Encrypt`/`Decrypt`-as-wrap where the native `WrapKey` verb exists, `SignData`/`VerifyData` for an already-hashed `OpDigest`, exported master-key material outside the attested `ReleaseKey` path, per-operation client construction, raw key-URI strings in internal code, `RequestFailedException` past the keyring boundary

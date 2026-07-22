@@ -1,6 +1,6 @@
 # [RASM_RHINO_API_RHINOCOMMON_SOLIDS]
 
-This catalog owns the host-fidelity `Brep` construction boundary: solid and polysurface booleans, edge and surface fillet/chamfer/blend, offset/shell/pipe, sweep/loft/patch, from-primitive and from-curve generation, and join/split/merge/match editing, plus the `Extrusion` lightweight-solid surface and `DevelopableSrf` ruling extraction. Every static returns geometry bit-compatible with Rhino's own kernel commands and P/Invokes `rhcommon_c`, so it lives at the host boundary rather than in the kernel; host-neutral robust booleans and offsets live in `Rasm` and are composed by altitude, never re-derived here. Brep-brep and brep-curve intersection belongs to `Rasm/Analysis/relations`, mass and area properties to `Rasm/Analysis/measure`, contour and iso extraction to `Rasm/Processing/extract`, and native geometry custody to the geometry catalog; this surface projects every native `bool`/`out`-param/array outcome onto the `LanguageExt` rails.
+`Rhino.Geometry` `Brep`, `Extrusion`, and `DevelopableSrf` construction P/Invokes `rhcommon_c`, so every static returns geometry bit-compatible with Rhino's own kernel commands and this catalog stands at the host boundary, not the kernel. Host-neutral robust construction, booleans, and offsets live in the `Rasm` kernel and compose by altitude; brep intersection, mass/area measure, contour/iso extraction, and native custody stay with their own catalogs. Every native `bool`/`out`-param/array outcome projects onto the `LanguageExt` rails.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -8,7 +8,7 @@ This catalog owns the host-fidelity `Brep` construction boundary: solid and poly
 - host: `RhinoCommon` (Rhino host runtime, in-process)
 - assembly: `RhinoCommon`
 - namespaces: `Rhino.Geometry`
-- kernel: `Rasm` (host-neutral robust construction and numeric owners composed by altitude, never re-derived)
+- kernel: `Rasm` (host-neutral robust construction and numeric owners composed by altitude)
 - substrate: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`
 - rail: solid-construction
 
@@ -17,74 +17,74 @@ This catalog owns the host-fidelity `Brep` construction boundary: solid and poly
 [PUBLIC_TYPE_SCOPE]: construction owners
 - rail: solid-construction
 
-| [INDEX] | [SYMBOL]         | [KIND]          | [CAPABILITY]                                                                  |
-| :-----: | :--------------- | :-------------- | :---------------------------------------------------------------------------- |
-|  [01]   | `Brep`           | native geometry | boolean, fillet/blend, offset/shell/pipe, sweep/loft/patch, join/split/match  |
-|  [02]   | `Extrusion`      | native geometry | profile-plus-path lightweight solid, brep-form conversion, wall/profile reads |
-|  [03]   | `DevelopableSrf` | ruling helper   | developable-loft ruling extraction between two rails                          |
+| [INDEX] | [SYMBOL]         | [KIND]          | [CAPABILITY]                                                                 |
+| :-----: | :--------------- | :-------------- | :--------------------------------------------------------------------------- |
+|  [01]   | `Brep`           | native geometry | boolean, fillet/blend, offset/shell/pipe, sweep/loft/patch, join/split/match |
+|  [02]   | `Extrusion`      | native geometry | profile-and-path lightweight solid, brep conversion, wall/profile reads      |
+|  [03]   | `DevelopableSrf` | ruling helper   | developable-loft ruling extraction between two rails                         |
 
 [PUBLIC_TYPE_SCOPE]: configuration carriers
 - rail: solid-construction
 
-| [INDEX] | [SYMBOL]                        | [KIND]         | [CAPABILITY]                                                       |
-| :-----: | :------------------------------ | :------------- | :----------------------------------------------------------------- |
-|  [01]   | `Brep.FilletSurfaceSettings`    | config carrier | radius, tolerance, degree, trim/extend for surface-fillet build    |
-|  [02]   | `Brep.FilletSurfaceResults`     | result carrier | fillet, mid-fillet, and trimmed-input outputs                      |
-|  [03]   | `BrepEdgeFilletDistance`        | value struct   | edge parameter paired with fillet distance for variable radius     |
-|  [04]   | `MatchSrfSettings`              | config carrier | continuity, averaging, refinement policy for edge-to-curve match   |
-|  [05]   | `Brep.VariationalPatchSettings` | config carrier | stretching, bending, refinement policy for variational patch       |
-|  [06]   | `Brep.VariationalPatchResult`   | result carrier | patch surface plus fit-deviation evidence                          |
-|  [07]   | `Brep.CurveConstraint`          | value carrier  | curve plus `Continuity` row for the variational patch solver       |
-|  [08]   | `Brep.PointConstraint`          | value carrier  | point constraint row for the variational patch solver              |
-|  [09]   | `SweepOneRail`                  | class engine   | one-rail sweep with station parameters and roadlike up-direction   |
-|  [10]   | `SweepTwoRail`                  | class engine   | two-rail sweep with per-rail station parameters and height law     |
-|  [11]   | `SurfaceFilletBase`             | class engine   | static section-profile factories filling caller-owned fillet lists |
+| [INDEX] | [SYMBOL]                        | [KIND]         | [CAPABILITY]                                                     |
+| :-----: | :------------------------------ | :------------- | :--------------------------------------------------------------- |
+|  [01]   | `Brep.FilletSurfaceSettings`    | config carrier | radius, tolerance, degree, trim/extend for surface-fillet build  |
+|  [02]   | `Brep.FilletSurfaceResults`     | result carrier | fillet, mid-fillet, and trimmed-input outputs                    |
+|  [03]   | `BrepEdgeFilletDistance`        | value struct   | edge parameter paired with fillet distance for variable radius   |
+|  [04]   | `MatchSrfSettings`              | config carrier | continuity, averaging, refinement policy for edge-to-curve match |
+|  [05]   | `Brep.VariationalPatchSettings` | config carrier | stretching, bending, refinement policy for variational patch     |
+|  [06]   | `Brep.VariationalPatchResult`   | result carrier | patch surface and fit-deviation evidence                         |
+|  [07]   | `Brep.CurveConstraint`          | value carrier  | curve and `Continuity` row for the variational patch solver      |
+|  [08]   | `Brep.PointConstraint`          | value carrier  | point constraint row for the variational patch solver            |
+|  [09]   | `SweepOneRail`                  | class engine   | one-rail sweep with station parameters and roadlike up-direction |
+|  [10]   | `SweepTwoRail`                  | class engine   | two-rail sweep with per-rail station parameters and height law   |
+|  [11]   | `SurfaceFilletBase`             | class engine   | static section-profile factories filling caller-owned lists      |
 
 [CARRIER_MEMBERS]:
-- `Brep.FilletSurfaceSettings` — `Radius`, `SecondRadius`, `Tolerance`, `AngleTolerance`, `Trim`, `Chamfer`, `G2Blend`, `NonRational`, `Extend`, `Degree`, `TanSlider`, `InnerSlider` all `get`-only (internal set); `ContinueAcrossTangentFaces : bool` is the one public-settable knob; construction is the four factories only, so the profile shape is flag columns (`Chamfer`/`G2Blend`/`NonRational`) baked by the chosen factory — no profile enum exists.
-- `Brep.FilletSurfaceResults` — `Face0 : BrepFace`, `Face1 : BrepFace`, `OutBreps0 : IList<Brep>`, `OutBreps1 : IList<Brep>`, `Fillets : IList<Brep>`, all `get`-only.
-- `MatchSrfSettings(Continuity match, Continuity otherEnd)` — public-settable `Average`, `MatchClosestPoints`, `PreserveIso : PreserveIsoCurveMethod`, `ReverseMatchDirection`, `ReverseAverageTargetDirection`; refinement enters only through `EnableRefinement(bool enabled, double positionalTolerance = 0.001, double angleToleranceRadians = pi/180, double curvatureTolerance = 0.05)`, which backs the read-only `RefineMatch`/`Refine*Tolerance` members; `public enum PreserveIsoCurveMethod` — `Automatic`, `MatchTarget`, `Perpendicular`, `Preserve`.
-- `Brep.VariationalPatchSettings` — all `get/set`: `Tolerance`, `InternalTolerance`, `AngleToleranceRadians`, `CurvatureRelativeTolerance`, `CurvatureZeroTolerance`, `DegreeU`/`DegreeV`, `SpanCountU`/`SpanCountV`, `Domain : RhinoVariationalDomain`, `Stretching`, `Bending`, `RocBending`, `UVRotation`, `MaxRefinements`, `InitialSurface : Surface`, `PreserveEdges`; `public enum RhinoVariationalDomain` — `Projected`, `Molded`, `Untrimmed`, `MultiBlend`.
-- `Brep.VariationalPatchResult` — `Warning : string`, `Error : string`, `G0Int`/`G0`/`G1`/`G2 : bool?`, all `get`-only.
+- `Brep.FilletSurfaceSettings` — `Radius`, `SecondRadius`, `Tolerance`, `AngleTolerance`, `Trim`, `Chamfer`, `G2Blend`, `NonRational`, `Extend`, `Degree`, `TanSlider`, `InnerSlider` are `get`-only; `ContinueAcrossTangentFaces : bool` is the one settable knob, and the four factories bake the profile via the `Chamfer`/`G2Blend`/`NonRational` flag columns.
+- `Brep.FilletSurfaceResults` — `Face0`/`Face1 : BrepFace`, `OutBreps0`/`OutBreps1`/`Fillets : IList<Brep>`, all `get`-only.
+- `MatchSrfSettings(Continuity match, Continuity otherEnd)` — settable `Average`, `MatchClosestPoints`, `PreserveIso : PreserveIsoCurveMethod`, `ReverseMatchDirection`, `ReverseAverageTargetDirection`; refinement enters through `EnableRefinement(bool, double positionalTolerance, double angleToleranceRadians, double curvatureTolerance)` backing the read-only `RefineMatch`/`Refine*Tolerance`; `enum PreserveIsoCurveMethod` — `Automatic`, `MatchTarget`, `Perpendicular`, `Preserve`.
+- `Brep.VariationalPatchSettings` — all `get/set`: `Tolerance`, `InternalTolerance`, `AngleToleranceRadians`, `CurvatureRelativeTolerance`, `CurvatureZeroTolerance`, `DegreeU`/`DegreeV`, `SpanCountU`/`SpanCountV`, `Domain : RhinoVariationalDomain`, `Stretching`, `Bending`, `RocBending`, `UVRotation`, `MaxRefinements`, `InitialSurface : Surface`, `PreserveEdges`; `enum RhinoVariationalDomain` — `Projected`, `Molded`, `Untrimmed`, `MultiBlend`.
+- `Brep.VariationalPatchResult` — `Warning`/`Error : string`, `G0Int`/`G0`/`G1`/`G2 : bool?`, all `get`-only.
 - `Brep.CurveConstraint(Curve curve[, Continuity continuity])` with a public `Continuity` field; `Brep.PointConstraint(Point3d point)`.
-- `SweepOneRail` — `SweepTolerance`/`AngleToleranceRadians : double`, `MiterType : int`, `ClosedSweep`/`GlobalShapeBlending : bool` all `get/set`; roadlike state via `SetToRoadlikeTop()`/`SetToRoadlikeFront()`/`SetToRoadlikeRight()`/`SetRoadlikeUpDirection(Vector3d up)` with `IsFreeform`/`IsRoadlike*` probes; `PerformSweep`/`PerformSweepRebuild(… int rebuildCount)`/`PerformSweepRefit(… double refitTolerance)` each over `(rail, crossSection[, crossSectionParameter])` and `(rail, crossSections[, crossSectionParameters])`, all returning `Brep[]`.
+- `SweepOneRail` — `SweepTolerance`/`AngleToleranceRadians : double`, `MiterType : int`, `ClosedSweep`/`GlobalShapeBlending : bool` all `get/set`; roadlike state via `SetToRoadlikeTop()`/`SetToRoadlikeFront()`/`SetToRoadlikeRight()`/`SetRoadlikeUpDirection(Vector3d)` with `IsFreeform`/`IsRoadlike*` probes; `PerformSweep`/`PerformSweepRebuild(… int rebuildCount)`/`PerformSweepRefit(… double refitTolerance)` over `(rail, crossSection[s][, crossSectionParameter[s]])`, all returning `Brep[]`.
 - `SweepTwoRail` — `SweepTolerance`/`AngleToleranceRadians : double`, `MaintainHeight`/`ClosedSweep`/`AutoAdjust`/`UseLegacySweeper : bool` all `get/set`; `PerformSweep`/`PerformSweepRebuild`/`PerformSweepRefit` over `(rail1, rail2, crossSection[s][, crossSectionParametersRail1, crossSectionParametersRail2])`, all returning `Brep[]`.
 
 [ENUM_ROSTERS]:
-- `public enum Rhino.Geometry.LoftType` — `Normal`, `Loose`, `Tight`, `Straight`, `Developable` (`[Obsolete]`), `Uniform`.
-- `public enum Rhino.Geometry.BlendContinuity` — `Position`, `Tangency`, `Curvature`, `G3`, `G4`.
-- `public enum Rhino.Geometry.BlendType` — `Chamfer`, `Fillet`, `Blend`.
-- `public enum Rhino.Geometry.RailType` — `DistanceFromEdge`, `RollingBall`, `DistanceBetweenRails`.
-- `public enum Rhino.Geometry.PipeCapMode` — `None`, `Flat`, `Round`.
-- `public enum Rhino.Geometry.ExtrudeCornerType` — `None`, `Sharp`, `Round`, `Smooth`, `Chamfer`.
-- `public enum Rhino.Geometry.FilletSurfaceSplitType` — `Nothing`, `Trim`, `Split`.
-- `public enum Rhino.Geometry.SweepFrame` — `Freeform`, `Roadlike`.
-- `public enum Rhino.Geometry.SweepBlend` — `Local`, `Global`.
-- `public enum Rhino.Geometry.SweepMiter` — `None`, `Trimmed`, `Untrimmed`.
-- `public enum Rhino.Geometry.SweepRebuild` — `None`, `Rebuild`, `Refit`.
+- `enum Rhino.Geometry.LoftType` — `Normal`, `Loose`, `Tight`, `Straight`, `Uniform`.
+- `enum Rhino.Geometry.BlendContinuity` — `Position`, `Tangency`, `Curvature`, `G3`, `G4`.
+- `enum Rhino.Geometry.BlendType` — `Chamfer`, `Fillet`, `Blend`.
+- `enum Rhino.Geometry.RailType` — `DistanceFromEdge`, `RollingBall`, `DistanceBetweenRails`.
+- `enum Rhino.Geometry.PipeCapMode` — `None`, `Flat`, `Round`.
+- `enum Rhino.Geometry.ExtrudeCornerType` — `None`, `Sharp`, `Round`, `Smooth`, `Chamfer`.
+- `enum Rhino.Geometry.FilletSurfaceSplitType` — `Nothing`, `Trim`, `Split`.
+- `enum Rhino.Geometry.SweepFrame` — `Freeform`, `Roadlike`.
+- `enum Rhino.Geometry.SweepBlend` — `Local`, `Global`.
+- `enum Rhino.Geometry.SweepMiter` — `None`, `Trimmed`, `Untrimmed`.
+- `enum Rhino.Geometry.SweepRebuild` — `None`, `Rebuild`, `Refit`.
 
 ## [03]-[ENTRYPOINTS]
 
 [BREP_BOOLEANS]:
-- `Rhino.Geometry.Brep.CreateBooleanUnion(IEnumerable<Brep> breps, double tolerance, bool manifoldOnly, out Point3d[] nakedEdgePoints, out Point3d[] badIntersectionPoints, out Point3d[] nonManifoldEdgePoints) : Brep[]` — unions a set; a null result signals failure and the three parallel point arrays diagnose why, while the `(breps, tolerance)` and `(breps, tolerance, manifoldOnly)` overloads drop the diagnostics.
+- `Rhino.Geometry.Brep.CreateBooleanUnion(IEnumerable<Brep> breps, double tolerance, bool manifoldOnly, out Point3d[] nakedEdgePoints, out Point3d[] badIntersectionPoints, out Point3d[] nonManifoldEdgePoints) : Brep[]` — unions a set; a null result signals failure and the three point arrays diagnose it, while the `(breps, tolerance)` and `(breps, tolerance, manifoldOnly)` overloads drop the diagnostics.
 - `Rhino.Geometry.Brep.CreateBooleanIntersection(IEnumerable<Brep> firstSet, IEnumerable<Brep> secondSet, double tolerance, bool manifoldOnly) : Brep[]` — set intersection; the `(Brep, Brep, …)` pair intersects two solids.
 - `Rhino.Geometry.Brep.CreateBooleanDifference(IEnumerable<Brep> firstSet, IEnumerable<Brep> secondSet, double tolerance, bool manifoldOnly) : Brep[]` — subtracts the second set; the `(Brep, Brep, …)` pair subtracts one solid.
 - `Rhino.Geometry.Brep.CreateBooleanDifferenceWithIndexMap(IEnumerable<Brep> firstSet, IEnumerable<Brep> secondSet, double tolerance, bool manifoldOnly, out int[] indexMap) : Brep[]` — subtracts and maps each result to its source first-set index.
 - `Rhino.Geometry.Brep.CreateBooleanSplit(IEnumerable<Brep> firstSet, IEnumerable<Brep> secondSet, double tolerance) : Brep[]` — splits the first set by the second; the `(Brep, Brep, tolerance)` pair splits one solid.
-- `Rhino.Geometry.Brep.CreatePlanarUnion(IEnumerable<Brep> breps, Plane plane, double tolerance) : Brep[]` / `CreatePlanarDifference(...) : Brep[]` / `CreatePlanarIntersection(...) : Brep[]` — coplanar-region boolean set beside the `(Brep b0, Brep b1, Plane, tolerance)` two-region pairs.
+- `Rhino.Geometry.Brep.CreatePlanarUnion(IEnumerable<Brep> breps, Plane plane, double tolerance) : Brep[]` / `CreatePlanarDifference(...)` / `CreatePlanarIntersection(...)` — coplanar-region booleans beside the `(Brep b0, Brep b1, Plane, tolerance)` two-region pairs.
 - `Rhino.Geometry.Brep.CreateSolid(IEnumerable<Brep> breps, double tolerance) : Brep[]` — assembles closed solids from open input breps.
 
 [BREP_FILLET_CHAMFER_BLEND]:
-- `Rhino.Geometry.Brep.CreateFilletEdges(Brep brep, IEnumerable<int> edgeIndices, IEnumerable<double> startRadii, IEnumerable<double> endRadii, BlendType blendType, RailType railType, bool setbackFillets, double tolerance, double angleTolerance) : Brep[]` — fillets edges with per-edge start/end radii under a setback policy; `edgeIndices`, `startRadii`, and `endRadii` are equal-cardinality parallel arrays.
+- `Rhino.Geometry.Brep.CreateFilletEdges(Brep brep, IEnumerable<int> edgeIndices, IEnumerable<double> startRadii, IEnumerable<double> endRadii, BlendType blendType, RailType railType, bool setbackFillets, double tolerance, double angleTolerance) : Brep[]` — fillets edges under a setback policy; `edgeIndices`, `startRadii`, and `endRadii` are equal-cardinality parallel arrays.
 - `Rhino.Geometry.Brep.CreateFilletEdgesVariableRadius(Brep brep, IEnumerable<int> edgeIndices, IDictionary<int, IList<BrepEdgeFilletDistance>> edgeDistances, BlendType blendType, RailType railType, bool setbackFillets, double tolerance, double angleTolerance) : Brep[]` — fillets with a per-edge parameter-to-distance profile map.
-- `Rhino.Geometry.Brep.CreateFilletSurface(BrepFace face0, Point2d uv0, BrepFace face1, Point2d uv1, FilletSurfaceSettings settings, out FilletSurfaceResults results) : bool` — builds a fillet, chamfer, or blend between two faces under the settings carrier, projecting the fillet and trimmed inputs through `FilletSurfaceResults`; every `Brep[]`-returning `CreateFilletSurface`/`CreateChamferSurface` out-param overload is obsolete, and standalone chamfer is now a `FilletSurfaceSettings.CreateChamferSettings` profile driving this same entry, not a separate method.
+- `Rhino.Geometry.Brep.CreateFilletSurface(BrepFace face0, Point2d uv0, BrepFace face1, Point2d uv1, FilletSurfaceSettings settings, out FilletSurfaceResults results) : bool` — fillet, chamfer, or blend between two faces under the settings carrier, projecting the fillet and trimmed inputs through `FilletSurfaceResults`; surface chamfer is the `FilletSurfaceSettings.CreateChamferSettings` profile driving this entry.
 - `Rhino.Geometry.Brep.CreateFilletSurfaceCurve(BrepFace face, Point2d uv, Curve curve, double t, FilletSurfaceSettings settings, out FilletSurfaceResults results) : bool` — fillets a face against a curve on it.
 - `Rhino.Geometry.Brep.CreateBlendSurface(BrepFace face0, BrepEdge edge0, Interval domain0, bool rev0, BlendContinuity continuity0, BrepFace face1, BrepEdge edge1, Interval domain1, bool rev1, BlendContinuity continuity1) : Brep[]` — surface blend across two edges with per-side continuity.
-- `Rhino.Geometry.Brep.CreateBlendShape(BrepFace face0, BrepEdge edge0, double t0, bool rev0, BlendContinuity continuity0, BrepFace face1, BrepEdge edge1, double t1, bool rev1, BlendContinuity continuity1) : Curve` — the blend cross-section curve at a station.
-- `Rhino.Geometry.Brep.FilletSurfaceSettings.CreateRationalArcSettings(double radius, double tolerance, bool trim, bool extend) : FilletSurfaceSettings` / `CreateNonRationalSettings(double radius, double tolerance, int degree, double tanSlider, double innerSlider, bool trim, bool extend)` / `CreateG2BlendSettings(double radius, double tolerance, bool trim, bool extend)` / `CreateChamferSettings(double radius0, double radius1, double tolerance, bool trim, bool extend)` — the four `FilletSurfaceSettings` static factories, one per surface-fillet profile shape.
+- `Rhino.Geometry.Brep.CreateBlendShape(BrepFace face0, BrepEdge edge0, double t0, bool rev0, BlendContinuity continuity0, BrepFace face1, BrepEdge edge1, double t1, bool rev1, BlendContinuity continuity1) : Curve` — blend cross-section curve at a station.
+- `Rhino.Geometry.Brep.FilletSurfaceSettings.CreateRationalArcSettings(double radius, double tolerance, bool trim, bool extend) : FilletSurfaceSettings` / `CreateNonRationalSettings(double radius, double tolerance, int degree, double tanSlider, double innerSlider, bool trim, bool extend)` / `CreateG2BlendSettings(double radius, double tolerance, bool trim, bool extend)` / `CreateChamferSettings(double radius0, double radius1, double tolerance, bool trim, bool extend)` — four `FilletSurfaceSettings` static factories, one per surface-fillet profile shape.
 
 [BREP_OFFSET_SHELL_PIPE]:
-- `Rhino.Geometry.Brep.CreateOffsetBrep(Brep brep, double distance, bool solid, bool extend, bool shrink, double tolerance, out Brep[] outBlends, out Brep[] outWalls) : Brep[]` — offsets a brep and returns blend and wall breps in parallel arrays; the no-`shrink` overload predates the shrink flag.
+- `Rhino.Geometry.Brep.CreateOffsetBrep(Brep brep, double distance, bool solid, bool extend, bool shrink, double tolerance, out Brep[] outBlends, out Brep[] outWalls) : Brep[]` — offsets a brep and returns blend and wall breps in parallel arrays; a no-`shrink` overload omits the shrink flag.
 - `Rhino.Geometry.Brep.CreateFromOffsetFace(BrepFace face, double offsetDistance, double offsetTolerance, bool bothSides, bool createSolid) : Brep` — offsets one face, optionally to a closed solid.
 - `Rhino.Geometry.Brep.CreateShell(Brep brep, IEnumerable<int> facesToRemove, double distance, double tolerance) : Brep[]` — hollows a solid, removing the named faces as openings.
 - `Rhino.Geometry.Brep.CreatePipe(Curve rail, IEnumerable<double> railRadiiParameters, IEnumerable<double> radii, bool localBlending, PipeCapMode cap, bool fitRail, double absoluteTolerance, double angleToleranceRadians) : Brep[]` — variable-radius pipe keyed by parameter/radius parallel lists; the `(rail, radius, …)` overload is constant-radius.
@@ -100,8 +100,8 @@ This catalog owns the host-fidelity `Brep` construction boundary: solid and poly
 - `Rhino.Geometry.Brep.CreateDevelopableLoft(NurbsCurve rail0, NurbsCurve rail1, IEnumerable<Point2d> fixedRulings) : Brep[]` — developable loft with pinned rulings; the `(Curve, Curve, bool reverse0, bool reverse1, int density)` overload builds from raw curves.
 
 [BREP_FROM_PRIMITIVES]:
-- `Rhino.Geometry.Brep.CreateFromBox(Box box) : Brep` / `CreateFromBox(BoundingBox) / CreateFromBox(IEnumerable<Point3d> corners)` — box breps from oriented, axis-aligned, or eight-corner input.
-- `Rhino.Geometry.Brep.CreateFromCylinder(Cylinder cylinder, bool capBottom, bool capTop) : Brep` / `CreateFromCone(Cone, bool capBottom)` / `CreateFromTorus(Torus)` / `CreateFromSphere(Sphere)` / `CreateQuadSphere(Sphere)` / `CreateBaseballSphere(Point3d center, double radius, double tolerance)` — the analytic-primitive brep set with cap policy where the primitive is open.
+- `Rhino.Geometry.Brep.CreateFromBox(Box box) : Brep` / `CreateFromBox(BoundingBox)` / `CreateFromBox(IEnumerable<Point3d> corners)` — box breps from oriented, axis-aligned, or eight-corner input.
+- `Rhino.Geometry.Brep.CreateFromCylinder(Cylinder cylinder, bool capBottom, bool capTop) : Brep` / `CreateFromCone(Cone, bool capBottom)` / `CreateFromTorus(Torus)` / `CreateFromSphere(Sphere)` / `CreateQuadSphere(Sphere)` / `CreateBaseballSphere(Point3d center, double radius, double tolerance)` — analytic-primitive brep set with cap policy where the primitive is open.
 - `Rhino.Geometry.Brep.CreateFromRevSurface(RevSurface surface, bool capStart, bool capEnd) : Brep` / `CreateFromSurface(Surface) : Brep` / `CreateFromMesh(Mesh mesh, bool trimmedTriangles) : Brep` — brep from a revolved, general, or mesh source.
 - `Rhino.Geometry.Brep.CreateEdgeSurface(IEnumerable<Curve> curves) : Brep` / `CreateFromCornerPoints(Point3d, Point3d, Point3d, Point3d, double tolerance) : Brep` — Coons-style edge or corner surface; the three-point corner overload drops the fourth corner.
 - `Rhino.Geometry.Brep.CreatePlanarBreps(IEnumerable<Curve> inputLoops, double tolerance) : Brep[]` — planar faces from closed loops; the `(Curve inputLoop, double tolerance)` overload handles a single loop.
@@ -117,7 +117,7 @@ This catalog owns the host-fidelity `Brep` construction boundary: solid and poly
 - `Rhino.Geometry.Brep.ExtendBrepFacesToConnect(BrepFace Face0, int edgeIndex0, BrepFace Face1, int edgeIndex1, double tol, double angleTol, out Brep outBrep0, out Brep outBrep1) : bool` — extends two faces to meet; the `(BrepFace, Point3d, BrepFace, Point3d, …)` overload picks by seed point.
 - `Rhino.Geometry.Brep.ChangeSeam(BrepFace face, int direction, double parameter, double tolerance) : Brep` / `CopyTrimCurves(BrepFace trimSource, Surface surfaceSource, double tolerance) : Brep` / `CutUpSurface(Surface surface, IEnumerable<Curve> curves, bool flip, double fitTolerance, double keepTolerance) : Brep[]` — seam relocation, trim-curve transfer, and surface subdivision by curves.
 - `Rhino.Geometry.Brep.CreateCurvatureAnalysisMesh(Brep brep, CurvatureAnalysisSettingsState state) : Mesh[]` — false-color curvature-analysis meshes for the brep faces.
-- `Rhino.Geometry.Brep.TryConvertBrep(GeometryBase geometry) : Brep` — rebuilds a brep (or brep-yielding geometry) with simpler untrimmed surfaces where its faces admit them.
+- `Rhino.Geometry.Brep.TryConvertBrep(GeometryBase geometry) : Brep` — rebuilds a brep with simpler untrimmed surfaces where its faces admit them.
 
 [BREP_EDIT]:
 - `Rhino.Geometry.Brep.CapPlanarHoles(double tolerance) : Brep` — returns a new capped brep; a null result signals no cap was produced.
@@ -139,19 +139,19 @@ This catalog owns the host-fidelity `Brep` construction boundary: solid and poly
 - `Rhino.Geometry.DevelopableSrf.GetLocalDevopableRuling(NurbsCurve rail0, double t0, Interval dom0, NurbsCurve rail1, double t1, Interval dom1, ref double t0_out, ref double t1_out) : int` — local ruling solve; the member name carries the host's own `Devopable` misspelling.
 - `Rhino.Geometry.DevelopableSrf.RulingMinTwist(NurbsCurve rail0, double t0, NurbsCurve rail1, double t1, Interval dom1, ref double t1_out, ref double cos_twist_out) : bool` — minimum-twist ruling; the `(…, Interval dom0, …, ref double t0_out, ref double t1_out, ref double cos_twist_out)` overload solves both parameters.
 - `Rhino.Geometry.DevelopableSrf.UntwistRulings(NurbsCurve rail0, NurbsCurve rail1, ref IEnumerable<Point2d> rulings) : bool` — adjusts a ruling set toward developability in place, feeding `Brep.CreateDevelopableLoft`'s fixed-ruling overload.
-- `Rhino.Geometry.SurfaceFilletBase` — the section-profile factory set `CreateRationalArcsFilletSrf`, `CreateNonRationalCubicArcsFilletSrf`, `CreateNonRationalQuarticArcsFilletSrf`, `CreateNonRationalQuinticArcsFilletSrf`, `CreateNonRationalCubicFilletSrf`, `CreateNonRationalQuarticFilletSrf`, `CreateNonRationalQuinticFilletSrf`, and `CreateG2ChordalQuinticFilletSrf`, each `(BrepFace faceA, Point2d uvA, BrepFace faceB, Point2d uvB, double radius, double tolerance, List<Brep> trimmedBrepsA, List<Brep> trimmedBrepsB, int rail_degree, [double TanSlider, double InnerSlider,] bool bTrim, bool bExtend, List<Brep> Fillets) : bool` filling caller-owned lists; the concrete `SurfaceFillet`/`SurfaceToRailFillet` engines are internal.
+- `Rhino.Geometry.SurfaceFilletBase` — section-profile factory set `CreateRationalArcsFilletSrf`, `CreateNonRationalCubicArcsFilletSrf`, `CreateNonRationalQuarticArcsFilletSrf`, `CreateNonRationalQuinticArcsFilletSrf`, `CreateNonRationalCubicFilletSrf`, `CreateNonRationalQuarticFilletSrf`, `CreateNonRationalQuinticFilletSrf`, and `CreateG2ChordalQuinticFilletSrf`, each `(BrepFace faceA, Point2d uvA, BrepFace faceB, Point2d uvB, double radius, double tolerance, List<Brep> trimmedBrepsA, List<Brep> trimmedBrepsB, int rail_degree, [double TanSlider, double InnerSlider,] bool bTrim, bool bExtend, List<Brep> Fillets) : bool` filling caller-owned lists; the concrete `SurfaceFillet`/`SurfaceToRailFillet` engines are internal.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SOLID_TOPOLOGY]:
-- `Brep` static construction returns `null` for a single result or `null`/empty for an array on failure, never throws; boolean unions additionally emit the naked-edge, bad-intersection, and non-manifold point arrays as failure diagnostics, and index-map overloads carry the result-to-source correspondence booleans and joins destroy.
-- fillet, chamfer, and blend split into three families keyed by dimensionality: `CreateFilletEdges` over solid edges with per-edge radius profiles, `CreateFilletSurface`/`CreateFilletSurfaceCurve` between two faces or a face and a curve under a `FilletSurfaceSettings` carrier projecting `FilletSurfaceResults`, and `CreateBlendSurface`/`CreateBlendShape` spanning two edges under `BlendContinuity`; `FilletSurfaceSettings` carries the profile shape and its four factories fix the rational-arc, non-rational, G2-blend, or chamfer form, so surface chamfer is a settings profile rather than a distinct method.
-- `Extrusion` is the profile-plus-path lightweight solid: an outer profile, optional inner profiles, and a path frame define it, `ToBrep` and `GetMesh` project it to the heavier representations, and station parameters address profiles, walls, and frames along the path.
+- `Brep` static construction returns `null` for a single result or `null`/empty for an array on failure, never throws; boolean unions emit the naked-edge, bad-intersection, and non-manifold point arrays as failure diagnostics, and index-map overloads carry the result-to-source correspondence booleans and joins destroy.
+- fillet, chamfer, and blend split by dimensionality: `CreateFilletEdges` over solid edges, `CreateFilletSurface`/`CreateFilletSurfaceCurve` between two faces or a face and a curve under a `FilletSurfaceSettings` carrier, and `CreateBlendSurface`/`CreateBlendShape` spanning two edges under `BlendContinuity`; the four `FilletSurfaceSettings` factories fix the rational-arc, non-rational, G2-blend, or chamfer profile, so surface chamfer is a settings profile.
+- `Extrusion` is the profile-and-path lightweight solid: an outer profile, optional inner profiles, and a path frame define it, `ToBrep`/`GetMesh` project it to the heavier representations, and station parameters address profiles, walls, and frames.
 
 [STACKING]:
-- `LanguageExt.Core`(`api-languageext`): a nullable single construction lifts to `Option<Brep>`/`Option<Extrusion>`, a possibly-null-or-empty `Brep[]` lands as `Seq<Brep>`, a `bool`-with-`out` result folds into a `Fin` keyed to the payload, and the boolean diagnostic point arrays plus join/split index maps fold into one typed construction receipt on the failure branch; `IProgress<double>`/`CancellationToken` patch builds project onto the effect rail.
-- `Thinktecture.Runtime.Extensions`(`api-thinktecture-runtime-extensions`): the closed construction vocabularies — `LoftType`, `BlendType`, `BlendContinuity`, `RailType`, `PipeCapMode`, `ExtrudeCornerType`, `FilletSurfaceSplitType`, and the `SweepFrame`/`SweepBlend`/`SweepMiter`/`SweepRebuild` sweep axes — wrap as `[SmartEnum<TKey>]` owners, and the construction op itself models as a `[Union]` over the boolean, fillet, offset, sweep, loft, patch, primitive, and join/split arms with per-arm parameter carriers.
-- `Rasm` kernel: host-neutral robust booleans, offsets, and lofts stand at the kernel altitude and the boundary re-derives none of them; tolerances, radii, angles, and station parameters compose the kernel numeric and unit owners before crossing to the native call.
+- `LanguageExt.Core`(`api-languageext`): a nullable single construction lifts to `Option<Brep>`/`Option<Extrusion>`, a possibly-null-or-empty `Brep[]` lands as `Seq<Brep>`, a `bool`-with-`out` result folds into a `Fin` keyed to the payload, and the boolean diagnostic point arrays and join/split index maps fold into one typed construction receipt on the failure branch; `IProgress<double>`/`CancellationToken` patch builds project onto the effect rail.
+- `Thinktecture.Runtime.Extensions`(`api-thinktecture-runtime-extensions`): the closed construction vocabularies — `LoftType`, `BlendType`, `BlendContinuity`, `RailType`, `PipeCapMode`, `ExtrudeCornerType`, `FilletSurfaceSplitType`, and the `SweepFrame`/`SweepBlend`/`SweepMiter`/`SweepRebuild` axes — wrap as `[SmartEnum<TKey>]` owners, and the construction op models as a `[Union]` over the boolean, fillet, offset, sweep, loft, patch, primitive, and join/split arms with per-arm parameter carriers.
+- `Rasm` kernel: host-neutral robust booleans, offsets, and lofts stand at the kernel altitude and the boundary re-derives none of them; tolerances, radii, angles, and station parameters compose the kernel numeric and unit owners before the native call.
 
 [LOCAL_ADMISSION]:
 - construction enters through the op union: each arm binds its native static, projects the `Brep[]`/`Brep`/`bool`+`out` outcome onto the rail, and pairs parallel-array inputs (edge indices with radii, rail parameters with radii, geometry with attributes) into one row sequence proving equal cardinality before the native call.

@@ -1,124 +1,86 @@
 # [RASM_BIM_API_NTS_VECTORTILES]
 
-`NetTopologySuite.IO.VectorTiles` is the in-memory Mapbox-Vector-Tile authoring model over the
-NTS `Feature` shape: a `VectorTile` carries named `Layer`s of `IFeature`, a `VectorTileTree`
-is the `ulong`-tile-id-keyed pyramid those tiles live in, and the `VectorTileTreeExtensions.Add`
-fold slices a `FeatureCollection` / `IEnumerable<IFeature>` into per-`{z}/{x}/{y}` tiles by a
-fixed or per-feature `(zoom, layerName)` policy. It owns the WebMercator XYZ tile algebra
-(`Tile`/`TileRange`/`WebMercatorHandler`) the slicing keys on, and is the format-neutral half of
-the MVT pair — the wire encode/decode is `NetTopologySuite.IO.VectorTiles.Mapbox`
-(`.api/api-nts-vectortiles-mapbox`). It is the 2D web-tile-pyramid leg of the
-`Semantics/geospatial#GEOSPATIAL_SEAM`: the `GeoFeature` NTS `Geometry`/`AttributesTable` rows
-the site model produces feed `VectorTileTree.Add`, the tree encodes to an `{z}/{x}/{y}.mvt`
-pyramid for MapLibre/Mapbox-GL, distinct from the 3D-Tiles glTF stack (`subtree` +
-`SharpGLTF.Ext.3DTiles`).
+`NetTopologySuite.IO.VectorTiles` owns the in-memory Mapbox-Vector-Tile authoring model over the NTS `Feature` shape and the WebMercator XYZ tile algebra its slicing keys on: `VectorTileTree.Add` folds a feature stream into a `{z}/{x}/{y}` tile pyramid under a fixed or per-feature `(zoom, layerName)` policy. It is the format-neutral half of the MVT pair — the protobuf wire crosses to `NetTopologySuite.IO.VectorTiles.Mapbox` (`.api/api-nts-vectortiles-mapbox`) — feeding the `Semantics/geospatial` web-tile leg, distinct from the 3D-Tiles glTF stack.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `NetTopologySuite.IO.VectorTiles`
-- package: `NetTopologySuite.IO.VectorTiles`
-- license: MIT
+- package: `NetTopologySuite.IO.VectorTiles` (MIT)
 - assembly: `NetTopologySuite.IO.VectorTiles`
-- namespace: `NetTopologySuite.IO.VectorTiles` (`VectorTile`, `Layer`, `VectorTileTree`, the `VectorTileTreeExtensions`/`VectorTileExtensions` folds)
-- namespace: `NetTopologySuite.IO.VectorTiles.Tiles` (`Tile`, `TileRange`, the WebMercator XYZ tile algebra)
-- namespace: `NetTopologySuite.IO.VectorTiles.Tiles.WebMercator` (`WebMercatorHandler` lat/lon↔meters↔pixels)
-- namespace: `NetTopologySuite.IO.VectorTiles.Tilers` (`PolygonTiler`/`LineStringTiler`/`PointTiler`/`Shared` — `internal`, invoked transitively by `Add`; not consumer surface)
-- asset: netstandard2.0 single managed AnyCPU assembly; the net10.0 consumer binds `lib/netstandard2.0`
-- asset: IL-only, no P/Invoke, no native dependency
-- dependency: `NetTopologySuite` (the `Geometry` algebra and `GeometryFactory`/`NtsGeometryServices` the tilers cut against) and `NetTopologySuite.Features` (`IFeature`/`Feature`/`IAttributesTable`/`FeatureCollection` — the row shape `Add` consumes; settled at `.api/api-nettopologysuite`)
+- namespace: `NetTopologySuite.IO.VectorTiles` (the tile model and `Add` folds)
+- namespace: `NetTopologySuite.IO.VectorTiles.Tiles` (the WebMercator XYZ tile algebra)
+- namespace: `NetTopologySuite.IO.VectorTiles.Tiles.WebMercator` (`WebMercatorHandler` EPSG:3857 math)
+- namespace: `NetTopologySuite.IO.VectorTiles.Tilers` (internal clip tilers, not consumer surface)
+- asset: netstandard2.0 managed AnyCPU assembly, IL-only, no P/Invoke; the net10.0 consumer binds `lib/netstandard2.0`
+- dependency: `NetTopologySuite` (the `Geometry` algebra + `GeometryFactory`/`NtsGeometryServices` the tilers cut against), `NetTopologySuite.Features` (the `IFeature`/`FeatureCollection` rows `Add` consumes; `.api/api-nettopologysuite`)
 - rail: geometry
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the in-memory tile model
-- package: `NetTopologySuite.IO.VectorTiles`
-- namespace: `NetTopologySuite.IO.VectorTiles`
-- rail: geometry
+[PUBLIC_TYPE_SCOPE]: the tile model and its WebMercator XYZ tile algebra
 
-| [INDEX] | [SYMBOL]         | [CAPABILITY]                                                                                                     |
-| :-----: | :--------------- | :--------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `VectorTile`     | one MVT tile; `ulong TileId` (the WebMercator `Tile.Id`), `IList<Layer> Layers`, `bool IsEmpty`                  |
-|  [02]   | `Layer`          | a named feature group; `string Name`, `IList<IFeature> Features`, `virtual bool IsEmpty`                         |
-|  [03]   | `VectorTileTree` | the tile pyramid over `IEnumerable<ulong>` ids; `this[ulong]` get/set, `TryGet`, `GetTileIds()`, `GetExtents(…)` |
-
-[PUBLIC_TYPE_SCOPE]: the WebMercator tile algebra
-- package: `NetTopologySuite.IO.VectorTiles`
-- namespace: `NetTopologySuite.IO.VectorTiles.Tiles`, `NetTopologySuite.IO.VectorTiles.Tiles.WebMercator`
-- rail: geometry
-
-The cell names each type's members; full signatures are the keyed roster below.
-
-| [INDEX] | [SYMBOL]             | [CAPABILITY]                                                                                                    |
-| :-----: | :------------------- | :-------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Tile`               | `int X`/`Y`/`Zoom`, `double Top`/`Bottom`/`Left`/`Right`, `ulong Id`, `Tile Parent`, `bool IsValid`             |
-|  [02]   | `Tile` (static)      | `CreateAroundLocation`, `CreateAroundLocationId`, `CalculateTileId`, `CalculateTile`, `IsDirectNeighbour`       |
-|  [03]   | `Tile` (instance)    | `GetSubTiles`, `GetSubTileIdFor`, `InvertX`/`InvertY` (TMS↔XYZ Y-flip), `ToGeoJson`                             |
-|  [04]   | `TileRange`          | a `(XMin,YMin,XMax,YMax,Zoom)` block; `IEnumerable<Tile?>`, `Count`, `Contains(Tile)`, `EnumerateInCenterFirst` |
-|  [05]   | `WebMercatorHandler` | static EPSG:3857 math: `LatLonToMeters`/`MetersToLatLon`, `FromMetersToPixels`/`FromPixelsToMeters`             |
-
-- [01]-[TILE]: fields `int X`/`Y`/`Zoom`, `double Top`/`Bottom`/`Left`/`Right`/`CenterLat`/`CenterLon` (EPSG:4326 bbox), `ulong Id`, `Tile Parent`, `bool IsValid`; ctors `Tile(ulong id)` / `Tile(int x, int y, int zoom)` — the tile `MapboxTileReader.Read(stream, tile)` decodes against.
-- [02]-[TILE_STATIC]: `Tile? CreateAroundLocation(double lat, double lon, int zoom)` / `ulong CreateAroundLocationId(...)`; `ulong CalculateTileId(int zoom, int x, int y)`; `(int x, int y, int zoom) CalculateTile(ulong id)`; `bool IsDirectNeighbour(ulong, ulong)` — the id↔(x,y,zoom) bijection the tilers walk.
-- [03]-[TILE_INSTANCE]: `TileRange GetSubTiles(int zoom)`; `ulong GetSubTileIdFor(double lat, double lon)`; `Tile InvertX()` / `InvertY()`; `string ToGeoJson()` (the tile footprint as GeoJSON).
-- [04]-[TILE_RANGE]: ctor `TileRange(int xMin, int yMin, int xMax, int yMax, int zoom)`; `long Count`; `bool Contains(Tile)`; `IEnumerable<Tile?> EnumerateInCenterFirst()` (center-out emission for progressive streaming).
-- [05]-[WEB_MERCATOR]: `(double x, double y) LatLonToMeters(double lat, double lon)` / `MetersToLatLon`; `(long x, long y) FromMetersToPixels((double,double) m, int zoom, int tileSize = 512)` / `FromPixelsToMeters`. The `MetersToPixels`/`PixelsToMeters` `(double,double)` overloads are `[Obsolete]` — bind the `From…`/`long` forms.
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [CAPABILITY]                                                             |
+| :-----: | :------------------- | :------------ | :----------------------------------------------------------------------- |
+|  [01]   | `VectorTile`         | class         | one MVT tile keyed by the WebMercator `Tile.Id`; `IList<Layer> Layers`   |
+|  [02]   | `Layer`              | class         | a named `IFeature` group inside a tile                                   |
+|  [03]   | `VectorTileTree`     | class         | the `ulong`-tile-id-keyed pyramid; `this[ulong]`, `TryGet`, `GetTileIds` |
+|  [04]   | `Tile`               | class         | one XYZ tile; the id↔(x,y,zoom) bijection, EPSG:4326 bbox, navigation    |
+|  [05]   | `TileRange`          | class         | an `(xMin,yMin,xMax,yMax,zoom)` block, center-first enumerable           |
+|  [06]   | `WebMercatorHandler` | static class  | EPSG:3857 lat/lon↔meters↔pixels math                                     |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: feature-to-tile slicing (`VectorTileTreeExtensions`)
-- package: `NetTopologySuite.IO.VectorTiles`
-- namespace: `NetTopologySuite.IO.VectorTiles`
-- rail: geometry
+[ENTRYPOINT_SCOPE]: the feature→tile slicing fold (`VectorTileTreeExtensions`)
 
-`VectorTileTree.Add` slices features into tiles; `zoom` defaults to 14, `layerName` to `"default"`. `ToFeatureZoomAndLayerFunc` is `delegate IEnumerable<(IFeature feature, int zoom, string layerName)>(IFeature feature)` — the per-feature LOD/layer discriminator a `[SmartEnum]`/match over an element `IfcDomain`/scale folds onto.
+`VectorTileTree.Add` slices features into per-`{z}/{x}/{y}` tiles; `zoom` defaults to 14, `layerName` to `"default"`. `ToFeatureZoomAndLayerFunc` is `delegate IEnumerable<(IFeature feature, int zoom, string layerName)>(IFeature feature)` — the per-feature LOD/layer discriminator a `[SmartEnum]`/match over an element `IfcDomain`/scale folds onto. `GetExtents` reads the populated pyramid's geographic envelope and zoom span for the `VectorTileSource` TileJSON descriptor.
 
-| [INDEX] | [CALL]                                                                    | [CAPABILITY]                                      |
-| :-----: | :------------------------------------------------------------------------ | :------------------------------------------------ |
-|  [01]   | `Add(FeatureCollection, int zoom = 14, string layerName = "default")`     | fixed-zoom ingest under one layer name            |
-|  [02]   | `Add(IEnumerable<IFeature>, int zoom = 14, string layerName = "default")` | the `IEnumerable` mirror                          |
-|  [03]   | `Add(FeatureCollection, ToFeatureZoomAndLayerFunc)`                       | per-feature LOD + layer routing                   |
-|  [04]   | `Add(IEnumerable<IFeature>, ToFeatureZoomAndLayerFunc)`                   | the routed-ingest `IEnumerable` mirror            |
-|  [05]   | `Add(IEnumerable<(IFeature, int zoom, string layerName)>)`                | already-tupled triples, the router bypassed       |
-|  [06]   | `Add(IFeature feature, int zoom, string layerName)`                       | the single-feature leaf the batch forms fold onto |
-|  [07]   | `ToFeatureZoomAndLayerFunc`                                               | the per-feature LOD/layer policy delegate         |
+| [INDEX] | [SURFACE]                                                   | [SHAPE]  | [CAPABILITY]                                   |
+| :-----: | :---------------------------------------------------------- | :------- | :--------------------------------------------- |
+|  [01]   | `Add(FeatureCollection, int, string)`                       | fold     | fixed-zoom ingest under one layer name         |
+|  [02]   | `Add(IEnumerable<IFeature>, int, string)`                   | fold     | the `IEnumerable` mirror                       |
+|  [03]   | `Add(FeatureCollection, ToFeatureZoomAndLayerFunc)`         | fold     | per-feature LOD + layer routing                |
+|  [04]   | `Add(IEnumerable<IFeature>, ToFeatureZoomAndLayerFunc)`     | fold     | the routed-ingest `IEnumerable` mirror         |
+|  [05]   | `Add(IEnumerable<(IFeature, int, string)>)`                 | fold     | already-tupled triples, the router bypassed    |
+|  [06]   | `Add(IFeature, int, string)`                                | fold     | the single-feature leaf the batch folds onto   |
+|  [07]   | `VectorTileTree.GetExtents(out double[], out int, out int)` | instance | envelope + zoom span for the TileJSON manifest |
 
-[ENTRYPOINT_SCOPE]: pyramid bounds and tile geometry
-- package: `NetTopologySuite.IO.VectorTiles`
-- namespace: `NetTopologySuite.IO.VectorTiles`, `NetTopologySuite.IO.VectorTiles.Tiles`
-- rail: geometry
+[ENTRYPOINT_SCOPE]: the WebMercator XYZ tile algebra (`Tile`, `TileRange`, `WebMercatorHandler`)
 
-`GetExtents` fills `(out double[] bounds, out int minZoom, out int maxZoom)` — the populated pyramid's geographic envelope and zoom span.
+`Tile` carries the id↔(x,y,zoom) bijection every tiler walks: ctors `Tile(ulong)` / `Tile(int, int, int)`, fields `X`/`Y`/`Zoom`, the `Top`/`Bottom`/`Left`/`Right` + `CenterLat`/`CenterLon` EPSG:4326 bbox, `Id`, `Parent`, `IsValid`.
 
-| [INDEX] | [CALL]                                     | [CAPABILITY]                                                 |
-| :-----: | :----------------------------------------- | :----------------------------------------------------------- |
-|  [01]   | `VectorTileTree.GetExtents(…)`             | envelope + zoom span for the `VectorTileSource` TileJSON     |
-|  [02]   | `Tile.ToGeoJson()` → `string`              | one tile footprint as a GeoJSON polygon (grid overlay/debug) |
-|  [03]   | `Tile.GetSubTiles(int zoom)` → `TileRange` | the child tile range one+ levels down (LOD descent)          |
+| [INDEX] | [SURFACE]                                                    | [SHAPE]  | [CAPABILITY]                                              |
+| :-----: | :----------------------------------------------------------- | :------- | :-------------------------------------------------------- |
+|  [01]   | `Tile.CreateAroundLocation(double, double, int)`             | static   | the tile at a lat/lon and zoom (`…Id` gives the id)       |
+|  [02]   | `Tile.CalculateTileId(int, int, int)`/`CalculateTile(ulong)` | static   | the id ↔ (x, y, zoom) bijection                           |
+|  [03]   | `Tile.IsDirectNeighbour(ulong, ulong)`                       | static   | edge adjacency of two tile ids                            |
+|  [04]   | `Tile.GetSubTiles(int)`                                      | instance | the child `TileRange` one+ levels down (LOD descent)      |
+|  [05]   | `Tile.GetSubTileIdFor(double, double)`                       | instance | the sub-tile id covering a lat/lon                        |
+|  [06]   | `Tile.InvertX`/`InvertY`                                     | instance | TMS↔XYZ Y-axis flip                                       |
+|  [07]   | `Tile.ToGeoJson()`                                           | instance | the tile footprint as a GeoJSON polygon                   |
+|  [08]   | `TileRange(int, int, int, int, int)`                         | ctor     | an `(xMin,yMin,xMax,yMax,zoom)` block; `Count`/`Contains` |
+|  [09]   | `TileRange.EnumerateInCenterFirst()`                         | instance | center-out tile emission for progressive streaming        |
+|  [10]   | `WebMercatorHandler.LatLonToMeters`/`MetersToLatLon`         | static   | EPSG:4326 ↔ 3857 meters                                   |
+|  [11]   | `WebMercatorHandler.FromMetersToPixels`/`FromPixelsToMeters` | static   | meters ↔ pixels at a zoom/`tileSize`                      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[PLATFORM_BOUNDARY]:
-- a single managed `NetTopologySuite.IO.VectorTiles.dll` (netstandard2.0); no P/Invoke, no native dependency — the net10.0 consumer binds `lib/netstandard2.0` directly.
-- the package is FORMAT-NEUTRAL: it builds and holds the `VectorTile`/`Layer`/`VectorTileTree` object model but emits NO bytes. The protobuf wire encode/decode is `NetTopologySuite.IO.VectorTiles.Mapbox` (`MapboxTileReader`/`MapboxTileWriter`) — this package is paired with it, never standalone for I/O.
-- the actual geometry tilers (`PolygonTiler`/`LineStringTiler`/`PointTiler`, the `Tile.ToPolygon`/`LineString.Cut` clip) are `internal`: a feature added through `Add` is clipped to each overlapping tile by these tilers transitively. They are NOT public consumer surface — the consumer composes `Add` and the tile algebra, never the clip primitives. A catalog or design page that names `PolygonTiler.Tiles` as a callable entrypoint documents a phantom.
+[TOPOLOGY]:
+- format-neutral: the `VectorTile`/`Layer`/`VectorTileTree` object model builds and holds tile-local geometry but emits NO bytes; the protobuf wire crosses to `NetTopologySuite.IO.VectorTiles.Mapbox`, so this package alone yields a model that never reaches disk.
+- `VectorTileTree` is a `Dictionary<ulong, VectorTile>` over WebMercator XYZ `Tile.Id`s, each `VectorTile` one `Layer` per `Name`; `Add` resolves a feature's overlapping tiles at the zoom, gets-or-creates the named `Layer`, and adds the per-tile-clipped `Feature` — one polygon spanning many tiles becomes one clipped feature per tile.
+- `PolygonTiler`/`LineStringTiler`/`PointTiler` clip features `internal`ly, invoked transitively by `Add`; naming any tiler as a callable entrypoint documents a phantom.
 
-[TILE_MODEL]:
-- the tile id is the WebMercator XYZ `Tile.Id` `ulong` (a `zoom`/`x`/`y` interleave through `Tile.CalculateTileId`); `VectorTileTree` is a `Dictionary<ulong, VectorTile>` over those ids. A `VectorTile` holds one `Layer` per `Name`, each `Layer` an `IList<IFeature>` of the clipped, tile-local feature geometry.
-- `Add` resolves each feature's overlapping tiles at the requested zoom (`Tile.CreateAroundLocationId` for a point, the internal `LineStringTiler`/`PolygonTiler` walk for lines/polygons), gets-or-creates the named `Layer` in each tile, and adds the per-tile-clipped `Feature` — so one large polygon spanning many tiles is split into one clipped feature per tile, the standard MVT tiling.
-- the `ToFeatureZoomAndLayerFunc` overload is the LOD authoring rail: the func emits `(feature, zoom, layerName)` triples, so a feature appears at every zoom it must (a coarse simplification at low zoom, the full geometry at high zoom) and routes to a layer by attribute — the per-feature policy a fixed `(zoom, layerName)` cannot express.
-
-[STACK_INTEGRATION]:
-- geospatial seam: the `Semantics/geospatial#GEOSPATIAL_SEAM` `GeoFeature` carries an NTS `Geometry` + `AttributesTable` (the `IFeature` shape). The web-tile pyramid is one fold: `var tree = new VectorTileTree(); tree.Add(geoFeatures.Select(f => f.AsNtsFeature()), router)` where `router` is a `ToFeatureZoomAndLayerFunc` assigning zoom/layer by the `GeoFeature` `IfcClass`/scale — then the Mapbox writer encodes `tree` to the `{z}/{x}/{y}.mvt` pyramid. The features the `GeoModel` `STRtree` already indexes are the same `IFeature` rows the tree slices, so the broad-phase index and the tile pyramid read one feature set.
-- precision seam: the internal tilers cut against `NtsGeometryServices.Instance.CreateGeometryFactory(4326)` — they read the SAME global factory singleton `GeoServices.Configure` sets at module init (`GeometryOverlay.NG` + `PackedCoordinateSequenceFactory`). The tile clip therefore inherits the canonical EPSG:4326 `PrecisionModel`, and a feature must be in geographic coordinates (the `ProjNET`/OSR reprojection happens BEFORE tiling, never inside it).
-- Mapbox encode seam: `VectorTileTree` → `MapboxTileWriter.Write(tree, path, minLinealExtent, minPolygonalExtent, extent, idAttributeName)` writes the `{z}/{x}/{y}.mvt` directory, and `VectorTileTree.GetExtents` supplies the `bounds`/`minzoom`/`maxzoom` the `VectorTileSource` TileJSON manifest carries — the pyramid plus its catalog descriptor. The `MapboxTileReader.Read(stream, new Tile(z,x,y))` round-trips a stored tile back to a `VectorTile`.
-- distinct from 3D-Tiles: this is the 2D raster-map vector-tile leg (MapLibre/Mapbox-GL basemap overlays). The 3D-Tiles tileset (`subtree` `.subtree` availability bitstream + `SharpGLTF.Ext.3DTiles` glTF content, `.api/api-subtree`/`api-sharpgltf-3dtiles`) is the orthogonal 3D streaming stack — the two coexist, never collapsed.
+[STACKING]:
+- `NetTopologySuite.IO.VectorTiles.Mapbox`(`.api/api-nts-vectortiles-mapbox`): `MapboxTileWriter.Write` emits the `VectorTileTree` as a `{z}/{x}/{y}.mvt` pyramid, `GetExtents` feeds the `VectorTileSource` TileJSON, and `MapboxTileReader.Read(stream, new Tile(z, x, y))` round-trips a stored tile — the pair is always composed, this package never reaches bytes alone.
+- `NetTopologySuite`/`NetTopologySuite.Features`(`.api/api-nettopologysuite`): internal tilers cut against the global `NtsGeometryServices` EPSG:4326 `GeometryFactory`, so the tile clip inherits the canonical `PrecisionModel`; features arrive as `IFeature`/`FeatureCollection` rows.
+- `Semantics/geospatial`: `GeoFeature` geometry+attributes rows the `GeoModel` `STRtree` already indexes feed `VectorTileTree.Add` under a `ToFeatureZoomAndLayerFunc` routing zoom/layer by `IfcClass`/scale; `ProjNET`/OSR reprojects to EPSG:4326 BEFORE tiling, never inside it.
+- 3D-Tiles is orthogonal: the 2D `.mvt` pyramid (MapLibre/Mapbox-GL basemaps) and the 3D-Tiles glTF tileset (`subtree` + `SharpGLTF.Ext.3DTiles`) coexist as distinct delivery stacks.
 
 [LOCAL_ADMISSION]:
-- the tile pyramid enters through `new VectorTileTree()` + the `Add` fold over the `GeoFeature` `IFeature` stream; the zoom/layer policy enters through a `ToFeatureZoomAndLayerFunc` discriminating on the canonical `GeoFeature` attributes, never a per-zoom imperative loop.
-- the WebMercator tile id/bbox enters through `Tile`/`TileRange`/`WebMercatorHandler`; the `[Obsolete]` `MetersToPixels`/`PixelsToMeters` `double` overloads are the rejected forms — bind `FromMetersToPixels`/`FromPixelsToMeters`.
-- the wire encode/decode is NOT here — it crosses to `MapboxTileReader`/`MapboxTileWriter` (`.api/api-nts-vectortiles-mapbox`); composing this package without the Mapbox pair yields an object model that never reaches bytes.
+- `VectorTileTree` admits the pyramid through `new VectorTileTree()` + the `Add` fold over the `GeoFeature` `IFeature` stream; a `ToFeatureZoomAndLayerFunc` on canonical `GeoFeature` attributes carries the zoom/layer policy, never a per-zoom imperative loop.
+- `Tile`/`TileRange`/`WebMercatorHandler` admit tile id/bbox/sub-tile computation.
 
 [RAIL_LAW]:
-- Package: `NetTopologySuite.IO.VectorTiles` (+ transitive `NetTopologySuite` / `NetTopologySuite.Features`)
+- Package: `NetTopologySuite.IO.VectorTiles` (+ transitive `NetTopologySuite`/`NetTopologySuite.Features`)
 - Owns: the in-memory MVT object model (`VectorTile`/`Layer`/`VectorTileTree`), the feature→tile slicing fold (`Add` + `ToFeatureZoomAndLayerFunc`), and the WebMercator XYZ tile algebra (`Tile`/`TileRange`/`WebMercatorHandler`)
 - Accept: building a tile pyramid from NTS `IFeature` rows, per-feature LOD/layer routing, tile id/bbox/sub-tile computation, pyramid extent and zoom-span query
-- Reject: the MVT protobuf bytes (`NetTopologySuite.IO.VectorTiles.Mapbox` owns encode/decode), the geodetic reprojection into EPSG:4326 (the `Semantics/georeference` `ProjNET`/OSR leg runs before tiling), the planar `Geometry` algebra and `Feature` shape (`NetTopologySuite` owns them), the 3D-Tiles glTF tileset (`subtree` + `SharpGLTF.Ext.3DTiles` own it)
+- Reject: the MVT protobuf bytes (`NetTopologySuite.IO.VectorTiles.Mapbox` owns encode/decode), the geodetic reprojection into EPSG:4326 (the `Semantics/georeference` `ProjNET`/OSR leg runs first), the planar `Geometry`/`Feature` algebra (`NetTopologySuite` owns it), the 3D-Tiles glTF tileset (`subtree` + `SharpGLTF.Ext.3DTiles` own it)

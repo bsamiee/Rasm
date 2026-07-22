@@ -1,133 +1,105 @@
 # [RASM_BIM_API_VIVIDORANGE_ISTANDARDS]
 
-`VividOrange.IStandards` is verified-transitive through direct package `VividOrange.Cases`: the Bim compile surface receives the Eurocode standards-identity taxonomy and the `NationalAnnex` dispatch key the rest of the VividOrange structural family reads.
-It carries four concerns in one assembly: the `IStandard`/`StandardBody` standard-identity contract
-(which standards body publishes a code — `EN`, `ACI`, `AISC`, `BS`, …), the closed `NationalAnnex`
-enum (37 members: `RecommendedValues` — the EN standard fallback — plus 36 national annexes) that
-parameterizes every Eurocode `ψ`/`γ` table lookup, the nine `En199xPart` part enums (one per Eurocode
-EN 1990…EN 1999, naming the clause-part split), and the `MissingNationalAnnexException` fault type for
-an unmapped annex. The CONCRETE `VividOrange.Standards` package (Materials-owned, not on the Bim
-compile surface) realizes the contract as the `En1990`…`En1999` standard-identity classes, each pinning
-`Body => StandardBody.EN`, carrying a settable `NationalAnnex` (and, except `En1990`, an `En199xPart`),
-and deriving a composed `IStandard.Title` from an internal title kernel — `NationalAnnexUtility`
-(annex → national standards-body abbreviation: `DIN`/`NF`/`BS`/`UNI`/…) and `En199xUtility`
-(part → full clause description). That kernel's default arm, `_ => throw new MissingNationalAnnexException(na)`,
-is the single throw site, reached transitively through `IStandard.Title`. This is the dispatch axis the
-`Cases` Eurocode engine (`.api/api-vividorange-cases`) consumes — `NationalAnnex` keys every
-`ENLoadCaseFactory`/`ENCombinationFactory` and `ITableA1_1`/`ITableA1_2.GetProperties` — and the axis
-the `Countries` taxonomy (`.api/api-vividorange-countries`) bridges to a nation BY NAME (there is no
-compiled `Country`→`NationalAnnex` map anywhere in the VividOrange surface). Every standard is
-`IStandard: ITaxonomySerializable`, so standard identity round-trips through the same VividOrange
-taxonomy-serialization marker as loads, cases, countries, and stages.
+`VividOrange.IStandards` mints the Eurocode standards-identity taxonomy: the `IStandard`/`StandardBody` contract naming which body publishes a code, the closed `NationalAnnex` key parameterizing every Eurocode `ψ`/`γ` table lookup, the per-Eurocode `En199xPart` clause-part enums, and the `MissingNationalAnnexException` fault for an unmapped annex. Concrete `VividOrange.Standards` realizes it as the mutable `En1990`…`En1999` classes fixing `Body => StandardBody.EN`, and Bim reads the taxonomy on the standards rail, lowering the unmapped-annex fault onto `BimFault` at ingest.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `VividOrange.IStandards`
-- package: `VividOrange.IStandards` (contract — `IStandard`/`StandardBody`, `NationalAnnex`, the `En199xPart` parts, `MissingNationalAnnexException`); `VividOrange.Standards` (concrete — the `En1990`…`En1999` realization + the internal title kernel)
-- license: MIT
+- package: `VividOrange.IStandards` (contract), `VividOrange.Standards` (concrete realization + internal title kernel); MIT, Vivid Orange
 - assembly: `VividOrange.IStandards`, `VividOrange.Standards`
-- namespace: `VividOrange.Standards` (`IStandard`, `StandardBody`), `VividOrange.Standards.Eurocode` (`NationalAnnex`, `En1990Part`…`En1999Part`, `MissingNationalAnnexException`, the concrete `En1990`…`En1999`)
+- namespace: `VividOrange.Standards` (`IStandard`, `StandardBody`), `VividOrange.Standards.Eurocode` (`NationalAnnex`, `En1990Part`…`En1999Part`, `MissingNationalAnnexException`, concrete `En1990`…`En1999`)
 - asset: multi-target `net48`/`net6.0`/`net7.0`/`net8.0`/`netstandard2.0`; the `net10.0` consumer binds `lib/net8.0`
 - asset: pure-managed AnyCPU IL-only assemblies; no native binaries; ALC-safe inside the in-Rhino plugin assembly
-- dependency: `VividOrange.IStandards` → `VividOrange.ISerialization` (the `ITaxonomySerializable` marker) only; `VividOrange.Standards` → `VividOrange.IStandards`
-- consumer: Bim consumes `VividOrange.IStandards` TRANSITIVELY via `VividOrange.Cases → VividOrange.ICases → VividOrange.IStandards` (the `NationalAnnex` key + `MissingNationalAnnexException` type); the concrete `VividOrange.Standards` (`En1990`…`En1999`) is referenced by `Rasm.Materials`
+- dependency: `VividOrange.IStandards` → `VividOrange.ISerialization` (`ITaxonomySerializable`); `VividOrange.Standards` → `VividOrange.IStandards`
+- consumer: Bim binds `VividOrange.IStandards` transitively via `VividOrange.Cases → VividOrange.ICases → VividOrange.IStandards` (the `NationalAnnex` key + `MissingNationalAnnexException`); the concrete `VividOrange.Standards` (`En1990`…`En1999`) is referenced by `Rasm.Materials`
 - rail: standards
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: standard-identity contract family (`VividOrange.IStandards`)
-- rail: standards
-- note: `NationalAnnex`/`MissingNationalAnnexException` are `.Eurocode`-namespaced; each `StandardBody` carries a `[Description]`.
+- note: `NationalAnnex`/`MissingNationalAnnexException` are `.Eurocode`-namespaced; each `StandardBody` member carries a `[Description]`.
 
-| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]             | [RAIL]                                                               |
-| :-----: | :------------------------------ | :------------------------ | :------------------------------------------------------------------- |
-|  [01]   | `IStandard`                     | identity contract         | `: ITaxonomySerializable`; `StandardBody Body`, `string Title`       |
-|  [02]   | `StandardBody`                  | publishing-body enum (11) | `AASHTO`/`ACI`/`AISC`/`ANSI`/`AS`/`BS`/`CSA`/`EN`/`HK`/`IS`/`SANS`   |
-|  [03]   | `NationalAnnex`                 | national-annex key        | `RecommendedValues` (=0) + 36 nations `Austria`…`UnitedKingdom` (37) |
-|  [04]   | `MissingNationalAnnexException` | unmapped-annex fault      | `: Exception` → `"National Annex of {na} not implemented"`           |
+| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY] | [CAPABILITY]                                                       |
+| :-----: | :------------------------------ | :------------ | :----------------------------------------------------------------- |
+|  [01]   | `IStandard`                     | interface     | `: ITaxonomySerializable`; `StandardBody Body`, `string Title`     |
+|  [02]   | `StandardBody`                  | enum          | `AASHTO`/`ACI`/`AISC`/`ANSI`/`AS`/`BS`/`CSA`/`EN`/`HK`/`IS`/`SANS` |
+|  [03]   | `NationalAnnex`                 | enum          | `RecommendedValues` (=0) then 36 nations `Austria`…`UnitedKingdom` |
+|  [04]   | `MissingNationalAnnexException` | exception     | `: Exception` → `"National Annex of {na} not implemented"`         |
 
 [PUBLIC_TYPE_SCOPE]: Eurocode clause-part enums (`VividOrange.IStandards`)
-- rail: standards
 
-| [INDEX] | [SYMBOL]     | [TYPE_FAMILY]          | [RAIL]                                                                                   |
-| :-----: | :----------- | :--------------------- | :--------------------------------------------------------------------------------------- |
-|  [01]   | `En1990Part` | EC0 part enum (basis)  | `None` only — EN 1990 carries no clause-part split                                       |
-|  [02]   | `En1991Part` | EC1 actions parts      | 10: `Part1_1`…`Part1_7`/`Part2`/`Part3`/`Part4`                                          |
-|  [03]   | `En1992Part` | EC2 concrete parts     | 4: `Part1_1`/`Part1_2`/`Part2`/`Part3` (General/Fire/Bridges/Liquid-Retaining)           |
-|  [04]   | `En1993Part` | EC3 steel parts        | 20: `Part1_1`…`Part1_12`/`Part2`/`Part3_1`/`Part3_2`/`Part4_1`…`Part4_3`/`Part5`/`Part6` |
-|  [05]   | `En1994Part` | EC4 composite parts    | 3: `Part1_1`/`Part1_2`/`Part2` (General/Fire/Bridges)                                    |
-|  [06]   | `En1995Part` | EC5 timber parts       | 3: `Part1_1`/`Part1_2`/`Part2` (General/Fire/Bridges)                                    |
-|  [07]   | `En1996Part` | EC6 masonry parts      | 4: `Part1_1`/`Part1_2`/`Part2`/`Part3`                                                   |
-|  [08]   | `En1997Part` | EC7 geotechnical parts | 2: `Part1`/`Part2` (General/Ground-Investigations)                                       |
-|  [09]   | `En1998Part` | EC8 seismic parts      | 6: `Part1`…`Part6` (General/Bridges/Retrofit/Silos/Geotech/Towers)                       |
-|  [10]   | `En1999Part` | EC9 aluminium parts    | 5: `Part1_1`…`Part1_5` (General/Fire/Fatigue/Cold-Formed/Shell)                          |
-
-- [02]-[EN1991]: the ten parts map Dead/Fire/Snow/Wind/Thermal/Construction/Accidental/Bridge/Crane/Silos.
+| [INDEX] | [SYMBOL]     | [TYPE_FAMILY]    | [CAPABILITY]                                                                         |
+| :-----: | :----------- | :--------------- | :----------------------------------------------------------------------------------- |
+|  [01]   | `En1990Part` | EC0 basis        | `None` only — EN 1990 carries no clause-part split                                   |
+|  [02]   | `En1991Part` | EC1 actions      | `Part1_1`…`Part1_7`/`Part2`/`Part3`/`Part4` (dead/fire/snow/wind/thermal/…/silos)    |
+|  [03]   | `En1992Part` | EC2 concrete     | `Part1_1`/`Part1_2`/`Part2`/`Part3` (general/fire/bridges/liquid-retaining)          |
+|  [04]   | `En1993Part` | EC3 steel        | `Part1_1`…`Part1_12`/`Part2`/`Part3_1`/`Part3_2`/`Part4_1`…`Part4_3`/`Part5`/`Part6` |
+|  [05]   | `En1994Part` | EC4 composite    | `Part1_1`/`Part1_2`/`Part2` (general/fire/bridges)                                   |
+|  [06]   | `En1995Part` | EC5 timber       | `Part1_1`/`Part1_2`/`Part2` (general/fire/bridges)                                   |
+|  [07]   | `En1996Part` | EC6 masonry      | `Part1_1`/`Part1_2`/`Part2`/`Part3`                                                  |
+|  [08]   | `En1997Part` | EC7 geotechnical | `Part1`/`Part2` (general/ground-investigations)                                      |
+|  [09]   | `En1998Part` | EC8 seismic      | `Part1`…`Part6` (general/bridges/retrofit/silos/geotech/towers)                      |
+|  [10]   | `En1999Part` | EC9 aluminium    | `Part1_1`…`Part1_5` (general/fire/fatigue/cold-formed/shell)                         |
 
 [PUBLIC_TYPE_SCOPE]: concrete Eurocode-standard realization (`VividOrange.Standards`)
-- rail: standards
-- note: each is `: IStandard` with a settable `NationalAnnex` and (except `En1990`) an `En199xPart Part`; the cell carries the composed `Title`.
+- note: each is `: IStandard` with a settable `NationalAnnex` and (except `En1990`) an `En199xPart Part`; the cell carries the composed `Title` discipline string.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY]                | [RAIL]                                                          |
-| :-----: | :------- | :--------------------------- | :-------------------------------------------------------------- |
-|  [01]   | `En1990` | EC0 basis of design          | `"… EN 1990: Eurocode - Basis of Structural Design"`            |
-|  [02]   | `En1991` | EC1 actions on structures    | `"Eurocode 1: Actions on Structures"`                           |
-|  [03]   | `En1992` | EC2 concrete                 | `"Eurocode 2: Design of Concrete Structures"`                   |
-|  [04]   | `En1993` | EC3 steel                    | `"Eurocode 3: Design of Steel Structures"`                      |
-|  [05]   | `En1994` | EC4 composite steel+concrete | `"Eurocode 4: Design of Composite Steel & Concrete Structures"` |
-|  [06]   | `En1995` | EC5 timber                   | `"Eurocode 5: Design of Timber Structures"`                     |
-|  [07]   | `En1996` | EC6 masonry                  | `"Eurocode 6: Design of Masonry Structures"`                    |
-|  [08]   | `En1997` | EC7 geotechnical             | `"Eurocode 7: Geotechnical Design"`                             |
-|  [09]   | `En1998` | EC8 seismic                  | `"Eurocode 8: Design of Structures for Earthquake Resistance"`  |
-|  [10]   | `En1999` | EC9 aluminium                | `"Eurocode 9: Design of Aluminium Structures"`                  |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY]    | [CAPABILITY]                                                    |
+| :-----: | :------- | :--------------- | :-------------------------------------------------------------- |
+|  [01]   | `En1990` | EC0 basis        | `"… EN 1990: Eurocode - Basis of Structural Design"`            |
+|  [02]   | `En1991` | EC1 actions      | `"Eurocode 1: Actions on Structures"`                           |
+|  [03]   | `En1992` | EC2 concrete     | `"Eurocode 2: Design of Concrete Structures"`                   |
+|  [04]   | `En1993` | EC3 steel        | `"Eurocode 3: Design of Steel Structures"`                      |
+|  [05]   | `En1994` | EC4 composite    | `"Eurocode 4: Design of Composite Steel & Concrete Structures"` |
+|  [06]   | `En1995` | EC5 timber       | `"Eurocode 5: Design of Timber Structures"`                     |
+|  [07]   | `En1996` | EC6 masonry      | `"Eurocode 6: Design of Masonry Structures"`                    |
+|  [08]   | `En1997` | EC7 geotechnical | `"Eurocode 7: Geotechnical Design"`                             |
+|  [09]   | `En1998` | EC8 seismic      | `"Eurocode 8: Design of Structures for Earthquake Resistance"`  |
+|  [10]   | `En1999` | EC9 aluminium    | `"Eurocode 9: Design of Aluminium Structures"`                  |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: standard-identity construction and read
-- rail: standards
 
-| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY]     | [RAIL]                                                 |
-| :-----: | :------------------------------------------------------- | :----------------- | :----------------------------------------------------- |
-|  [01]   | `new En1990(NationalAnnex)` / `new En1990()`             | EC0 identity       | basis-of-design standard for a national annex          |
-|  [02]   | `new En199x(En199xPart, NationalAnnex)` / `new En199x()` | parted identity    | a Eurocode standard for a clause part + annex          |
-|  [03]   | `En199x.NationalAnnex { get; set; }`                     | annex set/read     | settable national-annex value                          |
-|  [04]   | `En199x.Part { get; set; }`                              | part set/read      | settable `En199xPart` discriminant; absent on `En1990` |
-|  [05]   | `IStandard.Body`                                         | body read          | publishing `StandardBody`; always `EN` here            |
-|  [06]   | `IStandard.Title`                                        | composed identity  | the composed `Title` string (format + rules below)     |
-|  [07]   | `new MissingNationalAnnexException(NationalAnnex)`       | fault construction | unmapped-annex fault, constructible for re-raise       |
+| [INDEX] | [SURFACE]                                                | [SHAPE]  | [CAPABILITY]                                      |
+| :-----: | :------------------------------------------------------- | :------- | :------------------------------------------------ |
+|  [01]   | `new En1990(NationalAnnex)` / `new En1990()`             | ctor     | EC0 basis-of-design identity for a national annex |
+|  [02]   | `new En199x(En199xPart, NationalAnnex)` / `new En199x()` | ctor     | a Eurocode identity for a clause part + annex     |
+|  [03]   | `En199x.NationalAnnex`                                   | property | settable national-annex value                     |
+|  [04]   | `En199x.Part`                                            | property | settable `En199xPart`; absent on `En1990`         |
+|  [05]   | `IStandard.Body`                                         | property | publishing `StandardBody`, always `EN` here       |
+|  [06]   | `IStandard.Title`                                        | property | composed identity string (format below)           |
+|  [07]   | `new MissingNationalAnnexException(NationalAnnex)`       | ctor     | unmapped-annex fault, constructible for re-raise  |
 
-- [06]-[TITLE]: `Title` = `"{abbr} EN 199x[-part]: Eurocode N: {discipline} - {clause description}".TrimStart(' ')`; `abbr` empty for `RecommendedValues`, `Part` renders `Part`/`_`→`-`.
+- [06]-[TITLE]: `Title` = `"{abbr} EN 199x[-part]: Eurocode N: {discipline} - {clause}".TrimStart(' ')`; `abbr` empties for `RecommendedValues`, and `Part` renders `Part`/`_`→`-`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[STANDARD_TOPOLOGY]:
-- contract: `IStandard: ITaxonomySerializable` — `StandardBody Body { get; }`, `string Title { get; }`; `StandardBody` is the 11-member publishing-body enum (`EN` = index 7), the broad axis above the Eurocode-specific `En199x` family
-- national-annex key: `NationalAnnex` is a closed 37-member enum, `RecommendedValues` at 0 then 36 nations; it is the single dispatch axis for the whole Eurocode regime — `Cases` tables, factories, and the `En199x.Title` abbreviation all key on it
-- part enums: each Eurocode owns its `En199xPart` clause-part enum (EN 1990 has only `None`; EN 1993 is the deepest at 20 parts); the concrete `En199x` carries the matching `Part` except `En1990`
-- concrete realization: `En1990`…`En1999` are `IStandard` impls, each `Body => StandardBody.EN`, with settable `NationalAnnex`/`Part` and a derived `Title`; they are the standard-identity authoring surface
-
-[TITLE_KERNEL]:
-- `IStandard.Title` is composed lazily, never stored: `En199x.GetTitle()` reads `NationalAnnexUtility.GetAbbreviation(NationalAnnex)`, the EN code number, the discipline string, and (for `En1991`+) `En199xUtility.GetPartDescription(Part)`, then `TrimStart(' ')`
-- `NationalAnnexUtility.GetAbbreviation(NationalAnnex)` (internal) maps the 37 annexes to the national standards-body abbreviation — `RecommendedValues` → `""`, `Austria` → `ONORM`, `Belgium` → `NBN`, `France` → `NF`, `Germany` → `DIN`, `Italy` → `UNI`, `Netherlands` → `NEN`, `UnitedKingdom` → `BS`, plus non-Latin scripts (`Belarus` → `Ткп`, `Bulgaria` → `БДС`, `Greece` → `ΕΛΟΤ`) — and its default arm `_ => throw new MissingNationalAnnexException(na)` is the SINGLE throw site, reached transitively through `IStandard.Title`; the table covers all 37 declared members, so the guard fires only for an out-of-domain `(NationalAnnex)` cast, never a declared annex
-- `En199xUtility.GetPartDescription(En199xPart)` (internal) maps each part to its full clause description (e.g. `En1991Part.Part1_3` → "Part 1-3: General actions - Snow loads"); an unmapped part throws a bare `ArgumentException("Unknown part")`
-- both utility families are `internal static` — not consumer-callable; the OBSERVABLE surface is `IStandard.Title` (the composed string) and the `MissingNationalAnnexException` it can raise
-
-[LOCAL_ADMISSION]:
-- `NationalAnnex` is the canonical Eurocode dispatch key the Bim design layer carries; `RecommendedValues` is the EN standard fallback when no national annex applies (the default the `Countries` bridge resolves to for a non-CEN nation)
-- a national deviation is selected by the `NationalAnnex` enum value, never a per-country code branch — the annex is a discriminant the `Cases` tables key on, not a switch in Bim
-- `MissingNationalAnnexException` (declared in `VividOrange.IStandards`, thrown from the concrete `NationalAnnexUtility`) is caught at the Bim ingest boundary and lowered onto `Model/faults#FAULT_BAND` `BimFault.CapabilityMiss`/`Fin<T>` through `.ToError()`, never propagated into the fold
-- the concrete `En1990`…`En1999` are MUTABLE settable-property carriers (the Materials-owned concrete package); treat them as the standard-identity authoring surface and project the resolved `(StandardBody, NationalAnnex, Title)` onto the immutable Bim records — never re-export the concrete class as the canonical graph shape
+[TOPOLOGY]:
+- contract: `IStandard: ITaxonomySerializable` — `StandardBody Body { get; }`, `string Title { get; }`; `StandardBody` is the publishing-body axis (`EN` at index 7) above the Eurocode-specific `En199x` family
+- national-annex key: `NationalAnnex` is the closed 37-member enum, `RecommendedValues` at 0 then 36 nations; it is the single dispatch axis for the whole Eurocode regime — `Cases` tables and factories and the `En199x.Title` abbreviation all key on it
+- part enums: each Eurocode owns its `En199xPart` clause-part enum (`En1990` carries only `None`, `En1993` the deepest at 20 parts); the concrete `En199x` carries the matching `Part` except `En1990`
+- concrete realization: `En1990`…`En1999` are mutable `IStandard` impls, each `Body => StandardBody.EN` with settable `NationalAnnex`/`Part`; they are the standard-identity authoring surface
+- title composition: `IStandard.Title` composes lazily via `En199x.GetTitle()`, never stored — it reads `NationalAnnexUtility.GetAbbreviation(NationalAnnex)`, the EN code number, the discipline, and (for `En1991`+) `En199xUtility.GetPartDescription(Part)`, then `TrimStart(' ')`
+- annex abbreviation: `NationalAnnexUtility.GetAbbreviation` (internal) maps all 37 annexes to the national standards-body abbreviation (`RecommendedValues` → `""`, `Germany` → `DIN`, `France` → `NF`, `Italy` → `UNI`, `UnitedKingdom` → `BS`, non-Latin `Greece` → `ΕΛΟΤ`); its `_ => throw new MissingNationalAnnexException(na)` default is the single throw site, reached through `IStandard.Title`, firing only for an out-of-domain cast since the map covers every declared member
+- part description: `En199xUtility.GetPartDescription` (internal) maps each part to its full clause description, throwing `ArgumentException("Unknown part")` for an unmapped part; both utility families are `internal static`, so the observable surface is `IStandard.Title` and the `MissingNationalAnnexException` it can raise
 
 [STACKING]:
-- with `VividOrange.Cases` (`.api/api-vividorange-cases`): `NationalAnnex` is the dispatch key for every `ENLoadCaseFactory`/`ENCombinationFactory` entry and every `ITableA1_1`/`ITableA1_2.GetProperties(NationalAnnex)` — a national deviation is a table row keyed by this enum; the `Cases` engine also throws `NotImplementedException` from its own EN `ψ`/`γ` table singletons for an annex its tables do not cover, so the Bim ingest catches BOTH that and `MissingNationalAnnexException` and lowers them onto `BimFault.CapabilityMiss`
-- with `VividOrange.Countries` (`.api/api-vividorange-countries`): `Country` (249 ISO nations) is the broad national axis and `NationalAnnex` (37 annexes) is the narrow Eurocode-parameter axis; they meet at the project's nation, bridged BY NAME at the design layer (`Germany` ↔ `NationalAnnex.Germany`), defaulting to `RecommendedValues` for a nation with no annex — there is NO compiled `Country`→`NationalAnnex` member, and the `NationalAnnex`→standards-body abbreviation table is internal to `VividOrange.Standards`
-- with `VividOrange.ISerialization`: `IStandard: ITaxonomySerializable` shares the one taxonomy-serialization marker with loads, cases, countries, and stages, so standard identity round-trips through the single VividOrange serializer that covers the whole structural taxonomy
-- with `StructuralAnalysisFormat` (`.api/api-structuralanalysisformat`): a model's `StandardBody.EN` + selected `NationalAnnex` map onto the SAF `ExcelNationalCode` design-code axis (`EC_DIN_EN`/`EC_NF_EN`/`EC_UNI_EN`/…) at the XLSX boundary, and `ExcelStructuralLoadCombination.NationalStandard` carries it on the wire — the `NationalAnnex` abbreviation (`DIN`/`NF`/`UNI`) is the same national-body prefix the SAF `ExcelNationalCode` member encodes
-- with `Thinktecture.Runtime.Extensions` (`libs/csharp/.api/api-thinktecture-json.md`): when the Bim layer needs a canonical standards discriminant it owns a `[SmartEnum]`/`[ValueObject]` keyed by the standard identity; `NationalAnnex`/`StandardBody` are the boundary vocabulary mapped onto it at ingest, never re-exported as the canonical shape
-- with `LanguageExt.Core`: the unmapped-annex path is a typed boundary fault — `MissingNationalAnnexException` (and the `Cases` `NotImplementedException`) is captured at ingest into `Fin<T>` via `.ToError()`, so the Eurocode dispatch never throws into the Bim fold
+- with `VividOrange.Cases` (`.api/api-vividorange-cases`): `NationalAnnex` keys every `ENLoadCaseFactory`/`ENCombinationFactory` entry and every `ITableA1_1`/`ITableA1_2.GetProperties(NationalAnnex)`, so a national deviation is a table row; the `Cases` EN `ψ`/`γ` singletons throw `NotImplementedException` for an uncovered annex, so Bim ingest catches both that and `MissingNationalAnnexException` and lowers onto `BimFault.CapabilityMiss`
+- with `VividOrange.Countries` (`.api/api-vividorange-countries`): `Country` (249 ISO nations) is the broad national axis and `NationalAnnex` the narrow Eurocode-parameter axis; they meet at the project nation, bridged by name at the design layer (`Germany` ↔ `NationalAnnex.Germany`), defaulting to `RecommendedValues` — no compiled `Country`→`NationalAnnex` member exists, and the abbreviation table is internal to `VividOrange.Standards`
+- with `VividOrange.ISerialization`: `IStandard: ITaxonomySerializable` rides the shared taxonomy-serialization marker, so standard identity round-trips through the one VividOrange serializer
+- with `StructuralAnalysisFormat` (`.api/api-structuralanalysisformat`): a model's `StandardBody.EN` + `NationalAnnex` map onto the SAF `ExcelNationalCode` design-code axis (`EC_DIN_EN`/`EC_NF_EN`/`EC_UNI_EN`/…) at the XLSX boundary, and `ExcelStructuralLoadCombination.NationalStandard` carries it on the wire — the `NationalAnnex` abbreviation (`DIN`/`NF`/`UNI`) is the SAF national-body prefix
+- with `Thinktecture.Runtime.Extensions` (`libs/csharp/.api/api-thinktecture-json.md`): the Bim layer owns a `[SmartEnum]`/`[ValueObject]` keyed by standard identity, and `NationalAnnex`/`StandardBody` are the boundary vocabulary mapped onto it at ingest, never re-exported as the canonical shape
+- with `LanguageExt.Core`: `MissingNationalAnnexException` (and the `Cases` `NotImplementedException`) is captured at ingest into `Fin<T>` via `.ToError()`, so the Eurocode dispatch never throws into the Bim fold
+
+[LOCAL_ADMISSION]:
+- `NationalAnnex` is the canonical Eurocode dispatch key the Bim design layer carries; `RecommendedValues` is the EN fallback when no national annex applies, the `Countries` bridge default for a non-CEN nation
+- a national deviation is a `NationalAnnex` value the `Cases` tables key on, selected as a discriminant rather than a Bim branch
+- `MissingNationalAnnexException` is caught at the Bim ingest boundary and lowered onto `Model/faults` `BimFault.CapabilityMiss`/`Fin<T>` via `.ToError()`
+- concrete `En1990`…`En1999` are the Materials-owned authoring surface; project the resolved `(StandardBody, NationalAnnex, Title)` onto the immutable Bim records rather than re-exporting the concrete class as the canonical graph shape
 
 [RAIL_LAW]:
 - Package: `VividOrange.IStandards` (contract) realized by `VividOrange.Standards` (concrete)
-- Owns: the Eurocode standards-identity taxonomy — the `IStandard`/`StandardBody` contract, the `NationalAnnex` dispatch key, the `En199xPart` clause-part enums, the concrete `En1990`…`En1999` realization, and the `MissingNationalAnnexException` fault type
-- Accept: national-annex selection as a `NationalAnnex` enum value; `RecommendedValues` as the EN fallback; standard identity read through `IStandard.Body`/`Title`; serialization through `ITaxonomySerializable`; the unmapped-annex fault caught and lowered onto `BimFault`
-- Reject: a per-country code branch in place of the `NationalAnnex` discriminant, a fabricated compiled `Country`→`NationalAnnex` map (the bridge is by-name at the design layer), re-exporting the concrete `En199x` class as the canonical Bim graph shape, propagating `MissingNationalAnnexException` into the fold instead of lowering it onto `Fin<T>`
+- Owns: the Eurocode standards-identity taxonomy — `IStandard`/`StandardBody`, the `NationalAnnex` dispatch key, the `En199xPart` clause-part enums, the concrete `En1990`…`En1999`, and `MissingNationalAnnexException`
+- Accept: national-annex selection as a `NationalAnnex` value; `RecommendedValues` as the EN fallback; identity read through `IStandard.Body`/`Title`; serialization through `ITaxonomySerializable`; the unmapped-annex fault lowered onto `BimFault`
+- Reject: a per-country code branch replacing the `NationalAnnex` discriminant, a fabricated compiled `Country`→`NationalAnnex` map, re-exporting the concrete `En199x` as the canonical Bim graph shape, propagating `MissingNationalAnnexException` into the fold

@@ -242,12 +242,25 @@ TOOLS: tuple[Tool, ...] = (
         mode=Mode.BUILD,
     ),
     # ilspy port: version probe (CHECK), type-roster listing (QUERY), and member decompile (LIST) are three total rows.
-    Tool("ilspycmd", DOTNET, ("tool", "run", "ilspycmd", "--", "--version"), NONE, CS, Claim.API, mode=Mode.CHECK),
-    Tool("ilspycmd", DOTNET, ("tool", "run", "ilspycmd", "--", "-l", "cisde", "{assembly}"), NONE, CS, Claim.API, mode=Mode.QUERY),
+    # --disable-updatecheck keeps the automated loop off the network and the "not using the latest" nag out of stderr;
+    # {refs*} splices -r reference-path pairs so base types outside the decompiled assembly resolve with full fidelity.
+    Tool("ilspycmd", DOTNET, ("tool", "run", "ilspycmd", "--", "--disable-updatecheck", "--version"), NONE, CS, Claim.API, mode=Mode.CHECK),
     Tool(
         "ilspycmd",
         DOTNET,
-        ("tool", "run", "ilspycmd", "--", "-t", "{fqn}", "--no-dead-code", "--no-dead-stores", "{assembly}"),
+        ("tool", "run", "ilspycmd", "--", "--disable-updatecheck", "-l", "cisde", "{assembly}"),
+        NONE,
+        CS,
+        Claim.API,
+        mode=Mode.QUERY,
+    ),
+    Tool(
+        "ilspycmd",
+        DOTNET,
+        (
+            *("tool", "run", "ilspycmd", "--", "--disable-updatecheck", "-t", "{fqn}"),
+            *("--no-dead-code", "--no-dead-stores", "{langversion*}", "{refs*}", "{assembly}"),
+        ),
         NONE,
         CS,
         Claim.API,

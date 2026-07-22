@@ -1,32 +1,21 @@
 # [RASM_COMPUTE_API_ONNX_EXTENSIONS]
 
-`Microsoft.ML.OnnxRuntime.Extensions` supplies native extension-operator assets,
-runtime copy targets, tokenizer and pre/post-processing operator libraries, and
-session-registration material for ONNX execution lanes. It carries NO managed
-public assembly (no `.Managed` companion at) — the sole managed entry is
-`SessionOptions.RegisterOrtExtensions()`, defined in `Microsoft.ML.OnnxRuntime`,
-which P/Invokes the `ortextensions` native asset this package ships. The catalog
-GUIDES the `Model/extension#EXTENSION_OPS` `CustomOps` fold: asset presence is
-guarded before registration, and the string-tensor round-trip
-(`Microsoft.ML.OnnxRuntime.Tensors.Tensor<string>` ingress + the `StringSlots`
-allocator and the polymorphic `Egress` non-tensor reader) is how a
-tokenizer/detokenizer custom-op model crosses the managed boundary.
+`Microsoft.ML.OnnxRuntime.Extensions` ships the native extension-operator runtime (`ortextensions`) and its per-TFM MSBuild copy targets, carrying no managed public assembly. Its sole managed entry `SessionOptions.RegisterOrtExtensions()` lives in `Microsoft.ML.OnnxRuntime` and P/Invokes the shipped native asset, registering the entirely-native tokenizer, preprocessing, and postprocessing custom ops in one call. A tokenizer/detokenizer op model crosses the managed boundary through the string-tensor round-trip on `OrtValue`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.ML.OnnxRuntime.Extensions`
 - package: `Microsoft.ML.OnnxRuntime.Extensions`
-- assembly: native/build assets only — no managed public assembly and no `lib/` directory at (resolve-verified: only `runtimes/` + `build/`/`buildTransitive/`)
+- assembly: none — no managed public assembly, no `lib/` directory
+- namespace: none — the managed entry `SessionOptions.RegisterOrtExtensions` is `Microsoft.ML.OnnxRuntime` surface
 - license: MIT
-- namespace: package assets (managed entry is `Microsoft.ML.OnnxRuntime.SessionOptions.RegisterOrtExtensions`)
-- asset: native custom-operator runtime assets (`libortextensions`/`ortextensions`) + per-TFM build targets
-- consumer-bound build TFM: the package ships `build/` and `buildTransitive/` targets for `netstandard1.1`/`netstandard2.0` plus mobile TFMs (`net6.0-android31.0`, `net6.0-ios15.4`, `net6.0-macos12.3`, `monoandroid11.0`, `xamarinios10`) — a `net10.0` non-mobile consumer binds the `netstandard2.0` targets (no `net8.0`/`net9.0` build folder ships)
+- asset: native custom-operator runtime assets (`libortextensions`/`ortextensions`) and per-TFM MSBuild build targets
+- build TFM: a `net10.0` non-mobile consumer binds the `netstandard2.0` `build`/`buildTransitive` targets; no `net8.0`/`net9.0` build folder ships, the remaining targets are mobile and legacy TFMs
 - rail: model
 
 ## [02]-[PACKAGE_ASSETS]
 
 [PACKAGE_ASSET_SCOPE]: native runtime assets
-- rail: model
 
 | [INDEX] | [SYMBOL]                                                     | [PACKAGE_ROLE] | [CAPABILITY]                      |
 | :-----: | :----------------------------------------------------------- | :------------- | :-------------------------------- |
@@ -41,78 +30,50 @@ tokenizer/detokenizer custom-op model crosses the managed boundary.
 |  [09]   | `runtimes/ios/native/onnxruntime_extensions.xcframework.zip` | native asset   | loads Apple ops                   |
 
 [PACKAGE_ASSET_SCOPE]: build assets
-- rail: model
-- note: there is no plain `build/native/` props/targets — the targets are per-TFM under `build/<tfm>/` and `buildTransitive/<tfm>/`
+- note: targets live per-TFM under `build/<tfm>/` and `buildTransitive/<tfm>/`, never a plain `build/native/`
 
-| [INDEX] | [SYMBOL]                                    | [PACKAGE_ROLE] | [CAPABILITY]                                               |
-| :-----: | :------------------------------------------ | :------------- | :--------------------------------------------------------- |
-|  [01]   | `build/netstandard2.0/*.props` / `.targets` | MSBuild import | declares + copies native assets; `net10.0` binds this TFM  |
-|  [02]   | `buildTransitive/netstandard2.0/*.targets`  | MSBuild import | flows native assets transitively through a referencer      |
-|  [03]   | `build/<mobile-tfm>/*.targets`              | MSBuild import | mobile/legacy TFM variants (roster in `[PACKAGE_SURFACE]`) |
+| [INDEX] | [SYMBOL]                                    | [PACKAGE_ROLE] | [CAPABILITY]                                                |
+| :-----: | :------------------------------------------ | :------------- | :---------------------------------------------------------- |
+|  [01]   | `build/netstandard2.0/*.props` / `.targets` | MSBuild import | declares and copies native assets; `net10.0` binds this TFM |
+|  [02]   | `buildTransitive/netstandard2.0/*.targets`  | MSBuild import | flows native assets transitively through a referencer       |
+|  [03]   | `build/<mobile-tfm>/*.targets`              | MSBuild import | mobile and legacy TFM variants                              |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: session registration
-- rail: model
 
-| [INDEX] | [SURFACE]                              | [CALL_SHAPE]     | [CAPABILITY]                              |
-| :-----: | :------------------------------------- | :--------------- | :---------------------------------------- |
-|  [01]   | `SessionOptions.RegisterOrtExtensions` | session option   | registers extension ops via managed entry |
-|  [02]   | extension native library               | runtime asset    | supplies custom op implementations        |
-|  [03]   | tokenizer operations                   | native op family | executes tokenization                     |
-|  [04]   | preprocessing operations               | native op family | prepares model inputs                     |
-|  [05]   | postprocessing operations              | native op family | projects model outputs                    |
-|  [06]   | native asset copy target               | build target     | places runtime assets                     |
+| [INDEX] | [SURFACE]                                      | [SHAPE]  | [CAPABILITY]                                    |
+| :-----: | :--------------------------------------------- | :------- | :---------------------------------------------- |
+|  [01]   | `SessionOptions.RegisterOrtExtensions()`       | instance | registers the native extension ops              |
+|  [02]   | `OrtExtensionsNativeMethods.RegisterCustomOps` | static   | internal P/Invoke `RegisterOrtExtensions` folds |
 
-[ENTRYPOINT_SCOPE]: string-tensor boundary (the round-trip a tokenizer/detokenizer op model needs; `OrtValue` members in `Microsoft.ML.OnnxRuntime`)
-- rail: model (consumed by `Model/extension#EXTENSION_OPS` `StringSlots`/`Egress` and `Model/inference#INFERENCE_MODES` `RunInput.Strings`)
-- type: `CreateFromStringTensor` takes the ONNX-owned `Microsoft.ML.OnnxRuntime.Tensors.Tensor<string>`, a distinct type from the `System.Numerics.Tensors.Tensor<T>` the numeric `Carrier<T>` bridge rides — the two `Tensor<...>` spellings never unify
+- `SessionOptions.RegisterOrtExtensions`: defined in `Microsoft.ML.OnnxRuntime`; catches the native `DllNotFoundException` and re-throws `OnnxRuntimeException(ErrorCode.NoSuchFile)` when the `ortextensions` asset is absent.
+- `OrtExtensionsNativeMethods.RegisterCustomOps`: `[DllImport("ortextensions")]`, `(nint, ref OrtApiBase) -> nint`, internal — not a caller surface.
 
-| [INDEX] | [SURFACE]                                                     | [CALL_SHAPE]    | [CAPABILITY]                                          |
-| :-----: | :------------------------------------------------------------ | :-------------- | :---------------------------------------------------- |
-|  [01]   | `OrtValue.CreateFromStringTensor(Tensor<string>)`             | ingress factory | binds the token input; the `RunInput.Strings` case    |
-|  [02]   | `OrtValue.CreateTensorWithEmptyStrings(OrtAllocator, long[])` | egress factory  | allocates empty string-output slots a tokenizer fills |
-|  [03]   | `OrtValue.GetStringElement(int)` / `GetStringTensorAsArray()` | egress read     | reads decoded string elements (element-wise or bulk)  |
+[ENTRYPOINT_SCOPE]: string-tensor boundary
+- type: `CreateFromStringTensor` takes the ONNX-owned `Microsoft.ML.OnnxRuntime.Tensors.Tensor<string>`, distinct from the `System.Numerics.Tensors.Tensor<T>` the numeric `Carrier<T>` bridge rides; the two `Tensor<...>` spellings never unify.
 
-[ENTRYPOINT_SCOPE]: decompile-verified registration facts
-- rail: model (session-options registration; consumed by `Model/extension#EXTENSION_OPS`)
-
-| [INDEX] | [MEMBER]                                       | [SIGNATURE]                                                                          |
-| :-----: | :--------------------------------------------- | :----------------------------------------------------------------------------------- |
-|  [01]   | `SessionOptions.RegisterOrtExtensions`         | `void RegisterOrtExtensions()`                                                       |
-|  [02]   | `OrtExtensionsNativeMethods.RegisterCustomOps` | `internal static extern nint RegisterCustomOps(nint sessionOptions, ref OrtApiBase)` |
-
-- [01]: defined on `SessionOptions` in `Microsoft.ML.OnnxRuntime`; calls `RegisterCustomOps(handle, ref OrtApiBase)`, catches the native `DllNotFoundException`, and re-throws `OnnxRuntimeException(ErrorCode.NoSuchFile, ...)` when the `ortextensions` asset is absent.
-- [02]: `[DllImport("ortextensions")]`; invoked by `RegisterOrtExtensions()`, not a public API surface.
+| [INDEX] | [SURFACE]                                                     | [SHAPE]  | [CAPABILITY]                                          |
+| :-----: | :------------------------------------------------------------ | :------- | :---------------------------------------------------- |
+|  [01]   | `OrtValue.CreateFromStringTensor(Tensor<string>)`             | factory  | binds the token input; the `RunInput.Strings` case    |
+|  [02]   | `OrtValue.CreateTensorWithEmptyStrings(OrtAllocator, long[])` | factory  | allocates empty string-output slots a tokenizer fills |
+|  [03]   | `OrtValue.GetStringElement(int)` / `GetStringTensorAsArray()` | instance | reads decoded string elements, element-wise or bulk   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[EXTENSION_ASSETS]:
-- package role: native custom-operator bundle
-- managed entry: `SessionOptions.RegisterOrtExtensions()` (defined in `Microsoft.ML.OnnxRuntime`, not in this package)
-- binary root: `libortextensions` and `ortextensions` — placed by this package's MSBuild props/targets
-- build root: props, targets, and build-transitive asset copy
+[TOPOLOGY]:
+- Every extension op is native; the surface folds through the single `SessionOptions.RegisterOrtExtensions()` registration call, guarded on asset presence.
 
-[PHANTOM_CORRECTIONS]:
-`OrtExtensions.RegisterCustomOps` — PHANTOM. No public `OrtExtensions` class exists in `Microsoft.ML.OnnxRuntime.Extensions`. The package contains only native assets and MSBuild targets; there is no managed public assembly.
-
-The correct entry point is `SessionOptions.RegisterOrtExtensions` defined in `Microsoft.ML.OnnxRuntime`.
-- `OrtOperators` — PHANTOM. No `OrtOperators` type exists in `Microsoft.ML.OnnxRuntime` or in `Microsoft.ML.OnnxRuntime.Extensions`. Extension op registration has no CLR type owner; it is fully native and entered through `SessionOptions.RegisterOrtExtensions`.
-- `RegisterCustomOpLibraryV2` on `SessionOptions` — is a separate method for loading arbitrary custom op libraries by path; it is distinct from the Extensions package registration path.
+[STACKING]:
+- `api-onnxruntime`(`.api/api-onnxruntime.md`): the managed entry `SessionOptions.RegisterOrtExtensions` and the string-boundary `OrtValue` factories and readers are `Microsoft.ML.OnnxRuntime` surface; this package supplies only the native `ortextensions` asset those members P/Invoke.
+- `Model/extension#EXTENSION_OPS`: `RegisterOrtExtensions()` is one arm of the `CustomOps.Register` fold gated on `SessionPolicy.OrtExtensions`, sequenced beside the leak-free per-path `RegisterCustomOpLibrary(path)` arm; the `File.Exists` guard faults `ExtensionAssetMissing` at the managed layer, ahead of the native `DllNotFoundException`.
+- `Model/inference#INFERENCE_MODES`: folds the string boundary as the `RunInput.Strings` ingress (`CreateFromStringTensor` over the ONNX `Tensor<string>`), the `StringSlots` bound-output allocator (`CreateTensorWithEmptyStrings`), and the polymorphic `Egress` reader over the same `OrtValue` carrier; `Egress` discriminates on `OnnxType`, reading a `String`-tensor output through `GetStringTensorAsArray` + `GetTensorTypeAndShape().Shape` and a `ZipMap` sequence/map through `GetValueCount`/`GetValue`, so the `String` dtype stays a model-boundary row and never enters the interior tensor vocabulary.
 
 [LOCAL_ADMISSION]:
-- Extension operators enter through ONNX Runtime session registration via `SessionOptions.RegisterOrtExtensions()`.
-- Tokenizer, preprocessing, and postprocessing operators stay model-rail assets.
-- Native asset presence is part of model evidence before model execution is admitted.
-- Extension packages do not create a separate preprocessing service family.
-
-[STACKING]: the package contributes ONE registration step and one boundary, folded into the existing owners —
-- `RegisterOrtExtensions()` is one arm of the `Model/extension#EXTENSION_OPS` `CustomOps.Register` fold (gated on `SessionPolicy.OrtExtensions`), sequenced beside the per-path `RegisterCustomOpLibrary(path)` arm — the ORT-managed-lifetime spelling that tracks no caller handle (the `out`-handle `RegisterCustomOpLibraryV2(path, out _)`, whose discarded handle leaks the library, is the rejected form) — and the `File.Exists` asset guard that faults `ExtensionAssetMissing` before any registration runs, so a missing `ortextensions` asset is caught at the managed guard, not at the native `DllNotFoundException`
-- the non-tensor boundary stacks the `RunInput.Strings` ingress (`CreateFromStringTensor`, the ONNX `Microsoft.ML.OnnxRuntime.Tensors.Tensor<string>` carrier) with the `StringSlots` guarded bound-output allocator (`CreateTensorWithEmptyStrings`) and the polymorphic `Egress` reader over the SAME `OrtValue` carrier the tensor pipeline uses — `Egress` discriminates on `OnnxType` and reads a `String`-tensor output bulk through `GetStringTensorAsArray` + `GetTensorTypeAndShape().Shape` AND the `ZipMap` sequence/map classifier output through `GetValueCount`/`GetValue`; the `String` dtype is a model-boundary-only row and never enters the interior tensor vocabulary — a duplicate string-input factory, a string-only `StringEgress` reader, or a tokenizer service is the rejected form
-- there is no managed op-discovery surface to mine: the tokenizer/pre/post operators are entirely native and entered through the single registration call, so the catalog's job is the asset RID table + the boundary members, not an op roster
+- Extension operators enter through `SessionOptions.RegisterOrtExtensions()`; tokenizer, preprocessing, and postprocessing operators stay model-rail assets, and native asset presence is model evidence before execution admits.
 
 [RAIL_LAW]:
 - Package: `Microsoft.ML.OnnxRuntime.Extensions`
-- Owns: ONNX extension native assets
+- Owns: the native ONNX extension-operator assets
 - Accept: declared custom-operator sessions
-- Reject: opaque model preprocessor services; phantom `OrtExtensions.RegisterCustomOps` call site; phantom `OrtOperators` type
+- Reject: an opaque model-preprocessor service family; the leaky `out`-handle `RegisterCustomOpLibraryV2(path, out _)` spelling whose discarded handle leaks the library; a duplicate string-input factory, a `String`-only egress reader, or a tokenizer service beside the polymorphic `Egress`

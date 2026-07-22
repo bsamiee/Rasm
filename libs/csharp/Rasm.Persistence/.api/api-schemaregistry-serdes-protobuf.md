@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_SCHEMAREGISTRY_SERDES_PROTOBUF]
 
-`Confluent.SchemaRegistry.Serdes.Protobuf` is the registry-governed Protobuf data-plane codec: `ProtobufSerializer<T>` and `ProtobufDeserializer<T>` derive from the shared `AsyncSerializer<T, FileDescriptorSet>`/`AsyncDeserializer<T, FileDescriptorSet>` base, frame each payload with a Confluent schema id plus the Protobuf message-index path, and register the `.proto` `FileDescriptorSet` (with transitive imports) through a shared `ISchemaRegistryClient`. `T` is constrained `where T : IMessage<T>, new()` (serializer) / `where T : class, IMessage<T>, new()` (deserializer), so `T` is exactly a `Google.Protobuf`-generated message — the admitted `Google.Protobuf` wire format the `Rasm.Compute` egress (`Version/egress#WIRE`) produces. It is the schema-evolving binary leg of the `Version/egress#EGRESS_SINK` rail for Protobuf-typed topics, distinct from the Avro and JSON-Schema serdes.
+`Confluent.SchemaRegistry.Serdes.Protobuf` is the registry-governed Protobuf codec on the Kafka value/key slot: it registers a message's whole `FileDescriptorSet` with its import references, frames each payload with the schema id and a message-index path, and parses the binary back into the generated message type. `T` binds a `Google.Protobuf`-generated message by compile-time constraint, so the field set is a build artifact and no dynamic message reaches the durable path. Protobuf-typed topics take this codec as the binary leg of the `Version/egress#EGRESS_SINK` rail.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -8,102 +8,88 @@
 - package: `Confluent.SchemaRegistry.Serdes.Protobuf`
 - license: Apache-2.0
 - assembly: `Confluent.SchemaRegistry.Serdes.Protobuf`
-- namespace: `Confluent.SchemaRegistry.Serdes` (plus `Confluent.SchemaRegistry.Serdes.Protobuf` for the bundled `Meta`/`Decimal` confluent.type descriptors)
-- target: multi-target (`net462`, `net6.0`, `net8.0`, `netstandard2.0`); the `net10.0` consumer binds `lib/net8.0`
+- namespace: `Confluent.SchemaRegistry.Serdes`, `Confluent.SchemaRegistry.Serdes.Protobuf`
 - managed: pure-managed AnyCPU, no native asset
-- composes: `Confluent.SchemaRegistry` (registry client, `SchemaId` message-index framing, `RuleRegistry`), `Confluent.Kafka` (the `IAsyncSerializer<T>`/`IAsyncDeserializer<T>`/`SerializationContext` codec contract), `Google.Protobuf` (the `IMessage<T>` generated-message constraint and binary wire format), and the `protobuf-net.Reflection`/`protobuf-net.Core` descriptor chain (`.proto` text -> `FileDescriptorSet` for registration)
 - rail: cdc-egress (Protobuf)
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: serde family
-- rail: cdc-egress (Protobuf)
+[PUBLIC_TYPE_SCOPE]: serde, config, and bundled `confluent.type` descriptors
 
-| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]       | [RAIL]                                                           |
-| :-----: | :--------------------------- | :------------------ | :--------------------------------------------------------------- |
-|  [01]   | `ProtobufSerializer<T>`      | async serializer    | `where T : IMessage<T>, new()`; registers descriptor + frames id |
-|  [02]   | `ProtobufDeserializer<T>`    | async deserializer  | `where T : class, IMessage<T>, new()`; resolves id + parses      |
-|  [03]   | `ProtobufSerializerConfig`   | serializer config   | register/normalize/buffer/subject/ref-strategy                   |
-|  [04]   | `ProtobufDeserializerConfig` | deserializer config | latest-version + id-strategy + deprecated-format                 |
-
-[PUBLIC_TYPE_SCOPE]: composed contract family (re-stated from siblings)
-- rail: cdc-egress (Protobuf)
-
-| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY]        | [ORIGIN]                                                        |
-| :-----: | :---------------------------------------------- | :------------------- | :-------------------------------------------------------------- |
-|  [01]   | `AsyncSerializer<T, FileDescriptorSet>`         | serde base           | `Confluent.SchemaRegistry` — shared encode base                 |
-|  [02]   | `AsyncDeserializer<T, FileDescriptorSet>`       | serde base           | `Confluent.SchemaRegistry` — shared decode base                 |
-|  [03]   | `IAsyncSerializer<T>` / `IAsyncDeserializer<T>` | codec slot           | `Confluent.Kafka` — `SetValueSerializer`/`SetValueDeserializer` |
-|  [04]   | `SerializationContext`                          | codec context        | `Confluent.Kafka` — component, topic, headers                   |
-|  [05]   | `ISchemaRegistryClient`                         | registry client      | `Confluent.SchemaRegistry` — the shared registry leg            |
-|  [06]   | `RuleRegistry`                                  | rule registry        | `Confluent.SchemaRegistry` — CSFLE/migration executors          |
-|  [07]   | `IMessage<T>` / `FileDescriptor`                | message + descriptor | `Google.Protobuf` — generated `T` and its reflection            |
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]       | [CAPABILITY]                                                      |
+| :-----: | :--------------------------- | :------------------ | :---------------------------------------------------------------- |
+|  [01]   | `ProtobufSerializer<T>`      | async serializer    | registers the descriptor set, frames id + message-index           |
+|  [02]   | `ProtobufDeserializer<T>`    | async deserializer  | resolves the id, parses into a fresh `new T()`                    |
+|  [03]   | `ProtobufSerializerConfig`   | serializer config   | `: SerdeConfig`; register, normalize, buffer, subject, references |
+|  [04]   | `ProtobufDeserializerConfig` | deserializer config | `: SerdeConfig`; latest-version, id-strategy, framing             |
+|  [05]   | `Meta`                       | field-meta message  | `Doc`, `Params`, `Tags` — the per-field annotation carrier        |
+|  [06]   | `Decimal`                    | numeric message     | `Value`, `Precision`, `Scale` — exact decimal on the wire         |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction
-- rail: cdc-egress (Protobuf)
+- [SHAPE]: ctor
 
-| [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY] | [RAIL]                                                  |
-| :-----: | :----------------------------------------------------------- | :------------- | :------------------------------------------------------ |
-|  [01]   | `new ProtobufSerializer<T>(client, config?, ruleRegistry?)`  | ctor           | binds registry + config + optional rule set             |
-|  [02]   | `new ProtobufDeserializer<T>(client, config, ruleRegistry?)` | ctor           | binds registry + config + optional rule set             |
-|  [03]   | `new ProtobufDeserializer<T>(client, config?)`               | ctor           | registry + raw K/V config                               |
-|  [04]   | `new ProtobufDeserializer<T>(config?)`                       | ctor           | registry-less decode (id framing only, no schema fetch) |
+| [INDEX] | [SURFACE]                                                                                      | [CAPABILITY]                          |
+| :-----: | :--------------------------------------------------------------------------------------------- | :------------------------------------ |
+|  [01]   | `new ProtobufSerializer<T>(ISchemaRegistryClient, ProtobufSerializerConfig, RuleRegistry)`     | binds registry, config, rule set      |
+|  [02]   | `new ProtobufDeserializer<T>(ISchemaRegistryClient, ProtobufDeserializerConfig, RuleRegistry)` | binds registry, typed config, rules   |
+|  [03]   | `new ProtobufDeserializer<T>(ISchemaRegistryClient, IEnumerable<KeyValuePair<string,string>>)` | binds registry with raw K/V config    |
+|  [04]   | `new ProtobufDeserializer<T>(IEnumerable<KeyValuePair<string,string>>)`                        | registry-less decode, id framing only |
 
-[ENTRYPOINT_SCOPE]: codec invocation (Confluent.Kafka slot)
-- rail: cdc-egress (Protobuf)
+[ENTRYPOINT_SCOPE]: codec invocation
+- [SHAPE]: instance
 
-| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [RAIL]                                                  |
-| :-----: | :----------------------------------------------------- | :------------- | :------------------------------------------------------ |
-|  [01]   | `SerializeAsync(value, context)` -> `Task<byte[]>`     | encode         | registers `FileDescriptorSet` + id/message-index frame  |
-|  [02]   | `DeserializeAsync(data, isNull, context)` -> `Task<T>` | decode         | reads id + message-index, parses into the generated `T` |
-|  [03]   | `producerBuilder.SetValueSerializer(serializer)`       | wiring         | mounts the serde on the `Confluent.Kafka` value slot    |
-|  [04]   | `consumerBuilder.SetValueDeserializer(deserializer)`   | wiring         | mounts the serde on the consumer value slot             |
+| [INDEX] | [SURFACE]                                                                       | [CAPABILITY]                                       |
+| :-----: | :------------------------------------------------------------------------------ | :------------------------------------------------- |
+|  [01]   | `SerializeAsync(T, SerializationContext) -> Task<byte[]>`                       | registers the descriptor set, frames id + index    |
+|  [02]   | `DeserializeAsync(ReadOnlyMemory<byte>, bool, SerializationContext) -> Task<T>` | reads id + message-index, parses the generated `T` |
+|  [03]   | `ProducerBuilder.SetValueSerializer(IAsyncSerializer<T>)`                       | mounts the serde on the producer value slot        |
+|  [04]   | `ConsumerBuilder.SetValueDeserializer(IAsyncDeserializer<T>)`                   | mounts the serde on the consumer value slot        |
 
-[ENTRYPOINT_SCOPE]: config tunables (`ProtobufSerializerConfig` / `ProtobufDeserializerConfig`)
-- rail: cdc-egress (Protobuf)
+- Tombstones short-circuit before the registry: `SerializeAsync` returns `null` for a `null` value, `DeserializeAsync` for `isNull`.
 
-Scalar tunables (`bool?`/`int?`/dictionary):
+[ENTRYPOINT_SCOPE]: config knobs — subject, reference-subject, and id-framing strategy fix once at build, before the first send
+- [SHAPE]: property
 
-| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [RAIL]                                                 |
-| :-----: | :----------------------------------------------------- | :------------- | :----------------------------------------------------- |
-|  [01]   | `AutoRegisterSchemas` (`bool?`)                        | serializer     | auto-register the descriptor set (production: `false`) |
-|  [02]   | `NormalizeSchemas` (`bool?`)                           | serializer     | canonical-form normalization                           |
-|  [03]   | `UseLatestVersion` (`bool?`)                           | both           | pin the latest registered descriptor version           |
-|  [04]   | `UseSchemaId` (`int?`)                                 | serializer     | force a specific registered descriptor id              |
-|  [05]   | `BufferBytes` (`int?`)                                 | serializer     | initial serialize buffer override                      |
-|  [06]   | `SkipKnownTypes` (`bool?`)                             | serializer     | omit well-known `google.protobuf.*` types from the set |
-|  [07]   | `UseDeprecatedFormat` (`bool?`)                        | both           | legacy single-message-index framing (interop)          |
-|  [08]   | `UseLatestWithMetadata` (`IDictionary<string,string>`) | both           | pin the descriptor version whose `Metadata` matches    |
-
-Strategy selectors (subject naming, reference naming, id framing):
-
-| [INDEX] | [SURFACE]                                                                    | [ENTRY_FAMILY] | [RAIL]                               |
-| :-----: | :--------------------------------------------------------------------------- | :------------- | :----------------------------------- |
-|  [01]   | `ReferenceSubjectNameStrategy` (`ReferenceSubjectNameStrategy?`)             | serializer     | `ReferenceName`/`Qualified`/`Custom` |
-|  [02]   | `CustomReferenceSubjectNameStrategy` (`ICustomReferenceSubjectNameStrategy`) | serializer     | custom `.proto` import resolver      |
-|  [03]   | `SubjectNameStrategy` (`SubjectNameStrategy?`)                               | both           | `Topic`/`Record`/`TopicRecord`       |
-|  [04]   | `SchemaIdStrategy` (`SchemaIdSerializerStrategy?`)                           | serializer     | `Prefix` vs. `Header`                |
-|  [05]   | `SchemaIdStrategy` (`SchemaIdDeserializerStrategy?`)                         | deserializer   | `Prefix` vs. `Dual`                  |
+| [INDEX] | [SURFACE]                                                                    | [CONSUMER]   | [CAPABILITY]                              |
+| :-----: | :--------------------------------------------------------------------------- | :----------- | :---------------------------------------- |
+|  [01]   | `AutoRegisterSchemas` (`bool?`)                                              | serializer   | auto-register the descriptor set          |
+|  [02]   | `NormalizeSchemas` (`bool?`)                                                 | serializer   | canonical-form normalization              |
+|  [03]   | `UseSchemaId` (`int?`)                                                       | serializer   | force a registered descriptor id          |
+|  [04]   | `BufferBytes` (`int?`)                                                       | serializer   | initial serialize buffer override         |
+|  [05]   | `SkipKnownTypes` (`bool?`)                                                   | serializer   | omit `google.protobuf.*` well-known types |
+|  [06]   | `UseLatestVersion` (`bool?`)                                                 | both         | pin the latest registered descriptor      |
+|  [07]   | `UseLatestWithMetadata` (`IDictionary<string,string>`)                       | both         | pin the version whose `Metadata` matches  |
+|  [08]   | `UseDeprecatedFormat` (`bool?`)                                              | both         | single-index framing, not the index path  |
+|  [09]   | `SubjectNameStrategy` (`SubjectNameStrategy?`)                               | both         | `Topic`/`Record`/`TopicRecord`            |
+|  [10]   | `SchemaIdStrategy` (`SchemaIdSerializerStrategy?`)                           | serializer   | `Prefix` or `Header` id framing           |
+|  [11]   | `SchemaIdStrategy` (`SchemaIdDeserializerStrategy?`)                         | deserializer | `Prefix` or `Dual` id decoding            |
+|  [12]   | `ReferenceSubjectNameStrategy` (`ReferenceSubjectNameStrategy?`)             | serializer   | `ReferenceName`/`Qualified`/`Custom`      |
+|  [13]   | `CustomReferenceSubjectNameStrategy` (`ICustomReferenceSubjectNameStrategy`) | serializer   | custom `.proto` import resolver           |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[PROTOBUF_SERDE_TOPOLOGY]:
-- `ProtobufSerializer<T> : AsyncSerializer<T, FileDescriptorSet> where T : IMessage<T>, new()` and `ProtobufDeserializer<T> : AsyncDeserializer<T, FileDescriptorSet> where T : class, IMessage<T>, new()` — the parsed-schema type is `Google.Protobuf.Reflection.FileDescriptorSet`, and the constraint binds `T` to a `Google.Protobuf`-generated message. The shared `AsyncSerializer<T,TParsed>` base owns `autoRegisterSchema`, `normalizeSchemas`, the `ISchemaIdEncoder schemaIdEncoder` (default `PrefixSchemaIdEncoder`), and `initialBufferSize`; this serde supplies only the Protobuf descriptor extraction and binary parse.
-- the wire payload is the framed schema id plus a Protobuf message-index path plus the Protobuf binary. The message-index disambiguates which message inside a multi-message `.proto` the payload is; `UseDeprecatedFormat = true` selects the legacy single-index framing for interop with older Confluent clients, and `SchemaId` carries the message-index list (`CalculateIdSize` sizes the framing accordingly).
-- registration is descriptor-set-wide: the serializer extracts the `FileDescriptorSet` for `T` (the `.proto` plus its transitive imports, minus the well-known `google.protobuf.*` types when `SkipKnownTypes = true`) and registers each `.proto` as a `Schema` of `SchemaType.Protobuf` with `SchemaReference` rows for its imports. `ReferenceSubjectNameStrategy` derives the subject for each imported `.proto`: `Qualified` maps `mypackage/myfile.proto` to `mypackage.myfile`.
-- `DeserializeAsync(ReadOnlyMemory<byte> data, bool isNull, SerializationContext context)` parses the Protobuf binary into a fresh `new T()` (hence the `new()` constraint); `isNull` returns the tombstone path. The registry-less ctor (`new ProtobufDeserializer<T>(config?)`) decodes id framing only and never fetches a writer schema — admitted only where evolution is not enforced.
+[TOPOLOGY]:
+- `ProtobufSerializer<T> : AsyncSerializer<T, FileDescriptorSet> where T : IMessage<T>, new()` and `ProtobufDeserializer<T> : AsyncDeserializer<T, FileDescriptorSet> where T : class, IMessage<T>, new()`; the base owns registration, normalization, id encoding, and buffer sizing, and this serde supplies only descriptor extraction and binary parse.
+- Payload framing carries the schema id, then a message-index path, then the Protobuf binary; the index selects which message inside a multi-message `.proto` the payload is, and `ISchemaIdEncoder.CalculateSize(ref SchemaId)` sizes the prefix.
+- Registration is descriptor-set-wide: the serializer extracts `T`'s `FileDescriptorSet` — the `.proto` with its transitive imports — and registers each file as a `Schema` of `SchemaType.Protobuf` carrying `SchemaReference` rows for its imports, `ReferenceSubjectNameStrategy.Qualified` mapping `mypackage/myfile.proto` to `mypackage.myfile`.
+
+[STACKING]:
+- `Confluent.SchemaRegistry`(`.api/api-schemaregistry.md`): one shared `ISchemaRegistryClient` registers the `FileDescriptorSet` and its `SchemaReference` imports, `SchemaId` frames the id and message-index list, and `RuleRegistry` supplies the CSFLE and migration executors.
+- `Confluent.Kafka`(`.api/api-kafka.md`): the serde IS the `IAsyncSerializer<T>`/`IAsyncDeserializer<T>` mounted on `ProducerBuilder.SetValueSerializer`/`ConsumerBuilder.SetValueDeserializer`; `SerializationContext.Component` carries the key/value split.
+- `Google.Protobuf`(`../../.api/api-protobuf.md`): `IMessage<T>` is the `T` constraint and `FileDescriptor`/`FileDescriptorSet` the registered descriptor graph — the wire form the `Rasm.Compute` egress (`Version/egress#WIRE`) already emits.
+- `CloudNative.CloudEvents.Kafka`(`.api/api-cloudevents.md`): `SchemaIdSerializerStrategy.Header` moves the id into `Message<TKey,TValue>.Headers` beside the CloudEvents attributes, leaving the value a clean Protobuf message for a non-Confluent consumer.
+- within-lib: one serde per changefeed stream, built at composition over the single shared `CachedSchemaRegistryClient`, its strategy set frozen by config before the first send.
 
 [LOCAL_ADMISSION]:
-- The Protobuf serde is the binary leg of the changefeed egress for the `Rasm.Compute` op events that are natively `Google.Protobuf` messages (`Version/egress#WIRE`): built once per stream, mounted on the `Confluent.Kafka` `SetValueSerializer`/`SetValueDeserializer` slot, and sharing the single `CachedSchemaRegistryClient` with the Avro and JSON serdes. The codec is fixed at build, never per call.
-- `T` is the `Google.Protobuf`-generated message type compiled from the canonical `.proto`; the compile-time constraint makes the field set a build artifact, so the serde never serializes a hand-built dynamic message on the durable path. The serde is chosen over Avro for exactly the streams whose source-of-truth schema is `.proto` (the Compute interop boundary), keeping one wire format end-to-end rather than re-encoding Protobuf as Avro.
-- Production sets `AutoRegisterSchemas = false` and `SkipKnownTypes = true`, registering the descriptor set out-of-band under a `Backward`/`FullTransitive` `Compatibility` level so an incompatible `.proto` is rejected at deploy. `ReferenceSubjectNameStrategy = Qualified` keeps imported-`.proto` subjects deterministic across producers.
-- Field-level encryption rides the shared `RuleRegistry`: a `DomainRule` of `RuleMode.WriteRead` naming a field-encryption `IRuleExecutor` (Protobuf `bytes`/`string` fields surfaced through `RuleContext.FieldContext.Tags` and matched against the schema `Metadata.Sensitive` set, with field-meta carried in the bundled `Confluent.SchemaRegistry.Serdes.Protobuf.Meta` descriptors) wraps/unwraps per-field DEKs against the `Element/identity#KEY_ENVELOPE` `EnvelopeKeyring` KMS clients (the `KmsProvider` axis owned at `Element/identity#KMS_CUSTODY`) — the same rule engine the Avro and Json serdes use.
-- The framing strategy aligns with the registry catalog: `SchemaIdSerializerStrategy.Header` moves the id to a Kafka header so the value payload stays a clean Protobuf message for a downstream non-Confluent Protobuf consumer, pairing with the `CloudNative.CloudEvents.Kafka` header binding on the same `Message<TKey, TValue>`.
+- Protobuf serdes carry the changefeed streams whose source-of-truth schema is the `.proto` at the `Rasm.Compute` interop boundary, holding one wire format end to end rather than re-encoding a `Google.Protobuf` message as Avro.
+- `T` compiles from the canonical `.proto`, so the durable path serializes a generated message and the field set moves only through a rebuild.
+- Production pins `SkipKnownTypes = true` and `ReferenceSubjectNameStrategy = Qualified`, keeping imported-`.proto` subjects deterministic across producers, with the descriptor set registered out-of-band under a governed `Compatibility` level.
+- Field-level encryption reads Protobuf candidates through `RuleContext.FieldContext.Tags` matched against the schema `Metadata.Sensitive` set, the per-field annotations riding the bundled `Meta` descriptor.
 
 [RAIL_LAW]:
 - Package: `Confluent.SchemaRegistry.Serdes.Protobuf`
-- Owns: registry-governed Protobuf encode/decode on the Kafka value/key slot — `FileDescriptorSet` registration with import references, message-index framing, `SubjectNameStrategy`/`ReferenceSubjectNameStrategy` subject derivation, and rule-engine field transforms.
-- Accept: a build-time `ProtobufSerializer<T>`/`ProtobufDeserializer<T>` over a `Google.Protobuf`-generated `T` and the shared `ISchemaRegistryClient`, `AutoRegisterSchemas = false` with out-of-band governed registration, `SkipKnownTypes = true`, `ReferenceSubjectNameStrategy = Qualified`, and CSFLE through the shared `RuleRegistry`.
-- Reject: a per-message serde instance, `AutoRegisterSchemas` on the durable changefeed producer, a non-`IMessage<T>` payload (re-encoding a POCO as Protobuf), `UseDeprecatedFormat` outside an explicit legacy-interop window, and re-encoding a `Google.Protobuf` message as Avro instead of using this serde.
+- Owns: registry-governed Protobuf encode/decode on the Kafka value/key slot — `FileDescriptorSet` registration with import references, message-index framing, subject and reference-subject derivation, and rule-engine field transforms.
+- Accept: a build-time `ProtobufSerializer<T>`/`ProtobufDeserializer<T>` over a `Google.Protobuf`-generated `T` and the shared `ISchemaRegistryClient`, out-of-band governed registration, `SkipKnownTypes = true`, `ReferenceSubjectNameStrategy = Qualified`, and CSFLE through the shared `RuleRegistry`.
+- Reject: a per-message serde instance, `AutoRegisterSchemas` on the durable changefeed producer, a non-`IMessage<T>` payload re-encoded as Protobuf, `UseDeprecatedFormat` on a governed topic, and a `Google.Protobuf` message re-encoded as Avro.

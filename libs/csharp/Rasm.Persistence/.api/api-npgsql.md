@@ -1,38 +1,22 @@
 # [RASM_PERSISTENCE_API_NPGSQL]
 
-`Npgsql` supplies PostgreSQL data sources, connections, commands, transactions,
-batches, parameters, type mapping, name translation, schema inspection, and
-replication surfaces for provider store profiles.
+`Npgsql` owns the PostgreSQL transport every store profile rides — the pooled data source through binary COPY and logical-replication streams — and the advisory-lock and LISTEN/NOTIFY coordination primitives it composes as SQL. Store-profile algebra folds this transport, never a second provider service family.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Npgsql`
 - package: `Npgsql`
 - assembly: `Npgsql`
-- namespace: `Npgsql`, `Npgsql.Replication`, `Npgsql.Replication.PgOutput`
-- target framework: `net10.0` asset on the `net10.0` floor (package also ships `net8.0`)
+- namespace: `Npgsql`, `NpgsqlTypes`, `Npgsql.PostgresTypes`, `Npgsql.NameTranslation`, `Npgsql.TypeMapping`, `Npgsql.Replication`, `Npgsql.Replication.PgOutput`, `Npgsql.Replication.PgOutput.Messages`
+- target: `net10.0`
 - asset: runtime library
 - rail: store-provider
 
 ## [02]-[PUBLIC_TYPES]
 
 [CONNECTION_TYPES]: data source and command surfaces
-- rail: store-provider
 
-The compact rows below preserve these member groups:
-- `NpgsqlDataSource`: `CreateConnection`, `OpenConnection`, `OpenConnectionAsync`, `CreateCommand`, `CreateBatch`, `ReloadTypes`, `ReloadTypesAsync`, `Clear`
-- `NpgsqlDataSourceBuilder`: `Build()`, `BuildMultiHost()`
-- `NpgsqlMultiHostDataSource`: `WithTargetSession(TargetSessionAttributes)`, `OpenConnection(TargetSessionAttributes)`/`Async`, `CreateConnection(TargetSessionAttributes)`, `ClearDatabaseStates`
-- `NpgsqlConnection`: `BeginBinaryImport`/`Async`, `BeginBinaryExport`/`Async`, `BeginRawBinaryCopy`/`Async`, `ReloadTypes`/`Async`, `CreateBatch`
-- `NpgsqlConnectionStringBuilder`: `MaxAutoPrepare`, `AutoPrepareMinUsages`, `NoResetOnClose`, `Multiplexing`, `TargetSessionAttributes`, `LoadBalanceHosts`
-- `NpgsqlConnectionStringBuilder`: `Options`, `IncludeErrorDetail`, `IncludeFailedBatchedCommand`, `LogParameters`
-- `NpgsqlBatch`: `EnableErrorBarriers`
-- `NpgsqlDataReader`: `GetFieldValue<T>`, `GetFieldValueAsync<T>`, `GetStream`, `GetStreamAsync`, `GetTextReader`, `GetTextReaderAsync`
-- `NpgsqlDataReader`: `GetPostgresType`, `GetDataTypeOID`, `GetColumnSchema`, `GetColumnSchemaAsync`
-- `PostgresException`: `SqlState`, `ConstraintName`, `ColumnName`, `TableName`, `Detail`, `Hint`, `IsTransient`, `PostgresErrorCodes.UndefinedObject = 42704`
-- `NpgsqlTracingOptionsBuilder`: `ConfigureTracing`, command/batch/COPY filters, span-name providers, enrichment callbacks, `EnableFirstResponseEvent`, `EnablePhysicalOpenTracing`
-
-| [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]       | [CAPABILITY]                                              |
+| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]        | [CAPABILITY]                                              |
 | :-----: | :------------------------------ | :------------------- | :-------------------------------------------------------- |
 |  [01]   | `NpgsqlDataSource`              | data source          | owns configured pool                                      |
 |  [02]   | `NpgsqlDataSourceBuilder`       | data source builder  | builds data source                                        |
@@ -53,10 +37,15 @@ The compact rows below preserve these member groups:
 |  [17]   | `NpgsqlNotificationEventArgs`   | notification event   | carries `PID`/`Channel`/`Payload` of a delivered `NOTIFY` |
 |  [18]   | `NotificationEventHandler`      | notification handler | the `NpgsqlConnection.Notification` event delegate        |
 
-[TYPE_SYSTEM_TYPES]: PostgreSQL type surfaces
-- rail: store-provider
+- `NpgsqlMultiHostDataSource`: `WithTargetSession(TargetSessionAttributes)` `CreateConnection(TargetSessionAttributes)` `OpenConnection(TargetSessionAttributes)`/`Async` `ClearDatabaseStates`
+- `NpgsqlConnectionStringBuilder`: `MaxAutoPrepare` `AutoPrepareMinUsages` `NoResetOnClose` `Multiplexing` `TargetSessionAttributes` `LoadBalanceHosts` `Options` `IncludeErrorDetail` `IncludeFailedBatchedCommand` `LogParameters`
+- `NpgsqlDataReader`: `GetFieldValue<T>`/`Async` `GetStream`/`Async` `GetTextReader`/`Async` `GetPostgresType` `GetDataTypeOID` `GetColumnSchema`/`Async`
+- `PostgresException`: `SqlState` `ConstraintName` `ColumnName` `TableName` `Detail` `Hint` `IsTransient`; `PostgresErrorCodes.UndefinedObject = "42704"`, `InsufficientPrivilege = "42501"`
+- `NpgsqlTracingOptionsBuilder`: `ConfigureCommandFilter` `ConfigureBatchFilter` `ConfigureCopyOperationFilter` `ConfigureCommandSpanNameProvider` `EnableFirstResponseEvent` `EnablePhysicalOpenTracing`
 
-| [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]  | [CAPABILITY]              |
+[TYPE_SYSTEM_TYPES]: PostgreSQL type surfaces
+
+| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]   | [CAPABILITY]              |
 | :-----: | :------------------------------ | :-------------- | :------------------------ |
 |  [01]   | `NpgsqlDbType`                  | type classifier | classifies parameters     |
 |  [02]   | `NpgsqlParameter<T>`            | typed parameter | binds typed values        |
@@ -70,35 +59,18 @@ The compact rows below preserve these member groups:
 |  [10]   | `NpgsqlInterval`                | interval value  | carries interval values   |
 
 [COPY_TYPES]: binary COPY surfaces
-- rail: store-provider
 
-The binary COPY surfaces expose these members:
-- `NpgsqlBinaryImporter`: `StartRow`/`Async`, `Write<T>`/`Async` overload families, `WriteNull`/`Async`, `WriteRow`/`Async`, `Complete`/`Async`, `Close`/`Async`, `Timeout`
-- `NpgsqlBinaryExporter`: `StartRow`/`Async`, `Read<T>`/`Async` overload families, `Skip`/`Async`, `IsNull`, `Timeout`, `Cancel`/`Async`
-- `NpgsqlRawCopyStream`: `Read`, `Write`, async read/write, `FlushAsync`, `Cancel`
-
-| [INDEX] | [SYMBOL]               | [PACKAGE_ROLE]     | [CAPABILITY]                     |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]      | [CAPABILITY]                     |
 | :-----: | :--------------------- | :----------------- | :------------------------------- |
 |  [01]   | `NpgsqlBinaryImporter` | binary-COPY writer | streams typed rows to PostgreSQL |
 |  [02]   | `NpgsqlBinaryExporter` | binary-COPY reader | reads typed rows from PostgreSQL |
 |  [03]   | `NpgsqlRawCopyStream`  | raw-COPY stream    | streams raw COPY bytes           |
 
+- `NpgsqlRawCopyStream` is a `Stream` carrying `Cancel` for mid-copy abort; importer and exporter members ride the `[03]` binary-COPY entrypoints.
+
 [REPLICATION_TYPES]: logical replication surfaces
-- rail: store-provider
 
-Replication rows share the `Npgsql.Replication` namespace; pgoutput rows live under `PgOutput` and `PgOutput.Messages`.
-
-Replication detail rows preserve these members:
-- `LogicalReplicationConnection`: `StartReplication`, `SetReplicationStatus`, `SendStatusUpdate`, `IdentifySystem`, `CreatePgOutputReplicationSlot`
-- `NpgsqlLogSequenceNumber`: `Parse`, `TryParse`, comparison operators, `Larger`, `Invalid`
-- `PgOutputReplicationOptions`: publication names, `PgOutputProtocolVersion`, binary mode, streaming mode, messages, two-phase
-- insert/update messages: `InsertMessage`, `UpdateMessage`, `FullUpdateMessage`, `IndexUpdateMessage`
-- delete/truncate messages: `KeyDeleteMessage`, `FullDeleteMessage`, `TruncateMessage`
-- relation/commit messages: `RelationMessage`, `CommitMessage`, `StreamCommitMessage`, `StreamAbortMessage`, `LogicalDecodingMessage`
-- pgoutput tuple data: `ReplicationTuple` (`IAsyncEnumerable<ReplicationValue>`, `NumColumns`) exposed by `InsertMessage.NewRow`/`UpdateMessage.NewRow`/`FullUpdateMessage.OldRow`/`KeyDeleteMessage.Key`/`FullDeleteMessage.OldRow`; `ReplicationValue` (`Kind`, `Length`, `IsDBNull`, `Get<T>(CancellationToken)`, `GetPostgresType`, `GetDataTypeName`); `TupleDataKind` (`Null`/`UnchangedToastedValue`/`TextValue`/`BinaryValue`)
-- system identity: `ReplicationSystemIdentification` (`SystemId`, `Timeline`, `XLogPos`, `DbName`) returned by `IdentifySystem`; `TimelineHistoryFile` (`readonly struct`; `FileName`, `Content` `byte[]`) returned by `TimelineHistory(uint tli, ct)`
-
-| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]        | [CAPABILITY]                           |
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]         | [CAPABILITY]                           |
 | :-----: | :-------------------------------- | :-------------------- | :------------------------------------- |
 |  [01]   | `LogicalReplicationConnection`    | replication root      | opens logical stream                   |
 |  [02]   | `NpgsqlLogSequenceNumber`         | LSN value             | carries WAL position                   |
@@ -110,20 +82,24 @@ Replication detail rows preserve these members:
 |  [08]   | `PgOutputProtocolVersion`         | protocol classifier   | classifies protocol version            |
 |  [09]   | `PgOutputStreamingMode`           | streaming classifier  | classifies streaming mode              |
 |  [10]   | `PgOutputReplicationMessage`      | message base          | roots pgoutput message family          |
-|  [11]   | insert/update messages            | message leaves        | insert/update leaf frames              |
-|  [12]   | delete/truncate/relation messages | message leaves        | delete/truncate/relation frames        |
-|  [13]   | `ReplicationTuple`                | pgoutput tuple        | async-enumerates a row's column values |
-|  [14]   | `ReplicationValue`                | pgoutput column       | one column value + `Kind`/`Get<T>`     |
-|  [15]   | `TupleDataKind`                   | tuple-cell classifier | classifies a pgoutput cell kind        |
-|  [16]   | `ReplicationSystemIdentification` | system identity       | carries WAL position + timeline        |
-|  [17]   | `TimelineHistoryFile`             | timeline history      | carries a timeline history file        |
+|  [11]   | `ReplicationTuple`                | pgoutput tuple        | async-enumerates a row's column values |
+|  [12]   | `ReplicationValue`                | pgoutput column       | one column value + `Kind`/`Get<T>`     |
+|  [13]   | `TupleDataKind`                   | tuple-cell classifier | classifies a pgoutput cell kind        |
+|  [14]   | `ReplicationSystemIdentification` | system identity       | carries WAL position + timeline        |
+|  [15]   | `TimelineHistoryFile`             | timeline history      | carries a timeline history file        |
+
+- `Npgsql.Replication.PgOutput.Messages`: `InsertMessage` `UpdateMessage` `FullUpdateMessage` `IndexUpdateMessage` `KeyDeleteMessage` `FullDeleteMessage` `TruncateMessage` `RelationMessage` `CommitMessage` `StreamCommitMessage` `StreamAbortMessage` `LogicalDecodingMessage`
+- `NpgsqlLogSequenceNumber`: `Parse` `TryParse` `Larger` `Invalid` and comparison operators.
+- `PgOutputReplicationOptions`: publication names, `PgOutputProtocolVersion`, binary mode, streaming mode, messages, two-phase.
+- `ReplicationValue`: `Kind` `Length` `IsDBNull` `Get<T>(CancellationToken)` `GetPostgresType` `GetDataTypeName`; `TupleDataKind` cases `Null` `UnchangedToastedValue` `TextValue` `BinaryValue`.
+- `ReplicationTuple` (`IAsyncEnumerable<ReplicationValue>`, `NumColumns`) rides `InsertMessage.NewRow`, `UpdateMessage.NewRow`, `FullUpdateMessage.OldRow`, `KeyDeleteMessage.Key`, `FullDeleteMessage.OldRow`.
+- `ReplicationSystemIdentification`: `SystemId` `Timeline` `XLogPos` `DbName` from `IdentifySystem`; `TimelineHistoryFile`: `FileName` `Content` from `TimelineHistory(uint, ct)`.
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: data source builder configuration
-- rail: store-provider
 
-| [INDEX] | [SURFACE]                          | [CALL_SHAPE]       | [CAPABILITY]                                                                 |
+| [INDEX] | [SURFACE]                          | [SHAPE]            | [CAPABILITY]                                                                 |
 | :-----: | :--------------------------------- | :----------------- | :--------------------------------------------------------------------------- |
 |  [01]   | `NpgsqlDataSourceBuilder(string?)` | ctor               | creates builder from connection string                                       |
 |  [02]   | `Build`                            | builder call       | yields `NpgsqlDataSource`                                                    |
@@ -145,28 +121,27 @@ Replication detail rows preserve these members:
 |  [18]   | `UsePhysicalConnectionInitializer` | builder session    | per-session setup per new physical connection; disqualifies `NoResetOnClose` |
 
 [ENTRYPOINT_SCOPE]: data source and connection execution
-- rail: store-provider
 
-| [INDEX] | [SURFACE]                           | [CALL_SHAPE]       | [CAPABILITY]                                   |
+| [INDEX] | [SURFACE]                           | [SHAPE]            | [CAPABILITY]                                   |
 | :-----: | :---------------------------------- | :----------------- | :--------------------------------------------- |
 |  [01]   | `NpgsqlDataSource.Create`           | static factory     | creates data source from string or builder     |
-|  [02]   | `OpenConnection`                    | data source call   | opens pooled connection                        |
-|  [03]   | `OpenConnectionAsync`               | async call         | opens pooled connection                        |
-|  [04]   | `CreateCommand`                     | factory call       | creates command (connection-less on fast path) |
-|  [05]   | `CreateBatch`                       | factory call       | creates batch (connection-less on fast path)   |
-|  [06]   | `NpgsqlDataSource.ReloadTypes`      | data source call   | reloads type registry after DDL changes        |
-|  [07]   | `NpgsqlDataSource.ReloadTypesAsync` | async call         | async reload type registry                     |
-|  [08]   | `NpgsqlDataSource.Clear`            | data source call   | clears all pooled connections                  |
-|  [09]   | `BeginTransaction`                  | connection call    | starts transaction                             |
-|  [10]   | `BeginTransactionAsync`             | async call         | starts transaction                             |
-|  [11]   | `ExecuteReader`                     | command/batch call | reads rows                                     |
-|  [12]   | `ExecuteNonQuery`                   | command/batch call | writes changes                                 |
-|  [13]   | `ExecuteScalar`                     | command/batch call | reads scalar value                             |
+|  [02]   | `NpgsqlDataSource.CreateConnection` | factory call       | creates unopened pooled connection             |
+|  [03]   | `OpenConnection`                    | data source call   | opens pooled connection                        |
+|  [04]   | `OpenConnectionAsync`               | async call         | opens pooled connection                        |
+|  [05]   | `CreateCommand`                     | factory call       | creates command (connection-less on fast path) |
+|  [06]   | `CreateBatch`                       | factory call       | creates batch (connection-less on fast path)   |
+|  [07]   | `NpgsqlDataSource.ReloadTypes`      | data source call   | reloads type registry after DDL changes        |
+|  [08]   | `NpgsqlDataSource.ReloadTypesAsync` | async call         | async reload type registry                     |
+|  [09]   | `NpgsqlDataSource.Clear`            | data source call   | clears all pooled connections                  |
+|  [10]   | `BeginTransaction`                  | connection call    | starts transaction                             |
+|  [11]   | `BeginTransactionAsync`             | async call         | starts transaction                             |
+|  [12]   | `ExecuteReader`                     | command/batch call | reads rows                                     |
+|  [13]   | `ExecuteNonQuery`                   | command/batch call | writes changes                                 |
+|  [14]   | `ExecuteScalar`                     | command/batch call | reads scalar value                             |
 
 [ENTRYPOINT_SCOPE]: binary COPY
-- rail: store-provider
 
-| [INDEX] | [SURFACE]                                | [CALL_SHAPE]      | [CAPABILITY]                                                           |
+| [INDEX] | [SURFACE]                                | [SHAPE]           | [CAPABILITY]                                                           |
 | :-----: | :--------------------------------------- | :---------------- | :--------------------------------------------------------------------- |
 |  [01]   | `BeginBinaryImport`                      | connection call   | opens binary-COPY import path (sync)                                   |
 |  [02]   | `BeginBinaryImportAsync`                 | async call        | opens binary-COPY import path (async)                                  |
@@ -184,11 +159,16 @@ Replication detail rows preserve these members:
 |  [14]   | `NpgsqlBinaryExporter.Skip`/`Async`      | exporter call     | skips current column                                                   |
 |  [15]   | `NpgsqlBinaryExporter.IsNull`            | exporter property | true when current column is null                                       |
 |  [16]   | `NpgsqlConnection.ReloadTypes`/`Async`   | connection call   | reloads type registry on the connection                                |
+|  [17]   | `NpgsqlBinaryImporter.Close`/`Async`     | importer call     | closes the importer, leaving an uncompleted COPY cancelled             |
+|  [18]   | `NpgsqlBinaryExporter.Cancel`/`Async`    | exporter call     | cancels the in-flight COPY export                                      |
+|  [19]   | `NpgsqlBinaryImporter.Timeout`           | importer property | bounds each importer operation                                         |
+|  [20]   | `NpgsqlBinaryExporter.Timeout`           | exporter property | bounds each exporter operation                                         |
+
+- `NpgsqlBinaryImporter.Complete`/`CompleteAsync` commits the COPY; disposal without it cancels and discards every buffered row.
 
 [ENTRYPOINT_SCOPE]: advisory locks (session and transaction mutual exclusion)
-- rail: store-provider
 
-PostgreSQL advisory locks have NO typed `Npgsql` member — they are server functions composed as SQL through `NpgsqlCommand`/`NpgsqlBatch`; the `_xact_` family auto-releases at transaction end (no explicit unlock), the session family requires an explicit unlock. This is the fenced-lease substrate the coordination owner composes, never a distributed-lock sidecar.
+PostgreSQL advisory locks carry no typed member — server functions composed as SQL through `NpgsqlCommand`/`NpgsqlBatch`.
 
 | [INDEX] | [SURFACE]                                                     | [CAPABILITY]                                                         |
 | :-----: | :------------------------------------------------------------ | :------------------------------------------------------------------- |
@@ -199,11 +179,10 @@ PostgreSQL advisory locks have NO typed `Npgsql` member — they are server func
 |  [05]   | `NpgsqlBatch`: `pg_advisory_xact_lock` + `UPDATE … RETURNING` | one round-trip: lock + guarded CAS in one transaction                |
 
 [ENTRYPOINT_SCOPE]: LISTEN/NOTIFY (asynchronous change notification)
-- rail: store-provider
 
-`LISTEN`/`NOTIFY`/`UNLISTEN` are SQL composed through `NpgsqlCommand`; delivered notifications raise the `NpgsqlConnection.Notification` event and are pumped by `Wait`/`WaitAsync` on an otherwise-idle connection. A `NpgsqlNotificationEventArgs` carries `PID`/`Channel`/`Payload`.
+`LISTEN`/`NOTIFY`/`UNLISTEN` compose as SQL through `NpgsqlCommand`; a delivered `NOTIFY` raises `NpgsqlConnection.Notification` (`NpgsqlNotificationEventArgs.PID`/`Channel`/`Payload`) and pumps through `Wait`/`WaitAsync` on an idle connection.
 
-| [INDEX] | [SURFACE]                                              | [CALL_SHAPE]     | [CAPABILITY]                                             |
+| [INDEX] | [SURFACE]                                              | [SHAPE]          | [CAPABILITY]                                             |
 | :-----: | :----------------------------------------------------- | :--------------- | :------------------------------------------------------- |
 |  [01]   | `Notification` (`event NotificationEventHandler`)      | event            | raised per delivered `NOTIFY`                            |
 |  [02]   | `SELECT` / `LISTEN <channel>`                          | SQL over command | subscribes the connection to a channel                   |
@@ -213,9 +192,8 @@ PostgreSQL advisory locks have NO typed `Npgsql` member — they are server func
 |  [06]   | `Wait()` / `Wait(TimeSpan / int timeout)`              | sync pump        | synchronous block for a notification (the blocking twin) |
 
 [ENTRYPOINT_SCOPE]: replication
-- rail: store-provider
 
-| [INDEX] | [SURFACE]                                     | [CALL_SHAPE]     | [CAPABILITY]                                                    |
+| [INDEX] | [SURFACE]                                     | [SHAPE]          | [CAPABILITY]                                                    |
 | :-----: | :-------------------------------------------- | :--------------- | :-------------------------------------------------------------- |
 |  [01]   | `StartReplication`                            | replication call | starts replication; returns `IAsyncEnumerable`                  |
 |  [02]   | `CreatePgOutputReplicationSlot`               | replication call | creates pgoutput slot                                           |
@@ -225,42 +203,26 @@ PostgreSQL advisory locks have NO typed `Npgsql` member — they are server func
 |  [06]   | `TimelineHistory(uint tli, ct)`               | replication call | returns the `TimelineHistoryFile` for a timeline                |
 |  [07]   | `await foreach (ReplicationValue v in tuple)` | tuple read       | streams column values; `v.Kind`/`v.Get<T>(ct)`, `TupleDataKind` |
 
-`PgOutputReplicationOptions` accepts publication names, protocol version, binary mode, streaming mode, messages, and two-phase policy. The binary importer commit edge is inverted: `Complete`/`CompleteAsync` commits; disposal without it cancels COPY and discards all buffered rows.
-
 ## [04]-[IMPLEMENTATION_LAW]
 
-[STORE_PROFILE]:
-- profile: PostgreSQL is one admitted store profile
-- data source root: `NpgsqlDataSource` (factory: `NpgsqlDataSource.Create` or `NpgsqlDataSourceBuilder.Build`)
-- connection root: `NpgsqlConnection`
-- query root: commands, batches, parameters, and readers
-- type root: provider type mapper, name translator, and PostgreSQL metadata
-- tracing root: `NpgsqlTracingOptionsBuilder` via `ConfigureTracing`
-
-[COORDINATION_PRIMITIVES]:
-- Advisory locks are server functions, not typed members: `pg_advisory_xact_lock`/`pg_try_advisory_xact_lock`/`pg_advisory_xact_lock_shared` (transaction-scoped, auto-released at COMMIT/ROLLBACK) and `pg_advisory_lock`/`pg_advisory_unlock`/`pg_advisory_unlock_all` (session-scoped, explicit unlock) compose as SQL through `NpgsqlCommand`/`NpgsqlBatch` — the `_xact_` family is the preferred form because release is transactional, never leaked by a dropped connection.
-- LISTEN/NOTIFY is asynchronous change signalling: `LISTEN <channel>` subscribes and `pg_notify(channel, payload)` publishes (both SQL over `NpgsqlCommand`), delivery raises `NpgsqlConnection.Notification` (`NpgsqlNotificationEventArgs.PID`/`Channel`/`Payload`), and an idle connection is pumped by `WaitAsync(CancellationToken)`; a notification is best-effort while the listener is disconnected — it is a low-latency WAKE, never an at-least-once cursor.
-
-[REPLICATION_UNCONSUMED]:
-- `Npgsql.Replication`/`Npgsql.Replication.PgOutput` (`LogicalReplicationConnection`, pgoutput slot + message family, `ReplicationTuple`) is RECORDED-UNCONSUMED: the changefeed is Marten's async daemon over the event stream, not raw-WAL logical decoding. Logical replication is the NAMED escalation path — admitted only if a raw-WAL CDC consumer ever lands beside the daemon; until then it is documented surface, not a composed rail.
-
-[LOCAL_ADMISSION]:
-- PostgreSQL enters through the unified store-profile algebra.
-- Provider type mapping stays profile configuration, not public service vocabulary.
-- Logical replication is a store capability and requires explicit receipt projection.
-- Data source lifetime, pooling, batching, and transaction policy are profile data.
-- `EnableErrorBarriers` on `NpgsqlBatch` is per-batch fault granularity policy: off for transactional batches, on for independent-fact batches.
-- `MaxAutoPrepare` / `AutoPrepareMinUsages` on `NpgsqlConnectionStringBuilder` configure the LRU prepare budget; explicit `Prepare()` is exempt from eviction.
-- `NoResetOnClose` disqualifies when a `UsePhysicalConnectionInitializer` establishes session state.
-- `NpgsqlTracingOptionsBuilder.ConfigureCopyOperationFilter` / `EnableFirstResponseEvent` / `EnablePhysicalOpenTracing` are profile-level tracing policy rows; per-call-site tracing is the rejected form.
+[TOPOLOGY]:
+- PostgreSQL enters as one store profile behind the unified store-profile algebra: `NpgsqlDataSource` is the pooled root (`NpgsqlDataSource.Create` or `NpgsqlDataSourceBuilder.Build`), `NpgsqlConnection` the connection root, commands/batches/parameters/readers the query root, the type mapper and name translator the type root, `NpgsqlTracingOptionsBuilder` via `ConfigureTracing` the tracing root.
+- Advisory locks and LISTEN/NOTIFY carry no typed member — both compose as SQL through `NpgsqlCommand`/`NpgsqlBatch`. `pg_advisory_xact_lock` releases at COMMIT/ROLLBACK so a dropped connection never leaks a lock; a delivered `NOTIFY` on `NpgsqlConnection.Notification` is a low-latency WAKE, the durable cursor owning at-least-once delivery.
 
 [STACKING]:
-- provisioning (`Store/provisioning#SERVER_EXTENSIONS`): `Npgsql` is the transport the verification-first provisioning fold rides — ONE `NpgsqlBatch`/`CreateBatch` over the catalog reads (`pg_available_extensions`/`pg_extension`/`pg_settings`/`pg_replication_slots`) folds the `ProvisionVerdict`, and `NpgsqlDataSource.ReloadTypesAsync` completes a deploy by re-resolving wire types a freshly-admitted enum/composite introduced; a catalog read denied by privilege folds `ServerFault.CatalogDenied` (`PostgresErrorCodes.InsufficientPrivilege`) and a transport fault routes through `NpgsqlException.IsTransient` so a retry re-drives only the transient class.
-- coordination (`Store/coordination#OUTBOX_CURSOR`): the fenced-lease store composes Marten `FetchForWriting`/`QueueSqlCommand` + Npgsql `pg_advisory_xact_lock` + LISTEN/NOTIFY — the advisory lock guards the fenced compare-and-decrement (`Coordinate.Run` `BudgetDebit`/`StepStateCas`/`LeaseAcquire`), the lock and the guarded `UPDATE … RETURNING` sharing one transaction so a stale token is a typed `LeaseFenced`, never a lost update.
-- egress (`Version/egress#EGRESS_SINK`): `NpgsqlConnection.Notification` + `WaitAsync` is the low-latency WAKE the egress pump (`EgressPump.Drain`) listens on — a committed outbox row emits a `pg_notify` beat so the pump drains the `#OUTBOX_CURSOR` promptly instead of polling; the beat is a hint, the cursor is the at-least-once record, so a missed notification degrades to poll-latency, never a dropped delivery.
+- provisioning (`Store/provisioning`): one `CreateBatch` over `pg_available_extensions`/`pg_extension`/`pg_settings`/`pg_replication_slots` folds the `ProvisionVerdict`, and `NpgsqlDataSource.ReloadTypesAsync` re-resolves wire types a freshly-admitted enum or composite introduced; a privilege-denied read folds `ServerFault.CatalogDenied` (`PostgresErrorCodes.InsufficientPrivilege`), and `NpgsqlException.IsTransient` gates retry to the transient class.
+- coordination (`Store/coordination`): fenced-lease store composes Marten `FetchForWriting`/`QueueSqlCommand` with `pg_advisory_xact_lock` and LISTEN/NOTIFY — advisory lock and guarded `UPDATE … RETURNING` share one transaction, so a stale token is a typed `LeaseFenced` rather than a lost update.
+- egress (`Version/egress`): `NpgsqlConnection.Notification` with `WaitAsync` is the WAKE the egress pump listens on — a committed outbox row emits a `pg_notify` beat so the pump drains the outbox cursor instead of polling, and a missed beat degrades to poll-latency, never a dropped delivery.
+
+[LOCAL_ADMISSION]:
+- PostgreSQL enters through the store-profile algebra; provider type mapping, data-source lifetime, pooling, batching, and transaction policy are profile data, never public service vocabulary.
+- `EnableErrorBarriers` on `NpgsqlBatch` sets per-batch fault granularity: off for transactional batches, on for independent-fact batches.
+- `MaxAutoPrepare`/`AutoPrepareMinUsages` size the LRU prepare budget, explicit `Prepare()` eviction-exempt; `NoResetOnClose` disqualifies once a `UsePhysicalConnectionInitializer` establishes session state.
+- `NpgsqlTracingOptionsBuilder` filters (`ConfigureCopyOperationFilter`, `EnableFirstResponseEvent`, `EnablePhysicalOpenTracing`) are profile-level tracing policy, never per-call-site.
+- `Npgsql.Replication`/`Npgsql.Replication.PgOutput` is recorded-unconsumed: Marten's async daemon over the event stream owns the changefeed, and logical replication admits only when a raw-WAL CDC consumer lands beside the daemon.
 
 [RAIL_LAW]:
 - Package: `Npgsql`
-- Owns: PostgreSQL transport API — data source/connection/command/batch/COPY, the advisory-lock and LISTEN/NOTIFY primitives (as composed SQL), and the recorded-unconsumed logical-replication surface
-- Accept: PostgreSQL store profile, advisory locks and LISTEN/NOTIFY composed through `NpgsqlCommand`/`NpgsqlBatch` for the coordination/egress owners
+- Owns: PostgreSQL transport — data source/connection/command/batch/COPY, the advisory-lock and LISTEN/NOTIFY primitives as composed SQL, and the recorded-unconsumed logical-replication surface
+- Accept: the PostgreSQL store profile, advisory locks and LISTEN/NOTIFY composed through `NpgsqlCommand`/`NpgsqlBatch` for the coordination and egress owners
 - Reject: provider-specific public service families, a distributed-lock sidecar beside the advisory-lock primitive, treating LISTEN/NOTIFY as an at-least-once cursor, and composing `Npgsql.Replication` before a raw-WAL CDC consumer is admitted

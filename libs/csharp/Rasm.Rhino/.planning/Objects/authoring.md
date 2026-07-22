@@ -976,19 +976,19 @@ public static class Grips {
 
 ## [06]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]         | [OWNER]                    | [FORM]                                                  | [ENTRY]                         |
-| :-----: | :---------------- | :------------------------- | :------------------------------------------------------ | :------------------------------ |
-|  [01]   | override program  | `ObjectProgram`            | optional `Fin` hooks over the complete verified roster  | adapter `Program` slots         |
-|  [02]   | host derivations  | `Rasm*Object`              | sealed forwarding over one shared kernel, base-first    | `[ClassId]` subclasses          |
-|  [03]   | grip authoring    | `GripProgram`              | required seed/regrow core plus optional hook slots      | `RasmGrips` overrides           |
-|  [04]   | grip shims        | `RasmGrip`/`RasmGrips`     | sentinel-weight repair and roster forwarding            | `GripRig.Register<TGrips>`      |
-|  [05]   | grip value edits  | `GripEdit`                 | rig and move over `GripMove` verbs, detached receipts   | `Grips.Touch` / `Census`        |
-|  [06]   | render-mesh cache | `RenderMeshProgram`        | base-first refinement over the five cache virtuals      | adapter mesh overrides          |
-|  [07]   | telemetry egress  | `ObjectsTelemetry`         | generated fault and host-stream events over keyed sinks | `Publish` / `Configure`         |
-|  [08]   | host taps         | `HostTap`                  | seat arbitration with rider handoff over both host taps | `HostTap.Mount`                 |
-|  [09]   | classification    | `HostSensitivity`          | suite taxonomy rows and member annotation attributes    | payload attributes              |
-|  [10]   | instrument rows   | `RhinoInstrumentPartition` | kind-keyed projection data the app root executes        | `Rows`                          |
-|  [11]   | hook mounts       | `ObjectsHooks`             | six registry points over veto programs and tap seats    | `ObjectsHooks.Mount`            |
+| [INDEX] | [CONCERN]         | [OWNER]                    | [FORM]                                                  | [ENTRY]                    |
+| :-----: | :---------------- | :------------------------- | :------------------------------------------------------ | :------------------------- |
+|  [01]   | override program  | `ObjectProgram`            | optional `Fin` hooks over the complete verified roster  | adapter `Program` slots    |
+|  [02]   | host derivations  | `Rasm*Object`              | sealed forwarding over one shared kernel, base-first    | `[ClassId]` subclasses     |
+|  [03]   | grip authoring    | `GripProgram`              | required seed/regrow core plus optional hook slots      | `RasmGrips` overrides      |
+|  [04]   | grip shims        | `RasmGrip`/`RasmGrips`     | sentinel-weight repair and roster forwarding            | `GripRig.Register<TGrips>` |
+|  [05]   | grip value edits  | `GripEdit`                 | rig and move over `GripMove` verbs, detached receipts   | `Grips.Touch` / `Census`   |
+|  [06]   | render-mesh cache | `RenderMeshProgram`        | base-first refinement over the five cache virtuals      | adapter mesh overrides     |
+|  [07]   | telemetry egress  | `ObjectsTelemetry`         | generated fault and host-stream events over keyed sinks | `Publish` / `Configure`    |
+|  [08]   | host taps         | `HostTap`                  | seat arbitration with rider handoff over both host taps | `HostTap.Mount`            |
+|  [09]   | classification    | `HostSensitivity`          | suite taxonomy rows and member annotation attributes    | payload attributes         |
+|  [10]   | instrument rows   | `RhinoInstrumentPartition` | kind-keyed projection data the app root executes        | `Rows`                     |
+|  [11]   | hook mounts       | `ObjectsHooks`             | six registry points over veto programs and tap seats    | `ObjectsHooks.Mount`       |
 
 ## [07]-[RESEARCH]
 

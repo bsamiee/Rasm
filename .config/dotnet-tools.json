@@ -15,7 +15,7 @@
             "commands": ["dotnet-stryker"]
         },
         "ilspycmd": {
-            "version": "10.1.0.8386",
+            "version": "10.1.1.8388",
             "commands": ["ilspycmd"]
         }
     }

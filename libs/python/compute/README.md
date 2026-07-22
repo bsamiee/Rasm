@@ -101,7 +101,7 @@ Scientific and solver libraries admitted by this folder; versions centralize in 
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Shared substrate consumed from the `libs/python/.planning/README.md` registry; the registry and its charters own the full contracts, and `libs/python/.api/` holds the shared API evidence.
+Shared substrate consumed from the Py registry; the registry and its charters own the full contracts, and `libs/python/.api/` holds the shared API evidence.
 
 [TYPING_RAILS]:
 - `expression`

@@ -52,7 +52,7 @@
 
 ## [02]-[DOMAIN_PACKAGES]
 
-AppHost-domain libraries admitted by this folder; versions centralize in the one C# manifest and corroborate against this folder's `.api/`.
+Domain-specific libraries admitted by this folder; versions centralize in `Directory.Packages.props` and corroborate against this folder's `.api/`.
 
 [HOSTING_COMPOSITION]:
 - `Microsoft.Extensions.Hosting`
@@ -158,7 +158,7 @@ AppHost-domain libraries admitted by this folder; versions centralize in the one
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Cross-cutting C# substrate AppHost consumes; the C# registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
+Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`

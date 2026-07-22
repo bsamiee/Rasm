@@ -70,7 +70,7 @@ Its shell mounts onto any admitted substrate through the abstract `SurfaceHost` 
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Product-UI libraries — UI toolkit, GPU rendering, media, drafting exchange, and collaboration — admitted by this folder; versions centralize in the C# manifest.
+Domain-specific libraries admitted by this folder; versions centralize in `Directory.Packages.props` and corroborate against this folder's `.api/`.
 
 [UI_FRAMEWORK]:
 - `Avalonia`
@@ -160,7 +160,7 @@ Product-UI libraries — UI toolkit, GPU rendering, media, drafting exchange, an
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Substrate libraries from the C# registry that this folder consumes directly. Full registry and substrate contracts live in [`libs/csharp/.planning/README.md`](../.planning/README.md), with shared API evidence in `libs/csharp/.api/`.
+Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`

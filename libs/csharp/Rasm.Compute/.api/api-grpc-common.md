@@ -1,186 +1,123 @@
 # [RASM_COMPUTE_API_GRPC_COMMON]
 
-`Grpc.Net.Common` supplies the shared gRPC compression-provider contracts and connectivity vocabulary, and `Grpc.Core.Api` supplies the base gRPC API surface the AppHost `ControlService` consumes: server call context, streaming writers, and call metadata. This catalogue covers both base packages that sit under the `Grpc.Net.Client` and `Grpc.AspNetCore` rails.
+`Grpc.Net.Common` owns the shared gRPC compression-provider contracts and the channel-connectivity vocabulary; `Grpc.Core.Api` owns the base server-call surface the AppHost `ControlService` binds — server call context, streaming writers, and call metadata. Compression registers at channel and service composition, never the call site, and both surfaces feed the remote-wire and remote-server rails under the managed `Grpc.Net.Client` and `Grpc.AspNetCore` hosts that own transport and channel construction.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Grpc.Net.Common`
-- package: `Grpc.Net.Common`
+- package: `Grpc.Net.Common` (`Apache-2.0`, `grpc/grpc-dotnet`)
 - assembly: `Grpc.Net.Common`
 - namespace: `Grpc.Net.Compression`, `Grpc.Core`
-- asset: runtime library
 - rail: remote-wire
 
 [PACKAGE_SURFACE]: `Grpc.Core.Api`
-- package: `Grpc.Core.Api`
+- package: `Grpc.Core.Api` (`Apache-2.0`, `grpc/grpc-dotnet`)
 - assembly: `Grpc.Core.Api`
 - namespace: `Grpc.Core`
-- asset: runtime library
 - rail: remote-server
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: `Grpc.Net.Common` compression and connectivity contracts
-- rail: remote-wire
 
-| [INDEX] | [SYMBOL]                      | [PACKAGE_ROLE]       | [CAPABILITY]                                   |
-| :-----: | :---------------------------- | :------------------- | :--------------------------------------------- |
-|  [01]   | `ICompressionProvider`        | compression contract | declares an encoding stream pair               |
-|  [02]   | `GzipCompressionProvider`     | gzip provider        | compresses gRPC payloads as gzip               |
-|  [03]   | `DeflateCompressionProvider`  | deflate provider     | compresses gRPC payloads as deflate            |
-|  [04]   | `AsyncStreamReaderExtensions` | reader extension     | reads a stream reader as `IAsyncEnumerable<T>` |
-|  [05]   | `ConnectivityState`           | channel-state enum   | reports channel connectivity                   |
+| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY] | [CAPABILITY]                        |
+| :-----: | :---------------------------- | :------------ | :---------------------------------- |
+|  [01]   | `ICompressionProvider`        | interface     | encoding-name plus stream-pair rule |
+|  [02]   | `GzipCompressionProvider`     | class         | gzip provider (`"gzip"`)            |
+|  [03]   | `DeflateCompressionProvider`  | class         | deflate provider (`"deflate"`)      |
+|  [04]   | `AsyncStreamReaderExtensions` | class         | `ReadAllAsync<T>` reader drain      |
+|  [05]   | `ConnectivityState`           | enum          | channel connectivity states         |
 
-[PUBLIC_TYPE_SCOPE]: `Grpc.Core.Api` server-call and metadata contracts
-- rail: remote-server
+- `ConnectivityState`: `Idle` `Connecting` `Ready` `TransientFailure` `Shutdown`
 
-| [INDEX] | [SYMBOL]                 | [PACKAGE_ROLE]       | [CAPABILITY]                           |
-| :-----: | :----------------------- | :------------------- | :------------------------------------- |
-|  [01]   | `ServerCallContext`      | server call context  | exposes per-call server state          |
-|  [02]   | `IServerStreamWriter<T>` | server stream writer | writes a server-streaming response     |
-|  [03]   | `IAsyncStreamWriter<T>`  | async stream writer  | base write contract for stream writers |
-|  [04]   | `Metadata`               | call metadata        | carries request and trailing headers   |
-|  [05]   | `Metadata.Entry`         | metadata entry       | one ASCII or binary header pair        |
+[PUBLIC_TYPE_SCOPE]: `Grpc.Core.Api` server-call, stream-writer, and metadata contracts
+
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]                        |
+| :-----: | :----------------------- | :------------ | :---------------------------------- |
+|  [01]   | `ServerCallContext`      | class         | per-call server state root          |
+|  [02]   | `IServerStreamWriter<T>` | interface     | server-streaming response writer    |
+|  [03]   | `IAsyncStreamWriter<T>`  | interface     | base async write contract           |
+|  [04]   | `WriteOptions`           | class         | per-write flag carrier              |
+|  [05]   | `WriteFlags`             | enum          | `[Flags]` write bits                |
+|  [06]   | `Metadata`               | class         | `IList<Metadata.Entry>` header list |
+|  [07]   | `Metadata.Entry`         | class         | one ASCII or binary header pair     |
+
+- `WriteFlags`: `BufferHint` (1) `NoCompress` (2)
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: compression-provider members
-- rail: remote-wire
+[ENTRYPOINT_SCOPE]: `Grpc.Net.Common` compression providers and the stream-reader drain
 
-| [INDEX] | [SURFACE]                                        | [CALL_SHAPE]      | [CAPABILITY]                     |
-| :-----: | :----------------------------------------------- | :---------------- | :------------------------------- |
-|  [01]   | `ICompressionProvider.EncodingName`              | contract property | reports the `grpc-encoding` name |
-|  [02]   | `ICompressionProvider.CreateCompressionStream`   | contract method   | wraps a stream for compression   |
-|  [03]   | `ICompressionProvider.CreateDecompressionStream` | contract method   | wraps a stream for decompression |
-|  [04]   | `GzipCompressionProvider(CompressionLevel)`      | constructor       | sets the default gzip level      |
-|  [05]   | `DeflateCompressionProvider(CompressionLevel)`   | constructor       | sets the default deflate level   |
-|  [06]   | `AsyncStreamReaderExtensions.ReadAllAsync<T>`    | extension method  | enumerates the reader's messages |
+| [INDEX] | [SURFACE]                                                                 | [SHAPE]  | [CAPABILITY]                 |
+| :-----: | :------------------------------------------------------------------------ | :------- | :--------------------------- |
+|  [01]   | `ICompressionProvider.EncodingName -> string`                             | property | grpc-encoding name           |
+|  [02]   | `ICompressionProvider.CreateCompressionStream(Stream, CompressionLevel?)` | method   | compressing stream wrapper   |
+|  [03]   | `ICompressionProvider.CreateDecompressionStream(Stream)`                  | method   | decompressing stream wrapper |
+|  [04]   | `GzipCompressionProvider(CompressionLevel)`                               | ctor     | default gzip level           |
+|  [05]   | `DeflateCompressionProvider(CompressionLevel)`                            | ctor     | default deflate level        |
+|  [06]   | `ReadAllAsync<T>(IAsyncStreamReader<T>) -> IAsyncEnumerable<T>`           | static   | reader message drain         |
 
-[ENTRYPOINT_SCOPE]: server-call and metadata members
-- rail: remote-server
+[ENTRYPOINT_SCOPE]: `Grpc.Core.Api` server-call context, stream writers, and metadata
 
-| [INDEX] | [SURFACE]                                     | [CALL_SHAPE]     | [CAPABILITY]                        |
-| :-----: | :-------------------------------------------- | :--------------- | :---------------------------------- |
-|  [01]   | `ServerCallContext.RequestHeaders`            | context property | reads inbound request `Metadata`    |
-|  [02]   | `ServerCallContext.ResponseTrailers`          | context property | writes outbound trailing `Metadata` |
-|  [03]   | `ServerCallContext.CancellationToken`         | context property | observes call cancellation          |
-|  [04]   | `ServerCallContext.WriteResponseHeadersAsync` | context call     | flushes response headers            |
-|  [05]   | `IServerStreamWriter<T>.WriteAsync`           | stream write     | emits one server-streaming message  |
-|  [06]   | `IAsyncStreamWriter<T>.WriteOptions`          | writer property  | sets per-write flags                |
-|  [07]   | `Metadata.Add`                                | metadata write   | appends an ASCII or binary header   |
-|  [08]   | `Metadata.Get` / `GetValue` / `GetAll`        | metadata read    | reads a header by key               |
-
-[ENTRYPOINT_SCOPE]: `Grpc.Net.Common` decompile-verified members
-- source: `Grpc.Net.Common` decompile
-- rail: remote-wire
-- owner: `interface` = `ICompressionProvider`, `gzip` = `GzipCompressionProvider`, `deflate` = `DeflateCompressionProvider`
-
-| [INDEX] | [OWNER]     | [MEMBER]                    | [SIGNATURE]                                                                         |
-| :-----: | :---------- | :-------------------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `interface` | `EncodingName`              | `string EncodingName { get; }`                                                      |
-|  [02]   | `interface` | `CreateCompressionStream`   | `Stream CreateCompressionStream(Stream stream, CompressionLevel? compressionLevel)` |
-|  [03]   | `interface` | `CreateDecompressionStream` | `Stream CreateDecompressionStream(Stream stream)`                                   |
-|  [04]   | `gzip`      | `ctor`                      | `GzipCompressionProvider(CompressionLevel defaultCompressionLevel)`                 |
-|  [05]   | `gzip`      | `EncodingName`              | `string EncodingName => "gzip"`                                                     |
-|  [06]   | `gzip`      | `CreateCompressionStream`   | `Stream CreateCompressionStream(Stream stream, CompressionLevel? compressionLevel)` |
-|  [07]   | `gzip`      | `CreateDecompressionStream` | `Stream CreateDecompressionStream(Stream stream)`                                   |
-|  [08]   | `deflate`   | `ctor`                      | `DeflateCompressionProvider(CompressionLevel defaultCompressionLevel)`              |
-|  [09]   | `deflate`   | `EncodingName`              | `string EncodingName => "deflate"`                                                  |
-
-[ENTRYPOINT_SCOPE]: `AsyncStreamReaderExtensions.ReadAllAsync` extension and the `ConnectivityState` enum — signatures self-name
-- source: `Grpc.Net.Common` decompile
-- rail: remote-wire
-
-| [INDEX] | [SIGNATURE]                                                                                                                          |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `static IAsyncEnumerable<T> ReadAllAsync<T>(this IAsyncStreamReader<T> streamReader, CancellationToken cancellationToken = default)` |
-|  [02]   | `enum ConnectivityState { Idle, Connecting, Ready, TransientFailure, Shutdown }`                                                     |
-
-[ENTRYPOINT_SCOPE]: `Grpc.Core.Api` decompile-verified `ServerCallContext` members
-- source: `Grpc.Core.Api` decompile
-- rail: remote-server#CONTROL_SERVICE
-
-| [INDEX] | [MEMBER]                    | [SIGNATURE]                                                                                 |
-| :-----: | :-------------------------- | :------------------------------------------------------------------------------------------ |
-|  [01]   | `Method`                    | `string Method { get; }`                                                                    |
-|  [02]   | `Host`                      | `string Host { get; }`                                                                      |
-|  [03]   | `Peer`                      | `string Peer { get; }`                                                                      |
-|  [04]   | `Deadline`                  | `DateTime Deadline { get; }`                                                                |
-|  [05]   | `RequestHeaders`            | `Metadata RequestHeaders { get; }`                                                          |
-|  [06]   | `CancellationToken`         | `CancellationToken CancellationToken { get; }`                                              |
-|  [07]   | `ResponseTrailers`          | `Metadata ResponseTrailers { get; }`                                                        |
-|  [08]   | `Status`                    | `Status Status { get; set; }`                                                               |
-|  [09]   | `WriteOptions`              | `WriteOptions? WriteOptions { get; set; }`                                                  |
-|  [10]   | `AuthContext`               | `AuthContext AuthContext { get; }`                                                          |
-|  [11]   | `UserState`                 | `IDictionary<object, object> UserState { get; }`                                            |
-|  [12]   | `WriteResponseHeadersAsync` | `Task WriteResponseHeadersAsync(Metadata responseHeaders)`                                  |
-|  [13]   | `CreatePropagationToken`    | `ContextPropagationToken CreatePropagationToken(ContextPropagationOptions? options = null)` |
-
-[ENTRYPOINT_SCOPE]: stream-writer contracts, the `WriteOptions`/`WriteFlags` value types, and `AsyncStreamReaderExtensions.MoveNext` (the manual-pump alternative to `Grpc.Net.Common`'s `ReadAllAsync`)
-- source: `Grpc.Core.Api` decompile
-- rail: remote-server#CONTROL_SERVICE
-
-| [INDEX] | [MEMBER]                             | [SIGNATURE]                                                                              |
-| :-----: | :----------------------------------- | :--------------------------------------------------------------------------------------- |
-|  [01]   | `IAsyncStreamWriter<T>.WriteOptions` | `WriteOptions? WriteOptions { get; set; }`                                               |
-|  [02]   | `IAsyncStreamWriter<T>.WriteAsync`   | `Task WriteAsync(T message)`                                                             |
-|  [03]   | `IAsyncStreamWriter<T>.WriteAsync`   | `Task WriteAsync(T message, CancellationToken cancellationToken)`                        |
-|  [04]   | `IServerStreamWriter<T>`             | `interface IServerStreamWriter<in T> : IAsyncStreamWriter<T>`                            |
-|  [05]   | `WriteOptions.ctor`                  | `WriteOptions(WriteFlags flags = 0)`; `static readonly WriteOptions Default`             |
-|  [06]   | `WriteFlags`                         | `[Flags] enum WriteFlags { BufferHint = 1, NoCompress = 2 }`                             |
-|  [07]   | `MoveNext`                           | `static Task<bool> MoveNext<T>(this IAsyncStreamReader<T> streamReader) where T : class` |
-
-[ENTRYPOINT_SCOPE]: `Metadata` members and its nested `Metadata.Entry`
-- source: `Grpc.Core.Api` decompile
-- rail: remote-server#CONTROL_SERVICE
-
-| [INDEX] | [MEMBER]             | [SIGNATURE]                                                                |
-| :-----: | :------------------- | :------------------------------------------------------------------------- |
-|  [01]   | `ctor`               | `Metadata()`                                                               |
-|  [02]   | `Add`                | `void Add(string key, string value)`                                       |
-|  [03]   | `Add`                | `void Add(string key, byte[] valueBytes)`                                  |
-|  [04]   | `Add`                | `void Add(Metadata.Entry item)`                                            |
-|  [05]   | `Get`                | `Metadata.Entry? Get(string key)`                                          |
-|  [06]   | `GetValue`           | `string? GetValue(string key)`                                             |
-|  [07]   | `GetValueBytes`      | `byte[]? GetValueBytes(string key)`                                        |
-|  [08]   | `GetAll`             | `IEnumerable<Metadata.Entry> GetAll(string key)`                           |
-|  [09]   | `BinaryHeaderSuffix` | `const string BinaryHeaderSuffix = "-bin"`                                 |
-|  [10]   | `Empty`              | `static readonly Metadata Empty`                                           |
-|  [11]   | `Entry.ctor`         | `Entry(string key, string value)` / `Entry(string key, byte[] valueBytes)` |
-|  [12]   | `Entry.Key`          | `string Key { get; }`                                                      |
-|  [13]   | `Entry.Value`        | `string Value { get; }`                                                    |
-|  [14]   | `Entry.ValueBytes`   | `byte[] ValueBytes { get; }`                                               |
-|  [15]   | `Entry.IsBinary`     | `bool IsBinary { get; }`                                                   |
+| [INDEX] | [SURFACE]                                                              | [SHAPE]  | [CAPABILITY]               |
+| :-----: | :--------------------------------------------------------------------- | :------- | :------------------------- |
+|  [01]   | `ServerCallContext.Method -> string`                                   | property | RPC method name            |
+|  [02]   | `ServerCallContext.Host -> string`                                     | property | called host name           |
+|  [03]   | `ServerCallContext.Peer -> string`                                     | property | remote endpoint URI        |
+|  [04]   | `ServerCallContext.Deadline -> DateTime`                               | property | call deadline              |
+|  [05]   | `ServerCallContext.RequestHeaders -> Metadata`                         | property | inbound request headers    |
+|  [06]   | `ServerCallContext.ResponseTrailers -> Metadata`                       | property | outbound trailing headers  |
+|  [07]   | `ServerCallContext.Status -> Status`                                   | property | status sent at finish      |
+|  [08]   | `ServerCallContext.WriteOptions -> WriteOptions?`                      | property | next-write flags           |
+|  [09]   | `ServerCallContext.CancellationToken -> CancellationToken`             | property | call cancellation signal   |
+|  [10]   | `ServerCallContext.AuthContext -> AuthContext`                         | property | peer auth state            |
+|  [11]   | `ServerCallContext.UserState -> IDictionary<object, object>`           | property | interceptor state bag      |
+|  [12]   | `ServerCallContext.WriteResponseHeadersAsync(Metadata) -> Task`        | method   | flush leading headers      |
+|  [13]   | `ServerCallContext.CreatePropagationToken(ContextPropagationOptions?)` | method   | deadline-propagation token |
+|  [14]   | `IAsyncStreamWriter<T>.WriteAsync(T) -> Task`                          | method   | emit one message           |
+|  [15]   | `IAsyncStreamWriter<T>.WriteAsync(T, CancellationToken) -> Task`       | method   | cancellable emit           |
+|  [16]   | `IAsyncStreamWriter<T>.WriteOptions -> WriteOptions?`                  | property | per-write flags            |
+|  [17]   | `WriteOptions(WriteFlags)`                                             | ctor     | flag carrier               |
+|  [18]   | `WriteOptions.Default`                                                 | static   | shared no-flag default     |
+|  [19]   | `MoveNext<T>(IAsyncStreamReader<T>) -> Task<bool>`                     | static   | manual reader pump         |
+|  [20]   | `Metadata()`                                                           | ctor     | empty header list          |
+|  [21]   | `Metadata.Add(string, string)`                                         | method   | append ASCII header        |
+|  [22]   | `Metadata.Add(string, byte[])`                                         | method   | append binary header       |
+|  [23]   | `Metadata.Add(Metadata.Entry)`                                         | method   | append an entry            |
+|  [24]   | `Metadata.Get(string) -> Metadata.Entry?`                              | method   | first entry by key         |
+|  [25]   | `Metadata.GetValue(string) -> string?`                                 | method   | ASCII value by key         |
+|  [26]   | `Metadata.GetValueBytes(string) -> byte[]?`                            | method   | binary value by key        |
+|  [27]   | `Metadata.GetAll(string) -> IEnumerable<Metadata.Entry>`               | method   | all entries by key         |
+|  [28]   | `Metadata.BinaryHeaderSuffix`                                          | const    | `"-bin"` key marker        |
+|  [29]   | `Metadata.Empty`                                                       | static   | shared read-only empty     |
+|  [30]   | `Metadata.Entry(string, string)`                                       | ctor     | ASCII header pair          |
+|  [31]   | `Metadata.Entry(string, byte[])`                                       | ctor     | binary header pair         |
+|  [32]   | `Metadata.Entry.Key -> string`                                         | property | lowercased key             |
+|  [33]   | `Metadata.Entry.Value -> string`                                       | property | ASCII value                |
+|  [34]   | `Metadata.Entry.ValueBytes -> byte[]`                                  | property | raw value bytes            |
+|  [35]   | `Metadata.Entry.IsBinary -> bool`                                      | property | binary-entry flag          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[COMPRESSION_PROVIDERS]:
-- namespace: `Grpc.Net.Compression`
-- contract: `ICompressionProvider` pairs an `EncodingName` with a compression and decompression stream factory
-- gzip: `GzipCompressionProvider` reports `"gzip"`; deflate: `DeflateCompressionProvider` reports `"deflate"`
-- the encoding name flows into the `grpc-encoding` and `grpc-accept-encoding` request and response headers
-- compression providers register on `GrpcChannelOptions.CompressionProviders` (client) and `GrpcServiceOptions.CompressionProviders` (server, transitive `Grpc.AspNetCore.Server`), not on the call site
+[TOPOLOGY]:
+- Compression providers register on `GrpcChannelOptions.CompressionProviders` (client) and `GrpcServiceOptions.CompressionProviders` (server, transitive `Grpc.AspNetCore.Server`), never the call site; each provider's `EncodingName` flows into the `grpc-encoding` and `grpc-accept-encoding` request and response headers.
+- `ServerCallContext` is the per-call state root: `RequestHeaders` reads inbound, `ResponseTrailers` and `Status` write outbound, `WriteResponseHeadersAsync(Metadata)` flushes leading headers before the first message, and `CreatePropagationToken(ContextPropagationOptions?)` mints the token a downstream `CallOptions.WithPropagationToken` binds to inherit the deadline.
+- `WriteOptions(WriteFlags)` sets per-write behavior: `BufferHint` (1) defers the network flush to coalesce writes, `NoCompress` (2) sends the message uncompressed regardless of channel encoding.
+- `Metadata` is an `IList<Metadata.Entry>`: a binary header carries the `-bin` suffix (`BinaryHeaderSuffix`) and stores raw `ValueBytes`, and `Metadata.Empty` is the shared read-only instance.
 
-[SERVER_CALL_SURFACE]:
-- namespace: `Grpc.Core`
-- `ServerCallContext` exposes inbound `RequestHeaders`, outbound `ResponseTrailers`, the call `Status`, `WriteOptions`, `AuthContext`, `UserState`, and the call `CancellationToken`; `CreatePropagationToken(ContextPropagationOptions?)` mints the token a downstream client call binds via `CallOptions.WithPropagationToken` to inherit the deadline.
-- `WriteResponseHeadersAsync(Metadata)` flushes leading response headers before the first message
-- `IServerStreamWriter<T>.WriteAsync` emits server-streaming messages; `WriteOptions(WriteFlags)` controls per-write behavior — `WriteFlags.BufferHint` (1) defers the network flush to coalesce writes, `WriteFlags.NoCompress` (2) sends the message uncompressed regardless of the channel encoding
-- `Metadata` is an `IList<Metadata.Entry>`; binary headers carry the `-bin` suffix (`Metadata.BinaryHeaderSuffix`) and store raw `ValueBytes`; `Metadata.Empty` is the shared read-only empty instance
-
-[STACK_INTEGRATION]:
-- Symmetric fault rail: the server edge packs the typed `FaultDetail` into `google.rpc.Status` details and writes it to `ServerCallContext.ResponseTrailers`/`Status`; the `Grpc.Net.Client` client edge unpacks an `RpcException.Trailers` back onto the same typed `WireFault` union — one fault vocabulary, both directions, no parallel error DTO.
-- Shared compression axis: the same `ICompressionProvider` rows (`gzip`/`deflate`) register on BOTH the client `GrpcChannelOptions.CompressionProviders` and the server `GrpcServiceOptions.CompressionProviders` (`IList<ICompressionProvider> { get; }`, owned by the transitive `Grpc.AspNetCore.Server` — see `api-grpc-aspnetcore.md`), and the `EncodingName` flows through `grpc-encoding`/`grpc-accept-encoding` so a per-call `grpc-internal-encoding-request` selection negotiates against the peer's advertised set; `GrpcServiceOptions.ResponseCompressionAlgorithm` sets the server's default response encoding.
-- Server-streaming bridge: `IServerStreamWriter<T>.WriteAsync` on the server pairs with `IAsyncStreamReader<T>.ReadAllAsync` (the `Grpc.Net.Common` extension) on the client, so one streaming contract carries the same `IMessage<T>` payloads end to end; `WriteOptions.BufferHint` coalesces server writes that the client drains as one `IAsyncEnumerable<T>`.
+[STACKING]:
+- `Grpc.Net.Client`(`libs/csharp/.api/api-grpc-client.md`): the server edge packs the typed `FaultDetail` into `google.rpc.Status` details on `ServerCallContext.ResponseTrailers`/`Status`, and the client edge unpacks `RpcException.Trailers` onto the same `WireFault` union — one fault vocabulary, both directions.
+- `Grpc.AspNetCore.Server`(`libs/csharp/.api/api-grpc-aspnetcore.md`): the same `ICompressionProvider` rows register on the server `GrpcServiceOptions.CompressionProviders` and the client `GrpcChannelOptions.CompressionProviders`; `GrpcServiceOptions.ResponseCompressionAlgorithm` sets the server default, and a per-call `grpc-internal-encoding-request` negotiates against the peer's advertised set.
+- AppHost `ControlService`: `IServerStreamWriter<T>.WriteAsync` on the server pairs with `IAsyncStreamReader<T>.ReadAllAsync` on the client so one streaming contract carries the same `IMessage<T>` payloads end to end, and `WriteOptions.BufferHint` coalesces server writes the client drains as one `IAsyncEnumerable<T>`.
 
 [LOCAL_ADMISSION]:
-- The AppHost `ControlService` consumes `ServerCallContext`, `IServerStreamWriter<T>`, and `Metadata` directly as the server-side call surface.
-- Compression provider registration is remote-wire policy and stays explicit at channel (`GrpcChannelOptions.CompressionProviders`) and server (`GrpcServiceOptions.CompressionProviders`) composition.
-- Metadata keys are header vocabulary; binary metadata uses the `-bin` suffix contract, never an ad hoc encoding.
+- AppHost `ControlService` binds `ServerCallContext`, `IServerStreamWriter<T>`, and `Metadata` directly as the server-side call surface.
+- Compression-provider registration stays explicit at channel (`GrpcChannelOptions.CompressionProviders`) and service (`GrpcServiceOptions.CompressionProviders`) composition.
+- A binary metadata key carries the `-bin` suffix contract, never an ad hoc encoding.
 - `ConnectivityState` is read-only channel evidence, not a client-driven state machine.
 
 [RAIL_LAW]:
-- Package: `Grpc.Net.Common` — owns gRPC compression-provider contracts and connectivity vocabulary
-- Package: `Grpc.Core.Api` — owns the base server-call, stream-writer, and metadata API surface
+- Package: `Grpc.Net.Common` — owns gRPC compression-provider contracts and the `ConnectivityState` vocabulary
+- Package: `Grpc.Core.Api` — owns the base server-call, stream-writer, and metadata surface
 - Accept: compression registration, server-streaming responses, and call-metadata reads on the AppHost control rail
-- Reject: managed transport hosting; client-channel construction; gRPC-Web translation, which `Grpc.Net.Client.Web` owns
+- Reject: managed transport hosting, client-channel construction, and gRPC-Web translation, which `Grpc.Net.Client.Web` owns

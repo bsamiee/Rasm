@@ -1,95 +1,72 @@
 # [RASM_BIM_API_NTS_GEOPACKAGE]
 
-`NetTopologySuite.IO.GeoPackage` is the pure-managed codec for the OGC GeoPackage
-*StandardGeoPackageBinary* geometry encoding — the per-feature BLOB stored in a `.gpkg`
-feature table's geometry column. It is NOT a SQLite container reader: it owns only the
-`GeoPackageGeoReader`/`GeoPackageGeoWriter` pair that converts that BLOB (the `GP` magic +
-header + WKB body) to and from a `NetTopologySuite` `Geometry`, with `Ordinates` (XY/XYZ/
-XYM/XYZM) and SRID handling. It is the GeoPackage leg of the
-`Semantics/georeference#GEOSPATIAL_SEAM`: the SQLite container layer (`Microsoft.Data.Sqlite`,
-or the GDAL OGR `GPKG` driver in `MaxRev.Gdal.Core`) yields the geometry-column bytes, this
-codec materializes the planar algebra `NetTopologySuite` owns.
+`NetTopologySuite.IO.GeoPackage` is the pure-managed codec for the OGC GeoPackage *StandardGeoPackageBinary* geometry encoding — the per-feature BLOB stored in a `.gpkg` geometry column. Its `GeoPackageGeoReader`/`GeoPackageGeoWriter` pair round-trips that BLOB to a `NetTopologySuite` `Geometry` with `Ordinates` (XY/XYZ/XYM/XYZM) and SRID handling; the `.gpkg` SQLite container stays out of scope. It is the GeoPackage leg of the `Semantics/georeference#GEOSPATIAL_SEAM`: the container layer yields the geometry-column bytes, this codec materializes the planar algebra `NetTopologySuite` owns.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `NetTopologySuite.IO.GeoPackage`
 - package: `NetTopologySuite.IO.GeoPackage`
-- license: BSD-3-Clause (`requireLicenseAcceptance=false`)
+- license: BSD-3-Clause
 - assembly: `NetTopologySuite.IO.GeoPackage`
 - namespace: `NetTopologySuite.IO` (`GeoPackageGeoReader`, `GeoPackageGeoWriter`)
-- asset: netstandard2.0 ONLY (single TFM); the net10.0 consumer binds the `lib/netstandard2.0` asset
-- asset: IL-only AnyCPU managed assembly; no P/Invoke, no native binaries — the BLOB body is emitted through the NTS `WKBWriter`
-- dependency: `NetTopologySuite` `[,)` only (the `Geometry`/`Ordinates`/`CoordinateSequenceFactory`/`PrecisionModel` algebra — the core is pinned); NO `NetTopologySuite.Features` dependency (this codec is geometry-only, attributes live in the SQLite row columns)
-- consumer: dual-owner central pin — `libs/csharp/Rasm.Bim` (site/context GeoPackage ingest) + `libs/csharp/Rasm.Persistence` (geometry-BLOB column round-trip in a SQLite/GeoPackage store)
+- asset: netstandard2.0 single TFM, IL-only AnyCPU managed, no P/Invoke, no native binaries; the net10.0 consumer binds the `lib/netstandard2.0` asset
+- dependency: `NetTopologySuite` (the `Geometry`/`Ordinates`/`CoordinateSequenceFactory`/`PrecisionModel` algebra); no `NetTopologySuite.Features` dependency — this codec is geometry-only, attributes ride the SQLite row columns
 - rail: geospatial
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: BLOB geometry reader/writer
-- package: `NetTopologySuite.IO.GeoPackage`
-- namespace: `NetTopologySuite.IO`
-- rail: geospatial
 
-The `GeoPackageBinaryHeader` (`GP`-magic header struct) and its `GeoPackageBinaryType` enum are `internal`, not public — `[04]` describes the wire shape the pair owns end-to-end. Each property's behavior (ordinate clamp, XY floor, `srs_id` stamping, ring repair) is `[04]`'s law.
+`GeoPackageBinaryHeader` and its `GeoPackageBinaryType` enum are `internal`; the pair owns the `GP`-magic wire shape end-to-end and no header type crosses the public surface.
 
-| [INDEX] | [SYMBOL]              | [CAPABILITY]                                                                                                    |
-| :-----: | :-------------------- | :-------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `GeoPackageGeoReader` | decodes a BLOB → NTS `Geometry`; `RepairRings`, `HandleSRID`, `AllowedOrdinates`, `HandleOrdinates`             |
-|  [02]   | `GeoPackageGeoWriter` | encodes NTS `Geometry` → BLOB; `AllowedOrdinates` (`(Ordinates)65543`=XYZM, static readonly), `HandleOrdinates` |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [CAPABILITY]                                |
+| :-----: | :-------------------- | :------------ | :------------------------------------------ |
+|  [01]   | `GeoPackageGeoReader` | class         | decode a geometry BLOB to an NTS `Geometry` |
+|  [02]   | `GeoPackageGeoWriter` | class         | encode an NTS `Geometry` to a geometry BLOB |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: decode a GeoPackage geometry BLOB
-- package: `NetTopologySuite.IO.GeoPackage`
-- namespace: `NetTopologySuite.IO`
-- rail: geospatial
 
-The reader seeds `DefaultCoordinateSequenceFactory`/`DefaultPrecisionModel` from `NtsGeometryServices.Instance` unless a factory/precision pair is passed; the default `HandleOrdinates` is XYZM (`(Ordinates)65543`). `Read(byte[])` wraps a `MemoryStream` over the stream overload.
+Each reader seeds `DefaultCoordinateSequenceFactory`/`DefaultPrecisionModel` from `NtsGeometryServices.Instance` unless a factory/precision pair is passed, and defaults `HandleOrdinates` to XYZM; `Read(byte[])` wraps a `MemoryStream` over the stream overload. Set `RepairRings`, `HandleSRID`, and `HandleOrdinates` on the reader before `Read`.
 
-| [INDEX] | [ENTRYPOINT]                                                         | [CAPABILITY]                                           |
-| :-----: | :------------------------------------------------------------------- | :----------------------------------------------------- |
-|  [01]   | `new GeoPackageGeoReader()`                                          | the all-default reader                                 |
-|  [02]   | `new GeoPackageGeoReader(CoordinateSequenceFactory, PrecisionModel)` | seed the canonical packed factory + precision          |
-|  [03]   | `new GeoPackageGeoReader(…, Ordinates handleOrdinates)`              | the 3-arg overload adding the materialized `Ordinates` |
-|  [04]   | `GeoPackageGeoReader.Read(byte[] blob)` → `Geometry`                 | decode a geometry-column BLOB from a SQLite row        |
-|  [05]   | `GeoPackageGeoReader.Read(Stream)` → `Geometry`                      | decode from a stream                                   |
+| [INDEX] | [SURFACE]                                                                       | [SHAPE]  | [CAPABILITY]                          |
+| :-----: | :------------------------------------------------------------------------------ | :------- | :------------------------------------ |
+|  [01]   | `new GeoPackageGeoReader()`                                                     | ctor     | all-default reader                    |
+|  [02]   | `new GeoPackageGeoReader(CoordinateSequenceFactory, PrecisionModel)`            | ctor     | seed the packed factory and precision |
+|  [03]   | `new GeoPackageGeoReader(CoordinateSequenceFactory, PrecisionModel, Ordinates)` | ctor     | add the materialized `Ordinates`      |
+|  [04]   | `GeoPackageGeoReader.Read(byte[]) -> Geometry`                                  | instance | decode a BLOB from a SQLite row       |
+|  [05]   | `GeoPackageGeoReader.Read(Stream) -> Geometry`                                  | instance | decode from a stream                  |
 
 [ENTRYPOINT_SCOPE]: encode a GeoPackage geometry BLOB
-- package: `NetTopologySuite.IO.GeoPackage`
-- namespace: `NetTopologySuite.IO`
-- rail: geospatial
 
-| [INDEX] | [ENTRYPOINT]                                                       | [CAPABILITY]                                               |
-| :-----: | :----------------------------------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | `GeoPackageGeoWriter.Write(Geometry geom)` → `byte[]`              | encode a geometry to a GeoPackage BLOB for a SQLite insert |
-|  [02]   | `GeoPackageGeoWriter.Write(Geometry geom, Stream stream)` → `void` | encode directly into a stream                              |
+`GeoPackageGeoWriter`, constructed parameterless, defaults `HandleOrdinates` to the static XYZM ceiling; set it to drop Z/M on write.
+
+| [INDEX] | [SURFACE]                                             | [SHAPE]  | [CAPABILITY]                                    |
+| :-----: | :---------------------------------------------------- | :------- | :---------------------------------------------- |
+|  [01]   | `GeoPackageGeoWriter.Write(Geometry) -> byte[]`       | instance | encode a geometry to a BLOB for a SQLite insert |
+|  [02]   | `GeoPackageGeoWriter.Write(Geometry, Stream) -> void` | instance | encode directly into a stream                   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[BLOB_FORMAT]:
-- the codec owns the OGC GeoPackage *StandardGeoPackageBinary* envelope: a 2-byte `GP` magic, a version byte, a flags byte (envelope-contents bits, byte-order bit, empty bit), the 4-byte `srs_id`, the optional envelope (min/max per ordinate driven by the flags), then the OGC WKB geometry body. `GeoPackageGeoWriter` writes the header little-endian (envelope from `Geometry.EnvelopeInternal`) and delegates the body to the NTS `WKBWriter`; `GeoPackageGeoReader` parses the header, honors the empty bit, and reads the WKB body with the seeded factory.
-- this is the per-feature BLOB ONLY. The `.gpkg` SQLite container — `gpkg_contents`, `gpkg_geometry_columns`, `gpkg_spatial_ref_sys`, the feature/tile tables, the RTree spatial index — is OUT of scope; the container is read through `Microsoft.Data.Sqlite` (the SQLite owner) or the GDAL OGR `GPKG` driver (`MaxRev.Gdal.Core`, `api-maxrev-gdal`). The rejected form is expecting this package to open a `.gpkg` file.
+[TOPOLOGY]:
+- Envelope: the codec owns the OGC StandardGeoPackageBinary envelope — a `GP` magic, a version byte, a flags byte (envelope-contents, byte-order, and empty bits), a 4-byte `srs_id`, the optional per-ordinate envelope, then the OGC WKB body. `GeoPackageGeoWriter` writes the header little-endian with the envelope from `Geometry.EnvelopeInternal` and delegates the body to the NTS `WKBWriter`; `GeoPackageGeoReader` parses the header, honors the empty bit, and reads the WKB body with the seeded factory.
+- Dimensionality: `HandleOrdinates` is the shared read/write knob expressed as NTS `Ordinates` flags (XY=3, XYZ=7, XYM=65539, XYZM=65543); the setter keeps the XY bits and intersects the request with `AllowedOrdinates`, whose reader ceiling is the seeded `CoordinateSequenceFactory` capacity and whose writer ceiling is the static XYZM value.
+- Identity: `HandleSRID` stamps the header `srs_id` onto `Geometry.SRID` on decode and reads `Geometry.SRID` back into the header on encode; SRID is an identity tag, so datum or projection change is the `Semantics/georeference#GEODETIC_TRANSFORM` `ProjNET` leg. `RepairRings` repairs ring order on decode, and a heavier pre-overlay repair runs `GeometryFixer.Fix` from the NTS core.
+- Factory seed: seed the reader from `NtsGeometryServices.Instance` — `DefaultCoordinateSequenceFactory` is the packed factory, `DefaultPrecisionModel` the canonical precision — so decoded geometry carries the packed ordinate layout and maps onto a kernel buffer without per-point boxing; a per-call `new GeometryFactory()` is the rejected form.
 
-[ORDINATES_AND_SRID]:
-- `HandleOrdinates` is the dimensionality knob on both reader and writer, expressed as the NTS `Ordinates` flags (XY=3, XYZ=7, XYM=65539, XYZM=65543). The setter always keeps the XY bits and intersects the request with `AllowedOrdinates` — the reader's `AllowedOrdinates` is what the seeded `CoordinateSequenceFactory` can store, the writer's is the static XYZM ceiling. Set it to drop Z/M on write or to force planar-only decode.
-- `GeoPackageGeoReader.HandleSRID = true` stamps the header `srs_id` onto the decoded `Geometry.SRID`; the writer reads `Geometry.SRID` into the header `srs_id`. SRID is an identity tag, not a transform — reprojection is the separate `Semantics/georeference#GEODETIC_TRANSFORM` leg (`ProjNET`, `api-projnet`).
-- `RepairRings = true` repairs invalid ring order during decode; for a heavier repair before an overlay, run `GeometryFixer.Fix` from the NTS core (`api-nettopologysuite`).
-
-[FACTORY_SEED]:
-- seed the reader from `NtsGeometryServices.Instance` (`DefaultCoordinateSequenceFactory` = the admitted `PackedCoordinateSequenceFactory`, `DefaultPrecisionModel`) so decoded geometry carries the canonical packed ordinate layout and precision and maps onto a kernel buffer without per-point boxing — the same global-singleton discipline the shapefile and GeoJSON codecs follow. The rejected form is a per-call `new GeometryFactory()`.
-
-[STACK_INTEGRATION]:
-- NTS seam: the codec consumes and produces `NetTopologySuite.Geometries.Geometry` directly (`api-nettopologysuite`) and reuses the NTS `WKBWriter` for the body — a decoded GeoPackage geometry flows straight into the planar predicate/overlay/`STRtree` algebra, and a `BimElement` footprint flows out through `GeoPackageGeoWriter.Write`.
-- SQLite-container seam: the canonical GeoPackage rail STACKS this codec onto a SQLite reader — `Microsoft.Data.Sqlite` (Persistence) selects the geometry-column `byte[]` and the attribute columns from a feature table, `GeoPackageGeoReader.Read(blob)` materializes the geometry, and the attribute columns become the `AttributesTable` that pairs with it into an NTS `Feature`. The OGR `GPKG` driver (`MaxRev.Gdal.Core`) is the alternative all-in-one container path when the full driver matrix is already in play.
-- format-table seam: GeoPackage read/write is one row in the `format#INTERCHANGE` table beside the shapefile (`api-nts-esri-shapefile`), GeoJSON (`api-nts-geojson4stj`), GeoParquet (`api-gisblox-geoparquet`), and FlatGeobuf (`api-flatgeobuf`) codecs — all exchanging the same NTS `Geometry`, differing only in container/envelope.
-- dual-consumer seam: the Persistence owner uses this codec to round-trip a geometry BLOB into a SQLite/GeoPackage store; the Bim owner uses it to ingest site/context GeoPackage data. One central pin, two rails, one canonical `Geometry` shape.
+[STACKING]:
+- `NetTopologySuite`(`libs/csharp/.api/api-nettopologysuite.md`): the codec consumes and produces `Geometry` directly and reuses the NTS `WKBWriter`/`WKBReader` for the body, so a decoded geometry flows straight into the planar predicate/overlay/`STRtree` algebra and a `BimElement` footprint flows out through `Write`.
+- `MaxRev.Gdal.Core`(`api-maxrev-gdal`): the GeoPackage rail stacks this codec onto a SQLite reader — `Microsoft.Data.Sqlite` selects the geometry-column `byte[]` and attribute columns, `Read(blob)` materializes the geometry, and the attribute columns pair into an NTS `Feature`; the OGR `GPKG` driver is the all-in-one container path when the full GDAL matrix is already loaded.
+- `format#INTERCHANGE`: GeoPackage read/write is one row beside the shapefile (`api-nts-esri-shapefile`), GeoJSON (`api-nts-geojson4stj`), GeoParquet (`api-gisblox-geoparquet`), and FlatGeobuf (`api-flatgeobuf`) codecs, all exchanging one NTS `Geometry` and differing only in container and envelope.
+- within-lib: the Persistence owner round-trips a geometry BLOB into a SQLite/GeoPackage store while the Bim owner ingests site and context GeoPackage data, two rails over one `Geometry` shape.
 
 [LOCAL_ADMISSION]:
 - BLOB decode enters through a `GeoPackageGeoReader` seeded from `NtsGeometryServices.Instance` with `HandleSRID`/`HandleOrdinates` set for the dataset; `Read(byte[])` is the per-row call over a SQLite cursor.
-- BLOB encode enters through `GeoPackageGeoWriter.Write(geometry)` with `HandleOrdinates` set to the stored dimensionality; the rejected form is hand-rolling the `GP` header or treating the codec as a `.gpkg` container reader.
+- BLOB encode enters through `GeoPackageGeoWriter.Write(geometry)` with `HandleOrdinates` set to the stored dimensionality; hand-rolling the `GP` header or treating the codec as a `.gpkg` container reader is the rejected form.
 
 [RAIL_LAW]:
 - Package: `NetTopologySuite.IO.GeoPackage`
 - Owns: the OGC GeoPackage StandardGeoPackageBinary geometry-BLOB read/write codec over NTS `Geometry`, with `Ordinates` dimensionality and `srs_id`/SRID handling
-- Accept: geometry-column BLOB decode/encode, dimensionality (XY/XYZ/XYM/XYZM) control, SRID stamping, on-read ring repair
-- Reject: the `.gpkg` SQLite container itself (`Microsoft.Data.Sqlite` / OGR `GPKG` in `MaxRev.Gdal.Core` own it), the geometry algebra (`NetTopologySuite` owns it), datum/projection transformation (`ProjNET`/OSR own it), attribute storage (the SQLite row columns carry it — this codec is geometry-only)
+- Accept: geometry-column BLOB decode and encode, dimensionality (XY/XYZ/XYM/XYZM) control, SRID stamping, on-read ring repair
+- Reject: the `.gpkg` SQLite container (`Microsoft.Data.Sqlite` and the OGR `GPKG` driver in `MaxRev.Gdal.Core` own it), the geometry algebra (`NetTopologySuite` owns it), datum/projection transformation (`ProjNET`/OSR own it), attribute storage (the SQLite row columns carry it)

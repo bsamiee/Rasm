@@ -1,131 +1,96 @@
 # [RASM_BIM_API_MAXREV_GDAL_MACOS_RUNTIME]
 
-`MaxRev.Gdal.MacosRuntime.Minimal.arm64` is the osx-arm64 native runtime package backing
-`MaxRev.Gdal.Core` on Apple Silicon. It ships NO managed API — the assembly is an empty
-`<Module>` carrier and the package's entire payload is the `runtimes/osx-arm64/native/`
-dylib closure: `libgdal`, the SWIG `*_wrap` P/Invoke targets the `OSGeo.GDAL`/`OGR`/ `OSR` bindings call, OGR's `libgeos`, OSR's `libproj`, and the full raster/vector format and
-compression dependency tree. It is the RID-keyed native half of the geospatial seam: it has
-no design surface of its own, but its presence on the publish RID is the precondition for
-every `MaxRev.Gdal.Core` call to bind, and its bundled `libgeos`/`libproj` versions are the
-ABI fact that fixes the OGR-vs-NTS and OSR-vs-ProjNET seam decisions.
+`MaxRev.Gdal.MacosRuntime.Minimal.arm64` ships the osx-arm64 native GDAL dylib closure backing `MaxRev.Gdal.Core` on Apple Silicon. Its managed assembly is an empty `<Module>` carrier; the payload is `runtimes/osx-arm64/native/` — `libgdal`, the SWIG `*_wrap` P/Invoke targets, native GEOS and PROJ, and the raster/vector format and compression tree. Presence on the publish RID is the precondition for every `OSGeo.GDAL`/`OGR`/`OSR` call to bind, and the bundled native GEOS and PROJ are the ABI substrate the `MaxRev.Gdal.Core` seam decisions escalate to.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MaxRev.Gdal.MacosRuntime.Minimal.arm64`
-- package: `MaxRev.Gdal.MacosRuntime.Minimal.arm64`
-- license: MIT (the package); the bundled native libraries carry their own upstream licenses (`gdal-data/LICENSE.TXT` in `MaxRev.Gdal.Core` covers the GDAL/PROJ corpus)
-- assembly: `MaxRev.Gdal.MacosRuntime.Minimal.arm64` — an EMPTY managed assembly (`<Module>` only, zero public types). It exists to carry the RID and trigger NuGet runtime-asset resolution, not to expose a managed surface
-- RID: `osx-arm64` ONLY (Apple Silicon). A `MaxRev.Gdal.MacosRuntime.Minimal.x64` (Intel), `*.WindowsRuntime.*`, or `*.LinuxRuntime.*` is a SEPARATE package for a different publish RID — this catalog is the arm64 host
-- asset: `runtimes/osx-arm64/native/**` — 75 `.dylib` files plus the `maxrev.gdal.core.libshared` manifest. This is the entire useful payload
-- asset: `lib/{net10.0,net9.0,…,netstandard2.0}/MaxRev.Gdal.MacosRuntime.Minimal.arm64.dll` — the empty carrier assembly per TFM; the net10.0 consumer binds `lib/net10.0`
-- asset: `build/net461/MaxRev.Gdal.MacosRuntime.Minimal.arm64.targets` — a net461-MSBuild-only copy step (see [04])
+- package: `MaxRev.Gdal.MacosRuntime.Minimal.arm64` (MIT; bundled natives carry their own upstream GDAL/PROJ licenses)
+- assembly: empty `<Module>` carrier, zero public types — carries the RID and triggers NuGet runtime-asset resolution
+- target: `osx-arm64` only; sibling `*.WindowsRuntime.*`, `*.LinuxRuntime.*`, and `*.MacosRuntime.Minimal.x64` packages own the other publish RIDs
+- asset: `runtimes/osx-arm64/native/**` — the native dylib closure with the `maxrev.gdal.core.libshared` load manifest
 - rail: geometry (native substrate)
 
 ## [02]-[NATIVE_PAYLOAD]
 
-[NATIVE_SCOPE]: GDAL core + SWIG P/Invoke targets
-- package: `MaxRev.Gdal.MacosRuntime.Minimal.arm64`
-- asset: `runtimes/osx-arm64/native/`
-- rail: geometry
+Every dylib lands under `runtimes/osx-arm64/native/` on the geometry rail; `GdalBase.ConfigureAll()` reads `maxrev.gdal.core.libshared` to discover and load the set.
 
-| [INDEX] | [DYLIB]                      | [ROLE]                                                                                                  |
-| :-----: | :--------------------------- | :------------------------------------------------------------------------------------------------------ |
-|  [01]   | `libgdal.39.3.13.1.dylib`    | GDAL core (+`libgdal.39.dylib`): drivers + utilities `OSGeo.GDAL.Gdal`/`OSGeo.OGR.Ogr` drive            |
-|  [02]   | `libgdal_wrap.dylib`         | SWIG `OSGeo.GDAL.GdalPINVOKE` — the managed `Dataset`/`Band`/`Driver` ↔ `libgdal` raster bridge         |
-|  [03]   | `libogr_wrap.dylib`          | SWIG `OSGeo.OGR.OgrPINVOKE` — the managed `DataSource`/`Layer`/`Feature`/`Geometry` vector bridge       |
-|  [04]   | `libosr_wrap.dylib`          | SWIG `OSGeo.OSR.OsrPINVOKE` — the managed `SpatialReference`/`CoordinateTransformation` CRS bridge      |
-|  [05]   | `libgdalconst_wrap.dylib`    | SWIG wrapper for the GDAL constant tables (`DataType`/`CPLErr`/`ColorInterp` enum values read at load)  |
-|  [06]   | `maxrev.gdal.core.libshared` | the dylib manifest `MaxRev.Gdal.Core.GdalBase.ConfigureAll()` reads to discover and load the native set |
+[CORE_AND_SWIG_BRIDGES]:
 
-[NATIVE_SCOPE]: topology and reprojection engines
-- package: `MaxRev.Gdal.MacosRuntime.Minimal.arm64`
-- asset: `runtimes/osx-arm64/native/`
-- rail: geometry
+| [INDEX] | [DYLIB]             | [ROLE]                                                                                 |
+| :-----: | :------------------ | :------------------------------------------------------------------------------------- |
+|  [01]   | `libgdal`           | GDAL core: drivers + utilities behind `OSGeo.GDAL.Gdal`/`OSGeo.OGR.Ogr`                |
+|  [02]   | `libgdal_wrap`      | SWIG `OSGeo.GDAL.GdalPINVOKE` — `Dataset`/`Band`/`Driver` ↔ `libgdal` raster bridge    |
+|  [03]   | `libogr_wrap`       | SWIG `OSGeo.OGR.OgrPINVOKE` — `DataSource`/`Layer`/`Feature`/`Geometry` vector bridge  |
+|  [04]   | `libosr_wrap`       | SWIG `OSGeo.OSR.OsrPINVOKE` — `SpatialReference`/`CoordinateTransformation` CRS bridge |
+|  [05]   | `libgdalconst_wrap` | SWIG wrapper for GDAL constant tables (`DataType`/`CPLErr`/`ColorInterp` values)       |
 
-| [INDEX] | [DYLIB]                  | [ROLE]                                                                                                      |
-| :-----: | :----------------------- | :---------------------------------------------------------------------------------------------------------- |
-|  [01]   | `libgeos.3.14.1.dylib`   | GEOS (+`libgeos_c.1.20.5.dylib`) — native planar topology behind OGR `Geometry` ops; settles OGR-vs-NTS     |
-|  [02]   | `libproj.25.9.7.1.dylib` | PROJ — datum/grid reprojection behind OSR `CoordinateTransformation`; full grid set, settles OSR-vs-ProjNET |
+[TOPOLOGY_AND_REPROJECTION]:
 
-[NATIVE_SCOPE]: raster format codecs
-- package: `MaxRev.Gdal.MacosRuntime.Minimal.arm64`
-- asset: `runtimes/osx-arm64/native/`
-- rail: geometry
-- note: `MultiDimTranslate`/`BuildVRT` drive the multidimensional path over the netCDF/HDF set.
+| [INDEX] | [DYLIB]                  | [ROLE]                                                        |
+| :-----: | :----------------------- | :------------------------------------------------------------ |
+|  [01]   | `libgeos` (+`libgeos_c`) | native planar topology behind OGR `Geometry` boolean ops      |
+|  [02]   | `libproj`                | datum/grid reprojection behind OSR `CoordinateTransformation` |
 
-| [INDEX] | [DYLIB_GROUP]                                                                           | [ROLE]                                        |
-| :-----: | :-------------------------------------------------------------------------------------- | :-------------------------------------------- |
-|  [01]   | `libtiff.6.2.0` + `libgeotiff.5.2.4`                                                    | GeoTIFF/COG/BigTIFF (`Dataset.ReadRaster<T>`) |
-|  [02]   | `libopenjp2.2.5.4` + `libopenjph.0.26.3`                                                | JPEG2000 + HTJ2K imagery/elevation tiles      |
-|  [03]   | `libjxl.0.11.2` (+ `libjxl_cms`/`libjxl_threads`) + `libwebp.7.2.0` (+ `libsharpyuv`)   | JPEG-XL and WebP raster codecs                |
-|  [04]   | `libjpeg.62.4.0` + `libpng16.16.55.0` + `libgif`                                        | the baseline JPEG/PNG/GIF raster codecs       |
-|  [05]   | `libnetcdf.22` + `libhdf5.320`/`libhdf5_hl`/`libhdf.10`/`libmfhdf.10`                   | netCDF/HDF5/HDF4 multidimensional raster      |
-|  [06]   | `libcfitsio.4.6.3`                                                                      | FITS raster + DEM/climate-grid ingest         |
-|  [07]   | `libOpenEXR-3_4`/`libOpenEXRCore`/`libOpenEXRUtil` + `libImath`/`libIex`/`libIlmThread` | OpenEXR high-dynamic-range raster             |
-|  [08]   | `libpoppler.151` + `liblcms2`                                                           | PDF ingest (`PDF` driver) + LittleCMS color   |
+[RASTER_CODECS]: `MultiDimTranslate`/`BuildVRT` drive the multidimensional path over the netCDF/HDF set.
 
-[NATIVE_SCOPE]: vector format and data-source drivers
-- package: `MaxRev.Gdal.MacosRuntime.Minimal.arm64`
-- asset: `runtimes/osx-arm64/native/`
-- rail: geometry
+| [INDEX] | [DYLIB_GROUP]                                                                       | [ROLE]                                        |
+| :-----: | :---------------------------------------------------------------------------------- | :-------------------------------------------- |
+|  [01]   | `libtiff` + `libgeotiff`                                                            | GeoTIFF/COG/BigTIFF (`Dataset.ReadRaster<T>`) |
+|  [02]   | `libopenjp2` + `libopenjph`                                                         | JPEG2000 + HTJ2K imagery/elevation tiles      |
+|  [03]   | `libjxl` (+`libjxl_cms`/`libjxl_threads`) + `libwebp` (+`libsharpyuv`)              | JPEG-XL and WebP raster codecs                |
+|  [04]   | `libjpeg` + `libpng16` + `libgif`                                                   | baseline JPEG/PNG/GIF raster codecs           |
+|  [05]   | `libnetcdf` + `libhdf5`/`libhdf5_hl`/`libhdf`/`libmfhdf`                            | netCDF/HDF5/HDF4 multidimensional raster      |
+|  [06]   | `libcfitsio`                                                                        | FITS raster + DEM/climate-grid ingest         |
+|  [07]   | `libOpenEXR`/`libOpenEXRCore`/`libOpenEXRUtil` + `libImath`/`libIex`/`libIlmThread` | OpenEXR high-dynamic-range raster             |
+|  [08]   | `libpoppler` + `liblcms2`                                                           | PDF driver ingest + LittleCMS color           |
 
-| [INDEX] | [DYLIB_GROUP]                                                     | [ROLE]                                                           |
-| :-----: | :---------------------------------------------------------------- | :--------------------------------------------------------------- |
-|  [01]   | `libsqlite3` + `libfreexl.1`                                      | GeoPackage/SpatiaLite store + Excel `.xls` ingest (`libfreexl`)  |
-|  [02]   | `libpq.5`                                                         | PostgreSQL/PostGIS OGR driver (`PostgreSQL`/`PostGISRaster`)     |
-|  [03]   | `libmysqlclient.21` + `libodbc.2`/`libodbcinst.2`                 | the MySQL and ODBC vector data-source drivers                    |
-|  [04]   | `libkmlbase`/`libkmldom`/`libkmlengine` + `libxerces-c-3.3`       | KML/GML/CityGML vector parsers (LibKML + Xerces)                 |
-|  [05]   | `libexpat.1` + `libxml2.16` + `libtinyxml2.11` + `liburiparser.1` | expat/libxml2/tinyxml2 XML-family parsers + URI                  |
-|  [06]   | `libarrow.2300.1.0` + `libparquet.2300.1.0` + `libthrift.0.22`    | GeoParquet vector driver + `OLCFastGetArrowStream` columnar bulk |
-|  [07]   | `libcurl.4.8.0` + `libssl.3` + `libcrypto.3`                      | HTTP/TLS — `/vsicurl/` remote/cloud dataset open                 |
+[VECTOR_DRIVERS]:
 
-[NATIVE_SCOPE]: compression and low-level
-- package: `MaxRev.Gdal.MacosRuntime.Minimal.arm64`
-- asset: `runtimes/osx-arm64/native/`
-- rail: geometry
-- note: the compression set backs the raster (DEFLATE/ZSTD/LZW TIFF), GeoPackage, Parquet, and `/vsizip/` paths.
+| [INDEX] | [DYLIB_GROUP]                                           | [ROLE]                                                    |
+| :-----: | :------------------------------------------------------ | :-------------------------------------------------------- |
+|  [01]   | `libsqlite3` + `libfreexl`                              | GeoPackage/SpatiaLite store + Excel `.xls` ingest         |
+|  [02]   | `libpq`                                                 | PostgreSQL/PostGIS driver (`PostgreSQL`/`PostGISRaster`)  |
+|  [03]   | `libmysqlclient` + `libodbc`/`libodbcinst`              | MySQL and ODBC vector data-source drivers                 |
+|  [04]   | `libkmlbase`/`libkmldom`/`libkmlengine` + `libxerces-c` | KML/GML/CityGML parsers (LibKML + Xerces)                 |
+|  [05]   | `libexpat` + `libxml2` + `libtinyxml2` + `liburiparser` | XML-family parsers + URI                                  |
+|  [06]   | `libarrow` + `libparquet` + `libthrift`                 | GeoParquet driver + `OLCFastGetArrowStream` columnar bulk |
+|  [07]   | `libcurl` + `libssl` + `libcrypto`                      | HTTP/TLS — `/vsicurl/` remote/cloud dataset open          |
 
-| [INDEX] | [DYLIB_GROUP]                                                                      | [ROLE]                                              |
-| :-----: | :--------------------------------------------------------------------------------- | :-------------------------------------------------- |
-|  [01]   | `libz.1.3.1` + `libdeflate.0` + `libzstd.1.5.7` + `liblz4.1.10`                    | DEFLATE/ZSTD/LZ4 general compression                |
-|  [02]   | `libbz2` + `liblzma.5` + `libsnappy.1.2.2` + `libblosc.1.21.6`                     | bzip2/LZMA/Snappy/Blosc compression                 |
-|  [03]   | `libbrotli*` (common/dec/enc) + `libaec`/`libsz` + `libminizip`                    | Brotli + AEC + minizip (`/vsizip/`)                 |
-|  [04]   | `libfontconfig.1` + `libfreetype.6.20` + `libpcre2-8` + `libhwy.1.3` + `libltdl.7` | text render + regex + Highway SIMD + libtool loader |
+[COMPRESSION]: this set backs the raster (DEFLATE/ZSTD/LZW TIFF), GeoPackage, Parquet, and `/vsizip/` paths.
+
+| [INDEX] | [DYLIB_GROUP]                                                         | [ROLE]                                              |
+| :-----: | :-------------------------------------------------------------------- | :-------------------------------------------------- |
+|  [01]   | `libz` + `libdeflate` + `libzstd` + `liblz4`                          | DEFLATE/ZSTD/LZ4 general compression                |
+|  [02]   | `libbz2` + `liblzma` + `libsnappy` + `libblosc`                       | bzip2/LZMA/Snappy/Blosc compression                 |
+|  [03]   | `libbrotli*` + `libaec`/`libsz` + `libminizip`                        | Brotli + AEC + minizip (`/vsizip/`)                 |
+|  [04]   | `libfontconfig` + `libfreetype` + `libpcre2-8` + `libhwy` + `libltdl` | text render + regex + Highway SIMD + libtool loader |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: this package has no managed entrypoints
-- package: `MaxRev.Gdal.MacosRuntime.Minimal.arm64`
-- rail: geometry
+[ENTRYPOINT_SCOPE]: none — the package is consumed transitively, never called
 
-The runtime package is consumed transitively, never called directly. The only "entrypoint" is restoring the package for the `osx-arm64` RID so its native assets resolve into the output directory; from there `MaxRev.Gdal.Core.GdalBase.ConfigureAll()` discovers and loads the dylibs. There is no managed type, method, or property in this package to compose against — a design page references `MaxRev.Gdal.Core` (the `api-maxrev-gdal` catalog) and this package is the silent native prerequisite that makes those calls bind.
+Restoring the package for the `osx-arm64` RID stages its native assets into the output, and `MaxRev.Gdal.Core.GdalBase.ConfigureAll()` discovers and loads them from there. A design page composes `MaxRev.Gdal.Core`; this package is its silent native prerequisite.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[PLATFORM_BOUNDARY]:
-- this is a pure native-asset carrier for ONE RID (`osx-arm64`). The managed assembly is empty by design; the value is the 75-dylib closure under `runtimes/osx-arm64/native/`. Cross-platform CI/publish needs the sibling runtime packages for each target RID (`*.WindowsRuntime.*`, `*.LinuxRuntime.*`, `*.MacosRuntime.Minimal.x64`); each pins the same GDAL/PROJ version as the bindings.
-- "Minimal" names the driver subset: this is the reduced GDAL build (the common raster/vector/database drivers above), not the full GDAL plugin set (no GRASS/MrSID/ECW/Oracle/proprietary drivers). A format outside this closure faults at open with an unknown-driver error — the admitted scope is the standard open-source format set.
+[TOPOLOGY]:
+- Pure native-asset carrier for one RID (`osx-arm64`); the managed assembly is empty by design. Cross-platform publish binds the sibling runtime packages, each carrying the GDAL/PROJ build matching the bindings.
+- "Minimal" names the reduced driver subset — the common raster/vector/database drivers above, never the full GDAL plugin set (no GRASS/MrSID/ECW/Oracle/proprietary drivers); a format outside this closure faults at open with an unknown-driver error.
+- `MSBuildRuntimeType == 'Core'` (the .NET SDK) resolves `runtimes/<RID>/native/**` through the NuGet runtime-asset graph, and a RID-targeted build copies the matching dylibs into the output. `build/net461/*.targets` gates its copy step on full-framework MSBuild and stays inert under the SDK, so the runtime-asset graph stages the natives.
+- A RID-agnostic publish (no `-r osx-arm64`, no `RuntimeIdentifier`) does not stage the natives and faults at the first `OSGeo.*` call; the Apple-Silicon publish binds `osx-arm64` (or self-contained) for the dylibs to land.
 
-[ASSET_RESOLUTION]:
-- under the.NET SDK / `dotnet publish` (`MSBuildRuntimeType == 'Core'`), the `runtimes/<RID>/native/**` assets resolve through the standard NuGet runtime-asset graph: a RID-targeted build/publish copies the matching dylibs into the output's native directory automatically. This is the load-bearing path — no custom MSBuild step is involved.
-- the bundled `build/net461/*.targets` is a MSBuild-only fallback: its `<None Include=".../runtimes/osx-arm64/native/**">` copy step is gated on `MSBuildRuntimeType != 'Core'` (full-framework MSBuild), so it is inert under the SDK. A design that assumes the `.targets` does the copy on a modern build is wrong — the runtime asset graph does.
-- a publish that is RID-agnostic (no `-r osx-arm64` / no `RuntimeIdentifier`) does NOT stage the native assets, so the host faults at the first `OSGeo.*` call. The Apple-Silicon publish MUST be RID-pinned to `osx-arm64` (or self-contained) for the dylibs to land — this is the deployment precondition the `Rasm.Bim` host carries.
-
-[VERSION_LOCKSTEP]:
-- the runtime MUST equal the `MaxRev.Gdal.Core` version: the SWIG `*_wrap` dylibs are generated against a specific `libgdal` ABI, and the managed `*PINVOKE` classes are generated against the same SWIG interface. A version skew between bindings and runtime is an ABI mismatch that faults at load — the central manifest pins both to the identical version for this reason.
-
-[SEAM_ABI_FACTS]:
-- `libgeos.3.14.1` in this payload is the native topology engine OGR uses. The closure therefore contains TWO planar-topology engines (this native GEOS and managed `NetTopologySuite`). The seam decision is settled by this fact: NTS is the one canonical planar owner; OGR geometry is bridged to NTS via WKB at the ingest wire, and the native GEOS stays inside the GDAL boundary, never the topology owner for domain geometry.
-- `libproj.25.9.7.1` is the reprojection engine OSR uses. The closure contains it AND managed `ProjNET`. The seam decision: `ProjNET` is the default managed CRS owner; OSR/PROJ is the escalation path for datum-grid transforms only the native PROJ corpus covers (and for reprojection already inside a GDAL pipeline). The presence of full PROJ here is what makes that escalation viable.
-- the `libarrow`/`libparquet` presence is the ABI basis for the `OLCFastGetArrowStream` columnar bulk path — a GeoParquet source streams Arrow batches through `libarrow` without per-feature marshalling, feeding the `Rasm.Persistence` Arrow rail.
+[STACKING]:
+- `MaxRev.Gdal.Core`(`.api/api-maxrev-gdal.md`): this closure is the native half its AnyCPU bindings P/Invoke — `libgdal_wrap`/`libogr_wrap`/`libosr_wrap` are the exact `*PINVOKE` targets, and bundled native GEOS/PROJ are the ABI substrate under the `[OGR_VS_NTS_GEOS]`/`[OSR_VS_PROJNET]` seam decisions the sibling owns.
+- within-lib: SWIG `*_wrap` dylibs are generated against a specific `libgdal` ABI and the managed `*PINVOKE` classes against the same SWIG interface, so bindings and runtime bind as one unit and a version skew between them faults at load.
+- `Rasm.Persistence` Arrow rail: bundled `libarrow`/`libparquet` are the ABI basis for `OLCFastGetArrowStream` — a GeoParquet source streams Arrow batches through `libarrow` without per-feature marshalling.
 
 [LOCAL_ADMISSION]:
-- this package is admitted as the transitive native prerequisite of `MaxRev.Gdal.Core` on osx-arm64; it is never referenced or called directly by `Rasm.Bim` code.
-- the admission obligation is the RID-pinned publish (`osx-arm64`) so the native assets stage, and the version lockstep with the bindings.
-- the rejected forms: a RID-agnostic publish (assets do not stage), a version skew with `MaxRev.Gdal.Core` (ABI fault), and treating the bundled `.targets` as the asset-copy mechanism under the SDK (it is MSBuild-only).
+- Admitted as the transitive native prerequisite of `MaxRev.Gdal.Core` on osx-arm64, never referenced or called directly by `Rasm.Bim`.
+- Admission obligates a RID-pinned `osx-arm64` publish so the natives stage, in version lockstep with the bindings.
 
 [RAIL_LAW]:
 - Package: `MaxRev.Gdal.MacosRuntime.Minimal.arm64`
-- Owns: the osx-arm64 native GDAL dylib closure backing `MaxRev.Gdal.Core` — `libgdal` + the SWIG `*_wrap` P/Invoke targets + `libgeos`/`libproj` + the raster/vector format and compression dependency tree
-- Accept: being the RID-keyed native runtime that makes every `OSGeo.GDAL`/`OGR`/`OSR` call bind on Apple Silicon, and being the ABI source for the GEOS/PROJ seam decisions
+- Owns: the osx-arm64 native GDAL dylib closure backing `MaxRev.Gdal.Core` — `libgdal`, the SWIG `*_wrap` P/Invoke targets, native GEOS/PROJ, and the raster/vector format and compression tree
+- Accept: being the RID-keyed native runtime that binds every `OSGeo.GDAL`/`OGR`/`OSR` call on Apple Silicon, and the ABI source for the GEOS/PROJ seam escalations
 - Reject: exposing any managed API (it has none), covering RIDs other than osx-arm64 (sibling packages own those), and the full GDAL plugin set (this is the minimal driver subset)

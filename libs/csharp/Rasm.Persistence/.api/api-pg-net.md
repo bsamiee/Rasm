@@ -1,121 +1,73 @@
 # [RASM_PERSISTENCE_API_PG_NET]
 
-`pg_net` supplies asynchronous, non-blocking HTTP/HTTPS from SQL — `net.http_get`/`http_post`/
-`http_delete` enqueue a request and return a `bigint` request-id immediately, a `libcurl` background
-worker drives the I/O off the calling backend, and the response lands in `net._http_response` keyed by
-that id. It carries no managed assembly: every surface is server-side SQL the
-`Store/provisioning#SERVER_EXTENSIONS` `ServerExtension("pg_net")` row installs and a server-local
-webhook/HTTP egress consumer drives through raw `Npgsql`/`FromSql`/`SqlQuery`, so an in-DB outbound
-call beside the process-side `Version/egress#EGRESS_SINK` sinks fires without blocking the transaction.
-The extension IS preload-gated — its worker is registered statically in `_PG_init`, so it REQUIRES
-`pg_net` on the `Store/provisioning#SERVER_EXTENSIONS` `shared_preload_libraries` row and hard-errors on
-`CREATE EXTENSION` otherwise.
+`pg_net` owns in-database asynchronous HTTP/HTTPS: a request function enqueues and hands back its `bigint` id inside the calling transaction, a `libcurl` background worker drives the transfer off that backend, and the response lands in `net._http_response` keyed by the same id. Every surface is SQL, so the outbound call fires from the database tier and no backend holds the wire.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pg_net`
-- package: server-side PostgreSQL extension (C/`libcurl`, not a NuGet package); repo `supabase/pg_net`, version line `0.20.x`
-- namespace: SQL `net` schema (the request functions, the `_http_response` table, the response composite types, the worker-control functions)
-- license: Apache-2.0 — the in-DB deployment is the license boundary, no managed linkage
-- registration: preload-gated — the worker is `RegisterBackgroundWorker`'d in `_PG_init` at postmaster start, so `pg_net` MUST be on the `Store/provisioning#SERVER_EXTENSIONS` `shared_preload_libraries` row; the `ServerExtension("pg_net", PreloadGated: true)` row emits its `CreateSql` through `Migrate` (preload prereq cannot ride `HasPostgresExtension`)
-- consumed by: a server-local webhook/HTTP egress beside `Version/egress#EGRESS_SINK`/`#EGRESS_PUMP`, driven through raw `Npgsql`
-- dependency: `libcurl >= 7.83.0`; one worker per cluster, bound to one database via `pg_net.database_name`
+- package: `pg_net` (Apache-2.0, `supabase/pg_net`) — in-process PG18 extension, C over `libcurl`, no managed assembly
+- namespace: SQL `net` schema; `pg_net.*` GUC namespace
 - rail: http-provisioning, http-egress
 
-## [02]-[REQUEST_FUNCTIONS]
+## [02]-[PUBLIC_TYPES]
 
-Each function url-encodes `params`, inserts one row into `net.http_request_queue`, registers a
-commit-time wake callback, and returns the queue id as a `bigint` request-id. The request is NOT
-started until the enqueuing transaction COMMITs (the wake callback fires on `XACT_EVENT_COMMIT`). All
-three share `(url text, params jsonb => '{}', headers jsonb => '{}', timeout_milliseconds int => 5000)`
-and return the `bigint` id; `http_post` inserts `body jsonb => '{}'` after `url` and defaults `headers`
-to `{"Content-Type": "application/json"}`, `http_delete` appends an optional `body jsonb => NULL`.
+[PUBLIC_TYPE_SCOPE]: request and response vocabulary of the `net` schema.
 
-| [INDEX] | [FUNCTION]        | [SEMANTICS]                                    |
-| :-----: | :---------------- | :--------------------------------------------- |
-|  [01]   | `net.http_get`    | enqueue a GET; returns the `bigint` request-id |
-|  [02]   | `net.http_post`   | enqueue a POST; body is JSON                   |
-|  [03]   | `net.http_delete` | enqueue a DELETE; optional body                |
+| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]  | [CAPABILITY]                             |
+| :-----: | :------------------------- | :------------- | :--------------------------------------- |
+|  [01]   | `net.http_method`          | domain         | `get` `post` `delete`, case-insensitive  |
+|  [02]   | `net.request_status`       | enum           | `PENDING` `SUCCESS` `ERROR` discriminant |
+|  [03]   | `net.http_response`        | composite      | one response value                       |
+|  [04]   | `net.http_response_result` | composite      | status-wrapped collect result            |
+|  [05]   | `net.http_request_queue`   | unlogged table | pending requests the worker drains       |
+|  [06]   | `net._http_response`       | unlogged table | response store keyed by request id       |
 
-`net.http_post` enforces `Content-Type: application/json` — it auto-injects the header when omitted and
-raises if it is set to anything else. There is no `net.http_put` or `net.http_head`: the `net.http_method`
-domain admits only `get`/`post`/`delete` (case-insensitive), so a PUT/HEAD spelling is the rejected form.
+- `net.http_response` `(status_code int, headers jsonb, body text)` rides `net.http_response_result` `(status net.request_status, message text, response net.http_response)`; `body` carries the table's `content` column.
+- `net.http_request_queue` `(id bigserial, method net.http_method, url text, headers jsonb, body bytea, timeout_milliseconds int)` drains into `net._http_response` `(id bigint, status_code int, content_type text, headers jsonb, content text, timed_out bool, error_msg text, created timestamptz)`, indexed on `created`; a failed transfer nulls every response column and states its cause in `error_msg`.
 
-## [03]-[RESPONSE_MODEL]
+## [03]-[ENTRYPOINTS]
 
-The response lands in the `net._http_response` UNLOGGED table keyed by the request-id; the body column
-is `content` on the table but `body` on the composite type. The collector wraps a single row into the
-`net.http_response_result` composite.
+[ENTRYPOINT_SCOPE]: enqueue, collect, and worker control; every request function url-encodes `params` onto the url and defaults `timeout_milliseconds` to `5000`.
 
-| [INDEX] | [OBJECT]                     | [KIND]         | [SEMANTICS]                                              |
-| :-----: | :--------------------------- | :------------- | :------------------------------------------------------- |
-|  [01]   | `net._http_response`         | UNLOGGED table | response store keyed by request-id, indexed on `created` |
-|  [02]   | `net.http_response`          | composite      | the response value the collector returns                 |
-|  [03]   | `net.request_status`         | enum           | collector status discriminant                            |
-|  [04]   | `net.http_response_result`   | composite      | the wrapped collect result                               |
-|  [05]   | `net.http_collect_response`  | function       | DEPRECATED — delegates to `net._http_collect_response`   |
-|  [06]   | `net._http_collect_response` | function       | `async => false` blocks (50 ms poll) until the row lands |
+| [INDEX] | [SURFACE]                                                              | [SHAPE]  | [CAPABILITY]                            |
+| :-----: | :--------------------------------------------------------------------- | :------- | :-------------------------------------- |
+|  [01]   | `net.http_get(text, jsonb, jsonb, int) -> bigint`                      | function | enqueue a GET                           |
+|  [02]   | `net.http_post(text, jsonb, jsonb, jsonb, int) -> bigint`              | function | enqueue a POST carrying a `jsonb` body  |
+|  [03]   | `net.http_delete(text, jsonb, jsonb, int, jsonb) -> bigint`            | function | enqueue a DELETE, body optional         |
+|  [04]   | `net._http_collect_response(bigint, bool) -> net.http_response_result` | function | read one response wrapped in its status |
+|  [05]   | `net.wake() -> void`                                                   | function | arm the commit-time worker wake         |
+|  [06]   | `net.worker_restart() -> bool`                                         | function | reload config and restart the worker    |
+|  [07]   | `net.wait_until_running() -> void`                                     | function | block until the worker reaches running  |
+|  [08]   | `net.check_worker_is_up() -> void`                                     | function | raise when no `pg_net` backend is up    |
+|  [09]   | `pg_net.ttl`                                                           | guc      | max lifetime of a response row          |
+|  [10]   | `pg_net.batch_size`                                                    | guc      | queue rows per worker iteration         |
+|  [11]   | `pg_net.database_name`                                                 | guc      | the one database the worker connects to |
+|  [12]   | `pg_net.username`                                                      | guc      | the worker connection role              |
 
-```sql signature
--- net response model: the store table, the two composites, the status enum, and the collector functions
-TABLE net._http_response (id bigint, status_code int, content_type text, headers jsonb, content text, timed_out bool, error_msg text, created timestamptz)  -- UNLOGGED, indexed on created
-TYPE  net.http_response        = (status_code int, headers jsonb, body text)                     -- body is content on the table
-TYPE  net.request_status       = ENUM ('PENDING','SUCCESS','ERROR')
-TYPE  net.http_response_result = (status net.request_status, message text, response net.http_response)
-net.http_collect_response(request_id bigint, async boolean => true)  → net.http_response_result  -- DEPRECATED wrapper
-net._http_collect_response(request_id bigint, async boolean => true) → net.http_response_result  -- async => false blocks (50 ms poll)
-```
+- `net.http_post` raises unless `Content-Type` is `application/json`, and auto-injects that header when the caller omits it.
+- `net._http_collect_response` blocks on a 50 ms poll at `async => false` and never emits `PENDING` — an absent row and a failed transfer both return `ERROR`, so an in-flight request reads as an unknown id.
+- `net.wake` registers one commit callback per transaction, so a rollback never wakes the worker and a prepared transaction needs a manual call.
+- GUC binding: `pg_net.ttl` (`'6 hours'`) and `pg_net.batch_size` (`200`) reload on `SIGHUP`; `pg_net.database_name` (`'postgres'`) and `pg_net.username` (unset selects the bootstrap superuser) fix at backend start.
 
-The public `net.http_collect_response` raises a deprecation notice and the implementation lives in the
-private `net._http_collect_response`; the catalogued consumer reads `net._http_response` directly or
-calls `net._http_collect_response`, never the deprecated wrapper.
+## [04]-[IMPLEMENTATION_LAW]
 
-## [04]-[QUEUE_WORKER]
+[TOPOLOGY]:
+- `_PG_init` hard-errors unless `pg_net` sits on `shared_preload_libraries`, so its worker registers at postmaster start and install rides the `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension("pg_net", PreloadGated: true)` row whose `CreateSql` the `Migrate` fold emits.
+- A request function returns its id inside the transaction and the transfer starts at COMMIT, so a rolled-back enqueue never sends and the response is read later by id, never awaited on the calling backend.
+- One worker per cluster binds to `pg_net.database_name`, drains `net.http_request_queue` by `DELETE ... RETURNING` bounded by `pg_net.batch_size`, and purges `net._http_response` past `pg_net.ttl` on the same iteration.
+- Both `net` tables are UNLOGGED, so a crash truncates queued requests and landed responses alike.
 
-The request queue and the background-worker controls. The worker is one per cluster, processes up to
-`pg_net.batch_size` rows per iteration, deletes successful queue rows, and opportunistically purges
-`net._http_response` rows older than `pg_net.ttl` while processing.
+[STACKING]:
+- `Npgsql`(`.api/api-npgsql.md`), `Npgsql.EntityFrameworkCore.PostgreSQL`(`.api/api-npgsql-ef.md`): url, `params`, `headers`, `body`, and `timeout_milliseconds` bind as `NpgsqlParameter` values through `FromSql`/`RelationalDatabaseFacadeExtensions.SqlQuery<T>`; no EF translator covers the `net` schema.
+- `Version/egress#EGRESS_SINK`: `EgressSink.Webhook` enqueues `net.http_post` under the content key as idempotency header and folds `net.http_response_result` on the NEXT drain — `SUCCESS` advances the cursor, `ERROR` and timeout refuse, an unresolved row holds it as `EgressFault.DeliveryUnconfirmed`.
+- `Version/egress#EGRESS_PUMP`: retriability reads three `net._http_response` columns directly — a `5xx` `status_code`, a NULL `status_code` with its transport cause in `error_msg`, and `timed_out = true` re-enqueue through the request function, while a `4xx` dead-letters.
+- `Store/provisioning#SERVER_EXTENSIONS`: `ClusterConfig` verifies `pg_net.ttl` and `pg_net.batch_size` read-only against `pg_settings` after boot, and its verification fold calls `net.check_worker_is_up`/`net.wait_until_running` for liveness.
 
-| [INDEX] | [SURFACE]                | [SHAPE_SIGNATURE]                                       | [SEMANTICS]                                      |
-| :-----: | :----------------------- | :------------------------------------------------------ | :----------------------------------------------- |
-|  [01]   | `net.http_request_queue` | UNLOGGED table (shape below)                            | request queue; a direct INSERT does not wake it  |
-|  [02]   | `pg_net.ttl`             | GUC `string` (interval), default `'6 hours'` (`SIGHUP`) | max lifetime of `net._http_response` rows        |
-|  [03]   | `pg_net.batch_size`      | GUC `int`, default `200` (`SIGHUP`)                     | max queue rows processed per worker iteration    |
-|  [04]   | `pg_net.database_name`   | GUC `string`, default `'postgres'` (restart)            | the one database the worker connects to          |
-|  [05]   | `pg_net.username`        | GUC `string`, default bootstrap user (restart)          | the worker connection role                       |
-|  [06]   | `net.worker_restart`     | `net.worker_restart()` → `bool`                         | reload config (`pg_reload_conf`), restart worker |
-|  [07]   | `net.wait_until_running` | `net.wait_until_running()` → `void`                     | block until the worker reaches running           |
-|  [08]   | `net.check_worker_is_up` | `net.check_worker_is_up()` → `void`                     | raise if no `pg_net` worker backend is present   |
-
-- [01]-[HTTP_REQUEST_QUEUE]: `UNLOGGED (id bigserial, method net.http_method, url text, headers jsonb, body bytea, timeout_milliseconds int)` — only the request functions wake the worker; a direct INSERT does not.
-
-## [05]-[USAGE_PATTERN]
-
-The canonical idiom is fire-and-collect: enqueue (the request fires on COMMIT), then read the response
-by request-id once it lands. The id is the only join key between the call and its response.
-
-- [01]-[ENQUEUE]: `SELECT net.http_post('https://host/hook', body => '{"k":"v"}'::jsonb) AS request_id` returns the `bigint` id (the request fires on COMMIT).
-- [02]-[POLL]: `SELECT * FROM net._http_response WHERE id = <request_id>` polls the response table by id.
-- [03]-[COLLECT]: `SELECT (response).status_code, (response).body FROM net._http_collect_response(<request_id>, async => false)` blocks until complete and reads the wrapped result.
-- [04]-[RETRIABLE]: `SELECT * FROM net._http_response WHERE status_code >= 500` scans retriable server (`5xx`) responses.
-- [05]-[TRANSPORT_FAIL]: `SELECT id, error_msg FROM net._http_response WHERE status_code IS NULL` scans transport failures (DNS/connect) — `status_code` NULL, the cause in `error_msg`, distinct from `timed_out`.
-
-Failure discriminant: the response failure axis is the `Version/egress#EGRESS_PUMP` `EgressDeadLetter`
-`Retriable`/`Advances` split read directly off three columns — a `5xx` `status_code`, a
-`status_code IS NULL` transport failure (DNS/connection, cause in `error_msg`), and `timed_out = true`
-(the `timeout_milliseconds` cancellation) are the retriable rows the pump re-enqueues through the
-request function; a `4xx` `status_code` is the permanent client-error row it dead-letters. The pump
-discriminates retriability from `net._http_response` directly, never the deprecated collect wrapper.
-
-## [06]-[IMPLEMENTATION_LAW]
-
-[PG_NET_TOPOLOGY]:
-- Preload-gated, statically-registered worker: `pg_net`'s background worker is `RegisterBackgroundWorker`'d from `_PG_init` at postmaster start, so it MUST appear on the `Store/provisioning#SERVER_EXTENSIONS` `shared_preload_libraries` row — `_PG_init` hard-errors (`pg_net is not in shared_preload_libraries`) otherwise. It is therefore NOT dynamically registered on `CREATE EXTENSION`; install is `ServerExtension("pg_net", PreloadGated: true)` whose `CreateSql` rides `Store/provisioning#SERVER_EXTENSIONS` `Migrate` (the preload prerequisite cannot ride `HasPostgresExtension`), exactly like the `pg_search` preload-gated row, and the `ClusterConfig` probe verifies `pg_net` read-only against `pg_settings` after boot.
-- Commit-scoped, fire-and-collect: a request function returns a `bigint` request-id synchronously but the I/O does not start until the transaction COMMITs (the commit-time wake callback), so a rolled-back transaction never sends; the response is read later from `net._http_response` by id, never awaited inline on the calling backend. The deprecated `net.http_collect_response` wrapper is the rejected spelling — read `net._http_response` directly or call `net._http_collect_response`.
-- No managed assembly, no EF translator: the request enqueue and the response read both ride raw `Npgsql`/`FromSql`/`SqlQuery`; the URL, `params`, `headers`, `body`, and `timeout_milliseconds` arrive as `Npgsql` parameters from the egress consumer, never a runtime-concatenated SQL string. `net.http_post` always carries `Content-Type: application/json` (auto-injected or rejected-if-mismatched), and a PUT/HEAD method is unrepresentable in the `net.http_method` domain. The worker is one-per-cluster bound to `pg_net.database_name`, so a second per-database HTTP pump is the rejected form.
+[LOCAL_ADMISSION]:
+- Admission binds on a deploy image carrying `pg_net` on `shared_preload_libraries`; `FailureRank.Observational` degrades the webhook egress lane rather than failing provisioning.
 
 [RAIL_LAW]:
-- Package: `pg_net` (server-side, in the deploy-image PG18, on `shared_preload_libraries`)
-- Owns: in-DB asynchronous non-blocking HTTP/HTTPS — the `net.http_get`/`http_post`/`http_delete` enqueue functions, the `libcurl` background worker, and the `net._http_response` response store
-- Accept: `CREATE EXTENSION pg_net` via the preload-gated `ServerExtension("pg_net", PreloadGated: true)` with `pg_net` on the `ClusterConfig` `shared_preload_libraries` row, the request functions returning a `bigint` id with parameters bound through `Npgsql`, the commit-scoped fire-and-collect pattern reading `net._http_response` by id, the `pg_net.ttl`/`batch_size` GUCs verified read-only, `net.worker_restart`/`wait_until_running` worker control
-- Reject: linking the extension into managed code, installing without `pg_net` on `shared_preload_libraries` (hard-errors), an inline-awaited synchronous HTTP call on the calling backend, the deprecated `net.http_collect_response` wrapper, a `net.http_put`/`net.http_head` spelling (unrepresentable), a runtime-concatenated request string, a direct `net.http_request_queue` INSERT expecting the worker to wake (only the request functions wake it)
+- Package: `pg_net`
+- Owns: in-database asynchronous HTTP — the enqueue functions, the `libcurl` worker, and the `net._http_response` store
+- Accept: commit-scoped enqueue returning a `bigint` id with every value bound through `Npgsql`, the response read by id off `net._http_response` or `net._http_collect_response`, the `pg_net.*` GUCs verified read-only, and the worker-control probes
+- Reject: an inline-awaited HTTP call holding the calling backend, and a direct `net.http_request_queue` INSERT that never calls `net.wake`

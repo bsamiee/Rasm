@@ -1,6 +1,6 @@
 # [RASM_RHINO_API_ETO_DRAWING]
 
-`Eto.Drawing` is the immediate-mode 2D painting surface behind every `Drawable` host and owner-drawn cell — one `Graphics` command stream renders primitives, paths, images, and text against a save/restore transform and clip stack. This catalog owns that stream, the `GraphicsPath` geometry with fill and stroke hit-testing, the pen and brush vocabulary including gradient and texture fills, `FormattedText` and `MeasureString` layout, `Matrix` composition, `Bitmap` lock and per-pixel access, `Color` blend and space conversion, and the `SystemFonts` roster. Painting is issued through one `Graphics` handle obtained from a `Drawable` paint event or `CreateGraphics`, never a retained scene graph.
+`Eto.Drawing` is the immediate-mode 2D painting surface behind every `Drawable` host and owner-drawn cell: one `Graphics` command stream strokes, fills, blits, and lays out text against a save/restore transform and clip stack, with no retained scene — a `Drawable` paint event or `CreateGraphics` hands the live handle and the host re-issues the whole paint on invalidation. Canonical geometry and colour project to native-canvas primitives at the render edge, feeding the `paint` rail.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,7 +9,7 @@
 - license: BSD-3-Clause
 - assembly: `Eto.dll` (Rhino `RhCore` framework)
 - namespace: `Eto.Drawing`
-- asset: the same `Eto.dll` the `Eto.Forms` surface binds; `Graphics` handles issue against the host platform's native canvas
+- asset: the same `Eto.dll` the `Eto.Forms` surface binds; `Graphics` handles render against the host's native canvas
 - rail: paint
 
 ## [02]-[PUBLIC_TYPES]
@@ -18,7 +18,7 @@
 - namespace: `Eto.Forms`, `Eto.Drawing`
 - rail: paint
 
-`Drawable` is the retained custom-paint host; `Graphics` is the immediate command stream it hands to a paint event or returns from `CreateGraphics`.
+`Drawable` hosts custom paint; `Graphics` is the immediate stream it hands to a `Paint` event or returns from `CreateGraphics`.
 
 | [INDEX] | [SYMBOL]                            | [KIND]             | [CAPABILITY]                                                |
 | :-----: | :---------------------------------- | :----------------- | :---------------------------------------------------------- |
@@ -35,7 +35,6 @@
 |  [11]   | `Graphics.PixelOffsetMode`          | property           | half-pixel offset policy for crisp lines                    |
 
 [PUBLIC_TYPE_SCOPE]: geometry, pens, and paths
-- namespace: `Eto.Drawing`
 - rail: paint
 
 | [INDEX] | [SYMBOL]                   | [KIND]   | [CAPABILITY]                                                                |
@@ -52,7 +51,6 @@
 |  [10]   | `IGraphicsPath`            | contract | path contract consumed by `Graphics.DrawPath`/`FillPath`                    |
 
 [PUBLIC_TYPE_SCOPE]: colour and brushes
-- namespace: `Eto.Drawing`
 - rail: paint
 
 | [INDEX] | [SYMBOL]              | [KIND]  | [CAPABILITY]                                                   |
@@ -67,7 +65,6 @@
 |  [08]   | `GradientWrapMode`    | enum    | gradient edge wrap policy                                      |
 
 [PUBLIC_TYPE_SCOPE]: text, images, and matrices
-- namespace: `Eto.Drawing`
 - rail: paint
 
 | [INDEX] | [SYMBOL]                 | [KIND]      | [CAPABILITY]                                                   |
@@ -90,10 +87,9 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: graphics draw and fill commands
-- namespace: `Eto.Drawing`
 - rail: paint
 
-Verified `Graphics` command signatures. A `Pen` strokes, a `Brush` fills; the same primitive has a draw and a fill form selected by which the caller supplies.
+A `Pen` strokes, a `Brush` fills; each primitive carries a draw and a fill form selected by the caller's argument.
 
 | [INDEX] | [SURFACE]                                                                    | [CALL_SHAPE] | [CAPABILITY]                     |
 | :-----: | :--------------------------------------------------------------------------- | :----------- | :------------------------------- |
@@ -111,10 +107,9 @@ Verified `Graphics` command signatures. A `Pen` strokes, a `Brush` fills; the sa
 |  [12]   | `DrawImage(Image image, RectangleF source, RectangleF destination)`          | blit         | source-to-destination image draw |
 
 [ENTRYPOINT_SCOPE]: text draw and measure
-- namespace: `Eto.Drawing`
 - rail: paint
 
-`DrawText` has a pre-laid `FormattedText` form and a frame form carrying wrap, alignment, and trimming policy; `MeasureString`/`FormattedText.Measure` return the laid-out `SizeF`. Verified signatures:
+`DrawText` carries a pre-laid `FormattedText` form and a frame form with wrap, alignment, and trimming policy; `MeasureString` and `FormattedText.Measure` return the laid-out `SizeF`:
 
 ```csharp signature
 Graphics.DrawText(FormattedText formattedText, PointF location)
@@ -124,7 +119,6 @@ FormattedText.Measure()
 ```
 
 [ENTRYPOINT_SCOPE]: clip and transform state
-- namespace: `Eto.Drawing`
 - rail: paint
 
 Transform and clip are a save/restore stack; a `SaveTransformState` push is unwound by the matching restore.
@@ -143,10 +137,9 @@ Transform and clip are a save/restore stack; a `SaveTransformState` push is unwo
 |  [10]   | `Flush()`                                          | flush         | forces queued commands to the surface             |
 
 [ENTRYPOINT_SCOPE]: path construction and hit-testing
-- namespace: `Eto.Drawing`
 - rail: paint
 
-`Add*` build the figure; `GetRoundRect` factories a rounded rectangle; `FillContains`/`StrokeContains` are the fill and stroke hit-tests; `Transform`/`Clone` mutate and copy. Verified signatures:
+`Add*` build the figure, `GetRoundRect` factories a rounded rectangle, `FillContains`/`StrokeContains` are the fill and stroke hit-tests, and `Transform`/`Clone` mutate and copy:
 
 ```csharp signature
 GraphicsPath.AddLine(float startX, float startY, float endX, float endY)
@@ -164,7 +157,6 @@ GraphicsPath.Clone()
 ```
 
 [ENTRYPOINT_SCOPE]: matrix composition
-- namespace: `Eto.Drawing`
 - rail: paint
 
 | [INDEX] | [SURFACE]                                                                      | [CALL_SHAPE]        | [CAPABILITY]                     |
@@ -178,10 +170,9 @@ GraphicsPath.Clone()
 |  [07]   | `IMatrix.TransformPoint(PointF point)`                                         | instance → `PointF` | maps a point through the matrix  |
 
 [ENTRYPOINT_SCOPE]: colour, brushes, bitmaps, and system fonts
-- namespace: `Eto.Drawing`
 - rail: paint
 
-`Color`'s conversion members operate in sRGB space; perceptual colour composes the `Unicolour` model in `[STACKING]`.
+`Color`'s blend, distance, and conversion members compute in sRGB.
 
 | [INDEX] | [SURFACE]                                                                                     | [CAPABILITY]                    |
 | :-----: | :-------------------------------------------------------------------------------------------- | :------------------------------ |
@@ -202,7 +193,7 @@ GraphicsPath.Clone()
 |  [15]   | `FormattedText.ForegroundBrush { get; set; }`                                                 | assigns shaped-text foreground  |
 |  [16]   | `FormattedText.Text/Font/MaximumSize/Wrap/Alignment/Trimming`                                 | configures shaped-text layout   |
 
-The three gradient and texture brush constructors:
+Gradient and texture brush constructors:
 
 ```csharp signature
 LinearGradientBrush(Color startColor, Color endColor, PointF startPoint, PointF endPoint)
@@ -213,24 +204,23 @@ TextureBrush(Image image, float opacity = 1f)
 ## [04]-[IMPLEMENTATION_LAW]
 
 [DRAWING_TOPOLOGY]:
-- `Graphics` is the single immediate command stream; a `Drawable` paint event hands a live handle, and `CreateGraphics` acquires one off-event. There is no retained scene — the host re-issues the whole paint on invalidation.
-- Transform and clip form a save/restore stack: `SaveTransformState` pushes, the matching restore pops, and `TranslateTransform`/`RotateTransform`/`ScaleTransform`/`MultiplyTransform` mutate the top state. `IsVisible` early-culls a rectangle against the active clip.
-- `GraphicsPath` is the retained geometry with both fill and stroke hit-testing (`FillContains`/`StrokeContains`), so pointer hit-testing composes the same path the paint drew, never a parallel geometry copy.
-- `Bitmap.Lock` returns a `BitmapData` accessor for raw pixel work; per-pixel `GetPixel`/`SetPixel` are the unlocked path and the byte-array round-trip carries an `ImageFormat`.
-- `Color`'s blend, distance, and space conversions are sRGB-space operations; perceptual work leaves this type at the seam.
+- `Graphics` is the single immediate command stream: a `Drawable` `Paint` event hands a live handle and `CreateGraphics` acquires one off-event. No retained scene exists — the host re-issues the whole paint on invalidation.
+- Transform and clip are one save/restore stack: `SaveTransformState` pushes, the matching restore pops, and `IsVisible` early-culls a rectangle against the active clip.
+- `GraphicsPath` is retained geometry carrying both fill and stroke hit-testing, so pointer hit-testing composes the same path the paint drew, never a parallel geometry copy.
+- `Color` computes in sRGB only; perceptual blend, `DeltaE`, and gamut mapping leave this type for `Unicolour` at the seam.
 
 [STACKING]:
-- `Wacton.Unicolour`(`../../.api/api-unicolour.md`): THE colour model. `Color.Blend`/`Distance`/`ToHSB`/`ToHSL`/`ToCMYK` are naive sRGB math; an `Eto.Drawing.Color` maps to `new Unicolour(ColourSpace.Rgb255, r, g, b)` and back through `.Rgb`, and perceptual blending, `DeltaE` distance, gamut-mapped fills, and `Mix`/`Palette` theme ramps route through `Unicolour`. The `Eto.Drawing.Color` stays only at the paint edge that feeds a `Brush` or `Pen`.
-- `LanguageExt.Core`(`../../.api/api-languageext.md`): `Bitmap.Lock` returns a disposable `BitmapData`, so a lock rides an `Eff<A>`/`use` resource scope that releases the handle deterministically; `Fin<A>` rails an encode/decode over `ToByteArray`; `Seq<PointF>` is the vertex carrier a polyline or `AddCurve` folds over.
-- `Thinktecture.Runtime.Extensions`(`../../.api/api-thinktecture-runtime-extensions.md`): a `[ValueObject]` owns a validated stroke-style, dash-preset, or gradient-stop value, and a `[SmartEnum]` owns the closed brush-kind and system-font-role vocabularies a generator-shaped paint layer folds to rows.
-- Kernel unification: easing, spring, and interpolation math that positions or animates a paint composes the Rasm kernel, never a second in-folder derivation; `Eto.Drawing` owns only the immediate render of the resolved geometry and colour.
+- `Wacton.Unicolour`(`../../.api/api-unicolour.md`): owns the perceptual colour model. `Eto.Drawing.Color`'s sRGB `Blend`/`Distance`/`ToHSB`/`ToHSL`/`ToCMYK` map to `new Unicolour(ColourSpace.Rgb255, r, g, b)` and back through `.Rgb`, so perceptual blending, `DeltaE` distance, gamut-mapped fills, and `Mix`/`Palette` theme ramps route through `Unicolour`, the `Eto.Drawing.Color` surviving only at the paint edge feeding a `Brush` or `Pen`.
+- `LanguageExt.Core`(`../../.api/api-languageext.md`): `Bitmap.Lock` returns a disposable `BitmapData`, so a lock rides an `Eff<A>`/`use` resource scope releasing the handle deterministically; `Fin<A>` rails an encode/decode over `ToByteArray`; `Seq<PointF>` is the vertex carrier a polyline or `AddCurve` folds over.
+- `Thinktecture.Runtime.Extensions`(`../../.api/api-thinktecture-runtime-extensions.md`): a `[ValueObject]` owns a validated stroke-style, dash-preset, or gradient-stop value; a `[SmartEnum]` owns the closed brush-kind and system-font-role vocabularies a generator-shaped paint layer folds to rows.
+- Kernel unification: easing, spring, and interpolation math positioning or animating a paint composes the Rasm kernel, never a second in-folder derivation; `Eto.Drawing` owns only the immediate render of the resolved geometry and colour.
 
 [LOCAL_ADMISSION]:
-- `Eto.Drawing` is admitted from the same Rhino-loaded `Eto.dll` the forms surface binds; a `Graphics` handle is obtained only from a `Drawable` paint event or `CreateGraphics`, and every draw resolves against the host platform's native canvas.
+- `Eto.Drawing` binds the same Rhino-loaded `Eto.dll` as the forms surface, never a second NuGet copy; a `Graphics` handle comes only from a `Drawable` paint event or `CreateGraphics`.
 - Paint code holds canonical geometry and `Unicolour` colour internally and projects to `Eto.Drawing` primitives at the render edge; `Eto.Drawing.*` types never leak past the paint owner.
 
 [RAIL_LAW]:
 - Package: `Eto.Drawing`
-- Owns: the immediate `Graphics` command stream, `GraphicsPath` geometry with fill/stroke hit-testing, pen/brush vocabulary, `FormattedText`/`MeasureString` layout, `Matrix` composition, `Bitmap` lock and pixel access, and the `SystemFonts` roster.
-- Accept: custom 2D painting, path construction and hit-testing, text measurement and layout, image blit and pixel access, and transform/clip state management behind a `Drawable`.
+- Owns: the immediate `Graphics` command stream, `GraphicsPath` geometry with fill/stroke hit-testing, the pen/brush vocabulary, `FormattedText`/`MeasureString` layout, `Matrix` composition, `Bitmap` lock and pixel access, and the `SystemFonts` roster.
+- Accept: custom 2D painting, path construction and hit-testing, text measurement and layout, image blit and pixel access, and transform/clip state behind a `Drawable`.
 - Reject: perceptual colour math (`Unicolour` owns it), widget construction and layout (`api-eto-forms.md`), platform-handler selection (`api-eto-platform.md`), host viewport drawing through the Rhino display pipeline (`api-rhinocommon-display.md`), and leaking `Eto.Drawing.*` types past the paint owner.

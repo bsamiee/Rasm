@@ -217,23 +217,28 @@ The inspected object binds through `DataContext`; no public `ViewModel` property
 |  [16]   | `MiddleContent`                                      | middle chrome content |
 |  [17]   | `BottomContent`                                      | bottom chrome content |
 
-[FACTORY_ENTRYPOINTS]: editor-factory contract + registry operations; registry ops resolve through `CellEditFactoryService.Default`
+[FACTORY_ENTRYPOINTS]: `ICellEditFactory` contract — match, create, refresh, and read/write one cell editor.
 
-| [INDEX] | [SURFACE]                                                                                                                    | [CAPABILITY]             |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------- | :----------------------- |
-|  [01]   | `ICellEditFactory.Accept(object accessToken) : bool`                                                                         | editor match             |
-|  [02]   | `ICellEditFactory.ImportPriority : int`                                                                                      | match priority           |
-|  [03]   | `ICellEditFactory.HandleNewProperty(PropertyCellContext) : Control?`                                                         | editor creation          |
-|  [04]   | `ICellEditFactory.HandlePropertyChanged(PropertyCellContext) : bool`                                                         | editor refresh           |
-|  [05]   | `ICellEditFactory.HandleReadOnlyStateChanged(Control, bool)`                                                                 | read-only refresh        |
-|  [06]   | `ICellEditFactory.HandlePropagateVisibility(object?, PropertyCellContext, IPropertyGridFilterContext) : PropertyVisibility?` | filter-driven visibility |
-|  [07]   | `ICellEditFactory.SetPropertyValue(PropertyCellContext, object?)`                                                            | command-routed write     |
-|  [08]   | `ICellEditFactory.GetPropertyValue(PropertyCellContext) : object?`                                                           | value read               |
-|  [09]   | `ICellEditFactory.Clone() : ICellEditFactory?`                                                                               | per-cell factory clone   |
-|  [10]   | `ICellEditFactoryCollection.Factories`                                                                                       | registered factories     |
-|  [11]   | `ICellEditFactoryCollection.AddFactory(ICellEditFactory)`                                                                    | factory registration     |
-|  [12]   | `ICellEditFactoryCollection.RemoveFactory(ICellEditFactory)`                                                                 | factory removal          |
-|  [13]   | `ICellEditFactoryCollection.CloneFactories(object)`                                                                          | factory snapshot         |
+| [INDEX] | [SURFACE]                                                                                                   | [CAPABILITY]             |
+| :-----: | :---------------------------------------------------------------------------------------------------------- | :----------------------- |
+|  [01]   | `Accept(object accessToken) : bool`                                                                         | editor match             |
+|  [02]   | `ImportPriority : int`                                                                                      | match priority           |
+|  [03]   | `HandleNewProperty(PropertyCellContext) : Control?`                                                         | editor creation          |
+|  [04]   | `HandlePropertyChanged(PropertyCellContext) : bool`                                                         | editor refresh           |
+|  [05]   | `HandleReadOnlyStateChanged(Control, bool)`                                                                 | read-only refresh        |
+|  [06]   | `HandlePropagateVisibility(object?, PropertyCellContext, IPropertyGridFilterContext) : PropertyVisibility?` | filter-driven visibility |
+|  [07]   | `SetPropertyValue(PropertyCellContext, object?)`                                                            | command-routed write     |
+|  [08]   | `GetPropertyValue(PropertyCellContext) : object?`                                                           | value read               |
+|  [09]   | `Clone() : ICellEditFactory?`                                                                               | per-cell factory clone   |
+
+[FACTORY_REGISTRY]: `ICellEditFactoryCollection` operations, resolved through `CellEditFactoryService.Default`.
+
+| [INDEX] | [SURFACE]                         | [CAPABILITY]         |
+| :-----: | :-------------------------------- | :------------------- |
+|  [01]   | `Factories`                       | registered factories |
+|  [02]   | `AddFactory(ICellEditFactory)`    | factory registration |
+|  [03]   | `RemoveFactory(ICellEditFactory)` | factory removal      |
+|  [04]   | `CloneFactories(object)`          | factory snapshot     |
 
 [EVENT_ENTRYPOINTS]: routed inspector event surfaces — `PropertyGrid`
 

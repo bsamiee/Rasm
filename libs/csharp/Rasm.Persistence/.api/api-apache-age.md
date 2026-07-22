@@ -1,33 +1,20 @@
 # [RASM_PERSISTENCE_API_APACHE_AGE]
 
-`apache-age` (the project/repo name; the installed extension is `age`) supplies an openCypher graph
-engine inside PostgreSQL — labelled vertices and edges stored in per-graph backing relations under the
-`ag_catalog` schema, queried through the one `cypher(graph, $$ ... $$)` set-returning function whose
-rows are the `agtype` graph value type. It carries no managed assembly: every surface is server-side
-SQL the `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension("age")` row installs and the `Query/cypher`
-graph lane drives through raw `Npgsql` against the `agtype` result — `GraphSession` owns the enablement
-gate, DDL lifecycle, and `agtype` decode, and the `GraphQuery` `[Union]` (`Match`/`Mutate`/`Reach`) is
-the ONE verb surface an in-PG openCypher query enters through, all inside the one `PostgresServer`
-residence (the in-process QuikGraph `Query/topology` view is the default sibling; this lane is the
-optional self-hosted escalation). The extension is NOT preload-gated — it installs through `CREATE EXTENSION age` and requires
-a per-session `LOAD 'age'` plus a `search_path` set, never a `shared_preload_libraries` row.
+`apache-age` (repo `apache/age`; installed extension `age`) mints an in-PostgreSQL openCypher graph store — labelled vertices and edges in per-graph backing relations under the `ag_catalog` schema, queried through the one `cypher(graph, $$ … $$, params)` set-returning function whose rows are the `agtype` graph value type. It ships no managed assembly: every surface is server-side SQL. `Query/cypher#GRAPH_QUERY`, the optional self-hosted graph lane, drives it through raw `Npgsql`, demoted beneath the default in-process QuikGraph `Query/topology` view.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `apache-age` / extension `age`
-- package: server-side PostgreSQL extension (C, not a NuGet package); repo `apache/age`, installed name `age`, `default_version = '1.7.0'`
-- namespace: SQL `ag_catalog` schema (functions, catalog tables, the `agtype` type and its operator/cast set)
+- package: server-side PostgreSQL extension (C, not a NuGet package); repo `apache/age`, installed name `age`
+- namespace: SQL `ag_catalog` schema — functions, catalog tables, the `agtype` type and its operator/cast set
 - license: Apache-2.0 — the in-DB deployment is the license boundary, no managed linkage
-- registration: `CREATE EXTENSION age`, preload-free — absent from the `Store/provisioning#SERVER_EXTENSIONS` `shared_preload_libraries` row by design; the `ServerExtension("age", PreloadGated: false)` row carries its install, the per-session `LOAD 'age'`/`search_path` is a connection-init concern (`[06]`)
-- consumed by: `Query/cypher#GRAPH_SESSION` (enablement gate, `GraphDdl` lifecycle, `agtype` decode) + `Query/cypher#GRAPH_QUERY` (the `GraphQuery.Match`/`Mutate`/`Reach` openCypher cases), driven through raw `Npgsql` against the `agtype` result type
+- registration: `CREATE EXTENSION age` installs the SQL objects; the per-session `LOAD 'age'`/`search_path` is a connection-init concern (`[02]`); install rides the `age` `ServerExtension` row (`Store/provisioning#SERVER_EXTENSIONS`)
+- consumed by: `Query/cypher#GRAPH_SESSION` (enablement gate, `GraphDdl` lifecycle, `agtype` decode) and `Query/cypher#GRAPH_QUERY` (the openCypher verb surface), driven through raw `Npgsql` against the `agtype` result type
 - rail: graph-provisioning, graph-lane
 
 ## [02]-[SESSION_SETUP]
 
-`age` is a per-session-loaded extension: `CREATE EXTENSION` registers the SQL objects once per
-database, but every connection that runs Cypher must `LOAD 'age'` and put `ag_catalog` on the
-`search_path` so the bare `cypher`/`agtype` symbols resolve. This is a per-connection init step, not a
-one-shot migration, and is NOT encoded by the `Extension` row's `CreateSql`.
+`age` loads per session and needs no `shared_preload_libraries`: `CREATE EXTENSION age` succeeds without preload, and every connection running Cypher issues `LOAD 'age'` and puts `ag_catalog` on `search_path` so the bare `cypher`/`agtype` symbols resolve — preloading `age` is an optional convenience that only skips the per-session `LOAD`.
 
 | [INDEX] | [STATEMENT]                                     | [SCOPE]           | [SEMANTICS]                                                    |
 | :-----: | :---------------------------------------------- | :---------------- | :------------------------------------------------------------- |
@@ -35,13 +22,11 @@ one-shot migration, and is NOT encoded by the `Extension` row's `CreateSql`.
 |  [02]   | `LOAD 'age'`                                    | once per session  | load the shared library into the backend (before any Cypher)   |
 |  [03]   | `SET search_path = ag_catalog, "$user", public` | per session/txn   | resolve unqualified `cypher`/`agtype` (or `SET LOCAL` per txn) |
 
-A PL/pgSQL function that runs Cypher repeats `LOAD 'age'; SET search_path TO ag_catalog;` inside its
-own body — the session settings of the caller do not cross the function boundary.
+A PL/pgSQL function running Cypher repeats `LOAD 'age'; SET search_path TO ag_catalog;` in its own body — the caller's session settings do not cross the function boundary.
 
 ## [03]-[CATALOG_SCHEMA]
 
-The `ag_catalog` schema holds the graph/label registry as ordinary tables (dumped via
-`pg_extension_config_dump`, so they survive `pg_dump`), keyed by the label-id/kind domains.
+`ag_catalog` holds the graph/label registry as ordinary tables keyed by the label-id/kind domains; `pg_extension_config_dump` marks them so they survive `pg_dump`.
 
 | [INDEX] | [OBJECT]     | [SHAPE]                                                                                  | [SEMANTICS]             |
 | :-----: | :----------- | :--------------------------------------------------------------------------------------- | :---------------------- |
@@ -53,9 +38,7 @@ The `ag_catalog` schema holds the graph/label registry as ordinary tables (dumpe
 
 ## [04]-[GRAPH_LABEL_LIFECYCLE]
 
-Graph and label DDL are `ag_catalog`-schema `SELECT`-function calls returning `void`. `create_graph`
-materialises the namespace plus the default `_ag_label_vertex`/`_ag_label_edge` base labels; a label's
-backing relation is created on first use or explicitly by `create_vlabel`/`create_elabel`.
+Graph and label DDL are `ag_catalog` `SELECT`-function calls returning `void`. `create_graph` materialises the namespace and the default `_ag_label_vertex`/`_ag_label_edge` base labels; a label's backing relation lands on first use or explicitly through `create_vlabel`/`create_elabel`.
 
 | [INDEX] | [FUNCTION]      | [SIGNATURE]                                                            | [SEMANTICS]                               |
 | :-----: | :-------------- | :--------------------------------------------------------------------- | :---------------------------------------- |
@@ -68,16 +51,13 @@ backing relation is created on first use or explicitly by `create_vlabel`/`creat
 
 ## [05]-[CYPHER_QUERY]
 
-One polymorphic set-returning function runs every Cypher statement; the third `params agtype`
-argument is the parameterized form (referenced inside the query body as `$name`).
+One polymorphic set-returning function runs every Cypher statement; the third `params agtype` argument carries the parameterized values, referenced inside the query body as `$name`.
 
 ```sql signature
 ag_catalog.cypher(graph_name name = NULL, query_string cstring = NULL, params agtype = NULL) RETURNS SETOF record
 ```
 
-Because `cypher` is declared `RETURNS SETOF record`, PostgreSQL itself requires the caller to supply a
-column-definition list — there is no anonymous-record default. Every projected column is typed
-`agtype`, and the list arity/names must match the Cypher `RETURN` clause.
+`cypher` is declared `RETURNS SETOF record`, so PostgreSQL requires the caller's column-definition list — no anonymous-record default. Every projected column is typed `agtype`, and the list arity and names must match the Cypher `RETURN` clause.
 
 | [INDEX] | [FORM]                                                                                       | [SEMANTICS]                               |
 | :-----: | :------------------------------------------------------------------------------------------- | :---------------------------------------- |
@@ -85,17 +65,11 @@ column-definition list — there is no anonymous-record default. Every projected
 |  [02]   | `SELECT * FROM cypher('g', $$ CREATE (:Label {k:'v'}) $$) AS (r agtype)`                     | write; still needs a column list          |
 |  [03]   | `SELECT * FROM cypher('g', $$ MATCH (n) WHERE n.id = $target RETURN n $$, $1) AS (n agtype)` | `$target` binds from `params agtype` `$1` |
 
-A clause that mutates AND returns in one Cypher statement is rejected by AGE (split `CREATE`/`SET` from
-the trailing `MATCH ... RETURN`); the `$$ ... $$` dollar-quote isolates the Cypher body from SQL
-string escaping. The `Query/cypher` `GraphSession` binds graph name, query body, and the `params agtype`
-through `Npgsql` parameters (server-side `format('%L')` composition) and decodes the `agtype` columns
-itself, never an EF-translated member.
+AGE rejects a single Cypher statement that mutates and returns — split `CREATE`/`SET` from the trailing `MATCH … RETURN`. `$$ … $$` dollar-quoting isolates the Cypher body from SQL string escaping.
 
 ## [06]-[AGTYPE]
 
-`agtype` is AGE's single value type — a superset of `jsonb`'s binary format extended with exact-number
-kinds (`integer`/`float`/`numeric`) and the graph entities `vertex`/`edge`/`path`. A vertex/edge
-renders `{id, label, properties}::vertex|edge`; a path is the alternating `[vertex, edge, ...]::path`.
+`agtype` is AGE's single value type — a superset of `jsonb`'s binary format extended with the exact-number kinds (`integer`/`float`/`numeric`) and the graph entities `vertex`/`edge`/`path`. A vertex or edge renders `{id, label, properties}::vertex|edge`; a path is the alternating `[vertex, edge, …]::path`.
 
 | [INDEX] | [OPERATOR]    | [SIGNATURE]                               | [SEMANTICS]                              |
 | :-----: | :------------ | :---------------------------------------- | :--------------------------------------- |
@@ -106,23 +80,11 @@ renders `{id, label, properties}::vertex|edge`; a path is the alternating `[vert
 |  [05]   | `@>` / `<@`   | `agtype @> agtype` → `boolean`            | containment / contained-by (commutators) |
 |  [06]   | `@>>` / `<<@` | `agtype @>> agtype` → `boolean`           | top-level-only containment               |
 
-Casts compose at two layers: in-Cypher `expr::int|float|numeric|bool|vertex|edge|path` (agtype →
-agtype), and SQL-level CASTs registered against native types — `agtype::text`, `::boolean`,
-`::float8`, `::bigint`/`::int`/`::smallint`, `::int[]`, `::json`, `::jsonb` (and the reverse
-`text`/`boolean`/`float8`/`int8`/`int4`/`jsonb` → `agtype`) — so `(cypher(...)).col::int` /
-`::text` / `::jsonb` extracts a typed scalar from a returned `agtype` row.
+Casts compose at two layers: in-Cypher `expr::int|float|numeric|bool|vertex|edge|path` (agtype → agtype), and SQL-level casts against native types — `agtype::text`/`::boolean`/`::float8`/`::bigint`/`::int`/`::smallint`/`::int[]`/`::json`/`::jsonb` and their reverses — so `(cypher(…)).col::int` extracts a typed scalar from a returned `agtype` row.
 
 ## [07]-[GRAPH_ALGORITHMS]
 
-Bulk loaders, the complete-graph generator, and the variable-length-edge engine — all under
-`ag_catalog`, returning `agtype` rows or `void`. `age` exposes NO `age_shortest_path`/
-`age_all_shortest_paths` SQL functions: variable-length traversal is the `age_vle` engine behind
-Cypher's `*` range patterns, and any shortest-path need is written as a bounded `*`-range Cypher `MATCH`,
-never a dedicated SQL routine — weighted/large-fan path work is the `pgrouting` half of the SAME
-`Query/cypher#GRAPH_QUERY` union (`Path`/`Via`/`Kth`/…), and the in-process QuikGraph `Query/topology`
-view is the default synchronous counterpart.
-
-All functions live under `ag_catalog`; each row's exact signature is keyed `[01]`–`[05]` below the table.
+`age` ships no `age_shortest_path` SQL routine: variable-length traversal is the `age_vle` engine the planner invokes behind Cypher `*` range patterns, so a shortest-path query is a bounded `*`-range `MATCH`, never a dedicated SQL function. Bulk loaders, the complete-graph generator, and `age_vle` all live under `ag_catalog`, returning `agtype` rows or `void`.
 
 | [INDEX] | [FUNCTION]              | [SEMANTICS]                                                             |
 | :-----: | :---------------------- | :---------------------------------------------------------------------- |
@@ -140,15 +102,22 @@ All functions live under `ag_catalog`; each row's exact signature is keyed `[01]
 
 ## [08]-[IMPLEMENTATION_LAW]
 
-[AGE_TOPOLOGY]:
-- Preload-free, session-loaded: `age` registers no `shared_preload_libraries` row, so it is correctly absent from the `Store/provisioning#SERVER_EXTENSIONS` preload value; install is `ServerExtension("age", PreloadGated: false)` whose `CreateSql` emits `CREATE EXTENSION IF NOT EXISTS age` through `Store/provisioning#SERVER_EXTENSIONS` `Declare`/`Migrate`. The per-session `LOAD 'age'` + `SET search_path = ag_catalog, "$user", public` is a connection-init obligation an `Npgsql` open-hook (or per-connection `SET`) issues — the one-shot `Extension` `CreateSql` cannot encode it, so a profile that runs Cypher must carry the session-load step, and a PL/pgSQL Cypher wrapper repeats `LOAD`/`search_path` in its own body.
-- Install ownership guard (`age`): `CREATE EXTENSION age` refuses to install into a pre-existing `ag_catalog` schema owned by a different role (ownership is compared directly, exact even for a superuser) — a provisioning profile that re-creates the extension must own `ag_catalog` or drop it first, so the install row is idempotent only against an `ag_catalog` the installing role owns.
-- VLE cache coherence: `age` installs the `age_invalidate_graph_cache()` trigger on each label's backing relation, so an SQL-level `INSERT`/`UPDATE`/`DELETE`/`TRUNCATE` against a label table (bypassing Cypher, e.g. a bulk loader) bumps the graph version and invalidates the `age_vle` caches — direct backing-relation writes stay coherent with subsequent `*`-range traversals.
-- No managed assembly, no EF translator: every Cypher statement rides raw `Npgsql`/`FromSql`/`SqlQuery` mapping `agtype` columns, and the mandatory `AS (col agtype, ...)` column-definition list is required by PostgreSQL's `RETURNS SETOF record` contract, never optional — an anonymous-record call without the list is the faulted spelling. The `agtype` columns are extracted to typed scalars through the registered SQL-level casts (`::int`/`::text`/`::jsonb`), never a hand-parsed text decode.
-- In-residence graph engine: `age` lives inside the one `PostgresServer` residence — a within-PG openCypher capability the OPTIONAL self-hosted `Query/cypher` lane gates behind `CypherEnablement`, demoted beneath the default in-process QuikGraph `Query/topology` view, never a cross-store query federator. Graph name, Cypher body, and `params agtype` arrive bound through the `GraphSession` `format('%L')` server-side composition, never a runtime-concatenated Cypher string.
+[TOPOLOGY]:
+- Session-load obligation: `CREATE EXTENSION age` installs the `ag_catalog` SQL objects once per database, and the one-shot `CreateSql` cannot encode the per-connection load — a Cypher-running connection issues `LOAD 'age'` + `SET search_path = ag_catalog, "$user", public` at the connection seam before any `cypher`/`agtype` symbol resolves.
+- Install ownership guard: `CREATE EXTENSION age` refuses a pre-existing `ag_catalog` owned by a different role — ownership is compared exactly, even for a superuser — so a re-creating provisioning profile owns `ag_catalog` or drops it first, and the install row is idempotent only against an `ag_catalog` the installing role owns.
+- VLE cache coherence: the `age_invalidate_graph_cache()` trigger on each label's backing relation bumps the graph version on any SQL-level `INSERT`/`UPDATE`/`DELETE`/`TRUNCATE` that bypasses Cypher (a bulk loader), keeping direct backing-relation writes coherent with later `*`-range traversals.
+- Column-definition list: `cypher(…)`'s `RETURNS SETOF record` contract requires the caller's `AS (col agtype, …)` list — an anonymous-record call without it is the faulted spelling — and `agtype` columns extract to typed scalars through the registered SQL casts (`::int`/`::text`/`::jsonb`), never a hand-parsed text decode.
+
+[STACKING]:
+- `api-npgsql`(`.api/api-npgsql.md`): AGE ships no managed or EF driver, so every Cypher statement rides raw `Npgsql` — `NpgsqlDataSource`/`NpgsqlCommand` execute `cypher(…)`, `agtype` columns read through `FromSql`/`SqlQuery`, and `NpgsqlDataSourceBuilder.UsePhysicalConnectionInitializer` installs the per-connection `LOAD 'age'`+`search_path` hook once per physical connection.
+- `api-pgrouting`(`.api/api-pgrouting.md`): AGE owns the openCypher node space (`Match`/`Mutate`/`Reach`) while `pgrouting` owns the weighted routing cases over H3-cell vertex ids — both halves of the one `Query/cypher#GRAPH_QUERY` union, driven raw against the `SETOF record` result.
+- `Query/cypher#GRAPH_SESSION`: `GraphSession` binds graph name, Cypher body, and `params agtype` through `Npgsql` parameters and decodes `agtype`/path via the registered `->>`/`::jsonb` casts; `Query/cypher#GRAPH_QUERY` lowers each openCypher case to its server-side SQL, escalating beyond the default in-process QuikGraph `Query/topology` view.
+
+[LOCAL_ADMISSION]:
+- `age` carries no managed linkage: install rides the `age` `ServerExtension` row as a `Standalone` admission (`Store/provisioning#SERVER_EXTENSIONS`, `CREATE EXTENSION IF NOT EXISTS age`, no `shared_preload_libraries` gate), and the lane admits only under `Query/cypher` `CypherEnablement.SelfHosted`, disabled by default beneath the in-process QuikGraph topology.
 
 [RAIL_LAW]:
-- Package: `apache-age` / extension `age` (server-side, in the deploy-image PG18)
+- Package: `apache-age` / extension `age` (server-side, in-DB)
 - Owns: the in-PG openCypher graph store — labelled vertex/edge relations under `ag_catalog`, the `cypher(graph, $$..$$, params)` query function, and the `agtype` value type with its operator/cast set
-- Accept: `CREATE EXTENSION age` install via `ServerExtension("age")`, the per-session `LOAD 'age'`/`search_path` connection-init, `create_graph`/`create_vlabel`/`create_elabel` lifecycle, parameterized `cypher(...)` with the mandatory `agtype` column-definition list, `agtype` operator/cast extraction through `FromSql`/`SqlQuery`
-- Reject: linking the extension into managed code, an anonymous-record `cypher(...)` call without the column-definition list, a runtime-concatenated Cypher body, placing `age` on the `shared_preload_libraries` row (it is preload-free), omitting the per-session `LOAD 'age'`, treating `apache-age` as the installed extension name (it is `age`)
+- Accept: `CREATE EXTENSION age` install via the `age` `ServerExtension` row, the per-session `LOAD 'age'`/`search_path` connection-init, `create_graph`/`create_vlabel`/`create_elabel` lifecycle, parameterized `cypher(…)` with the mandatory `agtype` column-definition list, `agtype` operator/cast extraction through `FromSql`/`SqlQuery`
+- Reject: linking the extension into managed code, an anonymous-record `cypher(…)` call without the column-definition list, a runtime-concatenated Cypher body, omitting the per-session `LOAD 'age'`, treating `apache-age` as the installed extension name (it is `age`)

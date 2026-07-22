@@ -54,25 +54,25 @@
 - Each op mints a `Tensor<T>`; `Reshape`, `Squeeze`, `SqueezeDimension`, and `Unsqueeze` also re-window a span view with no allocation, and the composition family mirrors a `ref readonly TensorSpan<T>` destination overload.
 - A bare form acts on the default axis where its axis twin takes the `int` dimension — [AXIS_TWIN]: `SqueezeDimension` `ReverseDimension` `ConcatenateOnDimension` `StackAlongDimension`.
 
-| [INDEX] | [SURFACE]                                                              | [SHAPE] | [CAPABILITY]                        |
-| :-----: | :--------------------------------------------------------------------- | :------ | :---------------------------------- |
-|  [01]   | `Reshape(Tensor<T>, ReadOnlySpan<nint>) -> Tensor<T>`                  | static  | re-length under one flattened count |
-|  [02]   | `Squeeze(Tensor<T>) -> Tensor<T>`                                      | static  | drop every unit dimension           |
-|  [03]   | `Unsqueeze(Tensor<T>, int) -> Tensor<T>`                               | static  | insert a unit dimension             |
-|  [04]   | `PermuteDimensions(Tensor<T>, ReadOnlySpan<int>) -> Tensor<T>`         | static  | reorder ranks by index vector       |
-|  [05]   | `Transpose(Tensor<T>) -> Tensor<T>`                                    | static  | swap the final two dimensions       |
-|  [06]   | `Broadcast(ReadOnlyTensorSpan<T>, ReadOnlySpan<nint>)`                 | static  | expand to a broadcast shape         |
-|  [07]   | `BroadcastTo(ReadOnlyTensorSpan<T>, TensorSpan<T>)`                    | static  | expand into a caller destination    |
-|  [08]   | `TryBroadcastTo(ReadOnlyTensorSpan<T>, TensorSpan<T>) -> bool`         | static  | probe destination shape fit         |
-|  [09]   | `Resize(Tensor<T>, ReadOnlySpan<nint>) -> Tensor<T>`                   | static  | re-allocate at a new element count  |
-|  [10]   | `ResizeTo(ReadOnlyTensorSpan<T>, TensorSpan<T>)`                       | static  | truncate or zero-pad into a window  |
-|  [11]   | `Reverse(ReadOnlyTensorSpan<T>) -> Tensor<T>`                          | static  | reorder elements at one shape       |
-|  [12]   | `Concatenate(ReadOnlySpan<Tensor<T>>) -> Tensor<T>`                    | static  | join along an existing axis         |
-|  [13]   | `Stack(ReadOnlySpan<Tensor<T>>) -> Tensor<T>`                          | static  | stack into a new leading axis       |
-|  [14]   | `Split(ReadOnlyTensorSpan<T>, int, nint) -> Tensor<T>[]`               | static  | partition one axis evenly           |
-|  [15]   | `SetSlice(TensorSpan<T>, ReadOnlyTensorSpan<T>, ReadOnlySpan<NRange>)` | static  | write values into a ranged window   |
-|  [16]   | `FilteredUpdate(TensorSpan<T>, ReadOnlyTensorSpan<bool>, T)`           | static  | write where the mask holds          |
-|  [17]   | `FilteredUpdate(TensorSpan<T>, ReadOnlyTensorSpan<bool>, ReadOnlyTensorSpan<T>)` | static | write source values where the mask holds |
+| [INDEX] | [SURFACE]                                                                        | [SHAPE] | [CAPABILITY]                             |
+| :-----: | :------------------------------------------------------------------------------- | :------ | :--------------------------------------- |
+|  [01]   | `Reshape(Tensor<T>, ReadOnlySpan<nint>) -> Tensor<T>`                            | static  | re-length under one flattened count      |
+|  [02]   | `Squeeze(Tensor<T>) -> Tensor<T>`                                                | static  | drop every unit dimension                |
+|  [03]   | `Unsqueeze(Tensor<T>, int) -> Tensor<T>`                                         | static  | insert a unit dimension                  |
+|  [04]   | `PermuteDimensions(Tensor<T>, ReadOnlySpan<int>) -> Tensor<T>`                   | static  | reorder ranks by index vector            |
+|  [05]   | `Transpose(Tensor<T>) -> Tensor<T>`                                              | static  | swap the final two dimensions            |
+|  [06]   | `Broadcast(ReadOnlyTensorSpan<T>, ReadOnlySpan<nint>)`                           | static  | expand to a broadcast shape              |
+|  [07]   | `BroadcastTo(ReadOnlyTensorSpan<T>, TensorSpan<T>)`                              | static  | expand into a caller destination         |
+|  [08]   | `TryBroadcastTo(ReadOnlyTensorSpan<T>, TensorSpan<T>) -> bool`                   | static  | probe destination shape fit              |
+|  [09]   | `Resize(Tensor<T>, ReadOnlySpan<nint>) -> Tensor<T>`                             | static  | re-allocate at a new element count       |
+|  [10]   | `ResizeTo(ReadOnlyTensorSpan<T>, TensorSpan<T>)`                                 | static  | truncate or zero-pad into a window       |
+|  [11]   | `Reverse(ReadOnlyTensorSpan<T>) -> Tensor<T>`                                    | static  | reorder elements at one shape            |
+|  [12]   | `Concatenate(ReadOnlySpan<Tensor<T>>) -> Tensor<T>`                              | static  | join along an existing axis              |
+|  [13]   | `Stack(ReadOnlySpan<Tensor<T>>) -> Tensor<T>`                                    | static  | stack into a new leading axis            |
+|  [14]   | `Split(ReadOnlyTensorSpan<T>, int, nint) -> Tensor<T>[]`                         | static  | partition one axis evenly                |
+|  [15]   | `SetSlice(TensorSpan<T>, ReadOnlyTensorSpan<T>, ReadOnlySpan<NRange>)`           | static  | write values into a ranged window        |
+|  [16]   | `FilteredUpdate(TensorSpan<T>, ReadOnlyTensorSpan<bool>, T)`                     | static  | write where the mask holds               |
+|  [17]   | `FilteredUpdate(TensorSpan<T>, ReadOnlyTensorSpan<bool>, ReadOnlyTensorSpan<T>)` | static  | write source values where the mask holds |
 
 [ENTRYPOINT_SCOPE]: `Tensor<T>` and span-view members
 - `Tensor<T>`, `TensorSpan<T>`, and `ReadOnlyTensorSpan<T>` carry one member set through `ITensor<TSelf,T>` and `IReadOnlyTensor<TSelf,T>`, so an algorithm generic over `TSelf` binds the heap owner and either borrowed window; the mutating half rides `ITensor<TSelf,T>` alone.

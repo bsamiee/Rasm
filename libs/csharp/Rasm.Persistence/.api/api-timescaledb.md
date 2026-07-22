@@ -1,128 +1,109 @@
 # [RASM_PERSISTENCE_API_TIMESCALEDB]
 
-`TimescaleDB` supplies the hypertable, continuous-aggregate, retention, and columnstore (hypercore)
-provisioning surface over the series tables, plus its native bgworker policy scheduler so
-the AppHost schedule port never schedules a refresh/retention/compression job. It carries no managed
-assembly and no first-party EF translator: every surface is server-side SQL the
-`Query/columnar#SERIES_AND_SCALEOUT` `SeriesLane.Provision` derivation emits per `SeriesKind` row,
-riding `MigrationBuilder.Sql` behind the `Store/provisioning#SERVER_EXTENSIONS` extension admission —
-and the rollup views feed the analytical reads and the dashboard tiles. The extension is
-preload-gated (it rides the `Store/provisioning#SERVER_EXTENSIONS` `Preload` `shared_preload_libraries`
-row), never a self-provisioned `CREATE EXTENSION` annotation.
+`timescaledb` owns the temporal partitioning tier over the Persistence series tables — hypertable chunking, continuous-aggregate materialisation, retention, and columnstore conversion — each policy running on the extension's own bgworker scheduler. Every surface is server-side SQL carrying no managed assembly and no EF translator, so a fence emits it as migration text and reads its outcome from the information views. Rollup relations it mints feed the analytical lane's read.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `timescaledb`
-- package: `timescaledb` (server-side PostgreSQL extension, not a NuGet package)
-- namespace: SQL (`public` function/procedure set; `timescaledb_information.*` views; `timescaledb.*` storage parameters)
-- license: Apache-2.0 edition (Community-licensed continuous-aggregate/columnstore/retention policies run under the TSL boundary at the DB deployment, never linked into managed code)
-- asset: server extension, preload-gated (`shared_preload_libraries`), bgworker policy scheduler
-- emission split: SELECT-functions vs CALL-procedures (the `ServerExtension` `CreateSql` projection must emit the correct verb in its `Fin<string>` — see `[06]`)
+- package: `timescaledb` (Apache-2.0 core over a TSL-licensed policy tier, Timescale)
+- namespace: SQL — `public` functions and procedures, `timescaledb_information.*` views, `timescaledb.*` storage parameters
+- asset: server extension whose bgworker scheduler launcher requires its `shared_preload_libraries` entry
 - rail: timescale-provisioning, analytical-lane
-
-The time column is the sample instant on each `SeriesKind` table (`assessment_series`/`sensor_series`,
-`Query/columnar#SERIES_AND_SCALEOUT`). One time dimension is the
-partition key; secondary `by_hash` dimensions are held under a provisioning probe, not catalogued.
 
 ## [02]-[HYPERTABLE]
 
-`create_hypertable`/`add_dimension` are SELECT functions taking a dimension-builder argument
-(`by_range`/`by_hash`); the modern `CREATE TABLE ... WITH (tsdb.hypertable, tsdb.partition_column=...)`
-declarative form is the equivalent the fold may emit instead, but the function form is what
-`MigrationBuilder.Sql` carries against an already-`CREATE TABLE`-d rollup. Every call uses `=>`
-named args and idempotent `if_not_exists` (`[06]`); `create_hypertable` also carries
-`create_default_indexes => TRUE`/`migrate_data => FALSE`, and `add_dimension` a `by_hash('col', n)` hash form.
+[HYPERTABLE_ENTRY_SCOPE]: one-time-dimension chunking and the exclusion metadata a read prunes on
 
-| [INDEX] | [FUNCTION]          | [CALL]                                                         | [SEMANTICS]                                  |
-| :-----: | :------------------ | :------------------------------------------------------------- | :------------------------------------------- |
-|  [01]   | `create_hypertable` | `create_hypertable('tbl', by_range('time_col', INTERVAL 'i'))` | time-partition an existing table into chunks |
-|  [02]   | `by_range`          | `by_range('time_col', INTERVAL 'i')`                           | range dimension builder (time partition)     |
-|  [03]   | `add_dimension`     | `add_dimension('tbl', by_range('col', INTERVAL 'i'))`          | add a secondary range/hash dimension         |
+| [INDEX] | [SURFACE]                                                          | [SHAPE]  | [CAPABILITY]                            |
+| :-----: | :----------------------------------------------------------------- | :------- | :-------------------------------------- |
+|  [01]   | `CREATE TABLE t WITH (tsdb.hypertable, tsdb.partition_column='c')` | ddl      | declare a hypertable at creation        |
+|  [02]   | `create_hypertable('t', by_range('c', INTERVAL 'i'))`              | function | partition an existing table into chunks |
+|  [03]   | `by_range('c', INTERVAL 'i')`                                      | function | range dimension builder for time        |
+|  [04]   | `by_hash('c', n)`                                                  | function | hash dimension builder for space        |
+|  [05]   | `add_dimension('t', by_hash('c', n))`                              | function | add a secondary dimension               |
+|  [06]   | `enable_chunk_skipping('t', 'c')`                                  | function | min/max chunk exclusion on a column     |
+
+- `create_hypertable` also carries `create_default_indexes` and `migrate_data`.
 
 ## [03]-[CONTINUOUS_AGGREGATE]
 
-A continuous aggregate is a `MATERIALIZED VIEW WITH (timescaledb.continuous)` over a `time_bucket`
-group, refreshed by a bgworker policy (a SELECT function returning the job_id) and refreshable
-manually by a CALL procedure. `add_continuous_aggregate_policy` also accepts `buckets_per_batch`,
-`max_batches_per_execution`, `refresh_newest_first`, `initial_start`, `timezone`; `=>` named args
-and `if_not_exists` idempotency are the `[06]` law, and per-row clauses ride the keyed list below.
+[CONTINUOUS_AGGREGATE_ENTRY_SCOPE]: pre-bucketed rollup a dashboard tile reads without re-scanning raw chunks
 
-| [INDEX] | [SURFACE]                            | [FORM]                                                                                         |
-| :-----: | :----------------------------------- | :--------------------------------------------------------------------------------------------- |
-|  [01]   | view                                 | `CREATE MATERIALIZED VIEW v WITH (timescaledb.continuous) AS <time_bucket query> WITH NO DATA` |
-|  [02]   | `time_bucket`                        | `time_bucket('1 hour', time_col)`                                                              |
-|  [03]   | `add_continuous_aggregate_policy`    | `add_continuous_aggregate_policy('v', start_offset, end_offset, schedule_interval)`            |
-|  [04]   | `refresh_continuous_aggregate`       | `CALL refresh_continuous_aggregate('v', window_start, window_end, force => FALSE)`             |
-|  [05]   | `remove_continuous_aggregate_policy` | `remove_continuous_aggregate_policy('v')`                                                      |
+`add_continuous_aggregate_policy` also carries `initial_start`, `timezone`, `buckets_per_batch`, `max_batches_per_execution`, and `refresh_newest_first`.
 
-- [02]-[TIME_BUCKET]: the bucketing primitive; `time_bucket_gapfill` fills gapped dashboard tiles.
-- [04]-[REFRESH]: manual/backfill refresh procedure — cannot run inside an explicit migration transaction block.
+| [INDEX] | [SURFACE]                                                                         | [SHAPE]   | [CAPABILITY]                    |
+| :-----: | :-------------------------------------------------------------------------------- | :-------- | :------------------------------ |
+|  [01]   | `CREATE MATERIALIZED VIEW v WITH (timescaledb.continuous) AS q WITH NO DATA`      | ddl       | declare the materialised rollup |
+|  [02]   | `time_bucket(INTERVAL, c)`                                                        | function  | fixed-width bucket on time      |
+|  [03]   | `time_bucket_gapfill(INTERVAL, c, start, finish)`                                 | function  | bucket emitting empty buckets   |
+|  [04]   | `locf(value)`                                                                     | function  | carry last observation forward  |
+|  [05]   | `interpolate(value)`                                                              | function  | linear fill across a gap        |
+|  [06]   | `add_continuous_aggregate_policy(v, start_offset, end_offset, schedule_interval)` | function  | schedule the refresh job        |
+|  [07]   | `refresh_continuous_aggregate(v, window_start, window_end, force => FALSE)`       | procedure | manual or backfill refresh      |
+|  [08]   | `remove_continuous_aggregate_policy(v)`                                           | function  | drop the refresh job            |
 
-## [04]-[RETENTION_COLUMNSTORE]
+## [04]-[COLUMNSTORE_RETENTION]
 
-The retention and hypercore (columnstore) policies and their bgworker schedulers. The columnstore
-enable is an `ALTER` storage-parameter set; the policy adder is a CALL procedure (unlike the SELECT
-retention/cagg adders); manual per-chunk conversion is a CALL procedure. Every policy adder also
-takes `schedule_interval => INTERVAL 's'`, `initial_start`, `timezone` (plus `drop_created_before`
-on retention, `created_before` on columnstore), with `if_not_exists`/`if_exists` idempotency, the
-`add_retention_policy` job_id return, the `ALTER MATERIALIZED VIEW` cagg-enable variant, and the
-columnstore-enable `segmentby`/`orderby` semantics all the `[06]` law.
+[COLUMNSTORE_RETENTION_ENTRY_SCOPE]: columnar conversion and chunk expiry, scheduled as policies or fired per chunk
 
-| [INDEX] | [FUNCTION]                  | [SIGNATURE]                                                 | [SEMANTICS]                             |
-| :-----: | :-------------------------- | :---------------------------------------------------------- | :-------------------------------------- |
-|  [01]   | `add_retention_policy`      | `add_retention_policy('tbl', drop_after => 'd')`            | drop chunks older than the bound        |
-|  [02]   | `remove_retention_policy`   | `remove_retention_policy('tbl')`                            | remove the retention job                |
-|  [03]   | columnstore enable          | `ALTER TABLE tbl SET (enable_columnstore = true, ...)`      | hypercore columnar conversion arm       |
-|  [04]   | `add_columnstore_policy`    | `CALL add_columnstore_policy('tbl', after => 'a')`          | schedule compression past the age bound |
-|  [05]   | `remove_columnstore_policy` | `CALL remove_columnstore_policy('tbl')`                     | remove the columnstore job              |
-|  [06]   | `convert_to_columnstore`    | `CALL convert_to_columnstore('chunk', recompress => FALSE)` | manual per-chunk compress               |
-|  [07]   | `convert_to_rowstore`       | `CALL convert_to_rowstore('chunk')`                         | manual per-chunk decompress             |
+Every policy adder carries `schedule_interval`, `initial_start`, and `timezone`; `add_retention_policy` adds `drop_created_before` and `add_columnstore_policy` adds `created_before`.
 
-## [05]-[JOB_STATS_CONTROL]
+| [INDEX] | [SURFACE]                                                               | [SHAPE]   | [CAPABILITY]                            |
+| :-----: | :---------------------------------------------------------------------- | :-------- | :-------------------------------------- |
+|  [01]   | `ALTER TABLE t SET (timescaledb.enable_columnstore = true)`             | ddl       | arm columnar conversion on a hypertable |
+|  [02]   | `ALTER MATERIALIZED VIEW v SET (timescaledb.enable_columnstore = true)` | ddl       | arm columnar conversion on a rollup     |
+|  [03]   | `add_columnstore_policy('t', after => 'a')`                             | procedure | schedule compression past an age bound  |
+|  [04]   | `remove_columnstore_policy('t')`                                        | procedure | drop the columnstore job                |
+|  [05]   | `convert_to_columnstore('chunk', recompress => FALSE)`                  | procedure | compress one chunk by hand              |
+|  [06]   | `convert_to_rowstore('chunk')`                                          | procedure | decompress one chunk by hand            |
+|  [07]   | `show_chunks('t', older_than => 'd')`                                   | function  | select chunks by age                    |
+|  [08]   | `add_retention_policy('t', drop_after => 'd')`                          | function  | schedule the chunk drop                 |
+|  [09]   | `remove_retention_policy('t')`                                          | function  | drop the retention job                  |
+|  [10]   | `drop_chunks('t', older_than => 'd')`                                   | function  | drop chunks by hand                     |
 
-The job-stats and informational views the provisioning receipt reads for refresh-lag, retention
-drop-count, and compression-ratio proof rows, plus the job-control surface that reconfigures a
-scheduled policy without dropping it. The view column rosters ride the keyed list below.
+- `timescaledb.enable_columnstore`: one `SET` also carries `timescaledb.segmentby`, the analytical equality-filter column family, and `timescaledb.orderby`, the time column.
 
-| [INDEX] | [VIEW]                                          | [PROVIDES]                                            |
-| :-----: | :---------------------------------------------- | :---------------------------------------------------- |
-|  [01]   | `timescaledb_information.jobs`                  | configured policy jobs                                |
-|  [02]   | `timescaledb_information.job_stats`             | per-job run-history stats                             |
-|  [03]   | `timescaledb_information.job_errors`            | per-failure error log                                 |
-|  [04]   | `timescaledb_information.continuous_aggregates` | cagg definition and refresh/finalized state           |
-|  [05]   | `hypertable_columnstore_stats('tbl')`           | per-hypertable compression bytes, ratio, chunk counts |
-|  [06]   | `chunk_columnstore_stats('tbl')`                | per-chunk compression detail for a targeted proof row |
+## [05]-[JOBS_AND_STATS]
 
-- [01]-[JOBS]: `job_id`, `proc_name`, `schedule_interval`, `config`, `hypertable_name`.
-- [02]-[JOB_STATS]: `job_id`, `last_run_started_at`, `last_successful_finish`, `last_run_status`, `job_status`, `last_run_duration`, `next_start`, `total_runs`, `total_successes`, `total_failures`.
-- [03]-[JOB_ERRORS]: `job_id`, `proc_name`, `err_message`, `start_time`.
-- [04]-[CONTINUOUS_AGGREGATES]: cagg definition, `materialization_hypertable_name`, refresh/finalized state.
+[JOBS_AND_STATS_ENTRY_SCOPE]: policy-job registry, its run-history receipts, and the in-place job controls
 
-The job-control surface reconfigures a scheduled policy in place; `alter_job`/`delete_job`/`add_job`
-are SELECT functions and `run_job` is a CALL procedure (the receipt's manual-fire remediation arm).
+| [INDEX] | [SURFACE]                                                             | [SHAPE]   | [CAPABILITY]                         |
+| :-----: | :-------------------------------------------------------------------- | :-------- | :----------------------------------- |
+|  [01]   | `timescaledb_information.jobs`                                        | view      | configured policy-job registry       |
+|  [02]   | `timescaledb_information.job_stats`                                   | view      | per-job run history and next start   |
+|  [03]   | `timescaledb_information.job_errors`                                  | view      | `err_message` per failure            |
+|  [04]   | `timescaledb_information.continuous_aggregates`                       | view      | rollup definition and refresh state  |
+|  [05]   | `timescaledb_information.hypertable_columnstore_settings`             | view      | landed `segmentby` and `orderby`     |
+|  [06]   | `hypertable_columnstore_stats('t')`                                   | function  | chunk counts and compression bytes   |
+|  [07]   | `chunk_columnstore_stats('t')`                                        | function  | compression bytes per chunk          |
+|  [08]   | `alter_job(job_id, schedule_interval, scheduled, config, next_start)` | function  | reconfigure a scheduled job in place |
+|  [09]   | `delete_job(job_id)`                                                  | function  | remove a job                         |
+|  [10]   | `run_job(job_id)`                                                     | procedure | fire a job by hand                   |
+|  [11]   | `add_job(proc, schedule_interval, config)`                            | function  | register a user-defined-action job   |
 
-| [INDEX] | [FUNCTION]   | [VERB] | [SEMANTICS]                                                                           |
-| :-----: | :----------- | :----- | :------------------------------------------------------------------------------------ |
-|  [01]   | `alter_job`  | SELECT | reconfigure a scheduled job: `schedule_interval`, `scheduled`, `config`, `next_start` |
-|  [02]   | `delete_job` | SELECT | `delete_job(job_id)` removes a job                                                    |
-|  [03]   | `run_job`    | CALL   | `run_job(job_id)` manual fire — the receipt remediation arm                           |
-|  [04]   | `add_job`    | SELECT | `add_job(proc, schedule_interval, ...)` registers a user-defined-action job           |
+- `jobs` keys every control by `job_id`, the value each policy adder returns.
+- `job_stats` carries `last_successful_finish` and `last_run_status` as the receipt's refresh-lag and failure evidence, and `run_job` re-fires a stalled policy.
 
 ## [06]-[IMPLEMENTATION_LAW]
 
-[EMISSION_LAW]:
-- The `Query/columnar#SERIES_AND_SCALEOUT` `SeriesLane.Provision` rows must carry `SELECT <fn>(...)` for `create_hypertable`, `add_dimension`, `add_retention_policy`, `add_continuous_aggregate_policy`, `remove_retention_policy`, `remove_continuous_aggregate_policy`, `add_job`, `delete_job`, and `alter_job` — they are functions returning a job_id/regclass.
-- The same derivation must carry `CALL <proc>(...)`, never `SELECT`, for `add_columnstore_policy`, `remove_columnstore_policy`, `convert_to_columnstore`, `convert_to_rowstore`, `run_job`, and `refresh_continuous_aggregate` — they are procedures, so a row emitting `SELECT add_columnstore_policy(...)` is a faulted spelling. A `refresh_continuous_aggregate` CALL cannot run inside an explicit migration transaction block, so it is a `MigrationBuilder.Sql(..., suppressTransaction: true)` arm or a post-migration step, never a member of the in-transaction provisioning batch.
-- Named-argument `=>` syntax is used for every optional parameter so a server default-shift never silently rebinds a positional argument; `if_not_exists`/`if_exists` make every provisioning step idempotent under re-run.
-- The columnstore enable (`ALTER TABLE ... SET (timescaledb.enable_columnstore=true, segmentby, orderby)`) precedes `add_columnstore_policy` — the policy schedules compression of already-columnstore-enabled chunks; `segmentby` is the equality-filter column family of the analytical lane and `orderby` is the `Physical` time column.
+[TOPOLOGY]:
+- `MigrationBuilder.Sql` emits every surface, and the `[SHAPE]` verb is the emission verb — a `SELECT` over a procedure or a `CALL` over a function faults at execution.
+- Named `=>` arguments bind every optional parameter and `if_not_exists`/`if_exists` gates every step, so a server default shift never rebinds positionally and a re-run never faults.
+- `refresh_continuous_aggregate` holds its own transaction control, so it rides `MigrationBuilder.Sql(..., suppressTransaction: true)` or a post-migration step.
+- Columnstore enable precedes `add_columnstore_policy`, which compresses chunks of an already-armed relation.
 
-[PROVISIONING_LAW]:
-- preload: `timescaledb` leads the `Store/provisioning#SERVER_EXTENSIONS` `Preload` row's `shared_preload_libraries` value (`timescaledb,pg_search,pg_partman_bgw,pg_squeeze,pgaudit,pg_cron,pg_net`); the bgworker scheduler launcher requires it, so the extension is NOT index-AM-registered like `pgvectorscale` and is correctly absent from a self-provisioned `CREATE EXTENSION` annotation — the server tier preloads it before the migration runs, and the `ClusterConfig` probe verifies the value read-only against `pg_settings` after boot.
-- bgworker ownership: refresh, retention, and columnstore jobs run on TimescaleDB's own bgworker scheduler, so the AppHost schedule port (`ScheduleEntry`) never schedules a database-internal maintenance job — the `timescaledb_information.job_stats` view is the receipt the provisioning verification fold reads for refresh-lag/drop-count/compression-ratio proof rows, and a non-firing job surfaces as a stale `last_successful_finish` the receipt flags.
-- analytical residence: the rollup hypertable feeds `Query/columnar#COLUMNAR_LANE` where DuckDB reads the columnstore-compressed chunks; the continuous aggregate is the pre-bucketed tile source the dashboard reads without re-scanning raw chunks.
+[STACKING]:
+- `timescaledb_toolkit`(`.api/api-timescaledb-toolkit.md`): `time_weight`/`average`/`rollup` fold raw chunks into the time-weighted read a bucketed rollup cannot answer.
+- `duckdb`(`.api/api-duckdb.md`): `ATTACH (TYPE postgres, READ_ONLY)` and `postgres_scan` read the continuous-aggregate relation as a columnar join leg against live PG.
+- `pg_cron`(`.api/api-pg-server-bgworkers.md`): `cron.schedule` owns in-database cadence outside this extension, while refresh, retention, and columnstore jobs stay on the TimescaleDB scheduler and the AppHost `ScheduleEntry` port schedules no database-internal maintenance.
+- `Query/columnar#SERIES_AND_SCALEOUT`: one `SeriesKind` row derives the whole ordered provisioning set through `SeriesLane.Provision`, and `SeriesLane.Verify` joins `jobs` against `job_stats` into one `JobHealth` row per policy.
+
+[LOCAL_ADMISSION]:
+- `Store/provisioning#SERVER_EXTENSIONS` carries the `Preload` admission row; the extension enters through the operator's preload configuration and its absence is a typed repair artifact.
+- Policy scheduling, continuous aggregates, and columnstore run under TSL at the database deployment and link into no managed assembly, so the server process is the license boundary.
 
 [RAIL_LAW]:
 - Package: `timescaledb`
-- Owns: hypertable partitioning, continuous-aggregate materialisation, retention, and columnstore policies plus their bgworker schedulers, over the `OpLogEntry` rollup
-- Accept: `MigrationBuilder.Sql` SELECT/CALL emission per the function/procedure split, idempotent `if_not_exists` steps, `job_stats`-backed provisioning receipts
-- Reject: a managed EF translator for these functions, a self-provisioned `CREATE EXTENSION` (preload-gated), an AppHost-scheduled database maintenance job, a per-policy positional-argument emission
+- Owns: chunked time partitioning, continuous-aggregate materialisation, retention, and columnstore conversion over the `SeriesKind` series tables, each policy on its own bgworker
+- Accept: derived `MigrationBuilder.Sql` rows carrying the shape-correct verb, named idempotent arguments, and `job_stats`-backed provisioning receipts
+- Reject: a managed EF translator over these functions, a hand-spelled per-environment policy script, an AppHost-scheduled database-internal job, a positional-argument emission

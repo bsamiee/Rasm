@@ -66,6 +66,7 @@ COVERS: tuple[object, ...] = (
     oracle_mod.pydist_inventory_sources, oracle_mod.tsdecl_names, oracle_mod.tsdecl_source,
     oracle_mod.rank_candidates, oracle_mod.rank_type, oracle_mod.rank_namespace,
     oracle_mod.fidelity_note, oracle_mod.safe_key, oracle_mod.xml_doc,
+    oracle_mod.reflection_map, oracle_mod.split_arity,
 )  # fmt: skip
 
 # Valid _PathKind tokens mirrored from api.py.
@@ -501,9 +502,8 @@ def test_wire_roundtrip(type_: type, strategy: st.SearchStrategy[object], data: 
         ("Widget", _ILSPY_DECOMPILE, SymbolShape.TYPE, "public sealed class Widget"),  # type decompile window
         ("Acme.Widget.Spin", _ILSPY_DECOMPILE, SymbolShape.MEMBER, "public void Spin(int turns)"),  # member decompile signature
         ("wid", _ILSPY_DECOMPILE, SymbolShape.SEARCH, "Acme.Widget"),  # lc namespace-shaped, substring-matches → search hits
-        ("Acme.Widget", b"", SymbolShape.SEARCH, "Acme.Widget"),  # empty decompile → namespace fallback → search
     ],
-    ids=["index", "namespace", "type", "member", "search-substring", "search-empty-decompile"],
+    ids=["index", "namespace", "type", "member", "search-substring"],
 )
 def test_cs_query_dispatches_every_shape(
     assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, symbol: str, decompile: bytes, shape: SymbolShape, anchor: str
@@ -691,6 +691,125 @@ def test_cs_decompile_all_attempts_fail_faults_with_cause(assay_root: AssayHarne
     assert "Cannot find a tool" in e.message
 
 
+@pytest.mark.parametrize("returncode", [0, 70], ids=["exit-zero", "exit-seventy"])
+def test_cs_decompile_typed_miss_degrades_to_candidates_any_exit(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, returncode: int) -> None:
+    """The ilspy 'Could not find type definition' verdict is a soft miss under ANY exit code, never a FAULTED rail."""
+    asm = assay_root.write("RhinoCommon.dll", "MZ")
+    source = oracle_mod.Source(key="rhino-common", kind=SourceKind.ASSEMBLY, assemblies=(asm,))
+    monkeypatch.setattr(oracle_mod, "_resolve_source", lambda _settings, _key: Ok(source))
+
+    def _canned(check: Check, **_kw: object) -> Result[object, Fault]:
+        if "-t" in check.tool.command:
+            return RailProbe.receipt(("ilspycmd",), returncode, stderr=b"System.InvalidOperationException: Could not find type definition X.\n")
+        return RailProbe.receipt(("ilspycmd",), 0, stdout=_ILSPY_TYPES)
+
+    r = assert_ok(_run(query, assay_root, SeamExecutor(run_fn=_canned), key="rhino-common", symbol="Acme.Widget"))
+    assert r.status is RailStatus.UNSUPPORTED
+    assert isinstance(r.detail, ApiResolution)  # the miss reports ranked candidates, not a stack trace
+
+
+def test_cs_decompile_exit_zero_stderr_fault_never_soft_misses(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """An exit-0 attempt with empty stdout and a real stderr fault is an operational FAULT, never a silent search fallback."""
+    asm = assay_root.write("RhinoCommon.dll", "MZ")
+    source = oracle_mod.Source(key="rhino-common", kind=SourceKind.ASSEMBLY, assemblies=(asm,))
+    monkeypatch.setattr(oracle_mod, "_resolve_source", lambda _settings, _key: Ok(source))
+
+    def _canned(check: Check, **_kw: object) -> Result[object, Fault]:
+        if "-t" in check.tool.command:
+            return RailProbe.receipt(("ilspycmd",), 0, stderr=b"System.IO.FileLoadException: broken assembly image\n")
+        return RailProbe.receipt(("ilspycmd",), 0, stdout=_ILSPY_TYPES)
+
+    e = assert_error(_run(query, assay_root, SeamExecutor(run_fn=_canned), key="rhino-common", symbol="Acme.Widget"))
+    assert e.status is RailStatus.FAULTED
+    assert "FileLoadException" in e.message
+
+
+def test_cs_decompile_reflection_spellings_drive_arity_and_join(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The reflection map supplies the backtick spellings ilspy -t needs; colliding arities join under headers, an explicit arity narrows."""
+    asm = assay_root.write("RhinoCommon.dll", "MZ")
+    source = oracle_mod.Source(key="rhino-common", kind=SourceKind.ASSEMBLY, assemblies=(asm,))
+    monkeypatch.setattr(oracle_mod, "_resolve_source", lambda _settings, _key: Ok(source))
+    monkeypatch.setattr(oracle_mod, "reflection_map", lambda _assemblies: {"Acme.Widget": ("Acme.Widget`1", "Acme.Widget`2")})
+    seen: list[str] = []
+
+    def _canned(check: Check, **_kw: object) -> Result[object, Fault]:
+        if "-t" in check.tool.command:
+            seen.append(check.args.fqn)
+            return RailProbe.receipt(("ilspycmd",), 0, stdout=f"public sealed class Widget // arity {check.args.fqn[-1]}\n".encode())
+        return RailProbe.receipt(("ilspycmd",), 0, stdout=_ILSPY_TYPES)
+
+    both = _cs_surface(assay_root, monkeypatch, "Widget", executor=SeamExecutor(run_fn=_canned))
+    assert seen == ["Acme.Widget`1", "Acme.Widget`2"]  # every colliding arity decompiles by its CLR spelling
+    assert "// --- Acme.Widget`2 ---" in both.preview  # the joined body headers each arity
+    assert both.reflection == ("Acme.Widget`1", "Acme.Widget`2")
+    assert both.owner == "Acme.Widget"
+    assert (both.accessibility, both.member_kind) == ("public", "class")
+
+    seen.clear()
+    narrowed = _cs_surface(assay_root, monkeypatch, "Widget`2", executor=SeamExecutor(run_fn=_canned))
+    assert seen == ["Acme.Widget`2"]  # the explicit arity narrows the spelling sweep
+    assert narrowed.arity == 2
+
+
+def test_cs_decompile_crash_retries_at_downgraded_language_version(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A decompiler transform crash retries the pair at CSharp7_3 automatically and stamps the fallback on the evidence note."""
+    asm = assay_root.write("RhinoCommon.dll", "MZ")
+    source = oracle_mod.Source(key="rhino-common", kind=SourceKind.ASSEMBLY, assemblies=(asm,))
+    monkeypatch.setattr(oracle_mod, "_resolve_source", lambda _settings, _key: Ok(source))
+
+    def _canned(check: Check, **_kw: object) -> Result[object, Fault]:
+        if "-t" not in check.tool.command:
+            return RailProbe.receipt(("ilspycmd",), 0, stdout=_ILSPY_TYPES)
+        if not check.args.langversion:
+            return RailProbe.receipt(("ilspycmd",), 70, stderr=b"   at ICSharpCode.Decompiler.IL.ILVariable.set_Kind(...)\n")
+        assert check.args.langversion == ("-lv", "CSharp7_3")
+        return RailProbe.receipt(("ilspycmd",), 0, stdout=_ILSPY_DECOMPILE)
+
+    r = assert_ok(_run(query, assay_root, SeamExecutor(run_fn=_canned), key="rhino-common", symbol="Widget"))
+    assert r.status is RailStatus.OK
+    assert any(note == "decompiled: Acme.Widget (lv=CSharp7_3)" for note in r.notes)
+    detail = r.detail
+    assert isinstance(detail, ApiSurface)
+    assert "public sealed class Widget" in detail.signature
+
+
+def test_xml_doc_matches_arity_marked_generic_ids(assay_root: AssayHarness) -> None:
+    """XMLDoc lookup matches `N type and ``N method ids for arity-free queried symbols."""
+    xml = assay_root.write(
+        "RhinoCommon.xml",
+        "<doc><members>"
+        '<member name="T:Acme.Widget`2"><summary>Generic widget.</summary></member>'
+        '<member name="M:Acme.Widget`2.Spin``1(System.Int32)"><summary>Generic spin.</summary></member>'
+        "</members></doc>",
+    )
+    source = oracle_mod.Source(key="rhino-common", kind=SourceKind.ASSEMBLY, xmls=(xml,))
+    assert oracle_mod.xml_doc(source, "Acme.Widget") == "Generic widget."
+    assert oracle_mod.xml_doc(source, "Acme.Widget.Spin") == "Generic spin."
+
+
+def test_cache_write_reaps_stale_fingerprints(assay_root: AssayHarness) -> None:
+    """A cache write removes superseded fingerprint entries for the same key, leaving exactly the live one."""
+    settings = assay_root.settings
+    source = oracle_mod.Source(key="rhino-common", kind=SourceKind.ASSEMBLY)
+    entry = oracle_mod.CacheEntry(producer="ilspycmd", version="v", fingerprint="a" * 16, payload="Class Acme.Widget")
+    stale_path = oracle_mod._cache_path(settings, source, "a" * 16)
+    oracle_mod._cache_write(settings, stale_path, entry)
+    live_path = oracle_mod._cache_path(settings, source, "b" * 16)
+    oracle_mod._cache_write(settings, live_path, msgspec.structs.replace(entry, fingerprint="b" * 16))
+    store = settings.store()
+    assert not store.exists_path(stale_path)  # the superseded fingerprint reaped on write
+    assert store.exists_path(live_path)
+
+
+def test_metadata_reader_fail_open_and_arity_split() -> None:
+    """A non-PE payload folds to an empty reflection set, and split_arity round-trips the backtick tail."""
+    assert oracle_mod._typedef_reflection(b"MZ") == ()
+    assert oracle_mod._typedef_reflection(bytes(range(256)) * 8) == ()
+    assert oracle_mod.split_arity("Acme.Widget`2") == ("Acme.Widget", 2)
+    assert oracle_mod.split_arity("Acme.Widget") == ("Acme.Widget", 0)
+    assert oracle_mod.reflection_map(()) == {}
+
+
 def test_cs_member_body_mention_misses_to_candidates(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """A parameter or body identifier never anchors a member window; the miss reports ranked candidates instead."""
     body = (
@@ -796,11 +915,13 @@ def test_pydist_thunk_introspection_roster_member_and_resolution() -> None:
     roster = CAPTURES.decode(oracle_mod._pydist_thunk("msgspec", "")(_INPROC_CHECK).stdout)
     member = CAPTURES.decode(oracle_mod._pydist_thunk("msgspec", "Struct")(_INPROC_CHECK).stdout)
     assert any(cap.name == "type" and cap.text for cap in roster)
-    assert [cap.name for cap in member] == ["signature", "doc", "full"]
+    assert [cap.name for cap in member] == ["signature", "kind", "doc", "full"]
     assert member[0].text.startswith("Struct")
+    assert member[1].text == "class"  # the member-truth kind capture classifies the live object
 
-    signature, doc, full = oracle_mod._member_captures(_DistDouble, "_DistDouble")
-    assert (signature.name, doc.name, full.name) == ("signature", "doc", "full")
+    signature, kind, doc, full = oracle_mod._member_captures(_DistDouble, "_DistDouble")
+    assert (signature.name, kind.name, doc.name, full.name) == ("signature", "kind", "doc", "full")
+    assert kind.text == "class"
     assert doc.text.startswith("Distribution double")
     assert "msgspec" in oracle_mod._pydist_modules("msgspec")
     assert oracle_mod._pydist_modules("totally-not-installed-xyz") == ()
@@ -929,12 +1050,28 @@ def test_tsdecl_thunk_capture_matrix(assay_root: AssayHarness, monkeypatch: pyte
     from tree_sitter import Parser as TSParser  # noqa: PLC0415  # local: construct the real parser for the read-fail probe
 
     parser = TSParser(ts_language(oracle_mod._TS_GRAMMAR))
-    assert oracle_mod._ts_captures(parser, assay_root.root / "node_modules" / "ghost" / "absent.d.ts", "") == ()
+    assert oracle_mod._ts_captures(parser, assay_root.root / "node_modules" / "ghost" / "absent.d.ts") == ()
+    assert oracle_mod._ts_member_ranked(parser, assay_root.root / "node_modules" / "ghost" / "absent.d.ts", "Foo") == (oracle_mod._RANK_NONE, ())
 
     assay_root.write("node_modules/alpha/package.json", "{}")
     assay_root.write("node_modules/@scope/beta/package.json", "{}")
     assay_root.write("node_modules/.bin/placeholder", "")  # dot-prefixed → excluded
     assert oracle_mod.tsdecl_names(assay_root.settings) == ("@scope/beta", "alpha")  # hoisted + scoped, sorted
+
+
+def test_tsdecl_member_type_declaration_outranks_property_namesake(assay_root: AssayHarness) -> None:
+    """A type-level declaration wins the member sweep over an earlier member-level namesake; a dotted owner resolves in its own module file."""
+    holder = assay_root.write("pkg/aaa.d.ts", "export interface Holder { Effect?: boolean }\n")
+    real = assay_root.write("pkg/zzz.d.ts", "export interface Effect<A> { run(): A }\n")
+    owner_file = assay_root.write("pkg/Stream.d.ts", "export declare const gen: string;\n")
+    decoy = assay_root.write("pkg/bbb.d.ts", "export interface Stream { gen: number }\n")
+    source = oracle_mod.Source("pkg", SourceKind.TSDECL, "1.0.0", package_root=holder.parent, asset_paths=(holder, decoy, real, owner_file))
+    flat = CAPTURES.decode(oracle_mod._tsdecl_thunk(source, "Effect")(_TS_CHECK).stdout)
+    assert flat[0].text.startswith("interface Effect<A>")  # the interface outranks the property namesake
+    kinds = {cap.name: cap.text for cap in flat}
+    assert kinds["kind"] == "interface"
+    owned = CAPTURES.decode(oracle_mod._tsdecl_thunk(source, "Stream.gen")(_TS_CHECK).stdout)
+    assert (owned[0].file, owned[0].text) == ("Stream.d.ts", "gen: string")  # the file-owner bonus beats the nested namesake in bbb.d.ts
 
 
 def test_tsdecl_thunk_query_error_surfaces_capture(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:

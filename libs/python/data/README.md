@@ -130,7 +130,7 @@ DuckDB loadable extensions back the plan and table-format rows without a pip dep
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Shared Python substrate consumed from the branch registry; `libs/python/.planning/README.md` and its charters own the full contracts, and `libs/python/.api/` holds the shared API evidence.
+Shared substrate consumed from the Py registry; the registry and its charters own the full contracts, and `libs/python/.api/` holds the shared API evidence.
 
 [TYPING_RAILS]:
 - `expression`

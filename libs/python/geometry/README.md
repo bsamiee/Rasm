@@ -99,7 +99,7 @@ Domain libraries the folder admits; substrate lives in `[03]-[SUBSTRATE_PACKAGES
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Branch-wide substrate this folder consumes; the canonical registry and API evidence live in `libs/python/.planning/README.md` and the adjacent `libs/python/.api/`.
+Shared substrate consumed from the Py registry; the registry and its charters own the full contracts, and `libs/python/.api/` holds the shared API evidence.
 
 [TYPING_RAILS]:
 - `expression`

@@ -1,39 +1,59 @@
 # [RASM_COMPUTE_API_POLLINATION_SDK]
 
-`PollinationSDK` is a cross-tier package: its DURABLE half (artifact bytes, lineage, cloud-run result index) is Persistence-owned and the canonical full-surface catalog is `libs/csharp/Rasm.Persistence/.api/api-pollination-sdk.md` (the `*Api` REST clients, `Configuration`/`TokenRepo` auth, `Wrapper` orchestration, model DTOs, and the `S3UploadRequest` object-store seam). Compute owns ONE slice: the `EnergyRoute.Cloud` run-dispatch policy — the `Analysis/energy` runner routes a recipe job to a Pollination project, watches it to completion, and hands the pulled result back to the Persistence durable landing. This catalog carries that dispatch delta only; read the Persistence catalog for the transport surface it composes.
+`PollinationSDK` routes the `EnergyRoute.Cloud` recipe-run dispatch policy — `Analysis/energy` builds a `JobInfo` from the recipe and `ElementGraph`-derived inputs, submits and watches it through `Wrapper`, and folds the pulled `SqlFile` through the shared eplusout.sql extraction. Persistence owns the SDK's full REST/auth/artifact transport surface and the durable result landing — artifact bytes, lineage, cloud-run index — this dispatch composes.
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `PollinationSDK` (Compute cloud-run-dispatch slice)
+[PACKAGE_SURFACE]: `PollinationSDK`
 - package: `PollinationSDK`
 - license: MIT (Pollination / Ladybug Tools)
-- canonical catalog: `libs/csharp/Rasm.Persistence/.api/api-pollination-sdk.md` (durable half + full SDK surface)
-- assembly: `PollinationSDK`; namespace `PollinationSDK.Wrapper` (the dispatch surface Compute composes)
-- asset: pure-managed netstandard2.0; the `net10.0` consumer binds `lib/netstandard2.0`. Sidecar-ISOLATED — the vendored `LBT.RestSharp`/`LBT.Newtonsoft.Json` fork closure runs OUTSIDE-RHINO on the cloud-run sidecar, never in the in-Rhino plugin assembly
+- assembly: `PollinationSDK`; namespace `PollinationSDK.Wrapper`
+- asset: pure-managed netstandard2.0; the `net10.0` consumer binds `lib/netstandard2.0`
 - rail: cloud-run (Compute dispatch policy)
 
-## [02]-[ENTRYPOINTS]
+## [02]-[PUBLIC_TYPES]
 
-[ENTRYPOINT_SCOPE]: `EnergyRoute.Cloud` dispatch — `PollinationSDK.Wrapper`
-- rail: cloud-run
-- shared async tail: every `Wrapper` submit/watch/download call ends `(Action<string> progress = null, CancellationToken = default)`; `RunInfo(project, runId)` constructs the download handle, and `DownloadRunAssetsAsync` takes the selected `List<RunAssetBase>` plus a `string saveAsDir = null`
-- composition law: `Analysis/energy`'s `EnergyRoute.Cloud` arm builds a `JobInfo` from the recipe + `ElementGraph`-derived OSM/IDF inputs, submits through `RunJobAsync`, watches to a terminal status, and pulls the selected result assets whose `SqlFile` (eplusout.sql) folds through the SAME extraction the subprocess route uses; the durable half (artifact bytes, lineage, result index) lands Persistence-side.
+[PUBLIC_TYPE_SCOPE]: `PollinationSDK.Wrapper` dispatch types the energy runner composes
 
-| [INDEX] | [SURFACE]                        | [CALL_SHAPE]                                         | [CAPABILITY]                               |
-| :-----: | :------------------------------- | :--------------------------------------------------- | :----------------------------------------- |
-|  [01]   | `new JobInfo(job)`               | `JobInfo(Job)` / `JobInfo(RecipeInterface)`          | job descriptor the energy runner builds    |
-|  [02]   | `jobInfo.RunJobAsync`            | `Task<ScheduledJobInfo> RunJobAsync(…)`              | upload inputs + submit in one              |
-|  [03]   | `scheduled.WatchJobStatusAsync`  | `Task<string> WatchJobStatusAsync(…)`                | poll to a terminal run status              |
-|  [04]   | `runInfo.DownloadRunAssetsAsync` | `Task<List<RunAssetBase>> DownloadRunAssetsAsync(…)` | pull result assets (the `SqlFile` carrier) |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]  | [CAPABILITY]                               |
+| :-----: | :----------------- | :------------- | :----------------------------------------- |
+|  [01]   | `JobInfo`          | job descriptor | recipe-run descriptor the runner builds    |
+|  [02]   | `ScheduledJobInfo` | submitted job  | cloud handle watched to a terminal status  |
+|  [03]   | `RunInfo`          | run handle     | download handle over a completed run       |
+|  [04]   | `RunAssetBase`     | asset base     | pulled result asset carrying the `SqlFile` |
 
-## [03]-[IMPLEMENTATION_LAW]
+## [03]-[ENTRYPOINTS]
 
-[DISPATCH_BOUNDARY]:
-- Compute owns the recipe-run dispatch POLICY (which recipe, which inputs, when to route `EnergyRoute.Cloud` vs the local `EnergyToolchain` subprocess); the transport surface (auth, REST, artifact upload) is the Persistence catalog's. A cloud-route failure surfaces as the typed `(Solve, Foreign)` / `(Admission, Timeout)` `ComputeFault.AnalysisFailed` row with the HTTP status riding `Diagnostic.Code`, per the energy runner's typed-failure classification — never a stringly interpolated cloud arm.
-- The pulled `SqlFile` folds through the identical eplusout.sql extraction the subprocess route drives (`Microsoft.Data.Sqlite` read-only over the bracketed scratch artifact); the durable result lands content-keyed through the Persistence `Store/blobstore` + `Version/provenance` + `Query/cache#ArtifactKind.CloudRun` owners.
+[ENTRYPOINT_SCOPE]: `EnergyRoute.Cloud` dispatch chain — `PollinationSDK.Wrapper`
+
+`Analysis/energy` threads build `JobInfo` -> `RunJobAsync` -> `WatchJobStatusAsync` -> `DownloadRunAssetsAsync`, every async call ending the shared `(Action<string> progress = null, CancellationToken = default)` tail.
+
+| [INDEX] | [SURFACE]                                                                        | [SHAPE]  | [CAPABILITY]                              |
+| :-----: | :------------------------------------------------------------------------------- | :------- | :---------------------------------------- |
+|  [01]   | `JobInfo(Job)`                                                                   | ctor     | job descriptor from a recipe job          |
+|  [02]   | `JobInfo(RecipeInterface)`                                                       | ctor     | job descriptor from a recipe interface    |
+|  [03]   | `JobInfo.RunJobAsync() -> Task<ScheduledJobInfo>`                                | instance | upload inputs and submit in one           |
+|  [04]   | `ScheduledJobInfo.WatchJobStatusAsync() -> Task<string>`                         | instance | poll to a terminal run status             |
+|  [05]   | `RunInfo.DownloadRunAssetsAsync(List<RunAssetBase>) -> Task<List<RunAssetBase>>` | instance | pull result assets carrying the `SqlFile` |
+
+## [04]-[IMPLEMENTATION_LAW]
+
+[TOPOLOGY]:
+- `Analysis/energy` owns the recipe-run dispatch policy — which recipe, which inputs, and whether `EnergyRoute.Cloud` or the local `EnergyToolchain` subprocess runs — while auth, REST, and artifact upload stay Persistence's.
+- A cloud-route failure surfaces as the typed `ComputeFault.AnalysisFailed` row (`(Solve, Foreign)` / `(Admission, Timeout)`) with the HTTP status on `Diagnostic.Code`, never a stringly interpolated arm.
+- `LBT.RestSharp` and `LBT.Newtonsoft.Json` — the vendored SDK fork closure — load OUTSIDE-RHINO on the sidecar, never in the in-Rhino plugin assembly.
+
+[STACKING]:
+- `PollinationSDK`(`libs/csharp/Rasm.Persistence/.api/api-pollination-sdk.md`): the durable half lands Persistence-side — artifact bytes at `Store/blobstore`, lineage at `Version/provenance`, the completed run at `Query/cache#ArtifactKind.CloudRun` — and that catalog owns the full REST/auth/artifact transport surface.
+- `api-sqlite`(`api-sqlite.md`): the pulled `SqlFile` folds through the same `Microsoft.Data.Sqlite` read-only extraction over the bracketed scratch artifact the local subprocess route drives.
+- within-lib: `EnergyRoute.Cloud` builds `JobInfo` from recipe + `ElementGraph`-derived OSM/IDF inputs behind the `Analysis/energy` runner entry point, so a cloud simulation and a local one share one result-extraction seam.
+
+[LOCAL_ADMISSION]:
+- `EnergyRoute.Cloud` is one dispatch arm of `Analysis/energy`, selected against the local `EnergyToolchain` subprocess arm; the SDK and its fork closure bind only on the sidecar.
+- Token auth is app-root connection input handed to `Configuration`/`TokenRepo`, never a Compute fence member.
 
 [RAIL_LAW]:
-- Package: `PollinationSDK` `1.10.0` (Compute cloud-run-dispatch slice; durable half + full surface at the Persistence catalog)
-- Owns: the `EnergyRoute.Cloud` recipe-run dispatch policy — build `JobInfo`, submit + watch through `Wrapper`, hand the result to the Persistence durable landing
+- Package: `PollinationSDK`
+- Owns: the `EnergyRoute.Cloud` recipe-run dispatch policy — build `JobInfo`, submit and watch through `Wrapper`, hand the result to the Persistence durable landing
 - Accept: a cloud-routed energy simulation whose result folds through the shared `SqlFile` extraction and lands content-keyed Persistence-side
-- Reject: loading the SDK or its RestSharp/Newtonsoft forks in the in-Rhino assembly; re-documenting the transport/auth/artifact surface the Persistence catalog owns; a stringly cloud-arm fault where the typed `AnalysisFailed` row belongs
+- Reject: loading the SDK or its RestSharp/Newtonsoft forks in the in-Rhino assembly; re-documenting the transport/auth/artifact surface Persistence owns; a stringly cloud-arm fault where the typed `AnalysisFailed` row belongs

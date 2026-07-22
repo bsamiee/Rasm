@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_SCHEMAREGISTRY]
 
-`Confluent.SchemaRegistry` supplies the registry control-plane the three `Confluent.SchemaRegistry.Serdes.*` data-plane serdes share: the `ISchemaRegistryClient` REST contract and its `CachedSchemaRegistryClient` implementation (subject register/lookup, schema-id and GUID resolution, compatibility level read/update, latest-by-metadata lookup), the `Schema`/`RegisteredSchema` schema model with `References`/`Metadata`/`RuleSet`, the `SchemaId` wire-prefix struct plus the `ISchemaIdEncoder`/`ISchemaIdDecoder` framing family (Confluent magic-byte prefix vs. Kafka-header id placement), the `SubjectNameStrategy`/`ReferenceSubjectNameStrategy` naming axes, the `Compatibility` evolution enum, and the data-contract rule engine (`RuleSet`/`Rule`/`RuleMode`/`RulePhase`, `IRuleExecutor`/`IRuleAction`, `RuleRegistry`) that backs client-side field-level encryption and migration. It is the registry leg of the `Version/egress#EGRESS_SINK` rail: the serde codec is built once against one `ISchemaRegistryClient`, the registry governs schema evolution out-of-band, and only the registered schema id (not the schema) rides each Kafka payload.
+`Confluent.SchemaRegistry` owns the registry REST control-plane every `Confluent.SchemaRegistry.Serdes.*` codec shares: subject register/lookup, schema-id and GUID resolution, compatibility governance, wire-id framing, subject naming, and the client-side data-contract rule engine backing field-level encryption and migration. It is the registry leg of the `Version/egress#EGRESS_SINK` rail — one codec builds once against one `ISchemaRegistryClient`, the registry governs evolution out-of-band, and only the registered schema id rides each Kafka payload.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -11,15 +11,14 @@
 - namespace: `Confluent.SchemaRegistry`
 - target: multi-target (`net462`, `net6.0`, `net8.0`, `netstandard2.0`); the `net10.0` consumer binds `lib/net8.0`
 - managed: pure-managed AnyCPU, no native asset; REST/JSON client only
-- transitive: `Newtonsoft.Json` (the `Schema`/`Rule`/`Compatibility` DataContracts carry `Newtonsoft.Json` `[JsonConverter]`/`StringEnumConverter` attributes — the registry wire model is Newtonsoft, not System.Text.Json); `Microsoft.Extensions.Caching.Memory` (the `MemoryCache` backing the latest-version and latest-with-metadata TTL caches); the `RestService` builds on the BCL `HttpClient`
-- rail: schema-registry control-plane (governs `cdc-egress`)
+- transitive: `Newtonsoft.Json` (registry wire model), `Microsoft.Extensions.Caching.Memory` (latest-cache TTL), BCL `HttpClient` (`RestService` transport)
+- rail: schema-registry control-plane governing `cdc-egress`
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client contract family
-- rail: schema-registry control-plane
 
-| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]   | [RAIL]                                                                              |
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]   | [CAPABILITY]                                                                        |
 | :-----: | :--------------------------- | :-------------- | :---------------------------------------------------------------------------------- |
 |  [01]   | `ISchemaRegistryClient`      | client contract | register/lookup/compat/latest/cache-clear/association, `IDisposable`                |
 |  [02]   | `CachedSchemaRegistryClient` | client impl     | the only shipped client; bounded LRU schema cache over the REST service             |
@@ -28,9 +27,8 @@
 |  [05]   | `IWebProxy` (BCL)            | proxy           | optional outbound proxy on the client ctor                                          |
 
 [PUBLIC_TYPE_SCOPE]: schema model family
-- rail: schema-registry control-plane
 
-| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]   | [RAIL]                                                                                   |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]   | [CAPABILITY]                                                                             |
 | :-----: | :----------------- | :-------------- | :--------------------------------------------------------------------------------------- |
 |  [01]   | `Schema`           | unregistered    | `SchemaString`/`SchemaType`/`References`/`Metadata`/`RuleSet`                            |
 |  [02]   | `RegisteredSchema` | registered      | `: Schema`; carries `Id`/`Subject`/`Version`/`Guid` as its own registered-identity props |
@@ -40,30 +38,24 @@
 |  [06]   | `Compatibility`    | evolution enum  | `None`/`Forward`/`Backward`/`Full` (+`*Transitive`)                                      |
 |  [07]   | `ServerConfig`     | subject config  | server-side compatibility/rule defaults                                                  |
 
-`SchemaString` is the public `string` property on `Schema` (the server schema-string), not a public type — the `SchemaString` type itself is `internal`; `CompatibilityCheck` is likewise `internal`, never a consumer-facing result, so `IsCompatibleAsync` returns a plain `bool`.
+- `Schema.SchemaString`: a public `string` carries the server schema-string; the `SchemaString` and `CompatibilityCheck` types stay `internal`, so `IsCompatibleAsync` returns a plain `bool`.
 
 [PUBLIC_TYPE_SCOPE]: wire-id framing family
-- rail: schema-registry control-plane
 
-`SchemaId` also exposes the `VALUE_SCHEMA_ID_HEADER`/`KEY_SCHEMA_ID_HEADER` header names and `MAGIC_BYTE_V0`/`MAGIC_BYTE_V1` magic bytes as framing consts; every `ISchemaIdEncoder`/`ISchemaIdDecoder` method takes a trailing `ref SchemaId`. `ISchemaIdEncoder` sizes via `CalculateSize(ref SchemaId)`; `SchemaIdStrategyExtensions.ToEncoder(SchemaIdSerializerStrategy)`/`ToDeserializer(SchemaIdDeserializerStrategy)` fold a strategy enum to its codec.
-
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]   | [RAIL]                                                             |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]   | [CAPABILITY]                                                       |
 | :-----: | :----------------------------- | :-------------- | :----------------------------------------------------------------- |
 |  [01]   | `SchemaId`                     | wire id struct  | `SchemaType`/`Id`/`Guid`/`MessageIndexes`                          |
 |  [02]   | `ISchemaIdEncoder`             | encode contract | `Encode(Span<byte>, ref SerializationContext, ref SchemaId)`       |
 |  [03]   | `ISchemaIdDecoder`             | decode contract | `Decode(ReadOnlyMemory<byte>, SerializationContext, ref SchemaId)` |
-|  [04]   | `SchemaIdSerializerStrategy`   | encode enum     | `Header` / `Prefix` — the PUBLIC encoder selector                  |
-|  [05]   | `SchemaIdDeserializerStrategy` | decode enum     | `Dual` / `Prefix` — the PUBLIC decoder selector                    |
+|  [04]   | `SchemaIdSerializerStrategy`   | encode enum     | `Header` / `Prefix` — the public encoder selector                  |
+|  [05]   | `SchemaIdDeserializerStrategy` | decode enum     | `Dual` / `Prefix` — the public decoder selector                    |
 |  [06]   | `SchemaIdStrategyExtensions`   | strategy folder | `ToEncoder`/`ToDeserializer` fold a strategy enum to its codec     |
 
-The concrete encoders/decoders are `internal`, never `new`-able by a consumer: `PrefixSchemaIdEncoder` (the magic-byte `[0x00][int32 id]` prefix, the serde default) and `HeaderSchemaIdEncoder` (writes the id GUID into the `__value_schema_id`/`__key_schema_id` Kafka header) are selected by `SchemaIdSerializerStrategy`; `PrefixSchemaIdDecoder` and `DualSchemaIdDecoder` (header-or-prefix, the deserializer default) are selected by `SchemaIdDeserializerStrategy`. A serde sets the strategy on its config; it never references the encoder/decoder class. `ISchemaIdEncoder`/`ISchemaIdDecoder` are the public extension contracts for a bespoke framing.
+- `SchemaId`: exposes framing consts `VALUE_SCHEMA_ID_HEADER`/`KEY_SCHEMA_ID_HEADER` and `MAGIC_BYTE_V0`/`MAGIC_BYTE_V1`; every encoder/decoder method trails a `ref SchemaId`, sized by `ISchemaIdEncoder.CalculateSize(ref SchemaId)`. `ISchemaIdEncoder`/`ISchemaIdDecoder` are the public extension contracts for bespoke framing.
 
 [PUBLIC_TYPE_SCOPE]: subject naming family
-- rail: schema-registry control-plane
 
-`SubjectNameStrategyExtensions.ToAsyncDelegate` folds the strategy enum into an `AsyncSubjectNameStrategyDelegate` (async, so `SubjectNameStrategy.Associated` resolves through the registry); `ReferenceSubjectNameStrategyExtensions.ToDelegate` folds the reference strategy into a `ReferenceSubjectNameStrategyDelegate`. The `*Delegate` types are the resolved `(context, recordType) -> subject` forms.
-
-| [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]   | [RAIL]                                                                |
+| [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]   | [CAPABILITY]                                                          |
 | :-----: | :--------------------------------------- | :-------------- | :-------------------------------------------------------------------- |
 |  [01]   | `SubjectNameStrategy`                    | naming enum     | `Topic`/`Record`/`TopicRecord`/`Associated`/`None`                    |
 |  [02]   | `ReferenceSubjectNameStrategy`           | ref-naming enum | `ReferenceName`/`Qualified`/`Custom`                                  |
@@ -75,12 +67,11 @@ The concrete encoders/decoders are `internal`, never `new`-able by a consumer: `
 |  [08]   | `ReferenceSubjectNameStrategyDelegate`   | delegate        | reference-subject resolution                                          |
 |  [09]   | `AssociatedNameStrategy`                 | strategy impl   | registry-resolved subject (`Associated` mode, async-only)             |
 
+- `SubjectNameStrategyExtensions.ToAsyncDelegate`: its async form resolves `SubjectNameStrategy.Associated` through the registry; `*Delegate` types are the resolved `(context, recordType) -> subject` closures.
+
 [PUBLIC_TYPE_SCOPE]: data-contract rule family
-- rail: schema-registry control-plane
 
-`RuleSet` bundles the three rule phases and exposes `GetRules(phase)`/`HasRules(phase, mode)` plus the `EnableAt` gate; each executor reads a `RuleContext` whose `CurrentField()`/`EnterField(...)`/`GetParameter(key)`/`GetTags(fullName)` walk the nested `RuleContext.FieldContext` (`FullName`/`Name`/`Type`/`Tags` + `IsPrimitive()`, `Type` ∈ the `RuleContext.Type` scalar enum). `RuleRegistry` carries static `RegisterRuleExecutor`/`RegisterRuleAction`/`RegisterRuleOverride` and instance `RegisterExecutor`/`RegisterAction`/`RegisterOverride`, `Get*`/`TryGet*`, and the `GlobalInstance` singleton over executors, actions, and overrides. `IRuleAction` ships two built-ins: `ErrorAction` (`Type() == "ERROR"`, the fail-loud action) and `NoneAction` (`"NONE"`, the no-op). `Rule` carries `Name`/`Doc`/`Kind`/`Mode`/`Type`/`Expr`/`Tags`/`Params`/`OnSuccess`/`OnFailure`/`Disabled`; `RuleContext` exposes `Source`/`Target`/`Subject`/`Topic`/`Headers`/`IsKey`/`RuleMode`/`Rule`/`Rules`/`Index`/`FieldTransformer`/`CustomData`.
-
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]      | [RAIL]                                                                             |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]      | [CAPABILITY]                                                                       |
 | :-----: | :----------------------- | :----------------- | :--------------------------------------------------------------------------------- |
 |  [01]   | `RuleSet`                | rule bundle        | `MigrationRules`/`DomainRules`/`EncodingRules`/`EnableAt`; `GetRules`/`HasRules`   |
 |  [02]   | `Rule`                   | one rule           | one evolution rule record; fields in lead                                          |
@@ -102,10 +93,13 @@ The concrete encoders/decoders are `internal`, never `new`-able by a consumer: `
 |  [18]   | `RuleException`          | rule fault         | `: Exception`; a rule failed                                                       |
 |  [19]   | `RuleConditionException` | condition fault    | `: RuleException`; a condition rule was violated                                   |
 
-[PUBLIC_TYPE_SCOPE]: authentication and error family
-- rail: schema-registry control-plane
+- `Rule` fields: `Name` `Doc` `Kind` `Mode` `Type` `Expr` `Tags` `Params` `OnSuccess` `OnFailure` `Disabled`.
+- `RuleContext` props: `Source` `Target` `Subject` `Topic` `Headers` `IsKey` `RuleMode` `Rule` `Rules` `Index` `FieldTransformer` `CustomData`; walks the nested `FieldContext` (`FullName`/`Name`/`Type`/`Tags` + `IsPrimitive()`) via `CurrentField()`/`EnterField(...)`/`GetParameter(key)`/`GetTags(fullName)`.
+- `RuleRegistry` members: static `RegisterRuleExecutor`/`RegisterRuleAction`/`RegisterRuleOverride`, instance `RegisterExecutor`/`RegisterAction`/`RegisterOverride`, `Get*`/`TryGet*`, and the `GlobalInstance` singleton.
 
-| [INDEX] | [SYMBOL]                                           | [TYPE_FAMILY]   | [RAIL]                                 |
+[PUBLIC_TYPE_SCOPE]: authentication and error family
+
+| [INDEX] | [SYMBOL]                                           | [TYPE_FAMILY]   | [CAPABILITY]                           |
 | :-----: | :------------------------------------------------- | :-------------- | :------------------------------------- |
 |  [01]   | `IAuthenticationHeaderValueProvider`               | auth contract   | per-request authorization header       |
 |  [02]   | `IAuthenticationBearerHeaderValueProvider`         | bearer contract | OAuth bearer header provider           |
@@ -120,85 +114,89 @@ The concrete encoders/decoders are `internal`, never `new`-able by a consumer: `
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: client construction
-- rail: schema-registry control-plane
 
-| [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY] | [RAIL]                                               |
-| :-----: | :------------------------------------------------------------- | :------------- | :--------------------------------------------------- |
-|  [01]   | `new CachedSchemaRegistryClient(config)`                       | ctor           | builds from `SchemaRegistryConfig` K/V pairs         |
-|  [02]   | `new CachedSchemaRegistryClient(config, authProvider, proxy?)` | ctor           | explicit auth provider plus optional `IWebProxy`     |
-|  [03]   | `new SchemaRegistryConfig { Url = ... }`                       | object init    | bootstrap URL, retries, SSL, auth, subject strategy  |
-|  [04]   | `client.Dispose()`                                             | lifecycle      | `ISchemaRegistryClient : IDisposable`, shared client |
+| [INDEX] | [SURFACE]                                                      | [SHAPE]  | [CAPABILITY]                                         |
+| :-----: | :------------------------------------------------------------- | :------- | :--------------------------------------------------- |
+|  [01]   | `new CachedSchemaRegistryClient(config)`                       | ctor     | builds from `SchemaRegistryConfig` K/V pairs         |
+|  [02]   | `new CachedSchemaRegistryClient(config, authProvider, proxy?)` | ctor     | explicit auth provider plus optional `IWebProxy`     |
+|  [03]   | `new SchemaRegistryConfig { Url = ... }`                       | ctor     | bootstrap URL, retries, SSL, auth, subject strategy  |
+|  [04]   | `client.Dispose()`                                             | instance | `ISchemaRegistryClient : IDisposable`, shared client |
 
 [ENTRYPOINT_SCOPE]: register and lookup
-- rail: schema-registry control-plane
+- [SHAPE]: instance
 
-| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY] | [RAIL]                                                |
-| :-----: | :-------------------------------------------------------------- | :------------- | :---------------------------------------------------- |
-|  [01]   | `RegisterSchemaAsync(subject, schema, normalize?)`              | register       | registers; returns the assigned schema id             |
-|  [02]   | `RegisterSchemaWithResponseAsync(subject, schema, normalize?)`  | register       | returns the full `RegisteredSchema` (id+guid+version) |
-|  [03]   | `GetSchemaIdAsync(subject, schema, normalize?)`                 | lookup         | resolves an existing id without registering           |
-|  [04]   | `LookupSchemaAsync(subject, schema, ignoreDeleted, normalize?)` | lookup         | returns the matching `RegisteredSchema`               |
-|  [05]   | `GetSchemaAsync(id, format?)`                                   | fetch          | fetches a `Schema` by global id                       |
-|  [06]   | `GetSchemaBySubjectAndIdAsync(subject, id, format?)`            | fetch          | id scoped to a subject                                |
-|  [07]   | `GetSchemaByGuidAsync(guid, format?)`                           | fetch          | fetches by schema GUID                                |
-|  [08]   | `GetRegisteredSchemaAsync(subject, version, ignoreDeleted?)`    | fetch          | fetches a `RegisteredSchema` by version               |
-|  [09]   | `GetLatestSchemaAsync(subject)`                                 | fetch          | the latest registered version                         |
-|  [10]   | `GetLatestWithMetadataAsync(subject, metadata, ignoreDeleted)`  | fetch          | latest version matching a `Metadata` K/V pin          |
+| [INDEX] | [SURFACE]                                                       | [CAPABILITY]                                          |
+| :-----: | :-------------------------------------------------------------- | :---------------------------------------------------- |
+|  [01]   | `RegisterSchemaAsync(subject, schema, normalize?)`              | registers; returns the assigned schema id             |
+|  [02]   | `RegisterSchemaWithResponseAsync(subject, schema, normalize?)`  | returns the full `RegisteredSchema` (id+guid+version) |
+|  [03]   | `GetSchemaIdAsync(subject, schema, normalize?)`                 | resolves an existing id without registering           |
+|  [04]   | `LookupSchemaAsync(subject, schema, ignoreDeleted, normalize?)` | returns the matching `RegisteredSchema`               |
+|  [05]   | `GetSchemaAsync(id, format?)`                                   | fetches a `Schema` by global id                       |
+|  [06]   | `GetSchemaBySubjectAndIdAsync(subject, id, format?)`            | id scoped to a subject                                |
+|  [07]   | `GetSchemaByGuidAsync(guid, format?)`                           | fetches by schema GUID                                |
+|  [08]   | `GetRegisteredSchemaAsync(subject, version, ignoreDeleted?)`    | fetches a `RegisteredSchema` by version               |
+|  [09]   | `GetLatestSchemaAsync(subject)`                                 | the latest registered version                         |
+|  [10]   | `GetLatestWithMetadataAsync(subject, metadata, ignoreDeleted)`  | latest version matching a `Metadata` K/V pin          |
 
 [ENTRYPOINT_SCOPE]: compatibility and inventory
-- rail: schema-registry control-plane
+- [SHAPE]: instance
 
-The `*AssociationAsync` surface is the data-governance lineage rail, distinct from schema register/lookup: `CreateAssociationAsync` takes an `AssociationCreateOrUpdateRequest` (`ResourceName`/`ResourceNamespace`/`ResourceId`/`ResourceType` plus `AssociationCreateOrUpdateInfo` rows) and returns an `AssociationResponse`; `GetAssociationsByResourceNameAsync` returns `List<Association>`.
+| [INDEX] | [SURFACE]                                           | [CAPABILITY]                                                  |
+| :-----: | :-------------------------------------------------- | :------------------------------------------------------------ |
+|  [01]   | `IsCompatibleAsync(subject, schema)`                | tests a candidate schema against the subject (returns `bool`) |
+|  [02]   | `GetCompatibilityAsync(subject?)`                   | reads the level (subject or global default)                   |
+|  [03]   | `UpdateCompatibilityAsync(compatibility, subject?)` | sets the level for a subject or globally                      |
+|  [04]   | `GetAllSubjectsAsync()`                             | every registered subject name                                 |
+|  [05]   | `GetSubjectVersionsAsync(subject)`                  | version list for a subject                                    |
+|  [06]   | `ClearCaches()` / `ClearLatestCaches()`             | drop the in-process schema/latest caches without disposing    |
+|  [07]   | `CreateAssociationAsync(request)`                   | registers a resource association                              |
+|  [08]   | `GetAssociationsByResourceNameAsync(...)`           | lists associations by resource name                           |
+|  [09]   | `DeleteAssociationsAsync(...)`                      | deletes resource associations                                 |
 
-| [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY] | [RAIL]                                                        |
-| :-----: | :-------------------------------------------------- | :------------- | :------------------------------------------------------------ |
-|  [01]   | `IsCompatibleAsync(subject, schema)`                | compat probe   | tests a candidate schema against the subject (returns `bool`) |
-|  [02]   | `GetCompatibilityAsync(subject?)`                   | compat read    | reads the level (subject or global default)                   |
-|  [03]   | `UpdateCompatibilityAsync(compatibility, subject?)` | compat write   | sets the level for a subject or globally                      |
-|  [04]   | `GetAllSubjectsAsync()`                             | inventory      | every registered subject name                                 |
-|  [05]   | `GetSubjectVersionsAsync(subject)`                  | inventory      | version list for a subject                                    |
-|  [06]   | `ClearCaches()` / `ClearLatestCaches()`             | cache control  | drop the in-process schema/latest caches without disposing    |
-|  [07]   | `CreateAssociationAsync(request)`                   | governance     | registers a resource association                              |
-|  [08]   | `GetAssociationsByResourceNameAsync(...)`           | governance     | lists associations by resource name                           |
-|  [09]   | `DeleteAssociationsAsync(...)`                      | governance     | deletes resource associations                                 |
+- `CreateAssociationAsync`: takes an `AssociationCreateOrUpdateRequest` (`ResourceName`/`ResourceNamespace`/`ResourceId`/`ResourceType` + `AssociationCreateOrUpdateInfo` rows) and returns an `AssociationResponse`; the `*AssociationAsync` surface is the data-governance lineage rail, distinct from schema register/lookup.
 
 [ENTRYPOINT_SCOPE]: schema, id, and rule construction
-- rail: schema-registry control-plane
 
-| [INDEX] | [SURFACE]                                                             | [ENTRY_FAMILY] | [RAIL]                                         |
-| :-----: | :-------------------------------------------------------------------- | :------------- | :--------------------------------------------- |
-|  [01]   | `new Schema(schemaString, schemaType)`                                | ctor           | unregistered schema, empty references          |
-|  [02]   | `new Schema(schemaString, references, schemaType, metadata, ruleSet)` | ctor           | full schema with references, metadata, rules   |
-|  [03]   | `new SchemaReference(name, subject, version)`                         | ctor           | a cross-schema dependency                      |
-|  [04]   | `new SchemaId(schemaType, id, guid)`                                  | ctor           | wire-id descriptor (int id and/or GUID)        |
-|  [05]   | `schemaId.FromBytes(payload)`                                         | decode         | strips the id framing, returns the value slice |
-|  [06]   | `new RuleSet(migrationRules, domainRules, encodingRules)`             | ctor           | the three rule phases bundled                  |
-|  [07]   | `ruleSet.GetRules(RulePhase.Domain)`                                  | accessor       | the rules for one phase                        |
-|  [08]   | `RuleRegistry.RegisterRuleExecutor(executor)`                         | static         | registers a global `IRuleExecutor`             |
-|  [09]   | `RuleRegistry.RegisterRuleAction(action)`                             | static         | registers a global on-failure `IRuleAction`    |
-|  [10]   | `RuleRegistry.RegisterRuleOverride(ruleOverride)`                     | static         | registers a global per-rule override           |
-|  [11]   | `ruleRegistry.TryGetExecutor(name, out executor)`                     | instance       | resolves a per-serde executor by name          |
+| [INDEX] | [SURFACE]                                                             | [SHAPE]  | [CAPABILITY]                                   |
+| :-----: | :-------------------------------------------------------------------- | :------- | :--------------------------------------------- |
+|  [01]   | `new Schema(schemaString, schemaType)`                                | ctor     | unregistered schema, empty references          |
+|  [02]   | `new Schema(schemaString, references, schemaType, metadata, ruleSet)` | ctor     | full schema with references, metadata, rules   |
+|  [03]   | `new SchemaReference(name, subject, version)`                         | ctor     | a cross-schema dependency                      |
+|  [04]   | `new SchemaId(schemaType, id, guid)`                                  | ctor     | wire-id descriptor (int id and/or GUID)        |
+|  [05]   | `schemaId.FromBytes(payload)`                                         | instance | strips the id framing, returns the value slice |
+|  [06]   | `new RuleSet(migrationRules, domainRules, encodingRules)`             | ctor     | the three rule phases bundled                  |
+|  [07]   | `ruleSet.GetRules(RulePhase.Domain)`                                  | instance | the rules for one phase                        |
+|  [08]   | `RuleRegistry.RegisterRuleExecutor(executor)`                         | static   | registers a global `IRuleExecutor`             |
+|  [09]   | `RuleRegistry.RegisterRuleAction(action)`                             | static   | registers a global on-failure `IRuleAction`    |
+|  [10]   | `RuleRegistry.RegisterRuleOverride(ruleOverride)`                     | static   | registers a global per-rule override           |
+|  [11]   | `ruleRegistry.TryGetExecutor(name, out executor)`                     | instance | resolves a per-serde executor by name          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[REGISTRY_TOPOLOGY]:
-- single namespace: `Confluent.SchemaRegistry` — client, schema model, wire-id framing, naming strategy, rule engine, auth, errors.
-- the wire model is `Newtonsoft.Json`: `Schema`, `Rule`, `Compatibility`, `RuleMode`, `RuleKind` carry `[DataContract]` plus `[JsonConverter(StringEnumConverter)]`; the registry REST body is never System.Text.Json, so a System.Text.Json `JsonSerializerOptions` never touches the registry leg (it touches only the application payload codec).
-- `CachedSchemaRegistryClient` is the only shipped `ISchemaRegistryClient` (ctors: `(config)`, `(config, proxy)`, `(config, authProvider, proxy?)`); it owns a bounded LRU schema cache (`DefaultMaxCachedSchemas = 1000`) plus a latest-version TTL (`DefaultLatestCacheTtlSecs = -1` = no expiry) so steady-state register/lookup is in-process after warmup. Default REST policy: `DefaultTimeout = 30000`, `DefaultMaxRetries = 3`, `DefaultRetriesWaitMs = 1000`, `DefaultRetriesMaxWaitMs = 20000`, `DefaultMaxConnectionsPerServer = 20`. `ClearCaches()`/`ClearLatestCaches()` drop the caches on the live shared client (a controlled re-pin after an out-of-band registry mutation) without disposing it.
-- `SchemaRegistryConfig.Url` accepts a comma-separated failover list; the `RestService` round-robins instances under retry, distinct from the librdkafka broker list on the `Confluent.Kafka` data plane. Bearer auth is the full `BearerAuth*` config block (`BearerAuthClientId`/`ClientSecret`/`Scope`/`TokenEndpointUrl`/`TokenEndpointQuery`/`LogicalCluster`/`IdentityPoolId`, or a preminted `BearerAuthToken`), basic auth is `BasicAuthUserInfo`.
-- the wire id is framed by an `ISchemaIdEncoder` chosen with the `SchemaIdSerializerStrategy` enum on the serde config — never by referencing an encoder class (the concrete encoders are `internal`): `Prefix` selects the magic-byte `[0x00][int32 schema id]` prefix (`AsyncSerializer.schemaIdEncoder` defaults to it); `Header` moves the id GUID into the `__value_schema_id`/`__key_schema_id` Kafka header, leaving the value payload prefix-free. The deserializer picks the decoder with `SchemaIdDeserializerStrategy`: `Dual` (the base default) reads header-or-prefix so a topic migrates prefix->header without a flag day; `Prefix` is prefix-only. `SchemaId` carries `Id`/`Guid`/`MessageIndexes` (the Protobuf message-index list); `CalculateIdSize`/`CalculateGuidSize` size the framing and `SchemaId.FromBytes` reverses it.
-- the rule engine is the data-contract surface: `RuleSet` carries `MigrationRules` (cross-version `Upgrade`/`Downgrade`), `DomainRules` (`Write`/`Read` field transforms — the CSFLE encrypt/decrypt seam), and `EncodingRules`. `RuleRegistry.GlobalInstance` is the default executor/action lookup every serde reads unless a per-serde `RuleRegistry` is passed.
+[TOPOLOGY]:
+- One namespace `Confluent.SchemaRegistry` carries client, schema model, wire-id framing, naming strategy, rule engine, auth, and errors.
+- `Newtonsoft.Json` is the registry wire model: `Schema`, `Rule`, `Compatibility`, `RuleMode`, `RuleKind` carry `[DataContract]` and `[JsonConverter(StringEnumConverter)]`, so a System.Text.Json `JsonSerializerOptions` never touches the registry leg — only the application payload codec.
+- `CachedSchemaRegistryClient` is the only shipped `ISchemaRegistryClient`; it owns a bounded LRU schema cache (`DefaultMaxCachedSchemas = 1000`) and a latest-version TTL (`DefaultLatestCacheTtlSecs = -1`, no expiry) so steady-state register/lookup runs in-process after warmup. REST policy: `DefaultTimeout = 30000`, `DefaultMaxRetries = 3`, `DefaultRetriesWaitMs = 1000`, `DefaultRetriesMaxWaitMs = 20000`, `DefaultMaxConnectionsPerServer = 20`. `ClearCaches()`/`ClearLatestCaches()` drop the caches on the live shared client without disposing it.
+- `SchemaRegistryConfig.Url` accepts a comma-separated failover list the `RestService` round-robins under retry. Bearer auth is the `BearerAuth*` block (`BearerAuthClientId`/`ClientSecret`/`Scope`/`TokenEndpointUrl`/`TokenEndpointQuery`/`LogicalCluster`/`IdentityPoolId`, or a preminted `BearerAuthToken`); basic auth is `BasicAuthUserInfo`.
+- `ISchemaIdEncoder` frames the wire id, selected with the `SchemaIdSerializerStrategy` enum on the serde config, never by referencing a concrete encoder class (the encoders are `internal`): `Prefix` writes the magic-byte `[0x00][int32 schema id]` prefix; `Header` moves the id GUID into the `__value_schema_id`/`__key_schema_id` Kafka header, leaving the value payload prefix-free.
+- `SchemaIdDeserializerStrategy` picks the decoder: `Dual` reads header-or-prefix so a topic migrates prefix->header without a flag day, `Prefix` reads prefix-only; `SchemaId.FromBytes` reverses the framing.
+- `RuleSet` is the data-contract surface: `MigrationRules` (cross-version `Upgrade`/`Downgrade`), `DomainRules` (`Write`/`Read` field transforms, the CSFLE encrypt/decrypt seam), and `EncodingRules`; `RuleRegistry.GlobalInstance` is the default executor/action lookup every serde reads unless a per-serde `RuleRegistry` is passed.
+
+[STACKING]:
+- `Confluent.SchemaRegistry.Serdes.Avro`/`.Json`/`.Protobuf`(`.api/api-schemaregistry-serdes-avro.md`, `api-schemaregistry-serdes-json.md`, `api-schemaregistry-serdes-protobuf.md`): each serde binds one shared `ISchemaRegistryClient`, frames every payload with `SchemaId`, and reads `RuleRegistry` for CSFLE and migration.
+- `Confluent.Kafka`(`.api/api-kafka.md`): `SchemaIdSerializerStrategy.Header` moves the id into `Message<TKey,TValue>.Headers`, freeing the value payload for a non-Confluent downstream consumer.
+- `CloudNative.CloudEvents.Kafka`(`.api/api-cloudevents.md`): the header-framed schema id rides the same `Headers` as CloudEvents attributes and trace context on one message.
+- `AWSSDK.KeyManagementService`/`Azure.Security.KeyVault.Keys`/`Google.Cloud.Kms.V1`(`.api/api-aws-kms.md`, `api-azure-keyvault.md`, `api-google-kms.md`): a field-encryption `IRuleExecutor` wraps per-field DEKs against these KMS clients through the shared `RuleRegistry`.
+- `Version/egress`: builds one `CachedSchemaRegistryClient` per registry endpoint from one `SchemaRegistryConfig`, shared by every serde on the cluster and disposed once at rail teardown.
 
 [LOCAL_ADMISSION]:
-- The egress rail builds exactly one `CachedSchemaRegistryClient` per registry endpoint from one `SchemaRegistryConfig`, shared by every `Confluent.SchemaRegistry.Serdes.*` codec on that cluster; the client is disposed once at rail teardown, never per message and never per topic.
-- `SubjectNameStrategy` is fixed at serde-config time, not per call: `Topic` (`<topic>-value`) for single-type topics; `TopicRecord`/`Record` for the multi-event-type op-log topic so a `BimCommitted` and a `GeometryRebaked` event coexist on one topic each governed by its own subject. The strategy is the same axis the `api-redaction` `DataClassification` taxonomy reads when choosing the subject for a redacted op payload.
-- Production register policy disables `AutoRegisterSchemas` on the serde and registers schemas out-of-band through `RegisterSchemaWithResponseAsync` under the governed `Compatibility` level (`Backward`/`FullTransitive` for the durable changefeed), so an incompatible producer schema is rejected at deploy time, never silently auto-registered. The consumer pins reader behaviour through `GetLatestWithMetadataAsync` against a `Metadata` tag rather than trusting the writer schema id blindly.
-- Field-level encryption (CSFLE) routes through the rule engine, not a bespoke crypto pass: a `DomainRule` of `RuleMode.WriteRead` referencing a field-encryption `IRuleExecutor` (registered once via `RuleRegistry.RegisterRuleExecutor`) wraps/unwraps per-field DEKs against the admitted `AWSSDK.KeyManagementService`/`Azure.Security.KeyVault.Keys`/`Google.Cloud.Kms.V1` KMS clients, reusing the same `Element/identity#KEY_ENVELOPE` `EnvelopeKeyring` seam (the `KmsProvider` axis owned at `Element/identity#KMS_CUSTODY`). The `Metadata` sensitive-field set marks which fields the rule encrypts; the rule executor is the single load-bearing seam binding registry-governed encryption to the KMS authority.
-- `SchemaIdSerializerStrategy.Header` is the chosen framing when the value payload must stay schema-id-free for a downstream non-Confluent consumer (the id rides a header instead), pairing with the `CloudNative.CloudEvents.Kafka` header binding on the same `Message<TKey, TValue>` so registry id, CloudEvents attributes, and trace context all ride `Headers`.
-- Bearer auth (`BearerAuthCredentialsSource`/`BearerAuthenticationHeaderValueProvider`) mints the registry token from the same runtime token authority the Kafka SASL/OAUTHBEARER refresh uses; `AzureIMDSBearerAuthenticationHeaderValueProvider` is the managed-identity path when the registry is Azure-hosted. Registry auth is configured once on the client, never per request.
+- `SubjectNameStrategy` is fixed at serde-config time: `Topic` (`<topic>-value`) for single-type topics; `TopicRecord`/`Record` for a multi-event-type op-log topic so a `BimCommitted` and a `GeometryRebaked` event coexist on one topic, each governed by its own subject.
+- A durable changefeed producer sets `AutoRegisterSchemas = false` and registers schemas out-of-band through `RegisterSchemaWithResponseAsync` under a governed `Compatibility` level (`Backward`/`FullTransitive`), so an incompatible producer schema is rejected at deploy; the consumer pins reader behaviour through `GetLatestWithMetadataAsync` against a `Metadata` tag.
+- Field-level encryption routes through the rule engine: a `DomainRule` of `RuleMode.WriteRead` naming a field-encryption `IRuleExecutor` (registered once via `RuleRegistry.RegisterRuleExecutor`) wraps/unwraps per-field DEKs, the `Metadata` sensitive-field set marking which fields it encrypts. `Element/identity#KMS_CUSTODY` owns the `KmsProvider` axis binding registry-governed encryption to the KMS authority.
+- Registry auth mints its token from the same runtime authority the Kafka SASL/OAUTHBEARER refresh uses; `AzureIMDSBearerAuthenticationHeaderValueProvider` is the managed-identity path for an Azure-hosted registry. Auth is configured once on the client, never per request.
 
 [RAIL_LAW]:
 - Package: `Confluent.SchemaRegistry`
-- Owns: the registry REST control-plane — subject register/lookup, schema-id/GUID resolution, compatibility governance, latest-by-metadata data-contract pinning, wire-id framing, subject naming strategy, and the client-side data-contract rule engine (migration + CSFLE).
-- Accept: one shared `CachedSchemaRegistryClient` per endpoint, fixed `SubjectNameStrategy`, out-of-band `RegisterSchemaWithResponseAsync` under a governed `Compatibility` level, rule-engine CSFLE through `RuleRegistry`, and `DualSchemaIdDecoder` for prefix->header migration windows.
-- Reject: a per-message or per-topic client, `AutoRegisterSchemas` on the durable changefeed producer, hand-rolled magic-byte framing in place of `ISchemaIdEncoder`, a bespoke field-encryption pass outside the rule engine, and treating the Newtonsoft registry wire model as a System.Text.Json surface.
+- Owns: the registry REST control-plane — subject register/lookup, schema-id/GUID resolution, compatibility governance, latest-by-metadata pinning, wire-id framing, subject naming, and the client-side data-contract rule engine (migration + CSFLE).
+- Accept: one shared `CachedSchemaRegistryClient` per endpoint, fixed `SubjectNameStrategy`, out-of-band `RegisterSchemaWithResponseAsync` under a governed `Compatibility` level, rule-engine CSFLE through `RuleRegistry`, and `Dual` decoding for prefix->header migration windows.
+- Reject: a per-message or per-topic client, `AutoRegisterSchemas` on the durable changefeed producer, hand-rolled magic-byte framing in place of `ISchemaIdEncoder`, a field-encryption pass outside the rule engine, and the Newtonsoft registry wire model treated as a System.Text.Json surface.

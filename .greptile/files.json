@@ -41,6 +41,31 @@
             "path": "libs/typescript/.planning/RULINGS.md",
             "description": "TypeScript branch decision registry: settled re-litigation guards for the typescript corpus",
             "scope": ["libs/typescript/**"]
+        },
+        {
+            "path": "tests/README.md",
+            "description": "Polyglot proof-estate law: oracle grades, witness mandate, banned shapes, lanes, kit singularity, artifact routing",
+            "scope": ["tests/**", "libs/typescript/**/*.spec.ts", "libs/typescript/**/*.test.ts"]
+        },
+        {
+            "path": "tests/RULINGS.md",
+            "description": "Proof-estate decision registry: settled re-litigation guards spanning the language test trees",
+            "scope": ["tests/**"]
+        },
+        {
+            "path": "tests/csharp/RULINGS.md",
+            "description": "C# test-tree decision registry: settled re-litigation guards for the csharp proof tree",
+            "scope": ["tests/csharp/**"]
+        },
+        {
+            "path": "tests/python/RULINGS.md",
+            "description": "Python test-tree decision registry: settled re-litigation guards for the python proof tree",
+            "scope": ["tests/python/**"]
+        },
+        {
+            "path": "tests/typescript/RULINGS.md",
+            "description": "TypeScript test-tree decision registry: settled re-litigation guards, colocated unit specs included",
+            "scope": ["tests/typescript/**", "libs/typescript/**/*.spec.ts", "libs/typescript/**/*.test.ts"]
         }
     ]
 }

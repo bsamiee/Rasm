@@ -348,7 +348,7 @@ classes:
       landed_surfaces:
         - '.coderabbit.yaml'
         - '.greptile/rules.md'
-        - '.macroscope/correctness/tooling/operators.md'
+        - '.macroscope/correctness/tooling/workflows.md'
       recurrences: 1
     - class_id: tcc-parent-attribution
       corpus: prose
@@ -368,7 +368,7 @@ classes:
       landed_surfaces:
         - '.coderabbit.yaml'
         - '.greptile/rules.md'
-        - '.macroscope/correctness/tooling/operators.md'
+        - '.macroscope/correctness/tooling/workflows.md'
       recurrences: 1
     - class_id: accepted-exemplar-form
       corpus: prose

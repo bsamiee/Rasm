@@ -84,7 +84,7 @@ VERIFY is adversarial and WRITING, never a friendly confirmation. It re-derives 
 - That touch-point set is the `Rasm/CLAUDE.md` `[03]` roster; a lagging member is an alignment task.
 - Rulings discipline: the campaign maintains a `RULINGS.md` decision registry every pass.
 - Its admission bar, tier placement, `(none)`-section convention, and row anatomy follow the docgen rulings template.
-- Every stage reads the owning folder, branch, and cross-`libs/` registries before re-deciding a settled question.
+- Every stage reads the owning folder, branch, cross-`libs/`, and touched `tests/` registries before re-deciding a settled question.
 - A violation found against a ruling routes as a card — IDEA at the unifying altitude, TASK at landing grain — never an inline workaround.
 - Law lives in the ruling row, actionable findings land in the pass's dossier, and critique mints cards from dossiers.
 - Research-section discipline: realizing a research row moves its finding to the landing fence and deletes the row whole.

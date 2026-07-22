@@ -1,91 +1,73 @@
 # [RASM_PERSISTENCE_API_MQTT]
 
-`MQTTnet` supplies the MQTT v5 client backing `EgressSink.Mqtt` — the outbound publish-and-ack leg of the CDC egress pump. `MqttClientFactory.CreateMqttClient()` mints a per-instance `IMqttClient`; `MqttApplicationMessageBuilder` assembles the CloudEvents-projected payload with its v5 `UserProperties` tracing carrier and a QoS-1 `MqttQualityOfServiceLevel.AtLeastOnce` delivery flag; awaited `PublishAsync` returns `MqttClientPublishResult` — the PUBACK evidence whose `ReasonCode`/`IsSuccess` folds to `DeliveryAck` at the sink boundary. This overlay scopes the outbound egress surface; the AppHost `api-mqtt` catalogue owns the inbound live-external industrial-wire surface (connect, subscribe, the receive pump, will, topic filters) over the same package. It backs one `EgressSink` case over the shared `Egress.Envelope` projection, distinct from the Kafka (`api-kafka`), NATS JetStream (`api-nats`), RabbitMQ (`api-rabbitmq`), Pulsar (`api-dotpulsar`), and AMQP 1.0 (`api-cloudevents`) egress wire protocols, and pairs with `CloudNative.CloudEvents.Mqtt` as the envelope-to-application-message projection peer.
+`MQTTnet` owns the MQTT v5 outbound publish transport backing the `EgressSink.Mqtt` delivery row: `MqttClientFactory` mints one per-sink `IMqttClient`, the CloudEvents-projected `MqttApplicationMessage` publishes at `MqttQualityOfServiceLevel.AtLeastOnce`, and the awaited PUBACK `MqttClientPublishResult` folds to `DeliveryAck` at the sink boundary. `MqttProtocolVersion.V500` opens the `UserProperties` carrier the W3C `traceparent`/`tracestate` pair rides, so every egress publish joins the drain trace.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MQTTnet`
-- package: `MQTTnet`
-- license: MIT (.NET Foundation and Contributors); full free use, OSS admit
+- package: `MQTTnet` (MIT, .NET Foundation and Contributors)
 - assembly: `MQTTnet`
-- namespace: `MQTTnet` (client, factory, message, options, result values), `MQTTnet.Protocol` (QoS and retain enums), `MQTTnet.Packets` (`MqttUserProperty`), `MQTTnet.Formatter` (`MqttProtocolVersion`)
-- target: multi-target (`net10.0`, `net8.0`); the consumer binds `lib/net10.0` (the bound asset, highest-precedence)
-- native: pure-managed (no `runtimes/<rid>/native` payload); the MQTT control-packet framing rides the client's own socket/WebSocket channel
-- transitive: dependency-free — both nuspec dependency groups (`net10.0`, `net8.0`) are empty, so the install gate resolves with zero added closure
-- xml docs: present (`MQTTnet.xml` ships per TFM — member intent is doc-comment-sourced)
+- namespace: `MQTTnet`, `MQTTnet.Protocol`, `MQTTnet.Packets`, `MQTTnet.Formatter`
+- asset: pure-managed runtime library; control-packet framing rides the client's own socket or WebSocket channel
 - rail: egress-sink
-
-`IMqttClient` is `IDisposable` and its type doc declares it safe for concurrent publish/subscribe/ping — outgoing packets serialize internally and acknowledgements route back to the awaiting caller by packet identifier; `ConnectAsync`/`DisconnectAsync` alone must not race each other or a publish. The async surface is `Task`-based; publish payloads carry as `ReadOnlySequence<byte>` on `MqttApplicationMessage.Payload`.
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: client, factory, and publish result
-- rail: egress-sink
+[PUBLIC_TYPE_SCOPE]: the v5 publish transport model
 
-`MqttClientFactory` is the single construction root: `CreateMqttClient()` mints a fresh per-instance `IMqttClient` — a per-sink-leg handle the composition root binds through `SinkBinding.Leg`, never a process-global singleton, so one bound client owns one egress connection and its lifecycle disposes with the sink.
-
-| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]   | [RAIL]                                                        |
-| :-----: | :------------------------ | :-------------- | :------------------------------------------------------------ |
-|  [01]   | `MqttClientFactory`       | factory         | mints the per-instance `IMqttClient` and the fluent builders  |
-|  [02]   | `IMqttClient`             | client handle   | `IDisposable`; per-instance connection; `PublishAsync` egress |
-|  [03]   | `MqttClientPublishResult` | PUBACK evidence | `ReasonCode`/`IsSuccess`/`PacketIdentifier`/`UserProperties`  |
-|  [04]   | `MqttClientOptions`       | options value   | the built connection configuration `ConnectAsync` consumes    |
-
-[PUBLIC_TYPE_SCOPE]: message, builders, and the v5 tracing carrier
-- rail: egress-sink
-
-`MqttApplicationMessageBuilder` assembles the envelope payload; `MqttApplicationMessage.UserProperties` (`List<MqttUserProperty>`) carries the W3C `traceparent`/`tracestate` rows so every egress publish joins the drain trace, mirroring the NATS `Nats-Msg-Id` and Kafka `ce_*` header carriers.
-
-| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY] | [RAIL]                                                      |
-| :-----: | :------------------------------ | :------------ | :---------------------------------------------------------- |
-|  [01]   | `MqttApplicationMessage`        | message value | `Topic`/`Payload`/`QualityOfServiceLevel`/`UserProperties`  |
-|  [02]   | `MqttApplicationMessageBuilder` | message       | fluent payload assembly; `Build()` materializes the message |
-|  [03]   | `MqttClientOptionsBuilder`      | options       | connection assembly; `WithProtocolVersion` selects v5       |
-|  [04]   | `MqttUserProperty`              | v5 property   | `Name`/`ValueBuffer`; the tracing key-value carrier pair    |
-
-[PUBLIC_TYPE_SCOPE]: protocol enums
-- rail: egress-sink
-
-| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY] | [RAIL]                                           |
-| :-----: | :----------------------------------- | :------------ | :----------------------------------------------- |
-|  [01]   | `Protocol.MqttQualityOfServiceLevel` | QoS enum      | `AtMostOnce`/`AtLeastOnce` (QoS-1)/`ExactlyOnce` |
-|  [02]   | `MqttClientPublishReasonCode`        | PUBACK reason | `Success`/`NoMatchingSubscribers` + 128+ errors  |
-|  [03]   | `Formatter.MqttProtocolVersion`      | version enum  | `V500` the egress selector; `V311`/`V310` legacy |
+| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY] | [CAPABILITY]                                   |
+| :-----: | :----------------------------------- | :------------ | :--------------------------------------------- |
+|  [01]   | `MqttClientFactory`                  | class         | per-instance client and builder mint           |
+|  [02]   | `IMqttClient`                        | interface     | `IDisposable` session; publish, ping, teardown |
+|  [03]   | `MqttClientOptionsBuilder`           | class         | session, will, and v5 flow-control assembly    |
+|  [04]   | `MqttClientExtensions`               | class         | sequence publish, reconnect, swallowing probes |
+|  [05]   | `MqttApplicationMessage`             | class         | topic, payload sequence, QoS, v5 properties    |
+|  [06]   | `Packets.MqttUserProperty`           | class         | v5 `Name`/`ValueBuffer` metadata pair          |
+|  [07]   | `MqttClientConnectResult`            | class         | CONNACK; session-present and broker v5 limits  |
+|  [08]   | `MqttClientPublishResult`            | class         | PUBACK reason, reason string, packet id        |
+|  [09]   | `Protocol.MqttQualityOfServiceLevel` | enum          | `AtMostOnce`/`AtLeastOnce`/`ExactlyOnce`       |
+|  [10]   | `MqttClientPublishReasonCode`        | enum          | `Success`, `NoMatchingSubscribers`, `128`+     |
+|  [11]   | `Formatter.MqttProtocolVersion`      | enum          | `V500` selects the v5 property plane           |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: the `EgressSink.Mqtt` Deliver leg
-- rail: egress-sink
+[ENTRYPOINT_SCOPE]: the `EgressSink.Mqtt` deliver leg — client mint, session assembly, publish, teardown
 
-| [INDEX] | [SURFACE]                                                              | [ENTRY_FAMILY] | [RAIL]                                       |
-| :-----: | :--------------------------------------------------------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `MqttClientFactory.CreateMqttClient()`                                 | client mint    | the per-instance `IMqttClient` handle        |
-|  [02]   | `IMqttClient.ConnectAsync(options, ct)`                                | session op     | `MqttClientConnectResult`; connection open   |
-|  [03]   | `IMqttClient.PublishAsync(message, ct)`                                | publish op     | `Task<MqttClientPublishResult>` PUBACK await |
-|  [04]   | `MqttApplicationMessageBuilder.WithTopic(topic)`                       | addressing     | the sink topic                               |
-|  [05]   | `MqttApplicationMessageBuilder.WithPayloadSegment`                     | payload        | the redacted CloudEvents envelope bytes      |
-|  [06]   | `MqttApplicationMessageBuilder.WithQualityOfServiceLevel(AtLeastOnce)` | delivery       | QoS-1 at-least-once                          |
-|  [07]   | `MqttApplicationMessageBuilder.WithUserProperty`                       | v5 metadata    | the `traceparent`/`tracestate` carrier rows  |
-|  [08]   | `MqttClientOptionsBuilder.WithProtocolVersion(V500)`                   | session        | v5 selection; the carrier and reason codes   |
+| [INDEX] | [SURFACE]                                                                         | [SHAPE]  | [CAPABILITY]                             |
+| :-----: | :-------------------------------------------------------------------------------- | :------- | :--------------------------------------- |
+|  [01]   | `MqttClientFactory.CreateMqttClient()`                                            | factory  | one client per sink leg                  |
+|  [02]   | `MqttClientOptionsBuilder.WithProtocolVersion(MqttProtocolVersion)`               | instance | v5 property and reason-code plane        |
+|  [03]   | `MqttClientOptionsBuilder.WithCleanStart(bool)`                                   | instance | resume a broker-held session             |
+|  [04]   | `MqttClientOptionsBuilder.WithSessionExpiryInterval(uint)`                        | instance | broker hold on in-flight QoS-1 state     |
+|  [05]   | `MqttClientOptionsBuilder.WithRequestProblemInformation(bool)`                    | instance | broker returns `ReasonString` on refusal |
+|  [06]   | `MqttClientOptionsBuilder.Build()`                                                | instance | `MqttClientOptions`                      |
+|  [07]   | `IMqttClient.ConnectAsync(MqttClientOptions, CancellationToken)`                  | instance | `MqttClientConnectResult` CONNACK        |
+|  [08]   | `IMqttClient.PublishAsync(MqttApplicationMessage, CancellationToken)`             | instance | `MqttClientPublishResult` PUBACK         |
+|  [09]   | `PublishSequenceAsync(string, ReadOnlySequence<byte>, MqttQualityOfServiceLevel)` | static   | zero-copy publish, no message value      |
+|  [10]   | `TryPingAsync(CancellationToken) -> bool`                                         | static   | pre-batch liveness probe                 |
+|  [11]   | `ReconnectAsync(CancellationToken)`                                               | static   | re-drive on the held options             |
+|  [12]   | `DisconnectAsync(MqttClientDisconnectOptionsReason, string)`                      | static   | reason-coded sink teardown               |
+|  [13]   | `MqttUserProperty(string, ReadOnlyMemory<byte>)`                                  | ctor     | one trace row over the buffer carrier    |
+|  [14]   | `MqttUserPropertyExtensions.ReadValueAsString()`                                  | static   | read a returned property value back      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[DELIVER_FOLD]:
-- the leg awaits `PublishAsync` and folds `MqttClientPublishResult` to `DeliveryAck` at the sink boundary — a raw result never crosses into the pump.
-- `IsSuccess` (`ReasonCode == Success` or `NoMatchingSubscribers`) → `Persisted`; a QoS-1 PUBACK confirms broker receipt, and `NoMatchingSubscribers` is a delivered-but-unrouted success, never a fault.
-- a transient transport ambiguity (client disconnect, timeout) → `Indeterminate`; the held cursor re-drives and receiver-side dedup on the CloudEvents `id` absorbs the replay.
-- a definitive reason-code error (`128`+ — `NotAuthorized`, `TopicNameInvalid`, `QuotaExceeded`, `PayloadFormatInvalid`) → `Refused` with the reason string, and the drain dead-letters the entry.
+[TOPOLOGY]:
+- `MqttClientFactory.CreateMqttClient()` mints a distinct `IMqttClient` per call, so one sink leg owns one connection and disposes it with the sink.
+- `IMqttClient` serializes outgoing packets internally and routes each acknowledgement to its awaiting caller by packet identifier, so concurrent publishes are safe while `ConnectAsync` and `DisconnectAsync` hold the connection alone.
+- `MqttApplicationMessage.Payload` is a `ReadOnlySequence<byte>`, so a large buffered envelope publishes over its own segments with no boundary re-buffer.
+- `WithCleanStart(false)` under a non-zero `WithSessionExpiryInterval` holds in-flight QoS-1 state at the broker across a reconnect, and `MqttClientConnectResult.IsSessionPresent` reports whether it did.
 
-[TRACING_CARRIER]:
-- `WithUserProperty(string, string)` is `[Obsolete]`; the leg builds the trace rows through the `ReadOnlyMemory<byte>`/`ArraySegment<byte>` overload, and `MqttUserProperty.ValueBuffer` reads them back without the obsolete `Value` allocation.
-- the v5 `UserProperties` carrier requires `MqttProtocolVersion.V500`; under `V311` the properties and reason codes are silently dropped, so the egress options fix v5.
+[STACKING]:
+- `api-cloudevents-mqtt`(`.api/api-cloudevents-mqtt.md`): `MqttExtensions.ToMqttApplicationMessage(ContentMode.Structured, formatter, topic)` returns the exact `MqttApplicationMessage` `PublishAsync` consumes; the leg appends only the trace rows to `UserProperties` before the publish.
+- `api-cloudevents`(`.api/api-cloudevents.md`): `Egress.Envelope` mints the `CloudEvent` `id` MQTT carries as its sole replay key, so receiver-side dedup on that id absorbs every held-cursor re-drive.
+- Within-lib: `EgressSink.Mqtt` binds the factory-minted client into `SinkBinding.Leg`, whose fold maps `IsSuccess` to `Persisted`, a transport ambiguity to `Indeterminate`, and a `128`+ `ReasonCode` carrying its `ReasonString` to a dead-lettering `Refused`.
 
-[ISOLATION]:
-- per-instance: `CreateMqttClient()` mints a distinct `IMqttClient` per call — the sink leg owns one client instance, disposed with the sink; no host-wide state and no single-owner admission constraint.
-- the composition root fills `SinkBinding.Leg` from the bound client, so the `EgressSink.Mqtt` case never instantiates `MqttClient` directly and provider types never enter the case.
+[LOCAL_ADMISSION]:
+- `SinkBinding.Leg` takes the bound client from the composition root, so the `EgressSink.Mqtt` case constructs no client and no provider type enters the case.
 
 [RAIL_LAW]:
 - Package: `MQTTnet`
-- Owns: the MQTT v5 outbound publish transport backing `EgressSink.Mqtt` — message assembly, the UserProperties tracing carrier, and QoS-1 PUBACK reason-code results
-- Accept: factory-minted clients, builder-composed v5 messages, `CancellationToken`-scoped publish, result-fold-to-`DeliveryAck` at the boundary
-- Reject: direct `MqttClient` instantiation, the obsolete string `WithUserProperty` overload, `V311` under the trace carrier, exception-driven publish flow, a raw `MqttClientPublishResult` crossing into the pump
+- Owns: the MQTT v5 outbound publish transport backing `EgressSink.Mqtt` — session assembly, the `UserProperties` tracing carrier, and QoS-1 PUBACK reason-code results
+- Accept: factory-minted clients, builder-composed v5 sessions, `CancellationToken`-scoped publish, result folded to `DeliveryAck` at the boundary
+- Reject: direct `MqttClient` instantiation, a hand-rolled MQTT packet framer, exception-driven publish flow, a raw `MqttClientPublishResult` crossing into the pump

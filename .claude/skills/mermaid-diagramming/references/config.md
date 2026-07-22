@@ -36,6 +36,7 @@ flowchart LR
 - Root keys with render impact: `htmlLabels`, `markdownAutoWrap`, `deterministicIds`/`deterministicIDSeed`, `handDrawnSeed`.
 - Root `htmlLabels: false` renders labels as native SVG `<text>` for flowchart, class, and state — the machine-parseable form a pure-SVG consumer needs; per-diagram `flowchart.htmlLabels` is deprecated, and the root key wins over it.
 - Config block holds one key order on every fence: `layout`, root render keys, then per-type blocks.
+- A committed flowchart fence opens on the standing block — `config:` carrying `layout: elk` and a `flowchart:` block with `curve: linear` and `padding: 25`; root render keys and `elk:` placement keys tune it, and every other family carries only its own type block.
 - Diagram padding is `25` universally — `flowchart.padding: 25` and every family's equivalent breathing-room knob take the same value, so no fence crowds its viewport edge.
 - Every diagram type nests its own block — `flowchart:`, `sequence:`, `er:`, `architecture:`, `kanban:`, `treemap:` with `showValues` and `valueFormat`, and the rest — carrying that type's own keys.
 
@@ -43,7 +44,7 @@ Frontmatter requests capability; the host grants it. `layout: elk`, icon packs, 
 
 ## [02]-[LAYOUT]
 
-ELK is the standing layout engine: every ELK-capable diagram declares `layout: elk`, and the remaining families route to the engine that owns them. Direction `LR|RL|TB|BT` rides the header for flowchart, ER, class, and state; sequence is implicitly vertical.
+Flowchart fences declare `layout: elk`; every remaining family routes to the engine that owns it. Direction `LR|RL|TB|BT` rides the header for flowchart, ER, class, and state; sequence is implicitly vertical.
 
 | [INDEX] | [FAMILY]                    | [ENGINE]                                                             |
 | :-----: | :-------------------------- | :------------------------------------------------------------------- |
@@ -62,6 +63,7 @@ config:
     cycleBreakingStrategy: GREEDY
   flowchart:
     curve: linear
+    padding: 25
 ---
 flowchart TD
   accTitle: ELK layout demo
@@ -74,7 +76,7 @@ flowchart TD
 - A flowchart takes ELK through `layout: elk` or `flowchart.defaultRenderer: elk`; swimlane consumes only the `flowchart.defaultRenderer: elk` route into its own layout.
 - Dagre is the engine's unset-layout behavior, never this corpus's declaration; `flowchart TD` with `dagre-d3` is rejected by the detector, and legacy `graph TD` under `dagre-d3` exists only as an engine boundary fact.
 - ELK routes orthogonally on its own and overrides the curve selector with a fixed rounded joint over its bend points, so `flowchart.curve` never shapes an ELK route; the corpus still declares `flowchart.curve: linear` because it holds the elbow posture wherever a host lacks the ELK loader and falls back to dagre.
-- Unified state, class, and ER renderers pass `layout: elk` through when a host registers the loader, but only flowchart falls back to dagre when the loader is missing — the other families hard-require it, so only flowchart fences declare `layout: elk` and every other family stays on its own engine for portability.
+- Unified state, class, and ER renderers pass `layout: elk` through when a host registers the loader and hard-require it when the loader is missing; flowchart alone falls back to dagre, so portability seats the declaration on flowchart alone.
 
 ELK tuning nests under `elk:`:
 
