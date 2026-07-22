@@ -2,7 +2,7 @@ using System.Numerics;
 
 namespace Rasm.TestKit;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 // The matrix-norm vocabulary: each row carries its own projector; call sites never re-dispatch
 // on a string kind, and a new norm is one row beside these.
 [SmartEnum]
@@ -20,7 +20,7 @@ public sealed partial class Norm {
     public partial double Of(int rows, int cols, Func<int, int, double> at);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 // Independent double/array oracles: every member RETURNS a value — a residual, a moment, a
 // closed form — and the caller's Spec gate decides pass or fail. No oracle asserts mid-flight.
 public static class Numeric {

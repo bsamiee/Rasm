@@ -4,11 +4,11 @@ Preview lifecycle (`Rasm.Rhino.Blocks`) owns bitmap custody, versioned grants, d
 
 ## [01]-[INDEX]
 
-| [INDEX] | [OWNER] | [CONTRACT] |
-| :-----: | :------ | :--------- |
-|  [01]   | `RefreshPolicy` · `LinkWatchPolicy` | invalidation and observation policy |
-|  [02]   | `PreviewGrant` | versioned bitmap custody window |
-|  [03]   | `BlockLifecycle` | observation, lease, eviction, and linked refresh |
+| [INDEX] | [OWNER]                             | [CONTRACT]                                       |
+| :-----: | :---------------------------------- | :----------------------------------------------- |
+|  [01]   | `RefreshPolicy` · `LinkWatchPolicy` | invalidation and observation policy              |
+|  [02]   | `PreviewGrant`                      | versioned bitmap custody window                  |
+|  [03]   | `BlockLifecycle`                    | observation, lease, eviction, and linked refresh |
 
 ## [02]-[REFRESH_POLICY]
 
@@ -407,11 +407,11 @@ public static class BlockLifecycle {
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [OWNER] | [INGRESS] | [STATE] | [EGRESS] |
-| :-----: | :------ | :-------- | :------ | :------- |
-|  [01]   | `BlockLifecycle` | `Engage` · `Lease` · `WatchLinked` · `Evict` | `Atom<VaultState>` | watch or grant |
-|  [02]   | `PreviewGrant` | `Granted` | release gate | bounded bitmap access |
-|  [03]   | policy owners | generated admission | invalidation decisions | policy values |
+| [INDEX] | [OWNER]          | [INGRESS]                                    | [STATE]                | [EGRESS]              |
+| :-----: | :--------------- | :------------------------------------------- | :--------------------- | :-------------------- |
+|  [01]   | `BlockLifecycle` | `Engage` · `Lease` · `WatchLinked` · `Evict` | `Atom<VaultState>`     | watch or grant        |
+|  [02]   | `PreviewGrant`   | `Granted`                                    | release gate           | bounded bitmap access |
+|  [03]   | policy owners    | generated admission                          | invalidation decisions | policy values         |
 
 ## [06]-[RESEARCH]
 

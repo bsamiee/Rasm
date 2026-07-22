@@ -384,17 +384,17 @@ public abstract partial record ContentIo {
 
 ## [06]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]          | [OWNER]           | [FORM]                                               | [ENTRY]                            |
-| :-----: | :----------------- | :---------------- | :--------------------------------------------------- | :--------------------------------- |
-|  [01]   | kind axis          | `ContentKind`     | rows whose key is native, table behavior as columns  | `Of` / table columns               |
-|  [02]   | change vocabulary  | `ChangeReason`    | rows carrying the native `ChangeContexts` value      | `Of(native, key)` / `Native`       |
-|  [03]   | write bracket      | `ChangeScope`     | begin/body/end on every exit                         | `Write(content, reason, ...)`      |
-|  [04]   | commit envelope    | `DocumentCommit`  | Document-owned suppress/seal/restore/flush composition | `Sealed(document, ...)`            |
-|  [05]   | shared projections | `Seam`            | row/lease/color folds onto the rail                  | `Row`/`Leased`/`Quantized`            |
-|  [06]   | content address    | `ContentRef`      | one union: id, slot path                             | `Of` / `Resolve`                   |
-|  [07]   | content state      | `ContentSnapshot` | one-pass identity and topology read                  | `Of(content, key)`                 |
-|  [08]   | render-hash read   | `HashProbe`       | admitted exclusions, workflow posture, `HashWitness` | `Excluding` / `Read`               |
-|  [09]   | serialized ingress | `ContentIo`       | admitted XML/file mint leased until custody transfer | `Xml` / `Archive` / `Mint`         |
+| [INDEX] | [CONCERN]          | [OWNER]           | [FORM]                                                 | [ENTRY]                       |
+| :-----: | :----------------- | :---------------- | :----------------------------------------------------- | :---------------------------- |
+|  [01]   | kind axis          | `ContentKind`     | rows whose key is native, table behavior as columns    | `Of` / table columns          |
+|  [02]   | change vocabulary  | `ChangeReason`    | rows carrying the native `ChangeContexts` value        | `Of(native, key)` / `Native`  |
+|  [03]   | write bracket      | `ChangeScope`     | begin/body/end on every exit                           | `Write(content, reason, ...)` |
+|  [04]   | commit envelope    | `DocumentCommit`  | Document-owned suppress/seal/restore/flush composition | `Sealed(document, ...)`       |
+|  [05]   | shared projections | `Seam`            | row/lease/color folds onto the rail                    | `Row`/`Leased`/`Quantized`    |
+|  [06]   | content address    | `ContentRef`      | one union: id, slot path                               | `Of` / `Resolve`              |
+|  [07]   | content state      | `ContentSnapshot` | one-pass identity and topology read                    | `Of(content, key)`            |
+|  [08]   | render-hash read   | `HashProbe`       | admitted exclusions, workflow posture, `HashWitness`   | `Excluding` / `Read`          |
+|  [09]   | serialized ingress | `ContentIo`       | admitted XML/file mint leased until custody transfer   | `Xml` / `Archive` / `Mint`    |
 
 ## [07]-[RESEARCH]
 

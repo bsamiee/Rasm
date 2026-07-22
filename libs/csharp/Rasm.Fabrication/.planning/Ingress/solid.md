@@ -8,7 +8,7 @@
 | :-----: | :------------------- | :------------------------------------------------ |
 |  [01]   | `SolidSource`        | admitted path and complete import policy          |
 |  [02]   | `SolidFormat`        | STEP/IGES/STL/3DM/3MF admission and provider read |
-|  [03]   | `SolidMesh`          | detached vertices, triangles, scale, and welding   |
+|  [03]   | `SolidMesh`          | detached vertices, triangles, scale, and welding  |
 |  [04]   | `SolidTopology`      | incidence, shell, orientation, and genus evidence |
 |  [05]   | `SolidImportReceipt` | content, provider, topology, repair, and space    |
 |  [06]   | `SolidProjection`    | parameterized solid egress                        |

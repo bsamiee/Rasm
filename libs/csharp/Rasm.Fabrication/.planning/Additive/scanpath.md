@@ -1171,8 +1171,6 @@ public static class ScanGeometry {
 ---
 config:
   layout: elk
-  look: handDrawn
-  theme: dark
 ---
 flowchart LR
     accTitle: Additive scanpath planning flow

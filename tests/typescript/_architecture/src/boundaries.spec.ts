@@ -4,12 +4,12 @@ import { describe, expect, it, layer } from '@effect/vitest';
 import { Audit, Imports } from '@rasm/ts-testkit/gauges';
 import { Array, Effect, HashMap, HashSet, Number, Option, Order, pipe, Record, Schema } from 'effect';
 
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 type LedgerRow = { readonly folder: string; readonly edges: ReadonlyArray<string>; readonly wave: number };
 type TagTriple = { readonly folder: string; readonly scope: string; readonly runtime: string; readonly plane: string };
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _ROOT = new URL('../../../..', import.meta.url).pathname;
 
@@ -125,7 +125,7 @@ const _DEPTH_SUBPATHS = [{ owner: 'ui', runtime: 'browser', subpath: './ui/viewe
 
 const _PLANES = ['runtime', 'deploy', 'dev'] as const;
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 const _Project = Schema.Struct({ name: Schema.NonEmptyString, tags: Schema.Array(Schema.NonEmptyString) });
 
@@ -134,7 +134,7 @@ const _Branch = Schema.Struct({
     exports: Schema.Record({ key: Schema.String, value: Schema.Union(Schema.String, Schema.Record({ key: Schema.String, value: Schema.String })) }),
 });
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const _decodeProject = Schema.decodeUnknown(Schema.parseJson(_Project));
 
@@ -358,7 +358,7 @@ const _tagged = (folder: string, tags: ReadonlyArray<string>): Option.Option<Tag
         plane: Array.findFirst(tags, (tag) => tag.startsWith('plane:')),
     });
 
-// --- [SPECS] -----------------------------------------------------------------------------
+// --- [SPECS] ---------------------------------------------------------------------------
 
 layer(NodeContext.layer)('edge ledger', (it) => {
     it.effect('the owning page yields a coherent acyclic permitted-edge table', () =>

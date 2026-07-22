@@ -19,29 +19,29 @@
 
 `RenderPipeline` is the abstract batch session a render engine subclasses; `RenderWindow` is the render target with its nested per-channel accessors; `RenderTexture` (evaluation slice) and `TextureEvaluator` yield live per-point color.
 
-| [INDEX] | [SYMBOL]                    | [KIND]             | [CAPABILITY]                                                       |
-| :-----: | :-------------------------- | :----------------- | :----------------------------------------------------------------- |
-|  [01]   | `RenderPipeline`            | batch renderer     | `IDisposable` session: construct, populate scene, render, pause    |
-|  [02]   | `RenderWindow`              | render target      | framebuffer channels, view binding, image adjust, post-effect gate |
-|  [03]   | `RenderWindow.Channel`      | pixel channel      | per-pixel float/`Color4f` read/write over a channel buffer         |
-|  [04]   | `RenderWindow.ChannelGPU`   | GPU channel        | GPU texture-handle channel with OpenGL/Metal handles               |
-|  [05]   | `RenderWindow.ImageAdjust`  | image adjust       | gamma and dither post-adjustment of the framebuffer                |
-|  [06]   | `RenderTexture`             | procedural texture | live per-point evaluator and simulated-texture bake                |
-|  [07]   | `TextureEvaluator`          | per-point eval     | `Color4f` evaluation at a UVW with derivative filtering            |
+| [INDEX] | [SYMBOL]                   | [KIND]             | [CAPABILITY]                                                       |
+| :-----: | :------------------------- | :----------------- | :----------------------------------------------------------------- |
+|  [01]   | `RenderPipeline`           | batch renderer     | `IDisposable` session: construct, populate scene, render, pause    |
+|  [02]   | `RenderWindow`             | render target      | framebuffer channels, view binding, image adjust, post-effect gate |
+|  [03]   | `RenderWindow.Channel`     | pixel channel      | per-pixel float/`Color4f` read/write over a channel buffer         |
+|  [04]   | `RenderWindow.ChannelGPU`  | GPU channel        | GPU texture-handle channel with OpenGL/Metal handles               |
+|  [05]   | `RenderWindow.ImageAdjust` | image adjust       | gamma and dither post-adjustment of the framebuffer                |
+|  [06]   | `RenderTexture`            | procedural texture | live per-point evaluator and simulated-texture bake                |
+|  [07]   | `TextureEvaluator`         | per-point eval     | `Color4f` evaluation at a UVW with derivative filtering            |
 
 [PUBLIC_TYPE_SCOPE]: post-effect family
 - rail: batch-render boundary
 
 `PostEffect` is the abstract base a custom effect derives and `[CustomPostEffect]` registers; `PostEffectState`/`PostEffectUI` are host-handed state and UI collectors; `PostEffectExecutionControl` gates per-render execution.
 
-| [INDEX] | [SYMBOL]                       | [KIND]              | [CAPABILITY]                                                 |
-| :-----: | :----------------------------- | :------------------ | :----------------------------------------------------------- |
-|  [01]   | `PostEffect`                   | abstract effect     | execute/param/state hooks, channel requirements, change scope |
-|  [02]   | `PostEffectState`              | state bag           | typed `TryGetValue<T>`/`SetValue<T>` effect state            |
-|  [03]   | `PostEffectUI`                 | UI collector        | `ICollapsibleSection` section registration for an effect     |
-|  [04]   | `CustomPostEffectAttribute`    | registration attr   | type/styles/name/execute-timing/help/delay of a custom effect |
-|  [05]   | `PostEffectUuids`              | static id vocab     | built-in post-effect factory ids                             |
-|  [06]   | `PostEffectExecutionControl`   | execution gate      | per-render `ReadyToExecutePostEffect` decision               |
+| [INDEX] | [SYMBOL]                     | [KIND]            | [CAPABILITY]                                                  |
+| :-----: | :--------------------------- | :---------------- | :------------------------------------------------------------ |
+|  [01]   | `PostEffect`                 | abstract effect   | execute/param/state hooks, channel requirements, change scope |
+|  [02]   | `PostEffectState`            | state bag         | typed `TryGetValue<T>`/`SetValue<T>` effect state             |
+|  [03]   | `PostEffectUI`               | UI collector      | `ICollapsibleSection` section registration for an effect      |
+|  [04]   | `CustomPostEffectAttribute`  | registration attr | type/styles/name/execute-timing/help/delay of a custom effect |
+|  [05]   | `PostEffectUuids`            | static id vocab   | built-in post-effect factory ids                              |
+|  [06]   | `PostEffectExecutionControl` | execution gate    | per-render `ReadyToExecutePostEffect` decision                |
 
 [ENUM_ROSTERS]:
 - `public enum Rhino.Render.RenderPipeline.RenderReturnCode` — `Ok`, `EmptyScene`, `Cancel`, `NoActiveView`, `OnPreCreateWindow`, `NoFrameWndPointer`, `ErrorCreatingWindow`, `ErrorStartingRender`, `EnterModalLoop`, `ExitModalLoop`, `ExitRhino`, `InternalError`; `Render`/`RenderWindow` return it, `Ok` marks success.

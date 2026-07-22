@@ -26,15 +26,17 @@
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                                                                                                        | [KIND]    | [CAPABILITY]                                          |
-| :-----: | :--------------------------------------------------------------------------------------------------------------- | :-------- | :---------------------------------------------------- |
-|  [01]   | `AddMetrics(IServiceCollection)`                                                                                 | mint      | `TryAddSingleton<IMeterFactory, DefaultMeterFactory>` |
-|  [02]   | `AddMetrics(IServiceCollection, Action<IMetricsBuilder>)`                                                        | configure | the mint plus builder-scoped enablement rows          |
-|  [03]   | `MetricsBuilderExtensions.EnableMetrics(IMetricsBuilder, meterName, instrumentName?, listenerName?, MeterScope)` | rule      | appends an enable `InstrumentRule`                    |
-|  [04]   | `MetricsBuilderExtensions.DisableMetrics(IMetricsBuilder, …)`                                                    | rule      | appends a disable `InstrumentRule`                    |
-|  [05]   | `MetricsBuilderExtensions.AddListener<T>` / `AddListener(IMetricsListener)`                                      | listener  | registers a listener; `ClearListeners` resets the set |
-|  [06]   | `MetricsBuilderConfigurationExtensions.AddConfiguration(IMetricsBuilder, IConfiguration)`                        | binding   | binds `MetricsOptions.Rules` from a config section    |
-|  [07]   | `MetricsBuilderConsoleExtensions.AddDebugConsole(IMetricsBuilder)`                                               | debug     | registers the debug-only console listener             |
+`MetricsBuilderExtensions.EnableMetrics`/`DisableMetrics` take `(IMetricsBuilder, meterName, instrumentName?, listenerName?, MeterScope)`; `MetricsBuilderConfigurationExtensions.AddConfiguration` takes `(IMetricsBuilder, IConfiguration)`; `AddListener` carries a generic `AddListener<T>` beside an `AddListener(IMetricsListener)` overload, and `ClearListeners` resets the listener set.
+
+| [INDEX] | [SURFACE]                                                          | [KIND]    | [CAPABILITY]                                          |
+| :-----: | :----------------------------------------------------------------- | :-------- | :---------------------------------------------------- |
+|  [01]   | `AddMetrics(IServiceCollection)`                                   | mint      | `TryAddSingleton<IMeterFactory, DefaultMeterFactory>` |
+|  [02]   | `AddMetrics(IServiceCollection, Action<IMetricsBuilder>)`          | configure | the mint plus builder-scoped enablement rows          |
+|  [03]   | `MetricsBuilderExtensions.EnableMetrics`                           | rule      | appends an enable `InstrumentRule`                    |
+|  [04]   | `MetricsBuilderExtensions.DisableMetrics`                          | rule      | appends a disable `InstrumentRule`                    |
+|  [05]   | `MetricsBuilderExtensions.AddListener<T>`                          | listener  | registers a listener                                  |
+|  [06]   | `MetricsBuilderConfigurationExtensions.AddConfiguration`           | binding   | binds `MetricsOptions.Rules` from a config section    |
+|  [07]   | `MetricsBuilderConsoleExtensions.AddDebugConsole(IMetricsBuilder)` | debug     | registers the debug-only console listener             |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

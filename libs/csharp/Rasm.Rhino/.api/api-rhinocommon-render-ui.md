@@ -19,37 +19,37 @@
 
 `RhinoSettings` and `MetaData` are `sealed : IDisposable` native wrappers; the view/shape/size/assign vocabularies are bounded enums.
 
-| [INDEX] | [SYMBOL]         | [KIND]            | [CAPABILITY]                                                        |
-| :-----: | :--------------- | :---------------- | :----------------------------------------------------------------- |
-|  [01]   | `RhinoSettings`  | settings bridge   | render/preview settings, renderer id, active/rendering view, sizes |
-|  [02]   | `MetaData`       | preview meta      | per-content geometry descriptor and content-instance id            |
-|  [03]   | `Modes`          | view-mode enum    | grid/list/tree editor layout                                       |
-|  [04]   | `Shapes`         | thumbnail enum    | square/wide thumbnail aspect                                       |
-|  [05]   | `Sizes`          | thumbnail enum    | tiny-to-large thumbnail size                                       |
-|  [06]   | `AssignBys`      | assign-policy enum | layer/parent/object/plug-in assignment policy                     |
+| [INDEX] | [SYMBOL]        | [KIND]             | [CAPABILITY]                                                       |
+| :-----: | :-------------- | :----------------- | :----------------------------------------------------------------- |
+|  [01]   | `RhinoSettings` | settings bridge    | render/preview settings, renderer id, active/rendering view, sizes |
+|  [02]   | `MetaData`      | preview meta       | per-content geometry descriptor and content-instance id            |
+|  [03]   | `Modes`         | view-mode enum     | grid/list/tree editor layout                                       |
+|  [04]   | `Shapes`        | thumbnail enum     | square/wide thumbnail aspect                                       |
+|  [05]   | `Sizes`         | thumbnail enum     | tiny-to-large thumbnail size                                       |
+|  [06]   | `AssignBys`     | assign-policy enum | layer/parent/object/plug-in assignment policy                      |
 
 [PUBLIC_TYPE_SCOPE]: custom panel/tab registration and sun-editor map
 - rail: render-editor-UI boundary
 
 `RenderPanels`/`RenderTabs` are `sealed` host-provided registries (internal constructor); `WorldMapDayNight` is a `sealed : IDisposable` map renderer. A registered panel or tab `Type` carries a `System.Runtime.InteropServices.GuidAttribute`.
 
-| [INDEX] | [SYMBOL]            | [KIND]            | [CAPABILITY]                                                    |
-| :-----: | :------------------ | :---------------- | :------------------------------------------------------------- |
-|  [01]   | `RenderPanels`      | panel registry    | register and resolve custom render-window panels by session    |
-|  [02]   | `RenderTabs`        | tab registry      | register and resolve custom side-pane tabs, derive UI/session ids |
-|  [03]   | `RenderPanelType`   | panel-kind enum   | custom render-UI panel kind                                    |
-|  [04]   | `WorldMapDayNight`  | map renderer      | day/night world-map bitmap and lat-long-to-pixel mapping       |
+| [INDEX] | [SYMBOL]           | [KIND]          | [CAPABILITY]                                                      |
+| :-----: | :----------------- | :-------------- | :---------------------------------------------------------------- |
+|  [01]   | `RenderPanels`     | panel registry  | register and resolve custom render-window panels by session       |
+|  [02]   | `RenderTabs`       | tab registry    | register and resolve custom side-pane tabs, derive UI/session ids |
+|  [03]   | `RenderPanelType`  | panel-kind enum | custom render-UI panel kind                                       |
+|  [04]   | `WorldMapDayNight` | map renderer    | day/night world-map bitmap and lat-long-to-pixel mapping          |
 
 [PUBLIC_TYPE_SCOPE]: named-parameter and child-slot constant owners
 - rail: render-editor-UI boundary
 
 Each owner is a static class of name constants a content editor and the `RenderContent.GetParameter`/`SetParameter` surface bind.
 
-| [INDEX] | [SYMBOL]                                   | [KIND]            | [CAPABILITY]                                            |
-| :-----: | :----------------------------------------- | :---------------- | :----------------------------------------------------- |
-|  [01]   | `ParameterNames.PhysicallyBased`           | PBR param names   | physically-based material named-parameter vocabulary   |
-|  [02]   | `ChildSlotNames.PhysicallyBased`           | PBR slot names    | physically-based texture child-slot vocabulary         |
-|  [03]   | `RenderMaterial.BasicMaterialParameterNames` | basic param names | basic-material named-parameter vocabulary              |
+| [INDEX] | [SYMBOL]                                     | [KIND]            | [CAPABILITY]                                         |
+| :-----: | :------------------------------------------- | :---------------- | :--------------------------------------------------- |
+|  [01]   | `ParameterNames.PhysicallyBased`             | PBR param names   | physically-based material named-parameter vocabulary |
+|  [02]   | `ChildSlotNames.PhysicallyBased`             | PBR slot names    | physically-based texture child-slot vocabulary       |
+|  [03]   | `RenderMaterial.BasicMaterialParameterNames` | basic param names | basic-material named-parameter vocabulary            |
 
 [ENUM_ROSTERS]:
 - `public enum Rhino.Render.DataSources.Modes` — `Unset = 0`, `Grid = 1`, `List = 2`, `Tree = 3`.

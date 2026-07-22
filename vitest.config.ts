@@ -11,13 +11,13 @@ import { fileURLToPath } from 'node:url';
 import { playwright } from '@vitest/browser-playwright';
 import { defineConfig, type ViteUserConfig } from 'vitest/config';
 
-// --- [TYPES] -----------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 type RuntimeEnv = NodeJS.ProcessEnv & {
     readonly CI?: string;
 };
 
-// --- [CONSTANTS] -------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const Dirname = path.dirname(fileURLToPath(import.meta.url));
 const _ENV: RuntimeEnv = process.env;
@@ -74,7 +74,7 @@ const _CONFIG = {
     workers: { max: '50%' },
 } as const;
 
-// --- [EXPORTS] ---------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 const config: ViteUserConfig = defineConfig({
     cacheDir: _CONFIG.cacheDir,

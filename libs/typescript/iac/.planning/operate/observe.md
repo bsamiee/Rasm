@@ -7,7 +7,7 @@ Board content is code and the UI is drift: `storeDashboardSha256: true` diffs da
 ## [01]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]             | [OWNS]                                                                  | [PUBLIC] |
-| :-----: | :-------------------- | :----------------------------------------------------------------------- | :------- |
+| :-----: | :-------------------- | :---------------------------------------------------------------------- | :------- |
 |  [01]   | `STORE_ROWS`          | the closed metrics-store family with tenancy/retention/degradation rows | `Lgtm`   |
 |  [02]   | `CHART_ROWS`          | the signal-backend and collector chart rows with typed values           | `Lgtm`   |
 |  [03]   | `SCRAPE_ROWS`         | the pg-server metrics arm pair under the one-ingress law                | `Lgtm`   |

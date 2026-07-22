@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { FileSystem, Path } from '@effect/platform';
 import { Array, Context, Data, DateTime, Effect, Option, Order, pipe, Record, Schema, String } from 'effect';
 
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 declare namespace Bench {
     type Policy = typeof _POLICY;
@@ -11,7 +11,7 @@ declare namespace Bench {
     type Report = { readonly verdict: Verdict; readonly receipts: ReadonlyArray<Receipt> };
 }
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 // Sustained-regression policy: a breach needs `window` consecutive slow runs — a single spike never trips the gate.
 const _POLICY = { window: 3, tolerance: 0.15, noiseCap: 10, minHistory: 5 } as const;
@@ -19,7 +19,7 @@ const _POLICY = { window: 3, tolerance: 0.15, noiseCap: 10, minHistory: 5 } as c
 const _LEDGER = { latest: 'latest.json', history: 'history.ndjson' } as const;
 const _RANK = { pass: 0, noisy: 1, breach: 2 } as const satisfies Record<Bench.Verdict, number>;
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 class BenchRow extends Schema.Class<BenchRow>('BenchRow')({
     at: Schema.String,
@@ -42,20 +42,20 @@ const _Latest = Schema.Struct({
     ),
 });
 
-// --- [ERRORS] ----------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
 class BenchFault extends Data.TaggedError('BenchFault')<{
     readonly reason: 'breach' | 'malformed' | 'unreadable';
     readonly detail: string;
 }> {}
 
-// --- [SERVICES] --------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
 class BenchHome extends Context.Reference<BenchHome>()('rasm-testkit/BenchHome', {
     defaultValue: (): string => fileURLToPath(new URL('../../../../.artifacts/typescript/bench', import.meta.url)),
 }) {}
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const _decodeLatest = Schema.decodeUnknown(Schema.parseJson(_Latest), { errors: 'all' });
 const _decodeRow = Schema.decodeUnknown(Schema.parseJson(BenchRow));
@@ -184,6 +184,6 @@ const Bench = {
         }),
 } as const;
 
-// --- [EXPORTS] ---------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Bench, BenchFault, BenchHome, BenchRow };

@@ -4,7 +4,7 @@ import { describe, expect, layer, it as vanilla } from '@effect/vitest';
 import { Snapshots } from '@rasm/ts-testkit/gauges';
 import { Array, Effect, Option, pipe } from 'effect';
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _ROOT = new URL('../../../..', import.meta.url).pathname;
 
@@ -21,7 +21,7 @@ const _SPEC_FILE = /\.(spec|test)\.(ts|tsx|mts|cts)$/;
 // Authoring corpora and tool trees never join the density sweep.
 const _PRUNE = /(^|\/)(node_modules|dist|coverage|\.git|\.planning|\.api)(\/|$)/;
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 // LOC is the non-blank line count; a spec over cap is a collapse demand, never a split invitation.
 const _capped = (entry: string, text: string): Option.Option<string> =>
@@ -30,7 +30,7 @@ const _capped = (entry: string, text: string): Option.Option<string> =>
         (lines) => (lines.length > _SPEC_CAP ? Option.some(`${entry}: ${lines.length} LOC > ${_SPEC_CAP}`) : Option.none()),
     );
 
-// --- [SPECS] -----------------------------------------------------------------------------
+// --- [SPECS] ---------------------------------------------------------------------------
 
 layer(NodeContext.layer)('estate hygiene', (it) => {
     it.effect('no snapshot outlives its owning spec anywhere in the estate', () =>

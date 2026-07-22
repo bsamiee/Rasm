@@ -5,7 +5,7 @@ using Rasm.TestKit;
 
 namespace Rasm.Architecture.Tests;
 
-// --- [MODELS] --------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 internal static class EvidenceGens {
     public static readonly Gen<string> Label = Gen.Char[start: 'a', finish: 'z'].Array[1, 16].Select(selector: static chars => new string(value: chars));
@@ -17,7 +17,7 @@ internal static class EvidenceGens {
         new(doc: null!, sink: (key, value) => log.Add(item: (key, value)));
 }
 
-// --- [OPERATIONS] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public sealed class RequireLaws {
     [Fact]
@@ -321,7 +321,7 @@ public sealed class ScenarioDiscoveryWireLaws {
     }
 }
 
-// --- [ERRORS] --------------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
 public sealed class GuardLaws {
     [Theory]

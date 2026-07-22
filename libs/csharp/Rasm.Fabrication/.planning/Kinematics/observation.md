@@ -223,8 +223,8 @@ public sealed partial class MachineObservations {
 
 ## [03]-[RESEARCH]
 
-| [QUESTION] | [ROUTE] |
-| :--------- | :------ |
+| [QUESTION]                                                | [ROUTE]             |
+| :-------------------------------------------------------- | :------------------ |
 | Which exact MTConnect observation members map to ingress? | `CATALOG → ADAPTER` |
 
 `CATALOG` = `libs/csharp/Rasm.Fabrication/.api/api-mtconnect-net-common.md`; `ADAPTER` = `libs/csharp/Rasm.AppHost`.

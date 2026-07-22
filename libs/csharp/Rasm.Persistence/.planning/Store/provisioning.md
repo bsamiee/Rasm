@@ -522,26 +522,26 @@ public static class ClusterProvision {
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                           | [BIND]                                                          |
-| :----: | :----------------- | :----------------------------------------------- | :------------------------------------------------------------ |
-|  [01]   | provisioning stance | verification-first                                | never `ALTER SYSTEM`; never spawns PG                           |
-|  [02]   | verification cost   | one six-command `CreateBatch` round trip          | data-volume-independent; no ext probe                           |
-|  [03]   | absence policy      | `FailureRank.Absorb` delegate                     | required/degradable/observational tiers                         |
-|  [04]   | install gate        | `ExtensionAdmission` (preload/type/AM/standalone) | `.api`-verified; CASCADE pulls dependency                       |
-|  [05]   | preload gap         | `MissingPreload` + emitted diff                   | resolves at cluster config; restart class                       |
-|  [06]   | setting drift       | `pg_settings` vs `ClusterSetting`                 | folds `SettingDrift` + `RestartClass`                           |
-|  [07]   | repair posture      | EMIT artifacts, never execute                     | grants + settings diffs are typed outputs                       |
-|  [08]   | drift visibility    | stamped `VerificationEpoch`                       | re-verify advance = health-probe event                          |
-|  [09]   | deploy completion   | `ReloadTypesAsync`                                | types re-resolve before deploy is done                          |
-|  [10]   | h3 parity           | `h3-pg`/`h3_postgis` match `pocketken.H3`         | one cell id at ingest and in SQL                                |
-|  [11]   | spatial wire        | `SpatialWire` policy row on `Source`              | ADO codec composed once; literals deleted                       |
-|  [12]   | EF provider bind    | `StoreProfile.Ef` row data                        | one identity DbContext, two providers                           |
-|  [13]   | observability       | `AddNpgsql`/`AddNpgsqlInstrumentation`            | AppHost composition root, not in-fence                          |
-|  [14]   | schema validation   | `SchemaCheck` dual residence                      | `json_matches_schema` or `Evaluate` fallback                    |
-|  [15]   | fault typing        | 838x `ServerFault` whole decade                   | registry-derived absence/readiness/admission                    |
-|  [16]   | version floors      | `floors` deployment data vs `extversion`          | below-floor threads an `Evidence` receipt                       |
-|  [17]   | maintenance roster  | `MaintenanceJob` rows via gated `Register`        | cron/partman/squeeze registration; no loop                      |
-|  [18]   | desired-state wire  | `Manifest(demand, ritual)` typed projection       | drift diffs two documents; no second expectation set            |
+| [INDEX] | [POLICY]            | [VALUE]                                           | [BIND]                                               |
+| :-----: | :------------------ | :------------------------------------------------ | :--------------------------------------------------- |
+|  [01]   | provisioning stance | verification-first                                | never `ALTER SYSTEM`; never spawns PG                |
+|  [02]   | verification cost   | one six-command `CreateBatch` round trip          | data-volume-independent; no ext probe                |
+|  [03]   | absence policy      | `FailureRank.Absorb` delegate                     | required/degradable/observational tiers              |
+|  [04]   | install gate        | `ExtensionAdmission` (preload/type/AM/standalone) | `.api`-verified; CASCADE pulls dependency            |
+|  [05]   | preload gap         | `MissingPreload` + emitted diff                   | resolves at cluster config; restart class            |
+|  [06]   | setting drift       | `pg_settings` vs `ClusterSetting`                 | folds `SettingDrift` + `RestartClass`                |
+|  [07]   | repair posture      | EMIT artifacts, never execute                     | grants + settings diffs are typed outputs            |
+|  [08]   | drift visibility    | stamped `VerificationEpoch`                       | re-verify advance = health-probe event               |
+|  [09]   | deploy completion   | `ReloadTypesAsync`                                | types re-resolve before deploy is done               |
+|  [10]   | h3 parity           | `h3-pg`/`h3_postgis` match `pocketken.H3`         | one cell id at ingest and in SQL                     |
+|  [11]   | spatial wire        | `SpatialWire` policy row on `Source`              | ADO codec composed once; literals deleted            |
+|  [12]   | EF provider bind    | `StoreProfile.Ef` row data                        | one identity DbContext, two providers                |
+|  [13]   | observability       | `AddNpgsql`/`AddNpgsqlInstrumentation`            | AppHost composition root, not in-fence               |
+|  [14]   | schema validation   | `SchemaCheck` dual residence                      | `json_matches_schema` or `Evaluate` fallback         |
+|  [15]   | fault typing        | 838x `ServerFault` whole decade                   | registry-derived absence/readiness/admission         |
+|  [16]   | version floors      | `floors` deployment data vs `extversion`          | below-floor threads an `Evidence` receipt            |
+|  [17]   | maintenance roster  | `MaintenanceJob` rows via gated `Register`        | cron/partman/squeeze registration; no loop           |
+|  [18]   | desired-state wire  | `Manifest(demand, ritual)` typed projection       | drift diffs two documents; no second expectation set |
 
 ## [03]-[EMBEDDED_FLOOR]
 

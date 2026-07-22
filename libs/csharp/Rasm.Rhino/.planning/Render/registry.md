@@ -1696,19 +1696,19 @@ public sealed class ContentStream : IDisposable {
 
 ## [07]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]       | [OWNER]                           | [FORM]                            | [ENTRY]            |
-| :-----: | :-------------- | :-------------------------------- | :-------------------------------- | :----------------- |
-|  [01]   | UUID seeds      | `ContentUuidCatalog`              | generated kind and role data      | `Census` / `Find`  |
-|  [02]   | factory census  | `ContentTypeCensus`               | UUIDs plus registered factories   | `Registry.Read`    |
-|  [03]   | custom format   | `ContentSerializer`               | transfer, reports, failure ledger | `Registry.Run`     |
-|  [04]   | mutation        | `ContentOp` / `ContentTransaction` | admission or target mutation      | `Registry.Run`     |
-|  [05]   | typed reads     | `RegistryQuery<T>`                | result-correlated programs        | `Registry.Read<T>` |
-|  [06]   | collection read | `ContentCollectionEvidence`       | leased set and kind evidence      | `Collection`        |
-|  [07]   | receipts        | `ContentReceipt`                  | additive fact rows                | `RegistryResult`   |
-|  [08]   | content events  | `ContentPulse`                    | verified event rows               | `ContentStream.Of` |
-|  [09]   | event evidence  | `ContentSignal`                   | payload and failure ledger        | `ContentStream.Of` |
-|  [10]   | hook point      | `ContentHooks`                    | `rasm.rhino.render.content` mount | `ContentHooks.Mount` |
-|  [11]   | failure ledger  | `RetentionPolicy`                 | bounded ledger, overflow evidence | `Of` / `Admit`     |
+| [INDEX] | [CONCERN]       | [OWNER]                            | [FORM]                            | [ENTRY]              |
+| :-----: | :-------------- | :--------------------------------- | :-------------------------------- | :------------------- |
+|  [01]   | UUID seeds      | `ContentUuidCatalog`               | generated kind and role data      | `Census` / `Find`    |
+|  [02]   | factory census  | `ContentTypeCensus`                | UUIDs plus registered factories   | `Registry.Read`      |
+|  [03]   | custom format   | `ContentSerializer`                | transfer, reports, failure ledger | `Registry.Run`       |
+|  [04]   | mutation        | `ContentOp` / `ContentTransaction` | admission or target mutation      | `Registry.Run`       |
+|  [05]   | typed reads     | `RegistryQuery<T>`                 | result-correlated programs        | `Registry.Read<T>`   |
+|  [06]   | collection read | `ContentCollectionEvidence`        | leased set and kind evidence      | `Collection`         |
+|  [07]   | receipts        | `ContentReceipt`                   | additive fact rows                | `RegistryResult`     |
+|  [08]   | content events  | `ContentPulse`                     | verified event rows               | `ContentStream.Of`   |
+|  [09]   | event evidence  | `ContentSignal`                    | payload and failure ledger        | `ContentStream.Of`   |
+|  [10]   | hook point      | `ContentHooks`                     | `rasm.rhino.render.content` mount | `ContentHooks.Mount` |
+|  [11]   | failure ledger  | `RetentionPolicy`                  | bounded ledger, overflow evidence | `Of` / `Admit`       |
 
 ## [08]-[RESEARCH]
 

@@ -333,8 +333,6 @@ public static class PolicyGate {
 ---
 config:
   layout: elk
-  look: neo
-  theme: base
 ---
 flowchart LR
     accTitle: One identity boundary feeding the capability metering

@@ -17,61 +17,62 @@
 [PUBLIC_TYPE_SCOPE]: declarative HTTP-API — the contribution family `serve/api` assembles
 - rail: boundaries
 
-| [INDEX] | [SYMBOL]                                               | [TYPE_FAMILY]    | [CONSUMER]                                    |
-| :-----: | :----------------------------------------------------- | :--------------- | :-------------------------------------------- |
-|  [01]   | `HttpApi<Groups, E, R>`                                | api value        | `serve/api` — one assembled api               |
-|  [02]   | `HttpApiGroup<Name, Endpoints>`                        | group            | `serve` — domain folders contribute a group   |
-|  [03]   | `HttpApiEndpoint<Name, Method>`                        | endpoint         | `serve` — request, success, error `Schema`    |
-|  [04]   | `HttpApiSchema.Multipart` / `.param` / `.withEncoding` | payload modality | `serve` — uploads, path params, encodings     |
-|  [05]   | `HttpApiSecurity.Bearer` / `.ApiKey` / `.Basic`        | auth scheme      | `security` — endpoint-declared credential     |
-|  [06]   | `HttpApiMiddleware.Tag` / `.TagClass.BaseSecurity`     | middleware       | `serve/api` — typed middleware Tags           |
-|  [07]   | `HttpApiClient` (derived) / `OpenApi.OpenAPISpec`      | client / spec    | `serve/api` — typed SDK, OpenAPI doc          |
+| [INDEX] | [SYMBOL]                                               | [TYPE_FAMILY]    | [CONSUMER]                                  |
+| :-----: | :----------------------------------------------------- | :--------------- | :------------------------------------------ |
+|  [01]   | `HttpApi<Groups, E, R>`                                | api value        | `serve/api` — one assembled api             |
+|  [02]   | `HttpApiGroup<Name, Endpoints>`                        | group            | `serve` — domain folders contribute a group |
+|  [03]   | `HttpApiEndpoint<Name, Method>`                        | endpoint         | `serve` — request, success, error `Schema`  |
+|  [04]   | `HttpApiSchema.Multipart` / `.param` / `.withEncoding` | payload modality | `serve` — uploads, path params, encodings   |
+|  [05]   | `HttpApiSecurity.Bearer` / `.ApiKey` / `.Basic`        | auth scheme      | `security` — endpoint-declared credential   |
+|  [06]   | `HttpApiMiddleware.Tag` / `.TagClass.BaseSecurity`     | middleware       | `serve/api` — typed middleware Tags         |
+|  [07]   | `HttpApiClient` (derived) / `OpenApi.OpenAPISpec`      | client / spec    | `serve/api` — typed SDK, OpenAPI doc        |
 
 [PUBLIC_TYPE_SCOPE]: client, server, and routing
 - rail: boundaries
 
-| [INDEX] | [SYMBOL]                                               | [TYPE_FAMILY]      | [CONSUMER]                              |
-| :-----: | :----------------------------------------------------- | :----------------- | :-------------------------------------- |
-|  [01]   | `HttpClient.HttpClient`                                | client Tag         | `net/client` — default-policy client    |
-|  [02]   | `HttpClientRequest` / `HttpClientResponse`             | request / response | `net` — request builder, decode access  |
-|  [03]   | `HttpClientError.RequestError` / `.ResponseError`      | client fault       | `net` — transport, decode faults        |
-|  [04]   | `HttpServer.HttpServer` / `HttpApp.Default`            | server Tag / app   | `serve/route` — runtime `Layer` binds it |
+| [INDEX] | [SYMBOL]                                               | [TYPE_FAMILY]      | [CONSUMER]                                |
+| :-----: | :----------------------------------------------------- | :----------------- | :---------------------------------------- |
+|  [01]   | `HttpClient.HttpClient`                                | client Tag         | `net/client` — default-policy client      |
+|  [02]   | `HttpClientRequest` / `HttpClientResponse`             | request / response | `net` — request builder, decode access    |
+|  [03]   | `HttpClientError.RequestError` / `.ResponseError`      | client fault       | `net` — transport, decode faults          |
+|  [04]   | `HttpServer.HttpServer` / `HttpApp.Default`            | server Tag / app   | `serve/route` — runtime `Layer` binds it  |
 |  [05]   | `HttpRouter.HttpRouter` / `HttpLayerRouter.HttpRouter` | router             | `serve/route` — route table, mixed mounts |
-|  [06]   | `HttpServerRequest` / `HttpServerResponse`             | server io          | `serve` handlers — self-rendering errors |
-|  [07]   | `HttpServerError.RouteNotFound` / `HttpMiddleware`     | server fault / mw  | `serve/problem` — RFC 9457 mapping       |
+|  [06]   | `HttpServerRequest` / `HttpServerResponse`             | server io          | `serve` handlers — self-rendering errors  |
+|  [07]   | `HttpServerError.RouteNotFound` / `HttpMiddleware`     | server fault / mw  | `serve/problem` — RFC 9457 mapping        |
 
 [PUBLIC_TYPE_SCOPE]: system-API contracts — abstract Tags a runtime `Layer` satisfies
 - rail: system-apis
 - Each contract is an abstract `Context.Tag` a per-runtime `Layer` satisfies: `FileSystem` reads, writes, watches, streams, and mints scoped temp paths whose deletion ties to the `Scope`; `Path` resolves host-agnostic paths; `KeyValueStore` scopes a schema-typed store by `prefix`; `Socket` frames a duplex TCP/WebSocket connection as an Effect `Channel`.
 - `Command` describes a subprocess whose `Process` exposes `stdin` as a `Sink`, `stdout`/`stderr` as `Stream`, and `exitCode` as an `Effect`; `Worker.WorkerManager`/`Worker.Spawner`/`WorkerRunner.PlatformRunner` and `Socket.WebSocketConstructor` are the runtime-provided Tags the `-node`/`-bun`/`-browser` bindings satisfy.
 
-| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY] | [CONSUMER]                               |
-| :-----: | :---------------------------------------------- | :------------ | :--------------------------------------- |
-|  [01]   | `FileSystem.FileSystem`                         | fs Tag        | `proc`, `data/lane`                      |
-|  [02]   | `Path.Path`                                     | path Tag      | `proc`, `iac`                            |
-|  [03]   | `KeyValueStore.KeyValueStore` / `SchemaStore`   | kv Tag        | `data/lane`, `browser/persist`           |
-|  [04]   | `Command.Command` / `CommandExecutor.Process`   | subprocess    | `proc/exec` — declarative                |
-|  [05]   | `Terminal.Terminal`                             | tty Tag       | `serve/cli` — line/key input, display    |
-|  [06]   | `Socket.Socket` / `SocketServer`                | socket        | `net/channel`, `core/interchange/frame`  |
-|  [07]   | `Worker.WorkerPool` / `WorkerRunner`            | worker        | `proc/worker`, `browser/fetch` pools     |
-|  [08]   | `PlatformError` (`BadArgument` / `SystemError`) | system fault  | `core/interchange/codec` — one rail      |
+| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY] | [CONSUMER]                              |
+| :-----: | :---------------------------------------------- | :------------ | :-------------------------------------- |
+|  [01]   | `FileSystem.FileSystem`                         | fs Tag        | `proc`, `data/lane`                     |
+|  [02]   | `Path.Path`                                     | path Tag      | `proc`, `iac`                           |
+|  [03]   | `KeyValueStore.KeyValueStore` / `SchemaStore`   | kv Tag        | `data/lane`, `browser/persist`          |
+|  [04]   | `Command.Command` / `CommandExecutor.Process`   | subprocess    | `proc/exec` — declarative               |
+|  [05]   | `Terminal.Terminal`                             | tty Tag       | `serve/cli` — line/key input, display   |
+|  [06]   | `Socket.Socket` / `SocketServer`                | socket        | `net/channel`, `core/interchange/frame` |
+|  [07]   | `Worker.WorkerPool` / `WorkerRunner`            | worker        | `proc/worker`, `browser/fetch` pools    |
+|  [08]   | `PlatformError` (`BadArgument` / `SystemError`) | system fault  | `core/interchange/codec` — one rail     |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: declaring, handling, serving, and consuming an `HttpApi`
 - rail: boundaries
+- consumer: `serve/api` unless the cell names another rail
 - `HttpApiEndpoint.get(name)`/`.post`/`.del` carry `.setPath`/`.setPayload(schema)`/`.addSuccess`/`.addError`; `HttpApiGroup.make(name)` carries `.add(endpoint)`/`.addError`/`.prefix`/`.middleware(tag)`; `HttpApi.make(id)` carries `.add(group)`/`.addError`/`.annotate`/`.middleware`. `HttpApiBuilder.group(api, name, (h) => h.handle(endpointName, handler))` binds handlers; `.api(api)`/`.serve(middleware?)`/`toWebHandler(api, options)` yield the api/serve `Layer` or web handler. `HttpApiBuilder.middlewareCors(options)`/`.middlewareOpenApi()`/`.securityDecode`; `HttpApiClient.make(api, { baseUrl, transformClient })`; `OpenApi.fromApi(api)`/`HttpApiScalar.layer()`/`HttpApiSwagger.layer()`.
 
-| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY]   | [CONSUMER]                                                    |
-| :-----: | :----------------------------------------------------- | :--------------- | :------------------------------------------------------------ |
-|  [01]   | `HttpApiEndpoint.get` / `.post` / `.del`               | declare endpoint | `serve/api` — path, request, success, error `Schema`s         |
-|  [02]   | `HttpApiGroup.make(name)`                              | declare group    | domain folders build a group; errors + mw ride it             |
-|  [03]   | `HttpApi.make(id)`                                     | assemble api     | `serve/api` — one `HttpApi` from selected groups              |
-|  [04]   | `HttpApiBuilder.group(...)`                            | implement        | `serve/api` — bind each endpoint; a missing handler won't compile |
-|  [05]   | `HttpApiBuilder.serve`                                 | serve            | `serve/route` — api `Layer`, serve `Layer`, or web handler    |
-|  [06]   | `HttpApiBuilder.middlewareCors`                        | api middleware   | `serve/api` — CORS, OpenAPI route, security decode            |
-|  [07]   | `HttpApiClient.make`                                   | derive client    | `serve/api` — typed SDK from the `HttpApi` value              |
-|  [08]   | `OpenApi.fromApi` / `HttpApiScalar` / `HttpApiSwagger` | docs             | `serve/api` — spec document + reference UI                    |
+| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY]   | [CONSUMER]                                                        |
+| :-----: | :----------------------------------------------------- | :--------------- | :---------------------------------------------------------------- |
+|  [01]   | `HttpApiEndpoint.get` / `.post` / `.del`               | declare endpoint | path, request, success, error `Schema`s                    |
+|  [02]   | `HttpApiGroup.make(name)`                              | declare group    | domain folders build a group; errors + mw ride it          |
+|  [03]   | `HttpApi.make(id)`                                     | assemble api     | one `HttpApi` from selected groups                         |
+|  [04]   | `HttpApiBuilder.group(...)`                            | implement        | bind each endpoint; a missing handler won't compile        |
+|  [05]   | `HttpApiBuilder.serve`                                 | serve            | `serve/route` — api `Layer`, serve `Layer`, or web handler |
+|  [06]   | `HttpApiBuilder.middlewareCors`                        | api middleware   | CORS, OpenAPI route, security decode                       |
+|  [07]   | `HttpApiClient.make`                                   | derive client    | typed SDK from the `HttpApi` value                         |
+|  [08]   | `OpenApi.fromApi` / `HttpApiScalar` / `HttpApiSwagger` | docs             | spec document + reference UI                               |
 
 [ENTRYPOINT_SCOPE]: `HttpClient` — request policy and typed responses
 - rail: system-apis
@@ -111,15 +112,15 @@
 - `Command` `.make(cmd, ...args)`/`.pipeTo(next)`/`.stream`/`.string`/`.exitCode`/`.env`; `KeyValueStore` `.layerFileSystem(dir)`/`.layerMemory`/`.layerSchema(schema)`/`.prefix(k)`; `Worker` `.makePool`/`.makePoolLayer` (the `Layer` form over a `Spawner`)/`.makePoolSerialized({ size })` with `WorkerRunner.layerSerialized(handlers)`; `Socket` `.toChannel(socket)`/`.makeWebSocket(url)`/`.layerWebSocket`.
 - `MsgPack` `.duplexSchema({ inputSchema, outputSchema })`/`.pack` and `Ndjson` `.duplexSchema`/`.duplex`/`.duplexString` (text lines) frame `Schema`-typed messages over a byte `Channel`; `Multipart` `.toPersisted(parts)`/`.schemaPersisted(schema)`/`.withLimits(opts)`/`.withLimitsStream(parts, opts)` (the value-level bound composition over a part stream; the `withLimits.Options` record carries `Option`-shaped `maxParts`/`maxFileSize` beside `maxFieldSize`/`maxTotalSize`); `Transferable.schema(schema)`, `Template.make\`…\``, `HttpBody.json`/`.formData`.
 
-| [INDEX] | [SURFACE]                                | [ENTRY_FAMILY] | [CONSUMER]                                                                |
-| :-----: | :--------------------------------------- | :------------- | :------------------------------------------------------------------------ |
-|  [01]   | `Command`                                | subprocess     | `proc/exec` — command pipelines, streamed, typed exit                     |
-|  [02]   | `KeyValueStore`                          | kv store       | `data/lane`, `browser/persist` — schema-typed KV, prefix-scoped           |
-|  [03]   | `Worker` / `WorkerRunner`                | worker pool    | `proc/worker`, `browser/fetch` — `Schema`-serialized off-thread pools     |
-|  [04]   | `Socket`                                 | socket channel | `net/channel`, `core/interchange/frame` — duplex bytes as a `Channel`     |
-|  [05]   | `MsgPack` / `Ndjson`                     | frame codec    | `core/interchange/codec`, `serve/live` — MsgPack/NDJSON framing           |
-|  [06]   | `Multipart`                              | upload         | `serve/api` — decode multipart uploads to persisted files under limits    |
-|  [07]   | `Transferable` / `Template` / `HttpBody` | payload        | `browser/fetch` transfer, `serve` templating, request/response bodies     |
+| [INDEX] | [SURFACE]                                | [ENTRY_FAMILY] | [CONSUMER]                                                             |
+| :-----: | :--------------------------------------- | :------------- | :--------------------------------------------------------------------- |
+|  [01]   | `Command`                                | subprocess     | `proc/exec` — command pipelines, streamed, typed exit                  |
+|  [02]   | `KeyValueStore`                          | kv store       | `data/lane`, `browser/persist` — schema-typed KV, prefix-scoped        |
+|  [03]   | `Worker` / `WorkerRunner`                | worker pool    | `proc/worker`, `browser/fetch` — `Schema`-serialized off-thread pools  |
+|  [04]   | `Socket`                                 | socket channel | `net/channel`, `core/interchange/frame` — duplex bytes as a `Channel`  |
+|  [05]   | `MsgPack` / `Ndjson`                     | frame codec    | `core/interchange/codec`, `serve/live` — MsgPack/NDJSON framing        |
+|  [06]   | `Multipart`                              | upload         | `serve/api` — decode multipart uploads to persisted files under limits |
+|  [07]   | `Transferable` / `Template` / `HttpBody` | payload        | `browser/fetch` transfer, `serve` templating, request/response bodies  |
 
 [ENTRYPOINT_SCOPE]: config, logging, and process lifecycle boundary
 - rail: system-apis

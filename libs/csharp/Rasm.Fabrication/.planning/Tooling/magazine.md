@@ -1034,7 +1034,6 @@ public static class ToolMagazine {
 ---
 config:
   layout: elk
-  theme: dark
 ---
 flowchart LR
     accTitle: Tool-magazine composition

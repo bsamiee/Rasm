@@ -387,13 +387,13 @@ file static class OptionXml {
 }
 ```
 
-| [INDEX] | [POLICY]          | [VALUE]                                             | [BINDING]                                                    |
-| :-----: | :---------------- | :--------------------------------------------------- | :------------------------------------------------------------ |
-|  [01]   | version gate      | root `bcf.version` `VersionId` first                 | outside the closed axis rails; no best-effort parse          |
-|  [02]   | vocabularies      | runtime-sourced `IssueVocabulary` registry           | closed axis rows, frozen per-project value sets              |
-|  [03]   | foreign values    | carried facts on the receipt                         | never normalized, never a fault; round-trip fidelity        |
-|  [04]   | container         | BCL `ZipArchive` + `XDocument`                       | zero foreign packages; BCF is zip+XML by construction        |
-|  [05]   | fault posture     | `Semigroup` accumulation per topic                   | one malformed topic never discards the sound remainder      |
+| [INDEX] | [POLICY]       | [VALUE]                                    | [BINDING]                                              |
+| :-----: | :------------- | :----------------------------------------- | :----------------------------------------------------- |
+|  [01]   | version gate   | root `bcf.version` `VersionId` first       | outside the closed axis rails; no best-effort parse    |
+|  [02]   | vocabularies   | runtime-sourced `IssueVocabulary` registry | closed axis rows, frozen per-project value sets        |
+|  [03]   | foreign values | carried facts on the receipt               | never normalized, never a fault; round-trip fidelity   |
+|  [04]   | container      | BCL `ZipArchive` + `XDocument`             | zero foreign packages; BCF is zip+XML by construction  |
+|  [05]   | fault posture  | `Semigroup` accumulation per topic         | one malformed topic never discards the sound remainder |
 
 ## [03]-[ISSUE_ROWS]
 
@@ -471,14 +471,14 @@ public static class IssueRows {
 }
 ```
 
-| [INDEX] | [POLICY]         | [VALUE]                                          | [BINDING]                                                    |
-| :-----: | :--------------- | :------------------------------------------------ | :------------------------------------------------------------ |
-|  [01]   | correlation      | wire `IfcGuid` → `GlobalIds` mirror → `NodeId`    | one injected-port hop; survives re-import re-keying          |
-|  [02]   | unresolved refs  | `Option.None` carried on the row                  | review reality, counted on the fact, never dropped           |
-|  [03]   | selection bridge | `Referenced()` → `ElementSet`                     | composes the one currency; clash results round-trip          |
-|  [04]   | cycle diff       | `Reconcile` GUID-keyed partitions                 | the schedule `Reconcile` discipline on the issue axis        |
-|  [05]   | wire stamps      | `OffsetDateTime` preserving the declared offset   | never a fabricated UTC `Instant`                             |
-|  [06]   | snapshots        | `ContentAddress` on the row, bytes in the blob plane | never a byte copy beside the address                       |
+| [INDEX] | [POLICY]         | [VALUE]                                              | [BINDING]                                             |
+| :-----: | :--------------- | :--------------------------------------------------- | :---------------------------------------------------- |
+|  [01]   | correlation      | wire `IfcGuid` → `GlobalIds` mirror → `NodeId`       | one injected-port hop; survives re-import re-keying   |
+|  [02]   | unresolved refs  | `Option.None` carried on the row                     | review reality, counted on the fact, never dropped    |
+|  [03]   | selection bridge | `Referenced()` → `ElementSet`                        | composes the one currency; clash results round-trip   |
+|  [04]   | cycle diff       | `Reconcile` GUID-keyed partitions                    | the schedule `Reconcile` discipline on the issue axis |
+|  [05]   | wire stamps      | `OffsetDateTime` preserving the declared offset      | never a fabricated UTC `Instant`                      |
+|  [06]   | snapshots        | `ContentAddress` on the row, bytes in the blob plane | never a byte copy beside the address                  |
 
 ## [04]-[RESEARCH]
 

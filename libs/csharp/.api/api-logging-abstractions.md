@@ -12,29 +12,29 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]                 | [KIND]      | [CAPABILITY]                                                    |
-| :-----: | :----------------------- | :---------- | :-------------------------------------------------------------- |
-|  [01]   | `ILogger`                | contract    | the one emission surface every record crosses                   |
-|  [02]   | `ILogger<TCategoryName>` | contract    | category-typed emission the DI graph resolves per owner         |
-|  [03]   | `ILoggerFactory`         | factory     | category-keyed logger mint; app-root provider composition       |
-|  [04]   | `ILoggerProvider`        | contract    | provider seam the composition root implements, never a library  |
-|  [05]   | `LogLevel`               | enum        | severity vocabulary carried as data                             |
-|  [06]   | `EventId`                | value       | banded event identity every generated method stamps             |
-|  [07]   | `LoggerMessageAttribute` | attribute   | source-generated strongly-typed log method declaration          |
-|  [08]   | `LogDefineOptions`       | options     | `SkipEnabledCheck` posture on the `Define` fallback             |
-|  [09]   | `NullLogger`             | null object | zero-provider default at library seams                          |
-|  [10]   | `NullLogger<T>`          | null object | category-typed zero-provider default                            |
-|  [11]   | `NullLoggerFactory`      | null object | factory default for headless and test boots                     |
+| [INDEX] | [SYMBOL]                 | [KIND]      | [CAPABILITY]                                                   |
+| :-----: | :----------------------- | :---------- | :------------------------------------------------------------- |
+|  [01]   | `ILogger`                | contract    | the one emission surface every record crosses                  |
+|  [02]   | `ILogger<TCategoryName>` | contract    | category-typed emission the DI graph resolves per owner        |
+|  [03]   | `ILoggerFactory`         | factory     | category-keyed logger mint; app-root provider composition      |
+|  [04]   | `ILoggerProvider`        | contract    | provider seam the composition root implements, never a library |
+|  [05]   | `LogLevel`               | enum        | severity vocabulary carried as data                            |
+|  [06]   | `EventId`                | value       | banded event identity every generated method stamps            |
+|  [07]   | `LoggerMessageAttribute` | attribute   | source-generated strongly-typed log method declaration         |
+|  [08]   | `LogDefineOptions`       | options     | `SkipEnabledCheck` posture on the `Define` fallback            |
+|  [09]   | `NullLogger`             | null object | zero-provider default at library seams                         |
+|  [10]   | `NullLogger<T>`          | null object | category-typed zero-provider default                           |
+|  [11]   | `NullLoggerFactory`      | null object | factory default for headless and test boots                    |
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                                              | [KIND]    | [CAPABILITY]                                          |
-| :-----: | :----------------------------------------------------- | :-------- | :---------------------------------------------------- |
-|  [01]   | `[LoggerMessage(EventId, Level, Message)]` partial     | generator | allocation-free typed emission; the canonical form    |
-|  [02]   | `LoggerMessage.Define<T...>(level, eventId, format)`   | fallback  | cached delegate emission where a partial cannot host  |
-|  [03]   | `ILogger.IsEnabled(LogLevel)`                          | gate      | pre-payload guard the generated methods already carry |
-|  [04]   | `ILogger.BeginScope<TState>(TState)`                   | scope     | ambient-state span over enclosed records              |
-|  [05]   | `NullLogger.Instance` / `NullLogger<T>.Instance`       | default   | the injected default before a provider binds          |
+| [INDEX] | [SURFACE]                                            | [KIND]    | [CAPABILITY]                                          |
+| :-----: | :--------------------------------------------------- | :-------- | :---------------------------------------------------- |
+|  [01]   | `[LoggerMessage(EventId, Level, Message)]` partial   | generator | allocation-free typed emission; the canonical form    |
+|  [02]   | `LoggerMessage.Define<T...>(level, eventId, format)` | fallback  | cached delegate emission where a partial cannot host  |
+|  [03]   | `ILogger.IsEnabled(LogLevel)`                        | gate      | pre-payload guard the generated methods already carry |
+|  [04]   | `ILogger.BeginScope<TState>(TState)`                 | scope     | ambient-state span over enclosed records              |
+|  [05]   | `NullLogger.Instance` / `NullLogger<T>.Instance`     | default   | the injected default before a provider binds          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

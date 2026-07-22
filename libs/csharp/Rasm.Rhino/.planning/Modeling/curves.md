@@ -1001,22 +1001,22 @@ public static class Curves {
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]               | [OWNER]                             | [FORM]                                        | [ENTRY]                  |
-| :-----: | :---------------------- | :---------------------------------- | :-------------------------------------------- | :----------------------- |
-|  [01]   | offset framing          | `OffsetFrame`                       | planar / fitted-normal / loose-normal cases   | `CurveOp.Offset`         |
-|  [02]   | surface offset          | `CurveScalar`/`SurfaceOffsetTarget` | finite scalar offset modes                    | surface offset cases     |
-|  [03]   | ribbon carrier          | `RibbonLaw`                         | `RibbonOffsetParameters` as one value         | `CurveOp.Ribbon`/`Rig`   |
-|  [04]   | advanced fit            | `FitLaw`                            | `NurbsCurveFitParameters` as one value        | `CurveOp.NurbsFit`/`Rig` |
-|  [05]   | extension modality      | `ExtendLaw`                         | length/geometry/point/line/arc/on-surface     | `CurveOp.Extend`         |
-|  [06]   | split modality          | `SplitCutter`                       | parameters/brep/surface/plane                 | `CurveOp.Split`          |
-|  [07]   | pull and project        | `PullTarget`/`ProjectTarget`        | destinations with brep-side index maps        | `CurveOp.Pull`/`Project` |
-|  [08]   | curve booleans          | `CurveBooleanLaw`/`CurveOp`         | verb-valid source arity and region topology   | `Boolean`/`Regions`      |
-|  [09]   | blend and tween         | `BlendLaw`/`ArcBlendLaw`/`TweenLaw` | payload-valid blend and tween modes           | blend and tween cases    |
-|  [10]   | spiral/parabola seeds   | `SpiralLaw`/`ParabolaSeed`          | seed unions selecting statics                 | construction cases       |
-|  [11]   | analytic/catenary seeds | `AnalyticCurve`/`CatenaryLaw`       | seed unions selecting statics                 | construction cases       |
-|  [12]   | value-semantic edit     | `CurveEdit`                         | duplicate then cleanup/close/interval trim    | `CurveOp.Edit`           |
-|  [13]   | rail surface fillet     | `RailFilletLaw`                     | rail and arc structure plus fit evidence      | `CurveOp.RailFillet`     |
-|  [14]   | curve verbs             | `CurveOp`                           | one flat `[Union]` with total dispatch        | `Curves.Build`           |
+| [INDEX] | [CONCERN]               | [OWNER]                             | [FORM]                                      | [ENTRY]                  |
+| :-----: | :---------------------- | :---------------------------------- | :------------------------------------------ | :----------------------- |
+|  [01]   | offset framing          | `OffsetFrame`                       | planar / fitted-normal / loose-normal cases | `CurveOp.Offset`         |
+|  [02]   | surface offset          | `CurveScalar`/`SurfaceOffsetTarget` | finite scalar offset modes                  | surface offset cases     |
+|  [03]   | ribbon carrier          | `RibbonLaw`                         | `RibbonOffsetParameters` as one value       | `CurveOp.Ribbon`/`Rig`   |
+|  [04]   | advanced fit            | `FitLaw`                            | `NurbsCurveFitParameters` as one value      | `CurveOp.NurbsFit`/`Rig` |
+|  [05]   | extension modality      | `ExtendLaw`                         | length/geometry/point/line/arc/on-surface   | `CurveOp.Extend`         |
+|  [06]   | split modality          | `SplitCutter`                       | parameters/brep/surface/plane               | `CurveOp.Split`          |
+|  [07]   | pull and project        | `PullTarget`/`ProjectTarget`        | destinations with brep-side index maps      | `CurveOp.Pull`/`Project` |
+|  [08]   | curve booleans          | `CurveBooleanLaw`/`CurveOp`         | verb-valid source arity and region topology | `Boolean`/`Regions`      |
+|  [09]   | blend and tween         | `BlendLaw`/`ArcBlendLaw`/`TweenLaw` | payload-valid blend and tween modes         | blend and tween cases    |
+|  [10]   | spiral/parabola seeds   | `SpiralLaw`/`ParabolaSeed`          | seed unions selecting statics               | construction cases       |
+|  [11]   | analytic/catenary seeds | `AnalyticCurve`/`CatenaryLaw`       | seed unions selecting statics               | construction cases       |
+|  [12]   | value-semantic edit     | `CurveEdit`                         | duplicate then cleanup/close/interval trim  | `CurveOp.Edit`           |
+|  [13]   | rail surface fillet     | `RailFilletLaw`                     | rail and arc structure plus fit evidence    | `CurveOp.RailFillet`     |
+|  [14]   | curve verbs             | `CurveOp`                           | one flat `[Union]` with total dispatch      | `Curves.Build`           |
 
 ## [06]-[RESEARCH]
 

@@ -3,7 +3,7 @@ import { FileSystem, Path } from '@effect/platform';
 import { Array, Context, Data, Effect, HashMap, Option, Order, pipe, Record, Schema, String } from 'effect';
 import { xxhash128 } from 'hash-wasm';
 
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 declare namespace Corpus {
     type Pin = Schema.Schema.Type<typeof _Pin>;
@@ -13,7 +13,7 @@ declare namespace Corpus {
     type Registry = HashMap.HashMap<string, Fixture>;
 }
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _MANIFEST = 'MANIFEST.md';
 const _EXTENSIONS = { bin: '.bin', json: '.json' } as const;
@@ -22,7 +22,7 @@ const _EXTENSIONS = { bin: '.bin', json: '.json' } as const;
 const _TRIANGLE_HEX = '03000000030000000000000001000000000000000200000001000000020000000100000003000000000000000100000002000000';
 const _TRIANGLE_DIGEST = { canonical: '9462a71a5dd13dcfa3b1d6d225fcbe70', memoryLe: '70befc25d2d6b1a3cf3dd15d1aa76294' } as const;
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 const _Pin = Schema.Literal('REAL', 'DESIGN-PIN');
 const _Payload = Schema.Literal('wire-bytes', 'canonical-json', 'digest', 'descriptor-set');
@@ -44,14 +44,14 @@ type Asset = Data.TaggedEnum<{
 }>;
 const Asset: Data.TaggedEnum.Constructor<Asset> = Data.taggedEnum<Asset>();
 
-// --- [ERRORS] ----------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
 class CorpusFault extends Data.TaggedError('CorpusFault')<{
     readonly reason: 'unreadable' | 'malformed' | 'unregistered';
     readonly detail: string;
 }> {}
 
-// --- [SERVICES] --------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
 // Corpus location: defaulted relative to the kit source, overridable at the Layer graph for fixture-tree specs.
 class CorpusRoot extends Context.Reference<CorpusRoot>()('rasm-testkit/CorpusRoot', {
@@ -66,7 +66,7 @@ class ContentDigest extends Effect.Service<ContentDigest>()('rasm-testkit/Conten
     accessors: true,
 }) {}
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const _bare = (cell: string | undefined): string => (cell ?? '').replace(/`/g, '');
 
@@ -202,6 +202,6 @@ const Corpus = {
         }),
 } as const;
 
-// --- [EXPORTS] ---------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Asset, ContentDigest, Corpus, CorpusFault, CorpusRoot, Fixture };

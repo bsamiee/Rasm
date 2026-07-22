@@ -3,10 +3,10 @@ using Rhino;
 
 namespace Rasm.ScenarioKit;
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record CaptureReceipt(string Path, int Width, int Height, bool OnFailure, ArtifactRef? Artifact = null);
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 // DocumentScope admits the live document once, clears object state on open/dispose, and registers
 // leak drainage with the context. ViewportRealized feeds the runner's failure-capture trigger.
 public sealed class DocumentScope : IDisposable {

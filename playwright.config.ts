@@ -10,7 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, devices, type PlaywrightTestConfig, type PlaywrightWorkerOptions, type Project } from '@playwright/test';
 
-// --- [TYPES] -------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 type Lane = Pick<Project, 'testMatch' | 'use'>;
 type Target = {
@@ -28,7 +28,7 @@ type Target = {
     };
 };
 
-// --- [CONSTANTS] ---------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _ROOT = path.dirname(fileURLToPath(import.meta.url));
 const _ARTIFACTS = path.join(_ROOT, '.artifacts/typescript/e2e');
@@ -73,7 +73,7 @@ const _TARGETS = {
     },
 } as const satisfies Record<string, Target>;
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const _rows: ReadonlyArray<Target> = Object.values(_TARGETS);
 
@@ -101,7 +101,7 @@ const _servers = _rows.flatMap((target) =>
           ],
 );
 
-// --- [EXPORTS] -----------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 const config: PlaywrightTestConfig = defineConfig({
     captureGitInfo: { commit: true, diff: false },

@@ -14,7 +14,6 @@ The one config owner of the process plane: an ordered provider chain answers eve
 ## [02]-[STAGE_FAMILY]
 
 [STAGE_FAMILY]:
-
 - Owner: `Provider.Stage` — one `Data.taggedEnum` family: `Env` (process environment), `DotEnv` carrying its file path, `Tree` carrying the mount root (the K8s secret-mount form, one file per key), `Remote` carrying the document origin, `Table` carrying a literal row map (the harness and inline-override form); constructors ride the exported `Provider` owner, so declaring a chain is one import.
 - Law: doppler is env — `doppler run --` injects leased secrets as process environment before the runtime boots, so the doppler stage IS the `Env` stage's content and holds env precedence; the chain never dials Doppler at runtime, and the runtime leased-secret axis — TTL rotation, `Redacted` end to end — is `security`'s crypt owner.
 - Law: the remote stage is a boot-time document — fetched once at chain construction through the `batch` egress lane (`client#DIAL_SEAM`), so the chain inherits the branch egress posture, decoded as one JSON document, served through `ConfigProvider.fromJson` under `ConfigProvider.constantCase` so a camelCase remote document answers CONSTANT_CASE reads; live re-evaluation is not a config concern — the one live remote surface is the flag feed (`flag#GATE_SERVICE`), never a mutating config chain.
@@ -25,7 +24,6 @@ The one config owner of the process plane: an ordered provider chain answers eve
 ## [03]-[CHAIN_FOLD]
 
 [CHAIN_FOLD]:
-
 - Owner: `Provider.chain` — the one entry: a `NonEmptyReadonlyArray<Stage>` folds to the installing Layer; each stage builds effectfully, the fold is `Array.reduce` over `ConfigProvider.orElse` with the head as seed, so precedence is structural.
 - Law: construction failure splits by stage nature, and only proven absence skips — the `DotEnv` stage reads its file eagerly, so it folds exactly the `SystemError` whose `reason` is `"NotFound"` to a skipped stage through `Effect.catchIf` (a dev-only file legitimately does not exist in prod) while an unreadable or permission-denied file stays a `PlatformError` on the channel; the `Tree` stage is construction-total — the file-tree provider reads per key, so an absent mount answers missing data at read time and `orElse` falls through to the next stage; the `Remote` stage was declared to be answered, so its fetch or decode failure rides the layer's error channel and fails the boot at the root proof; `Env` and `Table` are total; a chain whose every skippable stage skipped folds to the surviving stages — and an all-skipped chain folds to the empty provider, every read failing as missing data at the boot proof, never a forged fallback the chain never declared.
 - Law: one install site — the returned `Layer<never>` merges once beneath the root; a second `setConfigProvider` at a deeper altitude shadows the root's chain and is the named defect; requirements (`FileSystem`, `Path` for file stages; `HttpClient` for the remote dial) are satisfied by the runtime row's context and the shared client, so the chain layer composes after the platform layer and before every config-reading service.
@@ -104,7 +102,6 @@ const Provider: Data.TaggedEnum.Constructor<Provider.Stage> & {
 ## [04]-[SETTING_OWNER]
 
 [SETTING_OWNER]:
-
 - Owner: `Setting` — the runtime environment contract: one `Effect.Service` class, `effect: Config.unwrap(record)`, the record nested under the `RUNTIME` namespace with one group per consuming sub-domain (`CLUSTER`, `FANOUT`, `FLAG`, `LIFE`, `MAIL`, `OTEL`, `SERVE`); `Config` is a subtype of `Effect`, so the record is the constructor, `Setting.Default` resolves the whole environment at Layer construction, its `ConfigError` rides the Default layer's error channel, and the root annotation `Layer.Layer<Out>` is where an unset or malformed variable fails — one line, before any run seam.
 - Law: consumers depend on `Setting`, never on `Config` — the built service is a plain resolved struct, so the `flag`, `life`, and `pubsub` owners read fields with no `ConfigError` in their own channels and no second resolve anywhere in the process.
 - Law: the form is the family — an app or sibling-folder contract is declared exactly as `Setting` is (service class, `Config.unwrap` record, described rows, nested groups) under its own namespace; a second config-reading pattern beside this form is the fork this page exists to prevent, and two services never read one variable.
@@ -277,7 +274,6 @@ class Setting extends Effect.Service<Setting>()('runtime/Setting', {
 ## [05]-[ADMISSION_ROWS]
 
 [ADMISSION_ROWS]:
-
 - Owner: the row vocabulary — structure parses at the row (`Config.url`, `Config.port`, `Config.duration`, `Config.integer`), and semantic bounds remain at admission through `Config.validate` (`fanout.chunk > 0`, finite `otel.sample ∈ [0,1]`); a closed choice is `Config.literal(...keys)` spread from the owning vocabulary anchor, a secret is `Config.redacted`, and a scalar with richer shape admits through `Schema.Config(name, shape)` with its `ParseError` folded into the same `ConfigError` rail.
 - Law: `Config.withDescription` rides every row — a missing or malformed variable reports its meaning, never a bare key name; the description is the row's operator contract with whoever sets the environment.
 - Law: `Config.withDefault` states ownership of the fallback — default at the row when the owner fixes the value and no consumer distinguishes absent from defaulted; no default when an unset variable must fail the boot; a fallback repeated at read sites marks a default that belonged on the row.

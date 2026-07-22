@@ -134,17 +134,17 @@ All entrypoints are `unsafe` instance methods on the `WebGPU.GetApi()` function-
 [ENTRYPOINT_SCOPE]: compute-handle release
 - rail: compute
 
-| [INDEX] | [SURFACE]                                                | [RAIL]            |
-| :-----: | :------------------------------------------------------- | :---------------- |
-|  [01]   | `ShaderModuleRelease(ShaderModule*)`                     | shader release    |
-|  [02]   | `BindGroupLayoutRelease(BindGroupLayout*)`               | layout release    |
-|  [03]   | `BindGroupRelease(BindGroup*)`                           | group release     |
-|  [04]   | `ComputePipelineRelease(ComputePipeline*)`               | pipeline release  |
-|  [05]   | `ComputePassEncoderRelease(ComputePassEncoder*)`         | pass release      |
-|  [06]   | `CommandEncoderRelease(CommandEncoder*)`                 | encoder release   |
-|  [07]   | `CommandBufferRelease(CommandBuffer*)`                   | commands release  |
-|  [08]   | `QuerySetRelease(QuerySet*)`                             | query-set release |
-|  [09]   | `BufferRelease(Buffer*)`                                 | buffer release    |
+| [INDEX] | [SURFACE]                                        | [RAIL]            |
+| :-----: | :----------------------------------------------- | :---------------- |
+|  [01]   | `ShaderModuleRelease(ShaderModule*)`             | shader release    |
+|  [02]   | `BindGroupLayoutRelease(BindGroupLayout*)`       | layout release    |
+|  [03]   | `BindGroupRelease(BindGroup*)`                   | group release     |
+|  [04]   | `ComputePipelineRelease(ComputePipeline*)`       | pipeline release  |
+|  [05]   | `ComputePassEncoderRelease(ComputePassEncoder*)` | pass release      |
+|  [06]   | `CommandEncoderRelease(CommandEncoder*)`         | encoder release   |
+|  [07]   | `CommandBufferRelease(CommandBuffer*)`           | commands release  |
+|  [08]   | `QuerySetRelease(QuerySet*)`                     | query-set release |
+|  [09]   | `BufferRelease(Buffer*)`                         | buffer release    |
 
 [ENTRYPOINT_SCOPE]: compute pass recording and submission
 - rail: compute

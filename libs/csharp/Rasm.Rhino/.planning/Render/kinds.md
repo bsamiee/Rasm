@@ -571,18 +571,18 @@ public sealed record PhotometricPress(Func<PhotometricWeb, RhinoDoc?, Fin<Lease<
 
 ## [06]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]              | [OWNER]              | [FORM]                                                 | [ENTRY]                         |
-| :-----: | :--------------------- | :------------------- | :----------------------------------------------------- | :------------------------------ |
-|  [01]   | material minting       | `MaterialMint`       | document-aware leased mint                             | `Direct` / `Basic` / `Imported` |
-|  [02]   | material bake and PBR  | `MaterialBridge`     | callback-bounded material projection                   | `Bake` / `Pbr` / `Usage`        |
-|  [03]   | material class         | `MaterialScent`      | predicate-column rows folded into `ScentCensus`        | `CensusOf(material)`            |
-|  [04]   | texture configuration  | `TextureConfig`      | total replayable state                                 | `Of` / `Apply(texture, reason)` |
-|  [05]   | texture classification | `TextureTraits`      | detached local mapping and capability census            | `Of(texture, key)`              |
-|  [06]   | baked-texture crossing | `TextureFacsimile`   | replayable facsimile state                             | `Of` / `Apply`                  |
-|  [07]   | texture mint/export    | `TextureMint`        | admitted leased texture lifecycle                      | `From` / `Mint`                 |
-|  [08]   | environment bake/mint  | `EnvironmentState`   | detached state and document-aware leased mint           | `Bake` / `Mint(document, key)`  |
-|  [09]   | photometric payload    | `PhotometricWeb`     | dialect-admitted content attachment                    | `Of` / `AttachTo`               |
-|  [10]   | photometric readers    | `PhotometricPress`   | declarative registry serializer roster                  | `Serializers(retention, record)` |
+| [INDEX] | [CONCERN]              | [OWNER]            | [FORM]                                          | [ENTRY]                          |
+| :-----: | :--------------------- | :----------------- | :---------------------------------------------- | :------------------------------- |
+|  [01]   | material minting       | `MaterialMint`     | document-aware leased mint                      | `Direct` / `Basic` / `Imported`  |
+|  [02]   | material bake and PBR  | `MaterialBridge`   | callback-bounded material projection            | `Bake` / `Pbr` / `Usage`         |
+|  [03]   | material class         | `MaterialScent`    | predicate-column rows folded into `ScentCensus` | `CensusOf(material)`             |
+|  [04]   | texture configuration  | `TextureConfig`    | total replayable state                          | `Of` / `Apply(texture, reason)`  |
+|  [05]   | texture classification | `TextureTraits`    | detached local mapping and capability census    | `Of(texture, key)`               |
+|  [06]   | baked-texture crossing | `TextureFacsimile` | replayable facsimile state                      | `Of` / `Apply`                   |
+|  [07]   | texture mint/export    | `TextureMint`      | admitted leased texture lifecycle               | `From` / `Mint`                  |
+|  [08]   | environment bake/mint  | `EnvironmentState` | detached state and document-aware leased mint   | `Bake` / `Mint(document, key)`   |
+|  [09]   | photometric payload    | `PhotometricWeb`   | dialect-admitted content attachment             | `Of` / `AttachTo`                |
+|  [10]   | photometric readers    | `PhotometricPress` | declarative registry serializer roster          | `Serializers(retention, record)` |
 
 ## [07]-[RESEARCH]
 

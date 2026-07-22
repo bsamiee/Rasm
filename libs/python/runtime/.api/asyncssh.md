@@ -57,11 +57,12 @@ Return types are the PUBLIC_TYPES rows; the SURFACE cells drop the `-> Type` tai
 [ENTRYPOINT_SCOPE]: connection-options and host-key verification
 - rail: transport
 - `SSHClientConnectionOptions` is built once from the settings model (`roots.md` `_ssh_options`); `read_known_hosts` loads the trust database at admission (`admission.md` `SecretBoundary.known_hosts`, ENTRYPOINTS [02]).
+- `SSHClientConnectionOptions` carries credentials, trust, and channel policy in one object; `read_known_hosts` loads the host-key trust database from path(s).
 
-| [INDEX] | [SURFACE]                                                                                                             | [ENTRY_FAMILY] | [RAIL]                                               |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------- | :------------- | :--------------------------------------------------- |
-|  [01]   | `SSHClientConnectionOptions(*, password=, known_hosts=, connect_timeout=, keepalive_interval=, keepalive_count_max=)` | options        | credentials, trust, and channel policy in one object |
-|  [02]   | `read_known_hosts(filelist)`                                                                                          | verify         | load the host-key trust database from path(s)        |
+| [INDEX] | [SURFACE]                                                                                                             | [ENTRY_FAMILY] |
+| :-----: | :-------------------------------------------------------------------------------------------------------------------- | :------------- |
+|  [01]   | `SSHClientConnectionOptions(*, password=, known_hosts=, connect_timeout=, keepalive_interval=, keepalive_count_max=)` | options        |
+|  [02]   | `read_known_hosts(filelist)`                                                                                          | verify         |
 
 [ENTRYPOINT_SCOPE]: remote-exec crossing
 - rail: worker fabric

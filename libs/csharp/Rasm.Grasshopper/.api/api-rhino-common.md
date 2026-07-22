@@ -21,8 +21,8 @@
 
 `RhinoDoc` is the live model the editor getter arbitrates; it transports as an opaque payload, its document semantics owned by `Rasm.Rhino`, never adjudicated in this folder.
 
-| [INDEX] | [SYMBOL]  | [KIND] | [CAPABILITY]                                  |
-| :-----: | :-------- | :----- | :-------------------------------------------- |
+| [INDEX] | [SYMBOL]   | [KIND] | [CAPABILITY]                                  |
+| :-----: | :--------- | :----- | :-------------------------------------------- |
 |  [01]   | `RhinoDoc` | class  | active model, getter target, identity carrier |
 
 [PUBLIC_TYPE_SCOPE]: Rhino.Geometry value carriers
@@ -31,22 +31,22 @@
 
 Value structs the `Ports` `PortRow` vocabulary types against and the `GardenData` shape records carry by value; each is an immutable geometric value the folder transports without mutation.
 
-| [INDEX] | [SYMBOL]      | [KIND] | [CAPABILITY]                       |
-| :-----: | :------------ | :----- | :--------------------------------- |
-|  [01]   | `Point3d`     | struct | 3D model-space point               |
-|  [02]   | `Vector3d`    | struct | 3D direction and displacement      |
+| [INDEX] | [SYMBOL]      | [KIND] | [CAPABILITY]                        |
+| :-----: | :------------ | :----- | :---------------------------------- |
+|  [01]   | `Point3d`     | struct | 3D model-space point                |
+|  [02]   | `Vector3d`    | struct | 3D direction and displacement       |
 |  [03]   | `Point2d`     | struct | 2D parameter and screen-plane point |
-|  [04]   | `Line`        | struct | finite from/to segment             |
-|  [05]   | `Arc`         | struct | circular arc                       |
-|  [06]   | `Circle`      | struct | planar circle                      |
-|  [07]   | `Rectangle3d` | struct | oriented planar rectangle          |
-|  [08]   | `Box`         | struct | oriented bounding box              |
-|  [09]   | `Sphere`      | struct | analytic sphere                    |
-|  [10]   | `Plane`       | struct | origin and axis-frame plane        |
-|  [11]   | `Transform`   | struct | 4×4 affine transform matrix        |
-|  [12]   | `Quaternion`  | struct | rotation quaternion                |
-|  [13]   | `Interval`    | struct | 1D numeric domain                  |
-|  [14]   | `MeshFace`    | struct | triangle or quad face index quad   |
+|  [04]   | `Line`        | struct | finite from/to segment              |
+|  [05]   | `Arc`         | struct | circular arc                        |
+|  [06]   | `Circle`      | struct | planar circle                       |
+|  [07]   | `Rectangle3d` | struct | oriented planar rectangle           |
+|  [08]   | `Box`         | struct | oriented bounding box               |
+|  [09]   | `Sphere`      | struct | analytic sphere                     |
+|  [10]   | `Plane`       | struct | origin and axis-frame plane         |
+|  [11]   | `Transform`   | struct | 4×4 affine transform matrix         |
+|  [12]   | `Quaternion`  | struct | rotation quaternion                 |
+|  [13]   | `Interval`    | struct | 1D numeric domain                   |
+|  [14]   | `MeshFace`    | struct | triangle or quad face index quad    |
 
 [PUBLIC_TYPE_SCOPE]: Rhino.Geometry reference geometry
 - namespace: `Rhino.Geometry`
@@ -54,15 +54,15 @@ Value structs the `Ports` `PortRow` vocabulary types against and the `GardenData
 
 `GeometryBase`-derived reference types the surface, curve, and mesh port carriers pin; `Polyline` derives from `Point3dList` as an open or closed vertex chain.
 
-| [INDEX] | [SYMBOL]   | [KIND]                 | [CAPABILITY]                          |
-| :-----: | :--------- | :--------------------- | :------------------------------------ |
-|  [01]   | `Curve`    | class (`GeometryBase`) | abstract curve base                   |
-|  [02]   | `Surface`  | class (`GeometryBase`) | abstract surface base                 |
-|  [03]   | `Brep`     | class (`GeometryBase`) | boundary-representation poly-surface  |
-|  [04]   | `SubD`     | class (`GeometryBase`) | subdivision surface                   |
-|  [05]   | `Mesh`     | class (`GeometryBase`) | polygon mesh                          |
-|  [06]   | `TextDot`  | class (`GeometryBase`) | annotation dot                        |
-|  [07]   | `Polyline` | class (`Point3dList`)  | open or closed vertex chain           |
+| [INDEX] | [SYMBOL]   | [KIND]                 | [CAPABILITY]                         |
+| :-----: | :--------- | :--------------------- | :----------------------------------- |
+|  [01]   | `Curve`    | class (`GeometryBase`) | abstract curve base                  |
+|  [02]   | `Surface`  | class (`GeometryBase`) | abstract surface base                |
+|  [03]   | `Brep`     | class (`GeometryBase`) | boundary-representation poly-surface |
+|  [04]   | `SubD`     | class (`GeometryBase`) | subdivision surface                  |
+|  [05]   | `Mesh`     | class (`GeometryBase`) | polygon mesh                         |
+|  [06]   | `TextDot`  | class (`GeometryBase`) | annotation dot                       |
+|  [07]   | `Polyline` | class (`Point3dList`)  | open or closed vertex chain          |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -72,15 +72,15 @@ Value structs the `Ports` `PortRow` vocabulary types against and the `GardenData
 
 `ActiveDoc` is the getter's fallback when the editor case carries `None`; the identity and state reads let a getter-arbitration consumer key and inspect the handed-off document.
 
-| [INDEX] | [SURFACE]                          | [SHAPE]           | [CAPABILITY]                        |
-| :-----: | :--------------------------------- | :---------------- | :---------------------------------- |
-|  [01]   | `RhinoDoc.ActiveDoc`               | static property   | the active document, `null` if none |
-|  [02]   | `RuntimeSerialNumber` / `DocumentId` | property          | session document identity           |
-|  [03]   | `Name` / `Path`                    | property          | document name and file path         |
-|  [04]   | `Modified`                         | property          | dirty-state read                    |
-|  [05]   | `ModelUnitSystem`                  | `UnitSystem`      | model unit vocabulary               |
-|  [06]   | `ActiveSpace`                      | `ActiveSpace`     | model or layout space               |
-|  [07]   | `IsHeadless`                       | property          | headless-document flag              |
+| [INDEX] | [SURFACE]                            | [SHAPE]         | [CAPABILITY]                        |
+| :-----: | :----------------------------------- | :-------------- | :---------------------------------- |
+|  [01]   | `RhinoDoc.ActiveDoc`                 | static property | the active document, `null` if none |
+|  [02]   | `RuntimeSerialNumber` / `DocumentId` | property        | session document identity           |
+|  [03]   | `Name` / `Path`                      | property        | document name and file path         |
+|  [04]   | `Modified`                           | property        | dirty-state read                    |
+|  [05]   | `ModelUnitSystem`                    | `UnitSystem`    | model unit vocabulary               |
+|  [06]   | `ActiveSpace`                        | `ActiveSpace`   | model or layout space               |
+|  [07]   | `IsHeadless`                         | property        | headless-document flag              |
 
 [ENTRYPOINT_SCOPE]: Rhino.UI.Dialogs native prompts
 - namespace: `Rhino.UI`
@@ -88,11 +88,11 @@ Value structs the `Ports` `PortRow` vocabulary types against and the `GardenData
 
 Two prompt members settle a text or numeric value through the Rhino-native fast lane; each returns `bool` for accepted-versus-dismissed and emits its value through an `out`/`ref` channel. `ShowEditBox(string title, string message, string defaultText, bool multiline, out string text)` and `ShowNumberBox(string title, string message, ref double number[, double minimum, double maximum])` are the exact typed forms.
 
-| [INDEX] | [SURFACE]              | [CALL_SHAPE]                                     | [CAPABILITY]            |
-| :-----: | :--------------------- | :----------------------------------------------- | :---------------------- |
-|  [01]   | `Dialogs.ShowEditBox`  | `(title, message, defaultText, multiline, out text)` → `bool` | native edit-text prompt |
-|  [02]   | `Dialogs.ShowNumberBox` | `(title, message, ref number)` → `bool`          | unbounded number prompt |
-|  [03]   | `Dialogs.ShowNumberBox` | `(title, message, ref number, minimum, maximum)` → `bool` | bounded number prompt   |
+| [INDEX] | [SURFACE]               | [CALL_SHAPE]                                                  | [CAPABILITY]            |
+| :-----: | :---------------------- | :------------------------------------------------------------ | :---------------------- |
+|  [01]   | `Dialogs.ShowEditBox`   | `(title, message, defaultText, multiline, out text)` → `bool` | native edit-text prompt |
+|  [02]   | `Dialogs.ShowNumberBox` | `(title, message, ref number)` → `bool`                       | unbounded number prompt |
+|  [03]   | `Dialogs.ShowNumberBox` | `(title, message, ref number, minimum, maximum)` → `bool`     | bounded number prompt   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

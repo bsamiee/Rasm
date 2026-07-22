@@ -39,73 +39,89 @@ data/
 ---
 config:
   layout: elk
+  elk:
+    nodePlacementStrategy: NETWORK_SIMPLEX
+    considerModelOrder: NODES_AND_EDGES
   flowchart:
     curve: linear
     padding: 25
 ---
 flowchart LR
-    accTitle: Data package Python-peer seam registry
-    accDescr: Data sub-domain owners exchanging content identity, transport, receipts, wires, and frame shapes with the Python runtime, artifacts, geometry, and compute siblings.
+    accTitle: Data package Python host-runtime seam registry
+    accDescr: Data sub-domain owners exchanging content identity, transport, receipts, and thread boundaries with the Python host runtime sibling.
     subgraph data[DATA]
         Tabular[Tabular interchange]
         Egress[Object egress]
         Query[Query engine]
         Materialize[CDC materialize]
-        Profile[Quality profile]
-        Cost[Cost ledger]
-        Geospatial[Geospatial claims]
         Catalog[STAC catalog]
-        Mesh[Mesh exchange]
         Gridded[Gridded tensors]
         Impact[Material impact]
+        Profile[Quality profile]
+        Geospatial[Geospatial claims]
+        Mesh[Mesh exchange]
     end
     Runtime{{python:runtime}}
-    Artifacts{{python:artifacts}}
-    Geometry{{python:geometry}}
-    Compute([python:compute])
     Egress e1@-->|"[CONTENT_KEY]: ContentIdentity"| Runtime
-    Mesh e2@-->|"[CONTENT_KEY]: ContentIdentity"| Runtime
     Query e3@-->|"[RECEIPT]: QueryReceipt"| Runtime
     Gridded e19@-->|"[RECEIPT]: TensorReceipt"| Runtime
+    Mesh e2@-->|"[CONTENT_KEY]: ContentIdentity"| Runtime
     Runtime e4@-->|"[TRANSPORT]: ResourceRef"| Tabular
     Runtime e20@-->|"[TRANSPORT]: ResourceRef"| Egress
-    Runtime e21@-->|"[TRANSPORT]: ResourceRef"| Gridded
-    Runtime e22@-->|"[TRANSPORT]: ResourceRef"| Mesh
-    Runtime e23@-->|"[TRANSPORT]: ResourceRef"| Catalog
-    Runtime e5@-->|"[TRANSPORT]: TransportResource"| Impact
-    Artifacts e6@-->|"[WIRE]: CorpusRow"| Tabular
-    Profile e7@-->|"[SHAPE]: QualityProfile"| Artifacts
-    Artifacts e8@-->|"[WIRE]: GeoJSON"| Geospatial
-    Mesh e9@-->|"[SHAPE]: MeshPayload"| Geometry
-    Mesh e15@-->|"[SHAPE]: PointRecordTable"| Geometry
-    Geometry e16@-->|"[BOUNDARY]: Trimesh"| Mesh
-    Tabular e10@-->|"[SHAPE]: FrameAdmission"| Compute
     Runtime e11@-->|"[BOUNDARY]: on_thread"| Query
-    Runtime e12@-->|"[BOUNDARY]: on_thread"| Geospatial
-    Runtime e13@-->|"[BOUNDARY]: on_thread"| Mesh
-    Runtime e14@-->|"[BOUNDARY]: on_thread"| Profile
-    Runtime e24@-->|"[BOUNDARY]: on_thread"| Impact
     Runtime e17@-->|"[BOUNDARY]: LanePolicy"| Materialize
+    Runtime e23@-->|"[TRANSPORT]: ResourceRef"| Catalog
     Runtime e18@-->|"[BOUNDARY]: on_thread"| Catalog
-    Cost e25@-->|"[SHAPE]: CostFrame"| Artifacts
-    class Tabular,Egress,Query,Materialize,Profile,Cost,Geospatial,Catalog,Mesh,Gridded,Impact primary
-    class Runtime data
-    class Artifacts,Geometry,Compute annotation
-    class e1,e2,e6,e8 edgeData
-    class e3,e7,e9,e10,e15,e19,e25 edgeSuccess
-    class e4,e5,e11,e12,e13,e14,e16,e17,e18,e20,e21,e22,e23,e24 edgeControl
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeData stroke:#FFB86C,color:#F8F8F2
-    classDef edgeSuccess stroke:#50FA7B,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    Runtime e21@-->|"[TRANSPORT]: ResourceRef"| Gridded
+    Runtime e5@-->|"[TRANSPORT]: TransportResource"| Impact
+    Runtime e24@-->|"[BOUNDARY]: on_thread"| Impact
+    Runtime e14@-->|"[BOUNDARY]: on_thread"| Profile
+    Runtime e12@-->|"[BOUNDARY]: on_thread"| Geospatial
+    Runtime e22@-->|"[TRANSPORT]: ResourceRef"| Mesh
+    Runtime e13@-->|"[BOUNDARY]: on_thread"| Mesh
 ```
 
 ```mermaid
 ---
 config:
   layout: elk
+  elk:
+    nodePlacementStrategy: NETWORK_SIMPLEX
+    considerModelOrder: NODES_AND_EDGES
+  flowchart:
+    curve: linear
+    padding: 25
+---
+flowchart LR
+    accTitle: Data package Python domain-peer seam registry
+    accDescr: Data sub-domain owners exchanging wires, frame shapes, and mesh boundaries with the Python artifacts, geometry, and compute siblings.
+    subgraph data[DATA]
+        Tabular[Tabular interchange]
+        Profile[Quality profile]
+        Cost[Cost ledger]
+        Geospatial[Geospatial claims]
+        Mesh[Mesh exchange]
+    end
+    Artifacts{{python:artifacts}}
+    Geometry{{python:geometry}}
+    Compute([python:compute])
+    Artifacts e6@-->|"[WIRE]: CorpusRow"| Tabular
+    Profile e7@-->|"[SHAPE]: QualityProfile"| Artifacts
+    Cost e25@-->|"[SHAPE]: CostFrame"| Artifacts
+    Artifacts e8@-->|"[WIRE]: GeoJSON"| Geospatial
+    Mesh e9@-->|"[SHAPE]: MeshPayload"| Geometry
+    Mesh e15@-->|"[SHAPE]: PointRecordTable"| Geometry
+    Geometry e16@-->|"[BOUNDARY]: Trimesh"| Mesh
+    Tabular e10@-->|"[SHAPE]: FrameAdmission"| Compute
+```
+
+```mermaid
+---
+config:
+  layout: elk
+  elk:
+    nodePlacementStrategy: NETWORK_SIMPLEX
+    considerModelOrder: NODES_AND_EDGES
   flowchart:
     curve: linear
     padding: 25
@@ -133,19 +149,9 @@ flowchart LR
     Impact e7@-->|"[WIRE]: Assessment"| Materials
     Bim e8@<-->|"[WIRE]: GeoFeatureWkb"| Geospatial
     Persistence e9@-->|"[WIRE]: FlightTicket"| Query
-    class Tabular,Query,Geospatial,Virtual,Impact primary
-    class Persistence data
-    class Compute,Materials,Bim annotation
-    class e1,e2 edgeSuccess
-    class e3,e4,e5,e6,e7,e8,e9 edgeData
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeData stroke:#FFB86C,color:#F8F8F2
-    classDef edgeSuccess stroke:#50FA7B,color:#F8F8F2
 ```
 
-Two fences partition by peer runtime: the Python siblings carry the in-process content, transport, receipt, and frame contracts, and the C# peers carry the cross-runtime wire, durable content keys, and the environmental set. Each collapsed edge stands for every contract at that kind between the two owners, and the owning pages enumerate the rest. `GeoFeatureWkb` spells from its Rasm.Bim owner; the crossing carries raw WKB — `GeoDataFrame.to_wkb` outbound, `ST_GeomFromWKB` on admission — and no data-interior type re-mints the label.
+Three fences partition by peer: the Python host runtime carries the in-process content, transport, receipt, and thread-boundary contracts; the Python domain siblings carry the wire and frame-shape contracts; and the C# peers carry the cross-runtime wire, durable content keys, and the environmental set. Each collapsed edge stands for every contract at that kind between the two owners, and the owning pages enumerate the rest. `GeoFeatureWkb` spells from its Rasm.Bim owner; the crossing carries raw WKB — `GeoDataFrame.to_wkb` outbound, `ST_GeomFromWKB` on admission — and no data-interior type re-mints the label.
 
 An intra-`data` relation is composition, never a seam; `[03]-[INTERNAL]` renders the acyclic import DAG this registry excludes.
 
@@ -162,6 +168,9 @@ Every `[CONTENT_KEY]` edge derives one typed identity through the runtime `Conte
 ---
 config:
   layout: elk
+  elk:
+    nodePlacementStrategy: NETWORK_SIMPLEX
+    considerModelOrder: NODES_AND_EDGES
   flowchart:
     curve: linear
     padding: 25
@@ -215,14 +224,4 @@ flowchart TB
     Spatial ~~~ Impact
     Spatial ~~~ Graph
     Interop f1@-->|"forbidden: upward import"| D2
-    class Spatial,Graph,Impact,Gridded primary
-    class Cost,Egress,Materialize,Query,Lakehouse,Columnar,Contract,Profile,Interop recessed
-    class s1,s2,s3,s4,s5,s6,s7,s8,s10,s11,s12,s13,s14,s15,s16,s17,s18,s19,s20,s21,s22,s23 edgeControl
-    class s9,s24 edgeData
-    class f1 edgeError
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    classDef edgeData stroke:#FFB86C,color:#F8F8F2
-    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
 ```

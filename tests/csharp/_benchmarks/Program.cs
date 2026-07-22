@@ -9,14 +9,14 @@ using BenchmarkDotNet.Validators;
 
 namespace Rasm.Benchmarks;
 
-// --- [CONSTANTS] ---------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 // The gate registry: one row per gated benchmark, keyed by exact BDN FullName. Benchmark classes
 // register here as they land; an empty registry still gates visibly through the session receipt.
 internal static class BenchRegistry {
     public static readonly Seq<BenchCase> Cases = Seq<BenchCase>();
 }
 
-// --- [SERVICES] ---------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 internal static class Program {
     // `gate <report-full.json> [older-reports...]` reads BDN full-JSON reports (newest last),
     // gates the newest against the registry, and runs the sustained segmenter across the series.

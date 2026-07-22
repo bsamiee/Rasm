@@ -3,7 +3,7 @@ using Rasm.Bridge.Contract;
 
 namespace Rasm.Bridge.Supervisor.Tests;
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 internal static class SessionGens {
     public static readonly Guid Sid = Guid.Parse(input: "6a8e6c1e-9f5a-4d2c-8b8e-2f1a3c4d5e6f");
@@ -49,7 +49,7 @@ internal static class SessionGens {
         new(SessionId: Sid, Sequence: sequence, AtUnixMs: 1_765_432_100_000 + sequence, Scenario: scenario);
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public sealed class PolicyLaws {
     [Fact]

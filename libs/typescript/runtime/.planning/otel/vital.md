@@ -6,10 +6,10 @@ Emission is two bounded instruments per fact — the current level as a tagged g
 
 ## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]  | [OWNS]                                                                     | [PUBLIC] |
-| :-----: | :--------- | :------------------------------------------------------------------------- | :------- |
-|  [01]   | `BUDGETS`  | the vital-kind vocabulary: entry types, thresholds, accumulation semantics | `Vital`  |
-|  [02]   | `OBSERVER` | the scoped `PerformanceObserver` bridge and the accumulation fold          | `Vital`  |
+| [INDEX] | [CLUSTER]  | [OWNS]                                                                                | [PUBLIC] |
+| :-----: | :--------- | :------------------------------------------------------------------------------------ | :------- |
+|  [01]   | `BUDGETS`  | the vital-kind vocabulary: entry types, thresholds, accumulation semantics            | `Vital`  |
+|  [02]   | `OBSERVER` | the scoped `PerformanceObserver` bridge and the accumulation fold                     | `Vital`  |
 |  [03]   | `EMISSION` | bounded instruments, the report intake, the drain Layer, the span-enrichment boundary | `Vital`  |
 
 ## [02]-[BUDGETS]

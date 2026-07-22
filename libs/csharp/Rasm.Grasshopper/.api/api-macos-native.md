@@ -185,30 +185,30 @@ macOS-native catalogue fixes the installed `Microsoft.macOS.dll` surface beneath
 [ENTRYPOINT_SCOPE]: screen capture and raster egress
 - rail: ScreenCaptureKit streaming
 
-| [INDEX] | [OWNER]                 | [SURFACE]                                                                                     |
-| :-----: | :---------------------- | :-------------------------------------------------------------------------------------------- |
-|  [01]   | `SCShareableContent`    | `GetShareableContentAsync(bool, bool) → Task<SCShareableContent>`                              |
-|  [02]   | `SCShareableContent`    | `Displays: SCDisplay[]`; `Windows: SCWindow[]`; `Applications: SCRunningApplication[]`         |
-|  [03]   | `SCDisplay`             | `DisplayId: uint`; `Frame: CGRect`; `Width: nint`; `Height: nint`                              |
-|  [04]   | `SCWindow`              | `WindowId: uint`; `Frame: CGRect`; `Title: string?`; `OnScreen: bool`; `Active: bool`           |
-|  [05]   | `SCWindow`              | `OwningApplication: SCRunningApplication?`                                                     |
-|  [06]   | `SCRunningApplication`  | `ApplicationName: string`; `BundleIdentifier: string`; `ProcessId: int`                        |
-|  [07]   | `SCContentFilter`       | `(SCDisplay, SCWindow[], SCContentFilterOption)`; `(SCWindow)`                                 |
-|  [08]   | `SCStreamConfiguration` | `Width: nuint`; `Height: nuint`; `MinimumFrameInterval: CMTime`; `QueueDepth: nint`            |
-|  [09]   | `SCStreamConfiguration` | `ShowsCursor: bool`; `SourceRect: CGRect`                                                      |
-|  [10]   | `SCStream`              | `(SCContentFilter, SCStreamConfiguration, ISCStreamDelegate?)`                                 |
-|  [11]   | `SCStream`              | `AddStreamOutput(ISCStreamOutput, SCStreamOutputType, DispatchQueue?, out NSError?) → bool`    |
-|  [12]   | `SCStream`              | `RemoveStreamOutput(ISCStreamOutput, SCStreamOutputType, out NSError?) → bool`                 |
-|  [13]   | `SCStream`              | `StartCapture(Action<NSError>?) → void`; `StopCapture(Action<NSError>?) → void`                |
-|  [14]   | `SCStream`              | `UpdateConfigurationAsync(SCStreamConfiguration) → Task`                                      |
-|  [15]   | `SCStream`              | `UpdateContentFilterAsync(SCContentFilter) → Task`                                             |
-|  [16]   | `SCScreenshotManager`   | `CaptureImageAsync(SCContentFilter, SCStreamConfiguration) → Task<CGImage>`                    |
-|  [17]   | `SCScreenshotManager`   | `CaptureSampleBufferAsync(SCContentFilter, SCStreamConfiguration) → Task<CMSampleBuffer>`      |
-|  [18]   | `CMSampleBuffer`        | `IsValid: bool`; `PresentationTimeStamp: CMTime`; `GetImageBuffer() → CVImageBuffer?`          |
-|  [19]   | `CMTime`                | `FromSeconds(double, int) → CMTime`; `Seconds: double`                                         |
-|  [20]   | `CVPixelBuffer`         | `Width: nint`; `Height: nint`; `BytesPerRow: nint`; `BaseAddress: nint`                        |
-|  [21]   | `CVPixelBuffer`         | `PixelFormatType: CVPixelFormatType`                                                           |
-|  [22]   | `CVPixelBuffer`         | `Lock(CVPixelBufferLock) → CVReturn`; `Unlock(CVPixelBufferLock) → CVReturn`                   |
+| [INDEX] | [OWNER]                 | [SURFACE]                                                                                   |
+| :-----: | :---------------------- | :------------------------------------------------------------------------------------------ |
+|  [01]   | `SCShareableContent`    | `GetShareableContentAsync(bool, bool) → Task<SCShareableContent>`                           |
+|  [02]   | `SCShareableContent`    | `Displays: SCDisplay[]`; `Windows: SCWindow[]`; `Applications: SCRunningApplication[]`      |
+|  [03]   | `SCDisplay`             | `DisplayId: uint`; `Frame: CGRect`; `Width: nint`; `Height: nint`                           |
+|  [04]   | `SCWindow`              | `WindowId: uint`; `Frame: CGRect`; `Title: string?`; `OnScreen: bool`; `Active: bool`       |
+|  [05]   | `SCWindow`              | `OwningApplication: SCRunningApplication?`                                                  |
+|  [06]   | `SCRunningApplication`  | `ApplicationName: string`; `BundleIdentifier: string`; `ProcessId: int`                     |
+|  [07]   | `SCContentFilter`       | `(SCDisplay, SCWindow[], SCContentFilterOption)`; `(SCWindow)`                              |
+|  [08]   | `SCStreamConfiguration` | `Width: nuint`; `Height: nuint`; `MinimumFrameInterval: CMTime`; `QueueDepth: nint`         |
+|  [09]   | `SCStreamConfiguration` | `ShowsCursor: bool`; `SourceRect: CGRect`                                                   |
+|  [10]   | `SCStream`              | `(SCContentFilter, SCStreamConfiguration, ISCStreamDelegate?)`                              |
+|  [11]   | `SCStream`              | `AddStreamOutput(ISCStreamOutput, SCStreamOutputType, DispatchQueue?, out NSError?) → bool` |
+|  [12]   | `SCStream`              | `RemoveStreamOutput(ISCStreamOutput, SCStreamOutputType, out NSError?) → bool`              |
+|  [13]   | `SCStream`              | `StartCapture(Action<NSError>?) → void`; `StopCapture(Action<NSError>?) → void`             |
+|  [14]   | `SCStream`              | `UpdateConfigurationAsync(SCStreamConfiguration) → Task`                                    |
+|  [15]   | `SCStream`              | `UpdateContentFilterAsync(SCContentFilter) → Task`                                          |
+|  [16]   | `SCScreenshotManager`   | `CaptureImageAsync(SCContentFilter, SCStreamConfiguration) → Task<CGImage>`                 |
+|  [17]   | `SCScreenshotManager`   | `CaptureSampleBufferAsync(SCContentFilter, SCStreamConfiguration) → Task<CMSampleBuffer>`   |
+|  [18]   | `CMSampleBuffer`        | `IsValid: bool`; `PresentationTimeStamp: CMTime`; `GetImageBuffer() → CVImageBuffer?`       |
+|  [19]   | `CMTime`                | `FromSeconds(double, int) → CMTime`; `Seconds: double`                                      |
+|  [20]   | `CVPixelBuffer`         | `Width: nint`; `Height: nint`; `BytesPerRow: nint`; `BaseAddress: nint`                     |
+|  [21]   | `CVPixelBuffer`         | `PixelFormatType: CVPixelFormatType`                                                        |
+|  [22]   | `CVPixelBuffer`         | `Lock(CVPixelBufferLock) → CVReturn`; `Unlock(CVPixelBufferLock) → CVReturn`                |
 
 `ISCStreamOutput.DidOutputSampleBuffer(SCStream, CMSampleBuffer, SCStreamOutputType)` binds `stream:didOutputSampleBuffer:ofType:`. `ISCStreamDelegate.DidStop(SCStream, NSError)` binds `stream:didStopWithError:`, and `UserDidStop(SCStream)` binds `userDidStopStream:`. Optional protocol members live on an `NSObject` subclass under matching `[Export]` attributes.
 

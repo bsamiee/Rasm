@@ -1094,14 +1094,14 @@ public static class Texts {
 
 ## [06]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]        | [OWNER]          | [FORM]                                                    | [ENTRY]          |
-| :-----: | :--------------- | :--------------- | :-------------------------------------------------------- | :--------------- |
-|  [01]   | content ingress  | `TextSeed`       | admitted format plus source                               | `Create`         |
-|  [02]   | live formatting  | `RunEdit`        | replacement, shared formatting rows, or wrap              | `Apply`          |
-|  [03]   | field formulas   | `FieldKind`      | evaluator rows carrying admissible typed signatures       | `FieldExpr.Of`   |
-|  [04]   | outline egress   | `OutlineSpec`    | flat form/group dispatch plus transform and evidence       | `Apply`          |
-|  [05]   | text mutations   | `TextOp`         | unified placement plus duplicate-then-replace edits        | `Texts.Commit`   |
-|  [06]   | text evidence    | `TextAsk`        | owned detached evidence family                              | `Texts.Ask`      |
+| [INDEX] | [CONCERN]       | [OWNER]       | [FORM]                                               | [ENTRY]        |
+| :-----: | :-------------- | :------------ | :--------------------------------------------------- | :------------- |
+|  [01]   | content ingress | `TextSeed`    | admitted format plus source                          | `Create`       |
+|  [02]   | live formatting | `RunEdit`     | replacement, shared formatting rows, or wrap         | `Apply`        |
+|  [03]   | field formulas  | `FieldKind`   | evaluator rows carrying admissible typed signatures  | `FieldExpr.Of` |
+|  [04]   | outline egress  | `OutlineSpec` | flat form/group dispatch plus transform and evidence | `Apply`        |
+|  [05]   | text mutations  | `TextOp`      | unified placement plus duplicate-then-replace edits  | `Texts.Commit` |
+|  [06]   | text evidence   | `TextAsk`     | owned detached evidence family                       | `Texts.Ask`    |
 
 ## [07]-[RESEARCH]
 

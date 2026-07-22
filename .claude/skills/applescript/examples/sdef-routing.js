@@ -22,7 +22,11 @@ const REQUIRED = [
 ];
 
 const fourCharCode = (text) => Array.from(text).reduce((acc, ch) => (acc << 8) | ch.charCodeAt(0), 0) >>> 0;
-const camelVerb = (verb) => verb.split(/\s+/).map((word, i) => (i === 0 ? word : word[0].toUpperCase() + word.slice(1))).join('');
+const camelVerb = (verb) =>
+    verb
+        .split(/\s+/)
+        .map((word, i) => (i === 0 ? word : word[0].toUpperCase() + word.slice(1)))
+        .join('');
 const attribute = (node, name) => {
     const found = node.attributeForName(name);
     return found.isNil() ? null : found.stringValue.js;
@@ -91,13 +95,17 @@ function dispatch(appPath, verdict, operand) {
     }
     const target = $.NSAppleEventDescriptor.descriptorWithApplicationURL($.NSURL.fileURLWithPath(appPath));
     const event = $.NSAppleEventDescriptor.appleEventWithEventClassEventIDTargetDescriptorReturnIDTransactionID(
-        fourCharCode(verdict.code.slice(0, 4)), fourCharCode(verdict.code.slice(4)), target, -1, 0);
+        fourCharCode(verdict.code.slice(0, 4)),
+        fourCharCode(verdict.code.slice(4)),
+        target,
+        -1,
+        0,
+    );
     if (operand !== undefined) {
         event.setParamDescriptorForKeyword($.NSAppleEventDescriptor.descriptorWithString(operand), fourCharCode('----'));
     }
     const error = $();
-    const reply = event.sendEventWithOptionsTimeoutError(
-        $.NSAppleEventSendWaitForReply | $.NSAppleEventSendNeverInteract, 10, error);
+    const reply = event.sendEventWithOptionsTimeoutError($.NSAppleEventSendWaitForReply | $.NSAppleEventSendNeverInteract, 10, error);
     if (reply.isNil()) return { sent: 'raw-event', status: error.code };
     return { sent: 'raw-event', status: 0, descriptorType: reply.descriptorType };
 }

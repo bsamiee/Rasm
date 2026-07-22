@@ -80,15 +80,15 @@
 [ENTRYPOINT_SCOPE]: option policy
 - rail: observability
 - call shape: option property on `ResourceMonitoringOptions`, bound via the standard options pattern
-- status: experimental carries `EXTEXP0008`
+- gate: the `EXTEXP0008` diagnostic admits the gated rows below; a consumer opts into it to compile them, while `SourceIpAddresses` binds unconditionally
 
-| [INDEX] | [SURFACE]                          | [STATUS]     | [CAPABILITY]                                     |
-| :-----: | :--------------------------------- | :----------- | :----------------------------------------------- |
-|  [01]   | `UseLinuxCalculationV2`            | experimental | cgroup v2 CPU-limit calculation on Linux         |
-|  [02]   | `UseZeroToOneRangeForLinuxMetrics` | experimental | normalized `[0, 1]` Linux metric range           |
-|  [03]   | `UseZeroToOneRangeForMetrics`      | experimental | normalized `[0, 1]` metric range all platforms   |
-|  [04]   | `EnableSystemDiskIoMetrics`        | experimental | system disk I/O instruments                      |
-|  [05]   | `SourceIpAddresses`                | current      | Windows source-IPv4 set for connection telemetry |
+| [INDEX] | [SURFACE]                          | [GATE]        | [CAPABILITY]                                     |
+| :-----: | :--------------------------------- | :------------ | :----------------------------------------------- |
+|   [01]  | `UseLinuxCalculationV2`            | `EXTEXP0008`  | cgroup v2 CPU-limit calculation on Linux         |
+|   [02]  | `UseZeroToOneRangeForLinuxMetrics` | `EXTEXP0008`  | normalized `[0, 1]` Linux metric range           |
+|   [03]  | `UseZeroToOneRangeForMetrics`      | `EXTEXP0008`  | normalized `[0, 1]` metric range all platforms   |
+|   [04]  | `EnableSystemDiskIoMetrics`        | `EXTEXP0008`  | system disk I/O instruments                      |
+|   [05]  | `SourceIpAddresses`                | unconditional | Windows source-IPv4 set for connection telemetry |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

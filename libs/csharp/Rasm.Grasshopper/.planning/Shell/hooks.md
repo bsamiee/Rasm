@@ -21,7 +21,7 @@ Composed settled: the kernel capsule — `HookPoint<TFact>` with its synchronous
 |  [04]   | `rasm.grasshopper.solution.lifecycle`  | `Observe`  | `SolutionIdEventArgs`/`SolutionEventArgs` carry no cancellation        |
 |  [05]   | `rasm.grasshopper.interaction.verdict` | `Veto`     | `Canvas/interaction.md` capsule verdicts refuse at this boundary gate  |
 |  [06]   | `rasm.grasshopper.paint.background`    | `Veto`     | `OverrideDefaultPainting` is the host suppression surface              |
-|  [07]   | `rasm.grasshopper.paint.layer`         | `Observe`  | `CanvasPaintEventArgs` carries no cancellation                        |
+|  [07]   | `rasm.grasshopper.paint.layer`         | `Observe`  | `CanvasPaintEventArgs` carries no cancellation                         |
 |  [08]   | `rasm.grasshopper.history.replay`      | `Replay`   | `Document/history.md` `HistoryLedger` replays sealed actions           |
 |  [09]   | `rasm.grasshopper.window.close`        | `Veto`     | `Window.Closing` carries `CancelEventArgs`; policy is `Eto/windows.md` |
 |  [10]   | `rasm.grasshopper.shell.terminate`     | `Veto`     | `Application.Terminating` carries `CancelEventArgs`                    |
@@ -181,11 +181,11 @@ flowchart LR
 
 ## [04]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]           | [OWNER]                     | [RAIL]                                        | [CASES] |
-| :-----: | :------------------ | :-------------------------- | :-------------------------------------------- | :-----: |
-|  [01]   | point census        | `HookPoint`                 | keyed rows with a ruled kernel-modality column |   10    |
-|  [02]   | payload             | `HookSignal`                | closed union → one raise fold                 |    3    |
-|  [03]   | scoped registry     | `GhHooks`                   | `Subscribe`/`Raise`/`Replay`/`ReleaseScope`   |    1    |
+| [INDEX] | [CONCERN]       | [OWNER]      | [RAIL]                                         | [CASES] |
+| :-----: | :-------------- | :----------- | :--------------------------------------------- | :-----: |
+|  [01]   | point census    | `HookPoint`  | keyed rows with a ruled kernel-modality column |   10    |
+|  [02]   | payload         | `HookSignal` | closed union → one raise fold                  |    3    |
+|  [03]   | scoped registry | `GhHooks`    | `Subscribe`/`Raise`/`Replay`/`ReleaseScope`    |    1    |
 
 `Op`, `UiEvent`, `GhEvidence`, `HistoryLedger`, `SessionJournal`, and the kernel signal capsule are composed upstream owners; a new governance capability lands as a point row or a signal case — the rail's four gates never widen.
 

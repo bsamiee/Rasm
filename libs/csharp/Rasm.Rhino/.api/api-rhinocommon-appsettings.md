@@ -18,47 +18,47 @@
 
 Each owner is a static class; its `*State` sibling is the serializable snapshot `GetCurrentState`/`UpdateFromState` round-trips.
 
-| [INDEX] | [OWNER]                  | [STATE]                       | [CAPABILITY]                                                    |
-| :-----: | :----------------------- | :---------------------------- | :------------------------------------------------------------- |
-|  [01]   | `AppearanceSettings`     | `AppearanceSettingsState`     | UI/viewport colors, fonts, dark/light mode, window position    |
-|  [02]   | `ModelAidSettings`       | `ModelAidSettingsState`       | ortho, grid snap, osnap modes, nudge, planar, gumball toggles  |
-|  [03]   | `FileSettings`           | `FileSettingsState`           | template/autosave/backup paths, search paths, recent files     |
-|  [04]   | `GeneralSettings`        | `GeneralSettingsState`        | extrusion default, creased-surface split, general modeling     |
-|  [05]   | `ViewSettings`           | `ViewSettingsState`           | lens lengths, rotation style, defined-view restore scope       |
-|  [06]   | `OpenGLSettings`         | `OpenGLSettingsState`         | GPU-pipeline and hardware-acceleration policy                  |
-|  [07]   | `CursorTooltipSettings`  | `CursorTooltipSettingsState`  | cursor-tooltip visibility and placement                        |
-|  [08]   | `SmartTrackSettings`     | `SmartTrackSettingsState`     | smart-track guide, tracking-point, and line behavior           |
-|  [09]   | `GumballSettings`        | `GumballSettingsState`        | gumball size, snapping, and drag-strength                      |
-|  [10]   | `SelectionFilterSettings`| `SelectionFilterSettingsState`| per-object-kind selection filter policy                        |
-|  [11]   | `SoftTransformSettings`  | —                             | soft-editing falloff policy                                    |
-|  [12]   | `ChooseOneObjectSettings`| `ChooseOneObjectSettingsState`| ambiguous-pick disambiguation policy                           |
-|  [13]   | `PackageManagerSettings` | —                             | package-manager source and update policy                       |
+| [INDEX] | [OWNER]                   | [STATE]                        | [CAPABILITY]                                                  |
+| :-----: | :------------------------ | :----------------------------- | :------------------------------------------------------------ |
+|  [01]   | `AppearanceSettings`      | `AppearanceSettingsState`      | UI/viewport colors, fonts, dark/light mode, window position   |
+|  [02]   | `ModelAidSettings`        | `ModelAidSettingsState`        | ortho, grid snap, osnap modes, nudge, planar, gumball toggles |
+|  [03]   | `FileSettings`            | `FileSettingsState`            | template/autosave/backup paths, search paths, recent files    |
+|  [04]   | `GeneralSettings`         | `GeneralSettingsState`         | extrusion default, creased-surface split, general modeling    |
+|  [05]   | `ViewSettings`            | `ViewSettingsState`            | lens lengths, rotation style, defined-view restore scope      |
+|  [06]   | `OpenGLSettings`          | `OpenGLSettingsState`          | GPU-pipeline and hardware-acceleration policy                 |
+|  [07]   | `CursorTooltipSettings`   | `CursorTooltipSettingsState`   | cursor-tooltip visibility and placement                       |
+|  [08]   | `SmartTrackSettings`      | `SmartTrackSettingsState`      | smart-track guide, tracking-point, and line behavior          |
+|  [09]   | `GumballSettings`         | `GumballSettingsState`         | gumball size, snapping, and drag-strength                     |
+|  [10]   | `SelectionFilterSettings` | `SelectionFilterSettingsState` | per-object-kind selection filter policy                       |
+|  [11]   | `SoftTransformSettings`   | —                              | soft-editing falloff policy                                   |
+|  [12]   | `ChooseOneObjectSettings` | `ChooseOneObjectSettingsState` | ambiguous-pick disambiguation policy                          |
+|  [13]   | `PackageManagerSettings`  | —                              | package-manager source and update policy                      |
 
 [PUBLIC_TYPE_SCOPE]: visual-analysis presets
 - rail: host
 
 Eight analysis owners share the round-trip shape and feed the `VisualAnalysisMode` overlays of `api-rhinocommon-display.md`; each pairs with a `*State` snapshot.
 
-| [INDEX] | [OWNER]                     | [STATE]                          | [CAPABILITY]                                       |
-| :-----: | :-------------------------- | :------------------------------- | :------------------------------------------------- |
-|  [01]   | `CurvatureAnalysisSettings` | `CurvatureAnalysisSettingsState` | Gaussian/mean curvature style and range            |
-|  [02]   | `CurvatureGraphSettings`    | `CurvatureGraphSettingsState`    | curvature-hair scale and density                   |
-|  [03]   | `DraftAngleAnalysisSettings`| `DraftAngleAnalysisSettingsState`| draft-angle direction and range                    |
-|  [04]   | `EdgeAnalysisSettings`      | `EdgeAnalysisSettingsState`      | naked/non-manifold edge display color              |
-|  [05]   | `EndAnalysisSettings`       | `EndAnalysisSettingsState`       | curve-end continuity display                       |
-|  [06]   | `DirectionAnalysisSettings` | `DirectionAnalysisSettingsState` | surface/curve direction overlay                    |
-|  [07]   | `EmapAnalysisSettings`      | `EmapAnalysisSettingsState`      | environment-map reflection analysis                |
-|  [08]   | `ZebraAnalysisSettings`     | `ZebraAnalysisSettingsState`     | zebra-stripe direction and thickness               |
-|  [09]   | `ThicknessAnalysisSettings` | `ThicknessAnalysisSettingsState` | wall-thickness range analysis                      |
+| [INDEX] | [OWNER]                      | [STATE]                           | [CAPABILITY]                            |
+| :-----: | :--------------------------- | :-------------------------------- | :-------------------------------------- |
+|  [01]   | `CurvatureAnalysisSettings`  | `CurvatureAnalysisSettingsState`  | Gaussian/mean curvature style and range |
+|  [02]   | `CurvatureGraphSettings`     | `CurvatureGraphSettingsState`     | curvature-hair scale and density        |
+|  [03]   | `DraftAngleAnalysisSettings` | `DraftAngleAnalysisSettingsState` | draft-angle direction and range         |
+|  [04]   | `EdgeAnalysisSettings`       | `EdgeAnalysisSettingsState`       | naked/non-manifold edge display color   |
+|  [05]   | `EndAnalysisSettings`        | `EndAnalysisSettingsState`        | curve-end continuity display            |
+|  [06]   | `DirectionAnalysisSettings`  | `DirectionAnalysisSettingsState`  | surface/curve direction overlay         |
+|  [07]   | `EmapAnalysisSettings`       | `EmapAnalysisSettingsState`       | environment-map reflection analysis     |
+|  [08]   | `ZebraAnalysisSettings`      | `ZebraAnalysisSettingsState`      | zebra-stripe direction and thickness    |
+|  [09]   | `ThicknessAnalysisSettings`  | `ThicknessAnalysisSettingsState`  | wall-thickness range analysis           |
 
 [PUBLIC_TYPE_SCOPE]: registries and carriers
 - rail: host
 
-| [INDEX] | [SYMBOL]              | [KIND] | [CAPABILITY]                                                          |
-| :-----: | :-------------------- | :----- | :------------------------------------------------------------------- |
-|  [01]   | `CommandAliasList`    | static | command-alias registry — add, delete, macro lookup, defaults roster  |
+| [INDEX] | [SYMBOL]              | [KIND] | [CAPABILITY]                                                        |
+| :-----: | :-------------------- | :----- | :------------------------------------------------------------------ |
+|  [01]   | `CommandAliasList`    | static | command-alias registry — add, delete, macro lookup, defaults roster |
 |  [02]   | `CommandAlias`        | class  | one alias→macro binding with an instant flag                        |
-|  [03]   | `ShortcutKeySettings` | static | keyboard-shortcut registry keyed by `ShortcutKey`/`KeyboardKey`      |
+|  [03]   | `ShortcutKeySettings` | static | keyboard-shortcut registry keyed by `ShortcutKey`/`KeyboardKey`     |
 |  [04]   | `KeyboardShortcut`    | class  | one modifier+key→macro binding                                      |
 |  [05]   | `NeverRepeatList`     | static | commands excluded from the repeat-last-command roster               |
 

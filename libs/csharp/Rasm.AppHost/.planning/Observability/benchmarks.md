@@ -274,13 +274,13 @@ file sealed record ProfileDetacher(Guid Token, Action<Guid> Release) : IDisposab
 - Law: a relative claim carries `ReferenceEvidence` on the fresh receipt and its threshold through `GatePolicy.SpeedupFloor`; missing reference evidence is a regression, never an implicit pass.
 - Law: a divergent family field re-cuts at its family root instead of surviving as a sibling grammar — `Corpus` entered the receipt because the Bim family binds claims to input identity, and `ReferenceEvidence` entered because `BenchClaim` binds vectorized and reference lanes.
 
-| [INDEX] | [FAMILY]                         | [RECEIPT_PROJECTION]                                                                     |
-| :-----: | :------------------------------- | :--------------------------------------------------------------------------------------- |
-|  [01]   | `BenchClaim`                     | `Claim` → case; lanes → fresh/reference cases; `SpeedupFloor` → policy                   |
-|  [02]   | `BimBenchReceipt`                | claim → case; corpus fingerprint → corpus; all four measurements map directly            |
-|  [03]   | `FabricationBench`               | `Suite` + `Key`; harness result supplies measurements; corpus is absent                  |
-|  [04]   | `BenchEvidence`                  | operation → case; batch duration → median/p95; allocation and host map directly          |
-|  [05]   | `BenchmarkRow`                   | key splits suite/case; custody keeps measures, corpus, artifact, host, and route         |
+| [INDEX] | [FAMILY]           | [RECEIPT_PROJECTION]                                                             |
+| :-----: | :----------------- | :------------------------------------------------------------------------------- |
+|  [01]   | `BenchClaim`       | `Claim` → case; lanes → fresh/reference cases; `SpeedupFloor` → policy           |
+|  [02]   | `BimBenchReceipt`  | claim → case; corpus fingerprint → corpus; all four measurements map directly    |
+|  [03]   | `FabricationBench` | `Suite` + `Key`; harness result supplies measurements; corpus is absent          |
+|  [04]   | `BenchEvidence`    | operation → case; batch duration → median/p95; allocation and host map directly  |
+|  [05]   | `BenchmarkRow`     | key splits suite/case; custody keeps measures, corpus, artifact, host, and route |
 
 Grasshopper's `BudgetBreach` carries `Bound`, but `CaptureBreach` omits the two-period bound that produced it. Its row remains blocked from settled ingestion until the owner carries that value; the receipt adapter never re-derives a threshold from capture pace.
 

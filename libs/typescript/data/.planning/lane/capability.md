@@ -5,7 +5,7 @@ This folder's fail-closed capability rail: one closed row/ensure vocabulary, one
 ## [01]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                                                  |
-| :-----: | :--------------- | :--------------------------------------------------------------------------------------- |
+| :-----: | :--------------- | :-------------------------------------------------------------------------------------- |
 |  [01]   | `ROW_VOCABULARY` | the row, ensure, and demand shapes, the version-order fold, the one fault family        |
 |  [02]   | `BATCHED_PROBE`  | the probe request family and the one-statement `RequestResolver` over the roster        |
 |  [03]   | `PROBE_SERVICE`  | the `Capability` service — construction-time proof, granted set, `require`/`when` gates |

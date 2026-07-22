@@ -18,14 +18,14 @@
 - namespace: `PeterO.Numbers`
 - rail: exact-rational arithmetic
 
-| [INDEX] | [SYMBOL]     | [CAPABILITY]                                                                                   |
-| :-----: | :----------- | :--------------------------------------------------------------------------------------------- |
-|  [01]   | `ERational`  | exact rational — arbitrary-precision numerator/denominator, the ℚ⁷ dimension-exponent carrier  |
-|  [02]   | `EDecimal`   | arbitrary-precision decimal — the AngouriMath `Entity.Number.Real` leaf carrier                |
-|  [03]   | `EInteger`   | arbitrary-precision integer — `ERational.Numerator`/`Denominator` component type               |
-|  [04]   | `EFloat`     | arbitrary-precision binary float — the binary-radix peer `CompareToBinary` reads               |
-|  [05]   | `EContext`   | precision/rounding context the `ToEDecimal(EContext)` egress consumes                          |
-|  [06]   | `ERounding`  | rounding-mode vocabulary an `EContext` row carries                                             |
+| [INDEX] | [SYMBOL]    | [CAPABILITY]                                                                                  |
+| :-----: | :---------- | :-------------------------------------------------------------------------------------------- |
+|  [01]   | `ERational` | exact rational — arbitrary-precision numerator/denominator, the ℚ⁷ dimension-exponent carrier |
+|  [02]   | `EDecimal`  | arbitrary-precision decimal — the AngouriMath `Entity.Number.Real` leaf carrier               |
+|  [03]   | `EInteger`  | arbitrary-precision integer — `ERational.Numerator`/`Denominator` component type              |
+|  [04]   | `EFloat`    | arbitrary-precision binary float — the binary-radix peer `CompareToBinary` reads              |
+|  [05]   | `EContext`  | precision/rounding context the `ToEDecimal(EContext)` egress consumes                         |
+|  [06]   | `ERounding` | rounding-mode vocabulary an `EContext` row carries                                            |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -33,19 +33,19 @@
 - namespace: `PeterO.Numbers`
 - rail: exact-rational arithmetic
 
-| [INDEX] | [SURFACE]                                        | [CALL]                                                                       |
+| [INDEX] | [SURFACE]                                        | [CALL]                                                                        |
 | :-----: | :----------------------------------------------- | :---------------------------------------------------------------------------- |
-|  [01]   | `ERational.Zero` / `One` / `Ten`                 | canonical constants — the zero exponent vector seeds from `Zero`               |
-|  [02]   | `ERational.FromInt32(int)`                       | integer lift — every UnitsNet `BaseDimensions` axis enters through it          |
-|  [03]   | `ERational.FromEDecimal(EDecimal)`               | CAS bridge — a `Real` literal exponent lifts exactly                           |
-|  [04]   | `ERational.Create(EInteger, EInteger)`           | numerator/denominator mint; `(int, int)` and `(long, long)` overloads          |
-|  [05]   | `+` / `-` / `*` / `/` and `Add`/`Multiply`/…     | exact arithmetic — operator and instance-method spellings of one fold          |
-|  [06]   | `Negate()` / `Abs()` / `ToLowestTerms()`         | sign and canonical-form projections                                            |
-|  [07]   | `Equals(ERational)` / `CompareTo(ERational)`     | the only equality and ordering verbs — the type ships no comparison operators  |
-|  [08]   | `IsZero` / `IsNegative` / `Sign` / `IsInteger()` | classification probes the render and seam-projection folds read                |
-|  [09]   | `Numerator` / `Denominator`                      | exact component egress as `EInteger`                                           |
-|  [10]   | `ToEDecimal(EContext)` / `ToDouble()`            | lossy egress under an explicit context — never inside the exponent algebra     |
-|  [11]   | `IsNaN()` / `IsInfinity()` / `IsFinite`          | special-value probes — specials reject at admission, never enter a monomial    |
+|  [01]   | `ERational.Zero` / `One` / `Ten`                 | canonical constants — the zero exponent vector seeds from `Zero`              |
+|  [02]   | `ERational.FromInt32(int)`                       | integer lift — every UnitsNet `BaseDimensions` axis enters through it         |
+|  [03]   | `ERational.FromEDecimal(EDecimal)`               | CAS bridge — a `Real` literal exponent lifts exactly                          |
+|  [04]   | `ERational.Create(EInteger, EInteger)`           | numerator/denominator mint; `(int, int)` and `(long, long)` overloads         |
+|  [05]   | `+` / `-` / `*` / `/` and `Add`/`Multiply`/…     | exact arithmetic — operator and instance-method spellings of one fold         |
+|  [06]   | `Negate()` / `Abs()` / `ToLowestTerms()`         | sign and canonical-form projections                                           |
+|  [07]   | `Equals(ERational)` / `CompareTo(ERational)`     | the only equality and ordering verbs — the type ships no comparison operators |
+|  [08]   | `IsZero` / `IsNegative` / `Sign` / `IsInteger()` | classification probes the render and seam-projection folds read               |
+|  [09]   | `Numerator` / `Denominator`                      | exact component egress as `EInteger`                                          |
+|  [10]   | `ToEDecimal(EContext)` / `ToDouble()`            | lossy egress under an explicit context — never inside the exponent algebra    |
+|  [11]   | `IsNaN()` / `IsInfinity()` / `IsFinite`          | special-value probes — specials reject at admission, never enter a monomial   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

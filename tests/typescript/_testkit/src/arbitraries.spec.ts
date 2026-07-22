@@ -3,7 +3,7 @@ import { Array, Either, Schema } from 'effect';
 import * as FastCheck from 'effect/FastCheck';
 import { Arbitrate } from './arbitraries.ts';
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 class Frame extends Schema.Class<Frame>('Frame')({
     rank: Schema.Int,
@@ -11,13 +11,13 @@ class Frame extends Schema.Class<Frame>('Frame')({
     note: Schema.optionalWith(Schema.String, { as: 'Option', exact: true }),
 }) {}
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _SEED = { seed: 7, numRuns: 64 } as const;
 
 const _decode = Schema.decodeUnknownEither(Frame);
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 describe('absence lane', () => {
     it('varies optional-key presence across the encoded corpus', () => {

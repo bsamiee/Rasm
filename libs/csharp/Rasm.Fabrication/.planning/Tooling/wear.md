@@ -820,7 +820,6 @@ public static class ToolWear {
 ---
 config:
   layout: elk
-  theme: dark
 ---
 flowchart LR
     accTitle: Tool-wear composition

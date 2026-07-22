@@ -9,7 +9,7 @@ The typed CRUD engine of the read side: every row that leaves a relation enters 
 |  [01]   | `MODEL_FAMILY`  | the `Model.Class` field families — six variants from one declaration, exposure control |
 |  [02]   | `READ_FAMILY`   | the `SqlSchema` typed-query surface — arity in the combinator, one decode rail         |
 |  [03]   | `RESOLVER_ROWS` | the `SqlResolver` batch rows — ordered, grouped, findById, void, the cache verbs       |
-|  [04]   | `TABLE_BINDING` | `Query.Relation` and `Query.table` — identity, timing, and verbs on one owner           |
+|  [04]   | `TABLE_BINDING` | `Query.Relation` and `Query.table` — identity, timing, and verbs on one owner          |
 
 ## [02]-[MODEL_FAMILY]
 

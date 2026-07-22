@@ -4,14 +4,14 @@ import { describe, expect, it, layer } from '@effect/vitest';
 import { Array, Effect, String } from 'effect';
 import { Bench, BenchFault, BenchHome, BenchRow } from './bench.ts';
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 // A vitest-shaped latest.json whose lane continues an already-slumped history: harvesting it must trip the gate.
 const _SLUMPED_LATEST = JSON.stringify({
     files: [{ filepath: '/abs/kit.bench.ts', groups: [{ fullName: 'kit hot paths', benchmarks: [{ name: 'fold', hz: 58, rme: 1 }] }] }],
 });
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const _run = (name: string, hzTrail: ReadonlyArray<number>, rme = 1): ReadonlyArray<BenchRow> =>
     Array.map(hzTrail, (hz, index) => new BenchRow({ at: `2026-01-0${index + 1}T00:00:00Z`, name, hz, rme }));

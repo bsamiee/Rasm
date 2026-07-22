@@ -5,7 +5,7 @@ Interchange capability owns both directions of the command contract. Outbound `C
 ## [01]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]         | [OWNS]                                                                           | [PUBLIC]                   |
-| :-----: | :---------------- | :-------------------------------------------------------------------------------- | :------------------------- |
+| :-----: | :---------------- | :------------------------------------------------------------------------------- | :------------------------- |
 |  [01]   | `TRANSPORT_FAULT` | the total `ConnectError` fold into the codec fault vocabulary                    | `Transport`                |
 |  [02]   | `DIAL_AXIS`       | Config policy record, three-lane table, failover plan, ambient context, lifts    | `Dial`                     |
 |  [03]   | `CAPABILITY_BIND` | descriptor admission, kind-total SDK derivation, budget geometry, telemetry seam | `Capability`               |

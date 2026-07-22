@@ -1138,17 +1138,17 @@ public sealed class AmbientWatch : IDisposable {
 
 ## [07]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]         | [OWNER]                                | [FORM]                              | [ENTRY]                        |
-| :-----: | :---------------- | :------------------------------------- | :---------------------------------- | :----------------------------- |
-|  [01]   | live origin       | `SettingsSource.Live`                  | document borrow                    | `Use` / `Mutate`               |
-|  [02]   | archive origin    | `SettingsSource.Archived`              | archive borrow                     | `Use` / `Mutate`               |
-|  [03]   | detached origin   | `SettingsSource.Detached`              | owned borrow                       | `Use` / `Mutate`               |
-|  [04]   | state             | state owners                           | total projection                   | `Of` / `Apply`                 |
-|  [05]   | aggregate config  | `RenderConfig`                         | correlated configuration           | `Of` / `Apply`                 |
-|  [06]   | astronomy         | `SunProblem` / `SunSolution`           | closed request/result              | `SunSolver.Solve`              |
-|  [07]   | settings rail     | `SettingsRequest` / `SettingsResult`   | correlated request/result          | `Settings.Run`                 |
-|  [08]   | mutation receipt  | `SettingsAxis` / `SettingsReceipt`     | changed axes with undo             | `Settings.Run`                 |
-|  [09]   | broadcasts        | `AmbientSlot` / `AmbientFailure`       | verified failure ledger            | `AmbientWatch.Of`              |
+| [INDEX] | [CONCERN]        | [OWNER]                              | [FORM]                    | [ENTRY]           |
+| :-----: | :--------------- | :----------------------------------- | :------------------------ | :---------------- |
+|  [01]   | live origin      | `SettingsSource.Live`                | document borrow           | `Use` / `Mutate`  |
+|  [02]   | archive origin   | `SettingsSource.Archived`            | archive borrow            | `Use` / `Mutate`  |
+|  [03]   | detached origin  | `SettingsSource.Detached`            | owned borrow              | `Use` / `Mutate`  |
+|  [04]   | state            | state owners                         | total projection          | `Of` / `Apply`    |
+|  [05]   | aggregate config | `RenderConfig`                       | correlated configuration  | `Of` / `Apply`    |
+|  [06]   | astronomy        | `SunProblem` / `SunSolution`         | closed request/result     | `SunSolver.Solve` |
+|  [07]   | settings rail    | `SettingsRequest` / `SettingsResult` | correlated request/result | `Settings.Run`    |
+|  [08]   | mutation receipt | `SettingsAxis` / `SettingsReceipt`   | changed axes with undo    | `Settings.Run`    |
+|  [09]   | broadcasts       | `AmbientSlot` / `AmbientFailure`     | verified failure ledger   | `AmbientWatch.Of` |
 
 ## [08]-[RESEARCH]
 

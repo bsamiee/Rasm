@@ -5,7 +5,7 @@ using Rasm.Csp;
 
 namespace Rasm.TestKit;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 // One attribute marks every law-to-subject correspondence; AllowMultiple lets one spec class or
 // method cover several subjects, and the optional Member narrows coverage to a named symbol.
 [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, AllowMultiple = true, Inherited = false)]
@@ -15,7 +15,7 @@ public sealed class LawAttribute(Type subject, string name) : Attribute {
     public string? Member { get; init; }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 // LawRecord is the flattened correspondence: subject type, law name, optional covered member, and
 // the spec type that declared it. Member-less records cover the subject's whole public surface.
 public readonly record struct LawRecord(Type Subject, string Name, Option<string> Member, Type DeclaringType) {
@@ -28,7 +28,7 @@ public readonly record struct LawRecord(Type Subject, string Name, Option<string
 // `[CspExempt]`/`[CspScope(Tooling)]` production sites — never a parallel catalog.
 public readonly record struct SutTarget(Assembly Assembly, FrozenSet<string> ExemptNames);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Laws {
     // Record-synthesized and compiler-emitted members carry no law obligation; their simple names
     // and prefixes are stable across the generators that emit them.

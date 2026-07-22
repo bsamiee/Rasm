@@ -37,7 +37,7 @@
 | [INDEX] | [SURFACE]       | [CALL_SHAPE]                                                                  | [CAPABILITY]                        |
 | :-----: | :-------------- | :---------------------------------------------------------------------------- | :---------------------------------- |
 |  [01]   | `connect`       | `connect(uri=None, db_kwargs=None) -> AdbcDatabase`                           | low-level Snowflake database handle |
-|  [02]   | `dbapi.connect` | `connect(uri=None, db_kwargs=None, conn_kwargs=None, **kwargs) -> Connection` | DBAPI connection over Snowflake |
+|  [02]   | `dbapi.connect` | `connect(uri=None, db_kwargs=None, conn_kwargs=None, **kwargs) -> Connection` | DBAPI connection over Snowflake     |
 
 [ENTRYPOINT_SCOPE]: `DatabaseOptions` keys
 - rail: partition

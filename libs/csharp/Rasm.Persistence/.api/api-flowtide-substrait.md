@@ -40,31 +40,31 @@
 
 `Relation` is the abstract base: `Emit` (column projection), `OutputLength`, `Hint`, and `Accept<TReturn, TState>(RelationVisitor<TReturn, TState>, state)` for double-dispatch. Each concrete relation is sealed and value-equatable, with `required` inputs. Every `[SYMBOL]` sits in the `Relations` namespace, shown bare.
 
-| [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY] | [RAIL]                                                     |
-| :-----: | :------------------------------------------------ | :------------ | :--------------------------------------------------------- |
-|  [01]   | `Relation`                                        | rel base      | abstract; `Emit`/`OutputLength`/`Hint`/`Accept`            |
-|  [02]   | `RelationVisitor<TReturn, TState>`                | rel visitor   | `Visit` + per-relation `Visit*` double-dispatch            |
-|  [03]   | `ReadRelation`                                    | source rel    | `required BaseSchema`/`NamedTable`, `Filter?`              |
-|  [04]   | `FilterRelation`                                  | filter rel    | predicate over an input                                    |
-|  [05]   | `ProjectRelation`                                 | project rel   | computed expression columns                                |
-|  [06]   | `JoinRelation` / `MergeJoinRelation`              | join rel      | `JoinType`, `Left`/`Right`, `Expression`, `PostJoinFilter` |
-|  [07]   | `AggregateRelation`                               | aggregate rel | `AggregateGrouping`/`AggregateMeasure` groupings           |
-|  [08]   | `SortRelation` / `TopNRelation` / `FetchRelation` | order rel     | sort fields, top-N, limit/offset                           |
-|  [09]   | `SetRelation`                                     | set rel       | `SetOperation` (union/intersect/except)                    |
-|  [10]   | `WriteRelation`                                   | sink rel      | `required Input`/`TableSchema`/`NamedObject`, `Overwrite`  |
-|  [11]   | `RootRelation`                                    | root rel      | `required Input`, `Names` (output column names)            |
-|  [12]   | `ReferenceRelation`                               | reference rel | cross-subplan reference (view binding)                     |
-|  [13]   | `ConsistentPartitionWindowRelation`               | window rel    | partitioned window functions                               |
-|  [14]   | `ExchangeRelation`                                | rel           | shuffle-partition relation                                 |
-|  [15]   | `TableFunctionRelation`                           | rel           | table-function relation                                    |
-|  [16]   | `VirtualTableReadRelation`                        | rel           | inline literal-table relation                              |
-|  [17]   | `IterationRelation`                               | rel           | recursive iteration relation                               |
-|  [18]   | `JoinType` / `SetOperation` / `ExchangeKindType`  | rel enum      | join kind, set op, exchange partitioning                   |
-|  [19]   | `PlanRelation` / `NormalizationRelation`          | rel           | nested plan and normalization barriers                     |
-|  [20]   | `IterationReferenceReadRelation` / `BufferRelation` | rel         | recursive reference and buffered input                     |
-|  [21]   | `SubStreamRootRelation`                           | rel           | substream root                                             |
-|  [22]   | `PullExchangeReferenceRelation`                   | rel           | pull-exchange reference                                    |
-|  [23]   | `StandardOutputExchangeReferenceRelation`         | rel           | standard-output exchange reference                         |
+| [INDEX] | [SYMBOL]                                            | [TYPE_FAMILY] | [RAIL]                                                     |
+| :-----: | :-------------------------------------------------- | :------------ | :--------------------------------------------------------- |
+|  [01]   | `Relation`                                          | rel base      | abstract; `Emit`/`OutputLength`/`Hint`/`Accept`            |
+|  [02]   | `RelationVisitor<TReturn, TState>`                  | rel visitor   | `Visit` + per-relation `Visit*` double-dispatch            |
+|  [03]   | `ReadRelation`                                      | source rel    | `required BaseSchema`/`NamedTable`, `Filter?`              |
+|  [04]   | `FilterRelation`                                    | filter rel    | predicate over an input                                    |
+|  [05]   | `ProjectRelation`                                   | project rel   | computed expression columns                                |
+|  [06]   | `JoinRelation` / `MergeJoinRelation`                | join rel      | `JoinType`, `Left`/`Right`, `Expression`, `PostJoinFilter` |
+|  [07]   | `AggregateRelation`                                 | aggregate rel | `AggregateGrouping`/`AggregateMeasure` groupings           |
+|  [08]   | `SortRelation` / `TopNRelation` / `FetchRelation`   | order rel     | sort fields, top-N, limit/offset                           |
+|  [09]   | `SetRelation`                                       | set rel       | `SetOperation` (union/intersect/except)                    |
+|  [10]   | `WriteRelation`                                     | sink rel      | `required Input`/`TableSchema`/`NamedObject`, `Overwrite`  |
+|  [11]   | `RootRelation`                                      | root rel      | `required Input`, `Names` (output column names)            |
+|  [12]   | `ReferenceRelation`                                 | reference rel | cross-subplan reference (view binding)                     |
+|  [13]   | `ConsistentPartitionWindowRelation`                 | window rel    | partitioned window functions                               |
+|  [14]   | `ExchangeRelation`                                  | rel           | shuffle-partition relation                                 |
+|  [15]   | `TableFunctionRelation`                             | rel           | table-function relation                                    |
+|  [16]   | `VirtualTableReadRelation`                          | rel           | inline literal-table relation                              |
+|  [17]   | `IterationRelation`                                 | rel           | recursive iteration relation                               |
+|  [18]   | `JoinType` / `SetOperation` / `ExchangeKindType`    | rel enum      | join kind, set op, exchange partitioning                   |
+|  [19]   | `PlanRelation` / `NormalizationRelation`            | rel           | nested plan and normalization barriers                     |
+|  [20]   | `IterationReferenceReadRelation` / `BufferRelation` | rel           | recursive reference and buffered input                     |
+|  [21]   | `SubStreamRootRelation`                             | rel           | substream root                                             |
+|  [22]   | `PullExchangeReferenceRelation`                     | rel           | pull-exchange reference                                    |
+|  [23]   | `StandardOutputExchangeReferenceRelation`           | rel           | standard-output exchange reference                         |
 
 [PUBLIC_TYPE_SCOPE]: expressions and the type system
 - rail: query-plan
@@ -118,15 +118,15 @@
 [PUBLIC_TYPE_SCOPE]: function-extension URI catalogs — `FlowtideDotNet.Substrait.FunctionExtensions`, prefix `FunctionExtensions.` hoisted. Each `Functions*` class is one standard Substrait catalog: a `Uri` const plus the function-name consts.
 - rail: query-plan
 
-| [INDEX] | [SYMBOL]                                            | [TYPE_FAMILY] | [RAIL]                                                          |
-| :-----: | :-------------------------------------------------- | :------------ | :-------------------------------------------------------------- |
-|  [01]   | `FunctionsArithmetic`                               | function URIs | `Add`/`Subtract`/`Multiply`/`Sum`/`Min`/`Max`/`RowNumber`/...              |
-|  [02]   | `FunctionsComparison`                               | function URIs | `Equal`/`GreaterThan`/`GreaterThanOrEqual`                                |
-|  [03]   | `FunctionsComparison`                               | function URIs | `LessThan`/`LessThanOrEqual`/`Between`/`IsNull`/`IsNotNull`               |
-|  [04]   | `FunctionsString`                                   | function URIs | `Concat`/`Lower`/`Upper`/`Substring`/`Like`/`StrPos`/...                  |
-|  [05]   | `Functions{AggregateGeneric,Boolean,Datetime,List}` | function URIs | count/bool/datetime/list catalogs                                         |
-|  [06]   | `Functions{Rounding,Hash,Guid,Struct}`              | function URIs | rounding/hash/guid/struct catalogs                                        |
-|  [07]   | `Functions{Check,Logarithmic,TableGeneric}`         | function URIs | check/logarithmic/table-function catalogs                                 |
+| [INDEX] | [SYMBOL]                                            | [TYPE_FAMILY] | [RAIL]                                                        |
+| :-----: | :-------------------------------------------------- | :------------ | :------------------------------------------------------------ |
+|  [01]   | `FunctionsArithmetic`                               | function URIs | `Add`/`Subtract`/`Multiply`/`Sum`/`Min`/`Max`/`RowNumber`/... |
+|  [02]   | `FunctionsComparison`                               | function URIs | `Equal`/`GreaterThan`/`GreaterThanOrEqual`                    |
+|  [03]   | `FunctionsComparison`                               | function URIs | `LessThan`/`LessThanOrEqual`/`Between`/`IsNull`/`IsNotNull`   |
+|  [04]   | `FunctionsString`                                   | function URIs | `Concat`/`Lower`/`Upper`/`Substring`/`Like`/`StrPos`/...      |
+|  [05]   | `Functions{AggregateGeneric,Boolean,Datetime,List}` | function URIs | count/bool/datetime/list catalogs                             |
+|  [06]   | `Functions{Rounding,Hash,Guid,Struct}`              | function URIs | rounding/hash/guid/struct catalogs                            |
+|  [07]   | `Functions{Check,Logarithmic,TableGeneric}`         | function URIs | check/logarithmic/table-function catalogs                     |
 
 ## [03]-[ENTRYPOINTS]
 

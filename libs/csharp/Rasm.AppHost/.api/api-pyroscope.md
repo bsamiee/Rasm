@@ -23,12 +23,12 @@
 [AGENT_TYPES]: native profiler control (namespace `Pyroscope`)
 - rail: profiling
 
-| [INDEX] | [SYMBOL]            | [TYPE_FAMILY]      | [RAIL]                                         |
-| :-----: | :------------------ | :----------------- | :--------------------------------------------- |
-|  [01]   | `Profiler`          | profiler singleton | native profiler control seam                   |
-|  [02]   | `LabelSet`          | label frame        | immutable tag set with `Activate`/`BuildUpon`  |
-|  [03]   | `LabelSet.Builder`  | label builder      | `Add`/`Build` over a prior set                 |
-|  [04]   | `LabelsWrapper`     | scoped label span  | runs an action under a `LabelSet`              |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]      | [RAIL]                                        |
+| :-----: | :----------------- | :----------------- | :-------------------------------------------- |
+|  [01]   | `Profiler`         | profiler singleton | native profiler control seam                  |
+|  [02]   | `LabelSet`         | label frame        | immutable tag set with `Activate`/`BuildUpon` |
+|  [03]   | `LabelSet.Builder` | label builder      | `Add`/`Build` over a prior set                |
+|  [04]   | `LabelsWrapper`    | scoped label span  | runs an action under a `LabelSet`             |
 
 [BRIDGE_TYPES]: span processor family (namespace `Pyroscope.OpenTelemetry`)
 - rail: telemetry

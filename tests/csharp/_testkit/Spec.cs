@@ -5,10 +5,10 @@ using Xunit.Sdk;
 
 namespace Rasm.TestKit;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 public delegate bool TryCreate<TIn, TOut>(TIn value, out TOut obj);
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 // One metamorphic relation row: a follow-up-input transform and the (source, base, follow)
 // relation it must satisfy. A table of rows shares one base evaluation per sample; the source
 // argument lets one row family also carry oracle relations — never parallel relation methods.
@@ -63,7 +63,7 @@ public static class Law {
         _ = (eq ?? EqualityComparer<T>.Default.Equals)(left, right) ? true : throw new XunitException($"{name}: {left} != {right}");
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class Spec {
     // Null/-1 sentinels defer to CsCheck's Check.* defaults, which already give the CsCheck_Seed/
     // CsCheck_Iter/CsCheck_Time/CsCheck_Threads env knobs first refusal at static init.

@@ -29,7 +29,7 @@ import {
 } from 'effect';
 import { GenericContainer, Network, type StartedNetwork, type StartedTestContainer, Wait, type WaitStrategy } from 'testcontainers';
 
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 declare namespace Containers {
     type Exec = { readonly exitCode: number; readonly output: string; readonly stderr: string; readonly stdout: string };
@@ -85,7 +85,7 @@ declare namespace ObjectStore {
     };
 }
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _PG = { port: 5432, database: 'rasm', username: 'rasm', password: 'rasm', startupMs: 120_000 } as const;
 const _STORE = { port: 9000, health: '/minio/health/live', region: 'us-east-1', startupMs: 120_000 } as const;
@@ -94,12 +94,12 @@ const _STORE = { port: 9000, health: '/minio/health/live', region: 'us-east-1', 
 // The prefix marks kit-internal control frames — every listener on a channel drops foreign arm traffic, never delivers it.
 const _ARM = { pauseMs: 25, turns: 120, prefix: '<rasm-testkit-armed:' } as const;
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 // The polyglot image manifest is an open name->image record: a new container lane is a key, never a schema change.
 const _Pins = Schema.Record({ key: Schema.String, value: Schema.NonEmptyString });
 
-// --- [ERRORS] ----------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
 class HarnessFault extends Data.TaggedError('HarnessFault')<{
     readonly lane: 'container' | 'loopback' | 'pg' | 'store';
@@ -123,7 +123,7 @@ class HarnessFault extends Data.TaggedError('HarnessFault')<{
 // engine rolls back and the caller's verdict rides out intact.
 class _Rollback<A> extends Data.TaggedError('rasm-testkit/Rollback')<{ readonly verdict: A }> {}
 
-// --- [SERVICES] --------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
 class Loopback extends Context.Tag('rasm-testkit/Loopback')<
     Loopback,
@@ -142,7 +142,7 @@ class PinsPath extends Context.Reference<PinsPath>()('rasm-testkit/PinsPath', {
     defaultValue: (): string => fileURLToPath(new URL('../../../containers.json', import.meta.url)),
 }) {}
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const _guarded = <A>(lane: HarnessFault['lane'], run: () => Promise<A>): Effect.Effect<A, HarnessFault> =>
     Effect.tryPromise({ try: run, catch: HarnessFault.engine(lane) });
@@ -514,6 +514,6 @@ const Loopbacks = {
     },
 } as const;
 
-// --- [EXPORTS] ---------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Containers, HarnessFault, Loopback, Loopbacks, ObjectStore, ObjectStores, PgLane, PgLanes, PinsPath };

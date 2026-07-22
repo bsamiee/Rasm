@@ -28,8 +28,8 @@ Options members: `SuppressDownstreamInstrumentation`, `EnrichWithHttpRequestMess
 [ENTRYPOINT_SCOPE]: admission
 - rail: transport instrumentation
 
-| [INDEX] | [SURFACE]                      | [KIND]          | [CAPABILITY]                                                                             |
-| :-----: | :----------------------------- | :-------------- | :--------------------------------------------------------------------------------------- |
+| [INDEX] | [SURFACE]                      | [KIND]          | [CAPABILITY]                                                         |
+| :-----: | :----------------------------- | :-------------- | :------------------------------------------------------------------- |
 |  [01]   | `AddGrpcClientInstrumentation` | trace admission | `TracerProviderBuilder`; bare, named, and options-delegate overloads |
 
 ## [04]-[IMPLEMENTATION_LAW]

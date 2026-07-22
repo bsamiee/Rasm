@@ -844,15 +844,15 @@ flowchart LR
 
 One owner per axis; capability is a case, row, column, or fold arm, never a sibling surface. Each `[RAIL]` cell names one return rail: pure verdicts for total results and `Fin` for band-2400 faults.
 
-| [INDEX] | [ROUTE]                | [AXIS_CONCERN]       | [OWNER]                   | [RAIL]                        |
-| :-----: | :--------------------- | :------------------- | :------------------------ | :---------------------------- |
-|  [01]   | `DAMPED_GAUSS_NEWTON`  | Damped Gauss-Newton  | `Lm` + `ILmModel`         | `Minimize → Fin<LmResult>`    |
-|  [02]   | `LADDER_POLICY`        | Ladder policy        | `SolvePolicy`             | policy value                  |
-|  [03]   | `PARAMETRIC_ENTITY`    | Parametric primitive | `Entity`                  | `Origin → Point3d`            |
-|  [04]   | `CONSTRAINT_ALGEBRA`   | Constraint algebra   | `Constraint`              | `Residual → Seq<ResidualRow>` |
-|  [05]   | `DOF_VERDICT`          | DOF verdict          | `DofAnalysis`/`DofReport` | `StructuralAnalyze`           |
-|  [06]   | `CONSTRAINT_GRAPH`     | Constraint graph     | `ConstraintSystem`        | `Build → Fin`                 |
-|  [07]   | `SKETCH_SOLVE`         | Sketch solve         | `ConstraintSolver`        | `Solve → Fin<Solution>`       |
+| [INDEX] | [ROUTE]               | [AXIS_CONCERN]       | [OWNER]                   | [RAIL]                        |
+| :-----: | :-------------------- | :------------------- | :------------------------ | :---------------------------- |
+|  [01]   | `DAMPED_GAUSS_NEWTON` | Damped Gauss-Newton  | `Lm` + `ILmModel`         | `Minimize → Fin<LmResult>`    |
+|  [02]   | `LADDER_POLICY`       | Ladder policy        | `SolvePolicy`             | policy value                  |
+|  [03]   | `PARAMETRIC_ENTITY`   | Parametric primitive | `Entity`                  | `Origin → Point3d`            |
+|  [04]   | `CONSTRAINT_ALGEBRA`  | Constraint algebra   | `Constraint`              | `Residual → Seq<ResidualRow>` |
+|  [05]   | `DOF_VERDICT`         | DOF verdict          | `DofAnalysis`/`DofReport` | `StructuralAnalyze`           |
+|  [06]   | `CONSTRAINT_GRAPH`    | Constraint graph     | `ConstraintSystem`        | `Build → Fin`                 |
+|  [07]   | `SKETCH_SOLVE`        | Sketch solve         | `ConstraintSolver`        | `Solve → Fin<Solution>`       |
 
 - [DAMPED_GAUSS_NEWTON]: ONE λ-ladder functor over the residual+Jacobian floor; packed-upper contract via `Lm.PackedIndex`.
 - [LADDER_POLICY]: policy record (λ seed/up/down · `PositiveMagnitude` tolerance · step floor · budget) + `Canonical` row.

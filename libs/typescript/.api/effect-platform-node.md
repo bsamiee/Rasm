@@ -70,11 +70,11 @@
 - rail: system-apis
 - `NodeClusterHttp`/`NodeClusterSocket` carry `@effect/cluster` entity messages over HTTP/socket transport for `work/entity`; `NodeClusterSocket.layerK8sHttpClient` is the K8s runner-discovery client, discovery only, never provisioning.
 
-| [INDEX] | [SURFACE]                                         | [ENTRY_FAMILY] | [CONSUMER]                                            |
-| :-----: | :------------------------------------------------ | :------------- | :---------------------------------------------------- |
-|  [01]   | `NodeClusterHttp.layer` / `.layerHttpServer`      | cluster http   | `work/entity` — HTTP transport for entity messaging   |
-|  [02]   | `NodeClusterSocket.layer` / `.layerDispatcherK8s` | cluster socket | `work/entity` — socket transport + K8s pod-discovery  |
-|  [03]   | `NodeClusterSocket.layerK8sHttpClient`            | discovery      | `work/entity` — K8s runner-discovery client           |
+| [INDEX] | [SURFACE]                                         | [ENTRY_FAMILY] | [CONSUMER]                                           |
+| :-----: | :------------------------------------------------ | :------------- | :--------------------------------------------------- |
+|  [01]   | `NodeClusterHttp.layer` / `.layerHttpServer`      | cluster http   | `work/entity` — HTTP transport for entity messaging  |
+|  [02]   | `NodeClusterSocket.layer` / `.layerDispatcherK8s` | cluster socket | `work/entity` — socket transport + K8s pod-discovery |
+|  [03]   | `NodeClusterSocket.layerK8sHttpClient`            | discovery      | `work/entity` — K8s runner-discovery client          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

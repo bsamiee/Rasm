@@ -161,7 +161,6 @@ const _session = (session: Feed.Session): Stream.Stream<Sse.Event, FeedFault, Ht
 ## [04]-[MQTT_SEAM]
 
 [MQTT_SEAM]:
-
 - Owner: `Mqtt` — the MQTT v5 channel. `Mqtt.Broker` carries origin, delivery grade, retain posture, and keepalive; `Mqtt.live(broker)` brackets one publisher client, while `open(topics)` brackets its own subscription client and listener. `consume(topics, handler)` is the admitted handling ingress. No client or emitter crosses an app boundary.
 - Law: v5 `userProperties` is the carrier frame — publish injects `Propagation.current` through core `Carrier.inject("mqtt", ...)`, transport preserves the resulting string-or-string-array map, and `consume` extracts that exact row before the one `Propagation.ingress` transformer. `open` remains the ordered raw-frame lane for callers that compose continuation with a larger stream fold.
 - Law: subscription admission is evidence — every `subscribeAsync` grant is inspected, and any `qos: 128` refusal fails the typed `grant` rail before a message stream escapes. Failed subscription or grant admission ends the minted client before the fault escapes; successful acquisition transfers that client to the stream scope. Message and lifecycle listeners share the stream scope; `close`, `error`, `disconnect`, and `offline` terminate the stream once, and release ends the client before detaching the complete listener row.

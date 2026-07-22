@@ -16,26 +16,26 @@
 [PUBLIC_TYPE_SCOPE]: plug-in base and specializations
 - rail: host
 
-| [INDEX] | [SYMBOL]                    | [KIND]           | [CAPABILITY]                                                              |
-| :-----: | :-------------------------- | :--------------- | :----------------------------------------------------------------------- |
-|  [01]   | `PlugIn`                    | class            | plug-in base — load, commands, document I/O, options pages, settings     |
-|  [02]   | `RenderPlugIn`              | abstract plug-in | render engine — render, preview, material UI, render panels/tabs         |
-|  [03]   | `DigitizerPlugIn`           | abstract plug-in | 3D digitizer — enable, unit system, point/ray input                      |
-|  [04]   | `FileImportPlugIn`          | abstract plug-in | import dispatch base declaring handled extensions and reading a file     |
-|  [05]   | `FileExportPlugIn`          | abstract plug-in | export dispatch base declaring handled extensions and writing a file     |
-|  [06]   | `PlugInInfo`                | class            | registry-level plug-in descriptor (id, paths, organization, load state)  |
-|  [07]   | `PreviewNotification`       | sealed class     | render-preview intermediate-update notifier                              |
-|  [08]   | `PlugInDescriptionAttribute`| sealed attribute | declarative organization/contact metadata keyed by `DescriptionType`     |
-|  [09]   | `LicenseIdAttribute`        | sealed attribute | binds a license id to a plug-in for entitlement discovery                |
+| [INDEX] | [SYMBOL]                     | [KIND]           | [CAPABILITY]                                                            |
+| :-----: | :--------------------------- | :--------------- | :---------------------------------------------------------------------- |
+|  [01]   | `PlugIn`                     | class            | plug-in base — load, commands, document I/O, options pages, settings    |
+|  [02]   | `RenderPlugIn`               | abstract plug-in | render engine — render, preview, material UI, render panels/tabs        |
+|  [03]   | `DigitizerPlugIn`            | abstract plug-in | 3D digitizer — enable, unit system, point/ray input                     |
+|  [04]   | `FileImportPlugIn`           | abstract plug-in | import dispatch base declaring handled extensions and reading a file    |
+|  [05]   | `FileExportPlugIn`           | abstract plug-in | export dispatch base declaring handled extensions and writing a file    |
+|  [06]   | `PlugInInfo`                 | class            | registry-level plug-in descriptor (id, paths, organization, load state) |
+|  [07]   | `PreviewNotification`        | sealed class     | render-preview intermediate-update notifier                             |
+|  [08]   | `PlugInDescriptionAttribute` | sealed attribute | declarative organization/contact metadata keyed by `DescriptionType`    |
+|  [09]   | `LicenseIdAttribute`         | sealed attribute | binds a license id to a plug-in for entitlement discovery               |
 
 [PUBLIC_TYPE_SCOPE]: file-dialog registration and dispatch carriers
 - rail: host
 
-| [INDEX] | [SYMBOL]           | [KIND] | [CAPABILITY]                                                          |
+| [INDEX] | [SYMBOL]           | [KIND] | [CAPABILITY]                                                         |
 | :-----: | :----------------- | :----- | :------------------------------------------------------------------- |
 |  [01]   | `FileTypeList`     | class  | ordered file-type registration list populated during `AddFileTypes`  |
-|  [02]   | `FileType`         | class  | one extension/description pair (`Rhino.FileIO`)                       |
-|  [03]   | `FileReadOptions`  | class  | host read-dispatch mode passed into import (`ImportMode`/`OpenMode`)  |
+|  [02]   | `FileType`         | class  | one extension/description pair (`Rhino.FileIO`)                      |
+|  [03]   | `FileReadOptions`  | class  | host read-dispatch mode passed into import (`ImportMode`/`OpenMode`) |
 |  [04]   | `FileWriteOptions` | class  | host write-dispatch mode passed into export                          |
 |  [05]   | `WriteFileResult`  | enum   | export outcome reported back to the host dialog                      |
 
@@ -44,14 +44,14 @@
 [PUBLIC_TYPE_SCOPE]: license surface
 - rail: host
 
-| [INDEX] | [SYMBOL]                        | [KIND]     | [CAPABILITY]                                                        |
-| :-----: | :------------------------------ | :--------- | :----------------------------------------------------------------- |
-|  [01]   | `LicenseUtils`                  | static     | license acquisition, checkout/checkin, CloudZoo login, status reads |
-|  [02]   | `LicenseData`                   | class      | product license/serial/title/build/count/expiry validation payload |
-|  [03]   | `LicenseStatus`                 | class      | resolved license state — type, owner, expiry, CloudZoo lease flags |
-|  [04]   | `LicenseLease`                  | class      | CloudZoo lease identity — group, user, product, issue/expiry window |
-|  [05]   | `LicenseChangedEventArgs`       | event args | license change payload                                             |
-|  [06]   | `LicenseLeaseChangedEventArgs`  | event args | CloudZoo lease change payload                                      |
+| [INDEX] | [SYMBOL]                       | [KIND]     | [CAPABILITY]                                                        |
+| :-----: | :----------------------------- | :--------- | :------------------------------------------------------------------ |
+|  [01]   | `LicenseUtils`                 | static     | license acquisition, checkout/checkin, CloudZoo login, status reads |
+|  [02]   | `LicenseData`                  | class      | product license/serial/title/build/count/expiry validation payload  |
+|  [03]   | `LicenseStatus`                | class      | resolved license state — type, owner, expiry, CloudZoo lease flags  |
+|  [04]   | `LicenseLease`                 | class      | CloudZoo lease identity — group, user, product, issue/expiry window |
+|  [05]   | `LicenseChangedEventArgs`      | event args | license change payload                                              |
+|  [06]   | `LicenseLeaseChangedEventArgs` | event args | CloudZoo lease change payload                                       |
 
 [PUBLIC_TYPE_SCOPE]: policy vocabularies
 - rail: host

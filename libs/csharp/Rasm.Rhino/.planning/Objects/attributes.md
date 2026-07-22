@@ -858,15 +858,15 @@ public static class Attributes {
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]          | [OWNER]             | [FORM]                                                  | [ENTRY]                        |
-| :-----: | :----------------- | :------------------ | :------------------------------------------------------ | :----------------------------- |
-|  [01]   | attribute mutation | `AttributeEdit`     | admitted union, total `Apply`, host enums at the seam   | program payloads               |
-|  [02]   | set-valued edits   | `OverrideMove`      | impose/extend/retract over groups, overrides, carriers  | owning edit payloads           |
-|  [03]   | detached carriers  | generated products  | `DecalSeed`/`MaterialRefSeed` onto host create params   | `Decals` / `FaceMaterials`     |
-|  [04]   | write program      | `AttributeProgram`  | short-circuit fold matching the `Amend` callback shape  | `TableOp.Amend(target, Apply)` |
-|  [05]   | read dispatch      | `AttributeAsk`      | stored and resolved questions, one typed answer union   | `Attributes.Ask`               |
-|  [06]   | stored state       | `AttributeSnapshot` | detached scalars, rosters, and catalogued carriers      | `AttributeAsk.Stored`          |
-|  [07]   | resolved display   | `EffectiveDisplay`  | resolved scalars and viewport overrides                 | `AttributeAsk.Resolved`        |
+| [INDEX] | [CONCERN]          | [OWNER]             | [FORM]                                                 | [ENTRY]                        |
+| :-----: | :----------------- | :------------------ | :----------------------------------------------------- | :----------------------------- |
+|  [01]   | attribute mutation | `AttributeEdit`     | admitted union, total `Apply`, host enums at the seam  | program payloads               |
+|  [02]   | set-valued edits   | `OverrideMove`      | impose/extend/retract over groups, overrides, carriers | owning edit payloads           |
+|  [03]   | detached carriers  | generated products  | `DecalSeed`/`MaterialRefSeed` onto host create params  | `Decals` / `FaceMaterials`     |
+|  [04]   | write program      | `AttributeProgram`  | short-circuit fold matching the `Amend` callback shape | `TableOp.Amend(target, Apply)` |
+|  [05]   | read dispatch      | `AttributeAsk`      | stored and resolved questions, one typed answer union  | `Attributes.Ask`               |
+|  [06]   | stored state       | `AttributeSnapshot` | detached scalars, rosters, and catalogued carriers     | `AttributeAsk.Stored`          |
+|  [07]   | resolved display   | `EffectiveDisplay`  | resolved scalars and viewport overrides                | `AttributeAsk.Resolved`        |
 
 ## [06]-[RESEARCH]
 

@@ -2,7 +2,7 @@ import { FileSystem, Path } from '@effect/platform';
 import { parseSync } from '@swc/core';
 import { Array, Data, Effect, HashSet, Option, Predicate, pipe } from 'effect';
 
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 declare namespace Imports {
     type Specifier = { readonly specifier: string; readonly typeOnly: boolean };
@@ -35,7 +35,7 @@ type Audit = Data.TaggedEnum<{
 }>;
 const Audit: Data.TaggedEnum.Constructor<Audit> = Data.taggedEnum<Audit>();
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _SNAP = { home: '__snapshots__', extension: '.snap' } as const;
 const _GOLDEN = { home: 'goldens', spec: /\.pw\.[mc]?ts$/ } as const;
@@ -46,11 +46,11 @@ const _SOURCE = { include: /\.(?:[mc]?ts|tsx)$/, declaration: /\.d\.[mc]?ts$/ } 
 // Dependency, build, output, cache, and VCS trees never join a source audit: a routed artifact or a workspace symlink under the root would sweep foreign code.
 const _PRUNE = /(^|\/)(node_modules|dist|build|coverage|\.git|\.cache|\.artifacts)(\/|$)/;
 
-// --- [ERRORS] ----------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
 class GaugeFault extends Data.TaggedError('GaugeFault')<{ readonly reason: 'unreadable'; readonly detail: string }> {}
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const _walked = (root: string): Effect.Effect<ReadonlyArray<string>, GaugeFault, FileSystem.FileSystem> =>
     Effect.mapError(
@@ -207,6 +207,6 @@ const Imports = {
             : Audit.Unsupported({ reason: 'zero modules scanned' }),
 } as const;
 
-// --- [EXPORTS] ---------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Audit, GaugeFault, Imports, Snapshots };

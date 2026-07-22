@@ -1366,8 +1366,6 @@ public static class ProcessPhysics {
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
 ---
 flowchart LR

@@ -283,7 +283,7 @@
 |  [13]   | `IfcBoundaryCondition`             | boundary-condition base and egress re-stamp surface                                             |
 |  [14]   | `IfcStructuralLoadConfiguration`   | varying structural line action                                                                  |
 |  [15]   | `IfcRelConnectsStructuralMember`   | member-to-connection relation                                                                   |
-|  [16]   | `IfcRelConnectsWithEccentricity`   | eccentric member-to-connection relation under `IfcRelConnectsStructuralMember`                 |
+|  [16]   | `IfcRelConnectsWithEccentricity`   | eccentric member-to-connection relation under `IfcRelConnectsStructuralMember`                  |
 |  [17]   | `IfcRelConnectsStructuralActivity` | structural-activity binding                                                                     |
 |  [18]   | `IfcRelAssignsToGroup`             | group membership assignment                                                                     |
 

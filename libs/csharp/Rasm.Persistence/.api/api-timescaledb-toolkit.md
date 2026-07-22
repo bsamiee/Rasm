@@ -6,13 +6,13 @@
 
 `time_weight` is the two-stage aggregate discipline every toolkit hyperfunction follows: the aggregate stage folds samples into an intermediate summary object, an accessor then projects the scalar, and `rollup` re-aggregates summaries across groups without touching raw samples.
 
-| [INDEX] | [SURFACE]                                        | [SEMANTICS]                                                                                     |
-| :-----: | :------------------------------------------------ | :----------------------------------------------------------------------------------------------- |
-|  [01]   | `time_weight(method, ts, value)` → `TimeWeightSummary` | aggregate stage; `method` is `'linear'` (alias `'trapezoidal'`) or `'LOCF'`, case-insensitive |
-|  [02]   | `average(TimeWeightSummary)` → `double precision` | the time-weighted mean accessor — each sample weighted by its holding interval                   |
-|  [03]   | `rollup(TimeWeightSummary)` → `TimeWeightSummary` | re-aggregates per-group summaries before an accessor applies                                     |
+| [INDEX] | [SURFACE]                                              | [SEMANTICS]                                                               |
+| :-----: | :----------------------------------------------------- | :------------------------------------------------------------------------ |
+|  [01]   | `time_weight(method, ts, value)` → `TimeWeightSummary` | aggregate stage; folds samples into the summary object                    |
+|  [02]   | `average(TimeWeightSummary)` → `double precision`      | time-weighted mean accessor; each sample weighted by its holding interval |
+|  [03]   | `rollup(TimeWeightSummary)` → `TimeWeightSummary`      | re-aggregates per-group summaries before an accessor applies              |
 
-- `'linear'` interpolates across a gap between its bounding samples; `'LOCF'` carries the last observation forward — the method for change-triggered measurements.
+- `method` is `'linear'` (alias `'trapezoidal'`) or `'LOCF'`, case-insensitive: `'linear'` interpolates across a gap between its bounding samples; `'LOCF'` carries the last observation forward — the method for change-triggered measurements.
 - The summary object is composable state: `GROUP BY` buckets fold summaries, `rollup` joins buckets, one accessor closes — never a per-bucket raw re-scan.
 
 ## [02]-[IMPLEMENTATION_LAW]

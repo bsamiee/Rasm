@@ -20,25 +20,25 @@
 - `layers`, `effects`, `views`, `viewState`/`initialViewState`, and every callback are a partial patch — `Deck` diffs against the prior props and redraws only what changed. `viewState` (controlled) vs `initialViewState` (deck-tracked) is the camera-ownership discriminant; under `@deck.gl/mapbox` the map owns the camera and both are stripped.
 - Async pick pair `pickObjectAsync({x,y,radius?,layerIds?,unproject3D?}) => Promise<PickingInfo|null>` and `pickObjectsAsync({x,y,width?,height?,layerIds?,maxObjects?}) => Promise<PickingInfo[]>`; each row `[SIGNATURE]` carries only the return.
 
-| [INDEX] | [SYMBOL]                   | [SIGNATURE]                                  | [CONSUMER_BOUNDARY]                                          |
-| :-----: | :------------------------- | :------------------------------------------- | :----------------------------------------------------------- |
-|  [01]   | `Deck<ViewsT>`             | `new Deck(props: DeckProps<ViewsT>)`         | viewer render root; `ViewsT` types `viewState` per view      |
-|  [02]   | `Deck.setProps`            | `(props: DeckProps<ViewsT>) => void`         | imperative sink; atom-derived `layers`/`viewState`/`effects` |
-|  [03]   | `Deck.finalize`            | `() => void`                                 | `Scope` release — disposes device, loop, buffers             |
-|  [04]   | `Deck.pickObjectAsync`     | `(opts) => Promise<PickingInfo \| null>`     | top object at a point → `mark/selection` `GlobalId`          |
-|  [05]   | `Deck.pickObjectsAsync`    | `(opts) => Promise<PickingInfo[]>`           | marquee box → `GlobalId[]` selection set                     |
-|  [06]   | `Deck.pickObject`          | sync single-point, `@deprecated`             | WebGL-only sync top-object; async pair replaces it          |
-|  [07]   | `Deck.pickObjects`         | sync region, `@deprecated`                   | WebGL-only sync marquee; async pair replaces it             |
-|  [08]   | `Deck.pickMultipleObjects` | sync stacked, `@deprecated`                  | WebGL-only stacked pick; async pair replaces it             |
-|  [09]   | `Deck.redraw`              | `(reason?: string) => void`                  | force a frame; `_animate` forces every-frame (TripsLayer)    |
-|  [10]   | `Deck.needsRedraw`         | `({clearRedrawFlags}) => false\|string`      | query the redraw flag                                        |
-|  [11]   | `Deck.getViewports`        | `(rect?) => Viewport[]`                      | screen↔world math + BCF/overlay anchor projection            |
-|  [12]   | `Deck.getViews`            | `() => View[]`                               | active view list                                             |
-|  [13]   | `Deck.getView`             | `(id) => View?`                              | one view by id                                               |
-|  [14]   | `Deck.getCanvas`           | `() => HTMLCanvasElement \| null`            | ref wiring                                                   |
-|  [15]   | `Deck.isInitialized`       | `boolean`                                    | `onLoad` gate before public calls                            |
-|  [16]   | `DeckProps<ViewsT>`        | props record (below)                         | full prop contract; `MapboxOverlayProps` minus camera        |
-|  [17]   | `DeckMetrics`              | full 19-member payload, [17]                 | `_onMetrics` payload → `probe/benchmark` perf sink           |
+| [INDEX] | [SYMBOL]                   | [SIGNATURE]                              | [CONSUMER_BOUNDARY]                                          |
+| :-----: | :------------------------- | :--------------------------------------- | :----------------------------------------------------------- |
+|  [01]   | `Deck<ViewsT>`             | `new Deck(props: DeckProps<ViewsT>)`     | viewer render root; `ViewsT` types `viewState` per view      |
+|  [02]   | `Deck.setProps`            | `(props: DeckProps<ViewsT>) => void`     | imperative sink; atom-derived `layers`/`viewState`/`effects` |
+|  [03]   | `Deck.finalize`            | `() => void`                             | `Scope` release — disposes device, loop, buffers             |
+|  [04]   | `Deck.pickObjectAsync`     | `(opts) => Promise<PickingInfo \| null>` | top object at a point → `mark/selection` `GlobalId`          |
+|  [05]   | `Deck.pickObjectsAsync`    | `(opts) => Promise<PickingInfo[]>`       | marquee box → `GlobalId[]` selection set                     |
+|  [06]   | `Deck.pickObject`          | sync single-point, `@deprecated`         | WebGL-only sync top-object; async pair replaces it           |
+|  [07]   | `Deck.pickObjects`         | sync region, `@deprecated`               | WebGL-only sync marquee; async pair replaces it              |
+|  [08]   | `Deck.pickMultipleObjects` | sync stacked, `@deprecated`              | WebGL-only stacked pick; async pair replaces it              |
+|  [09]   | `Deck.redraw`              | `(reason?: string) => void`              | force a frame; `_animate` forces every-frame (TripsLayer)    |
+|  [10]   | `Deck.needsRedraw`         | `({clearRedrawFlags}) => false\|string`  | query the redraw flag                                        |
+|  [11]   | `Deck.getViewports`        | `(rect?) => Viewport[]`                  | screen↔world math + BCF/overlay anchor projection            |
+|  [12]   | `Deck.getViews`            | `() => View[]`                           | active view list                                             |
+|  [13]   | `Deck.getView`             | `(id) => View?`                          | one view by id                                               |
+|  [14]   | `Deck.getCanvas`           | `() => HTMLCanvasElement \| null`        | ref wiring                                                   |
+|  [15]   | `Deck.isInitialized`       | `boolean`                                | `onLoad` gate before public calls                            |
+|  [16]   | `DeckProps<ViewsT>`        | props record (below)                     | full prop contract; `MapboxOverlayProps` minus camera        |
+|  [17]   | `DeckMetrics`              | full 19-member payload, [17]             | `_onMetrics` payload → `probe/benchmark` perf sink           |
 
 - [17]-[METRICS_PAYLOAD]: the shipped payload is exactly the typed member set — timing `fps`/`gpuTime`/`gpuTimePerFrame`/`cpuTime`/`cpuTimePerFrame`/`pickTime`/`setPropsTime`/`updateAttributesTime`, counters `framesRedrawn`/`pickCount`/`pickLayersCount`/`updateAttributesCount`/`layersCount`/`drawLayersCount`/`updateLayersCount`, memory `gpuMemory` split into `bufferMemory`/`textureMemory`/`renderbufferMemory`; no untyped members ride the callback.
 
@@ -57,7 +57,7 @@
 |  [08]   | `parameters`                        | luma `Parameters`                                | GPU state (blend, depth) set before each frame  |
 |  [09]   | `layerFilter`                       | `(ctx: FilterContext) => boolean`                | per-view/per-pass layer gating                  |
 |  [10]   | `useDevicePixels` / `pickingRadius` | `boolean\|number` / `number`                     | DPR control + pick tolerance                    |
-|  [11]   | `pickAsync`                         | `'sync'\|'async'\|'auto'`                         | deck-managed pick policy (async where able)     |
+|  [11]   | `pickAsync`                         | `'sync'\|'async'\|'auto'`                        | deck-managed pick policy (async where able)     |
 |  [12]   | `onViewStateChange`                 | `(p) => ViewStateT\|null\|void`                  | camera-change interception (constrain/redirect) |
 |  [13]   | `onHover`/`onClick`/`onDrag*`       | `(info, event) => void`                          | one `PickingInfo`-carrying pointer family       |
 |  [14]   | `getTooltip` / `getCursor`          | `(info) => TooltipContent` / `(state) => string` | declarative HUD/cursor                          |

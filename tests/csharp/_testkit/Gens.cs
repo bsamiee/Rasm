@@ -1,6 +1,6 @@
 namespace Rasm.TestKit;
 
-// --- [ERRORS] -------------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 // The typed fault vocabulary rail generators inject: one closed family over `Expected` so failure
 // lanes carry case identity (`IsType`, code) instead of anonymous message strings.
 [Union]
@@ -12,7 +12,7 @@ public abstract partial record Fault : Expected {
     public sealed record Conflict : Fault { public Conflict() : base(detail: "<fault-conflict>", code: 9004) { } }
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Gens {
     // --- [SCALARS]
     // Magnitude stratification makes every float hazard a weighted lane, never a rare accident:

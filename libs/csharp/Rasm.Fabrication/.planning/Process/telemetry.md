@@ -510,8 +510,8 @@ public static class FabricationSlos {
 
 ## [09]-[RESEARCH]
 
-| [QUESTION] | [ROUTE] |
-| :--------- | :------ |
+| [QUESTION]                                                     | [ROUTE]             |
+| :------------------------------------------------------------- | :------------------ |
 | Which exact diagnostics members complete the activity bracket? | `CATALOG → ADAPTER` |
 
 `CATALOG` = `libs/csharp/.api/api-diagnostics-metrics.md`; `ADAPTER` = `libs/csharp/Rasm.AppHost`.

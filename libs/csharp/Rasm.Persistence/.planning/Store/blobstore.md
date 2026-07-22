@@ -470,20 +470,20 @@ public readonly record struct BlobRemote(
     Func<GrantDemand, IO<ObjectGrant>> Issue);
 ```
 
-| [INDEX] | [POLICY]         | [VALUE]                                     | [BINDING]                                                           |
-| :-----: | :--------------- | :------------------------------------------ | :------------------------------------------------------------------ |
-|  [01]   | content-key name | `ContentAddress.Of` over kernel `XxHash128` | wraps the seam raw keys; never a second identity                    |
-|  [02]   | per-leg dispatch | `ObjectClient.Map`                          | union case IS the dispatch; no mismatch guard                       |
-|  [03]   | write-once seal  | provider conditional-write `412`-noop       | no read-before-write; the seal is the concurrency primitive         |
-|  [04]   | integrity        | `ChecksumAlgorithm.XXHASH128` + `Wire`      | the content key IS the whole-object checksum; never re-hashed       |
-|  [05]   | WORM/object-lock | `ObjectLock` SET on the write               | `Governance`/`Compliance` immutable; `LegalHold` indefinite         |
-|  [06]   | fault rail       | one `RemoteStoreFault.Lift` per edge        | `Transport.IsTransient` the sole retry gate                         |
-|  [07]   | checksum honesty | per-row SDK-native stance                   | S3 `XxHash128`; Azure `Crc64`; GCS `Crc32c`; Minio/Presigned `None` |
-|  [08]   | presigned grants | `GrantMinter` → `ObjectGrant` per op        | minter-attested `GrantExpired`; bare `403` is `Denied`              |
-|  [09]   | receipt path     | every write via `MultipartTransfer.Upload`  | `BlobTransferReceipt` carries the frame correlation                 |
+| [INDEX] | [POLICY]         | [VALUE]                                     | [BINDING]                                                             |
+| :-----: | :--------------- | :------------------------------------------ | :-------------------------------------------------------------------- |
+|  [01]   | content-key name | `ContentAddress.Of` over kernel `XxHash128` | wraps the seam raw keys; never a second identity                      |
+|  [02]   | per-leg dispatch | `ObjectClient.Map`                          | union case IS the dispatch; no mismatch guard                         |
+|  [03]   | write-once seal  | provider conditional-write `412`-noop       | no read-before-write; the seal is the concurrency primitive           |
+|  [04]   | integrity        | `ChecksumAlgorithm.XXHASH128` + `Wire`      | the content key IS the whole-object checksum; never re-hashed         |
+|  [05]   | WORM/object-lock | `ObjectLock` SET on the write               | `Governance`/`Compliance` immutable; `LegalHold` indefinite           |
+|  [06]   | fault rail       | one `RemoteStoreFault.Lift` per edge        | `Transport.IsTransient` the sole retry gate                           |
+|  [07]   | checksum honesty | per-row SDK-native stance                   | S3 `XxHash128`; Azure `Crc64`; GCS `Crc32c`; Minio/Presigned `None`   |
+|  [08]   | presigned grants | `GrantMinter` → `ObjectGrant` per op        | minter-attested `GrantExpired`; bare `403` is `Denied`                |
+|  [09]   | receipt path     | every write via `MultipartTransfer.Upload`  | `BlobTransferReceipt` carries the frame correlation                   |
 |  [10]   | issuer grants    | `Grant` via the leg `Issue` per row         | TTL-boxed, `Admit`-gated, frame-instant expiry; viewer streams direct |
-|  [11]   | client seal      | `ClientSealed` + `SealSource`/`OpenSource`  | AES-GCM under an envelope DEK; `WrappedKey` on the catalog row      |
-|  [12]   | one WORM clock   | `Upload` samples `frame.Now()` once         | provider retention date and catalog `WormUntil` derive from it      |
+|  [11]   | client seal      | `ClientSealed` + `SealSource`/`OpenSource`  | AES-GCM under an envelope DEK; `WrappedKey` on the catalog row        |
+|  [12]   | one WORM clock   | `Upload` samples `frame.Now()` once         | provider retention date and catalog `WormUntil` derive from it        |
 
 ## [03]-[MULTIPART_TRANSFER]
 

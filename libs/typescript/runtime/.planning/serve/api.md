@@ -5,7 +5,7 @@ The one public front door's declarative engine: a domain folder exports its `Htt
 ## [01]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                                              | [PUBLIC]            |
-| :-----: | :--------------- | :----------------------------------------------------------------------------------- | :------------------ |
+| :-----: | :--------------- | :---------------------------------------------------------------------------------- | :------------------ |
 |  [01]   | `CONVENTION`     | version-prefix rows, the cursor brand, page-query and page-envelope constructors    | `Convention`        |
 |  [02]   | `GATE_FAULT`     | the reason-discriminated refusal family with class/status/retry rows                | `GateFault`         |
 |  [03]   | `CURRENT_ROWS`   | ambient stamp/tenant/locale references, locale negotiation, trace continuation      | `Current`           |

@@ -34,16 +34,16 @@
 
 Every cancellation-token parameter defaults to `default(CancellationToken)`.
 
-| [INDEX] | [SURFACE]                                     | [KIND]           | [CAPABILITY]                                 |
-| :-----: | :-------------------------------------------- | :--------------- | :------------------------------------------- |
-|  [01]   | `TryRead(out T item) -> bool`                 | abstract         | non-blocking dequeue; `false` when empty     |
-|  [02]   | `WaitToReadAsync(ct) -> ValueTask<bool>`      | abstract         | `true` when readable, `false` at completion  |
-|  [03]   | `ReadAsync(ct) -> ValueTask<T>`               | virtual          | awaits and dequeues one element              |
-|  [04]   | `ReadAllAsync(ct) -> IAsyncEnumerable<T>`     | virtual          | `await foreach` drain to channel completion  |
-|  [05]   | `TryPeek(out T item) -> bool`                 | virtual          | inspects the head without dequeue            |
-|  [06]   | `Completion -> Task`                          | virtual property | completes when no further data will arrive   |
-|  [07]   | `Count -> int`                                | virtual property | buffered-element count when `CanCount`       |
-|  [08]   | `CanCount` / `CanPeek -> bool`                | virtual property | capability probes gating `Count` / `TryPeek` |
+| [INDEX] | [SURFACE]                                 | [KIND]           | [CAPABILITY]                                 |
+| :-----: | :---------------------------------------- | :--------------- | :------------------------------------------- |
+|  [01]   | `TryRead(out T item) -> bool`             | abstract         | non-blocking dequeue; `false` when empty     |
+|  [02]   | `WaitToReadAsync(ct) -> ValueTask<bool>`  | abstract         | `true` when readable, `false` at completion  |
+|  [03]   | `ReadAsync(ct) -> ValueTask<T>`           | virtual          | awaits and dequeues one element              |
+|  [04]   | `ReadAllAsync(ct) -> IAsyncEnumerable<T>` | virtual          | `await foreach` drain to channel completion  |
+|  [05]   | `TryPeek(out T item) -> bool`             | virtual          | inspects the head without dequeue            |
+|  [06]   | `Completion -> Task`                      | virtual property | completes when no further data will arrive   |
+|  [07]   | `Count -> int`                            | virtual property | buffered-element count when `CanCount`       |
+|  [08]   | `CanCount` / `CanPeek -> bool`            | virtual property | capability probes gating `Count` / `TryPeek` |
 
 - `TryRead` and `TryPeek` carry `[MaybeNullWhen(false)]` on the `out` element; `WaitToReadAsync`-then-`TryRead` is the canonical non-allocating drain pair (`while (await reader.WaitToReadAsync(ct)) while (reader.TryRead(out var item)) …`); `ReadAllAsync` is the equivalent `IAsyncEnumerable<T>` form threading the same `CancellationToken` an anyio/Task scope carries.
 - `Completion` faults with the writer's completion exception when one was supplied, so a consumer distinguishes graceful drain from a producer failure at the single terminal await.

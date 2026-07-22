@@ -12,13 +12,13 @@
 
 Per-family config keys, the reflection utils, and the type vocabulary carry to the keyed list below; every factory returns the real d3 scale object.
 
-| [INDEX] | [SURFACE]                                                                     | [FAMILY]        | [CAPABILITY]                             |
-| :-----: | :---------------------------------------------------------------------------- | :-------------- | :--------------------------------------- |
-|  [01]   | `scaleLinear` `scaleLog` `scaleSymlog` `scalePower` `scaleSqrt` `scaleRadial` | continuous      | quantitative position/size               |
-|  [02]   | `scaleTime` `scaleUtc`                                                        | temporal        | date domains; `nice` takes `NiceTime`    |
-|  [03]   | `scaleBand` `scalePoint`                                                      | ordinal-spatial | categorical; `bandwidth()`/`step()`      |
-|  [04]   | `scaleOrdinal` `scaleQuantile` `scaleQuantize` `scaleThreshold`               | discrete-map    | quantile/uniform/threshold bucketing     |
-|  [05]   | `createScale(config: ScaleConfig)` / `updateScale(scale, config)`             | polymorphic     | discriminated build + rederive           |
+| [INDEX] | [SURFACE]                                                                     | [FAMILY]        | [CAPABILITY]                          |
+| :-----: | :---------------------------------------------------------------------------- | :-------------- | :------------------------------------ |
+|  [01]   | `scaleLinear` `scaleLog` `scaleSymlog` `scalePower` `scaleSqrt` `scaleRadial` | continuous      | quantitative position/size            |
+|  [02]   | `scaleTime` `scaleUtc`                                                        | temporal        | date domains; `nice` takes `NiceTime` |
+|  [03]   | `scaleBand` `scalePoint`                                                      | ordinal-spatial | categorical; `bandwidth()`/`step()`   |
+|  [04]   | `scaleOrdinal` `scaleQuantile` `scaleQuantize` `scaleThreshold`               | discrete-map    | quantile/uniform/threshold bucketing  |
+|  [05]   | `createScale(config: ScaleConfig)` / `updateScale(scale, config)`             | polymorphic     | discriminated build + rederive        |
 
 - [01]-[CONTINUOUS]: config `domain` `range` `nice` `clamp` `zero` `round` `interpolate`, plus `base`/`constant`/`exponent` per sub-type.
 - [03]-[BAND]: padding/align/round keys; `bandwidth()`/`step()` feed bar geometry.

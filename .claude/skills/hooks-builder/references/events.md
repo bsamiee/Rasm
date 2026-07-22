@@ -107,18 +107,18 @@ JSON output is honored only on exit 0; each event family reads a different decis
 
 Outbound-secret redaction rides `PreToolUse` `updatedInput`; inbound redaction rides `PostToolUse` `updatedToolOutput`, which rewrites a built-in tool's output when the replacement matches the tool's output shape and is silently ignored on a mismatch — a bare `decision: "block"` leaves the original output in context and never redacts. Its shape-preserving scrub is the scripting reference.
 
-| [INDEX] | [EVENTS]                                         | [PATTERN]               | [KEY_FIELDS]                                          |
-| :-----: | :----------------------------------------------- | :---------------------- | :---------------------------------------------------- |
-|  [01]   | Top-level `decision` events                      | Top-level `decision`    | `decision: "block"`, `reason`                         |
-|  [02]   | `TeammateIdle` / `TaskCreated` / `TaskCompleted` | Exit code or `continue` | `continue: false`, `stopReason`, or exit 2            |
-|  [03]   | `PreToolUse`                                     | `hookSpecificOutput`    | `permissionDecision`, `permissionDecisionReason`      |
-|  [04]   | `PermissionRequest`                              | `hookSpecificOutput`    | `decision.behavior`, and its rewrite peers            |
-|  [05]   | `PermissionDenied`                               | `hookSpecificOutput`    | `retry: true` tells the model it may retry            |
-|  [06]   | `WorktreeCreate`                                 | Path return             | stdout path; HTTP `hookSpecificOutput.worktreePath`   |
-|  [07]   | `Elicitation` / `ElicitationResult`              | `hookSpecificOutput`    | `action` (`accept`/`decline`/`cancel`), `content`     |
-|  [08]   | `MessageDisplay`                                 | `hookSpecificOutput`    | `displayContent` replaces on-screen text only         |
+| [INDEX] | [EVENTS]                                         | [PATTERN]               | [KEY_FIELDS]                                        |
+| :-----: | :----------------------------------------------- | :---------------------- | :-------------------------------------------------- |
+|  [01]   | Top-level `decision` events                      | Top-level `decision`    | `decision: "block"`, `reason`                       |
+|  [02]   | `TeammateIdle` / `TaskCreated` / `TaskCompleted` | Exit code or `continue` | `continue: false`, `stopReason`, or exit 2          |
+|  [03]   | `PreToolUse`                                     | `hookSpecificOutput`    | `permissionDecision`, `permissionDecisionReason`    |
+|  [04]   | `PermissionRequest`                              | `hookSpecificOutput`    | `decision.behavior`, and its rewrite peers          |
+|  [05]   | `PermissionDenied`                               | `hookSpecificOutput`    | `retry: true` tells the model it may retry          |
+|  [06]   | `WorktreeCreate`                                 | Path return             | stdout path; HTTP `hookSpecificOutput.worktreePath` |
+|  [07]   | `Elicitation` / `ElicitationResult`              | `hookSpecificOutput`    | `action` (`accept`/`decline`/`cancel`), `content`   |
+|  [08]   | `MessageDisplay`                                 | `hookSpecificOutput`    | `displayContent` replaces on-screen text only       |
 |  [09]   | `SessionStart` / `Setup` / `SubagentStart`       | Context only            | `additionalContext` and SessionStart context extras |
-|  [10]   | Side-effect-only events                          | None                    | Side effects only — logging, cleanup                  |
+|  [10]   | Side-effect-only events                          | None                    | Side effects only — logging, cleanup                |
 
 - Top-level `decision` events: `UserPromptSubmit`, `UserPromptExpansion`, `PostToolUse`, `PostToolUseFailure`, `PostToolBatch`, `Stop`, `SubagentStop`, `ConfigChange`, `PreCompact`.
 - Side-effect-only events: `WorktreeRemove`, `Notification`, `SessionEnd`, `PostCompact`, `InstructionsLoaded`, `StopFailure`, `CwdChanged`, `FileChanged`.

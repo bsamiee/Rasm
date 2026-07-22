@@ -4,11 +4,11 @@ Block state vocabulary (`Rasm.Rhino.Blocks`) owns one live address, one whole-st
 
 ## [01]-[INDEX]
 
-| [INDEX] | [OWNER] | [CONTRACT] |
-| :-----: | :------ | :--------- |
-|  [01]   | `Definitions` | folder `ResourceLens<InstanceDefinition>` row |
-|  [02]   | `BlockSnapshot` | whole-state evidence and dependency probes |
-|  [03]   | policy values | authoring, deletion, explosion, placement, and preview decisions |
+| [INDEX] | [OWNER]         | [CONTRACT]                                                       |
+| :-----: | :-------------- | :--------------------------------------------------------------- |
+|  [01]   | `Definitions`   | folder `ResourceLens<InstanceDefinition>` row                    |
+|  [02]   | `BlockSnapshot` | whole-state evidence and dependency probes                       |
+|  [03]   | policy values   | authoring, deletion, explosion, placement, and preview decisions |
 
 ## [02]-[ADDRESS]
 
@@ -561,13 +561,13 @@ public abstract partial record BlockPreview {
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [OWNER] | [KIND] | [INGRESS] | [EGRESS] |
-| :-----: | :------ | :----- | :-------- | :------- |
-|  [01]   | `Definitions` | lens row | `Lens` | `Resolve` |
-|  [02]   | `BlockSnapshot` | record | `Of` · `Probe` | state · dependency measure |
-|  [03]   | `LinkState` | union | `Of` | static or linked evidence |
-|  [04]   | policy owners | generated values | generated admission | native arguments |
-|  [05]   | `BlockPreview` | union | factories | `Render` |
+| [INDEX] | [OWNER]         | [KIND]           | [INGRESS]           | [EGRESS]                   |
+| :-----: | :-------------- | :--------------- | :------------------ | :------------------------- |
+|  [01]   | `Definitions`   | lens row         | `Lens`              | `Resolve`                  |
+|  [02]   | `BlockSnapshot` | record           | `Of` · `Probe`      | state · dependency measure |
+|  [03]   | `LinkState`     | union            | `Of`                | static or linked evidence  |
+|  [04]   | policy owners   | generated values | generated admission | native arguments           |
+|  [05]   | `BlockPreview`  | union            | factories           | `Render`                   |
 
 ## [06]-[RESEARCH]
 

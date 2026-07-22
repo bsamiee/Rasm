@@ -1590,19 +1590,19 @@ Gumball completion evidence is receipt-pull — `GumballReceipt` returns from `G
 
 Process-global custody census — collision class and arbitration per surface:
 
-| [INDEX] | [SURFACE]                                  | [COLLISION_CLASS]                        | [ARBITRATION]                                   |
-| :-----: | :----------------------------------------- | :--------------------------------------- | :---------------------------------------------- |
-|  [01]   | `RhinoDoc`/`RhinoView`/`DisplayPipeline`   | duplicate watches double facts           | per-plugin `Watch` per band; delegate identity  |
-|  [02]   | `RhinoApp.Idle` (`IdlePump`)               | multicast-safe                           | one pump per deferred watch, dies with it       |
-|  [03]   | `HostUtils` exception / cloud-log statics  | duplicate mounts double-publish          | `HostTap.Mount` seat — first mount, later ride  |
-|  [04]   | `ObjectsTelemetry` sink                    | replacement shadows an earlier plugin    | `PluginKey`-keyed rows; teardown per caller     |
-|  [05]   | `HostUtils.RegisterNamedCallback`          | re-register replaces the prior handler   | `PluginKey`-keyed claims; collisions fault      |
-|  [06]   | `Panels.RegisterPanel` / page registration | host keys per plugin and panel type      | host-native isolation; shared ledger read       |
-|  [07]   | `CustomObjectGrips.RegisterGripsEnabler`   | re-register replaces per grips guid      | one enabler per `[Guid]` grips type             |
-|  [08]   | `AssemblyResolver` search mutations        | additive process list, unremovable       | additive rows via `HostAssemblies.Extend`       |
-|  [09]   | `AppSettings.Commit` static families       | last-writer-wins process mutation        | app-root single-writer rule                     |
-|  [10]   | `MarshalLatency` seat                      | a second provider splits the ledger      | first-mount-wins seat; detacher returns it      |
-|  [11]   | `MountRegistry` mounts                     | duplicate point mounts fork discovery    | first-mount-wins per point; collision typed     |
+| [INDEX] | [SURFACE]                                  | [COLLISION_CLASS]                      | [ARBITRATION]                                  |
+| :-----: | :----------------------------------------- | :------------------------------------- | :--------------------------------------------- |
+|  [01]   | `RhinoDoc`/`RhinoView`/`DisplayPipeline`   | duplicate watches double facts         | per-plugin `Watch` per band; delegate identity |
+|  [02]   | `RhinoApp.Idle` (`IdlePump`)               | multicast-safe                         | one pump per deferred watch, dies with it      |
+|  [03]   | `HostUtils` exception / cloud-log statics  | duplicate mounts double-publish        | `HostTap.Mount` seat — first mount, later ride |
+|  [04]   | `ObjectsTelemetry` sink                    | replacement shadows an earlier plugin  | `PluginKey`-keyed rows; teardown per caller    |
+|  [05]   | `HostUtils.RegisterNamedCallback`          | re-register replaces the prior handler | `PluginKey`-keyed claims; collisions fault     |
+|  [06]   | `Panels.RegisterPanel` / page registration | host keys per plugin and panel type    | host-native isolation; shared ledger read      |
+|  [07]   | `CustomObjectGrips.RegisterGripsEnabler`   | re-register replaces per grips guid    | one enabler per `[Guid]` grips type            |
+|  [08]   | `AssemblyResolver` search mutations        | additive process list, unremovable     | additive rows via `HostAssemblies.Extend`      |
+|  [09]   | `AppSettings.Commit` static families       | last-writer-wins process mutation      | app-root single-writer rule                    |
+|  [10]   | `MarshalLatency` seat                      | a second provider splits the ledger    | first-mount-wins seat; detacher returns it     |
+|  [11]   | `MountRegistry` mounts                     | duplicate point mounts fork discovery  | first-mount-wins per point; collision typed    |
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------

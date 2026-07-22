@@ -26,7 +26,7 @@ internal static class BdnRows {
         new(FullName: fullName, BudgetMs: budgetMs, GateStat: GateStat.Median);
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Law(typeof(Regression), "benchmark-gate")]
 public sealed class BenchmarkGateLaws {
     [Fact]

@@ -18,16 +18,16 @@
 [TYPE_SCOPE]: `TileLayer` — the generic viewport-driven tile streamer; one engine parameterized by tile-payload type `DataT`, the `getTileData` loader, and the `renderSubLayers` renderer.
 - `TileLayer` computes visible tile indices from the `Viewport`, calls `getTileData(props: _TileLoadProps): Promise<DataT>` per tile (bounded by `maxRequests`/`debounceTime`), caches results in `_Tile2DHeader`s (`maxCacheSize`/`maxCacheByteSize`, `refinementStrategy` for load-in behavior), and renders each via `renderSubLayers({tile, data, _offset})`. `_Tileset2D` is swappable (`TilesetClass`) for non-XYZ schemes. Callbacks `onTileLoad`/`onTileUnload`/`onTileError`/`onViewportLoad` form one tile-lifecycle family.
 
-| [INDEX] | [SYMBOL]                                                      | [CONSUMER_BOUNDARY]                                 |
-| :-----: | :------------------------------------------------------------ | :-------------------------------------------------- |
-|  [01]   | `TileLayer<DataT>` (composite)                                | the streaming base; raster/vector/mesh tiles        |
-|  [02]   | `TileLayerProps` cache/zoom axis                              | fetch throttling + cache + LOD policy               |
-|  [03]   | tile-lifecycle callbacks                                      | callback family; `onViewportLoad` = all-loaded gate |
-|  [04]   | `_Tileset2D` / `_Tileset2DProps`                              | custom index scheme via `TilesetClass`              |
-|  [05]   | `_Tile2DHeader<DataT>`                                        | the per-tile cache node `renderSubLayers` receives  |
-|  [06]   | `_TileLoadProps` / `GeoBoundingBox` / `NonGeoBoundingBox`     | `getTileData` input + tile extent shapes            |
-|  [07]   | `_getURLFromTemplate`                                         | `{x}/{y}/{z}` template expansion                     |
-|  [08]   | `TileLayerPickingInfo` / `MVTLayerPickingInfo`               | pick payload; carries the `tile` node + feature     |
+| [INDEX] | [SYMBOL]                                                  | [CONSUMER_BOUNDARY]                                 |
+| :-----: | :-------------------------------------------------------- | :-------------------------------------------------- |
+|  [01]   | `TileLayer<DataT>` (composite)                            | the streaming base; raster/vector/mesh tiles        |
+|  [02]   | `TileLayerProps` cache/zoom axis                          | fetch throttling + cache + LOD policy               |
+|  [03]   | tile-lifecycle callbacks                                  | callback family; `onViewportLoad` = all-loaded gate |
+|  [04]   | `_Tileset2D` / `_Tileset2DProps`                          | custom index scheme via `TilesetClass`              |
+|  [05]   | `_Tile2DHeader<DataT>`                                    | the per-tile cache node `renderSubLayers` receives  |
+|  [06]   | `_TileLoadProps` / `GeoBoundingBox` / `NonGeoBoundingBox` | `getTileData` input + tile extent shapes            |
+|  [07]   | `_getURLFromTemplate`                                     | `{x}/{y}/{z}` template expansion                    |
+|  [08]   | `TileLayerPickingInfo` / `MVTLayerPickingInfo`            | pick payload; carries the `tile` node + feature     |
 
 [KEY_PROPS] by row (signature + load-bearing props):
 - [01]-[TILELAYER]: `data: URLTemplate`; `getTileData: (TileLoadProps) => Promise<DataT>`, `renderSubLayers: (props & {tile,data,_offset}) => Layer|LayersList`, `TilesetClass?`.
@@ -66,7 +66,7 @@
 |  [04]   | `GeohashLayer<DataT>`             | geohash rectangles                                                   |
 |  [05]   | `A5Layer<DataT>`                  | A5 pentagonal DGGS cells                                             |
 |  [06]   | `H3ClusterLayer<DataT>`           | H3 region outlines                                                   |
-|  [07]   | `H3HexagonLayer<DataT>`           | H3 hexagon fills; GPU high-precision path (not via `_GeoCellLayer`)   |
+|  [07]   | `H3HexagonLayer<DataT>`           | H3 hexagon fills; GPU high-precision path (not via `_GeoCellLayer`)  |
 |  [08]   | `TripsLayer<DataT>`               | time-animated paths; `currentTime` from atom clock + `Deck._animate` |
 |  [09]   | `_WMSLayer`                       | OGC WMS/image-source overlays                                        |
 |  [10]   | `GreatCircleLayer<DataT>`         | geodesic arcs (superseded)                                           |

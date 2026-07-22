@@ -130,12 +130,12 @@ A global `Allow Running Scripts` switch under Shortcuts Advanced settings gates 
 
 External Shortcuts automation enters through the `shortcuts` CLI or the `Shortcuts Events` scripting dictionary. `tell application "Shortcuts Events" to run shortcut ... with input ...` dispatches in the background without fronting the Shortcuts UI, while `tell application "Shortcuts"` launches the app. `--input-path` and `--output-path` repeat, accept `-` for stdin and stdout, and expand shell globs; `--output-type` takes a UTI inferred from the output filename when omitted.
 
-| [INDEX] | [VERB]  | [ROLE]                    | [IPC_SURFACE]                                  |
-| :-----: | :------ | :------------------------ | :--------------------------------------------- |
-|  [01]   | `run`   | executes one shortcut     | `--input-path` `--output-path` `--output-type` |
-|  [02]   | `list`  | enumerates installed set  | none                                           |
-|  [03]   | `view`  | opens the editor          | none                                           |
-|  [04]   | `sign`  | signs for distribution    | `--mode` `-i` `-o`                             |
+| [INDEX] | [VERB] | [ROLE]                   | [IPC_SURFACE]                                  |
+| :-----: | :----- | :----------------------- | :--------------------------------------------- |
+|  [01]   | `run`  | executes one shortcut    | `--input-path` `--output-path` `--output-type` |
+|  [02]   | `list` | enumerates installed set | none                                           |
+|  [03]   | `view` | opens the editor         | none                                           |
+|  [04]   | `sign` | signs for distribution   | `--mode` `-i` `-o`                             |
 
 `shortcuts sign --mode anyone` submits the shortcut to Apple's network-bound signing service, which validates it against tampering for open sharing — a rail distinct from Developer ID notarization — and `--mode people-who-know-me` signs with the sender's iCloud identity for contact-gated import; a hardened install imports a signed `.shortcut` alone.
 

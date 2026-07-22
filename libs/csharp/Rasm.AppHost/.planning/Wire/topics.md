@@ -163,8 +163,6 @@ public static class EventBus {
 ---
 config:
   layout: elk
-  look: neo
-  theme: base
 ---
 flowchart LR
     accTitle: One topic fan, bounded subscriptions, one drain

@@ -31,7 +31,7 @@ It is MANDATORY to load all files in `references/` when creating or editing pros
 - [04]-[ARCHITECTURE](templates/architecture.template.md): exact structure, replace only the slots
 - [05]-[SPEC](templates/spec.template.md): exact section spine; slots carry their budgets, cluster count follows the domain
 - [06]-[API_CATALOG](templates/api-catalog.template.md): exact structure, replace only the slots
-- [07]-[RULINGS](templates/rulings.template.md): copy the section spine; a row exists only as a re-litigation guard no page, manifest, or fence already homes
+- [07]-[RULINGS](templates/rulings.template.md): copy the section spine; a row guards a re-litigation no other surface already homes
 
 [EXAMPLES]: symptom-indexed worked pairs; consult the matching set before building or repairing the container.
 - [01]-[TABLES](examples/tables.md): table crimes and their structural repairs
@@ -52,7 +52,9 @@ uv run scripts/prose_gate.py [--json] <paths...>
 uv run scripts/prose_gate.py fix [--write] <paths...>
 ```
 
-Run the gate on every touched durable doc before returning. `fix` applies the deterministic repairs its `Repair` vocabulary owns — dry-run printing a per-change plan, mutating only under `--write` — and surfaces judgment-tier repairs as `SKIP` rows. Gate and fixer share one table model, so a grid whose canonical render exceeds the width cap fails at any current padding. Its `Check` vocabulary owns the mechanical census — prose spans feed the register checks, structural carriers only their own — and every class it does not carry is review work against the catalog. Card files and design-page `[RESEARCH]` sections census against the marker grammar — leader identity-and-state, closed statuses, the field roster the file's own source-only template comment declares, terminal-marker integrity — so an authoring agent self-checks its document class without the corpus rail.
+Run the gate on every touched durable doc before returning. `fix` applies the deterministic repairs its `Repair` vocabulary owns — dry-run printing a per-change plan, mutating only under `--write` — and surfaces judgment-tier repairs as `SKIP` rows. Gate and fixer share one table model, so a grid whose canonical render exceeds the width cap fails at any current padding. Its `Check` vocabulary owns the mechanical census — prose spans feed the register checks, structural carriers only their own — and every class it does not carry is review work against the catalog.
+
+Card files and design-page `[RESEARCH]` sections census against the marker grammar — leader identity-and-state, closed statuses, the field roster the file's own source-only template comment declares, terminal-marker integrity — so an authoring agent self-checks its document class without the corpus rail.
 
 ## [03]-[REGISTER]
 
@@ -144,7 +146,7 @@ Layout blocks carry `mergeEdges: true` and `nodePlacementStrategy: NETWORK_SIMPL
 
 [ADHERENCE_TEST] — Binds always-loaded instruction surfaces. Delete the line: an agent that already behaves as the line commands proves it dead weight, deletion-eligible regardless of truth. Retained rules dilute one another's pull on the same surface, so the line that survives is the one whose removal causes a mistake the agent otherwise avoids.
 
-[ONE_OWNER] — A second prose copy of any fact, at any altitude, is a fork waiting to drift. A pointer names the owner and its one consumed symbol, never internals; doctrine states once at its charter and arrives settled downstream — composed as given, never recited, re-taught, renamed, or re-defined.
+[ONE_OWNER] — A second prose copy of any fact, at any altitude, is a fork waiting to drift. One interrogation finds it: who else already binds this fact — the always-loaded chain, a sibling doc or registry, or a deterministic tool? A sentence load-bearing in isolation is the prime suspect, invisible until the page is held against the other loaded surfaces. A pointer names the owner and its one consumed symbol, never internals; doctrine states once at its charter and arrives settled downstream — composed as given, never recited, re-taught, renamed, or re-defined.
 
 [ANCHOR] — Probes the rebuild test's wall direction. Loaded prose is the working model the next agent generates inside, so every shape it names becomes a wall: a member roster walls the rebuild to today's census, a forbidden-alternative litany to the anti-shape, a frozen count or seal to the ceiling. Cure is the extension rule — how one new row, case, or member lands — stated where the anchor stood, the roster living on the surface tooling keeps true.
 
@@ -161,6 +163,6 @@ Deletion keeps payload — a real constraint survives tightening. A merge is a r
 ## [06]-[GOTCHAS]
 
 - Rigor's look-alike is the worst defect — a complete roster, an exact count, a frozen chant, a corpse litany; each reads as discipline, rots as law.
-- Deleting a defective sentence never deletes capability: demote mechanism to its owner first, then collapse the copy; dropped payload is a defect.
+- Deleting a defective sentence never deletes capability: demote mechanism to its owner first, then collapse the copy; dropped payload is a defect. Removal is the fix for a fork or restatement, never a substitute — a `never X` clause minted to stand in for the cut is fresh sediment.
 - Future tense survives only on a card growth line and a research item, which carries the exact question and its verification route, never citations.
 - Author satisfaction is never the exit: a doc seals on a cold read that raises nothing — the producer's grade admits, the cold read decides.

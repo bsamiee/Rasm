@@ -32,14 +32,14 @@
 [PUBLIC_TYPE_SCOPE]: the options bag — one parameterized windowing contract
 - rail: view
 
-| [INDEX] | [SYMBOL]                                                                                                             | [TYPE_FAMILY]  |
-| :-----: | :------------------------------------------------------------------------------------------------------------------- | :------------- |
-|  [01]   | `VirtualizerOptions` / `ReactVirtualizerOptions` / `PartialKeys`                                                     | options bag    |
-|  [02]   | `count` / `getScrollElement` / `estimateSize(index)` / `overscan` / `horizontal`                                     | core options   |
-|  [03]   | `measureElement` / `lanes` / `gap` / `paddingStart` / `paddingEnd` / `scrollMargin`                                  | layout options |
-|  [04]   | `getItemKey(index)` / `rangeExtractor(range)` / `scrollToFn` / `initialOffset` / `enabled` / `isScrollingResetDelay` | control hooks  |
+| [INDEX] | [SYMBOL]                                                                                                             | [TYPE_FAMILY]    |
+| :-----: | :------------------------------------------------------------------------------------------------------------------- | :--------------- |
+|  [01]   | `VirtualizerOptions` / `ReactVirtualizerOptions` / `PartialKeys`                                                     | options bag      |
+|  [02]   | `count` / `getScrollElement` / `estimateSize(index)` / `overscan` / `horizontal`                                     | core options     |
+|  [03]   | `measureElement` / `lanes` / `gap` / `paddingStart` / `paddingEnd` / `scrollMargin`                                  | layout options   |
+|  [04]   | `getItemKey(index)` / `rangeExtractor(range)` / `scrollToFn` / `initialOffset` / `enabled` / `isScrollingResetDelay` | control hooks    |
 |  [05]   | `anchorTo` / `followOnAppend` / `initialMeasurementsCache` / `laneAssignmentMode`                                    | stream + restore |
-|  [06]   | `directDomUpdates` / `directDomUpdatesMode` (`'transform'\|'position'`) / `useFlushSync`                             | perf options   |
+|  [06]   | `directDomUpdates` / `directDomUpdatesMode` (`'transform'\|'position'`) / `useFlushSync`                             | perf options     |
 
 - [01]-[OPTIONS_BAG]: the full option contract; the React variant defaults `observeElementRect`/`observeElementOffset`/`scrollToFn` so the hook needs only `count`/`getScrollElement`/`estimateSize`.
 - [02]-[CORE_OPTIONS]: item count, the scroll container ref, per-index size estimate, off-screen buffer, and axis.
@@ -72,9 +72,9 @@
 | :-----: | :------------------------------------------------------------------------------------------------ | :------------- |
 |  [01]   | `virtualizer.measureElement(node)` (as each item's `ref`) / `virtualizer.resizeItem(index, size)` | measure        |
 |  [02]   | `virtualizer.scrollToIndex(index, { align, behavior })` / `.scrollToOffset(px, opts)`             | scroll to      |
-|  [03]   | `virtualizer.scrollToEnd({ behavior })` / `.scrollBy(delta, opts)` / `.isAtEnd(threshold?)`        | tail           |
-|  [04]   | `virtualizer.getOffsetForIndex(index, align)` / `.getDistanceFromEnd()` / `.takeSnapshot()`        | offset / probe |
-|  [05]   | `virtualizer.measure()`                                                                            | reset          |
+|  [03]   | `virtualizer.scrollToEnd({ behavior })` / `.scrollBy(delta, opts)` / `.isAtEnd(threshold?)`       | tail           |
+|  [04]   | `virtualizer.getOffsetForIndex(index, align)` / `.getDistanceFromEnd()` / `.takeSnapshot()`       | offset / probe |
+|  [05]   | `virtualizer.measure()`                                                                           | reset          |
 
 - [01]-[MEASURE]: real-size measurement via `ResizeObserver`; variable-height rows need no `estimateSize` precision.
 - [02]-[SCROLL_TO]: jump/smooth-scroll a row into view; `align: 'center'` for a selected `GlobalId` row reveal.

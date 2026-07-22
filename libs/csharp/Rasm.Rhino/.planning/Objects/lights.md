@@ -551,15 +551,15 @@ public static class Lights {
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]           | [OWNER]       | [FORM]                                                  | [ENTRY]                    |
-| :-----: | :------------------ | :------------ | :------------------------------------------------------ | :------------------------- |
-|  [01]   | kind capability     | `LightKind`   | world-style rows with modality columns and frozen index | `LightKind.Of`             |
-|  [02]   | detached read       | `LightStamp`  | whole light state with kernel cone and perceptual color | `Lights.Ask`               |
-|  [03]   | construction        | `LightSeed`   | one polymorphic mint, style written once                | `LightOp.Mint`             |
-|  [04]   | photometric power   | `Radiance`    | scale, watts, lumens, candela as one axis               | `LightEdit.Power`          |
-|  [05]   | property edits      | `LightEdit`   | kind-gated modalities over one working duplicate        | `LightOp.Amend`            |
-|  [06]   | table address       | `LightSelect` | every, index, id, and name onto index-paired rows       | `Lights.Ask` / `Commit`    |
-|  [07]   | commit consequence  | `LightFact`   | minted, amended, purged, revived onto the shared spine  | `Lights.Commit`            |
+| [INDEX] | [CONCERN]          | [OWNER]       | [FORM]                                                  | [ENTRY]                 |
+| :-----: | :----------------- | :------------ | :------------------------------------------------------ | :---------------------- |
+|  [01]   | kind capability    | `LightKind`   | world-style rows with modality columns and frozen index | `LightKind.Of`          |
+|  [02]   | detached read      | `LightStamp`  | whole light state with kernel cone and perceptual color | `Lights.Ask`            |
+|  [03]   | construction       | `LightSeed`   | one polymorphic mint, style written once                | `LightOp.Mint`          |
+|  [04]   | photometric power  | `Radiance`    | scale, watts, lumens, candela as one axis               | `LightEdit.Power`       |
+|  [05]   | property edits     | `LightEdit`   | kind-gated modalities over one working duplicate        | `LightOp.Amend`         |
+|  [06]   | table address      | `LightSelect` | every, index, id, and name onto index-paired rows       | `Lights.Ask` / `Commit` |
+|  [07]   | commit consequence | `LightFact`   | minted, amended, purged, revived onto the shared spine  | `Lights.Commit`         |
 
 ## [06]-[RESEARCH]
 

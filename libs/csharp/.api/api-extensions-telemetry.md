@@ -29,8 +29,8 @@ These attributes extend the in-box `[LoggerMessage]` generator; the generated-em
 [GOVERNANCE_TYPES]: sampling, buffering, enrichment, redaction
 - rail: log governance
 
-| [INDEX] | [SYMBOL]                              | [PACKAGE_ROLE]     | [CAPABILITY]                                                                                        |
-| :-----: | :------------------------------------ | :----------------- | :-------------------------------------------------------------------------------------------------- |
+| [INDEX] | [SYMBOL]                              | [PACKAGE_ROLE]     | [CAPABILITY]                                           |
+| :-----: | :------------------------------------ | :----------------- | :----------------------------------------------------- |
 |  [01]   | `RandomProbabilisticSamplerOptions`   | sampler rows       | `Rules` — per-category/level probability rows          |
 |  [02]   | `GlobalLogBufferingOptions`           | buffer square      | flush cadence, record and buffer byte caps, `Rules`    |
 |  [03]   | `GlobalLogBuffer` / `LogBuffer`       | buffer contract    | `Flush()` replays held records on incident             |
@@ -46,8 +46,8 @@ These attributes extend the in-box `[LoggerMessage]` generator; the generated-em
 [LATENCY_TYPES]: the in-flight latency ledger (contract assembly)
 - rail: log governance
 
-| [INDEX] | [SYMBOL]                                        | [PACKAGE_ROLE]  | [CAPABILITY]                                                                      |
-| :-----: | :---------------------------------------------- | :-------------- | :-------------------------------------------------------------------------------- |
+| [INDEX] | [SYMBOL]                                        | [PACKAGE_ROLE]  | [CAPABILITY]                                         |
+| :-----: | :---------------------------------------------- | :-------------- | :--------------------------------------------------- |
 |  [01]   | `ILatencyContext`                               | ledger contract | checkpoint, measure, and tag verbs over one ledger   |
 |  [02]   | `ILatencyContextProvider`                       | pool contract   | `CreateContext()` per operation                      |
 |  [03]   | `ILatencyContextTokenIssuer`                    | token mint      | `GetCheckpointToken`/`GetMeasureToken`/`GetTagToken` |
@@ -63,19 +63,19 @@ These attributes extend the in-box `[LoggerMessage]` generator; the generated-em
 [ENTRYPOINT_SCOPE]: activation on `ILoggingBuilder` and `IServiceCollection`
 - rail: log governance
 
-| [INDEX] | [SURFACE]                                                               | [KIND]            | [CAPABILITY]                                                    |
-| :-----: | :---------------------------------------------------------------------- | :---------------- | :-------------------------------------------------------------- |
-|  [01]   | `AddTraceBasedSampler`                                                  | volume            | slaves log volume to the trace verdict          |
-|  [02]   | `AddRandomProbabilisticSampler`                                         | volume            | probability and max-level rule rows             |
-|  [03]   | `AddGlobalBuffer`                                                       | buffering         | level, options, and configuration overloads     |
-|  [04]   | `EnableEnrichment`                                                      | enrichment        | activates both enricher cost classes            |
-|  [05]   | `EnableRedaction`                                                       | redaction         | activates the seam; options-delegate overload   |
-|  [06]   | `AddLogEnricher<T>` / `AddStaticLogEnricher<T>`                         | enricher rows     | generic and instance registration               |
-|  [07]   | `AddServiceLogEnricher` / `AddApplicationLogEnricher`                   | shipped enrichers | service metadata enricher rows                  |
-|  [08]   | `AddProcessLogEnricher`                                                 | shipped enricher  | process id/thread rows                          |
-|  [09]   | `AddLatencyContext`                                                     | latency ledger    | registers provider, pool, and token issuer      |
-|  [10]   | `RegisterCheckpointNames`                                               | vocabulary        | `params string[]` rows; measure and tag mirrors |
-|  [11]   | `AddConsoleLatencyDataExporter`                                         | latency export    | console exporter; options/section overloads     |
+| [INDEX] | [SURFACE]                                             | [KIND]            | [CAPABILITY]                                    |
+| :-----: | :---------------------------------------------------- | :---------------- | :---------------------------------------------- |
+|  [01]   | `AddTraceBasedSampler`                                | volume            | slaves log volume to the trace verdict          |
+|  [02]   | `AddRandomProbabilisticSampler`                       | volume            | probability and max-level rule rows             |
+|  [03]   | `AddGlobalBuffer`                                     | buffering         | level, options, and configuration overloads     |
+|  [04]   | `EnableEnrichment`                                    | enrichment        | activates both enricher cost classes            |
+|  [05]   | `EnableRedaction`                                     | redaction         | activates the seam; options-delegate overload   |
+|  [06]   | `AddLogEnricher<T>` / `AddStaticLogEnricher<T>`       | enricher rows     | generic and instance registration               |
+|  [07]   | `AddServiceLogEnricher` / `AddApplicationLogEnricher` | shipped enrichers | service metadata enricher rows                  |
+|  [08]   | `AddProcessLogEnricher`                               | shipped enricher  | process id/thread rows                          |
+|  [09]   | `AddLatencyContext`                                   | latency ledger    | registers provider, pool, and token issuer      |
+|  [10]   | `RegisterCheckpointNames`                             | vocabulary        | `params string[]` rows; measure and tag mirrors |
+|  [11]   | `AddConsoleLatencyDataExporter`                       | latency export    | console exporter; options/section overloads     |
 
 `RegisterMeasureNames` and `RegisterTagNames` mirror the checkpoint registration for the other two token kinds.
 

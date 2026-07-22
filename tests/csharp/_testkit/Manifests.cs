@@ -4,7 +4,7 @@ using System.Xml.Linq;
 
 namespace Rasm.TestKit;
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 // Parsed csproj projection: manifest facts only — reference topology and central-version
 // discipline. Package rosters are never asserted from here.
 public sealed record ProjectFacts(string RelativePath, FrozenSet<string> ProjectReferences, FrozenSet<string> VersionedPackages);
@@ -15,7 +15,7 @@ public sealed record CorpusEntry(FileInfo Source, string RelativePath, UInt128 K
     public byte[] Bytes() => File.ReadAllBytes(path: Source.FullName);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Manifests {
     // The workspace root resolves once per process by walking up from test output to the slnx.
     private static readonly Lazy<DirectoryInfo> Workspace = new(valueFactory: static () => {

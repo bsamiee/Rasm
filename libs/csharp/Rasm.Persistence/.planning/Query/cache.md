@@ -348,13 +348,13 @@ public sealed record BenchmarkRow {
 }
 ```
 
-| [INDEX] | [POLICY]        | [VALUE]                             | [BINDING]                                      |
-| :-----: | :-------------- | :---------------------------------- | :--------------------------------------------- |
-|  [01]   | claim gate      | fingerprint-match + latest survivor | a wrong-host or stale claim never wins a route |
-|  [02]   | recency bound   | closed index horizon and clock      | `ModelResultIndex.Of`; no bypass shape         |
-|  [03]   | head fold       | one `MostRecent` reduction          | no full `OrderByDescending` materialization    |
-|  [04]   | retention class | `cache` (re-derivable by re-sweep)  | the sweep governs eviction; never never-evict  |
-|  [05]   | corpus roster   | one `BenchmarkFamily` row per family | typed case mint derives the complete row key   |
+| [INDEX] | [POLICY]        | [VALUE]                              | [BINDING]                                         |
+| :-----: | :-------------- | :----------------------------------- | :------------------------------------------------ |
+|  [01]   | claim gate      | fingerprint-match + latest survivor  | a wrong-host or stale claim never wins a route    |
+|  [02]   | recency bound   | closed index horizon and clock       | `ModelResultIndex.Of`; no bypass shape            |
+|  [03]   | head fold       | one `MostRecent` reduction           | no full `OrderByDescending` materialization       |
+|  [04]   | retention class | `cache` (re-derivable by re-sweep)   | the sweep governs eviction; never never-evict     |
+|  [05]   | corpus roster   | one `BenchmarkFamily` row per family | typed case mint derives the complete row key      |
 |  [06]   | measurement src | `Summary.ResultStatistics`/`GcStats` | the BenchmarkDotNet graph; never a Stopwatch loop |
 
 ## [05]-[L2_CONTRIBUTION]
@@ -515,16 +515,16 @@ public sealed class CacheBackplane(IConnectionMultiplexer connection, HybridCach
 }
 ```
 
-| [INDEX] | [POLICY]               | [VALUE]                                         | [BINDING]                                                     |
-| :-----: | :--------------------- | :---------------------------------------------- | :------------------------------------------------------------ |
-|  [01]   | one L2 store           | `IBufferDistributedCache` buffer contract       | bare `IDistributedCache` forces an extra runtime-copy         |
-|  [02]   | one serializer         | `IHybridCacheSerializerFactory`                 | the `messagepack` `SnapshotCodec.Binary` row                  |
-|  [03]   | tenant partition       | `Scoped` over `TenantId` digest                 | a cross-tenant L2 bucket collision is unrepresentable         |
-|  [04]   | lane L1/L2 routing     | the AppHost `HybridCacheEntryFlags`             | `DisableLocalCache` on the blob lane                          |
-|  [05]   | one cache owner        | L2+codec here, L1+stampede+tag AppHost          | composed at `CacheSurface.Register`; never a second owner     |
-|  [06]   | invalidation backplane | `Beat` tags / RESP3 tracking keys               | `RemoveByTagAsync` / `RemoveAsync`; null tracking flushes tag |
-|  [07]   | GH-plugin root profile | raster-byte `IHybridCacheSerializer` admission  | `MaximumPayloadBytes` sized to the largest canvas raster      |
-|  [08]   | GH-plugin tag metering | `ReportTagMetrics = true`                       | `gh-doc:{documentId:N}` the per-document dimension            |
+| [INDEX] | [POLICY]               | [VALUE]                                        | [BINDING]                                                     |
+| :-----: | :--------------------- | :--------------------------------------------- | :------------------------------------------------------------ |
+|  [01]   | one L2 store           | `IBufferDistributedCache` buffer contract      | bare `IDistributedCache` forces an extra runtime-copy         |
+|  [02]   | one serializer         | `IHybridCacheSerializerFactory`                | the `messagepack` `SnapshotCodec.Binary` row                  |
+|  [03]   | tenant partition       | `Scoped` over `TenantId` digest                | a cross-tenant L2 bucket collision is unrepresentable         |
+|  [04]   | lane L1/L2 routing     | the AppHost `HybridCacheEntryFlags`            | `DisableLocalCache` on the blob lane                          |
+|  [05]   | one cache owner        | L2+codec here, L1+stampede+tag AppHost         | composed at `CacheSurface.Register`; never a second owner     |
+|  [06]   | invalidation backplane | `Beat` tags / RESP3 tracking keys              | `RemoveByTagAsync` / `RemoveAsync`; null tracking flushes tag |
+|  [07]   | GH-plugin root profile | raster-byte `IHybridCacheSerializer` admission | `MaximumPayloadBytes` sized to the largest canvas raster      |
+|  [08]   | GH-plugin tag metering | `ReportTagMetrics = true`                      | `gh-doc:{documentId:N}` the per-document dimension            |
 
 ## [06]-[INDEX_RESIDENCY]
 

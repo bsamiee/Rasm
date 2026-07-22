@@ -410,15 +410,15 @@ public static class Projections {
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]              | [OWNER]             | [FORM]                                              | [ENTRY]                          |
-| :-----: | :--------------------- | :------------------ | :-------------------------------------------------- | :------------------------------- |
-|  [01]   | projection frame       | `ProjectionFrame`   | snapshot / pose / plan / directed value frames      | `ProjectionOp` frame payloads    |
-|  [02]   | drawing sources        | `ProjectionSubject` | leased handle with placement / clip / occluding rows | `ProjectionOp.Drawing`           |
-|  [03]   | drawing flags          | `DrawingLaw`        | whole parameter surface as one regime-toleranced value | `Rig` inside the drawing arm   |
-|  [04]   | cancellable compute    | `ProjectionPacing`  | cancel + progress + thread grant as one policy row  | `DrawingLaw.Pacing`              |
-|  [05]   | silhouette eye         | `SilhouetteFrame`   | perspective point / parallel direction / rigged frame | `ProjectionOp.Outline`         |
-|  [06]   | classified consequence | `ProjectionSlot`    | visibility, correspondence, frame, and bounds facts  | `Built<ProjectionSlot>.Evidence` |
-|  [07]   | projection verbs       | `ProjectionOp`      | one flat `[Union]` under total generated dispatch   | `Projections.Build`              |
+| [INDEX] | [CONCERN]              | [OWNER]             | [FORM]                                                 | [ENTRY]                          |
+| :-----: | :--------------------- | :------------------ | :----------------------------------------------------- | :------------------------------- |
+|  [01]   | projection frame       | `ProjectionFrame`   | snapshot / pose / plan / directed value frames         | `ProjectionOp` frame payloads    |
+|  [02]   | drawing sources        | `ProjectionSubject` | leased handle with placement / clip / occluding rows   | `ProjectionOp.Drawing`           |
+|  [03]   | drawing flags          | `DrawingLaw`        | whole parameter surface as one regime-toleranced value | `Rig` inside the drawing arm     |
+|  [04]   | cancellable compute    | `ProjectionPacing`  | cancel + progress + thread grant as one policy row     | `DrawingLaw.Pacing`              |
+|  [05]   | silhouette eye         | `SilhouetteFrame`   | perspective point / parallel direction / rigged frame  | `ProjectionOp.Outline`           |
+|  [06]   | classified consequence | `ProjectionSlot`    | visibility, correspondence, frame, and bounds facts    | `Built<ProjectionSlot>.Evidence` |
+|  [07]   | projection verbs       | `ProjectionOp`      | one flat `[Union]` under total generated dispatch      | `Projections.Build`              |
 
 ## [06]-[RESEARCH]
 

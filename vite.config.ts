@@ -8,7 +8,7 @@ import { Effect } from 'effect';
 import { defineConfig, type UserConfig } from 'vite';
 import { createConfig } from './vite.factory.ts';
 
-// --- [EXPORTS] ---------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 const { build: _build, ...anchor } = Effect.runSync(
     createConfig({

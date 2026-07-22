@@ -9,7 +9,7 @@ Glb owns content-keyed scene residency behind a `three` or `<model-viewer>` back
 |  [01]   | `VIEWPORT_PORT`   | the `GlbViewport` port — residency ledger read + verified-arrival ingress as a Tag | `GlbViewport` |
 |  [02]   | `FAULT_FAMILY`    | `GlbFault` — the closed reason vocabulary and its policy table                     | `GlbFault`    |
 |  [03]   | `BACKEND_SELECT`  | the backend literal, renderer acquisition, output policy, light rig, compute lane  | `Glb`         |
-|  [04]   | `RESIDENCY_GRAFT` | the asset-identity roster, codec-injected loader, and graft/dispose/animate fold | `Glb`         |
+|  [04]   | `RESIDENCY_GRAFT` | the asset-identity roster, codec-injected loader, and graft/dispose/animate fold   | `Glb`         |
 |  [05]   | `DRAW_COLLAPSE`   | merge/instanced/batched rows — repeated element geometry as bounded draw calls     | `Glb`         |
 |  [06]   | `APPEARANCE_BIND` | the OpenPBR lobe assignment, color contract, census resolve, node-material mirror  | `Pbr`         |
 |  [07]   | `INSTANCED_ROWS`  | `@deck.gl/mesh-layers` — georeferenced element instances as deck layer values      | `Instanced`   |

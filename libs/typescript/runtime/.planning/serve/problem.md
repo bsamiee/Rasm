@@ -5,7 +5,7 @@ The outbound-fault law of the front door: every fault leaving the branch over HT
 ## [01]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]           | [OWNS]                                                                      | [PUBLIC]  |
-| :-----: | :------------------ | :--------------------------------------------------------------------------- | :-------- |
+| :-----: | :------------------ | :-------------------------------------------------------------------------- | :-------- |
 |  [01]   | `STATUS_RECORD`     | the class-to-status governed record, type-slug derivation, grace resolution | interior  |
 |  [02]   | `REDACTION_ROWS`    | blame-derived exposure, the structural extension band, the redact fold      | interior  |
 |  [03]   | `UPSTREAM_ROWS`     | the wire-fault projection over structural `retryable`/`terminal` facts      | interior  |

@@ -7,7 +7,7 @@ using Xunit.Sdk;
 
 namespace Rasm.TestKit;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 // One call-shape family: each case is a DISTINCT substitution behavior — Canned repeats one value,
 // FanOut walks its sequence across successive calls, Factory records its inner label payload-free.
 // The generated Switch is the sole dispatch; async seams can a completed task via TValue itself.
@@ -28,7 +28,7 @@ public abstract partial record VariantPayload {
     public sealed record Encoded(object Value) : VariantPayload;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 // One typed captured invocation: the resolution-site member and the caller-typed payload; a
 // Factory substitution records its inner label with no payload, so absence is `None`, never null.
 // Equality is reflection-free by design: LanguageExt trait resolution enumerates referenced
@@ -54,7 +54,7 @@ public readonly record struct SeamRestore(Action Restore) : IDisposable {
     public void Dispose() => Restore();
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 // SeamProbe is the recording substitution host: an Atom call log threads every invocation, and
 // Install hands back a LIFO restore so nested seam swaps unwind in reverse bind order.
 public sealed class SeamProbe<TArgs> {

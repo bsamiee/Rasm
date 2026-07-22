@@ -6,12 +6,12 @@ Poison never wedges a lane: a failing event diverts to a typed quarantine and th
 
 ## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]      | [OWNS]                                                                          |
-| :-----: | :------------- | :------------------------------------------------------------------------------ |
-|  [01]   | `LANE_SPEC`    | the plan-bound lane value, the keyed relation, the realized `AsOf` coordinate   |
-|  [02]   | `INLINE_SLOT`  | the zero-staleness lane — the slot the publish transaction executes             |
-|  [03]   | `DRAIN_ACTOR`  | checkpoint ledger, SKIP-LOCKED claim, wake merge, quarantine, the machine Layer |
-|  [04]   | `MAINTENANCE`  | cron/ivm/incremental rows and the shadow-table rebuild with atomic swap         |
+| [INDEX] | [CLUSTER]     | [OWNS]                                                                          |
+| :-----: | :------------ | :------------------------------------------------------------------------------ |
+|  [01]   | `LANE_SPEC`   | the plan-bound lane value, the keyed relation, the realized `AsOf` coordinate   |
+|  [02]   | `INLINE_SLOT` | the zero-staleness lane — the slot the publish transaction executes             |
+|  [03]   | `DRAIN_ACTOR` | checkpoint ledger, SKIP-LOCKED claim, wake merge, quarantine, the machine Layer |
+|  [04]   | `MAINTENANCE` | cron/ivm/incremental rows and the shadow-table rebuild with atomic swap         |
 
 ## [02]-[LANE_SPEC]
 
@@ -186,36 +186,6 @@ const _inline = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>) 
 - RESEARCH: the `pg_incremental` create-pipeline statement spelling gates only `[5]`'s incremental row, not this actor; the serializable upgrade (`Machine.makeSerializable` with snapshot/restore) is deliberately NOT taken — the checkpoint row is already the durable resume coordinate, so serialized actor state mints a second authority beside it.
 
 ```mermaid conceptual
----
-config:
-  theme: base
-  look: classic
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    noteBkgColor: "#44475A"
-    noteTextColor: "#F8F8F2"
-    noteBorderColor: "#6272A4"
-    actorBkg: "#44475A"
-    actorBorder: "#BD93F9"
-    actorTextColor: "#F8F8F2"
-    actorLineColor: "#6272A4"
-    signalColor: "#FF79C6"
-    signalTextColor: "#F8F8F2"
-    sequenceNumberColor: "#282A36"
-    activationBkgColor: "#44475A"
-    activationBorderColor: "#BD93F9"
-    loopTextColor: "#F8F8F2"
-    labelBoxBkgColor: "#21222C"
-    labelBoxBorderColor: "#D6BCFA"
-    labelTextColor: "#F8F8F2"
-  themeCSS: "text.actor tspan{font-size:13px;font-weight:600}.messageText{font-size:12px;font-weight:500}.noteText{font-size:12px}.loopText,.labelText{font-size:12px;font-weight:500}.messageLine0{stroke-width:2px}.messageLine1{stroke-width:1.5px;stroke-dasharray:4 6}.actor{stroke-width:1.5px}rect.actor{filter:none!important}[id$='-filled-head'] path{fill:#FF79C6;stroke:#FF79C6}"
----
 sequenceDiagram
   accTitle: Projection drain transaction
   accDescr: A wake drives one claimed journal page through fold, quarantine, and checkpoint advancement.

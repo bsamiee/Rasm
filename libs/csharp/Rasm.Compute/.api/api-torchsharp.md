@@ -113,42 +113,42 @@ DETERMINISTIC NATIVE-MEMORY LIFETIME governs the binding. Each `Tensor` owns a n
 - rail: compute
 - note: tuple returns such as `(Tensor U, Tensor S, Tensor Vh)` carry native handles the rail promotes or disposes. `_ex` variants return status through `info`; non-zero status maps to typed `FactorFault` without exception control flow.
 
-| [INDEX] | [SURFACE]                                                    | [FACTOR_FAMILY] | [CAPABILITY]                   |
-| :-----: | :----------------------------------------------------------- | :-------------- | :----------------------------- |
-|  [01]   | `cholesky(Tensor)`                                           | SPD factor      | Cholesky of an SPD matrix      |
-|  [02]   | `cholesky_ex(Tensor, check_errors) -> (L, info)`             | SPD factor      | + per-batch `info` status      |
-|  [03]   | `eig(Tensor) -> (vals, vecs)`                                | spectral        | general eigendecomposition     |
-|  [04]   | `eigh(Tensor, UPLO) -> (vals, vecs)`                         | spectral        | Hermitian eigendecomposition   |
-|  [05]   | `eigvals(Tensor)` / `eigvalsh(Tensor)`                       | spectral        | eigenvalues only               |
-|  [06]   | `svd(Tensor, fullMatrices) -> (U, S, Vh)`                    | SVD             | full/thin SVD                  |
-|  [07]   | `svdvals(Tensor)`                                            | SVD             | singular values only           |
-|  [08]   | `qr(Tensor, QRMode) -> (Q, R)`                               | orthogonal      | QR (`Reduced`/`Complete`/`R`)  |
-|  [09]   | `lu(Tensor, pivot) -> (P, L, U)`                             | LU              | pivoted LU factor              |
-|  [10]   | `lu_factor(Tensor, pivot) -> (LU, Pivots?)`                  | LU              | LU factor + pivots             |
-|  [11]   | `lu_solve(LU, pivots, B, left, adjoint)`                     | LU              | LU solve                       |
-|  [12]   | `ldl_factor(Tensor, hermitian)`                              | LDL             | LDL factor                     |
-|  [13]   | `ldl_factor_ex(…) -> (LU, Pivots?, Info?)`                   | LDL             | LDL factor + `info`            |
-|  [14]   | `ldl_solve(LD, pivots, B, hermitian)`                        | LDL             | LDL solve                      |
-|  [15]   | `solve(A, B, left)`                                          | solve           | dense linear solve             |
-|  [16]   | `solve_ex(A, B, left, check_errors) -> (result, info)`       | solve           | dense solve + `info`           |
-|  [17]   | `solve_triangular(A, B, upper, left, unitriangular, out)`    | solve           | triangular solve               |
-|  [18]   | `lstsq(A, B) -> (Solution, Residuals, Rank, SingularValues)` | least-squares   | OLS/GLM least-squares          |
-|  [19]   | `lstsq(A, B, rcond)`                                         | least-squares   | with rcond cutoff              |
-|  [19a]  | `lstsq` driverless: CPU runs `gelsy` — `Rank` valid, `SingularValues`/`Residuals` EMPTY tensors | least-squares | gate on rank; sigma floor only when present |
-|  [20]   | `pinv(Tensor, atol?, rtol?, hermitian)`                      | inverse         | Moore-Penrose pseudoinverse    |
-|  [21]   | `inv(Tensor)`                                                | inverse         | inverse                        |
-|  [22]   | `inv_ex(Tensor, check_errors) -> (L, info)`                  | inverse         | inverse + `info`               |
-|  [23]   | `det(Tensor)`                                                | determinant     | determinant                    |
-|  [24]   | `slogdet(Tensor) -> (sign, logabsdet)`                       | determinant     | stable sign+log-abs-det        |
-|  [25]   | `matrix_rank(Tensor, atol?, rtol?, hermitian)`               | numeric         | numerical rank                 |
-|  [26]   | `cond(Tensor, p)`                                            | numeric         | condition number               |
-|  [27]   | `multi_dot(IList<Tensor>)`                                   | numeric         | optimal multi-product chaining |
-|  [28]   | `matrix_exp(Tensor)`                                         | numeric         | matrix exponential             |
-|  [29]   | `cross(input, other, dim)`                                   | vector/util     | cross product                  |
-|  [30]   | `vecdot(x, y, dim, out)`                                     | vector/util     | batched vector dot             |
-|  [31]   | `householder_product(A, tau)`                                | vector/util     | Householder reconstruction     |
-|  [32]   | `vander(input, N)`                                           | vector/util     | Vandermonde                    |
-|  [33]   | `tensorinv(input, ind)`                                      | vector/util     | tensor inverse                 |
+| [INDEX] | [SURFACE]                                                    | [FACTOR_FAMILY] | [CAPABILITY]                                     |
+| :-----: | :----------------------------------------------------------- | :-------------- | :----------------------------------------------- |
+|   [01]  | `cholesky(Tensor)`                                           | SPD factor      | Cholesky of an SPD matrix                        |
+|   [02]  | `cholesky_ex(Tensor, check_errors) -> (L, info)`             | SPD factor      | + per-batch `info` status                        |
+|   [03]  | `eig(Tensor) -> (vals, vecs)`                                | spectral        | general eigendecomposition                       |
+|   [04]  | `eigh(Tensor, UPLO) -> (vals, vecs)`                         | spectral        | Hermitian eigendecomposition                     |
+|   [05]  | `eigvals(Tensor)` / `eigvalsh(Tensor)`                       | spectral        | eigenvalues only                                 |
+|   [06]  | `svd(Tensor, fullMatrices) -> (U, S, Vh)`                    | SVD             | full/thin SVD                                    |
+|   [07]  | `svdvals(Tensor)`                                            | SVD             | singular values only                             |
+|   [08]  | `qr(Tensor, QRMode) -> (Q, R)`                               | orthogonal      | QR (`Reduced`/`Complete`/`R`)                    |
+|   [09]  | `lu(Tensor, pivot) -> (P, L, U)`                             | LU              | pivoted LU factor                                |
+|   [10]  | `lu_factor(Tensor, pivot) -> (LU, Pivots?)`                  | LU              | LU factor + pivots                               |
+|   [11]  | `lu_solve(LU, pivots, B, left, adjoint)`                     | LU              | LU solve                                         |
+|   [12]  | `ldl_factor(Tensor, hermitian)`                              | LDL             | LDL factor                                       |
+|   [13]  | `ldl_factor_ex(…) -> (LU, Pivots?, Info?)`                   | LDL             | LDL factor + `info`                              |
+|   [14]  | `ldl_solve(LD, pivots, B, hermitian)`                        | LDL             | LDL solve                                        |
+|   [15]  | `solve(A, B, left)`                                          | solve           | dense linear solve                               |
+|   [16]  | `solve_ex(A, B, left, check_errors) -> (result, info)`       | solve           | dense solve + `info`                             |
+|   [17]  | `solve_triangular(A, B, upper, left, unitriangular, out)`    | solve           | triangular solve                                 |
+|   [18]  | `lstsq(A, B) -> (Solution, Residuals, Rank, SingularValues)` | least-squares   | OLS/GLM least-squares                            |
+|   [19]  | `lstsq(A, B, rcond)`                                         | least-squares   | with rcond cutoff                                |
+|   [20]  | `lstsq` CPU driver (`gelsy`)                                 | least-squares   | `Rank` valid; `SingularValues`/`Residuals` empty |
+|   [21]  | `pinv(Tensor, atol?, rtol?, hermitian)`                      | inverse         | Moore-Penrose pseudoinverse                      |
+|   [22]  | `inv(Tensor)`                                                | inverse         | inverse                                          |
+|   [23]  | `inv_ex(Tensor, check_errors) -> (L, info)`                  | inverse         | inverse + `info`                                 |
+|   [24]  | `det(Tensor)`                                                | determinant     | determinant                                      |
+|   [25]  | `slogdet(Tensor) -> (sign, logabsdet)`                       | determinant     | stable sign+log-abs-det                          |
+|   [26]  | `matrix_rank(Tensor, atol?, rtol?, hermitian)`               | numeric         | numerical rank                                   |
+|   [27]  | `cond(Tensor, p)`                                            | numeric         | condition number                                 |
+|   [28]  | `multi_dot(IList<Tensor>)`                                   | numeric         | optimal multi-product chaining                   |
+|   [29]  | `matrix_exp(Tensor)`                                         | numeric         | matrix exponential                               |
+|   [30]  | `cross(input, other, dim)`                                   | vector/util     | cross product                                    |
+|   [31]  | `vecdot(x, y, dim, out)`                                     | vector/util     | batched vector dot                               |
+|   [32]  | `householder_product(A, tau)`                                | vector/util     | Householder reconstruction                       |
+|   [33]  | `vander(input, N)`                                           | vector/util     | Vandermonde                                      |
+|   [34]  | `tensorinv(input, ind)`                                      | vector/util     | tensor inverse                                   |
 
 - [SPD]: kernel-SVM and GP covariance.
 - [SPECTRAL]: PCA, spectral clustering, and GMM covariance.
@@ -156,7 +156,7 @@ DETERMINISTIC NATIVE-MEMORY LIFETIME governs the binding. Each `Tensor` owns a n
 - [ORTHOGONAL]: orthogonalization and least-squares conditioning.
 - [LU]: general dense linear systems.
 - [SOLVE]: IRLS normal equations and ridge solves.
-- [LEAST_SQUARES]: OLS/GLM rank, residual, and singular-value receipts.
+- [LEAST_SQUARES]: OLS/GLM rank, residual, and singular-value receipts; `lstsq` [18]/[19] on the osx-arm64 CPU floor runs the driverless `gelsy` path [20] — `Rank` populates while `SingularValues`/`Residuals` return empty tensors, so the fit gates on `Rank` and applies the sigma floor only when `SingularValues` is present.
 - [INVERSE]: damped pseudoinverse and Jacobian routes.
 - [DETERMINANT]: Gaussian log-likelihood and MLE terms.
 

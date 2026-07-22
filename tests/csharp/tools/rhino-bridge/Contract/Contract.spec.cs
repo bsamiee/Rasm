@@ -7,7 +7,7 @@ using StreamJsonRpc.Reflection;
 
 namespace Rasm.Bridge.Contract.Tests;
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 internal static class WireGens {
     public static readonly EventStamp Stamp = new(SessionId: Guid.Parse(input: "6a8e6c1e-9f5a-4d2c-8b8e-2f1a3c4d5e6f"), Sequence: 17, AtUnixMs: 1_765_432_100_123, Scenario: "blocks.baseline");
@@ -75,7 +75,7 @@ internal static class RpcPair {
     }
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public sealed class RpcProxyLaws {
     [Fact]

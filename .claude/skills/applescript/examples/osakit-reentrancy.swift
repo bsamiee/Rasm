@@ -9,12 +9,12 @@ import Foundation
 // both receives and re-sends, so the script the handler runs targets this same class and id.
 private let hostSuite = AEEventClass(0x5368_6170)
 private let renderVerb = AEEventID(0x526E_6472)
-// 'Rent' — a host-owned reply keyword, since the reentrancy fact belongs to this suite and no
-// registry keyword carries it.
+/// 'Rent' — a host-owned reply keyword, since the reentrancy fact belongs to this suite and no
+/// registry keyword carries it.
 private let reentrantKey = AEKeyword(0x5265_6E74)
 
-// Host-domain fault numbers stay out of the Apple Event Manager's negative range, so a receipt never
-// reads a host refusal as a transport status.
+/// Host-domain fault numbers stay out of the Apple Event Manager's negative range, so a receipt never
+/// reads a host refusal as a transport status.
 private enum HostFault {
     static let depthExceeded: Int32 = 9300
     static let suspensionUnavailable: Int32 = 9301
@@ -79,7 +79,7 @@ final class ReentrantRenderHost: NSObject {
         }
     }
 
-    // A reply the sender requested none of reads typeNull, and writing into it corrupts an unowned slot.
+    /// A reply the sender requested none of reads typeNull, and writing into it corrupts an unowned slot.
     private func write(fault: Int32, message: String, into reply: NSAppleEventDescriptor) {
         guard reply.descriptorType != typeNull else { return }
         reply.setParam(.init(int32: fault), forKeyword: keyErrorNumber)

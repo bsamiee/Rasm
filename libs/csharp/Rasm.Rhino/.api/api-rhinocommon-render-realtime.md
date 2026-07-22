@@ -19,34 +19,34 @@
 
 `ChangeQueue` is the abstract owner; a render engine subclasses it and overrides only the `Apply*` hooks it needs. Every payload is a native-backed immutable snapshot minted internally and delivered to a hook — none carry a public constructor, and each exposes get-only reads of the scene state at snapshot time.
 
-| [INDEX] | [SYMBOL]                    | [KIND]              | [CAPABILITY]                                                          |
-| :-----: | :-------------------------- | :------------------ | :------------------------------------------------------------------- |
-|  [01]   | `ChangeQueue`               | abstract queue      | scene snapshot, change streaming, content/id resolution, bake policy |
-|  [02]   | `Mesh`                      | geometry snapshot   | single mesh, mapping channels, OCS transform, original-object access |
-|  [03]   | `MeshInstance`              | instance snapshot   | instance/root/parent ids, material, transform, block ancestry, decals |
-|  [04]   | `Light`                     | light snapshot      | id, CRC, free-floating `Geometry.Light` data, change-type            |
-|  [05]   | `Material`                  | material snapshot   | mesh-instance and material CRC ids                                    |
-|  [06]   | `Environment`              | environment snapshot | frame-buffer fill-mode vocabulary carrier                            |
-|  [07]   | `Skylight`                  | skylight snapshot   | enable, custom-environment flag, shadow intensity                    |
-|  [08]   | `GroundPlane`               | ground snapshot     | altitude, shadow-only, material CRC, texture scale/offset/rotation   |
-|  [09]   | `ClippingPlane`             | clip snapshot       | plane, enable, id, per-viewport clip scope                           |
-|  [10]   | `DynamicObjectTransform`    | dynamic-xform       | mesh-instance id and live drag transform                             |
-|  [11]   | `DisplayRenderSettings`     | display-render flags | cull-backfaces, flat-shading, scene-lighting display flags           |
-|  [12]   | `MappingChannel`            | mapping snapshot    | channel index, local transform, `TextureMapping`                     |
-|  [13]   | `MappingChannelCollection`  | mapping set         | indexable channel container with single-mapping collapse             |
+| [INDEX] | [SYMBOL]                   | [KIND]               | [CAPABILITY]                                                          |
+| :-----: | :------------------------- | :------------------- | :-------------------------------------------------------------------- |
+|  [01]   | `ChangeQueue`              | abstract queue       | scene snapshot, change streaming, content/id resolution, bake policy  |
+|  [02]   | `Mesh`                     | geometry snapshot    | single mesh, mapping channels, OCS transform, original-object access  |
+|  [03]   | `MeshInstance`             | instance snapshot    | instance/root/parent ids, material, transform, block ancestry, decals |
+|  [04]   | `Light`                    | light snapshot       | id, CRC, free-floating `Geometry.Light` data, change-type             |
+|  [05]   | `Material`                 | material snapshot    | mesh-instance and material CRC ids                                    |
+|  [06]   | `Environment`              | environment snapshot | frame-buffer fill-mode vocabulary carrier                             |
+|  [07]   | `Skylight`                 | skylight snapshot    | enable, custom-environment flag, shadow intensity                     |
+|  [08]   | `GroundPlane`              | ground snapshot      | altitude, shadow-only, material CRC, texture scale/offset/rotation    |
+|  [09]   | `ClippingPlane`            | clip snapshot        | plane, enable, id, per-viewport clip scope                            |
+|  [10]   | `DynamicObjectTransform`   | dynamic-xform        | mesh-instance id and live drag transform                              |
+|  [11]   | `DisplayRenderSettings`    | display-render flags | cull-backfaces, flat-shading, scene-lighting display flags            |
+|  [12]   | `MappingChannel`           | mapping snapshot     | channel index, local transform, `TextureMapping`                      |
+|  [13]   | `MappingChannelCollection` | mapping set          | indexable channel container with single-mapping collapse              |
 
 [PUBLIC_TYPE_SCOPE]: realtime display engine, async context, and light manager
 - rail: realtime-render boundary
 
 `RealtimeDisplayMode` is the realtime engine host a subclass implements; `RealtimeDisplayModeClassInfo` registers it; `AsyncRenderContext` owns an async render thread; `LightManagerSupport` is the abstract custom-light-manager base. `LightArray` and `LightMangerSupportCustomEvent` (host misspelling preserved) are the light-manager collaborators.
 
-| [INDEX] | [SYMBOL]                       | [KIND]             | [CAPABILITY]                                                       |
-| :-----: | :----------------------------- | :----------------- | :----------------------------------------------------------------- |
-|  [01]   | `RealtimeDisplayMode`          | realtime engine    | render-size/start/shutdown lifecycle, framebuffer + HUD hooks      |
-|  [02]   | `RealtimeDisplayModeClassInfo` | registration descr | name, GUID, OpenGL flag, type, required display technology         |
-|  [03]   | `AsyncRenderContext`           | async engine base  | render-thread start/join, cancel-gated stop, disposal              |
-|  [04]   | `LightManagerSupport`          | light-manager base | custom light CRUD, solo storage, custom-event dispatch             |
-|  [05]   | `LightArray`                   | light container    | `ref`-passed light set the manager CRUD reads and writes           |
+| [INDEX] | [SYMBOL]                       | [KIND]             | [CAPABILITY]                                                  |
+| :-----: | :----------------------------- | :----------------- | :------------------------------------------------------------ |
+|  [01]   | `RealtimeDisplayMode`          | realtime engine    | render-size/start/shutdown lifecycle, framebuffer + HUD hooks |
+|  [02]   | `RealtimeDisplayModeClassInfo` | registration descr | name, GUID, OpenGL flag, type, required display technology    |
+|  [03]   | `AsyncRenderContext`           | async engine base  | render-thread start/join, cancel-gated stop, disposal         |
+|  [04]   | `LightManagerSupport`          | light-manager base | custom light CRUD, solo storage, custom-event dispatch        |
+|  [05]   | `LightArray`                   | light container    | `ref`-passed light set the manager CRUD reads and writes      |
 
 [ENUM_ROSTERS]:
 - `[Flags] [CLSCompliant(false)] public enum Rhino.Render.ChangeQueue.ChangeQueue.BakingFunctions : uint` — `None = 0`, `Decals = 1`, `ProceduralTextures = 2`, `CustomObjectMappings = 4`, `WcsBasedMappings = 8`, `MultipleMappingChannels = 0x10`, `NoRepeatTextures = 0x20`, `All = uint.MaxValue`; the `BakeFor` override return.

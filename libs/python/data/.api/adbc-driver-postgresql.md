@@ -36,7 +36,7 @@
 | [INDEX] | [SURFACE]       | [CALL_SHAPE]                                                                     | [CAPABILITY]                    |
 | :-----: | :-------------- | :------------------------------------------------------------------------------- | :------------------------------ |
 |  [01]   | `connect`       | `connect(uri, db_kwargs=) -> AdbcDatabase`                                       | low-level libpq database handle |
-|  [02]   | `dbapi.connect` | `connect(uri, db_kwargs=, conn_kwargs=, *, autocommit=, **kwargs) -> Connection` | DBAPI connection over libpq |
+|  [02]   | `dbapi.connect` | `connect(uri, db_kwargs=, conn_kwargs=, *, autocommit=, **kwargs) -> Connection` | DBAPI connection over libpq     |
 
 [ENTRYPOINT_SCOPE]: `ConnectionOptions` keys
 - rail: partition

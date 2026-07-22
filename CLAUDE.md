@@ -13,18 +13,18 @@ Rasm is in a long-term planning phase, working strictly within design/spec-sheet
 - Durable infra docs — README/ARCHITECTURE registries, IDEAS/TASKLOG card pools, RULINGS decision registries, `.api` catalogues, system pages — follow the maintenance law in `libs/.planning/campaign-method.md` (catalog-alignment, card-marker, research-section, and rulings disciplines live there).
 - `docs/laws/` is the repo-wide maintenance-law corpus; a durable lesson lands ONLY at the end of a large-work session and only where refute-first proves no reviewer surface owns the fact.
 
-[STANDARDS_ROUTING]: Use the route-owned standard for the file being edited:
+[STANDARDS_ROUTING]: Use the route-owned standard for the file being edited; an HTML artifact routes durable to `docs/atlas/`, temp to `.claude/scratch`:
 
-| [INDEX] | [FILE_TYPE]                | [ROUTE]                        | [LOCATION_TO_USE]                              | [NAMING_SCHEMA]                |
-| :-----: | :------------------------- | :----------------------------- | :--------------------------------------------- | :----------------------------- |
-|  [01]   | C# production (`.cs`)      | Docs: `docs/stacks/csharp`     | `libs/csharp`                                  | `PascalCase`                   |
-|  [02]   | Python (`.py`)             | Docs: `docs/stacks/python`     | `libs/python`                                  | `snake_case`                   |
-|  [03]   | TypeScript (`.ts`, `.tsx`) | Docs: `docs/stacks/typescript` | `libs/typescript`                              | `camelCase`                    |
-|  [04]   | Bash/sh (`.sh`, `.bash`)   | Skill: `coding-bash`           | [ANY]                                          | `kebab-case`                   |
-|  [05]   | SQL (`.sql`)               | Skill: `coding-pg`             | [ANY]                                          | `snake_case`                   |
-|  [06]   | Durable markdown (`.md`)   | Skill: `docgen`                | [ANY]                                          | `kebab-case`                   |
-|  [07]   | Mermaid fences             | Skill: `mermaid-diagramming`   | Inside `.md` and `.html` pages                 | [N/A]                          |
-|  [08]   | HTML artifacts (`.html`)   | Skill: `html-studio`           | Durable: `docs/atlas/` Temp: `.claude/scratch` | `<kind>.<scope>[.<slug>].html` |
+| [INDEX] | [FILE_TYPE]                | [ROUTE]                        | [LOCATION_TO_USE]              | [NAMING_SCHEMA]                |
+| :-----: | :------------------------- | :----------------------------- | :----------------------------- | :----------------------------- |
+|  [01]   | C# production (`.cs`)      | Docs: `docs/stacks/csharp`     | `libs/csharp`                  | `PascalCase`                   |
+|  [02]   | Python (`.py`)             | Docs: `docs/stacks/python`     | `libs/python`                  | `snake_case`                   |
+|  [03]   | TypeScript (`.ts`, `.tsx`) | Docs: `docs/stacks/typescript` | `libs/typescript`              | `camelCase`                    |
+|  [04]   | Bash/sh (`.sh`, `.bash`)   | Skill: `coding-bash`           | [ANY]                          | `kebab-case`                   |
+|  [05]   | SQL (`.sql`)               | Skill: `coding-pg`             | [ANY]                          | `snake_case`                   |
+|  [06]   | Durable markdown (`.md`)   | Skill: `docgen`                | [ANY]                          | `kebab-case`                   |
+|  [07]   | Mermaid fences             | Skill: `mermaid-diagramming`   | Inside `.md` and `.html` pages | [N/A]                          |
+|  [08]   | HTML artifacts (`.html`)   | Skill: `html-studio`           | `docs/atlas/`                  | `<kind>.<scope>[.<slug>].html` |
 
 [TOOL_ROUTING]:
 - [ALWAYS] use `exa` MCP to start open-web search with neural discovery, the right page, repo, paper, or entity; REPLACES `WebFetch` entirely.

@@ -17,8 +17,8 @@
 [MONITOR_TYPES]: monitor, snapshot, and policy
 - rail: resource signals
 
-| [INDEX] | [SYMBOL]                    | [PACKAGE_ROLE]   | [CAPABILITY]                                                                                             |
-| :-----: | :-------------------------- | :--------------- | :------------------------------------------------------------------------------------------------------- |
+| [INDEX] | [SYMBOL]                    | [PACKAGE_ROLE]   | [CAPABILITY]                                          |
+| :-----: | :-------------------------- | :--------------- | :---------------------------------------------------- |
 |  [01]   | `IResourceMonitor`          | monitor contract | `GetUtilization(TimeSpan window)` on-demand snapshot  |
 |  [02]   | `ResourceUtilization`       | snapshot value   | CPU/memory percentages, bytes, limits, and snapshot   |
 |  [03]   | `SystemResources`           | limits value     | guaranteed and maximum CPU/memory the host grants     |

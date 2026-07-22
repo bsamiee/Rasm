@@ -915,20 +915,7 @@ public static class MachineTool {
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
 ---
 flowchart LR
     accTitle: Machine kinematics lifecycle
@@ -940,14 +927,6 @@ flowchart LR
     Select --> Time["Look-ahead + S-curve"]
     Time --> Motion["Machine solution"]
     Inverse -.-> Fault["Typed inverse fault"]
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef success fill:#50FA7BBF,stroke:#50FA7B,color:#282A36
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    classDef error fill:#FF555580,stroke:#FF5555,color:#F8F8F2
-    class Raw,Demand data
-    class Admit,Inverse,Select,Time primary
-    class Motion success
-    class Fault error
 ```
 
 ## [03]-[RESEARCH]

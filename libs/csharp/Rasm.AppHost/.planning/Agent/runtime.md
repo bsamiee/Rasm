@@ -68,8 +68,6 @@ public static class CommandDispatch {
 ---
 config:
   layout: elk
-  look: neo
-  theme: base
 ---
 flowchart LR
     accTitle: One command-dispatch front door, three callers, one chain

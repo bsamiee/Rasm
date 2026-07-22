@@ -25,26 +25,10 @@ Verify: stdout contains one JSON `Envelope`; `Envelope.status`/`exit_code` are t
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
   accTitle: Assay orchestration boundary
@@ -71,16 +55,6 @@ flowchart LR
   rail -.-> railAspect["rail seam<br/>checked -> logged -> traced"]
   executor -.-> execAspect["exec seam<br/>retry + deadline + transport (remote.py)"]
 
-  received@{ animate: true }
-  linkStyle 9,11,13 stroke:#FF5555,stroke-width:3px,color:#F8F8F2
-  classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
-  classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-  classDef error fill:#FF555580,stroke:#FF5555,color:#F8F8F2
-  classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
-  class cli,auto,stdout,ndjson boundary
-  class registry,rail,drive,plan,checks,executor,fold,emit primary
-  class distill,emitError error
-  class railAspect,execAspect annotation
 ```
 
 Text equivalent: CLI argv resolves through `composition/registry.py` `REGISTRY` into a `Bind`; the rail owns settings, scope, routing (`core/routing.py`), check construction from `composition/catalog.py` rows, Executor dispatch, and fold. `core/exec.py` owns the `Executor` port (`run`/`fan`), argv composition from catalog templates, telemetry, and retry; `core/remote.py` owns the SSH transport; `core/govern.py` owns leases, dotnet slots, and fan scheduling. A `Completed` receipt folds through `diagnostics.fold` into a `Report`; a `Fault` distills into an error `Envelope`. Automation uses the same Executor and registry rails and emits NDJSON per fire or sequence leaf.

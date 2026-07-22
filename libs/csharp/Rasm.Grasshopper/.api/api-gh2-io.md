@@ -20,12 +20,12 @@
 
 `IWriter` and `IReader` are the write and read seams; `IStorable` is the round-trip contract a value implements; `IoIdAttribute` carries the IO identity a component type declares.
 
-| [INDEX] | [SYMBOL]         | [KIND]           | [CAPABILITY]                              |
-| :-----: | :--------------- | :--------------- | :---------------------------------------- |
-|  [01]   | `IWriter`        | interface        | typed-primitive archive write             |
-|  [02]   | `IReader`        | interface        | typed-primitive archive read              |
-|  [03]   | `IStorable`      | interface        | `Store(IWriter)` round-trip contract      |
-|  [04]   | `IoIdAttribute`  | sealed attribute | `Guid` IO identity from a `string` id     |
+| [INDEX] | [SYMBOL]        | [KIND]           | [CAPABILITY]                          |
+| :-----: | :-------------- | :--------------- | :------------------------------------ |
+|  [01]   | `IWriter`       | interface        | typed-primitive archive write         |
+|  [02]   | `IReader`       | interface        | typed-primitive archive read          |
+|  [03]   | `IStorable`     | interface        | `Store(IWriter)` round-trip contract  |
+|  [04]   | `IoIdAttribute` | sealed attribute | `Guid` IO identity from a `string` id |
 
 [PUBLIC_TYPE_SCOPE]: archive data primitives
 - namespace: `GrasshopperIO.DataBase`
@@ -33,13 +33,13 @@
 
 Primitive archive types the reader and writer address: `Name` keys every item, `Item` and `Value` carry a stored scalar, `Node` is a nested archive sub-object, and `DataType` discriminates the stored kind.
 
-| [INDEX] | [SYMBOL]   | [KIND]        | [CAPABILITY]                                       |
-| :-----: | :--------- | :------------ | :------------------------------------------------- |
-|  [01]   | `Name`     | class         | comparable, equatable item key                     |
-|  [02]   | `Item`     | sealed class  | one addressed archive entry                        |
-|  [03]   | `Value`    | sealed class  | a stored scalar value                              |
-|  [04]   | `Node`     | sealed class  | nested archive node (`IWriter`/`IReader`/`ISml`)   |
-|  [05]   | `DataType` | enum          | stored-primitive discriminant                      |
+| [INDEX] | [SYMBOL]   | [KIND]       | [CAPABILITY]                                     |
+| :-----: | :--------- | :----------- | :----------------------------------------------- |
+|  [01]   | `Name`     | class        | comparable, equatable item key                   |
+|  [02]   | `Item`     | sealed class | one addressed archive entry                      |
+|  [03]   | `Value`    | sealed class | a stored scalar value                            |
+|  [04]   | `Node`     | sealed class | nested archive node (`IWriter`/`IReader`/`ISml`) |
+|  [05]   | `DataType` | enum         | stored-primitive discriminant                    |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -49,16 +49,16 @@ Primitive archive types the reader and writer address: `Name` keys every item, `
 
 Every write member keys on a `Name`; the scalar family covers each BCL primitive, `Storable` writes a nested value, and `CreateWriter`/`AddItem`/`AddNode` grow the archive tree.
 
-| [INDEX] | [SURFACE]                              | [CALL_SHAPE]              | [CAPABILITY]                |
-| :-----: | :------------------------------------- | :----------------------- | :-------------------------- |
-|  [01]   | `Boolean` · `Integer8` · `Integer32` · `Integer64` | `(Name, value)` → `void` | boolean and integral writes |
-|  [02]   | `IntegerXx` · `Number32` · `Number64`  | `(Name, value)` → `void` | big-integer and real writes |
-|  [03]   | `Decimal128` · `Complex128`            | `(Name, value)` → `void` | decimal and complex writes  |
-|  [04]   | `DateTime` · `TimeSpan` · `Guid128`    | `(Name, value)` → `void` | temporal and guid writes    |
-|  [05]   | `String` · `Version` · `Type`          | `(Name, value)` → `void` | text and metadata writes    |
-|  [06]   | `FilePath`                             | `(Name, FileSystemPath)` | path write                  |
-|  [07]   | `Storable`                             | `(Name, IStorable)`      | nested storable write       |
-|  [08]   | `CreateWriter` · `AddItem` · `AddNode` | `(Name)`/`(Item)`/`(Node)` | grow the archive tree     |
+| [INDEX] | [SURFACE]                                          | [CALL_SHAPE]               | [CAPABILITY]                |
+| :-----: | :------------------------------------------------- | :------------------------- | :-------------------------- |
+|  [01]   | `Boolean` · `Integer8` · `Integer32` · `Integer64` | `(Name, value)` → `void`   | boolean and integral writes |
+|  [02]   | `IntegerXx` · `Number32` · `Number64`              | `(Name, value)` → `void`   | big-integer and real writes |
+|  [03]   | `Decimal128` · `Complex128`                        | `(Name, value)` → `void`   | decimal and complex writes  |
+|  [04]   | `DateTime` · `TimeSpan` · `Guid128`                | `(Name, value)` → `void`   | temporal and guid writes    |
+|  [05]   | `String` · `Version` · `Type`                      | `(Name, value)` → `void`   | text and metadata writes    |
+|  [06]   | `FilePath`                                         | `(Name, FileSystemPath)`   | path write                  |
+|  [07]   | `Storable`                                         | `(Name, IStorable)`        | nested storable write       |
+|  [08]   | `CreateWriter` · `AddItem` · `AddNode`             | `(Name)`/`(Item)`/`(Node)` | grow the archive tree       |
 
 [ENTRYPOINT_SCOPE]: IReader typed read
 - namespace: `GrasshopperIO`
@@ -66,14 +66,14 @@ Every write member keys on a `Name`; the scalar family covers each BCL primitive
 
 Read members mirror the write scalar family, `FindReader` descends a sub-object, the `Has*` family probes presence, and the `Storable`/array forms round-trip typed values.
 
-| [INDEX] | [SURFACE]                                          | [CALL_SHAPE]                    | [CAPABILITY]                    |
-| :-----: | :------------------------------------------------- | :------------------------------ | :------------------------------ |
-|  [01]   | `Boolean` · `Integer32` · `Number64` · `Guid128` · `String` | `(Name)` → `value`     | typed scalar reads              |
-|  [02]   | `HasItem` · `HasNode` · `HasItemOrNode`            | `(Name[, DataType])` → `bool`   | presence probe                  |
-|  [03]   | `FindReader` · `FindItem`                          | `(Name)` → `IReader` / `Value`  | sub-object and item lookup      |
-|  [04]   | `Storable` · `Storable<T>` · `StorableArray<T>`    | `(Name)` → `IStorable`/`T`/`T[]` | round-trip storable read       |
-|  [05]   | `BooleanArray` · `Integer32Array` · `Number64Array` · `StringArray` | `(Name)` → `value[]` | typed array reads         |
-|  [06]   | `SupportsArray<T>`                                 | `()` → `bool`                   | array-capability probe          |
+| [INDEX] | [SURFACE]                                                           | [CALL_SHAPE]                     | [CAPABILITY]               |
+| :-----: | :------------------------------------------------------------------ | :------------------------------- | :------------------------- |
+|  [01]   | `Boolean` · `Integer32` · `Number64` · `Guid128` · `String`         | `(Name)` → `value`               | typed scalar reads         |
+|  [02]   | `HasItem` · `HasNode` · `HasItemOrNode`                             | `(Name[, DataType])` → `bool`    | presence probe             |
+|  [03]   | `FindReader` · `FindItem`                                           | `(Name)` → `IReader` / `Value`   | sub-object and item lookup |
+|  [04]   | `Storable` · `Storable<T>` · `StorableArray<T>`                     | `(Name)` → `IStorable`/`T`/`T[]` | round-trip storable read   |
+|  [05]   | `BooleanArray` · `Integer32Array` · `Number64Array` · `StringArray` | `(Name)` → `value[]`             | typed array reads          |
+|  [06]   | `SupportsArray<T>`                                                  | `()` → `bool`                    | array-capability probe     |
 
 [ENTRYPOINT_SCOPE]: storable round-trip and IO identity
 - namespace: `GrasshopperIO`
@@ -81,11 +81,11 @@ Read members mirror the write scalar family, `FindReader` descends a sub-object,
 
 `IStorable.Store` is the one member a value implements to serialize itself; `IoIdAttribute` mints a `Guid` identity from a `string` id the registration gate reads through `Attribute.IsDefined`.
 
-| [INDEX] | [SURFACE]                    | [CALL_SHAPE]              | [CAPABILITY]                    |
-| :-----: | :--------------------------- | :----------------------- | :------------------------------ |
-|  [01]   | `IStorable.Store`            | `(IWriter)` → `void`     | serialize self into a writer    |
-|  [02]   | `new IoIdAttribute`          | `(string id)`            | mint the IO identity            |
-|  [03]   | `IoIdAttribute.Id`           | `Guid` property          | parsed identity read            |
+| [INDEX] | [SURFACE]           | [CALL_SHAPE]         | [CAPABILITY]                 |
+| :-----: | :------------------ | :------------------- | :--------------------------- |
+|  [01]   | `IStorable.Store`   | `(IWriter)` → `void` | serialize self into a writer |
+|  [02]   | `new IoIdAttribute` | `(string id)`        | mint the IO identity         |
+|  [03]   | `IoIdAttribute.Id`  | `Guid` property      | parsed identity read         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

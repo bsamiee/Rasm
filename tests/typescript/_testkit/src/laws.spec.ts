@@ -3,14 +3,14 @@ import { Effect, Order, Schema } from 'effect';
 import * as FastCheck from 'effect/FastCheck';
 import { Law, LawTautology } from './laws.ts';
 
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 type Combine = (left: number, right: number) => number;
 type Tally = { readonly count: number };
 type Bumper = { readonly bump: () => number };
 type AsyncBumper = { readonly bump: () => Promise<number> };
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _ARGS = { x: FastCheck.integer(), y: FastCheck.integer(), z: FastCheck.integer() } as const;
 const _INTS = FastCheck.integer({ min: -1000, max: 1000 });
@@ -24,7 +24,7 @@ const _associativity = Law.make<Combine, typeof _ARGS>({
     witness: { label: 'subtraction foil', foil: (left, right) => left - right, args: { x: 1, y: 2, z: 3 } },
 });
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 const _Frame = Schema.Struct({ label: Schema.String, rank: Schema.Int });
 
@@ -66,7 +66,7 @@ class BumpAsync implements FastCheck.AsyncCommand<Tally, AsyncBumper> {
     }
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const _counter = (step: number) => (): { model: Tally; real: Bumper } => {
     let held = 0;

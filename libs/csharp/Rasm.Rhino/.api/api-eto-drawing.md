@@ -167,15 +167,15 @@ GraphicsPath.Clone()
 - namespace: `Eto.Drawing`
 - rail: paint
 
-| [INDEX] | [SURFACE]                                                                      | [CALL_SHAPE]         | [CAPABILITY]                     |
-| :-----: | :----------------------------------------------------------------------------- | :------------------- | :------------------------------- |
-|  [01]   | `Matrix.Create()`                                                              | factory → `IMatrix`  | identity matrix                  |
-|  [02]   | `Matrix.Create(float xx, float yx, float xy, float yy, float x0, float y0)`    | factory → `IMatrix`  | builds an explicit affine matrix |
-|  [03]   | `Matrix.FromTranslation(float distanceX, float distanceY)`                     | factory → `IMatrix`  | translation matrix               |
-|  [04]   | `Matrix.FromRotation(float angle)`                                             | factory → `IMatrix`  | rotation matrix                  |
-|  [05]   | `Matrix.FromScaleAt(float scaleX, float scaleY, float centerX, float centerY)` | factory → `IMatrix`  | scale-about-point matrix         |
-|  [06]   | `Matrix.Inverse(IMatrix matrix)`                                               | factory → `IMatrix`  | inverse of a matrix              |
-|  [07]   | `IMatrix.TransformPoint(PointF point)`                                         | instance → `PointF`  | maps a point through the matrix  |
+| [INDEX] | [SURFACE]                                                                      | [CALL_SHAPE]        | [CAPABILITY]                     |
+| :-----: | :----------------------------------------------------------------------------- | :------------------ | :------------------------------- |
+|  [01]   | `Matrix.Create()`                                                              | factory → `IMatrix` | identity matrix                  |
+|  [02]   | `Matrix.Create(float xx, float yx, float xy, float yy, float x0, float y0)`    | factory → `IMatrix` | builds an explicit affine matrix |
+|  [03]   | `Matrix.FromTranslation(float distanceX, float distanceY)`                     | factory → `IMatrix` | translation matrix               |
+|  [04]   | `Matrix.FromRotation(float angle)`                                             | factory → `IMatrix` | rotation matrix                  |
+|  [05]   | `Matrix.FromScaleAt(float scaleX, float scaleY, float centerX, float centerY)` | factory → `IMatrix` | scale-about-point matrix         |
+|  [06]   | `Matrix.Inverse(IMatrix matrix)`                                               | factory → `IMatrix` | inverse of a matrix              |
+|  [07]   | `IMatrix.TransformPoint(PointF point)`                                         | instance → `PointF` | maps a point through the matrix  |
 
 [ENTRYPOINT_SCOPE]: colour, brushes, bitmaps, and system fonts
 - namespace: `Eto.Drawing`
@@ -197,10 +197,10 @@ GraphicsPath.Clone()
 |  [10]   | `Bitmap.ToByteArray(ImageFormat imageFormat)`                                                 | encodes to a byte stream        |
 |  [11]   | `Bitmap.Clone(Rectangle? rectangle = null)`                                                   | copies whole or sub-region      |
 |  [12]   | `SystemFonts.Default/Bold/Label/Menu/MenuBar/Message/Palette/StatusBar/TitleBar/ToolTip/User` | host UI font roster             |
-|  [13]   | `GraphicsPath.Bounds { get; }`                                                               | reads retained path bounds      |
+|  [13]   | `GraphicsPath.Bounds { get; }`                                                                | reads retained path bounds      |
 |  [14]   | `BitmapData.SetPixel(Point position, Color color)`                                            | writes inside one bitmap lock   |
 |  [15]   | `FormattedText.ForegroundBrush { get; set; }`                                                 | assigns shaped-text foreground  |
-|  [16]   | `FormattedText.Text/Font/MaximumSize/Wrap/Alignment/Trimming`                                  | configures shaped-text layout   |
+|  [16]   | `FormattedText.Text/Font/MaximumSize/Wrap/Alignment/Trimming`                                 | configures shaped-text layout   |
 
 The three gradient and texture brush constructors:
 

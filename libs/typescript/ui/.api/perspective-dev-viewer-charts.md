@@ -21,8 +21,8 @@
 | [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                           |
 | :-----: | :------------------------------------------ | :-------------- | :------------------------------------------------------------ |
 |  [01]   | `register(...plugin_names: string[]): void` | selective entry | narrows the roster to named charts; bare import registers all |
-|  [02]   | `PerspectiveSelectDetail`                   | event detail    | select-event `detail`, re-exported from the viewer's surface   |
-|  [03]   | `PerspectiveClickDetail` (type)             | event detail    | click `detail` — row, column_names, restore({ filter }) patch  |
+|  [02]   | `PerspectiveSelectDetail`                   | event detail    | select-event `detail`, re-exported from the viewer's surface  |
+|  [03]   | `PerspectiveClickDetail` (type)             | event detail    | click `detail` — row, column_names, restore({ filter }) patch |
 
 ## [03]-[INTEGRATION]
 

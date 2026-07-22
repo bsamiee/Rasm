@@ -7,15 +7,32 @@
 set -euo pipefail
 
 # --- [ARGS] -----------------------------------------------------------------------------
-PR=${1:?usage: pull-comments.sh <PR> --dir <workdir> [--repo <owner/repo>]}; shift
-DIR=""; REPO=""
+PR=${1:?usage: pull-comments.sh <PR> --dir <workdir> [--repo <owner/repo>]}
+shift
+DIR=""
+REPO=""
 while [ "$#" -gt 0 ]; do case "$1" in
-    --dir) DIR=$2; shift 2 ;;
-    --repo) REPO=$2; shift 2 ;;
-    *) echo "pull-comments: unknown arg: $1" >&2; exit 2 ;;
-esac; done
-[ -n "$DIR" ] || { echo "pull-comments: --dir required" >&2; exit 2; }
-[[ "$PR" =~ ^[0-9]+$ ]] || { echo "pull-comments: PR must be numeric" >&2; exit 2; }
+    --dir)
+        DIR=$2
+        shift 2
+        ;;
+    --repo)
+        REPO=$2
+        shift 2
+        ;;
+    *)
+        echo "pull-comments: unknown arg: $1" >&2
+        exit 2
+        ;;
+esac done
+[ -n "$DIR" ] || {
+    echo "pull-comments: --dir required" >&2
+    exit 2
+}
+[[ "$PR" =~ ^[0-9]+$ ]] || {
+    echo "pull-comments: PR must be numeric" >&2
+    exit 2
+}
 [ -n "$REPO" ] || REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 mkdir -p "$DIR"
 
@@ -34,8 +51,8 @@ query($owner:String!,$repo:String!,$pr:Int!,$endCursor:String){
             nodes{ id isResolved isOutdated isCollapsed viewerCanResolve
                 path line startLine originalLine originalStartLine diffSide subjectType
                 comments(first:1){ nodes{ databaseId author{login} authorAssociation body url
-                    pullRequestReview{ databaseId state } } } } } } } }' \
-    | jq -s '[.[].data.repository.pullRequest.reviewThreads.nodes[]]' >"$DIR/threads.json"
+                    pullRequestReview{ databaseId state } } } } } } } }' |
+    jq -s '[.[].data.repository.pullRequest.reviewThreads.nodes[]]' >"$DIR/threads.json"
 
 jq -n --arg d "$DIR" --arg h "$HEAD" \
     --argjson rv "$(jq 'length' "$DIR/reviews.json")" --argjson il "$(jq 'length' "$DIR/inline.json")" \

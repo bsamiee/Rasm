@@ -19,39 +19,39 @@
 
 `GeometryExtensionType` subclasses `pyarrow.ExtensionType`, so a registered geometry column is a native pyarrow `DataType` that Parquet, IPC, and the C Data Interface round-trip by extension name; `wrap_array` lifts conforming storage into a `GeometryExtensionArray` and `to_pandas_dtype` yields the pandas `ExtensionDtype`. `GeometryExtensionArray` subclasses `pyarrow.ExtensionArray`; `storage`/`from_storage` cross to and from the backing Arrow array, and `from_pandas` adopts a GeoPandas/Shapely container.
 
-| [INDEX] | [SYMBOL]                 | [ROLE]                                                                       |
-| :-----: | :----------------------- | :-------------------------------------------------------------------------- |
+| [INDEX] | [SYMBOL]                 | [ROLE]                                                                                 |
+| :-----: | :----------------------- | :------------------------------------------------------------------------------------- |
 |  [01]   | `GeometryExtensionType`  | `pyarrow.ExtensionType` base; `wrap_array`/`from_geobuffers`/`to_pandas_dtype`/`field` |
-|  [02]   | `GeometryExtensionArray` | `pyarrow.ExtensionArray` base; `storage`/`from_storage`/`geobuffers`/`from_pandas` |
+|  [02]   | `GeometryExtensionArray` | `pyarrow.ExtensionArray` base; `storage`/`from_storage`/`geobuffers`/`from_pandas`     |
 
 [PUBLIC_TYPE_SCOPE]: per-encoding geometry types
 - rail: geospatial-ingress
 
 Each subtype is a `GeometryExtensionType` naming one encoding; a zero-arg constructor (`ga.point()`, `ga.wkb()`, …) yields the unspecified-CRS type, and the metadata setters refine it. `WkbType`/`WktType` cover the serialized encodings (ISO WKB, WKT) including the large and view Arrow storage variants (`large_wkb`, `wkb_view`, `large_wkt`, `wkt_view`); the remaining subtypes cover the GeoArrow-native separated/interleaved layouts.
 
-| [INDEX] | [SYMBOL]                | [ENCODING]                                                            |
-| :-----: | :---------------------- | :------------------------------------------------------------------- |
-|  [01]   | `PointType`             | GeoArrow-native point                                                |
-|  [02]   | `LinestringType`        | GeoArrow-native linestring                                           |
-|  [03]   | `PolygonType`           | GeoArrow-native polygon                                              |
-|  [04]   | `MultiPointType`        | GeoArrow-native multipoint                                           |
-|  [05]   | `MultiLinestringType`   | GeoArrow-native multilinestring                                      |
-|  [06]   | `MultiPolygonType`      | GeoArrow-native multipolygon                                         |
-|  [07]   | `WkbType`               | serialized WKB — `wkb`, `large_wkb`, `wkb_view` storage variants     |
-|  [08]   | `WktType`               | serialized WKT — `wkt`, `large_wkt`, `wkt_view` storage variants     |
+| [INDEX] | [SYMBOL]              | [ENCODING]                                                       |
+| :-----: | :-------------------- | :--------------------------------------------------------------- |
+|  [01]   | `PointType`           | GeoArrow-native point                                            |
+|  [02]   | `LinestringType`      | GeoArrow-native linestring                                       |
+|  [03]   | `PolygonType`         | GeoArrow-native polygon                                          |
+|  [04]   | `MultiPointType`      | GeoArrow-native multipoint                                       |
+|  [05]   | `MultiLinestringType` | GeoArrow-native multilinestring                                  |
+|  [06]   | `MultiPolygonType`    | GeoArrow-native multipolygon                                     |
+|  [07]   | `WkbType`             | serialized WKB — `wkb`, `large_wkb`, `wkb_view` storage variants |
+|  [08]   | `WktType`             | serialized WKT — `wkt`, `large_wkt`, `wkt_view` storage variants |
 
 [PUBLIC_TYPE_SCOPE]: encoding and layout vocabulary
 - rail: geospatial-ingress
 
 Vocabulary enums drive type selection and metadata; `OGC_CRS84` is the explicit PROJJSON longitude-latitude CRS value.
 
-| [INDEX] | [SYMBOL]        | [MEMBERS]                                                                                     |
-| :-----: | :-------------- | :------------------------------------------------------------------------------------------- |
-|  [01]   | `Encoding`      | `GEOARROW`, `WKB`, `LARGE_WKB`, `WKB_VIEW`, `WKT`, `LARGE_WKT`, `WKT_VIEW`, `UNSPECIFIED`     |
-|  [02]   | `GeometryType`  | `POINT`…`MULTIPOLYGON`, `GEOMETRYCOLLECTION`, `BOX`, `GEOMETRY`, `UNSPECIFIED`                |
-|  [03]   | `CoordType`     | `INTERLEAVED` single `XYXY` buffer, `SEPARATED` one buffer per dimension, `UNSPECIFIED`       |
-|  [04]   | `Dimensions`    | `XY`, `XYZ`, `XYM`, `XYZM`, `UNKNOWN`, `UNSPECIFIED`                                          |
-|  [05]   | `EdgeType`      | `PLANAR`, `SPHERICAL`, `VINCENTY`, `THOMAS`, `ANDOYER`, `KARNEY`, `UNSPECIFIED`               |
+| [INDEX] | [SYMBOL]       | [MEMBERS]                                                                                 |
+| :-----: | :------------- | :---------------------------------------------------------------------------------------- |
+|  [01]   | `Encoding`     | `GEOARROW`, `WKB`, `LARGE_WKB`, `WKB_VIEW`, `WKT`, `LARGE_WKT`, `WKT_VIEW`, `UNSPECIFIED` |
+|  [02]   | `GeometryType` | `POINT`…`MULTIPOLYGON`, `GEOMETRYCOLLECTION`, `BOX`, `GEOMETRY`, `UNSPECIFIED`            |
+|  [03]   | `CoordType`    | `INTERLEAVED` single `XYXY` buffer, `SEPARATED` one buffer per dimension, `UNSPECIFIED`   |
+|  [04]   | `Dimensions`   | `XY`, `XYZ`, `XYM`, `XYZM`, `UNKNOWN`, `UNSPECIFIED`                                      |
+|  [05]   | `EdgeType`     | `PLANAR`, `SPHERICAL`, `VINCENTY`, `THOMAS`, `ANDOYER`, `KARNEY`, `UNSPECIFIED`           |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -60,44 +60,44 @@ Vocabulary enums drive type selection and metadata; `OGC_CRS84` is the explicit 
 
 `register_extension_types` installs the `geoarrow.*` names once per process so pyarrow round-trips geometry columns by extension name; `array` and `as_geoarrow` build a `GeometryExtensionArray` from Shapely, GeoPandas, WKB/WKT, or an Arrow-exportable input, `as_wkb`/`as_wkt` re-encode to the serialized forms, and `extension_type` resolves a `TypeSpec` to the concrete `GeometryExtensionType`.
 
-| [INDEX] | [SURFACE]                    | [CALL_SHAPE]                                 | [CAPABILITY]                                 |
-| :-----: | :--------------------------- | :------------------------------------------- | :------------------------------------------- |
-|  [01]   | `register_extension_types`   | `register_extension_types(lazy=True)`        | install `geoarrow.*` types into the registry |
-|  [02]   | `unregister_extension_types` | `unregister_extension_types(lazy=True)`      | remove the registered geometry types         |
-|  [03]   | `array`                      | `array(obj, type_=None)`                     | build a geometry array from any input        |
-|  [04]   | `as_geoarrow`                | `as_geoarrow(obj, type=None, ...)`           | re-encode to a GeoArrow-native layout        |
-|  [05]   | `as_wkb`                     | `as_wkb(obj, strict_iso_wkb=False)`          | re-encode to serialized WKB                  |
-|  [06]   | `as_wkt`                     | `as_wkt(obj)`                                | re-encode to serialized WKT                  |
-|  [07]   | `make_point`                 | `make_point(x, y, z=None, m=None, crs=None)` | build a point array from coordinate arrays   |
-|  [08]   | `extension_type`             | `extension_type(spec, storage_type=None, ...)` | resolve a `TypeSpec` to its type           |
+| [INDEX] | [SURFACE]                    | [CALL_SHAPE]                                   | [CAPABILITY]                                 |
+| :-----: | :--------------------------- | :--------------------------------------------- | :------------------------------------------- |
+|  [01]   | `register_extension_types`   | `register_extension_types(lazy=True)`          | install `geoarrow.*` types into the registry |
+|  [02]   | `unregister_extension_types` | `unregister_extension_types(lazy=True)`        | remove the registered geometry types         |
+|  [03]   | `array`                      | `array(obj, type_=None)`                       | build a geometry array from any input        |
+|  [04]   | `as_geoarrow`                | `as_geoarrow(obj, type=None, ...)`             | re-encode to a GeoArrow-native layout        |
+|  [05]   | `as_wkb`                     | `as_wkb(obj, strict_iso_wkb=False)`            | re-encode to serialized WKB                  |
+|  [06]   | `as_wkt`                     | `as_wkt(obj)`                                  | re-encode to serialized WKT                  |
+|  [07]   | `make_point`                 | `make_point(x, y, z=None, m=None, crs=None)`   | build a point array from coordinate arrays   |
+|  [08]   | `extension_type`             | `extension_type(spec, storage_type=None, ...)` | resolve a `TypeSpec` to its type             |
 
 [ENTRYPOINT_SCOPE]: metadata, layout conversion, and typed ops
 - rail: geospatial-ingress
 
 `with_crs` and `with_edge_type` replace field attribution without repacking storage. `with_coord_type`, `with_dimensions`, and `with_geometry_type` convert layout or coordinates; `box`/`box_agg` derive bounds, `point_coords` lowers to coordinate arrays, `format_wkt` renders bounded WKT, `rechunk` re-partitions a chunked array, and `infer_type_common`/`geometry_type_common`/`unique_geometry_types` reduce a mixed input to its common type.
 
-| [INDEX] | [SURFACE]            | [CALL_SHAPE]                                    | [CAPABILITY]                                     |
-| :-----: | :------------------- | :---------------------------------------------- | :----------------------------------------------- |
-|  [01]   | `with_crs`           | `with_crs(obj, crs)`                            | set an explicit field CRS                        |
-|  [02]   | `with_coord_type`    | `with_coord_type(obj, coord_type)`              | set `INTERLEAVED`/`SEPARATED` layout             |
-|  [03]   | `with_dimensions`    | `with_dimensions(obj, dimensions)`              | set `XY`/`XYZ`/`XYM`/`XYZM`                       |
-|  [04]   | `with_edge_type`     | `with_edge_type(obj, edge_type)`                | set planar versus geodesic edges                 |
-|  [05]   | `with_geometry_type` | `with_geometry_type(obj, geometry_type)`        | set the declared geometry type                   |
-|  [06]   | `box` / `box_agg`    | `box(obj)` / `box_agg(obj)`                      | per-row and aggregate bounding box               |
-|  [07]   | `point_coords`       | `point_coords(obj, dimensions=None)`            | lower a point array to coordinate arrays         |
-|  [08]   | `format_wkt`         | `format_wkt(obj, precision=None, ...)`          | render bounded-precision WKT strings             |
-|  [09]   | `rechunk`            | `rechunk(obj, max_bytes)`                       | re-partition a chunked geometry array            |
-|  [10]   | `infer_type_common`  | `infer_type_common(obj, coord_type=None, ...)`  | infer the common type over mixed input           |
+| [INDEX] | [SURFACE]            | [CALL_SHAPE]                                   | [CAPABILITY]                             |
+| :-----: | :------------------- | :--------------------------------------------- | :--------------------------------------- |
+|  [01]   | `with_crs`           | `with_crs(obj, crs)`                           | set an explicit field CRS                |
+|  [02]   | `with_coord_type`    | `with_coord_type(obj, coord_type)`             | set `INTERLEAVED`/`SEPARATED` layout     |
+|  [03]   | `with_dimensions`    | `with_dimensions(obj, dimensions)`             | set `XY`/`XYZ`/`XYM`/`XYZM`              |
+|  [04]   | `with_edge_type`     | `with_edge_type(obj, edge_type)`               | set planar versus geodesic edges         |
+|  [05]   | `with_geometry_type` | `with_geometry_type(obj, geometry_type)`       | set the declared geometry type           |
+|  [06]   | `box` / `box_agg`    | `box(obj)` / `box_agg(obj)`                    | per-row and aggregate bounding box       |
+|  [07]   | `point_coords`       | `point_coords(obj, dimensions=None)`           | lower a point array to coordinate arrays |
+|  [08]   | `format_wkt`         | `format_wkt(obj, precision=None, ...)`         | render bounded-precision WKT strings     |
+|  [09]   | `rechunk`            | `rechunk(obj, max_bytes)`                      | re-partition a chunked geometry array    |
+|  [10]   | `infer_type_common`  | `infer_type_common(obj, coord_type=None, ...)` | infer the common type over mixed input   |
 
 [ENTRYPOINT_SCOPE]: pandas and GeoPandas boundary
 - rail: geospatial-ingress
 
 `to_pandas_dtype` (on a `GeometryExtensionType`) yields the pandas `ExtensionDtype` that carries a geometry column through a pandas frame, and `to_geopandas` lowers a geometry array or table to a `GeoDataFrame`; both are admitted only where a consumer requires the pandas/GeoPandas objects.
 
-| [INDEX] | [SURFACE]         | [CALL_SHAPE]                                        | [CAPABILITY]                                        |
-| :-----: | :---------------- | :-------------------------------------------------- | :-------------------------------------------------- |
-|  [01]   | `to_pandas_dtype` | `GeometryExtensionType.to_pandas_dtype() -> dtype`  | pandas `ExtensionDtype` for a geometry column       |
-|  [02]   | `to_geopandas`    | `to_geopandas(obj) -> GeoDataFrame`                 | lower a geometry array/table to a GeoDataFrame      |
+| [INDEX] | [SURFACE]         | [CALL_SHAPE]                                       | [CAPABILITY]                                   |
+| :-----: | :---------------- | :------------------------------------------------- | :--------------------------------------------- |
+|  [01]   | `to_pandas_dtype` | `GeometryExtensionType.to_pandas_dtype() -> dtype` | pandas `ExtensionDtype` for a geometry column  |
+|  [02]   | `to_geopandas`    | `to_geopandas(obj) -> GeoDataFrame`                | lower a geometry array/table to a GeoDataFrame |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

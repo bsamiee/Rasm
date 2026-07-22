@@ -200,24 +200,27 @@ core `Apache.Arrow` (`Apache.Arrow.Ipc`); the concrete LZ4-frame/ZSTD codec impl
 
 [ENTRYPOINT_SCOPE]: RecordBatch and Schema construction
 - rail: analytical-egress
+- note: a null `StringArray` append lands as a validity-bitmap null
 
-| [INDEX] | [SURFACE]                                                                         | [ENTRY_FAMILY] | [CAPABILITY]                                                               |
-| :-----: | :-------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------- |
-|  [00]   | `StringArray.Builder().Append(string)/.AppendRange(IEnumerable<string>)/.Build()` | array builder  | builds a UTF-8 `StringArray` column (null appends as validity-bitmap null) |
-|  [01]   | `RecordBatch.Builder(allocator?)`                                                 | ctor           | creates batch builder with allocator                                       |
-|  [02]   | `RecordBatch.Builder.Append(name, nullable, array)`                               | builder        | adds typed column to batch                                                 |
-|  [03]   | `RecordBatch.Builder.Append(name, nullable, builder)`                             | builder        | adds built column                                                          |
-|  [04]   | `RecordBatch.Builder.Append(batch)`                                               | builder        | merges schema and arrays from a batch                                      |
-|  [05]   | `RecordBatch.Builder.Build()`                                                     | factory call   | yields immutable `RecordBatch`                                             |
-|  [06]   | `RecordBatch.Builder.Clear()`                                                     | reset          | resets schema and arrays                                                   |
-|  [07]   | `Schema.Builder.Field(field)`                                                     | builder        | adds field to schema                                                       |
-|  [08]   | `Schema.Builder.Build()`                                                          | factory call   | yields immutable `Schema`                                                  |
-|  [09]   | `Field.Builder.Name(name)`                                                        | builder        | sets field name                                                            |
-|  [10]   | `Field.Builder.DataType(type)`                                                    | builder        | sets Arrow type                                                            |
-|  [11]   | `Field.Builder.Nullable(nullable)`                                                | builder        | sets nullability                                                           |
-|  [12]   | `Field.Builder.Build()`                                                           | factory call   | yields immutable `Field`                                                   |
-|  [13]   | `RecordBatch.Slice(offset, length)` / `SliceShared`                               | zero-copy view | windows a batch without copying buffers                                    |
-|  [14]   | `RecordBatch.Column(name)` / `Column(int)`                                        | column access  | reads one `IArrowArray` column by name/index                               |
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [CAPABILITY]                                 |
+| :-----: | :------------------------------------------------------- | :------------- | :------------------------------------------- |
+|  [01]   | `StringArray.Builder().Append(string)`                   | array builder  | appends one UTF-8 string                     |
+|  [02]   | `StringArray.Builder().AppendRange(IEnumerable<string>)` | array builder  | appends a UTF-8 string range                 |
+|  [03]   | `StringArray.Builder().Build()`                          | factory call   | builds the UTF-8 `StringArray` column        |
+|  [04]   | `RecordBatch.Builder(allocator?)`                        | ctor           | creates batch builder with allocator         |
+|  [05]   | `RecordBatch.Builder.Append(name, nullable, array)`      | builder        | adds typed column to batch                   |
+|  [06]   | `RecordBatch.Builder.Append(name, nullable, builder)`    | builder        | adds built column                            |
+|  [07]   | `RecordBatch.Builder.Append(batch)`                      | builder        | merges schema and arrays from a batch        |
+|  [08]   | `RecordBatch.Builder.Build()`                            | factory call   | yields immutable `RecordBatch`               |
+|  [09]   | `RecordBatch.Builder.Clear()`                            | reset          | resets schema and arrays                     |
+|  [10]   | `Schema.Builder.Field(field)`                            | builder        | adds field to schema                         |
+|  [11]   | `Schema.Builder.Build()`                                 | factory call   | yields immutable `Schema`                    |
+|  [12]   | `Field.Builder.Name(name)`                               | builder        | sets field name                              |
+|  [13]   | `Field.Builder.DataType(type)`                           | builder        | sets Arrow type                              |
+|  [14]   | `Field.Builder.Nullable(nullable)`                       | builder        | sets nullability                             |
+|  [15]   | `Field.Builder.Build()`                                  | factory call   | yields immutable `Field`                     |
+|  [16]   | `RecordBatch.Slice(offset, length)` / `SliceShared`      | zero-copy view | windows a batch without copying buffers      |
+|  [17]   | `RecordBatch.Column(name)` / `Column(int)`               | column access  | reads one `IArrowArray` column by name/index |
 
 [ENTRYPOINT_SCOPE]: IPC read and write
 - rail: analytical-egress

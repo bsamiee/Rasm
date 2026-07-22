@@ -47,8 +47,8 @@ One `PanelBuilder` per visualization subpath; the shared members below ride ever
 
 `./geomap` carries `PanelBuilder` and `MapViewConfigBuilder`; map-layer and geometry-source builders live in `./common`.
 
-| [INDEX] | [BUILDER]                   | [MEMBERS]                                                               |
-| :-----: | :-------------------------- | :---------------------------------------------------------------------- |
+| [INDEX] | [BUILDER]                    | [MEMBERS]                                                                |
+| :-----: | :--------------------------- | :----------------------------------------------------------------------- |
 |  [01]   | `geomap.PanelBuilder`        | `.view(view)` / `.controls(controls)`                                    |
 |  [02]   | `geomap.PanelBuilder`        | `.basemap(layer)` / `.layers(layers[])`                                  |
 |  [03]   | `MapViewConfigBuilder`       | `.id` / `.lat` / `.lon` / `.zoom` / `.minZoom` / `.maxZoom` / `.padding` |
@@ -56,7 +56,7 @@ One `PanelBuilder` per visualization subpath; the shared members below ride ever
 |  [05]   | `MapLayerOptionsBuilder`     | `.type` / `.name` / `.config` / `.location` / `.filterData` / `.opacity` |
 |  [06]   | `MapLayerOptionsBuilder`     | `.tooltip(boolean)`; `.location` takes `FrameGeometrySourceBuilder`      |
 |  [07]   | `FrameGeometrySourceBuilder` | `.mode` / `.geohash` / `.latitude` / `.longitude` / `.wkt` / `.lookup`   |
-|  [08]   | `FrameGeometrySourceBuilder` | `.gazetteer`; mode is `Auto \| Geohash \| Coords \| Lookup`            |
+|  [08]   | `FrameGeometrySourceBuilder` | `.gazetteer`; mode is `Auto \| Geohash \| Coords \| Lookup`              |
 
 Every companion constructor is zero-argument and every `.build()` returns its plain model: `MapViewConfig`, `MapLayerOptions`, or `FrameGeometrySource`. `PanelBuilder.view` and `.controls` take one builder; `.basemap` takes one `MapLayerOptionsBuilder`; `.layers` takes an array.
 

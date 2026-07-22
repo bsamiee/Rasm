@@ -14,7 +14,6 @@ Lifecycle and health are one owner because they are one skeleton: register ranke
 ## [02]-[PHASE_SPINE]
 
 [PHASE_SPINE]:
-
 - Owner: the phase tuple and the cell — the tuple is a semantic order (lifecycle rank is load-bearing; the anchor derives `Phase` and no consumer re-lists states); the cell starts at `booting`, `life.online` stamps `running` (the boot module's last act before serving), and only the drain fold advances further; the published `phase` is the read-only `Subscribable` projection of the interior cell, so a consumer reads and subscribes and a write is unspellable.
 - Law: the park is the drain trigger — `life.parked` is `online` then `Effect.never` with the drain fold attached through `Effect.onInterrupt`, so the boot module runs `row.main(Effect.scoped(Effect.provide(life.parked, root)))` and a delivered `SIGINT`/`SIGTERM` (which `runMain` converts to root-fiber interruption) executes the ordered drain BEFORE scope close releases resources — choreography first, finalizers second, exactly once, on every exit class.
 - Law: `Layer.launch` remains the boot for graphs with no ordered drain; the moment one drain step exists, `parked` is the entry — two boot shapes selected by whether choreography is registered, never mixed.
@@ -25,7 +24,6 @@ Lifecycle and health are one owner because they are one skeleton: register ranke
 ## [03]-[RANKED_FOLD]
 
 [RANKED_FOLD]:
-
 - Owner: `_bounded` — the one budgeted row executor: measure the open instant, run the row's effect under `Effect.exit` with the budget applied as `Effect.timeoutOption` over `Effect.disconnect`, measure the close, and return the `Exit`-of-`Option` evidence beside the elapsed span; both registries fold through it, so the lapse-is-a-verdict law, the crash-is-evidence law, and the severed-deadline law are stated once.
 - Law: every deadline rides a severed fiber — the drain fold runs inside the interrupt's masked finalizer, where a bare timeout waits instead of interrupting, so `Effect.disconnect` severs the row's work onto its own fiber and the deadline settles on time while the shielded work finishes in background; a lapse is a verdict, never an abort.
 - Law: a row never fails its fold — a crash converts through `Effect.exit`, a lapse folds from `Option.none`, so the surrounding report is total and the serving edge carries zero recovery arms; the graders are the only per-surface difference — the drain grader folds to `drained | lapsed | crashed`, the probe grader to the grade lattice with lapse and crash landing at `fail` with their detail.
@@ -155,7 +153,6 @@ const _probeGrade: (outcome: Exit.Exit<Option.Option<Life.Grade>>) => readonly [
 ## [04]-[DRAIN_BANDS]
 
 [DRAIN_BANDS]:
-
 - Owner: the drain fold — a step is a row (`label`, `rank`, `budget: Option<Duration>`, `run`) admitted while the phase is `booting | running`; one semaphore linearizes registration with the transition-and-snapshot seam, and late registration fails as `LifeFault` rather than disappearing behind the snapshot. The total `_TRANSITIONS` matrix prevents `draining | halted → running`, the fold flips to `draining` before reading the ranked queue, and `halt` remains terminal under every disposition.
 - Law: budgets are two-tier by construction — the per-row `Option<Duration>` bounds its row and `Setting.life.drain` bounds the whole fold, both over the severed-fiber executor; a step that ignores its budget cannot stall the process, and the total is the number `iac` mirrors into the pod's grace period.
 - Law: the receipt is total and truthful — `Life.Row` and `Life.Receipt` are `Schema.Class` authorities, each graded drain row appends to the interior ledger and leaves the pending queue as it settles; `disposition: drained | expired` distinguishes normal completion from total-budget expiry, and `pending` names every snapshotted domain row the total budget omitted. The terminal phase stamps BEFORE the `Deferred` settles so the receipt's `landed` equals the cell the moment it is observable; every drain disposition settles `life.settled`, and no shutdown observer can suspend indefinitely. The report band runs after the settle, so a terminal reporter — the `otel/emit` flush is the standing rank-90 registrant — reads the settled receipt without awaiting evidence its own completion gates, and report-band rows are post-receipt forensics, never receipt members.
@@ -165,7 +162,6 @@ const _probeGrade: (outcome: Exit.Exit<Option.Option<Life.Grade>>) => readonly [
 ## [05]-[PROBE_ROUTES]
 
 [PROBE_ROUTES]:
-
 - Owner: the probe vocabulary and the report fold — `_KINDS` closes the taxonomy with its serving routes (`/startupz`, `/readyz`, `/livez` — the k8s trio), `_GRADES` closes the verdict lattice with rank columns so worst-of merge is an `Order` projection; `Life.report(kind)` filters the registry to the kind, sweeps every probe with unbounded concurrency (probes are independent — accumulation, never abort), bounds each by `Setting.life.probe` through the shared executor, and merges grades worst-of; zero probes fold to `pass`, vacuously healthy.
 - Law: kind semantics are the row's contract — `started` answers once per boot (slow warm-up allowed), `ready` answers "route traffic to me now" (dependency reachability, queue depth), `live` answers "is this process worth keeping" (event-loop responsiveness, deadlock sentinels); a dependency check inside a liveness probe is the classic self-inflicted restart loop and is the named defect.
 - Law: the ready fold gates on the phase first — outside `running` the report is `fail` with the phase as detail before any probe runs; liveness never reads the phase.

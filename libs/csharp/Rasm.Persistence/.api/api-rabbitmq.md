@@ -20,40 +20,40 @@
 
 `IConnectionFactory`/`ConnectionFactory` build connections from a `Uri` or host/port + credentials; `AutomaticRecoveryEnabled` (default `true`), `TopologyRecoveryEnabled` (default `true`), and `NetworkRecoveryInterval` (default 5s) drive transparent reconnection and topology replay. `IConnection.CreateChannelAsync(CreateChannelOptions?)` opens a channel (the AMQP multiplexed session); `IConnection.UpdateSecretAsync` rotates the OAuth2 token on a live connection. `IChannel` is the unit of all publish/consume/topology work and is not thread-safe for concurrent publishes on one instance.
 
-| [INDEX] | [SYMBOL]                                                            | [TYPE_FAMILY]     | [RAIL]                                                 |
-| :-----: | :------------------------------------------------------------------ | :---------------- | :----------------------------------------------------- |
-|  [01]   | `IConnectionFactory`                                                | factory contract  | builds connections, recovery policy                    |
-|  [02]   | `ConnectionFactory`                                                 | factory           | concrete factory + recovery defaults                   |
-|  [03]   | `IConnection`                                                       | connection root   | channel creation, recovery events                      |
-|  [04]   | `IChannel`                                                          | channel root      | publish/consume/ack/topology surface                   |
-|  [05]   | `CreateChannelOptions`                                              | channel policy    | publisher-confirm + dispatch-concurrency policy        |
-|  [06]   | `AmqpTcpEndpoint`                                                   | endpoint          | host/port/TLS endpoint descriptor                      |
-|  [07]   | `IEndpointResolver`                                                 | endpoint resolver | multi-endpoint connection ordering                     |
-|  [08]   | `SslOption`                                                         | TLS option        | server cert validation + client cert                   |
-|  [09]   | `ICredentialsProvider`                                              | credential source | rotatable credential provider                          |
-|  [10]   | `.OutstandingPublisherConfirmationsRateLimiter`                     | confirm limiter   | default `ThrottlingRateLimiter(128, 50)` back-pressure |
+| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY]     | [RAIL]                                                 |
+| :-----: | :---------------------------------------------- | :---------------- | :----------------------------------------------------- |
+|  [01]   | `IConnectionFactory`                            | factory contract  | builds connections, recovery policy                    |
+|  [02]   | `ConnectionFactory`                             | factory           | concrete factory + recovery defaults                   |
+|  [03]   | `IConnection`                                   | connection root   | channel creation, recovery events                      |
+|  [04]   | `IChannel`                                      | channel root      | publish/consume/ack/topology surface                   |
+|  [05]   | `CreateChannelOptions`                          | channel policy    | publisher-confirm + dispatch-concurrency policy        |
+|  [06]   | `AmqpTcpEndpoint`                               | endpoint          | host/port/TLS endpoint descriptor                      |
+|  [07]   | `IEndpointResolver`                             | endpoint resolver | multi-endpoint connection ordering                     |
+|  [08]   | `SslOption`                                     | TLS option        | server cert validation + client cert                   |
+|  [09]   | `ICredentialsProvider`                          | credential source | rotatable credential provider                          |
+|  [10]   | `.OutstandingPublisherConfirmationsRateLimiter` | confirm limiter   | default `ThrottlingRateLimiter(128, 50)` back-pressure |
 
 [PUBLIC_TYPE_SCOPE]: message, properties, and consumer family
 - rail: amqp-egress
 
 `IReadOnlyBasicProperties`/`IBasicProperties`/`BasicProperties` carry the AMQP message metadata: `Persistent`/`DeliveryMode` (durable message), `Headers` (the header-exchange + CloudEvents attribute carrier), `CorrelationId`, `ReplyTo`/`ReplyToAddress` (RPC), `Expiration` (per-message TTL), `Priority`, `ContentType`/`ContentEncoding`, `MessageId`, `Timestamp`. `IAsyncBasicConsumer`/`AsyncEventingBasicConsumer` is the v7 consumer; its `ReceivedAsync` event delivers `BasicDeliverEventArgs` with the body as `ReadOnlyMemory<byte>`.
 
-| [INDEX] | [SYMBOL]                                                                   | [TYPE_FAMILY]        | [RAIL]                                |
-| :-----: | :------------------------------------------------------------------------- | :------------------- | :------------------------------------ |
-|  [01]   | `IReadOnlyBasicProperties`                                                 | properties read      | message metadata accessor             |
-|  [02]   | `IBasicProperties`                                                         | properties write     | mutable message metadata              |
-|  [03]   | `BasicProperties`                                                          | properties value     | concrete mutable properties           |
-|  [04]   | `DeliveryModes`                                                            | durability enum      | `Transient` / `Persistent`            |
-|  [05]   | `IAsyncBasicConsumer`                                                      | consumer contract    | async delivery callback surface       |
-|  [06]   | `AsyncEventingBasicConsumer`                                               | consumer             | event-based async consumer            |
-|  [07]   | `AsyncDefaultBasicConsumer`                                                | consumer base        | override-based async consumer base    |
-|  [08]   | `Events.BasicDeliverEventArgs`                                             | delivery event       | tag, body, properties of one delivery |
-|  [09]   | `Events.BasicAckEventArgs`                                                 | confirm event        | publisher-confirm ack                 |
-|  [10]   | `Events.BasicNackEventArgs`                                                | confirm event        | publisher-confirm nack                |
-|  [11]   | `Events.BasicReturnEventArgs`                                              | return event         | unroutable message return             |
-|  [12]   | `BasicGetResult`                                                           | poll result          | one polled message (`BasicGetAsync`)  |
-|  [13]   | `QueueDeclareOk`                                                           | declare result       | queue name + message/consumer counts  |
-|  [14]   | `CachedString`                                                             | interned string      | pre-encoded exchange/routing-key key  |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]     | [RAIL]                                |
+| :-----: | :----------------------------- | :---------------- | :------------------------------------ |
+|  [01]   | `IReadOnlyBasicProperties`     | properties read   | message metadata accessor             |
+|  [02]   | `IBasicProperties`             | properties write  | mutable message metadata              |
+|  [03]   | `BasicProperties`              | properties value  | concrete mutable properties           |
+|  [04]   | `DeliveryModes`                | durability enum   | `Transient` / `Persistent`            |
+|  [05]   | `IAsyncBasicConsumer`          | consumer contract | async delivery callback surface       |
+|  [06]   | `AsyncEventingBasicConsumer`   | consumer          | event-based async consumer            |
+|  [07]   | `AsyncDefaultBasicConsumer`    | consumer base     | override-based async consumer base    |
+|  [08]   | `Events.BasicDeliverEventArgs` | delivery event    | tag, body, properties of one delivery |
+|  [09]   | `Events.BasicAckEventArgs`     | confirm event     | publisher-confirm ack                 |
+|  [10]   | `Events.BasicNackEventArgs`    | confirm event     | publisher-confirm nack                |
+|  [11]   | `Events.BasicReturnEventArgs`  | return event      | unroutable message return             |
+|  [12]   | `BasicGetResult`               | poll result       | one polled message (`BasicGetAsync`)  |
+|  [13]   | `QueueDeclareOk`               | declare result    | queue name + message/consumer counts  |
+|  [14]   | `CachedString`                 | interned string   | pre-encoded exchange/routing-key key  |
 
 [PUBLIC_TYPE_SCOPE]: routing, observability, and exception family
 - rail: amqp-egress
@@ -79,15 +79,15 @@
 
 `CreateChannelOptions(publisherConfirmationsEnabled, publisherConfirmationTrackingEnabled, outstandingPublisherConfirmationsRateLimiter?, consumerDispatchConcurrency?)` is the v7 confirms policy: with tracking enabled, `BasicPublishAsync` itself awaits the broker ack and throws on nack, replacing the v6 manual `WaitForConfirmsOrDie`. The `OutstandingPublisherConfirmationsRateLimiter` (default `ThrottlingRateLimiter(128, 50)`) bounds in-flight unconfirmed publishes.
 
-| [INDEX] | [SURFACE]                                                                                                                                 | [CALL_SHAPE]  | [CAPABILITY]                              |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------- | :------------ | :---------------------------------------- |
-|  [01]   | `new ConnectionFactory { Uri = … }`                                                                                                       | factory init  | configures endpoint + credentials         |
-|  [02]   | `ConnectionFactory.CreateConnectionAsync(ct)`                                                                                             | async connect | opens a recovering connection             |
-|  [03]   | `CreateConnectionAsync(IEnumerable<AmqpTcpEndpoint>, clientProvidedName, ct)`                                                             | async connect | connects across an endpoint list          |
-|  [04]   | `IConnection.CreateChannelAsync(CreateChannelOptions?, ct)`                                                                               | async open    | opens a channel (confirm policy bound)    |
-|  [05]   | `new CreateChannelOptions(…)`                                                                                                            | ctor          | publisher-confirm + dispatch policy       |
-|  [06]   | `IConnection.UpdateSecretAsync(newSecret, reason, ct)`                                                                                    | async runtime | rotates OAuth2 token on live connection   |
-|  [07]   | `IConnection.CloseAsync(reasonCode, reasonText, timeout, abort, ct)`                                                                      | async close   | graceful connection close                 |
+| [INDEX] | [SURFACE]                                                                     | [CALL_SHAPE]  | [CAPABILITY]                            |
+| :-----: | :---------------------------------------------------------------------------- | :------------ | :-------------------------------------- |
+|  [01]   | `new ConnectionFactory { Uri = … }`                                           | factory init  | configures endpoint + credentials       |
+|  [02]   | `ConnectionFactory.CreateConnectionAsync(ct)`                                 | async connect | opens a recovering connection           |
+|  [03]   | `CreateConnectionAsync(IEnumerable<AmqpTcpEndpoint>, clientProvidedName, ct)` | async connect | connects across an endpoint list        |
+|  [04]   | `IConnection.CreateChannelAsync(CreateChannelOptions?, ct)`                   | async open    | opens a channel (confirm policy bound)  |
+|  [05]   | `new CreateChannelOptions(…)`                                                 | ctor          | publisher-confirm + dispatch policy     |
+|  [06]   | `IConnection.UpdateSecretAsync(newSecret, reason, ct)`                        | async runtime | rotates OAuth2 token on live connection |
+|  [07]   | `IConnection.CloseAsync(reasonCode, reasonText, timeout, abort, ct)`          | async close   | graceful connection close               |
 
 [ENTRYPOINT_SCOPE]: topology declaration
 - rail: amqp-egress
@@ -108,34 +108,34 @@ Every surface is an `IChannel` method, idempotent server-side and carrying `noWa
 
 `BasicPublishAsync<TProperties>` has a `(string exchange, string routingKey, …)` overload and a `(CachedString exchange, CachedString routingKey, …)` overload for pre-interned hot-path keys; both take `mandatory`, the generic `basicProperties`, and a `ReadOnlyMemory<byte>` body. `BasicConsumeAsync` binds an `IAsyncBasicConsumer`; `BasicQosAsync` sets the prefetch window for fair work-queue dispatch.
 
-| [INDEX] | [SURFACE]                                                                                              | [CALL_SHAPE]  | [CAPABILITY]                                |
-| :-----: | :----------------------------------------------------------------------------------------------------- | :------------ | :------------------------------------------ |
-|  [01]   | `IChannel.BasicPublishAsync<T>(exchange, routingKey, mandatory, …)`                                    | async publish | publishes; confirms if tracking on          |
-|  [02]   | `IChannel.BasicPublishAsync<T>(CachedString exchange, …)`                                              | async publish | hot-path publish with interned keys         |
-|  [03]   | `IChannel.GetNextPublishSequenceNumberAsync(ct)`                                                       | async confirm | next publisher-confirm sequence #           |
-|  [04]   | `IChannel.BasicConsumeAsync(queue, autoAck, consumer, …)`                                              | async consume | starts an async consumer                    |
-|  [05]   | `IChannel.BasicGetAsync(queue, autoAck, ct)`                                                           | async poll    | pulls one message (`BasicGetResult?`)       |
-|  [06]   | `IChannel.BasicQosAsync(prefetchSize, prefetchCount, global, ct)`                                      | async flow    | sets the consumer prefetch window           |
-|  [07]   | `IChannel.BasicAckAsync(deliveryTag, multiple, ct)`                                                    | async ack     | acknowledges one/all up-to delivery         |
-|  [08]   | `IChannel.BasicNackAsync(deliveryTag, multiple, requeue, ct)`                                          | async nack    | negative-ack with requeue/dead-letter       |
-|  [09]   | `IChannel.BasicRejectAsync(deliveryTag, requeue, ct)`                                                  | async reject  | rejects one delivery                        |
-|  [10]   | `IChannel.BasicCancelAsync(consumerTag, noWait, ct)`                                                   | async cancel  | cancels a consumer                          |
-|  [11]   | `AsyncEventingBasicConsumer.ReceivedAsync += handler`                                                  | event wire    | `BasicDeliverEventArgs` delivery callback   |
-|  [12]   | `IChannel.TxSelectAsync` / `TxCommitAsync` / `TxRollbackAsync`                                         | async tx      | AMQP transaction (legacy vs. confirms)      |
+| [INDEX] | [SURFACE]                                                           | [CALL_SHAPE]  | [CAPABILITY]                              |
+| :-----: | :------------------------------------------------------------------ | :------------ | :---------------------------------------- |
+|  [01]   | `IChannel.BasicPublishAsync<T>(exchange, routingKey, mandatory, …)` | async publish | publishes; confirms if tracking on        |
+|  [02]   | `IChannel.BasicPublishAsync<T>(CachedString exchange, …)`           | async publish | hot-path publish with interned keys       |
+|  [03]   | `IChannel.GetNextPublishSequenceNumberAsync(ct)`                    | async confirm | next publisher-confirm sequence #         |
+|  [04]   | `IChannel.BasicConsumeAsync(queue, autoAck, consumer, …)`           | async consume | starts an async consumer                  |
+|  [05]   | `IChannel.BasicGetAsync(queue, autoAck, ct)`                        | async poll    | pulls one message (`BasicGetResult?`)     |
+|  [06]   | `IChannel.BasicQosAsync(prefetchSize, prefetchCount, global, ct)`   | async flow    | sets the consumer prefetch window         |
+|  [07]   | `IChannel.BasicAckAsync(deliveryTag, multiple, ct)`                 | async ack     | acknowledges one/all up-to delivery       |
+|  [08]   | `IChannel.BasicNackAsync(deliveryTag, multiple, requeue, ct)`       | async nack    | negative-ack with requeue/dead-letter     |
+|  [09]   | `IChannel.BasicRejectAsync(deliveryTag, requeue, ct)`               | async reject  | rejects one delivery                      |
+|  [10]   | `IChannel.BasicCancelAsync(consumerTag, noWait, ct)`                | async cancel  | cancels a consumer                        |
+|  [11]   | `AsyncEventingBasicConsumer.ReceivedAsync += handler`               | event wire    | `BasicDeliverEventArgs` delivery callback |
+|  [12]   | `IChannel.TxSelectAsync` / `TxCommitAsync` / `TxRollbackAsync`      | async tx      | AMQP transaction (legacy vs. confirms)    |
 
 [ENTRYPOINT_SCOPE]: recovery and observability wiring
 - rail: amqp-egress
 
 Each `IConnection` recovery event subscribes via `+= handler`; the `RabbitMQActivitySource` rows are the OTel trace-context seam.
 
-| [INDEX] | [SURFACE]                                                            | [CALL_SHAPE] | [CAPABILITY]                          |
-| :-----: | :----------------------------------------------------------------- | :----------- | :------------------------------------ |
-|  [01]   | `IConnection.RecoverySucceededAsync`                                | event wire   | fires after automatic recovery        |
-|  [02]   | `IConnection.ConnectionRecoveryErrorAsync`                          | event wire   | fires on a recovery attempt failure   |
-|  [03]   | `IConnection.ConnectionBlockedAsync`                                | event wire   | broker flow-control / resource alarm  |
-|  [04]   | `IConnection.ConnectionShutdownAsync` / `CallbackExceptionAsync`    | event wire   | shutdown / callback-fault hook        |
-|  [05]   | `RabbitMQActivitySource.ContextInjector` / `ContextExtractor`       | telemetry    | W3C trace-context via headers         |
-|  [06]   | `RabbitMQActivitySource.{PublisherSourceName, SubscriberSourceName}`| telemetry    | `ActivitySource` names for OTel       |
+| [INDEX] | [SURFACE]                                                            | [CALL_SHAPE] | [CAPABILITY]                         |
+| :-----: | :------------------------------------------------------------------- | :----------- | :----------------------------------- |
+|  [01]   | `IConnection.RecoverySucceededAsync`                                 | event wire   | fires after automatic recovery       |
+|  [02]   | `IConnection.ConnectionRecoveryErrorAsync`                           | event wire   | fires on a recovery attempt failure  |
+|  [03]   | `IConnection.ConnectionBlockedAsync`                                 | event wire   | broker flow-control / resource alarm |
+|  [04]   | `IConnection.ConnectionShutdownAsync` / `CallbackExceptionAsync`     | event wire   | shutdown / callback-fault hook       |
+|  [05]   | `RabbitMQActivitySource.ContextInjector` / `ContextExtractor`        | telemetry    | W3C trace-context via headers        |
+|  [06]   | `RabbitMQActivitySource.{PublisherSourceName, SubscriberSourceName}` | telemetry    | `ActivitySource` names for OTel      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

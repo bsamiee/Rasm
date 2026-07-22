@@ -6,7 +6,7 @@ Reactivity-keyed reactive reads: read-your-writes is one coordinate vocabulary w
 
 | [INDEX] | [CLUSTER]         | [OWNS]                                                                             |
 | :-----: | :---------------- | :--------------------------------------------------------------------------------- |
-|  [01]   | `KEY_COORDINATES` | `Live.Keys` — field refinements, admissions, merge, the stamp/consume law           |
+|  [01]   | `KEY_COORDINATES` | `Live.Keys` — field refinements, admissions, merge, the stamp/consume law          |
 |  [02]   | `LIVE_READS`      | `Live.of` — the decoded read, the reactive stream, the mailbox twin                |
 |  [03]   | `FOREIGN_EDGE`    | mutation wrapping and bare invalidation for writes outside the publish transaction |
 

@@ -416,17 +416,17 @@ public readonly record struct CaseSql(string LockKey, bool RequiresToken, string
 }
 ```
 
-| [INDEX] | [POLICY]        | [VALUE]                                       | [BINDING]                                                       |
-| :-----: | :-------------- | :-------------------------------------------- | :-------------------------------------------------------------- |
-|  [01]   | fencing         | `fence <= @token` on every guarded write      | stale token → typed `LeaseFenced`, never a lost update          |
-|  [02]   | generation mint | `LeaseAcquire` row-CAS `RETURNING generation` | monotone `++`; the token is validated, not merely issued        |
-|  [03]   | budget shape    | per-unit vector, one statement                | `HashMap<string,long>` mirrors `CostVector` string keys ([A.1]) |
-|  [04]   | read guard      | tenant RLS predicate structural on every READ | no cross-tenant in-flight/lease/membership leak                 |
-|  [05]   | lock family     | `pg_advisory_xact_lock` (transaction-scoped)  | auto-released at commit; session locks are the leak form        |
-|  [06]   | receipt floor   | `IsValid => ValidityClaim.All(...)` per case  | kernel validity fold ([C]); `&&` chains deleted                 |
-|  [07]   | port direction  | AppHost decodes Persistence-owned types       | four PORT rows + `MembershipView.Serving`; nothing crosses down |
-|  [08]   | row canon       | `(key, state, fence, value, until, payload)`  | fence and case scalar never alias; `CaseSql.For` generates every row    |
-|  [09]   | signal row      | fenced `(workflow, channel)` upsert           | `SignalPut`/`SignalLoad` decode `StepStateSeam.SignalPut`/`SignalOf`    |
+| [INDEX] | [POLICY]        | [VALUE]                                       | [BINDING]                                                            |
+| :-----: | :-------------- | :-------------------------------------------- | :------------------------------------------------------------------- |
+|  [01]   | fencing         | `fence <= @token` on every guarded write      | stale token → typed `LeaseFenced`, never a lost update               |
+|  [02]   | generation mint | `LeaseAcquire` row-CAS `RETURNING generation` | monotone `++`; the token is validated, not merely issued             |
+|  [03]   | budget shape    | per-unit vector, one statement                | `HashMap<string,long>` mirrors `CostVector` string keys ([A.1])      |
+|  [04]   | read guard      | tenant RLS predicate structural on every READ | no cross-tenant in-flight/lease/membership leak                      |
+|  [05]   | lock family     | `pg_advisory_xact_lock` (transaction-scoped)  | auto-released at commit; session locks are the leak form             |
+|  [06]   | receipt floor   | `IsValid => ValidityClaim.All(...)` per case  | kernel validity fold ([C]); `&&` chains deleted                      |
+|  [07]   | port direction  | AppHost decodes Persistence-owned types       | four PORT rows + `MembershipView.Serving`; nothing crosses down      |
+|  [08]   | row canon       | `(key, state, fence, value, until, payload)`  | fence and case scalar never alias; `CaseSql.For` generates every row |
+|  [09]   | signal row      | fenced `(workflow, channel)` upsert           | `SignalPut`/`SignalLoad` decode `StepStateSeam.SignalPut`/`SignalOf` |
 
 ## [03]-[OUTBOX_CURSOR]
 

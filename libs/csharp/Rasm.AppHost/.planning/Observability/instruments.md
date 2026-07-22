@@ -187,18 +187,18 @@ public static class InstrumentFan {
 
 [CONTRIBUTED_ARMS]: every emitting package contributes through the kernel port shape — a wire-borne contributor mounts one kind-arm table beside its port, a typed-fold contributor projects pre-envelope and contributes rows alone; a duplicate kind across any two tables faults at the frozen merge, and each port carries its own semconv schema coordinate. Host custody names where the contributor's meters live — hosted roots ride `SignalGovernance.Govern`, plugin-hosted processes ride the `PluginTelemetryHost` per-ALC capsule.
 
-| [INDEX] | [CONTRIBUTOR]      | [PROJECTION]                            | [PORT_MINT]                        | [CUSTODY]        |
-| :-----: | :----------------- | :-------------------------------------- | :--------------------------------- | :--------------- |
-|  [01]   | `Rasm` kernel      | typed fold — `TelemetrySink.Tap`        | `KernelInstruments.Telemetry`      | composing root   |
-|  [02]   | `Rasm.Element`     | typed fold — `GraphInstrument`          | `ElementInstruments.Telemetry`     | composing root   |
-|  [03]   | `Rasm.Bim`         | typed fold — `BimTelemetry.Tap`         | `BimTelemetry.Telemetry`           | composing root   |
-|  [04]   | `Rasm.Materials`   | receipt arms at this fan                | `MaterialsInstruments.Telemetry`   | composing root   |
-|  [05]   | `Rasm.Fabrication` | `FabricationInstruments.Arms`           | `FabricationInstruments.Telemetry` | host root        |
-|  [06]   | `Rasm.Persistence` | `StoreInstruments.Arms`                 | `StoreInstruments.Telemetry`       | host root        |
-|  [07]   | `Rasm.Compute`     | typed fold — `ComputeInstrumentFan`     | `ReceiptSurface.Telemetry`         | host root        |
-|  [08]   | `Rasm.AppUi`       | typed fold — `EvidenceFan`              | `AppUiTelemetry.Contribute`        | host root        |
-|  [09]   | `Rasm.Rhino`       | observe taps on the mount registry      | `RhinoInstruments.Telemetry`       | plugin ALC       |
-|  [10]   | `Rasm.Grasshopper` | typed fold — `GhInstruments.Project`    | scope admission by name            | plugin ALC       |
+| [INDEX] | [CONTRIBUTOR]      | [PROJECTION]                         | [PORT_MINT]                        | [CUSTODY]      |
+| :-----: | :----------------- | :----------------------------------- | :--------------------------------- | :------------- |
+|  [01]   | `Rasm` kernel      | typed fold — `TelemetrySink.Tap`     | `KernelInstruments.Telemetry`      | composing root |
+|  [02]   | `Rasm.Element`     | typed fold — `GraphInstrument`       | `ElementInstruments.Telemetry`     | composing root |
+|  [03]   | `Rasm.Bim`         | typed fold — `BimTelemetry.Tap`      | `BimTelemetry.Telemetry`           | composing root |
+|  [04]   | `Rasm.Materials`   | receipt arms at this fan             | `MaterialsInstruments.Telemetry`   | composing root |
+|  [05]   | `Rasm.Fabrication` | `FabricationInstruments.Arms`        | `FabricationInstruments.Telemetry` | host root      |
+|  [06]   | `Rasm.Persistence` | `StoreInstruments.Arms`              | `StoreInstruments.Telemetry`       | host root      |
+|  [07]   | `Rasm.Compute`     | typed fold — `ComputeInstrumentFan`  | `ReceiptSurface.Telemetry`         | host root      |
+|  [08]   | `Rasm.AppUi`       | typed fold — `EvidenceFan`           | `AppUiTelemetry.Contribute`        | host root      |
+|  [09]   | `Rasm.Rhino`       | observe taps on the mount registry   | `RhinoInstruments.Telemetry`       | plugin ALC     |
+|  [10]   | `Rasm.Grasshopper` | typed fold — `GhInstruments.Project` | scope admission by name            | plugin ALC     |
 
 ## [04]-[PROVIDER_LIFETIME]
 

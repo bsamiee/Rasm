@@ -21,18 +21,18 @@ Node adds the whole reason `runtime` needs a distinct package: a live server sur
 - rail: net/client
 - Three options records share one near-identical field set; `protocol` picks the factory and `httpVersion` picks the Node module. All three produce the identical `@connectrpc/connect` `Transport` the `Client<T>` consumes; rows past the three headers are fields carried on the records.
 
-| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY]     | [CONSUMER_BOUNDARY]                                                  |
+| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY]     | [CONSUMER_BOUNDARY]                                                 |
 | :-----: | :------------------------------------------ | :---------------- | :------------------------------------------------------------------ |
 |  [01]   | `ConnectTransportOptions`                   | transport policy  | connect arm — `http`/`https`/`http2`, `useHttpGet`, binary-default  |
 |  [02]   | `GrpcTransportOptions`                      | transport policy  | grpc arm — `http2`-only, gRPC gateway compat                        |
 |  [03]   | `GrpcWebTransportOptions`                   | transport policy  | grpc-web arm — `http`/`https`/`http2`, binary-default               |
 |  [04]   | `.baseUrl: string`                          | endpoint          | route root `<baseUrl>/<pkg>.<Service>/<Method>`; from `host/config` |
 |  [05]   | `.httpVersion: "1.1" \| "2"`                | transport arm     | Node module select — `http`/`https` vs `http2`; grpc pins `"2"`     |
-|  [06]   | `.interceptors?: Interceptor[]`             | onion             | the `connect` `Interceptor` chain — the W3C trace pair, auth, retry  |
+|  [06]   | `.interceptors?: Interceptor[]`             | onion             | the `connect` `Interceptor` chain — the W3C trace pair, auth, retry |
 |  [07]   | `.useBinaryFormat?`                         | codec select      | binary vs JSON; binary content-stable, JSON debuggable              |
 |  [08]   | `.binaryOptions?` / `.jsonOptions?`         | codec options     | `@bufbuild/protobuf` read-write options for the selected format     |
 |  [09]   | `.acceptCompression?` / `.sendCompression?` | compression       | `Compression[]` / `Compression` — the zlib gzip/brotli algebra      |
-|  [10]   | `.compressMinBytes?`                        | compression floor | below-threshold messages ship uncompressed; default 1 KiB          |
+|  [10]   | `.compressMinBytes?`                        | compression floor | below-threshold messages ship uncompressed; default 1 KiB           |
 |  [11]   | `.readMaxBytes?` / `.writeMaxBytes?`        | frame bound       | per-message cap against pathological payloads; default ~4 GiB       |
 |  [12]   | `.defaultTimeoutMs?`                        | deadline          | transport-wide deadline; per-call `CallOptions.timeoutMs` overrides |
 |  [13]   | `.nodeOptions?`                             | socket / TLS      | passed to `http`/`https` `request()` or `http2` `connect()`         |
@@ -42,18 +42,18 @@ Node adds the whole reason `runtime` needs a distinct package: a live server sur
 - rail: serve/live
 - `ConnectNodeAdapterOptions` extends the `connect` `ConnectRouterOptions`; `connectNodeAdapter` turns it into a `NodeHandlerFn` compatible with `http.RequestListener`. `Http2SessionManager`/`Http2SessionOptions` own the client-lane keepalive.
 
-| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                        |
-| :-----: | :------------------------------------------ | :-------------- | :-------------------------------------------------------- |
-|  [01]   | `ConnectNodeAdapterOptions`                 | server mount    | extends `ConnectRouterOptions`; the router mount options  |
-|  [02]   | `.routes: (router) => void`                 | route builder   | `router.service(Service, impl)` mounts the emitted service |
-|  [03]   | `.contextValues?: (req) => ContextValues`   | per-req context | tenant/principal/deadline per inbound request             |
-|  [04]   | `.fallback?: NodeHandlerFn`                 | 404 fallback    | handler when no RPC path matches                          |
-|  [05]   | `.requestPathPrefix?: string`               | mount prefix    | serve all handlers under a path prefix                   |
-|  [06]   | `NodeHandlerFn`                             | handler         | `(req, res) => void` — the `http.RequestListener` value   |
-|  [07]   | `NodeServerRequest`/`NodeServerResponse`    | node io         | `http.IncomingMessage` \| `http2.Http2ServerRequest` + res |
-|  [08]   | `Http2SessionManager`                       | keepalive class | `state`/`connect`/`request`/`abort`/`notifyResponseByteRead` |
-|  [09]   | `Http2SessionOptions`                       | keepalive knobs | PING interval/timeout/idle-connection/idle-timeout ms     |
-|  [10]   | `NodeHttpClientOptions`                     | client fn opts  | `createNodeHttpClient` shape — `@private`, no semver       |
+| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                          |
+| :-----: | :---------------------------------------- | :-------------- | :----------------------------------------------------------- |
+|  [01]   | `ConnectNodeAdapterOptions`               | server mount    | extends `ConnectRouterOptions`; the router mount options     |
+|  [02]   | `.routes: (router) => void`               | route builder   | `router.service(Service, impl)` mounts the emitted service   |
+|  [03]   | `.contextValues?: (req) => ContextValues` | per-req context | tenant/principal/deadline per inbound request                |
+|  [04]   | `.fallback?: NodeHandlerFn`               | 404 fallback    | handler when no RPC path matches                             |
+|  [05]   | `.requestPathPrefix?: string`             | mount prefix    | serve all handlers under a path prefix                       |
+|  [06]   | `NodeHandlerFn`                           | handler         | `(req, res) => void` — the `http.RequestListener` value      |
+|  [07]   | `NodeServerRequest`/`NodeServerResponse`  | node io         | `http.IncomingMessage` \| `http2.Http2ServerRequest` + res   |
+|  [08]   | `Http2SessionManager`                     | keepalive class | `state`/`connect`/`request`/`abort`/`notifyResponseByteRead` |
+|  [09]   | `Http2SessionOptions`                     | keepalive knobs | PING interval/timeout/idle-connection/idle-timeout ms        |
+|  [10]   | `NodeHttpClientOptions`                   | client fn opts  | `createNodeHttpClient` shape — `@private`, no semver         |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -61,24 +61,24 @@ Node adds the whole reason `runtime` needs a distinct package: a live server sur
 - rail: net/client
 - Each factory is a pure `(options) => Transport`; the returned value is handed to `createClient(service, transport)` from `connect`. `net/client.md` calls exactly one per configured client, selected by the lane's `protocol`+`httpVersion` policy row.
 
-| [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY]    | [CONSUMER_BOUNDARY]                                        |
-| :-----: | :------------------------------------------- | :---------------- | :-------------------------------------------------------- |
-|  [01]   | `createConnectTransport(options): Transport` | connect arm       | `protocol:"connect"` — `http`/`https`/`http2`, `useHttpGet` |
-|  [02]   | `createGrpcTransport(options): Transport`    | grpc arm          | `protocol:"grpc"` — `http2`-only, native gRPC gateway     |
-|  [03]   | `createGrpcWebTransport(options): Transport` | grpc-web arm      | `protocol:"grpc-web"` — `http`/`https`/`http2`, binary    |
-|  [04]   | `compressionGzip` / `compressionBrotli`      | compression const | zlib `Compression` for `sendCompression`/`acceptCompression` |
+| [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY]    | [CONSUMER_BOUNDARY]                                           |
+| :-----: | :------------------------------------------- | :---------------- | :------------------------------------------------------------ |
+|  [01]   | `createConnectTransport(options): Transport` | connect arm       | `protocol:"connect"` — `http`/`https`/`http2`, `useHttpGet`   |
+|  [02]   | `createGrpcTransport(options): Transport`    | grpc arm          | `protocol:"grpc"` — `http2`-only, native gRPC gateway         |
+|  [03]   | `createGrpcWebTransport(options): Transport` | grpc-web arm      | `protocol:"grpc-web"` — `http`/`https`/`http2`, binary        |
+|  [04]   | `compressionGzip` / `compressionBrotli`      | compression const | zlib `Compression` for `sendCompression`/`acceptCompression`  |
 |  [05]   | `new Http2SessionManager(url, ping?, opts?)` | keepalive         | shared `http2` connection kept alive with PING frames, pooled |
 
 [ENTRYPOINT_SCOPE]: the server adapter and the framework-adapter internals
 - rail: serve/live
 - `connectNodeAdapter` is the Mount port entry; the `universal*` helpers and `createNodeHttpClient` are the lower-tier careful-use surface a non-standard Node framework host reaches for, never ordinary mount code.
 
-| [INDEX] | [SURFACE]                                          | [ENTRY_FAMILY]    | [CONSUMER_BOUNDARY]                                      |
-| :-----: | :------------------------------------------------- | :---------------- | :------------------------------------------------------ |
-|  [01]   | `connectNodeAdapter(options): NodeHandlerFn`       | server mount      | `ConnectRouter` → `http.RequestListener`; Mount port row |
-|  [02]   | `universalRequestFromNodeRequest(req,res,json,ctx)` | framework adapter | Node request → `UniversalServerRequest`; careful-use   |
-|  [03]   | `universalResponseToNodeResponse(res, nodeRes)`    | framework adapter | `UniversalServerResponse` → Node response; careful-use  |
-|  [04]   | `createNodeHttpClient(options): UniversalClientFn` | client fn         | `@private` internal — builds the universal client       |
+| [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY]    | [CONSUMER_BOUNDARY]                                      |
+| :-----: | :-------------------------------------------------- | :---------------- | :------------------------------------------------------- |
+|  [01]   | `connectNodeAdapter(options): NodeHandlerFn`        | server mount      | `ConnectRouter` → `http.RequestListener`; Mount port row |
+|  [02]   | `universalRequestFromNodeRequest(req,res,json,ctx)` | framework adapter | Node request → `UniversalServerRequest`; careful-use     |
+|  [03]   | `universalResponseToNodeResponse(res, nodeRes)`     | framework adapter | `UniversalServerResponse` → Node response; careful-use   |
+|  [04]   | `createNodeHttpClient(options): UniversalClientFn`  | client fn         | `@private` internal — builds the universal client        |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

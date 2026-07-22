@@ -18,7 +18,7 @@
 - rail: boundaries
 
 | [INDEX] | [SYMBOL]                | [TYPE_FAMILY] | [CONSUMER]                                                                          |
-| :-----: | :---------------------- | :------------ | :--------------------------------------------------------------------------------- |
+| :-----: | :---------------------- | :------------ | :---------------------------------------------------------------------------------- |
 |  [01]   | `NodeConnectionOptions` | options       | `Omit<ConnectionOptions, "tls">` with `tls?: NodeTlsOptions \| null` — dial config  |
 |  [02]   | `NodeTlsOptions`        | tls options   | core `TlsOptions` plus `rejectUnauthorized?` — CA/cert posture from `Setting`       |
 |  [03]   | `NodeTransport`         | transport     | the `Transport` implementation over `node:net`; runtime substrate, never dialed raw |
@@ -31,10 +31,10 @@
 [ENTRYPOINT_SCOPE]: node-lane dialing; lifecycle and message members are the re-exported `NatsConnection` surface keyed in `.api/nats-io-nats-core.md`
 - rail: system-apis
 
-| [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY] | [BOUNDARY]                       |
-| :-----: | :----------------------------------------- | :------------- | :------------------------------- |
+| [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY] | [BOUNDARY]                        |
+| :-----: | :----------------------------------------- | :------------- | :-------------------------------- |
 |  [01]   | `connect(opts?): Promise<NatsConnection>`  | dial           | scoped node TCP/TLS acquisition   |
-|  [02]   | `nodeResolveHost(host): Promise<string[]>` | resolution     | transport DNS helper             |
+|  [02]   | `nodeResolveHost(host): Promise<string[]>` | resolution     | transport DNS helper              |
 |  [03]   | re-export `* from nats-base-client`        | core surface   | connection and message vocabulary |
 
 ## [04]-[IMPLEMENTATION_LAW]

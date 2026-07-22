@@ -19,12 +19,12 @@
 [PUBLIC_TYPE_SCOPE]: serde family
 - rail: cdc-egress (JSON Schema)
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]       | [RAIL]                                                                        |
-| :-----: | :----------------------- | :------------------ | :---------------------------------------------------------------------------- |
-|  [01]   | `JsonSerializer<T>`      | async serializer    | `where T : class`; generates schema, validates, frames id                    |
-|  [02]   | `JsonDeserializer<T>`    | async deserializer  | `where T : class`; resolves id, validates, parses                            |
-|  [03]   | `JsonSerializerConfig`   | serializer config   | register/normalize/validate/subject/id-strategy                              |
-|  [04]   | `JsonDeserializerConfig` | deserializer config | latest-version + validate + id-strategy                                      |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]       | [RAIL]                                                                            |
+| :-----: | :----------------------- | :------------------ | :-------------------------------------------------------------------------------- |
+|  [01]   | `JsonSerializer<T>`      | async serializer    | `where T : class`; generates schema, validates, frames id                         |
+|  [02]   | `JsonDeserializer<T>`    | async deserializer  | `where T : class`; resolves id, validates, parses                                 |
+|  [03]   | `JsonSerializerConfig`   | serializer config   | register/normalize/validate/subject/id-strategy                                   |
+|  [04]   | `JsonDeserializerConfig` | deserializer config | latest-version + validate + id-strategy                                           |
 |  [05]   | `JsonSchemaResolver`     | reference resolver  | `GetResolvedSchema()` walks `Schema.References` `$ref` rows into one `JsonSchema` |
 
 [PUBLIC_TYPE_SCOPE]: composed contract family (re-stated from siblings)

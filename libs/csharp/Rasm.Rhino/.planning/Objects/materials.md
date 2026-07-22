@@ -600,15 +600,15 @@ public static class Materials {
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]             | [OWNER]           | [FORM]                                                 | [ENTRY]                       |
-| :-----: | :-------------------- | :---------------- | :----------------------------------------------------- | :---------------------------- |
-|  [01]   | material resolution   | scope plus realm  | overload union plus row-owned material family          | `MaterialAsk.Resolve`         |
-|  [02]   | detached identity     | `MaterialStamp`   | resolved id and name                                   | `MaterialAnswer.Stamped`      |
-|  [03]   | render-support reads  | `MaterialAsk`     | one union over materials, channels, caches, and knobs  | `Materials.Ask`               |
-|  [04]   | meshing policy        | `MeshPolicy`      | normalized encoding with call-scoped native custody    | cache asks and edits          |
-|  [05]   | batch meshing         | `MeshBatch`       | host modalities onto identified rows                     | `MaterialAsk.Harvest`         |
-|  [06]   | render-support writes | `MaterialEdit`    | trait-row undo recording on the shared spine           | `Materials.Commit`            |
-|  [07]   | consequence evidence  | `MaterialFact`    | generated cases collected by `ObjectReceipt`           | `Materials.Commit`            |
+| [INDEX] | [CONCERN]             | [OWNER]          | [FORM]                                                | [ENTRY]                  |
+| :-----: | :-------------------- | :--------------- | :---------------------------------------------------- | :----------------------- |
+|  [01]   | material resolution   | scope plus realm | overload union plus row-owned material family         | `MaterialAsk.Resolve`    |
+|  [02]   | detached identity     | `MaterialStamp`  | resolved id and name                                  | `MaterialAnswer.Stamped` |
+|  [03]   | render-support reads  | `MaterialAsk`    | one union over materials, channels, caches, and knobs | `Materials.Ask`          |
+|  [04]   | meshing policy        | `MeshPolicy`     | normalized encoding with call-scoped native custody   | cache asks and edits     |
+|  [05]   | batch meshing         | `MeshBatch`      | host modalities onto identified rows                  | `MaterialAsk.Harvest`    |
+|  [06]   | render-support writes | `MaterialEdit`   | trait-row undo recording on the shared spine          | `Materials.Commit`       |
+|  [07]   | consequence evidence  | `MaterialFact`   | generated cases collected by `ObjectReceipt`          | `Materials.Commit`       |
 
 ## [06]-[RESEARCH]
 

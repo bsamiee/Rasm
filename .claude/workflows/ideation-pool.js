@@ -32,7 +32,7 @@ export const meta = {
     ],
 };
 
-// --- [CONSTANTS] ---------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const REPO = '/Users/bardiasamiee/Documents/99.Github/Rasm';
 const CAP = 14; // true in-flight agent ceiling — wrappers, writers, and the audit all take one slot
@@ -59,7 +59,7 @@ const DEPTH_AXES = [
 // Theme axes come from the mandate, never the engine: the mandate [03] goal template names the capability-family axes.
 const AXES = DEPTH_AXES;
 
-// --- [INPUTS] ------------------------------------------------------------------------
+// --- [INPUTS] --------------------------------------------------------------------------
 
 // Tool-boundary normalization: the Workflow tool's untyped args input can deliver a JSON-encoded string.
 const ARGS = (() => {
@@ -85,7 +85,7 @@ const OUT = CAMP + '/ideation';
 const MANDATE = CAMP + '/ideation-pool-mandate.md';
 const HANDOFF = CAMP + '/HANDOFF.md';
 
-// --- [MODELS] ------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 const ROSTERD = {
     type: 'object',
@@ -341,7 +341,7 @@ const AUDITR = {
     },
 };
 
-// --- [DOCTRINE] ----------------------------------------------------------------------
+// --- [DOCTRINE] ------------------------------------------------------------------------
 
 const PATH_LAW =
     'Every path you write, cite, or pass is ABSOLUTE from ' +
@@ -447,7 +447,7 @@ const MAP_VERIFY =
     'Re-run any probe that returned nothing in a second form before recording an absence.\nRemove any settled row whose evidence fails ' +
     're-confirmation.\nRecord the removed claim and failed probe in [COVERAGE].\n</verification>';
 
-// --- [OPERATIONS] --------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const makeSlots = (cap) => {
@@ -1078,7 +1078,7 @@ const auditPrompt = (roots, ros, touched) =>
     'rosterUnexploited, undecomposed, thinFolders, altitudeThin, ' +
     'docgenFailures, one-line headline, failure naming the failed proofs otherwise.';
 
-// --- [COMPOSITION] -------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 if (!CAMP) return { skipped: true, reason: 'args.camp (absolute campaign home) is required' };
 

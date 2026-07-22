@@ -509,70 +509,36 @@ public static class MenuMount {
 ```mermaid codemap
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
+  elk:
+    nodePlacementStrategy: NETWORK_SIMPLEX
+    considerModelOrder: NODES_AND_EDGES
+    forceNodeModelOrder: true
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-  themeCSS: >-
-    .nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}
-    .edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}
-    .edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}
-    .node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}
-    .marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}
-    .edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}
 ---
 flowchart LR
     accTitle: Canvas interaction ownership flow
     accDescr: Canvas interactions acquire host state through the session gate, retain owned capsules, and project dwell state as a detached value.
-    Consumer["Interaction consumers"] -->|ResponderSpec| Dispatch["Dispatch mount or hold"]
-    Consumer -->|Document and anchor| Drag["Owned DragSession"]
+    Consumer["Interaction consumers"] -->|Document and anchor| Drag["Owned DragSession"]
     Consumer -->|frame and bounds| Resize["EdgeResize capsule"]
     Consumer -->|synchronous filler| Menu["MenuMount"]
+    Consumer -->|ResponderSpec| Dispatch["Dispatch mount or hold"]
+    Drag -->|focus acquisition| Dispatch
+    Dispatch -->|owned registration or focus| Mount["InteractionMount lease"]
+    Menu -->|owned subscription| Mount
     Drag -->|acquire canvas| Session["GhSession CanvasHost"]
     Resize -->|acquire canvas| Session
     Menu -->|acquire canvas| Session
     Session --> Host[("GH2 Canvas")]
-    Drag -->|focus acquisition| Dispatch
-    Dispatch -->|owned registration or focus| Mount["InteractionMount lease"]
-    Menu -->|owned subscription| Mount
     Mount -->|"dispose: pop · unregister · detach"| Host
-    Consumer -->|DwellCase| Apply["CanvasOperator.Apply"]
-    Timeline["Shared monotonic timeline"] -->|entry and settlement| Apply
-    Apply -->|dwell mutation| Host
     Consumer -->|StateCase| Read["CanvasOperator.Read"]
     Read --> Projection["CanvasProjection.StateCase"]
     Projection --> Dwell["Detached DwellDelay"]
-    linkStyle 4,5,6,7 stroke:#8BE9FD,stroke-width:2px,color:#F8F8F2
-    linkStyle 8,9,10,11 stroke:#50FA7B,stroke-width:2px,color:#F8F8F2
-    linkStyle 12,13,14 stroke:#FFD866,stroke-width:2px,color:#F8F8F2
-    linkStyle 15,16,17 stroke:#BD93F9,stroke-width:2px,color:#F8F8F2
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    classDef external fill:#8BE9FD66,stroke:#8BE9FD,color:#F8F8F2
-    classDef success fill:#50FA7B66,stroke:#50FA7B,color:#F8F8F2
-    classDef payload fill:#FFD86654,stroke:#FFD866,color:#F8F8F2
-    class Consumer boundary
-    class Dispatch,Drag,Resize,Menu,Apply,Read primary
-    class Timeline data
-    class Session,Host external
-    class Mount success
-    class Projection,Dwell payload
+    Consumer -->|DwellCase| Apply["CanvasOperator.Apply"]
+    Timeline["Shared monotonic timeline"] -->|entry and settlement| Apply
+    Apply -->|dwell mutation| Host
 ```
 
 ## [06]-[DENSITY_BAR]

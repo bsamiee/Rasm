@@ -26,18 +26,18 @@ This catalog owns the host-fidelity `Brep` construction boundary: solid and poly
 [PUBLIC_TYPE_SCOPE]: configuration carriers
 - rail: solid-construction
 
-| [INDEX] | [SYMBOL]                        | [KIND]         | [CAPABILITY]                                                     |
-| :-----: | :------------------------------ | :------------- | :--------------------------------------------------------------- |
-|  [01]   | `Brep.FilletSurfaceSettings`    | config carrier | radius, tolerance, degree, trim/extend for surface-fillet build  |
-|  [02]   | `Brep.FilletSurfaceResults`     | result carrier | fillet, mid-fillet, and trimmed-input outputs                    |
-|  [03]   | `BrepEdgeFilletDistance`        | value struct   | edge parameter paired with fillet distance for variable radius   |
-|  [04]   | `MatchSrfSettings`              | config carrier | continuity, averaging, refinement policy for edge-to-curve match |
-|  [05]   | `Brep.VariationalPatchSettings` | config carrier | stretching, bending, refinement policy for variational patch     |
-|  [06]   | `Brep.VariationalPatchResult`   | result carrier | patch surface plus fit-deviation evidence                        |
-|  [07]   | `Brep.CurveConstraint`          | value carrier  | curve plus `Continuity` row for the variational patch solver     |
-|  [08]   | `Brep.PointConstraint`          | value carrier  | point constraint row for the variational patch solver            |
-|  [09]   | `SweepOneRail`                  | class engine   | one-rail sweep with station parameters and roadlike up-direction |
-|  [10]   | `SweepTwoRail`                  | class engine   | two-rail sweep with per-rail station parameters and height law   |
+| [INDEX] | [SYMBOL]                        | [KIND]         | [CAPABILITY]                                                       |
+| :-----: | :------------------------------ | :------------- | :----------------------------------------------------------------- |
+|  [01]   | `Brep.FilletSurfaceSettings`    | config carrier | radius, tolerance, degree, trim/extend for surface-fillet build    |
+|  [02]   | `Brep.FilletSurfaceResults`     | result carrier | fillet, mid-fillet, and trimmed-input outputs                      |
+|  [03]   | `BrepEdgeFilletDistance`        | value struct   | edge parameter paired with fillet distance for variable radius     |
+|  [04]   | `MatchSrfSettings`              | config carrier | continuity, averaging, refinement policy for edge-to-curve match   |
+|  [05]   | `Brep.VariationalPatchSettings` | config carrier | stretching, bending, refinement policy for variational patch       |
+|  [06]   | `Brep.VariationalPatchResult`   | result carrier | patch surface plus fit-deviation evidence                          |
+|  [07]   | `Brep.CurveConstraint`          | value carrier  | curve plus `Continuity` row for the variational patch solver       |
+|  [08]   | `Brep.PointConstraint`          | value carrier  | point constraint row for the variational patch solver              |
+|  [09]   | `SweepOneRail`                  | class engine   | one-rail sweep with station parameters and roadlike up-direction   |
+|  [10]   | `SweepTwoRail`                  | class engine   | two-rail sweep with per-rail station parameters and height law     |
 |  [11]   | `SurfaceFilletBase`             | class engine   | static section-profile factories filling caller-owned fillet lists |
 
 [CARRIER_MEMBERS]:

@@ -3,7 +3,7 @@ using Rasm.TestKit;
 
 namespace Rasm.Architecture.Tests;
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public sealed class CatalogueBoundaryLaws {
     [Fact]
     public void CsharpApiCataloguesDoNotCarryReadmePages() =>

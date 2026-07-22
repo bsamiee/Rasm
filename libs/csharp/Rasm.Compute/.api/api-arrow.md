@@ -29,45 +29,45 @@ Every builder is a freely constructed per-instance object; `MemoryAllocator.Defa
 - rail: columnar-egress
 - note: the IPC reader/writer, `IpcOptions`, `IArrowArrayStream`, ADBC, and Flight types are the Persistence overlay's and are absent here; every type below is per-instance constructed, never a static handle.
 
-| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]     | [CAPABILITY]                                                              |
-| :-----: | :--------------------------- | :---------------- | :----------------------------------------------------------------------- |
-|  [01]   | `RecordBatch`                | record container  | columnar batch with schema; `: IArrowRecord, IArrowArray`, `IDisposable` |
-|  [02]   | `RecordBatch.Builder`        | builder           | co-orders fields and arrays; carries no schema metadata seat             |
-|  [03]   | `RecordBatch.Builder.ArrayBuilder` | fluent factory | per-column typed builder (`.Double`/`.Boolean`/`.Int64` `Action` arms)  |
-|  [04]   | `Schema`                     | schema value      | ordered field list plus metadata; `this[int]`/`this[string]` field index |
-|  [05]   | `Schema.Builder`             | builder           | assembles fields and metadata into an immutable `Schema`                 |
-|  [06]   | `Field`                      | field value       | name, `IArrowType`, nullability, metadata                                |
-|  [07]   | `Field.Builder`              | builder           | assembles a field from name/type/nullable/metadata parts                 |
-|  [08]   | `Table`                      | table value       | schema plus chunked column list; `TableFromRecordBatches` factory        |
-|  [09]   | `IArrowArrayBuilder<TArray>` | builder contract  | `Build(MemoryAllocator)` the `RecordBatch.Builder.Append` builder arm    |
+| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]    | [CAPABILITY]                                                             |
+| :-----: | :--------------------------------- | :--------------- | :----------------------------------------------------------------------- |
+|  [01]   | `RecordBatch`                      | record container | columnar batch with schema; `: IArrowRecord, IArrowArray`, `IDisposable` |
+|  [02]   | `RecordBatch.Builder`              | builder          | co-orders fields and arrays; carries no schema metadata seat             |
+|  [03]   | `RecordBatch.Builder.ArrayBuilder` | fluent factory   | per-column typed builder (`.Double`/`.Boolean`/`.Int64` `Action` arms)   |
+|  [04]   | `Schema`                           | schema value     | ordered field list plus metadata; `this[int]`/`this[string]` field index |
+|  [05]   | `Schema.Builder`                   | builder          | assembles fields and metadata into an immutable `Schema`                 |
+|  [06]   | `Field`                            | field value      | name, `IArrowType`, nullability, metadata                                |
+|  [07]   | `Field.Builder`                    | builder          | assembles a field from name/type/nullable/metadata parts                 |
+|  [08]   | `Table`                            | table value      | schema plus chunked column list; `TableFromRecordBatches` factory        |
+|  [09]   | `IArrowArrayBuilder<TArray>`       | builder contract | `Build(MemoryAllocator)` the `RecordBatch.Builder.Append` builder arm    |
 
 [PUBLIC_TYPE_SCOPE]: typed array builders (`Apache.Arrow`) — the `DoeDataset`/`ChargebackDataset` columns
 - rail: columnar-egress
 - note: every primitive builder derives `PrimitiveArrayBuilder<T, TArray, TBuilder>` (e.g. `Int64Array.Builder : PrimitiveArrayBuilder<long, Int64Array, Int64Array.Builder>`), so the append/build member set below is uniform across the family; `StringArray.Builder` adds `.Append(string)`/`.AppendRange(IEnumerable<string>)`.
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]                                  |
-| :-----: | :----------------------- | :------------ | :-------------------------------------------- |
-|  [01]   | `DoubleArray.Builder`    | float builder | `Coordinates`/`Responses` double columns      |
-|  [02]   | `BooleanArray.Builder`   | bool builder  | `OnFront` validity-bitmap bool column         |
-|  [03]   | `Int64Array.Builder`     | int builder   | 64-bit counts, cardinalities                  |
-|  [04]   | `Int32Array.Builder`     | int builder   | 32-bit integer columns                        |
-|  [05]   | `FloatArray.Builder`     | float builder | 32-bit float columns                          |
-|  [06]   | `TimestampArray.Builder` | temporal      | `Instant At` epoch column via NodaTime        |
-|  [07]   | `StringArray.Builder`    | binary builder| UTF-8 axis/objective label columns            |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]  | [CAPABILITY]                             |
+| :-----: | :----------------------- | :------------- | :--------------------------------------- |
+|  [01]   | `DoubleArray.Builder`    | float builder  | `Coordinates`/`Responses` double columns |
+|  [02]   | `BooleanArray.Builder`   | bool builder   | `OnFront` validity-bitmap bool column    |
+|  [03]   | `Int64Array.Builder`     | int builder    | 64-bit counts, cardinalities             |
+|  [04]   | `Int32Array.Builder`     | int builder    | 32-bit integer columns                   |
+|  [05]   | `FloatArray.Builder`     | float builder  | 32-bit float columns                     |
+|  [06]   | `TimestampArray.Builder` | temporal       | `Instant At` epoch column via NodaTime   |
+|  [07]   | `StringArray.Builder`    | binary builder | UTF-8 axis/objective label columns       |
 
 [PUBLIC_TYPE_SCOPE]: type descriptors and allocator (`Apache.Arrow.Types`, `Apache.Arrow.Memory`)
 - rail: columnar-egress
 - note: each `IArrowType` exposes a `.Default` singleton the `Field.Builder.DataType` arm consumes; `TimestampType` takes a `TimeUnit`+timezone so its `.Default` is `(TimeUnit.Millisecond, "+00:00")`.
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]  | [CAPABILITY]                                        |
-| :-----: | :------------------------ | :------------- | :------------------------------------------------- |
-|  [01]   | `DoubleType.Default`      | type singleton | `IArrowType` for a `double` field                  |
-|  [02]   | `BooleanType.Default`     | type singleton | `IArrowType` for a `bool` field                    |
-|  [03]   | `TimestampType.Default`   | type value     | `(TimeUnit, timezone)`; the epoch-column type      |
-|  [04]   | `StringType.Default`      | type singleton | `IArrowType` for a UTF-8 string field              |
-|  [05]   | `IArrowType`              | type contract  | `TypeId`/`Name`; the `Field.Builder.DataType` input|
-|  [06]   | `MemoryAllocator`         | buffer arena   | `abstract`; `Allocate(int) → IMemoryOwner<byte>`   |
-|  [07]   | `MemoryAllocator.Default` | shared arena   | `Lazy<MemoryAllocator>`; process-global fallback   |
+| :-----: | :------------------------ | :------------- | :-------------------------------------------------- |
+|  [01]   | `DoubleType.Default`      | type singleton | `IArrowType` for a `double` field                   |
+|  [02]   | `BooleanType.Default`     | type singleton | `IArrowType` for a `bool` field                     |
+|  [03]   | `TimestampType.Default`   | type value     | `(TimeUnit, timezone)`; the epoch-column type       |
+|  [04]   | `StringType.Default`      | type singleton | `IArrowType` for a UTF-8 string field               |
+|  [05]   | `IArrowType`              | type contract  | `TypeId`/`Name`; the `Field.Builder.DataType` input |
+|  [06]   | `MemoryAllocator`         | buffer arena   | `abstract`; `Allocate(int) → IMemoryOwner<byte>`    |
+|  [07]   | `MemoryAllocator.Default` | shared arena   | `Lazy<MemoryAllocator>`; process-global fallback    |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -76,43 +76,43 @@ Every builder is a freely constructed per-instance object; `MemoryAllocator.Defa
 - note: `new RecordBatch.Builder(allocator?)` opens a metadata-free batch builder under a per-instance arena; each `Append<TArray>(name, nullable, array)` co-orders one generated field and built column, and `Build()` yields the immutable `RecordBatch`. Builder exposes no `Schema` injection or metadata entrypoint, so it never constructs `DoeDataset` or `ChargebackDataset` batches whose receipt facts must survive.
 - returns: `Build()` → `RecordBatch`; each typed `Build(allocator?)` → the concrete `TArray`.
 
-| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [CAPABILITY]                                 |
-| :-----: | :----------------------------------------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `new RecordBatch.Builder(allocator = null)`            | ctor           | opens a batch builder under an arena         |
-|  [02]   | `Append<TArray>(name, nullable, TArray array)`         | column add     | adds one built typed column by name          |
-|  [03]   | `Append<TArray>(name, nullable, IArrowArrayBuilder<T>)`| column add     | adds a column from an unbuilt builder        |
-|  [04]   | `Append(RecordBatch batch)`                            | merge          | merges schema and arrays from a batch        |
-|  [05]   | `Build()` / `Clear()`                                  | factory/reset  | seals the immutable `RecordBatch` / resets   |
-|  [06]   | `ArrayBuilder.Double(Action<DoubleArray.Builder>)`     | inline column  | builds a `DoubleArray` column inline         |
+| [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY] | [CAPABILITY]                               |
+| :-----: | :------------------------------------------------------ | :------------- | :----------------------------------------- |
+|  [01]   | `new RecordBatch.Builder(allocator = null)`             | ctor           | opens a batch builder under an arena       |
+|  [02]   | `Append<TArray>(name, nullable, TArray array)`          | column add     | adds one built typed column by name        |
+|  [03]   | `Append<TArray>(name, nullable, IArrowArrayBuilder<T>)` | column add     | adds a column from an unbuilt builder      |
+|  [04]   | `Append(RecordBatch batch)`                             | merge          | merges schema and arrays from a batch      |
+|  [05]   | `Build()` / `Clear()`                                   | factory/reset  | seals the immutable `RecordBatch` / resets |
+|  [06]   | `ArrayBuilder.Double(Action<DoubleArray.Builder>)`      | inline column  | builds a `DoubleArray` column inline       |
 
 [ENTRYPOINT_SCOPE]: typed column bulk-append (`PrimitiveArrayBuilder<T,…>`)
 - rail: columnar-egress
 - note: `Append(ReadOnlySpan<T>)` bulk-appends a whole backing span in one call — the reduced append-call path for the `DoeDataset` `ReadOnlyMemory<double>` columns (`.Span`), copying each span into the builder's allocator-owned buffer; `AppendNull` writes a validity-bitmap null; `Build(allocator?)` seals the column. `Reserve(capacity)` pre-sizes the buffer to the known point count before the span append.
 
-| [INDEX] | [SURFACE]                              | [ENTRY_FAMILY] | [CAPABILITY]                                                  |
-| :-----: | :------------------------------------- | :------------- | :----------------------------------------------------------- |
-|  [01]   | `Append(ReadOnlySpan<T> span)`         | bulk append    | copies one whole span without a caller-side scalar loop      |
-|  [02]   | `AppendRange(IEnumerable<T> values)`   | range append   | appends an enumerable column source                          |
-|  [03]   | `Append(T value)` / `Append(T? value)` | scalar append  | appends one value (nullable overload writes validity)        |
-|  [04]   | `AppendNull()`                         | null append    | appends a validity-bitmap null slot                          |
-|  [05]   | `Reserve(int capacity)` / `Resize(int)`| pre-size       | pre-allocates or resizes the backing buffer                  |
-|  [06]   | `Set(int index, T value)` / `Swap(i,j)`| edit           | in-place value set / positional swap before build            |
-|  [07]   | `Build(MemoryAllocator allocator = null)` | factory call | seals the immutable typed array under the arena              |
+| [INDEX] | [SURFACE]                                 | [ENTRY_FAMILY] | [CAPABILITY]                                            |
+| :-----: | :---------------------------------------- | :------------- | :------------------------------------------------------ |
+|  [01]   | `Append(ReadOnlySpan<T> span)`            | bulk append    | copies one whole span without a caller-side scalar loop |
+|  [02]   | `AppendRange(IEnumerable<T> values)`      | range append   | appends an enumerable column source                     |
+|  [03]   | `Append(T value)` / `Append(T? value)`    | scalar append  | appends one value (nullable overload writes validity)   |
+|  [04]   | `AppendNull()`                            | null append    | appends a validity-bitmap null slot                     |
+|  [05]   | `Reserve(int capacity)` / `Resize(int)`   | pre-size       | pre-allocates or resizes the backing buffer             |
+|  [06]   | `Set(int index, T value)` / `Swap(i,j)`   | edit           | in-place value set / positional swap before build       |
+|  [07]   | `Build(MemoryAllocator allocator = null)` | factory call   | seals the immutable typed array under the arena         |
 
 [ENTRYPOINT_SCOPE]: metadata-bearing `Schema` / `RecordBatch` and `Table` assembly
 - rail: columnar-egress
 - note: the schema is built explicitly — one `Field` per array in matching order, with `Metadata(key, value)` carrying the `ContentKey`/`Strategy`/`At`/`Points` receipt facts. `new RecordBatch(schema, arrays, length)` binds that schema to the arrays; `TableFromRecordBatches` collects streamed batches into one queryable `Table`.
 
-| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [CAPABILITY]                              |
-| :-----: | :----------------------------------------------------- | :------------- | :---------------------------------------- |
-|  [01]   | `new Schema.Builder()` / `.Build()`                    | builder        | opens and seals an immutable `Schema`     |
-|  [02]   | `Schema.Builder.Field(Field)` / `.Field(Action<…>)`    | field add      | adds a field by value or inline builder   |
-|  [03]   | `Schema.Builder.Metadata(key, value)`                  | metadata       | attaches schema-level receipt facts       |
-|  [04]   | `Field.Builder.Name(s).DataType(t).Nullable(b).Build()`| builder        | assembles one field from parts            |
-|  [05]   | `new Field(name, IArrowType, nullable, metadata?)`     | ctor           | direct field construction                 |
-|  [06]   | `new RecordBatch(Schema, IEnumerable<IArrowArray>, int)` | ctor         | binds metadata schema, arrays, and length |
-|  [07]   | `Table.TableFromRecordBatches(Schema, IList<batch>)`   | table factory  | collects batches into one `Table`         |
-|  [08]   | `MemoryAllocator.Default.Value` / `Allocate(int)`      | arena          | shared default arena; `Allocate` a buffer |
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [CAPABILITY]                              |
+| :-----: | :------------------------------------------------------- | :------------- | :---------------------------------------- |
+|  [01]   | `new Schema.Builder()` / `.Build()`                      | builder        | opens and seals an immutable `Schema`     |
+|  [02]   | `Schema.Builder.Field(Field)` / `.Field(Action<…>)`      | field add      | adds a field by value or inline builder   |
+|  [03]   | `Schema.Builder.Metadata(key, value)`                    | metadata       | attaches schema-level receipt facts       |
+|  [04]   | `Field.Builder.Name(s).DataType(t).Nullable(b).Build()`  | builder        | assembles one field from parts            |
+|  [05]   | `new Field(name, IArrowType, nullable, metadata?)`       | ctor           | direct field construction                 |
+|  [06]   | `new RecordBatch(Schema, IEnumerable<IArrowArray>, int)` | ctor           | binds metadata schema, arrays, and length |
+|  [07]   | `Table.TableFromRecordBatches(Schema, IList<batch>)`     | table factory  | collects batches into one `Table`         |
+|  [08]   | `MemoryAllocator.Default.Value` / `Allocate(int)`        | arena          | shared default arena; `Allocate` a buffer |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

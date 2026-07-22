@@ -251,3 +251,23 @@ Prose accretes one defensive guard per past incident until dead threats outweigh
 - Accepted: (the guard folded into the gate or script that makes the failure unspellable, then the sentence deleted.)
 - Reason: Every scar taxes every read forever and buries the branch the page exists to teach; a mechanized guard costs nothing and cannot be skipped. PROCESS_LEDGER owns the explicit marker, HEDGE the defensive qualifier, this class the accreted guard.
 - Reframe: Fold each guard into the tool or gate that forecloses the failure, then delete the sentence; a guard that cannot be mechanized names its live failure condition or dies.
+
+## [26]-[DELEGATED_ANATOMY]
+
+A page that legally owns a delegated discipline re-spells the sub-anatomy a template, roster, or the instruction chain owns, past the obligation delegated to it. Delegation hands the campaign obligation — that the discipline fires, and fires every pass — never a license to re-own every sub-roster, marker grammar, or admission predicate a nearer owner holds; the asymmetric form demotes one sub-anatomy while leaving a sibling one inline in the same entry.
+
+- Detection: A discipline an upstream instruction file routes to this page, stated with its obligation AND the row, marker, or touch-point anatomy a template or roster spells verbatim. Read the delegation: the obligation is owned, the anatomy is the template's. CHAIN_RESTATEMENT deletes a chain law this page never owned; this class keeps the delegated obligation and demotes only its re-spelled anatomy, so a naive whole-deletion over-deletes the obligation while re-spelling forks the anatomy.
+- Rejected: Admission and row anatomy follow the docgen rulings template — a row dies only when its fact AND its why both live at one durable surface, and a guard-grade row names the wrong move it forecloses, its correct route, and its reopen predicate.
+- Accepted: The campaign maintains a `RULINGS.md` registry every pass; its admission bar, tier placement, and row anatomy follow the docgen rulings template.
+- Reason: The obligation is owned here; the template owns the anatomy, and one pointer naming the deferred concerns carries it without forking the spelling. Owning a discipline never licenses owning its sub-rosters.
+- Reframe: Keep the obligation clause; replace every re-spelled sub-anatomy with one pointer naming the template and the concerns it owns, then audit the same entry for a sibling anatomy left inline.
+
+## [27]-[ROSTER_PREAMBLE]
+
+A header entry enumerates the members of a set, and the following entries each expand one member, so the header roster duplicates the detail entries' own names — a table of contents the details already are.
+
+- Detection: A lead or bullet listing the techniques, stages, or moves of a set, immediately followed by entries each owning one, where deleting the header loses no member the detail entries do not already name. SAME_DECISION_SPREAD owns one decision restated in new words, ENUMERATION_ANCHOR owns a roster frozen as the contract with no detail entries beneath it, and this class owns the header-to-detail duplication of a member set whose members each already get an expanding entry.
+- Rejected: `RED-TEAM: counterfactual, diff-of-the-next-feature, long-tail attack, and cold re-review` — followed by a dedicated entry re-teaching the counterfactual and another the diff-of-the-next-feature.
+- Accepted: `RED-TEAM — the terminal pre-mortem that rebuilds rather than annotates`, the detailed moves owned by their own entries and only an undetailed move named in the charter.
+- Reason: The detail entries own each expanded member; the header re-lists what they already carry, and a member with no detail entry is the only one the charter still names.
+- Reframe: Cut the header roster to a bare charter; keep in it only the members no detail entry expands.

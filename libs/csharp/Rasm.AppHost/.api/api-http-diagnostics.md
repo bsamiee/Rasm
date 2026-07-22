@@ -16,19 +16,19 @@
 [DI_EXTENSIONS]: registration surfaces (namespace `Microsoft.Extensions.DependencyInjection`)
 - rail: transport diagnostics
 
-| [INDEX] | [SYMBOL]                                       | [TARGET]             | [CAPABILITY]                                          |
-| :-----: | :--------------------------------------------- | :------------------- | :--------------------------------------------------- |
-|  [01]   | `HttpClientLatencyTelemetryExtensions`         | `IServiceCollection` | latency-breakdown telemetry admission                |
-|  [02]   | `HttpClientLoggingServiceCollectionExtensions` | `IServiceCollection` | extended logging + log-enricher admission            |
-|  [03]   | `HttpClientLoggingHttpClientBuilderExtensions` | `IHttpClientBuilder` | extended logging bound to one named client           |
-|  [04]   | `HttpDiagnosticsServiceCollectionExtensions`   | `IServiceCollection` | downstream-dependency request-metadata admission     |
+| [INDEX] | [SYMBOL]                                       | [TARGET]             | [CAPABILITY]                                     |
+| :-----: | :--------------------------------------------- | :------------------- | :----------------------------------------------- |
+|  [01]   | `HttpClientLatencyTelemetryExtensions`         | `IServiceCollection` | latency-breakdown telemetry admission            |
+|  [02]   | `HttpClientLoggingServiceCollectionExtensions` | `IServiceCollection` | extended logging + log-enricher admission        |
+|  [03]   | `HttpClientLoggingHttpClientBuilderExtensions` | `IHttpClientBuilder` | extended logging bound to one named client       |
+|  [04]   | `HttpDiagnosticsServiceCollectionExtensions`   | `IServiceCollection` | downstream-dependency request-metadata admission |
 
 [OPTIONS]: bound option records
 - rail: transport diagnostics
 
-| [INDEX] | [SYMBOL]                          | [NAMESPACE]                         | [KNOBS]                                                   |
-| :-----: | :-------------------------------- | :---------------------------------- | :------------------------------------------------------- |
-|  [01]   | `LoggingOptions`                  | `Microsoft.Extensions.Http.Logging` | body, header, query, route, and path-mode logging policy |
+| [INDEX] | [SYMBOL]                            | [NAMESPACE]                         | [KNOBS]                                                  |
+| :-----: | :---------------------------------- | :---------------------------------- | :------------------------------------------------------- |
+|  [01]   | `LoggingOptions`                    | `Microsoft.Extensions.Http.Logging` | body, header, query, route, and path-mode logging policy |
 |  [02]   | `HttpClientLatencyTelemetryOptions` | `Microsoft.Extensions.Http.Latency` | `EnableDetailedLatencyBreakdown` checkpoint toggle       |
 
 `LoggingOptions` carries `LogRequestStart`, `LogBody`, `BodySizeLimit` (default `32768`), `BodyReadTimeout` (default one second), `RequestBodyContentTypes`/`ResponseBodyContentTypes` allowed-media sets, `LogContentHeaders`, `RequestPathLoggingMode`, and `RequestPathParameterRedactionMode`. Header, query-parameter, and route redaction ride four `IDictionary<string, DataClassification>` maps — `RequestHeadersDataClasses`, `ResponseHeadersDataClasses`, `RequestQueryParametersDataClasses`, `RouteParameterDataClasses` — where a `DataClassification.None` entry means no redaction.
@@ -36,11 +36,11 @@
 [LOGGING_SUPPORT]: log-shape contracts (namespace `Microsoft.Extensions.Http.Logging`)
 - rail: transport diagnostics
 
-| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]  | [CAPABILITY]                                                     |
-| :-----: | :-------------------------- | :------------- | :-------------------------------------------------------------- |
-|  [01]   | `IHttpClientLogEnricher`    | enricher hook  | `Enrich(IEnrichmentTagCollector, request, response?, exception?)` |
-|  [02]   | `HttpClientLoggingTagNames` | tag catalog    | const log-tag keys + `TagNames` read-only list                  |
-|  [03]   | `OutgoingPathLoggingMode`   | path-shape enum | `Formatted` / `Structured`                                      |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]   | [CAPABILITY]                                                      |
+| :-----: | :-------------------------- | :-------------- | :---------------------------------------------------------------- |
+|  [01]   | `IHttpClientLogEnricher`    | enricher hook   | `Enrich(IEnrichmentTagCollector, request, response?, exception?)` |
+|  [02]   | `HttpClientLoggingTagNames` | tag catalog     | const log-tag keys + `TagNames` read-only list                    |
+|  [03]   | `OutgoingPathLoggingMode`   | path-shape enum | `Formatted` / `Structured`                                        |
 
 `HttpClientLoggingTagNames` fixes the semantic log-tag keys: `server.address`, `http.request.method`, `url.path`, `url.query`, the `http.request.header.` and `http.response.header.` prefixes, and `http.response.status_code`; `Duration`, `RequestBody`, and `ResponseBody` name the timing and body records.
 
@@ -49,12 +49,12 @@
 [ENTRYPOINT_SCOPE]: pipeline admission
 - rail: transport diagnostics
 
-| [INDEX] | [SURFACE]                          | [KIND]              | [CAPABILITY]                                                        |
-| :-----: | :--------------------------------- | :------------------ | :----------------------------------------------------------------- |
-|  [01]   | `AddHttpClientLatencyTelemetry`    | latency admission   | bare, `IConfigurationSection`, and `Action<...Options>` overloads   |
-|  [02]   | `AddExtendedHttpClientLogging`     | logging admission   | service-collection and client-builder overload families            |
-|  [03]   | `AddHttpClientLogEnricher<T>`      | enricher admission  | registers one `IHttpClientLogEnricher` implementation              |
-|  [04]   | `AddDownstreamDependencyMetadata`  | metadata admission  | instance and generic `IDownstreamDependencyMetadata` overloads     |
+| [INDEX] | [SURFACE]                         | [KIND]             | [CAPABILITY]                                                      |
+| :-----: | :-------------------------------- | :----------------- | :---------------------------------------------------------------- |
+|  [01]   | `AddHttpClientLatencyTelemetry`   | latency admission  | bare, `IConfigurationSection`, and `Action<...Options>` overloads |
+|  [02]   | `AddExtendedHttpClientLogging`    | logging admission  | service-collection and client-builder overload families           |
+|  [03]   | `AddHttpClientLogEnricher<T>`     | enricher admission | registers one `IHttpClientLogEnricher` implementation             |
+|  [04]   | `AddDownstreamDependencyMetadata` | metadata admission | instance and generic `IDownstreamDependencyMetadata` overloads    |
 
 `AddExtendedHttpClientLogging` on `IHttpClientBuilder` adds a `wrapHandlersPipeline` overload pair that positions the logger around, rather than inside, the delegating-handler chain; the `IServiceCollection` form applies the extended logger to every named client. Each family also accepts an `IConfigurationSection` and an `Action<LoggingOptions>` configuration overload.
 

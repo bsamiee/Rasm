@@ -106,26 +106,26 @@ enum Encoding { Plain, PlainDictionary, Rle, DeltaBinaryPacked, DeltaLengthByteA
 - rail: columnar-file-codec (partitioned lake scan)
 - `DatasetReader.ToBatches`/`ToTable` emit `Apache.Arrow` output; the filter DSL roots at `Col.Named(x)` and its `ColExtensions` comparands cover `long`/`string`/`DateOnly`/`DateTime` with `IsInRange`/`IsIn`, folding through `And`/`Or` into an `IFilter` the scan pushes down to partition, row-group statistics, and row grain. Internal scan machinery (`DatasetStreamReader`, `FragmentExpander`, `FragmentEnumerator`, `DirectoryListing`, the concrete filters) is not public surface.
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]      | [RAIL]                                                            |
-| :-----: | :-------------------- | :----------------- | :--------------------------------------------------------------- |
-|  [01]   | `DatasetReader`       | scan root          | `sealed`; `ToBatches` → `IArrowArrayStream`, `ToTable` → `Table`, `Schema` prop |
-|  [02]   | `DatasetOptions`      | scan policy        | `Default`; `IgnorePrefixes` init skips `.`/`_` hidden files      |
-|  [03]   | `PartitionInformation`| partition values   | `sealed`; `Batch` `RecordBatch` of partition field values, `Empty` |
-|  [04]   | `Col`                 | filter column      | `sealed`; `Col.Named(name)` roots the predicate DSL              |
-|  [05]   | `ColExtensions`       | filter DSL         | typed `IsEqualTo`/`IsGreaterThan`/`IsInRange`/`IsIn` → `IFilter` |
-|  [06]   | `FilterExtensions`    | filter combinators | `And`/`Or` fold two `IFilter`s                                   |
-|  [07]   | `IFilter`             | filter contract    | partition + row-group + row predicate pushed into the scan      |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]      | [RAIL]                                                                          |
+| :-----: | :--------------------- | :----------------- | :------------------------------------------------------------------------------ |
+|  [01]   | `DatasetReader`        | scan root          | `sealed`; `ToBatches` → `IArrowArrayStream`, `ToTable` → `Table`, `Schema` prop |
+|  [02]   | `DatasetOptions`       | scan policy        | `Default`; `IgnorePrefixes` init skips `.`/`_` hidden files                     |
+|  [03]   | `PartitionInformation` | partition values   | `sealed`; `Batch` `RecordBatch` of partition field values, `Empty`              |
+|  [04]   | `Col`                  | filter column      | `sealed`; `Col.Named(name)` roots the predicate DSL                             |
+|  [05]   | `ColExtensions`        | filter DSL         | typed `IsEqualTo`/`IsGreaterThan`/`IsInRange`/`IsIn` → `IFilter`                |
+|  [06]   | `FilterExtensions`     | filter combinators | `And`/`Or` fold two `IFilter`s                                                  |
+|  [07]   | `IFilter`              | filter contract    | partition + row-group + row predicate pushed into the scan                      |
 
 [PUBLIC_TYPE_SCOPE]: partitioning family (`ParquetSharp.Dataset.Partitioning`)
 - rail: columnar-file-codec (partitioned lake scan)
 - a `DatasetReader` ctor takes either a concrete `IPartitioning` or an `IPartitioningFactory` that infers one from the directory tree; each scheme carries a nested `Factory : IPartitioningFactory`.
 
-| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]   | [RAIL]                                                          |
-| :-----: | :---------------------- | :-------------- | :------------------------------------------------------------- |
-|  [01]   | `IPartitioning`         | scheme contract | `Schema`, `Parse`, `SortDirectories` over a directory layout   |
-|  [02]   | `IPartitioningFactory`  | scheme factory  | infers an `IPartitioning` from the directory tree              |
-|  [03]   | `HivePartitioning`      | hive scheme     | `sealed : IPartitioning`; `key=value` dirs; ctor takes `Schema`; nested `Factory` |
-|  [04]   | `NoPartitioning`        | flat scheme     | `sealed : IPartitioning`; single-directory scan; nested `Factory` |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]   | [RAIL]                                                                            |
+| :-----: | :--------------------- | :-------------- | :-------------------------------------------------------------------------------- |
+|  [01]   | `IPartitioning`        | scheme contract | `Schema`, `Parse`, `SortDirectories` over a directory layout                      |
+|  [02]   | `IPartitioningFactory` | scheme factory  | infers an `IPartitioning` from the directory tree                                 |
+|  [03]   | `HivePartitioning`     | hive scheme     | `sealed : IPartitioning`; `key=value` dirs; ctor takes `Schema`; nested `Factory` |
+|  [04]   | `NoPartitioning`       | flat scheme     | `sealed : IPartitioning`; single-directory scan; nested `Factory`                 |
 
 ## [03]-[ENTRYPOINTS]
 

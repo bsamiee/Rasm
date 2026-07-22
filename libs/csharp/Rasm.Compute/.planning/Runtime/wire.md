@@ -104,26 +104,26 @@ public static class WireDocument {
 }
 ```
 
-| [INDEX] | [SERVICE]       | [RPC]              | [SHAPE]       | [MESSAGES]                               |
-| :-----: | :-------------- | :----------------- | :------------ | :--------------------------------------- |
-|  [01]   | ComputeService  | Infer              | unary         | InferRequest → InferResponse             |
-|  [02]   | ComputeService  | Progress           | server-stream | ProgressRequest → ProgressUpdate         |
-|  [03]   | ComputeService  | Capabilities       | unary         | Empty → ComputeCapabilities              |
-|  [04]   | DocumentService | Capabilities       | unary         | Empty → DocumentCapabilities             |
-|  [05]   | DocumentService | DocumentEvents     | server-stream | WatchRequest → DocumentEvent             |
-|  [06]   | DocumentService | ExecuteTransaction | unary         | TransactionRequest → TransactionReceipt  |
-|  [07]   | DocumentService | Query              | unary         | QueryRequest → QueryResponse             |
-|  [08]   | DocumentService | CaptureEvents      | client-stream | CaptureFrame → CaptureSummary            |
-|  [09]   | ControlService  | CaptureSupport     | unary         | Empty → CaptureSupportReply              |
-|  [10]   | ControlService  | SetDegradation     | unary         | SetDegradationRequest → DegradationReply |
-|  [11]   | ControlService  | ReloadOptions      | unary         | Empty → ReloadReply                      |
-|  [12]   | ArtifactSync    | Sync               | bidi          | ArtifactFrame → ArtifactFrame            |
-|  [13]   | Health          | Check              | unary         | HealthCheckRequest → HealthCheckResponse |
-|  [14]   | Health          | Watch              | server-stream | HealthCheckRequest → HealthCheckResponse |
-|  [15]   | ComputeService  | Solve              | unary         | SolveRequest → SolveResponse             |
-|  [16]   | ComputeService  | Generate           | server-stream | GenerateRequest → TokenChunk             |
-|  [17]   | ComputeService  | GraphDiff          | unary         | GraphDiffRequest → GraphDiffResponse     |
-|  [18]   | ComputeService  | SubtreeFetch       | server-stream | SubtreeFetchRequest → GraphChunk         |
+| [INDEX] | [SERVICE]       | [RPC]              | [SHAPE]       | [MESSAGES]                                |
+| :-----: | :-------------- | :----------------- | :------------ | :---------------------------------------- |
+|  [01]   | ComputeService  | Infer              | unary         | InferRequest → InferResponse              |
+|  [02]   | ComputeService  | Progress           | server-stream | ProgressRequest → ProgressUpdate          |
+|  [03]   | ComputeService  | Capabilities       | unary         | Empty → ComputeCapabilities               |
+|  [04]   | DocumentService | Capabilities       | unary         | Empty → DocumentCapabilities              |
+|  [05]   | DocumentService | DocumentEvents     | server-stream | WatchRequest → DocumentEvent              |
+|  [06]   | DocumentService | ExecuteTransaction | unary         | TransactionRequest → TransactionReceipt   |
+|  [07]   | DocumentService | Query              | unary         | QueryRequest → QueryResponse              |
+|  [08]   | DocumentService | CaptureEvents      | client-stream | CaptureFrame → CaptureSummary             |
+|  [09]   | ControlService  | CaptureSupport     | unary         | Empty → CaptureSupportReply               |
+|  [10]   | ControlService  | SetDegradation     | unary         | SetDegradationRequest → DegradationReply  |
+|  [11]   | ControlService  | ReloadOptions      | unary         | Empty → ReloadReply                       |
+|  [12]   | ArtifactSync    | Sync               | bidi          | ArtifactFrame → ArtifactFrame             |
+|  [13]   | Health          | Check              | unary         | HealthCheckRequest → HealthCheckResponse  |
+|  [14]   | Health          | Watch              | server-stream | HealthCheckRequest → HealthCheckResponse  |
+|  [15]   | ComputeService  | Solve              | unary         | SolveRequest → SolveResponse              |
+|  [16]   | ComputeService  | Generate           | server-stream | GenerateRequest → TokenChunk              |
+|  [17]   | ComputeService  | GraphDiff          | unary         | GraphDiffRequest → GraphDiffResponse      |
+|  [18]   | ComputeService  | SubtreeFetch       | server-stream | SubtreeFetchRequest → GraphChunk          |
 |  [19]   | Diagnostic      | CaptureBundle      | unary         | SupportBundleRequest → SupportBundleReply |
 
 Each rpc carries one wire law:

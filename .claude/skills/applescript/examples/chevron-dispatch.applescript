@@ -17,30 +17,30 @@ on verbRows(bundleID)
 	script WindowCount
 		property verb : "windowCount"
 		on viaCode()
-			tell application id bundleID to return «event corecnte» «class cwin»
+			tell application id bundleID to return count window
 		end viaCode
 		on viaTerm()
 			tell application "Finder" to return count windows
 		end viaTerm
 	end script
-
+	
 	script FirstDiskName
 		property verb : "firstDiskName"
 		on viaCode()
-			tell application id bundleID to return «event coregetd» «class pnam» of «class cdis» 1
+			tell application id bundleID to return «event coregetd» name of «class cdis» 1
 		end viaCode
 		on viaTerm()
 			tell application "Finder" to return name of disk 1
 		end viaTerm
 	end script
-
+	
 	-- A rectangle crosses as four big-endian SInt16 fields, and the compiler coerces no list into that
 	-- shape under a runtime-chosen target, so the payload rides as raw typeQDRectangle bytes.
 	script FrameFrontWindow
 		property verb : "frameFrontWindow"
 		on viaCode()
 			tell application id bundleID
-				«event coresetd» «class pbnd» of «class cwin» 1 given «class data»:«data qdrt0000000000C8012C»
+				«event coresetd» bounds of window 1 given «class data»:«data qdrt0000000000C8012C»
 			end tell
 			return "framed"
 		end viaCode
@@ -49,7 +49,7 @@ on verbRows(bundleID)
 			return "framed"
 		end viaTerm
 	end script
-
+	
 	return {WindowCount, FirstDiskName, FrameFrontWindow}
 end verbRows
 

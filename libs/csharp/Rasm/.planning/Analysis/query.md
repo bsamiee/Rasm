@@ -452,7 +452,7 @@ One owner per axis; capability is a case, a factory row, or a body arm, never a 
 | [INDEX] | [CONCERN]           | [OWNER]                      | [KIND]                                | [RAIL]                         | [CASES] |
 | :-----: | :------------------ | :--------------------------- | :------------------------------------ | :----------------------------- | :-----: |
 |  [01]   | Request vocabulary  | `AnalysisQuery`              | `[Union]` — 4 bands, arity-dispatched | dispatch; build-time `Reject`  |   25    |
-|  [02]   | Operation algebra   | `Operation<TGeometry, TOut>` | research `Body` + `Prepare` gate       | catalog-blocked `Eff<Env, _>`  |    4    |
+|  [02]   | Operation algebra   | `Operation<TGeometry, TOut>` | research `Body` + `Prepare` gate      | catalog-blocked `Eff<Env, _>`  |    4    |
 |  [03]   | Runtime environment | `Env`                        | research `EnvAsks`/`Asks`/`Taps`      | catalog-blocked `Eff<Env, _>`  |    —    |
 |  [04]   | Execution facade    | `Analyze`                    | `static partial class`                | `Validation<Error, Seq<TOut>>` |    —    |
 |  [05]   | Output projection   | `AnalysisOutput<TOut>`       | `readonly record struct`              | `Fin<Seq<TOut>>`, one oracle   |    3    |

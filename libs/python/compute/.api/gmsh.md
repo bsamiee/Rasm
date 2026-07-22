@@ -19,7 +19,7 @@
 - rail: mesh generation
 - `model` is the active-model surface; `geo` and `occ` are the two geometry kernels under it; `mesh` owns generation and extraction; `field` under `mesh` owns size fields. A geometry kernel mutation is invisible to meshing until its `synchronize()` promotes it into the model.
 
-| [INDEX] | [NAMESPACE]              | [FAMILY]         | [CAPABILITY]                                                              |
+| [INDEX] | [NAMESPACE]              | [FAMILY]         | [CAPABILITY]                                                             |
 | :-----: | :----------------------- | :--------------- | :----------------------------------------------------------------------- |
 |  [01]   | `gmsh`                   | session          | `initialize`/`finalize`/`isInitialized`/`clear`/`open`/`merge`/`write`   |
 |  [02]   | `gmsh.model`             | model            | physical groups, entity/boundary queries, naming, visibility, geometry   |
@@ -39,88 +39,88 @@
 
 `initialize` opens the process-global kernel (`readConfigFiles`/`run`/`interruptible` knobs); every session pairs it with `finalize`. `model.add` names a fresh empty model, `model.setCurrent`/`getCurrent` switch the active one, and `clear` empties the current model without closing the kernel.
 
-| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY] | [RESULT]                                        |
-| :-----: | :--------------------------------------------------- | :------------- | :---------------------------------------------- |
-|  [01]   | `initialize(argv=[], readConfigFiles=True)`          | lifecycle      | opens the kernel; pair with `finalize()`        |
-|  [02]   | `finalize()` \| `isInitialized()`                    | lifecycle      | closes the kernel / kernel-open probe           |
-|  [03]   | `model.add(name)` \| `model.setCurrent(name)`        | model select   | new/active named model in the session           |
-|  [04]   | `model.getCurrent()` \| `clear()`                    | model select   | active model name / empty the current model     |
+| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [RESULT]                                    |
+| :-----: | :-------------------------------------------- | :------------- | :------------------------------------------ |
+|  [01]   | `initialize(argv=[], readConfigFiles=True)`   | lifecycle      | opens the kernel; pair with `finalize()`    |
+|  [02]   | `finalize()` \| `isInitialized()`             | lifecycle      | closes the kernel / kernel-open probe       |
+|  [03]   | `model.add(name)` \| `model.setCurrent(name)` | model select   | new/active named model in the session       |
+|  [04]   | `model.getCurrent()` \| `clear()`             | model select   | active model name / empty the current model |
 
 [ENTRYPOINT_SCOPE]: constructive geometry (built-in and OpenCASCADE kernels)
 - rail: mesh generation
 
 `geo` builds bottom-up (points -> curves -> curve loops -> surfaces -> surface loops -> volumes); `occ` adds top-down B-Rep primitives (`addBox`/`addSphere`/`addCylinder`) and boolean composition. Both return integer entity tags and both require `synchronize()` before meshing. `occ` boolean and feature ops (`cut`/`fuse`/`fragment`/`fillet`/`chamfer`) take and return `(dim, tag)` pairs.
 
-| [INDEX] | [SURFACE]                                                        | [ENTRY_FAMILY] | [RESULT]                                          |
-| :-----: | :-------------------------------------------------------------- | :------------- | :------------------------------------------------ |
-|  [01]   | `model.geo.addPoint(x, y, z, meshSize=0.0, tag=-1)`            | built-in       | point entity tag with a local target size         |
-|  [02]   | `model.geo.addLine` \| `addCircleArc` \| `addSpline` \| `addBSpline` | built-in  | curve entity tag                                  |
-|  [03]   | `model.geo.addCurveLoop` \| `addPlaneSurface` \| `addSurfaceFilling` | built-in  | surface entity tag from bounding loops            |
-|  [04]   | `model.geo.addSurfaceLoop` \| `addVolume`                      | built-in       | volume entity tag from bounding surfaces          |
-|  [05]   | `model.geo.extrude` \| `revolve` \| `twist` \| `extrudeBoundaryLayer` | built-in | swept entities from a `(dim, tag)` source list    |
-|  [06]   | `model.occ.addBox` \| `addSphere` \| `addCylinder` \| `addTorus` | OpenCASCADE  | primitive solid `(dim, tag)`                       |
-|  [07]   | `model.occ.cut` \| `fuse` \| `intersect` \| `fragment`         | OpenCASCADE    | boolean result `(outDimTags, outDimTagsMap)`      |
-|  [08]   | `model.occ.fillet` \| `chamfer` \| `importShapes(fileName)`    | OpenCASCADE    | filleted/chamfered solids / imported STEP-IGES    |
-|  [09]   | `model.geo.synchronize()` \| `model.occ.synchronize()`         | commit         | promote kernel geometry into the meshable model   |
+| [INDEX] | [SURFACE]                                                             | [ENTRY_FAMILY] | [RESULT]                                        |
+| :-----: | :-------------------------------------------------------------------- | :------------- | :---------------------------------------------- |
+|  [01]   | `model.geo.addPoint(x, y, z, meshSize=0.0, tag=-1)`                   | built-in       | point entity tag with a local target size       |
+|  [02]   | `model.geo.addLine` \| `addCircleArc` \| `addSpline` \| `addBSpline`  | built-in       | curve entity tag                                |
+|  [03]   | `model.geo.addCurveLoop` \| `addPlaneSurface` \| `addSurfaceFilling`  | built-in       | surface entity tag from bounding loops          |
+|  [04]   | `model.geo.addSurfaceLoop` \| `addVolume`                             | built-in       | volume entity tag from bounding surfaces        |
+|  [05]   | `model.geo.extrude` \| `revolve` \| `twist` \| `extrudeBoundaryLayer` | built-in       | swept entities from a `(dim, tag)` source list  |
+|  [06]   | `model.occ.addBox` \| `addSphere` \| `addCylinder` \| `addTorus`      | OpenCASCADE    | primitive solid `(dim, tag)`                    |
+|  [07]   | `model.occ.cut` \| `fuse` \| `intersect` \| `fragment`                | OpenCASCADE    | boolean result `(outDimTags, outDimTagsMap)`    |
+|  [08]   | `model.occ.fillet` \| `chamfer` \| `importShapes(fileName)`           | OpenCASCADE    | filleted/chamfered solids / imported STEP-IGES  |
+|  [09]   | `model.geo.synchronize()` \| `model.occ.synchronize()`                | commit         | promote kernel geometry into the meshable model |
 
 [ENTRYPOINT_SCOPE]: physical groups and entity queries
 - rail: mesh generation
 
 `addPhysicalGroup(dim, tags, tag=-1, name='')` is the one route that names a boundary or material region; the round-trip reads it back through `getPhysicalGroups`/`getEntitiesForPhysicalGroup` and the by-name `getEntitiesForPhysicalName`. Physical groups are the named-set bridge — every group becomes a `meshio` cell set / integer cell data and a `scikit-fem` boundary/subdomain tag.
 
-| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY] | [RESULT]                                         |
-| :-----: | :----------------------------------------------------------- | :------------- | :----------------------------------------------- |
-|  [01]   | `model.addPhysicalGroup(dim, tags, tag=-1, name='')`        | naming         | physical-group tag over the given entity tags    |
-|  [02]   | `model.getPhysicalGroups(dim=-1)`                           | query          | `(dim, tag)` list of all physical groups         |
-|  [03]   | `model.getEntitiesForPhysicalGroup(dim, tag)`              | query          | entity tags belonging to a physical group        |
-|  [04]   | `model.getEntitiesForPhysicalName(name)`                   | query          | `(dim, tag)` entities for a named group          |
-|  [05]   | `model.getEntities(dim=-1)` \| `model.getBoundary(dimTags)` | query          | model entities / boundary of an entity set       |
-|  [06]   | `model.setPhysicalName(dim, tag, name)` \| `getPhysicalName` | naming        | attach/read a physical-group name                |
+| [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY] | [RESULT]                                      |
+| :-----: | :----------------------------------------------------------- | :------------- | :-------------------------------------------- |
+|  [01]   | `model.addPhysicalGroup(dim, tags, tag=-1, name='')`         | naming         | physical-group tag over the given entity tags |
+|  [02]   | `model.getPhysicalGroups(dim=-1)`                            | query          | `(dim, tag)` list of all physical groups      |
+|  [03]   | `model.getEntitiesForPhysicalGroup(dim, tag)`                | query          | entity tags belonging to a physical group     |
+|  [04]   | `model.getEntitiesForPhysicalName(name)`                     | query          | `(dim, tag)` entities for a named group       |
+|  [05]   | `model.getEntities(dim=-1)` \| `model.getBoundary(dimTags)`  | query          | model entities / boundary of an entity set    |
+|  [06]   | `model.setPhysicalName(dim, tag, name)` \| `getPhysicalName` | naming         | attach/read a physical-group name             |
 
 [ENTRYPOINT_SCOPE]: mesh generation, size control, and structured meshing
 - rail: mesh generation
 
 `generate(dim=3)` runs the 1/2/3-D pipeline over the synchronized model. Element density comes from three composable sources: per-point `meshSize`, `setSize(dimTags, size)` on entities, and background size fields. Structured meshing uses `setTransfiniteCurve`/`setTransfiniteSurface`/`setTransfiniteVolume` with `setRecombine` for quad/hex; `setOrder(order)` promotes to high-order (P2+) elements; `optimize(method)` improves quality.
 
-| [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY] | [RESULT]                                         |
-| :-----: | :---------------------------------------------------------- | :------------- | :----------------------------------------------- |
-|  [01]   | `model.mesh.generate(dim=3)`                               | generation     | 1/2/3-D mesh over the synchronized model         |
-|  [02]   | `model.mesh.setSize(dimTags, size)`                        | size control   | target element size at the given entities        |
-|  [03]   | `model.mesh.setSizeCallback(fn)` \| `removeSizeCallback()` | size control   | `(dim, tag, x, y, z, lc) -> size` per-point rule |
-|  [04]   | `model.mesh.setTransfiniteCurve(tag, numNodes, ...)`       | structured     | prescribed node count/distribution along a curve |
-|  [05]   | `model.mesh.setTransfiniteSurface` \| `setTransfiniteVolume` | structured   | mapped structured surface/volume mesh            |
-|  [06]   | `model.mesh.setRecombine(dim, tag)` \| `recombine()`       | structured     | recombine triangles/tets into quads/hexes        |
-|  [07]   | `model.mesh.setOrder(order)`                               | high-order     | promote elements to the given interpolation order |
-|  [08]   | `model.mesh.optimize(method='', niter=1)` \| `refine()`    | quality        | Netgen/Laplace optimization / uniform refinement |
-|  [09]   | `model.mesh.setAlgorithm(dim, tag, val)` \| `embed(...)`   | control        | per-surface 2-D algorithm / embed lower entities |
+| [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY] | [RESULT]                                          |
+| :-----: | :----------------------------------------------------------- | :------------- | :------------------------------------------------ |
+|  [01]   | `model.mesh.generate(dim=3)`                                 | generation     | 1/2/3-D mesh over the synchronized model          |
+|  [02]   | `model.mesh.setSize(dimTags, size)`                          | size control   | target element size at the given entities         |
+|  [03]   | `model.mesh.setSizeCallback(fn)` \| `removeSizeCallback()`   | size control   | `(dim, tag, x, y, z, lc) -> size` per-point rule  |
+|  [04]   | `model.mesh.setTransfiniteCurve(tag, numNodes, ...)`         | structured     | prescribed node count/distribution along a curve  |
+|  [05]   | `model.mesh.setTransfiniteSurface` \| `setTransfiniteVolume` | structured     | mapped structured surface/volume mesh             |
+|  [06]   | `model.mesh.setRecombine(dim, tag)` \| `recombine()`         | structured     | recombine triangles/tets into quads/hexes         |
+|  [07]   | `model.mesh.setOrder(order)`                                 | high-order     | promote elements to the given interpolation order |
+|  [08]   | `model.mesh.optimize(method='', niter=1)` \| `refine()`      | quality        | Netgen/Laplace optimization / uniform refinement  |
+|  [09]   | `model.mesh.setAlgorithm(dim, tag, val)` \| `embed(...)`     | control        | per-surface 2-D algorithm / embed lower entities  |
 
 [ENTRYPOINT_SCOPE]: size fields (background mesh and boundary layers)
 - rail: mesh generation
 
 `field.add(fieldType, tag=-1)` mints a field by string type (`Distance`, `Threshold`, `Box`, `Min`, `MathEval`, `BoundaryLayer`); `setNumber`/`setNumbers`/`setString` set its parameters; `setAsBackgroundMesh(tag)` installs it as the global size driver and `setAsBoundaryLayer(tag)` as a boundary-layer field. A `Threshold` over a `Distance` field is the canonical distance-graded refinement.
 
-| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY] | [RESULT]                                        |
-| :-----: | :--------------------------------------------------- | :------------- | :---------------------------------------------- |
-|  [01]   | `model.mesh.field.add(fieldType, tag=-1)`           | field mint     | size field of the named type                    |
-|  [02]   | `model.mesh.field.setNumber(tag, option, value)`    | parameter      | scalar field parameter                          |
-|  [03]   | `model.mesh.field.setNumbers(tag, option, values)`  | parameter      | list field parameter (entity/field tag lists)   |
-|  [04]   | `model.mesh.field.setAsBackgroundMesh(tag)`         | install        | field drives global element size                |
-|  [05]   | `model.mesh.field.setAsBoundaryLayer(tag)`          | install        | field drives a boundary-layer mesh              |
+| [INDEX] | [SURFACE]                                          | [ENTRY_FAMILY] | [RESULT]                                      |
+| :-----: | :------------------------------------------------- | :------------- | :-------------------------------------------- |
+|  [01]   | `model.mesh.field.add(fieldType, tag=-1)`          | field mint     | size field of the named type                  |
+|  [02]   | `model.mesh.field.setNumber(tag, option, value)`   | parameter      | scalar field parameter                        |
+|  [03]   | `model.mesh.field.setNumbers(tag, option, values)` | parameter      | list field parameter (entity/field tag lists) |
+|  [04]   | `model.mesh.field.setAsBackgroundMesh(tag)`        | install        | field drives global element size              |
+|  [05]   | `model.mesh.field.setAsBoundaryLayer(tag)`         | install        | field drives a boundary-layer mesh            |
 
 [ENTRYPOINT_SCOPE]: mesh extraction and codec IO
 - rail: mesh generation
 
 Extraction returns flat NumPy-compatible tuples: `getNodes` yields `(nodeTags, coord, parametricCoord)` with `coord` a flat `3*N` array, and `getElements` yields `(elementTypes, elementTags, nodeTags)` per element type. `getElementProperties(elementType)` resolves a gmsh type integer to `(name, dim, order, numNodes, ...)`; `write(fileName)` dispatches on extension across `.msh`/`.vtk`/`.stl`/`.med`, feeding the `meshio` round-trip.
 
-| [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY] | [RESULT]                                            |
-| :-----: | :------------------------------------------------------------ | :------------- | :-------------------------------------------------- |
-|  [01]   | `model.mesh.getNodes(dim=-1, tag=-1, includeBoundary=False)` | extraction     | `(nodeTags, coord, parametricCoord)`                |
-|  [02]   | `model.mesh.getElements(dim=-1, tag=-1)`                     | extraction     | `(elementTypes, elementTags, nodeTags)`             |
-|  [03]   | `model.mesh.getElementsByType(elementType, tag=-1)`         | extraction     | element/node tags for one gmsh type integer         |
-|  [04]   | `model.mesh.getNodesForPhysicalGroup(dim, tag)`             | extraction     | node tags and coords for a named group              |
-|  [05]   | `model.mesh.getElementProperties(elementType)`             | metadata       | `(name, dim, order, numNodes, ...)` for a type int  |
-|  [06]   | `model.mesh.getJacobians(...)` \| `getBasisFunctions(...)` | metadata       | element Jacobians / reference basis at quad points  |
-|  [07]   | `write(fileName)` \| `merge(fileName)` \| `open(fileName)` | codec IO       | extension-dispatched mesh write / merge / open      |
+| [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY] | [RESULT]                                           |
+| :-----: | :----------------------------------------------------------- | :------------- | :------------------------------------------------- |
+|  [01]   | `model.mesh.getNodes(dim=-1, tag=-1, includeBoundary=False)` | extraction     | `(nodeTags, coord, parametricCoord)`               |
+|  [02]   | `model.mesh.getElements(dim=-1, tag=-1)`                     | extraction     | `(elementTypes, elementTags, nodeTags)`            |
+|  [03]   | `model.mesh.getElementsByType(elementType, tag=-1)`          | extraction     | element/node tags for one gmsh type integer        |
+|  [04]   | `model.mesh.getNodesForPhysicalGroup(dim, tag)`              | extraction     | node tags and coords for a named group             |
+|  [05]   | `model.mesh.getElementProperties(elementType)`               | metadata       | `(name, dim, order, numNodes, ...)` for a type int |
+|  [06]   | `model.mesh.getJacobians(...)` \| `getBasisFunctions(...)`   | metadata       | element Jacobians / reference basis at quad points |
+|  [07]   | `write(fileName)` \| `merge(fileName)` \| `open(fileName)`   | codec IO       | extension-dispatched mesh write / merge / open     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

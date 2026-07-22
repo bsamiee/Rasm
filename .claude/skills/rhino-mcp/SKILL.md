@@ -74,12 +74,12 @@ Headless, no dialogs. All bound to the slot's doc.
 
 ## [05]-[VIEWPORT_AND_CAMERA]
 
-| [INDEX] | [TOOL]               | [INPUT_SCOPE]        | [OUTPUT_SCOPE]           |
-| :-----: | :------------------- | :------------------- | :----------------------- |
+| [INDEX] | [TOOL]               | [INPUT_SCOPE]        | [OUTPUT_SCOPE]          |
+| :-----: | :------------------- | :------------------- | :---------------------- |
 |  [01]   | `get_viewport_image` | viewport capture     | metadata and JPEG block |
-|  [02]   | `set_camera`         | camera or bbox frame | active viewport camera   |
-|  [03]   | `zoom_to_layer`      | layer path           | layer union bbox zoom    |
-|  [04]   | `zoom_to_object`     | object GUIDs         | object union bbox zoom   |
+|  [02]   | `set_camera`         | camera or bbox frame | active viewport camera  |
+|  [03]   | `zoom_to_layer`      | layer path           | layer union bbox zoom   |
+|  [04]   | `zoom_to_object`     | object GUIDs         | object union bbox zoom  |
 
 [VIEWPORT_CAPTURE_SHAPE]:
 - Size: `width=480` up to `1280`, `height=270` up to `720`.

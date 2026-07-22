@@ -139,13 +139,13 @@ public static class ElementSchema {
 }
 ```
 
-| [INDEX] | [POLICY]          | [VALUE]                               | [BINDING]                                                       |
-| :-----: | :---------------- | :------------------------------------ | :-------------------------------------------------------------- |
-|  [01]   | stream grain      | one stream per `ModelId`              | `StreamIdentity.AsGuid`; never per-`NodeId`                     |
-|  [02]   | event body        | the seam `GraphDelta`                 | never a whole-graph snapshot; folds via `GraphDelta.ReplayOnto` |
-|  [03]   | append mode       | `EventAppendMode.Rich`                | blame headers remain durable on every write                     |
-|  [04]   | optimistic guard  | `Append(stream, expectedVersion, …)`  | concurrent same-version writer aborts at `SaveChangesAsync`     |
-|  [05]   | strong-typed keys | `RegisterValueType<ModelId/NodeId>`   | typed stream key + document id, never a bare Guid/string        |
+| [INDEX] | [POLICY]          | [VALUE]                              | [BINDING]                                                       |
+| :-----: | :---------------- | :----------------------------------- | :-------------------------------------------------------------- |
+|  [01]   | stream grain      | one stream per `ModelId`             | `StreamIdentity.AsGuid`; never per-`NodeId`                     |
+|  [02]   | event body        | the seam `GraphDelta`                | never a whole-graph snapshot; folds via `GraphDelta.ReplayOnto` |
+|  [03]   | append mode       | `EventAppendMode.Rich`               | blame headers remain durable on every write                     |
+|  [04]   | optimistic guard  | `Append(stream, expectedVersion, …)` | concurrent same-version writer aborts at `SaveChangesAsync`     |
+|  [05]   | strong-typed keys | `RegisterValueType<ModelId/NodeId>`  | typed stream key + document id, never a bare Guid/string        |
 
 ## [03]-[GRAPH_PROJECTION]
 

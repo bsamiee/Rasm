@@ -4,7 +4,7 @@ import { describe, expect, it, layer } from '@effect/vitest';
 import { Array, Effect, Option, Schema } from 'effect';
 import { Hermetic, K6, K6Fault } from './e2e.ts';
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 // Golden summary sample carrying BOTH gate spellings the export has shipped; the ungated metric stays out of `gated`.
 const _SUMMARY = JSON.stringify({
@@ -15,7 +15,7 @@ const _SUMMARY = JSON.stringify({
     },
 });
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const _decoded = Schema.decode(Schema.parseJson(K6.Summary), { errors: 'all' });
 

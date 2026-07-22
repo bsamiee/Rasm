@@ -12,27 +12,60 @@
 set -uo pipefail
 
 # --- [ARGS] -----------------------------------------------------------------------------
-PR=${1:?usage: watch-reviewers.sh <PR> --head <SHA> --reviewers <csv> [--repo <owner/repo>]}; shift
-HEAD=""; REVIEWERS=""; REPO=""
+PR=${1:?usage: watch-reviewers.sh <PR> --head <SHA> --reviewers <csv> [--repo <owner/repo>]}
+shift
+HEAD=""
+REVIEWERS=""
+REPO=""
 while [ "$#" -gt 0 ]; do case "$1" in
-    --head) HEAD=$2; shift 2 ;;
-    --reviewers) REVIEWERS=$2; shift 2 ;;
-    --repo) REPO=$2; shift 2 ;;
-    *) echo "watch-reviewers: unknown arg: $1" >&2; exit 2 ;;
-esac; done
-[ -n "$HEAD" ] && [ -n "$REVIEWERS" ] || { echo "watch-reviewers: --head and --reviewers required" >&2; exit 2; }
-[[ "$PR" =~ ^[0-9]+$ ]] || { echo "watch-reviewers: PR must be numeric" >&2; exit 2; }
+    --head)
+        HEAD=$2
+        shift 2
+        ;;
+    --reviewers)
+        REVIEWERS=$2
+        shift 2
+        ;;
+    --repo)
+        REPO=$2
+        shift 2
+        ;;
+    *)
+        echo "watch-reviewers: unknown arg: $1" >&2
+        exit 2
+        ;;
+esac done
+[ -n "$HEAD" ] && [ -n "$REVIEWERS" ] || {
+    echo "watch-reviewers: --head and --reviewers required" >&2
+    exit 2
+}
+[[ "$PR" =~ ^[0-9]+$ ]] || {
+    echo "watch-reviewers: PR must be numeric" >&2
+    exit 2
+}
 
-POLL_S=${POLL_S:-45}; REVIEWER_SOFT_S=${REVIEWER_SOFT_S:-480}
-SLOW_GRACE_S=${SLOW_GRACE_S:-180}; WATCH_HARD_S=${WATCH_HARD_S:-1200}
+POLL_S=${POLL_S:-45}
+REVIEWER_SOFT_S=${REVIEWER_SOFT_S:-480}
+SLOW_GRACE_S=${SLOW_GRACE_S:-180}
+WATCH_HARD_S=${WATCH_HARD_S:-1200}
 PRLOOP_HOME=${PRLOOP_HOME:-$HOME/.claude/pr-loop}
 ONESHOT=${ONESHOT:-0}
-[ -n "$REPO" ] || REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null) \
-    || { echo "watch-reviewers: cannot resolve repo" >&2; exit 4; }
-OWNER=${REPO%/*}; NAME=${REPO#*/}
-DIR="$PRLOOP_HOME/pr-$PR"; STATE="$DIR/state"; LEDGER="$DIR/ledger.json"
-SNAP="$DIR/snapshot.json"; VLOG="$DIR/verdict.jsonl"
-mkdir -p "$STATE" || { echo "watch-reviewers: cannot mkdir $STATE" >&2; exit 4; }
+[ -n "$REPO" ] || REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null) ||
+    {
+        echo "watch-reviewers: cannot resolve repo" >&2
+        exit 4
+    }
+OWNER=${REPO%/*}
+NAME=${REPO#*/}
+DIR="$PRLOOP_HOME/pr-$PR"
+STATE="$DIR/state"
+LEDGER="$DIR/ledger.json"
+SNAP="$DIR/snapshot.json"
+VLOG="$DIR/verdict.jsonl"
+mkdir -p "$STATE" || {
+    echo "watch-reviewers: cannot mkdir $STATE" >&2
+    exit 4
+}
 ARM_AT=$(date +%s)
 now() { date +%s; }
 iso() { date -u +%FT%TZ; }
@@ -120,9 +153,16 @@ emit() {
 poll() {
     snapshot || return 4
     local pr_state live
-    pr_state=$(jq -r '.state' "$SNAP"); live=$(jq -r '.headRefOid' "$SNAP")
-    [ "$pr_state" = "OPEN" ] || { emit 3 PR_GONE "[]"; return 3; }
-    [ "$live" = "$HEAD" ] || { emit 10 HEAD_CHANGED "[]"; return 10; }
+    pr_state=$(jq -r '.state' "$SNAP")
+    live=$(jq -r '.headRefOid' "$SNAP")
+    [ "$pr_state" = "OPEN" ] || {
+        emit 3 PR_GONE "[]"
+        return 3
+    }
+    [ "$live" = "$HEAD" ] || {
+        emit 10 HEAD_CHANGED "[]"
+        return 10
+    }
 
     [ -f "$LEDGER" ] || printf '{"reviewers":{},"explicit_triggers":{}}' >"$LEDGER"
     local t all_complete=1 any_never=0 any_died=0 any_slow=0 table="[]"
@@ -130,7 +170,9 @@ poll() {
     IFS=',' read -ra SET <<<"$REVIEWERS"
     for who in "${SET[@]}"; do
         local out st sig prev_sig prev_fsr changed_at ltmp cls past_soft
-        out=$(classify "$who"); st=${out%% *}; sig=${out#* }
+        out=$(classify "$who")
+        st=${out%% *}
+        sig=${out#* }
         prev_sig=$(jq -r --arg w "$who" '.reviewers[$w].sig // ""' "$LEDGER")
         prev_fsr=$(jq -r --arg w "$who" '.reviewers[$w].first_seen_running_at // 0' "$LEDGER")
         changed_at=$(jq -r --arg w "$who" '.reviewers[$w].sig_changed_at // 0' "$LEDGER")
@@ -145,39 +187,62 @@ poll() {
         cls="$st"
         if [ "$st" != "COMPLETE" ]; then
             all_complete=0
-            past_soft=0; [ $((t - ARM_AT)) -ge "$REVIEWER_SOFT_S" ] && past_soft=1
+            past_soft=0
+            [ $((t - ARM_AT)) -ge "$REVIEWER_SOFT_S" ] && past_soft=1
             if [ "$past_soft" -eq 1 ]; then
-                if [ "$prev_fsr" -eq 0 ] && [ "$st" = "NEVER" ]; then cls=NEVER_STARTED; any_never=1
-                elif [ $((t - changed_at)) -lt "$SLOW_GRACE_S" ]; then cls=SLOW; any_slow=1
-                else cls=DIED_MIDWAY; any_died=1; fi
+                if [ "$prev_fsr" -eq 0 ] && [ "$st" = "NEVER" ]; then
+                    cls=NEVER_STARTED
+                    any_never=1
+                elif [ $((t - changed_at)) -lt "$SLOW_GRACE_S" ]; then
+                    cls=SLOW
+                    any_slow=1
+                else
+                    cls=DIED_MIDWAY
+                    any_died=1
+                fi
             fi
         fi
         table=$(jq -cn --argjson tbl "$table" --arg w "$who" --arg c "$cls" '$tbl+[{reviewer:$w,class:$c}]')
     done
-    TABLE_LAST=$table    # visible to the ONESHOT entry so the pre-arm probe reports per-reviewer state
+    TABLE_LAST=$table # visible to the ONESHOT entry so the pre-arm probe reports per-reviewer state
 
-    if [ "$all_complete" -eq 1 ]; then emit 0 CONVERGED_WAIT "$table"; return 0; fi
-    local elapsed=$((t - ARM_AT))
-    if [ "$elapsed" -ge "$WATCH_HARD_S" ] || \
-       { [ "$elapsed" -ge "$REVIEWER_SOFT_S" ] && { [ "$any_never" -eq 1 ] || [ "$any_died" -eq 1 ] || [ "$any_slow" -eq 1 ]; }; }; then
-        if   [ "$any_never" -eq 1 ]; then emit 20 STALL_NEVER_STARTED "$table"; return 20
-        elif [ "$any_died"  -eq 1 ]; then emit 21 STALL_DIED_MIDWAY   "$table"; return 21
-        else                              emit 22 STALL_SLOW          "$table"; return 22; fi
+    if [ "$all_complete" -eq 1 ]; then
+        emit 0 CONVERGED_WAIT "$table"
+        return 0
     fi
-    return 100    # not terminal — keep polling (internal, never an exit code)
+    local elapsed=$((t - ARM_AT))
+    if [ "$elapsed" -ge "$WATCH_HARD_S" ] ||
+        { [ "$elapsed" -ge "$REVIEWER_SOFT_S" ] && { [ "$any_never" -eq 1 ] || [ "$any_died" -eq 1 ] || [ "$any_slow" -eq 1 ]; }; }; then
+        if [ "$any_never" -eq 1 ]; then
+            emit 20 STALL_NEVER_STARTED "$table"
+            return 20
+        elif [ "$any_died" -eq 1 ]; then
+            emit 21 STALL_DIED_MIDWAY "$table"
+            return 21
+        else
+            emit 22 STALL_SLOW "$table"
+            return 22
+        fi
+    fi
+    return 100 # not terminal — keep polling (internal, never an exit code)
 }
 
 # --- [ENTRY] ----------------------------------------------------------------------------
 TABLE_LAST="[]"
 if [ "$ONESHOT" = "1" ]; then
-    poll; rc=$?
-    [ "$rc" -eq 100 ] && { emit 99 STILL_WAITING "$TABLE_LAST"; rc=99; }
+    poll
+    rc=$?
+    [ "$rc" -eq 100 ] && {
+        emit 99 STILL_WAITING "$TABLE_LAST"
+        rc=99
+    }
     exit "$rc"
 fi
 while :; do
-    poll; rc=$?
+    poll
+    rc=$?
     case "$rc" in
-        100|4) sleep "$POLL_S" ;;    # not terminal, or a transient snapshot error — retry next tick, never wake the agent
+        100 | 4) sleep "$POLL_S" ;; # not terminal, or a transient snapshot error — retry next tick, never wake the agent
         *) exit "$rc" ;;
     esac
 done

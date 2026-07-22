@@ -3,7 +3,7 @@ import { type BrowserContext, test as base, expect, type Page } from '@playwrigh
 import { Hermetic } from '@rasm/ts-testkit/e2e';
 import { Option } from 'effect';
 
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 type Violations = Awaited<ReturnType<AxeBuilder['analyze']>>['violations'];
 
@@ -15,14 +15,14 @@ type Kit = {
     readonly webauthn: { readonly id: string; readonly remove: () => Promise<void> };
 };
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _EPOCH = new Date('2026-01-01T00:00:00.000Z');
 
 // The axe rule surface: the WCAG 2.x A/AA tags — the conformance floor every served page clears.
 const _WCAG = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] as const;
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 // Hermetic serving: every context route on the kit origin fulfills from the page corpus — a 404 for
 // a phantom path is the falsifiable miss, never a hang.
@@ -108,6 +108,6 @@ const test = base.extend<Kit>({
     },
 });
 
-// --- [EXPORTS] ---------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { expect, test };

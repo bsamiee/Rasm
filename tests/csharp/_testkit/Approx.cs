@@ -3,11 +3,11 @@ using System.Runtime.InteropServices;
 
 namespace Rasm.TestKit;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 // One gate delegate: a metric row owns how a pair of sequences is admitted under a tolerance.
 public delegate bool MetricGate(ReadOnlySpan<double> left, ReadOnlySpan<double> right, Tolerance tolerance);
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 // One `(abs, rel, ulps)` regime covers every tolerance variant; `Ulps` admits bit-adjacent floats
 // the magnitude gates reject near cancellation bands, and 0 disables the lane entirely.
 [StructLayout(LayoutKind.Auto)]
@@ -70,7 +70,7 @@ public sealed record Metric(string Name, MetricGate Admits) {
     }
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 // One metric-driven oracle: scalar, span, and Seq call shapes over the same row dispatch.
 public static class Approx {
     public static bool Equal(double left, double right, Tolerance tolerance, Metric? metric = null) =>

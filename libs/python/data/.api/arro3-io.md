@@ -22,37 +22,37 @@
 
 `write_parquet` discriminates codec and layout on three bounded aliases; a per-column `dict` keyed by `ParquetColumnPath` overrides the file-wide default.
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]     | [ROLE]                                                              |
-| :-----: | :-------------------- | :---------------- | :----------------------------------------------------------------- |
-|  [01]   | `ParquetCompression`  | `Literal` \| str  | `uncompressed`/`snappy`/`gzip`/`brotli`/`lz4`/`zstd`; `"zstd(3)"` level |
-|  [02]   | `ParquetEncoding`     | `Literal`         | encoding vocabulary for column pages                              |
-|  [03]   | `ParquetColumnPath`   | `str` \| Sequence | column key for the per-column override maps                        |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]     | [ROLE]                                                                  |
+| :-----: | :------------------- | :---------------- | :---------------------------------------------------------------------- |
+|  [01]   | `ParquetCompression` | `Literal` \| str  | `uncompressed`/`snappy`/`gzip`/`brotli`/`lz4`/`zstd`; `"zstd(3)"` level |
+|  [02]   | `ParquetEncoding`    | `Literal`         | encoding vocabulary for column pages                                    |
+|  [03]   | `ParquetColumnPath`  | `str` \| Sequence | column key for the per-column override maps                             |
 
 [PUBLIC_TYPE_SCOPE]: object-store carriers (`arro3.io.store`, `arro3.io._pyo3_object_store`)
 - rail: arrow-io
 
 `store` re-exports the `ObjectStore` variants; each constructs through `from_env`/`from_url`, `S3Store.from_session` builds off a boto3/botocore session, and `RetryConfig`/`BackoffConfig` are `TypedDict` request-policy carriers.
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [ROLE]                                                     |
-| :-----: | :-------------------------------- | :------------ | :--------------------------------------------------------- |
-|  [01]   | `S3Store` / `GCSStore` / `AzureStore` | class     | cloud object stores; `from_env`/`from_url` construction    |
-|  [02]   | `HTTPStore`                       | class         | HTTP object store; `from_url` only                         |
-|  [03]   | `LocalStore` / `MemoryStore`      | class         | local-disk (`prefix`) and in-memory stores                 |
-|  [04]   | `RetryConfig` / `BackoffConfig`   | `TypedDict`   | retry-count/timeout and exponential-backoff request policy |
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY] | [ROLE]                                                     |
+| :-----: | :------------------------------------ | :------------ | :--------------------------------------------------------- |
+|  [01]   | `S3Store` / `GCSStore` / `AzureStore` | class         | cloud object stores; `from_env`/`from_url` construction    |
+|  [02]   | `HTTPStore`                           | class         | HTTP object store; `from_url` only                         |
+|  [03]   | `LocalStore` / `MemoryStore`          | class         | local-disk (`prefix`) and in-memory stores                 |
+|  [04]   | `RetryConfig` / `BackoffConfig`       | `TypedDict`   | retry-count/timeout and exponential-backoff request policy |
 
 [PUBLIC_TYPE_SCOPE]: typed failure rail (`arro3.io.exceptions`)
 - rail: arrow-io
 
 `BaseError` roots the exception hierarchy that surfaces store and codec faults as typed Python exceptions rather than an opaque `OSError`.
 
-| [INDEX] | [SYMBOL]                                              | [TYPE_FAMILY] | [ROLE]                                |
-| :-----: | :---------------------------------------------------- | :------------ | :------------------------------------ |
-|  [01]   | `BaseError`                                           | exception     | hierarchy root; catch-all fault       |
-|  [02]   | `NotFoundError` / `AlreadyExistsError` / `InvalidPathError` | exception | object-lifecycle and path faults      |
-|  [03]   | `PermissionDeniedError` / `UnauthenticatedError`     | exception     | store access faults                   |
-|  [04]   | `PreconditionError` / `NotModifiedError`             | exception     | conditional-request faults            |
-|  [05]   | `NotSupportedError` / `JoinError` / `GenericError`   | exception     | capability and async-join faults      |
-|  [06]   | `UnknownConfigurationKeyError`                       | exception     | store config-key fault                |
+| [INDEX] | [SYMBOL]                                                    | [TYPE_FAMILY] | [ROLE]                           |
+| :-----: | :---------------------------------------------------------- | :------------ | :------------------------------- |
+|  [01]   | `BaseError`                                                 | exception     | hierarchy root; catch-all fault  |
+|  [02]   | `NotFoundError` / `AlreadyExistsError` / `InvalidPathError` | exception     | object-lifecycle and path faults |
+|  [03]   | `PermissionDeniedError` / `UnauthenticatedError`            | exception     | store access faults              |
+|  [04]   | `PreconditionError` / `NotModifiedError`                    | exception     | conditional-request faults       |
+|  [05]   | `NotSupportedError` / `JoinError` / `GenericError`          | exception     | capability and async-join faults |
+|  [06]   | `UnknownConfigurationKeyError`                              | exception     | store config-key fault           |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -61,18 +61,18 @@
 
 CSV and JSON carry no embedded schema, so production inference passes a positive `max_records` sampling bound and returns an `arro3.core.Schema` the matching `read_*` intakes; IPC and Parquet self-describe and skip inference. Only the explicit unbounded-scan profile passes `max_records=None`, and policy admits that profile for a trusted, size-bounded local input. `infer_csv_schema` also takes the `has_header`/`delimiter`/`escape`/`quote`/`terminator`/`comment` dialect keywords.
 
-| [INDEX] | [SURFACE]                       | [ENTRY_FAMILY] | [CAPABILITY]                                |
-| :-----: | :------------------------------ | :------------- | :------------------------------------------ |
-|  [01]   | `infer_csv_schema(file, ...)`   | schema probe   | `Schema` inferred from CSV dialect and rows |
-|  [02]   | `infer_json_schema(file, ...)`  | schema probe   | `Schema` inferred from sampled JSON records |
+| [INDEX] | [SURFACE]                      | [ENTRY_FAMILY] | [CAPABILITY]                                |
+| :-----: | :----------------------------- | :------------- | :------------------------------------------ |
+|  [01]   | `infer_csv_schema(file, ...)`  | schema probe   | `Schema` inferred from CSV dialect and rows |
+|  [02]   | `infer_json_schema(file, ...)` | schema probe   | `Schema` inferred from sampled JSON records |
 
 [ENTRYPOINT_SCOPE]: streaming readers (`arro3.io._csv`, `_ipc`, `_json`, `_parquet`)
 - rail: arrow-io
 
 Every synchronous reader returns a lazy `arro3.core.RecordBatchReader` over a path or binary buffer; CSV and JSON require the caller-supplied `schema` and an optional `batch_size`, `read_csv` also taking the full dialect keyword set. `read_ipc` reads random-access file framing, `read_ipc_stream` reads the streaming framing.
 
-| [INDEX] | [SURFACE]                      | [ENTRY_FAMILY] | [CAPABILITY]                            |
-| :-----: | :----------------------------- | :------------- | :-------------------------------------- |
+| [INDEX] | [SURFACE]                      | [ENTRY_FAMILY] | [CAPABILITY]                             |
+| :-----: | :----------------------------- | :------------- | :--------------------------------------- |
 |  [01]   | `read_csv(file, schema, ...)`  | dialect reader | CSV → `RecordBatchReader`, known schema  |
 |  [02]   | `read_json(file, schema, ...)` | reader         | JSON → `RecordBatchReader`, known schema |
 |  [03]   | `read_ipc(file)`               | reader         | Arrow IPC file → `RecordBatchReader`     |
@@ -84,8 +84,8 @@ Every synchronous reader returns a lazy `arro3.core.RecordBatchReader` over a pa
 
 `read_parquet_async` pulls a Parquet object at `path` from a `store` `ObjectStore` and awaits a materialized `arro3.core.Table`, the cloud-native ingress that never lands a local file.
 
-| [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY]     | [CAPABILITY]                      |
-| :-----: | :----------------------------------------- | :----------------- | :-------------------------------- |
+| [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY]     | [CAPABILITY]                          |
+| :-----: | :----------------------------------------- | :----------------- | :------------------------------------ |
 |  [01]   | `await read_parquet_async(path, *, store)` | async store reader | Parquet object → materialized `Table` |
 
 [ENTRYPOINT_SCOPE]: writers (`arro3.io._csv`, `_ipc`, `_json`, `_parquet`)
@@ -95,13 +95,13 @@ Writers take `data` as any `ArrowStreamExportable`/`ArrowArrayExportable` produc
 
 `write_parquet` exposes the full `arrow-rs` writer-property surface: `compression`, `encoding`, `dictionary_enabled`, the per-column `column_compression`/`column_encoding`/`column_dictionary_enabled`/`column_max_statistics_size` maps, `bloom_filter_enabled`/`bloom_filter_fpp`/`bloom_filter_ndv`, `max_row_group_size`, `data_page_size_limit`/`data_page_row_count_limit`, `dictionary_page_size_limit`, `write_batch_size`, `max_statistics_size`, `key_value_metadata`, `created_by`, `skip_arrow_metadata`, and `writer_version` (`parquet_1_0`/`parquet_2_0`).
 
-| [INDEX] | [SURFACE]                           | [ENTRY_FAMILY] | [CAPABILITY]                                  |
-| :-----: | :---------------------------------- | :------------- | :-------------------------------------------- |
-|  [01]   | `write_csv(data, file, ...)`        | dialect writer | CSV with dialect and temporal-format control  |
-|  [02]   | `write_json(data, file, ...)`       | writer         | JSON array; `explicit_nulls` keeps null keys  |
-|  [03]   | `write_ndjson(data, file, ...)`     | writer         | newline-delimited JSON                        |
-|  [04]   | `write_ipc(data, file, ...)`        | writer         | Arrow IPC file; `LZ4`/`ZSTD` blocks           |
-|  [05]   | `write_ipc_stream(data, file, ...)` | writer         | Arrow IPC stream                              |
+| [INDEX] | [SURFACE]                           | [ENTRY_FAMILY] | [CAPABILITY]                                      |
+| :-----: | :---------------------------------- | :------------- | :------------------------------------------------ |
+|  [01]   | `write_csv(data, file, ...)`        | dialect writer | CSV with dialect and temporal-format control      |
+|  [02]   | `write_json(data, file, ...)`       | writer         | JSON array; `explicit_nulls` keeps null keys      |
+|  [03]   | `write_ndjson(data, file, ...)`     | writer         | newline-delimited JSON                            |
+|  [04]   | `write_ipc(data, file, ...)`        | writer         | Arrow IPC file; `LZ4`/`ZSTD` blocks               |
+|  [05]   | `write_ipc_stream(data, file, ...)` | writer         | Arrow IPC stream                                  |
 |  [06]   | `write_parquet(data, file, ...)`    | writer         | Parquet across the full `arrow-rs` writer surface |
 
 ## [04]-[IMPLEMENTATION_LAW]

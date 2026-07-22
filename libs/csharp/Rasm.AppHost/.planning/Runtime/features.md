@@ -203,8 +203,6 @@ public static class KillSwitchFold {
 ---
 config:
   layout: elk
-  look: neo
-  theme: base
 ---
 flowchart LR
     accTitle: One features rail projecting a verdict to the routing consumers

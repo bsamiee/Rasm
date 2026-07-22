@@ -2,7 +2,7 @@ import { Array, Equal, HashSet, Option, pipe, Schema, SchemaAST } from 'effect';
 import * as Arbitrary from 'effect/Arbitrary';
 import * as FastCheck from 'effect/FastCheck';
 
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 declare namespace Arbitrate {
     type Model<T> = { readonly [K in keyof T]: FastCheck.Arbitrary<T[K]> };
@@ -11,11 +11,11 @@ declare namespace Arbitrate {
 
 type _Key = { readonly name: string; readonly undefinable: boolean };
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _SAMPLING = { numRuns: 256, seed: 0 } as const;
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const _optionalKeys = (schema: Schema.Schema.Any): ReadonlyArray<_Key> =>
     pipe(
@@ -100,6 +100,6 @@ const coverage = <A, Label extends string>(
 
 const Arbitrate = { absence, coverage, distinct } as const;
 
-// --- [EXPORTS] ---------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Arbitrate };

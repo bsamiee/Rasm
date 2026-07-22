@@ -28,12 +28,12 @@ Trace and log export assertions have no other in-process rail; the metrics lane 
 Every overload binds a caller `ICollection<T>`; fence carries the full `AddInMemoryExporter` family and the `MetricSnapshot` shape.
 
 | [INDEX] | [SURFACE]                                                          | [KIND] | [CAPABILITY]                                    |
-| :-----: | :---------------------------------------------------------------- | :----- | :---------------------------------------------- |
-|  [01]   | `AddInMemoryExporter(ICollection<Activity>)`                      | trace  | on `TracerProviderBuilder`; spans as `Activity` |
-|  [02]   | `AddInMemoryExporter(ICollection<Metric>, name?, reader?)`        | metric | on `MeterProviderBuilder`; live `Metric`        |
-|  [03]   | `AddInMemoryExporter(ICollection<MetricSnapshot>, name?, reader?)`| metric | on `MeterProviderBuilder`; frozen snapshots     |
-|  [04]   | `AddInMemoryExporter(ICollection<LogRecord>)`                     | log    | on `OpenTelemetryLoggerOptions`                 |
-|  [05]   | `AddInMemoryExporter(ICollection<LogRecord>)`                     | log    | on `LoggerProviderBuilder`                      |
+| :-----: | :----------------------------------------------------------------- | :----- | :---------------------------------------------- |
+|  [01]   | `AddInMemoryExporter(ICollection<Activity>)`                       | trace  | on `TracerProviderBuilder`; spans as `Activity` |
+|  [02]   | `AddInMemoryExporter(ICollection<Metric>, name?, reader?)`         | metric | on `MeterProviderBuilder`; live `Metric`        |
+|  [03]   | `AddInMemoryExporter(ICollection<MetricSnapshot>, name?, reader?)` | metric | on `MeterProviderBuilder`; frozen snapshots     |
+|  [04]   | `AddInMemoryExporter(ICollection<LogRecord>)`                      | log    | on `OpenTelemetryLoggerOptions`                 |
+|  [05]   | `AddInMemoryExporter(ICollection<LogRecord>)`                      | log    | on `LoggerProviderBuilder`                      |
 
 ```csharp signature
 public class InMemoryExporter<T> : BaseExporter<T> where T : class {

@@ -350,7 +350,7 @@ public static class TimeTravel {
 |  [05]   | as-of key (S3)   | `Checkpoint.AsOfKey` = `Address` (icechunk + `ReAttest`) | the ONE cross-runtime digest; `Hash` never the key      |
 |  [06]   | range diff       | node `Inequalities` + edge `ContentAddress.Of` set-diff  | both axes; topology rewire never dropped                |
 |  [07]   | bisect descent   | `O(log n)` probes of a MONOTONE predicate                | each probe re-reconstructs by version                   |
-|  [08]   | frame address    | one `ContentAddress.OfGraph` per resulting graph         | no unverified incremental digest claim                 |
+|  [08]   | frame address    | one `ContentAddress.OfGraph` per resulting graph         | no unverified incremental digest claim                  |
 |  [09]   | blame            | touching `GraphEvent` by version                         | `(NodeId, change-kind, axis)` cell, forward-log grain   |
 
 ## [03]-[RESEARCH]

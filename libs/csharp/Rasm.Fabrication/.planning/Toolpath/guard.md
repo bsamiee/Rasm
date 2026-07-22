@@ -859,8 +859,8 @@ public static class Guard {
 
 ## [03]-[RESEARCH]
 
-| [QUESTION] | [ROUTE] |
-| :--------- | :------ |
+| [QUESTION]                                                 | [ROUTE]              |
+| :--------------------------------------------------------- | :------------------- |
 | How does a judged benchmark mint `AcceptedBenchmarkClaim`? | `PRODUCER → ADAPTER` |
 
 `PRODUCER` = `tests/csharp/_benchmarks`; `ADAPTER` = `libs/csharp/Rasm.AppHost/.planning/Observability/benchmarks.md`.

@@ -27,14 +27,14 @@
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                                                                     | [KIND] | [CAPABILITY]                         |
-| :-----: | :---------------------------------------------------------------------------- | :----- | :----------------------------------- |
-|  [01]   | `IMeterFactory.Create(MeterOptions)`                                          | mint   | the one provider-scoped meter mint   |
-|  [02]   | `Meter.CreateCounter<T>(name, unit, description)`                             | create | count-kind instrument bind           |
-|  [03]   | `Meter.CreateHistogram<T>(name, unit, description, tags, advice)`             | create | distribution bind with bucket advice |
-|  [04]   | `Meter.CreateObservableGauge<T>(name, observeValue, unit, description)`       | create | level bind over a cell reader        |
-|  [05]   | `Counter<T>.Add(T, params ReadOnlySpan<KeyValuePair<string, object?>>)`       | write  | tagged count write                   |
-|  [06]   | `Histogram<T>.Record(T, params ReadOnlySpan<KeyValuePair<string, object?>>)`  | write  | tagged distribution write            |
+| [INDEX] | [SURFACE]                                                                    | [KIND] | [CAPABILITY]                         |
+| :-----: | :--------------------------------------------------------------------------- | :----- | :----------------------------------- |
+|  [01]   | `IMeterFactory.Create(MeterOptions)`                                         | mint   | the one provider-scoped meter mint   |
+|  [02]   | `Meter.CreateCounter<T>(name, unit, description)`                            | create | count-kind instrument bind           |
+|  [03]   | `Meter.CreateHistogram<T>(name, unit, description, tags, advice)`            | create | distribution bind with bucket advice |
+|  [04]   | `Meter.CreateObservableGauge<T>(name, observeValue, unit, description)`      | create | level bind over a cell reader        |
+|  [05]   | `Counter<T>.Add(T, params ReadOnlySpan<KeyValuePair<string, object?>>)`      | write  | tagged count write                   |
+|  [06]   | `Histogram<T>.Record(T, params ReadOnlySpan<KeyValuePair<string, object?>>)` | write  | tagged distribution write            |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

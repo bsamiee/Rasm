@@ -419,8 +419,6 @@ public static class MarkdownProjection {
 ---
 title: Text projection and shaping ownership
 config:
-  theme: base
-  look: classic
   layout: elk
   htmlLabels: true
   markdownAutoWrap: false
@@ -432,26 +430,6 @@ config:
     curve: linear
     defaultRenderer: elk
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    mainBkg: "#44475A"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    nodeBorder: "#BD93F9"
-    lineColor: "#FF79C6"
-    arrowheadColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    titleColor: "#D6BCFA"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: Text projection and shaping ownership
@@ -463,15 +441,6 @@ flowchart LR
     FontChain --> TextStyleRow
     TextStyleRow --> ShapingSurface
     TextStyleRow --> TextMetricsPolicy
-    linkStyle default stroke:#FF79C6,color:#F8F8F2
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    class MarkdownProjection,ShapingSurface primary
-    class MarkdownRow,InlineRun,TypographyRole,FontChain data
-    class TextStyleRow recessed
-    class TextMetricsPolicy boundary
 ```
 
 ## [06]-[TEXT_METRICS]

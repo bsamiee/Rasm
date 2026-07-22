@@ -70,7 +70,7 @@ const TTFBThresholds: MetricRatingThresholds // [800, 1800]
 `web-vitals/attribution` re-exports the same five functions with each metric widened to a `*MetricWithAttribution` carrying a diagnostic `attribution` object — the field-debugging payload pinpointing WHICH element, subpart, or timing phase drove a poor value. `AttributionReportOpts` adds `generateTarget` (a custom node→selector mapper); `INPAttributionReportOpts` further adds `includeProcessedEventEntries`. Each shape decomposes its metric into causal subparts; a `*target` selector (`interactionTarget`/`largestShiftTarget`) and the raw `*Entry` handles ride alongside the timing splits below.
 
 | [INDEX] | [SHAPE]           | [PRINCIPAL_SUBPARTS]                                                              |
-| :-----: | :---------------- | :------------------------------------------------------------------------------- |
+| :-----: | :---------------- | :-------------------------------------------------------------------------------- |
 |  [01]   | `LCPAttribution`  | `timeToFirstByte` `resourceLoadDelay` `resourceLoadDuration` `elementRenderDelay` |
 |  [02]   | `INPAttribution`  | `inputDelay` `processingDuration` `presentationDelay` `longestScript` `loadState` |
 |  [03]   | `CLSAttribution`  | `largestShiftValue` `largestShiftTime` `largestShiftSource` `loadState`           |
@@ -88,12 +88,12 @@ interface INPLongestScriptSummary { entry: PerformanceScriptTiming; subpart: 'in
 
 Its types build augments the DOM lib with the not-yet-standard performance interfaces the metrics read, so a consumer types raw entries without a second `@types` package. `INPAttribution.longAnimationFrameEntries` surfaces the Long Animation Frame API directly — the same LoAF stream the `[VITAL_PLANE]` card names for long-task and render profiling beyond the five headline vitals.
 
-| [INDEX] | [GLOBAL]                              | [FIELDS_USED]                                                                |
-| :-----: | :------------------------------------ | :-------------------------------------------------------------------------- |
-|  [01]   | `LayoutShift`                         | `value` `sources: LayoutShiftAttribution[]` `hadRecentInput`                |
-|  [02]   | `LargestContentfulPaint`              | `renderTime` `loadTime` `size` `id` `url` `element`                         |
-|  [03]   | `PerformanceEventTiming`              | `duration` `interactionId` `targetSelector`                                 |
-|  [04]   | `PerformanceLongAnimationFrameTiming` | `renderStart` `styleAndLayoutStart` `blockingDuration` `scripts`            |
+| [INDEX] | [GLOBAL]                              | [FIELDS_USED]                                                                       |
+| :-----: | :------------------------------------ | :---------------------------------------------------------------------------------- |
+|  [01]   | `LayoutShift`                         | `value` `sources: LayoutShiftAttribution[]` `hadRecentInput`                        |
+|  [02]   | `LargestContentfulPaint`              | `renderTime` `loadTime` `size` `id` `url` `element`                                 |
+|  [03]   | `PerformanceEventTiming`              | `duration` `interactionId` `targetSelector`                                         |
+|  [04]   | `PerformanceLongAnimationFrameTiming` | `renderStart` `styleAndLayoutStart` `blockingDuration` `scripts`                    |
 |  [05]   | `PerformanceScriptTiming`             | `invokerType` `invoker` `executionStart` `sourceURL` `forcedStyleAndLayoutDuration` |
 
 ## [05]-[INTEGRATION]

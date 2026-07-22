@@ -143,25 +143,27 @@
 [ENTRYPOINT_SCOPE]: consumer build and consume
 - rail: cdc-egress
 
-| [INDEX] | [SURFACE]                                                                            | [ENTRY_FAMILY] | [RAIL]                                             |
-| :-----: | :----------------------------------------------------------------------------------- | :------------- | :------------------------------------------------- |
-|  [01]   | `new ConsumerBuilder<TKey, TValue>(config)`                                          | ctor           | builds from `ConsumerConfig` pairs                 |
-|  [02]   | `SetKeyDeserializer(deserializer)`                                                   | builder        | sets key codec                                     |
-|  [03]   | `SetValueDeserializer(deserializer)`                                                 | builder        | sets value codec                                   |
-|  [04]   | `SetPartitionsAssignedHandler(handler)`                                              | builder        | wires rebalance assign callback                    |
-|  [05]   | `SetPartitionsRevokedHandler(handler)`                                               | builder        | wires rebalance revoke callback                    |
-|  [06]   | `SetPartitionsLostHandler(handler)`                                                  | builder        | wires partition-loss callback                      |
-|  [07]   | `SetOffsetsCommittedHandler(handler)`                                                | builder        | wires commit-result callback                       |
-|  [08]   | `Build()`                                                                            | factory call   | yields `IConsumer<TKey, TValue>`                   |
-|  [09]   | `Subscribe(topics)` / `Subscribe(topic)` / `Unsubscribe()`                           | subscribe      | joins or leaves the group subscription             |
-|  [10]   | `Assign(...)` / `IncrementalAssign(...)` / `IncrementalUnassign(...)` / `Unassign()` | assign         | manual, incremental add or remove, full unassign   |
-|  [11]   | `Consume(ct)` / `Consume(timeout)` / `Consume(millisecondsTimeout)`                  | fetch          | one `ConsumeResult`; `IsPartitionEOF` flags end    |
-|  [12]   | `Seek(topicPartitionOffset)`                                                         | reposition     | repositions a fetch cursor                         |
-|  [13]   | `Pause(partitions)` / `Resume(partitions)`                                           | flow control   | halts or resumes fetch                             |
-|  [14]   | `GetWatermarkOffsets(tp)` / `QueryWatermarkOffsets(tp, t)`                           | lag probe      | cached or broker-queried low/high watermarks       |
-|  [15]   | `OffsetsForTimes(timestamps, t)`                                                     | time lookup    | offsets at or after each `TopicPartitionTimestamp` |
-|  [16]   | `Assignment` (property)                                                              | state          | the current `List<TopicPartition>` assignment      |
-|  [17]   | `Close()`                                                                            | leave          | leaves group and commits final state               |
+| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [RAIL]                                             |
+| :-----: | :--------------------------------------------------------- | :------------- | :------------------------------------------------- |
+|  [01]   | `new ConsumerBuilder<TKey, TValue>(config)`                | ctor           | builds from `ConsumerConfig` pairs                 |
+|  [02]   | `SetKeyDeserializer(deserializer)`                         | builder        | sets key codec                                     |
+|  [03]   | `SetValueDeserializer(deserializer)`                       | builder        | sets value codec                                   |
+|  [04]   | `SetPartitionsAssignedHandler(handler)`                    | builder        | wires rebalance assign callback                    |
+|  [05]   | `SetPartitionsRevokedHandler(handler)`                     | builder        | wires rebalance revoke callback                    |
+|  [06]   | `SetPartitionsLostHandler(handler)`                        | builder        | wires partition-loss callback                      |
+|  [07]   | `SetOffsetsCommittedHandler(handler)`                      | builder        | wires commit-result callback                       |
+|  [08]   | `Build()`                                                  | factory call   | yields `IConsumer<TKey, TValue>`                   |
+|  [09]   | `Subscribe(topics)` / `Subscribe(topic)` / `Unsubscribe()` | subscribe      | joins or leaves the group subscription             |
+|  [10]   | `Assign(...)` / `Unassign()`                               | assign         | manual full assign or unassign                     |
+|  [11]   | `IncrementalAssign(...)` / `IncrementalUnassign(...)`      | assign         | incremental add or remove                          |
+|  [12]   | `Consume(ct)` / `Consume(timeout)`                         | fetch          | one `ConsumeResult`; `IsPartitionEOF` flags end    |
+|  [13]   | `Consume(millisecondsTimeout)`                             | fetch          | one `ConsumeResult` at a millisecond timeout       |
+|  [14]   | `Seek(topicPartitionOffset)`                               | reposition     | repositions a fetch cursor                         |
+|  [15]   | `Pause(partitions)` / `Resume(partitions)`                 | flow control   | halts or resumes fetch                             |
+|  [16]   | `GetWatermarkOffsets(tp)` / `QueryWatermarkOffsets(tp, t)` | lag probe      | cached or broker-queried low/high watermarks       |
+|  [17]   | `OffsetsForTimes(timestamps, t)`                           | time lookup    | offsets at or after each `TopicPartitionTimestamp` |
+|  [18]   | `Assignment` (property)                                    | state          | the current `List<TopicPartition>` assignment      |
+|  [19]   | `Close()`                                                  | leave          | leaves group and commits final state               |
 
 [ENTRYPOINT_SCOPE]: consumer offset commit
 - rail: cdc-egress
@@ -181,20 +183,21 @@
 - rail: cdc-egress
 - note: `AsSyncOverAsync()` mounts `SyncOverAsyncSerializer<T>`/`SyncOverAsyncDeserializer<T>` on the matching sync codec slot
 
-| [INDEX] | [SURFACE]                                                                   | [ENTRY_FAMILY] | [RAIL]                                          |
-| :-----: | :-------------------------------------------------------------------------- | :------------- | :---------------------------------------------- |
-|  [01]   | `new Message<TKey, TValue> { Key, Value }`                                  | object init    | sets key, value, timestamp, headers             |
-|  [02]   | `MessageMetadata.Timestamp` / `.Headers`                                    | property       | per-message metadata carriers                   |
-|  [03]   | `new Headers()` / `Add(key, valueBytes)`                                    | header build   | appends byte-valued header                      |
-|  [04]   | `TryGetLastBytes(key, out value)` / `GetLastBytes(key)` / `Remove(key)`     | header edit    | reads latest value or drops a key               |
-|  [05]   | `new Header(key, valueBytes)` / `IHeader.GetValueBytes()`                   | header value   | constructs a header, reads its bytes            |
-|  [06]   | `ISerializer<T>.Serialize(value, context)`                                  | codec call     | synchronous serialize                           |
-|  [07]   | `IAsyncSerializer<T>.SerializeAsync(value, ctx)`                            | codec call     | async serialize                                 |
-|  [08]   | `Serializers.{Utf8,Null,Int32,Int64,Single,Double,ByteArray}`               | static codec   | primitive serializers; `Null` = tombstone       |
-|  [09]   | `Deserializers.{Utf8,Null,Ignore,Int32,Int64,Single,Double,ByteArray}`      | static codec   | primitive deserializers; `Ignore` skips it      |
-|  [10]   | `asyncSerializer.AsSyncOverAsync()` / `asyncDeserializer.AsSyncOverAsync()` | adapter        | mounts an async codec on the matching sync slot |
-|  [11]   | `new TopicPartitionOffset(tp, offset, epoch?)`                              | ctor           | constructs a commit position                    |
-|  [12]   | `Offset.Beginning` / `Offset.End` / `Offset.Stored` / `Offset.Unset`        | sentinel       | named offset starting points                    |
+| [INDEX] | [SURFACE]                                                               | [ENTRY_FAMILY] | [RAIL]                                     |
+| :-----: | :---------------------------------------------------------------------- | :------------- | :----------------------------------------- |
+|  [01]   | `new Message<TKey, TValue> { Key, Value }`                              | object init    | sets key, value, timestamp, headers        |
+|  [02]   | `MessageMetadata.Timestamp` / `.Headers`                                | property       | per-message metadata carriers              |
+|  [03]   | `new Headers()` / `Add(key, valueBytes)`                                | header build   | appends byte-valued header                 |
+|  [04]   | `TryGetLastBytes(key, out value)` / `GetLastBytes(key)` / `Remove(key)` | header edit    | reads latest value or drops a key          |
+|  [05]   | `new Header(key, valueBytes)` / `IHeader.GetValueBytes()`               | header value   | constructs a header, reads its bytes       |
+|  [06]   | `ISerializer<T>.Serialize(value, context)`                              | codec call     | synchronous serialize                      |
+|  [07]   | `IAsyncSerializer<T>.SerializeAsync(value, ctx)`                        | codec call     | async serialize                            |
+|  [08]   | `Serializers.{Utf8,Null,Int32,Int64,Single,Double,ByteArray}`           | static codec   | primitive serializers; `Null` = tombstone  |
+|  [09]   | `Deserializers.{Utf8,Null,Ignore,Int32,Int64,Single,Double,ByteArray}`  | static codec   | primitive deserializers; `Ignore` skips it |
+|  [10]   | `asyncSerializer.AsSyncOverAsync()`                                     | adapter        | mounts the sync-over-async serializer      |
+|  [11]   | `asyncDeserializer.AsSyncOverAsync()`                                   | adapter        | mounts the sync-over-async deserializer    |
+|  [12]   | `new TopicPartitionOffset(tp, offset, epoch?)`                          | ctor           | constructs a commit position               |
+|  [13]   | `Offset.Beginning` / `Offset.End` / `Offset.Stored` / `Offset.Unset`    | sentinel       | named offset starting points               |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

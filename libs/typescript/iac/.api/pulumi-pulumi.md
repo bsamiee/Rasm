@@ -216,16 +216,16 @@ Receipt-ledger rail — how `@pulumi/pulumi` stacks onto the `effect` substrate 
 
 [RAIL]: `automation → effect` — the stacking seams (all `effect` members verified real)
 
-| [INDEX] | [PULUMI_SEAM]                         | [EFFECT_MEMBER]                                       |
-| :-----: | :------------------------------------ | :---------------------------------------------------- |
-|  [01]   | `Stack.up/preview/refresh/destroy` op | `_LEDGER` mapped record, one generic indexed call     |
-|  [02]   | `UpOptions.signal: AbortSignal`       | `Effect.acquireRelease` over an `AbortController`     |
-|  [03]   | `opts.onEvent: (EngineEvent)=>void`   | `Stream.asyncPush` + `Stream.runFold` over `_folded`  |
-|  [04]   | `EngineEvent` fold product            | `Schema.decodeUnknown(RunReceipt)`                    |
-|  [05]   | `LocalWorkspaceOptions` host facts    | `Config.unwrap` + `Config.redacted`                   |
-|  [06]   | `OutputMap` `{value,secret}`          | `Schema.decodeUnknown` + secret-refusal gate          |
-|  [07]   | `CommandError` family + `RunError`    | `Match.instanceOf` triage → `Data.TaggedError`        |
-|  [08]   | ephemeral stack lifecycle             | `Effect.acquireRelease`                               |
+| [INDEX] | [PULUMI_SEAM]                         | [EFFECT_MEMBER]                                      |
+| :-----: | :------------------------------------ | :--------------------------------------------------- |
+|  [01]   | `Stack.up/preview/refresh/destroy` op | `_LEDGER` mapped record, one generic indexed call    |
+|  [02]   | `UpOptions.signal: AbortSignal`       | `Effect.acquireRelease` over an `AbortController`    |
+|  [03]   | `opts.onEvent: (EngineEvent)=>void`   | `Stream.asyncPush` + `Stream.runFold` over `_folded` |
+|  [04]   | `EngineEvent` fold product            | `Schema.decodeUnknown(RunReceipt)`                   |
+|  [05]   | `LocalWorkspaceOptions` host facts    | `Config.unwrap` + `Config.redacted`                  |
+|  [06]   | `OutputMap` `{value,secret}`          | `Schema.decodeUnknown` + secret-refusal gate         |
+|  [07]   | `CommandError` family + `RunError`    | `Match.instanceOf` triage → `Data.TaggedError`       |
+|  [08]   | ephemeral stack lifecycle             | `Effect.acquireRelease`                              |
 
 - [01]-[LEDGER_DISPATCH]: `_LEDGER` maps each op (`reconcile` included) to its `Stack` method under a mapped contract — a sixth op is a compile error at the record, not four drivers.
 - [02]-[INTERRUPT]: the bridge acquires an `AbortController` and releases by aborting — interruption, scope close, and budget exhaustion all cancel the run; no orphan updates.

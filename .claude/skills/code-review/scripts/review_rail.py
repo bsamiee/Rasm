@@ -2332,13 +2332,7 @@ def proposal_block(fresh: tuple[Refutation, ...], /) -> tuple[str, ...]:
     if not fresh:
         return ()
     rows = [
-        {
-            "class_id": slugged(entry.claim),
-            "matchers": [stemmed(entry.claim)],
-            "refuting_citation": "",
-            "landed_surfaces": [],
-            "recurrences": 1,
-        }
+        {"class_id": slugged(entry.claim), "matchers": [stemmed(entry.claim)], "refuting_citation": "", "landed_surfaces": [], "recurrences": 1}
         for entry in fresh
     ]
     sink = io.StringIO()
@@ -3908,7 +3902,11 @@ def findings(
             pass
     outcome = context_resolved(directory, round_no).bind(
         lambda context: (
-            findings_normalized(context, dedup_against, partial=partial) if normalize else read_mode(context) if lens.digest or lens.filtered else summarized(context)
+            findings_normalized(context, dedup_against, partial=partial)
+            if normalize
+            else read_mode(context)
+            if lens.digest or lens.filtered
+            else summarized(context)
         )
     )
     match outcome:

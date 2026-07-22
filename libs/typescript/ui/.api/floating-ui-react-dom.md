@@ -17,13 +17,13 @@
 [PUBLIC_TYPE_SCOPE]: position result family — the hook config and return
 - rail: position
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]     | [CONSUMER]                                                                              |
-| :-----: | :----------------------- | :---------------- | :-------------------------------------------------------------------------------------- |
-|  [01]   | `UseFloatingOptions<RT>` | hook config       | `Partial<ComputePositionConfig>` + `whileElementsMounted`/`open`/`elements`/`transform` |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]     | [CONSUMER]                                                                               |
+| :-----: | :----------------------- | :---------------- | :--------------------------------------------------------------------------------------- |
+|  [01]   | `UseFloatingOptions<RT>` | hook config       | `Partial<ComputePositionConfig>` + `whileElementsMounted`/`open`/`elements`/`transform`  |
 |  [02]   | `UseFloatingReturn<RT>`  | hook result       | `refs`/`elements` + `floatingStyles` + `update()` + `UseFloatingData`; no `context` here |
-|  [03]   | `UseFloatingData`        | position snapshot | `ComputePositionReturn & { isPositioned: boolean }` — `x`/`y`/`placement`/`strategy`    |
-|  [04]   | `ReferenceType`          | reference union   | `Element \| VirtualElement` — real node or virtual rect (cursor/selection)              |
-|  [05]   | `ArrowOptions`           | arrow config      | `{ element, padding? }`; `element` is the `arrow` ref target (React ref or node)        |
+|  [03]   | `UseFloatingData`        | position snapshot | `ComputePositionReturn & { isPositioned: boolean }` — `x`/`y`/`placement`/`strategy`     |
+|  [04]   | `ReferenceType`          | reference union   | `Element \| VirtualElement` — real node or virtual rect (cursor/selection)               |
+|  [05]   | `ArrowOptions`           | arrow config      | `{ element, padding? }`; `element` is the `arrow` ref target (React ref or node)         |
 
 [PUBLIC_TYPE_SCOPE]: re-exported geometry — the `@floating-ui/dom` vocabulary
 - rail: position

@@ -4,12 +4,12 @@ Tenancy enforcement and the per-scope store family in one owner: `Tenancy` discr
 
 ## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                                              |
-| :-----: | :------------------ | :----------------------------------------------------------------------------------- |
-|  [01]   | `POLICY_FAMILY`     | the `Tenancy` tagged family, the locus derivation, the isolation dispatch           |
-|  [02]   | `SCOPED_WRITE`      | the coordinate pin fold, the `within` transformer, the RLS policy ensure            |
-|  [03]   | `SCOPE_FAMILY`      | `ScopeKey`, the `Tenant` service, the `Stores` LayerMap, verify-at-construction     |
-|  [04]   | `PORT_SATISFACTION` | the security state ports satisfied by Layers built from these scopes                |
+| [INDEX] | [CLUSTER]           | [OWNS]                                                                          |
+| :-----: | :------------------ | :------------------------------------------------------------------------------ |
+|  [01]   | `POLICY_FAMILY`     | the `Tenancy` tagged family, the locus derivation, the isolation dispatch       |
+|  [02]   | `SCOPED_WRITE`      | the coordinate pin fold, the `within` transformer, the RLS policy ensure        |
+|  [03]   | `SCOPE_FAMILY`      | `ScopeKey`, the `Tenant` service, the `Stores` LayerMap, verify-at-construction |
+|  [04]   | `PORT_SATISFACTION` | the security state ports satisfied by Layers built from these scopes            |
 
 ## [02]-[POLICY_FAMILY]
 

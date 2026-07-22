@@ -17,22 +17,22 @@
 [PROVIDER_TYPES]: builders, providers, and volume shaping
 - rail: telemetry composition
 
-| [INDEX] | [SYMBOL]                                          | [PACKAGE_ROLE]     | [CAPABILITY]                                                                                             |
-| :-----: | :------------------------------------------------ | :----------------- | :------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Sdk`                                             | static entry       | hostless builder mint; default-propagator seat                                                           |
-|  [02]   | `TracerProviderBuilder`                           | trace builder      | source admission, sampler seat, processor chain                                                          |
-|  [03]   | `MeterProviderBuilder`                            | metric builder     | meter admission, views, exemplar filter                                                                  |
-|  [04]   | `LoggerProviderBuilder`                           | log builder        | log-record processor chain                                                                               |
-|  [05]   | `ResourceBuilder`                                 | identity builder   | `CreateDefault`/`CreateEmpty` + detector rows                                                            |
-|  [06]   | `ParentBasedSampler` / `TraceIdRatioBasedSampler` | sampler root       | one deterministic verdict per trace id                                                                   |
-|  [07]   | `AlwaysOnSampler` / `AlwaysOffSampler`            | sampler terminals  | delegate seats inside the parent-based composite                                                         |
-|  [08]   | `ExemplarFilterType`                              | exemplar policy    | `AlwaysOff` / `AlwaysOn` / `TraceBased`                                                                  |
-|  [09]   | `MetricStreamConfiguration`                       | view row           | declaration-time stream surgery                                                                          |
-|  [10]   | `Base2ExponentialBucketHistogramConfiguration`    | view row           | exponential histogram shape                                                                              |
-|  [11]   | `ExplicitBucketHistogramConfiguration`            | view row           | explicit-bucket fallback                                                                                 |
-|  [12]   | `OpenTelemetryLoggerOptions`                      | log-bridge options | `ILogger` record-capture knobs                                                                           |
-|  [13]   | `BaseProcessor<T>` / `BatchExportProcessor<T>`    | processor chain    | `ForceFlush(int)` / `Shutdown(int)` drain verbs                                                          |
-|  [14]   | `SuppressInstrumentationScope`                    | recursion guard    | `Begin(bool)` around exporter-owned I/O                                                                  |
+| [INDEX] | [SYMBOL]                                          | [PACKAGE_ROLE]     | [CAPABILITY]                                     |
+| :-----: | :------------------------------------------------ | :----------------- | :----------------------------------------------- |
+|  [01]   | `Sdk`                                             | static entry       | hostless builder mint; default-propagator seat   |
+|  [02]   | `TracerProviderBuilder`                           | trace builder      | source admission, sampler seat, processor chain  |
+|  [03]   | `MeterProviderBuilder`                            | metric builder     | meter admission, views, exemplar filter          |
+|  [04]   | `LoggerProviderBuilder`                           | log builder        | log-record processor chain                       |
+|  [05]   | `ResourceBuilder`                                 | identity builder   | `CreateDefault`/`CreateEmpty` + detector rows    |
+|  [06]   | `ParentBasedSampler` / `TraceIdRatioBasedSampler` | sampler root       | one deterministic verdict per trace id           |
+|  [07]   | `AlwaysOnSampler` / `AlwaysOffSampler`            | sampler terminals  | delegate seats inside the parent-based composite |
+|  [08]   | `ExemplarFilterType`                              | exemplar policy    | `AlwaysOff` / `AlwaysOn` / `TraceBased`          |
+|  [09]   | `MetricStreamConfiguration`                       | view row           | declaration-time stream surgery                  |
+|  [10]   | `Base2ExponentialBucketHistogramConfiguration`    | view row           | exponential histogram shape                      |
+|  [11]   | `ExplicitBucketHistogramConfiguration`            | view row           | explicit-bucket fallback                         |
+|  [12]   | `OpenTelemetryLoggerOptions`                      | log-bridge options | `ILogger` record-capture knobs                   |
+|  [13]   | `BaseProcessor<T>` / `BatchExportProcessor<T>`    | processor chain    | `ForceFlush(int)` / `Shutdown(int)` drain verbs  |
+|  [14]   | `SuppressInstrumentationScope`                    | recursion guard    | `Begin(bool)` around exporter-owned I/O          |
 
 `Sdk` mints the hostless builders — `CreateTracerProviderBuilder()`, `CreateMeterProviderBuilder()`, `CreateLoggerProviderBuilder()` — each `Build()` returning the `IDisposable` provider handle whose `ForceFlush(timeoutMilliseconds)`-then-`Dispose()` pair is the drain contract. `Sdk.SuppressInstrumentation` reads the ambient suppression flag; `Sdk.SetDefaultTextMapPropagator(TextMapPropagator)` seats the process propagator.
 
@@ -58,18 +58,18 @@
 [ENTRYPOINT_SCOPE]: admission and shaping on the builders
 - rail: telemetry composition
 
-| [INDEX] | [SURFACE]                              | [KIND]           | [CAPABILITY]                                                                    |
-| :-----: | :------------------------------------- | :--------------- | :------------------------------------------------------------------------------ |
-|  [01]   | `AddSource(params string[])`           | trace admission  | admits `ActivitySource` names                                                   |
-|  [02]   | `AddMeter(params string[])`            | metric admission | admits `Meter` names                                                            |
-|  [03]   | `AddView`                              | stream surgery   | name and instrument-selector overloads                                          |
-|  [04]   | `SetExemplarFilter`                    | exemplar policy  | one `ExemplarFilterType` per meter provider                                     |
-|  [05]   | `SetSampler`                           | sampler seat     | instance, generic, and factory overloads                                        |
-|  [06]   | `AddProcessor`                         | processor chain  | registration order is execution order                                           |
-|  [07]   | `ConfigureResource`                    | identity verb    | augmenting resource mutation on any builder                                     |
-|  [08]   | `SetResourceBuilder`                   | identity replace | discards earlier identity — augmentation is the default verb                    |
-|  [09]   | `AddOpenTelemetry` (`ILoggingBuilder`) | log bridge       | in-box logger bridge; optional options delegate                                 |
-|  [10]   | `Build()`                              | provider mint    | returns the disposable provider handle                                          |
+| [INDEX] | [SURFACE]                              | [KIND]           | [CAPABILITY]                                                 |
+| :-----: | :------------------------------------- | :--------------- | :----------------------------------------------------------- |
+|  [01]   | `AddSource(params string[])`           | trace admission  | admits `ActivitySource` names                                |
+|  [02]   | `AddMeter(params string[])`            | metric admission | admits `Meter` names                                         |
+|  [03]   | `AddView`                              | stream surgery   | name and instrument-selector overloads                       |
+|  [04]   | `SetExemplarFilter`                    | exemplar policy  | one `ExemplarFilterType` per meter provider                  |
+|  [05]   | `SetSampler`                           | sampler seat     | instance, generic, and factory overloads                     |
+|  [06]   | `AddProcessor`                         | processor chain  | registration order is execution order                        |
+|  [07]   | `ConfigureResource`                    | identity verb    | augmenting resource mutation on any builder                  |
+|  [08]   | `SetResourceBuilder`                   | identity replace | discards earlier identity — augmentation is the default verb |
+|  [09]   | `AddOpenTelemetry` (`ILoggingBuilder`) | log bridge       | in-box logger bridge; optional options delegate              |
+|  [10]   | `Build()`                              | provider mint    | returns the disposable provider handle                       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

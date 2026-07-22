@@ -13,7 +13,6 @@ Off-thread compute is one closed protocol and one pool — no wrapper, the platf
 ## [02]-[PROTOCOL_FAMILY]
 
 [PROTOCOL_FAMILY]:
-
 - Owner: the closed protocol union — each request a `Schema.TaggedRequest` class carrying payload, success, and failure schemas in one declaration; the union value is the one artifact both sides compile against, so a request the pool sends that the runner cannot answer is a compile error at the handler record, never a runtime miss.
 - Law: zero-copy crossings are declared at the schema — `Transferable.Uint8Array` for byte payloads, `Transferable.MessagePort` for channel handoff, `Transferable.schema(shape, project)` for a composite whose transfer list projects from its own fields — so the marshal plan is recoverable from the message declaration and no call site carries a transferable list.
 - Law: failure crosses as the request's failure schema — the caller receives the same tagged class the handler failed with, its `class: FaultClass.Kind` field intact, so budget gates and routing dispatch on the reconstructed value; a stringified error crossing the seam destroys the discriminant and is the named defect.
@@ -60,7 +59,6 @@ const _Protocol = Schema.Union(Drop, Render);
 ## [03]-[POOL_ROWS]
 
 [POOL_ROWS]:
-
 - Owner: the pool form — `Worker.makePoolSerializedLayer(Tag, sizing)` against one `Context.Tag` holding the `SerializedWorkerPool` of the union; execution modalities ride the pool surface (`executeEffect` one-shot, `execute` streaming, `broadcast` fan-out) and the request's declared nature discriminates, never a parallel pool.
 - Law: sizing is the platform's parameterized policy union — fixed (`{ size, concurrency, targetUtilization }`) or elastic (`{ minSize, maxSize, timeToLive, concurrency, targetUtilization }`) arrives intact at `BenchLive(policy)` from the root, with `Setting.serve.extent` supplying the deployment-sized fixed row; no profile roster freezes two named configurations or hides the platform's full option surface.
 - Law: backpressure is the platform's — `concurrency` bounds in-flight requests per member, a saturated pool suspends the caller on the pool's own queue, and cancellation is fiber interruption crossing the seam (an interrupted caller interrupts the in-flight worker request); a depth gauge, shed flag, or hand queue beside the pool re-derives what the option row states.
@@ -84,7 +82,6 @@ const BenchLive = (policy: Bench.Policy): Layer.Layer<Bench, WorkerError.WorkerE
 ## [04]-[RUNNER_BOOT]
 
 [RUNNER_BOOT]:
-
 - Owner: the worker side — `WorkerRunner.layerSerialized(protocol, handlers)` with the handler record compiler-checked against the union: an `Effect` handler answers once, a `Stream` handler streams, a `broadcast` request reaches every member's handler; the record is the whole worker program, and `RunnerLive(handlers)` is the one runner-Layer generator, so the protocol owner never substitutes annotation or identity bodies for the domain implementation.
 - Law: the worker entry is its own boot module under the one-`main` law — a separate module runs `row.main(WorkerRunner.launch(RunnerLive(Report.worker)))` beneath the runtime row's `runner` binding (`exec#RUNTIME_ROWS`) and exports nothing; `Report.worker` owns the real render and invalidation handlers beside the renderer state they mutate, the protocol module owns their exhaustive type, and the spawn factory feeding `row.worker` is the only site naming the entry module's URL.
 - Law: handler capability rides the runner Layer's own graph — a handler needing filesystem or telemetry composes those Layers beneath `RunnerLive` in the worker boot module, so the worker graph is a root proof exactly like the host graph and an unwired handler Tag fails at the worker's boot line.

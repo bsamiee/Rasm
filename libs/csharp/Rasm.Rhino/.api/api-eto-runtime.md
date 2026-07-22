@@ -107,27 +107,27 @@ The three dispatch shapes are the boundary between a background thread and the c
 
 `Clipboard` and `DataObject` expose the identical typed accessor set; a payload is set and read under one MIME `type` string. `DragEventArgs.SetDropDescription` annotates the OS drag cursor; `TrayIndicator` and `Notification` deliver tray presence.
 
-| [INDEX] | [SURFACE]                          | [CALL_SHAPE]                    | [CAPABILITY]                         |
-| :-----: | :--------------------------------- | :------------------------------ | :----------------------------------- |
-|  [01]   | `Clipboard.SetString`              | `(string value, string type)`   | write a typed text payload           |
-|  [02]   | `Clipboard.SetData`                | `(byte[] value, string type)`   | write a typed byte payload           |
-|  [03]   | `Clipboard.SetDataStream`          | `(Stream stream, string type)`  | write a typed stream payload         |
-|  [04]   | `Clipboard.SetObject`              | `(object value, string type)`   | write a typed boxed payload          |
-|  [05]   | `Clipboard.GetString`              | `(string type) → string`        | read a typed text payload            |
-|  [06]   | `Clipboard.GetData`                | `(string type) → byte[]`        | read a typed byte payload            |
-|  [07]   | `Clipboard.GetDataStream`          | `(string type) → Stream`        | read a typed stream payload          |
-|  [08]   | `Clipboard.GetObject<T>`           | `(string type) → T`             | read a typed boxed payload           |
-|  [09]   | `Clipboard.Contains`               | `(string type) → bool`          | presence probe for a MIME type       |
-|  [10]   | `Clipboard.Clear`                  | `()`                            | empty the clipboard                  |
-|  [11]   | `DataObject.SetString`             | `(string value, string type)`   | write onto the drag payload          |
-|  [12]   | `DataObject.GetObject<T>`          | `(string type) → T`             | read from the drag payload           |
-|  [13]   | `DragEventArgs.SetDropDescription` | `(string format, string inner)` | annotate the OS drop cursor          |
-|  [14]   | `Notification.Show`                     | `(TrayIndicator = null)` | deliver a toast, optionally anchored          |
-|  [15]   | `TrayIndicator.SetMenu`                 | `(ContextMenu)`          | bind the tray context menu                    |
-|  [16]   | `TrayIndicator.Show` / `.Hide`          | `()`                     | show and hide the tray presence               |
-|  [17]   | `Application.NotificationActivated`     | event                    | route notification activation by user data   |
-|  [18]   | `Notification.UserData`                 | property                 | carry the activation correlation value       |
-|  [19]   | `Notification.RequiresTrayIndicator`    | property                 | declare whether delivery needs a tray host    |
+| [INDEX] | [SURFACE]                            | [CALL_SHAPE]                    | [CAPABILITY]                               |
+| :-----: | :----------------------------------- | :------------------------------ | :----------------------------------------- |
+|  [01]   | `Clipboard.SetString`                | `(string value, string type)`   | write a typed text payload                 |
+|  [02]   | `Clipboard.SetData`                  | `(byte[] value, string type)`   | write a typed byte payload                 |
+|  [03]   | `Clipboard.SetDataStream`            | `(Stream stream, string type)`  | write a typed stream payload               |
+|  [04]   | `Clipboard.SetObject`                | `(object value, string type)`   | write a typed boxed payload                |
+|  [05]   | `Clipboard.GetString`                | `(string type) → string`        | read a typed text payload                  |
+|  [06]   | `Clipboard.GetData`                  | `(string type) → byte[]`        | read a typed byte payload                  |
+|  [07]   | `Clipboard.GetDataStream`            | `(string type) → Stream`        | read a typed stream payload                |
+|  [08]   | `Clipboard.GetObject<T>`             | `(string type) → T`             | read a typed boxed payload                 |
+|  [09]   | `Clipboard.Contains`                 | `(string type) → bool`          | presence probe for a MIME type             |
+|  [10]   | `Clipboard.Clear`                    | `()`                            | empty the clipboard                        |
+|  [11]   | `DataObject.SetString`               | `(string value, string type)`   | write onto the drag payload                |
+|  [12]   | `DataObject.GetObject<T>`            | `(string type) → T`             | read from the drag payload                 |
+|  [13]   | `DragEventArgs.SetDropDescription`   | `(string format, string inner)` | annotate the OS drop cursor                |
+|  [14]   | `Notification.Show`                  | `(TrayIndicator = null)`        | deliver a toast, optionally anchored       |
+|  [15]   | `TrayIndicator.SetMenu`              | `(ContextMenu)`                 | bind the tray context menu                 |
+|  [16]   | `TrayIndicator.Show` / `.Hide`       | `()`                            | show and hide the tray presence            |
+|  [17]   | `Application.NotificationActivated`  | event                           | route notification activation by user data |
+|  [18]   | `Notification.UserData`              | property                        | carry the activation correlation value     |
+|  [19]   | `Notification.RequiresTrayIndicator` | property                        | declare whether delivery needs a tray host |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

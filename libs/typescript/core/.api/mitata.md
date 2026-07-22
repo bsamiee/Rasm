@@ -20,17 +20,17 @@ Mechanism is a two-layer split: a REGISTRATION-and-RENDER layer (`bench`/`group`
 
 `stats` is the load-bearing surface — the per-benchmark record `measure` returns and the exact band `BenchmarkClaimWire` mirrors. Timing fields are nanoseconds; the percentile ladder is the regression fold's comparison basis; `gc`/`heap`/`counters` are the conditionally-present enrichment bands.
 
-| [INDEX] | [FIELD]                        | [SHAPE]                                | [WIRE_MIRROR]                                             |
-| :-----: | :----------------------------- | :------------------------------------- | :-------------------------------------------------------- |
-|  [01]   | `min`/`max`/`avg`              | `number` (ns)                          | the claim's central-tendency triple                       |
-|  [02]   | `p25`/`p50`/`p75`/`p99`/`p999` | `number` (ns)                          | the percentile ladder the regression fold grades on       |
-|  [03]   | `samples`                      | `number[]` raw per-sample timings      | the histogram/boxplot source; sample-count evidence       |
-|  [04]   | `ticks`                        | `number` total sampled iterations      | sampling-depth evidence on the claim                      |
-|  [05]   | `kind`                         | `'fn' \| 'iter' \| 'yield'`            | the measurement modality discriminant                     |
-|  [06]   | `gc?`                          | `{ avg, min, max, total }` (ns)        | GC-timing band — present only under exposed manual GC     |
-|  [07]   | `heap?`                        | `{ avg, min, max, total }` (bytes)     | heap-delta band — present only under heap-metric runtimes |
-|  [08]   | `counters?`                    | `HardwareCounters`                     | IPC/cache/branch band; addon-gated                        |
-|  [09]   | `debug`                        | `string` engine/JIT debug annotation   | diagnostic, not landed on the wire                        |
+| [INDEX] | [FIELD]                        | [SHAPE]                              | [WIRE_MIRROR]                                             |
+| :-----: | :----------------------------- | :----------------------------------- | :-------------------------------------------------------- |
+|  [01]   | `min`/`max`/`avg`              | `number` (ns)                        | the claim's central-tendency triple                       |
+|  [02]   | `p25`/`p50`/`p75`/`p99`/`p999` | `number` (ns)                        | the percentile ladder the regression fold grades on       |
+|  [03]   | `samples`                      | `number[]` raw per-sample timings    | the histogram/boxplot source; sample-count evidence       |
+|  [04]   | `ticks`                        | `number` total sampled iterations    | sampling-depth evidence on the claim                      |
+|  [05]   | `kind`                         | `'fn' \| 'iter' \| 'yield'`          | the measurement modality discriminant                     |
+|  [06]   | `gc?`                          | `{ avg, min, max, total }` (ns)      | GC-timing band — present only under exposed manual GC     |
+|  [07]   | `heap?`                        | `{ avg, min, max, total }` (bytes)   | heap-delta band — present only under heap-metric runtimes |
+|  [08]   | `counters?`                    | `HardwareCounters`                   | IPC/cache/branch band; addon-gated                        |
+|  [09]   | `debug`                        | `string` engine/JIT debug annotation | diagnostic, not landed on the wire                        |
 
 ```ts signature
 interface CounterAggregate { avg: number }

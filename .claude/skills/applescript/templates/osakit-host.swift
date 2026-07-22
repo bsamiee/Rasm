@@ -79,9 +79,10 @@ enum Marshal {
             }) else { throw HostFault(stage: .marshal, info: nil, keys: .appleScript) }
             return wide
         case let .real(number): return .init(double: number)
-        case let .list(values): return try values.reduce(.list()) { list, item in list.insert(try descriptor(item), at: 0); return list }
+        case let .list(values): return try values.reduce(.list()) { list, item in try list.insert(descriptor(item), at: 0); return list }
         case let .record(fields):
-            return try fields.reduce(.record()) { record, field in record.setDescriptor(try descriptor(field.value), forKeyword: field.key); return record }
+            return try fields
+                .reduce(.record()) { record, field in try record.setDescriptor(descriptor(field.value), forKeyword: field.key); return record }
         }
     }
 

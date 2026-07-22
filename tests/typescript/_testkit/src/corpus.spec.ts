@@ -4,7 +4,7 @@ import { expect, layer } from '@effect/vitest';
 import { Array, Effect, HashMap, Option } from 'effect';
 import { Asset, ContentDigest, Corpus, CorpusFault, CorpusRoot } from './corpus.ts';
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 // A two-fixture scratch registry: one REAL entry with emitted pairs, one DESIGN-PIN entry whose seam holds only a stray file.
 const _SCRATCH_MANIFEST = [
@@ -18,7 +18,7 @@ const _SCRATCH_MANIFEST = [
 const _ECHO_BYTES = Uint8Array.from([0xca, 0xfe, 0x00, 0x42]);
 const _ECHO_JSON = '{"echo":true}';
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const _scratchCorpus = Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;

@@ -102,8 +102,6 @@ A direct supervisor call accepts `status`, `quit`, `redeploy <package>`, and `ve
 ---
 config:
   layout: elk
-  look: neo
-  theme: base
 ---
 flowchart LR
     Assay["tools.assay bridge"] --> Supervisor["Supervisor"]

@@ -164,14 +164,14 @@ public static class ReflectedRead {
 }
 ```
 
-| [INDEX] | [POLICY]                | [VALUE]                                             | [BINDING]                                               |
-| :-----: | :---------------------- | :-------------------------------------------------- | :------------------------------------------------------ |
-|  [01]   | interactive correctness | the synchronous `Topology` lane                     | inline projection + QuikGraph; never an async view      |
-|  [02]   | analytical              | the async `Columnar`/`Cypher` lane                  | carries the `StalenessWatermark`                        |
-|  [03]   | request routing         | one `ReadRequest` case                              | impossible combinations are absent                     |
-|  [04]   | non-stale gate          | `IProjectionDaemon.WaitForNonStaleData`             | the production runner member; not `TestingExtensions`   |
-|  [05]   | watermark               | `EventSequenceNumber` vs shard `Sequence`           | sequence evidence; no synthetic wall duration           |
-|  [06]   | reflected door          | one `graphql.resolve` call, RLS tenant pinned       | zero resolver code; errors envelope folds typed         |
+| [INDEX] | [POLICY]                | [VALUE]                                       | [BINDING]                                             |
+| :-----: | :---------------------- | :-------------------------------------------- | :---------------------------------------------------- |
+|  [01]   | interactive correctness | the synchronous `Topology` lane               | inline projection + QuikGraph; never an async view    |
+|  [02]   | analytical              | the async `Columnar`/`Cypher` lane            | carries the `StalenessWatermark`                      |
+|  [03]   | request routing         | one `ReadRequest` case                        | impossible combinations are absent                    |
+|  [04]   | non-stale gate          | `IProjectionDaemon.WaitForNonStaleData`       | the production runner member; not `TestingExtensions` |
+|  [05]   | watermark               | `EventSequenceNumber` vs shard `Sequence`     | sequence evidence; no synthetic wall duration         |
+|  [06]   | reflected door          | one `graphql.resolve` call, RLS tenant pinned | zero resolver code; errors envelope folds typed       |
 
 ## [03]-[ELEMENT_SET_ALGEBRA]
 

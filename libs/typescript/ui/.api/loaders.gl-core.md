@@ -21,19 +21,19 @@
 - A single `Loader` argument types the return exactly (`LoaderReturnType<LoaderT>`); a `Loader[]` argument makes `parse`/`load` sniff the content and select — the multi-format ingest path deck uses through `loadOptions`.
 - Every `parse`/`load`/`select` entry takes trailing `options?, context?`; the `*InBatches` pair returns `Promise<AsyncIterable<Batch>>`.
 
-| [INDEX] | [SYMBOL]               | [SIGNATURE]                                             | [CONSUMER_BOUNDARY]                                 |
-| :-----: | :--------------------- | :------------------------------------------------------ | :-------------------------------------------------- |
-|  [01]   | `parse`                | `(data: DataType, loader(s)) => Promise<Out>`           | in-memory decode — `ArrayBuffer`/`Blob` to points   |
-|  [02]   | `parseSync`            | `(data, loader) => Out`                                 | main-thread sync decode; small text/JSON only       |
-|  [03]   | `parseInBatches`       | `(data: BatchableDataType, loader)`                     | streaming decode — point clouds too large to hold   |
-|  [04]   | `load`                 | `(url: string\|DataType, loader(s)) => Promise<Out>`    | URL fetch-then-parse — `.las`/`.laz` scan by href   |
-|  [05]   | `loadInBatches`        | `(files: FileType, loader)`                             | streaming URL/File ingest for the viewer drop lane  |
-|  [06]   | `registerLoaders`      | `(loaders: Loader[] \| Loader) => void`                 | deprecated host-global registration                 |
-|  [07]   | `_unregisterLoaders`   | `() => void`                                            | testing-only host-global reset                       |
-|  [08]   | `selectLoader`         | `(data: DataType, loaders?) => Promise<Loader \| null>` | content-sniff resolution when the format is unknown |
-|  [09]   | `selectLoaderSync`     | `(data, loaders?) => Loader \| null`                    | sync sniff; header-bytes available in memory        |
-|  [10]   | `setLoaderOptions`     | `(options: LoaderOptions) => void`                      | host-global defaults; single-owner only             |
-|  [11]   | `getLoaderOptions`     | `() => LoaderOptions`                                   | current merged defaults                             |
+| [INDEX] | [SYMBOL]             | [SIGNATURE]                                             | [CONSUMER_BOUNDARY]                                 |
+| :-----: | :------------------- | :------------------------------------------------------ | :-------------------------------------------------- |
+|  [01]   | `parse`              | `(data: DataType, loader(s)) => Promise<Out>`           | in-memory decode — `ArrayBuffer`/`Blob` to points   |
+|  [02]   | `parseSync`          | `(data, loader) => Out`                                 | main-thread sync decode; small text/JSON only       |
+|  [03]   | `parseInBatches`     | `(data: BatchableDataType, loader)`                     | streaming decode — point clouds too large to hold   |
+|  [04]   | `load`               | `(url: string\|DataType, loader(s)) => Promise<Out>`    | URL fetch-then-parse — `.las`/`.laz` scan by href   |
+|  [05]   | `loadInBatches`      | `(files: FileType, loader)`                             | streaming URL/File ingest for the viewer drop lane  |
+|  [06]   | `registerLoaders`    | `(loaders: Loader[] \| Loader) => void`                 | deprecated host-global registration                 |
+|  [07]   | `_unregisterLoaders` | `() => void`                                            | testing-only host-global reset                      |
+|  [08]   | `selectLoader`       | `(data: DataType, loaders?) => Promise<Loader \| null>` | content-sniff resolution when the format is unknown |
+|  [09]   | `selectLoaderSync`   | `(data, loaders?) => Loader \| null`                    | sync sniff; header-bytes available in memory        |
+|  [10]   | `setLoaderOptions`   | `(options: LoaderOptions) => void`                      | host-global defaults; single-owner only             |
+|  [11]   | `getLoaderOptions`   | `() => LoaderOptions`                                   | current merged defaults                             |
 
 ## [03]-[FETCH_ENCODE_STREAM]
 

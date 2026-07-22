@@ -1179,8 +1179,6 @@ public static class ThreeMf {
 ---
 config:
   layout: elk
-  look: handDrawn
-  theme: dark
 ---
 flowchart LR
     accTitle: Additive production flow

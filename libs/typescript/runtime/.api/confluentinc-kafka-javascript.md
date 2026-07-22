@@ -19,19 +19,19 @@ Its promise surface is the engine-facing one: `send` returns `RecordMetadata`, `
 [PUBLIC_TYPE_SCOPE]: the KafkaJS promise vocabulary the engine row composes; `Kafka` mints the clients keyed in [03], and the native `RdKafka` types back the throughput lanes
 - rail: boundaries
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [CONSUMER]                                                                        |
-| :-----: | :-------------------- | :------------ | :-------------------------------------------------------------------------------- |
-|  [01]   | `Kafka`               | factory       | the one client factory — `producer`/`consumer`/`admin` over a shared bootstrap    |
-|  [02]   | `Producer`            | producer      | `Client &` send surface; the transactional members are the exactly-once lane      |
-|  [03]   | `Consumer`            | consumer      | `Client &` subscribe/run surface; manual offset commit is the at-least-once lane  |
-|  [04]   | `Admin`               | admin         | topic/group lifecycle — create, offsets, metadata the engine reconciles at boot   |
-|  [05]   | `ProducerRecord`      | message       | `topic` plus `Message[]` (`key`, `value`, `partition?`, `headers?`, `timestamp?`) |
-|  [06]   | `RecordMetadata`      | receipt       | per-message `topicName`, `partition`, `offset?`, `timestamp?` — publish evidence  |
-|  [07]   | `EachMessagePayload`  | delivery      | `message`, `partition`, `heartbeat`, `pause` — the `eachMessage` handler argument |
-|  [08]   | `EachBatchPayload`    | delivery      | `batch`, `resolveOffset`, `commitOffsetsIfNecessary` — the `eachBatch` argument    |
-|  [09]   | `ConsumerRunConfig`   | run config    | `eachMessage`/`eachBatch`, `partitionsConsumedConcurrently`, auto-resolve toggle  |
-|  [10]   | `CompressionTypes`    | codec enum    | `None`/`GZIP`/`Snappy`/`LZ4`/`ZSTD` — the per-topic compression a `Setting` names  |
-|  [11]   | `KafkaJSError`        | fault         | the error family (`KafkaJSProtocolError`, `KafkaJSConnectionError`, aggregate)     |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [CONSUMER]                                                                        |
+| :-----: | :------------------- | :------------ | :-------------------------------------------------------------------------------- |
+|  [01]   | `Kafka`              | factory       | the one client factory — `producer`/`consumer`/`admin` over a shared bootstrap    |
+|  [02]   | `Producer`           | producer      | `Client &` send surface; the transactional members are the exactly-once lane      |
+|  [03]   | `Consumer`           | consumer      | `Client &` subscribe/run surface; manual offset commit is the at-least-once lane  |
+|  [04]   | `Admin`              | admin         | topic/group lifecycle — create, offsets, metadata the engine reconciles at boot   |
+|  [05]   | `ProducerRecord`     | message       | `topic` plus `Message[]` (`key`, `value`, `partition?`, `headers?`, `timestamp?`) |
+|  [06]   | `RecordMetadata`     | receipt       | per-message `topicName`, `partition`, `offset?`, `timestamp?` — publish evidence  |
+|  [07]   | `EachMessagePayload` | delivery      | `message`, `partition`, `heartbeat`, `pause` — the `eachMessage` handler argument |
+|  [08]   | `EachBatchPayload`   | delivery      | `batch`, `resolveOffset`, `commitOffsetsIfNecessary` — the `eachBatch` argument   |
+|  [09]   | `ConsumerRunConfig`  | run config    | `eachMessage`/`eachBatch`, `partitionsConsumedConcurrently`, auto-resolve toggle  |
+|  [10]   | `CompressionTypes`   | codec enum    | `None`/`GZIP`/`Snappy`/`LZ4`/`ZSTD` — the per-topic compression a `Setting` names |
+|  [11]   | `KafkaJSError`       | fault         | the error family (`KafkaJSProtocolError`, `KafkaJSConnectionError`, aggregate)    |
 
 - [05]-[MESSAGE]: `key?: Buffer | string | null` selects a stable partition and carries correlation identity; Kafka never deduplicates equal keys. `value` is the opaque envelope octets the consumer's own Schema decodes.
 
@@ -40,15 +40,15 @@ Its promise surface is the engine-facing one: `send` returns `RecordMetadata`, `
 [ENTRYPOINT_SCOPE]: client construction and the promise lifecycle; the native `RdKafka.Producer`/`KafkaConsumer`/`AdminClient` and `createReadStream`/`createWriteStream` back the stream lanes below the promise seam
 - rail: system-apis
 
-| [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY] | [CONSUMER]                                                    |
-| :-----: | :---------------------------------------------------- | :------------- | :----------------------------------------------------------- |
-|  [01]   | `new Kafka(config?)`                                  | factory        | root client over `brokers`/`ssl`/`sasl` from `Setting` rows  |
-|  [02]   | `producer(config?)` / `producer.send(record)`        | publish        | scoped `connect`/`disconnect`; `send` yields `RecordMetadata` |
-|  [03]   | `producer.transaction()` / `commit()` / `sendOffsets()` | exactly-once | transactional producer — atomic publish plus consumed-offset |
-|  [04]   | `consumer(config).subscribe(subscription)`           | subscribe      | topic or `RegExp` fanout attach before `run`                 |
-|  [05]   | `consumer.run({ eachMessage })` / `commitOffsets()`  | consume        | at-least-once lane; commit after success, never auto         |
-|  [06]   | `consumer.seek(topicPartitionOffset)`                | replay         | offset anchor within retention — warm-up and recovery window |
-|  [07]   | `admin().createTopics()` / `fetchTopicMetadata()`    | reconcile      | boot-time topic/partition convergence, transport-blind       |
+| [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY] | [CONSUMER]                                                    |
+| :-----: | :------------------------------------------------------ | :------------- | :------------------------------------------------------------ |
+|  [01]   | `new Kafka(config?)`                                    | factory        | root client over `brokers`/`ssl`/`sasl` from `Setting` rows   |
+|  [02]   | `producer(config?)` / `producer.send(record)`           | publish        | scoped `connect`/`disconnect`; `send` yields `RecordMetadata` |
+|  [03]   | `producer.transaction()` / `commit()` / `sendOffsets()` | exactly-once   | transactional producer — atomic publish plus consumed-offset  |
+|  [04]   | `consumer(config).subscribe(subscription)`              | subscribe      | topic or `RegExp` fanout attach before `run`                  |
+|  [05]   | `consumer.run({ eachMessage })` / `commitOffsets()`     | consume        | at-least-once lane; commit after success, never auto          |
+|  [06]   | `consumer.seek(topicPartitionOffset)`                   | replay         | offset anchor within retention — warm-up and recovery window  |
+|  [07]   | `admin().createTopics()` / `fetchTopicMetadata()`       | reconcile      | boot-time topic/partition convergence, transport-blind        |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

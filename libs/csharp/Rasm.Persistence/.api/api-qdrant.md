@@ -91,18 +91,18 @@
 
 `CreateCollectionAsync` fans `VectorParams` (single space) and `VectorParamsMap` (named spaces), each with an optional metadata `Dictionary<string,Value>` overload, and carries the full config: `shardNumber`/`replicationFactor`/`writeConsistencyFactor`, `onDiskPayload`, `HnswConfigDiff`, `OptimizersConfigDiff`, `WalConfigDiff`, `QuantizationConfig`, `SparseVectorConfig`, `ShardingMethod`, `StrictModeConfig`, `initFromCollection`, `timeout`.
 
-| [INDEX] | [SURFACE]                                                                  | [CALL_SHAPE]    | [CAPABILITY]                               |
-| :-----: | :------------------------------------------------------------------------- | :-------------- | :----------------------------------------- |
-|  [01]   | `CreateCollectionAsync(name, VectorParams, …)`                             | async create    | creates a single-vector collection         |
-|  [02]   | `CreateCollectionAsync(name, VectorParamsMap, …)`                          | async create    | creates a named-vector collection          |
-|  [03]   | `RecreateCollectionAsync(name, …)`                                         | async create    | drops then recreates a collection          |
-|  [04]   | `UpdateCollectionAsync(name, …)`                                           | async update    | mutates HNSW/optimizer/quantization        |
-|  [05]   | `CollectionExistsAsync(name)` / `DeleteCollectionAsync(name)`              | async lifecycle | existence probe / drop                     |
-|  [06]   | `GetCollectionInfoAsync(name)` / `ListCollectionsAsync()`                  | async read      | collection state / roster                  |
-|  [07]   | `CreatePayloadIndexAsync(name, field, schemaType, …)`                      | async index     | builds a payload field index               |
-|  [08]   | `CreateShardKeyAsync(name, shardKey, …)` / `ListShardKeysAsync(name)`      | async shard     | multitenant shard partition mgmt           |
-|  [09]   | `CreateAliasAsync` / `UpdateAliasesAsync` / `ListAliasesAsync`             | async alias     | atomic collection alias swap               |
-|  [10]   | `GetCollectionClusterSetupInfoAsync` / `UpdateCollectionClusterSetupAsync` | async cluster   | shard placement / replica mgmt             |
+| [INDEX] | [SURFACE]                                                                  | [CALL_SHAPE]    | [CAPABILITY]                        |
+| :-----: | :------------------------------------------------------------------------- | :-------------- | :---------------------------------- |
+|  [01]   | `CreateCollectionAsync(name, VectorParams, …)`                             | async create    | creates a single-vector collection  |
+|  [02]   | `CreateCollectionAsync(name, VectorParamsMap, …)`                          | async create    | creates a named-vector collection   |
+|  [03]   | `RecreateCollectionAsync(name, …)`                                         | async create    | drops then recreates a collection   |
+|  [04]   | `UpdateCollectionAsync(name, …)`                                           | async update    | mutates HNSW/optimizer/quantization |
+|  [05]   | `CollectionExistsAsync(name)` / `DeleteCollectionAsync(name)`              | async lifecycle | existence probe / drop              |
+|  [06]   | `GetCollectionInfoAsync(name)` / `ListCollectionsAsync()`                  | async read      | collection state / roster           |
+|  [07]   | `CreatePayloadIndexAsync(name, field, schemaType, …)`                      | async index     | builds a payload field index        |
+|  [08]   | `CreateShardKeyAsync(name, shardKey, …)` / `ListShardKeysAsync(name)`      | async shard     | multitenant shard partition mgmt    |
+|  [09]   | `CreateAliasAsync` / `UpdateAliasesAsync` / `ListAliasesAsync`             | async alias     | atomic collection alias swap        |
+|  [10]   | `GetCollectionClusterSetupInfoAsync` / `UpdateCollectionClusterSetupAsync` | async cluster   | shard placement / replica mgmt      |
 
 [ENTRYPOINT_SCOPE]: point write
 - rail: vector-store-scaleout
@@ -124,30 +124,30 @@
 
 `QueryAsync` is the universal retrieval entry: `(name, Query?, IReadOnlyList<PrefetchQuery>?, usingVector, Filter?, scoreThreshold, SearchParams?, limit, offset, payloadSelector, vectorsSelector, ReadConsistency?, ShardKeySelector?, lookupFrom, timeout)`. The legacy `SearchAsync`/`RecommendAsync`/`DiscoverAsync` remain; `*GroupsAsync` group results by a payload field; `*BatchAsync` runs many queries in one request; `SearchMatrixOffsetsAsync`/`SearchMatrixPairsAsync` compute the pairwise similarity matrix; `FacetAsync` aggregates payload-value counts. `RetrieveAsync` fetches by a `PointId`/`Guid`/`ulong`/`IReadOnlyList<PointId>` id.
 
-| [INDEX] | [SURFACE]                                                                                              | [CALL_SHAPE]    | [CAPABILITY]                              |
-| :-----: | :----------------------------------------------------------------------------------------------------- | :-------------- | :---------------------------------------- |
-|  [01]   | `QueryAsync(name, query, prefetch, …)`                                                                 | async query     | universal hybrid/fusion/formula retrieval |
-|  [02]   | `QueryBatchAsync` / `QueryGroupsAsync`                                                                 | async query     | batched / payload-grouped universal query |
-|  [03]   | `SearchAsync(name, ReadOnlyMemory<float>, filter, searchParams, limit, …)`                             | async search    | dense ANN search with filter              |
-|  [04]   | `SearchBatchAsync` / `SearchGroupsAsync`                                                               | async search    | batched / grouped dense search            |
-|  [05]   | `RecommendAsync` / `RecommendBatchAsync` / `RecommendGroupsAsync`                                      | async recommend | positive/negative example search          |
-|  [06]   | `DiscoverAsync` / `DiscoverBatchAsync`                                                                 | async discover  | context-pair guided discovery search      |
-|  [07]   | `RetrieveAsync(name, ids, withPayload, withVectors, …)`                                                | async read      | fetches points by id                      |
-|  [08]   | `ScrollAsync(name, filter, limit, orderBy, …)`                                                         | async scroll    | paged payload-filtered enumeration        |
-|  [09]   | `CountAsync(name, filter, exact)`                                                                      | async count     | filtered point count                      |
-|  [10]   | `FacetAsync(name, key, filter, …)`                                                                     | async facet     | payload-value aggregation                 |
-|  [11]   | `SearchMatrixPairsAsync` / `SearchMatrixOffsetsAsync`                                                  | async matrix    | pairwise similarity matrix                |
+| [INDEX] | [SURFACE]                                                                  | [CALL_SHAPE]    | [CAPABILITY]                              |
+| :-----: | :------------------------------------------------------------------------- | :-------------- | :---------------------------------------- |
+|  [01]   | `QueryAsync(name, query, prefetch, …)`                                     | async query     | universal hybrid/fusion/formula retrieval |
+|  [02]   | `QueryBatchAsync` / `QueryGroupsAsync`                                     | async query     | batched / payload-grouped universal query |
+|  [03]   | `SearchAsync(name, ReadOnlyMemory<float>, filter, searchParams, limit, …)` | async search    | dense ANN search with filter              |
+|  [04]   | `SearchBatchAsync` / `SearchGroupsAsync`                                   | async search    | batched / grouped dense search            |
+|  [05]   | `RecommendAsync` / `RecommendBatchAsync` / `RecommendGroupsAsync`          | async recommend | positive/negative example search          |
+|  [06]   | `DiscoverAsync` / `DiscoverBatchAsync`                                     | async discover  | context-pair guided discovery search      |
+|  [07]   | `RetrieveAsync(name, ids, withPayload, withVectors, …)`                    | async read      | fetches points by id                      |
+|  [08]   | `ScrollAsync(name, filter, limit, orderBy, …)`                             | async scroll    | paged payload-filtered enumeration        |
+|  [09]   | `CountAsync(name, filter, exact)`                                          | async count     | filtered point count                      |
+|  [10]   | `FacetAsync(name, key, filter, …)`                                         | async facet     | payload-value aggregation                 |
+|  [11]   | `SearchMatrixPairsAsync` / `SearchMatrixOffsetsAsync`                      | async matrix    | pairwise similarity matrix                |
 
 [ENTRYPOINT_SCOPE]: snapshot and health
 - rail: vector-store-scaleout
 
-| [INDEX] | [SURFACE]                                                                                  | [CALL_SHAPE]   | [CAPABILITY]                        |
-| :-----: | :----------------------------------------------------------------------------------------- | :------------- | :---------------------------------- |
-|  [01]   | `CreateSnapshotAsync(name)` / `ListSnapshotsAsync(name)`      | async snapshot | per-collection snapshot create/list |
-|  [02]   | `DeleteSnapshotAsync(name, snapshotName)`                     | async snapshot | drops a collection snapshot         |
-|  [03]   | `CreateFullSnapshotAsync()` / `ListFullSnapshotsAsync()`      | async snapshot | whole-storage snapshot create/list  |
-|  [04]   | `DeleteFullSnapshotAsync(name)`                               | async snapshot | drops a whole-storage snapshot      |
-|  [05]   | `HealthAsync()`                                               | async probe    | server liveness + version           |
+| [INDEX] | [SURFACE]                                                | [CALL_SHAPE]   | [CAPABILITY]                        |
+| :-----: | :------------------------------------------------------- | :------------- | :---------------------------------- |
+|  [01]   | `CreateSnapshotAsync(name)` / `ListSnapshotsAsync(name)` | async snapshot | per-collection snapshot create/list |
+|  [02]   | `DeleteSnapshotAsync(name, snapshotName)`                | async snapshot | drops a collection snapshot         |
+|  [03]   | `CreateFullSnapshotAsync()` / `ListFullSnapshotsAsync()` | async snapshot | whole-storage snapshot create/list  |
+|  [04]   | `DeleteFullSnapshotAsync(name)`                          | async snapshot | drops a whole-storage snapshot      |
+|  [05]   | `HealthAsync()`                                          | async probe    | server liveness + version           |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

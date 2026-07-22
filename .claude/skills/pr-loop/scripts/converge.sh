@@ -9,16 +9,37 @@
 set -uo pipefail
 
 # --- [ARGS] -----------------------------------------------------------------------------
-PR=${1:?usage: converge.sh <PR> --head <SHA> --reviewers <csv> [--repo <owner/repo>]}; shift
-HEAD=""; REVIEWERS=""; REPO=""
+PR=${1:?usage: converge.sh <PR> --head <SHA> --reviewers <csv> [--repo <owner/repo>]}
+shift
+HEAD=""
+REVIEWERS=""
+REPO=""
 while [ "$#" -gt 0 ]; do case "$1" in
-    --head) HEAD=$2; shift 2 ;;
-    --reviewers) REVIEWERS=$2; shift 2 ;;
-    --repo) REPO=$2; shift 2 ;;
-    *) echo "converge: unknown arg: $1" >&2; exit 2 ;;
-esac; done
-[ -n "$HEAD" ] && [ -n "$REVIEWERS" ] || { echo "converge: --head and --reviewers required" >&2; exit 2; }
-[ -n "$REPO" ] || REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null) || { echo "converge: cannot resolve repo" >&2; exit 4; }
+    --head)
+        HEAD=$2
+        shift 2
+        ;;
+    --reviewers)
+        REVIEWERS=$2
+        shift 2
+        ;;
+    --repo)
+        REPO=$2
+        shift 2
+        ;;
+    *)
+        echo "converge: unknown arg: $1" >&2
+        exit 2
+        ;;
+esac done
+[ -n "$HEAD" ] && [ -n "$REVIEWERS" ] || {
+    echo "converge: --head and --reviewers required" >&2
+    exit 2
+}
+[ -n "$REPO" ] || REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null) || {
+    echo "converge: cannot resolve repo" >&2
+    exit 4
+}
 
 # shellcheck disable=SC2016  # $-tokens are GraphQL variables inside a single-quoted document, never shell expansion
 SNAP=$(gh api graphql -f owner="${REPO%/*}" -f repo="${REPO#*/}" -F pr="$PR" -f query='
@@ -29,7 +50,10 @@ query($owner:String!,$repo:String!,$pr:Int!){repository(owner:$owner,name:$repo)
         comments(last:30){nodes{author{login} body}}
         commits(last:1){nodes{commit{statusCheckRollup{contexts(first:100){nodes{
             __typename ... on CheckRun{name status conclusion checkSuite{app{slug databaseId}}}
-            ... on StatusContext{context state}}}}}}} } } }' 2>/dev/null) || { echo "converge: snapshot failed" >&2; exit 4; }
+            ... on StatusContext{context state}}}}}}} } } }' 2>/dev/null) || {
+    echo "converge: snapshot failed" >&2
+    exit 4
+}
 
 # --- [SCORE] ----------------------------------------------------------------------------
 # Jq owns the whole gate; the exit code mirrors .met.

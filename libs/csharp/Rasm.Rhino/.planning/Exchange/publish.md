@@ -930,32 +930,10 @@ public static class Publishing {
 ```mermaid codemap
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-  themeCSS: >-
-    .nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}
-    .edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}
-    .edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}
-    .node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}
-    .marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}
-    .edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}
 ---
 flowchart LR
     accTitle: Publication capture and atomic artifact flow
@@ -973,17 +951,6 @@ flowchart LR
     Spool --> Evidence["typed PageEvidence · ExchangeEvidence"]
     Atomic --> Evidence
     Evidence --> Receipt["PublishReceipt"]
-    linkStyle 12 stroke:#50FA7B,stroke-width:2px,color:#F8F8F2
-    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    classDef external fill:#8BE9FD66,stroke:#8BE9FD,color:#F8F8F2
-    classDef success fill:#50FA7B66,stroke:#50FA7B,color:#F8F8F2
-    class Target,Receipt boundary
-    class Rail primary
-    class Source,Stream,Evidence data
-    class Request,Transparent,Spool,Staged external
-    class Atomic success
 ```
 
 ## [06]-[RESEARCH]

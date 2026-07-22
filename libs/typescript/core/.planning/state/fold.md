@@ -4,14 +4,14 @@ The one keyed-fold and time-coordinate owner of the branch. `Fold.Plan<Op, K, S>
 
 ## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                  | [PUBLIC]                                   |
-| :-----: | :---------------- | :---------------------------------------------------------------------- | :----------------------------------------- |
-|  [01]   | `PLAN_CONTRACT`   | the plan shape, delta currency, change row, and the pure/stream folds   | `Fold`                                     |
-|  [02]   | `TIME_COORDINATE` | the one three-coordinate read time and its engine projection            | `AsOf`                                     |
-|  [03]   | `MEMORY_LANE`     | the in-memory and ordered handles plus the lens reads over every handle | `Replay.memory/.ordered/.view/.feed`       |
-|  [04]   | `DATAFLOW_VERBS`  | joins, semijoins, rollups, bounded boards, and fixpoints                 | `Replay`                                    |
-|  [05]   | `VERSIONED_LANE`  | the Index-traced versioned handle: seal, AsOf read, diff, compaction    | `Replay.versioned`                         |
-|  [06]   | `WATERMARK_PANES` | event-time completeness, the lateness verdict, and window policy folds  | `Window`                                   |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                                  | [PUBLIC]                             |
+| :-----: | :---------------- | :---------------------------------------------------------------------- | :----------------------------------- |
+|  [01]   | `PLAN_CONTRACT`   | the plan shape, delta currency, change row, and the pure/stream folds   | `Fold`                               |
+|  [02]   | `TIME_COORDINATE` | the one three-coordinate read time and its engine projection            | `AsOf`                               |
+|  [03]   | `MEMORY_LANE`     | the in-memory and ordered handles plus the lens reads over every handle | `Replay.memory/.ordered/.view/.feed` |
+|  [04]   | `DATAFLOW_VERBS`  | joins, semijoins, rollups, bounded boards, and fixpoints                | `Replay`                             |
+|  [05]   | `VERSIONED_LANE`  | the Index-traced versioned handle: seal, AsOf read, diff, compaction    | `Replay.versioned`                   |
+|  [06]   | `WATERMARK_PANES` | event-time completeness, the lateness verdict, and window policy folds  | `Window`                             |
 
 ## [02]-[PLAN_CONTRACT]
 

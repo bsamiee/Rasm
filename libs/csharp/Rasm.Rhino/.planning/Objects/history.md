@@ -832,16 +832,16 @@ public static class Chronicle {
 
 ## [08]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]           | [OWNER]          | [FORM]                                  | [ENTRY]          |
-| :-----: | :------------------ | :--------------- | :-------------------------------------- | :--------------- |
-|  [01]   | slot payloads       | `SlotValue`      | closed union with total native write    | `HistoryScript`  |
-|  [02]   | record authoring    | `HistoryScript`  | leased mint from detached sources       | `Mint`           |
-|  [03]   | slot recovery       | `SlotValue`      | generated write/read correspondence     | `Recover`        |
-|  [04]   | geometry regrowth   | `Regrown`        | admitted generated update dispatch      | `Apply`          |
-|  [05]   | replay body         | `ReplayProgram`  | strict-`bool` telemetry delegate        | `Delegate`       |
-|  [06]   | linkage mutation    | `BondOp`         | shared-spine linkage union              | `Chronicle.Bind` |
-|  [07]   | dependency topology | `HistoryWeb`     | delegate-column web projection          | `Chronicle.Ask`  |
-|  [08]   | process governance  | `HistoryConduct` | scoped settings rows with restoration   | `Under`          |
+| [INDEX] | [CONCERN]           | [OWNER]          | [FORM]                                | [ENTRY]          |
+| :-----: | :------------------ | :--------------- | :------------------------------------ | :--------------- |
+|  [01]   | slot payloads       | `SlotValue`      | closed union with total native write  | `HistoryScript`  |
+|  [02]   | record authoring    | `HistoryScript`  | leased mint from detached sources     | `Mint`           |
+|  [03]   | slot recovery       | `SlotValue`      | generated write/read correspondence   | `Recover`        |
+|  [04]   | geometry regrowth   | `Regrown`        | admitted generated update dispatch    | `Apply`          |
+|  [05]   | replay body         | `ReplayProgram`  | strict-`bool` telemetry delegate      | `Delegate`       |
+|  [06]   | linkage mutation    | `BondOp`         | shared-spine linkage union            | `Chronicle.Bind` |
+|  [07]   | dependency topology | `HistoryWeb`     | delegate-column web projection        | `Chronicle.Ask`  |
+|  [08]   | process governance  | `HistoryConduct` | scoped settings rows with restoration | `Under`          |
 
 ## [09]-[RESEARCH]
 

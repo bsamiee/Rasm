@@ -34,22 +34,22 @@
 [PUBLIC_TYPE_SCOPE]: metadata and tensor contracts
 - rail: model
 
-| [INDEX] | [SYMBOL]                    | [PACKAGE_ROLE]  | [MEMBERS] |
-| :-----: | :-------------------------- | :-------------- | :-------- |
-|  [01]   | `ModelMetadata`             | model metadata  | `[01]`    |
-|  [02]   | `NodeMetadata`              | node metadata   | `[02]`    |
-|  [03]   | `OrtTensorTypeAndShapeInfo` | tensor metadata | `[03]`    |
-|  [04]   | `DenseTensor<T>`            | tensor value    | `[04]`    |
-|  [05]   | `OrtIoBinding`              | binding root    | `[05]`    |
-|  [06]   | `PrePackedWeightsContainer` | weights cache   | `[06]`    |
-|  [07]   | `FixedBufferOnnxValue`      | buffer value    | `[07]`    |
-|  [08]   | `OrtLoraAdapter`            | adapter handle  | `[08]`    |
-|  [09]   | `OrtMemoryAllocation`       | device buffer   | `[09]`    |
-|  [10]   | `OrtAllocatorType`          | allocator enum  | `[10]`    |
-|  [11]   | `OnnxValueType`             | value-kind enum | `[11]`    |
-|  [12]   | `IReadOnlyOrtValue`         | read view iface | `[12]`    |
-|  [13]   | `OrtTypeInfo`               | type descriptor | `[13]`    |
-|  [14]   | `SessionOptionsContainer`   | config registry | `[14]`    |
+| [INDEX] | [SYMBOL]                    | [PACKAGE_ROLE]   | [MEMBERS] |
+| :-----: | :-------------------------- | :--------------- | :-------- |
+|  [01]   | `ModelMetadata`             | model metadata   | `[01]`    |
+|  [02]   | `NodeMetadata`              | node metadata    | `[02]`    |
+|  [03]   | `OrtTensorTypeAndShapeInfo` | tensor metadata  | `[03]`    |
+|  [04]   | `DenseTensor<T>`            | tensor value     | `[04]`    |
+|  [05]   | `OrtIoBinding`              | binding root     | `[05]`    |
+|  [06]   | `PrePackedWeightsContainer` | weights cache    | `[06]`    |
+|  [07]   | `FixedBufferOnnxValue`      | buffer value     | `[07]`    |
+|  [08]   | `OrtLoraAdapter`            | adapter handle   | `[08]`    |
+|  [09]   | `OrtMemoryAllocation`       | device buffer    | `[09]`    |
+|  [10]   | `OrtAllocatorType`          | allocator enum   | `[10]`    |
+|  [11]   | `OnnxValueType`             | value-kind enum  | `[11]`    |
+|  [12]   | `IReadOnlyOrtValue`         | read view iface  | `[12]`    |
+|  [13]   | `OrtTypeInfo`               | type descriptor  | `[13]`    |
+|  [14]   | `SessionOptionsContainer`   | config registry  | `[14]`    |
 |  [15]   | `SequenceMetadata`          | recursive schema | `[15]`    |
 |  [16]   | `OptionalMetadata`          | recursive schema | `[16]`    |
 |  [17]   | `MapMetadata`               | recursive schema | `[17]`    |

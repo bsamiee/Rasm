@@ -160,7 +160,7 @@ def _seed_solution(assay_root: AssayHarness) -> tuple[str, ...]:
     return tuple(markers)
 
 
-# --- [LAWS_COVERAGE_ARTIFACTS] ------------------------------------------------------------
+# --- [LAWS_COVERAGE_ARTIFACTS] ----------------------------------------------------------
 
 
 def test_coverage_percent_decodes_or_degrades(tmp_path: Path) -> None:
@@ -190,7 +190,7 @@ def test_adopt_coverage_artifact_fields(assay_root: AssayHarness) -> None:
     assert (artifact.id, artifact.kind, artifact.bytes, artifact.lines) == ("coverage.json", ArtifactKind.TEST, 38, 1)
 
 
-# --- [LAWS_PARAMS_AND_POLICY] --------------------------------------------------------------
+# --- [LAWS_PARAMS_AND_POLICY] -----------------------------------------------------------
 
 
 def test_testparams_language_flags_and_help(monkeypatch: pytest.MonkeyPatch, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
@@ -275,7 +275,7 @@ def test_catalog_test_runners_carry_empty_signature() -> None:
     assert {(t.name, t.mode): t.empty_signature for t in TOOLS if (t.name, t.mode) in expected} == expected
 
 
-# --- [LAWS_MUTATION_ARGV] ------------------------------------------------------------------
+# --- [LAWS_MUTATION_ARGV] ---------------------------------------------------------------
 
 
 def _filled_law(args: ToolArgs | None, tool: Tool, expected: tuple[str, ...]) -> None:
@@ -334,7 +334,7 @@ def test_mutation_rows_confine_every_path_to_artifacts() -> None:
     assert literal_paths == []
 
 
-# --- [LAWS_CHECKS] -------------------------------------------------------------------------
+# --- [LAWS_CHECKS] ----------------------------------------------------------------------
 
 
 def test_checks_splice_and_scope_arms(assay_root: AssayHarness) -> None:
@@ -389,7 +389,7 @@ def test_checks_trx_splice_composes_per_project(assay_root: AssayHarness) -> Non
     assert py_check.args.flags == (), "TRX is a dotnet RUN concern; UV rows never receive the splice"
 
 
-# --- [LAWS_SELECT_AND_LANES] ---------------------------------------------------------------
+# --- [LAWS_SELECT_AND_LANES] ------------------------------------------------------------
 
 
 def test_unsupported_scope_arms(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
@@ -494,7 +494,7 @@ def test_project_lane_marker_matrix(assay_root: AssayHarness) -> None:
         assert _project_lane(rel, assay_root.settings) is expected, label
 
 
-# --- [LAWS_DISPATCH_AND_ROSTER] --------------------------------------------------------------
+# --- [LAWS_DISPATCH_AND_ROSTER] ---------------------------------------------------------
 
 
 def test_dispatch_routes_checks_to_fan_and_appends_unsupported(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -542,7 +542,7 @@ def test_detail_mutation_and_coverage_arms(tmp_path: Path) -> None:
                 assert result.coverage == pytest.approx(expected), label
 
 
-# --- [LAWS_VERBS] ----------------------------------------------------------------------------
+# --- [LAWS_VERBS] -----------------------------------------------------------------------
 
 
 def test_verbs_route_claim_verb_and_forced_params(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -623,7 +623,7 @@ def test_run_gap_note_and_coverage_detail(assay_root: AssayHarness, monkeypatch:
     assert report.detail.coverage == pytest.approx(82.5)
 
 
-# --- [LAWS_THIN_RAIL] --------------------------------------------------------------------------
+# --- [LAWS_THIN_RAIL] -------------------------------------------------------------------
 
 
 def test_dispatch_all_mode_arms(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -700,7 +700,7 @@ def test_thin_rail_no_mutation_skips_leasing(assay_root: AssayHarness, monkeypat
     assert report.status in {RailStatus.OK, RailStatus.EMPTY}
 
 
-# --- [LAWS_MUTATION_GATE] ----------------------------------------------------------------------
+# --- [LAWS_MUTATION_GATE] ---------------------------------------------------------------
 
 
 # Synthesize mutmut's persisted result surface: cwd pyproject + source tree + mutants/ meta cache.

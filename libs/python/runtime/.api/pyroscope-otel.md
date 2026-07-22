@@ -19,10 +19,10 @@
 - rail: observability
 - SDK-coupled by construction — the processor subclasses `opentelemetry.sdk.trace.SpanProcessor` — so it composes only at the composition root, attached to the registered SDK `TracerProvider`.
 
-| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]  | [RAIL]                                                       |
-| :-----: | :------------------------------- | :------------- | :------------------------------------------------------------ |
-|  [01]   | `PyroscopeSpanProcessor`         | span processor | `on_start` stamps + tags root spans, `on_end` untags them      |
-|  [02]   | `PROFILE_ID_SPAN_ATTRIBUTE_KEY`  | constant       | `pyroscope.profile.id` — the span-side link key                |
+| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]  | [RAIL]                                                    |
+| :-----: | :------------------------------ | :------------- | :-------------------------------------------------------- |
+|  [01]   | `PyroscopeSpanProcessor`        | span processor | `on_start` stamps + tags root spans, `on_end` untags them |
+|  [02]   | `PROFILE_ID_SPAN_ATTRIBUTE_KEY` | constant       | `pyroscope.profile.id` — the span-side link key           |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -30,13 +30,13 @@
 - rail: observability
 - `configure` keywords the runtime drives: `application_name`, `server_address`, `sample_rate`, `oncpu`, `gil_only`, `tags`, `tenant_id`, `basic_auth_username`/`basic_auth_password`, `http_headers`, `report_pid`/`report_thread_id`/`report_thread_name`, `line_no`.
 
-| [INDEX] | [SURFACE]                                   | [ENTRY_FAMILY] | [RAIL]                                        |
-| :-----: | :-------------------------------------------- | :------------- | :---------------------------------------------- |
-|  [01]   | `pyroscope.configure(...)`                     | enable         | start the push agent toward the profile store    |
-|  [02]   | `pyroscope.shutdown()` / `pyroscope.stop()`    | disable        | stop the push agent                              |
-|  [03]   | `pyroscope.tag_wrapper(tags)`                  | scope          | context-managed sample tags around a block       |
-|  [04]   | `add_thread_tag(key, value)` / `remove_thread_tag(key, value)` | tag | per-thread sample tagging |
-|  [05]   | `TracerProvider.add_span_processor(PyroscopeSpanProcessor())` | attach | the one processor attach at the composition root |
+| [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY] | [RAIL]                                           |
+| :-----: | :------------------------------------------------------------- | :------------- | :----------------------------------------------- |
+|  [01]   | `pyroscope.configure(...)`                                     | enable         | start the push agent toward the profile store    |
+|  [02]   | `pyroscope.shutdown()` / `pyroscope.stop()`                    | disable        | stop the push agent                              |
+|  [03]   | `pyroscope.tag_wrapper(tags)`                                  | scope          | context-managed sample tags around a block       |
+|  [04]   | `add_thread_tag(key, value)` / `remove_thread_tag(key, value)` | tag            | per-thread sample tagging                        |
+|  [05]   | `TracerProvider.add_span_processor(PyroscopeSpanProcessor())`  | attach         | the one processor attach at the composition root |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

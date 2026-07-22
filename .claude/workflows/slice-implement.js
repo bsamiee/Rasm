@@ -31,7 +31,7 @@ export const meta = {
     ],
 };
 
-// --- [CONSTANTS] ---------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const REPO = '/Users/bardiasamiee/Documents/99.Github/Rasm';
 const CAP = 14; // true in-flight agent ceiling — wrappers, writers, and reviewers all take one slot
@@ -64,7 +64,7 @@ const AXES = {
         'deterministic doubles; in-memory capture rails and fakes for the realized seams; deterministic TestClock rails; transport/harness ' +
         'rails for those seams; vitest bench readiness',
 };
-// --- [INPUTS] ------------------------------------------------------------------------
+// --- [INPUTS] --------------------------------------------------------------------------
 
 // Tool-boundary normalization: the Workflow tool's untyped args input can deliver a JSON-encoded string.
 const ARGS = (() => {
@@ -102,7 +102,7 @@ const THEME = (() => {
 const TESTS_ON = ARGS.tests === true || (!SCOPE.length && (THEME ? THEME.tests === true : false)); // theme-gated: the tests estate rides the themes that claim it
 const OUT = CAMP + '/implement/' + slugOf((THEME && THEME.title) || 'slice'); // per-theme product directory — successive slices never mix receipts
 
-// --- [MODELS] ------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 const DISCOVERY = {
     type: 'object',
@@ -314,7 +314,7 @@ const AUDITR = {
     },
 };
 
-// --- [DOCTRINE] ----------------------------------------------------------------------
+// --- [DOCTRINE] ------------------------------------------------------------------------
 
 const PATH_LAW =
     'Every path you write, cite, or pass is ABSOLUTE from ' +
@@ -730,7 +730,7 @@ const TMAP_LAW =
     'unverified|absent | source: <absolute path and anchor when present> | reason: <observable evidence or failed probe>.\n\n' +
     'Use "- none" when a section has no qualifying rows.\nKeep every row factual and anchored.\nDo not prescribe changes.\n</output_contract>';
 
-// --- [OPERATIONS] --------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const makeSlots = (cap) => {
@@ -1644,7 +1644,7 @@ const auditWrapPrompt = (roots, selected, residuals, receipts) => {
     });
 };
 
-// --- [COMPOSITION] -------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 if (!THEME) return { skipped: true, reason: 'args.theme {title, charter, include, tests} is required — no privileged default theme' };
 if (!CAMP) return { skipped: true, reason: 'args.camp (absolute campaign home) is required' };

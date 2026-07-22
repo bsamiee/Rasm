@@ -3,7 +3,7 @@ import { NodeContext } from '@effect/platform-node';
 import { describe, expect, it, layer } from '@effect/vitest';
 import { Array, Effect, Option, Order, Record, Schema } from 'effect';
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _HOME = new URL('../..', import.meta.url).pathname;
 const _ROOT = new URL('../../../..', import.meta.url).pathname;
@@ -79,7 +79,7 @@ const _ARMED = [
 // in isolation — a multi-arm rule proves every arm; CLEAN lines join into one silent file.
 const _SPANS = { clean: /^\/\/ CLEAN: (.+)$/gm, fires: /^\/\/ FIRES: (.+)$/gm } as const;
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 const _Pins = Schema.optionalWith(Schema.Record({ key: Schema.String, value: Schema.String }), { default: () => ({}) });
 const _Manifest = Schema.Struct({
@@ -122,7 +122,7 @@ const _Biome = Schema.Struct({
     ),
 });
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const _decode = Schema.decodeUnknown(Schema.parseJson(_Manifest));
 
@@ -209,7 +209,7 @@ const _tiers = Effect.gen(function* () {
     );
 });
 
-// --- [SPECS] -----------------------------------------------------------------------------
+// --- [SPECS] ---------------------------------------------------------------------------
 
 layer(NodeContext.layer)('workspace admission', (it) => {
     it.effect('every spec-estate pin across every dependency block resolves through catalog: or workspace: only', () =>

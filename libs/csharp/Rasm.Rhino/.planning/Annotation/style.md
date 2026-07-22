@@ -950,19 +950,19 @@ internal static class DraftSpine {
 
 ## [07]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]          | [OWNER]            | [FORM]                                                | [ENTRY]                               |
-| :-----: | :----------------- | :----------------- | :---------------------------------------------------- | :------------------------------------ |
-|  [01]   | table revision     | `TableGrip<T>`     | Document-owned lens + index/duplicate/modify rows     | `Revised(target, ...)`                |
-|  [02]   | color boundary     | `ColorBoundary`    | `PerceptualColor`/`System.Drawing.Color` round trip   | `Admitted` / `Sys`                    |
-|  [03]   | user-string bag    | `TagBag`           | compensated whole-bag replacement                     | `Apply` / `Read`                      |
-|  [04]   | object singleton   | `TargetResolution` | exactly-one id + typed cast probe on `TableTarget`    | `Only<TNative>`                       |
-|  [05]   | unit vocabulary    | `LengthDisplayRow` | rows keyed on explicit host values, metric column     | `Host` projection                     |
-|  [06]   | config schema      | `StyleField`       | one row per catalog-proven property/`Field` pairing   | `Read` / `Write`                      |
-|  [07]   | edit currency      | `StylePatch`       | exact-family edit run with table and override folds   | `Apply` / `Overlay`                   |
-|  [08]   | style mutations    | `StyleOp`          | one flat `[Union]`, duplicate-then-`Modify` law       | `Styles.Commit`                       |
-|  [09]   | style reads        | `StyleAsk`         | closed request/answer family                           | `Styles.Ask`                          |
-|  [10]   | commit entry       | `DraftSpine`       | `Sealed` composition over the `DraftReceipt` fold     | `Commit`                              |
-|  [11]   | receipts           | `DraftReceipt`     | `DraftFact` stream + slot projections                 | `Components` / `Ids` / `Tallies`      |
+| [INDEX] | [CONCERN]        | [OWNER]            | [FORM]                                              | [ENTRY]                          |
+| :-----: | :--------------- | :----------------- | :-------------------------------------------------- | :------------------------------- |
+|  [01]   | table revision   | `TableGrip<T>`     | Document-owned lens + index/duplicate/modify rows   | `Revised(target, ...)`           |
+|  [02]   | color boundary   | `ColorBoundary`    | `PerceptualColor`/`System.Drawing.Color` round trip | `Admitted` / `Sys`               |
+|  [03]   | user-string bag  | `TagBag`           | compensated whole-bag replacement                   | `Apply` / `Read`                 |
+|  [04]   | object singleton | `TargetResolution` | exactly-one id + typed cast probe on `TableTarget`  | `Only<TNative>`                  |
+|  [05]   | unit vocabulary  | `LengthDisplayRow` | rows keyed on explicit host values, metric column   | `Host` projection                |
+|  [06]   | config schema    | `StyleField`       | one row per catalog-proven property/`Field` pairing | `Read` / `Write`                 |
+|  [07]   | edit currency    | `StylePatch`       | exact-family edit run with table and override folds | `Apply` / `Overlay`              |
+|  [08]   | style mutations  | `StyleOp`          | one flat `[Union]`, duplicate-then-`Modify` law     | `Styles.Commit`                  |
+|  [09]   | style reads      | `StyleAsk`         | closed request/answer family                        | `Styles.Ask`                     |
+|  [10]   | commit entry     | `DraftSpine`       | `Sealed` composition over the `DraftReceipt` fold   | `Commit`                         |
+|  [11]   | receipts         | `DraftReceipt`     | `DraftFact` stream + slot projections               | `Components` / `Ids` / `Tallies` |
 
 ## [08]-[RESEARCH]
 

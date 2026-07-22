@@ -37,7 +37,7 @@
 | [INDEX] | [SURFACE]       | [CALL_SHAPE]                                          | [CAPABILITY]                     |
 | :-----: | :-------------- | :---------------------------------------------------- | :------------------------------- |
 |  [01]   | `connect`       | `connect(uri=None) -> AdbcDatabase`                   | low-level SQLite database handle |
-|  [02]   | `dbapi.connect` | `connect(uri=None, **kwargs) -> AdbcSqliteConnection` | DBAPI connection over SQLite |
+|  [02]   | `dbapi.connect` | `connect(uri=None, **kwargs) -> AdbcSqliteConnection` | DBAPI connection over SQLite     |
 
 [ENTRYPOINT_SCOPE]: `ConnectionOptions` keys
 - rail: partition

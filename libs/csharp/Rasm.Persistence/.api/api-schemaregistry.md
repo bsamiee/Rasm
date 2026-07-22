@@ -30,31 +30,31 @@
 [PUBLIC_TYPE_SCOPE]: schema model family
 - rail: schema-registry control-plane
 
-| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]   | [RAIL]                                                                                  |
-| :-----: | :----------------- | :-------------- | :-------------------------------------------------------------------------------------- |
-|  [01]   | `Schema`           | unregistered    | `SchemaString`/`SchemaType`/`References`/`Metadata`/`RuleSet`                           |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]   | [RAIL]                                                                                   |
+| :-----: | :----------------- | :-------------- | :--------------------------------------------------------------------------------------- |
+|  [01]   | `Schema`           | unregistered    | `SchemaString`/`SchemaType`/`References`/`Metadata`/`RuleSet`                            |
 |  [02]   | `RegisteredSchema` | registered      | `: Schema`; carries `Id`/`Subject`/`Version`/`Guid` as its own registered-identity props |
-|  [03]   | `SchemaReference`  | reference       | named cross-schema dependency (`Name`/`Subject`/`Version`)                              |
-|  [04]   | `Metadata`         | schema metadata | `Tags`/`Properties`/`Sensitive` (the sensitive-field set the CSFLE rule reads)          |
-|  [05]   | `SchemaType`       | type enum       | `Avro` / `Protobuf` / `Json`                                                            |
-|  [06]   | `Compatibility`    | evolution enum  | `None`/`Forward`/`Backward`/`Full` (+`*Transitive`)                                     |
-|  [07]   | `ServerConfig`     | subject config  | server-side compatibility/rule defaults                                                 |
+|  [03]   | `SchemaReference`  | reference       | named cross-schema dependency (`Name`/`Subject`/`Version`)                               |
+|  [04]   | `Metadata`         | schema metadata | `Tags`/`Properties`/`Sensitive` (the sensitive-field set the CSFLE rule reads)           |
+|  [05]   | `SchemaType`       | type enum       | `Avro` / `Protobuf` / `Json`                                                             |
+|  [06]   | `Compatibility`    | evolution enum  | `None`/`Forward`/`Backward`/`Full` (+`*Transitive`)                                      |
+|  [07]   | `ServerConfig`     | subject config  | server-side compatibility/rule defaults                                                  |
 
 `SchemaString` is the public `string` property on `Schema` (the server schema-string), not a public type — the `SchemaString` type itself is `internal`; `CompatibilityCheck` is likewise `internal`, never a consumer-facing result, so `IsCompatibleAsync` returns a plain `bool`.
 
 [PUBLIC_TYPE_SCOPE]: wire-id framing family
 - rail: schema-registry control-plane
 
-`SchemaId` also exposes the `VALUE_SCHEMA_ID_HEADER`/`KEY_SCHEMA_ID_HEADER` header names and `MAGIC_BYTE_V0`/`MAGIC_BYTE_V1` magic bytes as framing consts; every `ISchemaIdEncoder`/`ISchemaIdDecoder` method takes a trailing `ref SchemaId`.
+`SchemaId` also exposes the `VALUE_SCHEMA_ID_HEADER`/`KEY_SCHEMA_ID_HEADER` header names and `MAGIC_BYTE_V0`/`MAGIC_BYTE_V1` magic bytes as framing consts; every `ISchemaIdEncoder`/`ISchemaIdDecoder` method takes a trailing `ref SchemaId`. `ISchemaIdEncoder` sizes via `CalculateSize(ref SchemaId)`; `SchemaIdStrategyExtensions.ToEncoder(SchemaIdSerializerStrategy)`/`ToDeserializer(SchemaIdDeserializerStrategy)` fold a strategy enum to its codec.
 
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]   | [RAIL]                                                                    |
-| :-----: | :----------------------------- | :-------------- | :------------------------------------------------------------------------ |
-|  [01]   | `SchemaId`                     | wire id struct  | `SchemaType`/`Id`/`Guid`/`MessageIndexes`                                |
-|  [02]   | `ISchemaIdEncoder`             | encode contract | `Encode(Span<byte>, ref SerializationContext, ref SchemaId)` + `CalculateSize(ref SchemaId)` |
-|  [03]   | `ISchemaIdDecoder`             | decode contract | `Decode(ReadOnlyMemory<byte>, SerializationContext, ref SchemaId)`       |
-|  [04]   | `SchemaIdSerializerStrategy`   | encode enum     | `Header` / `Prefix` — the PUBLIC encoder selector                        |
-|  [05]   | `SchemaIdDeserializerStrategy` | decode enum     | `Dual` / `Prefix` — the PUBLIC decoder selector                          |
-|  [06]   | `SchemaIdStrategyExtensions`   | strategy folder | `ToEncoder(SchemaIdSerializerStrategy)`/`ToDeserializer(SchemaIdDeserializerStrategy)` |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]   | [RAIL]                                                             |
+| :-----: | :----------------------------- | :-------------- | :----------------------------------------------------------------- |
+|  [01]   | `SchemaId`                     | wire id struct  | `SchemaType`/`Id`/`Guid`/`MessageIndexes`                          |
+|  [02]   | `ISchemaIdEncoder`             | encode contract | `Encode(Span<byte>, ref SerializationContext, ref SchemaId)`       |
+|  [03]   | `ISchemaIdDecoder`             | decode contract | `Decode(ReadOnlyMemory<byte>, SerializationContext, ref SchemaId)` |
+|  [04]   | `SchemaIdSerializerStrategy`   | encode enum     | `Header` / `Prefix` — the PUBLIC encoder selector                  |
+|  [05]   | `SchemaIdDeserializerStrategy` | decode enum     | `Dual` / `Prefix` — the PUBLIC decoder selector                    |
+|  [06]   | `SchemaIdStrategyExtensions`   | strategy folder | `ToEncoder`/`ToDeserializer` fold a strategy enum to its codec     |
 
 The concrete encoders/decoders are `internal`, never `new`-able by a consumer: `PrefixSchemaIdEncoder` (the magic-byte `[0x00][int32 id]` prefix, the serde default) and `HeaderSchemaIdEncoder` (writes the id GUID into the `__value_schema_id`/`__key_schema_id` Kafka header) are selected by `SchemaIdSerializerStrategy`; `PrefixSchemaIdDecoder` and `DualSchemaIdDecoder` (header-or-prefix, the deserializer default) are selected by `SchemaIdDeserializerStrategy`. A serde sets the strategy on its config; it never references the encoder/decoder class. `ISchemaIdEncoder`/`ISchemaIdDecoder` are the public extension contracts for a bespoke framing.
 
@@ -63,44 +63,44 @@ The concrete encoders/decoders are `internal`, never `new`-able by a consumer: `
 
 `SubjectNameStrategyExtensions.ToAsyncDelegate` folds the strategy enum into an `AsyncSubjectNameStrategyDelegate` (async, so `SubjectNameStrategy.Associated` resolves through the registry); `ReferenceSubjectNameStrategyExtensions.ToDelegate` folds the reference strategy into a `ReferenceSubjectNameStrategyDelegate`. The `*Delegate` types are the resolved `(context, recordType) -> subject` forms.
 
-| [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]   | [RAIL]                                                        |
-| :-----: | :--------------------------------------- | :-------------- | :------------------------------------------------------------ |
-|  [01]   | `SubjectNameStrategy`                    | naming enum     | `Topic`/`Record`/`TopicRecord`/`Associated`/`None`           |
-|  [02]   | `ReferenceSubjectNameStrategy`           | ref-naming enum | `ReferenceName`/`Qualified`/`Custom`                         |
-|  [03]   | `SubjectNameStrategyExtensions`          | resolver        | `ToAsyncDelegate(strategy, client?, config?)` -> `AsyncSubjectNameStrategyDelegate` |
+| [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]   | [RAIL]                                                                |
+| :-----: | :--------------------------------------- | :-------------- | :-------------------------------------------------------------------- |
+|  [01]   | `SubjectNameStrategy`                    | naming enum     | `Topic`/`Record`/`TopicRecord`/`Associated`/`None`                    |
+|  [02]   | `ReferenceSubjectNameStrategy`           | ref-naming enum | `ReferenceName`/`Qualified`/`Custom`                                  |
+|  [03]   | `SubjectNameStrategyExtensions`          | resolver        | `ToAsyncDelegate(strategy, client?, config?)`                         |
 |  [04]   | `ReferenceSubjectNameStrategyExtensions` | ref resolver    | `ToDelegate`, `GetQualifiedSubjectName`/`GetReferenceNameSubjectName` |
-|  [05]   | `ICustomReferenceSubjectNameStrategy`    | ref hook        | custom reference-subject resolver (`Custom` mode)         |
-|  [06]   | `SubjectNameStrategyDelegate`            | delegate        | `(context, recordType) -> subject`                        |
-|  [07]   | `AsyncSubjectNameStrategyDelegate`       | async delegate  | async form `AsyncSerde.subjectNameStrategy` holds         |
-|  [08]   | `ReferenceSubjectNameStrategyDelegate`   | delegate        | reference-subject resolution                              |
-|  [09]   | `AssociatedNameStrategy`                 | strategy impl   | registry-resolved subject (`Associated` mode, async-only) |
+|  [05]   | `ICustomReferenceSubjectNameStrategy`    | ref hook        | custom reference-subject resolver (`Custom` mode)                     |
+|  [06]   | `SubjectNameStrategyDelegate`            | delegate        | `(context, recordType) -> subject`                                    |
+|  [07]   | `AsyncSubjectNameStrategyDelegate`       | async delegate  | async form `AsyncSerde.subjectNameStrategy` holds                     |
+|  [08]   | `ReferenceSubjectNameStrategyDelegate`   | delegate        | reference-subject resolution                                          |
+|  [09]   | `AssociatedNameStrategy`                 | strategy impl   | registry-resolved subject (`Associated` mode, async-only)             |
 
 [PUBLIC_TYPE_SCOPE]: data-contract rule family
 - rail: schema-registry control-plane
 
-`RuleSet` bundles the three rule phases and exposes `GetRules(phase)`/`HasRules(phase, mode)` plus the `EnableAt` gate; each executor reads a `RuleContext` whose `CurrentField()`/`EnterField(...)`/`GetParameter(key)`/`GetTags(fullName)` walk the nested `RuleContext.FieldContext` (`FullName`/`Name`/`Type`/`Tags` + `IsPrimitive()`, `Type` ∈ the `RuleContext.Type` scalar enum). `RuleRegistry` also carries static `RegisterRule*` plus instance `Register*`/`TryGet*`/`Get*` lookups over executors, actions, and overrides. `IRuleAction` ships two built-ins: `ErrorAction` (`Type() == "ERROR"`, the fail-loud action) and `NoneAction` (`"NONE"`, the no-op).
+`RuleSet` bundles the three rule phases and exposes `GetRules(phase)`/`HasRules(phase, mode)` plus the `EnableAt` gate; each executor reads a `RuleContext` whose `CurrentField()`/`EnterField(...)`/`GetParameter(key)`/`GetTags(fullName)` walk the nested `RuleContext.FieldContext` (`FullName`/`Name`/`Type`/`Tags` + `IsPrimitive()`, `Type` ∈ the `RuleContext.Type` scalar enum). `RuleRegistry` carries static `RegisterRuleExecutor`/`RegisterRuleAction`/`RegisterRuleOverride` and instance `RegisterExecutor`/`RegisterAction`/`RegisterOverride`, `Get*`/`TryGet*`, and the `GlobalInstance` singleton over executors, actions, and overrides. `IRuleAction` ships two built-ins: `ErrorAction` (`Type() == "ERROR"`, the fail-loud action) and `NoneAction` (`"NONE"`, the no-op). `Rule` carries `Name`/`Doc`/`Kind`/`Mode`/`Type`/`Expr`/`Tags`/`Params`/`OnSuccess`/`OnFailure`/`Disabled`; `RuleContext` exposes `Source`/`Target`/`Subject`/`Topic`/`Headers`/`IsKey`/`RuleMode`/`Rule`/`Rules`/`Index`/`FieldTransformer`/`CustomData`.
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]      | [RAIL]                                                                            |
-| :-----: | :----------------------- | :----------------- | :-------------------------------------------------------------------------------- |
-|  [01]   | `RuleSet`                | rule bundle        | `MigrationRules`/`DomainRules`/`EncodingRules`/`EnableAt`; `GetRules`/`HasRules`  |
-|  [02]   | `Rule`                   | one rule           | `Name`/`Doc`/`Kind`/`Mode`/`Type`/`Expr`/`Tags`/`Params`/`OnSuccess`/`OnFailure`/`Disabled` |
-|  [03]   | `Migration`              | migration descr    | `RuleMode`/`Source`/`Target` — one upgrade/downgrade hop between two schemas      |
-|  [04]   | `RuleKind`               | rule-kind enum     | `Transform` / `Condition`                                                         |
-|  [05]   | `RuleMode`               | rule-mode enum     | `Upgrade`/`Downgrade`/`UpDown`/`Read`/`Write`/`WriteRead`                         |
-|  [06]   | `RulePhase`              | phase enum         | `Migration` / `Domain` / `Encoding`                                              |
-|  [07]   | `IRuleExecutor`          | executor contract  | `: IRuleBase`; `Transform(ctx, message)` applies a transform/condition rule       |
-|  [08]   | `IRuleAction`            | action contract    | `: IRuleBase`; `Run(ctx, message, exception?)` on-success / on-failure action     |
-|  [09]   | `ErrorAction`            | fail action        | shipped `IRuleAction`, `Type() == "ERROR"`                                        |
-|  [10]   | `NoneAction`             | no-op action       | shipped `IRuleAction`, `Type() == "NONE"`                                         |
-|  [11]   | `FieldRuleExecutor`      | field executor     | `abstract : IRuleExecutor`; `NewTransform(ctx)`/`Type()` CSFLE base               |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]      | [RAIL]                                                                             |
+| :-----: | :----------------------- | :----------------- | :--------------------------------------------------------------------------------- |
+|  [01]   | `RuleSet`                | rule bundle        | `MigrationRules`/`DomainRules`/`EncodingRules`/`EnableAt`; `GetRules`/`HasRules`   |
+|  [02]   | `Rule`                   | one rule           | one evolution rule record; fields in lead                                          |
+|  [03]   | `Migration`              | migration descr    | `RuleMode`/`Source`/`Target` — one upgrade/downgrade hop between two schemas       |
+|  [04]   | `RuleKind`               | rule-kind enum     | `Transform` / `Condition`                                                          |
+|  [05]   | `RuleMode`               | rule-mode enum     | `Upgrade`/`Downgrade`/`UpDown`/`Read`/`Write`/`WriteRead`                          |
+|  [06]   | `RulePhase`              | phase enum         | `Migration` / `Domain` / `Encoding`                                                |
+|  [07]   | `IRuleExecutor`          | executor contract  | `: IRuleBase`; `Transform(ctx, message)` applies a transform/condition rule        |
+|  [08]   | `IRuleAction`            | action contract    | `: IRuleBase`; `Run(ctx, message, exception?)` on-success / on-failure action      |
+|  [09]   | `ErrorAction`            | fail action        | shipped `IRuleAction`, `Type() == "ERROR"`                                         |
+|  [10]   | `NoneAction`             | no-op action       | shipped `IRuleAction`, `Type() == "NONE"`                                          |
+|  [11]   | `FieldRuleExecutor`      | field executor     | `abstract : IRuleExecutor`; `NewTransform(ctx)`/`Type()` CSFLE base                |
 |  [12]   | `IFieldTransform`        | field transform    | `: IDisposable`; `Init(ctx)`/`Transform(ctx, fieldCtx, fieldValue)` per-field hook |
-|  [13]   | `FieldTransformer`       | transform delegate | `RuleContext.FieldTransformer` delegate walking fields                            |
-|  [14]   | `RuleContext`            | rule context       | `Source`/`Target`/`Subject`/`Topic`/`Headers`/`IsKey`/`RuleMode`/`Rule`/`Rules`/`Index`/`FieldTransformer`/`CustomData` |
-|  [15]   | `IRuleBase`              | rule base contract | `: IDisposable`; `Configure(config, client?)`/`Type()`                            |
-|  [16]   | `RuleOverride`           | rule override      | per-rule type/action override via `RuleRegistry.RegisterOverride`                 |
-|  [17]   | `RuleRegistry`           | rule registry      | `RegisterExecutor`/`RegisterAction`/`RegisterOverride`, `Get*`/`TryGet*`, `GlobalInstance` |
-|  [18]   | `RuleException`          | rule fault         | `: Exception`; a rule failed                                                      |
-|  [19]   | `RuleConditionException` | condition fault    | `: RuleException`; a condition rule was violated                                 |
+|  [13]   | `FieldTransformer`       | transform delegate | `RuleContext.FieldTransformer` delegate walking fields                             |
+|  [14]   | `RuleContext`            | rule context       | per-rule evaluation context; properties in lead                                    |
+|  [15]   | `IRuleBase`              | rule base contract | `: IDisposable`; `Configure(config, client?)`/`Type()`                             |
+|  [16]   | `RuleOverride`           | rule override      | per-rule type/action override via `RuleRegistry.RegisterOverride`                  |
+|  [17]   | `RuleRegistry`           | rule registry      | executor/action/override registry; members in lead                                 |
+|  [18]   | `RuleException`          | rule fault         | `: Exception`; a rule failed                                                       |
+|  [19]   | `RuleConditionException` | condition fault    | `: RuleException`; a condition rule was violated                                   |
 
 [PUBLIC_TYPE_SCOPE]: authentication and error family
 - rail: schema-registry control-plane
@@ -165,19 +165,19 @@ The `*AssociationAsync` surface is the data-governance lineage rail, distinct fr
 [ENTRYPOINT_SCOPE]: schema, id, and rule construction
 - rail: schema-registry control-plane
 
-| [INDEX] | [SURFACE]                                                             | [ENTRY_FAMILY] | [RAIL]                                          |
-| :-----: | :-------------------------------------------------------------------- | :------------- | :---------------------------------------------- |
-|  [01]   | `new Schema(schemaString, schemaType)`                                | ctor           | unregistered schema, empty references           |
-|  [02]   | `new Schema(schemaString, references, schemaType, metadata, ruleSet)` | ctor           | full schema with references, metadata, rules    |
-|  [03]   | `new SchemaReference(name, subject, version)`                         | ctor           | a cross-schema dependency                       |
-|  [04]   | `new SchemaId(schemaType, id, guid)`                                  | ctor           | wire-id descriptor (int id and/or GUID)         |
-|  [05]   | `schemaId.FromBytes(payload)`                                         | decode         | strips the id framing, returns the value slice  |
-|  [06]   | `new RuleSet(migrationRules, domainRules, encodingRules)`             | ctor           | the three rule phases bundled                   |
-|  [07]   | `ruleSet.GetRules(RulePhase.Domain)`                                  | accessor       | the rules for one phase                         |
-|  [08]   | `RuleRegistry.RegisterRuleExecutor(executor)`                         | static         | registers a global `IRuleExecutor` (e.g. CSFLE) |
-|  [09]   | `RuleRegistry.RegisterRuleAction(action)`                             | static         | registers a global on-failure `IRuleAction`     |
-|  [10]   | `RuleRegistry.RegisterRuleOverride(ruleOverride)`                     | static         | registers a global per-rule type/action override |
-|  [11]   | `ruleRegistry.TryGetExecutor(name, out executor)`                     | instance       | resolves a per-serde executor by name           |
+| [INDEX] | [SURFACE]                                                             | [ENTRY_FAMILY] | [RAIL]                                         |
+| :-----: | :-------------------------------------------------------------------- | :------------- | :--------------------------------------------- |
+|  [01]   | `new Schema(schemaString, schemaType)`                                | ctor           | unregistered schema, empty references          |
+|  [02]   | `new Schema(schemaString, references, schemaType, metadata, ruleSet)` | ctor           | full schema with references, metadata, rules   |
+|  [03]   | `new SchemaReference(name, subject, version)`                         | ctor           | a cross-schema dependency                      |
+|  [04]   | `new SchemaId(schemaType, id, guid)`                                  | ctor           | wire-id descriptor (int id and/or GUID)        |
+|  [05]   | `schemaId.FromBytes(payload)`                                         | decode         | strips the id framing, returns the value slice |
+|  [06]   | `new RuleSet(migrationRules, domainRules, encodingRules)`             | ctor           | the three rule phases bundled                  |
+|  [07]   | `ruleSet.GetRules(RulePhase.Domain)`                                  | accessor       | the rules for one phase                        |
+|  [08]   | `RuleRegistry.RegisterRuleExecutor(executor)`                         | static         | registers a global `IRuleExecutor`             |
+|  [09]   | `RuleRegistry.RegisterRuleAction(action)`                             | static         | registers a global on-failure `IRuleAction`    |
+|  [10]   | `RuleRegistry.RegisterRuleOverride(ruleOverride)`                     | static         | registers a global per-rule override           |
+|  [11]   | `ruleRegistry.TryGetExecutor(name, out executor)`                     | instance       | resolves a per-serde executor by name          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

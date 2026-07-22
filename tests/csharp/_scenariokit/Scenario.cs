@@ -5,7 +5,7 @@ using Rhino.Display;
 
 namespace Rasm.ScenarioKit;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 // Scenario attributes are the in-host manifest: discovery reads theme, requirements, budget,
 // and static Fin<Unit>(ScenarioContext) entrypoints BY FULL NAME over staged assemblies, so the
 // attribute's full name and member signatures are frozen wire law. There is no pre-host registry.
@@ -33,7 +33,7 @@ internal sealed partial class FactKey {
     public partial string Render(string argument);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 // ScenarioContext is the SDK boundary: assert+fact calls write runner-owned facts while the SDK
 // stays wire-blind, and scope registration lets the runner drain leaks before unload.
 public sealed class ScenarioContext {

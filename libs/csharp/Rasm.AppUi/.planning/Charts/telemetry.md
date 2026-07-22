@@ -19,18 +19,18 @@ Rasm.AppUi's telemetry board is the estate observability product surface rendere
 - Growth: a new board track is one tile row plus one placement row; a new alert is one `WatchRule` value through the same arming fold; zero new surface.
 - Boundary: every tile composes a dashboards operator — a chart tile is a `ChartSeriesSpec` row under `ChartPolicy.Dashboard`, a stat or gauge tile a `StatFold` row, the track tile a `CustomVisual` kind — and a board-local chart, aggregate lambda, or alert pipeline is the deleted form; board render, frame-byte, and brush facts fold onto the one meter through `BoardTelemetry.Observe`, so the board observes itself through the same spine it displays; tile keys carry the `telemetry:` prefix so a board snapshot never collides with a sibling dashboard's tile keys in the persisted blob; alert crossings raise `BurnToastIntent` through the CommandIntent table and their durable evidence is the command rail's `CommandReceipt`.
 
-| [INDEX] | [TILE_ROW]                | [TILE_CASE]           | [FEED_ROW]             | [SOURCE]                                   |
-| :-----: | :------------------------ | :-------------------- | :--------------------- | :----------------------------------------- |
-|  [01]   | telemetry:frame-pace      | Chart step-line       | compute-receipt-stream | `RenderGraph.FrameInstrument` distribution |
-|  [02]   | telemetry:frame-heat      | Chart heat            | compute-receipt-stream | `RenderGraph.GpuInstrument` distribution   |
+| [INDEX] | [TILE_ROW]                | [TILE_CASE]            | [FEED_ROW]             | [SOURCE]                                   |
+| :-----: | :------------------------ | :--------------------- | :--------------------- | :----------------------------------------- |
+|  [01]   | telemetry:frame-pace      | Chart step-line        | compute-receipt-stream | `RenderGraph.FrameInstrument` distribution |
+|  [02]   | telemetry:frame-heat      | Chart heat             | compute-receipt-stream | `RenderGraph.GpuInstrument` distribution   |
 |  [03]   | telemetry:burn:*          | Gauge (derived family) | compute-receipt-stream | `SloCoordinate.Viewport` burn folds        |
-|  [04]   | telemetry:overlay-swaps   | Stat sum              | compute-receipt-stream | `BoardTelemetry.OverlaySwapsInstrument`    |
-|  [05]   | telemetry:filter-applies  | Stat sum              | compute-receipt-stream | `BoardTelemetry.FilterAppliesInstrument`   |
-|  [06]   | telemetry:store-latency   | Stat average          | persistence-analytical | store-profile receipt latency column       |
-|  [07]   | telemetry:store-blocked   | Stat maximum          | persistence-analytical | store-profile blocked-thread column        |
-|  [08]   | telemetry:store-operators | Table                 | persistence-analytical | store-profile operator rows                |
-|  [09]   | telemetry:evidence-track  | Custom gantt          | compute-receipt-stream | `EvidenceJoin.Correlate` timeline spans    |
-|  [10]   | telemetry:usage           | Table                 | compute-receipt-stream | `TenantUsageFold.Fold` tenant-window rows  |
+|  [04]   | telemetry:overlay-swaps   | Stat sum               | compute-receipt-stream | `BoardTelemetry.OverlaySwapsInstrument`    |
+|  [05]   | telemetry:filter-applies  | Stat sum               | compute-receipt-stream | `BoardTelemetry.FilterAppliesInstrument`   |
+|  [06]   | telemetry:store-latency   | Stat average           | persistence-analytical | store-profile receipt latency column       |
+|  [07]   | telemetry:store-blocked   | Stat maximum           | persistence-analytical | store-profile blocked-thread column        |
+|  [08]   | telemetry:store-operators | Table                  | persistence-analytical | store-profile operator rows                |
+|  [09]   | telemetry:evidence-track  | Custom gantt           | compute-receipt-stream | `EvidenceJoin.Correlate` timeline spans    |
+|  [10]   | telemetry:usage           | Table                  | compute-receipt-stream | `TenantUsageFold.Fold` tenant-window rows  |
 
 ```csharp signature
 public static class TelemetryBoard {

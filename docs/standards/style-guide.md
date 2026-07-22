@@ -15,19 +15,21 @@ Use the first owner that decides a naming or wording question:
 4. This guide for local prose and notation rules.
 5. Established editorial style for unresolved general mechanics.
 
-When owners conflict, choose the repo-local term only when a current route or contract proves it. Never alternate terms to avoid the conflict.
+When owners conflict, choose the repo-local term only when a current route or contract proves it.
 
 ## [03]-[SENTENCES]
 
-Use a front-and-close paragraph shape: sentence one states the rule, claim, scope, outcome, or transition, and the last closes on the consequence, boundary, confirmation, or route the reader retains.
+Use a front-and-close paragraph shape: sentence one leads with the owning subject and states the rule, claim, scope, outcome, or transition, and the last closes on the consequence, boundary, confirmation, or route the reader retains.
 
 [KEEP_OR_CONVERT]:
 - Keep a standalone sentence when it leads, transitions, captions, closes, states a consequence, names a route boundary, or marks a gap.
 - Convert a sentence to `Label: value` only when the value is scanned, quoted, or updated independently.
 - Convert local detail to a note, alert, or row-owned record only when its scope is local to one row, claim, risk, or artifact.
 - Delete or fold a sentence that only repeats emphasis.
+- State law in the positive form; the fix for a forked or restated line is deletion, never a substitute `never X` whose correct form is left unwritten. A prohibition earns words only where it guards a rule violated under pressure and carries its enforcing mechanism in the same clause.
 
 [MECHANICS]:
+- Build each law sentence on an owning subject in the front slot and an owning verb that exercises ownership, one decision to a sentence; split a clause that fuses a charter statement with separable mechanism so each keeps its own subject.
 - Coordinating conjunctions join equal-rank ideas: `for`, `and`, `nor`, `but`, `or`, `yet`, and `so`.
 - Use a comma before a coordinating conjunction joining two independent clauses.
 - Omit the comma for imperative clauses sharing an implied subject unless contrast, length, or ambiguity requires it.
@@ -39,16 +41,16 @@ Use a front-and-close paragraph shape: sentence one states the rule, claim, scop
 - Use sentence-initial conjunctions, split infinitives, and terminal prepositions when they produce the clearest technical sentence.
 - Construct both arms of a correlative pair in parallel: `both ... and`, `either ... or`, `not only ... but also`.
 - State conditions before the actions they control; keep modifiers next to the terms they govern; keep parallel items parallel in grammar and scope.
+- Write a cross-reference as a clean phrase naming the owner and one concern; a reduced relative clause compressing owner and concern into an ambiguous noun-run — `the managers X names`, `the catalogues X rosters` — is rewritten as a full clause or dropped.
 
 ## [04]-[TERMINOLOGY]
 
-Use one term for one concept inside a bounded context. Names are load-bearing: product names, package names, API members, commands, file paths, UI labels, and config keys match the actual surface.
+Use one term for one concept inside a bounded context. Product names, package names, API members, commands, file paths, UI labels, and config keys are load-bearing and match the verified surface exactly.
 
-- Preserve verified product, package, API, command, file, and UI names exactly.
 - Define a domain term before relying on it unless the target reader already owns that domain; settled vocabulary arrives settled and is never re-taught.
 - Introduce an acronym once per document unless the acronym is more recognizable than its expansion.
 - Use singular `they` when gender is unknown, irrelevant, or intentionally unspecified.
-- Do not invent reader-facing names for internal concepts; do not name stale commands, removed tools, transient task labels, or removed skills.
+- Reader-facing names denote a real current surface; internal concepts stay unnamed to readers.
 
 ## [05]-[PUNCTUATION]
 
@@ -62,20 +64,20 @@ Use one term for one concept inside a bounded context. Names are load-bearing: p
 - Capitalize the first word after a colon only when the following material is a complete sentence.
 - Use parentheses for nonessential clarification; promote required conditions into the main sentence.
 - If a parenthetical is a full sentence, put the period inside the closing parenthesis; otherwise outside.
-- Use spaced em dashes only for prose interruptions, spelled as the character — ASCII `--` or `---` never stands in for it in prose; en dashes carry inclusive ranges and name-based compounds outside copyable text.
+- Use spaced em dashes, spelled as the `—` character, only for prose interruptions.
+- En dashes carry inclusive ranges and name-based compounds outside copyable text.
 - Hyphenate compound modifiers before nouns when needed for clarity; omit hyphens after `-ly` adverbs; use a suspended hyphen for shared compounds such as `short- and long-term`.
 - Prefer sentence splits or vertical lists over semicolon-ended bullets.
 
 [QUOTES_NUMBERS]:
 - Use numerals for versions, measurements, commands, flags, identifiers, dates, editions, counts, thresholds, and compared values.
 - Spell out isolated nontechnical counts from zero through nine only when the value is not a comparison, threshold, field value, or literal.
-- Use backticks for UI labels, commands, code, exact strings, and copied literals.
 - Place commas and periods inside closing quotation marks in ordinary prose quotations; preserve literal punctuation for copied text.
 - Use straight quotes and ASCII-safe punctuation in copyable Markdown.
 
 ## [06]-[CODE_SAFE_MARKDOWN]
 
-- Wrap commands, flags, paths, environment variables, package IDs, symbols, literal values, and placeholders in backticks.
+- Wrap commands, flags, paths, environment variables, package IDs, symbols, UI labels, literal values, exact strings, copied literals, and placeholders in backticks.
 - Name placeholders by route, such as `<scenario-glob>` or `<package-name>`.
 - Use language-valid neutral identifiers in reusable code examples: `Shape`, `RefinedShape`, `Variant`, `PRIMARY`, `Field`, `KEY`, `Row`, `ROW_A`, `TABLE`, `SELECTED`, `"<value-a>"`, `"<result-a>"`.
 - Do not use repository, host, customer, pricing, deployment, or product nouns in reusable examples unless the documented concept is that domain.

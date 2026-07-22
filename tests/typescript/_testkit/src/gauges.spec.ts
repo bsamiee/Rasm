@@ -4,7 +4,7 @@ import { describe, expect, it, layer } from '@effect/vitest';
 import { Array, Effect, Option } from 'effect';
 import { Audit, Imports, Snapshots } from './gauges.ts';
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _RULES = {
     banned: [/^@effect\/sql\/Migrator/, /^@effect\/sql-pg\/PgMigrator/, /^node:/],
@@ -14,7 +14,7 @@ const _RULES = {
     permitted: [['app', 'kernel']] as ReadonlyArray<readonly [string, string]>,
 } as const;
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 describe('import gauge engine', () => {
     it('zero modules is UNSUPPORTED, never a vacuous green', () => {

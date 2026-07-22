@@ -4,12 +4,12 @@ Block operations (`Rasm.Rhino.Blocks`) own one closed mutation family, one close
 
 ## [01]-[INDEX]
 
-| [INDEX] | [OWNER] | [CONTRACT] |
-| :-----: | :------ | :--------- |
-|  [01]   | operation values · `BlockOp` | admitted mutation program |
-|  [02]   | `BlockAsk` · `BlockAnswer` | detached read and projection program |
-|  [03]   | `BlockTransaction` · `Blocks` | transaction admission and execution |
-|  [04]   | `BlockReceipt` | consequence fact stream |
+| [INDEX] | [OWNER]                       | [CONTRACT]                           |
+| :-----: | :---------------------------- | :----------------------------------- |
+|  [01]   | operation values · `BlockOp`  | admitted mutation program            |
+|  [02]   | `BlockAsk` · `BlockAnswer`    | detached read and projection program |
+|  [03]   | `BlockTransaction` · `Blocks` | transaction admission and execution  |
+|  [04]   | `BlockReceipt`                | consequence fact stream              |
 
 ## [02]-[OPERATION_FAMILY]
 
@@ -910,12 +910,12 @@ public sealed class BlockReceipt : IDetachedDocumentResult {
 
 ## [06]-[SURFACE_LEDGER]
 
-| [INDEX] | [OWNER] | [INGRESS] | [RAIL] | [EGRESS] |
-| :-----: | :------ | :-------- | :----- | :------- |
-|  [01]   | `BlockOp` | generated values | `Apply` | receipt fragment |
-|  [02]   | `BlockTransaction` | `Batch` | trait homogeneity | admitted program |
-|  [03]   | `Blocks` | `Commit` · `Ask` | `Fin` · `Validation` · `UndoBracket` | receipt or answer |
-|  [04]   | `BlockReceipt` | closed factories | additive facts | slot projections |
+| [INDEX] | [OWNER]            | [INGRESS]        | [RAIL]                               | [EGRESS]          |
+| :-----: | :----------------- | :--------------- | :----------------------------------- | :---------------- |
+|  [01]   | `BlockOp`          | generated values | `Apply`                              | receipt fragment  |
+|  [02]   | `BlockTransaction` | `Batch`          | trait homogeneity                    | admitted program  |
+|  [03]   | `Blocks`           | `Commit` · `Ask` | `Fin` · `Validation` · `UndoBracket` | receipt or answer |
+|  [04]   | `BlockReceipt`     | closed factories | additive facts                       | slot projections  |
 
 ## [07]-[RESEARCH]
 

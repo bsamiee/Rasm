@@ -181,13 +181,13 @@ This section owns matrix strategy semantics; `advanced-triggers.md` routes here.
 
 This section owns the JavaScript-action runtime status; `supply_chain.md` and `custom-actions.md` route here.
 
-| [INDEX] | [RUNTIME]  | [STATUS]                                                     |
-| :-----: | :--------- | :----------------------------------------------------------- |
-|  [01]   | Node.js 12 | Removed — actions fail at runtime.                           |
-|  [02]   | Node.js 16 | Removed — actions fail at runtime.                           |
-|  [03]   | Node.js 20 | Deprecated — past upstream EOL; opt-out only until removal.  |
-|  [04]   | Node.js 22 | Skipped — GitHub jumped node20 directly to node24.           |
-|  [05]   | Node.js 24 | Required — use `using: 'node24'` for JavaScript actions.     |
+| [INDEX] | [RUNTIME]  | [STATUS]                                                    |
+| :-----: | :--------- | :---------------------------------------------------------- |
+|  [01]   | Node.js 12 | Removed — actions fail at runtime.                          |
+|  [02]   | Node.js 16 | Removed — actions fail at runtime.                          |
+|  [03]   | Node.js 20 | Deprecated — past upstream EOL; opt-out only until removal. |
+|  [04]   | Node.js 22 | Skipped — GitHub jumped node20 directly to node24.          |
+|  [05]   | Node.js 24 | Required — use `using: 'node24'` for JavaScript actions.    |
 
 ### [08.1]-[MIGRATION_TIMELINE]
 

@@ -615,20 +615,20 @@ flowchart LR
 
 One owner per axis; capability is a case, row, or fold arm, never a sibling surface. Growth: a new fact kind is one `SignalFact` case and one `Tap` arm; a new instrument is one row and one write in the owning arm; a new sub-domain is one `KernelDomain` row (span source and point prefix derive); a new speed-gated lane is one `BenchClaim` row on its owning page and one composition-root ledger entry; a new stratum consumer is one composed instance of the capsule, never a re-declared type.
 
-| [INDEX] | [AXIS_CONCERN]      | [OWNER]                                | [RAIL]                              | [CASES] |
-| :-----: | :------------------ | :------------------------------------- | :---------------------------------- | :-----: |
-|  [01]   | Point identity      | `HookId` + `HookModality`              | grammar key + modality rows         |  1 + 3  |
-|  [02]   | Hook capsule        | `HookPoint<TFact>` + `HookRegistry`    | `Fire → Fin` (unary and guarded)    |    —    |
-|  [03]   | Instrument rows     | `InstrumentRow` + `InstrumentSet`      | name-keyed tagged writes            |    —    |
-|  [04]   | Advice + levels     | `Buckets` + `LevelCells`               | named rows + keyed `Reader`         |    —    |
-|  [05]   | Wire projection     | `InstrumentArm` + `ReceiptFan`         | kind-keyed arm fold                 |    —    |
-|  [06]   | Contribution        | `TelemetryContributorPort` + identity  | string scope + `Mint` pair          |    —    |
-|  [07]   | Sub-domain rows     | `KernelDomain`                         | discriminant (`SourceName` derives) |    9    |
-|  [08]   | Fact vocabulary     | `SignalFact`                           | carrier + factories                 |    3    |
-|  [09]   | Kernel rail + sink  | `SignalRail` + `TelemetrySink`         | `Tap → Fin<SignalFact>`             |    —    |
-|  [10]   | Trace band          | `TraceScope` + `SpanBand`              | `Traced → Fin` bracket              |    —    |
-|  [11]   | Op-cost capsule     | `OpCost` + `CostMark`                  | evidence (oracle-registered)        |    —    |
-|  [12]   | Bench claims        | `BenchClaim` + `BenchLedger`           | `Of → Fin<BenchLedger>`             |    —    |
+| [INDEX] | [AXIS_CONCERN]     | [OWNER]                               | [RAIL]                              | [CASES] |
+| :-----: | :----------------- | :------------------------------------ | :---------------------------------- | :-----: |
+|  [01]   | Point identity     | `HookId` + `HookModality`             | grammar key + modality rows         |  1 + 3  |
+|  [02]   | Hook capsule       | `HookPoint<TFact>` + `HookRegistry`   | `Fire → Fin` (unary and guarded)    |    —    |
+|  [03]   | Instrument rows    | `InstrumentRow` + `InstrumentSet`     | name-keyed tagged writes            |    —    |
+|  [04]   | Advice + levels    | `Buckets` + `LevelCells`              | named rows + keyed `Reader`         |    —    |
+|  [05]   | Wire projection    | `InstrumentArm` + `ReceiptFan`        | kind-keyed arm fold                 |    —    |
+|  [06]   | Contribution       | `TelemetryContributorPort` + identity | string scope + `Mint` pair          |    —    |
+|  [07]   | Sub-domain rows    | `KernelDomain`                        | discriminant (`SourceName` derives) |    9    |
+|  [08]   | Fact vocabulary    | `SignalFact`                          | carrier + factories                 |    3    |
+|  [09]   | Kernel rail + sink | `SignalRail` + `TelemetrySink`        | `Tap → Fin<SignalFact>`             |    —    |
+|  [10]   | Trace band         | `TraceScope` + `SpanBand`             | `Traced → Fin` bracket              |    —    |
+|  [11]   | Op-cost capsule    | `OpCost` + `CostMark`                 | evidence (oracle-registered)        |    —    |
+|  [12]   | Bench claims       | `BenchClaim` + `BenchLedger`          | `Of → Fin<BenchLedger>`             |    —    |
 
 ## [08]-[RESEARCH]
 

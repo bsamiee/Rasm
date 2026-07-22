@@ -34,14 +34,14 @@
 [ENTRYPOINT_SCOPE]: admission and lift
 - rail: transport instrumentation
 
-| [INDEX] | [SURFACE]                                      | [KIND]                   | [CAPABILITY]                                                                                |
-| :-----: | :--------------------------------------------- | :----------------------- | :------------------------------------------------------------------------------------------ |
+| [INDEX] | [SURFACE]                                      | [KIND]                   | [CAPABILITY]                                               |
+| :-----: | :--------------------------------------------- | :----------------------- | :--------------------------------------------------------- |
 |  [01]   | `AddKafkaProducerInstrumentation<TKey,TValue>` | trace + metric admission | bare, named, and builder-bound overloads on both providers |
-|  [02]   | `AddKafkaConsumerInstrumentation<TKey,TValue>` | trace + metric admission | same overload family on the consumer side                                                   |
-|  [03]   | `AsInstrumentedProducerBuilder`                | builder lift             | wraps an existing `ProducerBuilder`, optional options                                       |
-|  [04]   | `AsInstrumentedConsumerBuilder`                | builder lift             | wraps an existing `ConsumerBuilder`, optional options                                       |
-|  [05]   | `ConsumeAndProcessMessageAsync`                | consume wrapper          | receive + process spans over one typed handler                                              |
-|  [06]   | `TryExtractPropagationContext`                 | manual join              | W3C context off `ConsumeResult` headers                                                     |
+|  [02]   | `AddKafkaConsumerInstrumentation<TKey,TValue>` | trace + metric admission | same overload family on the consumer side                  |
+|  [03]   | `AsInstrumentedProducerBuilder`                | builder lift             | wraps an existing `ProducerBuilder`, optional options      |
+|  [04]   | `AsInstrumentedConsumerBuilder`                | builder lift             | wraps an existing `ConsumerBuilder`, optional options      |
+|  [05]   | `ConsumeAndProcessMessageAsync`                | consume wrapper          | receive + process spans over one typed handler             |
+|  [06]   | `TryExtractPropagationContext`                 | manual join              | W3C context off `ConsumeResult` headers                    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

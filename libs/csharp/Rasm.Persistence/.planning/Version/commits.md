@@ -613,15 +613,15 @@ public static class ContentParityCorpus {
 }
 ```
 
-| [INDEX] | [POLICY]         | [VALUE]                                | [BINDING]                                            |
-| :-----: | :--------------- | :------------------------------------- | :--------------------------------------------------- |
-|  [01]   | HLC stamp source | Marten event `Timestamp` cell          | one `Hlc` for op-log, CRDT merge, commit cell, wire  |
-|  [02]   | wire schema      | `[Key]` sequence, append-only          | retired key never reassigned; analyzer gate          |
+| [INDEX] | [POLICY]         | [VALUE]                                | [BINDING]                                             |
+| :-----: | :--------------- | :------------------------------------- | :---------------------------------------------------- |
+|  [01]   | HLC stamp source | Marten event `Timestamp` cell          | one `Hlc` for op-log, CRDT merge, commit cell, wire   |
+|  [02]   | wire schema      | `[Key]` sequence, append-only          | retired key never reassigned; analyzer gate           |
 |  [03]   | content key      | `None`-companion canonical bytes       | byte-reproducible across C#/Python/TS; no at-rest LZ4 |
-|  [04]   | restore guard    | `UntrustedData` + depth + size ceiling | decompression bomb stops beyond the depth cap        |
-|  [05]   | parity corpus    | kernel `ContentHash.Of` at every mint  | `VERSION_PARITY`; producer-emits gate                |
-|  [06]   | contribution    | `Contribute` refuses `MintedHere`     | Query supplies `elementset`; no reverse derivation   |
-|  [07]   | fault band      | `CommitFault : Expected` 8260         | closed codes 8261-8264                               |
+|  [04]   | restore guard    | `UntrustedData` + depth + size ceiling | decompression bomb stops beyond the depth cap         |
+|  [05]   | parity corpus    | kernel `ContentHash.Of` at every mint  | `VERSION_PARITY`; producer-emits gate                 |
+|  [06]   | contribution     | `Contribute` refuses `MintedHere`      | Query supplies `elementset`; no reverse derivation    |
+|  [07]   | fault band       | `CommitFault : Expected` 8260          | closed codes 8261-8264                                |
 
 ## [05]-[RESEARCH]
 

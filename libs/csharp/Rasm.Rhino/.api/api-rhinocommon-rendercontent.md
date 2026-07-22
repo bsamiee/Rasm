@@ -45,21 +45,21 @@
 
 `IRenderContentTable<T>` — internal contract all three document tables share: `Add`/`Remove`/`Find(Guid)`/`BeginChange`/`EndChange`, with count and indexer riding the internal `IRhinoTable<T>`. Archive-side render content (`Rhino.FileIO.File3dmRenderContent : ModelComponent`) is the file-IO catalog's projection, never this live-document surface.
 
-| [INDEX] | [SYMBOL]                       | [KIND]             | [CAPABILITY]                                                          |
-| :-----: | :----------------------------- | :----------------- | :-------------------------------------------------------------------- |
-|  [01]   | `RenderContentType`            | factory descriptor | type id, internal name, engine/plug-in id, `NewRenderContent`         |
-|  [02]   | `ContentUuids`                 | static id vocab    | well-known material/environment/texture factory type ids              |
-|  [03]   | `RenderContentSerializer`      | abstract IO        | custom file-format read/write registered by id                        |
-|  [04]   | `CustomRenderContentAttribute` | registration attr  | flags a plug-in content class for `RegisterContent`                   |
-|  [05]   | `RenderContentCollection`      | mutable set        | usage-filtered content set with iterator and tag cursor               |
-|  [06]   | `RenderContentKindList`        | kind set           | additive `RenderContentKind` set with single-kind collapse            |
-|  [07]   | `IRenderContentTable<T>`       | internal contract  | shared document-table member set the three tables implement           |
-|  [08]   | `RenderMaterialTable`          | document table     | document render materials over `IRenderContentTable<RenderMaterial>`  |
-|  [09]   | `RenderEnvironmentTable`       | document table     | document render environments, same shape                              |
-|  [10]   | `RenderTextureTable`           | document table     | document render textures, same shape                                  |
-|  [11]   | `TextureMapping`               | `ModelComponent`   | mapping geometry, evaluation, and primitive recovery                  |
-|  [12]   | `MappingTag`                   | mapping key        | mapping id, type, and mesh transform for a channel                    |
-|  [13]   | `CachedTextureCoordinates`     | coord cache        | read-only per-vertex texture coordinates by mapping channel           |
+| [INDEX] | [SYMBOL]                       | [KIND]             | [CAPABILITY]                                                         |
+| :-----: | :----------------------------- | :----------------- | :------------------------------------------------------------------- |
+|  [01]   | `RenderContentType`            | factory descriptor | type id, internal name, engine/plug-in id, `NewRenderContent`        |
+|  [02]   | `ContentUuids`                 | static id vocab    | well-known material/environment/texture factory type ids             |
+|  [03]   | `RenderContentSerializer`      | abstract IO        | custom file-format read/write registered by id                       |
+|  [04]   | `CustomRenderContentAttribute` | registration attr  | flags a plug-in content class for `RegisterContent`                  |
+|  [05]   | `RenderContentCollection`      | mutable set        | usage-filtered content set with iterator and tag cursor              |
+|  [06]   | `RenderContentKindList`        | kind set           | additive `RenderContentKind` set with single-kind collapse           |
+|  [07]   | `IRenderContentTable<T>`       | internal contract  | shared document-table member set the three tables implement          |
+|  [08]   | `RenderMaterialTable`          | document table     | document render materials over `IRenderContentTable<RenderMaterial>` |
+|  [09]   | `RenderEnvironmentTable`       | document table     | document render environments, same shape                             |
+|  [10]   | `RenderTextureTable`           | document table     | document render textures, same shape                                 |
+|  [11]   | `TextureMapping`               | `ModelComponent`   | mapping geometry, evaluation, and primitive recovery                 |
+|  [12]   | `MappingTag`                   | mapping key        | mapping id, type, and mesh transform for a channel                   |
+|  [13]   | `CachedTextureCoordinates`     | coord cache        | read-only per-vertex texture coordinates by mapping channel          |
 
 [ENUM_ROSTERS]:
 - `public enum Rhino.Render.RenderContentKind` — `None = 0`, `Material = 1`, `Environment = 2`, `Texture = 4`.

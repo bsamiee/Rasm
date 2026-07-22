@@ -26,20 +26,20 @@ content key.
 [CODEC_TYPES]: reader, writer, and serializer surfaces
 - rail: snapshot-codec
 
-| [INDEX] | [SYMBOL]                            | [PACKAGE_ROLE]     | [CAPABILITY]                                                                                   |
-| :-----: | :---------------------------------- | :----------------- | :--------------------------------------------------------------------------------------------- |
-|  [01]   | `MessagePackSerializer`             | codec root         | serializes snapshots (typed+typeless)                                                          |
-|  [02]   | `MessagePackSerializer.Typeless`    | typeless codec     | serializes object? with type header                                                            |
-|  [03]   | `MessagePackReader`                 | reader             | reads encoded payloads                                                                         |
-|  [04]   | `MessagePackWriter`                 | writer             | writes encoded payloads                                                                        |
-|  [05]   | `MessagePackStreamReader`           | stream reader      | reads length-delimited streamed frames                                                         |
-|  [06]   | `MessagePackSerializerOptions`      | codec policy       | configures serialization                                                                       |
-|  [07]   | `MessagePackSecurity`               | security policy    | controls reader security                                                                       |
-|  [08]   | `MessagePackCompression`            | compression policy | classifies compression                                                                         |
-|  [09]   | `ExtensionHeader`                   | extension header   | carries extension metadata                                                                     |
-|  [10]   | `ExtensionResult`                   | extension payload  | carries extension data                                                                         |
-|  [11]   | `Nil`                               | nil marker         | carries nil value                                                                              |
-|  [12]   | `MessagePackSerializationException` | codec failure      | `: Exception`; ctors `()`/`(string?)`/`(string?, Exception?)`                                  |
+| [INDEX] | [SYMBOL]                            | [PACKAGE_ROLE]     | [CAPABILITY]                                                  |
+| :-----: | :---------------------------------- | :----------------- | :------------------------------------------------------------ |
+|  [01]   | `MessagePackSerializer`             | codec root         | serializes snapshots (typed+typeless)                         |
+|  [02]   | `MessagePackSerializer.Typeless`    | typeless codec     | serializes object? with type header                           |
+|  [03]   | `MessagePackReader`                 | reader             | reads encoded payloads                                        |
+|  [04]   | `MessagePackWriter`                 | writer             | writes encoded payloads                                       |
+|  [05]   | `MessagePackStreamReader`           | stream reader      | reads length-delimited streamed frames                        |
+|  [06]   | `MessagePackSerializerOptions`      | codec policy       | configures serialization                                      |
+|  [07]   | `MessagePackSecurity`               | security policy    | controls reader security                                      |
+|  [08]   | `MessagePackCompression`            | compression policy | classifies compression                                        |
+|  [09]   | `ExtensionHeader`                   | extension header   | carries extension metadata                                    |
+|  [10]   | `ExtensionResult`                   | extension payload  | carries extension data                                        |
+|  [11]   | `Nil`                               | nil marker         | carries nil value                                             |
+|  [12]   | `MessagePackSerializationException` | codec failure      | `: Exception`; ctors `()`/`(string?)`/`(string?, Exception?)` |
 
 `MessagePackSerializer.Typeless` static class: `DefaultOptions` (readable/settable, defaults to `TypelessContractlessStandardResolver.Options`), `Serialize` overloads (`ref MessagePackWriter`, `IBufferWriter<byte>`, `byte[]`, `Stream`), `SerializeAsync(Stream, ...)`, `Deserialize` overloads (`ref MessagePackReader`, `ReadOnlySequence<byte>`, `Stream`, `Memory<byte>`, `ReadOnlyMemory<byte>`), `DeserializeAsync(Stream, ...)`.
 
@@ -115,30 +115,30 @@ Typeless overloads (taking `Type` first): `Serialize(Type, ...)`, `Deserialize(T
 [ENTRYPOINT_SCOPE]: resolver and policy operations
 - rail: snapshot-codec
 
-| [INDEX] | [SURFACE]                                         | [CALL_SHAPE]     | [CAPABILITY]                                                         |
-| :-----: | :------------------------------------------------ | :--------------- | :------------------------------------------------------------------- |
-|  [01]   | `WithResolver`                                    | option call      | sets resolver policy                                                 |
-|  [02]   | `WithSecurity`                                    | option call      | sets security policy                                                 |
-|  [03]   | `WithCompression`                                 | option call      | sets compression policy                                              |
-|  [04]   | `WithCompressionMinLength`                        | option call      | sets minimum byte length for compression                             |
-|  [05]   | `WithOldSpec`                                     | option call      | forces MessagePack v1 encoding                                       |
-|  [06]   | `WithOmitAssemblyVersion`                         | option call      | omits assembly version on typeless                                   |
-|  [07]   | `WithAllowAssemblyVersionMismatch`                | option call      | tolerates version mismatches on typeless                             |
-|  [08]   | `WithPool`                                        | option call      | substitutes `SequencePool`                                           |
-|  [09]   | `WithSuggestedContiguousMemorySize`               | option call      | hints contiguous buffer cap (default 1MB)                            |
-|  [10]   | `GetFormatter<T>`                                 | resolver call    | resolves formatter                                                   |
-|  [11]   | `CompositeResolver.Create`                        | factory call     | composes resolver from formatters/resolvers                          |
-|  [12]   | `MessagePackSerializerOptions.Standard`           | static preset    | default standard options                                             |
-|  [13]   | `MessagePackSecurity.TrustedData`                 | security preset  | trusted-data (default) reading                                       |
-|  [14]   | `MessagePackSecurity.UntrustedData`               | security preset  | hardens untrusted reading                                            |
-|  [15]   | `MessagePackCompression.Lz4BlockArray`            | compression row  | chunked LZ4 framing (ext98)                                          |
-|  [16]   | `MessagePackCompression.Lz4Block`                 | compression row  | single-block LZ4 framing (ext99)                                     |
-|  [17]   | `MessagePackStreamReader.ReadAsync`               | segment read     | next length-delimited frame                                          |
-|  [18]   | `MessagePackStreamReader.ReadArrayAsync`          | enumerable read  | streamed array elements                                              |
-|  [19]   | `MessagePackSecurity.WithMaximumObjectGraphDepth` | security mutator | tighten the default-500 depth cap per profile                        |
-|  [20]   | `MessagePackSecurity.WithMaximumDecompressedSize` | security mutator | tighten the default-`int.MaxValue` decompressed-size cap             |
-|  [21]   | `MessagePackSerializerOptions.LoadType`           | typeless gate    | resolve a typeless type header (override seam)                       |
-|  [22]   | `ThrowIfDeserializingTypeIsDisallowed`            | typeless gate    | type-allowlist override for untrusted typeless                       |
+| [INDEX] | [SURFACE]                                         | [CALL_SHAPE]     | [CAPABILITY]                                             |
+| :-----: | :------------------------------------------------ | :--------------- | :------------------------------------------------------- |
+|  [01]   | `WithResolver`                                    | option call      | sets resolver policy                                     |
+|  [02]   | `WithSecurity`                                    | option call      | sets security policy                                     |
+|  [03]   | `WithCompression`                                 | option call      | sets compression policy                                  |
+|  [04]   | `WithCompressionMinLength`                        | option call      | sets minimum byte length for compression                 |
+|  [05]   | `WithOldSpec`                                     | option call      | forces MessagePack v1 encoding                           |
+|  [06]   | `WithOmitAssemblyVersion`                         | option call      | omits assembly version on typeless                       |
+|  [07]   | `WithAllowAssemblyVersionMismatch`                | option call      | tolerates version mismatches on typeless                 |
+|  [08]   | `WithPool`                                        | option call      | substitutes `SequencePool`                               |
+|  [09]   | `WithSuggestedContiguousMemorySize`               | option call      | hints contiguous buffer cap (default 1MB)                |
+|  [10]   | `GetFormatter<T>`                                 | resolver call    | resolves formatter                                       |
+|  [11]   | `CompositeResolver.Create`                        | factory call     | composes resolver from formatters/resolvers              |
+|  [12]   | `MessagePackSerializerOptions.Standard`           | static preset    | default standard options                                 |
+|  [13]   | `MessagePackSecurity.TrustedData`                 | security preset  | trusted-data (default) reading                           |
+|  [14]   | `MessagePackSecurity.UntrustedData`               | security preset  | hardens untrusted reading                                |
+|  [15]   | `MessagePackCompression.Lz4BlockArray`            | compression row  | chunked LZ4 framing (ext98)                              |
+|  [16]   | `MessagePackCompression.Lz4Block`                 | compression row  | single-block LZ4 framing (ext99)                         |
+|  [17]   | `MessagePackStreamReader.ReadAsync`               | segment read     | next length-delimited frame                              |
+|  [18]   | `MessagePackStreamReader.ReadArrayAsync`          | enumerable read  | streamed array elements                                  |
+|  [19]   | `MessagePackSecurity.WithMaximumObjectGraphDepth` | security mutator | tighten the default-500 depth cap per profile            |
+|  [20]   | `MessagePackSecurity.WithMaximumDecompressedSize` | security mutator | tighten the default-`int.MaxValue` decompressed-size cap |
+|  [21]   | `MessagePackSerializerOptions.LoadType`           | typeless gate    | resolve a typeless type header (override seam)           |
+|  [22]   | `ThrowIfDeserializingTypeIsDisallowed`            | typeless gate    | type-allowlist override for untrusted typeless           |
 
 `ReadAsync` returns `ValueTask<ReadOnlySequence<byte>?>`; null signals end of stream.
 `MessagePackSerializerOptions` properties: `Resolver`, `Compression`, `CompressionMinLength` (default 64), `SuggestedContiguousMemorySize` (default 1MB), `OldSpec`, `OmitAssemblyVersion`, `AllowAssemblyVersionMismatch`, `Security` (default `TrustedData`, depth cap 500), `SequencePool` (default `SequencePool.Shared`).

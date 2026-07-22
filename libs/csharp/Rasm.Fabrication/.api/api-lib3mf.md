@@ -83,19 +83,19 @@
 |  [16]   | `model.SetBuildUUID(uuid)` / `GetBuildUUID(out hasUuid)`   | production     | production-extension build identity                    |
 |  [17]   | `object.SetUUID(uuid)` / `GetUUID(out hasUuid)`            | production     | production-extension object identity                   |
 |  [18]   | `buildItem.SetUUID(uuid)` / `GetUUID(out hasUuid)`         | production     | production-extension placement identity                |
-|  [19]   | `buildItem.GetObjectResource()` / `GetObjectTransform()`   | build query    | placed object plus affine transform                     |
-|  [20]   | `component.GetObjectResource()` / `GetTransform()`         | assembly query | nested object plus affine transform                     |
-|  [21]   | `components.GetComponentCount()` / `GetComponent(index)`   | assembly query | component-tree traversal                                |
-|  [22]   | `object.GetUniqueResourceID()`                              | identity       | component-cycle guard key                               |
-|  [23]   | `resource.GetResourceID()` / `GetUniqueResourceID()`        | identity       | resource and property attribution keys                  |
-|  [24]   | `components.AddComponent(object, transform)`                | assembly       | add a transformed child resource                        |
-|  [25]   | `materialGroup.AddMaterial(name, color)`                    | property       | add a base-material property row                        |
-|  [26]   | `model.AddMultiPropertyGroup()`                             | property       | add a layered property group                            |
-|  [27]   | `multiProperty.AddMultiProperty(ids)`                       | property       | compose layered property identifiers                    |
-|  [28]   | `attachment.ReadFromBuffer(byte[])`                         | attachment     | populate a package relationship payload                 |
-|  [29]   | `multiProperty.AddLayer(sMultiPropertyLayer)`                | property       | declare a blended property-resource layer               |
-|  [30]   | `model.AddLevelSet()` / `AddVolumeData()`                    | resource       | add implicit and field-backed volume resources          |
-|  [31]   | `levelSet.SetMinFeatureSize(double)`                         | policy         | declare the minimum realizable implicit feature         |
+|  [19]   | `buildItem.GetObjectResource()` / `GetObjectTransform()`   | build query    | placed object plus affine transform                    |
+|  [20]   | `component.GetObjectResource()` / `GetTransform()`         | assembly query | nested object plus affine transform                    |
+|  [21]   | `components.GetComponentCount()` / `GetComponent(index)`   | assembly query | component-tree traversal                               |
+|  [22]   | `object.GetUniqueResourceID()`                             | identity       | component-cycle guard key                              |
+|  [23]   | `resource.GetResourceID()` / `GetUniqueResourceID()`       | identity       | resource and property attribution keys                 |
+|  [24]   | `components.AddComponent(object, transform)`               | assembly       | add a transformed child resource                       |
+|  [25]   | `materialGroup.AddMaterial(name, color)`                   | property       | add a base-material property row                       |
+|  [26]   | `model.AddMultiPropertyGroup()`                            | property       | add a layered property group                           |
+|  [27]   | `multiProperty.AddMultiProperty(ids)`                      | property       | compose layered property identifiers                   |
+|  [28]   | `attachment.ReadFromBuffer(byte[])`                        | attachment     | populate a package relationship payload                |
+|  [29]   | `multiProperty.AddLayer(sMultiPropertyLayer)`              | property       | declare a blended property-resource layer              |
+|  [30]   | `model.AddLevelSet()` / `AddVolumeData()`                  | resource       | add implicit and field-backed volume resources         |
+|  [31]   | `levelSet.SetMinFeatureSize(double)`                       | policy         | declare the minimum realizable implicit feature        |
 
 [ENTRYPOINT_SCOPE]: mesh + beam-lattice authoring — `CMeshObject` / `CBeamLattice`
 - rail: fabrication
@@ -117,7 +117,7 @@
 |  [13]   | `lattice.AddBeamSet()` / `GetBeamSet(i)`                | grouping       | named beam subsets                              |
 |  [14]   | `mesh.GetVertices(out sPosition[])`                     | read           | bulk vertex detachment                          |
 |  [15]   | `mesh.GetTriangleIndices(out sTriangle[])`              | read           | bulk triangle detachment                        |
-|  [16]   | `beamSet.SetReferences(uint[])` / `SetBallReferences`    | grouping       | bind beam and ball indices to a named subset    |
+|  [16]   | `beamSet.SetReferences(uint[])` / `SetBallReferences`   | grouping       | bind beam and ball indices to a named subset    |
 
 [ENTRYPOINT_SCOPE]: serialization — `CWriter` / `CReader` / `CSliceStack`
 - rail: fabrication
@@ -131,7 +131,7 @@
 |  [05]   | `reader.ReadFromFile(path)` / `ReadFromBuffer(byte[])`          | read           | parse a package into the model                      |
 |  [06]   | `reader.AddRelationToRead(relType)` / `SetStrictModeActive`     | policy         | selective-relation + strict parse                   |
 |  [07]   | `sliceStack.AddSlice(topZ)` / `GetSlice(i)` / `GetSliceCount()` | slice          | build/read planar layer stacks                      |
-|  [08]   | `reader.GetWarning(i, out code)` / `GetWarningCount()`           | diagnostic     | non-fatal read warning evidence                    |
+|  [08]   | `reader.GetWarning(i, out code)` / `GetWarningCount()`          | diagnostic     | non-fatal read warning evidence                     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

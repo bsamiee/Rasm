@@ -25,7 +25,7 @@ This catalog owns the host-bound `Rhino.Geometry` boundary the document, display
 |  [04]   | `ClippingPlaneSurface`    | native geometry | clip-plane depth and per-object/per-layer clip participation                |
 |  [05]   | `ObjectType`              | flags enum      | the geometry-type discriminant returned by `GeometryBase.ObjectType`        |
 |  [06]   | `TransformSimilarityType` | enum            | the orientation-preserving classification returned by `DecomposeSimilarity` |
-|  [07]   | `Mesh`                    | native geometry | texture-coordinate cache lifecycle                                           |
+|  [07]   | `Mesh`                    | native geometry | texture-coordinate cache lifecycle                                          |
 
 [PUBLIC_TYPE_SCOPE]: value carriers the crossing rides
 - rail: geometry-crossing
@@ -42,16 +42,16 @@ This catalog owns the host-bound `Rhino.Geometry` boundary the document, display
 
 `HiddenLineDrawing.Compute` projects added geometry to a 2D hidden-line drawing against a `ViewportInfo` frame; each source object becomes `HiddenLineDrawingObject`s whose curves split into visible/hidden `HiddenLineDrawingSegment`s and `HiddenLineDrawingPoint`s carrying visibility and source classification.
 
-| [INDEX] | [SYMBOL]                        | [KIND]           | [CAPABILITY]                                                     |
-| :-----: | :------------------------------ | :--------------- | :-------------------------------------------------------------- |
-|  [01]   | `HiddenLineDrawing`             | compute engine   | projection compute, segment/point enumeration, projection frame |
-|  [02]   | `HiddenLineDrawingParameters`   | input builder    | viewport, geometry/tag/clip add, tolerance/tangent/hidden flags |
-|  [03]   | `HiddenLineDrawingObject`       | source object    | one added object: geometry, transform, tag, occluding-section   |
-|  [04]   | `HiddenLineDrawingObjectCurve`  | source curve     | silhouette type and per-side segment split of one source curve  |
-|  [05]   | `HiddenLineDrawingSegment`      | result segment   | one 2D segment: visibility class and per-side surface fills      |
-|  [06]   | `HiddenLineDrawingPoint`        | result point     | one 2D point: location, visibility, and source classification   |
-|  [07]   | `Silhouette`                    | compute roster   | standalone silhouette-curve extraction: type, component, 3D curve |
-|  [08]   | `SilhouetteType`                | flags enum       | silhouette origin classification shared with the hidden-line curves |
+| [INDEX] | [SYMBOL]                       | [KIND]         | [CAPABILITY]                                                        |
+| :-----: | :----------------------------- | :------------- | :------------------------------------------------------------------ |
+|  [01]   | `HiddenLineDrawing`            | compute engine | projection compute, segment/point enumeration, projection frame     |
+|  [02]   | `HiddenLineDrawingParameters`  | input builder  | viewport, geometry/tag/clip add, tolerance/tangent/hidden flags     |
+|  [03]   | `HiddenLineDrawingObject`      | source object  | one added object: geometry, transform, tag, occluding-section       |
+|  [04]   | `HiddenLineDrawingObjectCurve` | source curve   | silhouette type and per-side segment split of one source curve      |
+|  [05]   | `HiddenLineDrawingSegment`     | result segment | one 2D segment: visibility class and per-side surface fills         |
+|  [06]   | `HiddenLineDrawingPoint`       | result point   | one 2D point: location, visibility, and source classification       |
+|  [07]   | `Silhouette`                   | compute roster | standalone silhouette-curve extraction: type, component, 3D curve   |
+|  [08]   | `SilhouetteType`               | flags enum     | silhouette origin classification shared with the hidden-line curves |
 
 [PUBLIC_TYPE_SCOPE]: intersection roster and event carriers
 - namespace: `Rhino.Geometry.Intersect`
@@ -59,16 +59,16 @@ This catalog owns the host-bound `Rhino.Geometry` boundary the document, display
 
 `Intersection` is the host static roster documented as parity information; `Rasm` owns the composed intersection kernel a design page reserves, and the catalog records the host surface a page reads, never a page's algorithm. `CurveIntersections`/`IntersectionEvent`/`MeshCurveIntersection` carry curve, surface, and mesh events; the outcome enums classify the primitive results.
 
-| [INDEX] | [SYMBOL]                | [KIND]         | [CAPABILITY]                                                     |
-| :-----: | :---------------------- | :------------- | :-------------------------------------------------------------- |
-|  [01]   | `Intersection`          | static roster  | curve/surface/brep/mesh/plane/ray/projection intersection statics |
-|  [02]   | `CurveIntersections`    | event carrier  | indexed disposable list of curve and surface `IntersectionEvent`s |
-|  [03]   | `IntersectionEvent`     | event          | one point-or-overlap event: points, parameters, overlap intervals |
-|  [04]   | `MeshCurveIntersection` | event          | one mesh-curve event: incidence, face, barycentric, tolerances  |
-|  [05]   | `RayShootEvent`         | value struct   | one ray-reflection hit: geometry index, brep face, point        |
-|  [06]   | `MeshClash`             | clash carrier  | mesh-pair clash point and radius with `Search`/`FindDetail` statics |
-|  [07]   | `MeshInterference`      | value struct   | object-set interference: index pair and hit points              |
-|  [08]   | `MeshIntersectionCache` | reuse cache    | disposable cache for repeated `MeshPlane` sections              |
+| [INDEX] | [SYMBOL]                | [KIND]        | [CAPABILITY]                                                        |
+| :-----: | :---------------------- | :------------ | :------------------------------------------------------------------ |
+|  [01]   | `Intersection`          | static roster | curve/surface/brep/mesh/plane/ray/projection intersection statics   |
+|  [02]   | `CurveIntersections`    | event carrier | indexed disposable list of curve and surface `IntersectionEvent`s   |
+|  [03]   | `IntersectionEvent`     | event         | one point-or-overlap event: points, parameters, overlap intervals   |
+|  [04]   | `MeshCurveIntersection` | event         | one mesh-curve event: incidence, face, barycentric, tolerances      |
+|  [05]   | `RayShootEvent`         | value struct  | one ray-reflection hit: geometry index, brep face, point            |
+|  [06]   | `MeshClash`             | clash carrier | mesh-pair clash point and radius with `Search`/`FindDetail` statics |
+|  [07]   | `MeshInterference`      | value struct  | object-set interference: index pair and hit points                  |
+|  [08]   | `MeshIntersectionCache` | reuse cache   | disposable cache for repeated `MeshPlane` sections                  |
 
 [PUBLIC_TYPE_SCOPE]: point and curve buffers
 - namespace: `Rhino.Collections`
@@ -76,13 +76,13 @@ This catalog owns the host-bound `Rhino.Geometry` boundary the document, display
 
 `Point3dList` and `CurveList` are the host typed geometry buffers over the `RhinoList<T>` base; `TransformObjectList` stages objects and grips for a transform command. `ArchivableDictionary` (also `Rhino.Collections`) is the persistence catalog's, cross-referenced through `api-rhinocommon-persistence.md`, never re-rostered here.
 
-| [INDEX] | [SYMBOL]              | [KIND]            | [CAPABILITY]                                                    |
-| :-----: | :-------------------- | :---------------- | :------------------------------------------------------------- |
+| [INDEX] | [SYMBOL]              | [KIND]            | [CAPABILITY]                                                     |
+| :-----: | :-------------------- | :---------------- | :--------------------------------------------------------------- |
 |  [01]   | `RhinoList<T>`        | generic list base | the `IList<T>`-shaped mutable buffer base the typed lists extend |
-|  [02]   | `Point3dList`         | point buffer      | per-axis accessors, bounds, closest-index, in-place transform  |
-|  [03]   | `CurveList`           | curve buffer      | curve buffer with primitive-to-curve add and insert convenience |
-|  [04]   | `TransformObjectList` | transform staging | object and grip staging list with display-feedback transform   |
-|  [05]   | `RhinoList`           | static KNN helper | point-cloud and point k-nearest-neighbour statics (arity-0)    |
+|  [02]   | `Point3dList`         | point buffer      | per-axis accessors, bounds, closest-index, in-place transform    |
+|  [03]   | `CurveList`           | curve buffer      | curve buffer with primitive-to-curve add and insert convenience  |
+|  [04]   | `TransformObjectList` | transform staging | object and grip staging list with display-feedback transform     |
+|  [05]   | `RhinoList`           | static KNN helper | point-cloud and point k-nearest-neighbour statics (arity-0)      |
 
 [PUBLIC_TYPE_SCOPE]: light geometry
 - namespace: `Rhino.Geometry`
@@ -90,11 +90,11 @@ This catalog owns the host-bound `Rhino.Geometry` boundary the document, display
 
 `Light : GeometryBase` is the host light geometry — a single type discriminated by `LightStyle` over point, spot, directional, linear, rectangular, ambient, and sun kinds, carrying location/direction/length/width geometry, intensity/power, ambient/diffuse/specular color, shadow intensity, and the attenuation model.
 
-| [INDEX] | [SYMBOL]             | [KIND]          | [CAPABILITY]                                                          |
-| :-----: | :------------------- | :-------------- | :------------------------------------------------------------------- |
-|  [01]   | `Light`              | native geometry | point/spot/directional/linear/rectangular/sun params, color, intensity |
-|  [02]   | `LightStyle`         | enum            | camera-vs-world light-kind discriminant                              |
-|  [03]   | `Light.Attenuation`  | nested enum     | attenuation fall-off model                                           |
+| [INDEX] | [SYMBOL]            | [KIND]          | [CAPABILITY]                                                           |
+| :-----: | :------------------ | :-------------- | :--------------------------------------------------------------------- |
+|  [01]   | `Light`             | native geometry | point/spot/directional/linear/rectangular/sun params, color, intensity |
+|  [02]   | `LightStyle`        | enum            | camera-vs-world light-kind discriminant                                |
+|  [03]   | `Light.Attenuation` | nested enum     | attenuation fall-off model                                             |
 
 [ENUM_ROSTERS]:
 - `HiddenLineDrawingSegment.Visibility`: `Unset`, `Visible`, `Hidden`, `Duplicate`, `Projecting`, `Clipped`.

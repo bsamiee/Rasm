@@ -6,13 +6,13 @@ Dashboards are identity-derived data, and the pack library is the same owner's d
 
 ## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER] | [OWNS]                                                                                             |
-| :-----: | :-------- | :-------------------------------------------------------------------------------------------------- |
-|  [01]   | `QUERY`   | the typed expression family, its fn/op/agg vocabularies, the literal grammar, the one render fold  |
-|  [02]   | `PANEL`   | the closed panel row family and the shelf-layout grid fold                                         |
-|  [03]   | `MODEL`   | the `DashboardModel` owner: identity-derived uid, variables, annotations                           |
-|  [04]   | `BENCH`   | the structural claim shape and the baseline-versus-candidate regression fold                       |
-|  [05]   | `PACKS`   | the pane builders, the payload map, the pack record, dispatch, and suite                           |
+| [INDEX] | [CLUSTER] | [OWNS]                                                                                            |
+| :-----: | :-------- | :------------------------------------------------------------------------------------------------ |
+|  [01]   | `QUERY`   | the typed expression family, its fn/op/agg vocabularies, the literal grammar, the one render fold |
+|  [02]   | `PANEL`   | the closed panel row family and the shelf-layout grid fold                                        |
+|  [03]   | `MODEL`   | the `DashboardModel` owner: identity-derived uid, variables, annotations                          |
+|  [04]   | `BENCH`   | the structural claim shape and the baseline-versus-candidate regression fold                      |
+|  [05]   | `PACKS`   | the pane builders, the payload map, the pack record, dispatch, and suite                          |
 
 ## [02]-[QUERY]
 

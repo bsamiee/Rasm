@@ -196,29 +196,29 @@ The 25 backends (`ibis.duckdb` default, `sqlite`, `postgres`, `mysql`, `mssql`, 
 
 Execution and export run on `Expr`/`Table`, delegating to the bound backend.
 
-| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY] | [CAPABILITY]                            |
-| :-----: | :----------------------------------------------- | :------------- | :-------------------------------------- |
-|  [01]   | `Expr.execute(*, limit='default', params)`       | execution      | run expression, return pandas frame     |
-|  [02]   | `Expr.to_pandas(...)` / `.to_polars(...)`        | execution      | execute and return pandas / Polars frame |
-|  [03]   | `Expr.to_pyarrow(...)`                            | execution      | execute and return a PyArrow `Table`    |
-|  [04]   | `Expr.to_pyarrow_batches(*, chunk_size, ...)`    | streaming      | stream a PyArrow `RecordBatchReader`    |
-|  [05]   | `Expr.to_torch(...)` / `.to_parquet(path, ...)`  | execution/IO   | tensor dict / write result to Parquet   |
-|  [06]   | `Expr.to_csv(path, ...)` / `.to_delta(path, ...)`| IO export      | write result to CSV / Delta Lake        |
+| [INDEX] | [SURFACE]                                         | [ENTRY_FAMILY] | [CAPABILITY]                             |
+| :-----: | :------------------------------------------------ | :------------- | :--------------------------------------- |
+|  [01]   | `Expr.execute(*, limit='default', params)`        | execution      | run expression, return pandas frame      |
+|  [02]   | `Expr.to_pandas(...)` / `.to_polars(...)`         | execution      | execute and return pandas / Polars frame |
+|  [03]   | `Expr.to_pyarrow(...)`                            | execution      | execute and return a PyArrow `Table`     |
+|  [04]   | `Expr.to_pyarrow_batches(*, chunk_size, ...)`     | streaming      | stream a PyArrow `RecordBatchReader`     |
+|  [05]   | `Expr.to_torch(...)` / `.to_parquet(path, ...)`   | execution/IO   | tensor dict / write result to Parquet    |
+|  [06]   | `Expr.to_csv(path, ...)` / `.to_delta(path, ...)` | IO export      | write result to CSV / Delta Lake         |
 
 Backend management runs on `BaseBackend`; every surface below is a `BaseBackend` method except the `ibis.duckdb.connect` accessor, and each `ibis.<backend>` submodule exposes its own `connect()`.
 
-| [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY]  | [CAPABILITY]                                    |
-| :-----: | :---------------------------------------------------- | :-------------- | :---------------------------------------------- |
-|  [01]   | `compile(expr, limit, params, ...)`                   | compilation     | compile to backend SQL string                   |
-|  [02]   | `sql(query, schema=None)`                             | SQL escape      | wrap a raw SQL string as a `Table`              |
-|  [03]   | `table(name, database)`                               | table access    | reference backend table by name                 |
-|  [04]   | `list_tables(like, database)`                         | catalog         | list available tables                           |
-|  [05]   | `create_table(name, obj, schema, temp, overwrite, ...)`| DDL            | create table from expression / data             |
-|  [06]   | `create_view(name, obj, ...)` / `drop_table(name, force)`| DDL          | create view / drop table                        |
-|  [07]   | `insert(name, obj, ...)` / `raw_sql(query)`           | DML/escape      | append rows / execute raw SQL on the connection |
-|  [08]   | `con`                                                 | native handle   | the backend's native driver connection handle   |
-|  [09]   | `ibis.duckdb.connect(database=':memory:', *, ...)`    | default backend | in-memory DuckDB backend accessor (no required args) |
-|  [10]   | `disconnect()`                                        | connection      | close the connection (`-> None`), releasing `con` |
+| [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY]  | [CAPABILITY]                                         |
+| :-----: | :-------------------------------------------------------- | :-------------- | :--------------------------------------------------- |
+|  [01]   | `compile(expr, limit, params, ...)`                       | compilation     | compile to backend SQL string                        |
+|  [02]   | `sql(query, schema=None)`                                 | SQL escape      | wrap a raw SQL string as a `Table`                   |
+|  [03]   | `table(name, database)`                                   | table access    | reference backend table by name                      |
+|  [04]   | `list_tables(like, database)`                             | catalog         | list available tables                                |
+|  [05]   | `create_table(name, obj, schema, temp, overwrite, ...)`   | DDL             | create table from expression / data                  |
+|  [06]   | `create_view(name, obj, ...)` / `drop_table(name, force)` | DDL             | create view / drop table                             |
+|  [07]   | `insert(name, obj, ...)` / `raw_sql(query)`               | DML/escape      | append rows / execute raw SQL on the connection      |
+|  [08]   | `con`                                                     | native handle   | the backend's native driver connection handle        |
+|  [09]   | `ibis.duckdb.connect(database=':memory:', *, ...)`        | default backend | in-memory DuckDB backend accessor (no required args) |
+|  [10]   | `disconnect()`                                            | connection      | close the connection (`-> None`), releasing `con`    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

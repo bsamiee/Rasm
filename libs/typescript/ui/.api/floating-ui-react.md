@@ -20,8 +20,8 @@
 
 | [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]     | [CONSUMER]                                                               |
 | :-----: | :--------------------------------------- | :---------------- | :----------------------------------------------------------------------- |
-|  [01]   | `FloatingRootContext<RT>`                | root context      | open-state/events/elements; every interaction + focus hook takes it       |
-|  [02]   | `FloatingContext<RT>`                    | context object    | root + position data; `useTransitionStyles`/`FloatingArrow` consume it     |
+|  [01]   | `FloatingRootContext<RT>`                | root context      | open-state/events/elements; every interaction + focus hook takes it      |
+|  [02]   | `FloatingContext<RT>`                    | context object    | root + position data; `useTransitionStyles`/`FloatingArrow` consume it   |
 |  [03]   | `ContextData`                            | extra context bag | `openEvent`, `floatingContext`, interaction keys (typeahead, list index) |
 |  [04]   | `OpenChangeReason`                       | reason union      | branch dismiss on the open/close cause (values in lead)                  |
 |  [05]   | `ElementProps`                           | interaction props | `{ reference?, floating?, item? }`; merged by `useInteractions`          |
@@ -31,21 +31,21 @@
 [PUBLIC_TYPE_SCOPE]: refs, elements, and hook config/return family
 - rail: position + interaction
 
-| [INDEX] | [SYMBOL]                                            | [TYPE_FAMILY]      | [CONSUMER]                                                |
-| :-----: | :-------------------------------------------------- | :----------------- | :-------------------------------------------------------- |
-|  [01]   | `ExtendedRefs<RT>` / `ExtendedElements<RT>`         | refs / elements    | `reference`/`floating`/`domReference` setters + nodes     |
-|  [02]   | `NarrowedElement<T>`                                | element narrow     | `domReference` ≠ `reference` under virtual anchoring      |
-|  [03]   | `UseFloatingOptions<RT>` / `UseFloatingReturn<RT>`  | config / result    | adds `rootContext`/`onOpenChange`/`nodeId`                |
+| [INDEX] | [SYMBOL]                                            | [TYPE_FAMILY]      | [CONSUMER]                                                    |
+| :-----: | :-------------------------------------------------- | :----------------- | :------------------------------------------------------------ |
+|  [01]   | `ExtendedRefs<RT>` / `ExtendedElements<RT>`         | refs / elements    | `reference`/`floating`/`domReference` setters + nodes         |
+|  [02]   | `NarrowedElement<T>`                                | element narrow     | `domReference` ≠ `reference` under virtual anchoring          |
+|  [03]   | `UseFloatingOptions<RT>` / `UseFloatingReturn<RT>`  | config / result    | adds `rootContext`/`onOpenChange`/`nodeId`                    |
 |  [04]   | `UseFloatingData`                                   | position snapshot  | `Prettify<UseFloatingReturn>` — the full `useFloating` result |
-|  [05]   | `UseFloatingRootContextOptions`                     | root config        | `{ open?, onOpenChange?, elements }` binds open-state     |
-|  [06]   | `UseInteractionsReturn`                             | merged getters     | `getReferenceProps`/`getFloatingProps`/`getItemProps`     |
-|  [07]   | `UseClickProps` / `UseHoverProps` / `UseFocusProps` | interaction config | `event`/`toggle`; `delay`/`restMs`/`handleClose`          |
-|  [08]   | `UseDismissProps` / `UseRoleProps`                  | interaction config | `escapeKey`/`outsidePress`/`ancestorScroll`; `role`       |
-|  [09]   | `UseListNavigationProps` / `UseTypeaheadProps`      | collection config  | `listRef`/`activeIndex`/`virtual`/`loop`; typeahead match |
-|  [10]   | `UseClientPointProps` / `UseInnerOffsetProps`       | collection config  | cursor-follow; scrollable-inner offset                    |
-|  [11]   | `UseTransitionStatusProps`                          | transition config  | `{ isMounted, status }` mount phases                      |
-|  [12]   | `UseTransitionStylesProps`                          | transition config  | `{ isMounted, styles }` enter/exit motion                 |
-|  [13]   | `TransitionStatus`                                  | transition status  | `unmounted → initial → open → close → unmounted`          |
+|  [05]   | `UseFloatingRootContextOptions`                     | root config        | `{ open?, onOpenChange?, elements }` binds open-state         |
+|  [06]   | `UseInteractionsReturn`                             | merged getters     | `getReferenceProps`/`getFloatingProps`/`getItemProps`         |
+|  [07]   | `UseClickProps` / `UseHoverProps` / `UseFocusProps` | interaction config | `event`/`toggle`; `delay`/`restMs`/`handleClose`              |
+|  [08]   | `UseDismissProps` / `UseRoleProps`                  | interaction config | `escapeKey`/`outsidePress`/`ancestorScroll`; `role`           |
+|  [09]   | `UseListNavigationProps` / `UseTypeaheadProps`      | collection config  | `listRef`/`activeIndex`/`virtual`/`loop`; typeahead match     |
+|  [10]   | `UseClientPointProps` / `UseInnerOffsetProps`       | collection config  | cursor-follow; scrollable-inner offset                        |
+|  [11]   | `UseTransitionStatusProps`                          | transition config  | `{ isMounted, status }` mount phases                          |
+|  [12]   | `UseTransitionStylesProps`                          | transition config  | `{ isMounted, styles }` enter/exit motion                     |
+|  [13]   | `TransitionStatus`                                  | transition status  | `unmounted → initial → open → close → unmounted`              |
 
 [PUBLIC_TYPE_SCOPE]: component props and re-exported geometry
 - rail: render + position

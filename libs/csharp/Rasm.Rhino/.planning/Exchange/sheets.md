@@ -1573,32 +1573,13 @@ public static class Sheets {
 ```mermaid codemap
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
+  elk:
+    nodePlacementStrategy: NETWORK_SIMPLEX
+    considerModelOrder: NODES_AND_EDGES
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-  themeCSS: >-
-    .nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}
-    .edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}
-    .edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}
-    .node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}
-    .marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}
-    .edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}
 ---
 flowchart LR
     accTitle: Unified sheet projection and transaction flow
@@ -1606,38 +1587,23 @@ flowchart LR
     Select["SheetSelect · DetailSelect"] --> Dispatch["Sheet operation dispatch"]
     Request["SheetRequest · SheetOp"] --> Dispatch
     Dispatch -->|PreviewCase| Preview["Read-only projection fold"]
-    Preview --> Receipt["SheetReceipt · PlannedCase"]
-    Dispatch -->|adopt| Tables["Tables.Commit"]
     Dispatch -->|commit| Demand["DocumentSession demand"]
-    Demand -->|mutating| Undo["DocumentCommit.Sealed"]
+    Dispatch -->|adopt| Tables["Tables.Commit"]
     Demand -->|read| Audit["Scale audit"]
-    Undo --> State["Detail state"]
+    Demand -->|mutating| Undo["DocumentCommit.Sealed"]
+    Context["Context · LengthUnit"] --> Audit
+    Context --> State["Detail state"]
+    Undo --> State
     Undo --> Layout["Arrangement"]
     Undo --> Number["Number seats"]
-    Context["Context · LengthUnit"] --> Audit
-    Context --> State
     State --> NativeCommit["Geometry · viewport commit"]
-    NativeCommit --> Committed["SheetReceipt · CommittedCase"]
+    Preview --> Receipt["SheetReceipt · PlannedCase"]
+    Audit -->|preview| Receipt
+    Audit -->|execute| Committed["SheetReceipt · CommittedCase"]
+    NativeCommit --> Committed
     Layout --> Committed
     Number --> Committed
-    Audit -->|preview| Receipt
-    Audit -->|execute| Committed
     Tables --> Committed
-    linkStyle 4 stroke:#8BE9FD,stroke-width:2px,color:#F8F8F2
-    linkStyle 7,11 stroke:#FFD866,stroke-width:2px,color:#F8F8F2
-    linkStyle 14,15,16,17,18 stroke:#50FA7B,stroke-width:2px,color:#F8F8F2
-    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    classDef external fill:#8BE9FD66,stroke:#8BE9FD,color:#F8F8F2
-    classDef success fill:#50FA7B66,stroke:#50FA7B,color:#F8F8F2
-    classDef payload fill:#FFD86654,stroke:#FFD866,color:#F8F8F2
-    class Request,Receipt boundary
-    class Dispatch,Demand,Preview primary
-    class Select,Context,Committed data
-    class Tables external
-    class Undo,NativeCommit success
-    class State,Layout,Number,Audit payload
 ```
 
 ## [06]-[RESEARCH]

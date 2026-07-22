@@ -4,11 +4,11 @@ Distributed coordination is one engine-blind port beside the fanout plane: `Acco
 
 ## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]    | [OWNS]                                                                                      | [PUBLIC]                |
-| :-----: | :----------- | :------------------------------------------------------------------------------------------ | :---------------------- |
-|  [01]   | `PORT_SHAPE` | the engine-neutral port — lease, elect, cas, read, watch, census — receipts and the faults  | `Accord`, `AccordFault` |
-|  [02]   | `KV_ROW`     | the distributed engine: TTL-clocked claims, heartbeat holds, revision-CAS, watch tail       | `Accord.kv`             |
-|  [03]   | `LOCKS_ROW`  | the browser engine: Web Locks arbiter bridge, arbiter census, honest ledger degradation     | `Accord.locks`          |
+| [INDEX] | [CLUSTER]    | [OWNS]                                                                                     | [PUBLIC]                |
+| :-----: | :----------- | :----------------------------------------------------------------------------------------- | :---------------------- |
+|  [01]   | `PORT_SHAPE` | the engine-neutral port — lease, elect, cas, read, watch, census — receipts and the faults | `Accord`, `AccordFault` |
+|  [02]   | `KV_ROW`     | the distributed engine: TTL-clocked claims, heartbeat holds, revision-CAS, watch tail      | `Accord.kv`             |
+|  [03]   | `LOCKS_ROW`  | the browser engine: Web Locks arbiter bridge, arbiter census, honest ledger degradation    | `Accord.locks`          |
 
 ## [02]-[PORT_SHAPE]
 

@@ -366,7 +366,7 @@ dev = [
 ]
 mutation = ["mutmut"]
 
-# --- [UV] ------------------------------------------------------------------
+# --- [UV] -------------------------------------------------------------------------------
 
 [tool.uv.sources]
 # 0.22.9 imports typing.no_type_check_decorator (removed in 3.15); the pinned rev carries the fix, unreleased as of 0.22.9.
@@ -399,7 +399,7 @@ requires-python = ">=3.10"
 requires-dist =   ["protobuf<7,>=5", "substrait-protobuf==0.85.0", "substrait-extensions==0.85.0", "antlr4-python3-runtime; extra == 'extensions'", "substrait-antlr==0.85.0; extra == 'extensions'", "pyyaml; extra == 'extensions'"]
 provides-extras = ["extensions"]
 
-# --- [TY] ------------------------------------------------------------------
+# --- [TY] -------------------------------------------------------------------------------
 
 [tool.ty.environment]
 python-platform = "all"
@@ -435,7 +435,7 @@ all = "error"
 [tool.ty.terminal]
 error-on-warning = true
 
-# --- [MYPY] ----------------------------------------------------------------
+# --- [MYPY] -----------------------------------------------------------------------------
 
 # `ty` is the binding type gate; mypy is advisory for `tools/assay` and `tests`.
 # Mypy-only divergences stay in overrides because `ty` rejects inline type-ignore comments.
@@ -493,7 +493,7 @@ disable_error_code =      ["func-returns-value", "attr-defined", "type-arg", "ov
 module =                 ["boto3", "boto3.*", "fsspec", "fsspec.*", "s3fs"]  # backend imports lack py.typed coverage
 ignore_missing_imports = true
 
-# --- [PYTEST] --------------------------------------------------------------
+# --- [PYTEST] ---------------------------------------------------------------------------
 
 # `pytest-benchmark` and `pytest-xdist` stay in separate sessions under `filterwarnings = ["error"]`.
 # Do not add `-n` to default `addopts`; parallel runs must unload benchmark config explicitly.
@@ -545,13 +545,13 @@ markers = [
     "subprocess: tests that spawn the real CLI in a child interpreter; excluded from mutation lanes (children run the unmutated tree)",
 ]
 
-# --- [INLINE_SNAPSHOT] -----------------------------------------------------
+# --- [INLINE_SNAPSHOT] ------------------------------------------------------------------
 
 [tool.inline-snapshot]
 default-flags = ["short-report"]  # reports mismatches without mutating snapshots
 storage-dir =   ".cache/inline-snapshot"
 
-# --- [COVERAGE] ------------------------------------------------------------
+# --- [COVERAGE] -------------------------------------------------------------------------
 
 [tool.coverage.run]
 branch =          true
@@ -585,7 +585,7 @@ output = ".artifacts/python/coverage/coverage.xml"
 [tool.coverage.lcov]
 output = ".artifacts/python/coverage/coverage.lcov"
 
-# --- [MUTMUT] --------------------------------------------------------------
+# --- [MUTMUT] ---------------------------------------------------------------------------
 
 [tool.mutmut]
 source_paths = ["tools/assay"]                                    # Mutation runs through the Assay-staged workdir; retired `.cache/mut-venv` and requirements fallbacks stay retired.
@@ -605,7 +605,7 @@ max_stack_depth = -1              # disables mutmut's strict stack walk over imp
 timeout_multiplier = 4.0
 timeout_constant = 5.0
 
-# --- [IMPORT_LINTER] -------------------------------------------------------
+# --- [IMPORT_LINTER] --------------------------------------------------------------------
 
 # Canonical invocation: `lint-imports --cache-dir .cache/grimp` — import-linter has no config-file cache option, and the default litters the repo root.
 [tool.importlinter]
@@ -653,7 +653,7 @@ modules = [
 # Named debt: package rides bridge's apphost lease/client seam until a neutral client owner exists.
 ignore_imports = ["tools.assay.rails.package -> tools.assay.rails.bridge"]
 
-# --- [RUFF] ----------------------------------------------------------------
+# --- [RUFF] -----------------------------------------------------------------------------
 
 [tool.ruff]
 cache-dir =        ".cache/ruff"
@@ -910,7 +910,7 @@ max-nested-blocks = 4
 max-public-methods = 10
 max-statements = 30
 
-# --- [SQLFLUFF] --------------------------------------------------------------
+# --- [SQLFLUFF] -------------------------------------------------------------------------
 
 [tool.sqlfluff.core]
 dialect =         "postgres"

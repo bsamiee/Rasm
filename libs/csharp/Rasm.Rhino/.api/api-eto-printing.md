@@ -66,8 +66,8 @@
 [ENTRYPOINT_SCOPE]: page and job settings
 - rail: eto-printing
 
-| [INDEX] | [SURFACE]                                        | [CAPABILITY]                              |
-| :-----: | :----------------------------------------------- | :---------------------------------------- |
+| [INDEX] | [SURFACE]                                       | [CAPABILITY]                              |
+| :-----: | :---------------------------------------------- | :---------------------------------------- |
 |  [01]   | `PageSettings.PrintableArea { get; }`           | reads printer-resolved page bounds        |
 |  [02]   | `PrintSettings.MaximumPageRange { get; set; }`  | bounds the selectable page interval       |
 |  [03]   | `PrintSettings.SelectedPageRange { get; set; }` | carries the chosen page interval          |

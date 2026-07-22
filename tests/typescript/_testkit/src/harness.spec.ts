@@ -6,11 +6,11 @@ import { Array, Context, Effect, Layer, Option, Schema } from 'effect';
 import type { StartedTestContainer } from 'testcontainers';
 import { Containers, HarnessFault, Loopback, Loopbacks, ObjectStore, ObjectStores, PgLane, PgLanes, PinsPath } from './harness.ts';
 
-// --- [SERVICES] --------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
 class Held extends Context.Tag('rasm-testkit-spec/Held')<Held, StartedTestContainer>() {}
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _DDL = 'CREATE TABLE marks (key TEXT PRIMARY KEY, rank INTEGER NOT NULL);';
 const _BYTES = Uint8Array.from([1, 2, 3, 4]);
@@ -19,11 +19,11 @@ const _BYTES = Uint8Array.from([1, 2, 3, 4]);
 // RASM_TESTKIT_CONTAINERS activates the live lanes.
 const _LIVE = process.env['RASM_TESTKIT_CONTAINERS'] !== undefined;
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 const _Mark = Schema.Struct({ key: Schema.String, rank: Schema.Int });
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 layer(PgLanes.pglite(_DDL))('pg unit lane', (it) => {
     it.effect('seeded DDL round-trips through the decode-fused read', () =>

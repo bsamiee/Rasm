@@ -6,12 +6,12 @@ A request family is one deep owner — the class carries its dedup identity in i
 
 ## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                             |
-| :-----: | :---------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `REQUEST_FAMILY`  | the request-class law — field identity, absorbed statics, the persistable upgrade  |
-|  [02]   | `RESOLVER_ENGINE` | `Batch.Engine` and `Batch.of` — admitted policy, settlement, timing bracket        |
-|  [03]   | `WINDOW_ROWS`     | the three window geometries and the per-flow caching tier                          |
-|  [04]   | `SERVED_LANES`    | the folder's own batched lanes as rows over the closed geometry vocabulary         |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                                            |
+| :-----: | :---------------- | :-------------------------------------------------------------------------------- |
+|  [01]   | `REQUEST_FAMILY`  | the request-class law — field identity, absorbed statics, the persistable upgrade |
+|  [02]   | `RESOLVER_ENGINE` | `Batch.Engine` and `Batch.of` — admitted policy, settlement, timing bracket       |
+|  [03]   | `WINDOW_ROWS`     | the three window geometries and the per-flow caching tier                         |
+|  [04]   | `SERVED_LANES`    | the folder's own batched lanes as rows over the closed geometry vocabulary        |
 
 ## [02]-[REQUEST_FAMILY]
 

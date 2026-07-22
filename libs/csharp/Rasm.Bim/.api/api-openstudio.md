@@ -34,15 +34,15 @@ energy model.
 
 Every wrapper holds a native `HandleRef` (`swigCPtr`) with a `cMemoryOwn` flag and implements `IDisposable`; the C++ STL/Boost shapes surface as the families below, not as BCL collections.
 
-| [INDEX] | [SYMBOL]                      | [CAPABILITY]                                                                                             |
-| :-----: | :---------------------------- | :------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Optional<T>` family          | `boost::optional` marshaling; `is_initialized()`/`isNull()`, `get()`, `value_or(T)`, `set(T)`, `reset()` |
-|  [02]   | `*Vector` family              | `std::vector` marshaling; `IList`-shaped (indexer, `Count`, `Add`), the plural-result carrier            |
-|  [03]   | `Path` / `OptionalPath`       | `boost::filesystem::path`; NO `Path(string)` ctor — use `OpenStudioUtilitiesCore.toPath`/`toString`      |
-|  [04]   | `UUID`                        | handle (`createUUID()`/`toUUID(string)`); `WorkspaceObject` identity, `getObject(UUID)` key              |
-|  [05]   | `OpenStudioUtilitiesCore`     | SWIG global-function host (`toPath`/`toString`/`createUUID`/`toUUID`); not the `*PINVOKE` shims          |
-|  [06]   | `Logger` / `LogMessageVector` | native log sink; `LogLevel` verbosity, translator `warnings()`/`errors()` → `LogMessageVector`           |
-|  [07]   | `ProgressBar`                 | SWIG director — `protected ProgressBar()` subclass ctor, `virtual onPercentageUpdated(double percentage)` |
+| [INDEX] | [SYMBOL]                      | [CAPABILITY]                                                                                        |
+| :-----: | :---------------------------- | :-------------------------------------------------------------------------------------------------- |
+|  [01]   | `Optional<T>` family          | `boost::optional`; `is_initialized()`/`isNull()`, `get()`, `value_or(T)`, `set(T)`, `reset()`       |
+|  [02]   | `*Vector` family              | `std::vector` marshaling; `IList`-shaped (indexer, `Count`, `Add`), the plural-result carrier       |
+|  [03]   | `Path` / `OptionalPath`       | `boost::filesystem::path`; NO `Path(string)` ctor — use `OpenStudioUtilitiesCore.toPath`/`toString` |
+|  [04]   | `UUID`                        | handle (`createUUID()`/`toUUID(string)`); `WorkspaceObject` identity, `getObject(UUID)` key         |
+|  [05]   | `OpenStudioUtilitiesCore`     | SWIG global-function host (`toPath`/`toString`/`createUUID`/`toUUID`); not the `*PINVOKE` shims     |
+|  [06]   | `Logger` / `LogMessageVector` | native log sink; `LogLevel` verbosity, translator `warnings()`/`errors()` → `LogMessageVector`      |
+|  [07]   | `ProgressBar`                 | SWIG director — `protected ProgressBar()` ctor, `virtual onPercentageUpdated(double percentage)`    |
 
 [PUBLIC_TYPE_SCOPE]: model + IDF/IDD object store
 - package: `NREL.OpenStudio.macOS-arm64`

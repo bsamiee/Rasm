@@ -6,11 +6,11 @@ Estate wire law rides as rows: dotted `rasm.<domain>.<measure>` metric names und
 
 ## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]             | [OWNS]                                                                                      |
-| :-----: | :-------------------- | :------------------------------------------------------------------------------------------ |
-|  [01]   | `SEMCONV_ROWS`        | the stable/incubating import law, the value families, the alias seam, the deprecated ban    |
-|  [02]   | `RASM_ROWS`           | the project-owned name families spanning the signal, work-plane, and security domains      |
-|  [03]   | `IDENTITY_PROJECTION` | the assembled owner: key census, record contract, identity projection, scope + wire law    |
+| [INDEX] | [CLUSTER]             | [OWNS]                                                                                   |
+| :-----: | :-------------------- | :--------------------------------------------------------------------------------------- |
+|  [01]   | `SEMCONV_ROWS`        | the stable/incubating import law, the value families, the alias seam, the deprecated ban |
+|  [02]   | `RASM_ROWS`           | the project-owned name families spanning the signal, work-plane, and security domains    |
+|  [03]   | `IDENTITY_PROJECTION` | the assembled owner: key census, record contract, identity projection, scope + wire law  |
 
 ## [02]-[SEMCONV_ROWS]
 

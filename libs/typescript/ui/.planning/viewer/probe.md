@@ -4,13 +4,13 @@ Probe owns render evidence. Its benchmark lane folds Deck and renderer counters 
 
 ## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]       | [OWNS]                                                                          | [PUBLIC] |
-| :-----: | :-------------- | :------------------------------------------------------------------------------ | :------- |
-|  [01]   | `METRIC_FOLD`   | the local capture — deck and renderer counters through one bounded algebra     | `Probe`  |
-|  [02]   | `HOST_MIRROR`   | the local host-fingerprint capture mirroring the wire's fields                  | `Probe`  |
-|  [03]   | `CLAIM_BOARD`   | the claim-versus-local label-keyed join and its display rows                    | `Probe`  |
-|  [04]   | `CAPTURE_FOLD`  | the deterministic framebuffer capture and the kernel hash delegate              | `Probe`  |
-|  [05]   | `EVIDENCE_ROWS` | tone tables, bounded verdict history, the never-a-gate law                      | `Probe`  |
+| [INDEX] | [CLUSTER]       | [OWNS]                                                                     | [PUBLIC] |
+| :-----: | :-------------- | :------------------------------------------------------------------------- | :------- |
+|  [01]   | `METRIC_FOLD`   | the local capture — deck and renderer counters through one bounded algebra | `Probe`  |
+|  [02]   | `HOST_MIRROR`   | the local host-fingerprint capture mirroring the wire's fields             | `Probe`  |
+|  [03]   | `CLAIM_BOARD`   | the claim-versus-local label-keyed join and its display rows               | `Probe`  |
+|  [04]   | `CAPTURE_FOLD`  | the deterministic framebuffer capture and the kernel hash delegate         | `Probe`  |
+|  [05]   | `EVIDENCE_ROWS` | tone tables, bounded verdict history, the never-a-gate law                 | `Probe`  |
 
 ## [02]-[METRIC_FOLD]
 

@@ -5,7 +5,7 @@ The tool vocabulary and both MCP lanes in one owner: tools are `Schema`-typed da
 ## [01]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]  | [OWNS]                                                                               | [PUBLIC]  |
-| :-----: | :--------- | :------------------------------------------------------------------------------------ | :-------- |
+| :-----: | :--------- | :----------------------------------------------------------------------------------- | :-------- |
 |  [01]   | `TOOL_LAW` | the declaration and assembly law — schemas, failure routing, annotations as hints    | —         |
 |  [02]   | `SAFETY`   | blast-radius classes, posture modes, hint admission, the fail-closed partition       | `Safety`  |
 |  [03]   | `ARSENAL`  | the provider-defined tool ledger — four package rosters as one graded table          | `Arsenal` |

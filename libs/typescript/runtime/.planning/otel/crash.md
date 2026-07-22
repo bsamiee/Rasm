@@ -7,7 +7,7 @@ Breadcrumb history attaches as replay evidence redacted at the moment of capture
 ## [01]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER] | [OWNS]                                                                         | [PUBLIC] |
-| :-----: | :-------- | :------------------------------------------------------------------------------ | :------- |
+| :-----: | :-------- | :----------------------------------------------------------------------------- | :------- |
 |  [01]   | `REPLAY`  | the breadcrumb ring: bounded window, redaction-at-capture, evidence projection | `Crash`  |
 |  [02]   | `CAPTURE` | the `Cause` fold, enricher consumption, convention-named fatal emission        | `Crash`  |
 |  [03]   | `NET`     | fiber-external hook rows as runtime-supplied values                            | hooks    |

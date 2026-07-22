@@ -349,21 +349,21 @@ public static class Traversals {
 }
 ```
 
-| [INDEX] | [POLICY]             | [VALUE]                                        | [BINDING]                                    |
-| :-----: | :------------------- | :--------------------------------------------- | :------------------------------------------- |
-|  [01]   | algorithm owner      | QuikGraph `AlgorithmExtensions`                | no hand-rolled walk or recursive CTE         |
-|  [02]   | dispatch             | generated `query.Switch(...)`                  | exhaustive; no silent `_` arm                |
-|  [03]   | absent root          | `Rooted`/`Paired` → `TopologyFault.RootAbsent` | typed fault, never an empty sentinel         |
-|  [04]   | result shape         | `ElementSet`-compatible keys                   | composes with selection algebra              |
-|  [05]   | cycle detection      | one `StronglyConnectedComponents` probe        | shared by `Cycles` and `Order`               |
-|  [06]   | void resolution      | `Neighbors` under `Neighborhood.Openings`      | one polymorphic case, never a Resolve twin   |
-|  [07]   | nearest container    | forest-gated `OfflineLeastCommonAncestor`      | cycles and multiple parents rail             |
-|  [08]   | shortest path        | unit-weight `ShortestPathsDijkstra`            | metric routing belongs to `pgrouting`        |
-|  [09]   | spatial walks        | `Spatial` (`Contain` ∪ `Aggregate`)            | full-tree climb                              |
-|  [10]   | connection adjacency | `OutEdges` ∪ `InEdges` over `Connection`       | symmetric read                               |
-|  [11]   | placement / members  | `Containment` / `Assignment`                   | direct storey / reverse membership           |
-|  [12]   | bounded depth        | lane-owned `WalkDepth`                         | no raw `int` enters `Walk`                   |
-|  [13]   | redundancy           | DAG-gated `ComputeTransitiveReduction` diff    | redundant edges return typed `Pruned` pairs  |
+| [INDEX] | [POLICY]             | [VALUE]                                        | [BINDING]                                   |
+| :-----: | :------------------- | :--------------------------------------------- | :------------------------------------------ |
+|  [01]   | algorithm owner      | QuikGraph `AlgorithmExtensions`                | no hand-rolled walk or recursive CTE        |
+|  [02]   | dispatch             | generated `query.Switch(...)`                  | exhaustive; no silent `_` arm               |
+|  [03]   | absent root          | `Rooted`/`Paired` → `TopologyFault.RootAbsent` | typed fault, never an empty sentinel        |
+|  [04]   | result shape         | `ElementSet`-compatible keys                   | composes with selection algebra             |
+|  [05]   | cycle detection      | one `StronglyConnectedComponents` probe        | shared by `Cycles` and `Order`              |
+|  [06]   | void resolution      | `Neighbors` under `Neighborhood.Openings`      | one polymorphic case, never a Resolve twin  |
+|  [07]   | nearest container    | forest-gated `OfflineLeastCommonAncestor`      | cycles and multiple parents rail            |
+|  [08]   | shortest path        | unit-weight `ShortestPathsDijkstra`            | metric routing belongs to `pgrouting`       |
+|  [09]   | spatial walks        | `Spatial` (`Contain` ∪ `Aggregate`)            | full-tree climb                             |
+|  [10]   | connection adjacency | `OutEdges` ∪ `InEdges` over `Connection`       | symmetric read                              |
+|  [11]   | placement / members  | `Containment` / `Assignment`                   | direct storey / reverse membership          |
+|  [12]   | bounded depth        | lane-owned `WalkDepth`                         | no raw `int` enters `Walk`                  |
+|  [13]   | redundancy           | DAG-gated `ComputeTransitiveReduction` diff    | redundant edges return typed `Pruned` pairs |
 
 ## [04]-[RESEARCH]
 

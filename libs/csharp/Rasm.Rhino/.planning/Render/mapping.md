@@ -688,17 +688,17 @@ public static class Mappings {
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]          | [OWNER]           | [FORM]                                      | [ENTRY]                    |
-| :-----: | :----------------- | :---------------- | :------------------------------------------ | :------------------------- |
-|  [01]   | host vocabulary    | `MappingKind`     | keyed rows with inverse behavior            | `Of` / `Recover`           |
-|  [02]   | mapping policy     | `MappingProfile`  | admitted non-derived host state              | `Validate` / `Of` / `Apply` |
-|  [03]   | construction       | `MappingSpec`     | factory union with custom-mesh custody       | `Mint`                     |
-|  [04]   | inverse evidence   | `MappingSnapshot` | kind plus optional recoverable spec          | `Of` / `Dispose`           |
-|  [05]   | point and frame    | `MappingRequest`  | evaluation and decomposition cases           | `Mappings.Run`             |
-|  [06]   | channel mutation   | `MappingRequest`  | one bind case under demand and undo           | `Mappings.Run`             |
-|  [07]   | channel census     | `MappingRequest`  | attribute-gated per-object channel rows       | `Mappings.Run`             |
-|  [08]   | tag round trip     | `ChannelTag`      | admitted kind with native projection          | `Of` / `Native`            |
-|  [09]   | coordinate cache   | `CoordinateRequest` | prime, read, probe, or scoped invalidation   | `TextureCoordinates.Run`   |
+| [INDEX] | [CONCERN]        | [OWNER]             | [FORM]                                     | [ENTRY]                     |
+| :-----: | :--------------- | :------------------ | :----------------------------------------- | :-------------------------- |
+|  [01]   | host vocabulary  | `MappingKind`       | keyed rows with inverse behavior           | `Of` / `Recover`            |
+|  [02]   | mapping policy   | `MappingProfile`    | admitted non-derived host state            | `Validate` / `Of` / `Apply` |
+|  [03]   | construction     | `MappingSpec`       | factory union with custom-mesh custody     | `Mint`                      |
+|  [04]   | inverse evidence | `MappingSnapshot`   | kind plus optional recoverable spec        | `Of` / `Dispose`            |
+|  [05]   | point and frame  | `MappingRequest`    | evaluation and decomposition cases         | `Mappings.Run`              |
+|  [06]   | channel mutation | `MappingRequest`    | one bind case under demand and undo        | `Mappings.Run`              |
+|  [07]   | channel census   | `MappingRequest`    | attribute-gated per-object channel rows    | `Mappings.Run`              |
+|  [08]   | tag round trip   | `ChannelTag`        | admitted kind with native projection       | `Of` / `Native`             |
+|  [09]   | coordinate cache | `CoordinateRequest` | prime, read, probe, or scoped invalidation | `TextureCoordinates.Run`    |
 
 ## [06]-[RESEARCH]
 

@@ -2,14 +2,14 @@ using System.Runtime.CompilerServices;
 
 namespace Rasm.Architecture.Tests;
 
-// --- [COMPOSITION] --------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 // One per-assembly Verify registration: DiffPlex renders string diffs on snapshot mismatches.
 public static class VerifyModuleInitializer {
     [ModuleInitializer]
     public static void Initialize() => VerifyDiffPlex.Initialize();
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 // The repo-wide snapshot-hygiene gate pair. VerifyChecks resolves the solution directory and
 // audits orphaned *.received.* litter, csproj-imported snapshot nestings, and the .gitignore /
 // .gitattributes / .editorconfig conventions for every *.verified.* extension in the tree.

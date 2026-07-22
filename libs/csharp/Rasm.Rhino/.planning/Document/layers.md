@@ -984,18 +984,18 @@ public static class Layers {
 
 ## [06]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]              | [OWNER]                     | [FORM]                             | [ENTRY]                       |
-| :-----: | :--------------------- | :-------------------------- | :--------------------------------- | :---------------------------- |
-|  [01]   | leaf and path identity | `LayerName` / `LayerPath`   | generated host-grammar values      | `Of` / `Segments` / `Child`   |
-|  [02]   | layer addressing       | `LayerRef`                  | id/index/path/current union        | `ById` / `AtIndex` / `AtPath` / `Current` |
-|  [03]   | detached anchor        | `LayerStamp`                | id/index/path evidence product     | receipt and node rows         |
-|  [04]   | tree topology          | `LayerTree` / `LayerNode`   | one-read recursive snapshot        | `Layers.Ask` / `Find`         |
-|  [05]   | per-detail overrides   | `LayerOverride`             | option-discriminated write/clear   | `LayerEdit.Override`          |
-|  [06]   | staged property edits  | `LayerEdit`                 | closed staged-write union          | edit factories / `Amend`      |
-|  [07]   | structural mutation    | `LayerOp`                   | admitted total operation union     | operation factories / `Apply` |
-|  [08]   | sibling ordering       | `LayerArrangement`          | by-name/explicit union             | `LayerOp.Arrange`             |
-|  [09]   | commit program         | `LayerDelta`                | named redraw-scoped program        | `Layers.Commit`               |
-|  [10]   | consequence evidence   | `LayerReceipt` / `LayerSlot`| stamped fact stream + undo serial  | typed projections             |
+| [INDEX] | [CONCERN]              | [OWNER]                      | [FORM]                            | [ENTRY]                                   |
+| :-----: | :--------------------- | :--------------------------- | :-------------------------------- | :---------------------------------------- |
+|  [01]   | leaf and path identity | `LayerName` / `LayerPath`    | generated host-grammar values     | `Of` / `Segments` / `Child`               |
+|  [02]   | layer addressing       | `LayerRef`                   | id/index/path/current union       | `ById` / `AtIndex` / `AtPath` / `Current` |
+|  [03]   | detached anchor        | `LayerStamp`                 | id/index/path evidence product    | receipt and node rows                     |
+|  [04]   | tree topology          | `LayerTree` / `LayerNode`    | one-read recursive snapshot       | `Layers.Ask` / `Find`                     |
+|  [05]   | per-detail overrides   | `LayerOverride`              | option-discriminated write/clear  | `LayerEdit.Override`                      |
+|  [06]   | staged property edits  | `LayerEdit`                  | closed staged-write union         | edit factories / `Amend`                  |
+|  [07]   | structural mutation    | `LayerOp`                    | admitted total operation union    | operation factories / `Apply`             |
+|  [08]   | sibling ordering       | `LayerArrangement`           | by-name/explicit union            | `LayerOp.Arrange`                         |
+|  [09]   | commit program         | `LayerDelta`                 | named redraw-scoped program       | `Layers.Commit`                           |
+|  [10]   | consequence evidence   | `LayerReceipt` / `LayerSlot` | stamped fact stream + undo serial | typed projections                         |
 
 ## [07]-[RESEARCH]
 

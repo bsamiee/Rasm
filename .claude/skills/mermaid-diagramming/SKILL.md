@@ -36,23 +36,23 @@ A diagram earns its fence only when the reader traces a relation across more mar
 
 Select the archetype by intent, copy its template, and refill — a catalog template is self-sufficient, carrying its archetype's construction law in its own prose. An intent outside the catalog selects its type through the methodology decision table and the extended registry, under the same payload and validation law. A split move partitions a subject the moment a second question appears, and a required legend is itself a split signal.
 
-| [INDEX] | [ARCHETYPE]                                     | [INTENT]                       | [DECLARATION]       | [SPLIT_MOVE]                     |
-| :-----: | :---------------------------------------------- | :----------------------------- | :------------------ | :------------------------------- |
-|  [01]   | [SPINE](templates/spine.mmd.md)                 | main path through owners       | `flowchart LR`      | split at the readiness gate      |
-|  [02]   | [SEAM_GRAPH](templates/seam-graph.mmd.md)       | shapes across a boundary       | `flowchart LR`      | partition by counterpart package |
-|  [03]   | [LOGIC_FLOW](templates/logic-flow.mmd.md)       | one operation dispatch         | `flowchart LR`      | extract an arm subflow           |
-|  [04]   | [LIFECYCLE](templates/lifecycle.mmd.md)         | guarded state transitions      | `stateDiagram-v2`   | extract the composite lifecycle  |
-|  [05]   | [WIRE_SEQUENCE](templates/wire-sequence.mmd.md) | ordered boundary exchange      | `sequenceDiagram`   | split by interaction phase       |
-|  [06]   | [SCHEMA](templates/schema.mmd.md)               | persistent entity relations    | `erDiagram`         | split by aggregate root          |
-|  [07]   | [STRATA](templates/strata.mmd.md)               | layer dependency direction     | `flowchart TB`      | collapse peer layers             |
-|  [08]   | [SCHEDULE](templates/schedule.mmd.md)           | dated committed work           | `gantt`             | split by phase                   |
-|  [09]   | [BOARD](templates/board.mmd.md)                 | stage-held work now            | `kanban`            | split by workflow segment        |
-|  [10]   | [HISTORY](templates/history.mmd.md)             | branch and merge truth         | `gitGraph LR:`      | split by release train           |
-|  [11]   | [TOPOLOGY](templates/topology.mmd.md)           | deployables and reach          | `architecture-beta` | split by zone                    |
-|  [12]   | [LANDSCAPE](templates/landscape.mmd.md)         | one-zoom system landscape      | `C4Context`         | re-declare at the next zoom      |
-|  [13]   | [EVENT_FLOW](templates/event-flow.mmd.md)       | command-event causality        | `eventmodeling`     | split by stream                  |
-|  [14]   | [PROFILE](templates/profile.mmd.md)             | two-subject capability map     | `radar-beta`        | one comparison per fence         |
-|  [15]   | [DECOMPOSITION](templates/decomposition.mmd.md) | weighted whole-to-part         | `treemap-beta`      | aggregate the tail               |
+| [INDEX] | [ARCHETYPE]                                     | [INTENT]                    | [DECLARATION]       | [SPLIT_MOVE]                     |
+| :-----: | :---------------------------------------------- | :-------------------------- | :------------------ | :------------------------------- |
+|  [01]   | [SPINE](templates/spine.mmd.md)                 | main path through owners    | `flowchart LR`      | split at the readiness gate      |
+|  [02]   | [SEAM_GRAPH](templates/seam-graph.mmd.md)       | shapes across a boundary    | `flowchart LR`      | partition by counterpart package |
+|  [03]   | [LOGIC_FLOW](templates/logic-flow.mmd.md)       | one operation dispatch      | `flowchart LR`      | extract an arm subflow           |
+|  [04]   | [LIFECYCLE](templates/lifecycle.mmd.md)         | guarded state transitions   | `stateDiagram-v2`   | extract the composite lifecycle  |
+|  [05]   | [WIRE_SEQUENCE](templates/wire-sequence.mmd.md) | ordered boundary exchange   | `sequenceDiagram`   | split by interaction phase       |
+|  [06]   | [SCHEMA](templates/schema.mmd.md)               | persistent entity relations | `erDiagram`         | split by aggregate root          |
+|  [07]   | [STRATA](templates/strata.mmd.md)               | layer dependency direction  | `flowchart TB`      | collapse peer layers             |
+|  [08]   | [SCHEDULE](templates/schedule.mmd.md)           | dated committed work        | `gantt`             | split by phase                   |
+|  [09]   | [BOARD](templates/board.mmd.md)                 | stage-held work now         | `kanban`            | split by workflow segment        |
+|  [10]   | [HISTORY](templates/history.mmd.md)             | branch and merge truth      | `gitGraph LR:`      | split by release train           |
+|  [11]   | [TOPOLOGY](templates/topology.mmd.md)           | deployables and reach       | `architecture-beta` | split by zone                    |
+|  [12]   | [LANDSCAPE](templates/landscape.mmd.md)         | one-zoom system landscape   | `C4Context`         | re-declare at the next zoom      |
+|  [13]   | [EVENT_FLOW](templates/event-flow.mmd.md)       | command-event causality     | `eventmodeling`     | split by stream                  |
+|  [14]   | [PROFILE](templates/profile.mmd.md)             | two-subject capability map  | `radar-beta`        | one comparison per fence         |
+|  [15]   | [DECOMPOSITION](templates/decomposition.mmd.md) | weighted whole-to-part      | `treemap-beta`      | aggregate the tail               |
 
 ## [04]-[VALIDATE]
 

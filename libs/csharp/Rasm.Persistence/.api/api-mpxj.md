@@ -49,7 +49,7 @@ is the consumer's), only the parse/serialize round-trip.
 |  [13]   | `ProjectCalendarContainer` | `class : IProjectEntityContainer` | the `ProjectFile.Calendars` keyed collection                 |
 |  [14]   | `TimeUnit`                 | `enum`                            | the `Duration.Units` unit (values in `[MEMBERS]`)            |
 |  [15]   | `ConstraintType`           | `enum`                            | the `Task.ConstraintType` modality (values in `[MEMBERS]`)   |
-|  [16]   | `RecurringData`            | `class`                           | seed generator for recurring calendar exceptions            |
+|  [16]   | `RecurringData`            | `class`                           | seed generator for recurring calendar exceptions             |
 |  [17]   | `Availability`             | `class`                           | date-ranged resource-capacity row                            |
 
 [MEMBERS]: the per-type member and enum-value rosters; durations/lags are unit-tagged, never raw days.
@@ -93,7 +93,7 @@ is the consumer's), only the parse/serialize round-trip.
 |  [16]   | `Task.AddTask()`                                             | mutate         | mint a WBS child under its parent                       |
 |  [17]   | `Task.AddResourceAssignment(Resource)`                       | mutate         | mint one task-resource loading                          |
 |  [18]   | `ProjectCalendar.AddWorkWeek()`                              | mutate         | mint a date-ranged weekly override                      |
-|  [19]   | `ProjectCalendar.AddCalendarException(DateOnly[, DateOnly])` | mutate         | mint a dated override                                    |
+|  [19]   | `ProjectCalendar.AddCalendarException(DateOnly[, DateOnly])` | mutate         | mint a dated override                                   |
 |  [20]   | `ProjectCalendarDays.SetWorkingDay` / `AddCalendarHours`     | mutate         | rebuild a day rule and its shift ranges                 |
 |  [21]   | `ProjectCalendarHours.Add(TimeOnlyRange)`                    | mutate         | append a shift to a day, week, or exception             |
 |  [22]   | `ProjectFile.GetCalendarByUniqueID(int)`                     | mutate         | resolve a calendar by durable unique id                 |

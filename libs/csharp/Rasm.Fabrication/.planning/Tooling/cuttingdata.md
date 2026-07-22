@@ -938,7 +938,6 @@ public static class ChatterStability {
 ---
 config:
   layout: elk
-  theme: dark
 ---
 flowchart LR
     accTitle: Cutting-data composition

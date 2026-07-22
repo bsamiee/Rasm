@@ -427,21 +427,21 @@ public static class TabularWire {
 ```
 
 | [INDEX] | [POLICY]              | [VALUE]                                          | [BINDING]                                                   |
-| :-----: | :-------------------- | :----------------------------------------------- | :----------------------------------------------------------- |
-|  [01]   | one tabular owner     | `TabularSource` over MiniExcel                   | `#DELIMITED_SOURCE` owns delimited text; one record rail     |
-|  [02]   | modality discriminant | `TabularSpec` + `Origin` `[Union]`               | one value selects typed/dynamic/reader/probe                 |
-|  [03]   | typed read            | header-keyed `dynamic` rows → `Project<T>`       | contract-checked + accumulated; not the `Query<T>` binder    |
-|  [04]   | windowed typed read   | `dynamic` `QueryRange` → the SAME `Project<T>`   | `QueryRange` adds only `endCell`; one shared projection      |
-|  [05]   | format policy         | `[UseDelegateFromConstructor]` `Policy` column   | no consumer branches on the format key                       |
-|  [06]   | wire-cell projection  | `DynamicExcelColumn.CustomFormatter`             | `spec.Policy()` registers on `DynamicColumns`, wire-minted   |
-|  [07]   | row-boundary fault    | `Validation<TabularFault, …>` on both legs       | `Semigroup` + `Aggregate` accumulate; both legs fold         |
-|  [08]   | bulk vs columnar      | typed `IEnumerable<T>` vs `IDataReader`          | bulk-copy from `IEnumerable<T>`; reader feeds columnar       |
-|  [09]   | redacted egress       | per-column `Redactor` before `SaveAs`            | streams column-redacted; no `DbDataReader` decorator         |
-|  [10]   | transcode             | `TabularTranscode.Table` frozen correspondence   | `CanReach` derives; a miss is the typed fault                |
-|  [11]   | receipt               | one `TabularFact` stream under `store.tabular.*` | kind-discriminated; never parallel receipt records           |
-|  [12]   | element projection    | per-app tabular→element map                      | `[02]-[SEAMS]` `Ingest → Rasm.Element` wire; row shape only  |
-|  [13]   | fault band            | `Code => FaultBand.Tabular + n`                  | re-banded 839x off the 837x collision                        |
-|  [14]   | report egress         | `Adorn` over `TabularAdornment` + spec `Style`   | merge/pictures/styling as policy DATA                        |
+| :-----: | :-------------------- | :----------------------------------------------- | :---------------------------------------------------------- |
+|  [01]   | one tabular owner     | `TabularSource` over MiniExcel                   | `#DELIMITED_SOURCE` owns delimited text; one record rail    |
+|  [02]   | modality discriminant | `TabularSpec` + `Origin` `[Union]`               | one value selects typed/dynamic/reader/probe                |
+|  [03]   | typed read            | header-keyed `dynamic` rows → `Project<T>`       | contract-checked + accumulated; not the `Query<T>` binder   |
+|  [04]   | windowed typed read   | `dynamic` `QueryRange` → the SAME `Project<T>`   | `QueryRange` adds only `endCell`; one shared projection     |
+|  [05]   | format policy         | `[UseDelegateFromConstructor]` `Policy` column   | no consumer branches on the format key                      |
+|  [06]   | wire-cell projection  | `DynamicExcelColumn.CustomFormatter`             | `spec.Policy()` registers on `DynamicColumns`, wire-minted  |
+|  [07]   | row-boundary fault    | `Validation<TabularFault, …>` on both legs       | `Semigroup` + `Aggregate` accumulate; both legs fold        |
+|  [08]   | bulk vs columnar      | typed `IEnumerable<T>` vs `IDataReader`          | bulk-copy from `IEnumerable<T>`; reader feeds columnar      |
+|  [09]   | redacted egress       | per-column `Redactor` before `SaveAs`            | streams column-redacted; no `DbDataReader` decorator        |
+|  [10]   | transcode             | `TabularTranscode.Table` frozen correspondence   | `CanReach` derives; a miss is the typed fault               |
+|  [11]   | receipt               | one `TabularFact` stream under `store.tabular.*` | kind-discriminated; never parallel receipt records          |
+|  [12]   | element projection    | per-app tabular→element map                      | `[02]-[SEAMS]` `Ingest → Rasm.Element` wire; row shape only |
+|  [13]   | fault band            | `Code => FaultBand.Tabular + n`                  | re-banded 839x off the 837x collision                       |
+|  [14]   | report egress         | `Adorn` over `TabularAdornment` + spec `Style`   | merge/pictures/styling as policy DATA                       |
 
 ## [03]-[DELIMITED_SOURCE]
 
@@ -527,7 +527,7 @@ public static class DelimitedSource {
 }
 ```
 
-| [INDEX] | [POLICY]         | [VALUE]                                              | [BINDING]                                                |
+| [INDEX] | [POLICY]         | [VALUE]                                              | [BINDING]                                                 |
 | :-----: | :--------------- | :--------------------------------------------------- | :-------------------------------------------------------- |
 |  [01]   | delimited owner  | Sep `ref struct` rows + `Enumerate`                  | SIMD parse; materialization is the record-rail boundary   |
 |  [02]   | parse policy     | `DelimitedSpec` one declared value                   | separator/culture/trim/pool/parallelism; strict BOTH ends |
@@ -565,13 +565,13 @@ public static class TabularBulk {
 }
 ```
 
-| [INDEX] | [POLICY]      | [VALUE]                                                   | [BINDING]                                                  |
-| :-----: | :------------ | :-------------------------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | copy strategy | `BulkCopyType.ProviderSpecific` + `KeepIdentity`          | PG binary COPY; unset identity re-mints the Guid-v7 row    |
-|  [02]   | mapping       | EF model via `EFCoreMetadataReader`                       | the V6 generated mapping; never a second mapping           |
-|  [03]   | source shape  | `IEnumerable<T>` / `IAsyncEnumerable<T>` overloads        | input shape discriminates; never a method family           |
-|  [04]   | receipt       | `BulkCopyRowsCopied`                                      | typed copied-count evidence riding `store.tabular.bulk`    |
-|  [05]   | bulk boundary | files → DuckDB `COPY`; wire → Npgsql; EF-mapped → linq2db | three non-overlapping rows; never a fourth lane            |
+| [INDEX] | [POLICY]      | [VALUE]                                                   | [BINDING]                                               |
+| :-----: | :------------ | :-------------------------------------------------------- | :------------------------------------------------------ |
+|  [01]   | copy strategy | `BulkCopyType.ProviderSpecific` + `KeepIdentity`          | PG binary COPY; unset identity re-mints the Guid-v7 row |
+|  [02]   | mapping       | EF model via `EFCoreMetadataReader`                       | the V6 generated mapping; never a second mapping        |
+|  [03]   | source shape  | `IEnumerable<T>` / `IAsyncEnumerable<T>` overloads        | input shape discriminates; never a method family        |
+|  [04]   | receipt       | `BulkCopyRowsCopied`                                      | typed copied-count evidence riding `store.tabular.bulk` |
+|  [05]   | bulk boundary | files → DuckDB `COPY`; wire → Npgsql; EF-mapped → linq2db | three non-overlapping rows; never a fourth lane         |
 
 ## [05]-[RESEARCH]
 

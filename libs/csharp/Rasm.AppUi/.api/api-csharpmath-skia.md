@@ -91,11 +91,11 @@ Its telos is one painter the typography Math arms set `LaTeX` on and draw: LaTeX
 [COLOR_AND_ENCODE]: `Extensions` bridges Skia color and encodes a `Painter<SKCanvas,TContent,SKColor>` headlessly; `DrawAsStream<TContent>` defaults width 2000, `SKEncodedImageFormat.Png`, quality 100, `TextAlignment.TopLeft`.
 - rail: typography
 
-| [INDEX] | [SURFACE]                                                                                   | [RAIL]                       |
-| :-----: | :------------------------------------------------------------------------------------------ | :--------------------------- |
-|  [01]   | `ToNative(this Color) : SKColor`                                                            | color-model bridge           |
-|  [02]   | `FromNative(this SKColor) : Color`                                                          | color-model bridge           |
-|  [03]   | `painter.DrawAsStream(float, SKEncodedImageFormat, int, TextAlignment) : Stream?`           | headless image-stream encode |
+| [INDEX] | [SURFACE]                                                                         | [RAIL]                       |
+| :-----: | :-------------------------------------------------------------------------------- | :--------------------------- |
+|  [01]   | `ToNative(this Color) : SKColor`                                                  | color-model bridge           |
+|  [02]   | `FromNative(this SKColor) : Color`                                                | color-model bridge           |
+|  [03]   | `painter.DrawAsStream(float, SKEncodedImageFormat, int, TextAlignment) : Stream?` | headless image-stream encode |
 
 [EDIT_AND_PARSE]: `MathKeyboard` drives interactive editing and `LaTeXParser` owns parse-and-serialize.
 - rail: typography

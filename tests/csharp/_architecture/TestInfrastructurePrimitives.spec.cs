@@ -44,7 +44,7 @@ internal static class ToolingSite { public static int Reached() => 2; }
 [CspScope(CspScope.Domain)]
 internal static class DomainSite { public static int Reached() => 3; }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 // The kit's only falsification suite: every mechanism must be shown failing, not just passing.
 // The class-level [Law] proves ScanAssembly folds type-level markers; the pilot SUT is the
 // host-free Csp.Contracts assembly.

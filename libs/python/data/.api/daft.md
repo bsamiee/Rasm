@@ -133,46 +133,46 @@
 
 Transform methods return a new lazy `DataFrame`; `collect`/`show`/`count_rows`/`to_*`/`iter_rows`/`write_*` are sinks that trigger execution. Columns accept an `Expression` or a `str` column name interchangeably.
 
-| [INDEX] | [SURFACE]                   | [CAPABILITY]                              |
-| :-----: | :-------------------------- | :---------------------------------------- |
-|  [01]   | `DataFrame.select`          | project columns and named expressions     |
-|  [02]   | `DataFrame.where`           | filter rows by predicate (`filter` alias) |
-|  [03]   | `DataFrame.with_column`     | add/replace one computed column           |
-|  [04]   | `DataFrame.with_columns`    | add/replace columns from a dict           |
-|  [05]   | `DataFrame.exclude`         | drop named columns                        |
-|  [06]   | `DataFrame.sort`            | order rows by columns/expressions         |
-|  [07]   | `DataFrame.limit`           | cap row count                             |
-|  [08]   | `DataFrame.distinct`        | deduplicate rows (optionally on keys)     |
-|  [09]   | `DataFrame.join`            | relational join with strategy hint        |
-|  [10]   | `DataFrame.groupby`         | group rows for aggregation                |
-|  [11]   | `DataFrame.agg`             | global aggregation over expressions       |
-|  [12]   | `DataFrame.explode`         | unnest list columns to rows               |
-|  [13]   | `DataFrame.unpivot`         | wide-to-long reshape                      |
-|  [14]   | `DataFrame.sample`          | random row sample                         |
-|  [15]   | `DataFrame.repartition`     | hash/round-robin repartition              |
-|  [16]   | `DataFrame.into_partitions` | coalesce/split into N partitions          |
-|  [17]   | `DataFrame.collect`         | execute and cache the result              |
-|  [18]   | `DataFrame.show`            | execute and render a preview              |
-|  [19]   | `DataFrame.count_rows`      | execute and count rows                    |
-|  [20]   | `DataFrame.iter_rows`       | stream rows out-of-core                   |
-|  [21]   | `DataFrame.to_arrow`        | execute and egress to Arrow               |
-|  [22]   | `DataFrame.to_pydict`       | execute and egress to column dict         |
-|  [23]   | `DataFrame.to_pandas`       | execute and egress to pandas              |
-|  [24]   | `DataFrame.write_parquet`   | partitioned Parquet sink                  |
-|  [25]   | `DataFrame.write_deltalake` | Delta Lake table sink                     |
-|  [26]   | `DataFrame.write_iceberg`   | Iceberg table sink                        |
-|  [27]   | `DataFrame.write_csv`       | partitioned CSV sink                      |
-|  [28]   | `DataFrame.write_json`      | partitioned newline-JSON sink             |
-|  [29]   | `DataFrame.write_lance`     | Lance dataset sink                        |
-|  [30]   | `DataFrame.pivot`           | long-to-wide pivot with aggregation       |
-|  [31]   | `DataFrame.transform`       | apply a `DataFrame -> DataFrame` function |
-|  [32]   | `DataFrame.summarize`       | per-column statistics frame               |
-|  [33]   | `DataFrame.describe`        | schema as a frame                         |
-|  [34]   | `DataFrame.agg_list`        | global list/set/concat aggregations       |
-|  [35]   | `DataFrame.explain`         | print the logical/physical plan           |
-|  [36]   | `DataFrame.schema`          | resolved output schema                    |
+| [INDEX] | [SURFACE]                   | [CAPABILITY]                               |
+| :-----: | :-------------------------- | :----------------------------------------- |
+|  [01]   | `DataFrame.select`          | project columns and named expressions      |
+|  [02]   | `DataFrame.where`           | filter rows by predicate (`filter` alias)  |
+|  [03]   | `DataFrame.with_column`     | add/replace one computed column            |
+|  [04]   | `DataFrame.with_columns`    | add/replace columns from a dict            |
+|  [05]   | `DataFrame.exclude`         | drop named columns                         |
+|  [06]   | `DataFrame.sort`            | order rows by columns/expressions          |
+|  [07]   | `DataFrame.limit`           | cap row count                              |
+|  [08]   | `DataFrame.distinct`        | deduplicate rows (optionally on keys)      |
+|  [09]   | `DataFrame.join`            | relational join with strategy hint         |
+|  [10]   | `DataFrame.groupby`         | group rows for aggregation                 |
+|  [11]   | `DataFrame.agg`             | global aggregation over expressions        |
+|  [12]   | `DataFrame.explode`         | unnest list columns to rows                |
+|  [13]   | `DataFrame.unpivot`         | wide-to-long reshape                       |
+|  [14]   | `DataFrame.sample`          | random row sample                          |
+|  [15]   | `DataFrame.repartition`     | hash/round-robin repartition               |
+|  [16]   | `DataFrame.into_partitions` | coalesce/split into N partitions           |
+|  [17]   | `DataFrame.collect`         | execute and cache the result               |
+|  [18]   | `DataFrame.show`            | execute and render a preview               |
+|  [19]   | `DataFrame.count_rows`      | execute and count rows                     |
+|  [20]   | `DataFrame.iter_rows`       | stream rows out-of-core                    |
+|  [21]   | `DataFrame.to_arrow`        | execute and egress to Arrow                |
+|  [22]   | `DataFrame.to_pydict`       | execute and egress to column dict          |
+|  [23]   | `DataFrame.to_pandas`       | execute and egress to pandas               |
+|  [24]   | `DataFrame.write_parquet`   | partitioned Parquet sink                   |
+|  [25]   | `DataFrame.write_deltalake` | Delta Lake table sink                      |
+|  [26]   | `DataFrame.write_iceberg`   | Iceberg table sink                         |
+|  [27]   | `DataFrame.write_csv`       | partitioned CSV sink                       |
+|  [28]   | `DataFrame.write_json`      | partitioned newline-JSON sink              |
+|  [29]   | `DataFrame.write_lance`     | Lance dataset sink                         |
+|  [30]   | `DataFrame.pivot`           | long-to-wide pivot with aggregation        |
+|  [31]   | `DataFrame.transform`       | apply a `DataFrame -> DataFrame` function  |
+|  [32]   | `DataFrame.summarize`       | per-column statistics frame                |
+|  [33]   | `DataFrame.describe`        | schema as a frame                          |
+|  [34]   | `DataFrame.agg_list`        | global list/set/concat aggregations        |
+|  [35]   | `DataFrame.explain`         | print the logical/physical plan            |
+|  [36]   | `DataFrame.schema`          | resolved output schema                     |
 |  [37]   | `DataFrame.metrics`         | materialized per-operator statistics frame |
-|  [38]   | `DataFrame.num_partitions`  | resolved partition count post-execution   |
+|  [38]   | `DataFrame.num_partitions`  | resolved partition count post-execution    |
 
 - [01]-[SELECT]: `select(*columns, **projections) -> DataFrame`
 - [02]-[WHERE]: `where(predicate) -> DataFrame`

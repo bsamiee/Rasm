@@ -4,15 +4,15 @@
 
 ## [01]-[INDEX]
 
-| [INDEX] | [OWNER]                | [OWNS]                                       |
-| :-----: | :--------------------- | :------------------------------------------- |
-|  [01]   | `ProfileSource`        | admitted path and import policy              |
+| [INDEX] | [OWNER]                | [OWNS]                                        |
+| :-----: | :--------------------- | :-------------------------------------------- |
+|  [01]   | `ProfileSource`        | admitted path and import policy               |
 |  [02]   | `ProfileLane`          | per-layer fabrication intent and closure duty |
-|  [03]   | `ProfileFormat`        | DXF/DWG read, encoding, and census dispatch  |
-|  [04]   | `ProfileTopology`      | contour stitching, healing, and nesting      |
-|  [05]   | `ProfileImportReceipt` | source, census, repairs, and admitted loops  |
-|  [06]   | `ProfileProjection`    | parameterized profile egress                 |
-|  [07]   | `Ingress`              | total source-to-admitted-geometry dispatch   |
+|  [03]   | `ProfileFormat`        | DXF/DWG read, encoding, and census dispatch   |
+|  [04]   | `ProfileTopology`      | contour stitching, healing, and nesting       |
+|  [05]   | `ProfileImportReceipt` | source, census, repairs, and admitted loops   |
+|  [06]   | `ProfileProjection`    | parameterized profile egress                  |
+|  [07]   | `Ingress`              | total source-to-admitted-geometry dispatch    |
 
 ## [02]-[RAW_ADMISSION]
 

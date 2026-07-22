@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 
 namespace Rasm.Benchmarks;
 
-// --- [TYPES] -------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 // The robust statistic the budget gates on is the policy, carried as a vocabulary row with its own
 // nanosecond projector — never a string knob re-dispatched at the gate. Mean is admitted but
 // tail-sensitive; Median is the default robust choice; Min is the contention-free floor.
@@ -28,7 +28,7 @@ public abstract partial record GateVerdict {
     public sealed record Breach(string Label, string Detail) : GateVerdict;
 }
 
-// --- [CONSTANTS] ---------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 internal static class RegressionPolicy {
     // Breakpoints require scale-free BIC gain beyond a per-step penalty; the tolerance is the
     // fractional final-segment level jump above which a sustained regression fails the session.
@@ -37,7 +37,7 @@ internal static class RegressionPolicy {
     internal const double NanosecondsPerMillisecond = 1_000_000.0;
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 // One registry row: the exact benchmark FullName, the absolute budget over the gated statistic,
 // and the dispersion ceiling above which the sample is too noisy to gate.
 public sealed record BenchCase(string FullName, double BudgetMs, GateStat GateStat, double MaxRelIqr = 0.25);
@@ -67,7 +67,7 @@ public sealed record BdnReport {
 [JsonSerializable(typeof(BdnReport))]
 internal sealed partial class BdnContext : JsonSerializerContext;
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Regression {
     // Gate resolves every registered case to one typed verdict row. Matching is exact FullName —
     // a substring match would let one benchmark satisfy several cases, or the wrong one.

@@ -585,19 +585,19 @@ public static class Surfaces {
 
 ## [04]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]            | [OWNER]          | [FORM]                                       | [ENTRY]                               |
-| :-----: | :------------------- | :--------------- | :------------------------------------------- | :------------------------------------ |
-|  [01]   | network continuity   | `NetworkLaw`     | auto-sorted or U/V topology with typed codes | `SurfaceOp.Network`                   |
-|  [02]   | network diagnostics  | `SurfaceOp`      | `out int error` as a `Code` fact             | `SurfaceSlot.Networked` facts         |
-|  [03]   | grid fitting         | `GridFit`        | control or through with closed-axis set      | `SurfaceOp.Grid`                      |
-|  [04]   | geodesic modalities  | `SurfaceOp`      | fitted curve product or uv-sample evidence   | `GeodesicCurve` / `GeodesicSamples`  |
-|  [05]   | analytic seeding     | `SurfaceForm`    | constructor-bearing rows over `AnalyticSeed` | `SurfaceOp.Seed`                      |
-|  [06]   | rolling-ball seeding | `RollingSeed`    | auto, flipped, or uv-seeded as one union     | `SurfaceOp.RollingBall`               |
-|  [07]   | revolve profile      | `RevolveProfile` | leased curve or bare line                    | `SurfaceOp.Revolve`                   |
-|  [08]   | fit and rebuild      | `SurfaceFitLaw`  | full value-semantic instance rebuild family  | `SurfaceOp.Fit`                       |
-|  [09]   | corner arity         | `CornerSeed`     | triangle or tolerance-driven quad            | `SurfaceOp.Corners`                   |
-|  [10]   | sum extent           | `SumExtent`      | direction or second-curve payload            | `SurfaceOp.Sum`                       |
-|  [11]   | surface verbs        | `SurfaceOp`      | one flat `[Union]`, total generated dispatch | `Surfaces.Build`                      |
+| [INDEX] | [CONCERN]            | [OWNER]          | [FORM]                                       | [ENTRY]                             |
+| :-----: | :------------------- | :--------------- | :------------------------------------------- | :---------------------------------- |
+|  [01]   | network continuity   | `NetworkLaw`     | auto-sorted or U/V topology with typed codes | `SurfaceOp.Network`                 |
+|  [02]   | network diagnostics  | `SurfaceOp`      | `out int error` as a `Code` fact             | `SurfaceSlot.Networked` facts       |
+|  [03]   | grid fitting         | `GridFit`        | control or through with closed-axis set      | `SurfaceOp.Grid`                    |
+|  [04]   | geodesic modalities  | `SurfaceOp`      | fitted curve product or uv-sample evidence   | `GeodesicCurve` / `GeodesicSamples` |
+|  [05]   | analytic seeding     | `SurfaceForm`    | constructor-bearing rows over `AnalyticSeed` | `SurfaceOp.Seed`                    |
+|  [06]   | rolling-ball seeding | `RollingSeed`    | auto, flipped, or uv-seeded as one union     | `SurfaceOp.RollingBall`             |
+|  [07]   | revolve profile      | `RevolveProfile` | leased curve or bare line                    | `SurfaceOp.Revolve`                 |
+|  [08]   | fit and rebuild      | `SurfaceFitLaw`  | full value-semantic instance rebuild family  | `SurfaceOp.Fit`                     |
+|  [09]   | corner arity         | `CornerSeed`     | triangle or tolerance-driven quad            | `SurfaceOp.Corners`                 |
+|  [10]   | sum extent           | `SumExtent`      | direction or second-curve payload            | `SurfaceOp.Sum`                     |
+|  [11]   | surface verbs        | `SurfaceOp`      | one flat `[Union]`, total generated dispatch | `Surfaces.Build`                    |
 
 ## [05]-[RESEARCH]
 

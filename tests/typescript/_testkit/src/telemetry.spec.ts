@@ -2,7 +2,7 @@ import { describe, expect, it } from '@effect/vitest';
 import { Array, Effect, Exit, Metric, Option } from 'effect';
 import { Telemetry } from './telemetry.ts';
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 // Metric identity is registry-global; every spec here mints its own names so no drift row can
 // alias another spec's counters.
@@ -11,7 +11,7 @@ const _taggedReuse = Metric.tagged(Metric.counter('kit_spec_tagged_reuse'), 'ten
 const _inert = Metric.counter('kit_spec_inert');
 const _refusals = Metric.frequency('kit_spec_refusals');
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const _driftOf = (drift: ReadonlyArray<{ readonly name: string; readonly value: number; readonly before: number }>, name: string) =>
     Array.findFirst(drift, (row) => row.name === name);

@@ -5,7 +5,7 @@ import { K6 } from '@rasm/ts-testkit/e2e';
 import { Effect } from 'effect';
 import { expect, test } from '../fixtures.ts';
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 // The playwright body is the platform-forced promise seam; the k6 driver stays on the rail up to it.
 const _run = <A, E>(program: Effect.Effect<A, E, CommandExecutor.CommandExecutor | FileSystem.FileSystem>): Promise<A> =>

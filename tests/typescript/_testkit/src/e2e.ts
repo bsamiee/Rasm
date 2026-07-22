@@ -2,7 +2,7 @@ import { Command, type CommandExecutor, FileSystem } from '@effect/platform';
 import type { PlatformError } from '@effect/platform/Error';
 import { Data, Effect, Option, pipe, Record, Schema } from 'effect';
 
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 declare namespace Hermetic {
     type Route = keyof typeof _PAGES;
@@ -16,7 +16,7 @@ declare namespace K6 {
     }>;
 }
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _ORIGIN = 'https://rasm.test';
 
@@ -105,7 +105,7 @@ document.querySelector('[data-testid=held]').textContent = localStorage.getItem(
     },
 } as const;
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 // Both threshold-gate spellings the summary export has shipped; the verdict authority stays the exit code.
 const _Gate = Schema.Union(Schema.Boolean, Schema.Struct({ ok: Schema.Boolean }));
@@ -122,14 +122,14 @@ class Summary extends Schema.Class<Summary>('K6Summary')({
     }
 }
 
-// --- [ERRORS] ----------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
 class K6Fault extends Data.TaggedError('K6Fault')<{
     readonly reason: 'crashed' | 'summary';
     readonly detail: string;
 }> {}
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 // lang rides the shell so every corpus document clears the axe html-has-lang gauge by construction.
 const _shell = (page: { readonly title: string; readonly body: string }): string =>
@@ -183,6 +183,6 @@ const K6 = {
         }),
 } as const;
 
-// --- [EXPORTS] ---------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Hermetic, K6, K6Fault };

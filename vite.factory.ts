@@ -4,7 +4,7 @@
  * Import this in app/package configs. Root vite.config.ts imports and executes.
  */
 
-// --- [RUNTIME_PRELUDE] -------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 import { dirname, resolve as pathResolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import babel from '@rolldown/plugin-babel';
@@ -21,7 +21,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 import svgr from 'vite-plugin-svgr';
 import webfontDownload from 'vite-plugin-webfont-dl';
 
-// --- [TYPES] -----------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 type EnvironmentConsumer = { readonly config: { readonly consumer: 'client' | 'server' } };
 type BuildRuntimeEnv = NodeJS.ProcessEnv & {
@@ -32,7 +32,7 @@ type BuildRuntimeEnv = NodeJS.ProcessEnv & {
 type Cfg = S.Schema.Type<typeof CfgSchema>;
 type Mode = Cfg['mode'];
 
-// --- [MODELS] ----------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 const CfgSchema = S.Union(
     S.Struct({
@@ -71,7 +71,7 @@ const CfgSchema = S.Union(
     }),
 );
 
-// --- [CONSTANTS] -------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const ROOT_DIR = dirname(fileURLToPath(import.meta.url));
 const _ENV: BuildRuntimeEnv = process.env;
@@ -135,7 +135,7 @@ const B = Object.freeze({
     },
 } as const);
 
-// --- [OPERATIONS] ------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const css = (dev = false) => ({
     devSourcemap: dev,
@@ -163,7 +163,7 @@ const clientOnly = (plugin: Plugin): Plugin => ({
     applyToEnvironment: (environment: EnvironmentConsumer) => environment.config.consumer === 'client',
 });
 
-// --- [COMPOSITION] -----------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 const buildApp = ({ build, environments: { client } }: ViteBuilder): Promise<void> =>
     pipe(
@@ -421,6 +421,6 @@ const createConfig = (input: unknown): Effect.Effect<UserConfig, never, never> =
             ),
     );
 
-// --- [EXPORTS] ---------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { createConfig };

@@ -34,15 +34,15 @@
 [ENTRYPOINT_SCOPE]: registration
 - rail: telemetry egress
 
-| [INDEX] | [SURFACE]                                      | [KIND]              | [CAPABILITY]                                                                                           |
-| :-----: | :--------------------------------------------- | :------------------ | :----------------------------------------------------------------------------------------------------- |
-|  [01]   | `UseOtlpExporter()`                            | cross-cutting claim | all three signals on `IOpenTelemetryBuilder`, once                                                     |
-|  [02]   | `UseOtlpExporter(OtlpExportProtocol, Uri)`     | configured claim    | protocol + endpoint inline                                                                             |
-|  [03]   | `UseOtlpExporter(Action<OtlpExporterBuilder>)` | shaped claim        | per-signal option shaping                                                                              |
-|  [04]   | `UseOtlpExporter(IConfiguration)`              | bound claim         | endpoint/headers/protocol from configuration                                                           |
-|  [05]   | `AddOtlpExporter` (trace)                      | per-signal          | `TracerProviderBuilder`, optional named options                                                        |
-|  [06]   | `AddOtlpExporter` (metric)                     | per-signal          | `MeterProviderBuilder`, optional reader-options leg                                                    |
-|  [07]   | `AddOtlpExporter` (log)                        | per-signal          | log seats, optional processor-options leg                                                              |
+| [INDEX] | [SURFACE]                                      | [KIND]              | [CAPABILITY]                                        |
+| :-----: | :--------------------------------------------- | :------------------ | :-------------------------------------------------- |
+|  [01]   | `UseOtlpExporter()`                            | cross-cutting claim | all three signals on `IOpenTelemetryBuilder`, once  |
+|  [02]   | `UseOtlpExporter(OtlpExportProtocol, Uri)`     | configured claim    | protocol + endpoint inline                          |
+|  [03]   | `UseOtlpExporter(Action<OtlpExporterBuilder>)` | shaped claim        | per-signal option shaping                           |
+|  [04]   | `UseOtlpExporter(IConfiguration)`              | bound claim         | endpoint/headers/protocol from configuration        |
+|  [05]   | `AddOtlpExporter` (trace)                      | per-signal          | `TracerProviderBuilder`, optional named options     |
+|  [06]   | `AddOtlpExporter` (metric)                     | per-signal          | `MeterProviderBuilder`, optional reader-options leg |
+|  [07]   | `AddOtlpExporter` (log)                        | per-signal          | log seats, optional processor-options leg           |
 
 Log registration lands on both `LoggerProviderBuilder` and `OpenTelemetryLoggerOptions`; the `LogRecordExportProcessorOptions` and `MetricReaderOptions` legs shape the processor and reader per signal.
 

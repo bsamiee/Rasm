@@ -3,7 +3,7 @@ import { bench, describe } from 'vitest';
 import { Bench, BenchRow } from './bench.ts';
 import { Imports } from './gauges.ts';
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _LEDGER = Array.flatMap(Array.range(0, 49), (run) =>
     Array.map(
@@ -14,7 +14,7 @@ const _LEDGER = Array.flatMap(Array.range(0, 49), (run) =>
 
 const _SOURCE = { path: 'probe.ts', text: "import { a } from './a.ts';\nimport type { B } from './b.ts';\nexport { a };\n" };
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 describe('kit hot paths', () => {
     bench('sustained-regression fold over a 500-row ledger', () => {

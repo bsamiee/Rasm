@@ -19,10 +19,10 @@
 
 `date_part` discriminates on a bounded vocabulary supplied either as the `DatePart` string-enum member or the equivalent `DatePartT` literal; both forms name the same extractable temporal field.
 
-| [INDEX] | [SYMBOL]     | [TYPE_FAMILY]  | [ROLE]                                                          |
-| :-----: | :----------- | :------------- | :------------------------------------------------------------- |
-|  [01]   | `DatePart`   | `str`-enum     | temporal extraction vocabulary                                |
-|  [02]   | `DatePartT`  | literal alias  | lowercase-string form of every `DatePart` member               |
+| [INDEX] | [SYMBOL]    | [TYPE_FAMILY] | [ROLE]                                           |
+| :-----: | :---------- | :------------ | :----------------------------------------------- |
+|  [01]   | `DatePart`  | `str`-enum    | temporal extraction vocabulary                   |
+|  [02]   | `DatePartT` | literal alias | lowercase-string form of every `DatePart` member |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -31,51 +31,51 @@
 
 Binary kernels take two `ArrayInput` operands and return an `Array`; the checked form errors on overflow, the `_wrapping` form wraps for integer types. Unary negation follows the same checked/wrapping split.
 
-| [INDEX] | [SURFACE]                            | [ENTRY_FAMILY]   | [CAPABILITY]                                      |
-| :-----: | :----------------------------------- | :--------------- | :------------------------------------------------ |
-|  [01]   | `add(lhs, rhs)`                      | checked binary   | `lhs + rhs`, error on overflow                    |
-|  [02]   | `sub(lhs, rhs)`                      | checked binary   | `lhs - rhs`, error on overflow                    |
-|  [03]   | `mul(lhs, rhs)`                      | checked binary   | `lhs * rhs`, error on overflow                    |
-|  [04]   | `div(lhs, rhs)`                      | binary           | `lhs / rhs`                                        |
-|  [05]   | `rem(lhs, rhs)`                      | binary           | `lhs % rhs`                                        |
-|  [06]   | `add_wrapping/sub_wrapping/mul_wrapping(lhs, rhs)` | wrapping binary | integer arithmetic wrapping on overflow           |
-|  [07]   | `neg(array)`                         | checked unary    | element negation, error on overflow               |
-|  [08]   | `neg_wrapping(array)`                | wrapping unary   | integer negation wrapping on overflow             |
+| [INDEX] | [SURFACE]                                          | [ENTRY_FAMILY]  | [CAPABILITY]                            |
+| :-----: | :------------------------------------------------- | :-------------- | :-------------------------------------- |
+|  [01]   | `add(lhs, rhs)`                                    | checked binary  | `lhs + rhs`, error on overflow          |
+|  [02]   | `sub(lhs, rhs)`                                    | checked binary  | `lhs - rhs`, error on overflow          |
+|  [03]   | `mul(lhs, rhs)`                                    | checked binary  | `lhs * rhs`, error on overflow          |
+|  [04]   | `div(lhs, rhs)`                                    | binary          | `lhs / rhs`                             |
+|  [05]   | `rem(lhs, rhs)`                                    | binary          | `lhs % rhs`                             |
+|  [06]   | `add_wrapping/sub_wrapping/mul_wrapping(lhs, rhs)` | wrapping binary | integer arithmetic wrapping on overflow |
+|  [07]   | `neg(array)`                                       | checked unary   | element negation, error on overflow     |
+|  [08]   | `neg_wrapping(array)`                              | wrapping unary  | integer negation wrapping on overflow   |
 
 [ENTRYPOINT_SCOPE]: aggregation kernels (`arro3.compute._aggregate`)
 - rail: arrow-compute
 
 Aggregations reduce an `ArrayInput | ArrowStreamExportable` to one `arro3.core.Scalar`, absorbing a chunked or streamed column without a materialized intermediate.
 
-| [INDEX] | [SURFACE]        | [ENTRY_FAMILY] | [CAPABILITY]              |
-| :-----: | :--------------- | :------------- | :------------------------ |
-|  [01]   | `sum(input)`     | reduction      | `Scalar` sum of values    |
-|  [02]   | `min(input)`     | reduction      | `Scalar` minimum of values |
-|  [03]   | `max(input)`     | reduction      | `Scalar` maximum of values |
+| [INDEX] | [SURFACE]    | [ENTRY_FAMILY] | [CAPABILITY]               |
+| :-----: | :----------- | :------------- | :------------------------- |
+|  [01]   | `sum(input)` | reduction      | `Scalar` sum of values     |
+|  [02]   | `min(input)` | reduction      | `Scalar` minimum of values |
+|  [03]   | `max(input)` | reduction      | `Scalar` maximum of values |
 
 [ENTRYPOINT_SCOPE]: selection kernels (`arro3.compute._filter`, `_take`)
 - rail: arrow-compute
 
 `filter` and `take` are the partition-split primitives: `filter` gates `values` by a boolean `predicate`, `take` gathers `values` at a numeric `indices` array. `filter` is stream-dispatched (an `ArrowStreamExportable` pair returns an `ArrayReader`); `take` is array-only and returns an `Array`.
 
-| [INDEX] | [SURFACE]                    | [ENTRY_FAMILY]    | [CAPABILITY]                                                        |
-| :-----: | :--------------------------- | :---------------- | :----------------------------------------------------------------- |
-|  [01]   | `filter(values, predicate)`  | boolean gate      | keep `values` where `predicate` is true; array→`Array`, stream→reader |
-|  [02]   | `take(values, indices)`      | gather            | select `values` at numeric `indices`, returns `Array`              |
+| [INDEX] | [SURFACE]                   | [ENTRY_FAMILY] | [CAPABILITY]                                                          |
+| :-----: | :-------------------------- | :------------- | :-------------------------------------------------------------------- |
+|  [01]   | `filter(values, predicate)` | boolean gate   | keep `values` where `predicate` is true; array→`Array`, stream→reader |
+|  [02]   | `take(values, indices)`     | gather         | select `values` at numeric `indices`, returns `Array`                 |
 
 [ENTRYPOINT_SCOPE]: cast, boolean-null, dictionary, and temporal kernels
 - rail: arrow-compute
 
 `cast`, `is_null`, `is_not_null`, and `dictionary_encode` are `@overload`-dispatched on the array-vs-stream axis; `can_cast_types` is a pure type predicate; `date_part` extracts an int32 field from a temporal array under the `DatePart`/`DatePartT` vocabulary.
 
-| [INDEX] | [SURFACE]                                | [ENTRY_FAMILY]  | [CAPABILITY]                                                      |
-| :-----: | :--------------------------------------- | :-------------- | :--------------------------------------------------------------- |
-|  [01]   | `cast(input, to_type)`                   | type projection | cast to `ArrowSchemaExportable` target (`DataType`/`Field`/`Schema`) |
-|  [02]   | `can_cast_types(from_type, to_type)`     | type predicate  | `bool` — whether a cast is defined                               |
-|  [03]   | `is_null(input)` / `is_not_null(input)`  | boolean mask    | non-null boolean array of per-element validity                   |
-|  [04]   | `dictionary_encode(array)`               | encode          | dictionary-encoded array; no-op when already dictionary          |
-|  [05]   | `date_part(input, part)`                 | temporal        | int32 extraction of `part` from date/time/timestamp/interval/duration |
-|  [06]   | `concat(input)`                          | consolidation   | collapse a `ChunkedArray`/stream exportable into one `Array`     |
+| [INDEX] | [SURFACE]                               | [ENTRY_FAMILY]  | [CAPABILITY]                                                          |
+| :-----: | :-------------------------------------- | :-------------- | :-------------------------------------------------------------------- |
+|  [01]   | `cast(input, to_type)`                  | type projection | cast to `ArrowSchemaExportable` target (`DataType`/`Field`/`Schema`)  |
+|  [02]   | `can_cast_types(from_type, to_type)`    | type predicate  | `bool` — whether a cast is defined                                    |
+|  [03]   | `is_null(input)` / `is_not_null(input)` | boolean mask    | non-null boolean array of per-element validity                        |
+|  [04]   | `dictionary_encode(array)`              | encode          | dictionary-encoded array; no-op when already dictionary               |
+|  [05]   | `date_part(input, part)`                | temporal        | int32 extraction of `part` from date/time/timestamp/interval/duration |
+|  [06]   | `concat(input)`                         | consolidation   | collapse a `ChunkedArray`/stream exportable into one `Array`          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

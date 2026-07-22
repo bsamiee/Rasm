@@ -16,13 +16,13 @@
 - rail: runtime/work webhook egress
 - `CloudEventV1<T>` requires `id`, `source`, `type`, and `specversion`; optional members are `datacontenttype`, `dataschema`, `subject`, `time`, `data`, and `data_base64`; `[key: string]: unknown` admits extension attributes such as `traceparent`, `tracestate`, and `baggage`.
 
-| [INDEX] | [SURFACE]                                                                              | [RETURN]             |
-| :-----: | :------------------------------------------------------------------------------------- | :------------------- |
-|  [01]   | `new CloudEvent<T = undefined>(event: Partial<CloudEventV1<T>>, strict?: boolean)`       | `CloudEvent<T>`      |
-|  [02]   | `event.cloneWith(options: Partial<Exclude<CloudEventV1<never>, "data">>, strict?)`      | `CloudEvent<T>`      |
-|  [03]   | `event.cloneWith<D>(options: Partial<CloudEventV1<D>>, strict?)`                         | `CloudEvent<D>`      |
-|  [04]   | `CloudEvent.cloneWith(event: CloudEventV1<any>, options: Partial<CloudEventV1<any>>, strict?: boolean)` | `CloudEvent<any>` |
-|  [05]   | `event.toJSON()` / `event.toString()` / `event.validate()`                              | record/string/boolean |
+| [INDEX] | [SURFACE]                                                                                               | [RETURN]              |
+| :-----: | :------------------------------------------------------------------------------------------------------ | :-------------------- |
+|  [01]   | `new CloudEvent<T = undefined>(event: Partial<CloudEventV1<T>>, strict?: boolean)`                      | `CloudEvent<T>`       |
+|  [02]   | `event.cloneWith(options: Partial<Exclude<CloudEventV1<never>, "data">>, strict?)`                      | `CloudEvent<T>`       |
+|  [03]   | `event.cloneWith<D>(options: Partial<CloudEventV1<D>>, strict?)`                                        | `CloudEvent<D>`       |
+|  [04]   | `CloudEvent.cloneWith(event: CloudEventV1<any>, options: Partial<CloudEventV1<any>>, strict?: boolean)` | `CloudEvent<any>`     |
+|  [05]   | `event.toJSON()` / `event.toString()` / `event.validate()`                                              | record/string/boolean |
 
 `strict` defaults to validation on. Invalid construction and validation throw `ValidationError`; runtime code lifts that throw through `Effect.try` before an envelope enters `HookPayload`.
 
@@ -64,16 +64,16 @@ interface Binding<B extends Message = Message, S extends Message = Message> {
 declare const HTTP: Binding
 ```
 
-| [INDEX] | [SURFACE]                       | [DECLARED RESULT]                       | [WIRE ROLE]                                  |
-| :-----: | :------------------------------ | :-------------------------------------- | :------------------------------------------- |
-|  [01]   | `HTTP.binary<T>(event)`         | `Message`                               | CloudEvents attributes in `ce-*` headers     |
-|  [02]   | `HTTP.structured<T>(event)`     | `Message`                               | envelope body plus structured content type   |
-|  [03]   | `HTTP.toEvent<T>(message)`      | `CloudEventV1<T> \| CloudEventV1<T>[]` | binary, structured, or batch decode           |
-|  [04]   | `HTTP.isEvent(message)`         | `boolean`                               | pre-decode detection                          |
-|  [05]   | `headersFor<T>(event)`          | `Headers`                               | exported HTTP binary-header projection        |
-|  [06]   | `sanitize(headers)`             | `Headers`                               | lowercase and content-type normalization      |
-|  [07]   | `allowedContentTypes`           | content-type literal array              | admitted binary payload content types         |
-|  [08]   | `requiredHeaders`               | required `ce-*` literal array           | binary envelope minimum                       |
+| [INDEX] | [SURFACE]                   | [DECLARED_RESULT]                      | [WIRE_ROLE]                                |
+| :-----: | :-------------------------- | :------------------------------------- | :----------------------------------------- |
+|  [01]   | `HTTP.binary<T>(event)`     | `Message`                              | CloudEvents attributes in `ce-*` headers   |
+|  [02]   | `HTTP.structured<T>(event)` | `Message`                              | envelope body plus structured content type |
+|  [03]   | `HTTP.toEvent<T>(message)`  | `CloudEventV1<T> \| CloudEventV1<T>[]` | binary, structured, or batch decode        |
+|  [04]   | `HTTP.isEvent(message)`     | `boolean`                              | pre-decode detection                       |
+|  [05]   | `headersFor<T>(event)`      | `Headers`                              | exported HTTP binary-header projection     |
+|  [06]   | `sanitize(headers)`         | `Headers`                              | lowercase and content-type normalization   |
+|  [07]   | `allowedContentTypes`       | content-type literal array             | admitted binary payload content types      |
+|  [08]   | `requiredHeaders`           | required `ce-*` literal array          | binary envelope minimum                    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

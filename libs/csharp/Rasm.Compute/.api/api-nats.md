@@ -34,18 +34,18 @@ process-global static. This page is HOST-LOCAL and carries no TS_PROJECTION.
 - rail: capture-ingest
 - note: the JetStream/KV/Object types (`INatsJSContext`, `INatsKVStore`, `INatsObjStore`, `PubAckResponse`) are the Persistence overlay's and are absent here; the connection is per-instance (`new NatsConnection(NatsOpts)`, `IAsyncDisposable`), one shared subscriber, never a static.
 
-| [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]    | [CAPABILITY]                                                             |
-| :-----: | :------------------------------------------------ | :--------------- | :----------------------------------------------------------------------- |
-|  [01]   | `NATS.Net.NatsClient : INatsClient`               | simplified entry | one-line subscriber; `.Connection` exposes `INatsConnection`             |
-|  [02]   | `INatsClient : IAsyncDisposable`                  | client           | the subscribe/publish/ping surface Compute binds against                 |
-|  [03]   | `INatsConnection : INatsClient`                   | connection       | adds request/reply, `SubscribeCoreAsync`, lifecycle events, `Opts`       |
-|  [04]   | `NatsConnection : INatsConnection`                | connection       | the concrete per-instance handle (`new NatsConnection(NatsOpts)`)        |
-|  [05]   | `NatsOpts` (sealed record)                        | options          | url, name, serializer registry, subscription buffer                      |
-|  [06]   | `NatsMsg<T>` (readonly record struct)             | message          | `Subject`/`Data`/`Headers`/`ReplyTo`/`Connection`; `ReplyAsync`          |
-|  [07]   | `NatsHeaders : IDictionary<string, StringValues>` | headers          | the `traceparent`/`tracestate` W3C carrier; indexer non-throwing         |
-|  [08]   | `NatsSubOpts` (readonly record struct)            | sub options      | subscription channel/serializer options passed to `SubscribeAsync`       |
-|  [09]   | `NatsMsgFlags` (enum)                             | message bit      | `None`/`Empty`/`NoResponders` — the `IsEmpty`/`HasNoResponders` bits     |
-|  [10]   | `INatsDeserialize<T>` / `NatsRawSerializer<T>`    | codec            | per-type deserialize; `NatsRawSerializer<byte[]>` is the raw passthrough |
+| [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]    | [CAPABILITY]                                                   |
+| :-----: | :------------------------------------------------ | :--------------- | :------------------------------------------------------------- |
+|  [01]   | `NATS.Net.NatsClient : INatsClient`               | simplified entry | one-line subscriber; `.Connection` is `INatsConnection`        |
+|  [02]   | `INatsClient : IAsyncDisposable`                  | client           | subscribe/publish/ping surface Compute binds against          |
+|  [03]   | `INatsConnection : INatsClient`                   | connection       | request/reply, `SubscribeCoreAsync`, lifecycle, `Opts`         |
+|  [04]   | `NatsConnection : INatsConnection`                | connection       | concrete per-instance handle (`new NatsConnection(NatsOpts)`)  |
+|  [05]   | `NatsOpts` (sealed record)                        | options          | url, name, serializer registry, subscription buffer           |
+|  [06]   | `NatsMsg<T>` (readonly record struct)             | message          | `Subject`/`Data`/`Headers`/`ReplyTo`/`Connection`; `ReplyAsync` |
+|  [07]   | `NatsHeaders : IDictionary<string, StringValues>` | headers          | `traceparent`/`tracestate` W3C carrier; non-throwing indexer   |
+|  [08]   | `NatsSubOpts` (readonly record struct)            | sub options      | subscription channel/serializer options for `SubscribeAsync`   |
+|  [09]   | `NatsMsgFlags` (enum)                             | message bit      | `None`/`Empty`/`NoResponders` — `IsEmpty`/`HasNoResponders`    |
+|  [10]   | `INatsDeserialize<T>` / `NatsRawSerializer<T>`    | codec            | per-type deserialize; `NatsRawSerializer<byte[]>` passthrough  |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -54,17 +54,17 @@ process-global static. This page is HOST-LOCAL and carries no TS_PROJECTION.
 - note: `SubscribeAsync<T>` yields `IAsyncEnumerable<NatsMsg<T>>` — an `await foreach` drain that runs until the `CancellationToken` trips or the connection drops; `queueGroup` load-balances the same subject across N subscribers. `NatsMsg<byte[]>.Data` is the structured-mode CloudEvents body, `Headers` is `NatsHeaders?` (null when the publisher sent none), and the `NatsHeaders` string indexer returns `StringValues.Empty` for an absent key rather than throwing — W3C trace lookup is `msg.Headers?.TryGetValue("traceparent", out var tp)`.
 - returns: `SubscribeAsync<T>` → `IAsyncEnumerable<NatsMsg<T>>`; each `NatsMsg<T>.Data` → `T?`; `NatsHeaders[key]` → `StringValues`.
 
-| [INDEX] | [SURFACE]                                                                     | [ENTRY_FAMILY] | [CAPABILITY]                                                       |
-| :-----: | :---------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------------- |
-|  [01]   | `client.SubscribeAsync<byte[]>(subject, queueGroup?, serializer?, opts?, ct)` | subscribe      | → `IAsyncEnumerable<NatsMsg<byte[]>>`; the sensor sample stream    |
-|  [02]   | `connection.SubscribeCoreAsync<T>(subject, queueGroup?, …)`                   | subscribe      | → `ValueTask<INatsSub<T>>`; lower-level handle for manual drain    |
-|  [03]   | `msg.Data`                                                                    | message read   | `byte[]?` structured-mode CloudEvents body handed to the formatter |
-|  [04]   | `msg.Subject` / `msg.ReplyTo`                                                 | message read   | routing token and the RPC reply subject                            |
-|  [05]   | `msg.Headers`                                                                 | header carrier | `NatsHeaders?`; null when the publisher attached no headers        |
-|  [06]   | `msg.Headers?.TryGetValue(name, out StringValues v)`                          | header lookup  | non-throwing W3C `traceparent`/`tracestate` extract                |
-|  [07]   | `msg.Headers?[name]`                                                          | header lookup  | `StringValues`; `StringValues.Empty` for an absent key             |
-|  [08]   | `msg.ReplyAsync<TReply>(data, headers?, …)`                                   | rpc reply      | reply to a request-subject message — the remote-compute RPC leg    |
-|  [09]   | `connection.RequestAsync<TReq, TReply>(subject, data, …)`                     | rpc request    | → `ValueTask<NatsMsg<TReply>>`; dispatch a remote-compute call     |
+| [INDEX] | [SURFACE]                                                                     | [ENTRY_FAMILY] | [CAPABILITY]                          |
+| :-----: | :---------------------------------------------------------------------------- | :------------- | :------------------------------------ |
+|  [01]   | `client.SubscribeAsync<byte[]>(subject, queueGroup?, serializer?, opts?, ct)` | subscribe      | → `IAsyncEnumerable<NatsMsg<byte[]>>` |
+|  [02]   | `connection.SubscribeCoreAsync<T>(subject, queueGroup?, …)`                   | subscribe      | → `ValueTask<INatsSub<T>>` drain      |
+|  [03]   | `msg.Data`                                                                    | message read   | `byte[]?` CloudEvents body            |
+|  [04]   | `msg.Subject` / `msg.ReplyTo`                                                 | message read   | routing token / RPC reply subject     |
+|  [05]   | `msg.Headers`                                                                 | header carrier | `NatsHeaders?`; null when none        |
+|  [06]   | `msg.Headers?.TryGetValue(name, out StringValues v)`                          | header lookup  | non-throwing W3C extract              |
+|  [07]   | `msg.Headers?[name]`                                                          | header lookup  | `StringValues`; `.Empty` if absent    |
+|  [08]   | `msg.ReplyAsync<TReply>(data, headers?, …)`                                   | rpc reply      | reply to a request-subject message    |
+|  [09]   | `connection.RequestAsync<TReq, TReply>(subject, data, …)`                     | rpc request    | → `ValueTask<NatsMsg<TReply>>`        |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

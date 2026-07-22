@@ -23,16 +23,16 @@
 
 Each loader's `parse` accepts `(data, options?, context?)`; the row `[SIGNATURE]` names the return and the discriminant.
 
-| [INDEX] | [SYMBOL]                   | [SIGNATURE]                                        | [CONSUMER_BOUNDARY]                                   |
-| :-----: | :------------------------- | :------------------------------------------------- | :---------------------------------------------------- |
-|  [01]   | `Tiles3DLoader`            | `=> Promise<Content\|Tileset>`; `isTileset` sniff  | deck `Tile3DLayer` `loaders`/`loader` default decoder |
-|  [02]   | `CesiumIonLoader`          | `preload(url, opts?)` then `parse`                 | Cesium Ion-hosted tilesets; resolves the auth token   |
-|  [03]   | `Tile3DSubtreeLoader`      | `=> Subtree` — implicit-tiling availability        | `.subtree` bitstreams for subdivided tilesets         |
-|  [04]   | `Tiles3DArchiveFileLoader` | `=> Promise<ArrayBuffer>` — `.3tz` member          | archive member extraction before content decode       |
-|  [05]   | `Tiles3DArchive`           | `class` — random-access `.3tz` reader              | member lookup over an opened tile archive             |
-|  [06]   | `Tile3DWriter`             | `encode`/`encodeSync(tile, opts?) => ArrayBuffer`  | inverse egress — a decoded tile back to `b3dm` bytes  |
-|  [07]   | `Tile3DFeatureTable`       | `class` — per-feature property accessor            | `featureTable` decode for point/instance attributes   |
-|  [08]   | `Tile3DBatchTable`         | `class` — per-batch metadata accessor              | `batchTable` decode for picked-feature metadata       |
+| [INDEX] | [SYMBOL]                   | [SIGNATURE]                                       | [CONSUMER_BOUNDARY]                                   |
+| :-----: | :------------------------- | :------------------------------------------------ | :---------------------------------------------------- |
+|  [01]   | `Tiles3DLoader`            | `=> Promise<Content\|Tileset>`; `isTileset` sniff | deck `Tile3DLayer` `loaders`/`loader` default decoder |
+|  [02]   | `CesiumIonLoader`          | `preload(url, opts?)` then `parse`                | Cesium Ion-hosted tilesets; resolves the auth token   |
+|  [03]   | `Tile3DSubtreeLoader`      | `=> Subtree` — implicit-tiling availability       | `.subtree` bitstreams for subdivided tilesets         |
+|  [04]   | `Tiles3DArchiveFileLoader` | `=> Promise<ArrayBuffer>` — `.3tz` member         | archive member extraction before content decode       |
+|  [05]   | `Tiles3DArchive`           | `class` — random-access `.3tz` reader             | member lookup over an opened tile archive             |
+|  [06]   | `Tile3DWriter`             | `encode`/`encodeSync(tile, opts?) => ArrayBuffer` | inverse egress — a decoded tile back to `b3dm` bytes  |
+|  [07]   | `Tile3DFeatureTable`       | `class` — per-feature property accessor           | `featureTable` decode for point/instance attributes   |
+|  [08]   | `Tile3DBatchTable`         | `class` — per-batch metadata accessor             | `batchTable` decode for picked-feature metadata       |
 
 ## [03]-[OPTIONS_AND_TYPES]
 

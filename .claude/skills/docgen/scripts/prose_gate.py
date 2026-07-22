@@ -205,8 +205,7 @@ FENCE = re.compile(r"^(?P<indent>[ \t]*)(?P<marker>`{3,}|~{3,})(?P<info>.*)$")
 # functional layout keys (`layout`, `elk`, curve, geometry knobs) — never appearance. A styling key strips with its nested block; a color
 # value marks its key as appearance whatever its spelling.
 MERMAID_STYLE_KEY = re.compile(
-    r"^(\s*)([\w-]*(?:color|colours|fill|stroke|font|opacity|bkg|background|theme|look|gradient|shadow|darkmode|labelstyle)[\w-]*)\s*:",
-    re.IGNORECASE,
+    r"^(\s*)([\w-]*(?:color|colours|fill|stroke|font|opacity|bkg|background|theme|look|gradient|shadow|darkmode|labelstyle)[\w-]*)\s*:", re.IGNORECASE
 )
 MERMAID_HEX_VALUE = re.compile(r":\s*[\"']?#[0-9A-Fa-f]{3,8}\b")
 MERMAID_STYLE_LINE = re.compile(r"^\s*(classDef\s|linkStyle\s|style\s+\S+\s|%%\{\s*init|Update(?:Rel|Element)Style\b)")
@@ -706,13 +705,27 @@ def lex(path: Path, text: str, cap: int) -> tuple[Document, tuple[Row, ...]]:
             marker, info = matched.group("marker"), matched.group("info").strip()
             tokens = info.lower().split()
             if not info:
-                rows.append(row(path, number, Check.FENCE_LANGUAGE, "fail", "opening fence has no language tag; tag the language, or `text` for plain payload"))
+                rows.append(
+                    row(
+                        path, number, Check.FENCE_LANGUAGE, "fail", "opening fence has no language tag; tag the language, or `text` for plain payload"
+                    )
+                )
             elif template:
                 pass
             elif len(tokens) == 1 and tokens[0] not in ("text", "mermaid"):
-                rows.append(row(path, number, Check.FENCE_INTENT, "warn", f"fence `{info}` carries no intent label; append one from the closed intent set"))
+                rows.append(
+                    row(path, number, Check.FENCE_INTENT, "warn", f"fence `{info}` carries no intent label; append one from the closed intent set")
+                )
             elif len(tokens) > 1 and tokens[1] not in FENCE_INTENTS:
-                rows.append(row(path, number, Check.FENCE_INTENT, "fail", f"fence intent {tokens[1]} outside the closed set {', '.join(sorted(FENCE_INTENTS))}"))
+                rows.append(
+                    row(
+                        path,
+                        number,
+                        Check.FENCE_INTENT,
+                        "fail",
+                        f"fence intent {tokens[1]} outside the closed set {', '.join(sorted(FENCE_INTENTS))}",
+                    )
+                )
             fence = (marker[0], len(marker), number, info.lower(), len(matched.group("indent")))
             access = "mermaid" not in tokens[:1] if tokens else True
             mermaid = (access, 2 if access else 0, None)
@@ -730,7 +743,13 @@ def lex(path: Path, text: str, cap: int) -> tuple[Document, tuple[Row, ...]]:
             rows.append(row(path, number, Check.FENCE_GEOMETRY, "fail", f"card row {len(line)} > cap {cap}; demote the tail to the owning page"))
         if not template and ROUTER_CARD.match(line) and len(line) > cap:
             rows.append(
-                row(path, number, Check.ROUTER_WIDTH, "fail", f"router card {len(line)} cols > cap {cap}; one owner, one charter phrase — demote the tail")
+                row(
+                    path,
+                    number,
+                    Check.ROUTER_WIDTH,
+                    "fail",
+                    f"router card {len(line)} cols > cap {cap}; one owner, one charter phrase — demote the tail",
+                )
             )
         if heading := HEADING.match(line):
             headings.append(Heading(number, len(heading.group("level")), heading.group("title")))
@@ -885,7 +904,9 @@ def table_rows(doc: Document) -> tuple[Row, ...]:
             rows.append(row(doc.path, table.line, Check.TABLE_INDEX, "fail", "enumerable table lacks its leading centered [INDEX] column; insert it"))
         if indexed:
             if table.aligns and table.aligns[0] != "center":
-                rows.append(row(doc.path, sep_line, Check.TABLE_INDEX, "fail", f"[INDEX] column is {table.aligns[0]}-aligned; center it with `:---:`"))
+                rows.append(
+                    row(doc.path, sep_line, Check.TABLE_INDEX, "fail", f"[INDEX] column is {table.aligns[0]}-aligned; center it with `:---:`")
+                )
             for index, body in enumerate(table.rows, 1):
                 expected = f"[{index:02}]"
                 actual = body[0] if body else "<empty>"
@@ -942,7 +963,9 @@ def table_rows(doc: Document) -> tuple[Row, ...]:
             for hit in pattern.finditer(QUOTED_SPAN.sub(" ", cell))
         )
         rows.extend(
-            row(doc.path, table.line + index + 1, Check.BOLD_EMPHASIS, "fail", f"{hit.group(0)[:60]} — bold is banned; structure carries the emphasis")
+            row(
+                doc.path, table.line + index + 1, Check.BOLD_EMPHASIS, "fail", f"{hit.group(0)[:60]} — bold is banned; structure carries the emphasis"
+            )
             for index, body in enumerate(table.rows, 1)
             for cell in body
             for hit in BOLD.finditer(QUOTED_SPAN.sub(" ", cell))
@@ -985,13 +1008,17 @@ def heading_rows(doc: Document) -> tuple[Row, ...]:
             continue
         actual = int(matched.group("n"))
         if actual != expected:
-            rows.append(row(doc.path, heading.line, Check.HEADING_ORDER, "fail", f"H2 numbered [{actual:02}] where [{expected:02}] is next; renumber"))
+            rows.append(
+                row(doc.path, heading.line, Check.HEADING_ORDER, "fail", f"H2 numbered [{actual:02}] where [{expected:02}] is next; renumber")
+            )
         expected = actual + 1
     slugs: dict[str, int] = {}
     for heading in doc.headings:
         slug = re.sub(r"[^a-z0-9 -]", "", heading.title.lower())
         if slug in slugs:
-            rows.append(row(doc.path, heading.line, Check.HEADING_ANCHOR, "fail", f"anchor slug collides with line {slugs[slug]}; retitle one heading"))
+            rows.append(
+                row(doc.path, heading.line, Check.HEADING_ANCHOR, "fail", f"anchor slug collides with line {slugs[slug]}; retitle one heading")
+            )
         else:
             slugs[slug] = heading.line
     return tuple(rows)
@@ -1186,7 +1213,13 @@ def card_rows(path: Path, text: str) -> tuple[Row, ...]:
             card, seen = (number, slug, status), set()
             if NUMERIC_ID.match(slug):
                 rows.append(
-                    row(path, number, Check.CARD_LEADER, "fail", f"id [{slug}] is pure-numeric; ids are semantic UPPERCASE_SNAKE slugs carrying meaning")
+                    row(
+                        path,
+                        number,
+                        Check.CARD_LEADER,
+                        "fail",
+                        f"id [{slug}] is pure-numeric; ids are semantic UPPERCASE_SNAKE slugs carrying meaning",
+                    )
                 )
             elif not SLUG_SHAPE.match(slug):
                 rows.append(row(path, number, Check.CARD_LEADER, "fail", f"slug [{slug}] breaks UPPERCASE_SNAKE — a hyphenated slug is a defect"))
@@ -1304,10 +1337,7 @@ def research_rows(path: Path, text: str) -> tuple[Row, ...]:
         return ()
     parts = path.parts
     spec_page = (
-        ".planning" in parts
-        and parts.index(".planning") < len(parts) - 2
-        and path.name not in ROUTING_FILES
-        and path.name != "ARCHITECTURE.md"
+        ".planning" in parts and parts.index(".planning") < len(parts) - 2 and path.name not in ROUTING_FILES and path.name != "ARCHITECTURE.md"
     )
     lines = tuple(text.splitlines())
     rows: list[Row] = []
@@ -1351,7 +1381,13 @@ def research_rows(path: Path, text: str) -> tuple[Row, ...]:
         token, status, body = entry["token"], entry["status"], entry["body"]
         if NUMERIC_ID.match(token):
             rows.append(
-                row(path, number, Check.RESEARCH_ROW, "fail", f"token [{token}] is pure-numeric; tokens are semantic UPPERCASE_SNAKE slugs carrying meaning")
+                row(
+                    path,
+                    number,
+                    Check.RESEARCH_ROW,
+                    "fail",
+                    f"token [{token}] is pure-numeric; tokens are semantic UPPERCASE_SNAKE slugs carrying meaning",
+                )
             )
         elif not SLUG_SHAPE.match(token):
             rows.append(row(path, number, Check.RESEARCH_ROW, "fail", f"token [{token}] breaks UPPERCASE_SNAKE — a hyphenated token is a defect"))
@@ -1416,7 +1452,9 @@ def skill_rows(path: Path, text: str) -> tuple[Row, ...]:
         elif len(description) > SKILL_DESCRIPTION_CAP:
             rows.append(row(path, anchor, Check.SKILL_DESCRIPTION, "warn", f"{len(description)} chars > portability budget {SKILL_DESCRIPTION_CAP}"))
     if len(lines) > SKILL_ROOT_CAP:
-        rows.append(row(path, len(lines), Check.SKILL_ROOT_BUDGET, "fail", f"root {len(lines)} lines > cap {SKILL_ROOT_CAP}; move body into references/"))
+        rows.append(
+            row(path, len(lines), Check.SKILL_ROOT_BUDGET, "fail", f"root {len(lines)} lines > cap {SKILL_ROOT_CAP}; move body into references/")
+        )
     return tuple(rows)
 
 
@@ -1466,7 +1504,9 @@ def comment_rows(path: Path, text: str) -> tuple[Row, ...]:
         # Width is absolute geometry: it binds in every zone, structural lines included.
         width = len(line.rstrip())
         if width > COMMENT_WIDTH_CAP:
-            rows.append(row(path, number, Check.COMMENT_WIDTH, "fail", f"comment line {width} > cap {COMMENT_WIDTH_CAP}; re-wrap with the lead packed"))
+            rows.append(
+                row(path, number, Check.COMMENT_WIDTH, "fail", f"comment line {width} > cap {COMMENT_WIDTH_CAP}; re-wrap with the lead packed")
+            )
         glyphed = body.removeprefix(marker)
         tail = glyphed.removeprefix(" ")
         dash_fill = re.fullmatch(r"-{4,}", tail.strip()) is not None
@@ -1731,9 +1771,7 @@ def hugged_labels(lines: list[str]) -> tuple[list[str], tuple[Change, ...]]:
         # A bracketed label hugs its list: a floating label first earns the colon a list label carries; a table keeps the blank the grid demands.
         floating = bool(FLOATING_LABEL.match(line))
         if floating or LABEL_LEAD.match(line):
-            gap, intro_list, intro_table = label_context(
-                lines[index + 1] if index + 1 < total else "", lines[index + 2] if index + 2 < total else ""
-            )
+            gap, intro_list, intro_table = label_context(lines[index + 1] if index + 1 < total else "", lines[index + 2] if index + 2 < total else "")
             if floating and (intro_list or intro_table):
                 labeled = line.rstrip() + ":"
                 changes.append(Change(index + 1, Repair.COLON, line.strip(), labeled.strip()))
@@ -1765,7 +1803,9 @@ def _strip_fm_styling(block: list[str]) -> tuple[list[str], int]:
             line = block[index]
             depth = len(line) - len(line.lstrip())
             flagged = bool(MERMAID_STYLE_KEY.match(line) or MERMAID_HEX_VALUE.search(line))
-            childless = line.rstrip().endswith(":") and not (index + 1 < len(block) and (len(block[index + 1]) - len(block[index + 1].lstrip())) > depth)
+            childless = line.rstrip().endswith(":") and not (
+                index + 1 < len(block) and (len(block[index + 1]) - len(block[index + 1].lstrip())) > depth
+            )
             if flagged or childless:
                 cut += 1
                 index += 1
@@ -1818,7 +1858,7 @@ def stripped_mermaid(lines: list[str]) -> tuple[list[str], tuple[Change, ...]]:
                 continue
             entry = source
             if boxed := MERMAID_BOX_COLOR.match(entry):
-                entry = f"{boxed.group(1)}transparent{entry[boxed.end():]}"
+                entry = f"{boxed.group(1)}transparent{entry[boxed.end() :]}"
                 changes.append(Change(at, Repair.STYLE, trimmed[:60], entry.strip()[:60]))
             if MERMAID_CLASS_TAIL.search(entry):
                 changes.append(Change(at, Repair.STYLE, trimmed[:60], "<class tail stripped>"))

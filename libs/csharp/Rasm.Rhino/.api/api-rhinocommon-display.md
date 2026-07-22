@@ -59,23 +59,23 @@
 
 `DisplayMaterial` carries diffuse, specular, emission, and transparency channels. `DisplayBitmap` draws as a screen or world sprite; `LineCapStyle` carries `Round`/`Flat`/`Square`, and `LineJoinStyle` carries `Round`/`Miter`/`Bevel`.
 
-| [INDEX] | [SYMBOL]                    | [KIND]           | [CAPABILITY]                      |
-| :-----: | :-------------------------- | :--------------- | :-------------------------------- |
-|  [01]   | `DisplayMaterial`           | shaded material  | shaded-family channels            |
-|  [02]   | `DisplayPen`                | vector pen       | configurable draw stroke          |
-|  [03]   | `DisplayBitmap`             | sprite texture   | GPU sprite texture                |
-|  [04]   | `DisplayBitmapDrawList`     | sprite batch     | sorted `DrawSprites` point cloud  |
-|  [05]   | `DisplayPipelineAttributes` | display settings | per-mode attribute set            |
-|  [06]   | `IsoDrawEffect`             | banded shading   | directional colored iso bands     |
-|  [07]   | `BlendMode`                 | draw enum        | alpha-blend vocabulary            |
-|  [08]   | `LineCapStyle`              | draw enum        | pen-cap vocabulary                |
-|  [09]   | `LineJoinStyle`             | draw enum        | pen-join vocabulary               |
-|  [10]   | `CullFaceMode`              | draw enum        | state-stack face culling          |
-|  [11]   | `PointStyle`                | draw enum        | `CustomDisplay` point markers     |
-|  [12]   | `CullFaceMode.DrawFrontAndBack` / `DrawFrontFaces` / `DrawBackFaces` | enum rows | complete cull policy |
-|  [13]   | `PointStyle.Simple` through `PointStyle.None` | enum rows | complete marker policy |
-|  [14]   | `BlendMode.Zero` through `BlendMode.SourceAlphaSaturate` | enum rows | complete blend-factor policy |
-|  [15]   | `Text3d`                    | world text       | `CustomDisplay.AddText` primitive |
+| [INDEX] | [SYMBOL]                                                             | [KIND]           | [CAPABILITY]                      |
+| :-----: | :------------------------------------------------------------------- | :--------------- | :-------------------------------- |
+|  [01]   | `DisplayMaterial`                                                    | shaded material  | shaded-family channels            |
+|  [02]   | `DisplayPen`                                                         | vector pen       | configurable draw stroke          |
+|  [03]   | `DisplayBitmap`                                                      | sprite texture   | GPU sprite texture                |
+|  [04]   | `DisplayBitmapDrawList`                                              | sprite batch     | sorted `DrawSprites` point cloud  |
+|  [05]   | `DisplayPipelineAttributes`                                          | display settings | per-mode attribute set            |
+|  [06]   | `IsoDrawEffect`                                                      | banded shading   | directional colored iso bands     |
+|  [07]   | `BlendMode`                                                          | draw enum        | alpha-blend vocabulary            |
+|  [08]   | `LineCapStyle`                                                       | draw enum        | pen-cap vocabulary                |
+|  [09]   | `LineJoinStyle`                                                      | draw enum        | pen-join vocabulary               |
+|  [10]   | `CullFaceMode`                                                       | draw enum        | state-stack face culling          |
+|  [11]   | `PointStyle`                                                         | draw enum        | `CustomDisplay` point markers     |
+|  [12]   | `CullFaceMode.DrawFrontAndBack` / `DrawFrontFaces` / `DrawBackFaces` | enum rows        | complete cull policy              |
+|  [13]   | `PointStyle.Simple` through `PointStyle.None`                        | enum rows        | complete marker policy            |
+|  [14]   | `BlendMode.Zero` through `BlendMode.SourceAlphaSaturate`             | enum rows        | complete blend-factor policy      |
+|  [15]   | `Text3d`                                                             | world text       | `CustomDisplay.AddText` primitive |
 
 `IsoDrawEffect` carries `IsoDrawMode`, `Direction`, `Frequency`, and per-band color access.
 
@@ -421,8 +421,8 @@ Beyond the method rows below, the attribute model is property families written b
 |  [36]   | `RhinoView.CaptureToBitmap(Size, DisplayModeDescription)`                       | capture       | sized mode-scoped capture          |
 |  [37]   | `RhinoView.CaptureToBitmap(DisplayPipelineAttributes)`                          | capture       | attribute-scoped capture           |
 |  [38]   | `RhinoView.CaptureToBitmap(Size, DisplayPipelineAttributes)`                    | capture       | sized attribute-scoped capture     |
-|  [39]   | `RhinoView.RuntimeSerialNumber`                                                  | identity      | detached view identity              |
-|  [40]   | `RhinoViewport.Id`                                                              | identity      | detached viewport identity          |
+|  [39]   | `RhinoView.RuntimeSerialNumber`                                                 | identity      | detached view identity             |
+|  [40]   | `RhinoViewport.Id`                                                              | identity      | detached viewport identity         |
 
 [ENTRYPOINT_SCOPE]: built-in visual-analysis ids and object enablement
 - rail: host-boundary display

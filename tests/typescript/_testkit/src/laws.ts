@@ -4,7 +4,7 @@ import * as Arbitrary from 'effect/Arbitrary';
 import * as FastCheck from 'effect/FastCheck';
 import type * as TestServices from 'effect/TestServices';
 
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 declare namespace Law {
     type Arbs = { readonly [K in string]: Schema.Schema.Any | FastCheck.Arbitrary<unknown> };
@@ -31,13 +31,13 @@ declare namespace Law {
     }
 }
 
-// --- [ERRORS] ----------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
 class LawRefuted extends Data.TaggedError('LawRefuted')<{ readonly law: string; readonly args: unknown }> {}
 
 class LawTautology extends Data.TaggedError('LawTautology')<{ readonly law: string; readonly witness: string }> {}
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const _held = <E, R>(
     verdict: Effect.Effect<boolean, E, R>,
@@ -283,6 +283,6 @@ const Law = {
         }),
 } as const;
 
-// --- [EXPORTS] ---------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Law, LawRefuted, LawTautology };

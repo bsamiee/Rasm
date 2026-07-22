@@ -25,7 +25,7 @@ internal static class HostFreeModel {
             Expected: true))]);
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public sealed class AssemblyBoundaryLaws {
     // HOST_BOUNDARY_REENTRY: host-boundary rows live on disk but stay out of Workspace.slnx until
     // kernel realization lands; the roster shrinks to empty when those slnx rows return.

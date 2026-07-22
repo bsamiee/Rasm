@@ -6,14 +6,14 @@ Two policy seams close at the same altitude: `verbosity` wires the config tier t
 
 ## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]    | [OWNS]                                                                    | [PUBLIC] |
-| :-----: | :----------- | :------------------------------------------------------------------------ | :------- |
-|  [01]   | `PROJECTION` | the work-fact→counter row table and the one `mark` fold                  | `Pulse`  |
-|  [02]   | `CENSUS`     | the `Probe` port and the sampled gauge sweep Layer                        | `Pulse`  |
-|  [03]   | `VERBOSITY`  | the tier-table→`Logger.minimumLogLevel` wiring                            | `Pulse`  |
-|  [04]   | `TENANT`     | the tenant metric-stream view row under the cardinality governor         | `Pulse`  |
-|  [05]   | `ENGINE`     | the `v8js.*` deny-list view guard for the runtime-node series fan        | `Pulse`  |
-|  [06]   | `BOARD`      | the typed deploy-feed pack folding instrument rows and vital budgets     | `Pulse`  |
+| [INDEX] | [CLUSTER]    | [OWNS]                                                               | [PUBLIC] |
+| :-----: | :----------- | :------------------------------------------------------------------- | :------- |
+|  [01]   | `PROJECTION` | the work-fact→counter row table and the one `mark` fold              | `Pulse`  |
+|  [02]   | `CENSUS`     | the `Probe` port and the sampled gauge sweep Layer                   | `Pulse`  |
+|  [03]   | `VERBOSITY`  | the tier-table→`Logger.minimumLogLevel` wiring                       | `Pulse`  |
+|  [04]   | `TENANT`     | the tenant metric-stream view row under the cardinality governor     | `Pulse`  |
+|  [05]   | `ENGINE`     | the `v8js.*` deny-list view guard for the runtime-node series fan    | `Pulse`  |
+|  [06]   | `BOARD`      | the typed deploy-feed pack folding instrument rows and vital budgets | `Pulse`  |
 
 ## [02]-[PROJECTION]
 

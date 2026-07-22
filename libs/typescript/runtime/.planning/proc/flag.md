@@ -15,7 +15,6 @@ Feature evaluation is one owner over the real OpenFeature server SDK: targeting 
 ## [02]-[TARGETING_RULES]
 
 [TARGETING_RULES]:
-
 - Owner: `Rollout` — the targeting owner. `Rollout.Rule` is one `Schema.Union` of tagged cases: `On`/`Off` (static arms), `Fraction` (salted percentage gate), `Segment` (axis membership over the subject's dimensions — the axes are the `AppIdentity` span plus free attributes), `Window` (a UTC validity interval), `Split` (weighted variant arms over the same salted bucket), and the composites `AllOf`/`AnyOf`/`Not` closing self-reference through `Schema.suspend`; rules are wire values the remote provider ships, so a new targeting dimension is one case row plus one fold arm, breaking every dispatch loudly.
 - Law: `decide` is total — every rule folds to an `Outcome` (`on`, `variant: Option`, `reason`), and the reason rows are the OpenFeature `StandardResolutionReasons` spellings anchored once as the `_REASONS` tuple; `Verdict` and the provider project these and never re-declare them.
 - Law: determinism is parameterization — `decide(rule, probe)` reads the wall clock and the bucket from the `probe` value (`at: DateTime.Utc`, `bucket: (salt) => number`), so evaluation is a pure fold provable by replay; an ambient clock or hash read inside the fold is the named defect.
@@ -173,7 +172,6 @@ const Rollout: Rollout.Shape = { Rule: _Rule, reasons: _REASONS, decide: _decide
 ## [03]-[STICKY_ROWS]
 
 [STICKY_ROWS]:
-
 - Owner: `Sticky` — the holding policy beside the rules. Mode rows close the vocabulary: `none` (evaluate every read), `session` (memoize in-process), `durable` (memoize plus a held-variant ledger surviving restarts — the browser localStorage row and the node filesystem row satisfy the same `KeyValueStore` Tag); a held variant is `Sticky.Held`: flag, variant, epoch, mint instant — one Schema class, one ledger shape on every runtime.
 - Law: the epoch is the invalidation edge — a ruleset version bump retires every held variant at recall time (`recalled` folds an epoch mismatch to `None`), so stickiness never outlives the rules that granted it and no ledger sweep exists.
 - Law: expiry is reason-keyed — `Sticky.expiry(reason, policy)` folds `ERROR`/`STALE`/`UNKNOWN` outcomes to `Setting.flag.quarantine` and every settled outcome to `Setting.flag.sticky`, so a degraded evaluation never lingers as long as a targeted one; `[5]`'s memo consumes this fold as its `timeToLive` policy and `Setting.flag.memo` as its admitted capacity.
@@ -221,7 +219,6 @@ const Sticky: Sticky.Shape = {
 ## [04]-[VERDICT_CONTRACT]
 
 [VERDICT_CONTRACT]:
-
 - Owner: `Verdict` — one `Schema.Class` carrying `flag`, `kind` (`boolean | string | number | object`), `value` (the kind-typed union whose object arm is the page's one recursive `_Json` schema), `variant: Option`, `reason`, the complete OpenFeature error-code row including `PROVIDER_FATAL`, optional `errorMessage`, `flagMetadata`, and `at`; the wire twins ride the owner — `Verdict.Ruleset` is the provider document, `Verdict.Shift` the live delta family (`Set | Clear | Reset`), `Verdict.codes` the error-code anchor — one import carries the whole contract.
 - Law: the contract is shared, not owned twice — `Rasm.AppHost` mints `FlagVerdictWire` over the same OpenFeature evaluation semantics; the interchange codec decodes it into this class (admitted as `CACHED` evidence), this page owns evaluation, and a second verdict shape anywhere in the branch is the named defect.
 - Law: the document row is a flag definition — `FlagDef` carries `kind`, the targeting `rule`, and the per-variant value map whose values ride `_Json`, so an object-valued flag is one definition row and value resolution is a variant lookup; the definition's `kind` gates type agreement at resolution, a mismatch minting `TYPE_MISMATCH` evidence.
@@ -299,7 +296,6 @@ declare namespace Verdict {
 ## [05]-[PROVIDER_OWNER]
 
 [PROVIDER_OWNER]:
-
 - Owner: the SDK `Provider` implementation the Layer constructs over the live ruleset cell — `runsOn: "server"`, `metadata`, one `OpenFeatureEventEmitter`, the four `resolve*Evaluation` members delegating to one interior `_resolved(kind, flag, fallback, context)` that recalls the cell, folds `Rollout.decide` under the subject's salted bucket, resolves the variant's value from the definition's map, and answers `ResolutionDetails` — value, variant, reason, `errorCode` on degradation; the object kind rides `resolveObjectEvaluation` over the `_Json` arm, so the SDK's whole kind surface is real.
 - Law: the kind/value correlation is proven, never asserted — the `_Value` table maps each kind to its value type, `_guards` is the mapped guard record `(value: Verdict.Json) => value is _Value[K]`, and `_resolved` is generic over `K extends Verdict.Kind` returning `ResolutionDetails<_Value[K]>`, so the guard's narrowing IS the evidence and the three primitive members are cast-free; the SDK's `resolveObjectEvaluation<T extends JsonValue>` generic promises the caller's `T` with no runtime witness — a foreign contract unsound by its own declaration — so that one member is the marked boundary adapter: the guard proves the JSON-object shape and the pin crosses the SDK's own seam on one marked line, nowhere else.
 - Law: the promise members are the platform-forced boundary — each `resolve*` bridges through the runtime captured at Layer build (`Effect.runtime` then `Runtime.runPromise`), the sanctioned callback-seam spelling, and the bridged effect is total, so a provider promise never rejects on a domain condition; `initialize` resolves once registration completes and `onClose` releases nothing because the feed fiber's lifetime is the Layer scope.
@@ -311,7 +307,6 @@ declare namespace Verdict {
 ## [06]-[GATE_SERVICE]
 
 [GATE_SERVICE]:
-
 - Owner: `Flags` — one `Effect.Service` whose `Default` is a Layer factory taking the bucket digest and a `Sticky.Mode` policy value (the root selects `none | session | durable`, never a call-site knob). The scoped build holds one `SubscriptionRef<Ruleset>` cell fed by one source — the live SSE feed (`channel#FEED_SEAM` on `Setting.flag.origin`, each `event.data` decoded through `Schema.parseJson(Verdict.Shift)`, every patch epoch-guarded, a decode failure folding to a skipped patch, never a cleared cell); the session reconnects internally under the feed budget, and only its exhaustion re-opens the feed on the `Setting.flag.cadence` pacing — constructs the provider over the cell, registers it through `OpenFeature.setProviderAndWait`, closes the SDK on scope release, and answers every read through the SDK client so registered hooks observe every evaluation.
 - Law: `evaluate` is total — the memo's lookup calls the SDK client's `get*Details` member for the probe's kind, projects the `EvaluationDetails` into a `Verdict`, and folds any rejection to `reason: "ERROR"` with `GENERAL` code and the stated fallback, so the error channel is `never` and every degradation is verdict evidence policy reads.
 - Law: the mode row is executable — `none` calls the lookup directly, `session` and `durable` route through `Cache.makeWith`, and `durable` additionally recalls and records `Sticky.Held` through `KeyValueStore.forSchema(Sticky.Held)`. Recall validates both epoch and lease before projecting the held variant through the current definition; storage failure degrades to live evaluation, never fails `evaluate`, while an accepted live variant is persisted through an explicitly ruled best-effort tap. `ConfigurationChanged` invalidates the process memo wholesale; durable invalidation remains epoch-based, so no ledger sweep exists.

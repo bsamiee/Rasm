@@ -4,11 +4,11 @@ Definition topology (`Rasm.Rhino.Blocks`) owns one graph-source union, one evide
 
 ## [01]-[INDEX]
 
-| [INDEX] | [OWNER] | [CONTRACT] |
-| :-----: | :------ | :--------- |
-|  [01]   | `GraphSource` · `Topology` | live and archive evidence admission |
-|  [02]   | `BlockGraph.Ask` | topology, path, component, and usage questions |
-|  [03]   | `ClosureReport` | linked-archive closure evidence |
+| [INDEX] | [OWNER]                    | [CONTRACT]                                     |
+| :-----: | :------------------------- | :--------------------------------------------- |
+|  [01]   | `GraphSource` · `Topology` | live and archive evidence admission            |
+|  [02]   | `BlockGraph.Ask`           | topology, path, component, and usage questions |
+|  [03]   | `ClosureReport`            | linked-archive closure evidence                |
 
 ## [02]-[SOURCE_AND_TOPOLOGY]
 
@@ -964,11 +964,11 @@ public static partial class BlockGraph {
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [OWNER] | [INGRESS] | [ALGORITHM] | [EGRESS] |
-| :-----: | :------ | :-------- | :---------- | :------- |
-|  [01]   | `BlockGraph` | `Ask` | `QuikGraph` · host reads · archive fold | `BlockGraphAnswer` |
-|  [02]   | `GraphFold` | transient graph | SCC · components · order · reduction | graph evidence |
-|  [03]   | `ClosureReport` | `Archives(ClosureBudget)` | bounded breadth-first archive reads | closure evidence |
+| [INDEX] | [OWNER]         | [INGRESS]                 | [ALGORITHM]                             | [EGRESS]           |
+| :-----: | :-------------- | :------------------------ | :-------------------------------------- | :----------------- |
+|  [01]   | `BlockGraph`    | `Ask`                     | `QuikGraph` · host reads · archive fold | `BlockGraphAnswer` |
+|  [02]   | `GraphFold`     | transient graph           | SCC · components · order · reduction    | graph evidence     |
+|  [03]   | `ClosureReport` | `Archives(ClosureBudget)` | bounded breadth-first archive reads     | closure evidence   |
 
 ## [06]-[RESEARCH]
 

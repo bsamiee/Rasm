@@ -33,15 +33,15 @@
 - namespace: `HyperJet`
 - rail: autodiff
 
-| [INDEX] | [SURFACE]                            | [CALL]                                                                                 |
-| :-----: | :----------------------------------- | :------------------------------------------------------------------------------------- |
-|  [01]   | `DDScalarN.Variables`                | `Variables(double v0, …)`; tuple-deconstructable up to `15`                            |
-|  [02]   | `DDScalar.Variables`                 | `Variables(double[] values, int order = 2)`; `order: 1` omits Hessians                  |
-|  [03]   | `DDScalar.Constant`                  | `Constant(double value, int size, int order = 2)`                                      |
-|  [04]   | `DDScalarSpan.Variable`              | `Variable(Span<double> buffer, int index, double value, int size, int order)`           |
-|  [05]   | `DDScalarSpan.ctor`                  | `new DDScalarSpan(Span<double> buffer, int size, int order)`                            |
-|  [06]   | `f.Value` / `f.G(i)` / `f.H(i, j)`   | result value, gradient component, and Hessian component                                |
-|  [07]   | `f.GetGradient()` / `f.GetHessian()` | `MathNet.Numerics.LinearAlgebra` vector and matrix exports                              |
+| [INDEX] | [SURFACE]                            | [CALL]                                                                        |
+| :-----: | :----------------------------------- | :---------------------------------------------------------------------------- |
+|  [01]   | `DDScalarN.Variables`                | `Variables(double v0, …)`; tuple-deconstructable up to `15`                   |
+|  [02]   | `DDScalar.Variables`                 | `Variables(double[] values, int order = 2)`; `order: 1` omits Hessians        |
+|  [03]   | `DDScalar.Constant`                  | `Constant(double value, int size, int order = 2)`                             |
+|  [04]   | `DDScalarSpan.Variable`              | `Variable(Span<double> buffer, int index, double value, int size, int order)` |
+|  [05]   | `DDScalarSpan.ctor`                  | `new DDScalarSpan(Span<double> buffer, int size, int order)`                  |
+|  [06]   | `f.Value` / `f.G(i)` / `f.H(i, j)`   | result value, gradient component, and Hessian component                       |
+|  [07]   | `f.GetGradient()` / `f.GetHessian()` | `MathNet.Numerics.LinearAlgebra` vector and matrix exports                    |
 
 - [01]-[SEED_COMPILE]: seed a compile-time model's active variables; each returned scalar carries its unit seed derivative.
 - [02]-[SEED_DYNAMIC]: seed a dynamic active-variable vector.

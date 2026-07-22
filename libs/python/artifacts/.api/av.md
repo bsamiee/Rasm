@@ -157,10 +157,11 @@ The linked FFmpeg build publishes its registered names as module-level sets — 
 |  [05]   | `av.codec.hwaccel.HWAccel`                    | `HWAccel(device_type, allow_software_fallback, ...)` | GPU decode context for `open(hwaccel=)`  |
 |  [06]   | `FilterContext.link_to`                       | `link_to(input_, output_idx=0, input_idx=0) -> None` | explicit-pad multi-input wiring          |
 |  [07]   | `FilterContext.push` / `.pull`                | `push(frame) -> None`; `pull() -> Frame`             | per-source drive in a multi-input graph  |
-|  [08]   | `av.library_versions` / `ffmpeg_version_info` | module attrs -> `dict[str, tuple]` / `str`           | bundled libav majors, ffmpeg build       |
-|  [09]   | `av.time_base`                                | module attr -> `int` (1_000_000)                     | container timestamp denominator          |
-|  [10]   | `Frame.time`                                  | property -> `float \| None`                          | presentation seconds (`pts * time_base`) |
-|  [11]   | `OutputContainer.metadata`                    | `dict[str, str]` (mutable before header write)       | container tags (title/artist/comment)    |
+|  [08]   | `av.library_versions`                         | module attr -> `dict[str, tuple]`                    | bundled libav majors                     |
+|  [09]   | `ffmpeg_version_info`                          | module attr -> `str`                                 | ffmpeg build string                      |
+|  [10]   | `av.time_base`                                | module attr -> `int` (1_000_000)                     | container timestamp denominator          |
+|  [11]   | `Frame.time`                                  | property -> `float \| None`                          | presentation seconds `pts * time_base`   |
+|  [12]   | `OutputContainer.metadata`                    | `dict[str, str]` (mutable before header write)       | container tags (title/artist/comment)    |
 
 [ENTRYPOINT_SCOPE]: stream and codec-context configuration
 - rail: media

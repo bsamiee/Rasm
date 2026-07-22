@@ -453,21 +453,21 @@ public static class ScheduleSource {
 }
 ```
 
-| [INDEX] | [POLICY]           | [VALUE]                                      | [BINDING]                                                          |
-| :-----: | :----------------- | :-------------------------------------------- | :------------------------------------------------------------------ |
-|  [01]   | one schedule owner | `ScheduleSource.Run` over `ScheduleOp`       | parse/serialize/probe are cases of ONE dispatch                     |
-|  [02]   | container ingress  | always `ReadAll`, format-sniffed             | `Read` truncates multi-project XER; extension branching deleted     |
-|  [03]   | egress axis        | `ScheduleFormat` seven writable rows         | no MPP writer exists; unreachable target unrepresentable            |
-|  [04]   | egress arity       | graph count selects `Write` overload         | one vs many is the value's shape, never a flag                      |
-|  [05]   | durable payload    | full activity/edge/calendar/resource rows    | the persisted P6/MS-Project record; CPM math stays `Rasm.Bim`       |
-|  [06]   | unit fidelity      | `Option<ScheduleSpan>` unit-tagged crossing  | absence stays absence; re-minted via `Duration.GetInstance`         |
-|  [07]   | local stamps       | `LocalDateTime`/`LocalDate` durable form     | a schedule date is unzoned wall time; no fabricated UTC `Instant`   |
-|  [08]   | seam vocabularies  | three smart-enum vocabularies                | foreign enums cross once; durable rows carry keys                   |
-|  [09]   | IKVM seam          | `ProjectRows.Of` / `Synthesis.Fold`          | proxy types and `JavaObject` never escape the two members           |
-|  [10]   | row-boundary fault | `Validation<ScheduleFault, …>` both legs     | dialect, selector, and codec refusals stay typed                     |
-|  [11]   | fault band         | `Code => FaultBand.Schedule + n`             | 8401-8404 off the `graph#FAULT_TABLES` registry                     |
-|  [12]   | receipt            | one `ScheduleFact` stream `store.schedule.*` | kind-discriminated; never parallel receipt records                  |
-|  [13]   | element projection | per-app schedule→element map                 | `[02]-[SEAMS]` `Ingest → Rasm.Element` wire; codec sees rows only   |
+| [INDEX] | [POLICY]           | [VALUE]                                      | [BINDING]                                                         |
+| :-----: | :----------------- | :------------------------------------------- | :---------------------------------------------------------------- |
+|  [01]   | one schedule owner | `ScheduleSource.Run` over `ScheduleOp`       | parse/serialize/probe are cases of ONE dispatch                   |
+|  [02]   | container ingress  | always `ReadAll`, format-sniffed             | `Read` truncates multi-project XER; extension branching deleted   |
+|  [03]   | egress axis        | `ScheduleFormat` seven writable rows         | no MPP writer exists; unreachable target unrepresentable          |
+|  [04]   | egress arity       | graph count selects `Write` overload         | one vs many is the value's shape, never a flag                    |
+|  [05]   | durable payload    | full activity/edge/calendar/resource rows    | the persisted P6/MS-Project record; CPM math stays `Rasm.Bim`     |
+|  [06]   | unit fidelity      | `Option<ScheduleSpan>` unit-tagged crossing  | absence stays absence; re-minted via `Duration.GetInstance`       |
+|  [07]   | local stamps       | `LocalDateTime`/`LocalDate` durable form     | a schedule date is unzoned wall time; no fabricated UTC `Instant` |
+|  [08]   | seam vocabularies  | three smart-enum vocabularies                | foreign enums cross once; durable rows carry keys                 |
+|  [09]   | IKVM seam          | `ProjectRows.Of` / `Synthesis.Fold`          | proxy types and `JavaObject` never escape the two members         |
+|  [10]   | row-boundary fault | `Validation<ScheduleFault, …>` both legs     | dialect, selector, and codec refusals stay typed                  |
+|  [11]   | fault band         | `Code => FaultBand.Schedule + n`             | 8401-8404 off the `graph#FAULT_TABLES` registry                   |
+|  [12]   | receipt            | one `ScheduleFact` stream `store.schedule.*` | kind-discriminated; never parallel receipt records                |
+|  [13]   | element projection | per-app schedule→element map                 | `[02]-[SEAMS]` `Ingest → Rasm.Element` wire; codec sees rows only |
 
 ## [03]-[DURABLE_NETWORK]
 
@@ -775,15 +775,15 @@ public static class ScheduleRows {
 }
 ```
 
-| [INDEX] | [POLICY]       | [VALUE]                                     | [BINDING]                                                       |
-| :-----: | :------------- | :------------------------------------------ | :--------------------------------------------------------------- |
-|  [01]   | WBS shape      | flat rows + `Parent` option                 | depth-free, bulk-lane-shaped; never a recursive durable tree     |
-|  [02]   | edge dedup     | predecessor-side read only                  | MPXJ's symmetric pair lands once                                 |
-|  [03]   | slack/baseline | parsed evidence, re-emitted verbatim        | the source tool's CPM pass is evidence, not authority            |
-|  [04]   | calendar depth | weekly pattern + overrides + own shifts     | no default-shift narrowing; exceptions carry their hour windows  |
-|  [05]   | 5D crossing    | raw doubles on `AssignmentRow`              | `Money`/`UnitsNet` lift at the Bim boundary, never here          |
-|  [06]   | round-trip     | `Of` then `Fold` preserves the network      | XER out re-imports in P6; every settable axis re-emits           |
-|  [07]   | update cycle   | `Reconcile` → `ScheduleVariance`             | diffs every durable aggregate axis                             |
+| [INDEX] | [POLICY]       | [VALUE]                                 | [BINDING]                                                       |
+| :-----: | :------------- | :-------------------------------------- | :-------------------------------------------------------------- |
+|  [01]   | WBS shape      | flat rows + `Parent` option             | depth-free, bulk-lane-shaped; never a recursive durable tree    |
+|  [02]   | edge dedup     | predecessor-side read only              | MPXJ's symmetric pair lands once                                |
+|  [03]   | slack/baseline | parsed evidence, re-emitted verbatim    | the source tool's CPM pass is evidence, not authority           |
+|  [04]   | calendar depth | weekly pattern + overrides + own shifts | no default-shift narrowing; exceptions carry their hour windows |
+|  [05]   | 5D crossing    | raw doubles on `AssignmentRow`          | `Money`/`UnitsNet` lift at the Bim boundary, never here         |
+|  [06]   | round-trip     | `Of` then `Fold` preserves the network  | XER out re-imports in P6; every settable axis re-emits          |
+|  [07]   | update cycle   | `Reconcile` → `ScheduleVariance`        | diffs every durable aggregate axis                              |
 
 ## [04]-[RESEARCH]
 
