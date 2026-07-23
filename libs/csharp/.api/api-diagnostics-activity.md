@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `System.Diagnostics.DiagnosticSource`
-- package: BCL inbox (MIT, .NET Foundation)
+- package: BCL inbox (MIT)
 - assembly: `System.Diagnostics.DiagnosticSource.dll` (shared framework)
 - namespace: `System.Diagnostics`
 - rail: library-tier span emission behind every `rasm.*` instrumentation scope

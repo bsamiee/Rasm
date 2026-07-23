@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `VividOrange.Standards`
-- package: `VividOrange.Standards` (MIT, MagmaWorks / VividOrange taxonomy)
+- package: `VividOrange.Standards` (MIT)
 - assembly: `VividOrange.Standards`
 - namespace: `VividOrange.Standards.Eurocode`
 - asset: pure-managed AnyCPU runtime library, no native RID; the `net10.0` consumer binds the `lib/net8.0` managed asset.

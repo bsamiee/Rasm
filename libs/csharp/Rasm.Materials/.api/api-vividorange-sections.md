@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `VividOrange.Sections`
-- package: `VividOrange.Sections` (MIT, MagmaWorks / VividOrange taxonomy)
+- package: `VividOrange.Sections` (MIT)
 - assembly: `VividOrange.Sections`
 - namespace: `VividOrange.Sections` owns `Section`/`ConcreteSection`; `.Reinforcement` owns the bar, layout, and layer engines; `.Exceptions` owns boundary throw types
 - asset: pure-managed AnyCPU, no native RID asset; the `net10.0` consumer binds the `lib/net8.0` managed asset
@@ -122,7 +122,7 @@
 - A Materials boundary traps `InvalidMaterialTypeException`/`InvalidProfileTypeException` at the in-folder edge and lowers them onto the typed section error rail (`LanguageExt.Fin`); the throw never reaches an interior domain signature, and consumers never call the `internal` `Reinforcement.Utility`.
 
 [RAIL_LAW]:
-- Package: `VividOrange.Sections` (MIT, pure-managed AnyCPU, `net10.0` binds `net8.0`)
+- Package: `VividOrange.Sections` (MIT)
 - Owns: the concrete reinforced-section and reinforcement data — the `Section`/`ConcreteSection` carriers, the `Rebar`/`Link`/`LongitudinalReinforcement` primitives over the `BarDiameter` catalogue, the `ReinforcementLayoutByCount`/`BySpacing` strategies, the `FaceReinforcementLayer`/`PerimeterReinforcementLayer` placement engines (`GetPath`/`GetRebars`), and the `MinimumReinforcementSpacing` EC2 rule — the concrete impl of the `VividOrange.ISections` floor, every type `ITaxonomySerializable`.
 - Accept: an RC `ConcreteSection` from an admitted `IProfile` + `EnConcreteMaterial`/`EnRebarMaterial` + a face/perimeter layer arrangement, mapped onto the canonical Materials `ConnectionFamily.Reinforcement` owner at the boundary; diameters from `BarDiameter`, spacing from `MinimumReinforcementSpacing`; the section consumed as the `IConcreteSection` input to the `SectionProperties`/`InteractionDiagram` RC solvers.
 - Reject: a hand-rolled `BarSize`/`RebarSection`/diameter literal where `BarDiameter` + `Rebar` carry it; a raw-`double` read of a `Length` diameter/spacing/cover; calling the `internal` `Reinforcement.Utility` directly; an `InvalidMaterialTypeException`/`InvalidProfileTypeException` left to propagate into an interior signature.

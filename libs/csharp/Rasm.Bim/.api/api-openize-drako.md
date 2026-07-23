@@ -5,12 +5,11 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Openize.Drako`
-- package: `Openize.Drako` (commercial Openize)
+- package: `Openize.Drako` (commercial Openize) — requireLicenseAcceptance; admitted for the Compute `EXPORT_RAIL`, outside-Rhino only
 - assembly: `Openize.Drako`
 - namespace: `Openize.Drako`
 - asset: net8.0, net7.0, net6.0, netstandard2.1, net46 — `net10.0` consumer binds `lib/net8.0`
 - asset: IL-only AnyCPU managed, no `runtimes/` native; the bound net8.0 group has zero package deps (`System.Memory`/`System.Numerics.Vectors` ride the net46 fallback only)
-- license: requireLicenseAcceptance; admitted for the Compute `EXPORT_RAIL`, outside-Rhino only
 - rail: geometry
 
 ## [02]-[PUBLIC_TYPES]

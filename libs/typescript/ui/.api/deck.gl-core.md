@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@deck.gl/core`
-- package: `@deck.gl/core`
-- license: `MIT`
+- package: `@deck.gl/core` (MIT)
 - abi: browser WebGL2 (default) / WebGPU via luma.gl `Device`; needs a `HTMLCanvasElement` and `requestAnimationFrame`
 - peer-substrate (transitive, deck-owned, never imported directly by `viewer`): `@luma.gl/core`+`@luma.gl/engine` (GPU device/model/animation-loop), `@math.gl/core`+`@math.gl/web-mercator` (matrix/projection), `mjolnir.js` (pointer/gesture events), `@loaders.gl/core` (async data loaders), `@probe.gl/stats` (`DeckMetrics`)
 - catalog-verdict: KEEP — the geo-plane engine; `@deck.gl/layers`/`@deck.gl/geo-layers`/`@deck.gl/mapbox` all peer-depend on it

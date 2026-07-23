@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pgvectorscale` / extension `vectorscale`
-- package: `vectorscale` (PostgreSQL License, Timescale) — server-side Rust/pgrx extension, repo `timescale/pgvectorscale`
+- package: `vectorscale` (PostgreSQL License)
 - asset: server SQL, no managed assembly; `diskann` access method over pgvector `vector`, `CASCADE`-installed; SQL surface is `CREATE INDEX ... USING diskann` and `diskann.*` session GUCs
 - rail: search-provisioning, search-lanes
 
@@ -57,7 +57,7 @@ Session GUCs the planner reads to widen a diskann scan, `SET LOCAL` per session/
 - `vectorscale` installs through its `ServerExtension` `CASCADE` row, never a `shared_preload_libraries` entry and never linked into managed code.
 
 [RAIL_LAW]:
-- Package: `vectorscale` (server-side, deploy-image PG18)
+- Package: `vectorscale` (PostgreSQL License)
 - Owns: the `diskann` disk-backed StreamingDiskANN + SBQ ANN index over a pgvector `vector(N)` column
 - Accept: the `CASCADE` install, `CREATE INDEX CONCURRENTLY ... USING diskann` with the `DiskAnnOptions` `WITH` map against `DiskAnnOps` ops classes, catalogued pgvector distance functions for query, the `diskann.query_*` GUCs `SET LOCAL` by the search-lane binder, the `FusionRank.Fuse` RRF stack with the pg_search branch
 - Reject: linking into managed code, a parallel vector column beside the pgvector column, a `<#>`-on-`plain` build, a build-time `query_*` knob or a query-time build option, a `shared_preload_libraries` placement

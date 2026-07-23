@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `python-fcl`
-- package: `python-fcl`
+- package: `python-fcl` (BSD-3-Clause)
 - import: `import fcl`
 - owner: `geometry`
 - rail: mesh/spatial / clearance-enrichment
-- license: `BSD-3-Clause` (own) over FCL `BSD-3-Clause`
 - capability: narrow-phase collision detection, minimum-distance computation with nearest points and signed distance, continuous-collision time-of-contact; primitive and triangular-mesh geometries; rigid `Transform` poses; broadphase AABB-tree collision/distance managers for one-to-many and many-to-many group queries
 
 ## [02]-[PUBLIC_TYPES]

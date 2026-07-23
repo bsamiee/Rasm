@@ -1,7 +1,7 @@
 # [TS_UI_API_WEB_VITALS]
 
 [PACKAGE_SURFACE]:
-- package: `web-vitals` · license `Apache-2.0` · zero dependencies
+- package: `web-vitals` (Apache-2.0)
 - module: dual build — `dist/web-vitals.js` (`module`, ESM), `dist/web-vitals.umd.cjs` (`require`); types at `dist/modules/index.d.ts` via the `exports` `types` condition, no top-level `types` field.
 - subpath: `.` ships the standard build (five capture functions + metric types); `web-vitals/attribution` ships the attribution build (same five functions re-exported, each metric enriched with a diagnostic `attribution` object); per-metric subpaths (`web-vitals/onLCP.js`, `web-vitals/attribution/onINP.js`, …) tree-shake to one probe.
 - runtime: browser only — reads `PerformanceObserver`, Navigation/Paint/Event/LoAF timing, and Layout Shift entries; no Node surface, no framework coupling, callback-per-metric with no scheduler.
@@ -18,29 +18,15 @@ Every metric carries a stable `id` for dedupe and a running `delta` so an analyt
 
 One base `Metric` interface with a closed `name` union; each metric narrows `name` to its literal and `entries` to the concrete `PerformanceEntry` subtype it computes from. `MetricType` is the discriminated union a single reporter switches on; `MetricRatingThresholds` is the `[good, needs-improvement]` cutoff pair each `*Thresholds` constant fills.
 
-```ts signature
-interface Metric {
-  name: 'CLS' | 'FCP' | 'INP' | 'LCP' | 'TTFB'
-  value: number                                                          // metric value in the metric's own unit (ms, or unitless CLS score)
-  rating: 'good' | 'needs-improvement' | 'poor'                          // pre-bucketed against the metric's thresholds
-  delta: number                                                          // change since last report; equals value on first report
-  id: string                                                             // unique per instance — dedupe key; a new id mints on bfcache restore
-  entries: PerformanceEntry[]                                            // source entries; may be empty (e.g. CLS of 0)
-  navigationType: 'navigate' | 'reload' | 'back-forward' | 'back-forward-cache' | 'prerender' | 'restore' | 'soft-navigation'
-  navigationId: number                                                   // navigation the metric happened for; soft navs may report against a prior URL
-  navigationInteractionId?: number                                       // interactionId that triggered the soft navigation, when the metric is soft-nav-specific
-  navigationStartTime?: number                                           // navigation startTime the metric is based from; nonzero time origin under soft navs
-  navigationURL?: string                                                 // URL the metric happened for; a prior URL under soft navs
-}
-interface CLSMetric  extends Metric { name: 'CLS';  entries: LayoutShift[] }
-interface FCPMetric  extends Metric { name: 'FCP';  entries: PerformancePaintTiming[] }
-interface INPMetric  extends Metric { name: 'INP';  entries: PerformanceEventTiming[] }
-interface LCPMetric  extends Metric { name: 'LCP';  entries: LargestContentfulPaint[] }
-interface TTFBMetric extends Metric { name: 'TTFB'; entries: PerformanceNavigationTiming[] | PerformanceSoftNavigation[] }
-type MetricType = CLSMetric | FCPMetric | INPMetric | LCPMetric | TTFBMetric
-type MetricRatingThresholds = [number, number]                          // ≦[0] good · >[0] and ≦[1] needs-improvement · >[1] poor
-type LoadState = 'loading' | 'dom-interactive' | 'dom-content-loaded' | 'complete'
-```
+[METRIC]: `Metric.name: 'CLS'|'FCP'|'INP'|'LCP'|'TTFB'` `Metric.value: number` `Metric.rating: 'good'|'needs-improvement'|'poor'` `Metric.delta: number` `Metric.id: string` `Metric.entries: PerformanceEntry[]` `Metric.navigationType: 'navigate'|'reload'|'back-forward'|'back-forward-cache'|'prerender'|'restore'|'soft-navigation'` `Metric.navigationId: number` `Metric.navigationInteractionId: number` `Metric.navigationStartTime: number` `Metric.navigationURL: string`
+[CLSMETRIC]: `CLSMetric.name: 'CLS'` `CLSMetric.entries: LayoutShift[]`
+[FCPMETRIC]: `FCPMetric.name: 'FCP'` `FCPMetric.entries: PerformancePaintTiming[]`
+[INPMETRIC]: `INPMetric.name: 'INP'` `INPMetric.entries: PerformanceEventTiming[]`
+[LCPMETRIC]: `LCPMetric.name: 'LCP'` `LCPMetric.entries: LargestContentfulPaint[]`
+[TTFBMETRIC]: `TTFBMetric.name: 'TTFB'` `TTFBMetric.entries: PerformanceNavigationTiming[]|PerformanceSoftNavigation[]`
+[METRIC_TYPE]: `MetricType = CLSMetric|FCPMetric|INPMetric|LCPMetric|TTFBMetric`
+[METRIC_RATING_THRESHOLDS]: `MetricRatingThresholds = [number,number]`
+[LOAD_STATE]: `LoadState = 'loading'|'dom-interactive'|'dom-content-loaded'|'complete'`
 
 ## [02]-[CAPTURE_FUNCTIONS]
 
@@ -54,20 +40,9 @@ Five capture functions, one per vital; each takes a metric-narrowed callback and
 |  [04]   | `onFCP`  | `FCPMetric`  | `ReportOpts`    | `FCPThresholds`  | first-contentful-paint time                    |
 |  [05]   | `onTTFB` | `TTFBMetric` | `ReportOpts`    | `TTFBThresholds` | time-to-first-byte from navigation start       |
 
-```ts signature
-interface ReportOpts { reportAllChanges?: boolean; durationThreshold?: number; reportSoftNavs?: boolean }
-interface INPReportOpts extends ReportOpts { durationThreshold?: number } // event-timing floor; default 40
-const onLCP: (onReport: (metric: LCPMetric) => void, opts?: ReportOpts) => void
-const onCLS: (onReport: (metric: CLSMetric) => void, opts?: ReportOpts) => void
-const onINP: (onReport: (metric: INPMetric) => void, opts?: INPReportOpts) => void
-const onFCP: (onReport: (metric: FCPMetric) => void, opts?: ReportOpts) => void
-const onTTFB: (onReport: (metric: TTFBMetric) => void, opts?: ReportOpts) => void
-const LCPThresholds: MetricRatingThresholds  // [2500, 4000]
-const CLSThresholds: MetricRatingThresholds  // [0.1, 0.25]
-const INPThresholds: MetricRatingThresholds  // [200, 500]
-const FCPThresholds: MetricRatingThresholds  // [1800, 3000]
-const TTFBThresholds: MetricRatingThresholds // [800, 1800]
-```
+[REPORT_OPTS]: `ReportOpts.reportAllChanges: boolean` `ReportOpts.durationThreshold: number` `ReportOpts.reportSoftNavs: boolean`
+[INPREPORT_OPTS]: `INPReportOpts.durationThreshold: number`
+[SURFACES]: `onLCP((metric:LCPMetric)=>void,ReportOpts?) -> void` `onCLS((metric:CLSMetric)=>void,ReportOpts?) -> void` `onINP((metric:INPMetric)=>void,INPReportOpts?) -> void` `onFCP((metric:FCPMetric)=>void,ReportOpts?) -> void` `onTTFB((metric:TTFBMetric)=>void,ReportOpts?) -> void` `LCPThresholds: MetricRatingThresholds` `CLSThresholds: MetricRatingThresholds` `INPThresholds: MetricRatingThresholds` `FCPThresholds: MetricRatingThresholds` `TTFBThresholds: MetricRatingThresholds`
 
 ## [03]-[ATTRIBUTION_BUILD]
 
@@ -81,12 +56,10 @@ const TTFBThresholds: MetricRatingThresholds // [800, 1800]
 |  [04]   | `FCPAttribution`  | `timeToFirstByte` `firstByteToFCP` `loadState` `fcpEntry`                         |
 |  [05]   | `TTFBAttribution` | `waitingDuration` `dnsDuration` `connectionDuration` `requestDuration`            |
 
-```ts signature
-type MetricWithAttribution = CLSMetricWithAttribution | FCPMetricWithAttribution | INPMetricWithAttribution | LCPMetricWithAttribution | TTFBMetricWithAttribution
-interface AttributionReportOpts extends ReportOpts { generateTarget?: (el: Node | null) => string | undefined }
-interface INPAttributionReportOpts extends AttributionReportOpts { durationThreshold?: number; includeProcessedEventEntries?: boolean }
-interface INPLongestScriptSummary { entry: PerformanceScriptTiming; subpart: 'input-delay' | 'processing-duration' | 'presentation-delay'; intersectingDuration: number }
-```
+[METRIC_WITH_ATTRIBUTION]: `MetricWithAttribution = CLSMetricWithAttribution|FCPMetricWithAttribution|…`
+[ATTRIBUTION_REPORT_OPTS]: `AttributionReportOpts.generateTarget: (el:Node|null)=>string|undefined`
+[INPATTRIBUTION_REPORT_OPTS]: `INPAttributionReportOpts.durationThreshold: number` `INPAttributionReportOpts.includeProcessedEventEntries: boolean`
+[INPLONGEST_SCRIPT_SUMMARY]: `INPLongestScriptSummary.entry: PerformanceScriptTiming` `INPLongestScriptSummary.subpart: 'input-delay'|'processing-duration'|'presentation-delay'` `INPLongestScriptSummary.intersectingDuration: number`
 
 ## [04]-[PERFORMANCE_GLOBALS]
 

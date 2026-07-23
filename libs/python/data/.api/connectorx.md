@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `connectorx`
-- package: `connectorx` (`MIT`)
+- package: `connectorx` (MIT)
 - module: `connectorx`
 - asset: native Rust/maturin extension (`connectorx.connectorx` PyO3 core)
 - owner: `data`

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `FlowtideDotNet.Substrait`
-- package: `FlowtideDotNet.Substrait` (Apache-2.0, FlowtideDotNet)
+- package: `FlowtideDotNet.Substrait` (Apache-2.0)
 - assembly: `FlowtideDotNet.Substrait`
 - namespace: `FlowtideDotNet.Substrait`, `.Relations`, `.Expressions`, `.Expressions.Literals`, `.Expressions.IfThen`, `.Type`, `.FunctionExtensions`, `.Sql`, `.Conversion`, `.Hints`, `.Exceptions`; generated wire messages under `Substrait.Protobuf`
 - target: multi-target `net10.0`/`net8.0`; a `net10.0` consumer binds `lib/net10.0`

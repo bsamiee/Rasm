@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `shapely`
-- package: `shapely` (BSD-3-Clause; bundled GEOS LGPL-2.1, dynamic-linked at the shared-library boundary)
+- package: `shapely` (BSD-3-Clause)
 - module: `import shapely`
 - owner: `data`
 - rail: geospatial

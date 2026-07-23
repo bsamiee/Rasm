@@ -5,21 +5,21 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Irihi.Ursa`
-- package: `Irihi.Ursa` (MIT, Irihi)
+- package: `Irihi.Ursa` (MIT)
 - assembly: `Ursa`
 - namespace: `Ursa.Controls`, `Ursa.Controls.Options`, `Ursa.Common`, `Ursa.Converters`, `Ursa.Helpers`, `Ursa.EventArgs`
 - depends: `Avalonia`, `Irihi.Avalonia.Shared`, `Irihi.Avalonia.Shared.Contracts` (the shared primitive closure `Semi.Avalonia` also floors on); `QRCode` vendors `Gma.QrCodeNet` internally, so no QR dependency surfaces
 - rail: controls
 
 [PACKAGE_SURFACE]: `Irihi.Ursa.Themes.Semi`
-- package: `Irihi.Ursa.Themes.Semi` (MIT, Irihi)
+- package: `Irihi.Ursa.Themes.Semi` (MIT)
 - assembly: `Ursa.Themes.Semi`
 - namespace: `Ursa.Themes.Semi` (`UrsaSemiTheme : Styles`), `Ursa.Themes.Semi.Converters`, `Ursa.Themes.Semi.Locale`
 - depends: `Ursa`; publishes control themes under the `https://irihi.tech/semi` (`semi:`) xmlns `Semi.Avalonia` shares
 - rail: theme
 
 [PACKAGE_SURFACE]: `Irihi.Ursa.ReactiveUIExtension`
-- package: `Irihi.Ursa.ReactiveUIExtension` (MIT, Irihi)
+- package: `Irihi.Ursa.ReactiveUIExtension` (MIT)
 - assembly: `Ursa.ReactiveUIExtension`
 - namespace: `Ursa.ReactiveUIExtension`
 - depends: `Ursa`, `ReactiveUI`

@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_PDFSHARP]
 
-`PDFsharp` owns the structured vector-PDF page model: `PdfDocument` holds the page tree, `XGraphics` draws the device-independent mark algebra over a page, image, or form, and `PdfReader` opens existing PDFs for read-modify-merge, with sibling namespaces adding encryption, digital signing, AcroForm fields, annotations, and tagged-PDF accessibility. `PDFsharp-MigraDoc` renders an auto-paginated flow-report DOM (`Document`/`Section`/`Paragraph`/`Table`/`Chart`) onto a `PdfDocument` through `PdfDocumentRenderer`. The pair is the branch vector-PDF owner: precise sheet layout draws directly with `XGraphics`, multi-page flow reports author a MigraDoc `Document`, and both feed the one PDF-export rail. PDFsharp is platform-neutral, so authoring and rendering run on the headless render path.
+`PDFsharp` owns the structured vector-PDF page model: `PdfDocument` holds the page tree, `XGraphics` draws the device-independent mark algebra over a page, image, or form, and `PdfReader` opens existing PDFs for read-modify-merge, with sibling namespaces adding encryption, digital signing, AcroForm fields, annotations, and tagged-PDF accessibility. `PDFsharp-MigraDoc` renders an auto-paginated flow-report DOM (`Document`/`Section`/`Paragraph`/`Table`/`Chart`) onto a `PdfDocument` through `PdfDocumentRenderer`. Together they own the branch vector-PDF rail: precise sheets draw through `XGraphics`, flow reports author a MigraDoc `Document`, and platform-neutral rendering stays on the headless path.
 
 ## [01]-[PACKAGE_SURFACE]
 

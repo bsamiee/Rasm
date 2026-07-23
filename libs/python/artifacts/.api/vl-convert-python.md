@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `vl-convert-python`
-- package: `vl-convert-python` (`BSD-3-Clause` wheel; embedded `deno_core`/V8, the Vega/Vega-Lite/Vega-Embed JS, and `resvg`/`usvg`/`tiny-skia` are `MPL-2.0`/`zlib` compiled into the `.abi3.so`, no copyleft on the consuming Python)
+- package: `vl-convert-python` (BSD-3-Clause)
 - import: `vl_convert` (render alias `import vl_convert as vlc`)
 - owner: `artifacts`
 - rail: visuals — the `visualization/chart/export#EXPORT` host-free engine and the shared chart-SVG raster floor

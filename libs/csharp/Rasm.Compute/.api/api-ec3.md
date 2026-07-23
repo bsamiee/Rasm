@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `EC3` / openEPD REST
-- package: none (REST integration; hand-thin over `System.Net.Http.HttpClient`)
-- license: openEPD interchange schema open (reference lib `cchangelabs/openepd` Apache-2.0); API under Building Transparency Terms of Service
+- package: none (REST integration)
 - base url: `https://openepd.buildingtransparency.org/api` — the versioned declaration-graph surface
 - auth: bearer token — `Authorization: Bearer <token>` at READ (consumer) scope
 - versioning: `/v2/...` path prefix on search/statistics; every declaration self-describes via `doctype` (`"openEPD"`) and `openepd_version`

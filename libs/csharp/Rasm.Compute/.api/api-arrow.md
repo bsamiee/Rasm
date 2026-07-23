@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Apache.Arrow`
-- package: `Apache.Arrow` (`Apache-2.0`, `apache/arrow`)
+- package: `Apache.Arrow` (Apache-2.0)
 - assembly: `Apache.Arrow`
 - namespace: `Apache.Arrow`, `Apache.Arrow.Types`, `Apache.Arrow.Memory`
 - asset: pure-managed runtime library, AnyCPU, no native RID; the `net10.0` consumer binds `lib/net8.0`

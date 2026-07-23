@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pyexiftool`
-- package: `PyExifTool` (dual-licensed GPL-3.0-or-later OR BSD-3-Clause, at the user's option)
+- package: `PyExifTool` (GPL-3.0-or-later OR BSD-3-Clause)
 - module: `exiftool`
 - namespaces: `exiftool`, `exiftool.exceptions`
 - owner: `artifacts`

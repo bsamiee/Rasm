@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ladybug-comfort`
-- package: `ladybug-comfort` (AGPL-3.0 network-copyleft, Ladybug Tools)
+- package: `ladybug-comfort` (AGPL-3.0)
 - module: `ladybug_comfort` — pure Python; submodule import at boundary scope
 - namespaces: `ladybug_comfort.{pmv,utci,pet,adaptive,solarcal,at,di,hi,humidex,wbgt,wc,ts,degreetime,clo}`, `ladybug_comfort.collection.*`, `ladybug_comfort.parameter.*`, `ladybug_comfort.chart.*`, `ladybug_comfort.map.*`
 - rail: energy-companion (thermal-comfort calculation)

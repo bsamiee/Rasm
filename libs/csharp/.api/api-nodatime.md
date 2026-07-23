@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `NodaTime`
-- package: `NodaTime` (Apache-2.0, Jon Skeet)
+- package: `NodaTime` (Apache-2.0)
 - assembly: `NodaTime`
 - namespaces: `NodaTime`, `NodaTime.Text`, `NodaTime.TimeZones`, `NodaTime.Calendars`, `NodaTime.Extensions`, `NodaTime.HighPerformance`, `NodaTime.Xml`
 - rail: time

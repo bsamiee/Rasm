@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
-- package: `Microsoft.AspNetCore.JsonPatch.SystemTextJson` (MIT, Microsoft)
+- package: `Microsoft.AspNetCore.JsonPatch.SystemTextJson` (MIT)
 - assembly: `Microsoft.AspNetCore.JsonPatch.SystemTextJson.dll`
 - namespace: `Microsoft.AspNetCore.JsonPatch.SystemTextJson`, `.Operations`, `.Adapters`, `.Exceptions`
 - rail: boundary

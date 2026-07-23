@@ -7,7 +7,7 @@ Only an attribute-carrying wire type enters this row; an attribute-free seam gra
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MessagePack`
-- package: `MessagePack` (MIT, Yoshifumi Kawai and contributors)
+- package: `MessagePack` (MIT)
 - assembly: `MessagePack`, `MessagePack.Annotations`
 - namespace: `MessagePack`, `MessagePack.Formatters`, `MessagePack.Resolvers`
 - target: the `net10.0` consumer binds `lib/net9.0`

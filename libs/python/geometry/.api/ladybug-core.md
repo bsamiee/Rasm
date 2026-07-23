@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ladybug-core`
-- package: `ladybug-core` (AGPL-3.0 network-copyleft)
+- package: `ladybug-core` (AGPL-3.0)
 - module: `ladybug` — `ladybug.{epw,wea,stat,ddy,designday,location,analysisperiod,dt}` weather + time model, `ladybug.{datacollection,datacollectionimmutable,header}` time-series algebra, `ladybug.{datatype,sunpath,sql,psychrometrics,skymodel}` registry/solar/output/numeric, `ladybug.{legend,color,graphic,compass,hourlyplot,monthlychart,psychchart,windrose,windprofile,viewsphere,solarenvelope,climatezone}` visualization
 - owner: `geometry`
 - rail: energy / climate

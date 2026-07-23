@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pulumi/cloudflare`
-- package: `@pulumi/cloudflare`
-- license: Apache-2.0
+- package: `@pulumi/cloudflare` (Apache-2.0)
 - import: `@pulumi/cloudflare` (flat resource + `getX`/`getXOutput` barrel; `{ config, types }` namespaces)
 - owner: `iac`
 - rail: cloud-row / cloudflare + selfhosted-k8s cert/dns/ingress

@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@simplewebauthn/browser`
-- package: `@simplewebauthn/browser`
-- license: `MIT`
+- package: `@simplewebauthn/browser` (MIT)
 - module: dual ESM (`import` → `esm/index.js`) + CJS (`require` → `script/index.js`); the browser-safe entry (`@simplewebauthn/server` is the separate node/edge verifier half)
 - effect-boundary: `startRegistration`/`startAuthentication` return `Promise` → `Effect.tryPromise({ try, catch })`; the reject value is already a coded `WebAuthnError` (classified internally), so the `catch` narrows on `.code` rather than re-classifying. `.api/effect.md`
 - catalog-verdict: KEEP — the one `navigator.credentials` ceremony wrapper; the abort service + error-intuition rail are capability WebCrypto/raw `navigator` do not provide

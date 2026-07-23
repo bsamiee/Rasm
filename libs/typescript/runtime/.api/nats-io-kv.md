@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@nats-io/kv`
-- package: `@nats-io/kv` (Apache-2.0, Synadia/nats.io)
+- package: `@nats-io/kv` (Apache-2.0)
 - module format: ESM + CJS dual; a distinct member of the catalog-bound modular family — depends on `@nats-io/jetstream` + `@nats-io/nats-core`, both already admitted
 - runtime target: wherever the core connection runs — node, bun, browser over websockets
 - rail: KV topology row (`net/pubsub`); the distributed arm of the coordination port

@@ -5,9 +5,8 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pulumi/pulumi`
-- package: `@pulumi/pulumi`
+- package: `@pulumi/pulumi` (Apache-2.0)
 - module: `@pulumi/pulumi` (core — including the `InvokeOptions`/`InvokeOutputOptions` data-source-invoke seam), `@pulumi/pulumi/automation` (programmatic lifecycle), `@pulumi/pulumi/{asset,log,dynamic,provider,runtime,iterable,queryable}` (submodules — `queryable.ResolvedResource<T>` backs `@pulumi/policy` stack narrowing)
-- license: `Apache-2.0`
 - asset: output algebra, resource model, config, stack references, error rails, Automation API, engine-event stream
 - runtime: `node` — the `pulumi` CLI binary is a deploy-host fact wrapped once via `PulumiCommand`/`LocalWorkspaceOptions.pulumiCommand`; provider plugins auto-download on first resource registration
 - rail: deployment
@@ -170,45 +169,14 @@ Native drift + progress pipeline the receipt ledger folds. Every lifecycle `opts
 |  [15]   | `StartDebuggingEvent`                  | interface     | DAP-attach                                                              |
 |  [16]   | `CommandError`                         | error base    | `ConcurrentUpdateError`/`StackNotFoundError`/`StackAlreadyExistsError`  |
 
-```ts signature
-// @pulumi/pulumi/automation — the ledger + drift surface iac folds
-export declare type OpType =
-  | "same" | "create" | "update" | "delete" | "replace"
-  | "create-replacement" | "delete-replaced" | "read" | "read-replacement"
-  | "refresh" | "discard" | "discard-replaced" | "remove-pending-replace"
-  | "import" | "import-replacement"
-export declare type OpMap = { [key in OpType]?: number }
-
-export interface StepEventMetadata {
-  op: OpType; urn: string; type: string; provider: string
-  old?: StepEventStateMetadata; new?: StepEventStateMetadata
-  keys?: string[]; diffs?: string[]; detailedDiff?: Record<string, PropertyDiff>; logical?: boolean
-}
-export interface DiagnosticEvent {                              // grafana matches bridged-provider errors on severity
-  urn?: string; prefix?: string; message: string; color: string
-  severity: "info" | "info#err" | "warning" | "error"; streamID?: number; ephemeral?: boolean
-}
-export interface EngineEvent {                                  // exactly one event arm non-nil
-  sequence: number; timestamp: number
-  resourcePreEvent?: ResourcePreEvent; resOutputsEvent?: ResOutputsEvent; resOpFailedEvent?: ResOpFailedEvent
-  summaryEvent?: SummaryEvent; diagnosticEvent?: DiagnosticEvent; policyEvent?: PolicyEvent
-  stdoutEvent?: StdoutEngineEvent; preludeEvent?: PreludeEvent; cancelEvent?: CancelEvent; startDebuggingEvent?: StartDebuggingEvent
-}
-export interface PreviewResult { stdout: string; stderr: string; changeSummary: OpMap }
-
-// GlobalOpts ∩ UpOptions — the option surface the Effect rail parameterizes
-interface GlobalOpts {
-  color?: "always" | "never" | "raw" | "auto"; tracing?: string
-  debug?: boolean; suppressOutputs?: boolean; suppressProgress?: boolean
-}
-interface UpOptions extends GlobalOpts {
-  parallel?: number; message?: string; expectNoChanges?: boolean; refresh?: boolean; diff?: boolean
-  target?: string[]; replace?: string[]; exclude?: string[]; excludeDependents?: boolean; targetDependents?: boolean
-  policyPacks?: string[]; policyPackConfigs?: string[]; plan?: string; continueOnError?: boolean; attachDebugger?: boolean
-  onOutput?: (out: string) => void; onEvent?: (event: EngineEvent) => void; onError?: (err: string) => void
-  signal?: AbortSignal        // Effect.async's AbortSignal binds here; Effect.interrupt aborts the run
-}
-```
+[OP_TYPE]: `OpType = |"same"|…`
+[OP_MAP]: `OpMap = {[key in OpType]?:number}`
+[STEP_EVENT_METADATA]: `StepEventMetadata.op: OpType` `StepEventMetadata.urn: string` `StepEventMetadata.type: string` `StepEventMetadata.provider: string` `StepEventMetadata.old: StepEventStateMetadata` `StepEventMetadata.new: StepEventStateMetadata` `StepEventMetadata.keys: string[]` `StepEventMetadata.diffs: string[]` `StepEventMetadata.detailedDiff: Record<string,PropertyDiff>` `StepEventMetadata.logical: boolean`
+[DIAGNOSTIC_EVENT]: `DiagnosticEvent.urn: string` `DiagnosticEvent.prefix: string` `DiagnosticEvent.message: string` `DiagnosticEvent.color: string` `DiagnosticEvent.severity: "info"|"info#err"|"warning"|"error"` `DiagnosticEvent.streamID: number` `DiagnosticEvent.ephemeral: boolean`
+[ENGINE_EVENT]: `EngineEvent.sequence: number` `EngineEvent.timestamp: number` `EngineEvent.resourcePreEvent: ResourcePreEvent` `EngineEvent.resOutputsEvent: ResOutputsEvent` `EngineEvent.resOpFailedEvent: ResOpFailedEvent` `EngineEvent.summaryEvent: SummaryEvent` `EngineEvent.diagnosticEvent: DiagnosticEvent` `EngineEvent.policyEvent: PolicyEvent` `EngineEvent.stdoutEvent: StdoutEngineEvent` `EngineEvent.preludeEvent: PreludeEvent` `EngineEvent.cancelEvent: CancelEvent` `EngineEvent.startDebuggingEvent: StartDebuggingEvent`
+[PREVIEW_RESULT]: `PreviewResult.stdout: string` `PreviewResult.stderr: string` `PreviewResult.changeSummary: OpMap`
+[GLOBAL_OPTS]: `GlobalOpts.color: "always"|"never"|"raw"|"auto"` `GlobalOpts.tracing: string` `GlobalOpts.debug: boolean` `GlobalOpts.suppressOutputs: boolean` `GlobalOpts.suppressProgress: boolean`
+[UP_OPTIONS]: `UpOptions.parallel: number` `UpOptions.message: string` `UpOptions.expectNoChanges: boolean` `UpOptions.refresh: boolean` `UpOptions.diff: boolean` `UpOptions.target: string[]` `UpOptions.replace: string[]` `UpOptions.exclude: string[]` `UpOptions.excludeDependents: boolean` `UpOptions.targetDependents: boolean` `UpOptions.policyPacks: string[]` `UpOptions.policyPackConfigs: string[]` `UpOptions.plan: string` `UpOptions.continueOnError: boolean` `UpOptions.attachDebugger: boolean` `UpOptions.onOutput: (out:string)=>void` `UpOptions.onEvent: (event:EngineEvent)=>void` `UpOptions.onError: (err:string)=>void` `UpOptions.signal: AbortSignal`
 
 ## [06]-[INTEGRATION]
 
@@ -236,32 +204,8 @@ Receipt-ledger rail — how `@pulumi/pulumi` stacks onto the `effect` substrate 
 - [07]-[TAGGED_FAULTS]: `ConcurrentUpdateError`/`StackNotFoundError`/input errors triage through one `Match.instanceOf` ladder into the reason-discriminated fault family.
 - [08]-[SCOPED_LIFECYCLE]: `createOrSelectStack` acquired, `destroy` released — scoped teardown.
 
-```ts signature
-// iac/program/automation.ts — the one wrap; every consumer sees a typed Effect
-const _LEDGER: { readonly [K in RunReceipt.Op]: (stack: Stack, opts: _RunOpts) => Promise<unknown> } = {
-  up: (stack, opts) => stack.up(opts),
-  preview: (stack, opts) => stack.preview(opts),
-  refresh: (stack, { signal, onEvent, parallel }) => stack.refresh({ signal, onEvent, parallel }),
-  destroy: (stack, { signal, onEvent, parallel }) => stack.destroy({ signal, onEvent, parallel }),
-  reconcile: (stack, { signal, onEvent, parallel }) => stack.previewRefresh({ signal, onEvent, parallel }),
-}
-
-const _streamed = (stack: Stack, name: string, op: RunReceipt.Op, options?: Automation.Options) =>
-  Stream.asyncPush<EngineEvent, DeployFault>((emit) =>
-    Effect.acquireRelease(
-      Effect.sync(() => {
-        const abort = new AbortController()
-        _LEDGER[op](stack, { ...options, signal: abort.signal, onEvent: (event) => void emit.single(event) }).then(
-          () => emit.end(),
-          (caught) => emit.fail(DeployFault.triaged(name)(caught)),
-        )
-        return abort
-      }),
-      (abort) => Effect.sync(() => abort.abort()),              // release aborts the engine run: no orphan update
-    ))
-
-// one pass, both paths: Stream.runFold(_streamed(…), _SEED, _folded) live; Array.reduce(events, _SEED, _folded) batch
-```
+[_LEDGER]: `_LEDGER.up` `_LEDGER.preview` `_LEDGER.refresh` `_LEDGER.destroy` `_LEDGER.reconcile`
+[SURFACES]: `_streamed(Stack,string,RunReceipt.Op,Automation.Options?)`
 
 ## [07]-[IMPLEMENTATION_LAW]
 

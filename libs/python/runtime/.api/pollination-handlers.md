@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pollination-handlers`
-- package: `pollination-handlers` (AGPL-3.0, network copyleft)
+- package: `pollination-handlers` (AGPL-3.0)
 - module: `pollination_handlers`
 - abi: pure-Python (`py2.py3-none-any`, purelib; no native extension)
 - rail: recipe-execution / io-coercion

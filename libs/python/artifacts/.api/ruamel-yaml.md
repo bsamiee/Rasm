@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ruamel-yaml`
-- package: `ruamel-yaml`
+- package: `ruamel-yaml` (MIT)
 - import: `from ruamel.yaml import YAML`
 - owner: `artifacts`
 - rail: structured documents
-- license: MIT
 - entry points: none (library only)
 - capability: round-trip YAML 1.1/1.2 load/dump preserving comments, key order, anchors/aliases, tags, and per-node block/flow/quote styling; `rt`/`safe`/`full`/`base` typ variants; multi-document streams; styled-scalar construction; programmatic comment/anchor attach; class registration (`@yaml_object`) and the low-level tag/resolver/representer hooks (`add_representer`/`add_constructor`/`add_implicit_resolver`/`add_path_resolver`); low-level compose/serialize/parse/emit event and node rails
 

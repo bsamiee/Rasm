@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `scs`
-- package: `scs` (MIT, meson-python native C binding)
+- package: `scs` (MIT)
 - module: `import scs`
 - rail: convex optimization — first-order operator-splitting conic solver backend
 

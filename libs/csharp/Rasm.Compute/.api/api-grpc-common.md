@@ -5,13 +5,13 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Grpc.Net.Common`
-- package: `Grpc.Net.Common` (`Apache-2.0`, `grpc/grpc-dotnet`)
+- package: `Grpc.Net.Common` (Apache-2.0)
 - assembly: `Grpc.Net.Common`
 - namespace: `Grpc.Net.Compression`, `Grpc.Core`
 - rail: remote-wire
 
 [PACKAGE_SURFACE]: `Grpc.Core.Api`
-- package: `Grpc.Core.Api` (`Apache-2.0`, `grpc/grpc-dotnet`)
+- package: `Grpc.Core.Api` (Apache-2.0)
 - assembly: `Grpc.Core.Api`
 - namespace: `Grpc.Core`
 - rail: remote-server

@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@deck.gl/mesh-layers`
-- package: `@deck.gl/mesh-layers`
-- license: `MIT`
+- package: `@deck.gl/mesh-layers` (MIT)
 - abi: browser WebGL2/WebGPU via `@deck.gl/core`'s luma.gl `Device`; glTF parse worker-backed via loaders.gl
 - peer (`~catalog`): `@deck.gl/core` (`Layer`, `Material`, `Accessor`, `Position`, `Color`, `LayerProps`, `LayerDataSource`), `@luma.gl/core` (`Texture`/`SamplerProps`/`Device`), `@luma.gl/engine` (`Model`/`Geometry`/`GroupNode`), `@luma.gl/gltf` (`ParsedPBRMaterial`/`GLTFAnimator`/`PBREnvironment`), `@luma.gl/shadertools`; deps `@loaders.gl/gltf` (scenegraph loader), `@loaders.gl/schema` (`MeshAttributes`/`MeshAttribute`)
 - catalog-verdict: KEEP — the required `@deck.gl/geo-layers` `Tile3DLayer` mesh peer + the instanced-glTF path; admitted centrally, no lower-level substitute

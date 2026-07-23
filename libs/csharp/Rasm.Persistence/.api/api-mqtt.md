@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MQTTnet`
-- package: `MQTTnet` (MIT, .NET Foundation and Contributors)
+- package: `MQTTnet` (MIT)
 - assembly: `MQTTnet`
 - namespace: `MQTTnet`, `MQTTnet.Protocol`, `MQTTnet.Packets`, `MQTTnet.Formatter`
 - asset: pure-managed runtime library; control-packet framing rides the client's own socket or WebSocket channel

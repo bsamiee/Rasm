@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `OcctNet.Wrapper`
-- package: `OcctNet.Wrapper`
-- license: wrapper MIT; bundled native OCCT `LGPL-2.1-with-OCCT-exception-1.0`, dynamic-link clean — the exception waives the LGPL relink obligation for the shipped `.dylib`s, no source disclosure for the consuming application
+- package: `OcctNet.Wrapper` (MIT)
 - assembly: `OcctNet.Wrapper`
 - namespaces: `OcctNet.Wrapper` (public surface), `OcctNet.Wrapper.Native` (internal P/Invoke plumbing)
 - managed asset: `lib/net10.0/OcctNet.Wrapper.dll` — pure managed, zero transitive NuGet deps (empty `net10.0` dependency group)
@@ -128,7 +127,7 @@ Tessellation bridges the exact B-rep to an indexed triangle mesh; `linearDeflect
 - stock sizing and the keep-out envelope read from `shape.BoundingBox`, never folded from the mesh vertices.
 
 [RAIL_LAW]:
-- Package: `OcctNet.Wrapper` — wrapper MIT, native OCCT `LGPL-2.1-with-OCCT-exception-1.0` dynamic-link; managed `lib/net10.0` + osx-arm64 native OCCT toolkit set, not ALC-safe, native handles `IDisposable`.
+- Package: `OcctNet.Wrapper` (MIT)
 - Owns: STEP/IGES/STL read into an `OcctShape` B-rep, B-rep into `OcctMesh` tessellation, STEP/IGES/STL write, primitive construction (box/cylinder/sphere/edge/wire/face), boolean fuse/cut/common, extrude/revolve/translate, bounding-box query, and native-version probe.
 - Accept: a single imported `OcctShape` under `using`, tessellated to `OcctMesh` at a tolerance-driven deflection and crossed at the boundary; boolean and sweep modeling returning fresh disposable shapes; value-type `OcctVector3d`/`OcctAxis1d`/`OcctPointCoordinates` inputs; the rail gated on `OcctRuntime.TryGetNativeVersion`.
 - Reject: a leaked `OcctShape`/`OcctPoint3d`; a kernel `Rasm` geometry type entering the OCCT ABI; reading the raw `OcctStatus` enum instead of catching `OcctException`; loading this wrapper into an in-Rhino net48 plugin ALC; seeking an OCCT capability the managed wrapper leaves unbound though the native toolkit ships — assembly/XCAF/color/PMI reading, hidden-line removal (the kernel `DrawingProjection` owns HLR), or fillet/chamfer/loft/general B-rep editing.

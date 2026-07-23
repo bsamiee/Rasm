@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `geometry3Sharp`
-- package: `geometry3Sharp`
-- license: `Boost-1.0`
+- package: `geometry3Sharp` (Boost-1.0)
 - assembly: `geometry3Sharp`
 - namespace: `g3`
 - asset: pure-managed AnyCPU IL, multi-target `netstandard2.0` / `net45` (no native asset, no RID burden); the `net10.0` consumer binds `lib/netstandard2.0/geometry3Sharp.dll`
@@ -96,7 +95,7 @@
 - Reach `g3.BiArcFit2` only for a line-sourced kernel mesh-section chain; an arc-native loop reads `Geometry2D/arcs` through `CavalierContours` directly.
 
 [RAIL_LAW]:
-- Package: `geometry3Sharp` (Boost-1.0, pure-managed `netstandard2.0` IL)
+- Package: `geometry3Sharp` (Boost-1.0)
 - Owns: line-sourced biarc fitting — two `G1`-continuous `Arc2d`/`Segment2d` spans from a point/tangent pair, with `SampleT`/`SampleArcLength` arc reads and `Distance` fit-error query.
 - Accept: a unit-normalized `Vector2d` point/tangent pair from a genuinely line-only chord run; the symmetric or explicit-fit-distance constructor; the `Arc2d`/`Segment2d` frame read straight for `G2`/`G3` emit.
 - Reject: fitting a path already carrying bulge through the `CavalierContours` offset (the retired post-hoc refit); admitting `DMesh3`, `DMeshAABBTree3`, `MeshSignedDistanceGrid`, `Remesher`, mesh-Boolean surfaces, or the `geometry4Sharp` fork into the fabrication rail; a hand-rolled biarc solver beside `BiArcFit2`.

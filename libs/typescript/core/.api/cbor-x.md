@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `cbor-x`
-- package: `cbor-x`
-- license: `MIT`
+- package: `cbor-x` (MIT)
 - effect-peer: none — decode output crosses into `effect` `Schema.decodeUnknown` at the `interchange/codec` seam (`.api/effect.md`); no bundled peer
 - catalog-verdict: KEEP — the CBOR arm of the multi-codec wire plane: `@bufbuild/protobuf` owns the descriptor-typed proto families, `@msgpack/msgpack` the MessagePack CRDT union, `rfc6902` the JSON-Patch egress, this owns canonical CBOR — one codec per C# mint format, no overlap
 - runtime: isomorphic (`module` `./index.js`, `main` `./dist/node.cjs`); buffer `decode`/`encode` run in browser + node; `DecoderStream`/`EncoderStream` are node `stream.Transform` only; `cbor-extract` native accel is an optional node addon

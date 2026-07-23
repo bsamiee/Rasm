@@ -1,6 +1,6 @@
 # [TS_RUNTIME_API_EFFECT_AI_AMAZON_BEDROCK]
 
-`@effect/ai-amazon-bedrock` catalog · MIT · dual CJS+ESM, `sideEffects:[]`, per-module `exports` subpaths (`@effect/ai-amazon-bedrock/AmazonBedrockClient`) · marker TSDECL `node_modules/@effect/ai-amazon-bedrock/dist/dts/*.d.ts` · peers `@effect/ai`, `@effect/ai-anthropic`, `@effect/platform`, `@effect/experimental`, `effect` through catalog ownership · tier node (SigV4-signed regional HTTPS; no browser binding)
+`@effect/ai-amazon-bedrock` (MIT) · dual CJS+ESM, `sideEffects:[]`, per-module `exports` subpaths (`@effect/ai-amazon-bedrock/AmazonBedrockClient`) · marker TSDECL `node_modules/@effect/ai-amazon-bedrock/dist/dts/*.d.ts` · peers `@effect/ai`, `@effect/ai-anthropic`, `@effect/platform`, `@effect/experimental`, `effect` through catalog ownership · tier node (SigV4-signed regional HTTPS; no browser binding)
 
 Amazon Bedrock binding onto `@effect/ai` resolves the provider-agnostic `LanguageModel`/`Tool` tags against the Bedrock Converse/ConverseStream API. It is the most divergent row on the capability-asymmetry table — SigV4 credentials instead of a bearer key, a hand-written `AmazonBedrockSchema` codec instead of an OpenAPI `Generated` module, an AWS binary event-stream channel (`EventStreamEncoding`) instead of SSE, native guardrail assessment (the `GuardrailConfiguration` request field → the full `GuardrailTraceAssessment` response tree), and a peer dependency on `@effect/ai-anthropic` whose `prepareTools` + `BetaCacheControlEphemeral` it reuses to run Claude on Bedrock. No embedding, tokenizer, or telemetry owner. Six owner modules re-export through the barrel (`AmazonBedrockClient`, `AmazonBedrockConfig`, `AmazonBedrockLanguageModel`, `AmazonBedrockSchema`, `AmazonBedrockTool`, `EventStreamEncoding`). Success/failure flows through the core `AiError.AiError`; all I/O is `Effect`/`Stream`/`Channel`.
 
@@ -27,49 +27,22 @@ Amazon Bedrock binding onto `@effect/ai` resolves the provider-agnostic `Languag
 
 `AmazonBedrockClient` is a `Context.TagClass` (id `@effect/ai-amazon-bedrock/AmazonBedrockClient`) wrapping a low-level `Client` plus curated Converse entrypoints. `converse`/`converseStream` forward Anthropic beta opt-ins for Claude-on-Bedrock via `params["anthropic-beta"]`; the low-level `client.converse` surfaces the raw `HttpClientError | ParseError` rail whereas the Service methods map onto `AiError.AiError`. `streamRequest` decodes an arbitrary AWS event-stream response against a `Schema`.
 
-```ts signature
-export interface Service {
-  readonly client: Client
-  readonly streamRequest: <A, I, R>(request: HttpClientRequest.HttpClientRequest, schema: Schema.Schema<A, I, R>) => Stream.Stream<A, AiError.AiError, R>
-  readonly converse:       (options: { params?: { "anthropic-beta"?: string }; payload: typeof ConverseRequest.Encoded }) => Effect.Effect<ConverseResponse, AiError.AiError>
-  readonly converseStream: (options: { params?: { "anthropic-beta"?: string }; payload: typeof ConverseRequest.Encoded }) => Stream.Stream<ConverseResponseStreamEvent, AiError.AiError>
-}
-export interface Client { readonly converse: (options: { params?; payload: typeof ConverseRequest.Encoded }) => Effect.Effect<typeof ConverseResponse.Type, HttpClientError.HttpClientError | ParseError> }
-```
+[SERVICE]: `Service.client: Client` `Service.streamRequest: <A,I,R>(request:HttpClientRequest.HttpClientRequest,schema:Schema.Schema<A,I,R>)=>Stream.Stream<A,AiError.AiError,R>` `Service.converse: (options:{…})=>Effect.Effect<ConverseResponse,AiError.AiError>` `Service.converseStream: (options:{…})=>Stream.Stream<ConverseResponseStreamEvent,AiError.AiError>`
+[CLIENT]: `Client.converse: (options:{…})=>Effect.Effect<typeof ConverseResponse.Type,HttpClientError.HttpClientError|ParseError>`
 
 ONE constructor pattern, three arities carrying SigV4 credentials — `accessKeyId` (plain string, non-secret), `secretAccessKey` and `sessionToken` `Redacted<string>`, `region`, `apiUrl` (overrides the derived regional endpoint). `make` requires `HttpClient | Scope`; the layers require `HttpClient`; `layerConfig` wraps each in `Config.Config` and adds `ConfigError`. Node binds `NodeHttpClient.layer`; there is no browser binding.
 
-```ts signature
-declare const make: (options: {
-  readonly apiUrl?: string | undefined
-  readonly accessKeyId: string
-  readonly secretAccessKey: Redacted.Redacted<string>
-  readonly sessionToken?: Redacted.Redacted<string> | undefined
-  readonly region?: string | undefined
-  readonly transformClient?: (client: HttpClient.HttpClient) => HttpClient.HttpClient
-}) => Effect.Effect<Service, never, HttpClient.HttpClient | Scope.Scope>
-declare const layer:       (options: /* same, literal creds */) => Layer.Layer<AmazonBedrockClient, never, HttpClient.HttpClient>
-declare const layerConfig: (options: { accessKeyId: Config.Config<string>; secretAccessKey: Config.Config<Redacted>; sessionToken?: Config.Config<Redacted>; region?: Config.Config<string>; apiUrl?: Config.Config<string> }) => Layer.Layer<AmazonBedrockClient, ConfigError, HttpClient.HttpClient>
-```
+[SURFACES]: `make` `layer` `layerConfig` `same` `Layer`
 
 ## [03]-[LANGUAGE_MODEL]
 
 `AmazonBedrockLanguageModel` binds Converse onto the core `LanguageModel`/`Model` contracts; the model argument is `(string & {}) | Model` over the 90-id `BedrockFoundationModelId` (or a cross-region inference-profile ARN via the open-string arm). ONE model/layer family, narrower than OpenAI/Anthropic: `model`/`make`/`layer`/`withConfigOverride` — no `modelWithTokenizer`/`layerWithTokenizer` (no tokenizer) and no `prepareTools` (it consumes Anthropic's).
 
-```ts signature
-export type Model = typeof BedrockFoundationModelId.Encoded   // 90 ids, section [05]
-declare const model: (model: (string & {}) | Model, config?: Omit<Config.Service, "model">) => AiModel.Model<"amazon-bedrock", LanguageModel.LanguageModel, AmazonBedrockClient>
-declare const make / layer / withConfigOverride   // same shapes as the OpenAI family, minus the tokenizer arms
-export type AmazonBedrockReasoningInfo =
-  | { readonly type: "thinking";          readonly signature: string }     // encrypted, verifies Bedrock-generated thinking
-  | { readonly type: "redacted_thinking"; readonly redactedData: string }  // safety-flagged, encrypted
-```
+[SURFACES]: `Model` `model` `make` `AmazonBedrockReasoningInfo` `layer` `withConfigOverride`
 
 `Config` (tag `@effect/ai-amazon-bedrock/AmazonBedrockLanguageModel/Config`, `static getOrUndefined`) is the `ConverseRequest` minus SDK-owned keys (`messages`/`system`/`toolConfig`) made partial — i.e. `modelId`, `guardrailConfig`, `inferenceConfig`, `performanceConfig`, `promptVariables`, `requestMetadata`, `additionalModelRequestFields`, `additionalModelResponseFieldPaths`. `guardrailConfig` here is the seam that turns on native Bedrock guardrails per call.
 
-```ts signature
-namespace Config { interface Service extends Simplify<Partial<Omit<typeof ConverseRequest.Encoded, "messages"|"system"|"toolConfig">>> {} }
-```
+[SURFACE]: `namespace Config{interface Service extends Simplify<Partial<Omit<typeof ConverseRequest.Encoded,"messages"|"system"|"toolConfig">>>{}}`
 
 `declare module` augmentations attach an optional `bedrock` key — ONE boundary-hook pattern. `cachePoint` is the caching breakpoint; `FinishPartMetadata.bedrock.trace` carries the full guardrail assessment tree.
 
@@ -100,54 +73,27 @@ namespace Config { interface Service extends Simplify<Partial<Omit<typeof Conver
 
 `BedrockFoundationModelId` is a 90-id `Schema.Literal` spanning every Bedrock provider family — Amazon Titan/Nova, Stability, AI21 Jamba, Anthropic Claude, Cohere Command/Embed, DeepSeek, Meta Llama, Mistral. Regenerable via `aws bedrock list-foundation-models --output json | jq '[.modelSummaries[].modelId]'`.
 
-```ts signature
-declare const BedrockFoundationModelId: Schema.Literal<[/* 90 ids: amazon.titan-*, amazon.nova-*, stability.*, ai21.jamba-*, anthropic.claude-*, cohere.*, deepseek.r1-*, meta.llama*, mistral.* */]>
-export declare class ConverseRequest {
-  readonly modelId: string; readonly messages: readonly Message[]
-  readonly system?: readonly SystemContentBlock[]   // Union: { cachePoint } | { guardContent } | { text }
-  readonly toolConfig?: ToolConfiguration; readonly guardrailConfig?: GuardrailConfiguration
-  readonly inferenceConfig?: InferenceConfiguration; readonly performanceConfig?: PerformanceConfiguration
-  readonly promptVariables?; requestMetadata?; additionalModelRequestFields?; additionalModelResponseFieldPaths?
-}
-export declare class ConverseResponse {
-  readonly output: ConverseOutput; readonly metrics: ConverseMetrics; readonly usage: TokenUsage
-  readonly stopReason: StopReason; readonly trace?: ConverseTrace; readonly performanceConfig?; additionalModelResponseFields?
-}
-declare const StopReason: Schema.Literal<["end_turn","tool_use","max_tokens","stop_sequence","guardrail_intervened","content_filtered"]>
-```
+[CONVERSE_REQUEST]: `ConverseRequest.modelId: string` `ConverseRequest.messages: readonly Message[]` `ConverseRequest.system: readonly SystemContentBlock[]` `ConverseRequest.toolConfig: ToolConfiguration` `ConverseRequest.guardrailConfig: GuardrailConfiguration` `ConverseRequest.inferenceConfig: InferenceConfiguration` `ConverseRequest.performanceConfig: PerformanceConfiguration` `ConverseRequest.promptVariables: unknown` `ConverseRequest.requestMetadata: unknown` `ConverseRequest.additionalModelRequestFields: unknown` `ConverseRequest.additionalModelResponseFieldPaths: unknown`
+[CONVERSE_RESPONSE]: `ConverseResponse.output: ConverseOutput` `ConverseResponse.metrics: ConverseMetrics` `ConverseResponse.usage: TokenUsage` `ConverseResponse.stopReason: StopReason` `ConverseResponse.trace: ConverseTrace` `ConverseResponse.performanceConfig: unknown` `ConverseResponse.additionalModelResponseFields: unknown`
+[SURFACES]: `BedrockFoundationModelId: Schema.Literal<…>` `StopReason: Schema.Literal<["end_turn","tool_use","max_tokens","stop_sequence","guardrail_intervened","content_filtered"]>`
 
 `ContentBlock` is the ONE `type`-tagged content union (9 arms: `cachePoint`, `document`, `guardContent`, `image`, `reasoningContent`, `text`, `toolResult`, `toolUse`, `video`), with leaf owners `DocumentBlock`/`ImageBlock`/`VideoBlock`/`ToolUseBlock`/`ToolResultBlock`/`ReasoningContentBlock`/`CachePointBlock`. `ConverseResponseStreamEvent` is the ONE streaming-fold surface — an 11-member `type`-tagged union: `messageStart`/`messageStop`/`contentBlockStart`/`contentBlockDelta`/`contentBlockStop`/`metadata` plus five AWS exception frames (`internalServerException`, `modelStreamErrorException`, `serviceUnavailableException`, `throttlingException`, `validationException`); the per-event owners are `MessageStartEvent`/`MessageStopEvent`/`ContentBlockStartEvent`/`ContentBlockDeltaEvent`/`ContentBlockStopEvent`/`ConverseStreamMetadataEvent` (+ `ContentBlockStart`/`ToolUseBlockStart`/`ContentBlockDelta`/`ToolUseBlockDelta`/`ReasoningContentBlockDelta`).
 
 Guardrail-trace corpus is ONE assessment tree parameterized by policy kind, feeding `ConverseTrace`/`ConverseStreamTrace` → `FinishPartMetadata.bedrock.trace`. `GuardrailTraceAssessment` holds `inputAssessment`/`outputAssessments` maps of `GuardrailAssessment`, each a record over six policy owners:
 
-```ts signature
-class GuardrailAssessment {
-  contentPolicy?: GuardrailContentPolicyAssessment                       // filters: GuardrailContentFilter[] (type ∈ HATE|INSULTS|MISCONDUCT|PROMPT_ATTACK|SEXUAL|VIOLENCE)
-  contextualGroundingPolicy?: GuardrailContextualGroundingPolicyAssessment // GROUNDING|RELEVANCE, score/threshold
-  sensitiveInformationPolicy?: GuardrailSensitiveInformationPolicyAssessment // piiEntities: GuardrailPiiEntityFilter[] + regexes
-  topicPolicy?: GuardrailTopicPolicyAssessment; wordPolicy?: GuardrailWordPolicyAssessment
-  invocationMetrics?: GuardrailInvocationMetrics                         // coverage + latency + GuardrailUsage per-policy unit counts
-}
-// GuardrailPiiEntityFilter.type is a 31-category literal (ADDRESS, AGE, AWS_ACCESS_KEY, …, US_SOCIAL_SECURITY_NUMBER, VEHICLE_IDENTIFICATION_NUMBER); action ∈ ANONYMIZED|BLOCKED|NONE
-```
+[GUARDRAIL_ASSESSMENT]: `GuardrailAssessment.contentPolicy: GuardrailContentPolicyAssessment` `GuardrailAssessment.contextualGroundingPolicy: GuardrailContextualGroundingPolicyAssessment` `GuardrailAssessment.sensitiveInformationPolicy: GuardrailSensitiveInformationPolicyAssessment` `GuardrailAssessment.topicPolicy: GuardrailTopicPolicyAssessment` `GuardrailAssessment.wordPolicy: GuardrailWordPolicyAssessment` `GuardrailAssessment.invocationMetrics: GuardrailInvocationMetrics`
 
 ## [06]-[EVENT_STREAM]
 
 `EventStreamEncoding.makeChannel` is a single `Channel` constructor decoding the AWS [event-stream](https://docs.aws.amazon.com/lexv2/latest/dg/event-stream-encoding.html) binary frame format into schema-decoded values — what backs the Service `converseStream`/`streamRequest` over the ConverseStream byte stream. It consumes `Chunk<Uint8Array>`, emits `Chunk<A>` of decoded frames, and fails with `IE | ParseError` (upstream input error joined with `Schema` decode failure). This is the Bedrock-specific stacking onto `effect/Channel` that no other provider needs (the others fold SSE).
 
-```ts signature
-declare const makeChannel: <A, I, R, IE, Done>(schema: Schema.Schema<A, I, R>, options?: { readonly bufferSize?: number }) =>
-  Channel.Channel<Chunk.Chunk<A>, Chunk.Chunk<Uint8Array<ArrayBufferLike>>, IE | ParseError, IE, void, Done, R>
-```
+[SURFACES]: `makeChannel(Schema.Schema<A,I,R>,{readonly bufferSize?:number}?) -> Channel.Channel<Chunk.Chunk<A>,Chunk.Chunk<Uint8Array<ArrayBufferLike>>,IE|ParseError,IE,void,Done,R>`
 
 ## [07]-[CONFIG]
 
 `AmazonBedrockConfig` (`Context.TagClass`, `static getOrUndefined`) is the request-scoped client transform, dual data-first/data-last. Its tag id is the upstream copy-paste **`@effect/ai-google/AmazonBedrockConfig`** (not `@effect/ai-amazon-bedrock/…`); planning owners referencing the tag must match this exact spelling.
 
-```ts signature
-namespace AmazonBedrockConfig { interface Service { readonly transformClient?: (client: HttpClient) => HttpClient } }
-declare const withClientTransform: { (t: (c: HttpClient) => HttpClient): <A,E,R>(self) => …; <A,E,R>(self, t): … }
-```
+[SURFACES]: `AmazonBedrockConfig` `Service` `withClientTransform`
 
 ## [08]-[INTEGRATION]
 

@@ -5,9 +5,8 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pulumi/random`
-- package: `@pulumi/random`
+- package: `@pulumi/random` (Apache-2.0)
 - module: `@pulumi/random`
-- license: `Apache-2.0`
 - asset: provider-tracked random material (passwords, strings, ids, bytes, integers, shuffles, UUIDs)
 - runtime: `node` — Terraform-bridge provider plugin auto-downloads on first resource registration; values persist in stack state
 - rail: fabric
@@ -71,18 +70,8 @@ Generated material is a sensitive `Output` that stacks into the secret + workloa
 |  [07]   | `keepers`                        | `Redacted` / `Config` rotation epoch     | `keepers = { epoch }` from an Effect `Config` value     |
 |  [08]   | `RandomUuid7.result`             | typed `StackOutputs`                     | time-ordered ids surfaced as outputs                    |
 
-```ts signature
-// iac/secret — generate → mark secret → store canonically, one policy shape
-const dbPassword = new random.RandomPassword("db-password", {
-  length: policy.length, special: policy.special,
-  minSpecial: policy.minSpecial, overrideSpecial: policy.overrideSpecial,
-  keepers: { epoch },                                    // bump epoch to rotate
-}, { parent })
-new doppler.Secret("db-password", {
-  project, config, name: "DB_PASSWORD",
-  value: pulumi.secret(dbPassword.result),               // sensitive Output → canonical store
-}, { parent })
-```
+[SURFACES]: `dbPassword = new random.RandomPassword("db-password",{…})`
+[COMPOSITION]: `RandomPassword.result -> doppler.Secret.value`
 
 ## [05]-[IMPLEMENTATION_LAW]
 

@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ReactiveUI`
-- package: `ReactiveUI`
-- license: `MIT`
+- package: `ReactiveUI` (MIT)
 - assembly: `ReactiveUI` (AnyCPU IL)
 - build-floor: `net10.0` (consumer-bound; multi-targets android/ios/maccatalyst/tizen/wasm — none bound here)
 - namespace: `ReactiveUI` (core), `ReactiveUI.Builder` (app builder), `ReactiveUI.Helpers`
@@ -150,7 +149,7 @@
 - `CanExecute` / `IsExecuting`: `IObservable<bool>` gate and in-flight streams.
 - `InvokeCommand`: `IDisposable InvokeCommand<…>(this IObservable<T>, ICommand|ReactiveCommandBase<…>|Expression<Func<TTarget,ICommand?>>)`.
 
-`CreateFromTask` with a `Func<…,CancellationToken,Task>` is the canonical async leg: the token is cancelled when a subsequent execution starts or the command is disposed — the design page's long-running Compute calls bind here. `canExecute` is an `IObservable<bool>` produced by `WhenAnyValue`. `InvokeCommand` is the trigger bridge (`this.WhenAnyValue(x => x.Save).InvokeCommand(vm, x => x.SaveCommand)` or `keyStream.InvokeCommand(vm.SaveCommand)`) — it respects `CanExecute` and disposes the subscription cleanly. The command result is itself an observable from `Execute`, so chains stay reactive.
+`CreateFromTask` with a `Func<…,CancellationToken,Task>` is the canonical async leg: its token cancels when a subsequent execution starts or the command is disposed, binding long-running Compute calls here. `WhenAnyValue` produces the `IObservable<bool>` `canExecute`; `InvokeCommand` bridges triggers while respecting `CanExecute` and disposing its subscription. `Execute` returns the observable command result, so chains stay reactive.
 
 [ACTIVATION_AND_ROUTING_ENTRYPOINTS]: lifecycle scope and navigation
 - rail: reactive
@@ -234,16 +233,16 @@ These are the alternative to compiled-XAML bindings; they keep the view-model pr
 - `SetupDefaultSuspendResume`: `IDisposable SetupDefaultSuspendResume<TAppState>(this ISuspensionHost<TAppState>, JsonTypeInfo<TAppState> typeInfo, ISuspensionDriver? = null)`.
 - `GetAppState<T>` / `ObserveAppState<T>`: `T` and `IObservable<T>` typed app-state access.
 
-View registration is `RegisterViews(m => m.Map<HomeViewModel, HomeView>())` over a `ViewMappingBuilder` — not a per-view `RegisterView<…>` method. `SetupDefaultSuspendResume` has an AOT-safe `JsonTypeInfo<TAppState>` overload that composes the `System.Text.Json` source-generated context the manifest already uses, so app-state persistence needs no reflection. The whole `string`↔primitive `IBindingTypeConverter` set registers automatically; there is no `RegisterStandardConverters` call to make.
+View registration is `RegisterViews(m => m.Map<HomeViewModel, HomeView>())` over a `ViewMappingBuilder`, not a per-view `RegisterView<…>` method. `SetupDefaultSuspendResume` composes an AOT-safe `JsonTypeInfo<TAppState>` with the source-generated `System.Text.Json` context, so app-state persistence needs no reflection. Every `string`↔primitive `IBindingTypeConverter` registers automatically; no `RegisterStandardConverters` call exists.
 
-## [04]-[INTEGRATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
-[SCREEN_OWNER_LAW]:
+[STACKING]:
 - Stack: a screen view-model is `ReactiveObject` + `IActivatableViewModel`; mutable inputs use `RaiseAndSetIfChanged`; derived outputs use `WhenAnyValue(...).ToProperty(this, x => x.Derived)`; user actions are `ReactiveCommand.CreateFromTask(token => …, canExecute: this.WhenAnyValue(x => x.IsValid))`; dialogs are `Interaction<TIn,TOut>` resolved in the view's `WhenActivated`; navigation is `IScreen.Router` (`RoutingState`); cross-component facts ride `MessageBus` or a shared `Interaction`. Every subscription is scoped into the `WhenActivated` `CompositeDisposable`.
 - Accept: state is observable, disposable, command-driven, and activation-scoped; collection state surfaces as DynamicData `IChangeSet` (e.g. `RoutingState.NavigationChanged`) so list views bind deltas, not full resets.
 - Reject: manual event fanout; `async void` command bodies (use `CreateFromTask`); undisposed `IObservable` subscriptions; `RegisterView<…>`/`RegisterStandardConverters`/`WithExceptionHandler` (non-existent in `23.2.28`).
 
-[RAIL_BOUNDARY_LAW]:
+[RAIL_LAW]:
 - `System.Reactive` owns the stream algebra (`Throttle`/`Select`/`ObserveOn`) every ReactiveUI member composes; `DynamicData` owns collection deltas; `ReactiveUI.Avalonia` owns the `AvaloniaScheduler` (`outputScheduler`/main-thread), view bases, and `Bind`/`BindCommand` activation; `ReactiveUI.Validation` owns the view-model-scoped `ValidationContext`/`ValidationRule`/`ReactiveValidationObject` aggregator (its `INotifyDataErrorInfo` fed by the context), which sits beside — not on top of — the core `ReactiveProperty<T>` per-property `INotifyDataErrorInfo` (`AddValidationError`/`HasErrors`/`ObserveHasErrors`) this catalog already owns. This catalog's owner never re-implements a scheduler, a collection-delta engine, or the validation aggregator — it composes those rails.
 - Accept: host panel, GH2 companion window, standalone desktop, sidecar, and headless proof share one reactive rail — the same `ReactiveCommand`/`Interaction`/`RoutingState` vocabulary across every `SurfaceHost` modality.
 - Reject: per-view imperative callback chains; a second observable/property-change framework alongside ReactiveUI; treating `AvaloniaScheduler` or validation as a ReactiveUI-core concern.

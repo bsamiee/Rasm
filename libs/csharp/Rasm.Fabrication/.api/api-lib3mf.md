@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `lib3mf`
-- package: `lib3mf` (`BSD-2-Clause`, 3MF Consortium)
+- package: `lib3mf` (BSD-2-Clause)
 - assembly: vendored ACT-generated `Lib3MF.cs` compiled into `Rasm.Fabrication`; the native core is a RID-keyed `lib3mf` shared library
 - namespace: `Lib3MF` — `C…` handle wrappers over `IntPtr`, the static `Wrapper` factory, and the `s…`/`e…` struct and enum value types
 - abi: RID-keyed native `lib3mf.dll`/`.so`/`.dylib`, ALC-firebreaked sidecar-only, content-keyed at the wire
@@ -144,7 +144,7 @@
 - `CWriter` admits only against a committed per-RID round-trip golden fixture — write, `CReader.ReadFromFile`, structural compare
 
 [RAIL_LAW]:
-- Package: `lib3mf` (vendored ACT-generated binding, RID-keyed native, BSD-2)
+- Package: `lib3mf` (BSD-2-Clause)
 - Owns: 3MF core, production, beam-lattice, and slice read and write — the additive build hand-off document
 - Accept: an oriented `MeshSpace`, a machine profile, and an optional PicoGK `Lattice` from `Additive/production`
 - Reject: hand-rolled 3MF XML/OPC synthesis, an STL fallback where the 3MF beam-lattice or slice extension carries the geometry, and a second content hash over the native buffer

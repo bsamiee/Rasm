@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/sql-mssql`
-- package: `@effect/sql-mssql`
-- license: `MIT`
+- package: `@effect/sql-mssql` (MIT)
 - effect-peer: `effect`, `@effect/sql` (the `SqlClient` core this extends; `.api/effect-sql.md`), `@effect/experimental` (`Reactivity` — `make` requires it; `.api/effect-experimental.md`), `@effect/platform`
 - backing: `tedious` (SQL Server TDS wire + connection pool; direct dependency, not peer)
 - runtime: `runtime:node`/bun services — `tedious` is a node-native TDS driver; the interop lane never reaches the browser plane

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pyvips`
-- package: `pyvips` (`MIT`; the native `libvips` it dlopens is a separate Forge-provisioned runtime dependency)
+- package: `pyvips` (MIT)
 - import: `pyvips` (native `libvips` `cffi` binding; ABI-independent pure-Python wheel)
 - owner: `artifacts`
 - rail: image (the `RasterEngine.LIBVIPS` fused decode/downscale/ICC/smartcrop streaming pipeline; the `_icc_apply` managed device→device ICC egress; the `Probe` header-read ICC/page introspection)

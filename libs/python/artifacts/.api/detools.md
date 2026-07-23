@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `detools`
-- package: `detools`
+- package: `detools` (BSD)
 - import: `detools`
 - owner: `artifacts`
 - rail: delta
-- license: `BSD`
 - marker: native `bsdiff`/`hdiffpatch`/`suffix_array` C extensions built from the sdist, interpreter-tagged (no abi3), rebuilt per Python minor
 - depends: `humanfriendly`, `bitstruct`, `pyelftools` (ELF offset reader), `zstandard`, `lz4`, `heatshrink2` — the codec siblings `detools` selects
 - namespaces: `detools`, `detools.create`, `detools.apply`, `detools.info`, `detools.compression`, `detools.data_format`, `detools.errors`
@@ -35,20 +34,10 @@
 
 `use_mmap` is a boundary fact rather than a knob: a `BytesIO` ingress exposes no `fileno()`, so the `bsdiff`/`sequential` kernel falls back mmap->heap on `io.UnsupportedOperation` while the `hdiffpatch`/`match-blocks` kernels mmap with no heap fallback — an in-memory-buffer caller pins `use_mmap=False`.
 
-```python signature
-create_patch(
-    ffrom, fto, fpatch,
-    compression='lzma', patch_type='sequential', algorithm='bsdiff',
-    suffix_array_algorithm='divsufsort',
-    memory_size=None, segment_size=None, minimum_shift_size=None, data_format=None,
-    from_data_offset_begin=0, from_data_offset_end=0, from_data_begin=0, from_data_end=0,
-    from_code_begin=0, from_code_end=0,
-    to_data_offset_begin=0, to_data_offset_end=0, to_data_begin=0, to_data_end=0,
-    to_code_begin=0, to_code_end=0,
-    match_score=6, match_block_size=64, use_mmap=True,
-    heatshrink_window_sz2=8, heatshrink_lookahead_sz2=7,
-)
-```
+- `create_patch` carry: `compression`, `patch_type`, `algorithm`, `suffix_array_algorithm`, `memory_size`, `segment_size`, `minimum_shift_size`, `data_format`
+- region carry: `from_data_offset_begin/end`, `from_data_begin/end`, `from_code_begin/end`, `to_data_offset_begin/end`, `to_data_begin/end`, `to_code_begin/end`
+- matching carry: `match_score`, `match_block_size`, `use_mmap`
+- heatshrink carry: `heatshrink_window_sz2`, `heatshrink_lookahead_sz2`
 
 | [INDEX] | [SURFACE]                | [CAPABILITY]                                            |
 | :-----: | :----------------------- | :------------------------------------------------------ |

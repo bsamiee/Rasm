@@ -113,8 +113,6 @@ These accessors expose each intermediate stage as the registration receipt; keyp
 - `small_gicp` is the downstream fine arm: `RegistrationSolution.rotation`/`translation` compose the initial 4x4 pose `small_gicp` GICP/VGICP refines — the coarse arm of the two-stage registration union, never the fine/ICP role and never identity minting.
 - geometry kernel offload: a multi-second `estimate` over a large unposed scan pair is CPU-bound with no async mirror, handing to the `GEOMETRY_CPU_OFFLOAD`/`GEOMETRY_KERNEL_OFFLOAD_LANE` seam rather than blocking the boundary; `clear`/`reset`/`reset_solver` recycle the estimator between offloaded runs.
 
-## [05]-[LOCAL_ADMISSION]
-
 [RAIL_LAW]:
 - Package: `kiss-matcher`
 - Owns: global initialization-free rigid registration, Faster-PFH keypoint extraction, correspondence matching, ROBIN outlier pruning, and GNC/Quatro pose solving

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@nats-io/jetstream`
-- package: `@nats-io/jetstream` (Apache-2.0, Synadia/nats.io)
+- package: `@nats-io/jetstream` (Apache-2.0)
 - module format: ESM + CJS dual; catalog-bound modular sibling of `@nats-io/nats-core`
 - runtime target: wherever the core connection runs — node, bun, browser over websockets
 - peer: `@nats-io/nats-core` (the `NatsConnection` input)

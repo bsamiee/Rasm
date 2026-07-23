@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pulumi/eks`
-- package: `@pulumi/eks`
-- license: Apache-2.0
+- package: `@pulumi/eks` (Apache-2.0)
 - import: `@pulumi/eks` → `{ Cluster, ManagedNodeGroup, NodeGroupV2, NodeGroup, Addon, VpcCniAddon, NodeGroupSecurityGroup, ClusterCreationRoleProvider, Provider, getRoleProvider, createManagedNodeGroup, createNodeGroupSecurityGroup, createStorageClass, types }` + the enum consts `AuthenticationMode`, `AccessEntryType`, `AmiType`, `OperatingSystem`, `ClusterNodePools`, `ResolveConflictsOnCreate`, `ResolveConflictsOnUpdate`
 - owner: `iac`
 - rail: kubernetes / prepared-aws
@@ -33,14 +32,7 @@
 |  [07]   | `AccessEntryArgs`         | `principalArn`, `accessPolicies?`, `kubernetesGroups?`, `type?`, `username?`                               |
 |  [08]   | `AuthenticationMode.Api`  | current mode; `ConfigMap` and `ApiAndConfigMap` carry deprecation markers with the aws-auth rows they feed |
 
-```ts signature
-import * as eks from "@pulumi/eks"
-import * as k8s from "@pulumi/kubernetes"
-
-// the managed twin of Bootstrap.kubeconfig — same seam, managed plane
-declare const cluster: eks.Cluster
-const provider = new k8s.Provider("k8s", { kubeconfig: cluster.kubeconfigJson, enableServerSideApply: true })
-```
+[SURFACES]: `cluster: eks.Cluster` `provider = new k8s.Provider("k8s",{kubeconfig:cluster.kubeconfigJson,enableServerSideApply:true})`
 
 ## [03]-[NODES_AND_ADDONS]
 

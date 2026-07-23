@@ -51,23 +51,23 @@ Every subtype maps to a Polars dtype and carries its inline validation policy th
 
 Every surface is a `classmethod` on the `Schema` subclass; `cast=True` coerces dtypes before rule evaluation and `eager` selects the eager or lazy return.
 
-| [INDEX] | [SURFACE]                                                 | [CAPABILITY]                                           |
-| :-----: | :-------------------------------------------------------- | :----------------------------------------------------- |
-|  [01]   | `validate(df, /, *, cast, eager, **kwargs)`               | enforce schema, raise on violation                     |
-|  [02]   | `is_valid(df, /, *, cast, **kwargs) -> bool`              | boolean conformance, collected eagerly, never raises   |
+| [INDEX] | [SURFACE]                                                 | [CAPABILITY]                                            |
+| :-----: | :-------------------------------------------------------- | :------------------------------------------------------ |
+|  [01]   | `validate(df, /, *, cast, eager, **kwargs)`               | enforce schema, raise on violation                      |
+|  [02]   | `is_valid(df, /, *, cast, **kwargs) -> bool`              | boolean conformance, collected eagerly, never raises    |
 |  [03]   | `filter(df, /, *, cast, eager, **kwargs) -> FilterResult` | split into `(valid, failures)`; lazy `LazyFilterResult` |
-|  [04]   | `cast(df, /)`                                             | drop extra columns and coerce dtypes, no content check |
-|  [05]   | `create_empty(*, lazy)`                                   | empty schema-typed frame                               |
-|  [06]   | `create_empty_if_none(df, *, lazy)`                       | impute `None` with an empty schema frame               |
-|  [07]   | `sample(num_rows, *, overrides, generator)`              | random schema-conformant rows                          |
-|  [08]   | `matches(other) -> bool`                                  | structural schema equality                             |
-|  [09]   | `serialize() -> str`                                      | serialize the contract to a string                     |
-|  [10]   | `columns() -> dict[str, Column]`                          | the declared column map                                |
-|  [11]   | `primary_key() -> list[str]`                              | primary-key column names                               |
-|  [12]   | `to_polars_schema() -> pl.Schema`                         | project to a Polars schema                             |
-|  [13]   | `to_pyarrow_schema() -> pa.Schema`                        | project to a PyArrow schema                            |
-|  [14]   | `to_sqlalchemy_columns(dialect)`                          | project to `list[sa.Column]`                           |
-|  [15]   | `to_pydantic_model(name)`                                 | project to a `pydantic.BaseModel` subclass             |
+|  [04]   | `cast(df, /)`                                             | drop extra columns and coerce dtypes, no content check  |
+|  [05]   | `create_empty(*, lazy)`                                   | empty schema-typed frame                                |
+|  [06]   | `create_empty_if_none(df, *, lazy)`                       | impute `None` with an empty schema frame                |
+|  [07]   | `sample(num_rows, *, overrides, generator)`               | random schema-conformant rows                           |
+|  [08]   | `matches(other) -> bool`                                  | structural schema equality                              |
+|  [09]   | `serialize() -> str`                                      | serialize the contract to a string                      |
+|  [10]   | `columns() -> dict[str, Column]`                          | the declared column map                                 |
+|  [11]   | `primary_key() -> list[str]`                              | primary-key column names                                |
+|  [12]   | `to_polars_schema() -> pl.Schema`                         | project to a Polars schema                              |
+|  [13]   | `to_pyarrow_schema() -> pa.Schema`                        | project to a PyArrow schema                             |
+|  [14]   | `to_sqlalchemy_columns(dialect)`                          | project to `list[sa.Column]`                            |
+|  [15]   | `to_pydantic_model(name)`                                 | project to a `pydantic.BaseModel` subclass              |
 
 - `Schema.validate`/`filter`/`is_valid`: `**kwargs` pass to `polars.LazyFrame.collect` — set `engine="streaming"` for out-of-core validation over a lazy frame.
 - Parquet/delta IO stays in the polars owner: read with `polars.read_parquet`/`scan_parquet` then call `Schema.validate` explicitly, write with `polars.DataFrame.write_parquet`/`LazyFrame.sink_parquet`; `read_parquet_metadata_schema(source)` recovers an embedded serialized `Schema` from parquet metadata, and `serialize`/`deserialize_schema` own the contract string.
@@ -80,7 +80,7 @@ Every surface is a `classmethod` accepting `data: Mapping[str, FrameType]` keyed
 | :-----: | :---------------------------------------------------------------------------- | :----------------------------------------------------- |
 |  [01]   | `validate(data, /, *, cast, eager, skip_member_validation, **kwargs) -> Self` | enforce member schemas and collection filters          |
 |  [02]   | `is_valid(data, /, *, cast, **kwargs) -> bool`                                | boolean collection conformance                         |
-|  [03]   | `filter(data, /, *, cast, eager, skip_member_validation, **kwargs)` | split into valid and per-member failures |
+|  [03]   | `filter(data, /, *, cast, eager, skip_member_validation, **kwargs)`           | split into valid and per-member failures               |
 |  [04]   | `cast(data, /) -> Self`                                                       | cast every member to its schema, no invariant check    |
 |  [05]   | `join(primary_keys, how, maintain_order) -> Self`                             | filter members by a shared-key frame (`how` semi/anti) |
 |  [06]   | `collect_all(**kwargs) -> Self`                                               | collect all lazy members (`**kwargs` to `collect_all`) |

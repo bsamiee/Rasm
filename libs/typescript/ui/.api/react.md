@@ -5,9 +5,8 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `react`
-- package: `react`
+- package: `react` (MIT)
 - channel: CANARY dist-tag (operator-admitted) — the central manifest pins the react/react-dom canary build; the canary line is stable-19.2 plus exactly two runtime additions (`ViewTransition`, `addTransitionType` — bare names, no `unstable_` prefix), while `@types/react`/`@types/react-dom` stay the stable line
-- license: `MIT` (© Meta Platforms)
 - module format: ESM/CJS dual via conditional `exports`; subpaths `.` (barrel), `./jsx-runtime`, `./jsx-dev-runtime`, `./compiler-runtime`; a `react-server` condition swaps the RSC-safe build (no client hooks) at the `.` and jsx subpaths
 - runtime target: isomorphic (browser/node/worker); zero dependencies; renderer-agnostic — `react` is the reconciler-facing runtime, a renderer package (`react-dom`) commits the tree
 - asset: JS runtime shipping no own `.d.ts`; the type-level surface is `@types/react` (`.api/types-react.md`) and the compiler gate is `tsc`/`tsgo`, so a member here and its type there move as one wave. CANARY TYPES GAP: the stable `@types/react` default barrel omits the canary members — they are declared only in the `react/canary` types subpath, admitted by one `/// <reference types="react/canary" />` at the entry types (a tsconfig `types` array entry cannot reach a conditional subpath, and no runtime module exists at `react/canary`)

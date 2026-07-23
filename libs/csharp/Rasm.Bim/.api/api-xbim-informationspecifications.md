@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Xbim.InformationSpecifications`
-- package: `Xbim.InformationSpecifications` (CDDL-1.0, `CBenghi/Xbim.Xids`, `requireLicenseAcceptance=true`)
+- package: `Xbim.InformationSpecifications` (CDDL-1.0)
 - assembly: `Xbim.InformationSpecifications`; the `net10.0` consumer binds `lib/net8.0` (pure-managed AnyCPU IL, ALC-safe, no native asset)
 - namespace: `Xbim.InformationSpecifications`, `.Helpers`, `.Helpers.Measures`, `.IO`, `.Cardinality`, `.Facets.buildingSMART`
 - transitive: `ids-lib` (`api-ids-lib`, the IDS-file audit + `IfcSchema` metadata), `System.Text.Json` (native JSON IO), `System.IO.Compression.ZipFile` (the IDS `.zip` container)
@@ -153,7 +153,7 @@
 - this package carries no IFC entity graph — the model under test is the seam `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph` the `Projection/semantic#SEMANTIC_PROJECTOR` assembles.
 
 [RAIL_LAW]:
-- Package: `Xbim.InformationSpecifications` (CDDL-1.0, `requireLicenseAcceptance`, pure-managed `lib/net8.0` AnyCPU IL)
+- Package: `Xbim.InformationSpecifications` (CDDL-1.0)
 - Owns: the buildingSMART IDS specification document model (`Xids`/`SpecificationsGroup`/`Specification`/`FacetGroup`), the facet types, the `ValueConstraint` value-matching engine, IDS cardinality, the schema axis, and the IDS XML/JSON round-trip
 - Accept: an IDS document loaded/authored through `Xids`, its facets read as the closed `IdsFacet` union the `validation#IDS_FACETS` page lowers to the `ElementPredicate` algebra, its `ValueConstraint`s lowered at parse onto the seam `ValueMatch` family (range literals coerced through `TryGetNetType`/`ParseValue`), the schema bridged to `ids-lib` through `IfcSchemaVersionHelper`, and the authored XML reconciled against the ifctester oracle
 - Reject: a hand-rolled IDS XSD parser beside `Xids.LoadBuildingSmartIDS`; a stringly-typed value compare beside `ValueConstraint`; a second schema-version enum beside `IfcSchemaVersionHelper`; an IFC entity-graph reader sought from this package; re-implementing the IDS-FILE audit `api-ids-lib` owns; vendoring or modifying the CDDL-1.0 source rather than referencing the binary

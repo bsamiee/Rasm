@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `JetBrains.Annotations`
-- package: `JetBrains.Annotations` (MIT, © JetBrains s.r.o.)
+- package: `JetBrains.Annotations` (MIT)
 - assembly: `JetBrains.Annotations`, attribute and enum declarations alone; `net10.0` consumers bind the `netstandard2.0` asset
 - namespace: `JetBrains.Annotations`
 - rail: source-analysis

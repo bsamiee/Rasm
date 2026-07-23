@@ -1,7 +1,7 @@
 # [TS_UI_API_REACT_ARIA_COMPONENTS]
 
 [PACKAGE_SURFACE]:
-- package: `react-aria-components` · version `` · license `Apache-2.0`
+- package: `react-aria-components` (Apache-2.0)
 - module: dual — `dist/exports/index.mjs` (ESM) + `dist/exports/index.cjs` (CJS); per-component subpaths (`react-aria-components/Button`, …) via `exports["./*"]`; `./i18n` + `./i18n/*` locale bundles. `sideEffects: ["*.css"]` — the headless core is pure; only the optional bundled stylesheet side-effects. `client-only` import ⇒ client-tier (RSC boundary).
 - asset: `dist/types/exports/index.d.ts` + ~80 per-component `.d.ts` (`restore: restored`, 79 declaration assets).
 - runtime: React 19 render-time; internalizes `react-aria@catalog` (behavior/ARIA hooks) + `react-stately@catalog` (collection/selection/form state) + `@internationalized/date catalog` (calendar/date values) + `@react-types/shared` (the shared vocab). Peer react/react-dom 19.
@@ -15,30 +15,12 @@
 
 Every component styles through `RenderProps`, injects props through a `ContextValue`, and names its slot through `SlotProps`. These owners are the mechanism; the roster in [02] varies only the state type `T`. The value exports here (`composeRenderProps`, `Provider`, `useRenderProps`, `useContextProps`, `useSlottedContext`, `DEFAULT_SLOT`) and type exports (`RenderProps`, `StyleRenderProps`, `ContextValue`, `SlotProps`) are the entire compositional substrate.
 
-```ts signature
-// className/style/children each accept a plain value OR a function of the component's render state (the data-* selectors). `render` overrides the DOM element.
-type ClassNameOrFunction<T> = string | ((s: T & { defaultClassName: string | undefined }) => string)
-interface StyleRenderProps<T, E extends keyof JSX.IntrinsicElements = 'div'> {
-  className?: ClassNameOrFunction<T>
-  style?: CSSProperties | ((s: T & { defaultStyle: CSSProperties }) => CSSProperties | undefined)
-  render?: (props: JSX.IntrinsicElements[E], renderProps: T) => ReactElement   // DOM-override: custom element / router link (aria-spine counterpart to radix asChild)
-}
-interface RenderProps<T, E = 'div'> extends StyleRenderProps<T, E> {
-  children?: ReactNode | ((s: T & { defaultChildren: ReactNode | undefined }) => ReactNode)
-}
-
-// composeRenderProps layers a styled wrapper's class/children over the user's render prop; useRenderProps is the hook every component runs internally.
-declare function composeRenderProps<T, U, V extends T>(value: T | ((r: U) => V), wrap: (prev: T, r: U) => V): (r: U) => V
-declare function useRenderProps<T, E>(opts: RenderPropsHookOptions<T, E>): { className?: string; style?: CSSProperties; children?: ReactNode; 'data-rac': string; render?: (p: JSX.IntrinsicElements[E], r: T) => ReactElement }
-
-// Context injection: a parent supplies props/state to a slotted child; SlotProps names the slot; Provider collapses up to 12 contexts into ONE values array (the React-context analogue of a Layer merge).
-type ContextValue<T, E> = SlottedContextValue<T & { ref?: ForwardedRef<E> }>   // SlottedContextValue<T> = { slots: Record<string|symbol, T> } | T | null | undefined
-interface SlotProps { slot?: string | null }   // null ⇒ local props fully override the injected context
-declare const DEFAULT_SLOT: unique symbol
-declare function useContextProps<T, U extends SlotProps, E extends Element>(props: T & SlotProps, ref: ForwardedRef<E> | undefined, ctx: Context<ContextValue<U, E>>): [T, RefObject<E | null>]
-declare function useSlottedContext<T>(ctx: Context<SlottedContextValue<T>>, slot?: string | null): T | null | undefined
-declare function Provider<A /* …up to L */>(props: { values: readonly [Context<A>, A][]; children: ReactNode }): JSX.Element
-```
+[CLASS_NAME_OR_FUNCTION]: `ClassNameOrFunction = string|((s:T&{defaultClassName:string|undefined})=>string)`
+[STYLE_RENDER_PROPS]: `StyleRenderProps.className: ClassNameOrFunction<T>` `StyleRenderProps.style: CSSProperties|((s:T&{defaultStyle:CSSProperties})=>CSSProperties|undefined)` `StyleRenderProps.render: (props:JSX.IntrinsicElements[E],renderProps:T)=>ReactElement`
+[RENDER_PROPS]: `RenderProps.children: ReactNode|((s:T&{defaultChildren:ReactNode|undefined})=>ReactNode)`
+[CONTEXT_VALUE]: `ContextValue = SlottedContextValue<T&{ref?:ForwardedRef<E>}>`
+[SLOT_PROPS]: `SlotProps.slot: string|null`
+[SURFACES]: `composeRenderProps(T|((r:U)=>V),(prev:T,r:U)=>V) -> (r:U)=>V` `useRenderProps(RenderPropsHookOptions<T,E>) -> {…}` `DEFAULT_SLOT: unique symbol` `useContextProps(T&SlotProps,ForwardedRef<E>|undefined,Context<ContextValue<U,E>>) -> [T,RefObject<E|null>]` `useSlottedContext(Context<SlottedContextValue<T>>,string|null?) -> T|null|undefined` `Provider({values:readonly[Context<A>,A][];children:ReactNode}) -> JSX.Element`
 
 Consumer note: styling rarely needs the function form — the `data-*` selectors ([`tailwindcss-react-aria-components`]) express state as Tailwind variants; reach for the `className`/`children` function only for state a variant cannot express. `render` is the element override for the aria spine (radix `asChild` serves the non-aria plane). `Provider` replaces nested `<XContext.Provider>` towers with one `values` array.
 
@@ -77,28 +59,7 @@ Consumer note: each component also exports `XxxContext` (inject props via `Provi
 
 Collections, selection, sorting, virtualization, drag-drop, and async data are ONE engine the collection/picker families share — react-stately state surfaced through RAC. A custom item is authored through the factory pair, never hand-parsed `children`.
 
-```ts signature
-// Custom collection items: two factories, not bespoke children parsing. Collection/Section/CollectionBuilder are the render substrate.
-declare function createLeafComponent<T, P>(type: string, render: (props: P, ref, item) => ReactElement): (props: P) => ReactElement   // a selectable item
-declare function createBranchComponent<T, P>(type: string, render, useChildren?): (props: P) => ReactElement                          // an item owning child items (Tree/Section)
-declare const CollectionBuilder: FC; declare const Collection: <T>(props: CollectionProps<T>) => ReactNode; declare const Section: FC
-
-// Virtualization: a Virtualizer wraps a collection with a Layout; the layout roster is seed data on one Layout shape + geometry primitives.
-declare const Virtualizer: <T>(props: { layout: Layout } & CollectionProps<T>) => ReactNode
-type Layout = ListLayout | GridLayout | WaterfallLayout | TableLayout          // + LayoutInfo / Size / Rect / Point geometry
-declare const ResizableTableContainer, ColumnResizer                          // column resize; TableLayout owns table virtual geometry
-declare function useTableOptions(): { selectionMode: SelectionMode; selectionBehavior: SelectionBehavior | null; allowsDragging: boolean }  // read inside a custom TableHeader
-
-// Selection/sort vocabulary (@react-types/shared) — the closed axes every collection reads.
-type Key; type Selection; type SelectionMode = 'none' | 'single' | 'multiple'; type SortDescriptor; type SortDirection
-
-// Drag-drop is one hook returning the DragAndDropHooks a collection consumes; the item guards discriminate the drop payload.
-declare function useDragAndDrop(options: DragAndDropOptions): DragAndDropHooks   // + useDrag/useDrop/DropZone/DropIndicator
-declare const isFileDropItem, isTextDropItem, isDirectoryDropItem, DIRECTORY_DRAG_TYPE
-
-// Async collection data (react-stately re-exports): loading/pagination/sort folded into collection state.
-declare function useAsyncList<T>(options: AsyncListOptions<T, C>): AsyncListData<T>   // + useListData / useTreeData
-```
+[SURFACES]: `createLeafComponent` `createBranchComponent` `CollectionBuilder` `Collection` `Section` `Virtualizer` `Layout` `ResizableTableContainer` `useTableOptions` `Key` `Selection` `SelectionMode` `SortDescriptor` `SortDirection` `useDragAndDrop` `isFileDropItem` `useAsyncList`
 
 Consumer note: `TableLayout`/`ListLayout`/`GridLayout`/`WaterfallLayout` own virtual geometry; `renderEmptyState` and the `*LoadMoreItem` sentinels (`ListBoxLoadMoreItem`, `TableLoadMoreItem`, `TreeLoadMoreItem`, `GridListLoadMoreItem`) own the empty/loading arms; `ResizableTableContainer` + `ColumnResizer` own resize. A custom item type is `createLeafComponent`/`createBranchComponent`.
 

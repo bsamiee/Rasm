@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `adbc-driver-snowflake`
-- package: `adbc-driver-snowflake` (`Apache-2.0`, Apache Arrow)
+- package: `adbc-driver-snowflake` (Apache-2.0)
 - module: `adbc_driver_snowflake`
 - owner: `data`
 - rail: partition

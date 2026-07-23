@@ -32,8 +32,9 @@
 - Stan path (`compile_stan_model`, `prune_stan_cache`): the study models are PyMC, never Stan.
 - Zarr streaming stores (`zarr_store.*`, `store_unconstrained=`): compute owns no durable run store; resumable traces are the C# Persistence ledger's.
 
-## [04]-[RAIL_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
+[RAIL_LAW]:
 - Package: `nutpie`
 - Owns (as admitted): the `"nutpie"` NUTS-backend string PyMC dispatches to, with the `backend`/`gradient_backend` compile levers and `init_mean`/`low_rank_modified_mass_matrix` sample levers as `nuts_sampler_kwargs`
 - Accept: `pm.sample(nuts_sampler="nutpie", nuts_sampler_kwargs={"backend": "jax"})` inside a `pm.Model()` study, graduated through `az.summary`/`az.rhat` on the returned `DataTree`

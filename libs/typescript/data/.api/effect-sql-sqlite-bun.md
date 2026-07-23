@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/sql-sqlite-bun`
-- package: `@effect/sql-sqlite-bun`
-- license: `MIT`
+- package: `@effect/sql-sqlite-bun` (MIT)
 - effect-peer: `effect catalog`, `@effect/sql catalog` (the `SqlClient` core this extends; `.api/effect-sql.md`), `@effect/experimental catalog` (`Reactivity` — `make`/`reactive` require it; `.api/effect-experimental.md`), `@effect/platform catalog` (`FileSystem`/`Path`/`CommandExecutor` — `SqliteMigrator` only; `.api/effect-platform.md`)
 - backing: none — `bun:sqlite` is Bun's built-in synchronous SQLite (no npm dependency, no native addon); WAL, FTS5, and JSON1 ship in Bun
 - runtime: `runtime:node`/bun only — imports `bun:sqlite`; the node peer lane is `@effect/sql-sqlite-node`, the browser peer lane `@effect/sql-sqlite-wasm` over OPFS

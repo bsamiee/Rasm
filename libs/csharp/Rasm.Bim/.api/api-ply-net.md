@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Ply.Net`
-- package: `Ply.Net` (Apache-2.0, aardvark-platform; `licenseUrl` form, no SPDX expression)
+- package: `Ply.Net` (Apache-2.0)
 - assembly: `Ply.Net`
 - namespace: `Ply.Net`
 - asset: netstandard2.0 single TFM; the net10 consumer binds `lib/netstandard2.0` — IL-only AnyCPU, no `runtimes/` folder, ALC-safe

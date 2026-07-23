@@ -1,6 +1,6 @@
 # [TS_RUNTIME_API_EFFECT_AI_GOOGLE]
 
-`@effect/ai-google` catalog · MIT · dual CJS+ESM, `sideEffects:[]`, per-module `exports` subpaths (`@effect/ai-google/GoogleClient`) · marker TSDECL `node_modules/@effect/ai-google/dist/dts/*.d.ts` · peers `@effect/ai`, `@effect/platform`, `@effect/experimental`, `effect` through catalog ownership · tier node|browser (platform-neutral; depends only on `@effect/ai`, `@effect/platform`, `effect`)
+`@effect/ai-google` (MIT) · dual CJS+ESM, `sideEffects:[]`, per-module `exports` subpaths (`@effect/ai-google/GoogleClient`) · marker TSDECL `node_modules/@effect/ai-google/dist/dts/*.d.ts` · peers `@effect/ai`, `@effect/platform`, `@effect/experimental`, `effect` through catalog ownership · tier node|browser (platform-neutral; depends only on `@effect/ai`, `@effect/platform`, `effect`)
 
 `@effect/ai-google` binds the Google Generative AI (Gemini) generateContent API onto `@effect/ai`, resolving the provider-agnostic `LanguageModel`/`Tool` tags against Gemini. Its asymmetry row is the leanest of the admitted providers — a language model and four provider-defined tools, but no curated embedding, tokenizer, or telemetry owner module; embeddings and token-counting exist only through the raw `Generated.Client` (`EmbedContent`/`BatchEmbedContents`/`CountTokens`), so `ai/embed.ts` cannot bind a Google `EmbeddingModel` the way it binds OpenAI, and the design routes Google embeddings through the low-level client. Five owner modules re-export through the barrel (`GoogleClient`, `GoogleConfig`, `GoogleLanguageModel`, `GoogleTool`, `Generated`); the Gemini wire corpus (`Generated`) is a category with named anchors. Success/failure flows through the core `AiError.AiError`; all I/O is `Effect`/`Stream`.
 
@@ -24,47 +24,22 @@
 
 `GoogleClient` is a `Context.TagClass` (id `@effect/ai-google/GoogleClient`) wrapping the generated `Client` plus curated generateContent entrypoints. Distinct from the OpenAI/Anthropic siblings, the streaming surface re-emits the SAME `GenerateContentResponse` schema per chunk rather than a distinct tagged event union — consumers fold `response.candidates[]` deltas, not `event.type`. `streamRequest` decodes arbitrary SSE against a `Schema`.
 
-```ts signature
-export interface Service {
-  readonly client: Generated.Client
-  readonly streamRequest: <A, I, R>(request: HttpClientRequest.HttpClientRequest, schema: Schema.Schema<A, I, R>) => Stream.Stream<A, AiError.AiError, R>
-  readonly generateContent:       (request: typeof Generated.GenerateContentRequest.Encoded) => Effect.Effect<Generated.GenerateContentResponse, AiError.AiError>
-  readonly generateContentStream: (request: typeof Generated.GenerateContentRequest.Encoded) => Stream.Stream<Generated.GenerateContentResponse, AiError.AiError>
-}
-```
+[SERVICE]: `Service.client: Generated.Client` `Service.streamRequest: <A,I,R>(request:HttpClientRequest.HttpClientRequest,schema:Schema.Schema<A,I,R>)=>Stream.Stream<A,AiError.AiError,R>` `Service.generateContent: (request:typeof Generated.GenerateContentRequest.Encoded)=>Effect.Effect<Generated.GenerateContentResponse,AiError.AiError>` `Service.generateContentStream: (request:typeof Generated.GenerateContentRequest.Encoded)=>Stream.Stream<Generated.GenerateContentResponse,AiError.AiError>`
 
 ONE constructor pattern, three arities over `apiKey`/`apiUrl`/`transformClient` — no `organizationId`/`projectId` (Gemini authenticates by API key alone). `apiUrl` default is asymmetric between arities: `make` → host root, `layer`/`layerConfig` → the `/v1beta` versioned root. `make` requires `HttpClient | Scope`; the layers require `HttpClient`; `layerConfig` adds `ConfigError`.
 
-```ts signature
-declare const make: (options: {
-  readonly apiKey?: Redacted.Redacted | undefined
-  readonly apiUrl?: string | undefined    // make default "https://generativelanguage.googleapis.com"
-  readonly transformClient?: ((client: HttpClient.HttpClient) => HttpClient.HttpClient) | undefined
-}) => Effect.Effect<Service, never, HttpClient.HttpClient | Scope.Scope>
-declare const layer:       (options: { apiKey?; apiUrl?; transformClient? }) => Layer.Layer<GoogleClient, never, HttpClient.HttpClient>   // apiUrl default ".../v1beta"
-declare const layerConfig: (options: { apiKey?: Config.Config<Redacted | undefined>; apiUrl?: Config.Config<string | undefined>; transformClient? }) => Layer.Layer<GoogleClient, ConfigError, HttpClient.HttpClient>
-```
+[SURFACES]: `make({…}) -> Effect.Effect<Service,never,HttpClient.HttpClient|Scope.Scope>` `layer({apiKey?;apiUrl?;transformClient?}) -> Layer.Layer<GoogleClient,never,HttpClient.HttpClient>` `layerConfig({apiKey?:Config.Config<Redacted|undefined>;apiUrl?:Config.Config<string|undefined>;transformClient?}) -> Layer.Layer<GoogleClient,ConfigError,HttpClient.HttpClient>`
 
 ## [03]-[LANGUAGE_MODEL]
 
 `GoogleLanguageModel` binds generateContent onto the core `LanguageModel`/`Model` contracts. Model argument is `(string & {}) | Model` where `Model = string` — Gemini ships no generated model-id enum, so autocomplete stays open. ONE model/layer family, narrower than OpenAI/Anthropic: `model`/`make`/`layer` only — no `modelWithTokenizer`/`layerWithTokenizer` (no tokenizer binding) and no `withConfigOverride` (per-effect override is absent; use the `Config` tag directly).
 
-```ts signature
-export type Model = string
-declare const model: (model: (string & {}) | Model, config?: Omit<Config.Service, "model">) => AiModel.Model<"google", LanguageModel.LanguageModel, GoogleClient>
-declare const make:  (options: { model: (string & {}) | Model; config?: Omit<Config.Service, "model"> }) => Effect.Effect<LanguageModel.Service, never, GoogleClient>
-declare const layer: (options: { model; config? }) => Layer.Layer<LanguageModel.LanguageModel, never, GoogleClient>
-```
+[MODEL]: `Model = string`
+[SURFACES]: `model((string&{})|Model,Omit<Config.Service,"model">?) -> AiModel.Model<"google",LanguageModel.LanguageModel,GoogleClient>` `make({model:(string&{})|Model;config?:Omit<Config.Service,"model">}) -> Effect.Effect<LanguageModel.Service,never,GoogleClient>` `layer({model;config?}) -> Layer.Layer<LanguageModel.LanguageModel,never,GoogleClient>`
 
 `Config` (tag `@effect/ai-google/GoogleLanguageModel/Config`, `static getOrUndefined`) is the `GenerateContentRequest` minus SDK-owned keys (`contents`/`tools`/`toolConfig`/`systemInstruction`) made partial, with a re-added partial `toolConfig.functionCallingConfig` (the mode-less function-calling policy). It is the tier-routing seam `ai/model.ts` writes per call.
 
-```ts signature
-namespace Config {
-  interface Service extends Simplify<Partial<Omit<typeof Generated.GenerateContentRequest.Encoded, "contents"|"tools"|"toolConfig"|"systemInstruction">>> {
-    readonly toolConfig: Partial<{ readonly functionCallingConfig: Omit<typeof Generated.FunctionCallingConfig.Encoded, "mode"> }>
-  }
-}
-```
+[CONFIG.SERVICE]: `Config.Service.toolConfig: Partial<{readonly functionCallingConfig:Omit<typeof Generated.FunctionCallingConfig.Encoded,"mode">}>`
 
 `declare module` augmentations attach an optional `google` key — ONE boundary-hook pattern. `google.thoughtSignature` is the reasoning-continuity carrier threaded across the Prompt and Response part interfaces below; `FinishPartMetadata.google` is the single surface aggregating `groundingMetadata?`, `safetyRatings?`, `urlContextMetadata?`, and `usageMetadata?` off a finished response — the `safetyRatings?` slot is what the `ai/model.ts` guardrail gate reads for output moderation.
 
@@ -90,10 +65,7 @@ namespace Config {
 
 `GoogleConfig` (`Context.TagClass`, id `@effect/ai-google/GoogleConfig`, `static getOrUndefined`) is the request-scoped client transform — a per-request `HttpClient` mutation without rebuilding transport, dual data-first/data-last. Mirrors `OpenAiConfig.withClientTransform` exactly.
 
-```ts signature
-namespace GoogleConfig { interface Service { readonly transformClient?: (client: HttpClient) => HttpClient } }
-declare const withClientTransform: { (t: (c: HttpClient) => HttpClient): <A,E,R>(self) => …; <A,E,R>(self, t): … }
-```
+[SURFACES]: `GoogleConfig` `Service` `withClientTransform`
 
 ## [06]-[GENERATED]
 

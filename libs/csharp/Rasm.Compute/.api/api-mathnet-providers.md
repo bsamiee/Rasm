@@ -5,28 +5,28 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MathNet.Numerics`
-- package: `MathNet.Numerics` (MIT, Math.NET Project)
+- package: `MathNet.Numerics` (MIT)
 - assembly: `MathNet.Numerics`
 - namespace: `MathNet.Numerics`, `.LinearAlgebra`, `.LinearAlgebra.Double`, `.LinearAlgebra.Storage`, `.LinearAlgebra.Factorization`, `.LinearAlgebra.Solvers`, `.LinearAlgebra.Double.Solvers`, `.Providers.LinearAlgebra`, `.IntegralTransforms`, `.Distributions`, `.Statistics`
 - asset: managed runtime library; native MKL and OpenBLAS kernels ride the sibling provider packages
 - rail: numeric
 
 [PACKAGE_SURFACE]: `MathNet.Numerics.Providers.MKL`
-- package: `MathNet.Numerics.Providers.MKL` (MIT, Math.NET Project)
+- package: `MathNet.Numerics.Providers.MKL` (MIT)
 - assembly: `MathNet.Numerics.Providers.MKL`
 - namespace: `MathNet.Numerics.Providers.MKL`, `.Providers.MKL.LinearAlgebra`
 - asset: managed provider adapter; native binaries ship in the x64 `MathNet.Numerics.MKL.Win-x64` and `.Linux-x64` asset packages, no osx-arm64 asset
 - rail: numeric
 
 [PACKAGE_SURFACE]: `MathNet.Numerics.Providers.OpenBLAS`
-- package: `MathNet.Numerics.Providers.OpenBLAS` (MIT, Math.NET Project)
+- package: `MathNet.Numerics.Providers.OpenBLAS` (MIT)
 - assembly: `MathNet.Numerics.Providers.OpenBLAS`
 - namespace: `MathNet.Numerics.Providers.OpenBLAS.LinearAlgebra`
 - asset: managed provider adapter; native binaries ship in the x64 OpenBLAS asset packages, no osx-arm64 asset
 - rail: numeric
 
 [PACKAGE_SURFACE]: `CSparse`
-- package: `CSparse` (LGPL-2.1-only, Christian Woltering)
+- package: `CSparse` (LGPL-2.1-only)
 - assembly: `CSparse`
 - namespace: `CSparse`, `.Double`, `.Double.Factorization`, `.Ordering`, `.Storage`
 - asset: pure managed direct-sparse solvers

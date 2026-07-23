@@ -114,7 +114,7 @@
 |  [05]   | `Timeout`                                                           | fold     | per-emission deadline             |
 |  [06]   | `Finally` / `Using`                                                 | fold     | termination hook / resource scope |
 |  [07]   | `ObservableExtensions.Subscribe(onNext, onError, onCompleted, ct?)` | fold     | terminal subscription             |
-|  [08]   | `DisposableExtensions.DisposeWith(CompositeDisposable) -> T`        | instance | tie a disposable into a scope      |
+|  [08]   | `DisposableExtensions.DisposeWith(CompositeDisposable) -> T`        | instance | tie a disposable into a scope     |
 
 - `Observable.ResetExceptionDispatchState`: clears the captured `ExceptionDispatchInfo` so a resubscribed source re-throws a fresh fault rather than replaying the stale, stack-corrupted original.
 - `DisposableExtensions.DisposeWith`: `System.Reactive.Disposables.Fluent`; returns the item so an assignment chains, registering it into the `CompositeDisposable` for group teardown.

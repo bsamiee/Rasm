@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@node-rs/argon2`
-- package: `@node-rs/argon2` (MIT, © NAPI-RS / node-rs)
+- package: `@node-rs/argon2` (MIT)
 - module format: CommonJS (`main: index.js`, `engines.node >= 10`); the `.node` loader is selected by the root package via per-platform `optionalDependencies`, imported through the `@node-rs/argon2` root — no deep subpaths
 - runtime target: node-only — a native NAPI addon linking the Rust `argon2` crate, prebuilt for 14 targets (`darwin-arm64`/`-x64`, `linux-x64/arm64-gnu/musl`, `win32-x64/arm64/ia32`, `android`, `freebsd`, `armv7`) with a `wasm32-wasi` recovery; no browser build, so `sign/crypto` is node-boundary despite jose's isomorphism
 - asset: native addon (`.node` per-platform binary + `.js` loader + `.d.ts`); the ABI is the real gate — a missing/mismatched prebuilt or Node ABI break is a load-time failure, not a type error, so the install must resolve the arch-matched optional dependency
@@ -38,36 +38,10 @@
 
 Exact shipped declarations, verified against `node_modules/@node-rs/argon2/index.d.ts`:
 
-```typescript
-export declare function hash(password: string | Uint8Array, options?: Options | undefined | null, abortSignal?: AbortSignal | undefined | null): Promise<string>
-export declare function hashRaw(password: string | Uint8Array, options?: Options | undefined | null, abortSignal?: AbortSignal | undefined | null): Promise<Buffer>
-export declare function verify(hashed: string | Uint8Array, password: string | Uint8Array, options?: Options | undefined | null, abortSignal?: AbortSignal | undefined | null): Promise<boolean>
-export declare function hashSync(password: string | Uint8Array, options?: Options | undefined | null): string
-export declare function hashRawSync(password: string | Uint8Array, options?: Options | undefined | null): Buffer
-export declare function verifySync(hashed: string | Uint8Array, password: string | Uint8Array, options?: Options | undefined | null): boolean
-
-export interface Options {
-  memoryCost?: number
-  timeCost?: number
-  outputLen?: number
-  parallelism?: number
-  algorithm?: Algorithm
-  version?: Version
-  secret?: Uint8Array
-  salt?: Uint8Array
-}
-
-export declare const enum Algorithm {
-  Argon2d = 0,
-  Argon2i = 1,
-  Argon2id = 2
-}
-
-export declare const enum Version {
-  V0x10 = 0,
-  V0x13 = 1
-}
-```
+[OPTIONS]: `Options.memoryCost: number` `Options.timeCost: number` `Options.outputLen: number` `Options.parallelism: number` `Options.algorithm: Algorithm` `Options.version: Version` `Options.secret: Uint8Array` `Options.salt: Uint8Array`
+[ALGORITHM]: `Argon2d` `Argon2i` `Argon2id`
+[VERSION]: `V0x10` `V0x13`
+[SURFACES]: `hash(string|Uint8Array,Options|undefined|null?,AbortSignal|undefined|null?) -> Promise<string>` `hashRaw(string|Uint8Array,Options|undefined|null?,AbortSignal|undefined|null?) -> Promise<Buffer>` `verify(string|Uint8Array,string|Uint8Array,Options|undefined|null?,AbortSignal|undefined|null?) -> Promise<boolean>` `hashSync(string|Uint8Array,Options|undefined|null?) -> string` `hashRawSync(string|Uint8Array,Options|undefined|null?) -> Buffer` `verifySync(string|Uint8Array,string|Uint8Array,Options|undefined|null?) -> boolean`
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pillow`
-- package: `pillow` (`MIT-CMU`, Jeffrey A. Clark and contributors)
+- package: `pillow` (MIT-CMU)
 - import: `PIL` (distribution `pillow`)
 - owner: `artifacts`
 - rail: image (the `graphic/raster/io#IO` `RasterEngine.PILLOW` working surface; the `graphic/color/managed#MANAGED` soft-proof control; the `exchange/metadata#METADATA` ICC-header reader)

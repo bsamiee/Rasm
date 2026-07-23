@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `colour`
-- package: `colour-science` (`BSD-3-Clause`)
+- package: `colour-science` (BSD-3-Clause)
 - import: `colour`
 - owner: `artifacts`
 - rail: colour

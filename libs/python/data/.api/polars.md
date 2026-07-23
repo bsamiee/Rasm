@@ -60,23 +60,23 @@
 
 [ENTRYPOINT_SCOPE]: construction and IO
 
-| [INDEX] | [SURFACE]                                                           | [CAPABILITY]                                  |
-| :-----: | :------------------------------------------------------------------ | :-------------------------------------------- |
-|  [01]   | `DataFrame(data, schema, ...)`                                      | build eager frame from dict/rows              |
-|  [02]   | `from_dict` / `from_dicts` / `from_records`                         | build from dicts or row records               |
-|  [03]   | `from_arrow` / `from_pandas` / `from_numpy` / `from_torch`          | build from Arrow, pandas, NumPy, torch        |
-|  [04]   | `from_dataframe`                                                    | zero-copy Arrow C-stream / interchange import |
-|  [05]   | `read_csv` / `read_parquet` / `read_ipc`                            | read files into a `DataFrame`                 |
-|  [06]   | `read_json` / `read_ndjson` / `read_avro`                           | read structured text/binary                   |
-|  [07]   | `read_database` / `read_database_uri`                               | read from a SQL connection                    |
-|  [08]   | `read_delta` / `read_excel` / `read_ods`                            | read table-store and spreadsheet              |
-|  [09]   | `scan_csv` / `scan_parquet` / `scan_ipc`                            | scan files into a `LazyFrame`                 |
-|  [10]   | `scan_ndjson` / `scan_delta` / `scan_lines`                         | scan structured / Delta / raw lines           |
-|  [11]   | `scan_iceberg`                                                      | scan an Iceberg table                         |
+| [INDEX] | [SURFACE]                                                           | [CAPABILITY]                                             |
+| :-----: | :------------------------------------------------------------------ | :------------------------------------------------------- |
+|  [01]   | `DataFrame(data, schema, ...)`                                      | build eager frame from dict/rows                         |
+|  [02]   | `from_dict` / `from_dicts` / `from_records`                         | build from dicts or row records                          |
+|  [03]   | `from_arrow` / `from_pandas` / `from_numpy` / `from_torch`          | build from Arrow, pandas, NumPy, torch                   |
+|  [04]   | `from_dataframe`                                                    | zero-copy Arrow C-stream / interchange import            |
+|  [05]   | `read_csv` / `read_parquet` / `read_ipc`                            | read files into a `DataFrame`                            |
+|  [06]   | `read_json` / `read_ndjson` / `read_avro`                           | read structured text/binary                              |
+|  [07]   | `read_database` / `read_database_uri`                               | read from a SQL connection                               |
+|  [08]   | `read_delta` / `read_excel` / `read_ods`                            | read table-store and spreadsheet                         |
+|  [09]   | `scan_csv` / `scan_parquet` / `scan_ipc`                            | scan files into a `LazyFrame`                            |
+|  [10]   | `scan_ndjson` / `scan_delta` / `scan_lines`                         | scan structured / Delta / raw lines                      |
+|  [11]   | `scan_iceberg`                                                      | scan an Iceberg table                                    |
 |  [12]   | `scan_pyarrow_dataset` / `scan_arrow_c_stream`                      | scan a `pyarrow` dataset (pushdown) or an Arrow C-stream |
-|  [13]   | `read_parquet_metadata` / `read_parquet_schema` / `read_ipc_schema` | inspect Parquet/IPC without full read         |
-|  [14]   | `defer` / `explain_all` / `collect_all` / `collect_all_async`       | defer a Python frame; batch-explain/collect   |
-|  [15]   | `io.plugins.register_io_source`                                     | lift a custom Python source lazily            |
+|  [13]   | `read_parquet_metadata` / `read_parquet_schema` / `read_ipc_schema` | inspect Parquet/IPC without full read                    |
+|  [14]   | `defer` / `explain_all` / `collect_all` / `collect_all_async`       | defer a Python frame; batch-explain/collect              |
+|  [15]   | `io.plugins.register_io_source`                                     | lift a custom Python source lazily                       |
 
 - `scan_*` carry: `glob`, `storage_options`, `credential_provider`.
 - `scan_iceberg`: accepts a live `pyiceberg.table.Table` as `src`; `scan_pyarrow_dataset` pushes predicates into the dataset scan.
@@ -117,31 +117,31 @@
 
 [ENTRYPOINT_SCOPE]: expression functions and namespaces
 
-| [INDEX] | [SURFACE]                                                        | [CAPABILITY]                                       |
-| :-----: | :--------------------------------------------------------------- | :------------------------------------------------- |
-|  [01]   | `col` / `all` / `exclude` / `nth`                                | reference columns in expressions                   |
-|  [02]   | `lit` / `first` / `last` / `len` / `count`                       | scalar literals and frame aggregates               |
-|  [03]   | `when().then().otherwise()`                                      | branchwise expression                              |
-|  [04]   | `sum/min/max/mean/median/std/var/quantile`                       | column-wise aggregate expressions                  |
-|  [05]   | `sum_horizontal/min_horizontal/max_horizontal/...`               | row-wise aggregate across columns                  |
-|  [06]   | `all_horizontal` / `any_horizontal`                              | row-wise logical AND/OR                            |
-|  [07]   | `concat_str` / `concat_list` / `concat_arr` / `list`             | row-wise string/list concatenation; pack into `List`|
-|  [08]   | `coalesce(*exprs)`                                               | first non-null per row                             |
-|  [09]   | `struct(*exprs)` / `field(name)` / `format`                      | build struct, access field, format                 |
-|  [10]   | `corr` / `cov` / `rolling_corr` / `rolling_cov`                  | correlation and covariance                         |
-|  [11]   | `int_range` / `date_range` / `datetime_range` / `linear_space`   | integer/temporal/linear ranges                     |
-|  [12]   | `concat` / `align_frames` / `merge_sorted`                       | concatenate, align, merge sorted frames            |
-|  [13]   | `fold` / `reduce` / `cum_fold` / `cum_reduce`                    | typed horizontal reduction (no Python loop)        |
-|  [14]   | `Expr.over`                                                      | windowed expression                                |
-|  [15]   | `Expr.rolling` / `Expr.rolling_*`                                | time-anchored rolling windows + 20 reducers        |
-|  [16]   | `Expr.cut` / `qcut` / `rle` / `rle_id` / `value_counts` / `hist` | discretize, run-length encode, histogram           |
-|  [17]   | `Expr.ewm_mean`/`ewm_sum`/`ewm_std`/`ewm_var`/`ewm_mean_by`/`ewm_sum_by` | exponentially-weighted moving statistics |
-|  [18]   | `Expr.replace` / `replace_strict` / `is_in` / `is_close`         | value remap, membership, tolerance compare         |
-|  [19]   | `Expr.str` / `Expr.dt` / `Expr.list` / `Expr.arr`                | string/temporal/list/array method families         |
-|  [20]   | `Expr.struct` / `Expr.cat` / `Expr.bin` / `.name` / `.meta`      | struct, categorical, binary, naming, plan-metadata |
-|  [21]   | `selectors` (`cs.numeric` / `by_dtype` / `matches` / ...)        | declarative dtype/name column sets, `&`/`\|`/`-`   |
-|  [22]   | `plugins.register_plugin_function`                               | register a Rust expression-plugin kernel as `Expr` |
-|  [23]   | `Expr.map_batches` / `map_elements` / `register_plugin`          | Series/element Python UDFs (last resort)           |
+| [INDEX] | [SURFACE]                                                                | [CAPABILITY]                                         |
+| :-----: | :----------------------------------------------------------------------- | :--------------------------------------------------- |
+|  [01]   | `col` / `all` / `exclude` / `nth`                                        | reference columns in expressions                     |
+|  [02]   | `lit` / `first` / `last` / `len` / `count`                               | scalar literals and frame aggregates                 |
+|  [03]   | `when().then().otherwise()`                                              | branchwise expression                                |
+|  [04]   | `sum/min/max/mean/median/std/var/quantile`                               | column-wise aggregate expressions                    |
+|  [05]   | `sum_horizontal/min_horizontal/max_horizontal/...`                       | row-wise aggregate across columns                    |
+|  [06]   | `all_horizontal` / `any_horizontal`                                      | row-wise logical AND/OR                              |
+|  [07]   | `concat_str` / `concat_list` / `concat_arr` / `list`                     | row-wise string/list concatenation; pack into `List` |
+|  [08]   | `coalesce(*exprs)`                                                       | first non-null per row                               |
+|  [09]   | `struct(*exprs)` / `field(name)` / `format`                              | build struct, access field, format                   |
+|  [10]   | `corr` / `cov` / `rolling_corr` / `rolling_cov`                          | correlation and covariance                           |
+|  [11]   | `int_range` / `date_range` / `datetime_range` / `linear_space`           | integer/temporal/linear ranges                       |
+|  [12]   | `concat` / `align_frames` / `merge_sorted`                               | concatenate, align, merge sorted frames              |
+|  [13]   | `fold` / `reduce` / `cum_fold` / `cum_reduce`                            | typed horizontal reduction (no Python loop)          |
+|  [14]   | `Expr.over`                                                              | windowed expression                                  |
+|  [15]   | `Expr.rolling` / `Expr.rolling_*`                                        | time-anchored rolling windows + 20 reducers          |
+|  [16]   | `Expr.cut` / `qcut` / `rle` / `rle_id` / `value_counts` / `hist`         | discretize, run-length encode, histogram             |
+|  [17]   | `Expr.ewm_mean`/`ewm_sum`/`ewm_std`/`ewm_var`/`ewm_mean_by`/`ewm_sum_by` | exponentially-weighted moving statistics             |
+|  [18]   | `Expr.replace` / `replace_strict` / `is_in` / `is_close`                 | value remap, membership, tolerance compare           |
+|  [19]   | `Expr.str` / `Expr.dt` / `Expr.list` / `Expr.arr`                        | string/temporal/list/array method families           |
+|  [20]   | `Expr.struct` / `Expr.cat` / `Expr.bin` / `.name` / `.meta`              | struct, categorical, binary, naming, plan-metadata   |
+|  [21]   | `selectors` (`cs.numeric` / `by_dtype` / `matches` / ...)                | declarative dtype/name column sets, `&`/`\|`/`-`     |
+|  [22]   | `plugins.register_plugin_function`                                       | register a Rust expression-plugin kernel as `Expr`   |
+|  [23]   | `Expr.map_batches` / `map_elements` / `register_plugin`                  | Series/element Python UDFs (last resort)             |
 
 - `Expr.over`: `(partition_by, *, order_by=, mapping_strategy=)`; `Expr.rolling(index_column, period=, offset=, closed=)` anchors time windows.
 - `list(exprs, *more_exprs)`: packs each expression's value as one element into a new `List` column (`List(T)` input yields `List(List(T))`), unlike `concat_list` which extends list-typed inputs.

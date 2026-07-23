@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `OpenIddict.Client`
-- package: `OpenIddict.Client`
-- license: `Apache-2.0`
+- package: `OpenIddict.Client` (Apache-2.0)
 - assembly: `OpenIddict.Client`
 - namespace: `OpenIddict.Client`, `Microsoft.Extensions.DependencyInjection`
 - asset: pure-managed runtime library; no native asset, no RID burden

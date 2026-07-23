@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/sql`
-- package: `@effect/sql`
-- license: `MIT`
+- package: `@effect/sql` (MIT)
 - effect-peer: `effect ^catalog`, `@effect/platform ^catalog`, `@effect/experimental ^catalog` (universal-tier substrate; `.api/effect.md`, `.api/effect-platform.md`, `.api/effect-experimental.md`)
 - dependency: `uuid ^11` (bundled; binary-UUID mint for `Model.UuidV4Insert`)
 - module format: ESM + CJS dual (`dist/dts` typings); per-module deep-import subpaths (`@effect/sql/SqlClient`, `/Statement`, `/Model`, …), `sideEffects: []`

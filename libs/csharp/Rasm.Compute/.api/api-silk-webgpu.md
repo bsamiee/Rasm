@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Silk.NET.WebGPU`
-- package: `Silk.NET.WebGPU` (`MIT`)
+- package: `Silk.NET.WebGPU` (MIT)
 - package: `Silk.NET.WebGPU.Native.WGPU` — native `libwgpu` runtime binaries only, no managed surface
 - assembly: `Silk.NET.WebGPU`
 - namespace: `Silk.NET.WebGPU`
@@ -14,7 +14,7 @@
 - rail: compute
 
 [PACKAGE_SURFACE]: `Silk.NET.WebGPU.Extensions.WGPU`
-- package: `Silk.NET.WebGPU.Extensions.WGPU` (`MIT`)
+- package: `Silk.NET.WebGPU.Extensions.WGPU` (MIT)
 - assembly: `Silk.NET.WebGPU.Extensions.WGPU`
 - namespace: `Silk.NET.WebGPU.Extensions.WGPU`
 - asset: consumer binds the `net5.0` asset; wgpu-native function extensions over the base binding

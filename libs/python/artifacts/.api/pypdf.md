@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pypdf`
-- package: `pypdf` (`BSD-3-Clause`)
+- package: `pypdf` (BSD-3-Clause)
 - module: `pypdf`
 - namespaces: `pypdf`, `pypdf.generic`, `pypdf.annotations`, `pypdf.errors`, `pypdf.constants`
 - rail: pdf — pure-Python structural read/write, merge/transform, layout-aware extraction, form fill, authoring, `ObjectDeletionFlag` pruning, RC4/AES encryption

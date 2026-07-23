@@ -1,7 +1,7 @@
 # [TS_IAC_API_PULUMIVERSE_GRAFANA]
 
 [PACKAGE_SURFACE]:
-- package: `@pulumiverse/grafana` · license `Apache-2.0`
+- package: `@pulumiverse/grafana` (Apache-2.0)
 - module: CJS (`type: commonjs`); barrel `index.d.ts` re-exports `provider` flat, one `import * as ns` per resource namespace, with `config` and `types`.
 - asset: `index.d.ts` (barrel), `provider.d.ts` (the `Provider` + `ProviderArgs`), one `.d.ts` per resource under each namespace folder (class + `Args` + `State`, or a `get*` data-source fn).
 - target: a Pulumi bridged provider (Terraform-bridge over the Grafana TF provider). JS package is the typed SDK ONLY; the `pulumi-resource-grafana` plugin binary is a deploy-host fact resolved by the Pulumi CLI / `LocalWorkspace.installPlugin` at `up` time — never a JS import.
@@ -19,48 +19,16 @@ One `Provider` (a `pulumi.ProviderResource`) carries the full auth surface; ever
 |  [01]   | `Provider`     | `pulumi.ProviderResource` | explicit provider instance for fine-grained auth   |
 |  [02]   | `ProviderArgs` | interface                 | the full auth/endpoint bag — all `pulumi.Input<…>` |
 
-```ts signature
-import * as pulumi from "@pulumi/pulumi"
-export declare class Provider extends pulumi.ProviderResource {
-  constructor(name: string, args?: ProviderArgs, opts?: pulumi.ResourceOptions)
-  static isInstance(obj: any): obj is Provider
-}
-export interface ProviderArgs {
-  url?: pulumi.Input<string>                       // Grafana instance URL (GRAFANA_URL)
-  auth?: pulumi.Input<string>                      // API token | "user:pass" | "anonymous" — Doppler-sourced
-  orgId?: pulumi.Input<number>; stackId?: pulumi.Input<number>
-  cloudAccessPolicyToken?: pulumi.Input<string>; cloudApiUrl?: pulumi.Input<string>
-  cloudProviderAccessToken?: pulumi.Input<string>; cloudProviderUrl?: pulumi.Input<string>
-  connectionsApiAccessToken?: pulumi.Input<string>; connectionsApiUrl?: pulumi.Input<string>
-  fleetManagementAuth?: pulumi.Input<string>; fleetManagementUrl?: pulumi.Input<string>
-  frontendO11yApiAccessToken?: pulumi.Input<string>; frontendO11yApiUrl?: pulumi.Input<string>
-  oncallAccessToken?: pulumi.Input<string>; oncallUrl?: pulumi.Input<string>
-  smAccessToken?: pulumi.Input<string>; smUrl?: pulumi.Input<string>
-  k6AccessToken?: pulumi.Input<string>; k6Url?: pulumi.Input<string>
-  caCert?: pulumi.Input<string>; tlsCert?: pulumi.Input<string>; tlsKey?: pulumi.Input<string>
-  insecureSkipVerify?: pulumi.Input<boolean>; httpHeaders?: pulumi.Input<{ [k: string]: pulumi.Input<string> }>
-  retries?: pulumi.Input<number>; retryStatusCodes?: pulumi.Input<pulumi.Input<string>[]>; retryWait?: pulumi.Input<number>
-  storeDashboardSha256?: pulumi.Input<boolean>     // drift-diff dashboards by content hash, not full JSON
-}
-```
+[PROVIDER]: `Provider(string,ProviderArgs?,pulumi.ResourceOptions?)` `Provider.isInstance(any) -> obj is Provider`
+[PROVIDER_ARGS]: `ProviderArgs.url: pulumi.Input<string>` `ProviderArgs.auth: pulumi.Input<string>` `ProviderArgs.orgId: pulumi.Input<number>` `ProviderArgs.stackId: pulumi.Input<number>` `ProviderArgs.cloudAccessPolicyToken: pulumi.Input<string>` `ProviderArgs.cloudApiUrl: pulumi.Input<string>` `ProviderArgs.cloudProviderAccessToken: pulumi.Input<string>` `ProviderArgs.cloudProviderUrl: pulumi.Input<string>` `ProviderArgs.connectionsApiAccessToken: pulumi.Input<string>` `ProviderArgs.connectionsApiUrl: pulumi.Input<string>` `ProviderArgs.fleetManagementAuth: pulumi.Input<string>` `ProviderArgs.fleetManagementUrl: pulumi.Input<string>` `ProviderArgs.frontendO11yApiAccessToken: pulumi.Input<string>` `ProviderArgs.frontendO11yApiUrl: pulumi.Input<string>` `ProviderArgs.oncallAccessToken: pulumi.Input<string>` `ProviderArgs.oncallUrl: pulumi.Input<string>` `ProviderArgs.smAccessToken: pulumi.Input<string>` `ProviderArgs.smUrl: pulumi.Input<string>` `ProviderArgs.k6AccessToken: pulumi.Input<string>` `ProviderArgs.k6Url: pulumi.Input<string>` `ProviderArgs.caCert: pulumi.Input<string>` `ProviderArgs.tlsCert: pulumi.Input<string>` `ProviderArgs.tlsKey: pulumi.Input<string>` `ProviderArgs.insecureSkipVerify: pulumi.Input<boolean>` `ProviderArgs.httpHeaders: pulumi.Input<{[k:string]:pulumi.Input<string>}>` `ProviderArgs.retries: pulumi.Input<number>` `ProviderArgs.retryStatusCodes: pulumi.Input<pulumi.Input<string>[]>` `ProviderArgs.retryWait: pulumi.Input<number>` `ProviderArgs.storeDashboardSha256: pulumi.Input<boolean>`
 
 ## [02]-[RESOURCE_PATTERN]
 
 Every resource in every namespace is the SAME parameterized shape — not a per-resource API. Documenting it once is the mechanism; the namespace roster in [03] is seed data. Each class extends `pulumi.CustomResource`, each carries an input `*Args` and a rehydration `*State`, and each namespace pairs resources with `get*` data-source functions.
 
-```ts signature
-// Uniform resource shape (exemplar: oss.Folder — every resource matches this).
-export declare class Folder extends pulumi.CustomResource {
-  constructor(name: string, args: FolderArgs, opts?: pulumi.CustomResourceOptions)   // opts.provider = the Provider
-  static get(name: string, id: pulumi.Input<pulumi.ID>, state?: FolderState, opts?: pulumi.CustomResourceOptions): Folder
-  static isInstance(obj: any): obj is Folder
-  readonly uid: pulumi.Output<string>              // every field surfaces as Output<T> for downstream wiring
-}
-export interface FolderArgs { title: pulumi.Input<string>; uid?: pulumi.Input<string>; parentFolderUid?: pulumi.Input<string>; orgId?: pulumi.Input<string>; preventDestroyIfNotEmpty?: pulumi.Input<boolean> }
-export interface FolderState { /* every Args field, optional, for adoption via get() */ }
-// Uniform data-source shape (exemplar: oss.getDashboard):
-export declare function getDashboard(args?: GetDashboardArgs, opts?: pulumi.InvokeOptions): Promise<GetDashboardResult>
-```
+[FOLDER]: `Folder(string,FolderArgs,pulumi.CustomResourceOptions?)` `Folder.get(string,pulumi.Input<pulumi.ID>,FolderState?,pulumi.CustomResourceOptions?) -> Folder` `Folder.isInstance(any) -> obj is Folder` `Folder.uid: pulumi.Output<string>`
+[FOLDER_ARGS]: `FolderArgs.title: pulumi.Input<string>` `FolderArgs.uid: pulumi.Input<string>` `FolderArgs.parentFolderUid: pulumi.Input<string>` `FolderArgs.orgId: pulumi.Input<string>` `FolderArgs.preventDestroyIfNotEmpty: pulumi.Input<boolean>`
+[SURFACES]: `getDashboard(GetDashboardArgs?,pulumi.InvokeOptions?) -> Promise<GetDashboardResult>`
 
 ## [03]-[NAMESPACE_ROSTER]
 

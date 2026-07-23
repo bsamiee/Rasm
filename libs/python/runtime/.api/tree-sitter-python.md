@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `tree-sitter-python`
-- package: `tree-sitter-python` (`MIT`)
+- package: `tree-sitter-python` (MIT)
 - module: `tree_sitter_python`
 - namespaces: `tree_sitter_python`
 - rail: parsing

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pydantic`
-- package: `pydantic` (`MIT`)
+- package: `pydantic` (MIT)
 - module: `pydantic`
 - namespaces: `pydantic` (public API), `pydantic.dataclasses` (stdlib-dataclass integration), `pydantic.json_schema` (`GenerateJsonSchema`), `pydantic.experimental.pipeline`, `pydantic.experimental.missing_sentinel`, `pydantic.experimental.arguments_schema`
 - rail: validation

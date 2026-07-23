@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@nats-io/obj`
-- package: `@nats-io/obj` (Apache-2.0, Synadia/nats.io)
+- package: `@nats-io/obj` (Apache-2.0)
 - module format: ESM + CJS dual; a distinct member of the catalog-bound modular family — depends on `@nats-io/jetstream` + `@nats-io/nats-core` (admitted) and pulls `js-sha256` for chunk digests
 - runtime target: wherever the core connection runs — node, bun, browser over websockets; bodies cross as WHATWG `ReadableStream<Uint8Array>`
 - rail: ObjectStore topology row (`net/pubsub`); transient blob passing, never the object plane

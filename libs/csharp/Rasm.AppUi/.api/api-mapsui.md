@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Mapsui.Avalonia12`
-- package: `Mapsui.Avalonia12` (MIT, Mapsui)
+- package: `Mapsui.Avalonia12` (MIT)
 - assembly: `Mapsui.UI.Avalonia` (`MapControl`, `RenderController` only; the shipped assembly id differs from the package id)
 - namespace: `Mapsui.UI.Avalonia`
 - transitive: `Mapsui` (model, layers, styles, widgets, navigator, projection), `Mapsui.Tiling` (`TileLayer` + BruTile sources), `Mapsui.Rendering.Skia` (Skia renderer), `Mapsui.Nts` (NTS `Geometry` bridge + providers) — all MIT, pure-managed

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Alimer.Bindings.MeshOptimizer`
-- package: `Alimer.Bindings.MeshOptimizer` (MIT, `LICENSE.md`, `requireLicenseAcceptance=true`); admitted for the Compute `EXPORT_RAIL`, outside-Rhino only
+- package: `Alimer.Bindings.MeshOptimizer` (MIT)
 - assembly: `Alimer.Bindings.MeshOptimizer`
 - namespace: `MeshOptimizer`
 - asset: `lib/net10.0`, `lib/net9.0` — the `net10.0`-only TFM firebreaks it out of any `net48` in-Rhino plugin ALC

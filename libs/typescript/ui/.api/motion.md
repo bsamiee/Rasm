@@ -1,7 +1,7 @@
 # [TS_UI_API_MOTION]
 
 [PACKAGE_SURFACE]:
-- package: `motion` · license `MIT`
+- package: `motion` (MIT)
 - module: dual ESM/CJS via conditional `exports`; subpaths `.` (vanilla DOM, full hybrid), `./mini` (vanilla WAAPI-only), `./react` (full hybrid React), `./react-mini` (WAAPI-only React), `./react-m` (lazy `m.*` tag proxies), `./react-client` (RSC client boundary), `./debug` (`recordStats`). Every subpath is a re-export shim onto the same core — `motion` is the canonical name, `framer-motion` never appears in a manifest beside it.
 - asset: `sideEffects: false`; deps `framer-motion` + `tslib`; peers `react`/`react-dom` 18||19 all OPTIONAL — the vanilla entries run with zero React.
 - runtime: hybrid engine — spring/keyframe generation on rAF with WAAPI/compositor offload where the value allows; browser only.
@@ -46,12 +46,7 @@ The `MotionValue` is the state cell React never re-renders for: it subscribes, t
 |  [10]   | `spring(options)` / `frame`                              | math/batch   | spring keyframe generator; the rAF batcher               |
 |  [11]   | `stagger(duration?, {startDelay, from, ease})`           | math/batch   | stagger `delay` generator                                |
 
-```ts signature
-// Transition vocabulary: type discriminant + spring physics. visualDuration overrides duration; stiffness/damping/mass override bounce/duration when set.
-type Transition = { type?: "spring" | "tween" | "keyframes" | "inertia" | "decay"; duration?: number; visualDuration?: number
-  stiffness?: number; damping?: number; mass?: number; bounce?: number; velocity?: number; restSpeed?: number; restDelta?: number
-  ease?: "linear" | "easeIn" | "easeOut" | "easeInOut" | "circIn" | "circOut" | "circInOut" | "backIn" | "backOut" | "backInOut" | "anticipate" | [number, number, number, number] | ((t: number) => number) }
-```
+[TRANSITION]: `Transition.type: "spring"|"tween"|"keyframes"|"inertia"|"decay"` `Transition.duration: number` `Transition.visualDuration: number` `Transition.stiffness: number` `Transition.damping: number` `Transition.mass: number` `Transition.bounce: number` `Transition.velocity: number` `Transition.restSpeed: number` `Transition.restDelta: number` `Transition.ease: "linear"|"easeIn"|…`
 
 ## [03]-[COMPONENT_PLANE]
 
@@ -67,12 +62,8 @@ type Transition = { type?: "spring" | "tween" | "keyframes" | "inertia" | "decay
 
 `animateView(update, options?)` is the typed spring-physics layer over `document.startViewTransition` — open-source in core, promoted out of Motion+; the React `<AnimateView>` component remains membership-gated and is REJECTED.
 
-```ts signature
-declare function animateView(update: () => void | Promise<void>, options?: AnimationOptions & { interrupt?: "wait" | "immediate" }): ViewTransitionBuilder
-// Builder targets resolve selectors/elements and manage view-transition-name automatically; .add(a, b) pairs a shared-element morph.
-interface ViewTransitionBuilder { add(subject: Element | string, newSubject?: Element | string): this
-  crop(): this; group(): this; class(): this; layout(): this; enter(): this; exit(): this; new(): this; old(): this; updateTarget(): this; then(onResolve: () => void): Promise<void> }
-```
+[VIEW_TRANSITION_BUILDER]: `ViewTransitionBuilder.add(Element|string,Element|string?) -> this` `ViewTransitionBuilder.crop() -> this` `ViewTransitionBuilder.group() -> this` `ViewTransitionBuilder.class() -> this` `ViewTransitionBuilder.layout() -> this` `ViewTransitionBuilder.enter() -> this` `ViewTransitionBuilder.exit() -> this` `ViewTransitionBuilder()` `ViewTransitionBuilder.old() -> this` `ViewTransitionBuilder.updateTarget() -> this` `ViewTransitionBuilder.then(()=>void) -> Promise<void>`
+[SURFACES]: `animateView(()=>void|Promise<void>,AnimationOptions&{interrupt?:"wait"|"immediate"}?) -> ViewTransitionBuilder`
 
 Interruption defaults to queued (`"wait"`); `"immediate"` preempts — the interruption handling `startViewTransition` alone lacks.
 

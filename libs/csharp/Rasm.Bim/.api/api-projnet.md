@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ProjNET`
-- package: `ProjNET` (LGPL-2.1-or-later, NetTopologySuite Team)
+- package: `ProjNET` (LGPL-2.1-or-later)
 - assembly: `ProjNET`
 - namespace: `ProjNet`, `ProjNet.CoordinateSystems`, `ProjNet.CoordinateSystems.Transformations`, `ProjNet.CoordinateSystems.Projections`, `ProjNet.IO.CoordinateSystems`, `ProjNet.Geometries`
 - asset: netstandard2.0/2.1 IL-only AnyCPU managed assembly (net10.0 binds `lib/netstandard2.1`); no P/Invoke, no native PROJ, no `runtimes/` payload — the `MathTransform` `Span<double>`/`Span<XY>`/`Span<XYZ>` batch overloads ride both builds

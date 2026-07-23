@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `AssimpNetter`
-- package: `AssimpNetter` (MIT wrapper over the BSD-3-Clause native assimp)
+- package: `AssimpNetter` (MIT)
 - assembly: `AssimpNetter` (XML doc `AssimpNet.xml`)
 - namespace: `Assimp`
 - asset: multi-target; the net10.0 consumer binds the `lib/net6.0` asset forward with zero managed dependencies

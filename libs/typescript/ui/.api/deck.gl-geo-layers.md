@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@deck.gl/geo-layers`
-- package: `@deck.gl/geo-layers`
-- license: `MIT`
+- package: `@deck.gl/geo-layers` (MIT)
 - abi: browser WebGL2/WebGPU via `@deck.gl/core`; worker-backed tile parsing via loaders.gl worker pools
 - peer (`~catalog` deck family, catalog loaders): the deck peers are admitted centrally with their own catalogs — `@deck.gl/core` (`CompositeLayer`/`Viewport`/`Accessor`, `.api/deck.gl-core.md`), `@deck.gl/layers` (`PolygonLayer`/`PathLayer`/`GeoJsonLayer`/`ScatterplotLayer` the composites render, `.api/deck.gl-layers.md`), `@deck.gl/mesh-layers` (`Tile3DLayer`'s glTF via `SimpleMeshLayer`/`ScenegraphLayer`, `.api/deck.gl-mesh-layers.md`), `@deck.gl/extensions` (the `LayerExtension` pack the `extensions` prop consumes, `.api/deck.gl-extensions.md`); the substrate stays transitive/deck-owned — `@luma.gl/core`+`/engine`+`/gltf`+`/shadertools`, `@loaders.gl/core`+`/mvt`+`/3d-tiles`+`/terrain`+`/wms`+`/tiles`+`/gis` (tile decoders), `@math.gl/core`+`/web-mercator`+`/culling` (tile-index + frustum math), `h3-js`/`a5-js`/`long` (DGGS index → boundary)
 - catalog-verdict: KEEP — the tiling + DGGS + terrain + 3D-tiles tier; no lower-level substitute

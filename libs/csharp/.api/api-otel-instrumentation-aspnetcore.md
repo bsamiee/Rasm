@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `OpenTelemetry.Instrumentation.AspNetCore`
-- package: `OpenTelemetry.Instrumentation.AspNetCore` (Apache-2.0, OpenTelemetry Authors)
+- package: `OpenTelemetry.Instrumentation.AspNetCore` (Apache-2.0)
 - assembly: `OpenTelemetry.Instrumentation.AspNetCore`
 - namespace: `OpenTelemetry.Instrumentation.AspNetCore`, `OpenTelemetry.Trace`, `OpenTelemetry.Metrics`
 - rail: transport instrumentation

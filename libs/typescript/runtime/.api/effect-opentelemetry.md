@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/opentelemetry`
-- package: `@effect/opentelemetry`
-- license: `MIT`
+- package: `@effect/opentelemetry` (MIT)
 - effect-peer: `effect catalog`, `@effect/platform catalog` (`HttpClient` for the native lane)
 - otel-peer: `@opentelemetry/api`, `@opentelemetry/resources`, `@opentelemetry/sdk-trace-base`, `@opentelemetry/sdk-trace-node`, `@opentelemetry/sdk-trace-web`, `@opentelemetry/sdk-metrics`, `@opentelemetry/sdk-logs`, `@opentelemetry/semantic-conventions` — the SDK-bridge peer block; at `[OTEL_PIN_BLOCK]` the SDK MACHINERY (`sdk-trace-base`/`-node`/`-web`, `sdk-metrics`, `sdk-logs`) collapses, while `api` (signal API), `resources` (the `Resource`-identity substrate `Resource.layer` lowers to in both lanes), and `semantic-conventions` (convention vocabulary) persist
 - catalog-verdict: KEEP; edge-ledger fences `@opentelemetry/*` to `scope:runtime` only

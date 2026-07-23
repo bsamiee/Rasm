@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `networkx`
-- package: `networkx`
-- license: BSD-3-Clause
+- package: `networkx` (BSD-3-Clause)
 - import: `import networkx as nx`
 - owner: `data` (codec/egress), `geometry` (`graph/features` analysis)
 - rail: graph

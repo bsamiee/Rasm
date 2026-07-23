@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/instrumentation-fetch`
-- package: `@opentelemetry/instrumentation-fetch`
-- license: `Apache-2.0`
+- package: `@opentelemetry/instrumentation-fetch` (Apache-2.0)
 - base: extends `@opentelemetry/instrumentation` `InstrumentationBase`; span shapes from `@opentelemetry/sdk-trace-web`
 - consumed-by: the browser composition root beside the `web` export row; `Vital.enrich` composes onto its spans
 - runtime: browser only — patches `globalThis.fetch`
@@ -29,14 +28,14 @@
 - rail: observability/rum
 - One config object is the entire knob surface; every row below is a verified `FetchInstrumentationConfig` field.
 
-| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                       |
-| :-----: | :-------------------------------------------- | :------------- | :-------------------------------------------------------- |
-|  [01]   | `new FetchInstrumentation(config?)`           | ctor           | one construction at the browser root                      |
-|  [02]   | `propagateTraceHeaderCorsUrls`                | config field   | the CORS allow-list `traceparent` injection rides         |
-|  [03]   | `ignoreUrls`                                  | config field   | telemetry-egress self-exclusion (the collector origin)    |
-|  [04]   | `applyCustomAttributesOnSpan` / `requestHook` | config field   | bounded attribute stamps; identifier-grade context only   |
-|  [05]   | `ignoreNetworkEvents` / `measureRequestSize`  | config field   | timing-event and request-size toggles                     |
-|  [06]   | `clearTimingResources`                        | config field   | resource-timing buffer hygiene after projection           |
+| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                     |
+| :-----: | :-------------------------------------------- | :------------- | :------------------------------------------------------ |
+|  [01]   | `new FetchInstrumentation(config?)`           | ctor           | one construction at the browser root                    |
+|  [02]   | `propagateTraceHeaderCorsUrls`                | config field   | the CORS allow-list `traceparent` injection rides       |
+|  [03]   | `ignoreUrls`                                  | config field   | telemetry-egress self-exclusion (the collector origin)  |
+|  [04]   | `applyCustomAttributesOnSpan` / `requestHook` | config field   | bounded attribute stamps; identifier-grade context only |
+|  [05]   | `ignoreNetworkEvents` / `measureRequestSize`  | config field   | timing-event and request-size toggles                   |
+|  [06]   | `clearTimingResources`                        | config field   | resource-timing buffer hygiene after projection         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

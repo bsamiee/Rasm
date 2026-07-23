@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `otplib`
-- package: `otplib` (metapackage re-exporting `@otplib/core`/`totp`/`hotp` + the default `plugin-crypto-noble`/`plugin-base32-scure`)
-- license: `MIT`
+- package: `otplib` (MIT)
 - module: dual ESM (`import` → `dist/index.js`) + CJS (`require` → `dist/index.cjs`); subpaths `.` (all) · `./functional` · `./class`
 - effect-boundary: `generate`/`verify` return `Promise` → `Effect.tryPromise({ try, catch })`; `generateSync`/`verifySync` throw `HMACError` → `Effect.try`; `VerifyResult` narrows on `.valid`. `.api/effect.md`
 - catalog-verdict: KEEP — the one RFC-4226/6238 TOTP/HOTP owner; the catalog-bound plugin port is what makes it composable with `sign/crypto` rather than a closed crypto silo

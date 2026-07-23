@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@bufbuild/protobuf`
-- package: `@bufbuild/protobuf`
-- license: `Apache-2.0 AND BSD-3-Clause` (BSD covers the varint/base64 code adapted from `google-protobuf`)
+- package: `@bufbuild/protobuf` (Apache-2.0 AND BSD-3-Clause)
 - deps: none — zero transitive footprint, the reason it is the codec substrate
 - peer: none; `type: module`, ESM + CJS dual (`dist/esm`, `dist/commonjs`), `sideEffects: false` (fully tree-shakeable — an unused subpath costs zero bytes)
 - exports: `.` (codec + descriptors), `./codegenv1` + `./codegenv2` (the generated-code boot surface), `./reflect` (dynamic accessor), `./wkt` (well-known types), `./wire` (low-level primitives), `./txtpb` (whole-message text-format codec); `./package.json`
@@ -55,16 +54,16 @@
 - rail: proto codec
 - every codec entry takes a `Partial<…Options>`; the drift-tolerant defaults (`ignoreUnknownFields`, `readUnknownFields`) are the round-trip-safe posture `interchange/contract` relies on so an unknown field is preserved, never a decode fault.
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CONSUMER_BOUNDARY]                                                                   |
-| :-----: | :----------------------- | :------------ | :------------------------------------------------------------------------------------ |
-|  [01]   | `BinaryReadOptions`      | binary read   | `readUnknownFields:true` keeps forward-compat fields; `recursionLimit` default 100    |
-|  [02]   | `BinaryWriteOptions`     | binary write  | `writeUnknownFields` — write back a partial peer's unknown fields                     |
-|  [03]   | `JsonReadOptions`        | json read     | `ignoreUnknownFields` (drift-safe default), `registry`, `recursionLimit`              |
-|  [04]   | `JsonWriteOptions`       | json write    | `alwaysEmitImplicit`, `enumAsInteger`, `useProtoFieldName`, `registry` — wire dialect |
-|  [05]   | `JsonWriteStringOptions` | json write    | `JsonWriteOptions` + `prettySpaces`                                                   |
-|  [06]   | `SizeDelimitedDecodeOptions` | framed read | `BinaryReadOptions` + `readMaxBytes` — per-message stream cap, default 64 MiB       |
-|  [07]   | `TextReadOptions`        | text read     | `registry` (`Any`/extensions), `recursionLimit` default 100                          |
-|  [08]   | `TextWriteOptions`       | text write    | `printUnknownFields` (default false, by-number, non-round-trippable), `registry`     |
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY] | [CONSUMER_BOUNDARY]                                                                   |
+| :-----: | :--------------------------- | :------------ | :------------------------------------------------------------------------------------ |
+|  [01]   | `BinaryReadOptions`          | binary read   | `readUnknownFields:true` keeps forward-compat fields; `recursionLimit` default 100    |
+|  [02]   | `BinaryWriteOptions`         | binary write  | `writeUnknownFields` — write back a partial peer's unknown fields                     |
+|  [03]   | `JsonReadOptions`            | json read     | `ignoreUnknownFields` (drift-safe default), `registry`, `recursionLimit`              |
+|  [04]   | `JsonWriteOptions`           | json write    | `alwaysEmitImplicit`, `enumAsInteger`, `useProtoFieldName`, `registry` — wire dialect |
+|  [05]   | `JsonWriteStringOptions`     | json write    | `JsonWriteOptions` + `prettySpaces`                                                   |
+|  [06]   | `SizeDelimitedDecodeOptions` | framed read   | `BinaryReadOptions` + `readMaxBytes` — per-message stream cap, default 64 MiB         |
+|  [07]   | `TextReadOptions`            | text read     | `registry` (`Any`/extensions), `recursionLimit` default 100                           |
+|  [08]   | `TextWriteOptions`           | text write    | `printUnknownFields` (default false, by-number, non-round-trippable), `registry`      |
 
 [PUBLIC_TYPE_SCOPE]: registry + reflect — the reflection surface the drift gate and content-key walk consume
 - rail: descriptor reflection
@@ -139,11 +138,11 @@
 - import: `toText`/`fromText`/`mergeFromText` from `@bufbuild/protobuf/txtpb`; the `./wire` text-format entries below parse a bare scalar/enum leaf, this scope round-trips a whole message.
 - 64-bit fields render as `bigint` with no string fall-back; `toText`/`fromText` throw immediately where the environment lacks `BigInt`. `printUnknownFields` prints by number and is NOT round-trippable — `fromText` rejects number-named fields.
 
-| [INDEX] | [SURFACE]                                                        | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                          |
-| :-----: | :--------------------------------------------------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `toText<Desc>(schema, message, options?): string`                | text write     | txtpbfmt-formatted diagnostic dump           |
-|  [02]   | `fromText<Desc>(schema, text, options?): MessageShape<Desc>`     | text read      | parse a text-format payload                  |
-|  [03]   | `mergeFromText<Desc>(schema, target, text, options?)`            | text read      | fold a text payload into an existing message |
+| [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                          |
+| :-----: | :----------------------------------------------------------- | :------------- | :------------------------------------------- |
+|  [01]   | `toText<Desc>(schema, message, options?): string`            | text write     | txtpbfmt-formatted diagnostic dump           |
+|  [02]   | `fromText<Desc>(schema, text, options?): MessageShape<Desc>` | text read      | parse a text-format payload                  |
+|  [03]   | `mergeFromText<Desc>(schema, target, text, options?)`        | text read      | fold a text payload into an existing message |
 
 [ENTRYPOINT_SCOPE]: registry + reflection — the descriptor-driven path with no generated code
 - rail: descriptor reflection

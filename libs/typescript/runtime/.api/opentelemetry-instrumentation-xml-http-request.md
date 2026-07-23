@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/instrumentation-xml-http-request`
-- package: `@opentelemetry/instrumentation-xml-http-request`
-- license: `Apache-2.0`
+- package: `@opentelemetry/instrumentation-xml-http-request` (Apache-2.0)
 - base: `XMLHttpRequestInstrumentation` extends `@opentelemetry/instrumentation` `InstrumentationBase`; span shapes from `@opentelemetry/sdk-trace-web`
 - consumed-by: the browser composition root's `web` SDK instrumentation set beside the fetch, document-load, and user-interaction rows
 - runtime: browser only — patches `globalThis.XMLHttpRequest`

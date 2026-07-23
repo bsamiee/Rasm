@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `cloudpickle`
-- package: `cloudpickle`
-- license: BSD-3-Clause
+- package: `cloudpickle` (BSD-3-Clause)
 - import: `cloudpickle`
 - owner: `runtime`
 - rail: kernel and closure serialization

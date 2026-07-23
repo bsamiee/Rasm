@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `RabbitMQ.Client`
-- package: `RabbitMQ.Client`
-- license: `Apache-2.0 OR MPL-2.0` (dual-licensed)
+- package: `RabbitMQ.Client` (Apache-2.0 OR MPL-2.0)
 - assembly: `RabbitMQ.Client`
 - namespace: `RabbitMQ.Client`, `RabbitMQ.Client.Events`, `RabbitMQ.Client.Exceptions`
 - target: multi-target (`net8.0`, `netstandard2.0`); the `net10.0` consumer binds `lib/net8.0` — pure-managed AnyCPU, no native runtime

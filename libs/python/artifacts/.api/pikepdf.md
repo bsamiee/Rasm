@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pikepdf`
-- package: `pikepdf` (`MPL-2.0`, libqpdf `Apache-2.0`)
+- package: `pikepdf` (MPL-2.0)
 - module: `pikepdf`
 - namespaces: `pikepdf`, `pikepdf.models`, `pikepdf.canvas`, `pikepdf.settings`, `pikepdf.sanitize`
 - rail: pdf — qpdf-backed structure repair, encryption, content tokenize/author, object-model edit, image extract, qpdf jobs
@@ -57,26 +57,26 @@
 
 [PUBLIC_TYPE_SCOPE]: model helpers and fault family
 
-| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY] | [CAPABILITY]                                            |
-| :-----: | :----------------------------------- | :------------ | :------------------------------------------------------ |
+| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY] | [CAPABILITY]                                                                  |
+| :-----: | :----------------------------------- | :------------ | :---------------------------------------------------------------------------- |
 |  [01]   | `models.PdfImage`                    | class         | `as_pil_image`/`extract_to`/`mode`/`colorspace`/`icc`; `MAX_IMAGE_PIXELS` cap |
-|  [02]   | `models.PdfMetadata`                 | class         | `load_from_docinfo`/`pdfa_status`/`pdfx_status` mapping |
-|  [03]   | `canvas.Canvas`                      | class         | `add_font`/`do`/`to_pdf` page-content builder           |
-|  [04]   | `canvas.ContentStreamBuilder`        | class         | `begin_text`/`show_text`/`set_fill_color`/`cm`/`fill`   |
-|  [05]   | `PdfError`                           | exception     | qpdf operation failure, root of the fault family        |
-|  [06]   | `PasswordError`                      | exception     | wrong open password                                     |
-|  [07]   | `DataDecodingError`                  | exception     | stream filter decode failure                            |
-|  [08]   | `ForeignObjectError`                 | exception     | object used across `Pdf` owners without `copy_foreign`  |
-|  [09]   | `DeletedObjectError`                 | exception     | access to an object whose owning `Pdf` was closed       |
-|  [10]   | `ReferenceCycleError`                | exception     | refusal to materialize a self-referential object graph  |
-|  [11]   | `DependencyError`                    | exception     | a stream filter needs an unavailable native codec       |
-|  [12]   | `OutlineStructureError`              | exception     | malformed outline tree during `open_outline` edit       |
-|  [13]   | `UnsupportedImageTypeError`          | exception     | `PdfImage` decode refusal by image class                |
-|  [14]   | `InvalidPdfImageError`               | exception     | malformed embedded image data                           |
-|  [15]   | `HifiPrintImageNotTranscodableError` | exception     | hi-fi print image not transcodable                      |
-|  [16]   | `JobUsageError`                      | exception     | invalid `Job`/`JobBuilder` configuration                |
-|  [17]   | `DecompressionBombError`             | exception     | image pixel count exceeds `PdfImage.MAX_IMAGE_PIXELS`    |
-|  [18]   | `DecompressionBombWarning`           | warning       | image pixel count nears the decode cap                  |
+|  [02]   | `models.PdfMetadata`                 | class         | `load_from_docinfo`/`pdfa_status`/`pdfx_status` mapping                       |
+|  [03]   | `canvas.Canvas`                      | class         | `add_font`/`do`/`to_pdf` page-content builder                                 |
+|  [04]   | `canvas.ContentStreamBuilder`        | class         | `begin_text`/`show_text`/`set_fill_color`/`cm`/`fill`                         |
+|  [05]   | `PdfError`                           | exception     | qpdf operation failure, root of the fault family                              |
+|  [06]   | `PasswordError`                      | exception     | wrong open password                                                           |
+|  [07]   | `DataDecodingError`                  | exception     | stream filter decode failure                                                  |
+|  [08]   | `ForeignObjectError`                 | exception     | object used across `Pdf` owners without `copy_foreign`                        |
+|  [09]   | `DeletedObjectError`                 | exception     | access to an object whose owning `Pdf` was closed                             |
+|  [10]   | `ReferenceCycleError`                | exception     | refusal to materialize a self-referential object graph                        |
+|  [11]   | `DependencyError`                    | exception     | a stream filter needs an unavailable native codec                             |
+|  [12]   | `OutlineStructureError`              | exception     | malformed outline tree during `open_outline` edit                             |
+|  [13]   | `UnsupportedImageTypeError`          | exception     | `PdfImage` decode refusal by image class                                      |
+|  [14]   | `InvalidPdfImageError`               | exception     | malformed embedded image data                                                 |
+|  [15]   | `HifiPrintImageNotTranscodableError` | exception     | hi-fi print image not transcodable                                            |
+|  [16]   | `JobUsageError`                      | exception     | invalid `Job`/`JobBuilder` configuration                                      |
+|  [17]   | `DecompressionBombError`             | exception     | image pixel count exceeds `PdfImage.MAX_IMAGE_PIXELS`                         |
+|  [18]   | `DecompressionBombWarning`           | warning       | image pixel count nears the decode cap                                        |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -125,11 +125,11 @@
 
 [ENTRYPOINT_SCOPE]: native content authoring
 
-| [INDEX] | [SURFACE]                                                  | [SHAPE]  | [CAPABILITY]                                 |
-| :-----: | :--------------------------------------------------------- | :------- | :------------------------------------------- |
-|  [01]   | `canvas.Canvas(page_size=(w, h))`                          | ctor     | author native page content                   |
-|  [02]   | `models.PdfImage(...).as_pil_image(*, apply_mask=True)`        | instance | extract an embedded image to the Pillow rail |
-|  [03]   | `models.PdfImage(...).extract_to(*, apply_mask=True) -> str`   | instance | write native codec bytes, mask-composited    |
+| [INDEX] | [SURFACE]                                                    | [SHAPE]  | [CAPABILITY]                                 |
+| :-----: | :----------------------------------------------------------- | :------- | :------------------------------------------- |
+|  [01]   | `canvas.Canvas(page_size=(w, h))`                            | ctor     | author native page content                   |
+|  [02]   | `models.PdfImage(...).as_pil_image(*, apply_mask=True)`      | instance | extract an embedded image to the Pillow rail |
+|  [03]   | `models.PdfImage(...).extract_to(*, apply_mask=True) -> str` | instance | write native codec bytes, mask-composited    |
 
 - `PdfImage.as_pil_image`/`extract_to`: `apply_mask=True` composites the `/SMask` soft mask or `/Mask` stencil/colour-key mask into an alpha channel (`LA`/`RGBA`, transparency-capable format), `apply_mask=False` returns the opaque base; `apply_decode_array=True` (default) folds a non-default `/Decode` per-channel map, `False` yields raw stored samples; `extract_to` writes to a `stream` or a `fileprefix`+ext path and returns that path. A pixel count over `PdfImage.MAX_IMAGE_PIXELS` raises `DecompressionBombError` (set the class attribute to `None` to disable the guard).
 - [04]-[CONTENTSTREAMBUILDER_OPS]: `begin_text` `set_text_font` `show_text` `show_text_with_kerning` `set_text_leading` `move_cursor_new_line` `set_fill_color` `set_stroke_color` `set_line_width` `set_dashes` `cm` `append_rectangle` `fill` `stroke_and_close` `draw_xobject` `begin_marked_content` to `.build()` — text and vector op emitter; raster rides `draw_xobject`, there is no `draw_image`.

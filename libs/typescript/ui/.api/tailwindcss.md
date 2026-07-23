@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `tailwindcss`
-- package: `tailwindcss` (MIT, © Tailwind Labs) — the CSS engine; the Vite integration `@tailwindcss/vite` (MIT) is the build owner
+- package: `tailwindcss` (MIT)
 - module format: CSS-first — the primary artifact is the shipped stylesheet set (`index.css`, `theme.css`, `preflight.css`, `utilities.css`); a dual ESM+CJS (`type: commonjs`) `dist/` carries the typed JS compat surface, `sideEffects: false`
 - runtime target: build-time CSS generation (zero runtime, zero client JS); the browser receives only generated CSS custom properties + utility classes
 - peer: none for the engine; `@tailwindcss/vite` peers `vite catalog`, satisfied by the branch Vite build

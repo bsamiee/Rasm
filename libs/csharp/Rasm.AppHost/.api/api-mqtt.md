@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MQTTnet`
-- package: `MQTTnet` (`MIT`, The Contributors)
+- package: `MQTTnet` (MIT)
 - assembly: `MQTTnet`
 - namespace: `MQTTnet`, `MQTTnet.Protocol`, `MQTTnet.Formatter`
 - asset: runtime library

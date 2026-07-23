@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Google.Cloud.Kms.V1`
-- package: `Google.Cloud.Kms.V1` (`Apache-2.0`, Google LLC)
+- package: `Google.Cloud.Kms.V1` (Apache-2.0)
 - assembly: `Google.Cloud.Kms.V1` (`lib/netstandard2.0` binds the `net10.0` consumer, `lib/net462` the framework fallback)
 - namespace: `Google.Cloud.Kms.V1`, `Microsoft.Extensions.DependencyInjection`
 - depends: `Google.Api.Gax.Grpc` over `Grpc.Net.Client`; pure-managed, no native gRPC asset

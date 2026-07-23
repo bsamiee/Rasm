@@ -105,11 +105,11 @@
 [ENTRYPOINT_SCOPE]: `fmpq` exact rational analytic constants
 - `fmpq` returns exact closed-form sequence values that feed exact-coefficient solver kernels with no float rounding.
 
-| [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [CAPABILITY]                             |
-| :-----: | :------------------------------------------------------------------ | :------------- | :--------------------------------------- |
-|  [01]   | `fmpq.bernoulli(n)` / `fmpq.harmonic(n)`                            | sequences      | exact Bernoulli and harmonic numbers     |
-|  [02]   | `fmpq.dedekind_sum(h, k)`                                           | number theory  | exact Dedekind sum                       |
-|  [03]   | `numer()`/`denom()`/`floor()`/`ceil()`/`round()`/`next()`/`__float__()` | access | numer/denom, rounding, next, float cast |
+| [INDEX] | [SURFACE]                                                               | [ENTRY_FAMILY] | [CAPABILITY]                            |
+| :-----: | :---------------------------------------------------------------------- | :------------- | :-------------------------------------- |
+|  [01]   | `fmpq.bernoulli(n)` / `fmpq.harmonic(n)`                                | sequences      | exact Bernoulli and harmonic numbers    |
+|  [02]   | `fmpq.dedekind_sum(h, k)`                                               | number theory  | exact Dedekind sum                      |
+|  [03]   | `numer()`/`denom()`/`floor()`/`ceil()`/`round()`/`next()`/`__float__()` | access         | numer/denom, rounding, next, float cast |
 
 [ENTRYPOINT_SCOPE]: `fmpz_mat` and `fmpq_mat` matrix operations
 
@@ -125,16 +125,16 @@
 [ENTRYPOINT_SCOPE]: `fmpz_poly` and `fmpq_poly` polynomial operations
 - `degree()` returns `-1` for the zero polynomial.
 
-| [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] | [CAPABILITY]                           |
-| :-----: | :-------------------------------------------------------- | :------------- | :------------------------------------- |
-|  [01]   | `factor()` / `factor_squarefree()`                        | factorization  | full and squarefree factorization      |
-|  [02]   | `gcd(other)` / `resultant(other)` / `discriminant()`      | algebra        | GCD, resultant, discriminant           |
-|  [03]   | `roots()` / `real_roots()` / `complex_roots()`            | root finding   | exact, real, and complex roots         |
-|  [04]   | `derivative()` / `integral()` (fmpq_poly)                 | calculus       | formal derivative and integral         |
-|  [05]   | `cyclotomic(n)` / `chebyshev_t(n)` / `swinnerton_dyer(n)` | named poly     | cyclotomic, Chebyshev, Swinnerton-Dyer |
-|  [06]   | `is_cyclotomic()` / `deflate()` / `inflate(n)`            | structure      | cyclotomic test, deflate/inflate       |
+| [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY]  | [CAPABILITY]                                    |
+| :-----: | :-------------------------------------------------------- | :-------------- | :---------------------------------------------- |
+|  [01]   | `factor()` / `factor_squarefree()`                        | factorization   | full and squarefree factorization               |
+|  [02]   | `gcd(other)` / `resultant(other)` / `discriminant()`      | algebra         | GCD, resultant, discriminant                    |
+|  [03]   | `roots()` / `real_roots()` / `complex_roots()`            | root finding    | exact, real, and complex roots                  |
+|  [04]   | `derivative()` / `integral()` (fmpq_poly)                 | calculus        | formal derivative and integral                  |
+|  [05]   | `cyclotomic(n)` / `chebyshev_t(n)` / `swinnerton_dyer(n)` | named poly      | cyclotomic, Chebyshev, Swinnerton-Dyer          |
+|  [06]   | `is_cyclotomic()` / `deflate()` / `inflate(n)`            | structure       | cyclotomic test, deflate/inflate                |
 |  [07]   | `mul_low(other, n)` / `pow_trunc(e, n)`                   | truncated-arith | low-degree product, power truncated to degree n |
-|  [08]   | `degree()`                                                | access         | highest-term exponent                  |
+|  [08]   | `degree()`                                                | access          | highest-term exponent                           |
 
 [ENTRYPOINT_SCOPE]: `arb` and `acb` ball arithmetic operations
 - `sinh_cosh()` fuses hyperbolic sine and cosine; `airy_ai_zero(n)` / `airy_bi_zero(n)` return the nth real Airy zeros.

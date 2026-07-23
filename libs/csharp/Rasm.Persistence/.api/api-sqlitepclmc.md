@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `SQLitePCLRaw.bundle_e_sqlite3mc`
-- package: `SQLitePCLRaw.bundle_e_sqlite3mc` (`Apache-2.0`, SourceGear, LLC)
+- package: `SQLitePCLRaw.bundle_e_sqlite3mc` (Apache-2.0)
 - assembly: `SQLitePCLRaw.batteries_v2` — the bundle mints its own initializer; `SQLitePCLRaw.core` carries `raw`
 - namespace: `SQLitePCL`
 - depends: `SQLitePCLRaw.provider.e_sqlite3mc` (P/Invoke), `SQLitePCLRaw.provider.dynamic_cdecl` (cdecl binding), `SQLitePCLRaw.lib.e_sqlite3mc` (native assets), `SQLitePCLRaw.core` (`raw` API, `sqlite3*` handles)

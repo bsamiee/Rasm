@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `OpenTelemetry.Instrumentation.Http`
-- package: `OpenTelemetry.Instrumentation.Http` (Apache-2.0, OpenTelemetry Authors)
+- package: `OpenTelemetry.Instrumentation.Http` (Apache-2.0)
 - assembly: `OpenTelemetry.Instrumentation.Http`
 - namespace: `OpenTelemetry.Instrumentation.Http`, `OpenTelemetry.Trace`, `OpenTelemetry.Metrics`
 - rail: transport instrumentation

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `SharpVoronoiLib`
-- package: `SharpVoronoiLib` (`MIT`, RudyTheDev)
+- package: `SharpVoronoiLib` (MIT)
 - assembly: `SharpVoronoiLib`
 - namespaces: `SharpVoronoiLib`, `SharpVoronoiLib.Exceptions`, `Supercluster.KDTree`, `Supercluster.KDTree.Utilities`
 - asset: pure-managed AnyCPU IL, multi-target `net10.0`/`net9.0`/`netstandard2.1`/`netstandard2.0`; the consumer binds `lib/net10.0/SharpVoronoiLib.dll`. Zero package dependencies — the `Supercluster.KDTree` behind `NearestSiteLookupMethod.KDTree` is vendored in-assembly

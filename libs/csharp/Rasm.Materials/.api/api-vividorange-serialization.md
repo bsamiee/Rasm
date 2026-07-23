@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `VividOrange.Serialization`
-- package: `VividOrange.Serialization` (MIT, Vivid Orange)
+- package: `VividOrange.Serialization` (MIT)
 - assembly: `VividOrange.Serialization`
 - namespace: `VividOrange.Serialization`
 - asset: managed AnyCPU runtime library, no native asset; the consumer `net10.0` binds `lib/net8.0`
@@ -13,7 +13,7 @@
 - rail: serialization — the in-C# VividOrange-taxonomy JSON wire
 
 [PACKAGE_SURFACE]: `UnitsNet.Serialization.JsonNet`
-- package: `UnitsNet.Serialization.JsonNet` (MIT-0, Andreas Gullberg Larsen)
+- package: `UnitsNet.Serialization.JsonNet` (MIT-0)
 - assembly: `UnitsNet.Serialization.JsonNet`
 - namespace: `UnitsNet.Serialization.JsonNet`
 - asset: managed runtime library; the consumer `net10.0` binds `netstandard2.0`

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `python-docx`
-- package: `python-docx` (`MIT`, Steve Canny)
+- package: `python-docx` (MIT)
 - module: `docx`
 - abi: pure-Python wheel, cp315-resident, in-process (no worker offload)
 - rail: office — `.docx` word-processing authoring and editing feeding the document owners

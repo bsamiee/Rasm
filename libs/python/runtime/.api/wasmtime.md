@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `wasmtime`
-- package: `wasmtime` (`Apache-2.0 WITH LLVM-exception`)
+- package: `wasmtime` (Apache-2.0 WITH LLVM-exception)
 - module: `wasmtime`
 - rail: worker fabric
 - namespaces: `wasmtime`

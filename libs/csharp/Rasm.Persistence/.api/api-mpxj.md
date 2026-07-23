@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MPXJ.Net`
-- package: `MPXJ.Net` (`LGPL-2.1-or-later`, Jon Iles)
+- package: `MPXJ.Net` (LGPL-2.1-or-later)
 - assembly: `MPXJ.Net`, the `lib/net6.0` asset a `net10.0` consumer binds
 - namespace: `MPXJ.Net`, IKVM-proxied over the Java `net.sf.mpxj`
 - abi: pure managed at run time — `IKVM.Maven.Sdk` translates the MPXJ jar to IL inside the consuming build, and no JVM loads after it

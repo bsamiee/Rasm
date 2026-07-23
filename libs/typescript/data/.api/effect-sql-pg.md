@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/sql-pg`
-- package: `@effect/sql-pg`
-- license: `MIT`
+- package: `@effect/sql-pg` (MIT)
 - effect-peer: `effect catalog`, `@effect/sql catalog` (the `SqlClient` core this extends; `.api/effect-sql.md`), `@effect/experimental catalog` (`Reactivity` — `make`/`reactive`/`reactiveMailbox` require it; `.api/effect-experimental.md`), `@effect/platform catalog` (`FileSystem`/`Path`/`CommandExecutor` — `PgMigrator` only; `.api/effect-platform.md`)
 - backing: bundles `pg catalog` (`node-postgres`) with `pg-pool` (connection pool), `pg-cursor` (server-side streaming cursor behind `SqlStream`), `pg-types` (OID codec), `pg-connection-string`
 - runtime: `runtime:node`/bun — imports `node:stream`, `node:tls`; the PG journal spine. Browser plane never imports it — `lane/wasm` on `@effect/sql-sqlite-wasm` is the browser durability lane

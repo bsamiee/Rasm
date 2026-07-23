@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@otplib/core`
-- package: `@otplib/core`
-- license: `MIT`
+- package: `@otplib/core` (MIT)
 - deps: none — pure TS substrate, no crypto binding (crypto arrives through the `CryptoPlugin` port)
 - module: dual ESM (`import` → `dist/index.js`) + CJS; subpaths `.` (all) · `./errors` · `./utils` · `./types`
 - catalog-verdict: KEEP — the direct-pin substrate; `credential.md` imports `OTPHooks` type-only from the root

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Grpc.Tools`
-- package: `Grpc.Tools` (Apache-2.0, The gRPC Authors)
+- package: `Grpc.Tools` (Apache-2.0)
 - assembly: `Protobuf.MSBuild.dll`, selected by `$(MSBuildRuntimeType)` between the `netstandard1.3` and `net45` copies
 - namespace: `Grpc.Tools`
 - role: development dependency — `build/Grpc.Tools.props` and `build/Grpc.Tools.targets` are the import entry points, `tools/<os>_<cpu>/` the compiler root, `build/native/include/` the import root

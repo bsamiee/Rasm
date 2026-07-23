@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pocketken.H3`
-- package: `pocketken.H3` (Apache-2.0, pocketken/H3.net)
+- package: `pocketken.H3` (Apache-2.0)
 - assembly: `pocketken.H3`
 - namespace: `H3`, `H3.Model`, `H3.Extensions`, `H3.Algorithms`
 - asset: pure-managed AnyCPU IL — a C# port of the Uber-H3 algorithm carrying no native binary
@@ -16,19 +16,19 @@
 
 [CELL_TYPE_SCOPE]: the cell index, its decoded bit layout, and the kernels the algorithms fold through
 
-| [INDEX] | [SYMBOL]                                           | [TYPE_FAMILY] | [CAPABILITY]                                                 |
-| :-----: | :------------------------------------------------- | :------------ | :----------------------------------------------------------- |
-|  [01]   | `H3Index : IComparable<H3Index>, IEquatable<H3Index>` | struct     | mutable value `struct` over a `ulong`; `Invalid == default` |
-|  [02]   | `H3.Model.Mode`                                    | enum          | `Unknown` `Cell` `UniEdge` `Vertex` kind in the high bits    |
-|  [03]   | `H3.Model.Direction`                               | enum          | IJK step `Center` `K` `J` `JK` `I` `IK` `IJ` `Invalid`       |
-|  [04]   | `H3.Model.LatLng`                                  | struct        | radian `struct`, degree projections and great-circle metrics |
-|  [05]   | `H3.Model.CoordIJ`                                 | struct        | local IJ coordinate for grid-distance and line algebra       |
-|  [06]   | `H3.Model.BaseCell`                                | class         | one of 122 base cells; home face, pentagon and rotation data |
-|  [07]   | `H3.Constants`                                     | class         | resolution caps, `EARTH_RADIUS_KM`, hexagon geometry values  |
-|  [08]   | `H3.Utils`                                         | class         | `DefaultGeometryFactory` and the radian trigonometry kernel  |
-|  [09]   | `H3.H3IndexJsonConverter : JsonConverter<H3Index>` | class         | hex-string round-trip, attribute-bound on `H3Index`          |
-|  [10]   | `H3.Algorithms.RingCell`                           | struct        | disk member carrying `Index` and `Distance`                  |
-|  [11]   | `H3.Algorithms.VertexTestMode`                     | enum          | `Center` `Any` `All` polyfill cell-acceptance predicate      |
+| [INDEX] | [SYMBOL]                                              | [TYPE_FAMILY] | [CAPABILITY]                                                 |
+| :-----: | :---------------------------------------------------- | :------------ | :----------------------------------------------------------- |
+|  [01]   | `H3Index : IComparable<H3Index>, IEquatable<H3Index>` | struct        | mutable value `struct` over a `ulong`; `Invalid == default`  |
+|  [02]   | `H3.Model.Mode`                                       | enum          | `Unknown` `Cell` `UniEdge` `Vertex` kind in the high bits    |
+|  [03]   | `H3.Model.Direction`                                  | enum          | IJK step `Center` `K` `J` `JK` `I` `IK` `IJ` `Invalid`       |
+|  [04]   | `H3.Model.LatLng`                                     | struct        | radian `struct`, degree projections and great-circle metrics |
+|  [05]   | `H3.Model.CoordIJ`                                    | struct        | local IJ coordinate for grid-distance and line algebra       |
+|  [06]   | `H3.Model.BaseCell`                                   | class         | one of 122 base cells; home face, pentagon and rotation data |
+|  [07]   | `H3.Constants`                                        | class         | resolution caps, `EARTH_RADIUS_KM`, hexagon geometry values  |
+|  [08]   | `H3.Utils`                                            | class         | `DefaultGeometryFactory` and the radian trigonometry kernel  |
+|  [09]   | `H3.H3IndexJsonConverter : JsonConverter<H3Index>`    | class         | hex-string round-trip, attribute-bound on `H3Index`          |
+|  [10]   | `H3.Algorithms.RingCell`                              | struct        | disk member carrying `Index` and `Distance`                  |
+|  [11]   | `H3.Algorithms.VertexTestMode`                        | enum          | `Center` `Any` `All` polyfill cell-acceptance predicate      |
 
 [DISK_FAULT]: `H3.Algorithms.HexRingException` (abstract base) → `H3.Algorithms.HexRingPentagonException` `H3.Algorithms.HexRingKSequenceException`
 
@@ -38,23 +38,22 @@
 
 [COORDINATE_ENTRY_SCOPE]: coordinate and stored-key admission with the inverse projections
 
-| [INDEX] | [SURFACE]                                    | [SHAPE]  | [CAPABILITY]                                   |
-| :-----: | :------------------------------------------- | :------- | :--------------------------------------------- |
-|  [01]   | `H3Index.FromLatLng(LatLng, int)`            | factory  | radian pair admitted at a resolution           |
-|  [02]   | `H3Index.FromPoint(Point, int)`              | factory  | NTS `Point` at SRID 4326 admitted as a cell    |
-|  [03]   | `Coordinate.ToH3Index(int)`                  | instance | NTS `Coordinate` admitted as a cell            |
-|  [04]   | `H3Index.Create(int, int, Direction)`        | factory  | resolution, base cell, lead direction          |
-|  [05]   | `H3Index.Create(int, int, IReadOnlyList<Direction>)` | factory | resolution, base cell, per-res digit list (v4 `constructCell`) |
-|  [06]   | `H3Index.ToLatLng() -> LatLng`               | instance | cell centroid as a radian pair                 |
-|  [07]   | `H3Index.ToPoint(GeometryFactory?) -> Point` | instance | cell centroid as an NTS `Point`                |
-|  [08]   | `H3Index.ToCoordinate(Coordinate?) -> Coordinate` | instance | cell centroid as an NTS `Coordinate`      |
+| [INDEX] | [SURFACE]                                            | [SHAPE]  | [CAPABILITY]                                                   |
+| :-----: | :--------------------------------------------------- | :------- | :------------------------------------------------------------- |
+|  [01]   | `H3Index.FromLatLng(LatLng, int)`                    | factory  | radian pair admitted at a resolution                           |
+|  [02]   | `H3Index.FromPoint(Point, int)`                      | factory  | NTS `Point` at SRID 4326 admitted as a cell                    |
+|  [03]   | `Coordinate.ToH3Index(int)`                          | instance | NTS `Coordinate` admitted as a cell                            |
+|  [04]   | `H3Index.Create(int, int, Direction)`                | factory  | resolution, base cell, lead direction                          |
+|  [05]   | `H3Index.Create(int, int, IReadOnlyList<Direction>)` | factory  | resolution, base cell, per-res digit list (v4 `constructCell`) |
+|  [06]   | `H3Index.ToLatLng() -> LatLng`                       | instance | cell centroid as a radian pair                                 |
+|  [07]   | `H3Index.ToPoint(GeometryFactory?) -> Point`         | instance | cell centroid as an NTS `Point`                                |
+|  [08]   | `H3Index.ToCoordinate(Coordinate?) -> Coordinate`    | instance | cell centroid as an NTS `Coordinate`                           |
 
 [CELL_KEY_BRIDGE]: `new H3Index(ulong)` `new H3Index(string)` `H3Index.ToString()` `implicit operator ulong(H3Index)` `implicit operator H3Index(ulong)` `H3Index.CompareTo(H3Index?)`
 
 [LATLNG_BRIDGE]: `LatLng.FromPoint` `LatLng.FromCoordinate` `LatLng.ToPoint` `LatLng.ToCoordinate` `LatitudeDegrees` `LongitudeDegrees` `implicit operator LatLng((double, double))`
 
 [LATLNG_METRIC]: `GetGreatCircleDistanceInRadians` `GetGreatCircleDistanceInKm` `GetGreatCircleDistanceInMeters` `GetAzimuthInRadians` `ForAzimuthDistanceInRadians` `GetTriangleArea` `GetLoopAreaInRadiansSquared` `LineHexEstimate` `AlmostEquals` `AlmostEqualsThreshold`
-
 - `LatLng.GetLoopAreaInRadiansSquared(IReadOnlyList<LatLng>)` / `GetTriangleArea(LatLng, LatLng, LatLng)`: static spherical loop / triangle area, the geometry-free area rail beside the cell `CellArea*` metrics.
 
 [TRAVERSAL_ENTRY_SCOPE]: hierarchy, adjacency, disk, path, and the origin-local IJ frame, every surface extending `H3Index`
@@ -72,7 +71,7 @@
 |  [09]   | `IsNeighbour(H3Index) -> bool`                          | instance | adjacency predicate                         |
 |  [10]   | `DirectionForNeighbour(H3Index) -> Direction`           | instance | connecting direction between neighbours     |
 |  [11]   | `GridRing(int) -> IEnumerable<H3Index>`                 | instance | pentagon-safe hollow ring at exactly k      |
-|  [12]   | `GridRingUnsafe(int) -> IEnumerable<H3Index>`           | instance | fast hollow ring; throws near a pentagon     |
+|  [12]   | `GridRingUnsafe(int) -> IEnumerable<H3Index>`           | instance | fast hollow ring; throws near a pentagon    |
 |  [13]   | `GridDiskDistances(int) -> IEnumerable<RingCell>`       | instance | filled disk carrying per-cell distance      |
 |  [14]   | `GridDiskDistancesSafe(int)`                            | instance | pentagon-tolerant filled disk               |
 |  [15]   | `GridDiskDistancesUnsafe(int)`                          | instance | fast filled disk over known interior        |
@@ -86,48 +85,48 @@
 
 [REGION_ENTRY_SCOPE]: polygon and polyline fill, cell-boundary geometry, and the mixed-resolution cover algebra
 
-| [INDEX] | [SURFACE]                                                  | [SHAPE]  | [CAPABILITY]                                    |
-| :-----: | :--------------------------------------------------------- | :------- | :---------------------------------------------- |
-|  [01]   | `Geometry.Fill(int, VertexTestMode)`                       | instance | geometry covered under the cell-acceptance mode |
-|  [02]   | `Geometry.Fill(int, Func<H3Index, bool>)`                  | instance | flood fill under a caller containment predicate |
-|  [03]   | `Geometry.ParallelFill(int, VertexTestMode, int?)`         | instance | envelope-sharded concurrent fill; same cell set |
-|  [04]   | `LineString.Fill(int)`                                     | instance | polyline traversed as cells                     |
-|  [05]   | `Coordinate[].TraceCoordinates(int)`                       | instance | raw coordinate run traced as cells              |
-|  [06]   | `Geometry.IsTransMeridian() -> bool`                       | instance | antimeridian crossing detected ahead of a fill  |
-|  [07]   | `H3Index.GetCellBoundary(GeometryFactory?)`                | instance | cell boundary as an NTS `Polygon`               |
-|  [08]   | `H3Index.GetCellBoundaryVertices()`                        | instance | boundary corners as `IEnumerable<LatLng>`       |
-|  [09]   | `IEnumerable<H3Index>.CompactCells()`                      | fold     | minimal mixed-resolution cover (deterministic)  |
-|  [10]   | `IEnumerable<H3Index>.UncompactCells(int)`                 | fold     | cover expanded to a uniform resolution          |
-|  [11]   | `IEnumerable<H3Index>.UncompactCellsToHighestResolution()` | fold     | cover expanded to its finest member resolution  |
-|  [12]   | `IEnumerable<H3Index>.CanonicalizeCells()`                 | fold     | cover sorted, compacted to canonical order      |
-|  [13]   | `IReadOnlyList<H3Index>.CanonicalCellsContain(H3Index)`    | fold     | binary-search coverage test, no uncompact       |
-|  [14]   | `IReadOnlyList<H3Index>.IsCanonicalCells() -> bool`        | fold     | canonical-order precondition test               |
-|  [15]   | `IEnumerable<H3Index>.AreOfSameResolution() -> bool`       | fold     | uniform-resolution precondition for set algebra |
-|  [16]   | `IEnumerable<H3Index>.GetCellBoundaries(GeometryFactory?)` | fold     | cover as one NTS `MultiPolygon`, one hex per cell |
-|  [17]   | `IEnumerable<H3Index>.CellsToMultiPolygon(GeometryFactory?)` | fold   | cover as dissolved outline `MultiPolygon`       |
+| [INDEX] | [SURFACE]                                                    | [SHAPE]  | [CAPABILITY]                                      |
+| :-----: | :----------------------------------------------------------- | :------- | :------------------------------------------------ |
+|  [01]   | `Geometry.Fill(int, VertexTestMode)`                         | instance | geometry covered under the cell-acceptance mode   |
+|  [02]   | `Geometry.Fill(int, Func<H3Index, bool>)`                    | instance | flood fill under a caller containment predicate   |
+|  [03]   | `Geometry.ParallelFill(int, VertexTestMode, int?)`           | instance | envelope-sharded concurrent fill; same cell set   |
+|  [04]   | `LineString.Fill(int)`                                       | instance | polyline traversed as cells                       |
+|  [05]   | `Coordinate[].TraceCoordinates(int)`                         | instance | raw coordinate run traced as cells                |
+|  [06]   | `Geometry.IsTransMeridian() -> bool`                         | instance | antimeridian crossing detected ahead of a fill    |
+|  [07]   | `H3Index.GetCellBoundary(GeometryFactory?)`                  | instance | cell boundary as an NTS `Polygon`                 |
+|  [08]   | `H3Index.GetCellBoundaryVertices()`                          | instance | boundary corners as `IEnumerable<LatLng>`         |
+|  [09]   | `IEnumerable<H3Index>.CompactCells()`                        | fold     | minimal mixed-resolution cover (deterministic)    |
+|  [10]   | `IEnumerable<H3Index>.UncompactCells(int)`                   | fold     | cover expanded to a uniform resolution            |
+|  [11]   | `IEnumerable<H3Index>.UncompactCellsToHighestResolution()`   | fold     | cover expanded to its finest member resolution    |
+|  [12]   | `IEnumerable<H3Index>.CanonicalizeCells()`                   | fold     | cover sorted, compacted to canonical order        |
+|  [13]   | `IReadOnlyList<H3Index>.CanonicalCellsContain(H3Index)`      | fold     | binary-search coverage test, no uncompact         |
+|  [14]   | `IReadOnlyList<H3Index>.IsCanonicalCells() -> bool`          | fold     | canonical-order precondition test                 |
+|  [15]   | `IEnumerable<H3Index>.AreOfSameResolution() -> bool`         | fold     | uniform-resolution precondition for set algebra   |
+|  [16]   | `IEnumerable<H3Index>.GetCellBoundaries(GeometryFactory?)`   | fold     | cover as one NTS `MultiPolygon`, one hex per cell |
+|  [17]   | `IEnumerable<H3Index>.CellsToMultiPolygon(GeometryFactory?)` | fold     | cover as dissolved outline `MultiPolygon`         |
 
 `[BUFFER_FILL]`: zero-allocation `Span<T>`-filling overloads returning the count written — `GridDisk` `GridDiskDistances` `GridRingUnsafe` `GridPathCells` `GetChildrenForResolution` `CompactCells` `UncompactCells` `GetCellBoundaryVertices`; presized by `MaxGridDiskSize` `MaxGridRingSize` `GridPathCellsSize` `CellToChildrenSize` `UncompactCellsSize`.
 
 - `Geometry.Fill`: accepts `Point`/`LineString`/`MultiPoint`/`MultiLineString`/`GeometryCollection`/`MultiPolygon`, seeds from every component, and traces the boundary before flooding, matching libh3 `polygonToCells` exactly.
-- `GetCellBoundaries`: the caller's `GeometryFactory` flows to each per-cell `Polygon`, not only the outer `MultiPolygon`.
+- `GetCellBoundaries` passes the caller's `GeometryFactory` to each per-cell `Polygon`, not only the outer `MultiPolygon`.
 
 [TOPOLOGY_ENTRY_SCOPE]: directed-edge and vertex-mode indices, every surface extending `H3Index`
 
-| [INDEX] | [SURFACE]                                         | [SHAPE]  | [CAPABILITY]                                 |
-| :-----: | :------------------------------------------------ | :------- | :------------------------------------------- |
-|  [01]   | `ToDirectedEdge(H3Index) -> H3Index`              | instance | directed edge between adjacent cells         |
-|  [02]   | `OriginToDirectedEdges() -> IEnumerable<H3Index>` | instance | up to six edges leaving a cell               |
-|  [03]   | `DestinationToDirectedEdges() -> IEnumerable<H3Index>` | instance | up to six edges arriving at a cell        |
-|  [04]   | `ReverseDirectedEdge() -> H3Index`                | instance | the opposite-direction edge                  |
-|  [05]   | `DirectedEdgeToCells() -> (H3Index, H3Index)`     | instance | origin and destination of an edge            |
-|  [06]   | `GetDirectedEdgeOrigin() -> H3Index`              | instance | origin endpoint of an edge                   |
-|  [07]   | `GetDirectedEdgeDestination() -> H3Index`         | instance | destination endpoint of an edge              |
-|  [08]   | `IsValidDirectedEdge() -> bool`                   | instance | directed-edge validity test                  |
-|  [09]   | `GetDirectedEdgeBoundaryVertices()`               | instance | edge corners as `IEnumerable<LatLng>`        |
-|  [10]   | `CellToVertex(int) -> H3Index`                    | instance | `Mode.Vertex` index of one cell corner       |
-|  [11]   | `CellToVertexes() -> IEnumerable<H3Index>`        | instance | every vertex-mode index of a cell            |
-|  [12]   | `VertexToLatLng() -> LatLng`                      | instance | vertex index as its shared corner coordinate |
-|  [13]   | `IsValidVertex() -> bool`                         | instance | vertex-mode validity test                    |
+| [INDEX] | [SURFACE]                                              | [SHAPE]  | [CAPABILITY]                                 |
+| :-----: | :----------------------------------------------------- | :------- | :------------------------------------------- |
+|  [01]   | `ToDirectedEdge(H3Index) -> H3Index`                   | instance | directed edge between adjacent cells         |
+|  [02]   | `OriginToDirectedEdges() -> IEnumerable<H3Index>`      | instance | up to six edges leaving a cell               |
+|  [03]   | `DestinationToDirectedEdges() -> IEnumerable<H3Index>` | instance | up to six edges arriving at a cell           |
+|  [04]   | `ReverseDirectedEdge() -> H3Index`                     | instance | the opposite-direction edge                  |
+|  [05]   | `DirectedEdgeToCells() -> (H3Index, H3Index)`          | instance | origin and destination of an edge            |
+|  [06]   | `GetDirectedEdgeOrigin() -> H3Index`                   | instance | origin endpoint of an edge                   |
+|  [07]   | `GetDirectedEdgeDestination() -> H3Index`              | instance | destination endpoint of an edge              |
+|  [08]   | `IsValidDirectedEdge() -> bool`                        | instance | directed-edge validity test                  |
+|  [09]   | `GetDirectedEdgeBoundaryVertices()`                    | instance | edge corners as `IEnumerable<LatLng>`        |
+|  [10]   | `CellToVertex(int) -> H3Index`                         | instance | `Mode.Vertex` index of one cell corner       |
+|  [11]   | `CellToVertexes() -> IEnumerable<H3Index>`             | instance | every vertex-mode index of a cell            |
+|  [12]   | `VertexToLatLng() -> LatLng`                           | instance | vertex index as its shared corner coordinate |
+|  [13]   | `IsValidVertex() -> bool`                              | instance | vertex-mode validity test                    |
 
 - `EdgeLength*` and `GetDirectedEdgeBoundaryVertices` throw `ArgumentException` on an index that is not a valid directed edge (upstream `E_DIR_EDGE_INVALID`), never a silent 0 or empty set.
 

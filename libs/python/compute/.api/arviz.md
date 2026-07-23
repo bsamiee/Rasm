@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `arviz`
-- package: `arviz` (metapackage over `arviz-base`, `arviz-stats`, `arviz-plots`, Apache-2.0)
+- package: `arviz` (Apache-2.0)
 - import: `arviz` (alias `az`)
 - owner: `compute`
 - rail: Bayesian-study

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `CommunityToolkit.HighPerformance`
-- package: `CommunityToolkit.HighPerformance` (MIT, .NET Foundation)
+- package: `CommunityToolkit.HighPerformance` (MIT)
 - assembly: `CommunityToolkit.HighPerformance`
 - namespaces: `CommunityToolkit.HighPerformance`, `.Buffers`, `.Enumerables`, `.Helpers`
 - asset: runtime library binding the `net8.0` ABI

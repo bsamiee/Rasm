@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `stream-unzip`
-- package: `stream-unzip` (`MIT`, Department for International Trade)
+- package: `stream-unzip` (MIT)
 - module: `stream_unzip`
 - abi: compiled `stream_unzip._zipcrypto` extension (Rust, maturin-built) owns the ZipCrypto cipher; not pure-Python
 - depends: `pycryptodome` (WinZip-AES cipher, HMAC-SHA1, PBKDF2), `stream-inflate` (`stream_inflate64` deflate64 inflate), stdlib `zlib`/`bz2` (deflate/bzip2), stdlib `asyncio` with optional `trio` (async backends)

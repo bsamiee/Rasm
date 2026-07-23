@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `tree-sitter-typescript`
-- package: `tree-sitter-typescript` (`MIT`)
+- package: `tree-sitter-typescript` (MIT)
 - module: `tree_sitter_typescript`
 - rail: parsing
 - namespaces: `tree_sitter_typescript`

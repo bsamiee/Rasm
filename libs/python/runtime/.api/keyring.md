@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `keyring`
-- package: `keyring` (`MIT`)
+- package: `keyring` (MIT)
 - module: `keyring`
 - namespaces: `keyring`, `keyring.core`, `keyring.backend`, `keyring.credentials`, `keyring.errors`, `keyring.backends`
 - rail: secrets

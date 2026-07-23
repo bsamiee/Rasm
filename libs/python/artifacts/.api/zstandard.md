@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `zstandard`
-- package: `zstandard` (`BSD-3-Clause`, Gregory Szorc; bundled native libzstd, BSD/GPLv2-dual, Meta)
+- package: `zstandard` (BSD-3-Clause)
 - module: `zstandard`
 - rail: compression
 - abi: native `cext` wheel (`backend_c`, GIL-releasing, one wheel per interpreter minor) is the live build; the `cffi` fallback (`backend_cffi`, selected via `PYTHON_ZSTANDARD_IMPORT_POLICY`) drops the zero-copy batch carriers and `multi_*_to_buffer`

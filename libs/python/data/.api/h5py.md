@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `h5py`
-- package: `h5py` (`BSD-3-Clause`)
+- package: `h5py` (BSD-3-Clause)
 - module: `import h5py`
 - namespaces: `h5py`, the low-level `h5py.h5*` C-API modules
 - owner: `data`

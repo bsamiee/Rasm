@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/api`
-- package: `@opentelemetry/api`
-- license: `Apache-2.0`
+- package: `@opentelemetry/api` (Apache-2.0)
 - dependencies: none — the leaf every `@opentelemetry/*` and `@effect/opentelemetry` peer ranges over
 - consumed-by: `otel/emit` (`SpanContext` type on the continuation kernel), every SDK-bridge row transitively; the dedupe law binds the whole tree
 - runtime: neutral — globals register through a versioned `globalThis` slot, so API and SDK copies must resolve to one instance

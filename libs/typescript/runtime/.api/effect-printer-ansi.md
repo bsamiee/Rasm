@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/printer-ansi`
-- package: `@effect/printer-ansi`
-- license: MIT
+- package: `@effect/printer-ansi` (MIT)
 - asset: ESM `.d.ts` declaration surface (`dist/dts/*.d.ts`); peer `effect` + `@effect/printer`
 - owner: `edge`
 - rail: render

@@ -1,7 +1,7 @@
 # [TS_UI_API_RADIX_UI_REACT_VISUALLY_HIDDEN]
 
 [PACKAGE_SURFACE]:
-- package: `@radix-ui/react-visually-hidden` · license `MIT`
+- package: `@radix-ui/react-visually-hidden` (MIT)
 - module: dual — `dist/index.mjs` (ESM) + `dist/index.js` (CJS); `sideEffects: false`; one `.` barrel, no subpaths.
 - asset: `dist/index.d.ts` (`restore: restored`).
 - runtime: React render-time; renders one `<span>` via `@radix-ui/react-primitive@catalog` (inheriting its `asChild` merge). Peer react/react-dom 19.
@@ -21,16 +21,8 @@ Three exports: the component (and its `Root` alias), its props type, and the reu
 |  [02]   | `VisuallyHiddenProps`       | type      | `ComponentPropsWithoutRef<typeof Primitive.span>` — every span prop + `asChild` |
 |  [03]   | `VISUALLY_HIDDEN_STYLES`    | const     | the frozen clip-style object, reusable on any element without the component     |
 
-```ts signature
-// Reusable constant — the exact SR-only clip rule; apply to any element's `style`, a cva base, or a bespoke region.
-declare const VISUALLY_HIDDEN_STYLES: Readonly<{
-  position: 'absolute'; border: 0; width: 1; height: 1; padding: 0; margin: -1
-  overflow: 'hidden'; clip: 'rect(0, 0, 0, 0)'; whiteSpace: 'nowrap'; wordWrap: 'normal'
-}>
-interface VisuallyHiddenProps extends React.ComponentPropsWithoutRef<typeof Primitive.span> {}   // Primitive.span ⇒ inherits `asChild`
-declare const VisuallyHidden: React.ForwardRefExoticComponent<VisuallyHiddenProps & React.RefAttributes<HTMLSpanElement>>
-export { Root, VISUALLY_HIDDEN_STYLES, VisuallyHidden, type VisuallyHiddenProps }
-```
+[EXPORTS]: `Root` `VISUALLY_HIDDEN_STYLES` `VisuallyHidden` `VisuallyHiddenProps`
+[SURFACES]: `VISUALLY_HIDDEN_STYLES: Readonly<…>` `VisuallyHidden: React.ForwardRefExoticComponent<VisuallyHiddenProps&React.RefAttributes<HTMLSpanElement>>`
 
 ## [02]-[INTEGRATION]
 

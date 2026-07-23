@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pylance`
-- package: `pylance` (Apache-2.0, LanceDB)
+- package: `pylance` (Apache-2.0)
 - module: `import lance` (import name is `lance`, not `pylance`)
 - native: Rust `lance` core via PyO3; depends `pyarrow`, `numpy`, `lance-namespace`
 - owner: `data`
@@ -15,36 +15,36 @@
 
 [PUBLIC_TYPE_SCOPE]: dataset, scan, query, storage, and MemWAL streaming owners
 
-| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY] | [CAPABILITY]                                                       |
-| :-----: | :------------------------------------ | :------------ | :----------------------------------------------------------------- |
-|  [01]   | `lance.LanceDataset`                  | class         | versioned dataset handle; scan, mutate, index, version, blob owner |
-|  [02]   | `lance.LanceScanner`                  | class         | scan-config builder: projection/filter/limit/nearest/FTS to Arrow  |
-|  [03]   | `lance.LanceFragment`                 | class         | fragment handle; fragment-scoped scan and write-progress unit      |
-|  [04]   | `lance.FragmentMetadata`              | class         | fragment physical metadata for `commit` transactions               |
-|  [05]   | `lance.MergeInsertBuilder`            | class         | matched/not-matched merge-insert builder with conflict retry       |
-|  [06]   | `lance.LanceOperation`                | union         | transactional mutation cases for `commit`/`commit_batch`           |
-|  [07]   | `lance.Transaction`                   | class         | committed/uncommitted operation snapshot                           |
-|  [08]   | `lance.Index` / `lance.IndexFile`     | class         | index metadata from `list_indices`; per-segment index-file record  |
-|  [09]   | `lance.IndexProgress`                 | class         | index build-progress record                                        |
-|  [10]   | `lance.query.FullTextQuery`           | union         | structured BM25 full-text query tree                               |
-|  [11]   | `lance.Blob`                          | class         | in-memory large-object value                                       |
-|  [12]   | `lance.BlobArray`                     | class         | Arrow extension array of blobs                                     |
-|  [13]   | `lance.BlobColumn`                    | class         | blob-typed column accessor                                         |
-|  [14]   | `lance.BlobFile`                      | class         | file-like handle to one blob in a separate physical file           |
-|  [15]   | `lance.Session`                       | class         | shared cache/handle reused across `dataset()` opens                |
-|  [16]   | `lance.LanceNamespace`                | class         | namespace-client + `table_id` open over a Lance catalog            |
-|  [17]   | `lance.DatasetBasePath`               | class         | named storage base for multi-base datasets                         |
-|  [18]   | `lance.ScanStatistics`                | class         | per-scan statistics receipt (`scan_stats_callback`)                |
-|  [19]   | `lance.DataStatistics`                | class         | dataset-level data statistics receipt                              |
-|  [20]   | `lance.FieldStatistics`               | class         | per-field statistics receipt                                       |
-|  [21]   | `lance.ShardWriter`                   | class         | MemWAL shard writer streaming Arrow into WAL + MemTable            |
-|  [22]   | `lance.LsmScanner`                    | class         | LSM-tier scanner over base + flushed generations + active MemTable |
-|  [23]   | `lance.ExecutionPlan`                 | class         | physical plan emitted by the LSM planners                          |
-|  [24]   | `lance.LsmPointLookupPlanner`         | class         | primary-key point-lookup planner across LSM tiers                  |
-|  [25]   | `lance.LsmVectorSearchPlanner`        | class         | IVF vector-KNN planner across LSM tiers with staleness filtering   |
-|  [26]   | `lance.ShardSnapshot`                 | class         | shard generation-snapshot builder for LSM reads                    |
-|  [27]   | `lance.ShardingSpec` / `ShardingField`| class         | MemWAL shard-routing spec and derived-field definition             |
-|  [28]   | `lance.MergedGeneration`              | class         | merged flushed-generation descriptor                               |
+| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY] | [CAPABILITY]                                                       |
+| :-----: | :------------------------------------- | :------------ | :----------------------------------------------------------------- |
+|  [01]   | `lance.LanceDataset`                   | class         | versioned dataset handle; scan, mutate, index, version, blob owner |
+|  [02]   | `lance.LanceScanner`                   | class         | scan-config builder: projection/filter/limit/nearest/FTS to Arrow  |
+|  [03]   | `lance.LanceFragment`                  | class         | fragment handle; fragment-scoped scan and write-progress unit      |
+|  [04]   | `lance.FragmentMetadata`               | class         | fragment physical metadata for `commit` transactions               |
+|  [05]   | `lance.MergeInsertBuilder`             | class         | matched/not-matched merge-insert builder with conflict retry       |
+|  [06]   | `lance.LanceOperation`                 | union         | transactional mutation cases for `commit`/`commit_batch`           |
+|  [07]   | `lance.Transaction`                    | class         | committed/uncommitted operation snapshot                           |
+|  [08]   | `lance.Index` / `lance.IndexFile`      | class         | index metadata from `list_indices`; per-segment index-file record  |
+|  [09]   | `lance.IndexProgress`                  | class         | index build-progress record                                        |
+|  [10]   | `lance.query.FullTextQuery`            | union         | structured BM25 full-text query tree                               |
+|  [11]   | `lance.Blob`                           | class         | in-memory large-object value                                       |
+|  [12]   | `lance.BlobArray`                      | class         | Arrow extension array of blobs                                     |
+|  [13]   | `lance.BlobColumn`                     | class         | blob-typed column accessor                                         |
+|  [14]   | `lance.BlobFile`                       | class         | file-like handle to one blob in a separate physical file           |
+|  [15]   | `lance.Session`                        | class         | shared cache/handle reused across `dataset()` opens                |
+|  [16]   | `lance.LanceNamespace`                 | class         | namespace-client + `table_id` open over a Lance catalog            |
+|  [17]   | `lance.DatasetBasePath`                | class         | named storage base for multi-base datasets                         |
+|  [18]   | `lance.ScanStatistics`                 | class         | per-scan statistics receipt (`scan_stats_callback`)                |
+|  [19]   | `lance.DataStatistics`                 | class         | dataset-level data statistics receipt                              |
+|  [20]   | `lance.FieldStatistics`                | class         | per-field statistics receipt                                       |
+|  [21]   | `lance.ShardWriter`                    | class         | MemWAL shard writer streaming Arrow into WAL + MemTable            |
+|  [22]   | `lance.LsmScanner`                     | class         | LSM-tier scanner over base + flushed generations + active MemTable |
+|  [23]   | `lance.ExecutionPlan`                  | class         | physical plan emitted by the LSM planners                          |
+|  [24]   | `lance.LsmPointLookupPlanner`          | class         | primary-key point-lookup planner across LSM tiers                  |
+|  [25]   | `lance.LsmVectorSearchPlanner`         | class         | IVF vector-KNN planner across LSM tiers with staleness filtering   |
+|  [26]   | `lance.ShardSnapshot`                  | class         | shard generation-snapshot builder for LSM reads                    |
+|  [27]   | `lance.ShardingSpec` / `ShardingField` | class         | MemWAL shard-routing spec and derived-field definition             |
+|  [28]   | `lance.MergedGeneration`               | class         | merged flushed-generation descriptor                               |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -81,44 +81,44 @@
 [ENTRYPOINT_SCOPE]: index, version, and maintenance
 - note: surfaces are `LanceDataset` methods unless prefixed `lance.`
 
-| [INDEX] | [SURFACE]                                                   | [SHAPE]  | [CAPABILITY]                                         |
-| :-----: | :---------------------------------------------------------- | :------- | :--------------------------------------------------- |
+| [INDEX] | [SURFACE]                                                   | [SHAPE]  | [CAPABILITY]                                              |
+| :-----: | :---------------------------------------------------------- | :------- | :-------------------------------------------------------- |
 |  [01]   | `create_index(...)`                                         | instance | ANN index (`IVF_PQ`/`IVF_HNSW_PQ`/`IVF_HNSW_SQ`/`IVF_RQ`) |
-|  [02]   | `create_scalar_index(...)`                                  | instance | build a scalar or BM25 index                         |
-|  [03]   | `list_indices` / `describe_indices` / `index_statistics`    | instance | enumerate and describe indices                       |
-|  [04]   | `has_index` / `drop_index` / `prewarm_index`                | instance | probe, drop, and warm indices                        |
-|  [05]   | `version` / `latest_version` / `versions`                   | property | current/latest version; full history                 |
-|  [06]   | `checkout_version` / `checkout_latest` / `restore`          | instance | open a snapshot; restore an old version as new       |
-|  [07]   | `tags` / `branches` / `create_branch(name)`                 | property | named version tags and branch refs (`Tags` accessor) |
-|  [08]   | `optimize` / `.compact_files` / `.optimize_indices`         | property | compaction and ANN/scalar index rebuild              |
-|  [09]   | `cleanup_old_versions(...)`                                 | instance | prune old versions (`older_than` is a delta)         |
-|  [10]   | `stats` / `io_stats_snapshot` / `io_stats_incremental`      | instance | data/IO statistics receipts                          |
-|  [11]   | `lance.iops_counter` / `lance.bytes_read_counter`           | static   | process-wide IO counters                             |
-|  [12]   | `lance.batch_udf(output_schema=None, checkpoint_file=None)` | static   | checkpointed resumable batch UDF                     |
-|  [13]   | `lance.blob_field(name, *, nullable=True) -> pa.Field`      | static   | build a blob-typed Arrow field                       |
-|  [14]   | `lance.blob_array(values) -> BlobArray`                     | static   | build a blob Arrow extension array                   |
-|  [15]   | `lance.json_to_schema(...)` / `lance.schema_to_json(...)`   | static   | schema JSON round-trip                               |
-|  [16]   | `tracked_files(*, min_version=None, progress=None)`         | instance | stream every file any manifest version references    |
-|  [17]   | `all_files()`                                               | instance | stream every file physically present at the base URI |
-|  [18]   | `add_bases(new_bases, transaction_properties=None)`         | instance | register named `DatasetBasePath` storage locations   |
+|  [02]   | `create_scalar_index(...)`                                  | instance | build a scalar or BM25 index                              |
+|  [03]   | `list_indices` / `describe_indices` / `index_statistics`    | instance | enumerate and describe indices                            |
+|  [04]   | `has_index` / `drop_index` / `prewarm_index`                | instance | probe, drop, and warm indices                             |
+|  [05]   | `version` / `latest_version` / `versions`                   | property | current/latest version; full history                      |
+|  [06]   | `checkout_version` / `checkout_latest` / `restore`          | instance | open a snapshot; restore an old version as new            |
+|  [07]   | `tags` / `branches` / `create_branch(name)`                 | property | named version tags and branch refs (`Tags` accessor)      |
+|  [08]   | `optimize` / `.compact_files` / `.optimize_indices`         | property | compaction and ANN/scalar index rebuild                   |
+|  [09]   | `cleanup_old_versions(...)`                                 | instance | prune old versions (`older_than` is a delta)              |
+|  [10]   | `stats` / `io_stats_snapshot` / `io_stats_incremental`      | instance | data/IO statistics receipts                               |
+|  [11]   | `lance.iops_counter` / `lance.bytes_read_counter`           | static   | process-wide IO counters                                  |
+|  [12]   | `lance.batch_udf(output_schema=None, checkpoint_file=None)` | static   | checkpointed resumable batch UDF                          |
+|  [13]   | `lance.blob_field(name, *, nullable=True) -> pa.Field`      | static   | build a blob-typed Arrow field                            |
+|  [14]   | `lance.blob_array(values) -> BlobArray`                     | static   | build a blob Arrow extension array                        |
+|  [15]   | `lance.json_to_schema(...)` / `lance.schema_to_json(...)`   | static   | schema JSON round-trip                                    |
+|  [16]   | `tracked_files(*, min_version=None, progress=None)`         | instance | stream every file any manifest version references         |
+|  [17]   | `all_files()`                                               | instance | stream every file physically present at the base URI      |
+|  [18]   | `add_bases(new_bases, transaction_properties=None)`         | instance | register named `DatasetBasePath` storage locations        |
 
 [ENTRYPOINT_SCOPE]: MemWAL streaming ingest and LSM-tier read
 - planner carry: `LsmPointLookupPlanner`/`LsmVectorSearchPlanner` take `(dataset, shard_snapshots, ...)` and emit an `ExecutionPlan` run via `to_table`/`to_reader`/`to_batches`
 
-| [INDEX] | [SURFACE]                                                                | [SHAPE]  | [CAPABILITY]                                    |
-| :-----: | :----------------------------------------------------------------------- | :------- | :---------------------------------------------- |
-|  [01]   | `LanceDataset.initialize_mem_wal(...)`                                   | instance | enable the MemWAL write path on the dataset     |
-|  [02]   | `LanceDataset.mem_wal_writer(shard_id, *, durable_write=None, ...)`      | factory  | open a per-shard `ShardWriter`                  |
-|  [03]   | `ShardWriter.put(data, *, schema=None)` / `.close()`                     | instance | stream Arrow into WAL + MemTable; flush + close |
-|  [04]   | `ShardWriter.lsm_scanner(shard_snapshots=None)`                          | factory  | read-your-writes scanner incl. active MemTable  |
-|  [05]   | `ShardWriter.stats()` / `.memtable_stats()`                              | instance | write and MemTable statistics dicts             |
-|  [06]   | `LsmScanner.from_snapshots(dataset, shard_snapshots)`                    | static   | scanner over base + flushed generations         |
-|  [07]   | `LsmScanner.project(columns)` / `.filter(expr)` / `.limit(n, offset)`    | instance | LSM scan projection/predicate/slice build       |
-|  [08]   | `LsmScanner.to_table()` / `.to_batches()` / `.count_rows()`              | instance | materialize the LSM scan to Arrow               |
-|  [09]   | `LsmPointLookupPlanner.plan_lookup(pk_value, columns) -> ExecutionPlan` | instance | plan a primary-key point lookup             |
-|  [10]   | `LsmVectorSearchPlanner.plan_search(query, k=10, ...) -> ExecutionPlan`  | instance | plan LSM-wide KNN vector search         |
+| [INDEX] | [SURFACE]                                                               | [SHAPE]  | [CAPABILITY]                                    |
+| :-----: | :---------------------------------------------------------------------- | :------- | :---------------------------------------------- |
+|  [01]   | `LanceDataset.initialize_mem_wal(...)`                                  | instance | enable the MemWAL write path on the dataset     |
+|  [02]   | `LanceDataset.mem_wal_writer(shard_id, *, durable_write=None, ...)`     | factory  | open a per-shard `ShardWriter`                  |
+|  [03]   | `ShardWriter.put(data, *, schema=None)` / `.close()`                    | instance | stream Arrow into WAL + MemTable; flush + close |
+|  [04]   | `ShardWriter.lsm_scanner(shard_snapshots=None)`                         | factory  | read-your-writes scanner incl. active MemTable  |
+|  [05]   | `ShardWriter.stats()` / `.memtable_stats()`                             | instance | write and MemTable statistics dicts             |
+|  [06]   | `LsmScanner.from_snapshots(dataset, shard_snapshots)`                   | static   | scanner over base + flushed generations         |
+|  [07]   | `LsmScanner.project(columns)` / `.filter(expr)` / `.limit(n, offset)`   | instance | LSM scan projection/predicate/slice build       |
+|  [08]   | `LsmScanner.to_table()` / `.to_batches()` / `.count_rows()`             | instance | materialize the LSM scan to Arrow               |
+|  [09]   | `LsmPointLookupPlanner.plan_lookup(pk_value, columns) -> ExecutionPlan` | instance | plan a primary-key point lookup                 |
+|  [10]   | `LsmVectorSearchPlanner.plan_search(query, k=10, ...) -> ExecutionPlan` | instance | plan LSM-wide KNN vector search                 |
 |  [11]   | `ExecutionPlan.to_table()` / `.to_reader()` / `.explain()`              | instance | execute or explain a planned LSM operation      |
-|  [12]   | `lance.evaluate_sharding_spec(batch, spec, schema) -> pa.RecordBatch`    | static   | derive shard-routing values for one batch       |
+|  [12]   | `lance.evaluate_sharding_spec(batch, spec, schema) -> pa.RecordBatch`   | static   | derive shard-routing values for one batch       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `PeterO.Numbers`
-- package: `PeterO.Numbers` (CC0-1.0, Peter Occil)
+- package: `PeterO.Numbers` (CC0-1.0)
 - assembly: `Numbers.dll` (assembly name `Numbers`)
 - namespace: `PeterO.Numbers`
 - asset: pure-managed AnyCPU, no native runtime or package dependency

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Alimer.Bindings.MeshOptimizer`
-- package: `Alimer.Bindings.MeshOptimizer` (MIT; managed binding by Amer Koleci, native `meshoptimizer` by Arseny Kapoulkine)
+- package: `Alimer.Bindings.MeshOptimizer` (MIT)
 - assembly: `Alimer.Bindings.MeshOptimizer`
 - namespace: `MeshOptimizer`
 - asset: managed binding over native `meshoptimizer`; `runtimes/<rid>/native/` ships one native per RID, the `osx-arm64` consumer binding the fat `libmeshoptimizer.dylib` (arm64+x64)

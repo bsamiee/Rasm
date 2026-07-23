@@ -1,7 +1,7 @@
 # [TS_UI_API_VISX_SCALE]
 
 [PACKAGE_SURFACE]:
-- package: `@visx/scale` · license `MIT`
+- package: `@visx/scale` (MIT)
 - module: dual — conditional `exports` (`import` → `esm/index.js`, `require` → `lib/index.js`, `types` → `lib/index.d.ts`); no side effects, no React peer (the one visx package that is pure computation — `react`/`@types/react` peers absent).
 - asset: single dep `@visx/vendor` — the pinned d3 bundle (`d3-scale`, `d3-interpolate`, `d3-time`, `d3-array`, `internmap` among its rows); no raw `d3-*` dep and no `prop-types` at catalog-bound.
 - plane: `plane:runtime` (W4 `ui`); rail: the visx chart spine — scale construction under `.api/visx-shape.md` / `.api/visx-axis.md`.
@@ -25,12 +25,7 @@ Per-family config keys, the reflection utils, and the type vocabulary carry to t
 - [UTILS]: `inferScaleType(scale)` `coerceNumber` `getTicks(scale, count?)` `scaleCanBeZeroed(config)` `toString` — scale reflection, tick extraction, zero-eligibility.
 - [TYPES]: `ScaleConfig` `ScaleType` `PickScaleConfig` `AnyD3Scale` `D3Scale` `PickD3Scale` `ScaleInput` `InferD3ScaleOutput` `NiceTime` — the vocabulary generic chart components constrain against.
 
-```ts signature
-// Config-object form; the return IS the d3 scale. updateScale rederives without mutating the original — the fold-friendly shape.
-const y = scaleLinear<number>({ domain: [0, max], range: [innerHeight, 0], nice: true, zero: true })
-const x = scaleBand<string>({ domain: keys, range: [0, innerWidth], padding: 0.2 })
-const next = updateScale(y, { domain: [0, nextMax] })
-```
+[SURFACES]: `y = scaleLinear<number>({domain:[0,max],range:[innerHeight,0],nice:true,zero:true})` `x = scaleBand<string>({domain:keys,range:[0,innerWidth],padding:0.2})` `next = updateScale(y,{domain:[0,nextMax]})`
 
 There is NO `scaleSequential` row — `ScaleType` excludes it; a sequential/diverging colormap scale constructs directly from the d3 substrate (`.api/d3.md` `scaleSequential(interpolateViridis)`) and passes wherever `AnyD3Scale` is accepted.
 

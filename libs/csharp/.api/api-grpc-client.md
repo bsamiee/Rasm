@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Grpc.Net.Client`
-- package: `Grpc.Net.Client` (`Apache-2.0`, The gRPC Authors)
+- package: `Grpc.Net.Client` (Apache-2.0)
 - assembly: `Grpc.Net.Client`
 - namespace: `Grpc.Net.Client`, `Grpc.Net.Client.Configuration`, `Grpc.Net.Client.Balancer`
 - rail: remote-client

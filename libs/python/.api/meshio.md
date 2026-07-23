@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `meshio`
-- package: `meshio` (`MIT`)
+- package: `meshio` (MIT)
 - module: `meshio`
 - asset: pure-Python; `Mesh` point/cell arrays are NumPy buffers
 - rail: mesh file exchange

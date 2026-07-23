@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/instrumentation-user-interaction`
-- package: `@opentelemetry/instrumentation-user-interaction`
-- license: `Apache-2.0`
+- package: `@opentelemetry/instrumentation-user-interaction` (Apache-2.0)
 - base: extends `@opentelemetry/instrumentation` `InstrumentationBase`
 - consumed-by: the browser composition root beside the `web` export row and the zone manager
 - runtime: browser only — patches `Zone` or `addEventListener`

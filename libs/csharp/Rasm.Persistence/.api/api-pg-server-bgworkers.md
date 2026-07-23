@@ -5,10 +5,9 @@ PG18 server-tier maintenance companions carry the Persistence PostgreSQL profile
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pg_cron` `pg_partman` `pg_squeeze` `pg_jsonschema` `pgaudit`
-- package: PG18 server extensions in the deploy image; no NuGet row and no managed linkage
+- packages: `pg_cron` (PostgreSQL), `pg_partman` (PostgreSQL), `pg_squeeze` (BSD-3-Clause), `pg_jsonschema` (Apache-2.0), `pgaudit` (PostgreSQL)
 - namespace: SQL — the `cron`, `partman`, `squeeze`, and `pgaudit` schemas; `pg_jsonschema` registers unqualified functions and the `jsonschema` type
 - registration: `pg_cron`, `pg_partman_bgw`, `pg_squeeze`, and `pgaudit` ride the `ClusterConfig` `shared_preload_libraries` row and verify through `PreloadProbe`; `pg_jsonschema` registers on `CREATE EXTENSION` alone
-- license: PostgreSQL/MIT-class for `pg_cron`, `pg_partman`, and `pgaudit`; BSD for `pg_squeeze`; Apache-2.0 for `pg_jsonschema` — in-DB deployment is the license boundary
 - consumed by: `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension` rows, `Query/lane#DOCUMENT_LANE`, `Version/retention#AUDIT_BINDING`, the AppHost persistence-maintenance schedule
 - rail: cluster-config, document-lane, audit-binding, schedule
 
@@ -138,7 +137,7 @@ Every surface is a GUC bound through `SET`; the runtime obligation is the bound 
 - An audit class binds through the `Version/retention#AUDIT_BINDING` classification table and verifies read-only; preloads are deploy-time `postgresql.conf` values the runtime observes.
 
 [RAIL_LAW]:
-- Package: `pg_cron` `pg_partman` `pg_squeeze` `pg_jsonschema` `pgaudit`
+- Package: `pg_cron` (PostgreSQL), `pg_partman` (PostgreSQL), `pg_squeeze` (BSD-3-Clause), `pg_jsonschema` (Apache-2.0), `pgaudit` (PostgreSQL)
 - Owns: server-tier scheduled maintenance, declarative partitioning, online bloat reclaim, server-side document validation, and audit logging — server-side SQL the managed tier emits and verifies
 - Accept: `cron.schedule_in_database` for server-local cadence, `partman.create_parent` and `part_config` for partition lifecycle, `squeeze.tables` rows for scheduled reclaim, `jsonb_matches_schema` inside a `ServerExtension` `CreateSql` with the compiled `jsonschema` cast on hot columns, `pgaudit` GUCs bound per the audit-binding classification table
 - Reject: a hand-rolled partition-rotation or bloat-reclaim job, an out-of-DB reclaim or audit-pipeline client, a runtime `ALTER SYSTEM` setting a preload, a second document validator beside `pg_jsonschema` and its in-process fallback

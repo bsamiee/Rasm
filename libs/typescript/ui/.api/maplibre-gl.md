@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `maplibre-gl`
-- package: `maplibre-gl`
-- license: `BSD-3-Clause`
+- package: `maplibre-gl` (BSD-3-Clause)
 - deps: framework-agnostic (`type: module` ESM, zero peer deps); re-exports the `@maplibre/maplibre-gl-style-spec` declarative style types
 - catalog-verdict: KEEP
 - runtime: `scope:viewer` project-local, `runtime:browser` — needs a DOM container + WebGL catalog; admitted by the `ui/viewer` Nx project alone; the container/context is a `browser`-provided port the viewer declares
@@ -18,23 +17,16 @@
 - rail: viewer/geo/layers, viewer/geo/project
 - `Map extends Evented<MapEventType>` composing an internal `Camera`: the root is configured by one parameterized `MapOptions` record and drives all navigation through the forwarded camera vocabulary — `jumpTo`/`easeTo`/`flyTo` and the `get*`/`set*` camera verbs are `Map` methods (`Camera` itself is not a public export). `MapOptions` is the single knob surface — container/style/view + interaction gates + request/worker policy — never a wrapper-per-option. Multi-field interface shapes (`MapOptions`, `CustomLayerInterface`, `IControl`) live in the signature fence below.
 
-| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                                     |
-| :-----: | :------------------------------------------------------- | :------------- | :------------------------------------------------------ |
-|  [01]   | `Map` (`Map$1 as Map` / `MapLibreMap`)                   | map root       | the one basemap instance; panel-atom bound              |
-|  [02]   | `MapOptions`                                             | option record  | the single knob config; fields in the fence             |
-|  [03]   | `CameraOptions` / `JumpToOptions` / `EaseToOptions`      | camera intents | `jumpTo` instant intent options                         |
-|  [04]   | `FlyToOptions` / `FitBoundsOptions` / `AnimationOptions` | camera intents | `easeTo`/`flyTo` animated intent options                |
+| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                         |
+| :-----: | :------------------------------------------------------- | :------------- | :------------------------------------------ |
+|  [01]   | `Map` (`Map$1 as Map` / `MapLibreMap`)                   | map root       | the one basemap instance; panel-atom bound  |
+|  [02]   | `MapOptions`                                             | option record  | the single knob config; fields in the fence |
+|  [03]   | `CameraOptions` / `JumpToOptions` / `EaseToOptions`      | camera intents | `jumpTo` instant intent options             |
+|  [04]   | `FlyToOptions` / `FitBoundsOptions` / `AnimationOptions` | camera intents | `easeTo`/`flyTo` animated intent options    |
 
-```ts signature
-interface MapOptions {   // the single knob surface; interaction handlers gated by its boolean/opts fields
-  container; style; center; zoom; bearing; pitch; roll; hash; interactive
-  transformRequest; transformCameraUpdate; locale; pixelRatio; maxBounds; minZoom; maxZoom
-  minPitch; maxPitch; renderWorldCopies; canvasContextAttributes; attributionControl; validateStyle
-  terrainSkirtLength; zoomLevelsToOverscale
-}
-interface CustomLayerInterface { id; type: "custom"; renderingMode?; render; prerender?; onAdd?(map, gl) }  // deck.gl registers it as the GPU interleave hook
-interface IControl { onAdd(map): HTMLElement; onRemove(map): void; getDefaultPosition?() }                  // the one addControl contract; MapboxOverlay satisfies it
-```
+[MAP_OPTIONS]: `MapOptions.container: unknown` `MapOptions.style: unknown` `MapOptions.center: unknown` `MapOptions.zoom: unknown` `MapOptions.bearing: unknown` `MapOptions.pitch: unknown` `MapOptions.roll: unknown` `MapOptions.hash: unknown` `MapOptions.interactive: unknown` `MapOptions.transformRequest: unknown` `MapOptions.transformCameraUpdate: unknown` `MapOptions.locale: unknown` `MapOptions.pixelRatio: unknown` `MapOptions.maxBounds: unknown` `MapOptions.minZoom: unknown` `MapOptions.maxZoom: unknown` `MapOptions.minPitch: unknown` `MapOptions.maxPitch: unknown` `MapOptions.renderWorldCopies: unknown` `MapOptions.canvasContextAttributes: unknown` `MapOptions.attributionControl: unknown` `MapOptions.validateStyle: unknown` `MapOptions.terrainSkirtLength: unknown` `MapOptions.zoomLevelsToOverscale: unknown`
+[CUSTOM_LAYER_INTERFACE]: `CustomLayerInterface.id: unknown` `CustomLayerInterface.type: "custom"` `CustomLayerInterface.renderingMode: unknown` `CustomLayerInterface.render: unknown` `CustomLayerInterface.prerender: unknown` `CustomLayerInterface.onAdd(unknown,unknown)`
+[ICONTROL]: `IControl.onAdd(unknown) -> HTMLElement` `IControl.onRemove(unknown) -> void` `IControl.getDefaultPosition()`
 
 [PUBLIC_TYPE_SCOPE]: geometry value types
 - rail: viewer/geo/project
@@ -83,18 +75,18 @@ interface IControl { onAdd(map): HTMLElement; onRemove(map): void; getDefaultPos
 - rail: viewer/geo/layers, act/gesture
 - Events are one typed rail: `on`/`once`/`off` over the `MapEventType`/`MapLayerEventType`/`SourceEventType` maps return a `Subscription`; a layer-scoped overload filters by layer id. `Evented<EventType>` is generic + abstract, so subclasses type `on`/`once`/`off` without re-declaring overloads; every event is a real class instantiated on fire. Interaction handlers are one `map.<handler>` `enable`/`disable`/`isEnabled` vocabulary, gated at construction by `MapOptions`.
 
-| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]     | [CONSUMER_BOUNDARY]                                       |
-| :-----: | :------------------------------------------------------- | :---------------- | :------------------------------------------------------- |
-|  [01]   | `Evented<EventType>`                                     | event base        | generic abstract base; typed `on`/`once`/`off`           |
-|  [02]   | `MapMouseEvent` / `MapTouchEvent` / `MapWheelEvent`      | event payloads    | pointer/wheel payloads, typed by event name              |
-|  [03]   | `MapLibreEvent` / `MapMovementEvent`                     | event payloads    | lifecycle base; camera-transition payloads incl. `roll`  |
-|  [04]   | `MapSourceDataEvent` / `MapStyleDataEvent`              | event payloads    | `data`/`dataloading` source vs style-data split          |
-|  [05]   | `MapStyleLoadEvent` / `MapLayerMouseEvent`              | event payloads    | `style.load` ready; layer-scoped pointer payload         |
-|  [06]   | `ScrollZoomHandler` / `DragPanHandler`                   | interaction vocab | `map.scrollZoom` / `map.dragPan`                         |
-|  [07]   | `DragRotateHandler` / `BoxZoomHandler`                   | interaction vocab | `map.dragRotate` / `map.boxZoom`                         |
-|  [08]   | `KeyboardHandler` / `DoubleClickZoomHandler`             | interaction vocab | `map.keyboard` / `map.doubleClickZoom`                   |
-|  [09]   | `TwoFingersTouch*Handler` / `CooperativeGesturesHandler` | interaction vocab | touch rotate/zoom; cooperative gesture gate              |
-|  [10]   | `Subscription`                                           | handle            | `{ unsubscribe() }` — the `on`/`once` return             |
+| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]     | [CONSUMER_BOUNDARY]                                     |
+| :-----: | :------------------------------------------------------- | :---------------- | :------------------------------------------------------ |
+|  [01]   | `Evented<EventType>`                                     | event base        | generic abstract base; typed `on`/`once`/`off`          |
+|  [02]   | `MapMouseEvent` / `MapTouchEvent` / `MapWheelEvent`      | event payloads    | pointer/wheel payloads, typed by event name             |
+|  [03]   | `MapLibreEvent` / `MapMovementEvent`                     | event payloads    | lifecycle base; camera-transition payloads incl. `roll` |
+|  [04]   | `MapSourceDataEvent` / `MapStyleDataEvent`               | event payloads    | `data`/`dataloading` source vs style-data split         |
+|  [05]   | `MapStyleLoadEvent` / `MapLayerMouseEvent`               | event payloads    | `style.load` ready; layer-scoped pointer payload        |
+|  [06]   | `ScrollZoomHandler` / `DragPanHandler`                   | interaction vocab | `map.scrollZoom` / `map.dragPan`                        |
+|  [07]   | `DragRotateHandler` / `BoxZoomHandler`                   | interaction vocab | `map.dragRotate` / `map.boxZoom`                        |
+|  [08]   | `KeyboardHandler` / `DoubleClickZoomHandler`             | interaction vocab | `map.keyboard` / `map.doubleClickZoom`                  |
+|  [09]   | `TwoFingersTouch*Handler` / `CooperativeGesturesHandler` | interaction vocab | touch rotate/zoom; cooperative gesture gate             |
+|  [10]   | `Subscription`                                           | handle            | `{ unsubscribe() }` — the `on`/`once` return            |
 
 [PUBLIC_TYPE_SCOPE]: worker + plugin globals
 - rail: viewer/geo/layers (module-level runtime policy)
@@ -117,33 +109,33 @@ interface IControl { onAdd(map): HTMLElement; onRemove(map): void; getDefaultPos
 - rail: viewer/geo/layers
 - Lifecycle is imperative and single-sourced: one `new Map(options)`, populate with the `addSource`/`addLayer`/`addControl` rails, interleave deck.gl through the `addControl` rail, drive with the `Camera` vocabulary, read with `project`/`queryRenderedFeatures`, and `remove()` at unmount. Every populate/drive method returns `this` for fluent folds; queries and projections return values.
 
-| [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY]  | [CONSUMER_BOUNDARY]                                 |
-| :-----: | :------------------------------------------------------------- | :-------------- | :-------------------------------------------------- |
-|  [01]   | `new Map(options: MapOptions)`                                 | construct       | the one basemap; `container` is a `browser` port    |
-|  [02]   | `addSource(id, spec)` / `removeSource(id)`                     | source rail     | add/remove keyed by `spec.type`                     |
-|  [03]   | `getSource<T>(id)` / `isSourceLoaded(id)`                      | source rail     | typed lookup; load probe                            |
-|  [04]   | `addLayer(layer, beforeId?)` / `removeLayer` / `moveLayer`     | layer rail      | add/remove/reorder; `beforeId` orders it            |
-|  [05]   | `getLayer` / `getLayersOrder` / `setLayerZoomRange`            | layer rail      | inspect order; per-layer zoom range                 |
-|  [06]   | `setFilter` / `getFilter`                                      | style mutate    | expression-data filter edits                        |
-|  [07]   | `setPaintProperty` / `setLayoutProperty` / `getLayoutProperty` | style mutate    | live paint/layout re-paint without a style swap     |
-|  [08]   | `addControl` / `removeControl` / `hasControl`                  | control rail    | `NavigationControl`…; `MapboxOverlay` joins         |
-|  [09]   | `jumpTo` / `easeTo` / `flyTo` / `fitBounds` / `stop`           | camera drive    | `jumpTo` instant, `easeTo`/`flyTo` animated         |
-|  [10]   | `setCenter` / `setZoom` / `setBearing`                         | camera set      | imperative center/zoom/bearing setters              |
-|  [11]   | `setPitch` / `setPadding`                                      | camera set      | imperative pitch/padding setters                    |
-|  [12]   | `getCenter` / `getZoom` / `getBearing`                         | camera read     | deck.gl reads these each `move`                     |
-|  [13]   | `getPitch` / `getPadding` / `getBounds`                        | camera read     | pitch/padding/bounds readback                       |
-|  [14]   | `cameraForBounds` / `calculateCameraOptionsFromTo(...)`        | camera solve    | eye→target solve → `CameraOptions`                  |
-|  [15]   | `on` / `once` / `off` → `Subscription`                         | event rail      | typed events; `on(type, layerId, fn)` filters by id |
-|  [16]   | `project(lnglat)` → `Point` / `unproject(point)` → `LngLat`    | coordinate sync | pixel↔lnglat for deck view-state + markers          |
-|  [17]   | `queryRenderedFeatures(...)` / `querySourceFeatures(...)`      | feature query   | picking/selection; feeds `viewer/mark` sets         |
-|  [18]   | `setStyle` / `setProjection` / `setTerrain`                    | scene config    | style swap, globe/mercator projection, 3D terrain   |
-|  [19]   | `setSky` / `setLight`                                          | scene config    | sky + light scene config                            |
-|  [20]   | `setFeatureState` / `getFeatureState` / `removeFeatureState`   | feature state   | data-driven hover/select styling, no re-add         |
+| [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY]  | [CONSUMER_BOUNDARY]                                  |
+| :-----: | :------------------------------------------------------------- | :-------------- | :--------------------------------------------------- |
+|  [01]   | `new Map(options: MapOptions)`                                 | construct       | the one basemap; `container` is a `browser` port     |
+|  [02]   | `addSource(id, spec)` / `removeSource(id)`                     | source rail     | add/remove keyed by `spec.type`                      |
+|  [03]   | `getSource<T>(id)` / `isSourceLoaded(id)`                      | source rail     | typed lookup; load probe                             |
+|  [04]   | `addLayer(layer, beforeId?)` / `removeLayer` / `moveLayer`     | layer rail      | add/remove/reorder; `beforeId` orders it             |
+|  [05]   | `getLayer` / `getLayersOrder` / `setLayerZoomRange`            | layer rail      | inspect order; per-layer zoom range                  |
+|  [06]   | `setFilter` / `getFilter`                                      | style mutate    | expression-data filter edits                         |
+|  [07]   | `setPaintProperty` / `setLayoutProperty` / `getLayoutProperty` | style mutate    | live paint/layout re-paint without a style swap      |
+|  [08]   | `addControl` / `removeControl` / `hasControl`                  | control rail    | `NavigationControl`…; `MapboxOverlay` joins          |
+|  [09]   | `jumpTo` / `easeTo` / `flyTo` / `fitBounds` / `stop`           | camera drive    | `jumpTo` instant, `easeTo`/`flyTo` animated          |
+|  [10]   | `setCenter` / `setZoom` / `setBearing`                         | camera set      | imperative center/zoom/bearing setters               |
+|  [11]   | `setPitch` / `setPadding`                                      | camera set      | imperative pitch/padding setters                     |
+|  [12]   | `getCenter` / `getZoom` / `getBearing`                         | camera read     | deck.gl reads these each `move`                      |
+|  [13]   | `getPitch` / `getPadding` / `getBounds`                        | camera read     | pitch/padding/bounds readback                        |
+|  [14]   | `cameraForBounds` / `calculateCameraOptionsFromTo(...)`        | camera solve    | eye→target solve → `CameraOptions`                   |
+|  [15]   | `on` / `once` / `off` → `Subscription`                         | event rail      | typed events; `on(type, layerId, fn)` filters by id  |
+|  [16]   | `project(lnglat)` → `Point` / `unproject(point)` → `LngLat`    | coordinate sync | pixel↔lnglat for deck view-state + markers           |
+|  [17]   | `queryRenderedFeatures(...)` / `querySourceFeatures(...)`      | feature query   | picking/selection; feeds `viewer/mark` sets          |
+|  [18]   | `setStyle` / `setProjection` / `setTerrain`                    | scene config    | style swap, globe/mercator projection, 3D terrain    |
+|  [19]   | `setSky` / `setLight`                                          | scene config    | sky + light scene config                             |
+|  [20]   | `setFeatureState` / `getFeatureState` / `removeFeatureState`   | feature state   | data-driven hover/select styling, no re-add          |
 |  [21]   | `addImage` / `addSprite` / `loadImage` / `updateImage`         | image + sprite  | load custom icons/patterns/sprites for symbol layers |
-|  [22]   | `hasImage` / `removeImage` / `setMissingStyleImageResolver`    | image + sprite  | inspect/remove icons; resolver fills missing images    |
-|  [23]   | `addProtocol` / `setRTLTextPlugin` / `prewarm`                 | module policy   | custom transport, RTL shaping, worker warmup        |
-|  [24]   | `resize()` / `remove()` / `redraw()` / `triggerRepaint()`      | lifecycle       | `remove()` frees the GL context at unmount          |
-|  [25]   | `getCanvas()` / `getContainer()`                               | lifecycle       | the DOM/canvas handles                              |
+|  [22]   | `hasImage` / `removeImage` / `setMissingStyleImageResolver`    | image + sprite  | inspect/remove icons; resolver fills missing images  |
+|  [23]   | `addProtocol` / `setRTLTextPlugin` / `prewarm`                 | module policy   | custom transport, RTL shaping, worker warmup         |
+|  [24]   | `resize()` / `remove()` / `redraw()` / `triggerRepaint()`      | lifecycle       | `remove()` frees the GL context at unmount           |
+|  [25]   | `getCanvas()` / `getContainer()`                               | lifecycle       | the DOM/canvas handles                               |
 
 - `Map.setMissingStyleImageResolver`: supplies absent style images on demand (sync or async); the `styleimagemissing` event is notify-only and cannot itself provide an image.
 

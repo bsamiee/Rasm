@@ -7,12 +7,11 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `python-calamine`
-- package: `python-calamine`
+- package: `python-calamine` (MIT)
 - import: `python_calamine` (re-exports the native `python_calamine._python_calamine` PyO3 extension)
 - owner: `artifacts`
 - rail: office-ingest
 - build: PyO3/Rust C-extension, version-specific ABI (not abi3)
-- license: MIT
 - depends: none — the calamine Rust core owns the unzip, BIFF, shared-string, and date-serial decode
 - entry points: import-only; no console script
 

@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `opentelemetry-sdk`
-- package: `opentelemetry-sdk`
+- package: `opentelemetry-sdk` (Apache-2.0)
 - module: `opentelemetry.sdk`
 - namespaces: `opentelemetry.sdk.trace`, `...trace.export`, `...trace.sampling`, `...trace.id_generator`, `opentelemetry.sdk.metrics`, `...metrics.export`, `...metrics.view`, `opentelemetry.sdk._logs`, `...logs.export`, `opentelemetry.sdk.resources`
 - asset: runtime library
-- license: `Apache-2.0`
 - rail: observability
 
 ## [02]-[PUBLIC_TYPES]

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `nuqs`
-- package: `nuqs` `` — license `MIT`
+- package: `nuqs` (MIT)
 - module: pure ESM (`"type": "module"`); entries `nuqs` (React hooks + re-exported core) and `nuqs/server` (the framework-agnostic codec entry — the browser rail; its parsers/serializer/loader are React-free, only the RSC `createSearchParamsCache` imports React, tree-shaken when unused); types `dist/index.d.ts` / `dist/server.d.ts`
 - marker: `sideEffects` limited to `./dist/debug.js`; peer `@standard-schema/spec` (Standard Schema catalog-bound interop); the `Options` type references React's `TransitionStartFunction` type-only, never a runtime pull
 - bound asset: TSDECL `node_modules/nuqs/dist/{index,server,parsers,defs}.d.ts` (`assay api resolve nuqs` → catalog-bound, `restore: restored`)
@@ -17,25 +17,7 @@
 
 The parser is the atom: a `parse`/`serialize`/`eq` triple over one URL key. `createParser`/`createMultiParser` is the one parameterized mechanism that owns any state type `T` beyond the built-in atoms — the fixed `parseAs*` roster is convenience over this, never the surface itself.
 
-```ts
-// nuqs/server (dist/parsers) — the codec atom + the builder wrapper
-type SingleParser<T> = { type?: "single"; parse: (v: string) => T | null; serialize?: (v: T) => string; eq?: (a: T, b: T) => boolean }
-type MultiParser<T>  = { type: "multi"; parse: (v: ReadonlyArray<string>) => T | null; serialize?: (v: T) => Array<string>; eq?: (a: T, b: T) => boolean }
-type GenericParser<T> = SingleParser<T> | MultiParser<T>
-
-// the builder adds URL-write Options + a type-safe default + the RSC hydration escape hatch
-type SingleParserBuilder<T> = Required<SingleParser<T>> & Options & {
-  withOptions<This>(this: This, options: Options): This
-  withDefault(this: SingleParserBuilder<T>, d: NonNullable<T>): Omit<SingleParserBuilder<T>, "parseServerSide"> & { readonly defaultValue: NonNullable<T> }
-  parseServerSide(value: string | string[] | undefined): T | null   // @deprecated — prefer createLoader
-}
-declare function createParser<T>(parser: Require<SingleParser<T>, "parse" | "serialize">): SingleParserBuilder<T>
-declare function createMultiParser<T>(parser: Omit<Require<MultiParser<T>, "parse" | "serialize">, "type">): MultiParserBuilder<T>
-
-// the record every downstream owner keys on; inferParserType lifts it to the state type
-type ParserMap = Record<string, ParserWithOptionalDefault<any>>
-type inferParserType<Input> // GenericParserBuilder<T> → T | null (or T when .withDefault); ParserMap → { [K]: … }
-```
+[SURFACES]: `SingleParser` `MultiParser` `GenericParser` `SingleParserBuilder` `createParser` `createMultiParser` `ParserMap` `inferParserType` `withDefault` `parseServerSide`
 
 Consumer note: `browser/route.md` declares one `ParserMap` per route; `.withDefault(v)` makes a key non-nullable and (with `clearOnDefault`) omits it from the URL at the default; `createParser` owns any bespoke encoding rather than string-mashing `URLSearchParams`.
 
@@ -62,21 +44,9 @@ Consumer note: `parseAsStringLiteral`/`parseAsNumberLiteral` type a URL param ag
 
 The write side (state → query string) and the read side (any input → typed state) are pure functions over a `ParserMap` — no hook, no DOM, React-free in behavior. These three are the whole browser codec.
 
-```ts
-// values → string, or (base, values) → string; a null value deletes its key
-type SerializeFunction<P, Base, R> = { (values: Partial<Nullable<inferParserType<P>>>): R; (base: Base, values: Partial<Nullable<inferParserType<P>>> | null): R }
-declare function createSerializer<P extends ParserMap>(parsers: P, opts?: { clearOnDefault?: boolean; urlKeys?: UrlKeys<P>; processUrlSearchParams?: (s: URLSearchParams) => URLSearchParams }): SerializeFunction<P>
-
-// any input → typed state; sync + async(Promise) overloads; strict throws on parse failure
-type LoaderInput = URL | Request | URLSearchParams | Record<string, string | string[] | undefined> | string
-declare function createLoader<P extends ParserMap>(parsers: P, opts?: { urlKeys?: UrlKeys<P> }): {
-  (input: LoaderInput, o?: { strict?: boolean }): inferParserType<P>
-  (input: Promise<LoaderInput>, o?: { strict?: boolean }): Promise<inferParserType<P>>
-}
-
-// the ParserMap projected as a Standard Schema v1 validator (TanStack-Router-shaped; partialOutput trims absent keys)
-declare function createStandardSchemaV1<P extends ParserMap, Partial extends boolean = false>(parsers: P, opts?: { urlKeys?: UrlKeys<P>; partialOutput?: Partial }): StandardSchemaV1<MaybePartial<Partial, inferParserType<P>>>
-```
+[SERIALIZE_FUNCTION]: `SerializeFunction.call(Partial<Nullable<inferParserType<P>>>) -> R` `SerializeFunction.call(Base,Partial<Nullable<inferParserType<P>>>|null) -> R`
+[LOADER_INPUT]: `LoaderInput = URL|Request|URLSearchParams|Record<string,string|string[]|undefined>|string`
+[SURFACES]: `createSerializer(P,{clearOnDefault?:boolean;urlKeys?:UrlKeys<P>;processUrlSearchParams?:(s:URLSearchParams)=>URLSearchParams}?) -> SerializeFunction<P>` `createLoader(P,{urlKeys?:UrlKeys<P>}?) -> {…}` `createStandardSchemaV1(P,{urlKeys?:UrlKeys<P>;partialOutput?:Partial}?) -> StandardSchemaV1<MaybePartial<Partial,inferParserType<P>>>`
 
 Consumer note: `createSerializer(parsers)(currentUrl, patch)` yields the next query string the Navigation API navigates to; `createLoader(parsers)(new URL(entry.url))` re-decodes on each `navigate` event. `createSearchParamsCache` (in `nuqs/server`) is React `cache()`-backed RSC-only and is NOT the browser rail — streaming SSR is the named non-goal.
 
@@ -84,22 +54,11 @@ Consumer note: `createSerializer(parsers)(currentUrl, patch)` yields the next qu
 
 `Options` governs URL-write behavior across every operation, but the pure serializer reads only a slice of it.
 
-```ts
-type HistoryOptions = "replace" | "push"
-type LimitUrlUpdates = { method: "debounce" | "throttle"; timeMs: number }
-type Options = {
-  history?: HistoryOptions          // "replace" default
-  scroll?: boolean                  // false default
-  shallow?: boolean                 // true default — client-only, no server round-trip
-  limitUrlUpdates?: LimitUrlUpdates // min 50 ms (Safari ~120 ms); supersedes the deprecated throttleMs
-  startTransition?: TransitionStartFunction  // React/RSC only
-  clearOnDefault?: boolean          // true default — omit a key at its default value
-}
-declare function throttle(timeMs: number): LimitUrlUpdates
-declare function debounce(timeMs: number): LimitUrlUpdates
-declare const defaultRateLimit: LimitUrlUpdates
-type UrlKeys<P> = Partial<Record<keyof P, string>>   // state key → URL key alias, shared across loader + serializer
-```
+[HISTORY_OPTIONS]: `HistoryOptions = "replace"|"push"`
+[LIMIT_URL_UPDATES]: `LimitUrlUpdates.method: "debounce"|"throttle"` `LimitUrlUpdates.timeMs: number`
+[OPTIONS]: `Options.history: HistoryOptions` `Options.scroll: boolean` `Options.shallow: boolean` `Options.limitUrlUpdates: LimitUrlUpdates` `Options.startTransition: TransitionStartFunction` `Options.clearOnDefault: boolean`
+[URL_KEYS]: `UrlKeys = Partial<Record<keyof P,string>>`
+[SURFACES]: `throttle(number) -> LimitUrlUpdates` `debounce(number) -> LimitUrlUpdates` `defaultRateLimit: LimitUrlUpdates`
 
 Consumer note: `createSerializer` honors ONLY `clearOnDefault` (plus `urlKeys`, `processUrlSearchParams`); `history`/`scroll`/`shallow`/`startTransition`/`limitUrlUpdates` are the hook/router surface consumed by `useQueryState*`, so the browser codec never touches them. `urlKeys` must be wired identically across loader and serializer or the round-trip drifts.
 

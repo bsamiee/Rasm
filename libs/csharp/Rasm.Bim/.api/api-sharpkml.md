@@ -7,8 +7,7 @@ It is the KML presentation-and-authoring leg of the geospatial seam — `GeoFeat
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `SharpKml.Core`
-- package: `SharpKml.Core`
-- license: MIT
+- package: `SharpKml.Core` (MIT)
 - assembly: `SharpKml.Core`
 - namespace: `SharpKml.Dom` — the KML element tree (features, geometry, styles, overlays, extended data)
 - namespace: `SharpKml.Dom.GX` — the Google `gx:` extension (`Tour`/`Track`/`MultipleTrack`/`FlyTo`/`Playlist`/`LatLonQuad`)

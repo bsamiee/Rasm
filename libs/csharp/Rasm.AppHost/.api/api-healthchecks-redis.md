@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `AspNetCore.HealthChecks.Redis`
-- package: `AspNetCore.HealthChecks.Redis` (`Apache-2.0`, Xabaril)
+- package: `AspNetCore.HealthChecks.Redis` (Apache-2.0)
 - assembly: `HealthChecks.Redis`
 - namespace: `HealthChecks.Redis`, `Microsoft.Extensions.DependencyInjection`
 - target: `net8.0` (also `netstandard2.0`)

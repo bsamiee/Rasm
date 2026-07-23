@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `NATS.Net`
-- package: `NATS.Net` (Apache-2.0, `nats-io/nats.net`)
+- package: `NATS.Net` (Apache-2.0)
 - assembly: `NATS.Net` declares no types; every member ships in the sub-client assemblies the meta-package pins
 - namespace: `NATS.Net`, `NATS.Client.Core`, `NATS.Client.JetStream`(`.Models`), `NATS.Client.KeyValueStore`, `NATS.Client.ObjectStore`, `NATS.Client.Services`, `NATS.Client.Hosting`, `NATS.Client.Serializers.Json`
 - target: `net10.0`
@@ -37,7 +37,7 @@
 |  [04]   | `NatsConnection`             | class         | the concrete `IAsyncDisposable` connection root            |
 |  [05]   | `INatsConnectionPool`        | interface     | round-robin connection fan-out                             |
 |  [06]   | `NatsConnectionPool`         | class         | the pool `AddNats` registers                               |
-|  [07]   | `NatsOpts`                   | class         | url, name, registry, TLS, auth, ping, buffers, reply mode   |
+|  [07]   | `NatsOpts`                   | class         | url, name, registry, TLS, auth, ping, buffers, reply mode  |
 |  [08]   | `NatsPubOpts`                | class         | per-publish wait-until-sent and error handler              |
 |  [09]   | `NatsSubOpts`                | class         | per-subscription max-msgs, idle and start-up timeouts      |
 |  [10]   | `NatsSubChannelOpts`         | class         | bounded subscription channel capacity and full-mode        |

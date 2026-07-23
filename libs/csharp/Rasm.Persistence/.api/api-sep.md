@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Sep`
-- package: `Sep` (`MIT`, nietras)
+- package: `Sep` (MIT)
 - assembly: `Sep`
 - namespace: `nietras.SeparatedValues`
 - asset: runtime library

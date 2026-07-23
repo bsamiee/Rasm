@@ -5,9 +5,8 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `anyio`
-- package: `anyio`
+- package: `anyio` (MIT)
 - module: `anyio`
-- license: MIT
 - asset: runtime library
 - rail: concurrency
 - namespaces: `anyio`, `anyio.abc`, `anyio.lowlevel`, `anyio.streams.{memory,buffered,text,tls,file,stapled}`, `anyio.to_thread`, `anyio.from_thread`, `anyio.to_process`, `anyio.to_interpreter`, `anyio.pytest_plugin`

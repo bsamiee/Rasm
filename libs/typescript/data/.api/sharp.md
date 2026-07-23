@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `sharp`
-- package: `sharp`
-- license: `Apache-2.0` (the npm artifact; the bundled `.d.ts` retains its original MIT DefinitelyTyped notice)
+- package: `sharp` (Apache-2.0)
 - engine: `node >= catalog`
 - native: libvips, bundled as prebuilt platform binaries `@img/sharp-<platform>` (`darwin-arm64`/`darwin-x64`, `linux-arm64`/`x64`/`arm`/`ppc64`/`riscv64`/`s390x`, `linuxmusl-arm64`/`x64`, `wasm32`); `sharp.versions` exposes the linked codec versions (mozjpeg, aom, heif, webp, tiff, png, rsvg, …)
 - module format: `export = sharp` (CJS default export; `import sharp from "sharp"`); `main: dist/index.cjs`, `module: dist/index.mjs`, `types: dist/index.d.mts` (content in `lib/index.d.ts`)

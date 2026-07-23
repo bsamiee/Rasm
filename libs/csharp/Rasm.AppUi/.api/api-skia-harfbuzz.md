@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `SkiaSharp.HarfBuzz`
-- package: `SkiaSharp.HarfBuzz` (MIT, Microsoft)
+- package: `SkiaSharp.HarfBuzz` (MIT)
 - assembly: `SkiaSharp.HarfBuzz`
 - namespace: `SkiaSharp.HarfBuzz`
 - depends: `SkiaSharp` (`SKCanvas`/`SKFont`/`SKTextBlobBuilder`), `HarfBuzzSharp` (`Blob`/`Buffer`/`Font`)

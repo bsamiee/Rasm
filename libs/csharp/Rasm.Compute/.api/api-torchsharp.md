@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `TorchSharp`
-- package: `TorchSharp` (`MIT`, PyTorch/dotnet)
+- package: `TorchSharp` (MIT)
 - assembly: `TorchSharp` (`lib/net8.0/TorchSharp.dll` binds the `net10.0` consumer, `lib/netstandard2.0` the fallback; signatures match across both TFMs)
 - namespace: `TorchSharp` — the `torch` static class hosts `nn`/`linalg`/`optim`/`autograd`/`fft`/`special` as `TorchSharp.torch.*`; element types `BFloat16`/`Float16` and lifetime types `DisposeScope`/`DisposeScopeManager` sit at the root; the no-grad scope enters through the `torch.inference_mode()`/`no_grad()` factory, never the `internal` `InferenceMode` guard it returns
 - asset: managed P/Invoke shim with a per-RID native shim (`libLibTorchSharp.{dylib,so,dll}`) bridging to the LibTorch native floor; osx-arm64 loads `libLibTorchSharp.dylib`

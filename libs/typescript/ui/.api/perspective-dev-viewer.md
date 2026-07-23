@@ -1,7 +1,7 @@
 # [TS_UI_API_PERSPECTIVE_DEV_VIEWER]
 
 [PACKAGE_SURFACE]:
-- package: `@perspective-dev/viewer` · license `Apache-2.0` — the LIVE scope; `@finos/*` is dead.
+- package: `@perspective-dev/viewer` (Apache-2.0)
 - module: `sideEffects: true` — importing REGISTERS `<perspective-viewer>`, and the main entry also exports the WASM boot (`init_client`, also the default export), the plugin author contract (`IPerspectiveViewerPlugin`/`HTMLPerspectiveViewerPluginElement`), the cross-plugin column-format helpers, `PerspectiveSelectDetail`, and the full config-type surface (`ViewerConfig`/`ViewerConfigUpdate`/`Filter`/`Sort`/`Aggregate`).
 - subpaths: `.`, `./inline` (self-contained WASM-inlined build variant), `./themes` (bundled roster), `./themes/*.css`, `./themes/intl/*.css`.
 - asset: deps `@perspective-dev/client` (lockstep) + `pro_self_extracting_wasm`; WASM `dist/wasm/perspective-viewer.wasm` boots via `init_client(wasm_binary, wasm_module?)` beside the client's `init_server` — the two-line boot the bundler wiring in `.api/perspective-dev-client.md` carries.
@@ -13,23 +13,7 @@
 
 ## [01]-[ELEMENT_SURFACE]
 
-```ts signature
-interface HTMLPerspectiveViewerElement extends HTMLElement {
-  load(table: Client | Table | Promise<Client | Table>): Promise<void>   // a Table auto-renders; a bare Client only enables restore({ table: name }) lookup
-  restore(update: ViewerConfigUpdate): Promise<void>
-  save(): Promise<ViewerConfig>                                          // plugin, plugin_config, settings, theme, title, columns_config, table, plus the full ViewConfigUpdate query fields
-  reset(reset_all?: boolean): Promise<void>; flush(): Promise<void>
-  getTable(wait_for_table?: boolean): Promise<Table>; getView(): Promise<View>; getViewConfig(): Promise<ViewConfigUpdate>; getClient(wait_for_client?: boolean): Promise<Client>
-  toggleConfig(force?: boolean): Promise<void>                           // settings-panel toggle; openColumnSettings(column_name?, toggle?)/toggleColumnSettings(column_name) drive the per-column drawer
-  getSelection(): ViewWindow | undefined; setSelection(window?: ViewWindow): void; getEditPort(): number
-  getAllPlugins(): HTMLElement[]; getPlugin(name?: string): HTMLElement; getRenderStats(): unknown; registerPlugin(name: string): Promise<void>
-  resetThemes(themes?: string[]): Promise<void>; restyleElement(): Promise<void>; resize(options?: unknown): Promise<void>
-  setAutoSize(v: boolean): void; setAutoPause(v: boolean): Promise<void>; setThrottle(ms?: number): void
-  copy(method?: string): Promise<void>; download(method?: string): Promise<void>; export(method?: string): Promise<unknown>
-  eject(): Promise<void>; delete(): Promise<void>                        // frees viewer View/WASM state — never deletes the supplied Table
-  resetError(): Promise<void>
-}
-```
+[HTMLPERSPECTIVE_VIEWER_ELEMENT]: `HTMLPerspectiveViewerElement.load(Client|Table|Promise<Client|Table>) -> Promise<void>` `HTMLPerspectiveViewerElement.restore(ViewerConfigUpdate) -> Promise<void>` `HTMLPerspectiveViewerElement.save() -> Promise<ViewerConfig>` `HTMLPerspectiveViewerElement.reset(boolean?) -> Promise<void>` `HTMLPerspectiveViewerElement.flush() -> Promise<void>` `HTMLPerspectiveViewerElement.getTable(boolean?) -> Promise<Table>` `HTMLPerspectiveViewerElement.getView() -> Promise<View>` `HTMLPerspectiveViewerElement.getViewConfig() -> Promise<ViewConfigUpdate>` `HTMLPerspectiveViewerElement.getClient(boolean?) -> Promise<Client>` `HTMLPerspectiveViewerElement.toggleConfig(boolean?) -> Promise<void>` `HTMLPerspectiveViewerElement.getSelection() -> ViewWindow|undefined` `HTMLPerspectiveViewerElement.setSelection(ViewWindow?) -> void` `HTMLPerspectiveViewerElement.getEditPort() -> number` `HTMLPerspectiveViewerElement.getAllPlugins() -> HTMLElement[]` `HTMLPerspectiveViewerElement.getPlugin(string?) -> HTMLElement` `HTMLPerspectiveViewerElement.getRenderStats()` `HTMLPerspectiveViewerElement.registerPlugin(string) -> Promise<void>` `HTMLPerspectiveViewerElement.resetThemes(string[]?) -> Promise<void>` `HTMLPerspectiveViewerElement.restyleElement() -> Promise<void>` `HTMLPerspectiveViewerElement.resize(unknown?) -> Promise<void>` `HTMLPerspectiveViewerElement.setAutoSize(boolean) -> void` `HTMLPerspectiveViewerElement.setAutoPause(boolean) -> Promise<void>` `HTMLPerspectiveViewerElement.setThrottle(number?) -> void` `HTMLPerspectiveViewerElement.copy(string?) -> Promise<void>` `HTMLPerspectiveViewerElement.download(string?) -> Promise<void>` `HTMLPerspectiveViewerElement.export(string?) -> Promise<unknown>` `HTMLPerspectiveViewerElement.eject() -> Promise<void>` `HTMLPerspectiveViewerElement.delete() -> Promise<void>` `HTMLPerspectiveViewerElement.resetError() -> Promise<void>`
 
 Events (overloaded `addEventListener` on the element): `perspective-config-update` (state-echo seam, fires with the new config on user-driven change), `perspective-click` (`PerspectiveClickEventDetail` — `{ config, row, column_names }`), `perspective-select` and `perspective-global-filter` (`PerspectiveSelectEventDetail` — `{ view_window }`), `perspective-toggle-settings`, `perspective-statusbar-pointerdown`, `perspective-table-delete`, each destructive seam carrying a `-before` pre-dispatch twin (`perspective-toggle-settings-before`, `perspective-table-delete-before`). Theme is a CONFIG FIELD (`restore({ theme })` from the `./themes/*.css` roster via `resetThemes`), never an HTML attribute.
 

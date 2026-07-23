@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `compas_tna`
-- package: `compas_tna` (`MIT`)
+- package: `compas_tna` (MIT)
 - import: `import compas_tna`
 - owner: `geometry`
 - rail: structural-form-finding

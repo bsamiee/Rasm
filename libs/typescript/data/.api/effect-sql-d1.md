@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/sql-d1`
-- package: `@effect/sql-d1`
-- license: `MIT`
+- package: `@effect/sql-d1` (MIT)
 - effect-peer: `effect`, `@effect/sql` (`.api/effect-sql.md`), `@effect/experimental` (`Reactivity`), `@effect/platform`
 - backing: the Workers `D1Database` runtime binding (no bundled driver); `@cloudflare/workers-types` supplies the binding types
 - runtime: Cloudflare Workers only; the node/bun lanes are `-sqlite-node`/`-sqlite-bun`, the browser lane `-sqlite-wasm`

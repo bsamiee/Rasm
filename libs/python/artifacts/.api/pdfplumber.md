@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pdfplumber`
-- package: `pdfplumber`
+- package: `pdfplumber` (MIT)
 - import: `pdfplumber`
 - owner: `artifacts`
 - rail: table
-- license: `MIT` — permissive, unrestricted in a closed or distributed pipeline
 - build: pure-Python wheel, no native build, runs in-process on the cp315 runtime; `pdfminer.six`/`pypdfium2`/`Pillow` are the transitive parse/raster deps
 - entry points: console script `pdfplumber` dumps CSV/JSON/text; library use is import-only via `pdfplumber.open`
 - capability: PDF parsing into a `PDF`/`Page` hierarchy; per-object char/line/rect/curve/image/annot/hyperlink/edge geometry; ruled-line `TableFinder` cell detection over four strategies with full snap/join/intersection tolerance; tolerance- and direction-clustered word/char extraction; layout-preserving text and regex `search`; tagged-PDF `structure_tree`; bbox crop/within/outside/filter/dedupe views; `to_csv`/`to_json`/`to_dict` export; `PageImage` raster debug overlays; Ghostscript repair

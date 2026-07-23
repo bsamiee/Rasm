@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `coloraide`
-- package: `coloraide` (`MIT`, facelessuser)
+- package: `coloraide` (MIT)
 - module: `coloraide`
 - rail: color
 - target: pure-Python, zero native extension, ABI-agnostic; stdlib-only runtime with no NumPy at import (the bundled `algebra` module carries the linear-algebra kernels)

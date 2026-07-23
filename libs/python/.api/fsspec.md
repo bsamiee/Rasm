@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `fsspec`
-- package: `fsspec`
+- package: `fsspec` (BSD-3-Clause)
 - import: `fsspec`
 - owner: `shared`
 - rail: transport
-- license: `BSD-3-Clause`
 - asset: pure Python; backend extras (`s3fs`/`gcsfs`/`adlfs`/`aiohttp`) pull concrete drivers
 - namespaces: `fsspec`, `fsspec.asyn`, `fsspec.registry`, `fsspec.spec`, `fsspec.mapping`, `fsspec.caching`, `fsspec.generic`
 - capability: registry-cached protocol filesystem resolution, sync/async reads, byte-range and multi-range reads, mutation and transactions, block/read-ahead caches, mapping views, generic sync

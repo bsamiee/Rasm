@@ -5,10 +5,9 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.ML.OnnxRuntime.Extensions`
-- package: `Microsoft.ML.OnnxRuntime.Extensions`
+- package: `Microsoft.ML.OnnxRuntime.Extensions` (MIT)
 - assembly: none — no managed public assembly, no `lib/` directory
 - namespace: none — the managed entry `SessionOptions.RegisterOrtExtensions` is `Microsoft.ML.OnnxRuntime` surface
-- license: MIT
 - asset: native custom-operator runtime assets (`libortextensions`/`ortextensions`) and per-TFM MSBuild build targets
 - build TFM: a `net10.0` non-mobile consumer binds the `netstandard2.0` `build`/`buildTransitive` targets; no `net8.0`/`net9.0` build folder ships, the remaining targets are mobile and legacy TFMs
 - rail: model

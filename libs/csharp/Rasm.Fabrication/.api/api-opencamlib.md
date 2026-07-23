@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `OpenCAMLib`
-- package: `OpenCAMLib` (`LGPL-2.1`, aewallin) — vendored, no NuGet artifact; the `extern "C"` shim and `[LibraryImport]` bindings compile into `Rasm.Fabrication`
+- package: `OpenCAMLib` (LGPL-2.1)
 - assembly: managed `Rasm.Fabrication` P/Invoke shim (source-generated `[LibraryImport]`); no managed assembly ships upstream
 - namespace: `ocl` (C++ engine); the C-shim exports flat `extern "C"` functions, the managed side owns the `OpenCamLib`-shaped local surface
 - asset: RID-keyed SHARED native `libocl` (`macos-cxx-arm64`/`windows-cxx-x64`/`linux-cxx-x86_64`, all three present), riding `vendor/runtimes` through the folder `.csproj` `Exists`-gated `Content` group, LFS-carried, outside NuGet restore; per-RID OpenMP carriage (osx-arm64 rpath'd `libomp.dylib`, linux system `libgomp`, win MSVC `vcomp`); dependency closure is header-only Boost + OpenMP
@@ -127,7 +127,7 @@
 - Drop-cutter non-convergence and an empty CL-cloud raise `Toolpath` `SampleStalled` 2713 `(SurfaceStrategy strategy, int iteration)` at the shim boundary, distinct from the `Toolpath/partition` Voronoi `PartitionDegenerate` 2723.
 
 [RAIL_LAW]:
-- Package: `OpenCAMLib` (vendored SHARED native, LGPL-2.1 dynamic-link)
+- Package: `OpenCAMLib` (LGPL-2.1)
 - Owns: exact analytic 3-axis cutter-location geometry — drop-cutter Z-sampling, push-cutter fibers, waterline Z-level loops — for arbitrary `MillingCutter` forms against a triangle mesh
 - Accept: a `MeshSpace` triangle buffer, a `CutterForm` row, and a `SurfaceStrategy` from `Toolpath/surface`, marshalled through the `extern "C"` shim
 - Reject: path layout (kernel on-mesh owned); any 2D polygon concern (`Geometry2D`, `api-cavaliercontours`); a second SDF owner (the kernel distance-field lane is sole, PicoGK owns the voxel lane); static-linking `libocl` into the shim

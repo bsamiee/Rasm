@@ -1,14 +1,13 @@
 # [RASM_APPUI_API_LORO]
 
-`LoroCs` is the UniFFI-generated C# binding over the Rust `loro` CRDT engine — the Eg-walker/Fugue high-performance sequence + map + text + movable-list + tree + counter CRDT runtime backing the Shell/Editing notebook, annotation, table, and live-data collaboration op-log, presence, and time-travel. One `LoroDoc` owns a forest of nested containers, exports/imports a binary op-log (full snapshot, shallow snapshot, or delta updates), checks out / forks / reverts to any historical `Frontiers`, and streams subscriber diffs as typed `Diff` records. It retires the bespoke `NotebookCrdt` LWW algebra: the document IS the merge authority, `Cursor` is the position that survives concurrent edits, `EphemeralStore`/`Awareness` are the presence channels, and `UndoManager` is the local-only undo that respects remote ops. The whole surface is `IDisposable` — every container, cursor, frontiers, and version-vector handle wraps a Rust pointer freed on dispose.
+`LoroCs` is the UniFFI-generated C# binding over the Rust `loro` CRDT engine — the Eg-walker/Fugue sequence, map, text, movable-list, tree, and counter runtime backing the Shell/Editing collaboration op-log, presence, and time-travel. One `LoroDoc` owns nested containers, imports and exports snapshots or delta updates, checks out, forks, or reverts to historical `Frontiers`, and streams typed `Diff` records. It replaces the bespoke `NotebookCrdt` LWW algebra: `LoroDoc` owns merge, `Cursor` survives concurrent edits, `EphemeralStore`/`Awareness` carry presence, and `UndoManager` isolates local undo. Every container, cursor, frontier, and version-vector handle is `IDisposable` over a Rust pointer.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `LoroCs`
-- package: `LoroCs`
+- package: `LoroCs` (MIT)
 - assembly: `LoroCs` (single shipped managed assembly)
 - namespace: `LoroCs` (one flat namespace — containers, value/diff unions, FFI plumbing, and exceptions all live here)
-- license: MIT (`<license type="expression">MIT</license>`)
 - build-floor: ships only `lib/netstandard2.0` (no `net8.0`+ asset); the `net10.0` consumer binds `netstandard2.0` forward — the documented surface
 - native asset: the loro Rust core ships as `runtimes/osx-arm64/native/loro.dylib` (UniFFI P/Invoke `_UniFFILib` over the native lib); outside-Rhino / companion only — the native dylib firebreaks it out of any in-Rhino plugin ALC, the same posture as the other native AppUi rows
 - xml-doc: none shipped (no `.xml` beside the assembly; member intent is the UniFFI-generated signature)
@@ -281,14 +280,14 @@
 - [08]-[TRANSACTION]: `LockException`, `ImportWhenInTxn`, `AutoCommitNotStarted`, and `TransactionException` reject concurrent access and transaction-state misuse.
 - [09]-[UPDATE]: `UpdateTimeoutException` branches to `Timeout` when `Update` or `UpdateByLine` exceeds `UpdateOptions.TimeoutMs`.
 
-## [05]-[STACKING_AND_RAIL]
+## [05]-[IMPLEMENTATION_LAW]
 
 [STACKING]:
 
 [LIVE_SESSION]:
 - Authority: `LoroCs` merges each local `SubscribeLocalUpdate` delta broadcast by the AppHost transport and imported by live peers, so `Collab/` carries no custom merge algebra.
-- Replacement: The document retires the bespoke `NotebookCrdt` LWW algebra.
-- Boundary: The Loro-native wire remains session-ephemeral, while the Persistence bit-parity law owns durable truth.
+- Replacement: `LoroDoc` retires the bespoke `NotebookCrdt` LWW algebra.
+- Boundary: Loro-native wire remains session-ephemeral, while Persistence bit-parity owns durable truth.
 - Catch-up: `ExportMode.Updates(VersionVector)` synchronizes a reconnecting active epoch, and a cold start seeds its epoch from the ledger replay window.
 
 [DURABLE_TRUTH]:
@@ -314,7 +313,7 @@
 [STRUCTURED_EDITING]:
 - Graph: `LoroTree` and its per-node `GetMeta` map bind the NodeEditor canvas through one bidirectional projection with echo suppression.
 - Events: `EventTriggerKind.Local`, `Import`, and `Checkout` route local tree commits and remote ReactiveUI updates without re-emission.
-- Inspector: The same tree and map projection backs inspector and outline surfaces.
+- Inspector: One tree-and-map projection backs inspector and outline surfaces.
 - Table: `LoroMovableList.Mov` reorders DataGrid rows without delete-and-insert identity loss.
 - Aggregate: `LoroCounter` carries conflict-free aggregate tiles.
 

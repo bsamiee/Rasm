@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `linq2db.EntityFrameworkCore`
-- package: `linq2db.EntityFrameworkCore` (`MIT`, linq2db)
+- package: `linq2db.EntityFrameworkCore` (MIT)
 - assembly: `linq2db.EntityFrameworkCore`
 - namespace: `LinqToDB.EntityFrameworkCore` (bridge), `LinqToDB.EntityFrameworkCore.Internal` (query provider, options extension)
 - depends: core `linq2db` (`LinqToDB`, `LinqToDB.Data`) — the COPY/merge engine this bridge hands off to

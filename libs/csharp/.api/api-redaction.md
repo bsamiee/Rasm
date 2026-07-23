@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Compliance.Redaction`
-- package: `Microsoft.Extensions.Compliance.Redaction` (MIT, Microsoft)
+- package: `Microsoft.Extensions.Compliance.Redaction` (MIT)
 - assembly: `Microsoft.Extensions.Compliance.Redaction`
 - contract assembly: `Microsoft.Extensions.Compliance.Abstractions`
 - namespace: `Microsoft.Extensions.Compliance.Redaction`, `Microsoft.Extensions.Compliance.Classification`, `Microsoft.Extensions.DependencyInjection`, `System.Text`

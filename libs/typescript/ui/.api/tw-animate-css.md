@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `tw-animate-css`
-- package: `tw-animate-css`
-- license: `MIT`
+- package: `tw-animate-css` (MIT)
 - deps: none
 - catalog-verdict: KEEP
 - asset: pure CSS — `main: dist/tw-animate.css`, NO `types`, NO JS, NO runtime. There is nothing for `tsc` to check; the surface is the utility-class + custom-property vocabulary Tailwind compiles

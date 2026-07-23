@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ifctester`
-- package: `ifctester` (LGPL-3.0-or-later, IfcOpenShell ecosystem)
+- package: `ifctester` (LGPL-3.0-or-later)
 - module: `import ifctester` re-exports `open`; the document/facet/reporter families import from `ifctester.ids`, `ifctester.facet`, `ifctester.reporter`
 - owner: `geometry`
 - rail: ifc-companion / ids-validation

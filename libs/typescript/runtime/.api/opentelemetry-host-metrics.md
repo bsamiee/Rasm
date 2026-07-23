@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/host-metrics`
-- package: `@opentelemetry/host-metrics`
-- license: `Apache-2.0`
+- package: `@opentelemetry/host-metrics` (Apache-2.0)
 - base: `HostMetrics` extends the abstract `BaseMetrics`; metric names ride `@opentelemetry/semantic-conventions`
 - backing: `@opentelemetry/api` `Meter`/`MeterProvider`; `os`/`process` node built-ins as the sample source
 - consumed-by: the node composition root beside the metric-reader row; `otel/emit` binds its `MeterProvider`

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MathNet.Numerics`
-- package: `MathNet.Numerics` (MIT, Math.NET Project)
+- package: `MathNet.Numerics` (MIT)
 - assembly: `MathNet.Numerics`
 - namespace: `MathNet.Numerics`, `.Distributions`, `.Integration`, `.IntegralTransforms`, `.Interpolation`, `.RootFinding`, `.Optimization`, `.Differentiation`, `.Statistics`, `.OdeSolvers`, `.Random`, `.LinearAlgebra`
 - asset: managed runtime library; MKL and OpenBLAS kernels ride sibling provider packages

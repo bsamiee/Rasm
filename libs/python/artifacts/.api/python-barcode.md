@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `python-barcode`
-- package: `python-barcode` (`MIT`)
+- package: `python-barcode` (MIT)
 - import: `barcode`
 - owner: `artifacts`
 - rail: imaging — the `graphic/marks/encode#MARK` `linear` `EncodeArm` arm

@@ -9,7 +9,7 @@ Mechanism is a two-layer split: a REGISTRATION-and-RENDER layer (`bench`/`group`
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `mitata`
-- package: `mitata` · license `MIT` · pure ESM (`"type": "module"`), zero runtime deps, zero peer deps.
+- package: `mitata` (MIT)
 - entry: `.` → `src/main.mjs` (types `src/main.d.mts`) — the registration/render surface re-exporting `measure` and `do_not_optimize`.
 - deep entry: `src/lib.mjs` (types `src/lib.d.mts`) — the state-free measurement kernel; reachable by explicit file path since the package declares no `exports` map, so `mitata/src/lib.mjs` resolves and the main entry does not surface its extra members.
 - optional addon: `@mitata/counters` — separate native package the harness dynamically imports at `run` time for the CPU hardware-counter block; absent, `stats.counters` is undefined and the report drops the counter rows.
@@ -32,34 +32,11 @@ Mechanism is a two-layer split: a REGISTRATION-and-RENDER layer (`bench`/`group`
 |  [08]   | `counters?`                    | `HardwareCounters`                   | IPC/cache/branch band; addon-gated                        |
 |  [09]   | `debug`                        | `string` engine/JIT debug annotation | diagnostic, not landed on the wire                        |
 
-```ts signature
-interface CounterAggregate { avg: number }
-interface HardwareCounters {
-  cycles: CounterAggregate;
-  instructions: CounterAggregate;
-  cache: CounterAggregate & { misses: CounterAggregate };
-  _bmispred: CounterAggregate;
-}
-interface stats {
-  debug: string; ticks: number; samples: number[];
-  kind: 'fn' | 'iter' | 'yield';
-  min: number; max: number; avg: number;
-  p25: number; p50: number; p75: number; p99: number; p999: number;
-  gc?: { avg: number; min: number; max: number; total: number };
-  heap?: { avg: number; min: number; max: number; total: number };
-  counters?: HardwareCounters;
-}
-// A trial (one registered benchmark, possibly parameterized) carries its runs and the arg matrix:
-interface trial {
-  runs: Run[]; alias: string; baseline: boolean;
-  args: Record<string, any[]>;
-  kind: 'args' | 'static' | 'multi-args';
-  style: { compact: boolean; highlight: false | string };
-}
-// Each run is a stats-or-error rail tagged with its arg binding — the honestly-typed partiality the codec lands:
-type Run = ({ stats: stats; error: undefined } | { stats: undefined; error: unknown })
-  & { name: string; args: Record<string, any> };
-```
+[COUNTER_AGGREGATE]: `CounterAggregate.avg: number`
+[HARDWARE_COUNTERS]: `HardwareCounters.cycles: CounterAggregate` `HardwareCounters.instructions: CounterAggregate` `HardwareCounters.cache: CounterAggregate&{misses:CounterAggregate}` `HardwareCounters._bmispred: CounterAggregate`
+[STATS]: `stats.debug: string` `stats.ticks: number` `stats.samples: number[]` `stats.kind: 'fn'|'iter'|'yield'` `stats.min: number` `stats.max: number` `stats.avg: number` `stats.p25: number` `stats.p50: number` `stats.p75: number` `stats.p99: number` `stats.p999: number` `stats.gc: {avg:number;min:number;max:number;total:number}` `stats.heap: {avg:number;min:number;max:number;total:number}` `stats.counters: HardwareCounters`
+[TRIAL]: `trial.runs: Run[]` `trial.alias: string` `trial.baseline: boolean` `trial.args: Record<string,any[]>` `trial.kind: 'args'|'static'|'multi-args'` `trial.style: {compact:boolean;highlight:false|string}`
+[RUN]: `Run = ({stats:stats;error:undefined}|{stats:undefined;error:unknown})&{name:string;args:Record<string,any>}`
 
 ## [03]-[HARNESS_SURFACE]
 
@@ -78,31 +55,7 @@ Registration and execution — the module-global surface the runtime/tests bench
 
 `B` is the fluent builder `bench` returns — argument matrices, sweeps, GC policy, and render styling, each method returning `this`.
 
-```ts signature
-class B {
-  args(values: any[]): this;                                     // positional arg matrix
-  args(map: Record<string, any[]>): this;                        // named multi-axis matrix (cartesian)
-  args(name: string, values: any[]): this;                       // one named axis
-  range(name: string, s: number, e: number, multiplier?: number): this;      // geometric sweep
-  dense_range(name: string, s: number, e: number, accumulator?: number): this; // arithmetic sweep
-  gc(gc?: 'once' | 'inner' | boolean): this;                     // 'once' after warmup, 'inner' before each iteration
-  baseline(bool?: boolean): this;                                // mark as the regression baseline
-  compact(bool?: boolean): this;
-  highlight(color?: Color): this;                                // Color = red|cyan|white|green|yellow|magenta|blue|black|gray
-  name(name: string, highlight?: Color): this;
-  run(thrw?: boolean): Promise<trial>;                           // execute this one benchmark
-}
-// run() options — the JSON format is the claim-landing feed:
-run({ throw?: boolean; filter?: RegExp; colors?: boolean;
-      print?: (s: string) => any; observe?: (t: trial) => trial;
-      format?: 'json' | 'quiet' | 'mitata' | 'markdown'
-             | { json: { debug?: boolean; samples?: boolean } }
-             | { mitata: { name?: number | 'fixed' | 'longest' } } });
-// ctx — the run environment stamped beside the trials, the host-print evidence source:
-interface ctx { now: number; arch: null | string; runtime: null | string;
-                cpu: { freq: number; name: null | string };
-                noop: { fn: stats; iter: stats } }
-```
+[SURFACES]: `B` `ctx` `args` `range` `dense_range` `gc` `baseline` `compact` `highlight` `name` `run`
 
 ## [04]-[COUNTERS_AND_KERNEL]
 

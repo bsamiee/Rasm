@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/exporter-metrics-otlp-http`
-- package: `@opentelemetry/exporter-metrics-otlp-http`
-- license: `Apache-2.0`
+- package: `@opentelemetry/exporter-metrics-otlp-http` (Apache-2.0)
 - otel-peer: `@opentelemetry/api ^catalog`, `@opentelemetry/core ^catalog` (the `ExportResult` rail), `@opentelemetry/sdk-metrics ^catalog` (the `PushMetricExporter`/`ResourceMetrics`/`AggregationTemporality`/`InstrumentType` contract + the `PeriodicExportingMetricReader` that wraps it)
 - transitive-config: `@opentelemetry/otlp-exporter-base` supplies the base constructor config (`OTLPExporterNodeConfigBase` / `OTLPExporterConfigBase`) intersected with `OTLPMetricExporterOptions`
 - consumed-by: the otlp export plane's SDK-bridge metric leg via the facade's `NodeSdk`/`WebSdk` `Configuration.metricReader`; the wire under the `data` fact journal's usage/cost counters
@@ -31,17 +30,8 @@
 |  [07]   | `DeltaTemporalitySelector`                           | selector const   | delta seed of the temporality function space                  |
 |  [08]   | `LowMemoryTemporalitySelector`                       | selector const   | low-memory seed of the temporality function space             |
 
-```ts signature
-class OTLPMetricExporter extends OTLPMetricExporterBase {}
-class OTLPMetricExporterBase extends OTLPExporterBase<ResourceMetrics> implements PushMetricExporter {
-  selectAggregationTemporality(t: InstrumentType): AggregationTemporality
-  selectAggregation(t: InstrumentType): AggregationOption
-}
-interface OTLPMetricExporterOptions {   // AggregationTemporalitySelector = (InstrumentType) => AggregationTemporality
-  temporalityPreference?: AggregationTemporalityPreference | AggregationTemporality
-  aggregationPreference?: AggregationSelector
-}
-```
+[OTLPMETRIC_EXPORTER_BASE]: `OTLPMetricExporterBase.selectAggregationTemporality(InstrumentType) -> AggregationTemporality` `OTLPMetricExporterBase.selectAggregation(InstrumentType) -> AggregationOption`
+[OTLPMETRIC_EXPORTER_OPTIONS]: `OTLPMetricExporterOptions.temporalityPreference: AggregationTemporalityPreference|AggregationTemporality` `OTLPMetricExporterOptions.aggregationPreference: AggregationSelector`
 
 ## [03]-[ENTRYPOINTS]
 

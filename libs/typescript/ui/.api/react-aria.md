@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `react-aria`
-- package: `react-aria`
-- license: `Apache-2.0`
+- package: `react-aria` (Apache-2.0)
 - react-peer: `react catalog`, `react-dom catalog` (consumed against `catalog`; client component — hooks touch `useLayoutEffect`/`document`, so `"use client"`; SSR is `SSRProvider`/`useIsSSR`-gated)
 - asset: self-typed ESM+CJS runtime library (`.js` + `.d.ts`, `types: ./dist/types/exports/index.d.ts`); the type-level `Aria*Props`/`*Aria` prop contracts are load-bearing, so `tsc`/`tsgo` is the real gate
 - barrel-over: `@react-aria/*` (interactions, focus, i18n, overlays, collections, dnd, and every widget hook), re-exported `react-stately` state hooks (`useCalendarState`, `useDateRangePickerState`, `useRangeCalendarState`, `useTimeFieldState`, `useTooltipTriggerState`), `@internationalized/date`, `@internationalized/string`, `@react-types/shared`

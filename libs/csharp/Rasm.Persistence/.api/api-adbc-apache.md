@@ -89,7 +89,7 @@ Every `*Driver.Open(IReadOnlyDictionary<string,string>)` mints the protocol `Adb
 - result `RecordBatch` streams are consumed through the base `IArrowArrayStream`, then projected to the canonical Arrow owner — the driver is a SOURCE adapter, not a data model
 
 [RAIL_LAW]:
-- Package: `Apache.Arrow.Adbc.Drivers.Apache` (Apache-2.0, pure-managed AnyCPU, `net10.0` binds `net8.0`)
+- Package: `Apache.Arrow.Adbc.Drivers.Apache` (Apache-2.0)
 - Owns: the concrete HiveServer2-family ADBC drivers (`SparkDriver`/`HiveServer2Driver`/`ImpalaDriver`), their `adbc.*` connection-string parameter vocabulary, the auth/transport/TLS/proxy key sets, and the `HiveServer2Exception` error rail
 - Accept: a Spark/Hive/Impala Thrift SQL warehouse opened through the Query-federation boundary, configured by the typed parameter map, returning Arrow `RecordBatch` streams over the base `Apache.Arrow.Adbc` contract
 - Reject: an `adbc.*` key string in an interior signature; an `AdbcException` crossing into domain logic; a `RecordBatch` re-materialization away from the Arrow owner; an `Interop.*` driver (no `osx-arm64` native asset)

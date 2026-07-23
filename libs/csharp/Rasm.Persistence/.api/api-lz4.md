@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `K4os.Compression.LZ4`
-- package: `K4os.Compression.LZ4` (`MIT`, Milosz Krajewski)
+- package: `K4os.Compression.LZ4` (MIT)
 - assembly: `K4os.Compression.LZ4`
 - namespace: `K4os.Compression.LZ4`, `K4os.Compression.LZ4.Encoders`, `K4os.Compression.LZ4.Internal`
 - target: the `net10.0` consumer binds `lib/net6.0`

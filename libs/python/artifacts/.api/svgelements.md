@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `svgelements`
-- package: `svgelements` (`MIT`)
+- package: `svgelements` (MIT)
 - module: `svgelements`
 - owner: `artifacts`
 - rail: figure — the SVG geometry, parse, transform, and bounds owner

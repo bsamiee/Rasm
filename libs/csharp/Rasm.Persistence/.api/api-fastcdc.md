@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `FastCDC.Net`
-- package: `FastCDC.Net` (`MIT OR Apache-2.0`, AlpaGit)
+- package: `FastCDC.Net` (MIT OR Apache-2.0)
 - assembly: `FastCdc.Net`
 - namespace: `FastCdc.Net`
 - rail: chunking

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `OpenTelemetry`
-- package: `OpenTelemetry` (Apache-2.0, OpenTelemetry Authors)
+- package: `OpenTelemetry` (Apache-2.0)
 - assembly: `OpenTelemetry`
 - contract assembly: `OpenTelemetry.Api` — propagation, ambient runtime-context slots, and the three provider base types
 - builder assembly: `OpenTelemetry.Api.ProviderBuilderExtensions` — `IOpenTelemetryBuilder`, the seat hostless and hosted roots share

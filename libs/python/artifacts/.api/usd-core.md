@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `usd-core`
-- package: `usd-core` (`LicenseRef-TOST-1.0`, Pixar OpenUSD)
+- package: `usd-core` (LicenseRef-TOST-1.0)
 - module: `pxr`
 - namespaces: `Usd`, `UsdGeom`, `UsdShade`, `UsdSemantics`, `UsdLux`, `Sdf`, `Gf`, `Vt`, `Tf`, `Kind`, `UsdUtils`
 - abi: C++/Boost.Python native extension (`_<module>.so` per submodule), no cp315 wheel; `pxr` imports only inside the sub-3.15 offload worker

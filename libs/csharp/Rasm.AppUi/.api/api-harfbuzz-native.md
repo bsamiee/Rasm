@@ -5,14 +5,14 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `HarfBuzzSharp.NativeAssets.macOS`
-- package: `HarfBuzzSharp.NativeAssets.macOS` (MIT, © Microsoft Corporation)
+- package: `HarfBuzzSharp.NativeAssets.macOS` (MIT)
 - assembly: no managed runtime assembly
 - namespace: no managed namespace
 - asset: `runtimes/osx/native/libHarfBuzzSharp.dylib` (fat arm64+x64) + buildTransitive `.targets`
 - rail: typography
 
 [PACKAGE_SURFACE]: `HarfBuzzSharp.NativeAssets.Linux`
-- package: `HarfBuzzSharp.NativeAssets.Linux` (MIT, © Microsoft Corporation)
+- package: `HarfBuzzSharp.NativeAssets.Linux` (MIT)
 - assembly: no managed runtime assembly
 - namespace: no managed namespace
 - asset: `runtimes/<rid>/native/libHarfBuzzSharp.so` across the glibc/musl/bionic Linux RIDs + buildTransitive `.targets`

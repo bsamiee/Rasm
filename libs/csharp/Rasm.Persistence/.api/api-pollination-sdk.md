@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `PollinationSDK`
-- package: `PollinationSDK` (MIT, Pollination / Ladybug Tools)
+- package: `PollinationSDK` (MIT)
 - assembly: `PollinationSDK`
 - namespace: `PollinationSDK` (model DTOs), `.Api` (REST clients), `.Client` (config/auth/serialization), `.Wrapper` (orchestration), `.Interface.*` (recipe/job/io model)
 - depends: `LBT.RestSharp` (RestSharp-106 fork; HTTP transport), `LBT.Newtonsoft.Json` (Newtonsoft fork; JSON via `AnyOfJsonConverter`/`OpenAPIDateConverter`), `Microsoft.Data.Sqlite` (the `Wrapper.LocalDatabase` cache; native `e_sqlite3`)
@@ -131,7 +131,7 @@ Each op pairs a model-returning `*Async` (throws `ApiException`) with a `*WithHt
 - No in-Rhino plugin assembly admits `PollinationSDK` or its RestSharp-106/Newtonsoft-fork closure; the SDK and its SQLite cache load only on the cloud-run sidecar.
 
 [RAIL_LAW]:
-- Package: `PollinationSDK` (MIT, netstandard2.0, vendored RestSharp-106 + Newtonsoft-fork closure)
+- Package: `PollinationSDK` (MIT)
 - Owns: the Pollination cloud compute transport — the `*Api` REST clients, `Configuration`/`TokenRepo` auth, `Wrapper` job/run/asset orchestration, and the model DTOs
 - Accept: a recipe-run job submitted to a Pollination project, watched to completion, and its result assets pulled back — the durable half projected to `Store/blobstore`, `Version/provenance`, and `Query/cache#ArtifactKind.CloudRun` while the dispatch half routes to `Rasm.Compute`, artifact bytes transferred via the object-store owner
 - Reject: loading the SDK or its forks in the in-Rhino assembly; a second S3 uploader where `api-objectstore.md` owns the object plane; a hand-rolled token store where `Configuration`/`TokenRepo` carry auth; treating the netstandard2.0 floor as a net8+ surface

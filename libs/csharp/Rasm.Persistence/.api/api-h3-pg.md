@@ -7,7 +7,7 @@ One cell vocabulary spans in-process and in-database indexing: the id this surfa
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `h3-pg` — extensions `h3` + `h3_postgis`
-- package: `h3-pg` (Apache-2.0, `zachasme/h3-pg`) — server-side PostgreSQL C extension pair, no NuGet asset
+- package: `h3-pg` (Apache-2.0)
 - namespace: SQL `public` — the `h3index` type, the `h3_*` functions, the operator, cast, and operator-class set
 - registration: both extensions are `RELOCATABLE` and preload-free; `h3` stands alone and `h3_postgis` requires `h3`, `postgis`, `postgis_raster`, which one `CASCADE` install pulls
 - consumed by: `Element/identity` cell columns and the `Query/lane` `SetPredicate.Cell` lowering, executed over raw `Npgsql`
@@ -149,7 +149,7 @@ Core region functions take a native PG exterior `polygon` with a `polygon[]` hol
 - Durable keying rides the immutable `bigint` cell id on `ElementIdentity` and `NodeCell`, minted through the managed entry and railed as `IdentityFault.CellUnresolvable` when a centroid decodes invalid.
 
 [RAIL_LAW]:
-- Package: `h3-pg` — extensions `h3` and `h3_postgis`, server-side in the deploy-image PostgreSQL
+- Package: `h3-pg` (Apache-2.0)
 - Owns: in-database Uber-H3 cell indexing — the `h3index` type and its operator algebra, the indexing, inspection, traversal, hierarchy, edge, vertex, and metric function surface, the `h3_postgis` geometry, geography, EWKB, and raster bridge, and the btree, hash, brin, and spgist operator classes
 - Accept: the `CreateSql` CASCADE install, `h3_latlng_to_cell` at every call site, SRID-4326 PostGIS inputs, an `h3index` opclass index on a cell column, `h3_grid_disk` and `h3_polygon_to_cells` cell-set membership ahead of a geometry refine, ingest parity with the managed `pocketken.H3` pin
 - Reject: linking the extension into managed code, a `shared_preload_libraries` placement, a per-row `ST_DWithin` scan where a cell-set membership test serves, a second managed coordinate model beside NTS and H3, a stored mutable cell instance beside the durable `bigint`

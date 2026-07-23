@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `DSTV.Net`
-- package: `DSTV.Net` (`Apache-2.0`)
+- package: `DSTV.Net` (Apache-2.0)
 - assembly: `DSTV.Net`
 - namespace: `DSTV.Net.Contracts`, `DSTV.Net.Data`, `DSTV.Net.Enums`, `DSTV.Net.Exceptions`, `DSTV.Net.Implementations`
 - asset: pure-managed AnyCPU IL, no native or RID burden; the `net10.0` consumer binds `lib/net9.0/DSTV.Net.dll`

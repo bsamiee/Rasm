@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `System.Diagnostics.Metrics`
-- package: BCL inbox (MIT, .NET Foundation)
+- package: BCL inbox (MIT)
 - assembly: `System.Diagnostics.DiagnosticSource.dll` (shared framework)
 - namespace: `System.Diagnostics.Metrics`, `System.Diagnostics`
 - rail: library-tier metric emission behind every `rasm.*` instrument

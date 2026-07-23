@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `exceljs`
-- package: `exceljs`
-- license: `MIT`
+- package: `exceljs` (MIT)
 - deps: `archiver` + `jszip` (OOXML zip), `saxes` + `unzipper` (XML parse), `fast-csv` (the `.csv` surface), `dayjs`, `readable-stream`, `tmp`, `uuid`
 - runtime: node/bun — the streaming `WorkbookWriter`/`WorkbookReader`, `archiver`, and `readable-stream` are node-only; a prebuilt browser bundle (`dist/exceljs.min.js`) exists but the `work/report` durable lane is a node runner, so treat exceljs as node-lane egress
 - effect-peer: none — exceljs is a plain library; `effect`/`@effect/platform` (`.api/effect.md`, `.api/effect-platform.md`) wrap it at the `work/report` boundary

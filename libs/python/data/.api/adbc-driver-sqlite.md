@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `adbc-driver-sqlite`
-- package: `adbc-driver-sqlite` (`Apache-2.0`)
+- package: `adbc-driver-sqlite` (Apache-2.0)
 - module: `adbc_driver_sqlite`, `adbc_driver_sqlite.dbapi`
 - driver: native `libadbc_driver_sqlite.so`, bound by `connect` to a SQLite URI
 - owner: `data`

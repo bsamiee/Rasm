@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@deck.gl/layers`
-- package: `@deck.gl/layers`
-- license: `MIT`
+- package: `@deck.gl/layers` (MIT)
 - abi: browser WebGL2/WebGPU via `@deck.gl/core`'s luma.gl `Device`
 - peer: `@deck.gl/core catalog` (the `Layer`/`CompositeLayer` bases, `Accessor`/`Position`/`Color`/`Unit`/`Material` types, picking), `@loaders.gl/core` (image/font/mesh loaders for `IconLayer`/`TextLayer`/`BitmapLayer`), `@luma.gl/core` (`Texture`/`SamplerProps`)
 - catalog-verdict: KEEP — the base render vocabulary; `@deck.gl/geo-layers` composite layers extend these (`GeoCellLayer`→`PolygonLayer`, `TripsLayer`→`PathLayer`, `MVTLayer`→`GeoJsonLayer`)

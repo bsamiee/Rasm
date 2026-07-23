@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `sparse`
-- package: `sparse` (BSD-3-Clause, PyData)
+- package: `sparse` (BSD-3-Clause)
 - import: `sparse`
 - owner: `compute`
 - rail: array

@@ -24,24 +24,11 @@
 |  [06]   | `WaveletPacketND`            | nD packet tree     | nD packet tree (corner-string subnodes), `mode='smooth'` default                 |
 |  [07]   | `Node` / `Node2D` / `NodeND` | packet node        | per-level tree node carrying coefficient data and child accessors                |
 |  [08]   | `FswavedecnResult`           | FSWT result        | `approx`/`coeffs`/`coeff_slices`/`detail_keys`/`wavelets`/`modes` → `fswaverecn` |
-|  [09]   | `Modes`                      | extension modes    | signal-extension mode set in the `MODES` fence; `Modes.from_object` normalizes   |
+|  [09]   | `Modes`                      | extension modes    | signal-extension vocabulary; `Modes.from_object` normalizes                      |
 
-```python signature
-class Wavelet:                                  # pywt.Wavelet(name)
-    filter_bank                                 # (dec_lo, dec_hi, rec_lo, rec_hi) FIR bank
-    dec_lo; dec_hi; rec_lo; rec_hi
-    dec_len; rec_len; vanishing_moments_psi: int
-    orthogonal; biorthogonal: bool
-    def wavefun(self, level=8): ...             # scaling/wavelet functions on a grid
-
-class ContinuousWavelet:                        # pywt.ContinuousWavelet(name), CWT basis
-    center_frequency; bandwidth_frequency; lower_bound; upper_bound: float
-    complex_cwt: bool
-    def wavefun(self, level=8, length=None): ...
-
-MODES = ("symmetric", "reflect", "periodic", "periodization", "zero",   # pywt.Modes.modes
-         "constant", "smooth", "antisymmetric", "antireflect")
-```
+[Wavelet]: `filter_bank` `dec_lo` `dec_hi` `rec_lo` `rec_hi` `dec_len` `rec_len` `vanishing_moments_psi` `orthogonal` `biorthogonal` `wavefun(level=8)`
+[ContinuousWavelet]: `center_frequency` `bandwidth_frequency` `lower_bound` `upper_bound` `complex_cwt` `wavefun(level=8, length=None)`
+[Modes]: `symmetric` `reflect` `periodic` `periodization` `zero` `constant` `smooth` `antisymmetric` `antireflect`
 
 ## [03]-[ENTRYPOINTS]
 

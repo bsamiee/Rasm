@@ -5,12 +5,11 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `arro3-io`
-- package: `arro3-io`
+- package: `arro3-io` (MIT OR Apache-2.0)
 - owner: `data`
 - module: `arro3.io`
 - asset: native extension (Rust/PyO3) over `arrow-rs` `arrow-ipc`, `parquet`, `arrow-csv`, `arrow-json`
 - dependency: `arro3-core` (sole runtime requirement)
-- license: `MIT OR Apache-2.0`
 - rail: arrow-io
 
 ## [02]-[PUBLIC_TYPES]

@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `matplotlib`
-- package: `matplotlib`
+- package: `matplotlib` (Matplotlib License)
 - import: `matplotlib`
 - owner: `artifacts`
 - rail: visuals
-- license: Matplotlib License (PSF-derived, BSD-compatible)
 
 ## [02]-[PUBLIC_TYPES]
 

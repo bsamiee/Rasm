@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@dopplerhq/node-sdk`
-- package: `@dopplerhq/node-sdk` (MIT, © DopplerSDK)
+- package: `@dopplerhq/node-sdk` (MIT)
 - module format: dual ESM/CJS (`type: module`, `main: dist/index.cjs`, `exports` map with `import`/`require`); the `DopplerSDK` client is the default and named export, services reached as `sdk.<service>` properties — no deep subpaths needed
 - runtime target: node-only — the built-in `HTTPLibrary` transport uses node HTTP with its own retry (`retryAttempts`/`retryDelayMs`); no browser build, zero runtime dependencies (the client is self-contained), which sits inside `secret/`'s node-only custody boundary
 - asset: pure-TypeScript runtime library (`.js` + `.d.ts`); every response interface is fully optional (`name?`/`value?`), so a `Schema` decode is the real gate before a fetched secret is trusted

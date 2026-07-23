@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `tus-js-client`
-- package: `tus-js-client`
-- license: `MIT`
+- package: `tus-js-client` (MIT)
 - module format: CJS + ESM; `main` and `module` point at node builds, and the package `browser` map swaps them to browser builds for the ui bundle
 - types: bundled `lib/index.d.ts`
 - deps: `buffer-from`, `combine-errors`, `is-stream`, `js-base6 catalog`, `lodash.throttle`, `proper-lockfile`, `url-parse`

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@floating-ui/react`
-- package: `@floating-ui/react` (MIT, © Floating UI contributors)
+- package: `@floating-ui/react` (MIT)
 - module format: ESM + UMD (`dist/floating-ui.react.esm.js`, `.d.ts` at `dist/floating-ui.react.d.ts`), `sideEffects: false`; subpaths `.` and `./utils` (focus-order, list/grid-navigation, and environment probes — `getNextTabbable`, `getGridNavigatedIndex`, `isMac`)
 - runtime target: React DOM (browser); the interaction layer binds pointer/keyboard events and the DOM focus model
 - peer: `react@>=catalog`, `react-dom@>=catalog`; deps `@floating-ui/react-dom@^catalog`, `@floating-ui/utils@^catalog`, `tabbable catalog` (focus-order enumeration for `FloatingFocusManager`)

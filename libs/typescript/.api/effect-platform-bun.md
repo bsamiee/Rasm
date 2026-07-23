@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/platform-bun`
-- package: `@effect/platform-bun` (`MIT`)
+- package: `@effect/platform-bun` (MIT)
 - module: ESM + CJS dual (`dist/esm` + `dist/cjs`, types `dist/dts`), `sideEffects: []`; per-module deep-import subpaths (`@effect/platform-bun/BunHttpServer`, `/BunRuntime`, …)
 - runtime: `runtime:node` lane; peers `@effect/platform-node-shared` for `Sink`/`Stream`/`SocketServer`
 - rail: platform/bun — the Bun binding of every abstract `@effect/platform` Tag

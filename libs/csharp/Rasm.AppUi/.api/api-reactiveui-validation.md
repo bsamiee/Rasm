@@ -1,12 +1,11 @@
 # [RASM_APPUI_API_REACTIVEUI_VALIDATION]
 
-`ReactiveUI.Validation` is the reactive input-validation rail over ReactiveUI: one `ValidationContext` aggregates `IValidationComponent` rules and exposes a live `IObservable<bool> Valid` stream; `ValidationRule` is a single polymorphic registrar (10 overloads discriminating on property-expression vs. observable vs. `IValidationState` input); `IValidationText` carries validation messages as a typed `IReadOnlyList<string>` rather than freeform strings; and `BindValidation` projects component state onto view properties. It owns its validation surface through `IValidatableViewModel`/`ReactiveValidationObject` (whose `INotifyDataErrorInfo` is fed by the `ValidationContext`) — it is the view-model-scoped validation aggregator and does not extend the core `ReactiveUI.ReactiveProperty<T>`, whose own `INotifyDataErrorInfo` (`AddValidationError`/`HasErrors`/`ObserveHasErrors`) is a self-contained core-ReactiveUI per-property mechanism the two rails sit beside. Namespaces are precise and do NOT flatten: the contracts live in `.Abstractions`, `.Components.Abstractions`, `.Formatters.Abstractions`, and `.ValidationBindings.Abstractions`; the text collections in `.Collections`; the state comparer in `.Comparators`. The AppUi forms rail (`Editing/forms`) lifts these into the suite-wide `Validation<Error,T>` applicative.
+`ReactiveUI.Validation` is the reactive input-validation rail over ReactiveUI: one `ValidationContext` aggregates `IValidationComponent` rules and exposes a live `IObservable<bool> Valid` stream; `ValidationRule` is a polymorphic registrar over property-expression, observable, or `IValidationState` input; `IValidationText` carries typed message lists; and `BindValidation` projects state onto view properties. `IValidatableViewModel` and `ReactiveValidationObject` own view-model aggregation beside the self-contained `ReactiveUI.ReactiveProperty<T>` per-property mechanism. Precise namespaces keep contracts in their `*.Abstractions` owners, text collections in `.Collections`, and state comparison in `.Comparators`; the AppUi forms rail lifts them into `Validation<Error,T>`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ReactiveUI.Validation`
-- package: `ReactiveUI.Validation`
-- license: `MIT`
+- package: `ReactiveUI.Validation` (MIT)
 - assembly: `ReactiveUI.Validation`
 - build-floor: `net10.0` (consumer-bound; multi-targets net8.0/net9.0/net462/net472/net481 + mobile/desktop RIDs — none bound here)
 - namespace: `ReactiveUI.Validation.Abstractions` (`IValidatableViewModel`)
@@ -127,7 +126,7 @@
 |  [04]   | `Format`         | `IValidationTextFormatter<T>` | text formatting    |
 |  [05]   | `Default`        | `SingleLineFormatter`         | default formatter  |
 
-[CREATE]: The factory accepts `string?`, `IEnumerable<string?>`, `params string?[]`, or `IEnumerable<IValidationText>`.
+[CREATE]: Factory overloads accept `string?`, `IEnumerable<string?>`, `params string?[]`, or `IEnumerable<IValidationText>`.
 
 [EMPTY_TEXT]: `None` and `Empty` are static `IValidationText` values.
 

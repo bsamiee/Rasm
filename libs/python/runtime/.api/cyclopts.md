@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `cyclopts`
-- package: `cyclopts` (`Apache-2.0`)
+- package: `cyclopts` (Apache-2.0)
 - module: `cyclopts`
 - namespaces: `cyclopts`, `cyclopts.types`
 - rail: entry

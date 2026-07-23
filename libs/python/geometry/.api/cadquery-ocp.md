@@ -245,8 +245,6 @@
 - `trimesh`(`.api/trimesh.md`): a meshed `TopoDS_Face`'s `Poly_Triangulation`, read through `BRep_Tool.Triangulation_s` into one-based `Node(i)`/`Triangle(i)` values buffered as `numpy` arrays, becomes `Trimesh(vertices, faces)` for the mesh owner; OCP holds no mesh file handle of its own.
 - within-lib `cad`/`step-bridge` owner: composes `STEPCAFControl_Reader` transfer, `XCAFDoc_DocumentTool` label-tree reads, `BRepMesh_IncrementalMesh` tessellation, and `RWGltf_CafWriter` into the CAD-STEP tessellation hop, meeting the C# `StepIso10303` codec at the wire through content identity, never an import.
 
-## [05]-[LOCAL_ADMISSION]
-
 [RAIL_LAW]:
 - Package: `cadquery-ocp`
 - Owns: OCCT BREP topology, parametric `gp`/`Geom` geometry, primitive/feature/Boolean/fillet/chamfer/thick-solid shape construction, mesh triangulation, STEP/IGES exchange, and the XCAF assembly/color/name/material document model for the STEP bridge

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `dragonfly-core`
-- package: `dragonfly-core` (AGPL-3.0 network-copyleft)
+- package: `dragonfly-core` (AGPL-3.0)
 - module: `dragonfly` — `dragonfly.{model,building,story,room2d,context}` graph, `dragonfly.{windowparameter,skylightparameter,shadingparameter,roof,projection}` parameter families + GeoJSON projection, `dragonfly.{properties,dictutil}` extension host + polymorphic loader
 - owner: `geometry`
 - rail: energy-companion (urban massing)

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `rasterio`
-- package: `rasterio` (`BSD-3-Clause`)
+- package: `rasterio` (BSD-3-Clause)
 - module: `import rasterio`
 - owner: `data`
 - rail: geospatial

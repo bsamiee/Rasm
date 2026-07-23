@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/sql-libsql`
-- package: `@effect/sql-libsql`
-- license: `MIT`
+- package: `@effect/sql-libsql` (MIT)
 - effect-peer: `effect`, `@effect/sql` (the `SqlClient` core this extends; `.api/effect-sql.md`), `@effect/experimental` (`Reactivity`), `@effect/platform`
 - backing: `@libsql/client` (embedded-replica + remote sync protocol; direct dependency, not peer)
 - runtime: `runtime:node`/bun server and edge hosts; never the browser plane (`@effect/sql-sqlite-wasm` owns it)

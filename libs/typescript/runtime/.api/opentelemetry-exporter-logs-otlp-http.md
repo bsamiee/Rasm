@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/exporter-logs-otlp-http`
-- package: `@opentelemetry/exporter-logs-otlp-http` (Apache-2.0, OpenTelemetry JS)
+- package: `@opentelemetry/exporter-logs-otlp-http` (Apache-2.0)
 - line: overlay family lock-stepped with `@opentelemetry/api-logs`, `sdk-logs`, `otlp-exporter-base`, `otlp-transformer`; `@opentelemetry/core` (the `ExportResult` rail) rides the stable line
 - transitive-config: `@opentelemetry/otlp-exporter-base` supplies `OTLPExporterNodeConfigBase` / `OTLPExporterConfigBase` and `CompressionAlgorithm`
 - consumed-by: `otel/emit` SDK-bridge log leg via `NodeSdk`/`WebSdk` `Configuration.logRecordProcessor`
@@ -26,17 +26,10 @@
 |  [04]   | `OTLPExporterConfigBase`      | base config   | endpoint/headers/concurrency/deadline (fence; browser + base)      |
 |  [05]   | `OTLPExporterNodeConfigBase`  | node config   | node transport tuning (fence); `CompressionAlgorithm.NONE`/`.GZIP` |
 
-```ts signature
-class OTLPLogExporter extends OTLPExporterBase<ReadableLogRecord[]> implements LogRecordExporter {
-  export(items: ReadableLogRecord[], cb: (r: ExportResult) => void): void
-  forceFlush(): Promise<void>; shutdown(): Promise<void>
-}
-interface OTLPExporterConfigBase { url?: string; headers?: Record<string, string>; concurrencyLimit?: number; timeoutMillis?: number }
-interface OTLPExporterNodeConfigBase extends OTLPExporterConfigBase {   // node transport tuning
-  keepAlive?: boolean; compression?: CompressionAlgorithm; httpAgentOptions?: object; userAgent?: string
-}
-enum CompressionAlgorithm { NONE = "none", GZIP = "gzip" }
-```
+[OTLPLOG_EXPORTER]: `OTLPLogExporter.export(ReadableLogRecord[],(r:ExportResult)=>void) -> void` `OTLPLogExporter.forceFlush() -> Promise<void>` `OTLPLogExporter.shutdown() -> Promise<void>`
+[OTLPEXPORTER_CONFIG_BASE]: `OTLPExporterConfigBase.url: string` `OTLPExporterConfigBase.headers: Record<string,string>` `OTLPExporterConfigBase.concurrencyLimit: number` `OTLPExporterConfigBase.timeoutMillis: number`
+[OTLPEXPORTER_NODE_CONFIG_BASE]: `OTLPExporterNodeConfigBase.keepAlive: boolean` `OTLPExporterNodeConfigBase.compression: CompressionAlgorithm` `OTLPExporterNodeConfigBase.httpAgentOptions: object` `OTLPExporterNodeConfigBase.userAgent: string`
+[COMPRESSION_ALGORITHM]: `NONE` `GZIP`
 
 ## [03]-[ENTRYPOINTS]
 
@@ -46,11 +39,11 @@ enum CompressionAlgorithm { NONE = "none", GZIP = "gzip" }
 
 - node ctors take `OTLPExporterNodeConfigBase`, browser ctors `OTLPExporterConfigBase`; the wrapped processor rides `Configuration.logRecordProcessor`.
 
-| [INDEX] | [SURFACE]                               | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                       |
-| :-----: | :-------------------------------------- | :------------- | :-------------------------------------------------------- |
-|  [01]   | `new OTLPLogExporter(nodeCfg)`          | node ctor      | the node OTLP/HTTP log exporter                           |
-|  [02]   | `new OTLPLogExporter(browserCfg)`       | browser ctor   | the browser OTLP/HTTP log exporter (RUM crash/log egress) |
-|  [03]   | `new BatchLogRecordProcessor({ exporter })` | composition | exporter → processor → `NodeSdk`/`WebSdk`             |
+| [INDEX] | [SURFACE]                                   | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                       |
+| :-----: | :------------------------------------------ | :------------- | :-------------------------------------------------------- |
+|  [01]   | `new OTLPLogExporter(nodeCfg)`              | node ctor      | the node OTLP/HTTP log exporter                           |
+|  [02]   | `new OTLPLogExporter(browserCfg)`           | browser ctor   | the browser OTLP/HTTP log exporter (RUM crash/log egress) |
+|  [03]   | `new BatchLogRecordProcessor({ exporter })` | composition    | exporter → processor → `NodeSdk`/`WebSdk`                 |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

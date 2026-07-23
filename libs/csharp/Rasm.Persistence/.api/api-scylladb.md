@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ScyllaDBCSharpDriver`
-- package: `ScyllaDBCSharpDriver` (Apache-2.0, DataStax and ScyllaDB)
+- package: `ScyllaDBCSharpDriver` (Apache-2.0)
 - assembly: `ScyllaDB` (assembly `ScyllaDB.dll`, distinct from the package id)
 - namespace: `Cassandra` public surface — the fork preserves the DataStax type names, never `ScyllaDB.*`; `Cassandra.Mapping`, `Cassandra.Data.Linq`, `Cassandra.Mapping.Attributes`, `Cassandra.ExecutionProfiles`, `Cassandra.Metrics.Abstractions`
 - target: single-target `netstandard2.0`; the `net10.0` consumer binds `lib/netstandard2.0`

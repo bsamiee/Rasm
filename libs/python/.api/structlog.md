@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `structlog`
-- package: `structlog` (`MIT OR Apache-2.0`)
+- package: `structlog` (MIT OR Apache-2.0)
 - module: `structlog`
 - namespaces: `structlog`, `structlog.processors`, `structlog.stdlib`, `structlog.dev`, `structlog.contextvars`, `structlog.testing`, `structlog.tracebacks`, `structlog.typing`, `structlog.threadlocal`, `structlog.twisted`
 - rail: observability

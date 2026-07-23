@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `clsx`
-- package: `clsx`
-- license: `MIT`
+- package: `clsx` (MIT)
 - deps: none — zero-dependency, framework-agnostic, pure synchronous fold
 - catalog-verdict: KEEP
 - runtime: universal — no React/DOM coupling; runs at render, worker, or build with identical output

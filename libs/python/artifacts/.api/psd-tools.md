@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `psd-tools`
-- package: `psd-tools` (`MIT`, Kota Yamaguchi)
+- package: `psd-tools` (MIT)
 - module: `psd_tools`
 - asset: pure Python but for one `abi3` stable-ABI extension (`compression/_rle.abi3.so`) backing RLE; the optional `composite` extra (`aggdraw`/`scipy`/`scikit-image`) rasterizes vector `ShapeLayer` fills during `composite`, never for pixel authoring or round-trip
 - rail: layered

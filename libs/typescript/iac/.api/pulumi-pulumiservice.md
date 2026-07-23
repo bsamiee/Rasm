@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pulumi/pulumiservice`
-- package: `@pulumi/pulumiservice`
-- license: Apache-2.0
+- package: `@pulumi/pulumiservice` (Apache-2.0)
 - import: `@pulumi/pulumiservice` → the resource roster + `Provider` + the `get*`/`get*Output` reads + the `build*Permissions` token-scope helpers
 - owner: `iac`
 - rail: operate / cloud-control-plane

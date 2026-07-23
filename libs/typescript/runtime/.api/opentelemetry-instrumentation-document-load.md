@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/instrumentation-document-load`
-- package: `@opentelemetry/instrumentation-document-load`
-- license: `Apache-2.0`
+- package: `@opentelemetry/instrumentation-document-load` (Apache-2.0)
 - base: extends `@opentelemetry/instrumentation` `InstrumentationBase`
 - consumed-by: the browser composition root beside the `web` export row
 - runtime: browser only — reads the document Performance Timeline at load

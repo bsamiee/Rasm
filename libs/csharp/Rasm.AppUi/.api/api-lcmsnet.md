@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `lcmsNET`
-- package: `lcmsNET` (`MIT`, Little CMS)
+- package: `lcmsNET` (MIT)
 - assembly: `lcmsNET`
 - namespace: `lcmsNET` (handles, enums, colorimetric structs, the `Cms` static hub)
 - native: P/Invoke over the `lcms2` (`liblcms2`) shared library; the managed layer marshals, the native binary is external

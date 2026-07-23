@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/sdk-trace-web`
-- package: `@opentelemetry/sdk-trace-web` · version `` · license `Apache-2.0`
+- package: `@opentelemetry/sdk-trace-web` (Apache-2.0)
 - module: dual — CJS default (`build/src/index.js`, no `"type"` field) + ESM mirror (`build/esm/index.js`, `module`); flat barrel, no `exports` subpath map; `sideEffects: false`.
 - asset: TSDECL `build/src/index.d.ts` (restored; per-concern `.d.ts` under `build/src/{WebTracerProvider,StackContextManager,utils,types,enums}`).
 - peer: `@opentelemetry/api >=catalog <catalog` — the version-pinned API contract; deps `@opentelemetry/core` (the W catalogC `CompositePropagator` `register()` installs), `@opentelemetry/sdk-trace-base` (the re-exported roster + `BasicTracerProvider` base).
@@ -25,22 +25,9 @@ The two symbols this leg adds over base for context/provider. `WebTracerConfig` 
 |  [03]   | `StackContextManager`   | class (`ContextManager`) | synchronous window-scoped context; `active`/`with`/`bind`/`enable`/`disable` |
 |  [04]   | `SDKRegistrationConfig` | interface (re-export)    | `register()` arg — `{ propagator?, contextManager? }`                        |
 
-```ts signature
-declare class WebTracerProvider extends BasicTracerProvider {
-  constructor(config?: WebTracerConfig)                          // WebTracerConfig = TracerConfig
-  register(config?: SDKRegistrationConfig): void                 // pure-SDK global path (effect WebSdk does NOT call this)
-}
-// register() defaults, from WebTracerProvider: trace.setGlobalTracerProvider(this)
-//   contextManager === undefined → new StackContextManager().enable() → global   (null ⇒ skip)
-//   propagator     === undefined → W3C CompositePropagator (trace-context + baggage, from @opentelemetry/core)  (null ⇒ skip)
-declare class StackContextManager implements ContextManager {
-  active(): Context
-  with<A extends unknown[], F extends (...a: A) => ReturnType<F>>(context: Context | null, fn: F, thisArg?: ThisParameterType<F>, ...args: A): ReturnType<F>
-  bind<T>(context: Context, target: T): T                        // NB: no async continuation — lost across await/microtask
-  enable(): this; disable(): this
-}
-interface SDKRegistrationConfig { propagator?: TextMapPropagator | null; contextManager?: ContextManager | null }
-```
+[WEB_TRACER_PROVIDER]: `WebTracerProvider(WebTracerConfig?)` `WebTracerProvider.register(SDKRegistrationConfig?) -> void`
+[STACK_CONTEXT_MANAGER]: `StackContextManager.active() -> Context` `StackContextManager.with(Context|null,F,ThisParameterType<F>?,...A) -> ReturnType<F>` `StackContextManager.bind(Context,T) -> T` `StackContextManager.enable() -> this` `StackContextManager.disable() -> this`
+[SDKREGISTRATION_CONFIG]: `SDKRegistrationConfig.propagator: TextMapPropagator|null` `SDKRegistrationConfig.contextManager: ContextManager|null`
 
 ## [03]-[RUM_TOOLKIT]
 
@@ -57,15 +44,10 @@ The net-new browser capability over both base and node: one `PerformanceTimingNa
 |  [07]   | `parseUrl(url): URLLike` / `normalizeUrl(url): string`   | URL codec  | WHATWG URL parse/serialize — the one admitted URL decoder   |
 |  [08]   | `shouldPropagateTraceHeaders(...)` / `hasKey(obj, key)`  | guard      | same-origin + allow-list `traceparent` injection gate       |
 
-```ts signature
-declare enum PerformanceTimingNames { FETCH_START, DOMAIN_LOOKUP_START, CONNECT_START, REQUEST_START, RESPONSE_START, RESPONSE_END, /* + DOM_* + REDIRECT_* + *_body_size */ }
-type PropagateTraceHeaderCorsUrls = (string | RegExp) | (string | RegExp)[]
-declare function addSpanNetworkEvents(span: api.Span, resource: PerformanceEntries, ignoreNetworkEvents?: boolean, ignoreZeros?: boolean, skipOldSemconvContentLengthAttrs?: boolean): void
-declare function getResource(spanUrl: string, startTimeHR: api.HrTime, endTimeHR: api.HrTime, resources: PerformanceResourceTiming[], ignoredResources?: WeakSet<PerformanceResourceTiming>, initiatorType?: string): PerformanceResourceTimingInfo
-declare function shouldPropagateTraceHeaders(spanUrl: string, propagateTraceHeaderCorsUrls?: PropagateTraceHeaderCorsUrls): boolean
-interface URLLike { hash: string; host: string; hostname: string; href: string; readonly origin: string; pathname: string; port: string; protocol: string; search: string /* + username/password */ }
-// types: PerformanceEntries (PerformanceTimingNames-keyed), PerformanceLegacy (Safari timing fallback), PerformanceResourceTimingInfo { mainRequest?, corsPreFlightRequest? }
-```
+[PERFORMANCE_TIMING_NAMES]: `FETCH_START` `DOMAIN_LOOKUP_START` `CONNECT_START` `REQUEST_START` `RESPONSE_START` `RESPONSE_END`
+[PROPAGATE_TRACE_HEADER_CORS_URLS]: `PropagateTraceHeaderCorsUrls = (string|RegExp)|(string|RegExp)[]`
+[URLLIKE]: `URLLike.hash: string` `URLLike.host: string` `URLLike.hostname: string` `URLLike.href: string` `URLLike.origin: string` `URLLike.pathname: string` `URLLike.port: string` `URLLike.protocol: string` `URLLike.search: string`
+[SURFACES]: `addSpanNetworkEvents(api.Span,PerformanceEntries,boolean?,boolean?,boolean?) -> void` `getResource(string,api.HrTime,api.HrTime,PerformanceResourceTiming[],WeakSet<PerformanceResourceTiming>?,string?) -> PerformanceResourceTimingInfo` `shouldPropagateTraceHeaders(string,PropagateTraceHeaderCorsUrls?) -> boolean`
 
 ## [04]-[SUPERSET_BARREL]
 

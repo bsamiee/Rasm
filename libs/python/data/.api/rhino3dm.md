@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `rhino3dm`
-- package: `rhino3dm` (MIT, McNeel)
+- package: `rhino3dm` (MIT)
 - module: `import rhino3dm`
 - owner: `data`
 - rail: aec

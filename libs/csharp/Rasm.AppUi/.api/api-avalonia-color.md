@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia.Controls.ColorPicker`
-- package: `Avalonia.Controls.ColorPicker` (`MIT`, AvaloniaUI)
+- package: `Avalonia.Controls.ColorPicker` (MIT)
 - assembly: `Avalonia.Controls.ColorPicker`
 - namespace: `Avalonia.Controls`, `Avalonia.Controls.Primitives`, `Avalonia.Controls.Converters`
 - asset: managed runtime library with embedded `avares://` XAML control templates

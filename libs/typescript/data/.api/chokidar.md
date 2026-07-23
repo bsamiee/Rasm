@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `chokidar`
-- package: `chokidar` (MIT, paulmillr/chokidar)
+- package: `chokidar` (MIT)
 - module format: ESM only (`type: module`); single runtime dependency (`readdirp`); node only
 - exports: `watch` (factory), `FSWatcher` (class) — named exports; the default export bags both
 - rail: local watch row (`object/file`); the local half of the watch strategy row

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `kiwisolver`
-- package: `kiwisolver` (BSD-3-Clause, Nucleic Development Team)
+- package: `kiwisolver` (BSD-3-Clause)
 - module: `kiwisolver`
 - rail: figure
 - abi: native C extension (`kiwisolver._cext`), `py.typed`

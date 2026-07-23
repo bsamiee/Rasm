@@ -5,10 +5,9 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `postgis` + `postgis_raster` + `postgis_sfcgal`
-- package: server-side PostgreSQL extension family (C/C++ over GEOS, PROJ, GDAL, SFCGAL; not a NuGet package); repo `postgis/postgis`
+- packages: `postgis` + `postgis_raster` + `postgis_sfcgal` (GPL-2.0-or-later)
 - namespace: SQL `public` (the `geometry`/`geography`/`raster` types, the `ST_*` and `CG_*` functions, the operator/opclass set)
 - depends: `postgis` is the base; `postgis_raster` and `postgis_sfcgal` each `requires = postgis` — installed as their own `ServerExtension` rows
-- license: GPL-2.0-or-later — the in-DB deployment is the license boundary, no managed linkage
 - registration: preload-free — GiST/SP-GiST/BRIN operator classes over the built-in AMs, no custom access method and no `shared_preload_libraries` row; the EF `NpgsqlNetTopologySuiteExtensionAddingConvention` finalizes `CREATE EXTENSION postgis` on the model
 - consumed by: the `api-npgsql-nts` `NetTopologySuiteTypeInfoResolverFactory` wire codec and the `api-nts-ef` `NpgsqlGeometryTypeMapping<TGeometry>` column mapping, the `Element/identity#ELEMENT_IDENTITY` footprint/boundary/envelope columns, and the `h3_postgis`/`pgrouting` extensions that `requires` it
 - rail: geospatial-provisioning, spatial-store
@@ -188,7 +187,7 @@
 - Spatial capability enters only through the PostgreSQL store profile: the `ServerExtension` rows for `postgis`/`postgis_raster`/`postgis_sfcgal` and `UseNetTopologySuite` on the EF options AND the ADO data source, paired. Per-property SRID is mapping policy; geometry values use `NetTopologySuite` types, never WKT strings or raw `bytea` columns.
 
 [RAIL_LAW]:
-- Package: `postgis` + `postgis_raster` + `postgis_sfcgal` (server-side, in the deploy-image PG18)
+- Package: `postgis` + `postgis_raster` + `postgis_sfcgal` (GPL-2.0-or-later)
 - Owns: the in-PG geospatial SQL surface — the `geometry`/`geography`/`raster` types, the `ST_*` construction/measurement/relationship/overlay/aggregate functions, the `CG_*` exact-3D SFCGAL surface, and the GiST/SP-GiST/BRIN operator classes
 - Accept: `CREATE EXTENSION postgis`/`postgis_raster`/`postgis_sfcgal`, `NetTopologySuite`-typed geometry through the `Npgsql.NetTopologySuite` codec, EF member/method/`EF.Functions` translation to `ST_*`, a `gist_geometry_ops_2d` index behind `ST_Intersects`/`ST_DWithin`/`<->`, the `CG_` SFCGAL spelling, in-db or GUC-gated out-db rasters
 - Reject: linking PostGIS into managed code, a WKT string or raw `bytea` column standing for a geometry contract, a client-evaluated spatial predicate, a per-row scan where a `gist` bbox index serves, placing the family on the `shared_preload_libraries` row

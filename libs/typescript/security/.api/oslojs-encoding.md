@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@oslojs/encoding`
-- package: `@oslojs/encoding`
-- license: `MIT`
+- package: `@oslojs/encoding` (MIT)
 - module: ESM-only (`"type": "module"`); single root export (`dist/index.d.ts`) — every codec is a named import from `@oslojs/encoding`
 - effect-boundary: pure synchronous functions — `encode*` is total (`Effect.sync`/inline), `decode*` throws on malformed input (`Effect.try`). `.api/effect.md`
 - catalog-verdict: KEEP — owns base32 (absent from `effect` `Encoding`) plus the case/padding/url variant grid with a uniform total-decode contract; pairs 1:1 with `@oslojs/crypto` digest bytes

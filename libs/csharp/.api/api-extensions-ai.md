@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.AI.Abstractions`
-- package: `Microsoft.Extensions.AI.Abstractions` (MIT, Microsoft)
+- package: `Microsoft.Extensions.AI.Abstractions` (MIT)
 - assembly: `Microsoft.Extensions.AI.Abstractions`
 - namespace: `Microsoft.Extensions.AI`
 - rail: model-client

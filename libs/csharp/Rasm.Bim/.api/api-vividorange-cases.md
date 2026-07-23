@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `VividOrange.Cases`
-- package: `VividOrange.Cases` (cases, combinations, factories, EN tables), `VividOrange.ICases` (contracts, enums, property structs)
-- license: MIT
+- package: `VividOrange.Cases` (cases, combinations, factories, EN tables), `VividOrange.ICases` (contracts, enums, property structs) (MIT)
 - assembly: `VividOrange.Cases`, `VividOrange.ICases`
 - namespace: `VividOrange.Loads`, `VividOrange.Loads.Cases`, `VividOrange.Loads.Cases.EN`, `VividOrange.Loads.Combinations`, `VividOrange.Loads.Combinations.EN`
 - asset: multi-target `net48`/`net6.0`/`net7.0`/`net8.0`/`netstandard2.0` (net10.0 binds `lib/net8.0`); pure-managed AnyCPU IL, no native binaries, ALC-safe in the in-Rhino plugin

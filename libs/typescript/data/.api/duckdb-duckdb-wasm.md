@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@duckdb/duckdb-wasm`
-- package: `@duckdb/duckdb-wasm`
-- license: `MIT`
+- package: `@duckdb/duckdb-wasm` (MIT)
 - peer: `apache-arrow` (`.api/apache-arrow.md`) — the result and ingest wire
 - runtime: browser Web Worker (`AsyncDuckDB` protocol over `postMessage`); the node row is `@duckdb/node-api` (`.api/duckdb-node-api.md`)
 - rail: `lane/olap` wasm row — no Effect peer; boundary-kernel wrap is the lane's

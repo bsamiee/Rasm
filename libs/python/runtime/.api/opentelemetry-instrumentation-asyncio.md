@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `opentelemetry-instrumentation-asyncio`
-- package: `opentelemetry-instrumentation-asyncio` (`Apache-2.0`, OpenTelemetry Authors)
+- package: `opentelemetry-instrumentation-asyncio` (Apache-2.0)
 - module: `opentelemetry.instrumentation.asyncio`
 - namespaces: `opentelemetry.instrumentation.asyncio`, `opentelemetry.instrumentation.asyncio.environment_variables`
 - rail: observability

@@ -5,9 +5,8 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pulumi/tls`
-- package: `@pulumi/tls`
+- package: `@pulumi/tls` (Apache-2.0)
 - module: `@pulumi/tls`
-- license: `Apache-2.0`
 - asset: provider-tracked key + certificate material (private keys, CSRs, self-signed/CA-signed certs, cert/pubkey reads)
 - runtime: `node` — Terraform-bridge provider plugin auto-downloads on first resource registration; key material persists in stack state
 - rail: fabric
@@ -73,20 +72,8 @@ Key + cert PEMs stack into the kube TLS + traffic rows; `effect` owns the profil
 |  [05]   | `readyForRenewal` / `validityEndTime`       | `previewRefresh` drift fold        | rotation window → reissue drift op                |
 |  [06]   | `getCertificateOutput({url})`               | `Output` graph                     | pin an external chain at deploy time              |
 
-```ts signature
-// iac/kube/traffic — cert-profile → chain → TLS secret, one pipeline
-const key = new tls.PrivateKey("svc", { algorithm: profile.algorithm, ecdsaCurve: profile.curve }, { parent })
-const cert = new tls.LocallySignedCert("svc", {
-  certRequestPem: new tls.CertRequest("svc", { privateKeyPem: key.privateKeyPem, subject, dnsNames }, { parent }).certRequestPem,
-  caPrivateKeyPem: ca.privateKeyPem, caCertPem: ca.certPem,
-  allowedUses: profile.allowedUses,               // Schema.Literal union
-  validityPeriodHours: profile.validityHours, earlyRenewalHours: profile.renewBeforeHours,
-}, { parent })
-new k8s.core.v1.Secret("svc-tls", {
-  type: "kubernetes.io/tls",
-  stringData: { "tls.crt": cert.certPem, "tls.key": key.privateKeyPem },
-}, { parent })
-```
+[SURFACES]: `key = new tls.PrivateKey("svc",{algorithm:profile.algorithm,ecdsaCurve:profile.curve},{parent})` `cert = new tls.LocallySignedCert("svc",{…})`
+[COMPOSITION]: `PrivateKey.privateKeyPem + LocallySignedCert.certPem -> k8s.core.v1.Secret.stringData`
 
 ## [05]-[IMPLEMENTATION_LAW]
 

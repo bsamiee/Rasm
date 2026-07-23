@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pulumi/command`
-- package: `@pulumi/command`
-- license: Apache-2.0
+- package: `@pulumi/command` (Apache-2.0)
 - import: `@pulumi/command` → `{ local, remote, types, Provider }`
 - owner: `iac`
 - rail: fabric / cluster-bootstrap

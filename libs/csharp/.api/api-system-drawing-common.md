@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `System.Drawing.Common`
-- package: `System.Drawing.Common` (MIT, Microsoft)
+- package: `System.Drawing.Common` (MIT)
 - assembly: `System.Drawing.Common`
 - namespace: `System.Drawing`, `System.Drawing.Imaging`, `System.Drawing.Drawing2D`
 - depends: `System.Drawing.Primitives` carries `Color` `Point` `PointF` `Size` `SizeF` `Rectangle` `RectangleF`

@@ -1,7 +1,7 @@
 # [TS_IAC_API_GRAFANA_GRAFANA_FOUNDATION_SDK]
 
 [PACKAGE_SURFACE]:
-- package: `@grafana/grafana-foundation-sdk` · license `Apache-2.0`
+- package: `@grafana/grafana-foundation-sdk` (Apache-2.0)
 - module: exports-map subpaths only — one module per builder domain (`./dashboard`, `./timeseries`, `./stat`, `./gauge`, `./heatmap`, `./logs`, `./table`, `./geomap`, `./nodegraph`, `./prometheus`, `./loki`, `./grafanapyroscope`, `./units`, `./common`, `./cog`, …); each subpath resolves `dist/<domain>/index.d.ts` re-exporting its `types.gen` and one `*Builder.gen` file per builder.
 - shape: every builder is a fluent `cog.Builder<T>` class — chainable members, terminal `.build()` emitting the plain Grafana JSON model — so authoring is typed and the emission boundary is one `.build()` call feeding `oss.Dashboard.configJson`.
 - plane: `plane:deploy` — consumed only by `operate/observe.md`'s `_compiled` fold; no runtime module resolves it.

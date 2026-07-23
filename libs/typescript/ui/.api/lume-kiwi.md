@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@lume/kiwi`
-- package: `@lume/kiwi`
-- license: `BSD-3-Clause`
+- package: `@lume/kiwi` (BSD-3-Clause)
 - deps: none — self-contained ESM Cassowary port (`kiwi.d.ts` barrel re-exports the module set); no peer, no runtime
 - catalog-verdict: KEEP
 - runtime: `scope:viewer` project-local, CPU-only — admitted by the `ui/viewer` Nx project alone; no browser Web API, GL context, or React binding of its own

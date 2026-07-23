@@ -2,25 +2,13 @@
 
 `@pulumi/kubernetes` is the first-class engine of the `selfhosted-k8s` arm: strongly-typed resource classes for every Kubernetes API group (`core/v1`, `apps/v1`, `batch/v1`, `networking/v1`, `rbac/v1`, `storage/v1`, `apiextensions/v1`, …), the `helm.v4.Chart` / `helm.v3.Release` component wrappers that render upstream charts as typed value objects, the `apiextensions.CustomResource` carrier for operator CRDs (the CNPG `Cluster`, cert-manager `Certificate`, Prometheus `ServiceMonitor`), the `yaml`/`kustomize` manifest components, and the `Provider` that binds a kubeconfig. Two shapes cover the whole package: the generated TYPED resource (`apiVersion`/`kind`/`metadata`/`spec`/`status` as `Output`s) and the bespoke COMPONENT (`Chart`/`Release`/`Directory`/`ConfigGroup` over `pulumi.ComponentResource`). In `iac` this is the workload/data/traffic spine — the cluster-bootstrap row (`@pulumi/command`) yields the kubeconfig, `helm.v4.Chart` installs the CNPG operator + LGTM stack + OTel collector as typed values (zero authored YAML), `apiextensions.CustomResource` declares the CNPG cluster whose host feeds `@pulumi/postgresql`, and `@pulumiverse/grafana` applies dashboards onto the rendered Grafana.
 
-```ts conceptual
-// @pulumi/kubernetes — Provider + API-group namespaces + component wrappers
-export { Provider }                        // pulumi.ProviderResource (kubeconfig binding)
-export {                                    // typed resource groups (each with v1/v2/… sub-namespaces)
-  core, apps, batch, networking, rbac, storage, policy, admissionregistration,
-  apiregistration, autoscaling, certificates, coordination, discovery, events,
-  flowcontrol, node, scheduling, settings, meta,
-  apiextensions,                            // CustomResource, CustomResourcePatch, v1.CustomResourceDefinition
-  helm,                                     // helm.v4.Chart, helm.v3.Release
-  kustomize, yaml,                          // kustomize.Directory, yaml.{ConfigFile,ConfigGroup}
-  types,                                    // types.input / types.output nested shape namespaces
-}
-```
+[EXPORTS]: `Provider`
+[EXPORTS]: `core` `apps` `batch` `networking` `rbac` `storage` `policy` `admissionregistration` `apiregistration` `autoscaling` `certificates` `coordination` `discovery` `events` `flowcontrol` `node` `scheduling` `settings` `meta` `apiextensions` `helm` `kustomize` `yaml` `types`
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pulumi/kubernetes`
-- package: `@pulumi/kubernetes`
-- license: `Apache-2.0`
+- package: `@pulumi/kubernetes` (Apache-2.0)
 - build-floor: peer `@pulumi/pulumi ^catalog`; bundles `glob`, `shell-quote` (chart/kustomize shell-out); the `pulumi-resource-kubernetes` plugin needs `helm` + `kubectl` reachable for chart render and SSA
 - target: `node` (Automation-API program process; the plugin shells `helm template` and talks to the API server)
 - entry: `@pulumi/kubernetes` plus the group sub-paths (`@pulumi/kubernetes/apps/v1`, `/helm/v4`, `/apiextensions`, …)
@@ -48,30 +36,8 @@ Every typed resource is `class Kind extends pulumi.CustomResource` with literal-
 |  [07]   | `KindPatch` twin     | `<group>.<v>.<Kind>Patch` — Server-Side-Apply patch variant of every resource                |
 |  [08]   | `KindList` twin      | `<group>.<v>.<Kind>List` — the list-kind resource                                            |
 
-```ts signature
-import * as pulumi from "@pulumi/pulumi"
-import * as inputs from "../../types/input"
-import * as outputs from "../../types/output"
-
-// Canonical shape, shown on apps/v1.Deployment. core/v1.Namespace, core/v1.Service,
-// core/v1.Secret, batch/v1.Job, networking/v1.Ingress, … are this exact structure.
-declare class Deployment extends pulumi.CustomResource {
-  static get(name: string, id: pulumi.Input<pulumi.ID>, opts?: pulumi.CustomResourceOptions): Deployment
-  static isInstance(obj: any): obj is Deployment
-  readonly apiVersion: pulumi.Output<"apps/v1">
-  readonly kind: pulumi.Output<"Deployment">
-  readonly metadata: pulumi.Output<outputs.meta.v1.ObjectMeta>
-  readonly spec: pulumi.Output<outputs.apps.v1.DeploymentSpec>
-  readonly status: pulumi.Output<outputs.apps.v1.DeploymentStatus>
-  constructor(name: string, args?: DeploymentArgs, opts?: pulumi.CustomResourceOptions)
-}
-interface DeploymentArgs {
-  readonly apiVersion?: pulumi.Input<"apps/v1">
-  readonly kind?: pulumi.Input<"Deployment">
-  readonly metadata?: pulumi.Input<inputs.meta.v1.ObjectMeta | undefined>
-  readonly spec?: pulumi.Input<inputs.apps.v1.DeploymentSpec | undefined>
-}
-```
+[DEPLOYMENT]: `Deployment.get(string,pulumi.Input<pulumi.ID>,pulumi.CustomResourceOptions?) -> Deployment` `Deployment.isInstance(any) -> obj is Deployment` `Deployment.apiVersion: pulumi.Output<"apps/v1">` `Deployment.kind: pulumi.Output<"Deployment">` `Deployment.metadata: pulumi.Output<outputs.meta.v1.ObjectMeta>` `Deployment.spec: pulumi.Output<outputs.apps.v1.DeploymentSpec>` `Deployment.status: pulumi.Output<outputs.apps.v1.DeploymentStatus>` `Deployment(string,DeploymentArgs?,pulumi.CustomResourceOptions?)`
+[DEPLOYMENT_ARGS]: `DeploymentArgs.apiVersion: pulumi.Input<"apps/v1">` `DeploymentArgs.kind: pulumi.Input<"Deployment">` `DeploymentArgs.metadata: pulumi.Input<inputs.meta.v1.ObjectMeta|undefined>` `DeploymentArgs.spec: pulumi.Input<inputs.apps.v1.DeploymentSpec|undefined>`
 
 ### [02.2]-[API_GROUP_ROSTER_THE_DATA_FED_TO_THE_TYPED_PATTERN]
 
@@ -120,44 +86,10 @@ Remaining generated groups follow this exact pattern: `policy`, `autoscaling`, `
 |  [18]   | `resourcePrefix`    | `Input<string>` — rendered-resource name prefix                                      |
 |  [19]   | `name`              | `Input<string>` — release name override                                              |
 
-```ts signature
-import * as pulumi from "@pulumi/pulumi"
-import * as inputs from "../../types/input"
-
-declare class Chart extends pulumi.ComponentResource {
-  static isInstance(obj: any): obj is Chart
-  readonly resources: pulumi.Output<any[]>
-  constructor(name: string, args?: ChartArgs, opts?: pulumi.ComponentResourceOptions)
-}
-interface ChartArgs {
-  readonly chart: pulumi.Input<string>
-  readonly values?: pulumi.Input<{ [key: string]: any } | undefined>
-  readonly valueYamlFiles?: pulumi.Input<pulumi.Input<pulumi.asset.Asset | pulumi.asset.Archive>[] | undefined>
-  readonly repositoryOpts?: pulumi.Input<inputs.helm.v4.RepositoryOpts | undefined>
-  readonly version?: pulumi.Input<string | undefined>
-  readonly devel?: pulumi.Input<boolean | undefined>
-  readonly namespace?: pulumi.Input<string | undefined>
-  readonly skipCrds?: pulumi.Input<boolean | undefined>
-  readonly skipAwait?: pulumi.Input<boolean | undefined>
-  readonly includeHooks?: pulumi.Input<boolean | undefined>
-  readonly postRenderer?: pulumi.Input<inputs.helm.v4.PostRenderer | undefined>
-  readonly dependencyUpdate?: pulumi.Input<boolean | undefined>
-  readonly verify?: pulumi.Input<boolean | undefined>
-  readonly keyring?: pulumi.Input<pulumi.asset.Asset | pulumi.asset.Archive | undefined>
-  readonly plainHttp?: pulumi.Input<boolean | undefined>
-  readonly resourcePrefix?: pulumi.Input<string | undefined>
-  readonly name?: pulumi.Input<string | undefined>
-}
-// inputs.helm.v4
-interface RepositoryOpts {
-  readonly repo?: pulumi.Input<string | undefined>
-  readonly username?: pulumi.Input<string | undefined>; readonly password?: pulumi.Input<string | undefined>
-  readonly caFile?: pulumi.Input<pulumi.asset.Asset | pulumi.asset.Archive | undefined>
-  readonly certFile?: pulumi.Input<pulumi.asset.Asset | pulumi.asset.Archive | undefined>
-  readonly keyFile?: pulumi.Input<pulumi.asset.Asset | pulumi.asset.Archive | undefined>
-}
-interface PostRenderer { readonly command: pulumi.Input<string>; readonly args?: pulumi.Input<pulumi.Input<string>[] | undefined> }
-```
+[CHART]: `Chart.isInstance(any) -> obj is Chart` `Chart.resources: pulumi.Output<any[]>` `Chart(string,ChartArgs?,pulumi.ComponentResourceOptions?)`
+[CHART_ARGS]: `ChartArgs.chart: pulumi.Input<string>` `ChartArgs.values: pulumi.Input<{[key:string]:any}|undefined>` `ChartArgs.valueYamlFiles: pulumi.Input<pulumi.Input<pulumi.asset.Asset|pulumi.asset.Archive>[]|undefined>` `ChartArgs.repositoryOpts: pulumi.Input<inputs.helm.v4.RepositoryOpts|undefined>` `ChartArgs.version: pulumi.Input<string|undefined>` `ChartArgs.devel: pulumi.Input<boolean|undefined>` `ChartArgs.namespace: pulumi.Input<string|undefined>` `ChartArgs.skipCrds: pulumi.Input<boolean|undefined>` `ChartArgs.skipAwait: pulumi.Input<boolean|undefined>` `ChartArgs.includeHooks: pulumi.Input<boolean|undefined>` `ChartArgs.postRenderer: pulumi.Input<inputs.helm.v4.PostRenderer|undefined>` `ChartArgs.dependencyUpdate: pulumi.Input<boolean|undefined>` `ChartArgs.verify: pulumi.Input<boolean|undefined>` `ChartArgs.keyring: pulumi.Input<pulumi.asset.Asset|pulumi.asset.Archive|undefined>` `ChartArgs.plainHttp: pulumi.Input<boolean|undefined>` `ChartArgs.resourcePrefix: pulumi.Input<string|undefined>` `ChartArgs.name: pulumi.Input<string|undefined>`
+[REPOSITORY_OPTS]: `RepositoryOpts.repo: pulumi.Input<string|undefined>` `RepositoryOpts.username: pulumi.Input<string|undefined>` `RepositoryOpts.password: pulumi.Input<string|undefined>` `RepositoryOpts.caFile: pulumi.Input<pulumi.asset.Asset|pulumi.asset.Archive|undefined>` `RepositoryOpts.certFile: pulumi.Input<pulumi.asset.Asset|pulumi.asset.Archive|undefined>` `RepositoryOpts.keyFile: pulumi.Input<pulumi.asset.Asset|pulumi.asset.Archive|undefined>`
+[POST_RENDERER]: `PostRenderer.command: pulumi.Input<string>` `PostRenderer.args: pulumi.Input<pulumi.Input<string>[]|undefined>`
 
 `helm.v3` exposes both `Chart` and `Release`. `helm.v3.Chart` extends `yaml.CollectionComponentResource` and renders client-side, exposing rendered objects only through `transformations` callbacks; `helm.v3.Release` is the stateful `helm install` where Pulumi drives the Helm SDK directly, with `atomic` / `skipAwait` / `waitForJobs` / `timeout` / `recreatePods` / `skipCrds` lifecycle knobs. `helm.v4.Chart` supersedes `v3.Chart` — server-side render keeps every rendered object under Pulumi diff, policy, and transform, and stays the default for Pulumi-managed resources; reach `helm.v3.Release` only when a chart requires true release lifecycle (hooks, rollback, atomic install).
 
@@ -179,26 +111,8 @@ interface PostRenderer { readonly command: pulumi.Input<string>; readonly args?:
 |  [06]   | `class CustomResourcePatch`                 | SSA patch twin over an existing CRD instance                                               |
 |  [07]   | `apiextensions.v1.CustomResourceDefinition` | the typed CRD-install resource (`spec.group`/`names`/`versions`/`scope`)                   |
 
-```ts signature
-import * as pulumi from "@pulumi/pulumi"
-import * as inputs from "../types/input"
-import * as outputs from "../types/output"
-
-declare class CustomResource extends pulumi.CustomResource {
-  static get(name: string, opts: CustomResourceGetOptions): CustomResource
-  readonly apiVersion: pulumi.Output<string>
-  readonly kind: pulumi.Output<string>
-  readonly metadata: pulumi.Output<outputs.meta.v1.ObjectMeta>
-  getInputs(): CustomResourceArgs
-  constructor(name: string, args: CustomResourceArgs, opts?: pulumi.CustomResourceOptions)
-}
-interface CustomResourceArgs {
-  apiVersion: string                                  // "postgresql.cnpg.io/v1"
-  kind: string                                        // "Cluster"
-  metadata?: pulumi.Input<inputs.meta.v1.ObjectMeta>
-  [othersFields: string]: pulumi.Input<any>           // spec.instances, spec.imageName, spec.storage, spec.backup, …
-}
-```
+[CUSTOM_RESOURCE]: `CustomResource.get(string,CustomResourceGetOptions) -> CustomResource` `CustomResource.apiVersion: pulumi.Output<string>` `CustomResource.kind: pulumi.Output<string>` `CustomResource.metadata: pulumi.Output<outputs.meta.v1.ObjectMeta>` `CustomResource.getInputs() -> CustomResourceArgs` `CustomResource(string,CustomResourceArgs,pulumi.CustomResourceOptions?)`
+[CUSTOM_RESOURCE_ARGS]: `CustomResourceArgs.apiVersion: string` `CustomResourceArgs.kind: string` `CustomResourceArgs.metadata: pulumi.Input<inputs.meta.v1.ObjectMeta>` `CustomResourceArgs[string]: pulumi.Input<any>`
 
 ### [02.5]-[YAML_KUSTOMIZE_PROVIDER_MANIFEST_COMPONENTS_AND_BINDING]
 
@@ -221,26 +135,8 @@ interface CustomResourceArgs {
 |  [12]   | `ProviderArgs.deleteUnreachable`        | unreachable-cluster resource GC                                                                |
 |  [13]   | `ProviderArgs.clusterIdentifier`        | replace-identity for cluster reassociation                                                     |
 
-```ts signature
-import * as pulumi from "@pulumi/pulumi"
-import * as inputs from "./types/input"
-
-declare class Provider extends pulumi.ProviderResource {
-  static isInstance(obj: any): obj is Provider
-  constructor(name: string, args?: ProviderArgs, opts?: pulumi.ResourceOptions)
-}
-interface ProviderArgs {
-  readonly kubeconfig?: pulumi.Input<string | undefined>          // ← @pulumi/command remote.Command stdout
-  readonly context?: pulumi.Input<string | undefined>
-  readonly cluster?: pulumi.Input<string | undefined>
-  readonly namespace?: pulumi.Input<string | undefined>
-  readonly enableServerSideApply?: pulumi.Input<boolean | undefined>
-  readonly renderYamlToDirectory?: pulumi.Input<string | undefined>
-  readonly helmReleaseSettings?: pulumi.Input<inputs.HelmReleaseSettings | undefined>
-  readonly deleteUnreachable?: pulumi.Input<boolean | undefined>
-  readonly clusterIdentifier?: pulumi.Input<string | undefined>
-}
-```
+[PROVIDER]: `Provider.isInstance(any) -> obj is Provider` `Provider(string,ProviderArgs?,pulumi.ResourceOptions?)`
+[PROVIDER_ARGS]: `ProviderArgs.kubeconfig: pulumi.Input<string|undefined>` `ProviderArgs.context: pulumi.Input<string|undefined>` `ProviderArgs.cluster: pulumi.Input<string|undefined>` `ProviderArgs.namespace: pulumi.Input<string|undefined>` `ProviderArgs.enableServerSideApply: pulumi.Input<boolean|undefined>` `ProviderArgs.renderYamlToDirectory: pulumi.Input<string|undefined>` `ProviderArgs.helmReleaseSettings: pulumi.Input<inputs.HelmReleaseSettings|undefined>` `ProviderArgs.deleteUnreachable: pulumi.Input<boolean|undefined>` `ProviderArgs.clusterIdentifier: pulumi.Input<string|undefined>`
 
 ## [03]-[IMPLEMENTATION_LAW]
 

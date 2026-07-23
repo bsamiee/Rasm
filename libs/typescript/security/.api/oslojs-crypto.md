@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@oslojs/crypto`
-- package: `@oslojs/crypto`
-- license: `MIT`
+- package: `@oslojs/crypto` (MIT)
 - module: ESM-only (`"type": "module"`); no root export — capability is subpath-only, so an import is always `@oslojs/crypto/<sub>`
 - effect-boundary: pure synchronous functions — lift via `Effect.sync` (total) / `Effect.try` (throwing decode); never `Effect.tryPromise` (nothing here is async). `.api/effect.md`
 - catalog-verdict: KEEP — the one HMAC + constant-time-compare + streaming-digest owner; WebCrypto lacks a synchronous constant-time equal and a streaming `Hash` contract, and this is dependency-free vs `@noble/hashes`

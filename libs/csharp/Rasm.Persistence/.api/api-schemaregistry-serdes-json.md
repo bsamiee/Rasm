@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Confluent.SchemaRegistry.Serdes.Json`
-- package: `Confluent.SchemaRegistry.Serdes.Json`
-- license: Apache-2.0
+- package: `Confluent.SchemaRegistry.Serdes.Json` (Apache-2.0)
 - assembly: `Confluent.SchemaRegistry.Serdes.Json`
 - namespace: `Confluent.SchemaRegistry.Serdes`
 - managed: pure-managed AnyCPU, no native asset

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Diagnostics.ResourceMonitoring`
-- package: `Microsoft.Extensions.Diagnostics.ResourceMonitoring` (`MIT`, dotnet/extensions)
+- package: `Microsoft.Extensions.Diagnostics.ResourceMonitoring` (MIT)
 - assembly: `Microsoft.Extensions.Diagnostics.ResourceMonitoring`
 - namespace: `Microsoft.Extensions.Diagnostics.ResourceMonitoring`, `Microsoft.Extensions.DependencyInjection`
 - asset: runtime library

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Speckle.Sdk`
-- package: `Speckle.Sdk` (Apache-2.0, AEC Systems Ltd)
+- package: `Speckle.Sdk` (Apache-2.0)
 - assembly: `Speckle.Sdk`
 - namespace: `Speckle.Sdk.Models`, `Speckle.Sdk.Models.Extensions`, `Speckle.Sdk.Models.GraphTraversal`, `Speckle.Sdk.Common`
 - asset: net10.0, net8.0, netstandard2.0; the net10.0 consumer binds `lib/net10.0`
@@ -13,7 +13,7 @@
 - rail: interchange
 
 [PACKAGE_SURFACE]: `Speckle.Objects`
-- package: `Speckle.Objects` (Apache-2.0, AEC Systems Ltd)
+- package: `Speckle.Objects` (Apache-2.0)
 - assembly: `Speckle.Objects`
 - namespace: `Speckle.Objects.Geometry`, `Speckle.Objects.Data`, `Speckle.Objects`
 - asset: net10.0, net8.0, netstandard2.0; the net10.0 consumer binds `lib/net10.0`

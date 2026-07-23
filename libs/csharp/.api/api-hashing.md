@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `System.IO.Hashing`
-- package: `System.IO.Hashing` (MIT, Microsoft)
+- package: `System.IO.Hashing` (MIT)
 - assembly: `System.IO.Hashing`
 - namespace: `System.IO.Hashing`
 - abi: managed IL, no native asset

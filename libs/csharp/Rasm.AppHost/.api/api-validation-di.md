@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `FluentValidation.DependencyInjectionExtensions`
-- package: `FluentValidation.DependencyInjectionExtensions` (Apache-2.0, © Jeremy Skinner, .NET Foundation)
+- package: `FluentValidation.DependencyInjectionExtensions` (Apache-2.0)
 - assembly: `FluentValidation.DependencyInjectionExtensions`
 - namespace: `FluentValidation`
 - rail: validation

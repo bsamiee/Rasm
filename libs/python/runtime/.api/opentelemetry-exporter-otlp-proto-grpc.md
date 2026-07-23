@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `opentelemetry-exporter-otlp-proto-grpc`
-- package: `opentelemetry-exporter-otlp-proto-grpc` (`Apache-2.0`, OpenTelemetry Authors)
+- package: `opentelemetry-exporter-otlp-proto-grpc` (Apache-2.0)
 - module: `opentelemetry.exporter.otlp.proto.grpc`
 - namespaces: `...grpc.trace_exporter`, `...grpc.metric_exporter`, `...grpc._log_exporter`, `...grpc.exporter`
 - abi: pure-Python runtime library

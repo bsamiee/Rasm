@@ -5,9 +5,8 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `trio`
-- package: `trio`
+- package: `trio` (MIT OR Apache-2.0)
 - module: `trio`
-- license: `MIT OR Apache-2.0`
 - asset: runtime library
 - rail: concurrency
 - depends-on: `attrs`, `sortedcontainers`, `idna`, `outcome`, `sniffio`

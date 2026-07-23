@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `NodaTime.Serialization.Protobuf`
-- package: `NodaTime.Serialization.Protobuf` (Apache-2.0, The Noda Time authors)
+- package: `NodaTime.Serialization.Protobuf` (Apache-2.0)
 - assembly: `NodaTime.Serialization.Protobuf` (binds `lib/netstandard2.0`)
 - namespace: `NodaTime.Serialization.Protobuf`
 - rail: remote-contracts

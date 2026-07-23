@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `photoshopapi`
-- package: `PhotoshopAPI` (`BSD-3-Clause`, Emil Dohne)
+- package: `PhotoshopAPI` (BSD-3-Clause)
 - module: `photoshopapi` (alias `psapi`)
 - namespaces: `psapi.enum`
 - abi: `pybind11` C++20 native extension, off the runtime loader path

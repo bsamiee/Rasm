@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `FluentModbus`
-- package: `FluentModbus` (`MIT`)
+- package: `FluentModbus` (MIT)
 - assembly: `FluentModbus`
 - namespace: `FluentModbus`
 - target: `netstandard2.1`

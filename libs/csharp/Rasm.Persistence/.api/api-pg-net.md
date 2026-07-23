@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pg_net`
-- package: `pg_net` (Apache-2.0, `supabase/pg_net`) — in-process PG18 extension, C over `libcurl`, no managed assembly
+- package: `pg_net` (Apache-2.0)
 - namespace: SQL `net` schema; `pg_net.*` GUC namespace
 - rail: http-provisioning, http-egress
 

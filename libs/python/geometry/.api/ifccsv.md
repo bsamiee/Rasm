@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ifccsv`
-- package: `ifccsv`
+- package: `ifccsv` (LGPL-3.0-or-later)
 - import: `import ifccsv`
 - owner: `geometry`
 - rail: ifc-lifecycle / tabular-exchange
-- license: LGPL-3.0-or-later (IfcOpenShell-ecosystem)
 - entry points: none (single-module library; `python -m ifccsv` is an argparse CLI, not a `console_scripts` row)
 - capability: `export` writes the selected set to CSV/ODS/XLSX or returns a Pandas `DataFrame`; `Import` re-applies an edited table's cells through `util.selector.set_element_value`; ODS needs `odfpy`, XLSX and Pandas need `openpyxl`/`pandas`, imported under `try` guards
 
@@ -56,8 +55,6 @@ Export consumes a model, an `IfcSelector.filter`-scoped element iterable, an att
 - lifecycle stacking: `ifc/costing.md#LIFECYCLE` owns integration: its `LifecyclePhase.EXCHANGE` arm threads a selector through the `IfcSelector.filter` gate, hands the filtered set, attribute list, and a `FILE_FORMAT` token to `IfcCsv().export`, and binds the durable spreadsheet write onto the receipt for `python:data/spatial`; its re-import arm drives `IfcCsv().Import`. A new format is one `FILE_FORMAT` member with its `export_*` writer; a new column is one selector-path attribute string.
 - evidence: each export captures the element count, the attribute columns resolved, and the null/empty substitution counts; each re-import captures the rows applied, the rows skipped (`by_guid` miss), and the cells written; the receipt keys the empty-row fraction as the exchange residual the graduation leg folds against the caller ceiling.
 - boundary: `ifccsv` owns IFC-to-tabular export and table-to-IFC re-import over the `ifcopenshell` model; element selection stays the shared `IfcSelector` gate; attribute read stays `util.selector.get_element_value` and write stays `set_element_value`; the durable spreadsheet write defers to `python:data/spatial`, binding the writer call without holding a file handle across the seam.
-
-## [05]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `ifccsv`

@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `HotAvalonia`
-- package: `HotAvalonia`
-- license: `MIT`
+- package: `HotAvalonia` (MIT)
 - assembly: none (no `lib/`; build, task, and tool assets only)
 - avalonia-floor: `HotAvaloniaMinimumSupportedAvaloniaVersion` (props)
 - rail: hot-reload

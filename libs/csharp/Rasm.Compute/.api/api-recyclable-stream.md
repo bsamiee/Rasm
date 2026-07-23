@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.IO.RecyclableMemoryStream`
-- package: `Microsoft.IO.RecyclableMemoryStream` (MIT, microsoft)
+- package: `Microsoft.IO.RecyclableMemoryStream` (MIT)
 - assembly: `Microsoft.IO.RecyclableMemoryStream`
 - namespace: `Microsoft.IO`
 - abi: `RecyclableMemoryStream : MemoryStream, IBufferWriter<byte>` — the buffer-writer face is the load-bearing serialization-sink contract

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `grpcio-tools`
-- package: `grpcio-tools` (`Apache-2.0`)
+- package: `grpcio-tools` (Apache-2.0)
 - module: `grpc_tools`
 - namespaces: `grpc_tools.protoc`, `grpc_tools.command`
 - asset: build/codegen tool binding the native `_protoc_compiler` extension; dev/build-time only

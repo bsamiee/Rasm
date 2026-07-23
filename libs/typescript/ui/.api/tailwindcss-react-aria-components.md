@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `tailwindcss-react-aria-components`
-- package: `tailwindcss-react-aria-components`
-- license: `Apache-2.0` (© Adobe)
+- package: `tailwindcss-react-aria-components` (Apache-2.0)
 - module format: CommonJS Tailwind plugin (`module.exports = plugin.withOptions(...)`); the shipped `.d.ts` types it as `plugin(options?: { prefix?: string }) => { handler }` with `__isOptionsFunction`
 - runtime target: build-time only — a PostCSS/Tailwind plugin evaluated during CSS compilation; ZERO runtime, never imported by a component
 - peer: `tailwindcss@^catalog` (the folder's `tailwindcss catalog`); catalog registers it CSS-first via `@plugin`, not a JS `plugins: []` array

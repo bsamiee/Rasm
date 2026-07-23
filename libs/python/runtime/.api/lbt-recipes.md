@@ -7,7 +7,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `lbt-recipes`
-- package: `lbt-recipes` (AGPL-3.0, network copyleft)
+- package: `lbt-recipes` (AGPL-3.0)
 - module: `lbt_recipes`
 - abi: pure-Python (`py2.py3-none-any`, purelib; no native extension), shelling out to the Radiance, OpenStudio, and EnergyPlus engines
 - rail: recipe-execution

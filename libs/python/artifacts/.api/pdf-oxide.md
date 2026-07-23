@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pdf_oxide`
-- package: `pdf-oxide` (dist `pdf_oxide`)
+- package: `pdf-oxide` (MIT OR Apache-2.0)
 - import: `pdf_oxide`
 - owner: `artifacts`
 - rail: pdf
-- license: `MIT OR Apache-2.0` — permissive, no copyleft; the load-bearing differentiator from AGPL `pymupdf`, routing the closed/distributed/SaaS render-extract-redact-separation path here without source-disclosure obligation
 - asset: Rust core in one `cp38-abi3` wheel (`pdf_oxide.pdf_oxide.abi3.so`), forward-compatible across every CPython; the crate carries codecs, crypto providers, OCR, and Office conversion in-process, so no Python runtime dep enters the closure
 - entry points: none (library only)
 - capability: open/authenticate/edit (`PdfDocument`), layout-aware extraction with `ExtractionProfile` tuning and full geometry, native render to `RenderedPixmap`, `SeparationPlate` prepress plates, redaction/scrub/sanitize, page assembly, AcroForm read/fill/export, Office and markup conversion both directions, PDF/A-X-UA validate + convert, PAdES B-B…B-LTA signing with DSS/LTV, fluent tagged-PDF/UA authoring, bookmark-driven split, and native async mirrors
@@ -356,11 +355,8 @@ Native async wrappers run every op on an owned single-worker pool (the `PdfDocum
 - typed-model boundary: boundary code admits PyO3 returns into the `msgspec`/`pydantic` discriminated `DocumentNode`/`RunNode`/`TableNode` models once, never forwarding raw PyO3 objects inward. `@beartype` guards the boundary; a `pdf_oxide` raise wraps into the runtime `BoundaryFault` rail via `async_boundary` + an `expression` `Result`, and `stamina.retry` weaves over the `TsaClient`/PAdES network seam.
 - boundary: `Pdf.create()` from the package docstring is not a real classmethod — create through the `from_*` factories or `DocumentBuilder`.
 
-## [05]-[LOCAL_ADMISSION]
-
 [RAIL_LAW]:
-- Package: `pdf_oxide` (`pdf-oxide`)
-- License: `MIT OR Apache-2.0` — the commercial-safe render/extract/redact/separation/create owner and per-concern supersession candidate for the AGPL `pymupdf` arms on the closed/distributed path
+- Package: `pdf-oxide`
 - Owns: commercial-safe PDF open-edit-extract-render-redact-sanitize-sign root (`PdfDocument`), reading-order/layout-aware extraction with `ExtractionProfile` tuning + word/char/line/span geometry, native table extraction, region-restricted re-extraction, render to encoded bytes + raw `RenderedPixmap`, ink `SeparationPlate` prepress rendering, redaction-grade scrub + sanitize + header/footer/artifact strip, page assembly/crop/rotate + embedded-image edit, AcroForm read/fill/export + flatten, native outline/layer/label/annotation/XMP recovery, PDF/A-PDF/X-PDF/UA validate + PDF/A convert, PAdES B-B…B-LTA signing with TSA + DSS/LTV + verify, pluggable crypto providers + FIPS + CBOM, declarative (`Pdf.from_*`) and fluent tagged-PDF/UA (`DocumentBuilder`/`FluentPageBuilder`) creation with embedded fonts + gradients/patterns/blend-modes + barcodes, Office round-trip conversion, bookmark-driven split, and native async mirrors
 - Accept: layout-aware extract → `document/lens#LENS` `RunNode`/`TableNode`; render/pixmap → `graphic/raster/io#RASTER`; separations → `graphic/color/managed#MANAGED` CMYK/separations plane; create → `document/emit#DOCUMENT` `Backend`; redact/sanitize/flatten/outline → `document/egress#FINISH` `Finisher`; validate + PAdES sign → `exchange/conformance#CONFORMANCE`; Office export → `visualization/table#TABLE` tabular feed; the async mirror where the consumer is on the loop
 - Reject: wrapper-renames of `extract_words`/`render_page`/`render_separations`/`apply_redactions_destructive`/`sign_pdf_bytes_pades`/`validate_pdf_a`; a hand-rolled gap-threshold table where `ExtractionProfile` tunes layout; re-clustering chars where `extract_words`/`extract_text_lines` carry geometry; re-deriving separations where `render_separations` measures ink coverage; an AGPL `pymupdf` render/extract/redact arm on the commercial-safe path where `pdf_oxide` covers it permissively; double-offloading the native async mirror through another thread; a parallel barcode/QR generator where `generate_barcode_svg`/`generate_qr_svg` exist; forwarding raw PyO3 value objects into the interior instead of admitting into `msgspec`/`pydantic` models at the boundary; a bare provider `raise` surviving past the `async_boundary` into domain flow; the non-existent `Pdf.create()`; identity minting the runtime owns

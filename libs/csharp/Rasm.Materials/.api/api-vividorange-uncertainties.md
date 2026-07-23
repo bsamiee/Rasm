@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `VividOrange.Uncertainties`
-- package: `VividOrange.Uncertainties` (MIT, MagmaWorks / VividOrange taxonomy)
+- package: `VividOrange.Uncertainties` (MIT)
 - assembly: `VividOrange.Uncertainties`
 - namespace: `VividOrange.Uncertainties`, `double` family + `UncertaintyModel`, `.Scalar` (`INumber<T>` family), `.Decimal` (`decimal` family), `.Utility`
 - dependency: `VividOrange.IUncertainties`
@@ -139,7 +139,7 @@
 - Uncertainty types carry the taxonomy-serialization marker, so `VividOrange.Serialization.ToJson<T>`/`FromJson<T>` reject them at compile time; the property owner reads the typed `CentralValue`/`LowerBound`/`UpperBound` off the wrapper and serializes through the canonical Rasm snapshot codec (`Thinktecture.Runtime.Extensions.Json`/`MessagePack`), never through a VividOrange serializer.
 
 [RAIL_LAW]:
-- Package: `VividOrange.Uncertainties`, `VividOrange.Uncertainties.Quantities`, `VividOrange.IUncertainties` (MIT, pure-managed AnyCPU, `net10.0` binds `net8.0`)
+- Package: `VividOrange.Uncertainties`, `VividOrange.Uncertainties.Quantities`, `VividOrange.IUncertainties` (MIT)
 - Owns: the four uncertainty models over four numeric carriers, the fluent `.WithXUncertainty` admission, the bound-corner and quadrature propagation algebra, the unit-checked quantity arithmetic, and the `IUncertainty<T>` floor, all carried with the value through the Materials `Properties/` and `Profiles/` surfaces.
 - Accept: a material property attached to its uncertainty via `.WithXUncertainty`, read as typed quantity bounds, propagated through the assembly-property folds, and serialized via the canonical Rasm codec at the boundary.
 - Reject: a bare scalar beside a parallel tolerance field where `UncertaintyQuantity<T>` carries both; a per-property uncertainty type where the model×carrier axis collapses to one contract; mixing uncertainty models in arithmetic without lowering; routing an uncertainty value through a VividOrange serializer.

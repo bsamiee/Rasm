@@ -5,19 +5,19 @@ Test-only substitution surfaces fold the AppHost runtime's time, clock, logging,
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.TimeProvider.Testing`
-- package: `Microsoft.Extensions.TimeProvider.Testing` (`MIT`, dotnet/extensions)
+- package: `Microsoft.Extensions.TimeProvider.Testing` (MIT)
 - assembly: `Microsoft.Extensions.TimeProvider.Testing`
 - namespace: `Microsoft.Extensions.Time.Testing`
 - rail: testing seams
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Diagnostics.Testing`
-- package: `Microsoft.Extensions.Diagnostics.Testing` (`MIT`, dotnet/extensions)
+- package: `Microsoft.Extensions.Diagnostics.Testing` (MIT)
 - assembly: `Microsoft.Extensions.Diagnostics.Testing`
 - namespace: `Microsoft.Extensions.Logging.Testing`, `Microsoft.Extensions.Diagnostics.Metrics.Testing`, `Microsoft.Extensions.Logging`, `Microsoft.Extensions.DependencyInjection`
 - rail: testing seams
 
 [PACKAGE_SURFACE]: `NodaTime.Testing`
-- package: `NodaTime.Testing` (`Apache-2.0`, Jon Skeet)
+- package: `NodaTime.Testing` (Apache-2.0)
 - assembly: `NodaTime.Testing`
 - namespace: `NodaTime.Testing`, `NodaTime.Testing.Extensions`, `NodaTime.Testing.TimeZones`
 - rail: testing seams

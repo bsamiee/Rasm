@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Google.Protobuf`
-- package: `Google.Protobuf` (BSD-3-Clause, protocolbuffers/protobuf)
+- package: `Google.Protobuf` (BSD-3-Clause)
 - assembly: `Google.Protobuf`, binding the asset carrying the `ReadOnlySpan<byte>`, `ReadOnlySequence<byte>`, and `IBufferWriter<byte>` overloads
 - namespace: `Google.Protobuf`, `Google.Protobuf.Collections`, `Google.Protobuf.Reflection`, `Google.Protobuf.WellKnownTypes`
 - depends: `Grpc.Tools` owns the `.proto` compile; this package ships the managed runtime alone

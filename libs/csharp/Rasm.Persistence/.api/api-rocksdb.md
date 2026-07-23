@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `rocksdb`
-- package: `rocksdb` (curiosity-ai line)
-- license: BSD-2-Clause binding; Apache-2.0/GPLv2 dual on the native RocksDB core
+- package: `rocksdb` (curiosity-ai line) (BSD-2-Clause)
 - assembly: `RocksDbSharp`
 - namespace: `RocksDbSharp`, `NativeImport`, `Transitional`
 - native: `librocksdb` P/Invoke-loaded through `NativeImport` at first call, RID-resolved at load (`runtimes/osx-arm64/native/librocksdb.dylib`), never AnyCPU

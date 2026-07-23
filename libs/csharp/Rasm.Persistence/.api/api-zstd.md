@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ZstdSharp.Port`
-- package: `ZstdSharp.Port` (`MIT`, Oleg Stepanischev)
+- package: `ZstdSharp.Port` (MIT)
 - assembly: `ZstdSharp`
 - namespace: `ZstdSharp`, `ZstdSharp.Unsafe`
 - target: the `net10.0` consumer binds `lib/net9.0`

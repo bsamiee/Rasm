@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/resources`
-- package: `@opentelemetry/resources`
-- license: `Apache-2.0`
+- package: `@opentelemetry/resources` (Apache-2.0)
 - otel-peer: `@opentelemetry/api >=catalog <catalog` (the `Attributes`/`AttributeValue` source); deps `@opentelemetry/core catalog` (`SDK_INFO`/env readers seed `defaultResource`) + `@opentelemetry/semantic-conventions ^catalog` (the attribute-key vocabulary)
 - consumed-by: `otel/emit` resource composition; the facade's `Resource` module (`@effect/opentelemetry` `Resource.Resource` = `Tag<_, Resources.Resource>`); every `@opentelemetry/sdk-*` provider requires a `Resource`
 - catalog-verdict: KEEP as SDK-bridge peer; edge-ledger fences `@opentelemetry/*` to `scope:runtime`; `[OTEL_PIN_BLOCK]`-collapse member (native `OtlpResource` supersedes)

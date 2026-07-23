@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.ML.OnnxRuntime`
-- package: `Microsoft.ML.OnnxRuntime` (MIT, Microsoft) — meta-package declaring `Microsoft.ML.OnnxRuntime.Managed`, native runtimes, and `build/native` props/targets/headers
+- package: `Microsoft.ML.OnnxRuntime` (MIT)
 - assembly: `Microsoft.ML.OnnxRuntime.Managed` — a `net10.0` non-mobile consumer binds the `lib/net8.0` asset; the `net9.0-{android,ios,maccatalyst}` assets are mobile TFMs, so the surface decompiles against the consumer-bound `net8.0` assembly
 - namespace: `Microsoft.ML.OnnxRuntime`, `Microsoft.ML.OnnxRuntime.CompileApi`, `Microsoft.ML.OnnxRuntime.Tensors`
 - asset: managed runtime library and per-RID native runtime DLLs; accelerated providers ride sibling `.Gpu`/`.DirectML` packages

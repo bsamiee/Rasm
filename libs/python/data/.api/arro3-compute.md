@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `arro3-compute`
-- package: `arro3-compute`
+- package: `arro3-compute` (MIT OR Apache-2.0)
 - owner: `data`
 - module: `arro3.compute`
 - asset: native extension (Rust/PyO3) over `arrow-rs` `arrow-arith`, `arrow-select`, `arrow-cast`, `arrow-ord`
-- license: `MIT OR Apache-2.0`
 - rail: arrow-compute
 
 ## [02]-[PUBLIC_TYPES]

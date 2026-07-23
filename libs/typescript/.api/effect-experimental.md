@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/experimental`
-- package: `@effect/experimental`
-- license: `MIT`
+- package: `@effect/experimental` (MIT)
 - effect-peer: `effect catalog`, `@effect/platform catalog` (universal-tier substrate; `.api/effect.md`, `.api/effect-platform.md`)
 - optional-peer: `ioredis` (Redis `Persistence` backing), `lmdb` (Lmdb backing) — both UNADMITTED
 - runtime: dual — browser-safe client/journal/sync/encryption lanes; node/bun server/actor/queue lanes

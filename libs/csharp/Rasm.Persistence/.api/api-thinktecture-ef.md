@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions.EntityFrameworkCore10`
-- package: `Thinktecture.Runtime.Extensions.EntityFrameworkCore10` (LICENSE.md, © Pawel Gerr)
+- package: `Thinktecture.Runtime.Extensions.EntityFrameworkCore10` (LICENSE.md)
 - assembly: `Thinktecture.Runtime.Extensions.EntityFrameworkCore10`
 - namespace: `Thinktecture`, `Thinktecture.EntityFrameworkCore`, `Thinktecture.EntityFrameworkCore.Internal`, `Thinktecture.EntityFrameworkCore.Storage.ValueConversion`
 - depends: `Thinktecture.Runtime.Extensions`, `Microsoft.EntityFrameworkCore.Relational`

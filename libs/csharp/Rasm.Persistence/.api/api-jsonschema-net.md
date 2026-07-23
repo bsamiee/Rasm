@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `JsonSchema.Net`
-- package: `JsonSchema.Net` (MIT source under an Open Source Maintenance Fee EULA on the binary, Greg Dennis)
+- package: `JsonSchema.Net` (MIT)
 - assembly: `JsonSchema.Net`
 - namespace: `Json.Schema`, `Json.Schema.Keywords`, `Json.Schema.Serialization`
 - depends: `JsonPointer.Net` — the `JsonPointer` model `EvaluationPath`, `InstanceLocation`, and `FindSubschema` carry

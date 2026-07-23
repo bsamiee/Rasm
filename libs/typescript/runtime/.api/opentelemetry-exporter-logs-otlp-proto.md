@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/exporter-logs-otlp-proto`
-- package: `@opentelemetry/exporter-logs-otlp-proto`
-- license: `Apache-2.0`
+- package: `@opentelemetry/exporter-logs-otlp-proto` (Apache-2.0)
 - otel-peer: `@opentelemetry/api ^catalog` (peer), `@opentelemetry/core ^catalog` (the `ExportResult` rail via `otlp-exporter-base`), `@opentelemetry/sdk-logs ^catalog` (the `LogRecordExporter`/`ReadableLogRecord` contract + the `BatchLogRecordProcessor` that wraps it)
 - transitive-config: `@opentelemetry/otlp-exporter-base` supplies the constructor config types (`OTLPExporterNodeConfigBase` / `OTLPExporterConfigBase`), the `OTLPExporterBase` the class extends, `CompressionAlgorithm`, and the `createOtlpHttpExportDelegate`/`createLegacyOtlpBrowserExportDelegate`/`convertLegacyHttpOptions` delegate factories; `@opentelemetry/otlp-transformer` supplies the `ProtobufLogsSerializer` that makes this row protobuf — both are peers, not roster rows
 - consumed-by: `otel/emit` SDK-bridge log leg via the facade's `NodeSdk`/`WebSdk` `Configuration.logRecordProcessor`, on the protobuf-wire selection
@@ -29,16 +28,7 @@
 |  [05]   | `OTLPExporterConfigBase`                       | base config        | `url?`, `headers?`, `concurrencyLimit?`, `timeoutMillis?`       |
 |  [06]   | `OTLPExporterNodeConfigBase`                   | node config        | `keepAlive?`, `compression?`, `httpAgentOptions?`, `userAgent?` |
 
-```ts signature
-class OTLPLogExporter extends OTLPExporterBase<ReadableLogRecord[]> implements LogRecordExporter {
-  constructor(config?: OTLPExporterNodeConfigBase)   // node platform arm
-  constructor(config?: OTLPExporterConfigBase)        // browser platform arm (browser-field remap)
-  // node super:    createOtlpHttpExportDelegate(convertLegacyHttpOptions(config, 'LOGS', 'v1/logs',
-  //                  { 'Content-Type': 'application/x-protobuf' }), ProtobufLogsSerializer)
-  // browser super: createLegacyOtlpBrowserExportDelegate(config, ProtobufLogsSerializer, 'v1/logs',
-  //                  { 'Content-Type': 'application/x-protobuf' })
-}
-```
+[OTLPLOG_EXPORTER]: `OTLPLogExporter(OTLPExporterNodeConfigBase?)` `OTLPLogExporter(OTLPExporterConfigBase?)`
 
 ## [03]-[ENTRYPOINTS]
 
@@ -47,11 +37,11 @@ class OTLPLogExporter extends OTLPExporterBase<ReadableLogRecord[]> implements L
 - Exporter is never a leaf: construct it, wrap it in a processor, hand the processor to the facade — `new OTLPLogExporter(config?)` selects its platform config type by the package `browser` remap. `BatchLogRecordProcessor` (production, queued) or `SimpleLogRecordProcessor` (dev, synchronous) from `sdk-logs` is the wrapper; `NodeSdk`/`WebSdk` `Configuration.logRecordProcessor` is the sink.
 - `url`/`headers`/`compression`/`timeoutMillis` are policy values sourced from config or the `OTEL_EXPORTER_OTLP_LOGS_*` env family (each falling back to the signal-neutral `OTEL_EXPORTER_OTLP_*` variant, via core's readers), never forks; the default endpoint resolves to `http://localhost:4318/v1/logs`; the protobuf wire is fixed by the package, never a config toggle.
 
-| [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                           |
-| :-----: | :------------------------------------------------------------- | :------------- | :-------------------------------------------- |
-|  [01]   | `new OTLPLogExporter(config?: OTLPExporterNodeConfigBase)`     | node ctor      | node OTLP/HTTP protobuf log exporter          |
-|  [02]   | `new OTLPLogExporter(config?: OTLPExporterConfigBase)`         | browser ctor   | browser OTLP/HTTP protobuf log exporter (RUM) |
-|  [03]   | `new BatchLogRecordProcessor({ exporter })` → `logRecordProcessor` | composition | exporter → processor → `NodeSdk`/`WebSdk` |
+| [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                           |
+| :-----: | :----------------------------------------------------------------- | :------------- | :-------------------------------------------- |
+|  [01]   | `new OTLPLogExporter(config?: OTLPExporterNodeConfigBase)`         | node ctor      | node OTLP/HTTP protobuf log exporter          |
+|  [02]   | `new OTLPLogExporter(config?: OTLPExporterConfigBase)`             | browser ctor   | browser OTLP/HTTP protobuf log exporter (RUM) |
+|  [03]   | `new BatchLogRecordProcessor({ exporter })` → `logRecordProcessor` | composition    | exporter → processor → `NodeSdk`/`WebSdk`     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `xlsxwriter`
-- package: `xlsxwriter` (`BSD-2-Clause`)
+- package: `xlsxwriter` (BSD-2-Clause)
 - module: `xlsxwriter`
 - abi: pure-Python, no native build
 - rail: spreadsheet — write-only streaming XLSX/XLSM authoring feeding the artifacts download and export owners

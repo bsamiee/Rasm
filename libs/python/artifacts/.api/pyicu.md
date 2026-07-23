@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `PyICU`
-- package: `PyICU`
+- package: `PyICU` (MIT)
 - module: `icu` (the `icu` package re-exports the `_icu` C++ extension: `from _icu import *`)
 - owner: `artifacts`
 - rail: text-locale
-- license: `MIT`; the dynamically-linked ICU4C libraries carry the permissive ICU/Unicode license, no copyleft obligation
 - build: sdist-only C++ extension over ICU4C (`icu-i18n`/`icu-uc`/`icu-io` via `pkg-config`, C++11); the `icu` row in Forge `scientific-tools.nix` supplies the headers and libraries
 - entry points: none; the `_icu` extension is import-only
 

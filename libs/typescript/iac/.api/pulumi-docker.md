@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pulumi/docker`
-- package: `@pulumi/docker`
-- license: Apache-2.0
+- package: `@pulumi/docker` (Apache-2.0)
 - import: `@pulumi/docker` (flat resource + function barrel; `{ config, types }` namespaces)
 - owner: `iac`
 - rail: fabric / selfhosted-docker

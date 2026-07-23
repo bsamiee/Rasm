@@ -5,14 +5,14 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia.AvaloniaEdit`
-- package: `Avalonia.AvaloniaEdit` (`MIT`)
+- package: `Avalonia.AvaloniaEdit` (MIT)
 - assembly: `AvaloniaEdit` (name ≠ package id; compiled-XAML resources embedded)
 - namespace: `AvaloniaEdit` (control + routed commands), `.Document`, `.Editing`, `.Folding`, `.Highlighting`(+`.Xshd`), `.CodeCompletion`, `.Search`, `.Snippets`, `.Indentation`(+`.CSharp`), `.Rendering`
 - asset: runtime library
 - rail: editor
 
 [PACKAGE_SURFACE]: `AvaloniaEdit.TextMate`
-- package: `AvaloniaEdit.TextMate` (`MIT`)
+- package: `AvaloniaEdit.TextMate` (MIT)
 - assembly: `AvaloniaEdit.TextMate`
 - namespace: `AvaloniaEdit.TextMate`
 - asset: runtime library

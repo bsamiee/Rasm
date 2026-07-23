@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `subtree`
-- package: `subtree`
-- license: MIT
+- package: `subtree` (MIT)
 - assembly: `subtree`
 - namespace: `subtree`
 - asset: net8.0 single TFM; the net10.0 consumer binds `lib/net8.0` — pure-managed AnyCPU, no `runtimes/` folder

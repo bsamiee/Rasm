@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `planetary-computer`
-- package: `planetary-computer` (MIT, Microsoft)
+- package: `planetary-computer` (MIT)
 - module: `planetary_computer`
 - rail: catalog-signing
 - capability: SAS signing of Azure Blob Storage HREFs across STAC `Asset`/`Item`/`ItemCollection`/`Collection`, URL/VRT strings, `ItemSearch`, and STAC/Kerchunk mappings; per-account/container token fetch with TTL cache and HTTP retry; subscription-key injection; opt-in `adlfs`/`azure-storage-blob` filesystem and container-client construction

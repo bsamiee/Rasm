@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/workflow`
-- package: `@effect/workflow`
-- license: `MIT`
+- package: `@effect/workflow` (MIT)
 - effect-peer: `effect catalog`, `@effect/platform catalog`, `@effect/rpc catalog`, `@effect/experimental catalog` (universal-tier substrate; `.api/effect.md`, `.api/effect-platform.md`, `.api/effect-experimental.md`)
 - engine-peer: `@effect/cluster` (`runtime/.api/effect-cluster.md`) provides the durable `WorkflowEngine` via `ClusterWorkflowEngine.layer`; not a hard dependency — `layerMemory` runs without it
 - runtime: node/bun durable lanes — the memory engine is universal (specs), the durable engine rides cluster `MessageStorage` on `@effect/sql` (a node/bun store driver)

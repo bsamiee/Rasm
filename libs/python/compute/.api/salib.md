@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `SALib`
-- package: `SALib` (MIT, SALib project)
+- package: `SALib` (MIT)
 - module: `SALib` (dist `salib`); entrypoints under `SALib.sample.<method>.sample`, `SALib.analyze.<method>.analyze`, utilities in `SALib.util`
 - rail: sensitivity analysis — sampling design and index computation over serial, parallel, and distributed model evaluation with DataFrame/plot/heatmap export
 

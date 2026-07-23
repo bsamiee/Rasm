@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `rtree`
-- package: `rtree`
+- package: `rtree` (MIT)
 - import: `from rtree import index`
 - owner: `geometry`
 - rail: mesh/spatial / bounds-index-enrichment
-- license: `MIT` (own) over libspatialindex `MIT`
 - entry points: none (library only)
 - capability: multi-dimensional R-tree/R*-tree/MVR-tree/TPR-tree index over disk or memory storage, generator-stream bulk load, intersection/nearest/count/containment window queries, numpy-vectorized batch intersection and nearest, and object-payload storage with pickle or live-object container variants
 
@@ -33,19 +32,13 @@
 
 | [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY] | [CAPABILITY]                                                            |
 | :-----: | :--------------------------------------- | :------------ | :---------------------------------------------------------------------- |
-|  [01]   | `Property`                               | config        | slots fenced below; `as_dict`/`initialize_from_dict` round-trip         |
+|  [01]   | `Property`                               | config        | settable slots; `as_dict`/`initialize_from_dict` round-trip             |
 |  [02]   | `RT_RTree` / `RT_MVRTree` / `RT_TPRTree` | index type    | seeds `Property.type`: static, multi-version, or time-parameterized     |
 |  [03]   | `RT_Linear` / `RT_Quadratic` / `RT_Star` | split variant | seeds `Property.variant`: linear/quadratic/R* split (default `RT_Star`) |
 |  [04]   | `RT_Memory` / `RT_Disk`                  | storage       | seeds `Property.storage`: in-memory or file-backed pages                |
 |  [05]   | `RTreeError`                             | failure       | libspatialindex fault surfaced as a Python exception                    |
 
-```python signature
-# rtree.index.Property config slots (settable attributes):
-dimension; type; variant; storage
-leaf_capacity; index_capacity; fill_factor; near_minimum_overlap_factor; tight_mbr
-pagesize; buffering_capacity; overwrite
-filename; dat_extension; idx_extension; tpr_horizon
-```
+[Property slots]: `dimension` `type` `variant` `storage` `leaf_capacity` `index_capacity` `fill_factor` `near_minimum_overlap_factor` `tight_mbr` `pagesize` `buffering_capacity` `overwrite` `filename` `dat_extension` `idx_extension` `tpr_horizon`
 
 ## [03]-[ENTRYPOINTS]
 
@@ -99,8 +92,6 @@ filename; dat_extension; idx_extension; tpr_horizon
 - batch axis: `intersection_v`/`nearest_v` fold a whole query batch into one native call over numpy `(n, d)` arrays, the vectorized path the Bounds arm uses for multi-element clearance candidate generation.
 - evidence: each build captures the entry count and the overall `bounds` MBR; a query receipt keys the candidate count the exact refinement narrows and the R-tree pre-filter ratio the spatial owner folds against the caller ceiling.
 - boundary: rtree owns the persistent bounding-box index and candidate pre-filter; exact nearest-surface distance, ray, and containment stay `trimesh` proximity, narrow-phase collision and signed separation stay `python-fcl`, and fine point-cloud registration stays `small-gicp`/`open3d`.
-
-## [05]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `rtree`

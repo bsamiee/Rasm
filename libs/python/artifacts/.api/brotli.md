@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `brotli`
-- package: `brotli` (`MIT`, Python bindings and bundled native libbrotli, Brotli Authors)
+- package: `brotli` (MIT)
 - module: `brotli`
 - asset: native wheel; `_brotli` C extension, one wheel per interpreter minor (not abi3)
 - rail: compression

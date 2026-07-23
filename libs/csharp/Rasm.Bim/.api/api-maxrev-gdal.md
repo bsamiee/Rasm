@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MaxRev.Gdal.Core`
-- package: `MaxRev.Gdal.Core` (MIT bindings + `GdalBase`; the bundled GDAL/OGR/PROJ corpus is permissive MIT/X11-style, `gdal-data/LICENSE.TXT` ships in the runtime)
+- package: `MaxRev.Gdal.Core` (MIT)
 - assembly: `MaxRev.Gdal.Core`
 - namespace: `MaxRev.Gdal.Core`, `OSGeo.GDAL`, `OSGeo.OGR`, `OSGeo.OSR`
 - asset: IL-only AnyCPU managed assembly (net10.0 binds `lib/net10.0`); P/Invokes `libgdal_wrap`/`libgdalconst_wrap` and ships no native code

@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Xbim.CobieExpress` (entity model) · `Xbim.IO.CobieExpress` (store) · `Xbim.CobieExpress.Exchanger` (converter)
-- package: `Xbim.CobieExpress` + `Xbim.IO.CobieExpress` + `Xbim.CobieExpress.Exchanger`, three direct pins in the COBie Exchange manifest group over `Xbim.Common`/`Xbim.Ifc`/`Xbim.Ifc4`/`Xbim.IO.Table`
-- license: CDDL-1.0 (xBimTeam, `requireLicenseAcceptance=false`) — weak-copyleft file-level reciprocity satisfied by referencing the unmodified NuGet binaries, never vendoring or modifying source
+- packages: `Xbim.CobieExpress` + `Xbim.IO.CobieExpress` + `Xbim.CobieExpress.Exchanger` (CDDL-1.0)
 - assembly: `Xbim.CobieExpress` / `Xbim.IO.CobieExpress` / `Xbim.CobieExpress.Exchanger` — net10 binds `lib/netstandard2.0` (each also ships `net472`), pure-managed AnyCPU IL, ALC-safe, no native asset
 - namespace: `Xbim.CobieExpress` (+ `.Interfaces` `ICobie*`) entity model; `Xbim.IO.CobieExpress` (+ `.Resolvers`) `CobieModel` store; `Xbim.CobieExpress.Exchanger` (+ `.Conversion`/`.Classifications`/`.FilterHelper`/`.IfcHelpers`) converter
 - transitive: `Xbim.Common` (the `IModel`/`IPersistEntity`/`ITransaction`/`ExpressMetaData` EXPRESS runtime); `Xbim.IO.Table` (the COBie-spreadsheet `ModelMapping` behind `ExportToTable`/`ImportFromTable`); `Xbim.Ifc`/`Xbim.Ifc4` (the parallel xBIM IFC stack the exchanger reads); `Microsoft.Extensions.Logging.Abstractions`, `Newtonsoft.Json`, `System.Configuration.ConfigurationManager` (exchanger config/log)
@@ -137,7 +136,7 @@
 - `ExportToTable` mints the canonical COBie-spreadsheet FM deliverable, `SaveAsStep21` the STEP21 interchange form, Esent a working-store backend
 
 [RAIL_LAW]:
-- Package: `Xbim.CobieExpress` + `Xbim.IO.CobieExpress` + `Xbim.CobieExpress.Exchanger` (CDDL-1.0, `requireLicenseAcceptance=false`, pure-managed `lib/netstandard2.0` AnyCPU IL under net10; transitive `Xbim.Common`/`Xbim.IO.Table` + the xBIM `Xbim.Ifc`/`Xbim.Ifc4` stack the exchanger reads)
+- Package: `Xbim.CobieExpress` + `Xbim.IO.CobieExpress` + `Xbim.CobieExpress.Exchanger` (CDDL-1.0)
 - Owns: the COBie EXPRESS FM digital-handover asset-information schema, the `CobieModel` store (STEP21/Esent/spreadsheet IO, transactions, `ExportToTable`/`ImportFromTable`), and the turnkey IFC→COBie converter
 - Accept: the `CobieModel` authored directly from the `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph` `Element`s + `Semantics/properties#PROPERTY_TEMPLATES` Pset attributes + `VividOrange.Stages` phases + `NodaMoney`/`UnitsNet` units + `NodaTime` provenance, serialized as the COBie spreadsheet/STEP21 export leg of `Exchange/export#EXPORT_RAIL` content-keyed by the shared `InterchangeIdentity`
 - Reject: standing up the xBIM `Xbim.Ifc`/`Xbim.Ifc4` reader as a second in-memory IFC authority beside GeometryGym; a hand-rolled COBie spreadsheet writer or a parallel asset-register model beside `CobieModel`; re-typing the Pset/unit/phase vocabulary instead of projecting the owners; binding the `net472` asset (net10 binds `netstandard2.0`); vendoring or modifying the CDDL-1.0 source rather than referencing the binary

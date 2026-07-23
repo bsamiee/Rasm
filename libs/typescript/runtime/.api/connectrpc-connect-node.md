@@ -7,8 +7,7 @@ Node adds the whole reason `runtime` needs a distinct package: a live server sur
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@connectrpc/connect-node`
-- package: `@connectrpc/connect-node`
-- license: `Apache-2.0`
+- package: `@connectrpc/connect-node` (Apache-2.0)
 - peer: `@connectrpc/connect` (exact — the `Transport`/`Interceptor`/`ConnectRouter`/`ConnectRouterOptions`/`ContextValues`/`ConnectError` types; `core/.api/connectrpc-connect.md`), `@bufbuild/protobuf ^catalog` (the JSON/binary read-write option types; `core/.api/bufbuild-protobuf.md`)
 - effect-peer: none direct — the server `NodeHandlerFn` mounts under `serve/live.md`, the client `Transport` is wrapped in `effect` at `net/client.md` (`../../.api/effect.md`)
 - catalog-verdict: KEEP — the Node server+client transport authority; `connect-web` is browser-only with no server surface and no `http2` client lane, and `connect` owns the transport-agnostic client, fault, and router types both consume

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MessagePack`
-- package: `MessagePack` (`MIT`, MessagePack-CSharp / neuecc)
+- package: `MessagePack` (MIT)
 - assembly: `MessagePack` (engine) + `MessagePack.Annotations` (attribute markers, pure-managed)
 - namespace: `MessagePack`, `MessagePack.Resolvers`, `MessagePack.Formatters`
 - asset: multi-target `net9.0`/`net8.0`/`netstandard2.1`/`netstandard2.0`/`net472`; the `net10.0` consumer binds `lib/net9.0/MessagePack.dll`, `MessagePack.Annotations` binds `lib/netstandard2.0`

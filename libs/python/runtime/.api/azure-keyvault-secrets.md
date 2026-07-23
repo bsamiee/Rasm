@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `azure-keyvault-secrets`
-- package: `azure-keyvault-secrets` (`MIT`)
+- package: `azure-keyvault-secrets` (MIT)
 - module: `azure.keyvault.secrets`
 - namespaces: `azure.keyvault.secrets`, `azure.keyvault.secrets.aio`
 - rail: secrets

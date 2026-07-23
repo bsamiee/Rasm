@@ -5,28 +5,15 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@radix-ui/react-label`
-- package: `@radix-ui/react-label`
-- license: `MIT`
+- package: `@radix-ui/react-label` (MIT)
 - react-peer: `react catalog` (React 19 spine; `@types/react` `*`); depends on `@radix-ui/react-primitive@catalog` → `@radix-ui/react-slot@catalog` (`.api/radix-ui-react-slot.md`)
 - catalog-verdict: KEEP
 - runtime: `runtime:browser`, core `ui` — composition plane; not `scope:viewer`. `"use client"`.
 - modules: single `.` barrel — `Label` / `Root` component, `LabelProps` type (verified exports: `Label`, `LabelProps`, `Root`)
 
-```ts signature
-// Verified dist/index.d.ts — LabelProps adds NO own prop; it is Primitive.label's props verbatim (asChild rides in from Primitive).
-import { Primitive } from '@radix-ui/react-primitive'
-interface LabelProps extends React.ComponentPropsWithoutRef<typeof Primitive.label> {}
-declare const Label: React.ForwardRefExoticComponent<LabelProps & React.RefAttributes<HTMLLabelElement>>
-declare const Root: typeof Label   // Root === Label, one component under two names
-export { Label, type LabelProps, Root }
-
-// Verified dist/index.mjs — the single augmented behavior: a target-scoped, caller-composed, multi-click text-guard.
-onMouseDown: (event) => {
-  if ((event.target as HTMLElement).closest('button, input, select, textarea')) return  // interactive target: invoke nothing
-  props.onMouseDown?.(event)                                                             // caller's handler runs first (may preventDefault to opt out)
-  if (!event.defaultPrevented && event.detail > 1) event.preventDefault()                // guard: kill the double-click text-selection
-}
-```
+[EXPORTS]: `Label` `LabelProps` `Root`
+[SURFACES]: `Label: React.ForwardRefExoticComponent<LabelProps&React.RefAttributes<HTMLLabelElement>>` `Root: typeof Label`
+[ON_MOUSE_DOWN]: `closest(button,input,select,textarea) -> props.onMouseDown -> event.preventDefault`
 
 ## [02]-[PUBLIC_TYPES]
 

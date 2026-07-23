@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `queenbee`
-- package: `queenbee` (`MIT`)
+- package: `queenbee` (MIT)
 - module: `queenbee`
 - namespaces: `queenbee.base`, `queenbee.io` (`inputs`/`outputs`/`reference`/`artifact_source`/`common`), `queenbee.plugin`, `queenbee.recipe`, `queenbee.job`, `queenbee.repository`, `queenbee.config`
 - abi: pure-Python (`py3-none-any`, no native extension)

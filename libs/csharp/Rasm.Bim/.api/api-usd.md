@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `UniversalSceneDescription`
-- package: `UniversalSceneDescription` (MPL-2.0, `EggyStudio/UniversalSceneDescription`)
+- package: `UniversalSceneDescription` (MPL-2.0)
 - assembly: `UniversalSceneDescription.dll`, `USD.NET.dll` — both `lib/net10.0/`, one shared `pxr` public surface
 - namespace: `pxr`
 - asset: managed SWIG wrapper over per-RID native USD — `runtimes/{osx-arm64,osx-x64,linux-x64,win-x64}/native` ship `libusd_*.dylib`/`.so`/`.dll`, the Pixar `usd/plugInfo.json` plugin tree, and `libAlembic`; a stage op with no matching RID native payload and plugin tree faults at native load

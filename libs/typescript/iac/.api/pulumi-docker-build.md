@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pulumi/docker-build`
-- package: `@pulumi/docker-build`
-- license: Apache-2.0
+- package: `@pulumi/docker-build` (Apache-2.0)
 - import: `@pulumi/docker-build` → `{ Image, Index, Provider, config, types }` + top-level enums (`Platform`/`NetworkMode`/`CacheMode`)
 - owner: `iac`
 - rail: fabric / selfhosted-docker (canonical image build) + aws (bundled by `awsx.ecr.Image`)

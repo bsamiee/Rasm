@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Marten`
-- package: `Marten` (MIT, © Jeremy D. Miller + JasperFx contributors)
+- package: `Marten` (MIT)
 - assembly: `Marten` binds Postgres, the document store, and raw-JSON passthrough onto the database-agnostic event surface transitive `JasperFx.Events` carries
 - namespace: `Marten`, `Marten.Events`, `Marten.Events.Aggregation`, `Marten.Events.Projections`, `Marten.Events.Projections.Flattened`, `Marten.Events.Daemon`, `Marten.Subscriptions`, `Microsoft.Extensions.DependencyInjection`; transitive `JasperFx.Events`, `JasperFx.Events.Projections`, `JasperFx.Events.Daemon`, `JasperFx.Events.Aggregation`, `JasperFx.MultiTenancy`
 - asset: managed runtime library over `NpgsqlDataSource`; ships the compile-time projection/aggregation source generator (`JasperFx.Events.SourceGenerator.dll`, enabled via `UseSourceGeneratedDiscovery`/`TryUseSourceGeneratedDiscovery`)
@@ -146,9 +146,9 @@
 
 [ENTRYPOINT_SCOPE]: fold a LINQ event query to aggregates (`IMartenQueryable<IEvent>` — `Marten.Events.AggregateToExtensions`)
 
-| [INDEX] | [SURFACE]                                | [SHAPE]  | [CAPABILITY]                                                                            |
-| :-----: | :--------------------------------------- | :------- | :------------------------------------------------------------------------------------- |
-|  [01]   | `AggregateToAsync<T>(T?) -> T?`          | instance | fold every matched event into one aggregate of `T`                  |
+| [INDEX] | [SURFACE]                                       | [SHAPE]  | [CAPABILITY]                                                               |
+| :-----: | :---------------------------------------------- | :------- | :------------------------------------------------------------------------- |
+|  [01]   | `AggregateToAsync<T>(T?) -> T?`                 | instance | fold every matched event into one aggregate of `T`                         |
 |  [02]   | `AggregateToManyAsync<T>() -> IReadOnlyList<T>` | instance | run matched events through `T`'s multi-stream projection, one per identity |
 
 [ENTRYPOINT_SCOPE]: fetch-for-writing and aggregate-handler workflow (`session.Events`)

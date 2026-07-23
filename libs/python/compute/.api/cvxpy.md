@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `cvxpy`
-- package: `cvxpy`
+- package: `cvxpy` (Apache-2.0)
 - import: `import cvxpy as cp`
 - owner: `compute`
 - rail: convex optimization
-- license: Apache-2.0
 - entry points: none (library only)
 - capability: disciplined convex/geometric/quasiconvex modeling with mixed-integer support, multi-backend conic solve with primal/dual recovery, and DPP warm re-solve
 

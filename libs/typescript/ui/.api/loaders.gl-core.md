@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@loaders.gl/core`
-- package: `@loaders.gl/core`
-- license: `MIT`
+- package: `@loaders.gl/core` (MIT)
 - abi: isomorphic browser/node; binary parse is Web Worker-backed (`options.worker`), degrading to main-thread when workers are unavailable
 - deps (loaders.gl framework substrate, transitive): `@loaders.gl/loader-utils` (`Loader`/`LoaderOptions`/`FileSystem` types, `RequestScheduler`, `JSONLoader`, path resolution), `@loaders.gl/schema` + `@loaders.gl/schema-utils` (mesh/table schema), `@loaders.gl/worker-utils` (worker pool), `@probe.gl/log`
 - catalog-verdict: KEEP — deck's `loaders`/`loadOptions` props and direct `parse`/`load` calls consume the loader descriptors

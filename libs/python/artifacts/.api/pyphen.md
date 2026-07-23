@@ -7,7 +7,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pyphen`
-- package: `pyphen` (tri-license `GPL-2.0+ OR LGPL-2.1+ OR MPL-1.1`, libhyphen heritage; the LGPL/MPL arms make in-process linking commercial-safe)
+- package: `pyphen` (GPL-2.0+ OR LGPL-2.1+ OR MPL-1.1)
 - module: `pyphen` (single flat module; `pyphen.dictionaries` is the bundled `.dic` data package, not an import surface)
 - owner: `artifacts`
 - rail: typography

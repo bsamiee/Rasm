@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Themis.Las`
-- package: `Themis.Las` (MIT, `Clodge-Scientific/Themis`)
+- package: `Themis.Las` (MIT)
 - assembly: `Themis.Las` → the `net10.0` consumer binds `lib/net8.0/Themis.Las.dll` (sole `lib/` TFM; pure-managed AnyCPU IL, ALC-safe, no per-RID native asset)
 - namespace: `Themis.Las`, `Themis.Las.Structs`, `Themis.Las.Builders`, `Themis.Las.Stream`, `Themis.Las.Time`
 - depends: `MathNet.Numerics` — `LasPoint.Position` is a `MathNet.Numerics.LinearAlgebra.Vector<double>`, so the point geometry rides the Compute MathNet substrate directly
@@ -121,7 +121,7 @@
 - LAZ decodes at the `api-laszip` peer, routed by a `LasCompression.Sniff`-detected compressed input; both engines are pure-managed IL, so the ALC firebreak holds
 
 [RAIL_LAW]:
-- Package: `Themis.Las` (MIT, pure-managed `lib/net8.0` AnyCPU IL, `MathNet.Numerics` dependency)
+- Package: `Themis.Las` (MIT)
 - Owns: streaming uncompressed ASPRS LAS read/write (point data record formats 0-10), the `LasPoint` facet model, the LAS public header + VLR/EVLR surface, and the GPS-time conversion — the UNCOMPRESSED leg of the `reconstruct#LAS_INGEST` dual-engine front
 - Accept: a raw LAS byte stream admitted through one scoped temp path and decoded by the no-alloc `GetNextPoint(ref LasPoint)` loop into `Position.Clone()`-detached `MathNet` vectors and `& 0x1F`-masked format-0-5 classes, content-keyed via the kernel `ContentHash`/seam `CanonicalWriter` (`ReconstructionLineage`), the ASPRS classification and CRS WKT threaded onto `reconstruct#RECONSTRUCTION`/`georeference#GEO_PROJECTION`
 - Reject: a re-minted point-cloud scan/segmentation/registration engine (the kernel owns it); a LAZ decode in this leg (the `Unofficial.laszip.netstandard` peer owns it) or a native LASzip binding; a hand-implemented `IStreamHandler` beside the path admission; a bare `point.Position` collection or an unmasked format-0-5 classification byte; a second hashing scheme or the upper-stratum `Rasm.Compute` `InterchangeIdentity` beside the kernel `ContentHash`/seam `CanonicalWriter` lineage; a Themis-local CRS reprojection beside `ProjNET`; a parallel point struct or per-format reader family

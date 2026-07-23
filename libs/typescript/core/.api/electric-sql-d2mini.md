@@ -1,7 +1,7 @@
 # [TS_CORE_API_ELECTRIC_SQL_D2MINI]
 
 [PACKAGE_SURFACE]:
-- package: `@electric-sql/d2mini` · version `` · license `Apache-2.0`
+- package: `@electric-sql/d2mini` (Apache-2.0)
 - module: ESM only (`type: module`); single `.` barrel — no subpaths, no durable/replication bindings.
 - asset: `dist/index.d.ts` (barrel over `d catalog` / `multiset` / `operators` / `types`); bundles `fractional-indexing` + `murmurhash-js` + `sorted-btree`.
 - runtime: pure-TS in-process dataflow; runs in node / bun / browser / worker. ZERO peer dependencies — the whole engine is self-contained, so it is browser-safe by construction and the natural in-memory lane for `state`.
@@ -25,32 +25,11 @@ Time-free: the graph is constructed, wired with `pipe`, driven synchronously; th
 |  [06]   | `KeyValue<K, V>` = `[K, V]`     | tuple alias    | the keyed-record shape the keyed operators require                                   |
 |  [07]   | `PipedOperator<I, O>`           | function alias | `(stream: IStreamBuilder<I>) => IStreamBuilder<O>` — the ONE operator shape          |
 
-```ts signature
-// No initialFrontier, no version on sendData — the minimal, time-free graph. output sees the raw MultiSet, not a Message.
-declare class D2 implements ID2 {
-  constructor()
-  newInput<T>(): RootStreamBuilder<T>
-  step(): void; run(): void; finalize(): void
-}
-declare class RootStreamBuilder<T> extends StreamBuilder<T> {
-  sendData(collection: MultiSet<T> | MultiSetArray<T>): void   // no version coordinate
-}
-declare function output<T>(fn: (data: MultiSet<T>) => void): PipedOperator<T, T>   // direct MultiSet, not Message<T>
-// The MultiSet here is the leaner core: elementwise transforms live on it, the folds (join/reduce/count/distinct) are operators only.
-declare class MultiSet<T> {
-  constructor(data?: MultiSetArray<T>)
-  map<U>(f: (d: T) => U): MultiSet<U>; filter(f: (d: T) => boolean): MultiSet<T>
-  negate(): MultiSet<T>; concat(o: MultiSet<T>): MultiSet<T>; consolidate(): MultiSet<T>
-  extend(o: MultiSet<T> | MultiSetArray<T>): void; getInner(): MultiSetArray<T>
-}
-// The in-memory Index — a key→value→multiplicity map with an incremental join; no versioned trace, no compaction frontier.
-declare class Index<K, V> {
-  get(key: K): [V, number][]; getMultiplicity(key: K, value: V): number
-  addValue(key: K, value: [V, number]): void; append(o: Index<K, V>): void
-  join<V2>(o: Index<K, V2>): MultiSet<[K, [V, V2]]>
-  entries(): MapIterator<[K, Map<V, number>]>; keys(): MapIterator<K>; has(key: K): boolean; get size(): number
-}
-```
+[D2]: `D2()` `D2.newInput() -> RootStreamBuilder<T>` `D2.step() -> void` `D2.run() -> void` `D2.finalize() -> void`
+[ROOT_STREAM_BUILDER]: `RootStreamBuilder.sendData(MultiSet<T>|MultiSetArray<T>) -> void`
+[MULTI_SET]: `MultiSet(MultiSetArray<T>?)` `MultiSet.map((d:T)=>U) -> MultiSet<U>` `MultiSet.filter((d:T)=>boolean) -> MultiSet<T>` `MultiSet.negate() -> MultiSet<T>` `MultiSet.concat(MultiSet<T>) -> MultiSet<T>` `MultiSet.consolidate() -> MultiSet<T>` `MultiSet.extend(MultiSet<T>|MultiSetArray<T>) -> void` `MultiSet.getInner() -> MultiSetArray<T>`
+[INDEX]: `Index.get(K) -> [V,number][]` `Index.getMultiplicity(K,V) -> number` `Index.addValue(K,[V,number]) -> void` `Index.append(Index<K,V>) -> void` `Index.join(Index<K,V2>) -> MultiSet<[K,[V,V2]]>` `Index.entries() -> MapIterator<[K,Map<V,number>]>` `Index.keys() -> MapIterator<K>` `Index.has(K) -> boolean` `Index.size: number`
+[SURFACES]: `output((data:MultiSet<T>)=>void) -> PipedOperator<T,T>`
 
 ## [02]-[OPERATOR_ALGEBRA]
 
@@ -82,21 +61,11 @@ The operator library is the SAME ONE-shape `PipedOperator<I, O>` composed by `pi
 |  [22]   | `orderByWithFractionalIndexBTree` | ordered/BTree | SEALED — barrel omits the file; not importable                    |
 |  [23]   | `loadBTree()`                     | ordered/BTree | SEALED — no subpath; unreachable                                  |
 
-```ts signature
-// Same pipe/join/reduce/groupBy algebra as d2ts — the reducer is a @effect/typeclass Semigroup applied per key.
-type JoinType = 'inner' | 'left' | 'right' | 'full' | 'anti'
-declare function join<K, V1, V2, T>(other: IStreamBuilder<KeyValue<K, V2>>, type?: JoinType): PipedOperator<T, KeyValue<K, [V1 | null, V2 | null]>>
-declare function reduce<K, V1, R, T>(f: (values: [V1, number][]) => [R, number][]): (s: IStreamBuilder<T>) => IStreamBuilder<KeyValue<K, R>>
-declare function groupBy<T, K, A extends Record<string, AggregateFunction<T, any>>>(keyFn: (d: T) => K, aggs?: A): (s: IStreamBuilder<T>) => IStreamBuilder<KeyValue<string, K & AggregatesReturnType<T, A>>>
-declare const groupByOperators: { sum; count; avg; min; max; median; mode }
-declare function filterBy<K, V1, T>(other: IStreamBuilder<KeyValue<K, unknown>>): PipedOperator<T, KeyValue<K, V1>>   // semijoin
-```
+[JOIN_TYPE]: `JoinType = 'inner'|'left'|'right'|'full'|'anti'`
+[GROUP_BY_OPERATORS]: `groupByOperators.sum: unknown` `groupByOperators.count: unknown` `groupByOperators.avg: unknown` `groupByOperators.min: unknown` `groupByOperators.max: unknown` `groupByOperators.median: unknown` `groupByOperators.mode: unknown`
+[SURFACES]: `join(IStreamBuilder<KeyValue<K,V2>>,JoinType?) -> PipedOperator<T,KeyValue<K,[V1|null,V2|null]>>` `reduce((values:[V1,number][])=>[R,number][]) -> (s:IStreamBuilder<T>)=>IStreamBuilder<KeyValue<K,R>>` `groupBy((d:T)=>K,A?) -> (s:IStreamBuilder<T>)=>IStreamBuilder<KeyValue<string,K&AggregatesReturnType<T,A>>>` `filterBy(IStreamBuilder<KeyValue<K,unknown>>) -> PipedOperator<T,KeyValue<K,V1>>`
 
-```ts signature
-// The reachable ordered lane: fractional string indices give a stable position without renumbering, so an insert moves one key, never a re-sort. The *BTree twins are defined in dist/operators/orderByBTree.js and topKWithFractionalIndexBTree.js but neither file is re-exported by dist/operators/index.js and no subpath exists — sealed until upstream re-exports them.
-declare function topKWithFractionalIndex<K, V1, T>(cmp: (a: V1, b: V1) => number, opts?: { limit?; offset? }): PipedOperator<T, KeyValue<K, [V1, string]>>
-declare function orderByWithFractionalIndex<T, Ve>(valueExtractor: (v: V) => Ve, opts?: { comparator?; limit?; offset? }): (s: IStreamBuilder<T>) => IStreamBuilder<KeyValue<K, [V, string]>>
-```
+[SURFACES]: `topKWithFractionalIndex((a:V1,b:V1)=>number,{limit?;offset?}?) -> PipedOperator<T,KeyValue<K,[V1,string]>>` `orderByWithFractionalIndex((v:V)=>Ve,{comparator?;limit?;offset?}?) -> (s:IStreamBuilder<T>)=>IStreamBuilder<KeyValue<K,[V,string]>>`
 
 ## [03]-[INTEGRATION]
 

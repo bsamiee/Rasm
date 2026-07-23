@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Caching.Hybrid`
-- package: `Microsoft.Extensions.Caching.Hybrid` (MIT, Microsoft)
+- package: `Microsoft.Extensions.Caching.Hybrid` (MIT)
 - assembly: `Microsoft.Extensions.Caching.Hybrid` (registration and the runtime cache); `Microsoft.Extensions.Caching.Abstractions` (the `HybridCache` contract, entry policy, and codec seam)
 - namespaces: `Microsoft.Extensions.Caching.Hybrid`, `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.Caching.Distributed`
 - rail: runtime cache

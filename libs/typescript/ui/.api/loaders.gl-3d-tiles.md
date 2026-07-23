@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@loaders.gl/3d-tiles`
-- package: `@loaders.gl/3d-tiles`
-- license: `MIT`
+- package: `@loaders.gl/3d-tiles` (MIT)
 - abi: isomorphic browser/node; binary tile parse is Web Worker-backed through the core parse engine (`options.worker`); glTF payload decode delegates to the transitive `@loaders.gl/gltf` decoder
 - peer: `@loaders.gl/core` (`~catalog`, the registry and `parse`/`load`/`parseInBatches` decode surface this loader registers into, `.api/loaders.gl-core.md`)
 - deps (loaders.gl framework substrate, transitive): `@loaders.gl/loader-utils` (`StrictLoaderOptions`/`LoaderContext`/`Loader` types), `@loaders.gl/gltf` (`GLTFPostprocessed`/`FeatureTableJson`, the embedded-glTF decode the batched/instanced tiles delegate to), `@loaders.gl/draco` (`DracoLoaderOptions` for Draco-compressed tile geometry), `@loaders.gl/images` (`ImageLoaderOptions` for embedded textures), `@loaders.gl/schema`; the `Tileset3D`/`Tile3D` traversal engine is `@loaders.gl/tiles`, deck-owned transitive, never a direct dep here

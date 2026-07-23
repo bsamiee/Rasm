@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `typst`
-- package: `typst` (`Apache-2.0`; PyO3/maturin binding over a statically-linked Rust Typst compiler crate + `comemo` incremental world cache, no LaTeX/Node/external process)
+- package: `typst` (Apache-2.0)
 - module: `typst`; bundles the native compiler `.so`, no system toolchain
 - rail: documents — markup compile to PDF/PNG/SVG/HTML, expression eval, document query, PDF/A + PDF/UA profiles, `sys.inputs` data injection, reproducible-timestamp pinning, resolved-font enumeration, font/world-cached batched renders
 

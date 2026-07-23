@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `colour_cxf`
-- package: `colour-cxf`
+- package: `colour-cxf` (BSD-3-Clause)
 - import: `colour_cxf`
 - owner: `artifacts`
 - rail: color
-- license: `BSD-3-Clause`
 - target: pure-Python (`xsdata`-generated dataclasses, abi-agnostic, no native extension, no `python_version` marker)
 - depends: `xsdata` (XML bind/parse/serialize runtime), `typing-extensions`
 - entry points: none (library only)

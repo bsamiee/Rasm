@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@connectrpc/connect-web`
-- package: `@connectrpc/connect-web`
-- license: `Apache-2.0`
+- package: `@connectrpc/connect-web` (Apache-2.0)
 - peer: `@connectrpc/connect catalog` (exact — the `Transport`/`Interceptor` types; `.api/connectrpc-connect.md`), `@bufbuild/protobuf ^catalog` (the JSON/binary read-write option types; `.api/bufbuild-protobuf.md`)
 - effect-peer: none direct — the returned `Transport` is consumed by `createClient`, wrapped in `effect` at `interchange/invoke` (`.api/effect.md`)
 - catalog-verdict: KEEP — the browser transport authority; the `@connectrpc/connect` client is transport-agnostic and needs exactly this pair

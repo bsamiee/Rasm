@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `BACnet`
-- package: `BACnet` (`MIT`, ela-compil)
+- package: `BACnet` (MIT)
 - assembly: `BACnet`
 - namespace: `System.IO.BACnet`, `System.IO.BACnet.Serialize`, `System.IO.BACnet.Storage`, `System.IO.BACnet.Base`
 - target: `netstandard2.0`

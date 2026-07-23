@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Unofficial.laszip.netstandard`
-- package: `Unofficial.laszip.netstandard` (LGPL-2.1 weak copyleft; a managed C# port of the rapidlasso LASzip, arithmetic coder and per-format compressed-item decode/encode ported in C#, not P/Invoked)
+- package: `Unofficial.laszip.netstandard` (LGPL-2.1)
 - assembly: `Unofficial.laszip.netstandard` → the `net10.0` consumer binds `lib/netstandard2.0/Unofficial.laszip.netstandard.dll` (sole `lib/` TFM; pure-managed AnyCPU IL, ALC-safe, no per-RID native asset)
 - namespace: `LASzip.Net`
 - depends: none — zero managed dependencies
@@ -114,7 +114,7 @@
 - `Unofficial.laszip.netstandard` is referenced as a SEPARATE assembly (`PackageReference`), never ILMerged into a Rasm assembly; the pure-managed ns2.0 IL binds forward and the in-Rhino plugin ALC firebreak holds
 
 [RAIL_LAW]:
-- Package: `Unofficial.laszip.netstandard` (LGPL-2.1 weak copyleft, pure-managed `lib/netstandard2.0` AnyCPU IL, zero managed dependencies)
+- Package: `Unofficial.laszip.netstandard` (LGPL-2.1)
 - Owns: the managed LASzip C-API codec — `.las`/`.laz` arithmetic-coded read AND write (point formats 0-10), selective-channel decompression, the `.lax` spatial-index bbox query, and the full ASPRS header/point/VLR/EVLR/geokey/extra-bytes model
 - Accept: the `reconstruct#LAS_INGEST` LAZ-capable decode leg lifting the raw point set through the copying `Vector<double>.Build.DenseOfArray` into the kernel `MathNet.Numerics` vector, the format-correct class channel, every `int` status gated onto the `Fin<T>` funnel, selective decode via `decompress_selective`, windowed reads via the `.lax` `inside_rectangle` path, and the CRS WKT VLR threaded onto `Semantics/georeference#GEO_PROJECTION`
 - Reject: a re-minted point-cloud scan/segmentation/registration engine (the kernel owns it); a second point model beside the `Themis.Las` `LasPoint`/`LasCloud`; a hand-rolled LAZ arithmetic decoder or a native libLASzip binding; the format-0-5 `classification` getter on a format-6-10 record or the wrapping `Dense(double[])` lift over the reused buffer; a second hashing scheme or the upper-stratum `Rasm.Compute` `InterchangeIdentity` beside the kernel `ContentHash`/seam `CanonicalWriter` lineage; a laszip-local CRS reprojection beside `ProjNET`; decoding channels `decompress_selective` masks

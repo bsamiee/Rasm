@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pg_graphql`
-- package: `pg_graphql` (Apache-2.0, `supabase/pg_graphql`) — server-side PostgreSQL extension (Rust/`pgrx`), no managed assembly
+- package: `pg_graphql` (Apache-2.0)
 - namespace: SQL `graphql` schema; `relocatable = false` fixes the schema name
 - target: PG18, function and DDL-event-trigger registered, `shared_preload_libraries`-free
 - registration: `CREATE EXTENSION pg_graphql`; control-file `superuser = true` runs install under a superuser role, query resolution under any role
@@ -78,7 +78,7 @@ Schema reflection caches and invalidates by version: two event triggers bump the
 - `pg_graphql` is the sole in-DB GraphQL resolver, installed through the provisioning `ServerExtension` row; the platform `graphql_public.graphql(...)` convenience wrapper is a deployment-host artifact outside this extension.
 
 [RAIL_LAW]:
-- Package: `pg_graphql` (server-side, deploy-image PG18)
+- Package: `pg_graphql` (Apache-2.0)
 - Owns: the in-PG GraphQL resolver — live schema reflection (tables/columns/FKs/comments → Relay GraphQL types) and `graphql.resolve(...)` → `jsonb` resolution
 - Accept: `CREATE EXTENSION pg_graphql` via `ServerExtension("pg_graphql")`, `graphql.resolve` driven through `FromSql`/`SqlQuery` with bound parameters, `@graphql` comment directives, the Relay connection/filter/order args, the `{data,errors}` envelope read from the `jsonb`
 - Reject: linking the extension into managed code, a runtime-concatenated GraphQL document, a hand-written GraphQL schema beside the reflected one, a `shared_preload_libraries` row, expecting `resolve` to raise on a query error, exposing a primary-key-less table without a surrogate-PK directive

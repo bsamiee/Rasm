@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Confluent.SchemaRegistry`
-- package: `Confluent.SchemaRegistry`
-- license: Apache-2.0
+- package: `Confluent.SchemaRegistry` (Apache-2.0)
 - assembly: `Confluent.SchemaRegistry`
 - namespace: `Confluent.SchemaRegistry`
 - target: multi-target (`net462`, `net6.0`, `net8.0`, `netstandard2.0`); the `net10.0` consumer binds `lib/net8.0`

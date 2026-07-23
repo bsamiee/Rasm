@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/printer`
-- package: `@effect/printer`
-- license: MIT
+- package: `@effect/printer` (MIT)
 - asset: ESM `.d.ts` declaration surface (`dist/dts/*.d.ts`); peer `effect`
 - owner: `edge`
 - rail: render
@@ -33,11 +32,7 @@
 |  [08]   | `Doc.RenderConfig`                        | config union       | `render` discriminant: `compact` \| `pretty`/`smart` + options |
 |  [09]   | `isDoc`/`isCat`/`isUnion`/`isAnnotated`/… | refinement         | fourteen `(u) => u is <Node>` guards over the union            |
 
-```ts signature
-type Doc<A> =
-  | Fail | Empty | Char | Text | Line | FlatAlt | Cat | Nest
-  | Union | Column | WithPageWidth | Nesting | Annotated
-```
+[DOC]: `Doc = |Fail|Empty|Char|Text|Line|FlatAlt|Cat|Nest|Union|Column|WithPageWidth|Nesting|Annotated`
 
 [PUBLIC_TYPE_SCOPE]: intermediate + analysis forms
 - rail: render

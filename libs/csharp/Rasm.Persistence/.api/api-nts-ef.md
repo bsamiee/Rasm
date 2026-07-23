@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite`
-- package: `Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite` (`PostgreSQL`, Npgsql)
+- package: `Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite` (PostgreSQL)
 - assembly: `Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite`
 - namespace: `Microsoft.EntityFrameworkCore` (builder), `Npgsql.EntityFrameworkCore.PostgreSQL.*` (plugins)
 - depends: `Npgsql.EntityFrameworkCore.PostgreSQL` provider, `NetTopologySuite` model, `Npgsql.NetTopologySuite` wire codec

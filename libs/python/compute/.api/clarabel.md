@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `clarabel`
-- package: `clarabel` (Apache-2.0, pyo3/maturin Rust binding)
+- package: `clarabel` (Apache-2.0)
 - module: `import clarabel`
 - rail: convex optimization — conic interior-point solver backend
 

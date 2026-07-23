@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/core`
-- package: `@opentelemetry/core`
-- license: `Apache-2.0`
+- package: `@opentelemetry/core` (Apache-2.0)
 - otel-peer: `@opentelemetry/api >=catalog <catalog` (the `Context`/`SpanContext`/`TextMapPropagator`/`HrTime`/`Attributes` type source); dep `@opentelemetry/semantic-conventions ^catalog` (pure-data, the sole runtime dep) — no third-party runtime dependency
 - consumed-by: `otel/emit` (W3C extract-and-continue codecs), the SDK-bridge lane on `otel/emit` (`ExportResult` rail), and every sibling `@opentelemetry/sdk-*`/`exporter-*` peer transitively
 - catalog-verdict: KEEP as SDK-bridge peer; edge-ledger fences `@opentelemetry/*` to `scope:runtime`; `[OTEL_PIN_BLOCK]`-collapse member of the `[OTLP_SDK]` block (retires when native `Otlp` covers W3C context + export)

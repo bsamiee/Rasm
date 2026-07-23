@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/context-zone`
-- package: `@opentelemetry/context-zone`
-- license: `Apache-2.0`
+- package: `@opentelemetry/context-zone` (Apache-2.0)
 - composition: re-exports `@opentelemetry/context-zone-peer-dep` with `zone.js` bundled — one import, no peer to wire
 - consumed-by: the `web` SDK row's context wiring at the browser composition root; nothing else
 - runtime: browser only — `Zone` patching is a global side effect

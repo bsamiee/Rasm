@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `manifoldc`
-- package: `manifoldc` (`Apache-2.0`, `elalish/manifold`)
+- package: `manifoldc` (Apache-2.0)
 - role: in-repo P/Invoke binding over the C FFI, no NuGet package
 - abi: C headers `manifoldc.h` and `types.h`; `ManifoldVec3` carries `double` components
 - handles: `ManifoldManifold` `ManifoldManifoldVec` `ManifoldMeshGL` `ManifoldMeshGL64` `ManifoldBox` `ManifoldSimplePolygon` `ManifoldPolygons` `ManifoldExecutionContext`

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `VividOrange.IForceMomentInteraction`
-- package: `VividOrange.IForceMomentInteraction` (MIT, MagmaWorks / VividOrange taxonomy)
+- package: `VividOrange.IForceMomentInteraction` (MIT)
 - assembly: `VividOrange.IForceMomentInteraction`
 - namespace: `VividOrange.ForceMomentInteraction`
 - asset: runtime library, pure-managed AnyCPU, no native RID asset; multi-TFM down to `net48`, a `net10.0` consumer binding the `net8.0` asset

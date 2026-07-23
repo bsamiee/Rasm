@@ -1,7 +1,7 @@
 # [TS_CORE_API_ELECTRIC_SQL_D2TS]
 
 [PACKAGE_SURFACE]:
-- package: `@electric-sql/d2ts` · version `` · license `Apache-2.0`
+- package: `@electric-sql/d2ts` (Apache-2.0)
 - module: ESM only (`type: module`, no CJS mirror); `.` barrel plus two peer-gated subpaths — `./sqlite` (durable operator state) and `./electric` (live-replication binding).
 - asset: `dist/index.d.ts` (barrel over `d catalog` / `order` / `multiset` / `version-index` / `operators` / `types`); the `.` core bundles `fractional-indexing` + `murmurhash-js` and has NO peer requirement.
 - runtime: pure-TS in-process dataflow; runs in node / bun / browser / worker. The `.` core is browser-safe; `./sqlite` requires the `better-sqlite catalog` peer (node durable altitude) and `./electric` the `@electric-sql/client` peer (Postgres replication) — neither peer crosses into `state`'s transport-free import surface.
@@ -28,49 +28,13 @@ The graph is constructed once, wired with `pipe`, then driven; time is a partial
 |  [09]   | `KeyValue<K, V>` = `[K, V]`     | tuple alias    | keyed-record shape every keyed operator (`join`/`reduce`/`groupBy`) requires        |
 |  [10]   | `PipedOperator<I, O>`           | function alias | `(stream: IStreamBuilder<I>) => IStreamBuilder<O>` — the ONE operator shape         |
 
-```ts signature
-// One graph, wired declaratively, driven synchronously. sendData carries a signed delta AT a version; the frontier closes a version.
-declare class D2 implements ID2 {
-  constructor(opts: { initialFrontier: Antichain | Version | number | number[] })
-  newInput<T>(): RootStreamBuilder<T>
-  step(): void                    // run one scheduler tick
-  run(): void                     // drain to quiescence
-  finalize(): void                // seal the graph — no more operators
-  pushFrontier(f: Antichain): void; popFrontier(): void; frontier(): Antichain
-}
-declare class RootStreamBuilder<T> extends StreamBuilder<T> {
-  sendData(version: Version | number | number[], collection: MultiSet<T> | MultiSetArray<T>): void
-  sendFrontier(frontier: Antichain | Version | number | number[]): void
-}
-// Version is a partial order: 1-D versions are totally ordered (a lamport tick); N-D versions fold per-replica clocks under the product order.
-declare class Version {
-  lessThan(o: Version): boolean; lessEqual(o: Version): boolean; equals(o: Version): boolean
-  join(o: Version): Version       // least upper bound
-  meet(o: Version): Version       // greatest lower bound — the stability-frontier GLB
-  advanceBy(frontier: Antichain): Version
-}
-declare function v(version: number | number[]): Version   // cached/interned — safe as a Map key
-declare class Antichain {
-  constructor(elements: Version[])
-  meet(o: Antichain): Antichain; lessEqualVersion(version: Version): boolean
-}
-```
+[D2]: `D2({initialFrontier:Antichain|Version|number|number[]})` `D2.newInput() -> RootStreamBuilder<T>` `D2.step() -> void` `D2.run() -> void` `D2.finalize() -> void` `D2.pushFrontier(Antichain) -> void` `D2.popFrontier() -> void` `D2.frontier() -> Antichain`
+[ROOT_STREAM_BUILDER]: `RootStreamBuilder.sendData(Version|number|number[],MultiSet<T>|MultiSetArray<T>) -> void` `RootStreamBuilder.sendFrontier(Antichain|Version|number|number[]) -> void`
+[VERSION]: `Version.lessThan(Version) -> boolean` `Version.lessEqual(Version) -> boolean` `Version.equals(Version) -> boolean` `Version.join(Version) -> Version` `Version.meet(Version) -> Version` `Version.advanceBy(Antichain) -> Version`
+[ANTICHAIN]: `Antichain(Version[])` `Antichain.meet(Antichain) -> Antichain` `Antichain.lessEqualVersion(Version) -> boolean`
+[SURFACES]: `v(number|number[]) -> Version`
 
-```ts signature
-// The signed multiset is the delta algebra: map/filter/negate/concat/consolidate are pure, the keyed folds (join/reduce/count/min/max/distinct/iterate) exploit KeyValue structure.
-declare class MultiSet<T> {
-  constructor(data?: MultiSetArray<T>)               // [value, multiplicity][]
-  map<U>(f: (d: T) => U): MultiSet<U>; filter(f: (d: T) => boolean): MultiSet<T>
-  negate(): MultiSet<T>                              // flip every multiplicity — retraction
-  concat(o: MultiSet<T>): MultiSet<T>; consolidate(): MultiSet<T>   // merge identical records, drop zero-sum
-  join<U>(o: MultiSet<KeyedData<U>>): MultiSet<KeyedData<[T, U]>>   // KeyedData<T> = [key: string, value: T]
-  reduce<U>(f: (vals: [T, number][]) => [U, number][]): MultiSet<KeyedData<U>>
-  count(): MultiSet<KeyedData<number>>; sum(): MultiSet<KeyedData<number>>; distinct(): MultiSet<KeyedData<T>>
-  min(): MultiSet<KeyedData<T>>; max(): MultiSet<KeyedData<T>>      // per-key; no negative multiplicity
-  iterate(f: (c: MultiSet<T>) => MultiSet<T>): MultiSet<T>          // fixpoint — runs to convergence
-  extend(o: MultiSet<T> | MultiSetArray<T>): void; getInner(): MultiSetArray<T>
-}
-```
+[MULTI_SET]: `MultiSet(MultiSetArray<T>?)` `MultiSet.map((d:T)=>U) -> MultiSet<U>` `MultiSet.filter((d:T)=>boolean) -> MultiSet<T>` `MultiSet.negate() -> MultiSet<T>` `MultiSet.concat(MultiSet<T>) -> MultiSet<T>` `MultiSet.consolidate() -> MultiSet<T>` `MultiSet.join(MultiSet<KeyedData<U>>) -> MultiSet<KeyedData<[T,U]>>` `MultiSet.reduce((vals:[T,number][])=>[U,number][]) -> MultiSet<KeyedData<U>>` `MultiSet.count() -> MultiSet<KeyedData<number>>` `MultiSet.sum() -> MultiSet<KeyedData<number>>` `MultiSet.distinct() -> MultiSet<KeyedData<T>>` `MultiSet.min() -> MultiSet<KeyedData<T>>` `MultiSet.max() -> MultiSet<KeyedData<T>>` `MultiSet.iterate((c:MultiSet<T>)=>MultiSet<T>) -> MultiSet<T>` `MultiSet.extend(MultiSet<T>|MultiSetArray<T>) -> void` `MultiSet.getInner() -> MultiSetArray<T>`
 
 ## [02]-[OPERATOR_ALGEBRA]
 
@@ -90,37 +54,11 @@ The operator library is ONE parameterized shape — `PipedOperator<I, O>` compos
 - [04]-[ORDERED]: keyed; the fractional index maintains order WITHOUT a full re-sort.
 - [05]-[RECURSIVE]: fixpoint scope — loops the sub-graph to convergence.
 
-```ts signature
-// pipe is variadic (1..20 typed arities + a rest fallback); every stage is a PipedOperator. This is the whole composition mechanism.
-input.pipe(
-  map((row) => row.payload),
-  filter((p) => p.live),
-  keyBy((p) => p.entityId),
-  reduce((vals: [Payload, number][]) => foldSemigroup(vals)),   // the keyed incremental fold
-  consolidate(),
-  output((msg: Message<KeyValue<Payload>>) => sink(msg)),
-)
-```
+[COMPOSITION]: `input.pipe(map, filter, keyBy, reduce, consolidate, output)`
 
-```ts signature
-// join is ONE operator parameterized by JoinType; inner/anti/left/right/full are convenience rows on it, not five hand-rolled joins.
-type JoinType = 'inner' | 'left' | 'right' | 'full' | 'anti'
-declare function join<K, V1, V2, T>(other: IStreamBuilder<KeyValue<K, V2>>, type?: JoinType): PipedOperator<T, KeyValue<K, [V1 | null, V2 | null]>>
-declare function innerJoin<…>(other): PipedOperator<T, KeyValue<K, [V1, V2]>>          // + antiJoin/leftJoin/rightJoin/fullJoin
-// reduce is the fold primitive — signed input pairs to signed output pairs; count/distinct/min/max are reduce specializations.
-declare function reduce<K, V1, R, T>(f: (values: [V1, number][]) => [R, number][]): (s: IStreamBuilder<T>) => IStreamBuilder<KeyValue<K, R>>
-// groupBy composes named aggregate combinators — one parameterized aggregate shape, the roster is seed data.
-declare function groupBy<T, K, A extends Record<string, AggregateFunction<T, any>>>(keyFn: (d: T) => K, aggs: A): (s: IStreamBuilder<T>) => IStreamBuilder<KeyValue<string, K & AggregatesReturnType<T, A>>>
-declare const groupByOperators: { sum; count; avg; min; max; median; mode }   // AggregateFunction rows; `avg` carries {sum,count} state
-```
+[SURFACES]: `JoinType` `join` `innerJoin` `reduce` `groupBy` `groupByOperators`
 
-```ts signature
-// The named-defect deletion: orderBy re-sorts on every change; topKWithFractionalIndex assigns a fractional string index so an insert is one key, not a re-sort.
-declare function orderByWithFractionalIndex<T, Ve>(valueExtractor: (v: V) => Ve, opts?: { comparator?; limit?; offset? }): (s: IStreamBuilder<T>) => IStreamBuilder<KeyValue<K, [V, string]>>
-declare function topKWithFractionalIndex<K, V1, T>(cmp: (a: V1, b: V1) => number, opts?: { limit?; offset? }): PipedOperator<T, KeyValue<K, [V1, string]>>
-// iterate is the recursive scope — the sub-graph loops to a fixpoint (transitive closure, causal reachability, Merkle-DAG walk).
-declare function iterate<T>(f: (s: IStreamBuilder<T>) => IStreamBuilder<T>): (s: IStreamBuilder<T>) => IStreamBuilder<T>
-```
+[SURFACES]: `orderByWithFractionalIndex((v:V)=>Ve,{comparator?;limit?;offset?}?) -> (s:IStreamBuilder<T>)=>IStreamBuilder<KeyValue<K,[V,string]>>` `topKWithFractionalIndex((a:V1,b:V1)=>number,{limit?;offset?}?) -> PipedOperator<T,KeyValue<K,[V1,string]>>` `iterate((s:IStreamBuilder<T>)=>IStreamBuilder<T>) -> (s:IStreamBuilder<T>)=>IStreamBuilder<T>`
 
 ## [03]-[INDEX_AND_PERSISTENCE]
 
@@ -146,17 +84,9 @@ declare function iterate<T>(f: (s: IStreamBuilder<T>) => IStreamBuilder<T>): (s:
 - [07]-[ELECTRIC_IN]: binds a Postgres `ShapeStream` as graph input; `lsnToVersion` maps LSN→`Version`.
 - [08]-[ELECTRIC_OUT]: emits `ChangeMessage<Row>[]` — the replication-shaped egress.
 
-```ts signature
-// The ./sqlite subpath mirrors the core operator set (join/reduce/distinct/groupBy/orderBy/topK/consolidate/buffer) over a SQLite-backed version index — the durable node altitude.
-interface SQLiteDb { exec(sql: string): void; prepare<P, R>(sql: string): SQLiteStatement<P, R> }
-declare class BetterSQLite3Wrapper implements SQLiteDb { constructor(db: import('better-sqlite3').Database); close(): void }
-// The ./electric subpath is the live-replication bridge — LSN becomes the version, so replication order IS dataflow time.
-declare function electricStreamToD2Input<T extends Row>(opts: {
-  graph: D2; stream: ShapeStreamInterface<T>; input: RootStreamBuilder<[key: string, T]>
-  lsnToVersion?: (lsn: number) => number | Version; lsnToFrontier?: (lsn: number) => number | Antichain
-  runOn?: 'up-to-date' | 'lsn-advance' | false
-}): RootStreamBuilder<[key: string, T]>
-```
+[SQLITE_DB]: `SQLiteDb.exec(string) -> void` `SQLiteDb.prepare(string) -> SQLiteStatement<P,R>`
+[BETTER_SQLITE3_WRAPPER]: `BetterSQLite3Wrapper(import('better-sqlite3').Database)` `BetterSQLite3Wrapper.close() -> void`
+[SURFACES]: `electricStreamToD2Input({…}) -> RootStreamBuilder<[key:string,T]>`
 
 ## [04]-[INTEGRATION]
 

@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Confluent.SchemaRegistry.Serdes.Protobuf`
-- package: `Confluent.SchemaRegistry.Serdes.Protobuf`
-- license: Apache-2.0
+- package: `Confluent.SchemaRegistry.Serdes.Protobuf` (Apache-2.0)
 - assembly: `Confluent.SchemaRegistry.Serdes.Protobuf`
 - namespace: `Confluent.SchemaRegistry.Serdes`, `Confluent.SchemaRegistry.Serdes.Protobuf`
 - managed: pure-managed AnyCPU, no native asset

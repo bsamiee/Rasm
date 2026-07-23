@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `UnitsNet`
-- package: `UnitsNet` (MIT-0, © Andreas Gullberg Larsen)
+- package: `UnitsNet` (MIT-0)
 - assembly: `UnitsNet`
 - namespace: `UnitsNet`, `UnitsNet.Units`, `UnitsNet.GenericMath`
 - asset: managed runtime library with localized abbreviation satellite assemblies

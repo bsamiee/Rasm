@@ -7,11 +7,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `daft`
-- package: `daft`
+- package: `daft` (Apache-2.0)
 - import: `import daft`
 - owner: `data`
 - rail: distributed dataframe
-- license: `Apache-2.0`
 - capability: lazy logical-plan dataframes over partitioned out-of-core data on native and Ray runners; pushdown; numeric, temporal, nested, and multimodal `tensor`/`image`/`embedding` dtypes; a flat typed `Expression` algebra; Parquet/CSV/JSON/WARC IO with Delta/Iceberg/Hudi/Lance lakehouse readers and writers; catalog and session resolution; SQL over registered frames; scalar and class UDFs; Arrow/pandas/Ray/Dask/PyTorch interop and streaming row/batch/partition iterators
 
 ## [02]-[PUBLIC_TYPES]
@@ -102,46 +101,46 @@
 
 Transform methods return a new lazy `DataFrame`; `collect`/`show`/`count_rows`/`to_*`/`iter_rows`/`write_*` are sinks that execute the plan. A column argument accepts an `Expression` or a `str` name interchangeably.
 
-| [INDEX] | [SURFACE]                                                             | [SHAPE]  | [CAPABILITY]                                     |
-| :-----: | :-------------------------------------------------------------------- | :------- | :----------------------------------------------- |
-|  [01]   | `select(*columns, **projections)`                                     | instance | project columns and named expressions            |
-|  [02]   | `where(predicate)`                                                    | instance | filter rows (`filter` alias)        |
-|  [03]   | `with_column(name, expr)`                                             | instance | add or replace one computed column               |
-|  [04]   | `with_columns(columns)`                                               | instance | add or replace columns from a dict               |
-|  [05]   | `exclude(*names)`                                                     | instance | drop named columns                               |
-|  [06]   | `sort(by, *, desc, nulls_first)`                                      | instance | order rows by columns or expressions             |
-|  [07]   | `limit(num)`                                                          | instance | cap row count                                    |
-|  [08]   | `distinct(*on)`                                                       | instance | deduplicate rows, optionally on keys             |
-|  [09]   | `join(other, *, on, left_on, right_on, how, strategy)`                | instance | relational join with strategy hint               |
-|  [10]   | `groupby(*group_by) -> GroupedDataFrame`                              | instance | group rows for aggregation                       |
-|  [11]   | `agg(*to_agg)`                                                        | instance | global aggregation over expressions              |
-|  [12]   | `explode(*columns)`                                                   | instance | unnest list columns to rows                      |
-|  [13]   | `unpivot(ids, values, *, variable_name, value_name)`                  | instance | wide-to-long reshape (`melt` alias)              |
-|  [14]   | `sample(fraction, *, with_replacement, seed)`                         | instance | random row sample                                |
-|  [15]   | `repartition(num, *partition_by)`                                     | instance | hash or round-robin repartition                  |
-|  [16]   | `into_partitions(num)`                                                | instance | coalesce or split into N partitions              |
-|  [17]   | `pivot(group_by, pivot_col, value_col, agg_fn, *, names)`             | instance | long-to-wide pivot with aggregation              |
-|  [18]   | `transform(func, *args, **kwargs)`                                    | instance | apply a `DataFrame -> DataFrame` fn        |
-|  [19]   | `agg_list(*cols)`                                                     | instance | global list aggregation                          |
-|  [20]   | `collect(*, num_preview_rows)`                                        | instance | execute and cache the result                     |
-|  [21]   | `show(n, *, format, max_width, columns)`                              | instance | execute and render a preview                     |
-|  [22]   | `count_rows() -> int`                                                 | instance | execute and count rows                           |
-|  [23]   | `iter_rows(*, results_buffer_size, column_format)`                    | instance | stream rows out-of-core                          |
-|  [24]   | `to_arrow() -> pyarrow.Table`                                         | instance | execute and egress to Arrow                      |
-|  [25]   | `to_pydict() -> dict`                                                 | instance | execute and egress to a column dict              |
-|  [26]   | `to_pandas(*, coerce_temporal_nanoseconds)`                           | instance | execute and egress to pandas                     |
-|  [27]   | `write_parquet(root_dir, *, compression, write_mode, partition_cols, single_file)` | instance | partitioned Parquet sink                         |
-|  [28]   | `write_deltalake(table, *, mode, schema_mode, partition_cols)`        | instance | Delta Lake table sink                            |
-|  [29]   | `write_iceberg(table, *, mode)`                                       | instance | Iceberg table sink                               |
-|  [30]   | `write_csv(root_dir, *, write_mode, partition_cols)`                  | instance | partitioned CSV sink                             |
-|  [31]   | `write_json(root_dir, *, write_mode, partition_cols)`                 | instance | partitioned newline-JSON sink                    |
-|  [32]   | `write_lance(uri, *, mode)`                                           | instance | Lance dataset sink                               |
-|  [33]   | `summarize() -> DataFrame`                                            | instance | per-column statistics frame                      |
-|  [34]   | `describe() -> DataFrame`                                             | instance | schema as a frame                                |
-|  [35]   | `explain(*, show_all, format, simple)`                                | instance | print the logical or physical plan               |
-|  [36]   | `schema() -> Schema`                                                  | instance | resolved output schema                           |
-|  [37]   | `metrics`                                                             | property | per-op stats frame; `None` unattached |
-|  [38]   | `num_partitions()`                                                    | instance | resolved partition count post-execution          |
+| [INDEX] | [SURFACE]                                                                          | [SHAPE]  | [CAPABILITY]                            |
+| :-----: | :--------------------------------------------------------------------------------- | :------- | :-------------------------------------- |
+|  [01]   | `select(*columns, **projections)`                                                  | instance | project columns and named expressions   |
+|  [02]   | `where(predicate)`                                                                 | instance | filter rows (`filter` alias)            |
+|  [03]   | `with_column(name, expr)`                                                          | instance | add or replace one computed column      |
+|  [04]   | `with_columns(columns)`                                                            | instance | add or replace columns from a dict      |
+|  [05]   | `exclude(*names)`                                                                  | instance | drop named columns                      |
+|  [06]   | `sort(by, *, desc, nulls_first)`                                                   | instance | order rows by columns or expressions    |
+|  [07]   | `limit(num)`                                                                       | instance | cap row count                           |
+|  [08]   | `distinct(*on)`                                                                    | instance | deduplicate rows, optionally on keys    |
+|  [09]   | `join(other, *, on, left_on, right_on, how, strategy)`                             | instance | relational join with strategy hint      |
+|  [10]   | `groupby(*group_by) -> GroupedDataFrame`                                           | instance | group rows for aggregation              |
+|  [11]   | `agg(*to_agg)`                                                                     | instance | global aggregation over expressions     |
+|  [12]   | `explode(*columns)`                                                                | instance | unnest list columns to rows             |
+|  [13]   | `unpivot(ids, values, *, variable_name, value_name)`                               | instance | wide-to-long reshape (`melt` alias)     |
+|  [14]   | `sample(fraction, *, with_replacement, seed)`                                      | instance | random row sample                       |
+|  [15]   | `repartition(num, *partition_by)`                                                  | instance | hash or round-robin repartition         |
+|  [16]   | `into_partitions(num)`                                                             | instance | coalesce or split into N partitions     |
+|  [17]   | `pivot(group_by, pivot_col, value_col, agg_fn, *, names)`                          | instance | long-to-wide pivot with aggregation     |
+|  [18]   | `transform(func, *args, **kwargs)`                                                 | instance | apply a `DataFrame -> DataFrame` fn     |
+|  [19]   | `agg_list(*cols)`                                                                  | instance | global list aggregation                 |
+|  [20]   | `collect(*, num_preview_rows)`                                                     | instance | execute and cache the result            |
+|  [21]   | `show(n, *, format, max_width, columns)`                                           | instance | execute and render a preview            |
+|  [22]   | `count_rows() -> int`                                                              | instance | execute and count rows                  |
+|  [23]   | `iter_rows(*, results_buffer_size, column_format)`                                 | instance | stream rows out-of-core                 |
+|  [24]   | `to_arrow() -> pyarrow.Table`                                                      | instance | execute and egress to Arrow             |
+|  [25]   | `to_pydict() -> dict`                                                              | instance | execute and egress to a column dict     |
+|  [26]   | `to_pandas(*, coerce_temporal_nanoseconds)`                                        | instance | execute and egress to pandas            |
+|  [27]   | `write_parquet(root_dir, *, compression, write_mode, partition_cols, single_file)` | instance | partitioned Parquet sink                |
+|  [28]   | `write_deltalake(table, *, mode, schema_mode, partition_cols)`                     | instance | Delta Lake table sink                   |
+|  [29]   | `write_iceberg(table, *, mode)`                                                    | instance | Iceberg table sink                      |
+|  [30]   | `write_csv(root_dir, *, write_mode, partition_cols)`                               | instance | partitioned CSV sink                    |
+|  [31]   | `write_json(root_dir, *, write_mode, partition_cols)`                              | instance | partitioned newline-JSON sink           |
+|  [32]   | `write_lance(uri, *, mode)`                                                        | instance | Lance dataset sink                      |
+|  [33]   | `summarize() -> DataFrame`                                                         | instance | per-column statistics frame             |
+|  [34]   | `describe() -> DataFrame`                                                          | instance | schema as a frame                       |
+|  [35]   | `explain(*, show_all, format, simple)`                                             | instance | print the logical or physical plan      |
+|  [36]   | `schema() -> Schema`                                                               | instance | resolved output schema                  |
+|  [37]   | `metrics`                                                                          | property | per-op stats frame; `None` unattached   |
+|  [38]   | `num_partitions()`                                                                 | instance | resolved partition count post-execution |
 
 - `metrics`: `RecordBatch` of per-operator execution stats, raising until `collect` materializes the plan.
 - `num_partitions()`: `None` on the single-partition native runner; `agg_set`/`agg_concat` mirror `agg_list` for set-dedupe and concat aggregation.

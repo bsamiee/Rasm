@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `adbc-driver-postgresql`
-- package: `adbc-driver-postgresql`
+- package: `adbc-driver-postgresql` (Apache-2.0)
 - module: `adbc_driver_postgresql`
 - owner: `data`
 - rail: partition
-- license: `Apache-2.0`
 
 ## [02]-[PUBLIC_TYPES]
 

@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pebble`
-- package: `pebble`
-- license: LGPL-3.0
+- package: `pebble` (LGPL-3.0)
 - import: `pebble`
 - owner: `runtime`
 - rail: worker fabric

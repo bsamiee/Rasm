@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `PanAndZoom`
-- package: `PanAndZoom` (MIT, © wieslawsoltes)
+- package: `PanAndZoom` (MIT)
 - assembly: `PanAndZoom`
 - namespace: `Avalonia.Controls.PanAndZoom`
 - asset: managed library; `lib/net10.0` binds the consumer, `lib/net8.0` fallback

@@ -7,7 +7,7 @@ Split custody is a hard line: `arctic` (`.api/arctic.md`) keeps the browser auth
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `openid-client`
-- package: `openid-client` (MIT, © Filip Skokan); OpenID Foundation certified RP
+- package: `openid-client` (MIT)
 - module format: ESM only (`type: module`); two export subpaths — the `openid-client` root barrel (the whole function+class surface) and `openid-client/passport` (a Passport `Strategy` adapter the design never consumes; Effect owns the transport boundary)
 - runtime target: isomorphic (node, bun, browser, worker, edge) — global `fetch` + WebCrypto; runtime deps `jose` and `oauth4webapi` only, no native addon; the `oauth` namespace re-exports `oauth4webapi` response and error types (`TokenEndpointResponse`, `IDToken`, `UserInfoResponse`, `IntrospectionResponse`, `DeviceAuthorizationResponse`, `BackchannelAuthenticationResponse`)
 - asset: pure-TypeScript runtime library (`.js` + `.d.ts`); `TokenEndpointResponse` index-signature fields are untyped, so a `Schema` at the seam is the real gate on the grant response shape

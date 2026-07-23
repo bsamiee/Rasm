@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions.MessagePack`
-- package: `Thinktecture.Runtime.Extensions.MessagePack` (BSD-3-Clause, Pawel Gerr)
+- package: `Thinktecture.Runtime.Extensions.MessagePack` (BSD-3-Clause)
 - assembly: `Thinktecture.Runtime.Extensions.MessagePack`
 - namespace: `Thinktecture`, `Thinktecture.Formatters`
 - depends: `Thinktecture.Runtime.Extensions`, `MessagePack`

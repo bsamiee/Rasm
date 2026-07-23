@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/sql-mysql2`
-- package: `@effect/sql-mysql2`
-- license: `MIT`
+- package: `@effect/sql-mysql2` (MIT)
 - effect-peer: `effect`, `@effect/sql` (the `SqlClient` core this extends; `.api/effect-sql.md`), `@effect/experimental` (`Reactivity` — `make`/`reactive`/`reactiveMailbox` require it; `.api/effect-experimental.md`), `@effect/platform`
 - backing: `mysql2` (connection pool via `Mysql.PoolOptions`; direct dependency, not peer)
 - runtime: `runtime:node`/bun services — `mysql2` is a node-native wire driver; the interop lane never reaches the browser plane

@@ -1,13 +1,12 @@
 # [RASM_PERSISTENCE_API_APACHE_AGE]
 
-`apache-age` (repo `apache/age`; installed extension `age`) mints an in-PostgreSQL openCypher graph store — labelled vertices and edges in per-graph backing relations under the `ag_catalog` schema, queried through the one `cypher(graph, $$ … $$, params)` set-returning function whose rows are the `agtype` graph value type. It ships no managed assembly: every surface is server-side SQL. `Query/cypher#GRAPH_QUERY`, the optional self-hosted graph lane, drives it through raw `Npgsql`, demoted beneath the default in-process QuikGraph `Query/topology` view.
+`age` mints an in-PostgreSQL openCypher graph store — labelled vertices and edges in per-graph backing relations under `ag_catalog`, queried through `cypher(graph, $$ … $$, params)` as `agtype` rows. Every surface is server-side SQL; `Query/cypher#GRAPH_QUERY` drives the optional self-hosted lane through raw `Npgsql`, beneath the default in-process QuikGraph `Query/topology` view.
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `apache-age` / extension `age`
-- package: server-side PostgreSQL extension (C, not a NuGet package); repo `apache/age`, installed name `age`
+[PACKAGE_SURFACE]: `age`
+- package: `age` (Apache-2.0)
 - namespace: SQL `ag_catalog` schema — functions, catalog tables, the `agtype` type and its operator/cast set
-- license: Apache-2.0 — the in-DB deployment is the license boundary, no managed linkage
 - registration: `CREATE EXTENSION age` installs the SQL objects; the per-session `LOAD 'age'`/`search_path` is a connection-init concern (`[02]`); install rides the `age` `ServerExtension` row (`Store/provisioning#SERVER_EXTENSIONS`)
 - consumed by: `Query/cypher#GRAPH_SESSION` (enablement gate, `GraphDdl` lifecycle, `agtype` decode) and `Query/cypher#GRAPH_QUERY` (the openCypher verb surface), driven through raw `Npgsql` against the `agtype` result type
 - rail: graph-provisioning, graph-lane
@@ -51,11 +50,7 @@ Graph and label DDL are `ag_catalog` `SELECT`-function calls returning `void`. `
 
 ## [05]-[CYPHER_QUERY]
 
-One polymorphic set-returning function runs every Cypher statement; the third `params agtype` argument carries the parameterized values, referenced inside the query body as `$name`.
-
-```sql signature
-ag_catalog.cypher(graph_name name = NULL, query_string cstring = NULL, params agtype = NULL) RETURNS SETOF record
-```
+One polymorphic `ag_catalog.cypher(name, cstring, agtype) -> SETOF record` function runs every Cypher statement; its third argument carries parameterized values referenced inside the query body as `$name`.
 
 `cypher` is declared `RETURNS SETOF record`, so PostgreSQL requires the caller's column-definition list — no anonymous-record default. Every projected column is typed `agtype`, and the list arity and names must match the Cypher `RETURN` clause.
 
@@ -117,7 +112,7 @@ Casts compose at two layers: in-Cypher `expr::int|float|numeric|bool|vertex|edge
 - `age` carries no managed linkage: install rides the `age` `ServerExtension` row as a `Standalone` admission (`Store/provisioning#SERVER_EXTENSIONS`, `CREATE EXTENSION IF NOT EXISTS age`, no `shared_preload_libraries` gate), and the lane admits only under `Query/cypher` `CypherEnablement.SelfHosted`, disabled by default beneath the in-process QuikGraph topology.
 
 [RAIL_LAW]:
-- Package: `apache-age` / extension `age` (server-side, in-DB)
+- Package: `age` (Apache-2.0)
 - Owns: the in-PG openCypher graph store — labelled vertex/edge relations under `ag_catalog`, the `cypher(graph, $$..$$, params)` query function, and the `agtype` value type with its operator/cast set
 - Accept: `CREATE EXTENSION age` install via the `age` `ServerExtension` row, the per-session `LOAD 'age'`/`search_path` connection-init, `create_graph`/`create_vlabel`/`create_elabel` lifecycle, parameterized `cypher(…)` with the mandatory `agtype` column-definition list, `agtype` operator/cast extraction through `FromSql`/`SqlQuery`
 - Reject: linking the extension into managed code, an anonymous-record `cypher(…)` call without the column-definition list, a runtime-concatenated Cypher body, omitting the per-session `LOAD 'age'`, treating `apache-age` as the installed extension name (it is `age`)

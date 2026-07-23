@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `PollinationSDK`
-- package: `PollinationSDK`
-- license: MIT (Pollination / Ladybug Tools)
+- package: `PollinationSDK` (MIT)
 - assembly: `PollinationSDK`; namespace `PollinationSDK.Wrapper`
 - asset: pure-managed netstandard2.0; the `net10.0` consumer binds `lib/netstandard2.0`
 - rail: cloud-run (Compute dispatch policy)

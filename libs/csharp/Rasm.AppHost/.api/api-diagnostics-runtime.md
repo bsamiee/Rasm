@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Diagnostics.Runtime`
-- package: `Microsoft.Diagnostics.Runtime` (`MIT`, dotnet/diagnostics)
+- package: `Microsoft.Diagnostics.Runtime` (MIT)
 - assembly: `Microsoft.Diagnostics.Runtime`
 - namespace: `Microsoft.Diagnostics.Runtime`
 - asset: managed runtime library; the matching DAC resolves through `DataTargetOptions.SymbolPaths`

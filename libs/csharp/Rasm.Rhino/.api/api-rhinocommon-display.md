@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `RhinoCommon`
-- package: `RhinoCommon` (proprietary McNeel SDK, host-provided)
+- package: `RhinoCommon` (proprietary McNeel SDK)
 - assembly: `RhinoCommon.dll` (host-resolved from the installed Rhino app, never NuGet-pinned)
 - namespace: `Rhino.Display` (view, viewport, pipeline, conduit, capture, display material/mode/attributes)
 - namespace: `Rhino.DocObjects` (`DetailViewObject`, `ClippingPlaneObject` display-adjacent objects)

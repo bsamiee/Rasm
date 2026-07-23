@@ -1,15 +1,14 @@
 # [RASM_APPUI_API_KIWI]
 
-`Kiwi` is the managed C# port of the Cassowary incremental linear-arithmetic constraint solver: `Variable` values feed `Term`/`Expression` linear forms, a `Constraint` binds an expression to a `RelationalOperator` at a `Strength`, and `Solver` keeps the constraint system satisfied incrementally — `AddConstraint`/`RemoveConstraint` edit the system, `AddEditVariable`/`SuggestValue` drive runtime values through the dual-simplex, and `UpdateVariables` writes the solved values back into each variable's `IVariableStore`. The whole surface is pure-managed Apache-2.0 with no native dependency, serving the AppUi Shell/Layout rail as the layout constraint-solving engine.
+`Kiwi` is the managed C# port of the Cassowary incremental linear-arithmetic constraint solver: `Variable` values feed `Term`/`Expression` linear forms, a `Constraint` binds an expression to a `RelationalOperator` at a `Strength`, and `Solver` keeps the constraint system satisfied incrementally — `AddConstraint`/`RemoveConstraint` edit the system, `AddEditVariable`/`SuggestValue` drive runtime values through the dual-simplex, and `UpdateVariables` writes solved values into each variable's `IVariableStore`. Its pure-managed Apache-2.0 surface serves the AppUi Shell/Layout rail with no native dependency.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Kiwi`
-- package: `Kiwi`
+- package: `Kiwi` (Apache-2.0)
 - assembly: `Kiwi`
 - namespace: `Nanoray.Kiwi`
 - asset: runtime library (pure managed, zero native dependency)
-- license: Apache-2.0
 - build-floor: ships `lib/net5.0` + `lib/net6.0`; the `net10.0` consumer binds `lib/net6.0` (highest TFM ≤ consumer), which is the surface documented here
 - rail: layout
 
@@ -137,7 +136,7 @@
 [KIWI_TOPOLOGY]:
 - Linear-form assembly is operator-driven: `Variable * double` yields a `Term`, `Term + double`/`Variable + Variable`/`Term + Variable` yield an `Expression`, and every arithmetic operator (`+`, `-`, `*`, `/`, unary `-`) on `Variable`/`Term`/`Expression` returns one of those three carriers, so layout expressions compose without builder calls.
 - `Variable`, `Term`, and `double` each carry an `implicit operator Expression`, so a bare carrier passes directly into `Constraint.Equal`/`LessEqual`/`GreaterEqual`/`Make` and `AddEditVariable` without an explicit wrap.
-- `Term` is a `readonly record struct (Variable Variable, double Coefficient = 1.0)` whose `Value` is `Variable.Value * Coefficient`; `Expression` is a `readonly struct` whose public `Terms` is `IReadOnlyList<Term>` (backed by an internal `ImmutableArray<Term>`) plus a `double Constant`, with `Value` summing each `Term.Value` and the constant, and `IsConstant` true when no terms remain.
+- `Term` is a `readonly record struct (Variable Variable, double Coefficient = 1.0)` whose `Value` is `Variable.Value * Coefficient`; `Expression` is a `readonly struct` whose public `Terms` is `IReadOnlyList<Term>` (backed by an internal `ImmutableArray<Term>`) and whose `double Constant` joins each `Term.Value` in `Value`, with `IsConstant` true when no terms remain.
 - `Constraint` binds a reduced `Expression` to a `RelationalOperator` at a clipped `double` strength; the constraint normalizes both sides into `expression <op> 0`, so `Equal`/`LessEqual`/`GreaterEqual`/`Make` all subtract `rhs` from `lhs` before constructing.
 - `Constraint` identity is handle-based: `Equals`, `==`, and `GetHashCode` compare the internal shared `ConstraintData` instance, not structural expression/operator/strength equality, so two separately constructed but value-equivalent constraints are not equal and the clone constructor without a new strength shares the same data handle.
 - `Strength` is a lexicographic packing of strong/medium/weak components scaled by `1e6`/`1e3`/`1`: `Required = Create(1000, 1000, 1000)`, `Strong = Create(1, 0, 0)`, `Medium = Create(0, 1, 0)`, `Weak = Create(0, 0, 1)`, `Disabled = 0.0`; `Clip` bounds any strength to `[Disabled, Required]`.
@@ -147,12 +146,12 @@
 [LOCAL_ADMISSION]:
 - Layout geometry edges (panel left/top/width/height) are `Variable` values; layout rules compose as `Expression` operator algebra and bind through `Constraint.Equal`/`LessEqual`/`GreaterEqual` at the matching `Strength`, never through hand-built tableau rows.
 - Fixed structural rules use `Strength.Required`; competing preferences use `Strong`/`Medium`/`Weak` so the dual-simplex relaxes the lower-priority constraint instead of throwing.
-- Runtime drag, resize, and content-size changes flow through `AddEditVariable` plus `SuggestValue`; the layout pass calls `Solve` once and reads solved positions from each `Variable.Value` (or a custom `IVariableStore` bound to the visual node).
+- Runtime drag, resize, and content-size changes flow through `AddEditVariable` and `SuggestValue`; the layout pass calls `Solve` once and reads solved positions from each `Variable.Value` (or a custom `IVariableStore` bound to the visual node).
 - Boundary intake of constraint edits uses the `Try*` family (`TryAddConstraint`, `TryRemoveEditVariable`, `TrySuggestValue`); `UnsatisfiableConstraintException` and the duplicate/unknown rails never cross the layout-update boundary as exceptions.
 
 [STACKING]:
 - Live drive from the data rail projects `DynamicData` drag and resize deltas from `SourceCache.Edit` through `Transform` into `(Variable, double)` pairs; the subscription calls `Solver.TrySuggestValue` per delta and `Solver.Solve` once per frame.
-- The visual collection and `Solve()` pass share one `Connect().Bind(...)` observable, so each edit re-flows both and the constraint solve remains the live-data rail's sole mutation sink.
+- One `Connect().Bind(...)` observable drives both the visual collection and `Solve()` pass, so each edit re-flows both and constraint solving remains the live-data rail's sole mutation sink.
 - Custom `IVariableStore` as the observation seam: implement `IVariableStore` over an Avalonia visual node's geometry (or a `ReactiveUI` property) so `UpdateVariables` writes solved row constants straight into the bound property on `Solve`, eliminating the post-solve polling loop; the layout owner reads positions from the node, not from a side dictionary.
 - Strength-priority composition mirrors UI intent ranking: required structural invariants (`Strength.Required`), then theme/preference rules (`Strong`/`Medium`/`Weak`) so the dual-simplex relaxes a soft preference rather than throwing — the `Strength.Create(a,b,c,w)` lexicographic packing lets a screen express a continuum of competing constraints that map onto the same priority order a token/theme rail already defines.
 

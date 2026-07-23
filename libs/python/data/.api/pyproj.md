@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pyproj`
-- package: `pyproj` (MIT; bundled PROJ data under `LICENSE_proj`)
+- package: `pyproj` (MIT)
 - module: `import pyproj`
 - owner: `data`
 - rail: geospatial

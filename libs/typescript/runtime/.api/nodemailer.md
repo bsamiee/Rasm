@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `nodemailer`
-- package: `nodemailer` (MIT-0 — no attribution clause, © Andris Reinman); declarations via `@types/nodemailer` (MIT, DefinitelyTyped)
+- package: `nodemailer` (MIT-0)
 - module format: CJS (`main: lib/nodemailer.js`, no `module`/`exports` map); named factory exports (`createTransport`, `createTestAccount`, `getTestMessageUrl`); transport classes are internal, reached through `createTransport`
 - runtime target: Node-only — binds `node:net`/`node:tls`/`node:stream`/`node:dns` for SMTP; no browser build, no native addon. SESv2 is structural (`SES: { sesClient, SendEmailCommand }`), so `@aws-sdk/client-sesv2` is an optional app dependency, never bundled
 - peer/asset: runtime has zero npm dependencies; the DKIM, XOAuth2, and MIME machinery are in-tree. `@types/node` is a transitive type dependency
@@ -39,30 +39,13 @@
 |  [06]   | `SMTPConnection.DSNOptions`                      | delivery notify   | RFC-3461 delivery-status request (fence)                   |
 |  [07]   | `SMTPConnection.SMTPError` / `shared.Logger`     | fault / log       | `code` (e.g. `EAUTH`) retry discriminant; `Logger` sink    |
 
-```ts signature
-interface Attachment {                                          // one of content|path, plus MIME framing
-  content?: string | Buffer | Readable; path?: string; raw?: string | Buffer | Readable
-  cid?: string; contentType?: string; contentTransferEncoding?: string; encoding?: string; contentDisposition?: string
-}
-interface SMTPConnectionOptions {                               // the SMTP dial policy
-  host?: string; port?: number; secure?: boolean; requireTLS?: boolean; opportunisticTLS?: boolean; ignoreTLS?: boolean
-  tls?: object; auth?: AuthenticationType; authMethod?: string; lmtp?: boolean
-  connectionTimeout?: number; greetingTimeout?: number; socketTimeout?: number; dnsTimeout?: number
-}
-interface XOAuth2Options {                                      // refresh-token flow; secrets held as Redacted
-  clientId?: string; clientSecret?: string; refreshToken?: string; accessToken?: string; accessUrl?: string; privateKey?: string
-}
-interface DKIMKeyOptions {                                      // DKIM.Options = SingleKeyOptions | MultipleKeysOptions (RFC-6376)
-  domainName: string; keySelector: string; privateKey: string  // PEM, held as Redacted
-  hashAlgo?: string; headerFieldNames?: string; skipFields?: string; cacheDir?: string; cacheTreshold?: number
-}
-interface DSNOptions { notify?: "SUCCESS" | "FAILURE" | "DELAY" | "NEVER"; ret?: string; envid?: string; orcpt?: string }
-interface SentMessageInfo {                                     // SMTP | SES | stream variants
-  accepted: Address[]; rejected: Address[]; rejectedErrors?: Error[]; pending?: Address[]
-  messageId: string; response: string; envelope: object; envelopeTime: number; messageTime: number; messageSize: number
-}
-interface SMTPError extends Error { code?: string; response?: string; responseCode?: number; command?: string }
-```
+[ATTACHMENT]: `Attachment.content: string|Buffer|Readable` `Attachment.path: string` `Attachment.raw: string|Buffer|Readable` `Attachment.cid: string` `Attachment.contentType: string` `Attachment.contentTransferEncoding: string` `Attachment.encoding: string` `Attachment.contentDisposition: string`
+[SMTPCONNECTION_OPTIONS]: `SMTPConnectionOptions.host: string` `SMTPConnectionOptions.port: number` `SMTPConnectionOptions.secure: boolean` `SMTPConnectionOptions.requireTLS: boolean` `SMTPConnectionOptions.opportunisticTLS: boolean` `SMTPConnectionOptions.ignoreTLS: boolean` `SMTPConnectionOptions.tls: object` `SMTPConnectionOptions.auth: AuthenticationType` `SMTPConnectionOptions.authMethod: string` `SMTPConnectionOptions.lmtp: boolean` `SMTPConnectionOptions.connectionTimeout: number` `SMTPConnectionOptions.greetingTimeout: number` `SMTPConnectionOptions.socketTimeout: number` `SMTPConnectionOptions.dnsTimeout: number`
+[XOAUTH2_OPTIONS]: `XOAuth2Options.clientId: string` `XOAuth2Options.clientSecret: string` `XOAuth2Options.refreshToken: string` `XOAuth2Options.accessToken: string` `XOAuth2Options.accessUrl: string` `XOAuth2Options.privateKey: string`
+[DKIMKEY_OPTIONS]: `DKIMKeyOptions.domainName: string` `DKIMKeyOptions.keySelector: string` `DKIMKeyOptions.privateKey: string` `DKIMKeyOptions.hashAlgo: string` `DKIMKeyOptions.headerFieldNames: string` `DKIMKeyOptions.skipFields: string` `DKIMKeyOptions.cacheDir: string` `DKIMKeyOptions.cacheTreshold: number`
+[DSNOPTIONS]: `DSNOptions.notify: "SUCCESS"|"FAILURE"|"DELAY"|"NEVER"` `DSNOptions.ret: string` `DSNOptions.envid: string` `DSNOptions.orcpt: string`
+[SENT_MESSAGE_INFO]: `SentMessageInfo.accepted: Address[]` `SentMessageInfo.rejected: Address[]` `SentMessageInfo.rejectedErrors: Error[]` `SentMessageInfo.pending: Address[]` `SentMessageInfo.messageId: string` `SentMessageInfo.response: string` `SentMessageInfo.envelope: object` `SentMessageInfo.envelopeTime: number` `SentMessageInfo.messageTime: number` `SentMessageInfo.messageSize: number`
+[SMTPERROR]: `SMTPError.code: string` `SMTPError.response: string` `SMTPError.responseCode: number` `SMTPError.command: string`
 
 ## [03]-[ENTRYPOINTS]
 

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `AWSSDK.KeyManagementService`
-- package: `AWSSDK.KeyManagementService` (`Apache-2.0`, Amazon Web Services)
+- package: `AWSSDK.KeyManagementService` (Apache-2.0)
 - assembly: `AWSSDK.KeyManagementService` (`lib/net8.0` binds the `net10.0` consumer; `netstandard2.0`/`net472` fallbacks)
 - namespace: `Amazon.KeyManagementService`, `Amazon.KeyManagementService.Model`
 - depends: `AWSSDK.Core`; pure-managed, no native asset

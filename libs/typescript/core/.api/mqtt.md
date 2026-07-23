@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `mqtt`
-- package: `mqtt`
-- license: `MIT`
+- package: `mqtt` (MIT)
 - effect-peer: none — every `MqttClient` construction, publish, and event frame crosses into `effect` at the `interchange/carrier` seam; `connectAsync`/`publishAsync` are consumed under `Effect.tryPromise` and the `EventEmitter` frames lift to `Stream` (`.api/effect.md`); no bundled peer
 - catalog-verdict: KEEP — the MQTT-dialect arm of the `interchange/carrier` propagation table: `cloudevents` owns the CloudEvents envelope and its own MQTT binary binding (`.api/cloudevents.md`), `@connectrpc/connect` owns the Connect metadata dialect (`.api/connectrpc-connect.md`), this owns the live MQTT v5 broker client and its `userProperties` transport map — one carrier value, many dialect clients, no overlap
 - runtime: mixed — `connect` resolves a transport by URL scheme across `mqtt`/`mqtts`/`ws`/`wss`/`tcp`/`ssl` and the WeChat/Alipay lanes; the node/bun lane carries the TCP/TLS builders and node stream deps, the browser lane ships the WebSocket-only ESM/min bundles (`dist/mqtt.esm.js`, `dist/mqtt.min.js`); broker connection is a runtime-lane surface, the dialect shape is isomorphic
@@ -41,26 +40,10 @@
 - rail: interchange/carrier
 - `connectAsync` acquires a connected client; `publishAsync` sets the carrier-printed `userProperties`; `subscribeAsync` yields `ISubscriptionGrant[]`; `client.on('message', ...)` frames lift to a `Stream`; `endAsync` releases the resource. Callback overloads lift through `Effect.async`.
 
-```ts signature
-declare function connectAsync(brokerUrl: string, opts?: IClientOptions): Promise<MqttClient>;
-type OnMessageCallback = (topic: string, payload: Buffer, packet: IPublishPacket) => void;
-interface MqttClient {
-  subscribeAsync(
-    topicObject: string | string[] | ISubscriptionMap,
-    opts?: IClientSubscribeOptions | IClientSubscribeProperties,
-  ): Promise<ISubscriptionGrant[]>;
-  publishAsync(topic: string, message: string | Buffer, opts?: IClientPublishOptions): Promise<Packet | undefined>;
-  endAsync(force?: boolean, opts?: Partial<IDisconnectPacket>): Promise<void>;
-  on(event: "message", callback: OnMessageCallback): this;
-}
-interface IClientPublishOptions {
-  qos?: QoS;
-  retain?: boolean;
-  dup?: boolean;
-  properties?: IPublishPacket["properties"]; // userProperties?: UserProperties rides here — the v5 carrier slot
-  cbStorePut?: StorePutCallback;
-}
-```
+[ON_MESSAGE_CALLBACK]: `OnMessageCallback = (topic:string,payload:Buffer,packet:IPublishPacket)=>void`
+[MQTT_CLIENT]: `MqttClient.subscribeAsync(string|string[]|ISubscriptionMap,IClientSubscribeOptions|IClientSubscribeProperties?) -> Promise<ISubscriptionGrant[]>` `MqttClient.publishAsync(string,string|Buffer,IClientPublishOptions?) -> Promise<Packet|undefined>` `MqttClient.endAsync(boolean?,Partial<IDisconnectPacket>?) -> Promise<void>` `MqttClient.on("message",OnMessageCallback) -> this`
+[ICLIENT_PUBLISH_OPTIONS]: `IClientPublishOptions.qos: QoS` `IClientPublishOptions.retain: boolean` `IClientPublishOptions.dup: boolean` `IClientPublishOptions.properties: IPublishPacket["properties"]` `IClientPublishOptions.cbStorePut: StorePutCallback`
+[SURFACES]: `connectAsync(string,IClientOptions?) -> Promise<MqttClient>`
 
 | [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY]  | [CONSUMER_BOUNDARY]                                        |
 | :-----: | :----------------------------------------------- | :-------------- | :--------------------------------------------------------- |

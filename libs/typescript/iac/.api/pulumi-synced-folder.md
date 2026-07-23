@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pulumi/synced-folder`
-- package: `@pulumi/synced-folder`
-- license: Apache-2.0
+- package: `@pulumi/synced-folder` (Apache-2.0)
 - import: `@pulumi/synced-folder` → `{ S3BucketFolder, GoogleCloudFolder, AzureBlobFolder, Provider }`
 - owner: `iac`
 - rail: fabric / static-distribution

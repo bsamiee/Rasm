@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Configuration.Binder`
-- package: `Microsoft.Extensions.Configuration.Binder` (MIT, .NET Foundation)
+- package: `Microsoft.Extensions.Configuration.Binder` (MIT)
 - assembly: `Microsoft.Extensions.Configuration.Binder`
 - namespace: `Microsoft.Extensions.Configuration`
 - rail: configuration binding

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `DragonflySchema`
-- package: `DragonflySchema` (MIT, Ladybug Tools)
+- package: `DragonflySchema` (MIT)
 - assembly: `DragonflySchema`
 - namespace: `DragonflySchema` (flat — the OpenAPI generator emits no sub-namespaces; `ModelEnergyProperties`/`ModelRadianceProperties`/`ModelDoe2Properties`/`ModelComparisonProperties` live here, `Energy`/`Radiance`/`Doe2`/`Comparison` naming the `ModelProperties` sub-object axis, not namespaces)
 - asset: `netstandard2.0` single TFM, binds forward under net10.0

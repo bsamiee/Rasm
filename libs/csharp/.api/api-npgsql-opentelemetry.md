@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Npgsql.OpenTelemetry`
-- package: `Npgsql.OpenTelemetry` (PostgreSQL, The Npgsql Development Team)
+- package: `Npgsql.OpenTelemetry` (PostgreSQL)
 - assembly: `Npgsql.OpenTelemetry`
 - namespace: `Npgsql`
 - depends: `Npgsql`

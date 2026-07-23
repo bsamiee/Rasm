@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `libtorch-cpu`
-- package: `libtorch-cpu` (`MIT`; `requireLicenseAcceptance=true`)
+- package: `libtorch-cpu` (MIT)
 - assembly: NONE — `lib/netstandard2.0/_._/empty.txt` empty placeholder carries zero managed IL, zero public type, and no `lib/<tfm>` asset, so the `[API_TFM_RESOLUTION]` hazard cannot apply
 - asset: `buildTransitive/netstandard2.0/libtorch-cpu.{props,targets}` import pair with a per-RID native `dependencies` group pulling the matching `libtorch-cpu-<rid>` sub-package
 - depends: `libtorch-cpu-linux-x64`, `libtorch-cpu-osx-arm64`, `libtorch-cpu-win-x64` — the native dylib/so/dll carriers; only these three RIDs ship a CPU payload

@@ -12,7 +12,7 @@
 - rail: drafting
 
 [PACKAGE_SURFACE]: `DocumentFormat.OpenXml`
-- package: `DocumentFormat.OpenXml` (MIT, © Microsoft)
+- package: `DocumentFormat.OpenXml` (MIT)
 - assembly: `DocumentFormat.OpenXml`
 - namespace: `DocumentFormat.OpenXml.Packaging`, `.Wordprocessing`, `.Spreadsheet`, `.Presentation`
 - asset: managed runtime library (depends `DocumentFormat.OpenXml.Framework`)

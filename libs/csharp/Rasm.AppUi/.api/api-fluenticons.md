@@ -124,7 +124,6 @@ Enum members select identity and axis value; the `*Values.Enumerable` fields fee
 - Accept: reference from any layer needing icon identity without Avalonia; icon intent is a `Symbol`/`Icon` value
 - Reject: string-keyed icon registries, parallel enum re-declarations, treating `Icon` as a `Symbol` alias
 
-[RAIL_LAW]:
 - Package: `FluentIcons.Avalonia`
 - Owns: font-backed `Symbol`/`Icon` rendering through controls, image sources, the `Outline` attached accessor, and the markup extensions
 - Accept: a `Symbol`/`Icon` member with an `IconVariant`, colour bound through `Foreground`/`Outline`

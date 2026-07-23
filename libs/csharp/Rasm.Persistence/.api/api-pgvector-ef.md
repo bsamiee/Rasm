@@ -5,20 +5,20 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Pgvector.EntityFrameworkCore`
-- package: `Pgvector.EntityFrameworkCore` (PostgreSQL, ankane)
+- package: `Pgvector.EntityFrameworkCore` (PostgreSQL)
 - assembly: `Pgvector.EntityFrameworkCore`
 - namespace: `Pgvector.EntityFrameworkCore` (plugins, mappings), `Microsoft.EntityFrameworkCore` (the options-builder extension)
 - depends: `Pgvector` value types, `Npgsql.EntityFrameworkCore.PostgreSQL` provider host
 - rail: store-provider, search-lanes
 
 [PACKAGE_SURFACE]: `Pgvector`
-- package: `Pgvector` (PostgreSQL, ankane)
+- package: `Pgvector` (PostgreSQL)
 - assembly: `Pgvector`
 - namespace: `Pgvector` (CLR value types), `Pgvector.Npgsql` (streaming codecs), `Npgsql` (the type-mapper extension)
 - rail: store-codec
 
-[PACKAGE_SURFACE]: `vector` (pgvector server extension)
-- package: pgvector, installed as extension `vector`
+[PACKAGE_SURFACE]: `vector`
+- package: `vector` (PostgreSQL)
 - asset: server SQL, no managed assembly
 - rail: search-provisioning
 
@@ -184,7 +184,7 @@ Casts convert every pair among `vector`, `halfvec`, and `sparsevec` and admit `i
 - Index access-method, opclass, storage-parameter, and GUC literals belong to the `Store/provisioning#SERVER_EXTENSIONS` `Index` row and the search-lane binder; this catalog states the vocabulary they draw from.
 
 [RAIL_LAW]:
-- Package: `Pgvector.EntityFrameworkCore`, transitive `Pgvector`, server extension `vector`
+- Package: `Pgvector.EntityFrameworkCore` + `Pgvector` + `vector` (PostgreSQL)
 - Owns: pgvector CLR value types, binary codecs, EF type mapping, distance-operator translation, and the server opclass, knob, function, and cast vocabulary for the Npgsql EF PostgreSQL provider
 - Accept: profile-declared vector mapping through `UseVector`, server-translated distance projections, HNSW and ivfflat declarations through the Npgsql index builder, quantization, normalization, and cast composition in SQL
 - Reject: a vector-branded service family, a client-side distance call, a hand-spelled `CREATE EXTENSION vector` beside the `HasPostgresExtension` annotation, a parallel column-type enum duplicating the `EmbeddingArity` axis, a hand-written `Vector[]` reader

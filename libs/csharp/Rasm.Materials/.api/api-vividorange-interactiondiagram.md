@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `VividOrange.InteractionDiagram`
-- package: `VividOrange.InteractionDiagram` (MIT, MagmaWorks / VividOrange)
+- package: `VividOrange.InteractionDiagram` (MIT)
 - assembly: `VividOrange.InteractionDiagram`
 - namespace: `VividOrange.ForceMomentInteraction`, `VividOrange.ForceMomentInteraction.Utility` (`.Utility` types are `internal`)
 - asset: runtime library, pure-managed AnyCPU, no native RID; consumer `net10.0` binds the `lib/net8.0` managed asset
@@ -76,7 +76,7 @@ Defaults are `250 mm²`/`25°` concrete and `200 mm²`/`25°` rebar mesh, `16` r
 - A Materials RC/steel column-capacity owner builds an `IConcreteSection` from the admitted Profiles/Sections/Materials owners, constructs `new InteractionDiagram(section, settings)` once, and reads `diagram.Mesh` as the `IForceMomentMesh` capacity hull; the RC input reaches from the admitted `VividOrange.Sections` set with no further admission.
 
 [RAIL_LAW]:
-- Package: `VividOrange.InteractionDiagram` (MIT, pure-managed AnyCPU, consumer `net10.0` binds `net8.0`)
+- Package: `VividOrange.InteractionDiagram` (MIT)
 - Owns: the RC column biaxial N-M-M capacity-surface engine — Triangle.NET fibre meshing, the `Parallel.For` strain-plane stress sweep, MIConvexHull assembly of the `(N, My, Mz)` points into the closed `IForceMomentMesh` hull, configured by `DiagramSettings` — the additive RC capability the elastic section-property solver does not compute.
 - Accept: an `IConcreteSection` (concrete profile + EN material + longitudinal rebar) from the admitted `VividOrange.Sections`/`Materials`/`Profiles` owners, solved once at construction and read as the `IForceMomentMesh` hull with `UnitsNet` `Force`/`Torque` coordinates.
 - Reject: calling the `internal` `.Utility` meshing kernel directly; re-solving per query instead of caching `Mesh`; reducing a capacity coordinate to raw `double`; feeding a non-EN material whose strength the `IEnConcreteMaterial`/`IEnRebarMaterial` cast cannot read.

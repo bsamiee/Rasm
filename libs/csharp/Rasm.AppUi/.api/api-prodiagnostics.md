@@ -1,11 +1,11 @@
 # [RASM_APPUI_API_PRODIAGNOSTICS]
 
-`ProDiagnostics` is the maintained Avalonia-12 developer-tools UI — a MIT fork (wieslawsoltes, `github.com/wieslawsoltes/ProDataGrid`) of `Avalonia.Diagnostics` shipping under the ORIGINAL assembly and namespace (`Avalonia.Diagnostics.dll`, `Avalonia`/`Avalonia.Diagnostics`), so `this.AttachDevTools()` binds unchanged. It mounts a runtime inspector overlaying the live window: visual/logical/combined tree navigation, live property + style inspection with in-place value editing, routed-event tracking, and layout/renderer diagnostics overlays. The first-party `Avalonia.Diagnostics` line is feed-dead at 11.3.x with no Avalonia-12 asset; the pay-tiered Accelerate DevTools is license-gate REJECTED — `ProDiagnostics` is the sole admitted Avalonia-12 devtools owner. `Diagnostics/devloop.md` composes it as the dev-loop inspection surface, `Debug`-gated `PrivateAssets="all"` beside `HotAvalonia` (`csproj` Dev Loop group).
+`ProDiagnostics` is the maintained Avalonia-12 developer-tools UI — a MIT fork (wieslawsoltes, `github.com/wieslawsoltes/ProDataGrid`) of `Avalonia.Diagnostics` shipping under the original assembly and namespace (`Avalonia.Diagnostics.dll`, `Avalonia`/`Avalonia.Diagnostics`), so `this.AttachDevTools()` binds unchanged. It mounts visual/logical tree navigation, live property and style editing, routed-event tracking, and layout/renderer overlays on the live window. Feed-dead first-party `Avalonia.Diagnostics` has no Avalonia-12 asset, and pay-tiered Accelerate DevTools fails license admission; `ProDiagnostics` therefore owns the `Debug`-gated dev-loop inspection surface beside `HotAvalonia`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ProDiagnostics`
-- package: `ProDiagnostics` (MIT, Wiesław Šoltés)
+- package: `ProDiagnostics` (MIT)
 - assembly: `Avalonia.Diagnostics` (`lib/net10.0/Avalonia.Diagnostics.dll` binds the `net10.0` consumer directly; `net8.0` fallback asset)
 - namespace: `Avalonia` (the `DevToolsExtensions` attach surface), `Avalonia.Diagnostics` (`DevToolsOptions`/`DevToolsViewKind`/`HotKeyConfiguration`/`Conventions`/`DevToolsSession`/`VisualExtensions`/`VisualTreeDebug`), `Avalonia.Diagnostics.Services` (`PropertyValueEditorService`)
 - depends: `Avalonia` (12.x), `Avalonia.Controls.ColorPicker` (the inspector's color-value editor) — both already admitted; the `ProDataGrid`/`ProCharts` sibling packages are NOT admitted
@@ -60,7 +60,7 @@ init-only `HotKeys : HotKeyConfiguration` binds the gesture rig.
 [DEVTOOLS_RUNTIME]: `DevTools`, `DevToolsSession`, and `DevToolsView` own the overlay window, per-`TopLevel` session, and root view; the
 attach surface mounts them, and consumers do not construct them.
 
-[PROPERTY_VALUE_EDITOR_SERVICE]: The live property and style value-editor engine carries typed converters and the commit-state machine
+[PROPERTY_VALUE_EDITOR_SERVICE]: Typed converters and commit state drive live property and style editing
 behind the property pane.
 
 [VISUAL_TREE_DEBUG]: `VisualTreeDebug` projects the layout and renderer diagnostics overlay.
@@ -91,4 +91,4 @@ behind the property pane.
 
 [STACKING]:
 - `Diagnostics/devloop.md` is the sole consumer anchor — the HUD/hot-reload/replay-verify dev loop mounts this inspector beside `HotAvalonia`'s XAML hot-reload; the two share the `Debug` `PrivateAssets` gate and never co-mount in Release.
-- Catalog depth is stub-plus-verified: every member above is decompile-verified against the restored `Avalonia.Diagnostics.dll`. The `DevToolsSession`/`PropertyValueEditorService` internals deepen when `devloop.md` first composes the option rig and the screenshot/property-edit handler seams into a concrete dev-loop policy fold.
+- Catalog depth is stub-plus-verified: every member above is decompile-verified against the restored `Avalonia.Diagnostics.dll`. `DevToolsSession` and `PropertyValueEditorService` deepen when `devloop.md` composes their option, screenshot, and property-edit seams into one policy fold.

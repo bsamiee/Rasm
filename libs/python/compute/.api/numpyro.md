@@ -31,8 +31,9 @@
 - Model authoring (`sample`/`plate`/`param`/`deterministic`/`factor` primitives, `handlers.*` effect handlers) and distribution families (`numpyro.distributions.*`, combinators, transforms, reparameterizers): the model lives in `pymc`.
 - Inference beyond delegated NUTS (`HMC`/`SA`/`BarkerMH`/`AIES`/`MixedHMC`/`HMCECS`, the `MCMC`/`Predictive` API), variational inference (`SVI`/`Trace_ELBO`/`autoguide.*`/`optim.optax_to_numpyro`), and diagnostics (`diagnostics.*`): `pymc` owns the sampling entry, `arviz` owns diagnostics.
 
-## [04]-[RAIL_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
+[RAIL_LAW]:
 - Package: `numpyro`
 - Owns (as admitted): the `"numpyro"` NUTS-backend string PyMC dispatches to, with `chain_method`/`postprocessing_backend`/`nuts_kwargs` as the accelerator-lever `nuts_sampler_kwargs`
 - Accept: `pm.sample(nuts_sampler="numpyro", nuts_sampler_kwargs={"chain_method": ...})` inside a `pm.Model()` study, graduated through `az.summary`/`az.rhat` on the returned `DataTree`

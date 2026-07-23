@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `bw2analyzer`
-- package: `bw2analyzer` (`BSD-3-Clause`)
+- package: `bw2analyzer` (BSD-3-Clause)
 - module: `bw2analyzer` (`from bw2analyzer import ContributionAnalysis`)
 - namespaces: `bw2analyzer` (library-only, no console script)
 - asset: pure-Python `py3-none-any` purelib; numerics ride the solved `bw2calc` matrices, `numpy`/`scipy` arrive transitively

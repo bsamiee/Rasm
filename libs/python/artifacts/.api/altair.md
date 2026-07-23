@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `altair`
-- package: `altair` (BSD-3-Clause, Vega-Altair Developers)
+- package: `altair` (BSD-3-Clause)
 - module: `altair` (canonical alias `import altair as alt`)
 - owner: `artifacts`
 - rail: visuals
@@ -82,21 +82,9 @@ Encoding constructors (`X`/`Y`/`Color`/…) and guides (`Scale`/`Axis`/`Legend`)
 |  [14]   | `Chart.project(type, center, rotate, scale, translate, ...)`  | instance | projection for `mark_geoshape`                   |
 |  [15]   | `Chart.resolve_scale` / `resolve_axis` / `resolve_legend`     | instance | composite scale/axis/legend resolution           |
 
-```text
-mark_* (17) — set the geometric mark, each taking mark-config kwargs
-mark_bar mark_line mark_point mark_area mark_circle mark_square mark_tick mark_rect mark_rule
-mark_text mark_arc mark_geoshape mark_image mark_trail mark_boxplot mark_errorbar mark_errorband
-
-transform_* (19) — server-side Vega transforms chained left-to-right; statistical transforms run in Vega, never a hand-rolled numpy fit
-transform_filter transform_calculate transform_aggregate transform_bin transform_fold transform_pivot
-transform_window transform_joinaggregate transform_lookup transform_density transform_regression transform_loess
-transform_quantile transform_impute transform_flatten transform_sample transform_stack transform_timeunit transform_extent
-
-configure_* (55) — one arm per Vega-Lite config block, never a hand-merged dict
-configure configure_axis (+ axisX/Y/Band/Top/Bottom/Left/Right/Discrete/Quantitative/Temporal/Point)
-configure_legend configure_mark configure_<mark> configure_view configure_title configure_scale configure_range
-configure_header configure_projection configure_selection configure_concat configure_facet
-```
+[mark_*]: `bar` `line` `point` `area` `circle` `square` `tick` `rect` `rule` `text` `arc` `geoshape` `image` `trail` `boxplot` `errorbar` `errorband`
+[transform_*]: `filter` `calculate` `aggregate` `bin` `fold` `pivot` `window` `joinaggregate` `lookup` `density` `regression` `loess` `quantile` `impute` `flatten` `sample` `stack` `timeunit` `extent`
+[configure_*]: `configure` `axis` + axis variants `legend` `mark` + mark variants `view` `title` `scale` `range` `header` `projection` `selection` `concat` `facet`
 
 [ENTRYPOINT_SCOPE]: interaction algebra
 

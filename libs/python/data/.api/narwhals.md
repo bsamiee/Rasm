@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `narwhals`
-- package: `narwhals`
+- package: `narwhals` (MIT)
 - owner: `data`
 - module: `narwhals`
 - namespaces: `narwhals.stable.v1` (version-frozen mirror of the full surface), `narwhals.selectors` (column-set algebra)
-- license: MIT
 - asset: pure Python, no compiled extension, zero hard backend dependency
 - rail: dataframe-agnostic
 
@@ -28,26 +27,26 @@
 
 [PUBLIC_TYPE_SCOPE]: dtype vocabulary
 
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]  | [CAPABILITY]                    |
-| :-----: | :----------------------------- | :------------- | :------------------------------ |
-|  [01]   | `Int8/16/32/64/128`            | integer dtype  | signed integer dtypes           |
-|  [02]   | `UInt8/16/32/64/128`           | integer dtype  | unsigned integer dtypes         |
-|  [03]   | `Float16` / `Float32` / `Float64` | float dtype | IEEE float dtypes               |
-|  [04]   | `Boolean`                      | boolean dtype  | boolean dtype                   |
-|  [05]   | `String`                       | string dtype   | UTF-8 string dtype              |
-|  [06]   | `Binary`                       | binary dtype   | opaque bytes dtype              |
-|  [07]   | `Date`                         | temporal dtype | calendar date dtype             |
-|  [08]   | `Datetime(unit, tz)`           | temporal dtype | timestamp dtype with tz         |
-|  [09]   | `Duration(unit)`               | temporal dtype | duration dtype                  |
-|  [10]   | `Time`                         | temporal dtype | time-of-day dtype               |
-|  [11]   | `Categorical`                  | category dtype | categorical (unordered) dtype   |
-|  [12]   | `Enum(categories)`             | category dtype | ordered categorical dtype       |
-|  [13]   | `Struct(fields)`               | nested dtype   | struct dtype from field list    |
-|  [14]   | `List(inner)` / `Array(inner)` | nested dtype   | variable/fixed-size list dtypes |
-|  [15]   | `Decimal(precision, scale)`    | decimal dtype  | decimal dtype                   |
-|  [16]   | `Object`                       | opaque dtype   | Python-object column dtype      |
-|  [17]   | `Unknown`                      | fallback dtype | unmapped backend dtype          |
-|  [18]   | `Implementation`               | enum           | backend identifier vocabulary   |
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]  | [CAPABILITY]                    |
+| :-----: | :-------------------------------- | :------------- | :------------------------------ |
+|  [01]   | `Int8/16/32/64/128`               | integer dtype  | signed integer dtypes           |
+|  [02]   | `UInt8/16/32/64/128`              | integer dtype  | unsigned integer dtypes         |
+|  [03]   | `Float16` / `Float32` / `Float64` | float dtype    | IEEE float dtypes               |
+|  [04]   | `Boolean`                         | boolean dtype  | boolean dtype                   |
+|  [05]   | `String`                          | string dtype   | UTF-8 string dtype              |
+|  [06]   | `Binary`                          | binary dtype   | opaque bytes dtype              |
+|  [07]   | `Date`                            | temporal dtype | calendar date dtype             |
+|  [08]   | `Datetime(unit, tz)`              | temporal dtype | timestamp dtype with tz         |
+|  [09]   | `Duration(unit)`                  | temporal dtype | duration dtype                  |
+|  [10]   | `Time`                            | temporal dtype | time-of-day dtype               |
+|  [11]   | `Categorical`                     | category dtype | categorical (unordered) dtype   |
+|  [12]   | `Enum(categories)`                | category dtype | ordered categorical dtype       |
+|  [13]   | `Struct(fields)`                  | nested dtype   | struct dtype from field list    |
+|  [14]   | `List(inner)` / `Array(inner)`    | nested dtype   | variable/fixed-size list dtypes |
+|  [15]   | `Decimal(precision, scale)`       | decimal dtype  | decimal dtype                   |
+|  [16]   | `Object`                          | opaque dtype   | Python-object column dtype      |
+|  [17]   | `Unknown`                         | fallback dtype | unmapped backend dtype          |
+|  [18]   | `Implementation`                  | enum           | backend identifier vocabulary   |
 
 [PUBLIC_TYPE_SCOPE]: backend implementation enum
 
@@ -260,7 +259,7 @@ Column selectors are composable expression-like objects accepted anywhere an exp
 | :-----: | :------------------------------------------------------- | :--------------------------------- |
 |  [01]   | `by_dtype(*dtypes)`                                      | columns matching narwhals dtypes   |
 |  [02]   | `numeric()` / `boolean()` / `string()` / `categorical()` | columns by broad type class        |
-|  [03]   | `enum()`                                                | `Enum`-dtype columns               |
+|  [03]   | `enum()`                                                 | `Enum`-dtype columns               |
 |  [04]   | `datetime(time_unit=None, time_zone=('*', None))`        | temporal columns by unit/zone      |
 |  [05]   | `matches(pattern)`                                       | columns whose name matches a regex |
 |  [06]   | `all()`                                                  | all columns                        |

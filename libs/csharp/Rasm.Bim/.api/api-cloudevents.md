@@ -5,13 +5,13 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `CloudNative.CloudEvents`
-- package: `CloudNative.CloudEvents` (Apache-2.0, `cloudevents/sdk-csharp`)
+- package: `CloudNative.CloudEvents` (Apache-2.0)
 - assembly: `CloudNative.CloudEvents` (`net10.0`)
 - namespace: `CloudNative.CloudEvents` (+ `.Extensions`, `.Core`, `.Http`)
 - rail: event envelope
 
 [PACKAGE_SURFACE]: `CloudNative.CloudEvents.SystemTextJson`
-- package: `CloudNative.CloudEvents.SystemTextJson` (Apache-2.0, `cloudevents/sdk-csharp`)
+- package: `CloudNative.CloudEvents.SystemTextJson` (Apache-2.0)
 - assembly: `CloudNative.CloudEvents.SystemTextJson` (`net10.0`)
 - namespace: `CloudNative.CloudEvents.SystemTextJson`
 - rail: `System.Text.Json` event codec
@@ -93,7 +93,7 @@
 - envelope shape and JSON serialization enter through this pair; transport bindings (Kafka, MQTT, AMQP) consume the same `CloudEventFormatter` instance at the app tier and never enter this folder, and the formatter is minted once as a `static readonly` codec identity every transport shares.
 
 [RAIL_LAW]:
-- Package: `CloudNative.CloudEvents` + `CloudNative.CloudEvents.SystemTextJson` (Apache-2.0, pure-managed `net10.0`)
+- Package: `CloudNative.CloudEvents` + `CloudNative.CloudEvents.SystemTextJson` (Apache-2.0)
 - Owns: the CloudEvents 1.0 envelope (`CloudEvent`), the typed attribute system (`CloudEventAttribute`/`CloudEventAttributeType`), the `CloudEventsSpecVersion` vocabulary, and the STJ `JsonEventFormatter` structured/binary/batch codec.
 - Accept: a `BimEvent` lowered onto a `CloudEvent` with its declared extension roster, `Data` carried as a source-generated `JsonElement`, W3C trace continuity as `traceparent`/`tracestate` extension rows, and JSON emit/decode through the shared `JsonEventFormatter`.
 - Reject: an undeclared extension left to decode as a string-typed surprise row; a hand-built JSON envelope where `JsonEventFormatter` owns structured mode; a formatted timestamp string where `Instant.ToDateTimeOffset()` seals the `time` attribute; a per-transport formatter instance where one `static readonly` identity serves all.

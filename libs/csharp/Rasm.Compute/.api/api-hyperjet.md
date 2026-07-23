@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `HyperJet`
-- package: `HyperJet` (ISC, OSI-permissive)
+- package: `HyperJet` (ISC)
 - assembly: `HyperJet`
 - namespace: `HyperJet` (`DDScalar`, `DDScalar1<T>`..`DDScalar15<T>`, `DDScalarSpan`, `Vector3D<T>`, `Kernel`, `static HyperJetMath`)
 - target: single managed AnyCPU IL assembly binding the net10 generic-math and hardware-intrinsics ABI; hardware-accelerated `Vector512`/`Vector256`/`Vector128` kernels
@@ -57,7 +57,7 @@
 - Admit `HyperJet` for any exact gradient or Hessian of a smooth scalar objective or residual expressed in generic math; a caller-supplied black-box objective stays on the finite-difference row.
 
 [RAIL_LAW]:
-- Package: `HyperJet` (ISC, net10-only, zero-dependency)
+- Package: `HyperJet` (ISC)
 - Owns: forward-mode hyper-dual first- and second-order AD of smooth scalar functions — `DDScalar1<T>`..`DDScalar15<T>`, `DDScalarSpan`, `DDScalar`, `Vector3D<T>`, and the `GetGradient()`/`GetHessian()` array exports
 - Accept: an exact gradient or Hessian of a smooth scalar objective or residual in generic math — the scalar-AD leg of `Sensitivity`/`Chain`, estimator MLE Jacobians, the FORM/SORM limit-state gradient, the LM Jacobian
 - Reject: a fourth parallel gradient mechanism beside the geometry, symbolic, and hyperdual legs; a finite-difference stencil where the smooth objective admits exact AD; reverse-mode large-scale tape adjoints the geometry-DEC adjoint tape owns

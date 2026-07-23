@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `dragonfly-energy`
-- package: `dragonfly-energy` (AGPL-3.0 network-copyleft, Ladybug Tools)
+- package: `dragonfly-energy` (AGPL-3.0)
 - module: `dragonfly_energy` — pure Python; import registers `.properties.energy` via `_extend_dragonfly`
 - namespaces: `dragonfly_energy.properties.{model,building,story,room2d,context}`, `dragonfly_energy.{writer,run,reopt,measure}`, `dragonfly_energy.des.{loop,ghe,connector,junction}`, `dragonfly_energy.opendss.*`
 - rail: energy-companion (district energy translation)

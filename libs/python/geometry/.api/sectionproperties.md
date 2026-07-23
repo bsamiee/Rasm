@@ -9,7 +9,6 @@
 - import: `import sectionproperties`
 - owner: `geometry`
 - rail: ifc/structural section-property enrichment
-- license: the `cytriangle` triangulation backend is LGPL-3.0, a dynamically-linked native extension whose obligation the enrichment owner carries
 - entry points: none (library only)
 
 ## [02]-[PUBLIC_TYPES]

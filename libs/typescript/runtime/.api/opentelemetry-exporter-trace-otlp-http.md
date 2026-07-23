@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/exporter-trace-otlp-http`
-- package: `@opentelemetry/exporter-trace-otlp-http`
-- license: `Apache-2.0`
+- package: `@opentelemetry/exporter-trace-otlp-http` (Apache-2.0)
 - otel-peer: `@opentelemetry/api ^catalog`, `@opentelemetry/core ^catalog` (the `ExportResult` rail), `@opentelemetry/sdk-trace-base ^catalog` (the `SpanExporter`/`ReadableSpan` contract + the `BatchSpanProcessor` that wraps it)
 - transitive-config: `@opentelemetry/otlp-exporter-base` supplies the constructor config type (`OTLPExporterNodeConfigBase` / `OTLPExporterConfigBase`) and `CompressionAlgorithm` — a peer, not one of the nine roster rows
 - consumed-by: `otel/emit` SDK-bridge trace leg via the facade's `NodeSdk`/`WebSdk` `Configuration.spanProcessor`

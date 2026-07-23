@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/api-logs`
-- package: `@opentelemetry/api-logs` (Apache-2.0, OpenTelemetry JS)
+- package: `@opentelemetry/api-logs` (Apache-2.0)
 - module format: CJS + ESM dual build; depends on `@opentelemetry/api` (the `Context`/`TimeInput` types) as a regular dependency
 - line: overlay family lock-stepped with `sdk-logs` and the OTLP exporter family; the trace/metric API tier versions on the stable line while the logs-signal API rides the overlay
 - rail: observability/api tier of the logs signal; `@opentelemetry/*` is fenced to `scope:runtime` by the edge ledger
@@ -26,24 +26,15 @@
 |  [06]   | `LoggerProvider`            | contract      | what the SDK implements and the global registration holds              |
 |  [07]   | `LoggerOptions`             | scope options | per-logger scope identity — the field is `attributes`                  |
 
-```ts signature
-interface LogRecord {
-  timestamp?: TimeInput; observedTimestamp?: TimeInput          // TimeInput from @opentelemetry/api
-  severityNumber?: SeverityNumber; severityText?: string
-  body?: LogBody; attributes?: LogAttributes; eventName?: string
-  context?: Context                                             // span linkage — trace-correlated logs
-}
-interface Logger {
-  emit(logRecord: LogRecord): void
-  enabled(options?: { context?: Context; severityNumber?: SeverityNumber; eventName?: string }): boolean   // pre-build drop probe
-}
-interface LoggerProvider { getLogger(name: string, version?: string, options?: LoggerOptions): Logger }
-interface LoggerOptions { schemaUrl?: string; attributes?: LogAttributes }   // scope identity; field is attributes, not scopeAttributes
-enum SeverityNumber { UNSPECIFIED = 0, /* TRACE DEBUG INFO WARN ERROR FATAL anchors step by 4 */ FATAL4 = 24 }
-type AnyValue = scalar | Uint8Array | AnyValueArray | AnyValueMap | null | undefined   // scalar = string|number|boolean
-type AnyValueMap = { [key: string]: AnyValue }
-type LogBody = AnyValue; type LogAttributes = AnyValueMap
-```
+[LOG_RECORD]: `LogRecord.timestamp: TimeInput` `LogRecord.observedTimestamp: TimeInput` `LogRecord.severityNumber: SeverityNumber` `LogRecord.severityText: string` `LogRecord.body: LogBody` `LogRecord.attributes: LogAttributes` `LogRecord.eventName: string` `LogRecord.context: Context`
+[LOGGER]: `Logger.emit(LogRecord) -> void` `Logger.enabled({context?:Context;severityNumber?:SeverityNumber;eventName?:string}?) -> boolean`
+[LOGGER_PROVIDER]: `LoggerProvider.getLogger(string,string?,LoggerOptions?) -> Logger`
+[LOGGER_OPTIONS]: `LoggerOptions.schemaUrl: string` `LoggerOptions.attributes: LogAttributes`
+[SEVERITY_NUMBER]: `UNSPECIFIED` `FATAL4`
+[ANY_VALUE]: `AnyValue = scalar|Uint8Array|AnyValueArray|AnyValueMap|null|undefined`
+[ANY_VALUE_MAP]: `AnyValueMap[string]: AnyValue`
+[LOG_BODY]: `LogBody = AnyValue`
+[LOG_ATTRIBUTES]: `LogAttributes = AnyValueMap`
 
 ## [03]-[ENTRYPOINTS]
 

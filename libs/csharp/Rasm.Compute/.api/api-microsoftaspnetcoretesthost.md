@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.AspNetCore.TestHost`
-- package: `Microsoft.AspNetCore.TestHost` (MIT, .NET Foundation)
+- package: `Microsoft.AspNetCore.TestHost` (MIT)
 - assembly: `Microsoft.AspNetCore.TestHost`
 - namespace: `Microsoft.AspNetCore.TestHost`
 - rail: in-process-transport

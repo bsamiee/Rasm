@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `System.Security.Cryptography`
-- package: `System.Security.Cryptography` (MIT, .NET Foundation)
+- package: `System.Security.Cryptography` (MIT)
 - assembly: `System.Security.Cryptography.dll` (shared framework)
 - namespace: `System.Security.Cryptography`, `System.Security.Cryptography.X509Certificates`
 - rail: credential-armor, object-seal, attestation

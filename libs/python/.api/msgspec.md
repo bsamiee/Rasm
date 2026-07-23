@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `msgspec`
-- package: `msgspec` (`BSD-3-Clause`)
+- package: `msgspec` (BSD-3-Clause)
 - module: `msgspec`
 - namespaces: `msgspec`, `msgspec.json`, `msgspec.msgpack`, `msgspec.toml`, `msgspec.yaml`, `msgspec.structs`, `msgspec.inspect`
 - abi: C-extension `_core` (compiled, not pure-Python)

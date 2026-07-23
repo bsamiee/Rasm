@@ -5,25 +5,25 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Grpc.AspNetCore`
-- package: `Grpc.AspNetCore` (Apache-2.0, The gRPC Authors)
+- package: `Grpc.AspNetCore` (Apache-2.0)
 - assembly: `Grpc.AspNetCore.Server`
 - namespace: `Grpc.AspNetCore.Server`, `Grpc.AspNetCore.Server.Model`, `Grpc.Core`, `Microsoft.AspNetCore.Builder`, `Microsoft.Extensions.DependencyInjection`
 - rail: remote-server
 
 [PACKAGE_SURFACE]: `Grpc.AspNetCore.Web`
-- package: `Grpc.AspNetCore.Web` (Apache-2.0, The gRPC Authors)
+- package: `Grpc.AspNetCore.Web` (Apache-2.0)
 - assembly: `Grpc.AspNetCore.Web`
 - namespace: `Grpc.AspNetCore.Web`, `Microsoft.AspNetCore.Builder`
 - rail: remote-server
 
 [PACKAGE_SURFACE]: `Grpc.AspNetCore.HealthChecks`
-- package: `Grpc.AspNetCore.HealthChecks` (Apache-2.0, The gRPC Authors)
+- package: `Grpc.AspNetCore.HealthChecks` (Apache-2.0)
 - assembly: `Grpc.AspNetCore.HealthChecks`
 - namespace: `Grpc.AspNetCore.HealthChecks`, `Microsoft.AspNetCore.Builder`, `Microsoft.Extensions.DependencyInjection`
 - rail: remote-server
 
 [PACKAGE_SURFACE]: `Grpc.HealthCheck`
-- package: `Grpc.HealthCheck` (Apache-2.0, The gRPC Authors) — transitive under `Grpc.AspNetCore.HealthChecks`, never a direct reference
+- package: `Grpc.HealthCheck` (Apache-2.0)
 - assembly: `Grpc.HealthCheck`
 - namespace: `Grpc.HealthCheck`, `Grpc.Health.V1`
 - rail: remote-server

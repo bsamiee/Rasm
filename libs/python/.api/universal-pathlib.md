@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `universal-pathlib`
-- package: `universal-pathlib`
+- package: `universal-pathlib` (MIT)
 - import: `upath`
 - owner: `runtime` (resources), `compute` (`experiments/model` asset resolution)
 - rail: resources
-- license: `MIT`
 - depends: `fsspec` (filesystem surface), `pathlib_abc` (`Joinable`/`Readable`/`WritablePath` protocol stack); `pydantic`/`pydantic_core` optional via the import-deferred schema hook; `s3fs`/`gcsfs`/`adlfs`/`paramiko`/`smbprotocol` per-protocol extras the backend filesystem pulls, never `upath`
 - namespaces: `upath`, `upath.registry`, `upath.extensions`, `upath.types`, `upath.implementations`
 - capability: fsspec-backed `pathlib`-shaped paths resolving protocol/`storage_options` at construction, metaclass protocol dispatch, the protocol-implementation registry, a `ProxyUPath` extension base, pydantic-core schema integration, and the `pathlib_abc` `info`/`walk`/`copy`/`move` surface

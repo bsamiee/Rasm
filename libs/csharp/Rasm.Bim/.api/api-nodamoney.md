@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `NodaMoney`
-- package: `NodaMoney` (Apache-2.0, RemyDuijkeren/NodaMoney)
+- package: `NodaMoney` (Apache-2.0)
 - assembly: `NodaMoney.dll` — net10 build bound; IL-only AnyCPU managed, no native, ALC-safe in the in-Rhino plugin
 - namespace: `NodaMoney` (values), `NodaMoney.Exchange` (FX), `NodaMoney.Context` (rounding policy), `NodaMoney.Serialization` (serdes)
 - depends: none on net10 — the STJ facades resolve in-box, the nuspec deps bind only the netstandard groups

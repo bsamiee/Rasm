@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pulumi/cloudinit`
-- package: `@pulumi/cloudinit`
-- license: Apache-2.0
+- package: `@pulumi/cloudinit` (Apache-2.0)
 - import: `@pulumi/cloudinit` → `{ Config, getConfig, getConfigOutput, Provider, types }`
 - owner: `iac`
 - rail: fabric / cluster-bootstrap

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `watchfiles`
-- package: `watchfiles` (`MIT`)
+- package: `watchfiles` (MIT)
 - module: `watchfiles`
 - rail: automation
 - depends-on: `anyio` (async backend over asyncio/trio)

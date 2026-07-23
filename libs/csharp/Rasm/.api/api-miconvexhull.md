@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MIConvexHull`
-- package: `MIConvexHull` (MIT, DesignEngrLab)
+- package: `MIConvexHull` (MIT)
 - assembly: `MIConvexHull.dll`
 - namespace: `MIConvexHull`
 - target: `netstandard2.0`, the `net10.0` consumer's bound asset

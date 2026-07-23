@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ocrmypdf`
-- package: `ocrmypdf` (`MPL-2.0`, weak file-scoped copyleft — closed-consumer linking permitted, modifications to ocrmypdf source stay MPL; non-viral for the campaign)
+- package: `ocrmypdf` (MPL-2.0)
 - module: `ocrmypdf`
 - rail: pdf / document (OCR)
 - depends: external `PATH` executables `tesseract` `ghostscript` `unpaper` `jbig2enc` `pngquant`, orchestrated and never pip deps; `veraPDF` is the campaign's separate PDF/A validation oracle, not invoked here

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `PicoGK`
-- package: `PicoGK` (`Apache-2.0`, LEAP71)
+- package: `PicoGK` (Apache-2.0)
 - assembly: `PicoGK`
 - namespace: `PicoGK`
 - asset: `lib/net9.0/PicoGK.dll`; a `net10.0` consumer binds the net9.0 fallback. A RID-bearing native core `runtimes/<rid>/native/picogk.26.2.*` (OpenVDB/boost/TBB) firebreaks it out of any in-Rhino plugin ALC

@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `tomlkit`
-- package: `tomlkit`
+- package: `tomlkit` (MIT)
 - import: `import tomlkit`
 - owner: `artifacts`
 - rail: structured documents
-- license: MIT
 - entry points: none (library only)
 - capability: style-preserving TOML round-trip (comments, whitespace, order, quoting retained), deterministic `sort_keys` emission, plain-builtins `dumps`/`parse().unwrap()` bridge, the styled-item factory family with polymorphic `item()` wrap, multiline-array and super-table style control, out-of-order-table flattening, lossy `unwrap()` projection, and value-encoder registration
 

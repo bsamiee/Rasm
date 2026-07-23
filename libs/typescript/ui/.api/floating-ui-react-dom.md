@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@floating-ui/react-dom`
-- package: `@floating-ui/react-dom` (MIT, © Floating UI contributors)
+- package: `@floating-ui/react-dom` (MIT)
 - module format: ESM + UMD (`dist/floating-ui.react-dom.esm.js`, `.d.ts` at `dist/floating-ui.react-dom.d.ts`), `sideEffects: false`; single `.` entry
 - runtime target: React DOM (browser) — the hook binds to real DOM nodes and produces inline `position`/`transform` styles
 - peer: `react@>=catalog`, `react-dom@>=catalog`; dep `@floating-ui/dom@^catalog` (the framework-agnostic engine this package wraps)

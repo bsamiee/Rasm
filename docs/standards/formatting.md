@@ -112,7 +112,7 @@ A standard file carries one H1, a dense law lead, a container chooser or use-whe
 ```markdown template
 # [TITLE]
 
-<Lead: the operating law in one short paragraph.>
+<Lead: the operating law in one or two single-line paragraphs, at most 500 characters total.>
 
 ## [01]-[USE_WHEN]
 

@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `apache-arrow`
-- package: `apache-arrow`
-- license: `Apache-2.0`
+- package: `apache-arrow` (Apache-2.0)
 - module: `exports["."]` condition-selects `Arrow.dom` (browser) vs `Arrow.node` (node) builds; `sideEffects: false`
 - peers: none; `@duckdb/duckdb-wasm` and `@duckdb/node-api` meet it at the lane seam as producers/consumers
 - runtime: both lanes — the wasm row rides the dom build beside the worker engine, the node row the node build
@@ -32,7 +31,7 @@
 - rail: lane/olap
 - `tableFromIPC` is overloaded on source shape — bytes decode synchronously, a stream/promise/`Response` asynchronously; `tableToIPC(table, type?, compressionType?)` serializes file or stream format; `RecordBatchReader.from(source)` opens the incremental lane and the reader itself is the `AsyncIterable<RecordBatch>` a `Stream.fromAsyncIterable` lift consumes; `isArrowTable`/`isArrowRecordBatch` are the narrowing guards the ingest discriminant folds through.
 
-| [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY] | [CONSUMER]                                             |
+| [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY] | [CONSUMER]                                            |
 | :-----: | :------------------------------------------------------ | :------------- | :---------------------------------------------------- |
 |  [01]   | `tableFromIPC(bytes)` → `Table`                         | decode         | `Olap.wire.decode` — engine IPC egress into one Table |
 |  [02]   | `tableToIPC(table, type?, compression?)` → `Uint8Array` | encode         | `Olap.wire.encode` — the outbound engine seam         |

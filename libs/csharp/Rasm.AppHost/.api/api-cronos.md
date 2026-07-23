@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Cronos`
-- package: `Cronos` (MIT, Hangfire OÜ)
+- package: `Cronos` (MIT)
 - assembly: `Cronos`
 - namespace: `Cronos`
 - rail: schedule

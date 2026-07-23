@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MiniExcel`
-- package: `MiniExcel` (`Apache-2.0`, Mini-Software team)
+- package: `MiniExcel` (Apache-2.0)
 - assembly: `MiniExcel`
 - namespace: `MiniExcelLibs` (façade, reader, configuration base); `MiniExcelLibs.Attributes`; `MiniExcelLibs.Csv`; `MiniExcelLibs.OpenXml` and `.Models`; `MiniExcelLibs.Picture`; `MiniExcelLibs.Exceptions`
 - asset: pure-managed AnyCPU runtime library; self-contained OpenXML zip and CSV reader/writer over source-generated `Regex` cell and template parsing

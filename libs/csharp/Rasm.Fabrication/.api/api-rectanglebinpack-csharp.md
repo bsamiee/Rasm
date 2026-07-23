@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `RectangleBinPack.CSharp`
-- package: `RectangleBinPack.CSharp` (`MIT`)
+- package: `RectangleBinPack.CSharp` (MIT)
 - assembly: `RectangleBinPacking` (`lib/netstandard2.0/RectangleBinPacking.dll`; single TFM, the sole asset — the assembly name diverges from the package id)
 - namespace: `RectangleBinPacking`
 - asset: pure-managed AnyCPU IL, zero package dependencies — no native asset, no RID burden, ALC-safe; the `net10.0` consumer binds the one `netstandard2.0` asset directly

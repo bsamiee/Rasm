@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Silk.NET.WebGPU.Extensions.WGPU`
-- package: `Silk.NET.WebGPU.Extensions.WGPU` (`MIT`)
+- package: `Silk.NET.WebGPU.Extensions.WGPU` (MIT)
 - assembly: `Silk.NET.WebGPU.Extensions.WGPU`
 - namespace: `Silk.NET.WebGPU.Extensions.WGPU`
 - asset: managed binding only — P/Invokes the `wgpu_native` binaries `Silk.NET.WebGPU.Native.WGPU` restores

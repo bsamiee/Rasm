@@ -5,20 +5,20 @@ CloudEvents projects the Persistence redacted op-log changefeed onto one CNCF-st
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `CloudNative.CloudEvents`
-- package: `CloudNative.CloudEvents` (`Apache-2.0`, `cloudevents/sdk-csharp`)
+- package: `CloudNative.CloudEvents` (Apache-2.0)
 - assembly: `CloudNative.CloudEvents` (`net10.0` bound asset, pure-managed, no RID burden)
 - namespace: `CloudNative.CloudEvents`, `CloudNative.CloudEvents.Extensions`, `CloudNative.CloudEvents.Core`
 - rail: sync-egress
 
 [PACKAGE_SURFACE]: `CloudNative.CloudEvents.Kafka`
-- package: `CloudNative.CloudEvents.Kafka` (`Apache-2.0`, `cloudevents/sdk-csharp`)
+- package: `CloudNative.CloudEvents.Kafka` (Apache-2.0)
 - assembly: `CloudNative.CloudEvents.Kafka` (`net10.0` bound asset, pure-managed)
 - namespace: `CloudNative.CloudEvents.Kafka`
 - depends: `Confluent.Kafka` (native `librdkafka.redist` rides that package, `api-kafka`)
 - rail: sync-egress
 
 [PACKAGE_SURFACE]: `CloudNative.CloudEvents.SystemTextJson`
-- package: `CloudNative.CloudEvents.SystemTextJson` (`Apache-2.0`, `cloudevents/sdk-csharp`)
+- package: `CloudNative.CloudEvents.SystemTextJson` (Apache-2.0)
 - assembly: `CloudNative.CloudEvents.SystemTextJson` (`net10.0` bound asset over `System.Text.Json`, BCL-shipped on `net10.0`)
 - namespace: `CloudNative.CloudEvents.SystemTextJson`
 - rail: sync-egress

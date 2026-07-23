@@ -5,10 +5,9 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pgrouting`
-- package: server-side PostgreSQL extension (C++ over Boost Graph, not a NuGet package); repo `pgrouting/pgrouting`, installed name `pgrouting`
+- package: `pgrouting` (GPL-2.0-or-later)
 - namespace: SQL `public` — the `pgr_*` set-returning functions and the inner-query row contracts they consume
 - depends: `requires = 'plpgsql,postgis'`, pulled in one DDL step by the row's `CREATE EXTENSION IF NOT EXISTS "pgrouting" CASCADE`
-- license: GPL-2.0-or-later — the in-DB deployment is the license boundary, no managed linkage
 - registration: `relocatable = true` function extension whose C functions load lazily per call, registering no background worker, planner hook, or index access method, so `Store/provisioning#SERVER_EXTENSIONS` gates the row as `ExtensionAdmission.BaseType("postgis")`
 - consumed by: `Query/cypher#GRAPH_QUERY` — the `GraphQuery` cases (`Path`/`Via`/`Located`/`Kth`/`Spread`/`Tour`/`TourPlanar`/`Flow`/`Cleave`) selected by the `RouteMode`/`FlowKind`/`CleaveKind` policy rows, over the `Element/identity#ELEMENT_IDENTITY` `NodeCell` cell ids the `network_edge` `source`/`target` carries
 - rail: routing-provisioning, graph-lane
@@ -146,7 +145,7 @@
 - Routing enters through the PostgreSQL store profile alone: one `ServerExtension` row keyed `pgrouting` under `ExtensionAdmission.BaseType("postgis")`, over an Edges SQL built on the `network_edge` projection whose `source`/`target` are `NodeCell` cell ids.
 
 [RAIL_LAW]:
-- Package: `pgrouting` (server-side, in the deploy-image PG18)
+- Package: `pgrouting` (GPL-2.0-or-later)
 - Owns: in-PG network routing over PostGIS — the shortest-path, cost, cost-matrix, catchment, spanning-tree, K-shortest-path, turn-restricted, point-anchored, tour, flow, component, contraction, and vertex-derivation functions over the inner-query contracts
 - Accept: the `ServerExtension` CASCADE install over the `postgis` base type, the negative-means-absent edge contract, the five-overload path families and their `*Cost`/`*CostMatrix` siblings read through `FromSql`/`SqlQuery`, `pgr_extractVertices` for vertex derivation, `pgr_findCloseEdges` feeding a `Points SQL`, `pgr_TSP` over a `*CostMatrix`-built Matrix SQL
 - Reject: linking the extension into managed code, an EF-translated `pgr_*` member, a positive `reverse_cost` standing for a missing reverse edge, a runtime-concatenated Edges SQL string, a managed graph engine re-solving the metric routes this router owns

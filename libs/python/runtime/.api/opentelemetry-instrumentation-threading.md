@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `opentelemetry-instrumentation-threading`
-- package: `opentelemetry-instrumentation-threading` (`Apache-2.0`, OpenTelemetry Authors)
+- package: `opentelemetry-instrumentation-threading` (Apache-2.0)
 - module: `opentelemetry.instrumentation.threading`
 - namespaces: `opentelemetry.instrumentation.threading`
 - rail: observability

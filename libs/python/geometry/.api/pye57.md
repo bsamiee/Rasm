@@ -28,21 +28,15 @@
 
 Each `SUPPORTED_*_POINT_FIELDS` is a `dict[str, str]` field-name -> `numpy` dtype char, not a frozenset: `make_buffer` reads the char to size the array, and `COORDINATE_SYSTEMS.*.value` reuses the Cartesian/spherical sub-maps for mode detection.
 
-| [INDEX] | [SYMBOL]                           | [ENTRIES]                                                         |
-| :-----: | :--------------------------------- | :---------------------------------------------------------------- |
-|  [01]   | `SUPPORTED_CARTESIAN_POINT_FIELDS` | `cartesianX`/`cartesianY`/`cartesianZ` -> `"d"`                   |
-|  [02]   | `SUPPORTED_SPHERICAL_POINT_FIELDS` | `sphericalRange`/`sphericalAzimuth`/`sphericalElevation` -> `"d"` |
-|  [03]   | `SUPPORTED_POINT_FIELDS`           | rows [01] + [02] + the extra fields below                         |
-
-```python signature
-# SUPPORTED_POINT_FIELDS = rows [01] + [02] + these (field name -> numpy dtype char):
-{
-    "intensity": "f",
-    "colorRed": "B", "colorGreen": "B", "colorBlue": "B",
-    "rowIndex": "H", "columnIndex": "H",
-    "cartesianInvalidState": "b", "sphericalInvalidState": "b",
-}
-```
+| [INDEX] | [SYMBOL]                                        | [ENTRIES]                                                         |
+| :-----: | :---------------------------------------------- | :---------------------------------------------------------------- |
+|  [01]   | `SUPPORTED_CARTESIAN_POINT_FIELDS`              | `cartesianX`/`cartesianY`/`cartesianZ` -> `"d"`                   |
+|  [02]   | `SUPPORTED_SPHERICAL_POINT_FIELDS`              | `sphericalRange`/`sphericalAzimuth`/`sphericalElevation` -> `"d"` |
+|  [03]   | `SUPPORTED_POINT_FIELDS`                        | rows [01] + [02] + the extra fields below                         |
+|  [04]   | `intensity`                                     | numpy dtype `"f"`                                                 |
+|  [05]   | `colorRed`/`colorGreen`/`colorBlue`             | numpy dtype `"B"`                                                 |
+|  [06]   | `rowIndex`/`columnIndex`                        | numpy dtype `"H"`                                                 |
+|  [07]   | `cartesianInvalidState`/`sphericalInvalidState` | numpy dtype `"b"`                                                 |
 
 ## [03]-[ENTRYPOINTS]
 

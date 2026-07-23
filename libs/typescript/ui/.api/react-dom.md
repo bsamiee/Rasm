@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `react-dom`
-- package: `react-dom`
-- license: `MIT`
+- package: `react-dom` (MIT)
 - react-peer: `react ^catalog` (lockstep — the renderer and reconciler ship and version together)
 - asset: runtime library shipping `.js` only; types are the separate `@types/react-dom` (`catalog`, MIT) DefinitelyTyped package — `api resolve react-dom` finds the package root but zero bundled `.d.ts`, so the type gate runs against `@types/react-dom`
 - exports (runtime-split): `.` (portal/flush/hints/form), `./client` (`createRoot`/`hydrateRoot`), `./server.node` (`renderToPipeableStream`), `./server.edge`/`./server.browser`/`./server.bun` (`renderToReadableStream`), `./static.node`/`./static.edge` (`prerender`), `./profiling`, `./test-utils`

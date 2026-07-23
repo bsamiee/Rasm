@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@types/react`
-- package: `@types/react`
-- license: `MIT` (DefinitelyTyped)
+- package: `@types/react` (MIT)
 - deps: `csstype` (`CSSProperties extends CSS.Properties<string | number>`)
 - catalog-verdict: KEEP
 - asset: declaration-only — NO runtime, NO ABI; `tsc`/`tsgo` typechecks against it and it emits nothing. The `react` runtime (`.api/react.md`) is the paired package; these are its types

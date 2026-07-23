@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@perspective-dev/viewer-datagrid`
-- package: `@perspective-dev/viewer-datagrid`
-- license: `Apache-2.0`
+- package: `@perspective-dev/viewer-datagrid` (Apache-2.0)
 - deps: `@perspective-dev/client`, `@perspective-dev/viewer` (lockstep pins), `regular-table`
 - module: ESM only — exports `.` (`types: dist/esm/index.d.ts`, `default: dist/esm/perspective-viewer-datagrid.js`), plus `./dist/*`/`./src/*` passthroughs
 - catalog-verdict: KEEP — the admitted grid half of the viewer plugin pair (`.api/perspective-dev-viewer.md` carries the pair ruling)

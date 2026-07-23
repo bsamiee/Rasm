@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `parquet-wasm`
-- package: `parquet-wasm`
-- license: `MIT OR Apache-2.0`
+- package: `parquet-wasm` (MIT)
 - module: `exports["."]` condition-selects the `node` build (wasm inlined, synchronous) vs the default `esm` build (async `initWasm()`); `./node`, `./esm`, `./bundler` name the builds explicitly, and `./<build>/parquet_wasm_bg.wasm` exposes the raw asset for a hosted-URL init
 - peers: none; dependencies: none — the wasm binary is self-contained
 - init: default export `initWasm(input?)` instantiates the module for the `esm`/`bundler` builds and MUST resolve before any entry runs; the `node` build needs no init

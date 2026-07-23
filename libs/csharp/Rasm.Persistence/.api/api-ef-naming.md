@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `EFCore.NamingConventions`
-- package: `EFCore.NamingConventions` (`Apache-2.0`, Shay Rojansky)
+- package: `EFCore.NamingConventions` (Apache-2.0)
 - assembly: `EFCore.NamingConventions`
 - namespace: `Microsoft.EntityFrameworkCore`, `Microsoft.Extensions.DependencyInjection` (consumption); `EFCore.NamingConventions.Internal` (extension points)
 - rail: schema-tooling

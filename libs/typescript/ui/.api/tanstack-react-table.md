@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@tanstack/react-table`
-- package: `@tanstack/react-table` (MIT, © Tanner Linsley) — React adapter over `@tanstack/table-core`, which owns every type and derivation below
+- package: `@tanstack/react-table` (MIT)
 - module format: dual ESM+CJS (`build/lib/index.esm.js` + `index.js`), `sideEffects: false`; first-party bundled `.d.ts` (`build/lib/index.d.ts`) re-exporting `table-core`
 - runtime target: React render tree; the core is DOM-free and framework-agnostic, the adapter binds core derivation into a React `useState`/`useReducer` refresh
 - peer: `react catalog`, `react-dom catalog` — satisfied by the folder React 19 spine

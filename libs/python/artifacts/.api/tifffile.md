@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `tifffile`
-- package: `tifffile` (`BSD-3-Clause`, Christoph Gohlke)
+- package: `tifffile` (BSD-3-Clause)
 - module: `tifffile`
 - rail: layered — the TIFF/BigTIFF/OME-TIFF container IO and extratag authoring the `export/layered` `TIFF` arm composes, and the artifacts TIFF array<->container spine
 - abi: pure-Python `py3-none-any`, no native extension; strip codecs delegate to `imagecodecs`

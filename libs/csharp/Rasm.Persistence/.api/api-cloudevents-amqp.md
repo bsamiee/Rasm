@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `CloudNative.CloudEvents.Amqp`
-- package: `CloudNative.CloudEvents.Amqp` (`Apache-2.0`, `cloudevents/sdk-csharp`)
+- package: `CloudNative.CloudEvents.Amqp` (Apache-2.0)
 - assembly: `CloudNative.CloudEvents.Amqp`; namespace `CloudNative.CloudEvents.Amqp`
 - asset: pure-managed, no native asset or RID burden
 - depends: `CloudNative.CloudEvents` (`api-cloudevents`) and `AMQPNetLite.Core` (`Amqp.Message` transport — assembly `Amqp.Net.dll`, namespaces `Amqp`/`Amqp.Framing`/`Amqp.Types`)

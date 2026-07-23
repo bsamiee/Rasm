@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `jose`
-- package: `jose` (MIT, © Filip Skokan)
+- package: `jose` (MIT)
 - module format: ESM (`type: module`, `sideEffects: false`); a rich `exports` map serves per-concern subpaths — `jose/jwt/sign`, `jose/jwt/verify`, `jose/jwks/remote`, `jose/key/import`, `jose/errors`, `jose/base64url` — and the flat root import is equivalent under `sideEffects: false` tree-shaking, so the design imports from the root and a browser-safe `sign` bundle still never carries the unused surface
 - runtime target: isomorphic (node ≥ WebCrypto, bun, deno, workerd, browser); zero runtime dependencies; no native addon — catalog-bound dropped the Node `crypto` build, so a single WebCrypto path serves every runtime and `sign/jwt.ts` is host-neutral despite the folder's node-only default
 - asset: pure-TypeScript runtime library (`.js` + `.d.ts`); `JWTPayload` is open (`[propName: string]: unknown`), so a `Schema` decode is the real gate on the verified claim set

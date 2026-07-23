@@ -13,7 +13,7 @@ re-parse of each result through `effect/Schema` into native shapes. External too
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@modelcontextprotocol/sdk`
-- package: `@modelcontextprotocol/sdk` (version ``, license MIT, `type: module`)
+- package: `@modelcontextprotocol/sdk` (MIT)
 - entry: subpath exports `./client`, `./server` (OUT OF SCOPE), `./validation`, `./validation/ajv`, `./validation/cfworker`, `./experimental`, `./experimental/tasks`, `./*`
 - in-scope modules: `client/index`, `client/{stdio,streamableHttp,sse,websocket}`, `shared/{protocol,transport,auth}`, `client/auth`, `types`, `inMemory`, `validation/*`, `experimental/tasks/client`
 - asset: Promise-based MCP client on a pluggable transport; Zod-schema protocol wire; OAuth 2.0 client flow
@@ -42,34 +42,8 @@ roots). `.experimental.tasks` adds streaming/long-running tool execution.
 |  [09]   | `Client#experimental.tasks`                                         | property | streaming/task tool execution          |
 |  [10]   | `getSupportedElicitationModes`                                      | function | capability-derived elicitation modes   |
 
-```ts signature
-declare class Client<RequestT extends Request = Request, NotificationT extends Notification = Notification, ResultT extends Result = Result>
-  extends Protocol<ClientRequest | RequestT, ClientNotification | NotificationT, ClientResult | ResultT> {
-  constructor(clientInfo: Implementation, options?: ClientOptions)
-  connect(transport: Transport, options?: RequestOptions): Promise<void>
-  registerCapabilities(capabilities: ClientCapabilities): void
-  getServerCapabilities(): ServerCapabilities | undefined
-  getServerVersion(): Implementation | undefined
-  getInstructions(): string | undefined
-  listTools(params?: ListToolsRequest["params"], options?: RequestOptions): Promise<ListToolsResult>
-  callTool(params: CallToolRequest["params"], resultSchema?: typeof CallToolResultSchema, options?: RequestOptions): Promise<CallToolResult>
-  listResources(params?, options?): Promise<ListResourcesResult>
-  listResourceTemplates(params?, options?): Promise<ListResourceTemplatesResult>
-  readResource(params: ReadResourceRequest["params"], options?): Promise<ReadResourceResult>
-  subscribeResource(params, options?): Promise<Result>; unsubscribeResource(params, options?): Promise<Result>
-  listPrompts(params?, options?): Promise<ListPromptsResult>
-  getPrompt(params: GetPromptRequest["params"], options?): Promise<GetPromptResult>
-  complete(params: CompleteRequest["params"], options?): Promise<CompleteResult>
-  setLoggingLevel(level: LoggingLevel, options?): Promise<Result>; ping(options?): Promise<Result>
-  sendRootsListChanged(): Promise<void>
-  get experimental(): { tasks: ExperimentalClientTasks<RequestT, NotificationT, ResultT> }
-}
-type ClientOptions = ProtocolOptions & {
-  capabilities?: ClientCapabilities
-  jsonSchemaValidator?: jsonSchemaValidator // default AjvJsonSchemaValidator; CfWorkerJsonSchemaValidator for edge/workers
-  listChanged?: ListChangedHandlers          // onChanged callbacks for tools/prompts/resources
-}
-```
+[CLIENT]: `Client(Implementation,ClientOptions?)` `Client.connect(Transport,RequestOptions?) -> Promise<void>` `Client.registerCapabilities(ClientCapabilities) -> void` `Client.getServerCapabilities() -> ServerCapabilities|undefined` `Client.getServerVersion() -> Implementation|undefined` `Client.getInstructions() -> string|undefined` `Client.listTools(ListToolsRequest["params"]?,RequestOptions?) -> Promise<ListToolsResult>` `Client.callTool(CallToolRequest["params"],typeof CallToolResultSchema?,RequestOptions?) -> Promise<CallToolResult>` `Client.listResources(unknown?,unknown?) -> Promise<ListResourcesResult>` `Client.listResourceTemplates(unknown?,unknown?) -> Promise<ListResourceTemplatesResult>` `Client.readResource(ReadResourceRequest["params"],unknown?) -> Promise<ReadResourceResult>` `Client.subscribeResource(unknown,unknown?) -> Promise<Result>` `Client.unsubscribeResource(unknown,unknown?) -> Promise<Result>` `Client.listPrompts(unknown?,unknown?) -> Promise<ListPromptsResult>` `Client.getPrompt(GetPromptRequest["params"],unknown?) -> Promise<GetPromptResult>` `Client.complete(CompleteRequest["params"],unknown?) -> Promise<CompleteResult>` `Client.setLoggingLevel(LoggingLevel,unknown?) -> Promise<Result>` `Client.ping(unknown?) -> Promise<Result>` `Client.sendRootsListChanged() -> Promise<void>` `Client.experimental: {tasks:ExperimentalClientTasks<RequestT,NotificationT,ResultT>}`
+[CLIENT_OPTIONS]: `ClientOptions = ProtocolOptions&{…}`
 
 ## [03]-[TRANSPORTS]
 
@@ -80,26 +54,11 @@ server locality: `Stdio` spawns a local server process; `StreamableHTTP` (the cu
 SSE-streams with OAuth + reconnection + session resumption; `SSE` is the retired remote transport; `InMemory`
 pairs a client and server in-process for kit-driven specs.
 
-```ts signature
-interface Transport {
-  start(): Promise<void>                        // Client.connect() calls this implicitly
-  send(message: JSONRPCMessage, options?: TransportSendOptions): Promise<void>
-  close(): Promise<void>
-  onclose?: () => void; onerror?: (error: Error) => void
-  onmessage?: <T extends JSONRPCMessage>(message: T, extra?: MessageExtraInfo) => void
-  sessionId?: string; setProtocolVersion?: (version: string) => void
-}
-declare class StdioClientTransport implements Transport { constructor(server: StdioServerParameters) /* command,args,env,cwd,stderr */ }
-declare function getDefaultEnvironment(): Record<string, string> // safe env allowlist for spawned servers
-declare class StreamableHTTPClientTransport implements Transport {
-  constructor(url: URL, opts?: StreamableHTTPClientTransportOptions) // { authProvider?; requestInit?; fetch?; reconnectionOptions?; sessionId? }
-  get sessionId(): string | undefined
-  terminateSession(): Promise<void>; finishAuth(authorizationCode: string): Promise<void>; setProtocolVersion(v: string): void
-}
-declare class SSEClientTransport implements Transport { /* legacy remote transport */ }
-declare class WebSocketClientTransport implements Transport {}
-declare class InMemoryTransport implements Transport { static createLinkedPair(): [InMemoryTransport, InMemoryTransport] }
-```
+[TRANSPORT]: `Transport.start() -> Promise<void>` `Transport.send(JSONRPCMessage,TransportSendOptions?) -> Promise<void>` `Transport.close() -> Promise<void>` `Transport.onclose: ()=>void` `Transport.onerror: (error:Error)=>void` `Transport.onmessage: <T extends JSONRPCMessage>(message:T,extra?:MessageExtraInfo)=>void` `Transport.sessionId: string` `Transport.setProtocolVersion: (version:string)=>void`
+[STDIO_CLIENT_TRANSPORT]: `StdioClientTransport(StdioServerParameters)`
+[STREAMABLE_HTTPCLIENT_TRANSPORT]: `StreamableHTTPClientTransport(URL,StreamableHTTPClientTransportOptions?)` `StreamableHTTPClientTransport.sessionId: string|undefined` `StreamableHTTPClientTransport.terminateSession() -> Promise<void>` `StreamableHTTPClientTransport.finishAuth(string) -> Promise<void>` `StreamableHTTPClientTransport.setProtocolVersion(string) -> void`
+[IN_MEMORY_TRANSPORT]: `InMemoryTransport.createLinkedPair() -> [InMemoryTransport,InMemoryTransport]`
+[SURFACES]: `getDefaultEnvironment() -> Record<string,string>`
 
 ## [04]-[PROTOCOL_AND_AUTH]
 
@@ -110,23 +69,7 @@ Effect boundary maps onto `Effect.timeout`/interruption. `client/auth` is the fu
 remote servers — the `StreamableHTTPClientTransport.authProvider` slot consumes an `OAuthClientProvider`, and on
 401 the transport refreshes or redirects, throwing `UnauthorizedError` when interactive auth is required.
 
-```ts signature
-const DEFAULT_REQUEST_TIMEOUT_MSEC = 60000
-type RequestOptions = {
-  onprogress?: ProgressCallback; signal?: AbortSignal
-  timeout?: number; resetTimeoutOnProgress?: boolean; maxTotalTimeout?: number
-}
-interface ProtocolOptions { /* enforceStrictCapabilities?, debouncedNotificationMethods?, … */ }
-interface RequestHandlerExtra<SendRequestT, SendNotificationT> { /* signal, sessionId, sendNotification, sendRequest, authInfo, … */ }
-
-// OAuth 2.0 (client/auth): interface + flow functions the transport authProvider composes.
-interface OAuthClientProvider { readonly redirectUrl; readonly clientMetadata; tokens(); saveTokens(); redirectToAuthorization(); /* … */ }
-declare function auth(provider: OAuthClientProvider, options): Promise<AuthResult>
-declare function discoverAuthorizationServerMetadata(...): Promise<...>
-declare function startAuthorization(...): Promise<...>; declare function exchangeAuthorization(...): Promise<...>
-declare function refreshAuthorization(...): Promise<...>; declare function registerClient(...): Promise<...>
-declare class UnauthorizedError extends Error {}
-```
+[SURFACES]: `DEFAULT_REQUEST_TIMEOUT_MSEC` `RequestOptions` `ProtocolOptions` `RequestHandlerExtra` `OAuthClientProvider` `auth` `discoverAuthorizationServerMetadata` `startAuthorization` `exchangeAuthorization` `refreshAuthorization` `registerClient` `UnauthorizedError`
 
 ## [05]-[WIRE_SCHEMAS]
 

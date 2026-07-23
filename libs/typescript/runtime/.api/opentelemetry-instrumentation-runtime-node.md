@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/instrumentation-runtime-node`
-- package: `@opentelemetry/instrumentation-runtime-node`
-- license: `Apache-2.0`
+- package: `@opentelemetry/instrumentation-runtime-node` (Apache-2.0)
 - base: `RuntimeNodeInstrumentation` extends `@opentelemetry/instrumentation` `InstrumentationBase`; per-series `BaseCollector` implementations register observables against the bound `Meter`
 - backing: `@opentelemetry/api` `Meter`; `@opentelemetry/api-logs` `LoggerProvider` for the exception-log path; node `perf_hooks`/`v8`/`process` as the sample source
 - naming: emitted series and attributes ride `@opentelemetry/semantic-conventions` `nodejs.eventloop.*` and `v8js.*` vocabularies

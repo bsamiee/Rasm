@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Diagnostics.Tracing.TraceEvent`
-- package: `Microsoft.Diagnostics.Tracing.TraceEvent` (`MIT`, perfview)
+- package: `Microsoft.Diagnostics.Tracing.TraceEvent` (MIT)
 - assembly: `Microsoft.Diagnostics.Tracing.TraceEvent`
 - namespace: `Microsoft.Diagnostics.Tracing` (source/session), `Microsoft.Diagnostics.Tracing.Etlx` (TraceLog), `Microsoft.Diagnostics.Tracing.Parsers` (provider parsers), `Microsoft.Diagnostics.Tracing.Session` (live ETW)
 - target: `netstandard2.0`

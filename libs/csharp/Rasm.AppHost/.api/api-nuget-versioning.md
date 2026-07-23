@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `NuGet.Versioning`
-- package: `NuGet.Versioning` (`Apache-2.0`)
+- package: `NuGet.Versioning` (Apache-2.0)
 - assembly: `NuGet.Versioning`
 - namespace: `NuGet.Versioning`
 - asset: runtime library; multi-target `net8.0`/`net472`, the `net10.0` consumer binds `lib/net8.0` by TFM precedence

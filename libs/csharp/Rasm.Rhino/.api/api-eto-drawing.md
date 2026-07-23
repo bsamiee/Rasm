@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Eto.Drawing`
-- package: `Eto.Drawing` (host-provided; bound in-place from the Rhino-loaded `Eto.dll`, never a second NuGet admission)
-- license: BSD-3-Clause
+- package: `Eto.Drawing` (host-provided; bound in-place from the Rhino-loaded `Eto.dll`, never a second NuGet admission) (BSD-3-Clause)
 - assembly: `Eto.dll` (Rhino `RhCore` framework)
 - namespace: `Eto.Drawing`
 - asset: the same `Eto.dll` the `Eto.Forms` surface binds; `Graphics` handles render against the host's native canvas
@@ -111,12 +110,11 @@ A `Pen` strokes, a `Brush` fills; each primitive carries a draw and a fill form 
 
 `DrawText` carries a pre-laid `FormattedText` form and a frame form with wrap, alignment, and trimming policy; `MeasureString` and `FormattedText.Measure` return the laid-out `SizeF`:
 
-```csharp signature
-Graphics.DrawText(FormattedText formattedText, PointF location)
-Graphics.DrawText(Font font, Brush brush, RectangleF frame, string text, FormattedTextWrapMode wrap = FormattedTextWrapMode.Word, FormattedTextAlignment alignment = FormattedTextAlignment.Left, FormattedTextTrimming trimming = FormattedTextTrimming.WordEllipsis)
-Graphics.MeasureString(Font font, string text)
-FormattedText.Measure()
-```
+| [INDEX] | [SURFACE]                                                          | [CAPABILITY]                 |
+| :-----: | :----------------------------------------------------------------- | :--------------------------- |
+|  [01]   | `Graphics.DrawText(FormattedText, PointF)`                         | draws pre-laid text          |
+|  [02]   | `Graphics.DrawText(Font, Brush, RectangleF, string, …)`            | draws policy-laid frame text |
+|  [03]   | `Graphics.MeasureString(Font, string)` / `FormattedText.Measure()` | returns laid-out `SizeF`     |
 
 [ENTRYPOINT_SCOPE]: clip and transform state
 - rail: paint
@@ -141,20 +139,14 @@ Transform and clip are a save/restore stack; a `SaveTransformState` push is unwo
 
 `Add*` build the figure, `GetRoundRect` factories a rounded rectangle, `FillContains`/`StrokeContains` are the fill and stroke hit-tests, and `Transform`/`Clone` mutate and copy:
 
-```csharp signature
-GraphicsPath.AddLine(float startX, float startY, float endX, float endY)
-GraphicsPath.AddBezier(PointF start, PointF control1, PointF control2, PointF end)
-GraphicsPath.AddArc(float x, float y, float width, float height, float startAngle, float sweepAngle)
-GraphicsPath.AddCurve(IEnumerable<PointF> points, float tension = 0.5f)
-GraphicsPath.AddEllipse(float x, float y, float width, float height)
-GraphicsPath.AddRectangle(float x, float y, float width, float height)
-GraphicsPath.GetRoundRect(RectangleF rectangle, float radius)
-GraphicsPath.GetRoundRect(RectangleF rectangle, float nwRadius, float neRadius, float seRadius, float swRadius)
-GraphicsPath.FillContains(PointF point)
-GraphicsPath.StrokeContains(Pen pen, PointF point)
-GraphicsPath.Transform(IMatrix matrix)
-GraphicsPath.Clone()
-```
+| [INDEX] | [SURFACE]                                                                           | [CAPABILITY]                       |
+| :-----: | :---------------------------------------------------------------------------------- | :--------------------------------- |
+|  [01]   | `AddLine(float, float, float, float)` / `AddBezier(PointF, PointF, PointF, PointF)` | line and cubic segments            |
+|  [02]   | `AddArc(float×6)` / `AddCurve(IEnumerable<PointF>, float)`                          | arc and tensioned-curve segments   |
+|  [03]   | `AddEllipse(float×4)` / `AddRectangle(float×4)`                                     | closed primitive figures           |
+|  [04]   | `GetRoundRect(RectangleF, float)` / `GetRoundRect(RectangleF, float×4)`             | uniform or per-corner rounded path |
+|  [05]   | `FillContains(PointF)` / `StrokeContains(Pen, PointF)`                              | fill and stroke hit tests          |
+|  [06]   | `Transform(IMatrix)` / `Clone()`                                                    | mutate or copy retained geometry   |
 
 [ENTRYPOINT_SCOPE]: matrix composition
 - rail: paint
@@ -192,14 +184,9 @@ GraphicsPath.Clone()
 |  [14]   | `BitmapData.SetPixel(Point position, Color color)`                                            | writes inside one bitmap lock   |
 |  [15]   | `FormattedText.ForegroundBrush { get; set; }`                                                 | assigns shaped-text foreground  |
 |  [16]   | `FormattedText.Text/Font/MaximumSize/Wrap/Alignment/Trimming`                                 | configures shaped-text layout   |
-
-Gradient and texture brush constructors:
-
-```csharp signature
-LinearGradientBrush(Color startColor, Color endColor, PointF startPoint, PointF endPoint)
-RadialGradientBrush(Color startColor, Color endColor, PointF center, PointF gradientOrigin, SizeF radius)
-TextureBrush(Image image, float opacity = 1f)
-```
+|  [17]   | `LinearGradientBrush(Color, Color, PointF, PointF)`                                           | linear gradient brush           |
+|  [18]   | `RadialGradientBrush(Color, Color, PointF, PointF, SizeF)`                                    | radial gradient brush           |
+|  [19]   | `TextureBrush(Image, float)`                                                                  | opacity-scaled image brush      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

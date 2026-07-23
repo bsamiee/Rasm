@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `protobuf`
-- package: `protobuf` (`BSD-3-Clause`)
+- package: `protobuf` (BSD-3-Clause)
 - module: `google.protobuf`
 - namespaces: `...message`, `...descriptor`, `...descriptor_pool`, `...symbol_database`, `...message_factory`, `...json_format`, `...text_format`, `...proto`, `...internal.api_implementation`, `...internal.well_known_types`, `...<wkt>_pb2`, `...compiler.plugin_pb2`
 - abi: native `upb` C extension by default, `cpp` or pure `python` selected at import via `api_implementation`

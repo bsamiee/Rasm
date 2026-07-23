@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `xxhash`
-- package: `xxhash` (`BSD-2-Clause`)
+- package: `xxhash` (BSD-2-Clause)
 - module: `xxhash`
 - namespaces: `xxhash`, `xxhash.version`
 - rail: hashing

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `cloudevents`
-- package: `cloudevents` (Apache-2.0, CNCF)
+- package: `cloudevents` (Apache-2.0)
 - module: `cloudevents.v1`, `cloudevents.core`
 - namespaces: `cloudevents.v1.{http,kafka,pydantic,conversion,abstract,exceptions}`, `cloudevents.core.{spec,v1.event,formats,bindings}`
 - target: pure-Python wheel, no native asset

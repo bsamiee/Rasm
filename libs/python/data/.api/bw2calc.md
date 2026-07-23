@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `bw2calc`
-- package: `bw2calc` (`BSD-3-Clause`, Brightway Developers)
+- package: `bw2calc` (BSD-3-Clause)
 - module: `bw2calc` (`import bw2calc as bc`)
 - rail: LCA linear-system solve engine for the EPD/LCA cluster
 - asset: pure-Python `py3-none-any` purelib, zero compiled extensions; numerics ride `scipy` sparse + `numpy`, matrix mapping `matrix_utils.MappedMatrix`, uncertainty `stats_arrays`, graph traversal `bw_graph_tools`

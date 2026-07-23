@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `isomorphic-dompurify`
-- package: `isomorphic-dompurify`
-- license: `MIT`
+- package: `isomorphic-dompurify` (MIT)
 - deps: `dompurify ^catalog` (the sanitizer + full re-exported type surface), `jsdom catalog` (node `WindowLike` backing)
 - catalog-verdict: KEEP
 - runtime: isomorphic — conditional export: node (`dist/index`, jsdom window + `clearWindow`) vs browser (`dist/browser`, native window, explicitly-overloaded hooks); one import site, resolution by condition

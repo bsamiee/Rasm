@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `NATS.Net` (meta-package)
-- package: `NATS.Net` (`Apache-2.0`, `nats-io/nats.net`)
+- package: `NATS.Net` (Apache-2.0)
 - assembly: `NATS.Net` facade over `NATS.Net.NatsClient`; Compute binds the `NATS.Client.Core` subscription surface alone
 - namespace: `NATS.Client.Core` (client, connection, message, headers), `NATS.Net` (`NatsClient` entry)
 - asset: pure-managed AnyCPU, no native asset, no RID burden (TCP/WebSocket protocol)

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@webgpu/types`
-- package: `@webgpu/types` (BSD-3-Clause, © W3C / GPU for the Web WG) — the `0.x` tracks the living WebGPU IDL, moving as the standard evolves
+- package: `@webgpu/types` (BSD-3-Clause)
 - module format: type-only ambient declarations (`types: dist/index.d.ts`); NO `main`/`module`, NO runtime code, NO exported values — it declares `global`-scope interfaces and augments `Navigator`/`WorkerNavigator`/`HTMLCanvasElement`/`OffscreenCanvas`
 - deps: none; peer: none — a leaf type package
 - admission: a tsconfig `compilerOptions.types: ["@webgpu/types"]` entry OR a `/// <reference types="@webgpu/types" />` directive; NEVER `import` — the augmentation is global, resolving `navigator.gpu` and `canvas.getContext("webgpu")` wherever they are called

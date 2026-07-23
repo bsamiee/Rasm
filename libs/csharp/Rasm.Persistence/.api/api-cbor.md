@@ -7,7 +7,7 @@ CBOR owns the self-describing, schema-free blob/snapshot leg, `MessagePack` the 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `System.Formats.Cbor`
-- package: `System.Formats.Cbor` (MIT, .NET Foundation)
+- package: `System.Formats.Cbor` (MIT)
 - assembly: `System.Formats.Cbor`
 - namespace: `System.Formats.Cbor`
 - asset: in-box BCL managed assembly (`lib/net10.0`), AnyCPU, zero transitive dependencies, no native payload

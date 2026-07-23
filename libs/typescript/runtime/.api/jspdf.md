@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `jspdf`
-- package: `jspdf` (MIT, © James Hall / yWorks); declarations bundled (`types/index.d.ts`, `declare module "jspdf"`)
+- package: `jspdf` (MIT)
 - module format: dual — ESM (`module: dist/jspdf.es.min.js`) and a dedicated Node build (`main: dist/jspdf.node.min.js`); `exports` map exposes `.` and `./dist/*`; named exports (`jsPDF`, `GState`, `ShadingPattern`, AcroForm classes) plus `export default jsPDF`
 - runtime target: isomorphic with a real Node build — the programmatic drawing API and `output("arraybuffer")` run headless. The `html()` worker (html2canvas), `save()` download, and `output("blob"\|"bloburi"\|"pdfobjectnewwindow")` require a DOM and never enter a Node durable job
 - dependencies: `@babel/runtime`, `fflate` (PDF stream compression), `fast-png`; no native addon — rendering is pure-JS and CPU-bound, so a large document belongs off the request path

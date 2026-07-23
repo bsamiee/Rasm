@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/resource-detector-aws`
-- package: `@opentelemetry/resource-detector-aws`
-- license: `Apache-2.0`
+- package: `@opentelemetry/resource-detector-aws` (Apache-2.0)
 - base: each detector implements `@opentelemetry/resources` `ResourceDetector`; `detect()` returns a `DetectedResource`
 - consumed-by: `otel/emit` node detector roster; folds beside the `@opentelemetry/resources` `env`/`host`/`os`/`process`/`serviceInstanceId` detectors
 - runtime: node only — reads EC2 IMDSv2, ECS and EKS metadata endpoints, Beanstalk config file, and Lambda environment

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/platform`
-- package: `@effect/platform` (MIT, © Effectful Technologies)
+- package: `@effect/platform` (MIT)
 - module: ESM + CJS dual (`dist/esm`/`dist/cjs`, types `dist/dts`), `sideEffects: []`; per-module deep-import subpaths (`@effect/platform/HttpApi`, `/FileSystem`, …)
 - runtime: platform-neutral abstract contracts — no runtime binding; a `platform-node`/`-bun`/`-browser` `Layer` satisfies each Tag
 - depends: `find-my-way-ts` (router match), `msgpackr` (`MsgPack`), `multipasta` (`Multipart`) bundled; peer `effect`
@@ -140,31 +140,9 @@ Shipped declarations for the platform members whose call shape and behavioral co
 [SIGNATURE_SCOPE]: `Cookies` — construction, collection, and header rendering
 - rail: boundaries
 
-```typescript signature
-// Cookies.d.ts
-export declare function makeCookie(name: string, value: string, options?: Cookie["options"] | undefined): Either.Either<Cookie, CookiesError>;
-export declare const unsafeMakeCookie: (name: string, value: string, options?: Cookie["options"] | undefined) => Cookie;
-export declare const fromIterable: (cookies: Iterable<Cookie>) => Cookies;
-export declare const toCookieHeader: (self: Cookies) => string;
-export declare const toSetCookieHeaders: (self: Cookies) => Array<string>;
-
-export interface Cookie extends Inspectable.Inspectable {
-    readonly name: string;
-    readonly value: string;
-    readonly valueEncoded: string;
-    readonly options?: {
-        readonly domain?: string | undefined;
-        readonly expires?: Date | undefined;
-        readonly maxAge?: Duration.DurationInput | undefined;
-        readonly path?: string | undefined;
-        readonly priority?: "low" | "medium" | "high" | undefined;
-        readonly httpOnly?: boolean | undefined;
-        readonly secure?: boolean | undefined;
-        readonly partitioned?: boolean | undefined;
-        readonly sameSite?: "lax" | "strict" | "none" | undefined;
-    } | undefined;
-}
-```
+[COOKIE]: `Cookie.name: string` `Cookie.value: string` `Cookie.valueEncoded: string` `Cookie.options: {…}`
+[COOKIE_OPTIONS]: `domain` `expires` `maxAge` `path` `priority` `httpOnly` `secure` `partitioned` `sameSite`
+[SURFACES]: `makeCookie(string,string,Cookie["options"]|undefined?) -> Either.Either<Cookie,CookiesError>` `unsafeMakeCookie(string,string,Cookie["options"]|undefined?) -> Cookie` `fromIterable(Iterable<Cookie>) -> Cookies` `toCookieHeader(Cookies) -> string` `toSetCookieHeaders(Cookies) -> Array<string>`
 
 - `makeCookie` returns `Either` — a refused name/value/attribute is a `CookiesError`; the write edge lifts it `Effect.orDie`, and `unsafeMakeCookie` is the throw-on-refusal twin for boot-edge literals.
 - `Cookie["options"]` is the whole attribute vocabulary the codec renders.
@@ -173,43 +151,16 @@ export interface Cookie extends Inspectable.Inspectable {
 [SIGNATURE_SCOPE]: `Headers.redact` — the log-path mask
 - rail: boundaries
 
-```typescript signature
-// Headers.d.ts
-export declare const redact: {
-    (key: string | RegExp | ReadonlyArray<string | RegExp>): (self: Headers) => Record<string, string | Redacted.Redacted>;
-    (self: Headers, key: string | RegExp | ReadonlyArray<string | RegExp>): Record<string, string | Redacted.Redacted>;
-};
-```
+[REDACT]: `redact.call(string|RegExp|ReadonlyArray<string|RegExp>) -> (self:Headers)=>Record<string,string|Redacted.Redacted>` `redact.call(Headers,string|RegExp|ReadonlyArray<string|RegExp>) -> Record<string,string|Redacted.Redacted>`
 
 - `redact` replaces matched values with `Redacted` carriers, so a logged header bag prints `<redacted>` for matched keys with zero call-site masking.
 
 [SIGNATURE_SCOPE]: `HttpApiSecurity.bearer` / `HttpApiMiddleware.Tag` / `HttpApiBuilder.securityDecode` — the declarative guard seam
 - rail: services-and-layers
 
-```typescript signature
-// HttpApiSecurity.d.ts
-export declare const bearer: Bearer;
-export interface Bearer extends HttpApiSecurity.Proto<Redacted> {
-    readonly _tag: "Bearer";
-}
-
-// HttpApiMiddleware.d.ts
-export declare const Tag: <Self>() => <const Name extends string, const Options extends {
-    readonly optional?: boolean;
-    readonly failure?: Schema.Schema.All;
-    readonly provides?: Context.Tag<any, any>;
-    readonly security?: Record<string, HttpApiSecurity.HttpApiSecurity>;
-}>(id: Name, options?: Options | undefined) => TagClass<Self, Name, Options>;
-
-// HttpApiBuilder.d.ts
-export declare const securityDecode: <Security extends HttpApiSecurity.HttpApiSecurity>(
-    self: Security,
-) => Effect.Effect<
-    HttpApiSecurity.HttpApiSecurity.Type<Security>,
-    never,
-    HttpServerRequest.HttpServerRequest | HttpServerRequest.ParsedSearchParams
->;
-```
+[BEARER]: `Bearer._tag: "Bearer"`
+[TAG_OPTIONS]: `optional` `failure` `provides` `security`
+[SURFACES]: `bearer: Bearer` `Tag() -> <Name,Options>(string,Options?) -> TagClass<Self,Name,Options>` `securityDecode(Security) -> Effect<HttpApiSecurity.Type<Security>,never,HttpServerRequest|ParsedSearchParams>`
 
 - `HttpApiMiddleware.Tag`'s `security` record keys the credential decoders the implementation receives — `{ bearer: HttpApiSecurity.bearer }` hands it a `bearer: (token: Redacted<string>) => Effect` slot, so the scheme grammar carries the decode rather than a bare `Context.Tag`.
 - `securityDecode` never fails — an absent credential decodes to its scheme's empty carrier, so refusal is the guard implementation's verdict; a cookie-scheme guard decodes through the same member over `HttpApiSecurity.apiKey`'s cookie variant.

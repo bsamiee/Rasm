@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `NREL.OpenStudio.macOS-arm64`
-- package: `NREL.OpenStudio.macOS-arm64` (NREL OpenStudio License, permissive BSD-3-derived; NREL Alliance for Sustainable Energy)
+- package: `NREL.OpenStudio.macOS-arm64` (NREL OpenStudio License)
 - assembly: `OpenStudio` (`lib/netstandard2.0/OpenStudio.dll`, the managed SWIG wrapper)
 - namespace: `OpenStudio` (the model/translator/utility domain types, the `Optional<T>` and `*Vector` SWIG marshaling families, and the per-module `OpenStudio*PINVOKE` DllImport classes)
 - asset: managed binding TFM `netstandard2.0`, binding forward under net10.0; the native runtime is RID-locked to `osx-arm64`

@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `flox`
-- package: `flox`
+- package: `flox` (Apache-2.0)
 - owner: `data`
 - module: `flox`
 - namespaces: `flox.xarray`, `flox.core`, `flox.aggregations`
-- license: `Apache-2.0`
 - rail: field-dataset
 
 ## [02]-[PUBLIC_TYPES]

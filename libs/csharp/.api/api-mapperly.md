@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Riok.Mapperly`
-- package: `Riok.Mapperly` (Apache-2.0, © Mapperly Contributors)
+- package: `Riok.Mapperly` (Apache-2.0)
 - assembly: `Riok.Mapperly.Abstractions` carries the attribute and enum surface; `Riok.Mapperly` ships the Roslyn generator under `analyzers/dotnet/cs` and never binds at runtime
 - namespace: `Riok.Mapperly.Abstractions`, `Riok.Mapperly.Abstractions.ReferenceHandling`
 - rail: mapping (boundary transcription)

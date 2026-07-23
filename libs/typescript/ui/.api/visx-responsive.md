@@ -1,7 +1,7 @@
 # [TS_UI_API_VISX_RESPONSIVE]
 
 [PACKAGE_SURFACE]:
-- package: `@visx/responsive` · license `MIT`
+- package: `@visx/responsive` (MIT)
 - module: dual ESM/CJS via conditional `exports`; peers `react` + `@types/react` 18||19; ZERO runtime deps — native `ResizeObserver` is the basis, an injectable polyfill slot exists but nothing is bundled.
 - asset: the catalog-bound `ParentSizeModern`/`withParentSizeModern` split is GONE at catalog-bound — `ParentSize`/`useParentSize` is the single implementation.
 - plane: `plane:runtime` (W4 `ui`); rail: the visx chart spine — the dimension source every scale range derives from.
@@ -19,11 +19,7 @@
 |  [05]   | `ScaleSVG` (`ScaleSVGProps`)                                     | recovery row | `viewBox`-proportional scaling; stretch, not relayout  |
 |  [06]   | `debounce` (`DebouncedFunction`)                                 | primitive    | the standalone debounce the configs compose            |
 
-```ts signature
-const { parentRef, width, height } = useParentSize({ debounceTime: 120, ignoreDimensions: ["top", "left"] })
-// width/height gate the render — a zero-sized first frame renders nothing, never a NaN-ranged scale.
-return <div ref={parentRef} className="size-full">{width > 0 && <Chart width={width} height={height} />}</div>
-```
+[COMPOSITION]: `div(ref,className)` `Chart(width,height)`
 
 ## [02]-[INTEGRATION]
 

@@ -5,13 +5,12 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `odfpy`
-- package: `odfpy`
+- package: `odfpy` (Apache-2.0 OR GPL-2.0-or-later WITH LGPL-option)
 - import: `odf`
 - owner: `artifacts`
 - rail: office
 - build: pure-Python, abi-agnostic, no compiled extension
 - runtime dep: `defusedxml` — `load` builds its SAX parser through `defusedxml.sax.make_parser`, entity-expansion + billion-laughs safe on the read path
-- license: triple-classified Apache-2.0 / GPLv2+-with-LGPL-option copyleft; the copyleft gate binds any redistribution-sensitive bundling, distinct from the MIT/BSD office siblings
 - entry points: library import-only; the shipped console scripts stay unused on the in-process `OpenDocument`/`load` surface
 
 ## [02]-[PUBLIC_TYPES]

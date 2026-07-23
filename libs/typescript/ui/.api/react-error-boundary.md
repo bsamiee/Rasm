@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `react-error-boundary`
-- package: `react-error-boundary`
-- license: `MIT`
+- package: `react-error-boundary` (MIT)
 - react-peer: `react catalog` (the `catalog peer` major dropped `catalog peer`; client component — `"use client"`; the boundary uses class-component `getDerivedStateFromError`/`componentDidCatch`)
 - asset: self-typed ESM+CJS runtime library (`dist/react-error-boundary.d.ts`)
 - catches: errors thrown while rendering the subtree — including a failed `useAtomSuspense` read that throws `Cause.squash(cause)` in render; and (React 19) errors from a `startTransition`(`useTransition`) callback

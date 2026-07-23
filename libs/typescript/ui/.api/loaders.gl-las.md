@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@loaders.gl/las`
-- package: `@loaders.gl/las`
-- license: `MIT`
+- package: `@loaders.gl/las` (MIT)
 - abi: isomorphic browser/node; LAZ decompression runs in laz-perf (C++) or laz-rs (Rust) WASM, worker-backed through the core parse engine (`options.worker`)
 - peer: `@loaders.gl/core` (`~catalog`, the `parse`/`load` surface receiving these descriptors, `.api/loaders.gl-core.md`)
 - deps (loaders.gl framework substrate, transitive): `@loaders.gl/loader-utils` (`LoaderOptions`/`Loader` types), `@loaders.gl/schema` (`Mesh`/`MeshAttributes`/`Schema`/`ArrowTable`), `@loaders.gl/schema-utils`, `laz-perf` (laz-perf WASM decoder); the laz-rs Rust WASM decoder is vendored in the package, not a runtime dep

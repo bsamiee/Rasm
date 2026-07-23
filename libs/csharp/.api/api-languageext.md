@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `LanguageExt.Core`
-- package: `LanguageExt.Core` (MIT, © Paul Louth)
+- package: `LanguageExt.Core` (MIT)
 - assembly: `LanguageExt.Core` (`lib/net10.0`)
 - namespace: `LanguageExt`, `LanguageExt.Common`, `LanguageExt.Traits`
 - asset: pure managed library; `using static LanguageExt.Prelude;` carries the constructor vocabulary

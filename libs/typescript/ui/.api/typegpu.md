@@ -1,7 +1,7 @@
 # [TS_UI_API_TYPEGPU]
 
 [PACKAGE_SURFACE]:
-- package: `typegpu` · license `MIT`
+- package: `typegpu` (MIT)
 - module: `type: module`, `sideEffects: false`; exports `.` (the `tgpu` root), `./data` (the `d` schema namespace), `./std` (WGSL builtins as TS), `./common` — no deeper subpath is public.
 - asset: deps `typed-binary` (schema serialization), `tinyest` (embedded-AST for TS→WGSL), `tsover-runtime`; a `typegpu` bin ships alongside.
 - build: `unplugin-typegpu` (peer `typegpu`) is the transform that lets kernel bodies be plain TS — it recognizes `'use gpu'`-directive functions and `tgpu.fn` bodies and rewrites them for WGSL generation; bundler subpaths `./vite` `./rollup` `./webpack` `./esbuild` `./rspack` `./rolldown` `./bun` `./babel`.
@@ -12,26 +12,8 @@
 
 ## [01]-[ROOT_AND_RESOURCES]
 
-```ts signature
-declare const tgpu: {
-  init(options?: { adapter?: GPURequestAdapterOptions; device?: GPUDeviceDescriptor }): Promise<TgpuRoot>
-  initFromDevice(options: { device: GPUDevice }): TgpuRoot            // sync — adopt a device another owner (three) already holds
-}
-interface TgpuRoot {
-  readonly device: GPUDevice; readonly enabledFeatures: ReadonlySet<GPUFeatureName>
-  createBuffer<T>(schema: T, initialOrGpuBuffer?: d.Infer<T> | GPUBuffer): TgpuBuffer<T>   // .$usage('uniform'|'storage'|'vertex'|'index'|'indirect') chains capability
-  createUniform<T>(schema: T, initial?: d.Infer<T>): TgpuUniform<T>   // shorthand owners: uniform / mutable(read_write storage) / readonly(storage)
-  createMutable<T>(schema: T, initial?: d.Infer<T>): TgpuMutable<T>
-  createReadonly<T>(schema: T, initial?: d.Infer<T>): TgpuReadonly<T>
-  createTexture(desc: unknown): unknown; createSampler(desc: unknown): unknown; createQuerySet(type: GPUQueryType, count: number): unknown
-  createBindGroup(layout: TgpuBindGroupLayout, entries: Record<string, unknown>): TgpuBindGroup
-  createComputePipeline(descriptor: unknown): TgpuComputePipeline     // STABLE on root; '~unstable'.withCompute is the deprecated legacy path
-  unwrap(resource: unknown): GPUBuffer | GPUBindGroup | GPUComputePipeline | GPURenderPipeline | GPUTextureView | GPUSampler | GPUQuerySet
-  destroy(): void                                                     // the teardown bracket — releases every root-owned resource
-  '~unstable': { beginRenderPass; beginRenderBundleEncoder; createGuardedComputePipeline; flush; pipe; with; withCompute; withVertex }
-}
-// Buffer verbs: write(value) / read(): Promise<d.Infer<T>> / copyFrom(other) / clear() / partial patch / destroy(); $addFlags for raw usage bits.
-```
+[TGPU]: `tgpu.init({adapter?:GPURequestAdapterOptions;device?:GPUDeviceDescriptor}?) -> Promise<TgpuRoot>` `tgpu.initFromDevice({device:GPUDevice}) -> TgpuRoot`
+[TGPU_ROOT]: `TgpuRoot.device: GPUDevice` `TgpuRoot.enabledFeatures: ReadonlySet<GPUFeatureName>` `TgpuRoot.createBuffer(T,d.Infer<T>|GPUBuffer?) -> TgpuBuffer<T>` `TgpuRoot.createUniform(T,d.Infer<T>?) -> TgpuUniform<T>` `TgpuRoot.createMutable(T,d.Infer<T>?) -> TgpuMutable<T>` `TgpuRoot.createReadonly(T,d.Infer<T>?) -> TgpuReadonly<T>` `TgpuRoot.createTexture(unknown)` `TgpuRoot.createSampler(unknown)` `TgpuRoot.createQuerySet(GPUQueryType,number)` `TgpuRoot.createBindGroup(TgpuBindGroupLayout,Record<string,unknown>) -> TgpuBindGroup` `TgpuRoot.createComputePipeline(unknown) -> TgpuComputePipeline` `TgpuRoot.unwrap(unknown) -> GPUBuffer|GPUBindGroup|GPUComputePipeline|GPURenderPipeline|GPUTextureView|GPUSampler|GPUQuerySet` `TgpuRoot.destroy() -> void` `TgpuRoot.'~unstable': {beginRenderPass;beginRenderBundleEncoder;createGuardedComputePipeline;flush;pipe;with;withCompute;withVertex}`
 
 Render-pipeline authoring (`withVertex`/`beginRenderPass`) is `'~unstable'` and out of scope here — rendering belongs to three/deck.gl; this catalog admits the compute lane.
 

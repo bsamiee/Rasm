@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `httpx`
-- package: `httpx` (`BSD-3-Clause`)
+- package: `httpx` (BSD-3-Clause)
 - module: `httpx`
 - namespaces: `httpx`
 - rail: transport
@@ -73,14 +73,8 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: client construction and dispatch
-- Defined on `AsyncClient`; `Client` mirrors every method synchronously. Construct and `request` carry the full policy kwargs:
-
-```python signature
-AsyncClient(*, auth, headers, params, cookies, verify, cert, http1=True, http2=False, proxy, mounts,
-            timeout, follow_redirects=False, limits, max_redirects, event_hooks, base_url, transport, trust_env)
-AsyncClient.request(method, url, *, content, data, files, json, params, headers, cookies, auth,
-                    follow_redirects, timeout, extensions)
-```
+- `AsyncClient` carry: `auth`, `headers`, `params`, `cookies`, `verify`, `cert`, `http1`, `http2`, `proxy`, `mounts`, `timeout`, `follow_redirects`, `limits`, `max_redirects`, `event_hooks`, `base_url`, `transport`, `trust_env`
+- `request` carry: `content`, `data`, `files`, `json`, `params`, `headers`, `cookies`, `auth`, `follow_redirects`, `timeout`, `extensions`; `Client` mirrors every method synchronously
 
 | [INDEX] | [SURFACE]                                                              | [SHAPE] | [CAPABILITY]                                   |
 | :-----: | :--------------------------------------------------------------------- | :------ | :--------------------------------------------- |

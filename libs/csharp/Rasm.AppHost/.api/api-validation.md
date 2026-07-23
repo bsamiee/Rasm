@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `FluentValidation`
-- package: `FluentValidation` (Apache-2.0, © Jeremy Skinner, .NET Foundation)
+- package: `FluentValidation` (Apache-2.0)
 - assembly: `FluentValidation`
 - namespace: `FluentValidation`, `FluentValidation.Results`, `FluentValidation.Validators`
 - asset: runtime library

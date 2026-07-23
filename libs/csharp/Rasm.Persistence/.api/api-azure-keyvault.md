@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Azure.Security.KeyVault.Keys`
-- package: `Azure.Security.KeyVault.Keys` (`MIT`, Microsoft)
+- package: `Azure.Security.KeyVault.Keys` (MIT)
 - assembly: `Azure.Security.KeyVault.Keys` (`lib/net10.0` binds the `net10.0` consumer)
 - namespace: `Azure.Security.KeyVault.Keys`, `Azure.Security.KeyVault.Keys.Cryptography`
 - asset: runtime library

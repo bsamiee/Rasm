@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `System.Threading.Channels`
-- package: `System.Threading.Channels` (MIT, Microsoft)
+- package: `System.Threading.Channels` (MIT)
 - assembly: `System.Threading.Channels.dll` (shared framework)
 - namespace: `System.Threading.Channels`
 - rail: producer-consumer transport

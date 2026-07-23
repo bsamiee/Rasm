@@ -1,7 +1,7 @@
 # [TS_UI_API_UPLOT]
 
 [PACKAGE_SURFACE]:
-- package: `uplot` · license `MIT`
+- package: `uplot` (MIT)
 - module: triple build — `dist/uPlot.esm.js` (`module`), `dist/uPlot.cjs.js` (`main`), `dist/uPlot.iife.js` (global `uPlot`); declarations at `dist/uPlot.d.ts` (the `typings` field — one hand-written file, no `exports` map, no subpaths).
 - asset: `dist/uPlot.min.css` is a REQUIRED separate stylesheet — no JS entry references it and nothing auto-injects; the token stylesheet imports it once and overrides its custom look there, never per-chart.
 - runtime: browser canvas 2D; zero dependencies, zero React coupling — the React seam is a ref + effect bracket the consumer owns.
@@ -14,15 +14,8 @@
 
 The data contract is columnar and immutable-by-convention: one x column, N y columns, typed arrays first-class. `null` is the one author-supplied gap marker (`undefined` appears only as a `uPlot.join` alignment artifact); `spanGaps` bridges nulls per series and `gaps` refines the computed gap list.
 
-```ts signature
-type AlignedData = TypedArray[] | [xValues: number[] | TypedArray, ...yValues: ((number | null | undefined)[] | TypedArray)[]]
-declare class uPlot {
-  constructor(opts: uPlot.Options, data?: uPlot.AlignedData, targ?: HTMLElement | ((self: uPlot, init: Function) => void)) // fn targ defers mount — attach self.root, then call init()
-  setData(data: uPlot.AlignedData, resetScales?: boolean): void      // the streaming ingress — never reconstruct the chart per frame
-  static join(tables: AlignedData[], nullModes?: JoinNullMode[][]): AlignedData  // outer-join tables on table[0]'s x
-}
-// mode: 1 (Aligned, default) = single-x, y-per-series; mode: 2 (Faceted) = per-point x/y/size/… via Series.facets — scatter/bubble regime.
-```
+[ALIGNED_DATA]: `AlignedData = TypedArray[]|[xValues:number[]|TypedArray,...yValues:((number|null|undefined)[]|TypedArray)[]]`
+[U_PLOT]: `uPlot(uPlot.Options,uPlot.AlignedData?,HTMLElement|((self:uPlot,init:Function)=>void)?)` `uPlot.setData(uPlot.AlignedData,boolean?) -> void` `uPlot.join(AlignedData[],JoinNullMode[][]?) -> AlignedData`
 
 - `Options.mode`: `1` aligned (ordered, shared x) | `2` faceted (unordered per-series points via `Series.facets: { scale, auto?, sorted? }[]`).
 - Timestamps: x in seconds by default; `ms: 1` switches to milliseconds; `tzDate: uPlot.tzDate(date, tzName)` renders a fixed zone.

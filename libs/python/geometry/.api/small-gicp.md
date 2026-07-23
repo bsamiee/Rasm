@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `small-gicp`
-- package: `small-gicp` (`MIT`, own)
+- package: `small-gicp` (MIT)
 - module: `small_gicp`
 - rail: scan-processing / fine-registration-enrichment
 - gate: native pybind11 build; a Forge-worker enrichment beside the core `trimesh`/`manifold3d` spine, which never depends on it

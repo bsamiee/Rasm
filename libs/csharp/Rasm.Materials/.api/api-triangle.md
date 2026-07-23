@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Triangle`
-- package: `Triangle` (`MIT`, Triangle.NET / wo80)
+- package: `Triangle` (MIT)
 - assembly: `Triangle`
 - namespaces: `TriangleNet`, `.Geometry`, `.Meshing` (`.Algorithm`, `.Iterators`, `.Data`), `.Voronoi`, `.Topology` (`.DCEL`), `.Smoothing`, `.Tools`, `.IO`, `.Logging`
 - asset: pure-managed AnyCPU IL, no native RID asset, ALC-safe and osx-arm64-safe; the consumer binds the netstandard asset by TFM precedence

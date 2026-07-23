@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Google.OrTools`
-- package: `Google.OrTools` (Apache-2.0, `google/or-tools`)
+- package: `Google.OrTools` (Apache-2.0)
 - assembly: `Google.OrTools` (managed SWIG/protobuf wrapper, `lib/net8.0` bound on `net10.0`)
 - namespace: `Google.OrTools.Sat`, `Google.OrTools.LinearSolver`, `Google.OrTools.ConstraintSolver`, `Google.OrTools.Graph`, `Google.OrTools.Util`, `Google.OrTools.OperationsResearch`
 - asset: managed wrapper + per-RID native solver libs (`Google.OrTools.runtime.{osx-arm64,osx-x64,linux-arm64,linux-x64,win-x64}`); a solve with no matching RID payload faults at native load

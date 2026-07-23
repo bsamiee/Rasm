@@ -7,7 +7,7 @@ Its promise surface is the engine-facing one: `send` returns `RecordMetadata`, `
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@confluentinc/kafka-javascript`
-- package: `@confluentinc/kafka-javascript` (MIT, Confluent Inc.)
+- package: `@confluentinc/kafka-javascript` (MIT)
 - module format: CJS (`main: lib/index.js`, `types: index.d.ts`); native addon over librdkafka, `KafkaJS` and `RdKafka` namespaces re-exported beside the flat `RdKafka` surface
 - runtime target: node and bun — a prebuilt native binary per `node-pre-gyp` platform tuple; no browser lane, the broker is a server-plane transport
 - bundled: librdkafka the broker protocol core — the same C library the C# `Confluent.Kafka` binds, so wire posture (idempotence, compression, SASL/TLS) is one broker vocabulary across both hosts

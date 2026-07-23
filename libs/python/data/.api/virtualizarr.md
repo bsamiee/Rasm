@@ -102,14 +102,14 @@ Each `Parser` is a runtime-checkable `Protocol` — `__call__(url, registry) -> 
 
 `ds.vz` is the only write surface: `to_icechunk` writes virtual chunk references into an `IcechunkStore`, `to_kerchunk` emits a reference document, and no `to_zarr` exists since materializing real bytes is out of scope.
 
-| [INDEX] | [SURFACE]                                                                           | [SHAPE]  | [CAPABILITY]                     |
-| :-----: | :---------------------------------------------------------------------------------- | :------- | :------------------------------- |
-|  [01]   | `ds.vz.to_icechunk(store, *, group, mode, append_dim, region, ...)` | method   | write references to Icechunk |
-|  [02]   | `ds.vz.to_kerchunk(filepath, format, record_size, categorical_threshold)`           | method   | write/return kerchunk references |
-|  [03]   | `ds.vz.rename_paths(new)`                                                            | method   | rewrite chunk reference paths    |
-|  [04]   | `ds.vz.nbytes`                                                                       | property | virtual dataset reference size   |
-|  [05]   | `ds.vz.nrefs()`                                                                      | method   | count virtual chunk references   |
-|  [06]   | `dt.vz.to_icechunk(store, *, mode, write_inherited_coords, ...)` | method | write data tree to Icechunk |
+| [INDEX] | [SURFACE]                                                                 | [SHAPE]  | [CAPABILITY]                     |
+| :-----: | :------------------------------------------------------------------------ | :------- | :------------------------------- |
+|  [01]   | `ds.vz.to_icechunk(store, *, group, mode, append_dim, region, ...)`       | method   | write references to Icechunk     |
+|  [02]   | `ds.vz.to_kerchunk(filepath, format, record_size, categorical_threshold)` | method   | write/return kerchunk references |
+|  [03]   | `ds.vz.rename_paths(new)`                                                 | method   | rewrite chunk reference paths    |
+|  [04]   | `ds.vz.nbytes`                                                            | property | virtual dataset reference size   |
+|  [05]   | `ds.vz.nrefs()`                                                           | method   | count virtual chunk references   |
+|  [06]   | `dt.vz.to_icechunk(store, *, mode, write_inherited_coords, ...)`          | method   | write data tree to Icechunk      |
 
 - Both `to_icechunk` forms also take `validate_containers` and `last_updated_at` — store-integrity check and staleness stamp for the written references.
 

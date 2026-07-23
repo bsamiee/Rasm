@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/rpc`
-- package: `@effect/rpc`
-- license: MIT
+- package: `@effect/rpc` (MIT)
 - asset: ESM `.d.ts` declaration surface (`dist/dts/*.d.ts`); peer `effect` + `@effect/platform`
 - owner: `edge`
 - rail: rpc

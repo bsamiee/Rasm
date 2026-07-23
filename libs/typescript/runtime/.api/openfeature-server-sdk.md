@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@openfeature/server-sdk`
-- package: `@openfeature/server-sdk` (Apache-2.0, OpenFeature/CNCF)
+- package: `@openfeature/server-sdk` (Apache-2.0)
 - module format: ESM + CJS dual; re-exports the `@openfeature/core` shared vocabulary (reasons, error codes, types)
 - runtime target: node/bun server processes (`runsOn: "server"` provider gate); the browser peer is `@openfeature/web-sdk`, not admitted
 - peer: none hard; providers and hooks are ecosystem packages this branch does not admit — the one provider is `proc/flag`'s own
@@ -27,18 +27,10 @@
 |  [07]   | `StandardResolutionReasons` / `ErrorCode`    | vocabulary    | reason/code rows `Rollout.reasons`/`Verdict.codes` mirror     |
 |  [08]   | `OpenFeatureEventEmitter` / `ProviderEvents` | events        | `Ready`/`Error`/`ConfigurationChanged`/`Stale`; emit on patch |
 
-```ts signature
-interface Provider {
-  runsOn?: "server"; metadata: { name: string }; hooks?: Hook[]; events?: OpenFeatureEventEmitter
-  initialize?(context?: EvaluationContext): Promise<void>; onClose?(): Promise<void>
-  resolveBooleanEvaluation(flagKey, defaultValue, context): Promise<ResolutionDetails<boolean>>  // + String/Number/Object
-}
-interface ResolutionDetails<T> {
-  value: T; variant?: string; reason?: string; errorCode?: ErrorCode; errorMessage?: string; flagMetadata?: FlagMetadata
-}
-type EvaluationDetails<T> = ResolutionDetails<T> & { flagKey: string }
-interface EvaluationContext { targetingKey?: string; [attribute: string]: unknown }
-```
+[PROVIDER]: `Provider.runsOn: "server"` `Provider.metadata: {name:string}` `Provider.hooks: Hook[]` `Provider.events: OpenFeatureEventEmitter` `Provider.initialize(EvaluationContext?) -> Promise<void>` `Provider.onClose() -> Promise<void>` `Provider.resolveBooleanEvaluation(unknown,unknown,unknown) -> Promise<ResolutionDetails<boolean>>`
+[RESOLUTION_DETAILS]: `ResolutionDetails.value: T` `ResolutionDetails.variant: string` `ResolutionDetails.reason: string` `ResolutionDetails.errorCode: ErrorCode` `ResolutionDetails.errorMessage: string` `ResolutionDetails.flagMetadata: FlagMetadata`
+[EVALUATION_DETAILS]: `EvaluationDetails = ResolutionDetails<T>&{flagKey:string}`
+[EVALUATION_CONTEXT]: `EvaluationContext.targetingKey: string` `EvaluationContext[string]: unknown`
 
 ## [03]-[ENTRYPOINTS]
 

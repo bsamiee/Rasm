@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `AspNetCore.HealthChecks.NpgSql`
-- package: `AspNetCore.HealthChecks.NpgSql`
-- license: `Apache-2.0`
+- package: `AspNetCore.HealthChecks.NpgSql` (Apache-2.0)
 - assembly: `HealthChecks.NpgSql`
 - namespace: `HealthChecks.NpgSql`
 - namespace: `Microsoft.Extensions.DependencyInjection`

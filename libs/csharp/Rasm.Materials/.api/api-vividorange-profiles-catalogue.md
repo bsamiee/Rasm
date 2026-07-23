@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `VividOrange.Profiles.Catalogue`
-- package: `VividOrange.Profiles.Catalogue` (MIT, MagmaWorks / VividOrange taxonomy)
+- package: `VividOrange.Profiles.Catalogue` (MIT)
 - assembly: `VividOrange.Profiles.Catalogue`
 - namespace: `VividOrange.Profiles`
 - asset: runtime library, pure-managed AnyCPU, no native RID; the `net10.0` consumer binds `lib/net8.0`
@@ -87,7 +87,7 @@
 - A Profiles family that needs an AISC/EN section reads it from the catalogue, never from an inline dimension table.
 
 [RAIL_LAW]:
-- Package: `VividOrange.Profiles.Catalogue` (MIT, pure-managed AnyCPU, `net10.0` binds `net8.0`)
+- Package: `VividOrange.Profiles.Catalogue` (MIT)
 - Owns: the published AISC + EN 10365 section database as typed sealed-singleton profiles carrying `UnitsNet.Length` geometry, the `American`/`European` identity enums, the `AmericanShape`/`EuropeanShape` family enums, and `CatalogueFactory`
 - Accept: a steel/EN section seeded into the Materials Profiles family axis by `CatalogueFactory`, geometry read as `UnitsNet.Length`, its `IProfile` fed to the section-property solver
 - Reject: a hand-keyed section-dimension literal where the catalogue carries the published value; a raw-`double` read of a `UnitsNet.Length` dimension; a blind `((II)entry)` cast on a non-I family; a parallel section-family enum duplicating `AmericanShape`/`EuropeanShape`

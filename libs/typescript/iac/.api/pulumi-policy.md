@@ -2,17 +2,12 @@
 
 `@pulumi/policy` is the CrossGuard policy-as-code framework: a `PolicyPack` owns an array of `ResourceValidationPolicy` (per-resource, with optional pre-validation remediation) and `StackValidationPolicy` (whole-stack, dependency-aware) checks, each carrying an `EnforcementLevel`/`Severity`/compliance-framework metadata and an optional JSON-schema-typed config. Unlike the provider SDKs this is a bespoke authoring API, not codegen — its power is the strongly-typed helper family (`validateResourceOfType`/`remediateResourceOfType`/`validateRemediateResourceOfType`/`validateStackResourcesOfType`) that narrows any Pulumi `Resource` subclass to its typed input props, so ONE parameterized helper owns validation across every resource class the other `iac` catalogs export. In the deploy plane it is `policy/guard`: the CrossGuard packs that gate every `program/automation` run, narrowing against the exact `@pulumi/kubernetes`, `@pulumi/gcp`, and `@pulumi/postgresql` classes; the `policy/drift` `previewRefresh` fold over `OpType` sits beside it on the engine's Automation API.
 
-```ts
-// @pulumi/policy
-export * from "./policy"                                          // PolicyPack + policy/validation/remediation surface
-export { unknownCheckingProxy, UnknownValueError } from "./proxy" // preview-time unknown-value guard
-```
+[EXPORTS]: `unknownCheckingProxy` `UnknownValueError`
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pulumi/policy`
-- package: `@pulumi/policy`
-- license: `Apache-2.0`
+- package: `@pulumi/policy` (Apache-2.0)
 - build-floor: peer `@pulumi/pulumi ^catalog` (higher floor than the provider SDKs — needs the current analyzer plugin protocol); bundles `@grpc/grpc-js` + `google-protobuf` (the policy plugin speaks the analyzer gRPC service)
 - target: `node` (runs as the `pulumi-analyzer-policy` plugin process the engine invokes during `preview`/`up`; not a resource in the graph)
 - entry: `@pulumi/policy` (re-exports `./policy` + the `./proxy` unknown guard)
@@ -37,23 +32,12 @@ export { unknownCheckingProxy, UnknownValueError } from "./proxy" // preview-tim
 |  [06]   | `PolicyPackConfig` | record        | `{ [policy: string]: PolicyConfig }` — per-policy config bag                                   |
 |  [07]   | `PolicyConfig`     | union         | `EnforcementLevel \| ({ enforcementLevel?; [key]: any })`                                      |
 
-```ts signature
-import { Resource, Unwrap } from "@pulumi/pulumi"
-
-declare class PolicyPack {
-  constructor(name: string, args: PolicyPackArgs, initialConfig?: PolicyPackConfig)
-}
-interface PolicyPackArgs {
-  policies: Policies
-  enforcementLevel?: EnforcementLevel        // pack default; each policy may override
-  description?: string; displayName?: string; readme?: string
-  provider?: string; tags?: string[]; repository?: string
-}
-type EnforcementLevel = "advisory" | "mandatory" | "remediate" | "disabled"
-type Severity = "low" | "medium" | "high" | "critical"
-type Policies = (ResourceValidationPolicy | StackValidationPolicy)[]
-type PolicyPackConfig = { [policy: string]: PolicyConfig }
-```
+[POLICY_PACK]: `PolicyPack(string,PolicyPackArgs,PolicyPackConfig?)`
+[POLICY_PACK_ARGS]: `PolicyPackArgs.policies: Policies` `PolicyPackArgs.enforcementLevel: EnforcementLevel` `PolicyPackArgs.description: string` `PolicyPackArgs.displayName: string` `PolicyPackArgs.readme: string` `PolicyPackArgs.provider: string` `PolicyPackArgs.tags: string[]` `PolicyPackArgs.repository: string`
+[ENFORCEMENT_LEVEL]: `EnforcementLevel = "advisory"|"mandatory"|"remediate"|"disabled"`
+[SEVERITY]: `Severity = "low"|"medium"|"high"|"critical"`
+[POLICIES]: `Policies = (ResourceValidationPolicy|StackValidationPolicy)[]`
+[POLICY_PACK_CONFIG]: `PolicyPackConfig[string]: PolicyConfig`
 
 ### [02.2]-[POLICY_BASE_SHARED_METADATA_CONFIG_SCHEMA]
 
@@ -68,24 +52,9 @@ type PolicyPackConfig = { [policy: string]: PolicyConfig }
 |  [03]   | `PolicyConfigSchema`        | interface     | `{ properties: { [k]: PolicyConfigJSONSchema }; required? }`                        |
 |  [04]   | `PolicyConfigJSONSchema`    | type (schema) | JSON-schema node backing `configSchema` (from `./schema`)                           |
 
-```ts signature
-import { PolicyConfigJSONSchema } from "./schema"
-
-interface Policy {
-  name: string                                   // unique within the pack
-  description: string
-  enforcementLevel?: EnforcementLevel
-  configSchema?: PolicyConfigSchema              // typed config read via args.getConfig<T>()
-  displayName?: string
-  severity?: Severity
-  framework?: PolicyComplianceFramework
-  tags?: string[]
-  remediationSteps?: string
-  url?: string
-}
-interface PolicyConfigSchema { properties: { [key: string]: PolicyConfigJSONSchema }; required?: string[] }
-interface PolicyComplianceFramework { name: string; version: string; reference: string; specification: string }
-```
+[POLICY]: `Policy.name: string` `Policy.description: string` `Policy.enforcementLevel: EnforcementLevel` `Policy.configSchema: PolicyConfigSchema` `Policy.displayName: string` `Policy.severity: Severity` `Policy.framework: PolicyComplianceFramework` `Policy.tags: string[]` `Policy.remediationSteps: string` `Policy.url: string`
+[POLICY_CONFIG_SCHEMA]: `PolicyConfigSchema.properties: {[key:string]:PolicyConfigJSONSchema}` `PolicyConfigSchema.required: string[]`
+[POLICY_COMPLIANCE_FRAMEWORK]: `PolicyComplianceFramework.name: string` `PolicyComplianceFramework.version: string` `PolicyComplianceFramework.reference: string` `PolicyComplianceFramework.specification: string`
 
 ### [02.3]-[RESOURCEVALIDATIONPOLICY_PER_RESOURCE_CHECK_REMEDIATION]
 
@@ -105,26 +74,10 @@ interface PolicyComplianceFramework { name: string; version: string; reference: 
 
 - [05]-[POLICY_RESOURCE_OPTIONS]: `protect`, `ignoreChanges`, `deleteBeforeReplace?`, `aliases`, `customTimeouts`, `additionalSecretOutputs`, `parent?`.
 
-```ts signature
-import { Resource, Unwrap } from "@pulumi/pulumi"
-
-interface ResourceValidationPolicy extends Policy {
-  validateResource?: ResourceValidation | ResourceValidation[]   // multiple run in order
-  remediateResource?: ResourceRemediation                        // pre-validation fix pass
-}
-type ResourceValidation = (args: ResourceValidationArgs, reportViolation: ReportViolation) => Promise<void> | void
-type ResourceRemediation = (args: ResourceValidationArgs) => Promise<Record<string, any>> | Record<string, any> | Promise<void> | void | undefined
-
-interface ResourceValidationArgs {
-  type: string; props: Record<string, any>; urn: string; name: string
-  opts: PolicyResourceOptions; provider?: PolicyProviderResource
-  stackTags: ReadonlyMap<string, string>
-  isType<T extends Resource>(resourceClass: { new (...rest: any[]): T }): boolean
-  asType<T extends Resource, TArgs>(resourceClass: { new (name: string, args: TArgs, ...rest: any[]): T }): Unwrap<NonNullable<TArgs>> | undefined
-  getConfig<T extends object>(): T                               // decodes configSchema
-  notApplicable(reason?: string): never                          // skip this policy for this resource
-}
-```
+[RESOURCE_VALIDATION_POLICY]: `ResourceValidationPolicy.validateResource: ResourceValidation|ResourceValidation[]` `ResourceValidationPolicy.remediateResource: ResourceRemediation`
+[RESOURCE_VALIDATION]: `ResourceValidation = (args:ResourceValidationArgs,reportViolation:ReportViolation)=>Promise<void>|void`
+[RESOURCE_REMEDIATION]: `ResourceRemediation = (args:ResourceValidationArgs)=>Promise<Record<string,any>>|Record<string,any>|Promise<void>|void|undefined`
+[RESOURCE_VALIDATION_ARGS]: `ResourceValidationArgs.type: string` `ResourceValidationArgs.props: Record<string,any>` `ResourceValidationArgs.urn: string` `ResourceValidationArgs.name: string` `ResourceValidationArgs.opts: PolicyResourceOptions` `ResourceValidationArgs.provider: PolicyProviderResource` `ResourceValidationArgs.stackTags: ReadonlyMap<string,string>` `ResourceValidationArgs.isType({new(...rest:any[]):T}) -> boolean` `ResourceValidationArgs.asType({new(name:string,args:TArgs,...rest:any[]):T}) -> Unwrap<NonNullable<TArgs>>|undefined` `ResourceValidationArgs.getConfig() -> T` `ResourceValidationArgs.notApplicable(string?) -> never`
 
 ### [02.4]-[THE_TYPED_RESOURCEOFTYPE_HELPER_FAMILY_THE_PARAMETERIZED_NARROWING_PATTERN]
 
@@ -143,29 +96,7 @@ One helper family narrows any Pulumi `Resource` subclass to its `Unwrap`ped type
 |  [05]   | `TypedResourceValidation<TProps>`  | typed twin of `ResourceValidation`                                                      |
 |  [06]   | `TypedResourceRemediation<TProps>` | typed twin of `ResourceRemediation`                                                     |
 
-```ts signature
-import { Resource, Unwrap } from "@pulumi/pulumi"
-
-function validateResourceOfType<TResource extends Resource, TArgs>(
-  resourceClass: { new (name: string, args: TArgs, ...rest: any[]): TResource },
-  validate: (props: Unwrap<NonNullable<TArgs>>, args: ResourceValidationArgs, reportViolation: ReportViolation) => Promise<void> | void
-): ResourceValidation
-
-function remediateResourceOfType<TResource extends Resource, TArgs>(
-  resourceClass: { new (name: string, args: TArgs, ...rest: any[]): TResource },
-  remediate: (props: Unwrap<NonNullable<TArgs>>, args: ResourceValidationArgs) => Record<string, any> | void | Promise<Record<string, any> | void> | undefined
-): ResourceRemediation
-
-function validateRemediateResourceOfType<TResource extends Resource, TArgs>(
-  resourceClass: { new (name: string, args: TArgs, ...rest: any[]): TResource },
-  validateRemediate: (props: Unwrap<NonNullable<TArgs>>, args: ResourceValidationArgs, reportViolation: ReportViolation) => Record<string, any> | void | Promise<Record<string, any> | void> | undefined
-): { validateResource: ResourceValidation; remediateResource: ResourceRemediation }
-
-function validateStackResourcesOfType<TResource extends Resource>(
-  resourceClass: { new (...rest: any[]): TResource },
-  validate: (resources: q.ResolvedResource<TResource>[], args: StackValidationArgs, reportViolation: ReportViolation) => Promise<void> | void
-): StackValidation
-```
+[SURFACES]: `validateResourceOfType({new(name:string,args:TArgs,...rest:any[]):TResource},(props:Unwrap<NonNullable<TArgs>>,args:ResourceValidationArgs,reportViolation:ReportViolation)=>Promise<void>|void) -> ResourceValidation` `remediateResourceOfType({new(name:string,args:TArgs,...rest:any[]):TResource},(props:Unwrap<NonNullable<TArgs>>,args:ResourceValidationArgs)=>Record<string,any>|void|…) -> ResourceRemediation` `validateRemediateResourceOfType({new(name:string,args:TArgs,...rest:any[]):TResource},(props:Unwrap<NonNullable<TArgs>>,args:ResourceValidationArgs,reportViolation:ReportViolation)=>Record<string,any>|void|…) -> {validateResource:ResourceValidation;remediateResource:ResourceRemediation}` `validateStackResourcesOfType({new(...rest:any[]):TResource},(resources:q.ResolvedResource<TResource>[],args:StackValidationArgs,reportViolation:ReportViolation)=>Promise<void>|void) -> StackValidation`
 
 ### [02.5]-[STACKVALIDATIONPOLICY_WHOLE_STACK_DEPENDENCY_AWARE]
 
@@ -180,27 +111,10 @@ function validateStackResourcesOfType<TResource extends Resource>(
 |  [03]   | `StackValidationArgs`   | interface     | `{ resources: PolicyResource[]; stackTags; getConfig; notApplicable }`                  |
 |  [04]   | `PolicyResource`        | interface     | resource-graph node with `dependencies`/`propertyDependencies` edges, `isType`/`asType` |
 
-```ts signature
-import { Resource } from "@pulumi/pulumi"
-import * as q from "@pulumi/pulumi/queryable"
-
-interface StackValidationPolicy extends Policy { validateStack: StackValidation }
-type StackValidation = (args: StackValidationArgs, reportViolation: ReportViolation) => Promise<void> | void
-interface StackValidationArgs {
-  resources: PolicyResource[]
-  stackTags: ReadonlyMap<string, string>
-  getConfig<T extends object>(): T
-  notApplicable(reason?: string): never
-}
-interface PolicyResource {
-  type: string; props: Record<string, any>; urn: string; name: string
-  opts: PolicyResourceOptions; provider?: PolicyProviderResource; parent?: PolicyResource
-  dependencies: PolicyResource[]                              // full dependency graph
-  propertyDependencies: Record<string, PolicyResource[]>     // per-property dep edges
-  isType<T extends Resource>(resourceClass: { new (...rest: any[]): T }): boolean
-  asType<T extends Resource>(resourceClass: { new (...rest: any[]): T }): q.ResolvedResource<T> | undefined
-}
-```
+[STACK_VALIDATION_POLICY]: `StackValidationPolicy.validateStack: StackValidation`
+[STACK_VALIDATION]: `StackValidation = (args:StackValidationArgs,reportViolation:ReportViolation)=>Promise<void>|void`
+[STACK_VALIDATION_ARGS]: `StackValidationArgs.resources: PolicyResource[]` `StackValidationArgs.stackTags: ReadonlyMap<string,string>` `StackValidationArgs.getConfig() -> T` `StackValidationArgs.notApplicable(string?) -> never`
+[POLICY_RESOURCE]: `PolicyResource.type: string` `PolicyResource.props: Record<string,any>` `PolicyResource.urn: string` `PolicyResource.name: string` `PolicyResource.opts: PolicyResourceOptions` `PolicyResource.provider: PolicyProviderResource` `PolicyResource.parent: PolicyResource` `PolicyResource.dependencies: PolicyResource[]` `PolicyResource.propertyDependencies: Record<string,PolicyResource[]>` `PolicyResource.isType({new(...rest:any[]):T}) -> boolean` `PolicyResource.asType({new(...rest:any[]):T}) -> q.ResolvedResource<T>|undefined`
 
 ### [02.6]-[REPORTING_REMEDIATION_SECRETS_PREVIEW_GUARD]
 
@@ -215,13 +129,8 @@ interface PolicyResource {
 |  [03]   | `unknownCheckingProxy` | re-export     | preview-unknown props guard re-exported from `./proxy`; empty `.d.ts`, runtime-only |
 |  [04]   | `UnknownValueError`    | re-export     | paired guard export; same empty-`.d.ts` caveat, no declared shape                   |
 
-```ts signature
-type ReportViolation = (message: string, urn?: string) => void
-declare class Secret { value: any; constructor(value: any) }
-// unknownCheckingProxy / UnknownValueError: re-exported by index.d.ts from "./proxy",
-// but proxy.d.ts ships as `export {}` — no typed declaration. Runtime-only; do not
-// compose against a typed signature. Reach for them only in raw preview-unknown guarding.
-```
+[REPORT_VIOLATION]: `ReportViolation = (message:string,urn?:string)=>void`
+[SECRET]: `Secret.value: any` `Secret(any)`
 
 ## [03]-[IMPLEMENTATION_LAW]
 

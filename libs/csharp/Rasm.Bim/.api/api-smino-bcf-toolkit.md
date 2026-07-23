@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Smino.Bcf.Toolkit`
-- package: `Smino.Bcf.Toolkit` (Apache-2.0, `LICENSE` file)
+- package: `Smino.Bcf.Toolkit` (Apache-2.0)
 - assembly: `bcf-toolkit`
 - namespace: `BcfToolkit`, `BcfToolkit.Model`, `BcfToolkit.Model.Bcf30`, `BcfToolkit.Model.Bcf21`, `BcfToolkit.Model.Interfaces`, `BcfToolkit.Builder.Bcf30`, `BcfToolkit.Builder.Bcf21`, `BcfToolkit.Utils`
 - asset: net9.0 single TFM, bound by the net10.0 consumer as `lib/net9.0`; pure-managed AnyCPU, no `runtimes/` folder

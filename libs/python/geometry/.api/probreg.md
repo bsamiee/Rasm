@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `probreg`
-- package: `probreg`
+- package: `probreg` (MIT)
 - module: `probreg` — `cpd`/`filterreg`/`gmmtree`/`l2dist_regs`/`bcpd` submodules; `transformation` aliased `tf`
 - owner: `geometry`
 - rail: scan-processing / non-rigid-registration
-- license: `MIT` (own)
 - entry points: none (library only)
 - gate: sdist-only native C++ build (`Eigen`/`OpenMP`/`pybind11`) and a hard `open3d` runtime import bind it to the worker interpreter beside `kiss_matcher`/`open3d`
 - capability: correspondence-free probabilistic non-rigid registration over point arrays

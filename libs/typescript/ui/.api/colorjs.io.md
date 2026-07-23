@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `colorjs.io`
-- package: `colorjs.io`
-- license: `MIT`
+- package: `colorjs.io` (MIT)
 - deps: none — zero runtime dependency, framework-agnostic, pure synchronous math
 - catalog-verdict: KEEP
 - runtime: universal — no DOM/React coupling; runs at build, render, worker, or the theme atom identically
@@ -19,15 +18,13 @@
 - rail: token/color
 - `ColorTypes` is the one input union every operation accepts — a string, a plain object, or a `Color`; `PlainColorObject` is the decoded interior a token brand carries; `Coords`/`Ref` address channels. These are the shapes a `Schema` boundary and a design page type against; the union/tuple definitions are the signature below, the table the consumer boundary per type.
 
-```ts signature
-type ColorTypes = ColorObject | ColorConstructor | string | PlainColorObject
-type PlainColorObject = { space: ColorSpace; coords: Coords; alpha: number | null }
-type Coords = [number | null, number | null, number | null]
-type Ref = string | [string | ColorSpace, string] | { space; coordId }
-type Range = ((p: number) => Color) & { rangeArgs }
-type Algorithms = "WCAG21" | "APCA" | "Michelson" | "Weber" | "Lstar" | "deltaPhi"    // derived from the contrast* roster
-type Methods = "76" | "CMC" | "2000" | "Jz" | "ITP" | "OK" | "OK2" | "HCT" | "Helmlab" // derived from the deltaE* roster
-```
+[COLOR_TYPES]: `ColorTypes = ColorObject|ColorConstructor|string|PlainColorObject`
+[PLAIN_COLOR_OBJECT]: `PlainColorObject.space: ColorSpace` `PlainColorObject.coords: Coords` `PlainColorObject.alpha: number|null`
+[COORDS]: `Coords = [number|null,number|null,number|null]`
+[REF]: `Ref = string|[string|ColorSpace,string]|{space;coordId}`
+[RANGE]: `Range = ((p:number)=>Color)&{rangeArgs}`
+[ALGORITHMS]: `Algorithms = "WCAG21"|"APCA"|"Michelson"|"Weber"|"Lstar"|"deltaPhi"`
+[METHODS]: `Methods = "76"|"CMC"|"2000"|"Jz"|"ITP"|"OK"|"OK2"|"HCT"|"Helmlab"`
 
 | [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]      | [CONSUMER_BOUNDARY]                                           |
 | :-----: | :------------------------------------------------ | :----------------- | :------------------------------------------------------------ |

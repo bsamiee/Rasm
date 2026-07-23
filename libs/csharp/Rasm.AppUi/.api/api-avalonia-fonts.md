@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia.Fonts.Inter`
-- package: `Avalonia.Fonts.Inter` (`MIT`; embedded Inter faces under `OFL-1.1`)
+- package: `Avalonia.Fonts.Inter` (MIT)
 - assembly: `Avalonia.Fonts.Inter` (AnyCPU IL, managed-only)
 - namespace: `Avalonia.Fonts.Inter`, `Avalonia`
 - asset: runtime library and the `!AvaloniaResources` container holding `avares://Avalonia.Fonts.Inter/Assets/*.ttf`

@@ -7,7 +7,7 @@ One `Mark` owner composes both directions: the `matrix` arm folds `create_barcod
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `zxing-cpp`
-- package: `zxing-cpp` (`Apache-2.0`)
+- package: `zxing-cpp` (Apache-2.0)
 - import: `zxingcpp`
 - owner: `artifacts`
 - rail: imaging — the `graphic/marks/encode#MARK` `matrix` `EncodeArm` arm AND the `graphic/marks/decode#DECODE` owner, the one owner spanning both rail directions

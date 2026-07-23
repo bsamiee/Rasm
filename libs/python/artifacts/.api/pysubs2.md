@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pysubs2`
-- package: `pysubs2` (MIT, tkarabela)
+- package: `pysubs2` (MIT)
 - import: `pysubs2`
 - namespaces: `pysubs2`, `pysubs2.formats`, `pysubs2.formats.substation`, `pysubs2.time`
 - owner: `artifacts`

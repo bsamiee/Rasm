@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ReactiveUI.Avalonia`
-- package: `ReactiveUI.Avalonia`
-- license: `MIT`
+- package: `ReactiveUI.Avalonia` (MIT)
 - assembly: `ReactiveUI.Avalonia`
 - build-floor: `net10.0` (consumer-bound; multi-targets net8.0/net9.0 — none bound here)
 - namespace: `ReactiveUI.Avalonia` (13 types, 1 namespace)
@@ -27,7 +26,7 @@
 |  [05]   | `AvaloniaScheduler`               | `LocalScheduler`                                  | Avalonia UI scheduling          |
 |  [06]   | `AutoSuspendHelper`               | `IDisposable`                                     | application-lifetime suspension |
 
-[INFRASTRUCTURE_TYPES]: builder admission + binders. The four fetchers are registered by `WithAvalonia`; only the noted ones are public — the command and property fetchers are `internal` and never constructed by consumers — rail: reactive-ui
+[INFRASTRUCTURE_TYPES]: builder admission + binders. `WithAvalonia` registers all four fetchers; only the noted ones are public — command and property fetchers are `internal` resolver services — rail: reactive-ui
 
 | [INDEX] | [SYMBOL]                              | [VISIBILITY] | [CONTRACT]                      | [ROLE]                    |
 | :-----: | :------------------------------------ | :----------- | :------------------------------ | :------------------------ |
@@ -81,7 +80,7 @@ Every builder entrypoint is rooted at `AppBuilderExtensions`.
 
 [SCHEDULER_SIGNATURE]: `Schedule<TState>(TState, TimeSpan, Func<IScheduler,TState,IDisposable>)`
 
-[LIFETIME_BINDING_ENTRYPOINTS]: suspension, activation, and property-subject bridge — rail: reactive-ui. The property bridges default `BindingPriority` to `LocalValue`.
+[LIFETIME_BINDING_ENTRYPOINTS]: suspension, activation, and property-subject bridge — rail: reactive-ui. Property bridges default `BindingPriority` to `LocalValue`.
 
 | [INDEX] | [SURFACE]                            | [SURFACE_ROOT]                     | [ROLE]                  |
 | :-----: | :----------------------------------- | :--------------------------------- | :---------------------- |
@@ -111,7 +110,7 @@ Every builder entrypoint is rooted at `AppBuilderExtensions`.
 [STACKING]:
 - View bases stack with `ReactiveUI`: a `ReactiveUserControl<TVm>` / `ReactiveWindow<TVm>` pairs with a `ReactiveObject` (or `ReactiveValidationObject` from `ReactiveUI.Validation`) view-model, and the code-behind body is `this.WhenActivated(d => { this.Bind(...).DisposeWith(d); this.BindCommand(...).DisposeWith(d); })` — the `WhenActivated` block is fed by `AvaloniaActivationForViewFetcher` and every disposable is tied to the view's `Loaded`/`Unloaded` lifetime.
 - `RoutedViewHost` stacks with `ReactiveUI` routing: bind `Router` to a view-model `RoutingState`; the host resolves `CurrentViewModel` through the registered (or per-host `ViewLocator`) resolver and transitions content. `ViewModelViewHost` is the non-stack variant for a single bound view-model. Both honor `ViewContract` to disambiguate multiple views of one view-model.
-- The property-subject bridge stacks with `DynamicData` and `System.Reactive`: `GetSubject<T>` exposes any `AvaloniaProperty` as an `ISubject<T>`, so an Avalonia control property serves as a source/sink in a DynamicData change-set pipeline or a `ReactiveCommand` `canExecute` stream, with `BindingPriority` controlling precedence against styles/animations.
+- `GetSubject<T>` stacks `AvaloniaProperty` with `DynamicData` and `System.Reactive` as an `ISubject<T>` source/sink in a change-set pipeline or `ReactiveCommand` `canExecute` stream, with `BindingPriority` controlling precedence against styles and animations.
 - Suspension stacks with Avalonia lifetimes: construct `AutoSuspendHelper(ApplicationLifetime)` in `App.OnFrameworkInitializationCompleted`, call its `OnFrameworkInitializationCompleted()`, and back `RxApp.SuspensionHost` with a driver so view-model state persists across launches.
 - Docking stacks via `Dock.Model.ReactiveUI`: dock documents/tools are ReactiveUI view-models hosted through the same `IViewFor<T>` + `ViewModelViewHost` resolution path this assembly registers — one view-resolution contract spans the shell's dock layout, routed screens, and direct hosts.
 

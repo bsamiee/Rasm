@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Eto.Forms`
-- package: `Eto.Forms` (BSD-3-Clause, © Curtis Wensley / picoe)
+- package: `Eto.Forms` (BSD-3-Clause)
 - assembly: `Eto.dll` (core handler substrate), `Eto.macOS.dll` (`Eto.Mac` handler set)
 - namespace: `Eto`, `Eto.Forms`, `Eto.Mac`, `Eto.Mac.Forms`, `Eto.Mac.Forms.Controls`
 - target: in-process ALC reference inside the Rhino 9 WIP bundle, not a NuGet asset

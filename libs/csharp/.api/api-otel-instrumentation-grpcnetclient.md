@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `OpenTelemetry.Instrumentation.GrpcNetClient`
-- package: `OpenTelemetry.Instrumentation.GrpcNetClient` (`Apache-2.0`, OpenTelemetry Authors)
+- package: `OpenTelemetry.Instrumentation.GrpcNetClient` (Apache-2.0)
 - assembly: `OpenTelemetry.Instrumentation.GrpcNetClient`
 - namespace: `OpenTelemetry.Instrumentation.GrpcNetClient`, `OpenTelemetry.Trace`
 - rail: transport instrumentation

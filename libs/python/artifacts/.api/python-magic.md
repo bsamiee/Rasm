@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `python-magic`
-- package: `python-magic` (MIT, Adam Hupp)
+- package: `python-magic` (MIT)
 - module: `magic` (the `magic/__init__.py` ctypes binding)
 - namespaces: `magic`, `magic.loader`
 - abi: pure-Python `py3-none-any` wheel over a runtime `ctypes` binding to the host `libmagic`; `import magic` raises `ImportError('failed to find libmagic')` when `magic.loader.load_lib` finds no candidate, so libmagic is a Forge-provisioned host dependency off the runtime loader path

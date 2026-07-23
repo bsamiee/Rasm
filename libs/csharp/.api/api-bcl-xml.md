@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `System.Xml`
-- package: `System.Xml` (MIT, .NET Foundation)
+- package: `System.Xml` (MIT)
 - assembly: `System.Xml.ReaderWriter.dll`, `System.Xml.XDocument.dll`, `System.Xml.XPath.dll`, `System.Xml.XPath.XDocument.dll`, `System.Xml.XmlSerializer.dll`, `System.Runtime.Serialization.Xml.dll`
 - namespace: `System.Xml`, `System.Xml.Linq`, `System.Xml.Schema`, `System.Xml.XPath`, `System.Xml.Xsl`, `System.Xml.Serialization`, `System.Runtime.Serialization`
 - rail: document, stream, and object-graph XML codec behind every markup boundary

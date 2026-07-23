@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.ML.Tokenizers.Data.O200kBase`
-- package: `Microsoft.ML.Tokenizers.Data.O200kBase` (`MIT`)
+- package: `Microsoft.ML.Tokenizers.Data.O200kBase` (MIT)
 - assembly: `Microsoft.ML.Tokenizers.Data.O200kBase`
 - namespace: `Microsoft.ML.Tokenizers`
 - asset: data-only `netstandard2.0` library binding forward under `net10.0`

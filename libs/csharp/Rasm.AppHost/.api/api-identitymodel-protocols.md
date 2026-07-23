@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.IdentityModel.Protocols`
-- package: `Microsoft.IdentityModel.Protocols`
+- package: `Microsoft.IdentityModel.Protocols` (MIT)
 - assembly: `Microsoft.IdentityModel.Protocols`
 - namespace: `Microsoft.IdentityModel.Protocols`, `Microsoft.IdentityModel.Protocols.Configuration`
 - asset: runtime library
-- license: MIT
 - abi: native `lib/net10.0` asset (consumer-bound); also `net9.0`/`net8.0`/`net6.0`/`netstandard2.0`/`net462`/`net472`
 - admission: transitive via `Microsoft.IdentityModel.Protocols.OpenIdConnect`
 - depends: `Microsoft.IdentityModel.Tokens` (supplies `BaseConfigurationManager`, `BaseConfiguration`)

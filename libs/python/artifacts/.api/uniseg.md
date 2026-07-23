@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `uniseg`
-- package: `uniseg`
+- package: `uniseg` (MIT)
 - import: `uniseg` (submodules `linebreak`, `graphemecluster`, `wordbreak`, `sentencebreak`, `wrap`, `breaking`, `unicodedatawrapper`, `derived`, `emoji`, `unicodeproperty`)
 - owner: `artifacts`
 - rail: typography (line-layout)
-- license: `MIT` (OSI; dist-info ships `LICENSE`)
 - unicode-data: `16.0.0` (`uniseg.unidata_version`) — segmentation, derived, and emoji tables bundled in `db_lookups.py` (two-level trie behind `get_handle`/`get_value`), so break results pin to this UCD release regardless of interpreter
 - build-floor: pure-Python universal wheel `py3-none-any` (`Root-Is-Purelib: true`), `Requires-Python >=3.9`, no abi/cp gate
 - depends-on: none at runtime. Optional `unicodedata2` accelerator loads when present, else stdlib `unicodedata`; absent here, so `category`/`east_asian_width`/`bidirectional` follow the interpreter UCD, split from the release-pinned segmentation tables ([04] data-pin)
@@ -49,27 +48,15 @@ Break-property enums subclass `EnumProperty(str, Enum)`: every member equals its
 
 A `Wrapper` drives a `Formatter` (`TTFormatter` the monospace impl), folding `s` through it at `iter_breakables` breaks and yielding wrapped lines after `.wrap`. `TTFormatter` validates a narrow `tab_char` (raises `ValueError` on a wide fill char).
 
-| [INDEX] | [SYMBOL]      | [TYPE_FAMILY]         | [CAPABILITY]                                                               |
-| :-----: | :------------ | :-------------------- | :------------------------------------------------------------------------- |
-|  [01]   | `Formatter`   | formatter protocol    | the `Protocol` a `Wrapper` drives (members fenced below); any width medium |
-|  [02]   | `Wrapper`     | wrapping engine       | `.wrap` folds `s` through the formatter at `iter_breakables` breaks        |
-|  [03]   | `TTFormatter` | fixed-width formatter | the monospace `Formatter`; `.lines()` yields wrapped strings post-`.wrap`  |
+| [INDEX] | [SYMBOL]      | [TYPE_FAMILY]         | [CAPABILITY]                                                              |
+| :-----: | :------------ | :-------------------- | :------------------------------------------------------------------------ |
+|  [01]   | `Formatter`   | formatter protocol    | the `Protocol` a `Wrapper` drives; any width medium                       |
+|  [02]   | `Wrapper`     | wrapping engine       | `.wrap` folds `s` through the formatter at `iter_breakables` breaks       |
+|  [03]   | `TTFormatter` | fixed-width formatter | the monospace `Formatter`; `.lines()` yields wrapped strings post-`.wrap` |
 
-```python signature
-class Formatter(Protocol):                                 # implement to wrap into any logical-width medium
-    wrap_width: int | None                                 # None = no wrap, 0 = wrap as narrow as possible
-    tab_width: int
-    def text_extents(self, s: str) -> list[int]: ...
-    def handle_text(self, text: str, extents: list[int]) -> None: ...
-    def handle_new_line(self) -> None: ...
-
-class Wrapper:
-    def wrap(self, formatter: Formatter, s: str, cur: int = 0, offset: int = 0, *,
-             iter_breakables=line_break_breakables) -> int: ...    # break when extent exceeds wrap_width, tabs to tab_width; returns line count
-
-class TTFormatter(Formatter):                              # tab_char validated narrow (ValueError on a wide fill char)
-    def __init__(self, width, *, tab_width=8, tab_char=' ', ambiguous_as_wide=False): ...
-```
+[Formatter]: `wrap_width` `tab_width` `text_extents(s)` `handle_text(text, extents)` `handle_new_line()`; `None` disables wrapping and `0` selects the narrowest width.
+[Wrapper]: `wrap(formatter, s, cur=0, offset=0, *, iter_breakables=line_break_breakables) -> int` breaks by formatter extent and returns line count.
+[TTFormatter]: `TTFormatter(width, *, tab_width=8, tab_char=' ', ambiguous_as_wide=False)` rejects a wide `tab_char`.
 
 ## [03]-[ENTRYPOINTS]
 

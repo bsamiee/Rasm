@@ -5,19 +5,19 @@ One registration per rail projects every Thinktecture-generated Smart Enum, Valu
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions.Json`
-- package: `Thinktecture.Runtime.Extensions.Json` (BSD-3-Clause, Pawel Gerr)
+- package: `Thinktecture.Runtime.Extensions.Json` (BSD-3-Clause)
 - assembly: `Thinktecture.Runtime.Extensions.Json`
 - namespace: `Thinktecture`, `Thinktecture.Text.Json.Serialization`, `Thinktecture.Internal`
 - rail: snapshot-codec
 
 [PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions.MessagePack`
-- package: `Thinktecture.Runtime.Extensions.MessagePack` (BSD-3-Clause, Pawel Gerr)
+- package: `Thinktecture.Runtime.Extensions.MessagePack` (BSD-3-Clause)
 - assembly: `Thinktecture.Runtime.Extensions.MessagePack`
 - namespace: `Thinktecture`, `Thinktecture.Formatters`
 - rail: snapshot-codec
 
 [PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions.EntityFrameworkCore10`
-- package: `Thinktecture.Runtime.Extensions.EntityFrameworkCore10` (BSD-3-Clause, Pawel Gerr)
+- package: `Thinktecture.Runtime.Extensions.EntityFrameworkCore10` (BSD-3-Clause)
 - assembly: `Thinktecture.Runtime.Extensions.EntityFrameworkCore10`
 - namespace: `Thinktecture`, `Thinktecture.EntityFrameworkCore`, `Thinktecture.EntityFrameworkCore.Storage.ValueConversion`
 - rail: store-provider

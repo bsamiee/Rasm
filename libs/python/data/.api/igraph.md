@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `igraph`
-- package: `igraph` (`python-igraph` on PyPI, GPL)
+- package: `igraph` (GPL)
 - module: `import igraph`
 - rail: graph — the data-branch community-detection and C-core graph engine
 - asset: native C extension (`igraph._igraph`, libigraph C core) over a `GraphBase` base

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `psdtags`
-- package: `psdtags` (`BSD-3-Clause`)
+- package: `psdtags` (BSD-3-Clause)
 - module: `psdtags`
 - rail: layered — the `ImageSourceData`/`ImageResources` tag-structure authority for the `export/layered` `TIFF` arm
 - abi: pure-Python `py3-none-any`, no native extension, no cp gate

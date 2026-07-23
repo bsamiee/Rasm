@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `TextMateSharp`
-- package: `TextMateSharp` (`MIT`)
+- package: `TextMateSharp` (MIT)
 - assembly: `TextMateSharp`
 - target: `netstandard2.0`
 - namespace: `TextMateSharp.Registry` locator+engine, `TextMateSharp.Grammars` tokenize surface, `TextMateSharp.Themes` color resolution, `TextMateSharp.Model` background tokenizer
@@ -13,7 +13,7 @@
 - depends: `Onigwrap` — Oniguruma native regex; the `IGrammar` match loop is native, and the native binary ships with the app.
 
 [PACKAGE_SURFACE]: `TextMateSharp.Grammars`
-- package: `TextMateSharp.Grammars` (`MIT`)
+- package: `TextMateSharp.Grammars` (MIT)
 - assembly: `TextMateSharp.Grammars`
 - target: `netstandard2.0`
 - namespace: `TextMateSharp.Grammars`

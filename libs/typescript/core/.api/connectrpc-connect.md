@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@connectrpc/connect`
-- package: `@connectrpc/connect`
-- license: `Apache-2.0`
+- package: `@connectrpc/connect` (Apache-2.0)
 - peer: `@bufbuild/protobuf ^catalog` (`DescService`/`DescMethod*`/`MessageInitShape`/`MessageShape`/`create`/`fromBinary`/`toBinary`; `.api/bufbuild-protobuf.md`)
 - effect-peer: none direct — client `Promise`/`AsyncIterable` cross into `effect` `Effect.tryPromise`/`Stream.fromAsyncIterable` at the `interchange/invoke` seam (`.api/effect.md`)
 - catalog-verdict: KEEP — the invocation-client authority; `@connectrpc/connect-web` supplies its `Transport`, `@bufbuild/protobuf` its descriptors

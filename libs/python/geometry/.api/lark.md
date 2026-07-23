@@ -94,8 +94,6 @@
 - `ifcopenshell`(`.api/ifcopenshell.md`): the folded typed query feeds `util.selector.filter_elements` — `lark` owns the string→validated `Tree`, the `Transformer` folds it into the typed selector structure, and that structure, not the raw string, is what reaches IfcOpenShell.
 - within-lib: a built parser serializes via `save`/`load` (or the `cache=` option) so the grammar compiles once and the boundary reuses the parser handle across queries; `python -m lark.tools.standalone` emits a dependency-free parser module when a grammar must ship without `lark` at runtime.
 
-## [05]-[LOCAL_ADMISSION]
-
 [RAIL_LAW]:
 - Package: `lark`
 - Owns: EBNF grammar definition, Earley/LALR/CYK parsing into a `Tree`/`Token` forest, contextual/dynamic lexing, `Transformer`/`Visitor`/`Interpreter` tree folds, typed-AST construction, error-recovery parsing, and parser caching/standalone generation

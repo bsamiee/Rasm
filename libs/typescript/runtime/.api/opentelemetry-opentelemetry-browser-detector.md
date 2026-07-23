@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/opentelemetry-browser-detector`
-- package: `@opentelemetry/opentelemetry-browser-detector`
-- license: `Apache-2.0`
+- package: `@opentelemetry/opentelemetry-browser-detector` (Apache-2.0)
 - base: `browserDetector` implements `@opentelemetry/resources` `ResourceDetector`; `detect(config?)` returns a `DetectedResource`
 - consumed-by: `otel/emit` `web` lane detector set; folds beside the browser-degraded `@opentelemetry/resources` detectors
 - runtime: browser only — reads `navigator.userAgentData` brands, platform, and mobile, and `navigator.language`

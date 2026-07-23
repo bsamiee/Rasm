@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `timescaledb_toolkit`
-- package: `timescaledb_toolkit` (Timescale License, Timescale)
+- package: `timescaledb_toolkit` (Timescale License)
 - namespace: SQL — `public` aggregates, accessors, and the summary types they thread
 - asset: server extension whose sole install precondition is the `timescaledb` base type
 - rail: timescale-provisioning, analytical-lane

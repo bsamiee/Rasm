@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Whisper.net`
-- package: `Whisper.net` (MIT, Sandro Hanea)
+- package: `Whisper.net` (MIT)
 - assembly: `Whisper.net`
 - namespace: `Whisper.net`, `Whisper.net.Ggml`, `Whisper.net.LibraryLoader`, `Whisper.net.Logger`, `Whisper.net.Wave`
 - abi: managed bindings over the native `whisper.cpp` ggml engine; the native runtime and the ggml weights load out-of-package

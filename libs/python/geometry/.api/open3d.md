@@ -7,7 +7,7 @@ Its `registration_fgr_based_on_feature_matching` and `registration_ransac_based_
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `open3d`
-- package: `open3d` (`MIT`)
+- package: `open3d` (MIT)
 - import: `import open3d`
 - owner: `geometry`
 - rail: scan / coarse registration / reconstruction

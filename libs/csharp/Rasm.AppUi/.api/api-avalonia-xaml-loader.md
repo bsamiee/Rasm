@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia.Markup.Xaml.Loader`
-- package: `Avalonia.Markup.Xaml.Loader` (`MIT`)
+- package: `Avalonia.Markup.Xaml.Loader` (MIT)
 - assembly: `Avalonia.Markup.Xaml.Loader`
 - namespace: `Avalonia.Markup.Xaml`
 - asset: dev-loop library (`PrivateAssets="all"`)

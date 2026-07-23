@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia.Themes.Fluent`
-- package: `Avalonia.Themes.Fluent` (`MIT`)
+- package: `Avalonia.Themes.Fluent` (MIT)
 - assembly: `Avalonia.Themes.Fluent`
 - target: `net10.0`
 - namespace: `Avalonia.Themes.Fluent`, `Avalonia.Themes.Fluent.Accents`

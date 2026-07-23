@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `py7zr`
-- package: `py7zr`
+- package: `py7zr` (LGPL-2.1-or-later)
 - import: `py7zr`
 - owner: `artifacts`
 - rail: compression
-- license: `LGPL-2.1-or-later` (weak copyleft; a modified `py7zr` redistributed stays LGPL, dynamic import binds the consumer to nothing)
 - entry points: console script `py7zr` (list/extract/create/test/append); library use is import-only
 - capability: 7z archive read/write/test/list, multi-codec filter chains with DELTA/BCJ pre-filters, AES256 header+content encryption, password protection, streamed per-entry extraction sinks (`WriterFactory`/`Py7zIO`), `max_extract_size` decompression-bomb defense, `ExtractCallback`/`ArchiveCallback` progress mirrors, multiprocessing decode (`mp=True`), shutil archive-format registration
 

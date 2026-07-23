@@ -195,7 +195,7 @@ A custom editor extends the public `AbstractCellEditFactory` registered through 
 
 [GRID_ENTRYPOINTS]: property-grid state and layout — `Avalonia.PropertyGrid.Controls.PropertyGrid`
 
-The inspected object binds through `DataContext`; no public `ViewModel` property exists.
+`DataContext` binds the inspected object; no public `ViewModel` property exists.
 
 | [INDEX] | [SURFACE]                                            | [CAPABILITY]          |
 | :-----: | :--------------------------------------------------- | :-------------------- |

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `grandalf`
-- package: `grandalf` (`GPLv2 | EPLv1`, dual; the EPLv1 arm is the commercial-safe selection)
+- package: `grandalf` (GPLv2 OR EPLv1)
 - module: `grandalf` (`grandalf.graphs` / `grandalf.layouts` / `grandalf.routing` / `grandalf.utils`)
 - owner: `artifacts`
 - rail: figure (diagram layout)

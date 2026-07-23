@@ -5,10 +5,9 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pandas`
-- package: `pandas`
+- package: `pandas` (BSD-3-Clause)
 - owner: `data`
 - module: `pandas`
-- license: BSD-3-Clause
 - rail: labeled tabular
 
 ## [02]-[PUBLIC_TYPES]

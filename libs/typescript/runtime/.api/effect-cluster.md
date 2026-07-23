@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/cluster`
-- package: `@effect/cluster`
-- license: `MIT`
+- package: `@effect/cluster` (MIT)
 - effect-peer: `effect catalog`, `@effect/platform catalog`, `@effect/rpc catalog`, `@effect/sql catalog`, `@effect/workflow catalog` (universal-tier + sibling substrate; `.api/effect.md`, `.api/effect-platform.md`, `runtime/.api/effect-workflow.md`)
 - deps: `kubernetes-types` (the K8s pod shapes `K8sHttpClient` discovery types against)
 - runtime: node/bun durable lanes — runners use `@effect/platform` `Socket`/`HttpClient`/`FileSystem`; `MessageStorage`/`RunnerStorage` persist on `@effect/sql` (a store-owned driver); no browser lane

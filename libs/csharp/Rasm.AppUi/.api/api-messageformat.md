@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MessageFormat`
-- package: `MessageFormat` (MIT, © Jeff Hansen)
+- package: `MessageFormat` (MIT)
 - assembly: `Jeffijoe.MessageFormat`
 - namespace: `Jeffijoe.MessageFormat` (engine), `.Formatting` + `.Formatting.Formatters` (handler SPI), `.Parsing` (pattern parser)
 - depends: none — pure-managed over `CultureInfo` and `StringBuilder`

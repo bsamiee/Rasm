@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `System.Runtime.InteropServices`
-- package: `System.Runtime.InteropServices` (MIT, Microsoft)
+- package: `System.Runtime.InteropServices` (MIT)
 - assembly: `System.Runtime.InteropServices.dll`, `System.Runtime.dll`, `System.Collections.Immutable.dll` (shared framework)
 - namespace: `System.Runtime.InteropServices`, `Microsoft.Win32.SafeHandles`
 - rail: native boundary — signal traps, module binding, handle lifetime, span aliasing

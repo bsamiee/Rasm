@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `bw2data`
-- package: `bw2data` (`BSD-3-Clause`, Chris Mutel)
+- package: `bw2data` (BSD-3-Clause)
 - module: `import bw2data as bd`
 - rail: lca-store (EPD/LCA cluster)
 - asset: pure-Python `py3-none-any` purelib, ABI-agnostic; SQLite via `peewee`, units via `pint`, search via `whoosh`, config via `pydantic-settings`

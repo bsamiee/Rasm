@@ -5,10 +5,9 @@ bSDD — the buildingSMART Data Dictionary — is the live REST authority for st
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: bSDD `Dictionaries API`
-- service: buildingSMART Data Dictionary `Dictionaries API` — live REST, OpenAPI `v1`
+- service: buildingSMART Data Dictionary `Dictionaries API` (MIT) — live REST, OpenAPI `v1`
 - base-url: `https://api.bsdd.buildingsmart.org/`
 - identifier-uri: `https://identifier.buildingsmart.org/uri/{organization}/{dictionary}/{version}/class/{code}` — the canonical class identity, passed AS the `Uri` query argument to `api/Class/vX`/`api/Property/vX`
-- license: MIT (© 2020 buildingSMART International); per-dictionary data redistribution governs at `DictionaryContract.v1.license`/`licenseUrl`
 - auth: the `Class`/`Property`/`Dictionary`/`Search`/reference `GET` resources are token-free; upload and private-content methods require Azure AD B2C (MSAL), outside the read path
 - transport-headers: `Accept: application/json` (the resource also serves `application/xml`, `text/turtle`, `application/rdf+xml`); an `X-User-Agent`/`User-Agent` of `"application/version"` attributes usage
 - rail: classification

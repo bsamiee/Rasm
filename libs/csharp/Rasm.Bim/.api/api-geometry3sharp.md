@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `geometry3Sharp`
-- package: `geometry3Sharp` (gradientspace Boost-style permissive)
+- package: `geometry3Sharp` (Boost-1.0)
 - assembly: `geometry3Sharp`
 - namespace: `g3`
 - asset: `netstandard2.0`/`net45`; `net10.0` binds `lib/netstandard2.0`; pure-managed AnyCPU IL, ALC-safe, zero package dependencies

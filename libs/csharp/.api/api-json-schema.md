@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `System.Text.Json`
-- package: `System.Text.Json` (MIT, Microsoft)
+- package: `System.Text.Json` (MIT)
 - assembly: `System.Text.Json.dll` (shared framework)
 - namespace: `System.Text.Json.Schema`
 - rail: contract projection

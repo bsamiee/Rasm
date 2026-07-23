@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `react-compiler-runtime`
-- package: `react-compiler-runtime`
-- license: `MIT`
+- package: `react-compiler-runtime` (MIT)
 - react-peer: `react catalog || ^catalog` (delegates to `React.__COMPILER_RUNTIME.c`/`React.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE` when present, else falls back to a `React.useMemo` polyfill)
 - asset: source-only package shipping `src/index.ts` (no built `dist` types entry); the consuming toolchain transpiles it, so it participates in the folder `tsc` graph directly
 - pairs-with: `babel-plugin-react-compiler` (`.api/babel-plugin-react-compiler.md`) — the compile pass that emits `_c(N)` calls; the plugin `target` selects the import source (`19` → React's built-in `react/compiler-runtime`; `17`/`18` → this package)

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `SkiaSharp`
-- package: `SkiaSharp` (MIT, Microsoft)
+- package: `SkiaSharp` (MIT)
 - assembly: `SkiaSharp` (bound `lib/net10.0/SkiaSharp.dll`; managed P/Invoke binding, multi-targeted package)
 - namespace: `SkiaSharp`
 - runtime: managed shim over the per-platform `libSkiaSharp` native payload from `SkiaSharp.NativeAssets.*` (`api-skia-native.md`); pixels live in unmanaged memory

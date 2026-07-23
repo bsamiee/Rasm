@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `topologicpy`
-- package: `topologicpy` (`AGPL-3.0-or-later`)
+- package: `topologicpy` (AGPL-3.0-or-later)
 - module: `topologicpy`
 - owner: `geometry`
 - rail: geometry-algebra, opt-in Forge lane

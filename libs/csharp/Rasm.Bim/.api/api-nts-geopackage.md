@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `NetTopologySuite.IO.GeoPackage`
-- package: `NetTopologySuite.IO.GeoPackage`
-- license: BSD-3-Clause
+- package: `NetTopologySuite.IO.GeoPackage` (BSD-3-Clause)
 - assembly: `NetTopologySuite.IO.GeoPackage`
 - namespace: `NetTopologySuite.IO` (`GeoPackageGeoReader`, `GeoPackageGeoWriter`)
 - asset: netstandard2.0 single TFM, IL-only AnyCPU managed, no P/Invoke, no native binaries; the net10.0 consumer binds the `lib/netstandard2.0` asset

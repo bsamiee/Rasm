@@ -30,6 +30,7 @@ Use a front-and-close paragraph shape: sentence one leads with the owning subjec
 
 [MECHANICS]:
 - Build each law sentence on an owning subject in the front slot and an owning verb that exercises ownership, one decision to a sentence; split a clause that fuses a charter statement with separable mechanism so each keeps its own subject.
+- Treat a definite-article opener as a voice defect: seat the acting owner as subject under a present-active verb; repair holds only when the subject moved, never when the determiner changed or dropped.
 - Coordinating conjunctions join equal-rank ideas: `for`, `and`, `nor`, `but`, `or`, `yet`, and `so`.
 - Use a comma before a coordinating conjunction joining two independent clauses.
 - Omit the comma for imperative clauses sharing an implied subject unless contrast, length, or ambiguity requires it.

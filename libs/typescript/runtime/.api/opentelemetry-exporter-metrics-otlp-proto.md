@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/exporter-metrics-otlp-proto`
-- package: `@opentelemetry/exporter-metrics-otlp-proto`
-- license: `Apache-2.0`
+- package: `@opentelemetry/exporter-metrics-otlp-proto` (Apache-2.0)
 - otel-peer: `@opentelemetry/api ^catalog` (peer), `@opentelemetry/core ^catalog` (the `ExportResult` rail), `@opentelemetry/sdk-metrics ^catalog` (the `PushMetricExporter`/`ResourceMetrics` contract + the `PeriodicExportingMetricReader` that wraps it), `@opentelemetry/resources ^catalog`
 - transitive-config: `@opentelemetry/exporter-metrics-otlp-http` supplies the inherited `OTLPMetricExporterBase` and `OTLPMetricExporterOptions`; `@opentelemetry/otlp-exporter-base` supplies the node-http and browser-fetch delegates; `@opentelemetry/otlp-transformer` supplies `ProtobufMetricsSerializer`
 - consumed-by: `otel/emit` SDK-bridge metric leg via the facade's `NodeSdk`/`WebSdk` `Configuration.metricReader`, on the protobuf-wire selection; the wire under the `data` fact journal's (app, tenant)-keyed usage/cost counters when the collector demands protobuf
@@ -26,13 +25,7 @@
 |  [02]   | `new OTLPMetricExporter(config?)` | constructor     | binds `ProtobufMetricsSerializer` into `OTLPMetricExporterBase` |
 |  [03]   | `OTLPMetricExporterOptions`       | config type     | temporality fence intersected onto `OTLPExporterNodeConfigBase` |
 
-```ts signature
-class OTLPMetricExporter extends OTLPMetricExporterBase {   // OTLPMetricExporterBase from @opentelemetry/exporter-metrics-otlp-http
-  constructor(config?: OTLPExporterNodeConfigBase & OTLPMetricExporterOptions)
-  // super(createOtlpHttpExportDelegate(convertLegacyHttpOptions(config, 'METRICS', 'v1/metrics',
-  //   { 'Content-Type': 'application/x-protobuf' }), ProtobufMetricsSerializer), config)
-}
-```
+[OTLPMETRIC_EXPORTER]: `OTLPMetricExporter(OTLPExporterNodeConfigBase&OTLPMetricExporterOptions?)`
 
 ## [03]-[ENTRYPOINTS]
 

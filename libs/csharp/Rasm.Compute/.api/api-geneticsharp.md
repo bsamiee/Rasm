@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `GeneticSharp`
-- package: `GeneticSharp` (MIT, `giacomelli`)
+- package: `GeneticSharp` (MIT)
 - assembly: `GeneticSharp.Domain` (operator + engine surface) + `GeneticSharp.Infrastructure.Framework` (executor, randomization) — pure-managed AnyCPU IL on `lib/net6.0`, ALC-safe, no native asset
 - namespace: `GeneticSharp`
 - rail: optimizer#OPTIMIZER_LANE (population-based rows)

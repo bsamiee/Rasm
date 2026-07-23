@@ -1,7 +1,7 @@
 # [TS_UI_API_RADIX_UI_REACT_SLOT]
 
 [PACKAGE_SURFACE]:
-- package: `@radix-ui/react-slot` · license `MIT`
+- package: `@radix-ui/react-slot` (MIT)
 - module: dual — `dist/index.mjs` (ESM `module`/`import`) + `dist/index.js` (CJS `main`/`require`); `sideEffects: false`; one `.` barrel, no subpaths.
 - asset: `dist/index.d.ts`, the consumer-bound declaration surface — the top-level `pnpm-workspace.yaml` catalog symlink, never the transitive store copies `cmdk`/`vaul` pull in.
 - runtime: React render-time only — no DOM read, no effect, no async. Internalizes `@radix-ui/react-compose-refs` (the ref-merge primitive) as its single dependency.
@@ -15,37 +15,23 @@
 
 One factory, its zero-config instance, a `Slottable` marker for sibling interleave, and a swappable reconciler form the surface. `createSlot`/`createSlottable` are the parameterized mechanism; `Slot`/`Slottable` are the default instances — never a hand-rolled clone per component. `mergeProps` is the exported default reconciler; `SlotProvider` swaps it for descendant slots.
 
-| [INDEX] | [SYMBOL]                             | [KIND]    | [CAPABILITY_BOUNDARY]                                                             |
-| :-----: | :----------------------------------- | :-------- | :-------------------------------------------------------------------------------- |
-|  [01]   | `createSlot<Elem, Props>(ownerName)` | factory   | mints a named `Slot`; `ownerName` rides devtools + the single-child invariant     |
-|  [02]   | `Slot` (= `Root`)                    | component | `createSlot('Slot')` — the default merge instance; `Root` is the same value       |
+| [INDEX] | [SYMBOL]                             | [KIND]    | [CAPABILITY_BOUNDARY]                                                              |
+| :-----: | :----------------------------------- | :-------- | :--------------------------------------------------------------------------------- |
+|  [01]   | `createSlot<Elem, Props>(ownerName)` | factory   | mints a named `Slot`; `ownerName` rides devtools + the single-child invariant      |
+|  [02]   | `Slot` (= `Root`)                    | component | `createSlot('Slot')` — the default merge instance; `Root` is the same value        |
 |  [03]   | `SlotProps<Elem, Props>`             | type      | `Props & { children?, mergeProps? }` — merged props + per-slot reconciler override |
-|  [04]   | `createSlottable(ownerName)`         | factory   | mints a named `Slottable` marker (carries the `__radixId` brand)                  |
-|  [05]   | `Slottable` (`SlottableComponent`)   | component | marks the child that receives the merge among static siblings                     |
-|  [06]   | `mergeProps(SlotProps, ChildProps)`  | function  | the exported default reconciler — the props-merge algorithm §[02], reusable       |
-|  [07]   | `MergePropsFunction`                 | type      | the reconciler contract a custom merge implements                                 |
-|  [08]   | `SlotProvider` (= `Provider`)        | component | context provider setting a custom `mergeProps` for every descendant `Slot`        |
+|  [04]   | `createSlottable(ownerName)`         | factory   | mints a named `Slottable` marker (carries the `__radixId` brand)                   |
+|  [05]   | `Slottable` (`SlottableComponent`)   | component | marks the child that receives the merge among static siblings                      |
+|  [06]   | `mergeProps(SlotProps, ChildProps)`  | function  | the exported default reconciler — the props-merge algorithm §[02], reusable        |
+|  [07]   | `MergePropsFunction`                 | type      | the reconciler contract a custom merge implements                                  |
+|  [08]   | `SlotProvider` (= `Provider`)        | component | context provider setting a custom `mergeProps` for every descendant `Slot`         |
 
-```ts signature
-// createSlot IS the mechanism: one named Slot per owner component. Slot = createSlot('Slot'); Root aliases Slot.
-declare function createSlot<Elem extends Element = HTMLElement, Props = React.HTMLAttributes<Elem>>(
-  ownerName: string,
-): React.ForwardRefExoticComponent<React.PropsWithoutRef<SlotProps<Elem, Props>> & React.RefAttributes<Elem>>
-type SlotProps<Elem extends Element = HTMLElement, Props = React.HTMLAttributes<Elem>> = Props & { children?: React.ReactNode; mergeProps?: MergePropsFunction }
-declare const Slot: React.ForwardRefExoticComponent<React.HTMLAttributes<HTMLElement> & { children?: React.ReactNode; mergeProps?: MergePropsFunction } & React.RefAttributes<HTMLElement>>
-
-// Reconciliation is exported and swappable: mergeProps is the default; SlotProvider replaces it per subtree via context; a per-Slot mergeProps prop overrides one instance.
-declare const mergeProps: <S extends AnyProps = AnyProps, C extends AnyProps = S, R extends AnyProps = S & C>(slotProps: S, childProps: C) => R
-interface MergePropsFunction<S extends AnyProps = UnknownProps, C extends AnyProps = S, R extends AnyProps = S & C> { (slotProps: S, childProps: C): R }
-declare const SlotProvider: React.FC<{ children: React.ReactNode; mergeProps: MergePropsFunction }>
-
-// Slottable interleaves non-slotted siblings around the slotted child; the render-fn form is the general case, the plain form the shorthand.
-type SlottableProps = { child: React.ReactNode; children: (slottable: React.ReactNode) => React.ReactNode } | { children: React.ReactNode }
-interface SlottableComponent extends React.FC<SlottableProps> { __radixId: symbol }   // the brand Slot detects among children
-declare function createSlottable(ownerName: string): SlottableComponent
-
-export { type MergePropsFunction, SlotProvider as Provider, Slot as Root, Slot, type SlotProps, SlotProvider, Slottable, createSlot, createSlottable, mergeProps }
-```
+[SLOT_PROPS]: `SlotProps = Props&{children?:React.ReactNode;mergeProps?:MergePropsFunction}`
+[MERGE_PROPS_FUNCTION]: `MergePropsFunction.call(S,C) -> R`
+[SLOTTABLE_PROPS]: `SlottableProps = {child:React.ReactNode;children:(slottable:React.ReactNode)=>React.ReactNode}|{children:React.ReactNode}`
+[SLOTTABLE_COMPONENT]: `SlottableComponent.__radixId: symbol`
+[EXPORTS]: `MergePropsFunction` `Provider` `Root` `Slot` `SlotProps` `SlotProvider` `Slottable` `createSlot` `createSlottable` `mergeProps`
+[SURFACES]: `createSlot(string) -> React.ForwardRefExoticComponent<React.PropsWithoutRef<SlotProps<Elem,Props>>&React.RefAttributes<Elem>>` `Slot: React.ForwardRefExoticComponent<…>` `mergeProps(S,C) -> R` `SlotProvider: React.FC<{children:React.ReactNode;mergeProps:MergePropsFunction}>` `createSlottable(string) -> SlottableComponent`
 
 ## [02]-[MERGE_SEMANTICS]
 

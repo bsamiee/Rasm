@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `jinja2`
-- package: `jinja2` (BSD-3-Clause, Pallets)
+- package: `jinja2` (BSD-3-Clause)
 - module: `jinja2`
 - namespaces: `jinja2`, `jinja2.sandbox`, `jinja2.nativetypes`, `jinja2.ext`, `jinja2.bccache`
 - owner: `artifacts`

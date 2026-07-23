@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/resource-detector-gcp`
-- package: `@opentelemetry/resource-detector-gcp`
-- license: `Apache-2.0`
+- package: `@opentelemetry/resource-detector-gcp` (Apache-2.0)
 - base: `gcpDetector` implements `@opentelemetry/resources` `ResourceDetector`; `detect()` returns a `DetectedResource` resolving async metadata attributes
 - consumed-by: `otel/emit` node detector roster; folds beside the `@opentelemetry/resources` `env`/`host`/`os`/`process`/`serviceInstanceId` detectors
 - runtime: node only — reads the GCP metadata server over the `gcp-metadata` client

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `rioxarray`
-- package: `rioxarray` (Apache-2.0, vendors `LICENSE_xarray`/`LICENSE_datacube`)
+- package: `rioxarray` (Apache-2.0)
 - module: `import rioxarray`
 - owner: `data`
 - rail: geospatial

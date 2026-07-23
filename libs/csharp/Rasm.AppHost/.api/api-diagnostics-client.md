@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Diagnostics.NETCore.Client`
-- package: `Microsoft.Diagnostics.NETCore.Client` (`MIT`, dotnet/diagnostics)
+- package: `Microsoft.Diagnostics.NETCore.Client` (MIT)
 - assembly: `Microsoft.Diagnostics.NETCore.Client`
 - namespace: `Microsoft.Diagnostics.NETCore.Client`, `Microsoft.Diagnostics.NETCore.Client.WebSocketServer`
 - target: `net8.0`

@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@perspective-dev/viewer-charts`
-- package: `@perspective-dev/viewer-charts`
-- license: `Apache-2.0`
+- package: `@perspective-dev/viewer-charts` (Apache-2.0)
 - deps: none — the rendering stack is bundled
 - module: ESM only — exports `.` (`types: dist/esm/index.d.ts`, `default: dist/esm/perspective-viewer-charts.js`), plus `./src/*`/`./dist/*` passthroughs
 - catalog-verdict: KEEP — the admitted chart half of the viewer plugin pair; `viewer-d3fc`/`viewer-openlayers` are rejected beside it (`.api/perspective-dev-viewer.md`)

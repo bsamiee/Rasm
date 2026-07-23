@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@deck.gl/mapbox`
-- package: `@deck.gl/mapbox`
-- license: `MIT`
+- package: `@deck.gl/mapbox` (MIT)
 - abi: browser WebGL2; `interleaved:true` requires the map's `Map#getCanvas` context to be WebGL2 and shares it with the `Deck`
 - peer (`~catalog`): `@deck.gl/core` (`Deck`, `DeckProps`, picking), `@luma.gl/core` (shared WebGL2 `Device` under `interleaved`), `@math.gl/web-mercator` (dep; camera-state → deck `viewState` conversion); `maplibre-gl ^5.x` is NOT a dep or peer — the `Map` is structural (deck ships its own `Map`/`IControl` types), passed in by the app; see `.api/maplibre-gl.md`
 - catalog-verdict: KEEP — the sole deck↔maplibre binding; the alternative (manual `WebMercatorViewport` sync of a free `Deck`) is only for map-less surfaces

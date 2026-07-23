@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions`
-- package: `Thinktecture.Runtime.Extensions` (LICENSE.md, © Pawel Gerr)
+- package: `Thinktecture.Runtime.Extensions` (LICENSE.md)
 - assembly: `Thinktecture.Runtime.Extensions` carries the attributes, contracts, comparers, and metadata; the source generator, analyzers, and refactorings ride as compile-only companions that never bind at runtime
 - namespace: `Thinktecture`, `Thinktecture.Collections`, `Thinktecture.Internal`, `JetBrains.Annotations`
 - depends: `Thinktecture.Runtime.Extensions.SourceGenerator`, `Thinktecture.Runtime.Extensions.Analyzers`, `Thinktecture.Runtime.Extensions.Refactorings`

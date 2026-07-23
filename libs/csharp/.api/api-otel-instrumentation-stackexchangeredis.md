@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `OpenTelemetry.Instrumentation.StackExchangeRedis`
-- package: `OpenTelemetry.Instrumentation.StackExchangeRedis` (Apache-2.0, OpenTelemetry Authors)
+- package: `OpenTelemetry.Instrumentation.StackExchangeRedis` (Apache-2.0)
 - assembly: `OpenTelemetry.Instrumentation.StackExchangeRedis`
 - namespace: `OpenTelemetry.Trace`, `OpenTelemetry.Instrumentation.StackExchangeRedis`
 - depends: `StackExchange.Redis` — the `RegisterProfiler` hook every bound multiplexer takes

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.macOS`
-- package: `Microsoft.macOS` (MIT, Microsoft) — host-provided .NET macOS platform bindings, not a central `PackageReference`
+- package: `Microsoft.macOS` (MIT)
 - assembly: `Microsoft.macOS` — loaded by the Rhino host under `net10.0-macos`; the whole surface is absent off-macOS
 - namespace: `AppKit`, `CoreAnimation`, `Foundation`, `ObjCRuntime`
 - rail: macos-native

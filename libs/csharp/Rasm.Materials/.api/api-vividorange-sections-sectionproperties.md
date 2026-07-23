@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `VividOrange.Sections.SectionProperties`
-- package: `VividOrange.Sections.SectionProperties` (MIT, MagmaWorks / VividOrange taxonomy)
+- package: `VividOrange.Sections.SectionProperties` (MIT)
 - assembly: `VividOrange.Sections.SectionProperties`
 - namespace: `VividOrange.Sections.SectionProperties`, `.Utility`
 - asset: runtime library, pure-managed AnyCPU, no native RID asset; the `net10.0` consumer binds the `net9.0` asset
@@ -127,7 +127,7 @@ Build a `ConcreteSection` from an admitted `IProfile`, EN material, and rebar la
 - A Profiles family that needs `Area` or `MomentOfInertia` computes it from the perimeter, never from an inline closed-form constant.
 
 [RAIL_LAW]:
-- Package: `VividOrange.Sections.SectionProperties` (MIT, pure-managed AnyCPU, `net10.0` binds `net9.0`)
+- Package: `VividOrange.Sections.SectionProperties` (MIT)
 - Owns: the arbitrary-closed-polygon section-property solver (Green's-theorem integral, void subtraction, parallel-axis transfer) over any `IProfile`, the `SectionProperties` and `ConcreteSectionProperties` carriers, the `.Utility` static kernels, and the reinforced-concrete transformed-section reinforcement surface — all returning `UnitsNet` quantities
 - Accept: a section property computed from an `IProfile` (catalogued or parametric), read as a `UnitsNet` quantity, the carrier admitted at the boundary; a reinforced-section property from `ConcreteSectionProperties` over a `ConcreteSection` built from `VividOrange.Sections`
 - Reject: a per-family rectangular section-property literal where the polygon integral computes it; a raw-`double` read of a `UnitsNet` property; a computation that bypasses the `IProfile` perimeter contract

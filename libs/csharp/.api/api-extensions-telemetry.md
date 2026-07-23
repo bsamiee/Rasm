@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Telemetry`
-- package: `Microsoft.Extensions.Telemetry` (MIT, Microsoft)
+- package: `Microsoft.Extensions.Telemetry` (MIT)
 - assembly: `Microsoft.Extensions.Telemetry`
 - contract assembly: `Microsoft.Extensions.Telemetry.Abstractions`
 - namespace: `Microsoft.Extensions.Logging`, `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.Diagnostics.Enrichment`, `Microsoft.Extensions.Diagnostics.Latency`, `Microsoft.Extensions.Diagnostics.Buffering`, `Microsoft.Extensions.Diagnostics.Sampling`

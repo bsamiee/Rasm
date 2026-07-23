@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `av`
-- package: `av` (BSD-3-Clause, PyAV)
+- package: `av` (BSD-3-Clause)
 - import: `av`
 - owner: `artifacts`
 - rail: media
@@ -56,7 +56,7 @@
 | :-----: | :----------------------------------------- | :--------------------------------------------------- | :-------------------------------- |
 |  [01]   | `av.open`                                  | `open(file, mode="w", ...) -> OutputContainer`       | open a write container            |
 |  [02]   | `av.open`                                  | `open(file, mode="r", *, hwaccel) -> InputContainer` | open a read container (`hwaccel`) |
-|  [03]   | `OutputContainer.add_stream`               | `add_stream(codec_name, rate, options, hwaccel)` | typed a/v/subtitle stream |
+|  [03]   | `OutputContainer.add_stream`               | `add_stream(codec_name, rate, options, hwaccel)`     | typed a/v/subtitle stream         |
 |  [04]   | `OutputContainer.add_mux_stream`           | `add_mux_stream(codec_name, rate=None, **kwargs)`    | passthrough stream for remux      |
 |  [05]   | `OutputContainer.add_stream_from_template` | `add_stream_from_template(template, opaque=None)`    | clone an existing stream's params |
 |  [06]   | `OutputContainer.add_attachment`           | `add_attachment(name, mimetype, data)`               | embed a font/cover/file           |
@@ -118,24 +118,24 @@
 
 `av.filter.loudnorm.stats` runs the two-pass EBU R128 measurement over an `AudioStream`, the gated integrated-LUFS read a single-pass encode cannot expose.
 
-| [INDEX] | [SURFACE]                         | [CALL_SHAPE]                                                | [CAPABILITY]                          |
-| :-----: | :-------------------------------- | :---------------------------------------------------------- | :------------------------------------ |
-|  [01]   | `Graph.add_buffer`                | `add_buffer(template=None, ...) -> FilterContext`           | create a video source node            |
-|  [02]   | `Graph.add_abuffer`               | `add_abuffer(template=None, ...) -> FilterContext`          | create an audio source node           |
-|  [03]   | `Graph.add`                       | `add(filter, args=None, **kwargs) -> FilterContext`         | add a named libavfilter node          |
-|  [04]   | `Graph.link_nodes`                | `link_nodes(*nodes) -> Graph`                               | chain filter contexts in order    |
-|  [05]   | `Graph.push`/`.vpush`/`.pull`     | `push(frame, at=-1)`; `vpush(vframe, at=-1)`; `pull() -> Frame` | drive frames; `at` picks a source |
-|  [06]   | `Graph.configure`                 | `configure(auto_buffer=True, force=False) -> None`          | validate/configure before pull        |
-|  [07]   | `BitStreamFilterContext`          | `BitStreamFilterContext(filter_description, ...)` | bitstream rewrite  |
-|  [08]   | `BitStreamFilterContext.filter`   | `filter(packet=None) -> list[Packet]`; `flush() -> None`    | rewrite a packet bitstream            |
-|  [09]   | `AudioResampler`                  | `AudioResampler(format, layout, rate, frame_size, options=None)` | swresample resample owner |
-|  [10]   | `AudioResampler.resample`         | `resample(frame_or_None) -> list[AudioFrame]`               | resample a frame; `None` flushes      |
-|  [11]   | `AudioFifo.write` / `.read`       | `write(frame)`; `read(samples=-1, partial=False)`           | rebuffer to a fixed frame size        |
-|  [12]   | `CodecContext.create`             | `create(codec, mode=None, hwaccel=None) -> CodecContext`    | standalone codec context              |
-|  [13]   | `CodecContext.parse`              | `parse(raw_input=None) -> list[Packet]`                     | split a raw elementary stream         |
-|  [14]   | `av.filter.loudnorm.stats`        | `stats(loudnorm_args: str, stream: AudioStream) -> bytes`   | two-pass EBU R128 stats JSON    |
-|  [15]   | `Graph.pull` (drain signals)      | raises `BlockingIOError` (needs input) / `EOFError` (EOF)   | drain-loop terminal signals           |
-|  [16]   | `AudioFormat.packed`/`is_planar` | property -> `AudioFormat` / `bool`                          | planar/packed format twins |
+| [INDEX] | [SURFACE]                        | [CALL_SHAPE]                                                     | [CAPABILITY]                      |
+| :-----: | :------------------------------- | :--------------------------------------------------------------- | :-------------------------------- |
+|  [01]   | `Graph.add_buffer`               | `add_buffer(template=None, ...) -> FilterContext`                | create a video source node        |
+|  [02]   | `Graph.add_abuffer`              | `add_abuffer(template=None, ...) -> FilterContext`               | create an audio source node       |
+|  [03]   | `Graph.add`                      | `add(filter, args=None, **kwargs) -> FilterContext`              | add a named libavfilter node      |
+|  [04]   | `Graph.link_nodes`               | `link_nodes(*nodes) -> Graph`                                    | chain filter contexts in order    |
+|  [05]   | `Graph.push`/`.vpush`/`.pull`    | `push(frame, at=-1)`; `vpush(vframe, at=-1)`; `pull() -> Frame`  | drive frames; `at` picks a source |
+|  [06]   | `Graph.configure`                | `configure(auto_buffer=True, force=False) -> None`               | validate/configure before pull    |
+|  [07]   | `BitStreamFilterContext`         | `BitStreamFilterContext(filter_description, ...)`                | bitstream rewrite                 |
+|  [08]   | `BitStreamFilterContext.filter`  | `filter(packet=None) -> list[Packet]`; `flush() -> None`         | rewrite a packet bitstream        |
+|  [09]   | `AudioResampler`                 | `AudioResampler(format, layout, rate, frame_size, options=None)` | swresample resample owner         |
+|  [10]   | `AudioResampler.resample`        | `resample(frame_or_None) -> list[AudioFrame]`                    | resample a frame; `None` flushes  |
+|  [11]   | `AudioFifo.write` / `.read`      | `write(frame)`; `read(samples=-1, partial=False)`                | rebuffer to a fixed frame size    |
+|  [12]   | `CodecContext.create`            | `create(codec, mode=None, hwaccel=None) -> CodecContext`         | standalone codec context          |
+|  [13]   | `CodecContext.parse`             | `parse(raw_input=None) -> list[Packet]`                          | split a raw elementary stream     |
+|  [14]   | `av.filter.loudnorm.stats`       | `stats(loudnorm_args: str, stream: AudioStream) -> bytes`        | two-pass EBU R128 stats JSON      |
+|  [15]   | `Graph.pull` (drain signals)     | raises `BlockingIOError` (needs input) / `EOFError` (EOF)        | drain-loop terminal signals       |
+|  [16]   | `AudioFormat.packed`/`is_planar` | property -> `AudioFormat` / `bool`                               | planar/packed format twins        |
 
 - `Graph.push`/`.vpush`: `at` selects one buffer source by index for a multi-input filter (`overlay`), where the single-source default (`at=-1`) cannot disambiguate.
 - `BitStreamFilterContext`: `in_stream` accepts a `Codec` or a codec-name `str`, pinning the input codec without a full `Stream`.
@@ -151,7 +151,7 @@ Multi-input filters wire per context: `FilterContext.link_to` binds explicit pad
 |  [02]   | `av.bitstream_filters_available`       | module attr -> `set[str]`                            | registered bitstream-filter names       |
 |  [03]   | `av.filter.filters_available`          | module attr -> `set[str]`                            | registered libavfilter names            |
 |  [04]   | `av.codec.hwaccel.hwdevices_available` | `hwdevices_available() -> list[str]`                 | hardware decode device-type names       |
-|  [05]   | `av.codec.hwaccel.HWAccel`             | `HWAccel(device_type, allow_software_fallback, ...)` | GPU decode/encode ctx (`hwaccel=`) |
+|  [05]   | `av.codec.hwaccel.HWAccel`             | `HWAccel(device_type, allow_software_fallback, ...)` | GPU decode/encode ctx (`hwaccel=`)      |
 |  [06]   | `FilterContext.link_to`                | `link_to(input_, output_idx=0, input_idx=0) -> None` | explicit-pad multi-input wiring         |
 |  [07]   | `FilterContext.push` / `.pull`         | `push(frame) -> None`; `pull() -> Frame`             | per-source drive in a multi-input graph |
 |  [08]   | `av.library_versions`                  | module attr -> `dict[str, tuple]`                    | bundled libav majors                    |

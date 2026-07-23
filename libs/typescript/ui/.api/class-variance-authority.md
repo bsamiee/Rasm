@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `class-variance-authority`
-- package: `class-variance-authority`
-- license: `Apache-2.0`
+- package: `class-variance-authority` (Apache-2.0)
 - deps: `clsx ^catalog` (re-exported as `cx`; `.api/clsx.md`)
 - catalog-verdict: KEEP
 - runtime: universal at runtime (framework-agnostic); `VariantProps` is a React-typed compile-time utility only

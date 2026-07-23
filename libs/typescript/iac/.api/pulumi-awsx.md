@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pulumi/awsx`
-- package: `@pulumi/awsx`
-- license: Apache-2.0
+- package: `@pulumi/awsx` (Apache-2.0)
 - import: `@pulumi/awsx` → `{ ec2, ecs, ecr, lb, cloudtrail, classic, types, Provider }`
 - owner: `iac`
 - rail: cloud-row / aws (ComponentResource tier)

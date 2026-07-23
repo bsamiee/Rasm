@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `asyncssh`
-- package: `asyncssh` (`EPL-2.0 OR GPL-2.0-or-later`, copyleft)
+- package: `asyncssh` (EPL-2.0 OR GPL-2.0-or-later)
 - module: `asyncssh`
 - rail: transport, worker fabric
 - namespaces: `asyncssh`, `asyncssh.connection`, `asyncssh.sftp`, `asyncssh.known_hosts`

@@ -5,10 +5,9 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pointblank`
-- package: `pointblank`
+- package: `pointblank` (MIT)
 - module: `pointblank`
 - owner: `data`
-- license: MIT
 - rail: grade
 - asset: pure Python
 

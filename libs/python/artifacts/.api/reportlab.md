@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `reportlab`
-- package: `reportlab` (`BSD-3-Clause`, ReportLab Europe)
+- package: `reportlab` (BSD-3-Clause)
 - module: `reportlab`
 - namespaces: `pdfgen`, `pdfbase`, `platypus`, `graphics`, `lib`
 - rail: pdf — programmatic canvas drawing, flowable pagination, font registration, and the graphics/charts/barcode engine

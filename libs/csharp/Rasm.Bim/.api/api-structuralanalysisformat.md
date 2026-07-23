@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `StructuralAnalysisFormat`
-- package: `StructuralAnalysisFormat` (Apache-2.0, buildingSMART/IDEA StatiCa)
+- package: `StructuralAnalysisFormat` (Apache-2.0)
 - assembly: `SAF.DataAccess.Contracts` (services), `SAF.DataAccess.Models` (object model), `SAF.DataAccess.Excel` (XLSX wrapper), `SAF.DataAccess.Implementation` (service impls), `SAF.DataAccess.Validation` (FluentValidation rules), `SAF.Infrastructure` (events/config/bootstrap); `ref/` ships `Contracts`/`Models`/`Infrastructure` as the compile surface
 - namespace: `SAF.DataAccess.Contracts`; `SAF.DataAccess.Models` (+ `.StructuralElements`, `.Loads`, `.Libraries`, `.Results`, `.Subtypes`, `.Enums`, `.Interfaces`, `.Infrastructure`, `.Extensions`); `SAF.DataAccess.Excel`; `SAF.DataAccess.Validation`; `SAF.Infrastructure`
 - asset: `netstandard2.0` only; the `net10.0` consumer binds `lib/netstandard2.0`, single TFM with no resolution ambiguity

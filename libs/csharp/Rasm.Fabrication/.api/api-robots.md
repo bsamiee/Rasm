@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Robots`
-- package: `Robots` (MIT, visose)
+- package: `Robots` (MIT)
 - assembly: `Robots` (single `net8.0` asset, binding forward under `net10.0`)
 - namespace: `Robots`, `Robots.Commands`
 - asset: pure-managed AnyCPU IL; the `Rhino3dm` substrate ships the osx-arm64 `librhino3dm_native.dylib`

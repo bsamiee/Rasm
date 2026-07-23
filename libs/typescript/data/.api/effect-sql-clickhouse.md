@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/sql-clickhouse`
-- package: `@effect/sql-clickhouse`
-- license: `MIT`
+- package: `@effect/sql-clickhouse` (MIT)
 - effect-peer: `effect`, `@effect/sql` (`.api/effect-sql.md`), `@effect/experimental` (`Reactivity`), `@effect/platform-node` (`NodeStream` — the node-only streaming reason)
 - backing: `@clickhouse/client` (HTTP interface, streaming inserts, `ClickHouseClientConfigOptions`)
 - runtime: `runtime:node`/bun services; the browser analytical row is `@duckdb/duckdb-wasm` (`.api/duckdb-duckdb-wasm.md`)

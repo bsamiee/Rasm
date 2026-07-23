@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@types/geojson`
-- package: `@types/geojson`
-- license: `MIT` (DefinitelyTyped)
+- package: `@types/geojson` (MIT)
 - deps: none; peer: none — a leaf type package tracking the RFC 7946 encoding
 - catalog-verdict: KEEP
 - asset: declaration-only — a single `index.d.ts` (`types` entry only, NO `main`/`module`, NO runtime, NO exported value); `tsc`/`tsgo` is the gate

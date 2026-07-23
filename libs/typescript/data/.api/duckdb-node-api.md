@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@duckdb/node-api`
-- package: `@duckdb/node-api`
-- license: `MIT`
+- package: `@duckdb/node-api` (MIT)
 - backing: `@duckdb/node-bindings` (N-API native, prebuilt platform binaries)
 - runtime: `runtime:node`/bun services and CLI; the browser row is `@duckdb/duckdb-wasm` (`.api/duckdb-duckdb-wasm.md`)
 - rail: `lane/olap` embedded node row — no Effect peer; boundary-kernel wrap is the lane's

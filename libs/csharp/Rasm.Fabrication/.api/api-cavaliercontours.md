@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `CavalierContours`
-- package: `CavalierContours` (`ISC`, oberbichler)
+- package: `CavalierContours` (ISC)
 - assembly: `CavalierContours`
 - namespace: `CavalierContours.Polyline`, `.Shape`, `.Spatial`, `.Core`
 - asset: pure-managed AnyCPU IL, multi-target `net10.0`/`net8.0`, ALC-safe, zero package dependencies

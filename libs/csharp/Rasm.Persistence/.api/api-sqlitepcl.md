@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `SQLitePCLRaw.bundle_e_sqlite3`
-- package: `SQLitePCLRaw.bundle_e_sqlite3` (`Apache-2.0`, SQLitePCLRaw; the `e_sqlite3` engine it ships is public-domain SQLite)
+- package: `SQLitePCLRaw.bundle_e_sqlite3` (Apache-2.0)
 - assembly: none — a native-asset and initializer graph resolving with no managed `lib` DLL; `SQLitePCLRaw.core` carries `raw` at runtime
 - namespace: `SQLitePCL`
 - asset: derive native coverage from the restored `SourceGear.sqlite3` `runtimes/<RID>/native/` asset graph

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `DialogHost.Avalonia`
-- package: `DialogHost.Avalonia` (MIT, © AvaloniaUtils/SKProCH)
+- package: `DialogHost.Avalonia` (MIT)
 - assembly: `DialogHost.Avalonia`
 - namespace: `DialogHostAvalonia`, `DialogHostAvalonia.Positioners`
 - asset: managed library + embedded `avares://` XAML (`DialogHostStyles` theme resources); `lib/net8.0` is the sole shipped asset, bound by the `net10.0` workspace

@@ -1,7 +1,7 @@
 # [TS_UI_API_OBSERVABLEHQ_PLOT]
 
 [PACKAGE_SURFACE]:
-- package: `@observablehq/plot` · license `ISC`
+- package: `@observablehq/plot` (ISC)
 - module: `type: module`, ships ESM SOURCE directly (`main`/`module`/`default` → `src/index.js`, `umd` recovery build); `sideEffects: ["./src/index.js"]` — the entry is not tree-shakable past itself.
 - asset: `types: src/index.d.ts`; deps: the whole `d catalog` metapackage (`.api/d3.md`), `interval-tree- catalogd`, `isoformat`; no peers.
 - runtime: builds a detached SVG/figure element headlessly from data — browser or any DOM implementation; no React coupling.
@@ -12,15 +12,7 @@
 
 ## [01]-[ENTRY]
 
-```ts signature
-declare function plot(options?: PlotOptions): (SVGSVGElement | HTMLElement) & {
-  scale(name: ScaleName): Scale | undefined                                     // realized scale readback (domain/range/interpolate/apply/invert)
-  legend(name: ScaleName, options?: LegendOptions): SVGSVGElement | HTMLElement | undefined
-  value?: any                                                                   // live selection when a pointer/interaction mark is present
-}
-declare function marks(...marks: Markish[]): CompoundMark                       // composite reusable across plots
-// Every mark instance carries .plot(options?) — Plot.dot(data, {x, y}).plot({grid: true}) is the one-mark shorthand.
-```
+[SURFACES]: `plot(PlotOptions?) -> (SVGSVGElement|HTMLElement)&{scale(name:ScaleName):Scale|…` `marks(...Markish[]) -> CompoundMark`
 
 - `PlotOptions`: `marks`, per-scale option objects (`x` `y` `r` `color` `opacity` `symbol` `length` `fx` `fy`), `facet`, `projection`, `width` `height` `aspectRatio` `margin*`, `style` `className` `clip`, `title` `subtitle` `caption`, `grid` (scale default).
 - Named projections: `albers-usa` `albers` `azimuthal-equal-area` `azimuthal-equidistant` `conic-conformal` `conic-equal-area` `conic-equidistant` `equal-earth` `equirectangular` `gnomonic` `identity` `reflect-y` `mercator` `orthographic` `stereographic` `transverse-mercator` — or a d3 projection factory/implementation.

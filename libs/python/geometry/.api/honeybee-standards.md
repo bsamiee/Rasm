@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `honeybee-standards`
-- package: `honeybee-standards` (GPL-3.0, Ladybug Tools)
+- package: `honeybee-standards` (GPL-3.0)
 - module: `honeybee_standards` — the `energy_default` and `radiance_default` absolute-path constants
 - abi: pure-data `py3-none-any` wheel; JSON resource files and a two-constant `__init__`, no executable code
 - rail: energy-modeling defaults floor, located through `honeybee_energy.config.folders.defaults_file`

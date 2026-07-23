@@ -16,36 +16,36 @@
 
 [PUBLIC_TYPE_SCOPE]: engine, frame, plan, and interchange roots
 
-| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]     | [CAPABILITY]                                             |
-| :-----: | :---------------------- | :---------------- | :------------------------------------------------------- |
-|  [01]   | `SessionContext`        | engine root       | query execution, table/UDF registration, file reading    |
-|  [02]   | `DataFrame`             | lazy frame        | relational algebra compiling to plans and Arrow batches  |
-|  [03]   | `RecordBatchStream`     | stream            | sync/async iterable Arrow `RecordBatch` stream           |
-|  [04]   | `RecordBatch`           | batch             | wrapper over `pa.RecordBatch` with `to_pyarrow`          |
-|  [05]   | `SessionConfig`         | builder           | fluent session-policy builder                            |
-|  [06]   | `RuntimeEnvBuilder`     | builder           | fluent disk/memory-pool runtime builder                  |
-|  [07]   | `SQLOptions`            | builder           | DDL/DML/statement permission gate                        |
-|  [08]   | `Expr`                  | expression        | column/predicate/aggregate expression node               |
-|  [09]   | `LogicalPlan`           | plan              | optimized/unoptimized logical plan                       |
-|  [10]   | `ExecutionPlan`         | plan              | physical execution plan with per-operator metrics        |
-|  [11]   | `MetricsSet`            | metrics           | one operator's runtime metric rollups                    |
-|  [12]   | `Metric`                | metrics           | single named metric with value/partition/labels          |
-|  [13]   | `DFSchema`              | schema            | qualified plan schema for expression parsing             |
-|  [14]   | `Table`                 | table provider    | registered table/view provider                           |
-|  [15]   | `Catalog`               | catalog           | named catalog of schemas and tables                      |
-|  [16]   | `ScalarUDF`             | udf               | scalar user-defined function                             |
-|  [17]   | `AggregateUDF`          | udf               | aggregate user-defined function                          |
-|  [18]   | `WindowUDF`             | udf               | window user-defined function                             |
-|  [19]   | `TableFunction`         | udtf              | table-returning user-defined function                    |
-|  [20]   | `WindowFrame`           | window            | window-frame bound specification                         |
-|  [21]   | `Accumulator`           | udf base          | Python aggregate state machine for `udaf`                |
-|  [22]   | `WindowEvaluator`       | udf base          | Python window evaluation strategy for `udwf`             |
-|  [23]   | `functions` (`f.*`)     | expression ns     | built-in scalar/aggregate/window `Expr` builders         |
-|  [24]   | `functions.spark`(`fs.*`)| expression ns    | Spark-semantics scalar/aggregate `Expr` builders         |
-|  [25]   | `substrait.Plan`        | interchange       | portable Substrait plan (`encode`/`to_json`/`from_json`) |
-|  [26]   | `substrait.Serde`       | interchange codec | SQL <-> `Plan` serialize/deserialize over bytes and path |
-|  [27]   | `substrait.Producer`    | interchange codec | `LogicalPlan` -> `Plan`                                  |
-|  [28]   | `substrait.Consumer`    | interchange codec | `Plan` -> `LogicalPlan`                                  |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]     | [CAPABILITY]                                             |
+| :-----: | :------------------------ | :---------------- | :------------------------------------------------------- |
+|  [01]   | `SessionContext`          | engine root       | query execution, table/UDF registration, file reading    |
+|  [02]   | `DataFrame`               | lazy frame        | relational algebra compiling to plans and Arrow batches  |
+|  [03]   | `RecordBatchStream`       | stream            | sync/async iterable Arrow `RecordBatch` stream           |
+|  [04]   | `RecordBatch`             | batch             | wrapper over `pa.RecordBatch` with `to_pyarrow`          |
+|  [05]   | `SessionConfig`           | builder           | fluent session-policy builder                            |
+|  [06]   | `RuntimeEnvBuilder`       | builder           | fluent disk/memory-pool runtime builder                  |
+|  [07]   | `SQLOptions`              | builder           | DDL/DML/statement permission gate                        |
+|  [08]   | `Expr`                    | expression        | column/predicate/aggregate expression node               |
+|  [09]   | `LogicalPlan`             | plan              | optimized/unoptimized logical plan                       |
+|  [10]   | `ExecutionPlan`           | plan              | physical execution plan with per-operator metrics        |
+|  [11]   | `MetricsSet`              | metrics           | one operator's runtime metric rollups                    |
+|  [12]   | `Metric`                  | metrics           | single named metric with value/partition/labels          |
+|  [13]   | `DFSchema`                | schema            | qualified plan schema for expression parsing             |
+|  [14]   | `Table`                   | table provider    | registered table/view provider                           |
+|  [15]   | `Catalog`                 | catalog           | named catalog of schemas and tables                      |
+|  [16]   | `ScalarUDF`               | udf               | scalar user-defined function                             |
+|  [17]   | `AggregateUDF`            | udf               | aggregate user-defined function                          |
+|  [18]   | `WindowUDF`               | udf               | window user-defined function                             |
+|  [19]   | `TableFunction`           | udtf              | table-returning user-defined function                    |
+|  [20]   | `WindowFrame`             | window            | window-frame bound specification                         |
+|  [21]   | `Accumulator`             | udf base          | Python aggregate state machine for `udaf`                |
+|  [22]   | `WindowEvaluator`         | udf base          | Python window evaluation strategy for `udwf`             |
+|  [23]   | `functions` (`f.*`)       | expression ns     | built-in scalar/aggregate/window `Expr` builders         |
+|  [24]   | `functions.spark`(`fs.*`) | expression ns     | Spark-semantics scalar/aggregate `Expr` builders         |
+|  [25]   | `substrait.Plan`          | interchange       | portable Substrait plan (`encode`/`to_json`/`from_json`) |
+|  [26]   | `substrait.Serde`         | interchange codec | SQL <-> `Plan` serialize/deserialize over bytes and path |
+|  [27]   | `substrait.Producer`      | interchange codec | `LogicalPlan` -> `Plan`                                  |
+|  [28]   | `substrait.Consumer`      | interchange codec | `Plan` -> `LogicalPlan`                                  |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -53,23 +53,23 @@
 
 Every surface is a `SessionContext` method, the prefix dropped from each `[CALL_SHAPE]`. A `<provider>` is `Table | TableProviderExportable | DataFrame | pa.dataset.Dataset`, a `<catalog-provider>` is `CatalogProviderExportable | CatalogProvider | Catalog`, an `<arrow-capsule>` is `ArrowStreamExportable | ArrowArrayExportable`; `from_arrow` and its peers `from_pylist`/`from_pydict`/`from_pandas`/`from_polars` adopt Arrow-capsule or foreign-frame data.
 
-| [INDEX] | [SURFACE]                            | [CALL_SHAPE]                                        | [CAPABILITY]                           |
-| :-----: | :----------------------------------- | :-------------------------------------------------- | :------------------------------------- |
-|  [01]   | `SessionContext`                     | `(config=None, runtime=None)`                       | construct an execution context         |
-|  [02]   | `global_ctx`                         | `() -> SessionContext` (classmethod)                | process-wide shared context            |
-|  [03]   | `sql`                                | `(query, options=None, param_values=None, **named)` | plan SQL to a lazy `DataFrame` |
-|  [04]   | `sql_with_options`                   | `(query, options, param_values=None, **named)`      | lazy frame under DDL/DML gating  |
-|  [05]   | `parse_sql_expr`                     | `(sql, schema: DFSchema) -> Expr`                   | parse a SQL fragment into an `Expr`    |
-|  [06]   | `create_dataframe_from_logical_plan` | `(plan) -> DataFrame`                               | build from a logical plan              |
-|  [07]   | `table`                              | `(name) -> DataFrame`                               | resolve a registered name              |
-|  [08]   | `catalog`                            | `(name='datafusion') -> Catalog`                    | access a named catalog                 |
-|  [09]   | `execute`                            | `(plan, partitions) -> RecordBatchStream`           | run a physical plan to a stream        |
-|  [10]   | `copied_config`                      | `() -> SessionConfig`                               | copy the active session config         |
-|  [11]   | `parse_capacity_limit`               | `(config_name, limit) -> int` (staticmethod)        | parse a size string to a byte count    |
-|  [12]   | `with_python_udf_inlining`           | `(*, enabled) -> SessionContext`                    | per-session UDF inline/strict toggle   |
-|  [13]   | `add_physical_optimizer_rule`        | `(rule) -> None`                                    | append an FFI physical-optimizer rule  |
-|  [14]   | `with_logical_extension_codec`       | `(codec)`; peer `with_physical_extension_codec` | plug an FFI plan-serde codec|
-|  [15]   | `enable_spark_functions`             | `() -> None`                                        | register Spark-semantics UDFs for SQL  |
+| [INDEX] | [SURFACE]                            | [CALL_SHAPE]                                        | [CAPABILITY]                          |
+| :-----: | :----------------------------------- | :-------------------------------------------------- | :------------------------------------ |
+|  [01]   | `SessionContext`                     | `(config=None, runtime=None)`                       | construct an execution context        |
+|  [02]   | `global_ctx`                         | `() -> SessionContext` (classmethod)                | process-wide shared context           |
+|  [03]   | `sql`                                | `(query, options=None, param_values=None, **named)` | plan SQL to a lazy `DataFrame`        |
+|  [04]   | `sql_with_options`                   | `(query, options, param_values=None, **named)`      | lazy frame under DDL/DML gating       |
+|  [05]   | `parse_sql_expr`                     | `(sql, schema: DFSchema) -> Expr`                   | parse a SQL fragment into an `Expr`   |
+|  [06]   | `create_dataframe_from_logical_plan` | `(plan) -> DataFrame`                               | build from a logical plan             |
+|  [07]   | `table`                              | `(name) -> DataFrame`                               | resolve a registered name             |
+|  [08]   | `catalog`                            | `(name='datafusion') -> Catalog`                    | access a named catalog                |
+|  [09]   | `execute`                            | `(plan, partitions) -> RecordBatchStream`           | run a physical plan to a stream       |
+|  [10]   | `copied_config`                      | `() -> SessionConfig`                               | copy the active session config        |
+|  [11]   | `parse_capacity_limit`               | `(config_name, limit) -> int` (staticmethod)        | parse a size string to a byte count   |
+|  [12]   | `with_python_udf_inlining`           | `(*, enabled) -> SessionContext`                    | per-session UDF inline/strict toggle  |
+|  [13]   | `add_physical_optimizer_rule`        | `(rule) -> None`                                    | append an FFI physical-optimizer rule |
+|  [14]   | `with_logical_extension_codec`       | `(codec)`; peer `with_physical_extension_codec`     | plug an FFI plan-serde codec          |
+|  [15]   | `enable_spark_functions`             | `() -> None`                                        | register Spark-semantics UDFs for SQL |
 
 Every `read_*` returns a `DataFrame` and shares the source tail `(schema=None, table_partition_cols=None, file_extension, file_compression_type=None, schema_infer_max_records=...)` — also carried by `register_listing_table` — so each row lists only its format-specific keywords.
 
@@ -98,14 +98,14 @@ Every `read_*` returns a `DataFrame` and shares the source tail `(schema=None, t
 | :-----: | :--------------- | :---------------------------------------------------------------------------- | :--------------------------------- |
 |  [01]   | `select`         | `(*exprs: Expr \| str)`                                                       | project columns/expressions        |
 |  [02]   | `filter`         | `(*predicates: Expr \| str)`                                                  | conjunctive predicate filter       |
-|  [03]   | `aggregate`      | `(group_by, aggs)` — each an `Expr`/`str` or sequence; `group_by=None` global | grouped/global aggregation |
+|  [03]   | `aggregate`      | `(group_by, aggs)` — each an `Expr`/`str` or sequence; `group_by=None` global | grouped/global aggregation         |
 |  [04]   | `join`           | `(right, on=None, how='inner', ...)`                                          | equijoin (overloaded on key shape) |
 |  [05]   | `join_on`        | `(right, *on_exprs, how='inner')`                                             | join on arbitrary predicates       |
 |  [06]   | `with_column`    | `(name, expr: Expr \| str)`                                                   | append a derived column            |
 |  [07]   | `with_columns`   | `(*exprs, **named_exprs)` (peers: `with_column_renamed`, `drop`, `distinct`)  | append/rename/drop a column cohort |
 |  [08]   | `sort`           | `(*exprs: SortKey)`                                                           | order rows                         |
 |  [09]   | `limit`          | `(count, offset=0)`                                                           | bound and offset rows              |
-|  [10]   | `union`          | `(other, distinct)`; peers `intersect`, `except_all`, `union_by_name` | set algebra over frames            |
+|  [10]   | `union`          | `(other, distinct)`; peers `intersect`, `except_all`, `union_by_name`         | set algebra over frames            |
 |  [11]   | `window`         | `(*exprs: Expr)`                                                              | apply window expressions           |
 |  [12]   | `unnest_columns` | `(*columns, preserve_nulls=True, recursions=None)`                            | explode list/struct columns        |
 
@@ -136,9 +136,9 @@ Every `read_*` returns a `DataFrame` and shares the source tail `(schema=None, t
 
 `ExecutionPlan.metrics` returns this operator's `MetricsSet` (`None` before execution); `collect_metrics` walks the tree into `(description, MetricsSet)` pairs ordered outer-to-leaf. `MetricsSet` exposes typed rollups `output_rows`/`elapsed_compute`/`spill_count`/`spilled_bytes`/`spilled_rows` (each `-> int | None`), `sum_by_name(name) -> int | None` for any other, and `metrics() -> list[Metric]`; each `Metric` carries `name`, `value -> int | datetime | None`, `value_as_datetime`, `partition`, and `labels() -> dict`.
 
-| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                        | [CAPABILITY]                        |
-| :-----: | :------------------------------ | :--------------------------------- | :---------------------------------- |
-|  [01]   | `ExecutionPlan.metrics`         | `() -> MetricsSet \| None`          | this operator's metric set          |
+| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                         | [CAPABILITY]                        |
+| :-----: | :------------------------------ | :----------------------------------- | :---------------------------------- |
+|  [01]   | `ExecutionPlan.metrics`         | `() -> MetricsSet \| None`           | this operator's metric set          |
 |  [02]   | `ExecutionPlan.collect_metrics` | `() -> list[tuple[str, MetricsSet]]` | per-operator metrics, outer-to-leaf |
 
 [ENTRYPOINT_SCOPE]: streaming, expression, and builder surfaces

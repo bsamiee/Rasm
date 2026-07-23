@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `AspNetCore.HealthChecks.System`
-- package: `AspNetCore.HealthChecks.System` (`Apache-2.0`, Xabaril)
+- package: `AspNetCore.HealthChecks.System` (Apache-2.0)
 - assembly: `HealthChecks.System`
 - namespace: `HealthChecks.System`, `Microsoft.Extensions.DependencyInjection`
 - target: `net8.0`, `netstandard2.0` — the `net10.0` consumer binds the `net8.0` asset

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `numpy`
-- package: `numpy` (`BSD-3-Clause`)
+- package: `numpy` (BSD-3-Clause)
 - module: `numpy`
 - namespaces: `numpy`, `numpy.linalg`, `numpy.fft`, `numpy.random`, `numpy.ma`, `numpy.polynomial`, `numpy.lib.stride_tricks`, `numpy.testing`, `numpy.typing`
 - asset: C/Cython-extension runtime; compiled `_core`
@@ -135,45 +135,45 @@
 
 [ENTRYPOINT_SCOPE]: math and reduction
 
-| [INDEX] | [SURFACE]                                                        | [SHAPE] | [CAPABILITY]                                                             |
-| :-----: | :--------------------------------------------------------------- | :------ | :----------------------------------------------------------------------- |
-|  [01]   | `sum`/`prod`/`cumsum`/`cumprod`                                  | static  | aggregation along axes                                                   |
-|  [02]   | `mean`/`std`/`var`                                               | static  | mean, std dev, variance                                                  |
-|  [03]   | `min`/`max`/`argmin`/`argmax`                                    | static  | extrema and their indices                                                |
-|  [04]   | `dot(a, b)`                                                      | static  | vector/matrix dot product                                                |
-|  [05]   | `matmul(x1, x2)`                                                 | static  | matrix multiplication (`@`)                                              |
-|  [06]   | `inner`/`outer`/`tensordot`                                      | static  | inner, outer, tensor contractions                                        |
-|  [07]   | `einsum(subscripts, *operands, optimize)`                        | static  | Einstein-summation contraction owner                                     |
-|  [08]   | `diagonal(a, offset, axis1, axis2)` / `trace(a)`                 | static  | extract diagonal / sum of diagonal                                       |
-|  [09]   | `where(cond, x, y)`                                              | static  | conditional element selection (1-arg form returns indices)               |
-|  [10]   | `nonzero(a)` / `flatnonzero(a)`                                  | static  | indices of nonzero elements                                              |
-|  [11]   | `clip(a, a_min, a_max)`                                          | static  | bound values to interval                                                 |
-|  [12]   | `isfinite(x)` / `isnan(x)` / `isinf(x)`                          | static  | element-wise finiteness / NaN / inf mask                                 |
-|  [13]   | `allclose(a, b, rtol, atol)` / `isclose(...)`                    | static  | tolerant equality (scalar / element-wise)                                |
-|  [14]   | `nan_to_num(x, nan, posinf, neginf)`                             | static  | replace non-finite values with finite substitutes                        |
-|  [15]   | `sort(a, axis, *, descending, stable)`/`argsort`/`lexsort` | static  | sort/argsort with `descending`, multi-key `lexsort` |
-|  [16]   | `unique(ar, return_counts, return_index)`                        | static  | unique elements with optional counts/indices                             |
-|  [17]   | `exp`/`log`/`sqrt`/`power`/`divide`                              | static  | exponential/logarithm/power; masked `divide(out=, where=)`               |
-|  [18]   | `sin`/`cos`/`tan`/`arctan2`                                      | static  | trigonometric operations                                                 |
-|  [19]   | `abs`/`sign`/`round`/`floor`/`ceil`/`trunc`                      | static  | absolute value, rounding (`trunc` toward zero)                           |
-|  [20]   | `nansum`/`nanmean`/`nanstd`/`nanmax`                             | static  | reductions skipping non-finite entries                                   |
-|  [21]   | `angle(z, deg)` / `conj(x)` / `conjugate(x)`                     | static  | phase angle and complex conjugate                                        |
-|  [22]   | `maximum(x1, x2)` / `minimum(x1, x2)`                            | static  | element-wise pairwise extrema (vs `max`/`min` reductions)                |
-|  [23]   | `add`/`subtract`/`multiply`                                      | static  | arithmetic binary ufuncs                                                 |
-|  [24]   | `bitwise_or`/`bitwise_and`/`bitwise_xor`                         | static  | bitwise binary ufuncs (`bitwise_or.reduce` unions flags)                 |
-|  [25]   | `median(a, axis)`                                                | static  | median along axis (`nanmedian` skips non-finite)                         |
-|  [26]   | `count_nonzero(a, axis, keepdims)`                               | static  | count of nonzero/`True` elements                                         |
-|  [27]   | `interp(x, xp, fp, left, right, period)`                         | static  | 1-D piecewise-linear interpolation against monotonic `xp`/`fp`           |
-|  [28]   | `gradient(f, *varargs, axis, edge_order)`                        | static  | central-difference numerical gradient                                    |
-|  [29]   | `diff(a, n, axis)`                                               | static  | n-th discrete difference along axis                                      |
-|  [30]   | `trapezoid(y, x, dx, axis)`                                      | static  | trapezoidal integral                                                     |
-|  [31]   | `issubdtype(arg1, arg2)`                                         | static  | dtype subclass test vs an abstract scalar base                           |
-|  [32]   | `searchsorted(a, v, side)`                                       | static  | insertion indices in a sorted array                                      |
-|  [33]   | `percentile(a, q, axis, method)`                                 | static  | percentile reduction along an axis                                       |
-|  [34]   | `signbit(x)`                                                     | static  | element-wise negative-sign mask                                          |
-|  [35]   | `any(a, axis)` / `all(a, axis)`                                  | static  | existential or universal boolean reduction                               |
-|  [36]   | `deg2rad(x)` / `rad2deg(x)`                                      | static  | degree-radian angle conversion                                           |
-|  [37]   | `cross(a, b, axis)`                                              | static  | 3-vector cross product over the chosen axis                              |
+| [INDEX] | [SURFACE]                                                  | [SHAPE] | [CAPABILITY]                                                   |
+| :-----: | :--------------------------------------------------------- | :------ | :------------------------------------------------------------- |
+|  [01]   | `sum`/`prod`/`cumsum`/`cumprod`                            | static  | aggregation along axes                                         |
+|  [02]   | `mean`/`std`/`var`                                         | static  | mean, std dev, variance                                        |
+|  [03]   | `min`/`max`/`argmin`/`argmax`                              | static  | extrema and their indices                                      |
+|  [04]   | `dot(a, b)`                                                | static  | vector/matrix dot product                                      |
+|  [05]   | `matmul(x1, x2)`                                           | static  | matrix multiplication (`@`)                                    |
+|  [06]   | `inner`/`outer`/`tensordot`                                | static  | inner, outer, tensor contractions                              |
+|  [07]   | `einsum(subscripts, *operands, optimize)`                  | static  | Einstein-summation contraction owner                           |
+|  [08]   | `diagonal(a, offset, axis1, axis2)` / `trace(a)`           | static  | extract diagonal / sum of diagonal                             |
+|  [09]   | `where(cond, x, y)`                                        | static  | conditional element selection (1-arg form returns indices)     |
+|  [10]   | `nonzero(a)` / `flatnonzero(a)`                            | static  | indices of nonzero elements                                    |
+|  [11]   | `clip(a, a_min, a_max)`                                    | static  | bound values to interval                                       |
+|  [12]   | `isfinite(x)` / `isnan(x)` / `isinf(x)`                    | static  | element-wise finiteness / NaN / inf mask                       |
+|  [13]   | `allclose(a, b, rtol, atol)` / `isclose(...)`              | static  | tolerant equality (scalar / element-wise)                      |
+|  [14]   | `nan_to_num(x, nan, posinf, neginf)`                       | static  | replace non-finite values with finite substitutes              |
+|  [15]   | `sort(a, axis, *, descending, stable)`/`argsort`/`lexsort` | static  | sort/argsort with `descending`, multi-key `lexsort`            |
+|  [16]   | `unique(ar, return_counts, return_index)`                  | static  | unique elements with optional counts/indices                   |
+|  [17]   | `exp`/`log`/`sqrt`/`power`/`divide`                        | static  | exponential/logarithm/power; masked `divide(out=, where=)`     |
+|  [18]   | `sin`/`cos`/`tan`/`arctan2`                                | static  | trigonometric operations                                       |
+|  [19]   | `abs`/`sign`/`round`/`floor`/`ceil`/`trunc`                | static  | absolute value, rounding (`trunc` toward zero)                 |
+|  [20]   | `nansum`/`nanmean`/`nanstd`/`nanmax`                       | static  | reductions skipping non-finite entries                         |
+|  [21]   | `angle(z, deg)` / `conj(x)` / `conjugate(x)`               | static  | phase angle and complex conjugate                              |
+|  [22]   | `maximum(x1, x2)` / `minimum(x1, x2)`                      | static  | element-wise pairwise extrema (vs `max`/`min` reductions)      |
+|  [23]   | `add`/`subtract`/`multiply`                                | static  | arithmetic binary ufuncs                                       |
+|  [24]   | `bitwise_or`/`bitwise_and`/`bitwise_xor`                   | static  | bitwise binary ufuncs (`bitwise_or.reduce` unions flags)       |
+|  [25]   | `median(a, axis)`                                          | static  | median along axis (`nanmedian` skips non-finite)               |
+|  [26]   | `count_nonzero(a, axis, keepdims)`                         | static  | count of nonzero/`True` elements                               |
+|  [27]   | `interp(x, xp, fp, left, right, period)`                   | static  | 1-D piecewise-linear interpolation against monotonic `xp`/`fp` |
+|  [28]   | `gradient(f, *varargs, axis, edge_order)`                  | static  | central-difference numerical gradient                          |
+|  [29]   | `diff(a, n, axis)`                                         | static  | n-th discrete difference along axis                            |
+|  [30]   | `trapezoid(y, x, dx, axis)`                                | static  | trapezoidal integral                                           |
+|  [31]   | `issubdtype(arg1, arg2)`                                   | static  | dtype subclass test vs an abstract scalar base                 |
+|  [32]   | `searchsorted(a, v, side)`                                 | static  | insertion indices in a sorted array                            |
+|  [33]   | `percentile(a, q, axis, method)`                           | static  | percentile reduction along an axis                             |
+|  [34]   | `signbit(x)`                                               | static  | element-wise negative-sign mask                                |
+|  [35]   | `any(a, axis)` / `all(a, axis)`                            | static  | existential or universal boolean reduction                     |
+|  [36]   | `deg2rad(x)` / `rad2deg(x)`                                | static  | degree-radian angle conversion                                 |
+|  [37]   | `cross(a, b, axis)`                                        | static  | 3-vector cross product over the chosen axis                    |
 
 - `where`: a Python-int `x`/`y` outside the output dtype range raises `OverflowError`.
 - `cross`: 3-component inputs only; 2-vector inputs are rejected.

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `fastexcel`
-- package: `fastexcel` (MIT, ToucanToco)
+- package: `fastexcel` (MIT)
 - module: `fastexcel`
 - owner: `data`
 - rail: ingestion

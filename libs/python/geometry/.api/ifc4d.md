@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ifc4d`
-- package: `ifc4d` (LGPL-3.0-or-later, IfcOpenShell)
+- package: `ifc4d` (LGPL-3.0-or-later)
 - module: `ifc4d.<name>2ifc`, one parser module per format (`import ifc4d.msp2ifc`)
 - rail: ifc-analysis / 4d-scheduling
 

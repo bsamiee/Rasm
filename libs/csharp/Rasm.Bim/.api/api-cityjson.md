@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `bertt.CityJSON`
-- package: `bertt.CityJSON`
-- license: MIT
+- package: `bertt.CityJSON` (MIT)
 - assembly: `cityjson`
 - namespace: `CityJSON`, `CityJSON.Geometry`, `CityJSON.Extensions`, `CityJSON.IO`
 - asset: `netstandard2.0` only; the `net10.0` consumer binds `lib/netstandard2.0` (single TFM, binds forward)

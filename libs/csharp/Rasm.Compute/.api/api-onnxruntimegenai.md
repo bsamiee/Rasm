@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.ML.OnnxRuntimeGenAI`
-- package: `Microsoft.ML.OnnxRuntimeGenAI` (MIT, `microsoft/onnxruntime-genai`)
+- package: `Microsoft.ML.OnnxRuntimeGenAI` (MIT)
 - assembly: transitive `Microsoft.ML.OnnxRuntimeGenAI.Managed`; the `net10.0` consumer binds `lib/net8.0/Microsoft.ML.OnnxRuntimeGenAI.dll`
 - namespace: `Microsoft.ML.OnnxRuntimeGenAI`
 - asset: native-only meta-package (`build/native` props/targets, `ort_genai.h`) with the managed facade
@@ -13,7 +13,7 @@
 - rail: model
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.AI.Abstractions`
-- package: `Microsoft.Extensions.AI.Abstractions` (MIT, `dotnet/extensions`)
+- package: `Microsoft.Extensions.AI.Abstractions` (MIT)
 - assembly: `Microsoft.Extensions.AI.Abstractions`; the `net10.0` consumer binds `lib/net10.0`
 - namespace: `Microsoft.Extensions.AI`
 - asset: managed abstractions; `IChatClient` resolves here for the M.E.AI streaming consumer

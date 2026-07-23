@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `nanoarrow`
-- package: `nanoarrow` (`Apache-2.0`)
+- package: `nanoarrow` (Apache-2.0)
 - owner: `data`
 - module: `nanoarrow`
 - asset: native extension (C core + Cython `_array`/`_schema`/`_buffer`/`_device` modules) under a pure-Python high-level layer

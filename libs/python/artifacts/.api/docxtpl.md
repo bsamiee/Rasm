@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `docxtpl`
-- package: `docxtpl` (LGPL-2.1-only, Eric Lapouyade)
+- package: `docxtpl` (LGPL-2.1-only)
 - import: `docxtpl`
 - owner: `artifacts`
 - rail: document — load a `.docx` jinja2 template, render a context into body/header/footer XML, emit the rendered document

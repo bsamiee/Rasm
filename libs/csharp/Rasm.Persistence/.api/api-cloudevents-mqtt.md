@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `CloudNative.CloudEvents.Mqtt`
-- package: `CloudNative.CloudEvents.Mqtt` (`Apache-2.0`, `cloudevents/sdk-csharp`)
+- package: `CloudNative.CloudEvents.Mqtt` (Apache-2.0)
 - assembly: `CloudNative.CloudEvents.Mqtt`
 - namespace: `CloudNative.CloudEvents.Mqtt`
 - asset: pure-managed library; no native asset, no RID burden

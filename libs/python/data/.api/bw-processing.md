@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `bw-processing`
-- package: `bw-processing` (`BSD-3-Clause`, Chris Mutel)
+- package: `bw-processing` (BSD-3-Clause)
 - module: `bw_processing` (import `bwp`)
 - owner: `data`
 - rail: lca-substrate (EPD/LCA cluster)

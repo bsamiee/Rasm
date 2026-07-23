@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@aws-sdk/s3-request-presigner`
-- package: `@aws-sdk/s3-request-presigner`
-- license: `Apache-2.0`
+- package: `@aws-sdk/s3-request-presigner` (Apache-2.0)
 - peer: none — pairs with `@aws-sdk/client-s3` (`.api/aws-sdk-client-s3.md`) by consuming its `S3Client` + command values
 - backing: `@aws-sdk/signature-v4-multi-region` (the SigV4 / SigV4a multi-region query signer)
 - runtime: `runtime:node` and browser — minting is server-side (holds credentials); the minted URL is consumed anywhere with no SDK

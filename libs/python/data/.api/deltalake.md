@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `deltalake`
-- package: `deltalake` (`Apache-2.0`, delta-io)
+- package: `deltalake` (Apache-2.0)
 - module: `deltalake`
 - asset: native Rust/maturin extension (`deltalake._internal` PyO3 core over delta-rs)
 - owner: `data`

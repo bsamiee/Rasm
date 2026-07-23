@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Markdig`
-- package: `Markdig` (BSD-2-Clause, Alexandre Mutel)
+- package: `Markdig` (BSD-2-Clause)
 - assembly: `Markdig`
 - namespace: `Markdig`, `Markdig.Syntax`, `Markdig.Syntax.Inlines`, `Markdig.Parsers`, `Markdig.Renderers`, `Markdig.Renderers.Normalize`, `Markdig.Renderers.Html`, `Markdig.Extensions.Tables`, `Markdig.Extensions.TaskLists`
 - asset: runtime library (managed)

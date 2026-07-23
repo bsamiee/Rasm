@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MaxRev.Gdal.MacosRuntime.Minimal.arm64`
-- package: `MaxRev.Gdal.MacosRuntime.Minimal.arm64` (MIT; bundled natives carry their own upstream GDAL/PROJ licenses)
+- package: `MaxRev.Gdal.MacosRuntime.Minimal.arm64` (MIT)
 - assembly: empty `<Module>` carrier, zero public types — carries the RID and triggers NuGet runtime-asset resolution
 - target: `osx-arm64` only; sibling `*.WindowsRuntime.*`, `*.LinuxRuntime.*`, and `*.MacosRuntime.Minimal.x64` packages own the other publish RIDs
 - asset: `runtimes/osx-arm64/native/**` — the native dylib closure with the `maxrev.gdal.core.libshared` load manifest

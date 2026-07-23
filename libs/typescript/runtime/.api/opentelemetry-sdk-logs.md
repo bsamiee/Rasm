@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/sdk-logs`
-- package: `@opentelemetry/sdk-logs` · license `Apache-2.0`
+- package: `@opentelemetry/sdk-logs` (Apache-2.0)
 - module: dual — CJS default (`build/src/index.js`, no `"type"` field) + ESM mirror (`build/esm/index.js`); flat barrel, no `exports` subpath map.
 - asset: TSDECL `build/src/index.d.ts` (restored).
 - peer: `@opentelemetry/api >=catalog <catalog`; deps `@opentelemetry/api-logs` `catalog` (the overlay log API — `SeverityNumber`/`LogBody`/`LogAttributes`/`AnyValue`), `@opentelemetry/core` (`ExportResult`, `InstrumentationScope`), `@opentelemetry/resources` (`Resource`), `@opentelemetry/semantic-conventions`.
@@ -18,91 +18,56 @@
 
 `LoggerProvider` is the logger factory; every axis — resource, processors, limits, per-logger configurator — is a `LoggerProviderOptions` field. Under the effect facade the provider is built by `Logger.layerLoggerProvider`, so a telemetry consumer supplies the processor and configurator, not the provider. `forceFlush` takes a per-call `ForceFlushOptions` (`timeoutMillis`, default 30000ms); effect's `loggerProviderConfig` field is `Omit<LoggerProviderConfig, "resource">` (the `Resource` layer owns identity).
 
-| [INDEX] | [SYMBOL]                 | [KIND]    | [CONSUMER_BOUNDARY]                                                        |
-| :-----: | :----------------------- | :-------- | :------------------------------------------------------------------------ |
-|  [01]   | `LoggerProvider`         | class     | `implements ILoggerProvider`; `getLogger`/`forceFlush`/`shutdown`         |
-|  [02]   | `LoggerProviderOptions`  | interface | `resource?`/`processors?`/`loggerConfigurator?`/`logRecordLimits?` (fence) |
-|  [03]   | `ForceFlushOptions`      | interface | `timeoutMillis?` — per-call flush deadline for `forceFlush`               |
-|  [04]   | `LogRecordLimits`        | interface | `attributeCountLimit?` / `attributeValueLengthLimit?`                     |
+| [INDEX] | [SYMBOL]                | [KIND]    | [CONSUMER_BOUNDARY]                                                        |
+| :-----: | :---------------------- | :-------- | :------------------------------------------------------------------------- |
+|  [01]   | `LoggerProvider`        | class     | `implements ILoggerProvider`; `getLogger`/`forceFlush`/`shutdown`          |
+|  [02]   | `LoggerProviderOptions` | interface | `resource?`/`processors?`/`loggerConfigurator?`/`logRecordLimits?` (fence) |
+|  [03]   | `ForceFlushOptions`     | interface | `timeoutMillis?` — per-call flush deadline for `forceFlush`                |
+|  [04]   | `LogRecordLimits`       | interface | `attributeCountLimit?` / `attributeValueLengthLimit?`                      |
 
-```ts signature
-interface LoggerProviderOptions {
-  resource?: Resource                        // AppIdentity-derived; supplied by the effect Resource layer under the facade
-  logRecordLimits?: LogRecordLimits          // attributeCountLimit / attributeValueLengthLimit
-  processors?: LogRecordProcessor[]          // the export pipeline (see [03])
-  loggerConfigurator?: LoggerConfigurator    // per-logger enable/severity policy (see [04])
-  meterProvider?: MeterProvider              // self-observability
-}
-interface ForceFlushOptions { timeoutMillis?: number }   // per-call flush deadline (default 30000ms)
-declare class LoggerProvider implements ILoggerProvider {
-  constructor(config?: LoggerProviderOptions)
-  getLogger(name: string, version?: string, options?: LoggerOptions): Logger   // name defaults to DEFAULT_LOGGER_NAME = "unknown"
-  forceFlush(options?: ForceFlushOptions): Promise<void>; shutdown(): Promise<void>
-}
-```
+[LOGGER_PROVIDER_OPTIONS]: `LoggerProviderOptions.resource: Resource` `LoggerProviderOptions.logRecordLimits: LogRecordLimits` `LoggerProviderOptions.processors: LogRecordProcessor[]` `LoggerProviderOptions.loggerConfigurator: LoggerConfigurator` `LoggerProviderOptions.meterProvider: MeterProvider`
+[FORCE_FLUSH_OPTIONS]: `ForceFlushOptions.timeoutMillis: number`
+[LOGGER_PROVIDER]: `LoggerProvider(LoggerProviderOptions?)` `LoggerProvider.getLogger(string,string?,LoggerOptions?) -> Logger` `LoggerProvider.forceFlush(ForceFlushOptions?) -> Promise<void>` `LoggerProvider.shutdown() -> Promise<void>`
 
 ## [03]-[PROCESSOR_AND_EXPORTER]
 
 `LogRecordProcessor` owns the emit/flush lifecycle and `LogRecordExporter` format/transport, mirroring the trace leg; `Simple` (per-record) / `Batch` (queued, `./platform`) / `Console` / `InMemory` are ROWS on those interfaces. `LogRecordProcessor.enabled?` rejects a record by context/scope/severity/event-name BEFORE it is built — the cheapest drop point. Each processor takes one `options` object with `exporter` as a field (`new BatchLogRecordProcessor({ exporter, ... })`), never a positional arg; browser's options variant adds `disableAutoFlushOnDocumentHide`.
 
-| [INDEX] | [SYMBOL]                               | [KIND]               | [CAPABILITY_BOUNDARY]                                           |
-| :-----: | :------------------------------------- | :------------------- | :-------------------------------------------------------------- |
+| [INDEX] | [SYMBOL]                                | [KIND]               | [CAPABILITY_BOUNDARY]                                                |
+| :-----: | :-------------------------------------- | :------------------- | :------------------------------------------------------------------- |
 |  [01]   | `LogRecordProcessor`                    | interface            | `onEmit`/`forceFlush(opts?)`/`shutdown` + `enabled?` per-emit filter |
-|  [02]   | `SimpleLogRecordProcessor`              | class                | one export per emitted record; sync; diagnostics/test               |
-|  [03]   | `BatchLogRecordProcessor`               | class (`./platform`) | queued batch export; the production row; options-object tuned       |
+|  [02]   | `SimpleLogRecordProcessor`              | class                | one export per emitted record; sync; diagnostics/test                |
+|  [03]   | `BatchLogRecordProcessor`               | class (`./platform`) | queued batch export; the production row; options-object tuned        |
 |  [04]   | `LogRecordProcessorOptions`             | interface            | processor base opts — `selfObsMeterProvider?` self-observability     |
-|  [05]   | `BatchLogRecordProcessorOptions`        | interface            | node batch tuning: `exporter` + batch/queue size, delay, timeout    |
-|  [06]   | `BatchLogRecordProcessorBrowserOptions` | interface            | extends node opts; adds `disableAutoFlushOnDocumentHide`            |
-|  [07]   | `LogRecordExporter`                     | interface            | `export(logs, cb)`/`shutdown`/`forceFlush` — format + transport     |
-|  [08]   | `ConsoleLogRecordExporter`              | class                | stdout diagnostics                                                 |
-|  [09]   | `InMemoryLogRecordExporter`             | class                | `getFinishedLogRecords()`/`reset()` — the kit-driven spec lane      |
+|  [05]   | `BatchLogRecordProcessorOptions`        | interface            | node batch tuning: `exporter` + batch/queue size, delay, timeout     |
+|  [06]   | `BatchLogRecordProcessorBrowserOptions` | interface            | extends node opts; adds `disableAutoFlushOnDocumentHide`             |
+|  [07]   | `LogRecordExporter`                     | interface            | `export(logs, cb)`/`shutdown`/`forceFlush` — format + transport      |
+|  [08]   | `ConsoleLogRecordExporter`              | class                | stdout diagnostics                                                   |
+|  [09]   | `InMemoryLogRecordExporter`             | class                | `getFinishedLogRecords()`/`reset()` — the kit-driven spec lane       |
 
-```ts signature
-interface LogRecordProcessor {
-  onEmit(logRecord: SdkLogRecord, context?: Context): void
-  forceFlush(options?: ForceFlushOptions): Promise<void>; shutdown(): Promise<void>
-  enabled?(options: { context: Context; instrumentationScope: InstrumentationScope; severityNumber?: SeverityNumber; eventName?: string }): boolean   // pre-build drop
-}
-interface LogRecordExporter {
-  export(logs: ReadableLogRecord[], resultCallback: (result: ExportResult) => void): void   // ExportResult from @opentelemetry/core
-  shutdown(): Promise<void>; forceFlush(): Promise<void>
-}
-interface LogRecordProcessorOptions { selfObsMeterProvider?: MeterProvider }                                   // self-observability metrics base
-interface SimpleLogRecordProcessorOptions extends LogRecordProcessorOptions { exporter: LogRecordExporter }
-interface BatchLogRecordProcessorOptions extends LogRecordProcessorOptions {                                   // browser variant adds disableAutoFlushOnDocumentHide
-  exporter: LogRecordExporter; maxExportBatchSize?: number; scheduledDelayMillis?: number; exportTimeoutMillis?: number; maxQueueSize?: number
-}
-declare class SimpleLogRecordProcessor implements LogRecordProcessor { constructor(options: SimpleLogRecordProcessorOptions) }   // new SimpleLogRecordProcessor({ exporter })
-declare abstract class BatchLogRecordProcessorBase<T extends BatchLogRecordProcessorOptions> implements LogRecordProcessor { constructor(options: T) }   // internal base — not barrel-exported
-// ./platform node → `class BatchLogRecordProcessor extends BatchLogRecordProcessorBase<BatchLogRecordProcessorOptions>`  (new BatchLogRecordProcessor({ exporter, ... }); maxExportBatchSize 512 / scheduledDelayMillis 1000 / exportTimeoutMillis 30000 / maxQueueSize 2048)
-```
+[LOG_RECORD_PROCESSOR]: `LogRecordProcessor.onEmit(SdkLogRecord,Context?) -> void` `LogRecordProcessor.forceFlush(ForceFlushOptions?) -> Promise<void>` `LogRecordProcessor.shutdown() -> Promise<void>` `LogRecordProcessor.enabled({context:Context;instrumentationScope:InstrumentationScope;severityNumber?:SeverityNumber;eventName?:string}) -> boolean`
+[LOG_RECORD_EXPORTER]: `LogRecordExporter.export(ReadableLogRecord[],(result:ExportResult)=>void) -> void` `LogRecordExporter.shutdown() -> Promise<void>` `LogRecordExporter.forceFlush() -> Promise<void>`
+[LOG_RECORD_PROCESSOR_OPTIONS]: `LogRecordProcessorOptions.selfObsMeterProvider: MeterProvider`
+[SIMPLE_LOG_RECORD_PROCESSOR_OPTIONS]: `SimpleLogRecordProcessorOptions.exporter: LogRecordExporter`
+[BATCH_LOG_RECORD_PROCESSOR_OPTIONS]: `BatchLogRecordProcessorOptions.exporter: LogRecordExporter` `BatchLogRecordProcessorOptions.maxExportBatchSize: number` `BatchLogRecordProcessorOptions.scheduledDelayMillis: number` `BatchLogRecordProcessorOptions.exportTimeoutMillis: number` `BatchLogRecordProcessorOptions.maxQueueSize: number`
+[SIMPLE_LOG_RECORD_PROCESSOR]: `SimpleLogRecordProcessor(SimpleLogRecordProcessorOptions)`
+[BATCH_LOG_RECORD_PROCESSOR_BASE]: `BatchLogRecordProcessorBase(T)`
 
 ## [04]-[RECORD_AND_CONFIGURATOR]
 
 `SdkLogRecord` is the mutable builder a processor mutates on emit; `ReadableLogRecord` is the immutable projection the exporter receives — one record type, two views. Log body/attribute/severity vocabulary is the `@opentelemetry/api-logs` peer (`AnyValue`/`LogBody`/`LogAttributes`/`SeverityNumber`), never a local type. `LoggerConfigurator` is the per-logger policy: `createLoggerConfigurator(patterns)` folds a `LoggerPattern[]` (scope-name glob → `LoggerConfig`) into one `(scope) => Required<LoggerConfig>` — a parameterized enable/severity filter, never a hand-rolled per-logger switch.
 
-| [INDEX] | [SYMBOL]                              | [KIND]           | [SHAPE_CAPABILITY]                                                            |
-| :-----: | :------------------------------------ | :--------------- | :---------------------------------------------------------------------------- |
+| [INDEX] | [SYMBOL]                              | [KIND]           | [SHAPE_CAPABILITY]                                                          |
+| :-----: | :------------------------------------ | :--------------- | :-------------------------------------------------------------------------- |
 |  [01]   | `SdkLogRecord`                        | interface        | mutable builder — `setAttribute(s)`/`setBody`/`setSeverity*`/`setEventName` |
-|  [02]   | `ReadableLogRecord`                   | interface        | immutable read shape the exporter serializes                                  |
-|  [03]   | `LoggerConfigurator` / `LoggerConfig` | type / interface | `(scope) => Required<LoggerConfig>` (config fields in fence)                  |
-|  [04]   | `createLoggerConfigurator`            | fn               | `(LoggerPattern[]) => LoggerConfigurator` — glob→config fold                  |
-|  [05]   | `LoggerPattern`                       | interface        | `{ pattern: string; config: LoggerConfig }` — the seed row                    |
+|  [02]   | `ReadableLogRecord`                   | interface        | immutable read shape the exporter serializes                                |
+|  [03]   | `LoggerConfigurator` / `LoggerConfig` | type / interface | `(scope) => Required<LoggerConfig>` (config fields in fence)                |
+|  [04]   | `createLoggerConfigurator`            | fn               | `(LoggerPattern[]) => LoggerConfigurator` — glob→config fold                |
+|  [05]   | `LoggerPattern`                       | interface        | `{ pattern: string; config: LoggerConfig }` — the seed row                  |
 
-```ts signature
-interface SdkLogRecord {   // mutable + chainable; resource/instrumentationScope/attributes read-only, hrTime/hrTimeObserved/spanContext now writable (ReadWrite per the OTel Logs spec)
-  hrTime: HrTime; hrTimeObserved: HrTime; spanContext?: SpanContext                // HrTime/SpanContext ← @opentelemetry/api
-  severityText?: string; severityNumber?: SeverityNumber; body?: LogBody; eventName?: string
-  readonly resource: Resource; readonly instrumentationScope: InstrumentationScope
-  readonly attributes: LogAttributes; droppedAttributesCount: number
-  setAttribute(key: string, value?: AnyValue): SdkLogRecord; setAttributes(attributes: LogAttributes): SdkLogRecord   // AnyValue/LogBody/LogAttributes/SeverityNumber ← @opentelemetry/api-logs
-  setBody(body: LogBody): SdkLogRecord; setEventName(eventName: string): SdkLogRecord
-  setSeverityNumber(severityNumber: SeverityNumber): SdkLogRecord; setSeverityText(severityText: string): SdkLogRecord
-}
-// Per-logger policy — pattern rows folded into one scope→config function:
-interface LoggerConfig { disabled?: boolean; minimumSeverity?: SeverityNumber; traceBased?: boolean }
-declare function createLoggerConfigurator(patterns: { pattern: string; config: LoggerConfig }[]): (loggerScope: InstrumentationScope) => Required<LoggerConfig>
-```
+[SDK_LOG_RECORD]: `SdkLogRecord.hrTime: HrTime` `SdkLogRecord.hrTimeObserved: HrTime` `SdkLogRecord.spanContext: SpanContext` `SdkLogRecord.severityText: string` `SdkLogRecord.severityNumber: SeverityNumber` `SdkLogRecord.body: LogBody` `SdkLogRecord.eventName: string` `SdkLogRecord.resource: Resource` `SdkLogRecord.instrumentationScope: InstrumentationScope` `SdkLogRecord.attributes: LogAttributes` `SdkLogRecord.droppedAttributesCount: number` `SdkLogRecord.setAttribute(string,AnyValue?) -> SdkLogRecord` `SdkLogRecord.setAttributes(LogAttributes) -> SdkLogRecord` `SdkLogRecord.setBody(LogBody) -> SdkLogRecord` `SdkLogRecord.setEventName(string) -> SdkLogRecord` `SdkLogRecord.setSeverityNumber(SeverityNumber) -> SdkLogRecord` `SdkLogRecord.setSeverityText(string) -> SdkLogRecord`
+[LOGGER_CONFIG]: `LoggerConfig.disabled: boolean` `LoggerConfig.minimumSeverity: SeverityNumber` `LoggerConfig.traceBased: boolean`
+[SURFACES]: `createLoggerConfigurator({pattern:string;config:LoggerConfig}[]) -> (loggerScope:InstrumentationScope)=>Required<LoggerConfig>`
 
 ## [05]-[STACKING]
 

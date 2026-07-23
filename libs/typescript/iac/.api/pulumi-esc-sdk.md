@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pulumi/esc-sdk`
-- package: `@pulumi/esc-sdk`
-- license: Apache-2.0
+- package: `@pulumi/esc-sdk` (Apache-2.0)
 - import: `@pulumi/esc-sdk` → `{ EscApi, EscRawApi, Configuration, DefaultConfiguration, DefaultClient }` + the model types (`EnvironmentDefinition`, `EnvironmentDefinitionValues`, `OpenEnvironment`, `Environment`, `Value`, `EnvironmentDiagnostics`, `CheckEnvironment`, `OrgEnvironments`, `EnvironmentRevision`, `EnvironmentRevisionTag`, `EnvironmentTag`)
 - owner: `iac`
 - rail: operate / environment (the Pulumi-Cloud lane beside the Doppler canonical store)
@@ -41,18 +40,10 @@
 |  [13]   | env tag read       | `listEnvironmentTags`, `getEnvironmentTag`                                                                    |
 |  [14]   | env tag write      | `createEnvironmentTag(tag, value)`, `updateEnvironmentTag`, `deleteEnvironmentTag`                            |
 
-```ts signature
-// the definition shape writes travel as — imports is the composition DAG
-interface EnvironmentDefinition { imports?: Array<string>; values?: EnvironmentDefinitionValues }
-interface EnvironmentDefinitionValues {
-  [key: string]: any
-  pulumiConfig?: { [key: string]: any }          // → stack config projection
-  environmentVariables?: { [key: string]: string } // → process-env projection
-  files?: { [key: string]: string }              // → file-mount projection
-}
-interface OpenEnvironment { id: string; diagnostics?: EnvironmentDiagnostics }
-interface Value { value: any; secret?: boolean; unknown?: boolean; trace: Trace }
-```
+[ENVIRONMENT_DEFINITION]: `EnvironmentDefinition.imports: Array<string>` `EnvironmentDefinition.values: EnvironmentDefinitionValues`
+[ENVIRONMENT_DEFINITION_VALUES]: `EnvironmentDefinitionValues[string]: any` `EnvironmentDefinitionValues.pulumiConfig: {[key:string]:any}` `EnvironmentDefinitionValues.environmentVariables: {[key:string]:string}` `EnvironmentDefinitionValues.files: {[key:string]:string}`
+[OPEN_ENVIRONMENT]: `OpenEnvironment.id: string` `OpenEnvironment.diagnostics: EnvironmentDiagnostics`
+[VALUE]: `Value.value: any` `Value.secret: boolean` `Value.unknown: boolean` `Value.trace: Trace`
 
 ## [03]-[IMPLEMENTATION_LAW]
 

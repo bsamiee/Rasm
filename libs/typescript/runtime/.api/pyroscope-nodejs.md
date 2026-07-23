@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pyroscope/nodejs`
-- package: `@pyroscope/nodejs`
-- license: `Apache-2.0`
+- package: `@pyroscope/nodejs` (Apache-2.0)
 - backing: `@datadog/pprof` native wall + heap sampler (prebuilt-first), `pprof-format` sample encoding, `source-map` symbolication
 - consumed-by: the node composition root's profiling seat; the deploy plane provisions the target backend
 - runtime: node only — native profiler bindings, no browser row
@@ -45,42 +44,12 @@
 
 Exact shipped declarations — `SourceMapper` reaches consumers through the default export object, and `SourceMapper.create` mints the instance `PyroscopeConfig.sourceMapper` seats:
 
-```typescript declarations
-declare function init(config?: PyroscopeConfig): void
-declare function start(): void
-declare function stop(): Promise<void>
-declare function wrapWithLabels(lbls: Record<string, string | number>, fn: () => void, ...args: unknown[]): void
-declare class SourceMapper {
-  static create(searchDirs: string[], debug?: boolean): Promise<SourceMapper>
-  hasMappingInfo(inputPath: string): boolean
-  mappingInfo(location: GeneratedLocation): SourceLocation
-}
-interface PyroscopeConfig {
-  appName?: string | undefined
-  authToken?: string | undefined
-  basicAuthUser?: string | undefined
-  basicAuthPassword?: string | undefined
-  tenantID?: string | undefined
-  serverAddress?: string | undefined
-  flushIntervalMs?: number | undefined
-  tags?: LabelSet | undefined
-  wall?: PyroscopeWallConfig | undefined
-  heap?: PyroscopeHeapConfig | undefined
-  sourceMapper?: SourceMapper | undefined
-  stripFilenames?: StripFilenamesMode | undefined
-  shortenPaths?: boolean | undefined
-}
-type StripFilenamesMode = "all" | "dependencies"
-interface PyroscopeWallConfig {
-  samplingDurationMs?: number | undefined
-  samplingIntervalMicros?: number | undefined
-  collectCpuTime?: boolean | undefined
-}
-interface PyroscopeHeapConfig {
-  samplingIntervalBytes?: number | undefined
-  stackDepth?: number | undefined
-}
-```
+[SOURCE_MAPPER]: `SourceMapper.create(string[],boolean?) -> Promise<SourceMapper>` `SourceMapper.hasMappingInfo(string) -> boolean` `SourceMapper.mappingInfo(GeneratedLocation) -> SourceLocation`
+[PYROSCOPE_CONFIG]: `PyroscopeConfig.appName: string|undefined` `PyroscopeConfig.authToken: string|undefined` `PyroscopeConfig.basicAuthUser: string|undefined` `PyroscopeConfig.basicAuthPassword: string|undefined` `PyroscopeConfig.tenantID: string|undefined` `PyroscopeConfig.serverAddress: string|undefined` `PyroscopeConfig.flushIntervalMs: number|undefined` `PyroscopeConfig.tags: LabelSet|undefined` `PyroscopeConfig.wall: PyroscopeWallConfig|undefined` `PyroscopeConfig.heap: PyroscopeHeapConfig|undefined` `PyroscopeConfig.sourceMapper: SourceMapper|undefined` `PyroscopeConfig.stripFilenames: StripFilenamesMode|undefined` `PyroscopeConfig.shortenPaths: boolean|undefined`
+[STRIP_FILENAMES_MODE]: `StripFilenamesMode = "all"|"dependencies"`
+[PYROSCOPE_WALL_CONFIG]: `PyroscopeWallConfig.samplingDurationMs: number|undefined` `PyroscopeWallConfig.samplingIntervalMicros: number|undefined` `PyroscopeWallConfig.collectCpuTime: boolean|undefined`
+[PYROSCOPE_HEAP_CONFIG]: `PyroscopeHeapConfig.samplingIntervalBytes: number|undefined` `PyroscopeHeapConfig.stackDepth: number|undefined`
+[SURFACES]: `init(PyroscopeConfig?) -> void` `start() -> void` `stop() -> Promise<void>` `wrapWithLabels(Record<string,string|number>,()=>void,...unknown[]) -> void`
 
 ## [04]-[IMPLEMENTATION_LAW]
 

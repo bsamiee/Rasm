@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `TYoshimura.DoubleDouble`
-- package: `TYoshimura.DoubleDouble` (MIT, T.Yoshimura)
+- package: `TYoshimura.DoubleDouble` (MIT)
 - assembly: `DoubleDouble.dll`
 - namespace: `DoubleDouble` holds `ddouble` and its extension/converter siblings
 - target: single `lib/net10.0` asset

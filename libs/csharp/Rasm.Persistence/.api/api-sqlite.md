@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Data.Sqlite`
-- package: `Microsoft.Data.Sqlite` (`MIT`, Microsoft)
+- package: `Microsoft.Data.Sqlite` (MIT)
 - assembly: `Microsoft.Data.Sqlite` — types ship in `Microsoft.Data.Sqlite.Core`; the meta-package binds the native provider bundle
 - namespace: `Microsoft.Data.Sqlite`
 - depends: `SQLitePCLRaw.bundle_e_sqlite3` (`api-sqlitepcl`) native provider; `api-ef-sqlite` rides the EF provider

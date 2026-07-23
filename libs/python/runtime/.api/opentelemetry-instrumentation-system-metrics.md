@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `opentelemetry-instrumentation-system-metrics`
-- package: `opentelemetry-instrumentation-system-metrics` (`Apache-2.0`, OpenTelemetry Authors)
+- package: `opentelemetry-instrumentation-system-metrics` (Apache-2.0)
 - module: `opentelemetry.instrumentation.system_metrics`
 - rail: observability
 

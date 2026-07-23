@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@msgpack/msgpack`
-- package: `@msgpack/msgpack`
-- license: `ISC`
+- package: `@msgpack/msgpack` (ISC)
 - effect-peer: none — decode output crosses `effect` `Schema.decodeUnknown` and `Stream.fromAsyncIterable` at the `interchange/codec`/`interchange/codec` seams (`.api/effect.md`)
 - catalog-verdict: KEEP — the MessagePack arm of the multi-codec wire plane: `@bufbuild/protobuf` owns the descriptor-typed proto families, `cbor-x` canonical CBOR, `rfc6902` the JSON-Patch egress, this owns the `CrdtOpWire`/`OpLog` MessagePack union — one codec per C# mint format, no overlap
 - runtime: isomorphic, `sideEffects:false`, `engines.node >= 18` (`DataView.getBigInt6 catalog` for `useBigInt6 catalog`); dual `dist.esm/index.mjs` + `dist.cjs/index.cjs`; zero runtime deps

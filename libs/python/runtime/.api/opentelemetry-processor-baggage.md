@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `opentelemetry-processor-baggage`
-- package: `opentelemetry-processor-baggage` (`Apache-2.0`, OpenTelemetry Authors)
+- package: `opentelemetry-processor-baggage` (Apache-2.0)
 - module: `opentelemetry.processor.baggage`
 - rail: observability
 

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ExtendedNumerics.BigRational`
-- package: `ExtendedNumerics.BigRational` (MIT, Adam White / ExtendedNumerics)
+- package: `ExtendedNumerics.BigRational` (MIT)
 - assembly: `ExtendedNumerics.BigRational`
 - namespace: `ExtendedNumerics`
 - target: multi-target; the `net10.0` consumer binds `lib/net7.0` as highest available

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `psutil`
-- package: `psutil` (`BSD-3-Clause`)
+- package: `psutil` (BSD-3-Clause)
 - module: `psutil`
 - abi: native C extension over the import-selected `_ps{osx,linux,windows,bsd}` platform layer
 - rail: observability

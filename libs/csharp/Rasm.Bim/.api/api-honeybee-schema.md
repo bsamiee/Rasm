@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `HoneybeeSchema`
-- package: `HoneybeeSchema` (MIT, Ladybug Tools)
+- package: `HoneybeeSchema` (MIT)
 - assembly: `HoneybeeSchema`
 - namespace: `HoneybeeSchema` (the model graph, the enum vocabulary, `OpenAPIGenBaseModel`/`AnyOf`/`Extension`, the concrete construction/material/schedule/HVAC/program classes, the `IBoundarycondition` union, and the `IAltnumber` `Autocalculate`/`Autosize` sentinels)
 - namespace: `HoneybeeSchema.Energy` / `HoneybeeSchema.Radiance` (the discriminant base interfaces — `IConstruction`/`IThermalConstruction`/`IWindowConstruction`, `IMaterial`, `ISchedule`, `IProgramtype`, `IHvac`/`IIdealair`, `IConstructionset`/`IGlobalConstructionset`, `ILoad`, `IModifier`/`IBuildingModifierSet` — the polymorphic keys the library `List<>`s and `Model.Add*` dispatch on)

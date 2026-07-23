@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@tanstack/react-virtual`
-- package: `@tanstack/react-virtual` (MIT, © Tanner Linsley) — React adapter re-exporting `@tanstack/virtual-core`, which owns the `Virtualizer` and every option/type below
+- package: `@tanstack/react-virtual` (MIT)
 - module format: ESM (`type: module`), `sideEffects: false`; first-party bundled `.d.ts` (`dist/esm/index.d.ts`) with `export * from '@tanstack/virtual-core'`
 - runtime target: React render tree over a DOM scroll element or the window; DPR-aware measurement via `ResizeObserver`; the core is DOM-free and framework-agnostic
 - peer: `react catalog`, `react-dom catalog` — satisfied by the folder React 19 spine

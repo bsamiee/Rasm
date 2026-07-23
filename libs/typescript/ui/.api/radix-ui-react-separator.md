@@ -5,27 +5,13 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@radix-ui/react-separator`
-- package: `@radix-ui/react-separator`
-- license: `MIT`
+- package: `@radix-ui/react-separator` (MIT)
 - react-peer: `react catalog` (React 19 spine; `@types/react` `*`); depends on `@radix-ui/react-primitive@catalog` → `@radix-ui/react-slot@catalog` (`.api/radix-ui-react-slot.md`)
 - catalog-verdict: KEEP
 - runtime: `runtime:browser`, core `ui` — composition plane; not `scope:viewer`
 - modules: single `.` barrel — `Separator` / `Root` component, `SeparatorProps` type (verified exports: `Root`, `Separator`, `SeparatorProps`); the `ORIENTATIONS` tuple and its `Orientation` type are package-internal (NOT exported)
 
-```ts signature
-// Verified dist/index.d.ts — SeparatorProps = Primitive.div props + two own knobs; asChild rides in from Primitive.
-const ORIENTATIONS = ['horizontal', 'vertical'] as const   // internal — not exported
-type Orientation = (typeof ORIENTATIONS)[number]           // internal — code depends on the `orientation` prop
-interface SeparatorProps extends React.ComponentPropsWithoutRef<typeof Primitive.div> { orientation?: Orientation; decorative?: boolean }
-declare const Separator: React.ForwardRefExoticComponent<SeparatorProps & React.RefAttributes<HTMLDivElement>>
-declare const Root: typeof Separator
-export { Root, Separator, type SeparatorProps }
-
-// Verified dist/index.mjs — the total (decorative × orientation) projection + the always-on data-orientation, with caller domProps spread LAST.
-const orientation = isValidOrientation(orientationProp) ? orientationProp : 'horizontal'   // invalid coerces to horizontal
-const semanticProps = decorative ? { role: 'none' } : { role: 'separator', 'aria-orientation': orientation === 'vertical' ? 'vertical' : undefined }
-return <Primitive.div data-orientation={orientation} {...semanticProps} {...domProps} ref={forwardedRef} />   // domProps override the computed set
-```
+[COMPOSITION]: `Primitive.div(orientation,ref)`
 
 ## [02]-[PUBLIC_TYPES]
 

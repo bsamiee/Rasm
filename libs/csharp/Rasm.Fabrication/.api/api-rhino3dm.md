@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Rhino3dm`
-- package: `Rhino3dm` (`MIT`, McNeel)
+- package: `Rhino3dm` (MIT)
 - assembly: `Rhino3dm` (`lib/net7.0/Rhino3dm.dll` with the RID-keyed native `librhino3dm_native`)
 - namespace: `Rhino.FileIO`, `Rhino.Geometry`, `Rhino.DocObjects`
 - rail: fabrication-3dm

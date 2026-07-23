@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `jaxtyping`
-- package: `jaxtyping` (MIT, pure Python, no compiled extension)
+- package: `jaxtyping` (MIT)
 - import: `jaxtyping`
 - owner: `compute`
 - rail: array shape/dtype contracts

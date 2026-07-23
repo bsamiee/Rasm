@@ -5,13 +5,12 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `python-pptx`
-- package: `python-pptx`
+- package: `python-pptx` (MIT)
 - import: `pptx`
 - owner: `artifacts`
 - rail: office
 - floor: pure-Python, abi-agnostic; runs on cp315, offloadable to the `anyio.to_process` worker band
 - runtime deps: `lxml`, `Pillow`, `XlsxWriter`, `typing_extensions`
-- license: MIT (Steve Canny)
 - entry points: none (library only; the in-process `Presentation` surface composes directly)
 - capability: `.pptx` construction and editing — slides from layouts, masters/notes-master, placeholder fill-in-place, textboxes, runs/paragraphs/fonts with full character appearance, cropped pictures with image evidence, tables with merge/split/banding, native category/xy/bubble charts with axis/legend/data-label/series formatting and `replace_data` refresh, autoshapes with adjustment handles, connectors, groups, movie/OLE embeds, freeform vector shapes, the DML fill/line/shadow/color surface, click-action hyperlinks, notes, core-property metadata, slide background, EMU `Length` geometry
 

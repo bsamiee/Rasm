@@ -4,8 +4,7 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-- package: `pystac`
-- license: Apache-2.0
+- package: `pystac` (Apache-2.0)
 - module: `import pystac`
 - composition: namespace meta-package — `pystac-core` fills the core `pystac.*` namespace and each extension is an independently-published `pystac-ext-*` distribution publishing into the shared `pystac.extensions.*` namespace via `pkgutil.extend_path`; the caller surface (`import pystac`, `obj.ext.<short>`) is one contract regardless of the split
 - owner: `data`
@@ -47,16 +46,16 @@
 
 `STACError` is the base of the STAC failure tree; the leaves are distinct so the data owner discriminates malformed JSON, missing required fields, and extension misuse without string matching. `TemplateError` sits outside that tree as a bare `Exception` for malformed layout templates.
 
-| [INDEX] | [SYMBOL]                      | [CAPABILITY]                                                        |
-| :-----: | :---------------------------- | :------------------------------------------------------------------ |
-|  [01]   | `STACError`                   | base STAC failure                                                   |
-|  [02]   | `STACTypeError`               | object is not the expected STAC type                                |
-|  [03]   | `STACValidationError`         | JSON-Schema validation failed (raised by `validate`/`validate_all`) |
-|  [04]   | `ExtensionAlreadyExistsError` | extension already applied to the object                             |
-|  [05]   | `ExtensionNotImplemented`     | extension not implemented for the object                            |
-|  [06]   | `ExtensionTypeError`          | extension applied to the wrong object type                          |
-|  [07]   | `RequiredPropertyMissing`     | a required extension/object property is absent                      |
-|  [08]   | `DuplicateObjectKeyError`     | duplicate key during JSON decode                                    |
+| [INDEX] | [SYMBOL]                      | [CAPABILITY]                                                               |
+| :-----: | :---------------------------- | :------------------------------------------------------------------------- |
+|  [01]   | `STACError`                   | base STAC failure                                                          |
+|  [02]   | `STACTypeError`               | object is not the expected STAC type                                       |
+|  [03]   | `STACValidationError`         | JSON-Schema validation failed (raised by `validate`/`validate_all`)        |
+|  [04]   | `ExtensionAlreadyExistsError` | extension already applied to the object                                    |
+|  [05]   | `ExtensionNotImplemented`     | extension not implemented for the object                                   |
+|  [06]   | `ExtensionTypeError`          | extension applied to the wrong object type                                 |
+|  [07]   | `RequiredPropertyMissing`     | a required extension/object property is absent                             |
+|  [08]   | `DuplicateObjectKeyError`     | duplicate key during JSON decode                                           |
 |  [09]   | `TemplateError`               | layout template string malformed (`generate_subcatalogs`/`LayoutTemplate`) |
 
 - `DeprecatedWarning` (a `FutureWarning`) is emitted, not raised, on deprecated-field access; catch it through `warnings`, never the error rail.
@@ -67,37 +66,37 @@
 
 `read_file`/`read_dict` resolve `STACObjectType` and return the concrete subtype; `from_file` is the `STACObject` classmethod every kind inherits. Traversal is a deliberate polymorphic family on the link graph — `get_item(id)` single lookup, `get_items(*ids)` variadic, `get_all_items()` the flattened iterator, the same shape over children and collections. `normalize_and_save` is the one-call egress: HREF rewrite and recursive write.
 
-| [INDEX] | [SURFACE]                             | [CALL_SHAPE]                                                                                   |
-| :-----: | :------------------------------------ | :--------------------------------------------------------------------------------------------- |
-|  [01]   | `read_file`                           | `read_file(href, stac_io=None) -> STACObject`                                                  |
-|  [02]   | `read_dict`                           | `read_dict(d, href=None, root=None, stac_io=None) -> STACObject`                               |
-|  [03]   | `write_file`                          | `write_file(obj, include_self_link=True, dest_href=None, stac_io=None) -> None`                |
-|  [04]   | `Item.from_dict`                      | `from_dict(d, href=None, root=None, migrate=True, preserve_dict=True)`                         |
-|  [05]   | `Item.to_dict`                        | `to_dict(include_self_link=True, transform_hrefs=True) -> dict`                                |
-|  [06]   | `Item.set_datetime`                   | `set_datetime(datetime, asset=None)`                                                           |
-|  [07]   | `Catalog.from_file`                   | `from_file(href, stac_io=None)`                                                                |
-|  [08]   | `Catalog.add_item`                    | `add_item(item, title=None, strategy=None, set_parent=True) -> Link`                           |
-|  [09]   | `Catalog.add_items`                   | `add_items(items, strategy=None)`                                                              |
-|  [10]   | `Catalog.add_child` / `add_children`  | `add_child(child, title=None, strategy=None, set_parent=True) -> Link`                         |
-|  [11]   | `Catalog.get_item`                    | `get_item(id, recursive=False) -> Item \| None`                                                |
-|  [12]   | `Catalog.get_items`                   | `get_items(*ids, recursive=False) -> Iterator[Item]`                                           |
-|  [13]   | `Catalog.get_all_items`               | `get_all_items() -> Iterator[Item]`                                                            |
-|  [14]   | `Catalog.get_child` / `get_children`  | `get_child(id, recursive=False, sort_links_by_id=True)`; `get_children() -> Iterator[Catalog]` |
-|  [15]   | `Catalog.get_collections`             | `get_collections() -> Iterator[Collection]`                                                    |
-|  [16]   | `Catalog.get_all_collections`         | `get_all_collections() -> Iterator[Collection]`                                                |
-|  [17]   | `Catalog.walk`                        | `walk() -> Iterable[(Catalog, children, items)]`                                               |
-|  [18]   | `Catalog.map_items` / `map_assets`    | `map_items(item_mapper)`; `map_assets(asset_mapper) -> Catalog`                                |
-|  [19]   | `Catalog.normalize_hrefs`             | `normalize_hrefs(root_href, strategy=None, skip_unresolved=False)`                             |
-|  [20]   | `Catalog.normalize_and_save`          | `(root_href, catalog_type=None, strategy=None, stac_io=None, skip_unresolved=False)`           |
-|  [21]   | `Catalog.save`                        | `save(catalog_type=None, dest_href=None, stac_io=None)`                                        |
-|  [22]   | `Catalog.make_all_asset_hrefs_*`      | `make_all_asset_hrefs_absolute()` / `make_all_asset_hrefs_relative()`                          |
-|  [23]   | `Catalog.validate_all`                | `validate_all(max_items=None, recursive=True) -> int`                                          |
-|  [24]   | `Catalog.generate_subcatalogs`        | `generate_subcatalogs(template, defaults=None, parent_ids=None) -> list[Catalog]`              |
-|  [25]   | `Collection.from_items`               | `from_items(items, *, id=None, strategy=None) -> Collection`                                   |
-|  [26]   | `Collection.update_extent_from_items` | `update_extent_from_items() -> None`                                                           |
-|  [27]   | `Item.add_asset` / `get_assets`       | `add_asset(key, asset)`; `get_assets(media_type=None, role=None) -> dict[str, Asset]`          |
-|  [28]   | `Link` factories                      | `Link.{child,item,parent,root,self_href,canonical,collection,derived_from} -> Link`            |
-|  [29]   | `get_stac_version` / `set_stac_version` | `get_stac_version() -> str`; `set_stac_version(version)` set emitted STAC spec version |
+| [INDEX] | [SURFACE]                               | [CALL_SHAPE]                                                                                   |
+| :-----: | :-------------------------------------- | :--------------------------------------------------------------------------------------------- |
+|  [01]   | `read_file`                             | `read_file(href, stac_io=None) -> STACObject`                                                  |
+|  [02]   | `read_dict`                             | `read_dict(d, href=None, root=None, stac_io=None) -> STACObject`                               |
+|  [03]   | `write_file`                            | `write_file(obj, include_self_link=True, dest_href=None, stac_io=None) -> None`                |
+|  [04]   | `Item.from_dict`                        | `from_dict(d, href=None, root=None, migrate=True, preserve_dict=True)`                         |
+|  [05]   | `Item.to_dict`                          | `to_dict(include_self_link=True, transform_hrefs=True) -> dict`                                |
+|  [06]   | `Item.set_datetime`                     | `set_datetime(datetime, asset=None)`                                                           |
+|  [07]   | `Catalog.from_file`                     | `from_file(href, stac_io=None)`                                                                |
+|  [08]   | `Catalog.add_item`                      | `add_item(item, title=None, strategy=None, set_parent=True) -> Link`                           |
+|  [09]   | `Catalog.add_items`                     | `add_items(items, strategy=None)`                                                              |
+|  [10]   | `Catalog.add_child` / `add_children`    | `add_child(child, title=None, strategy=None, set_parent=True) -> Link`                         |
+|  [11]   | `Catalog.get_item`                      | `get_item(id, recursive=False) -> Item \| None`                                                |
+|  [12]   | `Catalog.get_items`                     | `get_items(*ids, recursive=False) -> Iterator[Item]`                                           |
+|  [13]   | `Catalog.get_all_items`                 | `get_all_items() -> Iterator[Item]`                                                            |
+|  [14]   | `Catalog.get_child` / `get_children`    | `get_child(id, recursive=False, sort_links_by_id=True)`; `get_children() -> Iterator[Catalog]` |
+|  [15]   | `Catalog.get_collections`               | `get_collections() -> Iterator[Collection]`                                                    |
+|  [16]   | `Catalog.get_all_collections`           | `get_all_collections() -> Iterator[Collection]`                                                |
+|  [17]   | `Catalog.walk`                          | `walk() -> Iterable[(Catalog, children, items)]`                                               |
+|  [18]   | `Catalog.map_items` / `map_assets`      | `map_items(item_mapper)`; `map_assets(asset_mapper) -> Catalog`                                |
+|  [19]   | `Catalog.normalize_hrefs`               | `normalize_hrefs(root_href, strategy=None, skip_unresolved=False)`                             |
+|  [20]   | `Catalog.normalize_and_save`            | `(root_href, catalog_type=None, strategy=None, stac_io=None, skip_unresolved=False)`           |
+|  [21]   | `Catalog.save`                          | `save(catalog_type=None, dest_href=None, stac_io=None)`                                        |
+|  [22]   | `Catalog.make_all_asset_hrefs_*`        | `make_all_asset_hrefs_absolute()` / `make_all_asset_hrefs_relative()`                          |
+|  [23]   | `Catalog.validate_all`                  | `validate_all(max_items=None, recursive=True) -> int`                                          |
+|  [24]   | `Catalog.generate_subcatalogs`          | `generate_subcatalogs(template, defaults=None, parent_ids=None) -> list[Catalog]`              |
+|  [25]   | `Collection.from_items`                 | `from_items(items, *, id=None, strategy=None) -> Collection`                                   |
+|  [26]   | `Collection.update_extent_from_items`   | `update_extent_from_items() -> None`                                                           |
+|  [27]   | `Item.add_asset` / `get_assets`         | `add_asset(key, asset)`; `get_assets(media_type=None, role=None) -> dict[str, Asset]`          |
+|  [28]   | `Link` factories                        | `Link.{child,item,parent,root,self_href,canonical,collection,derived_from} -> Link`            |
+|  [29]   | `get_stac_version` / `set_stac_version` | `get_stac_version() -> str`; `set_stac_version(version)` set emitted STAC spec version         |
 
 - `HIERARCHICAL_LINKS`: names the rel types (`root`/`parent`/`child`/`collection`/`item`/`items`) treated as structural graph edges during `normalize_hrefs`/`save`.
 
@@ -105,28 +104,28 @@
 
 `obj.ext.<short>` is the apply-and-access surface on every object — `item.ext.proj`, `asset.ext.raster`; `obj.ext.add(name)` appends the schema URI to `stac_extensions`, `has(name)`/`remove(name)` manage membership. Each per-object accessor (`ItemExt`/`AssetExt`/`CollectionExt`) statically scopes extensions per kind — the object type is the discriminant, never a per-extension entrypoint. `label` is reached through `LabelExtension.ext(obj, add_if_missing=...)`, the classmethod form every extension also exposes. `[APPLIES_TO]` codes: `I`=Item, `A`=Asset, `C`=Collection, `D`=ItemAssetDefinition.
 
-| [INDEX] | [ACCESSOR_EXTENSION]                         | [APPLIES_TO] | [CAPABILITY]                                                         |
-| :-----: | :------------------------------------------- | :----------- | :------------------------------------------------------------------- |
-|  [01]   | `item.ext.proj` / `ProjectionExtension`      | I·A·D        | `epsg`/`code`/`wkt2`/`projjson`/`geometry`/`bbox`/`transform` |
-|  [02]   | `item.ext.eo` / `EOExtension`                | I·A·D        | `bands: list[Band]`, `cloud_cover`, `snow_cover`                     |
-|  [03]   | `asset.ext.raster` / `RasterExtension`       | A·D          | `bands: list[RasterBand]` per-band statistics, nodata, scale/offset  |
-|  [04]   | `item.ext.classification`                    | I·A·D        | classification `classes`/`bitfields` lists and bitfields             |
-|  [05]   | `item.ext.cube` / `DatacubeExtension`        | I·A·C·D      | datacube `dimensions`/`variables` description                        |
-|  [06]   | `asset.ext.file` / `FileExtension`           | A            | `size`/`checksum`/`header_size`/`values` byte-level asset metadata   |
-|  [07]   | `item.ext.grid` / `item.ext.mgrs`            | I            | grid-code and MGRS tiling metadata                                   |
-|  [08]   | `LabelExtension.ext(item)`                   | I            | ML label `properties`/`classes`/`tasks`/`overviews` (no short accessor) |
-|  [09]   | `item.ext.mlm` / `MLMExtension`              | I·A·C·D      | machine-learning-model card (inputs/outputs/hyperparameters)         |
-|  [10]   | `item.ext.pc` / `PointcloudExtension`        | I·A·D        | point-count, type, density, schema for LiDAR/COPC assets             |
-|  [11]   | `item.ext.sar` / `item.ext.sat`              | I·A·D        | SAR polarization/frequency and satellite orbit metadata              |
-|  [12]   | `item.ext.view` / `ViewExtension`            | I·A·D        | `off_nadir`/`incidence_angle`/`azimuth`/`sun_azimuth`/`sun_elevation` |
-|  [13]   | `item.ext.sci` / `ScientificExtension`       | I·C          | `doi`/`citation`/`publications` provenance                           |
-|  [14]   | `item.ext.render` / `RenderExtension`        | I·C          | render `colormap`/`rescale`/`resampling`; collection `dict[str, Render]` |
-|  [15]   | `item.ext.storage` / `StorageExtension`      | I·A·C·D      | cloud-storage `schemes`/`refs` scheme definitions per asset          |
-|  [16]   | `item.ext.table` / `TableExtension`          | I·A·C·D      | tabular `columns` schema                                             |
-|  [17]   | `item.ext.xarray` / `XarrayAssetsExtension`  | I·A·C        | xarray-assets zarr/kerchunk references                               |
-|  [18]   | `item.ext.timestamps` / `TimestampsExtension`| I·A          | published/expires/unpublished timestamps                            |
-|  [19]   | `item.ext.version` / `VersionExtension`      | I·A·C        | version/deprecation lineage                                          |
-|  [20]   | `collection.ext.item_assets`                 | C            | collection-level `item_assets` -> `ItemAssetDefinition` template     |
+| [INDEX] | [ACCESSOR_EXTENSION]                          | [APPLIES_TO] | [CAPABILITY]                                                             |
+| :-----: | :-------------------------------------------- | :----------- | :----------------------------------------------------------------------- |
+|  [01]   | `item.ext.proj` / `ProjectionExtension`       | I·A·D        | `epsg`/`code`/`wkt2`/`projjson`/`geometry`/`bbox`/`transform`            |
+|  [02]   | `item.ext.eo` / `EOExtension`                 | I·A·D        | `bands: list[Band]`, `cloud_cover`, `snow_cover`                         |
+|  [03]   | `asset.ext.raster` / `RasterExtension`        | A·D          | `bands: list[RasterBand]` per-band statistics, nodata, scale/offset      |
+|  [04]   | `item.ext.classification`                     | I·A·D        | classification `classes`/`bitfields` lists and bitfields                 |
+|  [05]   | `item.ext.cube` / `DatacubeExtension`         | I·A·C·D      | datacube `dimensions`/`variables` description                            |
+|  [06]   | `asset.ext.file` / `FileExtension`            | A            | `size`/`checksum`/`header_size`/`values` byte-level asset metadata       |
+|  [07]   | `item.ext.grid` / `item.ext.mgrs`             | I            | grid-code and MGRS tiling metadata                                       |
+|  [08]   | `LabelExtension.ext(item)`                    | I            | ML label `properties`/`classes`/`tasks`/`overviews` (no short accessor)  |
+|  [09]   | `item.ext.mlm` / `MLMExtension`               | I·A·C·D      | machine-learning-model card (inputs/outputs/hyperparameters)             |
+|  [10]   | `item.ext.pc` / `PointcloudExtension`         | I·A·D        | point-count, type, density, schema for LiDAR/COPC assets                 |
+|  [11]   | `item.ext.sar` / `item.ext.sat`               | I·A·D        | SAR polarization/frequency and satellite orbit metadata                  |
+|  [12]   | `item.ext.view` / `ViewExtension`             | I·A·D        | `off_nadir`/`incidence_angle`/`azimuth`/`sun_azimuth`/`sun_elevation`    |
+|  [13]   | `item.ext.sci` / `ScientificExtension`        | I·C          | `doi`/`citation`/`publications` provenance                               |
+|  [14]   | `item.ext.render` / `RenderExtension`         | I·C          | render `colormap`/`rescale`/`resampling`; collection `dict[str, Render]` |
+|  [15]   | `item.ext.storage` / `StorageExtension`       | I·A·C·D      | cloud-storage `schemes`/`refs` scheme definitions per asset              |
+|  [16]   | `item.ext.table` / `TableExtension`           | I·A·C·D      | tabular `columns` schema                                                 |
+|  [17]   | `item.ext.xarray` / `XarrayAssetsExtension`   | I·A·C        | xarray-assets zarr/kerchunk references                                   |
+|  [18]   | `item.ext.timestamps` / `TimestampsExtension` | I·A          | published/expires/unpublished timestamps                                 |
+|  [19]   | `item.ext.version` / `VersionExtension`       | I·A·C        | version/deprecation lineage                                              |
+|  [20]   | `collection.ext.item_assets`                  | C            | collection-level `item_assets` -> `ItemAssetDefinition` template         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

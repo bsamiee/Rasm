@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `basic-ftp`
-- package: `basic-ftp` (MIT, patrickjuchli/basic-ftp)
+- package: `basic-ftp` (MIT)
 - module format: CJS + ESM dual; zero runtime dependencies; node only (`net`/`tls` sockets)
 - rail: remote-origin row (`object/file`); the FTP/FTPS protocol lane
 - bounce guard: `ClientOptions.allowSeparateTransferHost` defaults `false` — data connections to a host other than the control host are refused unless ruled
@@ -26,13 +26,11 @@
 |  [06]   | `client.ftp` (`FTPContext`)                             | context       | log capture (`log` overridable) and wire tuning         |
 |  [07]   | `client.parseList` (`RawListParser` override)           | parser slot   | exotic-server listing formats as policy, never a fork   |
 
-```typescript signature
-type FileType = Unknown | File | Directory | SymbolicLink;
-interface AccessOptions { host; port; user; password; secure: boolean | "implicit"; secureOptions; }
-interface FileInfo { name; type: FileType; size; rawModifiedAt; modifiedAt?; permissions?; link?; uniqueID?; isDirectory(); isFile(); isSymbolicLink(); }
-interface ProgressInfo { name; type: "upload" | "download" | "list"; bytes; bytesOverall; }
-interface FTPContext { verbose; log(message); encoding; tlsOptions; ipFamily; }
-```
+[FILE_TYPE]: `FileType = Unknown|File|Directory|SymbolicLink`
+[ACCESS_OPTIONS]: `AccessOptions.host: unknown` `AccessOptions.port: unknown` `AccessOptions.user: unknown` `AccessOptions.password: unknown` `AccessOptions.secure: boolean|"implicit"` `AccessOptions.secureOptions: unknown`
+[FILE_INFO]: `FileInfo.name: unknown` `FileInfo.type: FileType` `FileInfo.size: unknown` `FileInfo.rawModifiedAt: unknown` `FileInfo.modifiedAt: unknown` `FileInfo.permissions: unknown` `FileInfo.link: unknown` `FileInfo.uniqueID: unknown` `FileInfo.isDirectory()` `FileInfo.isFile()` `FileInfo.isSymbolicLink()`
+[PROGRESS_INFO]: `ProgressInfo.name: unknown` `ProgressInfo.type: "upload"|"download"|"list"` `ProgressInfo.bytes: unknown` `ProgressInfo.bytesOverall: unknown`
+[FTPCONTEXT]: `FTPContext.verbose: unknown` `FTPContext.log(unknown)` `FTPContext.encoding: unknown` `FTPContext.tlsOptions: unknown` `FTPContext.ipFamily: unknown`
 
 ## [03]-[ENTRYPOINTS]
 

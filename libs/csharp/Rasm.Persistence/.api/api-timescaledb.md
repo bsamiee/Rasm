@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `timescaledb`
-- package: `timescaledb` (Apache-2.0 core over a TSL-licensed policy tier, Timescale)
+- package: `timescaledb` (Apache-2.0)
 - namespace: SQL — `public` functions and procedures, `timescaledb_information.*` views, `timescaledb.*` storage parameters
 - asset: server extension whose bgworker scheduler launcher requires its `shared_preload_libraries` entry
 - rail: timescale-provisioning, analytical-lane

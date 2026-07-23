@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pyhanko`
-- package: `pyhanko` (`MIT`)
+- package: `pyhanko` (MIT)
 - module: `pyhanko`
 - namespaces: `pyhanko.sign`, `pyhanko.sign.fields`, `pyhanko.sign.validation`, `pyhanko.sign.diff_analysis`, `pyhanko.sign.timestamps`, `pyhanko.sign.ades.api`, `pyhanko.sign.signers.pdf_signer`, `pyhanko.stamp`, `pyhanko.pdf_utils`, `pyhanko_certvalidator`
 - rail: pdf — CMS/CAdES/PAdES signing + validation, document certification, DSS/LTV, RFC 3161 timestamp chaining, diff analysis, two-phase HSM/remote signing

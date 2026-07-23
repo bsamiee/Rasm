@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pg_search`
-- package: `pg_search` (AGPL-3.0, ParadeDB) — server-side PostgreSQL extension
+- package: `pg_search` (AGPL-3.0)
 - asset: server SQL only — the `bm25` access method with the `pdb` schema of builders, cast types, and projections
 - abi: in-process `pgrx`/Tantivy extension, `shared_preload_libraries`-gated at the server tier
 - namespace: `pdb`

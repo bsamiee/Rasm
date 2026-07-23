@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `adbc-driver-flightsql`
-- package: `adbc-driver-flightsql` (Apache-2.0, Apache Arrow)
+- package: `adbc-driver-flightsql` (Apache-2.0)
 - module: `adbc_driver_flightsql`, `adbc_driver_flightsql.dbapi`
 - native: `libadbc_driver_flightsql.so` — the Go-built ADBC driver over the C ABI
 - rail: partition

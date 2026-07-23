@@ -1,7 +1,7 @@
 # [TS_UI_API_PERSPECTIVE_DEV_CLIENT]
 
 [PACKAGE_SURFACE]:
-- package: `@perspective-dev/client` · license `Apache-2.0` — the LIVE scope (`perspective-dev/perspective`); the `@finos/perspective` scope is dead and never cited.
+- package: `@perspective-dev/client` (Apache-2.0)
 - module: `sideEffects: false`; condition-split `exports["."]` — `node` → `dist/esm/perspective.node.js` (pre-instantiated synchronous singleton client + `WebSocketServer` host), default → `dist/esm/perspective.js` (browser, Worker/WASM bootstrapping); subpaths `./node`, `./inline` (base64-embedded WASM, no separate `.wasm` fetch), `./virtual_servers/*`.
 - asset: deps `@perspective-dev/server` (the WASM engine binary, lockstep), `pro_self_extracting_wasm` (self-extracting WASM loader), `ws` (node), `stoppable`; no peers. Browser WASM assets: the client's own `dist/wasm/perspective-js.wasm` (auto-bootstrapped inside `worker()`), `@perspective-dev/server/dist/wasm/perspective-server.wasm` for in-browser/in-worker server hosting via `init_server(wasm)`.
 - bundling: Vite imports each `.wasm` with `?url` + `fetch(url)` and requires `build.target: "esnext"`; the CDN `dist/cdn/*` build needs no bootstrap.
@@ -12,32 +12,9 @@
 
 ## [01]-[CLIENT_AND_TABLE]
 
-```ts signature
-declare const perspective: {
-  worker(worker?: Promise<SharedWorker | ServiceWorker | Worker | MessagePort>): Promise<Client>   // browser: no-arg spawns a dedicated Worker
-  websocket(url: string | URL): Promise<Client>                                                    // remote host — same Client API over the wire
-  init_client(wasm): void; init_server(wasm, disableStage0?): void                                 // explicit in-page client/server WASM bootstrap
-  getCompiledClientWasm(): Promise<WebAssembly.Module>                                              // structured-cloneable module → postMessage to a Worker, no re-fetch
-}
-interface Client {
-  table(value: string | ArrayBuffer | Record<string, unknown[]> | Record<string, unknown>[] | Schema,
-        options?: { name?: string; format?: "csv" | "json" | "columns" | "arrow" | "ndjson"; index?: string; limit?: number; page_to_disk?: boolean }): Promise<Table>
-  open_table(entity_id: string): Promise<Table>                        // attach to a host-published table by name
-  join(left: Table | string, right: Table | string, on: string,
-       options?: { join_type?: "inner" | "left" | "outer"; name?: string; right_on?: string }): Promise<Table>   // reactive live join
-  get_hosted_table_names(): Promise<string[]>; on_hosted_tables_update(cb): Promise<number>; system_info(): Promise<SystemInfo>
-  new_proxy_session(onResponse): ProxySession; on_error(cb): Promise<number>; terminate(): void
-}
-interface Table {
-  view(config?: ViewConfigUpdate): Promise<View>
-  update(input: TableData, options?: { port_id?: number; format?: string }): Promise<void>          // Arrow ArrayBuffer is a first-class delta
-  remove(value: unknown, options?): Promise<void>; replace(input: unknown, options?): Promise<void>; clear(): Promise<void>
-  schema(): Promise<Schema>; columns(): Promise<string[]>; size(): Promise<number>
-  validate_expressions(exprs: Record<string, string>): Promise<unknown>; make_port(): Promise<number>
-  get_index(): Promise<string | null>; get_limit(): Promise<number | null>; get_name(): string; get_client(): Client
-  delete(options?: { lazy?: boolean }): Promise<void>; on_delete(cb): Promise<number>
-}
-```
+[PERSPECTIVE]: `perspective.worker(Promise<SharedWorker|ServiceWorker|Worker|MessagePort>?) -> Promise<Client>` `perspective.websocket(string|URL) -> Promise<Client>` `perspective.init_client(unknown) -> void` `perspective.init_server(unknown,unknown?) -> void` `perspective.getCompiledClientWasm() -> Promise<WebAssembly.Module>`
+[CLIENT]: `Client.table(string|ArrayBuffer|Record<string,unknown[]>|Record<string,unknown>[]|Schema,{name?:string;format?:"csv"|"json"|"columns"|"arrow"|"ndjson";index?:string;limit?:number;page_to_disk?:boolean}?) -> Promise<Table>` `Client.open_table(string) -> Promise<Table>` `Client.join(Table|string,Table|string,string,{join_type?:"inner"|"left"|"outer";name?:string;right_on?:string}?) -> Promise<Table>` `Client.get_hosted_table_names() -> Promise<string[]>` `Client.on_hosted_tables_update(unknown) -> Promise<number>` `Client.system_info() -> Promise<SystemInfo>` `Client.new_proxy_session(unknown) -> ProxySession` `Client.on_error(unknown) -> Promise<number>` `Client.terminate() -> void`
+[TABLE]: `Table.view(ViewConfigUpdate?) -> Promise<View>` `Table.update(TableData,{port_id?:number;format?:string}?) -> Promise<void>` `Table.remove(unknown,unknown?) -> Promise<void>` `Table.replace(unknown,unknown?) -> Promise<void>` `Table.clear() -> Promise<void>` `Table.schema() -> Promise<Schema>` `Table.columns() -> Promise<string[]>` `Table.size() -> Promise<number>` `Table.validate_expressions(Record<string,string>) -> Promise<unknown>` `Table.make_port() -> Promise<number>` `Table.get_index() -> Promise<string|null>` `Table.get_limit() -> Promise<number|null>` `Table.get_name() -> string` `Table.get_client() -> Client` `Table.delete({lazy?:boolean}?) -> Promise<void>` `Table.on_delete(unknown) -> Promise<number>`
 
 - `index` makes updates UPSERTS on the key column; `limit` caps rows ring-buffer style — the two table modes every streaming feed chooses between.
 - `page_to_disk` backs the table's canonical data with on-disk storage — a memory-mapped file on native, OPFS on a WASM Worker — for feeds past the memory ceiling; in-memory is the default.
@@ -59,17 +36,7 @@ interface Table {
 
 Aggregate roster (numeric): `sum` `abs sum` `sum not null` `avg` `mean` `count` `distinct count` `dominant` `first` `last` `last by index` `high` `low` `max` `min` `high minus low` `last minus first` `median` `q1` `q3` `pct sum parent` `pct sum total` `stddev` `var` `unique` `weighted mean` `min by` `max by`; string adds `join`, date/datetime and boolean carry the applicable subset.
 
-```ts signature
-interface View {
-  to_arrow(window?: ViewWindow): Promise<ArrayBuffer>                    // the columnar egress — feeds apache-arrow tableFromIPC zero-copy
-  to_columns(window?): Promise<Record<string, unknown[]>>; to_json(window?): Promise<Record<string, unknown>[]>; to_csv(window?): Promise<string>; to_ndjson(window?): Promise<string>
-  on_update(cb: (updated: { port_id: number; delta?: ArrayBuffer }) => void, options?: { mode?: "row" }): Promise<number>  // mode:"row" ⇒ delta IS an Arrow buffer of changed rows
-  schema(): Promise<Schema>; expression_schema(): Promise<Schema>
-  dimensions(): Promise<{ num_table_rows: number; num_table_columns: number; num_view_rows: number; num_view_columns: number }>
-  get_min_max(name: string): Promise<[unknown, unknown]>; collapse(row: number): Promise<number>; expand(row: number): Promise<number>; set_depth(depth: number): Promise<void>
-  on_delete(cb): Promise<number>; delete(): Promise<void>
-}
-```
+[VIEW]: `View.to_arrow(ViewWindow?) -> Promise<ArrayBuffer>` `View.to_columns(unknown?) -> Promise<Record<string,unknown[]>>` `View.to_json(unknown?) -> Promise<Record<string,unknown>[]>` `View.to_csv(unknown?) -> Promise<string>` `View.to_ndjson(unknown?) -> Promise<string>` `View.on_update((updated:{port_id:number;delta?:ArrayBuffer})=>void,{mode?:"row"}?) -> Promise<number>` `View.schema() -> Promise<Schema>` `View.expression_schema() -> Promise<Schema>` `View.dimensions() -> Promise<{num_table_rows:number;num_table_columns:number;num_view_rows:number;num_view_columns:number}>` `View.get_min_max(string) -> Promise<[unknown,unknown]>` `View.collapse(number) -> Promise<number>` `View.expand(number) -> Promise<number>` `View.set_depth(number) -> Promise<void>` `View.on_delete(unknown) -> Promise<number>` `View.delete() -> Promise<void>`
 
 ## [03]-[HOST_TOPOLOGY]
 

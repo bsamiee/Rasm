@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `three-mesh-bvh`
-- package: `three-mesh-bvh`
-- license: `MIT`
+- package: `three-mesh-bvh` (MIT)
 - abi: pure-JS over `three`'s WebGL2/WebGPU scene graph; the BVH is a typed-array node buffer (`Float32Array` bounds + `Int32Array`/`Uint32Array` index) transferable across worker boundaries and shareable through `SharedArrayBuffer`
 - peer: `three` (`~catalog`, the `BufferGeometry`/`Raycaster`/`Mesh`/`Box3`/`Triangle`/`Object3D` surface every BVH indexes and every query returns `Intersection` against, `.api/three.md`)
 - export roots: `.` (core BVH family, extension functions, shader + math utilities), `./worker` (`GenerateMeshBVHWorker`/`ParallelMeshBVHWorker` off-thread builders), `./webgpu` (`BVHComputeData` node-shader compute descriptor)

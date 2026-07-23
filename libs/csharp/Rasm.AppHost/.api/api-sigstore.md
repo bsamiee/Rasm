@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Sigstore`
-- package: `Sigstore` (`MIT`)
+- package: `Sigstore` (MIT)
 - assembly: `Sigstore`
 - namespace: `Sigstore`
 - asset: net10.0 single-TFM runtime library binding `lib/net10.0`

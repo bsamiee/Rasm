@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pvlib`
-- package: `pvlib` (`BSD-3-Clause`, NREL)
+- package: `pvlib` (BSD-3-Clause)
 - module: `pvlib`
 - namespaces: `pvlib.solarposition`, `pvlib.location`
 - asset: pure-Python wheel, no native extension; `numpy`/`pandas` are the numeric substrate and `scipy` an optional accelerator for the vectorized SPA path

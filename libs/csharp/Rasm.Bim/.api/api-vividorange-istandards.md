@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `VividOrange.IStandards`
-- package: `VividOrange.IStandards` (contract), `VividOrange.Standards` (concrete realization + internal title kernel); MIT, Vivid Orange
+- packages: `VividOrange.IStandards` + `VividOrange.Standards` (MIT)
 - assembly: `VividOrange.IStandards`, `VividOrange.Standards`
 - namespace: `VividOrange.Standards` (`IStandard`, `StandardBody`), `VividOrange.Standards.Eurocode` (`NationalAnnex`, `En1990Part`…`En1999Part`, `MissingNationalAnnexException`, concrete `En1990`…`En1999`)
 - asset: multi-target `net48`/`net6.0`/`net7.0`/`net8.0`/`netstandard2.0`; the `net10.0` consumer binds `lib/net8.0`

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `System.Configuration.ConfigurationManager`
-- package: `System.Configuration.ConfigurationManager` (MIT, Microsoft)
+- package: `System.Configuration.ConfigurationManager` (MIT)
 - assembly: `System.Configuration.ConfigurationManager.dll`
 - namespace: `System.Configuration`, `System.Configuration.Provider`, `System.Configuration.Internal`
 - rail: XML configuration document codec behind every `app.config` and `web.config` read or write

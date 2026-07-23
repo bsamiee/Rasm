@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pyvista`
-- package: `pyvista` (MIT, over `vtk` BSD-3-Clause)
+- package: `pyvista` (MIT)
 - module: `pyvista` (import as `pv`)
 - rail: scene
 - depends: `trame` gates `Plotter.export_html`; the offscreen render, screenshot, and glTF/VRML/OBJ paths need none

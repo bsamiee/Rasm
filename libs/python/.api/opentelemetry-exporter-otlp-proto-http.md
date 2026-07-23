@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `opentelemetry-exporter-otlp-proto-http`
-- package: `opentelemetry-exporter-otlp-proto-http` (`Apache-2.0`, OpenTelemetry Authors)
+- package: `opentelemetry-exporter-otlp-proto-http` (Apache-2.0)
 - module: `opentelemetry.exporter.otlp.proto.http`
 - namespaces: `opentelemetry.exporter.otlp.proto.http` (`Compression`), `...http.trace_exporter`, `...http.metric_exporter`, `...http._log_exporter`
 - rail: observability

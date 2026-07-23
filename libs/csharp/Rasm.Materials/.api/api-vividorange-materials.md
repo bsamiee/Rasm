@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `VividOrange.Materials`
-- package: `VividOrange.Materials` (MIT, MagmaWorks / VividOrange taxonomy)
+- package: `VividOrange.Materials` (MIT)
 - assembly: `VividOrange.Materials`
 - namespace: `VividOrange.Materials` (constitutive materials + `AnalysisMaterialFactory`), `VividOrange.Materials.StandardMaterials.En` (grade records, factories, `EnSteelSpecification`)
 - asset: pure-managed AnyCPU runtime library, no native RID; the consumer binds the `net8.0` managed asset

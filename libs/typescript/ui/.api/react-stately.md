@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `react-stately`
-- package: `react-stately` (umbrella re-export of the `@react-stately/*` scope)
-- license: `Apache-2.0` (© Adobe)
+- package: `react-stately` (Apache-2.0)
 - module format: ESM/CJS dual (`import`/`require` conditions) with a per-hook `./*` subpath mirroring each `@react-stately/*` module; `sideEffects` clean, so the barrel tree-shakes to the used hooks
 - runtime target: isomorphic (renderer-agnostic state — no DOM); pairs with react-aria for behavior and a renderer for DOM; peer `react`/`react-dom` `^19`
 - asset: TypeScript library shipping `.d.ts`; the `<P>State`/`<P>Props`/`<P>StateOptions` type families are the load-bearing contract the behavior hooks type against, so `tsc`/`tsgo` is the gate

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Logging.Abstractions`
-- package: `Microsoft.Extensions.Logging.Abstractions` (MIT, Microsoft)
+- package: `Microsoft.Extensions.Logging.Abstractions` (MIT)
 - assembly: `Microsoft.Extensions.Logging.Abstractions.dll`
 - asset: runtime library; `Microsoft.Extensions.Logging.Generators.dll` is the shipped `[LoggerMessage]` Roslyn generator
 - namespace: `Microsoft.Extensions.Logging`, `Microsoft.Extensions.Logging.Abstractions`

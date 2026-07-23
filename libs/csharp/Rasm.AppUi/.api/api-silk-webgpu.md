@@ -6,8 +6,7 @@
 
 [PACKAGE_SURFACE]: `Silk.NET.WebGPU`
 - package: `Silk.NET.WebGPU`
-- package: `Silk.NET.WebGPU.Native.WGPU` (native `wgpu_native` runtime, RID-fanned)
-- license: MIT (expression)
+- package: `Silk.NET.WebGPU.Native.WGPU` (native `wgpu_native` runtime, RID-fanned) (MIT)
 - assembly: `Silk.NET.WebGPU`
 - namespace: `Silk.NET.WebGPU` (function-table root, descriptors, enums, callback delegates, platform-source structs)
 - namespace: `Silk.NET.WebGPU.Platforms.MacOS` (`NSWindow`/`ObjectiveCRuntime` Metal-layer plumbing for `SurfaceDescriptorFromMetalLayer`)

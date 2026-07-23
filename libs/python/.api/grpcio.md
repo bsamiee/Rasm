@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `grpcio`
-- package: `grpcio` (`Apache-2.0`, gRPC Authors)
+- package: `grpcio` (Apache-2.0)
 - module: `grpc`
 - namespaces: `grpc`, `grpc.aio`
 - asset: C-extension runtime over the C-core (`_cython/cygrpc`), not pure-Python

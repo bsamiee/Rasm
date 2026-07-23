@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `odc-stac`
-- package: `odc-stac`
-- license: Apache-2.0
+- package: `odc-stac` (Apache-2.0)
 - import: `odc.stac`
 - owner: `data`
 - rail: catalog-coverage

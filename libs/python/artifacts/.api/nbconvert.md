@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `nbconvert`
-- package: `nbconvert`
+- package: `nbconvert` (BSD-3-Clause)
 - import: `nbconvert`
 - owner: `artifacts`
 - rail: report
-- license: BSD-3-Clause
 - deps: `jinja2` drives the template and filter map; the `[webpdf]` extra pulls `playwright` (headless Chromium) and `[qtpdf]`/`[qtpng]` pull `pyqtwebengine`, gating those exporters
 - capability: resolve an export target by name or dotted import path, instantiate the `Exporter`, and convert a `NotebookNode`/file/stream to a registered document target paired with a resources dict, driving the Jinja template, preprocessor chain, filter map, and LaTeX/Chromium/Qt assembly in-process; behavior shapes through traitlets `config=`/`**kw`, persistence through the `writers` family
 

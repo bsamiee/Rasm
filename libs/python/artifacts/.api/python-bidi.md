@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `python-bidi`
-- package: `python-bidi`
+- package: `python-bidi` (LGPL-3.0-or-later)
 - import: `bidi`; public `get_display`/`get_base_level` re-export from `bidi.wrapper` onto the native `bidi.bidi` PyO3 extension (`get_display_inner`/`get_base_level_inner`)
 - owner: `artifacts`
 - rail: text-shaping
-- license: `LGPL-3.0-or-later` (OSI) — a PyO3 binding over the Rust `unicode-bidi` crate; the obligation is dynamic-link runtime use, never algorithm source vendoring
 - build-floor: native cp315 wheel — the in-process bidi path; `pyicu`'s `Bidi` arm rides the subprocess seam beside it
 - depends-on: none; the `unicode-bidi` Rust core owns UAX#9 resolution, so no Python-side runtime dependency
 - entry points: console script `pybidi` (stdin/argv reorder; `-r`/`--rust` selects the native path, default is the pure-Python `bidi.algorithm`); library use is import-only

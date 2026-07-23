@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `GISBlox.IO.GeoParquet`
-- package: `GISBlox.IO.GeoParquet` (MIT, GISBlox)
+- package: `GISBlox.IO.GeoParquet` (MIT)
 - assembly: `GISBlox.IO.GeoParquet` — pure-managed AnyCPU IL, sole `lib/net10.0` TFM
 - namespace: `GISBlox.IO.GeoParquet` (`GeoParquetReader`/`GeoParquetWriter`), `.Common` (the `geo` metadata model, `GeometryFormat`/`Edges`), `.Extensions` (the `DataTable`/`DataColumn` geo-schema surface)
 - depends: `NetTopologySuite`, `ParquetSharp`

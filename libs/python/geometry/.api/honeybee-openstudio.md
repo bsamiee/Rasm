@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `honeybee-openstudio`
-- package: `honeybee-openstudio` (AGPL-3.0, Ladybug Tools); the bound native `openstudio` SDK is BSD-3-Clause
+- package: `honeybee-openstudio` (AGPL-3.0)
 - import: `from honeybee_openstudio.writer import model_to_openstudio, model_to_osm, model_to_idf`, `from honeybee_openstudio.reader import model_from_osm_file, model_from_idf_file`, `from honeybee_openstudio.openstudio import OSModel` (the SDK re-export)
 - module: `honeybee_openstudio`
 - owner: `geometry`
@@ -93,8 +93,6 @@
 - `honeybee-energy`(`.api/honeybee-energy.md`): the in-process complement to `honeybee_energy.run.run_osw` — the energy-modeling owner picks `model_to_openstudio` when the native SDK is importable and falls back to the `honeybee_energy.run` external-CLI rail when only the CLI is installed; the two are the in-process/subprocess pair of one translation concept.
 - `dragonfly-energy`(`.api/dragonfly-energy.md`): `dragonfly_energy.run.base_honeybee_osw`/`run_urbanopt` route each district feature through the OSW->OpenStudio bridge this package owns, admitting it as a separate runtime companion rather than a pip extra.
 - substrate (`libs/python/.api/`): the CPU-bound `model_to_openstudio` offloads through `anyio.to_thread.run_sync` under an `opentelemetry` span — off-loop CPU work, never a subprocess retry.
-
-## [05]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `honeybee-openstudio`

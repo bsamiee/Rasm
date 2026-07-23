@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `loky`
-- package: `loky`
-- license: BSD-3-Clause
+- package: `loky` (BSD-3-Clause)
 - import: `loky`
 - owner: `runtime`
 - rail: worker fabric

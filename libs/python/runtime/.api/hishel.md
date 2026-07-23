@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `hishel`
-- package: `hishel[httpx]` (`BSD-3-Clause`)
+- package: `hishel[httpx]` (BSD-3-Clause)
 - module: `hishel`, `hishel.httpx`
 - rail: transport
 - namespaces: `hishel`, `hishel.httpx`

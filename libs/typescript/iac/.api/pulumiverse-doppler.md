@@ -5,9 +5,8 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pulumiverse/doppler`
-- package: `@pulumiverse/doppler`
+- package: `@pulumiverse/doppler` (Apache-2.0)
 - module: `@pulumiverse/doppler` (root), `@pulumiverse/doppler/{secretssync,integration,projectmember}` (namespaces)
-- license: `Apache-2.0`
 - asset: Doppler project/config/secret provisioning, service tokens, RBAC, webhooks, external sync destinations
 - runtime: `node` — Terraform-bridge provider plugin auto-downloads on first registration; bootstrap token via `Provider({ dopplerToken })` or the `DOPPLER_TOKEN` env
 - rail: secret
@@ -103,20 +102,8 @@ Doppler is the SOURCE each sibling provider catalog binds its auth field to; ONE
 
 The `KEY` is a row on the config the store already owns; a new consuming provider is a row here, never a new read path. `getSecretsOutput` returns `Output<GetSecretsResult>` whose `.map` is `{[k]: string}` — the single-key pluck is the sole difference from the row [04] whole-config `Schema` decode.
 
-```ts signature
-// iac/secret/doppler.ts — generate → store canonically → scope a token → hand ONE key to a sibling Provider
-const cfg = new doppler.BranchConfig("prd", { project: proj.name, environment: env.slug }, { parent })
-new doppler.Secret("db-password", {
-  project: proj.name, config: cfg.name, name: "DB_PASSWORD",
-  value: pulumi.secret(dbPassword.result),              // ← random/tls material, single source of truth
-}, { parent })
-const token = new doppler.ServiceToken("prd-app", {
-  project: proj.name, config: cfg.name, name: "app", access: "read",
-}, { parent })
-// token.key → DOPPLER_TOKEN env for `doppler run`; meets security/secret at the boundary
-const grafanaAuth = doppler.getSecretsOutput({ project: proj.name, config: cfg.name })
-  .apply(r => r.map["GRAFANA_TOKEN"])                    // Output<string> → grafana.Provider.auth (Input<string>)
-```
+[SURFACES]: `cfg = new doppler.BranchConfig("prd",{project:proj.name,environment:env.slug},{parent})` `token = new doppler.ServiceToken("prd-app",{project:proj.name,config:cfg.name,name:"app",access:"read",},{parent})` `grafanaAuth = doppler.getSecretsOutput({project:proj.name,config:cfg.name}).apply(r=>r.map["GRAFANA_TOKEN"])`
+[COMPOSITION]: `RandomPassword.result -> doppler.Secret.value`
 
 ## [05]-[IMPLEMENTATION_LAW]
 

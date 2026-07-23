@@ -7,7 +7,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `segno`
-- package: `segno` (`BSD`)
+- package: `segno` (BSD)
 - import: `segno` (payload grammar `segno.helpers`, policy vocabulary `segno.consts`)
 - owner: `artifacts`
 - rail: imaging — the `graphic/marks/encode#MARK` `qr` `EncodeArm` arm (`Symbology.QR`/`MICRO_QR`/`QR_SEQUENCE`)

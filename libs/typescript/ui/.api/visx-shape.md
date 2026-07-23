@@ -1,7 +1,7 @@
 # [TS_UI_API_VISX_SHAPE]
 
 [PACKAGE_SURFACE]:
-- package: `@visx/shape` · license `MIT`
+- package: `@visx/shape` (MIT)
 - module: dual ESM/CJS via conditional `exports`; peers `react` + `@types/react` 18||19 (React 19 native at catalog-bound, `prop-types` dropped).
 - asset: deps `@visx/curve` `@visx/group` `@visx/scale` `@visx/vendor` (the pinned d3 bundle) + `classnames`; curves are consumed INTERNALLY — no `curve*` member re-exports from this entry.
 - plane: `plane:runtime` (W4 `ui`); rail: the visx chart spine — geometry components under `.api/visx-axis.md` / over `.api/visx-scale.md`.
@@ -33,14 +33,7 @@ Per-family behaviour notes carry to the keyed list below; every component emits 
 - [07]-[STACK_POLICY]: offset/order vocabularies as named lookup tables — `offset="wiggle"` is a data row, never a hand-computed baseline.
 - [09]-[GENERATORS]: the headless generator escape when no element must render.
 
-```ts signature
-// Accessor-driven: scales close over the accessors, the component emits one styleable SVG element.
-<LinePath<Point> data={series} x={(d) => x(d.t)} y={(d) => y(d.v)} curve={curveMonotoneX} className={cn("stroke-accent", lineClass)} />
-<AreaClosed<Point> data={series} x={(d) => x(d.t)} y={(d) => y(d.v)} yScale={y} curve={curveMonotoneX} fill="url(#ramp)" />
-<BarStack data={rows} keys={keys} x={getKey} xScale={x} yScale={y} color={colorFor}>
-  {(stacks) => stacks.map((s) => s.bars.map((b) => <rect key={b.key + b.index} x={b.x} y={b.y} width={b.width} height={b.height} fill={b.color} />))}
-</BarStack>
-```
+[COMPOSITION]: `LinePath(data,x)` `AreaClosed(data,x)` `BarStack(data,keys,x,xScale,yScale,color)`
 
 Curve law: the `curve` prop takes a d3 `CurveFactory` VALUE — `@visx/curve` is an internal dep with no re-export here, so curve values import from the admitted d3 substrate (`.api/d3.md` `curveMonotoneX`/`curveNatural`/…), structurally identical to the vendored factories.
 

@@ -1,6 +1,6 @@
 # [TS_RUNTIME_API_EFFECT_AI_OPENROUTER]
 
-`@effect/ai-openrouter` catalog · MIT · dual CJS+ESM, `sideEffects:[]`, per-module `exports` subpaths (`@effect/ai-openrouter/OpenRouterClient`) · marker TSDECL `node_modules/@effect/ai-openrouter/dist/dts/*.d.ts` · peers `@effect/ai`, `@effect/platform`, `@effect/experimental`, `effect` through catalog ownership · tier node|browser (`FetchHttpClient.layer`)
+`@effect/ai-openrouter` (MIT) · dual CJS+ESM, `sideEffects:[]`, per-module `exports` subpaths (`@effect/ai-openrouter/OpenRouterClient`) · marker TSDECL `node_modules/@effect/ai-openrouter/dist/dts/*.d.ts` · peers `@effect/ai`, `@effect/platform`, `@effect/experimental`, `effect` through catalog ownership · tier node|browser (`FetchHttpClient.layer`)
 
 `@effect/ai-openrouter` binds the OpenRouter aggregation API onto `@effect/ai`, resolving the provider-agnostic `LanguageModel` tag against OpenRouter's chat-completions surface. Its asymmetry is aggregation: one endpoint fronts every upstream provider, so the row carries provider-routing preferences (`ProviderPreferences` sorting by price/throughput/latency), reasoning-effort control, prompt-caching breakpoints (`cacheControl`), and per-response cost plus resolved-upstream transparency in the finish-part metadata — the exact columns tier-routing reads. It ships no embedding, tokenizer, telemetry, or provider-defined-tool module (tools ride the upstream provider), so `ai/embed.ts` never binds an OpenRouter `EmbeddingModel`. Four owner modules re-export through the barrel (`OpenRouterClient`, `OpenRouterConfig`, `OpenRouterLanguageModel`, `Generated`); the OpenAPI wire corpus (`Generated`) is a category with named anchors. Success/failure flows through the core `AiError.AiError`; all I/O is `Effect`/`Stream`.
 
@@ -24,58 +24,25 @@
 
 `OpenRouterClient` is a `Context.TagClass` (id `@effect/ai-openrouter/OpenRouterClient`) wrapping the generated `Client` plus curated chat-completion entrypoints. `createChatCompletion`/`createChatCompletionStream` target the `ChatGenerationParams` request; distinct from the siblings, no `streamRequest` escape hatch exists — the streaming rail re-emits `ChatStreamingResponseChunk` per chunk, and `referrer`/`title` set the `openrouter.ai` app-attribution ranking headers.
 
-```ts signature
-export interface Service {
-  readonly client: Generated.Client
-  readonly createChatCompletion:       (options: typeof Generated.ChatGenerationParams.Encoded) => Effect.Effect<Generated.ChatResponse, AiError.AiError>
-  readonly createChatCompletionStream: (options: Omit<typeof Generated.ChatGenerationParams.Encoded, "stream">) => Stream.Stream<ChatStreamingResponseChunk, AiError.AiError>
-}
-```
+[SERVICE]: `Service.client: Generated.Client` `Service.createChatCompletion: (options:typeof Generated.ChatGenerationParams.Encoded)=>Effect.Effect<Generated.ChatResponse,AiError.AiError>` `Service.createChatCompletionStream: (options:Omit<typeof Generated.ChatGenerationParams.Encoded,"stream">)=>Stream.Stream<ChatStreamingResponseChunk,AiError.AiError>`
 
 ONE constructor pattern, three arities. Distinct from the siblings, `make` returns a non-scoped `Effect` requiring `HttpClient` alone — no `Scope`. `layer`/`layerConfig` install the tag; `layerConfig` wraps each option in `Config.Config` and adds `ConfigError`. `referrer`/`title` ride every arity as the `openrouter.ai` ranking headers.
 
-```ts signature
-declare const make: (options: {
-  readonly apiKey?: Redacted.Redacted | undefined
-  readonly apiUrl?: string | undefined
-  readonly referrer?: string | undefined     // openrouter.ai app-attribution ranking header
-  readonly title?: string | undefined
-  readonly transformClient?: ((client: HttpClient.HttpClient) => HttpClient.HttpClient) | undefined
-}) => Effect.Effect<Service, never, HttpClient.HttpClient>            // no Scope, unlike the sibling make
-declare const layer:       (options: { apiKey?; apiUrl?; referrer?; title?; transformClient? }) => Layer.Layer<OpenRouterClient, never, HttpClient.HttpClient>
-declare const layerConfig: (options: { each field Config.Config<…> })                          => Layer.Layer<OpenRouterClient, ConfigError, HttpClient.HttpClient>
-```
+[SURFACES]: `make` `layer` `layerConfig`
 
 `ChatStreamingResponseChunk` is the ONE streaming-fold surface — re-emitted per chunk, no tagged event union (unlike OpenAI/Anthropic). Consumers fold `chunk.choices[].delta` deltas; the aggregation transparency rides the chunk: `provider` names the resolved upstream, `usage` carries `ChatGenerationTokenUsage` (cost included), `system_fingerprint` and each choice's `native_finish_reason` disambiguate the true upstream, and `model` is the `${provider}/${model}` id.
 
-```ts signature
-class ChatStreamingResponseChunk {   // .id, .created (DateTimeUtc), .error?
-  readonly model?: `${string}/${string}`
-  readonly provider?: string
-  readonly system_fingerprint?: string
-  readonly usage?: Generated.ChatGenerationTokenUsage
-  readonly choices: ReadonlyArray<ChatStreamingChoice>   // .index, .delta?, .finish_reason?, .native_finish_reason?, .logprobs?
-}
-// ChatStreamingChoice.delta = ChatStreamingMessageChunk: role? content? reasoning? reasoning_details?(ReasoningDetail union) images? refusal? tool_calls? annotations?
-```
+[CHAT_STREAMING_RESPONSE_CHUNK]: ``ChatStreamingResponseChunk.model: `${string}/${string}``` `ChatStreamingResponseChunk.provider: string` `ChatStreamingResponseChunk.system_fingerprint: string` `ChatStreamingResponseChunk.usage: Generated.ChatGenerationTokenUsage` `ChatStreamingResponseChunk.choices: ReadonlyArray<ChatStreamingChoice>`
 
 ## [03]-[LANGUAGE_MODEL]
 
 `OpenRouterLanguageModel` binds chat completions onto the core `LanguageModel`/`Model` contracts. Model argument is a bare `string` — OpenRouter ships no model-id enum, and every id is a free-form `${provider}/${model}` slug. ONE model/layer family: `model`/`make`/`layer` plus `withConfigOverride` (the dual per-effect Config scope); no tokenizer fold, no provider-tool constructors.
 
-```ts signature
-declare const model: (model: string, config?: Omit<Config.Service, "model">) => AiModel.Model<"openrouter", LanguageModel.LanguageModel, OpenRouterClient>
-declare const make:  (options: { model: string; config?: Omit<Config.Service, "model"> }) => Effect.Effect<LanguageModel.Service, never, OpenRouterClient>
-declare const layer: (options: { model: string; config? }) => Layer.Layer<LanguageModel.LanguageModel, never, OpenRouterClient>
-declare const withConfigOverride: { (o: Config.Service): <A,E,R>(self) => …; <A,E,R>(self, o): … }
-```
+[SURFACES]: `model` `make` `layer` `withConfigOverride`
 
 `Config` (tag `@effect/ai-openrouter/OpenRouterLanguageModel/Config`, `static getOrUndefined`) is the `ChatGenerationParams` minus SDK-owned keys (`messages`/`response_format`/`tools`/`tool_choice`/`stream`) made partial — the tier-routing seam `ai/model.ts` writes per call. Its aggregation knobs (`provider`, `reasoning`, `route`, `models`) are the routing policy as data.
 
-```ts signature
-namespace Config { interface Service extends Simplify<Partial<Omit<typeof Generated.ChatGenerationParams.Encoded, "messages"|"response_format"|"tools"|"tool_choice"|"stream">>> {} }
-// carries provider (ProviderPreferences), reasoning (ChatGenerationParamsReasoningEffortEnum), route (ChatGenerationParamsRouteEnum), models[], temperature, top_p, seed, stop, max_tokens, frequency_penalty, …
-```
+[SURFACE]: `namespace Config{interface Service extends Simplify<Partial<Omit<typeof Generated.ChatGenerationParams.Encoded,"messages"|"response_format"|"tools"|"tool_choice"|"stream">>>{}}`
 
 `declare module` augmentations attach an optional `openrouter` key — ONE boundary-hook pattern. Prompt caching is the dominant one: every message/part options interface gains `cacheControl?: CacheControlEphemeral.Encoded`; the finish metadata carries per-response cost and the resolved upstream.
 
@@ -88,21 +55,13 @@ namespace Config { interface Service extends Simplify<Partial<Omit<typeof Genera
 |  [05]   | `Response` | `UrlSourcePartMetadata`                     | `{ content? }`               |
 |  [06]   | `Response` | `FinishPartMetadata`                        | `{ provider?; usage? }`      |
 
-```ts signature
-// FinishPartMetadata.openrouter.usage: { cost?; costDetails?; promptTokensDetails?; completionTokensDetails? } — the cost/latency tier-routing signal
-export type OpenRouterReasoningInfo =
-  | { readonly type: "reasoning";           readonly signature: string | undefined }
-  | { readonly type: "encrypted_reasoning"; readonly format: typeof Generated.ReasoningDetailSummary.Type["format"]; readonly redactedData: string }
-```
+[OPEN_ROUTER_REASONING_INFO]: `OpenRouterReasoningInfo = |{readonly type:"reasoning";readonly signature:string|…`
 
 ## [04]-[CONFIG]
 
 `OpenRouterConfig` (`Context.TagClass`, id `@effect/ai-openrouter/OpenRouterConfig`, `static getOrUndefined`) is the request-scoped client transform — a per-request `HttpClient` mutation without rebuilding transport, dual data-first/data-last. Distinct from the layer-construction `transformClient`.
 
-```ts signature
-namespace OpenRouterConfig { interface Service { readonly transformClient?: (client: HttpClient) => HttpClient } }
-declare const withClientTransform: { (t: (c: HttpClient) => HttpClient): <A,E,R>(self) => …; <A,E,R>(self, t): … }
-```
+[SURFACES]: `OpenRouterConfig` `Service` `withClientTransform`
 
 ## [05]-[GENERATED]
 

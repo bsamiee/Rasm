@@ -5,14 +5,14 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `NetTopologySuite`
-- package: `NetTopologySuite` (BSD-3-Clause, NetTopologySuite Team)
+- package: `NetTopologySuite` (BSD-3-Clause)
 - assembly: `NetTopologySuite`
 - namespace: `NetTopologySuite`, `.Geometries`, `.Geometries.Prepared`, `.Geometries.Implementation`, `.Geometries.Utilities`, `.Algorithm`, `.Algorithm.Hull`, `.Operation.OverlayNG`, `.Operation.Union`, `.Operation.Buffer`, `.Operation.Distance`, `.Operation.Valid`, `.Operation.Polygonize`, `.Operation.Linemerge`, `.Triangulate`, `.LinearReferencing`, `.Coverage`, `.Dissolve`, `.Precision`, `.Simplify`, `.Densify`, `.Index`, `.Index.Strtree`, `.Index.Quadtree`, `.Index.HPRtree`, `.IO`
 - asset: IL-only AnyCPU managed JTS port; no P/Invoke and no native GEOS binding
 - rail: geometry
 
 [PACKAGE_SURFACE]: `NetTopologySuite.Features`
-- package: `NetTopologySuite.Features` (BSD-3-Clause, NetTopologySuite Team)
+- package: `NetTopologySuite.Features` (BSD-3-Clause)
 - assembly: `NetTopologySuite.Features`
 - namespace: `NetTopologySuite.Features`
 - asset: IL-only AnyCPU managed assembly over the core geometry algebra

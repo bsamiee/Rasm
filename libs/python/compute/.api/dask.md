@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `dask`
-- package: `dask` (BSD-3-Clause, Dask core developers)
+- package: `dask` (BSD-3-Clause)
 - module: `dask.array` (`da`), `dask.dataframe` (`dd`), `dask.bag` (`db`)
 - namespaces: `dask`, `dask.delayed`, `dask.base`, `dask.order`, `dask.config`, `dask.distributed`
 - owner: `data` (lazy chunked orchestration), `compute` (`numerics/array` Array-API backend, passive)

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `simpleidml`
-- package: `simpleidml` (`BSD-3-Clause`)
+- package: `simpleidml` (BSD-3-Clause)
 - module: `simple_idml`
 - owner: `artifacts`
 - rail: `export/indesign`

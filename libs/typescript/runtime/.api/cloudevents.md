@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `cloudevents`
-- package: `cloudevents`
-- license: `Apache-2.0`
+- package: `cloudevents` (Apache-2.0)
 - runtime: envelope construction is isomorphic; `Message.Headers` extends Node `IncomingHttpHeaders`
 - modules: one package barrel exports `CloudEvent`, `ValidationError`, `HTTP`, `Binding`, `Message`, `Headers`, `Serializer`, and `Deserializer`
 
@@ -32,37 +31,13 @@
 - rail: runtime/work webhook egress
 - `HTTP` is declared as `Binding`; its four members therefore inherit the generic `Serializer`, `Deserializer`, and `Detector` declarations exactly.
 
-```typescript signature
-interface Headers extends IncomingHttpHeaders {
-  [key: string]: string | string[] | undefined
-}
-
-interface Message<T = string> {
-  headers: Headers
-  body: T | string | Buffer | unknown
-}
-
-interface Serializer<M extends Message> {
-  <T>(event: CloudEventV1<T>): M
-}
-
-interface Deserializer {
-  <T>(message: Message): CloudEventV1<T> | CloudEventV1<T>[]
-}
-
-interface Detector {
-  (message: Message): boolean
-}
-
-interface Binding<B extends Message = Message, S extends Message = Message> {
-  binary: Serializer<B>
-  structured: Serializer<S>
-  toEvent: Deserializer
-  isEvent: Detector
-}
-
-declare const HTTP: Binding
-```
+[HEADERS]: `Headers[string]: string|string[]|undefined`
+[MESSAGE]: `Message.headers: Headers` `Message.body: T|string|Buffer|unknown`
+[SERIALIZER]: `Serializer.call(CloudEventV1<T>) -> M`
+[DESERIALIZER]: `Deserializer.call(Message) -> CloudEventV1<T>|CloudEventV1<T>[]`
+[DETECTOR]: `Detector.call(Message) -> boolean`
+[BINDING]: `Binding.binary: Serializer<B>` `Binding.structured: Serializer<S>` `Binding.toEvent: Deserializer` `Binding.isEvent: Detector`
+[SURFACES]: `HTTP: Binding`
 
 | [INDEX] | [SURFACE]                   | [DECLARED_RESULT]                      | [WIRE_ROLE]                                |
 | :-----: | :-------------------------- | :------------------------------------- | :----------------------------------------- |

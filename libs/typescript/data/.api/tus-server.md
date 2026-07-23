@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@tus/server`
-- package: `@tus/server`
-- license: `MIT`
+- package: `@tus/server` (MIT)
 - engine: `node >= catalog`; `handleWeb` runs on any fetch-shaped runtime (Bun, Workers)
 - backing: `srvx` (the cross-runtime `ServerRequest` shape), `@tus/utils` (re-exported whole — `Upload`, `DataStore`, `Locker`, `KvStore`, `EVENTS`, `CancellationContext`)
 - module format: ESM (`dist/index.js`, `dist/*.d.ts`); one root export

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `stream-zip`
-- package: `stream-zip` (`MIT`)
+- package: `stream-zip` (MIT)
 - import: `stream_zip`
 - owner: `artifacts`
 - rail: bundle

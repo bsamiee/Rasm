@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/sdk-metrics`
-- package: `@opentelemetry/sdk-metrics` · version `` · license `Apache-2.0`
+- package: `@opentelemetry/sdk-metrics` (Apache-2.0)
 - module: dual — CJS default (`build/src/index.js`, no `"type"` field) + ESM mirror (`build/esm/index.js`); flat barrel, no `exports` subpath map.
 - asset: TSDECL `build/src/index.d.ts` (restored).
 - peer: `@opentelemetry/api >=catalog <catalog` — the tightest API floor of the block (the metric API stabilized at 1.9); deps `@opentelemetry/core` (`ExportResult`), `@opentelemetry/resources` (`Resource`). No `sdk-metrics-web` split — the reader is runtime-neutral.
@@ -23,20 +23,8 @@
 |  [01]   | `MeterProvider`        | class     | `implements IMeterProvider`; `getMeter`/`shutdown`/`forceFlush` |
 |  [02]   | `MeterProviderOptions` | interface | `resource?`/`views?: ViewOptions[]`/`readers?: IMetricReader[]` |
 
-```ts signature
-interface MeterProviderOptions {
-  resource?: Resource                     // AppIdentity-derived; supplied by the effect Resource layer under the facade
-  views?: ViewOptions[]                   // instrument→aggregation reshaping (see [04])
-  readers?: IMetricReader[]               // the collection pipeline (see [03])
-  sdkMetricsEnabled?: boolean             // self-observability toggle
-}
-declare class MeterProvider implements IMeterProvider {
-  constructor(options?: MeterProviderOptions)
-  getMeter(name: string, version?: string, options?: MeterOptions): Meter
-  shutdown(options?: { timeoutMillis?: number }): Promise<void>
-  forceFlush(options?: { timeoutMillis?: number }): Promise<void>
-}
-```
+[METER_PROVIDER_OPTIONS]: `MeterProviderOptions.resource: Resource` `MeterProviderOptions.views: ViewOptions[]` `MeterProviderOptions.readers: IMetricReader[]` `MeterProviderOptions.sdkMetricsEnabled: boolean`
+[METER_PROVIDER]: `MeterProvider(MeterProviderOptions?)` `MeterProvider.getMeter(string,string?,MeterOptions?) -> Meter` `MeterProvider.shutdown({timeoutMillis?:number}?) -> Promise<void>` `MeterProvider.forceFlush({timeoutMillis?:number}?) -> Promise<void>`
 
 ## [03]-[READER_AND_EXPORTER]
 
@@ -47,7 +35,7 @@ declare class MeterProvider implements IMeterProvider {
 |  [01]   | `MetricReader` / `IMetricReader`          | abstract / interface | pull-collect + the three per-instrument-type selectors            |
 |  [02]   | `MetricReaderOptions`                     | interface            | the selectors + `metricProducers?` + `otelComponentType?`         |
 |  [03]   | `PeriodicExportingMetricReader`           | class                | interval pull → push; the production reader                       |
-|  [04]   | `PeriodicExportingMetricReaderOptions`    | type                 | the reader options record — every field in the fence below                          |
+|  [04]   | `PeriodicExportingMetricReaderOptions`    | type                 | the reader options record — every field in the fence below        |
 |  [05]   | `PushMetricExporter`                      | interface            | `export(ResourceMetrics, cb)` + temporality/aggregation selectors |
 |  [06]   | `ConsoleMetricExporter`                   | class                | stdout diagnostics; `constructor({ temporalitySelector? })`       |
 |  [07]   | `InMemoryMetricExporter`                  | class                | `getMetrics()`/`reset()`; `constructor(AggregationTemporality)`   |
@@ -57,29 +45,11 @@ declare class MeterProvider implements IMeterProvider {
 |  [11]   | `AggregationTemporality`                  | enum                 | `DELTA` / `CUMULATIVE`                                            |
 |  [12]   | `TimeoutError`                            | class                | thrown on collection/flush deadline; collection continues         |
 
-```ts signature
-type PeriodicExportingMetricReaderOptions = {
-  exporter: PushMetricExporter               // the transport the reader pushes to
-  exportIntervalMillis?: number              // default 60000
-  exportTimeoutMillis?: number               // default 30000
-  metricProducers?: MetricProducer[]
-  cardinalityLimits?: {                       // per-instrument-type attribute-set caps
-    counter?: number; gauge?: number; histogram?: number; upDownCounter?: number
-    observableCounter?: number; observableGauge?: number; observableUpDownCounter?: number; default?: number
-  }
-  maxExportBatchSize?: number                 // @experimental — split a collection larger than this into smaller export batches
-}
-declare class PeriodicExportingMetricReader extends MetricReader { constructor(options: PeriodicExportingMetricReaderOptions) }
-interface PushMetricExporter {
-  export(metrics: ResourceMetrics, resultCallback: (result: ExportResult) => void): void
-  forceFlush(): Promise<void>; shutdown(): Promise<void>
-  selectAggregationTemporality?(instrumentType: InstrumentType): AggregationTemporality   // exporter-preferred temporality (OTLP delta/cumulative)
-  selectAggregation?(instrumentType: InstrumentType): AggregationOption
-}
-// Reader-level policy is a pure per-instrument-type function, not a subclass:
-type AggregationTemporalitySelector = (instrumentType: InstrumentType) => AggregationTemporality
-declare const DEFAULT_AGGREGATION_TEMPORALITY_SELECTOR: AggregationTemporalitySelector
-```
+[PERIODIC_EXPORTING_METRIC_READER_OPTIONS]: `PeriodicExportingMetricReaderOptions.exporter: PushMetricExporter` `PeriodicExportingMetricReaderOptions.exportIntervalMillis: number` `PeriodicExportingMetricReaderOptions.exportTimeoutMillis: number` `PeriodicExportingMetricReaderOptions.metricProducers: MetricProducer[]` `PeriodicExportingMetricReaderOptions.cardinalityLimits: {…}` `PeriodicExportingMetricReaderOptions.maxExportBatchSize: number`
+[PERIODIC_EXPORTING_METRIC_READER]: `PeriodicExportingMetricReader(PeriodicExportingMetricReaderOptions)`
+[PUSH_METRIC_EXPORTER]: `PushMetricExporter.export(ResourceMetrics,(result:ExportResult)=>void) -> void` `PushMetricExporter.forceFlush() -> Promise<void>` `PushMetricExporter.shutdown() -> Promise<void>` `PushMetricExporter.selectAggregationTemporality(InstrumentType) -> AggregationTemporality` `PushMetricExporter.selectAggregation(InstrumentType) -> AggregationOption`
+[AGGREGATION_TEMPORALITY_SELECTOR]: `AggregationTemporalitySelector = (instrumentType:InstrumentType)=>AggregationTemporality`
+[SURFACES]: `DEFAULT_AGGREGATION_TEMPORALITY_SELECTOR: AggregationTemporalitySelector`
 
 ## [04]-[VIEW_AND_AGGREGATION]
 
@@ -94,22 +64,9 @@ A `View` reshapes matched instruments (rename, drop, re-aggregate, cap cardinali
 |  [05]   | `createAllowListAttributesProcessor` | fn           | allow attribute-key set — the parameterized constructor                       |
 |  [06]   | `createDenyListAttributesProcessor`  | fn           | deny attribute-key set — the parameterized constructor                        |
 
-```ts signature
-type ViewOptions = {
-  name?: string; description?: string
-  aggregation?: AggregationOption; aggregationCardinalityLimit?: number
-  attributesProcessors?: IAttributesProcessor[]
-  instrumentType?: InstrumentType; instrumentName?: string; instrumentUnit?: string   // the matchers (instrumentName supports wildcards)
-  meterName?: string; meterVersion?: string; meterSchemaUrl?: string
-}
-// AggregationOption — the discriminant is `type`; histogram variants carry an options bag:
-type AggregationOption =
-  | { type: AggregationType.DEFAULT } | { type: AggregationType.DROP }
-  | { type: AggregationType.SUM } | { type: AggregationType.LAST_VALUE }
-  | { type: AggregationType.EXPLICIT_BUCKET_HISTOGRAM; options?: { recordMinMax?: boolean; boundaries: number[] } }
-  | { type: AggregationType.EXPONENTIAL_HISTOGRAM; options?: { recordMinMax?: boolean; maxSize?: number } }
-interface IAttributesProcessor { process: (incoming: Attributes, context?: Context) => Attributes }
-```
+[VIEW_OPTIONS]: `ViewOptions.name: string` `ViewOptions.description: string` `ViewOptions.aggregation: AggregationOption` `ViewOptions.aggregationCardinalityLimit: number` `ViewOptions.attributesProcessors: IAttributesProcessor[]` `ViewOptions.instrumentType: InstrumentType` `ViewOptions.instrumentName: string` `ViewOptions.instrumentUnit: string` `ViewOptions.meterName: string` `ViewOptions.meterVersion: string` `ViewOptions.meterSchemaUrl: string`
+[AGGREGATION_OPTION]: `AggregationOption = |{type:AggregationType.DEFAULT}|…`
+[IATTRIBUTES_PROCESSOR]: `IAttributesProcessor.process: (incoming:Attributes,context?:Context)=>Attributes`
 
 ## [05]-[METRIC_DATA]
 
@@ -128,13 +85,11 @@ interface IAttributesProcessor { process: (incoming: Attributes, context?: Conte
 |  [09]   | `ScopeMetrics`                       | interface           | `{ scope, metrics: MetricData[] }`                             |
 |  [10]   | `CollectionResult`                   | interface           | `{ resourceMetrics, errors[] }`                                |
 
-```ts signature
-type MetricData = SumMetricData | GaugeMetricData | HistogramMetricData | ExponentialHistogramMetricData   // keyed on dataPointType
-interface DataPoint<T> { readonly startTime: HrTime; readonly endTime: HrTime; readonly attributes: Attributes; readonly value: T }
-interface Histogram { buckets: { boundaries: number[]; counts: number[] }; sum?: number; count: number; min?: number; max?: number }
-interface ResourceMetrics { resource: Resource; scopeMetrics: ScopeMetrics[] }       // ScopeMetrics { scope, metrics: MetricData[] }
-interface CollectionResult { resourceMetrics: ResourceMetrics; errors: unknown[] }   // partial collection surfaces errors, never throws
-```
+[METRIC_DATA]: `MetricData = SumMetricData|GaugeMetricData|HistogramMetricData|ExponentialHistogramMetricData`
+[DATA_POINT]: `DataPoint.startTime: HrTime` `DataPoint.endTime: HrTime` `DataPoint.attributes: Attributes` `DataPoint.value: T`
+[HISTOGRAM]: `Histogram.buckets: {boundaries:number[];counts:number[]}` `Histogram.sum: number` `Histogram.count: number` `Histogram.min: number` `Histogram.max: number`
+[RESOURCE_METRICS]: `ResourceMetrics.resource: Resource` `ResourceMetrics.scopeMetrics: ScopeMetrics[]`
+[COLLECTION_RESULT]: `CollectionResult.resourceMetrics: ResourceMetrics` `CollectionResult.errors: unknown[]`
 
 ## [06]-[STACKING]
 

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.ML.Tokenizers.Data.Cl100kBase`
-- package: `Microsoft.ML.Tokenizers.Data.Cl100kBase` (`MIT`, Microsoft)
+- package: `Microsoft.ML.Tokenizers.Data.Cl100kBase` (MIT)
 - assembly: `Microsoft.ML.Tokenizers.Data.Cl100kBase`
 - namespace: `Microsoft.ML.Tokenizers` (carries only `internal sealed class Cl100kBaseTokenizerData`)
 - asset: data-only runtime library (`netstandard2.0`; binds forward under `net10.0`)

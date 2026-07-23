@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/baggage-span-processor`
-- package: `@opentelemetry/baggage-span-processor`
-- license: `Apache-2.0`
+- package: `@opentelemetry/baggage-span-processor` (Apache-2.0)
 - composition: one processor class, a predicate type, and its permissive default; no bundled peer, no global patch
 - depends: `@opentelemetry/sdk-trace-base` for the `SpanProcessor` contract; peer `@opentelemetry/api` for `Baggage`/`Context`
 - consumed-by: `otel/emit.md` `[04]-[HOOKS]` as one contributed `SpanProcessor` tap, replacing the described-but-unshipped tenant `onStart` bridge

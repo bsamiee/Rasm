@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `imagecodecs`
-- package: `imagecodecs` (`BSD-3-Clause`, Christoph Gohlke)
+- package: `imagecodecs` (BSD-3-Clause)
 - module: `imagecodecs`
 - asset: `abi3` wheel; vendored native cores (libdeflate, zlib-ng, the `imcd` PackBits/LZW/delta kernels, libtiff predictors, libjpeg-turbo, OpenJPEG, libjxl, LERC, c-blosc2) statically linked, no system libs required
 - rail: compression (raster-channel codec substrate for the `export/layered` PSD/PSB/TIFF egress plane)

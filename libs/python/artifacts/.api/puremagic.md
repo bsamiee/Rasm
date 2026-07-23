@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `puremagic`
-- package: `puremagic` (MIT, Chris Griffith)
+- package: `puremagic` (MIT)
 - module: `puremagic` — re-exports `puremagic.main`, the implementation module
 - namespaces: `puremagic`, `puremagic.main`, `puremagic.scanners`
 - abi: pure-Python `py3-none-any`, no native extension

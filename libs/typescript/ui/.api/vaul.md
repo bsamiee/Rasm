@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `vaul`
-- package: `vaul` (MIT, © Emil Kowalski)
+- package: `vaul` (MIT)
 - module format: ESM + CJS (`dist/index.mjs` / `.js`, types `dist/index.d.mts` / `.d.ts`), single `.` entry
 - runtime target: React DOM (browser) client component — pointer-drag translation + the DOM focus/scroll model; not universal
 - peer: `react` / `react-dom` (`catalog peer`); dep `@radix-ui/react-dialog@^catalog` — vaul IS a Radix Dialog, so the accessible modal semantics, portal, and the `Trigger`/`Close`/`Title`/`Description` primitives come from Radix, drag physics from vaul
@@ -24,19 +24,7 @@
 |  [02]   | `WithFadeFromProps` / `WithoutFadeFromProps` | snap discriminant | `snapPoints` ⇒ `fadeFromIndex` required, else `never`                |
 |  [03]   | `ContentProps` / `HandleProps`               | element props     | forwards Radix `Content` props; `Handle` adds `preventCycle?`        |
 
-```ts signature
-// Drawer.Root control surface; snapPoints toggles the WithFadeFromProps discriminant; defaults in comments.
-interface DialogProps {
-  open?: boolean; defaultOpen?: boolean; onOpenChange?(open: boolean): void; onClose?(): void; onAnimationEnd?(open: boolean): void
-  snapPoints?: (number | string)[]; activeSnapPoint?: number | string | null; setActiveSnapPoint?(p: number | string | null): void
-  fadeFromIndex?: number; snapToSequentialPoint?: boolean                              // fadeFromIndex required only alongside snapPoints
-  closeThreshold?: number /* 0.25 */; scrollLockTimeout?: number /* 500 */; dismissible?: boolean /* true */; handleOnly?: boolean /* false */
-  onDrag?(e: PointerEvent, percentageDragged: number): void; onRelease?(e: PointerEvent | null, open: boolean): void
-  direction?: 'top' | 'bottom' | 'left' | 'right' /* 'bottom' */; modal?: boolean /* true */; nested?: boolean; container?: HTMLElement | null; autoFocus?: boolean
-  shouldScaleBackground?: boolean; setBackgroundColorOnScale?: boolean /* true */; noBodyStyles?: boolean
-  disablePreventScroll?: boolean /* false */; repositionInputs?: boolean; preventScrollRestoration?: boolean; fixed?: boolean
-}
-```
+[DIALOG_PROPS]: `DialogProps.open: boolean` `DialogProps.defaultOpen: boolean` `DialogProps.onOpenChange(boolean) -> void` `DialogProps.onClose() -> void` `DialogProps.onAnimationEnd(boolean) -> void` `DialogProps.snapPoints: (number|string)[]` `DialogProps.activeSnapPoint: number|string|null` `DialogProps.setActiveSnapPoint(number|string|null) -> void` `DialogProps.fadeFromIndex: number` `DialogProps.snapToSequentialPoint: boolean` `DialogProps.closeThreshold: number` `DialogProps.scrollLockTimeout: number` `DialogProps.dismissible: boolean` `DialogProps.handleOnly: boolean` `DialogProps.onDrag(PointerEvent,number) -> void` `DialogProps.onRelease(PointerEvent|null,boolean) -> void` `DialogProps.direction: 'top'|'bottom'|'left'|'right'` `DialogProps.modal: boolean` `DialogProps.nested: boolean` `DialogProps.container: HTMLElement|null` `DialogProps.autoFocus: boolean` `DialogProps.shouldScaleBackground: boolean` `DialogProps.setBackgroundColorOnScale: boolean` `DialogProps.noBodyStyles: boolean` `DialogProps.disablePreventScroll: boolean` `DialogProps.repositionInputs: boolean` `DialogProps.preventScrollRestoration: boolean` `DialogProps.fixed: boolean`
 
 ## [03]-[ENTRYPOINTS]
 

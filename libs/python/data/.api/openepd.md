@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `openepd`
-- package: `openepd` (Apache-2.0, C Change Labs Inc.)
+- package: `openepd` (Apache-2.0)
 - module: pure Python, zero compiled extensions; `openepd.model` imports without `requests`, which the `api-client` extra adds for the REST client
 - namespaces: `openepd.model` (Pydantic v2 declarations/LCIA/specs), `openepd.api` (sync REST client), `openepd.bundle` (zip package IO), `openepd.category` (EC3 category tree), `openepd.m49` (UN M49 ↔ ISO region codes)
 - rail: epd-lca (OpenEPD/EC3 interchange)

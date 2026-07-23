@@ -1,7 +1,7 @@
 # [TS_CORE_API_HASH_WASM]
 
 [PACKAGE_SURFACE]:
-- package: `hash-wasm` · version `` · license `MIT`
+- package: `hash-wasm` (MIT)
 - module: dual — `dist/index.esm.js` (ESM `module`) + `dist/index.umd.js` (UMD `main`); `type: commonjs`; single barrel, no subpaths.
 - asset: `dist/lib/index.d.ts` (barrel); every algorithm is a peer module re-exported flat.
 - runtime: WebAssembly; each algorithm's `.wasm` is embedded base6 catalog IN the JS (`IEmbeddedWasm { name, data, hash }`) — no separate `.wasm` fetch, no network, runs in node / bun / browser / worker. `MAX_HEAP` bounds a single hashed chunk.
@@ -20,19 +20,9 @@ Two exported types are the entire substrate; every algorithm composes them. One-
 |  [01]   | `IDataType` | type alias    | `string \| Buffer \| Uint8Array \| Uint16Array \| Uint32Array` — the input union |
 |  [02]   | `IHasher`   | type          | reusable streaming state: `init`/`update`/`digest` + `save`/`load` + sizes       |
 
-```ts signature
-type ITypedArray = Uint8Array | Uint16Array | Uint32Array
-type IDataType = string | Buffer | ITypedArray            // string is UTF-8 encoded before hashing
-type IHasher = {
-  init: () => IHasher                                      // reset to initial state — call before reuse
-  update: (data: IDataType) => IHasher                     // chainable; feeds one chunk
-  digest: { (outputType: "binary"): Uint8Array; (outputType?: "hex"): string }   // finalize (default hex)
-  save: () => Uint8Array                                   // serialize mid-stream state (as sensitive as the input)
-  load: (state: Uint8Array) => IHasher                     // resume a saved state (same hash-wasm build only)
-  blockSize: number                                        // algorithm block size in bytes
-  digestSize: number                                       // output size in bytes
-}
-```
+[ITYPED_ARRAY]: `ITypedArray = Uint8Array|Uint16Array|Uint32Array`
+[IDATA_TYPE]: `IDataType = string|Buffer|ITypedArray`
+[IHASHER]: `IHasher.init: ()=>IHasher` `IHasher.update: (data:IDataType)=>IHasher` `IHasher.digest: {(outputType:"binary"):Uint8Array;(outputType?:"hex"):string}` `IHasher.save: ()=>Uint8Array` `IHasher.load: (state:Uint8Array)=>IHasher` `IHasher.blockSize: number` `IHasher.digestSize: number`
 
 ## [02]-[ALGORITHM_FAMILY]
 
@@ -51,13 +41,7 @@ The digest surface is ONE parameterized pattern — `{ name(data, …seed?): Pro
 |  [09]   | `md4` / `md5` / `ripemd160` / `whirlpool` / `sm3`    | retired + regional digests                                   |
 |  [10]   | `crc32` / `crc64` / `adler32`                        | checksums                                                    |
 
-```ts signature
-// The consumed row — both seed halves omitted ⇒ the seed-zero mint. Return is lowercase hex in canonical big-endian digest order.
-declare function xxhash128(data: IDataType, seedLow?: number, seedHigh?: number): Promise<string>
-declare function createXXHash128(seedLow?: number, seedHigh?: number): Promise<IHasher>
-declare function blake3(data: IDataType, bits?: number, key?: IDataType): Promise<string>   // keyed-digest exemplar
-declare function sha256(data: IDataType): Promise<string>
-```
+[SURFACES]: `xxhash128(IDataType,number?,number?) -> Promise<string>` `createXXHash128(number?,number?) -> Promise<IHasher>` `blake3(IDataType,number?,IDataType?) -> Promise<string>` `sha256(IDataType) -> Promise<string>`
 
 ## [03]-[KDF_AND_KEYED]
 
@@ -72,18 +56,8 @@ Password/derivation functions break the digest pattern: they take an options obj
 |  [05]   | `scrypt` / `pbkdf2`                | options object        | derived-key hex / binary                            |
 |  [06]   | `createHMAC(hash, key)`            | combinator            | takes another algorithm's `Promise<IHasher>`        |
 
-```ts signature
-// Conditional return type: the binary variant narrows to Uint8Array, everything else to string.
-interface IArgon2Options {
-  password: IDataType; salt: IDataType; secret?: IDataType
-  iterations: number; parallelism: number; memorySize: number; hashLength: number
-  outputType?: "hex" | "binary" | "encoded"
-}
-declare function argon2id<T extends IArgon2Options>(options: T): Promise<T extends { outputType: "binary" } ? Uint8Array : string>
-// HMAC is a COMBINATOR — it wraps another algorithm's factory, not a fixed sha256-only helper:
-declare function createHMAC(hash: Promise<IHasher>, key: IDataType): Promise<IHasher>
-//   createHMAC(createSHA256(), key)  →  keyed SHA-256; swap the inner factory for any digest.
-```
+[IARGON2_OPTIONS]: `IArgon2Options.password: IDataType` `IArgon2Options.salt: IDataType` `IArgon2Options.secret: IDataType` `IArgon2Options.iterations: number` `IArgon2Options.parallelism: number` `IArgon2Options.memorySize: number` `IArgon2Options.hashLength: number` `IArgon2Options.outputType: "hex"|"binary"|"encoded"`
+[SURFACES]: `argon2id(T) -> Promise<T extends{outputType:"binary"}?Uint8Array:string>` `createHMAC(Promise<IHasher>,IDataType) -> Promise<IHasher>`
 
 ## [04]-[CONTENTKEY_MINT]
 

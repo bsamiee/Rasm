@@ -7,8 +7,7 @@ This factory is the STJ GeoJSON leg of the geospatial seam, distinct from the Ne
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `NetTopologySuite.IO.GeoJSON4STJ`
-- package: `NetTopologySuite.IO.GeoJSON4STJ`
-- license: BSD-3-Clause
+- package: `NetTopologySuite.IO.GeoJSON4STJ` (BSD-3-Clause)
 - assembly: `NetTopologySuite.IO.GeoJSON4STJ`
 - namespace: `NetTopologySuite.IO.Converters` — public `GeoJsonConverterFactory` and `RingOrientationOption`; the `Stj*Converter` per-kind converters and `GeoJsonObjectType` are `internal`, produced by the factory
 - namespace: `NetTopologySuite.Features` — the lazy read-side tables `IPartiallyDeserializedAttributesTable`, `JsonElementAttributesTable`, `JsonObjectAttributesTable`

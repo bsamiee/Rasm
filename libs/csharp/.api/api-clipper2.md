@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Clipper2`
-- package: `Clipper2` (BSL-1.0, Angus Johnson)
+- package: `Clipper2` (BSL-1.0)
 - assembly: `Clipper2Lib`
 - namespace: `Clipper2Lib`
 - asset: pure-managed AnyCPU IL carrying no native payload, so a collectible ALC loads and unloads it with no RID burden

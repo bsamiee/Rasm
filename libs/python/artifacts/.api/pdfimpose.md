@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pdfimpose`
-- package: `pdfimpose`
+- package: `pdfimpose` (AGPL-3.0-or-later)
 - import: `pdfimpose` (schemas under `pdfimpose.schema.<name>`)
 - owner: `composition`
 - rail: imposition
-- license: `AGPL-3.0-or-later`; whole-program copyleft co-extensive with the `pymupdf` MuPDF core it links
 - runtime deps: `pymupdf` (page-placement + PDF-write core), `papersize` (`parse_papersize`/`parse_length` sizing), `pyxdg` + `argdispatch` (CLI-only, unused in-process)
 - entry points: console script `pdfimpose` (CLI); the in-process owner composes the library `impose` functions, never the console script or its `apply` config rail
 - capability: press imposition of a source PDF onto larger imposed sheets across the binding-schema family — per-schema destination page-order matrix, recto/verso bind-edge rotation, per-sheet `creep` compensation, n-across×n-down `signature` layout, inner/outer margins, crop-mark overlay, `last`-page tail preservation, `group`-before-fold batching, and `BytesIO`-to-`BytesIO` in-memory operation
@@ -149,8 +148,6 @@ Impositor method call shapes:
 - boundary axis: only imposed PDF bytes with local `Composed`/`ImposedPlan` facts cross the owner boundary — `Matrix`, `Page`, `Margins`, impositor instances, and schema names never do; the owner projects the layout as `Imposition.layers -> tuple[Layer, ...]` to `export/layered#LAYERED` and contributes one `core/receipt#RECEIPT` case selected by `Composed.kind`.
 - license boundary: AGPL-3.0, co-extensive with `pymupdf` — a closed distributed/network imposition service triggers source disclosure, so the rail admits only an internal/permissively-licensed pipeline or an AGPL-compliant deployment; no permissive imposition substitute exists in the roster.
 - evidence: each impose captures the imposed byte length, the re-read `pymupdf.Document.page_count`, the scheme, the `(across, down)` signature, the binding edge, the creep extent, and the crop-mark flag as the imposition receipt.
-
-## [05]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `pdfimpose`

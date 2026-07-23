@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `c2pa-python`
-- package: `c2pa-python`
+- package: `c2pa-python` (MIT OR Apache-2.0)
 - import: `c2pa`
 - owner: `artifacts`
 - rail: provenance
-- license: `MIT OR Apache-2.0` (permissive dual-license, no copyleft obligation)
 - marker: pure-Python ctypes binding over a bundled `libc2pa_c` native core (`libs/libc2pa_c.dylib`/`.rlib`); the wheel ships the platform core, so no compiler and no cp-gate
 - entry points: console script `download-artifacts` fetches the native library (`c2pa.build:main`); library use is import-only
 - capability: manifest authoring from a JSON definition, embedded/sidecar signing into the native signable MIME set, ingredient attachment from stream or archive, whole-builder and per-ingredient archive serialize/rehydrate, manifest-store extraction and parsing (`json`/`detailed_json`/`crjson`), `validation_state`/`validation_results` reporting, callback/`C2paSignerInfo` signers, standalone `format_embeddable`/`ed25519_sign` byte primitives, and per-instance `Settings`/`Context` configuration

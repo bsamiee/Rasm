@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pocketken.H3`
-- package: `pocketken.H3` (Apache-2.0, managed Uber-H3 v4 port)
+- package: `pocketken.H3` (Apache-2.0)
 - assembly: `pocketken.H3` — pure-managed AnyCPU, no native dylib
 - namespace: `H3`, `H3.Model`, `H3.Extensions`, `H3.Algorithms`
 - depends: `NetTopologySuite` — `Point`/`Polygon`/`MultiPolygon`/`Geometry`/`LineString`/`Coordinate` bridge the cell boundary
@@ -37,31 +37,31 @@
 
 [CONSTRUCTION]: lat/lng or geometry to cell, cell to geometry
 
-| [INDEX] | [SURFACE]                      | [SHAPE]   | [CAPABILITY]                                             |
-| :-----: | :----------------------------- | :-------- | :------------------------------------------------------- |
-|  [01]   | `FromLatLng(LatLng, int)`                    | factory   | radian lat/lng → cell (v4 `latLngToCell`)                 |
-|  [02]   | `FromPoint(Point, int)`                      | factory   | NTS `Point` (SRID 4326) → cell — the `GeoFeature` bridge  |
-|  [03]   | `Create(int, int, Direction)`                | factory   | base-cell number + lead direction                         |
+| [INDEX] | [SURFACE]                                    | [SHAPE]   | [CAPABILITY]                                               |
+| :-----: | :------------------------------------------- | :-------- | :--------------------------------------------------------- |
+|  [01]   | `FromLatLng(LatLng, int)`                    | factory   | radian lat/lng → cell (v4 `latLngToCell`)                  |
+|  [02]   | `FromPoint(Point, int)`                      | factory   | NTS `Point` (SRID 4326) → cell — the `GeoFeature` bridge   |
+|  [03]   | `Create(int, int, Direction)`                | factory   | base-cell number + lead direction                          |
 |  [04]   | `Create(int, int, IReadOnlyList<Direction>)` | factory   | base-cell number + per-res digit list (v4 `constructCell`) |
-|  [05]   | `ToLatLng()`                                 | instance  | cell → centroid radian lat/lng                            |
-|  [06]   | `ToPoint(GeometryFactory?)`                  | instance  | cell → NTS centroid `Point` (SRID 4326)                   |
-|  [07]   | `Coordinate.ToH3Index(int)`                  | extension | NTS `Coordinate` → cell (`H3GeometryExtensions`)          |
-|  [08]   | `ToCoordinate(Coordinate?)`                  | extension | cell → NTS `Coordinate` (`H3GeometryExtensions`)          |
+|  [05]   | `ToLatLng()`                                 | instance  | cell → centroid radian lat/lng                             |
+|  [06]   | `ToPoint(GeometryFactory?)`                  | instance  | cell → NTS centroid `Point` (SRID 4326)                    |
+|  [07]   | `Coordinate.ToH3Index(int)`                  | extension | NTS `Coordinate` → cell (`H3GeometryExtensions`)           |
+|  [08]   | `ToCoordinate(Coordinate?)`                  | extension | cell → NTS `Coordinate` (`H3GeometryExtensions`)           |
 
 [HIERARCHY]: parent / child / neighbour traversal — `H3HierarchyExtensions` on `this H3Index`
 
-| [INDEX] | [SURFACE]                                           | [SHAPE]   | [CAPABILITY]                                               |
-| :-----: | :-------------------------------------------------- | :-------- | :--------------------------------------------------------- |
-|  [01]   | `GetParentForResolution(int)`                       | extension | coarser-resolution ancestor cell                           |
-|  [02]   | `GetChildCenterForResolution(int)`                  | extension | center child at finer resolution                           |
-|  [03]   | `GetChildrenForResolution(int)`                     | extension | `IEnumerable<H3Index>` of all finer children               |
-|  [04]   | `GetDirectChild(Direction)`                         | extension | one immediate child by direction                           |
-|  [05]   | `CellToChildPos(int)`                               | extension | child ordinal within its coarser parent (v4 `cellToChildPos`) |
-|  [06]   | `ChildPosToCell(long, int)`                         | extension | child ordinal + resolution → cell (v4 `childPosToCell`)    |
-|  [07]   | `CellToChildrenSize(int)`                           | extension | child count at a finer resolution (buffer sizing)          |
-|  [08]   | `Contains(H3Index)` / `ContainedBy`                 | extension | hierarchical containment predicate (range-query prefilter) |
-|  [09]   | `GetNeighbours()` / `GetDirectNeighbour(Direction, int)` | extension | same-resolution neighbours / one by direction + rotation |
-|  [10]   | `IsNeighbour(H3Index)` / `DirectionForNeighbour(…)` | extension | adjacency predicate / the connecting `Direction`           |
+| [INDEX] | [SURFACE]                                                | [SHAPE]   | [CAPABILITY]                                                  |
+| :-----: | :------------------------------------------------------- | :-------- | :------------------------------------------------------------ |
+|  [01]   | `GetParentForResolution(int)`                            | extension | coarser-resolution ancestor cell                              |
+|  [02]   | `GetChildCenterForResolution(int)`                       | extension | center child at finer resolution                              |
+|  [03]   | `GetChildrenForResolution(int)`                          | extension | `IEnumerable<H3Index>` of all finer children                  |
+|  [04]   | `GetDirectChild(Direction)`                              | extension | one immediate child by direction                              |
+|  [05]   | `CellToChildPos(int)`                                    | extension | child ordinal within its coarser parent (v4 `cellToChildPos`) |
+|  [06]   | `ChildPosToCell(long, int)`                              | extension | child ordinal + resolution → cell (v4 `childPosToCell`)       |
+|  [07]   | `CellToChildrenSize(int)`                                | extension | child count at a finer resolution (buffer sizing)             |
+|  [08]   | `Contains(H3Index)` / `ContainedBy`                      | extension | hierarchical containment predicate (range-query prefilter)    |
+|  [09]   | `GetNeighbours()` / `GetDirectNeighbour(Direction, int)` | extension | same-resolution neighbours / one by direction + rotation      |
+|  [10]   | `IsNeighbour(H3Index)` / `DirectionForNeighbour(…)`      | extension | adjacency predicate / the connecting `Direction`              |
 
 [DISK_AND_PATH]: k-ring disk, grid distance, line — `H3.Algorithms.Rings` / `Lines` on `this H3Index`
 
@@ -83,52 +83,52 @@
 
 `GetCellBoundaries`/`CellsToMultiPolygon`/`CompactCells`/`UncompactCells`/`CanonicalizeCells`/`AreOfSameResolution` extend `IEnumerable<H3Index>`, `IsCanonicalCells`/`CanonicalCellsContain` extend `IReadOnlyList<H3Index>`; the rest extend their prefixed receiver.
 
-| [INDEX] | [SURFACE]                                        | [SHAPE]   | [CAPABILITY]                                                       |
-| :-----: | :----------------------------------------------- | :-------- | :---------------------------------------------------------------- |
-|  [01]   | `Geometry.Fill(int, VertexTestMode = Center)`    | extension | NTS polygon/line/point/collection → cell cover (v4 `polygonToCells`) |
-|  [02]   | `Geometry.Fill(int, Func<H3Index, bool>)`        | extension | flood fill under a caller containment predicate (non-4326 CRS)     |
-|  [03]   | `Geometry.ParallelFill(int, VertexTestMode, int?)` | extension | envelope-sharded concurrent fill; same set as `Fill`, opt-in large |
-|  [04]   | `LineString.Fill(int)`                           | extension | NTS polyline → traversed cells                                     |
-|  [05]   | `Geometry.IsTransMeridian()`                     | extension | antimeridian-crossing detection before fill                       |
-|  [06]   | `H3Index.GetCellBoundary(GeometryFactory?)`      | extension | cell → NTS `Polygon` hex boundary                                 |
-|  [07]   | `GetCellBoundaries(GeometryFactory?)`            | extension | cell set → NTS `MultiPolygon`, one hex `Polygon` per cell          |
-|  [08]   | `CellsToMultiPolygon(GeometryFactory?)`          | extension | cell set → dissolved outline `MultiPolygon` (v4 `cellsToMultiPolygon`) |
-|  [09]   | `CompactCells()`                                 | extension | minimal mixed-resolution covering set (deterministic order)       |
-|  [10]   | `UncompactCells(int)`                            | extension | expand a compacted set back to uniform resolution                 |
-|  [11]   | `CanonicalizeCells()`                            | extension | cell set → canonical sorted, compacted order (v4 `canonicalizeCells`) |
-|  [12]   | `CanonicalCellsContain(H3Index)`                 | extension | binary-search coverage test on a canonical set, no uncompact       |
-|  [13]   | `IsCanonicalCells()` / `AreOfSameResolution()`   | extension | canonical-order / uniform-resolution preconditions for set algebra |
+| [INDEX] | [SURFACE]                                          | [SHAPE]   | [CAPABILITY]                                                           |
+| :-----: | :------------------------------------------------- | :-------- | :--------------------------------------------------------------------- |
+|  [01]   | `Geometry.Fill(int, VertexTestMode = Center)`      | extension | NTS polygon/line/point/collection → cell cover (v4 `polygonToCells`)   |
+|  [02]   | `Geometry.Fill(int, Func<H3Index, bool>)`          | extension | flood fill under a caller containment predicate (non-4326 CRS)         |
+|  [03]   | `Geometry.ParallelFill(int, VertexTestMode, int?)` | extension | envelope-sharded concurrent fill; same set as `Fill`, opt-in large     |
+|  [04]   | `LineString.Fill(int)`                             | extension | NTS polyline → traversed cells                                         |
+|  [05]   | `Geometry.IsTransMeridian()`                       | extension | antimeridian-crossing detection before fill                            |
+|  [06]   | `H3Index.GetCellBoundary(GeometryFactory?)`        | extension | cell → NTS `Polygon` hex boundary                                      |
+|  [07]   | `GetCellBoundaries(GeometryFactory?)`              | extension | cell set → NTS `MultiPolygon`, one hex `Polygon` per cell              |
+|  [08]   | `CellsToMultiPolygon(GeometryFactory?)`            | extension | cell set → dissolved outline `MultiPolygon` (v4 `cellsToMultiPolygon`) |
+|  [09]   | `CompactCells()`                                   | extension | minimal mixed-resolution covering set (deterministic order)            |
+|  [10]   | `UncompactCells(int)`                              | extension | expand a compacted set back to uniform resolution                      |
+|  [11]   | `CanonicalizeCells()`                              | extension | cell set → canonical sorted, compacted order (v4 `canonicalizeCells`)  |
+|  [12]   | `CanonicalCellsContain(H3Index)`                   | extension | binary-search coverage test on a canonical set, no uncompact           |
+|  [13]   | `IsCanonicalCells()` / `AreOfSameResolution()`     | extension | canonical-order / uniform-resolution preconditions for set algebra     |
 
 - `Geometry.Fill`: seeds from every component of a `MultiPolygon`/`GeometryCollection` and traces the boundary before flooding, so thin/holed/antimeridian and disjoint shapes cover exactly per libh3 `polygonToCells`.
-- `GetCellBoundaries`: the caller's `GeometryFactory` flows to each per-cell `Polygon`, not only the outer `MultiPolygon`.
+- `GetCellBoundaries` passes the caller's `GeometryFactory` to each per-cell `Polygon`, not only the outer `MultiPolygon`.
 - `CompactCells`: output is deterministically ordered (sorted within each resolution, coarsest last); the sole guarantee remains a minimal covering set.
 
 [EDGE]: directed-edge index algebra — `H3DirectedEdgeExtensions` on `this H3Index` (origin or edge)
 
-| [INDEX] | [SURFACE]                                              | [SHAPE]   | [CAPABILITY]                                                   |
-| :-----: | :----------------------------------------------------- | :-------- | :------------------------------------------------------------- |
-|  [01]   | `ToDirectedEdge(H3Index dest)`                         | extension | directed-edge index between two adjacent cells                 |
-|  [02]   | `OriginToDirectedEdges()` / `DestinationToDirectedEdges()` | extension | the (up to six) edges leaving / arriving at a cell          |
-|  [03]   | `ReverseDirectedEdge()`                                | extension | the opposite-direction edge (v4 `reverseDirectedEdge`)         |
-|  [04]   | `DirectedEdgeToCells()`                                | extension | `(origin, destination)` tuple from an edge index               |
-|  [05]   | `GetDirectedEdgeOrigin` / `GetDirectedEdgeDestination` | extension | one endpoint cell of a directed edge                           |
-|  [06]   | `IsValidDirectedEdge()`                                | extension | directed-edge validity test                                    |
-|  [07]   | `EdgeLengthMeters` / `Kilometers` / `Radians`          | extension | great-circle edge length (`GetExactEdgeLengthInRadians` exact) |
-|  [08]   | `GetDirectedEdgeBoundaryVertices()`                    | extension | the edge's `IEnumerable<LatLng>` boundary                      |
+| [INDEX] | [SURFACE]                                                  | [SHAPE]   | [CAPABILITY]                                                   |
+| :-----: | :--------------------------------------------------------- | :-------- | :------------------------------------------------------------- |
+|  [01]   | `ToDirectedEdge(H3Index dest)`                             | extension | directed-edge index between two adjacent cells                 |
+|  [02]   | `OriginToDirectedEdges()` / `DestinationToDirectedEdges()` | extension | the (up to six) edges leaving / arriving at a cell             |
+|  [03]   | `ReverseDirectedEdge()`                                    | extension | the opposite-direction edge (v4 `reverseDirectedEdge`)         |
+|  [04]   | `DirectedEdgeToCells()`                                    | extension | `(origin, destination)` tuple from an edge index               |
+|  [05]   | `GetDirectedEdgeOrigin` / `GetDirectedEdgeDestination`     | extension | one endpoint cell of a directed edge                           |
+|  [06]   | `IsValidDirectedEdge()`                                    | extension | directed-edge validity test                                    |
+|  [07]   | `EdgeLengthMeters` / `Kilometers` / `Radians`              | extension | great-circle edge length (`GetExactEdgeLengthInRadians` exact) |
+|  [08]   | `GetDirectedEdgeBoundaryVertices()`                        | extension | the edge's `IEnumerable<LatLng>` boundary                      |
 
 - `EdgeLengthMeters`/`Kilometers`/`Radians` and `GetDirectedEdgeBoundaryVertices` throw `ArgumentException` when the index is not a valid directed edge (upstream `E_DIR_EDGE_INVALID`), never silently returning 0 or an empty set.
 
 [AREA_AND_METRIC]: per-cell metrics (`H3GeometryExtensions` on `this H3Index`) and static resolution grid statistics (`H3Index.*`)
 
-| [INDEX] | [SURFACE]                                             | [SHAPE]   | [CAPABILITY]                                          |
-| :-----: | :---------------------------------------------------- | :-------- | :---------------------------------------------------- |
-|  [01]   | `CellAreaInMSquared` / `KmSquared` / `RadiansSquared` | extension | exact spherical cell area in the chosen unit          |
-|  [02]   | `GetRadiusInKm()` / `GetFaces()`                      | extension | cell circumradius / icosahedron faces a cell touches  |
-|  [03]   | `GetCellBoundaryVertices()`                           | extension | raw `IEnumerable<LatLng>` boundary                    |
-|  [04]   | `GetNumberOfCells(int)`                               | static    | total cell count at a resolution (v4 `getNumCells`)   |
-|  [05]   | `GetRes0Cells()` / `GetPentagons(int)`                | static    | the res-0 cell set / the pentagon cells at a res      |
-|  [06]   | `GetHexagonAreaAverageInKmSquared(int)` / `InMSquared` | static   | mean hexagon area at a resolution                     |
-|  [07]   | `GetHexagonEdgeLengthAverageInKm(int)` / `InM`        | static    | mean hexagon edge length at a resolution              |
+| [INDEX] | [SURFACE]                                              | [SHAPE]   | [CAPABILITY]                                         |
+| :-----: | :----------------------------------------------------- | :-------- | :--------------------------------------------------- |
+|  [01]   | `CellAreaInMSquared` / `KmSquared` / `RadiansSquared`  | extension | exact spherical cell area in the chosen unit         |
+|  [02]   | `GetRadiusInKm()` / `GetFaces()`                       | extension | cell circumradius / icosahedron faces a cell touches |
+|  [03]   | `GetCellBoundaryVertices()`                            | extension | raw `IEnumerable<LatLng>` boundary                   |
+|  [04]   | `GetNumberOfCells(int)`                                | static    | total cell count at a resolution (v4 `getNumCells`)  |
+|  [05]   | `GetRes0Cells()` / `GetPentagons(int)`                 | static    | the res-0 cell set / the pentagon cells at a res     |
+|  [06]   | `GetHexagonAreaAverageInKmSquared(int)` / `InMSquared` | static    | mean hexagon area at a resolution                    |
+|  [07]   | `GetHexagonEdgeLengthAverageInKm(int)` / `InM`         | static    | mean hexagon edge length at a resolution             |
 
 [VERTEX]: topological vertex-mode cells — `H3VertexExtensions` on `this H3Index`
 

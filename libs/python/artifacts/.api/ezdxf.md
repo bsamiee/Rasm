@@ -315,8 +315,6 @@ Boundary surfaces: `GfxAttribs` is the one attribute value object across the who
 - `anyio`(`libs/python/.api/anyio.md`)/`stamina`(`libs/python/runtime/.api/stamina.md`): `LanePolicy.offload(Kernel.of(_composed, KernelTrait.RELEASING), op)` owns capacity, cancellation, and boundary-fault conversion for rendering and recovery, worker-death retry riding the kernel's trait row.
 - `addons.geo`: `addons.geo.proxy(entity)` and `GeoProxy.parse(...).to_dxf_entities()` round-trip DXF geometry against the geospatial frame, so a georeferenced site plan crosses the same GeoJSON wire the geospatial owners read — ezdxf holding only the DXF<->GeoJSON conversion, never the CRS authority.
 
-## [05]-[LOCAL_ADMISSION]
-
 [RAIL_LAW]:
 - Package: `ezdxf`
 - Owns: DXF R12->R2018 read/write/recover, the graphic-entity builder vocabulary, the `ezdxf.path.Path` command-segment algebra, the `ezdxf.math` geometry kernel, the `addons.drawing` render frontend over its backends, symbol-table/block/xref authoring, spatial `select`, affine `transform`, `query`/`groupby` selection, `bbox` extents, `addons.geo` round-trip, cross-document `addons.Importer`, `text2path` outline conversion, and the `r12writer` streaming writer

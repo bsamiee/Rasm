@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@turf/turf`
-- package: `@turf/turf`
-- license: `MIT`
+- package: `@turf/turf` (MIT)
 - deps: 114 `@turf/*` modules (each independently versioned `catalog`) + `@types/geojson` (the GeoJSON value types); `tslib`
 - catalog-verdict: KEEP
 - runtime: `scope:viewer` project-local — admitted only by the `ui/viewer` Nx project, compile-time excluded from the non-spatial core (same tier as `@deck.gl/*`/`apache-arrow`/`three`)

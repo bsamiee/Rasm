@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Ara3D.BimOpenSchema`
-- package: `Ara3D.BimOpenSchema` (MIT, Ara3D)
+- package: `Ara3D.BimOpenSchema` (MIT)
 - assembly: `Ara3D.BimOpenSchema`
 - namespace: `Ara3D.BimOpenSchema`
 - asset: pure-managed AnyCPU, no native RID asset; the `net10.0` consumer binds `lib/net8.0`
@@ -13,7 +13,7 @@
 - rail: analytics-exchange (BIM)
 
 [PACKAGE_SURFACE]: `Ara3D.BimOpenSchema.IO`
-- package: `Ara3D.BimOpenSchema.IO` (MIT, Ara3D)
+- package: `Ara3D.BimOpenSchema.IO` (MIT)
 - assembly: `Ara3D.BimOpenSchema.IO`
 - namespace: `Ara3D.BimOpenSchema.IO`
 - asset: pure-managed AnyCPU; the native floor rides `DuckDB.NET.Data.Full` (osx-arm64 `duckdb` dylib), `Parquet.Net`/`ClosedXML` pure-managed
@@ -146,7 +146,7 @@
 - Codecs meet only at the file boundary, never substitute at the API: `Parquet.Net` (managed write) and `ParquetSharp` (native read) are distinct engines over one `.parquet`; `ClosedXML` writes and `MiniExcel` reads one `.xlsx`; the DuckDB writer and the folder query rail share the one pinned `DuckDB.NET.Data.Full`, and the `<Name>_<n>` suffix is a serializer fact a direct SQL consumer honors.
 
 [RAIL_LAW]:
-- Package: `Ara3D.BimOpenSchema` + `Ara3D.BimOpenSchema.IO` (MIT, pure-managed AnyCPU, `net10.0` binds `net8.0`)
+- Package: `Ara3D.BimOpenSchema` + `Ara3D.BimOpenSchema.IO` (MIT)
 - Owns: the columnar SoA BIM schema (`BimData` + typed indices + EAV parameter columns + `EntityRelation` graph), the interning `BimDataBuilder`, the `ExpandedBIMData` join view, the `IDataSet` bridge, and the JSON/Parquet-zip/DuckDB/Excel codecs over `Ara3D.DataTable`
 - Accept: a BIM model authored through `BimDataBuilder` and exported via `ToDataSet()` to the analytics codecs; a `.duckdb`/`.parquet` queried by the folder's own DuckDB/ParquetSharp/Arrow rails at the file boundary
 - Reject: a hand-rolled BIM-to-tabular flattener where `BimData`/`ExpandedBIMData` + `ToDataSet()` model it; a second Parquet/DuckDB runtime where the folder pins own the engine; referencing the written DuckDB tables by bare name where the `<Name>_<n>` projection-ordinal suffix is the real identity

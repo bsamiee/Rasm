@@ -2,22 +2,14 @@
 
 `@pulumi/gcp` is the Terraform-bridged Pulumi provider SDK for Google Cloud: one service namespace per GCP service (`container`, `sql`, `storage`, `dns`, `compute`, `cloudrunv2`, `secretmanager`, `serviceaccount`, `projects`, `certificatemanager`, `artifactregistry`, …), each carrying the same generated resource quadruple (`class X extends pulumi.CustomResource` + `XArgs` + `XState` + `X.get`/`X.isInstance`) plus `get*`/`get*Output` data sources, under one `Provider` that binds project/region/zone/credentials. This package is ONE codegen pattern (identical to `@pulumi/postgresql`) applied across a service axis — never a bespoke API per resource. In `iac` this is a PREPARED cloud row, not a first-class arm: it is instantiated only when an app supplies a `gcp` `StackSpec` VALUE, and the value that makes it worth carrying is the SERVICE-EQUIVALENCE MAP — each `selfhosted-k8s` capability has a named managed-GCP counterpart (GKE↔workloads, Cloud SQL↔CNPG, GCS↔object-store, Cloud DNS↔traffic, Secret Manager↔Doppler), so finalizing the `gcp` target is app data, and adding it was one `provider/dispatch` arm + one `provider/surface` column.
 
-```ts
-// @pulumi/gcp — Provider + one service namespace per GCP service (each: resources · get* data sources) + config/types
-export { Provider }                        // pulumi.ProviderResource (project/region/zone/credentials)
-export {                                   // service namespaces (equivalence-map subset shown)
-  container, sql, storage, dns, compute, cloudrunv2, cloudrun, secretmanager,
-  serviceaccount, projects, organizations, certificatemanager, artifactregistry,
-  redis, pubsub, kms, iam, monitoring, logging, /* …+118 more */
-}
-export { config, types }                   // package-wide config reads + input/output shape namespaces
-```
+[EXPORTS]: `Provider`
+[EXPORTS]: `container` `sql` `storage` `dns` `compute` `cloudrunv2` `cloudrun` `secretmanager` `serviceaccount` `projects` `organizations` `certificatemanager` `artifactregistry` `redis` `pubsub` `kms` `iam` `monitoring` `logging`
+[EXPORTS]: `config` `types`
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pulumi/gcp`
-- package: `@pulumi/gcp`
-- license: `Apache-2.0`
+- package: `@pulumi/gcp` (Apache-2.0)
 - build-floor: peer `@pulumi/pulumi ^catalog` (the engine owns `CustomResource`/`Output`/`Input`); the `pulumi-resource-gcp` plugin binary provisions against the Google APIs
 - target: `node` (Automation-API program process; needs GCP credentials — ADC, a `credentials` JSON, or impersonation — reachable at apply)
 - entry: `@pulumi/gcp` plus the service sub-paths (`@pulumi/gcp/container`, `/sql`, `/storage`, …) and `config`/`types`
@@ -43,29 +35,8 @@ Identical to `@pulumi/postgresql`'s pattern — the shared Pulumi Terraform-brid
 |  [05]   | `interface XArgs`  | construction inputs; every field `pulumi.Input<T \| undefined>`                           |
 |  [06]   | `interface XState` | `.get` lookup inputs; mirrors `XArgs`                                                     |
 
-```ts signature
-import * as pulumi from "@pulumi/pulumi"
-
-// Canonical shape, shown on container.Cluster (GKE — the workload-equivalence anchor). Every
-// gcp resource (sql.DatabaseInstance, storage.Bucket, dns.ManagedZone, …) is this structure.
-declare class Cluster extends pulumi.CustomResource {
-  static get(name: string, id: pulumi.Input<pulumi.ID>, state?: ClusterState, opts?: pulumi.CustomResourceOptions): Cluster
-  static isInstance(obj: any): obj is Cluster
-  readonly name: pulumi.Output<string>
-  readonly location: pulumi.Output<string>
-  readonly endpoint: pulumi.Output<string>
-  readonly masterAuth: pulumi.Output<outputs.container.ClusterMasterAuth>
-  // …the full GKE attribute set
-  constructor(name: string, args?: ClusterArgs, opts?: pulumi.CustomResourceOptions)
-}
-interface ClusterArgs {
-  readonly name?: pulumi.Input<string | undefined>
-  readonly location?: pulumi.Input<string | undefined>       // ← StackSpec region/zone
-  readonly initialNodeCount?: pulumi.Input<number | undefined>
-  readonly network?: pulumi.Input<string | undefined>
-  // …every GKE input, each Input<T | undefined>
-}
-```
+[CLUSTER]: `Cluster.get(string,pulumi.Input<pulumi.ID>,ClusterState?,pulumi.CustomResourceOptions?) -> Cluster` `Cluster.isInstance(any) -> obj is Cluster` `Cluster.name: pulumi.Output<string>` `Cluster.location: pulumi.Output<string>` `Cluster.endpoint: pulumi.Output<string>` `Cluster.masterAuth: pulumi.Output<outputs.container.ClusterMasterAuth>` `Cluster(string,ClusterArgs?,pulumi.CustomResourceOptions?)`
+[CLUSTER_ARGS]: `ClusterArgs.name: pulumi.Input<string|undefined>` `ClusterArgs.location: pulumi.Input<string|undefined>` `ClusterArgs.initialNodeCount: pulumi.Input<number|undefined>` `ClusterArgs.network: pulumi.Input<string|undefined>`
 
 ### [02.2]-[SERVICE_EQUIVALENCE_MAP_THE_PREPARED_ROW_VALUE]
 
@@ -109,25 +80,8 @@ One explicit `Provider` per target project binds every resource in the arm. Cred
 |  [08]   | `billingProject` / `userProjectOverride` | quota/billing project attribution                                                         |
 |  [09]   | `<service>CustomEndpoint`                | uniform `Input<string \| undefined>` override family (one per service)                    |
 
-```ts signature
-import * as pulumi from "@pulumi/pulumi"
-
-declare class Provider extends pulumi.ProviderResource {
-  static isInstance(obj: any): obj is Provider
-  constructor(name: string, args?: ProviderArgs, opts?: pulumi.ResourceOptions)
-}
-interface ProviderArgs {
-  readonly project?: pulumi.Input<string | undefined>
-  readonly region?: pulumi.Input<string | undefined>
-  readonly zone?: pulumi.Input<string | undefined>
-  readonly credentials?: pulumi.Input<string | undefined>            // ← @pulumiverse/doppler SA-key secret
-  readonly accessToken?: pulumi.Input<string | undefined>
-  readonly impersonateServiceAccount?: pulumi.Input<string | undefined>
-  readonly billingProject?: pulumi.Input<string | undefined>
-  readonly userProjectOverride?: pulumi.Input<boolean | undefined>
-  // + the per-service `${service}CustomEndpoint?: Input<string | undefined>` override family
-}
-```
+[PROVIDER]: `Provider.isInstance(any) -> obj is Provider` `Provider(string,ProviderArgs?,pulumi.ResourceOptions?)`
+[PROVIDER_ARGS]: `ProviderArgs.project: pulumi.Input<string|undefined>` `ProviderArgs.region: pulumi.Input<string|undefined>` `ProviderArgs.zone: pulumi.Input<string|undefined>` `ProviderArgs.credentials: pulumi.Input<string|undefined>` `ProviderArgs.accessToken: pulumi.Input<string|undefined>` `ProviderArgs.impersonateServiceAccount: pulumi.Input<string|undefined>` `ProviderArgs.billingProject: pulumi.Input<string|undefined>` `ProviderArgs.userProjectOverride: pulumi.Input<boolean|undefined>`
 
 `config` re-exports the provider fields as package-wide reads (`config.project`, `config.region`, `config.credentials`, …) from `gcp:*` stack config; prefer an explicit `Provider` from the `StackSpec` value. Per-service data sources (`projects.getProject`, `organizations.getClientConfig`, `compute.getNetwork`, …) follow the `get*`/`get*Output` dual documented in `pulumi-postgresql.md`.
 

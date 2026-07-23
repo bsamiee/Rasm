@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Generator.Equals`
-- package: `Generator.Equals` (MIT, © Diego Frata)
+- package: `Generator.Equals` (MIT)
 - assembly: `Generator.Equals.Runtime` carries the attributes, comparers, and diff family; `Generator.Equals` ships the Roslyn incremental generator under `analyzers/dotnet/cs` and never binds at runtime
 - namespace: `Generator.Equals`
 - rail: equality

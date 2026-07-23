@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Qdrant.Client`
-- package: `Qdrant.Client` (Apache-2.0, Qdrant)
+- package: `Qdrant.Client` (Apache-2.0)
 - assembly: `Qdrant.Client`
 - namespace: `Qdrant.Client` façade, `Qdrant.Client.Grpc` protobuf model with the generated service clients
 - target: `net6.0`/`netstandard2.0`/`net462`; a `net10.0` consumer binds `lib/net6.0` — pure-managed AnyCPU, no native runtime

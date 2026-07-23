@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `System.Numerics.Tensors`
-- package: `System.Numerics.Tensors` (MIT, .NET Foundation)
+- package: `System.Numerics.Tensors` (MIT)
 - assembly: `System.Numerics.Tensors`
 - namespaces: `System.Numerics.Tensors`, `System.Buffers`, `System.Runtime.InteropServices`
 - abi: strided `nint`-indexed views over caller-owned memory; span and dimension-span types are `ref struct` and `Tensor<T>` the array-backed heap owner

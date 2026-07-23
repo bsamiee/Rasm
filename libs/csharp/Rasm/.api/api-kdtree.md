@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Supercluster.KDTree.Net`
-- package: `Supercluster.KDTree.Net` (MIT, `micampbell` fork of SuperClusterInc)
+- package: `Supercluster.KDTree.Net` (MIT)
 - assembly: `KDTree.dll` — the package id differs from assembly and namespace; the import is `using SuperClusterKDTree;`
 - namespace: `SuperClusterKDTree`
 - target: `net8.0` only, bound forward by the `net10.0` consumer

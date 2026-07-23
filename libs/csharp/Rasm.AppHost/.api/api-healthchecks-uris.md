@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `AspNetCore.HealthChecks.Uris`
-- package: `AspNetCore.HealthChecks.Uris`
-- license: `Apache-2.0`
+- package: `AspNetCore.HealthChecks.Uris` (Apache-2.0)
 - assembly: `HealthChecks.Uris`
 - namespace: `HealthChecks.Uris`
 - namespace: `Microsoft.Extensions.DependencyInjection`

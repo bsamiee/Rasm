@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `compas_dr`
-- package: `compas_dr`
+- package: `compas_dr` (MIT)
 - import: `import compas_dr`
 - owner: `geometry`
 - rail: form-finding
-- license: MIT
 - entry points: none (library only)
 - capability: pure-Python and numpy/scipy dynamic-relaxation form-finding with selectable RK order, geometric constraint projection by registered geometry type, tributary-area selfweight loads, and COMPAS `Data` serialization of the input and constraint carriers
 

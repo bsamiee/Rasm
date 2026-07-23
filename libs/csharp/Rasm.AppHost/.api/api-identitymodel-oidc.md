@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.IdentityModel.Protocols.OpenIdConnect`
-- package: `Microsoft.IdentityModel.Protocols.OpenIdConnect`
+- package: `Microsoft.IdentityModel.Protocols.OpenIdConnect` (MIT)
 - assembly: `Microsoft.IdentityModel.Protocols.OpenIdConnect`
 - namespace: `Microsoft.IdentityModel.Protocols.OpenIdConnect`
 - asset: runtime library
-- license: MIT
 - abi: native `lib/net10.0` asset (consumer-bound)
 - depends: `Microsoft.IdentityModel.Protocols`, `Microsoft.IdentityModel.Tokens`
 - rail: oidc-protocol

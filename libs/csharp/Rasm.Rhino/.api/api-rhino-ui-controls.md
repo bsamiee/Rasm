@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Rhino.UI.dll` control library
-- package: `RhinoCommon` (proprietary McNeel SDK, host-provided) with the `Rhino.UI` companion assembly
+- package: `RhinoCommon` (proprietary McNeel SDK)
 - assembly: `Rhino.UI.dll` (reusable Eto controls, themed dialogs, theme model, platform-service contracts)
 - namespace: `Rhino.UI.Controls` (collapsible sections, layouts, panels, buttons, labels, colour, list/grid, numeric/text, viewport, dialogs, menu)
 - namespace: `Rhino.UI.Forms` (dialog bases, named-colour palette, print/PDF/SVG export façade)

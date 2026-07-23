@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `webdav`
-- package: `webdav` (MIT, perry-mitchell/webdav-client)
+- package: `webdav` (MIT)
 - module format: ESM only; isomorphic node + browser — `createReadStream`/`createWriteStream` are node-only and THROW in the browser, where `getFileContents`/`putFileContents` carry the transfer
 - rail: remote-origin row (`object/file`); the DAV protocol lane
 - hostile-input guard: `entityDecoder` limits (`maxTotalExpansions`, `maxExpandedLength`) bound XML entity expansion on parsed multistatus bodies

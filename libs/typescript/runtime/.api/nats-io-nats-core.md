@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@nats-io/nats-core`
-- package: `@nats-io/nats-core` (Apache-2.0, Synadia/nats.io)
+- package: `@nats-io/nats-core` (Apache-2.0)
 - module format: ESM + CJS dual; the catalog-bound modular split of the retired monolithic `nats` package
 - runtime target: any W3C-WebSocket runtime — node, bun, browser — via `wsconnect`; no `node:*` import in the core
 - peer: none; `@nats-io/jetstream` consumes the `NatsConnection` this package mints

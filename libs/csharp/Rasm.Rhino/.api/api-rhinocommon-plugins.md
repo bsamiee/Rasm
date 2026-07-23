@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `RhinoCommon`
-- package: `RhinoCommon`
-- license: proprietary host SDK
+- package: `RhinoCommon` (proprietary host SDK)
 - namespace: `Rhino.PlugIns`, `Rhino.FileIO` (`FileType`)
 - asset: `RhinoCommon.dll` — the in-process managed host assembly
 - rail: host

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `honeybee-energy`
-- package: `honeybee-energy` (AGPL-3.0, Ladybug Tools)
+- package: `honeybee-energy` (AGPL-3.0)
 - module: `honeybee_energy` (import side-effect `_extend_honeybee` attaches `.properties.energy`)
 - namespaces: `honeybee_energy.{construction,material,load,schedule,programtype,constructionset,hvac,shw,generator,internalmass,ventcool,simulation,properties,lib,run,result,measure,baseline,reader,writer,dictutil}`
 - rail: energy-modeling

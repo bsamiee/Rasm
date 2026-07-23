@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `CSharpMath.SkiaSharp` over `CSharpMath.Rendering` and `CSharpMath`
-- package: `CSharpMath.SkiaSharp` (MIT, CSharpMath) direct; `CSharpMath.Rendering`, `CSharpMath.Editor`, and `CSharpMath` transitive
+- package: `CSharpMath.SkiaSharp` (MIT)
 - assembly: `CSharpMath.SkiaSharp` (painters, `ICanvas`/`Path` adapters, color/encode extensions), `CSharpMath.Rendering` (`Painter` base, `MathKeyboard`, vendored `Typography.OpenFont` glyph engine), `CSharpMath` (`LaTeXParser`, atom/display model, `Result<T>`)
 - namespace: `CSharpMath.SkiaSharp`, `CSharpMath.Rendering.FrontEnd` (`Painter`, `ICanvas`, `Path`, `MathKeyboard`, enums), `CSharpMath.Atom` (`LaTeXParser`, `LaTeXSettings`, `LineStyle`), `CSharpMath.Structures` (`Result<T>`)
 - rail: typography

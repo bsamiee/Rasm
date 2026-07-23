@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `lz4`
-- package: `lz4` (`BSD-3-Clause` bindings, `BSD-2-Clause` bundled native LZ4)
+- package: `lz4` (BSD-3-Clause)
 - module: `lz4.frame` / `lz4.block`
 - namespaces: `lz4`, `lz4.frame`, `lz4.block`
 - asset: native wheel; `lz4/frame/_frame` and `lz4/block/_block` C extensions

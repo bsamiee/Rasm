@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/platform-node`
-- package: `@effect/platform-node` (MIT, © Effectful Technologies)
+- package: `@effect/platform-node` (MIT)
 - module: ESM + CJS dual (`dist/esm` + `dist/cjs`, types `dist/dts`), `sideEffects: []`, per-module deep-import subpaths (`@effect/platform-node/NodeRuntime`, `NodeHttpServer`, …)
 - runtime: Node — `node:*` builtins, no compiled addon; bundles `undici` (HTTP `Dispatcher`), `ws` (WebSocket), `mime`, and `@effect/platform-node-shared` (the base shared with `-bun`)
 - depends: hard peers on `effect`, `@effect/platform`, `@effect/cluster`, `@effect/rpc`, `@effect/sql` (none optional); the cluster/rpc/sql trio backs the `NodeCluster*` bindings and is required at install

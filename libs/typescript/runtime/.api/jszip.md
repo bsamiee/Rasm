@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `jszip`
-- package: `jszip` (`MIT OR GPL-3.0-or-later` — take the MIT arm, © Stuart Knightley); declarations bundled (`index.d.ts`)
+- package: `jszip` (MIT)
 - module format: CJS (`main: lib/index`, no `module`/`exports` map); the `JSZip` value is `export =` (import as `import JSZip = require("jszip")` or esModuleInterop default); no deep-import subpaths
 - runtime target: isomorphic. Runtime dependencies `pako` (DEFLATE), `lie` (Promise polyfill), `readable-stream`, `setimmediate`; no native addon — compression is pure-JS `pako`, so it is CPU-bound and belongs off the main path for large archives
 - asset: JS runtime + bundled `.d.ts`; `JSZipSupport` (`arraybuffer`/`uint8array`/`blob`/`nodebuffer`) reports the runtime's available output types via the static `support` field

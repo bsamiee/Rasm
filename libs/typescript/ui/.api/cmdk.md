@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `cmdk`
-- package: `cmdk`
-- license: `MIT`
+- package: `cmdk` (MIT)
 - deps: `@radix-ui/react-dialog`, `@radix-ui/react-compose-refs`, `@radix-ui/react-id`, `@radix-ui/react-primitive` (`asChild` Slot, portal Dialog, SSR-safe ids)
 - react-peer: React 19 spine (`.api/react.md`); compiled by react-compiler, memoization never hand-written
 - catalog-verdict: KEEP
@@ -19,11 +18,9 @@
 - rail: view/command-palette
 - `CommandFilter` is the swap point for match ranking; `State` is what `useCommandState` selects over. Both are the seam a design page composes — a custom scorer and a store selector for the empty/count rows.
 
-```ts signature
-type CommandFilter = (value: string, search: string, keywords?: string[]) => number
-type State = { search: string; value: string; selectedItemId?: string; filtered: { count: number; items: Map<string, number>; groups: Set<string> } }
-declare const defaultFilter: CommandFilter
-```
+[COMMAND_FILTER]: `CommandFilter = (value:string,search:string,keywords?:string[])=>number`
+[STATE]: `State.search: string` `State.value: string` `State.selectedItemId: string` `State.filtered: {count:number;items:Map<string,number>;groups:Set<string>}`
+[SURFACES]: `defaultFilter: CommandFilter`
 
 | [INDEX] | [SYMBOL]        | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                                          |
 | :-----: | :-------------- | :------------- | :----------------------------------------------------------- |

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Wacton.Unicolour`
-- package: `Wacton.Unicolour` (MIT, William Acton)
+- package: `Wacton.Unicolour` (MIT)
 - assembly: `Wacton.Unicolour`
 - namespace: `Wacton.Unicolour`, `Wacton.Unicolour.Icc`
 - asset: `netstandard2.0` pure-managed, zero-dependency, ALC-safe

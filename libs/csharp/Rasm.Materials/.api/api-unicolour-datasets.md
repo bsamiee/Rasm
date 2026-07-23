@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Wacton.Unicolour.Datasets`
-- package: `Wacton.Unicolour.Datasets` (MIT, Wacton)
+- package: `Wacton.Unicolour.Datasets` (MIT)
 - assembly: `Wacton.Unicolour.Datasets`
 - namespace: `Wacton.Unicolour.Datasets`
 - asset: pure-managed `netstandard2.0` runtime library, ALC-safe, no native or extra transitive asset; a `net10.0` consumer binds the netstandard2.0 asset and pulls `Wacton.Unicolour` (the `Unicolour`/`Pigment`/`Configuration` carriers).

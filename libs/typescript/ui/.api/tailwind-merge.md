@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `tailwind-merge`
-- package: `tailwind-merge`
-- license: `MIT` (© Dany Castillo)
+- package: `tailwind-merge` (MIT)
 - module format: ESM/CJS dual (`import`→`bundle-mjs.mjs`, `require`→`bundle-cjs.js`); an `./es5` subpath ships an ES5 transpile; `sideEffects` clean, tree-shakes to the used functions
 - runtime target: isomorphic, zero dependencies, tiny; runs in the render path so results are LRU-memoized (`cacheSize`)
 - asset: TypeScript library shipping `.d.ts`; the `Config`/`ConfigExtension` generics carry the `DefaultClassGroupIds`/`DefaultThemeGroupIds` string unions, so a custom class-group id is type-checked at `extendTailwindMerge`

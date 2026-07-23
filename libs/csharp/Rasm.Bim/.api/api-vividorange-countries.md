@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `VividOrange.Countries`
-- package: `VividOrange.Countries` (contract, enum, and singletons in one assembly; `ICountry` ships here)
-- license: MIT
+- package: `VividOrange.Countries` (contract, enum, and singletons in one assembly; `ICountry` ships here) (MIT)
 - assembly: `VividOrange.Countries`
 - namespace: `VividOrange.Countries`
 - asset: multi-target `net48`/`net6.0`/`net7.0`/`net8.0`/`netstandard2.0`; the `net10.0` consumer binds `lib/net8.0`

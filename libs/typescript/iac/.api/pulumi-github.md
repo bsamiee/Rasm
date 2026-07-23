@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pulumi/github`
-- package: `@pulumi/github`
-- license: Apache-2.0
+- package: `@pulumi/github` (Apache-2.0)
 - import: `@pulumi/github` → the flat resource roster + `get*`/`get*Output` data sources + `Provider`
 - owner: `iac`
 - rail: fabric / source-control

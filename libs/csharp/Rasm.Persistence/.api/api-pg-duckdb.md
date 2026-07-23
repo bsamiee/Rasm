@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pg_duckdb`
-- package: `pg_duckdb` (MIT, Hydra + MotherDuck) — server-side PostgreSQL extension, not a NuGet package
+- package: `pg_duckdb` (MIT)
 - namespace: SQL `duckdb` schema (admin/secret/MotherDuck functions); `public` data-lake table functions; `duckdb.row` result type subscripted `r['col']`; `USING duckdb` table-storage clause
 - abi / runtime: PG18 in-process extension, `shared_preload_libraries`-gated; one embedded DuckDB instance per Postgres connection
 - asset: server extension, preload-gated

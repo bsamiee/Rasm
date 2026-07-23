@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `arro3-core`
-- package: `arro3-core` (`MIT OR Apache-2.0`)
+- package: `arro3-core` (MIT OR Apache-2.0)
 - owner: `data`
 - module: `arro3.core`
 - asset: native extension (Rust/PyO3) over `arrow-rs`

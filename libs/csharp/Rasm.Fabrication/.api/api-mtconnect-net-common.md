@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MTConnect.NET-Common`
-- package: `MTConnect.NET-Common` (`MIT`, TrakHound/MTConnect.NET)
+- package: `MTConnect.NET-Common` (MIT)
 - assembly: `MTConnect.NET-Common`
 - namespace: `MTConnect.Assets.CuttingTools`, `.CuttingTools.Measurements`, `MTConnect.Assets`, `MTConnect`
 - asset: pure-managed AnyCPU IL, ALC-safe, no native asset; the `net9.0` TFM binds under the `net10.0` consumer
@@ -157,7 +157,7 @@
 - `Magazine` slot mapping reads `Location` (`ToolMagazine`/`Turret`/`POT` with overlap) so the tool-change schedule keys on the real magazine address, not an ad-hoc int
 
 [RAIL_LAW]:
-- Package: `MTConnect.NET-Common` (`MIT`, pure-managed AnyCPU IL)
+- Package: `MTConnect.NET-Common` (MIT)
 - Owns: the ISO-13399 cutting-tool asset MODEL — the asset/lifecycle/item graph, the typed `Measurements.*` ISO-13399 geometry family, `ToolLife`/`ItemLife`, `Location`, `ProcessFeedRate`/`ProcessSpindleSpeed`, `ReconditionCount`, `CutterStatusType`, the `Asset` base, and the `GenerateHash` structural digest with `IsValid` schema validation
 - Accept: a `CuttingToolAsset` authored through the lifecycle/items/measurements POCOs (bound by `I…` interface), the typed `Measurements.*` subtypes, the `Location`, the `ToolLife` budget, and `GenerateHash` feeding `ContentHash.Of`
 - Reject: a stringly-typed `Measurement` where a named subtype exists; the devices/observations/streams/agent machinery; the XML/JSON wire serializer or any network transport (separate `MTConnect.NET-XML`/`-JSON`/`-HTTP`/`-MQTT`/`-SHDR`, not admitted); a bare `double` cutting dimension bypassing `UnitsNet` at the `ToolAssembly` boundary; a hand-rolled tool-data model beside `CuttingToolAsset`

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pypdfium2`
-- package: `pypdfium2` (`BSD-3-Clause` helpers, `Apache-2.0`/`BSD-3-Clause` bundled PDFium binary)
+- package: `pypdfium2` (BSD-3-Clause)
 - module: `pypdfium2` (prebuilt PDFium shared library and ctypes helpers; `pypdfium2.raw` binds the full `FPDF_*` C ABI)
 - namespaces: `pypdfium2`, `pypdfium2.raw`
 - rail: pdf — Pillow-free PDFium render, outline harvest, char-geometry extract, page-object/image/font edit
@@ -114,13 +114,13 @@ Process-singleton handlers installed once at boundary setup so a missing embedde
 
 [ENTRYPOINT_SCOPE]: outline walk, affine matrix, and headless handlers
 
-| [INDEX] | [SURFACE]                                                 | [SHAPE]  | [CAPABILITY]                                |
-| :-----: | :-------------------------------------------------------- | :------- | :------------------------------------------ |
+| [INDEX] | [SURFACE]                                                          | [SHAPE]  | [CAPABILITY]                                         |
+| :-----: | :----------------------------------------------------------------- | :------- | :--------------------------------------------------- |
 |  [01]   | `PdfBookmark.get_title()`·`get_count()`·`get_dest()`·`get_color()` | instance | title, signed sub-item count, destination, RGB color |
-|  [02]   | `PdfDest.get_index()` / `get_view(seqtype=list)`          | instance | destination page index and fit-mode view    |
-|  [03]   | `PdfMatrix(a, b, c, d, e, f)` / `PdfMatrix.from_raw(raw)` | ctor     | affine transform, `FS_MATRIX` inbound       |
-|  [04]   | `PdfSysfontBase().setup(reusable=False)`                  | instance | install deterministic missing-font fallback |
-|  [05]   | `PdfUnspHandler().setup(add_default=True)`                | instance | install unsupported-feature callback        |
+|  [02]   | `PdfDest.get_index()` / `get_view(seqtype=list)`                   | instance | destination page index and fit-mode view             |
+|  [03]   | `PdfMatrix(a, b, c, d, e, f)` / `PdfMatrix.from_raw(raw)`          | ctor     | affine transform, `FS_MATRIX` inbound                |
+|  [04]   | `PdfSysfontBase().setup(reusable=False)`                           | instance | install deterministic missing-font fallback          |
+|  [05]   | `PdfUnspHandler().setup(add_default=True)`                         | instance | install unsupported-feature callback                 |
 
 - `PdfBookmark.get_color()` returns the outline entry's `(r, g, b)` floats in `0..1` or `None` when unset; it binds a recent PDFium (`FPDFBookmark_GetColor`), so a lagging conda/system-search build falls back to the `raw` seam.
 - [06]-[MATRIX_BUILDERS]: `scale(x, y)` `rotate(angle, ccw=False, rad=False)` `translate(x, y)` `skew(x_angle, y_angle, rad=False)` `mirror(invert_x, invert_y)` `multiply(other)` compose the affine, each returning the composed `PdfMatrix`; `on_point(x, y)` `on_rect(left, bottom, right, top)` `get()` `to_raw()` apply it and bridge outbound.

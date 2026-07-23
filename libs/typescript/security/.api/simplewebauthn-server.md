@@ -1,7 +1,7 @@
 # [TS_SECURITY_API_SIMPLEWEBAUTHN_SERVER]
 
 [PACKAGE_SURFACE]:
-- package: `@simplewebauthn/server` · version `` · license `MIT`
+- package: `@simplewebauthn/server` (MIT)
 - module: ESM + CJS (`esm/` `import` / `script/` `require`); no `types` field — `.d.ts` ship adjacent to each entry, so resolution is entry-relative, not a top-level `types` asset. Two subpaths: `.` (ceremonies + services) and `./helpers` (the low-level codec/parse surface).
 - asset: `esm/index.d.ts` (barrel) + `esm/helpers/index.d.ts`; bundles `@peculiar/asn catalog-*`/`@peculiar/x50 catalog` (cert-path validation), `@levischuck/tiny-cbor` (CBOR), `@hexagon/base6 catalog` — no peer dependencies.
 - runtime: node `>=catalog`; server/RP-only — the WebAuthn relying-party verifier, NOT browser-safe. The browser counterpart `simplewebauthn-browser.md` invokes the ceremony; this package mints the challenge and verifies the signed response.
@@ -30,47 +30,11 @@ The 2×2 pattern: `{registration, authentication} × {options, verify}`. Each en
 - [04]-[AUTH_VERIFY]: carries `newCounter` — the replay/clone defense.
 - [05]-[COSE_ALLOW]: the default COSE alg allow-list `supportedAlgorithmIDs` narrows.
 
-```ts signature
-// Phase 1 — mint. attestationType selects the trust demand; the format verifier roster is dispatched internally, not by the caller.
-declare function generateRegistrationOptions(opts: {
-  rpName: string; rpID: string; userName: string
-  userID?: Uint8Array; userDisplayName?: string; challenge?: string | Uint8Array; timeout?: number
-  attestationType?: 'direct' | 'enterprise' | 'none'
-  excludeCredentials?: { id: Base64URLString; transports?: AuthenticatorTransportFuture[] }[]
-  authenticatorSelection?: AuthenticatorSelectionCriteria
-  supportedAlgorithmIDs?: COSEAlgorithmIdentifier[]
-  preferredAuthenticatorType?: 'securityKey' | 'localDevice' | 'remoteDevice'
-}): Promise<PublicKeyCredentialCreationOptionsJSON>
-// Phase 2 — verify. expectedChallenge is a value OR a (challenge)=>boolean|Promise<boolean> resolver — the session-store lookup closure.
-declare function verifyRegistrationResponse(opts: {
-  response: RegistrationResponseJSON
-  expectedChallenge: string | ((challenge: string) => boolean | Promise<boolean>)
-  expectedOrigin: string | string[]; expectedRPID?: string | string[]
-  requireUserPresence?: boolean; requireUserVerification?: boolean
-  supportedAlgorithmIDs?: COSEAlgorithmIdentifier[]
-}): Promise<VerifiedRegistrationResponse>
-```
+[SURFACES]: `generateRegistrationOptions({…}) -> Promise<PublicKeyCredentialCreationOptionsJSON>` `verifyRegistrationResponse({…}) -> Promise<VerifiedRegistrationResponse>`
 
-```ts signature
-// The verdict is a typed rail. Registration discriminates on `verified`; the credential is extracted only on the true arm.
-type VerifiedRegistrationResponse =
-  | { verified: false; registrationInfo?: never }
-  | { verified: true; registrationInfo: {
-      fmt: AttestationFormat; aaguid: string; credential: WebAuthnCredential; credentialType: 'public-key'
-      credentialDeviceType: CredentialDeviceType; credentialBackedUp: boolean; userVerified: boolean
-      origin: string; rpID?: string; attestationObject: Uint8Array
-      authenticatorExtensionResults?: AuthenticationExtensionsAuthenticatorOutputs } }
-// Authentication carries the counter — newCounter must exceed the stored counter or the assertion is a clone/replay.
-declare function verifyAuthenticationResponse(opts: {
-  response: AuthenticationResponseJSON; credential: WebAuthnCredential
-  expectedChallenge: string | ((challenge: string) => boolean | Promise<boolean>)
-  expectedOrigin: string | string[]; expectedRPID: string | string[]
-  requireUserVerification?: boolean; advancedFIDOConfig?: { userVerification?: UserVerificationRequirement }
-}): Promise<VerifiedAuthenticationResponse>
-type VerifiedAuthenticationResponse = { verified: boolean; authenticationInfo: {
-  credentialID: Base64URLString; newCounter: number; userVerified: boolean
-  credentialDeviceType: CredentialDeviceType; credentialBackedUp: boolean; origin: string; rpID: string } }
-```
+[VERIFIED_REGISTRATION_RESPONSE]: `VerifiedRegistrationResponse = |{…}`
+[VERIFIED_AUTHENTICATION_RESPONSE]: `VerifiedAuthenticationResponse.verified: boolean` `VerifiedAuthenticationResponse.authenticationInfo: {…}`
+[SURFACES]: `verifyAuthenticationResponse({…}) -> Promise<VerifiedAuthenticationResponse>`
 
 ## [02]-[VOCABULARY]
 
@@ -118,17 +82,8 @@ Two module-singleton services own the attestation trust anchors, and the `./help
 - [06]-[RNG]: WebCrypto RNG for the challenge/user handle (or supply `opts.challenge`/`userID`).
 - [07]-[CRYPTO_OPS]: the signature/hash/cert-path/MDS primitives the verifiers reuse.
 
-```ts signature
-// Enterprise/direct attestation is configured once, not per-ceremony: the root certs are the trust anchors the fmt verifier validates the attestation cert chain against.
-declare const SettingsService: {
-  setRootCertificates(opts: { identifier: AttestationFormat | 'mds'; certificates: (Uint8Array | string)[] }): void
-  getRootCertificates(opts: { identifier: AttestationFormat | 'mds' }): string[]
-}
-declare const MetadataService: {
-  initialize(opts?: { mdsServers?: string[]; statements?: MetadataStatement[]; verificationMode?: 'permissive' | 'strict' }): Promise<void>
-  getStatement(aaguid: string | Uint8Array): Promise<MetadataStatement | undefined>
-}
-```
+[SETTINGS_SERVICE]: `SettingsService.setRootCertificates({identifier:AttestationFormat|'mds';certificates:(Uint8Array|string)[]}) -> void` `SettingsService.getRootCertificates({identifier:AttestationFormat|'mds'}) -> string[]`
+[METADATA_SERVICE]: `MetadataService.initialize({mdsServers?:string[];statements?:MetadataStatement[];verificationMode?:'permissive'|'strict'}?) -> Promise<void>` `MetadataService.getStatement(string|Uint8Array) -> Promise<MetadataStatement|undefined>`
 
 ## [04]-[INTEGRATION]
 

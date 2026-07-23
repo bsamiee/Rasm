@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.ML.Tokenizers`
-- package: `Microsoft.ML.Tokenizers` (`MIT`)
+- package: `Microsoft.ML.Tokenizers` (MIT)
 - assembly: `Microsoft.ML.Tokenizers`
 - namespace: `Microsoft.ML.Tokenizers`
 - asset: runtime library, multi-target `net8.0` + `netstandard2.0`; the `net10.0` consumer binds `lib/net8.0` by TFM precedence

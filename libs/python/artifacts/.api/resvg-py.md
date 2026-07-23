@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `resvg-py`
-- package: `resvg-py` (`MIT` wheel; embedded Rust `resvg`/`usvg`/`tiny-skia` stack is `MPL-2.0`/`zlib`, compiled into the `.so`)
+- package: `resvg-py` (MIT)
 - import: `resvg_py`
 - owner: `artifacts`
 - rail: imaging — the `graphic/vector#VECTOR` raster floor

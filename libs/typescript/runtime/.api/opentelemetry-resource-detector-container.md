@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/resource-detector-container`
-- package: `@opentelemetry/resource-detector-container`
-- license: `Apache-2.0`
+- package: `@opentelemetry/resource-detector-container` (Apache-2.0)
 - base: `containerDetector` implements `@opentelemetry/resources` `ResourceDetector`; `detect()` returns a `DetectedResource`
 - consumed-by: `otel/emit` node detector roster; folds beside the `@opentelemetry/resources` `env`/`host`/`os`/`process`/`serviceInstanceId` detectors
 - runtime: node only — reads `/proc/self/cgroup` and `/proc/self/mountinfo` container-runtime facts

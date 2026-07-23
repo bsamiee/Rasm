@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `opentelemetry-api`
-- package: `opentelemetry-api` (`Apache-2.0`, OpenTelemetry Authors)
+- package: `opentelemetry-api` (Apache-2.0)
 - module: `opentelemetry`
 - namespaces: `opentelemetry.trace`, `opentelemetry.metrics`, `opentelemetry._logs`, `opentelemetry.context`, `opentelemetry.propagate`, `opentelemetry.propagators.textmap`, `opentelemetry.baggage`, `opentelemetry.attributes`
 - rail: observability

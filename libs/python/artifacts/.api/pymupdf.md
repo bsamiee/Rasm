@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pymupdf`
-- package: `pymupdf` (`AGPL-3.0-or-later OR Artifex-Commercial`, Artifex; dist `PyMuPDF`)
+- package: `pymupdf` (AGPL-3.0-or-later OR Artifex-Commercial)
 - module: `pymupdf`; bundles the native MuPDF C core, no system library
 - rail: pdf — native render/extract/ocr/redact/scrub/draw/table/embed/author owner
 
@@ -13,23 +13,23 @@
 
 [PUBLIC_TYPE_SCOPE]: document, page, and rendering roots
 
-| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]                                                                   |
-| :-----: | :------------------ | :------------ | :----------------------------------------------------------------------------- |
-|  [01]   | `Document`          | document root | open/save; page access, metadata, TOC, layers, embedded files, conversion      |
-|  [02]   | `Page`              | page unit     | render, extract, draw, annotate, redact, geometry boxes                        |
-|  [03]   | `Pixmap`            | raster buffer | rendered RGBA/CMYK bitmap with save/encode and color ops                       |
-|  [04]   | `TextPage`          | text model    | structured text/word/dict extraction from a page                               |
-|  [05]   | `DocumentWriter`    | author sink   | build a new document from drawn `Story`/`Shape` pages                          |
-|  [06]   | `Annot`             | annotation    | a single page annotation with update/appearance/file/OC control                |
-|  [07]   | `Font`              | font handle   | inserted-text font, glyph metrics, `has_glyph`/`valid_codepoints` probes       |
-|  [08]   | `Story`             | flow layout   | reflowable HTML-to-PDF story (`Story.write` one-shot or `place`/`draw` loop)   |
-|  [09]   | `Shape`             | vector canvas | low-level draw canvas (`new_shape()`): line/rect/circle/bezier + finish/commit |
-|  [10]   | `TextWriter`        | glyph writer  | font-bound positioned-glyph accumulator, committed via `Page.write_text`       |
-|  [11]   | `Widget`            | form widget   | interactive form-field widget for `add_widget`                                 |
-|  [12]   | `Link`              | link object   | a single page link with `LINK_*` kind, URI/dest, and rect                      |
-|  [13]   | `Outline`           | outline node  | a single TOC node (`title`/`dest`/`next`/`down`) for tree walks                |
-|  [14]   | `table.TableFinder` | table engine  | resolved-table container from `find_tables` (submodule `pymupdf.table`)        |
-|  [15]   | `table.Table`       | cell grid     | one resolved table with `extract`/`to_pandas`/`to_markdown`/`bbox`/`rows`      |
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]                                                                      |
+| :-----: | :------------------ | :------------ | :-------------------------------------------------------------------------------- |
+|  [01]   | `Document`          | document root | open/save; page access, metadata, TOC, layers, embedded files, conversion         |
+|  [02]   | `Page`              | page unit     | render, extract, draw, annotate, redact, geometry boxes                           |
+|  [03]   | `Pixmap`            | raster buffer | rendered RGBA/CMYK bitmap with save/encode and color ops                          |
+|  [04]   | `TextPage`          | text model    | structured text/word/dict extraction from a page                                  |
+|  [05]   | `DocumentWriter`    | author sink   | build a new document from drawn `Story`/`Shape` pages                             |
+|  [06]   | `Annot`             | annotation    | a single page annotation with update/appearance/file/OC control                   |
+|  [07]   | `Font`              | font handle   | inserted-text font, glyph metrics, `has_glyph`/`valid_codepoints` probes          |
+|  [08]   | `Story`             | flow layout   | reflowable HTML-to-PDF story (`Story.write` one-shot or `place`/`draw` loop)      |
+|  [09]   | `Shape`             | vector canvas | low-level draw canvas (`new_shape()`): line/rect/circle/bezier + finish/commit    |
+|  [10]   | `TextWriter`        | glyph writer  | font-bound positioned-glyph accumulator, committed via `Page.write_text`          |
+|  [11]   | `Widget`            | form widget   | interactive form-field widget for `add_widget`                                    |
+|  [12]   | `Link`              | link object   | a single page link with `LINK_*` kind, URI/dest, and rect                         |
+|  [13]   | `Outline`           | outline node  | a single TOC node (`title`/`dest`/`next`/`down`) for tree walks                   |
+|  [14]   | `table.TableFinder` | table engine  | resolved-table container from `find_tables` (submodule `pymupdf.table`)           |
+|  [15]   | `table.Table`       | cell grid     | one resolved table with `extract`/`to_pandas`/`to_markdown`/`bbox`/`rows`         |
 |  [16]   | `Archive`           | resource sink | external-resource archive (`add`/`read_entry`) for reflowable-HTML/`Story` intake |
 
 [PUBLIC_TYPE_SCOPE]: geometry and color value objects
@@ -70,23 +70,23 @@ Call rows discriminate on module-level `int`/flag constants, never re-minted loc
 [ENTRYPOINT_SCOPE]: document open and save
 - `save`/`ez_save` carry: `garbage, clean, deflate, deflate_fonts, incremental, linear, use_objstms, encryption, permissions, owner_pw, user_pw, preserve_metadata, compression_effort`
 
-| [INDEX] | [SURFACE]                                                 | [SHAPE]  | [CAPABILITY]                                             |
-| :-----: | :-------------------------------------------------------- | :------- | :------------------------------------------------------- |
-|  [01]   | `open(filename, stream, filetype)`                        | static   | open from path or in-memory stream (`Document` alias)    |
-|  [02]   | `Document(filename, stream, filetype, *, width, archive)` | ctor     | constructor; `pymupdf.open` is the module alias          |
-|  [03]   | `Document.save(filename, *, ...)`                         | instance | compaction, linearization, and encryption knobs          |
-|  [04]   | `Document.ez_save(filename)`                              | instance | deflate/garbage/use-objstms defaults on                  |
+| [INDEX] | [SURFACE]                                                 | [SHAPE]  | [CAPABILITY]                                              |
+| :-----: | :-------------------------------------------------------- | :------- | :-------------------------------------------------------- |
+|  [01]   | `open(filename, stream, filetype)`                        | static   | open from path or in-memory stream (`Document` alias)     |
+|  [02]   | `Document(filename, stream, filetype, *, width, archive)` | ctor     | constructor; `pymupdf.open` is the module alias           |
+|  [03]   | `Document.save(filename, *, ...)`                         | instance | compaction, linearization, and encryption knobs           |
+|  [04]   | `Document.ez_save(filename)`                              | instance | deflate/garbage/use-objstms defaults on                   |
 |  [05]   | `Document.convert_to_pdf(*, from_page, to_page, rotate)`  | instance | convert a non-PDF document to PDF bytes, generating links |
-|  [06]   | `Document.authenticate(password)`                         | instance | unlock an encrypted document                             |
-|  [07]   | `Document.insert_pdf(docsrc, *, from_page, rotate)`       | instance | splice pages from another `Document`                     |
-|  [08]   | `Document.insert_file(src, *, ...)`                       | instance | splice pages from any supported file/stream              |
-|  [09]   | `Document.select(list[int])`                              | instance | reorder/subset to a page-index list in place             |
-|  [10]   | `Document.delete_pages(*, from_page, to_page)`            | instance | drop pages (`delete_page` for one)                       |
-|  [11]   | `Document.copy_page / move_page / fullcopy_page`          | instance | duplicate or relocate a page internally                  |
-|  [12]   | `Document.close()` / context manager                      | instance | deterministic native-handle release                      |
-|  [13]   | `Document.set_metadata(dict)`                             | instance | write info dict (title/author/subject/…); `{}` clears    |
-|  [14]   | `Document.set_xml_metadata(str)`                          | instance | write archival PDF/A XMP metadata                        |
-|  [15]   | `Document.apply_css(css, append)`                         | instance | apply/append CSS to a reflowable HTML/EPUB document      |
+|  [06]   | `Document.authenticate(password)`                         | instance | unlock an encrypted document                              |
+|  [07]   | `Document.insert_pdf(docsrc, *, from_page, rotate)`       | instance | splice pages from another `Document`                      |
+|  [08]   | `Document.insert_file(src, *, ...)`                       | instance | splice pages from any supported file/stream               |
+|  [09]   | `Document.select(list[int])`                              | instance | reorder/subset to a page-index list in place              |
+|  [10]   | `Document.delete_pages(*, from_page, to_page)`            | instance | drop pages (`delete_page` for one)                        |
+|  [11]   | `Document.copy_page / move_page / fullcopy_page`          | instance | duplicate or relocate a page internally                   |
+|  [12]   | `Document.close()` / context manager                      | instance | deterministic native-handle release                       |
+|  [13]   | `Document.set_metadata(dict)`                             | instance | write info dict (title/author/subject/…); `{}` clears     |
+|  [14]   | `Document.set_xml_metadata(str)`                          | instance | write archival PDF/A XMP metadata                         |
+|  [15]   | `Document.apply_css(css, append)`                         | instance | apply/append CSS to a reflowable HTML/EPUB document       |
 
 - `Document` context manager (`with pymupdf.open(...) as doc`): `__enter__` returns the `Document`, `__exit__` closes the native handle at scope exit rather than GC-reaping it.
 - `Document(archive=)`: an `Archive` resolving the external images/CSS/fonts a reflowable HTML/EPUB document references at layout time.

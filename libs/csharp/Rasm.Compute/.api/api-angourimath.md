@@ -92,7 +92,7 @@
 - One CAS owner; `SymbolicExpr` wraps the `Entity` as its content-keyed value object, the raw `Entity` never crossing that boundary.
 
 [RAIL_LAW]:
-- Package: `AngouriMath` (MIT; net7.0 asset binding on net10; permissive ANTLR/GenericTensor/HonkSharp/PeterO deps)
+- Package: `AngouriMath` (MIT)
 - Owns: the symbolic CAS — parse, canonical simplify, solve/differentiate/integrate/limit, substitution, numeric/boolean evaluation, `Compile`-to-delegate, LaTeX
 - Accept: a symbolic expression parsed/built, canonicalized for the content key, solved/integrated/differentiated for the AEC formula lane, compiled for the lowering cache, or lowered to a Z3 rule set
 - Reject: a throwing parse at admission where `Entity.TryParse` is the gate; leaking the raw `Entity` where `SymbolicExpr`'s content-keyed value object is the durable surface; re-deriving the numeric solve the `Tensor`/`Solver` owners hold

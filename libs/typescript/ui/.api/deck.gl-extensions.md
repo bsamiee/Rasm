@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@deck.gl/extensions`
-- package: `@deck.gl/extensions`
-- license: `MIT`
+- package: `@deck.gl/extensions` (MIT)
 - abi: browser WebGL2/WebGPU via `@deck.gl/core`'s luma.gl `Device`; each extension injects a `@luma.gl/shadertools` `ShaderModule`
 - peer (`~catalog`): `@deck.gl/core` (the `LayerExtension` base, the `extensions` layer prop, `Accessor`, `Layer`, `LayerContext`, `UpdateParameters`), `@luma.gl/core`, `@luma.gl/engine`; deps `@luma.gl/shadertools` (`ShaderModule`), `@luma.gl/webgl`, `@math.gl/core`
 - catalog-verdict: KEEP — the concrete `LayerExtension` roster core ships only the base of; required `@deck.gl/geo-layers` peer (the `extensions` prop pack); admitted centrally

@@ -50,18 +50,18 @@
 
 [ENTRYPOINT_SCOPE]: `Expr` generate, search, rewrite, optimize, scope, lineage, diff
 
-| [INDEX] | [SURFACE]                                                  | [SHAPE]  | [CAPABILITY]                                              |
-| :-----: | :--------------------------------------------------------- | :------- | :-------------------------------------------------------- |
-|  [01]   | `Expr.sql(dialect, copy) -> str`                           | instance | regenerate SQL for this tree under `dialect`              |
-|  [02]   | `Expr.find(*types, bfs)` / `find_all(*types) -> Iterator`  | instance | first / all nodes of the given subtypes                   |
-|  [03]   | `Expr.walk(bfs, prune)` / `find_ancestor(*types)`          | instance | visit every node (prunable) / climb to an ancestor        |
-|  [04]   | `Expr.transform(fn, copy) -> Expr` / `node.replace(other)` | instance | bottom-up rewrite / swap a node in its parent             |
-|  [05]   | `optimizer.optimize(expr, schema, dialect, rules) -> Expr` | static   | run the `RULES` pipeline to schema-qualified form         |
-|  [06]   | `optimizer.qualify(expr, schema, dialect) -> Expr`         | static   | normalize and qualify tables/columns; mandatory pre-step  |
-|  [07]   | `optimizer.scope.build_scope(expr) -> Scope\|None`         | static   | resolve and walk name scopes (source and alias maps)      |
-|  [08]   | `lineage.lineage(column, sql, schema, sources) -> Node`    | static   | column-level lineage tree back to source columns          |
-|  [09]   | `diff(source, target, matchings, delta_only) -> list[Edit]`| static   | AST edit set between two trees                            |
-|  [10]   | `Select.selects -> list[Expr]`                             | property | projection list; each `alias_or_name` is an output column |
+| [INDEX] | [SURFACE]                                                   | [SHAPE]  | [CAPABILITY]                                              |
+| :-----: | :---------------------------------------------------------- | :------- | :-------------------------------------------------------- |
+|  [01]   | `Expr.sql(dialect, copy) -> str`                            | instance | regenerate SQL for this tree under `dialect`              |
+|  [02]   | `Expr.find(*types, bfs)` / `find_all(*types) -> Iterator`   | instance | first / all nodes of the given subtypes                   |
+|  [03]   | `Expr.walk(bfs, prune)` / `find_ancestor(*types)`           | instance | visit every node (prunable) / climb to an ancestor        |
+|  [04]   | `Expr.transform(fn, copy) -> Expr` / `node.replace(other)`  | instance | bottom-up rewrite / swap a node in its parent             |
+|  [05]   | `optimizer.optimize(expr, schema, dialect, rules) -> Expr`  | static   | run the `RULES` pipeline to schema-qualified form         |
+|  [06]   | `optimizer.qualify(expr, schema, dialect) -> Expr`          | static   | normalize and qualify tables/columns; mandatory pre-step  |
+|  [07]   | `optimizer.scope.build_scope(expr) -> Scope\|None`          | static   | resolve and walk name scopes (source and alias maps)      |
+|  [08]   | `lineage.lineage(column, sql, schema, sources) -> Node`     | static   | column-level lineage tree back to source columns          |
+|  [09]   | `diff(source, target, matchings, delta_only) -> list[Edit]` | static   | AST edit set between two trees                            |
+|  [10]   | `Select.selects -> list[Expr]`                              | property | projection list; each `alias_or_name` is an output column |
 
 [OPTIMIZER_RULES]: `optimizer.RULES` is the ordered pipeline `optimize` runs, each rule dispatched by introspected parameter name and a sliced `rules=` tuple running a subset — `qualify` (mandatory first) `pushdown_projections` `normalize` `unnest_subqueries` `pushdown_predicates` `optimize_joins` `eliminate_subqueries` `merge_subqueries` `eliminate_joins` `eliminate_ctes` `quote_identifiers` `annotate_types` `canonicalize` `simplify`
 

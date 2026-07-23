@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `xarray`
-- package: `xarray` (`Apache-2.0`)
+- package: `xarray` (Apache-2.0)
 - module: `xarray`
 - namespaces: `xarray`, `xarray.groupers`, `xarray.indexes`, `xarray.coders`, `xarray.ufuncs`, `xarray.backends`, `xarray.testing`, `xarray.tutorial`
 - rail: field-dataset
@@ -47,24 +47,10 @@
 `obj.dt` and `obj.str` materialize only for the matching dtype, and `register_dataarray_accessor`/`register_dataset_accessor`/`register_datatree_accessor` bind a custom namespace as a class decorator. Grouped, rolling, and windowed members return reduction objects — `GroupBy`, `DataArrayRolling`, `DatasetCoarsen`, `Weighted`, `DataArrayResample` — each carrying its own `.mean`/`.sum`/`.reduce`/`.construct`/`.map` surface.
 
 [.dt timedelta]: `days` `seconds` `microseconds` `nanoseconds` `total_seconds()` `floor()` `ceil()` `round()`
-
-```text
-.dt (datetime64) — time-component reads and rounders
-year month day hour minute second microsecond nanosecond dayofweek/weekday/day_of_week dayofyear/day_of_year
-quarter season days_in_month/daysinmonth days_in_year decimal_year
-is_month_start/is_month_end is_quarter_start/is_quarter_end is_year_start/is_year_end
-is_leap_year calendar time date isocalendar() strftime() floor() ceil() round()
-
-.str (string) — vectorized string ops; the is* predicate tail is a closed set
-len get slice slice_replace cat join contains match startswith endswith
-find/rfind/index/rindex replace count extract extractall findall split/rsplit
-partition/rpartition pad/center/ljust/rjust/zfill wrap strip/lstrip/rstrip
-lower/upper/title/capitalize/swapcase/casefold normalize translate repeat get_dummies decode/encode
-isalnum isalpha isdigit isspace isupper islower istitle isnumeric isdecimal
-
-.plot (matplotlib)
-line step hist pcolormesh contour contourf imshow surface scatter quiver streamplot facetgrid
-```
+[.dt datetime64]: `year` `month` `day` `hour` `minute` `second` `microsecond` `nanosecond` `dayofweek`/`weekday`/`day_of_week` `dayofyear`/`day_of_year` `quarter` `season` `days_in_month`/`daysinmonth` `days_in_year` `decimal_year` `is_month_start` `is_month_end` `is_quarter_start` `is_quarter_end` `is_year_start` `is_year_end` `is_leap_year` `calendar` `time` `date` `isocalendar()` `strftime()` `floor()` `ceil()` `round()`
+[.str transform]: `len` `get` `slice` `slice_replace` `cat` `join` `contains` `match` `startswith` `endswith` `find`/`rfind`/`index`/`rindex` `replace` `count` `extract` `extractall` `findall` `split`/`rsplit` `partition`/`rpartition` `pad`/`center`/`ljust`/`rjust`/`zfill` `wrap` `strip`/`lstrip`/`rstrip` `lower`/`upper`/`title`/`capitalize`/`swapcase`/`casefold` `normalize` `translate` `repeat` `get_dummies` `decode`/`encode`
+[.str predicate]: `isalnum` `isalpha` `isdigit` `isspace` `isupper` `islower` `istitle` `isnumeric` `isdecimal`
+[.plot matplotlib]: `line` `step` `hist` `pcolormesh` `contour` `contourf` `imshow` `surface` `scatter` `quiver` `streamplot` `facetgrid`
 
 [PUBLIC_TYPE_SCOPE]: grouper objects (`xarray.groupers`)
 

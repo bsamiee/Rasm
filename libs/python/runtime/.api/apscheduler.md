@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `APScheduler`
-- package: `APScheduler` (`MIT`)
+- package: `APScheduler` (MIT)
 - module: `apscheduler`
 - namespaces: `apscheduler.schedulers`, `apscheduler.triggers`, `apscheduler.jobstores`, `apscheduler.executors`, `apscheduler.events`, `apscheduler.job`
 - rail: scheduling

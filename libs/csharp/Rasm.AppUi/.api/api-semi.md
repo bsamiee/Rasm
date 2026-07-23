@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Semi.Avalonia`
-- package: `Semi.Avalonia`
-- license: MIT
+- package: `Semi.Avalonia` (MIT)
 - floor: `net10.0` consumer (`lib/net10.0/Semi.Avalonia.dll`); multi-targets net8.0 / net10.0, `net10.0` bound
 - assembly: `Semi.Avalonia`
 - surface: compiled-AXAML resource dictionaries — `SemiTheme` (the `Styles` entry added via `<semi:SemiTheme/>`), `Tokens.Variables`, `Tokens.Palette.Light`, `Tokens.Palette.Dark`, `SemiPopupAnimations`, `Icons`, the `Locale.*` resource set, and three converters (`ItemConverter`, `PositionToAngleConverter`, `PlacementToRenderTransformOriginConverter`). No domain CODE surface
@@ -14,8 +13,7 @@
 - rail: theme
 
 [PACKAGE_SURFACE]: `Semi.Avalonia.DataGrid` / `Semi.Avalonia.ColorPicker` / `Semi.Avalonia.Dock` / `Semi.Avalonia.AvaloniaEdit`
-- packages: `Semi.Avalonia.{DataGrid,ColorPicker,Dock,AvaloniaEdit}`
-- license: MIT
+- packages: `Semi.Avalonia.{DataGrid,ColorPicker,Dock,AvaloniaEdit}` (MIT)
 - floor: `net10.0` consumer per package
 - surface: per-control compiled-AXAML skin dictionaries, each added to `Application.Styles` AFTER `SemiTheme` to re-skin `Avalonia.Controls.DataGrid`, `Avalonia.Controls.ColorPicker`, `Dock.Avalonia` (`api-dock.md`), and `AvaloniaEdit` (`api-avaloniaedit.md`) onto the Semi tokens. Each exposes exactly one `Styles` entry type (`DataGridSemiTheme`/`ColorPickerSemiTheme`/`DockSemiTheme`/`AvaloniaEditSemiTheme`); no other CODE surface
 - rail: theme

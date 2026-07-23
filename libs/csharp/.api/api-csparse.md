@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `CSparse`
-- package: `CSparse` (LGPL-2.1-only, Christian Woltering)
+- package: `CSparse` (LGPL-2.1-only)
 - assembly: `CSparse`
 - namespace: `CSparse`, `CSparse.Storage`, `CSparse.Ordering`, `CSparse.Factorization`, `CSparse.IO`, `CSparse.Double`, `CSparse.Double.Factorization`, `CSparse.Complex`, `CSparse.Complex.Factorization`
 - asset: runtime library, pure managed, zero native dependency

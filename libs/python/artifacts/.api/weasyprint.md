@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `weasyprint`
-- package: `weasyprint` (`BSD-3-Clause`, Kozea/CourtBouillon)
+- package: `weasyprint` (BSD-3-Clause)
 - module: `weasyprint`
 - namespaces: `weasyprint`, `weasyprint.document`, `weasyprint.text.fonts`, `weasyprint.css.counters`, `weasyprint.urls`
 - asset: pure-Python PDF assembly through `pydyf`; text layout/shaping binds native `pango`/`harfbuzz`/`fontconfig` via `cffi` and `pillow` for raster decode at render time

@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@aws-sdk/client-s3`
-- package: `@aws-sdk/client-s3`
-- license: `Apache-2.0`
+- package: `@aws-sdk/client-s3` (Apache-2.0)
 - peer: none — self-contained; `@smithy/*` and `@aws-sdk/*` submodules bundled
 - transport: own `requestHandler` — `@smithy/node-http-handler` (Node `https.Agent` pool / HTTP2) or `@smithy/fetch-http-handler` (browser); NOT the `@effect/platform` `HttpClient`
 - runtime: `runtime:node` (server object plane) and browser (presigned direct-to-S3 uploads); `credentialDefaultProvider` (`@aws-sdk/credential-provider-node`) is node-only

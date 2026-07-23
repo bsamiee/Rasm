@@ -5,11 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `highspy`
-- package: `highspy`
+- package: `highspy` (MIT)
 - import: `import highspy`
 - owner: `compute`
 - rail: mathematical programming (LP/MIP/QP solver backend)
-- license: MIT (HiGHS C++ core, pybind11 binding)
 - entry points: none (library only)
 - capability: revised-simplex/IPX/PDLP LP solve, branch-and-bound MIP solve over integer and semi-continuous columns, active-set convex-QP solve, incremental warm-basis re-solve, primal/dual/reduced-cost recovery with ray certificates, cost-and-bound sensitivity ranging, IIS extraction, multi-objective blend/lexicographic solve, and the MIP callback surface
 
@@ -56,21 +55,18 @@
 
 [PUBLIC_TYPE_SCOPE]: closed status and vocabulary enums
 
-Every verdict is a closed enum: `HighsStatus` grades each call, `HighsModelStatus` the terminal model verdict, `HighsBasisStatus` each basis position, `HighsVarType` each column kind; `k`-prefixed members are the wire names HiGHS emits.
+Every verdict is a closed enum whose `k`-prefixed members are the emitted wire names.
 
-```python signature
-# k-prefixed members are the wire names HiGHS emits.
-HighsStatus         = kOk, kWarning, kError
-HighsModelStatus    = kOptimal, kInfeasible, kUnbounded, kUnboundedOrInfeasible, kObjectiveBound, kObjectiveTarget, kTimeLimit, kIterationLimit, kSolutionLimit, kInterrupt, kMemoryLimit, kModelEmpty, kNotset
-HighsVarType        = kContinuous, kInteger, kImplicitInteger, kSemiContinuous, kSemiInteger
-ObjSense            = kMinimize, kMaximize
-HighsBasisStatus    = kLower, kBasic, kUpper, kZero, kNonbasic
-SolutionStatus      = kSolutionStatusNone, kSolutionStatusInfeasible, kSolutionStatusFeasible
-MatrixFormat        = kColwise, kRowwise, kRowwisePartitioned
-HessianFormat       = kTriangular, kSquare
-IisStrategy         = kIisStrategyFromLp, kIisStrategyFromRay, kIisStrategyMin, kIisStrategyMax, kIisStrategyIrreducible, kIisStrategyRelaxation, kIisStrategyLight, kIisStrategyColPriority
-HighsPresolveStatus = kNotPresolved, kNotReduced, kReduced, kReducedToEmpty, kInfeasible, kUnboundedOrInfeasible, kTimeout
-```
+[HighsStatus]: `kOk` `kWarning` `kError`
+[HighsModelStatus]: `kOptimal` `kInfeasible` `kUnbounded` `kUnboundedOrInfeasible` `kObjectiveBound` `kObjectiveTarget` `kTimeLimit` `kIterationLimit` `kSolutionLimit` `kInterrupt` `kMemoryLimit` `kModelEmpty` `kNotset`
+[HighsVarType]: `kContinuous` `kInteger` `kImplicitInteger` `kSemiContinuous` `kSemiInteger`
+[ObjSense]: `kMinimize` `kMaximize`
+[HighsBasisStatus]: `kLower` `kBasic` `kUpper` `kZero` `kNonbasic`
+[SolutionStatus]: `kSolutionStatusNone` `kSolutionStatusInfeasible` `kSolutionStatusFeasible`
+[MatrixFormat]: `kColwise` `kRowwise` `kRowwisePartitioned`
+[HessianFormat]: `kTriangular` `kSquare`
+[IisStrategy]: `kIisStrategyFromLp` `kIisStrategyFromRay` `kIisStrategyMin` `kIisStrategyMax` `kIisStrategyIrreducible` `kIisStrategyRelaxation` `kIisStrategyLight` `kIisStrategyColPriority`
+[HighsPresolveStatus]: `kNotPresolved` `kNotReduced` `kReduced` `kReducedToEmpty` `kInfeasible` `kUnboundedOrInfeasible` `kTimeout`
 
 ## [03]-[ENTRYPOINTS]
 

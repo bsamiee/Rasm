@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ssh2`
-- package: `ssh2` (MIT — the manifest carries no SPDX string; the shipped `LICENSE` is MIT)
+- package: `ssh2` (MIT)
 - module format: CJS; single root export
 - runtime target: node only; runtime deps `asn1` + `bcrypt-pbkdf`; optional `cpu-features` + `nan` tune the default cipher list only — a pure-JS crypto recovery exists, so there is no hard native gate
 - rail: data remote-transfer — the SSH root under every remote exec, SFTP transfer, and remote-watch origin row; catalogued once at the data tier

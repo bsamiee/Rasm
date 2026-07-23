@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/platform-browser`
-- package: `@effect/platform-browser`
-- license: `MIT`
+- package: `@effect/platform-browser` (MIT)
 - effect-peer: `effect catalog`, `@effect/platform catalog` (the abstract Tags this package satisfies; `.api/effect.md`, `.api/effect-platform.md`)
 - runtime: `runtime:browser` (browser-only; peer swap of `@effect/platform-node`/`@effect/platform-bun` behind the same `@effect/platform` Tags)
 

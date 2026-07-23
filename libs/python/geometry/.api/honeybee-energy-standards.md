@@ -5,12 +5,11 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `honeybee-energy-standards`
-- package: `honeybee-energy-standards`
+- package: `honeybee-energy-standards` (AGPL-3.0)
 - import: `import honeybee_energy_standards` — a docstring-only module exposing no callable API; consumed through `honeybee_energy.config.folders.standards_extension_folders` and the `honeybee_energy.lib.*_by_identifier` loaders
 - owner: `geometry`
 - rail: energy-modeling
 - consumer: `.planning/energy/model.md` — reached through the `honeybee_energy.lib` resolver rows, never a direct JSON read
-- license: AGPL-3.0 (Ladybug Tools copyleft)
 - abi: pure-data `py3-none-any` wheel — JSON resource tree with a docstring-only `__init__.py`; no compiled payload, no console scripts, no install dependencies (a leaf data package `honeybee-energy` reads once it sits under `folders.standards_extension_folders`)
 
 ## [02]-[PUBLIC_TYPES]

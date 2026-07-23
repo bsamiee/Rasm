@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Eto` 'platform handler surface'
-- package: `Eto` (host-provided; bound in-place from the Rhino-loaded `Eto.dll`, never a second NuGet admission)
-- license: BSD-3-Clause
+- package: `Eto` (host-provided; bound in-place from the Rhino-loaded `Eto.dll`, never a second NuGet admission) (BSD-3-Clause)
 - assembly: `Eto.dll` (Rhino `RhCore` framework); the theme notifier is `Rhino.UI.dll`
 - namespace: `Eto`, `Eto.Forms`, `Rhino.UI`
 - asset: one platform handler the Rhino process resolves for its loaded `Eto.dll`

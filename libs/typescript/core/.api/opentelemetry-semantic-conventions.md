@@ -9,7 +9,7 @@ Inside Rasm exactly two owners import it — `observe/convention`, the re-export
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/semantic-conventions`
-- package: `@opentelemetry/semantic-conventions` · license `Apache-2.0`
+- package: `@opentelemetry/semantic-conventions` (Apache-2.0)
 - module: dual — CJS default (`build/src/index.js`, no `"type"` field) + ESM (`build/esm`) + `esnext` (`build/esnext`); `sideEffects: false`, so unused constants tree-shake to zero bytes.
 - exports: TWO subpaths — `.` (STABLE, `build/src/index.d.ts`) and `./incubating` (STABLE + overlay, `build/src/index-incubating.d.ts`). Stable entry re-exports `trace` + `resource` + `stable_attributes` + `stable_metrics` + `stable_events`; incubating adds `experimental_attributes` + `experimental_metrics` + `experimental_events`.
 - asset: `build/src/index.d.ts`.
@@ -29,28 +29,8 @@ Surface is ONE generated pattern, not a member list: four literal-typed `const` 
 |  [03]   | `METRIC_<NAME>`        | `const: "metric.name"` | `Metric` names on `data` fact-journal meter rows + native OTLP metrics    |
 |  [04]   | `EVENT_<NAME>`         | `const: "event.name"`  | span/log event names (`EVENT_EXCEPTION` = `"exception"`, the crash event) |
 
-```ts signature
-// Every member is a literal-typed constant — the TYPE is the string, so keys are compile-checked and values narrow:
-export declare const ATTR_HTTP_REQUEST_METHOD: "http.request.method"
-export declare const ATTR_URL_FULL: "url.full"
-export declare const ATTR_SERVICE_NAME: "service.name"
-export declare const METRIC_HTTP_SERVER_REQUEST_DURATION: "http.server.request.duration"
-export declare const EVENT_EXCEPTION: "exception"
-// Crash forensic vocabulary (stable) — value/fault FaultCapture.Forensic anchors the exception/error set and the code.* frame quartet:
-export declare const ATTR_ERROR_TYPE: "error.type"
-export declare const ATTR_EXCEPTION_MESSAGE: "exception.message"
-export declare const ATTR_EXCEPTION_STACKTRACE: "exception.stacktrace"
-export declare const ATTR_EXCEPTION_TYPE: "exception.type"
-export declare const ATTR_CODE_FUNCTION_NAME: "code.function.name"
-export declare const ATTR_CODE_FILE_PATH: "code.file.path"
-export declare const ATTR_CODE_LINE_NUMBER: "code.line.number"
-export declare const ATTR_CODE_COLUMN_NUMBER: "code.column.number"
-// A bounded-value attribute exposes its closed set as *_VALUE_* constants — the smart-enum values a Match fold discriminates over:
-export declare const HTTP_REQUEST_METHOD_VALUE_GET: "GET"          // + _POST/_PUT/_DELETE/_HEAD/_OPTIONS/_PATCH/_CONNECT/_TRACE/__OTHER
-export declare const DB_SYSTEM_NAME_VALUE_POSTGRESQL: "postgresql" // + _MYSQL/_MARIADB/_MICROSOFT_SQL_SERVER/…
-// observe/convention composes the constant into the record — never the literal:
-const span = { [ATTR_HTTP_REQUEST_METHOD]: HTTP_REQUEST_METHOD_VALUE_GET, [ATTR_URL_FULL]: url } // typed keys + values
-```
+[SPAN]: `span.[ATTR_HTTP_REQUEST_METHOD]` `span.[ATTR_URL_FULL]`
+[SURFACES]: `ATTR_HTTP_REQUEST_METHOD: "http.request.method"` `ATTR_URL_FULL: "url.full"` `ATTR_SERVICE_NAME: "service.name"` `METRIC_HTTP_SERVER_REQUEST_DURATION: "http.server.request.duration"` `EVENT_EXCEPTION: "exception"` `ATTR_ERROR_TYPE: "error.type"` `ATTR_EXCEPTION_MESSAGE: "exception.message"` `ATTR_EXCEPTION_STACKTRACE: "exception.stacktrace"` `ATTR_EXCEPTION_TYPE: "exception.type"` `ATTR_CODE_FUNCTION_NAME: "code.function.name"` `ATTR_CODE_FILE_PATH: "code.file.path"` `ATTR_CODE_LINE_NUMBER: "code.line.number"` `ATTR_CODE_COLUMN_NUMBER: "code.column.number"` `HTTP_REQUEST_METHOD_VALUE_GET: "GET"` `DB_SYSTEM_NAME_VALUE_POSTGRESQL: "postgresql"`
 
 ## [03]-[TIER_SPLIT]
 

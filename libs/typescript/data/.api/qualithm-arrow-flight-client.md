@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@qualithm/arrow-flight-client`
-- package: `@qualithm/arrow-flight-client`
-- license: `Apache-2.0`
+- package: `@qualithm/arrow-flight-client` (Apache-2.0)
 - backing: `@connectrpc/connect` + `@connectrpc/connect-node` transport, `@bufbuild/protobuf` Flight descriptors, `node:http2` session
 - column-plane: `apache-arrow` `Table`/`RecordBatch` — the decode and encode surface every result crosses
 - runtime: `runtime:node`/bun services and CLI; the client rides `node:http2`, no browser row

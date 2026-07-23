@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Confluent.Kafka`
-- package: `Confluent.Kafka` (Apache-2.0, `confluentinc/confluent-kafka-dotnet`)
+- package: `Confluent.Kafka` (Apache-2.0)
 - assembly: `Confluent.Kafka`
 - namespace: `Confluent.Kafka`, `Confluent.Kafka.SyncOverAsync`
 - depends: `librdkafka.redist` ships `runtimes/osx-arm64/native/librdkafka.dylib`, P/Invoke-loaded by the client handle

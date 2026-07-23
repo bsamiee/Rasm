@@ -7,7 +7,7 @@ Eleven promise-returning KV ops over one IndexedDB object store each close over 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `idb-keyval`
-- package: `idb-keyval` (license Apache-2.0)
+- package: `idb-keyval` (Apache-2.0)
 - entry: `.` -> ESM `./dist/index.js`, CJS `./dist/index.cjs`, types `./dist/index.d.ts` (`type: module`)
 - variants: `./dist/compat.*` (retired implicit default-store build, re-exports `./`), `./dist/umd.*` (global build)
 - asset: browser-only KV over the native `IndexedDB` API; zero dependencies; structured-clone value domain
@@ -32,24 +32,7 @@ Eleven promise-returning KV ops over one IndexedDB object store each close over 
 |  [10]   | `values`  | value scan     | single tx            | background-sync replay body |
 |  [11]   | `entries` | pair scan      | single tx            | full-store export           |
 
-```ts contract
-// Every op takes an optional UseStore; omitted => the default keyval-store/keyval store.
-declare function get<T = any>(key: IDBValidKey, customStore?: UseStore): Promise<T | undefined>
-declare function getMany<T = any>(keys: IDBValidKey[], customStore?: UseStore): Promise<(T | undefined)[]>
-declare function set(key: IDBValidKey, value: any, customStore?: UseStore): Promise<void>
-declare function setMany(entries: [IDBValidKey, any][], customStore?: UseStore): Promise<void> // atomic
-declare function update<T = any>(
-  key: IDBValidKey,
-  updater: (oldValue: T | undefined) => T, // runs inside the read-modify-write tx
-  customStore?: UseStore
-): Promise<void>
-declare function del(key: IDBValidKey, customStore?: UseStore): Promise<void>
-declare function delMany(keys: IDBValidKey[], customStore?: UseStore): Promise<void>
-declare function clear(customStore?: UseStore): Promise<void>
-declare function keys<K extends IDBValidKey>(customStore?: UseStore): Promise<K[]>
-declare function values<T = any>(customStore?: UseStore): Promise<T[]>
-declare function entries<K extends IDBValidKey, V = any>(customStore?: UseStore): Promise<[K, V][]>
-```
+[SURFACES]: `get(IDBValidKey,UseStore?) -> Promise<T|undefined>` `getMany(IDBValidKey[],UseStore?) -> Promise<(T|undefined)[]>` `set(IDBValidKey,any,UseStore?) -> Promise<void>` `setMany([IDBValidKey,any][],UseStore?) -> Promise<void>` `update(IDBValidKey,(oldValue:T|undefined)=>T,UseStore?) -> Promise<void>` `del(IDBValidKey,UseStore?) -> Promise<void>` `delMany(IDBValidKey[],UseStore?) -> Promise<void>` `clear(UseStore?) -> Promise<void>` `keys(UseStore?) -> Promise<K[]>` `values(UseStore?) -> Promise<T[]>` `entries(UseStore?) -> Promise<[K,V][]>`
 
 ## [03]-[STORE_PARAMETERIZATION]
 
@@ -57,14 +40,8 @@ declare function entries<K extends IDBValidKey, V = any>(customStore?: UseStore)
 
 `createStore` is the whole multi-store mechanism: it opens or upgrades a named database and object store and returns a `UseStore` closure that runs a callback inside a fresh transaction of the requested mode. The Layer resolves the closure once at construction and closes every operation over it, never per call. `promisifyRequest` is the raw-request bridge for the custom cursors and indexes the higher lanes need.
 
-```ts contract
-type UseStore = <T>(
-  txMode: IDBTransactionMode, // "readonly" | "readwrite" | "versionchange"
-  callback: (store: IDBObjectStore) => T | PromiseLike<T>
-) => Promise<T>
-declare function createStore(dbName: string, storeName: string): UseStore
-declare function promisifyRequest<T = undefined>(request: IDBRequest<T> | IDBTransaction): Promise<T>
-```
+[USE_STORE]: `UseStore = <T>(txMode:IDBTransactionMode,// "readonly"|"readwrite"|…`
+[SURFACES]: `createStore(string,string) -> UseStore` `promisifyRequest(IDBRequest<T>|IDBTransaction) -> Promise<T>`
 
 ## [04]-[INTEGRATION]
 

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/sdk-trace-base`
-- package: `@opentelemetry/sdk-trace-base` · version `` · license `Apache-2.0`
+- package: `@opentelemetry/sdk-trace-base` (Apache-2.0)
 - module: dual — CJS default (`build/src/index.js`, no `"type"` field) + ESM mirror (`build/esm/index.js`, `module`); flat barrel, no `exports` subpath map, one `.d.ts` per concern under `build/src/{export,sampler,platform}`.
 - asset: TSDECL `build/src/index.d.ts` (restored).
 - peer: `@opentelemetry/api >=catalog <catalog` — the version-pinned API contract; deps `@opentelemetry/core` (`ExportResult`/`ExportResultCode`/`InstrumentationScope`), `@opentelemetry/resources` (`Resource`), `@opentelemetry/semantic-conventions`.
@@ -27,33 +27,9 @@
 |  [05]   | `ReadableSpan` / `Span`        | type          | the recorded-span read shape; `Span = APISpan & ReadableSpan`               |
 |  [06]   | `TimedEvent`                   | type          | a span event with `HrTime` — the `events[]` element                         |
 
-```ts signature
-// The construction bag. Under @effect/opentelemetry tracerConfig omits `resource` — the facade's own resource slot owns identity.
-interface TracerConfig {
-  sampler?: Sampler                         // default AlwaysOnSampler; wrap in ParentBasedSampler for parent respect
-  generalLimits?: GeneralLimits             // attributeCountLimit / attributeValueLengthLimit (trace-wide)
-  spanLimits?: SpanLimits                    // + linkCountLimit / eventCountLimit / attributePer{Event,Link}CountLimit
-  resource?: Resource                        // AppIdentity-derived; supplied by the effect Resource layer
-  idGenerator?: IdGenerator                  // default RandomIdGenerator (crypto on node)
-  forceFlushTimeoutMillis?: number           // default 30000
-  spanProcessors?: SpanProcessor[]           // the export pipeline — one or many, fanned by MultiSpanProcessor
-  meterProvider?: MeterProvider              // @experimental — self-observability metrics
-}
-declare class BasicTracerProvider implements TracerProvider {
-  constructor(config?: TracerConfig)
-  getTracer(name: string, version?: string, options?: { schemaUrl?: string }): Tracer
-  forceFlush(): Promise<void>                // drains every processor
-  shutdown(): Promise<void>
-}
-// ReadableSpan is the immutable projection every SpanExporter/SpanProcessor.onEnd receives.
-interface ReadableSpan {
-  readonly name: string; readonly kind: SpanKind; readonly spanContext: () => SpanContext
-  readonly parentSpanContext?: SpanContext; readonly startTime: HrTime; readonly endTime: HrTime; readonly duration: HrTime
-  readonly status: SpanStatus; readonly attributes: Attributes; readonly links: Link[]; readonly events: TimedEvent[]
-  readonly ended: boolean; readonly resource: Resource; readonly instrumentationScope: InstrumentationScope
-  readonly droppedAttributesCount: number; readonly droppedEventsCount: number; readonly droppedLinksCount: number
-}
-```
+[TRACER_CONFIG]: `TracerConfig.sampler: Sampler` `TracerConfig.generalLimits: GeneralLimits` `TracerConfig.spanLimits: SpanLimits` `TracerConfig.resource: Resource` `TracerConfig.idGenerator: IdGenerator` `TracerConfig.forceFlushTimeoutMillis: number` `TracerConfig.spanProcessors: SpanProcessor[]` `TracerConfig.meterProvider: MeterProvider`
+[BASIC_TRACER_PROVIDER]: `BasicTracerProvider(TracerConfig?)` `BasicTracerProvider.getTracer(string,string?,{schemaUrl?:string}?) -> Tracer` `BasicTracerProvider.forceFlush() -> Promise<void>` `BasicTracerProvider.shutdown() -> Promise<void>`
+[READABLE_SPAN]: `ReadableSpan.name: string` `ReadableSpan.kind: SpanKind` `ReadableSpan.spanContext: ()=>SpanContext` `ReadableSpan.parentSpanContext: SpanContext` `ReadableSpan.startTime: HrTime` `ReadableSpan.endTime: HrTime` `ReadableSpan.duration: HrTime` `ReadableSpan.status: SpanStatus` `ReadableSpan.attributes: Attributes` `ReadableSpan.links: Link[]` `ReadableSpan.events: TimedEvent[]` `ReadableSpan.ended: boolean` `ReadableSpan.resource: Resource` `ReadableSpan.instrumentationScope: InstrumentationScope` `ReadableSpan.droppedAttributesCount: number` `ReadableSpan.droppedEventsCount: number` `ReadableSpan.droppedLinksCount: number`
 
 ## [03]-[PROCESSOR_AND_EXPORTER]
 
@@ -71,28 +47,12 @@ The pipeline is TWO parameterized interfaces, not a fixed set of pairs. `SpanPro
 |  [08]   | `ConsoleSpanExporter`             | class                | stdout diagnostics                                                |
 |  [09]   | `InMemorySpanExporter`            | class                | `getFinishedSpans()`/`reset()` — the kit-driven spec-assert lane  |
 
-```ts signature
-interface SpanProcessor {
-  onStart(span: Span, parentContext: Context): void
-  onEnding?(span: Span): void                                    // @experimental — mutate before read-only freeze
-  onEnd(span: ReadableSpan): void
-  forceFlush(): Promise<void>; shutdown(): Promise<void>
-}
-interface SpanExporter {
-  export(spans: ReadableSpan[], resultCallback: (result: ExportResult) => void): void   // ExportResult from @opentelemetry/core
-  shutdown(): Promise<void>; forceFlush?(): Promise<void>
-}
-declare class SimpleSpanProcessor implements SpanProcessor { constructor(exporter: SpanExporter) }
-declare abstract class BatchSpanProcessorBase<T extends BufferConfig> implements SpanProcessor { constructor(exporter: SpanExporter, config?: T) }   // internal base — not barrel-exported
-// ./platform node → `class BatchSpanProcessor extends BatchSpanProcessorBase<BufferConfig>`  (the barrel export)
-interface BufferConfig {
-  maxExportBatchSize?: number     // 512  — must be ≤ maxQueueSize
-  scheduledDelayMillis?: number   // 5000
-  exportTimeoutMillis?: number    // 30000
-  maxQueueSize?: number           // 2048 — overflow drops spans
-}
-declare class InMemorySpanExporter implements SpanExporter { getFinishedSpans(): ReadableSpan[]; reset(): void }
-```
+[SPAN_PROCESSOR]: `SpanProcessor.onStart(Span,Context) -> void` `SpanProcessor.onEnding(Span) -> void` `SpanProcessor.onEnd(ReadableSpan) -> void` `SpanProcessor.forceFlush() -> Promise<void>` `SpanProcessor.shutdown() -> Promise<void>`
+[SPAN_EXPORTER]: `SpanExporter.export(ReadableSpan[],(result:ExportResult)=>void) -> void` `SpanExporter.shutdown() -> Promise<void>` `SpanExporter.forceFlush() -> Promise<void>`
+[SIMPLE_SPAN_PROCESSOR]: `SimpleSpanProcessor(SpanExporter)`
+[BATCH_SPAN_PROCESSOR_BASE]: `BatchSpanProcessorBase(SpanExporter,T?)`
+[BUFFER_CONFIG]: `BufferConfig.maxExportBatchSize: number` `BufferConfig.scheduledDelayMillis: number` `BufferConfig.exportTimeoutMillis: number` `BufferConfig.maxQueueSize: number`
+[IN_MEMORY_SPAN_EXPORTER]: `InMemorySpanExporter.getFinishedSpans() -> ReadableSpan[]` `InMemorySpanExporter.reset() -> void`
 
 ## [04]-[SAMPLER_AND_IDS]
 
@@ -107,20 +67,11 @@ Sampling is ONE interface (`Sampler.shouldSample` → `SamplingResult`) with fou
 |  [05]   | `ParentBasedSampler`                   | class (combinator) | delegates to `{ root, remote/localParent{Sampled,NotSampled} }` |
 |  [06]   | `IdGenerator` / `RandomIdGenerator`    | interface/class    | 32-hex trace id + 16-hex span id; platform-random               |
 
-```ts signature
-interface Sampler {
-  shouldSample(context: Context, traceId: string, spanName: string, spanKind: SpanKind, attributes: Attributes, links: Link[]): SamplingResult
-  toString(): string
-}
-interface SamplingResult { decision: SamplingDecision; attributes?: Readonly<Attributes>; traceState?: TraceState }
-// The combinator — respect an inbound sampled decision, sample fresh roots at a ratio:
-declare class ParentBasedSampler implements Sampler {
-  constructor(config: { root: Sampler; remoteParentSampled?: Sampler; remoteParentNotSampled?: Sampler; localParentSampled?: Sampler; localParentNotSampled?: Sampler })
-}
-declare class TraceIdRatioBasedSampler implements Sampler { constructor(ratio?: number) }
-// new ParentBasedSampler({ root: new TraceIdRatioBasedSampler(0.1) })  — the canonical production sampler
-interface IdGenerator { generateTraceId(): string; generateSpanId(): string }
-```
+[SAMPLER]: `Sampler.shouldSample(Context,string,string,SpanKind,Attributes,Link[]) -> SamplingResult` `Sampler.toString() -> string`
+[SAMPLING_RESULT]: `SamplingResult.decision: SamplingDecision` `SamplingResult.attributes: Readonly<Attributes>` `SamplingResult.traceState: TraceState`
+[PARENT_BASED_SAMPLER]: `ParentBasedSampler({…})`
+[TRACE_ID_RATIO_BASED_SAMPLER]: `TraceIdRatioBasedSampler(number?)`
+[ID_GENERATOR]: `IdGenerator.generateTraceId() -> string` `IdGenerator.generateSpanId() -> string`
 
 ## [05]-[STACKING]
 

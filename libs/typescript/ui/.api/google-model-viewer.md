@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@google/model-viewer`
-- package: `@google/model-viewer`
-- license: `Apache-2.0`
+- package: `@google/model-viewer` (Apache-2.0)
 - peer: `three ^catalog` (`.api/three.md`) — declared a peerDependency, NEVER bundled; the workspace's single `three@catalog` fills the peer (pnpm symlinks the element's `three` onto the one shared copy, a two-minor overshoot three's breaking- catalog cadence tolerates). The element is a renderer-level SIBLING to the viewer `three` row, not a layer: it drives its OWN internal `WebGLRenderer` + `<canvas>` + GL context, independent of the three row's renderer — never a shared renderer or GL context, but the SAME three module. Re-exports `CanvasTexture`/`FileLoader`/`Loader`/`NearestFilter` bare `from 'three'`, so they resolve to the viewer three row's exact `catalog` classes, directly interoperable
 - deps: `lit ^catalog` (`ReactiveElement` base + reactive attributes), `@monogrid/gainmap-js ^catalog` (HDR gainmap environment decode) — the ONLY bundled runtime deps; three is peer-provided, not here
 - catalog-verdict: KEEP

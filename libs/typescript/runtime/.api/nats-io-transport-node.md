@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@nats-io/transport-node`
-- package: `@nats-io/transport-node` (Apache-2.0, Synadia/nats.io)
+- package: `@nats-io/transport-node` (Apache-2.0)
 - module format: CJS (`main: index.js`, `types: lib/mod.d.ts`); bun-compatible, node-only by `node:net`/`node:tls`/`node:buffer` import
 - runtime target: node and bun — the native-socket lane; a browser lane never imports it, dialing `wsconnect` from `@nats-io/nats-core` instead
 - dependencies: `@nats-io/nats-core` (re-exported core surface), `@nats-io/nkeys` (nkey auth), `@nats-io/nuid` (inbox-id minting)

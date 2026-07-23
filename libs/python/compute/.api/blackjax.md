@@ -31,8 +31,9 @@
 - Adaptation, diagnostics, utility (`window_adaptation`/`chees_adaptation`/`meads_adaptation`, `diagnostics.*`, `util.run_inference_algorithm`/`psis_weights`): PyMC's blackjax path applies its own window adaptation, `arviz` owns diagnostics.
 - Reopening requires a live compute fence importing `blackjax` under a named consumer, never catalog preference.
 
-## [04]-[RAIL_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
+[RAIL_LAW]:
 - Package: `blackjax`
 - Owns (as admitted): the `"blackjax"` NUTS-backend string PyMC dispatches to, with `chain_method`/`postprocessing_backend` as the accelerator-lever `nuts_sampler_kwargs`
 - Accept: `pm.sample(nuts_sampler="blackjax", nuts_sampler_kwargs={"chain_method": ...})` inside a `pm.Model()` study, graduated through `az.summary`/`az.rhat` on the returned `DataTree`

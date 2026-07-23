@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.EntityFrameworkCore.Sqlite`
-- package: `Microsoft.EntityFrameworkCore.Sqlite` (`MIT`, Microsoft)
+- package: `Microsoft.EntityFrameworkCore.Sqlite` (MIT)
 - assembly: `Microsoft.EntityFrameworkCore.Sqlite` — types ship in the `Microsoft.EntityFrameworkCore.Sqlite.Core` package; this meta-package's own `lib/net10.0/_._` asset holds no managed type
 - namespace: `Microsoft.EntityFrameworkCore` and its `.Infrastructure`, `.Metadata`, `.Metadata.Conventions`, `.Migrations`, `.Diagnostics` children; `Microsoft.Extensions.DependencyInjection`
 - depends: `Microsoft.EntityFrameworkCore.Relational`, `Microsoft.Data.Sqlite.Core` (`api-sqlite` owns the ADO surface), `SQLitePCLRaw.bundle_e_sqlite3` (`api-sqlitepcl` owns the native provider)

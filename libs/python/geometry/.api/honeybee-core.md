@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `honeybee-core`
-- package: `honeybee-core` (AGPL-3.0, Ladybug Tools)
+- package: `honeybee-core` (AGPL-3.0)
 - module: `honeybee` (distribution `honeybee-core`; import `honeybee`, not `honeybee_core`)
 - namespaces: `honeybee.{model,room,face,aperture,door,shade,shademesh,properties,facetype,boundarycondition,altnumber,dictutil,extensionutil,units,orientation,search,checkdup}`
 - rail: energy-modeling

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `LightningDB`
-- package: `LightningDB` (MIT, Lightning.NET)
+- package: `LightningDB` (MIT)
 - assembly: `LightningDB`
 - namespace: `LightningDB`, `LightningDB.Native`, `LightningDB.Comparers`
 - asset: managed library carrying zero managed dependencies

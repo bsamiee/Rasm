@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `babel-plugin-react-compiler`
-- package: `babel-plugin-react-compiler` · version `` · license `MIT`
+- package: `babel-plugin-react-compiler` (MIT)
 - module: CJS `main` `dist/index.js`; dep `@babel/types`. The default export is the Babel plugin `BabelPluginReactCompiler(babel): PluginObj`.
 - asset: ships `dist/index.d.ts` (51 KB, the full compiler surface) even though `package.json` declares NO `types` field — a resolution quirk; the TSDECL is present and `assay api resolve babel-plugin-react-compiler` restores it (the resolver's `types`-field read returns `empty`; the file exists at `dist/index.d.ts`).
 - runtime: BUILD-TIME only — the plugin runs in the bundler's Babel pass and emits nothing to the browser except calls into the compiler runtime (`_c`); it is a `devDependency`-class tool, never imported by `ui` source.
@@ -34,23 +34,8 @@ Types are the signature below; the table carries the decision per axis.
 |  [11]   | `ignoreUseNoForget`        | compile even a `"use no memo"`-marked fn                                                    |
 |  [12]   | `customOptOutDirectives`   | extend the opt-out directive vocabulary                                                     |
 
-```ts signature
-type PluginOptions = Partial<{
-  target: CompilerReactTarget                              // "17" | "18" | "19" | { kind: "donotuse_meta_internal"; runtimeModule: string }
-  compilationMode: "infer" | "annotation" | "syntax" | "all"
-  panicThreshold: "none" | "critical_errors" | "all_errors"
-  sources: Array<string> | ((filename: string) => boolean) | null
-  gating: { source: string; importSpecifierName: string } | null
-  dynamicGating: { source: string; importSpecifierName: string } | null
-  logger: { logEvent: (filename: string | null, event: LoggerEvent) => void } | null
-  environment: Partial<EnvironmentConfig>
-  noEmit: boolean; flowSuppressions: boolean; ignoreUseNoForget: boolean
-  eslintSuppressionRules: Array<string> | null | undefined; customOptOutDirectives: CustomOptOutDirective
-}>
-declare function BabelPluginReactCompiler(babel: typeof BabelCore): BabelCore.PluginObj   // the default export
-// Rasm wiring — React 19.2, so target "19", prod panic behavior, compiled output calls react/compiler-runtime `_c`:
-//   { target: "19", compilationMode: "infer", panicThreshold: "none" }
-```
+[PLUGIN_OPTIONS]: `PluginOptions = Partial<…>`
+[SURFACES]: `BabelPluginReactCompiler(typeof BabelCore) -> BabelCore.PluginObj`
 
 [ENVIRONMENT_EMISSION]: the dev-validator emission flags — how the plugin wires compiled dev output to `react-compiler-runtime`
 

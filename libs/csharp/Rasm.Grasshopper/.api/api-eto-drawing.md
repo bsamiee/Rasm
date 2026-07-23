@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Eto`
-- package: `Eto` (host-provided cross-platform Eto.Forms UI framework)
-- license: BSD-3-Clause
+- package: `Eto` (host-provided cross-platform Eto.Forms UI framework) (BSD-3-Clause)
 - assembly: `Eto` (`Eto.dll`)
 - namespace: `Eto.Drawing`
 - asset: host-provided — RhinoWIP ships `Eto.dll` under `RhCore.framework/Versions/A/Resources`; no NuGet admission

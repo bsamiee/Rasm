@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@geoarrow/deck.gl-geoarrow`
-- package: `@geoarrow/deck.gl-geoarrow`
-- license: `MIT`
+- package: `@geoarrow/deck.gl-geoarrow` (MIT)
 - peer: `@deck.gl/core|layers|geo-layers catalog` (admitted `[VIEWER_GEO]`) + `@deck.gl/aggregation-layers catalog` and `@math.gl/polygon catalog` (verified peers NOT in the roster — the admission gap below), `apache-arrow catalog` (installed `catalog`, `.api/apache-arrow.md`)
 - deps: `@geoarrow/geoarrow-js catalog` (`ga.data.*` extension-typed columns + `worker/earcut`), `threads catalog` (earcut `Pool<FunctionThread>`)
 - catalog-verdict: KEEP

@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pulumi/aws`
-- package: `@pulumi/aws`
-- license: Apache-2.0
+- package: `@pulumi/aws` (Apache-2.0)
 - asset: generated provider SDK (`.d.ts` per service namespace); peer `@pulumi/pulumi`; the `pulumi` CLI binary + the AWS provider plugin resolved on the deploy host (CLI-on-PATH deploy-host fact, wrapped once in `program`)
 - owner: `iac`
 - rail: deploy

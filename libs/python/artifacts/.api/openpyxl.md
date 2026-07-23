@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `openpyxl`
-- package: `openpyxl` (`MIT`)
+- package: `openpyxl` (MIT)
 - module: `openpyxl`
 - abi: pure-Python, no native build
 - rail: office — OOXML spreadsheet authoring and fidelity-preserving ingest feeding the document owners

@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pulumiverse/acme`
-- package: `@pulumiverse/acme`
-- license: Apache-2.0
+- package: `@pulumiverse/acme` (Apache-2.0)
 - import: `@pulumiverse/acme` → `{ Registration, Certificate, Provider, getServerUrl, getServerUrlOutput, types }`
 - owner: `iac`
 - rail: fabric / cert (the CA-trusted lane beside `@pulumi/tls`'s self-signed lane)

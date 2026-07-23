@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `arctic`
-- package: `arctic` (MIT, © pilcrowOnPaper)
+- package: `arctic` (MIT)
 - module format: ESM only (`type: module`); deep-import subpaths ship under `arctic/dist/*` but the flat `arctic` barrel is the import surface — provider classes, `OAuth2Client`, `OAuth2Tokens`, the fault family, and `decodeIdToken` all re-export from the root
 - runtime target: isomorphic (node, bun, browser, worker, edge) — global `fetch` + WebCrypto (`generateCodeVerifier`/`generateState` draw from `crypto.getRandomValues`); zero runtime dependencies; no native addon
 - asset: pure-TypeScript runtime library (`.js` + `.d.ts`); `OAuth2Tokens.data` is an untyped `object`, so a `Schema` at the seam is the real gate on the provider response shape

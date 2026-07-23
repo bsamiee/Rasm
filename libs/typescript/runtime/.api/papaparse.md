@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `papaparse`
-- package: `papaparse` (MIT, © Matthew Holt); declarations via `@types/papaparse` (MIT, DefinitelyTyped) — the runtime ships no `.d.ts`
+- package: `papaparse` (MIT)
 - module format: UMD single-file (`papaparse.js`, `main` only, no `module`/`exports` map); the `Papa` global namespace under `export as namespace Papa`; no deep-import subpaths
 - runtime target: isomorphic, zero runtime dependencies, no native addon. Node uses the synchronous `string` path or the `NODE_STREAM_INPUT` `Duplex`; the `File`/`FileReader` local path and the `download`/`XMLHttpRequest` remote path are browser-only and never enter a Node durable job
 - asset: JS runtime + external DefinitelyTyped surface; the `Duplex` return threads `node:stream`, so `@types/node` is a transitive type dependency

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Diagnostics`
-- package: `Microsoft.Extensions.Diagnostics` (MIT, .NET Foundation)
+- package: `Microsoft.Extensions.Diagnostics` (MIT)
 - assembly: `Microsoft.Extensions.Diagnostics.dll`
 - contract assembly: `Microsoft.Extensions.Diagnostics.Abstractions`
 - namespace: `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.Diagnostics.Metrics`

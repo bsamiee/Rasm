@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Pyroscope.OpenTelemetry`
-- package: `Pyroscope.OpenTelemetry` (Apache-2.0, Grafana Labs)
+- package: `Pyroscope.OpenTelemetry` (Apache-2.0)
 - assembly: `Pyroscope.OpenTelemetry`
 - namespace: `Pyroscope.OpenTelemetry`
 - depends: `Pyroscope`, `OpenTelemetry`

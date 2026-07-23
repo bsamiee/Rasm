@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ACadSharp`
-- package: `ACadSharp` (`MIT`)
+- package: `ACadSharp` (MIT)
 - assembly: `ACadSharp` (`lib/net9.0/ACadSharp.dll`)
 - namespace: `ACadSharp`, `ACadSharp.Entities`, `ACadSharp.IO`, `ACadSharp.Tables`, `CSMath`
 - asset: pure-managed AnyCPU IL — no native asset, no RID burden, ALC-safe

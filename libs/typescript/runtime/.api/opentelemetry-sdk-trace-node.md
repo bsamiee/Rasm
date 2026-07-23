@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/sdk-trace-node`
-- package: `@opentelemetry/sdk-trace-node` · version `` · license `Apache-2.0`
+- package: `@opentelemetry/sdk-trace-node` (Apache-2.0)
 - module: dual — CJS default (`build/src/index.js`, no `"type"` field) + ESM mirror (`build/esm/index.js`); flat barrel, no `exports` subpath map.
 - asset: TSDECL `build/src/index.d.ts` (restored).
 - peer: `@opentelemetry/api >=catalog <catalog`; deps `@opentelemetry/context-async-hooks` (`AsyncLocalStorageContextManager`), `@opentelemetry/core` (the W catalogC propagators), `@opentelemetry/sdk-trace-base` (the re-exported roster).
@@ -24,17 +24,8 @@ The only symbol this leg adds over base. `NodeTracerConfig` is a pure alias of `
 |  [02]   | `NodeTracerConfig`      | type alias            | `= TracerConfig` — no node-specific field                             |
 |  [03]   | `SDKRegistrationConfig` | interface (re-export) | `register()` arg — `{ propagator?, contextManager? }`                 |
 
-```ts contract
-declare class NodeTracerProvider extends BasicTracerProvider {
-  constructor(config?: NodeTracerConfig)                        // NodeTracerConfig = TracerConfig
-  register(config?: SDKRegistrationConfig): void                // pure-SDK global path (effect NodeSdk does NOT call this)
-}
-// register() defaults, verified from NodeTracerProvider.js:
-//   trace.setGlobalTracerProvider(this)
-//   contextManager === undefined → new AsyncLocalStorageContextManager().enable() → global   (null ⇒ skip)
-//   propagator     === undefined → new CompositePropagator({ propagators: [W3CTraceContextPropagator, W3CBaggagePropagator] })  (null ⇒ skip)
-interface SDKRegistrationConfig { propagator?: TextMapPropagator | null; contextManager?: ContextManager | null }
-```
+[NODE_TRACER_PROVIDER]: `NodeTracerProvider(NodeTracerConfig?)` `NodeTracerProvider.register(SDKRegistrationConfig?) -> void`
+[SDKREGISTRATION_CONFIG]: `SDKRegistrationConfig.propagator: TextMapPropagator|null` `SDKRegistrationConfig.contextManager: ContextManager|null`
 
 ## [03]-[SUPERSET_BARREL]
 

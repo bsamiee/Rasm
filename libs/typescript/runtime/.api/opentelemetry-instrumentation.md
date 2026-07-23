@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/instrumentation`
-- package: `@opentelemetry/instrumentation`
-- license: `Apache-2.0`
+- package: `@opentelemetry/instrumentation` (Apache-2.0)
 - base: peers on `@opentelemetry/api` (+ `@opentelemetry/api-logs` for the logger-provider slot)
 - consumed-by: the browser composition root's `Instrument` registration bracket; every admitted instrumentation row extends its base class
 - runtime: neutral — the node module-patching machinery and the browser global-patching rows both ride this base

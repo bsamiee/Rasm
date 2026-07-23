@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@use-gesture/react`
-- package: `@use-gesture/react` (MIT, © Poimandres)
+- package: `@use-gesture/react` (MIT)
 - module format: ESM + CJS (`dist/use-gesture-react.esm.js` / `.cjs.js`), `.d.ts` under `dist/declarations/src`, `sideEffects: false`; single `.` entry, no subpaths
 - runtime target: React DOM (browser); binds pointer/wheel/touch/keyboard events on a DOM node or ref
 - peer: `react@>= catalog` (hooks); dep `@use-gesture/core@catalog` — the framework-agnostic engine this package wraps in hooks and re-exports (`@use-gesture/core/utils`, `/actions`, `/types`)

@@ -1,7 +1,7 @@
 # [TS_CORE_API_EFFECT_TYPECLASS]
 
 [PACKAGE_SURFACE]:
-- package: `@effect/typeclass` · license `MIT`
+- package: `@effect/typeclass` (MIT)
 - module: ESM + CJS (`dist/esm` / `dist/cjs`, `dist/dts` types); `sideEffects: []`. Per-typeclass subpaths (`./Semigroup`, `./Monoid`, `./Bounded`, …) plus per-datatype instance subpaths (`./data/Number`, `./data/Boolean`, `./data/Record`, …) and the flat `.` barrel that re-exports each as a namespace.
 - asset: `dist/dts/index.d.ts` (barrel re-exporting each typeclass and `data/` instance as a namespace).
 - runtime: pure type-level + tiny runtime; the surface is the higher-kinded `TypeLambda`/`Kind<F, R, O, E, A>` encoding — no addon, isomorphic (node/bun/browser/worker).
@@ -22,23 +22,7 @@ Three nested contracts are the whole merge substrate — `Semigroup` (associativ
 |  [03]   | `Bounded<A>`                                  | `Order<A>` + `minBound` + `maxBound`    | semilattice bounds; derives `Monoid` `empty`   |
 |  [04]   | `SemigroupTypeLambda` / `Kind<F, R, O, E, A>` | HKT encoding                            | machinery the law combinators quantify over    |
 
-```ts signature
-// One merge shape. combineMany is the incremental fold — the d2ts reduce reducer is its elementwise projection.
-interface Semigroup<A> {
-  readonly combine: (self: A, that: A) => A
-  readonly combineMany: (self: A, collection: Iterable<A>) => A
-}
-interface Monoid<A> extends Semigroup<A> {
-  readonly empty: A
-  readonly combineAll: (collection: Iterable<A>) => A   // fold from empty — the state-vector merge
-}
-interface Bounded<A> { readonly compare: Order<A>; readonly minBound: A; readonly maxBound: A }
-// Convergence-legal semilattice is Order-parameterized — join = max, meet = min. Order comes from effect/Order (NOT a data/Order module).
-declare const Semigroup.min: <A>(O: Order<A>) => Semigroup<A>   // idempotent + commutative ⇒ a lawful meet-semilattice
-declare const Semigroup.max: <A>(O: Order<A>) => Semigroup<A>   // ⇒ a lawful join-semilattice
-declare const Monoid.min: <A>(B: Bounded<A>) => Monoid<A>       // empty = maxBound
-declare const Monoid.max: <A>(B: Bounded<A>) => Monoid<A>       // empty = minBound
-```
+[SURFACES]: `Semigroup` `Monoid` `Bounded`
 
 ## [02]-[INSTANCE_VOCABULARY]
 
@@ -68,17 +52,7 @@ Merge algebra is ONE parameterized pattern: constructors that build a `Semigroup
 - [08]-[TUPLE]: `data/Tuple` `Bicovariant` — map both pair positions; the tuple projection under the [03] combinators.
 - [09]-[EFFECT_MICRO]: `data/Effect` · `data/Micro` `Covariant`/`Monad` + `getSemiProduct`/`getProduct`/`getSemiApplicative`/`getApplicative` (concurrency-parameterized) — the effectful lift; `Semigroup<Effect<State>>`/`Monoid<Micro<State>>` with concurrency as the instance parameter.
 
-```ts signature
-// A record CRDT is composed, never written: each field is a lawful component instance, struct lifts them to the record.
-const PresenceMerge = Semigroup.struct({
-  cursor:   Semigroup.last<Cursor>(),                     // LWW register (timestamp-ordered upstream)
-  reactions: Record.getSemigroupUnion(Boolean.SemigroupSome),  // grow-only reaction set
-  score:    Number.SemigroupMax,                          // max-wins lattice
-})   // ⇒ Semigroup<{ cursor: Cursor; reactions: Record<string, boolean>; score: number }>
-// combineAll (a Monoid instance member) folds a whole state vector; combineMany folds a delta batch onto a base.
-const StateMonoid = Monoid.struct({ /* … */ })            // Monoid<State>
-const merged = StateMonoid.combineAll(replicaStates)      // fold from empty across replicas
-```
+[SURFACES]: `PresenceMerge = Semigroup.struct({…})` `StateMonoid = Monoid.struct({/* … */})` `merged = StateMonoid.combineAll(replicaStates)`
 
 ## [03]-[LAW_COMBINATORS]
 
@@ -97,12 +71,7 @@ Higher hierarchy is the `@rasm/ts-testkit` law-combinator surface (`tests/typesc
 |  [09]   | `Covariant.mapComposition`           | nested map                                  | map through nested functors                         |
 |  [10]   | `Covariant.imap`                     | invariant map                               | invariant bidirectional map; functor laws           |
 
-```ts signature
-// Lift once, prove once: a merge instance and its laws transport through any functor F — no per-container merge, no per-container proof.
-declare const SemiApplicative.getSemigroup: <F>(F: SemiApplicative<F>) => <A>(S: Semigroup<A>) => Semigroup<Kind<F, any, any, any, A>>
-declare const Applicative.getMonoid: <F>(F: Applicative<F>) => <A>(M: Monoid<A>) => Monoid<Kind<F, any, any, any, A>>
-declare const Foldable.combineMap: <F>(F: Foldable<F>) => <M>(M: Monoid<M>) => <A>(f: (a: A) => M) => (self: Kind<F, any, any, any, A>) => M
-```
+[SURFACES]: `SemiApplicative` `Applicative` `Foldable`
 
 ## [04]-[INTEGRATION]
 

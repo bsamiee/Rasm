@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@tus/s3-store`
-- package: `@tus/s3-store`
-- license: `MIT`
+- package: `@tus/s3-store` (MIT)
 - backing: `@aws-sdk/client-s3` (the `S3` client it constructs from `s3ClientConfig`), `@tus/utils` (`DataStore`, `Upload`, `KvStore`)
 - runtime: server plane (node/bun) — streams PATCH bodies through `node:stream`/temp files
 - module format: ESM; one root export (`S3Store`, `Options`, `MetadataValue`)

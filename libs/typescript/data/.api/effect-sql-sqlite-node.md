@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/sql-sqlite-node`
-- package: `@effect/sql-sqlite-node`
-- license: `MIT`
+- package: `@effect/sql-sqlite-node` (MIT)
 - effect-peer: `effect ^catalog`, `@effect/platform ^catalog`, `@effect/experimental ^catalog`, `@effect/sql ^catalog` (`.api/effect.md`, `.api/effect-platform.md`, `.api/effect-experimental.md`, `.api/effect-sql.md`)
 - dependency: `better-sqlite3 ^catalog` (bundled; synchronous in-process N-API sqlite with prebuilt binaries)
 - module format: ESM + CJS dual (`dist/dts` typings); subpaths `@effect/sql-sqlite-node/SqliteClient`, `/SqliteMigrator`; `sideEffects: []`

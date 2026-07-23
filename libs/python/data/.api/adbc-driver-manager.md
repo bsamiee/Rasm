@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `adbc_driver_manager`
-- package: `adbc-driver-manager` (`Apache-2.0`)
+- package: `adbc-driver-manager` (Apache-2.0)
 - module: `adbc_driver_manager`
 - namespaces: `dbapi`
 - rail: query

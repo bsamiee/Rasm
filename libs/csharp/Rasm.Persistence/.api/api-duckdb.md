@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `DuckDB.NET.Data.Full`
-- package: `DuckDB.NET.Data.Full` (MIT, Giorgi Dalakishvili)
+- package: `DuckDB.NET.Data.Full` (MIT)
 - assembly: `DuckDB.NET.Data` (managed ADO surface; namespaces `DuckDB.NET.Data`, `DuckDB.NET.Data.Mapping`, `DuckDB.NET.Data.DataChunk.Reader`, `DuckDB.NET.Data.DataChunk.Writer`)
 - companion: `DuckDB.NET.Bindings.Full` (transitive — assembly `DuckDB.NET.Bindings`, namespace `DuckDB.NET.Native`; carries `DuckDBQueryProgress`/`DuckDBErrorType`/`IDuckDBValueReader`/`DuckDBNativeConnection`/`DuckDBType`/`DuckDBDateOnly`/`DuckDBTimeOnly` and the native `duckdb` library)
 - native: `DuckDB.NET.Bindings.Full/runtimes/<rid>/native` ships `osx`, `linux-x64`, `linux-arm64`, `win-x64`, `win-arm64`; the native `duckdb` shared library is RID-resolved at load, no per-RID managed split

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `three`
-- package: `three` (MIT, © three.js authors)
+- package: `three` (MIT)
 - module format: ESM (`type: module`), `sideEffects: ["./src/nodes/**/*"]` — node-material TSL registration is the one retained side-effect root; four export roots: `three` (core), `three/webgpu` (WebGPU renderer + node materials + compute), `three/tsl` (node-shader language), `three/addons/*` ⇒ `three/examples/jsm/*` (loaders, controls, environments, codecs)
 - runtime target: browser DOM + WebGL2/WebGPU context; no Node binding — the viewer runs it in the app render thread while codec transcoders run in the `browser` worker
 - peer: none declared; the React seam is the app's own `<canvas>` ref + `useEffect` teardown, not a bundled binding

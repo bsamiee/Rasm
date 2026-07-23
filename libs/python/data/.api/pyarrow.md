@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pyarrow`
-- package: `pyarrow` (`Apache-2.0`, Apache Arrow)
+- package: `pyarrow` (Apache-2.0)
 - module: `pyarrow`
 - namespaces: `compute`, `acero`, `substrait`, `dataset`, `parquet`, `csv`, `json`, `orc`, `feather`, `ipc`, `flight`, `fs`, `cuda`, `interchange`, `types`, `util`
 - owner: `data`, `geometry`

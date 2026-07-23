@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.EntityFrameworkCore.Design`
-- package: `Microsoft.EntityFrameworkCore.Design` (`MIT`, Microsoft)
+- package: `Microsoft.EntityFrameworkCore.Design` (MIT)
 - assembly: `Microsoft.EntityFrameworkCore.Design` (`lib/net10.0`, single-TFM at the consumer floor)
 - namespace: `Microsoft.EntityFrameworkCore.Design`, `Microsoft.EntityFrameworkCore.Design.Internal`, `Microsoft.EntityFrameworkCore.Migrations.Design`, `Microsoft.EntityFrameworkCore.Scaffolding`, `Microsoft.EntityFrameworkCore.Scaffolding.Internal`
 - role: design-time/build-time tool asset (`PrivateAssets=all`)

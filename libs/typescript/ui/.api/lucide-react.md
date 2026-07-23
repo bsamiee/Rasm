@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `lucide-react`
-- package: `lucide-react`
-- license: `ISC`
+- package: `lucide-react` (ISC)
 - peer: `react catalog` (`.api/react.md` — icons are `ForwardRefExoticComponent`, ref → `<svg>`; the React 19 spine here)
 - catalog-verdict: KEEP
 - runtime: isomorphic React components, `sideEffects: false` — named imports bundle individually; SSR-safe (pure presentational, no effects)
@@ -28,15 +27,13 @@
 |  [06]   | `LucideProviderProps` | provider props    | `LucideConfig` + `children`, inferred at use            |
 |  [07]   | `IconComponentProps`  | dynamic prop      | `LucideProps` + `iconNode`, the `Icon` prop shape       |
 
-```ts signature
-type LucideIcon = ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>   // every named icon
-type LucideProps = SVGAttributes & { size?: string | number; absoluteStrokeWidth?: boolean }           // strokeWidth/color/className ride the SVG attrs
-type SVGAttributes = Partial<SVGProps<SVGSVGElement>>
-type IconNode = [elementName: SVGElementType, attrs: Record<string, string>][]                          // input to Icon/createLucideIcon
-type IconComponentProps = LucideProps & { iconNode: IconNode }                                          // the dynamic Icon prop shape
-type LucideConfig = { size?; color?; strokeWidth?; absoluteStrokeWidth?; className? }                   // the provider defaults
-type LucideProviderProps = Partial<LucideConfig> & { children: ReactNode }                              // provider props
-```
+[LUCIDE_ICON]: `LucideIcon = ForwardRefExoticComponent<Omit<LucideProps,"ref">&RefAttributes<SVGSVGElement>>`
+[LUCIDE_PROPS]: `LucideProps = SVGAttributes&{size?:string|number;absoluteStrokeWidth?:boolean}`
+[SVGATTRIBUTES]: `SVGAttributes = Partial<SVGProps<SVGSVGElement>>`
+[ICON_NODE]: `IconNode = [elementName:SVGElementType,attrs:Record<string,string>][]`
+[ICON_COMPONENT_PROPS]: `IconComponentProps = LucideProps&{iconNode:IconNode}`
+[LUCIDE_CONFIG]: `LucideConfig.size: unknown` `LucideConfig.color: unknown` `LucideConfig.strokeWidth: unknown` `LucideConfig.absoluteStrokeWidth: unknown` `LucideConfig.className: unknown`
+[LUCIDE_PROVIDER_PROPS]: `LucideProviderProps = Partial<LucideConfig>&{children:ReactNode}`
 
 ## [03]-[ENTRYPOINTS]
 

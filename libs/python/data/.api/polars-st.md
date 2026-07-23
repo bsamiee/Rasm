@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `polars-st`
-- package: `polars-st` (`LGPL-2.1`, dynamic-linkage native extension)
+- package: `polars-st` (LGPL-2.1)
 - module: `polars_st`
 - owner: `data`
 - rail: spatial

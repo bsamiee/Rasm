@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `numba`
-- package: `numba` (BSD-2-Clause, Anaconda Inc.)
+- package: `numba` (BSD-2-Clause)
 - module: `numba`; submodules `numba.types`, `numba.typed`, `numba.extending`, `numba.experimental`
 - rail: accelerator — offline LLVM JIT of numeric-study kernels
 

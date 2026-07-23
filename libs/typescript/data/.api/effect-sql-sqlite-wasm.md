@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/sql-sqlite-wasm`
-- package: `@effect/sql-sqlite-wasm`
-- license: `MIT`
+- package: `@effect/sql-sqlite-wasm` (MIT)
 - effect-peer: `effect ^catalog`, `@effect/experimental ^catalog`, `@effect/sql ^catalog`, `@effect/wa-sqlite ^catalog` (REQUIRED — the WASM sqlite build; `.api/effect.md`, `.api/effect-experimental.md`, `.api/effect-sql.md`)
 - dependency: none native — the sqlite engine is WebAssembly via the `@effect/wa-sqlite` peer; no `better-sqlite3`
 - module format: ESM + CJS dual (`dist/dts` typings); subpaths `@effect/sql-sqlite-wasm/SqliteClient`, `/SqliteMigrator`, `/OpfsWorker`, `/sqlite-wasm.d`; `sideEffects: []`

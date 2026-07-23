@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `awkward`
-- package: `awkward` (`BSD-3-Clause`)
+- package: `awkward` (BSD-3-Clause)
 - module: `awkward` (alias `ak`)
 - namespaces: `ak.contents`, `ak.forms`, `ak.types`, `ak.behaviors`, `ak.numba`, `ak.jax`
 - rail: irregular-arrays

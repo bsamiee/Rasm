@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/cli`
-- package: `@effect/cli` — license `MIT`
+- package: `@effect/cli` (MIT)
 - module: dual ESM/CJS; types `dist/dts/index.d.ts`; per-module subpaths `Command`, `Args`, `Options`, `Prompt`, `CliApp`, `CliConfig`, `ConfigFile`, `HelpDoc` (+ `HelpDoc/Span`), `Primitive`, `Usage`, `ValidationError`, `CommandDescriptor`, `CommandDirective`, `BuiltInOptions`, `AutoCorrect`
 - peers: `effect`, `@effect/platform`, `@effect/printer`, `@effect/printer-ansi`; `Environment` is satisfied by `@effect/platform-node` `NodeContext.layer` or `@effect/platform-bun`
 - asset: `.d.ts` declaration surface under `dist/dts/`
@@ -17,33 +17,7 @@
 
 A `Command` is an `Effect` that yields its parsed config and requires its own tag; the handler is the effectful action. Constructors build a leaf; combinators nest and inject; `run` is the argv boundary.
 
-```ts signature
-// @effect/cli/Command — Command<Name, R, E, A> extends Effect<A, never, Command.Context<Name>>, Pipeable
-declare const make: {
-  <Name extends string>(name: Name): Command<Name, never, never, {}>
-  <Name extends string, const C extends Command.Config>(name: Name, config: C): Command<Name, never, never, ParseConfig<C>>
-  <Name extends string, const C extends Command.Config, R, E>(name: Name, config: C, handler: (_: ParseConfig<C>) => Effect<void, E, R>): Command<Name, R, E, ParseConfig<C>>
-}
-declare const prompt: <Name extends string, A, R, E>(name: Name, prompt: Prompt<A>, handler: (_: A) => Effect<void, E, R>) => Command<string, R, E, A>
-declare const fromDescriptor // wrap a raw CommandDescriptor (+ optional handler)
-
-// combinators (all dual data-first / data-last)
-declare const withHandler       // attach/replace the effectful action
-declare const withDescription    // string | HelpDoc
-declare const withSubcommands     // nest children; A gains `subcommand: Option<…>`, R/E union the children's
-declare const provide             // Layer<LA,LE,LR> | ((A) => Layer) scoped to this command + subtree
-declare const provideEffect / provideEffectDiscard / provideSync   // Tag-scoped service injection
-declare const transformHandler    // wrap the handler effect with (effect, config) => effect
-
-// accessors + the argv boundary
-declare const getHelp / getUsage / getNames / getSubcommands
-declare const getBashCompletions / getFishCompletions / getZshCompletions   // Effect<Array<string>>
-declare const wizard              // interactive arg-builder → Effect<Array<string>, …, Environment>
-declare const run: {
-  (config: Omit<CliApp.ConstructorArgs<never>, "command">): <Name, R, E, A>(self: Command<Name, R, E, A>) => (args: ReadonlyArray<string>) => Effect<void, E | ValidationError, R | CliApp.Environment>
-  <Name, R, E, A>(self: Command<Name, R, E, A>, config: Omit<CliApp.ConstructorArgs<never>, "command">): (args: ReadonlyArray<string>) => Effect<void, E | ValidationError, R | CliApp.Environment>
-}
-```
+[SURFACES]: `make` `prompt` `fromDescriptor` `withHandler` `withDescription` `withSubcommands` `provide` `provideEffect` `transformHandler` `getHelp` `getBashCompletions` `wizard` `run` `provideEffectDiscard` `provideSync` `getUsage` `getNames` `getSubcommands` `getFishCompletions` `getZshCompletions`
 
 Consumer note: each verb family is a `Command` value; the app folds selected families through `withSubcommands([verbA, verbB, …])` into ONE root, then `Command.run({ name, version })` turns it into `argv => Effect<void, E | ValidationError, R | Environment>`. `provide` scopes a Layer to a verb subtree so the ops family's `proc/exec` runtime is injected per-command, never at the whole tree.
 
@@ -51,19 +25,7 @@ Consumer note: each verb family is a `Command` value; the app folds selected fam
 
 `Options<A>` (named flags) and `Args<A>` (positionals) are one combinator algebra over a variance carrier — arity, cardinality, recovery, and decode live in the combinators, never in parallel per-type constructors. Constructors differ only by the leading `name` (Options) vs an optional config (Args).
 
-```ts signature
-// constructors (shared): boolean · text · integer · float · date · choice · redacted · file · directory · fileSchema · none · all · isOptions/isArgs
-// Options-only: choiceWithValue · fileContent · fileText · fileParse · keyValueMap        Args-only: path · getMinSize · getMaxSize
-declare const boolean: (name: string, config?: Options.BooleanOptionsConfig) => Options<boolean>
-declare const choice:  <A extends string, C extends ReadonlyArray<A>>(name: string, choices: C) => Options<C[number]>
-declare const all:     <Arg extends Iterable<Options<any>> | Record<string, Options<any>>>(arg: Arg) => Options</* composite */>
-
-// combinators (shared, dual signatures): map · mapEffect · mapTryCatch · optional · repeated · atLeast · atMost · between · withDefault · withFallbackConfig · withSchema · withDescription
-// Options adds: filterMap · orElse · orElseEither · withAlias · withPseudoName · withFallbackPrompt
-declare const withFallbackConfig: <B>(config: Config<B>) => <A>(self: Options<A>) => Options<B | A>   // fall back to an effect/Config value
-declare const withSchema:         <A, I extends A, B>(schema: Schema<B, I, FileSystem | Path | Terminal>) => (self: Options<A>) => Options<B>
-declare const withFallbackPrompt: <B>(prompt: Prompt<B>) => <A>(self: Options<A>) => Options<B | A>   // prompt when the flag is absent
-```
+[SURFACES]: `boolean(string,Options.BooleanOptionsConfig?) -> Options<boolean>` `choice(string,C) -> Options<C[number]>` `all(Arg) -> Options</* composite */>` `withFallbackConfig(Config<B>) -> <A>(self:Options<A>)=>Options<B|A>` `withSchema(Schema<B,I,FileSystem|Path|Terminal>) -> (self:Options<A>)=>Options<B>` `withFallbackPrompt(Prompt<B>) -> <A>(self:Options<A>)=>Options<B|A>`
 
 Consumer note: `withFallbackConfig(Config)` is the bridge that unifies a CLI flag with an `effect/Config` value (env / config provider) in one declaration — the canonical way a verb resolves a flag from `proc/config`. `withSchema(Schema)` decodes a flag straight into a kernel-branded value, so the terminal boundary decodes-once exactly like the wire and route boundaries. One asymmetry remains: `Args.mapEffect` fails with `HelpDoc` while `Options.mapEffect` fails with `ValidationError`; `Args.validate` returns `[leftover, A]` and `Options.processCommandLine` returns `[Option<ValidationError>, leftover, A]`.
 
@@ -71,12 +33,7 @@ Consumer note: `withFallbackConfig(Config)` is the bridge that unifies a CLI fla
 
 `Prompt<Output>` is both a variance carrier and an `Effect<Output, QuitException, Terminal>`, so a prompt is yieldable directly in `Effect.gen`. A fixed constructor roster covers the interaction atoms; `custom` owns any bespoke render/process loop.
 
-```ts signature
-// @effect/cli/Prompt — constructors: text · hidden · password · integer · float · confirm · toggle · date · list · file · select · multiSelect · succeed · custom · all
-declare const select: <const A>(options: { message: string; choices: ReadonlyArray<{ title: string; value: A; description?: string; disabled?: boolean }>; maxPerPage?: number }) => Prompt<A>
-declare const custom: <State, Output>(initialState: State | Effect<State, never, Prompt.Environment>, handlers: Prompt.Handlers<State, Output>) => Prompt<Output>
-declare const map / flatMap / run   // Prompt<A> combinators; run → Effect<Output, QuitException, FileSystem | Path | Terminal>
-```
+[SURFACES]: `select` `custom` `map` `flatMap` `run`
 
 Consumer note: a prompt plugs into a command two ways — `Command.prompt(name, prompt, handler)` for a prompt-driven leaf, or `Options.withFallbackPrompt(prompt)` to prompt only when a flag is absent (the doctor/replay ops family uses the latter for missing targets).
 
@@ -84,24 +41,7 @@ Consumer note: a prompt plugs into a command two ways — `Command.prompt(name, 
 
 App description, parser policy, the closed parse-error rail, the help algebra, and the config-file provider.
 
-```ts signature
-// @effect/cli/CliApp
-declare namespace CliApp { type Environment = FileSystem | Path | Terminal; interface ConstructorArgs<A> { name; version; command; executable?; summary?; footer? } }
-declare const make: <A>(config: CliApp.ConstructorArgs<A>) => CliApp<A>   // Command.run constructs one internally
-
-// @effect/cli/CliConfig — Context.Tag service (isCaseSensitive · autoCorrectLimit · finalCheckBuiltIn · showAllNames · showBuiltIns · showTypes)
-declare const layer: (config?: Partial<CliConfig>) => Layer<CliConfig>    // override parser policy at the root
-declare const defaultConfig: CliConfig; declare const defaultLayer: Layer<CliConfig>
-
-// @effect/cli/ValidationError — closed _tag union; each carries `error: HelpDoc`
-type ValidationError = CommandMismatch | CorrectedFlag | HelpRequested | InvalidArgument | InvalidValue | MissingValue | MissingFlag | MultipleValuesDetected | MissingSubcommand | NoBuiltInMatch | UnclusteredFlag
-declare const isHelpRequested: (self: ValidationError) => self is HelpRequested   // the clean-exit discriminant
-declare const isValidationError / isMissingFlag / isMissingValue / …             // one refinement per member + one constructor per member
-
-// @effect/cli/HelpDoc — Empty | Header | Paragraph | DescriptionList | Enumeration | Sequence; render via toAnsiText / toAnsiDoc; Span is the inline leaf, Usage the generated usage
-// @effect/cli/ConfigFile — load a file as an effect/Config ConfigProvider so withFallbackConfig flags resolve from disk
-declare const layer: (fileName: string, options?: { formats?: ReadonlyArray<"json" | "yaml" | "ini" | "toml">; searchPaths?: ReadonlyArray<string> }) => Layer<never, ConfigFileError, Path | FileSystem>
-```
+[SURFACES]: `CliApp` `Environment` `ConstructorArgs` `make` `layer` `defaultConfig` `defaultLayer` `ValidationError` `isHelpRequested` `isValidationError` `isMissingFlag` `isMissingValue`
 
 Consumer note: `isHelpRequested` is matched in the run rail to treat `--help`/`--version` as a clean exit rather than a failure; `CliConfig.layer({ isCaseSensitive })` overrides parser policy at the app root; `ConfigFile.layer(name)` layers a disk `ConfigProvider` so `withFallbackConfig` flags read from a config file. `CommandDescriptor`/`CommandDirective`/`BuiltInOptions`/`AutoCorrect`/`Primitive` are the internal parse machinery the typed surfaces above subsume.
 

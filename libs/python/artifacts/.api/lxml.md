@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `lxml`
-- package: `lxml` (BSD-3-Clause; bundled libxml2/libxslt, MIT)
+- package: `lxml` (BSD-3-Clause)
 - module: `lxml.etree`
 - namespaces: `lxml.etree`, `lxml.html`, `lxml.objectify`, `lxml.builder`, `lxml.isoschematron`, `lxml.sax`, `lxml.ElementInclude`
 - owner: `artifacts`

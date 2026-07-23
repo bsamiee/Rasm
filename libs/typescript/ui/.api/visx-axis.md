@@ -1,7 +1,7 @@
 # [TS_UI_API_VISX_AXIS]
 
 [PACKAGE_SURFACE]:
-- package: `@visx/axis` · license `MIT`
+- package: `@visx/axis` (MIT)
 - module: dual ESM/CJS via conditional `exports`; peers `react` + `@types/react` 18||19.
 - asset: deps `@visx/group` `@visx/point` `@visx/scale` `@visx/shape` `@visx/text` + `classnames` — tick labels render through `@visx/text`'s SVG `Text` (its `TextProps` is the `TickLabelProps` vocabulary), tick marks through `@visx/shape`'s `Line`.
 - plane: `plane:runtime` (W4 `ui`); rail: the visx chart spine — the axis face over `.api/visx-scale.md` scales.
@@ -20,11 +20,7 @@
 |  [06]   | `TickRendererProps` / `TicksRendererProps` / `ComputedTick` | tick render | per-tick + full-ticks override; `ComputedTick` = value |
 |  [07]   | `AxisRendererProps` / `SharedAxisProps` / `CommonProps`     | axis render | whole-axis render override; keeps tick computation     |
 
-```ts signature
-// One scale object feeds shapes AND its axis; policy is props, labels are @visx/text TextProps per tick.
-<AxisBottom scale={x} top={innerHeight} tickFormat={fmt} tickLabelProps={() => ({ className: "fill-muted text-2xs", textAnchor: "middle" })} />
-<AxisLeft scale={y} numTicks={density.rows} label={axisLabel} />
-```
+[COMPOSITION]: `AxisBottom(scale,top,tickFormat,tickLabelProps)` `AxisLeft(scale,numTicks,label)`
 
 Tick VALUES/format derive from the d3 substrate where the scale's own vocabulary rules (`scale.ticks`, `format`/`timeFormat` specifiers per `.api/d3.md`); the axis renders them, it never invents a second tick algebra.
 

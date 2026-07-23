@@ -1,7 +1,7 @@
 # [TS_UI_API_REACT_ARIA_LIVE_ANNOUNCER]
 
 [PACKAGE_SURFACE]:
-- package: `@react-aria/live-announcer` · version `` · license `Apache-2.0`
+- package: `@react-aria/live-announcer` (Apache-2.0)
 - module: dual — `dist/import.mjs` (ESM `import`) + `dist/main.js` (CJS `main`); `sideEffects: false`; `.` barrel + `./package.json`. Re-exports the three functions from `react-aria`'s private `LiveAnnouncer` — the same global singleton `react-aria`/`react-aria-components` drive internally.
 - asset: `dist/types/src/index.d.ts` (`restore: restored`).
 - runtime: vanilla DOM — NOT React (no portal, no hook); a lazy global singleton region prepended to `document.body`. SSR-safe (guards `typeof document`). Internalizes `@swc/helpers`; peer `react-aria`.
@@ -22,13 +22,9 @@ The whole surface is three functions over a two-value assertiveness axis and a s
 |  [02]   | `clearAnnouncer`   | flush    | empty a region's queued nodes (runtime clears both on a falsy arg; the type requires it)    |
 |  [03]   | `destroyAnnouncer` | teardown | remove the singleton region from the DOM and null it (next announce re-creates)             |
 
-```ts signature
-type Assertiveness = 'assertive' | 'polite'
-type Message = string | { 'aria-labelledby': string }   // object form renders role=img aria-labelledby (announce an existing node's label)
-declare function announce(message: Message, assertiveness?: Assertiveness, timeout?: number): void   // defaults: 'assertive', 7000
-declare function clearAnnouncer(assertiveness: Assertiveness): void
-declare function destroyAnnouncer(): void
-```
+[ASSERTIVENESS]: `Assertiveness = 'assertive'|'polite'`
+[MESSAGE]: `Message = string|{'aria-labelledby':string}`
+[SURFACES]: `announce(Message,Assertiveness?,number?) -> void` `clearAnnouncer(Assertiveness) -> void` `destroyAnnouncer() -> void`
 
 Consumer note: `'assertive'` interrupts the reader immediately (faults, blocking status); `'polite'` waits for a pause (progress, counts). `timeout` is the ms the appended node lives before removal (default 7000); an empty-string message is appended but never auto-removed. The object `aria-labelledby` form announces an existing node's label — image/graph descriptions read without duplicating text.
 

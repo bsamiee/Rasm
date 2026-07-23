@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Eto.Forms`
-- package: `Eto.Forms` (BSD-3-Clause, host-provided)
+- package: `Eto.Forms` (BSD-3-Clause)
 - assembly: `Eto.dll` (Rhino `RhCore` framework)
 - namespace: `Eto.Forms`, `Eto.Forms.ThemedControls`, `Eto.Threading`
 - rail: native-ui
@@ -89,21 +89,13 @@
 
 `Control` is the common base carrying invalidation and native-attachment members and the event families every widget inherits: `Load`/`Shown` lifecycle, `GotFocus`/`LostFocus` focus, `MouseDown`/`MouseMove` mouse, `KeyDown` key, and `DragEnter`/`DragDrop` drag-drop.
 
-| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY] | [CAPABILITY]                                                      |
-| :-----: | :----------------------------------- | :------------ | :---------------------------------------------------------------- |
-|  [01]   | `Control`                            | base          | widget base carrying the inherited event families                 |
-|  [02]   | `Control.Invalidate()`               | member        | full-surface repaint request                                      |
-|  [03]   | `Control.Invalidate(Rectangle rect)` | member        | bounded-region repaint request                                    |
-|  [04]   | `Control.AttachNative()`             | member        | attaches to an external native parent (`api-eto-platform.md`)     |
-|  [05]   | `Control.DetachNative()`             | member        | detaches from the native parent                                   |
-|  [06]   | `Control.TriggerStyleChanged()`      | member        | re-applies style handlers on theme change (`api-eto-platform.md`) |
-
-`DoDragDrop` begins a drag with a `DataObject` payload, optionally carrying a drag image:
-
-```csharp signature
-Control.DoDragDrop(DataObject data, DragEffects allowedEffects)
-Control.DoDragDrop(DataObject data, DragEffects allowedEffects, Image image, PointF cursorOffset)
-```
+| [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY] | [CAPABILITY]                          |
+| :-----: | :--------------------------------------- | :------------ | :------------------------------------ |
+|  [01]   | `Control`                                | base          | widget base carrying inherited events |
+|  [02]   | `Invalidate()` / `Invalidate(Rectangle)` | member        | requests full or bounded repaint      |
+|  [03]   | `AttachNative()` / `DetachNative()`      | member        | changes the external native parent    |
+|  [04]   | `TriggerStyleChanged()`                  | member        | reapplies style handlers              |
+|  [05]   | `DoDragDrop(DataObject, DragEffects, …)` | member        | starts a drag with an optional image  |
 
 [PUBLIC_TYPE_SCOPE]: layout containers
 
@@ -200,17 +192,14 @@ Control.DoDragDrop(DataObject data, DragEffects allowedEffects, Image image, Poi
 
 `Begin*` builders open a nested scope; `Add*` members place children into the open region:
 
-```csharp signature
-DynamicLayout.BeginVertical(Padding? padding = null, Size? spacing = null, bool? xscale = null, bool? yscale = null)
-DynamicLayout.BeginHorizontal(bool? yscale = null)
-DynamicLayout.BeginGroup(string title, Padding? padding = null, Size? spacing = null, bool? xscale = null, bool? yscale = null)
-DynamicLayout.BeginScrollable(BorderType border = BorderType.Bezel, Padding? padding = null, Size? spacing = null, bool? xscale = null, bool? yscale = null)
-DynamicLayout.Add(Control control, bool? xscale = null, bool? yscale = null)
-DynamicLayout.AddRow(params Control[] controls)
-DynamicLayout.AddColumn(params Control[] controls)
-DynamicLayout.AddCentered(Control control, Padding? padding = null, Size? spacing = null, bool? xscale = null, bool? yscale = null, bool horizontalCenter = true, bool verticalCenter = true)
-DynamicLayout.AddAutoSized(Control control, Padding? padding = null, Size? spacing = null, bool? xscale = null, bool? yscale = null, bool centered = false)
-```
+| [INDEX] | [SURFACE]                                                                   | [CAPABILITY]                |
+| :-----: | :-------------------------------------------------------------------------- | :-------------------------- |
+|  [01]   | `BeginVertical(Padding?, Size?, bool?, bool?)` / `BeginHorizontal(bool?)`   | opens an axis region        |
+|  [02]   | `BeginGroup(string, Padding?, Size?, bool?, bool?)`                         | opens a titled region       |
+|  [03]   | `BeginScrollable(BorderType, Padding?, Size?, bool?, bool?)`                | opens a scrollable region   |
+|  [04]   | `Add(Control, bool?, bool?)` / `AddRow(Control[])` / `AddColumn(Control[])` | places children             |
+|  [05]   | `AddCentered(Control, Padding?, Size?, bool?, bool?, bool, bool)`           | places a centered child     |
+|  [06]   | `AddAutoSized(Control, Padding?, Size?, bool?, bool?, bool)`                | places a natural-size child |
 
 [ENTRYPOINT_SCOPE]: TableLayout and PixelLayout placement
 
@@ -267,53 +256,36 @@ DynamicLayout.AddAutoSized(Control control, Padding? padding = null, Size? spaci
 
 [ENTRYPOINT_SCOPE]: binding construction and transform
 
-`Bind`/`BindDataContext` open a binding against a fixed source or the `DataContext`; the `IndirectBinding<T>` chain transforms it before it reaches the control:
+`Bind` and `BindDataContext` use `Expression<Func<…>>` selectors and default to `DualBindingMode.TwoWay`; context forms accept control/context `TValue` defaults. `Convert`/`Delegate` setters receive the source value, or the data item for two-generic `Delegate`, never a binding instance.
 
-```csharp signature
-BindableExtensions.Bind<TWidget, TSource, TValue>(TWidget control, Expression<Func<TWidget, TValue>> controlProperty, TSource source, Expression<Func<TSource, TValue>> sourceProperty, DualBindingMode mode = DualBindingMode.TwoWay)
-BindableExtensions.BindDataContext<TWidget, TContext, TValue>(TWidget control, Expression<Func<TWidget, TValue>> controlProperty, Expression<Func<TContext, TValue>> sourceProperty, DualBindingMode mode = DualBindingMode.TwoWay, TValue defaultControlValue = default, TValue defaultContextValue = default)
-BindableBinding<T, TValue>.BindDataContext(IndirectBinding<TValue> dataContextBinding, DualBindingMode mode = DualBindingMode.TwoWay, TValue defaultControlValue = default, TValue defaultContextValue = default)
-```
-
-| [INDEX] | [SURFACE]                                                                                     | [CAPABILITY]                       |
-| :-----: | :-------------------------------------------------------------------------------------------- | :--------------------------------- |
-|  [01]   | `IndirectBinding<T>.GetValue(object dataItem)`                                                | reads the value from a data item   |
-|  [02]   | `IndirectBinding<T>.SetValue(object dataItem, T value)`                                       | writes the value to a data item    |
-|  [03]   | `IndirectBinding<T>.Convert<TValue>(Func<T,TValue> toValue, Func<TValue,T> fromValue = null)` | maps the bound value type          |
-|  [04]   | `IndirectBinding<T>.Child<TNewValue>(Expression<Func<T,TNewValue>> property)`                 | descends into a bound-value member |
-|  [05]   | `IndirectBinding<T>.AfterDelay(TimeSpan delay, bool reset = false)`                           | debounces write propagation        |
-
-In every `Convert`/`Delegate` setter the first lambda argument is the source-side VALUE (or data item for the two-generic `Delegate`), never the binding instance:
-
-```csharp signature
-Binding.Delegate<TValue>(Func<TValue> getValue, Action<TValue> setValue = null, Action<EventHandler<EventArgs>> addChangeEvent = null, Action<EventHandler<EventArgs>> removeChangeEvent = null)
-Binding.Delegate<T, TValue>(Func<T, TValue> getValue, Action<T, TValue> setValue = null, Action<T, EventHandler<EventArgs>> addChangeEvent = null, Action<T, EventHandler<EventArgs>> removeChangeEvent = null, TValue defaultGetValue = default, TValue defaultSetValue = default)
-Binding.Property<T, TValue>(Expression<Func<T, TValue>> propertyExpression)
-DirectBinding<T>.DataValue { get; set; }
-DirectBinding<T>.DataValueChanged (event EventHandler<EventArgs>)
-DirectBinding<T>.Convert<TValue>(Func<T, TValue> getValue, Action<T, TValue> setValue)
-DirectBinding<T>.CatchException(Func<Exception, bool> exceptionHandler = null)
-IndirectBinding<T>.Convert<TValue>(Func<T, TValue> getValue, Action<T, TValue> setValue)
-IndirectBinding<T>.CatchException(Func<Exception, bool> exceptionHandler = null)
-BindableBinding<T, TValue>.Bind(DirectBinding<TValue> sourceBinding, DualBindingMode mode = DualBindingMode.TwoWay)
-DualBinding<T>.Unbind()
-DualBinding<T>.Update(BindingUpdateMode mode = BindingUpdateMode.Destination)
-BindableWidget.UpdateBindings(BindingUpdateMode mode = BindingUpdateMode.Source)
-```
+| [INDEX] | [SURFACE]                                                        | [CAPABILITY]                    |
+| :-----: | :--------------------------------------------------------------- | :------------------------------ |
+|  [01]   | `BindableExtensions.Bind<TWidget,TSource,TValue>(…)`             | binds a fixed source            |
+|  [02]   | `BindableExtensions.BindDataContext<TWidget,TContext,TValue>(…)` | binds `DataContext`             |
+|  [03]   | `BindableBinding<T,TValue>.BindDataContext(…)`                   | binds an indirect context       |
+|  [04]   | `IndirectBinding<T>.GetValue` / `.SetValue`                      | reads or writes a data item     |
+|  [05]   | `IndirectBinding<T>.Convert<TValue>(…)`                          | maps the bound value type       |
+|  [06]   | `IndirectBinding<T>.Child<TValue>(…)`                            | descends into a bound member    |
+|  [07]   | `IndirectBinding<T>.AfterDelay(TimeSpan, bool)`                  | debounces write propagation     |
+|  [08]   | `Binding.Delegate<TValue>(get, set, add, remove)`                | creates a callback binding      |
+|  [09]   | `Binding.Delegate<T,TValue>(get, set, add, remove, …)`           | creates an item callback        |
+|  [10]   | `Binding.Property<T,TValue>(Expression<Func<…>>)`                | creates a property binding      |
+|  [11]   | `DirectBinding<T>.DataValue` / `.DataValueChanged`               | exposes value and change event  |
+|  [12]   | `DirectBinding<T>.Convert<TValue>` / `.CatchException`           | maps or guards direct binding   |
+|  [13]   | `IndirectBinding<T>.Convert<TValue>` / `.CatchException`         | maps or guards indirect binding |
+|  [14]   | `BindableBinding<T,TValue>.Bind(DirectBinding<TValue>, …)`       | links a direct source           |
+|  [15]   | `DualBinding<T>.Unbind` / `.Update`; `UpdateBindings`            | controls propagation            |
 
 `CatchException` lives on `DirectBinding<T>`/`IndirectBinding<T>` and returns that binding shape; `BindableBinding` carries no such member, so the funnel attaches to the source side of a dual link, never to the control selector.
 
 [ENTRYPOINT_SCOPE]: themed controls and thread identity
 
-```csharp signature
-ThemedMessageBox.AddButton(string text, object result, bool isDefault = false, bool isAbort = false)
-ThemedMessageBox.Result / Text / TextAlignment / Image { get; set; }
-ThemedPropertyGrid.SelectedObject / SelectedObjects / ShowCategories / ShowDescription { get; set; }
-ThemedPropertyGrid.Refresh() ; event PropertyValueChanged
-ThemedCollectionEditor.DataStore / ElementType / ExtraContent { get; set; }
-Thread(Action action) ; Start() ; Abort() ; IsMain ; IsAlive
-Thread.MainThread / CurrentThread / IsMainThread (static)
-```
+| [INDEX] | [OWNER]                  | [SURFACE]                                           |
+| :-----: | :----------------------- | :-------------------------------------------------- |
+|  [01]   | `ThemedMessageBox`       | `AddButton`; result, text, alignment, image         |
+|  [02]   | `ThemedPropertyGrid`     | selection, categories, description, refresh, change |
+|  [03]   | `ThemedCollectionEditor` | `DataStore`, `ElementType`, `ExtraContent`          |
+|  [04]   | `Thread`                 | action lifecycle, main/current identity, liveness   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pyiceberg`
-- package: `pyiceberg` (`Apache-2.0`, Apache Software Foundation)
+- package: `pyiceberg` (Apache-2.0)
 - module: `pyiceberg`
 - namespaces: `pyiceberg.catalog`, `pyiceberg.table`, `pyiceberg.schema`, `pyiceberg.types`, `pyiceberg.transforms`, `pyiceberg.partitioning`, `pyiceberg.expressions`, `pyiceberg.exceptions`
 - owner: `data`

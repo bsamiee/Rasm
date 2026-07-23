@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `vegafusion`
-- package: `vegafusion` (BSD-3-Clause; PyO3/maturin extension over embedded Apache DataFusion + Arrow query engine)
+- package: `vegafusion` (BSD-3-Clause)
 - module: `vegafusion` (canonical alias `import vegafusion as vf`)
 - owner: `artifacts`
 - rail: charts

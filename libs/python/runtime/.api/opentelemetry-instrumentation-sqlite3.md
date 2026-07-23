@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `opentelemetry-instrumentation-sqlite3`
-- package: `opentelemetry-instrumentation-sqlite3` (`Apache-2.0`, OpenTelemetry Authors)
+- package: `opentelemetry-instrumentation-sqlite3` (Apache-2.0)
 - module: `opentelemetry.instrumentation.sqlite3`
 - rail: observability
 

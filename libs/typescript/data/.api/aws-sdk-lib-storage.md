@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@aws-sdk/lib-storage`
-- package: `@aws-sdk/lib-storage`
-- license: `Apache-2.0`
+- package: `@aws-sdk/lib-storage` (Apache-2.0)
 - peer: `@aws-sdk/client-s3` (the client and command inputs it composes; `.api/aws-sdk-client-s3.md`)
 - module format: ESM/CJS dual (`dist-es`/`dist-cjs`/`dist-types`), `sideEffects: false`
 - runtime: node and browser runtime configs ship; the data plane composes it server-side

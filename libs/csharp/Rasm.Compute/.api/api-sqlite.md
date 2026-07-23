@@ -5,7 +5,7 @@ Compute reads one slice of `Microsoft.Data.Sqlite`: a read-only ADO.NET fold ove
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Data.Sqlite` (Compute energy-results reader slice)
-- package: `Microsoft.Data.Sqlite` (MIT) — meta-package; `Microsoft.Data.Sqlite.Core` carries the assembly, `SQLitePCLRaw.bundle_e_sqlite3` the `e_sqlite3` native provider
+- package: `Microsoft.Data.Sqlite` (MIT)
 - assembly: `Microsoft.Data.Sqlite` (namespace `Microsoft.Data.Sqlite`); the `net10.0` consumer binds the `lib/net8.0` asset
 - rail: read-only `eplusout.sql` tabular reader
 

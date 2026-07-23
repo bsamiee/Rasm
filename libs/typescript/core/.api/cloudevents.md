@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `cloudevents`
-- package: `cloudevents`
-- license: `Apache-2.0`
+- package: `cloudevents` (Apache-2.0)
 - effect-peer: none — the constructed `CloudEvent` and every `toEvent` deserialization cross into `effect` `Schema.decodeUnknown` at the `interchange/carrier` seam (`.api/effect.md`); no bundled peer
 - catalog-verdict: KEEP — the CloudEvents-dialect arm of the `interchange/carrier` propagation table: `@connectrpc/connect` owns the Connect ASCII/`-bin` metadata dialect (`encodeBinaryHeader`/`decodeBinaryHeader`, `.api/connectrpc-connect.md`), this owns the CloudEvents envelope and its HTTP/Kafka/MQTT binary bindings — one carrier codec spans the dialects, no overlap with the Connect metadata arm
 - runtime: mixed — the `CloudEvent` value, its extension slot, and `CONSTANTS` are isomorphic (UMD `bundles/cloudevents.js` ships a browser build); the `Message`/`Binding`/`Emitter` layer carries node type deps (`Headers extends http.IncomingHttpHeaders`, `Emitter` over node `events.EventEmitter`, `KafkaMessage#key: string | Buffer`), so binding serialization is a node/bun-lane surface

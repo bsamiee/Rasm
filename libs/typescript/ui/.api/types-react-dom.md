@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@types/react-dom`
-- package: `@types/react-dom`
-- license: `MIT` (DefinitelyTyped)
+- package: `@types/react-dom` (MIT)
 - peer: `@types/react` (declared peer; shares `ReactNode`/`ReactElement`/`Ref`/`Component`); version-locked to the runtime major (19)
 - deps: none
 - catalog-verdict: KEEP

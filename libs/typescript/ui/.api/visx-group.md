@@ -1,7 +1,7 @@
 # [TS_UI_API_VISX_GROUP]
 
 [PACKAGE_SURFACE]:
-- package: `@visx/group` · license `MIT`
+- package: `@visx/group` (MIT)
 - module: dual ESM/CJS via conditional `exports`; peers `react` + `@types/react` 18||19; sole dep `classnames` — a leaf package, zero d3.
 - plane: `plane:runtime` (W4 `ui`); rail: the visx chart spine — the coordinate frame under `.api/visx-shape.md` / `.api/visx-axis.md`.
 
@@ -9,23 +9,10 @@
 
 ## [01]-[SURFACE]
 
-```ts contract
-interface GroupProps extends React.SVGProps<SVGGElement> {
-  top?: number; left?: number          // translate(left, top) — omitted when a raw transform is passed
-  transform?: string                    // full transform escape (rotate/scale frames)
-  className?: string; innerRef?: React.Ref<SVGGElement>; children?: React.ReactNode
-}
-declare const Group: React.FC<GroupProps>
-```
+[GROUP_PROPS]: `GroupProps.top: number` `GroupProps.left: number` `GroupProps.transform: string` `GroupProps.className: string` `GroupProps.innerRef: React.Ref<SVGGElement>` `GroupProps.children: React.ReactNode`
+[SURFACES]: `Group: React.FC<GroupProps>`
 
-```ts contract
-// The margin convention: dimensions from responsive, inner ranges on scales, ONE translate owning the offset.
-const { width, height } = parentSize
-const innerW = width - margin.left - margin.right, innerH = height - margin.top - margin.bottom
-<svg width={width} height={height}>
-  <Group top={margin.top} left={margin.left}>{/* shapes + axes in inner coordinates */}</Group>
-</svg>
-```
+[COMPOSITION]: `svg(width,height)` `Group(top,left)`
 
 ## [02]-[INTEGRATION]
 

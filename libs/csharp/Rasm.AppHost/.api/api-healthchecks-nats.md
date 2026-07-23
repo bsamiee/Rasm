@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `AspNetCore.HealthChecks.Nats`
-- package: `AspNetCore.HealthChecks.Nats`
-- license: `Apache-2.0`
+- package: `AspNetCore.HealthChecks.Nats` (Apache-2.0)
 - assembly: `HealthChecks.Nats`
 - namespace: `HealthChecks.Nats`, `Microsoft.Extensions.DependencyInjection`
 - target: `net8.0` (also `netstandard2.0`); the `net10.0` consumer binds the `net8.0` asset, `RefSafetyRules(11)` nullable-annotated

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `scikit-image`
-- package: `scikit-image` (`BSD-3-Clause`, scikit-image contributors)
+- package: `scikit-image` (BSD-3-Clause)
 - import: `skimage` (submodules lazy-load via `lazy_loader`; each domain module materializes on first attribute access)
 - owner: `artifacts`
 - rail: imaging

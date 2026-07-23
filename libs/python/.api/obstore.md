@@ -5,9 +5,8 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `obstore`
-- package: `obstore`
+- package: `obstore` (MIT)
 - module: `obstore`
-- license: MIT
 - asset: native wheel (Rust `object_store` core via pyo3)
 - rail: object storage
 - namespaces: `obstore`, `obstore.store`, `obstore.auth`, `obstore.fsspec`, `obstore.exceptions`

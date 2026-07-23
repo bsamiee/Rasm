@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Xbim.Properties`
-- package: `Xbim.Properties`
-- license: CDDL-1.0 (`xBimTeam` Pset dataset), `requireLicenseAcceptance=true` — the file-level weak-copyleft reciprocity is satisfied by referencing the unmodified NuGet binary, never vendoring or editing its source.
+- package: `Xbim.Properties` (CDDL-1.0)
 - assembly: `Xbim.Properties` — the `net10.0` consumer binds `lib/netstandard2.1/Xbim.Properties.dll`; pure-managed AnyCPU IL, ALC-safe, no native asset.
 - namespace: `Xbim.Properties` (the definition model); the bundled `No.Catenda.Peregrine.Model.Objects`/`.Pset` IFD object model rides along unused.
 - transitive: `Microsoft.CSharp` and `System.Data.DataSetExtensions` are net10 in-box facades (the `dynamic` binder and `DataSet` LINQ extensions), pulling no `Xbim.Essentials` and standing up no parallel IFC model.
@@ -84,7 +83,7 @@
 - bSDD (`Semantics/classification`) unions OVER this catalogue with dictionary-wins precedence; a bSDD-declared property absent here still resolves from the dictionary, so this package is the network-free floor, never the sole source.
 
 [RAIL_LAW]:
-- Package: `Xbim.Properties` (CDDL-1.0, `requireLicenseAcceptance`; pure-managed `lib/netstandard2.1` AnyCPU IL; `Microsoft.CSharp` and `System.Data.DataSetExtensions` in-box facades, no `Xbim.Essentials`)
+- Package: `Xbim.Properties` (CDDL-1.0)
 - Owns: the authoritative buildingSMART `Pset_*`/`Qto_*` template dataset — the `Definitions<T>` catalogue, `PropertySetDef`/`QtoSetDef` with applicable classes and member definitions, each `PropertyDef`'s value-type kind and scalar `DataTypeEnum`, each `QtoDef`'s `QtoTypeEnum`, and the load/index/query/save API, schema-versioned by `IfcVersion`/`Version`
 - Accept: `Definitions<PropertySetDef>(Version).LoadAllDefault` (plus the `QtoSetDef` twin) as the frozen offline source the `properties#PROPERTY_TEMPLATES` `PropertyKey` anchors read; the declared `DataTypeEnum` (off `PropertyType.PropertyValueType`) and `QtoTypeEnum` lowered into the seam-owned `PropertyValue`/`Dimension` model; the `ApplicableClasses` corroborating the `PropertyKey` domain; the catalogue unioned UNDER the bSDD live dictionary
 - Reject: a hand-coded `Pset_*` table beside `Definitions<T>`; treating this as an IFC entity reader, a property-value store, or an IDS validator (`Xbim.InformationSpecifications` owns IDS); making it the sole template when bSDD must win a collision; vendoring or modifying the CDDL-1.0 source; consuming the bundled `No.Catenda.Peregrine.*` IFD model
