@@ -54,7 +54,7 @@ Render an inline status, result, change, or state as a bracketed token so an age
 |  [06]   | `[NULL]`    | literal null fact          | absent value         |
 
 [TOKEN_RULES]:
-- Prefer the most specific family; never use two tokens meaning the same thing in one column.
+- Use the most specific family; never two tokens meaning one thing in a column.
 - Compact glyphs render only where density matters — checked lists, delta summaries, table cells — with the global meanings above.
 - Reserve these tokens for status, result, change, and state; never scatter them through prose or duplicate a record field or checkbox state.
 - A checkbox asserts completion; `[X]` is a compact fail marker, never a replacement for `- [x]`.

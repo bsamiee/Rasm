@@ -1,6 +1,6 @@
 # [DEFECTS]
 
-Findings cite class and line, and every fix is a total reframe of the surrounding passage — kept-but-softened poison is the same defect wearing fewer words.
+Findings cite class and line. Fix by reframing the passage whole: a repair that edits the defect's token while its structure stands — a determiner swapped, a hedge softened, a litany trimmed, a lexeme synonym-swapped — is a null repair, the same defect wearing fewer words. A repair holds only when the structure moved.
 
 ## [01]-[ENUMERATION_ANCHOR]
 
@@ -64,7 +64,7 @@ A page that reads as a report of its own production: research origin, verificati
 
 ## [07]-[COUPLING]
 
-Links, citations, numbered references, or meta-references to files, sources, or the project outside the artifact's own concern, anywhere but a declared routing surface. Every coupling is a drift channel: the referenced surface moves, the reference rots, and differently-phrased references infest a corpus faster than any other litter.
+Links, citations, numbered references, or meta-references to files, sources, or the project outside the artifact's own concern, anywhere but a declared routing surface. Every coupling is a drift channel: the referenced surface moves and the reference rots.
 
 - Detection: A link, path, source name, footnote, or paraphrased sibling reference in prose whose section is not a router, route map, or instruction-file routing row. A sibling earns at most one boundary pointer line naming the owner and the one consumed symbol; a section-anchored reference (`page#SECTION`) couples to the sibling's interior, and a page never names itself.
 - Rejected: Per the platform decision and the vendor's guide, the codec follows the recommended framing (see reference 4).
@@ -144,7 +144,7 @@ An impossibility claim — unspellable, structurally impossible, can never — w
 
 ## [15]-[NEGATION_ONLY]
 
-Law stated as prohibition with the positive rule absent or buried: a lone `never X` leaving the correct form unwritten, or an inventory of forbidden alternatives with the ruling stranded after the corpses. A bare negation defines a hole, not a target — the reader knows one rejected point in an unbounded space and guesses the rest, and every enumerated strawman anchors the next rebuild to the anti-shape.
+Law stated as prohibition with the positive rule absent or buried: a lone `never X` leaving the correct form unwritten, or an inventory of forbidden alternatives with the ruling stranded after the corpses. Every enumerated strawman anchors the next rebuild to the anti-shape.
 
 - Detection: A sentence whose subject is a forbidden alternative, a negation roster longer than one clause, or a single prohibition with no positive form naming what to do instead.
 - Rejected: Never open a second engine, add a per-extension package, hold an open-per-query connection, or inline credentials.
@@ -154,7 +154,7 @@ Law stated as prohibition with the positive rule absent or buried: a lone `never
 
 ## [16]-[IMPORTED_POSTURE]
 
-A corpus adopting a foreign authority's posture toward its own ruled standard: an upstream maturity label (`experimental`, `beta`) on a ruled capability, the ecosystem's default presented as the default here, a fallback or safe alternative named beside the ruling, probationary ceremony on the ruled path, setup caveats the environment already resolves, defect facts arranged as an indictment of the ruling. Authority inversion drives it: the source's register survives into law, and the document serves the upstream's risk posture instead of the ruling it exists to state.
+A corpus adopting a foreign authority's posture toward its own ruled standard: an upstream maturity label (`experimental`, `beta`) on a ruled capability, the ecosystem's default presented as the default here, a fallback or safe alternative named beside the ruling, probationary ceremony on the ruled path, setup caveats the environment already resolves, defect facts arranged as an indictment of the ruling.
 
 - Detection: A register the ruling never produced — a maturity label, a named alternative, selective ceremony, or a foreign-environment caveat attached to a ruled standard; the generalized tell is any sentence whose deference points outside the corpus.
 - Rejected: The engine stays experimental — a diagram ships only after its render is inspected, and the shared renderer is the fallback when a defect bites.
@@ -259,7 +259,7 @@ A page that legally owns a delegated discipline re-spells the sub-anatomy a temp
 - Detection: A discipline an upstream instruction file routes to this page, stated with its obligation AND the row, marker, or touch-point anatomy a template or roster spells verbatim. Read the delegation: the obligation is owned, the anatomy is the template's. CHAIN_RESTATEMENT deletes a chain law this page never owned; this class keeps the delegated obligation and demotes only its re-spelled anatomy, so a naive whole-deletion over-deletes the obligation while re-spelling forks the anatomy.
 - Rejected: Admission and row anatomy follow the docgen rulings template — a row dies only when its fact AND its why both live at one durable surface, and a guard-grade row names the wrong move it forecloses, its correct route, and its reopen predicate.
 - Accepted: Every pass maintains the `RULINGS.md` registry; its admission bar, tier placement, and row anatomy follow the docgen rulings template.
-- Reason: This page owns the obligation, the template owns the anatomy, and one pointer naming the deferred concerns carries it without forking the spelling. Owning a discipline never licenses owning its sub-rosters.
+- Reason: This page owns the obligation, the template owns the anatomy, and one pointer naming the deferred concerns carries it without forking the spelling.
 - Reframe: Keep the obligation clause; replace every re-spelled sub-anatomy with one pointer naming the template and the concerns it owns, then audit the same entry for a sibling anatomy left inline.
 
 ## [27]-[ROSTER_PREAMBLE]

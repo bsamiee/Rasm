@@ -2,7 +2,7 @@
 name: docgen
 description: >-
     Owns all prose, markdown files and the comments inside source files and fences
-    through one register, an anti-anchoring rule against rosters, counts, and freezes,
+    through a register law, an anti-anchoring rule against rosters, counts, and freezes,
     a named defect catalog, file-kind templates, and a deterministic gate and fixer.
     Use when authoring, editing, reviewing, or markdown files of any kind, and comments in
     source files; when designing a document schema or marker vocabulary; when pruning code
@@ -11,7 +11,7 @@ description: >-
 
 # [DOCGEN]
 
-Write durable prose as law for an agent that loads it cold: every line changes that agent's next action or poisons it. Give every fact one owner, every line one decision — delete everything else, never soften it.
+Write durable prose as law for an agent that loads it cold: every line changes that agent's next action or poisons it. Give every fact one owner, every line one decision — delete everything else, never soften it — inside skill bundles exactly as on any durable surface.
 
 Hold two registers apart: an instruction surface — skill, standard, template comment, prompt — commands the writer in imperative demands; durable content states timeless owner-voice law. Command the act or state the law; describe nothing.
 
@@ -130,7 +130,7 @@ Enable the merge-edges option and the network-simplex placement strategy in the 
 Layout blocks carry `mergeEdges: true` and `nodePlacementStrategy: NETWORK_SIMPLEX`.
 ```
 
-[PROSE_CODE_BOUNDARY] — Name owners in prose; carry mechanism in code. Name at most the owning symbol as a code span and state its law; leave signatures, member chains, option rosters, and per-member behavior in the fence, catalog, or table tooling keeps true — in prose they are drift debt the next code edit falsifies. Hold the abbreviated call shape in a catalog or comparison cell (anatomy owned by the api-catalog template) and the transcription-complete declaration only in a design-page fence; never fence what a catalog indexes. Write one focused decision per list entry — one owner, one charter phrase — and demote or split a tail, second clause, or mechanism aside.
+[PROSE_CODE_BOUNDARY] — Name owners in prose; carry mechanism in code. Name at most the owning symbol as a code span and state its law; leave signatures, rosters, and per-member behavior in the fence, catalog, or table tooling keeps true — in prose, drift debt. Hold the abbreviated call shape in a catalog or comparison cell (anatomy: api-catalog template) and the transcription-complete declaration only in a design-page fence; never fence what a catalog indexes. Write one decision per list entry — one owner, one charter phrase — demoting or splitting any tail, second clause, or mechanism aside.
 
 ```markdown rejected
 - [03]-[LENS](lens.md): `DocumentLens` recover-to inverse over PDF, raster, or workbook, and the examination ops — glyphs, layout metrics, OCG layers, separation inks, page labels, FDF/XFDF form data.
@@ -142,7 +142,7 @@ Layout blocks carry `mergeEdges: true` and `nodePlacementStrategy: NETWORK_SIMPL
 
 ## [04]-[FACT_LAW]
 
-[REBUILD_TEST] — Admit a sentence only when it stays true, unchanged, across any doctrine-conforming rebuild of its surfaces. Couple prose to intent — charter, invariant, boundary, ruling, trap — and let the fence own shape. Cure both drift directions the same way: state what the rebuild preserves. A page passes when a stronger fence body lands with zero prose edits.
+[REBUILD_TEST] — Admit a sentence only when it stays true, unchanged, across any doctrine-conforming rebuild of its surfaces. Couple prose to intent — charter, invariant, boundary, ruling, trap — and let the fence own shape. Cure fragile prose (truth tied to today's fence body) and walling prose (today's shape named as the contract) the same way: state what the rebuild preserves. A page passes when a stronger fence body lands with zero prose edits.
 
 [REGENERATION_TEST] — Delete the sentence; when a fresh agent regenerates the fact from disk and stated invariants, keep it deleted or demote it to a fence where structure must show. Keep a fact that cannot regenerate at its owning altitude — still answerable to every defect class, because regeneration rules out the mirror alone, never the freeze, hedge, or ledger.
 
@@ -154,11 +154,13 @@ Layout blocks carry `mergeEdges: true` and `nodePlacementStrategy: NETWORK_SIMPL
 
 ## [05]-[COMMENTS]
 
-Write a comment only for the agent editing the file in isolation, in source and transcription-complete fences alike: one in-situ constraint the code cannot show, uncoupled from paths, sessions, and siblings. Delete a comment whose constraint the code carries, and prune stale comments every pass. Keep a machine-config comment naming its owning module's path; delete a narrating path.
+Write a comment only for the agent editing the file in isolation, in source and transcription-complete fences alike: one in-situ constraint the code cannot show, uncoupled from paths, sessions, and siblings, never duplicating card or index content. Delete a comment whose constraint the code carries, and prune stale comments every pass. Keep a machine-config comment naming its owning module's path; delete a narrating path.
 
 Hold a block to the fewest lines that carry the constraint, each filled toward the 150-column cap; split a re-wrap asymmetrically — lead packed, tail carrying real width, never an even split. Refold an orphan line into a neighbor or rephrase it away. Gate counts bound the shape; header identity rows, shebangs, doc-comment glyphs, dividers, and tool pragmas never count, and the charter docstring is exempt only from the stack cap.
 
-Run one ladder per comment: delete a no-load comment whole — narration, code restatement, a human-facing tour; tighten a load-bearing survivor in place, 3 lines to 2 and 2 to 1 wherever the prose fits; inline a one-line survivor governing one line as its trailing tail, while a block-governing comment stays above its block. Rewrite on merge, never concatenate, and repair by read-and-rewrite judgment — the gate detects, no `sed`/regex mutates comment text. Correct dividers and docstring headers in style, structure, or label — never delete them — and correct a phantom label only after reading the enclosing section.
+Run one ladder per comment: delete a no-load comment whole — narration, code restatement, a human-facing tour — keeping any real constraint it carried; tighten a load-bearing survivor in place, 3 lines to 2 and 2 to 1; then inline a one-line survivor governing one line as its trailing tail — short, atomic, positive, outside every count and width budget — while a block-governing comment stays above its block.
+
+Rewrite on merge, never concatenate, and repair by read-and-rewrite judgment — the gate detects, no `sed`/regex mutates comment text. Correct dividers and docstring headers in style, structure, or label, never delete them; correct a phantom label only after reading the enclosing section.
 
 ## [06]-[GOTCHAS]
 

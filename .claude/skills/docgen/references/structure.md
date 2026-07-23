@@ -38,7 +38,7 @@ Routing is the one job that licenses linking and naming siblings; every other pa
 
 First lines are the highest-value signal an agent loads; a lead is engineered, never accumulated.
 
-- A lead occupies one or two single-line paragraphs and at most 500 characters total, opening with the document's own law — never the doc-set, siblings, audience, or process. Sentence count is not the measure.
+- A lead occupies one or two single-line paragraphs and at most 500 characters total, opening with the document's own law — never the doc-set, siblings, audience, or process.
 - A lead needing semicolons or parenthetical inventories is carrying a lower tier's payload; intro material earns its slot by changing the reader's next action.
 
 ```markdown rejected
