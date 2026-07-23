@@ -1,146 +1,126 @@
 # [PY_ARTIFACTS_API_ZIAFONT]
 
-`ziafont` supplies the pure-Python text-to-SVG-`<path>` glyph engine for the artifacts diagram and typography rails: it reads a TrueType (`glyf`) or PostScript (`CFF`/`CFF2`) sfnt directly, owns its OWN cmap resolution, GSUB substitution, and GPOS positioning (no `uharfbuzz`/`fontTools` dependency — zero runtime deps, bundling `DejaVuSans.ttf` as the fallback), and lowers each glyph to an `xml.etree.ElementTree` `<path>` element whose `d` attribute is the outline in user units. The two owners are `Font` (load + shape + per-glyph access) and `Text` (a shaped multi-line run that serializes to a standalone `<svg>` document or composites into an existing SVG tree via `drawon`). This is the categorical-best owner of "render text as outlined vector geometry that survives in any consumer with the font absent" — the gap `drawsvg.Text` leaves (it emits a font-dependent `<text>` element). The `visualization/diagram/draw#DRAW` emitter reaches it to outline `Annotation`/`Node`/`Swimlane`/`Edge` label text into a `<path>` def so the diagram SVG is self-contained; `visualization/diagram/glyphset#GLYPHSET` (today declaring "no external admission") gains its text-mark glyph source through this catalog; `typography/shape#SHAPE` reaches `SimpleGlyph.svgpath`/`Text.drawon` for the text-on-path and outlined-label path it cannot get from a `<text>` element. The owner never re-walks the `glyf`/`CFF` charstring interpreter, never re-derives the cmap format-4/12 lookup, and never re-implements the GSUB/GPOS lookup-type dispatch — `ziafont` owns the whole sfnt-to-`<path>` fold; it is NOT a math-layout engine (that is the sibling `ziamath`, which composes this package) and NOT a color-glyph rasterizer (that is `blackrenderer`).
+`ziafont` outlines text to SVG `<path>` geometry with zero runtime dependencies: it reads a `glyf`/`CFF`/`CFF2` sfnt through the font's own cmap, shapes with full GSUB and GPOS, and lowers each glyph to an `xml.etree.ElementTree` `<path>` — surviving where the font is absent, the gap `drawsvg.Text`'s font-dependent `<text>` leaves. `Font` owns load, shape, and per-glyph access; `Text` owns the shaped run that serializes standalone or composites into an SVG tree via `drawon`. Math layout is `ziamath` and color-glyph raster is `blackrenderer`; this catalog owns the sfnt-to-`<path>` fold alone.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ziafont`
-- package: `ziafont`
-- import: `ziafont`
+- package: `ziafont` (MIT)
+- module: `ziafont`
+- namespaces: `ziafont`, `ziafont.glyph`, `ziafont.fonttypes`, `ziafont.gsub`, `ziafont.gpos`, `ziafont.inspect`
 - owner: `artifacts`
 - rail: glyphset
-- license: MIT
-- installed: `0.11` (pure-Python; abi-agnostic, present on cp315 — Requires-Python `>=3.9`, no cp-gate)
-- depends: ZERO runtime dependencies (no `fontTools`, no `uharfbuzz`, no `numpy`) — it parses the sfnt binary itself and bundles `ziafont/fonts/DejaVuSans.ttf` as the no-argument fallback; outline math is stdlib-only and output is `xml.etree.ElementTree`
-- entry points: library only (no console script) — `ziafont.Font`, `ziafont.Text`, `ziafont.find_font`, `ziafont.system_fonts`, the `ziafont.config` global, and the `ziafont.inspect` discovery module
-- capability: read a `glyf`/`CFF`/`CFF2` sfnt; resolve codepoint-to-glyph through the font's own cmap; shape a run with full GSUB (single/multiple/alternate/ligature/chained-context) substitution and full GPOS (pair-kern/single-adjust/mark-to-base/mark-to-mark) positioning under a chosen script+language; lower each glyph to an ET `<path>` element (`d` in user units), an SVG `<symbol>`+`<use>`, or a standalone `<svg>`; multi-line layout with horizontal (`left`/`center`/`right`) and vertical (`base`/`center`/`top`) alignment, line spacing, rotation, and color; measure run/string extent; enumerate scripts/languages/features and render a per-lookup inspection table; SVG1.x-vs-SVG2 emission, coordinate precision, and default size as one global `Config`
+- depends: none — parses the sfnt binary itself, bundles `ziafont/fonts/DejaVuSans.ttf` as the no-argument fallback, and emits stdlib `xml.etree.ElementTree`
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the two owners, the glyph family, and the global config
-- rail: glyphset
-
-`Font` is the load-and-shape owner: construct from a family name / path / `None` (the bundled `DejaVuSans`), and it holds the parsed tables, the active cmap, and the GSUB/GPOS shapers. `Text` is the shaped-run owner — `Font.text(...)` returns exactly this type (`ziafont.font.Text`, re-exported as `ziafont.Text`), so `Font(...).text(s)` and `Text(s, font=...)` are one egress. The glyph family (`SimpleGlyph` for a `glyf`/`CFF` outline, `CompoundGlyph` for a composite glyph, `EmptyGlyph` for `.notdef`/missing) shares ONE interface — `svgpath`/`place`/`svg`/`svgxml`/`svgsymbol`/`advance`/`describe`/`test` — so a caller folds any glyph through the same surface, never a per-outline-format branch. `config` is a module-level `Config` dataclass: a process-global render policy, not a per-call argument. `Text`, `SimpleGlyph`, and `CompoundGlyph` carry `_repr_svg_`, so a run or glyph renders inline in a Jupyter/`great-tables` cell with no extra call.
+[PUBLIC_TYPE_SCOPE]: the two owners, the shared glyph family, and the value records
 
 | [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]        | [CAPABILITY]                                                                      |
 | :-----: | :---------------------------- | :------------------- | :-------------------------------------------------------------------------------- |
-|  [01]   | `ziafont.Font`                | load+shape owner     | parse sfnt; own cmap/GSUB/GPOS; glyph access, run measure, script/language select |
+|  [01]   | `ziafont.Font`                | load+shape owner     | parse sfnt, own cmap/GSUB/GPOS, glyph access, run measure, script/language select |
 |  [02]   | `ziafont.Text`                | shaped-run owner     | shaped multi-line run; `.svg()`/`.svgxml()`, `.drawon(svg, x, y)` composite       |
 |  [03]   | `ziafont.glyph.SimpleGlyph`   | outline glyph        | one `glyf`/`CFF` outline on the shared glyph interface                            |
-|  [04]   | `ziafont.glyph.CompoundGlyph` | composite glyph      | component glyphs + transforms; the shared interface, like `SimpleGlyph`           |
-|  [05]   | `ziafont.glyph.EmptyGlyph`    | missing glyph        | `.notdef`/unmapped fallback on the shared interface — never special-cased         |
-|  [06]   | `ziafont.glyph.BBox`          | bounds record        | `(xmin, xmax, ymin, ymax)` font-unit bounds (`NamedTuple`); layout-read extent    |
-|  [07]   | `ziafont.config`              | global render policy | the `Config` render policy; set once, read by every glyph/run serialize           |
-|  [08]   | `ziafont.fonttypes.Xform`     | transform record     | the affine a `CompoundGlyph` component carries; also a placed run's rotation      |
-|  [09]   | `ziafont.fonttypes.FontInfo`  | font metrics         | parsed `head`/`hhea`/`OS/2` metrics: units-per-em, ascent/descent, advance        |
-
-[PUBLIC_TYPE_SCOPE]: the `Config` global render policy
-- rail: glyphset
-
-`config` is the one process-global knob carrier. There is no per-`Text`/per-`Font` override for these — a design owning the render policy sets `ziafont.config.<field>` at boundary scope before constructing runs, never threads them per call. `precision` bounds the `d`-attribute float places (the content-key stability lever for a hashed SVG artifact); `svg2` selects SVG2 (`<path>` + CSS) vs SVG1.x (`<symbol>`/`<use>`) emission; `fontsize` is the default point size when a run omits one.
-
-| [INDEX] | [FIELD]     | [TYPE]  | [DEFAULT] | [CAPABILITY]                                                                                      |
-| :-----: | :---------- | :------ | :-------- | :------------------------------------------------------------------------------------------------ |
-|  [01]   | `svg2`      | `bool`  | `True`    | emit SVG2 (`<path>`/CSS); `False` emits SVG1.x (`<symbol>`+`<use>`) for legacy/Inkscape consumers |
-|  [02]   | `fontsize`  | `float` | `48`      | default point size applied when `Font.text`/`Text` is called with `size=None`                     |
-|  [03]   | `precision` | `float` | `3`       | decimal places in path/coordinate floats — the deterministic-bytes lever for content-keyed SVG    |
-|  [04]   | `debug`     | `bool`  | `False`   | draw glyph bounding boxes / baselines into the SVG for layout diagnosis                           |
+|  [04]   | `ziafont.glyph.CompoundGlyph` | composite glyph      | component glyphs and transforms on the shared interface                           |
+|  [05]   | `ziafont.glyph.EmptyGlyph`    | missing glyph        | `.notdef`/unmapped fallback on the shared interface                               |
+|  [06]   | `ziafont.fonttypes.BBox`      | bounds record        | `(xmin, xmax, ymin, ymax)` font-unit bounds `namedtuple`                          |
+|  [07]   | `ziafont.fonttypes.Xform`     | transform record     | the affine a `CompoundGlyph` component carries, and a placed run's rotation       |
+|  [08]   | `ziafont.fonttypes.FontInfo`  | font metrics         | parsed `head`/`hhea`/`OS/2` metrics — units-per-em, ascent/descent, advance       |
+|  [09]   | `ziafont.config`              | global render policy | the `Config` render policy, set once and read by every serialize                  |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Font` load, shape, and glyph access
-- rail: glyphset
+- run tail (shared, `Font.text` and `Text`): `size`, `linespacing`, `halign`, `valign`, `color`, `rotation`, `rotation_mode`
 
-`Font(name: str | Path | None = None, searchpaths: Sequence[str | Path] | None = None)` loads a family by name (resolved through `system_fonts`/`find_font`), an explicit path, or `None` for the bundled `DejaVuSans`. `text(s, size=None, linespacing=1, halign='left'|'center'|'right', valign='base'|'center'|'top', color=None, rotation=0, rotation_mode='anchor')` is the run constructor returning a `Text`. `glyph_fromid(gid)` returns a `SimpleGlyph`/`CompoundGlyph` for the post-GSUB gid; `advance(gid, gid2)` applies the GPOS kern here (un-kerned when `gid2` is `None`), never the caller; `scripts()`/`languages(script)`/`language(script, language)` select the OpenType script+language the shaper applies.
+| [INDEX] | [SURFACE]                                    | [SHAPE]  | [CAPABILITY]                             |
+| :-----: | :------------------------------------------- | :------- | :--------------------------------------- |
+|  [01]   | `Font(name, searchpaths)`                    | ctor     | parse sfnt, or the bundled `DejaVuSans`  |
+|  [02]   | `Font.text(s, ...) -> Text`                  | instance | shaped multi-line run                    |
+|  [03]   | `Font.glyph(char) -> SimpleGlyph`            | instance | shared-interface glyph for one character |
+|  [04]   | `Font.glyph_fromid(glyphid) -> SimpleGlyph`  | instance | glyph for a shaped gid (post-GSUB)       |
+|  [05]   | `Font.glyphindex(char) -> int`               | instance | resolve a character to its cmap glyph id |
+|  [06]   | `Font.advance(glyph, glyph2) -> int`         | instance | GPOS-kerned advance of `glyph`           |
+|  [07]   | `Font.getsize(s) -> tuple[float, float]`     | instance | shaped `(width, height)` in font units   |
+|  [08]   | `Font.scripts() -> list[str]`                | instance | OpenType script tags                     |
+|  [09]   | `Font.languages(script='DFLT') -> list[str]` | instance | language-system tags under a script      |
+|  [10]   | `Font.language(script, language)`            | instance | select the active script and language    |
+|  [11]   | `Font.usecmap(cmapidx)`                      | instance | select a cmap subtable                   |
+|  [12]   | `Font.verifychecksum()`                      | instance | validate the sfnt table checksums        |
 
-| [INDEX] | [SURFACE]             | [CALL_SHAPE]                           | [CAPABILITY]                                  |
-| :-----: | :-------------------- | :------------------------------------- | :-------------------------------------------- |
-|  [01]   | `Font.__init__`       | `Font(name=None, searchpaths=None)`    | parse sfnt (or bundled `DejaVuSans`)          |
-|  [02]   | `Font.text`           | `text(s, …) -> Text`                   | shaped multi-line run                         |
-|  [03]   | `Font.glyph`          | `glyph(char: str) -> SimpleGlyph`      | shared-interface glyph for one character      |
-|  [04]   | `Font.glyph_fromid`   | `glyph_fromid(glyphid: int)`           | glyph for a shaped gid (post-GSUB)            |
-|  [05]   | `Font.glyphindex`     | `glyphindex(char: str) -> int`         | resolve a character to its cmap glyph id      |
-|  [06]   | `Font.advance`        | `advance(glyph: int, glyph2)`          | GPOS-kerned advance `glyph` before `glyph2`   |
-|  [07]   | `Font.getsize`        | `getsize(s) -> tuple[float, float]`    | shaped `(width, height)` in font units        |
-|  [08]   | `Font.scripts`        | `scripts() -> set[str]`                | OpenType script tags (`'latn'`/`'arab'`/...)  |
-|  [09]   | `Font.languages`      | `languages(script='DFLT') -> set[str]` | language-system tags under a script           |
-|  [10]   | `Font.language`       | `language(script, language)`           | select the active script+language for shaping |
-|  [11]   | `Font.usecmap`        | `usecmap(cmapidx: int) -> None`        | select a cmap subtable (multi-cmap font)      |
-|  [12]   | `Font.verifychecksum` | `verifychecksum() -> None`             | validate the sfnt table checksums             |
+- `Font.advance`: applies the GPOS kern here, un-kerned when `glyph2` is `None`.
+- `Font.glyph_fromid`: returns a `CompoundGlyph` for a composite gid.
 
 [ENTRYPOINT_SCOPE]: `Text` run serialization and compositing
-- rail: glyphset
 
-`Text` is the shaped run built by `Text(s: str | Sequence[int], font=None, <shared run tail>)` — the run tail spelled in the `Font` scope above, `s` also accepting a post-GSUB gid `Sequence[int]`. `drawon(svg, x, y)` appends the run's `<symbol>` defs and a positioned `<g>` use-group INTO an existing SVG `Element` at `(x, y)` — the compositing seam a diagram/page owner uses to place outlined text into the tree it is already building; `getsize()`/`getyofst()` give the rendered `(width, height)` and the baseline-to-top offset.
+| [INDEX] | [SURFACE]                               | [SHAPE]  | [CAPABILITY]                                           |
+| :-----: | :-------------------------------------- | :------- | :----------------------------------------------------- |
+|  [01]   | `Text.svg() -> str`                     | instance | standalone `<svg>` document string                     |
+|  [02]   | `Text.svgxml() -> ET.Element`           | instance | run as an ET `<svg>` element for in-process build      |
+|  [03]   | `Text.drawon(svg, x, y)`                | instance | composite `<symbol>` defs and a `<g>` into an SVG tree |
+|  [04]   | `Text.getsize() -> tuple[float, float]` | instance | rendered `(width, height)` of the laid-out run         |
+|  [05]   | `Text.getyofst() -> float`              | instance | baseline-to-top offset for vertical alignment          |
+|  [06]   | `Text.str_to_gids()`                    | instance | the shaped post-GSUB glyph-id sequence                 |
+|  [07]   | `Text(s, font, ...)`                    | ctor     | direct run construction; `s` accepts a gid sequence    |
 
-| [INDEX] | [SURFACE]          | [CALL_SHAPE]                                          | [CAPABILITY]                                          |
-| :-----: | :----------------- | :---------------------------------------------------- | :---------------------------------------------------- |
-|  [01]   | `Text.svg`         | `svg() -> str`                                        | standalone `<svg>` document string                    |
-|  [02]   | `Text.svgxml`      | `svgxml() -> ET.Element`                              | the run as an ET `<svg>` element for in-process build |
-|  [03]   | `Text.drawon`      | `drawon(svg: ET.Element, x: float = 0, y: float = 0)` | composite `<symbol>` defs + a `<g>` into an SVG tree  |
-|  [04]   | `Text.getsize`     | `getsize() -> tuple[float, float]`                    | rendered `(width, height)` of the laid-out run        |
-|  [05]   | `Text.getyofst`    | `getyofst() -> float`                                 | baseline-to-top offset for vertical alignment         |
-|  [06]   | `Text.str_to_gids` | `str_to_gids()`                                       | the shaped post-GSUB glyph-id sequence                |
-|  [07]   | `Text.__init__`    | `Text(s: str \| Sequence[int], font=None, …)`         | direct run construction (accepts a gid sequence)      |
+- `Text.drawon`: appends into a caller `ET.Element` at `(x, y)` — the seam a diagram owner uses to place outlined text into the tree it is already building.
 
-[ENTRYPOINT_SCOPE]: the shared glyph interface (`SimpleGlyph`/`CompoundGlyph`/`EmptyGlyph`)
-- rail: glyphset
+[ENTRYPOINT_SCOPE]: the shared glyph interface — `SimpleGlyph`, `CompoundGlyph`, `EmptyGlyph`
 
-Every glyph — `SimpleGlyph`, `CompoundGlyph`, `EmptyGlyph` — exposes the SAME interface, folded through one surface. `svgpath(x0: float = 0, y0: float = 0, scale_factor: float = 1) -> ET.Element | None` is the load-bearing primitive: a raw ET `<path>` whose `d` is the outline in user units offset to `(x0, y0)`, the geometry a `drawsvg`/`svgelements`/`ezdxf` owner consumes without a `<text>` element. `place(x: float, y: float, point_size: float) -> ET.Element | None` returns the positioned `<use>` for the `<symbol>` flow; `svg(point_size: float | None = None) -> str` and `svgxml(point_size=None) -> ET.Element` emit a standalone single-glyph document; `advance(nextchr: SimpleGlyph | None = None) -> int` is the GPOS-kerned advance; `funits_to_points(value: float, scale_factor: float = 1) -> float` converts units; `describe() -> DescribeGlyph` and `test(pxwidth: float = 400, pxheight: float = 400) -> InspectGlyph` are the inspection arms.
+| [INDEX] | [SURFACE]                                             | [SHAPE]  | [CAPABILITY]                                               |
+| :-----: | :---------------------------------------------------- | :------- | :--------------------------------------------------------- |
+|  [01]   | `SimpleGlyph.svgpath(x0, y0, scale_factor)`           | instance | raw `<path>` (`d` = outline in user units) — the primitive |
+|  [02]   | `SimpleGlyph.place(x, y, point_size)`                 | instance | positioned `<use>` for the `<symbol>` flow                 |
+|  [03]   | `SimpleGlyph.svg(point_size) -> str`                  | instance | standalone single-glyph `<svg>` string                     |
+|  [04]   | `SimpleGlyph.svgxml(point_size) -> ET.Element`        | instance | standalone single-glyph `<svg>` element                    |
+|  [05]   | `SimpleGlyph.svgsymbol() -> ET.Element`               | instance | the reusable `<symbol>` def the `<use>` references         |
+|  [06]   | `SimpleGlyph.advance(nextchr) -> int`                 | instance | GPOS-kerned advance to `nextchr`                           |
+|  [07]   | `SimpleGlyph.funits_to_points(value, scale_factor)`   | instance | font-unit to point conversion at a scale                   |
+|  [08]   | `SimpleGlyph.describe() -> DescribeGlyph`             | instance | glyph-metrics description                                  |
+|  [09]   | `SimpleGlyph.test(pxwidth, pxheight) -> InspectGlyph` | instance | labeled point/contour inspection SVG                       |
+|  [10]   | `SimpleGlyph.viewbox`                                 | property | the glyph's `(x, y, w, h)` SVG viewBox                     |
 
-| [INDEX] | [SURFACE]                      | [CALL_SHAPE]                            | [CAPABILITY]                                           |
-| :-----: | :----------------------------- | :-------------------------------------- | :----------------------------------------------------- |
-|  [01]   | `SimpleGlyph.svgpath`          | `svgpath(x0, y0, scale_factor)`         | raw `<path>` (`d` = outline in user units) — primitive |
-|  [02]   | `SimpleGlyph.place`            | `place(x, y, point_size)`               | positioned `<use>` for the `<symbol>` flow             |
-|  [03]   | `SimpleGlyph.svg`              | `svg(point_size=None) -> str`           | standalone single-glyph `<svg>` document string        |
-|  [04]   | `SimpleGlyph.svgxml`           | `svgxml(point_size=None)`               | standalone single-glyph `<svg>` element                |
-|  [05]   | `SimpleGlyph.svgsymbol`        | `svgsymbol() -> ET.Element`             | the reusable `<symbol>` def the `<use>` references     |
-|  [06]   | `SimpleGlyph.advance`          | `advance(nextchr=None) -> int`          | GPOS-kerned advance to `nextchr` (un-kerned if `None`) |
-|  [07]   | `SimpleGlyph.funits_to_points` | `funits_to_points(value, scale_factor)` | font-unit to point conversion at a scale               |
-|  [08]   | `SimpleGlyph.describe`         | `describe() -> DescribeGlyph`           | glyph-metrics description (advance/bbox/contours)      |
-|  [09]   | `SimpleGlyph.test`             | `test(pxwidth=400, pxheight=400)`       | labeled point/contour inspection SVG                   |
-|  [10]   | `SimpleGlyph.viewbox`          | property                                | the glyph's `(x, y, w, h)` SVG viewBox                 |
+- `SimpleGlyph.svgpath`: returns `None` for an empty outline; the `d` is offset to `(x0, y0)`.
+- `CompoundGlyph`, `EmptyGlyph`: the same interface as `SimpleGlyph` — a component-composite outline and the `.notdef`/unmapped fallback, never special-cased.
 
-[ENTRYPOINT_SCOPE]: font discovery, shaping internals, and inspection
-- rail: glyphset
+[ENTRYPOINT_SCOPE]: font discovery and feature inspection
 
-`find_font(name: str | Path, paths: Sequence[str | Path] | None = None) -> Path | None` resolves a family name to a file path; `system_fonts(paths: Sequence[str | Path] | None = None) -> dict[str | Path, Path]` maps every discovered family to its path — the layer binding a family before a `Font`. The `gsub`/`gpos` submodules carry the substitution (single/multiple/alternate/ligature/chained-context) and positioning (pair-kern/single-adjust/mark-to-base/mark-to-mark) engines `Font` drives internally via `Gsub`/`Gpos` plus per-lookup-type subtable classes; a design composes shaping through `Font`/`Text`, never walking these — their presence is why ziafont needs no `uharfbuzz`. The `inspect` module (`DescribeFont`, `ShowGlyphs`, `ShowLookup1/3/4/63`, `LookupDisplay`) renders feature/lookup discovery tables — the font-feature QA surface.
+| [INDEX] | [SURFACE]                                | [SHAPE] | [CAPABILITY]                                                             |
+| :-----: | :--------------------------------------- | :------ | :----------------------------------------------------------------------- |
+|  [01]   | `find_font(name, paths) -> Path`         | static  | resolve a family name to a font file path                                |
+|  [02]   | `system_fonts(paths) -> dict[str, Path]` | static  | map every discovered family to its path                                  |
+|  [03]   | `inspect.DescribeFont(font)`             | ctor    | font metrics + script/language table (`.table()`, `.format_languages()`) |
+|  [04]   | `inspect.ShowGlyphs(font)`               | ctor    | a glyph-roster inspection grid (`.table()`)                              |
+|  [05]   | `inspect.LookupDisplay(...)`             | ctor    | per-lookup before/after render (`.table()`, `.svg_for_gid(gid)`)         |
 
-| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                                     | [CAPABILITY]                                  |
-| :-----: | :------------------------------ | :----------------------------------------------- | :-------------------------------------------- |
-|  [01]   | `ziafont.find_font`             | `find_font(name, paths=None)`                    | resolve a family name to a font file path     |
-|  [02]   | `ziafont.system_fonts`          | `system_fonts(paths=None)`                       | map every discovered family to its path       |
-|  [03]   | `ziafont.gsub.Gsub`             | `Gsub`                                           | GSUB substitution lookups `Font` drives       |
-|  [04]   | `ziafont.gpos.Gpos`             | `Gpos`                                           | GPOS positioning lookups `Font` drives        |
-|  [05]   | `ziafont.inspect.DescribeFont`  | `DescribeFont(font).table()/.format_languages()` | font metrics + script/language table          |
-|  [06]   | `ziafont.inspect.ShowGlyphs`    | `ShowGlyphs(font, ...).table()`                  | a glyph-roster inspection grid                |
-|  [07]   | `ziafont.inspect.LookupDisplay` | `LookupDisplay(...).table()/.svg_for_gid(gid)`   | per-lookup before/after render for feature QA |
+- `find_font`, `system_fonts`: return `None` and an empty map when nothing resolves.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[GLYPH_TOPOLOGY]:
-- two owners: `Font` owns load + cmap + GSUB + GPOS + glyph access; `Text` owns the laid-out multi-line run and its SVG egress. `Font.text(s, ...)` RETURNS a `Text`, so there is exactly one run type — a design constructs runs through `Font.text` (binding the already-loaded `Font`) and reads `.svg()`/`.svgxml()`/`.drawon(...)`, never a parallel run shape.
-- one glyph interface: `SimpleGlyph`, `CompoundGlyph`, and `EmptyGlyph` expose the IDENTICAL surface (`svgpath`/`place`/`svg`/`svgxml`/`svgsymbol`/`advance`/`describe`/`test`/`viewbox`). A glyph fold matches none of the three outline kinds — it calls `glyph.svgpath(...)` and the right outline (TrueType `glyf`, PostScript `CFF` charstring, composite, or empty `.notdef`) is decoded internally. A caller never branches on `glyf` vs `CFF`.
-- the `<path>` primitive: `SimpleGlyph.svgpath(x0, y0, scale_factor)` is the integration core — it returns a raw `xml.etree.ElementTree` `<path>` `Element` (`d` = the outline in user units, offset to `(x0, y0)`), NOT a `<text>` element and NOT rendered bytes. This is the font-independent geometry a `drawsvg`/`svgelements`/`ezdxf` owner appends into the document tree it is already building, so the outlined text survives in a consumer that lacks the font.
-- shaping is owned: `Font` carries its own `gsub.Gsub`/`gpos.Gpos` engines, so GSUB substitution (ligatures, smallcaps alternates, contextual chains) and GPOS positioning (kern pairs, mark attach) are applied by `Font.advance`/`Font.text` under the script+language `Font.language(script, language)` selects — never a hand-rolled kern table read, never an external shaper for diagram/annotation text.
-- config is global: `ziafont.config` (`svg2`/`fontsize`/`precision`/`debug`) is a PROCESS-global `Config` dataclass, not a per-call argument. A design sets `config.precision` and `config.svg2` once at boundary scope; `precision` is the deterministic-bytes lever (it bounds the `d`-float places) the content-key contract depends on, and `svg2=False` is the SVG1.x (`<symbol>`/`<use>`) fallback for a legacy consumer.
+[TOPOLOGY]:
+- two owners: `Font` owns load, cmap, GSUB, GPOS, and glyph access; `Text` owns the laid-out run and its SVG egress. `Font.text` returns a `Text`, so one run type exists — a design constructs through `Font.text` and reads `.svg()`/`.svgxml()`/`.drawon(...)`.
+- one glyph interface: `SimpleGlyph`, `CompoundGlyph`, and `EmptyGlyph` expose one surface, and `glyph.svgpath(...)` decodes the right outline (TrueType `glyf`, PostScript `CFF` charstring, composite, or empty `.notdef`) internally, so a caller never branches on outline kind.
+- path primitive: `SimpleGlyph.svgpath(x0, y0, scale_factor)` returns a raw `xml.etree.ElementTree` `<path>` (`d` = outline in user units offset to `(x0, y0)`), the font-independent geometry a `drawsvg`/`svgelements`/`ezdxf` owner appends into its own tree, so outlined text survives where the font is absent.
+- shaping is owned: `Font` carries its own `gsub.Gsub`/`gpos.Gpos` engines, so GSUB substitution and GPOS positioning apply through `Font.text`/`Font.advance` under `Font.language(script, language)` — the reason ziafont needs no external shaper.
+- config is global: `ziafont.config` is a process-wide `Config` — `svg2` (default `True`) emits SVG2 `<path>`/CSS versus SVG1.x `<symbol>`/`<use>`, `precision` (default `3`) bounds the `d`-float places and is the content-key stability lever, `fontsize` (default `48`) sets the default point size, `debug` (default `False`) draws bbox/baseline overlays; a design sets it once at boundary scope, never per call.
 
 [STACKING]:
-- diagram-draw seam (the primary consumer): `visualization/diagram/draw#DRAW` lowers `DiagramGlyph` marks through `drawsvg`, and its `Annotation`/`Node`/`Swimlane` arms emit `drawsvg.Text` — a font-DEPENDENT `<text>` element that renders wrong in any consumer without the font. The `FONT_OUTLINE` arm of the draw owner reaches `ziafont` instead: build the `Font` once (a configured family or the bundled `DejaVuSans`), call `Font(...).text(label, size=...).drawon(group_element, x, y)` to composite the run's `<symbol>` defs + positioned `<g>` into the `GlyphStyle.layer` `drawsvg` group's underlying ET tree, so the label is outlined `<path>` geometry inside the named SVG layer the `export/layered#LAYERED` OCG owner binds — the diagram is self-contained. `drawsvg` owns the mark shapes (`Rectangle`/`Lines`/`Marker`); `ziafont` owns the text-to-outline conversion `drawsvg` does not provide.
-- glyphset vocabulary seam: `visualization/diagram/glyphset#GLYPHSET` declares "no external admission" for the `DiagramGlyph.Annotation`/label text mark today — this catalog is the admission that lets the draw owner resolve that mark's text to a `ziafont` outline; the glyph vocabulary stays pure (geometry + style indices), and `ziafont` is the draw-side outline engine the `Annotation`/`Node` label folds into, never a new glyph case.
-- typography-shape seam: `typography/shape#SHAPE` needs text-on-path and outlined-label geometry — `SimpleGlyph.svgpath(x0, y0, scale_factor)` yields the per-glyph `<path>` it positions along a curve, and `Text.drawon` yields the composited run; this is the path-only seam `typography/shape#SHAPE` composes exactly as it composes `blackrenderer`'s path-only `saveImage`. The complementarity is load-bearing: `uharfbuzz` (`.api/uharfbuzz.md`) is the categorical shaper for the MAIN typographic text run (full Unicode, bidi, complex scripts feeding a glyph buffer); `ziafont` owns the lighter self-contained "outline this label/diagram caption to a `<path>`" path with zero native dependency and its own adequate GSUB/GPOS — a design must not route a full-document shaping run to `ziafont`, nor route a diagram caption-to-outline to the heavier `uharfbuzz`+`blackrenderer` stack.
-- ziamath seam: the sibling `ziamath` (`.api/ziamath.md`, math-to-SVG) IS BUILT ON `ziafont` — it composes this `Font`/glyph surface for the non-math glyph runs inside an equation. A math-bearing annotation routes to `ziamath`; a plain text label routes to `ziafont` directly; the two share the `<path>`/`<svg>` egress shape so a diagram owner mixes them on one SVG canvas.
-- universal-tier rails: the design-side font/run policy is a `msgspec.Struct` (`libs/python/.api/msgspec.md`) frozen knob set (family, size, halign/valign, script/language, color), validated at the boundary by `beartype` (`libs/python/.api/beartype.md`) — the `halign`/`valign` literals and the script/language tags are checked before they reach `Font.text`; the `find_font`/`system_fonts` discovery and the `Font` parse are bracketed on the same `expression`-`Result`/`RuntimeRail[ContentKey]` rail (`libs/python/.api/expression.md`) every artifacts producer returns, so a missing-family or a malformed-sfnt surfaces as a typed boundary failure rather than a raised `FileNotFoundError`/parse exception. The outlined-SVG bytes are content-keyed through the runtime `ContentIdentity` (`libs/python/.api/xxhash.md`) with `config.precision` fixed so the `d`-float rounding is stable — the same SVG text outlines to the same bytes to the same key. `Text`/`SimpleGlyph` carry `_repr_svg_`, so a glyph or run drops into a `great-tables`/Jupyter inspection cell with no extra call (the `inspect.LookupDisplay`/`ShowGlyphs` tables are the feature-QA surface).
-- zero-dependency boundary: `ziafont` reads the sfnt and emits ET XML with NO third-party dependency — it neither imports nor needs `fontTools`/`uharfbuzz`. It therefore does not share the `TTFont` model the `typography/font#FONT` `SUBSET`/`FREEZE` arms operate on; a `FREEZE`/`SUBSET` transform stays on `fontTools` and the FROZEN/subset font file is then fed to `ziafont.Font(path)` for outlining. The two are sequential (fontTools mutates the font file; ziafont outlines glyphs from it), not a shared model.
+- `visualization/diagram/draw#DRAW`: its `Annotation`/`Node`/`Swimlane`/`Edge` arms emit `drawsvg.Text`, a font-dependent `<text>`; a `FONT_OUTLINE` arm instead builds one `Font` and calls `Font(...).text(label, size=...).drawon(group, x, y)` to composite `<symbol>` defs and a `<g>` into the `GlyphStyle.layer` group's ET tree, so the label is outlined `<path>` inside the named SVG layer `export/layered#LAYERED` binds. `drawsvg` owns the mark shapes, `ziafont` the text-to-outline.
+- `visualization/diagram/glyphset#GLYPHSET`: its label text mark resolves to a `ziafont` outline through this catalog — the glyph vocabulary stays geometry and style, and `ziafont` is the draw-side outline engine the label folds into, never a new glyph case.
+- `typography/shape#SHAPE`: `SimpleGlyph.svgpath(x0, y0, scale_factor)` yields the per-glyph `<path>` positioned along a curve and `Text.drawon` yields the composited run — the path-only seam, composed exactly as `blackrenderer`'s path-only `saveImage`. `uharfbuzz` (`.api/uharfbuzz.md`) shapes the main full-Unicode/bidi/complex-script run; `ziafont` outlines the self-contained label or caption to a `<path>` with its own adequate GSUB/GPOS.
+- `ziamath` (`.api/ziamath.md`): built on this `Font`/glyph surface for the non-math glyph runs inside an equation — a math annotation routes to `ziamath`, a plain label to `ziafont`, both sharing the `<path>`/`<svg>` egress so a diagram owner mixes them on one canvas.
+- `typography/font#FONT`: no shared model with `fonttools` — a `FREEZE`/`SUBSET` transform stays on `fonttools`, and the subset font file feeds `ziafont.Font(path)` for outlining; the two are sequential, never a shared `TTFont`.
+- boundary rails: `msgspec` (`libs/python/.api/msgspec.md`) frames the typed run/font policy struct and `beartype` (`libs/python/.api/beartype.md`) boundary-validates it; `find_font`/`system_fonts` and the `Font` parse ride the `expression` `Result` rail (`libs/python/.api/expression.md`), so a missing family or malformed sfnt surfaces as a typed failure. `ContentIdentity` (`libs/python/.api/xxhash.md`) content-keys the outlined bytes with `config.precision` fixed.
+- notebook display: `Text`, `SimpleGlyph`, and `CompoundGlyph` carry `_repr_svg_` for inline `great-tables`/Jupyter cells.
 
 [LOCAL_ADMISSION]:
-- text-to-outline is `Font(...).text(s, ...).svg()` / `.svgxml()` / `.drawon(tree, x, y)`, or per-glyph `Font(...).glyph(ch).svgpath(x0, y0, scale_factor)` — never a hand-built `<text>` element where the goal is font-independent geometry, and never a hand-walked `glyf`/`CFF` charstring interpreter where `SimpleGlyph` owns the outline decode.
-- shaping is `Font.text`/`Font.advance` under `Font.language(script, language)` — never a hand-rolled kern-pair table read and never a hand-built ligature/alternate substitution where the owned `gsub.Gsub`/`gpos.Gpos` engines apply the lookup-type dispatch.
-- the run/font policy is a typed `msgspec.Struct` spreading the field set (`family`/`size`/`linespacing`/`halign`/`valign`/`color`/`rotation`/`script`/`language`), never a loose `dict`; the global render policy is `ziafont.config` set once, never threaded per call.
-- a discovery pass uses `system_fonts`/`find_font` to bind the family and `inspect.DescribeFont`/`LookupDisplay` to answer "what scripts/features does this font carry"; the `Font`/`Text` parse and discovery ride the `RuntimeRail` so a missing family or malformed sfnt is a typed failure, not a raised exception leaking through the boundary.
+- text-to-outline is `Font(...).text(s, ...).svg()`/`.svgxml()`/`.drawon(tree, x, y)`, or per-glyph `Font(...).glyph(ch).svgpath(x0, y0, scale_factor)`.
+- shaping is `Font.text`/`Font.advance` under `Font.language(script, language)`; the owned `gsub.Gsub`/`gpos.Gpos` engines apply the lookup-type dispatch.
+- run/font policy is a typed `msgspec.Struct` over `family`/`size`/`linespacing`/`halign`/`valign`/`color`/`rotation`/`script`/`language`; the render policy is `ziafont.config`, set once.
+- discovery binds the family through `system_fonts`/`find_font` and answers font-feature coverage through `inspect.DescribeFont`/`LookupDisplay`; the parse and discovery ride the `RuntimeRail` so a missing family or malformed sfnt is a typed failure.
 
 [RAIL_LAW]:
 - Package: `ziafont`
-- Owns: pure-Python text-to-SVG-`<path>` outlining — sfnt (`glyf`/`CFF`/`CFF2`) read, the font's own cmap resolution, full GSUB substitution + full GPOS positioning under a chosen script+language, per-glyph `<path>`/`<symbol>`/`<svg>` emission and a shaped multi-line run that serializes standalone or composites into an existing SVG tree, with `system_fonts`/`find_font` discovery and an `inspect` feature-QA surface
-- Accept: a `FONT_OUTLINE` arm on `visualization/diagram/draw#DRAW` outlining `Annotation`/`Node`/`Swimlane`/`Edge` label text to `<path>` geometry inside the named SVG layer (the self-contained-diagram fix for `drawsvg.Text`'s font-dependent `<text>`); the text-mark outline source `visualization/diagram/glyphset#GLYPHSET` admits for its label mark; the outlined-label / text-on-path seam `typography/shape#SHAPE` composes via `SimpleGlyph.svgpath`/`Text.drawon`; the `Font`/glyph surface `ziamath` builds its equation glyph runs on; the typed run/font policy struct + the global `config` render policy
-- Reject: a hand-built font-dependent `<text>` element where outlined `<path>` geometry is the goal; a hand-walked `glyf`/`CFF` charstring or cmap-format-4/12 lookup where `SimpleGlyph` owns the decode; a hand-rolled kern/ligature/alternate substitution where the owned `gsub.Gsub`/`gpos.Gpos` engines apply it; routing a full-document complex-script shaping run to `ziafont` where `uharfbuzz` is the categorical shaper, or routing a diagram caption-to-outline to the heavier `uharfbuzz`+`blackrenderer` stack; routing a math-bearing annotation here where the `ziamath` sibling (which composes this package) owns it; threading `svg2`/`precision`/`fontsize` per call where the global `ziafont.config` owns the render policy
+- Owns: pure-Python text-to-SVG-`<path>` outlining — sfnt (`glyf`/`CFF`/`CFF2`) read through the font's own cmap, full GSUB and GPOS under a chosen script and language, per-glyph `<path>`/`<symbol>`/`<svg>` emission, and a shaped multi-line run serializing standalone or compositing into an SVG tree, with `system_fonts`/`find_font` discovery and the `inspect` feature-QA surface
+- Accept: a `FONT_OUTLINE` arm on `visualization/diagram/draw#DRAW` outlining label text to `<path>` inside the named SVG layer; the text-mark outline source `visualization/diagram/glyphset#GLYPHSET` admits; the outlined-label / text-on-path seam `typography/shape#SHAPE` composes via `SimpleGlyph.svgpath`/`Text.drawon`; the `Font`/glyph surface `ziamath` builds equation glyph runs on; the typed run/font policy struct and the global `config`
+- Reject: a font-dependent `<text>` element where outlined `<path>` geometry is the goal; a hand-walked `glyf`/`CFF` charstring or cmap lookup where `SimpleGlyph` decodes; a hand-rolled kern/ligature/alternate substitution where `gsub.Gsub`/`gpos.Gpos` apply it; a full-document complex-script run where `uharfbuzz` is the shaper, or a caption-to-outline routed to the heavier `uharfbuzz`+`blackrenderer` stack; a math-bearing annotation where the `ziamath` sibling owns it; `svg2`/`precision`/`fontsize` threaded per call where the global `ziafont.config` owns the render policy

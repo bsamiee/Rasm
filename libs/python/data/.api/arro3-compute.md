@@ -1,6 +1,6 @@
 # [PY_DATA_API_ARRO3_COMPUTE]
 
-`arro3.compute` runs arithmetic, aggregation, cast, boolean-null, selection, dictionary-encode, and temporal-extraction kernels directly on `arro3.core` `Array`/`ChunkedArray`/`ArrayReader` inputs without a `pyarrow.compute` re-import. Each kernel intakes through its declared `arro3.core.types` structural protocol, so a `pyarrow`, `nanoarrow`, `polars`, or ADBC frame flows in by PyCapsule with no producer-named branch. Stream-overloaded kernels return a lazy `ArrayReader`; array-only kernels, including `take`, receive explicitly materialized or consolidated `ArrayInput` values.
+`arro3.compute` runs Arrow arithmetic, aggregation, selection, cast, boolean, dictionary, and temporal kernels directly on the `arro3.core` memory model, each intaking any PyCapsule producer through its declared `arro3.core.types` protocol so a `pyarrow`, `polars`, or ADBC frame flows in with no producer-named branch. Stream-overloaded kernels chain a lazy `ArrayReader`; array-only kernels take a materialized `ArrayInput`, and no path re-imports `pyarrow.compute`.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -15,9 +15,8 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: temporal part vocabulary (`arro3.compute.enums`, `arro3.compute.types`)
-- rail: arrow-compute
 
-`date_part` discriminates on a bounded vocabulary supplied either as the `DatePart` string-enum member or the equivalent `DatePartT` literal; both forms name the same extractable temporal field.
+`date_part` takes the temporal field as a `DatePart` string-enum member or the equivalent `DatePartT` literal — one bounded vocabulary in two spellings.
 
 | [INDEX] | [SYMBOL]    | [TYPE_FAMILY] | [ROLE]                                           |
 | :-----: | :---------- | :------------ | :----------------------------------------------- |
@@ -27,25 +26,23 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: arithmetic kernels (`arro3.compute._arith`)
-- rail: arrow-compute
 
-Binary kernels take two `ArrayInput` operands and return an `Array`; the checked form errors on overflow, the `_wrapping` form wraps for integer types. Unary negation follows the same checked/wrapping split.
+Binary kernels take two `ArrayInput` operands, unary negation one; each returns an `Array`.
 
 | [INDEX] | [SURFACE]                                          | [ENTRY_FAMILY]  | [CAPABILITY]                            |
 | :-----: | :------------------------------------------------- | :-------------- | :-------------------------------------- |
 |  [01]   | `add(lhs, rhs)`                                    | checked binary  | `lhs + rhs`, error on overflow          |
 |  [02]   | `sub(lhs, rhs)`                                    | checked binary  | `lhs - rhs`, error on overflow          |
 |  [03]   | `mul(lhs, rhs)`                                    | checked binary  | `lhs * rhs`, error on overflow          |
-|  [04]   | `div(lhs, rhs)`                                    | binary          | `lhs / rhs`                             |
-|  [05]   | `rem(lhs, rhs)`                                    | binary          | `lhs % rhs`                             |
+|  [04]   | `div(lhs, rhs)`                                    | binary          | `lhs / rhs`, no overflow guard          |
+|  [05]   | `rem(lhs, rhs)`                                    | binary          | `lhs % rhs`, no overflow guard          |
 |  [06]   | `add_wrapping/sub_wrapping/mul_wrapping(lhs, rhs)` | wrapping binary | integer arithmetic wrapping on overflow |
 |  [07]   | `neg(array)`                                       | checked unary   | element negation, error on overflow     |
 |  [08]   | `neg_wrapping(array)`                              | wrapping unary  | integer negation wrapping on overflow   |
 
 [ENTRYPOINT_SCOPE]: aggregation kernels (`arro3.compute._aggregate`)
-- rail: arrow-compute
 
-Aggregations reduce an `ArrayInput | ArrowStreamExportable` to one `arro3.core.Scalar`, absorbing a chunked or streamed column without a materialized intermediate.
+Each reduction folds an `ArrayInput | ArrowStreamExportable` to one `arro3.core.Scalar` with no materialized intermediate.
 
 | [INDEX] | [SURFACE]    | [ENTRY_FAMILY] | [CAPABILITY]               |
 | :-----: | :----------- | :------------- | :------------------------- |
@@ -54,9 +51,8 @@ Aggregations reduce an `ArrayInput | ArrowStreamExportable` to one `arro3.core.S
 |  [03]   | `max(input)` | reduction      | `Scalar` maximum of values |
 
 [ENTRYPOINT_SCOPE]: selection kernels (`arro3.compute._filter`, `_take`)
-- rail: arrow-compute
 
-`filter` and `take` are the partition-split primitives: `filter` gates `values` by a boolean `predicate`, `take` gathers `values` at a numeric `indices` array. `filter` is stream-dispatched (an `ArrowStreamExportable` pair returns an `ArrayReader`); `take` is array-only and returns an `Array`.
+`filter` gates `values` by a boolean `predicate` and is stream-dispatched; `take` gathers `values` at a numeric `indices` array, array-only and always `Array`.
 
 | [INDEX] | [SURFACE]                   | [ENTRY_FAMILY] | [CAPABILITY]                                                          |
 | :-----: | :-------------------------- | :------------- | :-------------------------------------------------------------------- |
@@ -64,9 +60,8 @@ Aggregations reduce an `ArrayInput | ArrowStreamExportable` to one `arro3.core.S
 |  [02]   | `take(values, indices)`     | gather         | select `values` at numeric `indices`, returns `Array`                 |
 
 [ENTRYPOINT_SCOPE]: cast, boolean-null, dictionary, and temporal kernels
-- rail: arrow-compute
 
-`cast`, `is_null`, `is_not_null`, and `dictionary_encode` are `@overload`-dispatched on the array-vs-stream axis; `can_cast_types` is a pure type predicate; `date_part` extracts an int32 field from a temporal array under the `DatePart`/`DatePartT` vocabulary.
+`cast`/`is_null`/`is_not_null`/`dictionary_encode` overload-dispatch on the array-vs-stream axis; `can_cast_types` is a pure type predicate; `date_part` extracts an int32 field under the `DatePart`/`DatePartT` vocabulary.
 
 | [INDEX] | [SURFACE]                               | [ENTRY_FAMILY]  | [CAPABILITY]                                                          |
 | :-----: | :-------------------------------------- | :-------------- | :-------------------------------------------------------------------- |
@@ -79,24 +74,21 @@ Aggregations reduce an `ArrayInput | ArrowStreamExportable` to one `arro3.core.S
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[ARROW_COMPUTE_TOPOLOGY]:
+[TOPOLOGY]:
 - namespace: `arro3.compute` re-exports kernels from the internal `_arith`/`_aggregate`/`_cast`/`_boolean`/`_filter`/`_take`/`_dictionary`/`_temporal` extension modules beside the `enums` (`DatePart`) and `types` (`DatePartT`) vocabulary submodules
-- dispatch axis: `cast`, `is_null`, `is_not_null`, `dictionary_encode`, `filter`, and `date_part` are overload-typed on `ArrayInput` vs `ArrowStreamExportable` — array input materializes an `Array`, stream input returns a lazy `ArrayReader`
-- overflow policy: arithmetic splits checked (`add`/`sub`/`mul`/`neg`) against wrapping (`add_wrapping`/`sub_wrapping`/`mul_wrapping`/`neg_wrapping`); checked kernels error, wrapping kernels wrap integer types
-- aggregation collapses any array or stream to one `arro3.core.Scalar`; `filter` gates arrays or paired streams, while `take` gathers only materialized arrays by numeric index array
+- dispatch axis: `cast`, `is_null`, `is_not_null`, `dictionary_encode`, `filter`, and `date_part` overload on `ArrayInput` vs `ArrowStreamExportable` — array input materializes an `Array`, stream input returns a lazy `ArrayReader`
+- overflow policy: arithmetic splits checked (`add`/`sub`/`mul`/`neg`) against wrapping (`add_wrapping`/`sub_wrapping`/`mul_wrapping`/`neg_wrapping`); checked kernels error, wrapping kernels wrap integer types, and `div`/`rem` carry neither guard
 
 [LOCAL_ADMISSION]:
-- Intake each PyCapsule producer through the protocol its kernel declares; stream producers stay on stream-overloaded kernels, and array-only kernels receive an explicit array projection.
-- Keep the stream form lazy: composing `filter`/`cast`/`dictionary_encode`/`date_part` onto an `ArrowStreamExportable` chains `ArrayReader`s and defers work to a terminal `read_all`.
-- Reject a `pyarrow.compute` re-import where a kernel exists here; sort ordering is not in this surface and stays on its own path.
+- Route each PyCapsule producer through its kernel's declared protocol; a stream producer stays on a stream-overloaded kernel, and an array-only kernel such as `take` or the arithmetic binaries receives an explicit `ArrayInput` projection.
 
-[INTEGRATION_RAILS]:
-- materialize CDF split: the `load_cdf` `arro3.core.RecordBatchReader` stays streaming through `filter`; gather drains the filtered reader, selects the target column, and consolidates values and numeric indices to `ArrayInput` before `take`, closing the `pa.table(...)` PyCapsule re-import before the key-sorted split.
-- arro3-core ↔ arro3-compute: kernels consume `arro3.core` types and emit `Array`/`ArrayReader`/`Scalar` back into the same memory model, so a `Table`/`ChunkedArray` round-trips through a kernel with no copy and no producer library named.
-- streaming spine: pair a stream-typed kernel (`filter`, `cast`, `date_part`) with `ArrayReader`/`RecordBatchReader` so mask, cast, and temporal extraction stay lazy until a terminal `read_all`/`to_numpy`.
+[STACKING]:
+- `arro3-core`(`.api/arro3-core.md`): kernels consume `Array`/`ChunkedArray`/`ArrayReader`/`ArrayInput` and emit `Array`/`ArrayReader`/`Scalar` into the same memory model, so a `Table`/`ChunkedArray` round-trips through a kernel with no copy.
+- `arro3-io`(`.api/arro3-io.md`): a `read_*` `RecordBatchReader` feeds `filter`/`cast`/`date_part` streaming, and a kernel `Array` lowers back through a `write_*` on one memory model.
+- streaming spine: hold the reader and chain `filter`/`cast`/`dictionary_encode`/`date_part` lazy until a terminal `read_all`; a key-sorted materialize split drains the filtered reader, consolidates its values and numeric indices to `ArrayInput`, then `take`.
 
 [RAIL_LAW]:
 - Package: `arro3-compute`
 - Owns: arithmetic, aggregation, cast, boolean-null, selection, dictionary-encode, and temporal-part kernels over the `arro3.core` Arrow memory model
 - Accept: any PyCapsule producer through the declared `arro3.core.types` protocol; stream input only where an `ArrowStreamExportable` overload exists
-- Reject: a `pyarrow.compute` re-import where a kernel exists here; sort/order kernels absent from this surface
+- Reject: a `pyarrow.compute` re-import where a kernel exists here; sort and order kernels, absent from this surface

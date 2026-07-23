@@ -5634,6 +5634,12 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/ce/f0/7616676603fdbd05ab97816337a9b31be08a5f9e1ffd636260812b217e0f/pyiceberg-0.11.1.tar.gz", hash = "sha256:366fe0d5a74e3cf1d4e7cbf3c49e308da60e7835ea268667be9185388f05d7a5", size = 1076075, upload-time = "2026-03-03T00:10:27.61Z" }
 
 [[package]]
+name = "pyicu"
+version = "2.16.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b7/d5/354eb1bf84dcf4ab0bfa46f0620ecf68fe313bb082c26872ceb7a5021f94/pyicu-2.16.2.tar.gz", hash = "sha256:006d51e24b5ec76df6ec2130f3dde269c51db8b8cfebb7d45a427dde0d10aa52", size = 268223, upload-time = "2026-03-20T21:58:30.794Z" }
+
+[[package]]
 name = "pylance"
 version = "7.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -5997,6 +6003,12 @@ name = "python-bidi"
 version = "0.6.10"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/04/fd/0caae7b35a30e4faae305c315a84826a8795ea65922c33ea14d67b7a61ce/python_bidi-0.6.10.tar.gz", hash = "sha256:a7853e894f723675489ac49aa4b52dc8eac87d7a67b5940631c8c9d2aab46f90", size = 58172, upload-time = "2026-05-13T21:46:45.366Z" }
+
+[[package]]
+name = "python-calamine"
+version = "0.8.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/10/36/473a55063a6af3739cdf4b879869d3067e677f3dfb52ec8fadac23941a33/python_calamine-0.8.2.tar.gz", hash = "sha256:b2000c085722afd01d973af3d58325d26cfd798b3665bb0924e3a658351ebfad", size = 227187, upload-time = "2026-07-13T13:58:26.909Z" }
 
 [[package]]
 name = "python-daemon"
@@ -8084,6 +8096,7 @@ dependencies = [
     { name = "pyexiftool" },
     { name = "pyhanko" },
     { name = "pyiceberg" },
+    { name = "pyicu" },
     { name = "pylance" },
     { name = "pymc" },
     { name = "pymupdf" },
@@ -8099,6 +8112,7 @@ dependencies = [
     { name = "pysubs2" },
     { name = "python-barcode" },
     { name = "python-bidi" },
+    { name = "python-calamine" },
     { name = "python-docx" },
     { name = "python-flint" },
     { name = "python-magic" },
@@ -8422,7 +8436,7 @@ requires-dist = [
     { name = "pyexiftool" },
     { name = "pyhanko" },
     { name = "pyiceberg" },
-    { name = "pyicu", marker = "python_full_version < '3.15'" },
+    { name = "pyicu" },
     { name = "pylance" },
     { name = "pymc", specifier = "<5.27" },
     { name = "pymupdf" },
@@ -8438,7 +8452,7 @@ requires-dist = [
     { name = "pysubs2" },
     { name = "python-barcode" },
     { name = "python-bidi" },
-    { name = "python-calamine", marker = "python_full_version < '3.15'" },
+    { name = "python-calamine" },
     { name = "python-docx" },
     { name = "python-fcl", marker = "python_full_version < '3.15'" },
     { name = "python-flint" },

@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_FSSPEC]
 
-`fsspec` is the branch filesystem substrate beneath `universal-pathlib`: one protocol URL resolves through the registry to one cached `AbstractFileSystem`, and every runtime, data, and compute consumer composes that filesystem instead of constructing per-scheme clients.
+`fsspec` is the branch filesystem substrate beneath `universal-pathlib`: one protocol URL resolves through the registry to one cached `AbstractFileSystem`, and every runtime, data, and compute consumer composes that filesystem rather than constructing per-scheme clients.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,18 +9,16 @@
 - import: `fsspec`
 - owner: `shared`
 - rail: transport
-- version: `2026.4.0`
 - license: `BSD-3-Clause`
-- asset: pure Python; backend extras (`s3fs`/`gcsfs`/`adlfs`/`aiohttp`) pull concrete drivers and are never re-admitted by folder overlays
+- asset: pure Python; backend extras (`s3fs`/`gcsfs`/`adlfs`/`aiohttp`) pull concrete drivers
 - namespaces: `fsspec`, `fsspec.asyn`, `fsspec.registry`, `fsspec.spec`, `fsspec.mapping`, `fsspec.caching`, `fsspec.generic`
-- capability: registry-cached protocol filesystem resolution, sync and async read surfaces, byte-range and multi-range reads, filesystem mutation and transactions, block/read-ahead caches, mapping views, and generic sync primitives
+- capability: registry-cached protocol filesystem resolution, sync/async reads, byte-range and multi-range reads, mutation and transactions, block/read-ahead caches, mapping views, generic sync
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: filesystem family
-- rail: transport
 
-| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [RAIL]                                                                            |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CAPABILITY]                                                                      |
 | :-----: | :-------------------------- | :------------ | :-------------------------------------------------------------------------------- |
 |  [01]   | `AbstractFileSystem`        | filesystem    | protocol-agnostic filesystem base; registry-cached by protocol, root, and options |
 |  [02]   | `asyn.AsyncFileSystem`      | filesystem    | async filesystem base with `_`-prefixed coroutine mirrors and `open_async`        |
@@ -28,11 +26,9 @@
 |  [04]   | `mapping.FSMap`             | mapping       | mutable key-value mapping view over a filesystem root                             |
 |  [05]   | `FSTimeoutError`            | fault         | backend timeout fault raised by async filesystem operations                       |
 
-[PUBLIC_TYPE_SCOPE]: cache and transfer policy
-- rail: transport
-- cache rows are read-cache strategies selected behind a file handle.
+[PUBLIC_TYPE_SCOPE]: read-cache and transfer policy
 
-| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY] | [RAIL]                                                             |
+| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY] | [CAPABILITY]                                                       |
 | :-----: | :---------------------------- | :------------ | :----------------------------------------------------------------- |
 |  [01]   | `BlockCache`                  | cache         | fixed-size block LRU over the remote file                          |
 |  [02]   | `BackgroundBlockCache`        | cache         | block cache prefetching the next block in a thread                 |
@@ -44,55 +40,51 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: resolution and registry
-- rail: transport
 
-| [INDEX] | [SURFACE]                                                        | [ENTRY_FAMILY] | [RAIL]                                              |
-| :-----: | :--------------------------------------------------------------- | :------------- | :-------------------------------------------------- |
-|  [01]   | `filesystem(protocol, **storage_options) -> AbstractFileSystem`  | resolve        | construct or reuse the cached filesystem instance   |
-|  [02]   | `url_to_fs(url, **kwargs) -> (AbstractFileSystem, str)`          | resolve        | split URL into filesystem and backend-relative path |
-|  [03]   | `get_filesystem_class(protocol) -> type[AbstractFileSystem]`     | registry       | fetch the implementation class for a protocol       |
-|  [04]   | `register_implementation(name, cls, clobber=False, errtxt=None)` | registry       | bind a custom implementation to a protocol          |
+| [INDEX] | [SURFACE]                                                        | [SHAPE] | [CAPABILITY]                                        |
+| :-----: | :--------------------------------------------------------------- | :------ | :-------------------------------------------------- |
+|  [01]   | `filesystem(protocol, **storage_options) -> AbstractFileSystem`  | factory | construct or reuse the cached filesystem instance   |
+|  [02]   | `url_to_fs(url, **kwargs) -> (AbstractFileSystem, str)`          | static  | split URL into filesystem and backend-relative path |
+|  [03]   | `get_filesystem_class(protocol) -> type[AbstractFileSystem]`     | static  | fetch the implementation class for a protocol       |
+|  [04]   | `register_implementation(name, cls, clobber=False, errtxt=None)` | static  | bind a custom implementation to a protocol          |
 
 [ENTRYPOINT_SCOPE]: read, metadata, mutation, and range access
-- rail: transport
 
-| [INDEX] | [SURFACE]                                                                       | [ENTRY_FAMILY] | [RAIL]                             |
-| :-----: | :------------------------------------------------------------------------------ | :------------- | :--------------------------------- |
-|  [01]   | `fs.open(path, mode='rb', block_size=...) -> AbstractBufferedFile`              | open           | stream a file through the backend  |
-|  [02]   | `fs.cat_file(path, start=, end=)` / `fs.cat(path)`                              | bytes read     | whole-file or single-range read    |
-|  [03]   | `fs.cat_ranges(paths, starts, ends, max_gap=None, on_error="return")`           | range read     | concurrent byte-range batch read   |
-|  [04]   | `fs.info` / `fs.exists` / `fs.isfile` / `fs.isdir` / `fs.ls(path, detail=True)` | inspect        | metadata and directory enumeration |
-|  [05]   | `fs.put` / `fs.get` / `fs.copy` / `fs.mv` / `fs.rm` / `fs.mkdir`                | mutate         | filesystem mutation surface        |
-|  [06]   | `afs._cat_file` / `afs._open` / `afs._info` / `afs.open_async`                  | async          | coroutine mirror of the surface    |
+| [INDEX] | [SURFACE]                                                                       | [SHAPE]  | [CAPABILITY]                       |
+| :-----: | :------------------------------------------------------------------------------ | :------- | :--------------------------------- |
+|  [01]   | `fs.open(path, mode='rb', block_size=...) -> AbstractBufferedFile`              | instance | stream a file through the backend  |
+|  [02]   | `fs.cat_file(path, start=, end=)` / `fs.cat(path)`                              | instance | whole-file or single-range read    |
+|  [03]   | `fs.cat_ranges(paths, starts, ends, max_gap=None, on_error="return")`           | instance | concurrent byte-range batch read   |
+|  [04]   | `fs.info` / `fs.exists` / `fs.isfile` / `fs.isdir` / `fs.ls(path, detail=True)` | instance | metadata and directory enumeration |
+|  [05]   | `fs.put` / `fs.get` / `fs.copy` / `fs.mv` / `fs.rm` / `fs.mkdir`                | instance | filesystem mutation surface        |
+|  [06]   | `afs._cat_file` / `afs._open` / `afs._info` / `afs.open_async`                  | instance | coroutine mirror of the surface    |
 
 [ENTRYPOINT_SCOPE]: map, cache, transaction, and generic transfer
-- rail: transport
 
-| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [RAIL]                            |
-| :-----: | :--------------------------------------------------------- | :------------- | :-------------------------------- |
-|  [01]   | `get_mapper(url, check=False, create=False, **kwargs)`     | mapping        | filesystem-backed mutable mapping |
-|  [02]   | `fs.transaction` / `start_transaction` / `end_transaction` | transaction    | atomic-write staging              |
-|  [03]   | `fsspec.open_files(...)` / `open_local(...)`               | batch open     | multi-file open and local staging |
-|  [04]   | `fsspec.generic.rsync(source, destination, ...)`           | transfer       | backend-generic directory sync    |
+| [INDEX] | [SURFACE]                                                  | [SHAPE]  | [CAPABILITY]                      |
+| :-----: | :--------------------------------------------------------- | :------- | :-------------------------------- |
+|  [01]   | `get_mapper(url, check=False, create=False, **kwargs)`     | factory  | filesystem-backed mutable mapping |
+|  [02]   | `fs.transaction` / `start_transaction` / `end_transaction` | instance | atomic-write staging              |
+|  [03]   | `fsspec.open_files(...)` / `open_local(...)`               | static   | multi-file open and local staging |
+|  [04]   | `fsspec.generic.rsync(source, destination, ...)`           | static   | backend-generic directory sync    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[TRANSPORT_TOPOLOGY]:
-- resolution law: `url_to_fs(root_url, **storage_options)` or `filesystem(protocol, **storage_options)` is the single filesystem construction boundary; the resulting `AbstractFileSystem` is shared by `UPath.fs`, runtime resource roots, DuckDB scan registration, and compute model-asset reads.
-- cache law: cached filesystem identity is a function of protocol, root, and storage options; no consumer creates a second filesystem for an already-resolved root.
-- read law: sync methods run under the owning concurrency offload when used from async code; `AsyncFileSystem` `_` methods and `open_async` are the native coroutine path.
-- mutation law: writes, `transaction`, `FSMap`, cache strategy, and generic transfer are canonical fsspec surfaces, but folder overlays admit them only when their owner names a direct mutation or mapping rail.
+[TOPOLOGY]:
+- resolution: `url_to_fs(root_url, **storage_options)` or `filesystem(protocol, **storage_options)` is the single filesystem construction boundary; the resulting `AbstractFileSystem` serves every consumer of that root.
+- cache: cached filesystem identity is a function of protocol, root, and storage options; no consumer creates a second filesystem for an already-resolved root.
+- read: sync methods run under the owning concurrency offload when called from async code; `AsyncFileSystem` `_`-methods and `open_async` are the native coroutine path.
 
-[STACK_LAW]:
-- runtime roots read through `UPath` over this filesystem surface; object-store roots use `obstore` directly and only bridge through `obstore.fsspec` when a downstream library requires a filesystem handle.
-- data scan sessions admit only the resolved `UPath.fs` handle passed to `DuckDBPyConnection.register_filesystem(fs)`; every data read slice stays downstream of that handle, the session receives a whole resolved backend — data never re-registers protocol classes and never instantiates `s3fs`, `gcsfs`, or a custom filesystem directly — and read caching stays with DuckDB `httpfs`, object-store caching, or the owning chunked-array backend, never a data-selected fsspec block-cache policy.
-- compute model assets compose `UPath` and fsspec for path resolution only; solver state never grows backend-specific file clients.
+[STACKING]:
+- `universal-pathlib`(`libs/python/.api/universal-pathlib.md`): `UPath.fs` caches the `url_to_fs`/`filesystem`-resolved `AbstractFileSystem` per protocol, root, and options; runtime resource roots and compute model-asset reads compose that one cached handle for path resolution, never a backend-specific file client.
+- `obstore`(`libs/python/.api/obstore.md`): object-store roots use `obstore` directly and bridge through `obstore.fsspec` only when a downstream library requires a filesystem handle.
+- data scan seam: the resolved `UPath.fs` is the whole backend `DuckDBPyConnection.register_filesystem(fs)` receives; every read slice stays downstream of that handle and read caching stays with DuckDB `httpfs`, object-store caching, or the owning chunked-array backend.
 
 [LOCAL_ADMISSION]:
 - Accept `UPath(...).fs`, `url_to_fs`, and `filesystem` as the branch construction and registration surfaces.
 - Accept `fs.open`, `cat_file`, `cat_ranges`, `info`, and async mirrors where the owning page names a byte/read-range rail.
-- Accept `FSMap`, transactions, and generic transfer only behind the owner that declares mutable mapping, atomic write, or bulk sync semantics.
-- data declines those surfaces at its boundary: egress atomicity is `obstore` conditional write or a table-format commit, chunk-range reads ride `obstore.get_range`/`get_ranges`, DuckDB `httpfs`, or a native reader, mutable chunk stores are `zarr`/`tensorstore`/`icechunk` owners, and bulk movement is content-keyed `obstore` put, never `fsspec.generic.rsync`.
+- Accept `FSMap`, transactions, and generic transfer only behind an owner declaring mutable mapping, atomic write, or bulk sync.
+- Data declines these at its boundary: egress atomicity is `obstore` conditional write or a table-format commit, chunk-range reads ride `obstore.get_range`/`get_ranges` or a native reader, mutable chunk stores are `zarr`/`tensorstore`/`icechunk`, and bulk movement is content-keyed `obstore` put.
 - Reject per-scheme `os`/cloud-client branching, inline credentials, direct construction of cloud extra drivers in folder code, blocking reads on an event loop, and wrapper-renames of filesystem operations.
 
 [RAIL_LAW]:

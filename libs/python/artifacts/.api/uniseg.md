@@ -1,73 +1,59 @@
 # [PY_ARTIFACTS_API_UNISEG]
 
-`uniseg` supplies the pure-Python Unicode text-segmentation engine for the artifacts typography rail: the four UAX boundary algorithms — UAX #29 grapheme-cluster / word / sentence segmentation and UAX #14 line-break-opportunity resolution — each exposed as a uniform four-function family (a `…_break(char)` per-code-point property read, a `…_breakables(s)` 0/1 opportunity bitstream, a `…_boundaries(s)` index iterator, and a `…s(s)`/`…_units(s)` token iterator), plus the `Run`/`Breakable`/`TailorFunction` breakable-table primitives those families fold over, plus the fixed-width east-asian wrapping owner (`tt_width`/`tt_text_extents`/`tt_wrap`/`TTFormatter`/`Wrapper`/`Formatter`), plus the UCD-property surface (`category`/`east_asian_width`/`bidirectional` re-exports and the UAX #44 derived-property + UTS #51 emoji predicates). It bundles its own Unicode release segmentation tables in `db_lookups.py` (a two-level trie behind `get_handle`/`get_value`) so every break algorithm is data-pinned independent of the interpreter, and owns no shaping, no layout optimization, and no font model. This is the categorical-best UAX-segmentation owner: the `typography/layout#LAYOUT` `LineLayout` owner reaches it as the `BREAK` `LayoutOp` arm — `line_break(char)`/`line_break_units(text)` resolve the UAX #14 mandatory/opportunity positions the hand-rolled Knuth-Plass Box/Glue/Penalty total-fit dynamic program threads — and the grapheme/east-asian-width surface reconciles shaped-run cluster counts and measures fixed-width column geometry. The owner never re-derives the UAX #29/#14 break rules, never hand-builds a break-class table, and never re-implements the tailorable breakable-table walk — uniseg owns the full segmentation fold; only the paragraph-optimization algebra on top is the design's own.
+`uniseg` owns the pure-Python UAX text-segmentation engine for the artifacts typography rail: UAX #29 grapheme-cluster / word / sentence segmentation and UAX #14 line-break-opportunity resolution over a tailorable breakable-table walk, each algorithm a uniform `break`/`breakables`/`boundaries`/token-iterator family; fixed-width east-asian wrapping and the UCD property surface ride the same engine. Segmentation tables ship in-package pinned to one Unicode release, so break results are interpreter-independent; the engine owns no shaping, layout optimization, or font model.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `uniseg`
 - package: `uniseg`
-- import: `uniseg` (submodules `uniseg.linebreak` / `uniseg.graphemecluster` / `uniseg.wordbreak` / `uniseg.sentencebreak` / `uniseg.wrap` / `uniseg.breaking` / `uniseg.unicodedatawrapper` / `uniseg.derived` / `uniseg.emoji` / `uniseg.unicodeproperty`)
+- import: `uniseg` (submodules `linebreak`, `graphemecluster`, `wordbreak`, `sentencebreak`, `wrap`, `breaking`, `unicodedatawrapper`, `derived`, `emoji`, `unicodeproperty`)
 - owner: `artifacts`
 - rail: typography (line-layout)
-- license: `MIT` (OSI; classifier `License :: OSI Approved :: MIT License`, dist-info ships `LICENSE`)
-- version: `0.10.1`
-- unicode-data: `16.0.0` (`uniseg.unidata_version`) — the segmentation property tables (`Line_Break`/`Grapheme_Cluster_Break`/`Word_Break`/`Sentence_Break`/`InCB`/emoji) are bundled in-package (`db_lookups.py`), so break results are pinned to UCD release regardless of the running interpreter's UCD
-- build-floor: pure-Python, universal wheel `py3-none-any` (`Root-Is-Purelib: true`); `Requires-Python >=3.9`; no abi gate, no cp-gate, present on cp315
-- depends-on: none at runtime (zero `Requires-Dist`). `unicodedata2` is an OPTIONAL accelerator `uniseg.unicodedatawrapper` imports when present and silently falls back to stdlib `unicodedata` when absent — it is NOT installed here, so the General_Category / East_Asian_Width / Bidi_Class re-exports ride the interpreter's bundled UCD (release on this cp315 interpreter), a split from the release-pinned segmentation tables documented in [04]
-- entry points: none (library only; the `python -m uniseg.<module>` doctest hooks are not a public surface)
-- capability: UAX #29 extended grapheme-cluster segmentation (Indic conjunct + emoji ZWJ + regional-indicator pair aware); UAX #29 word and sentence segmentation; UAX #14 line-break-opportunity resolution (full LB1–LB31 rule set incl. Brahmic/Aksara, emoji, regional-indicator, quotation East-Asian context); a per-algorithm tailoring hook (`TailorFunction`) for locale-specific break overrides without re-implementing the algorithm; the `Run` tailorable breakable-table walk and the `boundaries`/`break_units` table-to-token primitives; fixed-width (terminal/monospace) east-asian-aware wrapping with tab expansion and ambiguous-width policy; the UCD property surface (General_Category, East_Asian_Width, Bidi_Class, combining, numeric/decimal/digit, name/lookup/normalize re-exports) and the UAX #44 derived-property + UTS #51 emoji boolean predicates
+- license: `MIT` (OSI; dist-info ships `LICENSE`)
+- unicode-data: `16.0.0` (`uniseg.unidata_version`) — segmentation, derived, and emoji tables bundled in `db_lookups.py` (two-level trie behind `get_handle`/`get_value`), so break results pin to this UCD release regardless of interpreter
+- build-floor: pure-Python universal wheel `py3-none-any` (`Root-Is-Purelib: true`), `Requires-Python >=3.9`, no abi/cp gate
+- depends-on: none at runtime. Optional `unicodedata2` accelerator loads when present, else stdlib `unicodedata`; absent here, so `category`/`east_asian_width`/`bidirectional` follow the interpreter UCD, split from the release-pinned segmentation tables ([04] data-pin)
+- entry points: none (library only)
+- capability: UAX #29 extended grapheme-cluster (Indic conjunct, emoji ZWJ, regional-indicator aware), word, and sentence segmentation; UAX #14 line-break over the full LB1–LB31 rule set; the `TailorFunction` locale-override hook and `Run` tailorable breakable-table walk; fixed-width east-asian-aware wrapping with tab expansion and ambiguous-width policy; the UCD General_Category / East_Asian_Width / Bidi_Class re-exports; the UAX #44 derived-property and UTS #51 emoji predicates
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: break-property enums and the breakable-table primitives
-- rail: typography
 
-uniseg's break-property enums all subclass `EnumProperty(str, Enum)`, so every member IS its UCD short string (`LineBreak.BK == "BK"`, `GraphemeClusterBreak.OTHER == "Other"`) and `str(member)` is the member NAME while `member.value` is the UCD code. This `str`-enum identity is load-bearing for the `typography/layout#LAYOUT` owner, whose `_MANDATORY: frozenset[str] = frozenset({"BK", "CR", "LF", "NL"})` membership test `line_break(char) in _MANDATORY` works precisely because `line_break` returns a `str`-valued enum equal to its UCD code. The breakable table is the `Breakable` 0/1 `Enum`, `Breakables = Iterable[Literal[0, 1]]` is the bitstream alias, and `Run[_T]` is the generic tailorable walk every algorithm folds over.
+Break-property enums subclass `EnumProperty(str, Enum)`: every member equals its UCD short code (`LineBreak.BK == "BK"`), `member.value` is the code and `str(member)` the member name. This identity lets a consumer `in`-test a break class against a `frozenset[str]` of UCD codes directly — the layout owner's mandatory-break set `{"BK","CR","LF","NL"}` membership test depends on it. `Breakable` is the 0/1 cell enum, `Breakables` the bitstream, `Run[_T]` the generic tailorable walk every algorithm folds over.
 
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]         | [CAPABILITY]                                                                   |
-| :-----: | :----------------------------- | :-------------------- | :----------------------------------------------------------------------------- |
-|  [01]   | `LineBreak` / `LB`             | UAX #14 property enum | the 47-member `Line_Break` set; values at [01] below; `LB` alias               |
-|  [02]   | `GraphemeClusterBreak` / `GCB` | UAX #29 property enum | the 15-member `Grapheme_Cluster_Break` set; values at [02]; `GCB` alias        |
-|  [03]   | `WordBreak` / `WB`             | UAX #29 property enum | the 20-member `Word_Break` set; values at [03] below; `WB` alias               |
-|  [04]   | `SentenceBreak` / `SB`         | UAX #29 property enum | the `Sentence_Break` set; values at [04] below; `SB` alias                     |
-|  [05]   | `Breakable`                    | breakable cell enum   | `DoNotBreak` (0) / `Break` (1); `bool` gives the 0/1 the table folds use       |
-|  [06]   | `Breakables`                   | bitstream alias       | `Iterable[Literal[0, 1]]` — 0/1 stream, 1 = break before, `len == len(s)`      |
-|  [07]   | `TailorFunction`               | tailoring hook alias  | `Callable[[str, Breakables], Breakables]` — the `tailor=` locale-override seam |
-|  [08]   | `Run[_T]`                      | tailorable table walk | `Run(text, func=…)` — the custom-algorithm substrate the engines fold over     |
-|  [09]   | `EnumProperty`                 | base property enum    | `str, Enum` base; `str(m)`=name, `repr`=`Class.NAME`, `value`=UCD code         |
-|  [10]   | `PropertyFunction`             | property-fn alias     | `Callable[[str], _T]` — per-code-point read `property=` accepts (legacy map)   |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]         | [CAPABILITY]                                                               |
+| :-----: | :----------------------------- | :-------------------- | :------------------------------------------------------------------------- |
+|  [01]   | `LineBreak` / `LB`             | UAX #14 property enum | the `Line_Break` class set; `LB` alias                                     |
+|  [02]   | `GraphemeClusterBreak` / `GCB` | UAX #29 property enum | the `Grapheme_Cluster_Break` set; `GCB` alias (`PACINGMARK` = SpacingMark) |
+|  [03]   | `WordBreak` / `WB`             | UAX #29 property enum | the `Word_Break` set; `WB` alias                                           |
+|  [04]   | `SentenceBreak` / `SB`         | UAX #29 property enum | the `Sentence_Break` set; `SB` alias                                       |
+|  [05]   | `Breakable`                    | breakable cell enum   | `DoNotBreak` (0) / `Break` (1); `bool(cell)` gives the 0/1 the folds use   |
+|  [06]   | `Breakables`                   | bitstream alias       | `Iterable[Literal[0, 1]]`; 1 = break before, `len == len(s)`               |
+|  [07]   | `TailorFunction`               | tailoring hook alias  | `Callable[[str, Breakables], Breakables]`; the `tailor=` override seam     |
+|  [08]   | `Run[_T]`                      | tailorable table walk | `Run(text, func=…)`; the custom-algorithm walk the engines fold over       |
+|  [09]   | `EnumProperty`                 | base property enum    | `str, Enum` base; `str(m)` name, `m.value` UCD code                        |
+|  [10]   | `PropertyFunction`             | property-fn alias     | `Callable[[str], _T]`; the `property=` per-code-point read                 |
 
-- [01]-[LINEBREAK]: `BK`/`CR`/`LF`/`NL` mandatory, `BA`/`HY`/`SP`/`ZW`/`GL`/`WJ`/`CB`/`CM`/`ZWJ` opportunity-control, `OP`/`CL`/`CP`/`QU`/`IS`/`NS`/`B2`/`IN` punctuation, `AL`/`HL`/`NU`/`PR`/`PO`/`SY` alphanumeric, `ID`/`EB`/`EM`/`CJ`/`H2`/`H3`/`JL`/`JV`/`JT`/`RI` CJK/emoji, `AK`/`AP`/`AS`/`VF`/`VI`/`SA` Brahmic, `AI`/`SG`/`XX` resolved-away; `str`-enum `LineBreak.BK == "BK"`.
-- [02]-[GRAPHEMECLUSTERBREAK]: `OTHER`/`CR`/`LF`/`CONTROL`/`EXTEND`/`ZWJ`/`REGIONAL_INDICATOR`/`PREPEND`/`PACINGMARK` [=`SpacingMark`]/`L`/`V`/`T`/`LV`/`LVT`.
-- [03]-[WORDBREAK]: `OTHER`/`CR`/`LF`/`NEWLINE`/`EXTEND`/`ZWJ`/`REGIONAL_INDICATOR`/`FORMAT`/`KATAKANA`/`HEBREW_LETTER`/`ALETTER`/`SINGLE_QUOTE`/`DOUBLE_QUOTE`/`MIDNUMLET`/`MIDLETTER`/`MIDNUM`/`NUMERIC`/`EXTENDNUMLET`/`WSEGSPACE`.
-- [04]-[SENTENCEBREAK]: `OTHER`/`CR`/`LF`/`EXTEND`/`SEP`/`FORMAT`/`SP`/`LOWER`/`UPPER`/`OLETTER`/`NUMERIC`/`ATERM`/`SCONTINUE`/`STERM`/`CLOSE`.
+[PUBLIC_TYPE_SCOPE]: UCD value enums
 
-[PUBLIC_TYPE_SCOPE]: UCD General_Category and East_Asian_Width value enums
-- rail: typography
+| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]         | [CAPABILITY]                                                                |
+| :-----: | :---------------------------- | :-------------------- | :-------------------------------------------------------------------------- |
+|  [01]   | `Category` / `GC`             | General_Category enum | grouped `General_Category` set; `GC` alias; `category(chr)` return          |
+|  [02]   | `EastAsianWidth` / `EA`       | East_Asian_Width enum | `East_Asian_Width` set; `EA` alias; the width axis `tt_width` keys on       |
+|  [03]   | `IndicConjunctBreak` / `InCB` | derived-property enum | `NONE`/`LINKER`/`CONSONANT`/`EXTEND`; the GB9c `Indic_Conjunct_Break` input |
 
-| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]         | [CAPABILITY]                                                                         |
-| :-----: | :---------------------- | :-------------------- | :----------------------------------------------------------------------------------- |
-|  [01]   | `Category` / `GC`       | General_Category enum | grouped `General_Category` set; values at [01]; `GC` alias, `category(chr)` return   |
-|  [02]   | `EastAsianWidth` / `EA` | East_Asian_Width enum | 6-member `East_Asian_Width` set; values at [02]; `EA` alias, `east_asian_width(chr)` |
-
-- [01]-[CATEGORY]: `LU`/`LL`/`LT`/`LM`/`LO`/`L`, `MN`/`MC`/`ME`/`M`, `ND`/`NL`/`NO`/`N`, `PC`/`PD`/`PS`/`PE`/`PI`/`PF`/`PO`/`P`, `SM`/`SC`/`SK`/`SO`/`S`, `ZS`/`ZL`/`ZP`/`Z`, `CC`/`CF`/`CS`/`CO`/`CN`/`C`.
-- [02]-[EASTASIANWIDTH]: `A`=ambiguous, `F`=fullwidth, `H`=halfwidth, `N`=neutral, `NA`=narrow, `W`=wide; the width axis `tt_width` keys on.
-
-[PUBLIC_TYPE_SCOPE]: UAX #44 derived-property and UTS #51 emoji enum
-- rail: typography
-
-| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]         | [CAPABILITY]                                                                 |
-| :-----: | :---------------------------- | :-------------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `IndicConjunctBreak` / `InCB` | derived-property enum | `NONE`/`LINKER`/`CONSONANT`/`EXTEND` — the `Indic_Conjunct_Break` GB9c input |
+`EastAsianWidth`: `A` ambiguous, `F` fullwidth, `H` halfwidth, `N` neutral, `NA` narrow, `W` wide.
 
 [PUBLIC_TYPE_SCOPE]: fixed-width wrapping formatter surface
-- rail: typography
 
-| [INDEX] | [SYMBOL]      | [TYPE_FAMILY]         | [CAPABILITY]                                                                                 |
-| :-----: | :------------ | :-------------------- | :------------------------------------------------------------------------------------------- |
-|  [01]   | `Formatter`   | formatter protocol    | the `Protocol` a `Wrapper` drives (members fenced below); any logical-width medium           |
-|  [02]   | `Wrapper`     | wrapping engine       | `.wrap` folds `s` through the formatter at `iter_breakables` breaks (grapheme for char-wrap) |
-|  [03]   | `TTFormatter` | fixed-width formatter | the monospace `Formatter` impl; `.lines()` yields wrapped strings after a `Wrapper.wrap`     |
+A `Wrapper` drives a `Formatter` (`TTFormatter` the monospace impl), folding `s` through it at `iter_breakables` breaks and yielding wrapped lines after `.wrap`. `TTFormatter` validates a narrow `tab_char` (raises `ValueError` on a wide fill char).
+
+| [INDEX] | [SYMBOL]      | [TYPE_FAMILY]         | [CAPABILITY]                                                               |
+| :-----: | :------------ | :-------------------- | :------------------------------------------------------------------------- |
+|  [01]   | `Formatter`   | formatter protocol    | the `Protocol` a `Wrapper` drives (members fenced below); any width medium |
+|  [02]   | `Wrapper`     | wrapping engine       | `.wrap` folds `s` through the formatter at `iter_breakables` breaks        |
+|  [03]   | `TTFormatter` | fixed-width formatter | the monospace `Formatter`; `.lines()` yields wrapped strings post-`.wrap`  |
 
 ```python signature
 class Formatter(Protocol):                                 # implement to wrap into any logical-width medium
@@ -88,99 +74,75 @@ class TTFormatter(Formatter):                              # tab_char validated 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the four UAX boundary-algorithm families
-- rail: typography
 
-Each of the four segmentation algorithms is the SAME four-function shape, written here for family `X`: `X_break(c: str, /) -> <Enum>` (the per-code-point read, `XX`/`Other` for unassigned), `X_breakables(s, /, *, property=X_break) -> Breakables` (the 0/1 bitstream, length == `len(s)`), `X_boundaries(s, /, *, property=X_break, tailor=None) -> Iterator[int]`, and `X_units`/`Xs(s, /, *, property=X_break, tailor=None) -> Iterator[str]`. The `property=` keyword swaps the property-read for a legacy/tailored mapping and `tailor=` applies a `TailorFunction` to the bitstream for locale overrides. The `typography/layout#LAYOUT` `BREAK` arm composes the LINE family (`line_break` + `line_break_units`); the GRAPHEME family reconciles shaped-run clusters and feeds `tt_text_extents`; WORD/SENTENCE serve text-extract token granularity.
+Every algorithm is one four-function family — grapheme, word, sentence are UAX #29, line UAX #14. For family `X`: `X_break(c, /) -> <Enum>` (per-code-point read, `XX`/`Other` unassigned) and `X_breakables(s, /, *, property=X_break) -> Breakables` (the canonical 0/1 stream, `len == len(s)`), with `X_boundaries` and the token iterator completing it. `property=` swaps the class read for a tailored/legacy map; `tailor=` applies a `TailorFunction`. `X_breakables` is the intermediate `boundaries`/`break_units` derive from, so needing both indices and tokens folds one stream through both. Surfaces live in `uniseg.<family-module>`; `line_break_breakables` is the LB1–LB31 core.
 
-| [INDEX] | [SURFACE]                                            | [CAPABILITY]                                                                    |
-| :-----: | :--------------------------------------------------- | :------------------------------------------------------------------------------ |
-|  [01]   | `uniseg.linebreak.line_break`                        | the UAX #14 `Line_Break` class of a code point (`XX` unassigned)                |
-|  [02]   | `uniseg.linebreak.line_break_breakables`             | the full LB1–LB31 0/1 break-opportunity stream; the algorithm core              |
-|  [03]   | `uniseg.linebreak.line_break_boundaries`             | the legal line-break indices (first > 0 through `len(s)`)                       |
-|  [04]   | `uniseg.linebreak.line_break_units`                  | line-break-unit tokens (trailing spaces kept); the `BREAK` arm's segment source |
-|  [05]   | `uniseg.graphemecluster.grapheme_cluster_break`      | the UAX #29 `Grapheme_Cluster_Break` class (`Other` default)                    |
-|  [06]   | `uniseg.graphemecluster.grapheme_cluster_breakables` | the GB1–GB13 extended-cluster 0/1 stream (Indic conjunct, emoji ZWJ, RI pairs)  |
-|  [07]   | `uniseg.graphemecluster.grapheme_cluster_boundaries` | the grapheme-cluster boundary indices (0 through `len(s)`)                      |
-|  [08]   | `uniseg.graphemecluster.grapheme_clusters`           | user-perceived-character tokens; `tt_text_extents` unit + shaped-run reconcile  |
-|  [09]   | `uniseg.wordbreak.word_break`                        | the UAX #29 `Word_Break` class (`Other` default)                                |
-|  [10]   | `uniseg.wordbreak.word_breakables`                   | the WB1–WB999 0/1 word-break stream                                             |
-|  [11]   | `uniseg.wordbreak.word_boundaries`                   | the word-boundary indices                                                       |
-|  [12]   | `uniseg.wordbreak.words`                             | user-perceived-word tokens (punctuation/space emitted as own tokens)            |
-|  [13]   | `uniseg.sentencebreak.sentence_break`                | the UAX #29 `Sentence_Break` class (`Other` default)                            |
-|  [14]   | `uniseg.sentencebreak.sentence_breakables`           | the SB1–SB998 0/1 sentence-break stream                                         |
-|  [15]   | `uniseg.sentencebreak.sentence_boundaries`           | the sentence-boundary indices                                                   |
-|  [16]   | `uniseg.sentencebreak.sentences`                     | the sentence token iterator                                                     |
+| [INDEX] | [FAMILY]           | [PROPERTY_READ]          | [TOKEN_ITERATOR]    | [CAPABILITY]                                                    |
+| :-----: | :----------------- | :----------------------- | :------------------ | :-------------------------------------------------------------- |
+|  [01]   | `grapheme_cluster` | `grapheme_cluster_break` | `grapheme_clusters` | GB1–GB13 extended cluster; Indic conjunct, emoji ZWJ, RI pairs  |
+|  [02]   | `word`             | `word_break`             | `words`             | WB1–WB999; punctuation and space are own tokens                 |
+|  [03]   | `line`             | `line_break`             | `line_break_units`  | LB1–LB31 opportunity resolution; the `BREAK` arm segment source |
+|  [04]   | `sentence`         | `sentence_break`         | `sentences`         | SB1–SB998 sentence stream                                       |
 
 [ENTRYPOINT_SCOPE]: breakable-table primitives and the `Run` walk
-- rail: typography
 
-`boundaries` and `break_units` are the table-to-output primitives every family's `…_boundaries`/`…_units` are built from — call them directly to convert a CUSTOM (tailored) breakable stream into indices or tokens without re-running an algorithm. `Run` is the tailorable per-code-point walk for authoring a wholly custom break algorithm (the substrate uniseg's own four engines use); a design composing uniseg must reach for `tailor=` first and `Run` only for a genuinely new algorithm.
+`boundaries`/`break_units` are the table-to-output primitives every family's `…_boundaries`/`…_units` build on — call them directly to convert a CUSTOM (tailored) breakable stream into indices or tokens without re-running an algorithm. `Run` is the tailorable per-code-point walk for authoring a wholly new break algorithm, never for re-deriving a UAX rule uniseg already owns; a consumer reaches for `tailor=` first.
 
-| [INDEX] | [SURFACE]                     | [CALL_SHAPE]                                                      |
-| :-----: | :---------------------------- | :---------------------------------------------------------------- |
-|  [01]   | `uniseg.breaking.boundaries`  | `boundaries(breakables: Breakables, /) -> Iterator[int]`          |
-|  [02]   | `uniseg.breaking.break_units` | `break_units(s: str, breakables: Breakables, /) -> Iterator[str]` |
-|  [03]   | `uniseg.breaking.Run`         | `Run(text, func=…)` (methods rostered below)                      |
+| [INDEX] | [SURFACE]                     | [CALL_SHAPE]                                                                                 |
+| :-----: | :---------------------------- | :------------------------------------------------------------------------------------------- |
+|  [01]   | `uniseg.breaking.boundaries`  | `boundaries(breakables, /) -> Iterator[int]`; yields each 1-position then the terminal `len` |
+|  [02]   | `uniseg.breaking.break_units` | `break_units(s, breakables, /) -> Iterator[str]`; `len(s) == len(breakables)` required       |
+|  [03]   | `uniseg.breaking.Run`         | `Run(text, func=…)`; per-position lookahead/behind over a skip table and deferred array      |
 
-- [01]-[BOUNDARIES]: fold a 0/1 stream into boundary indices (yields each 1-position, then the terminal `len`); the index source `document/emit`/`composition/compose` slice on.
-- [02]-[BREAK_UNITS]: fold a string + its 0/1 stream into the token slices between breaks; `len(s) == len(breakables)` required.
-- [03]-[RUN]: the rule-engine substrate — per-position attribute/codepoint lookahead-behind with a skip table and a deferred-resolution breakable array; only for authoring a new algorithm, never re-deriving a UAX rule uniseg already owns. Methods: `.walk(offset=1)`/`.head()`/`.is_following(attrs, greedy=)`/`.is_leading(attrs)`/`.break_here()`/`.do_not_break_here()`/`.set_skip_table(it)`/`.set_default(Breakable)`/`.literal_breakables(default=Breakable.Break)`.
+- `Run` methods: `.walk` `.head` `.is_following` `.is_leading` `.break_here` `.do_not_break_here` `.set_skip_table` `.set_default` `.literal_breakables`
 
 [ENTRYPOINT_SCOPE]: fixed-width east-asian wrapping and width
-- rail: typography
 
-`tt_wrap` is the one-call monospace wrap (terminal/code-listing/fixed-pitch column) with the full signature `tt_wrap(s, /, wrap_width, *, tab_width=8, tab_char=' ', ambiguous_as_wide=False, cur=0, offset=0, iter_breakables=line_break_breakables) -> Iterator[str]`, and `wrap` shares its `cur`/`offset`/`iter_breakables` tail. `tt_width`/`tt_text_extents` are the standalone width probes (`1` halfwidth / `2` fullwidth, ambiguous resolved by policy). These ride the interpreter's UCD `east_asian_width` (see [04] data-split), not uniseg's release tables.
+`tt_wrap` is the one-call monospace wrap (terminal / code-listing / fixed-pitch column); `tt_width`/`tt_text_extents` are the standalone width probes (`1` halfwidth / `2` fullwidth, ambiguous resolved by `ambiguous_as_wide`). `tt_wrap` and `wrap` share a `cur`, `offset`, `iter_breakables` tail (`iter_breakables=line_break_breakables` default, grapheme for char-wrap). These ride the interpreter's UCD `east_asian_width` ([04] data-pin), not the release tables.
 
-| [INDEX] | [SURFACE]                     | [CAPABILITY]                                                                                             |
-| :-----: | :---------------------------- | :------------------------------------------------------------------------------------------------------- |
-|  [01]   | `uniseg.wrap.tt_wrap`         | fixed character-cell wrap; tab + ambiguous-width + `cur`/`offset` knobs (full signature in lead)         |
-|  [02]   | `uniseg.wrap.tt_width`        | `tt_width(s, /, index=0, *, ambiguous_as_wide=False) -> int` — cell width `1`/`2` at `s[index]`          |
-|  [03]   | `uniseg.wrap.tt_text_extents` | `tt_text_extents(s, /, *, ambiguous_as_wide=False) -> list[int]` — width prefix over `grapheme_clusters` |
-|  [04]   | `uniseg.wrap.wrap`            | module-level `Wrapper.wrap`; drive a custom `Formatter` for proportional fixed-opportunity wrap          |
+| [INDEX] | [SURFACE]                     | [CALL_SHAPE]                                                                                        |
+| :-----: | :---------------------------- | :-------------------------------------------------------------------------------------------------- |
+|  [01]   | `uniseg.wrap.tt_wrap`         | `tt_wrap(s, /, wrap_width, *, tab_width=8, tab_char=' ', ambiguous_as_wide=False) -> Iterator[str]` |
+|  [02]   | `uniseg.wrap.tt_width`        | `tt_width(s, /, index=0, *, ambiguous_as_wide=False) -> int`; cell width `1`/`2` at `s[index]`      |
+|  [03]   | `uniseg.wrap.tt_text_extents` | `tt_text_extents(s, /, *, ambiguous_as_wide=False) -> list[int]`; prefix over `grapheme_clusters`   |
+|  [04]   | `uniseg.wrap.wrap`            | module-level `Wrapper.wrap`; drive a custom `Formatter` for proportional fixed-opportunity wrap     |
 
 [ENTRYPOINT_SCOPE]: UCD property re-exports and derived/emoji predicates
-- rail: typography
 
-`uniseg.unicodedatawrapper` re-exports the stdlib `unicodedata` surface plus the enum-typed `category`/`east_asian_width`; `uniseg.derived` and `uniseg.emoji` add the UAX #44 / UTS #51 boolean predicates the break algorithms consume internally and a design can read directly for character classification. `category`/`east_asian_width`/`indic_conjunct_break` return the enum type; every `derived`/`emoji` predicate is `(c: str, /) -> bool`.
+`uniseg.unicodedatawrapper` re-exports stdlib `unicodedata` with the enum-typed `category`/`east_asian_width`; `uniseg.derived` and `uniseg.emoji` add the UAX #44 / UTS #51 boolean predicates the break algorithms consume and a consumer reads for classification. `category`/`east_asian_width`/`indic_conjunct_break` return the enum type; every `derived`/`emoji` predicate is `(c, /) -> bool`.
 
-| [INDEX] | [SURFACE]                                    | [CAPABILITY]                                                                            |
-| :-----: | :------------------------------------------- | :-------------------------------------------------------------------------------------- |
-|  [01]   | `uniseg.unicodedatawrapper.category`         | enum-typed `General_Category`, `category(chr) -> Category` (vs stdlib 2-char string)    |
-|  [02]   | `uniseg.unicodedatawrapper.east_asian_width` | enum-typed `East_Asian_Width`, `east_asian_width(chr) -> EastAsianWidth`                |
-|  [03]   | `uniseg.unicodedatawrapper.*`                | raw stdlib `unicodedata` re-export (values at [03]); interpreter-UCD, `python-bidi`     |
-|  [04]   | `uniseg.derived.*`                           | the UAX #44 derived boolean predicates (values at [04]); 16.0.0-pinned, bundled tables  |
-|  [05]   | `uniseg.derived.indic_conjunct_break`        | `indic_conjunct_break(c) -> IndicConjunctBreak` — the GB9c `Indic_Conjunct_Break` value |
-|  [06]   | `uniseg.emoji.*`                             | the UTS #51 emoji predicates (values at [06]); `extended_pictographic` drives GB11/WB3c |
-
-- [03]-[UNICODEDATAWRAPPER]: `bidirectional`/`combining`/`mirrored`/`decimal`/`digit`/`numeric`/`decomposition`/`name`/`lookup`/`normalize`/`is_normalized`/`unidata_version`/`ucd_3_2_0` — Bidi_Class string, combining class, mirrored flag, numeric/decimal/digit, NFC/NFD `normalize`, name/lookup.
-- [04]-[DERIVED]: `alphabetic`/`math`/`lowercase`/`uppercase`/`cased`/`case_ignorable`/`id_start`/`id_continue`/`xid_start`/`xid_continue`/`default_ignorable_code_point`/`grapheme_extend`/`grapheme_base`/`changes_when_*`.
-- [06]-[EMOJI]: `emoji`/`emoji_presentation`/`emoji_modifier_base`/`emoji_component`/`extended_pictographic`.
+| [INDEX] | [SURFACE]                                    | [CAPABILITY]                                                                           |
+| :-----: | :------------------------------------------- | :------------------------------------------------------------------------------------- |
+|  [01]   | `uniseg.unicodedatawrapper.category`         | enum-typed `General_Category`, `category(chr) -> Category`                             |
+|  [02]   | `uniseg.unicodedatawrapper.east_asian_width` | enum-typed `East_Asian_Width`, `east_asian_width(chr) -> EastAsianWidth`               |
+|  [03]   | `uniseg.unicodedatawrapper.*`                | raw stdlib `unicodedata` re-export incl. `bidirectional` (Bidi_Class); interpreter-UCD |
+|  [04]   | `uniseg.derived.*`                           | UAX #44 derived boolean predicates; 16.0.0-pinned bundled tables                       |
+|  [05]   | `uniseg.derived.indic_conjunct_break`        | `indic_conjunct_break(c) -> IndicConjunctBreak`; the GB9c value                        |
+|  [06]   | `uniseg.emoji.*`                             | UTS #51 emoji predicates; `extended_pictographic` drives GB11/WB3c                     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[SEGMENTATION_FAMILY]:
-- uniform-shape axis: every algorithm is the four-function `break`/`breakables`/`boundaries`/`units` shape; a design selects the GRANULARITY (grapheme < word < line-unit < sentence) by choosing the family, never by re-implementing a coarser segmentation on top of a finer one. The `breakables` 0/1 stream is the canonical intermediate — `boundaries`/`break_units` derive indices and tokens from it — so a design that needs BOTH the indices and the tokens computes `…_breakables(s)` once and folds it through both primitives rather than calling two algorithm passes.
-- str-enum-identity axis: the break enums are `EnumProperty(str, Enum)`, so a break-class read is directly `str`-comparable to its UCD code and `in`-testable against a `frozenset[str]` of codes — the `typography/layout#LAYOUT` `_MANDATORY` membership test `line_break(char) in {"BK","CR","LF","NL"}` is correct ONLY because of this identity. A design must compare against the UCD-code strings (`member.value`), never against `str(member)` (which is the member NAME), and never re-wrap the enum in a parallel `StrEnum`.
-- tailoring axis: locale-specific break overrides go through the `tailor: TailorFunction` keyword (receives `(s, default_breakables)`, returns a customized stream) or the `property: PropertyFunction` keyword (a legacy/remapped class read, e.g. the `line_break_legacy` AI->ID mapping in the upstream doctest) — NEVER a fork of the algorithm. A new break behavior is one `tailor`/`property` callable; a wholly new algorithm is a `Run`-based fold; in both cases uniseg's UAX rule engine stays the substrate.
-- data-pin axis (LOAD-BEARING SPLIT): the four segmentation algorithms + the derived/emoji predicates read uniseg's BUNDLED Unicode release tables (`db_lookups.py` via `get_handle`/`get_value`), so break results are deterministic and interpreter-independent — `uniseg.unidata_version == "16.0.0"`. BUT `category`/`east_asian_width`/`bidirectional` (and the rest of `unicodedatawrapper`) delegate to stdlib `unicodedata` when the optional `unicodedata2` is absent (it is, here), so they follow the INTERPRETER's UCD (release on this cp315 build). Consequence: `tt_width`/`tt_text_extents`/`tt_wrap` (which key on `east_asian_width`) ride release width data while `line_break_units` rides release break data. A design must treat the segmentation result as release-pinned and the east-asian-width measure as interpreter-pinned, and must not assume a single UCD version spans both; admitting `unicodedata2` later does realign `category`/`east_asian_width` to its pinned version, removing the split.
-- evidence axis: the `typography/layout#LAYOUT` `BREAK` arm folds the resolved `BreakClass` opportunity stream into an `ArtifactReceipt.Document` content-key derivation (the encoded break-opportunity byte count); the break-unit count, the mandatory-vs-opportunity split, and the bundled `unidata_version` stay interior evidence the arm folds into the content key, never new receipt fields. A segmentation pass is pure and offline (no IO, no native call, no event-loop hop) — it needs no `runtime` worker seam, unlike the `python-bidi` reorder it sits beside.
+[TOPOLOGY]:
+- uniform-shape: a consumer selects granularity (grapheme < word < line-unit < sentence) by choosing the family, never by re-segmenting a finer grain into a coarser one. `X_breakables(s)` is the canonical 0/1 intermediate; needing both indices and tokens folds one stream through `boundaries` and `break_units`, never two algorithm passes.
+- str-enum-identity: break enums are `EnumProperty(str, Enum)`, so a class read is `str`-comparable to its UCD code and `in`-testable against a `frozenset[str]`; a consumer compares against `member.value` (the code), never `str(member)` (the name), and never re-wraps the enum in a parallel `StrEnum`.
+- tailoring: a locale-specific override is a `tailor: TailorFunction` (bitstream rewrite) or `property: PropertyFunction` (remapped class read); a wholly new algorithm is a `Run` fold, with uniseg's UAX rule engine the substrate under both.
+- data-pin (load-bearing split): segmentation and the derived/emoji predicates read the bundled release tables (`db_lookups.py`, `unidata_version`), so break results are interpreter-independent; `category`/`east_asian_width`/`bidirectional` follow stdlib `unicodedata` (absent `unicodedata2`), the interpreter UCD. A consumer treats segmentation as release-pinned and the width/category measure as interpreter-pinned, spanning no single UCD version; `unicodedata2` realigns the measure.
+- evidence: a segmentation pass is pure and offline (no IO, native call, or event-loop hop), so it folds inline in the `BREAK` acceptor with no `runtime` worker seam; the resolved opportunity stream, break-unit count, mandatory/opportunity split, and `unidata_version` fold into the `ArtifactReceipt.Document` content key as interior evidence, never new receipt fields.
 
 [STACKING]:
-- layout-arm seam (primary): the `typography/layout#LAYOUT` `LineLayout` owner reaches uniseg as the `BREAK` `LayoutOp` arm — `line_break_units(text)` segments the source into break-unit tokens and `line_break(unit[-1])` reads the trailing code point's class, projecting each inter-token gap into a `BreakClass` row (`MANDATORY` when the class is in `_MANDATORY = {"BK","CR","LF","NL"}`, else `OPPORTUNITY`, `PROHIBITED` inside a no-break cluster). That `BreakClass` stream threads the hand-rolled Knuth-Plass `Item` Box/Glue/Penalty algebra (`.api/uniseg.md` is the design's cited admission for the `BREAK` arm) — uniseg owns the UAX #14 opportunity resolution; the total-fit demerit dynamic program on top is the design's own, NOT a uniseg re-export. The rejected duplicate is a hand-rolled break-class table beside `line_break`; the rejected lower-capability form is a greedy first-fit wrap (`tt_wrap`) where the paragraph owner needs the total-fit optimum — `tt_wrap` serves the monospace/terminal medium, the Knuth-Plass DP serves the proportional document page.
-- shape-cluster seam: `typography/shape#SHAPE` shapes a run into a `PositionedGlyphRun` whose per-glyph `cluster` indices are byte/codepoint offsets HarfBuzz assigns under `BufferClusterLevel.MONOTONE_GRAPHEMES` (`.api/uharfbuzz.md`). `grapheme_clusters(text)`/`grapheme_cluster_boundaries(text)` provide the UAX #29 extended-cluster boundaries the design reconciles those HarfBuzz clusters against (a user-perceived character = one extended grapheme cluster = one or more glyphs), so cursor placement, selection, and per-cluster width attribution land on grapheme boundaries rather than mid-cluster code points. uniseg owns the extended-cluster definition (Indic conjunct, emoji ZWJ, regional-indicator pairs) HarfBuzz's monotone clustering approximates but does not canonicalize.
-- table-measure seam: `visualization/table#TABLE` lowers schedule/QTO frames through `great-tables` (`.api/great-tables.md`); where a fixed-pitch or CJK-width-correct column measure is needed (a monospace code/data column, an east-asian glyph census), `tt_text_extents(cell)`/`tt_width(cell)` give the cell-width prefix the column geometry sums — `grapheme_clusters` as the iteration unit so a combining-mark sequence counts as one cell, not several. The east-asian-width axis is interpreter-UCD-pinned (data-pin axis above); the table owner reads it as a width measure, never as a segmentation authority.
-- universal-tier rails: the design-side break-policy and layout-knob carriers are frozen `msgspec.Struct` rows (`libs/python/.api/msgspec.md`) declared on `typography/layout#LAYOUT` — `BreakClass` the three-member `StrEnum` (`MANDATORY`/`OPPORTUNITY`/`PROHIBITED`), `BreakSpec(text, language="en_US", engine=SegmentEngine.UNISEG)` the segmentation ingress, `ParagraphSpec(run, measure, language="en_US", engine, left_min=2, right_min=2, fit=FitPolicy())` the paragraph ingress, and `FitPolicy` the Knuth-Plass stretch/penalty/demerit threshold band (`space_stretch`/`space_shrink`/`hyphen_penalty`/`ideograph_penalty`/`flagged_demerit`/`fitness_demerit`/`line_penalty`/`tolerance`) — spread over the uniseg knobs, the resolved opportunity stream encoded through one module-level `msgspec.msgpack.Encoder` into the content-key fact; `beartype` (`libs/python/.api/beartype.md`) validates the boundary `str`/measure inputs; every `BREAK`/`HYPHENATE`/`PARAGRAPH` arm returns the same `expression`-`Result`/`RuntimeRail[ContentKey]` rail (`libs/python/.api/expression.md`) the rest of the `LayoutOp` family returns, keyed by the runtime content key. Because a uniseg pass is pure and offline it rides no `anyio`/`runtime` worker seam (unlike `python-bidi`'s gated `to_process` reorder) — it folds inline in the `BREAK` acceptor and contributes one `ArtifactReceipt.Document`.
+- `typography/layout#LAYOUT` (primary within-lib): the `LineLayout` owner reaches uniseg as the `BREAK` `LayoutOp` arm — `line_break_units(text)` segments into break-unit tokens, `line_break(unit[-1])` reads the trailing class, projecting each gap into a `BreakClass` row (`MANDATORY` for a class in `{"BK","CR","LF","NL"}`, else `OPPORTUNITY`, `PROHIBITED` inside a no-break cluster). uniseg owns the UAX #14 opportunity resolution; the Knuth-Plass total-fit Box/Glue/Penalty program threading that stream is the owner's own, and the proportional document paragraph takes that optimum, never `tt_wrap`'s greedy first-fit.
+- `typography/shape#SHAPE`: `grapheme_clusters`/`grapheme_cluster_boundaries` give the UAX #29 extended-cluster boundaries reconciling the `PositionedGlyphRun` per-glyph `cluster` indices HarfBuzz assigns under `BufferClusterLevel.MONOTONE_GRAPHEMES` (`.api/uharfbuzz.md`), so cursor, selection, and per-cluster width attribution land on cluster boundaries. uniseg owns the extended-cluster definition HarfBuzz monotone clustering approximates but does not canonicalize.
+- `visualization/table#TABLE`: `tt_text_extents(cell)`/`tt_width(cell)` give the fixed-pitch/CJK-correct cell-width prefix the `great-tables` (`.api/great-tables.md`) column geometry sums, `grapheme_clusters` the iteration unit so a combining sequence counts as one cell; the east-asian-width axis is interpreter-UCD-pinned, read as a width measure, never a segmentation authority.
+- universal-tier rails: the layout break-policy/knob carriers are frozen `msgspec.Struct` rows (`.api/msgspec.md`) encoded through a module-level `msgspec.msgpack.Encoder` into the content key; `beartype` (`.api/beartype.md`) validates the `str`/measure inputs; every `BREAK`/`HYPHENATE`/`PARAGRAPH` arm returns the `expression` (`.api/expression.md`) `Result`/`RuntimeRail[ContentKey]` rail. A pure-offline pass folds inline with no `anyio`/`runtime` worker seam, unlike `python-bidi`'s gated `to_process` reorder.
 
 [LOCAL_ADMISSION]:
-- the UAX #14 break-opportunity read is `uniseg.linebreak.line_break(char)` / `line_break_units(text)`, never a hand-rolled break-class table nor a regex word-split — uniseg owns the full LB1–LB31 rule set including the Brahmic/Aksara (`AK`/`AP`/`AS`/`VF`/`VI`), emoji (`EB`/`EM`), regional-indicator, and East-Asian-context quotation rules a hand-rolled table silently drops.
-- the user-perceived-character unit is `uniseg.graphemecluster.grapheme_clusters(text)` (the UAX #29 EXTENDED cluster), never `list(text)` code-point iteration nor `str` indexing — a combining sequence, an Indic conjunct, an emoji ZWJ sequence, and a regional-indicator flag pair are each one cluster, and cursor/selection/width attribution must land on those boundaries.
-- locale-specific break overrides are a `tailor: TailorFunction` or `property: PropertyFunction` callable on the existing entry, never a forked algorithm or a parallel break owner; a new algorithm (if ever needed) is a `Run`-based fold, never a re-derivation of a UAX rule uniseg already provides.
-- the break enums are compared against their UCD-code strings (`member.value` / the `str`-enum identity), never against `str(member)` (the member name) — the `_MANDATORY` membership test depends on `LineBreak.BK == "BK"`, which holds because `EnumProperty` derives `str, Enum`.
-- the fixed-width wrap is `tt_wrap`/`TTFormatter` for the monospace/terminal medium ONLY; the proportional document paragraph uses the `typography/layout#LAYOUT` Knuth-Plass total-fit DP fed by `line_break_units`, never `tt_wrap`'s greedy first-fit — the two are different media, not interchangeable.
-- the segmentation result is treated as Unicode release-pinned (the bundled tables) and the `east_asian_width`/`category` measure as interpreter-UCD-pinned (the stdlib fallback) — a design must not assume one UCD version spans both, and must not hand-vendor segmentation tables to "match" the interpreter when uniseg's pinned release is the deterministic contract.
+- `line_break`/`line_break_units` reads the break and `grapheme_clusters` the user-perceived character (UAX #29 extended cluster); both own rule sets a hand-rolled break-class table or `list(text)` iteration drops — Brahmic/Aksara, emoji, regional-indicator, East-Asian quotation for the break; combining sequences, Indic conjuncts, emoji ZWJ, RI pairs for the cluster.
+- a locale break override rides `tailor`/`property` on the existing entry; a genuinely new algorithm is a `Run` fold, never a forked algorithm or parallel break owner.
+- `tt_wrap`/`TTFormatter` serve the monospace/terminal medium; the proportional document paragraph rides the `typography/layout#LAYOUT` Knuth-Plass DP fed by `line_break_units`.
+- segmentation is treated as release-pinned (the bundled tables) and the `east_asian_width`/`category` measure as interpreter-pinned (the stdlib fallback); no hand-vendored segmentation tables to match the interpreter.
 
 [RAIL_LAW]:
 - Package: `uniseg`
-- Owns: UAX #29 extended grapheme-cluster / word / sentence segmentation and UAX #14 line-break-opportunity resolution (the four-function `break`/`breakables`/`boundaries`/`units` family per algorithm, the tailorable `Run`/`Breakable` breakable-table substrate, the `boundaries`/`break_units` table primitives), fixed-width east-asian-aware wrapping (`tt_wrap`/`tt_width`/`tt_text_extents`/`TTFormatter`/`Wrapper`/`Formatter`), and the UCD General_Category / East_Asian_Width / Bidi_Class re-exports plus the UAX #44 derived-property and UTS #51 emoji predicates — bundling Unicode release segmentation tables in-package
-- Accept: the `BREAK` `LayoutOp` arm on `typography/layout#LAYOUT` `LineLayout` (`line_break`/`line_break_units` -> `BreakClass` stream feeding the Knuth-Plass DP); the `grapheme_clusters` extended-cluster boundaries reconciling `typography/shape#SHAPE` HarfBuzz cluster counts and feeding `tt_text_extents`; the `tt_width`/`tt_text_extents` monospace/CJK column measure on `visualization/table#TABLE`; the `tailor`/`property` keyword as the locale-override seam
-- Reject: a hand-rolled UAX #14 break-class table where `line_break` owns the LB1–LB31 fold; `list(text)` code-point iteration where `grapheme_clusters` owns the extended cluster; a forked break algorithm where `tailor`/`property` (or a `Run` fold) suffices; `tt_wrap` greedy first-fit where the document paragraph needs the total-fit Knuth-Plass optimum; comparing a break enum against `str(member)` (the name) instead of its UCD code; assuming a single UCD version spans both the release-pinned segmentation tables and the interpreter-pinned `east_asian_width`/`category` re-exports
+- Owns: UAX #29 grapheme-cluster / word / sentence segmentation and UAX #14 line-break resolution (the four-function family per algorithm, the tailorable `Run`/`Breakable` walk, the `boundaries`/`break_units` primitives), fixed-width east-asian-aware wrapping (`tt_wrap`/`tt_width`/`tt_text_extents`/`TTFormatter`/`Wrapper`/`Formatter`), and the UCD General_Category / East_Asian_Width / Bidi_Class re-exports with the UAX #44 derived and UTS #51 emoji predicates, over bundled release tables
+- Accept: the `BREAK` `LayoutOp` arm (`line_break`/`line_break_units` -> `BreakClass` stream feeding the Knuth-Plass DP); `grapheme_clusters` boundaries reconciling `typography/shape#SHAPE` HarfBuzz clusters and feeding `tt_text_extents`; the `tt_width`/`tt_text_extents` monospace/CJK column measure on `visualization/table#TABLE`; `tailor`/`property` as the locale-override seam
+- Reject: a hand-rolled LB1–LB31 table where `line_break` folds it; `list(text)` iteration where `grapheme_clusters` owns the extended cluster; a forked algorithm where `tailor`/`property` or a `Run` fold suffices; `tt_wrap` greedy first-fit where the document paragraph needs the total-fit optimum; comparing a break enum against `str(member)` instead of `member.value`; assuming one UCD version spans both the release-pinned tables and the interpreter-pinned `east_asian_width`/`category`

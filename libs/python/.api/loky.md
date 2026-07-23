@@ -1,12 +1,11 @@
 # [PY_BRANCH_API_LOKY]
 
-`loky` mints the process-global reusable pool: one warm fabric resized on re-acquisition, respawned whole on worker death, reached through `get_reusable_executor`. A SIGKILLed worker surfaces its pending future as `TerminatedWorkerError`, the broken pool swaps for a fresh instance, and cloudpickle payloads let closures cross the boundary stdlib `ProcessPoolExecutor` rejects. `execution/workers` binds it as the `WorkerPool` COOPERATIVE-`PROCESS` arm — probed by the `Supervisor`, respawned by the `reliability/resilience` `WORKER` retry row, sized by `cpu_count(only_physical_cores=True)`.
+`loky` mints the process-global reusable pool: one warm fabric resized on re-acquisition, respawned whole on worker death, reached through `get_reusable_executor`. Worker death surfaces its pending future as `TerminatedWorkerError` and swaps the broken pool for a fresh instance; cloudpickle payloads carry closures across the boundary stdlib `ProcessPoolExecutor` rejects. It feeds the `WorkerPool` COOPERATIVE-`PROCESS` arm.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `loky`
 - package: `loky`
-- version: `3.5.6`
 - license: BSD-3-Clause
 - import: `loky`
 - owner: `runtime`
@@ -17,8 +16,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: executor classes
-- rail: worker fabric
-- `ProcessPoolExecutor` extends the stdlib `concurrent.futures.ProcessPoolExecutor` contract with `job_reducers`/`result_reducers` pickling hooks, an `env` per-worker override, the `loky` spawn context, cloudpickle payloads, and a crash-detecting worker-management thread. `Executor` re-exports the stdlib abstract base unchanged; `Future` is loky's own subclass carrying the same public API.
 
 | [INDEX] | [SYMBOL]              | [TYPE_FAMILY]  | [RAIL]                                                         |
 | :-----: | :-------------------- | :------------- | :------------------------------------------------------------- |
@@ -27,8 +24,6 @@
 |  [03]   | `Future`              | future class   | loky-owned `Future`, stdlib-compatible result/exception handle |
 
 [PUBLIC_TYPE_SCOPE]: fault types
-- rail: worker fabric
-- `BrokenProcessPool` is the sole top-level re-export; `TerminatedWorkerError`, `ShutdownExecutorError`, and `LokyRecursionError` import from `loky.process_executor`. `TerminatedWorkerError` subclasses `BrokenProcessPool`, which subclasses the stdlib `concurrent.futures.process.BrokenProcessPool`, so a stdlib-shaped `except BrokenProcessPool` catches every worker-death raise. `TimeoutError` re-exports the builtin; `CancelledError` re-exports `concurrent.futures.CancelledError`.
 
 | [INDEX] | [SYMBOL]                | [TYPE_FAMILY]  | [RAIL]                                                            |
 | :-----: | :---------------------- | :------------- | :---------------------------------------------------------------- |
@@ -40,7 +35,6 @@
 |  [06]   | `CancelledError`        | cancel rail    | `concurrent.futures` re-export; future cancelled before run       |
 
 [PUBLIC_TYPE_SCOPE]: wait discriminants
-- rail: worker fabric
 
 | [INDEX] | [SYMBOL]          | [TYPE_FAMILY]  | [RAIL]                                       |
 | :-----: | :---------------- | :------------- | :------------------------------------------- |
@@ -51,8 +45,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: executor acquisition and lifecycle
-- rail: worker fabric
-- `get_reusable_executor(max_workers=None, context=None, timeout=10, kill_workers=False, reuse='auto', job_reducers=None, result_reducers=None, initializer=None, initargs=(), env=None)` returns the process-global singleton, starting one when absent or when the prior instance broke, and resizing in place when `max_workers` differs. `ProcessPoolExecutor(max_workers=None, job_reducers=None, result_reducers=None, timeout=None, context=None, initializer=None, initargs=(), env=None)` is the wrapped standalone class. `submit` and `map` accept cloudpickle-serializable callables and arguments; `map` forwards `timeout`/`chunksize` as keywords. `shutdown(kill_workers=True)` and `get_reusable_executor(kill_workers=True)` are the forcible-teardown path — no `terminate_workers` method exists.
 
 | [INDEX] | [SURFACE]                                 | [ENTRY_FAMILY] | [RAIL]                                    |
 | :-----: | :---------------------------------------- | :------------- | :---------------------------------------- |
@@ -63,8 +55,6 @@
 |  [05]   | `shutdown(wait=True, kill_workers=False)` | teardown       | drain or forcibly kill workers            |
 
 [ENTRYPOINT_SCOPE]: payload codec and pickler
-- rail: worker fabric
-- cloudpickle is the default `loky_pickler`, so closures, lambdas, and locally-defined functions ship without a module-level definition. `wrap_non_picklable_objects` cloudpickle-wraps one object crossing an otherwise-pickle-hostile boundary; `set_loky_pickler` swaps the process-wide serializer (`None` restores cloudpickle).
 
 | [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY] | [RAIL]                                                 |
 | :-----: | :--------------------------------------------------- | :------------- | :----------------------------------------------------- |
@@ -73,8 +63,6 @@
 |  [03]   | `cloudpickle_wrapper.dumps` / `loads`                | codec          | direct cloudpickle round-trip helpers                  |
 
 [ENTRYPOINT_SCOPE]: host sizing and worker introspection
-- rail: worker fabric
-- `cpu_count` is the schedulable-core source: it folds `os.cpu_count`, process affinity (`sched_getaffinity`), the Linux cgroup CPU-bandwidth limit (`cpu.max`/`cfs_quota`), and `LOKY_MAX_CPU_COUNT` as `max(min(constraints), 1)`; `only_physical_cores=True` drops SMT siblings and needs `psutil` to read the physical count. `get_exitcodes_terminated_worker(processes)` imports from `loky.process_executor` and reads the exit codes off a terminated pool's processes for crash forensics; `ProcessPoolExecutor._processes` is the `{pid: BaseProcess}` introspection map — the abstract `Executor` base carries no such attribute.
 
 | [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [RAIL]                                               |
 | :-----: | :----------------------------------------------------- | :------------- | :--------------------------------------------------- |
@@ -83,8 +71,6 @@
 |  [03]   | `ProcessPoolExecutor._processes -> dict[int, Process]` | introspection  | live `{pid: worker}` map for external introspection  |
 
 [ENTRYPOINT_SCOPE]: futures utilities
-- rail: worker fabric
-- `as_completed` and `wait` re-export the stdlib helpers unchanged, so a loky `Future` and a stdlib future compose in one wait set.
 
 | [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY] | [RAIL]                                       |
 | :-----: | :---------------------------------------------------- | :------------- | :------------------------------------------- |
@@ -93,43 +79,34 @@
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[POOL_TOPOLOGY]:
-- `get_reusable_executor` owns one process-global singleton: repeated acquisition from any call site returns the same warm pool, sparing the worker-spawn and import cost each stdlib `ProcessPoolExecutor()` pays. Re-acquisition with a different `max_workers` resizes the running pool in place and returns the same executor object; a healthy pool is never torn down to change its width.
-- `reuse='auto'` reuses a healthy singleton and forces a fresh one only when the prior instance broke or its constructor arguments changed; `reuse=True` reuses unconditionally, `reuse=False` always replaces.
-- `timeout` (default 10s) reaps idle workers to release memory and file descriptors; a later `submit` respawns cold workers back to `max_workers`. Sizing `timeout` near 100 times the worker warm-up cost keeps the respawn overhead negligible.
-- `kill_workers=True` on `get_reusable_executor` or `shutdown` forcibly interrupts in-flight jobs to swap the pool under new constructor arguments; teardown is this flag, never a per-worker terminate method.
-- `context` fixes the multiprocessing start method for the pool's whole lifetime; the `env` per-worker override applies before any module loads and binds only under the `loky` context.
-
-[CRASH_RESILIENCE]:
-- A worker that dies mid-task — segfault, SIGKILL, OOM kill, `os._exit` — surfaces its pending future as `TerminatedWorkerError`, and every other pending future on that pool raises `BrokenProcessPool`; the pool is marked broken and accepts no further work.
-- `get_reusable_executor` after a break returns a new executor object with fully respawned worker pids, so the caller recovers by re-acquiring rather than by resetting the dead instance; the broken pool is discarded, never repaired.
-- `TerminatedWorkerError` subclasses `BrokenProcessPool`, so a single `except BrokenProcessPool` covers both the abrupt-exit and the poisoned-pool raise; `get_exitcodes_terminated_worker` reads the worker exit codes for the crash cause.
-
-[PAYLOAD_LAW]:
-- cloudpickle is the default serializer, so a task closing over local state, a lambda, or a function defined inside another function crosses the process boundary that stdlib `pickle` rejects with a lookup error. `wrap_non_picklable_objects` is the escape for one object that resists even cloudpickle at the argument boundary.
-- `job_reducers`/`result_reducers` register per-type `copyreg`-style reducers to customize task and result pickling — a large read-only argument reduces to a shared-memory handle instead of a full copy per worker.
-- `initializer`/`initargs` run once in each freshly spawned worker before its first task, the warm-state hook for a per-worker import, native handle, or cache; the same run re-fires whenever a reaped worker respawns.
-
-[ENV_KNOBS]:
-- `LOKY_PICKLER` selects the process-wide serializer by name (default `cloudpickle`), the env twin of `set_loky_pickler`; `loky.backend.reduction.get_loky_pickler_name()` reads the live choice — no top-level accessor exists. Pinning a name-only stdlib `pickle` drops the closure payloads.
-- `LOKY_MAX_CPU_COUNT` caps `cpu_count` below the host's schedulable count, the deploy-time override the container orchestrator sets.
-- `LOKY_MAX_DEPTH` (default 10) bounds nested-pool spawning — a worker at that depth acquiring a further pool raises `LokyRecursionError`; the `fork` start method forbids any nesting past depth 0.
-- `context` accepts a `START_METHODS` name (`loky`, `loky_init_main`, `spawn`, `fork`, `forkserver`) or a context object and fixes the start method for the pool's whole lifetime.
+[TOPOLOGY]:
+- singleton-reuse: `get_reusable_executor` owns one process-global warm pool; every acquisition returns the same instance, sparing the spawn and import cost each `ProcessPoolExecutor()` pays. A differing `max_workers` resizes in place and returns the same object; a healthy pool is never torn down to change width.
+- reuse-policy: `reuse='auto'` reuses a healthy singleton and forces a fresh one only when the prior broke or its constructor arguments changed; `reuse=True` reuses unconditionally, `reuse=False` always replaces.
+- idle-reap: `timeout` (default 10s) reaps idle workers to release memory and file descriptors; a later `submit` respawns cold workers to `max_workers`.
+- teardown: `kill_workers=True` on `get_reusable_executor` or `shutdown` is the sole forcible teardown, interrupting in-flight jobs to swap the pool under new constructor arguments; loky carries no per-worker terminate method.
+- start-method: `context` fixes the multiprocessing start method for the pool's lifetime and accepts a `START_METHODS` name (`loky`, `loky_init_main`, `spawn`, `fork`, `forkserver`) or a context object; the `env` per-worker override applies before any module loads and binds only under the `loky` context.
+- crash-respawn: a worker dying mid-task (segfault, SIGKILL, OOM, `os._exit`) surfaces its pending future as `TerminatedWorkerError` and raises `BrokenProcessPool` on every other pending future; the pool is marked broken and accepts no further work. Re-acquisition returns a fresh respawned pool, so the caller recovers by re-acquiring, never by resetting the dead instance.
+- fault-catch: `TerminatedWorkerError` subclasses `BrokenProcessPool` (in turn the stdlib `concurrent.futures.process.BrokenProcessPool`), so one `except BrokenProcessPool` covers both the abrupt-exit and poisoned-pool raise; `get_exitcodes_terminated_worker` reads the worker exit codes for the crash cause.
+- payload: cloudpickle is the default serializer, so a closure, lambda, or nested function crosses the boundary stdlib `pickle` rejects with a lookup error; `wrap_non_picklable_objects` escapes one argument that resists even cloudpickle.
+- reducers: `job_reducers`/`result_reducers` register per-type `copyreg`-style reducers customizing task and result pickling — a large read-only argument reduces to a shared-memory handle instead of a per-worker copy.
+- warm-state: `initializer`/`initargs` run once in each freshly spawned worker before its first task and re-fire on every respawn — the per-worker import, native handle, or cache hook.
+- host-sizing: `cpu_count` folds `os.cpu_count`, process affinity (`sched_getaffinity`), the Linux cgroup CPU-bandwidth limit (`cpu.max`/`cfs_quota`), and `LOKY_MAX_CPU_COUNT` as `max(min(caps), 1)`; `only_physical_cores=True` drops SMT siblings and needs `psutil`.
+- env-knobs: `LOKY_PICKLER` name-selects the process-wide serializer (default `cloudpickle`, the env twin of `set_loky_pickler`; `loky.backend.reduction.get_loky_pickler_name()` reads the live choice), and a name-only stdlib `pickle` drops closure payloads. `LOKY_MAX_CPU_COUNT` caps `cpu_count` below the host count. `LOKY_MAX_DEPTH` (default 10) bounds nested-pool spawning, a worker past it raising `LokyRecursionError`; the `fork` start method forbids nesting past depth 0.
 
 [STACKING]:
-- `execution/workers`(`runtime/.planning/execution/workers.md`): the PRIMARY owner. `WorkerPool` holds acquisition ARGUMENTS and re-acquires per use — every `submit` resolves `get_reusable_executor(max_workers=cpu_count(only_physical_cores=True), context="loky", timeout=120, reuse="auto", initializer=fidelity)` on the settle thread, so a broken singleton is replaced under the in-band `WORKER` retry instead of a pinned dead instance re-raising; `drain` resolves-then-`shutdown(wait=True)`, `retire` resolves-then-`shutdown(wait=False, kill_workers=True)`, and `roll` is one `kill_workers=True` re-acquisition swapping the process-global singleton in place. Its `KIND_POLICY` `PROCESS` row binds `restart=RetryClass.WORKER`. loky reaches `execution/lanes.offload` only THROUGH `WorkerPool` — the cooperative `HOSTILE` route acquires the pool and never names an executor — while the lanes TERMINAL arm routes to the pebble pool; both arms share the schedulable-CPU sizing discipline.
-- `reliability/resilience`(`runtime/.planning/reliability/resilience.md`): `RetryClass.WORKER` = `Policy(attempts=3, timeout=120.0, target=_transient("loky.process_executor.TerminatedWorkerError", "concurrent.futures.process.BrokenProcessPool", "pebble.common.types.ProcessExpired"), wait_initial=0.5)` is the pool worker-death band — matched by module-qualified spelling at the BASE tier with no loky import, so the whole-pool respawn `TerminatedWorkerError` implies rides a wide `wait_initial`. `guard(cls)` owns the one span; narrowing the target below the `TerminatedWorkerError`/`BrokenProcessPool` pair is a cross-folder break.
-- `cloudpickle`(`.api/cloudpickle.md`): cloudpickle owns the reduce path, loky owns pool reuse. cloudpickle vendors inside `loky.backend.reduction` as the default `loky_pickler` (`loky.backend.reduction.get_loky_pickler_name()` resolves `cloudpickle`), but the estate consumes the FIRST-CLASS `cloudpickle` package directly — `Kernel.of` calls `cloudpickle.dumps(fn)` for the `VALUE` payload and the worker-floor `shipped` gate calls `cloudpickle.loads`, so a closure crosses loky's warm pool with no per-call opt-in.
-- `tblib`(`.api/tblib.md`): tblib owns fault fidelity, loky owns the crossing. `WorkerPool.warm` primes each worker by folding the `fidelity` kernel first, which runs `pickling_support.install()` as loky's `initializer`, so a `TerminatedWorkerError` or an ordinary worker raise re-crosses the pickle seam with its worker frames intact for `BoundaryFault.of` to classify the true cause.
-- `pebble`(`.api/pebble.md`): division of labor across one `WorkerKind.PROCESS`, discriminated by `Enforcement`. loky owns the COOPERATIVE warm-reuse arm — idle reap on `timeout`, crash respawn, cloudpickle payloads; pebble owns the TERMINAL arm — `ProcessPool.schedule(timeout=)` wall-clock kill and `max_tasks` recycling. loky's `TerminatedWorkerError`/`BrokenProcessPool` and pebble's `ProcessExpired` co-target the one `RetryClass.WORKER` band.
-- `anyio`(`.api/anyio.md`): `anyio.to_thread.run_sync(settled, abandon_on_cancel=True, limiter=WORKER_BAND)` inside `async_boundary` bridges loky's blocking `concurrent.futures.Future` to the event loop — the band token bounds submission and settle in one acquisition, and a cooperative cancel abandons the settle to the pool's reaper. This is the thread bridge, not `to_process` — loky's own IPC hop is internal to the pool.
-- `psutil`(`.api/psutil.md`): `cpu_count(only_physical_cores=True)` reads the physical-core count through psutil to size the loky pool. `Supervisor` reads pool worker RSS via `psutil.Process().children(recursive=True)` under one `oneshot()` against the `SupervisionPolicy` ceiling, scoped to the arm through `WorkerPool.pids()` — the cooperative arm's `_processes` `{pid: worker}` map — while liveness reads `WorkerPool._live` presence and `alive()`.
+- `execution/workers`(`runtime/.planning/execution/workers.md`): the PRIMARY owner. `WorkerPool` holds acquisition arguments and re-resolves `get_reusable_executor(max_workers=cpu_count(only_physical_cores=True), context="loky", timeout=120, reuse="auto", initializer=fidelity)` per `submit` on the settle thread, so a broken singleton is replaced under the in-band `WORKER` retry instead of a dead instance re-raising; `drain` resolves-then-`shutdown(wait=True)`, `retire` resolves-then-`shutdown(wait=False, kill_workers=True)`, `roll` is one `kill_workers=True` re-acquisition swapping the singleton in place. Its `KIND_POLICY` `PROCESS` row binds `restart=RetryClass.WORKER`; loky reaches `execution/lanes.offload` only through `WorkerPool`, while the lanes TERMINAL arm routes to the pebble pool and both arms share the schedulable-CPU sizing discipline.
+- `reliability/resilience`(`runtime/.planning/reliability/resilience.md`): `RetryClass.WORKER` = `Policy(attempts=3, timeout=120.0, target=_transient("loky.process_executor.TerminatedWorkerError", "concurrent.futures.process.BrokenProcessPool", "pebble.common.types.ProcessExpired"), wait_initial=0.5)` is the pool worker-death band, matched by module-qualified spelling at the BASE tier with no loky import; `guard(cls)` owns the one span, and narrowing the target below the `TerminatedWorkerError`/`BrokenProcessPool` pair is a cross-folder break.
+- `cloudpickle`(`.api/cloudpickle.md`): cloudpickle owns the reduce path, loky owns pool reuse. cloudpickle vendors inside `loky.backend.reduction` as the default `loky_pickler`, but the estate consumes the first-class `cloudpickle` package directly — `Kernel.of` calls `cloudpickle.dumps(fn)` for the `VALUE` payload and the worker-floor `shipped` gate calls `cloudpickle.loads`, so a closure crosses loky's warm pool with no per-call opt-in.
+- `tblib`(`.api/tblib.md`): tblib owns fault fidelity, loky owns the crossing. `WorkerPool.warm` folds the `fidelity` kernel first, running `pickling_support.install()` as loky's `initializer`, so a `TerminatedWorkerError` or ordinary worker raise re-crosses the pickle seam with its worker frames intact for `BoundaryFault.of` to classify the true cause.
+- `pebble`(`.api/pebble.md`): one `WorkerKind.PROCESS` split by `Enforcement`. loky owns the COOPERATIVE warm-reuse arm — idle reap on `timeout`, crash respawn, cloudpickle payloads; pebble owns the TERMINAL arm — `ProcessPool.schedule(timeout=)` wall-clock kill and `max_tasks` recycling. loky's `TerminatedWorkerError`/`BrokenProcessPool` and pebble's `ProcessExpired` co-target the one `RetryClass.WORKER` band.
+- `anyio`(`.api/anyio.md`): `anyio.to_thread.run_sync(settled, abandon_on_cancel=True, limiter=WORKER_BAND)` inside `async_boundary` bridges loky's blocking `concurrent.futures.Future` to the event loop — the band token bounds submission and settle in one acquisition, and a cooperative cancel abandons the settle to the pool's reaper. This is the thread bridge, not `to_process`; loky's own IPC hop is internal to the pool.
+- `psutil`(`.api/psutil.md`): `cpu_count(only_physical_cores=True)` reads the physical-core count through psutil to size the pool. `Supervisor` reads pool worker RSS via `psutil.Process().children(recursive=True)` under one `oneshot()` against the `SupervisionPolicy` ceiling, scoped through `WorkerPool.pids()` — the cooperative arm's `_processes` `{pid: worker}` map — while liveness reads `WorkerPool._live` and `alive()`.
 
 [LOCAL_ADMISSION]:
-- `WorkerPool.acquire(WorkerKind.PROCESS, Enforcement.COOPERATIVE)` is the acquisition path — it wraps `get_reusable_executor` behind the memoized arm; a standalone `ProcessPoolExecutor` is admitted for the `WorkerKind.GPU` device arm, whose per-device `env=` the process-global singleton cannot hold, and otherwise only for a one-shot pool whose warm reuse carries no value.
-- `max_workers` defaults to `cpu_count()`; the pool pins it to `cpu_count(only_physical_cores=True)` once so concurrent process crossings never oversubscribe the host against each package's internal thread pool.
-- Wrap `submit`/`result` in the resilience retry so a `TerminatedWorkerError` respawns a fresh pool rather than propagating a worker crash as a hard failure; a pure transform never rides the pool.
-- Fix `context` and `initializer`/`env` per owner identity so worker warm state is reproducible; mixing start methods or env overrides across acquisitions of the same singleton is rejected.
+- `WorkerPool.acquire(WorkerKind.PROCESS, Enforcement.COOPERATIVE)` is the acquisition path, wrapping `get_reusable_executor` behind the memoized arm; a standalone `ProcessPoolExecutor` is admitted for the `WorkerKind.GPU` device arm, whose per-device `env=` the process-global singleton cannot hold, and otherwise only for a one-shot pool whose warm reuse carries no value.
+- `max_workers` pins to `cpu_count(only_physical_cores=True)` once so concurrent process crossings never oversubscribe the host against each package's internal thread pool.
+- `submit`/`result` ride the resilience retry so a `TerminatedWorkerError` respawns a fresh pool rather than propagating a worker crash; a pure transform never rides the pool.
+- `context` and `initializer`/`env` fix per owner identity so worker warm state is reproducible; mixing start methods or env overrides across acquisitions of the same singleton is rejected.
 
 [RAIL_LAW]:
 - Package: `loky`

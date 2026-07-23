@@ -1,14 +1,12 @@
 # [PY_BRANCH_API_BEARTYPE]
 
-`beartype` supplies near-O(1) runtime type checking via the `@beartype` decorator and `beartype.claw` import hooks, the procedural DOOR API (`beartype.door`) for inline `isinstance`-style hint checks and subhint reasoning, declarative `Annotated` validators (`beartype.vale`), a typed exception/warning hierarchy (`beartype.roar`) whose violations is redirected to domain exception types, and a PEP-faithful drop-in typing namespace (`beartype.typing`).
+`beartype` mints near-O(1) runtime type enforcement: `@beartype` rewrites a callable into branch-minimal validation code and `beartype.claw` hooks it across a whole package at import. It holds the internal call-boundary contract on domain functions the wire never touches, `BeartypeConf(violation_type=...)` folds every violation onto a domain error rail, and the DOOR API answers `isinstance`-for-any-hint checks and decidable subhint queries inline.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `beartype`
-- package: `beartype`
+- package: `beartype` (MIT)
 - module: `beartype`
-- version: `0.23.0`
-- license: MIT
 - asset: runtime library
 - rail: type-enforcement
 - namespaces: `beartype`, `beartype.claw`, `beartype.door`, `beartype.vale`, `beartype.roar`, `beartype.typing`
@@ -16,46 +14,38 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: configuration and strategy
-- rail: type-enforcement
 
-| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]  | [RAIL]                                                                          |
-| :-----: | :--------------------------- | :------------- | :------------------------------------------------------------------------------ |
-|  [01]   | `BeartypeConf`               | config class   | immutable, hashable, cached decorator/hook config                               |
-|  [02]   | `BeartypeStrategy`           | strategy enum  | `O0` (no-op), `O1` (constant), `Ologn` (logarithmic), `On` (linear) check depth |
-|  [03]   | `BeartypeDecorPlace`         | place enum     | `FIRST`, `LAST`, `LAST_BEFORE_DECOR_HOSTILE` claw decoration position           |
-|  [04]   | `BeartypeViolationVerbosity` | verbosity enum | error message detail level                                                      |
-|  [05]   | `FrozenDict`                 | immutable dict | hashable mapping value object (used by `hint_overrides`)                        |
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]  | [CAPABILITY]                                          |
+| :-----: | :--------------------------- | :------------- | :---------------------------------------------------- |
+|  [01]   | `BeartypeConf`               | config class   | immutable, hashable, cached decorator/hook config     |
+|  [02]   | `BeartypeStrategy`           | strategy enum  | container-check depth: `O0`/`O1`/`Ologn`/`On`         |
+|  [03]   | `BeartypeDecorPlace`         | place enum     | claw slot: `FIRST`/`LAST`/`LAST_BEFORE_DECOR_HOSTILE` |
+|  [04]   | `BeartypeViolationVerbosity` | verbosity enum | error-message detail level                            |
+|  [05]   | `FrozenDict`                 | immutable dict | hashable mapping value object (`hint_overrides`)      |
 
 [PUBLIC_TYPE_SCOPE]: door type-hint wrappers (`beartype.door`)
-- rail: type-enforcement
-- `TypeHint(hint)` wraps any PEP-compatible hint into an object-oriented, comparable, iterable façade; subscripted, union, callable, and literal hints resolve to the concrete subclass.
 
-| [INDEX] | [SYMBOL]                                                  | [RAIL]                                                             |
-| :-----: | :-------------------------------------------------------- | :----------------------------------------------------------------- |
-|  [01]   | `TypeHint`                                                | OO façade; `.args`, `.is_subhint`, `.is_bearable`, `.is_ignorable` |
-|  [02]   | `UnionTypeHint` / `SubscriptedTypeHint`                   | union members / generic args iteration                             |
-|  [03]   | `CallableTypeHint` / `ClassTypeHint`                      | callable param/return, bare class                                  |
-|  [04]   | `LiteralTypeHint` / `AnnotatedTypeHint`                   | `Literal[...]` / `Annotated[...]` decomposition                    |
-|  [05]   | `TupleFixedTypeHint` / `TupleVariableTypeHint`            | fixed vs `tuple[T, ...]` variadic                                  |
-|  [06]   | `GenericTypeHint` / `TypeVarTypeHint` / `NewTypeTypeHint` | PEP 484/585 generic, typevar, newtype                              |
+`TypeHint(hint)` wraps any PEP-compatible hint into a comparable, iterable, indexable façade exposing `.args`, `.hint`, `.is_bearable`, `.is_subhint`, `.is_ignorable`; a subscripted, union, callable, or literal hint resolves to its concrete subclass.
+
+[DOOR_SUBCLASSES]: `UnionTypeHint` `SubscriptedTypeHint` `CallableTypeHint` `ClassTypeHint` `LiteralTypeHint` `AnnotatedTypeHint` `TupleFixedTypeHint` `TupleVariableTypeHint` `GenericTypeHint` `TypeVarTypeHint` `NewTypeTypeHint`
 
 [PUBLIC_TYPE_SCOPE]: vale annotated validators (`beartype.vale`)
-- rail: type-enforcement
-- compose into `Annotated[T, ...]`; `&`/`|`/`~` build boolean validator algebra checked in O(1) at the decorated boundary.
 
-| [INDEX] | [SYMBOL]     | [TYPE_FAMILY] | [RAIL]                                                 |
-| :-----: | :----------- | :------------ | :----------------------------------------------------- |
-|  [01]   | `Is`         | validator     | `Is[lambda x: predicate]` arbitrary boolean constraint |
-|  [02]   | `IsAttr`     | validator     | `IsAttr['attr', sub-validator]` attribute constraint   |
-|  [03]   | `IsEqual`    | validator     | `IsEqual[value]` equality constraint                   |
-|  [04]   | `IsInstance` | validator     | `IsInstance[cls]` runtime isinstance constraint        |
-|  [05]   | `IsSubclass` | validator     | `IsSubclass[cls]` runtime issubclass constraint        |
+Validators subscript into `Annotated[T, ...]` and compose with `&`/`|`/`~` into a boolean algebra compiled into the same O(1) boundary check, so a refinement type costs nothing beyond the base hint.
 
-[PUBLIC_TYPE_SCOPE]: roar exception/warning hierarchy (principal types)
-- rail: type-enforcement
-- all violations are catchable as `BeartypeCallHintViolation`; the full tree spans ~90 PEP-keyed subtypes — catch the canonical roots below at boundaries, not the leaves.
+| [INDEX] | [SYMBOL]     | [CAPABILITY]                                           |
+| :-----: | :----------- | :----------------------------------------------------- |
+|  [01]   | `Is`         | `Is[lambda x: predicate]` arbitrary boolean constraint |
+|  [02]   | `IsAttr`     | `IsAttr['attr', sub-validator]` attribute constraint   |
+|  [03]   | `IsEqual`    | `IsEqual[value]` equality constraint                   |
+|  [04]   | `IsInstance` | `IsInstance[cls]` runtime isinstance constraint        |
+|  [05]   | `IsSubclass` | `IsSubclass[cls]` runtime issubclass constraint        |
 
-| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY]  | [RAIL]                                                   |
+[PUBLIC_TYPE_SCOPE]: roar exception/warning hierarchy
+
+Every violation catches as `BeartypeCallHintViolation`; catch the canonical roots below at boundaries, never the PEP-keyed leaves.
+
+| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY]  | [CAPABILITY]                                             |
 | :-----: | :------------------------------------------ | :------------- | :------------------------------------------------------- |
 |  [01]   | `BeartypeException`                         | base exception | root of every beartype exception                         |
 |  [02]   | `BeartypeCallHintViolation`                 | violation      | runtime call-boundary type violation (root)              |
@@ -71,70 +61,58 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: decorator and configuration
-- rail: type-enforcement
 
-| [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY] | [RAIL]                                                  |
-| :-----: | :------------------------------------------- | :------------- | :------------------------------------------------------ |
-|  [01]   | `beartype(obj=None, *, conf=BeartypeConf())` | decorator      | type-check a callable or class (every method)           |
-|  [02]   | `beartype(conf=BeartypeConf(...))`           | config mode    | return a configured decorator factory                   |
-|  [03]   | `BeartypeConf(*, ...)`                       | config         | immutable cached config; ctor fields in the fence below |
+| [INDEX] | [SURFACE]                                    | [SHAPE] | [CAPABILITY]                   |
+| :-----: | :------------------------------------------- | :------ | :----------------------------- |
+|  [01]   | `beartype(obj=None, *, conf=BeartypeConf())` | factory | type-check a callable or class |
+|  [02]   | `beartype(conf=BeartypeConf(...))`           | factory | configured decorator factory   |
+|  [03]   | `BeartypeConf(*, ...)`                       | ctor    | immutable cached config        |
 
-```python signature
-BeartypeConf(*, strategy=O1, is_pep484_tower=False, is_pep557_fields=False, is_color=None,
-             is_debug=False, is_random=True, violation_type=None, violation_param_type=None,
-             violation_return_type=None, violation_door_type=None, violation_verbosity=DEFAULT,
-             hint_overrides=FrozenDict({}), claw_skip_package_names=())
-```
+- `BeartypeConf(*, strategy, is_pep484_tower, is_pep557_fields, is_color, is_debug, is_random, violation_type, violation_param_type, violation_return_type, violation_door_type, violation_verbosity, hint_overrides, claw_skip_package_names)`
 
 [ENTRYPOINT_SCOPE]: door procedural type checks (`beartype.door`)
-- rail: type-enforcement
-- `is_bearable`/`die_if_unbearable` also take `*, conf=BeartypeConf()`.
 
-| [INDEX] | [SURFACE]                                | [ENTRY_FAMILY] | [RAIL]                                        |
-| :-----: | :--------------------------------------- | :------------- | :-------------------------------------------- |
-|  [01]   | `is_bearable(obj, hint) -> TypeIs[T]`    | type guard     | narrowing boolean isinstance-for-any-hint     |
-|  [02]   | `die_if_unbearable(obj, hint) -> None`   | assertion      | raise `BeartypeDoorHintViolation` on mismatch |
-|  [03]   | `is_subhint(subhint, superhint) -> bool` | subtype query  | decidable hint subtyping (variance-aware)     |
-|  [04]   | `TypeHint(hint).is_bearable(obj)`        | OO check       | OO mirror: narrowing check                    |
-|  [05]   | `TypeHint(hint).die_if_unbearable(obj)`  | OO check       | OO mirror: assertion                          |
-|  [06]   | `TypeHint(hint).is_subhint(other)`       | OO check       | OO mirror: subhint query                      |
+`is_bearable`/`die_if_unbearable` also take `*, conf=BeartypeConf()`; `TypeHint(hint)` mirrors all three as instance methods.
+
+| [INDEX] | [SURFACE]                                | [SHAPE] | [CAPABILITY]                                  |
+| :-----: | :--------------------------------------- | :------ | :-------------------------------------------- |
+|  [01]   | `is_bearable(obj, hint) -> TypeIs[T]`    | static  | narrowing isinstance-for-any-hint guard       |
+|  [02]   | `die_if_unbearable(obj, hint) -> None`   | static  | raise `BeartypeDoorHintViolation` on mismatch |
+|  [03]   | `is_subhint(subhint, superhint) -> bool` | static  | decidable variance-aware hint subtyping       |
 
 [ENTRYPOINT_SCOPE]: claw import hooks (`beartype.claw`)
-- rail: type-enforcement
 
-| [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY]  | [RAIL]                                      |
-| :-----: | :----------------------------------------- | :-------------- | :------------------------------------------ |
-|  [01]   | `beartype_this_package(*, conf=...)`       | hook installer  | AST-hook the calling package at import time |
-|  [02]   | `beartype_package(package, *, conf=...)`   | hook installer  | hook one named package                      |
-|  [03]   | `beartype_packages(packages, *, conf=...)` | hook installer  | hook multiple named packages                |
-|  [04]   | `beartype_all(*, conf=...)`                | hook installer  | hook all subsequently imported modules      |
-|  [05]   | `beartyping(*, conf=...)`                  | context manager | transient `with`-scoped import hook         |
+| [INDEX] | [SURFACE]                                  | [SHAPE] | [CAPABILITY]                                |
+| :-----: | :----------------------------------------- | :------ | :------------------------------------------ |
+|  [01]   | `beartype_this_package(*, conf=...)`       | static  | AST-hook the calling package at import time |
+|  [02]   | `beartype_package(package, *, conf=...)`   | static  | hook one named package                      |
+|  [03]   | `beartype_packages(packages, *, conf=...)` | static  | hook multiple named packages                |
+|  [04]   | `beartype_all(*, conf=...)`                | static  | hook all subsequently imported modules      |
+|  [05]   | `beartyping(*, conf=...)`                  | factory | transient `with`-scoped import hook         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[BEARTYPE_TOPOLOGY]:
-- `@beartype` rewrites the wrapped callable with generated, branch-minimal wrapper code; under `BeartypeStrategy.O1` (default) it samples one item from each container, so checking a million-element list stays constant-time. `Ologn`/`On` deepen container traversal; `O0` makes the decorator a no-op for opt-out hot paths.
-- `is_random=True` randomizes the sampled container index per call so repeated calls cover different elements; set `is_random=False` for deterministic checks in tests.
-- `BeartypeConf` is immutable, hashable, and memoized: identical kwargs return the same singleton, so create once and reuse across all decorations and claw hooks. It IS the configuration surface — never branch on environment to pick between decorators.
-- `violation_type` / `violation_param_type` / `violation_return_type` / `violation_door_type` redirect raised violations to a caller-supplied `Exception` subtype; this is the first-class hook for mapping a type violation straight onto a domain error rail without a try/except adapter.
-- `is_pep484_tower=True` admits the numeric tower (an `int` satisfies a `float`/`complex` hint, a `bytearray` satisfies `bytes`); `is_pep557_fields=True` type-checks `@dataclass` field assignments.
-- `beartype.claw` installs an import-path AST transformer that decorates every callable/class in the hooked package at import — whole-package enforcement with zero per-function decoration. `claw_skip_package_names` excludes subpackages.
-- `beartype.door` (the DOOR API) is the procedural counterpart: `is_bearable(obj, hint)` returns a `TypeIs[T]` (so a `True` result narrows the static type), `die_if_unbearable` asserts, and `is_subhint(a, b)` answers decidable hint subtyping for dispatch tables and registry validation.
-- `beartype.vale` validators (`Is`, `IsAttr`, `IsEqual`, `IsInstance`, `IsSubclass`) subscript into `Annotated[T, validator]` and compose with `&`/`|`/`~`; the constraint is compiled into the same O(1) boundary check, so a refinement type costs nothing beyond the base hint.
+[TOPOLOGY]:
+- `@beartype` rewrites the callable into branch-minimal wrapper code; `O1` (default) samples one item per container, holding a check constant-time regardless of container size, `Ologn`/`On` deepen traversal, `O0` makes the decorator a no-op for opt-out hot paths.
+- `is_random=True` (default) varies the sampled container index per call so repeated calls cover different elements; `is_random=False` fixes it for deterministic tests.
+- `BeartypeConf` memoizes on its kwargs: identical kwargs return one singleton, minted once and reused across every decoration and claw hook.
+- `violation_type`/`violation_param_type`/`violation_return_type`/`violation_door_type` redirect a raised violation to a caller-supplied `Exception` subtype — the first-class hook mapping a type violation onto a domain error rail with no try/except adapter.
+- `is_pep484_tower=True` admits the numeric tower (`int` satisfies `float`/`complex`, `bytearray` satisfies `bytes`); `is_pep557_fields=True` type-checks `@dataclass` field assignments.
+- `beartype.claw` installs an import-path AST transformer decorating every callable and class in a hooked package at import; `claw_skip_package_names` excludes subpackages.
 
-[STACKS_WITH]:
-- `pydantic`/`msgspec` (`.api/pydantic.md`, `.api/msgspec.md`): keep schema validation (coercion, JSON, settings) in pydantic/msgspec at the wire boundary; use `@beartype` for the *internal* call-boundary contract on domain functions that never touch the wire, and `beartype.vale.Is[...]` to express refinement predicates inside `Annotated` aliases that both beartype and a pydantic `Field`/`msgspec.Meta` annotation can share on one alias. `BeartypeConf(violation_type=DomainError)` folds a violation directly onto the domain error type.
-- `expression` (`.api/expression.md`): at a boundary adapter, wrap the `@beartype`d call in a try-builder (`effect.try_`) and catch `BeartypeCallHintViolation`, lifting it into `Result.Error`; use `door.is_bearable(value, hint)` as the `TypeIs` guard that narrows before constructing an `Ok`. `door.is_subhint(...)` validates discriminated-union registry rows at startup.
-- `beartype.typing`: a 106-symbol drop-in for `typing` (`Protocol`, `TypeVar`, `Annotated`, `TypedDict`, `Self`, `override`, `runtime_checkable`, the `List`/`Dict` aliases,...) tuned so `Protocol`/`TypeVar` participate correctly in beartype-checked call sites across the supported interpreter band. Import typing names from here only when a hint is consumed at a `@beartype` boundary; stdlib `typing` serves everywhere else.
+[STACKING]:
+- `pydantic`/`msgspec` (`.api/pydantic.md`, `.api/msgspec.md`): schema validation (coercion, JSON, settings) stays in pydantic/msgspec at the wire boundary while `@beartype` holds the internal call-boundary contract on domain functions off the wire; a `beartype.vale.Is[...]` predicate inside an `Annotated` alias is shared by a pydantic `Field`/`msgspec.Meta` annotation on the same alias, and `BeartypeConf(violation_type=DomainError)` folds a violation onto the domain error type.
+- `expression` (`.api/expression.md`): a boundary adapter wraps the `@beartype`d call in `effect.try_` and catches `BeartypeCallHintViolation`, lifting it into `Result.Error`; `door.is_bearable(value, hint)` is the `TypeIs` guard narrowing before an `Ok`, and `door.is_subhint(...)` validates discriminated-union registry rows at startup.
+- `beartype.typing`: re-exports `typing` tuned so `Protocol`/`TypeVar` participate correctly at `@beartype`-checked call sites; import a typing name from here only when the hint is consumed at a `@beartype` boundary, stdlib `typing` everywhere else.
 
 [LOCAL_ADMISSION]:
-- Apply `@beartype` at service and domain-boundary entry points; use `beartype.claw` hooks (`beartype_this_package`) for whole-package enforcement at import time.
-- Map violations onto domain errors via `BeartypeConf(violation_type=...)` rather than catching `BeartypeCallHintViolation` in every adapter; reserve the catch for the one egress boundary that lifts into `Result`.
-- Use `door.is_bearable(obj, hint)` for the narrowing guard and `door.is_subhint(a, b)` for registry/dispatch validation; never hand-roll `isinstance` trees for parametrized hints.
-- Encode refinement constraints once as `Annotated[T, beartype.vale.Is[...]]` aliases shared across the call site and any schema annotation.
+- Apply `@beartype` at service and domain-boundary entry points, `beartype.claw` hooks (`beartype_this_package`) for whole-package enforcement at import.
+- Map a violation onto a domain error via `BeartypeConf(violation_type=...)`, reserving the `BeartypeCallHintViolation` catch for the one egress boundary that lifts into `Result`.
+- Use `door.is_bearable(obj, hint)` for the narrowing guard and `door.is_subhint(a, b)` for registry and dispatch validation.
+- Encode a refinement constraint once as an `Annotated[T, beartype.vale.Is[...]]` alias shared across the call site and its schema annotation.
 
 [RAIL_LAW]:
 - Package: `beartype`
-- Owns: near-O(1) runtime type enforcement, import-hook activation, procedural DOOR checks + subhint reasoning, `Annotated` validator algebra, violation→domain-error redirection
-- Accept: `@beartype` + a shared cached `BeartypeConf`, `beartype.claw` whole-package hooks, `beartype.door` guards, `beartype.vale` refinement annotations, `violation_type=` error mapping
-- Reject: hand-rolled `isinstance`/`issubclass` guards at internal call sites, per-decoration ad-hoc `BeartypeConf` construction, catching `BeartypeException` broadly instead of the canonical violation roots
+- Owns: near-O(1) runtime type enforcement, import-hook activation, procedural DOOR checks and subhint reasoning, `Annotated` validator algebra, violation→domain-error redirection
+- Accept: `@beartype` with a shared cached `BeartypeConf`, `beartype.claw` whole-package hooks, `beartype.door` guards, `beartype.vale` refinement annotations, `violation_type=` error mapping
+- Reject: hand-rolled `isinstance`/`issubclass` guards at internal call sites, per-decoration ad-hoc `BeartypeConf`, catching `BeartypeException` broadly instead of the canonical violation roots

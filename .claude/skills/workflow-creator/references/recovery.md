@@ -42,7 +42,7 @@ Stop a still-running prior run before relaunching its script. Never kill a live 
 
 ## [02]-[JOURNAL]
 
-Each run owns a directory under `~/.claude/projects/<project>/<session>/subagents/workflows/wf_<id>/`, and `journal.jsonl` inside it is the resume cache: every `agent()` call appends `{type:"started", key, agentId}` at start and `{type:"result", key, agentId, result}` with the validated result at finish. Each `key` is `v2:<sha256>` over the call's prompt and its `schema`/`model`/`isolation`/`agentType` — never `label`/`phase`/`effort`/`stallMs`. Each agent's transcript is a separate `agent-<id>.jsonl`; resume reads the journal, never the transcripts, written by the runtime automatically.
+Each run owns a directory under `~/.claude/projects/<project>/<session>/subagents/workflows/wf_<id>/`, and `journal.jsonl` inside it is the resume cache: every `agent()` call appends `{type:"started", key, agentId}` at start and `{type:"result", key, agentId, result}` with the validated result at finish. Each `key` is `v2:<sha256>` over the call's prompt and its `schema`/`model`/`isolation`/`agentType`, never `label`/`phase`/`effort`. Each agent's transcript is a separate `agent-<id>.jsonl`; resume reads the journal, never the transcripts, written by the runtime automatically.
 
 Resume replays the journal by key: `Workflow({ scriptPath, resumeFromRunId })` re-executes the deterministic script and, per `agent()` call, recomputes the key — a `result` record returns instantly with no model call; a `started`-only record (in-flight at the stop) or no record runs live. Same script + same `args` = a full cache hit; an edited script replays every unchanged call before the edit.
 
@@ -52,7 +52,8 @@ Resume is one specific call, and each of these mistakes silently turns it into a
 
 - No `resumeFromRunId`. A bare `Workflow({ scriptPath })` or `Workflow({ name })` is a NEW run with an empty journal — it never consults a prior run's cache. Most common cause of an unexpected restart.
 - A different session. That journal lives under the launching session's directory; a plain resume from a new session (or after a process restart) finds an empty journal and re-runs from zero. Recover with the transplant at [05].
-- A changed cache key from the top. Editing the script, or changing the `args` that feed the first agent's prompt, changes its key, misses the cache there, and re-runs from that point. Do not edit a launched script while its run is resumable — edit only to intentionally re-run from the changed call onward (the iteration loop). A file-path arg (`{brief: "<path>.md"}`) contributes only the path STRING to the key: editing the referenced file invalidates nothing, so completed agents replay pre-edit content while later agents read the new file — a split-brain corpus. Freeze every path-referenced brief and the engine script while any consuming run is resumable; a brief change is a fresh run.
+- A changed cache key from the top. Script edits or changed `args` miss the cache at the affected call and rerun from there; keep launched scripts stable while resumable.
+- A changed file behind a path argument. Cache keys carry the path string, not file content, so freeze referenced briefs during resumable runs; changed content requires a fresh run.
 - An unstable launch source. Launch from a stable on-disk `scriptPath` so the exact bytes that ran stay on disk to replay against; an inline `script` string leaves nothing stable to resume from.
 
 A run ledger makes the first rule reliable: the moment `Workflow` returns, write the run ID, launched `scriptPath`, `args`, and resume command to the session scratchpad (never the repo) — copy `assets/templates/run-ledger.template.md`, updated on every resume or restart. That ledger is not the journal — the journal is the automatic result cache that DOES the resuming; the ledger is the run-ID note a later turn passes back.
@@ -61,7 +62,7 @@ A lost run ID is recoverable in-session: the launch result prints it, the comple
 
 ## [04]-[VERIFY]
 
-Resume-cache keys are unstable across sessions, across harness builds, and for concurrently-staggered sibling calls across any stop/resume — the first-launched call of a fan-out keeps its key, staggered siblings rehash. So verify every resume immediately: classify the fresh `started` records against their agent transcripts' task lines; the only correct outcome is the next pending stage. A burst of new `started` records for already-completed work means a key mismatch — an edited script, changed `args`, or a rehashed sibling — so stop the run and diff against the bytes that ran.
+Resume-cache keys may change across sessions, harness builds, or sibling calls across stop/resume. Verify every resume immediately: classify fresh `started` records against agent transcript task lines; the correct outcome is the next pending stage. Fresh `started` records for completed work signal a key mismatch, so stop the run and diff against the bytes that ran.
 
 Stop a run re-executing cached work the moment drift is confirmed; otherwise stop only at stage boundaries (journal `result` count equals the stage's agent total), so the journal holds complete stages a continuation script reconstructs cleanly.
 
@@ -95,7 +96,7 @@ Author every workflow for this recovery from day one: each stage writes its prod
 
 ## [07]-[TRUTH]
 
-Receipts are claims; disk artifacts are truth. An agent's failure report is not ground truth: before re-running or discarding a lane, check its deterministic artifact paths — product file present and valid, process liveness, stderr tail. Forced returns (a stall abort, no-progress enforcement) file FALSE failures while the real work completes; a stale leftover artifact reads as FALSE success — hence the stale-purge law in the patterns reference. Design every lane so its truth is checkable from disk alone, and reconcile the roster against disk before acting on it.
+Receipts are claims; disk artifacts are truth. An agent's failure report is not ground truth: before re-running or discarding a lane, check its deterministic artifact paths — product file present and valid, process liveness, stderr tail. Forced returns can record a false failure while the real work completes; a stale leftover artifact reads as false success — hence the stale-purge law in the patterns reference. Design every lane so its truth is checkable from disk alone, and reconcile the roster against disk before acting on it.
 
 ## [08]-[COMMIT_TRAIL]
 

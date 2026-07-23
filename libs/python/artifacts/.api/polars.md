@@ -1,92 +1,67 @@
 # [PY_ARTIFACTS_API_POLARS]
 
-Full surface and stacking: `libs/python/data/.api/polars.md` (data-tier canonical owner).
+`polars` inside `artifacts` is the publication-boundary overlay onto the `data`-owned columnar engine, owning only the members that cross into the visualization plane: the `DataFrame.style → great_tables.GT` construction edge, the `pl.Expr` summary/predicate language great-tables folds, the `pl.Series → vals.fmt_*` formatter edge, and the `pl.DataFrame` adjacency/attribute frame that lowers into a graph. Artifacts styles, aggregates, and lowers a settled frame; it never authors data, re-opens the lazy engine, or re-implements a `data`-owned transform.
 
-`polars` is the Rust-backed columnar dataframe engine; inside `artifacts` it is an artifact-local overlay, not the engine owner — the full eager/lazy/`Expr`/plugin engine surface (lazy optimization, `scan_*`/`sink_*` streaming IO, the native expression-plugin host, the complete dtype vocabulary) is owned by `libs/python/data/.api/polars.md` and is NOT restated here. This catalog documents only the publication-boundary seam the artifacts visualization plane composes: the `DataFrame.style → great_tables.GT` in-process table-construction edge, the `pl.Expr` summary/predicate language `visualization/table` folds into `summary_rows`/`grand_summary_rows`/`loc.body(mask=...)`, the standalone `pl.Series → great_tables.vals.fmt_*` Series-formatter edge, and the `pl.DataFrame` adjacency/attribute frame `visualization/diagram/layout` lowers into a graph. The frame is always a settled input arriving over the `data/tabular` wire (Arrow C-stream / interchange protocol, never a Python row roundtrip); artifacts styles, aggregates, and lowers it but never authors the data, re-opens the lazy engine, or re-implements a transform the `data` owner already owns. Stacks onto the `great-tables` folder catalogue (`.api/great-tables.md`) for the GT seam and the universal substrate rails (`expression` Result/Option around the boundary, `msgspec` Structs that carry a `pl.DataFrame` as a field, `beartype` at the ingress edge, `numpy` for the coordinate/value egress).
+## [01]-[PACKAGE_SURFACE]
 
-## [01]-[PUBLIC_TYPES]
+[PACKAGE_SURFACE]: `polars` (artifacts overlay)
+- package: `polars` (MIT)
+- module: `polars`
+- namespaces: `polars.selectors`, `polars.exceptions`
+- engine: full eager/lazy/`Expr`/plugin surface owned by `data/.api/polars.md`
+- rail: tabular boundary
+
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: boundary types the artifacts pages carry
-- rail: tabular boundary
 
-| [INDEX] | [SYMBOL]                 | [PACKAGE_ROLE]     |
-| :-----: | :----------------------- | :----------------- |
-|  [01]   | `DataFrame`              | eager frame        |
-|  [02]   | `Series`                 | typed column       |
-|  [03]   | `Expr`                   | expression node    |
-|  [04]   | `DataType` family        | dtype value object |
-|  [05]   | `Config` / `StringCache` | runtime context    |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]   | [CAPABILITY]                                                                        |
+| :-----: | :----------------------- | :-------------- | :---------------------------------------------------------------------------------- |
+|  [01]   | `DataFrame`              | eager frame     | settled frame; `.style` is the GT seam, `.to_dicts`/`.to_numpy` the egress          |
+|  [02]   | `Series`                 | typed column    | single column into the standalone `vals.fmt_*` and `.to_numpy`/`.to_list` egress    |
+|  [03]   | `Expr`                   | expression node | the aggregate/predicate the table owner builds for `summary_rows`/`loc.body(mask=)` |
+|  [04]   | `DataType` family        | value object    | per-column dtype selecting the `FmtKind` and `cs.by_dtype(...)` set                 |
+|  [05]   | `Config` / `StringCache` | render context  | deterministic display/precision and a shared categorical string-cache scope         |
 
-- [01]-[DATAFRAME]: the settled in-memory frame carried as a `msgspec.Struct` field (`TablePlan.frame`, `DiagramLayout.adjacency`/`.attributes`); the `.style` accessor is the GT seam, `.to_dicts()`/`.to_numpy()` the egress.
-- [02]-[SERIES]: the single typed column threaded into the standalone `vals.fmt_*` Series formatters (`TablePlan.Series`) and into `.to_numpy()`/`.to_list()` value egress.
-- [03]-[EXPR]: the aggregation/predicate value the table owner builds — `pl.col(...).mean().alias(...)` for `summary_rows` `fns`, `pl.col(...) > x` as the `loc.body(mask=...)` cell predicate; an `Expr` until evaluated by great-tables/polars, never a Python lambda over rows.
-- [04]-[DATATYPE_FAMILY]: `Int64`/`Float64`/`String`/`Boolean`/`Date`/`Datetime`/`Decimal`/`Categorical`/`Enum`/`Struct`/`List` — the dtype carried on each column; relevant here only for selecting the right `FmtKind` per column and the `cs.numeric()`/`cs.by_dtype(...)` selector sets. The full dtype vocabulary is owned by `data/.api/polars.md`.
-- [05]-[Config / StringCache]: `Config` for deterministic display/precision context around a render; `StringCache` to scope a shared categorical string-cache when a categorical-keyed frame is styled or joined at the seam.
+- `Expr`: unevaluated until great-tables or polars runs it over the frame, never a Python lambda over rows.
 
-## [02]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the great-tables construction seam (`visualization/table`)
-- rail: tabular boundary
+- [GT_SEAM]: `DataFrame.style -> GT` `GT(frame, rowname_col=, groupname_col=, locale=, id=)` — in-process styled-table construction from the frame with no frame→table marshalling; `.style` folds the `TableOp` sequence, the explicit ctor is the fall-through when knobs diverge from default.
+- [SUMMARY_EXPR]: `pl.col(name).mean()` `.sum()` `.median()` `.std()` `.quantile()` `.min()` `.max()` `.n_unique()` `.alias(name)` — each `summary_rows`/`grand_summary_rows` `fns` value names its own column, great-tables rejecting a non-`None` `columns`.
+- [MASK_PREDICATE]: `pl.col(name) > v` `.is_between(lo, hi)` `.is_in(set)` `.is_null()` `& | ~` — the boolean `Expr` for `loc.body(mask=)` cell targeting, mutually exclusive with `columns`/`rows`.
+- [DERIVED_CELL]: `pl.when(pred).then(x).otherwise(y)` `pl.lit(v)` `pl.format(tmpl, *exprs)` `pl.concat_str(exprs, separator=)` `pl.coalesce(*exprs)` `pl.struct(*exprs)` — derive a display column inside `select`/`with_columns` before `.style`.
+- [COLUMN_SELECTOR]: `cs.numeric()` `cs.by_dtype(dt)` `cs.matches(re)` `cs.starts_with(p)` `cs.exclude(...)` `& | - ~` — the declarative column set where a `TableOp` takes `Cols`.
+- [FRAME_SHAPING]: `select` `with_columns` `filter` `sort(nulls_last=)` `rename` `cast` `head` `slice` `pivot` `unpivot` `group_by().agg` `top_k(by=)` `drop` — last-mile display-shape of the settled frame.
+- [STRING_EXPR]: `Expr.str.extract(pat, group_index=)` `.str.extract_all(pat)` `.str.replace(...)` `.str.strip_chars()` `.str.to_uppercase()` — derive a sort or display token in-engine.
 
-| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY]    |
-| :-----: | :-------------------------------------------- | :---------------- |
-|  [01]   | `DataFrame.style -> great_tables.GT`          | GT seam           |
-|  [02]   | `pl.col(name).<agg>()` / `.alias(name)`       | summary expr      |
-|  [03]   | `pl.col(name) > v` / `.is_in(set)` / `& \| ~` | mask predicate    |
-|  [04]   | `pl.when(pred).then(x)` / `pl.format(...)`    | derived-cell expr |
-|  [05]   | `cs.numeric()` / `cs.by_dtype(dt)`            | column selector   |
-|  [06]   | `DataFrame.select` / `.with_columns` / …      | frame shaping     |
+[ENTRYPOINT_SCOPE]: standalone Series formatting, the diagram-graph lowering, and interop egress
+- [SERIES_PROJECTION]: `DataFrame.get_column(name)` `df[name]` `Series.to_list()` `.cast(dt)` `.round(n)` `.fill_null(v)` `.rename(name)` `.to_frame()` — the out-of-table value source `vals.fmt_*` formats to `list[str]`.
+- [ROW_LOWERING]: `DataFrame.to_dicts()` `.iter_rows(named=)` `.rows()` — the one deliberate frame→row crossing; `DiagramLayout._as_graph` reads `attributes.to_dicts()` for nodes and `adjacency.to_dicts()` for `(source, target)` edges into `rustworkx`.
+- [NUMERIC_EGRESS]: `DataFrame.to_numpy()` `Series.to_numpy()` — dense-array exit for diagram coordinates and nanoplot vectors.
+- [INTERCHANGE]: `pl.from_dataframe(obj, allow_copy=)` `pl.from_arrow(tbl)` `pl.from_dicts(rows)` `DataFrame.__arrow_c_stream__()` `DataFrame.__dataframe__()` — the `data/tabular` wire; a frame from the C# `Rasm.Bim` graph crosses zero-copy as Arrow, never a Python row roundtrip.
+- [RENDER_CONTEXT]: `pl.Config(...)` `pl.StringCache()` — deterministic display/precision and a shared categorical string-cache scope.
 
-- [01]-[GT_SEAM]: `DataFrame.style -> great_tables.GT` — the load-bearing edge: the accessor returns a real `great_tables.gt.GT` (verified `type(df.style) is great_tables.gt.GT`), so `TablePlan._build` constructs the styled table in-process from a polars frame with no DataFrame→table marshalling; `df.style` folds the `TableOp` sequence directly. The default-construction path; the explicit `GT(frame, rowname_col=..., groupname_col=..., locale=..., id=...)` constructor is the fall-through when those knobs diverge from default.
-- [02]-[SUMMARY_EXPR]: `pl.col(name)` / `pl.col(name).mean()/.sum()/.median()/.std()/.quantile()/.min()/.max()/.n_unique()` / `.alias(name)` — the `summary_rows(fns=...)` / `grand_summary_rows(fns=...)` aggregation language: each `dict[str, pl.Expr]` value is a polars aggregate whose `.alias`/own name targets its column (great-tables rejects a non-`None` `columns`, so the `Expr` must name its own column). Built once, evaluated by great-tables over the frame, never a Python reduction.
-- [03]-[MASK_PREDICATE]: `pl.col(name) > v` / `.is_between(lo, hi)` / `.is_in(set)` / `.is_null()` / `& | ~` — the boolean `Expr` passed as `loc.body(mask=...)` (and the masked `loc.grand_summary`) for value-targeted cell styling/text-transform — `TablePlan`'s `Mask = pl.Expr | None`; mutually exclusive with `columns`/`rows`, so a predicate-targeted `Place` carries the `mask` alone.
-- [04]-[derived-cell expr]: `pl.when(pred).then(x).otherwise(y)` / `pl.lit(v)` / `pl.format(tmpl, *exprs)` / `pl.concat_str(exprs, separator=)` / `pl.coalesce(*exprs)` / `pl.struct(*exprs)` — the expression vocabulary for deriving a display column the frame did not carry (a formatted label, a merged string, a first-non-null) inside a `select`/`with_columns` BEFORE the `.style` seam, so the styled table reads a settled column rather than a per-cell Python transform.
-- [05]-[COLUMN_SELECTOR]: `cs.numeric()` / `cs.by_dtype(dt)` / `cs.matches(re)` / `cs.starts_with(p)` / `cs.exclude(...)` / set algebra `& | - ~` — the declarative dtype/name column set passed where a `TableOp` takes `Cols` (e.g. `Fmt(FmtKind.NUMBER, columns=cs.numeric())`) so a format/align/color op addresses a column class without a hardcoded name list.
-- [06]-[FRAME_SHAPING]: `DataFrame.select(*exprs)` / `.with_columns(*exprs)` / `.filter(*pred)` / `.sort(by, nulls_last=)` / `.rename(map)` / `.cast(dtypes)` / `.head(n)` / `.slice(off, len)` / `.pivot(...)` / `.unpivot(...)` / `.group_by(keys).agg(*exprs)` / `.top_k(k, by=)` / `.drop(*cols)` — last-mile shaping of the settled frame at the boundary, re-projecting/re-ordering/casting/rolling-up the QTO/schedule frame to the exact display shape before `.style`. The transforms are the `data`-owned API; artifacts uses them only to land the display frame, never to author the source.
-- [07]-[STRING_EXPR]: `pl.col(name).str.extract(pattern, group_index=1)` / `.str.extract_all(pattern)` / `.str.replace(...)` / `.str.strip_chars()` / `.str.to_uppercase()` — the `Expr.str` namespace deriving a sortable or display token from a string column in-engine (`delivery/register#REGISTER` derives its numeric sheet ordinal via `.str.extract(r"(\d+)").cast(pl.UInt32, strict=False)` before `sort(nulls_last=True)`), never a Python `re` pass over materialized rows.
+## [04]-[IMPLEMENTATION_LAW]
 
-[ENTRYPOINT_SCOPE]: standalone Series formatting and the diagram-graph + interop egress
-- rail: tabular boundary
-
-| [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY]             |
-| :-----: | :-------------------------------------------------------- | :------------------------- |
-|  [01]   | `DataFrame.get_column` / `[name]` -> `Series`             | Series projection          |
-|  [02]   | `DataFrame.to_dicts` / `.iter_rows` / `.rows`             | row lowering               |
-|  [03]   | `DataFrame.to_numpy` / `Series.to_numpy`                  | numeric egress             |
-|  [04]   | `pl.from_dataframe` / `from_arrow` / `__arrow_c_stream__` | interchange ingress/egress |
-|  [05]   | `pl.Config` / `pl.StringCache`                            | render context             |
-
-- [01]-[SERIES_PROJECTION]: `DataFrame.get_column(name)` / `DataFrame[name]` -> `Series`; `Series.to_list()` / `.cast(dt)` / `.round(n)` / `.fill_null(v)` / `.rename(name)` / `.to_frame()` — extract the single column great-tables' standalone `vals.fmt_number(series, ...)` / `vals.fmt_*` formatters consume (`TablePlan.Series` indexes `VALS_TABLE[kind](series, opts)`); the `Series` is the out-of-table value source, formatted to `list[str]` for rich-text rendering outside a `GT` chain.
-- [02]-[ROW_LOWERING]: `DataFrame.to_dicts()` / `.iter_rows(named=)` / `.rows()` — the `visualization/diagram/layout` lowering: `DiagramLayout._as_graph` reads `self.attributes.to_dicts()` for node payloads and `self.adjacency.to_dicts()` for `(source, target)` edges, feeding `rustworkx` `add_nodes_from`/`add_edges_from`. A bounded, deliberate frame→row crossing at the graph boundary, never inside a transform.
-- [03]-[NUMERIC_EGRESS]: `DataFrame.to_numpy(...)` / `Series.to_numpy(...)` — the value/coordinate egress to the numpy substrate (`.api/numpy.md`) when a diagram projection or a nanoplot value vector must leave the frame as a dense array; the zero-copy-where-possible exit to the universal numeric rail.
-- [04]-[INTERCHANGE]: `pl.from_dataframe(obj, allow_copy=)` / `pl.from_arrow(tbl)` / `pl.from_dicts(rows)` / `DataFrame.__arrow_c_stream__()` / `DataFrame.__dataframe__()` — the `data/tabular` wire edge: a QTO/schedule frame arriving from the C# `Rasm.Bim` graph (or any `data` producer) crosses as an Arrow C-stream / interchange-protocol object zero-copy via `from_dataframe`/`from_arrow`; `__arrow_c_stream__`/`to_arrow()` is the matching outbound capsule. Arrow `Table`/`RecordBatch` is the wire, never a Python row roundtrip — the seam keeping `visualization/table` a consumer of the `data` plane, not a re-author of it.
-- [05]-[RENDER_CONTEXT]: `pl.Config(...)` (context manager / `set_*`) and `pl.StringCache()` — deterministic display/precision context and a shared categorical string-cache scope around a styled render so a categorical-keyed table or a precision-sensitive figure renders reproducibly.
-
-## [03]-[IMPLEMENTATION_LAW]
-
-[OVERLAY_SCOPE]:
-- This catalogue is the artifacts boundary view of polars. The engine itself is owned by `libs/python/data/.api/polars.md`.
-- Engine scope: `LazyFrame`, optimizer flags, `scan_*`/`sink_*`, streaming and GPU collect, `register_plugin_function`, dtype vocabulary, namespace methods, dynamic/rolling/asof/where/window joins, and SQL stay in the data owner.
-- Boundary rule: an artifacts design page reaching for lazy scan, streaming sink, custom plugin kernel, or deep namespace transform reaches past its boundary; the frame arrives here already settled.
-- The single correctness invariant of the overlay is the seam: `DataFrame.style` is a real `GT`, so the publication-table plane never marshals a frame into a foreign table builder. Everything else artifacts touches (`Expr` summary/predicate, `Series → vals.fmt_*`, `to_dicts()` graph lowering, Arrow-stream ingress) is the thin set of polars members that cross that boundary.
+[TOPOLOGY]:
+- `DataFrame.style` is a real `great_tables.gt.GT`, so the publication-table plane never marshals a frame into a foreign table builder; every member this overlay touches is the thin set crossing that one boundary, and a lazy scan, streaming sink, plugin kernel, or deep-namespace transform is the `data` engine's concern past it.
 
 [STACKING]:
-- great-tables (`.api/great-tables.md`): the BYO-DataFrame contract is polars-first; `GT(frame)` and `frame.style` accept a `pl.DataFrame`, `summary_rows`/`grand_summary_rows` take `dict[str, pl.Expr]`, and `loc.body(mask=<pl.Expr>)` takes a boolean predicate.
-- great-tables rail: `vals.fmt_*` accepts a `pl.Series`; a settled polars frame `.style`s into a `GT`, folds the `TableOp` sequence, and emits HTML/LaTeX/PDF with no intermediate interchange.
-- expression (`.api/expression.md`): every seam crossing is wrapped at the boundary so a malformed frame, a schema mismatch, or a render fault returns a typed `Result`/`Error` rather than raising — `TablePlan.render`/`DiagramLayout.assign` thread the polars call through `RuntimeRail`/`boundary`, and the polars `pl.exceptions` family (e.g. `ColumnNotFoundError`, `SchemaError`, `ComputeError`) is the error vocabulary the boundary maps into the rail.
-- msgspec (`.api/msgspec.md`): a `pl.DataFrame` is carried as a frozen `Struct` field (`TablePlan.frame: pl.DataFrame`, `DiagramLayout.adjacency: pl.DataFrame`) — the frame is an opaque settled payload on the artifact spec, not a serialized structure; only its content key (`ContentIdentity.of`) and its rendered bytes ride the `ArtifactReceipt`.
-- beartype (`.api/beartype.md`): the ingress edge of an artifacts owner that accepts a frame validates `pl.DataFrame`/`pl.Series`/`pl.Expr` as the declared annotation, so a non-frame or a wrong-shape input fails at the boundary rather than deep inside a render.
-- numpy (`.api/numpy.md`): `to_numpy()`/`Series.to_numpy()` is the exit to the dense-array substrate for diagram coordinates and nanoplot value vectors; the frame is the structured upstream, numpy the numeric downstream.
+- `great-tables`(`.api/great-tables.md`): the BYO-DataFrame contract is polars-first — `GT(frame)` and `frame.style` take a `pl.DataFrame`, `summary_rows`/`grand_summary_rows` take `dict[str, pl.Expr]`, `loc.body(mask=)` takes a boolean `Expr`, `vals.fmt_*` takes a `pl.Series`; the styled frame folds the `TableOp` sequence and emits HTML/LaTeX/PDF with no intermediate interchange.
+- `expression`(`.api/expression.md`): `TablePlan.render`/`DiagramLayout.assign` thread every seam crossing through `RuntimeRail`/`boundary`, mapping the `pl.exceptions` family (`ColumnNotFoundError`, `SchemaError`, `ComputeError`) onto a typed `Result`/`Error` rather than raising.
+- `msgspec`(`.api/msgspec.md`): a `pl.DataFrame` rides as a frozen `Struct` field (`TablePlan.frame`, `DiagramLayout.adjacency`) — an opaque settled payload whose content key (`ContentIdentity.of`) and rendered bytes alone ride the `ArtifactReceipt`.
+- `beartype`(`.api/beartype.md`): an artifacts owner's ingress validates `pl.DataFrame`/`pl.Series`/`pl.Expr` as the declared annotation, faulting a wrong-shape input at the boundary.
+- `numpy`(`.api/numpy.md`): `to_numpy()`/`Series.to_numpy()` exits to the dense-array substrate for diagram coordinates and nanoplot vectors.
+- within-lib: `TablePlan` folds the `TableOp` sequence onto `frame.style` and indexes `VALS_TABLE[kind](series, opts)` for out-of-table Series formatting; `DiagramLayout` lowers `adjacency`/`attributes` through `to_dicts()` into a `rustworkx` graph.
 
 [LOCAL_ADMISSION]:
-- Accept a polars frame only as a settled input over the `data/tabular` wire (`from_dataframe`/`from_arrow` from a `data` producer or the C# `Rasm.Bim` QTO/schedule egress); never `read_*`/`scan_*` a source from inside an artifacts page — source IO is the `data` plane's concern.
-- Drive the publication table through the `frame.style → GT` seam; express any aggregate or cell predicate as a `pl.Expr` (`pl.col(...).mean().alias(...)`, `pl.col(...) > v`) and any derived display column as a `select`/`with_columns` expression BEFORE `.style`, never a Python loop over rows or a per-cell callable where an `Expr` composes.
-- Address column classes with `polars.selectors` (`cs.numeric()`, `cs.by_dtype(...)`) where a `TableOp` takes `Cols`, not a hardcoded name list.
-- Cross frame→rows (`to_dicts()`) only at a deliberate graph/structure boundary (`DiagramLayout._as_graph`); cross frame→array (`to_numpy()`) only at the numeric egress; everything between stays columnar.
-- Defer every lazy/streaming/plugin/deep-namespace need to `data/.api/polars.md` and the `data` plane — this overlay owns only the boundary.
+- Accept a polars frame only as a settled input over the `data/tabular` wire (`from_dataframe`/`from_arrow` from a `data` producer or the C# `Rasm.Bim` QTO/schedule egress); an artifacts page never `read_*`/`scan_*`s a source.
+- Cross frame→rows (`to_dicts`) only at the `DiagramLayout` graph boundary and frame→array (`to_numpy`) only at the numeric egress; everything between stays columnar `pl.Expr` composition addressed by `polars.selectors`.
 
 [RAIL_LAW]:
 - Package: `polars` (artifacts overlay)
-- Owns (here): the publication-table construction seam (`DataFrame.style → GT`), the `pl.Expr` summary/predicate language for great-tables, the standalone `pl.Series → vals.fmt_*` edge, the `pl.DataFrame` adjacency/attribute frame and its `to_dicts()` graph lowering, and the Arrow-C-stream / interchange ingress that is the `data/tabular` wire
-- Accept: a settled `pl.DataFrame`/`pl.Series`/`pl.Expr` arriving over the interchange wire from a `data` producer; `polars.selectors` column sets; a `pl.Config`/`pl.StringCache` render context
-- Reject: source IO from inside artifacts (`read_*`/`scan_*`/`sink_*` belong to `data`); the lazy engine, optimizer flags, streaming/GPU collect, and `register_plugin_function` (owned by `data/.api/polars.md`); a Python loop or per-cell callable where a `pl.Expr` or a `data`-side transform expresses the logic; re-authoring a QTO/schedule frame the C# `Rasm.Bim` graph already owns (artifacts renders the frame, it never re-implements the IFC model)
+- Owns: the `DataFrame.style → GT` construction seam, the `pl.Expr` summary/predicate language for great-tables, the standalone `pl.Series → vals.fmt_*` edge, the `pl.DataFrame` adjacency/attribute frame and its `to_dicts` graph lowering, and the Arrow-C-stream / interchange ingress that is the `data/tabular` wire
+- Accept: a settled `pl.DataFrame`/`pl.Series`/`pl.Expr` over the interchange wire from a `data` producer; `polars.selectors` column sets; a `pl.Config`/`pl.StringCache` render context
+- Reject: source IO inside artifacts (`read_*`/`scan_*`/`sink_*`), the lazy engine, optimizer flags, streaming/GPU collect, and `register_plugin_function` (all owned by `data/.api/polars.md`); a Python loop or per-cell callable where a `pl.Expr` expresses the logic; re-authoring a QTO/schedule frame the C# `Rasm.Bim` graph already owns

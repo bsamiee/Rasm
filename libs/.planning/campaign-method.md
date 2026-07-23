@@ -106,4 +106,4 @@ Plan mode exits only when every gate, fence, page, sub-domain, admission, catalo
 
 Every addition is critiqued and red-teamed as it lands, and the whole plan and corpus are critiqued and red-teamed as one body before the plan finalizes.
 
-A red-team or verify stage flips a status only against evidence — a spike or gap marked finalized only against a cited `.api` line or harness output, the `tools.assay` operator the rail: `api` for member truth, `docs check` for fence-bearing pages, `provision` for Forge toolchain facts. Work is never marked done without evidence; a thin plan is an un-exhausted one.
+A red-team or verify stage flips a status only against evidence — a spike or gap marked finalized only against a cited `.api` line or harness output, the `tools.assay` operator the rail: `api` for member truth, `docs check` for fence-bearing pages, `provision` for Forge toolchain facts, `bridge` for live-host scenario facts. Work is never marked done without evidence; a thin plan is an un-exhausted one.

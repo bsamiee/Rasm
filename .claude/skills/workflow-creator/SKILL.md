@@ -75,7 +75,6 @@ Rules that break runs, each carried in depth by its owning reference:
 - [07]-[DISK_RECEIPTS]: A lane product past ~50 rows goes to disk; only its thin receipt `{ok, report, entries, headline, failure}` crosses the wire.
 - [08]-[FULL_READ]: Terminal readers read every ok report IN FULL — relaying through an intermediate agent truncates silently (patterns reference).
 - [09]-[NO_IDLE_WAIT]: No agent idles — a live blocking call is the only legal wait.
-- [10]-[WAIT_ROUNDS]: A wait past one call is orchestration — the agent returns a receipt, `setTimeout` holds time, a fresh agent runs the next round.
 - [11]-[HARD_STOP]: Every open-ended loop carries a hard stop — a counter, a budget guard (`budget.total && budget.remaining() > N`), a progress gate.
 - [12]-[PROGRESS_GATE]: A fix-verify loop gates on file-changing progress, never the round cap alone.
 - [13]-[ARGS_STRUCTURED]: `args` is structured data — read it directly; the tool boundary can hand a JSON-encoded string, so `[INPUTS]` normalizes once with the guarded parse-if-string shim (api reference) and the body never parses again.
@@ -110,7 +109,7 @@ export const meta = {
 
 Size is never the metric, in meta or in prompts: prose optimizes by density — wording refined per the docgen register until fewer words carry the same guidance — never by dropping guidance the acting agent needs; no gate or script imposes a length cap. Lean-prompt shaping that trims intensifiers and hostile register is codex-lane law (external-lanes reference), never a general bar.
 
-Then the body: async JavaScript with injected globals — `agent(prompt, opts?)`, `pipeline(items, …stages)`, `parallel(thunks)`, `phase(title)`, `log(msg)`, `console`, `setTimeout`, `budget`, `args`, `workflow(name, args?)` — and the body's `return` becomes the tool result. Full signatures, the `args` shape map, and every cap: api reference.
+Then the body: async JavaScript with injected globals — `agent(prompt, opts?)`, `pipeline(items, …stages)`, `parallel(thunks)`, `phase(title)`, `log(msg)`, `console`, `budget`, `args`, `workflow(name, args?)` — and the body's `return` becomes the tool result. Full signatures and the `args` shape map live in the api reference.
 
 Three `agent()` options tuned most, independent axes:
 
@@ -131,7 +130,7 @@ node ${CLAUDE_SKILL_DIR}/scripts/dry-run.mjs <file.js> [--args '<json>'] [--fixt
 
 Linter checks enforce the parser's hard rules — errors exit 1 and every one gets fixed; warnings are real defects (runtime bugs, unformatted source), cleared too. Dry-run re-hosts the unmodified file under mocked globals for zero tokens: `parseOk=true ran=true deterministic=true` is the bar, and per-phase agent counts expose fan-out bugs and guard-dropped phases. A green simulation validates the machine, never the meaning — close that gap with a narrow real run on one tiny scope before the full spend. Signals, fixtures, and narrow-run mechanics: api reference, validation section.
 
-A narrow run judges the reasoning path, not only the products: after it lands, read the lane transcripts themselves (`/workflows` raw view), because a schema-valid receipt hides premature exits, wrong-tool selection, and over-verbose queries that only the transcript shows. A DURABLE workflow — one rerun across sessions — additionally earns a small fixed eval set (~15-20 representative `args` inputs with a rubric-scoped judge pass over the products); rerun it after any prompt or schema edit, because the dry-run cannot see a meaning regression.
+A narrow run judges the reasoning path, not only the products: after it lands, read the lane transcripts (`/workflows` raw view), because a schema-valid receipt hides premature exits, wrong-tool selection, and over-verbose queries. Durable workflows keep a fixed rubric-scoped eval corpus and rerun it after prompt or schema changes; dry-run cannot expose a meaning regression.
 
 ## [07]-[RUN]
 

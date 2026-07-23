@@ -1,48 +1,39 @@
 # [PY_DATA_API_ADBC_DRIVER_SNOWFLAKE]
 
-`adbc-driver-snowflake` supplies the ADBC Snowflake warehouse driver for the data partition rail: a `connect` factory binding the native `libadbc_driver_snowflake.so` to a Snowflake account as an `AdbcDatabase`, two `enum.Enum` option vocabularies (`DatabaseOptions`, `StatementOptions`) keying every account, connection, and statement setting by canonical `adbc.snowflake.*` string, and one `AuthType` value vocabulary selecting the authentication mode. Consumption rides `dbapi.connect` on the `REMOTE_PARTITION_DEEPEN` path — Snowflake returns each result set as Arrow chunks staged in cloud object storage, fetched concurrently under `PREFETCH_CONCURRENCY`, never a re-implemented Snowflake REST client, a hand-stitched chunk downloader, or a per-setting builder type where an option enum string already keys the value.
+`adbc-driver-snowflake` binds a Snowflake warehouse to the data partition rail: one `connect` factory loads the native `libadbc_driver_snowflake.so` into an `AdbcDatabase`, and typed `enum.Enum` vocabularies key every setting by its canonical `adbc.snowflake.*` string. Consumption rides `dbapi.connect` on the `REMOTE_PARTITION_DEEPEN` path — Snowflake stages each result set as Arrow chunks in cloud storage, fetched concurrently under `PREFETCH_CONCURRENCY` and delivered zero-copy to the partition, query, and dataframe owners.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `adbc-driver-snowflake`
-- package: `adbc-driver-snowflake`
-- import: `adbc_driver_snowflake`
+- package: `adbc-driver-snowflake` (`Apache-2.0`, Apache Arrow)
+- module: `adbc_driver_snowflake`
 - owner: `data`
 - rail: partition
-- license: `Apache-2.0`
-- entry points: library use is import-only; `connect` returns an `AdbcDatabase`, `dbapi.connect` returns a DBAPI `Connection`
-- capability: Snowflake account binding over the Go gosnowflake driver, concurrent Arrow result-chunk retrieval under a prefetch queue, staged bulk `adbc_ingest` with writer/upload/copy concurrency axes, authentication selection, high-precision decimal control, per-connection warehouse/role/database/schema routing, query tagging, and DBAPI cursor access yielding Arrow record batches
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: factory and option vocabularies
-- rail: partition
+[PUBLIC_TYPE_SCOPE]: option and credential vocabularies
 
-`connect` is the single low-level factory; `DatabaseOptions` and `StatementOptions` are `enum.Enum` option keys whose values are the canonical `adbc.snowflake.*` setting strings consumed by `db_kwargs`/statement options. `AuthType` is the `str` value vocabulary for `DatabaseOptions.AUTH_TYPE`, selecting the credential flow. `dbapi` carries the DBAPI facade — `Connection`, `Cursor`, the typed error hierarchy.
+`DatabaseOptions` and `StatementOptions` members carry the canonical `adbc.snowflake.*` setting strings; `AuthType` subclasses `str`, so a member passes directly as the `AUTH_TYPE` value.
 
-| [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [RAIL]                                                       |
-| :-----: | :----------------- | :------------ | :----------------------------------------------------------- |
-|  [01]   | `connect`          | factory       | bind a Snowflake account to an `AdbcDatabase`                |
-|  [02]   | `DatabaseOptions`  | option enum   | account- and connection-scoped `adbc.snowflake.*` keys       |
-|  [03]   | `StatementOptions` | option enum   | statement-scoped keys, incl. prefetch and ingest axes        |
-|  [04]   | `AuthType`         | value enum    | `str` credential-mode values for `DatabaseOptions.AUTH_TYPE` |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [CAPABILITY]                                           |
+| :-----: | :----------------- | :------------ | :----------------------------------------------------- |
+|  [01]   | `DatabaseOptions`  | enum          | account- and connection-scoped `adbc.snowflake.*` keys |
+|  [02]   | `StatementOptions` | enum          | statement keys, including prefetch and ingest axes     |
+|  [03]   | `AuthType`         | enum          | `str` credential-mode values for `AUTH_TYPE`           |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: connection factories
-- rail: partition
 
-`connect` mints the low-level `AdbcDatabase` bound to the native driver path; `dbapi.connect` wraps that in a DBAPI `Connection` and adds `conn_kwargs` because ADBC separates the shared database object from per-connection state. Both key `db_kwargs`/`conn_kwargs` by `DatabaseOptions` enum values.
-
-| [INDEX] | [SURFACE]       | [CALL_SHAPE]                                                                  | [CAPABILITY]                        |
-| :-----: | :-------------- | :---------------------------------------------------------------------------- | :---------------------------------- |
-|  [01]   | `connect`       | `connect(uri=None, db_kwargs=None) -> AdbcDatabase`                           | low-level Snowflake database handle |
-|  [02]   | `dbapi.connect` | `connect(uri=None, db_kwargs=None, conn_kwargs=None, **kwargs) -> Connection` | DBAPI connection over Snowflake     |
+| [INDEX] | [SURFACE]                                                            | [SHAPE] | [CAPABILITY]                        |
+| :-----: | :------------------------------------------------------------------- | :------ | :---------------------------------- |
+|  [01]   | `connect(uri, db_kwargs) -> AdbcDatabase`                            | factory | low-level Snowflake database handle |
+|  [02]   | `dbapi.connect(uri, db_kwargs, conn_kwargs, **kwargs) -> Connection` | factory | DBAPI connection over Snowflake     |
 
 [ENTRYPOINT_SCOPE]: `DatabaseOptions` keys
-- rail: partition
 
-Each member value is the canonical setting string passed in `db_kwargs`. Timeouts are duration strings; `AUTH_TYPE` selects an `AuthType` value and gates which credential rows apply; account routing sets warehouse, role, database, and schema at session scope.
+Timeouts are duration strings; `AUTH_TYPE` gates which credential rows apply.
 
 | [INDEX] | [MEMBER]                   | [VALUE]                                                           | [CAPABILITY]                          |
 | :-----: | :------------------------- | :---------------------------------------------------------------- | :------------------------------------ |
@@ -76,8 +67,8 @@ Each member value is the canonical setting string passed in `db_kwargs`. Timeout
 |  [28]   | `USE_HIGH_PRECISION`       | `adbc.snowflake.sql.client_option.use_high_precision`             | exact `NUMBER` as Arrow `Decimal128`  |
 
 [ENTRYPOINT_SCOPE]: `StatementOptions` keys
-- rail: partition
-- Every key is prefixed `StatementOptions.` and owns the result-chunk prefetch queue, the query tag, and the staged-ingest concurrency axes; `RESULT_QUEUE_SIZE` shares the transport-neutral `adbc.rpc.result_queue_size` key with the other ADBC drivers.
+
+`RESULT_QUEUE_SIZE` carries the transport-neutral `adbc.rpc.result_queue_size` key shared with the other ADBC drivers.
 
 | [INDEX] | [MEMBER]                    | [VALUE]                                              | [CAPABILITY]                                 |
 | :-----: | :-------------------------- | :--------------------------------------------------- | :------------------------------------------- |
@@ -90,9 +81,6 @@ Each member value is the canonical setting string passed in `db_kwargs`. Timeout
 |  [07]   | `INGEST_TARGET_FILE_SIZE`   | `adbc.snowflake.statement.ingest_target_file_size`   | target staged-file byte size per split       |
 
 [ENTRYPOINT_SCOPE]: `AuthType` values
-- rail: partition
-
-Each value keys `DatabaseOptions.AUTH_TYPE` and gates which credential rows apply; `AuthType` subclasses `str`, so the enum member passes directly as the option value.
 
 | [INDEX] | [MEMBER]                    | [VALUE]            | [CAPABILITY]                               |
 | :-----: | :-------------------------- | :----------------- | :----------------------------------------- |
@@ -107,20 +95,23 @@ Each value keys `DatabaseOptions.AUTH_TYPE` and gates which credential rows appl
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[PARTITION_SNOWFLAKE]:
-- import: `import adbc_driver_snowflake` (and `adbc_driver_snowflake.dbapi`) at boundary scope only; module-level import is banned by the manifest import policy.
-- factory axis: one `connect` owns account binding to the native `libadbc_driver_snowflake.so`; `dbapi.connect` is the DBAPI row that adds `conn_kwargs`, never a parallel client class — the database object is shared and connections are derived from it.
-- option axis: `DatabaseOptions`/`StatementOptions` enum values are the canonical `adbc.snowflake.*` keys; settings flow as `db_kwargs`/statement-option dictionaries keyed by enum value, never as ad hoc string literals or a per-setting builder type; account routing (warehouse, role, database, schema) sets session context at database scope.
-- auth axis: `AUTH_TYPE` selects an `AuthType` value; password and MFA use the account's login rows, key-pair JWT keys the private-key rows, OAuth and PAT carry `AUTH_TOKEN`, Okta keys `AUTH_OKTA_URL`, and workload-identity keys `CLIENT_IDENTITY_PROVIDER` — one enum discriminates the flow, never a per-mode connect variant; credential material stays runtime-owned.
-- transport security axis: production policy refuses `SSL_SKIP_VERIFY` and `OCSP_FAIL_OPEN_MODE`; a declared trusted-environment profile is the sole admission row for either bypass, and connection evidence records the admitted key.
-- partition axis: `REMOTE_PARTITION_DEEPEN` runs `Cursor.adbc_execute_partitions` to receive the Snowflake result-chunk descriptors, then opens each with `adbc_read_partition` as an independent `RecordBatchReader`; the driver downloads chunks from cloud staging concurrently under `StatementOptions.PREFETCH_CONCURRENCY`, and `RESULT_QUEUE_SIZE` tunes per-reader read-ahead — chunk retrieval is the native driver's, never a hand-stitched REST download loop.
-- ingest axis: bulk load runs `Cursor.adbc_ingest` writing Arrow to internal-stage Parquet then `COPY INTO`; `INGEST_WRITER_CONCURRENCY`, `INGEST_UPLOAD_CONCURRENCY`, `INGEST_COPY_CONCURRENCY`, and `INGEST_TARGET_FILE_SIZE` tune the write/upload/copy pipeline and split size — never a hand-rolled `PUT`/`COPY` sequence.
-- manager axis: the concrete driver delegates loading, the DBAPI surface (`Connection`/`Cursor`/`Error` tree), and Arrow result delivery to `adbc_driver_manager`; this catalog adds only the Snowflake option vocabulary and `AuthType` axis — never a parallel DBAPI implementation. Typed error tree and `AdbcStatusCode` mapping stay the manager's.
-- arrow egress axis: each result-chunk `RecordBatchReader` exposes `__arrow_c_stream__`, so a Snowflake result feeds `arro3.core.RecordBatchReader.from_stream` or `polars.from_arrow` with zero copy; `USE_HIGH_PRECISION` keeps exact `NUMBER` columns as Arrow `Decimal128` rather than lossy float; fan chunks across workers and collapse them with one terminal `read_all`/`fetch_arrow_table`.
-- precision axis: `USE_HIGH_PRECISION` governs whether `NUMBER`/`NUMERIC` land as `Decimal128` (exact) or `Float64` (compact); the impact and quantity planes take the high-precision row so carbon and quantity sums never drift on a float round-trip.
-- telemetry axis: the Go driver embeds its own OTel tracer configured through the standard `OTEL_TRACES_EXPORTER`/`OTEL_EXPORTER_OTLP_*`/`OTEL_SERVICE_NAME` env family, and `DISABLE_TELEMETRY` suppresses Snowflake's in-band client telemetry; the raw option `adbc.telemetry.trace_parent` — spelled by no Python enum, verified against the shipped `libadbc_driver_snowflake.so` — accepts a W3C `traceparent` so driver spans join the caller's trace; no Python-side instrumentor covers this driver.
-- evidence: each connection captures the resolved account, warehouse/role/database/schema, auth type, applied option keys, result-chunk count, per-chunk batch count, and Arrow schema as a partition receipt.
-- boundary: the driver owns the Snowflake session transport, option application, result-chunk retrieval, and staged ingest, emitting Arrow record batches consumed by the data partition owner; result-set materialization and dataframe conversion route to `pyarrow`/`polars`, and credential identity minting stays with the runtime owner.
+[TOPOLOGY]:
+- one `connect` binds the account to the native `libadbc_driver_snowflake.so`; `dbapi.connect` is the DBAPI row adding `conn_kwargs` over the shared database object, never a parallel client class.
+- `DatabaseOptions`/`StatementOptions` values are the canonical `adbc.snowflake.*` keys carried as `db_kwargs`/statement dictionaries, never string literals or a per-setting builder type; account routing sets warehouse, role, database, and schema at session scope.
+- `AUTH_TYPE` selects one `AuthType` value discriminating the credential flow, never a per-mode connect variant; credential material stays runtime-owned.
+
+[STACKING]:
+- `adbc-driver-manager`(`.api/adbc-driver-manager.md`): delegates driver loading, the DBAPI tree (`Connection`/`Cursor`/`Error`, `AdbcStatusCode` mapping), and Arrow delivery; this catalog adds only the Snowflake option vocabulary and `AuthType`, and inherits the manager's ADBC Go-driver OTel telemetry contract.
+- `pyarrow`(`.api/pyarrow.md`) / `arro3-core`(`.api/arro3-core.md`) / `polars`(`.api/polars.md`): each result-chunk `RecordBatchReader.__arrow_c_stream__` feeds `arro3.core.RecordBatchReader.from_stream` or `polars.from_arrow` zero-copy; fan chunks across workers and collapse with one terminal `fetch_arrow_table`/`read_all`.
+- partition deepen: `REMOTE_PARTITION_DEEPEN` runs `Cursor.adbc_execute_partitions` for the chunk descriptors, opens each with `adbc_read_partition` as an independent `RecordBatchReader`, and downloads from cloud staging concurrently under `PREFETCH_CONCURRENCY` with `RESULT_QUEUE_SIZE` read-ahead.
+- staged ingest: `Cursor.adbc_ingest` writes Arrow to internal-stage Parquet then `COPY INTO`, tuned by `INGEST_WRITER_CONCURRENCY`, `INGEST_UPLOAD_CONCURRENCY`, `INGEST_COPY_CONCURRENCY`, and `INGEST_TARGET_FILE_SIZE`.
+
+[LOCAL_ADMISSION]:
+- import `adbc_driver_snowflake` and `adbc_driver_snowflake.dbapi` at boundary scope only.
+- `USE_HIGH_PRECISION` lands `NUMBER`/`NUMERIC` as Arrow `Decimal128` rather than `Float64`; the impact and quantity planes take it so carbon and quantity sums never drift on a float round-trip.
+- production refuses `SSL_SKIP_VERIFY` and `OCSP_FAIL_OPEN_MODE`; a declared trusted-environment profile is the sole bypass admission, and connection evidence records the admitted key.
+- `DISABLE_TELEMETRY` suppresses Snowflake in-band client telemetry.
+- each connection captures the resolved account, warehouse/role/database/schema, auth type, applied option keys, result-chunk count, per-chunk batch count, and Arrow schema as a partition receipt.
 
 [RAIL_LAW]:
 - Package: `adbc-driver-snowflake`

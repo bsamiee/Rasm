@@ -31,14 +31,11 @@ export const meta = {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const CAP = 14; // runtime concurrency clamp is min(16, cores-2) = 14 on this machine; matching it keeps the stagger honest
-const STAGGER_MS = 1500;
-const STALL = 300000;
+const CAP = 14;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the progress gate (no shrinkage -> stop) is the real bound
 const CENSUS_PAGES = 10; // pages per census lane; a folder past it splits so each lane returns a bounded entry set on the wire
 const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // absolute working root; every disk path a prompt names resolves here
-const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical lane; the count bounds spend, the backoff buys recovery time
-const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
+const RETRY_ATTEMPTS = 2;
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -427,21 +424,14 @@ const LANG = {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-// Agent-level slot scheduler: CAP agents in flight across ALL chains, staggered launch, work-conserving
+// Agent-level slot scheduler: CAP agents in flight across ALL chains, work-conserving
 // backfill the moment a slot frees. The single governor for every agent call.
 const makeSlots = (cap) => {
     let active = 0;
-    let gate = Promise.resolve();
     const waiters = [];
-    const stagger = () => {
-        gate = gate.then(() => sleep(STAGGER_MS));
-        return gate;
-    };
     return async (fn) => {
         if (active >= cap) await new Promise((res) => waiters.push(res));
         active++;
-        await stagger();
         try {
             return await fn();
         } finally {
@@ -452,11 +442,10 @@ const makeSlots = (cap) => {
     };
 };
 const slot = makeSlots(CAP);
-// Bounded re-dispatch for a dead CRITICAL lane (usage-limit or transport death): attempt-counted with a backoff before each; the
+// Bounded re-dispatch for a dead CRITICAL lane (usage-limit or transport death): attempt-counted with a retry before each; the
 // final death isolates the lane but NEVER the chain — every downstream stage still runs against current disk.
 const retryLane = async (fn) => {
     for (let a = 0; a < RETRY_ATTEMPTS; a++) {
-        await sleep(RETRY_BACKOFF);
         const r = await fn();
         if (r) return r;
     }
@@ -538,7 +527,7 @@ const codexPrompt = (label, task, schema, o) => {
         lane +
         '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
         'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
-        're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (idle-timeout, max-timeout, turn-failed, ' +
+        're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (max-timeout, turn-failed, ' +
         'refusal) re-runs the same command untouched. (3) ' +
         (authored
             ? 'The delegate lands the product itself at ' + report + ' as its final act.'
@@ -582,7 +571,6 @@ const nativeLane = (task, o) =>
             model: o.nativeModel || twinOf(o.model),
             effort: 'high',
             schema: RECEIPT,
-            stallMs: o.stallMs || STALL,
         },
     );
 const recon = (task, o) =>
@@ -592,7 +580,6 @@ const recon = (task, o) =>
         model: 'sonnet',
         effort: 'low',
         schema: RECEIPT,
-        stallMs: o.stallMs || STALL,
     })
         .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
         .then((r) => ({
@@ -648,7 +635,7 @@ const censusCodexPrompt = (label, task, o) => {
         lane +
         '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
         'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
-        're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (idle-timeout, max-timeout, turn-failed, ' +
+        're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (max-timeout, turn-failed, ' +
         'refusal) re-runs the same command untouched. (3) The lane lands the census product at ' +
         report +
         ' via --out. Verify with one Bash call: jq -e . ' +
@@ -672,7 +659,6 @@ const census = (task, o) =>
         model: 'sonnet',
         effort: 'low',
         schema: CENSUS_WIRE,
-        stallMs: STALL,
     })
         .then((r) =>
             r && (!r.entries || !r.entries.length) && /usage|quota|limit/i.test((r && r.summary) || '')
@@ -683,7 +669,7 @@ const census = (task, o) =>
                           '/' +
                           fileTag(o.label) +
                           '-report.json (Write tool, absolute path under the repo root), then return the SAME object as your final message.',
-                      { label: o.label, phase: 'Census', model: 'opus', effort: 'high', schema: CENSUS_WIRE, stallMs: STALL },
+                      { label: o.label, phase: 'Census', model: 'opus', effort: 'high', schema: CENSUS_WIRE },
                   )
                 : r,
         )
@@ -1198,7 +1184,7 @@ if (!TARGETS.length) {
 
 phase('Discover');
 const disc = await slot(() =>
-    agent(discoverPrompt(), { label: 'discover', phase: 'Discover', model: 'sonnet', effort: 'low', schema: DISCOVER_SCHEMA, stallMs: STALL }),
+    agent(discoverPrompt(), { label: 'discover', phase: 'Discover', model: 'sonnet', effort: 'low', schema: DISCOVER_SCHEMA }),
 );
 // Guard the model-emitted page roster: a discover-emitted path outside a valid libs/{cs,py,ts} route would route as cs by
 // Lof's fallback and dispatch census/apply on a wrong-language page — drop it before any lane fires.
@@ -1265,7 +1251,6 @@ const verified = (
                           phase: 'Verify',
                           schema: VERDICT_SCHEMA,
                           nativeModel: 'opus',
-                          stallMs: STALL,
                       }),
                   )
                 : recon(verifyPrompt(L, c, 'codex'), {
@@ -1319,7 +1304,6 @@ const built = (
                     model: 'fable',
                     effort: 'high',
                     schema: FIXLOG_SCHEMA,
-                    stallMs: STALL,
                 });
                 const apply =
                     (await slot(() => agent(applyPrompt(L, folder, folderEntries, verdictReports, SCOPES), applyOpts('')))) ||
@@ -1335,7 +1319,6 @@ const built = (
                         writes: true,
                         fix: true,
                         nativeModel: 'fable',
-                        stallMs: STALL,
                         scope: [...new Set(folderEntries.map((e) => e.page))],
                         hl: { arr: 'files' },
                     }),
@@ -1351,7 +1334,6 @@ const built = (
                     model: 'fable',
                     effort: 'high',
                     schema: REVIEW_SCHEMA,
-                    stallMs: STALL,
                 });
                 const rt = (await slot(() => agent(rtArgs, rtOpts('')))) || (await retryLane(() => slot(() => agent(rtArgs, rtOpts(':a1')))));
                 return { folder, entries: folderEntries, apply, crit: critR, critReport, rt };
@@ -1412,7 +1394,6 @@ for (let round = 0; round < DRAIN_ROUNDS; round++) {
                 model: 'fable',
                 effort: 'high',
                 schema: FIXER_SCHEMA,
-                stallMs: STALL,
             }),
         );
     fixer = (await fire('')) || (await retryLane(() => fire(':a1')));
@@ -1453,7 +1434,7 @@ const doctrine =
                       'whose coupling no longer holds, land a coupling this run proved.\n' +
                       'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
                       'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.',
-                  { label: 'doctrine', phase: 'Close', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
+                  { label: 'doctrine', phase: 'Close', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA },
               ),
           )
         : null;

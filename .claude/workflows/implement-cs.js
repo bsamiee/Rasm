@@ -18,18 +18,15 @@ export const meta = {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const CAP = 14; // concurrent folder-CHAIN ceiling — the default target sets run below it; it binds only when args name more folders than CAP
+const CAP = 14;
 const IMPL_FAN = 3; // max implement agents fanned per folder, and only over discovery-proven page-disjoint card groups
-const STAGGER_MS = 1500;
-const STALL = 300000;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the no-shrinkage progress gate (no remaining shrinkage -> stop) is the real bound
 const ROOT = 'libs/csharp';
 const ROOT_DIR = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // absolute checkout root — the resolution anchor every native + codex lane pins
 const SHARED_API = 'libs/csharp/.api';
 const CENTRAL = 'Directory.Packages.props';
 const DEFAULT_TARGETS = ['libs/csharp/Rasm.AppHost', 'libs/csharp/Rasm.Compute', 'libs/csharp/Rasm.AppUi', 'libs/csharp/Rasm.Persistence'];
-const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical lane; the count bounds spend, the backoff buys recovery time
-const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
+const RETRY_ATTEMPTS = 2;
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -646,21 +643,12 @@ const OWN_PASS = (artifact) =>
     'report is navigation facts covering a MINORITY of what the work demands, and the majority of edits come from your own attack.';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-// One shared launch gate: chain heads and implement-fan members alike pass it, so every pooled start stays staggered.
-let gate = Promise.resolve();
-const stagger = () => {
-    gate = gate.then(() => sleep(STAGGER_MS));
-    return gate;
-};
 const pool = async (items, cap, worker) => {
     const out = new Array(items.length);
     let next = 0;
     const run = async () => {
         while (next < items.length) {
             const i = next++;
-            await stagger();
             out[i] = await worker(items[i], i);
         }
     };
@@ -668,18 +656,17 @@ const pool = async (items, cap, worker) => {
     return out;
 };
 // Bounded re-dispatch for a dead CRITICAL lane (usage-limit or transport death — the lane resolved null/!ok): attempt-counted with a
-// backoff before each attempt sized to a limit reset, and the final death isolates the lane, NEVER the chain — every downstream
+// retry sized to a limit reset, and the final death isolates the lane, NEVER the chain — every downstream
 // stage still runs against current disk. `fn` returns the live product or null; a persisting null returns null to the caller.
 const retryLane = async (fn) => {
     for (let a = 0; a < RETRY_ATTEMPTS; a++) {
-        await sleep(RETRY_BACKOFF);
         const r = await fn();
         if (r) return r;
     }
     return null;
 };
 
-// Codex dispatch: the wrapper makes one blocking Codex MCP call, writes the envelope's content
+// Codex dispatch: the wrapper runs one blocking supervised CLI process and writes its content
 // to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
 // (role split, battery-validated); the prompt carries only the task; the output contract sits LAST.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
@@ -751,8 +738,8 @@ const codexPrompt = (label, task, schema, o) => {
             lane +
             '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason ' +
             '"crash" alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land ' +
-            'the receipt" and re-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (idle-timeout, ' +
-            'max-timeout, turn-failed, refusal) re-runs the same command untouched.',
+            'the receipt" and re-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (' +
+            'turn failure or refusal) re-runs the same command untouched.',
         '(3) ' +
             (authored
                 ? 'The delegate lands the product itself at ' + report + ' as its final act.'
@@ -782,7 +769,6 @@ const nativeLane = (task, o) =>
         model: o.nativeModel || twinOf(o.model),
         effort: 'high',
         schema: o.wire,
-        stallMs: o.stallMs || STALL,
     });
 // The discovery lane routes here: a recon mapping lane — recon law, never fix —
 // with a native-twin fallback on quota exhaustion. The row carries `scope` from the ORCHESTRATOR (never the
@@ -831,7 +817,7 @@ const recon = (task, o) => {
 };
 const folderName = (p) => p.split('/').filter(Boolean).pop() || p;
 
-// Critique lane: one blocking Codex MCP call at the operator-default tier — a FIX lane
+// Critique lane: one blocking supervised Codex CLI process at the operator-default tier — a FIX lane
 // (persistence + post-edit verification law), FIXLOG product to disk, thin receipt on the wire; a quota fallback restores
 // the native twin writing the same product to the same path.
 const critiqueReceipt = (base) =>
@@ -1328,7 +1314,7 @@ log('Pooling ' + TARGETS.length + ' folder chain(s) at CAP=' + CAP);
 const runFolder = async (target) => {
     const tag = folderName(target);
     try {
-        // Discovery severs the WHOLE folder chain on death (no worklist, no downstream): bounded re-dispatch with a backoff before
+        // Discovery severs the WHOLE folder chain on death (no worklist, no downstream): bounded re-dispatch with a retry before
         // the isolation verdict. recon() always resolves an object, so the retry gates on `.ok`, not truthiness.
         let t = await recon(discoverPrompt(target), { label: 'discover:' + tag, phase: 'Realize', scope: [target] });
         if (!t.ok) {
@@ -1361,8 +1347,7 @@ const runFolder = async (target) => {
             impls = (
                 await parallel(
                     groups.map((g, gi) => async () => {
-                        await stagger();
-                        // Each page-disjoint group is landed work: a dead group earns the backoff-counted retry before it is lost.
+                        // Each page-disjoint group is landed work: a dead group earns the bounded retry before it is lost.
                         const fire = (suffix) =>
                             agent(implementPrompt(target, groupSeq(t, g), report, GROUPNOTE, SCRATCH + '/ownpass-impl-' + tag + '-g' + gi + '.md'), {
                                 label: 'implement:' + tag + ':g' + gi + suffix,
@@ -1370,7 +1355,6 @@ const runFolder = async (target) => {
                                 schema: FIXLOG_SCHEMA,
                                 model: 'fable',
                                 effort: 'high',
-                                stallMs: STALL,
                             });
                         return (await fire('')) || (await retryLane(() => fire(':r1')));
                     }),
@@ -1384,7 +1368,6 @@ const runFolder = async (target) => {
                     schema: FIXLOG_SCHEMA,
                     model: 'fable',
                     effort: 'high',
-                    stallMs: STALL,
                 });
             const one = (await fire('')) || (await retryLane(() => fire(':r1')));
             impls = one ? [one] : [];
@@ -1398,13 +1381,11 @@ const runFolder = async (target) => {
         // critique report path is DETERMINISTIC — the critique lane writes the fixlog before its wrapper ceiling can kill the call, so a
         // dead receipt never severs the fold: downstream consumers check the path on disk, never trust `ok`.
         const critReport = SCRATCH + '/' + fileTag('critique:' + tag) + '-report.json';
-        await stagger();
         const crit = await solLane(critiquePrompt(target, seq, report, SCRATCH + '/ownpass-crit-' + tag + '.md'), {
             label: 'critique:' + tag,
             phase: 'Realize',
         });
-        await stagger();
-        // Terminal close + sole card-status owner: a dead redteam loses every close for the folder, so it earns the backoff retry.
+        // Terminal close + sole card-status owner: a dead redteam loses every close for the folder, so it earns the retry.
         const rfire = (suffix) =>
             agent(redteamPrompt(target, seq, report, critReport, crit.ok, SCRATCH + '/ownpass-rt-' + tag + '.md'), {
                 label: 'redteam:' + tag + suffix,
@@ -1412,7 +1393,6 @@ const runFolder = async (target) => {
                 schema: REDTEAM_SCHEMA,
                 model: 'fable',
                 effort: 'high',
-                stallMs: STALL,
             });
         const red = (await rfire('')) || (await retryLane(() => rfire(':r1')));
         return {
@@ -1491,7 +1471,7 @@ const BACKLOG = deferred.map((d) => ({ files: [], claim: d.folder + ' [' + d.slu
 // Terminal DRAIN LOOP: one serial single-writer per round. Every round re-receives the FULL tranche set — the reported pins,
 // seam rows, and every critique fixlog re-arrive each round, gated by the disk CHECKPOINT LEDGER (receipted tranches skip, the rest
 // drain), so a dead or partial round starves nothing; only the deferred backlog narrows via `remaining`. The terminal writer earns
-// the backoff retry (its death would lose the pin/seam applies), a round cap and a no-shrinkage gate bound the loop, and the
+// the retry (its death would lose the pin/seam applies), a round cap and a no-shrinkage gate bound the loop, and the
 // blocked remainder rides the run return.
 let pinlog = null;
 let pinHarvest = [];
@@ -1508,7 +1488,6 @@ if (DRAIN_RAN) {
                 schema: PIN_SCHEMA,
                 model: 'opus',
                 effort: 'high',
-                stallMs: STALL,
             });
         pinlog = (await fire('')) || (await retryLane(() => fire(':a1')));
         if (!pinlog) break; // dead round after retries: the residual set survives to the run return; every disk tranche stays checkpoint-re-enterable
@@ -1533,7 +1512,6 @@ if (HARVEST_ROWS.length || ORPHANS.length || (DRAIN_RAN && !pinlog)) {
         schema: DOCTRINE_SCHEMA,
         model: 'fable',
         effort: 'high',
-        stallMs: STALL,
     });
 }
 

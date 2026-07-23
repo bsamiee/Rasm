@@ -69,11 +69,11 @@ Codex carries ten of these events, `Stop`/`SubagentStop` among them; the team an
 |  [04]   | `prompt`   | Single-turn LLM judgment, `{ok, reason}` decision  |        30s        |
 |  [05]   | `agent`    | Multi-turn tool-using verification, up to 50 turns |        60s        |
 
-`command` is the only handler both providers run and the only one that enforces hard security — an `mcp_tool` disconnect or a `prompt` model timeout degrades to a non-blocking error, so real policy rides `command`. Codex parses `prompt`/`agent`/`async` and skips them, and has no `http`/`mcp_tool` handler; a dual-provider hook is therefore a `command` hook. Prompt and agent handlers bind only to the judgment-eligible events; the eligibility roster is the config reference.
+`command` is the shared handler and owns deterministic policy. Codex parses `prompt`/`agent`/`async` and skips them, so a dual-provider hook uses `command`. Prompt and agent handlers bind only to the judgment-eligible events; the eligibility roster is the config reference.
 
 ## [04]-[PROVIDER_DIVERGENCE]
 
-Claude Code is the superset: thirty events, five handler types, `terminalSequence`, async, a rich per-event JSON dialect. Codex is command-only and synchronous — ten events, tool coverage limited to `Bash`/`apply_patch`/MCP, `notify` a separate legacy channel beside the bus. Exit 2 with a stderr reason on the shared tool, prompt, and `Stop`/`SubagentStop` events behaves identically on both, so a body that only ever blocks that way ports verbatim. Once a hook injects context or rewrites a value through stdout JSON, the dialects diverge and the dual-provider reference owns the exact shape.
+Claude Code is the superset: thirty events, five handler types, `terminalSequence`, async, a rich per-event JSON dialect. Codex is command-only and synchronous with ten events. Exit 2 with a stderr reason on the shared tool, prompt, and `Stop`/`SubagentStop` events behaves identically on both, so a body that only ever blocks that way ports verbatim. Once a hook injects context or rewrites a value through stdout JSON, the dialects diverge and the dual-provider reference owns the exact shape.
 
 ## [05]-[GATE]
 

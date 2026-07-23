@@ -1,96 +1,70 @@
 # [PY_ARTIFACTS_API_RESVG_PY]
 
-`resvg-py` supplies the host-free SVG-to-PNG raster floor the `graphic/vector#VECTOR` geometry primitive folds as its terminal `Rasterize` arm: a single native `svg_to_bytes` entrypoint that parses SVG markup (or an `.svg`/`.svgz` file) and renders it to PNG-encoded `bytes` through the embedded Rust `resvg 0.47.0` / `usvg` / `tiny-skia` stack, with explicit `width`/`height`/`zoom`/`dpi` sizing, CSS `background`, `style_sheet` injection, deterministic system/explicit-file/directory font resolution with the six generic-family overrides, `xlink:href` `resources_dir` resolution, `<switch>` `languages`, and per-axis `shape`/`text`/`image` rendering policy. It owns SVG rasterization with no Cairo/`cairosvg` system library, no headless browser, and no external process: parse, font resolution, and PNG encoding are all in-extension. The `graphic/vector#VECTOR` owner drives one `svg_to_bytes` call through the `RenderPolicy.kwargs` spread under the shared `execution/lanes#LANE` `WORKER_BAND` `to_process` worker seam, mapping the engine's `ValueError` onto `graphic/vector#VECTOR` `VectorFault.render`; it never re-implements the SVG path grammar, the affine algebra, the text shaper, or the PNG encoder the engine already owns, and it never mints identity or a receipt of its own. This engine emits raster PNG only — chart/Vega-origin SVGs raster through the `vl-convert-python` bundled `resvg` core (no second rasterizer for chart SVGs), and vector PDF output routes to `typst`/`weasyprint`/`reportlab`, never here.
+`resvg-py` rasterizes SVG markup or an `.svg`/`.svgz` file to PNG-encoded `bytes` through one native `svg_to_bytes` sink over an embedded Rust `resvg`/`usvg`/`tiny-skia` stack — parse, font resolution, and PNG encoding all in-extension, with no Cairo, headless browser, or external process. It is the host-free raster floor the `graphic/vector#VECTOR` primitive folds as its terminal `Rasterize` arm; it emits raster PNG only, since vector-PDF egress routes to `typst`/`weasyprint`/`reportlab` and chart/Vega-origin SVG rasters through `vl-convert-python`'s bundled `resvg` core.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `resvg-py`
-- package: `resvg-py`
+- package: `resvg-py` (`MIT` wheel; embedded Rust `resvg`/`usvg`/`tiny-skia` stack is `MPL-2.0`/`zlib`, compiled into the `.so`)
 - import: `resvg_py`
 - owner: `artifacts`
-- rail: imaging (the `graphic/vector#VECTOR` raster floor)
-- license: MIT (PyO3/maturin extension; the statically-linked embedded Rust `resvg`/`usvg`/`tiny-skia` stack is MPL-2.0 + zlib, compiled into the `.so` — no copyleft obligation on the consuming Python)
-- build-floor: abi3 native wheel; cp315 wheel present and bound on this interpreter (`resvg_py.cpython-315-darwin.so`) — no `python_version` gate required, no source build
-- installed: `0.3.3` (embedded engine `__resvg_version__ == "0.47.0"`)
-- entry points: none (library use is import-only; no console script)
-- capability: in-process SVG-to-PNG rasterization over the embedded Rust `resvg 0.47.0` engine — string or `.svg`/`.svgz`-file input, explicit `width`/`height`/`zoom`/`dpi` sizing, CSS `background`, `style_sheet` parse-time injection, `resources_dir` `xlink:href` resolution, `<switch>` `languages`, system/explicit-file/directory font resolution with the six generic-family overrides + default `font_size`, and per-axis `shape_rendering`/`text_rendering`/`image_rendering` quality policy, returning PNG-encoded `bytes` (PNG magic `\x89PNG\r\n\x1a\n`); raises `ValueError` on empty/invalid SVG, an unparseable `background`/option value, or a render failure
+- rail: imaging — the `graphic/vector#VECTOR` raster floor
+- entry points: none (library only)
+- capability: in-process SVG-to-PNG rasterization — string or `.svg`/`.svgz`-file input, `width`/`height`/`zoom`/`dpi` sizing, CSS `background`, parse-time `style_sheet` injection, `resources_dir` `xlink:href` resolution, `<switch>` `languages`, system/file/directory font resolution with six generic-family overrides, and per-axis `shape_rendering`/`text_rendering`/`image_rendering` policy, returning PNG `bytes`; raises `ValueError` on empty/invalid SVG, an unparseable option, or a render failure
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: rasterizer entrypoint and version constants
-- rail: imaging
 
-The reflected `__all__` is exactly `['__version__', '__author__', '__resvg_version__', 'svg_to_bytes']`: one rendering function plus three string constants, no public classes, no enums, no submodule surface. `svg_to_bytes` is a native `builtin_function_or_method` on the Rust extension `resvg_py.cpython-315-darwin.so` carrying a populated `__doc__` and an `inspect.signature`-recoverable signature plus a shipped `__init__.pyi` stub (`py.typed` marked). `__resvg_version__` pins the embedded engine (`0.47.0`) — the version the imaging receipt records beside the package `__version__` (`0.3.3`), since the rasterizer's behavior tracks the Rust engine, not the thin Python package. The function is the single sink; there is no options object, no renderer class, no per-input or per-output-mode variant to discriminate.
+`__all__` is exactly the one render function and three string constants — no public class, enum, or submodule. `svg_to_bytes` is a native builtin on the Rust extension carrying `__doc__`, an `inspect.signature`-recoverable signature, a shipped `.pyi` stub, and `py.typed`. `__resvg_version__` pins the embedded engine and is the field the imaging receipt records beside `__version__`, since behavior tracks the Rust engine, not the thin Python package.
 
-| [INDEX] | [SYMBOL]            | [TYPE_FAMILY]    | [RAIL]                                                                 |
-| :-----: | :------------------ | :--------------- | :--------------------------------------------------------------------- |
-|  [01]   | `svg_to_bytes`      | render function  | native SVG-to-PNG rasterizer returning `bytes` (the `Rasterize` floor) |
-|  [02]   | `__version__`       | version constant | installed `resvg-py` package version (`0.3.3`)                         |
-|  [03]   | `__resvg_version__` | version constant | embedded Rust `resvg` engine version (`0.47.0`) — the receipt field    |
-|  [04]   | `__author__`        | version constant | package author string (`baseplate-admin`)                              |
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]                                                           |
+| :-----: | :------------------ | :------------ | :--------------------------------------------------------------------- |
+|  [01]   | `svg_to_bytes`      | function      | native SVG-to-PNG rasterizer returning `bytes` (the `Rasterize` floor) |
+|  [02]   | `__version__`       | constant      | installed `resvg-py` package version                                   |
+|  [03]   | `__resvg_version__` | constant      | embedded Rust `resvg` engine version — the receipt field               |
+|  [04]   | `__author__`        | constant      | package author string                                                  |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: SVG-to-PNG render
-- rail: imaging
 
-`svg_to_bytes(svg_string=None, svg_path=None, background=None, ...) -> bytes` accepts `svg_string` OR `svg_path` (exactly one required; `.svgz` gzip files decompress on the path arm); sizing is the `width`/`height`/`zoom`/`dpi` rows; parsing is `background`/`style_sheet`/`resources_dir`/`languages`; font resolution is `skip_system_fonts` plus `font_files`/`font_dirs`/`font_size` and the six `*_family` rows; rendering quality is the `shape_rendering`/`text_rendering`/`image_rendering` `Literal` policy axis; `log_information` toggles engine debug logs to stdout. It returns PNG-encoded `bytes`. All parameters are keyword-defaulted, so the consuming `RenderPolicy` projects exactly the axes a render needs through one `**`-spread, never a positional wall.
-
-| [INDEX] | [SURFACE]      | [CAPABILITY]                                          |
-| :-----: | :------------- | :---------------------------------------------------- |
-|  [01]   | `svg_to_bytes` | render SVG markup or `.svg`/`.svgz` file to PNG bytes |
+| [INDEX] | [SURFACE]                    | [SHAPE]  | [CAPABILITY]                                          |
+| :-----: | :--------------------------- | :------- | :---------------------------------------------------- |
+|  [01]   | `svg_to_bytes(...) -> bytes` | function | render SVG markup or `.svg`/`.svgz` file to PNG bytes |
 
 [ENTRYPOINT_SCOPE]: `svg_to_bytes` parameter axes
-- rail: imaging
 
-The reflected signature decomposes into source, sizing, parsing, font, rendering-policy, and logging axes; the `python signature` fence below is the exact native `inspect.signature` keyword order and the shipped `__init__.pyi` stub. The three `Literal` policy params and `languages` carry an `Ellipsis` runtime default in the native signature that resolves to the documented per-axis default inside the extension.
+Every parameter is keyword-defaulted, so `RenderPolicy` projects only the axes a render needs through one `**`-spread. Generic-family overrides carry `font_family`, `serif_family`, `sans_serif_family`, `cursive_family`, `fantasy_family`, `monospace_family`. Policy params are `Literal`: `shape_rendering` = `optimize_speed`/`crisp_edges`/`geometric_precision` (default last), `text_rendering` = `optimize_speed`/`optimize_legibility`/`geometric_precision` (default middle), `image_rendering` = `optimize_quality`/`optimize_speed` (default first).
 
-```python signature
-svg_to_bytes(
-    svg_string: str | None = None, svg_path: str | None = None,
-    background: str | None = None, skip_system_fonts: bool = False, log_information: bool = False,
-    width: int | None = None, height: int | None = None, zoom: float | None = None, dpi: float = 0.0,
-    style_sheet: str | None = None, resources_dir: str | None = None, languages: list[str] | None = None,
-    font_size: float = 16.0,
-    font_family: str | None = None, serif_family: str | None = None, sans_serif_family: str | None = None,
-    cursive_family: str | None = None, fantasy_family: str | None = None, monospace_family: str | None = None,
-    font_files: list[str] | None = None, font_dirs: list[str] | None = None,
-    shape_rendering: Literal["optimize_speed", "crisp_edges", "geometric_precision"] = "geometric_precision",
-    text_rendering: Literal["optimize_speed", "optimize_legibility", "geometric_precision"] = "optimize_legibility",
-    image_rendering: Literal["optimize_quality", "optimize_speed"] = "optimize_quality",
-) -> bytes
-```
-
-| [INDEX] | [AXIS]  | [CAPABILITY]                                                                        |
-| :-----: | :------ | :---------------------------------------------------------------------------------- |
-|  [01]   | source  | UTF-8 SVG markup or `.svg`/`.svgz` file path (exactly one required)                 |
-|  [02]   | sizing  | explicit pixel size, zoom multiplier, or DPI (`0.0` = SVG-declared size)            |
-|  [03]   | parsing | CSS canvas background, injected stylesheet, `xlink:href` root, `<switch>` languages |
-|  [04]   | font    | system/explicit-file/directory font loading with the six generic-family overrides   |
-|  [05]   | policy  | per-axis shape/text/image rendering quality policy                                  |
-|  [06]   | logging | print resvg debug logs to stdout (diagnostic only; off in production)               |
+| [INDEX] | [AXIS]  | [KEYWORDS]                                                  | [CAPABILITY]                                                    |
+| :-----: | :------ | :---------------------------------------------------------- | :-------------------------------------------------------------- |
+|  [01]   | source  | `svg_string`, `svg_path`                                    | UTF-8 SVG markup or `.svg`/`.svgz` path (exactly one)           |
+|  [02]   | sizing  | `width`, `height`, `zoom`, `dpi`                            | pixel size, zoom, or DPI (`dpi=0.0` = SVG-declared size)        |
+|  [03]   | parsing | `background`, `style_sheet`, `resources_dir`, `languages`   | background, stylesheet, `xlink:href` root, `<switch>` languages |
+|  [04]   | font    | `skip_system_fonts`, `font_files`, `font_dirs`, `font_size` | system/file/directory loading + the generic-family overrides    |
+|  [05]   | policy  | `shape_rendering`, `text_rendering`, `image_rendering`      | per-axis `Literal` quality policy                               |
+|  [06]   | logging | `log_information`                                           | resvg debug logs to stdout (diagnostic)                         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[IMAGING_RASTER]:
-- import: `lazy import resvg_py` at the `graphic/vector#VECTOR` worker arm only; module-level import is banned by the manifest import policy, and the native `.so` rides the `execution/lanes#LANE` `WORKER_BAND` worker, never the event-loop import path.
-- source axis: one `svg_to_bytes` owns rasterization; `svg_string` and `svg_path` are input rows on the same surface (`.svgz` decompresses on the path arm), never a per-input render function. The `graphic/vector#VECTOR` `Rasterize(document, render)` case always feeds the placed SVG `bytes` it assembled in-process through the `svg_string` arm (decoded to `str`), so the file arm stays available for an external `.svg`/`.svgz` source but the geometry pipeline rasters the document it just serialized.
-- sizing axis: `width`/`height`/`zoom`/`dpi` are call rows selecting output resolution; `dpi=0.0` defers to the SVG-declared size, never a separate scale type. Scale-to-fit math is resolved upstream by `svgelements` (`Length.value(ppi=, viewbox=)` against the `graphic/vector#VECTOR` resolved bbox) so `width`/`height` arrive computed, never guessed.
-- font axis: `skip_system_fonts` plus `font_files`/`font_dirs` and the six `*_family` + `font_size` overrides own deterministic font resolution as rows; when `skip_system_fonts=True`, explicit `font_files`/`font_dirs` supply the faces, never a parallel font-loader surface. This is the host-font-independent render path: pass the exact OTF/TTF a producer emitted.
-- policy axis: `shape_rendering`/`text_rendering`/`image_rendering` are `Literal` rows on the render call; quality is a policy value per axis, never a parallel renderer type. Each is one field on the consuming `RenderPolicy` `Struct`.
-- projection axis: the consuming `graphic/vector#VECTOR` `RenderPolicy` projects the full sizing/parsing/font/policy/logging axis through one `asdict`-driven `**`-spread onto the single `svg_to_bytes` call — each `()`-default tuple field coerces to `list(value) or None` so `languages`/`font_files`/`font_dirs` arrive as the catalogued `list[str] | None` shape — never a hand-forwarded keyword wall or an erased `dict[str, object]` bag. A new sizing/font/policy knob is one field on the existing `RenderPolicy` carried into the one spread, never a second rasterizer.
-- fault axis: the engine raises a single `ValueError` on empty/invalid SVG, a bad option value, an unparseable `background`, or a render failure; the consuming owner names that raise exactly at the `Rasterize` arm and maps it onto `graphic/vector#VECTOR` `VectorFault.render`, never a bare `except Exception` and never a railless body trusting `async_boundary` to swallow an unclassified raise.
-- evidence: each render captures package `__version__`, embedded engine `__resvg_version__` (`0.47.0`), output PNG byte length, and resolved pixel dimensions; this engine mints no identity and contributes no receipt of its own — the placed PNG `bytes` are keyed into the consuming placement plane's `ContentIdentity.of` and contributed to `core/receipt#RECEIPT` `ArtifactReceipt.Preview` (`composition/compose#COMPOSE`'s receipt), so there is no parallel imaging-receipt type.
-- boundary: resvg-py owns SVG-to-PNG rasterization with no Cairo, no headless browser, no external process; the `graphic/vector#VECTOR` geometry primitive folds it as the terminal `Rasterize` arm and `composition/compose#COMPOSE` imports that surface one hop; downstream PNG post-processing (ICC/quantize/composite/tone/sharpen/EXIF-orient) routes to `pillow` (or `pyvips`) on the same worker band only when explicitly required; chart/Vega-origin SVGs raster through the `vl-convert-python` bundled `resvg` core (single chart-SVG rasterizer, no parallel admission); vector-PDF output is a different sink (`typst`/`weasyprint`/`reportlab`); live UI stays outside this package.
+[TOPOLOGY]:
+- One `svg_to_bytes` sink owns rasterization: `svg_string`/`svg_path` are input rows (`.svgz` decompresses on the path arm), sizing/parsing/font/policy/logging are keyword rows, each `Literal` policy one `RenderPolicy` field — never an options object, renderer class, or per-input/per-mode variant. A new knob is one `RenderPolicy` field carried into the one `asdict`-driven `**`-spread that coerces each `()`-default tuple to the catalogued `list[str] | None`.
+- `graphic/vector#VECTOR` `Rasterize(document, render)` feeds the placed SVG `bytes` it serialized in-process through the `svg_string` arm (decoded to `str`); the file arm stays for an external `.svg`/`.svgz` source. `svgelements` `Length.value(ppi=, viewbox=)` resolves `width`/`height` against the target bbox so they arrive computed, and `dpi=0.0` defers to the SVG-declared size.
+- One `ValueError` covers empty/invalid SVG, a bad option, an unparseable `background`, or a render failure; the `Rasterize` arm names that raise and maps it to `graphic/vector#VECTOR` `VectorFault.render`, never a bare `except Exception` nor a railless body trusting `async_boundary` to swallow it.
+- Each render captures `__version__`, `__resvg_version__`, PNG byte length, and resolved pixel dimensions; the engine mints no identity and no receipt — the placed PNG keys into the placement plane's `ContentIdentity.of` and contributes to `core/receipt#RECEIPT` `ArtifactReceipt.Preview` (`composition/compose#COMPOSE`'s receipt).
 
 [STACKING]:
-- One worker crossing: because the resvg render is synchronous native/CPU work, the `graphic/vector#VECTOR` `Vector.of` modal rail crosses the whole op batch (parse + measure + rasterize) through ONE `execution/lanes#LANE` `WORKER_BAND`-bounded `anyio.to_process.run_sync(_worked, self.ops, limiter=WORKER_BAND)` seam off the event loop — never an inline render on the loop, never the default process limiter — so `svg_to_bytes` executes on the bounded worker and the typed `Block[VectorResult]` returns across the pickle hop. A transient `BrokenWorkerProcess` death recovers through a bounded `stamina.AsyncRetryingCaller(...).on(BrokenWorkerProcess)` retry before the `async_boundary` rails an exhausted failure, exactly as the `pillow`/`exchange/detect#DETECT` arms that share the same worker lane.
-- Producer → conditioning → raster → finish, one rail: `segno.QRCode.save(out, kind='svg')` / `blackrenderer` COLRv1 glyph SVG / `ziafont`/`ziamath` glyph-and-math SVG / `schemdraw` schematic SVG / a `drawsvg`-authored figure / the `graphic/marks#MARK` and figures-`ANNOTATE` composed SVG all emit SVG; `svgelements` (the sibling parse/transform/bbox owner the `graphic/vector#VECTOR` primitive folds) parses, scale-to-fits, n-ups, crops, and resolves the exact `width`/`height`/`dpi` against the target viewBox; `resvg_py.svg_to_bytes` rasterizes the placed document to PNG `bytes`; the result feeds `PIL.Image.open(io.BytesIO(...))` for ICC/quantize/compositing (the `pillow` `ImageCms` soft-proof + `Image.Quantize` arm) or `pyvips` for a fused downscale — all on the one worker band, so no native render or post-process touches the event loop.
-- Deterministic host-font-independent render: the `font_files`/`font_dirs`/`skip_system_fonts` axis stacks with the `fonttools` subset + `uharfbuzz` shaping rails — subset and freeze the exact faces a producer shaped, pass them as `font_files` with `skip_system_fonts=True`, and the rasterized glyph outlines match the document's shaped text byte-for-byte across hosts, independent of whatever system fonts the machine carries.
-- Single chart-SVG rasterizer discipline: a `vl-convert`/`altair`/Vega/`typst` SVG rasters through `vl-convert-python`'s own bundled `resvg` core (`svg_to_png`/`svg_to_pdf`), NOT through `resvg-py` — the two are not admitted in parallel for chart-origin SVGs. `resvg-py` is the raster floor for the net-new vector marks, glyph, QR, schematic, and composed-figure SVGs the `graphic/vector#VECTOR` primitive owns, where deterministic font-file injection and the per-axis rendering policy are load-bearing.
+- `svgelements` (`.api/svgelements.md`) is the sibling parse/transform/bbox owner the `graphic/vector#VECTOR` primitive folds ahead of the raster: it parses, scale-to-fits, n-ups, crops, and resolves the exact `width`/`height`/`dpi` against the target viewBox; `svg_to_bytes` rasterizes the placed document, and the PNG feeds `pillow` (`.api/pillow.md`) `PIL.Image.open(io.BytesIO(...))` for the `ImageCms` soft-proof + `Image.Quantize` arm or `pyvips` (`.api/pyvips.md`) for a fused downscale.
+- SVG producers `segno` (`.api/segno.md`) QR, `ziafont`/`ziamath` (`.api/ziafont.md`, `.api/ziamath.md`) glyph-and-math, `schemdraw` (`.api/schemdraw.md`) schematic, `drawsvg` (`.api/drawsvg.md`) figure, and the `graphic/marks#MARK`/figures-`ANNOTATE` composed SVG all emit into this one raster rail via `svgelements`; `blackrenderer` COLRv1 glyph SVG joins the same producer set.
+- `execution/lanes#LANE` `WORKER_BAND` carries the synchronous native render: `graphic/vector#VECTOR` `Vector.of` crosses the whole op batch (parse + measure + rasterize) through one `anyio.to_process.run_sync(_worked, self.ops, limiter=WORKER_BAND)` seam off the event loop, and the typed `Block[VectorResult]` returns across the pickle hop; a transient `BrokenWorkerProcess` recovers through a bounded `stamina.AsyncRetryingCaller(...).on(BrokenWorkerProcess)` retry, as the `pillow`/`exchange/detect#DETECT` arms sharing the lane do.
+- Deterministic host-font-independent render stacks with `fonttools` (`.api/fonttools.md`) subset + `uharfbuzz` (`.api/uharfbuzz.md`) shaping: subset and freeze the exact faces a producer shaped, pass them as `font_files` with `skip_system_fonts=True`, and rasterized glyph outlines match the shaped text byte-for-byte across hosts.
+
+[LOCAL_ADMISSION]:
+- Admitted as the sole SVG-to-PNG raster floor for the net-new vector/glyph/QR/schematic/composed-figure SVG the `graphic/vector#VECTOR` primitive owns, where deterministic font-file injection and per-axis rendering policy are load-bearing; chart/Vega-origin SVG rasters through `vl-convert-python` (`.api/vl-convert-python.md`)'s bundled `resvg` core (`svg_to_png`/`svg_to_pdf`), never a second admission here.
 
 [RAIL_LAW]:
 - Package: `resvg-py`
-- Owns: in-process SVG-to-PNG rasterization over the embedded Rust `resvg 0.47.0` engine — string/file (`.svg`/`.svgz`) input, explicit `width`/`height`/`zoom`/`dpi` sizing, CSS `background`, `style_sheet` injection, `resources_dir`/`languages` parsing, deterministic system/explicit-file/directory font resolution with the six generic-family overrides, and per-axis `shape_rendering`/`text_rendering`/`image_rendering` policy, returning PNG `bytes`
-- Accept: a placed SVG document from the `graphic/vector#VECTOR` `Rasterize` arm (and the `composition/compose#COMPOSE` plane that imports it one hop) rendered to PNG `bytes` on the `execution/lanes#LANE` `WORKER_BAND` worker; net-new vector/glyph/QR/schematic/composed-figure SVG from `segno`/`blackrenderer`/`ziafont`/`ziamath`/`schemdraw`/`drawsvg`/`graphic/marks#MARK`; the `exchange/detect#DETECT` `MediaClass.VECTOR` reader route
-- Reject: a wrapper-rename of `svg_to_bytes`; a Cairo/`cairosvg` or headless-browser rasterization path where the in-extension engine needs no external dependency; a hand-rolled SVG parser, affine helper, text shaper, or PNG encoder the resvg/`usvg`/`tiny-skia` stack already owns; a parallel render function per input or output mode; a second rasterizer for chart/Vega-origin SVGs that `vl-convert-python`'s bundled `resvg` core owns; a PDF/vector egress this raster-only engine does not emit (`typst`/`weasyprint`/`reportlab` own it); an inline render on the event loop where the `WORKER_BAND` `to_process` seam owns native CPU work; a `VectorFault.render` raise left unclassified; identity or receipt minting the runtime and the consuming placement owner own
+- Owns: in-process SVG-to-PNG rasterization over the embedded Rust `resvg` engine — string/file (`.svg`/`.svgz`) input, `width`/`height`/`zoom`/`dpi` sizing, CSS `background`, `style_sheet` injection, `resources_dir`/`languages` parsing, system/file/directory font resolution with six generic-family overrides, and per-axis `shape_rendering`/`text_rendering`/`image_rendering` policy, returning PNG `bytes`
+- Accept: a placed SVG document from the `graphic/vector#VECTOR` `Rasterize` arm (and `composition/compose#COMPOSE` one hop) rendered to PNG `bytes` on the `WORKER_BAND` worker; net-new vector/glyph/QR/schematic/composed-figure SVG from `segno`/`blackrenderer`/`ziafont`/`ziamath`/`schemdraw`/`drawsvg`/`graphic/marks#MARK`; the `exchange/detect#DETECT` `MediaClass.VECTOR` reader route
+- Reject: a wrapper-rename of `svg_to_bytes`; a Cairo/`cairosvg` or headless-browser path the in-extension engine makes unnecessary; a hand-rolled SVG parser, affine helper, text shaper, or PNG encoder the `resvg`/`usvg`/`tiny-skia` stack owns; a parallel render function per input or output mode; a second rasterizer for chart/Vega SVG that `vl-convert-python`'s bundled `resvg` core owns; a PDF/vector egress this raster-only engine does not emit (`typst`/`weasyprint`/`reportlab` own it); an inline render on the event loop where the `WORKER_BAND` `to_process` seam owns native CPU work; an unclassified `VectorFault.render` raise; identity or receipt minting the runtime and placement owner hold

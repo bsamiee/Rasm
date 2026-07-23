@@ -1,29 +1,26 @@
 # [PY_ARTIFACTS_API_PYTHON_CALAMINE]
 
-`python-calamine` (dist `python-calamine`, import `python_calamine`) supplies the fast Rust spreadsheet *read* surface for the artifacts office-ingest rail beside the odfpy ODS arm: a `CalamineWorkbook` root with `from_object`/`from_path`/`from_filelike` (and the `load_workbook` free-function mirror) ingress over the unified calamine engine, `sheet_names`/`sheets_metadata`/`table_names` workbook introspection, `get_sheet_by_name`/`get_sheet_by_index` sheet resolution, and a `CalamineSheet.to_python()`/`iter_rows()` row-matrix projection yielding the native `int | float | str | bool | datetime.{time,date,datetime,timedelta}` value union with no per-cell formula evaluation. The package owner composes `CalamineWorkbook.from_object`, `sheet_names`, `get_sheet_by_name`, and `CalamineSheet.to_python` into the `LensProvider.CALAMINE` `XLSX_READ` arm of the `document/lens#LENS` `DocumentLens` owner, folding each sheet's row matrix into a `document/model#NODE` `TableNode` of `RunNode` cells; it reads the OOXML/binary-Excel/ODS family (`.xlsx`/`.xlsm`/`.xlsb`/`.xls`/`.xla`/`.xlam`/`.ods`) odfpy's OASIS-only parser does not cover, and never re-implements the SpreadsheetML unzip, the BIFF binary record reader, or the shared-string/date-serial decode the calamine Rust core already owns. It is read-only — authoring stays at the openpyxl/xlsxwriter office owners.
+`python-calamine` binds the calamine Rust core as the read-only spreadsheet ingress for the artifacts office rail beside the odfpy ODS arm: `CalamineWorkbook` opens the OOXML, binary-Excel, and OpenDocument family (`.xlsx`/`.xlsm`/`.xlsb`/`.xls`/`.xla`/`.xlam`/`.ods`) from a path, `os.PathLike`, or seek+read buffer, introspects sheets and tables without materializing a grid, and projects each sheet to a native-scalar row matrix through `to_python`/`iter_rows` with calamine's own date-serial decode.
 
-`CALAMINE` is one of the lens `_GATED_PROVIDERS` (`{OCRMYPDF, CALAMINE, LXML}`): a *worker-process-isolation* gate distinct from its version marker — the version-specific PyO3 C-extension ships no cp315/abi3 wheel, so the manifest carries `python-calamine; python_version<'3.15'` and the arm is absent on cp315 until an abi3 wheel lands (the `_GATED_PROVIDERS` membership is the subprocess-panic-trap concern, not the version gate). The arm is reached through a module-scope `lazy import python_calamine`, and `DocumentLens._recovered` crosses `self.lane.offload(Kernel.of(_gated_recover, KernelTrait.HOSTILE), self)` so the Rust core decodes in a worker process under the runtime-owned lane — a panic in the PyO3 boundary is trapped at the process seam rather than surfacing inline on the loop, distinct from the GIL-releasing `KernelTrait.RELEASING` `CORE` providers. Both `.api` tiers stack into the one arm: the folder `document/model` `TableNode`/`RunNode` `msgspec.Struct` nodes are the fold target, the universal `expression` rail carries the `Result[Self, LensFault]` admission, the runtime `LanePolicy` composes the universal `anyio` process hop, and every recovered node keys through the bare `ContentIdentity.key` mint over its structural path + content preimage. The calamine engine is also bound for columnar data ingest by the DATA-tier `fastexcel` (`read_excel` → Arrow PyCapsule / `pyarrow.RecordBatch`); that is a disjoint concern — `fastexcel` owns the zero-copy Arrow/polars frame path for `libs/python/data`, this owner the `to_python` list-of-lists document-tree path for `artifacts` — so the two share the Rust core without overlapping the bounded concern.
+`python-calamine` reads the binary-Excel and SpreadsheetML formats odfpy's OASIS parser cannot and re-implements none of the unzip, BIFF reader, or shared-string decode the Rust core owns, evaluating no formula; `LensProvider.CALAMINE` folds each row matrix through its `XLSX_READ` arm into a `document/model` `TableNode` of `RunNode` cells, and authoring stays at the openpyxl/xlsxwriter/odfpy owners.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `python-calamine`
 - package: `python-calamine`
-- import: `python_calamine` (dist name `python-calamine`, import name `python_calamine`); the public names re-export from the native `python_calamine._python_calamine` PyO3 extension module, and `python_calamine.__all__` is the closed 16-symbol public surface
+- import: `python_calamine` (re-exports the native `python_calamine._python_calamine` PyO3 extension)
 - owner: `artifacts`
 - rail: office-ingest
-- version: `0.7.0` (installed-verified)
+- build: PyO3/Rust C-extension, version-specific ABI (not abi3)
 - license: MIT
-- floor: PyO3/Rust version-specific extension wheel (NOT abi3); no published cp315 wheel, so the manifest carries `python-calamine; python_version<'3.15'` — worker-isolated at the lens seam AND version-gated, the marker dropping when a stable cp315/abi3 wheel lands
-- depends-on: none (self-contained; the calamine Rust core owns the unzip/BIFF/shared-string/date-serial decode, so no Python-side dependency)
-- entry points: library use is import-only; no console script. The surface is the module-level `load_workbook` function plus the `CalamineWorkbook`/`CalamineSheet`/`CalamineTable`/`SheetMetadata`/`SheetTypeEnum`/`SheetVisibleEnum` types and the `CalamineError` exception family
-- capability: read-only ingest of the full Excel/OpenDocument family — `.xlsx`/`.xlsm`/`.xlsb`/`.xls`/`.xla`/`.xlam`/`.ods` — from a path, an `os.PathLike`, or any seek+read file-like buffer (`BytesIO`); workbook sheet/table introspection (`sheet_names`/`sheets_metadata`/`table_names`); sheet resolution by name or index; a typed row-matrix (`to_python`) or streamed row iterator (`iter_rows`) yielding native Python scalars with calamine's own date-serial→`datetime` decode; sheet geometry (`height`/`width`/`total_height`/`total_width`/`start`/`end`); the `merged_cell_ranges` merged-region set (xlsx/xls only); Excel `Table` object recovery under `load_tables=True` (xlsx only); and a `close`/context-manager lifecycle dropping the Rust workbook handle
+- depends: none — the calamine Rust core owns the unzip, BIFF, shared-string, and date-serial decode
+- entry points: import-only; no console script
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: workbook, sheet, and table roots
-- rail: office-ingest
 
-`CalamineWorkbook` is the single read root; the source kind (`path`, `os.PathLike`, or file-like buffer) is a classmethod choice on one type, never a parallel workbook class — `from_path` takes a path, `from_filelike` takes a seek+read buffer, and `from_object` discriminates on the argument shape and dispatches to the right reader. `CalamineSheet` is the one grid value `get_sheet_by_name`/`get_sheet_by_index` yield; `to_python` (eager list-of-lists) and `iter_rows` (lazy iterator) are two projections of the same grid, never separate sheet types. There is no `Cell` object — the cell is the native scalar in the row list, so there is no per-cell wrapper to allocate.
+`CalamineWorkbook` is the single read root — the source kind is a classmethod choice (`from_path`, `from_filelike`, `from_object`), never a parallel workbook class. `CalamineSheet` is the one grid value; `to_python` and `iter_rows` project that grid two ways, and a cell is the native scalar in the row list, so no `Cell` wrapper allocates.
 
 | [INDEX] | [SYMBOL]           | [TYPE_FAMILY]    | [CAPABILITY]                                                                               |
 | :-----: | :----------------- | :--------------- | :----------------------------------------------------------------------------------------- |
@@ -35,9 +32,8 @@
 |  [06]   | `SheetVisibleEnum` | visibility enum  | `Visible`/`Hidden`/`VeryHidden` — sheet visibility for an introspection filter             |
 
 [PUBLIC_TYPE_SCOPE]: ingest fault family
-- rail: office-ingest
 
-`CalamineError` is the one base the binding raises; map it (and its subclasses) at the `lane.offload(Kernel.of(..., KernelTrait.HOSTILE))` worker boundary into the `runtime` `RuntimeRail` fault, never let a Rust panic surface as a bare exception across the interpreter seam.
+`CalamineError` is the base every binding error derives from; the worker boundary maps it and each subclass into the `runtime` `RuntimeRail` fault.
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY]   | [CAPABILITY]                                                                     |
 | :-----: | :------------------- | :-------------- | :------------------------------------------------------------------------------- |
@@ -54,51 +50,55 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: workbook open and introspect
-- rail: office-ingest
 
-`from_object` is the polymorphic ingress: it determines the type of the argument (a `str`/`os.PathLike` path or a `ReadBuffer` file-like with `read`/`seek`) and reads from it, so the gated arm passes a `BytesIO(payload)` directly without first choosing a reader. `from_path` and `from_filelike` are the explicit-source forms for a known path or buffer; `load_workbook` is the module-level free-function mirror of `from_object`. `load_tables=True` (xlsx only) additionally parses Excel `Table` objects so `table_names`/`get_table_by_name` resolve. The workbook reads lazily — sheets are decoded on `get_sheet_*`, so `sheet_names`/`sheets_metadata` introspect without materializing any grid. The `SURFACE` names drop the `CalamineWorkbook.` prefix (`from_*` are classmethods; `load_workbook` is the module-level mirror of `from_object`); every open returns `CalamineWorkbook`.
+Every open returns `CalamineWorkbook` and carries the `load_tables=False` knob (xlsx-only Excel `Table` parse). `from_object` discriminates a path against a `read`/`seek` buffer, so the gated arm opens a `BytesIO` payload with no temp file; `from_path`/`from_filelike` are the explicit-source forms and `load_workbook` the module-level mirror. Sheets decode lazily on `get_sheet_*`, so the introspection properties read structure without materializing a grid.
 
-| [INDEX] | [SURFACE]         | [CALL_SHAPE]                                                                                 |
-| :-----: | :---------------- | :------------------------------------------------------------------------------------------- |
-|  [01]   | `from_object`     | `from_object(path_or_filelike: str \| os.PathLike \| ReadBuffer, load_tables: bool = False)` |
-|  [02]   | `from_path`       | `from_path(path: str \| os.PathLike, load_tables: bool = False)`                             |
-|  [03]   | `from_filelike`   | `from_filelike(filelike: ReadBuffer, load_tables: bool = False)`                             |
-|  [04]   | `load_workbook`   | `load_workbook(path_or_filelike, load_tables: bool = False)`                                 |
-|  [05]   | `sheet_names`     | property -> `list[str]` (workbook order)                                                     |
-|  [06]   | `sheets_metadata` | property -> `list[SheetMetadata]` (per-sheet `name`/`typ`/`visible`, no grid read)           |
-|  [07]   | `table_names`     | property -> `list[str] \| None` (`None` when `load_tables=False` / unsupported)              |
-|  [08]   | `path`            | property -> `str \| None` (`None` when opened from bytes)                                    |
-|  [09]   | `close`           | `close() -> None` + `__enter__`/`__exit__`; `get_sheet_*` then raises `WorkbookClosed`       |
+| [INDEX] | [SURFACE]                                | [SHAPE]  | [CAPABILITY]                                              |
+| :-----: | :--------------------------------------- | :------- | :-------------------------------------------------------- |
+|  [01]   | `from_object(path_or_filelike)`          | factory  | shape-discriminates a path against a `read`/`seek` buffer |
+|  [02]   | `from_path(path)`                        | factory  | explicit path open                                        |
+|  [03]   | `from_filelike(filelike)`                | factory  | explicit seek+read buffer open                            |
+|  [04]   | `load_workbook(path_or_filelike)`        | static   | module-level mirror of `from_object`                      |
+|  [05]   | `sheet_names -> list[str]`               | property | sheet names in workbook order                             |
+|  [06]   | `sheets_metadata -> list[SheetMetadata]` | property | per-sheet `name`/`typ`/`visible`, no grid read            |
+|  [07]   | `table_names -> list[str] \| None`       | property | `None` unless `load_tables=True`                          |
+|  [08]   | `path -> str \| None`                    | property | `None` when opened from bytes                             |
+|  [09]   | `close()`                                | instance | context-managed drop of the Rust handle                   |
 
 [ENTRYPOINT_SCOPE]: sheet resolve and row-matrix projection
-- rail: office-ingest
 
-`get_sheet_by_name`/`get_sheet_by_index` resolve one `CalamineSheet`; `to_python` is the eager row matrix and `iter_rows` the lazy iterator over the same grid (`skip_empty_area=True` trims the leading empty rows/cols by default, `nrows` caps the read). Each row is a `list` of `CellValue = int \| float \| str \| bool \| datetime.time \| datetime.date \| datetime.datetime \| datetime.timedelta` native scalars — calamine decodes Excel date serials and durations to the `datetime` types directly, so the arm never re-derives a date from a float serial. `get_table_by_name` (under `load_tables=True`) is the same projection scoped to one Excel `Table`'s header + body. The `SURFACE` names drop their type prefix — `get_sheet_*`/`get_table_by_name` on `CalamineWorkbook`, the rest on `CalamineSheet`.
+`get_sheet_by_name`/`get_sheet_by_index` resolve one `CalamineSheet`; `to_python` is the eager matrix and `iter_rows` the constant-memory stream over the same grid, `skip_empty_area=True` trimming leading empty rows/cols and `nrows` capping the read. Each row is a `list` of `CellValue = int | float | str | bool | datetime.{time,date,datetime,timedelta}` native scalars, calamine decoding date serials and durations to the `datetime` types directly.
 
-| [INDEX] | [SURFACE]            | [CALL_SHAPE]                                                                                           |
-| :-----: | :------------------- | :----------------------------------------------------------------------------------------------------- |
-|  [01]   | `get_sheet_by_name`  | `get_sheet_by_name(name: str) -> CalamineSheet` (raises `WorksheetNotFound`)                           |
-|  [02]   | `get_sheet_by_index` | `get_sheet_by_index(index: int) -> CalamineSheet`                                                      |
-|  [03]   | `to_python`          | `to_python(skip_empty_area: bool = True, nrows: int \| None = None) -> list[list[CellValue]]`          |
-|  [04]   | `iter_rows`          | `iter_rows() -> Iterator[list[CellValue]]` (constant-memory streaming over the same grid)              |
-|  [05]   | `merged_cell_ranges` | property -> `list[tuple[tuple[int,int], tuple[int,int]]] \| None` (xlsx/xls; `None` ods)               |
-|  [06]   | geometry             | `name`, `height`/`width`/`total_height`/`total_width` props, `start`/`end` -> `tuple[int,int] \| None` |
-|  [07]   | `get_table_by_name`  | `get_table_by_name(name: str) -> CalamineTable` (needs `load_tables=True`)                             |
+| [INDEX] | [SURFACE]                                     | [SHAPE]  | [CAPABILITY]                                  |
+| :-----: | :-------------------------------------------- | :------- | :-------------------------------------------- |
+|  [01]   | `get_sheet_by_name(name) -> CalamineSheet`    | instance | resolve by name; raises `WorksheetNotFound`   |
+|  [02]   | `get_sheet_by_index(index) -> CalamineSheet`  | instance | resolve by position                           |
+|  [03]   | `to_python(skip_empty_area=True, nrows=None)` | instance | eager `list[list[CellValue]]` matrix          |
+|  [04]   | `iter_rows(skip_empty_area=True, nrows=None)` | instance | constant-memory row stream over the same grid |
+|  [05]   | `merged_cell_ranges -> list[tuple] \| None`   | property | `(start_rc, end_rc)` quads; `None` for ods    |
+|  [06]   | `get_table_by_name(name) -> CalamineTable`    | instance | one Excel `Table`; needs `load_tables=True`   |
+
+- [GEOMETRY]: `CalamineSheet` props `name` `height` `width` `total_height` `total_width` `start` `end` (`start`/`end` -> `tuple[int,int] | None`)
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[OFFICE_INGEST_XLSX]:
-- ingress axis: `from_object(BytesIO(payload))` is the shape-discriminating open the gated arm calls — it determines whether the argument is a path or a `read`/`seek` buffer and dispatches accordingly, so an in-memory `payload` reads without first writing a temp file; `from_path(path)` and `from_filelike(buffer)` are the explicit-source forms, and `load_workbook(...)` is the free-function mirror. `load_tables=True` (xlsx only) is the one knob that additionally parses Excel `Table` objects; never a per-format open function.
-- introspection axis: `sheet_names` (workbook-order `list[str]`), `sheets_metadata` (`SheetMetadata` rows carrying `typ`/`visible`), and `table_names` (`list[str] | None`) read the workbook structure without materializing any grid, because calamine decodes a sheet lazily on `get_sheet_*`; a non-`WorkSheet` `SheetTypeEnum` or a `Hidden`/`VeryHidden` `SheetVisibleEnum` is filtered at the ingest boundary rather than read as a data grid.
-- projection axis: `get_sheet_by_name(name)` (or `get_sheet_by_index(index)`) resolves one `CalamineSheet`, then `to_python(skip_empty_area=True, nrows=None)` yields the eager `list[list[CellValue]]` row matrix the `XLSX_READ` arm folds into a `TableNode` of `RunNode` cells, or `iter_rows()` streams the same rows for a constant-memory ingest; `skip_empty_area` trims leading empty rows/cols and `nrows` caps the read — call flags on the one projection, never separate functions. The cell coercion the arm applies (`None if value is None else str(value)`) lifts each native scalar into the recovered `RunNode` text without a single-call `_cell` helper hop.
-- value axis: a cell is the native scalar `int | float | str | bool | datetime.time | datetime.date | datetime.datetime | datetime.timedelta` directly in the row list — there is no `Cell` wrapper object and no formula evaluation (calamine reads the stored/cached value, not the formula), so a date serial is already a `datetime.date`/`datetime.datetime` and a duration already a `datetime.timedelta`; the arm never re-derives a date from a float serial nor allocates a per-cell object.
-- merge axis: `CalamineSheet.merged_cell_ranges` (xlsx/xls; `None` for ods) yields `(start_rc, end_rc)` coordinate quads that fold into the `document/model#NODE` `TableNode.spans` merged-cell map, so a ruled spreadsheet with merged regions round-trips its grid topology rather than flattening to a dense matrix that erases the merge structure the model owns. The native `start`/`end` `(row, col) | None` corners and `height`/`width` extent supply the `TableNode` `bounds`/used-range so the recovered grid carries position, not just dense rows.
-- worker axis: the arm never imports calamine at module load — a `lazy import python_calamine` defers the PyO3 binding to first use inside the worker, and `_gated_recover` (the function the process offload pickles across) re-resolves the SAME `_ROUTES[XLSX_READ]` row and reifies that lazy binding on the worker process, so the heavy native extension is paid for only when an `XLSX_READ` op actually fires and only in the subprocess, never on the core loop. The runtime `LanePolicy` process band bounds how many such worker decodes run at once.
-- fault axis: the `CalamineError` family (`PasswordError`/`WorksheetNotFound`/`XmlError`/`ZipError`/`WorkbookClosed`/`TablesNotLoaded`/`TablesNotSupported`/`TableNotFound`) is mapped at the `_gated_recover` worker boundary into the `runtime` `RuntimeRail` fault, grouped with the sibling read faults `pymupdf.FileDataError`/`pdfplumber.PdfminerException` at the one `recover` boundary so every backend's read failure lands on one rail rather than per-engine catch ladders; a `PasswordError` routes the workbook through `msoffcrypto-tool` decrypt upstream (calamine does not decrypt — the decrypted `BytesIO` re-enters `from_object`), and a Rust panic is trapped at the subprocess seam rather than surfaced bare across the interpreter boundary.
-- evidence: each ingested workbook captures the source format, sheet count, per-sheet name/type/visibility, used-range row and column extent (`height`/`width`), populated cell count, merged-region count, and the recovered-tree content key (the `document/model` `node_digest` `xxhash` merkle through `ContentIdentity.of`) as an `ArtifactReceipt.Introspection(key, nodes, text_len, images, hits)` office-ingest receipt case — one case on the unified `core/receipt#RECEIPT` family contributed through the `ReceiptContributor` port, never a parallel calamine-specific receipt shape.
+[TOPOLOGY]:
+- `from_object` is the one shape-discriminating ingress and `load_tables=True` (xlsx only) the single knob, never a per-format open; introspection reads workbook structure before any grid, filtering a non-`WorkSheet` `SheetTypeEnum` or `Hidden`/`VeryHidden` `SheetVisibleEnum` at the boundary.
+- A cell is a native `CellValue` scalar in the row list — no `Cell` wrapper and no formula evaluation, calamine reading the stored value and decoding a date serial to `datetime` directly.
+- A module-scope `lazy import python_calamine` defers the PyO3 binding, and `_gated_recover` reifies it inside a worker process, so the native extension is paid only on an `XLSX_READ` op and only in the subprocess, trapping a Rust panic at the process seam.
+
+[STACKING]:
+- `folder:document/lens#LENS` (READ): the `LensProvider.CALAMINE` `XLSX_READ` recover arm — `from_object(BytesIO)` → `get_sheet_*` → `to_python` folds each row matrix into a `document/model#NODE` `TableNode` of `RunNode` cells, `merged_cell_ranges` into `TableNode.spans` and `start`/`end`/`height`/`width` into its bounds; `_gated_recover` re-resolves the `_ROUTES[XLSX_READ]` row and maps the `CalamineError` family to the read rail beside `pymupdf`/`pdfplumber`.
+- `folder:core/receipt#RECEIPT`: each ingest contributes the `ArtifactReceipt.Introspection(key, nodes, text_len, images, hits)` case through the `ReceiptContributor` port, keyed by the `document/model` `node_digest` `xxhash` merkle through `ContentIdentity.of`.
+- `msoffcrypto-tool`: a `PasswordError` routes the workbook through its decrypt, and the decrypted `BytesIO` re-enters `from_object` — calamine never decrypts.
+- `fastexcel`: disjoint on the shared Rust core — `fastexcel` owns the calamine-to-Arrow PyCapsule/`pyarrow.RecordBatch` columnar path for `libs/python/data`, this owner the `to_python` document-tree path for artifacts.
+- universal tier (`libs/python/.api`): `expression` `Result[Self, LensFault]`/`RuntimeRail` owns the admission fold and fault discriminant; the `runtime` `LanePolicy` bounds the `anyio` process band each worker decode runs in.
+
+[LOCAL_ADMISSION]:
+- Spreadsheet and binary-Excel ingest feeding the `document/lens#LENS` `XLSX_READ` arm, including `msoffcrypto-tool`-decrypted workbooks and the in-memory `from_object(BytesIO(payload))` open; `CALAMINE` rides `_GATED_PROVIDERS` for worker isolation of the Rust core, distinct from the manifest environment marker scoping the arm's availability.
 
 [RAIL_LAW]:
 - Package: `python-calamine`
-- Owns: read-only ingest of `.xlsx`/`.xlsm`/`.xlsb`/`.xls`/`.xla`/`.ods` from a path/`os.PathLike`/file-like buffer via `from_object`/`from_path`/`from_filelike`/`load_workbook`; workbook introspection via `sheet_names`/`sheets_metadata`/`table_names`; sheet resolution via `get_sheet_by_name`/`get_sheet_by_index`; the `to_python`/`iter_rows` native-scalar row-matrix projection with calamine's own date-serial→`datetime` decode; sheet geometry and `merged_cell_ranges`; Excel `Table` recovery under `load_tables=True`; and the `CalamineError` fault family
-- Accept: spreadsheet/binary-Excel ingest feeding the `document/lens#LENS` `DocumentLens` `XLSX_READ` arm and the recovered-tree corpus, including decrypted workbooks from `msoffcrypto-tool`; the `_GATED_PROVIDERS` worker-isolated `lazy import` + `self.lane.offload(Kernel.of(_gated_recover, KernelTrait.HOSTILE), …)` process crossing (the membership is process isolation for the Rust core, distinct from the `python_version<'3.15'` marker that absents the arm on cp315 until an abi3 wheel lands); the `from_object(BytesIO(payload))` in-memory open; the `to_python` row matrix folded into a `TableNode` of `RunNode` cells with `merged_cell_ranges` into `TableNode.spans`, sealed by the `xxhash` `node_digest` content key into the unified `ArtifactReceipt.Introspection` case
-- Reject: any authoring/write path (`xlsxwriter`/`openpyxl` own `.xlsx` author, `odfpy` owns `.ods` author); the Arrow/columnar dataframe path (the DATA-tier `fastexcel` owns calamine→Arrow PyCapsule/`pyarrow.RecordBatch` for `libs/python/data`); per-cell formula evaluation (calamine reads the stored/cached value, never recomputes); workbook decryption (route a `PasswordError` through `msoffcrypto-tool` upstream)
+- Owns: read-only ingest of the Excel/OpenDocument family via `from_object`/`from_path`/`from_filelike`/`load_workbook`, workbook and table introspection, sheet resolution, the `to_python`/`iter_rows` native-scalar projection with date-serial decode, sheet geometry and `merged_cell_ranges`, and the `CalamineError` fault family.
+- Accept: the `XLSX_READ` document-tree path — a row matrix folded into a `TableNode` of `RunNode` cells with `merged_cell_ranges` into `TableNode.spans`, sealed by content key into `ArtifactReceipt.Introspection`.
+- Reject: any authoring path (openpyxl/xlsxwriter own `.xlsx`, odfpy owns `.ods`); the Arrow columnar frame (`fastexcel`); per-cell formula evaluation; workbook decryption (route a `PasswordError` through `msoffcrypto-tool`).

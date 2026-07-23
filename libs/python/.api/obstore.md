@@ -1,24 +1,22 @@
 # [PY_BRANCH_API_OBSTORE]
 
-`obstore` is the branch object-store substrate over S3, GCS, Azure, HTTP, local filesystem, and memory stores. It supplies sync and async operations, store construction, credential providers, retry policy, zero-copy `Bytes`, Arrow-aware listing, conditional mutation, presigned URLs, buffered readers/writers, and an `fsspec` bridge.
+`obstore` is the branch object-store substrate: sync and async object IO across cloud, HTTP, local, and memory backends through one `ObjectStore` handle built by `from_url` or a typed store, carrying zero-copy `Bytes`, conditional `PutMode`/`GetOptions` mutation, coalesced range reads, Arrow-native listing, credential-provider refresh, and presigned URLs. It owns the object plane directly; `obstore.fsspec` adapts a store to an `AbstractFileSystem` only where a downstream library requires a filesystem handle, never as a second IO owner.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `obstore`
 - package: `obstore`
-- import: `obstore`; `obstore.store`; `obstore.auth`; `obstore.fsspec`
-- owner: `shared`
+- module: `obstore`
+- license: MIT
+- asset: native wheel (Rust `object_store` core via pyo3)
 - rail: object storage
-- version: `0.11.0`
-- license: `MIT`
-- capability: sync and async object-store IO, typed store constructors, `from_url` dispatch, credential-provider refresh, retry/backoff policy, get/put/delete/list/copy/rename/sign, range reads, conditional get/put, zero-copy byte buffers, Arrow list streaming, buffered file handles, and fsspec `AsyncFileSystem` adaptation
+- namespaces: `obstore`, `obstore.store`, `obstore.auth`, `obstore.fsspec`, `obstore.exceptions`
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: store backends and config
-- rail: object storage
 
-| [INDEX] | [SYMBOL]                                         | [TYPE_FAMILY] | [RAIL]                                               |
+| [INDEX] | [SYMBOL]                                         | [TYPE_FAMILY] | [CAPABILITY]                                         |
 | :-----: | :----------------------------------------------- | :------------ | :--------------------------------------------------- |
 |  [01]   | `store.S3Store` / `GCSStore` / `AzureStore`      | store         | cloud object-store backends                          |
 |  [02]   | `store.HTTPStore` / `LocalStore` / `MemoryStore` | store         | HTTP, local, and memory backends                     |
@@ -31,9 +29,8 @@
 |  [09]   | `AzureCredentialProvider`                        | provider      | Azure sync/async credential refresh callable         |
 
 [PUBLIC_TYPE_SCOPE]: result, request, buffer, and faults
-- rail: object storage
 
-| [INDEX] | [SYMBOL]                                   | [TYPE_FAMILY] | [RAIL]                                                 |
+| [INDEX] | [SYMBOL]                                   | [TYPE_FAMILY] | [CAPABILITY]                                           |
 | :-----: | :----------------------------------------- | :------------ | :----------------------------------------------------- |
 |  [01]   | `Bytes`                                    | buffer        | zero-copy bytes wrapper with buffer protocol           |
 |  [02]   | `GetResult`                                | result        | metadata plus `.bytes()` and `.stream(min_chunk_size)` |
@@ -43,15 +40,16 @@
 |  [06]   | `OffsetRange` / `SuffixRange`              | range         | range request shapes                                   |
 |  [07]   | `ReadableFile` / `AsyncReadableFile`       | file          | buffered object read handle (sync/async)               |
 |  [08]   | `WritableFile` / `AsyncWritableFile`       | file          | buffered object write handle (sync/async)              |
-|  [09]   | `exceptions.BaseError` and subclasses      | fault         | object-store fault hierarchy                           |
+|  [09]   | `exceptions.BaseError`                     | fault         | root of the object-store fault hierarchy               |
+
+[exceptions] subclass `BaseError`: `NotFoundError` `AlreadyExistsError` `PreconditionError` `NotModifiedError` `PermissionDeniedError` `UnauthenticatedError` `NotSupportedError` `InvalidPathError` `UnknownConfigurationKeyError` `GenericError` `JoinError`
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: store construction and credentials
-- rail: object storage
-- every constructor and `from_url` accept `config`, `client_options`, `retry_config`, `credential_provider`; `from_url` adds `url`, `**kwargs` and returns `ObjectStore`
+- construct carry: `config`, `client_options`, `retry_config`, `credential_provider`; `from_url` adds `url` and `**kwargs`, returning `ObjectStore`
 
-| [INDEX] | [SURFACE]                                                                          | [ENTRY_FAMILY] | [RAIL]                             |
+| [INDEX] | [SURFACE]                                                                          | [ENTRY_FAMILY] | [CAPABILITY]                       |
 | :-----: | :--------------------------------------------------------------------------------- | :------------- | :--------------------------------- |
 |  [01]   | `store.from_url(url, **kwargs) -> ObjectStore`                                     | construct      | URL-dispatched store construction  |
 |  [02]   | `S3Store` / `GCSStore` / `AzureStore` / `HTTPStore` / `LocalStore` / `MemoryStore` | construct      | typed store construction           |
@@ -63,19 +61,17 @@
 |  [08]   | `auth.planetary_computer.*`                                                        | credential     | MS Planetary Computer provider     |
 
 [ENTRYPOINT_SCOPE]: fsspec bridge
-- rail: object storage
 
-| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [RAIL]                               |
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [CAPABILITY]                         |
 | :-----: | :------------------------------------------------------- | :------------- | :----------------------------------- |
 |  [01]   | `fsspec.register(protocols=None, *, asynchronous=False)` | bridge         | register obstore as fsspec protocols |
 |  [02]   | `fsspec.FsspecStore`                                     | bridge         | fsspec `AsyncFileSystem` adapter     |
 |  [03]   | `fsspec.BufferedFile`                                    | bridge         | fsspec buffered file handle          |
 
 [ENTRYPOINT_SCOPE]: reads, mutation, listing, streaming, and signing
-- rail: object storage
-- every operation has a sync form and an `_async` mirror; the sync name is listed
+- every operation carries a sync form and an `_async` mirror; the table lists the sync name
 
-| [INDEX] | [SURFACE]                            | [ENTRY_FAMILY] | [RAIL]                                    |
+| [INDEX] | [SURFACE]                            | [ENTRY_FAMILY] | [CAPABILITY]                              |
 | :-----: | :----------------------------------- | :------------- | :---------------------------------------- |
 |  [01]   | `get` / `head`                       | read           | object and metadata reads                 |
 |  [02]   | `get_range` / `get_ranges`           | range read     | single and coalesced range reads          |
@@ -84,31 +80,30 @@
 |  [05]   | `open_reader` / `open_writer`        | file           | buffered object stream handles            |
 |  [06]   | `sign`                               | presign        | presigned URLs for signing-capable stores |
 
-Every operation exists as both a module-level free function taking `store` first and a bound store method through `ObjectStoreMethods`; callers with a held store use the bound form, and callers threading stores as values use the free-function form.
+Every operation is both a module-level free function taking `store` first and a bound method through `ObjectStoreMethods`: a held store calls the bound form, a store threaded as a value calls the free function.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[OBJECT_STORE_TOPOLOGY]:
-- store law: `ObjectStore` is the canonical store-handle annotation; concrete stores subclass `ObjectStoreMethods`, but user code does not subclass it.
+[TOPOLOGY]:
+- store law: `ObjectStore` is the canonical store-handle annotation; concrete stores subclass `ObjectStoreMethods` for the bound-method surface, and a custom backend implements the `obspec` protocols rather than subclassing it.
 - credential law: stores accept sync or async credential providers returning typed credentials with expiration; obstore owns refresh and signing.
-- retry law: `RetryConfig` and `BackoffConfig` travel into store construction; transient storage faults are governed at the store layer, and higher-level `stamina` rows wrap only the operation boundary.
-- zero-copy law: `Bytes` implements the buffer protocol; callers materialize Python `bytes` only when an owning boundary requires ownership.
+- retry law: `RetryConfig` and `BackoffConfig` travel into store construction; the store layer governs transient storage faults, and `stamina` wraps only the operation boundary.
+- zero-copy law: `Bytes` implements the buffer protocol; callers materialize Python `bytes` only where an owning boundary requires ownership.
 - conditional law: `GetOptions` carries `if_match`, `if_none_match`, time preconditions, ranges, versions, and head policy; `PutMode` carries create/overwrite/update-version compare-and-swap.
-- range law: `get_range` and `get_ranges` accept explicit start/end/length or range dict shapes, and `get_ranges` coalesces nearby ranges.
-- list law: `list(..., return_arrow=True)` emits Arrow `RecordBatch` chunks for direct Arrow/Polars ingestion.
-- fsspec law: `obstore.fsspec` is the bridge for libraries requiring a filesystem handle; it is not a second object-store IO owner.
+- range law: `get_range` and `get_ranges` accept explicit start/end/length or range-dict shapes, and `get_ranges` coalesces nearby ranges.
+- list law: `list(return_arrow=True)` emits Arrow `RecordBatch` chunks for direct Arrow/Polars ingestion.
 
-[STACK_LAW]:
-- data mutation/object plane: data egress composes `put`, conditional `PutMode`, delete/copy/rename, Arrow listings, and presigned URLs for content-keyed object outputs.
-- runtime transport plane: runtime roots construct stores with `from_url`, credential providers, retry config, and `sign_async`; read operations use sync or async variants according to the active server context.
-- fsspec bridge: xarray, zarr, pyarrow, pandas, and DuckDB paths that accept fsspec filesystems receive an `obstore.fsspec` adapter when direct obstore integration is unavailable.
-- external credential seams: Earthdata and Planetary Computer providers produce signed access for raster/STAC flows without reimplementing token refresh.
+[STACKING]:
+- `fsspec`(`.api/fsspec.md`): `obstore.fsspec.register`/`FsspecStore` adapt a store to an `AbstractFileSystem` only where xarray, zarr, pyarrow, or DuckDB require a filesystem handle; direct `get_range`/`put` stay the primary object plane.
+- branch composition: runtime roots build stores with `from_url`, credential providers, and `RetryConfig`, reading through sync or async ops per the active server context; the egress plane composes `put` under conditional `PutMode`, delete/copy/rename, Arrow `list`, and `sign` for content-keyed outputs; `auth.earthdata`/`auth.planetary_computer` mint signed access for raster/STAC flows without reimplementing token refresh.
 
-[EXCEPTIONS]:
-- `NotFoundError`, `AlreadyExistsError`, `PreconditionError`, `NotModifiedError`, `PermissionDeniedError`, `UnauthenticatedError`, `NotSupportedError`, `InvalidPathError`, `UnknownConfigurationKeyError`, `GenericError`, and `JoinError` all subclass `exceptions.BaseError`.
+[LOCAL_ADMISSION]:
+- Accept `from_url` or a typed store constructor carrying the four config values as the branch object-store construction surface.
+- Accept free-function or bound operation forms, conditional `GetOptions`/`PutMode`, coalesced `get_ranges`, Arrow `list(return_arrow=True)`, and native credential providers.
+- Accept `obstore.fsspec` only where a downstream library requires an `AbstractFileSystem` handle.
 
 [RAIL_LAW]:
 - Package: `obstore`
-- Owns: branch object-store construction, credentials, retry/backoff, read/list/range/mutation/sign operations, zero-copy buffers, buffered file handles, Arrow listing, and fsspec bridge
-- Accept: `from_url` or typed constructors with `config`, `client_options`, `retry_config`, and `credential_provider`; free or bound operation forms; conditional mutation; Arrow listings; native credential providers; fsspec adaptation when required
-- Reject: hand-rolled storage HTTP clients, duplicate token refresh, custom store protocols duplicating `ObjectStore`, parallel object IO paths beside the fsspec adapter, and folder-level package-surface duplication
+- Owns: branch object-store construction, credentials, retry/backoff, read/list/range/mutation/sign operations, zero-copy buffers, buffered file handles, Arrow listing, and the fsspec bridge
+- Accept: `from_url` or typed constructors with the four config carries; free or bound operation forms; conditional mutation; Arrow listings; native credential providers; fsspec adaptation where a filesystem handle is required
+- Reject: hand-rolled storage HTTP clients, duplicate token refresh, custom store protocols duplicating `ObjectStore`, object IO paths parallel to the fsspec adapter, and folder-tier package-surface duplication

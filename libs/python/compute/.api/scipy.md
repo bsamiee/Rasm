@@ -1,21 +1,19 @@
 # [PY_COMPUTE_API_SCIPY]
 
-`scipy` supplies the dense/sparse linear algebra, optimization, integration, interpolation, and signal/statistics surfaces for the compute numeric-intent solver rail. The package owner routes each `NumericIntent` case onto a scipy submodule callable — `scipy.linalg.solve`, `scipy.sparse.linalg.spsolve`, `scipy.optimize.minimize`, `scipy.integrate.solve_ivp`, `scipy.interpolate.CubicSpline` — and captures tolerances and residuals as study evidence; it never re-implements a numeric routine scipy owns.
+`scipy` owns the scientific numeric solver surface the compute numeric-intent rail routes onto. Each `NumericIntent` case binds one submodule callable and captures its tolerances and residuals as study evidence; scipy results are offline study evidence, and production substrate selection stays in `Rasm.Compute`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `scipy`
 - package: `scipy`
-- import: `scipy` (lint alias `sp`); submodules `scipy.fft`, `scipy.linalg`, `scipy.sparse`, `scipy.sparse.linalg`, `scipy.optimize`, `scipy.integrate`, `scipy.interpolate`, `scipy.signal`, `scipy.stats` (`scipy.stats.qmc`), `scipy.spatial` (`scipy.spatial.distance`, `scipy.spatial.transform`)
-- owner: `compute`
-- rail: solvers
+- module: `scipy` (lint alias `sp`)
+- namespaces: `scipy.fft`, `scipy.linalg`, `scipy.sparse`, `scipy.sparse.linalg`, `scipy.optimize`, `scipy.integrate`, `scipy.interpolate`, `scipy.signal`, `scipy.stats` (`scipy.stats.qmc`), `scipy.spatial` (`scipy.spatial.distance`, `scipy.spatial.transform`)
+- rail: numeric-intent solver
 - capability: scientific solver suite — fast Fourier transforms, dense and sparse linear algebra, nonlinear optimization, numerical integration, interpolation, statistics (distributions, hypothesis tests, QMC sampling), signal processing, and spatial neighbour/tessellation/rotation
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: sparse containers and solver result types
-- rail: solvers
-- `ArpackNoConvergence` is raised by `eigsh`/`eigs`/`svds(solver='arpack')` on non-convergence within `maxiter`, carrying partial `.eigenvalues`/`.eigenvectors`.
 
 | [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]      | [CAPABILITY]                                                 |
 | :-----: | :---------------------------------------- | :----------------- | :----------------------------------------------------------- |
@@ -39,14 +37,14 @@
 |  [18]   | `scipy.stats.rv_discrete`                 | distribution base  | discrete-distribution base class                             |
 |  [19]   | `scipy.stats.Covariance`                  | covariance carrier | structured covariance for multivariate distributions         |
 |  [20]   | `scipy.stats.qmc.QMCEngine`               | sampler base       | low-discrepancy engine base class                            |
-|  [21]   | `scipy.sparse.linalg.ArpackNoConvergence` | ARPACK fault       | ARPACK non-convergence fault (partial eigenpairs; see lead)  |
+|  [21]   | `scipy.sparse.linalg.ArpackNoConvergence` | ARPACK fault       | ARPACK non-convergence, partial eigenpairs                   |
+
+- `ArpackNoConvergence`: raised by `eigsh`/`eigs`/`svds(solver='arpack')` past `maxiter`, carrying partial `.eigenvalues`/`.eigenvectors`.
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: `scipy.fft` discrete Fourier and trigonometric transforms
-- rail: transform
-
-The pocketfft-backed transform family; `rfft`/`irfft` halve storage for real input, `fftn`/`ifftn` transform over the `axes` tuple, and `fftfreq`/`fftshift` build and centre the frequency grid for the analytic-signal and spectral routes. 1-D transforms share `(x, n, axis, norm)`, n-D forms take `(x, s, axes, norm)`, `dct`/`dst` add `type`, `fftfreq`/`rfftfreq` take `(n, d)` sample spacing, and `fftshift`/`ifftshift` take `(x, axes)`.
+[ENTRYPOINT_SCOPE]: `scipy.fft` pocketfft discrete Fourier and trigonometric transforms
+- carry: 1-D `(x, n, axis, norm)`; n-D `(x, s, axes, norm)`; `dct`/`dst` add `type`; `fftfreq`/`rfftfreq` `(n, d)`; `fftshift`/`ifftshift` `(x, axes)`.
 
 | [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY]      | [RESULT]                                       |
 | :-----: | :-------------------------------------------------------- | :------------------ | :--------------------------------------------- |
@@ -64,8 +62,7 @@ The pocketfft-backed transform family; `rfft`/`irfft` halve storage for real inp
 |  [12]   | `next_fast_len(n, real)` \| `set_workers` / `get_workers` | tuning              | optimal padding length + pocketfft worker pool |
 
 [ENTRYPOINT_SCOPE]: `scipy.linalg` dense factorization and solve
-- rail: solvers
-- routines take matrix `a`/`b` arguments; `solve` dispatches on `assume_a='pos'/'sym'/'her'/'gen'`, `qr` takes `mode`/`pivoting`, `svd` takes `full_matrices`/`compute_uv`, `eigh` takes `subset_by_index`, `pinv` takes `atol`/`rtol`, and `lstsq` takes `lapack_driver`. The control matrix equations `solve_sylvester`/`solve_continuous_are`/`solve_discrete_lyapunov` solve Sylvester / algebraic-Riccati / Lyapunov systems.
+- carry: `a`/`b` matrix args; `solve(assume_a='pos'/'sym'/'her'/'gen')`, `qr(mode, pivoting)`, `svd(full_matrices, compute_uv)`, `eigh(subset_by_index)`, `pinv(atol, rtol)`, `lstsq(lapack_driver)`.
 
 | [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY]       | [RESULT]                                    |
 | :-----: | :------------------------------------------------------------------ | :------------------- | :------------------------------------------ |
@@ -81,9 +78,11 @@ The pocketfft-backed transform family; `rfft`/`irfft` halve storage for real inp
 |  [10]   | `expm` \| `logm` \| `sqrtm` \| `funm`                               | matrix function      | matrix exp / log / sqrt / analytic function |
 |  [11]   | `norm` \| `block_diag` \| `toeplitz` \| `circulant` \| `khatri_rao` | structured construct | matrix/vector norm + structured builders    |
 
+- `solve_sylvester` \| `solve_continuous_are` \| `solve_discrete_lyapunov`: Sylvester / algebraic-Riccati / Lyapunov matrix-equation solve.
+
 [ENTRYPOINT_SCOPE]: `scipy.sparse` construction and `scipy.sparse.linalg` solve
-- rail: solvers
-- construction surfaces are `sparse` members, solve/eigen surfaces `sparse.linalg` members. Krylov solvers share `(A, b, x0=None, *, rtol=1e-5, atol=0.0, maxiter=None, M=None, callback=None)`; `gmres` adds `restart`/`callback_type='pr_norm'/'x'`. `eigsh`/`eigs` take `(A, k=6, M=None, sigma=None, which='LM', ncv=None, maxiter=None, tol=0, OPinv=None, mode=...)` where `sigma`/`OPinv` drive shift-invert about the interior spectrum (`mode='normal'/'buckling'/'cayley'`) and `eigs` adds `OPpart='r'/'i'`; `lobpcg` takes `(A, X, B=None, M=None, Y=None, largest=True)` (`M` preconditioner, `B` mass matrix, `Y` constraint block); `svds` takes `(A, k=6, solver='arpack'/'lobpcg'/'propack', return_singular_vectors='u'/'vh'/True/False)`.
+- Krylov carry: `(A, b, x0, *, rtol, atol, maxiter, M, callback)`; `gmres` adds `restart`, `callback_type='pr_norm'/'x'`.
+- `eigsh`/`eigs(A, k, M, sigma, which, ncv, maxiter, tol, OPinv, mode)`: `sigma`/`OPinv` shift-invert the interior spectrum (`mode='normal'/'buckling'/'cayley'`), `eigs` adds `OPpart`; `lobpcg(A, X, B, M, Y, largest)` carries `M` preconditioner, `B` mass matrix, `Y` constraint block; `svds(A, k, solver='arpack'/'lobpcg'/'propack', return_singular_vectors)`.
 
 | [INDEX] | [SURFACE]                                                         | [ENTRY_FAMILY]        | [RESULT]                                 |
 | :-----: | :---------------------------------------------------------------- | :-------------------- | :--------------------------------------- |
@@ -107,8 +106,8 @@ The pocketfft-backed transform family; `rfft`/`irfft` halve storage for real inp
 |  [18]   | `expm_multiply` \| `onenormest` \| `matrix_power`                 | operator algebra      | action-only `exp(A)·B`, 1-norm estimate  |
 
 [ENTRYPOINT_SCOPE]: `scipy.optimize` root-find and minimize
-- rail: solvers
-- local/least-squares/root routines take `(fun, x0, ...)` with `method`/`jac`/`bounds`/`constraints` where applicable; constraints route through `Bounds`/`LinearConstraint`/`NonlinearConstraint` and results carry an `OptimizeResult`. Global optimizers take `(func, bounds)`; the stochastic `differential_evolution`/`dual_annealing` carry the SPEC-007 `rng` keyword (`seed` the deprecated alias), and `differential_evolution` adds `workers` (process-parallel population), `polish` (L-BFGS-B refinement), and `strategy` (mutation policy); `shgo`/`direct`/`brute` are deterministic and carry no `rng`.
+- carry: local/least-squares/root `(fun, x0, method, jac, bounds, constraints)`, constraints via `Bounds`/`LinearConstraint`/`NonlinearConstraint`, results carry `OptimizeResult`.
+- global `(func, bounds)`; stochastic `differential_evolution`/`dual_annealing` take `rng` (`differential_evolution` adds `workers`, `polish`, `strategy`); `shgo`/`direct`/`brute` are deterministic.
 
 | [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY]         | [RESULT]                                      |
 | :-----: | :------------------------------------------------------------- | :--------------------- | :-------------------------------------------- |
@@ -131,8 +130,7 @@ The pocketfft-backed transform family; `rfft`/`irfft` halve storage for real inp
 |  [17]   | `BFGS()` \| `SR1()` (`HessianUpdateStrategy`)                  | hessian strategy       | quasi-Newton Hessian for `minimize(hess=...)` |
 
 [ENTRYPOINT_SCOPE]: `scipy.integrate` and `scipy.interpolate`
-- rail: solvers
-- quadrature/ODE surfaces are `integrate` members, interpolants `interpolate` members; adaptive quadrature takes `(func, a, b, ...)`, sampled rules take `(y, x, dx)`, interpolants take `(x, y, ...)`, and `solve_ivp` dispatches `method='RK45'/'DOP853'/'Radau'/'BDF'/'LSODA'`.
+- carry: adaptive quadrature `(func, a, b)`, sampled rules `(y, x, dx)`, interpolants `(x, y)`; `solve_ivp(method='RK45'/'DOP853'/'Radau'/'BDF'/'LSODA')`.
 
 | [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY]   | [RESULT]                                        |
 | :-----: | :---------------------------------------------------------- | :--------------- | :---------------------------------------------- |
@@ -142,7 +140,7 @@ The pocketfft-backed transform family; `rfft`/`irfft` halve storage for real inp
 |  [04]   | `solve_ivp(t_span, y0, method, events, jac)`                | ODE integrator   | initial-value ODE                               |
 |  [05]   | `RK45` \| `DOP853` \| `Radau` \| `BDF` \| `LSODA`           | ODE solver class | `OdeSolver` classes for `solve_ivp(method=...)` |
 |  [06]   | `solve_bvp(fun, bc, x, y)`                                  | BVP solver       | two-point boundary-value ODE solution           |
-|  [07]   | `odeint(func, y0, t)`                                       | ODE integrator   | legacy LSODA ODE solution                       |
+|  [07]   | `odeint(func, y0, t)`                                       | ODE integrator   | LSODA ODE solution (functional interface)       |
 |  [08]   | `simpson` \| `trapezoid` \| `romb`                          | sampled rule     | Simpson / trapezoidal / Romberg integral        |
 |  [09]   | `cumulative_trapezoid` \| `cumulative_simpson`              | cumulative       | running antiderivative array                    |
 |  [10]   | `interp1d`                                                  | 1-D interpolant  | callable interpolant                            |
@@ -159,8 +157,7 @@ The pocketfft-backed transform family; `rfft`/`irfft` halve storage for real inp
 |  [21]   | `RegularGridInterpolator` \| `NdBSpline(t, c, k)`           | grid             | regular-grid / tensor-product N-D B-spline      |
 
 [ENTRYPOINT_SCOPE]: `scipy.signal` filter design, spectral estimation, and resampling
-- rail: signal
-- IIR designers take `(N, Wn, btype, output='sos')` (`iirfilter` adds `ftype`, `iirnotch` takes `(w0, Q)`); filter-apply takes `(b, a, x)`/`(sos, x)`; spectral estimators take `(x, fs, nperseg, ...)`; `windows.<name>(M)` builds `hann`/`hamming`/`blackman`/`kaiser`/`tukey`/`dpss` tapers.
+- carry: IIR design `(N, Wn, btype, output='sos')` (`iirfilter` adds `ftype`, `iirnotch(w0, Q)`); filter-apply `(b, a, x)`/`(sos, x)`; spectral `(x, fs, nperseg)`; `windows.<name>(M)` builds `hann`/`hamming`/`kaiser`/`tukey`/`dpss` tapers.
 
 | [INDEX] | [SURFACE]                                                                | [ENTRY_FAMILY]     | [RESULT]                             |
 | :-----: | :----------------------------------------------------------------------- | :----------------- | :----------------------------------- |
@@ -177,9 +174,8 @@ The pocketfft-backed transform family; `rfft`/`irfft` halve storage for real inp
 |  [11]   | `windows.<name>(M)`                                                      | window             | tapering windows for FIR/STFT        |
 
 [ENTRYPOINT_SCOPE]: `scipy.stats` distributions and hypothesis tests
-- rail: statistics
-
-Continuous (`norm`/`lognorm`/`gamma`/`beta`/`t`/`chi2`/`expon`/`uniform`/`weibull_min`/`triang(c, loc, scale)`/`truncnorm(a, b, loc, scale)`) and discrete (`binom`/`poisson`/`geom`/`nbinom`) distributions are frozen `rv_continuous`/`rv_discrete` instances exposing `.pdf`/`.pmf`/`.cdf`/`.ppf`/`.rvs`/`.fit`/`.stats`; the hypothesis tests return a named result carrying `statistic` and `pvalue`. For DOE marginals, `triang` shape `c` in [0, 1] is the mode as a fraction of `(loc, loc+scale)` and `truncnorm` shapes `a`/`b` are the standardized (pre-`loc`/`scale`) truncation bounds, so `ppf(c=peak, loc=start, scale=end-start)` / `ppf((lo-mean)/std, (hi-mean)/std, loc=mean, scale=std)`.
+- distributions: continuous (`norm`/`lognorm`/`gamma`/`beta`/`t`/`chi2`/`expon`/`uniform`/`weibull_min`/`triang(c, loc, scale)`/`truncnorm(a, b, loc, scale)`) and discrete (`binom`/`poisson`/`geom`/`nbinom`) are frozen `rv_continuous`/`rv_discrete` instances exposing `.pdf`/`.pmf`/`.cdf`/`.ppf`/`.rvs`/`.fit`/`.stats`; tests return `statistic` and `pvalue`.
+- DOE marginals: `triang` shape `c` in [0, 1] is the mode fraction of `(loc, loc+scale)`, `truncnorm` `a`/`b` are standardized (pre-`loc`/`scale`) truncation bounds — `ppf(c=peak, loc=start, scale=end-start)` / `ppf((lo-mean)/std, (hi-mean)/std, loc=mean, scale=std)`.
 
 | [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY]         | [RESULT]                                       |
 | :-----: | :------------------------------------------------------------ | :--------------------- | :--------------------------------------------- |
@@ -195,9 +191,8 @@ Continuous (`norm`/`lognorm`/`gamma`/`beta`/`t`/`chi2`/`expon`/`uniform`/`weibul
 |  [10]   | `false_discovery_control`                                     | multiple-test          | Benjamini-Hochberg FDR control                 |
 
 [ENTRYPOINT_SCOPE]: `scipy.stats.qmc` quasi-Monte-Carlo sampling
-- rail: experiments
 
-`Sobol`/`Halton`/`LatinHypercube` are `QMCEngine` subclasses whose `random(n)` draws a low-discrepancy sample on the unit hypercube; `scale` affinely maps the sample to the bounds box and `discrepancy` scores the sample uniformity. Symbols omit the `qmc` prefix; engines take `(d, scramble, rng, optimization)` and expose `.random(n)`, with `rng` the SPEC-007 randomness keyword (`seed` a deprecated interim alias).
+`Sobol`/`Halton`/`LatinHypercube` are `QMCEngine` subclasses; engines take `(d, scramble, rng, optimization)` and expose `.random(n)` on the unit hypercube. Symbols omit the `qmc` prefix.
 
 | [INDEX] | [SURFACE]                                   | [ENTRY_FAMILY]   | [RESULT]                                          |
 | :-----: | :------------------------------------------ | :--------------- | :------------------------------------------------ |
@@ -210,9 +205,8 @@ Continuous (`norm`/`lognorm`/`gamma`/`beta`/`t`/`chi2`/`expon`/`uniform`/`weibul
 |  [07]   | `discrepancy(sample, method)`               | uniformity score | quality metric (`'CD'`/`'WD'`/`'MD'`/`'L2-star'`) |
 
 [ENTRYPOINT_SCOPE]: `scipy.spatial` neighbour search, hull, and tessellation
-- rail: spatial
 
-`cKDTree` is the compiled KD-tree and `KDTree` is the Python subclass over it; `ConvexHull`/`Delaunay`/`Voronoi` are Qhull-backed tessellation carriers whose attributes expose simplices, vertices, and adjacency; `distance.cdist`/`pdist` are the pairwise distance matrix and condensed vector that `squareform` interconverts; `transform.Rotation` is the quaternion/matrix/Euler rotation carrier; `procrustes` is the optimal similarity alignment of two point sets. `HalfspaceIntersection.intersections` are the `(n_vertices, dim)` vertices of the intersection polytope and `ip` a strictly-feasible interior point (e.g. the `linprog` Chebyshev centre); `Rotation` constructs via `from_quat`/`from_matrix`/`from_euler`/`from_rotvec` and applies via `.apply`/`.as_matrix`/`.inv`/`.mean`.
+`cKDTree` is the compiled KD-tree, `KDTree` the Python subclass; `ConvexHull`/`Delaunay`/`Voronoi` are Qhull-backed. `distance.cdist`/`pdist` yield the pairwise matrix / condensed vector `squareform` interconverts. `Rotation` constructs via `from_quat`/`from_matrix`/`from_euler`/`from_rotvec` and applies via `.apply`/`.as_matrix`/`.inv`/`.mean`. `HalfspaceIntersection(halfspaces, ip)` needs `ip`, a strictly-feasible interior point such as the `linprog` Chebyshev centre; `.intersections` are the `(n_vertices, dim)` polytope vertices.
 
 | [INDEX] | [SURFACE]                                                        | [ENTRY_FAMILY]     | [RESULT]                                       |
 | :-----: | :--------------------------------------------------------------- | :----------------- | :--------------------------------------------- |
@@ -231,27 +225,22 @@ Continuous (`norm`/`lognorm`/`gamma`/`beta`/`t`/`chi2`/`expon`/`uniform`/`weibul
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[SOLVER_TOPOLOGY]:
-- transform: `scipy.fft` owns the pocketfft DFT family (`fft`/`ifft`, `fftn`/`ifftn`, `rfft`/`irfft`), the trigonometric transforms (`dct`, `dst`), and the frequency-grid helpers (`fftfreq`, `fftshift`); the `analysis/transform.md#TRANSFORM` owner routes spectral cases here, and `scipy.signal.hilbert` composes `fft`/`ifft` to build the analytic signal. `scipy.fft` is Array-API-aware (dispatches on the backend `xp`), but `scipy.signal.hilbert`'s Array-API support is active (gated behind `SCIPY_ARRAY_API=1`, off by default) and jax-skipped (item assignment), so the `analysis/transform.md#TRANSFORM` analytic arm is numpy-resident — aligning with the `analysis/signal.md#DSP` numpy-floor stance for `scipy.signal`.
-- dense linear: `scipy.linalg` owns factorizations (`lu_factor`, `cholesky`, `ldl`, `qr`, `svd`, `polar`, `schur`), direct/structured solve (`solve`, `solve_triangular`, `solve_banded`, `lstsq`, `pinv`), eigensolvers (`eig`, `eigh` with `subset_by_index`), matrix functions (`expm`, `logm`, `sqrtm`, `funm`), and control matrix equations (`solve_sylvester`, `solve_continuous_are`, `solve_discrete_lyapunov`).
-- sparse storage: `scipy.sparse` owns the CSR/CSC/COO/DIA/BSR/LIL containers; construct from `diags_array`, `eye_array`, `kron`, or block stacks before solving.
-- sparse solve: `scipy.sparse.linalg` owns direct solve (`spsolve`, `splu`, `spilu`, `factorized`), the full Krylov family (`cg`/`gmres`/`bicgstab`/`minres`/`qmr`/`tfqmr`/`lgmres`/`gcrotmk`, all sharing the `x0`, `rtol`, `atol`, `maxiter`, `M`, `callback` signature; `gmres` adds `restart`/`callback_type`), least squares (`lsqr`, `lsmr`), sparse eigen/SVD (`eigsh`/`eigs` ARPACK with `sigma`/`OPinv` shift-invert for interior spectra, `lobpcg` block-preconditioned for large SPD systems, `svds` truncated SVD over the `'arpack'`/`'lobpcg'`/`'propack'` solvers, non-convergence railing as `ArpackNoConvergence`), and matrix-free operator algebra (`LinearOperator`, `aslinearoperator`, `expm_multiply`, `onenormest`) — the matrix-free path feeds the FEM `solver_iter_krylov(M=...)` route in `.api/scikit-fem.md`, and the shift-invert `OPinv` operator is itself a `LinearOperator` wrapping a `factorized([A - sigma·M])` closure.
-- optimization: `scipy.optimize` owns local minimization (`minimize` with a `BFGS`/`SR1` `HessianUpdateStrategy`), global search (`differential_evolution`, `dual_annealing`, `shgo`, `basinhopping`, `direct`), least squares (`least_squares`, `curve_fit`, `nnls`), root finding (`root`, `brentq`, `newton`, `fsolve`, `fixed_point`), and linear/integer programming (`linprog`, `milp`); constraints route through `Bounds`, `LinearConstraint`, `NonlinearConstraint`; gradients verify through `approx_fprime`/`check_grad`; results carry an `OptimizeResult`.
-- integration: `scipy.integrate` owns adaptive quadrature (`quad`, `dblquad`, `tplquad`, `nquad`, `quad_vec`, `tanhsinh`, `qmc_quad`, `nsum`), initial-value ODE (`solve_ivp` dispatching `RK45`/`DOP853`/`Radau`/`BDF`/`LSODA` `OdeSolver` classes, `odeint` legacy), boundary-value ODE (`solve_bvp`), and sampled/cumulative rules (`simpson`, `trapezoid`, `romb`, `cumulative_trapezoid`, `cumulative_simpson`); `qmc_quad` stacks a `scipy.stats.qmc` engine into the quadrature node set.
-- interpolation: `scipy.interpolate` owns 1-D interpolants (`interp1d`, `CubicSpline`, `Akima1DInterpolator`, `PchipInterpolator`, `make_interp_spline`, `UnivariateSpline`, `make_smoothing_spline`) and scattered/grid interpolation (`RBFInterpolator`, `NearestNDInterpolator`, `LinearNDInterpolator`, `CloughTocher2DInterpolator`, `griddata`, `RegularGridInterpolator`, `NdBSpline`).
-- signal: `scipy.signal` owns IIR/FIR design (`butter`, `cheby1`, `cheby2`, `ellip`, `bessel`, `iirfilter`, `firwin`), zero-phase/causal filtering (`sosfiltfilt`, `filtfilt`, `sosfilt`, `lfilter`, `savgol_filter`), spectral estimation (`welch`, `csd`, `coherence`, `periodogram`), the modern `ShortTimeFFT`/`stft`/`istft` time-frequency surface, convolution (`fftconvolve`, `oaconvolve`), resampling (`resample_poly`, `decimate`), and peak analysis (`find_peaks`, `peak_widths`, `peak_prominences`); the `signal/dsp.md#DSP` owner routes the stationary cases here beside the `pywt` wavelet cases.
-- statistics: `scipy.stats` owns the continuous/discrete distribution objects (`norm`, `lognorm`, `gamma`, `beta`, `t`, `chi2`, `binom`, `poisson`,...) with frozen `pdf`/`pmf`/`cdf`/`ppf`/`rvs`/`fit` (plus the array-API `make_distribution` object and bounded `fit`), parametric/rank hypothesis tests (`ttest_ind`, `f_oneway`, `mannwhitneyu`, `kruskal`, `wilcoxon`), goodness-of-fit (`ks_2samp`, `anderson`, `shapiro`), correlations (`pearsonr`, `spearmanr`, `kendalltau`, `linregress`), resampling inference (`bootstrap`, `permutation_test`, `monte_carlo_test`, all taking `rng`), density/divergence (`gaussian_kde`, `ecdf`, `wasserstein_distance`, `entropy`, `false_discovery_control`); the `numerics/statistics.md#STATISTICS` owner routes distribution and test cases here.
-- quasi-Monte-Carlo: `scipy.stats.qmc` owns the low-discrepancy engines (`Sobol`, `Halton`, `LatinHypercube`) with `scale` to a bounds box and `discrepancy` scoring; the `experiments/study.md#STUDY` DOE sampler routes here.
-- spatial: `scipy.spatial` owns KD-tree neighbour/radius search (`KDTree`/`cKDTree.query`/`query_ball_point`/`query_pairs`, `workers`-parallel), Qhull hull/tessellation (`ConvexHull`, `Delaunay`, `Voronoi`, `SphericalVoronoi`, `HalfspaceIntersection`), pairwise/condensed distance (`distance.cdist`, `distance.pdist`/`squareform`, `distance_matrix`), rotation algebra and interpolation (`transform.Rotation` with `align_vectors`/`mean`, `Slerp`, `RotationSpline`, `RigidTransform`), and point-set alignment (`procrustes`, `geometric_slerp`); the `spatial/query.md#SPATIAL` owner routes every geometry query here.
+[TOPOLOGY]:
+- Each `scipy` submodule owns one numeric domain, and the numeric-intent owner routes a `NumericIntent` case to exactly one submodule callable; the `[02]`/`[03]` tables own the member rosters.
+- `scipy.fft` is Array-API-aware (dispatches on the backend `xp`); `scipy.signal.hilbert` gates Array-API behind `SCIPY_ARRAY_API=1` (off by default) and skips jax under item assignment, so the analytic-signal arm is numpy-resident beside the `scipy.signal` numpy floor.
+
+[STACKING]:
+- `scikit-fem`(`.api/scikit-fem.md`): FEM assembly emits a `scipy.sparse` matrix and its solver factories return `scipy.sparse.linalg` callables — `solver_iter_krylov(M=...)` consumes a `LinearOperator` preconditioner, and scipy owns the sparse direct/Krylov/eigen solve under the FEM dispatcher.
+- numeric-intent owner: `integrate.qmc_quad` folds a `scipy.stats.qmc` engine into its quadrature nodes; the shift-invert `OPinv` is a `LinearOperator` wrapping a `factorized([A - sigma·M])` closure; `signal.hilbert` composes `fft`/`ifft`; `expm_multiply` takes the action-only `exp(A)·B` path over a `LinearOperator`.
 
 [LOCAL_ADMISSION]:
-- import: submodule imports at boundary scope only; module-level import is banned by the manifest import policy.
+- import: submodule imports at boundary scope only.
 - routing: `NumericIntent` dense-linear -> `scipy.linalg`; sparse-solve -> `scipy.sparse.linalg`; nonlinear-optimize -> `scipy.optimize`; integrate -> `scipy.integrate`; interpolate -> `scipy.interpolate`.
-- evidence: each solve captures the route callable, the tolerance inputs, and the convergence/residual (the `OptimizeResult` flags or solver residual) as a study receipt.
+- evidence: each solve captures the route callable, the tolerance inputs, and the convergence/residual (`OptimizeResult` flags or solver residual) as a study receipt.
 - boundary: scipy results are offline study evidence; production substrate selection and benchmark claims stay in `Rasm.Compute`.
 
 [RAIL_LAW]:
 - Package: `scipy`
 - Owns: discrete Fourier transforms, dense/sparse linear algebra, nonlinear optimization, numerical integration, interpolation, statistics (distributions, hypothesis tests, QMC), signal processing, and spatial query/tessellation/rotation for the numeric-intent rail
-- Accept: a `NumericIntent` case routed to a scipy submodule callable (`scipy.fft`, `scipy.linalg`, `scipy.sparse.linalg`, `scipy.optimize`, `scipy.integrate`, `scipy.interpolate`, `scipy.signal`, `scipy.stats`, `scipy.spatial`) with captured tolerances and residuals
+- Accept: a `NumericIntent` case routed to a scipy submodule callable with captured tolerances and residuals
 - Reject: hand-rolled numeric kernels scipy owns (DFT, distance, distribution sampling); wrapper-renames of solver callables; product benchmark claims

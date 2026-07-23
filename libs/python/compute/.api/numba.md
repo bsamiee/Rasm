@@ -1,24 +1,19 @@
 # [PY_COMPUTE_API_NUMBA]
 
-`numba` supplies LLVM-backed JIT compilation of NumPy-typed Python kernels for the compute accelerator rail. The package owner compiles a hot numeric-study kernel to native code through `njit`, builds NumPy ufuncs through `vectorize`/`guvectorize`, and drives parallel loops with `prange`; it never re-implements the JIT pipeline numba owns. Decorating a function yields a `CPUDispatcher` carrying `signatures`, `inspect_types`, `inspect_asm`, and `parallel_diagnostics`.
+`numba` owns LLVM-backed JIT compilation of NumPy-typed Python kernels for the compute accelerator rail, lowering a decorated kernel to native machine code and lifting scalar functions to NumPy ufuncs and gufuncs. Compilation is offline study evidence; no production runtime binds numba.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `numba`
-- package: `numba`
-- import: `numba`; submodules `numba.types`, `numba.typed`, `numba.extending`, `numba.experimental`
-- owner: `compute`
-- version: `0.65.1`
-- license: BSD-2-Clause
-- rail: accelerator
-- capability: LLVM JIT of NumPy-typed functions in nopython and object modes, automatic parallelization, threadpool/threading-layer control, scalar-to-ufunc lifting, C-callback emission, and `jitclass`/`structref`/`overload` extension
+- package: `numba` (BSD-2-Clause, Anaconda Inc.)
+- module: `numba`; submodules `numba.types`, `numba.typed`, `numba.extending`, `numba.experimental`
+- rail: accelerator — offline LLVM JIT of numeric-study kernels
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: compiled artifacts and numba type vocabulary
-- rail: accelerator
+[PUBLIC_TYPE_SCOPE]: compiled-artifact and numba type vocabulary
 
-| [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE] | [CAPABILITY]                                           |
+| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]  | [CAPABILITY]                                           |
 | :-----: | :------------------------------ | :------------- | :----------------------------------------------------- |
 |  [01]   | `numba.core.types.Array`        | array type     | typed n-D array spec `Array(dtype, ndim, layout)`      |
 |  [02]   | `numba.types`                   | type namespace | scalar/array/optional/deferred type constructors       |
@@ -32,7 +27,6 @@
 |  [10]   | `numba.NumbaPerformanceWarning` | perf warning   | parallel/fastmath performance advisory                 |
 
 [PUBLIC_TYPE_SCOPE]: scalar type aliases (`numba.<alias>`)
-- rail: accelerator
 
 | [INDEX] | [INTEGER]         | [FLOAT_COMPLEX]     | [SHORT_ALIAS]   | [WIDTH]                         |
 | :-----: | :---------------- | :------------------ | :-------------- | :------------------------------ |
@@ -46,10 +40,9 @@
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: compilation decorators — every JIT decorator accepts `cache`, `parallel`, `fastmath`, `boundscheck`, `nogil` options
-- rail: accelerator
+[ENTRYPOINT_SCOPE]: compilation decorators — each JIT decorator carries `cache`, `parallel`, `fastmath`, `boundscheck`, `nogil`
 
-| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY]  | [CAPABILITY]                                       |
+| [INDEX] | [SURFACE]                                                       | [SHAPE]         | [CAPABILITY]                                       |
 | :-----: | :-------------------------------------------------------------- | :-------------- | :------------------------------------------------- |
 |  [01]   | `njit(*args, **kws)`                                            | nopython JIT    | `jit(nopython=True)`                               |
 |  [02]   | `jit(signature_or_function, locals, pipeline_class, **options)` | JIT             | object-mode fallback + explicit signatures         |
@@ -61,9 +54,8 @@
 |  [08]   | `jit_module(**kwargs)`                                          | module JIT      | applies `jit` to every module-level function       |
 
 [ENTRYPOINT_SCOPE]: parallel and runtime surfaces
-- rail: accelerator
 
-| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY]       | [CAPABILITY]                                         |
+| [INDEX] | [SURFACE]                                                | [SHAPE]              | [CAPABILITY]                                         |
 | :-----: | :------------------------------------------------------- | :------------------- | :--------------------------------------------------- |
 |  [01]   | `prange(*args)`                                          | parallel range       | parallel loop range honored under `parallel=True`    |
 |  [02]   | `get_num_threads()`                                      | thread query         | active numba thread count                            |
@@ -77,36 +69,32 @@
 |  [10]   | `carray(ptr, shape, dtype=None)` / `farray(...)`         | FFI bridge           | raw C pointer → C-/F-ordered NumPy array in nopython |
 |  [11]   | `gdb()` / `gdb_init(...)` / `gdb_breakpoint()`           | debug                | attach gdb to a running compiled kernel              |
 
-[EXTENSION_SURFACES]: the `numba.extending`/`numba.experimental` registrars that teach nopython about foreign types.
-- [01]-[OVERLOAD]: `extending.overload(fn)` / `overload_method(typ, name)` / `overload_attribute(typ, name)` — register nopython implementations for a function, method, or attribute.
-- [02]-[INTRINSIC]: `extending.intrinsic(fn)` — declares a low-level typed code-generation primitive.
+[EXTENSION_SURFACES]: `numba.extending`/`numba.experimental` registrars that teach nopython a foreign type.
+- [01]-[OVERLOAD]: `extending.overload(fn)` / `overload_method(typ, name)` / `overload_attribute(typ, name)` — nopython implementations for a function, method, or attribute.
+- [02]-[INTRINSIC]: `extending.intrinsic(fn)` — low-level typed code-generation primitive.
 - [03]-[JITABLE]: `extending.register_jitable(fn)` — marks a pure-Python helper callable from nopython.
-- [04]-[TYPE_MAPPING]: `extending.as_numba_type(py_type)` / `typeof_impl.register` — maps a Python/annotation type to a numba type; teaches `typeof`.
-- [05]-[NATIVE_MODEL]: `extending.box` / `unbox` / `models` / `make_attribute_wrapper` / `lower_builtin` / `type_callable` — full data-model extension to expose a foreign type to nopython.
-- [06]-[STRUCT_REF]: `experimental.structref.register` / `StructRefProxy` / `define_proxy` / `define_boxing` — mutable, reference-semantics struct type for nopython (the `jitclass` alternative).
+- [04]-[TYPE_MAPPING]: `extending.as_numba_type.register(py_type)` / `typeof_impl.register(cls)` — maps a Python/annotation type to a numba type and teaches `typeof`.
+- [05]-[NATIVE_MODEL]: `extending.box` / `unbox` / `models` / `make_attribute_wrapper` / `lower_builtin` / `type_callable` — full data-model extension exposing a foreign type to nopython.
+- [06]-[STRUCT_REF]: `experimental.structref.register` / `StructRefProxy` / `define_proxy` / `define_boxing` — mutable reference-semantics struct type for nopython.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[DISPATCHER_TOPOLOGY]:
-- A decorated kernel becomes a `CPUDispatcher`; calling it specializes and caches one compiled signature per argument-type tuple. `signatures`/`nopython_signatures` list the compiled specializations; `overloads` maps signature → compile result; `py_func` recovers the uncompiled original.
-- Evidence capture: `inspect_types()`, `inspect_asm()`, `inspect_llvm()`, `inspect_cfg()`, and `get_metadata()` expose the lowered Python-typed source, native assembly, LLVM IR, control-flow graph, and compile metadata respectively — capture these as the study receipt rather than a bare timing.
-- Lifecycle control: `recompile()` forces recompilation; `disable_compile()` freezes the dispatcher to its cached specializations; `enable_caching()` arms the on-disk cache.
-- `parallel=True` plus `prange` enables auto-parallelization; `parallel_diagnostics()` reports loop fusion, allocation hoisting, and parallel-region decisions — the canonical parallelization-evidence source.
-- `cache=True` persists compiled code to an on-disk cache keyed by source hash (requires a real source file, not `<string>`); `fastmath=True` relaxes IEEE ordering for speed; `boundscheck=True` adds array-bounds checks; `nogil=True` releases the GIL for the compiled region.
-- `njit` is `jit` with `nopython=True`; object-mode fallback exists only on `jit` and is the slow path. `cfunc` yields a C-callable artifact carrying `ctypes`, `address`, and `native_name` — the bridge into `scipy.LowLevelCallable` and ctypes FFI. `vectorize` yields a `DUFunc` (a true NumPy ufunc) that broadcasts, reduces, and accumulates like any ufunc.
+[TOPOLOGY]:
+- A decorated kernel becomes a `CPUDispatcher` specializing and caching one compiled signature per argument-type tuple; `signatures`/`nopython_signatures`/`overloads` expose the specialization set and `py_func` recovers the uncompiled original. `njit` is `jit(nopython=True)`; object-mode fallback rides only `jit` as the slow path.
+- `cache=True` persists compiled code to an on-disk cache keyed by source hash (a real source file, not `<string>`); `fastmath=True` relaxes IEEE ordering; `boundscheck=True` adds array-bounds checks; `nogil=True` releases the GIL for the compiled region; `parallel=True` auto-parallelizes `prange` loops.
 
-[STUDY_ROUTING]:
-- A `NumericIntent` kernel marked for the LLVM-JIT accelerator row compiles through `njit`; parallel kernels add `prange` under `parallel=True`.
-- The accelerator row captures the compile mode, the resolved signature, and the speedup class as study evidence; no production runtime depends on numba.
-- Typed containers (`typed.List`, `typed.Dict`) cross the nopython boundary; reflected Python lists and dicts do not.
+[STACKING]:
+- `numpy`(`.api/numpy.md`): `from_dtype`/`typeof` map NumPy dtypes to numba types; `vectorize`/`guvectorize` emit real `numpy` ufuncs/gufuncs that broadcast, reduce, and accumulate.
+- `scipy`(`.api/scipy.md`): a `cfunc` kernel's `.ctypes`/`.address` feeds `scipy.LowLevelCallable` into `scipy.integrate.quad`/`scipy.ndimage` with zero per-sample Python overhead.
+- `mpmath`(`.api/mpmath.md`): the accuracy oracle — run the `njit` fast path, then `mpmath.almosteq` against a high-`dps` reference to certify the speedup held precision.
+- within-lib: `inspect_types`/`inspect_asm`/`inspect_llvm`/`inspect_cfg`/`get_metadata` capture the lowered source, native assembly, LLVM IR, CFG, and compile metadata as the study receipt; `parallel_diagnostics()` reports loop fusion, allocation hoisting, and parallel-region decisions; `cfunc` yields `ctypes`/`address`/`native_name`, `vectorize` yields a `DUFunc`, and `recompile`/`disable_compile`/`enable_caching` drive dispatcher lifecycle.
+- within-lib: a domain type enters nopython through `extending.as_numba_type`/`box`/`unbox`/`models`, materializing a native data model rather than a field copy into a numba-native shape.
 
-[INTEGRATION_TOPOLOGY]:
-- `numpy`: the type substrate: `from_dtype`/`typeof` map NumPy dtypes to numba types; `vectorize`/`guvectorize` emit real `numpy` ufuncs/gufuncs that compose with broadcasting and `np.einsum`-shaped reductions.
-- `scipy`: a `cfunc`-compiled kernel's `.ctypes`/`.address` feeds `scipy.LowLevelCallable`, so a numba kernel drops directly into `scipy.integrate.quad`/`scipy.ndimage` C callbacks with zero Python-call overhead per sample.
-- `mpmath`: the validation oracle for an `njit` kernel: run the compiled fast path, then `mpmath.almosteq` against a high-`dps` reference to certify the speedup did not cost accuracy.
-- `extending`: when an admitted domain type must enter nopython, register it via `as_numba_type`/`box`/`unbox`/`models` rather than copying its fields into a numba-native shape.
+[LOCAL_ADMISSION]:
+- A `NumericIntent` kernel on the LLVM-JIT accelerator row compiles through `njit`, parallel kernels adding `prange` under `parallel=True`; the row captures compile mode, resolved signature, lowered IR (`inspect_*`), and speedup class as study evidence. Typed containers (`typed.List`, `typed.Dict`) cross the nopython boundary; reflected Python lists and dicts do not.
 
 [RAIL_LAW]:
 - Package: `numba`
-- Owns: offline LLVM-JIT acceleration of numeric-study kernels (the `NumericIntent` LLVM-JIT row), ufunc/gufunc emission, and C-callback bridging
-- Accept: a study kernel compiled through `njit`, with the compiled signature, lowered IR (`inspect_*`), and speedup class captured as a study receipt
+- Owns: offline LLVM-JIT acceleration of numeric-study kernels, ufunc/gufunc emission, and C-callback bridging
+- Accept: a study kernel compiled through `njit` with its compiled signature, lowered IR (`inspect_*`), and speedup class captured as a receipt
+- Reject: a hand-written C extension or a re-rolled JIT loop where `njit` plus `prange` lowers the same kernel

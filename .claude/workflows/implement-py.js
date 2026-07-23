@@ -18,13 +18,10 @@ export const meta = {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const CAP = 14; // concurrent folder-CHAIN ceiling — the default target sets run below it; it binds only when args name more folders than CAP
+const CAP = 14;
 const IMPL_FAN = 3; // max implement agents fanned per folder, and only over discovery-proven page-disjoint card groups
-const STAGGER_MS = 1500;
-const STALL = 300000;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the no-shrinkage progress gate (no remaining shrinkage -> stop) is the real bound
-const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical writer; the count bounds spend, the backoff buys recovery time
-const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
+const RETRY_ATTEMPTS = 2;
 const ROOT = 'libs/python';
 const SHARED_API = 'libs/python/.api';
 const CENTRAL = 'pyproject.toml';
@@ -627,39 +624,29 @@ const OWN_PASS = (artifact) =>
     'report is navigation facts covering a MINORITY of what the work demands, and the majority of edits come from your own attack.';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-// One shared launch gate: chain heads and implement-fan members alike pass it, so every pooled start stays staggered.
-let gate = Promise.resolve();
-const stagger = () => {
-    gate = gate.then(() => sleep(STAGGER_MS));
-    return gate;
-};
 const pool = async (items, cap, worker) => {
     const out = new Array(items.length);
     let next = 0;
     const run = async () => {
         while (next < items.length) {
             const i = next++;
-            await stagger();
             out[i] = await worker(items[i], i);
         }
     };
     await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()));
     return out;
 };
-// Bounded re-dispatch for a dead CRITICAL writer (usage-limit or transport death): attempt-counted, backoff before each attempt;
+// Bounded re-dispatch for a dead CRITICAL writer (usage-limit or transport death): attempt-counted, retry;
 // the final death isolates the lane but NEVER the chain — every downstream stage still runs against current disk.
 const retryLane = async (fn) => {
     for (let a = 0; a < RETRY_ATTEMPTS; a++) {
-        await sleep(RETRY_BACKOFF);
         const r = await fn();
         if (r) return r;
     }
     return null;
 };
 
-// Codex dispatch: the wrapper makes one blocking Codex MCP call, writes the envelope's content
+// Codex dispatch: the wrapper runs one blocking supervised CLI process and writes its content
 // to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
 // (role split, battery-validated); the prompt carries only the task; the output contract sits LAST.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
@@ -731,8 +718,8 @@ const codexPrompt = (label, task, schema, o) => {
             lane +
             '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason ' +
             '"crash" alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land ' +
-            'the receipt" and re-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (idle-timeout, ' +
-            'max-timeout, turn-failed, refusal) re-runs the same command untouched.',
+            'the receipt" and re-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (' +
+            'turn failure or refusal) re-runs the same command untouched.',
         '(3) ' +
             (authored
                 ? 'The delegate lands the product itself at ' + report + ' as its final act.'
@@ -762,7 +749,6 @@ const nativeLane = (task, o) =>
         model: o.nativeModel || twinOf(o.model),
         effort: 'high',
         schema: o.wire,
-        stallMs: o.stallMs || STALL,
     });
 // The discovery lane (a mapping lane — recon law, never fix), with
 // the native twin as the quota fallback. The row carries `scope` from the ORCHESTRATOR (never the lane's
@@ -809,7 +795,7 @@ const recon = (task, o) => {
 };
 const folderName = (p) => p.split('/').filter(Boolean).pop() || p;
 
-// Critique lane: one blocking Codex MCP call — a FIX lane
+// Critique lane: one blocking supervised Codex CLI process — a FIX lane
 // (persistence + post-edit verification law), FIXLOG product to disk, thin receipt on the wire; a quota fallback
 // restores the native twin writing the same product to the same path.
 const critiqueReceipt = (base) =>
@@ -1308,7 +1294,6 @@ const runFolder = async (target) => {
             impls = (
                 await parallel(
                     groups.map((g, gi) => async () => {
-                        await stagger();
                         const fire = (suffix) =>
                             agent(
                                 implementPrompt(target, groupSeq(t, g), GROUPNOTE, t.report, SCRATCH + '/ownpass-impl-' + tag + '-g' + gi + '.md'),
@@ -1318,7 +1303,6 @@ const runFolder = async (target) => {
                                     schema: FIXLOG_SCHEMA,
                                     model: 'fable',
                                     effort: 'high',
-                                    stallMs: STALL,
                                 },
                             );
                         return (await fire('')) || (await retryLane(() => fire(':r1')));
@@ -1333,7 +1317,6 @@ const runFolder = async (target) => {
                     schema: FIXLOG_SCHEMA,
                     model: 'fable',
                     effort: 'high',
-                    stallMs: STALL,
                 });
             const one = (await fire('')) || (await retryLane(() => fire(':r1')));
             impls = one ? [one] : [];
@@ -1344,14 +1327,12 @@ const runFolder = async (target) => {
         // Critique: fixlog to disk, receipt on the wire. The report path is DETERMINISTIC (orchestrator-computed), so a dead
         // receipt never severs the fold — the write lane writes its fixlog to disk itself, and the
         // red-team + terminal single-writer verify the path on disk instead of trusting the receipt `ok`.
-        await stagger();
         const critReport = SCRATCH + '/' + fileTag('critique:' + tag) + '-report.json';
         const crit = await solLane(critiquePrompt(target, seq, t.report, SCRATCH + '/ownpass-crit-' + tag + '.md'), {
             label: 'critique:' + tag,
             phase: 'Realize',
         });
         const critOk = !!(crit && crit.ok);
-        await stagger();
         const fireRt = (suffix) =>
             agent(redteamPrompt(target, seq, t.report, critReport, critOk, SCRATCH + '/ownpass-rt-' + tag + '.md'), {
                 label: 'redteam:' + tag + suffix,
@@ -1359,7 +1340,6 @@ const runFolder = async (target) => {
                 schema: REDTEAM_SCHEMA,
                 model: 'fable',
                 effort: 'high',
-                stallMs: STALL,
             });
         const red = (await fireRt('')) || (await retryLane(() => fireRt(':r1')));
         return {
@@ -1451,7 +1431,6 @@ if (PINS_NEEDED) {
                 schema: PIN_SCHEMA,
                 model: 'opus',
                 effort: 'high',
-                stallMs: STALL,
             });
         pinlog = (await fire('')) || (await retryLane(() => fire(':a1')));
         if (!pinlog) break; // dead round after retries: the fed-in sets survive to the run return; every disk tranche stays checkpoint-re-enterable
@@ -1476,7 +1455,6 @@ if (HARVEST_ROWS.length || ORPHANS.length || (PINS_NEEDED && !pinlog)) {
         schema: DOCTRINE_SCHEMA,
         model: 'fable',
         effort: 'high',
-        stallMs: STALL,
     });
 }
 

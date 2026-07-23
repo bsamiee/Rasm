@@ -1,6 +1,6 @@
 # [PY_DATA_API_DATAFUSION]
 
-`datafusion` supplies the embedded Arrow-native query and federation engine for the data engine rail: a `SessionContext` that registers heterogeneous tables (CSV/Parquet/JSON/Avro/Arrow, in-memory batches, pandas/polars/pyarrow, listing directories, object stores, and foreign catalogs), a lazy `DataFrame` algebra that compiles to a `LogicalPlan`/`ExecutionPlan`, a `RecordBatchStream` push-pull streaming interface, and a `substrait` namespace that serializes a SQL string or `LogicalPlan` into a portable `Plan`. The package owner composes `SessionContext`, `DataFrame`, `RecordBatchStream`, and `substrait.Producer`/`substrait.Consumer` into the federation and streaming paths; it owns Substrait plan interchange for the SUBSTRAIT_PORTABILITY rail and never re-implements the Arrow execution kernels, the SQL planner, or the Substrait codec datafusion already owns.
+`datafusion` owns the embedded Arrow-native query and federation engine for the data rail: a `SessionContext` registering heterogeneous sources (files, batches, foreign frames, object stores, catalogs), a lazy `DataFrame` algebra compiling to `LogicalPlan`/`ExecutionPlan`, a sync/async `RecordBatchStream` interface, and a `substrait` namespace serializing SQL or a `LogicalPlan` into a portable `Plan`. `datafusion` owns `Plan` interchange for the SUBSTRAIT_PORTABILITY rail, re-implementing neither the Arrow kernels, the SQL planner, nor the Substrait codec.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,16 +9,12 @@
 - import: `datafusion`
 - owner: `data`
 - rail: engine
-- version: `53.0.0`
 - entry points: library use is import-only; no console script
-- capability: SQL and DataFrame query execution over Arrow `RecordBatch` partitions, multi-format reader/writer registration (CSV/Parquet/JSON/Avro/Arrow), in-memory and foreign-catalog table providers, object-store federation, scalar/aggregate/window/table user-defined functions via `udf`/`udaf`/`udwf` factories over `Accumulator`/`WindowEvaluator` bases, the `functions` built-in expression namespace, lazy `LogicalPlan`/`ExecutionPlan` inspection, sync and async `RecordBatchStream` streaming, zero-copy export to pandas/polars/pyarrow, and Substrait `Plan` serialize/deserialize for cross-engine portability
+- capability: SQL and DataFrame execution over Arrow `RecordBatch` partitions, multi-format reader/writer registration (CSV/Parquet/JSON/Avro/Arrow), in-memory and foreign-catalog providers, object-store federation, scalar/aggregate/window/table UDFs via `udf`/`udaf`/`udwf`, the `functions` built-in namespace, lazy `LogicalPlan`/`ExecutionPlan` inspection, sync/async `RecordBatchStream` streaming, zero-copy pandas/polars/pyarrow export, and Substrait `Plan` serialize/deserialize
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: engine, frame, plan, and interchange roots
-- rail: engine
-
-`SessionContext` is the single execution and registration root; `DataFrame` is the lazy relational algebra that collects to Arrow `RecordBatch` lists or a `RecordBatchStream`. `SessionConfig`, `RuntimeEnvBuilder`, and `SQLOptions` are fluent builders gating session, runtime, and SQL policy. `LogicalPlan`/`ExecutionPlan` are the inspectable plan stages; the `substrait` namespace carries the portable `Plan` plus its codec surfaces.
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY]     | [RAIL]                                                   |
 | :-----: | :------------------- | :---------------- | :------------------------------------------------------- |
@@ -51,9 +47,8 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `SessionContext` register, read, and execute
-- rail: engine
 
-Every surface below is a `SessionContext` method (prefix dropped), and each `[CALL_SHAPE]` omits the leading method name. `SessionContext()` accepts an optional `SessionConfig` and `RuntimeEnvBuilder`; `global_ctx` returns the process-wide context. A provider argument is `Table | TableProviderExportable | DataFrame | pa.dataset.Dataset`; a catalog-provider argument is `CatalogProviderExportable | CatalogProvider | Catalog`; an Arrow-capsule argument is `ArrowStreamExportable | ArrowArrayExportable`. `from_arrow` adopts Arrow capsule data and its peers `from_pylist`/`from_pydict`/`from_pandas`/`from_polars` adopt the matching in-memory/foreign frame.
+Every surface is a `SessionContext` method, the prefix dropped from each `[CALL_SHAPE]`. A `<provider>` is `Table | TableProviderExportable | DataFrame | pa.dataset.Dataset`, a `<catalog-provider>` is `CatalogProviderExportable | CatalogProvider | Catalog`, an `<arrow-capsule>` is `ArrowStreamExportable | ArrowArrayExportable`; `from_arrow` and its peers `from_pylist`/`from_pydict`/`from_pandas`/`from_polars` adopt Arrow-capsule or foreign-frame data.
 
 | [INDEX] | [SURFACE]                            | [CALL_SHAPE]                                        | [CAPABILITY]                           |
 | :-----: | :----------------------------------- | :-------------------------------------------------- | :------------------------------------- |
@@ -87,9 +82,8 @@ Every `read_*` returns a `DataFrame` and shares the source tail `(schema=None, t
 |  [06]   | `from_arrow`                | `(data: <arrow-capsule>, name=None) -> DataFrame`      | adopt Arrow capsule data             |
 
 [ENTRYPOINT_SCOPE]: `DataFrame` algebra, materialize, and write
-- rail: engine
 
-`DataFrame` is lazy; every surface below is a `DataFrame` method (prefix dropped), each `[CALL_SHAPE]` omits the leading method name, and a transform returns a new `DataFrame` unless the row states another return. Nothing executes until `collect`, `show`, `execute_stream`, a `to_*` export, or a `write_*` sink. The equijoin surface is `join(right, on=None, how='inner', *, left_on=None, right_on=None, join_keys=None, coalesce_duplicate_keys=True)` overloaded on key shape and `join_on(right, *on_exprs, how='inner')` on arbitrary predicates.
+`DataFrame` is lazy; every surface is a `DataFrame` method with the prefix dropped, and a transform returns a new `DataFrame` unless the row states otherwise. Nothing executes until `collect`, `show`, `execute_stream`, a `to_*` export, or a `write_*` sink. `join(right, on=None, how='inner', *, left_on=None, right_on=None, join_keys=None, coalesce_duplicate_keys=True)` is the equijoin surface overloaded on key shape; `join_on(right, *on_exprs, how='inner')` joins on arbitrary predicates.
 
 | [INDEX] | [SURFACE]        | [CALL_SHAPE]                                                                  | [CAPABILITY]                       |
 | :-----: | :--------------- | :---------------------------------------------------------------------------- | :--------------------------------- |
@@ -112,7 +106,7 @@ Every `read_*` returns a `DataFrame` and shares the source tail `(schema=None, t
 |  [02]   | `cache`       | `()`                                                | materialize once, reuse downstream       |
 |  [03]   | `fill_null`   | `(value: Any, subset: list[str] \| None = None)`    | replace nulls before egress              |
 
-`collect` peers `head(n)`/`tail(n)`/`count()`; `to_polars` peers `to_pandas`/`to_pylist`/`to_pydict`; `logical_plan` peers `optimized_logical_plan`/`execution_plan`. `write_parquet` also takes `compression_level` and a `ParquetWriterOptions` override; `write_csv` peers `write_json`/`write_table`.
+`collect` peers `head(n)`/`tail(n)`/`count()`; `to_polars` peers `to_pandas`/`to_pylist`/`to_pydict`; `logical_plan` peers `optimized_logical_plan`/`execution_plan`; `write_parquet` also takes `compression_level` and a `ParquetWriterOptions` override; `write_csv` peers `write_json`/`write_table`.
 
 | [INDEX] | [SURFACE]                    | [CALL_SHAPE]                                               | [CAPABILITY]                          |
 | :-----: | :--------------------------- | :--------------------------------------------------------- | :------------------------------------ |
@@ -128,9 +122,8 @@ Every `read_*` returns a `DataFrame` and shares the source tail `(schema=None, t
 |  [10]   | `into_view`                  | `(temporary=False) -> Table`                               | promote a frame to a registrable view |
 
 [ENTRYPOINT_SCOPE]: streaming, expression, and builder surfaces
-- rail: engine
 
-`RecordBatchStream` is both a synchronous and asynchronous iterator; `next` pulls one `RecordBatch`. `col`/`column` mint a column `Expr`; `lit`/`literal` mint a literal `Expr` and their peers `string_literal`/`str_lit` and `lit_with_metadata`/`literal_with_metadata` carry the typed/metadata variants.
+`RecordBatchStream` is a synchronous and asynchronous iterator; `next` pulls one `RecordBatch`. `col`/`column` mint a column `Expr`; `lit`/`literal` mint a literal `Expr`, and peers `string_literal`/`str_lit` and `lit_with_metadata`/`literal_with_metadata` carry the typed/metadata variants.
 
 | [INDEX] | [SURFACE]                | [CALL_SHAPE]                                                    | [CAPABILITY]                       |
 | :-----: | :----------------------- | :-------------------------------------------------------------- | :--------------------------------- |
@@ -139,7 +132,7 @@ Every `read_*` returns a `DataFrame` and shares the source tail `(schema=None, t
 |  [03]   | `col` / `column`         | `col(value: str) -> Expr` (attr `col.name` also mints one)      | mint a column-reference expression |
 |  [04]   | `lit` / `literal`        | `lit(value: Any) -> Expr`                                       | mint a literal expression          |
 
-`SessionConfig`, `RuntimeEnvBuilder`, and `SQLOptions` return `self` for fluent chaining; each tunes its own policy axis.
+`SessionConfig`, `RuntimeEnvBuilder`, and `SQLOptions` return `self` for fluent chaining; each tunes one policy axis.
 
 | [INDEX] | [BUILDER]           | [FLUENT_METHODS]                                                                                              |
 | :-----: | :------------------ | :------------------------------------------------------------------------------------------------------------ |
@@ -148,11 +141,8 @@ Every `read_*` returns a `DataFrame` and shares the source tail `(schema=None, t
 |  [03]   | `SQLOptions`        | `with_allow_ddl(allow=True)`, `with_allow_dml`, `with_allow_statements`                                       |
 
 [ENTRYPOINT_SCOPE]: built-in functions and user-defined functions
-- rail: engine
 
-`functions` is the built-in expression namespace (`import datafusion.functions as f`): `f.col`-composing scalar/aggregate/window builders (`f.sum`, `f.avg`, `f.lower`, `f.array_agg`, `f.lead`, `f.row_number`, `f.coalesce`, `f.case`) that return `Expr` and compose with `over(WindowFrame(...))`. UDFs are minted by the module factories `udf`/`udaf`/`udwf` over the `Accumulator`/`WindowEvaluator` base classes and a `Volatility` policy, then handed to `SessionContext.register_udf`/`register_udaf`/`register_udwf`/`register_udtf`; one factory family owns all four UDF modalities, never a builder per UDF kind.
-
-Each `udf`/`udaf`/`udwf` factory takes `(callable/type, input_types, return_type: pa.DataType, volatility: str, name=...)` and returns the matching UDF; `udaf` adds a `state_type: list[pa.DataType]`.
+`functions` is the built-in expression namespace (`import datafusion.functions as f`): scalar/aggregate/window builders (`f.sum`, `f.array_agg`, `f.row_number`, `f.coalesce`, `f.case`) return `Expr` and compose with `over(WindowFrame(...))`. `udf`/`udaf`/`udwf` mint the four UDF kinds over `Accumulator`/`WindowEvaluator` and a `Volatility` policy, handed to `SessionContext.register_udf`/`register_udaf`/`register_udwf`/`register_udtf`; each takes `(callable/type, input_types, return_type: pa.DataType, volatility: str, name=...)`, and `udaf` adds `state_type: list[pa.DataType]`.
 
 | [INDEX] | [SURFACE]           | [CALL_SHAPE]                                                  | [CAPABILITY]                                   |
 | :-----: | :------------------ | :------------------------------------------------------------ | :--------------------------------------------- |
@@ -161,7 +151,7 @@ Each `udf`/`udaf`/`udwf` factory takes `(callable/type, input_types, return_type
 |  [03]   | `udaf`              | `(accum: type[Accumulator], ..., state_type) -> AggregateUDF` | mint an aggregate UDF over an `Accumulator`    |
 |  [04]   | `udwf`              | `(evaluator: WindowEvaluator, ...) -> WindowUDF`              | mint a window UDF over a `WindowEvaluator`     |
 
-The two UDF base classes a `udaf`/`udwf` subclasses and implements:
+`Accumulator` and `WindowEvaluator` are the two UDF bases a `udaf`/`udwf` subclasses and implements:
 
 | [INDEX] | [SURFACE]         | [CALL_SHAPE]                                                                                |
 | :-----: | :---------------- | :------------------------------------------------------------------------------------------ |
@@ -169,9 +159,8 @@ The two UDF base classes a `udaf`/`udwf` subclasses and implements:
 |  [02]   | `WindowEvaluator` | `evaluate_all(values, num_rows)`, `evaluate(...)`, `evaluate_all_with_rank(...)`            |
 
 [ENTRYPOINT_SCOPE]: `substrait` portability codec
-- rail: interchange
 
-The `substrait` namespace round-trips a SQL string or `LogicalPlan` through a portable `Plan`. Every `Serde`/`Producer`/`Consumer` method is a staticmethod (prefix `substrait.` dropped, method-name repeat omitted); `Serde` covers SQL <-> bytes/path, `Producer`/`Consumer` bridge the in-process `LogicalPlan`, and `Plan` self-encodes to protobuf bytes or JSON.
+`substrait` round-trips a SQL string or `LogicalPlan` through a portable `Plan`: every `Serde`/`Producer`/`Consumer` method is a staticmethod with the `substrait.` prefix dropped — `Serde` covers SQL <-> bytes/path, `Producer`/`Consumer` bridge the in-process `LogicalPlan`, and `Plan` self-encodes to protobuf bytes or JSON.
 
 | [INDEX] | [SURFACE]                      | [CALL_SHAPE]                                    | [CAPABILITY]                     |
 | :-----: | :----------------------------- | :---------------------------------------------- | :------------------------------- |
@@ -188,27 +177,29 @@ The `substrait` namespace round-trips a SQL string or `LogicalPlan` through a po
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[ENGINE_FEDERATION]:
-- import: `import datafusion` at boundary scope only; module-level import is banned by the manifest import policy.
-- context axis: one `SessionContext` owns query execution and source registration; `SessionConfig`/`RuntimeEnvBuilder`/`SQLOptions` are fluent policy builders threaded into construction or `sql_with_options`, never parallel context types per policy.
-- registration axis: `register_*` is the single ingestion family discriminated by source kind (file format, object store, in-memory batch, foreign catalog, table provider, UDF); CSV/Parquet/JSON/Avro/Arrow are rows on `register_*`/`read_*`, never a reader type per format.
-- frame axis: `DataFrame` is the lazy relational algebra; `select`/`filter`/`aggregate`/`join`/`window`/`union` return new frames and execute nothing until `collect`, `show`, an `execute_stream*`, a `to_*` export, or a `write_*` sink; plan inspection routes through `logical_plan`/`optimized_logical_plan`/`execution_plan`.
-- streaming axis: `execute_stream` and `SessionContext.execute` yield a `RecordBatchStream` that is both sync and async iterable; backpressured `RecordBatch` pull is a stream row, never a manual partition loop; `execute_stream_partitioned` fans out one stream per partition.
-- interchange axis: the `substrait` namespace owns the portable `Plan`; SQL serializes through `Serde`, an in-process `LogicalPlan` bridges through `Producer`/`Consumer`, and `Plan.encode`/`to_json`/`from_json` carry the protobuf/JSON wire form for the SUBSTRAIT_PORTABILITY rail; never hand-roll Substrait protobuf encoding.
-- expression axis: `col`/`column` mint column references and `lit` and peers mint literals as `Expr` nodes; predicates and projections are `Expr` trees or SQL fragments parsed via `parse_sql_expr`, never string interpolation into SQL text.
-- export axis: `to_arrow_table`/`to_pandas`/`to_polars`/`to_pylist`/`to_pydict` are zero-copy or near-zero-copy Arrow exports; foreign-frame interchange is a `to_*`/`from_*` row, never a manual batch concatenation.
-- udf axis: `udf`/`udaf`/`udwf` are the three UDF factories over `Accumulator`/`WindowEvaluator` and a volatility policy; one factory family owns all UDF modalities and routes to `register_udf`/`register_udaf`/`register_udwf`/`register_udtf`, never a builder per kind; the `functions` namespace composes built-in expressions as `Expr` trees before any Python UDF is admitted.
-- evidence: each execution captures session id, plan stage (logical/optimized/physical), partition count, batch and row counts, and Substrait `Plan` byte length as an engine receipt.
-- boundary: datafusion owns Arrow-native SQL/DataFrame execution, multi-source federation, streaming, and Substrait interchange; pyarrow owns the `RecordBatch`/`Schema` wire types at the seam; object-store and catalog federation register foreign providers rather than copying data; downstream owners consume `pa.RecordBatch`/`pa.Table` or a portable `Plan`, never the `_internal` Rust handles.
+[TOPOLOGY]:
+- One `SessionContext` owns query execution and source registration; `SessionConfig`/`RuntimeEnvBuilder`/`SQLOptions` thread policy into construction or `sql_with_options`.
+- `register_*`/`read_*` is one ingestion family discriminated by source kind — file format, object store, in-memory batch, foreign catalog, table provider, UDF; CSV/Parquet/JSON/Avro/Arrow are rows.
+- `DataFrame` is lazy relational algebra: `select`/`filter`/`aggregate`/`join`/`window`/`union` return new frames and execute nothing until `collect`, `show`, an `execute_stream*`, a `to_*` export, or a `write_*` sink; plan inspection routes through `logical_plan`/`optimized_logical_plan`/`execution_plan`.
+- `execute_stream` and `SessionContext.execute` yield a sync/async iterable `RecordBatchStream` under backpressured `RecordBatch` pull; `execute_stream_partitioned` fans one stream per output partition.
+- `col`/`column` and `lit` mint `Expr` nodes; predicates and projections are `Expr` trees or `parse_sql_expr` fragments over untrusted SQL text.
+- `udf`/`udaf`/`udwf` are the three UDF factories over `Accumulator`/`WindowEvaluator` and a volatility policy, routing to `register_udf`/`register_udaf`/`register_udwf`/`register_udtf`; the `functions` namespace composes built-in `Expr` trees ahead of any Python UDF.
+- `substrait` owns the portable `Plan`: `Serde` serializes SQL, `Producer`/`Consumer` bridge a `LogicalPlan`, and `Plan.encode`/`to_json`/`from_json` carry the protobuf/JSON wire for the SUBSTRAIT_PORTABILITY rail.
+- `to_arrow_table`/`to_pandas`/`to_polars`/`to_pylist`/`to_pydict` are zero-copy or near-zero-copy Arrow exports over the shared C-data capsule.
+- Each execution captures the engine receipt: session id, plan stage (logical/optimized/physical), partition count, batch and row counts, and Substrait `Plan` byte length.
+- `pyarrow` owns the `RecordBatch`/`Schema` wire types at the seam; downstream owners consume `pa.RecordBatch`/`pa.Table` or a portable `Plan`, never the `_internal` Rust handles.
 
-[INTEGRATION_STACKING]:
-- substrait spine: `datafusion.substrait` and `duckdb-substrait` are the two ends of one cross-engine plan rail — a `LogicalPlan` bridged through `substrait.Producer.to_substrait_plan` emits the identical wire `Plan` that `con.from_substrait(plan.encode())` re-binds on DuckDB, and DuckDB's `con.get_substrait(sql)` BLOB re-binds through `substrait.Consumer.from_substrait_plan`; both engines share the protobuf `Plan` and JSON twin, so the data owner round-trips one artifact rather than re-serializing per engine.
-- arrow zero-copy seam: `from_arrow`/`from_polars`/`from_pandas` ingest and `to_arrow_table`/`to_polars`/`to_pandas` egress thread the same Arrow C-data capsule polars and pyarrow expose; a DuckDB `fetch_arrow_table()`/`to_arrow_reader()` or a `deltalake` `DeltaTable.to_pyarrow_dataset()` registers directly via `register_table`/`from_arrow` with no intermediate copy, so federation is provider registration, never frame materialization.
-- delta federation: a `deltalake.DeltaTable` exposes `to_pyarrow_dataset()` (a `pa.dataset.Dataset`) that `SessionContext.register_table`/`read_table` adopts as a pushdown-capable provider, so a Delta lakehouse table joins a Parquet listing and an object-store CSV under one `SessionContext.sql` without leaving Arrow; predicate/column pruning pushes into the Delta dataset scan.
-- retry/observability stack: a federated `execute_stream` over a remote object store composes under a `stamina` `retry_context` for transient store faults and an OpenTelemetry span keyed by the engine receipt (session id, plan byte length, row count), so the streaming pull is one instrumented, retried rail rather than a bare loop.
+[STACKING]:
+- `duckdb`(`.api/duckdb.md`) / `substrait`(`.api/substrait.md`): `substrait.Producer.to_substrait_plan` emits the wire `Plan` DuckDB `con.from_substrait(plan.encode())` re-binds, and a DuckDB `con.get_substrait(sql)` BLOB re-binds through `substrait.Consumer.from_substrait_plan`; one portable `Plan` and its JSON twin cross both engines.
+- `polars`(`.api/polars.md`) / `pyarrow`(`.api/pyarrow.md`): `from_arrow`/`from_polars`/`from_pandas` ingest and `to_arrow_table`/`to_polars`/`to_pandas` egress over the shared Arrow C-data capsule, so federation is provider registration rather than frame materialization.
+- `deltalake`(`.api/deltalake.md`): a `DeltaTable.to_pyarrow_dataset()` registers via `register_table`/`read_table` as a pushdown-capable `pa.dataset.Dataset`, joining Parquet listings and object-store CSV under one `sql` with predicate/column pruning pushed into the Delta scan.
+- within-lib: a federated `execute_stream` over a remote object store composes under a `stamina` `retry_context` and an OpenTelemetry span keyed by the engine receipt (session id, plan byte length, row count), threading one instrumented, retried streaming pull.
+
+[LOCAL_ADMISSION]:
+- import `datafusion` at boundary scope only; the branch admits it as the sole Arrow-native SQL/DataFrame engine over registered sources.
 
 [RAIL_LAW]:
 - Package: `datafusion`
-- Owns: Arrow-native SQL and DataFrame execution, multi-format and object-store/catalog federation, scalar/aggregate/window/table UDFs via `udf`/`udaf`/`udwf` over `Accumulator`/`WindowEvaluator`, the `functions` built-in expression namespace, lazy plan inspection, sync/async `RecordBatchStream` streaming, and Substrait `Plan` serialize/deserialize
-- Accept: federated query execution and streaming over registered sources (including a `deltalake` `to_pyarrow_dataset` provider and a DuckDB Arrow reader), and Substrait plan interchange round-tripping the same wire `Plan` with `duckdb-substrait` for the SUBSTRAIT_PORTABILITY rail
-- Reject: wrapper-renames of `SessionContext`/`DataFrame`/`substrait`; a hand-rolled SQL planner, execution kernel, or Substrait protobuf codec; a reader type per file format where `register_*`/`read_*` rows suffice; a parallel context type per policy where the fluent builders own the axis; a UDF builder per kind where `udf`/`udaf`/`udwf` own the axis; re-serializing a plan per engine where one portable `Plan` crosses both engines; raw `_internal` handles crossing the package boundary
+- Owns: Arrow-native SQL and DataFrame execution, multi-format and object-store/catalog federation, the four UDF kinds via `udf`/`udaf`/`udwf` over `Accumulator`/`WindowEvaluator`, the `functions` built-in namespace, lazy plan inspection, sync/async `RecordBatchStream` streaming, and Substrait `Plan` serialize/deserialize
+- Accept: federated query and streaming over registered sources (a `deltalake` `to_pyarrow_dataset` provider, a DuckDB Arrow reader), and Substrait plan interchange round-tripping the same wire `Plan` with `duckdb`/`substrait` for the SUBSTRAIT_PORTABILITY rail
+- Reject: wrapper-renames of `SessionContext`/`DataFrame`/`substrait`; a hand-rolled SQL planner, execution kernel, or Substrait protobuf codec; a reader type per file format where `register_*`/`read_*` rows suffice; a parallel context type per policy where the fluent builders own the axis; a UDF builder per kind where `udf`/`udaf`/`udwf` own the axis; re-serializing a plan per engine where one portable `Plan` crosses both; raw `_internal` handles crossing the package boundary

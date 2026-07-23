@@ -20,10 +20,7 @@ export const meta = {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CAP = 14;
-const STAGGER_MS = 1500;
-const STALL = 300000;
-const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical writer; the count bounds spend, the backoff buys recovery time
-const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
+const RETRY_ATTEMPTS = 2;
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -108,12 +105,10 @@ const LAW = [
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 // Bounded re-dispatch for a dead CRITICAL writer (usage-limit or transport death, agent() returned null): attempt-counted with a
-// backoff before each; the final death returns null — the pool collects it and .filter(Boolean) drops it, so the lane isolates, never the chain.
+// A final failure returns null; the pool collects it and .filter(Boolean) drops it, so the lane isolates without rejecting the chain.
 const retryLane = async (fn) => {
     for (let a = 0; a < RETRY_ATTEMPTS; a++) {
-        await sleep(RETRY_BACKOFF);
         const r = await fn();
         if (r) return r;
     }
@@ -122,15 +117,9 @@ const retryLane = async (fn) => {
 const pool = async (items, cap, worker) => {
     const out = new Array(items.length);
     let next = 0;
-    let gate = Promise.resolve();
-    const launch = () => {
-        gate = gate.then(() => sleep(STAGGER_MS));
-        return gate;
-    };
     const run = async () => {
         while (next < items.length) {
             const i = next++;
-            await launch();
             out[i] = await worker(items[i], i);
         }
     };
@@ -183,7 +172,7 @@ const aligned = (
                 ' and list every file edited beyond the primaries in repaired.',
         ].join('\n');
         const base = 'align:' + u.folder.split('/').slice(-2).join('/');
-        const opt = (suffix) => ({ label: base + suffix, phase: 'Cards-Align', schema: FIXLOG_SCHEMA, effort: 'high', stallMs: STALL });
+        const opt = (suffix) => ({ label: base + suffix, phase: 'Cards-Align', schema: FIXLOG_SCHEMA, effort: 'high' });
         // CRITICAL WRITER: a dead align lane loses its folder's density realignment with no downstream re-drain — a final death isolates the lane.
         return (await agent(prompt, opt(''))) || (await retryLane(() => agent(prompt, opt(':r1'))));
     })
@@ -217,7 +206,6 @@ const verify = (
                     phase: 'Cards-Verify',
                     schema: FIXLOG_SCHEMA,
                     effort: 'high',
-                    stallMs: STALL,
                 });
                 return (await agent(prompt, opt(''))) || (await retryLane(() => agent(prompt, opt(':r1'))));
             },
@@ -238,7 +226,6 @@ const verify = (
                     phase: 'Cards-Verify',
                     schema: FIXLOG_SCHEMA,
                     effort: 'high',
-                    stallMs: STALL,
                 });
                 return (await agent(prompt, opt(''))) || (await retryLane(() => agent(prompt, opt(':r1'))));
             },

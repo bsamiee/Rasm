@@ -1,37 +1,32 @@
 # [PY_ARTIFACTS_API_ZSTANDARD]
 
-`zstandard` supplies the Zstandard codec for the artifacts compression rail: a compressor root, a decompressor root, module one-shots, a trained dictionary, an advanced parameter object, a frame-header view, and four zero-copy batch carriers that drive level-tuned compression, file-like streaming readers/writers, incremental compress/decompress objects, fixed-size chunking, multi-buffer threaded batch ops, frame inspection, and dictionary-trained codecs against the native libzstd core (`ZSTD_VERSION (1, 5, 7)`). The package owner composes `ZstdCompressor`, `ZstdDecompressor`, `ZstdCompressionDict`, and `ZstdCompressionParameters` into the `package/codec#CODEC` `ZSTD` arm; it never re-implements the zstd codec the native core already owns. The codec stacks with the sibling artifacts compression band as a payload-discriminated rail under one `CompressionAlgo`/`CodecProfile` discriminant: `zstandard` (`ZSTD`) owns high-ratio archival single-blob compression and the COVER-dictionary small-payload win; `brotli` (`BROTLI`) owns web/transport (`Content-Encoding: br`) and the WOFF2 per-table stream; `lz4` (`LZ4`) owns hot-path block compression; the shared `zlib-ng` (`GZIP`) substrate owns the RFC 1952 gzip-container stdlib-interop case; `py7zr` (`SEVEN_Z`) and `stream-zip`/`stream-unzip` (`ZIP_STREAM`) own archive containers; `detools` (`DELTA`) owns binary delta — one `CompressionAlgo` row selects the codec, never a per-algorithm class family, and `zstandard` is the archival default the non-legacy, non-transport payload routes to.
+`zstandard` owns the Zstandard codec on the artifacts compression rail: the `ZstdCompressor`/`ZstdDecompressor` roots, `ZstdCompressionDict` COVER dictionaries, `ZstdCompressionParameters` advanced tuning, a `FrameParameters` header view, and the zero-copy batch carriers over native libzstd. It is the archival default: the `package/codec#CODEC` `ZSTD` arm routes high-ratio single-blob and COVER-dictionary small-payload classes here, every other class routing to its own codec on the shared `CompressionAlgo` discriminant.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `zstandard`
-- package: `zstandard`
-- import: `zstandard`
-- owner: `artifacts`
+- package: `zstandard` (`BSD-3-Clause`, Gregory Szorc; bundled native libzstd, BSD/GPLv2-dual, Meta)
+- module: `zstandard`
 - rail: compression
-- installed: `0.25.0`
-- license: `BSD-3-Clause` (Python bindings, Gregory Szorc; bundled native libzstd `1.5.7`, BSD/GPLv2 dual, Facebook/Meta)
-- target: `cp315-cp315` native wheel — the `cext` backend (`backend_c.cpython-315-darwin.so`, GIL-releasing C extension; one wheel per interpreter minor) is the live build; the pure-Python `cffi` fallback (`backend_cffi.py`) is selectable via `PYTHON_ZSTANDARD_IMPORT_POLICY` but drops the zero-copy batch carriers and `multi_*_to_buffer`
-- entry points: none (library only)
-- capability: Zstandard one-shot, file-like streaming, incremental zlib-style, fixed-size chunked, and threaded zero-copy-batch compression/decompression; COVER-trained dictionaries with precompute caching; advanced compression-parameter tuning (window/hash/chain/search logs, strategy, long-distance matching, multi-threaded encode); frame-header inspection without decode; and magicless / content-size / checksum / dict-id frame-header policy
+- abi: native `cext` wheel (`backend_c`, GIL-releasing, one wheel per interpreter minor) is the live build; the `cffi` fallback (`backend_cffi`, selected via `PYTHON_ZSTANDARD_IMPORT_POLICY`) drops the zero-copy batch carriers and `multi_*_to_buffer`
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: codec roots, dictionary, and parameters
-- rail: compression — `ZstdCompressor`/`ZstdDecompressor` are the two roots; every modality is method state on them, never a per-profile codec subclass. The `__init__.pyi` stub declares a `CompressionParameters(ZstdCompressionParameters)` legacy alias, but it is NOT a live `zstandard.*` attribute under the `cext` build (binding it raises `AttributeError`) — bind `ZstdCompressionParameters` only. `level=` and `compression_params=` on `ZstdCompressor` are mutually exclusive (the package rejects passing both): pass raw ints for the simple path, a derived `ZstdCompressionParameters` for the tuned path, never both. The compressor configures on `level`/`dict_data`/`compression_params`/`write_checksum`/`write_content_size`/`write_dict_id`/`threads`, the decompressor on `dict_data`/`max_window_size`/`format`, and both report `memory_size()`. `ZstdCompressionDict(data, dict_type=, k=, d=)` is the shared small-payload dictionary (`dict_id()`/`as_bytes()`/`__len__`; `precompute_compress(level=, compression_params=)` caches compression-side state; `k`/`d` carry the trained COVER params). `ZstdCompressionParameters.from_level(level, source_size=, dict_size=, **overrides)` derives a param set whose readable fields are `window_log`/`hash_log`/`chain_log`/`search_log`/`min_match`/`target_length`/`strategy`/`compression_level`/`enable_ldm`/`ldm_hash_log`/`ldm_min_match`/`ldm_bucket_size_log`/`ldm_hash_rate_log`/`overlap_log`/`force_max_window`/`threads`/`job_size`/`write_checksum`/`write_content_size`/`write_dict_id`/`format`, with `estimated_compression_context_size()` sizing the context; `FrameParameters` carries `content_size`/`window_size`/`dict_id`/`has_checksum` from `get_frame_parameters`.
 
-| [INDEX] | [SYMBOL]                    | [PACKAGE_ROLE]     | [CAPABILITY]                                                    |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]      | [CAPABILITY]                                                    |
 | :-----: | :-------------------------- | :----------------- | :-------------------------------------------------------------- |
 |  [01]   | `ZstdCompressor`            | compressor root    | compression root; all modalities are methods; `memory_size()`   |
 |  [02]   | `ZstdDecompressor`          | decompressor root  | decompression root; all modalities are methods; `memory_size()` |
 |  [03]   | `ZstdCompressionDict`       | trained dictionary | COVER dict + `precompute_compress` compression-side caching     |
 |  [04]   | `ZstdCompressionParameters` | parameter object   | advanced tuning; `from_level` + per-field overrides             |
-|  [05]   | `FrameParameters`           | frame header view  | frame-header fields from `get_frame_parameters`                 |
+|  [05]   | `FrameParameters`           | frame header view  | `content_size`/`window_size`/`dict_id`/`has_checksum` fields    |
+
+- [PARAM_FIELD]: `window_log` `hash_log` `chain_log` `search_log` `min_match` `target_length` `strategy` `compression_level` `enable_ldm` `ldm_hash_log` `ldm_min_match` `ldm_bucket_size_log` `ldm_hash_rate_log` `overlap_log` `force_max_window` `threads` `job_size` `write_checksum` `write_content_size` `write_dict_id` `format` `estimated_compression_context_size()`
 
 [PUBLIC_TYPE_SCOPE]: streaming and incremental carriers
-- rail: compression — minted by root methods, never constructed directly. `ZstdCompressionReader`/`Writer` and `ZstdDecompressionReader`/`Writer` are real `zstandard.*` module attributes under the `cext` build (and `BinaryIO` subclasses in the `__init__.pyi` stub); `compressobj()`/`decompressobj()`/`chunker()` return `backend_c` runtime classes (`ZstdCompressionObj`/`ZstdDecompressionObj`/`ZstdCompressionChunker`) that are NOT re-exported as `zstandard.*` names — bind every carrier by the method that mints it, never by import.
 
-| [INDEX] | [SYMBOL]                  | [PACKAGE_ROLE]     | [CAPABILITY]                                                                  |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]      | [CAPABILITY]                                                                  |
 | :-----: | :------------------------ | :----------------- | :---------------------------------------------------------------------------- |
 |  [01]   | `ZstdCompressionReader`   | stream reader      | `BinaryIO` compress source; `read`/`read1`/`readinto`/`readinto1`/`readall`   |
 |  [02]   | `ZstdCompressionWriter`   | stream writer      | `BinaryIO` compress sink; `write`/`flush(flush_mode=)`/`tell`/`memory_size()` |
@@ -41,96 +36,97 @@
 |  [06]   | `ZstdDecompressionObj`    | incremental object | zlib-style `decompress`/`flush`; `unused_data`/`unconsumed_tail`/`eof` props  |
 |  [07]   | `ZstdCompressionChunker`  | fixed-size chunker | uniform-size chunks: `compress`/`flush()`/`finish()` from `chunker`           |
 
-[PUBLIC_TYPE_SCOPE]: zero-copy batch buffers and faults
-- rail: compression — buffer carriers exist only when `backend_features` advertises `'buffer_types'`. The live `cext` build advertises the full set `{'buffer_types', 'multi_compress_to_buffer', 'multi_decompress_to_buffer'}`; the `cffi` fallback advertises none and omits both the carriers and the `multi_*_to_buffer` root methods. Probe `backend_features` before reaching the batch path; never assume it exists. `BufferWithSegments(data, segments)` frames many payloads in one allocation, and `multi_*_to_buffer` returns a `BufferWithSegmentsCollection` iterated to recover each compressed frame.
+[PUBLIC_TYPE_SCOPE]: zero-copy batch buffers and fault
 
-| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE] | [CAPABILITY]                                                                        |
-| :-----: | :----------------------------- | :------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `BufferWithSegments`           | batch buffer   | one allocation framing many payloads; `size`/`segments()`/`tobytes()`/`__getitem__` |
-|  [02]   | `BufferWithSegmentsCollection` | batch result   | collection from `multi_*_to_buffer`; `size()`/`__len__`/`__getitem__` per frame     |
-|  [03]   | `BufferSegments`               | segment view   | indexable view of one buffer's segment offsets; `__getitem__`                       |
-|  [04]   | `BufferSegment`                | segment        | `offset` + `tobytes()` + `__len__`; one payload slice in a batch buffer             |
-|  [05]   | `ZstdError`                    | codec fault    | every native zstd failure; `Exception`, lifted to `expression.Result`               |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                                                                        |
+| :-----: | :----------------------------- | :------------ | :---------------------------------------------------------------------------------- |
+|  [01]   | `BufferWithSegments`           | batch buffer  | one allocation framing many payloads; `size`/`segments()`/`tobytes()`/`__getitem__` |
+|  [02]   | `BufferWithSegmentsCollection` | batch result  | collection from `multi_*_to_buffer`; `size()`/`__len__`/`__getitem__` per frame     |
+|  [03]   | `BufferSegments`               | segment view  | indexable view of one buffer's segment offsets; `__getitem__`                       |
+|  [04]   | `BufferSegment`                | segment       | `offset` + `tobytes()` + `__len__`; one payload slice in a batch buffer             |
+|  [05]   | `ZstdError`                    | fault         | every native zstd failure; `Exception`, lifted to `expression.Result`               |
 
-[PUBLIC_TYPE_SCOPE]: key constants
-- rail: compression — the flush/dict/format/strategy selectors plus the parameter-bound floors/ceilings a `ZstdCompressionParameters` consumer validates against, all plain module `int`s. The nine match strategies are `STRATEGY_FAST`/`STRATEGY_DFAST`/`STRATEGY_GREEDY`/`STRATEGY_LAZY`/`STRATEGY_LAZY2`/`STRATEGY_BTLAZY2`/`STRATEGY_BTOPT`/`STRATEGY_BTULTRA`/`STRATEGY_BTULTRA2` (fast-to-densest); the parameter bounds are `WINDOWLOG_MIN`/`MAX` · `CHAINLOG_MIN`/`MAX` · `HASHLOG_MIN`/`MAX` · `SEARCHLOG_MIN`/`MAX` · `MINMATCH_MIN`/`MAX` · `SEARCHLENGTH_MIN`/`MAX` · `TARGETLENGTH_MIN`/`MAX` · `LDM_MINMATCH_MIN`/`MAX` · `LDM_BUCKETSIZELOG_MAX` · `BLOCKSIZELOG_MAX` · `BLOCKSIZE_MAX`; the dict modes are `DICT_TYPE_AUTO` · `DICT_TYPE_FULLDICT` · `DICT_TYPE_RAWCONTENT`; the size hints are `COMPRESSION_RECOMMENDED_INPUT_SIZE` · `COMPRESSION_RECOMMENDED_OUTPUT_SIZE` · `DECOMPRESSION_RECOMMENDED_INPUT_SIZE` · `DECOMPRESSION_RECOMMENDED_OUTPUT_SIZE`; the identity attributes are `ZSTD_VERSION` · `__version__` · `MAGIC_NUMBER` · `FRAME_HEADER` · `backend` · `backend_features`.
-
-| [INDEX] | [SYMBOL]                                               | [PACKAGE_ROLE]   | [CAPABILITY]                                          |
-| :-----: | :----------------------------------------------------- | :--------------- | :---------------------------------------------------- |
-|  [01]   | `MAX_COMPRESSION_LEVEL`                                | level cap        | max compression level; clamp before the root          |
-|  [02]   | `FLUSH_BLOCK` / `FLUSH_FRAME`                          | flush mode       | `ZstdCompressionWriter.flush(flush_mode=)`            |
-|  [03]   | `COMPRESSOBJ_FLUSH_BLOCK` / `COMPRESSOBJ_FLUSH_FINISH` | flush mode       | `ZstdCompressionObj.flush(flush_mode=)`               |
-|  [04]   | `DICT_TYPE_AUTO … DICT_TYPE_RAWCONTENT`                | dict mode        | `ZstdCompressionDict(dict_type=)` selectors (lead)    |
-|  [05]   | `FORMAT_ZSTD1` / `FORMAT_ZSTD1_MAGICLESS`              | frame format     | `format=` selector; magicless omits the 4-byte magic  |
-|  [06]   | `STRATEGY_FAST … STRATEGY_BTULTRA2`                    | match strategy   | the nine `strategy=` selectors (rostered in the lead) |
-|  [07]   | `CONTENTSIZE_UNKNOWN` / `CONTENTSIZE_ERROR`            | sentinel         | raw u64 C spellings; the binding returns `-1`/raises  |
-|  [08]   | `WINDOWLOG_MIN/MAX … BLOCKSIZE_MAX`                    | parameter bounds | per-field floor/ceiling (rostered in the lead)        |
-|  [09]   | `COMPRESSION_RECOMMENDED_INPUT_SIZE … OUTPUT_SIZE`     | size hint        | suggested `read_size`/`write_size` chunk sizes (lead) |
-|  [10]   | `ZSTD_VERSION … backend_features`                      | identity         | libzstd version, magic, backend id + features (lead)  |
+[PUBLIC_TYPE_SCOPE]: key constants — flush/dict/format/strategy selectors and the parameter floors/ceilings a `ZstdCompressionParameters` consumer validates against, all module `int`s
+- [LEVEL_CAP]: `MAX_COMPRESSION_LEVEL`
+- [FLUSH_MODE]: `FLUSH_BLOCK` `FLUSH_FRAME` for `ZstdCompressionWriter.flush(flush_mode=)` · `COMPRESSOBJ_FLUSH_BLOCK` `COMPRESSOBJ_FLUSH_FINISH` for `ZstdCompressionObj.flush(flush_mode=)`
+- [DICT_MODE]: `DICT_TYPE_AUTO` `DICT_TYPE_FULLDICT` `DICT_TYPE_RAWCONTENT` for `ZstdCompressionDict(dict_type=)`
+- [FRAME_FORMAT]: `FORMAT_ZSTD1` `FORMAT_ZSTD1_MAGICLESS` for `format=`; magicless omits the 4-byte magic
+- [STRATEGY]: `STRATEGY_FAST` `STRATEGY_DFAST` `STRATEGY_GREEDY` `STRATEGY_LAZY` `STRATEGY_LAZY2` `STRATEGY_BTLAZY2` `STRATEGY_BTOPT` `STRATEGY_BTULTRA` `STRATEGY_BTULTRA2` (fast to densest) for `strategy=`
+- [PARAM_BOUND]: `WINDOWLOG_MIN`/`MAX` `CHAINLOG_MIN`/`MAX` `HASHLOG_MIN`/`MAX` `SEARCHLOG_MIN`/`MAX` `MINMATCH_MIN`/`MAX` `SEARCHLENGTH_MIN`/`MAX` `TARGETLENGTH_MIN`/`MAX` `LDM_MINMATCH_MIN`/`MAX` `LDM_BUCKETSIZELOG_MAX` `BLOCKSIZELOG_MAX` `BLOCKSIZE_MAX`
+- [SIZE_HINT]: `COMPRESSION_RECOMMENDED_INPUT_SIZE` `COMPRESSION_RECOMMENDED_OUTPUT_SIZE` `DECOMPRESSION_RECOMMENDED_INPUT_SIZE` `DECOMPRESSION_RECOMMENDED_OUTPUT_SIZE` for `read_size`/`write_size`
+- [SENTINEL]: `CONTENTSIZE_UNKNOWN` `CONTENTSIZE_ERROR` — raw u64 C spellings the binding never returns; the guard reads `-1`/raises
+- [IDENTITY]: `ZSTD_VERSION` `__version__` `MAGIC_NUMBER` `FRAME_HEADER` `backend` `backend_features`
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: module one-shots and file open
-- rail: compression — top-level convenience over default-configured transient roots. `open(filename, mode='rb', cctx=None, dctx=None, encoding=None, errors=None, newline=None, closefd=True)` is the file handle; `train_dictionary(dict_size, samples, k=, d=, f=, split_point=, accel=, dict_id=, level=, steps=, threads=, notifications=) -> ZstdCompressionDict` COVER-trains a dictionary (`dict_type` is NOT a kwarg here — it is a `ZstdCompressionDict` ctor axis); `get_frame_parameters(data, format=None) -> FrameParameters` parses a header without decompressing (`.has_checksum` drives the per-frame integrity count).
+[ENTRYPOINT_SCOPE]: module one-shots and file open — top-level convenience over default-configured transient roots
 
-| [INDEX] | [SURFACE]                             | [CALL_SHAPE]                                   | [CAPABILITY]                                 |
-| :-----: | :------------------------------------ | :--------------------------------------------- | :------------------------------------------- |
-|  [01]   | `compress`                            | `compress(data, level=3) -> bytes`             | one-shot compress, transient compressor      |
-|  [02]   | `decompress`                          | `decompress(data, max_output_size=0) -> bytes` | one-shot decompress; cap unknown-size output |
-|  [03]   | `open`                                | `open(filename, mode='rb', …)`                 | file handle wrapping a path/fileobj          |
-|  [04]   | `train_dictionary`                    | `train_dictionary(dict_size, samples, …)`      | COVER-train from a sample corpus             |
-|  [05]   | `get_frame_parameters`                | `get_frame_parameters(data, format=None)`      | parse a frame header without decompress      |
-|  [06]   | `frame_content_size`                  | `frame_content_size(data) -> int`              | size from header (sentinel-guarded)          |
-|  [07]   | `frame_header_size`                   | `frame_header_size(data) -> int`               | byte length of the frame header              |
-|  [08]   | `estimate_decompression_context_size` | `estimate_decompression_context_size() -> int` | decompression context memory estimate        |
+| [INDEX] | [SURFACE]                                                 | [SHAPE] | [CAPABILITY]                                 |
+| :-----: | :-------------------------------------------------------- | :------ | :------------------------------------------- |
+|  [01]   | `compress(data, level=3) -> bytes`                        | static  | one-shot compress, transient compressor      |
+|  [02]   | `decompress(data, max_output_size=0)`                     | static  | one-shot decompress; cap unknown-size output |
+|  [03]   | `open(filename, mode, cctx, dctx, …)`                     | static  | file handle wrapping a path/fileobj          |
+|  [04]   | `train_dictionary(dict_size, samples, *, k, d, level, …)` | static  | COVER-train from a sample corpus             |
+|  [05]   | `get_frame_parameters(data, format=None)`                 | static  | parse a frame header without decompress      |
+|  [06]   | `frame_content_size(data) -> int`                         | static  | size from header (sentinel-guarded)          |
+|  [07]   | `frame_header_size(data) -> int`                          | static  | byte length of the frame header              |
+|  [08]   | `estimate_decompression_context_size() -> int`            | static  | decompression context memory estimate        |
 
-[ENTRYPOINT_SCOPE]: `ZstdCompressor` modalities
-- rail: compression — `ZstdCompressor(level=3, dict_data=None, compression_params=None, write_checksum=None, write_content_size=None, write_dict_id=None, threads=0)`; `threads=-1` binds one job per logical core. The streaming modalities are `stream_reader(source, size=-1, read_size=, *, closefd=True) -> ZstdCompressionReader`, `stream_writer(writer, size=-1, write_size=, write_return_read=True, *, closefd=True) -> ZstdCompressionWriter`, `copy_stream(ifh, ofh, size=-1, read_size=, write_size=) -> tuple[int, int]`, `read_to_iter(reader, size=-1, read_size=, write_size=) -> Generator[bytes, None, None]`, and `multi_compress_to_buffer(data, threads=0) -> BufferWithSegmentsCollection` (a `BufferWithSegments`/`BufferWithSegmentsCollection`/`list[ByteString]` corpus).
+[ENTRYPOINT_SCOPE]: `ZstdCompressor` modalities — `ZstdCompressor(level, dict_data, compression_params, write_checksum, write_content_size, write_dict_id, threads)`; `threads=-1` binds one job per logical core
 
-| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                       | [CAPABILITY]                                     |
-| :-----: | :------------------------- | :------------------------------------------------- | :----------------------------------------------- |
-|  [01]   | `compress`                 | `compress(data) -> bytes`                          | one-shot with the configured codec               |
-|  [02]   | `stream_reader`            | `stream_reader(source, …)`                         | read compressed bytes from a source              |
-|  [03]   | `stream_writer`            | `stream_writer(writer, …)`                         | write source bytes compressed to a sink          |
-|  [04]   | `compressobj`              | `compressobj(size=-1)`                             | incremental feed/flush object                    |
-|  [05]   | `chunker`                  | `chunker(size=-1, chunk_size=)`                    | emit uniform-size output chunks                  |
-|  [06]   | `copy_stream`              | `copy_stream(ifh, ofh, …) -> tuple[int, int]`      | pump file->file; returns (read, written)         |
-|  [07]   | `read_to_iter`             | `read_to_iter(reader, …) -> Generator[bytes, ...]` | lazily iterate compressed chunks                 |
-|  [08]   | `multi_compress_to_buffer` | `multi_compress_to_buffer(data, threads=0)`        | threaded batch compress; shared-dict corpus pass |
-|  [09]   | `frame_progression`        | `frame_progression() -> tuple[int, int, int]`      | (ingested, consumed, produced) for the frame     |
-|  [10]   | `memory_size`              | `memory_size() -> int`                             | compression context memory footprint             |
+| [INDEX] | [SURFACE]                                     | [SHAPE]  | [CAPABILITY]                                 |
+| :-----: | :-------------------------------------------- | :------- | :------------------------------------------- |
+|  [01]   | `compress(data) -> bytes`                     | instance | one-shot with the configured codec           |
+|  [02]   | `stream_reader(source, …)`                    | factory  | read compressed bytes from a source          |
+|  [03]   | `stream_writer(writer, …)`                    | factory  | write source bytes compressed to a sink      |
+|  [04]   | `compressobj(size=-1)`                        | factory  | incremental feed/flush object                |
+|  [05]   | `chunker(size=-1, chunk_size=)`               | factory  | emit uniform-size output chunks              |
+|  [06]   | `copy_stream(ifh, ofh, …) -> tuple[int, int]` | instance | pump file->file; returns (read, written)     |
+|  [07]   | `read_to_iter(reader, …) -> Generator`        | instance | lazily iterate compressed chunks             |
+|  [08]   | `multi_compress_to_buffer(data, threads=0)`   | instance | threaded batch compress; shared-dict corpus  |
+|  [09]   | `frame_progression() -> tuple[int, int, int]` | instance | (ingested, consumed, produced) for the frame |
+|  [10]   | `memory_size() -> int`                        | instance | compression context memory footprint         |
 
-[ENTRYPOINT_SCOPE]: `ZstdDecompressor` modalities
-- rail: compression — `ZstdDecompressor(dict_data=None, max_window_size=0, format=FORMAT_ZSTD1)`; `max_window_size` bounds a bomb's window before allocation. The modalities are `decompress(data, max_output_size=0, read_across_frames=True, allow_extra_data=True) -> bytes`, `stream_reader(source, read_size=, read_across_frames=False, *, closefd=False) -> ZstdDecompressionReader`, `stream_writer(writer, write_size=, write_return_read=True, *, closefd=True) -> ZstdDecompressionWriter`, `decompressobj(write_size=, read_across_frames=False) -> ZstdDecompressionObj`, `read_to_iter(reader, read_size=, write_size=, skip_bytes=0) -> Generator[bytes, None, None]`, `copy_stream(ifh, ofh, read_size=, write_size=) -> tuple[int, int]`, and `multi_decompress_to_buffer(frames, decompressed_sizes=, threads=0) -> BufferWithSegmentsCollection`.
+[ENTRYPOINT_SCOPE]: `ZstdDecompressor` modalities — `ZstdDecompressor(dict_data, max_window_size, format)`; `max_window_size` bounds an adversarial frame's window before allocation
 
-| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                                           | [CAPABILITY]                                  |
-| :-----: | :------------------------------ | :----------------------------------------------------- | :-------------------------------------------- |
-|  [01]   | `decompress`                    | `decompress(data, …) -> bytes`                         | one-shot; multi-frame + trailing-data kwargs  |
-|  [02]   | `stream_reader`                 | `stream_reader(source, …)`                             | seekable decompress source                    |
-|  [03]   | `stream_writer`                 | `stream_writer(writer, …)`                             | decompress source bytes into a sink           |
-|  [04]   | `decompressobj`                 | `decompressobj(write_size=, read_across_frames=False)` | incremental object; `unused_data` frame walk  |
-|  [05]   | `read_to_iter`                  | `read_to_iter(reader, …) -> Generator[bytes, ...]`     | lazily iterate decompressed chunks            |
-|  [06]   | `copy_stream`                   | `copy_stream(ifh, ofh, read_size=, write_size=)`       | pump compressed file->plain file              |
-|  [07]   | `multi_decompress_to_buffer`    | `multi_decompress_to_buffer(frames, …)`                | threaded batch decompress; skip header probes |
-|  [08]   | `decompress_content_dict_chain` | `decompress_content_dict_chain(frames)`                | decode a content-dictionary frame chain       |
+| [INDEX] | [SURFACE]                                                                 | [SHAPE]  | [CAPABILITY]                                  |
+| :-----: | :------------------------------------------------------------------------ | :------- | :-------------------------------------------- |
+|  [01]   | `decompress(data, max_output_size, read_across_frames, allow_extra_data)` | instance | one-shot; multi-frame + trailing-data kwargs  |
+|  [02]   | `stream_reader(source, …)`                                                | factory  | seekable decompress source                    |
+|  [03]   | `stream_writer(writer, …)`                                                | factory  | decompress source bytes into a sink           |
+|  [04]   | `decompressobj(write_size=, read_across_frames=False)`                    | factory  | incremental object; `unused_data` frame walk  |
+|  [05]   | `read_to_iter(reader, …) -> Generator`                                    | instance | lazily iterate decompressed chunks            |
+|  [06]   | `copy_stream(ifh, ofh, read_size=, write_size=)`                          | instance | pump compressed file->plain file              |
+|  [07]   | `multi_decompress_to_buffer(frames, …)`                                   | instance | threaded batch decompress; skip header probes |
+|  [08]   | `decompress_content_dict_chain(frames)`                                   | instance | decode a content-dictionary frame chain       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[COMPRESSION_ZSTD]:
-- import: `import zstandard` at boundary scope only (the `package/codec#CODEC` page binds it `lazy`/at codec scope); module-level import is banned by the manifest import policy.
-- codec axis: `ZstdCompressor`/`ZstdDecompressor` are the two roots. `level`, `dict_data`, `compression_params`, `write_checksum`/`write_content_size`/`write_dict_id`, and `threads` are constructor rows on the compressor; `dict_data`, `max_window_size`, and `format` are constructor rows on the decompressor. Never a parallel compressor type per profile — the upstream `ZstdKnobs` carries every axis as a named field.
-- modality axis: one-shot (`compress`/`decompress`), file-like streaming (`stream_reader`/`stream_writer` minting `BinaryIO` carriers), incremental zlib-style (`compressobj`/`decompressobj`), fixed-size chunking (`chunker`), file pump (`copy_stream`), lazy iteration (`read_to_iter`), and threaded batch (`multi_compress_to_buffer`/`multi_decompress_to_buffer`) are all methods on the same root, never parallel codec types. Pick the modality by input shape: a `*payloads` spread of two-or-more routes to `multi_compress_to_buffer` (the dictionary-shared corpus pass), a singular payload to `compress`, a streaming sink to `stream_writer`.
-- dictionary axis: `ZstdCompressionDict(data, dict_type=)` via `train_dictionary` (COVER algorithm; `k`/`d`/`steps`/`accel` tune training) is the small-payload optimization, passed as `dict_data=` on either root. Cross the worker-subprocess lane as raw `as_bytes()` rather than the unpicklable native handle and rehydrate `ZstdCompressionDict(dict_bytes, dict_type=_ZSTD_DICT[mode])` at codec scope; `DICT_TYPE_AUTO`/`DICT_TYPE_FULLDICT`/`DICT_TYPE_RAWCONTENT` selects auto/fulldict/rawcontent interpretation through the `ZstdDictMode` `Literal` token; `precompute_compress(level=, compression_params=)` caches the compression-side dictionary state for a hot repeated-compress loop. `dict_id()` reads inline at the evidence mint. Never a separate dict-codec type.
-- parameter axis: `ZstdCompressionParameters.from_level(level, source_size=, dict_size=, **overrides)` derives a full param set from a level and overrides any field (`window_log=`, `threads=`, `enable_ldm=`, `write_checksum=`, `write_content_size=True`); pass it as `compression_params=` instead of scattering raw ints, and NEVER alongside `level=` on the same `ZstdCompressor` (mutually exclusive — the package raises). ZERO-OVERRIDE TRAP (live-verified on 0.25.0): an explicit `0` kwarg REPLACES the level-derived cparam and resolves as "context default" against the derived object's `compression_level` of `3` — `from_level(19)` derives `window_log=23`/`hash_log=22`/`chain_log=24`/`target_length=256` while `from_level(19, window_log=0, hash_log=0, chain_log=0, target_length=0)` zeroes all four and compresses WORSE than plain level 3 — so a knob whose `0` means "level-derived" is withheld from the call, never forwarded. `enable_ldm` lights long-distance matching for large repetitive artifacts; `write_content_size=True` guarantees the frame header carries the decompressed size; `estimated_compression_context_size()` sizes the context before allocation. Validate each log/length knob against its `*_MIN`/`*_MAX` bound at the boundary.
-- frame axis: `get_frame_parameters`/`frame_content_size`/`frame_header_size` inspect a frame header without decoding; `frame_content_size` returns `-1` for a frame that omits its declared size and RAISES `ZstdError` on a malformed header (live-verified) — the module `CONTENTSIZE_UNKNOWN`/`CONTENTSIZE_ERROR` constants are the raw u64 C spellings the binding never returns, so the guard compares against `-1`/the caller's ceiling and never the constants; `get_frame_parameters(frame).has_checksum` is the per-frame integrity count `write_checksum=True` makes verifiable. `FORMAT_ZSTD1_MAGICLESS` strips the 4-byte magic for embedded frames and must match on both roots. On the recovery path, `ZstdDecompressor().decompressobj(read_across_frames=False)` decodes one frame and `unused_data` yields the next frame's bytes — the concatenated-self-delimiting-frame walk the bundle unpack composes; `read_across_frames`/`allow_extra_data` on `decompress` govern multi-frame and trailing-byte tolerance.
-- abi axis: `zstandard.backend` is `'cext'` (native, GIL-releasing) or `'cffi'` (pure-Python fallback); `backend_features` is the capability set (`'buffer_types'`/`'multi_compress_to_buffer'`/`'multi_decompress_to_buffer'` under `cext`). Treat the batch-buffer carriers and `multi_*_to_buffer` as conditional on the C extension; the streaming/one-shot/incremental/chunked rails are present under both backends.
-- bomb axis: every recovery is bounded — refuse a frame whose `frame_content_size` exceeds the owner's `_DECOMPRESS_CEILING`, bound the one-shot `decompress(max_output_size=cap)`, and bound the decompressor's `max_window_size` so an adversarial frame never forces an oversized window allocation. A bomb is contained by the declared-size guard plus the window bound, never by a hand-rolled post-hoc size check on unbounded output.
-- integration: at the boundary, feed a `stamina`-retried call producing the input bytes, encode the canonical payload via `msgspec.msgpack.encode(...)`, and compress with a `level`/`threads`-tuned `ZstdCompressor` whose heavy GIL-releasing body runs off the event loop through `anyio.to_thread.run_sync` under a shared `CapacityLimiter` (never inline on the loop). Lift the result onto the universal `expression.Result[bytes, ArtifactError]` rail so a `ZstdError` becomes an `Error` case at the seam rather than a raised exception crossing the owner. Stamp a `structlog` event / `opentelemetry` span carrying `level`, `dict_id`, `frame_content_size`, the `threads`/`format`/`write_checksum` flags, input/output byte lengths, and the `frame_progression()` produced-byte count. For many small records sharing structure, `train_dictionary` once and drive the whole `*payloads` spread through one `multi_compress_to_buffer` pass against the shared `ZstdCompressionDict`; for a streaming sink, wrap the downstream writer in `stream_writer(...)` so back-pressure stays in the codec, not in an in-RAM buffer.
-- evidence: each codec call captures `level`, `dict_id`, the declared-size aggregate (summing `frame_content_size` only over frames declaring a size — a `-1` unknown-size frame never joins the sum and lands in an explicit `unknown_frames` count beside it), input/output byte lengths, `entries` (member arity, never the joined-blob count), the `write_checksum`-verified frame count, `threads`, `format`, and the checksum flag as a `BundleEvidence` compression receipt contributed through the runtime `ReceiptContributor` port onto the single `core/receipt#RECEIPT` `ArtifactReceipt.Bundle` case — never a parallel zstandard-only receipt shape; the `ratio` is the one observable-compression value the runtime `Metrics` `rasm.artifact.compression_ratio` instrument reads off the fold.
-- boundary: zstandard owns the high-ratio single-blob zstd codec and the COVER-dictionary small-payload win; web/transport codecs route to `brotli`; hot-path block compression to `lz4`; the gzip-container stdlib-interop case to the shared `zlib-ng` substrate; archive containers to `py7zr`/`stream-zip`/`stream-unzip`; binary delta to `detools`; chunked-array numeric chunk compression to the `data`-rail `numcodecs` `Zstd`/`Blosc` codecs (a distinct buffer-codec concern across the rail boundary, never a duplicate zstd owner). Failures surface as `ZstdError` lifted to the `Result` rail; live UI stays outside this package.
+[TOPOLOGY]:
+- codec: `ZstdCompressor`/`ZstdDecompressor` are the two roots, with `level`/`dict_data`/`compression_params`/`write_checksum`/`write_content_size`/`write_dict_id`/`threads` on the compressor and `dict_data`/`max_window_size`/`format` on the decompressor as constructor rows, never a per-profile subclass; the upstream `ZstdKnobs` carries every axis as a field.
+- modality: one-shot, file-like streaming, incremental zlib-style, fixed-size chunking, file pump, lazy iteration, and threaded batch are methods on one root selected by input shape — a two-or-more `*payloads` spread routes to `multi_compress_to_buffer` against a shared dictionary, a singular payload to `compress`, a streaming sink to `stream_writer`.
+- dictionary: `ZstdCompressionDict(data, dict_type=)` from `train_dictionary` (COVER; `k`/`d`/`steps`/`accel` tune) is the small-payload win, passed `dict_data=` on either root; `precompute_compress` caches compression-side state for a hot repeated-compress loop; a worker-subprocess lane crosses the dict as `as_bytes()` and rehydrates at codec scope, never the unpicklable native handle.
+- parameter: `ZstdCompressionParameters.from_level(level, *, source_size, dict_size, **overrides)` derives a full set and overrides any field, passed `compression_params=` and never beside `level=` on one `ZstdCompressor` (mutually exclusive). A zero-valued log/length override replaces the level-derived value and resolves as context default against `compression_level=3`, compressing worse than the level alone, so a knob whose `0` means "level-derived" is withheld, never forwarded.
+- frame: `get_frame_parameters`/`frame_content_size`/`frame_header_size` inspect a header without decode; `frame_content_size` returns `-1` for an undeclared size and raises `ZstdError` on a malformed header, so the guard compares `-1`/the caller ceiling, never the `CONTENTSIZE_*` constants; `FORMAT_ZSTD1_MAGICLESS` strips the 4-byte magic and must match on both roots; `decompressobj(read_across_frames=False)` with `unused_data` walks concatenated self-delimiting frames.
+- abi: `backend` is `'cext'` or `'cffi'`; the batch-buffer carriers and `multi_*_to_buffer` bind only when `backend_features` advertises them under `cext`, while the streaming/one-shot/incremental/chunked rails are present under both.
+- bomb: every recovery is bounded by the declared-size guard (`frame_content_size` against the owner ceiling), `decompress(max_output_size=)`, and the decompressor `max_window_size`, never a post-hoc size check on unbounded output.
+- receipt: each call folds one `BundleEvidence` receipt onto the single `core/receipt#RECEIPT` `ArtifactReceipt.Bundle` case, carrying `level`, `dict_id`, the declared-size aggregate (summing `frame_content_size` over declaring frames only, a `-1` landing in a separate `unknown_frames` count), byte lengths, `entries` arity, the `write_checksum`-verified frame count, `threads`, `format`, and the checksum flag; `ratio` feeds the runtime `rasm.artifact.compression_ratio` instrument.
+
+[STACKING]:
+- `msgspec`(`.api/msgspec.md`): the boundary encodes the canonical payload via `msgspec.msgpack.encode`, then a `level`/`threads`-tuned `ZstdCompressor` compresses the buffer.
+- `anyio`(`.api/anyio.md`): the GIL-releasing codec body runs off the event loop through `anyio.to_thread.run_sync` under a shared `CapacityLimiter`, never inline on the loop.
+- `expression`(`.api/expression.md`): the `stamina`-retried producing call lifts onto `expression.Result[bytes, ArtifactError]`, a `ZstdError` becoming an `Error` case at the seam rather than a raised exception crossing the owner.
+- `structlog`(`.api/structlog.md`) / `opentelemetry`(`.api/opentelemetry-api.md`): each call stamps an event and span carrying `level`, `dict_id`, `frame_content_size`, the `threads`/`format`/`write_checksum` flags, byte lengths, and the `frame_progression()` produced count.
+- artifacts compression owner: composes the two roots and contributes the receipt through the runtime `ReceiptContributor` port; a shared-structure `*payloads` spread trains one dictionary and drives `multi_compress_to_buffer`, while a streaming sink wraps the downstream writer in `stream_writer` to keep back-pressure in the codec.
+
+[LOCAL_ADMISSION]:
+- `import zstandard` at boundary scope only; module-level import is banned by the manifest import policy.
+- carriers bind through the minting method, never import: `compressobj`/`decompressobj`/`chunker` return `backend_c` classes with no `zstandard.*` name.
+- probe `backend_features` before the batch path; the `cffi` fallback omits the carriers and `multi_*_to_buffer`.
+- live UI stays outside this package.
 
 [RAIL_LAW]:
 - Package: `zstandard`
 - Owns: Zstandard one-shot/streaming/incremental/chunked/threaded-batch compression and decompression, COVER-trained dictionaries with precompute caching, advanced compression parameters, frame inspection, and magicless/checksum/content-size/dict-id frame policy
 - Accept: a level-tuned, dictionary-trained, optionally multi-threaded codec service feeding the `package/codec#CODEC` `ZSTD` arm, selecting modality by input shape on one of the two roots, offloaded off the event loop under a bounded limiter, lifted onto the `expression.Result` rail with a `BundleEvidence` receipt on the single `ArtifactReceipt.Bundle` case
-- Reject: wrapper-renames of `compress`/`decompress`; a parallel compressor per profile where a constructor row or `ZstdCompressionParameters` suffices; `level=` and `compression_params=` together on one `ZstdCompressor` (mutually exclusive); a zero-valued log/length override forwarded to `from_level` where withholding keeps the level-derived cparam; `dict_type` passed to `train_dictionary` (it is a `ZstdCompressionDict` ctor axis); an in-RAM accumulation where `stream_writer`/`compressobj` already streams; binding a streaming/incremental carrier by import rather than by the minting method; an unbounded recovery where the declared-size guard plus `max_window_size`/`max_output_size` already bombs-bound; assuming the batch-buffer carriers or `multi_*_to_buffer` exist without checking `backend_features`; a `ZstdError` crossing the owner as a raised exception instead of a `Result` `Error` case; identity-minting the runtime owns
+- Reject: wrapper-renames of `compress`/`decompress`; a per-profile compressor where a constructor row or `ZstdCompressionParameters` suffices; `level=` and `compression_params=` together on one `ZstdCompressor`; a zero-valued `from_level` override where withholding keeps the level-derived cparam; `dict_type` passed to `train_dictionary` (it is a `ZstdCompressionDict` ctor axis); in-RAM accumulation where `stream_writer`/`compressobj` streams; binding a carrier by import; an unbounded recovery past the declared-size and `max_window_size`/`max_output_size` bounds; reaching the batch path without a `backend_features` probe; a `ZstdError` crossing the owner as a raised exception; duplicating the data-rail `numcodecs` `Zstd`/`Blosc` buffer codec here; identity-minting the runtime owns

@@ -1939,16 +1939,6 @@
           "Microsoft.Extensions.Hosting.Abstractions": "10.0.10"
         }
       },
-      "Microsoft.Extensions.Diagnostics": {
-        "type": "Transitive",
-        "resolved": "10.0.10",
-        "contentHash": "Kr/e7lUf4+N8tacbqJ2Ctwe/HarKdAc9ZkgKVVqvtJDBKbez+T/KnUwu82KSlnBp/SrpBcxc7u7xkE2oUZT/5Q==",
-        "dependencies": {
-          "Microsoft.Extensions.Configuration": "10.0.10",
-          "Microsoft.Extensions.Diagnostics.Abstractions": "10.0.10",
-          "Microsoft.Extensions.Options.ConfigurationExtensions": "10.0.10"
-        }
-      },
       "Microsoft.Extensions.Diagnostics.Abstractions": {
         "type": "Transitive",
         "resolved": "10.0.10",
@@ -2924,6 +2914,7 @@
           "Microsoft.Extensions.Configuration.Json": "[10.0.10, )",
           "Microsoft.Extensions.Configuration.UserSecrets": "[10.0.10, )",
           "Microsoft.Extensions.DependencyInjection": "[10.0.10, )",
+          "Microsoft.Extensions.Diagnostics": "[10.0.10, )",
           "Microsoft.Extensions.Diagnostics.HealthChecks": "[10.0.10, )",
           "Microsoft.Extensions.Diagnostics.ResourceMonitoring": "[10.8.0, )",
           "Microsoft.Extensions.Hosting": "[10.0.10, )",
@@ -2994,6 +2985,7 @@
         "dependencies": {
           "Alimer.Bindings.MeshOptimizer": "[1.2.1, )",
           "AngouriMath": "[1.4.0, )",
+          "Apache.Arrow": "[23.0.0, )",
           "CSparse": "[4.4.0, )",
           "Clipper2": "[2.0.0, )",
           "CloudNative.CloudEvents.Mqtt": "[3.9.0, )",
@@ -3021,6 +3013,7 @@
           "Microsoft.ML.OnnxRuntime.Extensions": "[0.14.0, )",
           "Microsoft.ML.OnnxRuntimeGenAI": "[0.14.1, )",
           "Microsoft.Z3": "[4.12.2, )",
+          "NATS.Net": "[2.8.2, )",
           "NREL.OpenStudio.macOS-arm64": "[3.11.0, )",
           "NetTopologySuite": "[2.6.0, )",
           "NodaTime": "[3.3.2, )",
@@ -3089,6 +3082,7 @@
           "CloudNative.CloudEvents": "[2.9.0, )",
           "CloudNative.CloudEvents.Amqp": "[2.9.0, )",
           "CloudNative.CloudEvents.Kafka": "[3.9.0, )",
+          "CloudNative.CloudEvents.Mqtt": "[3.9.0, )",
           "CloudNative.CloudEvents.SystemTextJson": "[2.9.0, )",
           "CommunityToolkit.HighPerformance": "[8.4.2, )",
           "Confluent.Kafka": "[2.14.2, )",
@@ -3112,6 +3106,7 @@
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "LightningDB": "[0.22.0, )",
           "MPXJ.Net": "[16.5.0, )",
+          "MQTTnet": "[5.2.0.1603, )",
           "Marten": "[9.12.0, )",
           "MessagePack": "[3.1.7, )",
           "Microsoft.AspNetCore.JsonPatch.SystemTextJson": "[10.0.10, )",
@@ -4254,6 +4249,17 @@
         "requested": "[10.0.10, )",
         "resolved": "10.0.10",
         "contentHash": "rfZA1RjR021RPqSmIPovfz2aOd79TGqJ9BengbjnzIISOVwjLmuSDnhCMmiY/1c6iYvGolQ1iNGzkav0u11XEA=="
+      },
+      "Microsoft.Extensions.Diagnostics": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.10, )",
+        "resolved": "10.0.10",
+        "contentHash": "Kr/e7lUf4+N8tacbqJ2Ctwe/HarKdAc9ZkgKVVqvtJDBKbez+T/KnUwu82KSlnBp/SrpBcxc7u7xkE2oUZT/5Q==",
+        "dependencies": {
+          "Microsoft.Extensions.Configuration": "10.0.10",
+          "Microsoft.Extensions.Diagnostics.Abstractions": "10.0.10",
+          "Microsoft.Extensions.Options.ConfigurationExtensions": "10.0.10"
+        }
       },
       "Microsoft.Extensions.Diagnostics.HealthChecks": {
         "type": "CentralTransitive",

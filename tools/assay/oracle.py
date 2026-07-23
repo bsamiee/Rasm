@@ -238,7 +238,7 @@ _MD_HEAP_BIT: dict[str, int] = {"S": 1, "G": 2, "B": 4}
 _FINGERPRINT_FILE: re.Pattern[str] = re.compile(r"(?:[0-9a-f]{16}|unresolved)\.json")
 # Producer identities stamped into typed cache entries; a mismatched producer is a cache miss, never a parse guess.
 _ILSPY_PRODUCER: str = "ilspycmd"
-_PY_PRODUCER: str = "py-api"
+_PY_PRODUCER: str = "py-api/2"  # bumped with roster semantics (builtin rows, ownership roots) so stale cached rosters miss
 _TS_PRODUCER: str = "ts-api"
 # Roster-grammar dispatch keyed on the probed ilspycmd version; the catch-all row is the stable cisde grammar.
 # A future grammar break adds a version-pattern row here instead of sniffing output shape.
@@ -309,6 +309,7 @@ _TYPE_CAP: str = "type"  # roster capture-name vocabulary: every INPROC/tree-sit
 _INSPECT_KINDS: tuple[tuple[str, Callable[[object], bool]], ...] = (
     (_TYPE_CAP, inspect.isclass),
     (_TYPE_CAP, inspect.isfunction),
+    (_TYPE_CAP, inspect.isbuiltin),  # native-extension module callables (PyO3/pybind11) are builtins, never functions
     (_TYPE_CAP, lambda obj: isinstance(obj, TypeAliasType)),  # PEP 695 `type` aliases surface alongside classes and functions
 )
 NAME_CAP: int = 320
@@ -579,16 +580,16 @@ def packages(settings: AssaySettings) -> dict[str, str]:
     return {} if digest is None else _packages_at(str(path), digest)
 
 
-def resolve_key(package_map: dict[str, str], key: str) -> Result[str, ApiResolution]:
-    """Resolve a fuzzy package key against the central package map.
+def resolve_key(package_map: dict[str, str], key: str, *, fuzzy: bool = True) -> Result[str, ApiResolution]:
+    """Resolve a package key against the central package map, exact always and fuzzy only when permitted.
 
     Returns:
         ``Ok`` with the canonical package name, or ``Error(ApiResolution)`` carrying ranked candidates.
     """
     casefold = key.casefold()
     exact = tuple(n for n in package_map if n.casefold() == casefold)
-    fuzzy = tuple(n for n in package_map if n.casefold().startswith(casefold)) or tuple(n for n in package_map if casefold in n.casefold())
-    hits = exact or fuzzy
+    widened = tuple(n for n in package_map if n.casefold().startswith(casefold)) or tuple(n for n in package_map if casefold in n.casefold())
+    hits = exact or (widened if fuzzy else ())
     match (bool(exact) or len(hits) == 1, len(hits)):
         case (True, _):
             return Ok(hits[0])
@@ -815,13 +816,31 @@ def _resolve_targets(source: Source, kind: PathKind) -> tuple[Path, ...]:
 
 
 # SourceKind-keyed resolver order is the bundle > NuGet > pydist > tsdecl precedence; iteration takes the first hit.
-_RESOLVE_TABLE: dict[SourceKind, SourceResolver] = {
-    SourceKind.ASSEMBLY: lambda settings, key, _packages_map: _host_source(settings, key),
-    SourceKind.NUGET: lambda settings, key, packages_map: (
-        resolve_key(packages_map, key).map(lambda package: nuget_source(settings, package, packages_map[package])).default_value(None)
-    ),
-    SourceKind.PYDIST: lambda _settings, key, _packages_map: _pydist_source(key),
-    SourceKind.TSDECL: lambda settings, key, _packages_map: tsdecl_source(settings, key),
+def _nuget_leg(*, fuzzy: bool) -> SourceResolver:
+    def leg(settings: AssaySettings, key: str, packages_map: dict[str, str]) -> Source | None:
+        resolved = resolve_key(packages_map, key, fuzzy=fuzzy)
+        return resolved.map(lambda package: nuget_source(settings, package, packages_map[package])).default_value(None)
+
+    return leg
+
+
+# Ordered resolution ladder: every exact leg outranks the terminal fuzzy NuGet leg, so an installed pydist or
+# node package never resolves under a NuGet prefix/substring hit (`deltalake` -> `DeltaLake.Net`); a NUGET row
+# appears twice because exactness, not kind, is the precedence axis.
+_RESOLVE_LADDER: tuple[tuple[SourceKind, SourceResolver], ...] = (
+    (SourceKind.ASSEMBLY, lambda settings, key, _packages_map: _host_source(settings, key)),
+    (SourceKind.NUGET, _nuget_leg(fuzzy=False)),
+    (SourceKind.PYDIST, lambda _settings, key, _packages_map: _pydist_source(key)),
+    (SourceKind.TSDECL, lambda settings, key, _packages_map: tsdecl_source(settings, key)),
+    (SourceKind.NUGET, _nuget_leg(fuzzy=True)),
+)
+# A `<scope>:` key prefix pins resolution to one kind — the sole disambiguator when one spelling is exact in two
+# ecosystems (`py:rhino3dm` introspects the wheel, `nuget:rhino3dm` decompiles the package).
+_KEY_SCOPES: dict[str, frozenset[SourceKind]] = {
+    "host": frozenset((SourceKind.ASSEMBLY,)),
+    "nuget": frozenset((SourceKind.NUGET,)),
+    "py": frozenset((SourceKind.PYDIST,)),
+    "npm": frozenset((SourceKind.TSDECL,)),
 }
 
 # Fidelity is the single SourceKind->Fidelity correspondence: the surface stores no fidelity, every read derives it
@@ -845,22 +864,26 @@ def fidelity_note(source: Source) -> str:
 
 
 def _resolve_source(settings: AssaySettings, key: str) -> Result[Source, ApiResolution]:
-    # Misses aggregate candidates across every resolver kind.
+    # Misses aggregate candidates across every resolver kind; a scope-pinned key walks only its own ladder rows.
     package_map = packages(settings)
+    scope, _, bare = key.partition(":")
+    pinned = _KEY_SCOPES.get(scope.casefold()) if bare else None
+    lookup = bare if pinned is not None else key
 
     def _attempt(resolver: SourceResolver) -> Source | None:
         # Empty/NUL keys can raise in metadata and glob resolvers; unknown stays a miss.
         try:
-            return resolver(settings, key, package_map)
+            return resolver(settings, lookup, package_map)
         except ValueError, OSError:
             return None
 
-    match next((source for resolver in _RESOLVE_TABLE.values() if (source := _attempt(resolver)) is not None), None):
+    rows = tuple(resolver for kind, resolver in _RESOLVE_LADDER if pinned is None or kind in pinned)
+    match next((source for resolver in rows if (source := _attempt(resolver)) is not None), None):
         case Source() as source:
             return Ok(source)
         case None:
             names = (*tuple(package_map), *_pydist_names(), *tsdecl_names(settings))
-            return Error(ApiResolution(candidates=rank_candidates(names, key), reason="unknown"))
+            return Error(ApiResolution(candidates=rank_candidates(names, lookup), reason="unknown"))
 
 
 def to_api_source(source: Source, *, status: RailStatus | None = None, selected: tuple[Path, ...] = ()) -> ApiSource:
@@ -1313,7 +1336,20 @@ def _clip(text: str, cap: int) -> tuple[str, bool]:
     return text[:cap], len(text) > cap
 
 
-def _module_members(module: object, prefix: str, *, depth: int = 1) -> tuple[Capture, ...]:
+def _owned_roots(key: str) -> frozenset[str]:
+    # Ownership truth for roster and scan membership: every top-level module packages_distributions() maps to
+    # this distribution joins the declared roots, so a native core re-exported from `_duckdb` into `duckdb`
+    # stays owned while a foreign re-export (stdlib, sibling dist) stays out.
+    casefold = key.casefold()
+    mapped = (module for module, dists in importlib.metadata.packages_distributions().items() if any(d.casefold() == casefold for d in dists))
+    return frozenset((*_pydist_modules(key), *mapped))
+
+
+def _owned_by(obj: object, roots: frozenset[str], default: str) -> bool:
+    return (getattr(obj, "__module__", None) or default).split(".", 1)[0] in roots
+
+
+def _module_members(module: object, prefix: str, *, roots: frozenset[str], depth: int = 1) -> tuple[Capture, ...]:
     # depth=1 captures same-prefix submodules without walking the full transitive import graph.
     name = getattr(module, "__name__", prefix)
     file = str(getattr(module, "__file__", "") or "")
@@ -1321,7 +1357,7 @@ def _module_members(module: object, prefix: str, *, depth: int = 1) -> tuple[Cap
         Capture(name=cap, text=clipped, file=file, line=0, truncated=cut)
         for cap, predicate in _INSPECT_KINDS
         for ident, obj in inspect.getmembers(module, predicate)
-        if not ident.startswith("_") and getattr(obj, "__module__", prefix).startswith(prefix)
+        if not ident.startswith("_") and _owned_by(obj, roots, prefix)
         for clipped, cut in (_clip(f"{name}.{ident}", NAME_CAP),)
     )
     submodules = (
@@ -1333,7 +1369,7 @@ def _module_members(module: object, prefix: str, *, depth: int = 1) -> tuple[Cap
         if depth > 0
         else ()
     )
-    return (*own, *(cap for sub in submodules for cap in _module_members(sub, prefix, depth=depth - 1)))
+    return (*own, *(cap for sub in submodules for cap in _module_members(sub, prefix, roots=roots, depth=depth - 1)))
 
 
 def _import(name: str) -> object | None:
@@ -1348,11 +1384,25 @@ def _pydist_thunk(key: str, symbol: str) -> InprocThunk:
         match symbol:
             case "":
                 modules = tuple((name, _import(name)) for name in _pydist_modules(key))
-                captures = tuple(cap for name, module in modules if module is not None for cap in _module_members(module, name))
+                roots = _owned_roots(key)
+                captures = tuple(cap for name, module in modules if module is not None for cap in _module_members(module, name, roots=roots))
                 return receipt(("py-api", "surface", key), 0, stdout=CAPTURE_ENCODER.encode(captures))
             case _:
                 obj = _resolve_py_symbol(key, symbol)
-                member = _member_captures(obj, symbol) if obj is not None else ()
+                # Direct walk first; a bare member re-roots at every owned class, one survivor resolving and two
+                # surviving owners crossing as an `owners` capture the rail reports as candidate spellings.
+                match (obj, () if obj is not None else _owner_scan(key, symbol)):
+                    case (None, ()):
+                        member: tuple[Capture, ...] = ()
+                    case (None, ((qual_owner, resolved),)):
+                        member = (
+                            *_member_captures(resolved, f"{qual_owner}.{symbol}"),
+                            Capture(name="owner", text=qual_owner, file="", line=0),
+                        )
+                    case (None, owners):
+                        member = (Capture(name="owners", text="\n".join(f"{qual}.{symbol}" for qual, _ in owners), file="", line=0),)
+                    case _:
+                        member = _member_captures(obj, symbol)
                 return receipt(("py-api", "member", key, symbol), 0, stdout=CAPTURE_ENCODER.encode(member))
 
     return run
@@ -1389,6 +1439,38 @@ def _walk_attrs(root: object, parts: tuple[str, ...]) -> object | None:
             return _walk_attrs(attr, tuple(tail)) if attr is not None else None
         case _:
             return root
+
+
+def _owner_scan(key: str, symbol: str) -> tuple[tuple[str, object], ...]:
+    # Bare-member depth: a symbol no module root walks to re-roots at every owned module-level class across the
+    # declared roots and their depth-1 submodules, so a method spelling resolves through its owning class without
+    # the caller knowing the owner. Identity-dedup keeps one row per resolved object (a re-exported class counts
+    # once); two surviving rows are a real ambiguity surfaced as spellings, never a silent pick.
+    parts = tuple(symbol.split("."))
+    roots = _owned_roots(key)
+    imported = tuple(module for name in _pydist_modules(key) for module in (_import(name),) if module is not None)
+    modules = tuple(
+        dict.fromkeys(
+            (
+                *imported,
+                *(
+                    obj
+                    for module in imported
+                    for ident, obj in inspect.getmembers(module, inspect.ismodule)
+                    if not ident.startswith("_") and getattr(obj, "__name__", "").startswith(f"{getattr(module, '__name__', '')}.")
+                ),
+            )
+        )
+    )
+    hits = {
+        id(resolved): (f"{getattr(module, '__name__', '')}.{ident}", resolved)
+        for module in modules
+        for ident, owner in inspect.getmembers(module, inspect.isclass)
+        if not ident.startswith("_") and _owned_by(owner, roots, "")
+        for resolved in (_walk_attrs(owner, parts),)
+        if resolved is not None
+    }
+    return tuple(hits.values())
 
 
 def _py_kind(obj: object) -> str:
@@ -1756,7 +1838,10 @@ _ADAPTERS: dict[SourceKind, type[_CsOracle | _InprocOracle]] = {
 
 
 def oracle_for(settings: AssaySettings, executor: Executor, key: str) -> Result[Oracle, ApiResolution]:
-    """Resolve a source key into its bound adapter under host > NuGet > pydist > tsdecl precedence.
+    """Resolve a source key into its bound adapter along the exact-before-fuzzy ladder.
+
+    Exact legs run host > NuGet > pydist > tsdecl, the fuzzy NuGet leg terminal; a ``host:``/``nuget:``/``py:``/
+    ``npm:`` key prefix pins one kind.
 
     Returns:
         ``Ok`` with the kind-matched adapter, or ``Error(ApiResolution)`` carrying ranked candidates.

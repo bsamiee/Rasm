@@ -207,7 +207,7 @@ class _ProvisionPayload(msgspec.Struct, frozen=True, gc=False, rename="camel"):
 
 _ROUTED: Final[Routed] = Routed(language=Language.PYTHON, scope=Scope.CHANGED)
 # One row per forge-provision verb: (catalog mode, timeout seconds). The JSON roster, mode split, and per-verb deadlines all derive from
-# this table, so a new verb is one row here plus its handler assignment and registry Bind. `tools` is the internal fan leg `check` consumes.
+# this table, so a new verb is one row here plus its handler assignment and registry Bind. `tools` also rides `check` as an internal fan leg.
 _VERBS: Final[dict[str, tuple[Mode, float]]] = {
     "up": (Mode.WRITE, 300.0),
     "down": (Mode.WRITE, 120.0),
@@ -949,5 +949,6 @@ plan = _handler("plan")
 env = _handler("env")
 check = _handler("check")
 apply = _handler("apply")
+tools = _handler("tools")
 
-__all__ = ["ProvisionParams", "apply", "check", "doctor", "down", "env", "extensions", "inventory", "plan", "ports", "status", "up"]
+__all__ = ["ProvisionParams", "apply", "check", "doctor", "down", "env", "extensions", "inventory", "plan", "ports", "status", "tools", "up"]

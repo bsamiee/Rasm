@@ -27,10 +27,8 @@ export const meta = {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const SLICES = 4;
-const STALL = 300000;
 const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // repo checkout root — native lanes resolve relative paths against it, never the launching session cwd
-const RETRY_ATTEMPTS = 2; // re-dispatches per dead terminal resolver; the count bounds spend, the backoff buys recovery time
-const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
+const RETRY_ATTEMPTS = 2;
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -40,7 +38,7 @@ if (!CAMPS.length) {
     log('No campaigns — pass {doc, root} or an array of pairs.');
     return { campaigns: 0 };
 }
-// Per-instance scratch dir holding the lanes' MCP report files, minted deterministically from the normalized campaign set (a clock or
+// Per-instance scratch dir holding lane report files, minted deterministically from the normalized campaign set (a clock or
 // randomness would break resume): one FLAT dir per instance, a root-basename slug and an FNV-1a tail so distinct sets never collide.
 const fnv1a = (s) => {
     let h = 0x811c9dc5;
@@ -291,19 +289,17 @@ const HARVEST_LAW =
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-// Bounded re-dispatch for a dead CRITICAL lane (usage-limit or transport death): attempt-counted with a backoff before each;
+// Bounded re-dispatch for a dead CRITICAL lane (usage-limit or transport death): attempt-counted with a retry before each;
 // the final death isolates the lane, NEVER the chain — the doctrine lander still fires from the resolver's disk harvest file.
 const retryLane = async (fn) => {
     for (let a = 0; a < RETRY_ATTEMPTS; a++) {
-        await sleep(RETRY_BACKOFF);
         const r = await fn();
         if (r) return r;
     }
     return null;
 };
 
-// Codex dispatch: the shell lane makes one blocking Codex MCP call, writes the envelope's content
+// Codex dispatch: the shell lane runs one blocking supervised CLI process and writes its content
 // to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
 // (role split); the prompt carries only the task; the output contract sits LAST.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
@@ -362,7 +358,7 @@ const codexPrompt = (label, task, schema, o) => {
         lane +
         '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
         'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
-        're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (idle-timeout, max-timeout, turn-failed, ' +
+        're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (max-timeout, turn-failed, ' +
         'refusal) re-runs the same command untouched. (3) The lane lands the product at ' +
         report +
         ' via --out. (4) Verify with one Bash call: jq -e . ' +
@@ -403,7 +399,6 @@ const nativeLane = (task, o) =>
             model: o.nativeModel || twinOf(o.model),
             effort: 'high',
             schema: RECEIPT,
-            stallMs: o.stallMs || STALL,
         },
     );
 const recon = (task, o) =>
@@ -441,7 +436,7 @@ const lanes = await parallel(
                 'ARCHITECTURE.md, the .csproj or language manifest rows for this package, the .api folder path, and ' +
                 c.doc +
                 '.',
-            { label: 'plan:' + tag, phase: 'Plan', model: 'sonnet', effort: 'low', schema: PLAN, stallMs: STALL },
+            { label: 'plan:' + tag, phase: 'Plan', model: 'sonnet', effort: 'low', schema: PLAN },
         );
         // Predicate-validate the model-emitted path rosters before dispatch: a slice page is a repo-relative .md under this
         // campaign's .planning/ root; governance entries (README/ARCHITECTURE, manifest rows, .api path, the doc) are non-empty strings.
@@ -610,7 +605,6 @@ const lanes = await parallel(
                 model: 'fable',
                 effort: 'high',
                 schema: FIXLOG,
-                stallMs: STALL,
             });
         const fix = (await fireResolve('')) || (await retryLane(() => fireResolve(':r1')));
         return {
@@ -659,7 +653,7 @@ const doctrine =
                   'whose coupling no longer holds, land a coupling this run proved.\n' +
                   'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
                   'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.',
-              { label: 'doctrine', phase: 'Doctrine', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
+              { label: 'doctrine', phase: 'Doctrine', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA },
           )
         : null;
 

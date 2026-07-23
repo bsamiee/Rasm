@@ -72,6 +72,7 @@ if TYPE_CHECKING:
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _PACKAGE_KINDS: frozenset[SourceKind] = frozenset((SourceKind.NUGET, SourceKind.PYDIST, SourceKind.TSDECL))
+_INPROC_KINDS: frozenset[SourceKind] = frozenset((SourceKind.PYDIST, SourceKind.TSDECL))  # live-introspection sources with a member-scan leg
 _COMPACT_VISIBLE: frozenset[SourceKind] = frozenset((SourceKind.ASSEMBLY, SourceKind.NUGET, SourceKind.TOOL))  # status compact-output source kinds
 _COMPACT_SUMMARY_IDS: frozenset[str] = frozenset(("python-dists", "ts-decls"))  # polyglot summary rows always shown in compact output
 # Strict status faults only on an absent core bundle here, never a transitive package.
@@ -563,6 +564,20 @@ def _inproc_member(
     # Docs come from thunk captures (inspect.getdoc / TSDoc comment), not XMLDoc sidecar lookup.
     def _build(done: Completed) -> Report:
         captured = {cap.name: cap.text for cap in CAPTURES.decode(done.stdout or b"[]")}
+        if owners := captured.get("owners", ""):
+            # A bare member with two live class owners is a real ambiguity: the exact spellings answer as
+            # candidates so the caller re-queries qualified, never a silent pick.
+            spellings = tuple(owners.splitlines())
+            note = f"ambiguous member '{symbol}': {len(spellings)} owners"
+            miss = Completed(("api", "query", surface.source.key), 0, status=RailStatus.UNSUPPORTED, notes=(note,))
+            return fold(
+                Claim.API, "query", (miss,), detail=ApiResolution(candidates=tuple((s, 100) for s in spellings[:_CANDIDATE_CAP]), reason="ambiguous")
+            )
+        if not captured:
+            # A thunk that captured nothing is a typed member miss; ranked roster candidates answer better than
+            # an empty report shell.
+            miss = Completed(("api", "query", surface.source.key), 0, status=RailStatus.UNSUPPORTED, notes=(f"no match for '{symbol}'",))
+            return fold(Claim.API, "query", (miss,), detail=ApiResolution(candidates=rank_candidates(surface.types, symbol), reason="partial"))
         signature = captured.get("signature", "")
         full = captured.get("full", "") or signature
         lines = tuple(line for line in full.splitlines() if not p.grep or p.grep.casefold() in line.casefold())
@@ -581,6 +596,7 @@ def _inproc_member(
             truncated=not p.full and len(lines) > len(window),
             p=p,
             kind=captured.get("kind", ""),
+            owner=captured.get("owner", ""),
         )
 
     return orc.member(scope, surface, symbol).map(_build)
@@ -613,7 +629,7 @@ def _roster_report(settings: AssaySettings, surface: Surface, shape: SymbolShape
     return msgspec.structs.replace(fold(Claim.API, "query", (done,), detail=detail), artifacts=artifacts, results=results)
 
 
-def _search_report(settings: AssaySettings, scope: ArtifactScope, orc: Oracle, surface: Surface, p: ApiParams) -> Report:
+def _search_report(settings: AssaySettings, scope: ArtifactScope, orc: Oracle, surface: Surface, p: ApiParams, *, member_leg: bool = True) -> Report:
     # Misses carry nearest candidates so callers can route to suggestions.
     source = surface.source
     needle = p.symbol.casefold()
@@ -622,9 +638,13 @@ def _search_report(settings: AssaySettings, scope: ArtifactScope, orc: Oracle, s
         case () if p.grep and source.kind in {SourceKind.ASSEMBLY, SourceKind.NUGET}:
             # No type hit but a --grep member needle: fan out member decompiles over the cap-bounded, relevance-ranked candidates.
             return _grep_member_report(settings, scope, orc, surface, p)
+        case () if member_leg and p.symbol and source.kind in _INPROC_KINDS:
+            # Roster substring missed on a live-introspection source: the member leg scans class owners, so a
+            # bare method name answers from its owning class before conceding to candidates.
+            deep = _inproc_member(settings, scope, orc, surface, p.symbol, SymbolShape.MEMBER, p).default_value(None)
+            return deep if deep is not None else _search_miss(surface, p)
         case ():
-            done = Completed(("api", "query", source.key), 0, status=RailStatus.UNSUPPORTED, notes=(f"no match for '{p.symbol}'",))
-            return fold(Claim.API, "query", (done,), detail=ApiResolution(candidates=rank_candidates(surface.types, p.symbol), reason="partial"))
+            return _search_miss(surface, p)
         case _:
             results, cap_notes = _matches(hits, ArtifactKind.SCOPE, p.symbol)
             done = Completed(
@@ -643,6 +663,11 @@ def _search_report(settings: AssaySettings, scope: ArtifactScope, orc: Oracle, s
             )
             artifacts = (artifact,) if artifact is not None else ()
             return msgspec.structs.replace(fold(Claim.API, "query", (done,), detail=detail), artifacts=artifacts, results=results)
+
+
+def _search_miss(surface: Surface, p: ApiParams) -> Report:
+    done = Completed(("api", "query", surface.source.key), 0, status=RailStatus.UNSUPPORTED, notes=(f"no match for '{p.symbol}'",))
+    return fold(Claim.API, "query", (done,), detail=ApiResolution(candidates=rank_candidates(surface.types, p.symbol), reason="partial"))
 
 
 def _grep_miss(surface: Surface, p: ApiParams, note: str) -> Report:
@@ -715,18 +740,26 @@ def _decompile_report(  # noqa: PLR0913, PLR0917  # all slots are structural cal
     p: ApiParams,
     evidence: tuple[str, ...] = (),
     kind: str = "",
+    owner: str = "",
 ) -> Report:
-    # Empty signatures try namespace roster before falling to fuzzy search.
+    # Empty signatures try namespace roster before falling to fuzzy search; member_leg=False keeps the search
+    # fall-through one-shot so a signatureless member capture never loops back into the member leg.
     match signature:
         case "":
             ns_key = rank_namespace(surface, p.symbol)
             owned = surface.by_namespace.get(ns_key, ()) if ns_key != p.symbol or ns_key in surface.by_namespace else ()
-            return _roster_report(settings, surface, SymbolShape.NAMESPACE, owned, p) if owned else _search_report(settings, scope, orc, surface, p)
+            return (
+                _roster_report(settings, surface, SymbolShape.NAMESPACE, owned, p)
+                if owned
+                else _search_report(settings, scope, orc, surface, p, member_leg=False)
+            )
         case _:
             base, queried_arity = split_arity(p.symbol)
             direct_fqn = rank_type(surface.types, base)
             head = base.rpartition(".")[0]
-            resolved_fqn = direct_fqn or (rank_type(surface.types, head) if head else "")
+            # An INPROC owner capture (the scan-resolved owning class) outranks roster ranking, which cannot see
+            # class members; the C# path passes no owner and keeps its rank-resolved FQN.
+            resolved_fqn = owner or direct_fqn or (rank_type(surface.types, head) if head else "")
             is_member = shape is SymbolShape.MEMBER or bool(head and resolved_fqn and not direct_fqn)
             final_shape = SymbolShape.MEMBER if is_member else SymbolShape.TYPE
             member_name = base.rpartition(".")[2]

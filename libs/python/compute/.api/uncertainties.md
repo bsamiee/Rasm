@@ -1,14 +1,13 @@
 # [PY_COMPUTE_API_UNCERTAINTIES]
 
-`uncertainties` supplies first-order (linear) error propagation over correlated quantities for the compute uncertainty rail. `ufloat` returns an independent `Variable`; arithmetic over `Variable`/`UFloat` yields a derived `UFloat` (the public alias for the internal `AffineScalarFunc`) whose `derivatives` mapping is the chain-rule gradient against the originating variables, so two results sharing a `Variable` stay correlated with no covariance bookkeeping. The library STACKS into one dense uncertainty rail with its siblings: `pint.Measurement` carries the magnitude-plus-error term while `uncertainties` owns the correlation graph behind it; `correlated_values` reconstructs the `UFloat` cohort from a `scipy`/`numpy` covariance matrix (the same matrix a least-squares `scipy.optimize.curve_fit` returns as `pcov`) and `covariance_matrix` recovers it for a downstream sampler; `unumpy.uarray` wraps the identical `numpy` array the array rail folds, threading propagation through NumPy ufuncs; and the propagated `std_dev` plus `error_components()` join the `arviz`/`pandera` study receipt as a captured uncertainty claim. It never re-implements the propagation algebra the package owns.
+`uncertainties` owns first-order linear error propagation with automatic correlation tracking for the compute uncertainty rail. `ufloat` mints an independent `Variable`, and every arithmetic result is a derived `UFloat` (the public alias of `AffineScalarFunc`) carrying a `derivatives` chain-rule gradient against its source variables, so two results sharing a `Variable` stay correlated with no side covariance table. A derived `std_dev` and its `error_components()` variance split feed the study receipt, and a bare `math`/NumPy call that drops the propagation graph is the boundary reject signal.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `uncertainties`
 - package: `uncertainties`
-- version: `3.2.3`
-- license: BSD-3-Clause (Revised BSD)
-- import: `uncertainties`; submodules `uncertainties.umath`, `uncertainties.unumpy`, `uncertainties.unumpy.ulinalg`
+- module: `uncertainties`
+- namespaces: `uncertainties.umath`, `uncertainties.unumpy`, `uncertainties.unumpy.ulinalg`
 - owner: `compute`
 - rail: uncertainty
 - capability: linear error propagation with automatic correlation tracking — scalar `UFloat` algebra, covariance/correlation reconstruction, arbitrary-function lifting via `wrap`, a `umath` scalar-math mirror, and a `unumpy` NumPy-array/matrix surface with an `ulinalg` linear-algebra path
@@ -16,19 +15,16 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: uncertainty value types
-- rail: uncertainty
-- `UFloat is uncertainties.core.AffineScalarFunc` (one object, two names); `ufloat()` returns a `Variable`, and any arithmetic combination returns a derived `AffineScalarFunc`/`UFloat`
 
-| [INDEX] | [SYMBOL]        | [TYPE_FAMILY]     | [ROLE]                                                                            |
+| [INDEX] | [SYMBOL]        | [TYPE_FAMILY]     | [CAPABILITY]                                                                      |
 | :-----: | :-------------- | :---------------- | :-------------------------------------------------------------------------------- |
 |  [01]   | `UFloat`        | scalar quantity   | nominal value plus linear uncertainty; public alias of `AffineScalarFunc`         |
 |  [02]   | `Variable`      | independent input | `UFloat`/`AffineScalarFunc` subclass with a settable `tag`; what `ufloat` returns |
 |  [03]   | `unumpy.matrix` | uncertain matrix  | NumPy `matrix` subclass of `UFloat` with `.I` uncertainty-propagating inverse     |
 
 [PUBLIC_TYPE_SCOPE]: `UFloat` members
-- rail: uncertainty
 
-| [INDEX] | [MEMBER]              | [KIND]   | [ROLE]                                                                                         |
+| [INDEX] | [MEMBER]              | [KIND]   | [CAPABILITY]                                                                                   |
 | :-----: | :-------------------- | :------- | :--------------------------------------------------------------------------------------------- |
 |  [01]   | `nominal_value` / `n` | property | central value of the quantity                                                                  |
 |  [02]   | `std_dev` / `s`       | property | standard deviation; `0` for an exact value                                                     |
@@ -42,11 +38,9 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: scalar construction and correlation
-- rail: uncertainty
-- `correlated_values` / `correlated_values_norm` are the cohort entry: one call reconstructs N correlated `UFloat` from a covariance (or correlation+std) matrix, the polymorphic inverse of `covariance_matrix` / `correlation_matrix`
-- call: `correlated_values(nom_values, covariance_mat, tags=None)` and `correlated_values_norm(values_with_std_dev, correlation_mat, tags=None)`
+- `correlated_values(nom_values, covariance_mat, tags=None)`, `correlated_values_norm(values_with_std_dev, correlation_mat, tags=None)`: the cohort constructors.
 
-| [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] | [RAIL]                                                  |
+| [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] | [CAPABILITY]                                            |
 | :-----: | :-------------------------------------------------------- | :------------- | :------------------------------------------------------ |
 |  [01]   | `ufloat(nominal_value, std_dev=None, tag=None)`           | construct      | one independent uncertain scalar (`Variable`)           |
 |  [02]   | `ufloat_fromstr(representation, tag=None)`                | construct      | parse `"x+/-u"` / `"x(u)"` shorthand string             |
@@ -59,9 +53,8 @@
 |  [09]   | `nan_if_exception(f)`                                     | adapt          | `nan`-returning derivative wrapper at a singular point  |
 
 [ENTRYPOINT_SCOPE]: array and matrix construction (`uncertainties.unumpy`)
-- rail: uncertainty
 
-| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [RAIL]                                               |
+| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [CAPABILITY]                                         |
 | :-----: | :---------------------------------------------- | :------------- | :--------------------------------------------------- |
 |  [01]   | `unumpy.uarray(nominal_values, std_devs=None)`  | construct      | object-dtype `ndarray` of `UFloat` from two arrays   |
 |  [02]   | `unumpy.umatrix(nominal_values, std_devs=None)` | construct      | uncertain `unumpy.matrix`                            |
@@ -71,10 +64,9 @@
 |  [06]   | `unumpy.ulinalg.pinv(m)`                        | linalg         | uncertainty-propagating Moore-Penrose pseudo-inverse |
 
 [ENTRYPOINT_SCOPE]: uncertainty-propagating math (`uncertainties.umath`, `uncertainties.unumpy`)
-- rail: uncertainty
-- `umath` (40 functions) mirrors `math` names; `unumpy` elementwise math mirrors NumPy names (`arccos`/`arcsin`/`arctan`/`arctan2`/`arccosh`/`arctanh`), not the `math` spellings; both dispatch to the plain library when no argument carries uncertainty
+- `umath` mirrors `math` names; `unumpy` elementwise math mirrors NumPy names (`arccos`/`arcsin`/`arctan`/`arctan2`/`arccosh`/`arctanh`), not the `math` spellings; both dispatch to the plain library when no argument carries uncertainty.
 
-| [INDEX] | [SURFACE]                                                         | [ENTRY_FAMILY] | [RAIL]                                          |
+| [INDEX] | [SURFACE]                                                         | [ENTRY_FAMILY] | [CAPABILITY]                                    |
 | :-----: | :---------------------------------------------------------------- | :------------- | :---------------------------------------------- |
 |  [01]   | `umath.sqrt` / `exp` / `log` / `log10` / `log1p` / `expm1`        | scalar math    | drop-in `math` functions over `UFloat`          |
 |  [02]   | `umath.sin` / `cos` / `tan` / `sinh` / `cosh` / `tanh`            | scalar math    | trigonometric / hyperbolic propagation          |
@@ -87,24 +79,23 @@
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[UNCERTAINTY_TOPOLOGY]:
-- namespace: `uncertainties` (scalars + correlation), `uncertainties.umath` (scalar math, `math` names), `uncertainties.unumpy` (array/matrix + NumPy-name math), `uncertainties.unumpy.ulinalg` (matrix linalg)
+[TOPOLOGY]:
 - value graph: `ufloat` returns a `Variable`; every arithmetic result is an `AffineScalarFunc`/`UFloat` carrying a `derivatives` map of linear sensitivities to the originating `Variable` atoms. Correlation is the chain rule on that map — sharing a `Variable` is shared dependence, never a side covariance table.
-- cohort reconstruction: `correlated_values(nom, cov)` and `correlated_values_norm((val,std)..., corr)` rebuild a correlated `UFloat` cohort from a matrix; `covariance_matrix`/`correlation_matrix` are the exact inverse, recovering the matrix from a list of results. One polymorphic pair owns both directions — no per-rank helper.
-- function lifting: `wrap(f, derivatives_args=..., derivatives_kwargs=...)` lifts an arbitrary numeric callable; analytic partials when supplied, finite-difference estimation otherwise. `nan_if_exception` guards a derivative at a singular argument.
-- array thread: `unumpy.uarray` produces an object-dtype `ndarray`; NumPy ufuncs and `unumpy` math thread propagation through it, so the array rail folds the same array under units (`pint`) and uncertainty (`uncertainties`) without a parallel container.
+- cohort reconstruction: `correlated_values(nom, cov)` and `correlated_values_norm((val,std)..., corr)` rebuild a correlated `UFloat` cohort from a matrix; `covariance_matrix`/`correlation_matrix` are the exact inverse. One polymorphic pair owns both directions — no per-rank helper.
+- function lifting: `wrap` lifts an arbitrary numeric callable, using supplied analytic partials or finite-difference estimation; `nan_if_exception` guards a derivative at a singular argument.
+- array thread: `unumpy.uarray` produces an object-dtype `ndarray` that NumPy ufuncs and `unumpy` math thread propagation through, folding the same array the compute array rail carries under both units and uncertainty without a parallel container.
 
-[INTEGRATION_STACK]:
-- pint: `pint.Measurement` is the magnitude-plus-error carrier at the units edge; `uncertainties` owns the correlation graph that backs it, so a unit-bearing uncertain quantity is a `pint.Quantity` over a `UFloat` magnitude — no separate error bookkeeping.
-- scipy/numpy: a least-squares `scipy.optimize.curve_fit` returns `(popt, pcov)`; `correlated_values(popt, pcov, tags=...)` lifts the fit straight into a correlated `UFloat` cohort whose downstream arithmetic auto-propagates the fit covariance. `unumpy.nominal_values`/`std_devs` then split the cohort back into NumPy arrays for plotting or a `scipy` consumer.
-- arviz/receipt: a derived result's `std_dev` and `error_components()` (the per-source variance split) are captured as the study's uncertainty claim, joining the same receipt the `arviz`/`pandera` rail folds.
+[STACKING]:
+- `pint` (`.api/pint.md`): `Quantity.plus_minus`/`UnitRegistry.Measurement` build a `pint.Measurement` over a `UFloat` magnitude, so a unit-bearing quantity carries correlation in one carrier with no side error bookkeeping.
+- `scipy` (`.api/scipy.md`) / `numpy` (`.api/numpy.md`, substrate tier): `correlated_values(popt, pcov, tags=...)` lifts a `scipy.optimize.curve_fit` `(popt, pcov)` into a correlated `UFloat` cohort that auto-propagates the fit covariance; `unumpy.nominal_values`/`std_devs` split it back into NumPy arrays.
+- `arviz` (`.api/arviz.md`) / `pandera` (`libs/python/data/.api/pandera.md`): a derived `std_dev` and its `error_components()` variance split are the uncertainty claim on the study receipt.
+- `compute` uncertainty rail: study math routes through `umath`/`unumpy`, never bare `math`/NumPy, so the propagation graph threads unbroken from `ufloat` input to receipt.
 
 [LOCAL_ADMISSION]:
 - import: `uncertainties`/`umath` at boundary scope; `unumpy` only on an array path (it pulls `numpy`).
-- entry: study inputs with measurement error enter as `ufloat` (independent) or `correlated_values` (correlated cohort); the correlation structure lives inside the `UFloat` graph, never a side table.
-- evidence: derived results expose `nominal_value`, `std_dev`, and `error_components()`; the propagated `std_dev` and its variance split join the study receipt with correlation provenance.
-- array/matrix: array-shaped payloads use `unumpy.uarray`; matrix study math uses `unumpy.umatrix` with `ulinalg.inv`/`pinv`.
-- boundary: uncertainty math uses `umath`/`unumpy` functions, never bare `math`/NumPy calls, so the propagation graph is never dropped mid-pipeline.
+- entry: measurement-error inputs enter as `ufloat` (independent) or `correlated_values` (correlated cohort).
+- evidence: derived results expose `nominal_value`, `std_dev`, and `error_components()`, which join the study receipt with correlation provenance.
+- array/matrix: array payloads use `unumpy.uarray`; matrix study math uses `unumpy.umatrix` with `ulinalg.inv`/`pinv`.
 
 [RAIL_LAW]:
 - Package: `uncertainties`

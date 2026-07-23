@@ -1,65 +1,175 @@
 # [PY_DATA_API_NUMCODECS]
 
-`numcodecs` is the buffer-codec registry zarr v3 binds for chunk filters and the extra-compressor family beyond zarr's own built-ins. Every codec is a `Codec` subclass exposing one `encode(buf) -> out` / `decode(buf, out=None) -> out` pair plus a JSON-round-trippable `get_config()`/`from_config()` identity keyed by `codec_id`; the module owns three concerns — lossless compressors (`Blosc`/`Zstd`/`LZ4`/`GZip`/`BZ2`/`LZMA`/`Zlib`), array filters/transforms that reshape bytes before a compressor (`Delta`/`FixedScaleOffset`/`Quantize`/`BitRound`/`Shuffle`/`PackBits`/`AsType`/`Categorize`), and variable-length / serialization codecs (`VLenUTF8`/`VLenBytes`/`VLenArray`/`JSON`/`Pickle`) — over `numpy`-shaped contiguous buffers coerced by `numcodecs.compat`. It never re-implements a compression algorithm: `Blosc`/`Zstd`/`LZ4` are thin typed faces over the bundled native c-blosc/libzstd/liblz4 cores. The codec is selected by a JSON config dict (`get_codec({'id': 'blosc', 'cname': 'zstd', ...})`), resolved through the `codec_registry` and the `numcodecs.codecs` entry-point group — one polymorphic `get_codec` discriminates by `id`, never parallel constructors at the call site. It stacks with the data rail as the chunk-codec supplier the `zarr`/`icechunk` owners compose: the `numcodecs.zarr3` shim (DEPRECATED in release — each attribute access warns to import the codec from `zarr.codecs.numcodecs.<Name>` under zarr-python >= release) wraps each codec as a zarr-v3 `BytesBytesCodec`/`ArrayArrayCodec`/`ArrayBytesCodec` for the three-stage `filters -> serializer -> compressors` codec pipeline. `Blosc`/`Zstd` own archival numeric chunk compression; the artifacts-rail `brotli`/`lz4`/`zstandard` codecs own transport/container payloads — one buffer-codec discriminant per concern, never a duplicate codec owner.
+`numcodecs` mints the buffer-codec registry and `Codec` contract zarr binds for chunk filters, compressors, and the extra-compressor family beyond zarr's built-ins. Every codec subclasses `Codec` with one `encode`/`decode` pair and a JSON-round-trippable `get_config`/`from_config` identity keyed by `codec_id`, selected polymorphically through `get_codec`. It owns only the per-chunk byte transform over contiguous `numpy` buffers; `zarr`/`icechunk` own chunk indexing and IO, and the artifacts-rail codecs own transport payloads.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `numcodecs`
 - package: `numcodecs`
-- owner: `data`
-- import: `import numcodecs`
-- rail: array (chunk-codec supplier for the chunked-array rail)
-- version: `0.16.5`
-- entry points: codec plugins register through the `numcodecs.codecs` entry-point group (`run_entrypoints()` ingests them into `codec_registry`); the optional `zfpy`/`pcodec` extras add the `ZFPY`/`PCodec` codecs
-- deprecation-flag: `numcodecs.zarr3` is deprecated — accessing any `numcodecs.zarr3.<Codec>` attribute emits a `DeprecationWarning` directing to `zarr.codecs.numcodecs.<Codec>` (zarr-python >= release); the manifest pin carries this flag, so the zarr-v3 boundary composes the `zarr.codecs.numcodecs.*` path, not the soon-removed shim
-- capability: the polymorphic `Codec` ABC (`encode`/`decode`/`get_config`/`from_config`/`codec_id`), a JSON-config codec registry with `get_codec`/`register_codec`/entry-point discovery, lossless compressor codecs (`Blosc` with cname/clevel/shuffle/blocksize/typesize, `Zstd`, `LZ4`, `GZip`, `BZ2`, `LZMA`, `Zlib`), array filter/transform codecs (`Delta`, `FixedScaleOffset`, `Quantize`, `BitRound`, `Shuffle`, `PackBits`, `AsType`, `Categorize`), checksum codecs (`CRC32`, `CRC32C`, `Adler32`, `Fletcher32`, `JenkinsLookup3`), variable-length and serialization codecs (`VLenUTF8`, `VLenBytes`, `VLenArray`, `JSON`, `Pickle`), buffer-coercion helpers (`numcodecs.compat`), native thread/compressor control (`numcodecs.blosc`/`numcodecs.zstd`), and the `numcodecs.zarr3` -> `zarr.codecs.numcodecs` zarr-v3 codec adapter family
+- module: `import numcodecs`
+- namespaces: `numcodecs`, `numcodecs.abc`, `numcodecs.registry`, `numcodecs.compat`, `numcodecs.blosc`, `numcodecs.zstd`, `numcodecs.errors`
+- rail: array — chunk-codec supplier for the chunked-array rail
+- entry points: codec plugins register through the `numcodecs.codecs` entry-point group (`run_entrypoints()` ingests them into `codec_registry`); the `zfpy`/`pcodec` extras add the `ZFPY`/`PCodec` serializers
 
-## [02]-[CAPTURE]
+## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPES]:
-- `numcodecs.abc.Codec` — the polymorphic codec contract; one class per algorithm. `encode(self, buf) -> bytes|ndarray` and `decode(self, buf, out=None) -> bytes|ndarray` are the byte transforms (`out` is an optional preallocated destination buffer the decoder writes into to avoid a copy); `get_config(self) -> dict` returns the JSON-safe config (always carries the `'id'` field set to `codec_id`); `from_config(cls, config) -> Codec` is the classmethod inverse; `codec_id: str` is the registry key. Every codec below subclasses this — there is one `encode`/`decode`/`get_config` shape, never a per-codec method name.
-- compressor codecs (lossless, byte-stream): `Blosc(cname='lz4', clevel=5, shuffle=1, blocksize=0, typesize=None)` (meta-compressor over c-blosc; `cname` in `{'blosclz','lz4','lz4hc','zlib','zstd'}`, `shuffle` in `{NOSHUFFLE=0, SHUFFLE=1, BITSHUFFLE=2, AUTOSHUFFLE=-1}`), `Zstd(level=0, checksum=False)`, `LZ4(acceleration=1)`, `GZip(level=1)`, `BZ2(level=1)`, `LZMA(format=1, check=-1, preset=None, filters=None)`, `Zlib(level=1)`.
-- filter / transform codecs (array-shaping, applied before a compressor): `Delta(dtype, astype=None)` (per-element difference for monotone sequences), `FixedScaleOffset(offset, scale, dtype, astype=None)` (linear quantization to a narrower integer dtype), `Quantize(digits, dtype, astype=None)` (lossy float bit-truncation to `digits` decimal places), `BitRound(keepbits)` (IEEE-754 mantissa-bit rounding for float compressibility), `Shuffle(elementsize=4)` (byte-transpose so like bytes group), `PackBits()` (bit-pack a boolean array), `AsType(encode_dtype, decode_dtype)` (dtype reinterpretation across the codec boundary), `Categorize(labels, dtype, astype='u1')` (map a fixed label set to small integer codes).
-- checksum codecs (append/verify a checksum trailer/header): `CRC32(location=None)`, `CRC32C(location=None)`, `Adler32(location=None)`, `Fletcher32()`, `JenkinsLookup3(initval=0, prefix=None)` — `location` in `{'start','end',None}` places the checksum word; `decode` raises on mismatch.
-- variable-length / serialization codecs: `VLenUTF8()` (ragged UTF-8 string array), `VLenBytes()` (ragged bytes array), `VLenArray(dtype)` (ragged sub-array array), `JSON(encoding='utf-8', sort_keys=True, ...)` (object array via JSON, `codec_id='json2'`), `Pickle(protocol=5)` (object array via pickle — boundary-only, never a cross-process trust surface).
-- `numcodecs.registry.codec_registry` — the `dict[str, type[Codec]]` mapping `codec_id` to codec class; the resolution table `get_codec` reads.
-- `numcodecs.errors.UnknownCodecError` — raised by `get_codec` when a config `'id'` resolves to no registered codec (also re-exported as `numcodecs.registry.UnknownCodecError`).
-- `numcodecs.compat.NDArrayLike` — the structural protocol for a numpy-like buffer; `ndarray_like` is the runtime-checkable form used by `is_ndarray_like`.
-- `numcodecs.zarr3.<Codec>` (DEPRECATED) / `zarr.codecs.numcodecs.<Codec>` — the zarr-v3 adapter classes wrapping each numcodecs codec into the zarr-v3 codec protocol; the family split is load-bearing for the zarr pipeline (see `[INTEGRATION_LAW]`): `BytesBytesCodec` (compressors + checksums: `Blosc`/`Zstd`/`GZip`/`LZ4`/`LZMA`/`BZ2`/`Zlib`/`Shuffle`/`Adler32`/`CRC32`/`CRC32C`/`Fletcher32`/`JenkinsLookup3`), `ArrayArrayCodec` (filters: `Delta`/`FixedScaleOffset`/`Quantize`/`BitRound`/`PackBits`/`AsType`), `ArrayBytesCodec` (serializers: `PCodec`/`ZFPY`).
+[PUBLIC_TYPE_SCOPE]: codec contract, registry, and buffer protocol
 
-[ENTRYPOINTS]:
-- codec resolution (`numcodecs.registry`, re-exported at `numcodecs.`): `get_codec(config) -> Codec` instantiates the codec named by `config['id']` with the remaining keys as constructor kwargs (the single polymorphic entry — discriminates by `id`, never a per-codec factory); `register_codec(cls, codec_id=None) -> None` adds a codec class to `codec_registry` (defaults `codec_id` to `cls.codec_id`); `run_entrypoints() -> None` ingests every plugin advertised under the `numcodecs.codecs` entry-point group into the registry; `entries`/`entry_points` expose the discovered entry-point set.
-- per-codec identity: `Codec.encode(buf)`, `Codec.decode(buf, out=None)`, `Codec.get_config() -> dict`, `Codec.from_config(config) -> Codec` — the four-call contract every codec satisfies; chain codecs by feeding one `encode` output into the next codec's `encode`, decode in reverse.
-- buffer coercion (`numcodecs.compat`): `ensure_contiguous_ndarray(buf, max_buffer_size=None, flatten=True) -> ndarray` (the canonical codec-input coercion — flattens and asserts contiguity so a codec never copies a discontiguous view), `ensure_ndarray(buf) -> ndarray`, `ensure_ndarray_like(buf)`, `ensure_contiguous_ndarray_like(buf)`, `ensure_bytes(buf) -> bytes`, `ensure_text(s, encoding='utf-8') -> str`, `ndarray_copy(src, dst) -> ndarray`, `is_ndarray_like(obj) -> bool`.
-- native thread/compressor control (`numcodecs.blosc`): `set_nthreads(n) -> int` / `get_nthreads() -> int` (c-blosc's internal thread pool size — set once at process start, not per-call), `list_compressors() -> list[str]` (`['blosclz','lz4','lz4hc','zlib','zstd']`), `cbuffer_complib(buf) -> str` (which compressor produced a blosc buffer), `compress(source, typesize, cname, clevel, shuffle, blocksize) -> bytes` / `decompress(source, dest=None) -> bytes` (the module-level one-shot path the `Blosc` codec wraps), `get_mutex()`; constants `NOSHUFFLE`/`SHUFFLE`/`BITSHUFFLE`/`AUTOSHUFFLE`, `VERSION_STRING`. `numcodecs.zstd` mirrors `compress`/`decompress` plus `DEFAULT_CLEVEL`/`MAX_CLEVEL`/`VERSION_NUMBER`.
-- zarr-v3 codec adapter (`zarr.codecs.numcodecs`, canonical; `numcodecs.zarr3` deprecated): `Blosc(...)`, `Zstd(...)`, `Delta(...)`, `FixedScaleOffset(...)`, etc. each construct a zarr-v3 codec carrying `codec_name='numcodecs.<id>'`, `to_dict()`/`from_dict(d)` (zarr metadata round-trip), `evolve_from_array_spec(array_spec)`, `compute_encoded_size(input_byte_length, chunk_spec)`, and `validate(...)`; pass these in a zarr array's `filters=`/`serializer=`/`compressors=` slots.
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]                                                                   |
+| :-----: | :------------------ | :------------ | :----------------------------------------------------------------------------- |
+|  [01]   | `Codec`             | abc           | polymorphic contract: `encode`/`decode`/`get_config`/`from_config`, `codec_id` |
+|  [02]   | `codec_registry`    | dict          | `codec_id -> type[Codec]` table `get_codec` reads                              |
+|  [03]   | `UnknownCodecError` | exception     | config `'id'` resolved to no registered codec                                  |
+|  [04]   | `NDArrayLike`       | protocol      | runtime-checkable structural numpy-like buffer                                 |
 
-[EXCEPTIONS]:
-- `numcodecs.errors.UnknownCodecError` — a config `'id'` did not resolve to a registered codec; the registry miss, raised by `get_codec`.
-- `RuntimeError` / `ValueError` — a native codec rejected a buffer (corrupt frame, checksum mismatch on a checksum codec's `decode`, or an unsupported `cname`/`level`); surfaced from the C layer.
-- `TypeError` — a non-buffer object reached `encode`/`decode` and failed `ensure_contiguous_ndarray` coercion.
+[PUBLIC_TYPE_SCOPE]: lossless compressor codecs (byte-stream)
 
-[IMPLEMENTATION_LAW]:
-- One codec, one `encode`/`decode`/`get_config` shape: never name a per-codec method or build a parallel constructor at the call site. A codec is selected by its JSON config through `get_codec({'id': ..., ...})`; the config dict IS the codec identity and is the only persisted form.
-- The compressor / filter / serializer split is the codec topology, not three rails: a filter (`Delta`/`FixedScaleOffset`/`BitRound`/`Shuffle`) reshapes the array to be more compressible, then a compressor (`Blosc`/`Zstd`) compresses the reshaped bytes; chain them in that order and invert on decode. `Shuffle`/`BitRound` before `Zstd` is the canonical numeric-chunk recipe — never compress raw floats where a filter precedes the compressor.
-- Lossy filters are explicit and irreversible: `Quantize`/`FixedScaleOffset`/`BitRound` discard precision by `digits`/`scale`/`keepbits`; record the loss parameter on the chunk receipt so a downstream consumer reads the achieved precision, and never apply a lossy filter to data that must round-trip bit-exact.
-- `Blosc` is the meta-compressor: its `cname` selects the inner codec (`lz4`/`zstd`/`zlib`/`blosclz`/`lz4hc`) and `typesize`+`shuffle` enable the SIMD byte-shuffle, so a `Blosc(cname='zstd', shuffle=Blosc.BITSHUFFLE, typesize=4)` is a fused shuffle+zstd pass — prefer it over a separate `Shuffle` + `Zstd` chain when the native fused path applies.
-- Thread control is process-global, set once: `numcodecs.blosc.set_nthreads(n)` configures c-blosc's pool at startup; never toggle it per chunk. Codec instances are cheap, immutable, and reusable across every chunk — construct once from config, reuse.
-- Buffer in, buffer out: `encode`/`decode` operate on contiguous `numpy`-shaped buffers; pass arrays through `numcodecs.compat.ensure_contiguous_ndarray` at the boundary so the codec never silently copies a discontiguous view, and let the decoder write into a preallocated `out=` buffer for large chunks.
+| [INDEX] | [SYMBOL]                                             | [TYPE_FAMILY] | [CAPABILITY]                                                |
+| :-----: | :--------------------------------------------------- | :------------ | :---------------------------------------------------------- |
+|  [01]   | `Blosc(cname, clevel, shuffle, blocksize, typesize)` | class         | meta-compressor over c-blosc; `cname` picks the inner codec |
+|  [02]   | `Zstd(level, checksum)`                              | class         | libzstd frame                                               |
+|  [03]   | `LZ4(acceleration)`                                  | class         | liblz4 block                                                |
+|  [04]   | `GZip(level)`                                        | class         | gzip stream                                                 |
+|  [05]   | `BZ2(level)`                                         | class         | bzip2 stream                                                |
+|  [06]   | `LZMA(format, check, preset, filters)`               | class         | xz/lzma stream                                              |
+|  [07]   | `Zlib(level)`                                        | class         | zlib stream                                                 |
 
-[INTEGRATION_LAW]:
-- zarr-v3 seam (the manifest's stated purpose): a numcodecs codec is bound to a zarr array through `zarr.codecs.numcodecs.<Codec>` (canonical; `numcodecs.zarr3` is the deprecated shim that warns on every attribute access). The family the wrapper subclasses dictates the pipeline slot — `ArrayArrayCodec` (`Delta`/`FixedScaleOffset`/`Quantize`/`BitRound`/`PackBits`/`AsType`) goes in `filters=`, `ArrayBytesCodec` (`PCodec`/`ZFPY`) is the `serializer=`, `BytesBytesCodec` (`Blosc`/`Zstd`/`GZip`/`LZ4`/checksums) goes in `compressors=`. zarr applies the pipeline `filters -> serializer -> compressors` on write and inverts on read. Build the array codec chain from these classes, never hand-encode chunk bytes — the chunked-array owner (`zarr`/`icechunk`) owns chunk indexing and IO; numcodecs owns only the per-chunk byte transform.
-- model seam (`msgspec`/`pydantic` `.api`): a codec config is a JSON dict (`get_codec`'s only input and `get_config`'s only output) — decode it straight into a discriminated `Codec`-config struct keyed on the `'id'` tag so the codec choice is a typed, validated field, not a free-form dict; round-trip the struct back to `get_codec` to instantiate. The `'id'` field is the discriminant the model tags on.
-- contract seam (`beartype` `.api`): the codec boundary is `bytes|NDArrayLike -> bytes|NDArrayLike`; annotate the chunk-codec rail with `numcodecs.compat.NDArrayLike` (the structural buffer protocol) so a non-buffer input is rejected at the contract, not deep in the C extension.
-- resilience seam (`stamina` `.api`): a codec `encode`/`decode` is CPU-pure and deterministic — never wrap it in `@retry`; retry belongs only on the chunked-array IO around it (object-store chunk read/write owned by `icechunk`/`fsspec`), where a transient transport fault is retryable. A `RuntimeError` from `decode` is a corrupt-frame fault that surfaces immediately, never a retry trigger.
-- observability seam (`structlog`+OpenTelemetry `.api`): record per-chunk codec evidence — `codec_id`, the lossy parameter (`digits`/`scale`/`keepbits`) when a lossy filter is in the chain, input/output byte lengths, and compression ratio — as a chunk-codec receipt on the array-write span; `numcodecs.blosc.cbuffer_complib(buf)` recovers the inner compressor of a stored blosc frame for the receipt.
-- concurrency seam (`anyio` `.api`): chunk codec passes are CPU-bound; fan a many-chunk encode/decode batch across a worker pool via `anyio.to_thread.run_sync` (c-blosc already threads internally, so size the outer pool against `numcodecs.blosc.get_nthreads()` to avoid oversubscription), never block the event loop on a large chunk transform.
-- artifacts-rail boundary: numcodecs `Blosc`/`Zstd` own numeric chunk compression inside the chunked-array store; the artifacts-rail `brotli` (transport/WOFF2), `lz4` (hot-path block), and `zstandard` (archival container) codecs own non-array payloads. Route array chunks through numcodecs and file/transport payloads through the artifacts codecs — one buffer-codec discriminant per concern, never a duplicate Zstd owner across the boundary.
+[PUBLIC_TYPE_SCOPE]: array filter/transform codecs (reshape before a compressor)
 
-## [03]-[LOCAL_ADMISSION]
+| [INDEX] | [SYMBOL]                                         | [TYPE_FAMILY] | [CAPABILITY]                                    |
+| :-----: | :----------------------------------------------- | :------------ | :---------------------------------------------- |
+|  [01]   | `Delta(dtype, astype)`                           | class         | per-element difference for monotone sequences   |
+|  [02]   | `FixedScaleOffset(offset, scale, dtype, astype)` | class         | linear quantization to a narrower integer dtype |
+|  [03]   | `Quantize(digits, dtype, astype)`                | class         | lossy float truncation to `digits` places       |
+|  [04]   | `BitRound(keepbits)`                             | class         | IEEE-754 mantissa-bit rounding                  |
+|  [05]   | `Shuffle(elementsize)`                           | class         | byte-transpose so like bytes group              |
+|  [06]   | `PackBits()`                                     | class         | bit-pack a boolean array                        |
+|  [07]   | `AsType(encode_dtype, decode_dtype)`             | class         | dtype reinterpretation across the boundary      |
+|  [08]   | `Categorize(labels, dtype, astype)`              | class         | map a fixed label set to small integer codes    |
+
+[PUBLIC_TYPE_SCOPE]: checksum codecs (append/verify a checksum word)
+
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [CAPABILITY]                        |
+| :-----: | :-------------------------------- | :------------ | :---------------------------------- |
+|  [01]   | `CRC32(location)`                 | class         | CRC-32; `decode` raises on mismatch |
+|  [02]   | `CRC32C(location)`                | class         | CRC-32C Castagnoli                  |
+|  [03]   | `Adler32(location)`               | class         | Adler-32                            |
+|  [04]   | `Fletcher32()`                    | class         | Fletcher-32                         |
+|  [05]   | `JenkinsLookup3(initval, prefix)` | class         | Jenkins lookup3 hash                |
+
+`location` accepts `'start'`, `'end'`, or `None` and places the checksum word.
+
+[PUBLIC_TYPE_SCOPE]: variable-length and serialization codecs
+
+| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY] | [CAPABILITY]                           |
+| :-----: | :--------------------------------------------- | :------------ | :------------------------------------- |
+|  [01]   | `VLenUTF8()`                                   | class         | ragged UTF-8 string array              |
+|  [02]   | `VLenBytes()`                                  | class         | ragged bytes array                     |
+|  [03]   | `VLenArray(dtype)`                             | class         | ragged sub-array array                 |
+|  [04]   | `JSON(encoding, sort_keys, indent, ...)`       | class         | object array via JSON                  |
+|  [05]   | `MsgPack(use_single_float, use_bin_type, raw)` | class         | object array via msgpack               |
+|  [06]   | `Pickle(protocol)`                             | class         | object array via pickle; boundary-only |
+|  [07]   | `Base64()`                                     | class         | base64 byte transcoding                |
+
+Registry ids diverge from class names at `json2`, `msgpack2`, `vlen-utf8`/`vlen-bytes`/`vlen-array`, and `jenkins_lookup3`; every other id lowercases the class name.
+
+[PUBLIC_TYPE_SCOPE]: zarr-v3 codec adapter (`zarr.codecs.numcodecs`) — base family fixes the pipeline slot
+
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [CAPABILITY]        |
+| :-----: | :---------------- | :------------ | :------------------ |
+|  [01]   | `BytesBytesCodec` | interface     | `compressors=` slot |
+|  [02]   | `ArrayArrayCodec` | interface     | `filters=` slot     |
+|  [03]   | `ArrayBytesCodec` | interface     | `serializer=` slot  |
+
+- `[BytesBytesCodec]`: `Blosc` `Zstd` `GZip` `LZ4` `LZMA` `BZ2` `Zlib` `Shuffle` `Adler32` `CRC32` `CRC32C` `Fletcher32` `JenkinsLookup3`
+- `[ArrayArrayCodec]`: `Delta` `FixedScaleOffset` `Quantize` `BitRound` `PackBits` `AsType`
+- `[ArrayBytesCodec]`: `PCodec` `ZFPY`
+
+## [03]-[ENTRYPOINTS]
+
+[ENTRYPOINT_SCOPE]: codec resolution (`numcodecs.registry`, re-exported at `numcodecs`)
+
+| [INDEX] | [SURFACE]                            | [SHAPE] | [CAPABILITY]                                                            |
+| :-----: | :----------------------------------- | :------ | :---------------------------------------------------------------------- |
+|  [01]   | `get_codec(config) -> Codec`         | factory | instantiate the codec named by `config['id']`, remaining keys as kwargs |
+|  [02]   | `register_codec(cls, codec_id=None)` | static  | add a codec class to `codec_registry`                                   |
+|  [03]   | `run_entrypoints()`                  | static  | ingest `numcodecs.codecs` entry-point plugins into the registry         |
+
+[ENTRYPOINT_SCOPE]: per-codec contract (every `Codec` subclass)
+
+| [INDEX] | [SURFACE]                                 | [SHAPE]  | [CAPABILITY]                                           |
+| :-----: | :---------------------------------------- | :------- | :----------------------------------------------------- |
+|  [01]   | `encode(buf) -> bytes\|ndarray`           | instance | forward byte transform                                 |
+|  [02]   | `decode(buf, out=None) -> bytes\|ndarray` | instance | inverse; `out=` preallocated destination avoids a copy |
+|  [03]   | `get_config() -> dict`                    | instance | JSON-safe config carrying `'id'`                       |
+|  [04]   | `from_config(config) -> Codec`            | factory  | classmethod inverse of `get_config`                    |
+
+Chain codecs by feeding one `encode` output into the next codec's `encode`, and decode in reverse.
+
+[ENTRYPOINT_SCOPE]: buffer coercion (`numcodecs.compat`)
+
+| [INDEX] | [SURFACE]                                                                       | [SHAPE] | [CAPABILITY]                   |
+| :-----: | :------------------------------------------------------------------------------ | :------ | :----------------------------- |
+|  [01]   | `ensure_contiguous_ndarray(buf, max_buffer_size=None, flatten=True) -> ndarray` | static  | canonical codec-input coercion |
+|  [02]   | `ensure_ndarray(buf) -> ndarray`                                                | static  | coerce to ndarray              |
+|  [03]   | `ensure_bytes(buf) -> bytes`                                                    | static  | coerce to bytes                |
+|  [04]   | `ensure_text(s, encoding='utf-8') -> str`                                       | static  | coerce to text                 |
+|  [05]   | `ndarray_copy(src, dst) -> ndarray`                                             | static  | copy into a destination        |
+|  [06]   | `is_ndarray_like(obj) -> bool`                                                  | static  | structural buffer check        |
+
+`ensure_ndarray_like`/`ensure_contiguous_ndarray_like` are the duck-typed variants accepting any `NDArrayLike` without a numpy copy.
+
+[ENTRYPOINT_SCOPE]: native thread and one-shot control (`numcodecs.blosc`, `numcodecs.zstd`)
+
+| [INDEX] | [SURFACE]                                                                | [SHAPE] | [CAPABILITY]                             |
+| :-----: | :----------------------------------------------------------------------- | :------ | :--------------------------------------- |
+|  [01]   | `set_nthreads(n) -> int`                                                 | static  | set c-blosc's internal pool size         |
+|  [02]   | `get_nthreads() -> int`                                                  | static  | read the pool size                       |
+|  [03]   | `list_compressors() -> list[str]`                                        | static  | inner compressors compiled into blosc    |
+|  [04]   | `cbuffer_complib(buf) -> str`                                            | static  | which compressor produced a blosc buffer |
+|  [05]   | `compress(source, typesize, cname, clevel, shuffle, blocksize) -> bytes` | static  | one-shot path the `Blosc` codec wraps    |
+|  [06]   | `decompress(source, dest=None) -> bytes`                                 | static  | one-shot blosc decompress                |
+
+`numcodecs.zstd` mirrors `compress`/`decompress` with `DEFAULT_CLEVEL`/`MAX_CLEVEL`/`VERSION_NUMBER`; blosc exposes the `NOSHUFFLE`/`SHUFFLE`/`BITSHUFFLE`/`AUTOSHUFFLE` shuffle constants.
+
+[ENTRYPOINT_SCOPE]: zarr-v3 adapter methods (`zarr.codecs.numcodecs.<Codec>`)
+
+| [INDEX] | [SURFACE]                                             | [SHAPE]  | [CAPABILITY]                    |
+| :-----: | :---------------------------------------------------- | :------- | :------------------------------ |
+|  [01]   | `to_dict() -> dict`                                   | instance | emit zarr metadata              |
+|  [02]   | `from_dict(d) -> Codec`                               | factory  | rebuild from zarr metadata      |
+|  [03]   | `evolve_from_array_spec(array_spec)`                  | instance | bind the codec to an array spec |
+|  [04]   | `compute_encoded_size(input_byte_length, chunk_spec)` | instance | predict encoded chunk size      |
+|  [05]   | `validate(...)`                                       | instance | validate against array metadata |
+
+Pass these in a zarr array's `filters=`/`serializer=`/`compressors=` slots.
+
+## [04]-[IMPLEMENTATION_LAW]
+
+[TOPOLOGY]:
+- Every codec folds through one `encode`/`decode`/`get_config`/`from_config` shape keyed by `codec_id`; `get_codec({'id': ...})` selects on the `'id'` discriminant and the config dict is the sole persisted identity.
+- A filter reshapes then a compressor compresses: `Delta`/`FixedScaleOffset`/`BitRound`/`Shuffle` precede `Blosc`/`Zstd` in the chain and invert on decode, with `Shuffle`/`BitRound` before `Zstd` the numeric-chunk recipe.
+- `Quantize`/`FixedScaleOffset`/`BitRound` discard precision by `digits`/`scale`/`keepbits` irreversibly; the lossy parameter rides the chunk receipt.
+- `numcodecs.blosc.set_nthreads(n)` sets c-blosc's pool once at startup; codec instances are immutable and reused across every chunk.
+- `encode`/`decode` operate on contiguous buffers coerced by `numcodecs.compat.ensure_contiguous_ndarray`, and the decoder writes into a preallocated `out=` for large chunks.
+
+[STACKING]:
+- `zarr`(`.api/zarr.md`): a codec binds to a zarr array through `zarr.codecs.numcodecs.<Codec>`; the base family fixes the slot — `ArrayArrayCodec` into `filters=`, `ArrayBytesCodec` as `serializer=`, `BytesBytesCodec` into `compressors=` — and zarr applies `filters -> serializer -> compressors` on write, inverting on read.
+- `icechunk`(`.api/icechunk.md`): supplies the per-chunk byte transform for chunks the versioned store persists; icechunk owns chunk indexing and IO, numcodecs owns only the transform.
+- `msgspec`(`libs/python/.api/msgspec.md`)/`pydantic`(`libs/python/.api/pydantic.md`): decode a codec config dict into a discriminated `Codec`-config struct tagged on the `'id'` field, then round-trip the struct back to `get_codec` to instantiate.
+- `beartype`(`libs/python/.api/beartype.md`): annotate the chunk-codec rail with `numcodecs.compat.NDArrayLike` so a non-buffer input is rejected at the contract, not deep in the C extension.
+- `structlog`(`libs/python/.api/structlog.md`)+`opentelemetry-api`(`libs/python/.api/opentelemetry-api.md`): record `codec_id`, the lossy parameter, input/output byte lengths, and compression ratio as a chunk-codec receipt on the array-write span; `numcodecs.blosc.cbuffer_complib(buf)` recovers a stored frame's inner compressor.
+- `anyio`(`libs/python/.api/anyio.md`): fan a many-chunk encode/decode batch across `anyio.to_thread.run_sync`, sizing the outer pool against `numcodecs.blosc.get_nthreads()` since c-blosc threads internally.
+- `brotli`(`libs/python/artifacts/.api/brotli.md`)/`zstandard`(`libs/python/artifacts/.api/zstandard.md`): the artifacts-rail codecs own transport and container payloads; array chunks route through numcodecs, file and transport payloads through the artifacts codecs.
+- within-lib: `Blosc` fuses the byte-shuffle and inner codec — `cname` selects the inner codec and `typesize`+`shuffle` drive the SIMD shuffle, so `Blosc(cname='zstd', shuffle=Blosc.BITSHUFFLE, typesize=4)` is one fused shuffle+zstd pass in place of a separate `Shuffle` + `Zstd` chain.
+
+[LOCAL_ADMISSION]:
+- Select a codec through `get_codec({'id': ..., ...})` and persist it as the config dict.
+- Bind a codec to a zarr array through `zarr.codecs.numcodecs.<Codec>` in the slot its base family dictates.
+- Coerce buffers through `numcodecs.compat.ensure_contiguous_ndarray` at the boundary and set `set_nthreads` once at process start.
 
 [RAIL_LAW]:
 - Package: `numcodecs`
-- Owns: the buffer-codec registry and `Codec` contract for the chunked-array rail — lossless compressor codecs (`Blosc`/`Zstd`/`LZ4`/`GZip`/`BZ2`/`LZMA`/`Zlib`), array filter/transform codecs (`Delta`/`FixedScaleOffset`/`Quantize`/`BitRound`/`Shuffle`/`PackBits`/`AsType`/`Categorize`), checksum codecs, variable-length/serialization codecs, JSON-config resolution (`get_codec`/`register_codec`/entry-point discovery), buffer coercion (`numcodecs.compat`), native thread control (`numcodecs.blosc`/`numcodecs.zstd`), and the zarr-v3 codec adapter
-- Accept: codec selection through `get_codec({'id': ..., ...})` and persistence as the config dict; the `filter -> compressor` chain ordering with `Shuffle`/`BitRound` before `Zstd`/`Blosc`; `Blosc` as the fused shuffle+inner-codec meta-compressor; `numcodecs.compat.ensure_contiguous_ndarray` at the buffer boundary; process-global `set_nthreads` set once; zarr binding through `zarr.codecs.numcodecs.<Codec>` in the matching `filters=`/`serializer=`/`compressors=` slot; lossy-parameter and ratio capture on the chunk receipt
-- Reject: hand-rolled compression where a codec exists; per-codec method names or parallel constructors where one `get_codec`/`encode`/`decode` shape suffices; importing the deprecated `numcodecs.zarr3` shim instead of `zarr.codecs.numcodecs`; hand-encoding chunk bytes outside the codec pipeline; a lossy filter on data that must round-trip bit-exact; `@retry` around a pure `encode`/`decode`; per-chunk thread reconfiguration; discontiguous buffers reaching `encode` without coercion; a duplicate `Zstd`/`Blosc` owner where the artifacts-rail codecs own transport/container payloads
+- Owns: the buffer-codec registry and `Codec` contract for the chunked-array rail — lossless compressor, array filter/transform, checksum, and variable-length/serialization codecs, JSON-config resolution, buffer coercion, native thread control, and the zarr-v3 codec adapter
+- Accept: codec selection through `get_codec` and config-dict persistence; the filter-then-compressor chain with `Shuffle`/`BitRound` before `Zstd`/`Blosc`; `Blosc` as the fused shuffle+inner-codec meta-compressor; `ensure_contiguous_ndarray` at the boundary; process-global `set_nthreads`; zarr binding through `zarr.codecs.numcodecs.<Codec>`; lossy-parameter and ratio capture on the chunk receipt
+- Reject: hand-rolled compression where a codec exists; per-codec method names or parallel constructors where one `get_codec`/`encode`/`decode` shape suffices; the deprecated `numcodecs.zarr3` shim in place of `zarr.codecs.numcodecs`; hand-encoded chunk bytes outside the pipeline; a lossy filter on data that must round-trip bit-exact; `@retry` around a pure `encode`/`decode`; per-chunk thread reconfiguration; discontiguous buffers reaching `encode` uncoerced; a duplicate `Zstd`/`Blosc` owner where the artifacts-rail codecs own transport and container payloads

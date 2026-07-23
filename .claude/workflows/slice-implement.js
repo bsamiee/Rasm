@@ -34,9 +34,7 @@ export const meta = {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const REPO = '/Users/bardiasamiee/Documents/99.Github/Rasm';
-const CAP = 14; // true in-flight agent ceiling — wrappers, writers, and reviewers all take one slot
-const STAGGER_MS = 1500;
-const STALL_MS = 900000; // delegated lane runs and ground-up writers run many minutes without visible progress
+const CAP = 14;
 const BATCH_PAGES = 16; // page target for one implement batch — the writer fan-width knob
 const BATCH_LOC = 10000; // tonnage ceiling beside the page count — card-weighted realization holds more than a whole-page rebuild, but a batch of huge pages still overflows one writer
 const BATCH_OVERFLOW = 1.25; // a starved tail folds into its predecessor while the merge stays inside this multiple of the target
@@ -732,19 +730,12 @@ const TMAP_LAW =
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const makeSlots = (cap) => {
     let active = 0;
-    let gate = Promise.resolve();
     const waiters = [];
-    const stagger = () => {
-        gate = gate.then(() => sleep(STAGGER_MS));
-        return gate;
-    };
     return async (fn) => {
         if (active >= cap) await new Promise((res) => waiters.push(res));
         active++;
-        await stagger();
         try {
             return await fn();
         } finally {
@@ -952,7 +943,7 @@ const relayPrompt = (o) => {
         (many ? ' per row' : ' — the whole budget') +
         ': a receipt reason "crash" alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, ' +
         'then land the receipt" and re-runs the same command plus --resume <the receipt thread_id>; any other failed receipt ' +
-        '(idle-timeout, max-timeout, turn-failed, refusal) re-runs the same command untouched' +
+        '(idle-timeout, turn failure or refusal) re-runs the same command untouched' +
         (many ? ', then a still-failed row is recorded failed and the next row proceeds' : '') +
         '. (3) ' +
         (authored
@@ -1659,7 +1650,6 @@ const disco =
                 model: 'sonnet',
                 effort: 'low',
                 schema: DISCOVERY,
-                stallMs: STALL_MS,
             }),
         ),
     )) ||
@@ -1670,7 +1660,7 @@ const disco =
                     PATH_LAW +
                     ' ' +
                     discoverTask(OUT + '/discover.json'),
-                { label: 'discover:native', phase: 'Plan', model: 'opus', effort: 'low', schema: DISCOVERY, stallMs: STALL_MS },
+                { label: 'discover:native', phase: 'Plan', model: 'opus', effort: 'low', schema: DISCOVERY },
             ),
         ),
     ));
@@ -1693,7 +1683,6 @@ const batchLegs = (f, b) =>
                     model: 'sonnet',
                     effort: 'low',
                     schema: RECEIPT,
-                    stallMs: STALL_MS,
                 }),
             ),
         ),
@@ -1706,7 +1695,6 @@ const batchLegs = (f, b) =>
                           model: 'sonnet',
                           effort: 'low',
                           schema: RECEIPT,
-                          stallMs: STALL_MS,
                       }),
                   ),
               )
@@ -1731,7 +1719,6 @@ const runFolderChain = async (f, plan, pre) => {
                     phase: 'Implement',
                     model: 'fable',
                     schema: STAGE,
-                    stallMs: STALL_MS,
                 }),
             ),
         );
@@ -1745,7 +1732,6 @@ const runFolderChain = async (f, plan, pre) => {
                               model: 'sonnet',
                               effort: 'low',
                               schema: STAGE,
-                              stallMs: STALL_MS,
                           }),
                       ),
                   )
@@ -1763,7 +1749,6 @@ const planLane = (f) =>
                 phase: 'Plan',
                 model: 'opus',
                 schema: UNITS,
-                stallMs: STALL_MS,
             }),
         ),
     );
@@ -1823,7 +1808,6 @@ const sealP = receiptPaths.length
                                       model: 'sonnet',
                                       effort: 'low',
                                       schema: RECEIPT,
-                                      stallMs: STALL_MS,
                                   }),
                               ),
                           ).then((r) => ({ key: L.key, r })),
@@ -1841,7 +1825,6 @@ const sealP = receiptPaths.length
                                   phase: 'Drain',
                                   model: 'fable',
                                   schema: DRAINR,
-                                  stallMs: STALL_MS,
                               }),
                           ),
                       ),
@@ -1864,7 +1847,6 @@ const sealP = receiptPaths.length
                           phase: 'Drain',
                           model: 'fable',
                           schema: DRAINR,
-                          stallMs: STALL_MS,
                       }),
                   ),
               );
@@ -1892,7 +1874,6 @@ const sealP = receiptPaths.length
                                       model: 'sonnet',
                                       effort: 'low',
                                       schema: RECEIPT,
-                                      stallMs: STALL_MS,
                                   }),
                               ),
                           ).then((r) => ({ key: L.key, r })),
@@ -1914,7 +1895,6 @@ const sealP = receiptPaths.length
                               phase: 'Redteam',
                               model: 'fable',
                               schema: REDTEAMR,
-                              stallMs: STALL_MS,
                           }),
                       ),
                   ).then((rt) => ({ language: L.key, census: censusRs[L.key] || null, redteam: rt }));
@@ -1936,7 +1916,6 @@ const testsP = TESTS_ON
                           model: 'sonnet',
                           effort: 'low',
                           schema: RECEIPT,
-                          stallMs: STALL_MS,
                       }),
                   ),
               ),
@@ -1948,7 +1927,6 @@ const testsP = TESTS_ON
                           phase: 'Tests',
                           model: 'fable',
                           schema: TESTSR,
-                          stallMs: STALL_MS,
                       }),
                   ),
               ),
@@ -1978,7 +1956,6 @@ const audit = await guard(
                 model: 'sonnet',
                 effort: 'low',
                 schema: AUDITR,
-                stallMs: STALL_MS,
             },
         ),
     ),

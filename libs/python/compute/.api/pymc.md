@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_PYMC]
 
-`pymc` supplies a Python probabilistic-programming interface over PyTensor — declarative `Model` context management, ~60 distribution families (continuous, discrete, multivariate, mixture, truncation, time-series), gradient-based and gradient-free step methods, variational families, and posterior/prior predictive sampling — for the compute Bayesian-study rail. A model is built inside a `pm.Model()` context where named random variables become symbolic PyTensor graph nodes; `pm.sample` compiles the joint log-probability and runs NUTS, returning an `xarray.DataTree` posterior. It stacks across the Bayesian rail: the NUTS sampler dispatches to an external backend (`nutpie` Rust, `numpyro`/`blackjax` JAX) via `nuts_sampler=`, the returned `DataTree` is read by `arviz` for `rhat`/`ess`/`loo` diagnostics, and `pm.do`/`pm.observe` graph-surgery enables causal interventions. It never re-implements a distribution, sampler, or PyTensor graph operation the package owns.
+`pymc` owns PyTensor-backed probabilistic programming for the compute Bayesian-study rail: a declarative `Model` context where named random variables become symbolic PyTensor nodes, ~60 distribution families, gradient-based and gradient-free step methods, variational families, SMC, and posterior/prior-predictive sampling. `pm.sample` compiles the joint log-probability, dispatches NUTS to a pluggable backend, and returns an `xarray.DataTree` the `arviz` catalog reads; it never re-implements a distribution, sampler, or PyTensor graph operation the package owns.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,12 +9,11 @@
 - import: `pymc` (alias `pm`); submodules `pymc.gp`, `pymc.math`, `pymc.distributions`, `pymc.step_methods`, `pymc.variational`, `pymc.smc`
 - owner: `compute`
 - rail: Bayesian-study
-- capability: PyTensor-backed probabilistic programming — declarative `Model` context, ~60 distribution families across continuous/discrete/multivariate/mixture/truncation/time-series, NUTS/HMC/Metropolis/SMC step methods with pluggable `nutpie`/`numpyro`/`blackjax` NUTS backends, ADVI/FullRank/SVGD variational families, causal `do`/`observe` graph surgery, GP module, `Minibatch` stochastic-VI data, and `xarray.DataTree` posterior/prior-predictive output
+- capability: PyTensor-backed probabilistic programming — declarative `Model` context, ~60 distribution families across continuous/discrete/multivariate/mixture/truncation/time-series, NUTS/HMC/Metropolis/SMC step methods with pluggable `nutpie`/`numpyro`/`blackjax` NUTS backends, ADVI/FullRank/SVGD variational families, causal `do`/`observe` graph surgery, a Gaussian-process module, and `xarray.DataTree` posterior/prior-predictive output
 
-## [02]-[CAPTURE]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: model and context types
-- rail: Bayesian-study
 
 | [INDEX] | [SYMBOL]                    | [PACKAGE_ROLE]  | [CAPABILITY]                                                                    |
 | :-----: | :-------------------------- | :-------------- | :------------------------------------------------------------------------------ |
@@ -26,7 +25,6 @@
 |  [06]   | `modelcontext` / `set_data` | context access  | resolves the active model / mutates a `Data` container in place                 |
 
 [PUBLIC_TYPE_SCOPE]: continuous distribution families
-- rail: Bayesian-study
 
 | [INDEX] | [SYMBOL]                                     | [SUPPORT]          | [CANONICAL_PARAMS]                                           |
 | :-----: | :------------------------------------------- | :----------------- | :----------------------------------------------------------- |
@@ -45,7 +43,6 @@
 |  [13]   | `Interpolated` / `PolyaGamma`                | empirical / aux    | `x_points`, `pdf_points` / `h`, `z`                          |
 
 [PUBLIC_TYPE_SCOPE]: discrete, multivariate, mixture, and time-series families
-- rail: Bayesian-study
 
 | [INDEX] | [SYMBOL]                                             | [SUPPORT]                  | [CANONICAL_PARAMS]                     |
 | :-----: | :--------------------------------------------------- | :------------------------- | :------------------------------------- |
@@ -69,38 +66,34 @@
 - [14]-[time-series]: `GaussianRandomWalk`, `RandomWalk`, `AR`, `GARCH11`, `EulerMaruyama`, `MvGaussianRandomWalk`.
 
 [PUBLIC_TYPE_SCOPE]: step methods and samplers
-- rail: Bayesian-study
 
-| [INDEX] | [SYMBOL]                     | [SAMPLER_FAMILY] | [CAPABILITY]                                                     |
-| :-----: | :--------------------------- | :--------------- | :--------------------------------------------------------------- |
-|  [01]   | `NUTS`                       | gradient-based   | `(vars=None, max_treedepth=10, early_max_treedepth=8, **kwargs)` |
-|  [02]   | `HamiltonianMC`              | gradient-based   | `(vars, path_length, max_steps)`                                 |
-|  [03]   | `Metropolis`                 | gradient-free    | random-walk Metropolis                                           |
-|  [04]   | `DEMetropolis`               | gradient-free    | differential-evolution Metropolis                                |
-|  [05]   | `DEMetropolisZ`              | gradient-free    | DE-Z Metropolis                                                  |
-|  [06]   | `BinaryMetropolis`           | gradient-free    | binary-variable Metropolis                                       |
-|  [07]   | `BinaryGibbsMetropolis`      | gradient-free    | binary Gibbs Metropolis                                          |
-|  [08]   | `CategoricalGibbsMetropolis` | gradient-free    | categorical Gibbs Metropolis                                     |
-|  [09]   | `Slice`                      | gradient-free    | slice sampling step method                                       |
-|  [10]   | `step_methods.CompoundStep`  | composite        | assigns distinct step methods per variable block                 |
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]  | [CAPABILITY]                                                     |
+| :-----: | :--------------------------- | :------------- | :--------------------------------------------------------------- |
+|  [01]   | `NUTS`                       | gradient-based | `(vars=None, max_treedepth=10, early_max_treedepth=8, **kwargs)` |
+|  [02]   | `HamiltonianMC`              | gradient-based | `(vars, path_length, max_steps)`                                 |
+|  [03]   | `Metropolis`                 | gradient-free  | random-walk Metropolis                                           |
+|  [04]   | `DEMetropolis`               | gradient-free  | differential-evolution Metropolis                                |
+|  [05]   | `DEMetropolisZ`              | gradient-free  | DE-Z Metropolis                                                  |
+|  [06]   | `BinaryMetropolis`           | gradient-free  | binary-variable Metropolis                                       |
+|  [07]   | `BinaryGibbsMetropolis`      | gradient-free  | binary Gibbs Metropolis                                          |
+|  [08]   | `CategoricalGibbsMetropolis` | gradient-free  | categorical Gibbs Metropolis                                     |
+|  [09]   | `Slice`                      | gradient-free  | slice sampling step method                                       |
+|  [10]   | `step_methods.CompoundStep`  | composite      | assigns distinct step methods per variable block                 |
 
 [PUBLIC_TYPE_SCOPE]: variational families
-- rail: Bayesian-study
 
-| [INDEX] | [SYMBOL]         | [VI_FAMILY]   | [CAPABILITY]                                         |
+| [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [CAPABILITY]                                         |
 | :-----: | :--------------- | :------------ | :--------------------------------------------------- |
 |  [01]   | `ADVI`           | mean-field VI | automatic-differentiation VI (diagonal Gaussian)     |
 |  [02]   | `FullRankADVI`   | full-rank VI  | full-rank Gaussian ADVI                              |
 |  [03]   | `SVGD` / `ASVGD` | particle VI   | Stein variational gradient descent / amortized SVGD  |
 |  [04]   | `Empirical`      | trace VI      | empirical approximation built from an existing trace |
 
-## [03]-[ENTRYPOINTS_AND_OPERATIONS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: sampling and inference entrypoints
-- rail: Bayesian-study
-- Each entrypoint's full signature is in the keyed notes below.
 
-| [INDEX] | [SURFACE]                          | [ENTRY_FAMILY] | [RAIL]                                                          |
+| [INDEX] | [SURFACE]                          | [ENTRY_FAMILY] | [CAPABILITY]                                                    |
 | :-----: | :--------------------------------- | :------------- | :-------------------------------------------------------------- |
 |  [01]   | `sample(...)`                      | MCMC           | primary MCMC entrypoint; dispatches NUTS to the chosen backend  |
 |  [02]   | `sample_posterior_predictive(...)` | posterior      | posterior predictive samples from a fitted model                |
@@ -119,10 +112,8 @@
 - [07]-[FIND_CONSTRAINED_PRIOR]: `find_constrained_prior(distribution, lower, upper, init_guess, mass=0.95, fixed_params=None)` -> `dict[str, float]`.
 
 [ENTRYPOINT_SCOPE]: causal surgery, diagnostics, log-probability, and graph
-- rail: Bayesian-study
-- Each entrypoint's full signature is in the keyed notes below.
 
-| [INDEX] | [SURFACE]                            | [ENTRY_FAMILY]   | [RAIL]                                                    |
+| [INDEX] | [SURFACE]                            | [ENTRY_FAMILY]   | [CAPABILITY]                                              |
 | :-----: | :----------------------------------- | :--------------- | :-------------------------------------------------------- |
 |  [01]   | `do(...)`                            | causal           | do-operator: replace a node with a fixed/exogenous value  |
 |  [02]   | `observe(...)`                       | causal           | converts an unobserved RV into an observed one            |
@@ -143,9 +134,8 @@
 - [08]-[MODEL_TO_GRAPHVIZ]: `model_to_graphviz(model=None, *, var_names=None, formatting='plain', save=None)`.
 
 [ENTRYPOINT_SCOPE]: Gaussian-process and math submodules
-- rail: Bayesian-study
 
-| [INDEX] | [SURFACE]                | [ENTRY_FAMILY] | [RAIL]                                                                 |
+| [INDEX] | [SURFACE]                | [ENTRY_FAMILY] | [CAPABILITY]                                                           |
 | :-----: | :----------------------- | :------------- | :--------------------------------------------------------------------- |
 |  [01]   | `gp.Latent`              | GP prior       | latent GP                                                              |
 |  [02]   | `gp.Marginal`            | GP prior       | marginal-likelihood GP                                                 |
@@ -159,15 +149,21 @@
 
 - [09]-[MATH]: `logsumexp`, `invlogit`, `dot`, `stack`, `switch`, ... PyTensor tensor primitives.
 
-## [04]-[LOCAL_ADMISSION]
+## [04]-[IMPLEMENTATION_LAW]
 
-[BACKEND_INTEGRATION]:
-- NUTS backend dispatch: `sample(nuts_sampler='nutpie')` runs the Rust `nutpie` sampler, `'numpyro'`/`'blackjax'` run JAX samplers, `'pymc'` (default) the C/Numba PyTensor sampler; backend-specific options pass through `nuts_sampler_kwargs`. The choice is a marker on the same model graph, not a re-modelled problem.
-- arviz receipt: every `sample`/`sample_posterior_predictive`/`sample_prior_predictive` returns an `xarray.DataTree` (`return_inferencedata=True`), read by `arviz` for `rhat`/`ess`/`mcse`/`loo`/`compare`; `compute_log_likelihood` populates the `log_likelihood` group LOO/WAIC require.
-- pytensor backend: random variables are symbolic PyTensor nodes; `pm.math`/`Deterministic`/`Potential` build differentiable graph expressions PyTensor compiles to C/Numba/JAX — never NumPy-eager numerics inside the model context.
+[TOPOLOGY]:
+- Random variables are symbolic PyTensor nodes bound inside a `pm.Model()` context; the joint log-probability is one compiled graph, and every sampler, VI, predictive, and causal-surgery op consumes that same graph. `pm.math`/`Deterministic`/`Potential` build differentiable graph expressions PyTensor lowers to C/Numba/JAX — never NumPy-eager numerics inside the model context.
+
+[STACKING]:
+- `arviz`(`.api/arviz.md`): `sample`/`sample_posterior_predictive`/`sample_prior_predictive` return the `xarray.DataTree` arviz reads via `from_dict`/`convert_to_datatree` for `rhat`/`ess`/`loo`/`summary`/`psense`; `compute_log_likelihood` populates the `log_likelihood` group `loo`/`compare` consume.
+- `nutpie`(`.api/nutpie.md`) / `numpyro`(`.api/numpyro.md`) / `blackjax`(`.api/blackjax.md`): `sample(nuts_sampler=...)` dispatches NUTS to the Rust or JAX backend by name, backend options threading through `nuts_sampler_kwargs`; the choice is a marker on the same model graph, never a re-modelled problem.
+- within-lib: `do`/`observe` chain graph surgery for causal interventions; `CompoundStep` assigns a distinct step method per variable block; `Minibatch` drives stochastic VI through `fit`; `logp`/`logcdf` expose the symbolic densities `Potential` folds back into the joint.
+
+[LOCAL_ADMISSION]:
+- pymc is study-time inference reading into an `xarray.DataTree`: define a model inside `pm.Model()` with named sample sites, sample through `pm.sample`/`sample_smc`/`fit`, and graduate the returned `DataTree` through `arviz` diagnostics before any posterior claim. `Rasm.Compute` consumes that `DataTree` receipt on its C# model rail; no production runtime imports pymc.
 
 [RAIL_LAW]:
 - Package: `pymc`
 - Owns: PyTensor-backed probabilistic model construction, ~60 distribution families, MCMC/SMC/VI inference with pluggable NUTS backends, causal `do`/`observe` graph surgery, and posterior/prior predictive sampling
 - Accept: a model defined inside a `pm.Model()` context with named sample sites, run through `pm.sample`/`pm.sample_smc`/`pm.fit`, returning a `DataTree` receipt with captured draws, tune steps, chains, and `arviz` convergence checks
-- Reject: hand-rolled distributions or samplers pymc owns; pymc models outside a `Model()` context; NumPy-eager numerics where a PyTensor graph is required; product serving of posteriors; benchmark claims without a `DataTree` receipt
+- Reject: hand-rolled distributions or samplers pymc owns; a model outside a `Model()` context; NumPy-eager numerics where a PyTensor graph is required; a posterior claim without a `DataTree` receipt

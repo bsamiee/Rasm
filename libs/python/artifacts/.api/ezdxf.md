@@ -1,27 +1,21 @@
 # [PY_ARTIFACTS_API_EZDXF]
 
-`ezdxf` is the single categorical-best owner of DXF read/write/render for the artifacts CAD-export rail: a `Drawing` document graph (header vars, symbol tables, blocks, modelspace + paperspace layouts, the objects dictionary) authored through one `GraphicsFactory.add_*` builder family, the `ezdxf.path.Path` command-segment algebra that is the lossless bridge between DXF curve entities and the SVG path geometry the `svgelements`/`graphic/vector` owners already speak, a `ezdxf.math` kernel (`Vec3`/`Matrix44`/`BSpline`/`OCS`/`UCS`/`BoundingBox`) the geometry seam reads, the `addons.drawing` `Frontend`+backend family that rasterizes/vectorizes any DXF to Matplotlib/SVG/PDF/JSON without a foreign renderer, and the boundary surfaces (`recover` salvage, `xref` block linking, `select` spatial query, `transform` affine, `query`/`groupby` selection, `bbox` extents, `addons.geo` GeoJSON, `addons.Importer` cross-document copy). `export/dxf` composes `ezdxf.new`/`readfile`/`recover.readfile`, the `GfxAttribs` attribute value object, `ezdxf.path.make_path`/`render_*`, and the `Frontend`/`SVGBackend`/`qsave` render drivers; it never re-implements the DXF tag grammar, the OCS/WCS transform, the B-spline evaluator, or the DXF-entity-to-SVG path conversion ezdxf already owns, and it never re-authors the IFC semantic model (`csharp:Rasm.Bim`) or the placement/scaling the composition owners hold. Pure-Python wheel (`py3-none-any`), so no cp-gate applies on any interpreter.
+`ezdxf` owns DXF read/write/render for the artifacts cad-export rail: a `Drawing` document graph authored through one `GraphicsFactory.add_*` builder family, the `ezdxf.path.Path` command-segment algebra bridging DXF curves to the SVG path the figure owners speak, the `ezdxf.math` kernel the geometry seam reads, and the `addons.drawing` `Frontend`+backend family rasterizing any DXF to SVG/PDF/PNG/JSON in-process. It re-implements neither the DXF grammar, OCS/WCS transform, B-spline evaluator, nor DXF-to-SVG conversion it owns, and authors neither the IFC model (`csharp:Rasm.Bim`) nor the placement the composition owners hold.
 
 ## [01]-[PACKAGE_SURFACE]
 
-- package: `ezdxf`
+- package: `ezdxf` (MIT)
 - import: `ezdxf`
-- license: MIT
+- namespaces: `ezdxf`, `ezdxf.math`, `ezdxf.path`, `ezdxf.addons.drawing`, `ezdxf.addons`
 - owner: `artifacts`
 - rail: cad-export
-- installed: `1.4.4`
-- build floor: pure-Python (`ezdxf-1.4.4-py3-none-any.whl`); no abi3/cp-gate — installs on every interpreter incl. 3.15
-- runtime deps: `fonttools`, `numpy`, `pyparsing`, `typing-extensions` (the `numpy` dep is the same array substrate `libs/python/.api/numpy.md` owns; `fonttools` is the same font surface `fonttools.md` owns — ezdxf composes both, no second copy)
-- optional render deps: `matplotlib` (raster/PDF via `qsave`), `PyMuPDF` (`PyMuPdfBackend`); both already admitted folder packages (`matplotlib.md`, `pymupdf.md`)
 - entry points: none (library only)
-- capability: DXF R12->R2018 read/write/recover, the full graphic-entity builder family (line/arc/circle/ellipse/spline/lwpolyline/polyline/mesh/hatch/mpolygon/text/mtext/leader/multileader/all dimension kinds/image/wipeout/3d-solid/surface), the `Path` command-segment algebra with curve flattening + DXF<->SVG<->hatch conversion, the `ezdxf.math` geometry kernel (vectors/matrices/splines/OCS/UCS/construction primitives/bounding boxes), the `addons.drawing` render frontend over Matplotlib/SVG/PDF/JSON/GeoJSON backends with a full property/policy resolution stack, symbol-table + layer + linetype + textstyle + dimstyle authoring, block + external-reference (`xref`) management, spatial `select` (rtree-backed window/fence/point query), `transform` affine ops, `query`/`groupby` entity selection, `bbox` extents, GeoJSON `addons.geo` round-trip, cross-document `addons.Importer` copy, `text2path` glyph-outline conversion, and the `r12writer` streaming fast-writer
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document and layout roots
-- rail: cad-export
 
-`Drawing` is the single document owner; `modelspace()`/`paperspace(name)` return `Layout` views that ARE the `GraphicsFactory` (every `add_*` builder lives on the layout, not the doc). A `BlockLayout` is the reusable-geometry container an `Insert` references. One owner, never a parallel reader/writer pair.
+`Drawing` is the single document owner; `modelspace()`/`paperspace(name)` return `Layout` views that ARE the `GraphicsFactory` — every `add_*` builder lives on the layout, and a `BlockLayout` is the reusable-geometry container an `Insert` references, never a parallel reader/writer pair.
 
 | [INDEX] | [TYPE]        | [KIND]        | [ROLE]                                                                    |
 | :-----: | :------------ | :------------ | :------------------------------------------------------------------------ |
@@ -33,9 +27,8 @@
 |  [06]   | `GfxAttribs`  | value object  | the shared graphic-attribute bundle (`layer`/`color`/`rgb`/`linetype`/…)  |
 
 [PUBLIC_TYPE_SCOPE]: graphic-entity vocabulary
-- rail: cad-export
 
-Every drawable derives `DXFGraphic`; each carries a typed `.dxf` namespace (the DXF group-code attributes) plus entity-specific methods. Builder-family construction on the layout is the only admitted path — never hand-assembled tags. This is the closed entity grammar the `export/dxf` owner emits and the render `Frontend` consumes.
+Every drawable derives `DXFGraphic` with a typed `.dxf` group-code namespace; builder-family construction on the layout is the only admitted path — the closed entity grammar `export/dxf` emits and the render `Frontend` consumes, never hand-assembled tags.
 
 | [INDEX] | [TYPE]                                  | [KIND]    | [ROLE]                                                               |
 | :-----: | :-------------------------------------- | :-------- | :------------------------------------------------------------------- |
@@ -57,9 +50,8 @@ Every drawable derives `DXFGraphic`; each carries a typed `.dxf` namespace (the 
 |  [16]   | `Solid` / `Trace` / `Face3d`            | primitive | 2D filled tri/quad; 3D face                                          |
 
 [PUBLIC_TYPE_SCOPE]: symbol-table entries
-- rail: cad-export
 
-Symbol tables carry the named resources entities reference; `Drawing` exposes one collection per table (`doc.layers`/`doc.linetypes`/…), and each `.add(name, dxfattribs=)` mints an entry. These are the drawing-standard substrate the `drawing/standard` AEC vocabulary lowers onto (ISO 128 line types -> `Linetype`, ISO 3098 text heights -> `Textstyle`, the layer-name codec -> `Layer`).
+Symbol tables carry the named resources entities reference; each `.add(name, dxfattribs=)` mints an entry, and the `drawing/standard` AEC vocabularies lower onto them (ISO 128 line types onto `Linetype`, ISO 3098 text heights onto `Textstyle`, the layer-name codec onto `Layer`).
 
 | [INDEX] | [TYPE]                   | [TABLE]                  | [ROLE]                                                          |
 | :-----: | :----------------------- | :----------------------- | :-------------------------------------------------------------- |
@@ -72,9 +64,8 @@ Symbol tables carry the named resources entities reference; `Drawing` exposes on
 |  [07]   | `Viewport` / `AppID`     | `doc.viewports`/`appids` | vports; registered app ids                                      |
 
 [PUBLIC_TYPE_SCOPE]: geometry kernel (`ezdxf.math`)
-- rail: cad-export
 
-Pure geometry value objects ezdxf computes against — the same `Vec3`/`Matrix44` shapes the `geometry/*` and the C# `Rasm` geometry seam exchange at the wire. `Vec3.list(...)`/`v.xyz` round-trips to plain tuples a `numpy` array or a `msgspec` struct records; never re-derive an affine or a B-spline evaluator.
+Pure geometry value objects — the `Vec3`/`Matrix44` shapes the `geometry/*` and C# `Rasm` geometry seam exchange at the wire; `Vec3.list(...)`/`v.xyz` round-trips to plain tuples a `numpy` array or `msgspec` struct records, so no affine or B-spline evaluator is re-derived.
 
 | [INDEX] | [TYPE]                                     | [KIND]       | [ROLE]                                                                  |
 | :-----: | :----------------------------------------- | :----------- | :---------------------------------------------------------------------- |
@@ -92,9 +83,8 @@ Pure geometry value objects ezdxf computes against — the same `Vec3`/`Matrix44
 |  [12]   | `EulerSpiral` / `ApproxParamT`             | helper       | clothoid; arc-length reparam                                            |
 
 [PUBLIC_TYPE_SCOPE]: render frontend + backends (`ezdxf.addons.drawing`)
-- rail: cad-export
 
-In-process render stack — no foreign DXF renderer, no CLI. `Frontend(ctx, backend, config)` walks any layout and drives the chosen `BackendInterface`; the `RenderContext` resolves entity DXF attributes into concrete pen properties through the full layer/linetype/lineweight/color/transparency stack; `config.Configuration` + the policy enums govern lineweight/hatch/text/proxy/background/color behavior. This is how `export/dxf` produces an SVG/PDF/PNG preview and how `visualization/diagram` rasterizes a DXF figure into the document.
+`Frontend(ctx, backend, config)` walks any layout and drives the chosen `BackendInterface`; `RenderContext` resolves entity attributes into concrete pen properties through the full layer/linetype/lineweight/color/transparency stack, and `Configuration` and the policy enums govern behavior — how `export/dxf` produces an SVG/PDF/PNG preview and `visualization/diagram` rasterizes a DXF figure into the document.
 
 | [INDEX] | [TYPE]                                               | [KIND]     | [ROLE]                                                              |
 | :-----: | :--------------------------------------------------- | :--------- | :------------------------------------------------------------------ |
@@ -110,11 +100,8 @@ In-process render stack — no foreign DXF renderer, no CLI. `Frontend(ctx, back
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document factory and IO
-- rail: cad-export
 
-`ezdxf.new` mints a fresh document at a target version with optional standard-resource `setup`; `readfile`/`read`/`readzip`/`decode_base64` are the polymorphic ingestion family (file path / text stream / zip member / base64 blob), each returning the same `Drawing`. For damaged third-party files, `recover.readfile` is the salvage path (the only correct loader for non-conforming DXF). `saveas`/`write`/`encode_base64` are the egress family; `audit()` validates structural integrity before save. One document owner — no per-version reader subtype.
-- call: `ezdxf.readfile(filename, encoding=None, errors='surrogateescape')` / `ezdxf.read(stream)` / `ezdxf.readzip(zipfile, filename=None)`
-- call: `Drawing.units` (property) / `ezdxf.units.conversion_factor(src, tgt)` — insert-units factor
+`ezdxf.new` mints a document at a target version with optional standard-resource `setup`; `readfile`/`read`/`readzip`/`decode_base64` are the polymorphic ingestion family, `recover.readfile` the salvage path for damaged non-conforming files, and `saveas`/`write`/`encode_base64` the egress family with `audit()` validating before save — one document owner, no per-version reader subtype.
 
 | [INDEX] | [MEMBER]                                                 | [KIND]    | [ROLE]                                                        |
 | :-----: | :------------------------------------------------------- | :-------- | :------------------------------------------------------------ |
@@ -130,9 +117,8 @@ In-process render stack — no foreign DXF renderer, no CLI. `Frontend(ctx, back
 |  [10]   | `Drawing.units` / `ezdxf.units.conversion_factor(...)`   | units     | insert-units (`InsertUnits` enum) + conversion factor         |
 
 [ENTRYPOINT_SCOPE]: graphic-entity builder family (`GraphicsFactory.add_*`)
-- rail: cad-export
 
-One construction surface for every drawable, all living on the layout (`msp.add_*`). Every builder takes a final `dxfattribs=` mapping (or a `GfxAttribs` via `.asdict()`) carrying layer/color/linetype/lineweight — so attribute application is one uniform axis across the whole vocabulary, never a per-entity setter. This is the dense owner the `export/dxf`, `drawing/*` (dimensions/annotation/symbols), and `visualization/diagram` pages emit through. Every `add_*_dim` builder (the full ISO 129-1 family) returns a `DimStyleOverride` whose `.render()` generates the dimension geometry.
+One construction surface for every drawable, all on the layout (`msp.add_*`); every builder takes the uniform `dxfattribs=` payload (or a `GfxAttribs.asdict()`), and each `add_*_dim` returns a `DimStyleOverride` whose `.render()` generates the dimension geometry — the dense owner `export/dxf`, `drawing/*`, and `visualization/diagram` emit through.
 
 | [INDEX] | [MEMBER]                                                              | [KIND]    | [ROLE]                                               |
 | :-----: | :-------------------------------------------------------------------- | :-------- | :--------------------------------------------------- |
@@ -171,9 +157,8 @@ One construction surface for every drawable, all living on the layout (`msp.add_
 |  [33]   | `add_entity(entity)`                                                  | adopt     | add a constructed entity                             |
 
 [ENTRYPOINT_SCOPE]: entity composition — multileader builders, hatch fills, text placement, mesh editing, and arrow blocks
-- rail: cad-export
 
-`add_multileader_mtext(style)` / `add_multileader_block(style)` return a fluent builder — `render.MultiLeaderMTextBuilder` (mtext content) / `render.MultiLeaderBlockBuilder` (block content) — whose `set_content` / `add_leader_line(ConnectionSide, vertices)` / `set_connection_types` / `set_leader_properties(color=0, linetype='BYBLOCK', lineweight=-2, leader_type=LeaderType.straight_lines)` (`color` admits an ACI int or an RGB triple) / `set_arrow_properties(name='', size=0.0)` (the `ARROWS` block-name terminators, reflection-proven) / `build(insert)` compose the leader before it lands on the layout, `render.mleader.ConnectionSide` (`left`/`right`/`top`/`bottom`) selecting the dogleg attachment side the `drawing/annotate` keynote/leader owner drives. `Hatch.set_pattern_fill(name, color=7, angle=0.0, scale=1.0, …)` applies an ISO 128-50 pattern the `ezdxf.tools.pattern` module supplies (`load(measurement=1, factor=None)` the full pattern-definition dict, `scale_pattern(pattern, factor=1, angle=0)` the ISO-scale transform, `ISO_PATTERN` the 172-entry ISO hatch-name table the `drawing/standard` hatch table selects from), and `ezdxf.ARROWS` carries the arrow-block name constants the `drawing/dimension`/`drawing/annotate` terminators reference — `closed_filled=""`/`open="OPEN"`/`dot="DOT"`/`origin_indicator="ORIGIN"`/`none="NONE"`/`datum_triangle_filled="DATUMFILLED"`/`oblique="OBLIQUE"`. `layout.new_entity("TOLERANCE", dxfattribs={...})` authors the ISO 1101 feature-control frame — `content` takes the `{\Fgdt;<char>}`+`%%v` grammar with `insert`/`dimstyle` attribs. `doc.mleader_styles.new(name)` mints the named style whose `char_height`/`landing_gap_size`/`dogleg_length`/`text_style_handle` the builders reference.
+`add_multileader_mtext(style)`/`add_multileader_block(style)` return a fluent `MultiLeaderMTextBuilder`/`MultiLeaderBlockBuilder`, `render.mleader.ConnectionSide` selecting the dogleg side the `drawing/annotate` leader owner drives. `Hatch.set_pattern_fill` applies an ISO 128-50 pattern from `tools.pattern` (the `ISO_PATTERN` table `drawing/standard` selects from), `ezdxf.ARROWS` carries the arrow-block terminators `drawing/dimension`/`drawing/annotate` reference, and `layout.new_entity("TOLERANCE", ...)` authors the ISO 1101 feature-control frame.
 
 | [INDEX] | [MEMBER]                                           | [KIND]    | [ROLE]                                                          |
 | :-----: | :------------------------------------------------- | :-------- | :-------------------------------------------------------------- |
@@ -197,9 +182,8 @@ One construction surface for every drawable, all living on the layout (`msp.add_
 |  [18]   | `Polyface.append_faces(faces)`                     | 3d        | polyface face population                                        |
 
 [ENTRYPOINT_SCOPE]: the `Path` geometry bridge (`ezdxf.path`)
-- rail: cad-export
 
-`make_path(entity)` lifts any curve entity (Arc/Circle/Ellipse/Spline/LWPolyline/Polyline/Hatch boundary) into one `Path` command-segment object — the lossless intermediate between DXF geometry and the SVG `d`-path the `svgelements`/`graphic/vector` owners speak. Its `render_*` rows are the inverse (a `Path` back to DXF entities), the `from_hatch*`/`to_*` rows convert between fills and paths, and the curve operations (`flattening`/`fillet`/`chamfer`/`triangulate`/`fit_paths_into_box`) are the native pipeline. This is the seam that lets a `skia-pathops` boolean result or an `svgelements.Path` cross into DXF and back without re-parsing a `d` string.
+`make_path(entity)` lifts any curve entity into one `Path` command-segment object — the lossless intermediate between DXF geometry and the SVG `d`-path the `svgelements`/`graphic/vector` owners speak; the `render_*` rows are the inverse onto a layout, the `from_hatch*`/`to_*` rows convert between fills and paths, and the curve operations (`flattening`/`fillet`/`chamfer`/`triangulate`/`fit_paths_into_box`) are the native pipeline, so a `skia-pathops` boolean or an `svgelements.Path` crosses into DXF and back without re-parsing a `d` string.
 
 | [INDEX] | [MEMBER]                                                                    | [KIND]     | [ROLE]                                    |
 | :-----: | :-------------------------------------------------------------------------- | :--------- | :---------------------------------------- |
@@ -235,16 +219,8 @@ One construction surface for every drawable, all living on the layout (`msp.add_
 |  [30]   | `path.rect` / `ngon` / `star` / `gear` / `helix` / `unit_circle` / `wedge`  | shapes     | parametric construction paths             |
 
 [ENTRYPOINT_SCOPE]: render drivers (`ezdxf.addons.drawing`)
-- rail: cad-export
 
-In-process DXF->image/SVG/PDF pipeline. `Frontend(RenderContext(doc), backend, config).draw_layout(msp, finalize=True)` is the one render call; the backend determines the output (`SVGBackend.get_string()` for SVG, `PyMuPdfBackend.get_pdf_bytes()` for PDF, `qsave(...)` for a Matplotlib raster/PDF in one shot). `Configuration(...).with_changes(...)` tunes the policy; the policy bundle carries the closed enums `LineweightPolicy`/`HatchPolicy`/`TextPolicy`/`ColorPolicy`/`BackgroundPolicy`/`ProxyGraphicPolicy`/`LinePolicy`. No foreign renderer is admitted — this is how `export/dxf` previews and how a DXF figure lowers into the document/composition plane.
-
-- call: `matplotlib.qsave(layout, filename, *, bg=None, fg=None, dpi=300, backend='agg', config=None, size_inches=None)` — layout to a PNG/PDF/SVG file in one Matplotlib call
-- call: `Frontend(ctx, out, config=Configuration(), bbox_cache=None)` -> `.draw_layout(layout, finalize=True, filter_func=None, ...)` / `.draw_entities(entities)`
-- call: `RenderContext(doc, ctb=None, export_mode=False)` -> `.set_current_layout(layout)` / `.resolve_all(entity)` / `.resolve_color(...)` / `.resolve_lineweight(...)`
-- call: `SVGBackend().get_string(page, settings=Settings())` / `.get_xml_root_element(...)`
-- call: `PyMuPdfBackend().get_pdf_bytes(page, settings=...)` / `.get_pixmap_bytes(page, fmt='png', dpi=...)`
-- call: `layout.Page(width, height, units=Units.mm, margins=Margins(...), max_width=0, max_height=0)` / `layout.Settings(fit_page=True, scale=1.0, page_alignment=…, ...)`
+`Frontend(RenderContext(doc), backend, config).draw_layout(msp, finalize=True)` is the one render call; the backend determines output (`SVGBackend.get_string()`, `PyMuPdfBackend.get_pdf_bytes()`, `qsave(...)` for a one-shot Matplotlib raster/PDF), and `Configuration(...).with_changes(...)` tunes the closed policy enums — no foreign renderer admitted, how `export/dxf` previews and a DXF figure lowers into the document/composition plane.
 
 | [INDEX] | [MEMBER]                                             | [KIND]    | [ROLE]                                                      |
 | :-----: | :--------------------------------------------------- | :-------- | :---------------------------------------------------------- |
@@ -263,9 +239,8 @@ In-process DXF->image/SVG/PDF pipeline. `Frontend(RenderContext(doc), backend, c
 |  [13]   | `config.Configuration(...)`                          | policy    | render-policy bundle + closed policy enums (in the lead)    |
 
 [ENTRYPOINT_SCOPE]: query, selection, transform, extents
-- rail: cad-export
 
-Read-side surfaces. `doc.query("LINE[layer=='WALLS']")` and `groupby` are the entity-selection family (one polymorphic query string, never a `find`/`filter`/`get_by` proliferation); `select` is the spatial query (rtree-backed window/fence/point against a `BoundingBox`); `transform` applies affines in place or as copies; `bbox.extents` computes the model extents the composition sheet sizing needs.
+`doc.query("LINE[layer=='WALLS']")` and `groupby` are the entity-selection family (one polymorphic query string, never a `find`/`filter`/`get_by` proliferation); `select` is the rtree-backed spatial query, `transform` applies affines in place or as copies, and `bbox.extents` computes the model extents composition sheet sizing needs.
 
 | [INDEX] | [MEMBER]                                                           | [KIND]    | [ROLE]                                               |
 | :-----: | :----------------------------------------------------------------- | :-------- | :--------------------------------------------------- |
@@ -287,16 +262,8 @@ Read-side surfaces. `doc.query("LINE[layer=='WALLS']")` and `groupby` are the en
 |  [16]   | `bbox.multi_recursive(...)` / `bbox.Cache()`                       | extents   | recursive extents / the extents cache                |
 
 [ENTRYPOINT_SCOPE]: attributes, blocks, xref, import, geo, text-to-path, fast-write
-- rail: cad-export
 
-Boundary surfaces. `GfxAttribs` is the one attribute value object (the uniform `dxfattribs=` payload across the whole builder family); `xref` links external drawings as references or copies their content; `addons.Importer` copies entities/blocks/tables across documents; `addons.geo` round-trips DXF<->GeoJSON (the geospatial seam); `text2path` converts text to glyph-outline paths/hatches; `r12writer` is the streaming fast-writer for huge R12 output.
-
-- call: `GfxAttribs(*, layer='0', color=256, rgb=None, linetype='ByLayer', lineweight=-1, transparency=None, ltscale=1.0)` — the graphic-attribute value object; `.asdict()` feeds any `dxfattribs=`
-- call: `xref.attach(doc, *, block_name, filename, insert=(0,0,0), scale=1.0, rotation=0.0)` / `xref.define(doc, block_name, filename)`
-- call: `xref.load_modelspace(sdoc, tdoc, filter_fn=None, conflict_policy=ConflictPolicy.KEEP)`
-- call: `addons.Importer(source, target)` -> `.import_modelspace(target_layout=None)` / `.import_entities(entities, target_layout=None)` / `.finalize()` — `target_layout` retargets any `BaseLayout` (a `BlockLayout` included), defaulting to the target modelspace
-- call: `addons.geo.proxy(entity)` -> `GeoProxy.parse(geo_mapping)` / `.to_dxf_entities()`; `addons.text2path.make_paths_from_str(s, font, ...)` / `make_path_from_entity(e)`
-- call: `tools.text.MTextEditor()` -> `.text`/`.append`/`.color`/`.font`/`.height`/`.bullet_list`/`.stack`/`.underline`
+Boundary surfaces: `GfxAttribs` is the one attribute value object across the whole builder family; `xref` links or copies external drawings, `addons.Importer` copies entities/blocks/tables across documents, `addons.geo` round-trips DXF<->GeoJSON, `text2path` converts text to glyph-outline paths/hatches, and `r12writer` streams huge R12 output with no in-memory doc.
 
 | [INDEX] | [MEMBER]                                                           | [KIND]     | [ROLE]                                                 |
 | :-----: | :----------------------------------------------------------------- | :--------- | :----------------------------------------------------- |
@@ -328,29 +295,30 @@ Boundary surfaces. `GfxAttribs` is the one attribute value object (the uniform `
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-- import: `import ezdxf` at boundary scope; the geometry kernel is `from ezdxf import math as ezmath` (aliased so it never shadows the stdlib `math`), the path bridge `from ezdxf import path as dxfpath`, the render stack `from ezdxf.addons.drawing import Frontend, RenderContext`, the chosen backend `from ezdxf.addons.drawing.svg import SVGBackend` (or `.matplotlib`/`.pymupdf`/`.json`). `ezdxf.__version__`/`ezdxf.VERSION` carry the version constant; `ezdxf.DXF2018` and its peers carry the DXF-version literals.
-- document axis: `ezdxf.new` is the single construction factory (target version + optional `setup`), and `readfile`/`read`/`readzip`/`decode_base64` are the polymorphic ingestion family discriminating on source shape — never a per-version reader type. A damaged third-party file routes to `recover.readfile` (the ONLY correct loader for non-conforming DXF; it returns `(doc, auditor)` so the boundary inspects salvage errors), never the conforming `readfile`. `audit()` runs before `saveas` so a structurally invalid model never reaches disk.
-- layout axis: the `Modelspace`/`Paperspace`/`BlockLayout` IS the `GraphicsFactory` — every drawable is minted by an `add_*` builder on the layout, never by constructing an entity class and inserting tags. A reusable symbol is one `doc.blocks.new(name)` block populated by the same builder family and placed by `add_blockref` (n placements of one definition), never a per-placement geometry copy.
-- attribute axis: `GfxAttribs(layer=, color=, rgb=, linetype=, lineweight=, transparency=, ltscale=)` is the one attribute value object across the WHOLE builder family — every `add_*` takes the same `dxfattribs=GfxAttribs(...).asdict()` payload, so layer/color/linetype application is one uniform axis, never a per-entity `set_layer`/`set_color` setter. True color is `colors.RGB`, indexed color is the ACI int (1-255, 256=ByLayer, 0=ByBlock) the `colors` module names (`colors.RED` etc.).
-- path axis: `path.make_path(entity)` is the single polymorphic lift of any curve entity into one `Path` command-segment object (`MoveTo`/`LineTo`/`Curve3To`/`Curve4To`), the lossless bridge to the SVG `d`-path grammar; the inverse is the `render_*` family (a `Path` iterable back onto a layout) and the `to_*` family (virtual entities). Curve flattening (`Path.flattening(distance)`), filleting/chamfering, triangulation, and scale-to-fit (`fit_paths_into_box`) are the native pipeline — flatten/fit through the `Path` owner, never re-sample a coordinate list by hand. A `skia-pathops`/`svgelements.Path` result crosses in through `from_vertices`/`make_path` and back through `render_lines`, never a re-parsed string.
-- geometry axis: `ezdxf.math` is the geometry kernel — `Vec3`/`Vec2` for vectors (`cross`/`dot`/`normalize`/`lerp`/`rotate`), `Matrix44` for affines (`translate`/`scale`/`*_rotate`/`chain`/`inverse`/`transform_vertices`), `BSpline`/`Bezier4P` for curves, `OCS`/`UCS` for coordinate-system transforms, `BoundingBox` for extents, and the `Construction*` analytic primitives for intersection/tangent/offset math. `Vec3.list(...)`/`v.xyz` round-trips to plain tuples for a `numpy` array or a `msgspec` struct — never re-derive an affine, a spline evaluator, or an OCS transform.
-- render axis: `Frontend(RenderContext(doc), backend, config).draw_layout(layout, finalize=True)` is the one render call; the backend selects the output (`SVGBackend.get_string()`, `PyMuPdfBackend.get_pdf_bytes()`/`get_pixmap_bytes()`, `qsave(...)` for Matplotlib), and `Configuration(...).with_changes(...)` plus the closed policy enums (`LineweightPolicy`/`HatchPolicy`/`TextPolicy`/`ColorPolicy`/`BackgroundPolicy`) govern behavior. `layout.Page`/`Settings`/`Margins` place content at a real page size/units. No foreign DXF renderer is admitted — ezdxf renders its own format.
-- query axis: `doc.query("LINE CIRCLE[layer=='WALLS']")` is the entity-query-language selection (the single polymorphic query string), refined by `EntityQuery.query`/`filter`/`groupby` and the set-algebra (`union`/`difference`/`intersection`) — never a `get`/`get_many`/`find_by_layer` family. Spatial selection is `select` (rtree-backed `Window`/`Circle`/`Polygon`/fence against a `PlanarSearchIndex`); attribute grouping is `groupby`; affine application is `transform.inplace`/`copies`; model extents are `bbox.extents`.
-- evidence: each DXF op captures the dxfversion, the entity count by type, the model `BoundingBox` extents (`bbox.extents`), the layer/block roster, the `audit()` error+fix counts, the units, and the output byte length as a CAD-export receipt; a render op additionally captures the backend, the page size/units, and the rendered byte length.
-- boundary: ezdxf owns DXF read/write/recover, the graphic-entity vocabulary, the `Path` geometry algebra, the `ezdxf.math` kernel, and the DXF render frontend. IFC semantic modeling stays `csharp:Rasm.Bim` (ezdxf never authors IFC). SVG geometry shared with the figure rail meets `svgelements`/`graphic/vector` at the `Path`/`d`-string wire; raster output beyond the bundled backends routes to `pyvips`/`pillow`; PDF page assembly stays `pymupdf`/`pikepdf`; font shaping stays `fonttools`/`uharfbuzz` (text2path composes `fonttools`, it does not re-shape); the AEC standards vocabularies (ISO 128/129-1/3098/13567 line types, dimensions, lettering, layer names) stay the `drawing/*` owned-vocabulary owners that LOWER onto ezdxf tables/entities; sheet placement and scale stay the `composition/sheet` owner; live UI stays outside this package.
+- import: `import ezdxf` at boundary scope; the geometry kernel imports `from ezdxf import math as ezmath` (aliased so it never shadows the stdlib `math`), the path bridge as `dxfpath`, the render stack from `ezdxf.addons.drawing`, and `ezdxf.DXF2018` and its peers carry the DXF-version literals.
+- document axis: `ezdxf.new` is the single construction factory and `readfile`/`read`/`readzip`/`decode_base64` the polymorphic ingestion family discriminating on source shape, never a per-version reader. A damaged file routes to `recover.readfile` (returning `(doc, auditor)` for salvage inspection), never the conforming `readfile`; `audit()` runs before `saveas` so no structurally invalid model reaches disk.
+- layout axis: the `Modelspace`/`Paperspace`/`BlockLayout` IS the `GraphicsFactory` — every drawable is an `add_*` builder on the layout, never a constructed entity class. A reusable symbol is one `doc.blocks.new(name)` block placed by `add_blockref`, never a per-placement geometry copy.
+- attribute axis: `GfxAttribs(...).asdict()` is the one attribute payload across the whole builder family, so layer/color/linetype application is one uniform axis, never a per-entity setter. True color is `colors.RGB`, indexed color the ACI int (`256`=ByLayer, `0`=ByBlock) the `colors` module names.
+- path axis: `path.make_path(entity)` is the single polymorphic lift into one `Path` command-segment object, the lossless bridge to the SVG `d`-path grammar; the `render_*` family is the inverse onto a layout and `to_*` emits virtual entities. Flatten/fillet/triangulate through the `Path` owner, never a hand-sampled coordinate list; a `skia-pathops`/`svgelements.Path` result crosses in through `from_vertices`/`make_path` and back through `render_lines`.
+- geometry axis: `ezdxf.math` is the geometry kernel — `Vec3`/`Vec2`, `Matrix44`, `BSpline`/`Bezier4P`, `OCS`/`UCS`, `BoundingBox`, and the `Construction*` analytic primitives; `Vec3.list(...)`/`v.xyz` round-trips to tuples for a `numpy` array or `msgspec` struct, never a re-derived affine, spline evaluator, or OCS transform.
+- render axis: `Frontend(RenderContext(doc), backend, config).draw_layout(layout, finalize=True)` is the one render call; the backend selects output and `Configuration(...).with_changes(...)` and the closed policy enums govern behavior, `layout.Page`/`Settings`/`Margins` placing content at a real page size. No foreign DXF renderer is admitted.
+- query axis: `doc.query("LINE CIRCLE[layer=='WALLS']")` is the entity-query-language selection refined by `EntityQuery.query`/`filter`/`groupby` and set-algebra, never a `get`/`find_by_layer` family. Spatial selection is `select` (rtree `Window`/`Circle`/`Polygon`/fence), grouping `groupby`, affines `transform.inplace`/`copies`, extents `bbox.extents`.
+- evidence: each DXF op captures the dxfversion, per-type entity count, model `BoundingBox` extents, layer/block roster, `audit()` error+fix counts, units, and output byte length as a cad-export receipt; a render op adds the backend, page size/units, and rendered byte length.
+- boundary: IFC semantic modeling stays `csharp:Rasm.Bim`; SVG geometry meets `svgelements`/`graphic/vector` at the `Path`/`d`-string wire; raster beyond the bundled backends routes to `pyvips`/`pillow`, PDF assembly to `pymupdf`/`pikepdf`, font shaping to `fonttools`/`uharfbuzz`; the AEC standards vocabularies lower from the `drawing/*` owners onto ezdxf tables, and sheet placement/scale stays `composition/sheet`.
 
 [STACKING]:
-- `expression`: `Dxf.of` returns `Result[Dxf, DxfFault]`; `DxfFault.source`/`scalar`/`geometry`/`selection`/`document` close admission failures, and the runtime lane converts provider raises after admission.
-- `msgspec`: `DxfEntity`, `DxfDocument`, `DxfOp`, and `DxfComposed` are frozen structures or tagged unions. `ArtifactReceipt.Cad` receives version, units, artifact kind, byte length, layer/block counts, audit counts, and entity census without importing producer models.
-- `numpy`: `Path.flattening(d)`/`make_path(e).control_vertices()` and `Vec3.list(verts)` produce vertex sequences that feed `numpy.asarray(...)` for the `graphic/vector`/`geometry` numeric lane (offset, simplify, convex hull) — the array substrate is the shared `libs/python/.api/numpy.md` owner ezdxf already depends on, so a path crosses into the numeric rail and the `render_lines` result crosses back, one array contract, no second copy.
-- `svgelements` (folder `.api`): a QR/chart/figure `svgelements.Path` `d`-string crosses into DXF through `dxfpath.from_vertices([p for p in svg_path.as_points()])` + `render_lines(msp, [dxf_path])`, and a DXF curve crosses out through `make_path(entity).flattening(distance)` (or `.control_vertices()` for the exact NURBS frame) -> a `Vec3` vertex sequence the figure composer rebuilds as an `svgelements.Path` and transforms by `svgelements.Matrix` — the two path owners meet at the vertex/`d`-string wire, neither re-implementing the other's geometry (`ezdxf.path.Path` carries `move_to`/`line_to`/`curve3_to`/`curve4_to` and `flattening`/`control_vertices`, not the `svgelements.Path.as_points` method).
-- `svg` render backend + `pymupdf`/`pyvips`: `SVGBackend.get_string(...)` produces an SVG the `graphic/vector` owner composites and `resvg-py`/`vl-convert` rasterizes, while `PyMuPdfBackend.get_pdf_bytes(...)` produces a one-page PDF the `composition/imposition`/`composition/sheet` owner places into a sheet set — so a DXF figure lowers into the document/composition plane through the existing raster/page owners, never a new renderer.
-- `anyio`/`stamina`: `LanePolicy.offload(Kernel.of(_composed, KernelTrait.RELEASING), op)` owns capacity, cancellation, and boundary-fault conversion for rendering and recovery, worker-death retry riding the kernel's trait row.
-- `addons.geo` <-> `data/tabular`/geospatial seam: `addons.geo.proxy(entity)` -> a GeoJSON mapping and `GeoProxy.parse(...).to_dxf_entities()` round-trip DXF geometry against the geospatial frame, so a georeferenced site plan crosses the same GeoJSON wire the geospatial owners read, ezdxf holding only the DXF<->GeoJSON conversion, never the CRS authority.
+- `expression`(`libs/python/.api/expression.md`): `Dxf.of` returns `Result[Dxf, DxfFault]`; `DxfFault.source`/`scalar`/`geometry`/`selection`/`document` close admission failures, the runtime lane converting provider raises after admission.
+- `msgspec`(`libs/python/.api/msgspec.md`): `DxfEntity`/`DxfDocument`/`DxfOp`/`DxfComposed` are frozen structs or tagged unions, and `ArtifactReceipt.Cad` receives version, units, kind, byte length, layer/block counts, audit counts, and entity census without importing producer models.
+- `numpy`(`libs/python/.api/numpy.md`): `Path.flattening(d)`/`make_path(e).control_vertices()` and `Vec3.list(verts)` feed `numpy.asarray(...)` for the `graphic/vector`/`geometry` numeric lane, `render_lines` crossing the result back — one shared array contract, no second copy.
+- `svgelements`(`.api/svgelements.md`): a figure `svgelements.Path` `d`-string crosses into DXF through `dxfpath.from_vertices([...])` + `render_lines`, and a DXF curve crosses out through `make_path(entity).flattening(distance)` (or `.control_vertices()` for the exact NURBS frame) into a `Vec3` sequence the figure composer rebuilds — the two path owners meet at the vertex/`d`-string wire, neither re-implementing the other's geometry.
+- `resvg-py`/`pymupdf`(`.api/resvg-py.md`, `.api/pymupdf.md`): `SVGBackend.get_string(...)` produces an SVG the `graphic/vector` owner composites and `resvg-py`/`vl-convert` rasterizes, while `PyMuPdfBackend.get_pdf_bytes(...)` produces a one-page PDF the `composition/imposition`/`composition/sheet` owner places — a DXF figure lowers into the document plane through the existing raster/page owners.
+- `anyio`(`libs/python/.api/anyio.md`)/`stamina`(`libs/python/runtime/.api/stamina.md`): `LanePolicy.offload(Kernel.of(_composed, KernelTrait.RELEASING), op)` owns capacity, cancellation, and boundary-fault conversion for rendering and recovery, worker-death retry riding the kernel's trait row.
+- `addons.geo`: `addons.geo.proxy(entity)` and `GeoProxy.parse(...).to_dxf_entities()` round-trip DXF geometry against the geospatial frame, so a georeferenced site plan crosses the same GeoJSON wire the geospatial owners read — ezdxf holding only the DXF<->GeoJSON conversion, never the CRS authority.
 
 ## [05]-[LOCAL_ADMISSION]
 
+[RAIL_LAW]:
 - Package: `ezdxf`
-- Owns: DXF R12->R2018 read/write/recover, the full graphic-entity builder vocabulary (line/arc/circle/ellipse/spline/polyline/hatch/text/mtext/leader/multileader/all dimension kinds/block-ref/mesh/solid/image/wipeout/primitives), the `ezdxf.path.Path` command-segment algebra with curve flattening + DXF<->SVG<->hatch conversion + tessellation, the `ezdxf.math` geometry kernel (vectors/matrices/NURBS/Bezier/OCS/UCS/bounding-box/construction primitives), the `addons.drawing` render frontend over Matplotlib/SVG/PDF/JSON/GeoJSON backends with full property + policy resolution, symbol-table/layer/linetype/textstyle/dimstyle authoring, block + xref management, spatial `select`, affine `transform`, `query`/`groupby` selection, `bbox` extents, GeoJSON `addons.geo`, cross-document `addons.Importer`, `text2path` outline conversion, and the `r12writer` streaming writer
-- Accept: DXF ingestion and salvage, drawing/dimension/annotation/symbol/schedule geometry emission (the `drawing/*` AEC vocabularies lowering onto ezdxf tables + entities), DXF figure rendering into the document/composition plane (SVG/PDF/PNG preview), DXF<->SVG path exchange with the figure/vector rail, the geometry-kernel wire (`Vec3`/`Matrix44` to numpy + the C# `Rasm` geometry seam), and DXF<->GeoJSON round-trip for georeferenced plans
-- Reject: a hand-assembled DXF tag stream where the `add_*` builder family + `GfxAttribs` exist; a per-entity attribute setter where the uniform `dxfattribs=` axis applies; a re-implemented affine/B-spline/OCS transform where `ezdxf.math` owns it; a re-parsed SVG `d`-string where `make_path`/`render_lines` bridge the geometry; a foreign DXF renderer where the `Frontend`+backend family renders; a `find`/`get_by_layer`/`filter` query family where `doc.query(...)`/`groupby` discriminate; the conforming `readfile` on a damaged file where `recover.readfile` is the correct salvage path; IFC semantic authoring the `csharp:Rasm.Bim` owner holds; the AEC standards vocabularies (ISO line types/dimensions/lettering/layer codec) the `drawing/*` owners hold; sheet placement/scale the `composition/sheet` owner holds; identity minting the runtime owns
+- Owns: DXF R12->R2018 read/write/recover, the graphic-entity builder vocabulary, the `ezdxf.path.Path` command-segment algebra, the `ezdxf.math` geometry kernel, the `addons.drawing` render frontend over its backends, symbol-table/block/xref authoring, spatial `select`, affine `transform`, `query`/`groupby` selection, `bbox` extents, `addons.geo` round-trip, cross-document `addons.Importer`, `text2path` outline conversion, and the `r12writer` streaming writer
+- Accept: DXF ingestion and salvage, drawing/dimension/annotation/symbol geometry emission (the `drawing/*` AEC vocabularies lowering onto ezdxf tables + entities), DXF figure rendering into the document/composition plane, DXF<->SVG path exchange with the figure rail, the geometry-kernel wire to numpy and the C# `Rasm` seam, and DXF<->GeoJSON round-trip for georeferenced plans
+- Reject: a hand-assembled DXF tag stream where the `add_*` family + `GfxAttribs` exist; a per-entity attribute setter where the uniform `dxfattribs=` axis applies; a re-implemented affine/B-spline/OCS transform where `ezdxf.math` owns it; a re-parsed SVG `d`-string where `make_path`/`render_lines` bridge; a foreign DXF renderer where the `Frontend`+backend family renders; a `find`/`get_by_layer`/`filter` query family where `doc.query`/`groupby` discriminate; the conforming `readfile` on a damaged file where `recover.readfile` is correct; IFC semantic authoring the `csharp:Rasm.Bim` owner holds; identity minting the runtime owns

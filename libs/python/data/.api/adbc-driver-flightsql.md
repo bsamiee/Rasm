@@ -1,27 +1,22 @@
 # [PY_DATA_API_ADBC_DRIVER_FLIGHTSQL]
 
-`adbc-driver-flightsql` supplies the ADBC Arrow Flight SQL driver for the data partition rail: a `connect` factory binding the native `libadbc_driver_flightsql.so` to a Flight SQL endpoint as an `AdbcDatabase`, three `enum.Enum` option vocabularies (`DatabaseOptions`, `ConnectionOptions`, `StatementOptions`) keying every database, connection, and statement setting by canonical `adbc.flight.sql.*` string, and two OAuth axes (`OAuthFlowType`, `OAuthTokenType`). Consumption rides `dbapi.connect` on the `REMOTE_PARTITION_DEEPEN` path, feeding `execute_partitions` endpoints back as Arrow record batches over Flight RPC — never a re-implemented gRPC Flight transport, a hand-stitched partition handoff, or a per-setting builder type where an option enum string already keys the value.
+`adbc-driver-flightsql` binds an Arrow Flight SQL endpoint as an ADBC database on the data partition rail: `connect` mints the native-driver-backed `AdbcDatabase`, three option-enum vocabularies key every database, connection, and statement setting by canonical `adbc.flight.sql.*` string, and two OAuth axes drive client-credentials and RFC 8693 token-exchange auth. Partition deepening rides `dbapi.connect`, fanning `execute_partitions` endpoints back as Arrow record batches over Flight RPC.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `adbc-driver-flightsql`
-- package: `adbc-driver-flightsql`
-- version: `1.11.0`
-- import: `adbc_driver_flightsql`
-- owner: `data`
+- package: `adbc-driver-flightsql` (Apache-2.0, Apache Arrow)
+- module: `adbc_driver_flightsql`, `adbc_driver_flightsql.dbapi`
+- native: `libadbc_driver_flightsql.so` — the Go-built ADBC driver over the C ABI
 - rail: partition
-- license: `Apache-2.0`
-- entry points: library use is import-only; `connect` returns an `AdbcDatabase`, `dbapi.connect` returns a DBAPI 2.0 `Connection`
-- capability: Flight SQL endpoint binding over gRPC, partitioned result retrieval via `execute_partitions`/`adbc_execute_partitions`, mTLS and TLS-override transport, arbitrary RPC header injection, per-call fetch/query/update timeouts, session-option get/set, OAuth 2.0 client-credentials and token-exchange (RFC 8693) authentication, Substrait plan version control, and DBAPI 2.0 cursor access yielding Arrow record batches
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: factory and option vocabularies
-- rail: partition
 
-`connect` is the single low-level factory; `DatabaseOptions`, `ConnectionOptions`, and `StatementOptions` are `enum.Enum` option keys whose values are the canonical `adbc.flight.sql.*` setting strings consumed by `db_kwargs`/`conn_kwargs`/statement options. `OAuthFlowType` and `OAuthTokenType` are the value vocabularies for the OAuth flow and token-exchange options on `DatabaseOptions`. `dbapi` carries the DBAPI 2.0 facade — `Connection`, `Cursor`, the typed error hierarchy.
+`DatabaseOptions`, `ConnectionOptions`, and `StatementOptions` are `enum.Enum` keys resolving to canonical `adbc.flight.sql.*` setting strings; `OAuthFlowType` and `OAuthTokenType` value the OAuth flow and token-exchange options. `dbapi` carries the DBAPI 2.0 facade — `Connection`, `Cursor`, the typed error tree.
 
-| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [RAIL]                                                             |
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]                                                       |
 | :-----: | :------------------ | :------------ | :----------------------------------------------------------------- |
 |  [01]   | `connect`           | factory       | bind a Flight SQL URI to an `AdbcDatabase`                         |
 |  [02]   | `DatabaseOptions`   | option enum   | database-scoped `adbc.flight.sql.*` setting keys                   |
@@ -30,22 +25,9 @@
 |  [05]   | `OAuthFlowType`     | value enum    | OAuth 2.0 flow values for `DatabaseOptions.OAUTH_FLOW`             |
 |  [06]   | `OAuthTokenType`    | value enum    | RFC 8693 token-type URIs for OAuth token-exchange options          |
 
-## [03]-[ENTRYPOINTS]
+[PUBLIC_TYPE_SCOPE]: `DatabaseOptions` keys
 
-[ENTRYPOINT_SCOPE]: connection factories
-- rail: partition
-
-`connect` mints the low-level `AdbcDatabase` bound to the native driver path; `dbapi.connect` wraps that in a DBAPI 2.0 `Connection` and adds `conn_kwargs` because ADBC separates the shared database object from per-connection state. Both key `db_kwargs`/`conn_kwargs` by `DatabaseOptions`/`ConnectionOptions` enum values.
-
-| [INDEX] | [SURFACE]       | [CALL_SHAPE]                                                             | [CAPABILITY]                         |
-| :-----: | :-------------- | :----------------------------------------------------------------------- | :----------------------------------- |
-|  [01]   | `connect`       | `connect(uri, db_kwargs=None) -> AdbcDatabase`                           | low-level Flight SQL database handle |
-|  [02]   | `dbapi.connect` | `connect(uri, db_kwargs=None, conn_kwargs=None, **kwargs) -> Connection` | DBAPI 2.0 connection over Flight SQL |
-
-[ENTRYPOINT_SCOPE]: `DatabaseOptions` keys
-- rail: partition
-
-Each member value is the canonical setting string passed in `db_kwargs`. Timeouts are floating-point seconds; `RPC_CALL_HEADER_PREFIX` is a key prefix suffixed with the header name; OAuth keys configure the flow selected by `OAUTH_FLOW`.
+Each member resolves to its `db_kwargs` setting string; `RPC_CALL_HEADER_PREFIX` suffixes the header name, timeouts are floating-point seconds, and the OAuth keys configure the flow selected by `OAUTH_FLOW`.
 
 | [INDEX] | [MEMBER]                              | [VALUE]                                               | [CAPABILITY]                            |
 | :-----: | :------------------------------------ | :---------------------------------------------------- | :-------------------------------------- |
@@ -79,9 +61,9 @@ Each member value is the canonical setting string passed in `db_kwargs`. Timeout
 |  [28]   | `OAUTH_EXCHANGE_AUD`                  | `adbc.flight.sql.oauth.exchange.aud`                  | token-exchange audience                 |
 |  [29]   | `OAUTH_EXCHANGE_RESOURCE`             | `adbc.flight.sql.oauth.exchange.resource`             | token-exchange resource                 |
 
-[ENTRYPOINT_SCOPE]: `ConnectionOptions` keys
-- rail: partition
-- Every key is prefixed `ConnectionOptions.` and applies at connection scope; session-option rows get and set through the `adbc.flight.sql.session.*` prefixes, and `RPC_CALL_HEADER_PREFIX`/`TIMEOUT_*` alias the same `DatabaseOptions` value, overriding database-scoped headers.
+[PUBLIC_TYPE_SCOPE]: `ConnectionOptions` keys
+
+Session-option rows get and set through the `adbc.flight.sql.session.*` prefixes; `RPC_CALL_HEADER_PREFIX`/`TIMEOUT_*` alias the database keys and override database scope.
 
 | [INDEX] | [MEMBER]                                   | [VALUE]                                      | [CAPABILITY]                            |
 | :-----: | :----------------------------------------- | :------------------------------------------- | :-------------------------------------- |
@@ -95,9 +77,9 @@ Each member value is the canonical setting string passed in `db_kwargs`. Timeout
 |  [08]   | `TIMEOUT_QUERY`                            | `adbc.flight.sql.rpc.timeout_seconds.query`  | query timeout (seconds)                 |
 |  [09]   | `TIMEOUT_UPDATE`                           | `adbc.flight.sql.rpc.timeout_seconds.update` | update timeout (seconds)                |
 
-[ENTRYPOINT_SCOPE]: `StatementOptions` keys
-- rail: partition
-- Every key is prefixed `StatementOptions.` and owns the partition read-ahead queue, Substrait version, and per-statement timeout/header overrides; `RPC_CALL_HEADER_PREFIX`/`TIMEOUT_*` alias `DatabaseOptions` at statement scope, overriding db and conn.
+[PUBLIC_TYPE_SCOPE]: `StatementOptions` keys
+
+Owns the partition read-ahead queue, Substrait version, and per-statement overrides; `RPC_CALL_HEADER_PREFIX`/`TIMEOUT_*` alias the database keys and override database and connection scope.
 
 | [INDEX] | [MEMBER]                 | [VALUE]                                           | [CAPABILITY]                                       |
 | :-----: | :----------------------- | :------------------------------------------------ | :------------------------------------------------- |
@@ -109,10 +91,9 @@ Each member value is the canonical setting string passed in `db_kwargs`. Timeout
 |  [06]   | `TIMEOUT_QUERY`          | `adbc.flight.sql.rpc.timeout_seconds.query`       | statement-scoped query timeout (seconds)           |
 |  [07]   | `TIMEOUT_UPDATE`         | `adbc.flight.sql.rpc.timeout_seconds.update`      | statement-scoped update timeout (seconds)          |
 
-[ENTRYPOINT_SCOPE]: OAuth value enums
-- rail: partition
+[PUBLIC_TYPE_SCOPE]: OAuth value enums
 
-`OAuthFlowType` values key `DatabaseOptions.OAUTH_FLOW`; `OAuthTokenType` URIs key the token-type exchange options.
+`OAuthFlowType` values key `DatabaseOptions.OAUTH_FLOW`; `OAuthTokenType` URIs key the token-exchange type options.
 
 | [INDEX] | [MEMBER]                           | [VALUE]                                          | [CAPABILITY]                         |
 | :-----: | :--------------------------------- | :----------------------------------------------- | :----------------------------------- |
@@ -125,23 +106,40 @@ Each member value is the canonical setting string passed in `db_kwargs`. Timeout
 |  [07]   | `OAuthTokenType.SAML2`             | `urn:ietf:params:oauth:token-type:saml2`         | SAML 2.0 assertion                   |
 |  [08]   | `OAuthTokenType.JWT`               | `urn:ietf:params:oauth:token-type:jwt`           | JSON Web Token                       |
 
+## [03]-[ENTRYPOINTS]
+
+[ENTRYPOINT_SCOPE]: connection factories
+
+`connect` mints the native-driver `AdbcDatabase`; `dbapi.connect` derives a DBAPI 2.0 `Connection`, adding `conn_kwargs` for per-connection state over the shared database object. Both key `db_kwargs`/`conn_kwargs` by option-enum value.
+
+| [INDEX] | [SURFACE]                                                                      | [SHAPE] | [CAPABILITY]                         |
+| :-----: | :----------------------------------------------------------------------------- | :------ | :----------------------------------- |
+|  [01]   | `connect(uri, db_kwargs=None) -> AdbcDatabase`                                 | factory | low-level Flight SQL database handle |
+|  [02]   | `dbapi.connect(uri, db_kwargs=None, conn_kwargs=None, **kwargs) -> Connection` | factory | DBAPI 2.0 connection over Flight SQL |
+
 ## [04]-[IMPLEMENTATION_LAW]
 
-[PARTITION_FLIGHTSQL]:
-- import: `import adbc_driver_flightsql` (and `adbc_driver_flightsql.dbapi`) at boundary scope only; module-level import is banned by the manifest import policy.
-- factory axis: one `connect` owns endpoint binding to the native `libadbc_driver_flightsql.so`; `dbapi.connect` is the DBAPI 2.0 row that adds `conn_kwargs`, never a parallel client class — the database object is shared and connections are derived from it.
-- option axis: `DatabaseOptions`/`ConnectionOptions`/`StatementOptions` enum values are the canonical `adbc.flight.sql.*` keys; settings flow as `db_kwargs`/`conn_kwargs`/statement-option dictionaries keyed by enum value, never as ad hoc string literals or a per-setting builder type; connection and statement scope override database scope for shared keys.
-- partition axis: `REMOTE_PARTITION_DEEPEN` runs `Cursor.adbc_execute_partitions` (or low-level `AdbcStatement.execute_partitions`) to receive Flight RPC endpoint descriptors, then opens each with `adbc_read_partition` as an independent `RecordBatchReader`; `StatementOptions.QUEUE_SIZE` tunes per-partition read-ahead and `StatementOptions.LAST_FLIGHT_INFO` inspects progress under incremental execution; partition handoff is the native driver's, never a hand-stitched gRPC loop.
-- manager axis: the concrete driver delegates loading, the DBAPI surface (`Connection`/`Cursor`/`Error` tree), and Arrow result delivery to `adbc_driver_manager`; this catalog adds only the Flight SQL option vocabulary and OAuth axes — never a parallel DBAPI implementation. Typed error tree and `AdbcStatusCode` mapping stay the manager's.
-- arrow egress axis: each partition `RecordBatchReader` exposes `__arrow_c_stream__`, so a Flight SQL result feeds `arro3.core.RecordBatchReader.from_stream` or `polars.from_arrow` with zero copy; fan partitions across workers and collapse them with one terminal `read_all`/`fetch_arrow_table`.
-- transport axis: TLS, mTLS (`MTLS_CERT_CHAIN`/`MTLS_PRIVATE_KEY`), hostname override, root certs, message-size cap, cookie middleware, and per-call fetch/query/update timeouts are `DatabaseOptions` rows; arbitrary headers attach through the `RPC_CALL_HEADER_PREFIX` key prefix at the narrowest applicable scope.
-- auth axis: `OAUTH_FLOW` selects an `OAuthFlowType` value; client-credentials uses the client-id/secret/scope rows while token-exchange (RFC 8693) keys subject/actor/requested token URIs by `OAuthTokenType`; the `AUTHORIZATION_HEADER` row carries a static bearer when no flow is configured.
-- telemetry axis: the Go driver embeds its own OTel tracer with OTLP gRPC and HTTP exporters compiled in, configured through the standard `OTEL_TRACES_EXPORTER`/`OTEL_EXPORTER_OTLP_*`/`OTEL_SERVICE_NAME` env family; the raw connection option `adbc.telemetry.trace_parent` — spelled by no Python option enum, verified against the shipped `libadbc_driver_flightsql.so` — accepts a W3C `traceparent` so driver spans join the caller's trace; no Python-side instrumentor covers this driver.
-- evidence: each connection captures the resolved URI, applied option keys, OAuth flow, partition count, per-partition batch count, and Arrow schema as a partition receipt.
-- boundary: the driver owns the Flight SQL gRPC transport, option application, and partition retrieval, emitting Arrow record batches consumed by the data partition owner; result-set materialization and dataframe conversion route to `pyarrow`/`polars`, and credential identity minting stays with the runtime owner.
+[TOPOLOGY]:
+- factory: one `connect` binds the endpoint to `libadbc_driver_flightsql.so`; `dbapi.connect` derives the DBAPI 2.0 connection and adds `conn_kwargs` — the database object is shared and connections derive from it.
+- option: `DatabaseOptions`/`ConnectionOptions`/`StatementOptions` values are the canonical `adbc.flight.sql.*` keys applied as `db_kwargs`/`conn_kwargs`/statement dictionaries; connection and statement scope override database scope for shared keys.
+- partition: `REMOTE_PARTITION_DEEPEN` runs `Cursor.adbc_execute_partitions` (low-level `AdbcStatement.execute_partitions`) for Flight RPC endpoint descriptors, opens each with `adbc_read_partition` as an independent `RecordBatchReader`, tunes read-ahead with `StatementOptions.QUEUE_SIZE`, and inspects incremental progress with `StatementOptions.LAST_FLIGHT_INFO`.
+- transport: TLS, mTLS (`MTLS_CERT_CHAIN`/`MTLS_PRIVATE_KEY`), hostname override, root certs, message-size cap, cookie middleware, and per-call fetch/query/update timeouts are `DatabaseOptions` rows; arbitrary headers attach through `RPC_CALL_HEADER_PREFIX` at the narrowest applicable scope.
+- auth: `OAUTH_FLOW` selects an `OAuthFlowType`; client-credentials keys client-id/secret/scope, token-exchange keys subject/actor/requested token URIs by `OAuthTokenType`, and `AUTHORIZATION_HEADER` carries a static bearer without a flow.
+- telemetry: inherits the manager's ADBC Go-driver OTel contract (`adbc-driver-manager.md` `[04]-[IMPLEMENTATION_LAW]`); the flightsql delta is dual OTLP exporters, gRPC and HTTP.
+- receipt: each connection captures the resolved URI, applied option keys, OAuth flow, partition and per-partition batch counts, and Arrow schema.
+
+[STACKING]:
+- `adbc-driver-manager`(`.api/adbc-driver-manager.md`): the concrete driver delegates loading, the DBAPI surface (`Connection`/`Cursor`/`Error` tree, `AdbcStatusCode`), and Arrow delivery to the manager; this catalog adds only the Flight SQL option vocabulary and OAuth axes.
+- `arro3-core`(`.api/arro3-core.md`), `polars`: each partition `RecordBatchReader` exposes `__arrow_c_stream__`, feeding `arro3.core.RecordBatchReader.from_stream` or `polars.from_arrow` zero-copy; fan partitions across workers and collapse with one terminal `read_all`/`fetch_arrow_table`.
+- data partition owner: partition endpoints fan across workers and Arrow batches collapse to the partition receipt; dataframe materialization routes to `pyarrow`/`polars` and credential minting to the runtime owner.
+
+[LOCAL_ADMISSION]:
+- Import `adbc_driver_flightsql`/`.dbapi` at boundary scope only.
+- Key every setting by option-enum value through `db_kwargs`/`conn_kwargs`/statement options.
+- Deepen remote partitions through the native `execute_partitions`/`adbc_read_partition` handoff.
 
 [RAIL_LAW]:
 - Package: `adbc-driver-flightsql`
 - Owns: Flight SQL endpoint binding, partitioned Arrow result retrieval, TLS/mTLS transport control, RPC header and timeout configuration, session-option get/set, and OAuth 2.0 client-credentials and token-exchange authentication
 - Accept: remote Flight SQL partition deepening feeding Arrow record batches to the data partition, query, and dataframe owners
-- Reject: wrapper-renames of `connect`/`dbapi.connect`; a hand-rolled gRPC Flight client or partition loop the native driver owns; a per-setting builder type where an option enum value already keys the value; string-literal option keys bypassing `DatabaseOptions`/`ConnectionOptions`/`StatementOptions`; credential identity minting the runtime owns
+- Reject: wrapper-renames of `connect`/`dbapi.connect`; a hand-rolled gRPC Flight client or partition loop the native driver owns; a per-setting builder type where an option-enum value keys the value; string-literal option keys bypassing `DatabaseOptions`/`ConnectionOptions`/`StatementOptions`; credential identity minting the runtime owns

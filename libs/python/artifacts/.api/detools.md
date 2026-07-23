@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_DETOOLS]
 
-`detools` supplies the binary-delta surface for the artifacts DELTA_BUNDLE rail: a `create_patch` factory that diffs a from-image against a to-image and writes a compressed patch, plus an `apply_patch` family that reconstructs the to-image from the from-image and a patch, and a `patch_info` family that peeks the self-describing patch header and returns a per-kind metadata record. The `package/delta#DELTA` owner composes `create_patch`, `apply_patch`/`apply_patch_in_place`/`apply_patch_bsdiff`, and `patch_info` into the DELTA_BUNDLE create/apply path as the one `CompressionAlgo.DELTA` row on the `package/bundle#BUNDLE` `Bundle` union — `DeltaKnobs`/`InPlaceSegments`/`FirmwareLayout` are `msgspec.Struct(frozen=True)` knob bands that project through `kwargs()` onto the flat `detools` call rows at the boundary, the native diff runs through `anyio.to_thread.run_sync` off the event loop, the `detools.Error` rail lifts to an `expression` `Result.Error` at the codec `async_boundary` seam, and the `parent_key: ContentKey` from-image binding rides the `runtime` `xxhash` content-key wire. It removes any hand-rolled bsdiff or hdiffpatch suffix-array diffing because the native `bsdiff`/`hdiffpatch`/`suffix_array` extensions are in-package, and it never re-implements the patch container framing, compression selection, or in-place segmentation `detools` already owns; the patch-payload codecs (`lz4`/`zstandard`/`heatshrink2`, stdlib `bz2`/`lzma`) are admitted siblings `detools` SELECTS and frames, never re-implemented here.
+`detools` owns binary-delta for the artifacts DELTA_BUNDLE rail: `create_patch` diffs a from-image against a to-image into a compressed patch, `apply_patch` reconstructs the to-image, and `patch_info` peeks the self-describing header for per-kind metadata. Native `bsdiff`/`hdiffpatch`/`suffix_array` extensions own the diffing, in-place segmentation, and firmware data-format awareness; the patch-payload codecs are admitted siblings `detools` selects and frames, and `detools.Error` lifts to an `expression` `Result.Error` at the codec `async_boundary`.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,32 +9,31 @@
 - import: `detools`
 - owner: `artifacts`
 - rail: delta
-- version: `0.53.0`
-- license: `BSD` (`License: BSD`, `Classifier: License :: OSI Approved :: BSD License`; `LICENSE` ships in the sdist)
-- marker: native `bsdiff`/`hdiffpatch`/`suffix_array` C extensions built from the sdist; cp315 build present in-tree (`detools/bsdiff.cpython-315-darwin.so`, `detools/hdiffpatch.*.so`, `detools/suffix_array.*.so`) — no abi3, so the extension is interpreter-tagged and rebuilds per Python version, no `python_version` gate needed at the resolver
-- runtime deps: `humanfriendly`, `bitstruct`, `pyelftools` (ELF data-format offset reader), `zstandard`, `lz4`, `heatshrink2` (`Requires-Dist`) — the codec siblings `detools` selects, never re-implements
-- namespaces: `detools` (re-exports the public functions), `detools.create`, `detools.apply`, `detools.info`, `detools.compression` (`crle`/`lz4`/`zstd`/`heatshrink`/`none` codec adapters), `detools.data_format` (`elf` reader), `detools.errors`
-- public surface: no `__all__` — the public API is the explicit `from .x import y` re-export set in `__init__.py` (`create_patch`/`create_patch_filenames`, `apply_patch`/`apply_patch_in_place`/`apply_patch_bsdiff` + their `_filenames`, `patch_info`/`patch_info_filename`, `Error`, `__version__`); everything else in `__init__.py` (`data_format_from_files`, `data_format_args`, `add_data_format_args`, `find_data_offset_into_binfile`, `parse_range`, the `_do_*` CLI handlers) is CLI-`__main__` plumbing, not the library contract
-- entry points: console script `detools` (CLI); library use is import-only
-- capability: binary-delta patch creation across `sequential`/`in-place`/`bsdiff` patch types and `bsdiff`/`hdiffpatch`/`match-blocks` algorithms, `divsufsort`/`sais` suffix-array construction, `bz2`/`crle`/`lzma`/`zstd`/`lz4`/`heatshrink`/`none` compression, data-format-aware ELF/AArch64/Cortex-M4/Xtensa-LX106 segmentation with `from_*`/`to_*` offset rows, patch application from file-like or named-file inputs, and patch-container inspection returning a per-kind metadata record
+- license: `BSD`
+- marker: native `bsdiff`/`hdiffpatch`/`suffix_array` C extensions built from the sdist, interpreter-tagged (no abi3), rebuilt per Python minor
+- depends: `humanfriendly`, `bitstruct`, `pyelftools` (ELF offset reader), `zstandard`, `lz4`, `heatshrink2` — the codec siblings `detools` selects
+- namespaces: `detools`, `detools.create`, `detools.apply`, `detools.info`, `detools.compression`, `detools.data_format`, `detools.errors`
+- public surface: no `__all__`; the library contract is the explicit `from … import …` re-export set the `[02]`/`[03]` rosters carry, `Error`, and `__version__`; the module's `_do_*` handlers, `data_format_args`, `add_data_format_args`, `find_data_offset_into_binfile`, and `parse_range` are `__main__` CLI plumbing, never library surface
+- entry points: console script `detools`; library use is import-only
+- capability: binary-delta patch creation across `sequential`/`in-place`/`bsdiff` patch types and `bsdiff`/`hdiffpatch`/`match-blocks` algorithms, `divsufsort`/`sais` suffix-array construction, `bz2`/`crle`/`lzma`/`zstd`/`lz4`/`heatshrink`/`none` compression, data-format-aware ELF/AArch64/Cortex-M4/Xtensa-LX106 segmentation, patch application from file-like or named-file inputs, and patch-container inspection returning a per-kind metadata record
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: failure root
-- rail: delta
 
-The patch surface is function-centric; the one public type is `Error` (`class Error(Exception)`, `detools.errors`), the common base for every `detools` failure (bad patch type, bad algorithm/patch-type combination, header read failure, compression mismatch, applied-image size mismatch, in-place dfpatch `NotImplementedError`). Patch type and algorithm are call-row strings on `create_patch`, never parallel patch classes. At the artifacts boundary `Error` is caught and lifted to an `expression` `Result.Error` on the unified codec rail — the design maps this ONE rail, never an exception family.
+`Error` (`class Error(Exception)`, `detools.errors`) is the sole public type and the common base for every `detools` failure — bad patch type, bad algorithm/patch-type combination, header read failure, compression mismatch, applied-image size mismatch, in-place dfpatch `NotImplementedError`. Patch type and algorithm are call-row strings on `create_patch`, never parallel patch classes.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL]                                          |
-| :-----: | :------- | :------------ | :---------------------------------------------- |
-|  [01]   | `Error`  | error         | base failure for all `detools` patch operations |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY]                                     |
+| :-----: | :------- | :------------ | :----------------------------------------------- |
+|  [01]   | `Error`  | error         | base failure for every `detools` patch operation |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: patch creation
-- rail: delta
 
-`create_patch` is the single diff surface; `patch_type` (`sequential`/`in-place`/`bsdiff`/`hdiffpatch`), `algorithm` (`bsdiff` default / `hdiffpatch` / `match-blocks`), `suffix_array_algorithm`, and `compression` are call rows whose `(algorithm, patch_type)` combination selects the create kernel, never per-mode builder types. The valid combinations are exactly `bsdiff`×`sequential`, `bsdiff`×`in-place`, `bsdiff`×`bsdiff`, `hdiffpatch`×`hdiffpatch`, and `match-blocks`×`sequential`/`hdiffpatch`; every other pair raises `Error("Bad algorithm and patch type combination …")`. The `_filenames` row opens the named files and forwards the identical keyword axis. `ffrom`/`fto`/`fpatch` are file-like objects — and `use_mmap` is a BOUNDARY fact, not a knob: a `BytesIO` ingress exposes no `fileno()`, the `bsdiff`/`sequential` kernel falls back mmap->heap on `io.UnsupportedOperation`, but the `hdiffpatch`/`match-blocks` kernels mmap their input with NO heap fallback, so an in-memory-buffer caller pins `use_mmap=False` to read every diff path through the heap reader.
+`create_patch` is the single diff surface; `patch_type`, `algorithm`, `suffix_array_algorithm`, and `compression` are call rows whose `(algorithm, patch_type)` pair selects the create kernel. Valid pairs are `bsdiff`×`sequential`/`in-place`/`bsdiff`, `hdiffpatch`×`hdiffpatch`, and `match-blocks`×`sequential`/`hdiffpatch`; every other pair raises `Error`.
+
+`use_mmap` is a boundary fact rather than a knob: a `BytesIO` ingress exposes no `fileno()`, so the `bsdiff`/`sequential` kernel falls back mmap->heap on `io.UnsupportedOperation` while the `hdiffpatch`/`match-blocks` kernels mmap with no heap fallback — an in-memory-buffer caller pins `use_mmap=False`.
 
 ```python signature
 create_patch(
@@ -49,83 +48,65 @@ create_patch(
     match_score=6, match_block_size=64, use_mmap=True,
     heatshrink_window_sz2=8, heatshrink_lookahead_sz2=7,
 )
-# create_patch_filenames(fromfile, tofile, patchfile, …) forwards the identical keyword axis
 ```
 
-| [INDEX] | [SURFACE]                | [CAPABILITY]                                             |
-| :-----: | :----------------------- | :------------------------------------------------------- |
-|  [01]   | `create_patch`           | diff `ffrom`->`fto`, write patch to `fpatch`             |
-|  [02]   | `create_patch_filenames` | named-file form of `create_patch` (identical kwarg axis) |
+| [INDEX] | [SURFACE]                | [CAPABILITY]                                            |
+| :-----: | :----------------------- | :------------------------------------------------------ |
+|  [01]   | `create_patch`           | diff `ffrom`->`fto`, write patch to `fpatch`            |
+|  [02]   | `create_patch_filenames` | named-file form of `create_patch`, identical kwarg axis |
 
 [ENTRYPOINT_SCOPE]: patch application
-- rail: delta
 
-`apply_patch` peeks the patch header type (`peek_header_type`) and dispatches to the sequential or hdiffpatch reconstructor — so it is the ONE entry the DELTA_BUNDLE apply routes through for the self-describing `sequential`/`hdiffpatch` headers, never an algorithm-specific reconstructor; `apply_patch_bsdiff` applies a raw headerless `BSDIFF40` patch; `apply_patch_in_place` mutates the memory image in place. Each `_filenames` row opens the named files and forwards to the file-like form, propagating its return. `apply_patch`/`apply_patch_bsdiff`/`apply_patch_in_place` each return the `int` size of the created to-data — the sequential/bsdiff sinks receive the bytes via the `fto` writer, while the in-place call writes INTO `fmem`: the recovered to-image is the `to_size`-prefix of the mutated `fmem` buffer (`fmem.getvalue()[:to_size]`), never the full `memory_size`-padded buffer, and `to_size` MUST be bound before reading `getvalue()` because the call mutates in place.
+`apply_patch` peeks the header type and dispatches to the sequential or hdiffpatch reconstructor, so DELTA_BUNDLE apply routes through it for the self-describing `sequential`/`hdiffpatch` headers; `apply_patch_bsdiff` applies a raw headerless `BSDIFF40` patch and `apply_patch_in_place` mutates the memory image in place. Each returns the `int` size of the created to-data.
 
-| [INDEX] | [CALL_SHAPE]                                                | [CAPABILITY]                                       |
-| :-----: | :---------------------------------------------------------- | :------------------------------------------------- |
-|  [01]   | `apply_patch(ffrom, fpatch, fto)` -> `int`                  | reconstruct `fto` (sequential/hdiffpatch dispatch) |
-|  [02]   | `apply_patch_filenames(fromfile, patchfile, tofile)`        | named-file form of `apply_patch`                   |
-|  [03]   | `apply_patch_bsdiff(ffrom, fpatch, fto)` -> `int`           | apply a raw bsdiff patch                           |
-|  [04]   | `apply_patch_bsdiff_filenames(fromfile, patchfile, tofile)` | named-file form of `apply_patch_bsdiff`            |
-|  [05]   | `apply_patch_in_place(fmem, fpatch)` -> `int`               | apply an in-place patch, mutating `fmem`           |
-|  [06]   | `apply_patch_in_place_filenames(memfile, patchfile)`        | named-file form of `apply_patch_in_place`          |
+`apply_patch_in_place` writes INTO `fmem`, so the recovered to-image is the `to_size`-prefix `fmem.getvalue()[:to_size]`, never the full `memory_size`-padded buffer, and `to_size` binds before `getvalue()` because the call mutates in place.
+
+| [INDEX] | [SURFACE]                        | [CALL_SHAPE]                    | [CAPABILITY]                                       |
+| :-----: | :------------------------------- | :------------------------------ | :------------------------------------------------- |
+|  [01]   | `apply_patch`                    | `(ffrom, fpatch, fto) -> int`   | reconstruct `fto` (sequential/hdiffpatch dispatch) |
+|  [02]   | `apply_patch_filenames`          | `(fromfile, patchfile, tofile)` | named-file form of `apply_patch`                   |
+|  [03]   | `apply_patch_bsdiff`             | `(ffrom, fpatch, fto) -> int`   | apply a raw bsdiff patch                           |
+|  [04]   | `apply_patch_bsdiff_filenames`   | `(fromfile, patchfile, tofile)` | named-file form of `apply_patch_bsdiff`            |
+|  [05]   | `apply_patch_in_place`           | `(fmem, fpatch) -> int`         | apply an in-place patch, mutating `fmem`           |
+|  [06]   | `apply_patch_in_place_filenames` | `(memfile, patchfile)`          | named-file form of `apply_patch_in_place`          |
 
 [ENTRYPOINT_SCOPE]: patch inspection
-- rail: delta
 
-`patch_info` peeks the header type via `peek_header_type(fpatch)` and returns the patch-kind string paired with a per-kind info tuple; `fsize` is an optional size formatter (`humanfriendly.format_size`) the in-place segment summary applies. The `_filename` row opens the named file and forwards. The info tuple is the delta-receipt metadata vocabulary — the codec receipt reads `to_size`/`compression`/`patch_size` off it instead of trusting an opaque blob, and the absence of a single integer compression LEVEL in the tuple is why the `ArtifactReceipt.Bundle` `level` slot stays zero on the delta arm.
+`patch_info` peeks the header type and returns the patch-kind string paired with a per-kind info tuple; `fsize` is an optional size formatter (`humanfriendly.format_size`) the in-place segment summary applies.
 
-| [INDEX] | [SURFACE]             | [CALL_SHAPE]                                      | [CAPABILITY]                            |
-| :-----: | :-------------------- | :------------------------------------------------ | :-------------------------------------- |
-|  [01]   | `patch_info`          | `patch_info(fpatch, fsize=None)` -> `(str, info)` | report patch kind and per-type metadata |
-|  [02]   | `patch_info_filename` | `patch_info_filename(patchfile, fsize=None)`      | named-file form of `patch_info`         |
+| [INDEX] | [SURFACE]             | [CALL_SHAPE]                          | [CAPABILITY]                            |
+| :-----: | :-------------------- | :------------------------------------ | :-------------------------------------- |
+|  [01]   | `patch_info`          | `(fpatch, fsize=None) -> (str, info)` | report patch kind and per-type metadata |
+|  [02]   | `patch_info_filename` | `(patchfile, fsize=None)`             | named-file form of `patch_info`         |
 
-Per-kind info tuple (`detools.info`, source-verified) — the second element of the `(kind, info)` return:
-
-| [INDEX] | [KIND]       | [RECEIPT_USE]                                                                                         |
-| :-----: | :----------- | :---------------------------------------------------------------------------------------------------- |
-|  [01]   | `sequential` | `to_size`->`frame_size`; `compression` names the codec; `data_format` proves firmware segmentation    |
-|  [02]   | `in-place`   | segmentation echo (`memory_size`/`segment_size`/`shift_size`); shift is the COMPUTED slide, see below |
-|  [03]   | `hdiffpatch` | the minimal hdiffpatch record; `to_size`->`frame_size`                                                |
-
-Info tuple (`detools.info`, source-verified) — the second element of the `(kind, info)` return:
+Per-kind `patch_info` info tuple (`detools.info`), the second element of the `(kind, info)` return:
 
 - [01]-[SEQUENTIAL]: `(patch_size, compression, compression_info, dfpatch_size, data_format, dfpatch_info, *(to_size, diff_sizes, extra_sizes, …, number_of_size_bytes))`
-- [02]-[in-place]: `(patch_size, compression, compression_info, memory_size, segment_size, shift_size, from_size, to_size, segments[(dfpatch_size, data_format, info)])` — `shift_size` is `detools.create.calc_shift`'s COMPUTED slide `max((memory_segments - from_segments) * segment_size, minimum_shift_size)` where `memory_segments = memory_size // segment_size` (exact — `create_patch_in_place` rejects a `memory_size` not a multiple of `segment_size` with `Error`) and `from_segments = div_ceil(from_size, segment_size)` (a partial trailing segment rounds UP), with `minimum_shift_size` defaulting to `2 * segment_size` and itself required to divide by `segment_size` (`Error` otherwise); a header audit re-derives `memory_segments`/`from_segments`/`shift_size` from the echoed `memory_size`/`segment_size`/`from_size` and asserts the derived slide equals the `patch_info` `shift_size` field, never equality-checks the configured `minimum_shift_size` verbatim (live-verified)
+- [02]-[IN_PLACE]: `(patch_size, compression, compression_info, memory_size, segment_size, shift_size, from_size, to_size, segments[(dfpatch_size, data_format, info)])` — `shift_size` is `detools.create.calc_shift`'s computed slide `max((memory_segments - from_segments) * segment_size, minimum_shift_size)`, where `memory_segments = memory_size // segment_size` (a `memory_size` not a multiple of `segment_size` raises `Error`), `from_segments = div_ceil(from_size, segment_size)`, and `minimum_shift_size` defaults to `2 * segment_size` and itself divides by `segment_size`; an audit re-derives the slide from the echoed sizes, never equality-checking the configured `minimum_shift_size`
 - [03]-[HDIFFPATCH]: `(patch_size, compression, compression_info, to_size)`
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[DELTA_PATCH]:
-- import: `import detools` at boundary scope only; module-level import is banned by the manifest import policy.
-- create axis: one `create_patch` owns diffing; `patch_type` (`sequential`/`in-place`/`bsdiff`/`hdiffpatch`), `algorithm` (`bsdiff` default / `hdiffpatch` / `match-blocks`), `suffix_array_algorithm` (`divsufsort`/`sais`), and `compression` (`bz2`/`crle`/`lzma`/`zstd`/`lz4`/`heatshrink`/`none`) are call rows that combine — `(algorithm, patch_type)` selects the create kernel (`bsdiff`×`sequential`/`in-place`/`bsdiff`, `hdiffpatch`×`hdiffpatch`, or `match-blocks`) — never a per-mode patch type; `create_patch_filenames` is the named-file row, not a parallel API.
-- apply axis: `apply_patch` is the single reconstruction surface; it peeks the header type and dispatches sequential vs hdiffpatch internally, so callers route DELTA_BUNDLE apply through it rather than the algorithm-specific reconstructors; `apply_patch_bsdiff` is the bsdiff-only row and `apply_patch_in_place` is the in-place row, selected only when the patch kind forces it.
-- filename axis: every `_filenames`/`_filename` variant is a thin named-file row over its file-like form; callers pass open file-like objects unless the named-file convenience is required, never both shapes for one concept.
-- compression axis: `compression` selects the patch-payload codec row at create time; bz2/crle/lzma/zstd/lz4/heatshrink/none is a `compression` row, never a parallel patch container — `apply_patch` resolves the codec from the patch header. The codec backends are the admitted siblings `lz4`, `zstandard`, `heatshrink2`, and stdlib `bz2`/`lzma`; detools selects and frames them, never re-implementing the codec.
-- in-place axis: `memory_size`, `segment_size`, and `minimum_shift_size` parameterize in-place patch segmentation; they are creation rows used only when `patch_type='in-place'`, never a separate segmenting type.
-- data-format axis: `data_format` (`"arm-cortex-m4"`/`"aarch64"`/`"xtensa-lx106"`, the `detools.common.DATA_FORMATS` registry) selects ELF/AArch64/Cortex-M4/Xtensa-LX106 segmentation through the confirmed `from_data_offset_begin`/`from_data_offset_end`/`from_data_begin`/`from_data_end`/`from_code_begin`/`from_code_end` and the matching `to_*` offset rows; firmware-aware diffing is a `data_format` row over those offsets, never a per-architecture patch surface. The offsets are TOOL-RESOLVED, not hand-computed: `detools.data_format_from_files(option, elffile, binfile, offset)` opens the ELF through `pyelftools` (`elftools.elf.elffile.ELFFile`), reads the code/data ranges via `detools.data_format.elf.from_file`, and returns the 6-tuple `(from_data_offset_begin, from_data_offset_end, from_code_begin, from_code_end, from_data_begin, from_data_end)` per image (the to-side is a second call); the `from_*`/`to_*` ranges feed `create_patch(data_format=…)`. The dfpatch is encoded into the sequential patch header by `create_patch_sequential_data` and read back self-describing by `apply_patch_sequential`, so the apply arm re-supplies NO offsets. `add_data_format_args(subparser)` is the detools CLI argparse subparser builder and `data_format_args(args)` parses the parsed CLI namespace — both are `__main__` plumbing, NEITHER a library offset resolver; the design binds `data_format_from_files`, never the argparse helpers.
-- evidence: each operation captures patch type, algorithm, compression, suffix-array algorithm, created to-data size (the `int` returned by `apply_patch`/`apply_patch_bsdiff`/`apply_patch_in_place`, also the `patch_info` `to_size` field), and patch-container metadata (the per-kind `patch_info` tuple — `patch_size`/`compression`/`compression_info` plus the in-place segmentation echo or the firmware `dfpatch_info`) as a delta receipt; these fold onto the `core/receipt#RECEIPT` `ArtifactReceipt.Bundle` case (`frame_size` <- `to_size`, `verified` <- the round-trip proof, `level`/`dict_id` zero because the patch compression is header-encoded not a single integer level), contributed through the runtime `ReceiptContributor` port, never a parallel delta receipt shape.
-- boundary: detools owns binary-delta create/apply, patch-container framing, and patch inspection with the native `bsdiff`/`hdiffpatch`/`suffix_array` C extensions built from the sdist; `Error` (subclass of `Exception`) is the single failure type, lifted to `Result.Error` at the codec `async_boundary`; compression backends route to their owning libraries (`lz4`/`zstandard`/`heatshrink2`/stdlib `bz2`/`lzma`) through detools, never re-implemented; the patch bytes are the single blob the `package/bundle#BUNDLE` `Bundle` owner carries (the `DELTA` row), and the round-trip-verified `BundleEvidence` folds onto the `ArtifactReceipt.Bundle` receipt case — detools mints no receipt of its own.
+[TOPOLOGY]:
+- One `create_patch` owns diffing and one `apply_patch` owns reconstruction (peeking the header, dispatching sequential vs hdiffpatch); `apply_patch_bsdiff` and `apply_patch_in_place` are the headerless-bsdiff and in-place header KINDS, not parallel owners.
+- `compression` selects the patch-payload codec at create time (`bz2`/`crle`/`lzma`/`zstd`/`lz4`/`heatshrink`/`none`); `apply_patch` resolves it from the header, never a parallel container.
+- `memory_size`/`segment_size`/`minimum_shift_size` parameterize in-place segmentation as creation rows bound only under `patch_type='in-place'`; `data_format` selects firmware segmentation over the `from_*`/`to_*` offset rows.
+- Every `_filenames`/`_filename` row is a thin named-file form over its file-like surface; one concept never carries both shapes.
+- `import detools` binds at boundary scope only.
 
-[INTEGRATION_STACK]:
-The `package/delta#DELTA` owner stacks `detools` onto BOTH `.api` tiers — the folder-tier codec siblings UNDER the shared universal rails — so the delta arm is one row on the unified codec/receipt/Result spine, never a parallel diff subsystem.
+[STACKING]:
+- `lz4`/`zstandard`(`.api/lz4.md`, `.api/zstandard.md`): the delta `compression` axis selects the SAME codec cores the `package/codec#CODEC` single-blob arms own — `detools` frames the bytes through its `detools.compression.*` adapter, the codec library does the work.
+- `package/delta#DELTA`+`package/bundle#BUNDLE`+`core/receipt#RECEIPT`: the patch bytes are the single blob the `Bundle` `DELTA` row carries; the per-kind `patch_info` tuple and returned to-data size fold onto the `ArtifactReceipt.Bundle` case (`frame_size` <- `to_size`, `level`/`dict_id` zero because the tuple carries no single integer level) through the runtime `ReceiptContributor` port, never a parallel delta receipt.
+- `runtime` `xxhash` (`python:runtime [CONTENT_KEY]` seam): `DeltaKnobs.parent_key: ContentKey` is the from-image content key; the recovered to-image keys `f"from-{parent_key.hex}"`, decoded not re-minted.
+- firmware seam (`pyelftools`): for an ELF image, `data_format_from_files(option, elffile, binfile, offset)` reads the code/data ranges via `detools.data_format.elf.from_file` and feeds the `from_*`/`to_*` offsets into `create_patch(data_format=…)`; the dfpatch is self-describing in the sequential header, so apply re-supplies no offsets. Bind `data_format_from_files`, never the `add_data_format_args`/`data_format_args` CLI helpers.
+- within-lib (`msgspec`/`anyio`): `DeltaKnobs`/`InPlaceSegments`/`FirmwareLayout` are `msgspec.Struct(frozen=True)` bands whose `kwargs()` project dense `tuple[int, int]` ranges onto the flat `detools` kwarg names at the edge (closed axes are `Literal`), keeping the profile content-key-foldable; the CPU-bound native diff runs through `anyio.to_thread.run_sync` (optionally under a `CapacityLimiter`) off the event loop.
+- observability (`structlog`+`opentelemetry`): each delta pack opens an OTel span and binds `patch_type`/`algorithm`/`compression`/`verified`/`frame_size` from the `patch_info` record, the round-trip verdict `verified = int(recovered == payload)` a structured receipt fact.
 
-Folder-tier (artifacts `.api`):
-- detools vs stand-alone codecs: detools is the superset diff engine that subsumes `bsdiff4` (its `bsdiff` algorithm + `apply_patch_bsdiff`) and adds the `hdiffpatch` algorithm, in-place segmentation, and firmware data-format awareness. The DELTA_BUNDLE rail uses detools as the single diff owner; a sibling codec (`lz4`/`zstandard`) is only the payload compressor detools selects, never an independent patch path.
-- codec-tier seam (`lz4`/`zstandard` `.api`): the `DeltaCompression` axis (`bz2`/`crle`/`lzma`/`zstd`/`lz4`/`heatshrink`/`none`) selects the SAME codec cores the `package/codec#CODEC` single-blob arms own — the default `zstd` delta payload rides the `zstandard` core the `ZSTD` arm uses, the `lz4` row the `lz4.frame` core the `LZ4` arm uses — so one codec serves both the delta patch payload and the standalone blob; detools frames the bytes through its `detools.compression.*` adapter, the codec library does the work.
-- stream seam: `ffrom`/`fto`/`fpatch` are file-like, so the codec owner hands `BytesIO` buffers and receives the patch buffer; the container (header type + codec + offsets) is self-describing, so `apply_patch` needs only the from-image and the patch — compression and algorithm are read from the header, never re-supplied.
-- firmware seam: when the DELTA_BUNDLE input is an ELF firmware image, `data_format_from_files` derives the `from_*`/`to_*` code/data offsets via `pyelftools` (`detools.data_format.elf.from_file`) and feeds them into `create_patch(data_format=…)`, so the offset rows are tool-resolved, not hand-computed.
-
-Universal-tier (`libs/python/.api`, layered ON TOP):
-- shape rail (`msgspec`): `DeltaKnobs`/`InPlaceSegments`/`FirmwareLayout` are `msgspec.Struct(frozen=True)` bands; the closed axes are `Literal` types; each band's `kwargs()` projects the dense `tuple[int, int]` range pairs onto the flat `detools` kwarg names AT THE EDGE, so the canonical owner carries dense ranges and the serialized profile holds only call-row strings (no native patch-kind handle), keeping the profile content-key-foldable.
-- Result rail (`expression`): `detools.Error` (the single `Exception` subclass) is NOT raised across the codec boundary — it lifts to `expression` `Result.Error` at the codec `async_boundary` seam, so a "Bad algorithm and patch type combination" or an in-place `NotImplementedError` dfpatch becomes a typed failure value on the unified codec rail, never a leaked exception.
-- concurrency rail (`anyio`): `create_patch` and `_delta_apply` are CPU-bound native calls, so the codec worker runs them through `anyio.to_thread.run_sync(...)` (optionally under a `CapacityLimiter` so concurrent firmware diffs do not saturate the default 40-token thread pool), keeping the suffix-array construction off the event loop.
-- content-key rail (`runtime` `xxhash`): `DeltaKnobs.parent_key: ContentKey` is the parent from-image's `xxhash`-backed runtime content key; the recovered to-image member keys `f"from-{parent_key.hex}"` so each delta traces its parent through the codec `BundleManifest.of` content-key fold — the `package/delta ← python:runtime [CONTENT_KEY]` ARCHITECTURE seam, decoded not re-minted.
-- observability rail (`structlog` + `opentelemetry`): each delta pack opens an OTel span and binds a `structlog` logger with `patch_type`/`algorithm`/`compression`/`verified`/`frame_size` from the `patch_info` record, so the round-trip integrity verdict (`verified = int(recovered == payload)`) and the to-image size are structured receipt facts, not log strings.
+[LOCAL_ADMISSION]:
+- `detools` is the superset diff engine: its `bsdiff` algorithm and `apply_patch_bsdiff` subsume `bsdiff4`, and it adds `hdiffpatch`, in-place segmentation, and firmware data-format awareness — admit it as the single diff owner, a sibling codec only the payload compressor it selects.
 
 [RAIL_LAW]:
 - Package: `detools`
 - Owns: binary-delta patch creation (bsdiff/hdiffpatch, sequential/in-place/bsdiff framing), patch application from file-like or named-file inputs, and patch-container inspection
 - Accept: DELTA_BUNDLE create/apply and patch metadata feeding the artifacts persistence owner
-- Reject: wrapper-renames of `create_patch`/`apply_patch`; admitting `bsdiff4` or a hand-rolled bsdiff/hdiffpatch suffix-array diff where detools already owns the superset; a parallel patch type per `patch_type`/`algorithm`/`compression`; a separate apply entrypoint per patch kind where `apply_patch` already dispatches on the header (note the in-place/bsdiff headerless paths still need `apply_patch_in_place`/`apply_patch_bsdiff` — those are header KINDS, not parallel owners); re-implementing the `lz4`/`zstd`/`heatshrink` codec detools selects; carrying both file-like and named-file shapes for one operation; binding `add_data_format_args`/`data_format_args` (CLI plumbing) where `data_format_from_files` is the library offset resolver; raising `detools.Error` across the codec boundary instead of lifting to a `Result.Error`; running the native diff on the event loop instead of `anyio.to_thread`; a parallel delta receipt instead of the `ArtifactReceipt.Bundle` case; re-minting the parent content key instead of decoding `parent_key`; passing `use_mmap=True` on a `BytesIO` ingress (the hdiffpatch/match-blocks kernels mmap with no heap fallback)
+- Reject: a hand-rolled bsdiff/hdiffpatch suffix-array diff or admitting `bsdiff4` where `detools` owns the superset; re-implementing the `lz4`/`zstd`/`heatshrink` codec `detools` selects; a parallel patch type or apply entrypoint per `patch_type`/`algorithm`/`compression` where the call rows and `apply_patch` header-dispatch already discriminate; binding `add_data_format_args`/`data_format_args` where `data_format_from_files` is the offset resolver; `use_mmap=True` on a `BytesIO` ingress; raising `detools.Error` across the codec boundary instead of lifting to `Result.Error`; running the native diff on the event loop; a parallel delta receipt instead of the `ArtifactReceipt.Bundle` case; re-minting the parent content key

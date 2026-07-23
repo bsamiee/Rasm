@@ -92,7 +92,7 @@ A workflow reads top-to-bottom as the `meta` manifest, then the body in this fix
 
 ```js conceptual
 // --- [CONSTANTS] ---------------------------------------------------------------------
-// dependency-free knobs: CAP, BATCH, STALL, static tier/config tables (group the concurrency knobs)
+// dependency-free knobs: CAP, BATCH, static tier/config tables
 
 // --- [INPUTS] ------------------------------------------------------------------------
 // args read + derived scope/target/root (depends on the args global)
@@ -104,17 +104,17 @@ A workflow reads top-to-bottom as the `meta` manifest, then the body in this fix
 // shared prompt-law TEXT consts woven into prompts; a composed DOCTRINE const comes LAST
 
 // --- [OPERATIONS] --------------------------------------------------------------------
-// pure helpers: pool/sleep harness, clustering, prompt builders, dispatch tables (a STAGES table over the builders lives here, after them)
+// pure helpers: pool, clustering, prompt builders, dispatch tables
 
 // --- [COMPOSITION] -------------------------------------------------------------------
-// the run: phase()/agent()/pipeline()/parallel()/log() + reshaping + the final return
+// Run composition: phase()/agent()/pipeline()/parallel()/log() + reshaping + final return
 
 // --- [SUB_SECTION_STYLE]
 ```
 
 Inside a long `[COMPOSITION]`, mark each phase with a bare subsection divider whose label is the `phase()` title in UPPER_SNAKE (`// --- [RECONCILE]`, no fill). Rules that bite:
 
-- Knobs (`CAP`/`BATCH`/`STALL`) live in `[CONSTANTS]` at the top, never buried in the pool block.
+- Knobs (`CAP`/`BATCH`) live in `[CONSTANTS]` at the top, never buried in the pool block.
 - args-derived values are `[INPUTS]`, never `[CONSTANTS]` — they depend on the runtime `args`. An input derived through a helper co-locates that helper in `[INPUTS]`.
 - A const that references a function or a later value is not a `[CONSTANTS]`: a dispatch table over the prompt builders is `[OPERATIONS]` after them; a composed `DOCTRINE` const follows the blocks it joins.
 - Banned drift labels: `[HARNESS]` `[SCHEMAS]` `[SCHEMA]` `[LAW]` `[CONFIG]` `[PROMPTS]` `[HELPERS]` `[UTILS]` `[COMMON]` `[MISC]` `[FUNCTIONS]` `[LAYERS]` `[IMPORTS]` `[INTERFACES]` `[ENUMS]` `[DTO]` `[QUERIES]` `[FOLDER]` `[SCOPE]` and singular `[INPUT]`.
@@ -129,12 +129,9 @@ Inside a long `[COMPOSITION]`, mark each phase with a bare subsection divider wh
 |  [04]   | `phase`                       | `phase(title) → void`                            | Start a progress group; later agents join it   |
 |  [05]   | `log`                         | `log(message) → void`                            | Emit a narrator line above the progress tree   |
 |  [06]   | `console`                     | `console.log(…)`, `.error(…)`, …                 | Output routed into the workflow log            |
-|  [07]   | `setTimeout` / `clearTimeout` | the standard timer pair                          | Injected, abort-aware                          |
-|  [08]   | `budget`                      | `{ total, spent(), remaining() }`                | The turn's token target                        |
-|  [09]   | `args`                        | any                                              | `args` as structured data; `undefined` if none |
-|  [10]   | `workflow`                    | `workflow(nameOrRef, args?) → Promise<any>`      | Run another workflow inline; one nesting level |
-
-- `setTimeout` / `clearTimeout`: the one legal clock — no `sleep` exists.
+|  [07]   | `budget`                      | `{ total, spent(), remaining() }`                | The turn's token target                        |
+|  [08]   | `args`                        | any                                              | `args` as structured data; `undefined` if none |
+|  [09]   | `workflow`                    | `workflow(nameOrRef, args?) → Promise<any>`      | Run another workflow inline                    |
 
 ### [04.1]-[READING_ARGS]
 
@@ -146,7 +143,9 @@ const scope = Array.isArray(args) ? args : []; // array input
 const task = typeof args === 'string' ? args : 'the change described in TASK.md';
 ```
 
-Never `JSON.parse(args)` in the body — it is already a live value, and parsing an object throws; default the no-args run to a safe no-op, never a full-corpus sweep. ONE carve-out: the tool boundary can hand a JSON-encoded string (a saved-command invocation, or a launch whose args crossed as text), so every workflow reading object args takes a single guarded normalizer at `[INPUTS]` — `(typeof args === 'string' && /^\s*[\[{]/.test(args)) ? JSON.parse(args) : args` — and the body reads only the normalized value. A saved workflow receives `args` via `Workflow({ scriptPath, args })`; a launch that drops it relaunches with an inline `script` or encodes the scope in the file.
+Never `JSON.parse(args)` unconditionally: objects arrive live and parsing them throws. Default omitted args to a no-op. Text boundaries can supply JSON strings, so object-reading workflows normalize once at `[INPUTS]`: `(typeof args === 'string' && /^\s*[\[{]/.test(args)) ? JSON.parse(args) : args`.
+
+Saved workflows receive args through `Workflow({ scriptPath, args })`. A launch that drops them relaunches with inline `script` content or encodes scope in the workflow file.
 
 ## [05]-[AGENT]
 
@@ -166,11 +165,10 @@ Without `schema`, `agent()` returns the subagent's final text verbatim. With `sc
 |  [05]   | `effort`    | string       | Reasoning tier `'low'`…`'max'`, independent of `model`; not in the cache key                       |
 |  [06]   | `isolation` | `'worktree'` | Fresh git worktree per agent; its cost and the case that earns it, throughput reference            |
 |  [07]   | `agentType` | string       | Run as a registered subagent type; validated against the live registry                             |
-|  [08]   | `stallMs`   | number       | Per-agent stall override (default 180000 ms); raise for a slow agent; not in the cache key         |
 
-`schema`, `model`, `isolation`, and `agentType` are the four options baked into the resume cache key, and the prompt text is hashed into it too — change any and that call re-runs. `label`, `phase`, `effort`, and `stallMs` never invalidate a cached result.
+`schema`, `model`, `isolation`, and `agentType` enter the resume cache key with the prompt text. `label`, `phase`, and `effort` never invalidate a cached result.
 
-Editing a script's prose turns on one distinction, because a wrong cut fails silently on the wrong model rather than erroring. WIRE, never edited as text: every `model`/`effort`/`agentType` argument and any `twinOf`-style map; a `label` and its prefix, which name the report file on disk and survive into the journal; a `reg`-style register value routing stance or self-check branches; a dispatch instruction naming the MCP tool, its select string, or a `model="…"` step; a role line INTERPOLATING a variable; and any clause that is an argument spec a delegating agent passes onward, since removing it changes what spawns. PROSE, freely edited: `meta` narration, comments, and the narrative frame of prompt strings. One word carries both senses — a dispatch shell versus a thin-wrapper code defect — so read the sentence, never the token.
+Editing workflow text separates wires from prose. Wires include dispatch options and maps, labels that key reports or journals, register values controlling branches, interpolated role lines, and argument specifications passed to delegates. Prose includes metadata narration, comments, and prompt framing. Classify the sentence by its consumer before editing it.
 
 ### [05.1]-[MODEL_SETTING]
 
@@ -225,17 +223,15 @@ That target is a hard ceiling: once `spent()` reaches `total`, further `agent()`
 
 ## [09]-[LIMITS]
 
-| [INDEX] | [LIMIT]                  | [VALUE]                           | [BEHAVIOR_AT_LIMIT]                                                |
-| :-----: | :----------------------- | :-------------------------------- | :----------------------------------------------------------------- |
-|  [01]   | Lifetime `agent()` calls | 1000 per run                      | Throws `WorkflowAgentCapError`; runaway-loop backstop              |
-|  [02]   | Concurrent agents        | up to 16, fewer on small machines | Not an error — excess calls queue and run as slots free            |
-|  [03]   | Script size              | 524288 bytes                      | Rejected before parsing                                            |
-|  [04]   | Token budget             | user-set                          | Throws `WorkflowBudgetExceededError`; in-flight finish, none start |
-|  [05]   | Per-agent stall          | 180000 ms, `stallMs` overrides    | No-progress agent aborted, retried up to 5×, then abandoned        |
-|  [06]   | VM synchronous timeout   | 30000 ms                          | Bounds sync execution only; catches an infinite sync loop          |
+| [INDEX] | [LIMIT]                  | [BEHAVIOR_AT_LIMIT]                                                |
+| :-----: | :----------------------- | :----------------------------------------------------------------- |
+|  [01]   | Lifetime `agent()` calls | Throws `WorkflowAgentCapError`; runaway-loop backstop              |
+|  [02]   | Concurrent agents        | Excess calls queue and run as slots free                           |
+|  [03]   | Script size              | Rejected before parsing                                            |
+|  [04]   | Token budget             | Throws `WorkflowBudgetExceededError`; in-flight finish, none start |
+|  [05]   | VM synchronous timeout   | Bounds sync execution only; catches an infinite sync loop          |
 
 - Lifetime `agent()` calls: every loop carries its own guard.
-- Per-agent stall: the aborted call resolves rather than rejecting.
 - VM synchronous timeout: never a wall-clock cap.
 
 ## [10]-[SANDBOX]
@@ -250,7 +246,7 @@ Non-reproducible calls throw — they break resume:
 
 No host access: the orchestrator has no filesystem and no Node.js APIs — no `require`, `fs`, `process`, network. File and shell work belongs inside an `agent()`; the subagent has the normal tools, the orchestrator does not. This is not a restriction to fight — it is the contract that makes resume work.
 
-Subagents run in `acceptEdits` mode and inherit the session tool allowlist regardless of the session's own permission mode. File edits are auto-approved, but a shell, web, or MCP call outside the allowlist still raises a mid-run permission prompt — which stalls a long parallel run until answered. Grant those permissions before launching.
+Subagents run in `acceptEdits` mode and inherit the session tool allowlist regardless of the session's permission mode. File edits are auto-approved, but an unadmitted tool call raises a mid-run permission prompt. Admit required tools before launch.
 
 ## [11]-[VALIDATION]
 
@@ -274,12 +270,12 @@ It re-hosts the unmodified file inside the same `new Function`-wrapped, injected
 
 - `parseOk` / `ran` — the body parses and completes without a runtime throw; construction with `new Function` catches the unbalanced paren the rule-scanning linter cannot.
 - `deterministic` — both runs produced an identical trace; `false` is a hidden non-deterministic escape, which breaks resume.
-- `perPhase` + `totalAgents` — a phase spawning far beyond the mental model is a fan-out bug; a phase MISSING from the sequence means a truthiness guard (`if (!x)`) dropped the minimal fixture — supply real shapes with `--fixtures` keyed by agent label.
-- `maxConcurrentObserved` against 16 (queuing, a warning) and the 1000-agent lifetime cap (a throw, a real bug).
-- Agent counts against the pre-edit baseline: a body-level try/catch (per-unit failure isolation) swallows a runtime `ReferenceError` inside its stage helpers, so `ran=true deterministic=true` still prints while every unit dies to `null` — the ONLY visible symptom is an agent count silently dropping against the last known-good run. After any dispatch-helper edit, diff `perPhase` against the committed baseline; a drop to zero in a phase that should fan is a swallowed throw, not a guard.
+- `perPhase` + `totalAgents` — unexpected fan-out or a missing phase exposes routing and truthiness-guard defects; supply real shapes with `--fixtures` keyed by agent label.
+- `maxConcurrentObserved` — compare observed concurrency with the workflow's declared cap.
+- Trace against the committed baseline — a swallowed stage error can leave `ran=true deterministic=true` while its work disappears; a phase contraction after dispatch-helper edits is a defect.
 
-Fixtures are MINIMAL by design (non-empty strings, one-element arrays), so counts are REPRESENTATIVE, not exact production. Exercise every loop down BOTH a converging and a permanently-stuck input, so the hard stop and the fixpoint break both fire.
+Fixtures are minimal by design, so traces represent control flow rather than production volume. Exercise loops with converging and permanently stuck inputs so the fixpoint and hard stop both fire.
 
-A green simulation validates the machine, not the meaning — blind to prompt quality, schema `required` fit, and effort-tier fit. Close the gap with a narrow real run on the UNMODIFIED file at one tiny scope, scoped by `args`, never by rewriting calls; `dry-run.mjs --mode real --scope <path>` prints that exact invocation and the projected count, spawning nothing — the operator authorizes the spend. Only a narrow real run surfaces structured-output conformance, permission-prompt stalls, host-singleton serialization, and stall-timeout adequacy, and it seeds the resume cache for the full run.
+A green simulation validates the machine, not the meaning — blind to prompt quality, schema `required` fit, and effort-tier fit. Close the gap with a narrow real run on the UNMODIFIED file at one tiny scope, scoped by `args`, never by rewriting calls; `dry-run.mjs --mode real --scope <path>` prints that exact invocation without spawning. Only a narrow real run surfaces structured-output conformance, permission boundaries, and host-singleton serialization, and it seeds the resume cache for the full run.
 
 For a cheaper real run, set `CLAUDE_CODE_SUBAGENT_MODEL` in the environment — it overrides every per-call `model` with no source edit; forcing a cheap model from inside the script is a dead end, because `model` is a cache-key field and a rewritten run seeds nothing.

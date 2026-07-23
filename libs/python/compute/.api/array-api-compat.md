@@ -1,24 +1,20 @@
 # [PY_COMPUTE_API_ARRAY_API_COMPAT]
 
-`array-api-compat` supplies backend-agnostic namespace resolution, array-type guards, and Array API conformance shims for NumPy, CuPy, PyTorch, JAX, Dask, ndonnx, and pydata-sparse so compute owners operate against a single `xp` namespace without hard-coding a backend.
+`array-api-compat` resolves one backend-agnostic `xp` namespace across every admitted array backend, narrows array and namespace type per backend, and shims each backend to Array API conformance so a compute owner writes against `xp` alone.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `array-api-compat`
-- package: `array-api-compat`
-- version: `1.15.0`
-- license: MIT
+- package: `array-api-compat` (MIT)
 - module: `array_api_compat`
 - owner: `compute`
-- asset: runtime library
 - rail: array-api
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: namespace and array guards
-- rail: array-api
+[PUBLIC_TYPE_SCOPE]: namespace resolver and backend/execution-model guards
 
-| [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY]    | [ROLE]                                       |
+| [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY]    | [CAPABILITY]                                 |
 | :-----: | :------------------------------------------------------ | :--------------- | :------------------------------------------- |
 |  [01]   | `array_namespace`                                       | function         | resolve the Array API namespace for xs       |
 |  [02]   | `get_namespace`                                         | function (alias) | alias for `array_namespace`                  |
@@ -35,11 +31,10 @@
 |  [13]   | `is_writeable_array`                                    | type guard       | `TypeGuard[_ArrayApiObj]` for mutable arrays |
 
 [PUBLIC_TYPE_SCOPE]: conformance result types
-- rail: array-api
 - module: `array_api_compat.numpy`
 - type-family: named tuple
 
-| [INDEX] | [SYMBOL]              | [FIELDS]                                         |
+| [INDEX] | [SYMBOL]              | [CAPABILITY]                                     |
 | :-----: | :-------------------- | :----------------------------------------------- |
 |  [01]   | `UniqueAllResult`     | `values`, `indices`, `inverse_indices`, `counts` |
 |  [02]   | `UniqueCountsResult`  | `values`, `counts`                               |
@@ -47,54 +42,50 @@
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: namespace resolution
-- rail: array-api
+[ENTRYPOINT_SCOPE]: namespace resolution and device transfer
 
-| [INDEX] | [SURFACE]                                                              | [ENTRY_FAMILY] | [RAIL]                        |
-| :-----: | :--------------------------------------------------------------------- | :------------- | :---------------------------- |
-|  [01]   | `array_namespace(*xs, api_version=None, use_compat=None) -> Namespace` | resolver       | primary namespace entry point |
-|  [02]   | `get_namespace(*xs, api_version=None, use_compat=None) -> Namespace`   | resolver alias | same as `array_namespace`     |
-|  [03]   | `device(x, /) -> Device`                                               | accessor       | extract device from array     |
-|  [04]   | `to_device(x, device, /, *, stream=None) -> Array`                     | transfer       | move array to device          |
-|  [05]   | `size(x) -> int \| None`                                               | accessor       | total element count or None   |
+| [INDEX] | [SURFACE]                                                              | [CAPABILITY]                |
+| :-----: | :--------------------------------------------------------------------- | :-------------------------- |
+|  [01]   | `array_namespace(*xs, api_version=None, use_compat=None) -> Namespace` | primary namespace resolver  |
+|  [02]   | `get_namespace(*xs, api_version=None, use_compat=None) -> Namespace`   | alias of `array_namespace`  |
+|  [03]   | `device(x, /) -> Device`                                               | extract device from array   |
+|  [04]   | `to_device(x, device, /, *, stream=None) -> Array`                     | move array to device        |
+|  [05]   | `size(x) -> int \| None`                                               | total element count or None |
 
-[ENTRYPOINT_SCOPE]: backend predicates
-- rail: array-api
+[ENTRYPOINT_SCOPE]: backend and execution-model predicates
 
-| [INDEX] | [SURFACE]                             | [RETURNS]                 | [BACKEND]      |
-| :-----: | :------------------------------------ | :------------------------ | :------------- |
-|  [01]   | `is_array_api_obj(x) -> TypeGuard`    | `TypeGuard[_ArrayApiObj]` | any backend    |
-|  [02]   | `is_numpy_array(x) -> TypeIs`         | `TypeIs[NDArray[Any]]`    | numpy          |
-|  [03]   | `is_cupy_array(x) -> bool`            | `bool`                    | cupy           |
-|  [04]   | `is_torch_array(x) -> TypeIs`         | `TypeIs[Tensor]`          | torch          |
-|  [05]   | `is_jax_array(x) -> TypeIs`           | `TypeIs[jax.Array]`       | jax            |
-|  [06]   | `is_dask_array(x) -> TypeIs`          | `TypeIs[da.Array]`        | dask           |
-|  [07]   | `is_ndonnx_array(x) -> TypeIs`        | `TypeIs[ndx.Array]`       | ndonnx         |
-|  [08]   | `is_pydata_sparse_array(x) -> TypeIs` | `TypeIs[SparseArray]`     | pydata-sparse  |
-|  [09]   | `is_lazy_array(x) -> TypeGuard`       | `TypeGuard[_ArrayApiObj]` | lazy backends  |
-|  [10]   | `is_writeable_array(x) -> TypeGuard`  | `TypeGuard[_ArrayApiObj]` | mutable arrays |
+| [INDEX] | [SURFACE]                                          | [CAPABILITY]                      |
+| :-----: | :------------------------------------------------- | :-------------------------------- |
+|  [01]   | `is_array_api_obj(x) -> TypeGuard[_ArrayApiObj]`   | any-backend array-object guard    |
+|  [02]   | `is_numpy_array(x) -> TypeIs[NDArray[Any]]`        | numpy array narrowing             |
+|  [03]   | `is_cupy_array(x) -> bool`                         | cupy array detection              |
+|  [04]   | `is_torch_array(x) -> TypeIs[Tensor]`              | torch array narrowing             |
+|  [05]   | `is_jax_array(x) -> TypeIs[jax.Array]`             | jax array narrowing               |
+|  [06]   | `is_dask_array(x) -> TypeIs[da.Array]`             | dask array narrowing              |
+|  [07]   | `is_ndonnx_array(x) -> TypeIs[ndx.Array]`          | ndonnx array narrowing            |
+|  [08]   | `is_pydata_sparse_array(x) -> TypeIs[SparseArray]` | pydata-sparse array narrowing     |
+|  [09]   | `is_lazy_array(x) -> TypeGuard[_ArrayApiObj]`      | graph-traced (JAX/Dask) narrowing |
+|  [10]   | `is_writeable_array(x) -> TypeGuard[_ArrayApiObj]` | eager-mutable buffer narrowing    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[ARRAY_API_TOPOLOGY]:
-- namespace root: `array_api_compat`; backend wrappers at `array_api_compat.numpy`, `.cupy`, `.torch`, `.dask` re-export the backend namespace patched to Array API conformance (`xp.unique_all`, positional-only argument shapes, 2024.12 spec gaps backfilled).
-- `common` submodule owns every guard and resolver; the top-level names are the public re-export.
-- `UniqueAllResult`, `UniqueCountsResult`, `UniqueInverseResult` are NamedTuples on `array_api_compat.numpy` (fields `values`/`indices`/`inverse_indices`/`counts`, `values`/`counts`, `values`/`inverse_indices`); the spec-standard `xp.unique_all`/`unique_counts`/`unique_inverse` return them.
-- Predicate guards split by intent: `is_<backend>_array`/`is_<backend>_namespace` narrow with `TypeIs`/`TypeGuard` for backend-specific fallbacks; `is_lazy_array` and `is_writeable_array` narrow on execution model (graph-traced vs eager-mutable) rather than vendor.
+[TOPOLOGY]:
+- `array_api_compat` is the namespace root; `.numpy`/`.cupy`/`.torch`/`.dask` wrappers re-export each backend patched to Array API conformance (`xp.unique_all`, positional-only argument shapes, spec gaps backfilled).
+- `common` submodule owns every guard and resolver; the top-level names re-export it.
+- Vendor predicates `is_<backend>_array`/`is_<backend>_namespace` narrow by library with `TypeIs`; `is_lazy_array`/`is_writeable_array` narrow by execution model — graph-traced versus eager-mutable — the fork every backend-agnostic branch reads.
 
 [STACKING]:
-- `array-api-compat` is the resolver tier; `array-api-extra` is the extension tier built on top. The single dense rail is `xp = array_namespace(*arrays)` -> `array_api_extra.<op>(..., xp=xp)` so a compute owner resolves the namespace once and threads `xp` into every standard and extension call, never re-resolving and never importing a vendor namespace.
-- `is_writeable_array(x)` gates the in-place vs copy branch of `array_api_extra.at(x, idx).set(v)`: a writeable NumPy buffer mutates, a read-only JAX array copies. The guard lets a kernel choose `copy=False` only when the buffer admits it.
-- `is_lazy_array(x)` (true for JAX-traced / Dask) routes the deferred path to `array_api_extra.lazy_apply`; the eager path runs the standard `xp` op directly. This is the same lazy/eager fork the `equinox`/`jax` rails consume downstream.
-- `device(x)` / `to_device(x, dev, stream=)` carry the device context the JAX and Torch sibling rails require; resolve device once at boundary, thread alongside `xp`.
+- `array-api-extra`(`.api/array-api-extra.md`): `xp = array_namespace(*arrays)` resolves once, then `array_api_extra.<op>(..., xp=xp)` threads it into every standard and extension call — one rail, no re-resolution, no vendor import.
+- `is_writeable_array(x)` gates `array_api_extra.at(x, idx).set(v, copy=False)`: a writeable NumPy buffer mutates, a read-only JAX array copies.
+- `is_lazy_array(x)` routes JAX-traced and Dask arrays to `array_api_extra.lazy_apply` and eager arrays to the direct `xp` op — the same lazy/eager fork the `diffrax`/`equinox`/`optimistix` JAX rails consume.
+- `device(x)`/`to_device(x, dev, stream=)` carry the device context the JAX and Torch sibling rails thread alongside `xp`, resolved once at boundary.
 
 [LOCAL_ADMISSION]:
-- Compute owners call `xp = array_namespace(*arrays)` once at operation entry; all subsequent array ops use `xp.<op>`, never a hardcoded backend import.
-- `use_compat=None` (default) injects the compat wrapper only when the raw backend lags the spec; pass `use_compat=False` for the bare backend namespace, `use_compat=True` to force the wrapper.
-- `api_version` pins the spec revision a kernel targets when a backend exposes multiple; omit to accept the namespace default.
+- Compute owners resolve `xp = array_namespace(*arrays)` once at operation entry and route every array op through `xp.<op>`.
+- `use_compat=None` injects the compat wrapper only when the raw backend lags the spec — `False` forces the bare namespace, `True` forces the wrapper — and `api_version` pins the spec revision a kernel targets.
 
 [RAIL_LAW]:
 - Package: `array-api-compat`
 - Owns: Array API namespace resolution, spec-conformance wrappers, and backend/execution-model predicate guards
 - Accept: `xp = array_namespace(*arrays)` at boundary scope, `xp` threaded into every standard and `array-api-extra` op, `is_writeable_array`/`is_lazy_array` gating the mutate/copy and eager/lazy forks
-- Reject: hardcoded `import numpy as np` in generic compute kernels; re-implementing namespace detection or unique-result tuples locally; re-resolving `xp` inside an inner loop instead of threading it
+- Reject: a hardcoded backend import in a generic kernel, a locally re-implemented namespace detector or unique-result tuple, `xp` re-resolved inside an inner loop

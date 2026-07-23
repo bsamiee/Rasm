@@ -1,25 +1,20 @@
 # [PY_COMPUTE_API_MPMATH]
 
-`mpmath` supplies arbitrary-precision floating-point arithmetic, complex numbers, interval arithmetic, and a large library of special functions, numerical calculus, linear algebra, and number theory for the compute exact-arithmetic and symbolic-validation rail; it is the precision oracle that certifies a fast-path JAX/numba result against a guaranteed-correct high-`dps` evaluation.
+`mpmath` owns arbitrary-precision real, complex, and interval arithmetic with a broad special-function, calculus, linear-algebra, and number-theory library for the compute exact-arithmetic rail. Its precision-oracle role certifies a fast-path JAX/numba result against a guaranteed-correct high-`dps` evaluation, and `iv` interval arithmetic bounds the enclosure rigorously.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `mpmath`
-- package: `mpmath`
-- version: `1.3.0`
-- license: BSD-3-Clause
-- import: `mpmath`
-- owner: `compute`
+- package: `mpmath` (BSD-3-Clause)
+- module: `mpmath`
 - rail: exact-arithmetic
-- asset: pure-Python; optional `gmpy2` backend accelerates the `mp` context when present
-- capability: arbitrary-precision real, complex, and interval arithmetic with a large library covering special functions, numerical calculus, linear algebra, and number theory
+- asset: pure-Python; the `gmpy2` backend accelerates the `mp` context transparently when installed
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: context and numeric types
-- rail: exact-arithmetic
 
-| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [ROLE]                                                                           |
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]                                                                     |
 | :-----: | :------------------ | :------------ | :------------------------------------------------------------------------------- |
 |  [01]   | `MPContext`         | context class | arbitrary-precision real/complex context (`mp`)                                  |
 |  [02]   | `FPContext`         | context class | double-precision fallback context (`fp`)                                         |
@@ -29,20 +24,18 @@
 |  [06]   | `mpi`               | numeric type  | real interval `[a, b]` (constructed via the `iv` context); rigorous error bounds |
 |  [07]   | `matrix`            | numeric type  | arbitrary-precision dense matrix                                                 |
 
-[PUBLIC_TYPE_SCOPE]: mpf members
-- rail: exact-arithmetic
+[PUBLIC_TYPE_SCOPE]: `mpf` / `mpc` members
 
-| [INDEX] | [SYMBOL]    | [KIND]   | [ROLE]            |
+| [INDEX] | [SYMBOL]    | [KIND]   | [CAPABILITY]      |
 | :-----: | :---------- | :------- | :---------------- |
 |  [01]   | `real`      | property | real part         |
 |  [02]   | `imag`      | property | imaginary part    |
 |  [03]   | `conjugate` | method   | complex conjugate |
 |  [04]   | `context`   | property | owning context    |
 
-[PUBLIC_TYPE_SCOPE]: matrix members
-- rail: exact-arithmetic
+[PUBLIC_TYPE_SCOPE]: `matrix` members
 
-| [INDEX] | [SYMBOL]    | [KIND]   | [ROLE]                         |
+| [INDEX] | [SYMBOL]    | [KIND]   | [CAPABILITY]                   |
 | :-----: | :---------- | :------- | :----------------------------- |
 |  [01]   | `rows`      | property | row count                      |
 |  [02]   | `cols`      | property | column count                   |
@@ -55,11 +48,9 @@
 |  [09]   | `copy`      | method   | deep copy                      |
 |  [10]   | `convert`   | method   | convert element types          |
 
-[PUBLIC_TYPE_SCOPE]: context attributes
-- rail: exact-arithmetic
-- context: `mp` (default working context)
+[PUBLIC_TYPE_SCOPE]: context attributes on the default working context `mp`
 
-| [INDEX] | [SYMBOL]  | [KIND]   | [ROLE]                       |
+| [INDEX] | [SYMBOL]  | [KIND]   | [CAPABILITY]                 |
 | :-----: | :-------- | :------- | :--------------------------- |
 |  [01]   | `mp.prec` | int attr | working precision in bits    |
 |  [02]   | `mp.dps`  | int attr | decimal places (sets `prec`) |
@@ -69,9 +60,8 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: precision management
-- rail: exact-arithmetic
 
-| [INDEX] | [SURFACE]                      | [ENTRY_FAMILY] | [RAIL]                        |
+| [INDEX] | [SURFACE]                      | [ENTRY_FAMILY] | [CAPABILITY]                  |
 | :-----: | :----------------------------- | :------------- | :---------------------------- |
 |  [01]   | `mp.prec = n`                  | context set    | set working precision in bits |
 |  [02]   | `mp.dps = n`                   | context set    | set decimal places            |
@@ -81,10 +71,9 @@
 |  [06]   | `extradps(n)`                  | context mgr    | add extra decimal places      |
 |  [07]   | `autoprec(f, *args, **kwargs)` | adaptive       | auto-calibrate precision      |
 
-[ENTRYPOINT_SCOPE]: extended-precision arithmetic, conversion, and boundary
-- rail: exact-arithmetic — the precision-safe accumulation and Python/numpy edge primitives
+[ENTRYPOINT_SCOPE]: extended-precision accumulation, conversion, and Python/numpy edge primitives
 
-| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY] | [RAIL]                                                               |
+| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY] | [CAPABILITY]                                                         |
 | :-----: | :----------------------------------------------- | :------------- | :------------------------------------------------------------------- |
 |  [01]   | `fsum(terms, absolute=False, squared=False)`     | accumulation   | correctly-rounded sum of an iterable (no catastrophic cancellation)  |
 |  [02]   | `fprod(factors)`                                 | accumulation   | correctly-rounded product of an iterable                             |
@@ -98,19 +87,17 @@
 |  [10]   | `ldexp(x, n)` / `frexp(x)` / `mag(x)`            | bit ops        | mantissa/exponent decomposition and binary magnitude                 |
 |  [11]   | `arange(*args)` / `linspace(a, b, n, **kw)`      | sampling       | arbitrary-precision ranges for series/quadrature grids               |
 
-[ENTRYPOINT_SCOPE]: mathematical constants (each is a lazy `mpf` re-evaluated at the active `dps`)
-- rail: exact-arithmetic
+[ENTRYPOINT_SCOPE]: mathematical constants (each a lazy `mpf` re-evaluated at the active `dps`)
 
-| [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY] | [RAIL]                                   |
+| [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY] | [CAPABILITY]                             |
 | :-----: | :------------------------------------------- | :------------- | :--------------------------------------- |
 |  [01]   | `pi`, `e`, `phi`, `degree`, `eps`            | core           | π, e, golden ratio, deg→rad, machine eps |
 |  [02]   | `ln2`, `ln10`, `catalan`, `euler`, `mertens` | named          | logarithms, Catalan, Euler γ, Mertens    |
 |  [03]   | `apery`, `khinchin`, `glaisher`, `twinprime` | named          | Apéry, Khinchin, Glaisher, twin-prime    |
 
 [ENTRYPOINT_SCOPE]: elementary and trigonometric functions
-- rail: exact-arithmetic
 
-| [INDEX] | [SURFACE]                                                                   | [ENTRY_FAMILY]  | [RAIL]                        |
+| [INDEX] | [SURFACE]                                                                   | [ENTRY_FAMILY]  | [CAPABILITY]                  |
 | :-----: | :-------------------------------------------------------------------------- | :-------------- | :---------------------------- |
 |  [01]   | `sqrt`, `cbrt`, `nthroot`, `power`, `exp`, `expm1`, `log`, `log10`, `log1p` | elementary      | standard elementary ops       |
 |  [02]   | `sin`, `cos`, `tan`, `sinpi`, `cospi`                                       | trig            | circular trig                 |
@@ -121,9 +108,8 @@
 |  [07]   | `fabs`, `sign`, `re`, `im`, `arg`, `phase`, `polar`, `rect`                 | complex utils   | modulus, argument, polar form |
 
 [ENTRYPOINT_SCOPE]: special functions
-- rail: exact-arithmetic
 
-| [INDEX] | [SURFACE]                                                                                                  | [FAMILY]               |
+| [INDEX] | [SURFACE]                                                                                                  | [ENTRY_FAMILY]         |
 | :-----: | :--------------------------------------------------------------------------------------------------------- | :--------------------- |
 |  [01]   | `gamma`, `loggamma`, `rgamma`, `digamma`, `polygamma`, `psi`                                               | gamma/digamma          |
 |  [02]   | `factorial`, `fac`, `fac2`, `hyperfac`, `superfac`                                                         | factorials             |
@@ -144,9 +130,8 @@
 |  [17]   | `agm`, `primepi`, `riemannr`                                                                               | misc (agm, primepi)    |
 
 [ENTRYPOINT_SCOPE]: calculus and integration
-- rail: exact-arithmetic
 
-| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY]  | [RAIL]                                      |
+| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY]  | [CAPABILITY]                                |
 | :-----: | :------------------------------------------------------------ | :-------------- | :------------------------------------------ |
 |  [01]   | `quad(f, *points, **kwargs)`                                  | integration     | adaptive quadrature                         |
 |  [02]   | `quadts(f, *points, **kwargs)`                                | integration     | tanh-sinh quadrature                        |
@@ -170,9 +155,8 @@
 |  [20]   | `polyval(coeffs, x, derivative=False)`                        | polynomial      | Horner evaluation of a polynomial           |
 
 [ENTRYPOINT_SCOPE]: linear algebra and root-finding
-- rail: exact-arithmetic
 
-| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [RAIL]                       |
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [CAPABILITY]                 |
 | :-----: | :------------------------------------------------------- | :------------- | :--------------------------- |
 |  [01]   | `lu(A)`, `lu_solve(A, b)`                                | linear algebra | LU factorization and solve   |
 |  [02]   | `qr(A)`, `qr_solve(A, b)`                                | linear algebra | QR factorization and solve   |
@@ -188,29 +172,25 @@
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[MPMATH_TOPOLOGY]:
-- global contexts: `mp` (mutable arbitrary-precision via `MPContext`), `fp` (double-precision fixed via `FPContext`), `iv` (interval via `MPIntervalContext`); every elementary/special function is a bound method on each context with identical naming.
-- precision set via `mp.dps` (decimal) or `mp.prec` (bits); 1 dps ≈ 3.32 bits. Setting one updates the other.
-- context managers `workdps`/`workprec`/`extradps`/`extraprec` restore the prior precision on exit; nest them to bracket a high-precision intermediate without leaking global state.
-- all `mp.*` functions are re-exported at module top-level (e.g. `mpmath.quad` == `mpmath.mp.quad`); the `fp` and `iv` contexts expose the same names for double-precision and interval evaluation respectively.
-- the `gmpy2` backend, when installed, accelerates the `mp` context transparently; no API change.
+[TOPOLOGY]:
+- three global contexts carry identical function names: `mp` (arbitrary-precision via `MPContext`), `fp` (double-precision via `FPContext`), `iv` (interval via `MPIntervalContext`); every elementary and special function is a bound method on each context.
+- `mp.dps` (decimal) and `mp.prec` (bits) name one precision at 1 dps ≈ 3.32 bits; setting either updates the other.
+- `workdps`/`workprec`/`extradps`/`extraprec` restore the prior precision on exit, nesting to bracket a high-precision intermediate without leaking global state.
+- module top-level re-exports the `mp.*` surface (`mpmath.quad` == `mpmath.mp.quad`); `fp` and `iv` expose the same names for double-precision and interval evaluation.
+
+[STACKING]:
+- `sympy`(`.api/sympy.md`): `evalf`/`N` evaluate through this `mp` context; lift a symbolic closed form via `mpmathify` or `lambdify(..., 'mpmath')` to validate a derived expression at arbitrary precision.
+- `python-flint`(`.api/python-flint.md`): recognize a constant with `identify`/`pslq` and carry it as an exact flint number, or promote an mpmath heuristic special-function value to a certified `arb`/`acb` ball.
+- `uncertainties`(`.api/uncertainties.md`): feed an mpmath nominal value with a high-`dps` `diff` derivative into the linear error model when the function carries no closed-form gradient.
+- `findiff`(`.api/findiff.md`) / `scipy`(`.api/scipy.md`): seed a finite-difference or quadrature reference value with `quad`/`diff` at high `dps` to measure the fast method's discretization error.
+- within-lib: `IntervalNumerics` and `Study` fold mpmath as the precision oracle — evaluate a kernel at `mp.dps=50`, then `almosteq(fast_result, mp_result, rel_eps=1e-12)` certifies the JAX/numba fast path as study evidence.
 
 [LOCAL_ADMISSION]:
-- Set `mp.dps` before calling any function; do not rely on the default 15-digit precision for high-accuracy work.
-- Use `workdps(n)`/`extradps(n)` context managers in study receipts to avoid precision state leaking across evaluations, and `autoprec(f, ...)` when the needed precision is not known a priori.
-- Use `fsum`/`fdot`/`fprod` for accumulation rather than Python `sum`/`@` to avoid catastrophic cancellation at any precision.
-- Interval arithmetic (`iv.mpf`, `mpi`) bounds absolute error rigorously; use it to certify that a fast-path result lies inside a proven enclosure.
-- `findpoly`/`identify`/`pslq` are constant-recognition tools for study; never use in production numeric paths.
-
-[INTEGRATION_TOPOLOGY]:
-- `sympy`: `sympy.Expr.evalf(n)` is backed by mpmath; lift a symbolic closed form to `mpmath.mpmathify(sympy_expr)` or hand `lambdify(..., 'mpmath')` to validate a derived expression at arbitrary precision.
-- `jax`/`numba`: the precision oracle: evaluate the same kernel at `mp.dps=50`, then `almosteq(fast_result, mp_result, rel_eps=1e-12)` to certify the JAX/numba fast path's accuracy as study evidence.
-- `python-flint`: flint owns exact rationals/`arb` balls for speed; mpmath owns the broad special-function library — recognise a constant with `identify`/`pslq`, then carry it as an exact flint number.
-- `uncertainties`: propagate an mpmath-evaluated nominal value plus a high-precision derivative (`diff`) into an `uncertainties` linear error model when the function has no closed-form gradient.
-- `findiff`/`scipy`: seed a finite-difference or quadrature scheme's reference value with `mpmath.quad`/`diff` at high `dps` to measure the discretisation error of the fast numerical method.
+- `mp.dps` sets before any high-accuracy evaluation; the 15-digit default is never raised implicitly, and `autoprec(f, ...)` calibrates when the needed precision is unknown a priori.
+- `identify`/`pslq`/`findpoly` recognize constants as study evidence, never a production numeric path.
 
 [RAIL_LAW]:
 - Package: `mpmath`
-- Owns: arbitrary-precision real, complex, interval arithmetic and a broad special-function/calculus library; the precision-oracle role for fast-path validation
-- Accept: `mp.dps`-scoped evaluation via context managers; `fsum`/`fdot`/`fprod` accumulation; structured receipts capturing precision, method, and residual
-- Reject: fixed-precision reimplementations of functions mpmath owns; production paths using mpmath for performance-critical evaluation; Python `sum`/dot accumulation where cancellation matters
+- Owns: arbitrary-precision real/complex/interval arithmetic, a broad special-function/calculus/linear-algebra library, and the precision-oracle role for fast-path validation
+- Accept: `mp.dps`-scoped evaluation through the `workdps`/`extradps` context managers; `fsum`/`fdot`/`fprod` accumulation; receipts capturing precision, method, and residual
+- Reject: fixed-precision reimplementations of functions mpmath owns; performance-critical production evaluation through mpmath; Python `sum`/dot accumulation where cancellation matters

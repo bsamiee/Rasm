@@ -1,22 +1,19 @@
 # [PY_ARTIFACTS_API_VTK]
 
-`vtk` supplies the Visualization Toolkit demand-driven pipeline for the artifacts visuals rail: dataset types (`vtkPolyData`, `vtkImageData`, `vtkUnstructuredGrid`) flow through `vtkAlgorithm` source/filter stages connected by `GetOutputPort`/`SetInputConnection`, render through `vtkMapper`/`vtkActor`/`vtkRenderer`/`vtkRenderWindow`, and serialize through reader/writer pairs. `vtkmodules` partitions every class by capability module.
+`vtk` is the Visualization Toolkit demand-driven pipeline engine under the `scene` rail: dataset types (`vtkPolyData`, `vtkImageData`, `vtkUnstructuredGrid`) flow through `vtkAlgorithm` source/filter stages wired by `GetOutputPort`/`SetInputConnection`, render through the `vtkMapper` -> `vtkActor` -> `vtkRenderer` -> `vtkRenderWindow` stack, and serialize through reader/writer pairs. `pyvista` wraps this engine; a design page drops to raw `vtk` only for a stage `pyvista` does not expose. Every class lives under `vtkmodules.<Module>`, re-exported flat from `vtk`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `vtk`
-- package: `vtk`
+- package: `vtk` (BSD-3-Clause)
 - module: `vtk` (aggregates `vtkmodules.*`)
-- license: `BSD-3-Clause`
-- consumer: `pyvista` is the in-repo high-level consumer — vtk is the engine pyvista wraps for the artifacts visuals rail; design pages compose pyvista's pythonic API and drop to raw `vtk` only for pipeline stages pyvista does not expose
-- rail: visuals
+- rail: scene
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: dataset and core data
-- rail: visuals — `vtkmodules.vtkCommonDataModel`, `vtkCommonCore`
+[PUBLIC_TYPE_SCOPE]: dataset and core data — `vtkmodules.vtkCommonDataModel`/`vtkCommonCore`
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [ROLE]                                              |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [CAPABILITY]                                        |
 | :-----: | :-------------------- | :------------ | :-------------------------------------------------- |
 |  [01]   | `vtkPolyData`         | dataset       | points plus verts/lines/polys/strips (surface mesh) |
 |  [02]   | `vtkImageData`        | dataset       | regular voxel/pixel grid                            |
@@ -31,20 +28,17 @@
 |  [11]   | `vtkPointData`        | attribute set | per-point scalar/vector/normal arrays               |
 |  [12]   | `vtkCellData`         | attribute set | per-cell attribute arrays                           |
 
-[PUBLIC_TYPE_SCOPE]: pipeline algorithm bases
-- rail: visuals — `vtkmodules.vtkCommonExecutionModel`
-- type family: pipeline base
+[PUBLIC_TYPE_SCOPE]: pipeline algorithm bases — `vtkmodules.vtkCommonExecutionModel`
 
-| [INDEX] | [SYMBOL]               | [ROLE]                               |
+| [INDEX] | [SYMBOL]               | [CAPABILITY]                         |
 | :-----: | :--------------------- | :----------------------------------- |
 |  [01]   | `vtkAlgorithm`         | demand-driven source/filter contract |
 |  [02]   | `vtkPolyDataAlgorithm` | algorithms emitting `vtkPolyData`    |
 |  [03]   | `vtkDataSetAlgorithm`  | algorithms over generic datasets     |
 
-[PUBLIC_TYPE_SCOPE]: rendering and interaction
-- rail: visuals — `vtkmodules.vtkRenderingCore`
+[PUBLIC_TYPE_SCOPE]: rendering and interaction — `vtkmodules.vtkRenderingCore`
 
-| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [ROLE]                                  |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CAPABILITY]                            |
 | :-----: | :-------------------------- | :------------ | :-------------------------------------- |
 |  [01]   | `vtkRenderer`               | render        | scene of actors, lights, camera         |
 |  [02]   | `vtkRenderWindow`           | render        | window/offscreen render target          |
@@ -59,10 +53,9 @@
 |  [11]   | `vtkScalarBarActor`         | overlay       | color legend                            |
 |  [12]   | `vtkAxesActor`              | overlay       | coordinate axes widget                  |
 
-[PUBLIC_TYPE_SCOPE]: sources and filters
-- rail: visuals — `vtkmodules.vtkFiltersSources`, `vtkFiltersCore`, `vtkFiltersGeneral`
+[PUBLIC_TYPE_SCOPE]: sources and filters — `vtkmodules.vtkFiltersSources`/`vtkFiltersCore`/`vtkFiltersGeneral`
 
-| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]               | [ROLE]                                                                  |
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]               | [CAPABILITY]                                                            |
 | :-----: | :--------------------------- | :-------------------------- | :---------------------------------------------------------------------- |
 |  [01]   | `vtkSphereSource`            | source                      | parametric sphere mesh                                                  |
 |  [02]   | `vtkConeSource`              | source                      | cone mesh                                                               |
@@ -82,10 +75,9 @@
 |  [16]   | `vtkFeatureEdges`            | filter (`vtkFiltersCore`)   | boundary/feature/non-manifold/manifold edge extraction to `vtkPolyData` |
 |  [17]   | `vtkPolyDataSilhouette`      | filter (`vtkFiltersHybrid`) | view-dependent silhouette outline relative to a `vtkCamera`             |
 
-[PUBLIC_TYPE_SCOPE]: I/O and geometry
-- rail: visuals — `vtkmodules.vtkIOGeometry`, `vtkIOPLY`, `vtkIOXML`, `vtkCommonTransforms`
+[PUBLIC_TYPE_SCOPE]: I/O and geometry — `vtkmodules.vtkIOGeometry`/`vtkIOPLY`/`vtkIOXML`/`vtkCommonTransforms`
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [ROLE]                                               |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]                                         |
 | :-----: | :----------------------- | :------------ | :--------------------------------------------------- |
 |  [01]   | `vtkSTLReader`           | reader        | read binary/ASCII STL                                |
 |  [02]   | `vtkSTLWriter`           | writer        | write STL                                            |
@@ -98,90 +90,82 @@
 |  [09]   | `vtkMatrix4x4`           | math          | 4x4 homogeneous matrix                               |
 |  [10]   | `vtkPlane`               | implicit      | implicit plane function                              |
 |  [11]   | `vtkWindowToImageFilter` | capture       | grab a render window's framebuffer as `vtkImageData` |
-|  [12]   | `vtkPNGWriter`           | writer        | write captured framebuffer to PNG (artifact export)  |
+|  [12]   | `vtkPNGWriter`           | writer        | write a captured framebuffer to PNG                  |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: pipeline connection (on `vtkAlgorithm`)
-- rail: visuals — every source/filter/reader shares this contract
+[ENTRYPOINT_SCOPE]: pipeline connection on `vtkAlgorithm` — every source/filter/reader shares it
 
-| [INDEX] | [SURFACE]                         | [ENTRY_FAMILY] | [ROLE]                                    |
-| :-----: | :-------------------------------- | :------------- | :---------------------------------------- |
-|  [01]   | `SetInputConnection(output_port)` | connect        | wire upstream output to this input        |
-|  [02]   | `GetOutputPort()`                 | connect        | output port for downstream wiring         |
-|  [03]   | `SetInputData(data_object)`       | connect        | feed an in-memory dataset directly        |
-|  [04]   | `GetOutput()`                     | accessor       | output dataset after `Update`             |
-|  [05]   | `Update()`                        | execute        | run the pipeline up to this stage         |
-|  [06]   | `UpdateInformation()`             | execute        | propagate metadata without computing data |
+| [INDEX] | [SURFACE]                         | [CAPABILITY]                              |
+| :-----: | :-------------------------------- | :---------------------------------------- |
+|  [01]   | `SetInputConnection(output_port)` | wire upstream output to this input        |
+|  [02]   | `GetOutputPort()`                 | output port for downstream wiring         |
+|  [03]   | `SetInputData(data_object)`       | feed an in-memory dataset directly        |
+|  [04]   | `GetOutput()`                     | output dataset after `Update`             |
+|  [05]   | `Update()`                        | run the pipeline up to this stage         |
+|  [06]   | `UpdateInformation()`             | propagate metadata without computing data |
 
-[ENTRYPOINT_SCOPE]: dataset and array construction
-- rail: visuals — `vtkPolyData`, `vtkPoints`, `vtkCellArray`, `vtkFloatArray`
+[ENTRYPOINT_SCOPE]: dataset and array construction — `vtkPolyData`/`vtkPoints`/`vtkCellArray`/`vtkFloatArray`
 
-| [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY] | [ROLE]                          |
-| :-----: | :---------------------------------------------------------- | :------------- | :------------------------------ |
-|  [01]   | `vtkPoints.InsertNextPoint(x, y, z)`                        | build          | append a coordinate             |
-|  [02]   | `vtkCellArray.InsertNextCell(npts)` + `InsertCellPoint(id)` | build          | append a cell and its point ids |
-|  [03]   | `vtkPolyData.SetPoints(points)`                             | assemble       | attach coordinates              |
-|  [04]   | `vtkPolyData.SetPolys(cells)`                               | assemble       | attach polygon connectivity     |
-|  [05]   | `vtkPolyData.GetPointData()` / `GetCellData()`              | accessor       | attribute-array sets            |
-|  [06]   | `vtkFloatArray.SetName(name)` + `InsertNextValue(v)`        | build          | named scalar attribute array    |
-|  [07]   | `vtkFloatArray.SetNumberOfComponents(n)`                    | configure      | per-tuple component count       |
+| [INDEX] | [SURFACE]                                                   | [CAPABILITY]                    |
+| :-----: | :---------------------------------------------------------- | :------------------------------ |
+|  [01]   | `vtkPoints.InsertNextPoint(x, y, z)`                        | append a coordinate             |
+|  [02]   | `vtkCellArray.InsertNextCell(npts)` + `InsertCellPoint(id)` | append a cell and its point ids |
+|  [03]   | `vtkPolyData.SetPoints(points)`                             | attach coordinates              |
+|  [04]   | `vtkPolyData.SetPolys(cells)`                               | attach polygon connectivity     |
+|  [05]   | `vtkPolyData.GetPointData()` / `GetCellData()`              | attribute-array sets            |
+|  [06]   | `vtkFloatArray.SetName(name)` + `InsertNextValue(v)`        | named scalar attribute array    |
+|  [07]   | `vtkFloatArray.SetNumberOfComponents(n)`                    | per-tuple component count       |
 
-[ENTRYPOINT_SCOPE]: rendering setup
-- rail: visuals — `vtkRenderer`, `vtkRenderWindow`, `vtkActor`, `vtkCamera`
+[ENTRYPOINT_SCOPE]: rendering setup — `vtkRenderer`/`vtkRenderWindow`/`vtkActor`/`vtkCamera`
 
-| [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY] | [ROLE]                              |
-| :-----: | :----------------------------------------------------------- | :------------- | :---------------------------------- |
-|  [01]   | `vtkPolyDataMapper.SetInputConnection(port)`                 | map            | bind geometry to a mapper           |
-|  [02]   | `vtkPolyDataMapper.SetScalarRange(lo, hi)`                   | map            | scalar-to-color domain              |
-|  [03]   | `vtkActor.SetMapper(mapper)`                                 | scene          | bind a mapper to an actor           |
-|  [04]   | `vtkActor.GetProperty()`                                     | scene          | access color/opacity/representation |
-|  [05]   | `vtkRenderer.AddActor(actor)`                                | scene          | add a prop to the scene             |
-|  [06]   | `vtkRenderer.SetBackground(r, g, b)`                         | scene          | scene background color              |
-|  [07]   | `vtkRenderer.ResetCamera()`                                  | view           | frame all actors                    |
-|  [08]   | `vtkRenderWindow.AddRenderer(renderer)`                      | window         | attach a renderer                   |
-|  [09]   | `vtkRenderWindow.SetSize(w, h)` + `Render()`                 | window         | size and draw                       |
-|  [10]   | `vtkRenderWindow.SetOffScreenRendering(1)`                   | window         | headless render target              |
-|  [11]   | `vtkRenderWindowInteractor.SetRenderWindow(win)` + `Start()` | window         | interactive event loop              |
+| [INDEX] | [SURFACE]                                                    | [CAPABILITY]                        |
+| :-----: | :----------------------------------------------------------- | :---------------------------------- |
+|  [01]   | `vtkPolyDataMapper.SetInputConnection(port)`                 | bind geometry to a mapper           |
+|  [02]   | `vtkPolyDataMapper.SetScalarRange(lo, hi)`                   | scalar-to-color domain              |
+|  [03]   | `vtkActor.SetMapper(mapper)`                                 | bind a mapper to an actor           |
+|  [04]   | `vtkActor.GetProperty()`                                     | access color/opacity/representation |
+|  [05]   | `vtkRenderer.AddActor(actor)`                                | add a prop to the scene             |
+|  [06]   | `vtkRenderer.SetBackground(r, g, b)`                         | scene background color              |
+|  [07]   | `vtkRenderer.ResetCamera()`                                  | frame all actors                    |
+|  [08]   | `vtkRenderWindow.AddRenderer(renderer)`                      | attach a renderer                   |
+|  [09]   | `vtkRenderWindow.SetSize(w, h)` + `Render()`                 | size and draw                       |
+|  [10]   | `vtkRenderWindow.SetOffScreenRendering(1)`                   | headless render target              |
+|  [11]   | `vtkRenderWindowInteractor.SetRenderWindow(win)` + `Start()` | interactive event loop              |
 
-[ENTRYPOINT_SCOPE]: file I/O
-- rail: visuals — reader/writer pairs
+[ENTRYPOINT_SCOPE]: file I/O — reader/writer pairs
 
-| [INDEX] | [SURFACE]                                                                 | [ENTRY_FAMILY] | [ROLE]                      |
-| :-----: | :------------------------------------------------------------------------ | :------------- | :-------------------------- |
-|  [01]   | `vtkSTLReader.SetFileName(path)` + `Update()`                             | read           | load STL into `GetOutput()` |
-|  [02]   | `vtkSTLWriter.SetInputConnection(port)` + `SetFileName(path)` + `Write()` | write          | save STL (ASCII or binary)  |
-|  [03]   | `vtkXMLPolyDataWriter.SetDataModeToBinary()`                              | write          | binary XML output mode      |
-|  [04]   | `vtkXMLPolyDataReader.SetFileName(path)` + `Update()`                     | read           | load `.vtp`                 |
-|  [05]   | `vtkSTLWriter.SetFileTypeToBinary()` / `SetFileTypeToASCII()`             | write          | STL encoding mode           |
+| [INDEX] | [SURFACE]                                                                 | [CAPABILITY]                |
+| :-----: | :------------------------------------------------------------------------ | :-------------------------- |
+|  [01]   | `vtkSTLReader.SetFileName(path)` + `Update()`                             | load STL into `GetOutput()` |
+|  [02]   | `vtkSTLWriter.SetInputConnection(port)` + `SetFileName(path)` + `Write()` | save STL (ASCII or binary)  |
+|  [03]   | `vtkXMLPolyDataWriter.SetDataModeToBinary()`                              | binary XML output mode      |
+|  [04]   | `vtkXMLPolyDataReader.SetFileName(path)` + `Update()`                     | load `.vtp`                 |
+|  [05]   | `vtkSTLWriter.SetFileTypeToBinary()` / `SetFileTypeToASCII()`             | STL encoding mode           |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[VTK_TOPOLOGY]:
-- demand-driven pipeline: stages connect with `downstream.SetInputConnection(upstream.GetOutputPort())`; nothing computes until a terminal `Update`, `Write`, or `Render` pulls data
-- render stack order: source/filter -> `vtkPolyDataMapper` -> `vtkActor` -> `vtkRenderer` -> `vtkRenderWindow` -> `vtkRenderWindowInteractor`
-- modules: classes live under `vtkmodules.<Module>` (`vtkCommonCore`, `vtkCommonDataModel`, `vtkFiltersCore`, `vtkRenderingCore`, `vtkIOGeometry`, `vtkIOXML`); the `vtk` package re-exports them flat
-- object construction is always `vtkClass()` (no positional constructor args); configure through `Set*`/`Get*` methods
-- `SetInputConnection` wires a live pipeline that re-executes on upstream change; `SetInputData` snapshots a static dataset
-- offscreen rendering via `vtkRenderWindow.SetOffScreenRendering(1)` produces images without an interactor
+[TOPOLOGY]:
+- `downstream.SetInputConnection(upstream.GetOutputPort())` wires a live pipeline that re-executes on upstream change, and nothing computes until a terminal `Update`/`Write`/`Render` pulls; `SetInputData` snapshots a static dataset instead.
+- Construction is always `vtkClass()` with no positional args, configured through `Set*`/`Get*`.
+- `SetOffScreenRendering(1)` renders headless without an interactor.
+
+[STACKING]:
+- `pyvista`(`.api/pyvista.md`): wraps the demand-driven pipeline, dataset hierarchy, and render stack numpy-native; `pyvista.wrap` adopts a `vtkPolyData`/`vtkImageData` and a `pyvista.PolyData` exposes its underlying `vtkPolyData`. Stay on the pyvista surface for plotting, camera, and export; drop to raw `vtk` only for a filter or mapper pyvista lacks, then re-wrap.
+- `numpy`(`libs/python/.api/numpy.md`): `vtkmodules.util.numpy_support.numpy_to_vtk`/`vtk_to_numpy` is the zero-copy bridge — a NumPy buffer becomes point coordinates (`numpy_to_vtk` -> `vtkPoints.SetData`) or a named scalar field in one call, never a per-element `InsertNextValue` loop over a large dataset.
+- `usd-core`(`.api/usd-core.md`): the wheel ships the `vtkIOExport` scene exporters (`vtkGLTFExporter`/`vtkOBJExporter`/`vtkVRMLExporter`/`vtkX3DExporter`) but no `vtkmodules.vtkIOUSD` — VTK USD I/O needs a source build against OpenUSD, so USD/USDZ authoring belongs to `usd-core` (`pxr`) across the numpy buffer seam.
+- within-lib `scene` crease linework: `vtkFeatureEdges` extracts crease/outline edges — `SetBoundaryEdges`/`SetFeatureEdges`/`SetNonManifoldEdges`/`SetManifoldEdges` gate the edge classes, `SetFeatureAngle(deg)` sets the crease threshold — emitting line `vtkPolyData` that `vtk_to_numpy`/`pyvista.wrap` hands the drawing egress as extracted vectors.
+- within-lib `scene` silhouette linework: `vtkPolyDataSilhouette` extracts the view-dependent occluding contour — `SetCamera` binds the viewpoint, `SetDirectionToCameraOrigin` selects camera-vs-origin, `SetEnableFeatureAngle`/`SetFeatureAngle` add creases, `SetBorderEdges` adds open borders — emitting the same line `vtkPolyData`.
+- within-lib `scene` vector export: `vtkGL2PSExporter` (`vtkmodules.vtkIOExportGL2PS`, over `Plotter.render_window`) writes a rendered scene to real vector formats — `SetRenderWindow(win)`, `SetFileFormatToPS`/`ToEPS`/`ToPDF`/`ToSVG`/`ToTeX`, `SetFilePrefix(path)`, `SetSortToBSP`/`ToSimple` depth ordering, `SetCompress`, `Write` — the path where a raster framebuffer loses the linework.
+- within-lib `scene` render egress: the headless PNG hop is `SetOffScreenRendering(1)` -> `Render()` -> `vtkWindowToImageFilter.SetInput(window)` + `Update()` -> `vtkPNGWriter.SetInputConnection(w2i.GetOutputPort())` + `Write()`, or `vtk_to_numpy` on the `vtkWindowToImageFilter` output hands the framebuffer to the `pillow` image owner as an RGB array.
 
 [LOCAL_ADMISSION]:
-- Wire stages with `SetInputConnection`/`GetOutputPort` for pipelines that re-execute; use `SetInputData` only for one-shot static datasets.
-- Call a single terminal `Update`/`Write`/`Render`; never call `Update` on every intermediate stage.
-- Build geometry through `vtkPoints` + `vtkCellArray` and attach via `SetPoints`/`SetPolys`; carry scalars in named `vtkFloatArray` on `GetPointData`/`GetCellData`.
-- Import canonical classes from `vtk` (flat re-export) or from the specific `vtkmodules.<Module>` for narrower import surface.
-- Render headless with `SetOffScreenRendering(1)`; reserve `vtkRenderWindowInteractor.Start()` for interactive sessions.
-
-[INTEGRATION]:
-- pyvista composition: `pyvista.wrap(polydata)` adopts a `vtkPolyData`/`vtkImageData` into a `pyvista.DataSet` with NumPy-array attribute access; conversely a `pyvista.PolyData` exposes its underlying `vtkPolyData` for a filter pyvista does not wrap. Stay on the pyvista surface for plotting, scalar bars, and camera; drop to raw `vtk` only for the missing filter/mapper, then re-wrap.
-- artifact export: for the artifacts visuals rail run `vtkRenderWindow.SetOffScreenRendering(1)` (or pyvista `off_screen=True`) and capture the framebuffer to a PNG via `vtkWindowToImageFilter` -> `vtkPNGWriter`, feeding the artifacts image/download owner. Never spin a `vtkRenderWindowInteractor` event loop in a headless export path.
-- scene-export surface: the official `vtk` wheel ships the `vtkIOExport` scene exporters (`vtkGLTFExporter`/`vtkOBJExporter`/`vtkVRMLExporter`/`vtkX3DExporter`, reached through pyvista `Plotter.export_gltf`/`export_obj`/`export_vrml`) but no USD exporter — there is no `vtkmodules.vtkIOUSD` module in the wheel (VTK's USD I/O requires a source build against OpenUSD), so USD/USDZ authoring is owned by `usd-core` (`pxr`), not `vtk`.
-- silhouette/feature-edge surface (`scene/spec#SPEC` `FieldFilter` cases): `vtkFeatureEdges` extracts crease and outline linework — `SetBoundaryEdges(bool)`/`SetFeatureEdges(bool)`/`SetNonManifoldEdges(bool)`/`SetManifoldEdges(bool)` gate the edge classes and `SetFeatureAngle(deg)` sets the crease threshold; `vtkPolyDataSilhouette` extracts the true view-dependent occluding contour — `SetCamera(vtkCamera)` binds the viewpoint (`SetDirection`/`SetDirectionToCameraOrigin` selects camera-vs-origin), `SetEnableFeatureAngle(int)`/`SetFeatureAngle(deg)` add crease edges, `SetBorderEdges(int)` adds open borders. Both emit line `vtkPolyData` that `vtk_to_numpy`/`pyvista.wrap` hands to the drawing egress as extracted vectors — the plan/section linework reaching sheets, never a rasterize-then-trace.
-- GL2PS 3D→vector target: `vtkGL2PSExporter` (module `vtkmodules.vtkIOExportGL2PS`, reached through the `Plotter.render_window` bridge) writes a rendered scene to real vector formats — `SetRenderWindow(win)`, `SetFileFormatToPS()`/`ToEPS()`/`ToPDF()`/`ToSVG()`/`ToTeX()`, `SetFilePrefix(path)`, `SetSortToBSP()`/`SetSortToSimple()` for depth ordering, `SetCompress(bool)`, `Write()` — the vector-output path for the `scene/export#EXPORT` vector rows where a raster framebuffer loses the linework.
-- numpy seam: `vtkmodules.util.numpy_support.numpy_to_vtk`/`vtk_to_numpy` is the zero-copy bridge between a universal-tier `numpy` (`libs/python/.api/numpy.md`) mesh/scalar array and a `vtkDataArray`; build attribute arrays from canonical NumPy buffers through it rather than per-element `InsertNextValue` loops for large datasets — the same `numpy` buffer a geometry/compute owner produced becomes point coordinates (`numpy_to_vtk` -> `vtkPoints.SetData`) or a named scalar field in one call.
-- artifact PNG seam: the headless export is `vtkRenderWindow.SetOffScreenRendering(1)` -> `Render()` -> `vtkWindowToImageFilter.SetInput(window)` + `Update()` -> `vtkPNGWriter.SetInputConnection(w2i.GetOutputPort())` + `SetFileName`/`Write()`, or `vtk_to_numpy` on the `vtkWindowToImageFilter` output to hand the framebuffer to the `pillow`/image artifacts owner as a `numpy` RGB array — never an interactor loop in the export path.
+- Call one terminal `Update`/`Write`/`Render`, never `Update` on every intermediate stage.
+- Build geometry through `vtkPoints`/`vtkCellArray` attached with `SetPoints`/`SetPolys`, and carry scalars in a named `vtkFloatArray` on `GetPointData`/`GetCellData` or the `numpy_support` zero-copy bridge for large buffers.
+- Import from `vtk` flat, or from a specific `vtkmodules.<Module>` for a narrower import surface.
 
 [RAIL_LAW]:
 - Package: `vtk`
-- Owns: 3D scientific visualization, the demand-driven dataset pipeline, geometry sources/filters, file I/O, and the rendering/interaction stack — as the native engine under pyvista
-- Accept: pipeline wiring via `SetInputConnection`/`GetOutputPort`; datasets built through `vtkPoints`/`vtkCellArray`/`vtkDataArray` or the `numpy_support` zero-copy bridge; offscreen render-to-image for artifact export; `vtkFeatureEdges`/`vtkPolyDataSilhouette` line extraction and `vtkGL2PSExporter` vector output for the `scene/export#EXPORT` drawing egress; raw-vtk drop-down for filters pyvista does not wrap
+- Owns: 3D scientific visualization, the demand-driven dataset pipeline, geometry sources/filters, file I/O, and the rendering/interaction stack — the native engine under pyvista
+- Accept: pipeline wiring via `SetInputConnection`/`GetOutputPort`; datasets built through `vtkPoints`/`vtkCellArray`/`vtkDataArray` or the `numpy_support` bridge; offscreen render-to-image; `vtkFeatureEdges`/`vtkPolyDataSilhouette` line extraction and `vtkGL2PSExporter` vector output for the scene drawing egress; a raw-vtk drop-down for a filter pyvista lacks
+- Reject: a per-element buffer loop where the `numpy_support` bridge is zero-copy; an `Update` on every intermediate stage; an interactor event loop in a headless export path; a re-derived reader/writer or `vtkRenderWindow`/`vtkRenderer` stack pyvista and vtk already own

@@ -28,7 +28,6 @@ export const meta = {
 
 const SLICE_SIZE = 4;
 const MAX_SLICES = 8;
-const STALL = 300000;
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -46,7 +45,7 @@ const chunk = (a, n) => {
     for (let i = 0; i < a.length; i += n) o.push(a.slice(i, i + n));
     return o;
 };
-// Per-instance scratch dir holding the per-lane MCP reports — minted deterministically from the normalized campaign set (clock/randomness
+// Per-instance scratch dir holding per-lane reports — minted deterministically from the normalized campaign set (clock/randomness
 // would break resume): one FLAT dir under .claude/scratch/, a root-basename slug and an FNV-1a tail so distinct campaign sets never collide.
 const fnv1a = (s) => {
     let h = 0x811c9dc5;
@@ -279,14 +278,11 @@ const HARVEST_LAW =
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical lane; the count bounds spend, the backoff buys recovery time
-const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
-// Bounded re-dispatch for a dead CRITICAL lane (usage-limit or transport death): attempt-counted with a backoff before each; the
+const RETRY_ATTEMPTS = 2;
+// Bounded re-dispatch for a dead CRITICAL lane (usage-limit or transport death): attempt-counted with a retry before each; the
 // final death isolates the lane but NEVER the chain — the terminal doctrine lander still runs against current disk.
 const retryLane = async (fn) => {
     for (let a = 0; a < RETRY_ATTEMPTS; a++) {
-        await sleep(RETRY_BACKOFF);
         const r = await fn();
         if (r) return r;
     }
@@ -354,7 +350,7 @@ const codexPrompt = (label, task, schema, o) => {
         lane +
         '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
         'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
-        're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (idle-timeout, max-timeout, turn-failed, ' +
+        're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (max-timeout, turn-failed, ' +
         'refusal) re-runs the same command untouched. (3) The lane lands the product at ' +
         report +
         ' via --out. (4) Verify with one Bash call: jq -e . ' +
@@ -389,7 +385,7 @@ const nativeLane = (task, o) =>
             '-report.json (Write tool, absolute path under the repo root): ' +
             JSON.stringify(o.schema) +
             ' — then return ONLY the receipt: ok, report path, entries count, one-line headline, failure empty.',
-        { label: o.label, phase: o.phase, model: twinOf(o.model), effort: 'high', schema: RECEIPT, stallMs: o.stallMs || STALL },
+        { label: o.label, phase: o.phase, model: twinOf(o.model), effort: 'high', schema: RECEIPT },
     );
 const recon = (task, o) =>
     agent(codexPrompt(o.label, task, o.schema, o), {
@@ -425,7 +421,7 @@ const lanes = await parallel(
                 c.doc +
                 ' rules into existence that is absent on disk. Return ' +
                 'the union as one dependency-ordered list (foundations before consumers, per the doc where it rules an order).',
-            { label: 'plan:' + tag, phase: 'Plan', model: 'opus', effort: 'high', schema: PLAN, stallMs: STALL },
+            { label: 'plan:' + tag, phase: 'Plan', model: 'opus', effort: 'high', schema: PLAN },
         );
         // Guard the plan lane's page roster: drop non-string, empty, and out-of-root paths (a hallucinated or mis-scoped page
         // would mis-slice a mapper), dedupe first-wins — every downstream slice and stacking map dispatches on this set.
@@ -629,7 +625,6 @@ const lanes = await parallel(
             model: 'fable',
             effort: 'high',
             schema: FIXLOG,
-            stallMs: STALL,
         });
         const fix = (await agent(execPrompt, execOpts(''))) || (await retryLane(() => agent(execPrompt, execOpts(':r1'))));
         return {
@@ -664,7 +659,7 @@ const doctrine = HARVEST_ROWS.length
               'whose coupling no longer holds, land a coupling this run proved.\n' +
               'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
               'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.',
-          { label: 'doctrine', phase: 'Doctrine', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
+          { label: 'doctrine', phase: 'Doctrine', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA },
       )
     : null;
 

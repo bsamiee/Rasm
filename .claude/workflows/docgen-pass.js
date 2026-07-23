@@ -1,37 +1,37 @@
 export const meta = {
     name: 'docgen-pass',
     whenToUse:
-        'Docgen conformance sweep over any folder of durable markdown: a finder per folder-group runs the cross-surface ownership interrogation and surfaces every prose/comment/structure defect against the live defects.md catalog; a per-file fixer rebuilds the page template-true at the register under silent-removal, token-trim, and proven-demotion discipline, and on a .planning/ page extracts each folder-wide ruling into a transcribe-ready RULINGS dossier; an adversarial red-team then git-diffs HEAD, adjudicates every line the fixer removed, proves each demotion at its owner, repairs the litter, hardens the dossier, and drives a further reduction; a writing verifier re-derives the cumulative diff and repairs what the aggressive passes compounded on every kind but `.api`, which closes at Fix; a per-owner collector adjudicates the dossiers and transcribes the survivors into RULINGS.md, and a terminal deterministic format sweep re-pads every touched surface to the canonical table render and re-runs the gate, closing the run. Prose falls across graded cuts, all subordinate to zero capability loss, non-load-bearing fence comments cut, spec pages carrying their [01]-[INDEX] and terminal [RESEARCH] marker, folder-wide law moved off design pages into the decision registry with no duplication, fence code bodies untouched, prose gate the mechanical floor.',
+        'Docgen conformance sweep for durable Markdown. Finder groups locate ownership, prose, comment, and structure defects. File workers rebuild each page in place, extract misplaced planning rulings, and preserve code-fence bodies. Adversarial writing passes reconcile the cumulative diff for prose-dense pages. API catalogs close after their grounded structural pass. Owner collectors adjudicate extracted rulings, and the terminal formatter restores canonical tables and gate-clean structure.',
     description:
-        'Targets any folder (libs/csharp/Rasm/.planning, a single sub-folder, a .api tier, docs/standards — each a different workload). args = a folder path, an array of paths, or {targets}; empty = no-op. Route: a census lists every .md under the targets with total/prose/comment line counts, deduped by path. Analyze: a finder per folder-group reads the full docgen law plus the owner surfaces it forks against (global + project CLAUDE.md [02], the folder README/ARCHITECTURE/RULINGS registries), runs the ownership interrogation, hunts imported frames against each file-kind template, and returns per-file findings (class, anchor, problem, direction, move), cross-file duplication routed to the losing file, index/research status — no edits. Fix: a fixer per file rebuilds every prose surface and fence comment in place to the register, removal the default repair, spreads restructured not brute-deleted, every demotion proven by opening its target across all candidate owners, and returns a demotion ledger plus honest before/after counts. When a page is under a .planning/ tree the fixer also extracts folder-wide rulings mis-homed as page prose — removing each from the page (no duplication) and writing a transcribe-ready guard-grade row to a per-file dossier under .claude/scratch only when the page originates one, never an empty stub. Redteam: a red-team per batch of fixed pages git-diffs HEAD to see the fixer output, repairs its litter (tombstones, substitute negations, fresh twins, re-narrating pointers, package-version/install anchors), hardens the dossier, drives a further reduction under silent-removal and token-trim discipline with capability conserved; it also adjudicates every line the fixer removed (restoring real law, letting narration stay cut) and proves each claimed demotion by opening its owner; its receipt supersedes the fixer receipt, an `.api` catalog never entering this pass — it closed at Fix. Verify: a verifier per batch, adversarial and WRITING — it reads the cumulative HEAD->now diff and REPAIRS in place what the aggressive passes compounded (lost law restored to the register, every demotion re-proven across all candidate owners, a fresh twin killed, a residual frame reframed, litter deleted), never grading or deferring a residual; its receipt supersedes the red-team. An `.api` catalog enters neither Redteam nor Verify — the fixer carries its truth, stacking, structure, and legacy law and decompiles each member against the assembly, so a pure `.api` run closes at Fix and spends no adversarial pass; the redteam/verify chain is kept for the prose-dense kinds where a cold second pass catches real over-deletion. Collect: a single collector holds the dossiers of every owner in one context — grounded first in the instruction chain, the libs/.planning corpus law, the rulings template, and each target RULINGS.md — and adjudicates the whole candidate set at once (cross-owner dedup, already-homed and contradicting candidates rejected, guard-grade repair, a ruling spanning owners deferred to its branch or cross-libs tier rather than duplicated), reconciles each survivor to current standing policy so a stale spec-sheet framing never lands, then transcribes the survivors into the owning registries. Analyze and Fix stream per finder-group — fixers fire the instant their finder returns, no chain waiting on a sibling group; Redteam and Verify then run as whole-corpus pooled stages, each OK page batched at the batch size so every batch fills and every file is covered once, never tied to the finder group; only the terminal Collect and Format gate on the whole set, and that deterministic Format sweep re-pads every touched page and RULINGS.md to the canonical table render and re-runs the gate, so the run closes proven clean under the 150-column cap. A version/install anchor is banned on every kind and a torn markdown table is rebuilt in place to docgen discipline (rows unbounded, rendered width the sole size law). An .api catalog is additionally rebuilt template-true against api-catalog.template.md — abbreviated in-cell signatures never fenced, torn tables and run-on member bullets repaired, the universal rail column dropped, columns and [04] labels renamed to the closed set — verified against ground truth (tools.assay api decompile, nuget MCP, context7) with its cross-.api and within-library ultra-stacking guidance deepened to operator depth per campaign-method.',
+        'Accepts a folder path, path array, or targets object; empty input is a no-op. Routing deduplicates Markdown files and records structural measures. Analysis compares each page with its live instruction, template, registry, and sibling ownership surfaces. Fix workers remove regenerable framing, repair retained prose and tables, prove demotions, ground API members through the project assay rail, and emit typed receipts. Planning pages write only genuine extracted rulings to scratch dossiers. Adversarial passes restore lost law and remove residual duplication or narration. Collection lands surviving rulings in their owning registries. Formatting closes every touched page under repository law.',
     phases: [
         {
             title: 'Route',
-            detail: 'a census of every .md under each target with total, prose, and in-fence-comment line counts, deduped by path — the baseline every finder and fixer derives from',
+            detail: 'Resolve and deduplicate Markdown targets, then establish the structural baseline used by downstream workers.',
         },
         {
             title: 'Analyze',
-            detail: 'partitioned by unique visibility so no stage re-litigates another: a per-folder-group finder for prose tiers (ownership interrogation, per-file findings, cross-file duplication); for an `.api` tier a whole-tier cross-tier finder that holds the entire tier plus the language substrate in view and returns ONLY the cross-file duplication, substrate-registration, and stacking directives a per-file fixer cannot see — the per-file structural/version/legacy/member sweep is the fixer’s standing law, never re-enumerated here; no edits',
+            detail: 'Inspect prose pages by owner group and API catalogs by tier, returning only grounded defects, ownership moves, and cross-file directives.',
         },
         {
             title: 'Fix',
-            detail: 'a fixer per file under the pooled cap: all prose and fence comments rebuilt in place to the register, removal the default repair, every demotion proven against its target, a folder-wide ruling on a planning page removed and written to a transcribe-ready RULINGS dossier, the file landed template-true, gate run to clean, ledgered receipt returned',
+            detail: 'Rebuild each file in place, prove every ownership move, extract genuine planning rulings, and return a typed receipt.',
         },
         {
             title: 'Redteam',
-            detail: 'a red-team over whole-corpus batches of OK-fixed non-`.api` pages: git-diffs HEAD to adjudicate every line the fixer removed (real law restored, narration left cut) and prove each demotion at its owner, repairs its litter (tombstones, substitute negations, fresh twins, re-narrating pointers, package-version/install anchors), hardens the rulings dossier, and drives a further reduction under silent-removal and token-trim discipline while holding the losslessness bar itself; its receipt supersedes the fixer, an `.api` catalog never entering this pass — it closed at Fix',
+            detail: 'Review rebuilt prose pages against the cumulative diff, restore real law, remove residual framing, and harden extracted rulings.',
         },
         {
             title: 'Verify',
-            detail: 'every kind but `.api`, which closed at Fix — a verifier over whole-corpus batches of rebuilt pages, adversarial and WRITING: reads the cumulative HEAD->now diff and repairs in place what the aggressive passes compounded — lost law restored to the register, every claimed demotion re-proven at its owner across all candidates, a fresh twin left by a fold killed, a residual imported frame reframed, predecessor litter deleted, gate re-run; its receipt supersedes the red-team',
+            detail: 'Reconcile prose-dense pages after adversarial editing, repairing lost law, unproven demotions, duplicate facts, and structural residue.',
         },
         {
             title: 'Collect',
-            detail: 'a single collector for every owner that got extractions, grounded in the instruction chain, the libs/.planning corpus law, the rulings template, and each target RULINGS.md: the whole candidate set adjudicated at once (cross-owner dedup, already-homed and contradicting candidates rejected, guard-grade repair, wider-scoped rulings deferred to their tier), each survivor reconciled to current standing policy before it lands, survivors transcribed into the owning registries, gate run — fires only when a planning page extracted a folder-wide ruling',
+            detail: 'Adjudicate extracted rulings across owners and transcribe only current, non-duplicated decisions into the owning registries.',
         },
         {
             title: 'Format',
-            detail: 'one deterministic sweep re-pads every touched page and every written RULINGS.md to the canonical table render and re-runs the width/anchor gate, closing the run with every table proven within the 150-column cap',
+            detail: 'Format every touched page and written ruling registry, then close against repository structure and prose gates.',
         },
     ],
 };
@@ -40,7 +40,7 @@ export const meta = {
 
 const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm';
 const CHAIN = ['/Users/bardiasamiee/.claude/CLAUDE.md', ROOT + '/CLAUDE.md']; // always-loaded fork surfaces: global [02] + project [02]
-const CAP = 14; // max agents in flight across the streamed group-chains; the harness slot ceiling itself (min(16, cores-2)), saturated with no reserved headroom
+const CAP = 14;
 const GROUP = 5; // finder files per analyze agent (non-`.api` tiers)
 const TIER_GROUP = 40; // `.api`-tier finder ownership slice; each slice sees the WHOLE tier for routing, so the split balances read-load without fragmenting cross-file dedup
 const BATCH = 5; // pages per agent for both adversarial passes (Redteam, Verify); batching amortizes their shared cold-review law across a small file group
@@ -117,8 +117,8 @@ const TEMPLATE = {
     page: '',
 };
 const templatePath = (kind) => (TEMPLATE[kind] ? ROOT + '/.claude/skills/docgen/templates/' + TEMPLATE[kind] : '');
-// terminal stage by kind: an `.api` catalog closes at Fix — the fixer already carries the full API-TRUTH, ultra-stacking, structure, and legacy law and decompiles each member
-// against the assembly, so one authoritative pass suffices and a diff-driven second pass only re-opens proven cells. The adversarial Fix -> Redteam -> Verify chain is spent only
+// terminal stage by kind: an `.api` catalog closes at Fix — the fixer already carries the full API-TRUTH, ultra-stacking, structure, and legacy law and grounds each member against
+// the polyglot `tools.assay api query` rail (ilspycmd/introspect/.d.ts by language), so one authoritative pass suffices and a diff-driven second pass only re-opens proven cells. The adversarial Fix -> Redteam -> Verify chain is spent only
 // where a cold second pass catches real over-deletion — spec pages, README/ARCHITECTURE/RULINGS registries, prose-dense kinds. adversarial(kind) gates BOTH the red-team and the
 // verifier: an `.api` catalog enters neither.
 const adversarial = (kind) => kind !== 'api';
@@ -458,13 +458,19 @@ const versionBanLaw =
 // .api truth verification — appended to the fixer and red-team for `api`-kind files ONLY; the catalog is a contract, its surface rows live in table cells, and truthfulness outranks trimming
 const apiVerifyLaw =
     '\n\nAPI TRUTH — an `.api` catalog is a CONTRACT and truthfulness OUTRANKS trimming: every named surface it lists (type, member, signature, kind, capability) is PROVABLY real or it ' +
-    'does not survive, because a false member poisons every consumer that composes this catalog. The surface rows live in TABLE cells — prose you own — not fences. VERIFY each against ' +
-    'ground truth before trimming: a C# catalog (path under `libs/csharp`) decompiles and queries the real assembly — `cd ' +
+    'does not survive, because a false member poisons every consumer that composes this catalog. The surface rows live in TABLE cells — prose you own — not fences. `tools.assay api query` ' +
+    'is the polyglot ground-truth rail across all three branches, keyed by the owning package/distribution name and the member: `cd ' +
     ROOT +
-    ' && uv run python -m tools.assay api query` over the owning package/type (the polymorphic ilspy surface) — and confirms the package and type exist through the `nuget` MCP; any other ' +
-    'language resolves the library through `context7` and reads the real member. CORRECT a proven-wrong cell in place — a misspelled member, a wrong signature, a stale kind, an overclaimed ' +
-    'capability — this truthfulness repair is the ONE design-touching move an `.api` catalog authorizes, never invention. A surface you CANNOT verify against source is NEVER silently kept ' +
-    'as-if-true: flag it in notes with the exact unverifiable symbol. A fence code body proven wrong is flagged in notes, never edited. Record each correction in notes.';
+    ' && uv run python -m tools.assay api query --key <package> --symbol <member>` (add `--kind`, `--grep`, or `--full` to narrow; a key spelled in two ecosystems pins its kind with a scope ' +
+    'prefix — `py:<dist>`, `nuget:`, `npm:`, `host:` — so a Python catalog never reads a C# decompile). It resolves the source kind by language and reports the ' +
+    'fidelity it achieved: a C# catalog (path under `libs/csharp`) decompiles the real NUGET/ASSEMBLY through ilspycmd (fidelity `decompiled`) and confirms the package exists through the ' +
+    '`nuget` MCP; a PYTHON catalog (`libs/python`) introspects the installed `.venv` object in-process via `inspect` (fidelity `introspected`), so the surface is the EXACT installed ' +
+    'version — strictly better than any docs corpus; a TYPESCRIPT catalog (`libs/typescript`) parses the `.d.ts` declarations under `node_modules` (fidelity `declared`). context7 is the ' +
+    'FALLBACK ONLY, never the primary py/ts rail: reach for it just when assay returns `unsupported`/`unknown` because the distribution is not installed in the `.venv` or its declaration is ' +
+    'absent from `node_modules` (a package the catalog documents but the toolchain has not provisioned) — then `context7` reads the upstream member, and the row is flagged in notes as ' +
+    'context7-verified rather than assay-ground-truth so a later provisioned run re-grounds it. CORRECT a proven-wrong cell in place — a misspelled member, a wrong signature, a stale kind, an ' +
+    'overclaimed capability — this truthfulness repair is the ONE design-touching move an `.api` catalog authorizes, never invention. A surface you CANNOT verify against either rail is NEVER ' +
+    'silently kept as-if-true: flag it in notes with the exact unverifiable symbol. A fence code body proven wrong is flagged in notes, never edited. Record each correction in notes.';
 
 // .api ultra-stacking depth — appended to finder, fixer, and red-team for `api`-kind files ONLY; the catalog exists to extract 100% of an external library's value, never naive single-use
 const apiStackingLaw =
@@ -574,7 +580,9 @@ const apiTierMandate = (owned, wholeTier) => {
         JSON.stringify(wholeTier.map((f) => f.path)) +
         '.' +
         (substrates.length
-            ? '\nSUBSTRATE TIER(S) — the shared catalogue root each folder catalog registers against (enumerate each with `fd -e md . <root>`): ' + JSON.stringify(substrates) + '.'
+            ? '\nSUBSTRATE TIER(S) — the shared catalogue root each folder catalog registers against (enumerate each with `fd -e md . <root>`): ' +
+              JSON.stringify(substrates) +
+              '.'
             : '') +
         '\n\nREAD VIA TOOLS, never prompt-preload: use `rg`/`fd`/Read across the tier and substrate to build the map — never attempt to hold every catalog in context. `rg` a shared ' +
         'member name, decision phrase, or roster across the tier to surface duplication fast, then Read the two catalogs to rule on the winner.' +
@@ -623,7 +631,7 @@ const analyzeMandate = (group) =>
     'merely spells `Version`.' +
     (group.some((f) => f.kind === 'api')
         ? '\n\nAPI TRUTH (this group carries `.api` catalogs): a catalog is a contract — flag any named surface whose spelling, signature, kind, or capability reads WRONG or overclaimed ' +
-          'as a finding (move=reframe, direction naming the exact symbol to re-verify), so the fixer decompiles and corrects it.' +
+          'as a finding (move=reframe, direction naming the exact symbol to re-verify), so the fixer grounds it against `tools.assay api query` and corrects it.' +
           apiStackingLaw +
           '\n\nAS THE FINDER on an `.api` catalog, ALSO flag every STRUCTURAL deformation against the hardened template ' +
           templatePath('api') +
@@ -780,7 +788,7 @@ const fixMandate = (f, seed) => {
               f.path +
               '#<anchor> | tier: package|branch|cross-libs | dedup: <short-key> -->` metadata comment for the collector. A page with NO folder-wide homeless ruling ' +
               'writes NO dossier file at all — extraction is NEVER forced and an empty stub is dead noise the collector must sift, so leave the path unwritten, set ' +
-              "rulingsExtracted 0 and rulingsDossier \"\". When you DO extract, set rulingsExtracted to the row count and rulingsDossier to " +
+              'rulingsExtracted 0 and rulingsDossier "". When you DO extract, set rulingsExtracted to the row count and rulingsDossier to ' +
               dossier +
               '.'
             : '\n\nRULINGS: this file is not under a `.planning/` tree and owns no RULINGS.md — set rulingsExtracted -1 and rulingsDossier "".') +
@@ -1086,20 +1094,13 @@ const formatMandate = (paths) =>
     '[<path of every file the check still fails>]}.';
 
 // slot semaphore: caps the true in-flight agent count at CAP with work-conserving backfill, so a group-chain`s fan-fix burst never overshoots the cap (throughput [02]-[CONCURRENCY]).
-// Every acquire awaits a shared stagger gate, so a fresh run and a cache-replaying resume ramp to the cap identically. Group-chains launch via Promise.all and stream — a stage of one
-// group never gates on the whole corpus; only the terminal Collect and Format barriers hold every file at once.
+// Group-chains launch via Promise.all and stream; a stage of one group never gates on the whole corpus. Only terminal Collect and Format barriers hold every file at once.
 const makeSlots = (cap) => {
     let active = 0;
-    let gate = Promise.resolve();
     const waiters = [];
-    const stagger = () => {
-        gate = gate.then(() => new Promise((r) => setTimeout(r, 1500)));
-        return gate;
-    };
     return async (fn) => {
         if (active >= cap) await new Promise((res) => waiters.push(res));
         active++;
-        await stagger();
         try {
             return await fn();
         } finally {
@@ -1205,7 +1206,15 @@ if (apiTierMode) {
     if (nonApi.length) {
         const resid = await Promise.all(
             chunk(nonApi, GROUP).map((g) =>
-                run(() => agent(analyzeMandate(g), { label: 'find:resid+' + g.length, phase: 'Analyze', model: 'opus', effort: 'high', schema: ANALYZE_SCHEMA })),
+                run(() =>
+                    agent(analyzeMandate(g), {
+                        label: 'find:resid+' + g.length,
+                        phase: 'Analyze',
+                        model: 'opus',
+                        effort: 'high',
+                        schema: ANALYZE_SCHEMA,
+                    }),
+                ),
             ),
         );
         for (const m of resid) if (m) for (const fr of m.files) seedByPath.set(fr.path, fr);
@@ -1293,7 +1302,14 @@ if (verifyPages.length) {
     receipts = redteamReceipts.map((r) => verByFile.get(r.file) || r);
 }
 log(
-    analyzed + '/' + files.length + ' analyzed; ' + fixReceipts.length + ' fixed; ' + redteamed.length + ' pages redteamed' +
+    analyzed +
+        '/' +
+        files.length +
+        ' analyzed; ' +
+        fixReceipts.length +
+        ' fixed; ' +
+        redteamed.length +
+        ' pages redteamed' +
         (verifyPages.length ? '; ' + verifyPages.length + ' verified' : '') +
         (fixTerminal ? '; ' + fixTerminal + ' `.api` closed at Fix by kind' : ''),
 );
@@ -1303,9 +1319,7 @@ log(
 // candidate set in one context, and a single writer across disjoint registries cannot collide with itself.
 // only a receipt that actually extracted (rulingsExtracted > 0) has a written dossier on disk; an empty page writes none, so the collector is handed filled dossiers alone.
 // The union spans every receipt generation (fix, redteam, final) — a dossier the fixer wrote survives on disk even when a superseding receipt under-reports the count.
-const extractedPaths = new Set(
-    [...fixReceipts, ...redteamed, ...receipts].filter((r) => r.ok && r.rulingsExtracted > 0).map((r) => r.file),
-);
+const extractedPaths = new Set([...fixReceipts, ...redteamed, ...receipts].filter((r) => r.ok && r.rulingsExtracted > 0).map((r) => r.file));
 const owners = [...new Set([...extractedPaths].map((p) => ownerOf(p)))].filter(Boolean);
 let collected = null;
 if (owners.length) {

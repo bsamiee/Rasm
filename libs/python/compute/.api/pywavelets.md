@@ -1,25 +1,18 @@
 # [PY_COMPUTE_API_PYWAVELETS]
 
-`pywavelets` (dist `pywavelets`, import `pywt`) supplies the discrete and continuous wavelet-transform surface for the compute signal-processing rail: single- and multi-level 1D/2D/nD DWT and inverse, stationary (undecimated) and wavelet-packet decompositions, the continuous CWT, and a `Wavelet`/`ContinuousWavelet` family that exposes filter banks and scaling/wavelet functions. The package owner composes `dwt`/`idwt`, `wavedec`/`waverec`, `cwt`, and the `Wavelet` catalogue into the signal owner beside `scipy.signal`; it never re-implements the cascade filter-bank convolution PyWavelets already owns.
+`pywavelets` (import `pywt`) owns the discrete and continuous wavelet-transform surface for the compute signal rail — single/multilevel 1D/2D/nD DWT and inverse, stationary and wavelet-packet decompositions, additive MRA, the fully-separable transform, and the CWT over a `Wavelet`/`ContinuousWavelet` catalogue. `compute`'s signal owner composes it beside `scipy.signal`, which holds Fourier/FIR-IIR spectral analysis; the cascade filter-bank convolution stays PyWavelets', never re-implemented.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pywavelets`
 - package: `pywavelets`
-- import: `import pywt` (dist name `pywavelets`, import name `pywt`)
-- owner: `compute`
+- module: `pywt` (dist `pywavelets`; all public transforms, types, and helpers at top level)
 - rail: signal processing
-- namespace: `pywt` (all public transforms/types/helpers at top level)
-- installed: `1.9.0`
-- requires: `numpy`
-- entry points: none (library only)
-- capability: 1D/2D/nD discrete wavelet transform (single and multilevel), stationary/undecimated DWT (1D/2D/nD), multiresolution analysis (additive MRA), the fully-separable wavelet transform, wavelet-packet trees (1D/2D/nD), the continuous wavelet transform, soft/hard/garrote/firm coefficient thresholding, coefficient ravel/unravel between nested lists and flat arrays, a discrete/continuous wavelet catalogue with filter banks and `wavefun`, FIR filter-bank helpers, and signal-extension-mode control
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: wavelet, packet, and mode types
-- rail: signal processing
-- discrete/continuous wavelets construct by name (`Wavelet(name)`, `ContinuousWavelet(name)`); packet trees construct as `WaveletPacket*(data, wavelet, mode=…, maxlevel=None, axis)`; `wavefun` returns scaling/wavelet functions on a grid.
+- Discrete/continuous wavelets construct by name — `Wavelet(name)`, `ContinuousWavelet(name)`; packet trees as `WaveletPacket*(data, wavelet, mode=…, maxlevel=None, axis)`; `wavefun` returns scaling/wavelet functions on a grid.
 
 | [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]      | [CAPABILITY]                                                                     |
 | :-----: | :--------------------------- | :----------------- | :------------------------------------------------------------------------------- |
@@ -31,7 +24,7 @@
 |  [06]   | `WaveletPacketND`            | nD packet tree     | nD packet tree (corner-string subnodes), `mode='smooth'` default                 |
 |  [07]   | `Node` / `Node2D` / `NodeND` | packet node        | per-level tree node carrying coefficient data and child accessors                |
 |  [08]   | `FswavedecnResult`           | FSWT result        | `approx`/`coeffs`/`coeff_slices`/`detail_keys`/`wavelets`/`modes` → `fswaverecn` |
-|  [09]   | `Modes`                      | extension modes    | 9 signal-extension modes in the `MODES` fence; `Modes.from_object` normalizes    |
+|  [09]   | `Modes`                      | extension modes    | signal-extension mode set in the `MODES` fence; `Modes.from_object` normalizes   |
 
 ```python signature
 class Wavelet:                                  # pywt.Wavelet(name)
@@ -53,91 +46,83 @@ MODES = ("symmetric", "reflect", "periodic", "periodization", "zero",   # pywt.M
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: discrete transforms (single and multilevel)
-- rail: signal processing
+- `wavelet` takes a `Wavelet` or its name; multilevel forms return the approximation and a detail list, and nD forms key details by corner string (`'aa'`, `'ad'`, …).
 
-`wavelet` accepts a `Wavelet` or its string name; `mode` selects the signal-extension policy; multilevel transforms return the approximation plus a list of detail coefficients, and the nD forms key details by a corner string (`'aa'`, `'ad'`, …).
-
-| [INDEX] | [SURFACE]             | [CALL_SHAPE]                                                          | [CAPABILITY]                             |
-| :-----: | :-------------------- | :-------------------------------------------------------------------- | :--------------------------------------- |
-|  [01]   | `dwt`                 | `dwt(data, wavelet, mode='symmetric', axis=-1)` -> `(cA, cD)`         | single-level 1D DWT                      |
-|  [02]   | `idwt`                | `idwt(cA, cD, wavelet, mode='symmetric', axis=-1)`                    | single-level 1D inverse                  |
-|  [03]   | `wavedec`             | `wavedec(data, wavelet, mode='symmetric', level=None, axis=-1)`       | multilevel 1D DWT (`[cAn, cDn, …, cD1]`) |
-|  [04]   | `waverec`             | `waverec(coeffs, wavelet, mode='symmetric', axis=-1)`                 | multilevel 1D inverse                    |
-|  [05]   | `dwt2`/`idwt2`        | `dwt2(data, wavelet, mode, axes=(-2,-1))` -> `(cA, (cH, cV, cD))`     | single-level 2D DWT and inverse          |
-|  [06]   | `wavedec2`/`waverec2` | `wavedec2(data, wavelet, mode, level, axes=(-2,-1))`                  | multilevel 2D DWT and inverse            |
-|  [07]   | `wavedecn`/`waverecn` | `wavedecn(data, wavelet, mode, level, axes)` -> approx + corner dicts | multilevel nD DWT and inverse            |
-|  [08]   | `dwtn`/`idwtn`        | `dwtn(data, wavelet, mode, axes)` -> corner-keyed dict                | single-level nD DWT and inverse          |
+| [INDEX] | [SURFACE]                                                          | [SHAPE] | [CAPABILITY]                                 |
+| :-----: | :----------------------------------------------------------------- | :------ | :------------------------------------------- |
+|  [01]   | `dwt(data, wavelet, mode='symmetric', axis=-1) -> (cA, cD)`        | static  | single-level 1D DWT                          |
+|  [02]   | `idwt(cA, cD, wavelet, mode='symmetric', axis=-1)`                 | static  | single-level 1D inverse                      |
+|  [03]   | `wavedec(data, wavelet, mode='symmetric', level=None, axis=-1)`    | static  | multilevel 1D DWT (`[cAn, cDn, …, cD1]`)     |
+|  [04]   | `waverec(coeffs, wavelet, mode='symmetric', axis=-1)`              | static  | multilevel 1D inverse                        |
+|  [05]   | `dwt2/idwt2(data, wavelet, mode, axes=(-2,-1)) -> (cA,(cH,cV,cD))` | static  | single-level 2D DWT and inverse              |
+|  [06]   | `wavedec2/waverec2(data, wavelet, mode, level, axes=(-2,-1))`      | static  | multilevel 2D DWT and inverse                |
+|  [07]   | `wavedecn/waverecn(data, wavelet, mode, level, axes)`              | static  | multilevel nD DWT and inverse (corner dicts) |
+|  [08]   | `dwtn/idwtn(data, wavelet, mode, axes) -> corner-keyed dict`       | static  | single-level nD DWT and inverse              |
 
 [ENTRYPOINT_SCOPE]: stationary, continuous, denoising, and catalogue
-- rail: signal processing
-- stationary transforms share `(data, wavelet, level=None, start_level=0, trim_approx=False, norm=False)` over `axis` (1D) or `axes` (2D/nD); inverses take `(coeffs, wavelet, norm=False, axis=-1)`. `cwt` takes `(data, scales, wavelet, sampling_period=1.0, method='conv'|'fft', axis=-1, *, precision=12) -> (coefs, freqs)`; `wavefun` is the `Wavelet`/`ContinuousWavelet` method `wavefun(level=8, length=None)` (`length` continuous-only).
+- Stationary transforms share `(data, wavelet, level=None, start_level=0, trim_approx=False, norm=False)` over `axis`/`axes`; inverses take `(coeffs, wavelet, norm=False, axis=-1)`. `cwt(data, scales, wavelet, sampling_period=1.0, method='conv'|'fft', *, precision=12) -> (coefs, freqs)`.
 
-| [INDEX] | [SURFACE]           | [CALL_SHAPE]                                         | [CAPABILITY]                                |
-| :-----: | :------------------ | :--------------------------------------------------- | :------------------------------------------ |
-|  [01]   | `swt`/`iswt`        | `swt(…, axis=-1)` / `iswt(coeffs, …)`                | stationary (undecimated) 1D DWT + inverse   |
-|  [02]   | `swt2`/`iswt2`      | `swt2(…, axes=(-2,-1))` / `iswt2(…)`                 | stationary 2D DWT + inverse                 |
-|  [03]   | `swtn`/`iswtn`      | `swtn(…, axes=None)` / `iswtn(…)`                    | stationary nD DWT + inverse                 |
-|  [04]   | `cwt`               | `cwt(data, scales, wavelet, …)`                      | continuous transform -> `(coefs, freqs)`    |
-|  [05]   | `threshold`         | `threshold(data, value, mode='soft', substitute=0)`  | soft/hard/garrote/greater/less thresholding |
-|  [06]   | `threshold_firm`    | `threshold_firm(data, value_low, value_high)`        | firm (semi-soft) two-knee thresholding      |
-|  [07]   | `wavelist`          | `wavelist(family=None, kind='all')` -> `list[str]`   | enumerate the wavelet catalogue             |
-|  [08]   | `families`          | `families(short=True)` -> `list[str]`                | wavelet family names                        |
-|  [09]   | `wavefun`           | `.wavefun(level=8, length=None)`                     | scaling/wavelet functions (object method)   |
-|  [10]   | `dwt_max_level`     | `dwt_max_level(data_len, filter_len)` -> `int`       | max useful decimated decomposition level    |
-|  [11]   | `swt_max_level`     | `swt_max_level(input_len)` -> `int`                  | max useful stationary decomposition level   |
-|  [12]   | `dwt_coeff_len`     | `dwt_coeff_len(data_len, filter_len, mode)` -> `int` | one-level DWT output coefficient length     |
-|  [13]   | `scale2frequency`   | `scale2frequency(wavelet, scale, precision=8)`       | CWT scale->frequency conversion             |
-|  [14]   | `frequency2scale`   | `frequency2scale(wavelet, freq, precision=8)`        | CWT frequency->scale conversion             |
-|  [15]   | `central_frequency` | `central_frequency(wavelet, precision=8)`            | wavelet center frequency                    |
-|  [16]   | `integrate_wavelet` | `integrate_wavelet(wavelet, precision=8)`            | integrated wavelet/scaling function for CWT |
+| [INDEX] | [SURFACE]                                            | [SHAPE]  | [CAPABILITY]                                |
+| :-----: | :--------------------------------------------------- | :------- | :------------------------------------------ |
+|  [01]   | `swt(data, wavelet, …, axis=-1)` / `iswt(coeffs, …)` | static   | stationary (undecimated) 1D DWT + inverse   |
+|  [02]   | `swt2(…, axes=(-2,-1))` / `iswt2(…)`                 | static   | stationary 2D DWT + inverse                 |
+|  [03]   | `swtn(…, axes=None)` / `iswtn(…)`                    | static   | stationary nD DWT + inverse                 |
+|  [04]   | `cwt(data, scales, wavelet, …) -> (coefs, freqs)`    | static   | continuous transform                        |
+|  [05]   | `threshold(data, value, mode='soft', substitute=0)`  | static   | soft/hard/garrote/greater/less thresholding |
+|  [06]   | `threshold_firm(data, value_low, value_high)`        | static   | firm (semi-soft) two-knee thresholding      |
+|  [07]   | `wavelist(family=None, kind='all') -> list[str]`     | static   | enumerate the wavelet catalogue             |
+|  [08]   | `families(short=True) -> list[str]`                  | static   | wavelet family names                        |
+|  [09]   | `.wavefun(level=8, length=None)`                     | instance | scaling/wavelet functions (object method)   |
+|  [10]   | `dwt_max_level(data_len, filter_len) -> int`         | static   | max useful decimated decomposition level    |
+|  [11]   | `swt_max_level(input_len) -> int`                    | static   | max useful stationary decomposition level   |
+|  [12]   | `dwt_coeff_len(data_len, filter_len, mode) -> int`   | static   | one-level DWT output coefficient length     |
+|  [13]   | `scale2frequency(wavelet, scale, precision=8)`       | static   | CWT scale->frequency conversion             |
+|  [14]   | `frequency2scale(wavelet, freq, precision=8)`        | static   | CWT frequency->scale conversion             |
+|  [15]   | `central_frequency(wavelet, precision=8)`            | static   | wavelet center frequency                    |
+|  [16]   | `integrate_wavelet(wavelet, precision=8)`            | static   | integrated wavelet/scaling function for CWT |
 
 [ENTRYPOINT_SCOPE]: multiresolution analysis, fully-separable transform, coefficient packing, and filter helpers
-- rail: signal processing
-- the additive MRA returns components that SUM back to the input (unlike the DWT's hierarchical coefficient pyramid); the fully-separable transform applies a full 1D DWT along each axis in turn, returning a `FswavedecnResult`; coefficient packing flattens the nested `wavedecn` structure to a single array for solver/optimizer consumption and inverts it; filter helpers build orthogonal/quadrature-mirror FIR banks for a custom wavelet.
-- the additive MRA family shares `(data, wavelet, level=None, transform=…, mode='periodization')` over `axis`/`axes` and inverts with `imra*`.
+- Additive MRA shares `(data, wavelet, level=None, transform=…, mode='periodization')` over `axis`/`axes`, inverted by `imra*`; `coeffs_to_array`/`ravel_coeffs` flatten the nested `wavedecn` structure with `coeff_slices`/`coeff_shapes` metadata for solver/optimizer consumption.
 
-| [INDEX] | [SURFACE]                                                                   | [CAPABILITY]                                           |
-| :-----: | :-------------------------------------------------------------------------- | :----------------------------------------------------- |
-|  [01]   | `mra(…, axis=-1, transform='swt')` / `imra(mra_coeffs)`                     | additive 1D MRA, components sum to input               |
-|  [02]   | `mra2(…, axes=(-2,-1), transform='swt2')` / `imra2(…)`                      | additive 2D MRA                                        |
-|  [03]   | `mran(…, axes=None, transform='swtn')` / `imran(…)`                         | additive nD MRA                                        |
-|  [04]   | `fswavedecn(data, wavelet, mode='symmetric', levels=None, axes=None)`       | fully-separable transform; per-axis level/wavelet/mode |
-|  [05]   | `fswaverecn(result)`                                                        | inverse fully-separable transform                      |
-|  [06]   | `coeffs_to_array(coeffs, padding=0, axes=None)` -> `(arr, coeff_slices)`    | pack `wavedecn` coeffs to one padded array             |
-|  [07]   | `array_to_coeffs(arr, coeff_slices, output_format='wavedecn')`              | unpack padded array to nested coeffs                   |
-|  [08]   | `ravel_coeffs(coeffs, axes=None)` -> `(arr, coeff_slices, coeff_shapes)`    | flatten coeffs to a 1D vector (optimizer input)        |
-|  [09]   | `unravel_coeffs(arr, coeff_slices, coeff_shapes, output_format='wavedecn')` | reconstruct nested coeffs from the vector              |
-|  [10]   | `wavedecn_shapes(shape, wavelet, mode='symmetric', level=None, axes=None)`  | per-level coeff shapes without transforming            |
-|  [11]   | `wavedecn_size(shapes)`                                                     | total coeff count from shapes                          |
-|  [12]   | `downcoef(part, data, wavelet, mode='symmetric', level=1)`                  | single `part='a'`/`'d'` coefficient extraction         |
-|  [13]   | `upcoef(part, coeffs, wavelet, level=1, take=0)`                            | partial reconstruction from one coefficient part       |
-|  [14]   | `orthfilt(scaling_filter)`                                                  | build orthogonal FIR filter bank from a filter         |
-|  [15]   | `qmf(filt)`                                                                 | quadrature-mirror filter flip                          |
-|  [16]   | `pad(x, pad_widths, mode)`                                                  | mode-aware array padding                               |
+| [INDEX] | [SURFACE]                                                                   | [SHAPE] | [CAPABILITY]                                     |
+| :-----: | :-------------------------------------------------------------------------- | :------ | :----------------------------------------------- |
+|  [01]   | `mra(…, axis=-1, transform='swt')` / `imra(mra_coeffs)`                     | static  | additive 1D MRA, components sum to input         |
+|  [02]   | `mra2(…, axes=(-2,-1), transform='swt2')` / `imra2(…)`                      | static  | additive 2D MRA                                  |
+|  [03]   | `mran(…, axes=None, transform='swtn')` / `imran(…)`                         | static  | additive nD MRA                                  |
+|  [04]   | `fswavedecn(data, wavelet, mode='symmetric', levels=None, axes=None)`       | static  | fully-separable; per-axis level/wavelet/mode     |
+|  [05]   | `fswaverecn(result)`                                                        | static  | inverse fully-separable transform                |
+|  [06]   | `coeffs_to_array(coeffs, padding=0, axes=None) -> (arr, coeff_slices)`      | static  | pack `wavedecn` coeffs to one padded array       |
+|  [07]   | `array_to_coeffs(arr, coeff_slices, output_format='wavedecn')`              | static  | unpack padded array to nested coeffs             |
+|  [08]   | `ravel_coeffs(coeffs, axes=None) -> (arr, coeff_slices, coeff_shapes)`      | static  | flatten coeffs to a 1D vector (optimizer input)  |
+|  [09]   | `unravel_coeffs(arr, coeff_slices, coeff_shapes, output_format='wavedecn')` | static  | reconstruct nested coeffs from the vector        |
+|  [10]   | `wavedecn_shapes(shape, wavelet, mode='symmetric', level=None, axes=None)`  | static  | per-level coeff shapes without transforming      |
+|  [11]   | `wavedecn_size(shapes)`                                                     | static  | total coeff count from shapes                    |
+|  [12]   | `downcoef(part, data, wavelet, mode='symmetric', level=1)`                  | static  | single `part='a'`/`'d'` coefficient extraction   |
+|  [13]   | `upcoef(part, coeffs, wavelet, level=1, take=0)`                            | static  | partial reconstruction from one coefficient part |
+|  [14]   | `orthfilt(scaling_filter)`                                                  | static  | build orthogonal FIR filter bank from a filter   |
+|  [15]   | `qmf(filt)`                                                                 | static  | quadrature-mirror filter flip                    |
+|  [16]   | `pad(x, pad_widths, mode)`                                                  | static  | mode-aware array padding                         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[SIGNAL_WAVELET]:
-- import: `import pywt` at boundary scope only; module-level import is banned by the manifest import policy. The dist name is `pywavelets`; the import name is `pywt`.
-- transform axis: one DWT family spans dimensionality — `dwt`/`wavedec` (1D), `dwt2`/`wavedec2` (2D), `dwtn`/`wavedecn` (nD) — and decomposition depth is the `level` row, never a hand-iterated filter cascade; `idwt`/`waverec*` are the exact inverses.
-- wavelet axis: a `Wavelet` (or its string name) carries the filter bank; the catalogue is enumerated by `wavelist`/`families`, never hardcoded coefficient arrays; `ContinuousWavelet` carries the CWT basis.
-- mode axis: `mode` selects the signal-extension policy (`symmetric`/`periodization`/`reflect`/…) as one row on every transform; boundary handling is a parameter, never a separate padded-then-transform path.
-- decimation axis: `swt`/`swt2`/`swtn` are the stationary (shift-invariant, undecimated) variant; the decimated `dwt` family and the undecimated `swt` family are decomposition rows, never duplicated transform engines.
-- separability axis: `wavedecn` applies one shared wavelet/mode/level across all axes; `fswavedecn` is the fully-separable transform that applies an independent full 1D DWT (own level/wavelet/mode) per axis, returning a `FswavedecnResult` inverted only by `fswaverecn` — pick the separable transform when axes have different sampling characteristics, never hand-iterate per-axis `wavedec`.
-- additive axis: `mra`/`mra2`/`mran` are the additive multiresolution analysis whose components SUM to the input (`sum(mra(x)) ≈ x`); this is the analysis-of-variance decomposition, distinct from the `wavedec` coefficient pyramid, and is inverted by `imra*` — never reconstruct an additive band sum from `waverec`.
-- continuous axis: `cwt(data, scales, wavelet, *, precision=12)` returns scale-frequency coefficients with `method='conv'` (direct) or `'fft'` (frequency-domain) and `scale2frequency`/`frequency2scale`/`central_frequency` for the scale↔frequency mapping.
-- denoising axis: `threshold` applies the soft/hard/garrote/greater/less rule and `threshold_firm` the two-knee firm rule to detail coefficients between `wavedec` and `waverec`; thresholding is a coefficient row, never a separate denoiser type.
-- packing axis: `ravel_coeffs`/`coeffs_to_array` flatten the nested `wavedecn` coefficient structure to a single array (with `coeff_slices`/`coeff_shapes` metadata) and `unravel_coeffs`/`array_to_coeffs` invert it — this is the bridge that lets a solver/optimizer treat the full coefficient set as one flat parameter vector; `wavedecn_shapes`/`wavedecn_size` predict the packed layout without transforming.
-- evidence: each transform captures wavelet name, level, mode, axis, and coefficient shapes as a signal receipt; perfect reconstruction (`waverec(wavedec(x)) ≈ x`, `sum(mra(x)) ≈ x`) is the verification invariant.
-- boundary: PyWavelets owns wavelet decomposition/reconstruction and the CWT; `scipy.signal` owns FIR/IIR filtering and spectral analysis beside it; the graduation rail hands offline coefficients across the wire; live UI stays outside this package.
+[TOPOLOGY]:
+- One DWT family spans dimensionality by axis rank and depth by `level`; `idwt`/`waverec*` are exact inverses, so perfect reconstruction (`waverec(wavedec(x)) ≈ x`) is the verification invariant, and each transform records wavelet, level, mode, axis, and coefficient shapes as a signal receipt — never a hand-iterated filter cascade.
+- `mode` (signal-extension policy) and `wavelet` (filter bank, resolved by name through `wavelist`/`families`) are transform parameters, never a separate padded-then-transform path or hardcoded coefficient array.
+- Decimated `dwt`, undecimated `swt`, additive `mra` (components SUM to input, `sum(mra(x)) ≈ x`, inverted by `imra*`), and per-axis-independent `fswavedecn` (returning a `FswavedecnResult` inverted only by `fswaverecn`) are decomposition rows on one surface, never parallel transform engines.
+- `cwt` returns scale-frequency coefficients (`method='conv'|'fft'`) with `scale2frequency`/`frequency2scale`/`central_frequency` owning the scale↔frequency map; `threshold`/`threshold_firm` denoise detail coefficients between decomposition and reconstruction.
+- `ravel_coeffs`/`coeffs_to_array` own the flat↔nested coefficient bijection with `coeff_slices`/`coeff_shapes`, inverted by `unravel_coeffs`/`array_to_coeffs`; `wavedecn_shapes`/`wavedecn_size` predict the packed layout without transforming.
 
-[SIGNAL_STACKING]:
-- scipy.signal ↔ pywt: `scipy.signal` owns Fourier/short-time-Fourier spectral analysis and FIR/IIR filtering; PyWavelets owns the time-scale (wavelet) decomposition. The signal owner composes both: `scipy.signal.spectrogram` for the stationary-spectrum view and `pywt.cwt` for the time-scale view of the same trace, sharing the `sampling_period`/`fs` so the frequency axes are comparable.
-- optimizer rail (jax/optax/optimistix) ↔ pywt: a wavelet-domain regularized inverse problem ravels the `wavedecn` coefficients with `ravel_coeffs` into a single 1D vector, optimizes the flat vector under an L1/sparsity penalty through the JAX/optax owner, then `unravel_coeffs` + `waverecn` reconstructs the spatial field — the packing helpers, not a hand-built index map, own the flat↔nested bijection.
-- arviz/posterior rail ↔ pywt: when a posterior trace is wavelet-denoised, the `threshold`/`threshold_firm` rule is applied to `wavedec` detail coefficients and the reconstructed trace is handed back to `arviz` for diagnostics; the threshold value is captured in the receipt beside the wavelet/level/mode.
+[STACKING]:
+- `scipy`(`.api/scipy.md`): `scipy.signal` owns Fourier/short-time-Fourier spectral analysis and FIR/IIR filtering; the signal owner pairs `scipy.signal.spectrogram` (stationary spectrum) with `pywt.cwt` (time-scale) over a shared `sampling_period`/`fs` so the frequency axes align.
+- `jax`(`.api/jax.md`)/`optax`(`.api/optax.md`): a wavelet-domain regularized inverse ravels the `wavedecn` coefficients to one 1D vector, optimizes under an L1/sparsity penalty through the JAX/optax owner, then `unravel_coeffs`+`waverecn` reconstructs the spatial field — the packing helpers own the flat↔nested map, never a hand-built index.
+- `arviz`(`.api/arviz.md`): a wavelet-denoised posterior trace applies `threshold`/`threshold_firm` to `wavedec` detail coefficients, the reconstructed trace returning to `arviz` diagnostics with the threshold captured beside wavelet/level/mode in the receipt.
+- within-lib: the `compute` signal owner folds `dwt`/`wavedec`, `swt`, `cwt`, and the `Wavelet` catalogue into one denoise pass, thresholding between `wavedec` and `waverec` beside `scipy.signal`.
+
+[LOCAL_ADMISSION]:
+- `pywavelets` admits the `dwt`/`wavedec`, `swt`, `mra`, `fswavedecn`, `cwt`, catalogue, thresholding, and coefficient-packing surfaces at boundary scope; a live fence reaching a wider member binds it under a named signal consumer.
 
 [RAIL_LAW]:
 - Package: `pywavelets`
-- Owns: 1D/2D/nD discrete (decimated and stationary) wavelet transforms, additive multiresolution analysis, the fully-separable wavelet transform, wavelet-packet trees (1D/2D/nD), the continuous wavelet transform, soft/hard/garrote/greater/less/firm coefficient thresholding, coefficient ravel/unravel between nested lists and flat arrays, the wavelet catalogue with filter banks and `wavefun`, and FIR filter-bank helpers
-- Accept: `dwt`/`wavedec` family with `mode`/`level`/`axis` rows, `swt`/`swtn` for shift-invariant decomposition, `mra`/`mran` for additive analysis-of-variance bands, `fswavedecn` for per-axis-independent separable decomposition, `cwt` for continuous analysis, `Wavelet`/`ContinuousWavelet`/`wavelist`/`wavefun` for the catalogue, `threshold`/`threshold_firm` for coefficient denoising, `ravel_coeffs`/`coeffs_to_array` for the flat↔nested coefficient bijection feeding an optimizer
-- Reject: wrapper-renames of `dwt`/`wavedec`; a hand-rolled cascade filter bank where the multilevel transform applies; hardcoded wavelet coefficients where the catalogue resolves them; a hand-built coefficient index map where `ravel_coeffs`/`unravel_coeffs` own the bijection; reconstructing an additive band sum from `waverec` where `mra`/`imra` own additive analysis; a parallel transform engine per dimensionality or per decimation mode
+- Owns: discrete (decimated and stationary), additive-MRA, fully-separable, and continuous wavelet transforms in 1D/2D/nD, wavelet-packet trees, coefficient thresholding, the flat↔nested coefficient bijection, and the wavelet catalogue with filter banks and `wavefun`
+- Accept: the `dwt`/`wavedec` family over `mode`/`level`/`axis` rows, `swt*` for shift-invariance, `mra*` for additive bands, `fswavedecn` for per-axis-independent decomposition, `cwt` for continuous analysis, `threshold`/`threshold_firm` for denoising, `ravel_coeffs`/`coeffs_to_array` feeding an optimizer
+- Reject: a wrapper-rename of `dwt`/`wavedec`; a hand-rolled cascade filter bank, hardcoded wavelet coefficients, or a hand-built coefficient index map; reconstructing an additive band sum from `waverec` where `mra`/`imra` own it; a parallel engine per dimensionality or decimation mode

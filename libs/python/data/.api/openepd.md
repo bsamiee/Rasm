@@ -1,31 +1,24 @@
 # [PY_DATA_API_OPENEPD]
 
-`openepd` is the typed object model and API client for the OpenEPD format — the open Building Transparency / EC3 schema for Environmental Product Declarations. It is a Pydantic v2 model tree rooted at `BaseOpenEpdSchema` carrying the three declaration doctypes (`Epd`, `IndustryEpd`, `GenericEstimate`), their org/plant/PCR references, the EN 15804 + TRACI LCIA payload (`Impacts` → `ImpactSet` → per-indicator `ScopeSet`), the per-material performance `Specs` hierarchy, plus a `requests`-backed sync client (`OpenEpdApiClientSync`) over the EC3 REST API and a zip-`bundle` reader/writer for offline declaration packages. It is the OpenEPD/EC3 INGEST and modeling leg of the data EPD/LCA owner — it models and fetches OpenEPD payloads; it neither computes an LCA (that is the Brightway cluster) nor parses ILCD+EPD (that is `epdx`).
+`openepd` is the typed Pydantic v2 object model and EC3 REST client for the OpenEPD interchange format — Building Transparency's EC3 schema for Environmental Product Declarations. It roots every declaration at `BaseOpenEpdSchema`, carries the EN 15804 + TRACI LCIA payload as a typed matrix, and moves declarations through the sync EC3 client and the offline `bundle` package. It models and fetches OpenEPD/EC3 payloads; it neither computes an LCA — the Brightway cluster owns that — nor parses ILCD+EPD, which is `epdx`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `openepd`
-- package: `openepd`
-- import: `import openepd` (root patches Pydantic at import — see `[PYDANTIC_PATCH]`); models `from openepd.model.epd import Epd`; client `from openepd.api.sync_client import OpenEpdApiClientSync`
-- version: `7.30.0`
-- license: Apache-2.0 (Copyright C Change Labs Inc.)
-- module: pure Python — `openepd.model.*` (Pydantic v2 declarations/LCIA/specs), `openepd.api.*` (sync REST client over `requests`), `openepd.bundle.*` (zip package IO), `openepd.category.*` (EC3 category tree), `openepd.m49.*` (UN M49 ↔ ISO region codes)
-- owner: `data`
+- package: `openepd` (Apache-2.0, C Change Labs Inc.)
+- module: pure Python, zero compiled extensions; `openepd.model` imports without `requests`, which the `api-client` extra adds for the REST client
+- namespaces: `openepd.model` (Pydantic v2 declarations/LCIA/specs), `openepd.api` (sync REST client), `openepd.bundle` (zip package IO), `openepd.category` (EC3 category tree), `openepd.m49` (UN M49 ↔ ISO region codes)
 - rail: epd-lca (OpenEPD/EC3 interchange)
-- asset: pure Python, zero compiled extensions; `pydantic>=2.11.7,<3` is the runtime model engine
-- depends: `pydantic>=2.11.7,<3`, `email-validator>=1.3.1`, `idna>=3.7`, `open-xpd-uuid>=0.2.1,<2`, `openlocationcode>=1.0.1`; `requests>=2.0` only under the `api-client` extra (models import without `requests`)
-- capability: round-trip typed OpenEPD declarations (parse/validate/serialize via Pydantic), read/sum the LCIA `Impacts` matrix across methods, fetch and search live EC3 declarations through the sync client, and read/write offline declaration bundles
-- scope-law: openepd MODELS and FETCHES OpenEPD/EC3 payloads. It is not an LCA calculator, not the ILCD+EPD parser (`epdx`), and not the material-impact system of record — the data owner normalizes its `Impacts`/`ScopeSet` into the internal impact carrier
+- depends: `pydantic`, `email-validator`, `idna`, `open-xpd-uuid`, `openlocationcode`; `requests` under the `api-client` extra
 
 ## [02]-[DECLARATION_MODELS]
 
 [DECLARATION_SCOPE]: the three OpenEPD doctypes (Pydantic v2 `RootDocument` tree, `openepd.model.*`)
-- rail: epd-lca
-- variants: each doctype ships a `WithDeps` form (referenced PCR/orgs/plants inlined, self-contained) and a `Preview` form (no LCIA payload, the search-response listing projection) — `EpdWithDeps`/`EpdPreview` (= `EpdWithDepsV0`/`EpdPreviewV0`), `IndustryEpdWithDeps`/`IndustryEpdPreview`, `GenericEstimateWithDeps`/`GenericEstimatePreview`
-- ingest: `Epd.model_validate(dict)` / `Epd.model_dump()` are the typed ingest/egress; `Epd` carries identity, declared unit, PCR ref, org/plant refs, validity, `specs: Specs`, and the `impacts: Impacts` LCIA matrix
-- specs: concrete material specs live under `openepd.model.specs.singular.*` — `ConcreteV1`, `PrecastConcreteV1`, `SteelV1`, `WoodV1`, `AsphaltV1`, `AggregatesV1`, `AluminiumV1`, `CMUV1`, `AccessoriesV1`, … with an `openepd.model.specs.range.*` per-material mirror (`concrete`, `steel`, `wood`) for material-range queries
+- variants: each doctype ships a `WithDeps` form (referenced PCR/orgs/plants inlined, self-contained) and a `Preview` form (LCIA-free search-listing projection) — `EpdWithDeps` `EpdPreview` `IndustryEpdWithDeps` `IndustryEpdPreview` `GenericEstimateWithDeps` `GenericEstimatePreview`
+- ingest: `Epd.model_validate(dict)` / `Epd.model_dump()` are the typed boundary; `Epd` carries identity, declared unit, PCR ref, org/plant refs, validity, `specs`, and the `impacts` LCIA matrix
+- specs: concrete material specs under `openepd.model.specs.singular.*` — `ConcreteV1` `PrecastConcreteV1` `SteelV1` `WoodV1` `AsphaltV1` `AggregatesV1` `AluminiumV1` `CMUV1` `AccessoriesV1` — with an `openepd.model.specs.range.*` per-material mirror for range queries
 
-| [INDEX] | [SYMBOL]             | [BASE]                        | [ROLE]                                                         |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]                 | [CAPABILITY]                                                   |
 | :-----: | :------------------- | :---------------------------- | :------------------------------------------------------------- |
 |  [01]   | `Epd` (= `EpdV0`)    | `RootDocument`                | full product EPD — LCIA matrix, `specs`, org/plant/PCR refs    |
 |  [02]   | `IndustryEpd`        | `RootDocument`                | sector/industry-average doctype, same LCIA shape as `Epd`      |
@@ -37,9 +30,8 @@
 |  [08]   | `Specs`              | `BaseOpenEpdHierarchicalSpec` | per-material performance-spec aggregate on `Epd.specs`         |
 
 [DECLARATION_MIXIN_SCOPE]: composable declaration facets (`openepd.model.declaration`, `openepd.model.common`, `openepd.model.lcia`)
-- rail: epd-lca
 
-| [INDEX] | [SYMBOL]                                  | [ROLE]                                                                     |
+| [INDEX] | [SYMBOL]                                  | [CAPABILITY]                                                               |
 | :-----: | :---------------------------------------- | :------------------------------------------------------------------------- |
 |  [01]   | `WithLciaMixin` (`openepd.model.lcia`)    | adds `impacts`, `resource_uses`, `output_flows` — the LCIA payload carrier |
 |  [02]   | `WithOpenXpdUUIDMixin`, `WithAltIdsMixin` | canonical `open_xpd_uuid` (`OpenXpdUUID`) + `alt_ids` keys (`set_alt_id`)  |
@@ -52,16 +44,15 @@
 ## [03]-[LCIA_PAYLOAD]
 
 [LCIA_SCOPE]: the impact matrix (`openepd.model.lcia`) — the leg the material-impact owner sums
-- rail: epd-lca
-- impacts: `Impacts` is a `pydantic.RootModel` keyed `dict[LCIAMethod, ImpactSet]` — `set_impact_set(method, impact_set)`, `get_impact_set(method)`, `available_methods() -> set[LCIAMethod]`, `as_dict() -> dict[LCIAMethod, ImpactSet]`, `replace_lcia_method(old, new)`
-- methods: `LCIAMethod` (`StrEnum`) supports `TRACI_2_2`/`TRACI_2_1`/`TRACI_2_0`, `IPCC_AR5`/`IPCC_AR6`, `EF_3_1`/`EF_3_0`/`EF_2_0`, `CML_2016`…`CML_1992`, `RECIPE_2016`/`RECIPE_2008`, `USETOX_2_12`, `EN_15978_2011`, `GWP_GHG`, `LIME2`, `UNKNOWN`; `LCIAMethod.get_by_name(name)`/`is_method_supported(name)` resolve a wire name
-- indicators: `ScopeSet` unit-fixing subclasses — `ScopeSetGwp`, `ScopeSetOdp`, `ScopeSetAp`, `ScopeSetEpNe`, `ScopeSetPocp`, `ScopeSetEpFresh`, `ScopeSetEpTerr`, `ScopeSetIrp`, `ScopeSetCTUh`, `ScopeSetCTUe`, `ScopeSetM3Aware`, `ScopeSetKgSbe`, `ScopeSetDiseaseIncidence`, `ScopeSetMass`, `ScopeSetVolume`, `ScopeSetMassOrVolume`, `ScopeSetEnergy` (MJ energy carrier), `ScopeSetPoint`
-- flows: `ResourceUseSet` resource-use codes `pere`/`penre`/`fw`/… and `OutputFlowSet` output-flow codes `hwd`/`nhwd`/`rwd`/`cru`/…, name-addressed like `ImpactSet`
+- impacts: `Impacts` is a `pydantic.RootModel` keyed `dict[LCIAMethod, ImpactSet]` — `set_impact_set(method, impact_set)`, `get_impact_set(method)`, `available_methods() -> set[LCIAMethod]`, `as_dict()`, `replace_lcia_method(old, new)`
+- methods: `LCIAMethod` (`StrEnum`) — `TRACI_2_2`/`TRACI_2_1`/`TRACI_2_0`, `IPCC_AR5`/`IPCC_AR6`, `EF_3_1`/`EF_3_0`/`EF_2_0`, `CML_2016`…`CML_1992`, `RECIPE_2016`/`RECIPE_2008`, `USETOX_2_12`, `EN_15978_2011`, `GWP_GHG`, `LIME2`, `UNKNOWN`; `LCIAMethod.get_by_name(name)`/`is_method_supported(name)` resolve a wire name
+- indicators: `ScopeSet` unit-fixing subclasses — `ScopeSetGwp` `ScopeSetOdp` `ScopeSetAp` `ScopeSetEpNe` `ScopeSetPocp` `ScopeSetEpFresh` `ScopeSetEpTerr` `ScopeSetIrp` `ScopeSetCTUh` `ScopeSetCTUe` `ScopeSetM3Aware` `ScopeSetKgSbe` `ScopeSetDiseaseIncidence` `ScopeSetMass` `ScopeSetVolume` `ScopeSetMassOrVolume` `ScopeSetEnergy` `ScopeSetPoint`
+- flows: `ResourceUseSet` (`pere`/`penre`/`fw`/…) and `OutputFlowSet` (`hwd`/`nhwd`/`rwd`/`cru`/…) codes, name-addressed like `ImpactSet`
 
-| [INDEX] | [SYMBOL]                              | [BASE]               | [ROLE]                                                               |
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY]        | [CAPABILITY]                                                         |
 | :-----: | :------------------------------------ | :------------------- | :------------------------------------------------------------------- |
 |  [01]   | `Impacts`                             | `pydantic RootModel` | top LCIA container keyed by impact method                            |
-|  [02]   | `LCIAMethod`                          | `StrEnum`            | the supported impact-method vocabulary EPDs declare against          |
+|  [02]   | `LCIAMethod`                          | `StrEnum`            | the impact-method vocabulary EPDs declare against                    |
 |  [03]   | `ImpactSet`                           | `ScopesetByNameBase` | one method's indicators; `get_scopeset_by_name`/`get_scopeset_names` |
 |  [04]   | `ScopeSet` + per-indicator subclasses | `BaseOpenEpdSchema`  | one indicator's life-cycle-stage values, unit fixed by subclass      |
 |  [05]   | `ResourceUseSet`, `OutputFlowSet`     | `ScopesetByNameBase` | EN 15804 resource-use + output-flow scope-set groups, name-addressed |
@@ -73,63 +64,63 @@
 ## [04]-[CLIENT_AND_BUNDLE]
 
 [CLIENT_SCOPE]: the EC3/OpenEPD sync REST client (`openepd.api`, requires the `api-client` extra)
-- rail: epd-lca
-- resources: one client, one typed accessor per resource — `.epds`, `.pcrs`, `.orgs`, `.plants`, `.standards`, `.categories`, `.industry_epds`, `.generic_estimates` (`EpdApi`, `PcrApi`, …)
+- resources: one client, one typed accessor per resource — `.epds` `.pcrs` `.orgs` `.plants` `.standards` `.categories` `.industry_epds` `.generic_estimates` (`EpdApi`, `PcrApi`, …)
 
-| [INDEX] | [SURFACE]                                                       | [ROLE]                                                                 |
-| :-----: | :-------------------------------------------------------------- | :--------------------------------------------------------------------- |
-|  [01]   | `OpenEpdApiClientSync(base_url, auth_token=None, **kwargs)`     | client root; `auth_token` → Bearer auth, `**kwargs` → `SyncHttpClient` |
-|  [02]   | resource accessors (`.epds`/`.pcrs`/…)                          | one polymorphic client, a typed accessor per resource                  |
-|  [03]   | `EpdApi.get_by_openxpd_uuid(uuid)`                              | fetch one typed `Epd` by `open_xpd_uuid`                               |
-|  [04]   | `EpdApi.find(omf, page_size=None)`                              | lazy paginated stream of typed `Epd`                                   |
-|  [05]   | `EpdApi.find_raw(omf, page_num, page_size)`                     | the raw page response behind `find`                                    |
-|  [06]   | `EpdApi.get_statistics/create/edit/post_with_refs`              | filter stats + create/edit/upsert; `Epd` or `(Epd, Response)`          |
-|  [07]   | `MaterialFilterDefinition`, `MaterialFilterMeta` (`api.dto.mf`) | the typed Open Material Filter (`omf`) the search verbs consume        |
-|  [08]   | `client.set_error_handler(http_status_code, handler)`           | per-status `ErrorHandler` over the raise-on-error default              |
-|  [09]   | `SyncHttpClient`/`TokenAuth`/`HttpStreamReader`                 | `requests` transport: throttle/retry, Bearer auth, stream reader       |
+| [INDEX] | [SURFACE]                                              | [SHAPE]  | [CAPABILITY]                                             |
+| :-----: | :----------------------------------------------------- | :------- | :------------------------------------------------------- |
+|  [01]   | `OpenEpdApiClientSync(base_url, auth_token, **kwargs)` | ctor     | `auth_token` Bearer auth, `**kwargs` to `SyncHttpClient` |
+|  [02]   | resource accessors (`.epds`/`.pcrs`/…)                 | property | one polymorphic client, a typed accessor per resource    |
+|  [03]   | `EpdApi.get_by_openxpd_uuid(uuid)`                     | instance | fetch one typed `Epd` by `open_xpd_uuid`                 |
+|  [04]   | `EpdApi.find(omf, page_size=None)`                     | instance | lazy paginated stream of typed `Epd`                     |
+|  [05]   | `EpdApi.find_raw(omf, page_num, page_size)`            | instance | the raw page response behind `find`                      |
+|  [06]   | `EpdApi.get_statistics/create/edit/post_with_refs`     | instance | filter stats, create/edit/upsert of `Epd`                |
+|  [07]   | `MaterialFilterDefinition`, `MaterialFilterMeta`       | class    | the typed `omf` (`api.dto.mf`) the search verbs consume  |
+|  [08]   | `client.set_error_handler(status_code, handler)`       | instance | per-status `ErrorHandler` over the raise default         |
+|  [09]   | `SyncHttpClient`/`TokenAuth`/`HttpStreamReader`        | class    | throttle/retry, Bearer auth, stream reader               |
 
-[CLIENT_ERRORS]: `ApiError` base; `ObjectNotFound`, `ServerError`, `ValidationError`, `AuthError`, `NotAuthorizedError`, `AccessDeniedError` (`openepd.api.errors`) — the typed failure tree the error-handler maps HTTP status onto.
+[CLIENT_ERRORS]: `ApiError` base over the typed failure tree the error-handler maps HTTP status onto — `ObjectNotFound` `ServerError` `ValidationError` `AuthError` `NotAuthorizedError` `AccessDeniedError` (`openepd.api.errors`).
 
-[BUNDLE_SCOPE]: offline declaration package IO (`openepd.bundle`) — a zip carrying objects + blobs + a manifest
-- rail: epd-lca
-- read: `DefaultBundleReader` — `get_manifest() -> BundleManifest`, `assets_iter()`, `root_assets_iter()`, `get_asset_by_ref(ref)`, `read_blob_asset(ref) -> IO[bytes]`, `read_object_asset(obj_class, ref) -> TOpenEpdObject`
+[BUNDLE_SCOPE]: offline declaration package IO (`openepd.bundle`) — a zip carrying objects, blobs, and a manifest
+- read: `DefaultBundleReader` — `get_manifest() -> BundleManifest`, `assets_iter()`, `root_assets_iter()`, `get_asset_by_ref(ref)`, `read_blob_asset(ref) -> IO[bytes]`, `read_object_asset(obj_class, ref)`
 - write: `DefaultBundleWriter` — `write_object_asset(obj, ...)`, `write_blob_asset(...)`, `commit()`, `close()`
-- manifest: `BundleManifest`, `AssetInfo`, `AssetType` (StrEnum), `RelType` (StrEnum), `BundleManifestAssetsStats` model the asset inventory, kinds, and inter-asset relationships
+- manifest: `BundleManifest`, `AssetInfo`, `AssetType`, `RelType`, `BundleManifestAssetsStats` model the asset inventory, kinds, and inter-asset relationships
 
-| [INDEX] | [SURFACE]             | [ROLE]                                               |
-| :-----: | :-------------------- | :--------------------------------------------------- |
-|  [01]   | `DefaultBundleReader` | typed object + blob read out of a bundle             |
-|  [02]   | `DefaultBundleWriter` | typed object + binary-attachment write into a bundle |
+| [INDEX] | [SURFACE]             | [SHAPE] | [CAPABILITY]                                         |
+| :-----: | :-------------------- | :------ | :--------------------------------------------------- |
+|  [01]   | `DefaultBundleReader` | class   | typed object + blob read out of a bundle             |
+|  [02]   | `DefaultBundleWriter` | class   | typed object + binary-attachment write into a bundle |
 
 ## [05]-[BASE_MACHINERY]
 
 [BASE_SCOPE]: the schema/extension/factory kernel (`openepd.model.base`, `openepd.model.factory`, `openepd.model.common`)
-- `BaseOpenEpdSchema` (extends `pydantic.BaseModel`) — every model's root; `to_serializable()`, `has_values()`, and the typed extension-field API: `set_ext(ext)`, `get_ext(ext_type)`, `get_ext_or_empty(ext_type)`, `set_ext_field(key, value)`, `get_typed_ext_field(key, type, default)`. Extensions (`OpenEpdExtension`) are the sanctioned way to carry vendor data without forking the schema.
+- `BaseOpenEpdSchema` (extends `pydantic.BaseModel`) — every model's root; `to_serializable()`, `has_values()`, and the typed extension-field API: `set_ext(ext)`, `get_ext(ext_type)`, `get_ext_or_empty(ext_type)`, `set_ext_field(key, value)`, `get_typed_ext_field(key, type, default)`. `OpenEpdExtension` carries vendor data without forking the schema.
 - `RootDocument` / `BaseDocumentFactory[TRootDocument]` / `RootDocumentFactory` / `DocumentFactory` — the doctype-discriminated factory: `RootDocumentFactory.from_dict(data)` reads `OpenEpdDoctypes` off the payload and routes to `EpdFactory` / `IndustryEpdFactory` / `GenericEstimateFactory`, so one entrypoint parses any declaration kind.
 - `OpenXpdUUID` (str subtype), `OpenEpdDoctypes` (StrEnum), `Location`/`LatLng`, `Ingredient`/`Constituent`, the `RangeFloat`/`RangeInt`/`RangeRatioFloat`/`RangeAmount` range carriers, and `OpenEPDUnit` (StrEnum) — the shared value vocabulary.
 
-[PYDANTIC_PATCH]: `import openepd` runs `openepd.patch_pydantic.patch_pydantic()` at module load (skippable via `OPENEPD_DISABLE_PYDANTIC_PATCH=true`). It adjusts the substrate `pydantic` for openepd's field semantics — a side-effecting import the contract rail must account for when openepd shares a process with other `pydantic` models. The `openepd.compat.pydantic` shim also bridges v1/v2 functional-validator imports.
+## [06]-[IMPLEMENTATION_LAW]
 
-## [06]-[INTEGRATION]
+[TOPOLOGY]:
+- Every declaration crosses the boundary through the Pydantic tree: `Epd.model_validate`/`model_dump` (or `RootDocumentFactory.from_dict` for a doctype-agnostic parse) carries a typed model inward, never a loose `dict`.
+- `Impacts` is the method × indicator × EN 15804 stage matrix the material-impact owner sums; the sync client and the offline `bundle` are the two IO legs — live EC3 fetch/search and offline packages.
 
-[SUBSTRATE_STACK]: stacking onto the universal Python rails (`libs/python/.api/`)
-- `pydantic` — openepd IS a Pydantic v2 tree; `Epd`/`Impacts`/`Specs` drop straight into the boundary contract rail. `model_validate`/`model_dump` are the parse-not-validate boundary; carry the typed `Epd` inward, never a loose `dict`. NOTE the `[PYDANTIC_PATCH]` import side-effect.
-- `msgspec` — re-encode `Epd.model_dump(mode="json")` through `msgspec` when a non-Pydantic wire carrier (e.g. an artifact payload) is wanted; the `dict` form is the handoff.
-- `stamina` + `structlog` + `opentelemetry` — the `OpenEpdApiClientSync` is `requests`-based and synchronous: wrap a fetch in a `stamina` retry context and an OTel span, log the EC3 endpoint + filter through `structlog`. `SyncHttpClient` has its own throttle/retry; layer `stamina` only for the rail-level idempotent retry policy, not to double-retry.
-- `anyio` — the client blocks; call it through `anyio.to_thread.run_sync` to keep it off the structured-concurrency event loop when an async owner fetches many declarations.
-- `universal-pathlib` — point the `bundle` reader/writer at a `UPath` so declaration bundles round-trip through the same artifact store as the rest of the data owner.
+[STACKING]:
+- `pydantic`(`../../.api/pydantic.md`): `Epd`/`Impacts`/`Specs` drop straight onto the boundary contract rail; `model_validate`/`model_dump` are the parse-not-validate seam.
+- `msgspec`(`../../.api/msgspec.md`): re-encode `Epd.model_dump(mode="json")` when a non-Pydantic wire carrier is wanted; the `dict` is the handoff.
+- `structlog`(`../../.api/structlog.md`) / `opentelemetry-api`(`../../.api/opentelemetry-api.md`): wrap a synchronous `OpenEpdApiClientSync` fetch in an OTel span and log the EC3 endpoint + filter; `SyncHttpClient` throttles/retries internally, so `stamina` adds only the rail-level idempotent retry, never a double-retry.
+- `anyio`(`../../.api/anyio.md`): the client blocks, so `anyio.to_thread.run_sync` keeps a bulk fetch off the structured-concurrency loop.
+- `universal-pathlib`(`../../.api/universal-pathlib.md`): point the `bundle` reader/writer at a `UPath` so declaration packages round-trip through the shared artifact store.
+- `epdx`(`.api/epdx.md`): the complementary EPD front door — `epdx` parses ILCD+EPD, `openepd` models OpenEPD/EC3; the impact owner folds `ScopeSet` (per-indicator stage matrix) and `epdx.ImpactCategory` (per-stage indicator) onto one internal shape.
+- `bw2io`(`.api/bw2io.md`) / `bw2data`(`.api/bw2data.md`) / `bw2calc`(`.api/bw2calc.md`): map an `ImpactSet` onto a Brightway result for cross-check, or write a declared indicator set as a `bw2data` activity through a `bw2io` strategy that `bw2calc` then scores.
+- `olca-ipc`(`.api/olca-ipc.md`): push an openepd-modeled product into openLCA as a process with the LCIA result attached.
+- `premise`(`.api/premise.md`): combine a current `Epd` foreground with a premise-shifted prospective background for a forward-looking footprint.
+- `pandas`(`.api/pandas.md`) / `polars`(`.api/polars.md`) / `pyarrow`(`.api/pyarrow.md`): flatten `Impacts` (method × indicator × stage) into a frame for the profile/quality rail and cross-EPD comparison.
+- impact owner (within-lib): key a fetched or parsed `Epd` by `open_xpd_uuid` + version so the persistence reuse ledger dedupes re-ingestion; the bundle's `AssetInfo` ref is the in-package identity.
 
-[SIBLING_STACK]: stacking with the data EPD/LCA folder cluster (`libs/python/data/.api/`)
-- `epdx` — the complementary EPD front door: `epdx` parses ILCD+EPD (ECO Platform / Ökobau / soda4LCA), `openepd` models OpenEPD/EC3. The data owner normalizes BOTH into one internal impact shape — `openepd.model.lcia.ScopeSet` (per-indicator stage matrix) and `epdx.ImpactCategory` (per-stage indicator) are the two source rows the owner folds.
-- `bw2io` / `bw2data` / `bw2calc` — map an `Impacts`/`ImpactSet` onto a Brightway LCIA result for cross-checking, or write a measured EPD indicator set as a `bw2data` activity (via a `bw2io` strategy) so the declared product joins the computed graph; `bw2calc` then scores it.
-- `olca-ipc` — push an openepd-modeled product into openLCA as a process with the LCIA result attached.
-- `premise` — premise supplies the prospective (future-year) background LCI; openepd supplies the as-declared product foreground. The material-impact owner combines a current `Epd` with a premise-shifted background for a forward-looking footprint.
-- `pandas` / `polars` / `pyarrow` — flatten `Impacts` (method × indicator × EN 15804 stage) into a frame for the profile/quality rail and cross-EPD comparison.
-
-[CONTENT_IDENTITY_SEAM]: key a fetched/parsed `Epd` by its `open_xpd_uuid` (plus version) so the persistence reuse ledger dedupes re-ingestion of the same declaration; the bundle's `AssetInfo` ref is the in-package identity.
+[LOCAL_ADMISSION]:
+- `openepd` is the sole OpenEPD/EC3 modeler and fetcher on the impact rail; a folder composing it registers `openepd` in the branch manifest and this catalog.
 
 [RAIL_LAW]:
 - Package: `openepd`
 - Owns: the typed OpenEPD object model (`Epd`/`IndustryEpd`/`GenericEstimate` + org/plant/PCR + `Specs`), the EN 15804/TRACI LCIA payload (`Impacts`/`ImpactSet`/`ScopeSet`/`ResourceUseSet`/`OutputFlowSet`), the EC3 sync REST client (`OpenEpdApiClientSync`), and the offline declaration bundle IO
-- Accept: `Epd.model_validate`/`model_dump` as the typed boundary; `RootDocumentFactory.from_dict` as the doctype-agnostic parse; `Impacts.get_impact_set(method).get_scopeset_by_name(ind)` as the typed LCIA read; `OpenEpdApiClientSync(...).epds.find(omf)` as the streaming EC3 search; `DefaultBundleReader/Writer` for offline packages; `OpenEpdExtension` for vendor data
-- Reject: hand-rolling OpenEPD JSON parsing when the Pydantic tree owns it; treating openepd as an LCA calculator (route compute to `bw2calc`/`olca-ipc`) or as the ILCD+EPD parser (that is `epdx`); double-retrying the client (it throttles/retries internally — add only the rail idempotency policy); forking the schema for vendor fields instead of using the extension API; ignoring the `[PYDANTIC_PATCH]` import side-effect in a shared-`pydantic` process
+- Accept: `Epd.model_validate`/`model_dump` as the typed boundary; `RootDocumentFactory.from_dict` as the doctype-agnostic parse; `Impacts.get_impact_set(method).get_scopeset_by_name(ind)` as the typed LCIA read; `OpenEpdApiClientSync(...).epds.find(omf)` as the streaming EC3 search; `DefaultBundleReader`/`DefaultBundleWriter` for offline packages; `OpenEpdExtension` for vendor data
+- Reject: hand-rolled OpenEPD JSON parsing the Pydantic tree owns; treating openepd as an LCA calculator (compute routes to `bw2calc`/`olca-ipc`) or the ILCD+EPD parser (`epdx`); double-retrying the client; forking the schema for vendor fields instead of the extension API

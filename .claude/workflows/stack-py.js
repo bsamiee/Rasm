@@ -26,8 +26,6 @@ export const meta = {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CAP = 14;
-const STAGGER_MS = 1500;
-const STALL = 300000;
 const ROOT = 'docs/stacks/python';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -424,20 +422,13 @@ const DOCTRINE = [
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-// The single scheduler for every agent-bearing task in the run: CAP tasks in flight, staggered launch.
+// The single scheduler for every agent-bearing task in the run: CAP tasks in flight.
 const pool = async (items, cap, worker) => {
     const out = new Array(items.length);
     let next = 0;
-    let gate = Promise.resolve();
-    const launch = () => {
-        gate = gate.then(() => sleep(STAGGER_MS));
-        return gate;
-    };
     const run = async () => {
         while (next < items.length) {
             const i = next++;
-            await launch();
             out[i] = await worker(items[i], i);
         }
     };
@@ -632,7 +623,7 @@ const inv = await agent(
         'every README.md and the entire .reports/ workspace. Enumerate and order — nothing else: no page reading, no capability maps, no verdicts ' +
         '(every downstream stage re-reads the full pages from disk). Use fd/ls, reading ONLY the README routers; do not cd; do not edit ' +
         'anything.',
-    { label: 'inventory', phase: 'Inventory', schema: INVENTORY_SCHEMA, model: 'sonnet', effort: 'low', stallMs: STALL },
+    { label: 'inventory', phase: 'Inventory', schema: INVENTORY_SCHEMA, model: 'sonnet', effort: 'low' },
 );
 const ordered = ((inv && inv.files) || [])
     .filter((f) => f && f.path && f.path.indexOf('/.reports/') < 0)
@@ -653,7 +644,6 @@ const results = (
             phase: 'Harden',
             schema: FIXLOG_SCHEMA,
             effort: 'high',
-            stallMs: STALL,
         });
         if (!init) return { page, failed: true, logs: [] }; // failure isolation: a dead initial skips its file's reviews; the run continues
         const crit = await agent(critiquePrompt(page), {
@@ -661,14 +651,12 @@ const results = (
             phase: 'Harden',
             schema: FIXLOG_SCHEMA,
             effort: 'high',
-            stallMs: STALL,
         });
         const rt = await agent(redteamPrompt(page), {
             label: 'redteam:' + nameOf(page),
             phase: 'Harden',
             schema: FIXLOG_SCHEMA,
             effort: 'high',
-            stallMs: STALL,
         });
         return { page, failed: false, logs: [init, crit, rt].filter(Boolean) };
     })
@@ -700,7 +688,6 @@ const corpus = await agent(corpusPrompt(ordered, RESIDUALS, FAILED), {
     model: 'fable',
     effort: 'high',
     schema: CORPUS_SCHEMA,
-    stallMs: STALL,
 });
 
 // DOCTRINE LANDER: the run's durable-learning terminal — pooled harvest from every per-file stage + the corpus sweep,
@@ -723,7 +710,7 @@ const doctrine = HARVEST_ROWS.length
               'whose coupling no longer holds, land a coupling this run proved.\n' +
               'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
               'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.',
-          { label: 'doctrine', phase: 'Doctrine', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
+          { label: 'doctrine', phase: 'Doctrine', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA },
       )
     : null;
 

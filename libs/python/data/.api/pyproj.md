@@ -1,69 +1,79 @@
 # [PY_DATA_API_PYPROJ]
 
-`pyproj` supplies a Python binding to PROJ for coordinate reference system definition, coordinate transformation, and geodesic computation. It provides `CRS`, `Transformer`, `Geod`, and `Proj` as primary owners, with WKT/PROJ4/EPSG/JSON interchange on the CRS boundary and area-of-interest-aware operation selection on the transformer.
+`pyproj` binds PROJ as the data branch's coordinate-reference-system and transformation owner: `CRS` construction with WKT/PROJ4/EPSG/JSON/CF interchange, axis-aware `Transformer` reprojection under area-of-interest operation selection, and `Geod` ellipsoidal distance and area. Geometry stays CRS-free at `shapely` and tabular CRS rides `geopandas`/`rasterio`/`pyogrio` as one `pyproj.CRS` interchanged by WKT/EPSG/JSON, so pyproj owns the projection math the geospatial rail never re-implements.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pyproj`
-- package: `pyproj` `3.7.2`
-- import: `import pyproj`
-- license: MIT (bundled PROJ data under its own `LICENSE_proj`)
-- python: `>=3.11`
-- native: binds PROJ `9.8.1` (`pyproj.proj_version_str`); ships GDAL-independent PROJ; `pyproj.show_versions()` reports the linked native versions
+- package: `pyproj` (MIT; bundled PROJ data under `LICENSE_proj`)
+- module: `import pyproj`
 - owner: `data`
 - rail: geospatial
-- capability: CRS construction and interchange, axis-aware coordinate transformation, geodesic forward/inverse and area computation, transformer-group enumeration with availability ranking, PROJ database queries, and CDN grid network control
+- asset: native PROJ binding, GDAL-independent; `proj_version_str` / `show_versions()` report the linked native versions
 
-## [02]-[CAPTURE]
+## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPES]:
-- `pyproj.CRS` — coordinate reference system; constructed from EPSG, WKT, PROJ4, JSON, dict, CF, or user input; exposes axis, datum, ellipsoid, and projection metadata.
-- `pyproj.Transformer` — coordinate transformation between two CRS or from a pipeline; the supported high-performance transform owner.
-- `pyproj.Geod` — geodesic calculator on an ellipsoid; forward, inverse, intermediate, length, and polygon area/perimeter.
-- `pyproj.Proj` — single-CRS cartographic projection of lon/lat to projected x/y; a thin `Transformer` over a geographic-to-projected pair.
-- `pyproj.transformer.TransformerGroup` — ranked set of candidate transformations between two CRS; `.transformers` (ordered list), `.best_available` (bool), `.unavailable_operations` (grid-missing candidates), `.download_grids(...)` to fetch the grids that does upgrade a ballpark candidate.
-- `pyproj.aoi.AreaOfInterest(west_lon_degree, south_lat_degree, east_lon_degree, north_lat_degree)`, `pyproj.aoi.BBox`, `pyproj.aoi.AreaOfUse` — bounding-box hints that bias operation selection.
-- `pyproj.enums.TransformDirection` (`FORWARD`, `INVERSE`, `IDENT`); `pyproj.enums.WktVersion` (`WKT2_2019`/`WKT2_2019_SIMPLIFIED`/`WKT2_2015`/`WKT1_GDAL`/`WKT1_ESRI`/…); `pyproj.enums.ProjVersion` (`PROJ_4`, `PROJ_5`) — transform and serialization vocabularies.
-- `pyproj.database.CRSInfo`, `pyproj.database.Unit`, `pyproj.database.PJType` — typed query-result records and the CRS-type vocabulary for `query_crs_info`.
+[PUBLIC_TYPE_SCOPE]: CRS, transformer, geodesic owners with their operation vocabularies
 
-[ENTRYPOINTS]:
-- CRS construction: `CRS.from_epsg(code)`, `CRS.from_wkt(wkt)`, `CRS.from_proj4(proj4)`, `CRS.from_string(s)`, `CRS.from_dict(d)`, `CRS.from_json(json)`, `CRS.from_json_dict(d)`, `CRS.from_authority(auth, code)`, `CRS.from_cf(d)`, `CRS.from_user_input(value)`; the bare `CRS(value)` constructor dispatches over the same input shapes (one polymorphic entry, the `from_*` family is the explicit-discriminant form).
-- CRS interchange: `CRS.to_epsg(min_confidence=70)`, `CRS.to_wkt(version=WktVersion.WKT2_2019, pretty=False, output_axis_rule=None)`, `CRS.to_proj4()`, `CRS.to_json(pretty=False)`, `CRS.to_json_dict()`, `CRS.to_dict()`, `CRS.to_string()`, `CRS.to_authority(min_confidence=70)`, `CRS.to_cf()`, `CRS.cs_to_cf()`, `CRS.to_2d()`, `CRS.to_3d()`, `CRS.get_geod()`.
-- CRS metadata: `CRS.axis_info`, `.datum`, `.ellipsoid`, `.prime_meridian`, `.coordinate_system`, `.coordinate_operation`, `.area_of_use`, `.utm_zone`, `.geodetic_crs`, `.source_crs`/`.target_crs` (bound CRS), `.sub_crs_list` (compound), `.name`, `.type_name`, `.scope`, `.remarks`, `.list_authority()`, `.get_non_deprecated()`.
-- CRS predicates: `CRS.is_geographic`, `.is_projected`, `.is_geocentric`, `.is_bound`, `.is_compound`, `.is_vertical`, `.is_engineering`, `.is_derived`, `.is_deprecated`, `.is_exact_same(other)`, `.equals(other, ignore_axis_order=False)`.
-- transformer construction: `Transformer.from_crs(crs_from, crs_to, always_xy=False, area_of_interest=None, authority=None, accuracy=None, allow_ballpark=None, force_over=False, only_best=None)`, `Transformer.from_pipeline(proj_pipeline)`, `Transformer.from_proj(proj_from, proj_to, always_xy=False)`; `TransformerGroup(crs_from, crs_to, always_xy=False, area_of_interest=None, authority=None, accuracy=None, allow_ballpark=True, allow_superseded=False)` enumerates candidates.
-- transformation: `Transformer.transform(xx, yy, zz=None, tt=None, radians=False, errcheck=False, direction=TransformDirection.FORWARD, inplace=False)`, `Transformer.itransform(points, switch=False, time_3rd=False, ...)`, `Transformer.transform_bounds(left, bottom, right, top, densify_pts=21, radians=False, errcheck=False, direction=FORWARD) -> (l, b, r, t)`.
-- transformer metadata: `Transformer.accuracy`, `.area_of_use`, `.operations`, `.has_inverse`, `.get_last_used_operation()`, `.is_network_enabled`, `.definition`, `.description`, `.source_crs`, `.target_crs`, `.to_wkt()`, `.to_json()`, `.to_json_dict()`, `.to_proj4()`, `.is_exact_same(other)`.
-- geodesic: `Geod(ellps='WGS84')` or `Geod(a=..., f=...)`; `Geod.fwd(lons, lats, az, dist, radians=False, inplace=False, return_back_azimuth=True)`, `Geod.inv(lons1, lats1, lons2, lats2, radians=False, inplace=False, return_back_azimuth=True)`, `Geod.npts(...)`, `Geod.fwd_intermediate(...)`, `Geod.inv_intermediate(...)`, `Geod.line_length(lons, lats)`, `Geod.line_lengths(lons, lats)` (segment-wise), `Geod.polygon_area_perimeter(lons, lats) -> (area, perimeter)`, `Geod.geometry_area_perimeter(geom)`, `Geod.geometry_length(geom)`; read `.a`/`.b`/`.f`/`.es`/`.sphere`/`.initstring`.
-- database queries: `pyproj.database.query_crs_info(auth_name=None, pj_types=None, area_of_interest=None, contains=False, allow_deprecated=False) -> list[CRSInfo]`, `pyproj.database.query_utm_crs_info(datum_name=None, area_of_interest=None, contains=False)`, `pyproj.database.get_database_metadata(key)`, `pyproj.get_authorities()`, `pyproj.get_codes(auth_name, pj_type, allow_deprecated=False)`, `pyproj.get_units_map()`, `pyproj.get_ellps_map()`, `pyproj.get_prime_meridians_map()`, `pyproj.get_proj_operations_map()`.
-- CDN grid network: `pyproj.network.set_network_enabled(active=None)`, `pyproj.network.is_network_enabled()`, `pyproj.network.set_ca_bundle_path(ca_bundle_path)`, `pyproj.sync.get_transform_grid_list(...)`, `pyproj.sync.get_proj_endpoint()`, `pyproj.set_use_global_context(active=True)`; `pyproj.datadir.set_data_dir(path)`/`get_data_dir()` and `PROJ_DATA` env var locate the PROJ data directory.
+| [INDEX] | [SYMBOL]                                                     | [TYPE_FAMILY] | [CAPABILITY]                                             |
+| :-----: | :----------------------------------------------------------- | :------------ | :------------------------------------------------------- |
+|  [01]   | `CRS`                                                        | class         | CRS from EPSG/WKT/PROJ4/JSON/CF with axis-datum metadata |
+|  [02]   | `Transformer`                                                | class         | axis-aware coordinate transformation owner               |
+|  [03]   | `Geod`                                                       | class         | geodesic and ellipsoidal calculator                      |
+|  [04]   | `Proj`                                                       | class         | single-CRS lon/lat projection; thin `Transformer`        |
+|  [05]   | `transformer.TransformerGroup`                               | class         | ranked candidate transformations with availability       |
+|  [06]   | `aoi.AreaOfInterest` `aoi.BBox` `aoi.AreaOfUse`              | class         | bounding-box hints biasing operation selection           |
+|  [07]   | `enums.TransformDirection`                                   | enum          | `FORWARD` / `INVERSE` / `IDENT` transform direction      |
+|  [08]   | `enums.WktVersion` `enums.ProjVersion`                       | enum          | WKT2/WKT1 and PROJ_4/PROJ_5 serialization vocabularies   |
+|  [09]   | `enums.GeodIntermediateFlag`                                 | enum          | intermediate-point recompute and count-rounding flags    |
+|  [10]   | `database.CRSInfo` `database.Unit` `database.PJType`         | record        | database query-result records and CRS-type vocabulary    |
+|  [11]   | `exceptions.CRSError` `ProjError` `GeodError` `DataDirError` | exception     | typed CRS, transform, geodesic, and data-dir failures    |
 
-[EXCEPTIONS]:
-- `pyproj.exceptions.CRSError` — CRS parse, construction, or conversion failure.
-- `pyproj.exceptions.ProjError` — transformation or projection failure.
-- `pyproj.exceptions.GeodError` — geodesic computation failure.
-- `pyproj.exceptions.DataDirError` — PROJ data directory not found.
+## [03]-[ENTRYPOINTS]
 
-[IMPLEMENTATION_LAW]:
-- `always_xy=True` forces lon/lat (easting/northing) argument order regardless of the CRS-declared axis order; set it at construction to avoid silent axis swaps, since PROJ honors authority-declared axis order by default.
-- `Transformer` instances are reusable; construct once per CRS pair and reuse across calls rather than rebuilding per point.
-- Operation selection is data-driven: `area_of_interest`, `accuracy`, `allow_ballpark`, and `only_best` bias which `TransformerGroup` candidate PROJ picks; `get_last_used_operation()` reports the operation actually applied.
-- `transform` accepts scalars, sequences, or NumPy arrays and returns the same shape; `inplace=True` mutates the input arrays and `radians=True` switches angular units.
-- `CRS.to_epsg` returns `None` below `min_confidence`; never assume an EPSG code exists for an arbitrary WKT CRS.
-- `Proj` is the projection special case of `Transformer` (geographic to or from one projected CRS); prefer `Transformer.from_crs` for general CRS-to-CRS work.
-- `set_network_enabled` and the CDN grid sync control transformation-grid download; enable the network when high-accuracy datum shifts require grids absent from the local cache, and point `set_ca_bundle_path` at the trust store when the CDN sits behind a proxy. `set_use_global_context(True)` shares one PROJ context across threads — set it once at boundary init, never per-transform.
-- `TransformerGroup` exposes the candidate ranking that `from_crs` hides: read `.transformers` for the ordered list, `.best_available` to detect a ballpark-only fallback, `.unavailable_operations` for grid-missing candidates, and call `.download_grids()` to promote a candidate before transforming. `get_last_used_operation()` on a plain `Transformer` reports which candidate PROJ actually applied.
-- `CRS.to_cf()`/`from_cf()`/`cs_to_cf()` are the CF-convention bridge for NetCDF/Zarr grid_mapping attributes; `utm_zone`/`query_utm_crs_info(datum_name, AreaOfInterest)` pick the right UTM CRS for a bounding box without hard-coding EPSG codes.
+[ENTRYPOINT_SCOPE]: construction, transformation, geodesic, database, and network surfaces
 
-[INTEGRATION_STACK]:
-- the geospatial reprojection rail stacks `pyproj.CRS` as the canonical CRS owner across `geopandas` (`GeoDataFrame.crs` / `.to_crs(CRS)`), `shapely` (geometry is CRS-free; pyproj `Transformer.transform` reprojects coordinates), `rasterio`/`rioxarray` (raster CRS round-trips via `CRS.from_wkt`/`to_wkt`), and `pyogrio` (`read_dataframe` returns CRS as WKT that `CRS.from_user_input` ingests). One `CRS` instance is interchanged by WKT/EPSG/JSON, never re-parsed per library.
-- coordinate transforms compose `Transformer.from_crs(src, dst, always_xy=True)` built once at boundary scope, then `transform(x_array, y_array)` over numpy arrays — the vectorized path that feeds `shapely.transform`/`shapely.ops.transform` and `geopandas` reprojection. For STAC/Arrow tables, `CRS.to_json_dict()` is the projjson the `stac-geoparquet`/`geoarrow` metadata carries.
-- the CF bridge stacks `CRS.from_cf(ds.<var>.attrs)` / `CRS.to_cf()` against `xarray`/`netcdf4`/`zarr` grid_mapping attributes, so a tensor-cube CRS round-trips without a hand-rolled attribute map; `Geod.geometry_area_perimeter(shapely_geom)` gives ellipsoidal area beside the planar `shapely.area`.
+| [INDEX] | [SURFACE]                                                        | [SHAPE]  | [CAPABILITY]                                        |
+| :-----: | :--------------------------------------------------------------- | :------- | :-------------------------------------------------- |
+|  [01]   | `CRS(value)` `CRS.from_epsg` `from_wkt` `from_user_input`        | factory  | polymorphic CRS construction over every input shape |
+|  [02]   | `Transformer.from_crs` `from_pipeline` `from_proj`               | factory  | transformer construction; AOI/accuracy selection    |
+|  [03]   | `transform` `itransform` `transform_bounds`                      | instance | scalar, array, and bounds coordinate transform      |
+|  [04]   | `TransformerGroup(...)`                                          | ctor     | ranked candidate enumeration with grid availability |
+|  [05]   | `Geod.fwd` `inv` `fwd_intermediate` `inv_intermediate` `npts`    | instance | geodesic forward, inverse, and intermediate points  |
+|  [06]   | `polygon_area_perimeter` `geometry_area_perimeter` `line_length` | instance | ellipsoidal polygon area and length                 |
+|  [07]   | `database.query_crs_info` `query_utm_crs_info`                   | static   | PROJ database CRS and UTM queries                   |
+|  [08]   | `network.set_network_enabled` `set_ca_bundle_path`               | static   | CDN grid network toggle and CA trust store          |
 
-## [03]-[LOCAL_ADMISSION]
+[CRS_INTERCHANGE]: `to_epsg` `to_wkt` `to_proj4` `to_json` `to_json_dict` `to_dict` `to_string` `to_authority` `to_cf` `cs_to_cf` `to_2d` `to_3d` `get_geod`
+[CRS_METADATA]: `axis_info` `datum` `ellipsoid` `prime_meridian` `coordinate_system` `coordinate_operation` `area_of_use` `utm_zone` `geodetic_crs` `source_crs` `target_crs` `sub_crs_list` `name` `type_name` `scope` `remarks` `list_authority` `get_non_deprecated`
+[CRS_PREDICATES]: `is_geographic` `is_projected` `is_geocentric` `is_bound` `is_compound` `is_vertical` `is_engineering` `is_derived` `is_deprecated` `is_exact_same` `equals`
+[TRANSFORMER_READOUT]: `accuracy` `area_of_use` `operations` `has_inverse` `get_last_used_operation` `is_network_enabled` `definition` `description` `source_crs` `target_crs` `to_wkt` `to_json` `to_json_dict` `to_proj4`
+[PROJ_REGISTRY]: `get_authorities` `get_codes` `get_units_map` `get_ellps_map` `get_prime_meridians_map` `get_proj_operations_map` `database.get_database_metadata` `set_use_global_context` `datadir.set_data_dir` `datadir.get_data_dir` `sync.get_transform_grid_list` `sync.get_proj_endpoint`
+
+## [04]-[IMPLEMENTATION_LAW]
+
+[TOPOLOGY]:
+- `always_xy=True` forces lon/lat argument order regardless of authority-declared axis order; set it at construction or PROJ silently swaps axes.
+- One `Transformer` per CRS pair is reusable across every call; per-point reconstruction is the naive form.
+- Operation selection is data-driven: `area_of_interest`, `accuracy`, `allow_ballpark`, and `only_best` bias which `TransformerGroup` candidate PROJ applies, and `get_last_used_operation()` reports the one used.
+- `transform` accepts scalars, sequences, or NumPy arrays and returns the same shape; `inplace=True` mutates the inputs and `radians=True` switches angular units.
+- `to_epsg` returns `None` below `min_confidence`, so an arbitrary WKT CRS carries no guaranteed EPSG code.
+- `TransformerGroup.download_grids()` promotes a grid-missing candidate before transforming, and `set_use_global_context(True)` shares one PROJ context across threads at boundary init.
+
+[STACKING]:
+- `geopandas`(`.api/geopandas.md`): `GeoDataFrame.crs` holds a `pyproj.CRS` and `.to_crs(CRS)` owns the `Transformer`; pass an EPSG int, `CRS`, or WKT string, never reproject by hand.
+- `shapely`(`.api/shapely.md`): geometry is CRS-free, so `Transformer.transform` reprojects the coordinate arrays feeding `shapely.ops.transform`; `Geod.geometry_area_perimeter(geom)` gives ellipsoidal area beside planar `shapely.area`.
+- `rasterio`(`.api/rasterio.md`): raster CRS round-trips through `CRS.from_wkt` / `to_wkt`.
+- `pyogrio`(`.api/pyogrio.md`): `read_dataframe` returns CRS as WKT that `CRS.from_user_input` ingests.
+- `pyarrow`(`.api/pyarrow.md`): `CRS.to_json_dict()` is the projjson that STAC/GeoParquet/GeoArrow metadata carries.
+- `rioxarray`(`.api/rioxarray.md`): `CRS.from_cf` / `to_cf` / `cs_to_cf` round-trip the NetCDF/Zarr `grid_mapping` attributes without a hand-rolled attribute map.
+- within-lib: the data geospatial owner builds `Transformer.from_crs(src, dst, always_xy=True)` once at boundary scope and drives the vectorized numpy transform across the `VectorOp`/`RasterOp` axes.
+
+[LOCAL_ADMISSION]:
+- Admit `pyproj` as the canonical CRS and coordinate-transformation owner on the data geospatial rail, composed by geopandas/shapely/rasterio/pyogrio rather than re-parsed per library.
 
 [RAIL_LAW]:
 - Package: `pyproj`
 - Owns: CRS construction and interchange, axis-aware coordinate transformation, geodesic and ellipsoidal computation, transformer-group enumeration, PROJ database queries, CDN grid network control
-- Accept: `Transformer.from_crs` with `always_xy` set explicitly and reused across calls, `CRS` interchange via `to_epsg`/`to_wkt`/`to_json`, `Geod` for distance and area on the ellipsoid, `area_of_interest` for operation selection
+- Accept: `Transformer.from_crs` with `always_xy` explicit and reused, `CRS` interchange via `to_epsg`/`to_wkt`/`to_json`, `Geod` for ellipsoidal distance and area, `area_of_interest` for operation selection
 - Reject: per-point transformer reconstruction, implicit axis-order assumptions, planar-distance approximation where geodesic distance is required, and hand-rolled datum-shift math when PROJ grids exist

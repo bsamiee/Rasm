@@ -1,128 +1,96 @@
 # [PY_DATA_API_DUCKDB]
 
-`duckdb` supplies an in-process analytical SQL engine with a connection-and-relation model over Arrow, Pandas, Polars, NumPy, CSV, JSON, and Parquet sources. `DuckDBPyConnection` owns query execution and registration; `DuckDBPyRelation` owns lazy relational algebra and aggregation; module-level functions proxy a default connection for one-shot use.
+`duckdb` runs an in-process analytical SQL engine over a connection-and-relation model spanning Arrow, Pandas, Polars, NumPy, CSV, JSON, and Parquet sources. `DuckDBPyConnection` owns query execution, registration, and extension load; `DuckDBPyRelation` owns lazy relational algebra, aggregation, and window functions; module-level functions proxy a default connection for one-shot use.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `duckdb`
 - package: `duckdb`
-- import: `import duckdb`
+- module: `duckdb`
 - owner: `data`
 - rail: query
-- version: `1.5.4`
-- capability: in-process SQL execution (including native `MERGE INTO`), lazy relational algebra, multi-frame ingest and egress (Arrow, Pandas, Polars, NumPy, Torch, TensorFlow), CSV/JSON/Parquet readers and writers, programmatic window functions on the relation, user-defined functions, loadable extensions (including community `substrait`), and prepared statements
 
-## [02]-[CAPTURE]
+## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPES]:
-- `duckdb.DuckDBPyConnection` — connection handle owning a database session; `execute`, `executemany`, `sql`, `query`, `table`, `view`, `register`, `unregister`, `from_df`, `from_arrow`, `from_parquet`, `from_csv_auto`, `create_function`, `install_extension`, `load_extension`, `begin`, `commit`, `rollback`, `interrupt`, `cursor`, `close`; fetch family `fetchone`/`fetchmany`/`fetchall`/`fetchnumpy`/`fetchdf`/`fetch_arrow_table`/`fetch_record_batch`.
-- `duckdb.DuckDBPyRelation` — lazy relation; transforms `select`/`project`/`filter`/`order`/`limit`/`distinct`/`aggregate`/`join`/`union`/`except_`/`intersect`/`cross`; aggregates `count`/`sum`/`mean`/`min`/`max`/`std`/`var`/`median`/`quantile`/`mode`/`product`/`histogram`/`value_counts`; window functions `row_number`/`rank`/`dense_rank`/`lag`/`lead`/`first_value`/`last_value`/`n_tile`/`cume_dist`/`percent_rank`; egress `to_df`/`to_arrow_table`/`pl`/`fetchnumpy`/`to_table`/`to_view`/`to_csv`/`to_parquet`/`insert_into`.
-- `duckdb.Expression` — column expression node; built by `ColumnExpression`, `ConstantExpression`, `FunctionExpression`, `CaseExpression`, `LambdaExpression`, `SQLExpression`, `StarExpression`, `DefaultExpression`, `CoalesceOperator`; each node carries the chainable `alias(name) -> Expression` projection-alias method the `DuckDBPyRelation.select(*expressions: Expression)` positional-expression form reads (`SQLExpression("...").alias("col")`).
-- `duckdb.Statement` — parsed statement returned by `extract_statements(sql)`; carries `StatementType` and `ExpectedResultType`.
-- `duckdb.Value` — typed scalar literal; subclasses `IntegerValue`, `LongValue`, `DoubleValue`, `FloatValue`, `BooleanValue`, `StringValue`, `BlobValue`, `DateValue`, `TimeValue`, `TimestampValue`, `IntervalValue`, `DecimalValue`, `UUIDValue`, `ListValue`, `StructValue`, `MapValue`, `NullValue`, and unsigned/huge-integer variants.
+[PUBLIC_TYPE_SCOPE]: connection, relation, expression, and value types
 
-[ENUMS]:
-- `duckdb.ExplainType` — `STANDARD`, `ANALYZE`.
-- `duckdb.RenderMode` — `ROWS`, `COLUMNS`.
-- `duckdb.StatementType` — `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `CREATE`, `DROP`, `ALTER`, `COPY`, `EXPORT`, `PREPARE`, `EXECUTE`, `EXPLAIN`, `PRAGMA`, `SET`, `TRANSACTION`, `ATTACH`, `DETACH`, `CALL`, `LOAD`, `MERGE_INTO`, `RELATION`, `INVALID`, and other DDL/utility kinds.
-- `duckdb.ExpectedResultType` — `QUERY_RESULT`, `CHANGED_ROWS`, `NOTHING`.
-- `duckdb.PythonExceptionHandling` — `DEFAULT`, `RETURN_NULL`.
-- `duckdb.CSVLineTerminator` — `LINE_FEED`, `CARRIAGE_RETURN_LINE_FEED`.
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                                                    |
+| :-----: | :------------------------ | :------------ | :-------------------------------------------------------------- |
+|  [01]   | `DuckDBPyConnection`      | class         | session handle owning execution, registration, extensions, txns |
+|  [02]   | `DuckDBPyRelation`        | class         | lazy relational-algebra and window builder                      |
+|  [03]   | `Expression`              | class         | column-expression node with chainable `alias`                   |
+|  [04]   | `Statement`               | class         | parsed statement from `extract_statements`                      |
+|  [05]   | `Value`                   | class         | typed scalar literal base                                       |
+|  [06]   | `StatementType`           | enum          | parsed-statement discriminant over SQL kinds incl `MERGE_INTO`  |
+|  [07]   | `ExplainType`             | enum          | `STANDARD` / `ANALYZE`                                          |
+|  [08]   | `RenderMode`              | enum          | `ROWS` / `COLUMNS`                                              |
+|  [09]   | `ExpectedResultType`      | enum          | `QUERY_RESULT` / `CHANGED_ROWS` / `NOTHING`                     |
+|  [10]   | `PythonExceptionHandling` | enum          | UDF error policy `DEFAULT` / `RETURN_NULL`                      |
+|  [11]   | `CSVLineTerminator`       | enum          | `LINE_FEED` / `CARRIAGE_RETURN_LINE_FEED`                       |
+|  [12]   | `Error`                   | exception     | DB-API 2.0 base of the typed error hierarchy                    |
 
-[ENTRYPOINTS]:
-- connection construction: `connect(database=':memory:', read_only=False, config=None) -> DuckDBPyConnection`, `default_connection() -> DuckDBPyConnection`, `set_default_connection(conn)`, `DuckDBPyConnection.cursor() -> DuckDBPyConnection`, `DuckDBPyConnection.duplicate() -> DuckDBPyConnection`.
-- query execution: `sql(query, *, alias='', connection=None) -> DuckDBPyRelation`, `query(query) -> DuckDBPyRelation`, `execute(query, parameters=None) -> DuckDBPyConnection`, `executemany(query, parameters=None)`, `extract_statements(query) -> list[Statement]`, `tokenize(query)`.
-- relational sources: `from_df(df) -> DuckDBPyRelation`, `from_arrow(arrow_object) -> DuckDBPyRelation`, `from_parquet(file_glob, ...) -> DuckDBPyRelation`, `from_csv_auto(path, ...) -> DuckDBPyRelation`, `from_query(query, ...) -> DuckDBPyRelation`, `table(table_name) -> DuckDBPyRelation`, `view(view_name) -> DuckDBPyRelation`, `values(values) -> DuckDBPyRelation`.
-- file readers: `read_csv(path, ...) -> DuckDBPyRelation`, `read_json(path, ...) -> DuckDBPyRelation`, `read_parquet(file_glob, ...) -> DuckDBPyRelation`.
-- registration: `register(view_name, python_object) -> DuckDBPyConnection`, `unregister(view_name)`, `register_filesystem(filesystem)`, `unregister_filesystem(name)`, `list_filesystems()`, `filesystem_is_registered(name)`.
-- result egress: `fetchall()`, `fetchone()`, `fetchmany(size)`, `fetchnumpy()`, `df()`/`fetchdf()`, `pl()`, `arrow()`/`fetch_arrow_table()`, `fetch_record_batch(rows_per_batch)`, `torch()`, `tf()`, `to_arrow_reader()`.
-- relation egress: `DuckDBPyRelation.to_df()`, `.pl()`, `.to_arrow_table()`, `.fetchnumpy()`, `.to_table(table_name)`, `.to_view(view_name)`, `.to_csv(file_name, ...)`, `.to_parquet(file_name, ...)`, `.insert_into(table_name)`, `.create(table_name)`, `.create_view(view_name)`.
-- functions and extensions: `create_function(name, function, parameters=None, return_type=None, *, type=..., null_handling=..., exception_handling=..., side_effects=False)`, `remove_function(name)`, `table_function(name, parameters=None) -> DuckDBPyRelation`, `install_extension(extension, *, force_install=False, repository=None)`, `load_extension(extension)`.
-- type construction: `array_type(type, size)`, `list_type(type)`, `map_type(key, value)`, `struct_type(fields)`, `row_type(fields)`, `union_type(members)`, `decimal_type(width, scale)`, `enum_type(name, type, values)`, `string_type(collation='')`, `sqltype(type_str)`, `dtype(type_str)`, `type(type_str)`.
-- transactions and profiling: `begin()`, `commit()`, `rollback()`, `checkpoint()`, `interrupt()`, `query_progress()`, `enable_profiling() -> None`, `disable_profiling()`, `DuckDBPyConnection.get_profiling_information(format: str = "json") -> str`.
+[DuckDBPyConnection exec]: `execute` `executemany` `sql` `query` `table` `view` `cursor` `duplicate` `close` `interrupt`
+[DuckDBPyConnection fetch]: `fetchone` `fetchmany` `fetchall` `fetchnumpy` `fetchdf` `df` `pl` `arrow` `fetch_arrow_table` `fetch_record_batch` `torch` `tf` `to_arrow_reader`
+[DuckDBPyConnection admin]: `register` `unregister` `create_function` `remove_function` `table_function` `install_extension` `load_extension` `begin` `commit` `rollback` `checkpoint`
+[DuckDBPyRelation transform]: `select` `project` `filter` `order` `limit` `distinct` `aggregate` `join` `union` `except_` `intersect` `cross`
+[DuckDBPyRelation reduce]: `count` `sum` `mean` `min` `max` `std` `var` `median` `quantile` `mode` `product` `histogram` `value_counts`
+[DuckDBPyRelation window]: `row_number` `rank` `dense_rank` `lag` `lead` `first_value` `last_value` `n_tile` `cume_dist` `percent_rank`
+[DuckDBPyRelation egress]: `to_df` `pl` `to_arrow_table` `fetchnumpy` `to_table` `to_view` `to_csv` `to_parquet` `insert_into` `create` `create_view`
+[Expression builders]: `ColumnExpression` `ConstantExpression` `FunctionExpression` `CaseExpression` `LambdaExpression` `SQLExpression` `StarExpression` `DefaultExpression` `CoalesceOperator`
+[Value subclasses]: `IntegerValue` `LongValue` `DoubleValue` `FloatValue` `BooleanValue` `StringValue` `BlobValue` `DateValue` `TimeValue`
+[Value subclasses]: `TimestampValue` `IntervalValue` `DecimalValue` `UUIDValue` `ListValue` `StructValue` `MapValue` `NullValue`
+[Exceptions dbapi]: `DatabaseError` `DataError` `OperationalError` `ProgrammingError` `IntegrityError` `InternalError` `NotSupportedError`
+[Exceptions engine]: `CatalogException` `BinderException` `ParserException` `ConversionException` `InvalidInputException` `InvalidTypeException` `OutOfRangeException`
+[Exceptions engine]: `ConstraintException` `TransactionException` `SerializationException` `InterruptException` `HTTPException` `PermissionException` `DependencyException`
 
-[PROFILING_INFORMATION]:
-- `get_profiling_information("json")` returns JSON text for the last completed query; callers decode the string before projection. `query_tree` and `query_tree_optimizer` return rendered tree text through the same `str` carrier.
-- Root keys are metric-dependent, never a fixed schema: the table below is the standard-profile emitted set, `profiling_mode='detailed'` adds the optimizer and planner timing roots beside it (`all_optimizers`, `cumulative_optimizer_timing`, per-rule `optimizer_*`, `planner`, `planner_binding`, `physical_planner`, `physical_planner_*`), and `custom_profiling_settings` replaces the active metric set outright — a disabled metric's key is absent, not null, and a fully custom set can leave only `children`. A consumer probes each key (`.get`) and never assumes presence; when a key is emitted its meaning and type hold — durations are seconds, sizes are bytes, cardinalities are row counts — and each `children` entry is an operator node.
-- `extra_info` is the open operator-detail object; its keys depend on the operator and its values are JSON strings or string arrays.
+## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [ROOT_KEY]                     | [JSON_TYPE] | [ROLE]                   |
-| :-----: | :----------------------------- | :---------- | :----------------------- |
-|  [01]   | `query_name`                   | string      | profiled statement       |
-|  [02]   | `latency`                      | number      | wall duration            |
-|  [03]   | `cpu_time`                     | number      | cumulative CPU duration  |
-|  [04]   | `blocked_thread_time`          | number      | blocked-thread duration  |
-|  [05]   | `rows_returned`                | integer     | result rows              |
-|  [06]   | `result_set_size`              | integer     | result bytes             |
-|  [07]   | `cumulative_cardinality`       | integer     | cumulative output rows   |
-|  [08]   | `cumulative_rows_scanned`      | integer     | cumulative scanned rows  |
-|  [09]   | `total_memory_allocated`       | integer     | allocated bytes          |
-|  [10]   | `system_peak_buffer_memory`    | integer     | peak buffer bytes        |
-|  [11]   | `system_peak_temp_dir_size`    | integer     | peak temporary bytes     |
-|  [12]   | `total_bytes_read`             | integer     | storage bytes read       |
-|  [13]   | `total_bytes_written`          | integer     | storage bytes written    |
-|  [14]   | `wal_replay_entry_count`       | integer     | replayed WAL entries     |
-|  [15]   | `commit_local_storage_latency` | number      | local commit duration    |
-|  [16]   | `attach_load_storage_latency`  | number      | attached-load duration   |
-|  [17]   | `attach_replay_wal_latency`    | number      | attached-replay duration |
-|  [18]   | `waiting_to_attach_latency`    | number      | attach wait duration     |
-|  [19]   | `write_to_wal_latency`         | number      | WAL write duration       |
-|  [20]   | `checkpoint_latency`           | number      | checkpoint duration      |
-|  [21]   | `extra_info`                   | object      | root detail map          |
-|  [22]   | `children`                     | array       | operator nodes           |
+[ENTRYPOINT_SCOPE]: module-level functions proxying the default connection
 
-| [INDEX] | [OPERATOR_KEY]              | [JSON_TYPE] | [ROLE]                   |
-| :-----: | :-------------------------- | :---------- | :----------------------- |
-|  [01]   | `operator_name`             | string      | rendered operator name   |
-|  [02]   | `operator_type`             | string      | operator discriminant    |
-|  [03]   | `operator_timing`           | number      | operator duration        |
-|  [04]   | `cpu_time`                  | number      | subtree CPU duration     |
-|  [05]   | `operator_cardinality`      | integer     | operator output rows     |
-|  [06]   | `operator_rows_scanned`     | integer     | operator scanned rows    |
-|  [07]   | `cumulative_cardinality`    | integer     | subtree output rows      |
-|  [08]   | `cumulative_rows_scanned`   | integer     | subtree scanned rows     |
-|  [09]   | `result_set_size`           | integer     | operator result bytes    |
-|  [10]   | `system_peak_buffer_memory` | integer     | operator buffer bytes    |
-|  [11]   | `system_peak_temp_dir_size` | integer     | operator temporary bytes |
-|  [12]   | `extra_info`                | object      | operator detail map      |
-|  [13]   | `children`                  | array       | child operator nodes     |
+| [INDEX] | [SURFACE]                                                                       | [SHAPE]  | [CAPABILITY]                             |
+| :-----: | :------------------------------------------------------------------------------ | :------- | :--------------------------------------- |
+|  [01]   | `connect(database, read_only, config) -> DuckDBPyConnection`                    | factory  | open an isolated database session        |
+|  [02]   | `default_connection` / `set_default_connection(conn)`                           | static   | read or rebind the proxied default       |
+|  [03]   | `sql(query, *, alias, connection)` / `query(query)`                             | static   | build a lazy `DuckDBPyRelation` from SQL |
+|  [04]   | `execute(query, parameters)` / `executemany(query, parameters)`                 | static   | run a statement with bound parameters    |
+|  [05]   | `extract_statements(query)` / `tokenize(query)`                                 | static   | parse SQL to `Statement` list or tokens  |
+|  [06]   | `from_df` / `from_arrow` / `from_query` / `table` / `view` / `values`           | factory  | build a relation from a frame or table   |
+|  [07]   | `read_csv` / `read_json` / `read_parquet` / `from_parquet` / `from_csv_auto`    | static   | read a file into a relation              |
+|  [08]   | `register(name, obj)` / `unregister(name)`                                      | static   | bind or drop a Python object as a view   |
+|  [09]   | `register_filesystem` / `list_filesystems` / `filesystem_is_registered`         | static   | manage fsspec filesystem registration    |
+|  [10]   | `create_function(name, fn, *, type, exception_handling)`                        | static   | register a scalar or vectorized UDF      |
+|  [11]   | `remove_function(name)` / `table_function(name, parameters)`                    | static   | drop a UDF or call a table function      |
+|  [12]   | `install_extension(ext, *, repository)` / `load_extension(ext)`                 | instance | connection-side extension load boundary  |
+|  [13]   | `begin` / `commit` / `rollback` / `checkpoint` / `interrupt` / `query_progress` | static   | transaction and execution control        |
+|  [14]   | `enable_profiling` / `disable_profiling` / `get_profiling_information`          | instance | profiling toggle and JSON dump           |
 
-[EXCEPTIONS]:
-- `duckdb.Error` — base exception; `DatabaseError`, `DataError`, `OperationalError`, `ProgrammingError`, `IntegrityError`, `InternalError`, `NotSupportedError` follow the DB-API 2.0 hierarchy.
-- engine-specific: `CatalogException`, `BinderException`, `ParserException`, `SyntaxException`, `ConversionException`, `InvalidInputException`, `InvalidTypeException`, `TypeMismatchException`, `OutOfRangeException`, `OutOfMemoryException`, `ConstraintException`, `TransactionException`, `SerializationException`, `InterruptException`, `FatalException`, `IOException`, `HTTPException`, `PermissionException`, `DependencyException`, `SequenceException`, `NotImplementedException`.
+[Logical-type constructors]: `array_type` `list_type` `map_type` `struct_type` `union_type` `row_type` `decimal_type` `enum_type` `string_type` `sqltype`
 
-[IMPLEMENTATION_LAW]:
-- `sql`/`query` return a lazy `DuckDBPyRelation`; no execution happens until an egress call (`to_df`, `to_arrow_table`, `fetchall`, `to_parquet`, `count`) materialises the result.
-- Module-level functions proxy the default connection; `connect(...)` is the explicit owner for isolated databases, configs, read-only mode, and concurrent cursors via `cursor()`.
-- Frame and Arrow objects are zero-copy registered as scannable relations through `register`, `from_df`, or `from_arrow`; SQL references them by the registered view name without materialisation.
-- Relational algebra composes on `DuckDBPyRelation` (`select`/`filter`/`aggregate`/`join`) as the canonical builder; raw SQL strings and the relation builder address the same engine.
-- Prepared parameters pass positionally as `?` or by `$name`; `execute(query, parameters)` binds them, never string interpolation.
-- User-defined functions register through `create_function` with explicit `parameters`/`return_type` and a `PythonExceptionHandling` policy; vectorised UDFs use Arrow `type='arrow'`.
-- Window functions are programmatic relation methods (`row_number`/`rank`/`dense_rank`/`percent_rank`/`cume_dist`/`lag`/`lead`/`first_value`/`last_value`/`n_tile`) taking a `window_spec` string and `projected_columns`, returning a chained `DuckDBPyRelation`; the relation builder and a raw window SQL string address the same execution.
+## [04]-[IMPLEMENTATION_LAW]
 
-[INTEGRATION_STACKING]:
-- arrow zero-copy spine: `from_arrow`/`register` ingest and `fetch_arrow_table`/`fetch_record_batch`/`to_arrow_reader`/`pl()` egress thread the same Arrow C-data capsule that `datafusion` (`from_arrow`/`to_arrow_table`), `polars`, `deltalake` (`to_pyarrow_dataset`), and `pyarrow` expose, so a frame crosses the engine boundary with no copy — DuckDB scans a registered polars/Arrow object and emits an `arro3`/pyarrow reader the next engine consumes directly.
-- substrait bridge: `con.load_extension("substrait")` attaches `con.get_substrait`/`from_substrait` so a DuckDB plan round-trips with `datafusion.substrait` over one wire `Plan` — this connection is the DuckDB end of the `duckdb-substrait` cross-engine rail, never a re-implemented protobuf codec.
-- lakehouse stack: `con.register`/`from_arrow` adopts a `deltalake.DeltaTable.to_pyarrow_dataset()` for pushdown SQL, and `to_parquet`/`to_arrow_reader` egress feeds a `write_deltalake` commit; DuckDB is the interactive SQL surface over the same Delta/Parquet files the columnar owners write.
-- udf/retry stack: `create_function(..., type='arrow', exception_handling=PythonExceptionHandling.RETURN_NULL)` registers an Arrow-vectorized UDF whose batch is the same capsule the rest of the stack uses; a remote-source query (httpfs/object store) composes under a `stamina` `retry_context` and an OpenTelemetry span keyed by `query_progress()`/profiling output.
+[TOPOLOGY]:
+- `sql`/`query` return a lazy `DuckDBPyRelation`; execution defers until an egress call (`to_df`, `fetchall`, `to_parquet`) materializes the result.
+- Module-level functions proxy the default connection; `connect` is the explicit owner for isolated databases, configs, read-only mode, and concurrent cursors.
+- Frames and Arrow objects register zero-copy as scannable relations through `register`/`from_df`/`from_arrow`; SQL references them by view name without materialization.
+- `DuckDBPyRelation` and a raw SQL string address one engine; the relation builder composes `select`/`filter`/`aggregate`/`join` and the window methods as the canonical form.
+- Prepared parameters bind positionally as `?` or by `$name` through `execute(query, parameters)`, never string interpolation.
+- `create_function` registers a scalar or `type='arrow'` vectorized UDF under an explicit `parameters`/`return_type` and a `PythonExceptionHandling` policy.
+- Window methods take a `window_spec` string and `projected_columns`, returning a chained `DuckDBPyRelation`.
+- `get_profiling_information('json')` returns metric-dependent JSON text; a consumer decodes the string and probes each key with `.get`, never assuming presence — durations are seconds, sizes bytes, cardinalities row counts, `children` operator nodes, `extra_info` the open detail map.
 
-## [03]-[LOCAL_ADMISSION]
+[STACKING]:
+- `duckdb-extensions.md`(`.api/duckdb-extensions.md`): loadable-extension roster, per-connection load shapes, Substrait plan methods, and DuckLake catalog functions; `install_extension`/`load_extension` are the connection-side load boundary this surface owns.
+- `datafusion`(`.api/datafusion.md`), `polars`, `deltalake`, `pyarrow`: `from_arrow`/`register` ingest and `fetch_arrow_table`/`fetch_record_batch`/`to_arrow_reader`/`pl` egress thread one shared Arrow C-data capsule, so a frame crosses the engine boundary with no copy.
+- `deltalake`(`.api/deltalake.md`): `register`/`from_arrow` adopts `DeltaTable.to_pyarrow_dataset()` for pushdown SQL, and `to_parquet`/`to_arrow_reader` feeds a `write_deltalake` commit over the same Delta/Parquet files.
+- `tabular` `DuckDbSession`: the request-scoped scan rail composes `register`/`from_arrow` ingest and relation egress as the columnar and query engine behind data-branch egress.
+- udf/retry: an Arrow-vectorized `create_function` batch is the shared capsule; a remote-source query composes under a `stamina` `retry_context` and an OpenTelemetry span keyed by `query_progress()`.
+
+[LOCAL_ADMISSION]:
+- `connect()` owns isolated databases; `DuckDBPyRelation` is the lazy query builder; `register`/`from_arrow` scan frames zero-copy across `datafusion`/`polars`/`deltalake`.
+- Bind parameters through `execute(query, parameters)`; register UDFs through `create_function`; load the Substrait bridge and other extensions through `load_extension`.
 
 [RAIL_LAW]:
 - Package: `duckdb`
-- Owns: in-process analytical SQL (with native `MERGE INTO`), lazy relational algebra and programmatic window functions, multi-frame and file ingest/egress, UDFs, loadable extensions, and prepared execution
-- Accept: `connect()` for isolated databases, `DuckDBPyRelation` as the lazy query builder, `register`/`from_arrow` for zero-copy frame scanning across `datafusion`/`polars`/`deltalake`, parameter binding via `execute(query, parameters)`, `create_function` for Arrow-vectorized UDFs, `load_extension("substrait")` for the cross-engine plan bridge
-- Reject: string-interpolated SQL parameters, eager per-row Python iteration outside relation egress, duplicate per-frame query entry points, a window-function SQL loop where the relation window methods own the axis, and hand-rolled CSV/Parquet parsing when the reader functions own the format
-
-## [04]-[EXTENSIONS]
-
-The loadable-extension SQL surfaces the `tabular/columnar` `DuckDbSession`/`DuckDbExtension` rail installs and loads per connection — the repository (core vs `community`) a row property on the rail, never a load-mechanics concern at a call site. `duckdb-extensions.md` is the standing catalog for extension evidence, including `ducklake` (`ATTACH 'ducklake:<dsn>'`, snapshots, time travel, change feed, maintenance CALLs) and `substrait` (`get_substrait`/`get_substrait_json`/`from_substrait`/`from_substrait_json`).
-
-| [INDEX] | [EXTENSION] | [REPOSITORY] | [SQL_SURFACE]                                                       | [CONSUMER]                     |
-| :-----: | :---------- | :----------- | :------------------------------------------------------------------ | :----------------------------- |
-|  [01]   | `httpfs`    | core         | remote `read_parquet` globs over http/s3/gcs; `register_filesystem` | `tabular/columnar` RemoteGlob  |
-|  [02]   | `spatial`   | core         | `GEOMETRY` + `ST_*` SQL (`ST_GeomFromWKB`/`ST_Intersects`)          | `spatial/query` engine prelude |
-|  [03]   | `h3`        | `community`  | `h3_latlng_to_cell`/`h3_cell_to_parent`/`h3_grid_disk` H3 SQL       | `spatial/query` H3Bin          |
-|  [04]   | `substrait` | `community`  | `get_substrait[_json]`/`from_substrait[_json]`                      | `tabular/query` `_ir_plan`     |
-|  [05]   | `iceberg`   | core         | `iceberg_scan('<uri>')`/`iceberg_snapshots`/`iceberg_metadata`      | `tabular/lakehouse` ICEBERG    |
-|  [06]   | `ducklake`  | core         | `ATTACH 'ducklake:<dsn>'` + ducklake catalog functions              | `tabular/lakehouse` DUCKLAKE   |
+- Owns: in-process analytical SQL with native `MERGE INTO`, lazy relational algebra, programmatic window functions, multi-frame and file ingest/egress, UDFs, and prepared execution
+- Accept: `connect()` sessions, the `DuckDBPyRelation` builder, zero-copy Arrow/frame registration, `execute` parameter binding, Arrow-vectorized `create_function`, and `load_extension` bridges
+- Reject: string-interpolated SQL parameters, eager per-row Python iteration outside relation egress, duplicate per-frame query entrypoints, a window-SQL loop where the relation methods own the axis, and hand-rolled CSV/Parquet parsing the reader functions own

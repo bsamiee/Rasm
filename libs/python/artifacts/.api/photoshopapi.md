@@ -1,242 +1,164 @@
 # [PY_ARTIFACTS_API_PHOTOSHOPAPI]
 
-`PhotoshopAPI` (import `photoshopapi`, conventional alias `psapi`) supplies the native PSD/PSB read+write surface for the artifacts `export/layered` rail: a bit-depth-templated `LayeredFile` document holding a real layer hierarchy, `ImageLayer`/`GroupLayer`/`SmartObjectLayer`/`TextLayer` nodes carrying per-channel `numpy` pixel data plus the full editor-panel attribute axis (blend mode, opacity, fill, visibility, lock, clipping mask, layer mask with feather/density/position, display color), and a `LayeredFile.write` close that emits a Photoshop-faithful `.psd`/`.psb` with implicit PSD↔PSB promotion. It is the categorical-best owner of PSD/PSB *authoring* the brief admits to supersede the layered-TIFF approximation: the `export/layered#LAYERED` owner adds a `PSD` (and `PSB`) `ExportTarget` whose arm constructs one `psapi.ImageLayer_<bit>` per `Layer` row over a `ChannelID`-keyed channel dict and writes a real channel-stack document, where the retained `psdtags`/`tifffile` arm can only graft Photoshop layer records onto a TIFF container. The owner composes `LayeredFile`, the layer-node family, and the `psapi.enum` vocabularies into the layered arm; it never re-implements the PSD/PSB binary container, the per-channel RLE/ZIP/ZipPrediction codec, the tagged-block descriptor model, or the smart-object warp algebra the C++20 core already owns — downstream receives only `LayerFact` bytes, a `ContentKey`, and the shared `ArtifactReceipt.Preview` dimensions/layer count.
-
-This catalog drives the layered-export rail where `PhotoshopAPI` owns native PSD/PSB author+read, `psd-tools` owns pure-Python/abi3 PSD *read/inspect* and the cp315-present fallback authoring path, `imagecodecs` owns the PackBits/ZIP channel codec for the layered-TIFF container, and `psdtags`+`tifffile` own Photoshop-compatible layered-TIFF tags — every owner meeting the others at decoded RGBA `numpy` planes or finished container bytes.
+`PhotoshopAPI` owns native PSD/PSB read and write for the `export/layered` rail: a bit-depth-templated `LayeredFile` holding a nested layer hierarchy over per-channel `numpy` planes, closed on a `write` emitting a faithful `.psd`/`.psb`. Its layered arm folds each placed `Layer` into one `psapi.ImageLayer_<bit>` over a `ChannelID`-keyed channel dict, writing a real channel-stack document. Four packages partition the concern at RGBA planes and container bytes — `PhotoshopAPI` authors, `psd-tools` reads, `imagecodecs` the channel codec, `psdtags`+`tifffile` the layered-TIFF — downstream receiving only `LayerFact` bytes, a `ContentKey`, and the shared `ArtifactReceipt.Preview`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `photoshopapi`
-- package: `PhotoshopAPI`
-- import: `photoshopapi` (conventional alias `psapi`)
-- owner: `artifacts`
+- package: `PhotoshopAPI` (`BSD-3-Clause`, Emil Dohne)
+- module: `photoshopapi` (alias `psapi`)
+- namespaces: `psapi.enum`
+- abi: `pybind11` C++20 native extension, off the runtime loader path
 - rail: `export/layered`
-- build-floor: `>=3.8`; published wheels `cp38`–`cp313` (no `cp314`/`cp315` wheel, no sdist build-on-install) — the root manifest gates `PhotoshopAPI; python_version<'3.15'`; on this `cp315` interpreter the dist is ABSENT, so this catalog is sourced from the official binding surface (the `pybind11` declarations + maintained `.pyi` stubs at `EmilDohne/PhotoshopAPI@055cad5`), not `assay api` reflection; re-resolve via `uv run --frozen python -m tools.assay api resolve photoshopapi` once a `cp315` wheel lands or a source build is provisioned
-- license: `BSD-3-Clause` (permissive; commercial-safe, no copyleft, no Pantone-licensed data — unlike the AGPL `pymupdf`/`pymupdf` PDF arm this imposes no source-disclosure obligation on the layered close)
-- binding: C++20 core, `pybind11` extension (`scikit-build-core` build backend; the brief's "native PSD/PSB writer, gate `python_version<'3.15'` or source-build")
-- entry points: none (library only)
-- capability: PSD/PSB read with automatic bit-depth deduction (`LayeredFile.read`); 8/16/32-bit document author (`LayeredFile_8bit`/`_16bit`/`_32bit`); RGB/CMYK/Grayscale color modes; arbitrarily-nested layer hierarchy (group → image/group/smart-object/text); per-channel `numpy` pixel author and extract keyed by logical index or `ChannelID`; full editor-panel layer attributes (28-member `BlendMode`, opacity, fill, visibility, lock, clipping mask, 12-member display `LayerColor`); layer masks with default-color/density/feather/position/disabled/relative; smart objects with affine transform + warp + external/embedded linkage; per-layer or document-wide write `Compression` (Raw/RLE/ZIP/ZipPrediction); ICC profile attach (interpretation only, no color conversion); DPI; text-cache invalidation for template re-render; advertised faster + smaller-file PSD/PSB IO than Photoshop
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document root and bit-depth specializations
-- rail: `export/layered`
 
-`LayeredFile` is the read dispatcher (`LayeredFile.read(path)` deduces the file's bit depth and returns the matching specialization); the three `LayeredFile_<bit>` classes are the authored document roots, the template parameter `T` (`bpp8_t`/`bpp16_t`/`bpp32_t`) fixing channel dtype to `uint8`/`uint16`/`float32`. One specialization is selected at construction and never re-templated; the layered arm picks it off the source `Layer` channel dtype, never a `bit_depth` knob the caller toggles. The three roots share one document surface — layer hierarchy, ICC/DPI/dims, layer `add`/`move`/`remove`/`find`, `read`/`write` — differing only in channel dtype.
+`LayeredFile.read` deduces on-disk depth and returns the matching `LayeredFile_<bit>`; the three roots fix channel dtype through the template parameter `T` and share one document surface — hierarchy, ICC/DPI/dims, layer `add`/`move`/`remove`/`find`, `read`/`write`. Construction picks the specialization off the source `Layer` channel dtype, never a caller `bit_depth` knob, and never re-templates afterward.
 
-| [INDEX] | [SYMBOL]            | [PACKAGE_ROLE]      | [CAPABILITY]                                                   |
-| :-----: | :------------------ | :------------------ | :------------------------------------------------------------- |
-|  [01]   | `LayeredFile`       | read dispatcher     | `read(path)` deduces on-disk depth → `_8bit`/`_16bit`/`_32bit` |
-|  [02]   | `LayeredFile_8bit`  | document root (u8)  | `uint8` channels                                               |
-|  [03]   | `LayeredFile_16bit` | document root (u16) | `uint16` channels                                              |
-|  [04]   | `LayeredFile_32bit` | document root (f32) | `float32` channels                                             |
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY]   | [CAPABILITY]                                           |
+| :-----: | :------------------ | :-------------- | :----------------------------------------------------- |
+|  [01]   | `LayeredFile`       | read dispatcher | `read(path)` deduces depth → `_8bit`/`_16bit`/`_32bit` |
+|  [02]   | `LayeredFile_8bit`  | document root   | `uint8` channels                                       |
+|  [03]   | `LayeredFile_16bit` | document root   | `uint16` channels                                      |
+|  [04]   | `LayeredFile_32bit` | document root   | `float32` channels                                     |
 
 [PUBLIC_TYPE_SCOPE]: layer node family
-- rail: `export/layered`
 
-`Layer_<bit>` is the abstract node base carrying every editor-panel attribute; `ImageLayer_<bit>`, `GroupLayer_<bit>`, `SmartObjectLayer_<bit>`, and `TextLayer_<bit>` derive from it. A `LayeredFile_<bit>.layers` (root) or `GroupLayer_<bit>.layers` (nested) walk yields `Layer_<bit>` references the consumer narrows with `isinstance(layer, psapi.GroupLayer_8bit)`; the layered arm constructs the leaf subclass directly and never re-derives a parallel node type.
+`Layer_<bit>` is the abstract node base carrying every editor-panel attribute; the four leaf and group subclasses derive from it. A `layers` walk (root or group-scoped) yields `Layer_<bit>` references the consumer narrows with `isinstance`; the layered arm constructs the leaf subclass directly.
 
-| [INDEX] | [SYMBOL]                 | [PACKAGE_ROLE]    | [CAPABILITY]                                                                             |
-| :-----: | :----------------------- | :---------------- | :--------------------------------------------------------------------------------------- |
-|  [01]   | `Layer_<bit>`            | node base         | name/blend_mode/opacity/fill/visibility/lock/clipping/display_color + the full mask axis |
-|  [02]   | `ImageLayer_<bit>`       | raster leaf       | per-channel `numpy` pixel author/extract; the layered arm's primary node                 |
-|  [03]   | `GroupLayer_<bit>`       | hierarchy node    | nested `layers` collection, `is_collapsed`, group-scoped `add_layer`/`remove_layer`      |
-|  [04]   | `SmartObjectLayer_<bit>` | smart-object leaf | embedded/external linked image with affine transform + warp + `replace`                  |
-|  [05]   | `TextLayer_<bit>`        | text leaf         | live editable text layer (paired with `LayeredFile.invalidate_text_cache` for re-render) |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]     | [CAPABILITY]                                                                    |
+| :-----: | :----------------------- | :---------------- | :------------------------------------------------------------------------------ |
+|  [01]   | `Layer_<bit>`            | node base         | name/blend/opacity/fill/visibility/lock/clipping/display-color + full mask axis |
+|  [02]   | `ImageLayer_<bit>`       | raster leaf       | per-channel `numpy` author/extract; the layered arm's primary node              |
+|  [03]   | `GroupLayer_<bit>`       | hierarchy node    | nested `layers`, `is_collapsed`, group-scoped `add_layer`/`remove_layer`        |
+|  [04]   | `SmartObjectLayer_<bit>` | smart-object leaf | embedded/external linked image + affine transform, warp, `replace`              |
+|  [05]   | `TextLayer_<bit>`        | text leaf         | live editable text layer, re-rendered via `invalidate_text_cache`               |
 
-[PUBLIC_TYPE_SCOPE]: `psapi.enum` bounded vocabularies
-- rail: `export/layered`
+[PUBLIC_TYPE_SCOPE]: `psapi.enum` bounded vocabularies (all `enum`)
 
-The closed discriminant vocabularies under the `psapi.enum` submodule. These are the native owners the layered arm derives onto by member value or name — `getattr(psapi.enum.BlendMode, blend.value.replace("-", ""))`, `getattr(psapi.enum.Compression, channel.name.lower().replace("_", ""))` — never re-minted local enums or parallel tables. `ChannelID.mask` is the user-supplied-layer-mask slot (logical channel index `-2`), distinct from `ChannelID.alpha` (index `-1`). Each family's members carry below the grid.
+`psapi.enum` owns the closed discriminant vocabularies the layered arm derives onto by member value or name — `BlendMode` by hyphen-stripped value, `Compression` by underscore-stripped lowered name — never re-minted as local enums. `ChannelID.mask` is the user-supplied layer-mask slot (logical index `-2`), distinct from `ChannelID.alpha` (`-1`). Each family's members carry below the grid.
 
-| [INDEX] | [FAMILY]          | [DRIVES]                                                                         |
-| :-----: | :---------------- | :------------------------------------------------------------------------------- |
-|  [01]   | `BlendMode`       | `Layer.blend_mode` / layer constructor `blend_mode=`                             |
-|  [02]   | `ColorMode`       | `LayeredFile_<bit>(color_mode, w, h)`, layer `color_mode=`                       |
-|  [03]   | `BitDepth`        | `LayeredFile.bit_depth` (read-only; fixed by `T`)                                |
-|  [04]   | `ChannelID`       | image-layer channel dict keys; `get_channel_by_id`                               |
-|  [05]   | `Compression`     | layer `compression=` / `LayeredFile.compression` setter / `set_mask_compression` |
-|  [06]   | `LayerColor`      | `Layer.display_color` (Photoshop layer-panel swatch)                             |
-|  [07]   | `LinkedLayerType` | `SmartObjectLayer.linkage`, smart-object `link_type=`                            |
+| [INDEX] | [SYMBOL]          | [CAPABILITY]                                                            |
+| :-----: | :---------------- | :---------------------------------------------------------------------- |
+|  [01]   | `BlendMode`       | `Layer.blend_mode` and layer constructor `blend_mode=`                  |
+|  [02]   | `ColorMode`       | `LayeredFile_<bit>(color_mode, …)` and layer `color_mode=`              |
+|  [03]   | `BitDepth`        | `LayeredFile.bit_depth`, read-only, fixed by `T`                        |
+|  [04]   | `ChannelID`       | image-layer channel dict keys; `get_channel_by_id`                      |
+|  [05]   | `Compression`     | layer `compression=`, `LayeredFile.compression`, `set_mask_compression` |
+|  [06]   | `LayerColor`      | `Layer.display_color` layer-panel swatch                                |
+|  [07]   | `LinkedLayerType` | `SmartObjectLayer.linkage`, smart-object `link_type=`                   |
 
-- [01]-[BLENDMODE]: `passthrough`(groups only)/`normal`/`dissolve`/`darken`/`multiply`/`colorburn`/`linearburn`/`darkercolor`/`lighten`/`screen`/`colordodge`/`lineardodge`/`lightercolor`/`overlay`/`softlight`/`hardlight`/`vividlight`/`linearlight`/`pinlight`/`hardmix`/`difference`/`exclusion`/`subtract`/`divide`/`hue`/`saturation`/`color`/`luminosity` (28).
+- [01]-[BLENDMODE]: `passthrough`(groups only)/`normal`/`dissolve`/`darken`/`multiply`/`colorburn`/`linearburn`/`darkercolor`/`lighten`/`screen`/`colordodge`/`lineardodge`/`lightercolor`/`overlay`/`softlight`/`hardlight`/`vividlight`/`linearlight`/`pinlight`/`hardmix`/`difference`/`exclusion`/`subtract`/`divide`/`hue`/`saturation`/`color`/`luminosity`.
 - [02]-[COLORMODE]: `rgb` (R,G,B,A) / `cmyk` (C,M,Y,K,A) / `grayscale` (Gray,A).
 - [03]-[BITDEPTH]: `bd_8` (`uint8`) / `bd_16` (`uint16`) / `bd_32` (`float32`).
-- [04]-[CHANNELID]: `red`/`green`/`blue`/`cyan`/`magenta`/`yellow`/`black`/`gray`/`custom`/`alpha`(−1)/`mask`(−2, user-supplied layer mask).
-- [05]-[COMPRESSION]: `raw` (none) / `rle` (fast, low ratio) / `zip` (deflate) / `zipprediction` (deflate + per-scanline delta; best ratio).
-- [06]-[LAYERCOLOR]: `none`/`red`/`orange`/`yellow`/`green`/`blue`/`violet`/`gray`/`seafoam`/`indigo`/`magenta`/`fuschia` (12).
+- [04]-[CHANNELID]: `red`/`green`/`blue`/`cyan`/`magenta`/`yellow`/`black`/`gray`/`custom`/`alpha`(−1)/`mask`(−2).
+- [05]-[COMPRESSION]: `raw` (none) / `rle` (fast, low ratio) / `zip` (deflate) / `zipprediction` (deflate + per-scanline delta, best ratio).
+- [06]-[LAYERCOLOR]: `none`/`red`/`orange`/`yellow`/`green`/`blue`/`violet`/`gray`/`seafoam`/`indigo`/`magenta`/`fuschia`.
 - [07]-[LINKEDLAYERTYPE]: `data` (image stored inside the PSD) / `external` (image shipped alongside on disk).
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document construct, read, write
-- rail: `export/layered`
 
-`LayeredFile_<bit>` constructs empty (`color_mode`, `width`, `height`) or via the deducing `LayeredFile.read`; `write` consumes the document (move semantics — the instance is invalid afterward, undefined behavior to reuse) and emits `.psd`/`.psb` with implicit cross-format promotion driven by the path extension. Dimensions cap at 30,000 (PSD) / 300,000 (PSB). The [SURFACE] members are on `LayeredFile_<bit>`, save the static `LayeredFile.read` dispatcher.
+`LayeredFile_<bit>` constructs empty from `(color_mode, width, height)` or via the deducing static `LayeredFile.read`; `write` consumes the document by move semantics — the instance is dead afterward — and emits `.psd`/`.psb` with implicit cross-format promotion driven by the path suffix. Dimensions cap at 30,000 (PSD) / 300,000 (PSB).
 
-| [INDEX] | [SURFACE]                | [CALL_SHAPE]                                  | [CAPABILITY]                                              |
-| :-----: | :----------------------- | :-------------------------------------------- | :-------------------------------------------------------- |
-|  [01]   | `LayeredFile.read`       | `read(path) -> LayeredFile_<bit>` (static)    | open + deduce bit depth (depth unknown ahead)             |
-|  [02]   | `.read`                  | `LayeredFile_8bit.read(path)` (static)        | open a known-depth document                               |
-|  [03]   | `(...)` constructor      | `LayeredFile_8bit(color_mode, width, height)` | construct empty (or `()` no-arg)                          |
-|  [04]   | `.write`                 | `write(path, force_overwrite=True)`           | serialize `.psd`/`.psb`; instance dead after              |
-|  [05]   | `.invalidate_text_cache` | `invalidate_text_cache() -> None`             | strip `Txt2` + dirty text so Photoshop re-renders on open |
+| [INDEX] | [SURFACE]                                     | [SHAPE]  | [CAPABILITY]                                    |
+| :-----: | :-------------------------------------------- | :------- | :---------------------------------------------- |
+|  [01]   | `LayeredFile.read(path) -> LayeredFile_<bit>` | static   | open, deduce bit depth                          |
+|  [02]   | `LayeredFile_8bit.read(path)`                 | static   | open a known-depth document                     |
+|  [03]   | `LayeredFile_8bit(color_mode, width, height)` | ctor     | construct empty                                 |
+|  [04]   | `write(path, force_overwrite=True)`           | instance | serialize `.psd`/`.psb`; instance dead after    |
+|  [05]   | `invalidate_text_cache() -> None`             | instance | strip `Txt2` + dirty text for re-render on open |
 
 [ENTRYPOINT_SCOPE]: layer placement and lookup
-- rail: `export/layered`
 
-A layer is constructed, then placed at root (`LayeredFile.add_layer`) or inside a group (`GroupLayer.add_layer(layered_file, layer)` — the document is passed for the duplicate-placement runtime check). Lookup is polymorphic on input shape: `__getitem__` for a single root-level name (chainable through nested groups, since `GroupLayer` also implements `__getitem__`), `find_layer` for a `"Group/Sub/Leaf"` path string. The [SURFACE] members are on `LayeredFile_<bit>`, save the group-scoped `GroupLayer_<bit>.add_layer`. `__getitem__`/`find_layer` raise `KeyError`/`ValueError` on miss; group-scoped removal is `GroupLayer.remove_layer` (int/object/name).
+A layer places at root via `LayeredFile.add_layer` or inside a group via `GroupLayer.add_layer(layered_file, layer)`, the document arg driving the duplicate-placement check. Lookup discriminates on input shape: `__getitem__` for a single root-level name (chainable through nested groups), `find_layer` for a `"Group/Sub/Leaf"` path; both raise `KeyError`/`ValueError` on miss.
 
-| [INDEX] | [SURFACE]               | [CALL_SHAPE]                                  | [CAPABILITY]                                             |
-| :-----: | :---------------------- | :-------------------------------------------- | :------------------------------------------------------- |
-|  [01]   | `.add_layer`            | `add_layer(layer) -> None`                    | place a layer at scene root                              |
-|  [02]   | `GroupLayer.add_layer`  | `add_layer(layered_file, layer)`              | place inside a group (document arg drives no-double-add) |
-|  [03]   | `.getitem`              | `file["Red"] -> Layer_<bit>`                  | root-name lookup, chainable `file["G"]["Img"]`           |
-|  [04]   | `.find_layer`           | `find_layer(path)`                            | path lookup `"Group/NestedGroup/Leaf"`                   |
-|  [05]   | `.move_layer`           | `move_layer(child, parent=None)`              | reparent (`None` parent → root); object or path pair     |
-|  [06]   | `.remove_layer`         | `remove_layer(layer)` — `Layer_<bit>` or name | drop from root by object or name                         |
-|  [07]   | `.is_layer_in_document` | `is_layer_in_document(layer) -> bool`         | membership probe at any nesting depth                    |
+| [INDEX] | [SURFACE]                             | [SHAPE]  | [CAPABILITY]                                       |
+| :-----: | :------------------------------------ | :------- | :------------------------------------------------- |
+|  [01]   | `add_layer(layer) -> None`            | instance | place a layer at scene root                        |
+|  [02]   | `GroupLayer.add_layer(file, layer)`   | instance | place inside a group; doc arg drives no-double-add |
+|  [03]   | `file[name] -> Layer_<bit>`           | instance | root-name lookup, chainable `file["G"]["Img"]`     |
+|  [04]   | `find_layer(path) -> Layer_<bit>`     | instance | path lookup `"Group/Nested/Leaf"`                  |
+|  [05]   | `move_layer(child, parent=None)`      | instance | reparent (`None` → root); object or path pair      |
+|  [06]   | `remove_layer(layer)`                 | instance | drop from root by object or name                   |
+|  [07]   | `is_layer_in_document(layer) -> bool` | instance | membership probe at any nesting depth              |
 
 [ENTRYPOINT_SCOPE]: `ImageLayer` construction and channel I/O
-- rail: `export/layered`
 
-`ImageLayer_<bit>` is the layered arm's primary node. The constructor is overloaded on the `image_data` shape — a single planar/interleaved `numpy.ndarray`, an `int`-keyed channel dict (logical indices: `0/1/2` = R/G/B, `-1` = alpha), or a `ChannelID`-keyed dict (explicit, the preferred form). For a `(C, H, W)` or `(C, H*W)` array the first axis is channel count; `width`/`height` are required when constructing from data. Opacity is `0.0–1.0` (mapped to the on-disk `0–255`). Every `ImageLayer_<bit>(...)` constructor takes `(image_data, layer_name, layer_mask=None, width, height, blend_mode, pos_x=0, pos_y=0, opacity=1.0, compression, color_mode, is_visible=True, is_locked=False)`; rows [01]-[03] differ only in the `image_data` shape. The [SURFACE] members are on `ImageLayer_<bit>`.
+`ImageLayer_<bit>` is the layered arm's primary node; its constructor overloads on `image_data` shape — a `numpy.ndarray` (planar `(C,H,W)` or interleaved `(C,H*W)`), an `int`-keyed channel dict (logical `0/1/2`=R/G/B, `-1`=alpha, `-2`=mask), or a `ChannelID`-keyed dict (the explicit, lossless form the arm uses). `width`/`height` are required when constructing from data, and opacity is `0.0–1.0` (mapped to on-disk `0–255`).
 
-| [INDEX] | [SURFACE]               | [CALL_SHAPE]                                     | [CAPABILITY]                                         |
-| :-----: | :---------------------- | :----------------------------------------------- | :--------------------------------------------------- |
-|  [01]   | `(ndarray, …)`          | `image_data: numpy.ndarray`                      | construct from a planar/interleaved array            |
-|  [02]   | `(dict[int], …)`        | `image_data: dict[int, numpy.ndarray]`           | index-keyed channel planes (logical indices)         |
-|  [03]   | `(dict[ChannelID], …)`  | `image_data: dict[ChannelID, numpy.ndarray]`     | explicit `ChannelID`-keyed planes (preferred)        |
-|  [04]   | `.get_image_data`       | `get_image_data() -> dict[int, numpy.ndarray]`   | extract all channels incl. mask (index dict)         |
-|  [05]   | `.set_image_data`       | `set_image_data(data, width=None, height=None)`  | replace channel data in place                        |
-|  [06]   | `.get_channel_by_id`    | `get_channel_by_id(key: ChannelID)`              | one channel by semantic id (`ChannelID.mask` → mask) |
-|  [07]   | `.get_channel_by_index` | `get_channel_by_index(key)`; `[0]`/`[-2]`/`[-1]` | one channel by logical index (also `getitem`)        |
-|  [08]   | `.channel_indices`      | `channel_indices() -> list[int]`                 | the present logical channel indices                  |
+- carry: `layer_name`, `layer_mask=None`, `width`, `height`, `blend_mode`, `pos_x=0`, `pos_y=0`, `opacity=1.0`, `compression`, `color_mode`, `is_visible=True`, `is_locked=False` — the shared attribute tail; rows [01]-[03] differ only in `image_data`.
 
-[ENTRYPOINT_SCOPE]: `GroupLayer` / `SmartObjectLayer` construction
-- rail: `export/layered`
+| [INDEX] | [SURFACE]                                       | [SHAPE]  | [CAPABILITY]                                |
+| :-----: | :---------------------------------------------- | :------- | :------------------------------------------ |
+|  [01]   | `(image_data: ndarray, …)`                      | ctor     | construct from a planar/interleaved array   |
+|  [02]   | `(image_data: dict[int], …)`                    | ctor     | index-keyed channel planes                  |
+|  [03]   | `(image_data: dict[ChannelID], …)`              | ctor     | explicit `ChannelID`-keyed planes, lossless |
+|  [04]   | `get_image_data() -> dict[int, ndarray]`        | instance | extract all channels incl. mask             |
+|  [05]   | `set_image_data(data, width=None, height=None)` | instance | replace channel data in place               |
+|  [06]   | `get_channel_by_id(key: ChannelID)`             | instance | one channel by semantic id (`mask` → mask)  |
+|  [07]   | `get_channel_by_index(key)`                     | instance | one channel by logical index (also `[i]`)   |
+|  [08]   | `channel_indices() -> list[int]`                | instance | the present logical channel indices         |
 
-`GroupLayer_<bit>` nests a layer collection; its `width`/`height`/mask kwargs matter only when the group carries a mask. `SmartObjectLayer_<bit>` embeds (or externally links) an image file as a non-destructive smart object with an affine transform + warp; it takes the owning `LayeredFile` and source `path` and supports live `replace`, with an affine transform + warp. Both constructors share the `(…, blend_mode, opacity=1.0, compression, color_mode, is_visible=True, is_locked=False)` attribute tail. The [SURFACE] rows are on `GroupLayer_<bit>` ([01]-[03]) then `SmartObjectLayer_<bit>` ([04]-[05]); the smart-object transform and source method families carry as keyed rows below.
+[ENTRYPOINT_SCOPE]: `GroupLayer` and `SmartObjectLayer` construction
 
-| [INDEX] | [SURFACE]             | [CALL_SHAPE]                                      | [CAPABILITY]                                          |
-| :-----: | :-------------------- | :------------------------------------------------ | :---------------------------------------------------- |
-|  [01]   | `GroupLayer(…)`       | `GroupLayer_8bit(layer_name, width, height)`      | empty group; default blend `passthrough`              |
-|  [02]   | `.is_collapsed`       | property `bool`                                   | the Photoshop layer-panel folded state                |
-|  [03]   | `.remove_layer`       | `remove_layer(index \| layer \| layer_name)`      | drop a child by index, object, or name (polymorphic)  |
-|  [04]   | `SmartObjectLayer(…)` | `SmartObjectLayer_8bit(layered_file, path, name)` | embed/link a smart object (`link_type=…`) from a file |
-|  [05]   | `.replace`            | `replace(path, link_externally=False) -> None`    | swap the backing image, preserving warp/transform     |
+`GroupLayer_<bit>` nests a layer collection, its `width`/`height`/mask kwargs mattering only when the group carries a mask. `SmartObjectLayer_<bit>` embeds or externally links an image as a non-destructive smart object with an affine transform + warp, taking the owning `LayeredFile` and source `path`. Both share the `(…, blend_mode, opacity=1.0, compression, color_mode, is_visible=True, is_locked=False)` attribute tail; the smart-object transform and source families carry as keyed rows below.
 
-- [06]-[SMARTOBJECTLAYER_TRANSFORM]: `move`/`rotate`/`scale`/`transform(matrix)`/`reset_transform`/`reset_warp` — non-destructive affine + warp manipulation.
-- [07]-[SMARTOBJECTLAYER_SOURCE]: `get_original_image_data`/`original_width`/`original_height`/`filename`/`filepath`/`hash` — inspect the linked original (pre-transform).
+| [INDEX] | [SURFACE]                                    | [SHAPE]  | [CAPABILITY]                                      |
+| :-----: | :------------------------------------------- | :------- | :------------------------------------------------ |
+|  [01]   | `GroupLayer_8bit(layer_name, width, height)` | ctor     | empty group; default blend `passthrough`          |
+|  [02]   | `is_collapsed`                               | property | layer-panel folded state                          |
+|  [03]   | `remove_layer(index \| layer \| name)`       | instance | drop a child, polymorphic on input                |
+|  [04]   | `SmartObjectLayer_8bit(file, path, name)`    | ctor     | embed/link a smart object (`link_type=`)          |
+|  [05]   | `replace(path, link_externally=False)`       | instance | swap the backing image, preserving warp/transform |
+
+- [06]-[SMARTOBJECTLAYER_TRANSFORM]: `move`/`rotate`/`scale`/`transform(matrix)`/`reset_transform`/`reset_warp` — non-destructive affine + warp.
+- [07]-[SMARTOBJECTLAYER_SOURCE]: `get_original_image_data`/`original_width`/`original_height`/`filename`/`filepath`/`hash` — inspect the pre-transform original.
 
 [ENTRYPOINT_SCOPE]: document and layer properties
-- rail: `export/layered`
 
-The document-level properties carry in the grid (all on `LayeredFile_<bit>`); the `Layer_<bit>` editor-panel attribute axis and the layer-mask parameter set — both full property enumerations — carry as keyed rows below it.
+Document-level properties carry in the grid (all on `LayeredFile_<bit>`); the `Layer_<bit>` editor-panel attribute axis and the layer-mask parameter set carry as keyed rows below.
 
-| [INDEX] | [SURFACE]                      | [CALL_SHAPE]                                    | [CAPABILITY]                                     |
-| :-----: | :----------------------------- | :---------------------------------------------- | :----------------------------------------------- |
-|  [01]   | `.layers`                      | property `list[Layer_<bit>]` (read-only)        | the root-level layer list                        |
-|  [02]   | `.flat_layers`                 | property `list[Layer_<bit>]` (read-only)        | flatten of every layer for one-shot iteration    |
-|  [03]   | `.icc`                         | property `numpy.ndarray`; setter `ndarray`/path | attach ICC (hint only; → Pillow `ImageCms`)      |
-|  [04]   | `.compression`                 | write-only setter `(Compression) -> None`       | set the write compression of every layer at once |
-|  [05]   | `.dpi` / `.width` / `.height`  | float / int properties                          | resolution + canvas dims (PSD ≤30k, PSB ≤300k)   |
-|  [06]   | `.num_channels` / `.bit_depth` | read-only `int` / `BitDepth`                    | channel count (mask excluded) + fixed depth      |
+| [INDEX] | [SURFACE]                     | [SHAPE]  | [CAPABILITY]                                        |
+| :-----: | :---------------------------- | :------- | :-------------------------------------------------- |
+|  [01]   | `layers -> list[Layer_<bit>]` | property | root-level layer list (read-only)                   |
+|  [02]   | `flat_layers`                 | property | flatten of every layer for one-shot iteration       |
+|  [03]   | `icc -> numpy.ndarray`        | property | attach ICC interpretation hint; setter ndarray/path |
+|  [04]   | `compression`                 | property | write-only; set every layer's write compression     |
+|  [05]   | `dpi` / `width` / `height`    | property | resolution + canvas dims (PSD ≤30k, PSB ≤300k)      |
+|  [06]   | `num_channels` / `bit_depth`  | property | channel count (mask excluded) + fixed depth         |
 
-- [07]-[LAYER_ATTRIBUTES]: `name`/`blend_mode`/`opacity`/`fill`/`is_visible`/`is_locked`/`clipping_mask`/`display_color`/`center_x`/`center_y`/`width`/`height` — the full editor-panel attribute axis (all read/write).
-- [08]-[LAYER_MASK]: `mask` (`numpy.ndarray`)/`has_mask`/`mask_disabled`/`mask_default_color`/`mask_density`/`mask_feather`/`mask_position`/`mask_relative_to_layer`/`mask_width()`/`mask_height()`/`set_mask_compression` — the layer-mask channel + its full parameter set.
+- [07]-[LAYER_ATTRIBUTES]: `name`/`blend_mode`/`opacity`/`fill`/`is_visible`/`is_locked`/`clipping_mask`/`display_color`/`center_x`/`center_y`/`width`/`height` — the editor-panel attribute axis, read/write.
+- [08]-[LAYER_MASK]: `mask`/`has_mask`/`mask_disabled`/`mask_default_color`/`mask_density`/`mask_feather`/`mask_position`/`mask_relative_to_layer`/`mask_width()`/`mask_height()`/`set_mask_compression` — the mask channel and its parameter set.
 
-## [04]-[INTEGRATION]
+## [04]-[IMPLEMENTATION_LAW]
 
-[INTEGRATION_SCOPE]: the `export/layered#LAYERED` PSD/PSB arm — stacking onto the unified `LayeredExport` owner
-- rail: `export/layered`
+[TOPOLOGY]:
+- One polymorphic `_psd` arm selects the `LayeredFile_<bit>`/`ImageLayer_<bit>`/`GroupLayer_<bit>` specialization off the decoded plane dtype (`uint8`→8, `uint16`→16, `float32`→32), never a caller `bit_depth` knob and never a per-depth `_psd_8`/`_16`/`_32` arm family.
+- `ChannelID`-keyed channel dicts are the construction form, every color-mode channel present (R,G,B,A for RGB; C,M,Y,K,A for CMYK; Gray,A for grayscale); the bare int-index dict is the lossy fallback.
+- Every channel plane and the optional mask is exactly `width * height`; `ImageLayer` raises `ValueError` on a size mismatch, a name over 255 chars, a negative dimension, or an opacity out of range.
+- `write` consumes the document by move semantics and targets a filesystem path, not a buffer — the arm writes to a worker-local scratch path, reads the bytes back, and discards; the written instance is never reused.
+- Blend and compression derive by shared member correspondence, never a parallel table: the page's CSS `BlendMode` maps onto `psapi.enum.BlendMode` by hyphen-stripped value, the `PsdCompression` policy onto `psapi.enum.Compression` by underscore-stripped lowered name, so each native member grows reachable the moment the page's vocabulary adds it.
 
-`export/layered.md` admits a `PSD` (and `PSB`) member on the closed `ExportTarget` `StrEnum` plus one `LayerEngine` row binding the `_psd` arm to `KernelTrait.HOSTILE` (libphotoshopapi is off the runtime loader path exactly as libvips is, so the arm crosses `self.lane.offload(Kernel.of(engine.arm, engine.trait), self)`, never the event loop). The arm folds the page's `tuple[Layer, ...]` rows — already placed by the visual producers and decoded to RGBA `numpy` planes (the same pre-rendered, `ContentKey`-keyed raster the `ORA`/`TIFF` arms consume from `graphic/raster/io#RASTER`) — into one `psapi.ImageLayer_<bit>` per row, keyed by `ChannelID`-keyed channel dicts, attaches the editor-panel axis through native setters, and writes the channel-stack document. This is the categorical-best supersession the brief mandates: where the retained `psdtags`/`tifffile` arm grafts `PsdLayer` records onto a *TIFF* container, this arm authors a real `.psd`/`.psb` with native compression and the full attribute axis, so PSD authority moves off the layered-TIFF approximation.
+[STACKING]:
+- `numpy`(`.api/numpy.md`): channel planes are `numpy.ndarray`; the arm slices the shared `(H,W,4)` RGBA buffer into per-`ChannelID` views, and `psapi` constructors + `get_image_data` round-trip the same array protocol, so planar↔channel-dict stays one reshape with no provider value object crossing the boundary.
+- `psd-tools`(`.api/psd-tools.md`): the arm reopens the `PhotoshopAPI` output through `PSDImage.open` and proves every authored layer stays addressable via `find` — structural readback evidence, never a second author.
+- `imagecodecs`(`.api/imagecodecs.md`) / `psdtags`+`tifffile`(`.api/psdtags.md`, `.api/tifffile.md`): the layered-TIFF arm's owners; `PhotoshopAPI` uses its own native `Compression` (`raw`/`rle`/`zip`/`zipprediction`) and never routes channel bytes through them.
+- `anyio`(`.api/anyio.md`): `psapi` is off the loader path, so the `_psd` arm rides the page's lane seam as a `KernelTrait.HOSTILE` kernel; the GIL-releasing native write parallelizes across the bounded subprocess pool, never the event loop.
+- `expression`(`.api/expression.md`): the lane boundary converts a `psapi`-raised `ValueError`/`KeyError` into the runtime `BoundaryFault` rail, returning a typed `RuntimeRail[ArtifactReceipt]`, never an exception escaping the interior.
+- `msgspec`(`.api/msgspec.md`): `Layer`/`LayerPolicy` are frozen `Struct` rows and `LayerFact` the closed preview `tagged_union`; the arm reads `Layer` fields and returns one `LayerFact.preview`, never mutating a seed.
+- `structlog`+`opentelemetry-api`(`.api/structlog.md`, `.api/opentelemetry-api.md`): the lane's boundary span owns emission and tracing; the arm contributes the shared `ArtifactReceipt.Preview` case with the authored-layer count and target, adding no telemetry of its own.
+- `export/layered`: `PSD` and `PSB` `ExportTarget` members bind to the `_psd` `LayerEngine`, folding the page's placed `tuple[Layer, ...]` — decoded to RGBA planes, the same raster the `ORA`/`TIFF` arms consume — into one native `psapi.ImageLayer_<bit>` per row and one `GroupLayer` per distinct `group`.
 
-```python conceptual
-# export/layered#LAYERED — the PSD/PSB arm, crossed as a HOSTILE kernel on the page's lane seam.
-# `psapi` is off the loader path (like `pyvips`/`lxml`), so it stays the crash-isolated subprocess worker;
-# the bit-depth specialization is picked off the source channel dtype, never a caller-set knob.
-_DEPTH: frozendict[np.dtype, tuple[type, type, type]] = frozendict({
-    np.dtype(np.uint8): (psapi.LayeredFile_8bit, psapi.ImageLayer_8bit, psapi.GroupLayer_8bit),
-    np.dtype(np.uint16): (psapi.LayeredFile_16bit, psapi.ImageLayer_16bit, psapi.GroupLayer_16bit),
-    np.dtype(np.float32): (psapi.LayeredFile_32bit, psapi.ImageLayer_32bit, psapi.GroupLayer_32bit),
-})
+[LOCAL_ADMISSION]:
+- `psapi` is a native `pybind11` extension off the runtime loader path — imported at boundary scope only, reified on first `_psd` use in the process worker.
+- `PhotoshopAPI` is the sole PSD/PSB author on the interpreter; where its native core is absent, `psd-tools` authors as the fallback path, never a second parallel writer beside it.
 
-
-def _psd(export: LayeredExport) -> LayerFact:
-    width, height = (ceil(extent) for extent in _viewport(export.layers))
-    planes = tuple((layer, _rgba_array(pyvips.Image.new_from_buffer(layer.source, ""))) for layer in export.layers)  # the shared decode the ORA/TIFF arms use
-    depths = {rgba.dtype for _, rgba in planes}
-    if len(depths) != 1 or not depths <= set(_DEPTH):
-        raise ValueError(f"unsupported channel dtypes {sorted(str(depth) for depth in depths)}")  # lane boundary → BoundaryFault; never a silent 8-bit narrow
-    document_type, image_type, group_type = _DEPTH[next(iter(depths))]  # one polymorphic arm — the specialization rides the plane dtype
-    document = document_type(psapi.enum.ColorMode.rgb, width, height)
-    folders: dict[str, psapi.GroupLayer_8bit | psapi.GroupLayer_16bit | psapi.GroupLayer_32bit] = {}  # one native group per distinct `group` — the SVG `<g>` / OCG `/Order` / ORA `<stack>` counterpart
-    for layer, rgba in planes:
-        node = image_type(
-            {  # the ChannelID-keyed dict is the preferred construction form (logical indices are the lossy fallback)
-                psapi.enum.ChannelID.red: rgba[:, :, 0],
-                psapi.enum.ChannelID.green: rgba[:, :, 1],
-                psapi.enum.ChannelID.blue: rgba[:, :, 2],
-                psapi.enum.ChannelID.alpha: rgba[:, :, 3],
-            },
-            layer_name=layer.name,
-            width=rgba.shape[1],
-            height=rgba.shape[0],
-            blend_mode=getattr(psapi.enum.BlendMode, layer.blend.value.replace("-", "")),  # BlendMode derived by member value
-            pos_x=int(layer.bbox[0]),
-            pos_y=int(layer.bbox[1]),
-            opacity=layer.opacity,
-            compression=getattr(psapi.enum.Compression, export.policy.channel.name.lower().replace("_", "")),
-            color_mode=psapi.enum.ColorMode.rgb,
-            is_visible=layer.visible,
-            is_locked=layer.locked,
-        )
-        if not layer.group:
-            document.add_layer(node)
-            continue
-        if layer.group not in folders:
-            folders[layer.group] = group_type(layer.group, width=width, height=height)
-            document.add_layer(folders[layer.group])
-        folders[layer.group].add_layer(document, node)
-    with TemporaryDirectory(prefix="rasm-layered-") as scratch:
-        sink = Path(scratch) / f"layered.{export.target.value}"  # psapi writes to a path, not a buffer; suffix selects PSD vs PSB
-        document.write(str(sink), force_overwrite=True)  # consumes the document; reuse is undefined behavior
-        reopened = psd_tools.PSDImage.open(sink)  # structural readback proof before any receipt mints
-        if missing := [layer.name for layer, _ in planes if reopened.find(layer.name) is None]:
-            raise ValueError(f"readback lost layers {missing}")  # lane boundary → BoundaryFault; malformed output never returns bytes
-        data = sink.read_bytes()
-    return LayerFact(preview=(data, width, height, len(export.layers)))
-```
-
-Blend and compression derive by shared member correspondence, never a parallel table: the page's 16-mode CSS `BlendMode` values map onto `psapi.enum.BlendMode` by hyphen-stripped value (`color-dodge` → `colordodge`), and the `PsdCompression` policy members map by underscore-stripped lowered name (`ZIP_PREDICTION` → `zipprediction`); the extra natives (`vividlight`/`linearlight`/`pinlight`/`hardmix`/`subtract`/`divide`) become reachable the moment the page's `BlendMode` grows a member. The arm consumes `Layer.name`/`source`/`bbox` plus the full `visible`/`locked`/`opacity`/`blend`/`group` editor axis the page models — no new `Layer` field. The bit-depth specialization is selected off the decoded plane dtype (`uint8`→`_8bit`, `uint16`→`_16bit`, `float32`→`_32bit`), never a caller knob, matching the page's "one polymorphic owner discriminates on input value" law.
-
-[INTEGRATION_SCOPE]: cross-tier rails — the shared `libs/python/.api` substrate beneath the layered arm
-- rail: `export/layered`
-
-The layered arm composes the universal substrate tier ON TOP OF this folder package, never a folder-only subset:
-- `numpy` (`libs/python/.api/numpy.md`) — the channel planes are `numpy.ndarray`. The arm slices the shared `_rgba_array` `(H, W, 4)` `uint8` buffer (the ORA/TIFF arms' own decode) into per-`ChannelID` views; `psapi` constructors and `get_image_data`/`get_channel_by_id` round-trip the same array protocol, so the planar↔channel-dict conversion stays one `numpy` reshape with no provider value object crossing the owner boundary.
-- `anyio` (`libs/python/.api/anyio.md`) — `psapi` is off the loader path, so the `_psd` arm rides the page's lane seam as a `KernelTrait.HOSTILE` kernel (the same bounded crossing the `ORA`/`TIFF` arms and `export/indesign#INDESIGN`'s IDML worker use); the GIL-releasing native PSD write parallelizes across the bounded subprocess pool, never on the event loop.
-- `expression` (`libs/python/.api/expression.md`) — the arm returns a `LayerFact`; the lane's boundary converts a `psapi`-raised error (a `ValueError` on a name >255 chars, a mask-size mismatch, an opacity out of range, or a native write failure) into the runtime `BoundaryFault` rail, never an exception escaping the interior. `psapi`'s `ValueError`/`KeyError` surface (documented per constructor and per lookup) is the boundary input, the typed `RuntimeRail[ArtifactReceipt]` the egress.
-- `msgspec` (`libs/python/.api/msgspec.md`) — `Layer`/`LayerPolicy` are frozen `msgspec.Struct` rows and `LayerFact` is the closed preview/egress `tagged_union`; the arm reads `Layer` fields and returns one `LayerFact.preview` payload, never mutating a seed, exactly as the sibling arms do.
-- `structlog` + `opentelemetry-api` (`libs/python/.api/structlog.md`, `opentelemetry-api.md`) — the runtime lane's boundary span owns emission and tracing; the `_psd` arm adds no telemetry of its own, contributing the shared `ArtifactReceipt.Preview` case with the authored-layer count and target riding the `scores` band — the same shape the `SVG`/`ORA`/`TIFF` arms contribute.
-
-[INTEGRATION_SCOPE]: folder-tier no-overlap boundary — PSD authority vs the read/codec/TIFF siblings
-- rail: `export/layered`
-
-The brief's categorical-best, zero-overlap mandate partitions the PSD/layered concern across four folder packages meeting at decoded RGBA planes or container bytes — `PhotoshopAPI` owns exactly the *author* slice:
-- `PhotoshopAPI` — native PSD/PSB author (and full-fidelity read with bit-depth deduction). The `export/layered` `PSD`/`PSB` arms, and any read-then-re-author template flow (read a `.psd`, mutate specific layers/text via the live setters, `invalidate_text_cache`, `write`). This is the system-of-record PSD writer.
-- `psd-tools` (`libs/python/artifacts/.api/psd-tools.md`) — pure-Python/abi3 PSD read/inspect + composite. The `_psd` arm reopens the `PhotoshopAPI` output through `PSDImage.open(max_alloc_bytes=…)` and proves every authored layer stays addressable through `find` — structural readback evidence, never a second author. No two packages own the *same* slice on the *same* interpreter.
-- `imagecodecs` (`libs/python/artifacts/.api/imagecodecs.md`) — the PackBits/ZIP channel codec for the *layered-TIFF* container path (`psdtags` writes compressed channel bytes through it); `PhotoshopAPI` owns its own native PSD compression (`Compression.raw`/`rle`/`zip`/`zipprediction`) and never routes channel bytes through `imagecodecs`.
-- `psdtags` + `tifffile` (`libs/python/artifacts/.api/psdtags.md`, `tifffile.md`) — Photoshop-compatible layered-TIFF tags + container, the `export/layered` `TIFF` arm. Retained for the TIFF container only; PSD/PSB authority moves to `PhotoshopAPI` per the brief, so the `TIFF` arm is the right owner when the deliverable must be a layered `.tif` (a TIFF-consuming pipeline), the `PSD`/`PSB` arms when it must be a native Photoshop document.
-
-The deleted forms: a second PSD writer admitted beside this one on the same interpreter (the `psd-tools` author path is the `cp315` fallback, not a parallel owner); a `psapi`-`numpy`-array passed straight to `tifffile` (the TIFF arm owns its own `psdtags.PsdLayer` lowering); a raw `LayeredFile`/`ImageLayer`/`ChannelID` schema name crossing the `export/layered` owner boundary (downstream receives only `LayerFact`, `ContentKey`, and `ArtifactReceipt`); an in-process `psapi` call on the event loop (the arm is a `HOSTILE` process crossing); a per-bit-depth arm family (`_psd_8`/`_psd_16`/`_psd_32`) where one arm selects the specialization off the plane dtype; a `bit_depth=` knob on the export owner where the input value discriminates; and an ICC color *conversion* attempted through `LayeredFile.icc` (it is an interpretation hint only — real device-link/proof conversion stays Pillow `ImageCms`/lcms2, the `graphic/color/managed` egress owner).
-
-## [05]-[NOTES]
-
-- The `.pyi` stub at `_layered_file.pyi` names the flat-layers property `layers_flat`, but the runtime `pybind11` declaration (`DeclareLayeredFile.h`) and the class docstring bind and document it as `flat_layers` — the stub has drifted; the bound runtime name is `flat_layers`. Re-confirm against the installed dist once a `cp315` wheel is provisioned (`uv run --frozen python -m tools.assay api resolve photoshopapi` → reflect the `LayeredFile_8bit` symbol).
-- `write` consumes the document via move semantics; the instance is invalid afterward and reusing it is undefined behavior. The `_psd` arm constructs one `LayeredFile` per `_emit`, writes once, reads the bytes back, and discards — never re-uses a written document.
-- `LayeredFile.write` targets a filesystem path, not an in-memory buffer (unlike the page's other arms that return bytes directly). The `_psd` arm writes to a scratch path on the `to_process` worker and reads the bytes back into the `LayerFact`; the scratch file is worker-local and reaped with the subprocess.
-- The fixed-`width`/`height` per-channel-plane contract: every channel plane (and the optional mask) must be exactly `width * height`; `ImageLayer` raises `ValueError` on a size mismatch, a name >255 chars, a negative dimension, or an opacity outside range — all converted at the page's lane boundary, so the page's `ExportFault` vocabulary stays the admission-side faults and the native raises stay boundary-classified.
-- The `ChannelID`-keyed constructor is the preferred (explicit, lossless) form; the docs flag the bare logical-index dict and the enum-dict as having had construction edge cases historically, so the arm uses the `ChannelID`-keyed dict with all color-mode channels present (R,G,B,A for RGB; C,M,Y,K,A for CMYK; Gray,A for grayscale).
+[RAIL_LAW]:
+- Package: `PhotoshopAPI`
+- Owns: native PSD/PSB author and full-fidelity read with bit-depth deduction for the `export/layered` rail — the `LayeredFile_<bit>` document, the layer-node family, per-channel `numpy` I/O keyed by `ChannelID`, the full editor-panel attribute and layer-mask axis, native `Compression`, and the read-then-re-author template flow.
+- Accept: one polymorphic arm selecting the bit-depth specialization off the plane dtype; `ChannelID`-keyed channel dicts with every color-mode channel present; blend and compression derived by shared member correspondence; a `HOSTILE` process crossing for the native write; structural readback through `psd-tools`; downstream receiving only `LayerFact`/`ContentKey`/`ArtifactReceipt`.
+- Reject: a second PSD writer beside this one on the interpreter; a `bit_depth=` knob or a per-depth arm family where the plane dtype discriminates; a raw `LayeredFile`/`ImageLayer`/`ChannelID` schema name crossing the owner boundary; an in-process `psapi` call on the event loop; an ICC color conversion through `LayeredFile.icc`, an interpretation hint only where device-link and proof conversion stay `graphic/color/managed`; local `BlendMode`/`Compression` twins where the native enums own the vocabulary.

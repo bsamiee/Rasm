@@ -18,10 +18,8 @@ export const meta = {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const CAP = 14; // runtime concurrency clamp is min(16, cores-2) = 14 on this machine; matching it keeps the stagger honest
+const CAP = 14;
 const BATCH = 4; // .api files per agent — deep enough per file, many agents for parallelism
-const STAGGER_MS = 1500;
-const STALL = 300000;
 const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // absolute working root: native products mint absolute here, codex lanes take it as cwd
 
 // --- [INPUTS] --------------------------------------------------------------------------
@@ -136,10 +134,8 @@ const LAW = [
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-// The single run-wide scheduler: CAP agents in flight across every language lane, launches staggered; a freed slot passes to the next waiter.
+// The single run-wide scheduler: CAP agents in flight across every language lane, a freed slot passes to the next waiter.
 let active = 0;
-let gate = Promise.resolve();
 const waiters = [];
 const acquire = () => (active < CAP ? (active++, Promise.resolve()) : new Promise((res) => waiters.push(res)));
 const release = () => {
@@ -147,13 +143,8 @@ const release = () => {
     if (w) w();
     else active--;
 };
-const stagger = () => {
-    gate = gate.then(() => sleep(STAGGER_MS));
-    return gate;
-};
 const scheduled = async (fn) => {
     await acquire();
-    await stagger();
     try {
         return await fn();
     } finally {
@@ -166,7 +157,7 @@ const chunk = (arr, n) => {
     return o;
 };
 
-// Codex dispatch: the wrapper makes one blocking Codex MCP call, writes the envelope's content
+// Codex dispatch: the wrapper runs one blocking supervised CLI process and writes its content
 // to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
 // (role split); the prompt carries only the task; the output contract sits LAST. Every batch EDITS .api
 // files in place, so every lane is a write lane.
@@ -224,7 +215,7 @@ const codexPrompt = (label, task, schema, o) => {
         lane +
         '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
         'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
-        're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (idle-timeout, max-timeout, turn-failed, ' +
+        're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (max-timeout, turn-failed, ' +
         'refusal) re-runs the same command untouched. (3) The delegate lands the product itself at ' +
         report +
         ' as its final act. (4) Verify with one Bash call: jq -e . ' +
@@ -272,7 +263,6 @@ const nativeLane = (task, o) => {
             model: o.nativeModel || twinOf(o.model),
             effort: 'high',
             schema: RECEIPT,
-            stallMs: o.stallMs || STALL,
         },
     );
 };
@@ -403,7 +393,7 @@ const inv = await agent(
         'folder tier (libs/<lang>/<folder>/.api/). EXCLUDE archive and scratch trees: any path segment _tmp, _archive, or node_modules. Return each as ' +
         'a repo-relative path — this listing is the ground truth downstream batches resolve against, an initial pointer never a ceiling. If none ' +
         'exist, return an empty list. Use find; do not cd.',
-    { label: 'discover', phase: 'API-Discover', schema: DISCOVERY_SCHEMA, model: 'sonnet', effort: 'low', stallMs: STALL },
+    { label: 'discover', phase: 'API-Discover', schema: DISCOVERY_SCHEMA, model: 'sonnet', effort: 'low' },
 );
 const FILES = [...new Set(((inv && inv.files) || []).filter(Boolean).map(rel))].filter(
     (f) => isApiPath(f) && !/(^|\/)(_tmp|_archive|node_modules)\//.test(f),

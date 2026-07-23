@@ -8,9 +8,7 @@ export const meta = {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const STALL = 480000;
-const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical lane (the author): the count bounds spend, the backoff buys recovery time
-const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
+const RETRY_ATTEMPTS = 2;
 const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // absolute working root; the terminal adjudicator + every codex cwd pin it (lanes do not reliably inherit launch cwd)
 
 const LANG = {
@@ -79,7 +77,7 @@ const deepFor = (t) => DEEP === true || (Array.isArray(DEEP) && DEEP.includes(t)
 const mandateFor = (t) =>
     typeof MANDATE === 'string' ? MANDATE.trim() : MANDATE && typeof MANDATE === 'object' && typeof MANDATE[t] === 'string' ? MANDATE[t].trim() : '';
 
-// Per-instance scratch dir — per-lane MCP reports and dossiers. Minted deterministically from the normalized target set
+// Per-instance scratch dir — per-lane reports and dossiers. Minted deterministically from the normalized target set
 // (clock/randomness would break resume): one FLAT dir per instance, a human-readable basename slug and an FNV-1a tail.
 const fnv1a = (s) => {
     let h = 0x811c9dc5;
@@ -408,20 +406,18 @@ const preOf = (t, corpus, reg) => {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 // Bounded re-dispatch for a dead CRITICAL lane (usage-limit or transport death — agent() returned null): attempt-counted, a
-// backoff before each attempt sized to a limit reset. The final death isolates the lane, NEVER the chain — every downstream
+// retry sized to a limit reset. The final death isolates the lane, NEVER the chain — every downstream
 // stage still runs against current disk.
 const retryLane = async (fn) => {
     for (let a = 0; a < RETRY_ATTEMPTS; a++) {
-        await sleep(RETRY_BACKOFF);
         const r = await fn();
         if (r) return r;
     }
     return null;
 };
 
-// Codex dispatch: the shell lane makes one blocking Codex MCP call, writes the envelope's content
+// Codex dispatch: the shell lane runs one blocking supervised CLI process and writes its content
 // to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
 // (role split, battery-validated); the prompt carries only the task; the output contract sits LAST.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
@@ -496,7 +492,7 @@ const codexPrompt = (label, task, schema, o) => {
         lane +
         '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
         'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
-        're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (idle-timeout, max-timeout, turn-failed, ' +
+        're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (max-timeout, turn-failed, ' +
         'refusal) re-runs the same command untouched. (3) ' +
         (authored
             ? 'The delegate lands both the JSON report at ' + report + ' and its markdown dossier itself as its final act.'
@@ -543,7 +539,7 @@ const nativeLane = (task, o) =>
             '-report.json (Write tool, absolute path under the repo root): ' +
             JSON.stringify(o.schema) +
             ' — then return ONLY the receipt: ok, report path, entries count, one-line mechanical headline, failure empty.',
-        { label: o.label, phase: o.phase, model: twinOf(o.model), effort: 'high', schema: RECEIPT, stallMs: o.stallMs || STALL },
+        { label: o.label, phase: o.phase, model: twinOf(o.model), effort: 'high', schema: RECEIPT },
     );
 const recon = (task, o) =>
     agent(codexPrompt(o.label, task, o.schema, o), {
@@ -902,7 +898,6 @@ for (let ti = 0; ti < TARGETS.length; ti++) {
             phase: P + ' author',
             effort: 'high',
             schema: AUTHOR_SCHEMA,
-            stallMs: STALL,
         });
     const authored = (await fireAuthor('')) || (await retryLane(() => fireAuthor(':r1')));
     if (!authored) {
@@ -920,7 +915,6 @@ for (let ti = 0; ti < TARGETS.length; ti++) {
             phase: P + ' refine',
             effort: 'high',
             schema: PASS_SCHEMA,
-            stallMs: STALL,
         });
         if (p) lastPass = p;
         if (p) harvestRows.push(...(p.harvest || []));
@@ -958,7 +952,6 @@ if (produced.length && !REVIEW_OFF) {
             phase: 'review',
             effort: 'high',
             schema: REVIEW_SCHEMA,
-            stallMs: STALL,
         });
         passes.push(p);
         if (p) harvestRows.push(...(p.harvest || []));
@@ -1009,7 +1002,7 @@ if (harvestRows.length) {
             'whose coupling no longer holds, land a coupling this run proved.\n' +
             'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
             'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.',
-        { label: 'doctrine', phase: 'doctrine', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
+        { label: 'doctrine', phase: 'doctrine', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA },
     );
     log(
         'doctrine: ' +

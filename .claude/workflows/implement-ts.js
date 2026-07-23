@@ -18,10 +18,8 @@ export const meta = {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const CAP = 14; // concurrent folder-CHAIN ceiling; binds only when args name more folders than CAP
+const CAP = 14;
 const IMPL_FAN = 3; // max implement agents fanned per folder, and only over discovery-proven page-disjoint card groups
-const STAGGER_MS = 1500;
-const STALL = 300000;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the no-shrinkage progress gate (no remaining shrinkage -> stop) is the real bound
 const ROOT = 'libs/typescript';
 const SHARED_API = 'libs/typescript/.api';
@@ -593,24 +591,15 @@ const INFO_LAW =
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical lane; the count bounds spend, the backoff buys recovery time
-const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on a reset or an operator credit top-up; each attempt waits the window out first
+const RETRY_ATTEMPTS = 2;
 // Bounded re-dispatch for a dead CRITICAL writing/terminal lane (usage-limit or transport death — agent() returned null): attempt-counted with a
-// backoff before each attempt; the final death isolates the LANE, never the chain — every downstream stage still runs against current disk.
+// retry; the final death isolates the LANE, never the chain — every downstream stage still runs against current disk.
 const retryLane = async (fn) => {
     for (let a = 0; a < RETRY_ATTEMPTS; a++) {
-        await sleep(RETRY_BACKOFF);
         const r = await fn();
         if (r) return r;
     }
     return null;
-};
-// One shared launch gate: chain heads and implement-fan members alike pass it, so every pooled start stays staggered.
-let gate = Promise.resolve();
-const stagger = () => {
-    gate = gate.then(() => sleep(STAGGER_MS));
-    return gate;
 };
 const pool = async (items, cap, worker) => {
     const out = new Array(items.length);
@@ -618,7 +607,6 @@ const pool = async (items, cap, worker) => {
     const run = async () => {
         while (next < items.length) {
             const i = next++;
-            await stagger();
             out[i] = await worker(items[i], i);
         }
     };
@@ -698,8 +686,8 @@ const codexPrompt = (label, task, schema, o) => {
             lane +
             '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason ' +
             '"crash" alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land ' +
-            'the receipt" and re-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (idle-timeout, ' +
-            'max-timeout, turn-failed, refusal) re-runs the same command untouched.',
+            'the receipt" and re-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (' +
+            'turn failure or refusal) re-runs the same command untouched.',
         '(3) ' +
             (authored
                 ? 'The delegate lands the product itself at ' + report + ' as its final act.'
@@ -729,7 +717,6 @@ const nativeLane = (task, o) =>
         model: o.nativeModel || twinOf(o.model),
         effort: 'high',
         schema: o.wire,
-        stallMs: o.stallMs || STALL,
     });
 // The discovery lane is a recon mapping lane, never fix, with the
 // native twin as the quota fallback. The row carries `scope` from the ORCHESTRATOR (never the lane's
@@ -757,7 +744,6 @@ const recon = (task, o) => {
         model: 'sonnet',
         effort: 'low',
         schema: RECEIPT,
-        stallMs: o.stallMs || STALL,
     })
         .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, opts) : r))
         .then((r) => ({
@@ -777,7 +763,7 @@ const recon = (task, o) => {
 };
 const folderName = (p) => p.split('/').filter(Boolean).pop() || p;
 
-// Critique lane: one blocking Codex MCP call at the config-owned default — a FIX lane
+// Critique lane: one blocking supervised Codex CLI process at the config-owned default — a FIX lane
 // (persistence + post-edit verification law), FIXLOG product to disk, thin receipt on the wire; a quota fallback
 // restores the native twin writing the same product to the same path.
 const critiqueReceipt = (base) =>
@@ -799,7 +785,6 @@ const solLane = (task, o) => {
         model: 'sonnet',
         effort: 'low',
         schema: LANE_RECEIPT,
-        stallMs: STALL,
     })
         .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, opts) : r))
         .then((r) => ({
@@ -1266,7 +1251,6 @@ const runFolder = async (target) => {
             impls = (
                 await parallel(
                     groups.map((g, gi) => async () => {
-                        await stagger();
                         const label = 'implement:' + tag + ':g' + gi;
                         // The own-pass artifact keys on the base label, so a retry appends to the SAME cold-pass list — the attempt suffix is wire-only.
                         const build = (l) =>
@@ -1276,7 +1260,6 @@ const runFolder = async (target) => {
                                 schema: FIXLOG_SCHEMA,
                                 model: 'fable',
                                 effort: 'high',
-                                stallMs: STALL,
                             });
                         return (await build(label)) || (await retryLane(() => build(label + ':r1')));
                     }),
@@ -1291,7 +1274,6 @@ const runFolder = async (target) => {
                     schema: FIXLOG_SCHEMA,
                     model: 'fable',
                     effort: 'high',
-                    stallMs: STALL,
                 });
             const one = (await build(label)) || (await retryLane(() => build(label + ':r1')));
             impls = one ? [one] : [];
@@ -1300,7 +1282,6 @@ const runFolder = async (target) => {
         // realize + repair the pages against CURRENT disk (a partial implement leaves partial fences; a fully dead one leaves the unrealized cards
         // the reviewers, as rebuilders, own). Navigation simply arrives empty; only a dead DISCOVERY (no worklist, no report path) isolates the folder.
         const implFailed = !impls.length;
-        await stagger();
         // Critique: fixlog to disk, receipt on the wire; the redteam folds its rows forward. The report path is DETERMINISTIC — computed here,
         // never lifted from the receipt — so a critique that wrote its fixlog before a wrapper-ceiling death is still folded (redteam + ORPHANS read disk).
         const crit = await solLane(critiquePrompt(target, seq, t.report, ownpassPath('critique:' + tag)), {
@@ -1309,7 +1290,6 @@ const runFolder = async (target) => {
         });
         const critOk = !!(crit && crit.ok);
         const critReport = SCRATCH + '/' + fileTag('critique:' + tag) + '-report.json';
-        await stagger();
         const redLabel = 'redteam:' + tag;
         const buildRed = (l) =>
             agent(redteamPrompt(target, seq, t.report, critOk, critReport, ownpassPath(redLabel)), {
@@ -1318,7 +1298,6 @@ const runFolder = async (target) => {
                 schema: REDTEAM_SCHEMA,
                 model: 'fable',
                 effort: 'high',
-                stallMs: STALL,
             });
         const red = (await buildRed(redLabel)) || (await retryLane(() => buildRed(redLabel + ':r1')));
         return {
@@ -1413,7 +1392,6 @@ if (pinsRan) {
                 schema: PIN_SCHEMA,
                 model: 'opus',
                 effort: 'high',
-                stallMs: STALL,
             });
         pinlog = (await fire('')) || (await retryLane(() => fire(':a1')));
         if (!pinlog) break; // dead round after retries: the residual/orphan sets survive to the run return, every disk tranche checkpoint-re-enterable
@@ -1437,7 +1415,6 @@ if (HARVEST_ROWS.length || ORPHANS.length || (pinsRan && !pinlog)) {
         schema: DOCTRINE_SCHEMA,
         model: 'fable',
         effort: 'high',
-        stallMs: STALL,
     });
 }
 

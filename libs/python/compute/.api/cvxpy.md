@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_CVXPY]
 
-`cvxpy` supplies the disciplined-convex-programming modeling surface for the compute convex-optimization rail: a `Variable`/`Parameter`/`Expression` algebra composed under `Minimize`/`Maximize` and constraint relations into a `Problem`, then `solve`d through a pluggable solver backend (Clarabel by default) that returns the optimal value, primal variable values, and dual certificates. It also owns disciplined geometric (DGP) and quasiconvex (DQCP) modes, mixed-integer support, and DPP warm re-solve. The package owner composes `Variable`, `Problem`, the atom library, and `problem.solve` into the convex-intent owner; it never re-implements the cone reduction or interior-point solve cvxpy and its backends already own.
+`cvxpy` mints the disciplined-convex-programming modeling algebra for the compute convex rail: `Variable`/`Parameter`/`Expression` terms compose under `Minimize`/`Maximize` and relational/cone constraints into a `Problem`, which `solve` compiles to conic form and dispatches to a pluggable backend (Clarabel by default), recovering the optimal value, primal values, and dual certificates. It owns the geometric (`gp`) and quasiconvex (`qcp`) modes, mixed-integer solves, and DPP warm re-solve; the backend owns the interior-point solve, never re-derived here.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -11,7 +11,7 @@
 - rail: convex optimization
 - license: Apache-2.0
 - entry points: none (library only)
-- capability: disciplined convex programming — variable/parameter expression algebra, a broad convex/affine/spectral atom library, equality/inequality/SOC/SDP/exponential/power-cone constraints, `Minimize`/`Maximize` objectives, a `Problem` compiled to conic form, multi-backend `solve` with primal/dual recovery, DPP-parametrized warm re-solves, DGP (geometric) and DQCP (quasiconvex) modes, and mixed-integer support
+- capability: disciplined convex/geometric/quasiconvex modeling with mixed-integer support, multi-backend conic solve with primal/dual recovery, and DPP warm re-solve
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -48,8 +48,9 @@
 
 [ENTRYPOINT_SCOPE]: problem construction and solve
 - rail: convex optimization
+- solve carry: `solver`, `warm_start`, `verbose`, `gp`, `qcp`, `requires_grad`, `enforce_dpp`, `ignore_dpp`, `canon_backend`, `**kwargs`
 
-The relational operators `==`, `<=`, `>=`, `>>`, `<<` on `Expression` build `Constraint` objects; `Problem.solve` selects the backend by the `solver` keyword and returns the optimal value, writing primal values to `Variable.value` and duals to `Constraint.dual_value`. `gp=True` enables DGP geometric programming; `qcp=True` enables DQCP quasiconvex programming. The full solve signature is `solve(solver=None, warm_start=True, verbose=False, gp=False, qcp=False, requires_grad=False, enforce_dpp=False, ignore_dpp=False, canon_backend=None, **kwargs) -> float`.
+Relational operators `==`/`<=`/`>=`/`>>`/`<<` on `Expression` build `Constraint` objects; `Problem.solve` selects the backend by `solver`, returns the optimal value, and writes primal values to `Variable.value` and duals to `Constraint.dual_value`. `gp=True` selects DGP geometric programming; `qcp=True` selects DQCP quasiconvex programming.
 
 | [INDEX] | [SURFACE]                                                 | [CAPABILITY]                                                  |
 | :-----: | :-------------------------------------------------------- | :------------------------------------------------------------ |
@@ -66,15 +67,14 @@ The relational operators `==`, `<=`, `>=`, `>>`, `<<` on `Expression` build `Con
 |  [11]   | `Problem.is_dcp` / `is_dgp` / `is_dqcp` / `is_qp` -> bool | curvature-ruleset classification before solve                 |
 |  [12]   | `Problem.parameters` / `Problem.variables`                | enumerate leaves for sweep wiring                             |
 
-- [05]-[DUAL_VALUE]: an `SOC(t, X)` row's dual is the stacked `[t_dual, X_dual...]` (cvxpy reshapes per-cone to `(num_cones, 1+dim(X))`); a `PSD` row's dual is the symmetric `Z` of the primal `(n, n)` shape — the `tr(Z·X)` complementary-slackness and `λ_min` cone-feasibility reads consume these.
-- [06]-[ARGS]: the universal operand list every `Constraint` carries — `[lhs, rhs]` for `Inequality`/`Equality`, `[t, X]` for `SOC`, `[X]` for `PSD`, `[x, y, z]` for `ExpCone` — the primal-value path (`constraint.args[i].value`) for cone rows with no single `.expr`.
-- [07]-[EXPR]: `Inequality.expr` is the relational-only `lhs − rhs` residual (`<= 0` at feasibility), absent on `SOC`/`PSD`/`ExpCone`; a uniform `Constraint.expr.value` read `AttributeError`s on every cone row, so cone primal values read off `Constraint.args`.
+- [05]-[DUAL_VALUE]: an `SOC(t, X)` dual is the stacked `[t_dual, X_dual...]` (reshaped per-cone to `(num_cones, 1+dim(X))`); a `PSD` dual is the symmetric `Z` of the primal `(n, n)` shape — the `tr(Z·X)` slackness and `λ_min` feasibility reads consume these.
+- [06]-[ARGS]: `Constraint.args` is the universal operand list — `[lhs, rhs]` for `Inequality`/`Equality`, `[t, X]` for `SOC`, `[X]` for `PSD`, `[x, y, z]` for `ExpCone`; a cone row reads its primal through `constraint.args[i].value`.
+- [07]-[EXPR]: `Inequality.expr` is the relational-only `lhs − rhs` residual (`<= 0` at feasibility), absent on `SOC`/`PSD`/`ExpCone`; a uniform `Constraint.expr.value` raises `AttributeError` on every cone row.
 
 [ENTRYPOINT_SCOPE]: convex atom library (`cp.<atom>`)
 - rail: convex optimization
-- each family's atom roster is keyed below the table
 
-| [INDEX] | [FAMILY]          | [RAIL]                                                          |
+| [INDEX] | [FAMILY]          | [CAPABILITY]                                                    |
 | :-----: | :---------------- | :-------------------------------------------------------------- |
 |  [01]   | affine atoms      | affine combinators preserving curvature                         |
 |  [02]   | norm atoms        | convex norms, nuclear/spectral norm, total variation            |
@@ -96,26 +96,26 @@ The relational operators `==`, `<=`, `>=`, `>>`, `<<` on `Expression` build `Con
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[CONVEX_MODELING]:
-- import: `import cvxpy as cp` at boundary scope only; module-level import is banned by the manifest import policy.
-- expression axis: one `Variable`/`Parameter`/`Expression` algebra owns the model; curvature (affine/convex/concave) and sign are tracked by the DCP ruleset, so a problem that violates DCP raises at construction (`Problem.is_dcp() is False`), never silently mis-solves — model with atoms, never a hand-rolled numeric objective.
-- leaf-attribute axis: variable domain (`nonneg`/`pos`/`symmetric`/`PSD`/`NSD`/`hermitian`/`diag`/`boolean`/`integer`/`sparse`/`bounds`) is a `Variable(...)` constructor attribute, not a parallel constraint or a parallel variable subtype — the domain rides the leaf so the reduction sees it.
-- objective axis: `Minimize` carries the convex objective and `Maximize` the concave one; the sign of the objective is a constructor row, never a parallel problem type.
-- constraint axis: relational operators (`==`/`<=`/`>=`/`>>`) produce `Constraint` cone memberships; `SOC`/`PSD`/`ExpCone`/`PowCone3D`/`PowConeND`/`FiniteSet` are explicit cone rows for problems the relational form cannot express — never a manual cone slack reformulation. Primal-value access is the universal `Constraint.args` list (`[lhs, rhs]` for `Inequality`, `[t, X]` for `SOC`, `[X]` for `PSD`), since `.expr` (`lhs − rhs`) exists only on the relational `Inequality` and a uniform `Constraint.expr.value` read `AttributeError`s on every SOC/SDP row; the dual layout per cone is row [05] (`SOC` the stacked `[t_dual, X_dual...]`, `PSD` the symmetric matrix `Z`).
-- mode axis: `solve(gp=True)` switches to disciplined geometric programming over the log-log atom family (`geo_mean`/`prod`/`one_minus_pos`/…); `solve(qcp=True)` switches to disciplined quasiconvex programming via bisection; mode is a solve row, not a parallel `Problem` type. `boolean`/`integer` variable attributes promote the same `Problem` to mixed-integer without a separate model.
-- backend axis: `Problem.solve(solver=...)` selects the cone backend (`cp.CLARABEL` is the default conic solver and the dual-certificate source); the same `Problem` re-solves across backends without remodeling — backend is a solve row, not a parallel model.
-- parameter axis: `Parameter` plus DPP makes a parametrized family compile once and warm-re-solve across parameter values; sweep by setting `Parameter.value` and re-calling `solve`, never by rebuilding the `Problem`. `enforce_dpp=True` fails fast when a model breaks DPP and silently recompiles.
-- evidence: each solve captures status, optimal value, primal `Variable.value`, dual `Constraint.dual_value`, solver name, and iteration/residual stats as a convex-solve receipt; the dual values are the certificate of optimality.
-- boundary: cvxpy owns convex modeling and the conic reduction; Clarabel owns the interior-point solve and the dual certificate; the graduation rail hands the offline solution across the wire; live UI stays outside this package.
+[TOPOLOGY]:
+- One `Variable`/`Parameter`/`Expression` algebra owns the model; the DCP ruleset tracks curvature and sign, so a non-DCP model raises at construction (`Problem.is_dcp()` false) rather than mis-solving — model with atoms, never a hand-rolled numeric objective.
+- Every modality rides `Problem` as a row, attribute, or solve flag, never a parallel type: objective sign is `Minimize`/`Maximize`; variable domain (`nonneg`/`pos`/`symmetric`/`PSD`/`NSD`/`hermitian`/`diag`/`boolean`/`integer`/`sparse`/`bounds`) is a `Variable` constructor attribute; cone membership is a relational operator or an explicit `SOC`/`PSD`/`ExpCone`/`PowCone3D`/`PowConeND`/`FiniteSet` row; `gp`/`qcp`/integer is a solve flag or leaf attribute; `solver` selects the backend.
+- Primal values read off `Constraint.args` (`.expr` exists only on relational `Inequality`); the per-cone dual layout is row `[05]`.
+- `Parameter` under DPP compiles a parametrized family once and warm-re-solves across `Parameter.value`; `enforce_dpp=True` fails fast when a model breaks DPP.
+- Each solve captures status, optimal value, primal `Variable.value`, dual `Constraint.dual_value`, solver name, and iteration/residual stats as a convex-solve receipt; the duals are the optimality certificate.
 
-[INTEGRATION_STACK]:
-- clarabel seam: `cp.CLARABEL` is the default conic backend; cvxpy reduces the DCP model to the `(P, q, A, b, cones)` standard form Clarabel consumes and reads back `obj_val`/`solve_time`/`iterations` plus the dual `z` as the optimality certificate (`clarabel.md`). For a hot offline loop, `get_problem_data(cp.CLARABEL)` yields `(data, chain, inverse_data)` so `clarabel.DefaultSolver` runs directly and the result is mapped back through `inverse_data` — the modeling layer stays out of the loop.
-- scipy seam: `Parameter`/`Constant` values and the reduced `data` matrices are NumPy/`scipy.sparse` (`scipy.md`); large sparse constraint blocks enter as `scipy.sparse` matrices and the reduction preserves sparsity into the Clarabel CSC form.
-- DPP-sweep seam: a parametrized study (`Parameter` per swept axis) compiles once; the sweep sets `Parameter.value` per design point and re-calls `solve`, so a `dask`-fanned (`dask.md`) or sequential sweep amortizes one compile across the whole grid and emits one convex-solve receipt per point.
-- gradient seam: `solve(requires_grad=True)` plus `Problem.backward()` differentiates the solution map w.r.t. `Parameter`, so a convex layer composes into a JAX/equinox outer loop (`equinox.md`) as a differentiable optimization node.
+[STACKING]:
+- `clarabel`(`.api/clarabel.md`): `cp.CLARABEL` is the default conic backend; cvxpy reduces the DCP model to the `(P, q, A, b, cones)` standard form `DefaultSolver` consumes and reads back `obj_val`/`solve_time`/`iterations` and the dual `z`. `get_problem_data(cp.CLARABEL)` yields `(data, chain, inverse_data)` so `DefaultSolver` runs directly and maps back through `inverse_data`, keeping the modeling layer out of the hot loop.
+- `scipy`(`.api/scipy.md`): `Parameter`/`Constant` values and the reduced `data` matrices are NumPy/`scipy.sparse`; large sparse constraint blocks enter as `scipy.sparse` and the reduction preserves sparsity into the Clarabel CSC form.
+- `dask`(`.api/dask.md`): a DPP-parametrized family compiles once; a `dask`-fanned sweep sets `Parameter.value` per design point and re-calls `solve`, amortizing one compile across the grid and emitting one convex-solve receipt per point.
+- `equinox`(`.api/equinox.md`): `solve(requires_grad=True)` with `Problem.backward()` differentiates the solution map w.r.t. `Parameter`, composing a convex layer into a JAX/equinox outer loop as a differentiable optimization node.
+- within-lib: the convex owner composes `Variable`, `Problem`, the atom library, and `problem.solve` into one convex-intent entry, discriminating objective sign, cone membership, `gp`/`qcp`/integer mode, backend, and parameter sweep on request shape rather than parallel entrypoints.
+
+[LOCAL_ADMISSION]:
+- `import cvxpy as cp` at boundary scope; the compute manifest owns the module-level-import ban.
+- `Variable`/`Parameter` modeling under `Minimize`/`Maximize` with relational/cone constraints, `Problem.solve` over Clarabel, `gp`/`qcp`/mixed-integer as solve/leaf rows, DPP parameter sweeps, `get_problem_data` direct-backend drive, and `requires_grad` differentiation.
 
 [RAIL_LAW]:
 - Package: `cvxpy`
-- Owns: disciplined convex/geometric/quasiconvex problem modeling, the convex and log-log atom libraries, cone constraints, mixed-integer support, multi-backend conic solve with primal/dual recovery, DPP-parametrized warm re-solves, and parameter-gradient differentiation
+- Owns: disciplined convex/geometric/quasiconvex problem modeling, the convex and log-log atom libraries, cone constraints, mixed-integer support, multi-backend conic solve with primal/dual recovery, DPP warm re-solves, and parameter-gradient differentiation
 - Accept: `Variable`/`Parameter` modeling with leaf-attribute domains under `Minimize`/`Maximize` and relational/cone constraints, `Problem.solve` with Clarabel as the conic backend, `gp`/`qcp`/mixed-integer modes as solve/leaf rows, dual-value certificates, DPP parameter sweeps, `get_problem_data` direct-backend drive, `requires_grad` differentiation
-- Reject: wrapper-renames of `Variable`/`Problem`/`solve`; a hand-rolled interior-point or cone reduction where cvxpy plus a backend is admitted; a DCP-violating manual objective; a parallel problem type per objective sign, solver, or `gp`/`qcp`/integer mode; a parallel variable subtype where a leaf attribute expresses the domain; rebuilding the `Problem` per parameter value where DPP warm re-solve applies
+- Reject: wrapper-renames of `Variable`/`Problem`/`solve`; a hand-rolled interior-point or cone reduction where cvxpy with a backend is admitted; a DCP-violating manual objective; a parallel problem type per objective sign, solver, or `gp`/`qcp`/integer mode; a parallel variable subtype where a leaf attribute expresses the domain; rebuilding the `Problem` per parameter value where DPP warm re-solve applies

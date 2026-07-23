@@ -1,26 +1,21 @@
 # [PY_ARTIFACTS_API_AV]
 
-`av` (PyAV) supplies the FFmpeg-backed media surface for the artifacts MEDIA rail: `av.open(file, mode)` returns an `InputContainer` (demux/decode) or `OutputContainer` (encode/mux), `add_stream` mints typed `VideoStream`/`AudioStream` owners, and the `VideoFrame.from_ndarray` -> `stream.encode` -> `container.mux` loop drives a frame sequence into MP4/WebM/GIF — the inverse `container.demux` -> `stream.decode` -> `frame.to_ndarray` loop reads it back. The package owner composes `av.open`, `OutputContainer.add_stream`, `VideoFrame.from_ndarray`, `VideoStream.encode`, `OutputContainer.mux`, the `av.filter.Graph` filter-chain, and the `BitStreamFilterContext` remux path into the polymorphic `MediaOp` (Encode/Decode/Transcode/Remux/Filter). The package bundles FFmpeg (`libavcodec`/`libavformat`/`libavfilter`/`libswscale`/`libswresample` plus `libx264`/`libx265`/`libvpx`/`libSvtAv1Enc`), so it removes any `subprocess` shell-out to a system `ffmpeg` binary, and it never re-implements muxing, container packetization, the filter graph, or the codec layer FFmpeg already owns.
+`av` (PyAV) binds the FFmpeg media surface for the artifacts MEDIA rail: `av.open` selects a read `InputContainer` or write `OutputContainer`, `add_stream` mints the typed `VideoStream`/`AudioStream` owners, and one `from_ndarray`/`encode`/`mux` loop drives a frame sequence into MP4/WebM/GIF while the inverse `demux`/`decode`/`to_ndarray` loop reads it back. One polymorphic `MediaOp` folds encode, decode, transcode, remux, and filter through the bundled FFmpeg libraries, so the branch never shells out to a system `ffmpeg` binary nor re-implements the container, filter, or codec layer.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `av`
-- package: `av`
+- package: `av` (BSD-3-Clause, PyAV)
 - import: `av`
 - owner: `artifacts`
 - rail: media
-- version: `17.1.0`
-- bundled libs: `libavutil 60`, `libavcodec 62`, `libavformat 62`, `libavdevice 62`, `libavfilter 11`, `libswscale 9`, `libswresample 6` (read at runtime via `av.library_versions` / `av.ffmpeg_version_info`)
-- entry points: console script `pyav` (`av.__main__:main`); library use is import-only
+- bundled: FFmpeg shared libraries — `libavcodec`/`libavformat`/`libavfilter`/`libswscale`/`libswresample` with the `libx264`/`libx265`/`libvpx`/`libSvtAv1Enc` encoders, read at runtime through `av.library_versions`/`av.ffmpeg_version_info`
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: container, stream, frame, and codec roots
-- rail: media
+[PUBLIC_TYPE_SCOPE]: container, stream, frame, codec, filter, and typed-error roots
 
-`av.open(file, mode)` returns an `InputContainer` (`demux`/`decode`/`seek`) or `OutputContainer` (`add_stream`/`mux`); `add_stream` returns a `VideoStream`/`AudioStream`/`SubtitleStream`/`DataStream` whose `codec_context` is a `VideoCodecContext`/`AudioCodecContext`. `VideoFrame`/`AudioFrame` carry the pixel/sample buffers; `Packet` is the muxed unit demux yields and encode produces. `av.filter.Graph` is the `libavfilter` node graph; `BitStreamFilterContext` rewrites packet bitstreams without re-encoding; `AudioFifo` rebuffers samples to a fixed frame size. `ContainerFormat` names the muxer, `Codec` a registered encoder/decoder. All failures raise the typed `FFmpegError` hierarchy — a `tag`/`errno`-keyed tree where lookup, decode, and protocol faults are distinct exception classes, never raw return codes.
-
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]        | [RAIL]                                                                          |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]        | [CAPABILITY]                                                                    |
 | :-----: | :----------------------- | :------------------- | :------------------------------------------------------------------------------ |
 |  [01]   | `OutputContainer`        | container            | write-mode; owns `add_stream`/`mux`/`mux_one`/`start_encoding`/`add_mux_stream` |
 |  [02]   | `InputContainer`         | container            | read-mode; owns `demux`/`decode`/`seek`/`streams`/`chapters`/`metadata`         |
@@ -56,9 +51,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: container open and stream creation
-- rail: media
-
-`open` selects `InputContainer` or `OutputContainer` by `mode` (`"r"` default, `"w"` for write); `format` overrides the extension-inferred muxer (`"mp4"`, `"webm"`, `"gif"`); `options`/`container_options`/`stream_options` carry private muxer/demuxer knobs, `metadata_encoding`/`metadata_errors`/`buffer_size`/`timeout` tune the write path, `io_open` supplies a custom Python I/O callback for segmented/protocol output, and `hwaccel` requests GPU decode on read. `add_stream` returns a typed `VideoStream`/`AudioStream`/`SubtitleStream`. `add_stream` is the single typed stream factory: the `codec_name` row discriminates video/audio/subtitle, `rate` is the frame rate (video) or sample rate (audio), and codec options flow through `options` or `**kwargs`. `add_mux_stream` mints a passthrough stream for remux (copy without re-encode); `add_stream_from_template` clones an input stream's parameters; `add_data_stream`/`add_attachment` carry opaque/embedded payloads.
 
 | [INDEX] | [SURFACE]                                  | [CALL_SHAPE]                                         | [CAPABILITY]                      |
 | :-----: | :----------------------------------------- | :--------------------------------------------------- | :-------------------------------- |
@@ -79,9 +71,8 @@
 |  [15]   | `Stream.metadata`                          | `dict[str, str]` (mutable before header write)       | per-stream tags (title/language)  |
 
 [ENTRYPOINT_SCOPE]: container demux, decode, and seek (read side)
-- rail: media
 
-`InputContainer.demux(stream)` is the polymorphic packet iterator — it is overloaded on a `VideoStream`/`AudioStream`/`SubtitleStream`/`DataStream` (or a tuple, or a `video=`/`audio=` selector kwarg) and yields typed `Packet` objects; `decode(...)` is the same selector but yields decoded `VideoFrame`/`AudioFrame` directly. `streams` exposes the typed stream list and `.video`/`.audio`/`.best(...)` selectors. `seek(offset, *, stream=...)` positions the demuxer by timestamp; `chapters`/`metadata`/`duration`/`bit_rate` read container structure.
+`demux` and `decode` discriminate one stream, a stream tuple, or a `video=`/`audio=` selector — `demux` yields typed `Packet`s, `decode` yields `VideoFrame`/`AudioFrame`, one polymorphic read surface over both.
 
 | [INDEX] | [SURFACE]                 | [CALL_SHAPE]                                              | [CAPABILITY]                               |
 | :-----: | :------------------------ | :-------------------------------------------------------- | :----------------------------------------- |
@@ -94,9 +85,8 @@
 |  [07]   | `Chapter`                 | `TypedDict` — `id`/`start`/`end`/`time_base`/`metadata`   | one navigation chapter row                 |
 
 [ENTRYPOINT_SCOPE]: frame-sequence encode
-- rail: media
 
-`VideoFrame.from_ndarray` lifts a NumPy buffer to a frame; `pts`/`time_base`/`format`/`pix_fmt` are assigned before `encode`. `encode(frame)` returns a `Packet` list; `encode(None)` flushes the encoder. The encode loop muxes each returned packet, then flushes with a `None` frame at end-of-stream. `from_dlpack` imports a frame zero-copy from a DLPack producer (torch/cupy/jax) including from CUDA device memory via `cuda_context`, the GPU-native ingest that avoids a host round-trip; `from_dlpack` also carries `width`/`height`/`stream`/`device_id`/`primary_ctx`; `reformat` carries `src_colorspace`/`dst_colorspace`/`interpolation`/`color_range`/`color_trc`/`color_primaries`/`threads`. `from_bytes` lifts a raw RGBA buffer with `flip_horizontal`/`flip_vertical`; `to_rgb`/`to_ndarray`/`to_image` are the egress mirrors; `make_writable` forces a copy before mutation of a shared buffer. `Packet(bytes)` constructs a raw packet whose `stream`/`time_base`/`pts`/`dts`/`duration` slots admit a timed subtitle payload; `CodecContext.extradata` carries the subtitle codec header, and `Container.format.name` identifies the source muxer before a `BytesIO` output opens with an explicit `format=`.
+`pts`/`time_base`/`pix_fmt` are assigned on the frame before `encode(frame)`; the loop muxes each returned `Packet` and flushes with `encode(None)` at end-of-stream.
 
 | [INDEX] | [SURFACE]                      | [CALL_SHAPE]                                              | [CAPABILITY]                            |
 | :-----: | :----------------------------- | :-------------------------------------------------------- | :-------------------------------------- |
@@ -120,9 +110,8 @@
 |  [18]   | `Container.format.name`        | property -> `str`                                         | active muxer identifier                 |
 
 [ENTRYPOINT_SCOPE]: filter graph, bitstream filter, and resample
-- rail: media
 
-`av.filter.Graph` is the single `libavfilter` owner: `add_buffer(template, width, height, format, name, time_base)`/`add_abuffer(template, sample_rate, format, layout, channels, name, time_base)` create the source node from a stream template, `add(name, args, **kwargs)` adds a named filter (`scale`/`crop`/`overlay`/`fps`/`format`/`loudnorm`), `link_nodes(*nodes)` chains them, and `push(frame)`/`pull()` drive frames through — never a hand-rolled scale/crop/overlay loop. `BitStreamFilterContext(description, in_stream, out_stream)` rewrites a packet bitstream (`h264_mp4toannexb`, `hevc_mp4toannexb`, `extract_extradata`) for a remux without decode/re-encode. `AudioResampler.resample` converts format/rate/layout; `AudioFifo.read(samples=-1, partial=False)` rebuffers samples to a fixed `frame_size` for encoders (AAC) that require exact frame sizes. `CodecContext.create` returns a `VideoCodecContext`/`AudioCodecContext`/`CodecContext` by codec. `av.filter.loudnorm.stats(loudnorm_args, stream)` runs the two-pass EBU R128 measurement over an `AudioStream` and returns the loudnorm JSON (`input_i`/`input_tp`/`input_lra`/`input_thresh`) as bytes — the gated integrated-LUFS read a single-pass encode cannot expose.
+`av.filter.loudnorm.stats` runs the two-pass EBU R128 measurement over an `AudioStream`, the gated integrated-LUFS read a single-pass encode cannot expose.
 
 | [INDEX] | [SURFACE]                         | [CALL_SHAPE]                                                | [CAPABILITY]                          |
 | :-----: | :-------------------------------- | :---------------------------------------------------------- | :------------------------------------ |
@@ -144,9 +133,8 @@
 |  [16]   | `AudioFormat.packed`/`.is_planar` | property -> `AudioFormat` / `bool`                          | planar and packed sample-format twins |
 
 [ENTRYPOINT_SCOPE]: build registries, capability probes, and per-context filter wiring
-- rail: media
 
-The linked FFmpeg build publishes its registered names as module-level sets — `av.codecs_available`, `av.bitstream_filters_available`, and `av.filter.filters_available` — so codec, bsf, and filter admission is a membership probe before `add_stream`/`BitStreamFilterContext`/`Graph.add`, never a deep `*NotFoundError` raise. `av.codec.hwaccel.hwdevices_available()` is a CALL returning the hardware device-type name list, and `HWAccel(device_type, allow_software_fallback)` is the decode-acceleration context `av.open(hwaccel=)` consumes. Multi-input filters wire per context: `FilterContext.link_to(input_, output_idx, input_idx)` binds explicit pads where `Graph.link_nodes` raises `ArgumentError 22`, and `FilterContext.push`/`pull` drive one source among several where the single-source `Graph.push` cannot disambiguate; a dynamic-input filter (`amix`) reports an empty static `Filter(name).inputs` tuple, so arity travels as caller data. `av.time_base` is the 1e6 container timestamp denominator and `Frame.time` the derived presentation seconds (`pts * time_base`); `OutputContainer.metadata` accepts container tags before the header writes.
+Multi-input filters wire per context: `FilterContext.link_to` binds explicit pads and `FilterContext.push`/`pull` drive one source among several where the single-source `Graph.push` cannot disambiguate.
 
 | [INDEX] | [SURFACE]                              | [CALL_SHAPE]                                         | [CAPABILITY]                            |
 | :-----: | :------------------------------------- | :--------------------------------------------------- | :-------------------------------------- |
@@ -164,9 +152,8 @@ The linked FFmpeg build publishes its registered names as module-level sets — 
 |  [12]   | `OutputContainer.metadata`             | `dict[str, str]` (mutable before header write)       | container tags (title/artist/comment)   |
 
 [ENTRYPOINT_SCOPE]: stream and codec-context configuration
-- rail: media
 
-The stream exposes its codec parameters directly and through `codec_context`. `width`/`height`/`pix_fmt`/`bit_rate`/`gop_size`/`framerate` are set after `add_stream` and before the first `encode`; `options` carries codec-private knobs (CRF, preset, tune); `thread_count`/`thread_type` set parallel encode; `hwaccel`/`is_hwaccel` route to GPU; `flags`/`flags2`/`max_b_frames`/`qmin`/`qmax` tune rate control. `time_base` and per-frame `pts` set the presentation timeline; frames carry color and rotation metadata. Each row below is an attribute read of the shown type unless a call signature is given; the frame-rate reads mirror the live `rate` set on `add_stream`, while the encode rate target is `codec_context.framerate`.
+Each row is set after `add_stream` and before the first `encode`, reading the shown type unless a call shape is given; the frame-rate reads mirror the live `rate` on `add_stream`, the encode rate target is `codec_context.framerate`.
 
 | [INDEX] | [SURFACE]                                               | [CALL_SHAPE]                          | [CAPABILITY]                         |
 | :-----: | :------------------------------------------------------ | :------------------------------------ | :----------------------------------- |
@@ -199,24 +186,31 @@ The stream exposes its codec parameters directly and through `codec_context`. `w
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[MEDIA_ENCODE]:
-- import: `import av` at boundary scope only; module-level import is banned by the manifest import policy.
-- modality axis: one polymorphic `MediaOp` discriminates Encode / Decode / Transcode / Remux / Filter; the read side (`demux`/`decode`/`seek`) and the write side (`add_stream`/`encode`/`mux`) are arms of the same owner, never two parallel reader/writer packages — a transcode is `decode` -> optional `Graph` -> `encode` -> `mux` in one pipeline.
-- container axis: one `av.open` owns container open; `mode` selects `InputContainer` vs `OutputContainer` and `format` selects the muxer (`mp4`/`webm`/`gif`) as a call row, never a per-format container type; `open` is always a context manager so the trailer is written and the demuxer/IO is released; `io_open` supplies a Python I/O callback for protocol/segment sinks.
-- stream axis: `add_stream(codec_name, rate)` is the single typed stream factory; video vs audio is the `codec_name` row (`h264`/`libx264`/`vp9`/`libvpx-vp9`/`libsvtav1`/`gif` vs `aac`/`libopus`), never a parallel `add_video_stream`/`add_audio_stream` pair; `add_mux_stream`/`add_stream_from_template` are the remux/clone rows; codec-private knobs are `options`/`**kwargs` rows, not bespoke builder types.
-- frame axis: `VideoFrame.from_ndarray` is the host ndarray ingest row and `from_dlpack` the zero-copy GPU/torch row (CUDA-context aware, avoiding a device->host copy); `pts`/`time_base`/`pix_fmt` are assigned on the frame, and `reformat` is the swscale resize/colorspace-convert row, never a hand-rolled pixel loop.
-- filter axis: `av.filter.Graph` is the single libavfilter owner; scale/crop/overlay/fps/format/loudnorm are `add(...)` node rows wired with `link_nodes` and driven with `push`/`pull`, never a NumPy resampling/compositing reimplementation; the graph runs between `decode` and `encode` in a transcode.
-- remux axis: `BitStreamFilterContext` rewrites packet bitstreams (annexb, extradata) for a `demux` -> `bsf.filter` -> `mux` copy that never re-decodes; container/codec change without quality loss is a remux, never a needless re-encode.
-- encode axis: `stream.encode(frame)` -> `container.mux(packets)` is the one encode-then-mux row; the flush is `stream.encode(None)` muxed at end-of-stream, never a separate teardown surface; backpressure-sensitive consumers mux `Packet`s one at a time with `container.mux_one(packet)` (each carries `dts`/`pts`/`duration`/`is_keyframe`), never a fictional lazy-encode iterator; `AudioFifo` rebuffers to a fixed `frame_size` for encoders (AAC) that require it.
-- evidence: each op captures container format, codec name, `pix_fmt`, frame count, resolution, frame rate, target bit rate, GOP size, filter-graph node chain, bundled `libavcodec`/`ffmpeg_version_info`, and input/output byte length as a media receipt.
+[TOPOLOGY]:
+- One polymorphic `MediaOp` discriminates Encode / Decode / Transcode / Remux / Filter; the read side (`demux`/`decode`/`seek`) and the write side (`add_stream`/`encode`/`mux`) are arms of one owner, a transcode being `decode` then optional `Graph` then `encode` then `mux`.
+- One `av.open` opens every container as a context manager (trailer written, IO released); `mode` selects `InputContainer` vs `OutputContainer`, `format` selects the muxer (`mp4`/`webm`/`gif`) as a call row, and `io_open` supplies a Python I/O callback for protocol/segment sinks.
+- `add_stream(codec_name, rate)` is the single typed stream factory: `codec_name` discriminates video (`h264`/`libx264`/`vp9`/`libvpx-vp9`/`libsvtav1`/`gif`) from audio (`aac`/`libopus`), `add_mux_stream`/`add_stream_from_template` carry the remux/clone rows, and codec knobs ride `options`/`**kwargs`.
+- `VideoFrame.from_ndarray` ingests a host array and `from_dlpack` a zero-copy CUDA-context tensor; `reformat` is the swscale resize/colorspace-convert row over the assigned `pts`/`time_base`/`pix_fmt`.
+- `av.filter.Graph` is the single libavfilter owner: scale/crop/overlay/fps/format/loudnorm are `add(...)` rows wired with `link_nodes`, driven with `push`/`pull`, running between `decode` and `encode`.
+- `BitStreamFilterContext` rewrites a packet bitstream (annexb, extradata) for a `demux` then `bsf.filter` then `mux` copy that changes container or codec without re-decoding.
+- `stream.encode(frame)` then `container.mux(packets)` is the one encode-then-mux row, flushed with `encode(None)`; `mux_one(packet)` serves one-at-a-time backpressure and `AudioFifo` rebuffers to the fixed `frame_size` encoders like AAC demand.
+- `FFmpegError` is a typed `tag`/`errno` tree whose lookup, decode, and protocol faults are distinct exception classes, never raw return codes.
+- Each op captures container format, codec, `pix_fmt`, frame count, resolution, frame rate, bit rate, GOP size, filter-graph chain, `ffmpeg_version_info`, and input/output byte length as a media receipt.
 
-[STACK_INTEGRATION]:
-- universal `numpy` tier (`libs/python/.api/numpy.md`): the frame seam is `VideoFrame.from_ndarray(arr, format)` in / `frame.to_ndarray()` out — a canonical `numpy` `uint8`/`float32` buffer (RGB24/RGBA/GRAY) is the one host pixel surface, so a `scikit-image`/`matplotlib`/`pillow`-produced frame array encodes without a bespoke pixel struct, and `from_numpy_buffer` is the zero-copy variant for a contiguous C-order buffer. The device edge is `from_dlpack` (a `torch`/`cupy`/`jax` CUDA tensor ingests with no host round-trip); the host array and the DLPack capsule are the only two ingest shapes.
-- universal `anyio` tier (`libs/python/.api/anyio.md`): the synchronous `demux`/`decode`/`encode`/`mux` loop is CPU-bound C, so the boundary owner drives one container per `anyio.to_thread.run_sync` worker (or a `CapacityLimiter`-bounded fan over many inputs); a transcode farm is N bounded worker tasks each holding one `InputContainer`/`OutputContainer`, never an unbounded thread pool. The pull/push of `Packet`s stays inside the worker; only the finished bytes cross back to the async caller.
-- universal `expression` tier (`libs/python/.api/expression.md`): the `FFmpegError` subtree maps at the boundary to a `Result[MediaReceipt, MediaError]` — `EncoderNotFoundError`/`MuxerNotFoundError` are a typed `Error` arm (the codec/muxer the spec named is not registered), `InvalidDataError` is the malformed-input arm, and a successful `mux` trailer yields the `Ok` receipt; the `try/except FFmpegError` lives only in the boundary adapter, never in the domain pipeline.
-- universal `structlog`/`opentelemetry` tier: the per-op evidence (container format, codec, `pix_fmt`, frame count, `ffmpeg_version_info`, byte length) is the structured event/span payload; `av.library_versions` is read once at boundary init so the bundled `libavcodec`/`libavformat` majors ride the receipt as deployment facts.
-- sibling artifacts libs: `pillow` (`Image` <-> `VideoFrame.from_image`/`to_image`) is the still-image edge for a single-frame poster or a GIF frame source; the document owner (`pymupdf`/`reportlab`) embeds a rendered MP4/GIF byte payload `av` produced; a `vl_convert`/`matplotlib` figure sequence rasterized to `numpy` frames is the chart-animation ingest — each is a `from_ndarray`/`from_image` row into the same `MediaOp`, never a parallel media writer.
+[STACKING]:
+- `numpy`(`.api/numpy.md`): the frame seam is `VideoFrame.from_ndarray(arr, format)` in / `frame.to_ndarray()` out over a `uint8`/`float32` RGB24/RGBA/GRAY buffer, `from_numpy_buffer` the zero-copy contiguous variant, `from_dlpack` the device edge a `torch`/`cupy`/`jax` CUDA tensor ingests with no host round-trip.
+- `anyio`(`.api/anyio.md`): the synchronous `demux`/`decode`/`encode`/`mux` loop drives one container per `anyio.to_thread.run_sync` worker under a `CapacityLimiter` fan, only the finished bytes crossing back to the async caller.
+- `expression`(`.api/expression.md`): the `FFmpegError` subtree maps at the boundary to `Result[MediaReceipt, MediaError]` — `EncoderNotFoundError`/`MuxerNotFoundError` the unregistered-codec arm, `InvalidDataError` the malformed-input arm, a successful `mux` trailer the `Ok` receipt.
+- `structlog`(`.api/structlog.md`)/`opentelemetry`(`.api/opentelemetry-api.md`): the per-op evidence is the structured event/span payload, and `av.library_versions` read once at boundary init rides the receipt as a deployment fact.
+- `pillow`(`.api/pillow.md`) is the still-image edge (`Image` to `VideoFrame.from_image`/`to_image`) for a poster or GIF frame, and the document owner (`pymupdf`/`reportlab`) embeds the produced MP4/GIF byte payload — each a `from_ndarray`/`from_image` row into the same `MediaOp`.
+- within-library: the `MediaOp` composes `av.open`, `add_stream`, `from_ndarray`, `encode`, `mux`, the filter `Graph`, and the `BitStreamFilterContext` remux path into one owner, so encode, decode, transcode, remux, and filter are arms rather than sibling packages.
+
+[LOCAL_ADMISSION]:
+- `import av` at boundary scope only; the manifest import policy binds module-level import.
+- Codec, muxer, bsf, and filter admission is a membership probe over `av.codecs_available`/`av.bitstream_filters_available`/`av.filter.filters_available` and `hwdevices_available` before `add_stream`/`BitStreamFilterContext`/`Graph.add`.
 
 [RAIL_LAW]:
 - Package: `av`
-- Accept: frame-sequence encode, decode, transcode, remux, and filter-graph pipelines feeding the media and document owners
+- Owns: the FFmpeg container/codec/filter media surface — `demux`/`decode`/`seek` read, `add_stream`/`encode`/`mux` write, the libavfilter graph, bitstream-filter remux, and swscale/swresample conversion.
+- Accept: frame-sequence encode, decode, transcode, remux, and filter-graph pipelines feeding the media and document owners as `MediaOp` arms.
+- Reject: a subprocess shell-out to a system `ffmpeg`; a hand-rolled muxer, packetizer, filter loop, or codec layer; a parallel reader/writer package or `add_video_stream`/`add_audio_stream` pair over the one `add_stream` factory; a raw pixel copy where `from_ndarray`/`from_dlpack` ingest.

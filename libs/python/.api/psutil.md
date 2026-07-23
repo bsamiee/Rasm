@@ -1,32 +1,27 @@
 # [PY_BRANCH_API_PSUTIL]
 
-`psutil` supplies cross-platform system and process metrics: per-process CPU, memory, file descriptors, threads, connections, status, and lifecycle control via `Process`; system-wide CPU, memory, disk, network, and sensor counters via module functions; and iteration/waiting via `process_iter`/`wait_procs`. `Process.oneshot()` is the performance spine — its context manager batches the underlying syscalls so a cluster of reads on one process costs one collection. Every metric returns a named tuple, so one `oneshot` block folds into one typed reading rather than one syscall per attribute.
+`psutil` owns cross-platform process and system telemetry: per-process metrics and lifecycle control through `Process`, system-wide CPU, memory, disk, network, and sensor counters through module functions, and live-process iteration through `process_iter`/`wait_procs`. Every reading is a named tuple read by field name; `Process.oneshot()` batches the shared syscalls so a cluster of reads on one process costs one collection. It is the observability rail's metric source — the SDK edge owns temporality, aggregation, and export.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `psutil`
-- package: `psutil`
-- version: `7.2.2`
-- license: `BSD-3-Clause`
+- package: `psutil` (`BSD-3-Clause`)
 - module: `psutil`
-- asset: runtime library (native extension)
+- abi: native C extension over the import-selected `_ps{osx,linux,windows,bsd}` platform layer
 - rail: observability
-- platform note: the C extension and the pure-Python `_ps{osx,linux,windows,bsd,...}` layer are selected at import; a subset of the surface and several named-tuple fields are platform-gated (see `[PLATFORM_GATING]`).
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: process classes
-- rail: observability
 
-| [INDEX] | [SYMBOL]  | [TYPE_FAMILY] | [RAIL]                                      |
+| [INDEX] | [SYMBOL]  | [TYPE_FAMILY] | [CAPABILITY]                                |
 | :-----: | :-------- | :------------ | :------------------------------------------ |
 |  [01]   | `Process` | process class | per-process metrics, control, and `oneshot` |
 |  [02]   | `Popen`   | process class | `subprocess.Popen` fused with `Process` API |
 
 [PUBLIC_TYPE_SCOPE]: exception types
-- rail: observability
 
-| [INDEX] | [SYMBOL]         | [TYPE_FAMILY]  | [RAIL]                           |
+| [INDEX] | [SYMBOL]         | [TYPE_FAMILY]  | [CAPABILITY]                     |
 | :-----: | :--------------- | :------------- | :------------------------------- |
 |  [01]   | `Error`          | base exception | root of all psutil exceptions    |
 |  [02]   | `NoSuchProcess`  | process error  | pid no longer exists             |
@@ -37,120 +32,108 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: process iteration and lookup
-- rail: observability
 
-| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY] | [RAIL]                                    |
-| :-----: | :----------------------------------------------- | :------------- | :---------------------------------------- |
-|  [01]   | `Process(pid=None)`                              | constructor    | attach to pid (defaults to `os.getpid()`) |
-|  [02]   | `Popen(*args, **kwargs)`                         | constructor    | launch subprocess with `Process` API      |
-|  [03]   | `process_iter(attrs=None, ad_value=None)`        | iterator       | iterate live processes, pre-fetch `attrs` |
-|  [04]   | `pids() -> list[int]`                            | query          | all live PIDs                             |
-|  [05]   | `pid_exists(pid) -> bool`                        | query          | true if pid is alive                      |
-|  [06]   | `wait_procs(procs, timeout=None, callback=None)` | wait           | wait for multiple processes to exit       |
+| [INDEX] | [SURFACE]                                        | [SHAPE] | [CAPABILITY]                              |
+| :-----: | :----------------------------------------------- | :------ | :---------------------------------------- |
+|  [01]   | `Process(pid=None)`                              | ctor    | attach to pid (defaults to `os.getpid()`) |
+|  [02]   | `Popen(*args, **kwargs)`                         | ctor    | launch subprocess with `Process` API      |
+|  [03]   | `process_iter(attrs=None, ad_value=None)`        | static  | iterate live processes, pre-fetch `attrs` |
+|  [04]   | `pids() -> list[int]`                            | static  | all live PIDs                             |
+|  [05]   | `pid_exists(pid) -> bool`                        | static  | true if pid is alive                      |
+|  [06]   | `wait_procs(procs, timeout=None, callback=None)` | static  | wait for multiple processes to exit       |
 
 [ENTRYPOINT_SCOPE]: Process batched-read and identity
-- rail: observability
-- read off a `Process(pid)` handle; raise `NoSuchProcess`/`ZombieProcess`/`AccessDenied` on a dead/inaccessible target. Wrap a cluster of reads in `oneshot()` to collapse syscalls.
 
-| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY]  | [RAIL]                                        |
-| :-----: | :------------------------------------------------------------ | :-------------- | :-------------------------------------------- |
-|  [01]   | `Process.oneshot()`                                           | context manager | batch internal syscalls; cache info per block |
-|  [02]   | `Process.as_dict(attrs=None, ad_value=None)`                  | bulk read       | dict of named attributes (skips inaccessible) |
-|  [03]   | `Process.pid` / `name()` / `exe()` / `cmdline()`              | identity        | pid, executable name/path, argv               |
-|  [04]   | `Process.ppid()` / `parent()` / `parents()`                   | lineage         | parent pid / `Process` / ancestor chain       |
-|  [05]   | `Process.children(recursive=False)`                           | lineage         | child `Process` list                          |
-|  [06]   | `Process.create_time()` / `username()` / `cwd()` / `status()` | identity        | start epoch, owner, cwd, status string        |
-|  [07]   | `Process.is_running() -> bool`                                | liveness        | true if still alive (pid not reused)          |
+| [INDEX] | [SURFACE]                                                     | [SHAPE]  | [CAPABILITY]                                  |
+| :-----: | :------------------------------------------------------------ | :------- | :-------------------------------------------- |
+|  [01]   | `Process.oneshot()`                                           | instance | batch internal syscalls; cache info per block |
+|  [02]   | `Process.as_dict(attrs=None, ad_value=None)`                  | instance | dict of named attributes (skips inaccessible) |
+|  [03]   | `Process.pid` / `name()` / `exe()` / `cmdline()`              | instance | pid, executable name/path, argv               |
+|  [04]   | `Process.ppid()` / `parent()` / `parents()`                   | instance | parent pid / `Process` / ancestor chain       |
+|  [05]   | `Process.children(recursive=False)`                           | instance | child `Process` list                          |
+|  [06]   | `Process.create_time()` / `username()` / `cwd()` / `status()` | instance | start epoch, owner, cwd, status string        |
+|  [07]   | `Process.is_running() -> bool`                                | instance | true if still alive (pid not reused)          |
 
 [ENTRYPOINT_SCOPE]: Process resource metrics
-- rail: observability
 
-| [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY] | [RAIL]                                                 |
-| :-----: | :------------------------------------------- | :------------- | :----------------------------------------------------- |
-|  [01]   | `Process.memory_info() -> pmem`              | metric         | RSS/VMS named tuple (fields platform-dependent)        |
-|  [02]   | `Process.memory_full_info() -> pfullmem`     | metric         | adds `uss` (and `pss`/`swap` on Linux)                 |
-|  [03]   | `Process.memory_percent(memtype="rss")`      | metric         | memory as percent of system total                      |
-|  [04]   | `Process.cpu_percent(interval=None)`         | metric         | CPU utilization float (`None` = since-last-call delta) |
-|  [05]   | `Process.cpu_times() -> pcputimes`           | metric         | user/system/children CPU seconds                       |
-|  [06]   | `Process.num_threads()`                      | metric         | live thread count                                      |
-|  [07]   | `Process.num_ctx_switches() -> pctxsw`       | metric         | voluntary/involuntary context switches                 |
-|  [08]   | `Process.num_fds()` (POSIX)                  | metric         | open file-descriptor count                             |
-|  [09]   | `Process.io_counters() -> pio` (gated)       | metric         | read/write counts + bytes                              |
-|  [10]   | `Process.open_files() -> list[popenfile]`    | metric         | open regular files                                     |
-|  [11]   | `Process.net_connections(kind='inet')`       | metric         | open sockets for this process                          |
-|  [12]   | `Process.threads() -> list[pthread]` (gated) | metric         | per-thread CPU times                                   |
-|  [13]   | `Process.environ()` (gated)                  | metric         | process environment dict                               |
+| [INDEX] | [SURFACE]                                    | [SHAPE]  | [CAPABILITY]                                           |
+| :-----: | :------------------------------------------- | :------- | :----------------------------------------------------- |
+|  [01]   | `Process.memory_info() -> pmem`              | instance | RSS/VMS named tuple (fields platform-dependent)        |
+|  [02]   | `Process.memory_full_info() -> pfullmem`     | instance | adds `uss` (and `pss`/`swap` on Linux)                 |
+|  [03]   | `Process.memory_percent(memtype="rss")`      | instance | memory as percent of system total                      |
+|  [04]   | `Process.cpu_percent(interval=None)`         | instance | CPU utilization float (`None` = since-last-call delta) |
+|  [05]   | `Process.cpu_times() -> pcputimes`           | instance | user/system/children CPU seconds                       |
+|  [06]   | `Process.num_threads()`                      | instance | live thread count                                      |
+|  [07]   | `Process.num_ctx_switches() -> pctxsw`       | instance | voluntary/involuntary context switches                 |
+|  [08]   | `Process.num_fds()` (POSIX)                  | instance | open file-descriptor count                             |
+|  [09]   | `Process.io_counters() -> pio` (gated)       | instance | read/write counts + bytes                              |
+|  [10]   | `Process.open_files() -> list[popenfile]`    | instance | open regular files                                     |
+|  [11]   | `Process.net_connections(kind='inet')`       | instance | open sockets for this process                          |
+|  [12]   | `Process.threads() -> list[pthread]` (gated) | instance | per-thread CPU times                                   |
+|  [13]   | `Process.environ()` (gated)                  | instance | process environment dict                               |
 
 [ENTRYPOINT_SCOPE]: Process control and scheduling
-- rail: observability
 
-| [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY] | [RAIL]                             |
-| :-----: | :---------------------------------------------------- | :------------- | :--------------------------------- |
-|  [01]   | `Process.nice(value=None)`                            | scheduling     | get/set process priority           |
-|  [02]   | `Process.cpu_affinity(cpus=None)` (gated)             | scheduling     | get/set CPU affinity mask          |
-|  [03]   | `Process.cpu_num()` (gated)                           | scheduling     | CPU the process last ran on        |
-|  [04]   | `Process.ionice(ioclass=None, value=None)` (gated)    | scheduling     | get/set I/O priority               |
-|  [05]   | `Process.rlimit(resource, limits=None)` (gated)       | scheduling     | get/set resource limits            |
-|  [06]   | `Process.send_signal(sig)` / `suspend()` / `resume()` | lifecycle      | signal / SIGSTOP / SIGCONT         |
-|  [07]   | `Process.terminate()` / `kill()`                      | lifecycle      | SIGTERM / SIGKILL                  |
-|  [08]   | `Process.wait(timeout=None)`                          | lifecycle      | block until exit; return exit code |
+| [INDEX] | [SURFACE]                                             | [SHAPE]  | [CAPABILITY]                       |
+| :-----: | :---------------------------------------------------- | :------- | :--------------------------------- |
+|  [01]   | `Process.nice(value=None)`                            | instance | get/set process priority           |
+|  [02]   | `Process.cpu_affinity(cpus=None)` (gated)             | instance | get/set CPU affinity mask          |
+|  [03]   | `Process.cpu_num()` (gated)                           | instance | CPU the process last ran on        |
+|  [04]   | `Process.ionice(ioclass=None, value=None)` (gated)    | instance | get/set I/O priority               |
+|  [05]   | `Process.rlimit(resource, limits=None)` (gated)       | instance | get/set resource limits            |
+|  [06]   | `Process.send_signal(sig)` / `suspend()` / `resume()` | instance | signal / SIGSTOP / SIGCONT         |
+|  [07]   | `Process.terminate()` / `kill()`                      | instance | SIGTERM / SIGKILL                  |
+|  [08]   | `Process.wait(timeout=None)`                          | instance | block until exit; return exit code |
 
 [ENTRYPOINT_SCOPE]: CPU metrics
-- rail: observability
 
-| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY] | [RAIL]                                  |
-| :-----: | :----------------------------------------------- | :------------- | :-------------------------------------- |
-|  [01]   | `cpu_percent(interval=None, percpu=False)`       | metric         | system CPU utilization float            |
-|  [02]   | `cpu_times(percpu=False) -> scputimes`           | metric         | system CPU time fields                  |
-|  [03]   | `cpu_times_percent(interval=None, percpu=False)` | metric         | CPU time percentages                    |
-|  [04]   | `cpu_count(logical=True)`                        | metric         | logical or physical CPU count           |
-|  [05]   | `cpu_stats() -> scpustats`                       | metric         | ctx-switches/interrupts/soft-interrupts |
-|  [06]   | `cpu_freq(percpu=False) -> scpufreq` (gated)     | metric         | current/min/max MHz (not on macOS)      |
-|  [07]   | `getloadavg() -> (f, f, f)` (gated)              | metric         | 1/5/15-min load average                 |
+| [INDEX] | [SURFACE]                                        | [SHAPE] | [CAPABILITY]                            |
+| :-----: | :----------------------------------------------- | :------ | :-------------------------------------- |
+|  [01]   | `cpu_percent(interval=None, percpu=False)`       | static  | system CPU utilization float            |
+|  [02]   | `cpu_times(percpu=False) -> scputimes`           | static  | system CPU time fields                  |
+|  [03]   | `cpu_times_percent(interval=None, percpu=False)` | static  | CPU time percentages                    |
+|  [04]   | `cpu_count(logical=True)`                        | static  | logical or physical CPU count           |
+|  [05]   | `cpu_stats() -> scpustats`                       | static  | ctx-switches/interrupts/soft-interrupts |
+|  [06]   | `cpu_freq(percpu=False) -> scpufreq` (gated)     | static  | current/min/max MHz (not on macOS)      |
+|  [07]   | `getloadavg() -> (f, f, f)` (gated)              | static  | 1/5/15-min load average                 |
 
 [ENTRYPOINT_SCOPE]: memory, disk, network, and system metrics
-- rail: observability
 
-| [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [RAIL]                                          |
-| :-----: | :------------------------------------------------------------------ | :------------- | :---------------------------------------------- |
-|  [01]   | `virtual_memory() -> svmem`                                         | metric         | system memory named tuple                       |
-|  [02]   | `swap_memory() -> sswap`                                            | metric         | swap memory named tuple                         |
-|  [03]   | `disk_usage(path) -> sdiskusage`                                    | metric         | total/used/free/percent for a path              |
-|  [04]   | `disk_partitions(all=False)`                                        | metric         | mounted partitions                              |
-|  [05]   | `disk_io_counters(perdisk=False, nowrap=True)`                      | metric         | disk I/O counters (`sdiskio`)                   |
-|  [06]   | `net_io_counters(pernic=False, nowrap=True)`                        | metric         | network I/O counters (`snetio`)                 |
-|  [07]   | `net_connections(kind='inet')`                                      | metric         | system-wide open sockets                        |
-|  [08]   | `net_if_addrs()` / `net_if_stats()`                                 | metric         | interface addresses / link stats                |
-|  [09]   | `boot_time()` / `users()`                                           | metric         | boot epoch / logged-in users                    |
-|  [10]   | `sensors_battery() -> sbattery` (gated)                             | metric         | battery percent/secsleft/plugged (not on macOS) |
-|  [11]   | `sensors_temperatures(fahrenheit=False)` / `sensors_fans()` (gated) | metric         | hardware sensors (Linux-mostly)                 |
+| [INDEX] | [SURFACE]                                                           | [SHAPE] | [CAPABILITY]                                    |
+| :-----: | :------------------------------------------------------------------ | :------ | :---------------------------------------------- |
+|  [01]   | `virtual_memory() -> svmem`                                         | static  | system memory named tuple                       |
+|  [02]   | `swap_memory() -> sswap`                                            | static  | swap memory named tuple                         |
+|  [03]   | `disk_usage(path) -> sdiskusage`                                    | static  | total/used/free/percent for a path              |
+|  [04]   | `disk_partitions(all=False)`                                        | static  | mounted partitions                              |
+|  [05]   | `disk_io_counters(perdisk=False, nowrap=True)`                      | static  | disk I/O counters (`sdiskio`)                   |
+|  [06]   | `net_io_counters(pernic=False, nowrap=True)`                        | static  | network I/O counters (`snetio`)                 |
+|  [07]   | `net_connections(kind='inet')`                                      | static  | system-wide open sockets                        |
+|  [08]   | `net_if_addrs()` / `net_if_stats()`                                 | static  | interface addresses / link stats                |
+|  [09]   | `boot_time()` / `users()`                                           | static  | boot epoch / logged-in users                    |
+|  [10]   | `sensors_battery() -> sbattery` (gated)                             | static  | battery percent/secsleft/plugged (not on macOS) |
+|  [11]   | `sensors_temperatures(fahrenheit=False)` / `sensors_fans()` (gated) | static  | hardware sensors (Linux-mostly)                 |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[NAMEDTUPLE_FIELDS]:
-- returns are named tuples accessible by field or index. Cross-platform fields: `svmem(total, available, percent, used, free, ...)`, `sswap(total, used, free, percent, sin, sout)`, `sdiskusage(total, used, free, percent)`, `pio(read_count, write_count, read_bytes, write_bytes)`, `pctxsw(voluntary, involuntary)`, `pthread(id, user_time, system_time)`, `popenfile(path, fd)`, `sbattery(percent, secsleft, power_plugged)`.
-- `pmem`/`pfullmem`/`scputimes`/`svmem` field SETS differ per OS (e.g. macOS `pmem(rss, vms, pfaults, pageins)` + `pfullmem += uss`; Linux `pfullmem += uss, pss, swap`; Windows `pmem` carries `peak_wset`/`pagefile`/...). Read by field name, never by fixed index, when the field is OS-specific.
+[TOPOLOGY]:
+- `with proc.oneshot():` runs the internal collector once and caches its multi-valued result; fold every multi-attribute read of one process into one block. `process_iter(attrs=[...])` is the system-wide analogue, pre-fetching listed attributes once per process and supplying `ad_value` for `AccessDenied` fields.
+- `cpu_percent(interval=None)` returns 0.0 on the first call; a positive `interval` blocks and samples, two `None` calls yield a non-blocking delta — same contract for module-level `cpu_percent`/`cpu_times_percent`.
+- named-tuple returns read by field name, never positional index — `pmem`/`pfullmem`/`scputimes`/`svmem` field sets are OS-specific: macOS `pmem(rss, vms, pfaults, pageins)` with `pfullmem` adding `uss`, Linux `pfullmem` adding `uss, pss, swap`, Windows `pmem` carrying `peak_wset`/`pagefile`.
+- a `(gated)` row binds only where the platform layer defines it: a gated module function is absent from `__all__`, an unbound `Process` method raises `AttributeError` — guard every gated use with `hasattr`. macOS (`_psosx`) omits `cpu_freq` and the `sensors_*` family; `getloadavg` resolves through `os.getloadavg`.
 
-[PLATFORM_GATING]:
-- `cpu_freq`, `getloadavg`, `sensors_battery`, `sensors_temperatures`, `sensors_fans` are appended to `__all__` only when the platform layer defines them. On macOS (`_psosx`) `cpu_freq`/`sensors_battery`/`sensors_temperatures`/`sensors_fans` are NOT present; `getloadavg` resolves via `os.getloadavg`. Guard any use with `hasattr(psutil, name)`.
-- `Process` methods `io_counters`, `ionice`, `rlimit`, `cpu_affinity`, `cpu_num`, `environ`, `threads`, `num_handles` (Windows), `num_fds` (POSIX), `memory_maps` are conditionally bound on the platform `Process`; calling an unbound method raises `AttributeError`.
-
-[ONESHOT_TOPOLOGY]:
-- `with proc.oneshot():` makes the internal collector run once and cache the multi-valued result; subsequent reads in the block return cached values. This is the canonical batch path — fold every multi-attribute read of one process into a single `oneshot` block.
-- `process_iter(attrs=[...])` pre-fetches the listed attributes once per process and supplies `ad_value` for fields that raise `AccessDenied`, avoiding mid-iteration faults; it is the system-wide analogue of `oneshot`.
-- `cpu_percent(interval=None)` returns 0.0 on first call (no prior sample); pass a positive `interval` to block-and-sample, or call twice with `None` for a non-blocking delta. Same contract for the module-level `cpu_percent`/`cpu_times_percent`.
-
-[INTEGRATION_LAW]:
-- Stack with `opentelemetry-sdk`: feed a `oneshot` reading into OTel observable gauges/counters — `proc.memory_info().rss` and `proc.cpu_percent()` register through the API `Meter`, are shaped by an SDK `View`, and ship via the OTLP exporter. psutil is the source, the SDK owns temporality/aggregation. Read inside one `oneshot` so the gauge callback costs one collection.
-- Named-tuple readings are the boundary value carriers; map field names to canonical metric attribute keys at the edge, never thread raw tuples through domain code.
+[STACKING]:
+- `opentelemetry-sdk`(`.api/opentelemetry-sdk.md`): a `oneshot` reading feeds OTel observable gauges/counters — `proc.memory_info().rss` and `proc.cpu_percent()` register through the API `Meter`, shape through an SDK `View`, and ship via the OTLP exporter; read inside one `oneshot` so the gauge callback costs one collection. psutil is the source, the SDK owns temporality and aggregation.
+- `loky`(`.api/loky.md`): `cpu_count(only_physical_cores=True)` reads the physical-core count through psutil to size the pool; `Supervisor` reads pool worker RSS via `psutil.Process().oneshot()` over `children(recursive=True)`/`memory_info().rss` against the `SupervisionPolicy` ceiling, scoped through `WorkerPool.pids()`, rolling the cooperative arm on a breach.
+- `pebble`(`.api/pebble.md`): `Supervisor._probe` reads worker RSS via `psutil.Process().oneshot()` over `children(recursive=True)` and `memory_info().rss` against the `SupervisionPolicy.rss_ceiling`, rolling the terminal (pebble) arm on a `DEGRADED` breach and retiring-then-respawning on `DEAD`; psutil is the live-ceiling arm, `max_tasks` recycling the fixed-cadence arm.
+- within-lib: the named-tuple reading is the boundary value carrier — map field names to canonical metric attribute keys at the edge, never thread a raw tuple through domain code.
 
 [LOCAL_ADMISSION]:
-- Wrap `Process` reads in try/except catching `NoSuchProcess`, `ZombieProcess`, and `AccessDenied`; the listing-to-reading race is unavoidable. `is_running()` is advisory only (pid reuse).
-- Use `process_iter(attrs=[...])`/`as_dict(attrs=[...])` with explicit attribute lists to amortize syscall cost; use `oneshot()` for repeated reads of one process.
-- Use `cpu_percent(interval=1.0)` in blocking contexts; `interval=None` in async/polling loops where the caller owns timing.
+- wrap every `Process` read in try/except for `NoSuchProcess`, `ZombieProcess`, and `AccessDenied` — the listing-to-reading race is unavoidable; `is_running()` is advisory (pid reuse).
+- amortize syscalls with explicit attribute lists — `process_iter(attrs=[...])`/`as_dict(attrs=[...])` system-wide, `oneshot()` for repeated reads of one process.
+- `cpu_percent(interval=1.0)` in blocking contexts, `interval=None` in async/polling loops where the caller owns timing.
 
 [RAIL_LAW]:
 - Package: `psutil`
-- Owns: process metrics + lifecycle control, system CPU/memory/disk/network/sensor metrics, process iteration and waiting, the `oneshot` batch path
+- Owns: process metrics and lifecycle control, system CPU/memory/disk/network/sensor metrics, process iteration and waiting, the `oneshot` batch path
 - Accept: `Process` + `oneshot`/`as_dict`, `process_iter(attrs=...)`, `cpu_percent`, `virtual_memory`, `disk_usage`, `net_io_counters`, `hasattr`-guarded platform-gated functions
-- Reject: direct `/proc` parsing or platform-specific syscall wrappers when psutil owns the metric, per-attribute reads outside `oneshot`, indexing OS-specific named-tuple fields by position, unguarded use of `cpu_freq`/`sensors_battery` on macOS
+- Reject: direct `/proc` parsing or platform syscall wrappers where psutil owns the metric, per-attribute reads outside `oneshot`, positional indexing of OS-specific named tuples, unguarded gated calls on macOS

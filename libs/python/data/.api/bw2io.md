@@ -1,178 +1,139 @@
 # [PY_DATA_API_BW2IO]
 
-`bw2io` is the import/export and database-ingestion layer of the Brightway 2.5 LCA stack: it extracts life-cycle-inventory databases from external formats (ecoinvent ecospold1/2, SimaPro CSV, Excel/CSV, ExioBase, US-EEIO/JSON-LD, US LCI), runs them through a composable strategy pipeline that links exchanges to a biosphere and to other databases, and writes the linked graph into a `bw2data` `Database` that `bw2calc` then computes against. It owns the biosphere/LCIA/migration bootstrap (`bw2setup`), the `randonneur`-backed data-migration registry, GEXF graph export, and the `BW2Package` interchange format. It is the INGESTION leg of the data EPD/LCA owner — it never re-implements the matrix solver (`bw2calc`/`bw_processing`) or the project/storage layer (`bw2data`); it produces the database those own.
+`bw2io` is the ingestion leg of the Brightway 2.5 LCA stack: it extracts external LCI/LCIA inventory formats, links their exchanges through a composable strategy pipeline onto a biosphere and sibling databases, and writes the linked graph into a `bw2data` `Database` for `bw2calc` to solve. It owns the biosphere/LCIA/migration bootstrap, the `randonneur` migration registry, GEXF/matrix export, and the `BW2Package` interchange format; it never solves the matrix (`bw2calc`/`bw_processing`) nor owns the project/graph store (`bw2data`).
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `bw2io`
-- package: `bw2io`
-- version: `0.9.17`
-- license: BSD-3-Clause
+- package: `bw2io` (BSD-3-Clause)
 - module: `bw2io`
+- namespaces: `bw2io.importers`, `bw2io.strategies`, `bw2io.errors`, `bw2io.export`
 - owner: `data`
 - rail: epd-lca (LCI/LCIA ingestion)
-- depends: `bw2data>=4.6.2` (project/`Database`/`config`/`databases`/`parameters`), `bw2calc>=2.0` (LCA engine, downstream consumer), `bw_processing>=1.0` (matrix datapackage substrate), `bw2parameters`, `bw_migrations`, `randonneur>=0.6` + `randonneur_data>=0.5.4` (migration verbs/registry), `pyecospold`, `stats_arrays`, `lxml`, `openpyxl`/`xlrd`/`xlsxwriter`, `voluptuous`, `SPARQLWrapper`, `numpy<3`, `scipy`, `tqdm`, `requests`; optional `ecoinvent_interface` (gates `import_ecoinvent_release`), `multifunctional`+`bw_simapro_csv` (gate multifunctional DBs + `SimaProBlockCSVImporter`)
-- evidence: assay-reflected — `bw2io 0.9.17` (`api resolve bw2io`), installed in the active env; `__all__` (46 names) carries the importer/bootstrap/export surface and `bw2io.importers.base_lci.LCIImporter` carries the pipeline contract
-- capability: format extractors → strategy-pipeline linking → `bw2data.Database` write, for ecospold1/2, SimaPro CSV, Excel/CSV, ExioBase 3 (monetary/hybrid), US-EEIO + JSON-LD; LCIA-method import (Excel/CSV/ecospold1/SimaPro); biosphere/LCIA/migration bootstrap; `randonneur` migrations; GEXF export; `BW2Package` round-trip; `activity_hash` identity
+- depends: `bw2data` (project/`Database` store), `bw2calc` (downstream solver), `bw_processing` (matrix datapackage), `bw2parameters`, `randonneur` + `randonneur_data` (migration verbs/registry), `pyecospold`, `stats_arrays`, `lxml`, `openpyxl`/`xlrd`/`xlsxwriter`, `voluptuous`, `SPARQLWrapper`, `numpy`, `scipy`, `tqdm`, `requests`; optional `ecoinvent_interface` gates `import_ecoinvent_release`, `multifunctional` + `bw_simapro_csv` gate multifunctional DBs and `SimaProBlockCSVImporter`
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: LCI importers (subclass `LCIImporter`)
-- rail: epd-lca
+[PUBLIC_TYPE_SCOPE]: `LCIImporter` subclasses — one source format each, written to a `bw2data` `Database`
 
-| [INDEX] | [SYMBOL]                                                         | [SOURCE_FORMAT]           | [ROLE]                               |
-| :-----: | :--------------------------------------------------------------- | :------------------------ | :----------------------------------- |
-|  [01]   | `SingleOutputEcospold2Importer`                                  | ecospold2 (ecoinvent 3.x) | single-output unit-process XML       |
-|  [02]   | `SingleOutputEcospold1Importer` / `MultiOutputEcospold1Importer` | ecospold1                 | single/multi-output ecospold1 XML    |
-|  [03]   | `SimaProCSVImporter`                                             | SimaPro CSV               | SimaPro inventory CSV export         |
-|  [04]   | `SimaProBlockCSVImporter`                                        | SimaPro CSV (block)       | block-parser; needs `bw_simapro_csv` |
-|  [05]   | `CSVImporter` / `ExcelImporter`                                  | generic CSV / `.xlsx`     | Brightway tabular template           |
-|  [06]   | `Exiobase3MonetaryImporter` / `Exiobase3HybridImporter`          | ExioBase 3                | monetary / hybrid EE-IO tables       |
+| [INDEX] | [SYMBOL]                        | [CAPABILITY]                    |
+| :-----: | :------------------------------ | :------------------------------ |
+|  [01]   | `SingleOutputEcospold2Importer` | ecospold2 single-output process |
+|  [02]   | `SingleOutputEcospold1Importer` | ecospold1 single-output         |
+|  [03]   | `MultiOutputEcospold1Importer`  | ecospold1 multi-output          |
+|  [04]   | `SimaProCSVImporter`            | SimaPro inventory CSV           |
+|  [05]   | `SimaProBlockCSVImporter`       | SimaPro block CSV               |
+|  [06]   | `CSVImporter`                   | Brightway CSV template          |
+|  [07]   | `ExcelImporter`                 | Brightway `.xlsx` template      |
+|  [08]   | `Exiobase3MonetaryImporter`     | ExioBase 3 monetary EE-IO       |
+|  [09]   | `Exiobase3HybridImporter`       | ExioBase 3 hybrid EE-IO         |
 
-[PUBLIC_TYPE_SCOPE]: LCIA importers (subclass `LCIAImporter`)
-- rail: epd-lca
+- `SimaProBlockCSVImporter`: present only with `bw_simapro_csv` installed.
 
-| [INDEX] | [SYMBOL]                                | [SOURCE_FORMAT]  | [ROLE]                                |
-| :-----: | :-------------------------------------- | :--------------- | :------------------------------------ |
-|  [01]   | `ExcelLCIAImporter` / `CSVLCIAImporter` | `.xlsx` / CSV    | characterization-factor method tables |
-|  [02]   | `Ecospold1LCIAImporter`                 | ecospold1 LCIA   | ecospold1 impact-method XML           |
-|  [03]   | `SimaProLCIACSVImporter`                | SimaPro LCIA CSV | SimaPro method CSV                    |
+[PUBLIC_TYPE_SCOPE]: `LCIAImporter` subclasses — characterization-method import, written to `bw2data` methods
 
-[PUBLIC_TYPE_SCOPE]: pipeline base + interchange types
-- rail: epd-lca
+| [INDEX] | [SYMBOL]                 | [CAPABILITY]            |
+| :-----: | :----------------------- | :---------------------- |
+|  [01]   | `ExcelLCIAImporter`      | `.xlsx` CF method table |
+|  [02]   | `CSVLCIAImporter`        | CSV CF method table     |
+|  [03]   | `Ecospold1LCIAImporter`  | ecospold1 method XML    |
+|  [04]   | `SimaProLCIACSVImporter` | SimaPro method CSV      |
 
-The keyed list carries each type's member roster; `LCIImporter` is the integration spine (see [03]).
-
-| [INDEX] | [SYMBOL]                                                     | [TYPE_FAMILY]     |
-| :-----: | :----------------------------------------------------------- | :---------------- |
-|  [01]   | `bw2io.importers.base_lci.LCIImporter`                       | importer base     |
-|  [02]   | `bw2io.importers.base_lcia.LCIAImporter`                     | importer base     |
-|  [03]   | `BW2Package`                                                 | package codec     |
-|  [04]   | `Migration` / `migrations`                                   | migration store   |
-|  [05]   | `UnlinkedData` / `unlinked_data`                             | diagnostics store |
-|  [06]   | `ChemIDPlus`                                                 | enrichment        |
-|  [07]   | `bw2io.errors.{StrategyError, NonuniqueCode, WrongDatabase}` | error rail        |
-
-- [01]-[LCI_BASE]: the LCI pipeline contract every LCI importer inherits (`apply_strategies`, `statistics`, `match_database`, `write_database`, …) — the integration spine, see [03].
-- [02]-[LCIA_BASE]: LCIA pipeline base — `apply_strategies`, `write_methods`, `add_missing_cfs`, `drop_unlinked`, `migrate`, `statistics`/`all_linked`.
-- [03]-[PACKAGE]: Brightway-native `.bw2package` export/import (`export_obj`/`export_objs`/`load_file`/`import_file`) for portable database/method interchange.
-- [04]-[MIGRATION]: a named data-migration (field remaps) and the registry registered into `bw2data.config.metadata`.
-- [05]-[UNLINKED]: persisted unlinked-flow records and the registry for cross-session unlinked inspection.
-- [06]-[ENRICHMENT]: CAS/chemical-identifier resolver for biosphere-flow enrichment.
-- [07]-[ERRORS]: strategy/linking failure, duplicate `code`, and wrong-target-database guards raised by the pipeline.
+[PUBLIC_TYPE_SCOPE]: pipeline base and interchange types
+- [01]-[LCI_BASE]: `bw2io.importers.base_lci.LCIImporter` — the LCI pipeline contract every LCI importer inherits; the integration spine ([03]).
+- [02]-[LCIA_BASE]: `bw2io.importers.base_lcia.LCIAImporter` — the LCIA pipeline base.
+- [03]-[PACKAGE]: `BW2Package` — `.bw2package` export/import (`export_obj`/`export_objs`/`load_file`/`import_file`) for portable database/method interchange.
+- [04]-[MIGRATION]: `Migration` / `migrations` — a named field-remap migration and the registry into `bw2data.config.metadata`.
+- [05]-[UNLINKED]: `UnlinkedData` / `unlinked_data` — persisted unlinked-flow records and the cross-session registry.
+- [06]-[ENRICHMENT]: `ChemIDPlus` — CAS/chemical-identifier resolver for biosphere-flow enrichment.
+- [07]-[ERRORS]: `bw2io.errors.{StrategyError, NonuniqueCode, WrongDatabase}` — strategy/link failure against an absent external database or invalid linking config, duplicate `code`, and wrong-target-database guards raised by the pipeline.
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: project bootstrap
-- rail: epd-lca
+[ENTRYPOINT_SCOPE]: project bootstrap (module functions)
 
-| [INDEX] | [SURFACE]                                                                                     | [ENTRY_FAMILY]  |
-| :-----: | :-------------------------------------------------------------------------------------------- | :-------------- |
-|  [01]   | `bw2setup()`                                                                                  | one-shot setup  |
-|  [02]   | `create_default_biosphere3(overwrite=False)`                                                  | biosphere       |
-|  [03]   | `create_default_lcia_methods(overwrite=False, rationalize_method_names=False, shortcut=True)` | LCIA            |
-|  [04]   | `create_core_migrations()`                                                                    | migrations      |
-|  [05]   | `add_ecoinvent_3{3..9}_biosphere_flows(...)`                                                  | biosphere patch |
-|  [06]   | `add_example_database()` / `get_csv_example_filepath()` / `get_xlsx_example_filepath()`       | fixtures        |
+| [INDEX] | [SURFACE]                                                                                     | [CAPABILITY]                        |
+| :-----: | :-------------------------------------------------------------------------------------------- | :---------------------------------- |
+|  [01]   | `bw2setup()`                                                                                  | biosphere3 + LCIA + core migrations |
+|  [02]   | `create_default_biosphere3(overwrite=False)`                                                  | write the `biosphere3` database     |
+|  [03]   | `create_default_lcia_methods(overwrite=False, rationalize_method_names=False, shortcut=True)` | install bundled LCIA method pack    |
+|  [04]   | `create_core_migrations()`                                                                    | register built-in field remaps      |
+|  [05]   | `add_ecoinvent_3{3..9}_biosphere_flows(...)`                                                  | version-specific biosphere flows    |
+|  [06]   | `add_example_database()` / `get_csv_example_filepath()` / `get_xlsx_example_filepath()`       | example DB and template paths       |
 
-- [01]-[SETUP]: create biosphere3 + default LCIA methods + core migrations in the active project, idempotent on an existing biosphere.
-- [02]-[BIOSPHERE]: write the `biosphere3` elementary-flow database via `Ecospold2BiosphereImporter`.
-- [03]-[LCIA]: install the bundled ecoinvent 3.9 LCIA method pack (`shortcut`) or import fresh.
-- [04]-[MIGRATIONS]: register the built-in field-remap migrations.
-- [05]-[BIOSPHERE_PATCH]: add version-specific ecoinvent biosphere flows for cross-version linking.
-- [06]-[FIXTURES]: example DB + template paths for tests/onboarding.
+- `bw2setup`: idempotent on an existing biosphere.
 
-[ENTRYPOINT_SCOPE]: importer pipeline (LCIImporter contract — bound methods on every LCI importer)
-- rail: epd-lca
+[ENTRYPOINT_SCOPE]: `LCIImporter` contract — every method binds on the importer instance `imp`
 
-Every method binds on the importer instance `imp`; the keyed list carries per-method behavior and the dropped default kwargs.
+| [INDEX] | [SURFACE]                                                                                   | [CAPABILITY]                   |
+| :-----: | :------------------------------------------------------------------------------------------ | :----------------------------- |
+|  [01]   | `imp = ImporterClass(filepath, db_name, ...)` then `imp.data`                               | extract source into `imp.data` |
+|  [02]   | `imp.apply_strategies(strategies=None, verbose=True)` / `imp.apply_strategy(fn)`            | run the strategy pipeline      |
+|  [03]   | `imp.statistics(print_stats=True)`                                                          | linking-quality receipt        |
+|  [04]   | `imp.match_database(db_name=None, fields=None, relink=False, edge_kinds=None, ...)`         | link exchanges against a DB    |
+|  [05]   | `imp.write_database(delete_existing=True, activate_parameters=False)`                       | persist the `bw2data.Database` |
+|  [06]   | `imp.write_excel(...)` / `imp.create_randonneur_excel_template_for_unlinked(...)`           | matching/diagnostic export     |
+|  [07]   | `imp.create_new_biosphere(name)` / `imp.add_unlinked_flows_to_biosphere_database(...)`      | promote unlinked flows         |
+|  [08]   | `imp.migrate(migration_name)` / `imp.randonneur(verbs=SAFE_VERBS, migrate_edges=True, ...)` | apply migration / transform    |
+|  [09]   | `imp.drop_unlinked(i_am_reckless=False)`                                                    | delete unlinked exchanges      |
+|  [10]   | `imp.write_project_parameters(...)` / `imp.write_database_parameters(...)`                  | persist parameter sets         |
 
-| [INDEX] | [SURFACE]                                                                                                           | [ENTRY_FAMILY]   |
-| :-----: | :------------------------------------------------------------------------------------------------------------------ | :--------------- |
-|  [01]   | `imp = ImporterClass(filepath, db_name, ...)` then `imp.data`                                                       | construct        |
-|  [02]   | `imp.apply_strategies(strategies=None, verbose=True)` / `imp.apply_strategy(fn)`                                    | link             |
-|  [03]   | `imp.statistics(print_stats=True) -> (num_nodes, num_edges, num_unlinked, num_multifunctional)`                     | receipt          |
-|  [04]   | `imp.match_database(db_name=None, fields=None, ignore_categories=False, relink=False, edge_kinds=None, ...)`        | match            |
-|  [05]   | `imp.write_database(delete_existing=True, activate_parameters=False) -> ProcessedDataStore`                         | write            |
-|  [06]   | `imp.write_excel(only_unlinked=False, only_names=False)` / `imp.create_randonneur_excel_template_for_unlinked(...)` | matching IO      |
-|  [07]   | `imp.create_new_biosphere(name)` / `imp.add_unlinked_flows_to_biosphere_database(...)`                              | unlinked resolve |
-|  [08]   | `imp.migrate(migration_name)` / `imp.randonneur(datapackage=None, verbs=SAFE_VERBS, migrate_edges=True, ...)`       | migrate          |
-|  [09]   | `imp.drop_unlinked(i_am_reckless=False)`                                                                            | prune            |
-|  [10]   | `imp.write_project_parameters(...)` / `imp.write_database_parameters(...)`                                          | parameters       |
+- `imp.data`: a `list[dict]` of nodes each carrying `exchanges`; `imp.strategies` is the default strategy list.
+- `imp.statistics`: returns `(num_nodes, num_edges, num_unlinked, num_multifunctional)`; `imp.all_linked` is `num_unlinked == 0`.
+- `imp.match_database`: `match_database_against_top_level_context(...)` and `match_database_against_only_available_in_given_context_tree(...)` are the context-tree fallbacks.
+- `imp.write_database`: returns the `ProcessedDataStore`; guards duplicate `code` → `NonuniqueCode`, wrong target → `WrongDatabase`, and auto-selects `MultifunctionalDatabase`.
+- `imp.add_unlinked_activities()`: promotes still-unlinked technosphere activities into a database and relinks.
+- `imp.drop_unlinked`: raises unless `i_am_reckless=True`.
+- LCIA importers mirror the shape: `apply_strategies()` → `write_methods(overwrite=False, verbose=True)`, with `add_missing_cfs()`, `drop_unlinked(verbose=True)`, `migrate(migration_name)`, and `statistics()`/`all_linked` as the receipt.
 
-- [01]-[CONSTRUCT]: extract the source into `self.data` (a `list[dict]` of nodes each carrying `exchanges`); `self.strategies` is the default strategy list.
-- [02]-[LINK]: run the strategy pipeline (or one strategy) that normalizes units, drops subcategories, assigns production, and links exchanges.
-- [03]-[RECEIPT]: the linking-quality tuple; `imp.all_linked` is `num_unlinked == 0`.
-- [04]-[MATCH]: link exchanges against self or another `Database` by field tuple; `match_database_against_top_level_context(...)` and `..._only_available_in_given_context_tree(...)` are the context-tree fallbacks.
-- [05]-[WRITE]: persist the linked graph as a `bw2data.Database`; `data`/`backend`/`db_name`/`searchable`/`check_typos` refine the write, which guards duplicate `code` → `NonuniqueCode`, wrong target → `WrongDatabase`, and auto-selects `MultifunctionalDatabase` when needed.
-- [06]-[MATCHING_IO]: export a matching/diagnostic spreadsheet (`-> Path`) or a `randonneur` remap template for the unlinked edges.
-- [07]-[UNLINKED_RESOLVE]: promote unlinked biosphere flows / technosphere activities (`add_unlinked_activities()`) into a (new) database and relink.
-- [08]-[MIGRATE]: apply a registered `bw2io` migration or a `randonneur`/`randonneur_data` transformation (`label`/`verbs`/`migrate_edges`/`migrate_nodes`) to `self.data`.
-- [09]-[PRUNE]: delete every still-unlinked exchange (guarded; requires `i_am_reckless=True`).
-- [10]-[PARAMETERS]: persist project/database `bw2parameters` parameter sets.
+[ENTRYPOINT_SCOPE]: one-shot full-system imports (network/credentialed)
 
-LCIA importers mirror the shape: `apply_strategies()` → `write_methods(overwrite=False, verbose=True)`, with `add_missing_cfs()` to fill missing characterization factors, `drop_unlinked(verbose=True)` to prune, `migrate(migration_name)` for field remaps, and `statistics()`/`all_linked` as the linking receipt.
+| [INDEX] | [SURFACE]                                                                       | [CAPABILITY]                       |
+| :-----: | :------------------------------------------------------------------------------ | :--------------------------------- |
+|  [01]   | `import_ecoinvent_release(version, system_model, ...)`                          | ecoinvent release end-to-end       |
+|  [02]   | `exiobase_monetary(version=(3,8,1), year=2017, products=False, name=None, ...)` | EXIOBASE monetary IO table         |
+|  [03]   | `useeio20(name="USEEIO-2.0", collapse_products=False, prune=False)`             | US EPA USEEIO 2.0 via JSON-LD      |
+|  [04]   | `install_project(...)`                                                          | install a remote Brightway project |
 
-[ENTRYPOINT_SCOPE]: one-shot full-system imports
-- rail: epd-lca
-
-| [INDEX] | [SURFACE]                                                                       | [ENTRY_FAMILY] |
-| :-----: | :------------------------------------------------------------------------------ | :------------- |
-|  [01]   | `import_ecoinvent_release(version, system_model, ...)`                          | ecoinvent      |
-|  [02]   | `exiobase_monetary(version=(3,8,1), year=2017, products=False, name=None, ...)` | ExioBase       |
-|  [03]   | `useeio20(name="USEEIO-2.0", collapse_products=False, prune=False)`             | US-EEIO        |
-|  [04]   | `install_project(...)`                                                          | remote project |
-
-- [01]-[ECOINVENT]: download + import an ecoinvent release end-to-end; requires `ecoinvent_interface` credentials, a stub warns if absent.
-- [02]-[EXIOBASE]: download (Zenodo) + import an EXIOBASE monetary IO table as a database.
-- [03]-[US_EEIO]: download + JSON-LD import the US EPA USEEIO 2.0 model and its LCIA methods.
-- [04]-[REMOTE_PROJECT]: install a packaged remote Brightway project.
+- `import_ecoinvent_release`: needs `ecoinvent_interface` credentials; warns if absent.
 
 [ENTRYPOINT_SCOPE]: export, backup, and utilities
-- rail: epd-lca
 
-| [INDEX] | [SURFACE]                                                                                         | [ENTRY_FAMILY]   |
-| :-----: | :------------------------------------------------------------------------------------------------ | :--------------- |
-|  [01]   | `DatabaseToGEXF(database, ...)` / `DatabaseSelectionToGEXF(...)` / `keyword_to_gephi_graph(...)`  | graph export     |
-|  [02]   | `lci_matrices_to_excel(database)` / `lci_matrices_to_matlab(database)`                            | matrix export    |
-|  [03]   | `backup_project_directory(...)` / `restore_project_directory(...)` / `backup_data_directory(...)` | backup           |
-|  [04]   | `activity_hash(dataset, fields=...)` / `es2_activity_hash(...)`                                   | identity         |
-|  [05]   | `normalize_units(data)` / `load_json_data_file(name)`                                             | utility          |
-|  [06]   | `bw2io.strategies.*`                                                                              | strategy library |
+| [INDEX] | [SURFACE]                                                                                         | [CAPABILITY]                   |
+| :-----: | :------------------------------------------------------------------------------------------------ | :----------------------------- |
+|  [01]   | `DatabaseToGEXF(database, ...)` / `DatabaseSelectionToGEXF(...)` / `keyword_to_gephi_graph(...)`  | GEXF graph export              |
+|  [02]   | `lci_matrices_to_excel(database)` / `lci_matrices_to_matlab(database)`                            | matrix dump to `.xlsx`/`.mat`  |
+|  [03]   | `backup_project_directory(...)` / `restore_project_directory(...)` / `backup_data_directory(...)` | tar-archive/restore project    |
+|  [04]   | `activity_hash(dataset, fields=...)` / `es2_activity_hash(...)`                                   | deterministic node `code` hash |
+|  [05]   | `normalize_units(data)` / `load_json_data_file(name)`                                             | unit normalization / JSON load |
+|  [06]   | `bw2io.strategies.*`                                                                              | composable linking functions   |
 
-- [01]-[GRAPH_EXPORT]: export a database (or selection) to a GEXF graph for Gephi/`networkx`.
-- [02]-[MATRIX_EXPORT]: dump the technosphere/biosphere matrices to `.xlsx` / `.mat`.
-- [03]-[BACKUP]: tar-archive and restore a project or the data directory.
-- [04]-[IDENTITY]: deterministic node hash used as the `code` for unlinked/biosphere nodes.
-- [05]-[UTILITY]: unit normalization and bundled JSON data loading.
-- [06]-[STRATEGY_LIBRARY]: the composable linking functions (`link_iterable_by_fields`, `assign_only_product_as_production`, `drop_unspecified_subcategories`, `strip_biosphere_exc_locations`, `normalize_units`, `drop_unlinked`, `match_against_top_level_context`, …) that `apply_strategies` runs.
+- `bw2io.strategies`: `link_iterable_by_fields`, `assign_only_product_as_production`, `drop_unspecified_subcategories`, `strip_biosphere_exc_locations`, `normalize_units`, `drop_unlinked`, and `match_against_top_level_context` are the canonical linking functions `apply_strategies` runs.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[PIPELINE_TOPOLOGY]:
-- the canonical flow is `extract → apply_strategies → statistics → match/resolve → write_database`: construct an importer (extraction fills `self.data` as `list[dict]` nodes carrying `exchanges`), run the strategy pipeline to link edges, read `statistics()`/`all_linked` to gauge linking, resolve the residual unlinked set (match against another DB, add to biosphere, drop, or emit a `randonneur` remap template), then write to a `bw2data.Database`
-- `self.data` is plain Python data (a list of dicts), NOT a frame — strategies are pure `list[dict] -> list[dict]` functions, so a custom strategy is just a function passed to `apply_strategy`; this is the extension point for project-specific linking (EPD/material remaps) rather than subclassing
-- `write_database` is the boundary that mints the durable `Database`: it guards non-unique `code` (`NonuniqueCode`), enforces the single-target-database invariant (`WrongDatabase`), and auto-promotes to a `MultifunctionalDatabase` when any node is `multifunctional`
-- migrations are field-remap transforms: `migrate(name)` applies a registered `bw2io` migration; `randonneur(...)` applies the richer `randonneur`/`randonneur_data` verb set (`replace`/`update`/`disaggregate`, plus `create`/`delete` when explicitly enabled) to edges and/or nodes
+[TOPOLOGY]:
+- Canonical flow `extract → apply_strategies → statistics → match/resolve → write_database`: construct an importer (extraction fills `imp.data` as `list[dict]` nodes carrying `exchanges`), run the strategy pipeline to link edges, read `statistics()`/`all_linked`, resolve the residual unlinked set (match another DB, add to biosphere, drop, or emit a `randonneur` template), then write to a `bw2data.Database`.
+- `imp.data` is plain `list[dict]`, not a frame: strategies are pure `list[dict] -> list[dict]` functions, so a project-specific linker (EPD/material remap) is one function passed to `apply_strategy`, never a subclass.
+- `write_database` mints the durable `Database`: it guards non-unique `code` (`NonuniqueCode`), enforces the single-target invariant (`WrongDatabase`), and auto-promotes to `MultifunctionalDatabase` when any node is multifunctional.
+- Migrations are field-remap transforms: `migrate(name)` applies a registered `bw2io` migration; `randonneur(...)` applies the `randonneur`/`randonneur_data` verb set — `replace`/`update`/`disaggregate`, and `create`/`delete` when explicitly enabled — to edges and/or nodes.
 
-[INTEGRATION]:
-- bw2data/bw2calc seam (the spine): `bw2io` writes the `Database` and the LCIA methods into the active `bw2data` project; `bw2calc` (the LCA engine) and `bw_processing` (the matrix datapackage) consume that written database — the EPD/LCA owner runs `bw2io` ingestion once, then computes via `bw2calc`, never re-extracting at calculation time
-- premise seam (consumer): `premise` calls `bw2io` strategies to import its `additional_inventories` and normalize units before applying the prospective sector transforms; `bw2io` is the extra-LCI front door for premise's prospective builds, whose output `bw2data` databases `bw2calc` then scores (install `premise[bw25]` to bind this `bw2io 0.9.x` / `bw2data 4.x` / `bw2calc 2.5` line) — see `premise.md`
-- openepd/epdx seam: `openepd` (OpenEPD payloads) and `epdx` (parsed ILCD+EPD impacts) supply EPD material-impact rows; map them through a custom strategy + `ExcelImporter`/`CSVImporter` (or a synthesized `self.data`) into a Brightway database so EPD-declared impacts join the computed inventory
-- olca-ipc seam (cross-tool): openLCA exports JSON-LD; the JSON-LD importer ingests it into Brightway, and `olca-ipc` consumes the same model graph live — `bw2io` is the Brightway-side bridge of the two-engine LCA interchange
-- tabular/contract seam: `self.data` (nodes + exchanges) and the unlinked-edge set flatten into a `pandas`/`polars` frame for the data contract gate (`pandera`/`dataframely`) and the `statistics()` tuple becomes a `QualityProfile` row in the data profile rail — linking quality is a first-class receipt, not a print
-- graph seam: `DatabaseToGEXF`/`keyword_to_gephi_graph` hand the technosphere graph to the data graph owner (`rustworkx`/`networkx`) for topology analysis
-- stamina/observability seam: the remote one-shot imports (`import_ecoinvent_release`, `exiobase_monetary`, `useeio20`) hit network/Zenodo/credentialed endpoints — wrap them in a `stamina` retry; wrap `apply_strategies` (a multi-pass transform) in a `structlog`/`opentelemetry` span keyed by `db_name` so the linking pipeline is observable
-- ContentIdentity seam: key the imported database (and the `.bw2package` export) by the runtime `ContentIdentity` over the source file + strategy set so re-ingestion is deduped against the persistence reuse ledger
+[STACKING]:
+- `bw2data`(`.api/bw2data.md`): `write_database` writes the `Database` and LCIA methods into the active project; `bw2io` is the ingestion front door, `bw2data` the store.
+- `bw2calc`(`.api/bw2calc.md`): consumes the written database at solve time; ingestion runs once and computation never re-extracts.
+- `bw_processing`(`.api/bw-processing.md`): the matrix-datapackage substrate `write_database`'s output serializes into.
+- `premise`(`.api/premise.md`): calls `bw2io` strategies to import `additional_inventories` and normalize units before the prospective sector transforms; the `premise[bw25]` extra binds this Brightway-2.5 line, whose output databases `bw2calc` then scores.
+- `openepd`/`epdx`(`.api/openepd.md`, `.api/epdx.md`): EPD material-impact rows map through a custom strategy + `ExcelImporter`/`CSVImporter` into a Brightway database so declared impacts join the computed inventory.
+- `olca-ipc`(`.api/olca-ipc.md`): openLCA JSON-LD ingested via the JSON-LD importer, bridging the two-engine LCA interchange.
+- `rustworkx`(`.api/rustworkx.md`): `DatabaseToGEXF`/`keyword_to_gephi_graph` hand the technosphere graph to the graph owner for topology analysis.
+- `pandera`/`dataframely`(`.api/pandera.md`, `.api/dataframely.md`): `imp.data` and the unlinked set flatten to a frame for the contract gate, and `statistics()` becomes a `QualityProfile` row rather than a print.
+- within-lib: `apply_strategies` folds an ordered `bw2io.strategies` list, a custom `list[dict] -> list[dict]` strategy composing into the same fold; wrap the one-shot imports in a `stamina` retry and `apply_strategies` in a `structlog`/`opentelemetry` span keyed by `db_name`, and key the imported database and `.bw2package` export by the runtime `ContentIdentity` for reuse dedup.
 
-[EXCEPTIONS]:
-- `bw2io.errors.StrategyError` — a strategy/match references an absent external database or an invalid linking configuration
-- `bw2io.errors.NonuniqueCode` — two nodes resolve to the same `code` at `write_database`
-- `bw2io.errors.WrongDatabase` — a node's `database` field disagrees with the write target
-- `import_ecoinvent_release` degrades to a warning when `ecoinvent_interface` is absent; `SimaProBlockCSVImporter` is present only with `bw_simapro_csv`; `drop_unlinked` raises unless `i_am_reckless=True`
+[LOCAL_ADMISSION]:
+- `bw2io` is the sole ingestion path onto the EPD/LCA rail: a new source format is an `LCIImporter`/`LCIAImporter` subclass or a custom strategy, never a hand-rolled parser, and the written `bw2data.Database` is the only hand-off to `bw2calc`.
 
 [RAIL_LAW]:
 - Package: `bw2io`
 - Owns: extraction of external LCI/LCIA formats, the strategy-pipeline linking model, `bw2data.Database`/method writing, the biosphere/LCIA/migration bootstrap, `randonneur` migrations, GEXF/matrix export, and `BW2Package` interchange
-- Accept: the `extract → apply_strategies → statistics → match → write_database` pipeline; custom linking as a `list[dict] -> list[dict]` strategy passed to `apply_strategy`; `statistics()`/`all_linked` as the linking receipt; `randonneur`/`migrate` for field remaps; the one-shot `import_*`/`useeio20`/`exiobase_monetary` system imports under a retry; `.bw2package` for portable interchange
-- Reject: hand-rolled ecospold/SimaPro/Excel parsing when an importer owns the format; hand-rolled exchange linking when a `bw2io.strategies` function or `match_database` covers it; re-implementing the matrix build or LCA solve (that is `bw_processing`/`bw2calc`); treating `statistics()` output as a print instead of a persisted quality receipt
+- Accept: the `extract → apply_strategies → statistics → match → write_database` pipeline; custom linking as a `list[dict] -> list[dict]` strategy passed to `apply_strategy`; `statistics()`/`all_linked` as the receipt; `randonneur`/`migrate` for field remaps; the one-shot `import_*`/`useeio20`/`exiobase_monetary` imports under a retry; `.bw2package` for portable interchange
+- Reject: hand-rolled ecospold/SimaPro/Excel parsing when an importer owns the format; hand-rolled exchange linking when a `bw2io.strategies` function or `match_database` covers it; re-implementing the matrix build or LCA solve (`bw_processing`/`bw2calc`); treating `statistics()` as a print instead of a persisted quality receipt

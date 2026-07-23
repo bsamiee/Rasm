@@ -1,125 +1,113 @@
 # [PY_COMPUTE_API_ARRAY_API_EXTRA]
 
-`array-api-extra` supplies the Array API Standard extension functions absent from the base standard — `at`-style indexed updates, `apply_where`, `argpartition`, `one_hot`, `pad`, `searchsorted`, `setdiff1d`, `union1d`, and covariance/diagonal/sinc/nan utilities — operating against any `xp` namespace resolved by `array-api-compat`.
+`array-api-extra` owns the Array API extension operations the base standard omits, the `at` write-side indexed-update builder, and the lazy-dispatch wrapper, every op parametric over an `xp` namespace so one call runs backend-agnostic across NumPy, JAX, Torch, and Dask. It rides the extension tier directly above the `xp` namespace `array-api-compat` resolves.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `array-api-extra`
-- package: `array-api-extra`
-- version: `0.11.0`
-- license: MIT
+- package: `array-api-extra` (MIT)
 - module: `array_api_extra`
-- owner: `compute`
-- asset: runtime library
-- rail: array-api
+- rail: Array API extension tier over the resolved `xp` namespace
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: extension operations and helper types
-- rail: array-api
+[PUBLIC_TYPE_SCOPE]: extension operations, the `at` builder, and test helpers
 
-| [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [ROLE]                                              |
-| :-----: | :----------------- | :------------ | :-------------------------------------------------- |
-|  [01]   | `at`               | class         | indexed functional update builder (`at(x, idx)`)    |
-|  [02]   | `apply_where`      | function      | conditional two-branch elementwise apply            |
-|  [03]   | `argpartition`     | function      | indirect partial sort indices                       |
-|  [04]   | `atleast_nd`       | function      | broadcast array to at least `ndim` dimensions       |
-|  [05]   | `broadcast_shapes` | function      | compute broadcast shape for shape tuples            |
-|  [06]   | `cov`              | function      | covariance matrix                                   |
-|  [07]   | `create_diagonal`  | function      | diagonal matrix from 1-D array with optional offset |
-|  [08]   | `default_dtype`    | function      | default dtype for a kind on a namespace             |
-|  [09]   | `expand_dims`      | function      | insert axes at given positions                      |
-|  [10]   | `isclose`          | function      | element-wise approximate equality                   |
-|  [11]   | `isin`             | function      | element-wise membership test                        |
-|  [12]   | `kron`             | function      | Kronecker product                                   |
-|  [13]   | `lazy_apply`       | function      | apply func lazily for graph-traced backends         |
-|  [14]   | `nan_to_num`       | function      | replace NaN/inf with finite fill values             |
-|  [15]   | `nunique`          | function      | count distinct values                               |
-|  [16]   | `one_hot`          | function      | one-hot encode integer array                        |
-|  [17]   | `pad`              | function      | constant-mode padding                               |
-|  [18]   | `partition`        | function      | partial sort along axis                             |
-
-[PUBLIC_TYPE_SCOPE]: set and search operations
-- rail: array-api
-
-| [INDEX] | [SYMBOL]       | [TYPE_FAMILY] | [ROLE]                                     |
-| :-----: | :------------- | :------------ | :----------------------------------------- |
-|  [01]   | `searchsorted` | function      | sorted-array binary search                 |
-|  [02]   | `setdiff1d`    | function      | set difference of two 1-D arrays           |
-|  [03]   | `sinc`         | function      | normalized sinc function                   |
-|  [04]   | `union1d`      | function      | sorted union of two 1-D arrays             |
-|  [05]   | `angle`        | function      | element-wise phase angle of complex array  |
-|  [06]   | `testing`      | module        | test helpers for array-api-extra functions |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [CAPABILITY]               |
+| :-----: | :----------------- | :------------ | :------------------------- |
+|  [01]   | `at`               | class         | indexed-update builder     |
+|  [02]   | `apply_where`      | function      | masked two-branch apply    |
+|  [03]   | `argpartition`     | function      | partial-sort indices       |
+|  [04]   | `atleast_nd`       | function      | minimum-ndim broadcast     |
+|  [05]   | `broadcast_shapes` | function      | broadcast shape            |
+|  [06]   | `cov`              | function      | covariance matrix          |
+|  [07]   | `create_diagonal`  | function      | diagonal from 1-D          |
+|  [08]   | `default_dtype`    | function      | backend default dtype      |
+|  [09]   | `expand_dims`      | function      | axis insertion             |
+|  [10]   | `isclose`          | function      | approximate equality       |
+|  [11]   | `isin`             | function      | membership test            |
+|  [12]   | `kron`             | function      | Kronecker product          |
+|  [13]   | `lazy_apply`       | function      | lazy graph dispatch        |
+|  [14]   | `nan_to_num`       | function      | NaN/inf fill               |
+|  [15]   | `nunique`          | function      | distinct count             |
+|  [16]   | `one_hot`          | function      | one-hot encoding           |
+|  [17]   | `pad`              | function      | constant-mode padding      |
+|  [18]   | `partition`        | function      | partial sort along axis    |
+|  [19]   | `searchsorted`     | function      | sorted-array binary search |
+|  [20]   | `setdiff1d`        | function      | 1-D set difference         |
+|  [21]   | `sinc`             | function      | normalized sinc            |
+|  [22]   | `union1d`          | function      | sorted 1-D union           |
+|  [23]   | `angle`            | function      | complex phase angle        |
+|  [24]   | `testing`          | module        | lazy-backend test helpers  |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: core array extensions
-- rail: array-api
-- every entry accepts a trailing `*, xp=None` namespace override (elided below; `default_dtype` takes `xp` positionally)
+[ENTRYPOINT_SCOPE]: extension operations
+- `xp` carry: every op takes a trailing `*, xp=None` namespace override, elided below; `default_dtype` alone takes `xp` positionally.
 
-| [INDEX] | [SURFACE]                                                                           | [ENTRY_FAMILY] | [RAIL]                            |
-| :-----: | :---------------------------------------------------------------------------------- | :------------- | :-------------------------------- |
-|  [01]   | `at(x, idx=UNDEF, /) -> at` then `.<verb>(y, /, copy=None) -> Array`                | indexed update | JAX-style indexed write builder   |
-|  [02]   | `apply_where(cond, args, f1, f2=None, /, *, fill_value=None, kwargs=None) -> Array` | conditional    | two-branch element-wise dispatch  |
-|  [03]   | `argpartition(a, kth, /, axis=-1)`                                                  | sort           | indirect partial sort             |
-|  [04]   | `atleast_nd(x, /, *, ndim)`                                                         | shape          | broadcast to minimum ndim         |
-|  [05]   | `broadcast_shapes(*shapes) -> tuple[int \| None, ...]`                              | shape          | broadcast shape computation       |
-|  [06]   | `cov(m, /)`                                                                         | statistics     | covariance matrix                 |
-|  [07]   | `create_diagonal(x, /, *, offset=0)`                                                | linear algebra | diagonal matrix from 1-D          |
-|  [08]   | `default_dtype(xp, kind='real floating', *, device=None)`                           | dtype          | backend default dtype query       |
-|  [09]   | `expand_dims(a, /, *, axis=(0,))`                                                   | shape          | insert axes                       |
-|  [10]   | `isclose(a, b, *, rtol=1e-5, atol=1e-8, equal_nan=False)`                           | comparison     | approximate equality              |
-|  [11]   | `isin(a, b, /, *, assume_unique=False, invert=False, kind=None)`                    | membership     | element membership test           |
-|  [12]   | `kron(a, b, /)`                                                                     | linear algebra | Kronecker product                 |
-|  [13]   | `lazy_apply(func, *args, shape=None, dtype=None, as_numpy=False, **kwargs)`         | lazy           | lazy dispatch; Array or tuple out |
-|  [14]   | `nan_to_num(x, /, *, fill_value=0.0)`                                               | cleaning       | replace NaN/inf                   |
-|  [15]   | `nunique(x, /)`                                                                     | aggregation    | count unique elements             |
-|  [16]   | `one_hot(x, /, num_classes, *, dtype=None, axis=-1)`                                | encoding       | one-hot encoding                  |
-|  [17]   | `pad(x, pad_width, mode='constant', *, constant_values=0)`                          | shape          | constant-mode padding             |
-|  [18]   | `partition(a, kth, /, axis=-1)`                                                     | sort           | partial sort along axis           |
+| [INDEX] | [SURFACE]                                                                   | [SHAPE] | [CAPABILITY]                      |
+| :-----: | :-------------------------------------------------------------------------- | :------ | :-------------------------------- |
+|  [01]   | `at(x, idx=UNDEF, /)` then `.<verb>(y, /, copy=None) -> Array`              | factory | JAX-style indexed write builder   |
+|  [02]   | `apply_where(cond, args, f1, f2=None, /, *, fill_value=None, kwargs=None)`  | static  | mask-guarded two-branch dispatch  |
+|  [03]   | `argpartition(a, kth, /, axis=-1)`                                          | static  | indirect partial sort             |
+|  [04]   | `atleast_nd(x, /, *, ndim)`                                                 | static  | broadcast to minimum ndim         |
+|  [05]   | `broadcast_shapes(*shapes) -> tuple[int \| None, ...]`                      | static  | broadcast shape computation       |
+|  [06]   | `cov(m, /)`                                                                 | static  | covariance matrix                 |
+|  [07]   | `create_diagonal(x, /, *, offset=0)`                                        | static  | diagonal matrix from 1-D          |
+|  [08]   | `default_dtype(xp, kind='real floating', *, device=None)`                   | static  | backend canonical dtype query     |
+|  [09]   | `expand_dims(a, /, *, axis=(0,))`                                           | static  | insert axes                       |
+|  [10]   | `isclose(a, b, *, rtol=1e-5, atol=1e-8, equal_nan=False)`                   | static  | approximate equality              |
+|  [11]   | `isin(a, b, /, *, assume_unique=False, invert=False, kind=None)`            | static  | element membership test           |
+|  [12]   | `kron(a, b, /)`                                                             | static  | Kronecker product                 |
+|  [13]   | `lazy_apply(func, *args, shape=None, dtype=None, as_numpy=False, **kwargs)` | static  | lazy dispatch for traced backends |
+|  [14]   | `nan_to_num(x, /, *, fill_value=0.0)`                                       | static  | replace NaN/inf                   |
+|  [15]   | `nunique(x, /)`                                                             | static  | count unique elements             |
+|  [16]   | `one_hot(x, /, num_classes, *, dtype=None, axis=-1)`                        | static  | one-hot encoding                  |
+|  [17]   | `pad(x, pad_width, mode='constant', *, constant_values=0)`                  | static  | constant-mode padding             |
+|  [18]   | `partition(a, kth, /, axis=-1)`                                             | static  | partial sort along axis           |
+|  [19]   | `searchsorted(x1, x2, /, *, side='left')`                                   | static  | sorted binary search              |
+|  [20]   | `setdiff1d(x1, x2, /, *, assume_unique=False)`                              | static  | set difference                    |
+|  [21]   | `sinc(x, /)`                                                                | static  | normalized sinc                   |
+|  [22]   | `union1d(a, b, /)`                                                          | static  | sorted set union                  |
+|  [23]   | `angle(z, /, *, deg=False)`                                                 | static  | complex phase angle               |
 
-[ENTRYPOINT_SCOPE]: set, search, and testing
-- rail: array-api
-- every entry accepts a trailing `*, xp=None` namespace override (elided below); `testing.*` is test-scope only
+- `lazy_apply` returns `Array` or `tuple[Array, ...]` per the declared `shape` arity.
 
-| [INDEX] | [SURFACE]                                                                        | [ENTRY_FAMILY] | [RAIL]                           |
-| :-----: | :------------------------------------------------------------------------------- | :------------- | :------------------------------- |
-|  [01]   | `searchsorted(x1, x2, /, *, side='left')`                                        | search         | binary search                    |
-|  [02]   | `setdiff1d(x1, x2, /, *, assume_unique=False)`                                   | set            | set difference                   |
-|  [03]   | `sinc(x, /)`                                                                     | math           | normalized sinc                  |
-|  [04]   | `union1d(a, b, /)`                                                               | set            | set union                        |
-|  [05]   | `angle(z, /, *, deg=False)`                                                      | complex        | phase angle                      |
-|  [06]   | `testing.assert_close(actual, desired, *, rtol=None, atol=0, ...)`               | test helper    | approximate equality assert      |
-|  [07]   | `testing.assert_equal(actual, desired, *, ...)`                                  | test helper    | exact equality assert            |
-|  [08]   | `testing.assert_less(x, y, *, ...)`                                              | test helper    | strict less assert               |
-|  [09]   | `testing.assert_close_nulp(actual, desired, *, nulp=1, ...)`                     | test helper    | ULP-based assert                 |
-|  [10]   | `testing.lazy_xp_function(func, *, allow_dask_compute=False, jax_jit=True, ...)` | test fixture   | wrap func for lazy-backend tests |
-|  [11]   | `testing.patch_lazy_xp_functions(request, monkeypatch=None, *, xp)`              | test fixture   | patch lazy dispatch; context mgr |
-|  [12]   | `testing.jax_autojit(func)`                                                      | test fixture   | auto-`jax.jit` lazy wrapper      |
-|  [13]   | `testing.pickle_flatten(obj, leaf_types) / pickle_unflatten(leaves, aux)`        | test helper    | pickle-flatten lazy pytrees      |
+[ENTRYPOINT_SCOPE]: `testing` helpers, test scope only
+- assert family shares: `*, err_msg='', verbose=True, check_dtype=True, check_shape=True, check_scalar=False, xp=None`, elided below.
+
+| [INDEX] | [SURFACE]                                                                     | [SHAPE] | [CAPABILITY]                     |
+| :-----: | :---------------------------------------------------------------------------- | :------ | :------------------------------- |
+|  [01]   | `testing.assert_close(actual, desired, *, rtol=None, atol=0, equal_nan=True)` | static  | approximate-equality assert      |
+|  [02]   | `testing.assert_equal(actual, desired)`                                       | static  | exact-equality assert            |
+|  [03]   | `testing.assert_less(x, y)`                                                   | static  | strict-less assert               |
+|  [04]   | `testing.assert_close_nulp(actual, desired, *, nulp=1)`                       | static  | ULP-based assert                 |
+|  [05]   | `testing.lazy_xp_function(func, *, allow_dask_compute=False, jax_jit=True)`   | static  | wrap func for lazy-backend tests |
+|  [06]   | `testing.patch_lazy_xp_functions(request, monkeypatch=None, *, xp)`           | static  | patch lazy dispatch; context mgr |
+|  [07]   | `testing.jax_autojit(func)`                                                   | static  | auto-`jax.jit` lazy wrapper      |
+|  [08]   | `testing.pickle_flatten(obj, cls)`                                            | static  | flatten lazy pytree to leaves    |
+|  [09]   | `testing.pickle_unflatten(instances, rest)`                                   | static  | rebuild pytree from leaves       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[ARRAY_API_EXTRA_TOPOLOGY]:
-- all operations accept an optional `xp` keyword; omitting it triggers `array_namespace(*arrays)` resolution internally, so the dense rail resolves `xp` once at the boundary and threads it.
-- `at(x, idx)` returns an `at` builder; the terminal verbs are exactly `set`, `add`, `subtract`, `multiply`, `divide`, `power`, `min`, `max`, each `(y, /, copy=None, xp=None) -> Array`. There is no `.get`; this is the write-side index algebra only.
-- `copy=` is the load-bearing knob: `copy=None` (default) mutates in place for a writeable backend and copies for a read-only one (so JAX/Dask always copy, NumPy mutates); `copy=True` always copies; `copy=False` mutates and raises on a read-only buffer. Gate `copy=False` behind `array_api_compat.is_writeable_array(x)`.
-- `lazy_apply(func, *args, shape=, dtype=, as_numpy=)` is the deferred entry for graph-execution backends (JAX `jit`, Dask), declaring output `shape`/`dtype` so the wrapped `func` participates in tracing; `as_numpy=True` materializes to NumPy inside the wrapper for non-traceable bodies.
-- `default_dtype(xp, kind=...)` resolves the backend's canonical dtype for `'real floating'`/`'complex floating'`/`'integral'`/`'indexing'`; use it instead of a hardcoded `xp.float64` when allocating result buffers.
+[TOPOLOGY]:
+- Every op takes an optional `xp`; omitting it runs `array_namespace(*arrays)` internally, so a kernel resolves `xp` once at the boundary and threads it into every call.
+- `at(x, idx)` returns a write-only builder whose terminal verbs — `set` `add` `subtract` `multiply` `divide` `power` `min` `max` — each take `(y, /, copy=None, xp=None) -> Array`; the surface carries no read side.
+- `copy=None` mutates a writeable backend in place and copies a read-only one (NumPy mutates, JAX and Dask copy); `copy=True` always copies; `copy=False` mutates and raises on a read-only buffer, so it rides behind `is_writeable_array(x)`.
+- `lazy_apply(func, *args, shape=, dtype=, as_numpy=)` defers `func` into a traced graph (JAX `jit`, Dask), its declared output `shape`/`dtype` letting tracing succeed; `as_numpy=True` materializes to NumPy for a non-traceable body.
+- `default_dtype(xp, kind=...)` resolves a backend's canonical `real floating`/`complex floating`/`integral`/`indexing` dtype for result-buffer allocation, replacing a hardcoded `xp.float64`.
 
 [STACKING]:
-- `array-api-extra` sits directly on `array-api-compat`: the canonical compute kernel does `xp = array_namespace(*arrays)` then `array_api_extra.<op>(..., xp=xp)`, giving one backend-agnostic rail across NumPy/JAX/Torch/Dask without a per-backend branch.
-- The `at(...).set(..., copy=...)` builder is the polymorphic substitute for JAX `.at[idx].set()` AND NumPy in-place assignment in one surface, so a kernel that must run under both `jax` (graduation/sampler study) and NumPy (eager analysis) writes one indexed-update expression.
-- `lazy_apply` pairs with `array_api_compat.is_lazy_array`: the lazy guard decides whether to wrap in `lazy_apply` (traced backend) or call the op directly (eager), the same eager/lazy fork the `diffrax`/`equinox`/`optimistix` JAX rails depend on.
-- `apply_where(cond, args, f1, f2, fill_value=)` is the safe two-branch elementwise primitive replacing `xp.where(cond, f1(x), f2(x))` when `f1`/`f2` does error on the masked-out domain (e.g. `log` of non-positive); it only evaluates each branch on its live mask, which graph backends require.
+- `array-api-compat`(`.api/array-api-compat.md`): `xp = array_namespace(*arrays)` resolves the namespace once, then `array_api_extra.<op>(..., xp=xp)` threads it — one backend-agnostic rail with no per-backend branch; `is_writeable_array(x)` gates the `at(...).set(..., copy=...)` mutate-vs-copy fork, and `is_lazy_array(x)` routes the traced path to `lazy_apply` and the eager path to the direct `xp` op, the same eager/lazy fork the `diffrax`/`equinox`/`optimistix` JAX rails consume.
+- within-lib (compute kernels): `at(...).set(..., copy=...)` is the single indexed-update expression spanning JAX `.at[idx].set()` and NumPy in-place assignment, and `apply_where(cond, args, f1, f2, fill_value=)` evaluates each branch only on its live mask — the graph-safe substitute for `xp.where(cond, f1(x), f2(x))` where a branch errors off its masked domain (`log` of non-positive).
 
 [LOCAL_ADMISSION]:
-- Pass `xp` explicitly once it is resolved to avoid redundant dispatch inside hot paths.
-- `lazy_apply` is required when `func` uses control flow incompatible with graph tracing (JAX/Dask); declare `shape`/`dtype` so tracing succeeds.
-- `testing.*` (including `lazy_xp_function`, `patch_lazy_xp_functions`, `jax_autojit`, `pickle_flatten`) belongs in test scope only; never import in production compute owners.
+- Thread the resolved `xp` into every call; a hot path never re-dispatches.
+- `lazy_apply` is required where `func`'s control flow resists graph tracing (JAX, Dask); its `shape`/`dtype` declaration is what makes tracing succeed.
+- `testing.*` imports under test scope alone, never a production compute owner.
 
 [RAIL_LAW]:
 - Package: `array-api-extra`
-- Owns: Array API extension functions absent from the base standard plus the `at` indexed-update builder and lazy-dispatch wrapper
-- Accept: `xp`-parametric calls that stay backend-agnostic, `at(...).set(..., copy=...)` gated by `is_writeable_array`, `lazy_apply` gated by `is_lazy_array`
-- Reject: hand-rolling any of these extension patterns against a single backend; a vendor-specific `.at[]`/in-place assignment when the `at` builder spans both; importing `testing` outside test scope
+- Owns: the Array API extension operations absent from the base standard, the `at` indexed-update builder, and the lazy-dispatch wrapper
+- Accept: `xp`-parametric backend-agnostic calls, `at(...).set(..., copy=...)` gated by `is_writeable_array`, `lazy_apply` gated by `is_lazy_array`
+- Reject: a single-backend hand-roll of any extension pattern, a vendor `.at[]` or in-place assignment where the `at` builder spans both, a `testing` import outside test scope

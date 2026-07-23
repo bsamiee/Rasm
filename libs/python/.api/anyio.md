@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_ANYIO]
 
-`anyio` supplies a backend-agnostic structured concurrency layer over asyncio and Trio: task groups, cancel scopes, memory object streams, networking (TCP/UNIX/UDP/TLS), async file and process I/O, thread/process/subinterpreter offload, blocking-portal bridges, synchronization primitives, signal receivers, and typed-attribute stream introspection — one stable API the boundary tier composes for every concurrent, networked, or offloaded effect.
+`anyio` mints one backend-agnostic structured-concurrency layer over asyncio and Trio; every concurrent, networked, or offloaded effect the boundary tier runs folds through its task groups, cancel scopes, and streams instead of a raw event loop, so domain code never imports a backend.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -241,30 +241,30 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [ANYIO_TOPOLOGY]:
-- backends: `asyncio` (default) and `trio`, selected at `run(backend=...)` or the `anyio_backend` pytest fixture; domain code never imports backend modules.
-- task groups enforce structured concurrency: every child started via `tg.start_soon`/`tg.start` completes before the `async with` block exits; failures aggregate into a `BaseExceptionGroup` (use `except*`).
-- `tg.start(func, ...)` waits for the child to call `task_status.started(value)` and returns that value (`return_handle=True` returns the `TaskHandle` whose `.start_value` carries the handshake); `tg.start_soon(func, ...)` runs no readiness handshake and returns `TaskHandle[T]` — `.return_value` reads the child's terminal after the `async with` closes, `.status` the closed `TaskHandle.Status` disposition.
-- `CancelScope(deadline=, shield=)` is the cancellation primitive; `fail_after`/`move_on_after` return one as a context manager. Cancellation is level-triggered: a scope stays cancelled, and a swallowed cancellation re-raises at the next checkpoint unless shielded.
-- `create_memory_object_stream[T](max_buffer_size, item_type)` returns a `(MemoryObjectSendStream[T], MemoryObjectReceiveStream[T])` pair; subscript the call for the item type, `send_nowait`/`receive_nowait` raise `WouldBlock`, and a closed receive end raises `BrokenResourceError` on send.
-- `connect_tcp(..., tls=True, tls_hostname=...)` performs the TLS handshake inline and returns a `TLSStream`; otherwise wrap any `ByteStream` with `streams.tls.TLSStream.wrap(...)` and read peer-cert/ALPN through the `stream.extra(TLSAttribute.*)` lookups.
-- `to_thread.run_sync` dispatches to a `CapacityLimiter`-bounded thread pool (default 40 tokens); pass an explicit limiter to bound a subsystem. `to_process.run_sync` forks a persistent worker subprocess and crosses arguments/results by pickle. `to_interpreter.run_sync` dispatches into a PEP-734 subinterpreter (each carrying its own GIL on a runnable `concurrent.interpreters`) — no process spawn, but only PEP-734-SHAREABLE values cross copy-free: an ordinary non-shareable payload still pickles in-process on the hop, so serialization cost stays a lane-selection input; a worker raise/death surfaces as `BrokenWorkerProcess`/`BrokenWorkerInterpreter` respectively.
-- `from_thread.BlockingPortalProvider(backend, backend_options)` lets many threads share one event loop; `portal.call`/`portal.start_task_soon`/`portal.wrap_async_context_manager` bridge sync callers into async code, raising `RunFinishedError` after the loop closes.
-- typed-attribute introspection (`stream.extra(attr)`) is the single polymorphic surface for socket/TLS/file metadata — never reach for `raw_socket` properties directly; declare a `TypedAttributeSet` for owner-local stream wrappers.
+- `run(backend=...)` or the `anyio_backend` pytest fixture selects `asyncio` (default) or `trio`; domain code imports neither backend module.
+- Task groups enforce structured concurrency: every `tg.start_soon`/`tg.start` child finishes before the `async with` exits, and child failures aggregate into a `BaseExceptionGroup` caught with `except*`.
+- `tg.start(func, ...)` blocks until the child calls `task_status.started(value)` and returns that value; `return_handle=True` yields the `TaskHandle` whose `.start_value` carries the handshake. `tg.start_soon` runs no handshake and returns `TaskHandle[T]` — `.return_value` reads the terminal after the block closes, `.status` its closed `TaskHandle.Status`.
+- `CancelScope(deadline=, shield=)` is the cancellation primitive `fail_after`/`move_on_after` wrap; cancellation is level-triggered, so a scope stays cancelled and a swallowed cancellation re-raises at the next checkpoint unless shielded.
+- `create_memory_object_stream[T](...)` is subscripted for the item type; `send_nowait`/`receive_nowait` raise `WouldBlock`, and a send onto a closed receive end raises `BrokenResourceError`.
+- TLS rides `connect_tcp(..., tls=True, tls_hostname=...)` inline or `streams.tls.TLSStream.wrap(...)` over any `ByteStream`; peer cert and ALPN read through `stream.extra(TLSAttribute.*)`.
+- Offload splits by cost: `to_thread.run_sync` bounds a `CapacityLimiter` thread pool (40 default), `to_process.run_sync` crosses a persistent subprocess by pickle, `to_interpreter.run_sync` dispatches a PEP-734 subinterpreter (own GIL, in-process) where only PEP-734-shareable values cross copy-free — a non-shareable payload still pickles on the hop, so serialization cost is a lane-selection input. A worker raise or death surfaces as `BrokenWorkerProcess`/`BrokenWorkerInterpreter`.
+- `from_thread.BlockingPortalProvider(backend, backend_options)` shares one loop across many threads; `portal.call`/`portal.start_task_soon`/`portal.wrap_async_context_manager` bridge sync callers in, raising `RunFinishedError` after the loop closes.
+- `stream.extra(attr)` is the one polymorphic surface for socket, TLS, and file metadata; an owner-local wrapper declares a `TypedAttributeSet`.
 
-[STACKS_WITH]:
-- `grpcio` (`.api/grpcio.md`): `grpc.aio` servers and channels require a running loop; enter via `anyio.run(serve, backend='asyncio')` and bound every blocking servicer body through `to_thread.run_sync(..., limiter=...)`. Map per-call deadlines onto `fail_after`/`move_on_after` rather than channel options, and bridge sync entrypoints with a `BlockingPortalProvider`.
-- `httpx`: pass `anyio` deadlines around `httpx.AsyncClient` calls via `fail_after`; never `asyncio.wait_for`. Fan concurrent requests through one `create_task_group` so a single failure cancels siblings and aggregates as an `ExceptionGroup`.
-- `msgspec`/`pydantic` (`.api/msgspec.md`, `.api/pydantic.md`): frame a raw `ByteStream` with `BufferedByteReceiveStream.receive_until(b'\n', max_bytes)` (or `receive_exactly(n)`), then feed the frame to `msgspec.json.Decoder(type=T).decode(...)` for a zero-copy validated wire decode; a `MemoryObjectReceiveStream[T]` typed on a `msgspec.Struct` carries validated objects between tasks without re-serialization.
-- `stamina`: wrap a `connect_tcp`/`run_process`/`to_thread.run_sync` effect in `stamina.retry_context(...)`; the retry sleep IS an `anyio.sleep` checkpoint, so an enclosing `move_on_after` deadline still preempts a retry storm.
-- `structlog`/`opentelemetry` (`.api/structlog.md`, `.api/opentelemetry-*.md`): bind a `RunVar` (or a `contextvars.ContextVar`, which anyio backends propagate per-task) carrying the trace context so structlog and OTel spans survive task-group hops and `from_thread` bridges; one OTel span per task, opened inside the child coroutine.
-- `expression` (`.api/expression.md`): an offloaded `to_thread.run_sync` boundary returns a value the caller lifts into `Result` via `result.of_option`/a try-builder; never let a `BrokenWorkerProcess`/`TimeoutError` escape the boundary adapter as a raw exception.
+[STACKING]:
+- `grpcio`(`.api/grpcio.md`): `grpc.aio` servers and channels enter via `anyio.run(serve, backend='asyncio')`, every blocking servicer body bounded through `to_thread.run_sync(..., limiter=...)`; per-call deadlines map onto `fail_after`/`move_on_after`, sync entrypoints bridge through a `BlockingPortalProvider`.
+- `httpx`: an `httpx.AsyncClient` call takes an `anyio` deadline via `fail_after`, and one `create_task_group` fans concurrent requests so a single failure cancels siblings and aggregates as an `ExceptionGroup`.
+- `msgspec`/`pydantic`(`.api/msgspec.md`, `.api/pydantic.md`): `BufferedByteReceiveStream.receive_until(b'\n', max_bytes)` or `receive_exactly(n)` frames a raw `ByteStream`, the frame feeding `msgspec.json.Decoder(type=T).decode(...)` for a zero-copy validated wire decode; a `MemoryObjectReceiveStream[T]` typed on a `msgspec.Struct` moves validated objects between tasks with no re-serialization.
+- `stamina`: a `connect_tcp`/`run_process`/`to_thread.run_sync` effect wraps in `stamina.retry_context(...)` whose retry sleep IS an `anyio.sleep` checkpoint, so an enclosing `move_on_after` still preempts a retry storm.
+- `structlog`/`opentelemetry`(`.api/structlog.md`, `.api/opentelemetry-sdk.md`): a `RunVar` (or a per-task-propagated `contextvars.ContextVar`) carries the trace context across task-group hops and `from_thread` bridges; one OTel span per task, opened inside the child coroutine.
+- `expression`(`.api/expression.md`): an offloaded `to_thread.run_sync` return lifts into `Result` via `result.of_option`/a try-builder at the boundary adapter, so a `BrokenWorkerProcess`/`TimeoutError` never escapes raw.
+- `loky`(`.api/loky.md`): `get_reusable_executor().submit(...)` returns a blocking `concurrent.futures` future; `to_thread.run_sync(future.result, abandon_on_cancel=True, limiter=...)` bridges its wait off the loop, so the `WorkerPool` COOPERATIVE-`PROCESS` arm never stalls the event loop.
+- `pebble`(`.api/pebble.md`): `ProcessPool.schedule(fn, timeout=)` owns the wall-clock kill anyio cancellation cannot express against a native C loop; its `ProcessFuture.result` bridges through `to_thread.run_sync(..., abandon_on_cancel=True, limiter=...)`.
+- `cloudpickle`(`.api/cloudpickle.md`): `to_interpreter.run_sync` is the PEP-734 subinterpreter pickle boundary — an ordinary closure crosses only because `Kernel.of` pre-reduced it with `cloudpickle.dumps`; the process crossings ride the `loky`/`pebble` pools.
 
 [LOCAL_ADMISSION]:
-- Use `create_task_group` for concurrent task launch; never `asyncio.gather`, `asyncio.create_task`, or `asyncio.TaskGroup` directly.
-- Use `fail_after`/`move_on_after` for every deadline-bounded I/O; never `asyncio.wait_for`.
-- Use `connect_tcp`/`create_tcp_listener`/`create_udp_socket` and `open_signal_receiver` instead of raw `socket`/`signal` — those bypass deadline, cancellation, and observability policy.
-- Use `to_thread.run_sync` (CPU-light blocking I/O), `to_interpreter.run_sync` (CPU-bound, picklable-free), and `to_process.run_sync` (process isolation / GIL-hostile native calls); always pass an explicit `CapacityLimiter` for bounded subsystems.
-- Use `lowlevel.checkpoint` in tight loops or polling code so cancellation and fairness still apply.
+- Offload by workload: `to_thread.run_sync` for CPU-light blocking I/O, `to_interpreter.run_sync` for CPU-bound shareable-payload work, `to_process.run_sync` for process isolation or GIL-hostile native calls — each with an explicit `CapacityLimiter` per bounded subsystem.
+- `lowlevel.checkpoint` in a tight loop or polling body keeps cancellation and fairness live.
 
 [RAIL_LAW]:
 - Package: `anyio`

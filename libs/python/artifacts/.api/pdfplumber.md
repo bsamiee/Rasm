@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_PDFPLUMBER]
 
-`pdfplumber` supplies the ruled-table, word-geometry, region, and tagged-structure recovery surface for the artifacts `document` lens: a `pdfplumber.open` factory that parses a PDF stream into a `PDF`/`Page` container hierarchy carrying per-object char/line/rect/curve/edge geometry as plain dicts, plus a `TableFinder` engine that resolves ruled-line intersections into `Table` cell grids and a `WordExtractor` that clusters chars into positioned word dicts. The package owner composes `open(stream, repair=)`, `Page.extract_words(extra_attrs=)`, `Page.within_bbox(bbox).extract_text_lines`, `Page.find_tables(table_settings=)`/`Table.extract`/`Table.cells`/`Table.bbox`, `Page.structure_tree`, `Page.hyperlinks`, and `Page.search` into the `document/lens#LENS` `LensProvider.PLUMBER` arm of the `TABLE`/`WORDS`/`REGION`/`STRUCTURE`/`LINK`/`SEARCH` recovery ops; it removes any hand-rolled PDF tokenizer because pdfminer.six parsing is in-package, and it never re-implements the line-snap/intersection cell-detection algorithm pdfplumber already owns. The pure-Python extraction stacks ON TOP OF the universal rails: the `pdfplumber.PdfminerException` parse fault is caught at the boundary adapter and lifted onto the `expression` `Result.Error`/`document/lens#LENS` `LensFault` rail (never escaping raw); the synchronous parse runs across the `anyio` `to_thread.run_sync(..., limiter=_OFFLOAD)` seam (pdfminer.six releases the GIL on the C decompression/parse, so a thread offload — not a subprocess pickle hop — keeps it off the loop while `pymupdf`-native and the `ocrmypdf`/`python-calamine` worker arms take `to_process`); the per-page char/word/line dicts fold into the canonical `document/model#NODE` `DocumentNode` whose `msgspec.msgpack` digest is the only content codec; and every recovery rides the `structlog`+OpenTelemetry `async_boundary` span plus the `@receipted` weave the consumer wraps each op in, with `beartype` narrowing the recovered dict shapes at the seam. `pdfplumber` is the higher-recall `lines`/`lines_strict`/`text`/`explicit` ruled-table arm beside the native `pymupdf` `TableFinder` bulk arm; the two meet at PDF bytes and the shared `DocumentNode` grid.
+`pdfplumber` owns ruled-table, word-geometry, region, and tagged-structure recovery over `pdfminer.six`: `pdfplumber.open` parses a PDF stream into a `PDF`/`Page` hierarchy carrying per-object geometry as plain dicts, a `TableFinder` resolves ruled-line intersections into `Table` cell grids, and a `WordExtractor` clusters chars into positioned word dicts. It feeds the `document` lens `LensProvider.PLUMBER` arm as the higher-recall `lines`/`lines_strict`/`text`/`explicit` ruled-table arm beside the native `pymupdf` bulk arm, meeting it at PDF bytes and the shared `DocumentNode` grid.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,18 +9,14 @@
 - import: `pdfplumber`
 - owner: `artifacts`
 - rail: table
-- installed: `0.11.10`
-- license: `MIT`; permissive, no copyleft constraint — pdfplumber and its `pdfminer.six` parse core are unrestricted in a closed/distributed pipeline (the AGPL licensing constraint is on the sibling `pymupdf` arm, never here)
-- build floor: pure-Python wheel, `Requires-Python >=3.8`; no cp-gate, no native build — runs on the cp315 runtime in-process; `pdfminer.six`/`pypdfium2`/`Pillow` are the transitive parse/raster deps
-- entry points: console script `pdfplumber` (CLI; `--format csv/json/text` over `to_csv`/`to_json`); library use is import-only via `pdfplumber.open` (the `LensProvider.PLUMBER` arm never shells the CLI)
-- capability: PDF stream parsing into a `PDF`/`Page` container hierarchy, per-object char/line/rect/curve/image/annot/hyperlink/edge geometry, ruled-line `TableFinder` cell detection (`lines`/`lines_strict`/`text`/`explicit` strategies with full snap/join/intersection tolerance fields), positioned word/char extraction with tolerance + direction clustering, layout-preserving text rendering and regex `search`, tagged-PDF logical `structure_tree`, bbox crop/within/outside/filter/dedupe views, `to_csv`/`to_json`/`to_dict` object export, `PageImage` raster render with a draw/outline debug surface, and Ghostscript-backed repair
+- license: `MIT` — permissive, unrestricted in a closed or distributed pipeline
+- build: pure-Python wheel, no native build, runs in-process on the cp315 runtime; `pdfminer.six`/`pypdfium2`/`Pillow` are the transitive parse/raster deps
+- entry points: console script `pdfplumber` dumps CSV/JSON/text; library use is import-only via `pdfplumber.open`
+- capability: PDF parsing into a `PDF`/`Page` hierarchy; per-object char/line/rect/curve/image/annot/hyperlink/edge geometry; ruled-line `TableFinder` cell detection over four strategies with full snap/join/intersection tolerance; tolerance- and direction-clustered word/char extraction; layout-preserving text and regex `search`; tagged-PDF `structure_tree`; bbox crop/within/outside/filter/dedupe views; `to_csv`/`to_json`/`to_dict` export; `PageImage` raster debug overlays; Ghostscript repair
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: container and table roots
-- rail: table
-
-`open` returns a `PDF` whose `pages` property yields `Page` containers; `Page.find_tables` returns `Table` instances built by `TableFinder` from snapped/joined edges, and `TableSettings` carries the strategy and tolerance policy resolved from a settings dict. `PdfminerException` wraps a failed pdfminer.six parse.
+[PUBLIC_TYPE_SCOPE]: container roots, table grid, and faults
 
 | [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]        | [CAPABILITY]                                                        |
 | :-----: | :--------------------------------------- | :------------------- | :------------------------------------------------------------------ |
@@ -41,61 +37,35 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: open and document navigation
-- rail: table
+- `pages` restricts to the 1-indexed page list; `repair=True` runs Ghostscript over a malformed file before parsing.
 
-`open` accepts a path, `pathlib.Path`, or binary stream and returns a `PDF`; `pages` restricts to the 1-indexed `pages` argument when supplied. `repair` runs Ghostscript over a malformed file before parsing.
-
-Call shapes by index:
-- [01]: `pdfplumber.open` — `open(path_or_fp, pages=None, laparams=None, password=None, strict_metadata=False, unicode_norm=None, repair=False, gs_path=None, repair_setting="default", raise_unicode_errors=True)` -> `PDF`
-- [02]: `pdfplumber.repair` — `repair(path_or_fp, outfile=None, password=None, gs_path=None, setting="default")` -> `Optional[BytesIO]`
-- [03]: `PDF.pages` — property -> `List[Page]`
-- [04]: `PDF.metadata` — attribute -> `Dict[str, Any]`
-- [05]: `PDF.objects` — property -> `Dict[str, T_obj_list]`
-
-| [INDEX] | [SURFACE]           | [CAPABILITY]                                |
-| :-----: | :------------------ | :------------------------------------------ |
-|  [01]   | `pdfplumber.open`   | parse a PDF into a `PDF` container          |
-|  [02]   | `pdfplumber.repair` | Ghostscript-rewrite a malformed PDF         |
-|  [03]   | `PDF.pages`         | 1-indexed page list (restricted by `pages`) |
-|  [04]   | `PDF.metadata`      | resolved document info dictionary           |
-|  [05]   | `PDF.objects`       | all parsed objects keyed by kind            |
+| [INDEX] | [SURFACE]                                                    | [SHAPE]  | [CAPABILITY]                        |
+| :-----: | :----------------------------------------------------------- | :------- | :---------------------------------- |
+|  [01]   | `open(path_or_fp, pages, password, repair, gs_path) -> PDF`  | factory  | parse a path or stream into a `PDF` |
+|  [02]   | `repair(path_or_fp, outfile, password, gs_path) -> BytesIO?` | factory  | Ghostscript-rewrite a malformed PDF |
+|  [03]   | `PDF.pages -> list[Page]`                                    | property | 1-indexed page list                 |
+|  [04]   | `PDF.metadata -> dict`                                       | property | resolved document info dictionary   |
+|  [05]   | `PDF.objects -> dict`                                        | property | all parsed objects keyed by kind    |
 
 [ENTRYPOINT_SCOPE]: table detection and extraction
-- rail: table
+- `find_tables`/`extract_tables` resolve every plausible table; `find_table`/`extract_table` return the largest by cell count. `table_settings` is a dict resolved into `TableSettings`; `vertical_strategy`/`horizontal_strategy` select the edge source.
 
-`find_tables`/`extract_tables` resolve every plausible table; `find_table`/`extract_table` return the largest by cell count. `table_settings` is a dict resolved into `TableSettings`; `vertical_strategy`/`horizontal_strategy` select `"lines"`, `"lines_strict"`, `"text"`, or `"explicit"`. `Table.extract` clusters chars within each cell bbox into row-major text.
-
-Call shapes by index:
-- [01]: `Page.find_tables` — `find_tables(table_settings=None)` -> `List[Table]`
-- [02]: `Page.find_table` — `find_table(table_settings=None)` -> `Optional[Table]`
-- [03]: `Page.extract_tables` — `extract_tables(table_settings=None)` -> `List[List[List[Optional[str]]]]`
-- [04]: `Page.extract_table` — `extract_table(table_settings=None)` -> `Optional[List[List[Optional[str]]]]`
-- [05]: `Page.debug_tablefinder` — `debug_tablefinder(table_settings=None)` -> `TableFinder`
-- [06]: `Table.extract` — `extract(**kwargs)` -> `List[List[Optional[str]]]`
-- [07]: `Table.rows` — property -> `List[CellGroup]`
-- [08]: `Table.columns` — property -> `List[CellGroup]`
-- [09]: `Table.cells` — attribute -> `List[T_bbox]`
-- [10]: `Table.bbox` — property -> `T_bbox`
-- [11]: `TableFinder.tables` — attribute -> `List[Table]`
-
-| [INDEX] | [SURFACE]                | [CAPABILITY]                                              |
-| :-----: | :----------------------- | :-------------------------------------------------------- |
-|  [01]   | `Page.find_tables`       | every plausible table on the page                         |
-|  [02]   | `Page.find_table`        | the largest table by cell count                           |
-|  [03]   | `Page.extract_tables`    | row-major text for every table                            |
-|  [04]   | `Page.extract_table`     | row-major text for the largest table                      |
-|  [05]   | `Page.debug_tablefinder` | the `TableFinder` with edges/intersections/cells          |
-|  [06]   | `Table.extract`          | per-cell clustered text grid                              |
-|  [07]   | `Table.rows`             | row-grouped cells                                         |
-|  [08]   | `Table.columns`          | column-grouped cells                                      |
-|  [09]   | `Table.cells`            | detected cell bboxes                                      |
-|  [10]   | `Table.bbox`             | bounding box of the table                                 |
-|  [11]   | `TableFinder.tables`     | resolved tables (also `.edges`/`.intersections`/`.cells`) |
+| [INDEX] | [SURFACE]                                               | [SHAPE]   | [CAPABILITY]                                         |
+| :-----: | :------------------------------------------------------ | :-------- | :--------------------------------------------------- |
+|  [01]   | `Page.find_tables(table_settings) -> list[Table]`       | instance  | every plausible table on the page                    |
+|  [02]   | `Page.find_table(table_settings) -> Table?`             | instance  | the largest table by cell count                      |
+|  [03]   | `Page.extract_tables(table_settings) -> list[grid]`     | instance  | row-major text for every table                       |
+|  [04]   | `Page.extract_table(table_settings) -> grid?`           | instance  | row-major text for the largest table                 |
+|  [05]   | `Page.debug_tablefinder(table_settings) -> TableFinder` | instance  | the `TableFinder` with edges/cells                   |
+|  [06]   | `Table.extract(**kwargs) -> list[list[str?]]`           | instance  | per-cell clustered text grid                         |
+|  [07]   | `Table.rows -> list[CellGroup]`                         | property  | row-grouped cells                                    |
+|  [08]   | `Table.columns -> list[CellGroup]`                      | property  | column-grouped cells                                 |
+|  [09]   | `Table.cells -> list[bbox]`                             | attribute | detected cell bboxes                                 |
+|  [10]   | `Table.bbox -> bbox`                                    | property  | bounding box of the table                            |
+|  [11]   | `TableFinder.tables`                                    | attribute | resolved tables (`.edges`/`.intersections`/`.cells`) |
 
 [ENTRYPOINT_SCOPE]: table-settings tolerance fields
-- rail: table
-
-`TableSettings` is a frozen dataclass resolved from the `table_settings` dict by `TableSettings.resolve`; the strategy and tolerance fields are the single tuning surface feeding one `TableFinder` pipeline (edges -> intersections -> cells -> tables). `text_settings` nests the `WordExtractor` kwargs used when a `"text"` strategy infers lines from word positions. Each snap/join/intersection tolerance carries `_x_tolerance`/`_y_tolerance` axis overrides that fall back to the base in `__post_init__`; a `3`/`UNSET`/`UNSET` default means those axes inherit the base (`UNSET` is the sentinel, not literal `0`).
+- `TableSettings.resolve` builds the frozen dataclass from the `table_settings` dict; strategy and tolerance are the single tuning surface feeding one `TableFinder` pipeline (edges -> intersections -> cells -> tables). Each snap/join/intersection tolerance carries `_x_tolerance`/`_y_tolerance` axis overrides defaulting to the `UNSET` (`0.0`) sentinel, which inherits the base.
 
 | [INDEX] | [FIELD]                                                 | [DEFAULT] | [CAPABILITY]                                                 |
 | :-----: | :------------------------------------------------------ | :-------- | :----------------------------------------------------------- |
@@ -106,70 +76,38 @@ Call shapes by index:
 |  [05]   | `edge_min_length` / `edge_min_length_prefilter`         | `3`/`1`   | drop short edges (prefilter is the cheap pre-pass)           |
 |  [06]   | `min_words_vertical` / `min_words_horizontal`           | `3`/`1`   | word count needed to infer a line under `"text"`             |
 |  [07]   | `intersection_tolerance`                                | `3`       | edge-crossing tolerance forming cell corners                 |
-|  [08]   | `text_settings`                                         | `None`    | nested `WordExtractor` kwargs for `"text"` (see note)        |
+|  [08]   | `text_settings`                                         | `None`    | nested `WordExtractor` kwargs consumed under `"text"`        |
 
-- [08]-[TEXT_SETTINGS]: `TableSettings.resolve` strips the `text_` prefix off any settings-dict key (`text_x_tolerance` -> `text_settings["x_tolerance"]`), so an unknown `text_*` key is rebucketed here and consumed only under a `"text"` strategy — a non-`WordExtractor` key (e.g. `text_tolerance` -> `tolerance`) then raises `TypeError` at `WordExtractor(**text_settings)`, never under the default `"lines"` strategy.
+- [08]-[TEXT_SETTINGS]: `TableSettings.resolve` strips the `text_` prefix off any settings-dict key (`text_x_tolerance` -> `text_settings["x_tolerance"]`) and consumes it only under a `"text"` strategy; a non-`WordExtractor` key raises `TypeError` at `WordExtractor(**text_settings)`.
 
 [ENTRYPOINT_SCOPE]: word, char, and line geometry
-- rail: table
+- `extract_words`/`extract_text` forward `**kwargs` to one `WordExtractor`: `x_tolerance, y_tolerance, x_tolerance_ratio, y_tolerance_ratio, keep_blank_chars, use_text_flow, line_dir, char_dir, extra_attrs, split_at_punctuation, expand_ligatures`.
 
-`extract_words` clusters `chars` by `x_tolerance`/`y_tolerance` into positioned word dicts; `extract_text` renders running text and `layout=True` preserves positional spacing. Container geometry properties feed `vertical_strategy="text"` and explicit-line detection.
-
-Call shapes by index:
-- [01]: `Page.extract_words` — `extract_words(**kwargs)` -> `List[Dict]` — kwargs pass to `utils.text.WordExtractor`: `x_tolerance=3, y_tolerance=3, x_tolerance_ratio=None, y_tolerance_ratio=None, keep_blank_chars=False, use_text_flow=False, line_dir="ttb", char_dir="ltr", line_dir_rotated=None, char_dir_rotated=None, extra_attrs=None, split_at_punctuation=False, expand_ligatures=True`
-- [02]: `Page.extract_text` — `extract_text(**kwargs)` -> `str` — kwargs forward `layout`, `x_tolerance`/`y_tolerance`, `line_dir_render`/`char_dir_render`, and the `WordExtractor` clustering fields to `utils.text.extract_text`
-- [03]: `Page.extract_text_lines` — `extract_text_lines(strip=True, return_chars=True, **kwargs)` -> `T_obj_list`
-- [04]: `Page.extract_text_simple` — `extract_text_simple(**kwargs)` -> `str` (forwards `x_tolerance=3, y_tolerance=3` to `utils.text.extract_text_simple`)
-- [05]: `Page.search` — `search(pattern, regex=True, case=True, main_group=0, return_chars=True, return_groups=True, **kwargs)` -> `List[Dict[str, Any]]`
-- [06]: `Page.crop` — `crop(bbox, relative=False, strict=True)` -> `CroppedPage`
-- [07]: `Page.within_bbox` — `within_bbox(bbox, relative=False, strict=True)` -> `CroppedPage`
-- [08]: `Page.outside_bbox` — `outside_bbox(bbox, relative=False, strict=True)` -> `CroppedPage`
-- [09]: `Page.filter` — `filter(test_function)` -> `FilteredPage`
-- [10]: `Page.dedupe_chars` — `dedupe_chars(**kwargs)` -> `FilteredPage`
-- [11]: `Page.chars` — property -> `T_obj_list`
-- [12]: `Page.lines` — property -> `T_obj_list`
-- [13]: `Page.rects` — property -> `T_obj_list`
-- [14]: `Page.curves` — property -> `T_obj_list`
-- [15]: `Page.images` — property -> `T_obj_list`
-- [16]: `Page.edges` — property -> `T_obj_list`
-- [17]: `Page.horizontal_edges` / `vertical_edges` — property -> `T_obj_list`
-- [18]: `Page.rect_edges` / `curve_edges` — property -> `T_obj_list`
-- [19]: `Page.annots` — property -> `T_obj_list`
-- [20]: `Page.hyperlinks` — property -> `T_obj_list`
-- [21]: `Page.structure_tree` — property -> `List[Dict]`
-- [22]: `Page.to_image` — `to_image(resolution=None, width=None, height=None, antialias=False, force_mediabox=False)` -> `PageImage`
-- [23]: `Page.to_dict` / `to_csv` / `to_json` — `to_csv(stream=None, object_types=None, precision=None, include_attrs=None, exclude_attrs=None)` -> `str` / `to_json(stream=None, object_types=None, include_attrs=None, exclude_attrs=None, precision=None, indent=None)` -> `str` / `to_dict(object_types=None)` -> `Dict`
-
-| [INDEX] | [SURFACE]                                  | [CAPABILITY]                                                                           |
-| :-----: | :----------------------------------------- | :------------------------------------------------------------------------------------- |
-|  [01]   | `Page.extract_words`                       | positioned word dicts from clustered chars                                             |
-|  [02]   | `Page.extract_text`                        | running or layout-preserving page text                                                 |
-|  [03]   | `Page.extract_text_lines`                  | per-line text dicts with bbox/chars                                                    |
-|  [04]   | `Page.extract_text_simple`                 | fast collated text without the layout textmap                                          |
-|  [05]   | `Page.search`                              | regex match over the layout textmap                                                    |
-|  [06]   | `Page.crop`                                | bbox-restricted page view (objects overlap)                                            |
-|  [07]   | `Page.within_bbox`                         | bbox view of objects fully inside                                                      |
-|  [08]   | `Page.outside_bbox`                        | bbox view of objects fully outside (inverse)                                           |
-|  [09]   | `Page.filter`                              | predicate-filtered page view                                                           |
-|  [10]   | `Page.dedupe_chars`                        | drop duplicate overlapping chars                                                       |
-|  [11]   | `Page.chars`                               | per-char dicts with text and geometry                                                  |
-|  [12]   | `Page.lines`                               | vector line objects                                                                    |
-|  [13]   | `Page.rects`                               | rectangle objects                                                                      |
-|  [14]   | `Page.curves`                              | bezier/curve path objects                                                              |
-|  [15]   | `Page.images`                              | raster image XObjects with bbox + stream                                               |
-|  [16]   | `Page.edges`                               | derived ruled edges (line + rect + curve), each carrying `orientation`                 |
-|  [17]   | `Page.horizontal_edges` / `vertical_edges` | edges by `orientation` (`"h"`/`"v"`); the explicit-line strategy reads these           |
-|  [18]   | `Page.rect_edges` / `curve_edges`          | edges derived only from rects / only from curves (the `edges` view minus line objects) |
-|  [19]   | `Page.annots`                              | PDF annotations (notes/widgets)                                                        |
-|  [20]   | `Page.hyperlinks`                          | URI-link annotations with target + bbox                                                |
-|  [21]   | `Page.structure_tree`                      | tagged-PDF logical structure subtree                                                   |
-|  [22]   | `Page.to_image`                            | raster render (PDFium via pypdfium2) for debug                                         |
-|  [23]   | `Page.to_dict` / `to_csv` / `to_json`      | flatten parsed objects to tabular/JSON/dict export                                     |
+| [INDEX] | [SURFACE]                                                | [SHAPE]  | [CAPABILITY]                                                       |
+| :-----: | :------------------------------------------------------- | :------- | :----------------------------------------------------------------- |
+|  [01]   | `Page.extract_words(**kwargs) -> list[dict]`             | instance | positioned word dicts from clustered chars                         |
+|  [02]   | `Page.extract_text(**kwargs) -> str`                     | instance | running or `layout=True` positional page text                      |
+|  [03]   | `Page.extract_text_lines(strip, return_chars, **kwargs)` | instance | per-line text dicts with bbox/chars                                |
+|  [04]   | `Page.extract_text_simple(**kwargs) -> str`              | instance | fast collated text without the layout textmap                      |
+|  [05]   | `Page.search(pattern, regex, case, return_chars)`        | instance | regex match over the layout textmap                                |
+|  [06]   | `Page.crop(bbox, relative, strict) -> CroppedPage`       | instance | bbox-restricted view; objects overlap                              |
+|  [07]   | `Page.within_bbox(bbox, ...) -> CroppedPage`             | instance | bbox view of objects fully inside                                  |
+|  [08]   | `Page.outside_bbox(bbox, ...) -> CroppedPage`            | instance | inverse bbox view of objects fully outside                         |
+|  [09]   | `Page.filter(test_function) -> FilteredPage`             | instance | predicate-filtered page view                                       |
+|  [10]   | `Page.dedupe_chars(**kwargs) -> FilteredPage`            | instance | drop duplicate overlapping chars                                   |
+|  [11]   | `Page.chars`                                             | property | per-char dicts with text and geometry                              |
+|  [12]   | `Page.lines` / `rects` / `curves`                        | property | vector line / rectangle / bezier-path objects                      |
+|  [13]   | `Page.images`                                            | property | raster image XObjects with bbox + stream                           |
+|  [14]   | `Page.edges`                                             | property | derived ruled edges (line + rect + curve), each with `orientation` |
+|  [15]   | `Page.horizontal_edges` / `vertical_edges`               | property | edges by `orientation`; the explicit-line strategy reads these     |
+|  [16]   | `Page.rect_edges` / `curve_edges`                        | property | edges derived only from rects / only from curves                   |
+|  [17]   | `Page.annots` / `hyperlinks`                             | property | PDF annotations / URI-link annotations with target + bbox          |
+|  [18]   | `Page.structure_tree`                                    | property | tagged-PDF logical structure subtree                               |
+|  [19]   | `Page.to_image(resolution, width, height) -> PageImage`  | instance | raster render via `pypdfium2` for debug                            |
+|  [20]   | `Page.to_dict` / `to_csv` / `to_json`                    | instance | flatten parsed objects to dict/tabular/JSON export                 |
 
 [ENTRYPOINT_SCOPE]: object-dict key schema (the recovery contract)
-- rail: table
-
-Every `T_obj` is a plain `dict[str, Any]` keyed by a fixed object-kind schema, NOT a typed class — the `LensProvider.PLUMBER` arms index these keys directly (`word["x0"]`, `word["top"]`, `word.get("fontname")`, `line["text"]`, `cell[0]`), so the key contract is the load-bearing boundary, not a member call. Coordinates are top-left origin (`top`/`bottom` grow downward); `doctop` is the document-cumulative top across pages. The base geometry keys `text`/`x0`/`x1`/`top`/`bottom`/`doctop`/`upright`/`height`/`width` ride the word and char dicts; each row below lists only its additions.
+- Every `T_obj` is a plain `dict[str, Any]` keyed by a fixed object-kind schema, so the `LensProvider.PLUMBER` arms index keys directly (`word["x0"]`, `line["text"]`, `cell[0]`) and the key contract is the load-bearing boundary. Coordinates are top-left origin (`top`/`bottom` grow downward); `doctop` is the document-cumulative top. Base geometry keys `text`/`x0`/`x1`/`top`/`bottom`/`doctop`/`upright`/`height`/`width` ride word and char dicts; each row lists only its additions.
 
 | [INDEX] | [SHAPE]                          | [KEYS]                                                                                      |
 | :-----: | :------------------------------- | :------------------------------------------------------------------------------------------ |
@@ -181,68 +119,48 @@ Every `T_obj` is a plain `dict[str, Any]` keyed by a fixed object-kind schema, N
 |  [06]   | `Table.cells` element            | `(x0, top, x1, bottom)` 4-tuple (or `None` for an absent cell in a `CellGroup`)             |
 |  [07]   | search hit (`Page.search`)       | `text`/`x0`/`x1`/`top`/`bottom` + `groups`/`chars` (each conditional)                       |
 
-- [01]-[WORD]: positioned word; `fontname`/`size` need `extra_attrs=("fontname","size")` since they are not default keys.
-- [02]-[LINE]: per-line text + bbox; `return_chars=False` drops the char list for a lean recovery.
-- [03]-[CHAR]: per-char geometry + style the word clusterer folds; `fontname`/`size` live here natively.
-- [04]-[VECTOR]: vector geometry the `"lines"`/`"explicit"` strategies consume as edges.
-- [05]-[EDGE]: derived ruled edge; `orientation` is the axis discriminant the `TableFinder` partitions on.
-- [06]-[CELL]: one cell bbox; the cell-corner set folds into merged-cell `(row, col, col_span, row_span)` spans by deduping rounded x/y edges.
-- [07]-[SEARCH]: one regex match region over the layout textmap.
+- [01]-[WORD]: `fontname`/`size` need `extra_attrs=("fontname","size")`; they are not default word keys but live natively on the char dict.
+- [05]-[EDGE]: `orientation` is the axis discriminant the `TableFinder` partitions on.
+- [06]-[CELL]: cell corners fold into merged-cell `(row, col, col_span, row_span)` spans by deduping rounded x/y edges.
 
 [ENTRYPOINT_SCOPE]: raster render and visual debug
-- rail: table
+- `to_image` renders through PDFium into a `PageImage` whose `draw_*`/`outline_*` methods overlay geometry and each return `self` for chaining; the raster backs onto `pillow`, and `save` writes PNG or any Pillow format.
 
-`to_image` renders the page through PDFium (`pypdfium2`) into a `PageImage` whose `draw_*`/`outline_*` methods overlay geometry for chained, fluent debugging (each returns `self`); `debug_tablefinder` overlays the detected edges/intersections/cells. The image backs onto `pillow`; `save` writes PNG (or any Pillow format).
-
-Call shapes by index:
-- [01]: `PageImage.draw_rect(s)` — `draw_rect(bbox_or_obj, fill=..., stroke=..., stroke_width=1)` / `draw_rects(list)` -> `PageImage`
-- [02]: `PageImage.draw_line(s)` — `draw_line(points_or_obj, stroke=..., stroke_width=1)` / `draw_lines(list)` -> `PageImage`
-- [03]: `PageImage.draw_circle(s)` — `draw_circle(center_or_obj, radius=5, fill=..., stroke=...)` / `draw_circles(list)` -> `PageImage`
-- [04]: `PageImage.draw_vline(s)` / `draw_hline(s)` — `draw_vline(location, stroke=..., stroke_width=1)` / `draw_hline(...)` -> `PageImage`
-- [05]: `PageImage.outline_words` / `outline_chars` — `outline_words(stroke=..., fill=..., stroke_width=1, x_tolerance=3, y_tolerance=3)` -> `PageImage`
-- [06]: `PageImage.debug_tablefinder` — `debug_tablefinder(table_settings=None)` -> `PageImage`
-- [07]: `PageImage.reset` / `copy` — `reset()` -> `PageImage` / `copy()` -> `PageImage`
-- [08]: `PageImage.save` — `save(dest, format="PNG", quantize=True, colors=256, bits=8, **kwargs)` -> `None`
-
-| [INDEX] | [SURFACE]                                   | [CAPABILITY]                          |
-| :-----: | :------------------------------------------ | :------------------------------------ |
-|  [01]   | `PageImage.draw_rect(s)`                    | overlay bbox/object rectangles        |
-|  [02]   | `PageImage.draw_line(s)`                    | overlay line segments                 |
-|  [03]   | `PageImage.draw_circle(s)`                  | overlay point markers                 |
-|  [04]   | `PageImage.draw_vline(s)` / `draw_hline(s)` | overlay full-height/width guide lines |
-|  [05]   | `PageImage.outline_words` / `outline_chars` | overlay clustered word/char boxes     |
-|  [06]   | `PageImage.debug_tablefinder`               | overlay the `TableFinder` edges/cells |
-|  [07]   | `PageImage.reset` / `copy`                  | clear overlays / fork the image       |
-|  [08]   | `PageImage.save`                            | write the rendered/annotated raster   |
+| [INDEX] | [SURFACE]                                   | [SHAPE]  | [CAPABILITY]                          |
+| :-----: | :------------------------------------------ | :------- | :------------------------------------ |
+|  [01]   | `PageImage.draw_rect(s)`                    | instance | overlay bbox/object rectangles        |
+|  [02]   | `PageImage.draw_line(s)`                    | instance | overlay line segments                 |
+|  [03]   | `PageImage.draw_circle(s)`                  | instance | overlay point markers                 |
+|  [04]   | `PageImage.draw_vline(s)` / `draw_hline(s)` | instance | overlay full-height/width guide lines |
+|  [05]   | `PageImage.outline_words` / `outline_chars` | instance | overlay clustered word/char boxes     |
+|  [06]   | `PageImage.debug_tablefinder`               | instance | overlay the `TableFinder` edges/cells |
+|  [07]   | `PageImage.reset` / `copy`                  | instance | clear overlays / fork the image       |
+|  [08]   | `PageImage.save(dest, format, quantize)`    | instance | write the rendered/annotated raster   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[TABLE_EXTRACTION]:
-- import: `import pdfplumber` at boundary scope only; module-level import is banned by the manifest import policy.
-- open axis: one `pdfplumber.open` owns parsing; `pages`/`laparams`/`password`/`repair` are call rows, never a per-config loader type; `repair=True` routes through Ghostscript before parsing, never a separate parse path.
-- detection axis: `find_tables` is the single ruled-table surface; `vertical_strategy`/`horizontal_strategy` select `"lines"`/`"lines_strict"`/`"text"`/`"explicit"` as `TableSettings` rows resolved from the `table_settings` dict, never a parallel finder type per strategy; snap/join/intersection tolerances are settings fields feeding one `TableFinder` pipeline (edges -> intersections -> cells -> tables).
-- extraction axis: `Table.extract` owns per-cell char clustering keyed off the cell bbox; `extract_tables`/`extract_table` are the largest-vs-all rows over the same `find_tables` result, never a re-implementation of the cell text join.
-- word axis: `extract_words`/`extract_text` forward `**kwargs` to one `utils.text.WordExtractor`; `x_tolerance`/`y_tolerance`/`x_tolerance_ratio`/`keep_blank_chars`/`use_text_flow`/`line_dir`/`char_dir`/`split_at_punctuation`/`extra_attrs`/`expand_ligatures` are call rows on that single extractor, never a per-mode extractor type; `extract_text` with `layout=True` is the positional-render row, `layout=False` the running-text row; `search(pattern)` runs a regex over the same layout textmap.
-- export axis: `to_csv`/`to_json`/`to_dict` flatten the parsed object stream (chars/lines/rects/curves/images/edges) for a one-shot tabular handoff; `structure_tree` exposes the tagged-PDF logical hierarchy; these are projection rows over the already-parsed container, never a re-parse.
-- view axis: `crop`/`within_bbox`/`outside_bbox`/`filter`/`dedupe_chars` return restricted `CroppedPage`/`FilteredPage` views sharing the container contract; a region scope is a view row, never a re-parsed page.
-- debug axis: `to_image` renders through `pypdfium2`/`pillow` into a `PageImage`; the fluent `draw_*`/`outline_*`/`debug_tablefinder` chain (each returns `self`) overlays geometry for inspection — a debugging projection, never part of the extraction result.
-- rail axis: the boundary lifts onto the universal `expression` `Result` rail — `pdfplumber.PdfminerException` (and a structural `MalformedPDFException`) is caught at the `LensProvider.PLUMBER` adapter and mapped to `document/lens#LENS` `LensFault`/`Result.Error`, never propagating raw out of the recovery arm; admission (the per-op `LensSpec`/`bbox`/`needle` precondition) is a `Result[Self, LensFault]` gate BEFORE any `open`, so an empty-payload or missing-bbox request fails total without parsing.
-- concurrency axis: pdfminer.six releases the GIL on the C-level inflate/parse, so the synchronous `pdfplumber.open(BytesIO(payload))` parse crosses the universal `anyio` `to_thread.run_sync(..., limiter=_OFFLOAD)` seam (a thread offload bounded by the shared `CapacityLimiter`), NOT the `to_process` pickle hop the worker-band `ocrmypdf`/`python-calamine`/`lxml` arms take and NOT inline on the event loop; `pdfplumber` and `pymupdf` are both core-band in-process readers, the gated companions cross the subprocess seam.
-- node axis: every recovered word/line/char/cell dict folds into the canonical `document/model#NODE` `DocumentNode` (`RunNode`/`TableNode` over the `_node(NodeKind, …)` constructor); the content key is the model's `msgspec.msgpack` `node_digest` merkle, never a second encoder beside the model codec — `pdfplumber` contributes geometry+text dicts, the model owns identity and the `ArtifactReceipt.Introspection` case.
-- observability axis: each recovery runs inside the consumer's `structlog`+OpenTelemetry `async_boundary` span under the `@receipted(_REDACTION)` weave; a `Result.Error` from a parse fault folds into one structured egress event, the `Ok` path stays silent, and `beartype` narrows the `T_obj` dict shapes (`word["x0"]`, `cell` 4-tuple) at the seam where the dicts enter typed `_node` calls.
-- evidence: each parse captures the reflected version, page count, per-page char/line/rect/curve/image/edge counts, detected table count, cell-grid shape, word-cluster tolerances, and resolved `TableSettings` strategy as a table receipt folded into the one `ArtifactReceipt` family, never a sibling receipt rail.
-- boundary: pdfplumber owns ruled-table detection, per-object geometry, and tolerance-clustered word/char extraction over `pdfminer.six`; bulk page text and native rasterization route to `pymupdf` when MuPDF's speed beats the pdfminer geometry pass; `to_image` rasterization runs through `pypdfium2`/`pillow`, never an open-coded renderer; Ghostscript repair routes through `repair`/`open(repair=True)` only when a malformed file requires it; the extracted cell grid and word geometry feed the document and table owners directly; live UI stays outside this package.
+[TOPOLOGY]:
+- one `pdfplumber.open` owns parsing; `pages`/`laparams`/`password`/`repair` are call rows, and `repair=True` routes through Ghostscript before the same parse path, never a per-config loader type.
+- `find_tables` is the single ruled-table surface; `vertical_strategy`/`horizontal_strategy` select the edge source as `TableSettings` rows feeding one `TableFinder` pipeline (edges -> intersections -> cells -> tables), never a finder type per strategy; `extract_tables`/`extract_table` are largest-vs-all rows over that result and `Table.extract` owns per-cell char clustering off the cell bbox.
+- `extract_words`/`extract_text` forward `**kwargs` to one `WordExtractor`; `layout=True` is the positional-render row and `search(pattern)` runs a regex over the same layout textmap, never a per-mode extractor type.
+- `crop`/`within_bbox`/`outside_bbox`/`filter`/`dedupe_chars` return `CroppedPage`/`FilteredPage` views sharing the container contract, and `to_csv`/`to_json`/`to_dict`/`structure_tree` project the already-parsed object stream; a region scope or export is a view row, never a re-parse.
+- `to_image` renders through `pypdfium2`/`pillow`; the fluent `draw_*`/`outline_*`/`debug_tablefinder` chain overlays geometry as a debugging projection, never part of the extraction result.
+- each parse folds a table receipt (reflected version, page count, per-page char/line/rect/curve/image/edge counts, detected-table count, cell-grid shape, word-cluster tolerances, resolved `TableSettings` strategy) into the one `ArtifactReceipt` family.
 
-[STACKS_WITH]:
-- `expression` (`libs/python/.api/expression.md`): the parse boundary is where a `Result` is minted — wrap `pdfplumber.open`/`find_tables`/`extract_words` so `PdfminerException`/`MalformedPDFException` becomes `Result.Error`/`LensFault`; domain code downstream stays `Result`/`Option`-native, the `_node` fold a pure transform over the `Ok` tuple.
-- `anyio` (`libs/python/.api/anyio.md`): offload the GIL-releasing pdfminer parse through `to_thread.run_sync(_plumber_recover, payload, limiter=_OFFLOAD)`; a `TimeoutError` from an enclosing `fail_after` is caught at the boundary and mapped to a typed `Error`, never escaping raw. Thread (not process) is correct because pdfplumber is pure-Python with a GIL-releasing C parse core and no pickling need.
-- `msgspec` (`libs/python/.api/msgspec.md`): the recovered `DocumentNode` tree is the only thing that serializes — `pdfplumber`'s plain `T_obj` dicts are folded into `msgspec.Struct` nodes whose `msgpack` digest is the content key; never re-encode the raw `T_obj` dict with a second codec.
-- `beartype` (`libs/python/.api/beartype.md`): narrow the untyped `T_obj`/`Table.cells` dict/tuple shapes at the seam where they enter typed `_node`/`_table_node` calls (`door.is_bearable` for the optional `extra_attrs` keys), so a missing `fontname`/`size` degrades to the `_RECOVERED_FONT`/`0.0` default rather than a `KeyError`.
-- `structlog` + `opentelemetry` (`libs/python/.api/structlog.md`, `opentelemetry-api.md`): the recovery rides the consumer's `async_boundary` span; fold a parse-fault `Result.Error` into one structured event at egress, the happy extraction path silent.
-- `pymupdf` (`libs/python/artifacts/.api/pymupdf.md`): the sibling native PDF owner — `pdfplumber` is the higher-recall `lines`/`lines_strict`/`text`/`explicit` ruled-table + word-geometry arm, `pymupdf` the native `TableFinder` bulk + render/extract/redact arm; they meet at PDF bytes and the shared `DocumentNode`, never re-implementing each other.
+[STACKING]:
+- `expression`(`.api/expression.md`): the parse boundary mints a `Result` — wrap `open`/`find_tables`/`extract_words` so `utils.exceptions.PdfminerException`/`MalformedPDFException` becomes `Result.Error`/`LensFault`; downstream code stays `Result`/`Option`-native and the `_node` fold is a pure transform over the `Ok` tuple.
+- `anyio`(`.api/anyio.md`): pdfminer.six releases the GIL on the C inflate/parse, so `open(BytesIO(payload))` crosses `to_thread.run_sync(_plumber_recover, payload, limiter=_OFFLOAD)` under the shared `CapacityLimiter`, NOT the `to_process` pickle hop the worker-band `ocrmypdf`/`python-calamine` arms take and never inline on the loop; a `fail_after` `TimeoutError` maps to a typed `Error` at the boundary.
+- `msgspec`(`.api/msgspec.md`): each recovered word/line/char/cell dict folds into the canonical `DocumentNode` (`RunNode`/`TableNode` over `_node(NodeKind, …)`) whose `msgpack` `node_digest` merkle is the only content codec; the raw `T_obj` dict is never re-encoded by a second codec.
+- `beartype`(`.api/beartype.md`): narrow the untyped `T_obj`/`Table.cells` dict/tuple shapes at the seam where they enter typed `_node`/`_table_node` calls (`door.is_bearable` for optional `extra_attrs` keys), so a missing `fontname`/`size` degrades to a default rather than a `KeyError`.
+- `structlog` + `opentelemetry`(`.api/structlog.md`, `.api/opentelemetry-api.md`): recovery rides the consumer's `async_boundary` span under the `@receipted` weave; a parse-fault `Result.Error` folds into one structured egress event and the `Ok` path stays silent.
+- `pymupdf`(`.api/pymupdf.md`): the sibling native PDF owner — `pdfplumber` is the higher-recall ruled-table + word-geometry arm, `pymupdf` the native bulk `TableFinder` + render/extract/redact arm; they meet at PDF bytes and the shared `DocumentNode`, never re-implementing each other.
+
+[LOCAL_ADMISSION]:
+- import at boundary scope only; the module-level import is barred by the manifest import policy.
+- each op's `LensSpec`/`bbox`/`needle` precondition is a `Result[Self, LensFault]` gate before any `open`, so an empty-payload or missing-bbox request fails total without parsing.
 
 [RAIL_LAW]:
 - Package: `pdfplumber`
-- Owns: PDF parsing into a container hierarchy over `pdfminer.six`, ruled-line table detection with full snap/join/intersection tolerance fields and cell-grid extraction, positioned word/char extraction with tolerance + direction clustering, layout-preserving text rendering and regex `search`, tagged-PDF `structure_tree`, object `to_csv`/`to_json`/`to_dict` export, bbox crop/within/outside/filter/dedupe views, and `PageImage` raster debug overlays via `pypdfium2`/`pillow`
+- Owns: PDF parsing into a container hierarchy over `pdfminer.six`, ruled-line table detection with full snap/join/intersection tolerance and cell-grid extraction, tolerance- and direction-clustered word/char extraction, layout-preserving text and regex `search`, tagged-PDF `structure_tree`, `to_csv`/`to_json`/`to_dict` export, bbox crop/within/outside/filter/dedupe views, and `PageImage` raster debug overlays via `pypdfium2`/`pillow`
 - Accept: ruled-table and word/char extraction feeding the table, document, and visuals owners
-- Reject: wrapper-renames of `open`/`find_tables`/`extract_words`; a hand-rolled PDF tokenizer where pdfminer.six parsing is in-package; a re-implemented line-snap/intersection cell detector; an open-coded column-26/coordinate or raster renderer where `TableSettings`/`pypdfium2` own it; a parallel `Page`, `WordExtractor`, or finder type per strategy or region; reaching here for bulk page text where `pymupdf`'s MuPDF pass is faster; identity/receipt shapes the runtime owner already owns
+- Reject: wrapper-renames of `open`/`find_tables`/`extract_words`; a hand-rolled PDF tokenizer where pdfminer.six parsing is in-package; a re-implemented line-snap/intersection cell detector; an open-coded coordinate or raster renderer where `TableSettings`/`pypdfium2` own it; a parallel `Page`, `WordExtractor`, or finder type per strategy or region; reaching here for bulk page text where `pymupdf` is faster; identity or receipt shapes the runtime owner already owns

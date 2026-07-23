@@ -1,149 +1,105 @@
 # [PY_COMPUTE_API_SALIB]
 
-`SALib` supplies global sensitivity analysis via Sobol, Morris, FAST, RBD-FAST, delta, PAWN, DGSM, and RSA methods — structured around a `problem` dict and the `ProblemSpec` fluent API — for the compute uncertainty-quantification and sensitivity rail.
+`SALib` owns global sensitivity analysis for the compute uncertainty-quantification rail: a `problem` dict and the `ProblemSpec` fluent pipeline fold a design's inputs through one sample→evaluate→analyze rail into variance-based, elementary-effect, moment-independent, and derivative-based sensitivity indices.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `SALib`
-- package: `SALib` (dist name `salib`, import name `SALib`)
-- owner: `compute`
-- module: `SALib`; submodules `SALib.sample`, `SALib.analyze`, `SALib.util`, `SALib.plotting`
-- asset: runtime library
-- rail: sensitivity-analysis
-- namespace: `SALib` (top-level `ProblemSpec`; method functions under `SALib.sample.<method>.sample` and `SALib.analyze.<method>.analyze`)
-- installed: `1.5.2`
-- requires: `numpy`, `scipy`, `pandas`, `matplotlib` (plotting), `multiprocess` (parallel/distributed evaluation)
-- capability: global sensitivity analysis via Sobol, Morris, FAST, RBD-FAST, delta moment-independent, PAWN, DGSM, RSA, HDMR, and fractional-factorial methods; sampling designs (Saltelli, Sobol sequence, Morris trajectories, Latin hypercube, FAST frequency, finite-difference, fractional factorial); a `problem` dict plus the `ProblemSpec` fluent sample→evaluate→analyze pipeline with serial/parallel/distributed evaluation and DataFrame/plot export
+- package: `SALib` (MIT, SALib project)
+- module: `SALib` (dist `salib`); entrypoints under `SALib.sample.<method>.sample`, `SALib.analyze.<method>.analyze`, utilities in `SALib.util`
+- rail: sensitivity analysis — sampling design and index computation over serial, parallel, and distributed model evaluation with DataFrame/plot/heatmap export
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: top-level and utility types
-- rail: sensitivity-analysis
+[PUBLIC_TYPE_SCOPE]: top-level and result types
 
-| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]         | [ROLE]                                          |
-| :-----: | :---------------------- | :-------------------- | :---------------------------------------------- |
-|  [01]   | `ProblemSpec`           | class (dict subclass) | fluent problem definition and pipeline runner   |
-|  [02]   | `SALib.util.ResultDict` | class                 | analysis result container with `to_df()` method |
-
-[PUBLIC_TYPE_SCOPE]: sample submodules
-- rail: sensitivity-analysis
-- type: module
-
-| [INDEX] | [SYMBOL]                    | [SAMPLING_METHOD]                      |
-| :-----: | :-------------------------- | :------------------------------------- |
-|  [01]   | `SALib.sample.saltelli`     | Saltelli quasi-random Sobol sampling   |
-|  [02]   | `SALib.sample.sobol`        | Sobol sequence sampling                |
-|  [03]   | `SALib.sample.morris`       | Morris one-at-a-time trajectory sample |
-|  [04]   | `SALib.sample.latin`        | Latin hypercube sampling               |
-|  [05]   | `SALib.sample.fast_sampler` | FAST frequency sampling                |
-|  [06]   | `SALib.sample.finite_diff`  | finite-difference gradient sample      |
-|  [07]   | `SALib.sample.ff`           | fractional factorial design            |
-
-[PUBLIC_TYPE_SCOPE]: analyze submodules
-- rail: sensitivity-analysis
-- type: module
-
-| [INDEX] | [SYMBOL]                 | [ANALYSIS_METHOD]                        |
-| :-----: | :----------------------- | :--------------------------------------- |
-|  [01]   | `SALib.analyze.sobol`    | Sobol variance-based indices (S1/S2/ST)  |
-|  [02]   | `SALib.analyze.morris`   | Morris elementary effects (mu/mu*/sigma) |
-|  [03]   | `SALib.analyze.fast`     | FAST first-order indices                 |
-|  [04]   | `SALib.analyze.rbd_fast` | RBD-FAST random-balance design           |
-|  [05]   | `SALib.analyze.delta`    | delta moment-independent indices         |
-|  [06]   | `SALib.analyze.pawn`     | PAWN KS-based indices                    |
-|  [07]   | `SALib.analyze.dgsm`     | derivative-based global sensitivity      |
-|  [08]   | `SALib.analyze.rsa`      | regional sensitivity analysis            |
-|  [09]   | `SALib.analyze.hdmr`     | HDMR high-dimensional model repr.        |
-|  [10]   | `SALib.analyze.ff`       | fractional factorial analysis            |
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]         | [CAPABILITY]                                                       |
+| :-----: | :---------------------- | :-------------------- | :----------------------------------------------------------------- |
+|  [01]   | `ProblemSpec`           | class (dict subclass) | fluent problem definition and `sample`/`evaluate`/`analyze` runner |
+|  [02]   | `SALib.util.ResultDict` | class (dict subclass) | analysis result container with `to_df()` / `plot()`                |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: ProblemSpec fluent pipeline
-- rail: sensitivity-analysis
-- every surface is a `ProblemSpec` method; `.sample`/`.evaluate`/`.analyze` and the parallel/distributed variants take `(func, *args, **kwargs)`, adding the keywords shown; setters take `np.ndarray`.
+[ENTRYPOINT_SCOPE]: `ProblemSpec` fluent pipeline
+- `.sample`/`.evaluate`/`.analyze` and the parallel/distributed variants take `(func, *args, **kwargs)` and store their output; the rows show the added keywords, setters take an `np.ndarray`.
 
-| [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY] | [RAIL]                            |
-| :-----: | :------------------------------------------------------------- | :------------- | :-------------------------------- |
-|  [01]   | `.sample`                                                      | pipeline       | call a sample function and store  |
-|  [02]   | `.evaluate`                                                    | pipeline       | evaluate model on stored samples  |
-|  [03]   | `.analyze`                                                     | pipeline       | run analysis on stored results    |
-|  [04]   | `.evaluate_parallel(nprocs=None)`                              | parallel eval  | parallel model evaluation         |
-|  [05]   | `.analyze_parallel(nprocs=None)`                               | parallel       | parallel analysis                 |
-|  [06]   | `.evaluate_distributed(nprocs=1, servers=None, verbose=False)` | distributed    | distributed evaluation            |
-|  [07]   | `.set_samples(samples)`                                        | setter         | inject pre-computed sample matrix |
-|  [08]   | `.set_results(results)`                                        | setter         | inject pre-computed model results |
-|  [09]   | `.to_df()`                                                     | export         | convert analysis to DataFrame     |
-|  [10]   | `.plot(**kwargs)`                                              | visualization  | plot sensitivity indices          |
-|  [11]   | `.heatmap(metric=None, index=None, title=None, ax=None)`       | visualization  | heatmap of indices                |
-|  [12]   | `.samples` (property)                                          | accessor       | stored sample matrix              |
-|  [13]   | `.results` (property)                                          | accessor       | stored result array               |
-|  [14]   | `.analysis` (property)                                         | accessor       | stored analysis result            |
+| [INDEX] | [SURFACE]                                                         | [SHAPE]  | [CAPABILITY]                               |
+| :-----: | :---------------------------------------------------------------- | :------- | :----------------------------------------- |
+|  [01]   | `.sample`                                                         | instance | call a sampler and store the matrix        |
+|  [02]   | `.evaluate`                                                       | instance | evaluate model over stored samples         |
+|  [03]   | `.analyze`                                                        | instance | run analysis over stored results           |
+|  [04]   | `.evaluate_parallel(*, nprocs=None)`                              | instance | fan evaluation over `multiprocess` workers |
+|  [05]   | `.analyze_parallel(*, nprocs=None)`                               | instance | parallel analysis                          |
+|  [06]   | `.evaluate_distributed(*, nprocs=1, servers=None, verbose=False)` | instance | distribute evaluation across a cluster     |
+|  [07]   | `.set_samples(samples)`                                           | instance | inject a precomputed sample matrix         |
+|  [08]   | `.set_results(results)`                                           | instance | inject precomputed model results           |
+|  [09]   | `.to_df()`                                                        | instance | lower analysis to a `pandas.DataFrame`     |
+|  [10]   | `.plot(**kwargs)`                                                 | instance | plot sensitivity indices                   |
+|  [11]   | `.heatmap(metric=None, index=None, title=None, ax=None)`          | instance | heatmap of indices                         |
+|  [12]   | `.samples`                                                        | property | stored sample matrix                       |
+|  [13]   | `.results`                                                        | property | stored result array                        |
+|  [14]   | `.analysis`                                                       | property | stored analysis result                     |
 
 [ENTRYPOINT_SCOPE]: sampling functions
-- rail: sensitivity-analysis
-- every sampler takes `(problem, N, ..., seed=None)` and returns an `ndarray`; `saltelli.sample` is the deprecated alias, `sobol.sample` the maintained Saltelli/Sobol design; `fast_sampler` `M` is the interference factor, `finite_diff` `delta` the perturbation step, and `ff` fixes size by `num_vars` (no `N`).
+- Each sampler is a module-level `<method>.sample(problem, N, ..., seed=None) -> ndarray`; rows show the method-specific keywords. `sobol.sample` implements Saltelli's Sobol'-sequence extension with bounds auto-scaled, and `ff.sample` fixes size by `num_vars` with no `N`.
 
-| [INDEX] | [SURFACE]                                                                         | [METHOD] | [SAMPLE]                              |
-| :-----: | :-------------------------------------------------------------------------------- | :------- | :------------------------------------ |
-|  [01]   | `saltelli.sample(calc_second_order=True, skip_values=None)`                       | Saltelli | Sobol quasi-random sample             |
-|  [02]   | `sobol.sample(*, calc_second_order=True, scramble=True, skip_values=0)`           | Sobol    | Sobol sequence (bounds auto-scaled)   |
-|  [03]   | `morris.sample(num_levels=4, optimal_trajectories=None, local_optimization=True)` | Morris   | trajectory sample                     |
-|  [04]   | `latin.sample()`                                                                  | LHS      | Latin hypercube sample                |
-|  [05]   | `fast_sampler.sample(M=4)`                                                        | FAST     | FAST frequency search-curve sample    |
-|  [06]   | `finite_diff.sample(delta=0.01, skip_values=1024)`                                | DGSM     | finite-difference gradient sample     |
-|  [07]   | `ff.sample()`                                                                     | FF       | fractional-factorial two-level design |
+| [INDEX] | [SURFACE]                                                                         | [CAPABILITY]                                   |
+| :-----: | :-------------------------------------------------------------------------------- | :--------------------------------------------- |
+|  [01]   | `sobol.sample(*, calc_second_order=True, scramble=True, skip_values=0)`           | Sobol' quasi-random (Saltelli) sample          |
+|  [02]   | `morris.sample(num_levels=4, optimal_trajectories=None, local_optimization=True)` | one-at-a-time trajectory sample                |
+|  [03]   | `latin.sample()`                                                                  | Latin hypercube sample                         |
+|  [04]   | `fast_sampler.sample(M=4)`                                                        | FAST frequency search-curve sample             |
+|  [05]   | `finite_diff.sample(delta=0.01, skip_values=1024)`                                | finite-difference gradient sample (DGSM input) |
+|  [06]   | `ff.sample()`                                                                     | fractional-factorial two-level design          |
 
 [ENTRYPOINT_SCOPE]: analyze functions
-- rail: sensitivity-analysis
-- every analyzer takes `(problem, [X,] Y, ..., seed=None)` (methods needing input samples take `X` before `Y`); `num_resamples=100`, `conf_level=0.95`, `print_to_console=False` are shared resampling/reporting keywords, and `sobol.analyze` adds `parallel=`/`n_processors=`/`keep_resamples=` for resample parallelism — the row shows the method-specific keywords.
+- Each analyzer is `<method>.analyze(problem, [X,] Y, ..., seed=None) -> ResultDict`; methods reading input samples take `X` before `Y`. Shared keywords `num_resamples=100`, `conf_level=0.95`, `print_to_console=False`; `sobol.analyze` adds `parallel=`/`n_processors=`/`keep_resamples=` for resample parallelism. Rows show the method-specific keywords.
 
-| [INDEX] | [SURFACE]                                                                            | [METHOD] | [INDICES]                             |
-| :-----: | :----------------------------------------------------------------------------------- | :------- | :------------------------------------ |
-|  [01]   | `sobol.analyze(calc_second_order=True)`                                              | Sobol    | S1/S2/ST                              |
-|  [02]   | `morris.analyze(scaled=False, num_levels=4)`                                         | Morris   | mu/mu*/sigma                          |
-|  [03]   | `fast.analyze(M=4)`                                                                  | FAST     | first-order                           |
-|  [04]   | `rbd_fast.analyze(M=10)`                                                             | RBD-FAST | first-order                           |
-|  [05]   | `delta.analyze(y_resamples=None, method='all')`                                      | delta    | moment-independent                    |
-|  [06]   | `pawn.analyze(S=10)`                                                                 | PAWN     | KS-based                              |
-|  [07]   | `dgsm.analyze()`                                                                     | DGSM     | `vi`/`vi_std`/`dgsm` derivative-based |
-|  [08]   | `rsa.analyze(bins=20, target='Y')`                                                   | RSA      | regional (binned) sensitivity         |
-|  [09]   | `hdmr.analyze(maxorder=2, maxiter=100, m=2, K=20, R=None, alpha=0.95, lambdax=0.01)` | HDMR     | `Sa`/`Sb`/`ST` component expansion    |
-|  [10]   | `ff.analyze(second_order=False)`                                                     | FF       | main + optional 2nd-order effects     |
+| [INDEX] | [SURFACE]                                                                            | [CAPABILITY]                                   |
+| :-----: | :----------------------------------------------------------------------------------- | :--------------------------------------------- |
+|  [01]   | `sobol.analyze(calc_second_order=True)`                                              | S1/S2/ST variance indices                      |
+|  [02]   | `morris.analyze(scaled=False, num_levels=4)`                                         | mu/mu*/sigma elementary effects                |
+|  [03]   | `fast.analyze(M=4)`                                                                  | first-order indices                            |
+|  [04]   | `rbd_fast.analyze(M=10)`                                                             | first-order (random-balance design)            |
+|  [05]   | `delta.analyze(y_resamples=None, method='all')`                                      | moment-independent delta + S1                  |
+|  [06]   | `pawn.analyze(S=10)`                                                                 | KS-based indices                               |
+|  [07]   | `dgsm.analyze()`                                                                     | `vi`/`vi_std`/`dgsm` derivative-based          |
+|  [08]   | `rsa.analyze(bins=20, target='Y')`                                                   | regional (binned) sensitivity                  |
+|  [09]   | `hdmr.analyze(maxorder=2, maxiter=100, m=2, K=20, R=None, alpha=0.95, lambdax=0.01)` | `Sa`/`Sb`/`ST` component expansion             |
+|  [10]   | `discrepancy.analyze(method='WD')`                                                   | discrepancy indices (`WD`/`CD`/`MD`/`L2-star`) |
+|  [11]   | `ff.analyze(second_order=False)`                                                     | main + optional 2nd-order effects              |
 
-[ENTRYPOINT_SCOPE]: utility functions
-- rail: sensitivity-analysis
+[ENTRYPOINT_SCOPE]: utility functions (module-level, `SALib.util`)
 
-| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY] | [RAIL]                             |
-| :-----: | :----------------------------------------------- | :------------- | :--------------------------------- |
-|  [01]   | `util.read_param_file(filename, delimiter=None)` | I/O            | read problem dict from CSV         |
-|  [02]   | `util.scale_samples(params, problem)`            | transform      | scale unit-hypercube to bounds     |
-|  [03]   | `util.compute_groups_matrix(groups)`             | utility        | build groups incidence matrix      |
-|  [04]   | `util.extract_group_names(p) -> Tuple`           | utility        | extract group names from problem   |
-|  [05]   | `util.handle_seed(seed) -> Generator`            | utility        | normalize seed to numpy Generator  |
-|  [06]   | `util.avail_approaches(pkg)`                     | introspection  | list available methods in a subpkg |
+| [INDEX] | [SURFACE]                                   | [CAPABILITY]                                        |
+| :-----: | :------------------------------------------ | :-------------------------------------------------- |
+|  [01]   | `read_param_file(filename, delimiter=None)` | read a `problem` dict from CSV                      |
+|  [02]   | `scale_samples(params, problem)`            | scale a unit-hypercube matrix to bounds             |
+|  [03]   | `compute_groups_matrix(groups)`             | build the groups incidence matrix                   |
+|  [04]   | `extract_group_names(problem) -> tuple`     | extract group names from a `problem`                |
+|  [05]   | `handle_seed(seed) -> Generator`            | normalize int/Generator/None to a numpy `Generator` |
+|  [06]   | `avail_approaches(pkg)`                     | list available methods in a subpackage              |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[SALIB_TOPOLOGY]:
-- `problem` dict requires keys `num_vars: int`, `names: list[str]`, `bounds: list[[lo, hi]]`; optional `groups`, `dists` (per-variable distribution: `unif`/`norm`/`lognorm`/`triang`/`truncnorm`), `outputs`
-- `ProblemSpec` is a `dict` subclass — construct with the same keys as `problem`; the fluent pipeline is `.sample(sampler.sample, N, ...)` → `.evaluate(model)` (or `.evaluate_parallel`/`.evaluate_distributed`) → `.analyze(analyzer.analyze, ...)`, with `.samples`/`.results`/`.analysis` properties and `.set_samples`/`.set_results` injectors; `.to_df()`/`.plot()`/`.heatmap()` export the analysis
-- `ResultDict` (`SALib.util.ResultDict`) is returned by all `analyze()` calls; it is a `dict` subclass with `.to_df()` and `.plot()`; keys vary by method (`S1`/`S2`/`ST`/`*_conf` for Sobol, `mu`/`mu_star`/`mu_star_conf`/`sigma` for Morris, `delta`/`S1` for delta, `vi`/`dgsm` for DGSM)
-- `seed` is accepted on every sampler (`sobol`/`morris`/`latin`/`fast_sampler`/`finite_diff`/`ff`) and every analyzer for deterministic reproduction; `SALib.util.handle_seed(seed)` normalizes an `int`/`Generator`/`None` to a numpy `Generator`
-- Sobol requires sample size `N = 2^k`; the Saltelli/Sobol design produces `N * (2*D + 2)` rows for `calc_second_order=True`, `N * (D + 2)` otherwise; DGSM consumes the `finite_diff` sample, RSA/PAWN/delta/Morris consume a paired `(X, Y)`, and FAST/Sobol consume `Y` alone
+[TOPOLOGY]:
+- `problem` dict requires `num_vars: int`, `names: list[str]`, `bounds: list[[lo, hi]]`; optional `groups`, `dists` (per-variable `unif`/`norm`/`lognorm`/`triang`/`truncnorm`), `outputs`. `ProblemSpec` is a `dict` subclass constructed from the same keys.
+- Sobol requires `N = 2^k`; the Saltelli/Sobol' design emits `N*(2D+2)` rows under `calc_second_order=True`, `N*(D+2)` otherwise. FAST and Sobol consume `Y` alone; Morris, RSA, PAWN, delta, and DGSM consume a paired `(X, Y)`, DGSM over the `finite_diff` sample.
+- Every `analyze()` returns a `ResultDict` (`dict` subclass, `.to_df()`/`.plot()`); keys vary by method — `S1`/`S2`/`ST`/`*_conf` for Sobol, `mu`/`mu_star`/`mu_star_conf`/`sigma` for Morris, `delta`/`S1` for delta, `vi`/`dgsm` for DGSM.
+- `seed` on every sampler and analyzer gives deterministic reproduction; `util.handle_seed` normalizes an int/`Generator`/`None` to a numpy `Generator`.
 
-[SALIB_STACKING]:
-- model evaluation rail: `ProblemSpec.evaluate(model)` calls a vectorized `model(X) -> Y` over the full sample matrix; `evaluate_parallel(model, nprocs=)` and `evaluate_distributed(model, nprocs=, servers=)` fan the rows out over `multiprocess`/distributed workers — when the model is an expensive geometry/FE/quadrature evaluation, the parallel evaluator owns the fan-out rather than a hand-built pool.
-- numpy/pandas rail: sample matrices and `Y` are plain `numpy.ndarray`; `ResultDict.to_df()` / `ProblemSpec.to_df()` lower the indices to a `pandas.DataFrame` for the receipt and downstream tabulation, so the study result crosses the wire as a frame, not a bare dict.
-- arviz/posterior rail: when the model output is a posterior summary, the sensitivity indices and their `*_conf` confidence bounds are captured beside the `arviz` diagnostics under one study receipt keyed by `problem`/`N`/`seed`.
-- distribution rail: `problem['dists']` selects per-variable input distributions resolved through `scipy.stats`; non-uniform inputs are declared in the `problem` dict, never pre-transformed by the caller before sampling.
+[STACKING]:
+- `numpy`(`.api/numpy.md`): sample matrices and `Y` cross as plain `ndarray`; a vectorized `model(X) -> Y` closes over the full sample matrix.
+- `scipy`(`.api/scipy.md`): `problem['dists']` resolves per-variable input distributions through `scipy.stats`; non-uniform inputs are declared in the dict, never pre-transformed by the caller.
+- `arviz`(`.api/arviz.md`): a posterior-summary model output lands its indices and their `*_conf` bounds beside the `arviz` diagnostics under one study receipt keyed by `problem`/`N`/`seed`.
+- within-lib: `ResultDict.to_df()`/`ProblemSpec.to_df()` lower indices to a `pandas.DataFrame` for the receipt; `evaluate_parallel`/`evaluate_distributed` fan an expensive `model(X)` over `multiprocess`/cluster workers, owning the fan-out rather than a hand-built pool.
 
 [LOCAL_ADMISSION]:
-- Use `ProblemSpec` for new analysis pipelines; use module-level `sample`/`analyze` functions only for one-shot scripting.
-- Capture `problem`, `N`, `num_resamples`, `conf_level`, and `seed` in the study receipt alongside the `ResultDict`.
-- `scale_samples` applies bounds transformation only when sampling produces unit-hypercube output (Saltelli, LHS); Sobol sampler scales automatically when bounds are provided in `problem`.
+- `ProblemSpec` drives every new pipeline; module-level `<method>.sample`/`.analyze` serve one-shot scripting only. Every study receipt captures `problem`, `N`, `num_resamples`, `conf_level`, `seed`, and the `ResultDict`.
+- `scale_samples` transforms bounds only for unit-hypercube samplers (LHS); the Sobol sampler auto-scales when `problem` carries bounds.
 
 [RAIL_LAW]:
 - Package: `SALib`
-- Owns: global sensitivity analysis — sampling design (Saltelli/Sobol, Morris trajectories, Latin hypercube, FAST frequency, finite-difference, fractional factorial) and index computation (Sobol S1/S2/ST, Morris mu/mu*/sigma, FAST, RBD-FAST, delta moment-independent, PAWN KS, DGSM derivative-based, RSA regional, HDMR component-function, fractional-factorial), with serial/parallel/distributed model evaluation and DataFrame/plot/heatmap export
-- Accept: `ProblemSpec`-driven `.sample`→`.evaluate`→`.analyze` pipelines with structured receipts; module-level `<method>.sample(problem, N, ..., seed=)` / `<method>.analyze(problem, [X,] Y, ..., seed=)` for direct use; `seed` for deterministic reproduction; `problem['dists']` for non-uniform inputs; `evaluate_parallel`/`evaluate_distributed` for expensive models
-- Reject: hand-rolled Sobol/Morris/FAST index estimators where the admitted analyzer owns the method; `print_to_console=True` in production compute paths; caller pre-transforming input distributions where `problem['dists']` declares them; a hand-built worker pool where `evaluate_parallel` owns the fan-out
+- Owns: global sensitivity analysis — sampling design and index computation over serial, parallel, and distributed model evaluation with DataFrame/plot/heatmap export
+- Accept: `ProblemSpec` `.sample`→`.evaluate`→`.analyze` pipelines with structured receipts; module-level `<method>.sample`/`.analyze` for direct use; `seed` for reproduction; `problem['dists']` for non-uniform inputs; `evaluate_parallel`/`evaluate_distributed` for expensive models
+- Reject: a hand-rolled Sobol/Morris/FAST index estimator where the admitted analyzer owns the method; `print_to_console=True` in production compute paths; a caller pre-transforming input distributions `problem['dists']` declares; a hand-built worker pool where `evaluate_parallel` owns the fan-out

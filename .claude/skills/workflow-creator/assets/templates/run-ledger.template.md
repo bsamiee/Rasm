@@ -17,7 +17,7 @@ This ledger is NOT the journal. That journal (`journal.jsonl`, in the transcript
 
 - Resume: `Workflow({ scriptPath: "<launched scriptPath>", resumeFromRunId: "<wf_...>" })`
 - Resume replays every cached `agent()` call up to the first whose key changed; only that call onward re-runs live.
-- Cache key per call = `(prompt, schema, model, isolation, agentType)`. `label`, `phase`, `effort`, and `stallMs` are NOT in the key.
+- Cache key per call = `(prompt, schema, model, isolation, agentType)`. `label`, `phase`, and `effort` are not in the key.
 - Do NOT edit the launched script while resumable — the resume becomes a full re-run from the edit.
 - Resume requires `resumeFromRunId` AND the same session; a bare re-invocation, or a new session, starts fresh from zero (cross-session: transplant the old `journal.jsonl` into the new session's `wf_<id>` directory BEFORE the first in-session read — recovery reference).
 - Verify every resume immediately: fresh `started` records belong only to the next pending stage; a burst of new `started` records for completed work is a key mismatch — stop and diff against the bytes that ran.

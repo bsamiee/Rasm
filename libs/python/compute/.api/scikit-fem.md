@@ -1,22 +1,21 @@
 # [PY_COMPUTE_API_SCIKIT_FEM]
 
-`scikit-fem` (module `skfem`) supplies finite-element mesh management, element spaces, threaded form assembly, system conditioning, and linear/eigen solve pipelines for the compute FEM structural and field-analysis rail. The package owner builds a `Mesh -> Element -> Basis` pipeline, assembles a `BilinearForm`/`LinearForm` into a `scipy.sparse` matrix, conditions it with `condense`/`enforce`/`penalize`/`mpc`, and solves with a `solve`/`solve_eigen` dispatcher fed by a scipy-backed solver factory; it never hand-rolls element quadrature, DOF bookkeeping, or assembly loops the package owns.
+`scikit-fem` owns finite-element mesh management, element spaces, threaded form assembly, conditioning, and linear/eigen solve for the compute FEM structural and field-analysis rail. Assembly emits a `scipy.sparse` matrix that crosses to scipy for sparse solve, and the assembled system is offline study evidence, never a production substrate.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `scikit-fem`
 - package: `scikit-fem`
-- import: `skfem`; all public types and functions live at the top level (no submodule import path required)
+- import: `skfem`; public types and functions at top level
 - owner: `compute`
 - rail: FEM assembly and solve
-- capability: simplex/tensor mesh management, H1/Hdiv/Hcurl/DG/global element spaces, threaded bilinear/linear/trilinear/functional assembly, Dirichlet/penalty/multi-point conditioning, sparse direct/Krylov/eigen solve dispatch, L2 projection, adaptive refinement, and physical-point interpolation/probing
+- capability: simplex/tensor mesh management, H1/Hdiv/Hcurl/DG/C1 element spaces, threaded bilinear/linear/trilinear/functional assembly, Dirichlet/penalty/multi-point conditioning, sparse direct/Krylov/eigen solve dispatch, L2 projection, adaptive refinement, and physical-point interpolation
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: mesh types
-- rail: FEM assembly
 
-`MeshX1` is affine (linear geometry); `MeshX2` is the isoparametric quadratic geometry of the same cell; `MeshXxDG` is the discontinuous (node-duplicated) variant used for per-element discontinuous spaces. `Mesh2D`/`Mesh3D`/`MeshTri`/`MeshTet`/`MeshQuad`/`MeshHex`/`MeshLine` are the abstract bases; concrete construction uses the numbered subclasses below. Every structured mesh carries the `init_tensor` factory and `MeshTet1` also builds `init_ball`; the discontinuous-geometry meshes `MeshTri1DG`/`MeshTet1DG`/`MeshQuad1DG`/`MeshHex1DG`/`MeshLine1DG` are node-duplicated variants for DG/periodic spaces.
+`MeshX1` is affine, `MeshX2` isoparametric-quadratic over the same cell, `MeshXxDG` the node-duplicated discontinuous variant for DG/periodic spaces. Unnumbered bases (`Mesh2D`/`MeshTri`) are abstract; the numbered subclasses construct, each carrying `init_tensor`.
 
 | [INDEX] | [SYMBOL]     | [TYPE_FAMILY]      | [CAPABILITY]                                                                      |
 | :-----: | :----------- | :----------------- | :-------------------------------------------------------------------------------- |
@@ -25,15 +24,13 @@
 |  [03]   | `MeshTri2`   | 2-D quadratic mesh | isoparametric quadratic triangular mesh                                           |
 |  [04]   | `MeshQuad1`  | 2-D quad mesh      | quadrilateral mesh                                                                |
 |  [05]   | `MeshQuad2`  | 2-D quad mesh      | quadratic quadrilateral mesh                                                      |
-|  [06]   | `MeshTet1`   | 3-D simplex mesh   | tetrahedral mesh                                                                  |
+|  [06]   | `MeshTet1`   | 3-D simplex mesh   | tetrahedral mesh; `init_ball`                                                     |
 |  [07]   | `MeshTet2`   | 3-D quadratic mesh | quadratic tetrahedral mesh                                                        |
 |  [08]   | `MeshHex1`   | 3-D hex mesh       | hexahedral mesh                                                                   |
 |  [09]   | `MeshHex2`   | 3-D quad hex mesh  | quadratic hexahedral mesh                                                         |
 |  [10]   | `MeshWedge1` | 3-D wedge mesh     | wedge/prism mesh                                                                  |
 
 [PUBLIC_TYPE_SCOPE]: basis and form types
-- rail: FEM assembly
-- form types carry the `dtype=complex64` (complex) and `nthreads>0` (threaded) assembly knobs.
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY]  | [CAPABILITY]                                                      |
 | :-----: | :------------------- | :------------- | :---------------------------------------------------------------- |
@@ -49,15 +46,14 @@
 |  [10]   | `Functional`         | form           | `(w,)` callback -> scalar functional (energy, error norm, flux)   |
 
 [PUBLIC_TYPE_SCOPE]: element types (simplex/tensor H1 Lagrange)
-- rail: FEM assembly
 
-The Lagrange ladder runs `P0` (DG-only piecewise-constant) -> `P1` -> `P2` -> `P3` -> `P4` per cell; `Pp` is the arbitrary-order simplex element. `Mini`/`P1B`/`P2B`/`CR`/`CCR` are bubble/Crouzeix-Raviart enrichments for inf-sup-stable Stokes pairs.
+Triangle Lagrange runs `P0` (piecewise-constant) through `P4`; `ElementLinePp`/`ElementQuadP` are arbitrary-order line/quad. `Mini`/`P1B`/`P2B`/`CR`/`CCR` enrich for inf-sup-stable Stokes pairs.
 
 | [INDEX] | [SYMBOL]                                                               | [TYPE_FAMILY]         | [CAPABILITY]                           |
 | :-----: | :--------------------------------------------------------------------- | :-------------------- | :------------------------------------- |
 |  [01]   | `ElementTriP1` \| `ElementTriP2` \| `ElementTriP3` \| `ElementTriP4`   | H1 tri Lagrange       | P1-P4 Lagrange triangle                |
 |  [02]   | `ElementTriP0` \| `ElementTetP0` \| `ElementQuad0` \| `ElementHex0`    | DG piecewise-constant | cell-constant element (DG/pressure)    |
-|  [03]   | `ElementTriPp` \| `ElementLinePp` \| `ElementQuadP`                    | H1 arbitrary-order    | order-`p` simplex/line/quad Lagrange   |
+|  [03]   | `ElementLinePp` \| `ElementQuadP`                                      | H1 arbitrary-order    | order-`p` line/quad Lagrange           |
 |  [04]   | `ElementTriMini` \| `ElementTetMini` \| `ElementLineMini`              | H1 Mini bubble        | MINI enriched element for Stokes       |
 |  [05]   | `ElementTriP1B` \| `ElementTriP2B`                                     | H1 bubble             | bubble-enriched triangle               |
 |  [06]   | `ElementTriCR` \| `ElementTriCCR` \| `ElementTetCR` \| `ElementTetCCR` | nonconforming         | Crouzeix-Raviart/conforming-CR         |
@@ -68,8 +64,8 @@ The Lagrange ladder runs `P0` (DG-only piecewise-constant) -> `P1` -> `P2` -> `P
 |  [11]   | `ElementWedge1`                                                        | H1 wedge              | linear wedge/prism element             |
 
 [PUBLIC_TYPE_SCOPE]: element types (mixed/DG/vector/global)
-- rail: FEM assembly
-- each family's member roster is listed by matching index in `[ELEMENT_ROSTER]` below the table.
+
+Exact members per family in `[ELEMENT_ROSTER]` below.
 
 | [INDEX] | [ELEMENT_FAMILY]      | [CAPABILITY]                                                   |
 | :-----: | :-------------------- | :------------------------------------------------------------- |
@@ -97,8 +93,8 @@ The Lagrange ladder runs `P0` (DG-only piecewise-constant) -> `P1` -> `P2` -> `P
 - [10]-[ELEMENT_BASE]: `ElementH1`/`ElementHdiv`/`ElementHcurl`/`ElementGlobal`
 
 [PUBLIC_TYPE_SCOPE]: DOF, field, mapping, and system carriers
-- rail: FEM assembly
-- `DofsView` carries the `.nodal`/`.facet`/`.edge`/`.interior`/`.all`/`.keep`/`.drop`/`.flatten` selectors; `MappingAffine` is constant-Jacobian, `MappingIsoparametric` curves.
+
+`DofsView` carries the `.nodal`/`.facet`/`.edge`/`.interior`/`.all`/`.keep`/`.drop`/`.flatten` selectors; `MappingAffine` is constant-Jacobian, `MappingIsoparametric` curves.
 
 | [INDEX] | [SYMBOL]                                               | [TYPE_FAMILY]   | [CAPABILITY]                                                 |
 | :-----: | :----------------------------------------------------- | :-------------- | :----------------------------------------------------------- |
@@ -113,9 +109,8 @@ The Lagrange ladder runs `P0` (DG-only piecewise-constant) -> `P1` -> `P2` -> `P
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: mesh construction, labelling, and IO
-- rail: FEM assembly
 
-The canonical-domain factories `init_circle(nrefs)`/`init_lshaped()`/`init_symmetric()`/`init_ball()` build a canonical-domain mesh; `with_boundaries`/`with_subdomains` attach named predicate regions (boundary-condition tags / material regions) that `basis.get_dofs(name)` and subdomain-restricted bases later resolve. `mesh.save(filename, point_data, cell_data)` and the `meshio`-backed `load` interoperate with Gmsh/VTK/XDMF.
+`init_circle`/`init_lshaped`/`init_symmetric`/`init_ball` build canonical domains; `with_boundaries`/`with_subdomains` attach named predicate regions that `get_dofs(name)` and subdomain bases resolve. `save`/`load` are `meshio`-backed (Gmsh/VTK/XDMF).
 
 | [INDEX] | [SURFACE]                                                            | [ENTRY_FAMILY] | [RESULT]                                     |
 | :-----: | :------------------------------------------------------------------- | :------------- | :------------------------------------------- |
@@ -128,9 +123,8 @@ The canonical-domain factories `init_circle(nrefs)`/`init_lshaped()`/`init_symme
 |  [07]   | `mesh.element_finder()` \| `mesh.p` \| `mesh.t` \| `mesh.facets`     | query/data     | point-location callable; connectivity arrays |
 
 [ENTRYPOINT_SCOPE]: basis construction, DOF access, and field transfer
-- rail: FEM assembly
 
-`get_dofs` is the single polymorphic DOF selector — it discriminates on `facets` (boundary tag name or facet array), `elements` (subdomain), `nodes`, or `skip` (component filter) and returns a `DofsView`. Rows [03]-[10] are `basis` methods; `Basis` takes `mapping`/`intorder`/`quadrature`/`elements` kwargs, and `FacetBasis`/`BoundaryFacetBasis`/`InteriorFacetBasis` are the facet-integration constructors taking `(mesh, elem, facets=None, ...)`. `interpolate` lifts a DOF vector to a quadrature-point `DiscreteField` for nonlinear/coupled forms; `probes`/`global_coordinates`/`doflocs` give the physical-point transfer surface the callable-source projection residual needs.
+`Basis` takes `mapping`/`intorder`/`quadrature`/`elements`; `FacetBasis`/`BoundaryFacetBasis`/`InteriorFacetBasis` are facet constructors over `(mesh, elem, facets=None)`. `interpolate` lifts a DOF vector to a quadrature-point `DiscreteField`; `probes`/`global_coordinates`/`doflocs` are the physical-point transfer surface.
 
 | [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY]    | [RESULT]                                             |
 | :-----: | :------------------------------------------------------- | :---------------- | :--------------------------------------------------- |
@@ -146,9 +140,8 @@ The canonical-domain factories `init_circle(nrefs)`/`init_lshaped()`/`init_symme
 |  [10]   | `.with_element(elem)` \| `.with_elements(elements)`      | restriction       | rebind to new element / subdomain element subset     |
 
 [ENTRYPOINT_SCOPE]: assembly
-- rail: FEM assembly
 
-A form callback returns an `np`-broadcast expression over quadrature; `BilinearForm(fn)(basis)` and `LinearForm(fn)(basis)` are the explicit routes, `asm(form, *bases, to=...)` the unified dispatcher that also folds multi-basis blocks. Complex assembly sets `dtype=np.complex64`; threaded assembly sets `nthreads>0`.
+A form callback returns a broadcast expression over quadrature points; `BilinearForm(fn)(basis)`/`LinearForm(fn)(basis)` are explicit, `asm(form, *bases, to=...)` the dispatcher folding multi-basis blocks.
 
 | [INDEX] | [SURFACE]                               | [ENTRY_FAMILY] | [RESULT]                                             |
 | :-----: | :-------------------------------------- | :------------- | :--------------------------------------------------- |
@@ -160,9 +153,8 @@ A form callback returns an `np`-broadcast expression over quadrature; `BilinearF
 |  [06]   | `bmat(blocks)` -> `spmatrix`            | block assembly | block-sparse matrix from a 2-D block list            |
 
 [ENTRYPOINT_SCOPE]: boundary conditions and system conditioning
-- rail: FEM assembly
 
-`condense` is the canonical eliminate-and-restore route; `enforce`/`penalize` are penalty alternatives; `mpc` imposes multi-point (periodic/tied) constraints; `rcm` reorders for bandwidth. The Dirichlet conditioners share `(A, b=None, x=None, I=None, D=None, ...)`; `D`/`I` accept a `DofsView`, an index `ndarray`, or a `{name: DofsView}` dict.
+Dirichlet conditioners share `(A, b=None, x=None, I=None, D=None)`; `D`/`I` accept a `DofsView`, an index `ndarray`, or a `{name: DofsView}` dict.
 
 | [INDEX] | [SURFACE]                                   | [ENTRY_FAMILY] | [RESULT]                                                      |
 | :-----: | :------------------------------------------ | :------------- | :------------------------------------------------------------ |
@@ -173,16 +165,15 @@ A form callback returns an `np`-broadcast expression over quadrature; `BilinearF
 |  [05]   | `rcm(A, b)` -> `(A_perm, b_perm, perm)`     | reordering     | reverse Cuthill-McKee bandwidth reduction                     |
 
 [ENTRYPOINT_SCOPE]: solve dispatch and solver/preconditioner factories
-- rail: FEM assembly
 
-`solve` discriminates on the `solver` callable's return arity (`ndarray` linear vs `(w, x)` eigenpair); `solve_linear`/`solve_eigen` are the explicit routes. `solve`/`solve_linear` take `(A, b, x=None, I=None, solver=None, **kw)` and `solve_eigen` takes `(A, M, ...)`. Solver factories return the `callable` passed as `solver=`; `build_pc_ilu` takes `drop_tol=1e-4`/`fill_factor=20`, and preconditioner builders return a `LinearOperator` feeding `solver_iter_krylov(M=...)`.
+`solve`/`solve_linear` take `(A, b, x=None, I=None, solver=None)`, `solve_eigen` takes `(A, M)`. A solver factory returns the callable passed as `solver=`; `build_pc_diag`/`build_pc_ilu` return a `LinearOperator` feeding `solver_iter_krylov(M=...)`.
 
 | [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY] | [RESULT]                                            |
 | :-----: | :----------------------------------------------------------- | :------------- | :-------------------------------------------------- |
 |  [01]   | `solve(A, b, ..., solver=None)`                              | solve dispatch | linear or eigen solve discriminated by solver arity |
 |  [02]   | `solve_linear(A, b, ...)`                                    | linear solve   | `A x = b` solution                                  |
 |  [03]   | `solve_eigen(A, M, ...)`                                     | eigen solve    | generalized `A x = λ M x` eigenpairs                |
-|  [04]   | `solver_direct_scipy(**kw)`                                  | factory        | SciPy sparse direct (`splu`-backed) solver          |
+|  [04]   | `solver_direct_scipy(**kw)`                                  | factory        | SciPy sparse direct (`spsolve`-backed) solver       |
 |  [05]   | `solver_iter_krylov(krylov=cg, verbose=False, **kw)`         | factory        | Krylov iterative solver (CG; `gmres`/`bicgstab`)    |
 |  [06]   | `solver_iter_cg(**kw)` \| `solver_iter_pcg(**kw)`            | factory        | conjugate-gradient / preconditioned-CG solver       |
 |  [07]   | `solver_eigen_scipy(**kw)` \| `solver_eigen_scipy_sym(**kw)` | factory        | SciPy ARPACK eigensolver (general/symmetric)        |
@@ -191,18 +182,23 @@ A form callback returns an `np`-broadcast expression over quadrature; `BilinearF
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[FEM_TOPOLOGY]:
-- pipeline: `Mesh -> Element -> Basis` is canonical; `CellBasis` (alias `Basis`/`InteriorBasis`) owns volume assembly, `FacetBasis`/`BoundaryFacetBasis`/`InteriorFacetBasis` own facet assembly. Element/geometry order must match the assembled physics (`MeshTri2` + `ElementTriP2` for curved isoparametric).
-- forms: callbacks receive `DiscreteField` arguments (`u`, `v` trial/test; `w` the parameter context carrying `w['mesh-data']`, prior solutions, and coordinates). `BilinearForm`/`LinearForm`/`TrilinearForm`/`Functional` are the four assembly arities; `dtype=np.complex64` and `nthreads>0` are the complex/threaded knobs.
-- DOF selection: `basis.get_dofs(...)` is one polymorphic selector; it discriminates on the named `facets`/`elements`/`nodes`/`skip` keyword, returning a `DofsView` whose `.nodal`/`.facet`/`.edge`/`.interior`/`.all`/`.keep`/`.drop` filters carve the Dirichlet/Neumann partition. Never enumerate DOF families with parallel `get_boundary_dofs`/`get_interior_dofs` calls.
-- conditioning: `condense` eliminates constrained DOFs and (with `expand=True`) restores the full-length solution; `enforce`/`penalize` keep system size via penalty rows; `mpc` ties DOFs for periodic/coupled meshes.
-- solve: `solve(A, b, solver=...)` discriminates linear vs eigen by the factory's return arity. Solver factories (`solver_direct_scipy`, `solver_iter_krylov`, `solver_eigen_scipy`) are passed as `solver=`, never called directly; preconditioners (`build_pc_diag`, `build_pc_ilu`) feed `solver_iter_krylov(M=...)`.
+[TOPOLOGY]:
+- pipeline: `Mesh -> Element -> Basis`; `CellBasis` (alias `Basis`/`InteriorBasis`) owns volume assembly, `FacetBasis`/`BoundaryFacetBasis`/`InteriorFacetBasis` own facet assembly, and element/geometry order matches the assembled physics (`MeshTri2` + `ElementTriP2` for curved isoparametric).
+- forms: callbacks receive `DiscreteField` arguments (`u`/`v` trial/test, `w` the parameter context carrying mesh data, prior solutions, and coordinates); `BilinearForm`/`LinearForm`/`TrilinearForm`/`Functional` are the four assembly arities, with `dtype=np.complex64` and `nthreads>0` the complex and threaded knobs.
+- selection: `basis.get_dofs(...)` is one polymorphic selector discriminating on the `facets`/`elements`/`nodes`/`skip` keyword and returning a `DofsView` whose selectors carve the Dirichlet/Neumann partition.
+- conditioning: `condense` eliminates constrained DOFs and (with `expand=True`) restores full length; `enforce`/`penalize` hold system size via penalty rows; `mpc` ties DOFs for periodic/coupled meshes.
+- solve: `solve(A, b, solver=...)` discriminates linear vs eigen by the factory's return arity; factories (`solver_direct_scipy`/`solver_iter_krylov`/`solver_eigen_scipy`) pass as `solver=`, and preconditioners (`build_pc_diag`/`build_pc_ilu`) feed `solver_iter_krylov(M=...)`.
+
+[STACKING]:
+- `scipy`(`.api/scipy.md`): assembly emits a `scipy.sparse` `spmatrix` crossing to `scipy.sparse.linalg` for the solve — `solver_direct_scipy` wraps `spsolve`, `solver_iter_krylov` wraps `cg`/`gmres`/`bicgstab`, `solver_eigen_scipy` wraps ARPACK `eigs` and `solver_eigen_scipy_sym` wraps `eigsh`.
+- `gmsh`(`.api/gmsh.md`) / `meshio`(`.api/meshio.md`): a `mesh.load`-read mesh assembles directly, its physical groups arriving as boundary/subdomain tags that `with_boundaries`/`with_subdomains` name and `get_dofs` resolves.
+- within-lib: the `QuadratureIntent` weak-form fold assembles through `Basis`/`BilinearForm`, `MeshField`/`MeshExchange` own mesh topology and IO, `FieldQuery` reads back through `basis.probes`/`interpolate`, and the solve folds its solver factory and DOF-partition onto `SolverReceipt`.
 
 [LOCAL_ADMISSION]:
-- import: top-level `skfem` import (no submodule path); the assembled `spmatrix` is `scipy.sparse` and routes the sparse-solve evidence through `.api/scipy.md`.
-- transfer: a callable source/Dirichlet field projects with `basis.project(fun)`; physical-point transfer fidelity uses `basis.probes(x)`/`global_coordinates()`/`doflocs` (not finiteness-only checks), feeding the `solvers/field.md#FIELD` transfer-residual receipt.
-- adaptive: an error estimator drives `adaptive_theta(est, theta)` -> `mesh.refined(ix)`; the refinement loop captures the estimator and marked-element count as study evidence.
-- boundary: scikit-fem assembly/solve is offline study evidence; the conditioned `spmatrix`/solution crosses to scipy for sparse solve, and production substrate/benchmark authority stays in `Rasm.Compute`.
+- import: top-level `skfem`; the assembled `spmatrix` is `scipy.sparse`.
+- transfer: a callable source/Dirichlet field projects with `basis.project`; physical-point transfer fidelity uses `basis.probes`/`global_coordinates`/`doflocs`, feeding the `FieldQuery` transfer-residual receipt.
+- adaptive: an error estimator drives `adaptive_theta(est, theta)` -> `mesh.refined(ix)`, the loop capturing the estimator and marked-element count as study evidence.
+- boundary: the conditioned `spmatrix`/solution crosses to scipy for sparse solve, and production substrate/benchmark authority stays in `Rasm.Compute`.
 
 [RAIL_LAW]:
 - Package: `scikit-fem`

@@ -1,41 +1,29 @@
 # [PY_COMPUTE_API_CLARABEL]
 
-`clarabel` supplies the Rust-native conic interior-point solver for the compute convex-optimization rail: a `DefaultSolver` that takes a quadratic-plus-conic problem in standard form (`P`, `q`, `A`, `b`, a cone list) plus `DefaultSettings`, runs the primal-dual interior-point method, and returns a `DefaultSolution` carrying the primal `x`, dual `z`/`s`, solve status, objective, and primal/dual residuals. It is the default conic backend behind `cvxpy` and the source of its dual-certificate proof of optimality. The package owner composes `DefaultSolver`, the cone constructors, `update`, and `solve` into the convex backend; it never re-implements the interior-point iteration Clarabel owns.
+`clarabel` owns the Rust-native primal-dual interior-point solve of a quadratic-conic problem in standard form — sparse `P`/`q`/`A`/`b` with an ordered cone list — returning primal `x`, dual `z`, slack `s`, status, objective, and primal/dual residuals. `cvxpy` selects it as the default conic backend, and its dual `z` with the residual pair is the optimality certificate the compute convex-optimization rail reads. `compute` composes `DefaultSolver`, the cone constructors, `update`, and `solve`; the interior-point iteration stays Clarabel's.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `clarabel`
-- package: `clarabel`
-- import: `import clarabel`
-- owner: `compute`
-- rail: convex optimization (conic solver backend)
-- license: Apache-2.0 (Rust-native, pyo3/maturin binding)
-- entry points: none (library only)
-- capability: primal-dual interior-point solve of quadratic programs over the zero, nonnegative, second-order, exponential, power, positive-semidefinite, and generalized-power cones; sparse CSC problem input; in-place data/settings `update` for warm re-solve; primal/dual solution recovery with infeasibility and unboundedness certificates and primal/dual residual reporting
+- package: `clarabel` (Apache-2.0, pyo3/maturin Rust binding)
+- module: `import clarabel`
+- rail: convex optimization — conic interior-point solver backend
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: solver, settings, and solution roots
-- rail: convex optimization
+[PUBLIC_TYPE_SCOPE]: solver, settings, solution, and info roots
 
-| [INDEX] | [SYMBOL]          | [TYPE_FAMILY]  | [CAPABILITY]                                                                       |
-| :-----: | :---------------- | :------------- | :--------------------------------------------------------------------------------- |
-|  [01]   | `DefaultSolver`   | solver         | `DefaultSolver(P, q, A, b, cones, settings)` — assembles and runs the solve        |
-|  [02]   | `DefaultSettings` | settings       | tolerances, iteration cap, time limit, equilibration, presolve, KKT method         |
-|  [03]   | `DefaultSolution` | result carrier | `x`, `z`, `s`, `status`, `obj_val`, `solve_time`, `iterations`, `r_prim`, `r_dual` |
-|  [04]   | `SolverStatus`    | status enum    | the `DefaultSolution.status` value; the closed verdict roster fences below         |
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [CAPABILITY]                                                                         |
+| :-----: | :---------------- | :------------ | :----------------------------------------------------------------------------------- |
+|  [01]   | `DefaultSolver`   | class         | `(P, q, A, b, cones, settings)` construct; owns solve and warm `update`              |
+|  [02]   | `DefaultSettings` | class         | tolerances, iteration/time caps, equilibration, presolve, KKT method, regularization |
+|  [03]   | `DefaultSolution` | value-object  | primal `x`, dual `z`, slack `s`, status, `obj_val`/`obj_val_dual`, residuals         |
+|  [04]   | `DefaultInfo`     | value-object  | `get_info()` convergence receipt: costs, gaps, residuals, ktratio, step, linsolver   |
+|  [05]   | `SolverStatus`    | enum          | closed `DefaultSolution.status` verdict set                                          |
 
-```python signature
-# SolverStatus verdict enum — three base verdicts each mirrored by an Almost* near-solve variant, plus the caps
-SolverStatus = ("Unsolved", "Solved", "PrimalInfeasible", "DualInfeasible", "AlmostSolved",
-                "AlmostPrimalInfeasible", "AlmostDualInfeasible", "MaxIterations", "MaxTime",
-                "NumericalError", "InsufficientProgress")
-```
+`[SolverStatus]`: `Unsolved` `Solved` `PrimalInfeasible` `DualInfeasible` `AlmostSolved` `AlmostPrimalInfeasible` `AlmostDualInfeasible` `MaxIterations` `MaxTime` `NumericalError` `InsufficientProgress` `CallbackTerminated`
 
 [PUBLIC_TYPE_SCOPE]: cone constructors
-- rail: convex optimization
-
-The `cones` argument is an ordered list of cone objects whose total dimension matches the row count of `A`/`b`; the row blocks of the constraint stack are partitioned in cone-list order. cvxpy's clarabel reduction emits exactly these constructors (`ZeroConeT`, `NonnegativeConeT`, `SecondOrderConeT`, `PSDTriangleConeT`, `ExponentialConeT`, `PowerConeT`, `GenPowerConeT`), so the cone names below are the consumer-confirmed surface.
 
 | [INDEX] | [SYMBOL]                     | [CONE]                 | [CAPABILITY]                                         |
 | :-----: | :--------------------------- | :--------------------- | :--------------------------------------------------- |
@@ -48,9 +36,6 @@ The `cones` argument is an ordered list of cone objects whose total dimension ma
 |  [07]   | `PSDTriangleConeT(dim)`      | semidefinite cone      | PSD constraint over the upper-triangle vectorization |
 
 [PUBLIC_TYPE_SCOPE]: `DefaultSettings` tuning fields
-- rail: convex optimization
-
-`DefaultSettings()` constructs the default row; fields are set by attribute (`settings.verbose = True`, `settings.max_iter = 100`) — the Python interface mirrors the Rust settings surface. Tune by field, never by a parallel solver subclass.
 
 | [INDEX] | [FIELD]                                                          | [ROLE]                                                      |
 | :-----: | :--------------------------------------------------------------- | :---------------------------------------------------------- |
@@ -69,45 +54,42 @@ The `cones` argument is an ordered list of cone objects whose total dimension ma
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: solve and warm-update entry points
-- rail: convex optimization
+[ENTRYPOINT_SCOPE]: solve, warm-update, problem-load, and solution recovery
 
-`P` and `A` are `scipy.sparse.csc_matrix` (CSC); `P` is the upper-triangular quadratic cost, `q` the linear cost, and `A`/`b`/`cones` the conic constraint stack `A x + s = b, s in K`. `DefaultSolver.solve()` runs the interior-point method and returns the `DefaultSolution`; `DefaultSolver.update(P=, q=, A=, b=, settings=)` mutates problem data in place for a warm re-solve without reassembling the factorization symbolics — the standalone analogue of cvxpy DPP warm re-solve.
-
-| [INDEX] | [SURFACE]                    | [CALL_SHAPE]                                 | [CAPABILITY]                               |
-| :-----: | :--------------------------- | :------------------------------------------- | :----------------------------------------- |
-|  [01]   | `DefaultSolver`              | `DefaultSolver(P, q, A, b, cones, settings)` | construct from standard-form QP + cones    |
-|  [02]   | `DefaultSolver.solve`        | `solve()` -> `DefaultSolution`               | run the interior-point solve               |
-|  [03]   | `DefaultSolver.update`       | `update(P=, q=, A=, b=, settings=)`          | in-place data/settings update for re-solve |
-|  [04]   | `DefaultSolution.x`          | attribute                                    | primal solution vector                     |
-|  [05]   | `DefaultSolution.z`          | attribute                                    | dual solution (conic multipliers)          |
-|  [06]   | `DefaultSolution.s`          | attribute                                    | primal slack vector                        |
-|  [07]   | `DefaultSolution.status`     | attribute -> `SolverStatus`                  | termination status                         |
-|  [08]   | `DefaultSolution.obj_val`    | attribute                                    | objective value at the returned point      |
-|  [09]   | `DefaultSolution.solve_time` | attribute                                    | wall-clock solve time (seconds)            |
-|  [10]   | `DefaultSolution.iterations` | attribute                                    | interior-point iteration count             |
-|  [11]   | `DefaultSolution.r_prim`     | attribute                                    | primal residual at termination             |
-|  [12]   | `DefaultSolution.r_dual`     | attribute                                    | dual residual at termination               |
+| [INDEX] | [SURFACE]                                         | [SHAPE]  | [CAPABILITY]                                           |
+| :-----: | :------------------------------------------------ | :------- | :----------------------------------------------------- |
+|  [01]   | `DefaultSolver(P, q, A, b, cones, settings)`      | ctor     | construct from standard-form sparse QP + ordered cones |
+|  [02]   | `DefaultSolver.solve() -> DefaultSolution`        | instance | run the interior-point solve                           |
+|  [03]   | `DefaultSolver.update(P=, q=, A=, b=, settings=)` | instance | in-place data/settings warm re-solve                   |
+|  [04]   | `DefaultSolver.get_info() -> DefaultInfo`         | instance | detailed convergence/iteration receipt                 |
+|  [05]   | `DefaultSolver.set_termination_callback(fn)`      | instance | early-stop hook; fires `CallbackTerminated`            |
+|  [06]   | `load_from_file(filename, settings=None)`         | static   | load a serialized problem into a solver                |
+|  [07]   | `get_infinity()` / `set_infinity(v)`              | static   | unbounded cone-bound sentinel threshold                |
+|  [08]   | `DefaultSolution.x` / `z` / `s`                   | property | primal, dual, slack vectors                            |
+|  [09]   | `DefaultSolution.status -> SolverStatus`          | property | termination verdict                                    |
+|  [10]   | `DefaultSolution.obj_val` / `obj_val_dual`        | property | primal and dual objective values                       |
+|  [11]   | `DefaultSolution.solve_time` / `iterations`       | property | wall-clock seconds and iteration count                 |
+|  [12]   | `DefaultSolution.r_prim` / `r_dual`               | property | primal and dual residuals at termination               |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[CONIC_SOLVE]:
-- import: `import clarabel` at boundary scope only; module-level import is banned by the manifest import policy.
-- problem axis: one `DefaultSolver(P, q, A, b, cones, settings)` owns the solve; the problem is standard-form `min 0.5 xᵀPx + qᵀx s.t. Ax + s = b, s in K` — supply the upper-triangular sparse `P`, never a dense or full-symmetric duplicate.
-- cone axis: the `cones` list is the single ordered partition of the constraint rows; zero/nonnegative/second-order/exponential/power/generalized-power/PSD memberships are cone rows whose dimensions sum to the constraint count — never a per-cone solver or a manual slack reformulation.
-- settings axis: `DefaultSettings` carries tolerances, iteration cap, time limit, equilibration, presolve, KKT method, and verbosity as one settings row; tune by field, never by a parallel solver subclass.
-- warm axis: a parametrized sweep that changes only `P`/`q`/`A`/`b` magnitudes re-solves through `DefaultSolver.update(...)` then `solve()`, reusing the symbolic factorization; rebuild a fresh `DefaultSolver` only when the sparsity pattern or cone partition changes.
-- backend axis: Clarabel is the default conic backend Cvxpy selects; direct construction is the standalone path when the problem is already in cone-standard form (e.g. from a Cvxpy `get_problem_data(cp.CLARABEL)` reduction whose `(data, chain, inverse)` triple yields the sparse `P`/`q`/`A`/`b` and the cone-dimension partition).
-- evidence: each solve captures status, primal `x`, dual `z`, slack `s`, objective, iteration count, solve time, and primal/dual residuals `r_prim`/`r_dual` as a conic-solve receipt; the dual `z` plus the residual pair is the certificate of optimality, and `PrimalInfeasible`/`DualInfeasible` (and their `Almost*` neighbours) statuses carry the corresponding infeasibility certificate.
-- boundary: Clarabel owns the interior-point solve and the dual certificate; Cvxpy owns the convex modeling and cone reduction above it; the graduation rail hands the offline solution across the wire; live UI stays outside this package.
+[TOPOLOGY]:
+- One `DefaultSolver(P, q, A, b, cones, settings)` owns the solve of `min 0.5 xᵀPx + qᵀx s.t. Ax + s = b, s ∈ K`; `P` is the upper-triangular sparse cost, never a dense or full-symmetric duplicate.
+- `cones` is the single ordered partition of the constraint rows — zero, nonnegative, second-order, exponential, power, generalized-power, and PSD memberships are cone rows whose dimensions sum to the row count, never a per-cone solver or manual slack reformulation.
+- `DefaultSettings` carries tolerances, caps, equilibration, presolve, KKT method, and verbosity as one settings row; tune by field, never a parallel solver subclass.
+- A sweep changing only `P`/`q`/`A`/`b` magnitudes re-solves through `update(...)` then `solve()`, reusing the symbolic factorization; rebuild a fresh `DefaultSolver` only when the sparsity pattern or cone partition changes.
+- Each solve folds status, `x`, `z`, `s`, objective, iterations, time, and residuals into one conic-solve receipt; dual `z` with the residual pair is the optimality certificate, and `PrimalInfeasible`/`DualInfeasible` and their `Almost*` neighbours carry the infeasibility certificate.
 
-[INTEGRATION_STACK]:
-- cvxpy backend: `cp.Problem.solve(solver=cp.CLARABEL, ...)` reduces a disciplined-convex model to the exact `(P, q, A, b, cones)` standard form Clarabel consumes; cvxpy `get_problem_data(cp.CLARABEL)` exposes that reduction so a one-shot offline study can drive `DefaultSolver` directly and read the `DefaultSolution` residual receipt without the modeling layer in the hot loop.
-- scipy seam: `P`/`A` are `scipy.sparse.csc_matrix`; the upper-triangular `P` is `scipy.sparse.triu(P).tocsc()` and the cone-block stack is assembled with `scipy.sparse.vstack` in cone-list order — Clarabel sits directly on the `scipy.md` sparse owner, never a hand-built CSC.
-- receipt seam: `status`/`iterations`/`solve_time`/`r_prim`/`r_dual` fold into one conic-solve receipt the graduation owner hands across the wire; the dual `z` is the optimality certificate the downstream consumer reads, never recomputed.
+[STACKING]:
+- `cvxpy`(`.api/cvxpy.md`): `cp.Problem.solve(solver=cp.CLARABEL)` reduces a disciplined-convex model to the exact `(P, q, A, b, cones)` standard form; `get_problem_data(cp.CLARABEL)` exposes that reduction so an offline study drives `DefaultSolver` directly and reads the `DefaultSolution`/`DefaultInfo` receipt with no modeling layer in the hot loop.
+- `scipy`(`.api/scipy.md`): `P`/`A` are `scipy.sparse.csc_matrix` — upper-triangular `P` via `scipy.sparse.triu(P).tocsc()`, the cone-block stack assembled with `scipy.sparse.vstack` in cone-list order.
+- compute convex backend: `status`/`iterations`/`solve_time`/`r_prim`/`r_dual` and the richer `get_info()` fields fold into the conic-solve receipt handed across the graduation wire; dual `z` is the certificate the consumer reads, never recomputed.
+
+[LOCAL_ADMISSION]:
+- `clarabel` is the standalone conic path when the problem is already in cone-standard form, and the `cvxpy`-selected default conic backend for modeled problems.
 
 [RAIL_LAW]:
 - Package: `clarabel`
-- Owns: primal-dual interior-point solve of quadratic-plus-conic problems with full cone coverage, in-place warm `update`, and primal/dual/infeasibility certificate plus residual recovery
-- Accept: `DefaultSolver` over standard-form sparse `P`/`q`/`A`/`b` plus an ordered `cones` list, `DefaultSettings` tuning, `DefaultSolver.update` warm re-solve, `DefaultSolution` primal/dual/residual recovery, use as the Cvxpy default conic backend and dual-certificate source
-- Reject: wrapper-renames of `DefaultSolver`/`solve`; a hand-rolled interior-point iteration where Clarabel is admitted; a dense or full-symmetric `P` where the upper-triangular sparse form is required; a per-cone solver family where the ordered cone list discriminates; a phantom `obj_val_dual` field (Clarabel reports one `obj_val` plus the `r_prim`/`r_dual` residual pair); rebuilding `DefaultSolver` per parameter value where `update` warm re-solve applies
+- Owns: primal-dual interior-point solve of quadratic-conic problems across the full cone set, in-place warm `update`, and primal/dual/infeasibility-certificate with residual recovery
+- Accept: `DefaultSolver` over standard-form sparse `P`/`q`/`A`/`b` and an ordered `cones` list, `DefaultSettings` tuning, `update` warm re-solve, `DefaultSolution`/`DefaultInfo` recovery, use as the `cvxpy` default conic backend and dual-certificate source
+- Reject: wrapper-renames of `DefaultSolver`/`solve`; a hand-rolled interior-point iteration where Clarabel is admitted; a dense or full-symmetric `P` where the upper-triangular sparse form is required; a per-cone solver family where the ordered cone list discriminates; rebuilding `DefaultSolver` per parameter value where `update` warm re-solve applies

@@ -31,6 +31,7 @@ Rasm is in a long-term planning phase, working strictly within design/spec-sheet
 - [ALWAYS]: use `tavily-search` skill on known targets — extract or crawl a site, or run a cited multi-source report.
 - [ALWAYS]: use `context7-search` skill when working on code/fences with external libraries, never guess on SDK/framework/API capabilities or implementations.
 - [ALWAYS]: use `nuget` MCP to validate the existence of a package and newest version available.
+- [ALWAYS]: use `tools.assay provision` for Forge service, Postgres-extension, and DuckDB/SQLite surface evidence before an availability claim lands.
 - [ALWAYS]: use `claudeCodeDocs` MCP when working on Claude Code configs or harness questions; capabilities, memory, skills, hooks, plugins, settings.
 - [ALWAYS]: read `tests/README.md` + `tests/RULINGS.md` before touching any testing surface; a language tree adds its own README + RULINGS pair.
 

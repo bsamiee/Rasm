@@ -23,7 +23,6 @@ export const meta = {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CORE_PAGES = 4;
-const STALL = 300000;
 
 const TRACKS = {
     csharp: {
@@ -193,7 +192,7 @@ const MODEL_LAW =
     '"<self-contained scoped question>" </dev/null 2>/dev/null — synchronous, ' +
     'one bounded question per leg) and native subagents (Agent tool, model opus, explicit READ-ONLY mandate). ' +
     'Recon returns facts, locations, inventories, and verified member lists — never instructions, prescriptions, or edits. Tooling routes each leg: ' +
-    'codex legs own repo-local facts (fd/rg/loc/tree, file reads); native legs own exa/tavily, the nuget MCP, Context7, and uv run python -m tools.assay' +
+    'codex legs own repo-local facts (fd/rg/loc/tree, file reads); native legs own external lookup and uv run python -m tools.assay' +
     '. When the Agent tool is unavailable, codex absorbs the ' +
     'repo-local legs and you gather the uv/MCP evidence in your own shell.';
 
@@ -268,15 +267,12 @@ const HARVEST_LAW =
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical write pass; the count bounds spend, the backoff buys recovery time
-const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
+const RETRY_ATTEMPTS = 2;
 // Bounded re-dispatch for a dead CRITICAL write pass (usage-limit or transport death — agent() returned null): attempt-counted
-// with a backoff before each; the final death isolates the pass but NEVER the chain — every later pass and the final track still
+// with a retry before each; the final death isolates the pass but NEVER the chain — every later pass and the final track still
 // run, and each pass derives its own findings from disk, so a dead predecessor removes grounding, never the stage.
 const retryLane = async (fn) => {
     for (let a = 0; a < RETRY_ATTEMPTS; a++) {
-        await sleep(RETRY_BACKOFF);
         const r = await fn();
         if (r) return r;
     }
@@ -325,7 +321,7 @@ const reconPrompt = (t, name, lane) =>
     'SCOPE: ' +
     t.scope;
 
-// Codex dispatch: the wrapper makes one blocking Codex MCP call; the recon lane itself writes its
+// Codex dispatch: the wrapper runs one blocking supervised CLI process; the recon lane itself writes its
 // dossier (that one file) and returns the receipt as its final message — the wrapper relays
 // that receipt, no product write, no relay hop. Lane law rides developer-instructions; the prompt carries only the task.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
@@ -384,7 +380,7 @@ const codexRecon = (task, o) => {
         lane +
         '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
         'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
-        're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (idle-timeout, max-timeout, turn-failed, ' +
+        're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (max-timeout, turn-failed, ' +
         'refusal) re-runs the same command untouched. (3) The lane writes its dossier to ' +
         o.product +
         ' itself and lands its final receipt message at ' +
@@ -414,7 +410,6 @@ const nativeLane = (task, o) =>
         model: o.nativeModel || twinOf(o.model),
         effort: 'high',
         schema: o.schema,
-        stallMs: o.stallMs || STALL,
     });
 const reconLane = (t, name, lane, ph) => {
     const task = reconPrompt(t, name, lane);
@@ -426,7 +421,6 @@ const reconLane = (t, name, lane, ph) => {
         schema: DOSSIER_RECEIPT,
         product: dossierPath(name, lane),
         calls: 120,
-        stallMs: STALL,
     };
     const dead = () => ({ ok: false, report: dossierPath(name, lane), entries: 0, headline: '', failure: 'lane died' });
     return agent(codexRecon(task, o), {
@@ -554,7 +548,6 @@ if (HARVEST_ROWS.length) {
         model: 'fable',
         effort: 'high',
         schema: DOCTRINE_SCHEMA,
-        stallMs: STALL,
     });
 }
 log(

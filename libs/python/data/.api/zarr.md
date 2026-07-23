@@ -1,27 +1,23 @@
 # [PY_DATA_API_ZARR]
 
-`zarr` supplies a chunked, compressed, N-dimensional array store with pluggable storage backends, a Zarr v2/v3 dual-format metadata layer, and a sync-over-async codec pipeline. `Array` and `Group` are thin synchronous wrappers over `AsyncArray`/`AsyncGroup`; every top-level factory has an `async def` mirror in `zarr.api.asynchronous`. It is the canonical `array-store` owner: the data owner mints arrays through `create_array`/`open_array`, hierarchies through `create_group`/`create_hierarchy`, declares the codec pipeline explicitly via `codecs=`, selects a backend from `zarr.storage`, and routes the array bytes through whatever `StoreLike` the campaign owns — a `LocalStore` for the work directory, an `obstore`-backed `ObjectStore` for S3/GCS/Azure, an `IcechunkStore` for the transactional/versioned path, or the same on-disk v3 format `tensorstore` reads asynchronously and `virtualizarr` references without copy. `zarr` is pure-Python (no native extension, no CPython floor), so it rides the runtime with no subprocess seam; native compression rides the optional `numcodecs`/`blosc`/`zstd` packages its codec registry resolves.
+`zarr` owns the chunked, compressed, N-dimensional array store: a Zarr v2/v3 dual-format metadata layer, an explicit serialization-plus-compression codec pipeline, and pluggable `zarr.storage` backends over a sync-facade-over-async rail. `Array`/`Group` are synchronous facades over the public `AsyncArray`/`AsyncGroup`, and every top-level factory mirrors an `async def` in `zarr.api.asynchronous`. Pure-Python with no native extension and no subprocess seam, it resolves native compression through `numcodecs`/`blosc`/`zstd`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `zarr`
 - package: `zarr`
-- import: `import zarr; from zarr import Array, Group, AsyncArray, AsyncGroup, config; from zarr.storage import LocalStore, MemoryStore, ZipStore, FsspecStore, ObjectStore; from zarr.codecs import BloscCodec, BytesCodec, ShardingCodec, ZstdCodec`
-- version: `3.x`
-- license: MIT
-- owner: `data`
-- rail: array-store
-- entry points: library use is import-only; no console script. `zarr.__version__` and `zarr.print_debug_info()` report the resolved environment
-- capability: chunked N-dimensional typed array store with v2/v3 dual-format metadata, an explicit serialization+compression codec pipeline (`BytesCodec` serializer plus `BloscCodec`/`ZstdCodec`/`GzipCodec` byte compressors, `TransposeCodec`/`ScaleOffset` array transforms, `ShardingCodec` sub-chunk sharding, and `numcodecs.zarr3.*` filter/checksum codecs), pluggable `zarr.storage` backends (local/memory/zip/fsspec/object-store/GPU), orthogonal/vectorized/block/coordinate/mask indexing beyond NumPy basic indexing, consolidated metadata, a global donfig `config`, and a fully async `AsyncArray`/`AsyncGroup` rail mirrored by the synchronous surface
+- module: `import zarr`
+- namespaces: `zarr`, `zarr.api.asynchronous`, `zarr.storage`, `zarr.codecs`, `zarr.abc.store`, `zarr.abc.codec`, `zarr.registry`, `zarr.config`, `zarr.buffer`
+- rail: array-store — chunked N-D typed array store for the gridded tensor plane
+- entry points: import-only, no console script; `zarr.__version__` and `zarr.print_debug_info()` report the resolved environment
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: core container types (`zarr`)
-- rail: array-store
 
-`zarr.__all__` is `('Array', 'AsyncArray', 'AsyncGroup', 'Group', '__version__', 'array', 'config', 'consolidate_metadata', 'copy', 'copy_all', 'copy_store', 'create', 'create_array', 'create_group', 'create_hierarchy', 'empty', 'empty_like', 'from_array', 'full', 'full_like', 'group', 'load', 'ones', 'ones_like', 'open', 'open_array', 'open_consolidated', 'open_group', 'open_like', 'print_debug_info', 'save', 'save_array', 'save_group', 'tree', 'zeros', 'zeros_like')`. `Array`/`Group` are synchronous facades; the `AsyncArray`/`AsyncGroup` they wrap are public and drive the async rail directly.
+`Array`/`Group` are synchronous facades; the `AsyncArray`/`AsyncGroup` they wrap are public and drive the async rail directly through `Array._async_array`.
 
-| [INDEX] | [SYMBOL]     | [TYPE_FAMILY]  | [ROLE]                                                   |
+| [INDEX] | [SYMBOL]     | [TYPE_FAMILY]  | [CAPABILITY]                                             |
 | :-----: | :----------- | :------------- | :------------------------------------------------------- |
 |  [01]   | `Array`      | chunked array  | synchronous N-D typed chunked array over any store       |
 |  [02]   | `Group`      | hierarchy node | synchronous named container for arrays and sub-groups    |
@@ -29,11 +25,10 @@
 |  [04]   | `AsyncGroup` | async group    | async underlying group driving `Group`                   |
 
 [PUBLIC_TYPE_SCOPE]: storage backends (`zarr.storage`)
-- rail: array-store
 
-`zarr.storage.__all__` is `('FsspecStore', 'GpuMemoryStore', 'LocalStore', 'LoggingStore', 'ManagedMemoryStore', 'MemoryStore', 'ObjectStore', 'StoreLike', 'StorePath', 'WrapperStore', 'ZipStore')`. Every factory accepts a `StoreLike` (a `Store` instance, a `StorePath`, a path `str`/`Path`, or a dict for an implicit `MemoryStore`); the store is resolved once and passed in, never re-constructed per access.
+Every factory takes a `StoreLike` resolved once and passed in, never re-constructed per access.
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]    | [ROLE]                                                             |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]    | [CAPABILITY]                                                       |
 | :-----: | :------------------- | :--------------- | :----------------------------------------------------------------- |
 |  [01]   | `LocalStore`         | filesystem store | local filesystem directory store                                   |
 |  [02]   | `MemoryStore`        | in-memory store  | dict-backed memory store                                           |
@@ -48,13 +43,11 @@
 |  [11]   | `StoreLike`          | type alias       | `Store \| StorePath \| FSMap \| Path \| str \| dict` factory input |
 
 [PUBLIC_TYPE_SCOPE]: codec pipeline (`zarr.codecs`)
-- rail: array-store
 
-`zarr.codecs.__all__` is `('BloscCname', 'BloscCodec', 'BloscShuffle', 'BytesCodec', 'CastValue', 'Crc32cCodec', 'Endian', 'GzipCodec', 'ScaleOffset', 'ShardingCodec', 'ShardingCodecIndexLocation', 'SubchunkWriteOrder', 'TransposeCodec', 'VLenBytesCodec', 'VLenUTF8Codec', 'ZstdCodec')`. A v3 codec chain is `[array->array transforms..., one array->bytes serializer, bytes->bytes compressors...]`; `BytesCodec` is the canonical serializer, `ShardingCodec` is the special serializer that nests an inner chain per sub-chunk. The legacy filter names (`Delta`, `FixedScaleOffset`, `Quantize`, `BitRound`, `PackBits`, `AsType`) and the alternate compressors (`Blosc`, `Zstd`, `GZip`, `LZ4`, `LZMA`, `BZ2`, `Zlib`, `Shuffle`) live in `numcodecs.zarr3`, NOT `zarr.codecs`.
+A v3 codec chain is `[array->array transforms..., one array->bytes serializer, bytes->bytes compressors...]`; `BytesCodec` is the canonical serializer and `ShardingCodec` the special serializer nesting an inner chain per sub-chunk. Filter and legacy-compressor codecs (`Delta`, `Blosc`, …) resolve from `numcodecs`, never `zarr.codecs`.
+- call: `BytesCodec(endian)`; `ShardingCodec(chunk_shape, codecs, index_codecs, index_location)` with `index_location` a `ShardingCodecIndexLocation`; `TransposeCodec(order)`; `ScaleOffset(scale, offset, dtype, astype)`; `BloscCodec(cname, clevel, shuffle, typesize, blocksize)`; `ZstdCodec(level, checksum)`; `GzipCodec(level)`
 
-- call: `BytesCodec(endian=Endian.little)`; `ShardingCodec(chunk_shape, codecs, index_codecs, index_location)` where `index_location` is a `ShardingCodecIndexLocation` (start/end) and `SubchunkWriteOrder` orders sub-chunk writes; `TransposeCodec(order)`; `ScaleOffset(scale, offset, dtype, astype)`; `BloscCodec(cname, clevel, shuffle, typesize, blocksize)`; `ZstdCodec(level, checksum)`; `GzipCodec(level)`
-
-| [INDEX] | [SYMBOL]                           | [CODEC_KIND]            | [ROLE]                                                  |
+| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]           | [CAPABILITY]                                            |
 | :-----: | :--------------------------------- | :---------------------- | :------------------------------------------------------ |
 |  [01]   | `BytesCodec`                       | array->bytes serializer | canonical fixed-width serializer; `Endian` little/big   |
 |  [02]   | `ShardingCodec`                    | array->bytes serializer | sub-chunk sharding nesting an inner chain per sub-chunk |
@@ -68,145 +61,125 @@
 |  [10]   | `Crc32cCodec`                      | bytes->bytes checksum   | CRC32C integrity checksum appended to chunk bytes       |
 
 [PUBLIC_TYPE_SCOPE]: codec-role base classes (`zarr.abc.codec`)
-- rail: array-store
 
-`zarr.abc.codec` exposes the abstract codec-role base classes the v3 pipeline slots type against — every concrete `zarr.codecs.*`/`numcodecs.zarr3.*` codec subclasses one, and a custom codec extends one. The `[transform..., serializer, compressor...]` chain is statically typed as `tuple[tuple[ArrayArrayCodec, ...], ArrayBytesCodec, tuple[BytesBytesCodec, ...]]`, the three-slot `Pipeline` shape a `create_array(filters=, serializer=, compressors=)` consumer annotates against; `BaseCodec`/`Codec` are the shared roots beneath the three roles.
+Every concrete `zarr.codecs.*`/`numcodecs` codec subclasses one role base; the pipeline is statically typed `tuple[tuple[ArrayArrayCodec, ...], ArrayBytesCodec, tuple[BytesBytesCodec, ...]]`, the three-slot shape a `create_array(filters=, serializer=, compressors=)` consumer annotates against.
 
-| [INDEX] | [SYMBOL]          | [CODEC_KIND]            | [ROLE]                                                                           |
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY]           | [CAPABILITY]                                                                     |
 | :-----: | :---------------- | :---------------------- | :------------------------------------------------------------------------------- |
 |  [01]   | `ArrayArrayCodec` | array->array transform  | base for pre-serialization array transforms (`TransposeCodec`/`ScaleOffset`)     |
 |  [02]   | `ArrayBytesCodec` | array->bytes serializer | base for the single chain serializer (`BytesCodec`/`ShardingCodec`/`VLen*Codec`) |
 |  [03]   | `BytesBytesCodec` | bytes->bytes compressor | base for byte compressors and checksums (`BloscCodec`/`ZstdCodec`/`Crc32cCodec`) |
 
-[PUBLIC_TYPE_SCOPE]: numcodecs v3 codec wrappers (`numcodecs.zarr3`)
-- rail: array-store
-
-`numcodecs.zarr3` (resolved by the `codecs` registry, available in `zarr>=3.1.3`) wraps the full numcodecs catalog as v3 codecs for the filter/legacy-compressor surface `zarr.codecs` does not carry. The module is marked deprecated upstream and a future-removal candidate; admit a name only when `zarr.codecs` lacks the equivalent.
-
-
-| [INDEX] | [SYMBOL]                                                         | [CODEC_KIND]            | [ROLE]                                      |
-| :-----: | :--------------------------------------------------------------- | :---------------------- | :------------------------------------------ |
-|  [01]   | `Blosc` / `LZ4` / `Zstd` / `Zlib`                                | bytes->bytes compressor | alternate compressors not in `zarr.codecs`  |
-|  [02]   | `GZip` / `BZ2` / `LZMA` / `Shuffle`                              | bytes->bytes compressor | alternate compressors not in `zarr.codecs`  |
-|  [03]   | `Delta` / `BitRound` / `FixedScaleOffset`                        | array->array filter     | numcodecs filters (quantize/delta/bit-pack) |
-|  [04]   | `Quantize` / `PackBits` / `AsType`                               | array->array filter     | numcodecs filters (quantize/delta/bit-pack) |
-|  [05]   | `PCodec` / `ZFPY`                                                | array->bytes serializer | scientific-array serializers                |
-|  [06]   | `CRC32` / `CRC32C` / `Adler32` / `Fletcher32` / `JenkinsLookup3` | bytes->bytes checksum   | integrity checksum codecs                   |
-
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: array creation
-- rail: array-store
 
-`create_array` is the canonical typed-v3 constructor; `create`/`array`/`from_array` plus the `zeros`/`ones`/`full`/`empty` fill family and their `_like` mirrors share `**kwargs` over the same store/codec surface, each returning an `Array`.
-- call: `create_array(store, *, name=None, shape, dtype, chunks='auto', shards=None, filters=..., compressors=..., serializer='auto', fill_value=None, order=None, zarr_format=3, attributes=None, chunk_key_encoding=None, dimension_names=None, config=None, overwrite=False) -> Array`
-- call: `create(shape, *, chunks=True, dtype=None, compressor=..., fill_value=0, store=None, ...)`; `from_array(store, *, data, write_data=True, name=None, chunks='keep', shards='keep', ...)`; `array(data, **kwargs)`
+`create_array` mints the typed v3 array; `create`/`array`/`from_array` and the `zeros`/`ones`/`full`/`empty` fill family with their `_like` mirrors share the store/codec surface, each a module-level factory returning `Array`.
+- call: `create_array(store, *, name, shape, dtype, chunks='auto', shards, filters, compressors, serializer='auto', fill_value, order, zarr_format=3, attributes, chunk_key_encoding, dimension_names, config, overwrite=False) -> Array`; `from_array(store, *, data, write_data=True, chunks='keep', shards='keep')`
 
-| [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY]      | [RETURNS] |
-| :-----: | :------------------------------------------------------ | :------------------ | :-------- |
-|  [01]   | `create_array`                                          | creation            | `Array`   |
-|  [02]   | `create`                                                | creation (v2-style) | `Array`   |
-|  [03]   | `array`                                                 | data intake         | `Array`   |
-|  [04]   | `from_array`                                            | data intake         | `Array`   |
-|  [05]   | `zeros` / `ones` / `full`                               | fill creation       | `Array`   |
-|  [06]   | `empty`                                                 | fill creation       | `Array`   |
-|  [07]   | `zeros_like` / `ones_like` / `full_like` / `empty_like` | mirror creation     | `Array`   |
-|  [08]   | `open_like`                                             | mirror open         | `Array`   |
+| [INDEX] | [SURFACE]                                               | [CAPABILITY]                    |
+| :-----: | :------------------------------------------------------ | :------------------------------ |
+|  [01]   | `create_array`                                          | canonical typed v3 constructor  |
+|  [02]   | `create`                                                | v2-style creation               |
+|  [03]   | `array(data)`                                           | intake an in-memory array       |
+|  [04]   | `from_array`                                            | intake copying from a source    |
+|  [05]   | `zeros` / `ones` / `full`                               | fill creation                   |
+|  [06]   | `empty`                                                 | uninitialized creation          |
+|  [07]   | `zeros_like` / `ones_like` / `full_like` / `empty_like` | fill mirror of a template array |
+|  [08]   | `open_like`                                             | open mirroring a template array |
 
 [ENTRYPOINT_SCOPE]: group, hierarchy, open, and persistence
-- rail: array-store
 
-| [INDEX] | [SURFACE]                                                                            | [ENTRY_FAMILY] | [RETURNS]                |
-| :-----: | :----------------------------------------------------------------------------------- | :------------- | :----------------------- |
-|  [01]   | `create_group(store, *, path=None, overwrite=False, zarr_format=3, attributes=None)` | creation       | `Group`                  |
-|  [02]   | `create_hierarchy(*, store, nodes, overwrite=False)`                                 | bulk creation  | `Iterator[Array\|Group]` |
-|  [03]   | `group(store=None, *, overwrite=False, chunk_store=None, zarr_format=None, ...)`     | open-or-create | `Group`                  |
-|  [04]   | `open(store=None, *, mode=None, zarr_format=None, path=None, **kwargs)`              | open           | `Array \| Group`         |
-|  [05]   | `open_array(store, *, zarr_format=None, path='', mode=None, **kwargs)`               | open           | `Array`                  |
-|  [06]   | `open_group(store, *, mode=None, cache_attrs=None, path=None, **kwargs)`             | open           | `Group`                  |
-|  [07]   | `open_consolidated(*args, use_consolidated=True, **kwargs)`                          | open           | `Group`                  |
-|  [08]   | `save(store, *args, zarr_format=None, path=None, **kwargs)`                          | persistence    | `None`                   |
-|  [09]   | `save_array(store, arr, *, zarr_format=None, path=None, **kwargs)`                   | persistence    | `None`                   |
-|  [10]   | `save_group(store, *args, zarr_format=None, path=None, **kwargs)`                    | persistence    | `None`                   |
-|  [11]   | `load(store, *, path=None, zarr_format=None)`                                        | persistence    | `NDArrayLike \| dict`    |
-|  [12]   | `consolidate_metadata(store, *, path=None, zarr_format=None)`                        | metadata       | `Group`                  |
-|  [13]   | `copy(...)` / `copy_all(...)` / `copy_store(...)`                                    | copy utilities | counts tuple             |
-|  [14]   | `tree(grp, *, expand=None, level=None)` / `print_debug_info()`                       | inspection     | `TreeRepr` / `None`      |
+Each is a module-level factory; the return varies, so it rides the surface signature.
+
+| [INDEX] | [SURFACE]                                                                      | [CAPABILITY]                     |
+| :-----: | :----------------------------------------------------------------------------- | :------------------------------- |
+|  [01]   | `create_group(store, *, path, overwrite=False, zarr_format=3) -> Group`        | create an empty group            |
+|  [02]   | `create_hierarchy(*, store, nodes, overwrite=False) -> Iterator[Array\|Group]` | bulk-create nodes                |
+|  [03]   | `group(store, *, overwrite=False, chunk_store, zarr_format) -> Group`          | open-or-create group             |
+|  [04]   | `open(store, *, mode, zarr_format, path) -> Array\|Group`                      | open array or group              |
+|  [05]   | `open_array(store, *, zarr_format, path='', mode) -> Array`                    | open array                       |
+|  [06]   | `open_group(store, *, mode, cache_attrs, path) -> Group`                       | open group                       |
+|  [07]   | `open_consolidated(*args, use_consolidated=True) -> Group`                     | open via consolidated metadata   |
+|  [08]   | `save(store, *args, zarr_format, path) -> None`                                | persist arrays                   |
+|  [09]   | `save_array(store, arr, *, zarr_format, path) -> None`                         | persist one array                |
+|  [10]   | `save_group(store, *args, zarr_format, path) -> None`                          | persist a group                  |
+|  [11]   | `load(store, *, path, zarr_format) -> NDArrayLike\|dict`                       | load into memory                 |
+|  [12]   | `consolidate_metadata(store, *, path, zarr_format) -> Group`                   | merge node metadata to root      |
+|  [13]   | `copy` / `copy_all` / `copy_store`                                             | copy utilities returning counts  |
+|  [14]   | `tree(grp, *, expand, level) -> TreeRepr` / `print_debug_info()`               | subtree / environment inspection |
 
 [ENTRYPOINT_SCOPE]: async mirror (`zarr.api.asynchronous`)
-- rail: array-store
 
-Every synchronous factory above wraps an `async def` of the same name in `zarr.api.asynchronous`, run through the package sync bridge. Reach the async surface directly inside an `await` context to avoid the sync wrapper's event-loop hop. Async-mirrored: `open`, `open_array`, `open_group`, `open_consolidated`, `open_like`, `create`, `create_group`, `group`, `array`, `zeros`/`ones`/`empty`/`full` and `_like` variants, `save`/`save_array`/`save_group`, `load`, `consolidate_metadata`, `copy`/`copy_all`/`copy_store`, `tree`. The synchronous `create_array`/`create_hierarchy`/`from_array` resolve their async work through `AsyncArray.create`/`AsyncGroup.create_hierarchy`, not a same-named `zarr.api.asynchronous` function.
+Every synchronous factory wraps an `async def` of the same name in `zarr.api.asynchronous`; reach it directly inside an `await` context to skip the sync bridge's loop hop. `create_array`/`create_hierarchy`/`from_array` resolve their async work through `AsyncArray.create`/`AsyncGroup.create_hierarchy`, not a same-named `zarr.api.asynchronous` function.
 
 [ENTRYPOINT_SCOPE]: Array operations
-- rail: array-store
 
-`Array` indexing splits into the bracket/`oindex`/`vindex`/`blocks` accessors and the explicit `get_*_selection`/`set_*_selection` read/write family; mutation, configuration, and metadata properties round out the surface.
-- call: `get_basic_selection` / `get_orthogonal_selection` / `get_coordinate_selection` / `get_mask_selection` / `get_block_selection` take `(selection, *, out=None, fields=None, prototype=None)`; the `set_*_selection` mirror takes `(selection, value, *, fields=None, prototype=None)`
+`Array` indexing splits into the bracket/`oindex`/`vindex`/`blocks` accessors and the explicit `get_*_selection`/`set_*_selection` read/write family; mutation, configuration, and metadata round out the surface.
+- call: `get_*_selection(selection, *, out=None, fields=None, prototype=None)` and `set_*_selection(selection, value, *, fields=None, prototype=None)` cover basic/orthogonal/coordinate/mask/block
 
-| [INDEX] | [SURFACE]                                                            | [ENTRY_FAMILY] | [RAIL]                                        |
-| :-----: | :------------------------------------------------------------------- | :------------- | :-------------------------------------------- |
-|  [01]   | `Array[selection]` / `Array[selection] = value`                      | indexing       | NumPy-compatible basic indexing               |
-|  [02]   | `Array.oindex[selection]`                                            | indexing       | orthogonal (outer) indexing                   |
-|  [03]   | `Array.vindex[selection]`                                            | indexing       | vectorized (fancy) indexing                   |
-|  [04]   | `Array.coordinate_index` / `Array.blocks[selection]`                 | indexing       | coordinate / block-level chunk indexing       |
-|  [05]   | `Array.get_*_selection`                                              | selection      | basic/orthogonal/coordinate/mask/block reads  |
-|  [06]   | `Array.set_*_selection`                                              | write          | basic/orthogonal/coordinate/mask/block writes |
-|  [07]   | `Array.append(data, axis=0)` / `Array.resize(new_shape)`             | mutation       | append / resize in store                      |
-|  [08]   | `Array.update_attributes(new_attributes)`                            | metadata       | update user attributes                        |
-|  [09]   | `Array.with_config(config)` / `Array.info` / `Array.info_complete()` | configuration  | per-array config, info report                 |
-|  [10]   | `Array.nchunks` / `nchunks_initialized` / `nbytes_stored()`          | metadata       | chunk counts and stored-byte size             |
-|  [11]   | `Array.chunks` / `shards` / `cdata_shape`                            | metadata       | chunk-grid and shard shape                    |
-|  [12]   | `Array.metadata` / `store_path` / `path`                             | metadata       | node metadata and store path                  |
-|  [13]   | `Array.compressors` / `serializer` / `filters`                       | metadata       | resolved codec pipeline                       |
+| [INDEX] | [SURFACE]                                                            | [SHAPE]  | [CAPABILITY]                                  |
+| :-----: | :------------------------------------------------------------------- | :------- | :-------------------------------------------- |
+|  [01]   | `Array[selection]` / `Array[selection] = value`                      | operator | NumPy-compatible basic indexing               |
+|  [02]   | `Array.oindex[selection]`                                            | property | orthogonal (outer) indexing                   |
+|  [03]   | `Array.vindex[selection]`                                            | property | vectorized (fancy) indexing                   |
+|  [04]   | `Array.blocks[selection]`                                            | property | block-level chunk indexing                    |
+|  [05]   | `Array.get_*_selection`                                              | instance | basic/orthogonal/coordinate/mask/block reads  |
+|  [06]   | `Array.set_*_selection`                                              | instance | basic/orthogonal/coordinate/mask/block writes |
+|  [07]   | `Array.append(data, axis=0)` / `Array.resize(new_shape)`             | instance | append / resize in store                      |
+|  [08]   | `Array.update_attributes(new_attributes)`                            | instance | update user attributes                        |
+|  [09]   | `Array.with_config(config)` / `Array.info` / `Array.info_complete()` | instance | per-array config, info report                 |
+|  [10]   | `Array.nchunks` / `nchunks_initialized` / `nbytes_stored()`          | property | chunk counts and stored-byte size             |
+|  [11]   | `Array.chunks` / `shards` / `cdata_shape`                            | property | chunk-grid and shard shape                    |
+|  [12]   | `Array.metadata` / `store_path` / `path`                             | property | node metadata and store path                  |
+|  [13]   | `Array.compressors` / `serializer` / `filters`                       | property | resolved codec pipeline                       |
 
 [ENTRYPOINT_SCOPE]: Group operations
-- rail: array-store
 
-`Group` creates and requires child arrays and groups, enumerates the subtree, and mutates or inspects it; the create/require/`members` signatures hoist to the call lines.
-- call: `Group.create_array(name, *, shape, dtype, ...)`; `Group.create_group(name, **kwargs)`; `Group.require_array(name, *, shape, **kwargs)`; `Group.require_group(name, **kwargs)`; `Group.require_groups(*names)`; `Group.members(max_depth=0, *, use_consolidated_for_children=True)`
+`Group` creates and requires child arrays and groups, enumerates the subtree, and mutates or inspects it.
+- call: `Group.create_array(name, *, shape, dtype)`; `create_group(name)`; `require_array(name, *, shape)`; `require_group(name)`; `require_groups(*names)`; `members(max_depth=0, *, use_consolidated_for_children=True)`
 
-| [INDEX] | [SURFACE]                                                                         | [ENTRY_FAMILY] | [RAIL]                            |
-| :-----: | :-------------------------------------------------------------------------------- | :------------- | :-------------------------------- |
-|  [01]   | `Group.create_array` / `Group.create_group`                                       | creation       | create child array / group        |
-|  [02]   | `Group.create_hierarchy(nodes, *, overwrite=False)`                               | bulk creation  | create multiple children          |
-|  [03]   | `Group.require_array` / `require_group` / `require_groups`                        | idempotent     | open-or-create child              |
-|  [04]   | `Group[path]` / `Group.get(path, default=None)`                                   | access         | access child by path              |
-|  [05]   | `Group.keys()` / `Group.members(...)`                                             | enumeration    | list child keys / full subtree    |
-|  [06]   | `Group.arrays()` / `Group.groups()` / `Group.array_keys()` / `Group.group_keys()` | enumeration    | iterate child arrays / sub-groups |
-|  [07]   | `Group.move(source, dest)`                                                        | mutation       | rename or relocate child          |
-|  [08]   | `Group.update_attributes(new_attributes)`                                         | metadata       | update user attributes            |
-|  [09]   | `Group.tree(expand=None, level=None)`                                             | inspection     | render subtree as `TreeRepr`      |
+| [INDEX] | [SURFACE]                                                                         | [SHAPE]  | [CAPABILITY]                      |
+| :-----: | :-------------------------------------------------------------------------------- | :------- | :-------------------------------- |
+|  [01]   | `Group.create_array` / `Group.create_group`                                       | instance | create child array / group        |
+|  [02]   | `Group.create_hierarchy(nodes, *, overwrite=False)`                               | instance | create multiple children          |
+|  [03]   | `Group.require_array` / `require_group` / `require_groups`                        | instance | open-or-create child              |
+|  [04]   | `Group[path]` / `Group.get(path, default=None)`                                   | operator | access child by path              |
+|  [05]   | `Group.keys()` / `Group.members(...)`                                             | instance | list child keys / full subtree    |
+|  [06]   | `Group.arrays()` / `Group.groups()` / `Group.array_keys()` / `Group.group_keys()` | instance | iterate child arrays / sub-groups |
+|  [07]   | `Group.move(source, dest)`                                                        | instance | rename or relocate child          |
+|  [08]   | `Group.update_attributes(new_attributes)`                                         | instance | update user attributes            |
+|  [09]   | `Group.tree(expand=None, level=None)`                                             | instance | render subtree as `TreeRepr`      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[ARRAY_STORE_TOPOLOGY]:
-- namespace: `zarr` (top-level sync facade), `zarr.api.asynchronous` (async mirror), `zarr.storage` (stores), `zarr.codecs` (v3 codec pipeline), `zarr.abc.store`/`zarr.abc.codec` (extension protocols), `zarr.registry` (codec/store/pipeline registries), `zarr.config` (global donfig config), `zarr.buffer` (`Buffer`/`NDBuffer`, CPU and GPU implementations).
-- async axis: `Array`/`Group` are synchronous facades over public `AsyncArray`/`AsyncGroup`; one operation chooses the sync facade OR the async mirror, never parallel sync/async call sites for the same write. Inside an `await` context use `zarr.api.asynchronous.*` or `AsyncArray`/`AsyncGroup` directly to skip the sync wrapper's loop hop.
-- format axis: Zarr v3 is the default (`zarr_format=3`); v2 round-trips through `zarr_format=2` on every open/create path. `ShardingCodec`, `dimension_names`, and the explicit `[transform, serializer, compressor]` codec chain are v3-only; v2 uses the single `compressor=`/`filters=` numcodecs shape.
-- codec axis: declare the pipeline explicitly via `create_array(filters=, compressors=, serializer=)` (or v2 `compressor=`); `BytesCodec` is the canonical serializer, `ShardingCodec` nests an inner chain per sub-chunk to cut small-file counts on object stores. Default codec selection varies by `zarr_format` and the `config['codecs']` registry, which resolves `numcodecs.zarr3.*` for any filter/compressor `zarr.codecs` does not carry.
-- indexing axis: `__getitem__`/`__setitem__` implement NumPy *basic* indexing only; `oindex` is orthogonal, `vindex` vectorized, `blocks` block-level, and the explicit `get_*_selection`/`set_*_selection` family covers basic/orthogonal/coordinate/mask/block reads and writes with `out`/`fields`/`prototype` control.
-- store axis: any `StoreLike` (a `Store`, `StorePath`, path `str`/`Path`, or dict) resolves to one store; construct it once outside hot paths (store construction is I/O) and pass it in. `WrapperStore`/`LoggingStore` decorate an existing store; `GpuMemoryStore` pairs with `config.enable_gpu()`.
-- config axis: `zarr.config` is a donfig `DConfig` singleton; `config.set({...})` (context manager or global), `config.get(key)`, `config.enable_gpu()`, `config.reset()`. Keys include `default_zarr_format`, `array.order`, `array.write_empty_chunks`, `async.concurrency`, `async.timeout`, `threading.max_workers`, `codec_pipeline.batch_size`, and the `codecs` registry. Per-array overrides use `Array.with_config()`.
-- metadata axis: `consolidate_metadata(store)` merges all node metadata documents into one consolidated `zarr.json`/`.zmetadata` at the root, read back via `open_consolidated`; call it after bulk writes to remote stores before opening read-only.
+[TOPOLOGY]:
+- async axis: one operation binds the sync facade OR the async mirror, never parallel sync/async call sites for one write; inside `await`, `zarr.api.asynchronous.*` or `AsyncArray`/`AsyncGroup` skip the sync wrapper's loop hop.
+- format axis: Zarr v3 is the default (`zarr_format=3`) and v2 round-trips through `zarr_format=2`; `ShardingCodec`, `dimension_names`, and the explicit `[transform, serializer, compressor]` chain are v3-only, where v2 carries the single `compressor=`/`filters=` numcodecs shape.
+- codec axis: `create_array(filters=, compressors=, serializer=)` declares the pipeline explicitly; `BytesCodec` serializes and `ShardingCodec` nests an inner chain per sub-chunk to cut small-file counts on object stores, and the `config['codecs']` registry routes any filter or compressor `zarr.codecs` lacks to `numcodecs`.
+- indexing axis: `__getitem__`/`__setitem__` implement NumPy basic indexing only; `oindex` is orthogonal, `vindex` vectorized, `blocks` block-level, and the `get_*_selection`/`set_*_selection` family covers basic/orthogonal/coordinate/mask/block with `out`/`fields`/`prototype` control.
+- store axis: any `StoreLike` resolves to one store constructed once outside hot paths and passed in; `WrapperStore`/`LoggingStore` decorate an existing store, and `GpuMemoryStore` pairs with `config.enable_gpu()`.
+- config axis: `zarr.config` is a donfig `DConfig` singleton — `config.set({...})`, `config.get(key)`, `config.enable_gpu()`, `config.reset()` — carrying `default_zarr_format`, `array.order`, `array.write_empty_chunks`, `async.concurrency`, `async.timeout`, `threading.max_workers`, `codec_pipeline.batch_size`, and the `codecs` registry; `Array.with_config()` overrides per array.
+- metadata axis: `consolidate_metadata(store)` merges every node metadata document into one root `zarr.json`/`.zmetadata` read back through `open_consolidated`, run after bulk remote writes before read-only opens.
+
+[STACKING]:
+- `icechunk`(`.api/icechunk.md`): `repo.writable_session(branch).store` is an `IcechunkStore` (a `zarr.abc.store.Store`) passed straight into `zarr.open_group(store=)`/`create_array(store=)`; zarr writes chunks, icechunk owns commit/branch/snapshot.
+- `tensorstore`(`.api/tensorstore.md`): zarr writes the v3 on-disk format `tensorstore` opens with the `zarr3` driver over an identical chunk/codec layout, so a zarr-written store reads through tensorstore with no conversion.
+- `virtualizarr`(`.api/virtualizarr.md`): `ManifestArray` chunk-reference manifests over existing files write to an `IcechunkStore` or kerchunk reference store, and the virtual `xarray.Dataset` reads through the same zarr store protocol without copying source bytes.
+- `cubed`(`.api/cubed.md`)/`xarray`(`libs/python/.api/xarray.md`): `xarray.open_zarr`/`Dataset.to_zarr` and `cubed.Array.to_zarr` target a zarr store, so the labelled-cube and bounded-memory chunked-compute layers persist through this owner.
+- `numcodecs`(`.api/numcodecs.md`): the filter and alternate-compressor roster binds through `zarr.codecs.numcodecs.<Codec>`, the base family fixing the slot — `ArrayArrayCodec` into `filters=`, `ArrayBytesCodec` as `serializer=`, `BytesBytesCodec` into `compressors=`; admit a numcodecs codec only where `zarr.codecs` lacks the equivalent.
+- `obstore`(`libs/python/.api/obstore.md`): `zarr.storage.ObjectStore` wraps an `obstore` store (`S3Store`/`GCSStore`/`AzureStore`), credentials and zero-copy `Bytes` staying in the obstore owner while zarr sees only a `StoreLike`; `FsspecStore.from_url` is the alternate fsspec-backed remote path.
+- within-lib: one `StoreLike` resolved once threads through every array and group factory, decorated via `WrapperStore`/`LoggingStore`, while the explicit three-slot codec chain and the `oindex`/`vindex`/`blocks` accessors compose against that single store without a per-backend or per-mode factory family.
 
 [LOCAL_ADMISSION]:
-- Use `create_array` for typed v3 arrays and `create_group`/`create_hierarchy` for hierarchies; use `open`/`open_array`/`open_group` for existing stores; one polymorphic factory per concept, never a per-backend or per-mode factory family.
-- Specify the codec pipeline explicitly via `filters=`/`compressors=`/`serializer=` on creation; do not rely on `zarr_format`-dependent defaults for reproducible chunk encoding.
-- Use `oindex`/`vindex`/`blocks` for non-basic selection; `__getitem__` is NumPy basic indexing only.
-- Resolve any `StoreLike` to one store outside hot paths; reuse it across array/group factories; decorate via `WrapperStore`/`LoggingStore` rather than re-wrapping the backend.
-- Reach the async mirror (`zarr.api.asynchronous` / `AsyncArray` / `AsyncGroup`) inside `await` contexts; never mix sync and async call sites for one write.
-
-[INTEGRATION]:
-- icechunk seam: the transactional/versioned path passes `repo.writable_session(branch).store` (an `IcechunkStore`, a `zarr.abc.store.Store`) straight into `zarr.open_group(store=...)`/`create_array(store=...)`; zarr writes chunks, icechunk owns commit/branch/snapshot. Never hand-roll chunk-key versioning zarr+icechunk already own.
-- tensorstore seam: zarr writes the v3 on-disk format that `tensorstore` opens with the `zarr3` driver for the high-throughput async read/write path; the two speak the identical chunk/codec layout, so a zarr-written store is a tensorstore-readable store with no conversion.
-- obstore seam: the cloud backend is `zarr.storage.ObjectStore` wrapping an `obstore` store (`S3Store`/`GCSStore`/`AzureStore`); object-store credentials and zero-copy `Bytes` stay in the obstore owner, zarr sees only a `StoreLike`. `FsspecStore.from_url` is the alternate fsspec-backed remote path.
-- virtualizarr seam: `virtualizarr` builds `ManifestArray` chunk-reference manifests over existing files and writes them to an `IcechunkStore` or kerchunk reference store; the resulting virtual `xarray.Dataset` reads through the same zarr store protocol without copying source bytes.
-- xarray/cubed seam: `xarray.open_zarr`/`Dataset.to_zarr` and `cubed.Array.to_zarr` both target a zarr store; the labelled-cube and bounded-memory chunked-compute layers persist through this owner, and `numcodecs.zarr3` codecs carry the CF mask/scale/quantize filters the field-dataset rail declares.
-- numcodecs seam: filters and alternate compressors (`Delta`/`FixedScaleOffset`/`Quantize`/`BitRound` and `LZ4`/`Shuffle`/`PCodec`) resolve from `numcodecs.zarr3` through the `config['codecs']` registry; admit a numcodecs name only where `zarr.codecs` lacks the equivalent, since the module is upstream-deprecated.
+- `create_array` mints typed v3 arrays and `create_group`/`create_hierarchy` mint hierarchies; `open`/`open_array`/`open_group` bind existing stores — one polymorphic factory per concept.
+- `filters=`/`compressors=`/`serializer=` declare the codec pipeline on creation, and reproducible chunk encoding never rides `zarr_format`-dependent defaults.
+- `oindex`/`vindex`/`blocks` cover non-basic selection; `__getitem__` stays NumPy basic indexing.
+- one `StoreLike` resolves outside hot paths and threads across every factory, decorated rather than re-wrapped.
+- `zarr.api.asynchronous`/`AsyncArray`/`AsyncGroup` serve `await` contexts, and one write binds sync or async.
 
 [RAIL_LAW]:
 - Package: `zarr`
-- Owns: chunked N-D array store with v2/v3 dual-format metadata, the explicit v3 codec pipeline (serializer + array/byte transforms + compressors + checksum), pluggable `zarr.storage` backends, orthogonal/vectorized/block/coordinate/mask indexing, consolidated metadata, the donfig `config`, and the synchronous-over-async `Array`/`AsyncArray` rail
-- Accept: any `StoreLike` resolved once and passed in; an explicit `filters=`/`compressors=`/`serializer=` codec pipeline; `oindex`/`vindex`/`blocks` for non-basic selection; an `IcechunkStore`/`ObjectStore`/`FsspecStore` for transactional/cloud paths; the async mirror inside `await` contexts
-- Reject: phantom `zarr.codecs` names that actually live in `numcodecs.zarr3` (`Delta`, `Quantize`, `Blosc`, `LZ4`, `LZMA`, `BZ2`, `Zlib`, `AsType`); manual chunk-key construction outside the store API; direct metadata-file writes bypassing the codec/store write path; a per-backend store factory family where one `StoreLike` discriminates; mixed sync/async call sites for one write; relying on `zarr_format`-dependent default codecs where reproducibility is required
+- Owns: the chunked N-D array store with v2/v3 dual-format metadata, the explicit v3 codec pipeline, pluggable `zarr.storage` backends, orthogonal/vectorized/block/coordinate/mask indexing, consolidated metadata, the donfig `config`, and the synchronous-over-async `Array`/`AsyncArray` rail
+- Accept: any `StoreLike` resolved once and passed in; an explicit `filters=`/`compressors=`/`serializer=` pipeline; `oindex`/`vindex`/`blocks` for non-basic selection; an `IcechunkStore`/`ObjectStore`/`FsspecStore` for transactional and cloud paths; the async mirror inside `await` contexts
+- Reject: a `numcodecs` filter or compressor name addressed as though it lived in `zarr.codecs`; manual chunk-key construction outside the store API; direct metadata-file writes bypassing the codec/store path; a per-backend store factory family where one `StoreLike` discriminates; mixed sync/async call sites for one write; `zarr_format`-dependent default codecs where reproducibility is required

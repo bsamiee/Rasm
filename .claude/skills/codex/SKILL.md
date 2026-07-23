@@ -12,7 +12,7 @@ description: >-
 
 # [CODEX]
 
-`codex exec` runs a non-interactive agent in its own context window and returns one final message. Model and effort come from `~/.codex/config.toml`. Use `openaiDeveloperDocs` MCP server for all configuration or usage questions.
+`codex exec` runs a non-interactive agent in its own context window and returns one final message. Model and effort come from `~/.codex/config.toml`.
 
 Codex is maximally literal, it follows a clean contract exactly and exhaustively, ambiguity or implicit intent burns tokens reconciling scope. Leaner prompts outperform, and a directive codex already ships is a conflict risk, NOT reinforcement. Every run mints a resumable thread; the lane receipt persists the id, and a continuation inherits model and effort.
 
@@ -106,7 +106,7 @@ Before <anchor>, spawn exactly <N> parallel sub-agents with collaboration.spawn_
 
 ## [03]-[INVOCATION]
 
-`scripts/codex-lane.sh` is the one dispatch surface: every delegated run — workflow wrapper lanes, fleet legs, one-off delegations — is one supervised lane, its own process, sibling-isolated and watchdog-bounded. Model and effort deviate by flag; an unstated axis runs `~/.codex/config.toml`, `--model gpt-5.6-terra` / `--model gpt-5.6-sol` the deviations. Registered `codex` MCP tools carry no dispatch: one shared process holds every concurrent call, a flat per-call timeout no progress extends, zero in-flight visibility — the lane script forecloses all three.
+`scripts/codex-lane.sh` is the one dispatch surface: every delegated run — workflow wrapper lanes, fleet legs, one-off delegations — is one supervised CLI process, sibling-isolated and watchdog-bounded. Model and effort inherit `~/.codex/config.toml` unless a lane passes an explicit override.
 
 ```bash template
 scripts/codex-lane.sh --task <task-file> --dir <lane-dir> [--law <law-file>] [--cwd <dir>] \
@@ -144,7 +144,7 @@ scripts/codex-lane.sh --task <task-file> --dir <lane-dir> [--law <law-file>] [--
 
 ## [04]-[MODEL_AND_EFFORT]
 
-Default model carries roughly 80% of dispatch — every non-trivial write, deep design, hard reviews, whole fix/critique fleets, second perspectives — and needs no flag.
+Default configuration carries non-trivial writes, deep design, hard reviews, whole fix or critique fleets, and second perspectives without a lane override.
 
 | [INDEX] | [TIER] | [SELECT]          | [USE]                                                                                |
 | :-----: | :----- | :---------------- | :----------------------------------------------------------------------------------- |
@@ -171,7 +171,7 @@ Inside ONE lane, `collaboration.*` is the subagent tool family — `spawn_agent`
 [STORE]: one rollout per session at `~/.codex/sessions/<YYYY>/<MM>/<DD>/rollout-<ts>-<uuidv7>.jsonl`:
 - Filename timestamp is LOCAL time, the payload's is UTC.
 - `session_index.jsonl` LAGS live runs, so correlate by datestamped filename.
-- Sqlite store filenames embed the migration version (`state_5` today) — resolve the live name, never pin the number.
+- Sqlite store filenames embed their migration generation — resolve the live name instead of pinning it.
 
 [RESUME]:
 - `resume --last` is valid only when nothing else ran in between; under concurrency resume by explicit id. `-- --ephemeral` runs record nothing.

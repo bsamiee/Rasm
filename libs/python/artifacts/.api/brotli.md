@@ -1,79 +1,74 @@
 # [PY_ARTIFACTS_API_BROTLI]
 
-`brotli` supplies the Brotli compression surface for the artifacts compression rail: a one-shot function pair, an incremental compressor, and an incremental decompressor with mode/quality/window/block tuning for text, generic, and WOFF 2.0 font payloads against the native libbrotli encoder/decoder. The package owner composes `compress`, `decompress`, `Compressor`, and `Decompressor` into the compression owner; it never re-implements the brotli codec the native core already owns. The codec stacks with the sibling artifacts compression band as a payload-discriminated rail: `brotli` (`MODE_FONT`) is the WOFF2 transport-table codec paired with `fontTools.ttLib.woff2` (which owns the WOFF2 container/glyph-transform layer while brotli owns only the per-table entropy stream), `MODE_TEXT`/`MODE_GENERIC` is the HTTP `Content-Encoding: br` transport path, `zstandard` owns high-ratio archival, `lz4` owns hot-path block compression, and `py7zr`/`stream-zip`/`stream-unzip` own container formats — one `CompressionMode` discriminant selects the codec, never parallel owners.
+`brotli` owns the Brotli codec on the artifacts compression rail: the `compress`/`decompress` one-shot pair, the `Compressor`/`Decompressor` incremental roots, and `mode`/`quality`/`lgwin`/`lgblock` tuning against native libbrotli. `MODE_TEXT` drives the HTTP `Content-Encoding: br` transport path and `MODE_FONT` the WOFF2 per-table entropy stream, paired with `fontTools.ttLib.woff2` owning the WOFF2 container and glyph-transform layer; the `package/bundle#BUNDLE` `CompressionAlgo` discriminant routes one payload class here.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `brotli`
-- package: `brotli`
-- import: `brotli`
-- owner: `artifacts`
+- package: `brotli` (`MIT`, Python bindings and bundled native libbrotli, Brotli Authors)
+- module: `brotli`
+- asset: native wheel; `_brotli` C extension, one wheel per interpreter minor (not abi3)
 - rail: compression
-- installed: `1.2.0`
-- license: MIT (Python bindings + bundled native libbrotli, Brotli Authors)
-- target: `cp315-cp315` native wheel (`_brotli` C extension; not pure-Python, not abi3 — one wheel per interpreter minor)
-- entry points: none (library only)
-- capability: Brotli one-shot and incremental compression/decompression with mode (generic/UTF-8 text/WOFF 2.0 font), quality (0..11), sliding-window (`lgwin` 10..24), and input-block (`lgblock` 0 or 16..24) tuning, plus a bounded-output decompress probe pair (`output_buffer_limit` + `can_accept_more_data`/`is_finished`) for back-pressure-bounded streaming against decompression bombs
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: codec types, modes, identity
-- rail: compression
+[PUBLIC_TYPE_SCOPE]: incremental codec roots and fault
 
-`Compressor` and `Decompressor` are the two incremental roots; all streaming modality is method state on them, never a per-profile codec subclass. `error` is the single fault type for every native call (subclasses `Exception`). The `MODE_*` constants are plain `int` (`0`/`1`/`2`) passed by value to the `mode=` knob — they are an axis on one codec, never three codec types. `version` is the binding/package version string (`'1.2.0'`, the same object as `__version__`), NOT a separately queryable native libbrotli build string — a consuming page must not treat it as a native-library version probe.
+| [INDEX] | [SYMBOL]       | [TYPE_FAMILY] | [CAPABILITY]                                     |
+| :-----: | :------------- | :------------ | :----------------------------------------------- |
+|  [01]   | `Compressor`   | compressor    | streaming `process`/`flush`/`finish` compression |
+|  [02]   | `Decompressor` | decompressor  | streaming decode with bounded output and probes  |
+|  [03]   | `error`        | fault         | native call failed; `Exception` subclass         |
 
-| [INDEX] | [SYMBOL]                                   | [PACKAGE_ROLE]              | [CAPABILITY]                                         |
-| :-----: | :----------------------------------------- | :-------------------------- | :--------------------------------------------------- |
-|  [01]   | `Compressor`                               | incremental compressor      | streaming `process`/`flush`/`finish` compression     |
-|  [02]   | `Decompressor`                             | incremental decompressor    | streaming `process`, bounded output + probes         |
-|  [03]   | `error`                                    | codec fault                 | brotli call failed; `Exception` subclass             |
-|  [04]   | `MODE_GENERIC` / `MODE_TEXT` / `MODE_FONT` | mode axis (int `0`/`1`/`2`) | input-tuned mode (generic / UTF-8 text / WOFF2 font) |
-|  [05]   | `version`                                  | identity anchor             | binding version string (`== __version__`)            |
+[PUBLIC_TYPE_SCOPE]: mode axis and identity
+- [MODE]: `MODE_GENERIC` `MODE_TEXT` `MODE_FONT`
+- [BINDING_ID]: `brotli.version` `brotli.__version__`
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: one-shot codec
-- rail: compression — top-level convenience over a transient native codec
+[ENTRYPOINT_SCOPE]: one-shot pair — `quality` 0..11 (11 densest, the default), `lgwin` 10..24 (22 default), `lgblock` 0 or 16..24 (0 derives from `quality`)
 
-`compress`/`decompress` are the one-shot rows. `quality` is the speed/density tradeoff (0..11, 11 default = densest/slowest), `lgwin` the sliding-window log (10..24, 22 default), `lgblock` the input-block log (0 or 16..24; `0` derives the block from `quality`). `decompress` is unbounded and self-describing — it takes only the compressed bytes; the bounded-memory path lives on `Decompressor.process`, so a hostile or bomb payload is decoded through the incremental root, never through one-shot `decompress` wrapped in a hand-rolled size guard.
+| [INDEX] | [SURFACE]                                         | [SHAPE] | [CAPABILITY]                        |
+| :-----: | :------------------------------------------------ | :------ | :---------------------------------- |
+|  [01]   | `compress(string, mode, quality, lgwin, lgblock)` | static  | one-shot compress (transient codec) |
+|  [02]   | `decompress(data)`                                | static  | one-shot decompress (unbounded)     |
 
-| [INDEX] | [SURFACE]    | [CALL_SHAPE]                                                                    | [CAPABILITY]                        |
-| :-----: | :----------- | :------------------------------------------------------------------------------ | :---------------------------------- |
-|  [01]   | `compress`   | `compress(string, mode=MODE_GENERIC, quality=11, lgwin=22, lgblock=0) -> bytes` | one-shot compress (transient codec) |
-|  [02]   | `decompress` | `decompress(data) -> bytes`                                                     | one-shot decompress (unbounded)     |
+[ENTRYPOINT_SCOPE]: `Compressor` incremental — the four knobs fix at construction for the stream lifetime; after `finish` the root is terminal and a fresh `Compressor` is required
 
-[ENTRYPOINT_SCOPE]: `Compressor` incremental rows
-- rail: compression — `Compressor(mode=MODE_GENERIC, quality=11, lgwin=22, lgblock=0)`; same four knobs as `compress`, fixed at construction for the stream lifetime
+| [INDEX] | [SURFACE]                  | [SHAPE]  | [CAPABILITY]                                         |
+| :-----: | :------------------------- | :------- | :--------------------------------------------------- |
+|  [01]   | `Compressor.process(data)` | instance | feed a chunk; output empty until enough buffered     |
+|  [02]   | `Compressor.flush()`       | instance | flush pending input to a boundary (stream continues) |
+|  [03]   | `Compressor.finish()`      | instance | finalize the stream (terminal)                       |
 
-`process` feeds a chunk and may return empty bytes until enough input is buffered; `flush` drives all pending input to a flush boundary (decodable prefix, stream continues); `finish` finalizes — after it, `process`/`flush` cannot be called again and a new `Compressor` is required. All three return `bytes` that the caller concatenates in call order.
+[ENTRYPOINT_SCOPE]: `Decompressor` incremental and bounded — no knobs; the encoder fixed the parameters in the stream header
 
-| [INDEX] | [SURFACE]            | [CALL_SHAPE]             | [CAPABILITY]                                                 |
-| :-----: | :------------------- | :----------------------- | :----------------------------------------------------------- |
-|  [01]   | `Compressor.process` | `process(data) -> bytes` | feed a chunk; output may be empty until enough buffered      |
-|  [02]   | `Compressor.flush`   | `flush() -> bytes`       | flush pending input to a flush boundary (stream continues)   |
-|  [03]   | `Compressor.finish`  | `finish() -> bytes`      | finalize the stream (terminal; no further `process`/`flush`) |
+| [INDEX] | [SURFACE]                                              | [SHAPE]  | [CAPABILITY]                                |
+| :-----: | :----------------------------------------------------- | :------- | :------------------------------------------ |
+|  [01]   | `Decompressor.process(data, output_buffer_limit=None)` | instance | feed a chunk; cap per-call output vs a bomb |
+|  [02]   | `Decompressor.is_finished()`                           | instance | completion probe                            |
+|  [03]   | `Decompressor.can_accept_more_data()`                  | instance | back-pressure drain gate                    |
 
-[ENTRYPOINT_SCOPE]: `Decompressor` incremental + bounded-output rows
-- rail: compression — `Decompressor()` (no tuning knobs; the encoder fixed the parameters in the stream header)
-
-`process` feeds compressed bytes and decodes; passing `output_buffer_limit=cap` bounds a single call's output so a highly-compressible or hostile stream cannot exhaust memory in one call. When the limit is hit, the caller MUST drive further `process(b"")` empty-input calls until `can_accept_more_data()` returns `True` again before feeding new compressed input. `is_finished()` reports stream completion; `can_accept_more_data()` is the back-pressure gate (it returns `True` unconditionally if the stream was never driven with a limit). NOTE: the native docstring narrates the legacy `decompress(..., max_length=...)` spelling, but the live bound method is `process(data, output_buffer_limit=...)` — a consuming page binds `output_buffer_limit`, not a phantom `max_length` kwarg.
-
-| [INDEX] | [SURFACE]                           | [CALL_SHAPE]                                       | [CAPABILITY]                                |
-| :-----: | :---------------------------------- | :------------------------------------------------- | :------------------------------------------ |
-|  [01]   | `Decompressor.process`              | `process(data, output_buffer_limit=None) -> bytes` | feed a chunk; cap per-call output vs a bomb |
-|  [02]   | `Decompressor.is_finished`          | `is_finished() -> bool`                            | completion probe                            |
-|  [03]   | `Decompressor.can_accept_more_data` | `can_accept_more_data() -> bool`                   | back-pressure drain gate                    |
+- `Decompressor.process(data, output_buffer_limit=cap)`: once the cap is hit, drive `process(b"")` until `can_accept_more_data()` returns `True` before feeding new compressed input; the cap is block-granular, so a call may return somewhat past it.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[COMPRESSION_BROTLI]:
-- import: `import brotli` at boundary scope only; module-level import is banned by the manifest import policy.
-- modality axis: one-shot (`compress`/`decompress`) and incremental (`Compressor`/`Decompressor`) are rows on the same codec, never parallel codec owners; the one-shot path is the default and the incremental path is selected only when a payload exceeds the streaming threshold or a bounded-memory decode is required. Pick the modality by the input shape, not by minting a new object.
-- mode axis: `MODE_GENERIC`/`MODE_TEXT`/`MODE_FONT` plus the `quality`/`lgwin`/`lgblock` knobs are constructor/call rows tuned per payload, never a per-mode type; the upstream `CompressionMode` discriminant maps `MODE_FONT` to the WOFF2 per-table path (paired with `fontTools.ttLib.woff2`), `MODE_TEXT` to UTF-8 transport, and `MODE_GENERIC` to binary. `lgblock=0` is the standard default (the encoder derives the block size from `quality`).
-- bounded-decompress axis: `Decompressor.process(data, output_buffer_limit=cap)` plus the `can_accept_more_data`/`is_finished` probes is the one bounded-memory decode loop; a decompression bomb is contained by the per-call output cap and the empty-input `process(b"")` drain — `can_accept_more_data()` returning `True` licenses the next compressed chunk while `False` means capped output is still pending and the drain continues until the gate reopens, and after the last input chunk the same drain runs to a reopened gate before `is_finished()` decides completion; an unfinished stream once input and drain are exhausted is the truncation signal. The cap is block-granular (a call may return somewhat past it), so the consumer bounds the running total, never a hand-rolled size guard wrapping the unbounded one-shot `decompress`. Treat a non-`bytes` / non-contiguous input as a boundary-rejected argument before it reaches the native call.
-- integration: at the boundary, encode the canonical payload via `msgspec.msgpack.encode(...)`, compress it with a quality/`lgwin`-tuned mode (`MODE_TEXT` for UTF-8 transport bodies, `MODE_FONT` only for the WOFF2 table stream), wrap the producing boundary call in a `stamina`-retried block, and lift the result onto the universal `expression.Result[bytes, ArtifactError]` rail so a `brotli.error` becomes an `Error` case at the seam rather than a raised exception crossing the owner. Stamp a `structlog` event / `opentelemetry` span carrying `mode`, `quality`, `lgwin`, `lgblock`, input/output byte lengths, and (for the bounded path) `output_buffer_limit` plus the empty-input drain-call count. For a streaming sink, drive `Compressor.process`/`flush`/`finish` so back-pressure stays in the codec state, not in an in-RAM accumulation buffer.
-- evidence: each codec call captures mode, quality, window log, block log, input/output byte lengths, and (for the bounded path) the output-buffer cap and drain-call count as a compression receipt contributed through the runtime `ReceiptContributor` port onto the single `ArtifactReceipt` family — never a parallel brotli-only receipt shape.
-- boundary: brotli owns the web/transport (`Content-Encoding: br`) and WOFF2 per-table (`MODE_FONT`, paired with `fontTools.ttLib.woff2`) codec path; high-ratio archival routes to `zstandard`; hot-path block compression to `lz4`; archive containers to `py7zr`; bounded-memory streaming zip to `stream-zip`/`stream-unzip`; failures surface as `brotli.error` lifted to the `Result` rail, never as raw native return codes; live UI stays outside this package.
+[TOPOLOGY]:
+- One-shot (`compress`/`decompress`) and incremental (`Compressor`/`Decompressor`) are modality rows on one codec, and `MODE_*` with the `quality`/`lgwin`/`lgblock` knobs are call arguments on it, never parallel codec owners or per-mode types; modality follows input shape and mode follows payload class.
+- `Decompressor.process(output_buffer_limit=)` with the `can_accept_more_data`/`is_finished` probes is the one bounded-memory decode: the per-call cap and the `process(b"")` drain contain a decompression bomb, and an unfinished stream after input and drain exhaust signals truncation.
+- Each codec call records one typed compression receipt carrying `mode`, `quality`, window and block logs, input/output byte lengths, and — on the bounded path — the output cap and drain-call count, onto the single `ArtifactReceipt` family.
+
+[STACKING]:
+- `fonttools`(`.api/fonttools.md`): `MODE_FONT` compresses the WOFF2 per-table entropy stream while `fontTools.ttLib.woff2` owns the container and glyph-transform layer.
+- `msgspec`(`.api/msgspec.md`): the boundary encodes canonical payload `bytes` via `msgspec.msgpack.encode`, then brotli compresses the encoded buffer.
+- `expression`(`.api/expression.md`): the producing boundary call runs `stamina`-retried and its result lifts onto the `expression.Result[bytes, ArtifactError]` rail, a `brotli.error` becoming an `Error` case at the seam rather than a raised exception crossing the owner.
+- `structlog`(`.api/structlog.md`) / `opentelemetry`(`.api/opentelemetry-api.md`): each call stamps an event and span carrying the same codec facts the receipt records.
+- artifacts compression owner: composes `compress`/`decompress`/`Compressor`/`Decompressor` and contributes the receipt through the runtime `ReceiptContributor` port onto `core/receipt#RECEIPT`; the upstream `BrotliKnobs` carries `mode`/`quality`/`lgwin`/`lgblock` as row data.
+
+[LOCAL_ADMISSION]:
+- `import brotli` at boundary scope only; module-level import is banned by the manifest import policy.
+- A non-`bytes` or non-contiguous input is a boundary-rejected argument before it reaches the native call.
+- Live UI stays outside this package.
 
 [RAIL_LAW]:
 - Package: `brotli`

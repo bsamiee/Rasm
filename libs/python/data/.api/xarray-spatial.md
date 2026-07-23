@@ -1,26 +1,23 @@
 # [PY_DATA_API_XARRAY_SPATIAL]
 
-`xarray-spatial` supplies the Numba-accelerated raster-analytics surface for the data terrain rail: a flat `xrspatial` namespace of pure-function operators that consume a 2D `xarray.DataArray` (or `Dataset`) elevation/band grid and return a same-shaped `DataArray` (or a tabular receipt for zonal reductions) carrying the computed surface, terrain-metric, classification, focal, proximity, hydrology, morphology, interpolation, or zonal result. The package owner composes the surface operators (`slope`, `aspect`, `hillshade`, `curvature`, `viewshed`), terrain metrics (`tpi`/`tri`/`roughness`/`landforms`), classify breaks, focal/convolution kernels, proximity distance fields, the full hydrology stack (`flow_direction`/`flow_accumulation`/`watershed`/`stream_order`/`twi`/`hand` in d8/dinf/mfd variants), morphology, interpolation (`idw`/`kriging`/`spline`), and zonal reductions into the GEOSPATIAL_TERRAIN_GATED path; it dispatches across NumPy, Dask, and CuPy backends through Numba, and it never re-implements the raster kernels xarray-spatial already owns. xarray-spatial also owns `xarray`-native GeoTIFF I/O (`open_geotiff`/`to_geotiff`), `rasterize`/`polygonize` vector<->raster bridging, and `reproject`/`resample`/`merge`, so it is the terrain/DEM analytics AND raster I/O owner on the worker lane rather than deferring tiled GeoTIFF I/O to a separate owner.
+`xarray-spatial` mints the Numba-accelerated raster-analytics surface for the data terrain rail: a flat `xrspatial` namespace of pure-function operators consuming a 2D `xarray.DataArray`/`Dataset` elevation or band grid and returning a same-shaped grid, or a tabular receipt for zonal reductions. Numba dispatches every operator across NumPy, Dask, and CuPy element types on one grid carrier. Coverage raster IO — GeoTIFF read and writeback, reprojection, mosaic, and vector<->raster bridging — routes to the `rioxarray` and `rasterio` owners.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `xarray-spatial`
 - package: `xarray-spatial`
-- import: `xrspatial`
+- module: `xrspatial`
+- namespaces: `xrspatial` (flat; every operator re-exported from its owning submodule)
 - owner: `data`
 - rail: terrain
-- installed: `0.10.10`
-- entry points: library use is import-only; every public operator is re-exported flat onto the `xrspatial` namespace from its owning submodule (`slope`, `aspect`/`eastness`/`northness`, `curvature`, `hillshade`, `viewshed`/`cumulative_viewshed`/`line_of_sight`/`visibility_frequency`, `classify`, `focal`, `convolution`, `proximity`, `surface_distance`, `zonal`, `multispectral`, `pathfinding`, `terrain`/`terrain_metrics`, `hydro`, `morphology`, `edge_detection`, `interpolate`, `kde`, `glcm`, `mahalanobis`, `normalize`, `geotiff`, `rasterize`/`polygonize`/`polygon_clip`, `reproject`/`resample`/`sieve`, `bump`/`perlin`, `corridor`/`cost_distance`/`balanced_allocation`, `fire`, `flood`, `dasymetric`, `diffusion`, `emerging_hotspots`, `bilateral`, `contour`)
-- capability: Numba-accelerated raster analytics over `xarray` grids — surface metrics (slope/aspect/curvature/hillshade/viewshed), terrain metrics (tpi/tri/roughness/landforms), classification breaks, focal/convolution neighborhood statistics, proximity/surface distance/allocation/direction fields, hydrology (flow direction/accumulation/watershed/stream order/twi/hand in d8/dinf/mfd), morphology, edge detection, interpolation (idw/kriging/spline), KDE, GLCM/Mahalanobis texture, multispectral indices, A*/multi-stop pathfinding and least-cost corridors, GeoTIFF I/O, rasterize/polygonize, and reproject/resample/merge, with NumPy/Dask/CuPy backend dispatch
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: grid carrier and dispatch backends
-- rail: terrain
 
-The public surface is functional, not class-rooted: every operator accepts and returns `xarray.DataArray` (or `xarray.Dataset`, applied per data variable). The grid is the unit of design; backend is the array element type the `DataArray` wraps, dispatched by Numba at call time. Capacity/value errors surface as standard `ValueError` from the operators, not a package-specific exception.
+Every operator accepts and returns a `DataArray` (or a `Dataset`, applied per data variable); the grid is the unit of design and the backend is the array element type Numba dispatches at call time. Capacity and value faults surface as standard `ValueError`, never a package-specific exception.
 
-| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]  | [RAIL]                                                             |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]  | [CAPABILITY]                                                       |
 | :-----: | :----------------- | :------------- | :----------------------------------------------------------------- |
 |  [01]   | `xarray.DataArray` | grid carrier   | 2D aggregate raster consumed and returned by every operator        |
 |  [02]   | `xarray.Dataset`   | grid carrier   | multi-variable raster; operators apply independently per variable  |
@@ -29,44 +26,38 @@ The public surface is functional, not class-rooted: every operator accepts and r
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: surface terrain operators
-- rail: terrain
 
-Surface operators share `agg` (the elevation `DataArray`), a `name` output label, and a `boundary` edge policy; `slope`/`aspect` add `method` (`'planar'`) and `z_unit` (`'meter'`) rows. Each returns a 2D `DataArray` preserving input attributes.
-- call: `slope`/`aspect` take `(agg, name, method='planar', z_unit='meter', boundary='nan')`; `curvature(agg, name='curvature', boundary='nan')`; `hillshade(agg, azimuth=225, angle_altitude=25, name='hillshade', shadows=False, boundary='nan')`
-- call: `viewshed(raster, x, y, observer_elev, target_elev, max_distance, name)`; `visibility.line_of_sight(raster, ...)` with `cumulative_viewshed`/`visibility_frequency`; `terrain.generate_terrain(agg, x_range, y_range, seed, zfactor, full_extent, name, octaves, lacunarity, persistence, noise_mode, warp_strength, ...)`
+Surface operators share `agg`, `name`, and `boundary`; `slope`/`aspect` add `method` and `z_unit`. Each returns a 2D `DataArray` preserving input attributes.
 
-| [INDEX] | [SURFACE]                  | [CAPABILITY]                                                                                      |
-| :-----: | :------------------------- | :------------------------------------------------------------------------------------------------ |
-|  [01]   | `slope`                    | per-cell slope in degrees                                                                         |
-|  [02]   | `aspect`                   | per-cell downslope compass direction; `eastness(agg)`/`northness(agg)` are the sin/cos components |
-|  [03]   | `curvature`                | per-cell surface curvature                                                                        |
-|  [04]   | `hillshade`                | shaded-relief illumination from sun position                                                      |
-|  [05]   | `viewshed`                 | visible-cells field from an observer point                                                        |
-|  [06]   | `visibility.line_of_sight` | line-of-sight and multi-observer visibility                                                       |
-|  [07]   | `terrain.generate_terrain` | synthetic fBm terrain DEM; `bump`/`perlin` are the noise primitives                               |
+| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                         | [CAPABILITY]                                        |
+| :-----: | :------------------------- | :--------------------------------------------------- | :-------------------------------------------------- |
+|  [01]   | `slope`                    | `slope(agg, name, method, z_unit, boundary)`         | per-cell slope in degrees                           |
+|  [02]   | `aspect`                   | `aspect(agg, name, method, z_unit, boundary)`        | downslope direction; `eastness`/`northness` sin/cos |
+|  [03]   | `curvature`                | `curvature(agg, name, boundary)`                     | per-cell surface curvature                          |
+|  [04]   | `hillshade`                | `hillshade(agg, azimuth, angle_altitude, boundary)`  | shaded-relief illumination                          |
+|  [05]   | `viewshed`                 | `viewshed(raster, x, y, observer_elev, ...)`         | visible-cells field from an observer                |
+|  [06]   | `visibility.line_of_sight` | `line_of_sight(raster, ...)`                         | line-of-sight and multi-observer visibility         |
+|  [07]   | `terrain.generate_terrain` | `generate_terrain(agg, x_range, y_range, seed, ...)` | synthetic fBm DEM; `bump`/`perlin` primitives       |
 
 [ENTRYPOINT_SCOPE]: classify break operators
-- rail: terrain
 
-Classification operators consume a continuous `DataArray` and emit a binned `DataArray`; `k`/`bins`/`num_sample` set the break policy. `natural_breaks` samples large inputs via `num_sample` before Jenks optimization.
+Classification operators consume a continuous grid and emit a binned grid; `k`/`bins`/`num_sample` set the break policy, `natural_breaks` sampling large inputs before Jenks optimization.
 
-| [INDEX] | [SURFACE]                           | [CALL_SHAPE]                                           | [CAPABILITY]                            |
-| :-----: | :---------------------------------- | :----------------------------------------------------- | :-------------------------------------- |
-|  [01]   | `classify.natural_breaks`           | `natural_breaks(agg, num_sample, name, k)`             | Jenks natural-breaks binning            |
-|  [02]   | `classify.equal_interval`           | `equal_interval(agg, k=5, name='equal_interval')`      | equal-width interval binning            |
-|  [03]   | `classify.quantile`                 | `quantile(agg, k, num_sample, name)`                   | equal-count quantile binning            |
-|  [04]   | `classify.reclassify`               | `reclassify(agg, bins, new_values, name='reclassify')` | explicit bin-edge reclassification      |
-|  [05]   | `classify.binary`                   | `binary(agg, values, name='binary')`                   | membership-to-binary mask               |
-|  [06]   | `classify.box_plot`                 | `box_plot(agg, ...)`                                   | box-plot (Tukey) interval binning       |
-|  [07]   | `classify.head_tail_breaks`         | `head_tail_breaks(agg, ...)`                           | head/tail breaks for heavy-tailed data  |
-|  [08]   | `classify.maximum_breaks`           | `maximum_breaks(agg, ...)`                             | maximum-gap break binning               |
-|  [09]   | `classify.percentiles` / `std_mean` | `percentiles(agg, ...)` / `std_mean(agg, ...)`         | percentile / standard-deviation binning |
+| [INDEX] | [SURFACE]                           | [CALL_SHAPE]                                   | [CAPABILITY]                            |
+| :-----: | :---------------------------------- | :--------------------------------------------- | :-------------------------------------- |
+|  [01]   | `classify.natural_breaks`           | `natural_breaks(agg, num_sample, name, k)`     | Jenks natural-breaks binning            |
+|  [02]   | `classify.equal_interval`           | `equal_interval(agg, k, name)`                 | equal-width interval binning            |
+|  [03]   | `classify.quantile`                 | `quantile(agg, k, num_sample, name)`           | equal-count quantile binning            |
+|  [04]   | `classify.reclassify`               | `reclassify(agg, bins, new_values, name)`      | explicit bin-edge reclassification      |
+|  [05]   | `classify.binary`                   | `binary(agg, values, name)`                    | membership-to-binary mask               |
+|  [06]   | `classify.box_plot`                 | `box_plot(agg, ...)`                           | box-plot (Tukey) interval binning       |
+|  [07]   | `classify.head_tail_breaks`         | `head_tail_breaks(agg, ...)`                   | head/tail breaks for heavy-tailed data  |
+|  [08]   | `classify.maximum_breaks`           | `maximum_breaks(agg, ...)`                     | maximum-gap break binning               |
+|  [09]   | `classify.percentiles` / `std_mean` | `percentiles(agg, ...)` / `std_mean(agg, ...)` | percentile / standard-deviation binning |
 
 [ENTRYPOINT_SCOPE]: focal and convolution neighborhood operators
-- rail: terrain
 
-Focal operators apply a `numpy.ndarray` kernel built by the `convolution` kernel constructors over each cell's neighborhood; `boundary` controls edge handling (`'nan'`, `'nearest'`, `'reflect'`, `'wrap'`).
-- call: `convolve_2d(data, kernel, boundary)` is the bare-`ndarray` kernel form of `convolution_2d`; the kernel builders take `annulus_kernel(cellsize_x, cellsize_y, outer_radius, inner_radius)` and `circle_kernel(cellsize_x, cellsize_y, radius)`.
+Focal operators apply a `numpy.ndarray` kernel from the `convolution` builders over each cell's neighborhood; `boundary` selects edge handling (`nan`/`nearest`/`reflect`/`wrap`). `convolve_2d(data, kernel, boundary)` is the bare-`ndarray` form of `convolution_2d`.
 
 | [INDEX] | [SURFACE]                    | [CALL_SHAPE]                                            | [CAPABILITY]                                  |
 | :-----: | :--------------------------- | :------------------------------------------------------ | :-------------------------------------------- |
@@ -75,20 +66,19 @@ Focal operators apply a `numpy.ndarray` kernel built by the `convolution` kernel
 |  [03]   | `focal.hotspots`             | `hotspots(agg, kernel, name, boundary, raster)`         | Getis-Ord Gi* hot/cold spot z-scores          |
 |  [04]   | `focal.mean`                 | `mean(agg, passes, excludes, name, boundary)`           | iterated mean-filtered smoothing              |
 |  [05]   | `convolution.circle_kernel`  | `circle_kernel(cellsize_x, cellsize_y, radius)`         | circular `ndarray` kernel                     |
-|  [06]   | `convolution.annulus_kernel` | `annulus_kernel(...)`                                   | ring-shaped `ndarray` kernel                  |
+|  [06]   | `convolution.annulus_kernel` | `annulus_kernel(cellsize_x, cellsize_y, outer, inner)`  | ring-shaped `ndarray` kernel                  |
 |  [07]   | `convolution.custom_kernel`  | `custom_kernel(kernel)`                                 | validate a user `ndarray` kernel              |
 |  [08]   | `convolution.calc_cellsize`  | `calc_cellsize(raster)`                                 | derive `(cellsize_x, cellsize_y)` from coords |
 |  [09]   | `convolution.convolution_2d` | `convolution_2d(agg, kernel, name, boundary)`           | 2D kernel convolution over inner cells        |
 
 [ENTRYPOINT_SCOPE]: proximity, zonal, and pathfinding operators
-- rail: terrain
 
-Proximity operators emit distance/allocation/direction fields from source cells under a `distance_metric`; `zonal.stats` reduces `values` per `zones` to a tabular receipt; `pathfinding.a_star_search` returns a cost-accumulated least-cost path grid.
-- call: `proximity`/`allocation`/`direction` share `(raster, x='x', y='y', target_values=None, max_distance=inf, distance_metric='EUCLIDEAN')`
-- call: `zonal.stats(zones, values, zone_ids=None, stats_funcs=None, nodata_values=None, return_type='pandas.DataFrame', column=None, rasterize_kw=None)`; `zonal.apply(zones, values, func, nodata=0)`; `zonal.crosstab(zones, values, zone_ids=None, cat_ids=None, layer=None, agg='count', nodata_values=None)`; `zonal.regions(raster, neighborhood=4, name='regions')`
-- call: `surface_distance.surface_distance(...)` with `surface_allocation`/`surface_direction`; `corridor.least_cost_corridor(...)` with `cost_distance`/`balanced_allocation`
-- call: `multispectral.ndvi(nir_agg, red_agg, name)`; `savi(nir_agg, red_agg, soil_factor, name)`; `arvi`/`evi`/`gci`/`nbr`/`nbr2`/`ndbi`/`ndmi`/`ndsi`/`ndwi`/`mndwi`/`osavi`/`sipi`/`bai`/`msavi2` share the band-pair shape
-- call: `pathfinding.a_star_search(surface, start, goal, barriers, x, y, connectivity, snap_start, snap_goal, friction, search_radius)`; `multi_stop_search(...)` chains waypoints
+Proximity operators emit distance/allocation/direction fields under a `distance_metric`; `zonal.stats` reduces `values` per `zones` to a tabular receipt; `pathfinding.a_star_search` returns a cost-accumulated least-cost path grid.
+- `proximity`/`allocation`/`direction` share `(raster, x, y, target_values, max_distance, distance_metric)`.
+- `zonal.stats(zones, values, *, zone_ids, stats_funcs, nodata_values, return_type, column, rasterize_kw)`; `zonal.apply`/`crosstab`/`regions` extend the zone vocabulary.
+- `surface_distance.surface_distance(...)` with `surface_allocation`/`surface_direction`; `corridor.least_cost_corridor(...)` with `cost_distance`/`balanced_allocation`.
+- `multispectral`: `ndvi` `savi` `arvi` `evi` `gci` `nbr` `nbr2` `ndbi` `ndmi` `ndsi` `ndwi` `mndwi` `osavi` `sipi` `bai` `msavi2` share `(nir_agg, red_agg, name)`.
+- `pathfinding.a_star_search(surface, start, goal, barriers, connectivity, friction, ...)`; `multi_stop_search(...)` chains waypoints.
 
 | [INDEX] | [SURFACE]                           | [CAPABILITY]                                                    |
 | :-----: | :---------------------------------- | :-------------------------------------------------------------- |
@@ -105,10 +95,8 @@ Proximity operators emit distance/allocation/direction fields from source cells 
 |  [11]   | `pathfinding.a_star_search`         | least-cost A* / multi-stop path grid                            |
 
 [ENTRYPOINT_SCOPE]: terrain-metric and hydrology operators
-- rail: terrain
 
-Terrain metrics share the `agg`/`name`/`boundary` surface-operator shape; the hydrology stack threads a flow grid through direction -> accumulation -> stream/watershed, each operator exposing `_d8`/`_dinf`/`_mfd` flow-model variants plus an unsuffixed dispatcher.
-- call: `landforms(agg, inner_radius, outer_radius, slope_threshold, name)` classifies by TPI+slope; every hydrology operator exposes the `_d8`/`_dinf`/`_mfd` variants plus the unsuffixed dispatcher.
+Terrain metrics share the `agg`/`name`/`boundary` surface shape; the hydrology stack threads one flow grid `fill` -> `flow_direction` -> `flow_accumulation` -> `stream_order`/`watershed`, each operator carrying `_d8`/`_dinf`/`_mfd` variants and an unsuffixed dispatcher. `landforms(agg, inner_radius, outer_radius, slope_threshold, name)` classifies by TPI and slope.
 
 | [INDEX] | [SURFACE]                            | [CALL_SHAPE]                                    | [CAPABILITY]                                 |
 | :-----: | :----------------------------------- | :---------------------------------------------- | :------------------------------------------- |
@@ -126,11 +114,11 @@ Terrain metrics share the `agg`/`name`/`boundary` surface-operator shape; the hy
 |  [12]   | `hydro.sink` / `snap_pour_point`     | `sink(...)` / `snap_pour_point(...)` (`_d8`)    | sink detection; pour-point snapping          |
 
 [ENTRYPOINT_SCOPE]: morphology, edge detection, interpolation, density, texture
-- rail: terrain
 
-Morphology shares the `agg`/`kernel`/`boundary` shape; edge detection emits gradient/Laplacian responses; interpolation and KDE build a continuous grid from scattered samples; GLCM/Mahalanobis carry texture/anomaly evidence.
-- call: `morphology.morph_dilate(agg, kernel, boundary, name)` with `morph_erode`/`morph_opening`/`morph_closing`/`morph_gradient`/`morph_white_tophat`/`morph_black_tophat`; `edge_detection.sobel_x(agg, name, boundary)` with `sobel_y`/`prewitt_x`/`prewitt_y`/`laplacian`
-- call: `interpolate.idw(...)`/`kriging(...)`/`spline(...)`; `kde.kde(x, y, weights, bandwidth, kernel, template, x_range, y_range, width, height, name)`/`line_density(...)`; `glcm.glcm_texture(...)`; `bilateral.bilateral(...)`; `mahalanobis.mahalanobis(...)`; `normalize.rescale(...)`/`standardize(...)`
+Morphology shares the `agg`/`kernel`/`boundary` shape; edge detection emits gradient/Laplacian responses; interpolation and KDE build a continuous grid from scattered samples; GLCM/Mahalanobis carry texture and anomaly evidence.
+- `morphology`: `morph_dilate` `morph_erode` `morph_opening` `morph_closing` `morph_gradient` `morph_white_tophat` `morph_black_tophat` share `(agg, kernel, boundary, name)`.
+- `edge_detection`: `sobel_x` `sobel_y` `prewitt_x` `prewitt_y` `laplacian` share `(agg, name, boundary)`.
+- `interpolate.idw`/`kriging`/`spline`; `kde.kde(x, y, weights, bandwidth, kernel, ...)` / `line_density`; `glcm.glcm_texture`; `bilateral.bilateral`; `mahalanobis.mahalanobis`; `normalize.rescale` / `standardize`.
 
 | [INDEX] | [SURFACE]                                   | [CAPABILITY]                                                          |
 | :-----: | :------------------------------------------ | :-------------------------------------------------------------------- |
@@ -142,39 +130,30 @@ Morphology shares the `agg`/`kernel`/`boundary` shape; edge detection emits grad
 |  [06]   | `mahalanobis.mahalanobis`                   | per-cell Mahalanobis distance (multiband anomaly)                     |
 |  [07]   | `normalize.rescale` / `standardize`         | min-max rescale / z-score standardization                             |
 
-[ENTRYPOINT_SCOPE]: raster I/O and vector bridging
-- rail: terrain
-
-xarray-spatial owns `xarray`-native GeoTIFF read/write and raster<->vector conversion; the grid carrier never leaves the `DataArray`/`Dataset` model. `rasterize` burns vector geometries into a grid, `polygonize` extracts polygon features, and `reproject`/`resample`/`merge` handle CRS/grid alignment.
-- call: `geotiff.open_geotiff(...)` / `to_geotiff(...)`; `polygon_clip.clip_polygon(...)`; `reproject.reproject(...)` / `merge(...)`; `sieve.sieve(...)`; `resample.resample(agg, scale_factor, target_resolution, method, nodata, name)`
-- call: `rasterize.rasterize(geometries, width, height, bounds, column, columns, fill, dtype, all_touched, gpu, name, resolution, like, merge, chunks, max_pixels, check_crs, use_cuda)`; `polygonize.polygonize(raster, mask, connectivity, transform, column_name, return_type, simplify_tolerance, simplify_method, atol, rtol)`
-
-| [INDEX] | [SURFACE]                             | [CAPABILITY]                                 |
-| :-----: | :------------------------------------ | :------------------------------------------- |
-|  [01]   | `geotiff.open_geotiff` / `to_geotiff` | read/write a GeoTIFF into/from a `DataArray` |
-|  [02]   | `rasterize.rasterize`                 | burn vector geometries into a raster grid    |
-|  [03]   | `polygonize.polygonize`               | extract polygon features from a raster       |
-|  [04]   | `polygon_clip.clip_polygon`           | clip a raster to polygon geometry            |
-|  [05]   | `reproject.reproject` / `merge`       | CRS reprojection; multi-raster mosaic        |
-|  [06]   | `resample.resample`                   | up/down-sample to a target resolution        |
-|  [07]   | `sieve.sieve`                         | remove small connected regions               |
-
 ## [04]-[IMPLEMENTATION_LAW]
 
-[TERRAIN_RASTER]:
-- import: `import xrspatial` (or `from xrspatial import slope, aspect, hillshade, curvature`) at boundary scope only; module-level import is banned by the manifest import policy.
-- grid axis: every operator consumes and returns one `xarray.DataArray`; a `Dataset` fans the operator across data variables — the grid is the canonical carrier, never a per-operation result class.
-- surface axis: `slope`/`aspect`/`curvature`/`hillshade`/`viewshed` are the surface-metric rows and `terrain_metrics.tpi`/`tri`/`roughness`/`landforms` the morphometric rows; `method` (`'planar'`) and `z_unit` (`'meter'`) are call policy, not parallel operator types; DEM analytics route here, never to a hand-rolled finite-difference kernel.
-- classify axis: `natural_breaks`/`equal_interval`/`quantile`/`reclassify`/`binary`/`box_plot`/`head_tail_breaks`/`maximum_breaks`/`percentiles`/`std_mean` are the break-policy rows over one continuous grid; `k`/`bins`/`num_sample` are call rows, never a per-scheme classifier type.
-- focal axis: `focal.apply`/`focal_stats`/`hotspots`/`mean` consume a `numpy.ndarray` kernel from `convolution.circle_kernel`/`annulus_kernel`/`custom_kernel` (cell size via `calc_cellsize`); neighborhood statistics are kernel-keyed rows, never a parallel windowed type — `boundary` selects the edge policy.
-- hydro axis: the hydrology stack threads one flow grid — `fill` -> `flow_direction` -> `flow_accumulation` -> `stream_order`/`watershed`/`twi`/`hand`; the flow model is the suffix row (`_d8`/`_dinf`/`_mfd`) on each operator with an unsuffixed dispatcher, never a parallel per-model module. Watershed/stream analysis routes here, never to an external flow kernel.
-- proximity axis: `proximity`/`allocation`/`direction` share `target_values`/`max_distance`/`distance_metric`; distance, nearest value, and bearing are sibling field rows over one source raster; `surface_distance.*` add the 3D-surface-aware variants and `corridor`/`cost_distance`/`balanced_allocation` the cost-surface family — never three unrelated kernels.
-- zonal axis: `zonal.stats` is the single reduction surface keyed by `zones`/`stats_funcs`/`return_type`; per-zone aggregation is a row with a tabular receipt, never a hand-stitched groupby; `regions`/`crosstab`/`apply`/`crop`/`trim`/`hypsometric_integral` extend the same zone vocabulary.
-- backend axis: NumPy, Dask, and CuPy are element-type dispatch under Numba on the same operator surface, never a per-backend function family; out-of-core and GPU execution are array-type rows, not parallel APIs.
+[TOPOLOGY]:
+- import: `import xrspatial` (or `from xrspatial import slope, aspect, hillshade`) at boundary scope only per the manifest import policy.
+- grid axis: every operator consumes and returns one `DataArray`; a `Dataset` fans the operator across data variables — the grid is the canonical carrier, never a per-operation result class.
+- surface axis: `method` and `z_unit` are call policy on the morphometric rows, not parallel operator types; DEM analytics route here, never a hand-rolled finite-difference kernel.
+- classify axis: the break-policy operators bin one continuous grid; `k`/`bins`/`num_sample` are call rows, never a per-scheme classifier type.
+- focal axis: neighborhood statistics consume a `convolution`-built `numpy.ndarray` kernel (cell size via `calc_cellsize`) as kernel-keyed rows; `boundary` selects the edge policy.
+- hydro axis: the stack threads one flow grid `fill` -> `flow_direction` -> `flow_accumulation` -> `stream_order`/`watershed`/`twi`/`hand`; the flow model is the `_d8`/`_dinf`/`_mfd` suffix row with an unsuffixed dispatcher, never a per-model module.
+- proximity axis: `proximity`/`allocation`/`direction` share `target_values`/`max_distance`/`distance_metric`; `surface_distance.*` add the 3D-surface variants and `corridor`/`cost_distance`/`balanced_allocation` the cost-surface family over one source raster.
+- zonal axis: `zonal.stats` is the single reduction surface keyed by `zones`/`stats_funcs`/`return_type` emitting a tabular receipt; `regions`/`crosstab`/`apply`/`crop`/`trim`/`hypsometric_integral` extend the same zone vocabulary.
+- backend axis: NumPy, Dask, and CuPy are element-type dispatch under Numba on the same operator surface; out-of-core and GPU execution are array-type rows, never parallel APIs.
 - evidence: each result captures operator name, resolved `boundary`/`method`/`z_unit`/`distance_metric`/flow-model suffix, output units, grid shape, and backend element type as a terrain receipt.
+
+[STACKING]:
+- `rioxarray`(`.api/rioxarray.md`): a terrain result `DataArray` flows into the `.rio` accessor for CRS/transform tagging, `reproject`/`reproject_match` grid alignment, `merge_arrays`/`merge_datasets` mosaic, and `to_raster` GeoTIFF writeback — the coverage raster-IO path this surface reads its grids from and writes its results to.
+- `rasterio`(`.api/rasterio.md`): `features.rasterize`/`features.shapes` bridge vector<->raster into and out of the grid, `warp.reproject`/`WarpedVRT` and `merge` supply CRS and mosaic, and `features.sieve` cleans a classified `xrspatial` output.
+- within-lib: the flat `xrspatial` namespace chains operators on one grid — `fill` -> `flow_direction` -> `flow_accumulation` -> `hand`/`twi`, or `slope`/`aspect` -> `classify.natural_breaks` -> `zonal.stats` — every stage a same-shaped `DataArray` under one Numba backend element type.
+
+[LOCAL_ADMISSION]:
+- A raster terrain, hydrology, focal, zonal, or multispectral computation on a `DataArray`/`Dataset` grid admits here under GEOSPATIAL_TERRAIN_GATED; raster read/write, reprojection, and vector bridging admit at the `rioxarray`/`rasterio` owners.
 
 [RAIL_LAW]:
 - Package: `xarray-spatial`
-- Owns: Numba-accelerated raster analytics over `xarray` grids — surface and terrain metrics, classification breaks, focal/convolution neighborhood statistics, hydrology (flow direction/accumulation/watershed/stream order/twi/hand in d8/dinf/mfd), morphology, edge detection, interpolation/KDE, proximity/surface-distance/corridor fields, zonal reductions, multispectral indices, A*/multi-stop pathfinding, GeoTIFF I/O, rasterize/polygonize, and reproject/resample/merge, with NumPy/Dask/CuPy dispatch
-- Accept: raster terrain/DEM/hydrology analysis and `xarray`-native raster I/O on `DataArray`/`Dataset` grids feeding the data, persistence, and visuals owners under GEOSPATIAL_TERRAIN_GATED
-- Reject: wrapper-renames of `slope`/`aspect`/`hillshade`/`zonal.stats`/`flow_accumulation`; a hand-rolled finite-difference, Jenks, flow-routing, or GeoTIFF kernel where xarray-spatial owns it; a per-backend operator family where Numba dispatch handles NumPy/Dask/CuPy; a per-flow-model module where the `_d8`/`_dinf`/`_mfd` suffix discriminates; a parallel result class per operator
+- Owns: Numba raster analytics over `xarray` grids — surface and terrain metrics, classification breaks, focal/convolution neighborhood statistics, the d8/dinf/mfd hydrology stack, morphology, edge detection, interpolation/KDE, proximity/surface-distance/corridor fields, zonal reductions, multispectral indices, and A*/multi-stop pathfinding, with NumPy/Dask/CuPy dispatch
+- Accept: raster terrain/DEM/hydrology analysis on `DataArray`/`Dataset` grids feeding the data, persistence, and visuals owners under GEOSPATIAL_TERRAIN_GATED
+- Reject: wrapper-renames of `slope`/`aspect`/`hillshade`/`zonal.stats`/`flow_accumulation`; a hand-rolled finite-difference, Jenks, or flow-routing kernel where xarray-spatial owns it; GeoTIFF IO, reprojection, mosaic, or rasterize where the `rioxarray`/`rasterio` coverage rail owns it; a per-backend operator family where Numba dispatch handles NumPy/Dask/CuPy; a per-flow-model module where the `_d8`/`_dinf`/`_mfd` suffix discriminates; a parallel result class per operator

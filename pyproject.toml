@@ -266,7 +266,7 @@ dependencies = [
     "odfpy",                                   # [ARTIFACTS]: ODF write for OpenDocument text, spreadsheet, and presentation trees
     "openpyxl",
     "papermill",                               # [ARTIFACTS]: parameterized notebook runs
-    "python-calamine; python_version<'3.15'",  # [ARTIFACTS]: fast xlsx/xlsb/xls/ods reader
+    "python-calamine",                         # [ARTIFACTS]: fast xlsx/xlsb/xls/ods reader
     "python-docx",
     "python-pptx",
     "xlsxwriter",                              # [ARTIFACTS]: streaming write-only xlsx
@@ -289,7 +289,7 @@ dependencies = [
     "colour-science",                          # [ARTIFACTS]: CIE, spectral, and appearance color models
     "fonttools",                               # [ARTIFACTS]: font subsetting, instancing, and shaping metadata
     "opentype-feature-freezer",                # [ARTIFACTS]: freeze OpenType features into the default glyph set
-    "PyICU; python_version<'3.15'",            # [ARTIFACTS]: ICU locale line-break/bidi/collation (sdist-only, needs ICU native)
+    "PyICU",                                   # [ARTIFACTS]: ICU locale line-break/bidi/collation; sdist-only, icu rides the Forge scientific substrate
     "pyphen",                                  # [ARTIFACTS]: language-aware hyphenation dictionaries
     "python-bidi",                             # [ARTIFACTS]: UAX 9 bidi reorder pass before HarfBuzz shaping
     "uharfbuzz",                               # [ARTIFACTS]: HarfBuzz text-shaping bindings

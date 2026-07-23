@@ -1,35 +1,48 @@
 # [PY_DATA_API_TRIMESH]
 
-Full surface and stacking: `libs/python/geometry/.api/trimesh.md` (geometry-tier canonical owner).
+`trimesh` is the data-tier mesh and scene interchange edge: it reads mesh files into the geometry-owned `Trimesh` root and encodes mesh/scene exchange bytes back out. Data composes only the loaders and `export`, never re-cataloguing or mutating the geometry modeling, repair, boolean, proximity, sampling, or registration surface.
 
-`trimesh` enters data as the load/export interchange edge around the geometry-owned triangular mesh. Data accepts an in-memory `Trimesh` crossing from geometry, reads mesh files into that canonical root, and emits mesh/scene exchange bytes without re-cataloguing the modeling, repair, boolean, proximity, sampling, or registration surface.
+## [01]-[PACKAGE_SURFACE]
 
-## [01]-[DATA_LOAD_EXPORT]
+[PACKAGE_SURFACE]: `trimesh`
+- package: `trimesh`
+- module: `trimesh`
+- rail: data-tier mesh/scene interchange over the geometry canonical `Trimesh`
 
-[OVERLAY_SCOPE]:
-- `trimesh.load(file_obj, file_type=None, resolver=None, force=None, allow_remote=False, **kwargs)` is the polymorphic intake; its return kind (`Trimesh`, `Scene`, or `Path3D`) discriminates on source content.
-- `load_mesh` and `load_scene` force the return family when a data owner already knows the expected shape.
-- `Trimesh.export(file_obj=None, file_type=None, **kwargs)` and `Scene.export(...)` are the mesh/scene egress edges for `STL`, `OBJ`, `PLY`, `GLTF`, `GLB`, `OFF`, and `3MF`.
-- `Scene.to_mesh()` / `Scene.dump(concatenate=True)` collapse a named scene graph to one `Trimesh` before data hands it to mesh-algebra or mesh-file egress.
-- `file_type` is a policy value for extensionless sources, never a `load_<format>` or `export_<format>` function family.
+## [02]-[PUBLIC_TYPES]
 
-[MESH_AEC]:
-- Geometry hands data a `Trimesh` with vertices/faces arrays and unit metadata already conditioned by the geometry tier.
-- Data reads `mesh.units or "m"` as the unit hint on interchange, and the owning payload records vertex count, face count, watertight flag, volume, surface area, `identifier_hash`, and export byte length.
-- Data never mutates raw vertex/face arrays; conditioning uses the geometry canonical surface before interchange.
-- OpenNURBS `.3dm` routes to `rhino3dm`, unstructured solver mesh formats route to `meshio`, point-cloud registration routes to `open3d`, and IFC routes to `ifcopenshell`.
+[PUBLIC_TYPE_SCOPE]: geometry-owned load return kinds the data edge receives
+- `load_scene` returns a `Scene`; `load_mesh` returns one `Trimesh`. Scene content spans `Trimesh` `Path2D` `Path3D` `PointCloud`.
 
-## [02]-[CAPTURE_GAP]
+## [03]-[ENTRYPOINTS]
 
-[CAPTURE_GAP]:
-- members: verified by introspection against an installed `trimesh==4.12.2` companion distribution with `manifold3d`/`rtree`/`scipy`/`shapely`/`networkx` resolved; every data-used load/export member resolves with the signatures named here.
-- query tuple shapes: `closest_point`/`ProximityQuery.on_surface` produce `(points, distances, triangle_id)`; `icp`/`procrustes` produce `(matrix, transformed, cost)`; `mesh_other` produces `(matrix, cost)`; `sample_surface` and `sample_surface_even` produce `(points, face_index)`.
-- mutation return shapes: `fill_holes`/`fix_*` return `bool`; `smoothing.filter_*` returns the mutated `Trimesh`.
-- boolean dispatch: `boolean.*` carries `engine=Literal["manifold", "blender", None]` and `check_volume`; the in-process default is the manifold engine.
-- boundary accessors: open-edge accessors `edges_face` and `facets_boundary` are cached properties and are read directly by downstream boundary scans.
+[ENTRYPOINT_SCOPE]: mesh/scene load and export over STL/OBJ/PLY/OFF/GLB/GLTF/3MF
+- Every surface carries `file_obj, file_type`; `export` returns bytes only when `file_obj` is None, and `file_type` selects the codec for an extensionless sink.
+
+| [INDEX] | [SURFACE]                                                  | [SHAPE]  | [CAPABILITY]                               |
+| :-----: | :--------------------------------------------------------- | :------- | :----------------------------------------- |
+|  [01]   | `load_scene(file_obj, *, allow_remote, metadata) -> Scene` | static   | read any source into a `Scene` container   |
+|  [02]   | `load_mesh(file_obj) -> Trimesh`                           | static   | force a single `Trimesh`, collapsing scene |
+|  [03]   | `Scene.to_mesh() -> Trimesh`                               | instance | collapse the scene graph to one mesh       |
+|  [04]   | `Scene.dump(concatenate) -> list[Geometry]`                | instance | flatten geometries; `True` yields one mesh |
+|  [05]   | `Trimesh.export(file_type) -> bytes \| str`                | instance | encode a mesh to exchange bytes            |
+|  [06]   | `Scene.export(file_type) -> bytes`                         | instance | encode a scene with transforms             |
+
+## [04]-[IMPLEMENTATION_LAW]
+
+[TOPOLOGY]:
+- `load_scene` is the polymorphic intake discriminating return content by source; `load_mesh` forces one `Trimesh`. Format rides `file_type` as a policy value, never a `load_<format>`/`export_<format>` family.
+- Data reads interchange over the geometry-conditioned `Trimesh` and reads `is_watertight`/`volume`/`area`/`identifier_hash` for exchange evidence, never mutating raw vertex/face arrays.
+
+[STACKING]:
+- geometry canonical `trimesh` (`geometry/.api/trimesh.md`): owns mesh modeling, repair, boolean, proximity, sampling, and registration; the data edge composes only the loaders and `export`, returning the conditioned `Trimesh`.
+- `rhino3dm` (`.api/rhino3dm.md`): OpenNURBS `.3dm` exchange routes here, never through the trimesh loaders.
+
+[LOCAL_ADMISSION]:
+- Unstructured solver mesh routes to `meshio`, point-cloud registration to `open3d`, IFC to `ifcopenshell`; `mesh.units or "m"` carries the interchange unit hint.
 
 [RAIL_LAW]:
-- Package: `trimesh` (data overlay)
-- Owns: data-tier mesh/scene/path load and export interchange over the geometry canonical mesh surface
-- Accept: polymorphic load, forced load kind, export, scene collapse, unit hint read, and interchange evidence extraction
-- Reject: package-surface duplication, mesh modeling re-catalogues, raw vertex-array mutation, hand-rolled face KD-trees, wrapper-renames of load/export, and identity minting outside the runtime owner
+- Package: `trimesh`
+- Owns: data-tier mesh/scene load and export interchange over the geometry canonical mesh
+- Accept: polymorphic scene load, forced mesh load, scene collapse, export, exchange-evidence read, and the unit hint
+- Reject: geometry modeling/repair/boolean/proximity/sampling re-catalogues, raw vertex-array mutation, loader/export wrapper-renames, and a `load_<format>`/`export_<format>` family

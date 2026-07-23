@@ -1,29 +1,21 @@
 # [PY_ARTIFACTS_API_TYPST]
 
-`typst` supplies the Rust-backed Typst typesetting surface for the artifacts documents rail: a free-function family that compiles, evaluates, and queries Typst markup into PDF/PNG/SVG/HTML output, a reusable `Compiler` that caches fonts and world state across renders, and a `Fonts`/`FontInfo` resolved-face introspection pair — with no LaTeX toolchain, no Node runtime, and no external process. The embedded engine is the in-tree Rust `typst@0.15.0` crate (the same version as the wheel), so the markup vocabulary, the PDF/A + PDF/UA export profiles, and the tagged-PDF `pdf` module the lowering emits are the Typst-0.15 surface, not a CLI-shelled binary. The package owner composes `compile`/`compile_with_warnings`, the `query`/`eval` introspection inverses, the held `Compiler` font-cached world, and the `Fonts` resolved set into the `document/emit#DOCUMENT` `DocumentMode.PDF_TYPST`/`TYPST_DATA`/`TYPST_QUERY`/`TYPST_EVAL` arms; it never re-implements the Typst layout engine the embedded compiler already owns and never re-mints the PAdES signature `pyhanko` owns.
+`typst` compiles Typst markup to PDF/PNG/SVG/HTML through a statically-linked Rust typesetting engine — no LaTeX, Node, or external process — with expression `eval`, document `query`, a font/world-cached `Compiler`, and a `Fonts`/`FontInfo` resolved-face pair. That engine owns the markup vocabulary, the PDF/A + PDF/UA export profiles, and the tagged-PDF structure the lowering emits. `document/emit#DOCUMENT` composes the surface through its `PDF_TYPST`/`TYPST_DATA`/`TYPST_QUERY`/`TYPST_EVAL` arms; layout stays in the engine and PAdES signing routes to `pyhanko`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `typst`
-- package: `typst`
-- import: `typst`
-- owner: `artifacts`
-- rail: documents
-- license: Apache-2.0 (PyO3/maturin binding over the bundled Rust `typst@0.15.0` compiler crate + `comemo` incremental world cache; no LaTeX/Node/external process — the layout engine is statically linked)
-- installed: `0.15.0`
-- distribution: abi3 wheel (`typst/_typst.abi3.so` + pure-Python `__init__.py` re-export + `__init__.pyi` typed stub); forward-compatible abi3, imports and runs natively on this cp315 interpreter
-- gating: none — `Requires-Python >=3.8`, the abi3 `.so` resolves a cp315-compatible wheel, so `pyproject` carries `typst` unpinned with no `python_version` marker
-- entry points: none (library only)
-- capability: Typst markup compilation to PDF/PNG/SVG/HTML (`bytes`, file, or per-page `list[bytes]` for multi-page raster), expression evaluation and document querying, the full PDF/A + PDF/UA `pdf_standards` profile matrix, `sys.inputs` data injection with keep/clear/replace tri-state, `datetime`/epoch reproducible-timestamp pinning, font-path / system-font / embedded-font control, structured `TypstError`/`TypstWarning` diagnostics (message + Typst-rendered `diagnostic` + `hints` + `trace`), resolved-font enumeration via `Fonts`/`FontInfo`, local + cached registry package resolution, and a font/world-caching reusable `Compiler` that amortizes font discovery across batched renders
+- package: `typst` (`Apache-2.0`; PyO3/maturin binding over a statically-linked Rust Typst compiler crate + `comemo` incremental world cache, no LaTeX/Node/external process)
+- module: `typst`; bundles the native compiler `.so`, no system toolchain
+- rail: documents — markup compile to PDF/PNG/SVG/HTML, expression eval, document query, PDF/A + PDF/UA profiles, `sys.inputs` data injection, reproducible-timestamp pinning, resolved-font enumeration, font/world-cached batched renders
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: compiler, font roots, diagnostics
-- rail: documents
+[PUBLIC_TYPE_SCOPE]: compiler, font set, diagnostics
 
-The module surface is exactly `{compile, compile_with_warnings, eval, query, Compiler, Fonts, FontInfo, TypstError, TypstWarning}` (`dir(typst)` minus dunders and the `_typst` native handle) — there is no per-format render function and no per-operation class family; `format`/`output`/`pdf_standards`/`ppi` are rows on the ONE compile surface, and `query`/`eval` are the introspection inverses, not parsers. The free functions construct a single-shot `Compiler` internally; the owner holds a `Compiler` when amortizing font loading across many renders. `Fonts`/`FontInfo` expose the resolved font set (`Fonts.fonts()`/`Fonts.families()` are METHODS, not attributes). `TypstError`/`TypstWarning` are the structured diagnostic carriers: each exposes `message`/`diagnostic`/`hints: list[str]`/`trace: list[str]`, so the owner reads structured failure context rather than scraping a flat string. `Fonts(include_system_fonts=True, include_embedded_fonts=True, font_paths=[])` constructs the resolved set.
+Free functions construct a single-shot `Compiler` internally; the owner holds a `Compiler` to amortize font loading across many renders. `Fonts(include_system_fonts=True, include_embedded_fonts=True, font_paths=[])` constructs the resolved set, and `Fonts.fonts()`/`Fonts.families()` are methods.
 
-| [INDEX] | [SYMBOL]       | [TYPE_FAMILY]   | [DEFINITION]                                                                               |
+| [INDEX] | [SYMBOL]       | [TYPE_FAMILY]   | [CAPABILITY]                                                                               |
 | :-----: | :------------- | :-------------- | :----------------------------------------------------------------------------------------- |
 |  [01]   | `Compiler`     | compiler        | reusable font/world-cached compiler; amortizes font discovery across batched renders       |
 |  [02]   | `Fonts`        | font set        | resolved font set; `.fonts() -> list[FontInfo]`, `.families() -> list[str]` (methods)      |
@@ -31,10 +23,9 @@ The module surface is exactly `{compile, compile_with_warnings, eval, query, Com
 |  [04]   | `TypstError`   | diagnostic      | compile/query failure (`RuntimeError`): `.message`/`.diagnostic`/`.hints`/`.trace`; RAISED |
 |  [05]   | `TypstWarning` | diagnostic      | compile warning (`UserWarning`): same fields; COLLECTED by `compile_with_warnings`         |
 
-[PUBLIC_TYPE_SCOPE]: stub type aliases (the typed `__init__.pyi` domains)
-- rail: documents
+[PUBLIC_TYPE_SCOPE]: typed `__init__.pyi` domain aliases
 
-The typed stub fixes the input/format/standard domains the arms bind, so admission is total over the published vocabulary rather than a stringly-typed bag. `pdf_standards` is the full ISO PDF/A + PDF/UA matrix — narrowing it to a hand-picked subset is a phantom; the engine accepts every token below (combinable, e.g. `["a-3b", "ua-1"]` for an archival + accessible render). `PDFStandard` is `Literal["1.4","1.5","1.6","1.7","2.0","a-1a","a-1b","a-2a","a-2b","a-2u","a-3a","a-3b","a-3u","a-4","a-4e","a-4f","ua-1"]`.
+Stub aliases bind the input, format, and standard domains as closed vocabularies. `pdf_standards` accepts the full ISO matrix, combinable — `["a-3b", "ua-1"]` renders archival and accessible.
 
 | [INDEX] | [ALIAS]             | [DEFINITION]                               | [CAPABILITY]                                           |
 | :-----: | :------------------ | :----------------------------------------- | :----------------------------------------------------- |
@@ -42,75 +33,73 @@ The typed stub fixes the input/format/standard domains the arms bind, so admissi
 |  [02]   | `OutputFormat`      | `Literal["pdf", "svg", "png", "html"]`     | the `format` row; inferred from the `output` extension |
 |  [03]   | `PathLike`          | `TypeVar(str, pathlib.Path)`               | `root`/`package_path`/`package_cache_path` anchors     |
 |  [04]   | `CreationTimestamp` | `int \| datetime.datetime`                 | `timestamp`: UNIX seconds or tz-aware `datetime`       |
-|  [05]   | `PDFStandard`       | `Literal[...]` (17 tokens; in the lead)    | PDF version + PDF/A + PDF/UA conformance matrix        |
+|  [05]   | `PDFStandard`       | `Literal[...]` (token set below)           | PDF version + PDF/A + PDF/UA conformance matrix        |
 |  [06]   | `PDFStandards`      | `PDFStandard \| list[PDFStandard] \| None` | one token, a combinable list, or `None`                |
+
+[PDF_STANDARD]: `"1.4"` `"1.5"` `"1.6"` `"1.7"` `"2.0"` `"a-1a"` `"a-1b"` `"a-2a"` `"a-2b"` `"a-2u"` `"a-3a"` `"a-3b"` `"a-3u"` `"a-4"` `"a-4e"` `"a-4f"` `"ua-1"`
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: module free functions
-- rail: documents
 
-The free functions take `input` (source path, `Path`, or `bytes`) and share `root`, `font_paths` (a `Fonts` object OR a `list[Input]` of font folders), `ignore_system_fonts`, `sys_inputs`, `pdf_standards`, `package_path`, and `package_cache_path` policy; `output=None` returns rendered `bytes` (or a per-page `list[bytes]` for a multi-page PNG render), an `output` path writes the file and returns `None` (the two `@overload` arms the stub declares). `format` is `"pdf"`/`"png"`/`"svg"`/`"html"` (inferred from the `output` extension when `None`); `ppi` only affects `png` (default 144); `sys_inputs` is a `dict[str, str]` exposed to the document as `sys.inputs`; `timestamp` (`int` epoch or tz-aware `datetime`) pins the document creation time for reproducible byte output. A `"ua-1"` render hard-errors `missing document title` unless the source sets `document(title: ..)`, so the lowering always emits a title for the PDF/UA path; `pretty` pretty-prints PDF/SVG/HTML (ignored for PNG). Signatures: `compile(input, output=None, root=None, font_paths=[], ignore_system_fonts=False, format=None, ppi=None, sys_inputs={}, pdf_standards=[], package_path=None, timestamp=None, pretty=False, package_cache_path=None)`; `compile_with_warnings(...)` shares it, returning `tuple[bytes | list[bytes] | None, list[TypstWarning]]`; `query(input, selector, field=None, one=False, format=None, root=None, font_paths=[], ignore_system_fonts=False, sys_inputs={}, package_path=None, package_cache_path=None) -> str`; `eval(input, expression, format=None, pretty=False, root=None, font_paths=[], ignore_system_fonts=False, sys_inputs={}, package_path=None, package_cache_path=None) -> str`.
+Free functions carry `input` (path, `Path`, or `.typ` bytes) and share `root`, `font_paths` (a `Fonts` or folder `list`), `ignore_system_fonts`, `sys_inputs`, and the `package_path`/`package_cache_path` anchors. `output=None` returns `bytes` (per-page `list[bytes]` for multi-page PNG); an `output` path writes the file and returns `None`. `format` infers from the `output` extension, `ppi` affects `png` alone (default 144), `timestamp` pins creation time for byte-reproducible output, a `"ua-1"` render errors without `document(title: ..)`, and `pretty` pretty-prints PDF/SVG/HTML.
 
-| [INDEX] | [SURFACE]               | [CAPABILITY]                                                     |
-| :-----: | :---------------------- | :--------------------------------------------------------------- |
-|  [01]   | `compile`               | compile markup to PDF/PNG/SVG/HTML `bytes`/`list[bytes]` or file |
-|  [02]   | `compile_with_warnings` | compile and return the result plus a `list[TypstWarning]`        |
-|  [03]   | `query`                 | query document elements by `<label>` selector; `json`/`yaml`     |
-|  [04]   | `eval`                  | evaluate a Typst expression against a document; `json`/`yaml`    |
+| [INDEX] | [SURFACE]               | [SHAPE] | [CAPABILITY]                                                                          |
+| :-----: | :---------------------- | :------ | :------------------------------------------------------------------------------------ |
+|  [01]   | `compile`               | static  | render markup to PDF/PNG/SVG/HTML -> `bytes` \| per-page `list[bytes]` \| file `None` |
+|  [02]   | `compile_with_warnings` | static  | render and return `tuple[bytes \| list[bytes] \| None, list[TypstWarning]]`           |
+|  [03]   | `query`                 | static  | query elements by `<label>` selector + `field`/`one` -> `str` (`json`/`yaml`)         |
+|  [04]   | `eval`                  | static  | evaluate a source expression -> `str` (`json`/`yaml`)                                 |
 
 [ENTRYPOINT_SCOPE]: `Compiler` methods
-- rail: documents
 
-The `Compiler` constructor (`Compiler(input=None, root=None, font_paths=[], ignore_system_fonts=False, sys_inputs={}, package_path=None, package_cache_path=None)`) carries the world identity; `input=None` seeds an empty in-memory document. Methods amortize font loading across repeated renders of one world — every method's `input=` overrides the per-compile source while the discovered fonts persist, so a batched render pays font discovery once. `compile.sys_inputs` is tri-state: `...` (Ellipsis, default) keeps the world's existing `sys_inputs`, `None` clears them, a `dict` replaces them — the `comemo`-cached world is mutated in place rather than rebuilt. The methods: `Compiler.compile(input=None, output=None, format=None, ppi=None, sys_inputs=..., pdf_standards=[], root=None, timestamp=None, pretty=False) -> bytes | list[bytes] | None`; `Compiler.compile_with_warnings(...)` returns `tuple[bytes | list[bytes] | None, list[TypstWarning]]`; `Compiler.query(selector, field=None, one=False, format=None, root=None) -> str`; `Compiler.eval(expression, format=None, pretty=False, root=None) -> str`.
+`Compiler(input=None, ..)` holds the world identity and shares the free-function `root`/`font_paths`/`ignore_system_fonts`/`sys_inputs`/`package` policy; `input=None` seeds an empty in-memory document, and each method's `input=` overrides the per-compile source while discovered fonts persist, so a batch pays font discovery once. `Compiler.compile.sys_inputs` is tri-state: `...` keeps the world's inputs, `None` clears them, a `dict` replaces them, mutating the `comemo`-cached world in place.
 
-| [INDEX] | [SURFACE]                        | [CAPABILITY]                                                      |
-| :-----: | :------------------------------- | :---------------------------------------------------------------- |
-|  [01]   | `Compiler.compile`               | compile against the cached world; `sys_inputs` keep/clear/replace |
-|  [02]   | `Compiler.compile_with_warnings` | compile against the cached world and return warnings              |
-|  [03]   | `Compiler.query`                 | query elements by selector against the cached world               |
-|  [04]   | `Compiler.eval`                  | evaluate an expression against the cached world                   |
+| [INDEX] | [SURFACE]                        | [SHAPE]  | [CAPABILITY]                                                      |
+| :-----: | :------------------------------- | :------- | :---------------------------------------------------------------- |
+|  [01]   | `Compiler.compile`               | instance | compile against the cached world; `sys_inputs` keep/clear/replace |
+|  [02]   | `Compiler.compile_with_warnings` | instance | compile against the cached world and return warnings              |
+|  [03]   | `Compiler.query`                 | instance | query elements by selector against the cached world               |
+|  [04]   | `Compiler.eval`                  | instance | evaluate an expression against the cached world                   |
 
-[MARKUP_ELEMENT_SCOPE]: tagged-PDF accessibility elements (bundled `typst@0.15` markup vocabulary the lowering emits)
-- rail: documents
+[MARKUP_ELEMENT_SCOPE]: tagged-PDF markup the lowering emits
 
-The compiled Typst source the owner emits drives these built-in markup functions; the lowering authors the `alt` text equivalent so the `format="pdf"` render with a PDF/UA `pdf_standards` row writes the marked-content structure element. Typst guidance pins `alt` to the inner `image` when the figure body is an image with its own description; the figure-level `alt` is reserved for figures whose body is custom content, never doubled with an image `alt`. The bundled `pdf` module exposes exactly `attach` and `artifact` (there is no `pdf.embed` member in this compiler) — `pdf.attach` is the associated-file embed and `pdf.artifact` wraps decorative content so the structure tree skips it. Signatures: `image(source: str|bytes|path, format=auto, width=auto, height=auto, alt: none|str = none, fit="cover", ...)`; `figure(body: content, alt: none|str = none, caption: none|content = none, kind=auto, supplement=auto, ...)`; `pdf.attach(path: str, relationship: auto|str = auto, mime-type: none|str = none, description: none|str = none)`.
+Compiled source drives these built-in markup functions. `alt` rides the inner `image`, never doubled onto the enclosing `figure`; the `pdf` module exposes `attach` and `artifact` only; a `pdf.attach` under a PDF/A row errors without `mime-type:`.
 
-| [INDEX] | [MARKUP]       | [CALL_SHAPE]                                       | [CAPABILITY]                                           |
-| :-----: | :------------- | :------------------------------------------------- | :----------------------------------------------------- |
-|  [01]   | `image`        | signature in the lead                              | embed graphic with screen-reader `alt` equivalent      |
-|  [02]   | `figure`       | signature in the lead                              | numbered figure block carrying caption + role          |
-|  [03]   | `heading`      | `heading(body: content, level: int = 1, ...)`      | outline node lowering the `H1`-`H6` structure          |
-|  [04]   | `table`        | `table(columns, ..., ..children: content)`         | row-major cell grid lowering the table structure       |
-|  [05]   | `pdf.attach`   | signature in the lead                              | associated-file embed for tagged-PDF attachments       |
-|  [06]   | `pdf.artifact` | `pdf.artifact(kind: str = "other", body: content)` | mark decorative content as a PDF artifact; AT skips it |
+| [INDEX] | [MARKUP]       | [CALL_SHAPE]                                                   | [CAPABILITY]                                           |
+| :-----: | :------------- | :------------------------------------------------------------- | :----------------------------------------------------- |
+|  [01]   | `image`        | `image(source, alt: none\|str, width, height, fit)`            | embed graphic with screen-reader `alt` equivalent      |
+|  [02]   | `figure`       | `figure(body, alt: none\|str, caption, kind, supplement)`      | numbered figure block carrying caption + role          |
+|  [03]   | `heading`      | `heading(body, level: int = 1)`                                | outline node lowering the `H1`-`H6` structure          |
+|  [04]   | `table`        | `table(columns, ..children)`                                   | row-major cell grid lowering the table structure       |
+|  [05]   | `pdf.attach`   | `pdf.attach(path, data, relationship, mime-type, description)` | associated-file embed for tagged-PDF attachments       |
+|  [06]   | `pdf.artifact` | `pdf.artifact(kind: str = "other", content)`                   | mark decorative content as a PDF artifact; AT skips it |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[DOCUMENT_PDF_TYPST]:
-- import: `import typst` at boundary scope only (`lazy import typst` / `lazy from typst import Compiler` in `document/emit#DOCUMENT`); module-level import is banned by the manifest import policy, and the abi3 `.so` load defers off the import-time path.
-- compile axis: `compile`/`compile_with_warnings` is ONE render surface keyed by `format` and `output`; PDF/PNG/SVG/HTML is the `format` row, not a per-format function; `output=None` returns `bytes` for the receipt path, a multi-page `format="png"` render returns a per-page `list[bytes]` (the `Optional[Union[bytes, List[bytes]]]` the stub declares), and an `output` path writes the file returning `None`. The owner always takes `compile_with_warnings` so the `EmitFact.warnings` count is captured rather than discarded.
-- compiler axis: `Compiler` is the reusable world; `document/emit#DOCUMENT` mints it once per plan through `DocumentPlan.world(title=)` — compile, query, and eval arms share the one mint so the tree lowers to Typst source exactly once per emission. The world build is blocking native (the font-discovery scan), so every Typst arm crosses the runtime `LanePolicy.offload` seam as a `KernelTrait.RELEASING` kernel — off the loop, inside the `async_boundary` capsule.
-- standard axis: `pdf_standards` selects the archival PDF/A + accessible PDF/UA target over the full 17-token matrix; the `PdfVariant.typst` projection maps the owner's `PdfVariant` to the bundled compiler's supported token tuple (`UA_1` projects to `("ua-1",)` alone — an archival + tagged deliverable is the caller's own `A_2A`/`A_3A` variant projecting the combined tuple), and archival conformance is a render row, never a parallel signer path — PAdES signing routes to `pyhanko`.
-- introspection axis: `query` answers the document-element question over a `<label>` selector + `field`/`one`, and `eval` evaluates a source expression — both over THIS plan's own single-shot world (never the held head world, which does introspect the wrong document in a batch), serialized to `"json"`/`"yaml"`; structured extraction is a row, never a re-parsed AST.
-- markup axis: the lowering authors `image(.., alt=..)` for embedded graphics and `figure(.., caption: ..)` for numbered blocks; the `alt` equivalent rides the inner `image`, never doubled onto the enclosing `figure`, so a PDF/UA `pdf_standards` render writes one marked-content structure element per figure. Decorative content (rules, background fills, repeated ornaments) is wrapped in `pdf.artifact[..]` so it is excluded from the tagged structure tree, and source/data files ride `pdf.attach(path, relationship: .., description: ..)` as associated files rather than a phantom `pdf.embed`; a `pdf.attach` under a PDF/A `pdf_standards` row hard-errors `the file mime type is missing` unless `mime-type:` is supplied, so the archival lowering always sets it. Interpolated `alt`/`title` strings are Typst-string-escaped (`\` and `"`) before emission; raw interpolation of a string carrying a quote yields invalid markup.
-- data axis: `sys_inputs` injects a `dict[str, str]` the document reads as `sys.inputs` (the `TYPST_DATA` mode binds a data table into the source without string-templating it); on the held `Compiler` the tri-state `...`/`None`/`dict` keeps/clears/replaces the cached inputs so a batched render rebinds data without a world rebuild.
-- reproducibility axis: `timestamp` (epoch `int` or tz-aware `datetime`) pins the document creation date and `ignore_system_fonts=True` + explicit `font_paths` pins the font set, so a PDF/A render is byte-deterministic across machines; the owner sets both for archival output.
-- diagnostics axis: a `TypstError` raised by the compile/query path carries `.message`/`.diagnostic`/`.hints`/`.trace` (structured, not a flat string); the `async_boundary` capsule converts it to the runtime `BoundaryFault`, and the structured fields feed the boundary fault's context. `TypstWarning` is never raised — it is collected into the `compile_with_warnings` list and counted onto the `EmitFact`.
-- evidence: each render captures source identity, output format, page/byte count, PDF standard, resolved font set (`Fonts.fonts()`), and collected warning count as a document receipt; `query`/`eval` capture the queried byte length.
-- boundary: typst owns Typst markup typesetting; reportlab platypus / weasyprint HTML-CSS own their own document models (the sibling `PDF_AUTHOR`/`PDF_HTML` arms); raster post-processing routes to `pillow`/`pymupdf`/`pypdfium2`; the tagged-PDF `/StructTreeRoot` close routes to `document/tagged#ACCESS` (`pikepdf`) over the EMITTED PDF; PAdES signing routes to `pyhanko`; SVG rasterization of a typst SVG routes to `vl-convert-python`'s shared `resvg` core; live UI stays outside this package.
+[TOPOLOGY]:
+- `compile`/`compile_with_warnings` is one render surface keyed by `format` and `output`; the owner always takes `compile_with_warnings` so the warning count rides the receipt.
+- One `Compiler` mints per plan through `DocumentPlan.world(title=)`; the compile, query, and eval arms share the one mint so the tree lowers to Typst source once per emission.
+- `query`/`eval` run over THIS plan's own single-shot world, never a held head world that introspects the wrong document in a batch.
+- `pdf_standards` selects the archival PDF/A + accessible PDF/UA target; `UA_1` projects to `("ua-1",)` alone, an archival-plus-tagged deliverable projects the combined tuple, and archival conformance is a render row, never a signer path.
+- Lowering authors `image(.., alt: ..)` and `figure(.., caption: ..)`, Typst-string-escapes interpolated `alt`/`title`, wraps decorative content in `pdf.artifact`, and sets `mime-type:` on every `pdf.attach` under a PDF/A row.
+- A raised `TypstError` converts to the runtime `BoundaryFault` at the `async_boundary` capsule carrying its structured `.message`/`.diagnostic`/`.hints`/`.trace`; `TypstWarning` is collected by `compile_with_warnings` and counted onto the receipt, never raised.
+- Each render captures source identity, output format, page/byte count, PDF standard, resolved font set, and warning count as a document receipt; `query`/`eval` capture the queried byte length.
 
-[STACK_INTEGRATION]:
-- `typst` + `expression`/`msgspec` rails (shared `.api`): a Typst arm is a pure `Arm = Callable[[DocumentPlan], EmitFact]` returning one frozen `msgspec.Struct` `EmitFact(data, warnings=..)`; the `DocumentPlan` admits its `EmitSpec` once through the closed `EmitPayload` `TypedDict` + module-level `pydantic.TypeAdapter` so `sys_inputs`/`pdf_standards`/`timestamp`/`expression`/`selector` are typed at the boundary, and `DocumentPlan.of` returns `expression.Result[Self, EmitFault]` — the typst provider raise (`TypstError`) is NEVER folded into that interior `EmitFault` admission vocabulary but converts to the runtime `BoundaryFault` at the `async_boundary` capsule, exactly the bare-lift seam the folder rail mandates.
-- `typst` + `anyio` (shared `.api`) world offload: `document/emit#DOCUMENT` mints the `Compiler` inside the offloaded arm (the font-discovery scan is GIL-releasing native) and crosses each `CORE`-band Typst render through the runtime `LanePolicy.offload` seam as a `KernelTrait.RELEASING` kernel — in-process, never inline on the loop, the structured-concurrency rail the shared `anyio.md` owns layered onto this folder package.
-- `typst` + `beartype`/`structlog`/`opentelemetry` (shared `.api`): the `@receipted` harvest weave over the thin pure `_emit` drains `DocumentPlan.contribute` into the `core/receipt#RECEIPT` `ArtifactReceipt.Pdf(key, bytes, pages)` case and emits through the runtime `Signals.emit_async`; the warning count, resolved-face set, and queried length ride the `EmitFact` the receipt reads — the cross-cutting receipt/span/validation aspects compose ONTO the typst arm rather than being re-implemented here.
-- `typst` -> `vl-convert-python` figure rail (folder `.api`): a chart rendered by `vl_convert.vegalite_to_svg` is embedded into the Typst source via `image(<svg-bytes>, alt: ..)`; Typst lays out and paginates the figure, and the one `format="pdf"` render writes the chart plus the surrounding tagged document — no second PDF merge step. Inversely, a `typst` `format="svg"` render rasterizes through `vl_convert.svg_to_pdf`/`svg_to_png` (the shared bundled `resvg` core) so the documents rail keeps ONE SVG-to-raster owner.
-- `typst` font set vs the shaping rail (folder `.api`): `Fonts(font_paths=[..]).fonts()` (resolved `FontInfo` faces) reads back the same OTF/TTF the `fonttools`/`uharfbuzz` rails own and the `typography/font` merge/subset arm produced; the owner registers the document's fonts via `font_paths` (a `Fonts` object or a folder list) and reads back `Fonts.families()`/`FontInfo.path` to confirm the resolved face matches the shaped/subsetted font before an archival `ignore_system_fonts=True` render, closing the font-identity loop.
-- `typst` -> `document/tagged#ACCESS` (folder `.api`): the markup-emitted `figure`/`image`/`heading`/`table` + `pdf.artifact`/`pdf.attach` structure produces a PDF whose marked content `pikepdf` reads when authoring the `/StructTreeRoot`; the typst auto-tagging backend marks the in-stream `/Tag <</MCID n>> BDC … EMC` regions emit draws, so the two agree by document order — typst is the producer that draws the taggable content, `pikepdf` the producer that closes the structure tree.
-- `typst` -> `pyhanko` signing (folder `.api`): the archival PDF/A bytes from a `pdf_standards` render are handed to the `pyhanko` PAdES signer as input; signing is never minted here — `typst` produces the conformant unsigned PDF, `pyhanko` owns the signature.
+[STACKING]:
+- `expression`(`libs/python/.api/expression.md`) / `msgspec`(`libs/python/.api/msgspec.md`): a Typst arm is a pure `Arm = Callable[[DocumentPlan], EmitFact]` returning one frozen `EmitFact(data, warnings=..)`; `DocumentPlan` admits its `EmitSpec` through the closed `EmitPayload` `TypedDict` + `pydantic.TypeAdapter`, `DocumentPlan.of` returns `Result[Self, EmitFault]`, and the `TypstError` raise converts to `BoundaryFault` at the capsule rather than folding into the `EmitFault` admission vocabulary.
+- `anyio`(`libs/python/.api/anyio.md`): the `Compiler` mints inside the offloaded arm (the font-discovery scan is GIL-releasing native), and each `CORE`-band render crosses the runtime `LanePolicy.offload` seam as a `KernelTrait.RELEASING` kernel — in-process, never inline on the loop.
+- `structlog`(`libs/python/.api/structlog.md`) / `opentelemetry-api`(`libs/python/.api/opentelemetry-api.md`): the `@receipted` weave over the pure `_emit` drains `DocumentPlan.contribute` into the `core/receipt#RECEIPT` `ArtifactReceipt.Pdf(key, bytes, pages)` case and emits through `Signals.emit_async`; the warning count, resolved-face set, and queried length ride the `EmitFact` the receipt reads.
+- `vl-convert-python`(`vl-convert-python.md`): a `vl_convert.vegalite_to_svg` chart embeds into the source via `image(<svg-bytes>, alt: ..)` and Typst paginates it into one `format="pdf"` render; inversely a `format="svg"` render rasterizes through `vl_convert.svg_to_pdf`/`svg_to_png`, keeping one SVG-to-raster owner.
+- `fonttools`(`fonttools.md`) / `uharfbuzz`(`uharfbuzz.md`): `Fonts(font_paths=[..]).fonts()` reads back the same OTF/TTF the shaping rails own and `typography/font` subset; the owner registers via `font_paths` and confirms `Fonts.families()`/`FontInfo.path` matches the shaped face before an `ignore_system_fonts=True` archival render.
+- `document/tagged#ACCESS` (`pikepdf`): the emitted `figure`/`image`/`heading`/`table` + `pdf.artifact`/`pdf.attach` structure produces marked content `pikepdf` reads when authoring the `/StructTreeRoot`; typst draws the taggable content, `pikepdf` closes the tree.
+- `pyhanko`(`pyhanko.md`): the archival PDF/A bytes from a `pdf_standards` render hand to the `pyhanko` PAdES signer; typst produces the conformant unsigned PDF, `pyhanko` owns the signature.
+
+[LOCAL_ADMISSION]:
+- `import typst` at boundary scope only, lazy so the native `.so` load defers off the import-time path; compile through one plan-minted `Compiler` offloaded as a `KernelTrait.RELEASING` kernel, never a fresh compiler per render in a batch.
 
 [RAIL_LAW]:
 - Package: `typst`
-- Owns: Typst markup compilation to PDF/PNG/SVG/HTML (single or per-page `list[bytes]`), expression evaluation and document querying, the full PDF/A + PDF/UA `pdf_standards` matrix, `sys.inputs` data injection with keep/clear/replace tri-state, `datetime`/epoch reproducible-timestamp pinning, resolved-font enumeration via `Fonts`/`FontInfo`, structured `TypstError`/`TypstWarning` diagnostics, and font/world caching via `Compiler`
-- Accept: Typst-source document production feeding the `document/emit#DOCUMENT` `PDF_TYPST`/`TYPST_DATA`/`TYPST_QUERY`/`TYPST_EVAL` arms and the document owners
-- Reject: wrapper-renames of `compile`/`query`/`eval`; a per-format render function where `format` is a row; a per-operation class family where the module is a flat function set; a fresh `Compiler` per render in a batch; a narrowed `pdf_standards` subset where the engine accepts the full 17-token matrix; `.families`/`.fonts` read as attributes where they are methods; a flat-string diagnostic read where `TypstError` carries structured `.diagnostic`/`.hints`/`.trace`; a phantom `pdf.embed` where the bundled module exposes `pdf.attach`/`pdf.artifact`; a re-minted signer where `pyhanko` owns PAdES; identity minting the runtime owns
+- Owns: Typst markup compilation to PDF/PNG/SVG/HTML (single or per-page `list[bytes]`), expression evaluation and document querying, the PDF/A + PDF/UA `pdf_standards` matrix, `sys.inputs` data injection with keep/clear/replace tri-state, epoch/`datetime` reproducible-timestamp pinning, resolved-font enumeration via `Fonts`/`FontInfo`, structured `TypstError`/`TypstWarning` diagnostics, and font/world caching via `Compiler`
+- Accept: Typst-source document production feeding the `document/emit#DOCUMENT` `PDF_TYPST`/`TYPST_DATA`/`TYPST_QUERY`/`TYPST_EVAL` arms
+- Reject: wrapper-renames of `compile`/`query`/`eval`; a per-format render function where `format` is a row; a per-operation class family where the module is a flat function set; a fresh `Compiler` per render in a batch; a narrowed `pdf_standards` subset where the engine accepts the full matrix; `.families`/`.fonts` read as attributes where they are methods; a flat-string diagnostic where `TypstError` carries structured fields; a phantom `pdf.embed` where the module exposes `pdf.attach`/`pdf.artifact`; a re-minted signer where `pyhanko` owns PAdES; identity minting the runtime owns

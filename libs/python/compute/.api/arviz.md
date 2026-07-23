@@ -1,22 +1,19 @@
 # [PY_COMPUTE_API_ARVIZ]
 
-`arviz` (1.x line) is the metapackage over `arviz_base` (I/O + reorganization + `rcParams`), `arviz_stats` (diagnostics, model comparison, sensitivity, the `.azstats` xarray accessor), and `arviz_plots` (37 plot functions). It supplies backend-agnostic Bayesian diagnostics, posterior summaries, the full PSIS-LOO family, prior/likelihood sensitivity, and predictive metrics for the compute Bayesian-study rail. The owner reads `xarray.DataTree` posteriors from any backend (PyMC, numpyro, Stan, emcee) and never re-implements a metric the package owns.
+`arviz` owns backend-agnostic Bayesian posterior analysis for the compute Bayesian-study rail: MCMC convergence diagnostics, the PSIS-LOO model-comparison family, prior/likelihood sensitivity, predictive divergence and metrics, credible intervals, and posterior visualization over an `xarray.DataTree`. It reads a posterior `DataTree` emitted by any sampler backend and never re-implements a diagnostic the package owns.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `arviz`
-- package: `arviz` (metapackage; pulls `arviz-base`, `arviz-stats`, `arviz-plots`)
-- version: `1.2.0`
-- license: Apache-2.0
+- package: `arviz` (metapackage over `arviz-base`, `arviz-stats`, `arviz-plots`, Apache-2.0)
 - import: `arviz` (alias `az`)
 - owner: `compute`
 - rail: Bayesian-study
-- capability: backend-agnostic posterior analysis — `xarray.DataTree` I/O, MCMC diagnostics (`rhat`/`ess`/`mcse`/`bfmi`/`rhat_nested`), full LOO family (`loo`/`loo_subsample`/`update_subsample`/`loo_pit`/`loo_expectations`/`loo_metrics`/`loo_r2`/`loo_moment_match`/`loo_kfold`/`reloo`), stacking/BMA `compare`, prior-likelihood sensitivity (`psense`/`psense_summary`), predictive divergences (`wasserstein`/`kl_divergence`), in-sample fit (`metrics`/`bayesian_r2`/`residual_r2`), survival curves (`kaplan_meier`/`generate_survival_curves`), HDI/ETI/ROPE intervals, the chained `.azstats` xarray accessor, the validated `rcParams`/`rc_context` option registry, and 37 plot functions
+- capability: `xarray.DataTree` I/O and converters, MCMC convergence diagnostics, the full PSIS-LOO family, stacking/BMA comparison, prior/likelihood sensitivity, predictive divergence and metrics, survival curves, HDI/ETI/ROPE intervals, the chained `.azstats` accessor, the validated `rcParams`/`rc_context` registry, and the `plot_*` visualization surface
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: result and container types
-- rail: Bayesian-study
 
 | [INDEX] | [SYMBOL]                                             | [PACKAGE_ROLE]    | [CAPABILITY]                                             |
 | :-----: | :--------------------------------------------------- | :---------------- | :------------------------------------------------------- |
@@ -24,14 +21,13 @@
 |  [02]   | `ELPDData`                                           | LOO result        | `arviz_stats.utils.ELPDData`; plain object, fields below |
 |  [03]   | `PlotCollection`                                     | plot container    | faceted plot panel collection (`arviz_plots`)            |
 |  [04]   | `PlotMatrix`                                         | plot container    | matrix of plot panels                                    |
-|  [05]   | `SamplingWrapper`                                    | refit protocol    | `reloo`/`loo_kfold` refit base; hooks in STACKING law    |
+|  [05]   | `SamplingWrapper`                                    | refit protocol    | `reloo`/`loo_kfold` held-out refit base class            |
 |  [06]   | `MCMCAdapter`/`NumPyroInferenceAdapter`/`SVIAdapter` | inference adapter | numpyro MCMC/SVI -> `DataTree` adapters                  |
 |  [07]   | `AzStats{Ds,Da,Dt}Accessor`                          | xarray accessor   | `.azstats` on `Dataset`/`DataArray`/`DataTree`           |
 |  [08]   | `rcParams` / `rc_context`                            | option registry   | `data`/`stats`/`plot` defaults; `rc_context` overrides   |
 
 [PUBLIC_TYPE_SCOPE]: `ELPDData` fields (`arviz_stats.utils.ELPDData`)
-- rail: Bayesian-study
-- note: there is no `elpd_loo`/`p_loo`/`looic`; the scalar is `elpd`, the effective-parameter count is `p`, scale is carried in `scale`
+- note: the scalar is `elpd`, the effective-parameter count is `p`, scale rides `scale`; no `elpd_loo`/`p_loo`/`looic` attribute exists
 
 | [INDEX] | [FIELD]                      | [TYPE]      | [ROLE]                                                       |
 | :-----: | :--------------------------- | :---------- | :----------------------------------------------------------- |
@@ -61,8 +57,7 @@
 |  [24]   | `log_weights`                | `DataArray` | importance log-weights carrier                               |
 
 [PUBLIC_TYPE_SCOPE]: I/O converters (`arviz_base`)
-- rail: Bayesian-study
-- note: every `from_*`/`convert_*` converter returns a `DataTree` and shares the `coords`, `dims`, `check_conventions=True` tail plus group-routing kwargs (`prior`, `posterior_predictive`, `predictions`, `constant_data`, `log_likelihood`, `save_warmup`); the full call shapes are keyed below the table
+- carry: every `from_*`/`convert_*` returns a `DataTree` sharing the `coords`, `dims`, `check_conventions=True` tail and the group-routing kwargs (`prior`, `posterior_predictive`, `predictions`, `constant_data`, `log_likelihood`, `save_warmup`); signatures keyed below
 
 | [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY]  | [SOURCE]                                               |
 | :-----: | :------------------------------------------- | :-------------- | :----------------------------------------------------- |
@@ -84,16 +79,14 @@
 - [05]-[FROM_NUMPYRO_SVI]: `from_numpyro_svi(svi=None, *, svi_result, model_args, model_kwargs, prior, posterior_predictive, predictions, log_likelihood=False, num_samples=1000, ...)`
 - [06]-[FROM_CMDSTANPY]: `from_cmdstanpy(posterior=None, *, posterior_predictive, prior, log_likelihood, observed_data, save_warmup, dtypes, ...)`
 - [07]-[FROM_EMCEE]: `from_emcee(sampler=None, var_names, slices, arg_names, arg_groups, blob_names, blob_groups, coords, dims, check_conventions=True)`
-- [08]-[CONVERT]: `convert_to_datatree(obj, **kwargs)` / `convert_to_dataset(obj, *, group='posterior', **kwargs)` — the polymorphic converter over a dict, an xr object, or a supported sampler
+- [08]-[CONVERT]: `convert_to_datatree(obj, **kwargs)` / `convert_to_dataset(obj, *, group='posterior', **kwargs)`
 - [09]-[DICT_TO_DATASET]: `dict_to_dataset(data, *, attrs, inference_library, coords, dims, sample_dims, index_origin, skip_event_dims=False, check_conventions=True)`
-- [10]-[EXTRACT]: `extract(data, group='posterior', sample_dims, *, combined=True, var_names, filter_vars, num_samples, weights, resampling_method, keep_dataset=False, random_seed)` — optional weighted resample over PSIS-LOO posteriors
+- [10]-[EXTRACT]: `extract(data, group='posterior', sample_dims, *, combined=True, var_names, filter_vars, num_samples, weights, resampling_method, keep_dataset=False, random_seed)`
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: MCMC diagnostics (`arviz_stats`)
-- rail: Bayesian-study
-- note: diagnostics accept either a `DataTree` (named groups) or a raw ndarray via `chain_axis=`/`draw_axis=`
-- call: each shares `(data, sample_dims, group, var_names, filter_vars, chain_axis=0, draw_axis=1)`; the cell carries the discriminating `method`/threshold args
+- carry: each shares `(data, sample_dims, group, var_names, filter_vars, chain_axis=0, draw_axis=1)` and accepts a `DataTree` or a raw ndarray via `chain_axis=`/`draw_axis=`; the cell carries the discriminating `method`/threshold args
 
 | [INDEX] | [SURFACE]     | [ENTRY_FAMILY] | [RAIL]                                                                                             |
 | :-----: | :------------ | :------------- | :------------------------------------------------------------------------------------------------- |
@@ -107,9 +100,7 @@
 |  [08]   | `thin`        | thinning       | autocorrelation-aware draw thinning; `factor='auto'`                                               |
 
 [ENTRYPOINT_SCOPE]: model comparison and the LOO family (`arviz_stats`)
-- rail: Bayesian-study
-
-The full call shapes are keyed below the table; every entry takes `data` and returns an `ELPDData` (a `DataFrame` for `compare`), with `pointwise`, `var_name`, `reff`, `log_weights` the shared optional tail.
+- carry: every entry takes `data` and returns an `ELPDData` (a `DataFrame` for `compare`); `pointwise`, `var_name`, `reff`, `log_weights` are the shared optional tail, full signatures keyed below
 
 | [INDEX] | [SURFACE]                   | [ENTRY_FAMILY]      | [RAIL]                                                     |
 | :-----: | :-------------------------- | :------------------ | :--------------------------------------------------------- |
@@ -137,12 +128,9 @@ The full call shapes are keyed below the table; every entry takes `data` and ret
 - [09]-[LOO_PIT]: `loo_pit(data, var_names, log_weights, pareto_k, random_state, pareto_pit=False)`
 - [10]-[LOO_EXPECTATIONS]: `loo_expectations(data, var_name, group='posterior_predictive', sample_dims, log_likelihood_var_name, kind='mean', probs, log_weights, pareto_k)`
 - [11]-[LOO_METRICS]: `loo_metrics(data, kind='rmse', var_name, round_to)`
-- [12]-[LOO_R2]: `loo_r2(data, var_name, n_simulations=4000, summary=True, point_estimate, ci_kind, ci_prob, ...)` / `loo_score` / `loo_influence` / `loo_i` — scoring rules, influence, pointwise
+- [12]-[LOO_R2]: `loo_r2(data, var_name, n_simulations=4000, summary=True, point_estimate, ci_kind, ci_prob, ...)` / `loo_score` / `loo_influence` / `loo_i`
 
 [ENTRYPOINT_SCOPE]: sensitivity, predictive divergence, and credible intervals (`arviz_stats`)
-- rail: Bayesian-study
-
-Sensitivity, divergence, and fit; full call shapes keyed below the sub-table.
 
 | [INDEX] | [SURFACE]                                   | [ENTRY_FAMILY]   | [RAIL]                                                     |
 | :-----: | :------------------------------------------ | :--------------- | :--------------------------------------------------------- |
@@ -164,7 +152,7 @@ Sensitivity, divergence, and fit; full call shapes keyed below the sub-table.
 - [07]-[METRICS]: `metrics(data, kind='rmse', var_name, sample_dims, round_to)`
 - [08]-[SURVIVAL]: `kaplan_meier(dt, var_names)` / `generate_survival_curves(dt, var_names, group='posterior_predictive', num_samples, extrapolation_factor=1.2)`
 
-Credible intervals, decision, point statistics, density, and stacking; full call shapes keyed below the sub-table.
+[ENTRYPOINT_SCOPE]: credible intervals, decision, point statistics, density, and stacking (`arviz_stats`)
 
 | [INDEX] | [SURFACE]                                      | [ENTRY_FAMILY] | [RAIL]                                                                |
 | :-----: | :--------------------------------------------- | :------------- | :-------------------------------------------------------------------- |
@@ -183,9 +171,7 @@ Credible intervals, decision, point statistics, density, and stacking; full call
 - [06]-[WEIGHT_PREDICTIONS]: `weight_predictions(dts, weights, group='posterior_predictive', sample_dims, random_seed)`
 
 [ENTRYPOINT_SCOPE]: chained `.azstats` xarray accessor (`arviz_stats`)
-- rail: Bayesian-study
-- note: every diagnostic above is also a method on `dataset.azstats.<op>()` / `datatree.azstats.<op>()`, so a posterior `Dataset` carries its own diagnostic algebra without a free-function round-trip
-- call: each op is `ds.azstats.<name>(...)` on a `Dataset`/`DataTree`; the brace set lists the group's `<name>`s
+- carry: every diagnostic above rides as a method `ds.azstats.<name>(...)` on a `Dataset`/`DataTree`, so a posterior carries its own diagnostic algebra without a free-function round-trip; each brace set lists the group's `<name>`s
 
 | [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [RAIL]                                       |
 | :-----: | :----------------------------------------------------- | :------------- | :------------------------------------------- |
@@ -199,10 +185,8 @@ Credible intervals, decision, point statistics, density, and stacking; full call
 |  [08]   | `{kde, ecdf, histogram, qds}`                          | density        | chained density estimates                    |
 |  [09]   | `{compute_ranks, autocorr, uniformity_test, get_bins}` | density        | rank, autocorrelation, uniformity, binning   |
 
-[ENTRYPOINT_SCOPE]: visualization functions (`arviz_plots`, 37 `plot_*` plus `combine_plots`/`add_lines`/`add_bands`)
-- rail: Bayesian-study
-- note: plots accept a `DataTree`/`Dataset` and return a `PlotCollection`/`PlotMatrix`; backend selected via `rcParams["plot.backend"]` (`matplotlib`/`bokeh`/`plotly`), templates via `style.use(name)`
-- call: every function is `plot_<name>`; `combine_plots`/`add_lines`/`add_bands` are the composition primitives
+[ENTRYPOINT_SCOPE]: visualization functions (`arviz_plots`)
+- carry: each `plot_<name>` accepts a `DataTree`/`Dataset` and returns a `PlotCollection`/`PlotMatrix`; backend rides `rcParams["plot.backend"]` (`matplotlib`/`bokeh`/`plotly`), templates ride `style.use(name)`, and `combine_plots`/`add_lines`/`add_bands` are the composition primitives
 
 | [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY]   | [CAPABILITY]                                        |
 | :-----: | :------------------------------------------------------------- | :--------------- | :-------------------------------------------------- |
@@ -220,26 +204,21 @@ Credible intervals, decision, point statistics, density, and stacking; full call
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[ARVIZ_TOPOLOGY]:
-- The `arviz` import is a thin re-export over three packages: `arviz_base` owns converters/`extract`/`dict_to_dataset`/`from_*` and the `rcParams`/`rc_context` registry; `arviz_stats` owns every diagnostic, the LOO family, sensitivity, intervals, and the `.azstats` accessor; `arviz_plots` owns the 37 plot functions, `PlotCollection`/`PlotMatrix`, and the `style` module (`use`/`available`/`get`).
-- The posterior container is `xarray.DataTree`; `arviz.InferenceData` is a name bound to the same class, so both spellings accept one container. Groups are children (`posterior`, `sample_stats`, `log_likelihood`, `observed_data`, `posterior_predictive`).
-- `rcParams` is the validated option registry feeding every entrypoint whose kwarg is `None`: `data.sample_dims=('chain', 'draw')`, `stats.ci_prob=0.89`, `stats.ci_kind='eti'`, `stats.point_estimate`, `stats.module`, `plot.backend='auto'`; `rc_context(rc=...)` scopes overrides.
-- `summary(kind='all')` returns a `pandas.DataFrame` indexed by flattened variable name (`theta[0]`) with columns `mean`, `sd`, `eti<pct>_lb`, `eti<pct>_ub`, `ess_bulk`, `ess_tail`, `r_hat`, `mcse_mean`, `mcse_sd`; `kind='stats'` keeps the first four, `kind='diagnostics'` the last five, and `all_median`/`diagnostics_median`/`mc_diagnostics` swap in median/MC variants. The interval columns are ETI by default (`ci_kind`), not HDI, and `r_hat` carries an underscore.
-- `hdi`/`eti` return an xarray object with a `ci_bound` coordinate taking string values `'lower'`/`'upper'`; index `.sel(ci_bound='lower')` rather than reading old `hdi_3%`/`hdi_97%` columns.
-- `ELPDData` is a plain object: read `elpd`/`se`/`p`/`good_k`/`warning`, and `elpd_i`/`pareto_k` `DataArray`s when `pointwise=True`. `elpd_loo`/`p_loo`/`looic` attributes do not exist.
+[TOPOLOGY]:
+- `arviz` re-exports three owners: `arviz_base` owns the converters, `extract`, `dict_to_dataset`, and the `rcParams`/`rc_context` registry; `arviz_stats` owns every diagnostic, the LOO family, sensitivity, intervals, and the `.azstats` accessor; `arviz_plots` owns the `plot_*` surface, `PlotCollection`/`PlotMatrix`, and the `style` module (`use`/`available`/`get`).
+- `xarray.DataTree` is the posterior container and `arviz.InferenceData` binds the same class, so both spellings accept one container; groups ride as children (`posterior`, `sample_stats`, `log_likelihood`, `observed_data`, `posterior_predictive`).
+- `rcParams` feeds every entrypoint whose kwarg resolves `None` — `data.sample_dims=('chain','draw')`, `stats.ci_prob=0.89`, `stats.ci_kind='eti'`, `stats.point_estimate`, `stats.module`, `plot.backend='auto'` — and `rc_context(rc=...)` scopes overrides.
+- `summary` returns a `pandas.DataFrame` indexed by flattened variable name (`theta[0]`); `kind='stats'` yields point/interval columns, `kind='diagnostics'` the `ess_bulk`/`ess_tail`/`r_hat`/`mcse_*` columns, `kind='all'` both, and `all_median`/`diagnostics_median`/`mc_diagnostics` swap median/MC variants. Interval columns are ETI by default (`ci_kind`), and `r_hat` carries the underscore.
 
 [STACKING]:
-- `arviz` is the diagnostic terminus of the JAX sampler rails: a `blackjax` study drives `util.run_inference_algorithm`, stacks the history into a `(chain, draw, ...)` array, and feeds it to `from_dict({"posterior": {...}, "sample_stats": {"energy": ...}, "log_likelihood": {...}})`; a `numpyro` study calls `from_numpyro`/`from_numpyro_svi` (or the `NumPyroInferenceAdapter`); `pymc`/`nutpie` emit a `DataTree` directly. One `DataTree` then carries `rhat`/`ess`/`loo`/`summary`/`psense`.
-- `blackjax.util.psis_weights` and `arviz.loo` share the PSIS-LOO contract: the blackjax weights are the raw `(log_weights, kss)` pair, while `loo`/`ds.azstats.psislw` own the smoothing-plus-elpd rollup over a `log_likelihood` group. Prefer the arviz LOO family for the elpd receipt; use the blackjax weights only inside the sampler loop.
-- The `extract(..., num_samples=, weights=, resampling_method=)` reshaper consumes `compare`/LOO stacking weights to produce model-averaged draws, matching `weight_predictions`; chain `compare -> extract`/`weight_predictions` for a BMA predictive without leaving xarray.
-- `reloo`/`loo_kfold` require a `SamplingWrapper` subclass that re-runs the backend sampler on held-out folds — the one place arviz calls back into the sampler rail; implement `sel_observations`/`sample`/`get_inference_data`/`log_likelihood__i` over the chosen `SamplerBackend`.
+- `pymc`(`.api/pymc.md`): `pm.sample`/`sample_posterior_predictive`/`sample_prior_predictive` under any `nuts_sampler=` backend return the `xarray.DataTree` this surface reads through `from_dict`/`convert_to_datatree`, then `rhat`/`ess`/`loo`/`summary`/`psense`; `pm.compute_log_likelihood` populates the `log_likelihood` group `loo`/`compare` consume.
+- within-lib: the `.azstats` accessor mirrors every free diagnostic as a chained `ds.azstats.<op>()` method; `compare -> extract`/`weight_predictions` folds stacking weights into model-averaged draws without leaving xarray; `reloo`/`loo_kfold` drive a `SamplingWrapper` subclass (`sel_observations`/`sample`/`get_inference_data`/`log_likelihood__i`) for exact held-out refit.
 
-[STUDY_ROUTING]:
-- A `NumericIntent` Bayesian study converts the sampler output to a `DataTree`, then captures the convergence receipt (`rhat`/`ess`/`mcse` or `summary(kind='diagnostics')`) before any posterior claim, and the LOO/`compare` receipt before any model-selection claim. `psense_summary` is the prior-robustness receipt.
-- Diagnostics are offline study work feeding the C# `Rasm.Compute` model rail; no production runtime imports arviz.
+[LOCAL_ADMISSION]:
+- arviz is offline study work reading the `pm.sample` `DataTree`: capture the `rhat`/`ess`/`mcse` (or `summary(kind='diagnostics')`) receipt before any posterior claim, the `loo`/`compare` receipt before any model-selection claim, and `psense_summary` as the prior-robustness receipt. Diagnostics feed the C# `Rasm.Compute` model rail; no production runtime imports arviz.
 
 [RAIL_LAW]:
 - Package: `arviz`
-- Owns: backend-agnostic Bayesian diagnostics, the full PSIS-LOO family, stacking/BMA comparison, prior/likelihood sensitivity, predictive divergence/metrics, survival curves, credible intervals, the `.azstats` xarray accessor, the `rcParams` option registry, and posterior visualization from `xarray.DataTree`
-- Accept: a `DataTree` posterior from any backend via `from_dict`/`from_numpyro`/`convert_to_datatree`, analyzed with `rhat`/`ess`/`loo`/`summary`/`psense` (free-function or chained `.azstats`), defaults tuned through `rcParams`/`rc_context`, with a captured diagnostic + LOO receipt before any model claim
+- Owns: backend-agnostic Bayesian diagnostics, the full PSIS-LOO family, stacking/BMA comparison, prior/likelihood sensitivity, predictive divergence and metrics, survival curves, credible intervals, the `.azstats` accessor, the `rcParams` registry, and posterior visualization over `xarray.DataTree`
+- Accept: a `DataTree` posterior via `from_dict`/`convert_to_datatree`, analyzed with `rhat`/`ess`/`loo`/`summary`/`psense` (free-function or chained `.azstats`), defaults tuned through `rcParams`/`rc_context`, with a captured diagnostic + LOO receipt before any model claim
 - Reject: hand-rolled R-hat/ESS/PSIS-LOO/sensitivity arviz owns; reading nonexistent `elpd_loo`/`p_loo`/`hdi_3%` field names; visualization without a `DataTree` receipt; treating `InferenceData` as a container distinct from `DataTree`

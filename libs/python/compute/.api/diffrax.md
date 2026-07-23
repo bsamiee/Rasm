@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_DIFFRAX]
 
-`diffrax` supplies JAX-native ODE, SDE, and CDE solvers for the compute numeric-intent differential-equation rail. The package owner routes `NumericIntent` ODE, SDE, and event-driven cases through `diffeqsolve` with a chosen solver, step-size controller, and adjoint; it never re-implements a numeric integrator the package owns. Implicit/stiff solvers compose a `lineax`/`optimistix` root-find inside the step, and the whole solve is JIT-/grad-/vmap-transformable as an `equinox` pytree.
+`diffrax` owns JAX-native ODE, SDE, and CDE integration for the compute differential-equation rail: one `diffeqsolve` routes every `NumericIntent` case on a chosen solver, step-size controller, and adjoint. Implicit and stiff solvers fold a `lineax`/`optimistix` root-find inside each step, and the whole solve stays JIT-, grad-, and vmap-transformable as an `equinox` pytree.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,13 +9,11 @@
 - import: `diffrax`
 - owner: `compute`
 - rail: differential-equation
-- license: Apache-2.0
 - capability: JAX-native ODE/SDE/CDE integration — adaptive and fixed-step Runge-Kutta solvers, Ito/Stratonovich and high-order Levy-area SDE solvers, Brownian path generators with selectable Levy-area level, continuous and discrete event detection, four adjoint differentiation modes, and dense/sub-save output
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: abstract base protocol
-- rail: differential-equation
 
 | [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE]           | [CAPABILITY]                                 |
 | :-----: | :-------------------------------------- | :----------------------- | :------------------------------------------- |
@@ -36,7 +34,6 @@
 |  [15]   | `AbstractSpaceTimeTimeLevyArea`         | Levy-area base           | root of space-time-time Levy-area structures |
 
 [PUBLIC_TYPE_SCOPE]: concrete ODE solvers
-- rail: differential-equation
 
 | [INDEX] | [SYMBOL]        | [SOLVER_FAMILY] | [ORDER] |
 | :-----: | :-------------- | :-------------- | :------ |
@@ -58,9 +55,6 @@
 |  [16]   | `Sil3`          | additive IMEX   | 3       |
 
 [PUBLIC_TYPE_SCOPE]: SDE solvers and stochastic terms
-- rail: differential-equation
-
-The high-order SDE solvers (`SPaRK`/`GeneralShARK`/`ShARK`/`SlowRK`/`SEA`/`SRA1`/`ALIGN`/`QUICSORT`/`ShOULD`) require a Brownian path that supplies the matching Levy-area level (e.g. `SpaceTimeLevyArea` or `SpaceTimeTimeLevyArea`); construct `VirtualBrownianTree(..., levy_area=SpaceTimeLevyArea)` to feed them.
 
 | [INDEX] | [SYMBOL]                           | [PACKAGE_ROLE]               | [CAPABILITY]                                          |
 | :-----: | :--------------------------------- | :--------------------------- | :---------------------------------------------------- |
@@ -91,7 +85,6 @@ The high-order SDE solvers (`SPaRK`/`GeneralShARK`/`ShARK`/`SlowRK`/`SEA`/`SRA1`
 |  [25]   | `SpaceTimeTimeLevyArea`            | Levy-area level              | space-time-time Levy area                             |
 
 [PUBLIC_TYPE_SCOPE]: step-size controllers and adjoints
-- rail: differential-equation
 
 | [INDEX] | [SYMBOL]                     | [PACKAGE_ROLE]      | [CAPABILITY]                                       |
 | :-----: | :--------------------------- | :------------------ | :------------------------------------------------- |
@@ -106,9 +99,6 @@ The high-order SDE solvers (`SPaRK`/`GeneralShARK`/`ShARK`/`SlowRK`/`SEA`/`SRA1`
 |  [09]   | `ForwardMode`                | adjoint             | forward-mode autodiff through the solve            |
 
 [PUBLIC_TYPE_SCOPE]: solution, save, term, and event types
-- rail: differential-equation
-
-`Event` + `steady_state_event` are the modern event surface; `DiscreteTerminatingEvent` and `SteadyStateEvent` are deprecated, retained only for backward compatibility (static type checkers warn on use). `RESULTS` rides the shared `equinox.Enumeration` base (`equinox.md`): `promote`/`where` and the `_value`/`_name_to_item` mechanics are inherited, and a batched `filter_vmap` sweep takes the worst-case verdict by `jnp.max` over `solution.result._value`.
 
 | [INDEX] | [SYMBOL]    | [PACKAGE_ROLE] | [CAPABILITY]                                                                                             |
 | :-----: | :---------- | :------------- | :------------------------------------------------------------------------------------------------------- |
@@ -119,30 +109,19 @@ The high-order SDE solvers (`SPaRK`/`GeneralShARK`/`ShARK`/`SlowRK`/`SEA`/`SRA1`
 |  [05]   | `Event`     | event spec     | root-find continuous event(s) with optional `root_finder`                                                |
 |  [06]   | `RESULTS`   | result enum    | `successful`/`max_steps_reached`/`dt_min_reached`/`event_occurred`/`max_steps_rejected`/`internal_error` |
 
-```python signature
-class Solution:                                    # diffeqsolve result carrier
-    t0, t1, ts, ys                                 # integration span + saved times/states
-    interpolation                                  # dense output, present when SaveAt(dense=True)
-    stats                                          # num_steps / num_accepted_steps / num_rejected_steps
-    result                                         # RESULTS verdict
-    solver_state, controller_state, made_jump, event_mask
-```
+- `Solution` fields: `t0` `t1` `ts` `ys` `interpolation` (dense, when `SaveAt(dense=True)`) `stats` (`num_steps`/`num_accepted_steps`/`num_rejected_steps`) `result` `solver_state` `controller_state` `made_jump` `event_mask`
 
-[PUBLIC_TYPE_SCOPE]: interpolation and deprecated event specs
-- rail: differential-equation
+[PUBLIC_TYPE_SCOPE]: path interpolation
 
-| [INDEX] | [SYMBOL]                   | [PACKAGE_ROLE]          | [CAPABILITY]                                   |
-| :-----: | :------------------------- | :---------------------- | :--------------------------------------------- |
-|  [01]   | `DenseInterpolation`       | interpolation           | dense output interpolation                     |
-|  [02]   | `CubicInterpolation`       | interpolation           | cubic Hermite interpolation (CDE control path) |
-|  [03]   | `LinearInterpolation`      | interpolation           | piecewise-linear interpolation (CDE control)   |
-|  [04]   | `DiscreteTerminatingEvent` | event spec (deprecated) | superseded by `Event` + `steady_state_event`   |
-|  [05]   | `SteadyStateEvent`         | event spec (deprecated) | superseded by `Event` + `steady_state_event`   |
+| [INDEX] | [SYMBOL]              | [PACKAGE_ROLE] | [CAPABILITY]                                   |
+| :-----: | :-------------------- | :------------- | :--------------------------------------------- |
+|  [01]   | `DenseInterpolation`  | interpolation  | dense output interpolation                     |
+|  [02]   | `CubicInterpolation`  | interpolation  | cubic Hermite interpolation (CDE control path) |
+|  [03]   | `LinearInterpolation` | interpolation  | piecewise-linear interpolation (CDE control)   |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: solve, term, path, event, and adjoint entrypoints
-- rail: differential-equation
 - call: `diffeqsolve(terms, solver, t0, t1, dt0, y0, args=None, *, saveat=SaveAt(t1=True), stepsize_controller=ConstantStepSize(), adjoint=RecursiveCheckpointAdjoint(), event=None, max_steps=4096, throw=True, progress_meter=NoProgressMeter(), solver_state=None, controller_state=None, made_jump=None) -> Solution`
 - call: `ODETerm(vector_field)`, `ControlTerm(vector_field, control)`, `MultiTerm(*terms)` build the term pytree; `SaveAt(*, t0=False, t1=False, ts=None, steps=False, dense=False, fn=..., subs=None)` and `PIDController(rtol, atol, pcoeff=0, icoeff=1, dcoeff=0, *, dtmin=None, dtmax=None, norm=rms_norm, jump_ts=None, step_ts=None)` configure output and adaptive stepping
 - call: `VirtualBrownianTree(t0, t1, tol, shape, key, levy_area=BrownianIncrement)` / `UnsafeBrownianPath(shape, key, levy_area=BrownianIncrement)` build Brownian paths; `levy_area=SpaceTimeLevyArea`/`SpaceTimeTimeLevyArea` feeds the high-order SDE solvers
@@ -161,7 +140,6 @@ class Solution:                                    # diffeqsolve result carrier
 |  [09]   | `RecursiveCheckpointAdjoint` / `BacksolveAdjoint` | adjoint init      | memory-checkpointed / continuous reverse-mode adjoint       |
 
 [ENTRYPOINT_SCOPE]: interpolation and utility
-- rail: differential-equation
 - call: `linear_interpolation(ts, ys, *, replace_nans_at_start=None, fill_forward_nans_at_end=False)`, `rectilinear_interpolation(ts, ys, ...)`, and `backward_hermite_coefficients(ts, ys, ...)` build CDE control paths; `steady_state_event(rtol=None, atol=None, norm=rms_norm)` builds an `Event` cond_fn; `adjoint_rms_seminorm(x)` is the `BacksolveAdjoint` tolerance seminorm
 
 | [INDEX] | [SURFACE]                       | [ENTRY_FAMILY]  | [CAPABILITY]                                          |
@@ -175,21 +153,23 @@ class Solution:                                    # diffeqsolve result carrier
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[DIFFEQ_TOPOLOGY]:
-- namespace: `diffrax`; all public types and functions at top level.
-- one `diffeqsolve(terms, solver, t0, t1, dt0, y0, ...)` owns every ODE/SDE/CDE case; the equation kind is the `terms` shape (a single `ODETerm`, a `MultiTerm(ODETerm, ControlTerm)` for SDE/CDE) and the convention is the solver type (`AbstractItoSolver`/`AbstractStratonovichSolver`), never a parallel solve entrypoint.
-- the solver, `stepsize_controller`, `adjoint`, `event`, and `saveat` are independent rows on the one `diffeqsolve`: adaptive vs fixed step is a controller row, the differentiation mode is an adjoint row, output selection is a `SaveAt` row, and termination/event detection is an `event` row — never a parallel solve variant per axis.
-- `Solution.result` carries a `RESULTS` enum value; `throw=True` raises on a non-`successful` result, `throw=False` returns it for inspection alongside `Solution.stats` (step counts, accepted/rejected).
-- SDE convention is load-bearing: an `AbstractItoSolver` integrates the Ito form and a `AbstractStratonovichSolver` the Stratonovich form; high-order SDE solvers demand a Brownian path whose `levy_area` matches (`SpaceTimeLevyArea` for `ShARK`/`SRA1`/`SEA`, `SpaceTimeTimeLevyArea` for `SlowRK`), and the Langevin solvers (`ALIGN`/`ShOULD`/`QUICSORT`) pair with `UnderdampedLangevin*` terms.
+[TOPOLOGY]:
+- namespace: `diffrax` — every public type and function at top level.
+- one `diffeqsolve` owns every ODE/SDE/CDE case: the `terms` shape sets the equation kind (a single `ODETerm`, a `MultiTerm(ODETerm, ControlTerm)` for SDE/CDE) and the solver type sets the convention (`AbstractItoSolver`/`AbstractStratonovichSolver`); the `solver`, `stepsize_controller`, `adjoint`, `event`, and `saveat` ride as independent rows on that one call, never a parallel solve variant per axis.
+- `Solution.result` carries a `RESULTS` value; `throw=True` raises on a non-`successful` result, `throw=False` returns it beside `Solution.stats` (accepted/rejected step counts) for inspection.
+- SDE convention is load-bearing: an `AbstractItoSolver` integrates the Ito form, an `AbstractStratonovichSolver` the Stratonovich form; a high-order SDE solver demands a Brownian path whose `levy_area` matches (`SpaceTimeLevyArea` for `ShARK`/`SRA1`/`SEA`, `SpaceTimeTimeLevyArea` for `SlowRK`), and the Langevin solvers (`ALIGN`/`ShOULD`/`QUICSORT`) pair with `UnderdampedLangevin*` terms.
 
-[INTEGRATION_STACK]:
-- jax/equinox seam: a `diffeqsolve` call is a pure JAX function over pytree state, so it composes inside `eqx.filter_jit`/`eqx.filter_grad`/`eqx.filter_vmap` (`equinox.md`) — a batched parameter sweep is one `filter_vmap(diffeqsolve, ...)` and a gradient-through-solve is `filter_grad` over the chosen `adjoint`, never a Python loop.
-- lineax/optimistix seam: an `AbstractImplicitSolver` (`ImplicitEuler`/`Kvaerno*`/`KenCarp*`) runs an `optimistix` root-find each step whose linear sub-solve is a `lineax` operator solve (`lineax.md`); `ImplicitAdjoint` likewise threads an `optimistix`/`lineax` implicit-function solve, so the stiff step reuses the sibling solver stack rather than a hand-rolled Newton iteration.
-- interpax/quadax seam: dense output (`SaveAt(dense=True)` -> `Solution.interpolation`) yields a continuous trajectory the `interpax`/`quadax` (`interpax.md`/`quadax.md`) rails resample or integrate; a CDE control path is built with `backward_hermite_coefficients` + `CubicInterpolation` and passed as the `ControlTerm` control.
-- adjoint receipt: `RecursiveCheckpointAdjoint` (default) bounds reverse-mode memory; the captured `Solution.stats` (`num_steps`/`num_accepted_steps`/`num_rejected_steps`) plus `Solution.result` form the solve receipt the graduation owner hands across the wire.
+[STACKING]:
+- `equinox`(`.api/equinox.md`): a `diffeqsolve` call is a pure JAX function over `equinox.Module` pytree state, composing inside `filter_jit`/`filter_grad`/`filter_vmap` — a batched parameter sweep is one `filter_vmap(diffeqsolve, ...)` and a gradient-through-solve is `filter_grad` over the chosen `adjoint`; `RESULTS` inherits the `equinox.Enumeration` termination base.
+- `lineax`(`.api/lineax.md`) / `optimistix`(`.api/optimistix.md`): an `AbstractImplicitSolver` (`ImplicitEuler`/`Kvaerno*`/`KenCarp*`) runs an `optimistix` root-find each step whose linear sub-solve is a `lineax` operator solve, and `ImplicitAdjoint` threads the same `optimistix`/`lineax` implicit-function solve — the stiff step reuses the sibling solver stack.
+- `interpax`(`.api/interpax.md`) / `quadax`(`.api/quadax.md`): dense output (`SaveAt(dense=True)` -> `Solution.interpolation`) yields a continuous trajectory the `interpax`/`quadax` rails resample or integrate; a CDE control path builds with `backward_hermite_coefficients` + `CubicInterpolation` passed as the `ControlTerm` control.
+- within-lib: the `DifferentialIntent` route folds the `Solution` receipt (`stats` step counts + `result` verdict) onto `SolverReceipt`, and `RecursiveCheckpointAdjoint` bounds reverse-mode memory for the graduation gradient study.
+
+[LOCAL_ADMISSION]:
+- a `NumericIntent` differential-equation case dispatches through `diffeqsolve` with an explicit solver, controller, and adjoint; an SDE Brownian path carries the `levy_area` its solver demands, and `diffrax` stays a compute-plane solver.
 
 [RAIL_LAW]:
 - Package: `diffrax`
 - Owns: JAX-native ODE/SDE/CDE integration, adaptive step control, Ito/Stratonovich and high-order Levy-area SDE solvers, continuous/discrete event detection, and four adjoint differentiation modes
 - Accept: a `NumericIntent` differential-equation case dispatched through `diffeqsolve` with an explicit solver, controller, and adjoint; a Brownian path whose `levy_area` matches the SDE solver; `RecursiveCheckpointAdjoint` for memory-constrained gradient studies; a `Solution` receipt capturing `stats` and `result`
-- Reject: hand-rolled Runge-Kutta or Euler integrators; a hand-rolled Newton iteration where the implicit solver's `optimistix`/`lineax` root-find applies; the deprecated `DiscreteTerminatingEvent`/`SteadyStateEvent` where `Event`/`steady_state_event` is the modern surface; diffrax in any product runtime path; adjoint claims without a captured `Solution.stats` receipt
+- Reject: hand-rolled Runge-Kutta or Euler integrators; a hand-rolled Newton iteration where the implicit solver's `optimistix`/`lineax` root-find applies; `diffrax` on any product runtime path; adjoint claims without a captured `Solution.stats` receipt

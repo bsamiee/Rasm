@@ -137,7 +137,9 @@ FENCE_INTENTS = frozenset({
     "signature",
     "test-only",
 })
-TABLE_COLUMN_CEILING = 15  # row count is never capped; the 150-column rendered-width cap (TABLE_WIDTH_CAP) is the sole size law, columns govern only the horizontal axis
+TABLE_COLUMN_CEILING = (
+    15  # row count is never capped; the 150-column rendered-width cap (TABLE_WIDTH_CAP) is the sole size law, columns govern only the horizontal axis
+)
 MARKERS: dict[str, str] = (
     dict.fromkeys((".py", ".sh", ".bash", ".zsh", ".nix", ".toml", ".jq"), "#")
     | dict.fromkeys((".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".cs", ".jsonc"), "//")

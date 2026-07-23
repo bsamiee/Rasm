@@ -21,11 +21,8 @@ export const meta = {
 
 const CAP = 14;
 const SURVEY_PAGE_CAP = 12;
-const STAGGER_MS = 1500;
-const STALL = 300000;
 const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // absolute working root; codex cwd + native terminal lanes resolve relative scratch paths against it
-const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical lane (ideate, redteam, drain); the count bounds spend, the backoff buys recovery time
-const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
+const RETRY_ATTEMPTS = 2;
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -276,20 +273,13 @@ const OWN_PASS = (artifact, later) =>
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 // Agent-level slot scheduler: every agent() call takes one slot, so folder chains launch freely via Promise.all while true in-flight agents stay at CAP.
 const makeSlots = (cap) => {
     let active = 0;
-    let gate = Promise.resolve();
     const waiters = [];
-    const stagger = () => {
-        gate = gate.then(() => sleep(STAGGER_MS));
-        return gate;
-    };
     return async (fn) => {
         if (active >= cap) await new Promise((res) => waiters.push(res));
         active++;
-        await stagger();
         try {
             return await fn();
         } finally {
@@ -300,11 +290,10 @@ const makeSlots = (cap) => {
     };
 };
 const slot = makeSlots(CAP);
-// Bounded re-dispatch for a dead CRITICAL lane (usage-limit or transport death): attempt-counted with a backoff before each
+// Bounded re-dispatch for a dead CRITICAL lane (usage-limit or transport death): attempt-counted with a retry before each
 // attempt sized to a limit reset; the final death isolates the lane, NEVER the chain — every downstream stage runs against disk.
 const retryLane = async (fn) => {
     for (let a = 0; a < RETRY_ATTEMPTS; a++) {
-        await sleep(RETRY_BACKOFF);
         const r = await fn();
         if (r) return r;
     }
@@ -312,7 +301,7 @@ const retryLane = async (fn) => {
 };
 const nameOf = (f) => f.split('/').pop() || f;
 
-// Codex dispatch: the wrapper makes one blocking Codex MCP call, writes the envelope's content to the lane report, and returns mechanical
+// Codex dispatch: the wrapper runs one blocking supervised CLI process, writes its content to the lane report, and returns mechanical
 // orchestration data. Lane law rides developer-instructions (role split — recon law for the survey lanes, fix law for the in-place critique
 // lane); the prompt carries only the task; the output contract sits LAST. surveyPrompt/critiquePrompt feed dispatched lanes and carry a neutral
 // register (a hostile stance makes a dispatched lane over-probe); the native ideatePrompt/redteamPrompt keep the estate register — same substance.
@@ -389,7 +378,7 @@ const codexPrompt = (label, task, schema, o) => {
         lane +
         '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
         'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
-        're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (idle-timeout, max-timeout, turn-failed, ' +
+        're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (max-timeout, turn-failed, ' +
         'refusal) re-runs the same command untouched. (3) ' +
         (authored
             ? 'The delegate lands the product itself at ' + report + ' as its final act.'
@@ -427,7 +416,7 @@ const nativeLane = (task, o) =>
             '-report.json (Write tool, absolute path under the repo root): ' +
             JSON.stringify(o.schema) +
             ' — then return ONLY the receipt: ok, report path, entries count, one-line mechanical headline, failure empty.',
-        { label: o.label, phase: o.phase, model: o.nativeModel || twinOf(o.model), effort: 'high', schema: RECEIPT, stallMs: o.stallMs || STALL },
+        { label: o.label, phase: o.phase, model: o.nativeModel || twinOf(o.model), effort: 'high', schema: RECEIPT },
     );
 const recon = (task, o) =>
     agent(codexPrompt(o.label, task, o.schema, o), {
@@ -645,7 +634,6 @@ const ideateFolder = async (u) => {
         model: 'fable',
         schema: CARDLOG_SCHEMA,
         effort: 'high',
-        stallMs: STALL,
     });
     const authored =
         (await slot(() => agent(ideatePrompt(folder, roster, unmapped), ideateOpts('')))) ||
@@ -674,7 +662,6 @@ const ideateFolder = async (u) => {
         model: 'fable',
         schema: CARDLOG_SCHEMA,
         effort: 'high',
-        stallMs: STALL,
     });
     const rt =
         (await slot(() => agent(redteamPrompt(folder, !!(crit && crit.ok), critReport), rtOpts('')))) ||
@@ -694,7 +681,7 @@ const inv = await agent(
         'product: a folder you miss silently escapes the whole pass; widen the search on any doubt and verify every returned path exists. For each ' +
         'folder also COUNT its design pages (markdown files under <folder>/.planning/**; 0 when no .planning tree exists) and return the count as ' +
         'pages. Return folders sorted by path. Read-only; do not cd.',
-    { label: 'discover', phase: 'Survey', schema: DISCOVERY_SCHEMA, model: 'sonnet', effort: 'low', stallMs: STALL },
+    { label: 'discover', phase: 'Survey', schema: DISCOVERY_SCHEMA, model: 'sonnet', effort: 'low' },
 );
 // Validate the discovery agent's emitted folder roster against the requested scope before any chain dispatches on it: a
 // hallucinated or out-of-scope path would otherwise spawn a full ideate chain writing card files outside the territory.
@@ -728,7 +715,7 @@ const fireDrain = (suffix) =>
                 'files, beyondFolder, verdict. The critique `harvest` is NOT folded here: the doctrine lander reads every ' +
                 "critique cardlog's nominations directly from these same paths, so your `harvest` holds only nominations your " +
                 'own consolidation pass mints (usually none).',
-            { label: 'drain:orphans' + suffix, phase: 'Redteam', model: 'fable', effort: 'high', schema: CARDLOG_SCHEMA, stallMs: STALL },
+            { label: 'drain:orphans' + suffix, phase: 'Redteam', model: 'fable', effort: 'high', schema: CARDLOG_SCHEMA },
         ),
     );
 const drained = ORPHANS.length ? (await fireDrain('')) || (await retryLane(() => fireDrain(':a1'))) : null;
@@ -768,7 +755,6 @@ const doctrine =
               model: 'fable',
               effort: 'high',
               schema: DOCTRINE_SCHEMA,
-              stallMs: STALL,
           })
         : null;
 return {

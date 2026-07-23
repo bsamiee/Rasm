@@ -1,25 +1,23 @@
 # [PY_BRANCH_API_NETWORKX]
 
-`networkx` supplies `Graph`, `DiGraph`, `MultiGraph`, and `MultiDiGraph` payload classes with shared mutation, inspection, and derivation members; tabular/array/dict conversion bridges, file-format codecs, and shortest-path, DAG, component, spanning-tree, centrality, and flow algorithm families. `create_using` discriminates graph kind across one polymorphic call, and `backend`/`**backend_kwargs` select the dispatch backend.
+`networkx` is the branch graph substrate: four payload classes spanning the directed/undirected × simple/multi-edge matrix, tabular/array/dict/sparse conversion bridges, file-format and JSON codecs, and the graph-algorithm families, all folded through one `create_using` kind discriminator and one `@_dispatchable` backend axis so a single call site serves every graph kind and installed engine. `nx.community` detection and the `nx.config` dispatch-policy layer ride the same surface; product graph-database and route-discovery state stay outside it.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `networkx`
 - package: `networkx`
-- version: `3.6.1`
 - license: BSD-3-Clause
 - import: `import networkx as nx`
 - owner: `data` (codec/egress), `geometry` (`graph/features` analysis)
 - rail: graph
-- capability: graph payload classes, conversion bridges, file-format codecs, algorithm families over directed/undirected/multi-edge graphs, a community-detection namespace (`nx.community`), and a pluggable backend-dispatch layer (`nx.config`) that routes any `@_dispatchable` algorithm to an alternate engine
+- capability: payload classes, conversion bridges, file-format and JSON codecs, algorithm families over directed/undirected/multi-edge graphs, the `nx.community` detection namespace, and the `nx.config` layer routing any `@_dispatchable` algorithm to an installed backend
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: graph payload classes
-- rail: graph
-- shared members carry across all four classes; directed and multi-edge classes add the extra members noted
+- shared members carry across all four classes; directed and multi-edge classes add the members noted
 
-| [INDEX] | [SYMBOL]          | [GRAPH_KIND]          | [ADDED_MEMBERS]                                       |
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY]         | [CAPABILITY]                                          |
 | :-----: | :---------------- | :-------------------- | :---------------------------------------------------- |
 |  [01]   | `nx.Graph`        | undirected simple     | base mutation, inspection, derivation members         |
 |  [02]   | `nx.DiGraph`      | directed simple       | `successors`, `predecessors`, `in_edges`, `out_edges` |
@@ -27,17 +25,13 @@
 |  [04]   | `nx.MultiDiGraph` | directed multi-edge   | directed members plus `new_edge_key`                  |
 
 [PUBLIC_TYPE_SCOPE]: shared graph members
-- rail: graph
 
-| [INDEX] | [MEMBER_FAMILY] | [MEMBERS]                                                                                         |
-| :-----: | :-------------- | :------------------------------------------------------------------------------------------------ |
-|  [01]   | mutation        | `add_node`, `add_nodes_from`, `add_edge`, `add_edges_from`, `remove_node`, `remove_edge`, `clear` |
-|  [02]   | inspection      | `has_node`, `has_edge`, `number_of_nodes`, `number_of_edges`, `nodes`, `edges`, `adj`, `degree`   |
-|  [03]   | derivation      | `subgraph`, `edge_subgraph`, `copy`, `to_directed`, `to_undirected`                               |
+[mutation]: `add_node` `add_nodes_from` `add_edge` `add_edges_from` `remove_node` `remove_edge` `clear`
+[inspection]: `has_node` `has_edge` `number_of_nodes` `number_of_edges` `nodes` `edges` `adj` `degree`
+[derivation]: `subgraph` `edge_subgraph` `copy` `to_directed` `to_undirected`
 
 [PUBLIC_TYPE_SCOPE]: exception taxonomy
-- rail: graph
-- every member derives from `NetworkXException`; domain rails translate at the boundary
+- every member derives from `NetworkXException`; the domain rail translates at the boundary
 
 | [INDEX] | [SYMBOL]                          | [PARENT]                 | [FAILURE]                        |
 | :-----: | :-------------------------------- | :----------------------- | :------------------------------- |
@@ -59,8 +53,7 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: conversion bridges
-- rail: graph
-- `create_using` selects target graph kind; `backend`/`**backend_kwargs` select dispatch backend
+- each `from_*` has a `to_*` peer; `create_using` selects the target graph kind
 
 | [INDEX] | [SURFACE]                                                           | [BRIDGE]  | [PEER_DIRECTION]                |
 | :-----: | :------------------------------------------------------------------ | :-------- | :------------------------------ |
@@ -73,8 +66,7 @@
 |  [07]   | `from_edgelist(edgelist, create_using=None, ...)`                   | edge list | `to_edgelist(G, ...)`           |
 
 [ENTRYPOINT_SCOPE]: file-format codecs
-- rail: graph
-- each codec family exposes `read_*`, `write_*`, `parse_*`, and `generate_*` where applicable
+- each codec family exposes `read_*` / `write_*` / `parse_*` / `generate_*` where applicable
 
 | [INDEX] | [FORMAT]            | [READ]                   | [WRITE]                                                     |
 | :-----: | :------------------ | :----------------------- | :---------------------------------------------------------- |
@@ -96,8 +88,7 @@
 |  [16]   | tree JSON           | `tree_graph`             | `tree_data`                                                 |
 
 [ENTRYPOINT_SCOPE]: algorithm families
-- rail: graph
-- every algorithm accepts `*, backend=None, **backend_kwargs`; community entries live under `nx.community` (prefix omitted below)
+- community entries live under `nx.community` (prefix omitted below)
 
 | [INDEX] | [FAMILY]      | [ENTRY]                                                                                             | [RESULT]           |
 | :-----: | :------------ | :-------------------------------------------------------------------------------------------------- | :----------------- |
@@ -128,8 +119,7 @@
 |  [25]   | attributes    | `get_node_attributes(G, name)` / `set_node_attributes(G, values, name=None)`                        | dict / in-place    |
 
 [ENTRYPOINT_SCOPE]: centrality algorithms
-- rail: graph
-- every algorithm accepts `*, backend=None, **backend_kwargs` and returns a node-score dict
+- each returns a node-score dict
 
 | [INDEX] | [ENTRY]                                                                                                               |
 | :-----: | :-------------------------------------------------------------------------------------------------------------------- |
@@ -139,29 +129,25 @@
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[GRAPH_TOPOLOGY]:
-- Graph payload owners thread `create_using=` to select directedness and multiplicity; one entry discriminates on graph kind instead of branching per subtype.
-- Node and edge attributes live in per-element dicts; `nodes`, `edges`, `adj`, and `degree` return live views over the graph.
+[TOPOLOGY]:
+- Payload owners thread `create_using=` to select directedness and multiplicity; one entry discriminates on graph kind instead of branching per subtype.
+- Node and edge attributes live in per-element dicts; `nodes`, `edges`, `adj`, and `degree` return live views over the graph, never copies.
 - Directed classes add `successors`/`predecessors` and `in_edges`/`out_edges`; multi-edge classes key parallel edges through `new_edge_key`.
-- `backend`/`**backend_kwargs` is the dispatch-backend axis; the receipt records the backend and never forks parallel call sites per backend.
-
-[BACKEND_DISPATCH]:
-- Every algorithm decorated `@nx._dispatchable` accepts `*, backend=None, **backend_kwargs`; `backend='cugraph'|'graphblas'|'parallel'|...` selects an installed entry-point backend without changing the call site.
-- `nx.config` (a `NetworkXConfig`) owns process-global dispatch policy: `nx.config.backend_priority` (ordered fallback list), `nx.config.backends` (per-backend config namespaces), `nx.config.cache_converted_graphs`, `nx.config.fallback_to_nx`, `nx.config.warnings_to_ignore`.
-- Graph rails set dispatch policy once on `nx.config` at boundary scope and threads `backend=` only when one call must override the global priority; it never branches per-backend call sites.
-
-[ALGORITHM_RAIL]:
-- Algorithm failures raise typed `NetworkX*` exceptions on the `NetworkXException` base; the receipt captures the algorithm name with the typed failure, and the domain rail translates the raised exception at the boundary into the Result rail.
-- `shortest_path` discriminates `method='dijkstra'`/`'bellman-ford'` and source/target presence to return a single path, per-target dict, or all-pairs dict from one entry; `floyd_warshall` is the dense all-pairs alternative.
-- Community algorithms namespace under `nx.community` (alias of `networkx.algorithms.community`): `louvain_communities`/`greedy_modularity_communities`/`girvan_newman` partition, `modularity` scores a partition; partitions return `list[set]`/`list[frozenset]`/an iterator of nested community tuples.
+- Every `@nx._dispatchable` algorithm carries `*, backend=None, **backend_kwargs`; `backend=` selects an installed entry-point engine without changing the call site, and the receipt records the backend rather than forking parallel call sites per backend.
+- `shortest_path` discriminates `method=` and source/target presence to return one path, a per-target dict, or the all-pairs dict from a single entry; `floyd_warshall` is the dense all-pairs form.
 
 [STACKING]:
-- node-link JSON is the canonical wire form: `node_link_data(G)` emits `{nodes, edges, ...}` (the `edges='edges'` key is the settled 3.x default — `links` is the removed legacy spelling, never pin it) and `node_link_graph(data, directed=, multigraph=)` rebuilds, discriminating graph kind from the two positional flags rather than a per-kind reader; `adjacency`/`cytoscape`/`tree` JSON are sibling shapes for the same round-trip.
-- Tabular egress flows through `to_pandas_edgelist`/`to_pandas_adjacency`; columnar reframing into Arrow or Polars belongs to the columnar rail. `to_scipy_sparse_array`/`adjacency_matrix` hand the graph to the sparse-LA rail (`scipy.sparse`) for spectral/algebraic work, and `to_numpy_array` to the dense numeric rail.
-- A `node_link_data` payload serializes through the `msgspec`/JSON codec rail as the canonical persisted graph document, keyed by the same content-identity discipline as other data payloads; the graph is never re-parsed from an ad-hoc edge schema.
+- `msgspec`(`.api/msgspec.md`): `node_link_data(G)` emits `{nodes, edges, ...}` as the canonical persisted graph document through the JSON/msgpack codec, content-keyed like every other payload; `node_link_graph(data, directed=, multigraph=)` rebuilds it, discriminating kind from the two flags rather than a per-kind reader. `adjacency`/`cytoscape`/`tree` JSON are sibling round-trip shapes.
+- `numpy`(`.api/numpy.md`): `to_numpy_array` / `from_numpy_array` cross the dense numeric rail; `to_scipy_sparse_array` / `adjacency_matrix` hand the graph to the `scipy.sparse` rail for spectral and algebraic work.
+- columnar rail: `to_pandas_edgelist` / `to_pandas_adjacency` are the tabular egress; reframing into Arrow or Polars belongs to the columnar owner, and the graph is never re-parsed from an ad-hoc edge schema.
+
+[LOCAL_ADMISSION]:
+- `nx.config` (a `NetworkXConfig`) owns process-global dispatch policy — `backend_priority`, `backends`, `cache_converted_graphs`, `fallback_to_nx`, `warnings_to_ignore`; the graph rail sets it once at boundary scope and threads `backend=` only to override the global priority for one call.
+- Algorithm failures raise typed `NetworkX*` exceptions on the `NetworkXException` base; the domain rail translates the raised exception at the boundary into the Result rail, and the receipt captures the algorithm name with the typed failure.
+- Community algorithms namespace under `nx.community`: `louvain_communities`/`greedy_modularity_communities`/`girvan_newman` partition, `modularity` scores a partition, returning `list[set]`/`list[frozenset]`/a nested-tuple iterator.
 
 [RAIL_LAW]:
 - Package: `networkx`
-- Owns: graph payload classes, conversion bridges, file-format/JSON codecs, algorithm families, the `nx.community` detection namespace, and the `nx.config` backend-dispatch layer
-- Accept: graph kind discrimination via `create_using` and `node_link_graph(directed=, multigraph=)`; tabular/array/dict/sparse bridges; file and JSON codecs; algorithm receipts on the typed exception base; backend selection via `backend=`/`nx.config.backend_priority`
-- Reject: wrapper-renames, per-graph-kind parallel entrypoints, per-backend forked call sites, weaker local reimplementation of supplied algorithms, pinning the removed `edges='links'` node-link key, and product graph-database or route-discovery state
+- Owns: graph payload classes, conversion bridges, file-format and JSON codecs, algorithm families, the `nx.community` detection namespace, and the `nx.config` backend-dispatch layer
+- Accept: graph-kind discrimination via `create_using` and `node_link_graph(directed=, multigraph=)`; tabular/array/dict/sparse bridges; file and JSON codecs; algorithm receipts on the typed exception base; backend selection via `backend=` / `nx.config.backend_priority`
+- Reject: wrapper-renames, per-graph-kind parallel entrypoints, per-backend forked call sites, weaker local reimplementation of supplied algorithms, and product graph-database or route-discovery state

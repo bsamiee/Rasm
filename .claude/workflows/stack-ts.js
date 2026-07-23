@@ -31,8 +31,6 @@ export const meta = {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CAP = 14;
-const STAGGER_MS = 1500;
-const STALL = 300000;
 const ROOT = 'docs/stacks/typescript';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -462,20 +460,13 @@ const DOCTRINE = [
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-// The single scheduler for every agent-bearing task in the run: CAP tasks in flight, staggered launch.
+// The single scheduler for every agent-bearing task in the run: CAP tasks in flight.
 const pool = async (items, cap, worker) => {
     const out = new Array(items.length);
     let next = 0;
-    let gate = Promise.resolve();
-    const launch = () => {
-        gate = gate.then(() => sleep(STAGGER_MS));
-        return gate;
-    };
     const run = async () => {
         while (next < items.length) {
             const i = next++;
-            await launch();
             out[i] = await worker(items[i], i);
         }
     };
@@ -672,7 +663,7 @@ const inv = await agent(
         'verdict: `map` = composed capability + underutilized capability with CONCRETE members (verified against the .api catalogs/node_modules only — ' +
         'never list a phantom) + contextual seams to sibling pages + stacking guidance — facts only, never a weak/strong assessment. The map is an ' +
         'initial pointer, never a ceiling — downstream stages re-read and exceed it; it never licenses a skim. Use fd/find/read; do not cd; do not edit.',
-    { label: 'inventory', phase: 'Inventory', schema: INVENTORY_SCHEMA, model: 'opus', effort: 'high', stallMs: STALL },
+    { label: 'inventory', phase: 'Inventory', schema: INVENTORY_SCHEMA, model: 'opus', effort: 'high' },
 );
 const invFiles = ((inv && inv.files) || []).filter((f) => f && f.path && f.path.indexOf('/.reports/') < 0).sort((a, b) => a.order - b.order);
 log('Inventory: ' + invFiles.length + ' TS doctrine pages under ' + ROOT + '; CAP=' + CAP);
@@ -697,7 +688,7 @@ const arch = await agent(
             '/. Return the FINAL ordered file set {path, order, charter, isNew}, renames, rationale.\nINVENTORY:\n' +
             JSON.stringify(gateRows),
     ].join('\n'),
-    { label: 'gate', phase: 'Gate', schema: GATE_SCHEMA, effort: 'high', stallMs: STALL },
+    { label: 'gate', phase: 'Gate', schema: GATE_SCHEMA, effort: 'high' },
 );
 const archFiles = ((arch && arch.files) || []).filter((f) => f && f.path).sort((a, b) => a.order - b.order);
 const charters = new Map(archFiles.map((f) => [f.path, f.charter]));
@@ -722,7 +713,6 @@ const results = (
             phase: 'Harden',
             schema: FIXLOG_SCHEMA,
             effort: 'high',
-            stallMs: STALL,
         });
         if (!init) return { page, failed: true, logs: [] }; // failure isolation: a dead initial skips its file's reviews; the run continues
         const crit = await agent(critiquePrompt(page, ordered, charters.get(page)), {
@@ -730,14 +720,12 @@ const results = (
             phase: 'Harden',
             schema: FIXLOG_SCHEMA,
             effort: 'high',
-            stallMs: STALL,
         });
         const rt = await agent(redteamPrompt(page, ordered, charters.get(page)), {
             label: 'redteam:' + nameOf(page),
             phase: 'Harden',
             schema: FIXLOG_SCHEMA,
             effort: 'high',
-            stallMs: STALL,
         });
         return { page, failed: false, logs: [init, crit, rt].filter(Boolean) };
     })
@@ -769,7 +757,6 @@ const corpus = await agent(corpusPrompt(ordered, RESIDUALS, FAILED), {
     model: 'fable',
     effort: 'high',
     schema: CORPUS_SCHEMA,
-    stallMs: STALL,
 });
 
 // DOCTRINE LANDER: the run's durable-learning terminal — pooled harvest from every per-file stage + the corpus sweep,
@@ -792,7 +779,7 @@ const doctrine = HARVEST_ROWS.length
               'whose coupling no longer holds, land a coupling this run proved.\n' +
               'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
               'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.',
-          { label: 'doctrine', phase: 'Doctrine', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
+          { label: 'doctrine', phase: 'Doctrine', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA },
       )
     : null;
 

@@ -1,71 +1,77 @@
 # [PY_DATA_API_SHAPELY]
 
-`shapely` supplies GEOS-backed planar geometry for the data geospatial rail: the immutable `Geometry` hierarchy plus a NumPy-vectorized top-level function namespace (every predicate/measurement/set/constructive op is a broadcasting ufunc over scalar geometries or geometry arrays), `STRtree` bulk spatial indexing with a predicate-filtered `query`, `prepare` for repeated-predicate acceleration, and `from_ragged_array`/`to_ragged_array` as the zero-copy GeoArrow bridge. The data geospatial owner drives the array form (never a Python loop over instance `.intersects`/`.buffer`), runs `STRtree.query(geom, predicate=...)` for spatial joins, prepares the static side before a predicate sweep, and pushes/pulls flat coord-plus-offset arrays through the ragged-array seam into the `pyarrow`/`geopandas`/`polars-st` siblings.
+`shapely` owns GEOS-backed planar geometry for the data geospatial rail: an immutable `Geometry` hierarchy and a NumPy-vectorized top-level namespace where every predicate, measurement, set, and constructive op is a broadcasting ufunc over scalar geometries or geometry arrays. `STRtree` bulk-indexes with a predicate-filtered `query`, `prepare` accelerates repeated predicates, and `from_ragged_array`/`to_ragged_array` are the zero-copy GeoArrow bridge into the `pyarrow`/`geopandas`/`polars-st` siblings.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `shapely`
-- package: `shapely`
-- version: `2.1.2`
-- license: BSD-3-Clause (permissive); the bundled GEOS C++ core (`libgeos`) is LGPL-2.1 — dynamic linkage keeps the LGPL obligation at the shared-library boundary, safe for a host-distributed plugin
+- package: `shapely` (BSD-3-Clause; bundled GEOS LGPL-2.1, dynamic-linked at the shared-library boundary)
 - module: `import shapely`
 - owner: `data`
 - rail: geospatial
-- asset: native C extension over the GEOS C API; built source-side against the Parametric_Forge GEOS toolchain. `shapely.geos_version` reports the linked GEOS version (`(3, 13, 1)` on the current build); GEOS-version-gated ops (`coverage_simplify`, `constrained_delaunay_triangles`, `maximum_inscribed_circle`) require a recent core
-- entry points: import-only; no console script
-- capability: immutable planar geometry construction; NumPy-vectorized binary/unary predicates, set and constructive operations, and measurement as broadcasting ufuncs; linear referencing; coverage (non-overlapping union) operations; WKT/WKB/GeoJSON and zero-copy ragged-array (GeoArrow) interchange; `STRtree` packed Sorted-Tile-Recursive index with predicate-filtered bulk query and nearest-neighbor query; `prepare`/`destroy_prepared` cached predicate acceleration; the `shapely.affinity` matrix-transform family; and the legacy `shapely.ops` collection-operator module (`split`, `substring`, `nearest_points`, `polylabel`, `triangulate`, `voronoi_diagram`, `linemerge`, `unary_union`, `snap`, `clip_by_rect`)
+- asset: native GEOS C-API extension built against the Parametric_Forge GEOS toolchain; `shapely.geos_version` reports the linked core
 
-## [02]-[CAPTURE]
+## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPES]:
-- `shapely.Geometry` — abstract immutable base; instance properties `area`, `length`, `bounds`, `centroid`, `geom_type`, `is_empty`, `is_valid`, `has_z`, `has_m`, `coords`, `xy`, `wkt`, `wkb`, `wkb_hex`.
-- `shapely.Point`, `shapely.LineString`, `shapely.LinearRing`, `shapely.Polygon` — single geometries; `Point` adds `x`, `y`, `z`, `m`; `Polygon` exposes `exterior`/`interiors`.
-- `shapely.MultiPoint`, `shapely.MultiLineString`, `shapely.MultiPolygon`, `shapely.GeometryCollection` — collections; iterate via `geoms`.
-- `shapely.STRtree` — packed Sorted-Tile-Recursive index over a geometry array; `geometries` property plus bulk `query`/`query_nearest`/`nearest`.
-- `shapely.GeometryType` — `IntEnum` of type ids (`MISSING`, `POINT`, `LINESTRING`, `LINEARRING`, `POLYGON`, `MULTIPOINT`, `MULTILINESTRING`, `MULTIPOLYGON`, `GEOMETRYCOLLECTION`); pairs with the integer `get_type_id(g)`.
-- `shapely.BufferCapStyle` (`round`/`flat`/`square`) and `shapely.BufferJoinStyle` (`round`/`mitre`/`bevel`) — buffer styling enums; legacy aliases `shapely.geometry.CAP_STYLE`/`JOIN_STYLE`.
+[PUBLIC_TYPE_SCOPE]: immutable geometry hierarchy, spatial index, and styling enums
 
-[ENTRYPOINTS]:
-- vectorized creation: `points(...)`, `linestrings(...)`, `linearrings(...)`, `polygons(geometries, holes=None)`, `multipoints(...)`, `multilinestrings(...)`, `multipolygons(...)`, `geometrycollections(...)`, `box(xmin, ymin, xmax, ymax, ccw=True)`, `empty(geom_type)`.
-- binary predicates: `intersects(a, b)`, `contains(a, b)`, `contains_properly(a, b)`, `within(a, b)`, `covers(a, b)`, `covered_by(a, b)`, `crosses(a, b)`, `overlaps(a, b)`, `touches(a, b)`, `disjoint(a, b)`, `equals(a, b)`, `equals_exact(a, b, tolerance, normalize=False)`, `equals_identical(a, b)` (exact structural/coordinate equality incl. z/m), `dwithin(a, b, distance)`, `relate(a, b)`, `relate_pattern(a, b, pattern)`, `contains_xy(geom, x, y)`, `intersects_xy(geom, x, y)`.
-- unary predicates: `is_valid(g)`, `is_valid_reason(g)`, `is_empty(g)`, `is_simple(g)`, `is_ring(g)`, `is_closed(g)`, `is_ccw(g)`, `has_z(g)`, `has_m(g)`, `is_geometry(g)`, `is_missing(g)`, `is_valid_input(g)`, `is_prepared(g)`.
-- set operations: `intersection(a, b, grid_size=None)`, `union(a, b, grid_size=None)`, `union_all(geometries, grid_size=None, axis=None)`, `unary_union(geometries, grid_size=None)`, `difference(a, b, grid_size=None)`, `symmetric_difference(a, b, grid_size=None)`, `symmetric_difference_all(geometries, grid_size=None)`, `intersection_all(geometries)`, `coverage_union(a, b)`, `coverage_union_all(geometries)`, `disjoint_subset_union(a, b)`, `disjoint_subset_union_all(geometries)`, `clip_by_rect(g, xmin, ymin, xmax, ymax)`.
-- constructive: `buffer(g, distance, quad_segs=8, cap_style='round', join_style='round', mitre_limit=5.0, single_sided=False)`, `offset_curve(g, distance, quad_segs=8, join_style='round', mitre_limit=5.0)`, `convex_hull(g)`, `concave_hull(g, ratio=0.0, allow_holes=False)`, `envelope(g)`, `oriented_envelope(g)`, `minimum_rotated_rectangle(g)`, `boundary(g)`, `centroid(g)`, `point_on_surface(g)`, `maximum_inscribed_circle(g, tolerance=None)`, `minimum_bounding_circle(g)`, `simplify(g, tolerance, preserve_topology=True)`, `make_valid(g, *, method='linework', keep_collapsed=True)`, `normalize(g)`, `orient_polygons(g, exterior_cw=False)`, `reverse(g)`, `segmentize(g, max_segment_length)`, `delaunay_triangles(g, tolerance=0.0, only_edges=False)`, `constrained_delaunay_triangles(g)`, `voronoi_polygons(g, tolerance=0.0, extend_to=None, only_edges=False, ordered=False)`, `polygonize(geometries)`, `polygonize_full(geometries)`, `build_area(g)`, `node(g)`, `snap(g, reference, tolerance)`, `set_precision(g, grid_size, mode='valid_output')`, `coverage_simplify(g, tolerance, *, simplify_boundary=True)`, `coverage_is_valid(g, gap_width=0.0)`, `coverage_invalid_edges(g, gap_width=0.0)`, `force_2d(g)`, `force_3d(g, z=0.0)`, `remove_repeated_points(g, tolerance=0.0)`, `extract_unique_points(g)`.
-- measurement: `area(g)`, `length(g)`, `distance(a, b)`, `bounds(g)`, `total_bounds(geometries)`, `hausdorff_distance(a, b, densify=None)`, `frechet_distance(a, b, densify=None)`, `minimum_clearance(g)`, `minimum_clearance_line(g)`, `minimum_bounding_radius(g)`, `shortest_line(a, b)`.
-- linear referencing: `line_interpolate_point(line, distance, normalized=False)`, `line_locate_point(line, point, normalized=False)`, `line_merge(g, directed=False)`, `shared_paths(a, b)`.
-- coordinate access: `get_coordinates(g, include_z=False, include_m=False, return_index=False)`, `set_coordinates(g, coords)`, `count_coordinates(g)`, `get_num_coordinates(g)`, `transform(g, transformation, include_z=False, *, interleaved=True)`, `get_x(g)`, `get_y(g)`, `get_z(g)`, `get_m(g)`, `get_parts(g, return_index=False)`, `get_rings(g, return_index=False)`, `get_num_geometries(g)`, `get_geometry(g, index)`, `get_exterior_ring(g)`, `get_interior_ring(g, index)`, `get_num_interior_rings(g)`, `get_point(g, index)`, `get_num_points(g)`, `get_dimensions(g)`, `get_coordinate_dimension(g)`, `get_precision(g)`, `get_srid(g)`, `set_srid(g, srid)`.
-- interchange: `from_wkt(s)`, `to_wkt(g, rounding_precision=6, trim=True, output_dimension=None, old_3d=False)`, `from_wkb(b)`, `to_wkb(g, hex=False, output_dimension=None, byte_order=-1, include_srid=False, flavor='extended')`, `from_geojson(s)`, `to_geojson(g, indent=None)`, `from_ragged_array(geometry_type, coords, offsets=None)`, `to_ragged_array(geometries, include_z=None, include_m=None)`.
-- prepared geometry: `prepare(g)`, `destroy_prepared(g)`, `is_prepared(g)`.
-- STRtree: `STRtree(geoms, node_capacity=10)`; `tree.geometries`; `tree.query(geometry, predicate=None, distance=None)` -> integer indices (or `(input_idx, tree_idx)` pairs for an array input); `tree.query_nearest(geometry, max_distance=None, return_distance=False, exclusive=False, all_matches=True)`; `tree.nearest(geometry)`. The `predicate` vocabulary is `None`, `'intersects'`, `'within'`, `'contains'`, `'overlaps'`, `'crosses'`, `'touches'`, `'covers'`, `'covered_by'`, `'contains_properly'`, `'dwithin'` (with `distance`).
-- affinity (`shapely.affinity`, single-geometry matrix transforms): `affine_transform(g, matrix)`, `rotate(g, angle, origin='center', use_radians=False)`, `scale(g, xfact=1.0, yfact=1.0, zfact=1.0, origin='center')`, `skew(g, xs=0.0, ys=0.0, origin='center', use_radians=False)`, `translate(g, xoff=0.0, yoff=0.0, zoff=0.0)`.
-- legacy collection ops (`shapely.ops`): `split(geom, splitter)`, `substring(geom, start_dist, end_dist, normalized=False)`, `nearest_points(g1, g2)` -> 2-tuple of `Point`, `polylabel(polygon, tolerance=1.0)` -> pole-of-inaccessibility `Point`, `triangulate(geom, tolerance=0.0, edges=False)`, `voronoi_diagram(geom, envelope=None, tolerance=0.0, edges=False)`, `linemerge(lines, directed=False)`, `unary_union(geoms)`, `snap(g1, g2, tolerance)`, `shared_paths(g1, g2)`, `clip_by_rect(geom, xmin, ymin, xmax, ymax)`, `transform(func, geom)`, `prep(geom)` -> `PreparedGeometry`, `orient(polygon, sign=1.0)`.
+| [INDEX] | [SYMBOL]                                                           | [TYPE_FAMILY] | [CAPABILITY]               |
+| :-----: | :----------------------------------------------------------------- | :------------ | :------------------------- |
+|  [01]   | `Geometry`                                                         | abstract base | immutable geometry base    |
+|  [02]   | `Point` `LineString` `LinearRing` `Polygon`                        | single        | single geometries          |
+|  [03]   | `MultiPoint` `MultiLineString` `MultiPolygon` `GeometryCollection` | collection    | multipart; iterate `geoms` |
+|  [04]   | `STRtree`                                                          | spatial index | packed STR index           |
+|  [05]   | `GeometryType`                                                     | enum          | type-id `IntEnum`          |
+|  [06]   | `BufferCapStyle` `BufferJoinStyle`                                 | enum          | buffer styling enums       |
 
-[EXCEPTIONS]:
-- `shapely.GEOSException` — GEOS-level geometry operation failure (also `shapely.errors.GEOSException`).
-- `shapely.errors.ShapelyError` — base error type.
-- `shapely.errors.GeometryTypeError` — operation applied to an incompatible geometry type.
-- `shapely.errors.DimensionError` — coordinate dimension mismatch.
-- `shapely.errors.TopologicalError` — invalid topology during an operation.
+- `Geometry` exposes `area` `length` `bounds` `centroid` `is_empty` `is_valid` `has_z` `has_m` `coords` `xy` `wkt` `wkb` `geom_type`; `Point` adds `x`/`y`/`z`/`m`, `Polygon` exposes `exterior`/`interiors`.
+- `BufferCapStyle` is `round`/`flat`/`square`, `BufferJoinStyle` `round`/`mitre`/`bevel`; `GeometryType` pairs with the integer `get_type_id(g)`.
 
-[IMPLEMENTATION_LAW]:
-- Geometries are immutable; constructive operations return new geometries rather than mutating in place. The top-level functions are NumPy-vectorized GEOS ufuncs accepting scalar geometries or geometry arrays and broadcasting elementwise — drive the vectorized array form, never a Python loop over `.intersects`/`.buffer` instance methods.
-- `prepare(g)` builds a cached spatial index inside the geometry, accelerating repeated predicate calls against many candidates; prepare the static side before a predicate sweep. `shapely.ops.prep(g)` returns the legacy `PreparedGeometry` wrapper for the same effect.
-- `STRtree.query` returns integer indices into the input geometry array (a `(2, n)` array of `(input_index, tree_index)` pairs when the query input is itself an array), never geometries; pass `predicate=...` to collapse the bbox-hit + topological-refine into one call. `query_nearest` with `return_distance=True` yields the index/distance pair; `exclusive=True` drops self-matches in a self-join.
-- `union_all`/`coverage_union_all` dissolve a geometry set in one GEOS call; `coverage_union_all` requires non-overlapping (coverage) input and is faster than general `union_all`. `coverage_is_valid`/`coverage_invalid_edges` validate the coverage precondition before the fast path.
-- Floating-point robustness uses `set_precision(g, grid_size)`; snapping to a grid before set operations avoids sliver and noding failures. `make_valid` repairs invalid input (`method='linework'` or `'structure'`).
-- `from_ragged_array`/`to_ragged_array` are the zero-copy bridge to flat coordinate-plus-offset arrays for Arrow/GeoArrow interoperability; `transform(g, fn, interleaved=...)` applies an arbitrary coordinate function across a geometry, and `affinity` applies explicit transform matrices to single geometries.
-- The `shapely.ops` legacy module owns the collection operators with no vectorized top-level mirror: `split`/`substring` (linear-referencing cuts), `nearest_points`/`polylabel` (point extraction), `triangulate`/`voronoi_diagram` (tessellation returning lists). Route these through `ops`; route everything with a top-level vectorized form through the top-level namespace.
+[ERRORS]: `GEOSException` (GEOS op failure) `ShapelyError` (base) `GeometryTypeError` `DimensionError` `TopologicalError` — under `shapely.errors`, `GEOSException` re-exported top-level.
 
-[SIBLING_STACK]:
-- `geopandas` (sibling catalog) wraps shapely geometries as a `GeoSeries` column; the `from_ragged_array`/`to_ragged_array` bridge is the zero-copy seam into `pyarrow`/`polars-st` GeoArrow columns — never round-trip through WKB where the ragged array applies.
-- `pyproj` (sibling) owns CRS reprojection; feed its `Transformer.transform` to `shapely.transform(g, fn)` for a coordinate reprojection, keeping shapely planar-only and pyproj geodetic. shapely's `get_srid`/`set_srid` carry the SRID tag but do no reprojection.
-- `STRtree.query(geom, predicate='intersects')` is the spatial-join primitive that `geopandas.sjoin` builds on; the data geospatial owner uses the predicate-filtered query directly for an index-keyed join into the data feature table, and `h3ronpy`/`xarray-spatial` consume the resulting geometries for cell indexing and raster ops.
-- GeoParquet/GeoArrow output: `to_ragged_array` feeds the `pyarrow`/`stac-geoparquet` GeoParquet writers; geometry arrays serialize as GeoArrow native, not per-row WKB.
+## [03]-[ENTRYPOINTS]
 
-## [03]-[LOCAL_ADMISSION]
+[ENTRYPOINT_SCOPE]: top-level GEOS ufuncs, `STRtree` indexing, prepared geometry, and WKT/WKB/GeoJSON/ragged-array interchange
+
+[VECTORIZED_OPS]: GEOS ufuncs broadcasting over scalar geometries or geometry arrays, returning new immutable geometries or aligned arrays
+- creation: `points` `linestrings` `linearrings` `polygons` `multipoints` `multilinestrings` `multipolygons` `geometrycollections` `box(xmin,ymin,xmax,ymax,ccw)` `empty(geom_type)`
+- binary predicates: `intersects` `contains` `contains_properly` `within` `covers` `covered_by` `crosses` `overlaps` `touches` `disjoint` `equals` `equals_exact(a,b,tolerance,normalize)` `equals_identical` `dwithin(a,b,distance)` `relate` `relate_pattern(a,b,pattern)` `contains_xy(g,x,y)` `intersects_xy(g,x,y)`
+- unary predicates: `is_valid` `is_valid_reason` `is_empty` `is_simple` `is_ring` `is_closed` `is_ccw` `has_z` `has_m` `is_geometry` `is_missing` `is_valid_input`
+- set operations (each carries `grid_size`): `intersection` `union` `union_all(geometries,grid_size,axis)` `difference` `symmetric_difference` `symmetric_difference_all` `intersection_all` `coverage_union` `coverage_union_all` `disjoint_subset_union` `disjoint_subset_union_all` `clip_by_rect`
+- constructive: `buffer(g,distance,quad_segs,cap_style,join_style,mitre_limit,single_sided)` `offset_curve` `convex_hull` `concave_hull(g,ratio,allow_holes)` `envelope` `oriented_envelope` `minimum_rotated_rectangle` `boundary` `centroid` `point_on_surface` `maximum_inscribed_circle` `minimum_bounding_circle` `simplify(g,tolerance,preserve_topology)` `make_valid(g,*,method,keep_collapsed)` `normalize` `orient_polygons` `reverse` `segmentize(g,max_segment_length)` `delaunay_triangles` `constrained_delaunay_triangles` `voronoi_polygons` `polygonize` `polygonize_full` `build_area` `node` `snap(g,reference,tolerance)` `set_precision(g,grid_size,mode)` `coverage_simplify` `coverage_is_valid` `coverage_invalid_edges` `force_2d` `force_3d` `remove_repeated_points` `extract_unique_points`
+- measurement: `area` `length` `distance` `bounds` `total_bounds` `hausdorff_distance(a,b,densify)` `frechet_distance(a,b,densify)` `minimum_clearance` `minimum_clearance_line` `minimum_bounding_radius` `shortest_line`
+- linear referencing: `line_interpolate_point(line,distance,normalized)` `line_locate_point(line,point,normalized)` `line_merge(g,directed)` `shared_paths`
+- coordinate access: `get_coordinates(g,include_z,include_m,return_index)` `set_coordinates` `count_coordinates` `transform(g,transformation,*,interleaved)` `get_x` `get_y` `get_z` `get_m` `get_parts` `get_rings` `get_num_geometries` `get_geometry` `get_exterior_ring` `get_interior_ring` `get_num_interior_rings` `get_point` `get_num_points` `get_dimensions` `get_coordinate_dimension` `get_precision` `get_srid` `set_srid`
+- STRtree: `STRtree(geoms,node_capacity)` `tree.query(geom,predicate,distance)` `tree.query_nearest(geom,max_distance,return_distance,exclusive,all_matches)` `tree.nearest(geom)` `tree.geometries` — predicate vocab `intersects`/`within`/`contains`/`overlaps`/`crosses`/`touches`/`covers`/`covered_by`/`contains_properly`/`dwithin`
+- prepared geometry: `prepare(g)` `destroy_prepared(g)` `is_prepared(g)`
+- interchange: `from_wkt` `to_wkt(g,rounding_precision,trim,output_dimension)` `from_wkb` `to_wkb(g,hex,output_dimension,byte_order,include_srid,flavor)` `from_geojson` `to_geojson(g,indent)` `from_ragged_array(geometry_type,coords,offsets)` `to_ragged_array(geometries,*,include_z,include_m)`
+
+[MATRIX_TRANSFORMS] (`shapely.affinity`, single-geometry): `affine_transform(g,matrix)` `rotate(g,angle,origin,use_radians)` `scale(g,xfact,yfact,zfact,origin)` `skew(g,xs,ys,origin,use_radians)` `translate(g,xoff,yoff,zoff)`
+
+[COLLECTION_OPS] (`shapely.ops`, no top-level vectorized mirror): `split(geom,splitter)` `substring(geom,start_dist,end_dist,normalized)` `nearest_points` `polylabel(polygon,tolerance)` `triangulate(geom,tolerance,edges)` `voronoi_diagram(geom,envelope,tolerance,edges)` `linemerge(lines,directed)` `unary_union` `snap` `shared_paths` `clip_by_rect` `transform(func,geom)` `prep` `orient(polygon,sign)`
+
+## [04]-[IMPLEMENTATION_LAW]
+
+[TOPOLOGY]:
+- Geometries are immutable; constructive ops return new geometries. Top-level functions broadcast over scalar geometries or geometry arrays — drive the array form, never a Python loop over instance `.intersects`/`.buffer`.
+- `prepare(g)` builds a cached in-geometry index accelerating repeated predicates against many candidates; prepare the static side before a predicate sweep. `shapely.ops.prep(g)` returns the same effect as a `PreparedGeometry` wrapper.
+- `STRtree.query` returns integer indices into the input array (a `(2,n)` array of `(input,tree)` pairs for an array input), never geometries; `predicate=` collapses the bbox hit and topological refine into one call, and `query_nearest(exclusive=True)` drops self-matches in a self-join.
+- `coverage_union_all` dissolves a non-overlapping (coverage) set in one GEOS call, faster than general `union_all`; `coverage_is_valid`/`coverage_invalid_edges` gate the precondition.
+- `set_precision(g, grid_size)` grid-snaps before set operations to avoid sliver and noding failures; `make_valid` repairs invalid input.
+- `shapely.ops` owns the collection operators with no top-level vectorized mirror — route those through `ops`, everything with a vectorized form through the top-level namespace.
+
+[STACKING]:
+- `geopandas`(`.api/geopandas.md`): a `GeoSeries` wraps a shapely `GeometryArray`; `.values` exposes the raw array for a direct top-level call and `STRtree` backs `.sindex` — never a per-row shapely import.
+- `pyproj`(`.api/pyproj.md`): geometry is CRS-free; feed a `Transformer.transform` to `shapely.transform(g, fn)` for coordinate reprojection, and `get_srid`/`set_srid` tag the SRID without reprojecting.
+- `pyarrow`(`.api/pyarrow.md`): `to_ragged_array` emits GeoArrow-native coord-plus-offset arrays feeding the `pyarrow`/`stac-geoparquet`(`.api/stac-geoparquet.md`) GeoParquet writers — never a per-row WKB round-trip.
+- `h3ronpy`(`.api/h3ronpy.md`): `to_wkb` and coordinate arrays feed `wkb_to_cells`/`coordinates_to_cells` for DGGS indexing; `xarray-spatial`(`.api/xarray-spatial.md`) consumes the geometries for raster ops.
+- within-lib: the data geospatial owner drives the vectorized array form and runs `STRtree.query(geom, predicate=...)` as the spatial-join primitive directly into the feature table.
+
+[LOCAL_ADMISSION]:
+- Admit `shapely` as the planar-geometry and GEOS-ufunc owner on the data geospatial rail, composing the vectorized array form and `STRtree` rather than looping instance predicate methods.
 
 [RAIL_LAW]:
 - Package: `shapely`
-- Owns: immutable planar geometry construction; NumPy-vectorized predicates, set/constructive operations, and measurement; linear referencing; coverage operations; `STRtree` predicate-filtered bulk indexing; `prepare` predicate acceleration; WKT/WKB/GeoJSON/ragged-array (GeoArrow) interchange; affine transforms; the `shapely.ops` collection operators
-- Accept: vectorized top-level functions over geometry arrays; `prepare` before repeated predicates; `STRtree.query` with a `predicate` for spatial joins and `query_nearest` for nearest joins; `set_precision`/`make_valid` for robust set operations; `coverage_union_all` (with `coverage_is_valid` guard) for non-overlapping dissolves; `from_ragged_array`/`to_ragged_array` for Arrow/GeoArrow interchange; `shapely.ops.{split, substring, nearest_points, polylabel, triangulate, voronoi_diagram}` for the collection-operator family; `shapely.transform` fed by a `pyproj` transformer for reprojection
-- Reject: Python loops over instance predicate methods where the vectorized form applies; hand-rolled point-in-polygon, distance, or pole-of-inaccessibility math; mutable-geometry assumptions; bbox-only spatial joins that skip the topological `predicate`; per-row WKB round-trips where the ragged-array GeoArrow seam applies; re-implementing CRS reprojection that `pyproj` owns
+- Owns: immutable planar geometry construction; NumPy-vectorized predicates, set/constructive ops, and measurement; linear referencing; coverage operations; `STRtree` predicate-filtered bulk indexing; `prepare` acceleration; WKT/WKB/GeoJSON/ragged-array interchange; affine transforms; the `shapely.ops` collection operators
+- Accept: vectorized top-level functions over geometry arrays; `prepare` before repeated predicates; `STRtree.query(predicate=...)` for spatial joins and `query_nearest` for nearest joins; `set_precision`/`make_valid` for robust set operations; `coverage_union_all` under a `coverage_is_valid` guard; `from_ragged_array`/`to_ragged_array` for Arrow/GeoArrow interchange; `shapely.transform` fed by a `pyproj` transformer for reprojection
+- Reject: Python loops over instance predicates where the vectorized form applies; hand-rolled point-in-polygon, distance, or pole-of-inaccessibility math; bbox-only joins skipping the topological `predicate`; per-row WKB round-trips where the ragged-array seam applies; re-implementing CRS reprojection that `pyproj` owns

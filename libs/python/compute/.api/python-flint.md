@@ -1,23 +1,20 @@
 # [PY_COMPUTE_API_PYTHON_FLINT]
 
-`python-flint` (module `flint`) wraps the FLINT and Arb C libraries, supplying exact integer/rational arithmetic (`fmpz`, `fmpq`), modular arithmetic (`nmod`, `fmpz_mod`, `fq_default`), multivariate polynomials, and arbitrary-precision ball arithmetic (`arb`, `acb`) with certified error bounds for the compute exact-arithmetic and special-function rail.
+`python-flint` (module `flint`) binds the FLINT and Arb C libraries into one exact-and-certified numeric rail: GMP-backed integer and rational arithmetic, word and multiprecision modular and finite-field algebra, univariate and multivariate polynomial factorization and linear algebra, and arbitrary-precision `arb`/`acb` ball arithmetic carrying certified error bounds across the full Arb special-function catalogue. Every ball result is its own error certificate, and exact types round only at the boundary. Feeds the compute exact-arithmetic and ball-arithmetic rails.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `python-flint`
-- package: `python-flint`
+- package: `python-flint` (MIT)
 - module: `flint`
 - owner: `compute`
-- asset: runtime library (Cython/C extension wrapping FLINT + Arb)
+- asset: Cython/C extension wrapping the FLINT and Arb libraries
 - rail: exact-arithmetic, ball-arithmetic
-- namespace: `flint` (all types/functions imported directly from `flint`; `flint.ctx` is the precision/threading singleton)
-- installed: `0.8.0`
-- capability: GMP-backed exact integer/rational arithmetic, word/multiprecision modular and finite-field arithmetic, univariate and multivariate polynomial algebra (factorization, GCD, resultant, root isolation), exact matrix linear algebra with HNF/SNF/LLL, certified real/complex ball arithmetic with the full Arb special-function catalogue (gamma/zeta/Bessel/hypergeometric/elliptic/modular), certified eigenvalues/solve/DFT on ball matrices, rigorous power-series arithmetic, and Dirichlet character/L-function evaluation
+- namespace: `flint`; every type imports directly, and `flint.ctx` is the precision/threading singleton
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: exact integer and rational types
-- rail: exact-arithmetic
 
 | [INDEX] | [SYMBOL]      | [TYPE_FAMILY]         | [CAPABILITY]                                     |
 | :-----: | :------------ | :-------------------- | :----------------------------------------------- |
@@ -33,7 +30,6 @@
 |  [10]   | `fmpq_vec`    | rational vector       | dense vector of `fmpq`                           |
 
 [PUBLIC_TYPE_SCOPE]: modular and finite-field types
-- rail: exact-arithmetic
 
 | [INDEX] | [SYMBOL]              | [TYPE_FAMILY]           | [CAPABILITY]                                                                   |
 | :-----: | :-------------------- | :---------------------- | :----------------------------------------------------------------------------- |
@@ -52,7 +48,6 @@
 |  [13]   | `fmpz_mod_poly_ctx`   | modular poly context    | polynomial-ring context bound to a `fmpz_mod_ctx`                              |
 
 [PUBLIC_TYPE_SCOPE]: multivariate polynomial types
-- rail: exact-arithmetic
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY]  | [CAPABILITY]                                                             |
 | :-----: | :------------------- | :------------- | :----------------------------------------------------------------------- |
@@ -71,7 +66,6 @@
 |  [13]   | `Ordering`           | monomial order | enum (`lex`/`deglex`/`degrevlex`) selecting the mpoly-context term order |
 
 [PUBLIC_TYPE_SCOPE]: ball arithmetic types
-- rail: ball-arithmetic
 
 | [INDEX] | [SYMBOL]     | [TYPE_FAMILY]             | [CAPABILITY]                                      |
 | :-----: | :----------- | :------------------------ | :------------------------------------------------ |
@@ -86,7 +80,6 @@
 |  [09]   | `arf`        | arbitrary-precision float | directed-rounding float mantissa/exponent         |
 
 [PUBLIC_TYPE_SCOPE]: analytic/number-theory types
-- rail: exact-arithmetic
 
 | [INDEX] | [SYMBOL]          | [TYPE_FAMILY]       | [CAPABILITY]                               |
 | :-----: | :---------------- | :------------------ | :----------------------------------------- |
@@ -96,7 +89,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `fmpz` exact integer operations
-- rail: exact-arithmetic
 
 | [INDEX] | [SURFACE]                                                                                     | [ENTRY_FAMILY] |
 | :-----: | :-------------------------------------------------------------------------------------------- | :------------- |
@@ -110,34 +102,18 @@
 |  [08]   | `rising(x, n)` / `stirling_s1(n, k)` / `stirling_s2(n, k)` / `bin_uiui(n, k)`                 | combinatorics  |
 |  [09]   | `is_perfect_power()` / `is_square()` / `sqrtmod(p)` / `sqrtrem()`                             | structure      |
 
-- [01]-[CONSTRUCTION]: from int or string.
-- [02]-[PREDICATE]: primality test.
-- [03]-[FACTORIZATION]: prime factorization.
-- [04]-[ARITHMETIC]: GCD and LCM.
-- [05]-[ROOTS]: exact and integer square roots.
-- [06]-[COMBINATORICS]: factorial, Fibonacci, Bell, partition count, primorial.
-- [07]-[number-theory]: Euler totient, Möbius, Jacobi, divisor sum, Euler number.
-- [08]-[COMBINATORICS]: rising factorial, Stirling numbers, binomial coefficient.
-- [09]-[STRUCTURE]: perfect-power/square tests, modular and remainder roots.
-
 [ENTRYPOINT_SCOPE]: `fmpq` exact rational analytic constants
-- rail: exact-arithmetic
-- `fmpq` exposes exact closed-form sequence values returned as exact rationals; these feed exact-coefficient solver kernels without float rounding.
+- `fmpq` returns exact closed-form sequence values that feed exact-coefficient solver kernels with no float rounding.
 
-| [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] |
-| :-----: | :------------------------------------------------------------------ | :------------- |
-|  [01]   | `fmpq.bernoulli(n)` / `fmpq.harmonic(n)`                            | sequences      |
-|  [02]   | `fmpq.dedekind_sum(h, k)`                                           | number theory  |
-|  [03]   | `numer()` / `denom()` / `floor()` / `ceil()` / `round()` / `next()` | access         |
-
-- [01]-[SEQUENCES]: exact Bernoulli and harmonic numbers.
-- [02]-[number-theory]: exact Dedekind sum.
-- [03]-[ACCESS]: exact numerator/denominator, rounding, Stern-Brocot successor.
+| [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [CAPABILITY]                             |
+| :-----: | :------------------------------------------------------------------ | :------------- | :--------------------------------------- |
+|  [01]   | `fmpq.bernoulli(n)` / `fmpq.harmonic(n)`                            | sequences      | exact Bernoulli and harmonic numbers     |
+|  [02]   | `fmpq.dedekind_sum(h, k)`                                           | number theory  | exact Dedekind sum                       |
+|  [03]   | `numer()` / `denom()` / `floor()` / `ceil()` / `round()` / `next()` | access         | numer/denom, rounding, Stern-Brocot next |
 
 [ENTRYPOINT_SCOPE]: `fmpz_mat` and `fmpq_mat` matrix operations
-- rail: exact-arithmetic
 
-| [INDEX] | [SURFACE]                                | [ENTRY_FAMILY] | [RAIL]                           |
+| [INDEX] | [SURFACE]                                | [ENTRY_FAMILY] | [CAPABILITY]                     |
 | :-----: | :--------------------------------------- | :------------- | :------------------------------- |
 |  [01]   | `det()` / `rank()` / `inv()`             | linear algebra | determinant, rank, inverse       |
 |  [02]   | `solve(b)` / `rref()` / `nullspace()`    | linear algebra | exact linear solve, RREF         |
@@ -147,28 +123,20 @@
 |  [06]   | `transpose()` / `entries()` / `tolist()` | access         | transpose and data extraction    |
 
 [ENTRYPOINT_SCOPE]: `fmpz_poly` and `fmpq_poly` polynomial operations
-- rail: exact-arithmetic
+- `degree()` returns `-1` for the zero polynomial.
 
-| [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] |
-| :-----: | :-------------------------------------------------------- | :------------- |
-|  [01]   | `factor()` / `factor_squarefree()`                        | factorization  |
-|  [02]   | `gcd(other)` / `resultant(other)`                         | algebra        |
-|  [03]   | `roots()` / `real_roots()` / `complex_roots()`            | root finding   |
-|  [04]   | `derivative()` / `integral()` (fmpq_poly)                 | calculus       |
-|  [05]   | `cyclotomic(n)` / `chebyshev_t(n)` / `swinnerton_dyer(n)` | named poly     |
-|  [06]   | `is_cyclotomic()` / `deflate()` / `inflate(n)`            | structure      |
-|  [07]   | `degree()`                                                | access         |
-
-- [01]-[FACTORIZATION]: polynomial factorization.
-- [02]-[ALGEBRA]: GCD and resultant.
-- [03]-[root-finding]: exact and numerical roots.
-- [04]-[CALCULUS]: formal derivative/integral.
-- [05]-[named-poly]: cyclotomic, Chebyshev, SD.
-- [06]-[STRUCTURE]: cyclotomic test and compression.
-- [07]-[ACCESS]: polynomial degree (highest-term exponent, `-1` for the zero poly); the degree the `fmpq_mat.charpoly()`/`minpoly()` result reports as the spectrum dimension.
+| [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] | [CAPABILITY]                           |
+| :-----: | :-------------------------------------------------------- | :------------- | :------------------------------------- |
+|  [01]   | `factor()` / `factor_squarefree()`                        | factorization  | full and squarefree factorization      |
+|  [02]   | `gcd(other)` / `resultant(other)`                         | algebra        | GCD, resultant                         |
+|  [03]   | `roots()` / `real_roots()` / `complex_roots()`            | root finding   | exact, real, and complex roots         |
+|  [04]   | `derivative()` / `integral()` (fmpq_poly)                 | calculus       | formal derivative and integral         |
+|  [05]   | `cyclotomic(n)` / `chebyshev_t(n)` / `swinnerton_dyer(n)` | named poly     | cyclotomic, Chebyshev, Swinnerton-Dyer |
+|  [06]   | `is_cyclotomic()` / `deflate()` / `inflate(n)`            | structure      | cyclotomic test, deflate/inflate       |
+|  [07]   | `degree()`                                                | access         | highest-term exponent                  |
 
 [ENTRYPOINT_SCOPE]: `arb` and `acb` ball arithmetic operations
-- rail: ball-arithmetic
+- `sinh_cosh()` fuses hyperbolic sine and cosine; `airy_ai_zero(n)` / `airy_bi_zero(n)` return the nth real Airy zeros.
 
 | [INDEX] | [SURFACE]                                                                                                         | [ENTRY_FAMILY]   |
 | :-----: | :---------------------------------------------------------------------------------------------------------------- | :--------------- |
@@ -197,27 +165,7 @@
 |  [23]   | `arb_mat.dct()`                                                                                                   | real-matrix      |
 |  [24]   | `acb_mat.eig()` / `acb_mat.solve(b)` / `acb_mat.exp()` / `acb_mat.dft()` / `acb_mat.theta()`                      | complex-matrix   |
 
-- [01]-[CONSTRUCTION]: midpoint or midpoint+radius ball.
-- [02]-[CONSTANTS]: certified mathematical constants (static methods on `arb`).
-- [03]-[ELEMENTARY]: certified elementary functions and fused `sin_cos`/`sinh_cosh`.
-- [05]-[special-gamma]: gamma family and incomplete gamma/beta with certified bounds.
-- [06]-[special-zeta]: Riemann/Hurwitz zeta, polylog, Lerch transcendent, Barnes G.
-- [07]-[special-error]: error functions, inverse error, Fresnel integrals.
-- [08]-[special-integral]: exponential/logarithmic/trig/hyperbolic integrals.
-- [09]-[special-bessel]: Bessel, Airy (with `airy_ai_zero`/`airy_bi_zero`), Coulomb wave.
-- [11]-[special-hypgeom]: confluent/Gauss/Tricomi hypergeometric.
-- [12]-[orthogonal-poly]: orthogonal-polynomial evaluation at a ball argument.
-- [14]-[special-misc]: Lambert W, arithmetic-geometric mean, sinc.
-- [15]-[ball-ops]: containment, hull, intersection, ball metadata, accuracy bits.
-- [17]-[complex-ops]: complex ball construction, parts, argument, sign.
-- [18]-[ELLIPTIC]: complete/incomplete elliptic integrals and Weierstrass functions.
-- [20]-[MODULAR]: modular forms and Jacobi theta on the complex ball.
-- [21]-[ANALYTIC]: Dirichlet L-function, individual and batched Riemann zeta zeros.
-- [22]-[real-matrix]: certified solve, inverse, eigenvalues, matrix exponential, DCT.
-- [24]-[complex-matrix]: certified complex eigenvalues, matrix DFT, Riemann theta on a matrix.
-
 [ENTRYPOINT_SCOPE]: context and precision control
-- rail: ball-arithmetic
 
 | [INDEX] | [SURFACE]                                                                                             | [ENTRY_FAMILY] |
 | :-----: | :---------------------------------------------------------------------------------------------------- | :------------- |
@@ -230,18 +178,8 @@
 |  [07]   | `flint.ctx.extraprec(n)` / `flint.ctx.extradps(n)` / `flint.ctx.workprec(n)` / `flint.ctx.workdps(n)` | precision      |
 |  [08]   | `flint.ctx.default()` / `flint.ctx.cleanup()`                                                         | lifecycle      |
 
-- [01]-[PRECISION]: working bit-precision.
-- [02]-[PRECISION]: decimal digits of precision.
-- [03]-[THREADING]: FLINT thread count.
-- [04]-[DISPLAY]: human-readable output mode.
-- [05]-[DISPLAY]: Unicode glyphs in `str()` output.
-- [06]-[SERIES]: default truncation order (`prec`) for power-series types.
-- [07]-[PRECISION]: context-manager scopes that bump bit/decimal precision for a block.
-- [08]-[LIFECYCLE]: reset to defaults / FLINT thread-local cleanup.
-
 [ENTRYPOINT_SCOPE]: power-series (truncated analytic) operations
-- rail: ball-arithmetic
-- `arb_series` / `acb_series` carry the same special-function catalogue as the scalar ball types but evaluated as truncated power series at precision `ctx.cap`; `fmpz_series`/`fmpq_series`/`nmod_series` are the exact/modular truncated series. These own rigorous series composition, reversion, and root finding that a hand-rolled Taylor truncation cannot certify.
+- `arb_series`/`acb_series` carry the scalar ball special-function catalogue evaluated as truncated power series at `ctx.cap`; `fmpz_series`/`fmpq_series`/`nmod_series` are the exact and modular truncated series. These own certified series composition, reversion, and root finding no hand-rolled Taylor truncation certifies.
 
 | [INDEX] | [SURFACE]                                                                                            | [ENTRY_FAMILY]  |
 | :-----: | :--------------------------------------------------------------------------------------------------- | :-------------- |
@@ -251,51 +189,39 @@
 |  [04]   | `acb_series.dirichlet_l()` / `polylog()` / `modular_theta()` / `elliptic_p()`                        | series-analytic |
 |  [05]   | `coeffs()` / `length()` / `valuation()` / `prec`                                                     | series-access   |
 
-- [01]-[series-special]: certified truncated power-series special functions.
-- [02]-[series-calculus]: formal derivative/integral, series inverse, compositional reversion.
-- [03]-[series-roots]: rigorous root isolation from a truncated series.
-- [04]-[series-analytic]: analytic functions as truncated complex power series.
-- [05]-[series-access]: coefficient list, length, valuation, truncation order.
-
 [ENTRYPOINT_SCOPE]: certified evaluation dispatch and analytic helpers
-- rail: ball-arithmetic
-- top-level helpers that adaptively raise working precision until a target accuracy is reached, decoupling the consumer from manual `ctx.prec` retry loops.
+- Top-level helpers adaptively raise working precision until a target accuracy holds, decoupling the consumer from manual `ctx.prec` retry loops.
 
-| [INDEX] | [SURFACE]                                                                  | [ENTRY_FAMILY]   |
-| :-----: | :------------------------------------------------------------------------- | :--------------- |
-|  [01]   | `flint.good(func, prec=, maxprec=)`                                        | adaptive-eval    |
-|  [02]   | `flint.showgood(func, dps=, maxprec=)`                                     | adaptive-display |
-|  [03]   | `dirichlet_char.l(s)` / `dirichlet_char.hardy_z(t)` / `dirichlet_group(q)` | analytic         |
-
-- [01]-[adaptive-eval]: re-evaluate `func` at rising precision until the result ball is accurate to `ctx.dps`, returning the certified value.
-- [02]-[adaptive-display]: `good` plus pretty-printing of the certified digits.
-- [03]-[ANALYTIC]: Dirichlet L-function and Hardy Z-function from a character, character-group enumeration.
+| [INDEX] | [SURFACE]                                                                  | [ENTRY_FAMILY]   | [CAPABILITY]                             |
+| :-----: | :------------------------------------------------------------------------- | :--------------- | :--------------------------------------- |
+|  [01]   | `flint.good(func, prec=, maxprec=)`                                        | adaptive-eval    | rising-precision certified re-evaluation |
+|  [02]   | `flint.showgood(func, dps=, maxprec=)`                                     | adaptive-display | `good` plus certified-digit printing     |
+|  [03]   | `dirichlet_char.l(s)` / `dirichlet_char.hardy_z(t)` / `dirichlet_group(q)` | analytic         | Dirichlet L, Hardy Z, group enumeration  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[ARITHMETIC_TOPOLOGY]:
-- namespace: `flint`; all types imported directly from `flint`
-- `fmpz` and `fmpq` support full Python arithmetic operators; results are exact with no rounding
-- `arb` and `acb` carry an interval `[mid ± rad]`; all operations propagate the radius; output is certified when `rad` is finite (`is_finite()`); `rel_accuracy_bits()` reports how many significant bits the ball actually pins down
-- `ctx.prec` sets the working precision in bits for all `arb`/`acb` computation in the session; `ctx.cap` sets the default power-series truncation order; `ctx.extraprec(n)`/`ctx.workprec(n)` are block-scoped context managers that bump precision without leaking the change to the session
-- `flint.good(func)` is the adaptive-precision driver: it re-runs `func` at escalating `ctx.prec` until the ball is accurate to `ctx.dps`, replacing a hand-written precision-retry loop around an `arb`/`acb` computation
-- matrix constructors accept nested lists or flat data with shape; `nrows()`/`ncols()` query dimensions; `eig()` on `arb_mat`/`acb_mat` returns certified eigenvalue balls, never floating-point estimates
-- modular and finite-field types require an explicit context object (`fmpz_mod_ctx`, `fq_default_ctx`, `*_mpoly_ctx`, `*_poly_ctx`) that carries the modulus, field parameters, or monomial `Ordering`; the element type is constructed only from its context
+[TOPOLOGY]:
+- `fmpz` and `fmpq` carry the full Python arithmetic operators; results are exact with no rounding.
+- `arb` and `acb` carry an interval `[mid ± rad]`; every operation propagates the radius, the result is certified while `rad` stays finite (`is_finite()`), and `rel_accuracy_bits()` reports the pinned significant bits.
+- `ctx.prec` sets session bit-precision for all `arb`/`acb` work and `ctx.cap` the default series truncation order; `ctx.extraprec(n)`/`ctx.workprec(n)` are block-scoped managers that bump precision without leaking to the session.
+- `flint.good(func)` re-runs `func` at escalating `ctx.prec` until the ball is accurate to `ctx.dps`, replacing a hand-written precision-retry loop.
+- Matrix constructors accept nested lists or flat data with shape; `eig()` on `arb_mat`/`acb_mat` returns certified eigenvalue balls, never float estimates.
+- Modular and finite-field types construct only from an explicit context (`fmpz_mod_ctx`, `fq_default_ctx`, `*_mpoly_ctx`, `*_poly_ctx`) carrying the modulus, field parameters, or monomial `Ordering`.
 
-[ARITHMETIC_STACKING]:
-- mpmath ↔ flint: `mpmath` is the unrigorous arbitrary-precision floor (fast heuristic special functions, no error bound); `python-flint` is the rigorous ceiling (certified `arb`/`acb` balls). Promote an mpmath special-function result to a certified bound by re-evaluating the same closed form through `arb`/`acb` under `flint.good`; the ball `rad()` is the certified error the heuristic mpmath value lacks.
-- sympy ↔ flint: lower a symbolic `sympy` polynomial/matrix to an exact `fmpz_poly`/`fmpq_poly`/`fmpz_mat` for the heavy exact kernels FLINT owns (factorization, `resultant`, `roots`, HNF/SNF/LLL, `charpoly`), then lift the exact result back; never re-implement Gröbner/lattice reduction symbolically when `fmpz_mpoly_vec` + the FLINT mpoly context own it.
-- uncertainties ↔ flint: the `uncertainties` linear error-propagation owner and the `arb` interval owner are dual error models — `uncertainties` for first-order Gaussian propagation, `arb` for worst-case certified enclosure; the certified-bounds rail picks `arb` when a guaranteed enclosure (not a 1σ estimate) is the requirement.
-- receipt rail: an `arb`/`acb` result is its own receipt — `mid()` is the value, `rad()` is the certified error bound, `rel_accuracy_bits()` is the precision evidence; the algorithm receipt captures `ctx.prec`/`ctx.dps` and the final `rad()` rather than re-deriving an external tolerance.
+[STACKING]:
+- `mpmath`(`.api/mpmath.md`): `mpmath` is the unrigorous fast floor; re-evaluate its closed form through `arb`/`acb` under `flint.good` to promote a heuristic special-function value to a certified bound, `rad()` the error the `mpmath` value lacks.
+- `sympy`(`.api/sympy.md`): lower a symbolic polynomial or matrix to `fmpz_poly`/`fmpq_poly`/`fmpz_mat` for the FLINT exact kernels (factorization, `resultant`, `roots`, HNF/SNF/LLL, `charpoly`), then lift the exact result back; `fmpz_mpoly_vec` and the mpoly context own Gröbner and lattice work.
+- `uncertainties`(`.api/uncertainties.md`): dual error models — `uncertainties` for first-order Gaussian propagation, `arb` for worst-case certified enclosure; `arb` owns any requirement for a guaranteed enclosure over a `1σ` estimate.
+- within-lib: an `arb`/`acb` result is its own receipt — `mid()` the value, `rad()` the certified error, `rel_accuracy_bits()` the precision evidence; the algorithm receipt captures `ctx.prec`/`ctx.dps` and the final `rad()` over an external tolerance.
 
 [LOCAL_ADMISSION]:
-- Exact arithmetic uses `fmpz`/`fmpq` for integer and rational constants in solver kernels; never converts to float until the boundary.
-- Ball arithmetic precision is set once at session scope via `flint.ctx.prec` before any `arb`/`acb` computation.
-- Polynomial factorization and root isolation use `fmpz_poly.roots()` or `arb_poly.real_roots()` to produce certified intervals.
-- `arb` results carry their own error bound; do not add external tolerance tracking when `rad` is already the certified bound.
+- Integer and rational constants in solver kernels stay `fmpz`/`fmpq`, converting to float only at the boundary.
+- Ball precision sets once at session scope via `flint.ctx.prec` before any `arb`/`acb` computation.
+- Polynomial factorization and root isolation route through `fmpz_poly.roots()` or `arb_poly.real_roots()` for certified intervals.
+- An `arb` result carries its own error bound; external tolerance tracking never rides alongside `rad`.
 
 [RAIL_LAW]:
 - Package: `python-flint`
-- Owns: exact integer/rational/word-modular/multiprecision-modular/finite-field arithmetic, univariate and multivariate polynomial algebra (factorization, GCD, resultant, root isolation, Gröbner-input mpoly vectors), exact matrix linear algebra (det/rank/inv/solve/rref/nullspace/charpoly/minpoly + HNF/SNF/LLL/fflu), certified real/complex ball arithmetic with the full Arb special-function catalogue (gamma/zeta/Bessel/Airy/Coulomb/hypergeometric/orthogonal-polynomial/elliptic/modular), certified ball-matrix eigenvalues/solve/exp/DFT/DCT, rigorous truncated power series (`arb_series`/`acb_series` with reversion and root finding), adaptive-precision evaluation (`flint.good`/`showgood`), and Dirichlet character/L-function evaluation
-- Accept: `fmpz`/`fmpq` for exact integer/rational results; `nmod`/`fmpz_mod`/`fq_default` (each with its context) for modular/finite-field results; `arb`/`acb` for certified floating-point results carrying `mid`/`rad`; `flint.good` for adaptive-precision certified evaluation; the mpoly context + `*_mpoly_vec` for exact multivariate algebra
-- Reject: `float`/`complex` conversions before the boundary when exact or certified results are required; a hand-rolled precision-retry loop where `flint.good` adapts; heuristic mpmath special functions where a certified `arb`/`acb` bound is required; symbolic re-derivation of factorization/resultant/lattice reduction that the FLINT exact kernels own
+- Owns: exact integer/rational/modular/finite-field arithmetic, univariate and multivariate polynomial algebra (factorization, GCD, resultant, root isolation, `*_mpoly_vec` Gröbner input), exact matrix linear algebra (det/rank/inv/solve/rref/nullspace/charpoly/minpoly, HNF/SNF/LLL/fflu), certified `arb`/`acb` ball arithmetic across the full Arb special-function catalogue, certified ball-matrix eigenvalues/solve/exp/DFT/DCT, rigorous truncated power series with reversion and root finding, adaptive-precision `flint.good`/`showgood`, and Dirichlet character/L-function evaluation
+- Accept: `fmpz`/`fmpq` for exact integer/rational results; `nmod`/`fmpz_mod`/`fq_default` with their context for modular and finite-field results; `arb`/`acb` for certified results carrying `mid`/`rad`; `flint.good` for adaptive-precision evaluation; the mpoly context with `*_mpoly_vec` for exact multivariate algebra
+- Reject: float/complex conversion before the boundary where exact or certified results are required; a hand-rolled precision-retry loop where `flint.good` adapts; heuristic mpmath special functions where a certified bound is required; symbolic re-derivation of factorization, resultant, or lattice reduction the FLINT exact kernels own

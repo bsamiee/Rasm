@@ -1,21 +1,18 @@
 # [PY_DATA_API_ICECHUNK]
 
-`icechunk` supplies a transactional, versioned Zarr store with Git-like branching, tagging, and snapshot history over object-store backends (S3, GCS, Azure, local, in-memory, HTTP, R2, Tigris). `Repository` owns lifecycle, branch and tag management, ancestry, and garbage collection; `Session` owns read, write, commit, rebase, fork, and merge; `IcechunkStore` is the Zarr-compatible store handle reached through `session.store`. Storage descriptors and credentials are built through module-level factory functions, and every `Repository`/`Session` method has an `_async` coroutine variant.
+`icechunk` owns a transactional, versioned Zarr store — Git-like branch, tag, and snapshot history over any object-store backend. `Repository` owns lifecycle, branches, tags, ancestry, and garbage collection; `Session` owns read, write, commit, rebase, fork, and merge; `IcechunkStore`, reached through `session.store`, is the Zarr-compatible handle every array consumer binds. Module-level factories build storage descriptors and credentials, and the synchronous surface mirrors onto an async rail.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `icechunk`
-- package: `icechunk`
-- version: `2.1.0`
-- license: Apache-2.0
+- package: `icechunk` (Apache-2.0)
 - module: `icechunk`
-- owner: `data`
+- owner: data
 - rail: versioned-store
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: core lifecycle types
-- rail: versioned-store
 
 | [INDEX] | [SYMBOL]           | [TYPE_FAMILY]   | [ROLE]                                             |
 | :-----: | :----------------- | :-------------- | :------------------------------------------------- |
@@ -27,7 +24,6 @@
 |  [06]   | `RepositoryConfig` | configuration   | caching, compression, manifest, storage settings   |
 
 [PUBLIC_TYPE_SCOPE]: record and config types
-- rail: versioned-store
 
 | [INDEX] | [SYMBOL]                                     | [TYPE_FAMILY]   | [ROLE]                                                               |
 | :-----: | :------------------------------------------- | :-------------- | :------------------------------------------------------------------- |
@@ -43,7 +39,6 @@
 |  [10]   | `VirtualChunkContainer` / `VirtualChunkSpec` | virtual ref     | external chunk addressing descriptors                                |
 
 [PUBLIC_TYPE_SCOPE]: configuration types
-- rail: versioned-store
 
 `RepositoryConfig` is the root config; the caching/compression/manifest/storage families are nested settings. `FeatureFlag` gates active store behavior. `ManifestSplittingConfig`/`ManifestPreloadConfig` tune manifest sharding and preload, keyed by the `ManifestSplit*Condition`/`ManifestPreloadCondition` predicate enums.
 
@@ -66,7 +61,6 @@
 |  [15]   | `FeatureFlag`                     | feature gate      | store-behavior flag set on the repository            |
 
 [PUBLIC_TYPE_SCOPE]: enums
-- rail: versioned-store
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [MEMBERS]                                               |
 | :-----: | :--------------------- | :------------ | :------------------------------------------------------ |
@@ -80,7 +74,6 @@
 |  [08]   | `SpecVersion`          | format ver    | `v1`, `v2`                                              |
 
 [PUBLIC_TYPE_SCOPE]: error rail
-- rail: versioned-store
 
 `IcechunkError` is the root exception; `ConflictError` and `RebaseFailedError` are the rebase/commit failures the data tier maps to its typed error. `RebaseFailedError` carries the unresolved `Conflict` list for solver-driven retry.
 
@@ -93,11 +86,10 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: storage and credential factories (`icechunk`)
-- rail: versioned-store
 
-Storage factories return an opaque `Storage`; cloud backends share the keyword-only `*, bucket, prefix, anonymous, from_env` shape and differ by endpoint/account and credential params, so the `[SURFACE]` column carries each factory's distinctive parameters. Credential factories share `*, access_key_id, secret_access_key, session_token, anonymous, from_env, get_credentials`. Virtual-store factories produce an `ObjectStoreConfig` fed to `VirtualChunkContainer(url_prefix, store, name)`.
+Storage factories return an opaque `Storage`; cloud backends share the keyword-only `*, bucket, prefix, anonymous, from_env` shape and differ by endpoint/account and credential params. Credential factories share `*, access_key_id, secret_access_key, session_token, anonymous, from_env, get_credentials`. Virtual-store factories produce an `ObjectStoreConfig` fed to `VirtualChunkContainer`.
 
-| [INDEX] | [SURFACE]                                                                               | [RAIL]                                       |
+| [INDEX] | [SURFACE]                                                                               | [CAPABILITY]                                 |
 | :-----: | :-------------------------------------------------------------------------------------- | :------------------------------------------- |
 |  [01]   | `local_filesystem_storage(path) -> Storage`                                             | local directory backend                      |
 |  [02]   | `in_memory_storage() -> Storage`                                                        | ephemeral memory backend                     |
@@ -118,11 +110,10 @@ Storage factories return an opaque `Storage`; cloud backends share the keyword-o
 |  [17]   | `gcs_store(opts)` / `http_store(opts, headers)` / `local_filesystem_store(path)`        | GCS/HTTP/local `ObjectStoreConfig` factories |
 
 [ENTRYPOINT_SCOPE]: repository lifecycle, branches, and sessions (`Repository`)
-- rail: versioned-store
 
-Every surface is a `Repository` method (the leading `Repository.` prefix elided) except rows [23]-[24], which are module-level functions. Optional keyword args default `None` unless a default is shown.
+Every surface is a `Repository` method (leading `Repository.` elided) except rows [23]-[24], module-level functions; optional keyword args default `None` unless a default is shown.
 
-| [INDEX] | [SURFACE]                                                                                             | [RAIL]                          |
+| [INDEX] | [SURFACE]                                                                                             | [CAPABILITY]                    |
 | :-----: | :---------------------------------------------------------------------------------------------------- | :------------------------------ |
 |  [01]   | `create(storage, config, authorize_virtual_chunk_access, spec_version, check_clean_root=True)`        | create new repository           |
 |  [02]   | `open(storage, config=None, authorize_virtual_chunk_access=None)`                                     | open existing repository        |
@@ -150,11 +141,10 @@ Every surface is a `Repository` method (the leading `Repository.` prefix elided)
 |  [24]   | `upgrade_icechunk_repository(repo, *, dry_run, delete_unused_v1_files=True, prefetch_concurrency)`    | in-place repository upgrade     |
 
 [ENTRYPOINT_SCOPE]: session and store operations (`Session`, `IcechunkStore`)
-- rail: versioned-store
 
-Every surface is a `Session` method (the leading `Session.` prefix elided); optional keyword args default `None` unless a default is shown.
+Every surface is a `Session` method (leading `Session.` elided); optional keyword args default `None` unless a default is shown.
 
-| [INDEX] | [SURFACE]                                                                                     | [RAIL]                           |
+| [INDEX] | [SURFACE]                                                                                     | [CAPABILITY]                     |
 | :-----: | :-------------------------------------------------------------------------------------------- | :------------------------------- |
 |  [01]   | `commit(message, metadata, *, rebase_with, rebase_tries=1000, allow_empty=False) -> str`      | commit pending writes            |
 |  [02]   | `amend(message, *, metadata, allow_empty=False)` / `flush(message, *, metadata)`              | amend or flush a commit          |
@@ -167,9 +157,9 @@ Every surface is a `Session` method (the leading `Session.` prefix elided); opti
 |  [09]   | `reindex_array(array_path, forward, backward=None)` / `shift_array(array_path, chunk_offset)` | rearrange array reindex / shift  |
 |  [10]   | `chunk_type(array_path, chunk_coordinates)` / `all_virtual_chunk_locations()`                 | chunk kind and virtual locations |
 
-Store operations run on `IcechunkStore` (the leading `IcechunkStore.` prefix elided).
+Store operations run on `IcechunkStore` (leading `IcechunkStore.` elided).
 
-| [INDEX] | [SURFACE]                                                                                  | [RAIL]                            |
+| [INDEX] | [SURFACE]                                                                                  | [CAPABILITY]                      |
 | :-----: | :----------------------------------------------------------------------------------------- | :-------------------------------- |
 |  [01]   | `get(key, prototype, byte_range=None)` / `set(key, value)` / `delete(key)`                 | Zarr buffer read/write/delete     |
 |  [02]   | `list()` / `list_prefix(prefix)` / `list_dir(prefix)` / `exists(key)` / `is_empty(prefix)` | listing and existence queries     |
@@ -178,26 +168,25 @@ Store operations run on `IcechunkStore` (the leading `IcechunkStore.` prefix eli
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[VERSIONED_TOPOLOGY]:
-- namespace: `icechunk` (single module); storage and credential factories are module-level functions, `Storage.new_*` class methods exist but are not canonical
-- every writable operation flows through a `Session` from `Repository.writable_session(branch)`; the `IcechunkStore` handle is reached via `session.store` and handed to Zarr
-- `Repository.transaction(branch, *, message, ...)` is the context-manager shorthand wrapping `writable_session` plus `commit`, yielding an `IcechunkStore`, not a separate code path
-- both sync and async variants exist for every `Repository` and `Session` method; async variants carry the `_async` suffix and return coroutines (`ops_log_async` returns an async iterator); the one prefix-named exception is `ancestry`, whose async form is `async_ancestry`
-- conflict resolution is passed at commit time as `rebase_with=BasicConflictSolver(...)` or `rebase_with=ConflictDetector()`; `VersionSelection` (`Fail`/`UseOurs`/`UseTheirs`) drives the solver per `ConflictType`. A bare `commit` on a moved branch tip raises `ConflictError`; an unresolved auto-rebase raises `RebaseFailedError` carrying the `Conflict` list — both map to the data tier's typed error, never swallowed
-- `rewrite_manifests(..., commit_method=...)` uses the `CommitMethod` literal `"new_commit"` or `"amend"`; `CompressionAlgorithm` exposes `Zstd` and `ChecksumAlgorithm` covers Crc32/Crc32c/Crc64Nvme/Sha1/Sha256
-- virtual chunk references point to external object-store locations; `set_virtual_ref(key, location, *, offset, length, checksum=None, validate_container=True)` registers one chunk under its fully-qualified Zarr-v3 key (`<array>/c/<coord>/<coord>/...`) and `set_virtual_refs(array_path, chunks: list[VirtualChunkSpec], *, validate_containers=True) -> list[tuple[int, ...]] | None` registers a batch (returning failed-chunk indices or `None`), both without copying data and both gated by `authorize_virtual_chunk_access` credentials. `VirtualChunkSpec(index: list[int], location: str, offset: int, length: int, etag_checksum=None, last_updated_at_checksum=None)` is the batch chunk descriptor (the index is `index=` in chunk-coordinate space, with optional e-tag/last-updated integrity slots); `containers_credentials(m: Mapping[str, AnyS3Credential | AnyGcsCredential | AnyAzureCredential | Credentials.LocalFileSystemAccess | Credentials.HttpAccess | None]) -> dict[str, AnyCredential | None]` lowers a per-container-prefix credential-factory map (each value an `s3_credentials`/`gcs_credentials`/`azure_credentials` return or a local-filesystem/HTTP access marker, never a raw token tuple) into the `authorize_virtual_chunk_access` keyword
+[TOPOLOGY]:
+- `icechunk` is one module; storage and credential factories are module-level functions.
+- Every writable operation flows through a `Session` from `Repository.writable_session(branch)`; `session.store` yields the `IcechunkStore` handed to Zarr.
+- `Repository.transaction(branch, *, message, ...)` fuses `writable_session` and `commit`, yielding an `IcechunkStore` inside the context — one path, not a separate code branch.
+- Async variants suffix `_async` and return coroutines; the two iterator-returning methods instead prefix as `async_ancestry` and `async_ops_log`, each returning an `AsyncCloseableIterator`.
+- Conflict resolution passes at commit time as `rebase_with=BasicConflictSolver(...)` or `rebase_with=ConflictDetector()`, `VersionSelection` (`Fail`/`UseOurs`/`UseTheirs`) driving the solver per `ConflictType`. A bare `commit` on a moved branch tip raises `ConflictError`; an unresolved auto-rebase raises `RebaseFailedError` carrying the `Conflict` list — both map to the data tier's typed error, never swallowed.
+- Virtual chunk references address external object-store locations without copying data, each gated by `authorize_virtual_chunk_access` credentials; `containers_credentials` lowers a per-prefix credential-factory map into that keyword, and `set_virtual_ref`/`set_virtual_refs` register one chunk or a `VirtualChunkSpec` batch under fully-qualified Zarr-v3 keys.
 
-[STACK]:
-- `session.store` is the `zarr.abc.store.Store` handle: `zarr.open_group(store=session.store, ...)` / `xarray.open_zarr(session.store)` read/write the versioned store with no separate code path. icechunk owns version control; `zarr`/`xarray` (`.api/zarr.md`, `.api/xarray.md`) own array/dataset semantics over the same handle.
-- write rail: `xarray.Dataset.to_zarr(session.store, ...)` then `session.commit(message)` produces one snapshot per dataset write; the `Repository.transaction(branch, message=...)` context manager fuses `writable_session`+`commit` so the `to_zarr` happens inside the `with` and commits on clean exit.
-- read rail: `tensorstore` (`.api/tensorstore.md`) reads the same on-disk zarr-v3 format icechunk writes for high-throughput async access, and `virtualizarr` (`.api/virtualizarr.md`) aggregates archival references into a virtual zarr that icechunk persists via `set_virtual_refs` — icechunk is the transactional snapshot layer beneath the zarr/xarray array layer, never a parallel array container.
-- a read-only history view is `Repository.readonly_session(tag=...)`/`(snapshot_id=...)`/`(as_of=...)` -> `session.store` opened in zarr/xarray for time-travel reads against any committed snapshot.
+[STACKING]:
+- `zarr`(`.api/zarr.md`): `session.store` is a `zarr.abc.store.Store`, so `zarr.open_group(store=session.store, ...)`/`create_array(store=...)` read and write the versioned store with no separate code path — icechunk owns commit/branch/snapshot, `zarr` owns array semantics over the same handle.
+- `xarray`(`libs/python/.api/xarray.md`): `xarray.open_zarr(session.store)` reads and `Dataset.to_zarr(session.store, ...)` then `session.commit(message)` writes one snapshot per dataset write; wrapping the `to_zarr` inside `Repository.transaction(branch, message=...)` commits on clean exit.
+- `tensorstore`(`.api/tensorstore.md`): reads the same on-disk zarr-v3 format icechunk writes through the `zarr3` driver for high-throughput async access.
+- `virtualizarr`(`.api/virtualizarr.md`): aggregates archival references into a virtual zarr icechunk persists via `set_virtual_refs`.
+- within-lib: icechunk is the transactional snapshot layer beneath the zarr/xarray array layer; `Repository.readonly_session(*, tag=/snapshot_id=/as_of=).store` opens any committed snapshot in zarr/xarray for time-travel reads.
 
 [LOCAL_ADMISSION]:
-- `Repository` is the lifecycle owner, `Session` is the write unit, and `session.store` is the only Zarr store handle that crosses into array code.
-- Storage is constructed via the module-level factory functions; credentials use the matching `*_credentials` factory or `containers_credentials` for virtual containers.
-- Conflict solvers (`BasicConflictSolver`, `ConflictDetector`) are passed at commit time as `rebase_with=`; do not run rebase as a separate out-of-band step when auto-rebase is configured.
-- Choose either the sync or the async method for one operation; never run parallel sync/async call sites for the same write.
+- Construct `Storage` through the module-level factories and credentials through the matching `*_credentials` factory or `containers_credentials` for virtual containers.
+- Pass conflict solvers at commit time as `rebase_with=`; never run `rebase` out of band when auto-rebase is configured.
+- Choose the sync or the async method for one operation; never run parallel sync/async call sites for the same write.
 
 [RAIL_LAW]:
 - Package: `icechunk`

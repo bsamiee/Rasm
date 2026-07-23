@@ -1,28 +1,22 @@
 # [PY_ARTIFACTS_API_PYPHEN]
 
-`pyphen` supplies the pure-Python Liang/Knuth-Hunspell hyphenation engine for the artifacts typography rail: a `Pyphen` dictionary loads a Hunspell `hyph_<lang>.dic` TeX-pattern file and resolves, for any word, the legal in-word soft-hyphenation positions through the competing odd/even pattern-weight algorithm, returning each break offset as a `DataInt` that carries the non-standard-hyphenation `(change, index, cut)` data the Hunspell format encodes for orthographic mutations (German `ck` -> `k-k`, Hungarian gemination `asszonnyal` -> `asz-szony…`). It bundles 50 Hunspell hyphenation dictionaries (the LibreOffice corpus, Unicode 17-era patterns) discovered at import into the `LANGUAGES` index with BCP-47 short-code aliases, and shares parsed pattern tables across instances through a module-level `hdcache`. This is the categorical-best hyphenation owner; the `typography/layout#LAYOUT` `LineLayout` owner reaches it as the `HYPHENATE` `LayoutOp` arm and inside the `PARAGRAPH` arm's `_soft_breaks` fold — `Pyphen(lang=, left=, right=).positions(word)` returns the in-word offsets each projected into a flagged Knuth-Plass `Penalty(hyphen_penalty, hyphen_advance)` item the total-fit dynamic program threads. The owner never re-derives the Liang competing-pattern algorithm, never hand-parses the `.dic` pattern grammar, and never re-implements the non-standard-hyphenation substitution rule — pyphen owns the full pattern fold; only the paragraph-optimization algebra on top is the design's own. The catalog's load-bearing correction is direction: the design consumes the POSITIONAL offset surface (`positions`/`iterate`/`DataInt.data`), and `inserted`/`wrap` are documented as REAL members but flagged as the rejected lower-capability forms (string-mangling and first-fit pre-decide the break the total-fit DP must own).
+`pyphen` owns pure-Python soft-hyphenation for the artifacts typography rail: a `Pyphen` dictionary parses one Hunspell `hyph_<lang>.dic` TeX-pattern file and resolves every legal in-word break through the Liang competing odd/even pattern-weight fold, each break a `DataInt` whose integer value is the offset and whose `.data` carries the non-standard orthographic `(change, index, cut)` mutation.
+
+`positions`/`iterate` feed the `typography/layout#LAYOUT` owner's flagged Knuth-Plass `Penalty` items; pyphen resolves in-word breaks alone and never re-derives the Liang algorithm, `.dic` grammar, or substitution rule.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pyphen`
-- package: `pyphen`
-- import: `pyphen` (single flat module; `pyphen.dictionaries` is the bundled `.dic` data package, not an import surface)
+- package: `pyphen` (tri-license `GPL-2.0+ OR LGPL-2.1+ OR MPL-1.1`, libhyphen heritage; the LGPL/MPL arms make in-process linking commercial-safe)
+- module: `pyphen` (single flat module; `pyphen.dictionaries` is the bundled `.dic` data package, not an import surface)
 - owner: `artifacts`
-- rail: typography (line-layout, soft-hyphenation)
-- license: **tri-license `GPL-2.0+ OR LGPL-2.1+ OR MPL-1.1`** (the FrenchTeX/libhnj `libhyphen` heritage; dist-info ships `COPYING.GPL` + `COPYING.LGPL` + `COPYING.MPL` and the three OSI classifiers). The LGPL/MPL arms make in-process linking commercial-safe; the bundled `hyph_*.dic` dictionaries carry their own per-language LibreOffice/LGPL/MPL terms recorded in `dictionaries/README_hyph_<lang>.txt`
-- version: `0.17.2`
-- build-floor: pure-Python, universal wheel `py3-none-any` (`Root-Is-Purelib: true`); `Requires-Python >=3.9`; no abi gate, no cp-gate, present on cp315 — the engine is interpreter-version-independent
-- depends-on: none at runtime (zero `Requires-Dist`); stdlib only (`re`, `importlib.resources`, `pathlib`). Dictionary discovery uses `importlib.resources.files('pyphen.dictionaries')` with a `Path(__file__).parent` fallback for non-package loaders
-- dictionary corpus: 50 bundled `hyph_<lang>.dic` files (`af_ZA as_IN be_BY bg_BG ca cs_CZ da_DK de_AT de_CH de_DE el_GR en_GB en_US eo es et_EE eu fr gl hr_HR hu_HU id_ID is it_IT kn_IN lt lv_LV mn_MN mr_IN nb_NO nl_NL nn_NO or_IN pa_IN pl_PL pt_BR pt_PT ro_RO ru_RU sa_IN sk_SK sl_SI sq_AL sr_Latn sr sv te_IN th_TH uk_UA zu_ZA`), each indexed under both its full code and its truncated short code into the 85-entry `LANGUAGES` dict; a caller MAY load a non-bundled dictionary by passing `filename=`
-- entry points: none (library only); the public contract is `__all__ = ('LANGUAGES', 'Pyphen', 'language_fallback')`
-- capability: dictionary-driven soft hyphenation via the Liang competing odd/even pattern-weight algorithm over Hunspell `.dic` TeX patterns; in-word break-position resolution with `left`/`right` minimum-affix guards; longest-first prefix/suffix split enumeration; non-standard hyphenation (orthographic change/index/cut substitution) surfaced per break point; full-word hyphen insertion and width-bounded first-fit splitting (the rejected forms); BCP-47 truncation language fallback; cross-instance parsed-pattern caching
+- rail: typography
+- asset: pure-Python universal wheel, stdlib-only (`re`, `importlib.resources`, `pathlib`), zero runtime dependencies
+- dictionaries: bundles the LibreOffice `hyph_<lang>.dic` corpus indexed into `LANGUAGES` under each full and truncated code; `filename=` loads a non-bundled `.dic`
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the hyphenation dictionary and its result-carrier types
-- rail: typography
-
-`Pyphen` is the one public owner: it owns a parsed `HyphDict` (shared through `hdcache`) and exposes the four read methods (`positions`/`iterate`/`wrap`/`inserted`, with `__call__` aliased to `iterate`). `positions` returns a list of `DataInt` — an `int` subclass whose value IS the break offset and whose `.data` attribute carries the non-standard-hyphenation tuple (or `None` for a plain break); this dual-channel return is the load-bearing surface the `typography/layout#LAYOUT` owner threads, because the integer offset feeds the Knuth-Plass `Penalty` position while `.data` (when present) tells emission how to mutate the orthography across the break. `HyphDict` and `AlternativeParser` are the parse-layer internals a caller never constructs directly but whose behavior is the documented contract of what `positions` returns.
+[PUBLIC_TYPE_SCOPE]: the hyphenation dictionary and its break-carrier types
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]                | [CAPABILITY]                                        |
 | :-----: | :------------------------- | :--------------------------- | :-------------------------------------------------- |
@@ -31,80 +25,56 @@
 |  [03]   | `pyphen.HyphDict`          | parsed pattern table         | competing-pattern table with per-word memo          |
 |  [04]   | `pyphen.AlternativeParser` | non-standard-pattern factory | tags odd weights with substitution tuples           |
 
-- [01]-[PYPHEN]: the public class; constructed per language (`lang=`) or per file (`filename=`) with `left`/`right`/`cache` knobs; holds the parsed `HyphDict` as `.hd` and the `.left`/`.right` affix minimums as instance state; `call` is aliased to `iterate` so `Pyphen(lang='de')('Silbentrennung')` yields the split pairs directly
-- [02]-[DATAINT_VALUE]: `int` subclass returned by `positions`; the integer value is the in-word break offset, the `.data` attribute is `None` for a standard break or a `(change, index, cut)` tuple for a non-standard one — `change` a `'old=new'` substitution string (e.g. `'sz='`, `'ny=ny'`, upper-cased when the word is all-caps), `index` the offset (relative to the break point) where the substitution applies, `cut` how many source characters the substitution replaces.
-- [03]-[DATAINT_CONSTRUCTION]: `DataInt(value, data=None, reference=None)`: `reference=` copies `.data` from another `DataInt`
-- [04]-[HYPHDICT_PARSE]: `HyphDict(path)` — reads and parses one `hyph_*.dic`, honoring its first-line encoding declaration (`microsoft-cp1251` -> `cp1251`), dropping the Hunspell `LEFTHYPHENMIN`/`RIGHTHYPHENMIN`/`COMPOUND*`/comment control lines, decoding `^^hh` hex escapes, and folding `/…=…` non-standard alternatives through `AlternativeParser`;
-- [05]-[HYPHDICT_STATE]: exposes `.patterns` (the offset/weight table), `.cache` (per-word memo of computed positions), `.maxlen` (longest pattern key), and `positions(word) -> list[DataInt]` (the untrimmed competing-pattern result `Pyphen.positions` then affix-trims). Constructed internally; a caller reaches it as `Pyphen(...).hd`
-- [06]-[ALTERNATIVE_PARSER]: `AlternativeParser(pattern, alternative)` — the callable `HyphDict` substitutes for `int` when a pattern carries a `/change,index,cut` non-standard clause; called on each parsed weight it returns a `DataInt` tagged with the `(change, index, cut)` tuple on odd (break) weights. The mechanism behind every non-`None` `DataInt.data`
+- `pyphen.DataInt`: `int` subclass; the value is the in-word break offset, `.data` is `None` for a standard break or a `(change, index, cut)` tuple — `change` an `'old=new'` substitution string (upper-cased when the word is all-caps), `index` the offset the substitution applies at, `cut` the source characters it replaces.
+- `pyphen.HyphDict`: reached only as `Pyphen(...).hd`; its `positions(word)` is the untrimmed competing-pattern result `Pyphen.positions` affix-trims, memoized in `.cache`. `AlternativeParser` tags each odd (break) weight with the `(change, index, cut)` tuple, the mechanism behind every non-`None` `DataInt.data`.
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the `Pyphen` construction and read surface
-- rail: typography
-- call: `Pyphen(filename=None, lang=None, left=2, right=2, cache=True)`; `positions(word: str) -> list[DataInt]`; `iterate(word: str) -> Iterator[tuple[str, str]]`; `inserted(word: str, hyphen: str = '-') -> str`; `wrap(word: str, width: int, hyphen: str = '-') -> tuple[str, str] \| None`
+- knobs: `left`/`right` default `2` (minimum characters before/after any break, the orphan/widow guards), `cache` default `True`; `iterate` is aliased to `__call__`, so `dict(word)` == `dict.iterate(word)`
 
-The construction signature carries the full knob set; the four read methods are the call surface. The `typography/layout#LAYOUT` owner composes exactly `Pyphen(lang=, left=, right=)` + `.positions(word)` (in `_hyphenate` and `_soft_breaks`) and `.iterate(word)` (for the prefix/suffix split the hyphen-advance penalty measures); `inserted`/`wrap` are the rejected forms recorded for completeness.
+| [INDEX] | [SURFACE]                                        | [SHAPE]  | [CAPABILITY]                                         |
+| :-----: | :----------------------------------------------- | :------- | :--------------------------------------------------- |
+|  [01]   | `Pyphen(*, filename, lang, left, right, cache)`  | ctor     | resolve file/language, affix guards, and cache       |
+|  [02]   | `positions(word) -> list[DataInt]`               | instance | trimmed in-word offsets with mutation data           |
+|  [03]   | `iterate(word) -> Iterator[tuple[str, str]]`     | instance | longest-first substituted `(head, tail)` split pairs |
+|  [04]   | `inserted(word, hyphen='-') -> str`              | instance | splice every break into one string                   |
+|  [05]   | `wrap(word, width, hyphen='-') -> tuple \| None` | instance | the longest first split fitting `width`              |
 
-| [INDEX] | [SURFACE]                 | [CALL_SHAPE]                | [CAPABILITY]                                     |
-| :-----: | :------------------------ | :-------------------------- | :----------------------------------------------- |
-|  [01]   | `pyphen.Pyphen.init`      | `Pyphen(...)`               | resolves file/language, affix guards, and cache  |
-|  [02]   | `pyphen.Pyphen.positions` | `positions(word)`           | returns trimmed offsets with mutation data       |
-|  [03]   | `pyphen.Pyphen.iterate`   | `iterate(word)`             | enumerates longest-first substituted split pairs |
-|  [04]   | `pyphen.Pyphen.inserted`  | `inserted(word, hyphen)`    | splices every break into one string              |
-|  [05]   | `pyphen.Pyphen.wrap`      | `wrap(word, width, hyphen)` | selects the longest fitting first split          |
-
-- [01]-[INIT_RESOLUTION]: construct a dictionary. `filename=` loads an explicit `.dic` Path (wins over `lang`); `lang=` resolves through `language_fallback` against the bundled `LANGUAGES` index (raises `KeyError` if the language has no bundled dict and no `filename`). `left`/`right` are the minimum characters that must precede / follow any break (the orphan/widow-fragment guards).
-- [02]-[INIT_CACHE]: `cache=True` shares the parsed `HyphDict` for this path through the module-level `hdcache`; `cache=False` re-parses (still repopulating `hdcache`). NOTE: `lang` is positionally second but the design always passes it by keyword
-- [03]-[POSITIONS_OFFSET]: the canonical surface the design consumes. The in-word break offsets, affix-trimmed to `self.left <= i <= len(word) - self.right`, each a `DataInt` (integer offset + `.data` non-standard tuple). Lower-cases the word before pattern matching.
-- [04]-[POSITIONS_EXAMPLE]: E.g. `positions('hyphenation') -> [2, 6]`; Hungarian `positions('asszonnyal') -> [2, 6]` with `.data` `('sz=', -1, 1)` / `('ny=ny', -1, 3)`. Memoized per word in the `HyphDict.cache`
-- [05]-[ITERATE_SPLIT]: the `(head, tail)` split pairs, longest head first, one per break in `positions` (descending). For a non-standard break it applies the `(change, index, cut)` substitution to both fragments (upper-casing `change` when the word is all-caps).
-- [06]-[ITERATE_CALL]: `Pyphen.call` is this method, so `dict(word)` == `dict.iterate(word)`. E.g. `iterate('hyphenation') -> [('hyphen','ation'), ('hy','phenation')]`
-- [07]-[INSERTED]: [REJECTED FORM] the whole word with every break realized as the `hyphen` string (non-standard breaks apply their substitution). E.g. `inserted('hyphenation') -> 'hy-phen-ation'`. The design rejects this: it pre-splices a string instead of exposing the offsets the total-fit DP threads into `Penalty` items
-- [08]-[WRAP]: [REJECTED FORM] the longest `(head+hyphen, tail)` whose head fits within `width` characters, or `None` if no break fits. E.g. `wrap('hyphenation', 6) -> ('hy-', 'phenation')`. The design rejects this: it is a per-word first-fit decision that pre-commits a break, defeating the paragraph-wide total-fit optimization
+- `positions`: lower-cases the word, trims to `self.left <= i <= len(word) - self.right`, memoizes per word. E.g. `positions('hyphenation') -> [2, 6]`; Hungarian `positions('asszonnyal') -> [2, 6]` with `.data` `('sz=', -1, 1)` / `('ny=ny', -1, 3)`; `iterate('hyphenation') -> [('hyphen','ation'), ('hy','phenation')]`.
 
 [ENTRYPOINT_SCOPE]: the module-level language index and fallback
-- rail: typography
+- [BINDING_ID]: `pyphen.VERSION` `pyphen.__version__`
 
-| [INDEX] | [SURFACE]                           | [CALL_SHAPE]                                      | [CAPABILITY]                                 |
-| :-----: | :---------------------------------- | :------------------------------------------------ | :------------------------------------------- |
-|  [01]   | `pyphen.LANGUAGES`                  | `dict[str, pathlib.Path]`                         | maps full and short codes to dictionaries    |
-|  [02]   | `pyphen.language_fallback`          | `language_fallback(language: str) -> str \| None` | truncates normalized locale subtags to match |
-|  [03]   | `pyphen.LANGUAGES_LOWERCASE`        | `dict[str, str]`                                  | maps lowercase codes to canonical codes      |
-|  [04]   | `pyphen.hdcache`                    | `dict[pathlib.Path, HyphDict]`                    | shares parsed patterns by dictionary path    |
-|  [05]   | `pyphen.VERSION` / `pyphen.version` | `str`                                             | aliases the installed version string         |
+| [INDEX] | [SURFACE]                                    | [SHAPE] | [CAPABILITY]                               |
+| :-----: | :------------------------------------------- | :------ | :----------------------------------------- |
+|  [01]   | `pyphen.LANGUAGES`                           | static  | maps full and short codes to `.dic` paths  |
+|  [02]   | `language_fallback(language) -> str \| None` | static  | truncate locale subtags to a bundled match |
+|  [03]   | `pyphen.LANGUAGES_LOWERCASE`                 | static  | maps lowercase codes to canonical codes    |
+|  [04]   | `pyphen.hdcache`                             | static  | shares parsed patterns by dictionary path  |
 
-- [01]-[LANGUAGES]: the 85-entry index built at import: every bundled `hyph_<code>.dic` registered under its full code AND its truncated short code (`'en_US'` and `'en'` both present; the short alias only set if not already taken by an earlier full code). Maps a language code to the `.dic` `Path`. The membership set a caller probes before constructing `Pyphen(lang=...)` to avoid the `KeyError`
-- [02]-[LANGUAGE_FALLBACK]: BCP-47 / UTS#35 truncation inheritance: normalizes `-` to `_`, lower-cases, then pops trailing subtags until a bundled language matches — `'en_US' -> 'en_US'` (exact), `'en_Latn_US' -> 'en'` (script + region stripped), `'nl_BE' -> 'nl'`, an unbundled language `-> None`. `Pyphen.init` calls this to resolve `lang=` against `LANGUAGES`; the design relies on the `en_US -> en` and region-stripping behavior
-- [03]-[LANGUAGES_LOWERCASE]: the case-insensitive lookup (`lower(code) -> canonical code`) `language_fallback` resolves against; a caller normalizing user locale strings reads it directly
-- [04]-[HDCACHE]: the module-level parsed-pattern cache keyed by `.dic` Path; populated on first construction of any `Pyphen` for that path and reused across every later instance (even `cache=False`, which re-parses but still writes through). Sharing the heavy pattern parse across instances is why constructing `Pyphen(lang='de')` repeatedly in a hot layout loop is cheap
-- [05]-[VERSION]: the installed version string (`'0.17.2'`); both names bound to the same value
+- `language_fallback`: normalizes `-` → `_`, lower-cases, then pops trailing subtags until a bundled code matches (`en_Latn_US` → `en`, `nl_BE` → `nl`), returning `None` when unbundled. `Pyphen(lang=)` resolves through it and raises `KeyError` on no match with no `filename=`, so a caller probes `LANGUAGES` first.
+- `hdcache`: populated on first construction for a path and reused by every later instance — even `cache=False` re-parses but writes through — so repeated `Pyphen(lang=...)` in a hot layout loop is cheap.
 
-## [04]-[INTEGRATION]
+## [04]-[IMPLEMENTATION_LAW]
 
-[INTEGRATION_SCOPE]: stacking onto the universal substrate rails (`libs/python/.api/*`)
-- rail: typography
+[TOPOLOGY]:
+- One `Pyphen` dictionary folds every word through the Liang competing odd/even pattern-weight algorithm over parsed Hunspell `.dic` patterns; `positions` is the canonical surface, affix-trimmed and memoized in `HyphDict.cache`.
+- Each break is a `DataInt`: the integer offset feeds the layout `Penalty` position while `.data` carries the `(change, index, cut)` orthographic mutation for non-standard hyphenation.
 
-pyphen is a leaf provider, so the universal rails wrap AROUND it rather than feeding into it; the stack composed by the `typography/layout#LAYOUT` owner is:
-- **`expression` (`@tagged_union`, `Result`)** — pyphen's `positions` offsets are folded into the closed `Item` `tagged_union` (Box/Glue/`Penalty`) the layout owner defines; each soft break becomes `Item.of_penalty(hyphen_penalty, hyphen_advance, flagged=True)`. The `Pyphen` construction (a `KeyError`-raising boundary on an unbundled `lang`) is wrapped by the owner's `boundary(...)` into a `RuntimeRail[ContentKey]`, so a missing dictionary surfaces as a typed rail fault, never a bare exception.
-- **`msgspec` (`Struct`, msgpack `Encoder`)** — the `positions` result is serialized through the layout owner's `_RUN_ENCODER` (`msgspec.msgpack.Encoder`): `_hyphenate` encodes the absolute `HyphenBreak` rows (position, source span, realized `(head, tail)` split), and `_soft_breaks` folds them into the `frozendict[int, HyphenBreak]` the `_stream` reads by trailing-edge position. pyphen's `DataInt` is an `int` subclass, so the break offset crosses as a plain integer while `iterate`'s substituted split pairs carry the orthographic mutation into `HyphenBreak.head`/`tail`.
-- **`beartype`** — the `Pyphen(lang=, left=, right=).positions(word) -> list[int]` call boundary is type-checked by the owner's `@beartype`-decorated arms; the `DataInt`-is-`int` subtype relation satisfies a `list[int]` annotation, so the dual-channel return crosses the validated boundary cleanly.
-- **`numpy` / `libs/python/compute`** — NOT in this path; hyphenation is a pure-Python offset computation with no array stage. (Recorded to preempt the assumption that every artifacts owner has a numeric tier.)
+[STACKING]:
+- `uniseg`(`.api/uniseg.md`): pyphen resolves only in-word soft-break offsets over each `words(text)` token uniseg segments; uniseg owns the UAX#14 hard/opportunity line breaks, both halves feeding the one `Item` stream.
+- `expression`(`.api/expression.md`): each `positions` offset folds into the layout owner's closed `Item` `tagged_union` as `Item.of_penalty(hyphen_penalty, hyphen_advance, flagged=True)`, and the `KeyError`-raising `Pyphen(lang=)` construction lifts through `boundary(...)` onto a `RuntimeRail`, a missing dictionary surfacing as a typed fault.
+- `msgspec`(`.api/msgspec.md`): the layout owner encodes each break as a `HyphenBreak` row through its msgpack `Encoder`; `DataInt` crosses as a plain `int` while `iterate`'s substituted split pairs carry the mutation into `HyphenBreak.head`/`tail`.
+- `beartype`(`.api/beartype.md`): the `positions(word) -> list[int]` boundary type-checks cleanly because `DataInt` is an `int` subtype.
+- `typography/layout#LAYOUT`: its `HYPHENATE` arm zips each token's `.positions(word)` against its reversed `.iterate(word)` split pairs into absolute grapheme-filtered `HyphenBreak` rows — the `HyphenSpec.left_min`/`right_min` fields ARE the `Pyphen` `left`/`right` knobs; its `PARAGRAPH` arm keys the rows by position into a `frozendict` the total-fit program charges `FitPolicy.flagged_demerit` for consecutive hyphenated lines. `DataInt.data` is the growth seam for orthography-correct emission.
 
-[INTEGRATION_SCOPE]: the `typography/layout#LAYOUT` composition (folder-tier `.api` siblings)
-- rail: typography
+[LOCAL_ADMISSION]:
+- `import pyphen` and construct `Pyphen(lang=, left=, right=)` at boundary scope; the `KeyError` on an unbundled `lang` with no `filename=` is trapped by the owner's `boundary`, never raised across the seam.
+- Probe `LANGUAGES` before construction, or pass `filename=` for a non-bundled `.dic`.
 
-`pyphen` owns ONLY the soft-hyphenation half of the `typography/layout` page; `uniseg` (`libs/python/artifacts/.api/uniseg.md`) owns the UAX#14 hard/opportunity line-break half, and the Knuth-Plass total-fit algebra on top is the design's own. The seam:
-- `LayoutOp.HYPHENATE` arm (`_hyphenate` -> `_hyphen_breaks`): constructs `Pyphen(lang=spec.language, left=spec.left_min, right=spec.right_min)` and zips each uniseg `words(spec.text)` token's `.positions(word)` against its reversed `.iterate(word)` split pairs into absolute `HyphenBreak` rows, grapheme-boundary-filtered. The `left_min`/`right_min` `HyphenSpec` fields ARE the `Pyphen` `left`/`right` knobs — orphaned 1-2 character hyphen fragments are suppressed at the dictionary, not post-filtered.
-- `LayoutOp.PARAGRAPH` arm (`_soft_breaks` -> `_stream`): re-runs `_hyphen_breaks` and keys the rows into `frozendict[int, HyphenBreak]` by absolute position; `_stream` then emits a flagged `Item.of_penalty(fit.hyphen_penalty, fit.hyphen_advance, True, LineEnding(hyphenated=row))` at each cluster whose trailing edge lands on a soft break, and the active-node dynamic program charges the `FitPolicy.flagged_demerit` for consecutive hyphenated lines.
-- `language_fallback` is the resolver the `lang=` value rides; the design defaults `language = "en_US"` on the layout specs, which `language_fallback` resolves exactly (the `en_US` dict is bundled).
-- Rejected forms, recorded as a boundary fact: `inserted` and `wrap` are NOT composed — `inserted` string-mangles (it pre-splices the hyphen, losing the offsets), and `wrap` is a per-word first-fit that pre-commits a break and cannot minimize paragraph-wide raggedness. The total-fit DP requires the raw `positions` offsets; both rejected methods are documented [02]/[03] so a future agent does not "simplify" the offset algebra back into one of them.
-- Non-standard hyphenation depth: for languages where a break mutates orthography (German `Zucker` -> `Zuk-ker`, Hungarian gemination), `positions` returns a `DataInt` carrying `.data = (change, index, cut)`. The current layout `_stream` reads only the integer offset (standard hyphenation); the `.data` channel is the documented growth seam for orthography-correct emission — a `DataInt.data`-aware `document/emit#DOCUMENT` arm applies the `change`/`index`/`cut` substitution at the break, never a re-derivation of the Hunspell rule.
-
-[INTEGRATION_SCOPE]: boundary — what pyphen does NOT own
-- rail: typography
-
-- no line-break-opportunity resolution (UAX#14 hard/space/CJK breaks are `uniseg`'s `line_break`/`line_break_units`); pyphen resolves only IN-WORD soft-hyphenation points.
-- no paragraph optimization (the Knuth-Plass Box/Glue/Penalty total-fit dynamic program is the `typography/layout#LAYOUT` owner's own algorithm); pyphen supplies the soft-break offsets the `Penalty` items mark.
-- no text shaping, no glyph model, no font access (that is `typography/shape#SHAPE` / `typography/font#FONT`); pyphen operates on the source-text string, and the layout owner maps its offsets onto the shaped run's cluster column.
-- no width/advance measurement; the `hyphen_advance` a break costs is a `FitPolicy` field the design owns, not a pyphen output.
+[RAIL_LAW]:
+- Package: `pyphen`
+- Owns: dictionary-driven soft-hyphenation over Hunspell `.dic` TeX patterns — Liang competing-pattern break resolution with `left`/`right` affix guards, non-standard orthographic substitution surfaced per break, and BCP-47 truncation fallback
+- Accept: `Pyphen(lang=, left=, right=).positions(word)` for the raw offset surface and `.iterate(word)` for the substituted split pairs the layout owner threads into `Penalty` items
+- Reject: `inserted` string-splicing or `wrap` per-word first-fit where the total-fit DP needs raw offsets; a hand-rolled Liang implementation, `.dic` parser, or substitution rule where pyphen owns the fold; `pyphen.version` where the module attributes are `VERSION`/`__version__`

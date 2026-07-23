@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_PYTHON_PPTX]
 
-`python-pptx` supplies the PowerPoint `.pptx` presentation surface for the artifacts office rail: the polymorphic `Presentation(pptx=None)` factory opens an existing file/stream (the template-clone path) or creates from the default 16:9 template, returning a `presentation.Presentation` whose `Slides.add_slide(layout)` collection mints slides from `SlideLayouts` rows, the full `SlideShapes.add_*` shape family (textbox, picture, table, chart, autoshape, connector, group, movie, OLE object) plus `build_freeform` author the shape tree, the `SlidePlaceholders` `insert_picture`/`insert_chart`/`insert_table` family fills layout-defined placeholders in place, the `TextFrame`/`_Paragraph`/`_Run`/`Font` model carries paragraphs/runs with the full character-appearance axis (bold/italic/underline/size/name/`language_id`/`color`/`fill`/`hyperlink`), the `FillFormat`/`LineFormat`/`ShadowFormat`/`ColorFormat` DML surface owns fill (solid/gradient/pattern/picture), outline (width/dash/color), shadow, and RGB-or-theme color, native `CategoryChartData`/`XyChartData`/`BubbleChartData` series builders feed `add_chart` with the embedded `XlsxWriter` workbook and `Chart.replace_data` refresh, the `Table`/`_Cell` grid owns cell text/merge/split/banding, and `Inches`/`Pt`/`Cm`/`Mm`/`Emu`/`Centipoints`/`Length` value objects own EMU conversion in both directions. The package owner composes `Presentation`, `add_slide`, the `add_*` + placeholder-insert families, `build_freeform`, the text-frame model with `fit_text`/`auto_size`/`word_wrap`/`vertical_anchor`/margins, the `Font`+`ColorFormat`+`FillFormat`+`LineFormat`+`ShadowFormat` DML surface, the chart-data builders + `replace_data`, the `Table` grid, the `CoreProperties` metadata seal, and the unit objects into the `document/emit#DOCUMENT` `DocumentMode.PPTX` lowering arm and the `document/emit#DOCUMENT` `DocumentPlan.bound` `DocumentMode.PPTX` template-clone fan row; it removes any raw-EMU integer math because the `Length` value objects own conversion, and it never re-implements the OOXML presentation part graph, the lxml-backed element serialization, the embedded chart-data workbook, or the slide-layout/master inheritance python-pptx already owns.
+`python-pptx` mints the PowerPoint `.pptx` presentation surface for the artifacts office rail: `Presentation(pptx=None)` opens a template/stream or creates from the default 16:9 template, `Slides.add_slide(layout)` mints layout-row slides, the one `SlideShapes.add_*` family and `build_freeform` author the shape tree, `SlidePlaceholders` fills layout placeholders in place, the `TextFrame`/`Font` model carries the run-appearance axis, the shared `FillFormat`/`LineFormat`/`ShadowFormat`/`ColorFormat` DML surface owns fill/outline/shadow/color, the `CategoryChartData`/`XyChartData`/`BubbleChartData` builders feed `add_chart` with `Chart.replace_data` refresh, the `Table`/`_Cell` grid owns cell merge/banding, and `Length` value objects own bidirectional EMU conversion. It anchors the `document/emit#DOCUMENT` `DocumentMode.PPTX` lowering arm and the `DocumentPlan.bound` template-clone fan, never re-implementing the OOXML part graph, lxml serialization, the embedded chart-data workbook, or the slide-layout/master inheritance python-pptx already owns.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,19 +9,17 @@
 - import: `pptx`
 - owner: `artifacts`
 - rail: office
-- installed: `1.0.2`
-- floor: pure-Python (no compiled extension); abi-agnostic, runs on cp315
-- runtime deps: `lxml` (`libs/python/artifacts/.api/lxml.md`, the C14N OOXML element serialization backing every part), `Pillow` (`libs/python/artifacts/.api/pillow.md`, image inspection sizing embedded pictures and rendering the poster frame), `XlsxWriter` (`libs/python/artifacts/.api/xlsxwriter.md`, the embedded chart-data workbook writer), `typing_extensions`
-- license: MIT (Steve Canny) — permissive, no copyleft gate; aligns with the MIT/BSD sibling office owners (`xlsxwriter`/`openpyxl`/`python-docx`), distinct from the triple-classified `odfpy`
-- entry points: none (library only; the in-process `Presentation` surface composes directly — no CLI subprocess)
-- capability: `.pptx` construction and editing — slides from layouts, layouts/masters/notes-master, placeholder fill-in-place, textboxes, runs/paragraphs/fonts with full character appearance (bold/italic/underline/size/name/`language_id`/color/fill/hyperlink), pictures (with crop) and image evidence, tables with merge/split/banding, native category/xy/bubble charts with axis/legend/data-label/series formatting and `replace_data` refresh, autoshapes (182 `MSO_SHAPE` rows) with adjustment handles, connectors (begin/end connect), group shapes, movie and OLE-object embeds, freeform vector shapes, the FillFormat/LineFormat/ShadowFormat DML surface, click-action hyperlinks, speaker notes, core-property metadata, slide background, and offscreen slide-shape geometry in EMU `Length` value objects
+- floor: pure-Python, abi-agnostic; runs on cp315, offloadable to the `anyio.to_process` worker band
+- runtime deps: `lxml`, `Pillow`, `XlsxWriter`, `typing_extensions`
+- license: MIT (Steve Canny)
+- entry points: none (library only; the in-process `Presentation` surface composes directly)
+- capability: `.pptx` construction and editing — slides from layouts, masters/notes-master, placeholder fill-in-place, textboxes, runs/paragraphs/fonts with full character appearance, cropped pictures with image evidence, tables with merge/split/banding, native category/xy/bubble charts with axis/legend/data-label/series formatting and `replace_data` refresh, autoshapes with adjustment handles, connectors, groups, movie/OLE embeds, freeform vector shapes, the DML fill/line/shadow/color surface, click-action hyperlinks, notes, core-property metadata, slide background, EMU `Length` geometry
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: presentation root, slides, layouts
-- rail: office — `pptx.presentation` / `pptx.slide`
+[PUBLIC_TYPE_SCOPE]: presentation root, slides, layouts (`pptx.presentation`, `pptx.slide`)
 
-`Presentation()` returns the document root; a slide is a `SlideLayout`-row instance via `Slides.add_slide`, never a per-template slide type. Layouts/masters/notes-master are read off the root; `Slides.get(slide_id)`/`index(slide)` address by id/position. `CoreProperties` seals the 15 OOXML core fields — `author`/`title`/`subject`/`keywords`/`category`/`comments`/`content_status`/`created`/`modified`/`last_modified_by`/`last_printed`/`identifier`/`language`/`revision`/`version`.
+`Presentation()` returns the document root; a slide is a `SlideLayout`-row instance via `Slides.add_slide`, never a per-template type. `Slides.get(slide_id)`/`index(slide)` address by id/position, and layouts, masters, and notes-master read off the root. `CoreProperties` seals the OOXML core fields — `author`/`title`/`subject`/`keywords`/`category`/`comments`/`content_status`/`created`/`modified`/`last_modified_by`/`last_printed`/`identifier`/`language`/`revision`/`version`.
 
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY]     | [CAPABILITY]                                                                                     |
 | :-----: | :--------------- | :---------------- | :----------------------------------------------------------------------------------------------- |
@@ -29,15 +27,14 @@
 |  [02]   | `Slides`         | slide collection  | `add_slide(layout)`/`get(slide_id)`/`index(slide)` + iteration                                   |
 |  [03]   | `Slide`          | slide unit        | `shapes`/`placeholders`/`slide_layout`/`slide_id`/`name`/`background`/`follow_master_background` |
 |  [04]   | `SlideLayout`    | layout            | `placeholders`/`shapes`/`slide_master`/`used_by_slides`/`iter_cloneable_placeholders`/`name`     |
-|  [05]   | `SlideLayouts`   | layout collection | indexable master layouts (default master ships 11; index 6 is `Blank`)                           |
+|  [05]   | `SlideLayouts`   | layout collection | indexable master layouts (index 6 is `Blank` on the default master)                              |
 |  [06]   | `SlideMaster`    | master            | `slide_layouts`/`placeholders`/`shapes`/`background`/`name`                                      |
 |  [07]   | `NotesSlide`     | notes slide       | `notes_text_frame`/`notes_placeholder` speaker notes; `clone_master_placeholders`                |
-|  [08]   | `CoreProperties` | metadata seal     | the 15 OOXML core-property fields (lead); read via `presentation.core_properties`                |
+|  [08]   | `CoreProperties` | metadata seal     | the OOXML core-property fields (lead); read via `presentation.core_properties`                   |
 
-[PUBLIC_TYPE_SCOPE]: shape tree, shapes, placeholders, freeform
-- rail: office — `pptx.shapes`
+[PUBLIC_TYPE_SCOPE]: shape tree, shapes, placeholders, freeform (`pptx.shapes`)
 
-`SlideShapes` (and the same surface on `GroupShapes`) is the one `add_*` shape-add collection plus `build_freeform`; each shape kind is a method row, never a parallel slide type. `SlidePlaceholders` fills layout-defined placeholders in place. Every concrete shape carries the `BaseShape` geometry/identity axis: `left`/`top`/`width`/`height`/`rotation`, `name`/`shape_id`/`shape_type`, `is_placeholder`/`placeholder_format`, `has_text_frame`/`has_chart`/`has_table`, `click_action`, `shadow`.
+`SlideShapes` (and the same surface on `GroupShapes`) is the one `add_*` shape-add collection with `build_freeform`; each shape kind is a method row, never a parallel slide type. `SlidePlaceholders` fills layout-defined placeholders in place. Every concrete shape carries the `BaseShape` geometry/identity axis: `left`/`top`/`width`/`height`/`rotation`, `name`/`shape_id`/`shape_type`, `is_placeholder`/`placeholder_format`, `has_text_frame`/`has_chart`/`has_table`, `click_action`, `shadow`.
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY]    | [CAPABILITY]                                                                           |
 | :-----: | :------------------- | :--------------- | :------------------------------------------------------------------------------------- |
@@ -56,10 +53,9 @@
 |  [13]   | `TablePlaceholder`   | placeholder      | `insert_table` fills a layout table placeholder                                        |
 |  [14]   | `_PlaceholderFormat` | placeholder id   | `idx`/`type` (`PP_PLACEHOLDER`) — the layout-placeholder discriminant                  |
 
-[PUBLIC_TYPE_SCOPE]: text model, DML format, image evidence
-- rail: office — `pptx.text` / `pptx.dml` / `pptx.parts.image`
+[PUBLIC_TYPE_SCOPE]: text model, DML format, image evidence (`pptx.text`, `pptx.dml`, `pptx.parts.image`)
 
-A shape's `TextFrame` owns paragraphs/runs and sizing; `Font` is one font value per run with `color`/`fill` and the full appearance axis. The shared `FillFormat`/`LineFormat`/`ShadowFormat`/`ColorFormat` DML surface grades the office plane as a journal-grade and ISO-3098 drawing-annotation engine: `FillFormat` carries `solid()`/`gradient()`/`patterned()`/`background()` mode setters with `fore_color`/`back_color`/`pattern`/`gradient_stops`/`gradient_angle`/`type` (`MSO_FILL`).
+A shape's `TextFrame` owns paragraphs/runs and sizing; `Font` is one font value per run with `color`/`fill` and the full appearance axis. One shared `FillFormat`/`LineFormat`/`ShadowFormat`/`ColorFormat` DML surface grades every fill (solid/gradient/pattern/picture), outline, shadow, and RGB-or-theme color: `FillFormat` carries `solid()`/`gradient()`/`patterned()`/`background()` mode setters with `fore_color`/`back_color`/`pattern`/`gradient_stops`/`gradient_angle`/`type` (`MSO_FILL`).
 
 | [INDEX] | [SYMBOL]       | [TYPE_FAMILY]  | [CAPABILITY]                                                                                     |
 | :-----: | :------------- | :------------- | :----------------------------------------------------------------------------------------------- |
@@ -75,10 +71,9 @@ A shape's `TextFrame` owns paragraphs/runs and sizing; `Font` is one font value 
 |  [10]   | `ShadowFormat` | shadow         | `inherit` (toggle inheriting the theme shadow vs. an explicit no-shadow)                         |
 |  [11]   | `Image`        | image evidence | `blob`/`content_type`/`ext`/`dpi`/`size`/`sha1`/`filename`; `Image.from_blob`/`from_file`        |
 
-[PUBLIC_TYPE_SCOPE]: chart, table, and unit value objects
-- rail: office — `pptx.chart` / `pptx.table` / `pptx.util`
+[PUBLIC_TYPE_SCOPE]: chart, table, and unit value objects (`pptx.chart`, `pptx.table`, `pptx.util`)
 
-`ChartData` builders feed `add_chart`; the resulting `Chart` exposes the axis/legend/series/data-label formatting surface and `replace_data` for in-place refresh. `Table`/`_Cell` is the schedule grid. The `Length` family owns bidirectional EMU conversion (`Inches(1) == 914400`, `Pt(1) == 12700`).
+`ChartData` builders feed `add_chart`; the resulting `Chart` exposes the axis/legend/series/data-label formatting surface and `replace_data` for in-place refresh. `Table`/`_Cell` is the schedule grid. `Length` owns bidirectional EMU conversion (`Inches(1) == 914400`, `Pt(1) == 12700`).
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]                                                                          |
 | :-----: | :------------------ | :------------ | :------------------------------------------------------------------------------------ |
@@ -102,9 +97,8 @@ A shape's `TextFrame` owns paragraphs/runs and sizing; `Font` is one font value 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: presentation factory, slides, metadata, save
-- rail: office
 
-`Presentation(pptx=None)` is the single open-or-create factory (the `document/emit#DOCUMENT` `DocumentPlan.bound` template-clone path opens a `.pptx` template); `Slides.add_slide(layout)` is the single slide-add surface, the layout sourced from `slide_layouts`. `save` accepts a path OR a stream — the `document/emit#DOCUMENT` worker saves to `io.BytesIO` and only the bytes cross the seam. `core_properties` is the author/title/created/modified metadata seal.
+`Presentation(pptx=None)` is the single open-or-create factory (the `DocumentPlan.bound` template-clone path opens a `.pptx` template). `Slides.add_slide(layout)` is the single slide-add surface, the layout sourced from `slide_layouts`. `save` accepts a path OR a stream — the `document/emit#DOCUMENT` worker saves to `io.BytesIO` and only the bytes cross the seam. `core_properties` is the author/title/created/modified metadata seal.
 
 | [INDEX] | [SURFACE]                      | [CALL_SHAPE]                                                                       |
 | :-----: | :----------------------------- | :--------------------------------------------------------------------------------- |
@@ -119,9 +113,8 @@ A shape's `TextFrame` owns paragraphs/runs and sizing; `Font` is one font value 
 |  [09]   | `Slide.notes_slide`            | `notes_slide.notes_text_frame -> TextFrame` (guard with `has_notes_slide`)         |
 
 [ENTRYPOINT_SCOPE]: shape and freeform authoring
-- rail: office
 
-Shape rows take `Inches`/`Pt`/`Emu` `Length` position/size values; the add family returns the created shape or graphic frame. `add_picture`/`add_movie`/`add_ole_object` accept a path OR an `IO[bytes]` stream, so the `document/emit#DOCUMENT` `DocumentPlan.bound` `assets` band embeds figures from `io.BytesIO` with no temp-file materialization. `build_freeform` mints a vector-path builder taking a per-axis `scale` tuple. `[SURFACE]` drops the `SlideShapes.`/`FreeformBuilder.`/`*Placeholder.` prefix; each `add_*` row carries the trailing `left, top, width[, height]` `Length` geometry shown as `…`. Autoshapes are one of 182 `MSO_SHAPE` rows, connectors an `MSO_CONNECTOR` (STRAIGHT/ELBOW/CURVE).
+Shape rows take `Inches`/`Pt`/`Emu` `Length` position/size and return the created shape or graphic frame. `add_picture`/`add_movie`/`add_ole_object` accept a path OR an `IO[bytes]` stream, so the `DocumentPlan.bound` `assets` band embeds figures from `io.BytesIO` with no temp file. `[SURFACE]` drops the `SlideShapes.`/`FreeformBuilder.`/`*Placeholder.` prefix, and each `add_*` row's trailing `left, top, width[, height]` `Length` geometry shows as `…`. Autoshape kind is an `MSO_SHAPE` row, connector an `MSO_CONNECTOR` (STRAIGHT/ELBOW/CURVE).
 
 | [INDEX] | [SURFACE]           | [CALL_SHAPE]                                                                                                 |
 | :-----: | :------------------ | :----------------------------------------------------------------------------------------------------------- |
@@ -143,7 +136,6 @@ Shape rows take `Inches`/`Pt`/`Emu` `Length` position/size values; the add famil
 |  [16]   | `insert_table`      | `insert_table(rows, cols) -> PlaceholderGraphicFrame`                                                        |
 
 [ENTRYPOINT_SCOPE]: text, style, chart-data, and table authoring
-- rail: office
 
 A shape's `TextFrame` owns paragraphs/runs and fit; `Font` carries the full character appearance the `document/emit#DOCUMENT` RUN_FIDELITY law projects. `ChartData` builders feed `add_chart`/`insert_chart` and `Chart.replace_data` refreshes in place; categories precede series on `CategoryChartData`. `Table.cell` addresses the schedule grid.
 
@@ -162,23 +154,32 @@ A shape's `TextFrame` owns paragraphs/runs and fit; `Font` carries the full char
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[OFFICE_PPTX]:
-- import: `from pptx import Presentation; from pptx.util import Inches, Pt, Emu` at boundary scope only; module-level import is banned by the manifest import policy. The distribution is `python-pptx`, the import name is `pptx`.
-- presentation axis: `Presentation(pptx=None)` is the single polymorphic factory for both open and create — `None` creates from the default 16:9 template, a path/stream opens (the `document/emit#DOCUMENT` `DocumentPlan.bound` `DocumentMode.PPTX` template-clone path that opens a corporate `.pptx` and appends slides into its layouts). It returns the `presentation.Presentation` object, never a parallel reader/writer split.
-- slide axis: `Presentation.slides.add_slide(layout)` is the single slide-add surface; the layout comes from `slide_layouts` (index 6 == `Blank` on the default master), so a slide is a layout-row instance, never a per-template slide type. `Slides.get(slide_id)`/`index(slide)` address by id/position.
-- shape axis: `add_textbox`/`add_picture`/`add_table`/`add_chart`/`add_shape`/`add_connector`/`add_group_shape`/`add_movie`/`add_ole_object` is one shape-add surface on `slide.shapes`; each shape kind is a method row, never a parallel slide type. The layout-driven mirror is `SlidePlaceholders` `insert_picture`/`insert_chart`/`insert_table` filling a layout-defined placeholder in place — prefer placeholder-insert when the layout defines the frame, reserve the explicit `add_*`+`Length` geometry for free positioning. Vector geometry is `build_freeform` -> `add_line_segments`/`move_to` -> `convert_to_shape`, never hand-built path XML.
-- text axis: a shape exposes a `TextFrame` whose `paragraphs`/`add_paragraph` and `_Run`/`add_run`/`add_line_break` carry text; `fit_text`/`auto_size`/`word_wrap`/`vertical_anchor`/`margin_*` own sizing. `Font` is one font value per run carrying the FULL character appearance — `bold`/`italic`/`underline`/`size`/`name`/`language_id`, `color` as a `ColorFormat` (`rgb` or `theme_color`), `fill` as a `FillFormat`, and `_Run.hyperlink.address` the link target — so the `document/emit#DOCUMENT` RUN_FIDELITY projection (bold-italic-superscript-coloured-language-tagged runs) lands without per-run duplication.
-- DML axis: shape/cell/run styling is the shared `FillFormat`/`LineFormat`/`ShadowFormat`/`ColorFormat` surface — `fill.solid()`/`gradient()`/`patterned()` with `fore_color`/`back_color`/`pattern` (MSO_PATTERN) on the closed `MSO_FILL` modes, `line.color`/`width`/`dash_style` (MSO_LINE_DASH_STYLE), `shadow.inherit`, and `color.rgb`/`theme_color`/`brightness`. Color is `RGBColor(r, g, b)` (or `RGBColor.from_string('RRGGBB')`) or an `MSO_THEME_COLOR` row, never a hex string literal.
-- chart axis: build a `CategoryChartData` (categories first via `add_category`, then `add_series(name, values, number_format)`) or `XyChartData`/`BubbleChartData` (series then `add_data_point`), then `add_chart(XL_CHART_TYPE, x, y, cx, cy, chart_data)` (or `ChartPlaceholder.insert_chart`); `Chart.replace_data(chart_data)` refreshes in place. Chart type is one of 73 `XL_CHART_TYPE` rows; `value_axis`/`category_axis` carry `minimum_scale`/`maximum_scale`/`major_unit`/gridlines, `legend.position` is `XL_LEGEND_POSITION`, `DataLabels.position` is `XL_LABEL_POSITION`. The chart-data workbook is embedded via the `XlsxWriter` dependency, never a separate spreadsheet file.
-- table axis: `add_table(rows, cols, ...)` returns a `GraphicFrame` whose `.table` is the `Table`; `table.cell(r, c).text`/`.text_frame` authors a cell, `cell(a).merge(cell(b))`/`.split()` spans/unspans, and `first_row`/`first_col`/`horz_banding`/`vert_banding` toggle the table-style banding — the AEC schedule grid, never a hand-built `a:tbl`.
-- unit axis: positions and sizes use `Inches`/`Pt`/`Emu`/`Cm`/`Mm`/`Centipoints` value objects, never raw EMU ints; `Length` reads back as `.emu`/`.pt`/`.inches`/`.cm`/`.mm`. Autoshape geometry is an `MSO_SHAPE` row, connector kind an `MSO_CONNECTOR` row, text anchor an `MSO_ANCHOR` row, alignment a `PP_ALIGN` row, placeholder kind a `PP_PLACEHOLDER` row, underline an `MSO_TEXT_UNDERLINE_TYPE` row.
-- evidence: each presentation op captures slide count (`len(presentation.slides)`), shape count, image count (with `Picture.image.sha1`/`size`/`content_type` per embed), chart count, and output byte length as a `msgspec.Struct` (`libs/python/.api/msgspec.md`) office receipt — the `core/receipt#RECEIPT` `ArtifactReceipt.Office` case — emitted under one `structlog` (`libs/python/.api/structlog.md`) event inside an OpenTelemetry (`libs/python/.api/opentelemetry-api.md`) span on the sub-3.15 worker; the build authors on the `anyio.to_process` (`libs/python/.api/anyio.md`) worker band and only the saved `.pptx` bytes (or a stream) plus the typed receipt cross the seam back, never a live `Presentation` object.
-- boundary: python-pptx owns `.pptx`. Integration: `exchange/detect#DETECT` routes `MediaClass.PRESENTATION` -> python-pptx at the ingest gate (`puremagic`/`python-magic`, `libs/python/artifacts/.api/puremagic.md`); `msoffcrypto-tool` (`libs/python/artifacts/.api/msoffcrypto-tool.md`) decrypts an encrypted container to a plaintext stream `Presentation(stream)` reads and re-seals the saved bytes; chart imagery generated outside (`matplotlib`/`vl-convert-python`/`pyvista`, `libs/python/artifacts/.api/matplotlib.md`) and the `document/emit#DOCUMENT` `DocumentPlan.bound` `assets` band land as a `Picture` via `add_picture` from `io.BytesIO`, and `Pillow` (a dependency, co-resident on the worker) sizes embedded images and exposes `Picture.image` evidence. Word routes to `python-docx` (`libs/python/artifacts/.api/python-docx.md`), Excel to `openpyxl`/`xlsxwriter`, ODF presentation to `odfpy` (`DocumentMode.ODT`/`ODS`). Live UI stays outside this package.
+[TOPOLOGY]:
+- presentation: `Presentation(pptx=None)` is the single polymorphic open-or-create factory — `None` builds from the default 16:9 template, a path/stream opens the `DocumentPlan.bound` `DocumentMode.PPTX` template-clone path that appends slides into a corporate `.pptx`'s layouts — returning the `presentation.Presentation` object, never a reader/writer split.
+- slide: `slides.add_slide(layout)` is the single slide-add surface, the layout sourced from `slide_layouts` (index 6 == `Blank` on the default master), so a slide is a layout-row instance, never a per-template type; `Slides.get(slide_id)`/`index(slide)` address by id/position.
+- shape: `add_textbox`/`add_picture`/`add_table`/`add_chart`/`add_shape`/`add_connector`/`add_group_shape`/`add_movie`/`add_ole_object` is one shape-add surface, each kind a method row; `SlidePlaceholders` `insert_picture`/`insert_chart`/`insert_table` fills a layout-defined frame in place, while explicit `add_*`+`Length` geometry serves free positioning. Vector geometry is `build_freeform` -> `add_line_segments`/`move_to` -> `convert_to_shape`.
+- text: a shape's `TextFrame` `paragraphs`/`add_paragraph` and `_Run`/`add_run`/`add_line_break` carry text, `fit_text`/`auto_size`/`word_wrap`/`vertical_anchor`/`margin_*` own sizing, and `Font` is one font value per run carrying the full appearance — `bold`/`italic`/`underline`/`size`/`name`/`language_id`, `color` (`ColorFormat` `rgb`/`theme_color`), `fill` (`FillFormat`), `_Run.hyperlink.address` — so the RUN_FIDELITY projection lands without per-run duplication.
+- DML: shape/cell/run styling is the shared `FillFormat`/`LineFormat`/`ShadowFormat`/`ColorFormat` surface — `fill.solid()`/`gradient()`/`patterned()` with `fore_color`/`back_color`/`pattern` (MSO_PATTERN) on the `MSO_FILL` modes, `line.color`/`width`/`dash_style` (MSO_LINE_DASH_STYLE), `shadow.inherit`, `color.rgb`/`theme_color`/`brightness`. Color is `RGBColor(r, g, b)` / `RGBColor.from_string('RRGGBB')` or an `MSO_THEME_COLOR` row.
+- chart: build a `CategoryChartData` (categories first via `add_category`, then `add_series(name, values, number_format)`) or `XyChartData`/`BubbleChartData` (series then `add_data_point`), then `add_chart(XL_CHART_TYPE, x, y, cx, cy, chart_data)` (or `ChartPlaceholder.insert_chart`); `Chart.replace_data(chart_data)` refreshes in place. `value_axis`/`category_axis` carry `minimum_scale`/`maximum_scale`/`major_unit`/gridlines, `legend.position` is `XL_LEGEND_POSITION`, `DataLabels.position` is `XL_LABEL_POSITION`.
+- table: `add_table(rows, cols, ...)` returns a `GraphicFrame` whose `.table` is the `Table`; `table.cell(r, c).text`/`.text_frame` authors a cell, `cell(a).merge(cell(b))`/`.split()` spans/unspans, and `first_row`/`first_col`/`horz_banding`/`vert_banding` toggle style banding — the AEC schedule grid.
+- unit: positions and sizes use `Inches`/`Pt`/`Emu`/`Cm`/`Mm`/`Centipoints` value objects reading back as `.emu`/`.pt`/`.inches`/`.cm`/`.mm`; autoshape geometry is `MSO_SHAPE`, connector `MSO_CONNECTOR`, text anchor `MSO_ANCHOR`, alignment `PP_ALIGN`, placeholder `PP_PLACEHOLDER`, underline `MSO_TEXT_UNDERLINE_TYPE`.
 
-## [05]-[LOCAL_ADMISSION]
+[STACKING]:
+- `msgspec`(`.api/msgspec.md`): each presentation op captures slide/shape/image/chart counts, per-embed `Picture.image.sha1`/`size`/`content_type`, and output byte length as a `msgspec.Struct` office receipt — the `core/receipt#RECEIPT` `ArtifactReceipt.Office` case.
+- `structlog`(`.api/structlog.md`) + `opentelemetry-api`(`.api/opentelemetry-api.md`): the build emits one `structlog` event inside one OpenTelemetry span stamping the receipt counts, never re-derived off the bytes by a second reader.
+- `anyio`(`.api/anyio.md`): the build authors on the `anyio.to_process` sub-3.15 worker band; only the saved `.pptx` bytes (or a stream) with the typed receipt cross the seam, never a live `Presentation`.
+- `XlsxWriter`(`.api/xlsxwriter.md`): the chart-data workbook embeds through the in-package `XlsxWriter` writer.
+- `Pillow`(`.api/pillow.md`): sizes embedded images and exposes `Picture.image` evidence.
+- `puremagic`/`python-magic`(`.api/puremagic.md`): `exchange/detect#DETECT` routes `MediaClass.PRESENTATION` here at the ingest gate.
+- `msoffcrypto-tool`(`.api/msoffcrypto-tool.md`): decrypts an encrypted container to a plaintext stream `Presentation(stream)` reads and re-seals on save.
+- `matplotlib`/`vl-convert-python`/`pyvista`(`.api/matplotlib.md`): externally-rendered chart imagery and the `DocumentPlan.bound` `assets` band land as a `Picture` via `add_picture` from `io.BytesIO`.
+- `document/emit#DOCUMENT` `PPTX` arm: the `DocumentMode.PPTX` lowering arm and the `DocumentPlan.bound` template-clone fan compose `Presentation`, `add_slide`, the add+placeholder-insert families, `build_freeform`, the `Font`+DML surface, the chart-data builders + `replace_data`, the `Table` grid, `CoreProperties`, and the unit objects, saving to `io.BytesIO`.
+
+[LOCAL_ADMISSION]:
+- python-pptx is the owner for `.pptx` construction and editing; Word routes to `python-docx`, Excel to `openpyxl`/`xlsxwriter`, ODF presentation to `odfpy` (`DocumentMode.ODT`/`ODS`), and live UI stays outside this package.
 
 [RAIL_LAW]:
 - Package: `python-pptx`
-- Owns: `.pptx` construction and editing — slides from layouts, placeholder fill-in-place, textboxes/runs/paragraphs/fonts with the full character appearance (bold/italic/underline/size/name/language/color/fill/hyperlink), pictures with crop and image evidence, tables with merge/split/banding, native category/xy/bubble charts with axis/legend/data-label/series formatting and `replace_data` refresh, autoshapes/connectors/groups, movie/OLE embeds, freeform vector shapes, the FillFormat/LineFormat/ShadowFormat DML surface, slide background, notes, core-property metadata
-- Accept: presentation authoring feeding the `document/emit#DOCUMENT` `DocumentMode.PPTX` lowering arm and the `document/emit#DOCUMENT` `DocumentPlan.bound` `DocumentMode.PPTX` template-clone fan row, downstream of the `exchange/detect#DETECT` `MediaClass.PRESENTATION` gate and the `msoffcrypto-tool` confidentiality edge, embedding the `document/emit#DOCUMENT` `DocumentPlan.bound` `assets` figure band via `add_picture` from a stream
-- Reject: wrapper-renames of `add_slide`/`add_picture`/`save`; an `add_*`-per-shape parallel slide type where the one `SlideShapes` collection discriminates by method row; a per-run color/font rebuild where `Font` + `ColorFormat` carry the appearance; raw-EMU integers where `Length` value objects (and their `.emu`/`.pt`/`.inches` read-back) exist; hex-string color where `RGBColor`/`MSO_THEME_COLOR` exist; magic shape/anchor/alignment/dash strings where the `MSO_SHAPE`/`MSO_ANCHOR`/`PP_ALIGN`/`MSO_LINE_DASH_STYLE` enum rows exist; hand-built path or table XML where `build_freeform` and `add_table`/`Table.cell` exist; a separate chart-data spreadsheet where the embedded `XlsxWriter` workbook is in-package; identity minting the runtime owns
+- Owns: `.pptx` construction and editing — slides from layouts, placeholder fill-in-place, textboxes/runs/paragraphs/fonts with full character appearance, pictures with crop and image evidence, tables with merge/split/banding, native category/xy/bubble charts with axis/legend/data-label/series formatting and `replace_data` refresh, autoshapes/connectors/groups, movie/OLE embeds, freeform vector shapes, the FillFormat/LineFormat/ShadowFormat DML surface, slide background, notes, core-property metadata
+- Accept: presentation authoring feeding the `document/emit#DOCUMENT` `DocumentMode.PPTX` lowering arm and the `DocumentPlan.bound` template-clone fan row, downstream of the `exchange/detect#DETECT` `MediaClass.PRESENTATION` gate and the `msoffcrypto-tool` confidentiality edge, embedding the `DocumentPlan.bound` `assets` figure band via `add_picture` from a stream
+- Reject: wrapper-renames of `add_slide`/`add_picture`/`save`; an `add_*`-per-shape parallel slide type where the one `SlideShapes` collection discriminates by method row; a per-run color/font rebuild where `Font` + `ColorFormat` carry the appearance; raw-EMU integers where `Length` value objects and their read-back exist; hex-string color where `RGBColor`/`MSO_THEME_COLOR` exist; magic shape/anchor/alignment/dash strings where the `MSO_SHAPE`/`MSO_ANCHOR`/`PP_ALIGN`/`MSO_LINE_DASH_STYLE` rows exist; hand-built path or table XML where `build_freeform` and `add_table`/`Table.cell` exist; a separate chart-data spreadsheet where the embedded `XlsxWriter` workbook is in-package; identity minting the runtime owns

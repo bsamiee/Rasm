@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_INTERPAX]
 
-`interpax` supplies JAX-native, differentiable, `vmap`-friendly 1D/2D/3D interpolation and FFT-based resampling for the compute interpolation rail. The package owner routes regular-grid interpolation cases through `interp1d`/`interp2d`/`interp3d` for one-shot evaluation, the `Interpolator{1,2,3}D` callable objects for reusable JAX-differentiable interpolants, `fft_interp1d`/`fft_interp2d` for periodic spectral resampling, plus drop-in JAX-differentiable equivalents of `scipy.interpolate.CubicSpline`/`PchipInterpolator`/`Akima1DInterpolator`/`CubicHermiteSpline`/`PPoly` as first-class spline classes; it never re-implements a cubic-spline or PCHIP kernel the package already owns. Because every interpolant is an Equinox-style pytree module, it slots directly into the JAX rail: an interpolated field becomes a differentiable leaf inside an `equinox`/`optimistix` objective, the integrand of a `quadax` quadrature, or the right-hand side of a `diffrax` ODE term, with no boundary conversion.
+`interpax` owns JAX-native differentiable interpolation and FFT resampling on regular grids for the compute interpolation rail. Every interpolant is an Equinox-style pytree module, so an interpolated field enters the JAX rail as a differentiable leaf inside an `equinox`/`optimistix` objective, a `quadax` integrand, or a `diffrax` ODE term with no boundary conversion.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,92 +9,58 @@
 - import: `interpax`
 - owner: `compute`
 - rail: interpolation
-- installed: `0.3.14`
-- capability: JAX-native differentiable interpolation on regular grids — 1D/2D/3D linear/cubic/PCHIP/monotonic methods, reusable callable interpolant objects (`vmap`/`grad`/`jit`-compatible), and FFT-based periodic resampling
+- capability: JAX-native differentiable interpolation on regular grids — 1D/2D/3D linear/cubic/PCHIP/monotonic kernels, reusable `vmap`/`grad`/`jit`-compatible interpolant objects, and FFT periodic resampling
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: callable interpolant objects
-- rail: interpolation
-- JAX pytree-registered Equinox-style modules; each instance is differentiable, `jit`/`vmap`/`grad`-compatible, and re-evaluable at arbitrary query points after one construction.
+[PUBLIC_TYPE_SCOPE]: reusable interpolant objects — JAX pytree modules, `jit`/`vmap`/`grad`-compatible and re-evaluable at arbitrary query points after one construction; built via `Interpolator{1,2,3}D(x[, y[, z]], f, method, extrap, period)`, called with query points, `derivative` accepted on evaluation
+- [INTERPOLANT]: `Interpolator1D` `Interpolator2D` `Interpolator3D`
 
-| [INDEX] | [SYMBOL]         | [PACKAGE_ROLE]        | [CAPABILITY]                                               |
-| :-----: | :--------------- | :-------------------- | :--------------------------------------------------------- |
-|  [01]   | `Interpolator1D` | 1D interpolant object | reusable differentiable interpolant over a 1D regular grid |
-|  [02]   | `Interpolator2D` | 2D interpolant object | reusable differentiable interpolant over a 2D regular grid |
-|  [03]   | `Interpolator3D` | 3D interpolant object | reusable differentiable interpolant over a 3D regular grid |
+[PUBLIC_TYPE_SCOPE]: `scipy.interpolate`-equivalent spline classes — JAX-differentiable drop-ins evaluated through the JAX-native kernels; constructors mirror the same-named `scipy.interpolate` signatures, `__call__(x, nu=0, extrapolate=None)` evaluates with `nu` the derivative order, every calculus method returning a new differentiable spline/`PPoly` or array
 
-[PUBLIC_TYPE_SCOPE]: scipy.interpolate-equivalent spline classes
-- rail: interpolation
-- JAX-differentiable, `jit`/`vmap`/`grad`-compatible drop-in replacements for the same-named `scipy.interpolate` spline classes; same constructor and call signatures, evaluated through the JAX-native kernels instead of SciPy. Each is a pytree module: `__call__(x, nu=0, extrapolate=None)` evaluates (`nu` = derivative order), and the calculus methods return new spline/PPoly objects or arrays — all differentiable.
-- call: `CubicSpline(x, y, axis=0, bc_type='not-a-knot', extrapolate=None)`, `PchipInterpolator(x, y, axis=0, extrapolate=None)`, `Akima1DInterpolator(x, y, axis=0)`, `CubicHermiteSpline(x, y, dydx, axis=0, extrapolate=None)`, `PPoly(c, x, extrapolate=None, axis=0)`
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]          | [CAPABILITY]                                |
+| :-----: | :-------------------- | :--------------------- | :------------------------------------------ |
+|  [01]   | `CubicSpline`         | cubic spline           | C2 cubic spline                             |
+|  [02]   | `PchipInterpolator`   | monotonic cubic spline | shape-preserving PCHIP                      |
+|  [03]   | `Akima1DInterpolator` | Akima spline           | Akima piecewise-cubic                       |
+|  [04]   | `CubicHermiteSpline`  | Hermite cubic spline   | cubic Hermite from values + derivatives     |
+|  [05]   | `PPoly`               | piecewise polynomial   | breakpoint/coefficient piecewise polynomial |
 
-| [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]         | [CAPABILITY]                                |
-| :-----: | :------------------------------ | :--------------------- | :------------------------------------------ |
-|  [01]   | `CubicSpline`                   | cubic spline           | C2 cubic spline                             |
-|  [02]   | `PchipInterpolator`             | monotonic cubic spline | shape-preserving PCHIP                      |
-|  [03]   | `Akima1DInterpolator`           | Akima spline           | Akima piecewise-cubic                       |
-|  [04]   | `CubicHermiteSpline`            | Hermite cubic spline   | cubic Hermite from values + derivatives     |
-|  [05]   | `PPoly`                         | piecewise polynomial   | breakpoint/coefficient piecewise polynomial |
-|  [06]   | `<spline>.derivative(nu=1)`     | spline calculus        | new spline of the differentiated polynomial |
-|  [07]   | `<spline>.antiderivative(nu=1)` | spline calculus        | new spline of the integrated polynomial     |
-|  [08]   | `<spline>.integrate(a, b)`      | spline calculus        | definite integral over `[a, b]`             |
-|  [09]   | `<spline>.roots()`              | spline calculus        | real roots of the piecewise polynomial      |
+- [CALCULUS]: `<spline>.derivative(nu=1)` `<spline>.antiderivative(nu=1)` `<spline>.integrate(a, b)` `<spline>.roots()`
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: one-shot interpolation
-- rail: interpolation
-- `method` selects the kernel: `"nearest"`, `"linear"`, `"cubic"`, `"cubic2"`, `"catmull-rom"`, `"monotonic"` (PCHIP-equivalent), `"monotonic-0"`; `extrap` controls out-of-bound behavior; `period` enables periodic axes.
-- call: `interp1d(xq, x, f, method, derivative, extrap, period)`, `interp2d(xq, yq, x, y, f, method, derivative, extrap, period)`, `interp3d(xq, yq, zq, x, y, z, f, method, derivative, extrap, period)`
+[ENTRYPOINT_SCOPE]: module-level evaluation functions — `interp{1,2,3}d` evaluate on a regular grid, `fft_interp{1,2}d` spectrally resample uniformly sampled periodic data through the trigonometric interpolant of the input samples
+- interp carry: `method`, `derivative`, `extrap`, `period`; `method` selects the kernel — `"nearest"` `"linear"` `"cubic"` `"cubic2"` `"catmull-rom"` `"monotonic"` (PCHIP) `"monotonic-0"`, `extrap` sets out-of-bound behavior, `period` marks periodic axes.
 
-| [INDEX] | [SURFACE]  | [ENTRY_FAMILY] | [RAIL]                                                |
-| :-----: | :--------- | :------------- | :---------------------------------------------------- |
-|  [01]   | `interp1d` | 1D evaluate    | interpolate `f(x)` at query points `xq`               |
-|  [02]   | `interp2d` | 2D evaluate    | interpolate `f(x, y)` on a regular grid at `(xq, yq)` |
-|  [03]   | `interp3d` | 3D evaluate    | interpolate `f(x, y, z)` on a regular grid            |
-
-[ENTRYPOINT_SCOPE]: reusable interpolant construction
-- rail: interpolation
-- `method` accepts the same kernel vocabulary as the one-shot family; the constructed object is called with query points and supports a `derivative` keyword on evaluation.
-
-| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY] | [RAIL]                                                  |
-| :-----: | :--------------------------------------------------- | :------------- | :------------------------------------------------------ |
-|  [01]   | `Interpolator1D(x, f, method, extrap, period)`       | 1D construct   | build a reusable 1D interpolant; call with `xq`         |
-|  [02]   | `Interpolator2D(x, y, f, method, extrap, period)`    | 2D construct   | build a reusable 2D interpolant; call with `xq, yq`     |
-|  [03]   | `Interpolator3D(x, y, z, f, method, extrap, period)` | 3D construct   | build a reusable 3D interpolant; call with `xq, yq, zq` |
-
-[ENTRYPOINT_SCOPE]: FFT-based periodic resampling
-- rail: interpolation
-- spectral resampling for uniformly sampled periodic data; query points are evaluated via the trigonometric interpolant of the input samples.
-
-| [INDEX] | [SURFACE]                                 | [ENTRY_FAMILY] | [RAIL]                                                |
-| :-----: | :---------------------------------------- | :------------- | :---------------------------------------------------- |
-|  [01]   | `fft_interp1d(f, n, sx, dx)`              | 1D spectral    | FFT-interpolate uniformly sampled periodic `f` to `n` |
-|  [02]   | `fft_interp2d(f, n1, n2, sx, sy, dx, dy)` | 2D spectral    | FFT-interpolate uniformly sampled periodic 2D `f`     |
+| [INDEX] | [SURFACE]                                 | [CAPABILITY]                               |
+| :-----: | :---------------------------------------- | :----------------------------------------- |
+|  [01]   | `interp1d(xq, x, f)`                      | interpolate `f(x)` at query points `xq`    |
+|  [02]   | `interp2d(xq, yq, x, y, f)`               | interpolate `f(x, y)` on a regular grid    |
+|  [03]   | `interp3d(xq, yq, zq, x, y, z, f)`        | interpolate `f(x, y, z)` on a regular grid |
+|  [04]   | `fft_interp1d(f, n, sx, dx)`              | FFT-interpolate periodic `f` to length `n` |
+|  [05]   | `fft_interp2d(f, n1, n2, sx, sy, dx, dy)` | FFT-interpolate periodic 2D `f`            |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[INTERP_TOPOLOGY]:
-- namespace: `interpax`; the `interp{1,2,3}d` one-shot family, the `Interpolator{1,2,3}D` reusable objects, the `fft_interp{1,2}d` spectral family, and the scipy-equivalent spline classes all live at top level.
-- one-shot vs reusable: `interp1d(xq, x, f, method=...)` is a pure function recompiled per call signature; `Interpolator1D(x, f, method=...)` constructs ONCE and is then called with query points — preferred inside a hot loop or when the same grid is re-queried, because construction (coefficient fit) is hoisted out of the trace.
-- the `method` vocabulary is shared across the one-shot and reusable families: `"nearest"`, `"linear"`, `"cubic"`, `"cubic2"`, `"catmull-rom"`, `"monotonic"` (PCHIP), `"monotonic-0"`; `extrap` controls out-of-bound behavior; `period` enables periodic axes.
-- every interpolant is a JAX pytree module: it is `jit`/`vmap`/`grad`-compatible with respect to BOTH the query points and the sampled values `f`, so gradients flow through an interpolated field back to the data that defined it.
+[TOPOLOGY]:
+- namespace: `interpax` — every family imports from top level.
+- one-shot `interp{1,2,3}d` recompiles per call signature; `Interpolator{1,2,3}D` constructs once and re-evaluates, hoisting the coefficient fit out of the trace — the form for a hot loop or a re-queried grid.
+- every interpolant is a JAX pytree, `jit`/`vmap`/`grad`-compatible w.r.t. BOTH the query points and the sampled values `f`, so gradients flow through an interpolated field back to the data that defined it.
 
-[SIBLING_INTEGRATION]:
-- `equinox`: an `Interpolator{1,2,3}D` is an Equinox-style pytree module, so it is a differentiable leaf inside an `equinox.Module` objective — an interpolated material/field parameter is partitioned and stepped by `optax`/`optimistix` exactly like a learned weight, with no boundary conversion.
-- `quadax`: an interpolant or spline `__call__` is a valid `quadax.quadgk`/`quadcc` integrand; `<spline>.integrate(a, b)` gives the exact piecewise-polynomial definite integral when the integrand IS the spline, avoiding a quadrature call.
-- `diffrax`: an interpolant evaluated inside an `ODETerm` vector field supplies a differentiable time-/space-varying forcing; `<spline>.derivative()` supplies its analytic time-derivative without finite differencing.
-- `jax`: `interp{1,2,3}d` compose under `jax.vmap` to batch over independent grids and under `jax.grad` for sensitivity of an interpolated quantity; `fft_interp{1,2}d` is the periodic-data counterpart to `jax.numpy.fft`-based resampling.
-- `findiff`: the finite-difference rail is the NON-differentiable fallback; where the JAX interpolant is available, `interpax` (analytic derivatives via `.derivative()`) is preferred over a `findiff` stencil for the same field.
+[STACKING]:
+- `equinox`(`.api/equinox.md`): an `Interpolator{1,2,3}D` is an Equinox-style pytree `Module`, so an interpolated field is a differentiable leaf inside an `equinox.Module` objective — `optax`/`optimistix` step it like a learned weight with no boundary conversion.
+- `quadax`(`.api/quadax.md`): an interpolant or spline `__call__` is a valid `quadgk`/`quadcc` integrand; `<spline>.integrate(a, b)` returns the exact piecewise-polynomial integral when the integrand IS the spline.
+- `diffrax`(`.api/diffrax.md`): an interpolant inside an `ODETerm` vector field supplies differentiable time-/space-varying forcing, and `<spline>.derivative()` its analytic derivative without finite differencing.
+- `jax`(`.api/jax.md`): `interp{1,2,3}d` compose under `jax.vmap` to batch independent grids and under `jax.grad` for interpolated-quantity sensitivity; `fft_interp{1,2}d` is the periodic counterpart to `jax.numpy.fft` resampling.
+- `findiff`(`.api/findiff.md`): the non-differentiable stencil fallback; the analytic `.derivative()` of a JAX interpolant supersedes a `findiff` stencil for the same field.
+- `compute` solvers/field: an interpolated material or forcing field fits once outside the trace and threads as a differentiable leaf through the folder's quadrature and ODE rails.
 
 [LOCAL_ADMISSION]:
-- a re-queried regular grid is fitted once into an `Interpolator{1,2,3}D` outside the trace; `interp{1,2,3}d` is the one-shot form for a single evaluation.
-- periodic/uniformly-sampled data is resampled through `fft_interp{1,2}d`, not a manual FFT-pad-IFFT loop.
-- a definite integral of a fitted spline uses `<spline>.integrate(a, b)` (exact); a `quadax` call is reserved for non-spline integrands.
+- regular-grid interpolation, periodic resampling, and spline calculus route to `interpax`; a re-queried grid fits once outside the trace as an `Interpolator{1,2,3}D`, a single evaluation uses `interp{1,2,3}d`.
 
 [RAIL_LAW]:
 - Package: `interpax`
 - Owns: JAX-native differentiable interpolation on regular grids (linear/cubic/PCHIP/monotonic/Catmull-Rom), reusable callable interpolant pytree objects, drop-in differentiable `scipy.interpolate` spline classes with analytic calculus methods, and FFT-based periodic resampling
-- Accept: regular-grid interpolation routed through `interp{1,2,3}d` (one-shot) or `Interpolator{1,2,3}D` (reusable `vmap`/`grad`/`jit`-compatible interpolant), `method` selecting the kernel, the scipy-equivalent spline classes for analytic derivative/antiderivative/integrate/roots, and `fft_interp{1,2}d` for periodic spectral resampling
-- Usage: `[INTERPAX_QUADAX_USAGE]` (deferred, compute solvers/quadrature and solvers/field) — [BLOCKED]
+- Accept: regular-grid interpolation through `interp{1,2,3}d` (one-shot) or `Interpolator{1,2,3}D` (reusable), `method` selecting the kernel, the spline classes for analytic derivative/antiderivative/integrate/roots, and `fft_interp{1,2}d` for periodic resampling
+- Reject: a hand-rolled cubic-spline, PCHIP, or FFT-resample kernel `interpax` already owns; a manual FFT-pad-IFFT periodic loop; a `findiff` stencil where the analytic `.derivative()` exists; a per-call re-fit of the same grid inside the trace

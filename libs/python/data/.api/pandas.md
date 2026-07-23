@@ -1,6 +1,6 @@
 # [PY_DATA_API_PANDAS]
 
-`pandas` provides labeled, axis-indexed tabular data through `DataFrame` (2-D) and `Series` (1-D) values backed by typed `Index` objects, with first-class temporal types (`Timestamp`, `Timedelta`, `Period`, `Interval`) and dtype objects (`CategoricalDtype`, `StringDtype`, `ArrowDtype`). Top-level `read_*` functions ingest CSV, Parquet, SQL, Excel, JSON, and more; reshaping and combination functions (`concat`, `merge`, `pivot_table`, `melt`, `crosstab`, `get_dummies`) operate across frames; and `groupby`/`rolling`/`resample` drive split-apply-combine aggregation. `to_*` methods and `ArrowDtype` provide Arrow and storage interop at the boundary.
+`pandas` owns the boundary frame: the labeled, axis-indexed `DataFrame` and `Series` value, backed by typed `Index` and dtype objects, that every non-native source lowers into and every external consumer receives. Its `read_*` ingest and `to_*` egress span text, SQL, columnar, and lakehouse formats, and `groupby`/`rolling`/`resample` drive split-apply-combine reduction. Label alignment is the topology every operation folds through; the frame is the interchange edge, never the compute hot path, and Arrow-backed columns hand off zero-copy to the columnar rail.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -14,7 +14,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: frames, indexes, and dtypes
-- rail: labeled tabular
 
 | [INDEX] | [SYMBOL]           | [TYPE_FAMILY]   | [ROLE]                               |
 | :-----: | :----------------- | :-------------- | :----------------------------------- |
@@ -32,7 +31,6 @@
 |  [12]   | `Grouper`          | aggregation key | groupby key specification            |
 
 [PUBLIC_TYPE_SCOPE]: scalar and offset types
-- rail: labeled tabular
 
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [ROLE]                             |
 | :-----: | :--------------- | :------------ | :--------------------------------- |
@@ -51,7 +49,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction and IO
-- rail: labeled tabular
 
 | [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY] | [RAIL]                              |
 | :-----: | :------------------------------------------- | :------------- | :---------------------------------- |
@@ -69,7 +66,6 @@
 |  [12]   | `date_range / period_range / interval_range` | range          | generate labeled index ranges       |
 
 [ENTRYPOINT_SCOPE]: DataFrame transformation and selection
-- rail: labeled tabular
 
 | [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [RAIL]                                 |
 | :-----: | :---------------------------------------------- | :------------- | :------------------------------------- |
@@ -94,23 +90,28 @@
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[LABELED_TOPOLOGY]:
-- `DataFrame` aligns columns and rows by `Index` labels; arithmetic and `merge`/`concat` align on labels, introducing `NaN` where labels do not match
-- dtypes mix NumPy-backed and extension dtypes; `ArrowDtype` and `StringDtype` give Arrow/string-native columns, `CategoricalDtype` carries category set and ordering
-- temporal scalars (`Timestamp`, `Timedelta`, `Period`, `Interval`) and their index types power time-aware slicing, `resample`, and offset arithmetic with `DateOffset`
-- `groupby(...).agg(...)` accepts `NamedAgg` for named outputs; `rolling`/`expanding`/`ewm`/`resample` return window objects that reduce on aggregation calls
-- `loc`/`at` index by label and `iloc`/`iat` by position; `query` and `eval` evaluate string expressions over columns
-- `read_*`/`to_*` cover CSV, Parquet, Feather, ORC, SQL, Excel, HTML, XML, JSON, HDF5, Iceberg, and Stata
+[TOPOLOGY]:
+- `DataFrame` aligns rows and columns by `Index` label; arithmetic, `merge`, and `concat` align on labels, minting `NaN` where labels do not match.
+- dtypes mix NumPy-backed and extension families; `ArrowDtype` and `StringDtype` carry Arrow- and string-native columns, `CategoricalDtype` carries category set and ordering.
+- Temporal scalars and their index types power time-aware slicing, `resample`, and `DateOffset` arithmetic.
+- `groupby(...).agg(...)` takes `NamedAgg` for named outputs; `rolling`/`expanding`/`ewm`/`resample` return window objects that reduce only on the aggregation call.
+- `loc`/`at` index by label and `iloc`/`iat` by position; `query`/`eval` evaluate string expressions over columns.
+
+[STACKING]:
+- `narwhals`(`.api/narwhals.md`): `narwhals.from_native(df)` wraps the frame as a backend-agnostic frame, the translation seam behind interop egress.
+- `polars`(`.api/polars.md`): `polars.from_pandas(df)` lifts the frame into the columnar engine, an `ArrowDtype`-backed frame crossing zero-copy through Arrow.
+- `pyarrow`(`.api/pyarrow.md`): `pyarrow.Table.from_pandas(df)`, the `DataFrame.__dataframe__` interchange protocol, and `DataFrame.__arrow_c_stream__` bridge to Arrow; `ArrowDtype` columns are already Arrow-native.
+- `pandera`(`.api/pandera.md`): `pandera.pandas.DataFrameSchema`/`DataFrameModel` validate the in-memory frame with no re-materialization; `pointblank`(`.api/pointblank.md`) `Validate` grades the same frame against quality thresholds.
+- lakehouse edge: `read_iceberg`/`DataFrame.to_iceberg` and `read_orc`/`DataFrame.to_orc` cross the frame to the `deltalake`/`pyiceberg` interchange.
 
 [LOCAL_ADMISSION]:
-- Prefer Arrow-backed columns (`ArrowDtype`, `read_parquet`/`to_parquet`) and `to_arrow`/`pyarrow` interop where columnar performance and zero-copy exchange matter; reach for polars on hot lazy paths. The Arrow-backed frame hands off zero-copy through `pyarrow`/`narwhals` to `polars`, and `pandera.pandas`/`pointblank` validate the same in-memory frame without a re-materialization — pandas is the boundary frame, not the compute hot path.
-- Use vectorized methods, `assign`, `pipe`, and `agg`/`transform` over Python loops; pass `NamedAgg` for explicit aggregation output names.
-- Index by label with `loc`/`at` and by position with `iloc`/`iat`; never chain `[]` selection for assignment.
-- Reshape with `pivot_table`/`melt`/`stack`/`unstack` and combine with `merge`/`concat`/`merge_asof`; align labels deliberately to avoid silent `NaN` introduction.
-- Gate a `read_*` boundary frame through a `pandera.pandas` `DataFrameSchema`/`DataFrameModel` before downstream consumption rather than asserting dtypes by hand, and treat `to_iceberg`/`read_iceberg` (active) and `read_orc`/`to_orc` as the lakehouse interchange edge alongside `deltalake`/`pyiceberg`.
+- `ArrowDtype` columns with `read_parquet`/`to_parquet` win the columnar and zero-copy-exchange path; hot lazy compute belongs to polars.
+- Express transforms as vectorized methods, `assign`, `pipe`, and `agg`/`transform` over Python row loops; pass `NamedAgg` for explicit aggregation-output names.
+- Index by label with `loc`/`at` and by position with `iloc`/`iat`; a `read_*` boundary frame gates through a `pandera.pandas` schema before downstream consumption rather than hand-asserted dtypes.
+- Reshape with `pivot_table`/`melt`/`stack`/`unstack` and combine with `merge`/`concat`/`merge_asof`, aligning labels deliberately so no silent `NaN` enters.
 
 [RAIL_LAW]:
 - Package: `pandas`
-- Owns: labeled in-memory tabular data, label-aligned arithmetic, split-apply-combine aggregation, and broad file/SQL IO
+- Owns: labeled in-memory tabular data, label-aligned arithmetic, split-apply-combine aggregation, and broad file/SQL/lakehouse IO
 - Accept: dicts, NumPy arrays, records, Arrow tables, and file/SQL sources via `read_*`
-- Reject: row-wise Python iteration for transforms, chained-assignment indexing, unaligned label arithmetic, reimplementing IO that `read_*` already covers
+- Reject: row-wise Python iteration for transforms, chained-`[]` assignment, unaligned label arithmetic, and reimplementing IO `read_*` already covers

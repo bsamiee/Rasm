@@ -35,9 +35,7 @@ export const meta = {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const REPO = '/Users/bardiasamiee/Documents/99.Github/Rasm';
-const CAP = 14; // true in-flight agent ceiling — wrappers, writers, and the audit all take one slot
-const STAGGER_MS = 1500;
-const STALL_MS = 900000; // supervised codex lane runs and fable card writers run many minutes without visible progress
+const CAP = 14;
 const SHORT = { csharp: 'cs', python: 'py', typescript: 'ts', cross: 'x' };
 const LANGS = [
     { key: 'csharp', root: 'libs/csharp', manifest: 'Directory.Packages.props', registry: 'nuget' },
@@ -449,19 +447,12 @@ const MAP_VERIFY =
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const makeSlots = (cap) => {
     let active = 0;
-    let gate = Promise.resolve();
     const waiters = [];
-    const stagger = () => {
-        gate = gate.then(() => sleep(STAGGER_MS));
-        return gate;
-    };
     return async (fn) => {
         if (active >= cap) await new Promise((res) => waiters.push(res));
         active++;
-        await stagger();
         try {
             return await fn();
         } finally {
@@ -616,7 +607,7 @@ const wrapPrompt = (report, law, task, medium, minHeads) =>
     report +
     '.lane/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
     'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
-    're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (idle-timeout, max-timeout, turn-failed, ' +
+    're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (max-timeout, turn-failed, ' +
     'refusal) re-runs the same command untouched. (3) The lane lands the product at ' +
     report +
     ' via --out. (4) Verify with one Bash call: grep -c "^## \\[" ' +
@@ -1085,9 +1076,7 @@ if (!CAMP) return { skipped: true, reason: 'args.camp (absolute campaign home) i
 // --- [ROSTER]
 
 const rosterP = guard(
-    slot(() =>
-        agent(rosterWrapPrompt(), { label: 'sol:roster', phase: 'Roster', model: 'sonnet', effort: 'low', schema: RECEIPT, stallMs: STALL_MS }),
-    ),
+    slot(() => agent(rosterWrapPrompt(), { label: 'sol:roster', phase: 'Roster', model: 'sonnet', effort: 'low', schema: RECEIPT })),
 );
 const disco = await guard(slot(() => agent(discoverPrompt(), { label: 'discover', phase: 'Roster', model: 'opus', effort: 'low', schema: ROSTERD })));
 if (!disco) return { skipped: true, reason: 'discovery lane failed' };
@@ -1128,7 +1117,6 @@ const admitOnce = (row, origin) => {
                     model: 'opus',
                     effort: 'high',
                     schema: ADMITR,
-                    stallMs: STALL_MS,
                 }),
             ),
         );
@@ -1156,21 +1144,14 @@ for (const L of active)
                 model: 'sonnet',
                 effort: 'low',
                 schema: RECEIPT,
-                stallMs: STALL_MS,
             }),
         ),
     );
 const adjP = {};
 for (const L of active)
-    adjP[L.key] = guard(
-        slot(() => agent(adjPrompt(L), { label: 'adj:' + L.key, phase: 'Map', model: 'opus', effort: 'high', schema: RECEIPT, stallMs: STALL_MS })),
-    );
+    adjP[L.key] = guard(slot(() => agent(adjPrompt(L), { label: 'adj:' + L.key, phase: 'Map', model: 'opus', effort: 'high', schema: RECEIPT })));
 const xmapP = crossRec
-    ? guard(
-          slot(() =>
-              agent(xmapWrapPrompt(), { label: 'sol:xmap', phase: 'Map', model: 'sonnet', effort: 'low', schema: RECEIPT, stallMs: STALL_MS }),
-          ),
-      )
+    ? guard(slot(() => agent(xmapWrapPrompt(), { label: 'sol:xmap', phase: 'Map', model: 'sonnet', effort: 'low', schema: RECEIPT })))
     : Promise.resolve(null);
 
 const mapLane = (f) =>
@@ -1182,7 +1163,6 @@ const mapLane = (f) =>
                 model: 'sonnet',
                 effort: 'low',
                 schema: RECEIPT,
-                stallMs: STALL_MS,
             }),
         ),
     );
@@ -1195,7 +1175,6 @@ const ideateLane = (f, mapR, ros, adj, bmap) =>
                 model: 'fable',
                 effort: 'high',
                 schema: IDEATER,
-                stallMs: STALL_MS,
             }),
         ),
     );
@@ -1229,7 +1208,6 @@ const chainLang = async (L) => {
                 model: 'fable',
                 effort: 'high',
                 schema: LANGR,
-                stallMs: STALL_MS,
             }),
         ),
     );
@@ -1265,7 +1243,6 @@ if (crossRec || crossReqRows.length) {
                 model: 'fable',
                 effort: 'high',
                 schema: CROSSR,
-                stallMs: STALL_MS,
             }),
         ),
     );

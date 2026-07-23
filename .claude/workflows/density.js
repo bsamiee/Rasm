@@ -27,8 +27,6 @@ export const meta = {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CAP = 14;
-const STAGGER_MS = 1500;
-const STALL = 300000;
 const MAP_LOC = 3400; // page tonnage per mapper — the map set a single mapper holds with full-context care
 
 // --- [INPUTS] --------------------------------------------------------------------------
@@ -386,20 +384,13 @@ const LANG = {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-// Agent-level slot scheduler: CAP agents in flight across ALL batch chains, staggered launch, work-conserving backfill the moment a slot frees.
+// Agent-level slot scheduler: CAP agents in flight across ALL batch chains, work-conserving backfill the moment a slot frees.
 const makeSlots = (cap) => {
     let active = 0;
-    let gate = Promise.resolve();
     const waiters = [];
-    const stagger = () => {
-        gate = gate.then(() => sleep(STAGGER_MS));
-        return gate;
-    };
     return async (fn) => {
         if (active >= cap) await new Promise((res) => waiters.push(res));
         active++;
-        await stagger();
         try {
             return await fn();
         } finally {
@@ -410,7 +401,7 @@ const makeSlots = (cap) => {
     };
 };
 const slot = makeSlots(CAP);
-const wopts = (label, phase, model, schema, over) => Object.assign({ label, phase, model, effort: 'high', schema, stallMs: STALL }, over);
+const wopts = (label, phase, model, schema, over) => Object.assign({ label, phase, model, effort: 'high', schema }, over);
 const ropts = (label, phase, schema, scope, hl, over) => Object.assign({ label, phase, schema, scope, hl }, over);
 
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
@@ -507,7 +498,7 @@ const codexPrompt = (label, task, schema, o) => {
         lane +
         '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
         'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
-        're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (idle-timeout, max-timeout, turn-failed, ' +
+        're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (max-timeout, turn-failed, ' +
         'refusal) re-runs the same command untouched. (3) ' +
         (authored
             ? 'The delegate lands the product itself at ' + report + ' as its final act.'
@@ -550,7 +541,7 @@ const nativeLane = (task, o) => {
             ' — then return ONLY the receipt: ok, report = ' +
             report +
             ' (this repo-relative form, matching codex-lane receipts), entries count, one-line mechanical headline, failure empty.',
-        { label: o.label, phase: o.phase, model: o.nativeModel || twinOf(o.model), effort: 'high', schema: RECEIPT, stallMs: o.stallMs || STALL },
+        { label: o.label, phase: o.phase, model: o.nativeModel || twinOf(o.model), effort: 'high', schema: RECEIPT },
     );
 };
 
@@ -563,7 +554,7 @@ const recon = (taskOf, o) => {
         effort: 'low',
         schema: RECEIPT,
     };
-    // `native` runs the lane on the estate model directly — no dispatch wrapper, no MCP hop, the executing agent IS the
+    // `native` runs the lane on the estate model directly — no dispatch wrapper or transport hop; the executing agent IS the
     // reader. Chosen per lane by product weight: an artifact every downstream writer reads in full, or a judgment the run
     // never re-derives, earns the stronger reader; navigation legwork stays dispatched. Receipt shape is identical either way.
     return (o.native ? nativeLane(task('claude'), o) : agent(codexPrompt(o.label, task('codex'), o.schema, o), wrapper))
@@ -813,7 +804,7 @@ const planPrompt = () =>
             "/*-map.md` — a stale map from a dead run is read as this run's navigation by the fixer handed its path. Delete nothing else.",
         'TOOLCHAIN WARM-UP (before returning): run `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api --help` once — ' +
             "it builds the workspace uv cache every downstream lane's member-verification rail rides, so no lane pays the " +
-            'cold env stall or misreads it as a broken rail.',
+            'cold-environment latency or misreads it as a broken rail.',
     ].join('\n\n');
 
 const lawPackPath = (k) => SCRATCH + '/lawpack-' + k + '.md';

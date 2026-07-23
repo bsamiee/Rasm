@@ -614,6 +614,7 @@ REGISTRY: Final[tuple[Bind, ...]] = (
     Bind(Claim.PROVISION, "env", provision_rail.env, ProvisionParams, "Report redacted provisioning connection metadata."),
     Bind(Claim.PROVISION, "check", provision_rail.check, ProvisionParams, "Read provisioning evidence and local runtime probes."),
     Bind(Claim.PROVISION, "apply", provision_rail.apply, ProvisionParams, "Create admitted provisioning extensions."),
+    Bind(Claim.PROVISION, "tools", provision_rail.tools, ProvisionParams, "Probe DuckDB and SQLite tool surfaces against their catalogs."),
 )
 
 

@@ -31,12 +31,9 @@ export const meta = {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CAP = 14;
-const STAGGER_MS = 1500;
-const STALL = 480000;
 const UNIT_MAX = 8; // unit segmentation ceiling beside the tonnage ceiling — map, implement, and review lanes stay page-congruent
 const UNIT_LOC = 3400; // page tonnage per unit — what actually overflows a lane's context; the dual ceiling splits on either bound
-const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical lane; the count bounds spend
-const RETRY_BACKOFF = 1800000; // usage-limit deaths wait the window out; a transport death retries immediately once first
+const RETRY_ATTEMPTS = 2;
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -514,20 +511,13 @@ const GIT_GROUND =
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-// Agent-level slot scheduler: CAP agents in flight across the whole run, staggered launch, work-conserving backfill.
+// Agent-level slot scheduler: CAP agents in flight across the whole run, work-conserving backfill.
 const makeSlots = (cap) => {
     let active = 0;
-    let gate = Promise.resolve();
     const waiters = [];
-    const stagger = () => {
-        gate = gate.then(() => sleep(STAGGER_MS));
-        return gate;
-    };
     return async (fn) => {
         if (active >= cap) await new Promise((res) => waiters.push(res));
         active++;
-        await stagger();
         try {
             return await fn();
         } finally {
@@ -538,11 +528,10 @@ const makeSlots = (cap) => {
     };
 };
 const slot = makeSlots(CAP);
-// Bounded re-dispatch for a dead CRITICAL lane (usage-limit or transport death): attempt-counted with a backoff before each;
+// Bounded re-dispatch for a dead CRITICAL lane (usage-limit or transport death): attempt-counted with a retry before each;
 // the final death isolates the lane but NEVER the chain — every downstream stage still runs against current disk.
 const retryLane = async (fn) => {
     for (let a = 0; a < RETRY_ATTEMPTS; a++) {
-        if (a > 0) await sleep(RETRY_BACKOFF); // transport blips retry immediately; only a second death waits the usage window out
         const r = await fn();
         if (r) return r;
     }
@@ -631,7 +620,7 @@ const codexPrompt = (label, task, schema, o) => {
         lane +
         '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
         'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
-        're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (idle-timeout, max-timeout, turn-failed, ' +
+        're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (max-timeout, turn-failed, ' +
         'refusal) re-runs the same command untouched. (3) ' +
         (authored
             ? 'The delegate lands the product itself at ' + report + ' as its final act.'
@@ -669,7 +658,7 @@ const nativeLane = (task, o) =>
             ' — then return ONLY the receipt: ok, report = ' +
             reportOf(o.label) +
             ' (this repo-relative form, matching codex-lane receipts), entries count, one-line mechanical headline, failure empty.',
-        { label: o.label, phase: o.phase, model: o.nativeModel || twinOf(o.model), effort: 'high', schema: RECEIPT, stallMs: o.stallMs || STALL },
+        { label: o.label, phase: o.phase, model: o.nativeModel || twinOf(o.model), effort: 'high', schema: RECEIPT },
     );
 const recon = (taskOf, o) => {
     const task = typeof taskOf === 'function' ? taskOf : () => taskOf;
@@ -1048,7 +1037,7 @@ if (!LANG_KEY) {
 
 phase('Scope');
 // One bounded re-attempt: a silently dead scope agent would no-op the whole run.
-const planOpts = { label: 'scope', phase: 'Scope', model: 'sonnet', effort: 'low', schema: PLAN_SCHEMA, stallMs: STALL };
+const planOpts = { label: 'scope', phase: 'Scope', model: 'sonnet', effort: 'low', schema: PLAN_SCHEMA };
 const plan = (await slot(() => agent(planPrompt(), planOpts))) || (await slot(() => agent(planPrompt(), { ...planOpts, label: 'scope:r1' })));
 const ROOT = (plan && plan.root) || TARGETS[0];
 // R6 guard: model-emitted page paths are validated against the resolved root before any lane dispatches on them.
@@ -1179,7 +1168,6 @@ const chains = await Promise.all(
                 phase: 'Review',
                 model: 'opus',
                 schema: RT_SCHEMA,
-                stallMs: STALL,
             }),
         ).catch(() => null);
         return { unit: u.tag, fix, crit, rt };
@@ -1253,7 +1241,6 @@ const doctrine =
                   model: 'opus',
                   effort: 'high',
                   schema: DOCTRINE_SCHEMA,
-                  stallMs: STALL,
               }),
           )
         : null;

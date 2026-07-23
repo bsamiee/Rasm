@@ -43,9 +43,6 @@ export const meta = {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CAP = 14;
-const STAGGER_MS = 1500;
-const STALL = 300000;
-const EXEC_STALL = 480000;
 const MAP_SLICE = 5; // planning pages per mapper
 const CATALOG_BATCH = 2; // admitted packages per catalog writer
 
@@ -427,21 +424,14 @@ const langOf = (t) =>
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-// Agent-level slot scheduler: CAP agents in flight across ALL target lanes, staggered launch, work-conserving backfill the moment a
+// Agent-level slot scheduler: CAP agents in flight across ALL target lanes, work-conserving backfill the moment a
 // slot frees. The single governor for every agent call.
 const makeSlots = (cap) => {
     let active = 0;
-    let gate = Promise.resolve();
     const waiters = [];
-    const stagger = () => {
-        gate = gate.then(() => sleep(STAGGER_MS));
-        return gate;
-    };
     return async (fn) => {
         if (active >= cap) await new Promise((res) => waiters.push(res));
         active++;
-        await stagger();
         try {
             return await fn();
         } finally {
@@ -452,14 +442,12 @@ const makeSlots = (cap) => {
     };
 };
 const slot = makeSlots(CAP);
-const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical lane; the count bounds spend, the backoff buys recovery time
-const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
-// Bounded re-dispatch for a dead CRITICAL lane (scout, admit, integrate): attempt-counted with a backoff BEFORE each attempt — the
-// backoff releases the slot (and admit's serial window) so siblings run while a limit-dead lane waits. `ok` defaults to non-null; scout
+const RETRY_ATTEMPTS = 2;
+// Bounded re-dispatch for a dead CRITICAL lane (scout, admit, integrate): attempt-counted with a retry BEFORE each attempt — the
+// Retry releases the slot and admit's serial window so siblings continue. `ok` defaults to non-null; scout
 // passes an ok-field predicate. The final death isolates the lane, never the run — the caller's data-dependency guard stops an empty chain.
 const retryLane = async (fn, ok = (r) => !!r) => {
     for (let a = 0; a < RETRY_ATTEMPTS; a++) {
-        await sleep(RETRY_BACKOFF);
         const r = await fn();
         if (ok(r)) return r;
     }
@@ -551,7 +539,7 @@ const codexSteps = (label, task, schema, o, step4) => {
             lane +
             '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
             'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
-            're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (idle-timeout, max-timeout, turn-failed, ' +
+            're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (max-timeout, turn-failed, ' +
             'refusal) re-runs the same command untouched.',
         'LANE LAW:\n\n' + laneLaw(schema, o),
         'TASK:\n\n' + task,
@@ -613,7 +601,7 @@ const nativeLane = (task, o) =>
             '-report.json (Write tool, absolute path under the repo root): ' +
             JSON.stringify(o.schema) +
             ' — then return ONLY the receipt: ok, report path, entries count, one-line mechanical headline, failure empty.',
-        { label: o.label, phase: o.phase, model: o.nativeModel || twinOf(o.model), effort: 'high', schema: RECEIPT, stallMs: o.stallMs || STALL },
+        { label: o.label, phase: o.phase, model: o.nativeModel || twinOf(o.model), effort: 'high', schema: RECEIPT },
     );
 
 // Every heavy read/investigate lane routes through the codex wrapper. QUOTA FALLBACK: a receipt whose
@@ -641,7 +629,7 @@ const recon = (task, o) =>
 // Scout is the run's one inline codex lane: the wrapper relays the SCOUT_SCHEMA product verbatim (ok/failure carried in-shape). Quota failure
 // re-dispatches the same task on a native lane; a non-quota failure is final.
 const scoutLane = (task, o) => {
-    const native = () => agent(task, { label: o.label, phase: o.phase, model: 'opus', effort: 'high', schema: o.schema, stallMs: STALL });
+    const native = () => agent(task, { label: o.label, phase: o.phase, model: 'opus', effort: 'high', schema: o.schema });
     return agent(codexInline(o.label, task, o.schema, o), {
         label: 'terra:' + o.label,
         phase: o.phase,
@@ -803,7 +791,7 @@ const lane = async (t) => {
             'the one-line reason in `failure` and every array empty.',
     ].join('\n\n');
     const scoutOpts = { label: 'scout:' + tag, phase: 'Scout', schema: SCOUT_SCHEMA, calls: 120 };
-    // A dead or failed scout silently no-ops the whole lane: the failure re-dispatches through the attempt-counted backoff, and the
+    // A dead or failed scout no-ops the whole lane after bounded re-dispatch, and the
     // original failed receipt survives a still-dead retry so the log keeps its reason.
     let scout = await slot(() => scoutLane(scoutPrompt, scoutOpts));
     if (!(scout && scout.ok))
@@ -945,9 +933,9 @@ const lane = async (t) => {
             ' ROSTER: ' +
             JSON.stringify(research),
     ].join('\n\n');
-    const admitOpts = { label: 'admit:' + tag, phase: 'Admit', model: 'fable', effort: 'high', schema: ADMIT_SCHEMA, stallMs: EXEC_STALL };
+    const admitOpts = { label: 'admit:' + tag, phase: 'Admit', model: 'fable', effort: 'high', schema: ADMIT_SCHEMA };
     // A dead admit drops the lane's whole admission and severs its catalog/map/integrate: the re-dispatch acquires the serial window
-    // AFRESH each attempt, so the backoff never holds the central-manifest lock — sibling targets admit while a limit-dead lane waits.
+    // AFRESH each attempt, so the retry never holds the central-manifest lock — sibling targets admit while a limit-dead lane waits.
     const admitOnce = (label) => admitSerial(() => slot(() => agent(admitPrompt, { ...admitOpts, label })));
     const admit = (await admitOnce('admit:' + tag)) || (await retryLane(() => admitOnce('admit:' + tag + ':a1')));
     const admitted = ((admit && admit.admitted) || []).filter((a) => a && a.package);
@@ -970,7 +958,7 @@ const lane = async (t) => {
                 'verifies is dropped and listed in `phantomsDropped`), the [STACKING] section wiring the package into the substrate rails ' +
                 'and its sibling domain packages. Sibling writers land catalogs concurrently — compose theirs as found on disk.',
         ].join('\n\n');
-    const catalogOpts = (lbl) => ({ label: lbl, phase: 'Catalog', model: 'fable', effort: 'high', schema: CATALOG_SCHEMA, stallMs: STALL });
+    const catalogOpts = (lbl) => ({ label: lbl, phase: 'Catalog', model: 'fable', effort: 'high', schema: CATALOG_SCHEMA });
     const sharedTier = admitted.filter((a) => String(a.catalog || '').indexOf(L.root + '/.api/') === 0);
     const folderTier = admitted.filter((a) => String(a.catalog || '').indexOf(L.root + '/.api/') !== 0);
     const catalogTasks = chunk(folderTier, CATALOG_BATCH).map((batch, i) =>
@@ -1073,9 +1061,9 @@ const lane = async (t) => {
             ' MAP ROSTER: ' +
             JSON.stringify(maps),
     ].join('\n\n');
-    const integrateOpts = { label: 'integrate:' + tag, phase: 'Integrate', model: 'fable', effort: 'high', schema: FIXLOG, stallMs: EXEC_STALL };
+    const integrateOpts = { label: 'integrate:' + tag, phase: 'Integrate', model: 'fable', effort: 'high', schema: FIXLOG };
     // A dead executor leaves the lane admitted-but-unintegrated (landed catalogs, no design integration): re-dispatch through the
-    // attempt-counted backoff so a usage-limit death recovers on reset instead of losing the whole integration.
+    // bounded re-dispatch so a usage-limit death can recover without losing the whole integration.
     const integrateOnce = (label) => slot(() => agent(integratePrompt, { ...integrateOpts, label }));
     const fix = (await integrateOnce('integrate:' + tag)) || (await retryLane(() => integrateOnce('integrate:' + tag + ':a1')));
     return {
@@ -1125,7 +1113,7 @@ const doctrine = HARVEST_ROWS.length
                   'whose coupling no longer holds, land a coupling this run proved.\n' +
                   'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
                   'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.',
-              { label: 'doctrine', phase: 'Doctrine', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
+              { label: 'doctrine', phase: 'Doctrine', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA },
           ),
       )
     : null;

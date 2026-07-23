@@ -1,124 +1,118 @@
 # [PY_ARTIFACTS_API_PYEXIFTOOL]
 
-`PyExifTool` is the richest cross-format descriptive-metadata read/write engine for the artifacts metadata rail — the one provider that recovers and binds EXIF, IPTC-IIM, XMP, ICC-profile, GPS, maker-note, and container (PDF/video/audio) metadata across every format the exiftool binary supports, through a single long-lived `exiftool -stay_open` subprocess rather than a per-call shell-out or a format-specific Python codec. It REPLACES the abandoned `exif` package (JPEG-EXIF-IFD-only, no maker notes, no XMP, no video) as the `exchange/metadata#METADATA` RASTER carrier's EXIF-and-beyond provider: where `exif.Image(payload)` can read only the EXIF IFD of a JPEG, `ExifToolHelper.get_tags(files, tags)` returns the full `-G`-grouped tag set (`EXIF:`, `IPTC:`, `XMP:`, `ICC_Profile:`, `MakerNotes:`, `Composite:`, `QuickTime:`, `PDF:`) of any path as parsed JSON, and `set_tags(files, {tag: value})` writes any of them back. The owner composes one worker-process-static `ExifToolHelper`, the `get_tags`/`set_tags`/`execute` JSON-and-binary surface keyed into the page's `_FIELD_KEYS` logical→tag correspondence, and the `executable=`/`common_args=` boundary parameterization that resolves the system `exiftool` binary through `shutil.which`; it never re-implements the EXIF/IPTC/XMP codec, the tag-name vocabulary, or the format dispatch the exiftool binary already owns, and the raw helper never crosses the owner boundary — only the projected `MetaFacts` does.
+`PyExifTool` recovers and binds descriptive metadata — EXIF, IPTC-IIM, XMP, ICC profile, GPS, maker notes, and PDF/video/audio container tags — across every format the `exiftool` binary reads, through one long-lived `exiftool -stay_open` subprocess, not a per-call shell-out. `ExifToolHelper.get_tags` returns any path's `-G`-grouped tag set as parsed JSON and `set_tags` writes any tag back; one worker-static helper serves the RASTER carrier, keyed through the page's `_FIELD_KEYS` logical-to-tag map. `PyExifTool` re-implements neither the codec nor the format dispatch the binary owns.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pyexiftool`
-- package: `PyExifTool` (PyPI distribution name; the pip/`pyproject` requirement is `pyexiftool`, case-folded)
-- import: `exiftool`
+- package: `PyExifTool` (dual-licensed GPL-3.0-or-later OR BSD-3-Clause, at the user's option)
+- module: `exiftool`
+- namespaces: `exiftool`, `exiftool.exceptions`
 - owner: `artifacts`
 - rail: metadata
-- version: `0.5.6`
-- license: `GPLv3+/BSD` (dual-licensed at the user's option — the BSD arm carries no copyleft obligation; both `COPYING.BSD` and `COPYING.GPL` ship in the dist-info)
-- build-floor: `Requires-Python >=3.6`; pure-Python package (`exiftool/` — `exiftool.py` core, `helper.py`, `experimental.py`, `constants.py`, `exceptions.py`), NO native extension, NO cp-gate — resolves on cp315 directly and runs through the `execution/lanes#LANE` PROCESS modality with the rest of the raster metadata cluster
-- runtime dependency (external binary): Phil Harvey's `exiftool` command-line tool, minimum version `12.15` (`constants.EXIFTOOL_MINIMUM_VERSION` — `12.10`/`12.15` first shipped `-echo4` exit-status reporting the `execute` parser depends on); resolved on the system `PATH` via `shutil.which` or pinned through the `executable=` constructor parameter. This is the brief [03] system-tool subprocess boundary (`exiftool` machine-provided), NOT a wheel-bundled binary — `PyExifTool` is the Python driver only
-- entry points: none (library only; no console script)
-- namespace exports (`exiftool/__init__.py`): `exiftool.exceptions` (the typed error submodule), `ExifTool` (low-level core), `ExifToolHelper` (the friendly/safe extension — the owner's surface), `ExifToolAlpha` (active/niche extension)
-- capability: cross-format descriptive-metadata read/write over a persistent `exiftool -stay_open` batch process — EXIF/IPTC/XMP/ICC/GPS/maker-note scalar + list tags on raster, PDF, and media artifacts, JSON-grouped by tag namespace (`-G`), print-conversion-controlled (`-n`), batch-over-many-files in one subprocess round-trip, with exit-status checking, tag-name validation, custom-config support, and a pluggable JSON parser
+- depends: the `exiftool` command-line tool — a system-tool subprocess boundary resolved through `shutil.which` or the `executable=` parameter; `PyExifTool` is the pure-Python driver, shipping no binary and no native extension
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the subprocess-driver class hierarchy
-- rail: metadata
 
-Named classes form a single inheritance chain `ExifTool → ExifToolHelper → ExifToolAlpha`, each layering capability over the persistent subprocess; the owner instantiates only `ExifToolHelper` (auto-start + exit-status + tag-name safety over the raw core). `ExifTool` owns the `-stay_open` process lifecycle and the raw `execute`/`execute_json` pipe; `ExifToolHelper` adds the `get_tags`/`set_tags`/`get_metadata` tag-oriented JSON surface with error checking; `ExifToolAlpha` adds niche single-tag/keyword/copy helpers (brittle, not used by the owner). The raw class handle never crosses the owner boundary — only the JSON `list[dict[str, object]]` projection folds onward.
+`ExifTool → ExifToolHelper → ExifToolAlpha` is a single inheritance chain, each layer adding capability over the persistent subprocess; the owner instantiates only `ExifToolHelper` for auto-start, exit-status, and tag-name safety over the raw core.
 
-| [INDEX] | [SYMBOL]              | [PACKAGE_ROLE]          | [CAPABILITY]                                                                      |
-| :-----: | :-------------------- | :---------------------- | :-------------------------------------------------------------------------------- |
-|  [01]   | `ExifToolHelper`      | metadata driver (owner) | auto-start subprocess; `get_tags`/`set_tags`/`get_metadata` JSON R/W with checks  |
-|  [02]   | `ExifTool`            | subprocess core         | `-stay_open` lifecycle, raw `execute`/`execute_json` pipe, R/W properties         |
-|  [03]   | `ExifToolAlpha`       | alpha driver            | niche `get_tag`/`get_tag_batch`/`copy_tags`/`set_keywords` helpers (brittle)      |
-|  [04]   | `exiftool.exceptions` | error submodule         | typed `ExifToolException` hierarchy (process-state/execute/JSON/version/tag-name) |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [CAPABILITY]                                                                      |
+| :-----: | :-------------------- | :------------ | :-------------------------------------------------------------------------------- |
+|  [01]   | `ExifToolHelper`      | class         | auto-start subprocess; `get_tags`/`set_tags`/`get_metadata` JSON R/W with checks  |
+|  [02]   | `ExifTool`            | class         | `-stay_open` lifecycle, raw `execute`/`execute_json` pipe, R/W properties         |
+|  [03]   | `ExifToolAlpha`       | class         | niche `get_tag`/`get_tag_batch`/`copy_tags`/`set_keywords` helpers (brittle)      |
+|  [04]   | `exiftool.exceptions` | module        | typed `ExifToolException` hierarchy (process-state/execute/JSON/version/tag-name) |
 
 [PUBLIC_TYPE_SCOPE]: the typed exception hierarchy (`exiftool.exceptions`)
-- rail: metadata
 
-Every failure is a typed subclass of `ExifToolException`, never a bare `subprocess.CalledProcessError` — the execute-family errors carry `.returncode`/`.cmd`/`.stdout`/`.stderr` mirroring `subprocess.CalledProcessError`, so the owner's boundary adapter maps the tree to its `RuntimeRail` typed-error envelope by class, not by string-scraping stderr. `ExifToolExecuteError` (non-zero exit when `check_execute=True`) is the common write/read failure; `ExifToolOutputEmptyError`/`ExifToolJSONInvalidError` fire only from `execute_json` (empty or non-JSON stdout — usually a programmer error, e.g. a `-w` flag or a write op routed through the JSON reader); `ExifToolRunning`/`ExifToolNotRunning` guard the process-state preconditions; `ExifToolVersionError` fires when the binary is below `12.15` or returns unexpected sentinel text; `ExifToolTagNameError` fires when `check_tag_names=True` rejects a malformed tag.
+Every failure is a typed `ExifToolException` subclass, never a bare `subprocess.CalledProcessError`; the execute-family errors mirror its `.returncode`/`.cmd`/`.stdout`/`.stderr`, so the boundary adapter maps the tree to `RuntimeRail` by class, never by scraping stderr.
 
-| [INDEX] | [SYMBOL]                   | [PACKAGE_ROLE]      | [CAPABILITY]                                                                      |
-| :-----: | :------------------------- | :------------------ | :-------------------------------------------------------------------------------- |
-|  [01]   | `ExifToolException`        | base error          | root of every PyExifTool error; the single `except` the boundary adapter traps    |
-|  [02]   | `ExifToolExecuteError`     | execute error       | non-zero exit (`check_execute=True`); carries `.returncode`/`.stdout`/`.stderr`   |
-|  [03]   | `ExifToolExecuteException` | execute base        | execute-error base (never raised); `subprocess.CalledProcessError`-shaped         |
-|  [04]   | `ExifToolOutputEmptyError` | JSON error          | `execute_json` got empty stdout (a set/write op via the JSON reader)              |
-|  [05]   | `ExifToolJSONInvalidError` | JSON error          | `execute_json` got non-JSON stdout (a `-w`/`-textOut` flag in `common_args`)      |
-|  [06]   | `ExifToolRunning`          | process-state error | a running-only property (`executable`/`common_args`/`config_file`) set while live |
-|  [07]   | `ExifToolNotRunning`       | process-state error | `execute`/`version` before `run()` (`ExifToolHelper` auto-starts)                 |
-|  [08]   | `ExifToolVersionError`     | version error       | binary below `12.15`, or unexpected sentinel while parsing `-echo4` delimiters    |
-|  [09]   | `ExifToolTagNameError`     | tag-name error      | `check_tag_names=True` and a tag fails the `[w*][w:-*]*(# \| )` validity regex    |
+| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [CAPABILITY]                                                                      |
+| :-----: | :------------------------- | :------------ | :-------------------------------------------------------------------------------- |
+|  [01]   | `ExifToolException`        | class         | root of every PyExifTool error; the single `except` the boundary adapter traps    |
+|  [02]   | `ExifToolExecuteError`     | class         | non-zero exit (`check_execute=True`); carries `.returncode`/`.stdout`/`.stderr`   |
+|  [03]   | `ExifToolExecuteException` | class         | execute-error base (never raised); `subprocess.CalledProcessError`-shaped         |
+|  [04]   | `ExifToolOutputEmptyError` | class         | `execute_json` got empty stdout (a set/write op via the JSON reader)              |
+|  [05]   | `ExifToolJSONInvalidError` | class         | `execute_json` got non-JSON stdout (a `-w`/`-textOut` flag in `common_args`)      |
+|  [06]   | `ExifToolRunning`          | class         | a running-only property (`executable`/`common_args`/`config_file`) set while live |
+|  [07]   | `ExifToolNotRunning`       | class         | `execute`/`version` before `run()` (`ExifToolHelper` auto-starts)                 |
+|  [08]   | `ExifToolVersionError`     | class         | binary below `constants.EXIFTOOL_MINIMUM_VERSION`, or unexpected sentinel text    |
+|  [09]   | `ExifToolTagNameError`     | class         | `check_tag_names=True` and a tag fails the validity regex                         |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construct, read, write — the owner's `ExifToolHelper` surface
-- rail: metadata
 
-`ExifToolHelper(auto_start=True, check_execute=True, check_tag_names=True, **kwargs)` is the owner's entry: `auto_start` launches the `-stay_open` subprocess on the first command, `check_execute` raises `ExifToolExecuteError` on a non-zero exit, `check_tag_names` validates tag spellings before they reach the pipe, and `**kwargs` forward to the `ExifTool` core (`executable`/`common_args`/`config_file`/`encoding`/`logger`). Context-manager use terminates the process on `__exit__`; the metadata owner instead calls `run()` once on a worker-process-static helper and registers `terminate()` with `atexit`, so repeated carrier operations reuse the same live process. `get_tags(files, tags)` returns one `"<group>:<tag>"`-keyed `dict[str, object]` per file under `-G`; `set_tags(files, {tag: value})` writes scalar or repeated-list values; `execute(..., raw_bytes=True)` recovers the embedded thumbnail bytes. The full constructor is `ExifToolHelper(auto_start=True, check_execute=True, check_tag_names=True, *, executable=None, common_args=["-G","-n"], config_file=None, encoding=None, logger=None)`; `files` is `str | Path | list` and `params` is `str | list | None = None`.
+`ExifToolHelper` is the owner's entry: `get_tags` returns one `"<group>:<tag>"`-keyed dict per file under `-G`, `set_tags` writes scalar or repeated-list values, and `execute(..., raw_bytes=True)` recovers embedded binary tags such as the thumbnail.
 
-| [INDEX] | [CALL_SHAPE]                                                 | [CAPABILITY]                                                            |
-| :-----: | :----------------------------------------------------------- | :---------------------------------------------------------------------- |
-|  [01]   | `ExifToolHelper(auto_start=True, …)`                         | construct the safe driver; `**kwargs` forward to `ExifTool`             |
-|  [02]   | `get_tags(files, tags, params=None) -> list[dict]`           | read scoped tags (all when `tags=None`); one `-G` dict per file         |
-|  [03]   | `get_metadata(files, params=None) -> list[dict]`             | read ALL tags (`get_tags(files, None)`); full cross-format namespace    |
-|  [04]   | `set_tags(files, tags: dict[str, str \| list], params=None)` | write; `str`→`-tag=value`, `list`→repeated; returns stdout summary      |
-|  [05]   | `with ExifToolHelper(...) as et:`                            | ctx manager: enter runs the subprocess, exit terminates it              |
-|  [06]   | `et.check_execute` (get/set)                                 | toggle exit-status checking at runtime (continue-on-error over a batch) |
-|  [07]   | `et.check_tag_names` (get/set)                               | toggle tag-name validation (if the binary's tag regex diverges)         |
-|  [08]   | `et.auto_start` (read-only)                                  | whether the first command auto-launches the subprocess                  |
+| [INDEX] | [SURFACE]                                          | [SHAPE]  | [CAPABILITY]                                                    |
+| :-----: | :------------------------------------------------- | :------- | :-------------------------------------------------------------- |
+|  [01]   | `ExifToolHelper(auto_start=True, ...)`             | ctor     | safe driver; `**kwargs` forward to `ExifTool`                   |
+|  [02]   | `get_tags(files, tags, params=None) -> list[dict]` | instance | read scoped tags (`tags=None` → all); one `-G` dict per file    |
+|  [03]   | `get_metadata(files, params=None) -> list[dict]`   | instance | all tags (`get_tags(files, None)`); full cross-format namespace |
+|  [04]   | `set_tags(files, tags, params=None) -> str`        | instance | write; `str`→`-tag=value`, `list`→repeated; stdout summary      |
+|  [05]   | `with ExifToolHelper(...) as et`                   | instance | ctx manager: enter runs the subprocess, exit terminates it      |
+|  [06]   | `check_execute`                                    | property | toggle exit-status checking (continue-on-error over a batch)    |
+|  [07]   | `check_tag_names`                                  | property | toggle tag-name validation before the pipe                      |
+|  [08]   | `auto_start`                                       | property | first command auto-launches the subprocess (read-only)          |
 
 [ENTRYPOINT_SCOPE]: the subprocess core — lifecycle, raw pipe, boundary parameterization (`ExifTool`)
-- rail: metadata
 
-`ExifTool` owns the `-stay_open True -@ -` batch process the helper drives. `run()` spawns it (`subprocess.Popen` with `preexec_fn` setting `PR_SET_PDEATHSIG` on Linux so the child dies with the parent), `terminate()` sends `-stay_open\nFalse\n` and reaps it, and the context-manager/`__del__` paths guarantee cleanup. `execute(*params, raw_bytes=False)` is the raw command pipe — it appends the `-execute<N>` sentinel, writes the params (each `str` encoded by `encoding`, each `bytes` passed verbatim), reads stdout to the `{ready<N>}` sentinel and stderr to the exit-status `-echo4` marker, and returns stdout (also setting `last_stdout`/`last_stderr`/`last_status`); `raw_bytes=True` returns undecoded `bytes` (binary tag extraction). `execute_json(*params)` prepends `-j` and parses the result through the pluggable loader. The boundary is fully parameterized: `executable` pins or `shutil.which`-resolves the binary (set raises `ExifToolRunning` while live), `common_args` is the per-process arg prefix (default `["-G", "-n"]` — `-G` groups tags by namespace, `-n` disables print-conversion globally; a `#` appended to a tag name disables print-conversion for that tag alone, and the response key stays bare with no `#`), `config_file` injects a `-config` file (`""` disables the default config), and `set_json_loads(loader, **kwargs)` swaps `json.loads` for a faster parser.
+`ExifTool` owns the `-stay_open` batch process the helper drives — `run()` spawns it, `terminate()` reaps it, and every teardown path guarantees cleanup. `executable`, `common_args`, `config_file`, and `set_json_loads` parameterize the process, and `execute` sets `last_stdout`/`last_stderr`/`last_status` as it reads.
 
-| [INDEX] | [CALL_SHAPE]                                        | [CAPABILITY]                                                                       |
-| :-----: | :-------------------------------------------------- | :--------------------------------------------------------------------------------- |
-|  [01]   | `run() -> None`                                     | launch the `-stay_open` subprocess; `ExifToolVersionError` if binary below `12.15` |
-|  [02]   | `terminate(timeout=30) -> None`                     | send `-stay_open False` and reap; idempotent (no-op if not running)                |
-|  [03]   | `execute(*params, raw_bytes=False) -> str \| bytes` | raw command pipe; sets `last_stdout`/`last_stderr`/`last_status`                   |
-|  [04]   | `execute_json(*params) -> list[dict]`               | `-j` JSON; `ExifToolOutputEmptyError`/`ExifToolJSONInvalidError` on empty/non-JSON |
-|  [05]   | `et.executable` (get/set)                           | pin or `shutil.which`-resolve the binary path (discovery→configured)               |
-|  [06]   | `et.common_args` (get/set)                          | per-process arg prefix; `-G` grouping + `-n` no-print-conversion                   |
-|  [07]   | `et.config_file` (get/set)                          | `-config` custom-tag file; `""` disables default, `None` omits the flag            |
-|  [08]   | `set_json_loads(json_loads, **kwargs) -> None`      | swap `json.loads` for `orjson`/`ujson` on the `execute_json` decode path           |
-|  [09]   | `et.last_status -> int \| None`                     | exit code of the most recent `execute` (survives termination)                      |
-|  [10]   | `et.last_stdout -> str \| bytes \| None`            | stdout of the most recent `execute`; the continue-on-error inspection path         |
-|  [11]   | `et.version -> str`                                 | cached `exiftool -ver` (`ExifToolNotRunning` if not started)                       |
-|  [12]   | `et.logger` (write-only)                            | attach a `logging.Logger`-shaped sink; a `structlog` adapter fits                  |
+| [INDEX] | [SURFACE]                                           | [SHAPE]  | [CAPABILITY]                                                     |
+| :-----: | :-------------------------------------------------- | :------- | :--------------------------------------------------------------- |
+|  [01]   | `run() -> None`                                     | instance | launch `-stay_open`; `ExifToolVersionError` on a stale binary    |
+|  [02]   | `terminate(timeout=30) -> None`                     | instance | send `-stay_open False` and reap; idempotent no-op if stopped    |
+|  [03]   | `execute(*params, raw_bytes=False) -> str \| bytes` | instance | raw command pipe; sets `last_stdout`/`last_stderr`/`last_status` |
+|  [04]   | `execute_json(*params) -> list[dict]`               | instance | `-j` JSON; `ExifToolOutputEmptyError`/`ExifToolJSONInvalidError` |
+|  [05]   | `set_json_loads(json_loads, **kwargs) -> None`      | instance | swap `json.loads` for a faster `execute_json` decoder            |
+|  [06]   | `executable`                                        | property | pin or `shutil.which`-resolve the binary path                    |
+|  [07]   | `common_args`                                       | property | arg prefix; `-G` groups, `-n` disables print-conversion          |
+|  [08]   | `config_file`                                       | property | `-config` file; `""` disables the default, `None` omits it       |
+|  [09]   | `last_status -> int \| None`                        | property | exit code of the most recent `execute`                           |
+|  [10]   | `last_stdout -> str \| bytes \| None`               | property | stdout of the most recent `execute`; continue-on-error path      |
+|  [11]   | `version -> str`                                    | property | cached `exiftool -ver` (`ExifToolNotRunning` if not started)     |
+|  [12]   | `logger`                                            | property | `logging.Logger` sink (write-only); a `structlog` adapter fits   |
 
-[ENTRYPOINT_SCOPE]: active niche helpers (`ExifToolAlpha`) — NOT composed by the owner
-- rail: metadata
+- `executable`/`common_args`/`config_file`: set raises `ExifToolRunning` while the process is live.
 
-`ExifToolAlpha` extends the helper with brittle single-tag and keyword conveniences the package documents as alpha-quality; the owner does NOT compose them (polymorphic-collapse law forbids a per-tag `get_tag`/`set_keywords` accessor family when the `get_tags`/`set_tags` dict surface already discriminates). Catalogued for completeness and to mark the boundary: `copy_tags(from, to)` (the `-TagsFromFile` whole-file metadata copy) is the one member with genuine standalone value (a credential/derivation lineage transfer), reachable directly through `execute("-overwrite_original", "-TagsFromFile", src, dst)` on the helper without subclassing.
+[ENTRYPOINT_SCOPE]: active niche helpers (`ExifToolAlpha`) — not composed by the owner
 
-| [INDEX] | [CALL_SHAPE]                                    | [CAPABILITY]                                                           |
-| :-----: | :---------------------------------------------- | :--------------------------------------------------------------------- |
-|  [01]   | `get_tag(filename, tag) -> object \| None`      | single tag of a single file with existence check (`FileNotFoundError`) |
-|  [02]   | `get_tag_batch(filenames, tag) -> list`         | one tag across many files, `None` per missing                          |
-|  [03]   | `copy_tags(from_filename, to_filename) -> None` | `-TagsFromFile` whole-file metadata copy with `-overwrite_original`    |
-|  [04]   | `set_keywords(filename, mode, keywords) -> str` | `IPTC:Keywords` mutate by `KW_REPLACE`/`KW_ADD`/`KW_REMOVE`            |
+`ExifToolAlpha` adds brittle single-tag and keyword conveniences the owner does not compose; `copy_tags` (the `-TagsFromFile` whole-file copy) is reachable directly through `execute("-overwrite_original", "-TagsFromFile", src, dst)` without subclassing.
+
+| [INDEX] | [SURFACE]                                | [SHAPE]  | [CAPABILITY]                                                           |
+| :-----: | :--------------------------------------- | :------- | :--------------------------------------------------------------------- |
+|  [01]   | `get_tag(filename, tag) -> object`       | instance | single tag of a single file with existence check (`FileNotFoundError`) |
+|  [02]   | `get_tag_batch(filenames, tag) -> list`  | instance | one tag across many files, `None` per missing                          |
+|  [03]   | `copy_tags(from_filename, to_filename)`  | instance | `-TagsFromFile` whole-file metadata copy with `-overwrite_original`    |
+|  [04]   | `set_keywords(filename, mode, keywords)` | instance | `IPTC:Keywords` mutate by `KW_REPLACE`/`KW_ADD`/`KW_REMOVE`            |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[INTEGRATION_STACK]:
-- `exchange/metadata#METADATA` ownership: `PyExifTool` is the EXIF-and-cross-format RASTER provider bound by `_CARRIER[MetaCarrier.RASTER]` to `KernelTrait.HOSTILE`.
-- metadata binding: `lazy from exiftool import ExifToolHelper` supplies the worker-static driver; `_exiftool_read`/`_exiftool_write` own its `get_tags`/`set_tags`/`execute` calls.
-- read fold: one exiftool subprocess covers maker notes, video/PDF tags, ICC, and IPTC/XMP. It becomes the cross-format superset the page folds first.
-- helper resource: `_helper()` holds one `ExifToolHelper(common_args=["-G"])` per PROCESS worker, probes `running`, starts it once through `run()`, and registers `terminate()` with `atexit`; `_exiftool_read(payload)` writes the raster to a `NamedTemporaryFile` and calls `get_tags(path, list(_EXIFTOOL_TAGS))`.
-- tag fold: returned `dict[str, object]` rows are keyed `"<group>:<tag>"` under `-G` and fold through the logical→tag map into `MetaFacts.from_logical`. `"SourceFile"` is dropped; absent tags stay absent; the owner requests each numeric-typed logical with the per-tag `#` suffix (type-directed off its `_NUMERIC` facet derivation) so numeric fields arrive machine-parsable while string fields keep PrintConv words — never the global `-n`, whose integer codes `msgspec.convert(strict=False)` rejects into `str`-typed fields.
-- write fold: `_exiftool_write(payload, facts, bind)` writes the raster to a temporary path, derives the tag dict from `_flat(facts)`, and calls `set_tags(path, tags, params=["-overwrite_original"])`; the keyword tuple passes as a `list`, and `MetaBind.STRIP`/`REPLACE` clears the namespace through `execute("-all=", ..., "-overwrite_original", path)` before any replacement bindings — REPLACE appending the `--icc_profile:all` exclusion so the profile survives, STRIP scrubbing it too. `check_execute=True` raises `ExifToolExecuteError` on a non-zero exit, and the owner returns the mutated container bytes without pixel re-encoding.
-- universal-tier stacking (`libs/python/.api`): the exiftool fold rides the shared rails the owner already composes —
- - universal `anyio` tier (`libs/python/.api/anyio.md`): every `get_tags`/`set_tags` call blocks on a synchronous subprocess pipe (`os.read` to the `{ready}` sentinel), so the boundary owner crosses the runtime `LanePolicy.offload(Kernel.of(..., KernelTrait.HOSTILE), ...)` seam — the `CarrierPolicy(reader, writer, trait)` row the `RASTER` arm carries, never the unbounded per-loop default — and the long-lived `-stay_open` process is a worker-process-static resource (`run()` once, `running` re-probed, `atexit`-`terminate()`d), reused across the batch so the Perl interpreter startup cost is paid once, not per file.
- - universal `expression` tier (`libs/python/.api/expression.md`): `LanePolicy.offload` lifts the `ExifToolException` subtree at the PROCESS boundary into `RuntimeRail`; carrier functions raise the provider's typed faults unchanged, and `Metadata` carries no local `try` adapter.
- - universal `msgspec` tier (`libs/python/.api/msgspec.md`): the `list[dict[str, object]]` exiftool JSON folds through the page's one `MetaFacts.from_logical` (`msgspec.convert(strict=False)` per facet), coercing the `-G`-grouped tag-string values into the `Descriptive`/`Rights`/`Capture`/`Place` facet field types — no `pyexiftool`-specific struct, the JSON dict is the logical map the existing materializer consumes; `set_json_loads(msgspec.json.decode)` can replace the built-in `json.loads` on the `execute_json` decode path for a faster parse, the one `set_json_loads`-signature contract (a `loads`-shaped callable over the stdout string) `msgspec.json.decode` satisfies.
- - universal `structlog`/`opentelemetry` tier: `LanePolicy.offload` supplies the structured event/span and `RuntimeRail` envelope without a pyexiftool-specific log rail; `ExifToolHelper(logger=...)` accepts a `logging.Logger`-shaped sink for command-level traces.
- - universal `stamina` tier (`libs/python/runtime/.api/stamina.md`): a `-stay_open` spawn failure or wedged subprocess is the one retriable boundary fault.
- - retry seam: `@stamina.retry(on=(RuntimeError, ExifToolVersionError))` wraps helper acquisition and recovers transient spawn failure. Deterministic `ExifToolExecuteError` stays non-retriable.
-- boundary resolution: the `exiftool` binary is the brief [03] system-tool subprocess boundary, resolved discovery-env → configured-path → bundled-fallback: `ExifToolHelper()` defaults to `shutil.which("exiftool")` on `PATH`, an `executable=` constructor parameter pins a configured absolute path, and the provisioning fallback supplies the binary where `PATH` lacks it — the same parameterized-boundary law the `ghostscript`/`qpdf`/`veraPDF` oracles follow, never a hardcoded path and never a wheel-bundled binary assumption (`PyExifTool` ships NO binary).
-- vocabulary seam: `_FIELD_KEYS` keys into exiftool's `"<group>:<tag>"` namespace (`EXIF:Make`, `IPTC:Keywords`, `XMP-dc:Subject`, `Composite:GPSLatitude`, `ICC_Profile:ProfileDescription`); `check_tag_names=True` rejects malformed spellings before they reach the pipe. `-G` preserves namespace identity, and `-n` returns signed decimal GPS values without a DMS reconstruction.
+[TOPOLOGY]:
+- One worker-process-static `ExifToolHelper` drives every carrier op: `run()` once, `running` re-probed, `terminate()` registered with `atexit`, the live process reused across the batch so the Perl-interpreter startup is paid once.
+- `get_tags` returns one `"<group>:<tag>"`-keyed dict per file under `-G`; rows fold through `_FIELD_KEYS` into `MetaFacts.from_logical`, `"SourceFile"` dropped and absent tags left absent.
+- Each numeric-typed logical carries the per-tag `#` suffix (type-directed off `_NUMERIC`, the response key staying bare) so numeric fields arrive machine-parsable while string fields keep PrintConv words — never the global `-n`, whose integer codes `msgspec.convert(strict=False)` rejects into `str`-typed fields.
+- `set_tags(path, tags, params=["-overwrite_original"])` writes; `MetaBind.STRIP`/`REPLACE` first clears the namespace through `execute("-all=", ...)`, REPLACE appending `--icc_profile:all` so the profile survives and STRIP scrubbing it; container bytes return without pixel re-encoding.
+- Only the projected `MetaFacts` crosses the owner boundary; the raw helper never does.
+
+[STACKING]:
+- `anyio`(`.api/anyio.md`): every `get_tags`/`set_tags` blocks on a synchronous subprocess pipe, so the boundary crosses `LanePolicy.offload(Kernel.of(..., KernelTrait.HOSTILE), ...)` — the `CarrierPolicy(reader, writer, trait)` row the RASTER arm carries, never the per-loop default.
+- `expression`(`.api/expression.md`): `LanePolicy.offload` lifts the `ExifToolException` subtree into `RuntimeRail` at the PROCESS boundary; carrier functions raise the provider faults unchanged, with no local `try`.
+- `msgspec`(`.api/msgspec.md`): the `list[dict]` JSON folds through `MetaFacts.from_logical` (`msgspec.convert(strict=False)` per facet); `set_json_loads(msgspec.json.decode)` swaps the built-in decoder on the `execute_json` path.
+- `structlog`/`opentelemetry`: `LanePolicy.offload` supplies the structured event/span and `RuntimeRail` envelope; `ExifToolHelper(logger=...)` accepts a `logging.Logger`-shaped sink for command traces.
+- `stamina`(`runtime/.api/stamina.md`): `@stamina.retry(on=(RuntimeError, ExifToolVersionError))` wraps helper acquisition and recovers a transient `-stay_open` spawn failure; a deterministic `ExifToolExecuteError` stays non-retriable.
+- `exchange/metadata#METADATA`: binds `PyExifTool` as `_CARRIER[MetaCarrier.RASTER]` → `KernelTrait.HOSTILE`; `_exiftool_read`/`_exiftool_write` own the `get_tags`/`set_tags`/`execute` calls, and the one subprocess covers maker notes, video/PDF, ICC, and IPTC/XMP as the cross-format superset the page folds first.
+
+[LOCAL_ADMISSION]:
+- `ExifToolHelper()` resolves the `exiftool` binary discovery-env → configured-path → provisioning-fallback: it defaults to `shutil.which("exiftool")`, `executable=` pins an absolute path, and provisioning supplies it where `PATH` lacks it — the same parameterized-boundary law the `ghostscript`/`qpdf`/`veraPDF` oracles follow; `PyExifTool` ships no binary.
+- `_FIELD_KEYS` keys into the `"<group>:<tag>"` namespace (`EXIF:Make`, `IPTC:Keywords`, `XMP-dc:Subject`, `Composite:GPSLatitude`, `ICC_Profile:ProfileDescription`); `check_tag_names=True` rejects malformed spellings before the pipe.
 
 [RAIL_LAW]:
 - Package: `pyexiftool`
-- Owns: cross-format descriptive-metadata read/write over a persistent `exiftool -stay_open` subprocess — the EXIF/IPTC/XMP/ICC/GPS/maker-note/container tag set across every format the binary supports, JSON-grouped by namespace (`-G`), print-conversion-controlled (`-n`), batched over many files in one process round-trip, with exit-status checking, tag-name validation, custom-config injection, and a pluggable JSON parser
-- Accept: recovering and binding the cross-format descriptive tag set of a RASTER artifact as the categorical-best provider in the `exchange/metadata#METADATA` PROCESS fold, projected to the `Descriptive`/`Rights`/`Capture`/`Place`/`Color`/`RasterInfo` facets through `_FIELD_KEYS` and `MetaFacts.from_logical`
-- Reject: a per-tag accessor family over `get_tags`/`set_tags`; the `ExifToolAlpha` helpers in place of the dict surface; a hand-rolled EXIF/IPTC/XMP codec; a per-call helper respawn instead of one worker-static `-stay_open` process; a raw helper crossing the owner boundary; a hardcoded binary path; treating `PyExifTool` as bundling the binary; routing signed C2PA assertions or PDF/A·PDF/X conformance verdicts through descriptive metadata
+- Owns: cross-format descriptive-metadata read/write over a persistent `exiftool -stay_open` subprocess — the EXIF/IPTC/XMP/ICC/GPS/maker-note/container tag set the binary reads, JSON-grouped by namespace (`-G`), print-conversion-controlled (`-n`), batched over many files in one round-trip, with exit-status checking, tag-name validation, custom-config injection, and a pluggable JSON parser
+- Accept: recovering and binding the cross-format descriptive tag set of a RASTER artifact in the `exchange/metadata#METADATA` PROCESS fold, projected to the `Descriptive`/`Rights`/`Capture`/`Place`/`Color`/`RasterInfo` facets through `_FIELD_KEYS` and `MetaFacts.from_logical`
+- Reject: a per-tag accessor family over `get_tags`/`set_tags`; the `ExifToolAlpha` helpers in place of the dict surface; a hand-rolled EXIF/IPTC/XMP codec or a JPEG-only EXIF reader; a per-call helper respawn instead of one worker-static `-stay_open` process; a raw helper crossing the owner boundary; a hardcoded binary path; treating `PyExifTool` as bundling the binary; routing signed C2PA assertions or PDF/A·PDF/X conformance verdicts through descriptive metadata

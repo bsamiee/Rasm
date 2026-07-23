@@ -91,13 +91,13 @@ const report = await agent("Combine the research below into one cohesive briefin
 return { questionCount: clean.length, report };
 ```
 
-Inline synthesis is small-output only: past ~50 rows of collected product, the `JSON.stringify` handoff spends the synthesizer's context before its work starts — route heavy products through the report-file topology at [21].
+Inline synthesis is small-output only. Large collected products route through the report-file topology at [21], avoiding a `JSON.stringify` handoff that consumes the synthesizer's context before work starts.
 
 Synthesis is also where individually-valid lane results conflict, duplicate, or miss coverage — map-reduce-refine closes it: a SEPARATE auditor checks the merged artifact against a coverage-and-conflict contract, and a refiner repairs merge-level defects only, never re-doing lane work. One audit round is the spend; a merge that fails a second audit is a decomposition defect, not a refine target.
 
 ## [04]-[PIPELINE]
 
-Canonical: chaining ⋈ sectioning — staged work where each item also fans out within a stage. Primitive: `pipeline` with a nested `parallel` inside one stage. Guards: the idle time a barrier inflicts; each item advances the moment IT is ready. Cost: the same calls as the barriered form, but wall-clock is the slowest single item's chain, never the sum of stage maxima. This is the default multi-stage shape; prefer it over barriered `parallel()` pairs.
+Canonical: chaining ⋈ sectioning — staged work where each item also fans out within a stage. Primitive: `pipeline` with a nested `parallel` inside one stage. Guards: the idle time a barrier inflicts; each item advances the moment IT is ready. Cost: the same calls as the barriered form, but wall-clock is the slowest single item's chain, never the sum of stage maxima. This is the default multi-stage shape; use it over barriered `parallel()` pairs.
 
 ```js conceptual
 export const meta = {
@@ -789,7 +789,7 @@ Rules that make a writer → critic → red-team chain fast AND independent:
 
 Give sequential review stages genuinely different objectives (a clause-by-clause conformance audit against a pre-mortem/counterfactual attack) and license "clean after a failed attack" as a first-class verdict — a second identical review manufactures findings the artifact cannot supply, and a reviewer forced to edit invents defects. Distinct from [11] (independent skeptic votes on one claim): this hardens a SEQUENTIAL chain where every stage also writes.
 
-A review stage carries the WRITER'S full authority: scope rows bound where the reviewer looks FIRST, never what it may fix — every defect it finds is fixed at its root in the same pass regardless of scope, and deferral is reserved for territory a LIVE sibling currently owns, never for "outside my unit". Residuals drain at the nearest subsequent stage as they surface; a run that accumulates them toward one terminal mega-reconcile has mispriced every stage before it.
+A review stage carries the WRITER'S full authority: scope rows bound where the reviewer looks FIRST, never what it may fix — every defect it finds is fixed at its root in the same pass regardless of scope, and deferral is reserved for territory a LIVE sibling owns now, never for "outside my unit". Residuals drain at the nearest subsequent stage as they surface; a run that accumulates them toward one terminal mega-reconcile has mispriced every stage before it.
 
 That same anchoring law binds the orchestrator's own prompt authorship: an exemplar in a stage prompt is a seed the run grows, reproduced downstream with the force of the law it rides (the exemplar law: execution-standard reference) — so a judgment stage handed a pre-ruled example outcome (a named split, a sample verdict, a worked disposition) inherits the example as a ruling. State the criteria and the pressures on both sides, never an example resolution.
 
@@ -832,7 +832,7 @@ const SCRATCH =
     fnv1a(JSON.stringify(TARGETS));
 ```
 - Gitignore consequence: `rg`/`fd`/Grep skip ignored dirs by default, so consumers are handed EXPLICIT paths (the roster) and read them directly — never asked to discover products by search. An agent that must hunt inside scratch passes `--no-ignore` (rg) or `-I` (fd).
-- File grammar: `<scope>-<lane>-<artifact>.<ext>` — lane is a 1-2 word semantic slug (`s0`, `gov`, `rip-python`), artifact names the role (`report`, `dossier`, `map`). A codex lane owns exactly one artifact — its report, written by the wrapper from the tool result; no task, schema, events, or stderr files exist on the MCP path. No agent names, no timestamps, no run IDs in filenames.
+- File grammar: `<scope>-<lane>-<artifact>.<ext>` — lane is a 1-2 word semantic slug (`s0`, `gov`, `rip-python`), artifact names the role (`report`, `dossier`, `map`). A codex lane owns exactly one artifact — its report, written by the wrapper from the CLI result. No agent names, timestamps, or run IDs enter filenames.
 - A lane's first act deletes its own prior report (`rm -f`) — a leftover file reads as THIS run's product to any consumer handed the path.
 - Run scratch (the lanes' data plane) is distinct from the SESSION SCRATCHPAD (the harness temp dir outside the repo) — orchestrator-only artifacts like the run ledger live in the session scratchpad, never in run scratch.
 
@@ -916,8 +916,8 @@ const RECEIPT = {
 };
 
 // Dispatch helper: codex wrapper when CODEX, native lane otherwise. `codexLane` is the
-// call-write-receipt template in the codex-lanes reference: ONE blocking `codex` MCP tool
-// call, product written verbatim to the report path, mechanical receipt back. The `.then()`
+// call-write-receipt template in the codex-lanes reference: one blocking supervised CLI lane,
+// product written verbatim to the report path, mechanical receipt back. The `.then()`
 // attaches the ORCHESTRATOR-ASSIGNED scope so a lane that dies before writing still names
 // its territory. The blocking tool call is the wrapper's legal wait.
 const lane = (task, o) =>
@@ -928,7 +928,6 @@ const lane = (task, o) =>
               model: "sonnet",
               effort: "low",
               schema: RECEIPT,
-              stallMs: STALL,
           })
         : agent(
               task +
@@ -939,7 +938,7 @@ const lane = (task, o) =>
                   "-report.json (Write tool, absolute path under the repo root): " +
                   JSON.stringify(PRODUCT) +
                   " — then return ONLY the receipt: ok, report path, entries count, one-line mechanical headline, failure empty.",
-              { label: o.label, phase: o.phase, model: "opus", effort: "high", schema: RECEIPT, stallMs: STALL },
+              { label: o.label, phase: o.phase, model: "opus", effort: "high", schema: RECEIPT },
           )
     ).then((r) => ({
         lane: o.label,
@@ -963,7 +962,6 @@ const done = await agent(readerPrompt() + " UNMAPPED: " + JSON.stringify(unmappe
     model: "fable",
     effort: "high",
     schema: FIXLOG,
-    stallMs: STALL,
 });
 ```
 

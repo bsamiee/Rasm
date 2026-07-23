@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_NUTPIE]
 
-`nutpie` is admitted ONLY as a `pymc` NUTS-backend string: the compute Bayesian-study rail never imports it and never drives its `compile_pymc_model`/`sample`/Zarr-store surfaces directly. The sole crossing is `pm.sample(nuts_sampler="nutpie", nuts_sampler_kwargs=...)`, where PyMC's `sampling.mcmc._sample_external_nuts` pops the compile levers, calls `nutpie.compile_pymc_model(model, **compile_kwargs)` then `nutpie.sample(...)`, and returns the `arviz.InferenceData` / `xarray.DataTree` the `pymc`/`arviz` catalogs own. Unlike the JAX backends, nutpie is installed unconditionally (`0.16.10`, no `python_version` gate) — but still installed-never-imported: the `SamplerBackend` tagged union carries the string, PyMC owns the compile-and-sample handoff, and the Numba-vs-JAX `backend` lever is the study's accelerator choice.
+`nutpie` is admitted ONLY as a `pymc` NUTS-backend string: the compute Bayesian-study rail never imports it, never drives its Rust-native compile/sample/Zarr-store surfaces. `pm.sample(nuts_sampler="nutpie", nuts_sampler_kwargs=...)` is the sole crossing — PyMC compiles and samples through nutpie, returning the `arviz.InferenceData` / `xarray.DataTree` the `pymc`/`arviz` catalogs own. Installed-never-imported is the admission's nature: the `SamplerBackend` union carries the string, and PyMC owns the handoff.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,15 +9,14 @@
 - import: NONE — never imported by compute; resolved at run time inside `pymc.sample`
 - owner: `compute`
 - rail: Bayesian-study (string backend)
-- installed: `0.16.10`
-- consumer: `experiments/inference.md` — `NutsSampler = Literal["numpyro", "blackjax", "nutpie"]`; the `SamplerBackend(external_nuts=(sampler, options))` case spreads to `nuts_sampler="nutpie"` + `nuts_sampler_kwargs`
-- capability: the Rust-native NUTS backend PyMC dispatches to by name; the accelerator lever is the per-engine `backend` (`'numba'`/`'jax'`)
+- consumer: `experiments/inference.md` — the `SamplerBackend(external_nuts=(sampler, options))` case spreads to `nuts_sampler="nutpie"` + `nuts_sampler_kwargs`
+- capability: Rust-native NUTS PyMC dispatches to by name; the `backend` lever (`'numba'`/`'jax'`) selects the accelerator
 
 ## [02]-[STRING_BACKEND_CONTRACT]
 
 [BACKEND_DISPATCH]: `pm.sample(nuts_sampler="nutpie", nuts_sampler_kwargs=...)`
-- `nuts_sampler` name: `"nutpie"` (verified live: `pymc.sampling.mcmc.sample` `nuts_sampler: Literal["pymc", "nutpie", "numpyro", "blackjax"]`).
-- `nuts_sampler_kwargs` splits inside `_sample_external_nuts`: the `backend`/`gradient_backend` keys are POPPED into `nutpie.compile_pymc_model` `compile_kwargs`; every remaining key forwards to `nutpie.sample(...)` (verified live: `pymc.sampling.mcmc._sample_external_nuts`, the `for kwarg in ("backend", "gradient_backend")` pop).
+- `nuts_sampler` name `"nutpie"` — `pymc.sampling.mcmc.sample` carries `nuts_sampler: Literal["pymc", "nutpie", "numpyro", "blackjax"]`.
+- `nuts_sampler_kwargs` splits inside `_sample_external_nuts`: `backend`/`gradient_backend` pop into the `nutpie.compile_pymc_model` `compile_kwargs`; every remaining key forwards to `nutpie.sample`.
 
 | [INDEX] | [KWARG]                         | [VALUE_DOMAIN]          | [TARGET]             | [ROLE]                                               |
 | :-----: | :------------------------------ | :---------------------- | :------------------- | :--------------------------------------------------- |
@@ -28,16 +27,14 @@
 
 ## [03]-[DECLINE]
 
-[SEALED_DECLINE]: nutpie's authored compile/sample/store surfaces are CLOSED — a sealed decline, never re-opened by catalog authorship.
-- Explicit compile/sample entry (`compile_pymc_model`/`compile_stan_model`/`compiled_pyfunc.from_pyfunc`, direct `nutpie.sample`): PyMC owns the compile-and-sample motion; compute never calls nutpie directly, so `benchmark_logp`, `with_data`/`with_coords` runtime swaps, and `_BackgroundSampler` async control are unused.
-- Stan path (`compile_stan_model`, `prune_stan_cache`, `cmdstanpy`/CmdStan toolchain): out of scope — the study models are PyMC, never Stan.
-- Zarr streaming stores (`zarr_store.{LocalStore,S3Store,GCSStore,AzureStore,HTTPStore,MemoryStore}`, `store_unconstrained=`): unused — compute owns no durable run store; resumable traces are the C# Persistence reuse ledger's, not nutpie's.
-- Reopening requires a live compute fence importing `nutpie` under a named consumer (e.g. a `benchmark_logp` accelerator-evidence probe), never catalog preference.
+[SEALED_DECLINE]: PyMC owns the compile-and-sample motion; compute never drives a bare nutpie surface, and reopening requires a live compute fence importing `nutpie` under a named consumer.
+- Direct compile/sample entry (`compile_pymc_model`/`compile_stan_model`/`compiled_pyfunc.from_pyfunc`, direct `nutpie.sample`): `benchmark_logp`, `with_data`/`with_coords` runtime swaps, and `_BackgroundSampler` async control stay unused.
+- Stan path (`compile_stan_model`, `prune_stan_cache`): the study models are PyMC, never Stan.
+- Zarr streaming stores (`zarr_store.*`, `store_unconstrained=`): compute owns no durable run store; resumable traces are the C# Persistence ledger's.
 
 ## [04]-[RAIL_LAW]
 
-[RAIL_LAW]:
 - Package: `nutpie`
-- Owns (as admitted): the `"nutpie"` NUTS-backend string PyMC dispatches to, with `backend`/`gradient_backend` compile levers and `init_mean`/`low_rank_modified_mass_matrix` sample levers as the `nuts_sampler_kwargs`
+- Owns (as admitted): the `"nutpie"` NUTS-backend string PyMC dispatches to, with the `backend`/`gradient_backend` compile levers and `init_mean`/`low_rank_modified_mass_matrix` sample levers as `nuts_sampler_kwargs`
 - Accept: `pm.sample(nuts_sampler="nutpie", nuts_sampler_kwargs={"backend": "jax"})` inside a `pm.Model()` study, graduated through `az.summary`/`az.rhat` on the returned `DataTree`
 - Reject: any `import nutpie` in compute; a direct compile/sample/benchmark/Zarr-store call; a Stan model; a posterior claim without the PyMC-returned `InferenceData`/`DataTree` receipt; catalog re-authoring of the declined surfaces
