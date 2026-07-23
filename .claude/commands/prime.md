@@ -4,11 +4,11 @@ argument-hint: [target folder path(s) or a language (csharp|python|typescript); 
 disable-model-invocation: true
 ---
 
-# [SESSION_PRIME]
+# [PRIME]
 
 Ground this session for planning-corpus work, then take the objective. TARGET: $ARGUMENTS — folder paths deepen those folders at prime; a bare language word deepens that branch; empty grounds at branch level and defers folder deepening to the objective. Grounding is read-only and plan-mode-compatible; no work, no proposals, no workflow launch before the objective arrives.
 
-Frame: three peer branches — `libs/csharp`, `libs/python`, `libs/typescript` — building advanded parameterized, polymorphic lib-grade foundations, and the entire operating surface is DESIGN DOCS: every capability is a transcription-complete code fence inside a `.planning/` design page, rebuilt root-up without hesitation; no session lands source files.
+Frame: `libs/csharp`, `libs/python`, `libs/typescript` — building advanded parameterized, polymorphic lib-grade foundations, and the entire operating surface is DESIGN DOCS: every capability is a transcription-complete code fence inside a `.planning/` design page, rebuilt root-up without hesitation; no session lands source files.
 
 Spend only on what the target or objective names; the whole prime stays under 100k tokens. Batch every multi-file read through one `tail -n +1` command, never per-file reads.
 

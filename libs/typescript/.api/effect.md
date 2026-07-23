@@ -1,22 +1,22 @@
 # [TS_BRANCH_API_EFFECT]
 
-`effect` is the branch standard library and the one runtime substrate every `libs/typescript` folder types against: one `Effect<A, E, R>` carrier composing monadically for dependent steps and applicatively for independent accumulation, `Schema` as the single decode/encode authority whose secondary surfaces derive from one AST, and capability arriving only through the `Context`/`Layer` graph. Cross-cutting capability — decode, span, retry, lifetime — attaches at the owner seam as effect transformers, never hand-threaded; the type and entrypoint tables below carry the full surface roster.
+`effect` is the branch standard library every `libs/typescript` folder types against: one `Effect<A, E, R>` carrier composing monadically for dependent steps and applicatively for independent accumulation, `Schema` as the single decode/encode authority whose secondary surfaces derive from one AST, and capability arriving only through the `Context`/`Layer` graph. Cross-cutting capability — decode, span, retry, lifetime — attaches at the owner seam as an effect transformer, never hand-threaded.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `effect`
 - package: `effect` (MIT, © Effectful Technologies)
-- module format: ESM + CJS dual (`dist/esm` + `dist/cjs`, types `dist/dts`), `sideEffects: []`; per-module deep-import subpaths (`effect/Effect`, `effect/Schema`, …) and the flat `effect` barrel — the module boundary graph imports the barrel, deep-imports only where tree-shaking a single module matters
-- runtime target: isomorphic (node, bun, browser, worker); zero runtime dependencies; no native addon
-- asset: pure-TypeScript runtime library shipping `.js` + `.d.ts`; the type-level surface (`typeof schema.Type`, `keyof typeof`, branded refinements) is load-bearing, so `tsc`/`tsgo` are the real gate
-- rail: substrate (every folder types against it; catalogued once at the branch tier)
+- module format: ESM + CJS dual (`dist/esm` + `dist/cjs`, types `dist/dts`), `sideEffects: []`; the flat `effect` barrel and per-module deep-import subpaths (`effect/Effect`, `effect/Schema`, …), deep-imported only where tree-shaking one module matters
+- runtime target: isomorphic (node, bun, browser, worker); zero runtime dependencies, no native addon
+- asset: pure-TypeScript runtime (`.js` + `.d.ts`); the type-level surface (branded refinements, `typeof schema.Type`) is load-bearing, so `tsc`/`tsgo` gate it
+- rail: substrate — every folder types against it
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the carrier, its data siblings, and failure algebra
 - rail: rails-and-effects
 
-| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY]          | [CONSUMER]                                                  |
+| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY]          | [CAPABILITY]                                                |
 | :-----: | :--------------------------------------------- | :--------------------- | :---------------------------------------------------------- |
 |  [01]   | `Effect<A, E, R>`                              | carrier                | every folder — the one rail; `R` is the app-root Tag set    |
 |  [02]   | `Option<A>` / `Either<R, L>`                   | value union            | `core/value` absence, decode results — replaces `null`      |
@@ -30,7 +30,7 @@
 [PUBLIC_TYPE_SCOPE]: schema, its derivations, and boundary shapes
 - rail: boundaries
 
-| [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY]   | [CONSUMER]                                               |
+| [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY]   | [CAPABILITY]                                             |
 | :-----: | :------------------------------------------------------ | :-------------- | :------------------------------------------------------- |
 |  [01]   | `Schema.Schema<Type, Encoded, R>`                       | codec           | every boundary — decode + encode + derivations           |
 |  [02]   | `Schema.Struct` / `Schema.Class` / `Schema.TaggedClass` | record family   | `data/journal` events, `core/value` objects              |
@@ -43,7 +43,7 @@
 [PUBLIC_TYPE_SCOPE]: services, layers, and dispatch surfaces
 - rail: surfaces-and-dispatch
 
-| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]     | [CONSUMER]                                            |
+| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]     | [CAPABILITY]                                          |
 | :-----: | :------------------------------------------------------- | :---------------- | :---------------------------------------------------- |
 |  [01]   | `Context.Tag` / `Context.TagClass` / `Context.Reference` | service key       | every port — `ai`/`data` Tags; `Reference` default    |
 |  [02]   | `Layer<ROut, E, RIn>`                                    | wiring            | app roots — `Layer` families `main.ts` selects        |
@@ -57,7 +57,7 @@
 [ENTRYPOINT_SCOPE]: `Effect` carrier — construct, boundary lift, run; every surface is `Effect.*`
 - rail: rails-and-effects
 
-| [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY] | [CONSUMER]                                             |
+| [INDEX] | [SURFACE]                                               | [SHAPE]        | [CAPABILITY]                                           |
 | :-----: | :------------------------------------------------------ | :------------- | :----------------------------------------------------- |
 |  [01]   | `succeed` / `fail` / `sync` / `suspend`                 | construct      | values + thunks; `fail` seeds the error channel        |
 |  [02]   | `gen(function*(){ … })` / `fn("span")(body, …pipeline)` | do-notation    | every flow; body per attempt, policy pipeline          |
@@ -73,29 +73,31 @@
 |  [12]   | `withSpan` / `annotateLogs` / `withMetric` / `log*`     | observe seam   | `otel` — span/log/metric attach onto the rail          |
 |  [13]   | `runFork` / `runPromise` / `runSync` / `runPromiseExit` | run            | imperative edge; `runtime` re-enters foreign callbacks |
 
+- `Effect.tryPromise`: its `try` callback receives the fiber's interrupt-wired `AbortSignal`, so a crossing deadline or interrupt threads it.
+
 [ENTRYPOINT_SCOPE]: `Schema` — decode, project, transform, derive; surfaces are `Schema.*` unless qualified
 - rail: boundaries
 
-| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [CONSUMER]                                                |
-| :-----: | :------------------------------------------------------- | :------------- | :-------------------------------------------------------- |
-|  [01]   | `decode` / `decodeUnknown` / `decodeUnknownEither`       | decode         | `decodeUnknown` at ingress; `decode` over `Encoded` input |
-|  [02]   | `decodeSync` / `encode`                                  | encode         | interior sync mint; `encode` egress; `ParseError` lifts   |
-|  [03]   | `Struct({...})` / `TaggedStruct({...})` / `Class(...)`   | declare shape  | one runtime authority per concept; `Class` adds a ctor    |
-|  [04]   | `Union` / `Literal` / `Enums` / `TemplateLiteralParser`  | closed union   | `core/state`/`core/interchange` families; string keys     |
-|  [05]   | `pick` / `omit` / `partial` / `extend`                   | project        | every projection derives from one owner                   |
-|  [06]   | `pluck` / `typeSchema`                                   | project        | `typeSchema` projects the type-side schema                |
-|  [07]   | `transformOrFail(from, to, {...})` / `transform`         | bidirectional  | `core/interchange` codec, `core/value` brand — total      |
-|  [08]   | `brand("K")` / `filter` / `optionalWith(s, {...})`       | refine         | brand floor; `optionalWith` absence→`Option`              |
-|  [09]   | `Option` / `Either` / `Chunk` / `HashMap` / `Redacted`   | effect-data    | decoded value is an Effect data structure                 |
-|  [10]   | `Uint8ArrayFromBase64` / `StringFromHex` / `parseJson`   | wire codec     | `core/interchange` byte↔value; `parseJson` JSON fields    |
-|  [11]   | `Arbitrary.make` / `Arbitrary.makeLazy`                  | derive         | generator; `makeLazy` for recursive schemas               |
-|  [12]   | `JSONSchema.make` / `Pretty.make` / `Schema.equivalence` | derive         | OpenAPI node, printer, structural equality                |
-|  [13]   | `standardSchemaV1(schema)`                               | interop        | `ui` forms + Standard-Schema consumers bind the decoder   |
+| [INDEX] | [SURFACE]                                                | [SHAPE]       | [CAPABILITY]                                              |
+| :-----: | :------------------------------------------------------- | :------------ | :-------------------------------------------------------- |
+|  [01]   | `decode` / `decodeUnknown` / `decodeUnknownEither`       | decode        | `decodeUnknown` at ingress; `decode` over `Encoded` input |
+|  [02]   | `decodeSync` / `encode`                                  | encode        | interior sync mint; `encode` egress; `ParseError` lifts   |
+|  [03]   | `Struct({...})` / `TaggedStruct({...})` / `Class(...)`   | declare shape | one runtime authority per concept; `Class` adds a ctor    |
+|  [04]   | `Union` / `Literal` / `Enums` / `TemplateLiteralParser`  | closed union  | `core/state`/`core/interchange` families; string keys     |
+|  [05]   | `pick` / `omit` / `partial` / `extend`                   | project       | every projection derives from one owner                   |
+|  [06]   | `pluck` / `typeSchema`                                   | project       | `typeSchema` projects the type-side schema                |
+|  [07]   | `transformOrFail(from, to, {...})` / `transform`         | bidirectional | `core/interchange` codec, `core/value` brand — total      |
+|  [08]   | `brand("K")` / `filter` / `optionalWith(s, {...})`       | refine        | brand floor; `optionalWith` absence→`Option`              |
+|  [09]   | `Option` / `Either` / `Chunk` / `HashMap` / `Redacted`   | effect-data   | decoded value is an Effect data structure                 |
+|  [10]   | `Uint8ArrayFromBase64` / `StringFromHex` / `parseJson`   | wire codec    | `core/interchange` byte↔value; `parseJson` JSON fields    |
+|  [11]   | `Arbitrary.make` / `Arbitrary.makeLazy`                  | derive        | generator; `makeLazy` for recursive schemas               |
+|  [12]   | `JSONSchema.make` / `Pretty.make` / `Schema.equivalence` | derive        | OpenAPI node, printer, structural equality                |
+|  [13]   | `standardSchemaV1(schema)`                               | interop       | `ui` forms + Standard-Schema consumers bind the decoder   |
 
 [ENTRYPOINT_SCOPE]: `Context` / `Layer` / `Runtime` — services and composition roots; surfaces are `Layer.*` unless qualified
 - rail: surfaces-and-dispatch
 
-| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY]  | [CONSUMER]                                                 |
+| [INDEX] | [SURFACE]                                            | [SHAPE]         | [CAPABILITY]                                               |
 | :-----: | :--------------------------------------------------- | :-------------- | :--------------------------------------------------------- |
 |  [01]   | `class Svc extends Effect.Service<Svc>()("app/Svc")` | service owner   | Tag + default `Layer` + accessor in one declaration        |
 |  [02]   | `class Tag extends Context.Tag("id")<Tag, Shape>()`  | port Tag        | `security`/`data`/`ui` ports; `Reference` default          |
@@ -110,7 +112,7 @@
 [ENTRYPOINT_SCOPE]: dispatch — `Match` builder and `Data` closed families
 - rail: surfaces-and-dispatch
 
-| [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY]  | [CONSUMER]                                              |
+| [INDEX] | [SURFACE]                                                 | [SHAPE]         | [CAPABILITY]                                            |
 | :-----: | :-------------------------------------------------------- | :-------------- | :------------------------------------------------------ |
 |  [01]   | `Match.type<T>()` / `Match.value(v)` → `Match.exhaustive` | dispatch        | `tag`/`when` arms; missing arm is a compile error       |
 |  [02]   | `Match.tagsExhaustive` / `Match.discriminatorsExhaustive` | record dispatch | dispatch by `_tag` or a named discriminant, total       |
@@ -123,38 +125,43 @@
 [ENTRYPOINT_SCOPE]: `Stream` / `Sink` — pull-based streaming; surfaces are `Stream.*` unless qualified
 - rail: rails-and-effects
 
-| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [CONSUMER]                                              |
-| :-----: | :------------------------------------------------------- | :------------- | :------------------------------------------------------ |
-|  [01]   | `fromQueue` / `fromPubSub` / `async`                     | source         | `serve/live` feeds, `core/interchange/frame` reassembly |
-|  [02]   | `asyncScoped` / `asyncPush`                              | source         | scoped `addEventListener`; backpressured push           |
-|  [03]   | `fromReadableStream` / `fromReadableStreamByob`          | source         | `browser/fetch` streams, `data/object` BYOB ingress     |
-|  [04]   | `mapEffect(f, { concurrency })` / `mapConcatEffect`      | transform      | bounded per-element effects, effectful expansion        |
-|  [05]   | `grouped` / `groupedWithin` / `throttle`                 | transform      | batch windows, rate shaping on one carrier              |
-|  [06]   | `broadcast` / `partition` / `merge` / `zipLatest`        | fan            | fan-out, keyed split, latest-value join                 |
-|  [07]   | `run(sink)` / `runForEach` / `runFold` / `runFoldEffect` | drain          | terminal fold; `Sink.foldWeighted`/`collectAllN`        |
-|  [08]   | `toReadableStream` / `toReadableStreamEffect`            | drain          | feed web-stream consumers (`data/object` puts)          |
-|  [09]   | `retry(schedule)` / `debounce` / `buffer` / `haltWhen`   | resilience     | resumable feeds; `haltWhen(deferred)` ends stream       |
+| [INDEX] | [SURFACE]                                                | [SHAPE]    | [CAPABILITY]                                            |
+| :-----: | :------------------------------------------------------- | :--------- | :------------------------------------------------------ |
+|  [01]   | `fromQueue` / `fromPubSub` / `async`                     | source     | `serve/live` feeds, `core/interchange/frame` reassembly |
+|  [02]   | `asyncScoped` / `asyncPush`                              | source     | scoped `addEventListener`; backpressured push           |
+|  [03]   | `fromReadableStream` / `fromReadableStreamByob`          | source     | `browser/fetch` streams, `data/object` BYOB ingress     |
+|  [04]   | `mapEffect(f, { concurrency })` / `mapConcatEffect`      | transform  | bounded per-element effects, effectful expansion        |
+|  [05]   | `grouped` / `groupedWithin` / `throttle`                 | transform  | batch windows, rate shaping on one carrier              |
+|  [06]   | `broadcast` / `partition` / `merge` / `zipLatest`        | fan        | fan-out, keyed split, latest-value join                 |
+|  [07]   | `run(sink)` / `runForEach` / `runFold` / `runFoldEffect` | drain      | terminal fold; `Sink.foldWeighted`/`collectAllN`        |
+|  [08]   | `toReadableStream` / `toReadableStreamEffect`            | drain      | feed web-stream consumers (`data/object` puts)          |
+|  [09]   | `retry(schedule)` / `debounce` / `buffer` / `haltWhen`   | resilience | resumable feeds; `haltWhen(deferred)` ends stream       |
+
+- `Stream.fromPubSub`: without `{ scoped: true }` it subscribes on first pull and unsubscribes when the consumer's scope closes.
 
 [ENTRYPOINT_SCOPE]: concurrency and mutable state
 - rail: rails-and-effects
 
-| [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY] | [CONSUMER]                                                |
-| :-----: | :------------------------------------------------------ | :------------- | :-------------------------------------------------------- |
-|  [01]   | `Ref.make` / `SubscriptionRef.make`                     | shared cell    | `SubscriptionRef` = `Ref` + `Stream.changes`              |
-|  [02]   | `Subscribable` / `SynchronizedRef`                      | shared cell    | read-only `{ get, changes }`; `ui/system/atom` observes   |
-|  [03]   | `Deferred.make` / `Deferred.await` / `Deferred.succeed` | one-shot       | fiber handoff, `haltWhen` signals, promise-once           |
-|  [04]   | `Queue.bounded` / `Queue.sliding`                       | channel        | `work/queue` job intake with backpressure                 |
-|  [05]   | `PubSub.bounded` / `Mailbox.make`                       | channel        | `serve/live` fan-out, poison-quarantine buffers           |
-|  [06]   | `FiberRef.make` / `FiberRef.locallyScoped`              | fiber-local    | `serve/api` middleware; built-in `currentLogAnnotations`  |
-|  [07]   | `Effect.makeSemaphore(n)` / `Effect.makeLatch`          | bound / track  | concurrency caps for `serve` load-shed                    |
-|  [08]   | `FiberSet.make` / `FiberMap.make`                       | bound / track  | keyed fiber registries; `work/entity` per-entity          |
-|  [09]   | `STM.commit` / `TRef.make` / `TMap`                     | transaction    | `core/state`/`work` atomic multi-cell updates, auto-retry |
-|  [10]   | `TQueue` / `TSemaphore` / `TReentrantLock`              | transaction    | transactional queue, semaphore, reentrant lock            |
+| [INDEX] | [SURFACE]                                               | [SHAPE]       | [CAPABILITY]                                              |
+| :-----: | :------------------------------------------------------ | :------------ | :-------------------------------------------------------- |
+|  [01]   | `Ref.make` / `SubscriptionRef.make`                     | shared cell   | `SubscriptionRef` = `Ref` + `Stream.changes`              |
+|  [02]   | `Subscribable` / `SynchronizedRef`                      | shared cell   | read-only `{ get, changes }`; `ui/system/atom` observes   |
+|  [03]   | `Deferred.make` / `Deferred.await` / `Deferred.succeed` | one-shot      | fiber handoff, `haltWhen` signals, promise-once           |
+|  [04]   | `Queue.bounded` / `Queue.sliding`                       | channel       | `work/queue` job intake with backpressure                 |
+|  [05]   | `PubSub.bounded` / `Mailbox.make`                       | channel       | `serve/live` fan-out, poison-quarantine buffers           |
+|  [06]   | `FiberRef.make` / `FiberRef.locallyScoped`              | fiber-local   | `serve/api` middleware; built-in `currentLogAnnotations`  |
+|  [07]   | `Effect.makeSemaphore(n)` / `Effect.makeLatch`          | bound / track | concurrency caps for `serve` load-shed                    |
+|  [08]   | `FiberSet.make` / `FiberMap.make`                       | bound / track | keyed fiber registries; `work/entity` per-entity          |
+|  [09]   | `STM.commit` / `TRef.make` / `TMap`                     | transaction   | `core/state`/`work` atomic multi-cell updates, auto-retry |
+|  [10]   | `TQueue` / `TSemaphore` / `TReentrantLock`              | transaction   | transactional queue, semaphore, reentrant lock            |
+
+- `PubSub.publish` / `Queue.offer`: answer delivery as `boolean`, never a fault — a discarded return is a deliberate drop.
+- `SubscriptionRef.changes`: an interface property (a `Stream`), not a module function — the feed `Reloadable.auto` consumes.
 
 [ENTRYPOINT_SCOPE]: schedule, config, time, and observability signals
 - rail: system-apis
 
-| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [CONSUMER]                                               |
+| [INDEX] | [SURFACE]                                                  | [SHAPE]        | [CAPABILITY]                                             |
 | :-----: | :--------------------------------------------------------- | :------------- | :------------------------------------------------------- |
 |  [01]   | `Schedule.exponential` / `jittered` / `resetAfter`         | recurrence     | policy as a value; `resetAfter` re-arms after quiet      |
 |  [02]   | `Schedule.intersect` / `recurs` / `upTo`                   | recurrence     | compose schedules; `upTo` bounds total elapsed           |
@@ -170,251 +177,32 @@
 |  [12]   | `Metric.snapshot` / `Tracer.externalSpan`                  | signal read    | `core/observe/board` reads; `externalSpan` continues W3C |
 |  [13]   | `Effect.makeSpanScoped`                                    | signal read    | a scoped span the algorithm owns                         |
 
-```ts signature
-interface ExternalSpan {
-  readonly _tag: "ExternalSpan";
-  readonly spanId: string;
-  readonly traceId: string;
-  readonly sampled: boolean;
-  readonly context: Context.Context<never>;
-}
-declare const externalSpan: (options: {
-  readonly spanId: string;
-  readonly traceId: string;
-  readonly sampled?: boolean | undefined;
-  readonly context?: Context.Context<never> | undefined;
-}) => ExternalSpan;
-```
+- `Metric.tagged`: returns a NEW metric value — `Metric.increment(Metric.tagged(counter, key, value))` is the per-dispatch tagged-increment spelling.
+- `Metric.snapshot`: reads the whole global registry; a filtered read is a caller-side projection over it.
+- `Schedule`: values compose — `exponential |> jittered |> intersect(recurs(n))` is one recurrence value, never a hand-rolled retry loop.
 
 [ENTRYPOINT_SCOPE]: immutable collections, equality, and caching
 - rail: shapes
 
-| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [CONSUMER]                                         |
-| :-----: | :---------------------------------------------- | :------------- | :------------------------------------------------- |
-|  [01]   | `Chunk` / `HashMap` / `HashSet` / `SortedMap`   | collection     | not JS `Map`/`Set`; `MutableHashMap` algo-local    |
-|  [02]   | `Array.*` / `Record.*` / `Struct.*` / `Tuple.*` | stdlib fold    | `reduce`/`map` replace imperative loops            |
-|  [03]   | `Option.match` / `Option.zipWith`               | stdlib fold    | join optional evidence without a null sentinel     |
-|  [04]   | `Order.*` / `Equivalence.*` / `Predicate.*`     | comparison     | ordering + `Predicate.and`/`or` refinement algebra |
-|  [05]   | `Equal.equals` / `Hash.hash`                    | comparison     | `Data`-backed structural equality                  |
-|  [06]   | `Cache.make({...})` / `RcMap.make`              | cache / pool   | TTL + reference counting; `data/lane` lookups      |
-|  [07]   | `KeyedPool.make` / `Pool.make`                  | cache / pool   | `net/client` connection pools, `ai` clients        |
-|  [08]   | `RateLimiter.make({...})` / `Request.Class`     | rate / batch   | `net` API-key limits; request de-duplication       |
-|  [09]   | `RequestResolver.makeBatched`                   | rate / batch   | batch requests under one resolver                  |
-|  [10]   | `Encoding.encodeBase64` / `Encoding.decodeHex`  | codec          | `security` byte encodings, `core/interchange`      |
-|  [11]   | `Redacted.make` / `Redacted.value`              | secret         | unwrap only at the crypto boundary                 |
+| [INDEX] | [SURFACE]                                       | [SHAPE]      | [CAPABILITY]                                       |
+| :-----: | :---------------------------------------------- | :----------- | :------------------------------------------------- |
+|  [01]   | `Chunk` / `HashMap` / `HashSet` / `SortedMap`   | collection   | not JS `Map`/`Set`; `MutableHashMap` algo-local    |
+|  [02]   | `Array.*` / `Record.*` / `Struct.*` / `Tuple.*` | stdlib fold  | `reduce`/`map` replace imperative loops            |
+|  [03]   | `Option.match` / `Option.zipWith`               | stdlib fold  | join optional evidence without a null sentinel     |
+|  [04]   | `Order.*` / `Equivalence.*` / `Predicate.*`     | comparison   | ordering + `Predicate.and`/`or` refinement algebra |
+|  [05]   | `Equal.equals` / `Hash.hash`                    | comparison   | `Data`-backed structural equality                  |
+|  [06]   | `Cache.make({...})` / `RcMap.make`              | cache / pool | TTL + reference counting; `data/lane` lookups      |
+|  [07]   | `KeyedPool.make` / `Pool.make`                  | cache / pool | `net/client` connection pools, `ai` clients        |
+|  [08]   | `RateLimiter.make({...})` / `Request.Class`     | rate / batch | `net` API-key limits; request de-duplication       |
+|  [09]   | `RequestResolver.makeBatched`                   | rate / batch | batch requests under one resolver                  |
+|  [10]   | `Encoding.encodeBase64` / `Encoding.decodeHex`  | codec        | `security` byte encodings, `core/interchange`      |
+|  [11]   | `Redacted.make` / `Redacted.value`              | secret       | unwrap only at the crypto boundary                 |
 
-## [04]-[MEMBER_SIGNATURES]
+- `Equal.equals`: compares structurally only over `Data`-constructed or `Equal`-implementing values — `HashMap` and `Redacted` both implement `Equal`.
 
-Exact shipped declarations for the members the roster tables name — owning module, generic parameters, parameter lists, return types — verified under `node_modules/effect/dist/dts/<Module>.d.ts`. A spelling disagreeing with a block below is the defect; a member absent below resolves from its own declaration file.
+## [04]-[IMPLEMENTATION_LAW]
 
-[SIGNATURE_SCOPE]: `PubSub` / `Queue` / `Stream` — fan and lane surfaces
-- rail: streams
-
-```typescript signature
-// PubSub.d.ts
-export declare const sliding: <A>(capacity: number | {
-    readonly capacity: number;
-    readonly replay?: number | undefined;
-}) => Effect.Effect<PubSub<A>>;
-export declare const publish: {
-    <A>(value: A): (self: PubSub<A>) => Effect.Effect<boolean>;
-    <A>(self: PubSub<A>, value: A): Effect.Effect<boolean>;
-};
-
-// Queue.d.ts
-export declare const bounded: <A>(requestedCapacity: number) => Effect.Effect<Queue<A>>;
-export declare const sliding: <A>(requestedCapacity: number) => Effect.Effect<Queue<A>>;
-export declare const offer: {
-    <A>(value: A): (self: Enqueue<A>) => Effect.Effect<boolean>;
-    <A>(self: Enqueue<A>, value: A): Effect.Effect<boolean>;
-};
-
-// Stream.d.ts
-export declare const fromPubSub: {
-    <A>(pubsub: PubSub.PubSub<A>, options: {
-        readonly scoped: true;
-        readonly maxChunkSize?: number | undefined;
-        readonly shutdown?: boolean | undefined;
-    }): Effect.Effect<Stream<A>, never, Scope.Scope>;
-    <A>(pubsub: PubSub.PubSub<A>, options?: {
-        readonly scoped?: false | undefined;
-        readonly maxChunkSize?: number | undefined;
-        readonly shutdown?: boolean | undefined;
-    }): Stream<A>;
-};
-export declare const fromQueue: <A>(queue: Queue.Dequeue<A>, options?: {
-    readonly maxChunkSize?: number | undefined;
-    readonly shutdown?: boolean | undefined;
-}) => Stream<A>;
-export declare const filter: {
-    <A, B extends A>(refinement: Refinement<NoInfer<A>, B>): <E, R>(self: Stream<A, E, R>) => Stream<B, E, R>;
-    <A, B extends A>(predicate: Predicate<B>): <E, R>(self: Stream<A, E, R>) => Stream<A, E, R>;
-    <A, E, R, B extends A>(self: Stream<A, E, R>, refinement: Refinement<A, B>): Stream<B, E, R>;
-    <A, E, R>(self: Stream<A, E, R>, predicate: Predicate<A>): Stream<A, E, R>;
-};
-export declare const runForEach: {
-    <A, X, E2, R2>(f: (a: A) => Effect.Effect<X, E2, R2>): <E, R>(self: Stream<A, E, R>) => Effect.Effect<void, E2 | E, R2 | R>;
-    <A, E, R, X, E2, R2>(self: Stream<A, E, R>, f: (a: A) => Effect.Effect<X, E2, R2>): Effect.Effect<void, E | E2, R | R2>;
-};
-```
-
-- `PubSub.publish` and `Queue.offer` answer delivery as `boolean`, never a fault — a discarded return is a deliberate drop.
-- `Stream.fromPubSub` without `{ scoped: true }` subscribes on first pull and unsubscribes when the consumer's scope closes.
-
-[SIGNATURE_SCOPE]: `SubscriptionRef` — a `Ref` whose `changes` property is a `Stream`
-- rail: rails-and-effects
-
-```typescript signature
-// SubscriptionRef.d.ts
-export declare const make: <A>(value: A) => Effect.Effect<SubscriptionRef<A>>;
-export declare const get: <A>(self: SubscriptionRef<A>) => Effect.Effect<A>;
-export declare const set: {
-    <A>(value: A): (self: SubscriptionRef<A>) => Effect.Effect<void>;
-    <A>(self: SubscriptionRef<A>, value: A): Effect.Effect<void>;
-};
-export declare const update: {
-    <A>(f: (a: A) => A): (self: SubscriptionRef<A>) => Effect.Effect<void>;
-    <A>(self: SubscriptionRef<A>, f: (a: A) => A): Effect.Effect<void>;
-};
-export interface SubscriptionRef<in out A> extends SubscriptionRef.Variance<A>, Synchronized.SynchronizedRef<A>, Subscribable<A> {
-    readonly changes: Stream.Stream<A>;
-}
-```
-
-- `changes` is an interface property, not a module function — `SubscriptionRef.changes` is the feed `Reloadable.auto` consumes.
-
-[SIGNATURE_SCOPE]: `Metric` — instrument mints, tagging, and the exporter-free snapshot
-- rail: system-apis
-
-```typescript signature
-// Metric.d.ts
-export declare const counter: {
-    (name: string, options?: {
-        readonly description?: string | undefined;
-        readonly bigint?: false | undefined;
-        readonly incremental?: boolean | undefined;
-    }): Metric.Counter<number>;
-    (name: string, options: {
-        readonly description?: string | undefined;
-        readonly bigint: true;
-        readonly incremental?: boolean | undefined;
-    }): Metric.Counter<bigint>;
-};
-export declare const frequency: (name: string, options?: {
-    readonly description?: string | undefined;
-    readonly preregisteredWords?: ReadonlyArray<string> | undefined;
-} | undefined) => Metric.Frequency<string>;
-export declare const timerWithBoundaries: (
-    name: string,
-    boundaries: ReadonlyArray<number>,
-    description?: string,
-) => Metric<MetricKeyType.MetricKeyType.Histogram, Duration.Duration, MetricState.MetricState.Histogram>;
-export declare const increment: (
-    self: Metric.Counter<number> | Metric.Counter<bigint> | Metric.Gauge<number> | Metric.Gauge<bigint>,
-) => Effect.Effect<void>;
-export declare const tagged: {
-    <Type, In, Out>(key: string, value: string): (self: Metric<Type, In, Out>) => Metric<Type, In, Out>;
-    <Type, In, Out>(self: Metric<Type, In, Out>, key: string, value: string): Metric<Type, In, Out>;
-};
-export declare const trackDuration: {
-    <Type, Out>(metric: Metric<Type, Duration.Duration, Out>): <A, E, R>(self: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>;
-    <A, E, R, Type, Out>(self: Effect.Effect<A, E, R>, metric: Metric<Type, Duration.Duration, Out>): Effect.Effect<A, E, R>;
-};
-export declare const snapshot: Effect.Effect<Array<MetricPair.MetricPair.Untyped>>;
-```
-
-- `Metric.tagged` returns a NEW metric value — `Metric.increment(Metric.tagged(counter, key, value))` is the per-dispatch tagged-increment spelling.
-- `Metric.snapshot` reads the whole global registry; a filtered read is a caller-side projection over it.
-
-[SIGNATURE_SCOPE]: `Effect` — sequencing, observation, boundary lift, and the semaphore mint
-- rail: rails-and-effects
-
-```typescript signature
-// Effect.d.ts
-export declare const zipRight: {
-    <A2, E2, R2>(that: Effect<A2, E2, R2>, options?: {
-        readonly concurrent?: boolean | undefined;
-        readonly batching?: boolean | "inherit" | undefined;
-        readonly concurrentFinalizers?: boolean | undefined;
-    }): <A, E, R>(self: Effect<A, E, R>) => Effect<A2, E2 | E, R2 | R>;
-    <A, E, R, A2, E2, R2>(self: Effect<A, E, R>, that: Effect<A2, E2, R2>, options?: {
-        readonly concurrent?: boolean | undefined;
-        readonly batching?: boolean | "inherit" | undefined;
-        readonly concurrentFinalizers?: boolean | undefined;
-    }): Effect<A2, E2 | E, R2 | R>;
-};
-export declare const tap: {
-    <A, X, E1, R1>(f: (a: NoInfer<A>) => Effect<X, E1, R1>, options: {
-        onlyEffect: true;
-    }): <E, R>(self: Effect<A, E, R>) => Effect<A, E | E1, R | R1>;
-    <A, E, R, X, E1, R1>(self: Effect<A, E, R>, f: (a: NoInfer<A>) => Effect<X, E1, R1>, options: {
-        onlyEffect: true;
-    }): Effect<A, E | E1, R | R1>;
-};
-export declare const tapError: {
-    <E, X, E2, R2>(f: (e: NoInfer<E>) => Effect<X, E2, R2>): <A, R>(self: Effect<A, E, R>) => Effect<A, E | E2, R2 | R>;
-    <A, E, R, X, E2, R2>(self: Effect<A, E, R>, f: (e: E) => Effect<X, E2, R2>): Effect<A, E | E2, R | R2>;
-};
-export declare const logInfo: (...message: ReadonlyArray<any>) => Effect<void, never, never>;
-export declare const logWarning: (...message: ReadonlyArray<any>) => Effect<void, never, never>;
-export declare const logError: (...message: ReadonlyArray<any>) => Effect<void, never, never>;
-export declare const annotateLogs: {
-    (key: string, value: unknown): <A, E, R>(effect: Effect<A, E, R>) => Effect<A, E, R>;
-    (values: Record<string, unknown>): <A, E, R>(effect: Effect<A, E, R>) => Effect<A, E, R>;
-    <A, E, R>(effect: Effect<A, E, R>, key: string, value: unknown): Effect<A, E, R>;
-    <A, E, R>(effect: Effect<A, E, R>, values: Record<string, unknown>): Effect<A, E, R>;
-};
-export declare const makeSemaphore: (permits: number) => Effect<Semaphore>;
-export declare const withSpan: {
-    (name: string, options?: Tracer.SpanOptions | undefined): <A, E, R>(self: Effect<A, E, R>) => Effect<A, E, Exclude<R, Tracer.ParentSpan>>;
-    <A, E, R>(self: Effect<A, E, R>, name: string, options?: Tracer.SpanOptions | undefined): Effect<A, E, Exclude<R, Tracer.ParentSpan>>;
-};
-export declare const tryPromise: {
-    <A, E>(options: {
-        readonly try: (signal: AbortSignal) => PromiseLike<A>;
-        readonly catch: (error: unknown) => E;
-    }): Effect<A, E>;
-    <A>(evaluate: (signal: AbortSignal) => PromiseLike<A>): Effect<A, Cause.UnknownException>;
-};
-```
-
-- `Effect.tap` carries further non-`Effect`-returning overloads (promise and plain-value observers) beyond the `onlyEffect` form transcribed.
-- `logInfo`/`logWarning`/`logError` are exact members, not a `log*` wildcard — each is variadic over messages and never fails.
-- `Effect.tryPromise`'s `try` receives the fiber's interrupt-wired `AbortSignal`, so a deadline or interrupt crossing threads it.
-- `Effect.zipRight` (not `zipWith`) sequences discarding the left; `Effect.tapError` (not `tapErrorTag`) taps the whole error channel — a neighboring-member substitution for a cataloged signature is the defect.
-
-[SIGNATURE_SCOPE]: `Schedule` / `Clock` / `Equal` / `Redacted` — recurrence values, clock read, identity, seal
-- rail: values
-
-```typescript signature
-// Schedule.d.ts
-export declare const exponential: (base: Duration.DurationInput, factor?: number) => Schedule<Duration.Duration>;
-export declare const jittered: <Out, In, R>(self: Schedule<Out, In, R>) => Schedule<Out, In, R>;
-export declare const intersect: {
-    <Out2, In2, R2>(that: Schedule<Out2, In2, R2>): <Out, In, R>(self: Schedule<Out, In, R>) => Schedule<[Out, Out2], In & In2, R2 | R>;
-    <Out, In, R, Out2, In2, R2>(self: Schedule<Out, In, R>, that: Schedule<Out2, In2, R2>): Schedule<[Out, Out2], In & In2, R | R2>;
-};
-export declare const recurs: (n: number) => Schedule<number>;
-export declare const spaced: (duration: Duration.DurationInput) => Schedule<number>;
-
-// Clock.d.ts
-export declare const currentTimeMillis: Effect.Effect<number>;
-
-// Equal.d.ts
-export declare function equals<B>(that: B): <A>(self: A) => boolean;
-export declare function equals<A, B>(self: A, that: B): boolean;
-
-// Redacted.d.ts
-export declare const make: <A>(value: A) => Redacted<A>;
-export declare const value: <A>(self: Redacted<A>) => A;
-```
-
-- `Equal.equals` compares structurally only over `Data`-constructed or `Equal`-implementing values — `HashMap` and `Redacted` both implement `Equal`.
-- Schedule values compose as `exponential |> jittered |> intersect(recurs(n))` — one recurrence value, never a hand-rolled retry loop.
-
-## [05]-[IMPLEMENTATION_LAW]
-
-[EFFECT_TOPOLOGY]:
+[TOPOLOGY]:
 - `Effect<A, E, R>` is a description, not a running computation; nothing executes until `Effect.runFork`/`runPromise`/`runSync` at the one imperative edge, or `Layer.launch`/`ManagedRuntime` at a composition root. Dependent steps compose through `Effect.flatMap`/`Effect.gen`; independent operands accumulate through `Effect.all`/`Effect.forEach` where the `mode`/`concurrency` option — never a flag on the value — selects abort-on-first-failure versus validate-all.
 - Three type parameters are the whole contract: `A` success, `E` the typed error channel (a tagged union, discriminated by `catchTag`/`catchTags`), `R` the requirement set of `Context.Tag`s the app root must satisfy. `R` reaching `never` at the composition root is the proof that every dependency is wired; an unsatisfied Tag is a compile error, not a runtime `undefined`.
 - `Schema` is the one boundary codec: `Type` is the decoded interior value, `Encoded` the wire shape, and every secondary surface (`Arbitrary`, `JSONSchema`, `Pretty`, `Equivalence`, `standardSchemaV1`) derives from the same AST so it cannot drift. Decode once at ingress with `Schema.decodeUnknown`; the interior never re-validates and never sees `null`/`undefined`/provider shapes.
@@ -423,11 +211,16 @@ export declare const value: <A>(self: Redacted<A>) => A;
 - Interruption is structural: `Effect.forkScoped` fibers are interrupted when their `Scope` closes, finalizers run on success, failure, and interrupt alike, and `Cause` retains the full failure tree (typed error + defect + interrupt + parallel causes) so `core/value/fault` and `otel/crash` reconstruct rather than flatten.
 
 [STACKING]:
-- `@effect/platform` (`.api/effect-platform.md`): the platform contracts are `Effect`-returning services keyed by `Context.Tag` — `HttpClient` yields `Effect<HttpClientResponse, HttpClientError>`, `HttpApiEndpoint` bodies are `Schema`-typed handlers, and `FileSystem`/`Command`/`Worker` are Tags a `Layer` satisfies. One Schema decodes the request and encodes the response; the same tagged error family flows the `Effect` error channel to the `serve/problem` mapping.
-- `@effect/platform-node` (`.api/effect-platform-node.md`): the `Node*` `Layer`s satisfy the platform Tags this substrate's `Layer` graph requires; `NodeRuntime.runMain` is the `Effect.runFork` edge for a node process, draining fibers and finalizers on signal.
-- `@effect/opentelemetry`: `Metric`, `Logger`, and `Tracer` are the vendor-neutral signal owners; the OTel `Layer` swaps the `Tracer`/`MetricRegistry`/`Logger` services under the whole graph via `Layer.setTracer`, so `Effect.withSpan`/`withMetric` on any rail export through OTLP with no call-site change.
-- `@effect/vitest` (dev-tool tier, `tests/typescript/.api/effect-vitest.md`): `it.effect`/`it.scoped` run an `Effect` under `TestServices` (deterministic `TestClock`/`TestRandom`); `it.prop` consumes `Schema`-derived `FastCheck.Arbitrary`s; `it.layer` shares a `Layer` across a spec block — the testkit needs no hand-rolled harness.
-- folder-local substrate (catalogued at `libs/typescript/<folder>/.api/`): `@effect/sql` `SqlClient` and `@effect/cluster` `MessageStorage` are `Context.Tag`s `work`/`data` compose and the app root satisfies; `@effect-atom` binds an `Effect`/`SubscriptionRef` into a React atom (`ui`); `@electric-sql/d2ts` folds a `core/state` dataflow; `hash-wasm` sits behind the `core/value/contentKey` mint — each is `Effect`-wrapped at its owner, never leaked raw.
+- within-lib: one `Effect.fn("name")(body, ...pipeline)` seam stacks decode+brand at the single `Schema`, `Effect.retry(Schedule)`, `Effect.withSpan`/`withMetric`, and `Effect.acquireRelease` as composed transformers over one carrier — resilience and observability stay recoverable from the declaration, never threaded through the body.
+- `@effect/platform`(`.api/effect-platform.md`): platform contracts are `Effect`-returning services keyed by `Context.Tag` — `HttpClient` yields `Effect<HttpClientResponse, HttpClientError>`, `HttpApiEndpoint` bodies are `Schema`-typed handlers, `FileSystem`/`Command`/`Worker` are Tags a `Layer` satisfies; one Schema decodes request and encodes response, and the tagged-error family flows the `Effect` error channel to `serve/problem`.
+- `@effect/platform-node`(`.api/effect-platform-node.md`): the `Node*` `Layer`s satisfy the platform Tags this substrate's graph requires; `NodeRuntime.runMain` is the `Effect.runFork` edge for a node process, draining fibers and finalizers on signal.
+- `@effect/opentelemetry`(`runtime/.api/effect-opentelemetry.md`): Effect's `Metric`/`Logger`/`Tracer` signals feed `Otlp.layer` (native OTLP over `HttpClient`, no `@opentelemetry/sdk-*`); the OTel `Layer` installs `Tracer.OtelTracer` and the `AppIdentity`-derived `Resource` under the whole graph, so `Effect.withSpan`/`withMetric` on any rail export unchanged.
+- `@effect/vitest`(`tests/typescript/.api/effect-vitest.md`): `it.effect`/`it.scoped` run an `Effect` under `TestServices` (deterministic `TestClock`/`TestRandom`), `it.prop` consumes `Schema`-derived `FastCheck.Arbitrary`s, and `it.layer` shares a `Layer` across a spec block.
+- `@effect/sql`(`data/.api/effect-sql.md`): the `SqlClient` `Context.Tag` a driver `Layer` satisfies — `work`/`data` code once against the neutral contract and the app root binds the dialect.
+- `@effect/cluster`(`runtime/.api/effect-cluster.md`): the `MessageStorage` `Context.Tag` for durable-actor delivery; `SqlMessageStorage.layer` binds it to the `store`-owned `SqlClient` at the app root, so `work` composes it as a port.
+- `@effect-atom`(`ui/.api/effect-atom-atom.md`): an `Effect`/`Stream`/`SubscriptionRef` graph becomes memoized `Atom` nodes whose async `Result` mirrors an Effect `Exit`; `atom-react` mounts them into the `ui` component spine.
+- `@electric-sql/d2ts`(`core/.api/electric-sql-d2ts.md`): an incremental-dataflow graph folds a `core/state` view, maintained on the calling thread by `graph.run()`.
+- `hash-wasm`(`core/.api/hash-wasm.md`): the WASM digest engine sits behind `core/value/contentKey`'s `Digest` row table — every consumer imports `Digest`, never the package.
 
 [LOCAL_ADMISSION]:
 - Use `Effect<A, E, R>` for every fallible or effectful operation; never a bare `Promise`, a thrown exception in domain logic, or a `try`/`catch` outside a `BOUNDARY ADAPTER` kernel — a `Promise`/throw converts at the owning seam through `Effect.tryPromise`/`Effect.try`.

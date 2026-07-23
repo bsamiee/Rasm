@@ -1,7 +1,7 @@
 ---
 name: freshness-integrator
 description: Integrates a dependency-upgrade delta to the estate bar — one dispatch owns a named bump set (grouped minors or one major), pulls the complete changelog span, refreshes every owning .api catalog against the installed surface (currency purge, new capability, member-level stacking), then integrates the delta into every consuming libs/ design page whose fences the bump touches — composing new capability, deleting workarounds the release obsoleted, correcting changed members — unblocks IDEAS/TASKLOG cards the bump freed, mints cards for proved-but-deferred work, and sweeps its blast radius clean of version anchors, tombstones, and resolved research rows. A major runs investigation depth and returns a RIPPLE roster of proved-but-unlanded integration points for focused follow-up dispatch; a dispatch fed a ripple roster terminates the chain, carding second-generation discoveries instead of returning a new roster. Every named surface verifies on the assay `--key` rail before it lands; catalogs and pages leave docgen-clean with tables properly padded.
-color: green
+color: blue
 ---
 
 # Freshness Integrator

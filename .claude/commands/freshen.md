@@ -18,8 +18,8 @@ Every leg is one contract — a sole version-owner manifest, direct registry pro
 1. `forge-scientific-env uv lock --upgrade` — Forge's wrapper carries the native toolchain sdist metadata builds need; bare `uv` dies at the first sdist. A resolution failure pins the named offender under hold law (pyproject bound with its evidence comment) and re-locks.
 2. `forge-scientific-env uv sync` — its parallelism governor caps the compile fan.
 3. DEAD-DYLIB SWEEP (mandatory — `uv sync` reuses cached wheels built against Nix store paths a Forge flake bump has since moved): every native under site-packages checks its linked `/nix/store/*.dylib` paths; each missing path names its owning dist, the owners rebuild in one `forge-scientific-env uv pip install --reinstall --no-cache <dists>`, and the sweep re-runs after each repair, closing at zero missing.
-   - A gfortran-linked failure (`--ld-path` rejection) is a Forge wrapper defect — fix in `Parametric_Forge/modules/home/programs/languages/scientific-tools.nix`, `forge-redeploy --switch`, re-run the rebuild.
-   - A path still missing after its dist's `--no-cache` rebuild links a store path the flake no longer carries — a Forge library row (`scientific-tools.nix`, `forge-redeploy --switch`), never a third blind rebuild.
+- A gfortran-linked failure (`--ld-path` rejection) is a Forge wrapper defect — fix in `Parametric_Forge/modules/home/programs/languages/scientific-tools.nix`, `forge-redeploy --switch`, re-run the rebuild.
+- A path still missing after its dist's `--no-cache` rebuild links a store path the flake no longer carries — a Forge library row (`scientific-tools.nix`, `forge-redeploy --switch`), never a third blind rebuild.
 
 ```bash copy-safe
 sp="$(.venv/bin/python -c 'import site; print(site.getsitepackages()[0])')"
@@ -28,7 +28,7 @@ fd -e so -e dylib . "$sp" -u | while read -r so; do
     [ -e "$lib" ] || echo "MISSING $lib <- $so"; done; done | sort -u
 ```
 
-4. BUMP LIST — name/old/new pairs from the lock diff, written to the ledger dir first so the proof consumes it:
+1. BUMP LIST — name/old/new pairs from the lock diff, written to the ledger dir first so the proof consumes it:
 
 ```bash copy-safe
 mkdir -p ".claude/scratch/freshen-$(date +%F)"
@@ -60,7 +60,7 @@ EOF
 [TYPESCRIPT] — `pnpm-workspace.yaml` `catalog:` is the sole version owner:
 1. PROBE every catalog entry's dist-tags at `registry.npmjs.org/<pkg>`; pick per channel law.
 2. Rewrite the catalog rows in place, then `pnpm install`.
-3. PROOF: install exits clean with zero unresolved peers; a peer-resolution failure walks the offending rows back under hold law (channel-lock comment) and re-proves. Any auto-grown `minimumReleaseAgeExclude` block deletes (the standing `minimumReleaseAge: 0` is the one-line gate-off) and `pnpm install` re-proves.
+3. PROOF: install exits clean with zero unresolved peers; peer-resolution failure walks the offending rows back under hold law (channel-lock comment) and re-proves. Any auto-grown `minimumReleaseAgeExclude` block deletes (the standing `minimumReleaseAge: 0` is the one-line gate-off) and `pnpm install` re-proves.
 4. BUMP LIST: `git diff pnpm-workspace.yaml` catalog rows.
 
 [CSHARP] — `Directory.Packages.props` + `.config/dotnet-tools.json` are the sole version owners:
