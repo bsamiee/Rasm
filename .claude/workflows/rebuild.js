@@ -539,7 +539,7 @@ const LANG = {
             'rails/effects/schedules/immutable collections, QuikGraph, Mapperly and siblings) AND the folder catalogs ' +
             '`<package>/.api/*.md` — the universal Thinktecture/LanguageExt rails layered onto the domain packages, never the folder set alone.',
         verify:
-            '`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` (assay blocked: the `.api` catalogs, ' +
+            '`uv run python -m tools.assay api` (assay blocked: the `.api` catalogs, ' +
             'the nuget MCP for feed truth, and Context7/exa/tavily for the official surface own the fallback)',
         vocab: '(`[Union]`/`[SmartEnum<TKey>]`/`[ValueObject]`/`Fold`/the rails)',
         slur: 'naive, surface-level code dressed in the right vocabulary',
@@ -584,7 +584,7 @@ const LANG = {
             'pydantic-settings, beartype, structlog, stamina, numpy, psutil, opentelemetry-*) AND the folder catalogs ' +
             '`<package>/.api/*.md` — the shared rails layered ON TOP OF the folder domain packages, never the folder set alone.',
         verify:
-            '`UV_CACHE_DIR=.cache/uv uv run --frozen python -m tools.assay api resolve <pkg>` (a gated/uninstalled ' +
+            '`uv run python -m tools.assay api resolve <pkg>` (a gated/uninstalled ' +
             'package or a blocked assay falls back to its catalog/official surface)',
         vocab: '(`@tagged_union`/`frozendict`/`Result`/`Option`/the rails)',
         slur: 'naive, surface-level, old-style Python dressed in the right vocabulary',
@@ -632,7 +632,7 @@ const LANG = {
             '`<folder>/.api/*.md`, cross-checked against the published node_modules types — the shared Effect ecosystem layered ' +
             'ON TOP OF the area packages, never the folder set alone.',
         verify:
-            'the published types in node_modules (`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` over node_modules ' +
+            'the published types in node_modules (`uv run python -m tools.assay api` over node_modules ' +
             'declarations where a member is novel)',
         vocab: '(`Schema.Class`/`TaggedClass` families, tagged unions, `Effect`/`Layer`, value-derived vocabulary tables)',
         slur: 'naive JavaScript-in-TypeScript dressed in the right vocabulary',
@@ -1271,7 +1271,7 @@ const planPrompt = () =>
         'EMIT `pages` IN DEPENDENCY + COHESION ORDER — grouped by sub-folder, foundations before consumers, pages sharing an ' +
             'owner, seam, or wire contract ADJACENT within their group (the engine batches contiguous runs of your order, so ' +
             'adjacency keeps coupled pages inside one writer); alphabetical only as the final tiebreak. The engine never re-sorts.',
-        'TOOLCHAIN WARM-UP (before returning): run `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api --help` once — ' +
+        'TOOLCHAIN WARM-UP (before returning): run `uv run python -m tools.assay api --help` once — ' +
             "it builds the workspace uv cache every downstream lane's member-verification rail rides, so no lane pays the cold " +
             'environment latency or misreads it as a broken rail.',
     ].join('\n\n');

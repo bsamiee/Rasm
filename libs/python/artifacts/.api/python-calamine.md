@@ -95,7 +95,7 @@ Every open returns `CalamineWorkbook` and carries the `load_tables=False` knob (
 - universal tier (`libs/python/.api`): `expression` `Result[Self, LensFault]`/`RuntimeRail` owns the admission fold and fault discriminant; the `runtime` `LanePolicy` bounds the `anyio` process band each worker decode runs in.
 
 [LOCAL_ADMISSION]:
-- Spreadsheet and binary-Excel ingest feeding the `document/lens#LENS` `XLSX_READ` arm, including `msoffcrypto-tool`-decrypted workbooks and the in-memory `from_object(BytesIO(payload))` open; `CALAMINE` rides `_GATED_PROVIDERS` for worker isolation of the Rust core, distinct from the manifest environment marker scoping the arm's availability.
+- Spreadsheet and binary-Excel ingest feeding the `document/lens#LENS` `XLSX_READ` arm, including `msoffcrypto-tool`-decrypted workbooks and the in-memory `from_object(BytesIO(payload))` open; `CALAMINE` rides `_GATED_PROVIDERS` for worker isolation of the Rust core.
 
 [RAIL_LAW]:
 - Package: `python-calamine`

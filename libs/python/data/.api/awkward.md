@@ -78,13 +78,15 @@
 |  [02]   | `to_list(array)`                                                        | to Python list                              |
 |  [03]   | `to_arrow(array, *, list_to32, extensionarray, count_nulls, ...)`       | to Arrow `pyarrow.Array` (`arrow_c_array`)  |
 |  [04]   | `to_arrow_table(array, *, list_to32, extensionarray, ...)`              | to Arrow `pyarrow.Table` (`arrow_c_stream`) |
-|  [05]   | `to_parquet(array, destination, *, compression, ...)`                   | to Parquet file                             |
+|  [05]   | `to_parquet(array, destination, *, compression, row_group_size, ...)`   | to Parquet file                             |
 |  [06]   | `to_json(array, file, *, line_delimited, nan_string, ...)`              | to JSON                                     |
 |  [07]   | `to_dataframe(array, *, how, levelname, anonymous)`                     | to pandas MultiIndex frame                  |
 |  [08]   | `to_backend(array, backend, *, highlevel, behavior, attrs)`             | move to named backend                       |
 |  [09]   | `to_layout(array, *, allow_record, none_policy, primitive_policy, ...)` | descend to `ak.contents`                    |
 |  [10]   | `to_buffers(array, container, buffer_key, form_key, *, ...)`            | decompose to `(form, length, container)`    |
 |  [11]   | `to_packed(array, *, highlevel, behavior, attrs)`                       | compact contiguous layout copy              |
+
+- `to_parquet`: `row_group_size` takes an int row count or a byte-size string (`"128 MB"`) sizing each row group by memory; `parquet_version` defaults to `"2.6"`
 
 [ENTRYPOINT_SCOPE]: transform and structure (`ak`)
 - reduction carry: `(array, axis, *, keepdims, mask_identity, ...)`; weighted stats add `weight`/`ddof`, `min`/`max` add `initial`

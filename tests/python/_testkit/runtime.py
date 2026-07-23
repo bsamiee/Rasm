@@ -13,13 +13,13 @@ import threading
 # Upward sentinel search: the workspace lockfile marks the root, so kit depth never re-anchors this.
 REPO_ROOT = next(parent for parent in Path(__file__).resolve().parents if (parent / "uv.lock").is_file())
 _DEFAULT_HYPOTHESIS_HOME = REPO_ROOT / ".cache" / "hypothesis"
-_hypothesis_storage_directory = os.environ.get("HYPOTHESIS_STORAGE_DIRECTORY")  # noqa: TID251  # precedes hypothesis import; locks storage path
+_hypothesis_storage_directory = os.environ.get("HYPOTHESIS_STORAGE_DIRECTORY")  # ruff:ignore[banned-api]  # precedes hypothesis import; locks storage path
 HYPOTHESIS_HOME = Path(_hypothesis_storage_directory) if _hypothesis_storage_directory else _DEFAULT_HYPOTHESIS_HOME
-os.environ.setdefault("HYPOTHESIS_STORAGE_DIRECTORY", str(HYPOTHESIS_HOME))  # noqa: TID251  # precedes hypothesis import in subprocess workers
+os.environ.setdefault("HYPOTHESIS_STORAGE_DIRECTORY", str(HYPOTHESIS_HOME))  # ruff:ignore[banned-api]  # precedes hypothesis import in subprocess workers
 
 # Must precede any Hypothesis import; the observability callback is installed on first internal import.
-if os.environ.get("TESTS_OBSERVABILITY"):  # noqa: TID251
-    os.environ.setdefault("HYPOTHESIS_EXPERIMENTAL_OBSERVABILITY", "1")  # noqa: TID251  # must precede observability module import
+if os.environ.get("TESTS_OBSERVABILITY"):  # ruff:ignore[banned-api]
+    os.environ.setdefault("HYPOTHESIS_EXPERIMENTAL_OBSERVABILITY", "1")  # ruff:ignore[banned-api]  # must precede observability module import
 
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
@@ -109,7 +109,7 @@ def _run_profiler(artifact_dir: Path, secs: str) -> None:
 
 _local_db = BackgroundWriteDatabase(DirectoryBasedExampleDatabase(HYPOTHESIS_EXAMPLES))
 # Background writes stay off the critical path; optional GH replay is read-only.
-_gh_replay = os.environ.get("RASM_HYPOTHESIS_GH_REPLAY")  # noqa: TID251  # CI replay gate
+_gh_replay = os.environ.get("RASM_HYPOTHESIS_GH_REPLAY")  # ruff:ignore[banned-api]  # CI replay gate
 match _gh_replay.split("/", 1) if _gh_replay else []:
     case [owner, repo]:
         _EXAMPLE_DB: ExampleDatabase = MultiplexedDatabase(_local_db, ReadOnlyDatabase(GitHubArtifactDatabase(owner, repo)))
@@ -171,7 +171,7 @@ hyp_settings.register_profile(
     suppress_health_check=_SUPPRESSIONS,
 )
 # Redirect Hypothesis observations to repo artifacts without replacing its built-in callback.
-if os.environ.get("TESTS_OBSERVABILITY"):  # noqa: TID251
+if os.environ.get("TESTS_OBSERVABILITY"):  # ruff:ignore[banned-api]
     _OBS_DIR = REPO_ROOT / ".artifacts" / "python" / "hypothesis"
 
     def _deliver_to_artifacts(observation: object, _thread_id: int) -> None:
@@ -196,7 +196,7 @@ def pytest_configure(config: pytest.Config) -> None:
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     """Auto-apply ``network``/``property`` markers and consume each module's declarative ``COVERS`` tuple."""
-    from tests.python._testkit.laws import consume_covers  # noqa: PLC0415  # laws imports runtime; deferral breaks the cycle
+    from tests.python._testkit.laws import consume_covers  # ruff:ignore[import-outside-top-level]  # laws imports runtime; deferral breaks the cycle
 
     network = pytest.mark.network
     property_ = pytest.mark.property
@@ -233,10 +233,10 @@ def _otel_provider() -> InMemorySpanExporter:
 def pytest_sessionstart(session: pytest.Session) -> None:
     """Start the optional out-of-process CPU sampler for the test session PID."""
     _ = session
-    profile_flag = os.environ.get("TESTS_PROFILE")  # noqa: TID251  # profiler activation gate
+    profile_flag = os.environ.get("TESTS_PROFILE")  # ruff:ignore[banned-api]  # profiler activation gate
     if not profile_flag:
         return
-    secs = os.environ.get("TESTS_PROFILE_SECS", "60")  # noqa: TID251  # sampling duration override
+    secs = os.environ.get("TESTS_PROFILE_SECS", "60")  # ruff:ignore[banned-api]  # sampling duration override
     artifact_dir = REPO_ROOT / ".artifacts" / "python" / "profile"
 
     def _spawn() -> None:

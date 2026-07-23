@@ -144,6 +144,13 @@
 |  [05]   | `Events.LoadAsync<T>(Guid)`                                   | instance | load a single typed / untyped stored event by id          |
 |  [06]   | `Events.StreamLatestJson<T>(Guid, Stream)`                    | instance | stream the aggregate's raw JSON, no round-trip            |
 
+[ENTRYPOINT_SCOPE]: fold a LINQ event query to aggregates (`IMartenQueryable<IEvent>` — `Marten.Events.AggregateToExtensions`)
+
+| [INDEX] | [SURFACE]                                | [SHAPE]  | [CAPABILITY]                                                                            |
+| :-----: | :--------------------------------------- | :------- | :------------------------------------------------------------------------------------- |
+|  [01]   | `AggregateToAsync<T>(T?) -> T?`          | instance | fold every matched event into one aggregate of `T`                  |
+|  [02]   | `AggregateToManyAsync<T>() -> IReadOnlyList<T>` | instance | run matched events through `T`'s multi-stream projection, one per identity |
+
 [ENTRYPOINT_SCOPE]: fetch-for-writing and aggregate-handler workflow (`session.Events`)
 
 | [INDEX] | [SURFACE]                                                              | [SHAPE]  | [CAPABILITY]                                         |
@@ -190,6 +197,7 @@
 - AS-OF is `AggregateStreamAsync<T>(id, version:)` or `(id, timestamp:)` — one fold bounded by a sequence version or a wall-clock instant; a `fromVersion` with a `state` seed replays forward from a snapshot to bound replay cost. `FetchStreamAsync` bounded the same way returns the raw `IEvent` window for blame/scrub, and `FetchStreamStateAsync` answers head state without folding. `Version/` TimeTravel re-keys these to `NodeId`/`Relationship`, periodic inline snapshots bounding replay depth.
 - `ProjectionLifecycle.Inline` writes the projected document inside the append transaction, so authoritative containment/topology is read-your-writes consistent and never routes to an async view. `ProjectionLifecycle.Async` runs the analytical lanes off the `IProjectionDaemon` under an explicit staleness watermark; an interactive-correctness read (clash, void-resolution, live QTO) blocks on `WaitForNonStaleProjectionDataAsync`/`daemon.WaitForNonStaleData` first. `ProjectionLifecycle.Live` folds on demand with no stored view.
 - `ElementGraph→Ara3D.BimOpenSchema` egress lands as a co-transactional `FlatTableProjection`, never daemon-lagged. Daemon hosting is `DaemonMode.Solo` or `HotCold`; `RebuildProjectionAsync<TView>` replays a view from sequence zero and `store.Advanced.RebuildSingleStreamAsync<T>` one stream's inline projection.
+- High-water detection holds the async mark behind any gap a live transaction owns: `opts.Projections.UseTransactionEvidenceForGapSkipping` (default on) proves a gap dead against `pg_locks`/`pg_stat_activity`/`pg_current_snapshot()` before skipping it, and `SkipStaleGapsDespiteLiveTransactionsAfter` (default null) is the wall-clock backstop against leaked sessions, so a bulk-import append storm drops no events from an async projection.
 - A `SubscriptionBase` subclass lifts each daemon-delivered `EventRange` batch by overriding `ProcessEventsAsync(EventRange, ISubscriptionController, IDocumentOperations, CancellationToken)` returning an `IChangeListener` post-commit hook — `NullChangeListener.Instance` for no side effect; `ISubscriptionController.MarkSuccessAsync`/`ReportCriticalFailureAsync` drive per-shard progress and dead-letter recording.
 - Relational `ElementIdentity` commits atomically with the event through `session.Store(identity)` in the SAME `IDocumentSession`, one transaction owning identity + event with no two-ORM gap. `StoreOptions.RegisterValueType<T>()` teaches Marten the `[ValueObject]` strong-typed `NodeId`/`GlobalId`, keeping stream keys and document ids typed end to end.
 - `TenancyStyle.Conjoined` adds a tenant column for single-DB multi-tenancy; `TenancyStyle.Single` with `MultiTenantedDatabases`/`MultiTenantedWithSingleServer` shards per tenant database.

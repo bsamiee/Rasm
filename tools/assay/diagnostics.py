@@ -6,7 +6,7 @@ tree-sitter, and ripgrep payloads.
 """
 
 from collections import Counter
-from collections.abc import Callable  # noqa: TC003  # converter-table rows bind Callable at module runtime
+from collections.abc import Callable  # ruff:ignore[typing-only-standard-library-import]  # converter-table rows bind Callable at module runtime
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -21,10 +21,10 @@ import structlog
 from tree_sitter import Language as TSLanguage, Query as TSQuery, QueryError
 
 from tools.assay.core.model import (
-    AnyDetail,  # noqa: TC001  # beartype resolves the fold detail annotation at runtime
+    AnyDetail,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves the fold detail annotation at runtime
     ArtifactKind,
     Claim,
-    Completed,  # noqa: TC001  # beartype resolves receipt annotations at runtime
+    Completed,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves receipt annotations at runtime
     Counts,
     ExecReceipt,
     field_cap,

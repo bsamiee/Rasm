@@ -20,11 +20,11 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 -->
 
 [ENGINE_PROFILE_PARITY]-[BLOCKED]: Native profile payloads converge on the shared query profile band.
-- Capability: DuckDB and Polars native operator evidence joins the settled scalar band and Daft operator rows through `EngineProfile.of`.
+- Capability: DuckDB native operator evidence joins the settled scalar band and Daft operator rows through `EngineProfile.of`; Polars rides the portable scalar floor, exposing no native profile surface.
 - Shape: one `ProfileHarvest` case per proven native payload; portable scalar harvest remains the truthful floor for every engine.
-- Unlocks: engine-native operator evidence joins the shared profile band, cost comparison across DuckDB, Polars, and Daft reading one receipt shape.
-- Anchors: `.planning/tabular/columnar.md` `[DUCKDB_PROFILE_PAYLOAD]` and `[POLARS_PROFILE_PAYLOAD]`; `QueryReceipt.profile`.
-- Arms: both folder-tier catalog rows carry exact return types and payload schemas for `get_profiling_information()` and `LazyFrame.profile()`.
+- Unlocks: engine-native operator evidence joins the shared profile band, cost comparison across DuckDB and Daft reading one receipt shape.
+- Anchors: `.planning/tabular/columnar.md` `[DUCKDB_PROFILE_PAYLOAD]`; `QueryReceipt.profile`.
+- Arms: the duckdb folder-tier catalog row carries the exact return type and payload schema of `get_profiling_information()`.
 
 [LAYER_TOPOLOGY_GRAPH_FACTS]-[QUEUED]: Decoded `LayerTopologyFact` rows fold into a containment graph the graph plane analyzes for host organization.
 - Capability: Wire-carried layer and relation keys decode into a `GraphPayload` whose nodes are layer identities and whose edges are layer-path nesting and membership, so topology analysis — containment ancestry, nesting depth, membership closure — answers layer organization over the decoded graph with no host handle; per-viewport overrides ride the decoded rows as detached facts.

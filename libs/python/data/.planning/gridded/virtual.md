@@ -73,8 +73,8 @@ class CFDtype:
     ref: bool = case()
 
     def resolve(self) -> object:
-        import h5py  # noqa: PLC0415
-        import numpy as np  # noqa: PLC0415
+        import h5py  # ruff:ignore[import-outside-top-level]
+        import numpy as np  # ruff:ignore[import-outside-top-level]
 
         match self:
             case CFDtype(tag="plain", plain=name):
@@ -94,7 +94,7 @@ class CFDtype:
 
     @staticmethod
     def inspect(dtype: object) -> "CFDtype":
-        import h5py  # noqa: PLC0415
+        import h5py  # ruff:ignore[import-outside-top-level]
 
         if (enum := h5py.check_enum_dtype(dtype)) is not None:
             return CFDtype(enum=(enum, "u1"))
@@ -181,16 +181,16 @@ class VirtualChunkSlab(Struct, frozen=True):
 @tagged_union(frozen=True)
 class ManifestWrite:
     # the ONE export/registration axis: `kerchunk`/`icechunk` the EXPORT direction (the `write`
-    # fold over the virtualize accessors), `cube`/`native` the REGISTRATION direction (the
+    # fold over the vz accessors), `cube`/`native` the REGISTRATION direction (the
     # `register` fold onto the icechunk session store) — one manifest vocabulary, two folds.
     tag: Literal["kerchunk", "icechunk", "cube", "native"] = tag()
     kerchunk: tuple[KerchunkFormat, int | None, int | None] = case()
-    icechunk: tuple[object, str | None, str | None, tuple[object, ...] | None, bool, str | None, bool] = case()
+    icechunk: tuple[object, str | None, str | None, str | None, tuple[object, ...] | None, bool, str | None, bool] = case()
     cube: "FieldVirtual" = case()
     native: tuple[str, tuple[VirtualChunkSlab, ...]] = case()
 
     def write(self, cube: "xr.Dataset | xr.DataTree", target: ResourceRef) -> None:
-        from xarray import DataTree  # noqa: PLC0415
+        from xarray import DataTree  # ruff:ignore[import-outside-top-level]
 
         is_tree = isinstance(cube, DataTree)
         match self:
@@ -200,12 +200,12 @@ class ManifestWrite:
             # dataset accessor's `append_dim`/`region`.
             case ManifestWrite(tag="kerchunk", kerchunk=(fmt, record_size, threshold)):
                 flat = cube.to_dataset() if is_tree else cube
-                flat.virtualize.to_kerchunk(str(target.path), format=fmt, record_size=record_size, categorical_threshold=threshold)
-            case ManifestWrite(tag="icechunk", icechunk=(store, _, _, _, validate, updated_at, inherited)) if is_tree:
-                cube.virtualize.to_icechunk(store, write_inherited_coords=inherited, validate_containers=validate, last_updated_at=updated_at)
-            case ManifestWrite(tag="icechunk", icechunk=(store, group, append_dim, region, validate, updated_at, _)):
-                cube.virtualize.to_icechunk(
-                    store, group=group, append_dim=append_dim, region=region, validate_containers=validate, last_updated_at=updated_at
+                flat.vz.to_kerchunk(str(target.path), format=fmt, record_size=record_size, categorical_threshold=threshold)
+            case ManifestWrite(tag="icechunk", icechunk=(store, _, mode, _, _, validate, updated_at, inherited)) if is_tree:
+                cube.vz.to_icechunk(store, mode=mode, write_inherited_coords=inherited, validate_containers=validate, last_updated_at=updated_at)
+            case ManifestWrite(tag="icechunk", icechunk=(store, group, mode, append_dim, region, validate, updated_at, _)):
+                cube.vz.to_icechunk(
+                    store, group=group, mode=mode, append_dim=append_dim, region=region, validate_containers=validate, last_updated_at=updated_at
                 )
             case ManifestWrite(tag="cube" | "native"):
                 raise ValueError(f"{self.tag} is a registration case; export targets are kerchunk|icechunk")
@@ -218,7 +218,7 @@ class ManifestWrite:
                 # the asdict strip-and-rebind: only the `export` slot overrides (to the icechunk
                 # case over THIS session's store); every other field rides through unchanged.
                 fields = {key: value for key, value in structs.asdict(spec).items() if key != "export"}
-                lowered = FieldVirtual(**fields, export=ManifestWrite(icechunk=(session.store, None, None, None, True, None, False))).aggregate()
+                lowered = FieldVirtual(**fields, export=ManifestWrite(icechunk=(session.store, None, None, None, None, True, None, False))).aggregate()
                 return lowered.map(lambda r: (tuple(r.dims), "virtual", r.bytes_stored))
             case ManifestWrite(tag="native", native=(array_path, (slab,))):
                 session.store.set_virtual_ref(
@@ -235,7 +235,7 @@ class ManifestWrite:
 
     @staticmethod
     def nbytes(cube: "xr.Dataset") -> int:
-        return int(cube.virtualize.nbytes)
+        return int(cube.vz.nbytes)
 
 
 class FieldVirtual(Struct, frozen=True):
@@ -278,8 +278,8 @@ class FieldVirtual(Struct, frozen=True):
 
 
 def _registry(sources: "Sequence[str]", config: StoreConfig | None) -> object:
-    from obspec_utils.registry import ObjectStoreRegistry  # noqa: PLC0415
-    from obstore.store import from_url  # noqa: PLC0415
+    from obspec_utils.registry import ObjectStoreRegistry  # ruff:ignore[import-outside-top-level]
+    from obstore.store import from_url  # ruff:ignore[import-outside-top-level]
 
     return ObjectStoreRegistry({url: from_url(url, config=config) for url in sources})
 
@@ -330,7 +330,7 @@ def _tree(spec: FieldVirtual, group: str | None) -> "RuntimeRail[FieldReceipt]":
 def _native_file(
     slabs: "Sequence[Slab]", shape: tuple[int, ...], dtype: CFDtype, target: ResourceRef, maxshape: MaxShape | None, fillvalue: object | None
 ) -> str:
-    import h5py  # noqa: PLC0415
+    import h5py  # ruff:ignore[import-outside-top-level]
 
     resolved = dtype.resolve()
     with (
@@ -485,7 +485,7 @@ class VersionOp:
                 session = repo.writable_session(spec.branch)
 
                 @railed
-                def _commit():  # noqa: ANN202
+                def _commit():  # ruff:ignore[missing-return-type-private-function]
                     dims, engine, referenced = yield from write.register(session)
                     refs = tuple(session.all_virtual_chunk_locations())
                     snapshot = session.commit("virtual-reference", metadata=meta, rebase_with=solver)
@@ -514,7 +514,7 @@ class VersionOp:
             case VersionOp(tag="reclaim", reclaim=reclaim):
                 return Ok(reclaim.run(repo))
             case VersionOp(tag="checkout", checkout=at):
-                import xarray as xr  # noqa: PLC0415
+                import xarray as xr  # ruff:ignore[import-outside-top-level]
 
                 return Ok(xr.open_zarr(at.session(repo).store, consolidated=False))
             case unreachable:

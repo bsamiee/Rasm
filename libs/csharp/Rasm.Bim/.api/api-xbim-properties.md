@@ -26,7 +26,7 @@
 |  [06]   | `IfcVersion`             | class         | `version` + `schema` — the per-set schema stamp                                             |
 |  [07]   | `NameAlias`              | class         | per-language display-name/definition alias                                                  |
 |  [08]   | `QuantityPropertyDef`    | class         | def base — `Name` `Definition` `NameAliases` `DefinitionAliases`                            |
-|  [09]   | `PropertyDef`            | class         | `: QuantityPropertyDef` — `PropertyType` `ValueDef` `IfdGuid`                               |
+|  [09]   | `PropertyDef`            | class         | `: QuantityPropertyDef` — `PropertyType` `IfdGuid`                                          |
 |  [10]   | `QtoDef`                 | class         | `: QuantityPropertyDef` — `QuantityType: QtoTypeEnum`                                       |
 |  [11]   | `PropertyType`           | class         | `PropertyValueType: IPropertyValueType` — the value-type kind wrapper                       |
 |  [12]   | `IPropertyValueType`     | interface     | the value-type kind contract                                                                |
@@ -60,10 +60,9 @@
 |  [14]   | `setDef.ApplicableClasses` -> `IEnumerable<ApplicableClass>`       | property | the IFC classes a set applies to                      |
 |  [15]   | `setDef.AddApplicableClass(ApplicableClass)`                       | instance | author an applicable class onto a set                 |
 |  [16]   | `propertyDef.PropertyType.PropertyValueType`                       | property | value-type kind and scalar `DataTypeEnum`             |
-|  [17]   | `propertyDef.ValueDef` -> `ValueDef`                               | property | `[Obsolete]` auxiliary value catalogue                |
-|  [18]   | `qtoDef.QuantityType` -> `QtoTypeEnum`                             | property | the base quantity kind                                |
+|  [17]   | `qtoDef.QuantityType` -> `QtoTypeEnum`                             | property | the base quantity kind                                |
 
-- `PropertyDef.PropertyType.PropertyValueType`: a property's scalar `DataTypeEnum` lives on the single/bounded/reference `DataType.Type` and `TypeSimpleProperty.DataType.Type`; composite enumerated/list/table/complex kinds carry none. `PropertyDef.ValueDef` is `[Obsolete]`, supplying only the allowed `Value`/`ValueRangeDef`/`EnumList` catalogue, never the data type.
+- `PropertyDef.PropertyType.PropertyValueType`: a property's scalar `DataTypeEnum` lives on the single/bounded/reference `DataType.Type` and `TypeSimpleProperty.DataType.Type`; composite enumerated/list/table/complex kinds carry no scalar type, exposing the allowed-value catalogue instead — `TypePropertyEnumeratedValue.EnumList`/`ConstantList`, `TypePropertyBoundedValue.ValueRangeDef`, `TypePropertyListValue.ListValue`, `TypePropertyTableValue.DefiningValue`/`DefinedValue`.
 - `setDef.IfcVersion`: (`version`+`schema`) the per-set schema stamp read off a loaded definition, distinct from the `Version` constructor enum (`IFC2x3`/`IFC4`/`IFC4x3`).
 
 ## [04]-[IMPLEMENTATION_LAW]

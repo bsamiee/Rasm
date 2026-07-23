@@ -536,7 +536,7 @@ class PointCloud(Struct, frozen=True):
 
 
 def _laz_backend() -> laspy.LazBackend:
-    from laspy import LazBackend  # noqa: PLC0415
+    from laspy import LazBackend  # ruff:ignore[import-outside-top-level]
 
     backend = next((b for b in (LazBackend.LazrsParallel, LazBackend.Lazrs, LazBackend.Laszip) if b.is_available()), None)
     if backend is None:

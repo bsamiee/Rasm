@@ -229,7 +229,7 @@ async def test_grpc_loopback_serves_generic_unary_and_tears_down(socket_enabled:
     """The grpc.aio capsule binds an ephemeral port and serves a raw-bytes unary handler."""
     _ = socket_enabled
 
-    async def _reverse(request: bytes, context: object) -> bytes:  # noqa: RUF029  # no await; grpc.aio drives the handler coroutine
+    async def _reverse(request: bytes, context: object) -> bytes:  # ruff:ignore[unused-async]  # no await; grpc.aio drives the handler coroutine
         _ = context
         return bytes(reversed(request))
 

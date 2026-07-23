@@ -3,7 +3,7 @@
 # requires-python = ">=3.15"
 # dependencies = ["cyclopts>=4", "expression>=5", "msgspec>=0.19", "ruamel.yaml>=0.18"]
 # ///
-# ruff: noqa: T201, D100, D101, D102, D103, DOC201 — command docstrings are cyclopts help text; a Returns section would pollute --help
+# ruff:file-ignore[print, undocumented-public-module, undocumented-public-class, undocumented-public-method, undocumented-public-function, docstring-missing-returns] — command docstrings are cyclopts help text; a Returns section would pollute --help
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 

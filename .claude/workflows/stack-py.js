@@ -305,7 +305,7 @@ const APISTACK_SUBSTRATE = [
         '`msgspec`/`pydantic` models + `beartype` contracts + `stamina` retry + `structlog`+OTel spans + `anyio` concurrency layered together, never ' +
         'flat one-shot per-library uses.',
     'Cite ONLY members confirmed in the actual .api catalog file; a member you cannot verify is a PHANTOM to delete (verify novel members via ' +
-        '`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api`; assay blocked or unavailable, the package`s official surface via Context7/exa/tavily owns the fallback). An ' +
+        '`uv run python -m tools.assay api`; assay blocked or unavailable, the package`s official surface via Context7/exa/tavily owns the fallback). An ' +
         'admitted capability the concept admits but NO owner exploits is a DEFECT the pass closes in place, ' +
         'citing the exact member. A domain/numerics shard composes the FINALIZED core laws as settled material (it never re-opens ' +
         'admission/shape/rail/dispatch/boundary decisions the core owns) and owns ONE closed vocabulary for its axis. Use the DEEPEST primitive each ' +

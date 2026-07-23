@@ -15,7 +15,7 @@
 - package: `HarfBuzzSharp.NativeAssets.Linux` (MIT, © Microsoft Corporation)
 - assembly: no managed runtime assembly
 - namespace: no managed namespace
-- asset: `runtimes/<rid>/native/libHarfBuzzSharp.so` across 14 Linux RIDs + buildTransitive `.targets`
+- asset: `runtimes/<rid>/native/libHarfBuzzSharp.so` across the glibc/musl/bionic Linux RIDs + buildTransitive `.targets`
 - rail: typography
 
 ## [02]-[PACKAGE_ASSETS]
@@ -26,10 +26,10 @@
 | :-----: | :-------------------------------------------------------------------------------------------------------------- | :----------------- |
 |  [01]   | `runtimes/osx/native/libHarfBuzzSharp.dylib`                                                                    | fat arm64+x64      |
 |  [02]   | `buildTransitive/{net462,net48}/*.targets`                                                                      | full-fw copy logic |
-|  [03]   | `buildTransitive/{net9.0-macos15.0,net10.0-macos26.2}/*.targets`                                                | empty no-op        |
-|  [04]   | `lib/{net10.0,net10.0-macos26.2,net9.0,net9.0-macos15.0,net6.0,net462,net48,netstandard2.0,netstandard2.1}/_._` | compile markers    |
+|  [03]   | `buildTransitive/{net9.0-macos15.0,net10.0-macos26.0}/*.targets`                                                | empty no-op        |
+|  [04]   | `lib/{net10.0,net10.0-macos26.0,net9.0,net9.0-macos15.0,net6.0,net462,net48,netstandard2.0,netstandard2.1}/_._` | compile markers    |
 
-[LINUX_NATIVE]: `libHarfBuzzSharp.so` across 14 RIDs; buildTransitive `.targets` carry copy logic on `net462`/`net48` only, `net10.0` resolves the RID payload through the SDK graph.
+[LINUX_NATIVE]: `libHarfBuzzSharp.so` across the glibc/musl/bionic RIDs; buildTransitive `.targets` carry copy logic on `net462`/`net48` only, `net10.0` resolves the RID payload through the SDK graph.
 
 | [INDEX] | [ASSET]                                                                              | [ROLE]          |
 | :-----: | :----------------------------------------------------------------------------------- | :-------------- |

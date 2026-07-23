@@ -79,7 +79,7 @@ def test_cli_consumes_grouped_folder_and_file_targets(cli: VerbRunner, assay_roo
 
 def test_static_help_admits_scoped_target_flags(monkeypatch: pytest.MonkeyPatch, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
     """``static --help`` is the root leaf and admits the full value-driven target surface."""
-    from tools.assay import __main__ as main_mod  # noqa: PLC0415
+    from tools.assay import __main__ as main_mod  # ruff:ignore[import-outside-top-level]
 
     neutralized = SimpleNamespace(force_flush=lambda *_a, **_k: True, shutdown=lambda: None)
     monkeypatch.setattr(main_mod, "get_tracer_provider", lambda: neutralized)

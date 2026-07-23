@@ -3,7 +3,7 @@
 The beartype claw hook must run before ordinary submodules load. Settings faults are
 captured for dispatch-time reporting so import stays usable for CLI fault envelopes.
 """
-# ruff: noqa: RUF067  # claw hook installs before ordinary package imports.
+# ruff:file-ignore[non-empty-init-module]  # claw hook installs before ordinary package imports.
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 # aspect uses PEP 695 aliases beartype_this_package cannot decorate.
@@ -19,13 +19,13 @@ import tools.assay.core.aspect
 
 
 # AssaySettings loads after claw; the import-time gate must read the environment directly.
-match os.environ.get("ASSAY_CLAW", ""):  # noqa: TID251
+match os.environ.get("ASSAY_CLAW", ""):  # ruff:ignore[banned-api]
     case "1":
         beartype_this_package(conf=BeartypeConf(is_pep484_tower=True, warning_cls_on_decorator_exception=None))
     case _:
         pass
 
-from tools.assay._logging import configure_logging  # noqa: PLC2701  # package re-export keeps the private logging owner internal
+from tools.assay._logging import configure_logging  # ruff:ignore[import-private-name]  # package re-export keeps the private logging owner internal
 from tools.assay.composition.settings import AssaySettings
 
 
@@ -54,10 +54,10 @@ def install_tracing(endpoint: str) -> None:
             pass
         case target:
             # OTLP imports stay on the endpoint-set path to keep tracing-disabled startup lean.
-            from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter  # noqa: PLC0415
-            from opentelemetry.sdk.trace import TracerProvider  # noqa: PLC0415
-            from opentelemetry.sdk.trace.export import BatchSpanProcessor  # noqa: PLC0415
-            from opentelemetry.trace import set_tracer_provider  # noqa: PLC0415
+            from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter  # ruff:ignore[import-outside-top-level]
+            from opentelemetry.sdk.trace import TracerProvider  # ruff:ignore[import-outside-top-level]
+            from opentelemetry.sdk.trace.export import BatchSpanProcessor  # ruff:ignore[import-outside-top-level]
+            from opentelemetry.trace import set_tracer_provider  # ruff:ignore[import-outside-top-level]
 
             # Exporter connects on force_flush, not construction; a stale endpoint fails silently until flush time.
             provider = TracerProvider(resource=Resource.create(_SERVICE))

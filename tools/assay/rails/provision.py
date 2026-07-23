@@ -1,21 +1,31 @@
 """Run local provisioning infrastructure through the Forge-owned CLI."""
 
-from collections.abc import Callable  # noqa: TC003  # handler factory annotations are runtime-evaluated at registry weave
+from collections.abc import (
+    Callable,  # ruff:ignore[typing-only-standard-library-import]  # handler factory annotations are runtime-evaluated at registry weave
+)
 from dataclasses import dataclass
 from functools import reduce
 import re
 from typing import ClassVar, Final, override
 
-from expression import Error, Ok, Result  # noqa: TC002  # beartype resolves provision handler annotations at registry runtime
+from expression import (  # ruff:ignore[typing-only-third-party-import]  # beartype resolves provision handler annotations at registry runtime
+    Error,
+    Ok,
+    Result,
+)
 from expression.collections import block
 from expression.extra.result import sequence
 import msgspec
 
 from tools.assay.composition.catalog import select
-from tools.assay.composition.settings import AssaySettings  # noqa: TC001  # registry runtime resolves handler annotations
-from tools.assay.composition.store import ArtifactScope  # noqa: TC001  # registry runtime resolves handler annotations
-from tools.assay.core.exec import Executor  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
-from tools.assay.core.model import (  # noqa: TC001
+from tools.assay.composition.settings import (
+    AssaySettings,  # ruff:ignore[typing-only-first-party-import]  # registry runtime resolves handler annotations
+)
+from tools.assay.composition.store import (
+    ArtifactScope,  # ruff:ignore[typing-only-first-party-import]  # registry runtime resolves handler annotations
+)
+from tools.assay.core.exec import Executor  # ruff:ignore[typing-only-first-party-import]  # beartype resolves the executor-port annotation at runtime
+from tools.assay.core.model import (  # ruff:ignore[typing-only-first-party-import]
     BaseParams,
     Check,
     Claim,

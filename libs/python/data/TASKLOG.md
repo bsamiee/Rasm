@@ -24,8 +24,8 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Capability: every engine contributes its native operator, CPU, blocked-time, and byte detail without widening `QueryReceipt.profile`.
 - Shape: one native `ProfileHarvest` case and decoder per proven payload behind the existing profiled bracket; `EngineProfile.of` remains the only decoder.
 - Unlocks: IDEAS.md [ENGINE_PROFILE_PARITY] — every engine contributes native detail through one decoder.
-- Anchors: `.planning/tabular/columnar.md` profile research rows; `.planning/tabular/query.md` Daft and DataFusion harvest arms; `.api/duckdb.md` profiling row.
-- Arms: the folder-tier catalogs carry the exact return types and payload schemas of `get_profiling_information()` and `LazyFrame.profile()`.
+- Anchors: `.planning/tabular/columnar.md` profile research row; `.planning/tabular/query.md` Daft and DataFusion harvest arms; `.api/duckdb.md` profiling row.
+- Arms: the duckdb folder-tier catalog carries the exact return type and payload schema of `get_profiling_information()`.
 
 [COHORT_ARROW_PROJECTION]-[QUEUED]: numeric cohorts serialize to canonical Arrow through one data-owned projection.
 - Capability: a parameterized numeric-cohort projection — axes, coordinates, responses — builds the table and rides the one serialization fold, so a sibling emits canonical Arrow bytes without importing pyarrow construction members.

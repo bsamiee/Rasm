@@ -375,7 +375,7 @@ const CS_SUBSTRATE = [
         'Thinktecture/LanguageExt/QuikGraph/Riok.Mapperly/Generator.Equals onto the domain surface, NOT flat one-shot ' +
         'per-API uses. Use the DEEPEST operator/combinator/generated surface each library reaches (LIBRARY_DEPTH); an admitted capability the concept ' +
         'admits but NO owner exploits is a DEFECT this pass closes; reject surface-level subsets, BCL-first reflexes, and thin rename wrappers. Cite ' +
-        'ONLY host/NuGet members confirmed via `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` (verified-local beats any catalog line on ' +
+        'ONLY host/NuGet members confirmed via `uv run python -m tools.assay api` (verified-local beats any catalog line on ' +
         'conflict; assay blocked or ' +
         'unavailable: the `.api` catalogs, the nuget MCP for feed truth, and Context7/exa/tavily for the official surface own the fallback) — a member ' +
         'you cannot verify through ANY of these rails is a phantom to delete.',
@@ -525,7 +525,7 @@ const authorPrompt = (page) =>
             'terminal corpus agent). DISBELIEVE the page — ' +
             'assume the fence is naive, junior, or illusory until proven 13/10, and treat dense confident-looking content as a prime suspect for ' +
             'hollow/decorative complexity. Read the page, the README atlas + doctrine + the domain/README router, the PYTHON doctrine (the ' +
-            'read-only rigor benchmark), the style-guide, and VERIFY every cited host/NuGet member via `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` (assay blocked or ' +
+            'read-only rigor benchmark), the style-guide, and VERIFY every cited host/NuGet member via `uv run python -m tools.assay api` (assay blocked or ' +
             'unavailable: the `.api` catalogs, the nuget MCP for feed truth, and Context7/exa/tavily for the official surface own the fallback). Construct ' +
             'in BOUNDARY_ADMISSION lifecycle order; collapse parallel shapes into ONE generated closed-family owner chosen by ' +
             'OWNER_CHOOSER; weave every cross-cutting concern as a definition-time source-gen aspect or a composition-time effect transformer over a thin ' +

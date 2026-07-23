@@ -159,7 +159,7 @@ def _recording_sampler(value: float) -> tuple[CpuSampler, list[float | None]]:
 def _fake_awatch(batches: tuple[tuple[tuple[str, str], ...], ...]) -> object:
     """Return an ``awatch`` double that yields wire-shaped batches then completes."""
 
-    async def _awatch(*_paths: str, **_kw: object) -> AsyncIterator[set[tuple[str, str]]]:  # noqa: RUF029  # async def required; no await in body
+    async def _awatch(*_paths: str, **_kw: object) -> AsyncIterator[set[tuple[str, str]]]:  # ruff:ignore[unused-async]  # async def required; no await in body
         for batch in batches:
             yield {(kind, path) for kind, path in batch}
 
@@ -378,7 +378,7 @@ async def test_debounce_fires_once_per_storm(*, edge: Edge) -> None:
     """
     fired: list[tuple[tuple[str, str], ...]] = []
 
-    async def _inner(changes: tuple[tuple[str, str], ...]) -> None:  # noqa: RUF029  # Fire protocol is async; no await needed here
+    async def _inner(changes: tuple[tuple[str, str], ...]) -> None:  # ruff:ignore[unused-async]  # Fire protocol is async; no await needed here
         fired.append(changes)
 
     signal, worker = _eng._debounce(_inner, 40, edge=edge)
@@ -429,7 +429,7 @@ def test_debounce_signal_after_close_is_silent() -> None:
     closes both streams before the final signal.
     """
 
-    async def _inner(_changes: tuple[tuple[str, str], ...]) -> None:  # noqa: RUF029  # Fire protocol is async; no await needed here
+    async def _inner(_changes: tuple[tuple[str, str], ...]) -> None:  # ruff:ignore[unused-async]  # Fire protocol is async; no await needed here
         return None
 
     async def _run() -> None:
@@ -636,7 +636,7 @@ def test_schedule_exits_on_cancellation(monkeypatch: pytest.MonkeyPatch) -> None
     async def _run() -> None:
         stop = anyio.Event()
 
-        async def _fire(_changes: tuple[tuple[str, str], ...]) -> None:  # noqa: RUF029  # Fire protocol is async; no await needed here
+        async def _fire(_changes: tuple[tuple[str, str], ...]) -> None:  # ruff:ignore[unused-async]  # Fire protocol is async; no await needed here
             return None
 
         with anyio.move_on_after(0.05):
@@ -654,7 +654,7 @@ def test_fire_with_coalesce_runs_catch_up_on_missed_tick(assay_root: AssayHarnes
     monkeypatch.setattr(_eng, "_JITTER_MS", 1)
     fired: list[tuple[tuple[str, str], ...]] = []
 
-    async def _fire(changes: tuple[tuple[str, str], ...]) -> None:  # noqa: RUF029  # Fire protocol is async; no await needed here
+    async def _fire(changes: tuple[tuple[str, str], ...]) -> None:  # ruff:ignore[unused-async]  # Fire protocol is async; no await needed here
         fired.append(changes)
 
     async def _run() -> int:
@@ -688,7 +688,7 @@ def test_drive_emits_ndjson_on_stdout(assay_root: AssayHarness, capsysbinary: py
 
     Falsified by: writing to stderr, writing non-JSON bytes, or omitting the newline separator.
     """
-    from tests.python.tools.assay.kit import (  # noqa: PLC0415  # deferred: single-test oracle import stays off the module import path
+    from tests.python.tools.assay.kit import (  # ruff:ignore[import-outside-top-level]  # deferred: single-test oracle import stays off the module import path
         read_one_envelope_from_bytes,
     )
 

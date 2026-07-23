@@ -1,27 +1,24 @@
 # [PY_GEOMETRY_API_HONEYBEE_ENERGY]
 
-`honeybee-energy` is the building-energy extension owner for the geometry energy-modeling rail: it registers `*EnergyProperties` onto every `honeybee-core` object through `_extend_honeybee` (so `model.properties.energy`/`room.properties.energy`/`face.properties.energy` exist), owns the full energy object library (constructions, materials, loads, schedules, program types, HVAC templates, service hot water, generators, internal mass, natural ventilation), the EnergyPlus `SimulationParameter` family, the standards-backed `lib` by-identifier loaders, the EnergyPlus/OpenStudio `run` CLI bridge, and the EnergyPlus SQL/CSV `result` parsers. Energy-modeling owner assigns energy properties through the `.properties.energy` spine, resolves constructions/materials/schedules/program-types by identifier from the standards libraries (the `honeybee-standards` defaults floor plus the optional `honeybee-energy-standards` extension), serializes the energy extension through the abridged HBJSON dict validated by the `honeybee-schema` pydantic-v2 energy models (the universal `pydantic` rail), offloads the blocking `run_idf`/`run_osw` EnergyPlus subprocess through the runtime lane THREAD band under the runtime `guarded` retry rail and the graduation `evidence_run` span weave, and decodes the SQL result rows into the `numpy`/`xarray` data tier — never re-implementing a construction U-value solver, an IDF writer, a schedule expander, or an EnergyPlus result parser the package already owns. It rides `honeybee-core` as the spine and is consumed by `honeybee-openstudio` (the in-process translator) and `dragonfly-energy` (the urban aggregator), never a parallel energy model.
+`honeybee-energy` owns the building-energy extension on the geometry energy-modeling rail: `import honeybee_energy` fires `_extend_honeybee` to register `*EnergyProperties` onto every `honeybee-core` object, then it owns the energy object library, abridged HBJSON serialization, the `lib` by-identifier standards loaders, the `SimulationParameter` family, the `run` CLI bridge, and the SQL/CSV `result` parsers. It rides `honeybee-core` as the spine and feeds `honeybee-openstudio` and `dragonfly-energy`, while standards data, HBJSON validation, and the simulation engine stay in siblings.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `honeybee-energy`
-- package: `honeybee-energy`
-- import: `import honeybee_energy` (the `_extend_honeybee` import attaches `.properties.energy`); then `from honeybee_energy.construction.opaque import OpaqueConstruction`, `from honeybee_energy.programtype import ProgramType`, `from honeybee_energy.lib.programtypes import program_type_by_identifier`, `from honeybee_energy.simulation.parameter import SimulationParameter`, `from honeybee_energy.run import to_openstudio_osw, run_osw`
-- owner: `geometry`
+- package: `honeybee-energy` (AGPL-3.0, Ladybug Tools)
+- module: `honeybee_energy` (import side-effect `_extend_honeybee` attaches `.properties.energy`)
+- namespaces: `honeybee_energy.{construction,material,load,schedule,programtype,constructionset,hvac,shw,generator,internalmass,ventcool,simulation,properties,lib,run,result,measure,baseline,reader,writer,dictutil}`
 - rail: energy-modeling
-- consumer: `.planning/energy/model.md` (`.properties.energy` assignment, `lib` standards resolution, `HVAC_TYPES_DICT`) + `.planning/energy/simulate.md` (`SimulationParameter`/`SimulationOutput`, the OSW/CLI fall-through, `result.eui`)
-- version: `1.109.27`
-- license: AGPL-3.0 (Ladybug Tools copyleft)
-- abi: pure-Python `py3-none-any` wheel, no compiled payload; the energy simulation itself runs in the external EnergyPlus/OpenStudio CLI, not in-process
-- depends-on: `honeybee-core` (the object-model spine) and `honeybee-standards` (the baseline constructions/schedules/programs data backend), with the optional `honeybee-energy-standards` `standards` extra for the large ASHRAE/DOE library; `ladybug-core` arrives transitively through `honeybee-core`; an external EnergyPlus install and the OpenStudio CLI are runtime requirements for the `run` rail (the simulation engine, not a Python dependency)
-- entry points: `honeybee-energy` console script (`settings`/`translate`/`simulate`/`baseline`/`result`/`lib` sub-commands)
-- capability: energy property assignment via `.properties.energy`; the construction/material/load/schedule/program-type/HVAC/SHW/generator object library; abridged HBJSON serialization; standards by-identifier resolution; ASHRAE 90.1 baseline generation; EnergyPlus `SimulationParameter` assembly; IDF/OSW writing; EnergyPlus/OpenStudio CLI execution; and EnergyPlus SQL/CSV result parsing (EUI, load balance, emissions, generation, comfort matching)
+- consumer: `.planning/energy/model.md` (`.properties.energy` assignment, `lib` resolution) + `.planning/energy/simulate.md` (`SimulationParameter`, the OSW/CLI fall-through, `result.eui`)
+- asset: pure-Python `py3-none-any` wheel; no compiled payload; the simulation runs in the external EnergyPlus/OpenStudio CLI, not in-process
+- depends: `honeybee-core` (object-model spine), `honeybee-standards` (baseline data backend), optional `honeybee-energy-standards` (the large ASHRAE/DOE library); external EnergyPlus and the OpenStudio CLI are runtime requirements for the `run` rail
+- entry: `honeybee-energy` console script (`settings`/`translate`/`simulate`/`baseline`/`result`/`lib`)
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: constructions (`honeybee_energy.construction.*`)
-- rail: energy-modeling
-- Layered thermal assemblies assigned to faces/sub-faces. Each carries the `from_dict`/`from_dict_abridged`/`from_idf` triad; abridged forms reference materials by identifier (the wire shape), full forms inline them.
+
+Layered thermal assemblies assigned to faces/sub-faces. Each carries the `from_dict`/`from_dict_abridged`/`from_idf` triad; abridged forms reference materials by identifier (the wire shape), full forms inline them.
 
 | [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]   | [CAPABILITY]                                                     |
 | :-----: | :-------------------------- | :-------------- | :--------------------------------------------------------------- |
@@ -33,8 +30,8 @@
 |  [06]   | `ShadeConstruction`         | shade surface   | solar/visible reflectance + specularity for shades               |
 
 [PUBLIC_TYPE_SCOPE]: materials (`honeybee_energy.material.*`)
-- rail: energy-modeling
-- Leaf thermal materials that constructions layer. Each carries `from_dict`/`from_idf`.
+
+Leaf thermal materials that constructions layer. Each carries `from_dict`/`from_idf`.
 
 | [INDEX] | [SYMBOL]                                                            | [TYPE_FAMILY]   | [CAPABILITY]                                    |
 | :-----: | :------------------------------------------------------------------ | :-------------- | :---------------------------------------------- |
@@ -46,8 +43,8 @@
 |  [06]   | `EnergyWindowMaterialShade` / `EnergyWindowMaterialBlind`           | shade material  | roller shade / louvered blind layer             |
 
 [PUBLIC_TYPE_SCOPE]: loads, schedules, and program types (`honeybee_energy.load.*`, `.schedule.*`, `.programtype`)
-- rail: energy-modeling
-- Loads are per-room internal gains/flows; schedules drive their temporal profile; a `ProgramType` bundles the full reusable load set — people, lighting, equipment, infiltration, ventilation, setpoint, SHW. Loads carry `from_dict`/`from_dict_abridged`/`from_idf` (abridged references schedules by identifier).
+
+Loads are per-room internal gains/flows; schedules drive their temporal profile; a `ProgramType` bundles the full reusable per-room load set. Loads carry `from_dict`/`from_dict_abridged`/`from_idf` (abridged references schedules by identifier).
 
 | [INDEX] | [SYMBOL]                                                     | [TYPE_FAMILY] | [CAPABILITY]                                            |
 | :-----: | :----------------------------------------------------------- | :------------ | :------------------------------------------------------ |
@@ -60,20 +57,22 @@
 |  [07]   | `ProgramType`                                                | load bundle   | the reusable per-program load bundle assigned to a room |
 
 [PUBLIC_TYPE_SCOPE]: assemblies, HVAC, and simulation (`.constructionset`, `.hvac.*`, `.simulation.*`)
-- rail: energy-modeling
-- A `ConstructionSet` is the per-room default construction lookup (with `Wall`/`Floor`/`RoofCeiling`/`Aperture`/`Door` sub-sets); HVAC templates register in the 20-entry `HVAC_TYPES_DICT`; the `SimulationParameter` family is the EnergyPlus run config, bundling `SimulationOutput`/`RunPeriod`/`SimulationControl`/`SizingParameter`/`ShadowCalculation`/`DaylightSavingTime`.
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]       | [CAPABILITY]                                                                      |
-| :-----: | :-------------------- | :------------------ | :-------------------------------------------------------------------------------- |
-|  [01]   | `ConstructionSet`     | construction lookup | per-face-type default construction resolution                                     |
-|  [02]   | `IdealAirSystem`      | HVAC                | the default ideal-loads system (no equipment sizing)                              |
-|  [03]   | `DetailedHVAC`        | HVAC                | an OpenStudio-measure-backed detailed HVAC spec                                   |
-|  [04]   | `HVAC_TYPES_DICT`     | HVAC registry       | 20 entries: `IdealAirSystem`, `DetailedHVAC`, 18 `equipment_type`-keyed templates |
-|  [05]   | `SimulationParameter` | run config          | the EnergyPlus run-configuration bundle (assembled from the sim-par parts)        |
+A `ConstructionSet` resolves the per-face-type default construction; HVAC templates register in `HVAC_TYPES_DICT`; the `SimulationParameter` family is the EnergyPlus run-configuration bundle.
+
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]       | [CAPABILITY]                                                               |
+| :-----: | :-------------------- | :------------------ | :------------------------------------------------------------------------- |
+|  [01]   | `ConstructionSet`     | construction lookup | per-face-type default construction resolution                              |
+|  [02]   | `IdealAirSystem`      | HVAC                | the default ideal-loads system (no equipment sizing)                       |
+|  [03]   | `DetailedHVAC`        | HVAC                | an OpenStudio-measure-backed detailed HVAC spec                            |
+|  [04]   | `HVAC_TYPES_DICT`     | HVAC registry       | `IdealAirSystem`, `DetailedHVAC`, and the `equipment_type`-keyed templates |
+|  [05]   | `SimulationParameter` | run config          | the EnergyPlus run-configuration bundle (assembled from the sim-par parts) |
+
+- `HVAC_TYPES_DICT`: registered template systems are dynamically built subclasses, each carrying an enumerated `equipment_type` vocabulary that selects the vintage/efficiency variant. Resolve a template by `HVAC_TYPES_DICT[name]` and set `equipment_type`, never importing a per-template class; `DetailedHVAC` requires the OpenStudio measure path and is unavailable to the pure `run_idf` route.
 
 [PUBLIC_TYPE_SCOPE]: extension properties (`honeybee_energy.properties.*`)
-- rail: energy-modeling
-- `*EnergyProperties` hosts registered onto the core `*Properties` via `_extend_honeybee`; the energy-modeling owner reads `obj.properties.energy` and folds the per-object assignment through one extension table. Rows name the host by its object prefix — the `EnergyProperties` suffix is elided.
+
+`*EnergyProperties` hosts registered onto the core `*Properties` via `_extend_honeybee`; the owner reads `obj.properties.energy` and folds per-object assignment through one extension table. Rows name the host by its object prefix — the `EnergyProperties` suffix is elided.
 
 | [INDEX] | [SYMBOL]                     | [CAPABILITY]                                                                                        |
 | :-----: | :--------------------------- | :-------------------------------------------------------------------------------------------------- |
@@ -85,8 +84,8 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: serialization triad and polymorphic decode
-- rail: energy-modeling
-- Every energy object carries `from_dict` (full, inlined) and most carry `from_dict_abridged` (references resources by identifier — the compact HBJSON wire shape) and `from_idf`. `dict_to_*` rows elide the shared `honeybee_energy.<domain>.dictutil.` prefix; construction and schedule additionally expose `dict_abridged_to_construction` / `dict_abridged_to_schedule` for the abridged wire shape.
+
+Every energy object carries `from_dict` (full, inlined) and most carry `from_dict_abridged` (references resources by identifier — the compact HBJSON wire shape) and `from_idf`. `dict_to_*` rows elide the shared `honeybee_energy.<domain>.dictutil.` prefix; construction and schedule expose `dict_abridged_to_construction` / `dict_abridged_to_schedule` for the abridged wire shape.
 
 | [INDEX] | [SURFACE]                                          | [CALL_SHAPE]         | [CAPABILITY]                                          |
 | :-----: | :------------------------------------------------- | :------------------- | :---------------------------------------------------- |
@@ -99,9 +98,11 @@
 |  [07]   | `schedule.dictutil.dict_to_schedule`               | dict (+ type-limits) | polymorphic schedule decode                           |
 |  [08]   | `ModelEnergyProperties.apply_properties_from_dict` | model HBJSON dict    | re-attach energy properties after a geometry load     |
 
+- `from_dict_abridged`/`from_dict`: `from_dict_abridged(data, materials)` takes the object dict and the identifier-keyed resource maps it references, while `from_dict` expects every resource inlined — a flat `from_dict` over an abridged dict raises `KeyError` on the missing resource. HBJSON wire carries the abridged form with a model-level resource table, so `apply_properties_from_dict(data)` resolves the maps via `dict_abridged_to_*` and feeds the per-object abridged decoders in order.
+
 [ENTRYPOINT_SCOPE]: standards library by-identifier loaders (`honeybee_energy.lib.*`)
-- rail: energy-modeling
-- Single resolution path into the standards data backend; the owner resolves by identifier and caches, never hand-parsing the standards JSON. At import the loaders seed the small `honeybee-standards` defaults floor (16 constructions, 16 materials, 1 construction set, 2 program types, 8 schedules) and then merge any installed `honeybee-energy-standards` extension from `folders.standards_extension_folders`; the module registries (`OPAQUE_CONSTRUCTIONS`, `OPAQUE_MATERIALS`, `CONSTRUCTION_SETS`, `PROGRAM_TYPES`, `SCHEDULES`) enumerate the union of whatever is installed (the large ASHRAE/DOE counts appear only with the extension present).
+
+Single resolution path into the standards data backend; the owner resolves by identifier and caches, never hand-parsing the standards JSON. At import the loaders seed the `honeybee-standards` defaults floor and merge any installed `honeybee-energy-standards` extension from `folders.standards_extension_folders`; the module registries (`OPAQUE_CONSTRUCTIONS`, `OPAQUE_MATERIALS`, `CONSTRUCTION_SETS`, `PROGRAM_TYPES`, `SCHEDULES`) enumerate the union installed.
 
 | [INDEX] | [SURFACE]                             | [CALL_SHAPE]      | [CAPABILITY]                                          |
 | :-----: | :------------------------------------ | :---------------- | :---------------------------------------------------- |
@@ -115,9 +116,11 @@
 |  [08]   | `building_program_type_by_identifier` | building type     | resolve a whole-building DOE-prototype program        |
 |  [09]   | `schedule_by_identifier`              | identifier string | resolve a standard schedule                           |
 
+- `lib` registry universe is layered, not fixed: the loaders always seed the `honeybee-standards` defaults floor via `folders.defaults_file` and load every library under `folders.standards_extension_folders`, so a registry count is a function of which standards packages are installed. `building_program_type_by_identifier` requires the `honeybee-energy-standards` extension; `program_type_by_identifier` resolves any loaded identifier including defaults, and the owner never assumes the extension present.
+
 [ENTRYPOINT_SCOPE]: energy assignment surface (`ModelEnergyProperties`, `RoomEnergyProperties`)
-- rail: energy-modeling
-- Assignment is the room/model property surface; the owner composes these rather than poking object fields. Rows drop the class prefix, named in the [OWNER] column: `RoomEnergyProperties.` for Room, `ModelEnergyProperties.` for Model.
+
+Assignment is the room/model property surface; the owner composes these rather than poking object fields. Rows drop the class prefix named in the [OWNER] column: `RoomEnergyProperties.` for Room, `ModelEnergyProperties.` for Model.
 
 | [INDEX] | [OWNER] | [SURFACE]                                            | [CALL_SHAPE] | [CAPABILITY]                                       |
 | :-----: | :------ | :--------------------------------------------------- | :----------- | :------------------------------------------------- |
@@ -136,8 +139,8 @@
 |  [13]   | Model   | `autocalculate_ventilation_simulation_control`       | none         | auto-derive the ventilation simulation control     |
 
 [ENTRYPOINT_SCOPE]: simulation run bridge (`honeybee_energy.run`)
-- rail: energy-modeling
-- Blocking EnergyPlus/OpenStudio CLI boundary. `run_osw(osw_json, measures_only=True, silent=False)` and `run_idf(idf_file_path, epw_file_path=None, expand_objects=True, silent=False)` shell out to the external engine, and `to_openstudio_osw(osw_directory, model_path, sim_par_json_path=None)` builds the OSW; the owner offloads them through the runtime lane THREAD band under the runtime `guarded` retry rail and the graduation `evidence_run` span weave, never blocking the event loop.
+
+Blocking EnergyPlus/OpenStudio CLI boundary; `run_osw`/`run_idf` shell out to the external engine and `to_openstudio_osw` builds the OSW. Owner offloads every run off the event loop, never blocking it (the offload rail is `[STACKING]`).
 
 | [INDEX] | [SURFACE]                       | [CALL_SHAPE]           | [CAPABILITY]                                         |
 | :-----: | :------------------------------ | :--------------------- | :--------------------------------------------------- |
@@ -155,9 +158,11 @@
 |  [12]   | `from_idf_osw`                  | paths                  | reverse-import workflow from IDF                     |
 |  [13]   | `from_gbxml_osw`                | paths                  | reverse-import workflow from gbXML                   |
 
+- `run_idf`/`run_osw`: return output file paths on success and depend on an external EnergyPlus/OpenStudio install discovered through `honeybee_energy.config.folders`; a missing engine is a runtime fault, not an `ImportError`, so the `run` rail checks `folders.energyplus_exe`/`folders.openstudio_exe` before bracketing the subprocess.
+
 [ENTRYPOINT_SCOPE]: result parsers (`honeybee_energy.result.*`)
-- rail: energy-modeling
-- Parse the EnergyPlus SQLite (`eplusout.sql`) and CSV outputs into Python rows; the owner decodes these into the `numpy`/`xarray` data tier, never hand-parsing the SQL schema. Rows elide the shared `result.` package prefix.
+
+Parse the EnergyPlus SQLite (`eplusout.sql`) and CSV outputs into Python rows; the owner decodes these into the `numpy`/`xarray` data tier, never hand-parsing the SQL schema. Rows elide the shared `result.` package prefix.
 
 | [INDEX] | [SURFACE]                                | [CALL_SHAPE]   | [CAPABILITY]                                  |
 | :-----: | :--------------------------------------- | :------------- | :-------------------------------------------- |
@@ -176,27 +181,28 @@
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[ENERGY_MODELING_EXTENSION]:
-- import: `import honeybee_energy` at boundary scope; the import side-effect (`_extend_honeybee`) registers `*EnergyProperties` onto the core `*Properties` classes, so `.properties.energy` exists only after the extension is imported. Owner imports it once at the energy boundary, never lazily per call.
-- extension axis: energy property assignment routes through `obj.properties.energy` (the `_extend_honeybee` spine from honeybee-core), never a parallel object graph. `ModelEnergyProperties` owns the model-level resource collections (constructions/materials/schedules/program-types/HVAC); `RoomEnergyProperties` owns per-room assignment and the `absolute_*` resolved-load accessors. Owner folds per-object energy assignment through one extension-keyed table and serializes via the core `to_dict(included_prop=['energy'])` selector.
-- object-library axis: constructions/materials/loads/schedules/program-types/HVAC are bounded type families each carrying the `from_dict`/`from_dict_abridged`/`from_idf` triad. Abridged form is the compact HBJSON wire shape (resources referenced by identifier); the per-domain `dictutil.dict_to_*` are the polymorphic decoders dispatching on the dict `type`. Owner never writes a per-construction-kind or per-load-kind decode branch — `dict_to_construction`/`dict_to_load`/`dict_to_schedule` own the dispatch.
-- standards axis: the `lib.*_by_identifier` loaders are the SINGLE access path into the standards data backend — they resolve a standard construction/material/schedule/program-type/construction-set by identifier and cache it. At import they seed the small `honeybee-standards` defaults floor (`folders.defaults_file`: 16 constructions, 2 program types, 8 schedules, 1 construction set) and then scan `folders.standards_extension_folders` for the optional `honeybee-energy-standards` extension (the large ASHRAE 90.1 / DOE-prototype library). Registries enumerate the union of whatever is installed, so the large counts are the extension's contribution, not honeybee-standards'. Owner resolves by identifier; it never reads the standards JSON files directly nor re-ships the standard library.
-- run axis: `run_idf`/`run_osw` invoke the external EnergyPlus/OpenStudio CLI — a blocking subprocess, not in-process compute. Owner brackets each run through `anyio.to_thread.run_sync` (the same blocking-offload idiom the sibling `compas.rpc.Proxy` uses), retries the transient subprocess/IO failure under the runtime `guarded` retry rail, and rides the graduation `evidence_run` span weave; the run receipt (success, output file paths, err-file diagnostics) folds into the `expression` `Result` rail. `to_openstudio_osw(osw_directory, model_path, sim_par_json_path=...)` is the one-call OSW assembly the owner prefers over hand-stitching the `SimulationParameter` JSON + workflow.
-- result axis: the `result.*_from_sql` parsers decode the EnergyPlus SQLite output into Python rows; the owner promotes those rows into the `numpy`/`xarray` data tier for downstream analysis, and `match_rooms_to_data`/`match_faces_to_data` join the result series back onto the honeybee geometry for visualization. Owner never hand-parses the EnergyPlus SQL schema.
-- validation axis: `ModelEnergyProperties.check_all(detailed=True)` returns the energy-specific error rows (one-HVAC-per-zone, air-boundary-with-window, detailed-HVAC room coverage, duplicate resource ids) folded into the same `Result` receipt as the core geometric checks; a single `Model.check_all(detailed=True)` runs both the geometric and energy checks in one pass because honeybee-core invokes each registered extension's `check_all` automatically.
-- subpackages: `construction`, `material`, `load`, `schedule`, `programtype`, `constructionset`, `hvac` (allair/doas/heatcool/idealair/detailed templates), `shw`, `generator`, `internalmass`, `ventcool`, `simulation`, `properties`, `lib`, `run`, `result`, `measure` (OpenStudio measure wrapper), `baseline` (ASHRAE 90.1 baseline generation), `reader`, `writer`, `dictutil`, `cli`.
-- boundary: honeybee-energy owns the energy model, the standards resolution, the simulation orchestration, and the result parsing. Object model and HBJSON are `honeybee-core`; the standards data is `honeybee-standards`; the in-process OpenStudio/EnergyPlus translation (no subprocess) is `honeybee-openstudio`; urban aggregation is `dragonfly-energy`; HBJSON energy validation is `honeybee-schema.energy` (pydantic v2). EnergyPlus/OpenStudio simulation engines are external CLIs, not Python code.
+[TOPOLOGY]:
+- `.properties.energy` exists only after `import honeybee_energy` fires `_extend_honeybee`; energy assignment routes through `obj.properties.energy`, `ModelEnergyProperties` owning the model-level resource collections and `RoomEnergyProperties` per-room assignment and the `absolute_*` resolved-load accessors, folded through one extension-keyed table and serialized via `to_dict(included_prop=['energy'])`, never a parallel object graph.
+- constructions/materials/loads/schedules/program-types/HVAC are bounded type families carrying the `from_dict`/`from_dict_abridged`/`from_idf` triad; the per-domain `dictutil.dict_to_*` own polymorphic decode dispatching on the dict `type`, never a per-kind decode branch.
+- `lib.*_by_identifier` loaders are the single access path into the standards backend, resolving by identifier and caching, never reading the standards JSON directly nor re-shipping the library.
+- `check_all(detailed=True)` returns energy-specific error rows folded into the same `Result` receipt as the core geometric checks; one `Model.check_all(detailed=True)` runs both in one pass because honeybee-core invokes each registered extension's `check_all`.
 
-## [05]-[LOCAL_ADMISSION]
+[STACKING]:
+- `honeybee-core`(`.api/honeybee-core.md`): the spine — `import honeybee_energy` fires `_extend_honeybee` registering `*EnergyProperties` onto the core `*Properties`, so energy resources ride the `Model`/`Room`/`Face` graph through `.properties.energy` and serialize via `to_dict(included_prop=['energy'])`.
+- `honeybee-standards`(`.api/honeybee-standards.md`): the always-loaded defaults floor — `lib.*_by_identifier` resolves against its `energy_default.json` path constant.
+- `honeybee-energy-standards`(`.api/honeybee-energy-standards.md`): the large ASHRAE 90.1 / DOE-prototype JSON dropped into `folders.standards_extension_folders`; `building_program_type_by_identifier` resolves against it, present only when installed.
+- `honeybee-openstudio`(`.api/honeybee-openstudio.md`): the in-process OpenStudio translation over the native `openstudio` SDK; `DetailedHVAC` and the measure-backed path round-trip through it rather than the `run_idf` CLI.
+- `dragonfly-energy`(`.api/dragonfly-energy.md`): the urban aggregator above — its translators explode a district massing model into per-building honeybee-energy assignments through the same `.properties.energy` accessor.
+- `pydantic`(`libs/python/.api/pydantic.md`), `msgspec`(`libs/python/.api/msgspec.md`): abridged HBJSON validated through the `honeybee-schema` energy models (the `pydantic` rail) and decoded through `msgspec` at the boundary.
+- `anyio`(`libs/python/.api/anyio.md`), `expression`(`libs/python/.api/expression.md`): each `run_idf`/`run_osw` brackets through `anyio.to_thread.run_sync` off the event loop under the runtime `guarded` retry rail and the graduation `evidence_run` weave, the run receipt folding into the `expression` `Result` rail.
+- `numpy`(`libs/python/.api/numpy.md`), `xarray`(`libs/python/.api/xarray.md`): the `result.*_from_sql` rows promote into the `numpy`/`xarray` data tier, `match_rooms_to_data`/`match_faces_to_data` joining the series back onto honeybee geometry.
+
+[LOCAL_ADMISSION]:
+- Energy-property assignment feeds the energy-modeling owner; standards resolve through `lib.*_by_identifier`; result rows promote to the `numpy`/`xarray` tier and `check_all(detailed=True)` folds into the `expression` `Result` rail.
+- Consume the AGPL-3.0 stack as a process-boundary companion exchanging HBJSON and shelling out to the external EnergyPlus/OpenStudio CLI, never statically linked into a distributed proprietary artifact.
 
 [RAIL_LAW]:
 - Package: `honeybee-energy`
 - Owns: the `.properties.energy` extension; the construction/material/load/schedule/program-type/HVAC/SHW/generator/internal-mass/ventilation object library; abridged HBJSON serialization and the per-domain polymorphic decoders; the `lib` standards by-identifier loaders; ASHRAE 90.1 baseline generation; the `SimulationParameter` family; the EnergyPlus/OpenStudio `run` CLI bridge; and the EnergyPlus SQL/CSV `result` parsers
-- Accept: energy-property assignment feeding the energy-modeling owner; standards resolution through `lib.*_by_identifier`; abridged HBJSON validated through `honeybee-schema.energy` (the `pydantic` rail); the `run_idf`/`run_osw` subprocess offloaded through the runtime lane THREAD band under `guarded` + the `evidence_run` weave; result rows promoted to the `numpy`/`xarray` data tier; `check_all(detailed=True)` folded into the `expression` `Result` rail
-- Reject: a parallel energy object model outside `.properties.energy`; a hand-rolled construction U-value solver, IDF writer, schedule expander, or EnergyPlus result/SQL parser; direct reads of the `honeybee-standards` JSON over the `lib.*_by_identifier` loaders; a per-construction/per-load decode branch over the `dictutil.dict_to_*` dispatchers; blocking the event loop on `run_idf`/`run_osw`; re-shipping or re-deriving the standard construction/program/schedule library
-
-[CAPTURE_GAP]:
-- Abridged-vs-full dict split is load-bearing (verified against `honeybee-energy 1.109.27`): `from_dict_abridged` takes the object dict PLUS the resolved resource maps it references by identifier (e.g. `OpaqueConstruction.from_dict_abridged(data, materials)` where `materials` is the identifier->material map), while `from_dict` expects every resource inlined. HBJSON wire carries the abridged form with a model-level resource table, so model decode resolves the resource maps first (via `dict_abridged_to_*`) and feeds them into the per-object abridged decoders — a flat `from_dict` over an abridged dict raises a `KeyError` on the missing inlined resource. `ModelEnergyProperties.apply_properties_from_dict(data)` performs this ordered resolution internally.
-- `lib` registry universe is layered, not a fixed constant (verified against `honeybee-energy 1.109.27`): the loaders ALWAYS seed the small `honeybee-standards` defaults floor (`folders.defaults_file` -> 16 constructions, 16 materials, 2 program types, 8 schedules, 1 construction set, 9 type limits) and ADDITIONALLY load every library found in `folders.standards_extension_folders`. Large ASHRAE/DOE counts (≈1845 program types, ≈3347 schedules, ≈1039 constructions, ≈256 climate-zone/vintage construction sets — verified against `honeybee-energy-standards 2.3.0`, see `honeybee-energy-standards.md`) appear ONLY when the separate `honeybee-energy-standards` extension is installed there — they are the extension's contribution, never honeybee-standards'. So a registry count is a function of which standards packages are installed; the owner must not assume the extension is present, and `building_program_type_by_identifier(building_type)` (the whole-building DOE-prototype resolver) requires the extension, distinct from `program_type_by_identifier` which resolves any loaded program identifier (defaults included).
-- HVAC template surface is registry-driven, not import-driven: `IdealAirSystem` and `DetailedHVAC` are directly importable, but the 18 template systems (`VAV`/`PVAV`/`PSZ`/`PTAC`/`FCU`/`VRF`/`WSHP`/`Baseboard`/`Radiant`/`ForcedAirFurnace`/`GasUnitHeater`/`EvaporativeCooler`/`WindowAC`/`Residential` + the four `FCU`/`Radiant`/`VRF`/`WSHP` `withDOAS` variants) are dynamically built subclasses registered in `honeybee_energy.hvac.HVAC_TYPES_DICT` (which also holds `IdealAirSystem` and `DetailedHVAC`, 20 entries total), each with an enumerated `equipment_type` vocabulary selecting the vintage/efficiency variant. Owner resolves a template by `HVAC_TYPES_DICT[name]` and sets `equipment_type`, never importing a per-template class. `DetailedHVAC` requires the OpenStudio measure path (it round-trips through `honeybee-openstudio`/the OpenStudio CLI), so it is unavailable to the pure EnergyPlus `run_idf` path.
-- `run_idf`/`run_osw` return file paths (sql/err/eso/html) on success and depend on an external EnergyPlus/OpenStudio install discovered through `honeybee_energy.config.folders`; a missing engine is a runtime fault, not a Python `ImportError`, so the owner's `run` rail checks `folders.energyplus_exe`/`folders.openstudio_exe` before bracketing the subprocess.
+- Accept: energy-property assignment feeding the energy-modeling owner; standards resolution through `lib.*_by_identifier`; abridged HBJSON validated through `honeybee-schema.energy` (the `pydantic` rail); the `run_idf`/`run_osw` subprocess offloaded off the event loop under the runtime `guarded` rail and the `evidence_run` weave; result rows promoted to the `numpy`/`xarray` data tier; `check_all(detailed=True)` folded into the `expression` `Result` rail
+- Reject: a parallel energy object model outside `.properties.energy`; a hand-rolled construction U-value solver, IDF writer, schedule expander, or EnergyPlus result/SQL parser; direct reads of the `honeybee-standards` JSON over the `lib.*_by_identifier` loaders; a per-kind decode branch over the `dictutil.dict_to_*` dispatchers; blocking the event loop on `run_idf`/`run_osw`; re-shipping the standard library

@@ -20,7 +20,7 @@ import operator
 from pathlib import Path
 import re
 from typing import override, Protocol, runtime_checkable, TYPE_CHECKING, TypeAliasType
-import xml.etree.ElementTree as ET  # noqa: S405  # trusted local MSBuild XML, never network-sourced
+import xml.etree.ElementTree as ET  # ruff:ignore[suspicious-xml-etree-import]  # trusted local MSBuild XML, never network-sourced
 
 from expression import Error, Ok, Result
 import msgspec
@@ -28,9 +28,13 @@ from tree_sitter import Parser as TSParser, QueryCursor
 import tree_sitter_typescript
 
 from tools.assay.composition.catalog import select
-from tools.assay.composition.settings import AssaySettings  # noqa: TC001  # beartype resolves adapter annotations at runtime
-from tools.assay.composition.store import ArtifactScope  # noqa: TC001  # beartype resolves adapter annotations at runtime
-from tools.assay.core.exec import Executor  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
+from tools.assay.composition.settings import (
+    AssaySettings,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves adapter annotations at runtime
+)
+from tools.assay.composition.store import (
+    ArtifactScope,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves adapter annotations at runtime
+)
+from tools.assay.core.exec import Executor  # ruff:ignore[typing-only-first-party-import]  # beartype resolves the executor-port annotation at runtime
 from tools.assay.core.model import (
     ApiResolution,
     ApiSource,
@@ -506,7 +510,7 @@ def safe_key(key: str) -> str:
 
 
 @lru_cache(maxsize=256)
-def _asm_digest(path_str: str, size: int, mtime_ns: int) -> str:  # noqa: ARG001  # size+mtime_ns are lru_cache key slots, not used in the body
+def _asm_digest(path_str: str, size: int, mtime_ns: int) -> str:  # ruff:ignore[unused-function-argument]  # size+mtime_ns are lru_cache key slots, not used in the body
     # RhinoWIP reinstalls can preserve DLL mtimes, so content-hash is the discriminant.
     return hashlib.sha256(Path(path_str).read_bytes()).hexdigest()
 
@@ -561,7 +565,7 @@ def host_sources(settings: AssaySettings) -> tuple[Source, ...]:
 def _packages_at(root_str: str, digest: str) -> dict[str, str]:
     _ = digest  # lru_cache key slot: content hash, immune to mtime-preserving rewrites
     try:
-        root = ET.fromstring(Path(root_str).read_bytes())  # noqa: S314  # trusted local Directory.Packages.props, never network-sourced
+        root = ET.fromstring(Path(root_str).read_bytes())  # ruff:ignore[suspicious-xml-element-tree-usage]  # trusted local Directory.Packages.props, never network-sourced
     except OSError, ET.ParseError:
         return {}
     return {
@@ -1375,7 +1379,7 @@ def _module_members(module: object, prefix: str, *, roots: frozenset[str], depth
 def _import(name: str) -> object | None:
     try:
         return importlib.import_module(name)
-    except Exception:  # noqa: BLE001  # INPROC defensive: per-module import fault -> drop that module, the thunk still surfaces the rest
+    except Exception:  # ruff:ignore[blind-except]  # INPROC defensive: per-module import fault -> drop that module, the thunk still surfaces the rest
         return None
 
 
@@ -1395,10 +1399,7 @@ def _pydist_thunk(key: str, symbol: str) -> InprocThunk:
                     case (None, ()):
                         member: tuple[Capture, ...] = ()
                     case (None, ((qual_owner, resolved),)):
-                        member = (
-                            *_member_captures(resolved, f"{qual_owner}.{symbol}"),
-                            Capture(name="owner", text=qual_owner, file="", line=0),
-                        )
+                        member = (*_member_captures(resolved, f"{qual_owner}.{symbol}"), Capture(name="owner", text=qual_owner, file="", line=0))
                     case (None, owners):
                         member = (Capture(name="owners", text="\n".join(f"{qual}.{symbol}" for qual, _ in owners), file="", line=0),)
                     case _:
@@ -1450,17 +1451,15 @@ def _owner_scan(key: str, symbol: str) -> tuple[tuple[str, object], ...]:
     roots = _owned_roots(key)
     imported = tuple(module for name in _pydist_modules(key) for module in (_import(name),) if module is not None)
     modules = tuple(
-        dict.fromkeys(
-            (
-                *imported,
-                *(
-                    obj
-                    for module in imported
-                    for ident, obj in inspect.getmembers(module, inspect.ismodule)
-                    if not ident.startswith("_") and getattr(obj, "__name__", "").startswith(f"{getattr(module, '__name__', '')}.")
-                ),
-            )
-        )
+        dict.fromkeys((
+            *imported,
+            *(
+                obj
+                for module in imported
+                for ident, obj in inspect.getmembers(module, inspect.ismodule)
+                if not ident.startswith("_") and getattr(obj, "__name__", "").startswith(f"{getattr(module, '__name__', '')}.")
+            ),
+        ))
     )
     hits = {
         id(resolved): (f"{getattr(module, '__name__', '')}.{ident}", resolved)
@@ -1641,12 +1640,12 @@ def _ts_declared(root: Node, path: Path, *, is_dts: bool) -> tuple[Capture, ...]
 
 def _find_decl(scope: Node, target: str, *, is_dts: bool | None) -> Node | None:
     # is_dts None skips the export gate: owner-scoped members inherit the owner's export.
-    matched = tuple(
+    matched: tuple[Node, ...] = tuple(
         n
         for n in _walk(scope, _DECL_NODES)
         if (name := n.child_by_field_name("name")) is not None and node_text(name) == target and (is_dts is None or _exported(name, is_dts=is_dts))
     )
-    return min(matched, key=lambda n: _DECL_RANK.get(n.type, len(_DECL_RANK)), default=None)
+    return min(matched, key=lambda n: _DECL_RANK.get(n.type, len(_DECL_RANK))) if matched else None
 
 
 def _ts_doc(node: Node) -> str:
@@ -1720,7 +1719,7 @@ def xml_doc(source: Source, symbol: str) -> str:
 
 def _xml_members(path: Path) -> tuple[ET.Element[str], ...]:
     try:
-        root = ET.fromstring(path.read_bytes())  # noqa: S314  # trusted local sidecar .xml from the resolved source, never network-sourced
+        root = ET.fromstring(path.read_bytes())  # ruff:ignore[suspicious-xml-element-tree-usage]  # trusted local sidecar .xml from the resolved source, never network-sourced
     except ET.ParseError:
         return ()
     return tuple(root.iterfind(".//member"))

@@ -87,7 +87,7 @@
 
 [ENTRYPOINT_SCOPE]: storage and credential factories (`icechunk`)
 
-Storage factories return an opaque `Storage`; cloud backends share the keyword-only `*, bucket, prefix, anonymous, from_env` shape and differ by endpoint/account and credential params. Credential factories share `*, access_key_id, secret_access_key, session_token, anonymous, from_env, get_credentials`. Virtual-store factories produce an `ObjectStoreConfig` fed to `VirtualChunkContainer`.
+Storage factories return an opaque `Storage`; cloud backends share the keyword-only `*, bucket, prefix, anonymous, from_env` shape and differ by endpoint/account and credential params. Object-store cloud backends (`s3_storage`/`gcs_storage`/`r2_storage`/`tigris_storage`) accept a `headers` dict attached to every request, `s3_storage` splitting `read_headers`/`write_headers`. Credential factories share `*, access_key_id, secret_access_key, session_token, anonymous, from_env, get_credentials`; virtual-store factories produce an `ObjectStoreConfig` fed to `VirtualChunkContainer`.
 
 | [INDEX] | [SURFACE]                                                                               | [CAPABILITY]                                 |
 | :-----: | :-------------------------------------------------------------------------------------- | :------------------------------------------- |

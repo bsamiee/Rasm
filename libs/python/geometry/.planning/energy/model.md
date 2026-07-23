@@ -168,9 +168,9 @@ class BuildingModel(Struct, frozen=True):
 
     def assign(self, spec: EnergySpec) -> "RuntimeRail[Self]":
         def fold() -> Self:
-            import honeybee_energy  # noqa: PLC0415 — the _extend_honeybee side effect registers .properties.energy
-            from honeybee_energy.hvac import HVAC_TYPES_DICT  # noqa: PLC0415
-            from honeybee_energy.shw import SHWSystem  # noqa: PLC0415 — the SHW template mint; no lib registry exists
+            import honeybee_energy  # ruff:ignore[import-outside-top-level] — the _extend_honeybee side effect registers .properties.energy
+            from honeybee_energy.hvac import HVAC_TYPES_DICT  # ruff:ignore[import-outside-top-level]
+            from honeybee_energy.shw import SHWSystem  # ruff:ignore[import-outside-top-level] — the SHW template mint; no lib registry exists
 
             program = spec.program.map(lambda ident: _resolved(StandardsKind.PROGRAM, ident)).to_optional()
             constructions = spec.construction_set.map(lambda ident: _resolved(StandardsKind.CONSTRUCTION_SET, ident)).to_optional()
@@ -236,7 +236,7 @@ class BuildingModel(Struct, frozen=True):
 
 
 def _decoded(payload: "bytes | str | Path | Mapping[str, object]") -> "Model":
-    from honeybee.model import Model  # noqa: PLC0415 — AGPL boundary import
+    from honeybee.model import Model  # ruff:ignore[import-outside-top-level] — AGPL boundary import
 
     match payload:
         case bytes() as raw:
@@ -250,14 +250,14 @@ def _decoded(payload: "bytes | str | Path | Mapping[str, object]") -> "Model":
 def _derived(spf: bytes, policy: BemPolicy) -> "Model":
     # BIM-to-BEM: IfcSpace solids -> Face3D triangles -> Polyface3D -> Room -> adjacency -> apertures.
     # module-level HOSTILE kernel: ships REFERENCE onto the warm process pool; the live ifcopenshell.file stays worker-local.
-    import ifcopenshell  # noqa: PLC0415 — companion-lane worker import
-    import ifcopenshell.geom  # noqa: PLC0415
-    from honeybee.model import Model  # noqa: PLC0415 — AGPL boundary import
-    from honeybee.orientation import angles_from_num_orient, orient_index  # noqa: PLC0415
-    from honeybee.room import Room  # noqa: PLC0415
-    from ladybug_geometry.geometry3d.face import Face3D  # noqa: PLC0415
-    from ladybug_geometry.geometry3d.pointvector import Point3D  # noqa: PLC0415
-    from ladybug_geometry.geometry3d.polyface import Polyface3D  # noqa: PLC0415
+    import ifcopenshell  # ruff:ignore[import-outside-top-level] — companion-lane worker import
+    import ifcopenshell.geom  # ruff:ignore[import-outside-top-level]
+    from honeybee.model import Model  # ruff:ignore[import-outside-top-level] — AGPL boundary import
+    from honeybee.orientation import angles_from_num_orient, orient_index  # ruff:ignore[import-outside-top-level]
+    from honeybee.room import Room  # ruff:ignore[import-outside-top-level]
+    from ladybug_geometry.geometry3d.face import Face3D  # ruff:ignore[import-outside-top-level]
+    from ladybug_geometry.geometry3d.pointvector import Point3D  # ruff:ignore[import-outside-top-level]
+    from ladybug_geometry.geometry3d.polyface import Polyface3D  # ruff:ignore[import-outside-top-level]
 
     ifc = ifcopenshell.file.from_string(spf.decode())
     settings = ifcopenshell.geom.settings()
@@ -289,7 +289,7 @@ def _derived(spf: bytes, policy: BemPolicy) -> "Model":
 
 
 def _resolved(kind: StandardsKind, identifier: str) -> object:
-    from importlib import import_module  # noqa: PLC0415 — row-resolved AGPL boundary import
+    from importlib import import_module  # ruff:ignore[import-outside-top-level] — row-resolved AGPL boundary import
 
     module, loader = RESOLVERS[kind]
     return getattr(import_module(module), loader)(identifier)

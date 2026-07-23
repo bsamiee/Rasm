@@ -614,7 +614,7 @@ const Export: {
 - Owner: `Instrument` — the browser auto-instrumentation registration node on the sibling `otel/instrument` module the `./browser` condition alone resolves (importing `@opentelemetry/context-zone` patches the global `Zone`, so the module split fences the side effect structurally): `_rows(policy)` constructs the three instrumentation rows from the one policy value, and `Instrument.live(policy)` brackets the whole registration — the zone manager enabled and installed as the global context manager, `registerInstrumentations` bound to the web lane's `OtelBridge.OtelTracerProvider`, the returned unload thunk with `ambient.disable()` as the scope teardown.
 - Law: self-exclusion is mandatory policy — `ignoreUrls` carries the collector origin from `policy.collector.baseUrl`, so an export batch never mints its own fetch span and the trace feed cannot feed itself; `propagateTraceHeaderCorsUrls` reads `policy.browser.propagate`, so `traceparent` crosses only to the named API origins.
 - Law: interaction admission is the cardinality gate — `eventNames` and `shouldPreventSpanCreation` read the policy's interaction rows because every admitted event is a span; click-only with an admit-all predicate is the stated default, and a high-frequency row (scroll, pointermove) enters only beside a refusing predicate.
-- Law: `semconvStabilityOptIn: "http"` selects stable-only HTTP semconv on both request rows, aligned with the estate schema pin.
+- Law: both request rows emit stable HTTP semconv unconditionally, aligned with the estate schema pin.
 - Law: the XHR row rides beside fetch under the identical policy — `ignoreUrls` self-exclusion and the CORS propagate allow-list read the same rows, so legacy `XMLHttpRequest` traffic and `fetch` traffic split the request surface with one policy spelling and the zone manager parents both span families across the async chain.
 - Law: this node is the branch's one sanctioned global-API call — async context is process-global by construction, so exactly this bracket calls `ambient.setGlobalContextManager`; tracer and meter globals stay unregistered, and `registerInstrumentations` receives the provider explicitly because the facade registers none globally — an omitted provider falls back to the no-op global and every instrumentation span dies silently.
 - Exemption: the acquire body is the platform-forced registration seam — global manager install and the composed unload closure are the SDK's own imperative contract.
@@ -640,7 +640,6 @@ const _rows = (policy: Export.Policy): ReadonlyArray<Instrumentation> => [
   new FetchInstrumentation({
     ignoreUrls: [policy.collector.baseUrl],
     propagateTraceHeaderCorsUrls: [...policy.browser.propagate],
-    semconvStabilityOptIn: "http",
   }),
   new UserInteractionInstrumentation({
     eventNames: [...policy.browser.interaction.events],
@@ -650,7 +649,6 @@ const _rows = (policy: Export.Policy): ReadonlyArray<Instrumentation> => [
     // This legacy request surface under the identical self-exclusion and propagate policy as the fetch row
     ignoreUrls: [policy.collector.baseUrl],
     propagateTraceHeaderCorsUrls: [...policy.browser.propagate],
-    semconvStabilityOptIn: "http",
   }),
 ]
 

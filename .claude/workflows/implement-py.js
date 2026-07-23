@@ -371,7 +371,7 @@ const LAW = [
         '(README/language/shapes/surfaces-and-dispatch/rails-and-effects/algorithms/iteration/concurrency/boundaries/runtime/system-apis) — author ' +
         'Python as dense, polymorphic, and rich as that bar admits; docs/stacks/csharp/ is the density/ambition FLOOR (match its richness, never ' +
         'import C#-shaped idioms). READ the operative docs/stacks/python pages and conform exactly. Cite ONLY members confirmed in the .api catalogs; ' +
-        'verify any novel member via `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api`' +
+        'verify any novel member via `uv run python -m tools.assay api`' +
         FB +
         '.',
     'This is IMPLEMENT, not the in-isolation api-stacking rebuild: realize the folder SPECIFIC open IDEAS/TASKLOG cards into deep design-page ' +
@@ -416,8 +416,8 @@ const CARD = [
         "`libs/typescript`, `libs/python/.planning`, `libs/.planning` — outside this Python-only run's language rail; land your half stating the " +
         'wire contract, and the card stays open unless it is complete on your half alone).',
     'PROBE FREELY (nothing gates probing): EVERY agent in EVERY phase may — and should — probe to verify reality at any time, for ANY card or design ' +
-        'decision, not only `[BLOCKED]` ones — `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api resolve|query` over Python distributions / ' +
-        'host DLLs / NuGet / node_modules to confirm any member; `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay provision check` ' +
+        'decision, not only `[BLOCKED]` ones — `uv run python -m tools.assay api resolve|query` over Python distributions / ' +
+        'host DLLs / NuGet / node_modules to confirm any member; `uv run python -m tools.assay provision check` ' +
         '(+ `pyproject.toml` + tools/assay/README.md) for a ' +
         'native/scientific/database/provisioning band (sanitized Rasm evidence — direct `forge-provision` is Forge-level debugging, not the normal ' +
         'entry); Rhino WIP (never Rhino 8) via the rhino-mcp skill or tools/rhino-bridge for live host behavior. tools/assay is under concurrent ' +
@@ -425,14 +425,13 @@ const CARD = [
         'official surface, the `nuget` MCP for NuGet-side members — and a blocker provable ONLY through downed assay is a legitimate out-of-run ' +
         'blocker, never a faked resolution. A `[BLOCKED]` card is REALIZED this turn whenever a probe resolves its blocker OR its gating work is in ' +
         'scope; a blocker is genuinely legitimate ONLY when it depends on work outside this run.',
-    'PACKAGE ADMISSION (only when a card genuinely needs a not-yet-admitted package): the new dependency is exactly ONE of three bands, which ' +
+    'PACKAGE ADMISSION (only when a card genuinely needs a not-yet-admitted package): the new dependency is exactly ONE of two bands, which ' +
         'decides the central `' +
         CENTRAL +
-        '` marker AND the install/reflect path — (a) pure-Python wheel -> installs to `.venv`; (b) ' +
-        'scientific/native (numpy/scipy-class, C/C++/Fortran build) -> NOT in `.venv`, the `forge-scientific-*` env, decided via `UV_CACHE_DIR=' +
-        '.cache/uv uv run python -m tools.assay provision check` (the package own wheel/build metadata via Context7/PyPI evidence decides the band ' +
-        "when assay is unavailable); (c) companion-band -> pinned with a `; python_version<'3.15'` marker. Do the folder-local parts NOW — add the " +
-        'package to the correct group in the target `README.md` and author the target `.api/<package>.md` from `UV_CACHE_DIR=.cache/uv uv run ' +
+        '` marker — (a) installable on the live interpreter -> `.venv` via `forge-scientific-env uv sync`; a wheelless native admits only after a ' +
+        'probe build proves its source build, a missing native library landing as a Forge `scientific-tools.nix` substrate row; (b) blocked on the ' +
+        "interpreter by a named wheel/build blocker -> pinned with a `; python_version<'3.15'` marker carrying its evidence comment. Do the folder-local parts NOW — add the " +
+        'package to the correct group in the target `README.md` and author the target `.api/<package>.md` from `uv run ' +
         'python -m tools.assay api`' +
         FB +
         '. The central repo-root ' +
@@ -523,7 +522,7 @@ const ULTRA = [
         'folder-specific domain packages — e.g. `msgspec dec_hook` -> pydantic discriminated union -> stamina `retry_context` -> opentelemetry span ' +
         'around the domain op — NOT flat one-shot per-library uses. Use the DEEPEST primitive each package itself reaches (LIBRARY_DEPTH). An ' +
         'admitted capability the card charter needs that no owner exploits is a DEFECT the pass closes by deepening a fence; a cited member that ' +
-        'cannot be verified in the catalogs or via `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api`' +
+        'cannot be verified in the catalogs or via `uv run python -m tools.assay api`' +
         FB +
         ' is a PHANTOM the pass deletes or corrects on sight. (Implement ' +
         'composes the capability the card needs; it does not max-stack every catalog for its own sake — that is rebuild.)',
@@ -934,7 +933,7 @@ const discoverPrompt = (folder) =>
             'reach every counterpart hot instead of cold-hunting it): {page, files: every file (the page, its cited ' +
             "catalogs, its seam counterparts) the downstream writers must open for this row, anchors: exact coordinates backing the row's facts per " +
             'the ROW FORM law, members: the exact verified member spellings backing underutilized, each verified against its owning `.api` catalog or ' +
-            'via `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api`' +
+            'via `uv run python -m tools.assay api`' +
             FB +
             ' (verified members ONLY — a member you cannot verify is a phantom and is NEVER listed; exact spellings and locations, never judgment ' +
             'wording), composed: the capability the page already composes, underutilized: catalog-anchored member FACTS the page does not yet compose, ' +
@@ -984,7 +983,7 @@ const implementPrompt = (folder, seq, note, report, ownpass) =>
             '/*.md` AND the folder `' +
             folder +
             '/.api/*.md` (stack them, the shared rails ' +
-            'layered onto the folder packages); and verify any novel member via `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api`' +
+            'layered onto the folder packages); and verify any novel member via `uv run python -m tools.assay api`' +
             FB +
             '. Realize EVERY card in ' +
             '`order` (all tasks incl. Atomic, then the ideas) into deep fences in the `' +
@@ -1001,7 +1000,7 @@ const implementPrompt = (folder, seq, note, report, ownpass) =>
             '585/604/695, `frozendict` builtin, newest payload forms; NO `from __future__ import annotations`, NO legacy typing, NO ' +
             '`asyncio`/`None`-as-failure). Resolve any [BLOCKED] card inline (assay api for members' +
             FB +
-            '; `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay provision ' +
+            '; `uv run python -m tools.assay provision ' +
             'check` for native/scientific/provisioning bands). RIPPLES ARE YOURS: repair every ripple your cards carry in this same pass per the RIPPLE ' +
             'law — align each in-scope seam to the counterpart page as it NOW stands on disk, realize each 1-hop out-of-scope same-language counterpart ' +
             'card fence and align both ends, land your half of each cross-language seam stating the wire contract — and record each repair in `ripples`. ' +
@@ -1159,7 +1158,7 @@ const redteamPrompt = (folder, seq, report, critReport, critOk, ownpass) =>
             "`'s LAST stage and the SOLE owner of its card status. For EVERY card in scope this run, re-read its " +
             'FULL body and the realized fences on CURRENT disk, then ADVERSARIALLY VERIFY — the fences are naive until they survive your attack, a prior ' +
             'pass verdict a rejected self-assessment — that they genuinely fulfill the card `Capability`/`Shape`/`Unlocks` against the verified `.api` ' +
-            '(verify novel members via `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api`' +
+            '(verify novel members via `uv run python -m tools.assay api`' +
             FB +
             '). FINAL-remediate any weak or partial realization in place NOW, then ' +
             'assign each card a strength: `strong` (every charter clause delivered, fences transcription-complete against the verified `.api`), `partial` ' +
@@ -1217,9 +1216,8 @@ const pinPrompt = (pins, seams, orphans, backlog, round) =>
                     : '',
                 pins.length
                     ? '(3) PINS — apply each reported dependency row + band marker exactly once, preserving the existing group/marker order and ' +
-                      'deduping semantically identical rows; verify each package, version, and band before applying — pure-Python wheel vs ' +
-                      'scientific/native (`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay provision check`; the package wheel/build metadata via Context7/PyPI ' +
-                      "evidence when assay is unavailable) vs companion-band `; python_version<'3.15'` marker; confirm the folder README group " +
+                      'deduping semantically identical rows; verify each package and band before applying — installable on the live interpreter ' +
+                      "vs blocked with a `; python_version<'3.15'` evidence marker (the package wheel/build metadata via Context7/PyPI decides); confirm the folder README group " +
                       'and `.api/<package>.md` catalog landed, repairing a missing folder-local part in place: ' +
                       JSON.stringify(pins, null, 1) +
                       '.'

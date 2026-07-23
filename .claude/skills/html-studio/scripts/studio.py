@@ -8,7 +8,7 @@
 #   "beartype @ git+https://github.com/beartype/beartype.git@f370a0b1733413681e7a72bf36fbe839e60b3c85",
 # ]
 # ///
-# ruff: noqa: T201, D101, D102, D103, D107
+# ruff:file-ignore[print, undocumented-public-class, undocumented-public-method, undocumented-public-function, undocumented-public-init]
 """html-studio automation owner.
 
 Verbs: gate | render | serve | status | stop | receipts | self-test. `gate` statically gates one

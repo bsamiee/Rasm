@@ -1,6 +1,6 @@
 # [TS_CORE_API_BUFBUILD_PROTOBUF]
 
-`@bufbuild/protobuf` is protobuf-ES catalog-bound: the runtime every C#-minted proto `*Wire` shape decodes through, and the reflection engine the drift gate walks. It is schema-first, not message-methods — a message is plain data branded by `$typeName`, never a class instance, and every operation takes the descriptor as its first argument: `create(schema, init?)`, `fromBinary(schema, bytes)`, `toBinary(schema, msg)`, `fromJson(schema, json)`, `toJson(schema, msg)`. Two decode paths share one runtime: the GENERATED path binds `GenMessage` schemas emitted by `@bufbuild/protoc-gen-es` (the `interchange/format`, `interchange/codec`, `interchange/codec`, `frame/geometry` pages import a `_pb.ts` schema and call `fromBinary`), and the REFLECTION path binds descriptors with no generated code — `createFileRegistry(fromBinary(FileDescriptorSetSchema, bytes))` turns a C#-minted `FileDescriptorSet` into runtime `DescMessage`/`DescField` descriptors that `interchange/contract` diffs into a typed `ContractDrift` verdict and that the `reflect(desc, msg)` + `buildPath(schema)` surface walks for content-key field parity. It carries the `./reflect` dynamic accessor, the `./wire` low-level codec primitives (`BinaryReader`/`BinaryWriter`/`WireType`, base6 catalog, size-delimited streaming, text-format), and the `./wkt` well-known types (`Any` packing under a registry, `Timestamp`/`Duration` ↔ JS `Date`/ms, the `Struct`↔`JsonValue` bridge). It is the runtime under `@connectrpc/connect` (`interchange/invoke`); the codec siblings `cbor-x` (`interchange/codec`), `@msgpack/msgpack` (`interchange/codec`), and `rfc690 catalog` (`interchange/format`) own the non-proto wire families this one never touches. Effect `Schema` is the seam above it: proto is the wire shape, `Schema.decode` parses decoded proto into branded `kernel` vocabulary — never a hand-rolled field validator, never a proto message reused as a domain model.
+`@bufbuild/protobuf` is protobuf-ES catalog-bound: the runtime every C#-minted proto `*Wire` shape decodes through, and the reflection engine the drift gate walks. Schema-first, never message-methods — a message is plain data branded by `$typeName`, and every operation takes the descriptor first. Two decode paths share one runtime: GENERATED binds `GenMessage` schemas from `@bufbuild/protoc-gen-es`; REFLECTION binds descriptors decoded at runtime from a C#-minted `FileDescriptorSet`. Effect `Schema` sits above: `Schema.decode` parses it into branded `kernel` vocabulary.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,8 +9,8 @@
 - license: `Apache-2.0 AND BSD-3-Clause` (BSD covers the varint/base64 code adapted from `google-protobuf`)
 - deps: none — zero transitive footprint, the reason it is the codec substrate
 - peer: none; `type: module`, ESM + CJS dual (`dist/esm`, `dist/commonjs`), `sideEffects: false` (fully tree-shakeable — an unused subpath costs zero bytes)
-- exports: `.` (codec + descriptors), `./codegenv1` + `./codegenv2` (the generated-code boot surface), `./reflect` (dynamic accessor), `./wkt` (well-known types), `./wire` (low-level primitives); `./package.json`
-- runtime target: universal — Node, browser, Bun, worker; no DOM, no platform binding. The `codec/*` pages run it in the app thread; `frame/geometry` streaming decode runs it in a worker
+- exports: `.` (codec + descriptors), `./codegenv1` + `./codegenv2` (the generated-code boot surface), `./reflect` (dynamic accessor), `./wkt` (well-known types), `./wire` (low-level primitives), `./txtpb` (whole-message text-format codec); `./package.json`
+- runtime target: universal — Node, browser, Bun, worker; no DOM, no platform binding. `codec/*` pages run it in the app thread; `frame/geometry` streaming decode runs it in a worker
 - rail: proto codec + descriptor reflection (the runtime under every `codec/*` proto page, `interchange/contract` drift, `interchange/codec`, `frame/geometry`, and `interchange/invoke` transport)
 
 ## [02]-[PUBLIC_TYPES]
@@ -35,12 +35,12 @@
 |  [12]   | `DescMethodUnary` / `DescMethodServerStreaming`         | method kinds      | unary + server-streaming method descriptors           |
 |  [13]   | `DescMethodClientStreaming` / `DescMethodBiDiStreaming` | method kinds      | client-streaming + bidi; `interchange/invoke` reads   |
 
-- [A]-[DESCFIELD]: `DescField` is a scalar/list/message/enum/map discriminated union on `fieldKind`, with `number`/`name` coordinates: `scalar: ScalarType` on the scalar arm, `message: DescMessage`/`enum: DescEnum` refs, `listKind` + leaf on the list arm, `mapKey: ScalarType` + `mapKind` + leaf on the map arm, and `delimitedEncoding`/`packed`/`longAsString` wire facts. `DescMessage.fields: DescField[]` and `DescService.methods: DescMethod[]` are the walk edges; `DescMethod.methodKind` is the closed `"unary" | "server_streaming" | "client_streaming" | "bidi_streaming"` axis and `localName` the TS member name on every descriptor.
+- [A]-[DESCFIELD]: `DescField` discriminates scalar/list/message/enum/map on `fieldKind` with `number`/`name` coordinates — `scalar: ScalarType`, `message: DescMessage`/`enum: DescEnum` refs, `listKind`/`mapKey`/`mapKind` + leaf arms, and `delimitedEncoding`/`packed`/`longAsString` wire facts. `DescMessage.fields` and `DescService.methods` are the walk edges; `DescMethod.methodKind` closes on `"unary" | "server_streaming" | "client_streaming" | "bidi_streaming"`, `localName` the TS member name.
 - [B]-[SCALARTYPE]: `ScalarType` enum values are `DOUBLE`/`FLOAT`/`INT64`/`UINT64`/`INT32`/`FIXED*`/`BOOL`/`STRING`/`BYTES`/`UINT32`/`SFIXED*`/`SINT32`/`SINT64`; the leaf of a `DescField` scalar arm, mapped to its TS type by `ScalarValue`.
 
 [PUBLIC_TYPE_SCOPE]: generated-symbol family — what `protoc-gen-es` emits and the `codec/*` pages import
 - rail: proto codec
-- the generated `_pb.ts` exports a `GenMessage`/`GenEnum` const per type; it is a `Desc*` carrying the runtime + JSON type parameters so `fromBinary(schema, …)` infers `MessageShape` with zero manual typing. A `codec` page imports these consts and never re-declares the shape.
+- generated `_pb.ts` exports a `GenMessage`/`GenEnum` const per type; each is a `Desc*` carrying the runtime + JSON type parameters so `fromBinary(schema, …)` infers `MessageShape` with zero manual typing. A `codec` page imports these consts and never re-declares the shape.
 
 | [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                                                               |
 | :-----: | :----------------------------- | :--------------- | :-------------------------------------------------------------------------------- |
@@ -62,10 +62,13 @@
 |  [03]   | `JsonReadOptions`        | json read     | `ignoreUnknownFields` (drift-safe default), `registry`, `recursionLimit`              |
 |  [04]   | `JsonWriteOptions`       | json write    | `alwaysEmitImplicit`, `enumAsInteger`, `useProtoFieldName`, `registry` — wire dialect |
 |  [05]   | `JsonWriteStringOptions` | json write    | `JsonWriteOptions` + `prettySpaces`                                                   |
+|  [06]   | `SizeDelimitedDecodeOptions` | framed read | `BinaryReadOptions` + `readMaxBytes` — per-message stream cap, default 64 MiB       |
+|  [07]   | `TextReadOptions`        | text read     | `registry` (`Any`/extensions), `recursionLimit` default 100                          |
+|  [08]   | `TextWriteOptions`       | text write    | `printUnknownFields` (default false, by-number, non-round-trippable), `registry`     |
 
 [PUBLIC_TYPE_SCOPE]: registry + reflect — the reflection surface the drift gate and content-key walk consume
 - rail: descriptor reflection
-- the `interchange/contract` drift walk drives the reflect accessors; `Path`/`PathBuilder` name the field-mask target `interchange/codec` and `interchange/format` also consume.
+- `interchange/contract`'s drift walk drives the reflect accessors; `Path`/`PathBuilder` name the field-mask target `interchange/codec` and `interchange/format` also consume.
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                                                                 |
 | :-----: | :--------------------- | :--------------- | :---------------------------------------------------------------------------------- |
@@ -98,8 +101,9 @@
 [ENTRYPOINT_SCOPE]: binary codec — the wire ingress/egress every `codec/*` page runs
 - rail: proto codec
 - import: whole-message codecs from `@bufbuild/protobuf`; the `sizeDelimited*` family from `@bufbuild/protobuf/wire`
-- the canonical entries are `fromBinary`/`toBinary` (whole message) and the `sizeDelimited*` family (length-prefixed frames). `BinaryReader`/`BinaryWriter` are the sub-message primitives; `codec` pages compose the high-level entries, never the low-level reader unless authoring a custom field.
-- the `sizeDelimited*` family walks an `AsyncIterable<Uint8Array>`; `sizeDelimitedPeek` returns `{ size, offset, eof:false }` for a complete varint header or `{ size:null, offset:null, eof:true }` when the varint is incomplete.
+- `fromBinary`/`toBinary` are the canonical whole-message entries, the `sizeDelimited*` family the length-prefixed frames. `BinaryReader`/`BinaryWriter` are the sub-message primitives; `codec` pages compose the high-level entries, never the low-level reader unless authoring a custom field.
+- a `sizeDelimited*` call walks an `AsyncIterable<Uint8Array>`; `sizeDelimitedPeek` returns `{ size, offset, eof:false }` for a complete varint header or `{ size:null, offset:null, eof:true }` when the varint is incomplete.
+- `sizeDelimitedDecodeStream`: `readMaxBytes` (default 64 MiB) caps a single stream message and raises before the frame is buffered — the DoS guard the `frame/geometry` worker decode pins to its own payload ceiling.
 
 | [INDEX] | [SURFACE]                                                         | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                           |
 | :-----: | :---------------------------------------------------------------- | :------------- | :-------------------------------------------- |
@@ -107,7 +111,7 @@
 |  [02]   | `mergeFromBinary<Desc>(schema, target, bytes, options?)`          | binary read    | accumulate a partial into a message           |
 |  [03]   | `toBinary<Desc>(schema, message, options?): Uint8Array`           | binary write   | egress + the canonical content-key bytes      |
 |  [04]   | `sizeDelimitedEncode<Desc>(desc, message, options?): Uint8Array`  | framed stream  | length-prefix a frame for egress              |
-|  [05]   | `sizeDelimitedDecodeStream<Desc>(desc, iterable, options?)`       | framed stream  | streaming decode over the async byte iterable |
+|  [05]   | `sizeDelimitedDecodeStream<Desc>(desc, iterable, options?)`       | framed stream  | streaming decode; `readMaxBytes` caps a frame |
 |  [06]   | `sizeDelimitedPeek(data)`                                         | framed stream  | read a frame header without consuming         |
 |  [07]   | `BinaryReader` (class)                                            | low-level      | tag/varint/fixed reader for custom fields     |
 |  [08]   | `BinaryWriter` (class)                                            | low-level      | tag/varint/fixed writer for custom fields     |
@@ -129,6 +133,17 @@
 |  [07]   | `enumToJson<Desc>(descEnum, value)`                     | enum json      | enum number→name crossing                              |
 |  [08]   | `enumFromJson<Desc>(descEnum, json)`                    | enum json      | enum name→number crossing                              |
 |  [09]   | `isEnumJson<Desc>(descEnum, value)`                     | enum json      | guard an untrusted enum literal                        |
+
+[ENTRYPOINT_SCOPE]: text-format codec — the `./txtpb` whole-message mirror (txtpbfmt-shaped, BigInt-only)
+- rail: proto codec
+- import: `toText`/`fromText`/`mergeFromText` from `@bufbuild/protobuf/txtpb`; the `./wire` text-format entries below parse a bare scalar/enum leaf, this scope round-trips a whole message.
+- 64-bit fields render as `bigint` with no string fall-back; `toText`/`fromText` throw immediately where the environment lacks `BigInt`. `printUnknownFields` prints by number and is NOT round-trippable — `fromText` rejects number-named fields.
+
+| [INDEX] | [SURFACE]                                                        | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                          |
+| :-----: | :--------------------------------------------------------------- | :------------- | :------------------------------------------- |
+|  [01]   | `toText<Desc>(schema, message, options?): string`                | text write     | txtpbfmt-formatted diagnostic dump           |
+|  [02]   | `fromText<Desc>(schema, text, options?): MessageShape<Desc>`     | text read      | parse a text-format payload                  |
+|  [03]   | `mergeFromText<Desc>(schema, target, text, options?)`            | text read      | fold a text payload into an existing message |
 
 [ENTRYPOINT_SCOPE]: registry + reflection — the descriptor-driven path with no generated code
 - rail: descriptor reflection
@@ -156,7 +171,7 @@
 [ENTRYPOINT_SCOPE]: extensions + well-known types — `Any` packing, time bridges, the `Struct` codec
 - rail: proto codec
 - custom options carry the `FaultDetail` vocabulary hook and the SI-scalar `QuantityFamily` annotations `interchange/format` reads.
-- the `./wkt` schema consts — `FileDescriptorSetSchema`/`FileDescriptorProtoSchema`/`StructSchema`/`ValueSchema`/`ListValueSchema`/`AnySchema`/`TimestampSchema`/`DurationSchema` — decode the descriptor set (`interchange/contract`) and bridge a `JsonValue` through `Struct`/`Value`.
+- `./wkt` schema consts — `FileDescriptorSetSchema`/`FileDescriptorProtoSchema`/`StructSchema`/`ValueSchema`/`ListValueSchema`/`AnySchema`/`TimestampSchema`/`DurationSchema` — decode the descriptor set (`interchange/contract`) and bridge a `JsonValue` through `Struct`/`Value`.
 
 | [INDEX] | [SURFACE]                                          | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                     |
 | :-----: | :------------------------------------------------- | :------------- | :-------------------------------------- |
@@ -194,17 +209,18 @@
 |  [05]   | `enumDesc(file, path, …)`           | symbol boot    | index a `GenEnum` out of the file                       |
 |  [06]   | `serviceDesc(file, path, …)`        | symbol boot    | index a `GenService` out of the file                    |
 |  [07]   | `extDesc(file, path, …)`            | symbol boot    | index a `GenExtension` out of the file                  |
-|  [08]   | `tsEnum(desc)`                      | symbol boot    | materialize a TS enum object                            |
+|  [08]   | `tsEnum(desc)`                      | symbol boot    | materialize a TS `enum` object                          |
+|  [09]   | `objEnum(desc)`                     | symbol boot    | materialize an erasable `as const` enum (no TS `enum`)  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SCHEMA_FIRST_TOPOLOGY]:
-- The schema is always the first argument and messages are plain data. `create(schema, init?)` is the only constructor; there is no `new SomeMessage()`, no `msg.toBinary()`, no `msg.clone()` — the value carries `$typeName` and nothing else, and every operation `(schema, value, options?)` reads the descriptor to drive the fold. A `codec/*` page imports the `GenMessage` from the generated `_pb.ts`, calls `fromBinary(Schema, bytes)`, and the result type is `MessageShape<Schema>` with no manual annotation. Discriminate a decoded value by `$typeName` or `isMessage(v, Schema)`, never `instanceof`.
+- Every operation reads `(schema, value, options?)` — descriptor first, the message plain data carrying only `$typeName`; `create(schema, init?)` is the sole constructor. A `codec/*` page imports the `GenMessage` from generated `_pb.ts`, and `fromBinary(Schema, bytes)` infers `MessageShape<Schema>` with no manual annotation. Discriminate a decoded value by `$typeName` or `isMessage(v, Schema)`, never `instanceof`.
 - INT64/UINT64 fields are `bigint` (or `string` under the long-as-string codegen), bridged by `protoInt64` — `protoInt64.parse(s)` from a string, `.zero` for the identity. Never coerce a 64-bit field through `Number`; the kernel `Hlc` 64-bit cell and any id past 2^53 loses precision otherwise.
-- The binary codec is deterministic per field order, so `toBinary(schema, msg)` is the canonical byte source the `value/identity` `XxHash128` seed-zero mint hashes for a content key — the SAME mint the `frame/*` reassembly verifies against, never a second hash function.
+- `toBinary(schema, msg)` is deterministic per field order — the canonical byte source the `value/identity` `XxHash128` seed-zero mint hashes for a content key, the SAME mint the `frame/*` reassembly verifies against, never a second hash function.
 
 [REFLECTION_PATH]:
-- The `interchange/contract` drift gate is pure reflection: decode the C#-minted set with `fromBinary(FileDescriptorSetSchema, descriptorBytes)`, build `createFileRegistry(set)`, then walk `registry.files → DescMessage → DescField` and compare against the prior generation's descriptors. Field adds/removes/type-changes surface as a typed `ContractDrift` verdict value — schema drift is a value, never a runtime decode failure, because `readUnknownFields`/`ignoreUnknownFields` keep an unknown field preserved rather than thrown.
+- `interchange/contract`'s drift gate is pure reflection: decode the C#-minted set with `fromBinary(FileDescriptorSetSchema, descriptorBytes)`, build `createFileRegistry(set)`, walk `registry.files → DescMessage → DescField` against the prior generation. Field adds/removes/type-changes surface as a typed `ContractDrift` value — `readUnknownFields`/`ignoreUnknownFields` preserve an unknown field rather than throw.
 - `reflect(desc, message)` yields a `ReflectMessage` that reads/writes fields by `DescField` with no generated type — the `interchange/codec` content-key projection walks `ElementGraphWire`/`NodeWire`/`RelationshipWire` fields this way to compute parity, and `buildPath(schema)`/`parsePath(schema, "node.relations")` addresses a field-mask target the drift verdict and `interchange/format` both name. `ScalarType` + `scalarZeroValue` classify a leaf; `qualifiedName`/`protoCamelCase` canonicalize names across the C#↔TS casing boundary.
 
 [STACKS_WITH]:
@@ -217,12 +233,12 @@
 
 [LOCAL_ADMISSION]:
 - Import the generated `GenMessage` schema and call the schema-first codec (`fromBinary`/`toBinary`/`create`); never author a proto message shape by hand, never treat a decoded proto as a domain model — cross into `kernel` vocabulary through `Schema.decode` at the page boundary.
-- The reflection path (`createFileRegistry` + `reflect` + `buildPath`) is `interchange/contract` only — everywhere else the generated schema is present, so use it; reflection is for the drift gate and content-key walk where the schema is data, not a type.
+- Reflection (`createFileRegistry` + `reflect` + `buildPath`) serves `interchange/contract` only — the generated schema rules everywhere else; the drift gate and content-key walk are the two sites where the schema is data, not a type.
 - 64-bit fields are `bigint` via `protoInt64`; `Timestamp`/`Duration` cross through the `timestamp*`/`duration*` bridges; `Any` payloads unpack only with a `Registry`. Keep `readUnknownFields`/`ignoreUnknownFields` on for forward-compat.
 - Pick the codec by the C# mint format — proto here, CBOR/MessagePack/JSON-Patch at the sibling pages; one `codec` page, one codec.
 
 [RAIL_LAW]:
 - Package: `@bufbuild/protobuf`
-- Owns: the schema-first proto runtime (`create`/`clone`/`merge`/`equals`/`isMessage`), the binary + JSON codec (`fromBinary`/`toBinary`/`fromJson`/`toJson` + size-delimited streaming), the descriptor reflection engine (`createFileRegistry`/`reflect`/`buildPath`), extensions + options, the well-known types (`Any`/`Timestamp`/`Duration`/`Struct`), and the low-level `./wire` primitives (`BinaryReader`/`BinaryWriter`/`WireType`/base64)
+- Owns: the schema-first proto runtime (`create`/`clone`/`merge`/`equals`/`isMessage`), the binary + JSON + text codec (`fromBinary`/`toBinary`/`fromJson`/`toJson`/`toText`/`fromText` + size-delimited streaming under `readMaxBytes`), the descriptor reflection engine (`createFileRegistry`/`reflect`/`buildPath`), extensions + options, the well-known types (`Any`/`Timestamp`/`Duration`/`Struct`), and the low-level `./wire` primitives (`BinaryReader`/`BinaryWriter`/`WireType`/base64)
 - Accept: generated `GenMessage` schemas from `@bufbuild/protoc-gen-es`, a C#-minted `FileDescriptorSet` decoded through `FileDescriptorSetSchema`, `protoInt64` for 64-bit fields, a `Registry` for `Any`/extension resolution, `Effect.try`/`Stream` wrapping for the error and streaming rails, `Schema.decode` as the domain boundary above the wire shape
 - Reject: `new`-ing a message or calling a method on it (schema-first only), a hand-authored proto shape, a decoded proto reused as a domain model, `Number`-coercing a 64-bit field, a second content-hash over anything but `toBinary` canonical bytes, reflection where a generated schema exists, and reaching for CBOR/MessagePack/JSON-Patch on a proto family

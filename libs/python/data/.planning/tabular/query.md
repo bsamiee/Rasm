@@ -347,7 +347,7 @@ class QueryEngine(Struct, frozen=True):
         return Ok(Bench.run(f"query.{spec.tag}", lambda: anyio.run(self.run, spec), mode=selected, rounds=rounds, warmup=warmup))
 
     @beartype(conf=FAULT_CONF)
-    async def run(self, spec: QuerySpec) -> "RuntimeRail[pa.Table]":  # noqa: PLR0911
+    async def run(self, spec: QuerySpec) -> "RuntimeRail[pa.Table]":  # ruff:ignore[too-many-return-statements]
         match spec:
             case QuerySpec(tag="sql", sql=(text, gate)):
                 return await self._local("sql", lambda: self._duckdb(lambda con: con.sql(gate.transpile(text) if gate else text)))

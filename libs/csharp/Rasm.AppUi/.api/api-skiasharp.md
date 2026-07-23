@@ -230,35 +230,38 @@
 
 [PAINT_PIPELINE_ENTRYPOINTS]: shader, filter, effect, and runtime-SkSL construction
 
-| [INDEX] | [SURFACE]                                        | [ROOT]            | [CALL]                                            |
-| :-----: | :----------------------------------------------- | :---------------- | :------------------------------------------------ |
-|  [01]   | `Shader` / `ColorFilter` / `ImageFilter`         | `SKPaint`         | settable pipeline slots composed per draw         |
-|  [02]   | `MaskFilter` / `PathEffect`                      | `SKPaint`         | settable pipeline slots composed per draw         |
-|  [03]   | `BlendMode` / `Style` / `StrokeWidth`            | `SKPaint`         | composition/stroke state                          |
-|  [04]   | `StrokeCap` / `IsAntialias`                      | `SKPaint`         | stroke/rasterization state                        |
-|  [05]   | `GetFillPath`                                    | `SKPaint`         | `(SKPath src, SKPath dst)` resolves the outline   |
-|  [06]   | `CreateLinearGradient`                           | `SKShader`        | `(start, end, SKColor[], SKShaderTileMode)`       |
-|  [07]   | `CreateLinearGradient`                           | `SKShader`        | `SKColorF[]` + `SKColorSpace` wide-gamut overload |
-|  [08]   | `CreateRadialGradient` / `CreateSweepGradient`   | `SKShader`        | radial/sweep gradients                            |
-|  [09]   | `CreateTwoPointConicalGradient`                  | `SKShader`        | two-point conical gradient                        |
-|  [10]   | `CreatePerlinNoiseFractalNoise`                  | `SKShader`        | procedural fractal noise                          |
-|  [11]   | `CreatePerlinNoiseTurbulence`                    | `SKShader`        | procedural turbulence                             |
-|  [12]   | `CreateImage` / `CreateBitmap` / `CreatePicture` | `SKShader`        | sampled sources with `SKSamplingOptions`          |
-|  [13]   | `CreateBlend` / `CreateCompose`                  | `SKShader`        | shader algebra                                    |
-|  [14]   | `CreateColorFilter` / `CreateLocalMatrix`        | `SKShader`        | filter/local-matrix composition                   |
-|  [15]   | `CreateDash` / `CreateTrim` / `CreateCorner`     | `SKPathEffect`    | stroke geometry effects                           |
-|  [16]   | `CreateDiscrete` / `CreateSum` / `CreateCompose` | `SKPathEffect`    | stroke geometry effects                           |
-|  [17]   | `CreateBlur` / `CreateClip` / `CreateGamma`      | `SKMaskFilter`    | coverage-mask effects, including soft glow        |
-|  [18]   | `CreateColorMatrix` / `CreateBlendMode`          | `SKColorFilter`   | color transforms                                  |
-|  [19]   | `CreateLighting` / `CreateHighContrast`          | `SKColorFilter`   | color transforms                                  |
-|  [20]   | `CreateLumaColor` / `CreateTable` / `CreateLerp` | `SKColorFilter`   | color transforms                                  |
-|  [21]   | `CreateCompose` / `CreateMatrix`                 | `SKImageFilter`   | image-filter DAG nodes                            |
-|  [22]   | `CreateImage` / `CreatePicture` / `CreateTile`   | `SKImageFilter`   | image-filter DAG nodes                            |
-|  [23]   | `CreateShader` / `CreateColorFilter`             | `SKRuntimeEffect` | `(string sksl, out string errors)` compile        |
-|  [24]   | `CreateBlender`                                  | `SKRuntimeEffect` | `(string sksl, out string errors)` compile        |
-|  [25]   | `BuildShader` / `BuildColorFilter`               | `SKRuntimeEffect` | returns builders for uniform/child binding        |
-|  [26]   | `BuildBlender`                                   | `SKRuntimeEffect` | returns a builder for uniform/child binding       |
-|  [27]   | `Uniforms` / `Children`                          | `SKRuntimeEffect` | declared names for binding                        |
+| [INDEX] | [SURFACE]                                        | [ROOT]            | [CALL]                                                           |
+| :-----: | :----------------------------------------------- | :---------------- | :--------------------------------------------------------------- |
+|  [01]   | `Shader` / `ColorFilter` / `ImageFilter`         | `SKPaint`         | settable pipeline slots composed per draw                        |
+|  [02]   | `MaskFilter` / `PathEffect`                      | `SKPaint`         | settable pipeline slots composed per draw                        |
+|  [03]   | `BlendMode` / `Style` / `StrokeWidth`            | `SKPaint`         | composition/stroke state                                         |
+|  [04]   | `StrokeCap` / `IsAntialias`                      | `SKPaint`         | stroke/rasterization state                                       |
+|  [05]   | `GetFillPath`                                    | `SKPaint`         | `(SKPath src, SKPath dst)` resolves the outline                  |
+|  [06]   | `GetFastBounds`                                  | `SKPaint`         | `(SKRect, out SKRect) -> bool` quick-reject cull                 |
+|  [07]   | `CreateLinearGradient`                           | `SKShader`        | `(start, end, SKColor[], SKShaderTileMode)`                      |
+|  [08]   | `CreateLinearGradient`                           | `SKShader`        | `SKColorF[]` + `SKColorSpace` wide-gamut overload                |
+|  [09]   | `CreateRadialGradient` / `CreateSweepGradient`   | `SKShader`        | radial/sweep gradients                                           |
+|  [10]   | `CreateTwoPointConicalGradient`                  | `SKShader`        | two-point conical gradient                                       |
+|  [11]   | `CreatePerlinNoiseFractalNoise`                  | `SKShader`        | procedural fractal noise                                         |
+|  [12]   | `CreatePerlinNoiseTurbulence`                    | `SKShader`        | procedural turbulence                                            |
+|  [13]   | `CreateImage` / `CreateBitmap` / `CreatePicture` | `SKShader`        | sampled sources with `SKSamplingOptions`                         |
+|  [14]   | `CreateBlend` / `CreateCompose`                  | `SKShader`        | shader algebra                                                   |
+|  [15]   | `CreateColorFilter` / `CreateLocalMatrix`        | `SKShader`        | filter/local-matrix composition                                  |
+|  [16]   | `CreateDash` / `CreateTrim` / `CreateCorner`     | `SKPathEffect`    | stroke geometry effects                                          |
+|  [17]   | `CreateDiscrete` / `CreateSum` / `CreateCompose` | `SKPathEffect`    | stroke geometry effects                                          |
+|  [18]   | `CreateBlur` / `CreateClip` / `CreateGamma`      | `SKMaskFilter`    | coverage-mask effects, including soft glow                       |
+|  [19]   | `CreateColorMatrix` / `CreateBlendMode`          | `SKColorFilter`   | color transforms                                                 |
+|  [20]   | `CreateLighting` / `CreateHighContrast`          | `SKColorFilter`   | color transforms                                                 |
+|  [21]   | `CreateLumaColor` / `CreateTable` / `CreateLerp` | `SKColorFilter`   | color transforms                                                 |
+|  [22]   | `CreateOverdraw`                                 | `SKColorFilter`   | `(ReadOnlySpan<SKColor>)` overdraw-count heatmap                 |
+|  [23]   | `CreateCompose` / `CreateMatrix`                 | `SKImageFilter`   | image-filter DAG nodes                                           |
+|  [24]   | `CreateImage` / `CreatePicture` / `CreateTile`   | `SKImageFilter`   | image-filter DAG nodes                                           |
+|  [25]   | `CreateCrop` / `CreateEmpty`                     | `SKImageFilter`   | `(SKRect, SKShaderTileMode, SKImageFilter?)` / `()` crop / empty |
+|  [26]   | `CreateShader` / `CreateColorFilter`             | `SKRuntimeEffect` | `(string sksl, out string errors)` compile                       |
+|  [27]   | `CreateBlender`                                  | `SKRuntimeEffect` | `(string sksl, out string errors)` compile                       |
+|  [28]   | `BuildShader` / `BuildColorFilter`               | `SKRuntimeEffect` | returns builders for uniform/child binding                       |
+|  [29]   | `BuildBlender`                                   | `SKRuntimeEffect` | returns a builder for uniform/child binding                      |
+|  [30]   | `Uniforms` / `Children`                          | `SKRuntimeEffect` | declared names for binding                                       |
 
 [GPU_ENTRYPOINTS]: backend context creation and frame submission
 
@@ -278,7 +281,7 @@
 
 [TOPOLOGY]:
 - Every render, capture, drafting, and evidence op draws through an `SKCanvas` — leased from the Avalonia backend on the live path, allocated from a raster or GPU `SKSurface` off it.
-- Every `SKObject` (`SKSurface`/`SKImage`/`SKBitmap`/`SKCodec`/`SKData`/`GRContext`/`SKStream`) is one lifecycle-scoped disposable joining a managed binding to its unmanaged `libSkiaSharp` handle, freed by `using` or explicit `Dispose`.
+- Every `SKObject` (`SKSurface`/`SKImage`/`SKBitmap`/`SKCodec`/`SKData`/`GRContext`/`SKStream`) is one lifecycle-scoped disposable joining a managed binding to its unmanaged `libSkiaSharp` handle, freed by `using` or explicit `Dispose`; `SKSurface.Canvas` yields a surface-owned cached `SKCanvas` — stable across reads, never disposed by the caller.
 - One `SKPaint` composes the whole effect pipeline: a shadowed, tone-mapped, gradient-filled draw sets `Shader`/`MaskFilter`/`ColorFilter`/`BlendMode` on one paint and draws once through `SaveLayer(in SKCanvasSaveLayerRec)`.
 
 [STACKING]:
@@ -297,4 +300,4 @@
 - Package: `SkiaSharp`
 - Owns: raster and 2D-vector drawing, offscreen and GPU surfaces, animated codecs, picture recording, paged-document export, color-managed spaces, the shader/filter/effect/runtime-SkSL pipeline, and the GPU backend contexts
 - Accept: custom visuals draw through a leased `SKCanvas`; effects compose onto one `SKPaint`; text shapes through HarfBuzz; capture emits deterministic `SKImage`/`SKData` evidence
-- Reject: GDI public vocabulary; a parallel render backend bypassing the Avalonia lease; per-effect draw fan-out where one paint composes the pipeline; resample quality via `SKFilterQuality` where `SKSamplingOptions` owns it
+- Reject: GDI public vocabulary; a parallel render backend bypassing the Avalonia lease; per-effect draw fan-out where one paint composes the pipeline; a per-draw resample knob where `SKSamplingOptions` owns filter/mipmap/cubic selection

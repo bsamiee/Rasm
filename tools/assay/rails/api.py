@@ -10,13 +10,18 @@ import hashlib
 import re
 from typing import assert_never, ClassVar, override, TYPE_CHECKING
 
-from cyclopts.types import PositiveInt  # noqa: TC002  # Cyclopts evaluates Param dataclass annotations at runtime.
+from cyclopts.types import PositiveInt  # ruff:ignore[typing-only-third-party-import]  # Cyclopts evaluates Param dataclass annotations at runtime.
 from expression import Error, Ok, Result
 import msgspec
 
-from tools.assay.composition.settings import AssaySettings  # noqa: TC001  # beartype resolves these types at runtime in @checked signatures
-from tools.assay.composition.store import ArtifactScope, ArtifactStore  # noqa: TC001  # beartype resolves these at runtime in @checked signatures
-from tools.assay.core.exec import Executor  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
+from tools.assay.composition.settings import (
+    AssaySettings,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves these types at runtime in @checked signatures
+)
+from tools.assay.composition.store import (  # ruff:ignore[typing-only-first-party-import]  # beartype resolves these at runtime in @checked signatures
+    ArtifactScope,
+    ArtifactStore,
+)
+from tools.assay.core.exec import Executor  # ruff:ignore[typing-only-first-party-import]  # beartype resolves the executor-port annotation at runtime
 from tools.assay.core.model import (
     ApiResolution,
     ApiSource,
@@ -29,7 +34,7 @@ from tools.assay.core.model import (
     Fault,
     Match,
     RailStatus,
-    Report,  # noqa: TC001  # unconditional: beartype @checked resolves the -> Result[Report, Fault] forward-ref under PEP 649
+    Report,  # ruff:ignore[typing-only-first-party-import]  # unconditional: beartype @checked resolves the -> Result[Report, Fault] forward-ref under PEP 649
     RESULT_CAP,
     SourceKind,
     SymbolShape,
@@ -42,12 +47,12 @@ from tools.assay.oracle import (
     host_sources,
     NAME_CAP as _NAME_CAP,
     nuget_source,
-    Oracle,  # noqa: TC001  # beartype resolves the adapter-port annotation at runtime
+    Oracle,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves the adapter-port annotation at runtime
     oracle_for,
     package_owner_index,
     packages,
     PATH_KINDS as _PATH_KINDS,
-    PathKind as _PathKind,  # noqa: TC001  # Cyclopts evaluates the ApiParams.kind annotation at runtime
+    PathKind as _PathKind,  # ruff:ignore[typing-only-first-party-import]  # Cyclopts evaluates the ApiParams.kind annotation at runtime
     probe_ilspy,
     pydist_inventory_sources,
     rank_candidates,
@@ -55,9 +60,9 @@ from tools.assay.oracle import (
     rank_type,
     rhino_app,
     safe_key,
-    Source,  # noqa: TC001  # beartype resolves report-projection annotations at runtime under PEP 649
+    Source,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves report-projection annotations at runtime under PEP 649
     split_arity,
-    Surface,  # noqa: TC001  # beartype resolves report-projection annotations at runtime under PEP 649
+    Surface,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves report-projection annotations at runtime under PEP 649
     to_api_source,
     tsdecl_names,
     tsdecl_source,
@@ -199,7 +204,7 @@ def _artifact(settings: AssaySettings, source: Source, name: str, content: str) 
     return Artifact(id=digest, kind=ArtifactKind.SCOPE, path=str(path), bytes=len(raw), lines=len(content.splitlines()))
 
 
-def _api_detail(  # noqa: PLR0913  # single ApiSurface constructor surface; keyword-only slots prevent positional confusion
+def _api_detail(  # ruff:ignore[too-many-arguments]  # single ApiSurface constructor surface; keyword-only slots prevent positional confusion
     source: Source,
     shape: SymbolShape,
     *,
@@ -724,7 +729,7 @@ def _grep_member_report(settings: AssaySettings, scope: ArtifactScope, orc: Orac
             return msgspec.structs.replace(fold(Claim.API, "query", (done,), detail=detail), artifacts=artifacts, results=results)
 
 
-def _decompile_report(  # noqa: PLR0913, PLR0917  # all slots are structural caller positions shared across C# and INPROC paths
+def _decompile_report(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]  # all slots are structural caller positions shared across C# and INPROC paths
     settings: AssaySettings,
     scope: ArtifactScope,
     orc: Oracle,

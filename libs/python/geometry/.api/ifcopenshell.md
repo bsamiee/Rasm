@@ -1,37 +1,34 @@
 # [PY_GEOMETRY_API_IFCOPENSHELL]
 
-`ifcopenshell` supplies the IFC model and tessellation surface for the geometry ifc rail and is the spine the whole IfcOpenShell-ecosystem worker lane (`ifcpatch`, `ifcdiff`, `ifcclash`, `ifc4d`, `ifc5d`, `ifctester`, `bcf-client`) composes against: an in-memory `file` model, an `entity_instance` wrapper, the `open` polymorphic reader across SPF/sqlite/streamed backends, the `api.run(module.action, file, **kwargs)` verb dispatcher for high-level authoring, the `util` analysis namespace, and the `geom` tessellation daemon that drives IFC parse, query, mutation, and IFC-to-mesh/GLB conversion through OpenCASCADE or CGAL kernels with property, quantity, and relationship analysis. Package owner composes `ifcopenshell.open`, `file.by_type`, `api.run`, and `geom.iterate` into the ifc owner; it never re-implements STEP parsing, the authoring verb table, or BREP tessellation ifcopenshell already owns.
+`ifcopenshell` owns the IFC model and tessellation surface the geometry `ifc` rail binds: an in-memory `file` model over SPF/sqlite/streamed backends, entity authoring through the `ifcopenshell.api.<module>.<action>` usecase namespace, `util` read-side analysis, and the OpenCASCADE/CGAL `geom` tessellation daemon. It is the spine every IfcOpenShell-ecosystem worker composes against. STEP parsing, the authoring usecase vocabulary, and BREP tessellation stay here; no consumer re-implements them.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ifcopenshell`
-- package: `ifcopenshell`
+- package: `ifcopenshell` (LGPL-3.0)
 - import: `import ifcopenshell`
 - owner: `geometry`
 - rail: ifc
-- installed: `0.8.5`
 - entry points: none (library only)
-- capability: IFC2X3/IFC4/IFC4X3 read/write, `api.run` high-level authoring verb dispatch, entity creation and mutation, transactional undo/redo, GUID encode/decode, placement and unit math, schema introspection, OpenCASCADE/CGAL tessellation to verts/faces/materials, parallel whole-model meshing, GLB/OBJ/XML serialization, and selector-grammar element queries
+- capability: IFC2X3/IFC4/IFC4X3 read/write, `ifcopenshell.api.<module>.<action>` authoring dispatch, entity mutation, transactional undo/redo, GUID codec, placement and unit math, schema introspection, OpenCASCADE/CGAL tessellation to verts/faces/materials, parallel whole-model meshing, GLB/OBJ/XML serialization, and selector-grammar element queries
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: model and entity roots
-- rail: ifc
 
-| [INDEX] | [SYMBOL]                | [PACKAGE_ROLE] | [CAPABILITY]                                           |
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]  | [CAPABILITY]                                           |
 | :-----: | :---------------------- | :------------- | :----------------------------------------------------- |
 |  [01]   | `file`                  | model root     | in-memory IFC model with query, mutation, transactions |
 |  [02]   | `entity_instance`       | entity wrapper | attribute/inverse access for one IFC instance          |
 |  [03]   | `sqlite`                | model backend  | sqlite-backed IFC model for large files                |
 |  [04]   | `stream`                | model backend  | streamed SPF model with lazy instance access           |
-|  [05]   | `Error` / `SchemaError` | fault          | parse and schema-resolution failures                   |
+|  [05]   | `Error` / `SchemaError` | exception      | parse and schema-resolution failures                   |
 
 [PUBLIC_TYPE_SCOPE]: tessellation types (`ifcopenshell.geom`)
-- rail: ifc
 
 `geom.create_shape` returns an `Element` whose representation discriminates on output mode into one of the two shape carriers below.
 
-| [INDEX] | [SYMBOL]                   | [PACKAGE_ROLE]     | [CAPABILITY]                                                     |
+| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]      | [CAPABILITY]                                                     |
 | :-----: | :------------------------- | :----------------- | :--------------------------------------------------------------- |
 |  [01]   | `geom.settings`            | tessellation knobs | deflection/units/UV/output mode knob bag                         |
 |  [02]   | `geom.serializer_settings` | serializer knobs   | GLB/OBJ/XML serializer configuration                             |
@@ -44,9 +41,8 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: model open, query, and mutate
-- rail: ifc
 
-`open` returns a `file`, `sqlite`, or `stream` discriminated by `format`/`should_stream`; query rows accept an id, GUID, or type string and return one or many `entity_instance` values. Transaction rollback is `discard_transaction()`/`undo()`; `end_transaction()` takes no `commit=` arg.
+`open` returns a `file`, `sqlite`, or `stream` discriminated by `format`/`should_stream`; query rows accept an id, GUID, or type string and return one or many `entity_instance` values.
 
 | [INDEX] | [SURFACE]                                                   | [CAPABILITY]                                                |
 | :-----: | :---------------------------------------------------------- | :---------------------------------------------------------- |
@@ -70,7 +66,6 @@
 |  [18]   | `file.from_string`                                          | parse a model from an in-memory SPF string (static)         |
 
 [ENTRYPOINT_SCOPE]: tessellation and analysis
-- rail: ifc
 
 Tessellation rows consume a `geom.settings` knob bag and a `geom.GEOMETRY_LIBRARY` kernel selector (`opencascade`/`cgal`/`cgal-simple`/`hybrid-cgal-simple-opencascade`).
 
@@ -84,10 +79,9 @@ Tessellation rows consume a `geom.settings` knob bag and a `geom.GEOMETRY_LIBRAR
 |  [06]   | `guid.new` / `compress` / `expand` / `split` | IFC GUID mint + encode/decode; `compress`/`expand`/`split` positional-only    |
 |  [07]   | `validate.validate`                          | schema-conformance validation (model plus logger)                             |
 
-[ENTRYPOINT_SCOPE]: `api.run` authoring verb dispatch
-- rail: ifc
+[ENTRYPOINT_SCOPE]: authoring usecase dispatch
 
-`ifcopenshell.api.run(usecase_path, ifc_file=None, should_run_listeners=True, **settings)` is the legacy high-level authoring entry: `usecase_path` is a dotted `module.action` name that routes into the `ifcopenshell.api.<module>.<action>` usecase package, `ifc_file` is the target `ifcopenshell.file`, and `**settings` carry the action's typed arguments. It is one polymorphic dispatcher over a closed module/action vocabulary, never a per-verb authoring function family; adding an authoring operation is one dotted usecase name. In release `api.run(usecase_path, ifc_file=None, should_run_listeners=True, **settings)` is deprecated ("This is deprecated and will be removed in a future version. Do not use this function.") and delegates to `ifcopenshell.api.<module>.<action>(ifc_file, should_run_listeners=…, **settings)` directly — the same closed module/action vocabulary, now the canonical contract. Surrounding surface is `api.extract_docs(module, usecase)` (a TWO-arg introspection over a module name plus a usecase name, NOT a single dotted recipe), `api.wrap_usecase(usecase_path, usecase)`, and the `add_pre_listener`/`add_post_listener`/`remove_pre_listener`/`remove_post_listener`/`remove_all_listeners` registration. Ifc owner composes the direct `module.action` callables; the `api.run` row below documents the equivalent dotted vocabulary. Per-usecase keyword names below are decompile-verified against the `0.8.5` source: each usecase takes the `ifc_file` first-positional then its named arguments, and the `products`/`relating_structure`/`relating_object`/`related_objects`/`relating_type` keyword spellings DIFFER per usecase — they are table-driven per row, never a single generic relating keyword.
+`ifcopenshell.api.<module>.<action>(ifc_file, should_run_listeners=True, **settings)` is the high-level authoring surface: `ifc_file` is the target `ifcopenshell.file` and `**settings` carry the action's typed arguments over a closed `module.action` usecase vocabulary. `api.extract_docs(module, usecase)` introspects a usecase's argument contract, and `add_pre_listener`/`add_post_listener`/`remove_pre_listener`/`remove_post_listener`/`remove_all_listeners` register mutation hooks. Each usecase takes `ifc_file` first-positional then its named arguments.
 
 | [INDEX] | [USECASE]                                                                                        | [CAPABILITY]                          |
 | :-----: | :----------------------------------------------------------------------------------------------- | :------------------------------------ |
@@ -108,7 +102,6 @@ Tessellation rows consume a `geom.settings` knob bag and a `geom.GEOMETRY_LIBRAR
 |  [15]   | `cost.calculate_cost_item_resource_value(file, cost_item)`                                       | roll resource base costs              |
 
 [ENTRYPOINT_SCOPE]: `util` analysis namespace
-- rail: ifc
 
 `ifcopenshell.util` is the read-side analysis namespace over a `file`/`entity_instance`; each submodule owns one query concern and returns `entity_instance` values, dicts, or numpy matrices, never a parallel model.
 
@@ -127,19 +120,31 @@ Tessellation rows consume a `geom.settings` knob bag and a `geom.GEOMETRY_LIBRAR
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[IFC_TESSELLATION]:
-- import: `import ifcopenshell` at boundary scope only; module-level import is banned by the manifest import policy.
-- model axis: `ifcopenshell.open` is the polymorphic intake; the backend (`file`, `sqlite`, `stream`) discriminates on `format`/`should_stream`, never a parallel open function per backend. Query routes through `by_id`/`by_guid`/`by_type` on one `file`, never per-key getter families.
-- mutation axis: edits batch under `begin_transaction`/`end_transaction()` (no `commit=` arg) with `undo`/`redo`/`discard_transaction` stepping the stack — a rollback is `discard_transaction()`/`undo()`, never an `end_transaction(commit=False)`. Direct `ifcopenshell.api.<module>.<action>(ifc_file, **kwargs)` callable (with `api.run("module.action", file, **kwargs)` the deprecated dispatcher) is the one high-level authoring surface over the closed `module.action` usecase vocabulary (`root.create_entity`, `attribute.edit_attributes`, `geometry.add_representation`, `unit.add_si_unit`, `pset.add_pset`, `spatial.assign_container`, `aggregate.assign_object`, `material.add_material`, `type.assign_type`, `cost.calculate_cost_item_resource_value`, …), never a per-verb authoring function family; the per-usecase relating keyword is table-driven and DIFFERS per row (decompile-verified: `spatial.assign_container(products, relating_structure)`, `aggregate.assign_object(products, relating_object)`, `type.assign_type(related_objects, relating_type)` — each takes `ifc_file` first-positional), so a caller threading a single generic relating keyword is the deleted form. `file.create_entity`/`add`/`remove` are the primitive low-level verbs underneath it.
-- tessellation axis: one `geom.settings` knob bag (deflection, `iterator-output`, `use-world-coords`, `generate-uvs`, `length-unit`) plus a `geometry_library` kernel feeds `geom.iterate`/`create_shape`; `geom.has_occ` flags OpenCASCADE availability and falls back to CGAL. `geom.create_shape` returns an `Element` whose representation discriminates on output mode: a `TriangulationElement` exposes a `Triangulation` carrying verts/faces/normals/materials, while a `BRepElement` exposes an OCC BRep; the IFC-to-mesh/GLB seam reads the `TriangulationElement` verts/faces/materials.
+[TOPOLOGY]:
+- import: boundary scope only; module-level import is banned by the manifest import policy.
+- model axis: `ifcopenshell.open` is the polymorphic intake — the backend (`file`/`sqlite`/`stream`) discriminates on `format`/`should_stream`, never a per-backend open function. Query routes through `by_id`/`by_guid`/`by_type` on one `file`, never per-key getter families.
+- mutation axis: edits batch under `begin_transaction`/`end_transaction()` (no `commit=` arg), with `undo`/`redo`/`discard_transaction` stepping the stack. High-level authoring is the direct `ifcopenshell.api.<module>.<action>(ifc_file, **settings)` callable over the closed usecase vocabulary; the per-usecase relating keyword differs per row, so a single generic relating keyword is the deleted form. `file.create_entity`/`add`/`remove` are the primitive verbs underneath.
+- tessellation axis: one `geom.settings` knob bag (deflection, `iterator-output`, `use-world-coords`, `generate-uvs`, `length-unit`) and a `geometry_library` kernel feed `geom.iterate`/`create_shape`; `geom.has_occ` flags OpenCASCADE and falls back to CGAL. `TriangulationElement` verts/faces/materials feed the mesh/GLB seam, never the `BRepElement`.
 - analysis axis: `util.element` resolves property sets, containment, and decomposition; `util.selector.filter_elements` runs the selector grammar; results stay `entity_instance` values.
-- evidence: each model op captures schema version, instance count, edited-entity count, and each tessellation captures element count, vertex count, face count, and kernel as an ifc receipt.
-- boundary: ifcopenshell owns IFC parse and tessellation; mesh post-processing routes to `trimesh`, point clouds to `open3d`, glTF authoring to the artifacts owner; live UI stays outside this package.
+- evidence: each model op captures schema version, instance count, and edited-entity count; each tessellation captures element/vertex/face counts and kernel as an ifc receipt.
+- boundary: ifcopenshell owns IFC parse and tessellation; mesh post-processing routes to `trimesh`, point clouds to `open3d`, glTF authoring to the artifacts owner; live UI stays outside.
 
-## [05]-[LOCAL_ADMISSION]
+[STACKING]:
+- `ifcpatch`(`.api/ifcpatch.md`): `ifcpatch.execute` reads and returns the `ifcopenshell.file` model root, applying a named recipe transformation over it.
+- `ifcdiff`(`.api/ifcdiff.md`): `IfcDiff` diffs an `old`/`new` `file` pair across the relationship axis.
+- `ifcclash`(`.api/ifcclash.md`): loads models into `geom.tree` for intersection and clearance clash.
+- `ifc4d`(`.api/ifc4d.md`): builds an `IfcWorkSchedule`/`IfcTask` tree over the model through the authoring usecases.
+- `ifc5d`(`.api/ifc5d.md`): `qto.quantify` writes `IfcElementQuantity` base quantities over the model.
+- `ifctester`(`.api/ifctester.md`): validates a `file` against IDS facets.
+- `ifccsv`(`.api/ifccsv.md`): `util.selector.filter_elements` selects the element set and `util.element` reads its attribute/pset values for tabular export.
+- `bcf-client`(`.api/bcf-client.md`): `file.by_type`/`by_guid` `entity_instance` GUIDs drive BCF viewpoint selection and visibility.
+- `geometry:ifc` owner: composes `ifcopenshell.open`, the `by_id`/`by_guid`/`by_type` query, the direct `ifcopenshell.api.<module>.<action>` authoring callables, and `geom.iterate`/`create_shape` into the ifc rail, capturing an ifc receipt.
+
+[LOCAL_ADMISSION]:
+- `geometry:ifc` owner admits `ifcopenshell.open`, the query/authoring/tessellation surface, and `util` analysis as the ifc rail: a path opens the model, the usecase vocabulary authors it, and `geom` meshes it under a `geometry_library` kernel.
 
 [RAIL_LAW]:
 - Package: `ifcopenshell`
-- Reject: wrapper-renames of `open`/`by_type`/`create_shape`; a per-verb authoring function family over the `api.run` `module.action` row; a hand-rolled STEP parser or BREP tessellator where ifcopenshell is admitted; per-key getter families over `by_id`/`by_guid`/`by_type`; identity minting the runtime owns
-
-[CAPTURE_GAP]:
+- Owns: IFC2X3/IFC4/IFC4X3 parse and serialization, the `ifcopenshell.api` authoring usecase vocabulary, transactional mutation, and OpenCASCADE/CGAL tessellation to verts/faces/materials.
+- Accept: a path or SPF string for `open`; a `geom.settings` knob bag and `geometry_library` kernel for tessellation; the direct usecase callables for authoring, feeding the ifc rail owner.
+- Reject: wrapper-renames of `open`/`by_type`/`create_shape`; a per-verb authoring function family over the usecase vocabulary; a hand-rolled STEP parser or BREP tessellator where ifcopenshell is admitted; per-key getter families over `by_id`/`by_guid`/`by_type`; identity minting the runtime GUID codec owns.

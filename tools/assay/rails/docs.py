@@ -5,29 +5,33 @@ from pathlib import Path, PurePosixPath
 import re
 from typing import TYPE_CHECKING
 
-from expression import Result  # noqa: TC002  # beartype resolves return annotations at import time
+from expression import Result  # ruff:ignore[typing-only-third-party-import]  # beartype resolves return annotations at import time
 from expression.collections import block
 from expression.extra.result import sequence
 import msgspec
 
 from tools.assay.composition.catalog import select
-from tools.assay.composition.settings import AssaySettings  # noqa: TC001  # beartype resolves rail annotations at import time
-from tools.assay.composition.store import ArtifactScope  # noqa: TC001  # beartype resolves rail annotations at import time
-from tools.assay.core.exec import Executor  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
+from tools.assay.composition.settings import (
+    AssaySettings,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves rail annotations at import time
+)
+from tools.assay.composition.store import (
+    ArtifactScope,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves rail annotations at import time
+)
+from tools.assay.core.exec import Executor  # ruff:ignore[typing-only-first-party-import]  # beartype resolves the executor-port annotation at runtime
 from tools.assay.core.model import (
     ArtifactKind,
     BaseParams,
     Check,
     Claim,
-    Completed,  # noqa: TC001  # _findings/_outcomes annotate the ordered fan-out outcomes
-    Fault,  # noqa: TC001  # beartype resolves Result[Report, Fault] under PEP 649 at import time
-    InprocThunk,  # noqa: TC001  # beartype resolves the _planning return annotation at import time
+    Completed,  # ruff:ignore[typing-only-first-party-import]  # _findings/_outcomes annotate the ordered fan-out outcomes
+    Fault,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves Result[Report, Fault] under PEP 649 at import time
+    InprocThunk,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves the _planning return annotation at import time
     Language,
     Match,
     Mode,
     RailStatus,
     receipt,
-    Report,  # noqa: TC001  # beartype resolves Report in return annotations at import time
+    Report,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves Report in return annotations at import time
     Runner,
     ToolArgs,
 )
@@ -101,7 +105,7 @@ _TEMPLATE_LEADER = re.compile(r"^\[[A-Z0-9_]+\]-\[([A-Z|]+)\]:")
 # --- [ERRORS] ---------------------------------------------------------------------------
 
 
-class FaultedPromotion(Exception):  # noqa: N818  # sentinel, not an *Error condition: caught at the registry seam, mapped to Fault
+class FaultedPromotion(Exception):  # ruff:ignore[error-suffix-on-exception-name]  # sentinel, not an *Error condition: caught at the registry seam, mapped to Fault
     """Strict-mode promotion raised before registry fault wrapping."""
 
     def __init__(self) -> None:

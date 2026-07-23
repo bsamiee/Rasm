@@ -7,8 +7,8 @@
 [PACKAGE_SURFACE]: `System.Reactive`
 - package: `System.Reactive` (MIT)
 - assembly: `System.Reactive`
-- target: `net6.0`
-- namespace: `System.Reactive`, `System.Reactive.Linq`, `System.Reactive.Subjects`, `System.Reactive.Concurrency`, `System.Reactive.Disposables`, `System`
+- target: `net8.0`
+- namespace: `System.Reactive`, `System.Reactive.Linq`, `System.Reactive.Subjects`, `System.Reactive.Concurrency`, `System.Reactive.Disposables`, `System.Reactive.Disposables.Fluent`, `System`
 - rail: streams
 
 ## [02]-[PUBLIC_TYPES]
@@ -92,6 +92,7 @@
 |  [08]   | `StartWith` / `Do` / `Materialize` / `Dematerialize` | fold    | seed / side-effect / notify lift |
 |  [09]   | `Throttle` / `Sample`                                | fold    | trailing rate-limit / pulse-gate |
 |  [10]   | `TakeUntil` / `SkipUntil` / `Take` / `Skip`          | fold    | lifecycle window                 |
+|  [11]   | `TakeUntil(CancellationToken)`                       | fold    | token-bounded lifetime window    |
 
 [HOT_STREAM_ENTRYPOINTS]: multicast, connection, and sharing over `Observable`
 
@@ -102,16 +103,21 @@
 |  [03]   | `RefCount`                       | fold     | auto connect/disconnect on subs |
 |  [04]   | `IConnectableObservable.Connect` | instance | start the shared source         |
 
-[SCHEDULING_AND_ERROR_ENTRYPOINTS]: scheduling, fault recovery, and subscription over `Observable`
+[SCHEDULING_AND_ERROR_ENTRYPOINTS]: scheduling, fault recovery, subscription, and disposable scoping over `Observable`
 
-| [INDEX] | [SURFACE]                                                           | [SHAPE] | [CAPABILITY]                      |
-| :-----: | :------------------------------------------------------------------ | :------ | :-------------------------------- |
-|  [01]   | `ObserveOn` / `SubscribeOn`                                         | fold    | observer / subscription marshal   |
-|  [02]   | `Synchronize`                                                       | fold    | serialize concurrent emissions    |
-|  [03]   | `Catch` / `Retry` / `RetryWhen`                                     | fold    | recover / retry / signalled retry |
-|  [04]   | `Timeout`                                                           | fold    | per-emission deadline             |
-|  [05]   | `Finally` / `Using`                                                 | fold    | termination hook / resource scope |
-|  [06]   | `ObservableExtensions.Subscribe(onNext, onError, onCompleted, ct?)` | fold    | terminal subscription             |
+| [INDEX] | [SURFACE]                                                           | [SHAPE]  | [CAPABILITY]                      |
+| :-----: | :------------------------------------------------------------------ | :------- | :-------------------------------- |
+|  [01]   | `ObserveOn` / `SubscribeOn`                                         | fold     | observer / subscription marshal   |
+|  [02]   | `Synchronize`                                                       | fold     | serialize concurrent emissions    |
+|  [03]   | `Catch` / `Retry` / `RetryWhen`                                     | fold     | recover / retry / signalled retry |
+|  [04]   | `ResetExceptionDispatchState`                                       | fold     | reset captured error dispatch     |
+|  [05]   | `Timeout`                                                           | fold     | per-emission deadline             |
+|  [06]   | `Finally` / `Using`                                                 | fold     | termination hook / resource scope |
+|  [07]   | `ObservableExtensions.Subscribe(onNext, onError, onCompleted, ct?)` | fold     | terminal subscription             |
+|  [08]   | `DisposableExtensions.DisposeWith(CompositeDisposable) -> T`        | instance | tie a disposable into a scope      |
+
+- `Observable.ResetExceptionDispatchState`: clears the captured `ExceptionDispatchInfo` so a resubscribed source re-throws a fresh fault rather than replaying the stale, stack-corrupted original.
+- `DisposableExtensions.DisposeWith`: `System.Reactive.Disposables.Fluent`; returns the item so an assignment chains, registering it into the `CompositeDisposable` for group teardown.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -120,10 +126,10 @@
 
 [STACKING]:
 - `api-dynamicdata.md`(`.api/api-dynamicdata.md`): a change-set feed composes DynamicData `Filter`/`Transform`/`Page`/`Virtualise` into `IObservable<IChangeSet<T,TKey>>`, then drops to `ObserveOn(SynchronizationContextScheduler)` once at the bind edge; the `Throttle`/`Sample` cadence gate is a `System.Reactive` operator over that stream.
-- `api-reactiveui.md`(`.api/api-reactiveui.md`): `ReactiveCommand`/`WhenAnyValue` emit `IObservable<T>` the command table folds with `Merge`/`CombineLatest`/`WithLatestFrom`, and `CanExecute` is a `DistinctUntilChanged` over a derived predicate stream; the `WhenActivated`/`DisposeWith` activation helpers are ReactiveUI surface over this package's `CompositeDisposable`.
+- `api-reactiveui.md`(`.api/api-reactiveui.md`): `ReactiveCommand`/`WhenAnyValue` emit `IObservable<T>` the command table folds with `Merge`/`CombineLatest`/`WithLatestFrom`, and `CanExecute` is a `DistinctUntilChanged` over a derived predicate stream; ReactiveUI's `WhenActivated` supplies the `CompositeDisposable` that this package's native `DisposeWith` (`System.Reactive.Disposables.Fluent`) — or ReactiveUI's own same-shape `DisposeWith` — ties each binding and `ToProperty` subscription into.
 - `api-avalonia.md`(`.api/api-avalonia.md`): property streams arrive through `AvaloniaObjectExtensions.GetObservable`/`GetPropertyChangedObservable`/`GetBindingObservable`, fold through `Throttle`/`Select`/`DistinctUntilChanged` here, and subscribe under a `CompositeDisposable` torn down with the view.
 - Hot fan-out is one shared source: a sensor, feed, or timer driving multiple tiles is `Publish().RefCount()` (or `Replay(n).RefCount()` for late subscribers needing the last `n`), so the source runs once and `Connect` lifetime tracks the subscriber count.
-- Async boundaries cross through `FromAsync` (a per-subscription Task), `FromEventPattern` (a host event), and the await terminal (`RunAsync`/`GetAwaiter`/`AsyncSubject.GetAwaiter`); the AppHost effect rails consume a terminal value through `await observable`.
+- Async boundaries cross through `FromAsync` (a per-subscription Task), `FromEventPattern` (a host event), and the await terminal (`RunAsync`/`GetAwaiter`/`AsyncSubject.GetAwaiter`); the AppHost effect rails consume a terminal value through `await observable`, and `TakeUntil(CancellationToken)` bounds a stream's lifetime to a host `CancellationToken` (pairing with `CancellationDisposable`) so a cooperative-cancellation token tears a pipeline down at its edge.
 - Schedulers compose one marshal hop: `SynchronizationContextScheduler` carries the captured Avalonia context at the bind-edge `ObserveOn`, `TaskPoolScheduler`/`EventLoopScheduler` carry off-thread work before that hop, and `VirtualTimeScheduler`/`HistoricalScheduler` drive deterministic time so a `Throttle`/`Timer` pipeline verifies without wall-clock flake.
 - Subjects are imperative ingress only at a boundary: `BehaviorSubject<T>` holds current cross-filter/brush state (the dashboards `FilterState` spine), `ReplaySubject` buffers pre-subscription emissions, and `Subject` is a raw multicast hub.
 

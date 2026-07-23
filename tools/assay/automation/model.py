@@ -9,7 +9,10 @@ from typing import Annotated, assert_never
 
 from msgspec import json, Meta, Raw
 
-from tools.assay.core.model import Base, Claim  # noqa: TC001  # runtime msgspec field; deferring breaks struct resolution
+from tools.assay.core.model import (  # ruff:ignore[typing-only-first-party-import]  # runtime msgspec field; deferring breaks struct resolution
+    Base,
+    Claim,
+)
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -88,7 +91,7 @@ class Program(Base, frozen=True, tag_field="kind", tag="program", forbid_unknown
 class Sequence(Base, frozen=True, tag_field="kind", tag="sequence", forbid_unknown_fields=True):
     """Ordered actions evaluated by the engine."""
 
-    actions: tuple["Action", ...]  # noqa: UP037  # forward ref; Action alias defined after Sequence
+    actions: tuple["Action", ...]  # ruff:ignore[quoted-annotation]  # forward ref; Action alias defined after Sequence
 
 
 class Debounce(Base, frozen=True, tag_field="kind", tag="debounce", forbid_unknown_fields=True):
@@ -98,7 +101,7 @@ class Debounce(Base, frozen=True, tag_field="kind", tag="debounce", forbid_unkno
     the quiescence duration in milliseconds.
     """
 
-    action: "Action"  # noqa: UP037  # forward ref; Action alias defined after Debounce
+    action: "Action"  # ruff:ignore[quoted-annotation]  # forward ref; Action alias defined after Debounce
     window_ms: int = 500
     edge: Edge = Edge.TRAILING
 
@@ -116,7 +119,7 @@ _ENCODE = json.Encoder(order="deterministic")
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def describe(node: Trigger | Action) -> str:  # noqa: PLR0911
+def describe(node: Trigger | Action) -> str:  # ruff:ignore[too-many-return-statements]
     """Render a compact label for automation telemetry.
 
     Returns:

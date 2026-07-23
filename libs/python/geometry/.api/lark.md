@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_LARK]
 
-`lark` supplies the parsing-grammar engine the IfcOpenShell selector and IDS grammars are built on: an EBNF-defined `Lark` parser producing a `Tree`/`Token` parse forest, an Earley/LALR/CYK algorithm selector with contextual/dynamic lexing, a `Transformer`/`Visitor`/`Interpreter` family of tree folds, an `on_error` recovery hook plus `parse_interactive` for incremental parsing, grammar composition via `%import`, parser caching/serialization, and `ast_utils.create_transformer` for typed-AST construction. The geometry ifc-analysis owner authors a typed selector/filter-query grammar that turns a free-form element-selection string into a validated structured query before it reaches `util.selector.filter_elements`, rather than passing an unvalidated string straight through. Pure-Python, core.
+`lark` owns the EBNF grammar engine: a `Lark` parser folds a grammar string into a `Tree`/`Token` parse forest under an Earley/LALR/CYK algorithm and auto/basic/contextual/dynamic lexer, and a `Transformer`/`Visitor`/`Interpreter` family folds that forest to a typed value. Geometry's ifc-analysis owner authors a typed selector/filter-query grammar over it, validating a free-form element-selection string into a structured query before it reaches `ifcopenshell.util.selector.filter_elements`. Pure-Python, core.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,9 +9,8 @@
 - import: `import lark`
 - owner: `geometry`
 - rail: ifc-analysis / selector-grammar
-- installed: `1.3.1`
-- entry points: none (library); the standalone-generator CLI is `python -m lark.tools.standalone`
-- capability: EBNF/context-free grammar definition, Earley/LALR(1)/CYK parsing, auto/basic/contextual/dynamic lexing, ambiguity resolution (`resolve`/`explicit`/`forest`), `Tree`/`Token` parse forest with position propagation, `Transformer`/`Visitor`/`Interpreter` tree folds, error-recovery `on_error` hook and `parse_interactive`, grammar composition (`%import`/`open_from_package`), parser save/load caching, standalone-parser generation, and typed-AST construction
+- entry points: none (library); the standalone-parser CLI is `python -m lark.tools.standalone`
+- capability: EBNF grammar definition, Earley/LALR/CYK parsing, contextual/dynamic lexing, `Transformer`/`Visitor`/`Interpreter` tree folds, typed-AST construction, error-recovery parsing, grammar composition, and parser caching/standalone generation
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -48,7 +47,7 @@
 [ENTRYPOINT_SCOPE]: grammar construction
 - rail: selector-grammar
 
-`Lark` options drive the closed query vocabulary: `parser`(`earley`/`lalr`/`cyk`), `lexer`(`auto`/`basic`/`contextual`/`dynamic`), `ambiguity`(`resolve`/`explicit`/`forest`), `start`, `transformer` (inline fold during parse, LALR only), `postlex`, `propagate_positions`, `maybe_placeholders`, `keep_all_tokens`, `regex`, `g_regex_flags`, `cache`, `import_paths`. The `Lark(grammar, *, **options)` constructor and the `open`/`open_from_package` factories take that full option roster; `[01]` defaults are `start='start'`, `parser='earley'`, `lexer='auto'`, `ambiguity='auto'`.
+`Lark` and the `open`/`open_from_package` factories carry the option family: `parser`(`earley`/`lalr`/`cyk`), `lexer`(`auto`/`basic`/`contextual`/`dynamic`), `ambiguity`(`resolve`/`explicit`/`forest`), `start`, `transformer` (inline fold during parse, LALR only), `postlex`, `propagate_positions`, `maybe_placeholders`, `keep_all_tokens`, `regex`, `cache`, `import_paths`.
 
 | [INDEX] | [SURFACE]                                                           | [CALL_SHAPE]          | [CAPABILITY]                            |
 | :-----: | :------------------------------------------------------------------ | :-------------------- | :-------------------------------------- |
@@ -84,23 +83,21 @@
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[GRAMMAR_TOPOLOGY]:
+[TOPOLOGY]:
 - import: `import lark` at boundary scope only; module-level import is banned by the manifest import policy.
-- grammar axis: one EBNF grammar string defines the selector/filter and IDS vocabulary; the parser algorithm (`earley` for ambiguous grammars, `lalr` for fast unambiguous ones, `cyk` rarely) and the lexer (`contextual` only with LALR, `dynamic` only with Earley) are constructor knobs, never a parser-per-algorithm family. The grammar is the closed query vocabulary the validated query traces to; `%import` and `open_from_package` compose shared sub-grammars rather than duplicating terminal definitions.
-- fold axis: a `Transformer` subclass folds the `Tree` to a typed query value bottom-up, one method per grammar rule — the table-driven dispatch over rule names, never an enumerated tree-walk. `@v_args(inline=True)` binds rule children as positional arguments; `meta=True` threads position info; `Discard` drops a node from the result. Deep trees use `Transformer_NonRecursive` to avoid recursion limits; a typed AST uses `ast_utils.create_transformer` over a module of `Ast`/`AsList` dataclasses so the fold target is a typed node hierarchy, not bare tuples. For LALR grammars the `transformer=` option folds inline during the parse pass (one traversal, not parse-then-transform).
-- failure axis: a malformed query raises `UnexpectedInput` (`UnexpectedToken`/`UnexpectedCharacters`/`UnexpectedEOF`) at the parse boundary, lifted into the runtime fault rail once — so an invalid selector is rejected before it reaches `filter_elements`, never a silent empty match. A malformed grammar raises `GrammarError` at `Lark(...)` construction (build-time, not parse-time). `parse(text, on_error=...)` supplies an error-recovery callback for partial-parse/diagnostic collection without aborting on the first error.
-- ambiguity axis: `ambiguity='resolve'` (default) picks the simplest derivation; `'explicit'` returns an `_ambig`-wrapped forest that `CollapseAmbiguities` expands to candidate trees; `'forest'` returns the shared packed parse forest root — the fold owner chooses one mode, never branches per derivation by hand.
+- grammar axis: one EBNF grammar string defines the selector/filter vocabulary and is the closed query the validated result traces to; the algorithm (`earley` for ambiguous grammars, `lalr` for fast unambiguous ones) and the lexer (`contextual` only with LALR, `dynamic` only with Earley) are constructor knobs, never a parser-per-algorithm family, and `%import`/`open_from_package` compose shared sub-grammars rather than duplicating terminals.
+- fold axis: a `Transformer` subclass folds the `Tree` to a typed query value bottom-up, one method per grammar rule — table-driven rule dispatch, never an enumerated tree-walk. `@v_args(inline=True)` binds children positionally, `meta=True` threads positions, `Discard` drops a node; deep trees use `Transformer_NonRecursive`; a typed AST uses `ast_utils.create_transformer` over a module of `Ast`/`AsList` dataclasses. For LALR grammars the `transformer=` option folds inline during the parse pass.
+- failure axis: a malformed query raises `UnexpectedInput` (`UnexpectedToken`/`UnexpectedCharacters`/`UnexpectedEOF`) at the parse boundary, lifted onto the runtime fault rail once, so an invalid selector is rejected before `filter_elements` rather than matching empty. A malformed grammar raises `GrammarError` at construction; `parse(text, on_error=...)` collects partial-parse diagnostics without aborting on the first error.
+- ambiguity axis: the `ambiguity` mode selects one derivation (`resolve`), an `_ambig`-wrapped forest `CollapseAmbiguities` expands (`explicit`), or the shared packed forest root (`forest`); the fold owner chooses one mode, never branches per derivation by hand.
 
-[STACKING_LAW]:
-- the parsed query feeds `ifcopenshell.util.selector.filter_elements` (and the IDS facet vocabulary): `lark` owns turning the string into a validated `Tree`, the `Transformer` folds it into the typed selector/filter structure, and that structure — not the raw string — is what reaches IfcOpenShell. A hand-rolled regex/split query parser is the deleted form where the grammar owns the structure.
-- a built parser serializes via `save`/`load` (or the `cache=` option) so the grammar is compiled once and the boundary reuses the parser handle across queries rather than rebuilding it per call; the standalone generator (`python -m lark.tools.standalone`) emits a dependency-free parser module when the grammar must ship without `lark` at runtime.
+[STACKING]:
+- `ifcopenshell`(`.api/ifcopenshell.md`): the folded typed query feeds `util.selector.filter_elements` — `lark` owns the string→validated `Tree`, the `Transformer` folds it into the typed selector structure, and that structure, not the raw string, is what reaches IfcOpenShell.
+- within-lib: a built parser serializes via `save`/`load` (or the `cache=` option) so the grammar compiles once and the boundary reuses the parser handle across queries; `python -m lark.tools.standalone` emits a dependency-free parser module when a grammar must ship without `lark` at runtime.
 
 ## [05]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `lark`
 - Owns: EBNF grammar definition, Earley/LALR/CYK parsing into a `Tree`/`Token` forest, contextual/dynamic lexing, `Transformer`/`Visitor`/`Interpreter` tree folds, typed-AST construction, error-recovery parsing, and parser caching/standalone generation
-- Accept: a selector/filter-query and IDS grammar plus a query string, feeding the validated structured query into the ifc-analysis selector arm
+- Accept: a selector/filter-query grammar plus a query string, feeding the validated structured query into the ifc-analysis selector arm
 - Reject: a hand-rolled regex/split query parser where the grammar owns the structure; a parser-per-algorithm function family over the `parser` knob; a parse-then-transform two-pass where the LALR `transformer=` option folds inline; an enumerated tree-walk where the `Transformer` rule-dispatch owns the fold
-
-[CAPTURE_GAP]:

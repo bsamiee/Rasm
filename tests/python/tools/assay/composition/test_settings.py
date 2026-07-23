@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 import tempfile
 from typing import Final, override, Self, TYPE_CHECKING
-import uuid  # noqa: TC003  # runtime: Hypothesis draws uuid.UUID values for the state-machine store identity
+import uuid  # ruff:ignore[typing-only-standard-library-import]  # runtime: Hypothesis draws uuid.UUID values for the state-machine store identity
 
 from dirty_equals import IsPartialDict, IsStr, IsTuple
 import fsspec
@@ -21,7 +21,7 @@ from upath import UPath
 import zstandard
 
 from tests.python._testkit.spec import assert_none, assert_some, idempotent, model_based, roundtrip, validity_matrix
-from tests.python.tools.assay.kit import (  # noqa: TC001  # runtime use: instantiated in fixture bodies, not annotation-only
+from tests.python.tools.assay.kit import (  # ruff:ignore[typing-only-first-party-import]  # runtime use: instantiated in fixture bodies, not annotation-only
     AssayHarness,
     make_history_envelope,
     WIRE_ENCODER,
@@ -123,7 +123,7 @@ class _StubWriter(contextlib.AbstractContextManager[object]):
                 pass  # Failed writes must leave the target path untouched.
 
 
-class _FsStub(ArtifactFileSystem):  # noqa: PLR0904  # full structural protocol requires all 10 override surfaces
+class _FsStub(ArtifactFileSystem):  # ruff:ignore[too-many-public-methods]  # full structural protocol requires all 10 override surfaces
     """Parametrizable fsspec stub: keyed-dict find detail, configurable info, optional rm race."""
 
     def __init__(self, *, info_payload: dict[str, object] | None = None, rm_raises: bool = False, write_fails: bool = False) -> None:
@@ -233,7 +233,7 @@ def test_mtime_from_info_numeric_identity(v: float) -> None:
     """mtime_from_info returns float(v) for finite non-negative float/int mtime — exact within float()'s own promotion."""
     result = mtime_from_info({"mtime": v})
     assert isinstance(result, float)
-    assert result == float(v)  # noqa: RUF069  # float() int→float promotion is deterministic; precision loss past 2^53 is the contract
+    assert result == float(v)  # ruff:ignore[float-equality-comparison]  # float() int→float promotion is deterministic; precision loss past 2^53 is the contract
     target(float(v), label="mtime_magnitude")  # biases Hypothesis toward 2^53+1, where int→float first loses precision
 
 
@@ -465,7 +465,7 @@ def test_settings_offload_derivation_matrix(
     ],
     ids=["file", "sftp", "s3", "gs", "gcs", "unknown"],
 )
-def test_backend_capability_table_owns_admission(protocol: str, reachable: bool, admitted: bool, strategy: PullStrategy) -> None:  # noqa: FBT001  # parametrize columns: pytest injects the expectation flags positionally by name
+def test_backend_capability_table_owns_admission(protocol: str, reachable: bool, admitted: bool, strategy: PullStrategy) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]  # parametrize columns: pytest injects the expectation flags positionally by name
     """One capability table owns reachability, admission, and pull strategy per backend protocol.
 
     Re-admitting a cloud shared store is one row's admitted=True flip; the table never widens into a dispatch chain.
@@ -609,13 +609,13 @@ def test_assay_settings_store_honors_protocol_and_forwards_opts(assay_root: Assa
 
     The memory branch rejects None-protocol fallback to local FS; auto_mkdir=False pins option forwarding onto the constructed backend.
     """
-    from fsspec.implementations.local import LocalFileSystem  # noqa: PLC0415  # backend-class identity probe is the only fsspec-impl import here
-    from fsspec.implementations.memory import MemoryFileSystem  # noqa: PLC0415  # paired backend identity probe
+    from fsspec.implementations.local import LocalFileSystem  # ruff:ignore[import-outside-top-level]  # backend-class identity probe
+    from fsspec.implementations.memory import MemoryFileSystem  # ruff:ignore[import-outside-top-level]  # paired backend identity probe
 
     mem = assay_root.settings.store(protocol="memory", root=f"store-proto/{assay_root.settings.run_id}")
     assert isinstance(mem.fs, MemoryFileSystem)
     mem.write_bytes(b"x", "probe.bin")
-    from pathlib import Path as _Path  # noqa: PLC0415  # on-disk leak probe: a None-protocol mutant would land bytes on the real local FS
+    from pathlib import Path as _Path  # ruff:ignore[import-outside-top-level]  # leak probe: a None-protocol mutant writes the real FS
 
     assert not _Path(str(assay_root.settings.store_root / "probe.bin")).exists(), "memory store must not write to the local file backend"
 
@@ -633,7 +633,7 @@ def test_artifact_scope_open_computes_path_lazily_per_claim(claim: Claim, assay_
 
     Segment checks catch claim swaps; the no-empty-dir assertion catches eager store.ensure.
     """
-    from pathlib import Path as _Path  # noqa: PLC0415  # local: filesystem-existence probe is the only on-disk check in this module
+    from pathlib import Path as _Path  # ruff:ignore[import-outside-top-level]  # filesystem-existence probe, the only on-disk check here
 
     scope = ArtifactScope.open(assay_root.settings, claim)
     assert isinstance(scope, ArtifactScope)
@@ -649,7 +649,7 @@ def test_artifact_scope_ensure_materializes_through_store_boundary(assay_root: A
 
     The returned path is scope.path, repeated calls are idempotent, and escaped backend paths are rejected before raw fsspec access.
     """
-    from pathlib import Path as _Path  # noqa: PLC0415  # local: filesystem-existence probe
+    from pathlib import Path as _Path  # ruff:ignore[import-outside-top-level]  # local: filesystem-existence probe
 
     scope = ArtifactScope.open(assay_root.settings, Claim.DOCS)
     assert not _Path(scope.path).exists(), "open() leaves the scope dir absent"
@@ -1013,7 +1013,7 @@ def test_artifact_store_resolve_artifacts_matrix(mem_store: ArtifactStore, monke
 
 def test_artifact_store_load_history_option_projection(mem_store: ArtifactStore) -> None:
     """load_history projects to Some(Envelope) for a stored run and None for an absent run (oracle laws)."""
-    from expression import Option  # noqa: PLC0415  # oracle-only; top-level import would surface expression as a module-level dependency
+    from expression import Option  # ruff:ignore[import-outside-top-level]  # oracle-only; module-top would surface expression as a dependency
 
     mem_store.write_history("run-opt", WIRE_ENCODER.encode(make_history_envelope("run-opt")))
     assert_some(Option.of_optional(mem_store.load_history("run-opt")))

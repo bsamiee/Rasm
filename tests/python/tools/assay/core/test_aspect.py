@@ -7,16 +7,18 @@ status/event stamping, and recent-event ring projection.
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from collections import deque
-from collections.abc import Callable  # noqa: TC003  # runtime annotation
+from collections.abc import Callable  # ruff:ignore[typing-only-standard-library-import]  # runtime annotation
 from typing import Annotated
 
 from beartype.roar import BeartypeCallHintViolation
 from beartype.vale import Is
-from expression import Error, Ok, Result  # noqa: TC002  # Hom rail annotation
+from expression import Error, Ok, Result  # ruff:ignore[typing-only-third-party-import]  # Hom rail annotation
 from expression.collections import block
 from hypothesis import given, strategies as st
 from opentelemetry import trace
-from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter  # noqa: TC002  # collection-time fixture annotation
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
+    InMemorySpanExporter,  # ruff:ignore[typing-only-third-party-import]  # collection-time fixture annotation
+)
 import pytest
 from structlog.contextvars import get_contextvars
 
@@ -26,9 +28,9 @@ from tools.assay.core.aspect import (
     checked,
     checked_call,
     compose,
-    Hom,  # noqa: TC001  # runtime woven-Hom annotation
+    Hom,  # ruff:ignore[typing-only-first-party-import]  # runtime woven-Hom annotation
     Inversion,
-    Layer,  # noqa: TC001  # runtime layer-tuple annotation
+    Layer,  # ruff:ignore[typing-only-first-party-import]  # runtime layer-tuple annotation
     logged,
     RING,  # ring seam seeded directly for projection laws
     ring_processor,
@@ -36,7 +38,7 @@ from tools.assay.core.aspect import (
     Slot,
     traced,
 )
-from tools.assay.core.model import Claim, Fault, RailStatus, Report  # noqa: TC001  # Hom rail annotation
+from tools.assay.core.model import Claim, Fault, RailStatus, Report  # ruff:ignore[typing-only-first-party-import]  # Hom rail annotation
 from tools.assay.diagnostics import fold
 
 
@@ -121,7 +123,7 @@ def test_compose_is_assemble_through_ok() -> None:
 
 def test_assemble_accepts_ascending_rejects_inversion() -> None:
     """Layer order is valid iff slots are non-descending; any regression yields ``Error(Inversion)``."""
-    ident: Callable[[Hom[[object], Report]], Hom[[object], Report]] = lambda h: h  # noqa: E731
+    ident: Callable[[Hom[[object], Report]], Hom[[object], Report]] = lambda h: h  # ruff:ignore[lambda-assignment]
     cases: tuple[tuple[str, tuple[Slot, ...], bool], ...] = (
         ("checked-then-logged", (Slot.checked, Slot.logged), True),
         ("checked-then-traced", (Slot.checked, Slot.traced), True),
@@ -144,7 +146,7 @@ def test_assemble_accepts_ascending_rejects_inversion() -> None:
 
 def test_compose_raises_typeerror_carrying_inversion() -> None:
     """``compose`` surfaces a slot regression as ``TypeError`` whose arg is the originating ``Inversion``."""
-    ident: Callable[[Hom[[object], Report]], Hom[[object], Report]] = lambda h: h  # noqa: E731
+    ident: Callable[[Hom[[object], Report]], Hom[[object], Report]] = lambda h: h  # ruff:ignore[lambda-assignment]
     log: Layer[[object], Report] = logged(event="x", keys=_keys)
     lower: Layer[[object], Report] = (Slot.checked, ident)
     with pytest.raises(TypeError, match=r"Slot\.logged") as raised:
@@ -173,7 +175,7 @@ def test_checked_call_is_idempotent_under_repeat() -> None:
 
     identity(
         checked_call(typed_rail),
-        lambda f: checked_call(f),  # noqa: PLW0108  # the lambda monomorphizes checked_call's ParamSpec so identity[T] unifies under ty
+        lambda f: checked_call(f),  # ruff:ignore[unnecessary-lambda]  # the lambda monomorphizes checked_call's ParamSpec so identity[T] unifies under ty
         eq=lambda a, b: getattr(a, "_assay_ids", frozenset()) == getattr(b, "_assay_ids", frozenset()) and a(0) == b(0),
     )
 

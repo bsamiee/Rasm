@@ -13,7 +13,7 @@ import pytest
 from tests.python._testkit.spec import roundtrip
 from tests.python._testkit.strategies import resolve
 from tools.assay.automation.model import (
-    Action,  # noqa: TC001  # @given resolves parameter annotations at decoration time
+    Action,  # ruff:ignore[typing-only-first-party-import]  # @given resolves parameter annotations at decoration time
     ACTION_DECODER,
     Debounce,
     decode,
@@ -24,7 +24,7 @@ from tools.assay.automation.model import (
     Rail,
     Schedule,
     Sequence,
-    Trigger,  # noqa: TC001  # @given resolves parameter annotations at decoration time
+    Trigger,  # ruff:ignore[typing-only-first-party-import]  # @given resolves parameter annotations at decoration time
     TRIGGER_DECODER,
     Watch,
 )

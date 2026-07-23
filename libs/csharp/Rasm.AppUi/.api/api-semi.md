@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_SEMI]
 
-`Semi.Avalonia` is the active design-token theme layer (assembly `Semi.Avalonia.dll`) over the retained `Avalonia.Themes.Fluent` floor: a `SemiTheme : Styles` dictionary plus the `Tokens.Variables`/`Tokens.Palette.Light`/`Tokens.Palette.Dark` resource sets that re-skin the entire admitted control roster to ONE token system. It is overwhelmingly XAML/AXAML — the value is the resource-dictionary token vocabulary (colors, brushes, corner radii, thicknesses, font sizes, the per-control template overrides) keyed onto Avalonia `ThemeVariant`s, NOT a code API. The per-control skin packages (`Semi.Avalonia.DataGrid`/`.ColorPicker`/`.Dock`/`.AvaloniaEdit`) extend the same token system to `DataGrid`, `ColorPicker`, `Dock.Avalonia` (`api-dock.md`), and `AvaloniaEdit` (`api-avaloniaedit.md`); `Irihi.Ursa.Themes.Semi`'s `UrsaSemiTheme : Styles` (`api-ursa.md`) extends it to the Ursa control suite under the SAME `https://irihi.tech/semi` (`semi:`) xmlns this package publishes, so the canonical `Application.Styles` chain is `FluentTheme` floor -> `<semi:SemiTheme/>` -> the per-control `Semi.Avalonia.*` skins -> `<semi:UrsaSemiTheme/>`. This is the upstream of the `Wacton.Unicolour` (`libs/csharp/.api/api-unicolour.md`, shared tier) OKLCH pipeline that materializes the `ControlIntent` + `Theme/tokens` vocabulary — the Semi token keys are the named slots the OKLCH ramp writes, and the theme never displaces the Fluent-templated `bodong.PropertyGrid`/`DialogHost`.
+`Semi.Avalonia` is the design-token theme layer over the `Avalonia.Themes.Fluent` floor: a `SemiTheme : Styles` dictionary with the `Tokens.Variables`/`Tokens.Palette.*` resource sets re-skinning the admitted control roster to ONE token system keyed onto `ThemeVariant`s — resource-dictionary vocabulary, never a code API. Skin packages and `UrsaSemiTheme` extend the same tokens under one `semi:` xmlns. Semi token keys are the slots the `Wacton.Unicolour` OKLCH ramp writes; the Fluent-templated `bodong.PropertyGrid`/`DialogHost` stay untouched.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -10,7 +10,7 @@
 - floor: `net10.0` consumer (`lib/net10.0/Semi.Avalonia.dll`); multi-targets net8.0 / net10.0, `net10.0` bound
 - assembly: `Semi.Avalonia`
 - surface: compiled-AXAML resource dictionaries — `SemiTheme` (the `Styles` entry added via `<semi:SemiTheme/>`), `Tokens.Variables`, `Tokens.Palette.Light`, `Tokens.Palette.Dark`, `SemiPopupAnimations`, `Icons`, the `Locale.*` resource set, and three converters (`ItemConverter`, `PositionToAngleConverter`, `PlacementToRenderTransformOriginConverter`). No domain CODE surface
-- depends: `Avalonia` (12.x), `Irihi.Avalonia.Shared` / `Irihi.Avalonia.Shared.Contracts` (shared primitive closure with Ursa)
+- depends: `Avalonia`, `Irihi.Avalonia.Shared` / `Irihi.Avalonia.Shared.Contracts` (shared primitive closure with Ursa)
 - rail: theme
 
 [PACKAGE_SURFACE]: `Semi.Avalonia.DataGrid` / `Semi.Avalonia.ColorPicker` / `Semi.Avalonia.Dock` / `Semi.Avalonia.AvaloniaEdit`
@@ -82,7 +82,7 @@
 |  [03]   | `OverrideLocaleResources`   | `SemiTheme`            | replace app- or element-scoped strings    |
 |  [04]   | `RegisterFollowSystemTheme` | `ApplicationExtension` | bind `ActualThemeVariant` to the OS theme |
 
-[LOCALE_SURFACE]: The nullable `CultureInfo` property and `Locale="zh_CN"` attribute select a built-in culture.
+[LOCALE_SURFACE]: a nullable `CultureInfo` property and the `Locale="zh_CN"` attribute select a built-in culture.
 
 [LOCALE_OVERRIDE_OVERLOADS]: `OverrideLocaleResources(Application, CultureInfo?)` and `OverrideLocaleResources(StyledElement, CultureInfo?)` replace localized strings at their respective scopes.
 
@@ -92,11 +92,11 @@
 
 [THEME_LAW]:
 - Package: `Semi.Avalonia` (+ the per-control skins)
-- Owns: the active design-token theme over the retained `Avalonia.Themes.Fluent` base — `SemiTheme` (control templates + token dictionary), `Tokens.Variables`/`Tokens.Palette.Light`/`Tokens.Palette.Dark` (the named slots), `SemiPopupAnimations`, `Icons`, the built-in `Locale.*` strings, and the four extra `ThemeVariant`s (Aquatic/Desert/Dusk/NightSky). The skin packages extend the same tokens to `DataGrid`, `ColorPicker`, `Dock.Avalonia` (`api-dock.md`), and `AvaloniaEdit` (`api-avaloniaedit.md`).
+- Owns: the active design-token theme over the retained `Avalonia.Themes.Fluent` base — `SemiTheme` (control templates + token dictionary), `Tokens.Variables`/`Tokens.Palette.Light`/`Tokens.Palette.Dark` (the named slots), `SemiPopupAnimations`, `Icons`, the built-in `Locale.*` strings, and the four extra `ThemeVariant`s (Aquatic/Desert/Dusk/NightSky). Skin packages extend the same tokens to `DataGrid`, `ColorPicker`, `Dock.Avalonia` (`api-dock.md`), and `AvaloniaEdit` (`api-avaloniaedit.md`).
 - Accept: the single `Application.Styles` chain is ordered `FluentTheme` floor -> `<semi:SemiTheme/>` -> the per-control `Semi.Avalonia.*` skins -> `Irihi.Ursa.Themes.Semi`'s `<semi:UrsaSemiTheme/>` (`api-ursa.md` `THEME_BRIDGE_LAW` carries the same chain), every Ursa/skin entry strictly BELOW `SemiTheme` so its tokens resolve; the `Theme/tokens` owner reads/writes the Semi token slots, and `RegisterFollowSystemTheme` binds the active variant to the OS where the host exposes it.
 - Reject: hand-authoring a parallel control-template set or a second token dictionary; loading a per-control skin (`Semi.Avalonia.Dock`/`.DataGrid`/`.ColorPicker`/`.AvaloniaEdit`) or `UrsaSemiTheme` WITHOUT `SemiTheme`, or ahead of it in the chain (the tokens resolve to nothing); using the obsolete `Ursa.Themes.Semi.Legacy.SemiTheme` (`u-semi:`) in place of `UrsaSemiTheme`; displacing the Fluent-templated `bodong.PropertyGrid`/`DialogHost`, which intentionally keep the Fluent base.
 
 [TOKEN_PIPELINE_LAW]:
-- The Semi token keys (`Tokens.Variables` + `Tokens.Palette.Light`/`Dark`) are the named slots the `Wacton.Unicolour` (`libs/csharp/.api/api-unicolour.md`, shared tier) OKLCH pipeline writes: the `ControlIntent` + `Theme/tokens` vocabulary materializes an OKLCH ramp into the Semi color/brush slots, so a derived or branded variant is produced by overriding the palette slots, never by re-templating controls.
+- Semi token keys (`Tokens.Variables` + `Tokens.Palette.Light`/`Dark`) are the named slots the `Wacton.Unicolour` (`libs/csharp/.api/api-unicolour.md`, shared tier) OKLCH pipeline writes: the `ControlIntent` + `Theme/tokens` vocabulary materializes an OKLCH ramp into the Semi color/brush slots, so a derived or branded variant is produced by overriding the palette slots, never by re-templating controls.
 - Accept: the OKLCH pipeline overrides `ThemeVariant`-scoped palette resources; a new brand theme is a fifth `ThemeVariant` whose palette the Unicolour ramp populates, parallel to Aquatic/Desert/Dusk/NightSky.
 - Reject: computing control colors outside the Unicolour OKLCH owner; encoding raw hex literals in product XAML where a Semi token slot exists; duplicating the palette across packages instead of overriding the shared slots.

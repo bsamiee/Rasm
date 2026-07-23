@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_TRIMESH]
 
-`trimesh` is the triangle-mesh modeling, conditioning, and exchange surface for the geometry rail: a `Trimesh` body with a lazily-cached topology/mass/spatial-index algebra, a `Scene` transform graph of named geometries, a `PointCloud`, the polymorphic `load` reader dispatching on resolved `file_type` across every `available_formats()` entry, primitive `creation` constructors over `shapely` polygons, `manifold3d`-backed boolean CSG and VHACD convex decomposition, ICP/Procrustes/non-rigid `registration`, Laplacian/Taubin/Humphrey `smoothing` over a `scipy.sparse` Laplacian, quadric decimation and subdivision `remesh`, hole/normal/winding `repair`, signed-distance/closest-point `proximity`, area-weighted `sample`, ray casting, FCL collision, and voxelization. The owner composes `load`, `Trimesh.export`, and the operation modules into the mesh owner; it never re-implements the IO codecs, the `manifold3d` CSG kernel, the `scipy` sparse-Laplacian smoothing solve, the `rtree` triangle index, the convex-hull (`scipy.spatial.ConvexHull`), or the `fcl` collision engine that trimesh already binds.
+`trimesh` owns the geometry branch's triangle-mesh modeling, conditioning, and exchange rail: a `Trimesh` body with a content-hash-keyed lazy property algebra, a `Scene` transform graph, a `PointCloud`, polymorphic `load`/`export` IO, `creation` primitives from `shapely` profiles, and operation modules spanning CSG, registration, conditioning, remesh, proximity, sampling, and collision. Mesh owners compose these surfaces and never re-implement trimesh's own bindings — the IO codecs, the `manifold3d` CSG kernel, the `scipy` sparse-Laplacian solve, the `rtree` index, and `fcl` collision.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,30 +9,24 @@
 - import: `import trimesh`
 - owner: `geometry`
 - rail: mesh
-- version: `4.12.2`
-- entry points: none (library only)
-- capability: mesh/scene/path IO across `obj`/`ply`/`stl`/`off`/`glb`/`gltf`/`dae`/`3mf`/`xyz`/`dxf`/`svg`; primitive creation from extents and `shapely` polygons; convex hull, minimum bounding sphere/cylinder/box, and VHACD approximate convex decomposition; manifold boolean CSG; rigid ICP/Procrustes and non-rigid Amberg/Sumner registration; Laplacian/Taubin/Humphrey/mutable-diffusion smoothing; quadric decimation and Loop/midpoint subdivision remesh; hole fill, normal/winding/inversion fix, and vertex stitch repair; signed-distance, closest-point, thickness, and max-tangent-sphere proximity; area-weighted and blue-noise surface sampling plus volume sampling; ray casting; FCL collision and minimum-distance; and voxelization with morphology
+- capability: mesh/scene/path IO across `obj`/`ply`/`stl`/`off`/`glb`/`gltf`/`dae`/`3mf`/`xyz`/`dxf`/`svg`; primitive creation from extents and `shapely` polygons, convex hull and VHACD decomposition, minimum bounds, manifold boolean CSG, rigid and non-rigid registration, Laplacian/Taubin/Humphrey smoothing, quadric decimation and subdivision remesh, hole/normal/winding repair, signed-distance/closest-point/thickness proximity, surface/volume sampling, ray casting, FCL collision, and voxelization
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: geometry roots (`trimesh`)
-- rail: mesh
 
-All four share the `parent.Geometry` transform/bounds/identifier contract: `apply_transform`/`apply_obb`/`apply_scale`/`apply_translation`, `bounds`/`extents`/`centroid`, `bounding_box`/`bounding_box_oriented`/`bounding_sphere`/`bounding_cylinder`/`bounding_primitive`, `convex_hull`, `identifier_hash`, `copy`, `export`. Dispatch on the runtime type, never a parallel reader family.
+Every geometry root shares the `parent.Geometry` transform/bounds/identifier contract (`apply_transform`, `apply_obb`, `convex_hull`, `identifier_hash`, `copy`, `export`); dispatch on the runtime type, never a parallel reader family.
 
 | [INDEX] | [SYMBOL]     | [TYPE_FAMILY] | [CAPABILITY]                                                               |
 | :-----: | :----------- | :------------ | :------------------------------------------------------------------------- |
-|  [01]   | `Trimesh`    | triangle mesh | `vertices`/`faces` plus cached topology, mass, boolean, repair, proximity  |
+|  [01]   | `Trimesh`    | triangle mesh | `vertices`/`faces` with cached topology, mass, boolean, repair, proximity  |
 |  [02]   | `Scene`      | scene graph   | named geometries on a transform tree; `dump`/`to_mesh`/`export`/`subscene` |
 |  [03]   | `PointCloud` | point cloud   | `vertices`/`colors`/`weights` with `kdtree`, `query`, `convex_hull`        |
 |  [04]   | `Geometry`   | geometry root | abstract base unifying transform/bounds/identifier across the three        |
 
 [PUBLIC_TYPE_SCOPE]: cached mesh property algebra (`Trimesh`)
-- rail: mesh
 
-`Trimesh` exposes derived geometry as `caching`-backed lazy properties keyed off a `vertices`/`faces` content hash; any `vertices`/`faces` mutation through `update_vertices`/`update_faces`/`process` invalidates the dependent cache. These are properties, never methods and never parallel subclasses.
-
-The [PROPERTY_FAMILY] leads each [CAPABILITY] cell, folding the grouping into the description.
+`Trimesh` derives geometry as `caching`-backed lazy properties keyed on a `vertices`/`faces` content hash; `update_vertices`/`update_faces`/`process` invalidate the dependent cache. These are properties, never methods or parallel subclasses, and each row folds one property family into its `[CAPABILITY]` cell.
 
 | [INDEX] | [PROPERTY]                                                                        | [CAPABILITY]                                         |
 | :-----: | :-------------------------------------------------------------------------------- | :--------------------------------------------------- |
@@ -52,9 +46,8 @@ The [PROPERTY_FAMILY] leads each [CAPABILITY] cell, folding the grouping into th
 |  [14]   | `identifier` / `identifier_hash`                                                  | rotation/scale-invariant identifier + hash for dedup |
 
 [PUBLIC_TYPE_SCOPE]: spatial-query owners (`ProximityQuery`, `RayMeshIntersector`, `CollisionManager`, `VoxelGrid`)
-- rail: mesh
 
-Persistent query objects amortize index construction across many queries; prefer them over the one-shot module functions when batching against one fixed mesh. Each owner's method roster is the keyed list below.
+Persistent query objects amortize index construction across many queries; batch against one fixed mesh through them rather than the one-shot module functions. Each owner's method roster is the keyed list below.
 
 | [INDEX] | [SYMBOL]                              | [CONSTRUCTOR]                                                 |
 | :-----: | :------------------------------------ | :------------------------------------------------------------ |
@@ -64,7 +57,7 @@ Persistent query objects amortize index construction across many queries; prefer
 |  [04]   | `collision.CollisionManager`          | `CollisionManager()` then `add_object(name, mesh, transform)` |
 |  [05]   | `voxel.VoxelGrid`                     | `mesh.voxelized(pitch, method='subdivide')`                   |
 
-- [01]-[PROXIMITY_QUERY]: `signed_distance(points)`, `on_surface(points)->(pts,dist,tid)`, `vertex(points)`.
+- [01]-[PROXIMITY_QUERY]: `signed_distance(points)`, `on_surface(points) -> (pts, dist, tid)`, `vertex(points)`.
 - [02]-[RAY]: `intersects_location`, `intersects_id`, `intersects_first`, `intersects_any`, `contains_points`.
 - [03]-[RAY_EMBREE]: Embree-accelerated mirror of the same intersector contract.
 - [04]-[COLLISION]: `in_collision_internal/single/other`, `min_distance_internal/single/other`, `set_transform`.
@@ -73,29 +66,23 @@ Persistent query objects amortize index construction across many queries; prefer
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: polymorphic IO (`load`, `export`, `available_formats`)
-- rail: mesh
 
-`load` resolves `file_type` from the explicit argument or the path/extension, dispatches across every registered codec, and returns the runtime-appropriate `Geometry` (a `Trimesh`, `Scene`, or `Path`); `force=` collapses ambiguous results to one kind. `export` is the symmetric writer over the same format set, returning `bytes`/`str`/`dict` when `file_obj=None`. The format is always an argument, never a `load_obj`/`load_ply`/`export_stl` function family.
+`load` resolves `file_type` from the argument or path extension over a `file_obj` path/bytes/stream, dispatches across every registered codec, and returns the runtime `Geometry` (`Trimesh`, `Scene`, or `Path`); `force=` collapses ambiguous results to one kind. `export` is the symmetric writer over the same format set, returning `bytes`/`str`/`dict` when `file_obj=None`. Format is an argument, never a `load_<fmt>`/`export_<fmt>` family. Carry: `load`/`load_scene` share `(file_obj, file_type=None, resolver=None, allow_remote=False)`; `load` adds `force=None`, `load_scene` adds `metadata=None`.
 
-The `trimesh.` prefix is elided; `load` and `load_scene` share `(file_obj, file_type=None, resolver=None, allow_remote=False)` with `load` adding `force=None` and `load_scene` adding `metadata=None`, and the `-> Type` returns match the CAPABILITY.
-
-| [INDEX] | [SURFACE]                                     | [CALL_SHAPE]             | [CAPABILITY]                                            |
-| :-----: | :-------------------------------------------- | :----------------------- | :------------------------------------------------------ |
-|  [01]   | `load(..., force=None)`                       | path/bytes/stream + type | polymorphic mesh/scene/path read returning `Geometry`   |
-|  [02]   | `load_mesh(*args, **kwargs)`                  | path + type              | force a single `Trimesh` result (concatenates a scene)  |
-|  [03]   | `load_scene(..., metadata=None)`              | path + type              | force a `Scene` result preserving the transform graph   |
-|  [04]   | `load_path(file_obj, file_type=None)`         | path + type              | force a `Path2D`/`Path3D` (dxf/svg) result              |
-|  [05]   | `load_remote(url, **kwargs)`                  | URL                      | fetch + load a remote asset (requires `allow_remote`)   |
-|  [06]   | `available_formats()`                         | none                     | enumerate every registered load/export extension        |
-|  [07]   | `mesh.export(file_obj=None, file_type=None)`  | path/stream + type       | write a mesh to any registered format; bytes if no sink |
-|  [08]   | `scene.export(file_obj=None, file_type=None)` | type (e.g. `'glb'`)      | write a scene with transforms (glb/gltf/3mf/dae)        |
+| [INDEX] | [SURFACE]                                     | [CAPABILITY]                                            |
+| :-----: | :-------------------------------------------- | :------------------------------------------------------ |
+|  [01]   | `load(..., force=None)`                       | polymorphic mesh/scene/path read returning `Geometry`   |
+|  [02]   | `load_mesh(*args, **kwargs)`                  | force a single `Trimesh` result (concatenates a scene)  |
+|  [03]   | `load_scene(..., metadata=None)`              | force a `Scene` result preserving the transform graph   |
+|  [04]   | `load_path(file_obj, file_type=None)`         | force a `Path2D`/`Path3D` (dxf/svg) result              |
+|  [05]   | `load_remote(url, **kwargs)`                  | fetch + load a remote asset (requires `allow_remote`)   |
+|  [06]   | `available_formats()`                         | enumerate every registered load/export extension        |
+|  [07]   | `mesh.export(file_obj=None, file_type=None)`  | write a mesh to any registered format; bytes if no sink |
+|  [08]   | `scene.export(file_obj=None, file_type=None)` | write a scene with transforms (glb/gltf/3mf/dae)        |
 
 [ENTRYPOINT_SCOPE]: primitive creation (`creation`)
-- rail: mesh
 
-`creation.*` are static constructors returning a `Trimesh`; all accept an optional `transform` 4x4 and forward `**kwargs` to the `Trimesh` constructor. `extrude_polygon`/`revolve`/`sweep_polygon`/`triangulate_polygon` consume a `shapely` `Polygon`/`LineString`, making `creation` the bridge from the planar `shapely` rail into solids.
-
-The `creation.` prefix is elided and each input shape reads off the signature.
+`creation.*` are static constructors returning a `Trimesh`, each taking an optional 4x4 `transform` and forwarding `**kwargs` to the constructor. `extrude_polygon`/`revolve`/`sweep_polygon`/`triangulate_polygon` consume a `shapely` `Polygon`/`LineString`, bridging the planar `shapely` rail into solids.
 
 | [INDEX] | [SURFACE]                                                                 | [CAPABILITY]                                  |
 | :-----: | :------------------------------------------------------------------------ | :-------------------------------------------- |
@@ -114,11 +101,8 @@ The `creation.` prefix is elided and each input shape reads off the signature.
 |  [13]   | `axis(...)` / `camera_marker(camera, ...)`                                | debug axis tripod / camera frustum marker     |
 
 [ENTRYPOINT_SCOPE]: boolean CSG, decomposition, repair, smoothing, remesh
-- rail: mesh
 
-Boolean rows route to the `manifold3d` engine (`engine='manifold'` default, `'blender'` fallback) and return a new `Trimesh`; `check_volume=True` rejects non-positive-volume operands. `boolean.reduce_cascade` folds an n-ary operation pairwise to balance the manifold tree. Smoothing rows mutate `mesh.vertices` in place and return the same `Trimesh`; `repair.fill_holes`/`fix_*` return `bool` success and mutate in place. `remesh.*` and `subdivide_to_size` return new vertex/face arrays or a new `Trimesh`.
-
-The `mesh.*` method mirrors are elided; `filter_laplacian` adds `implicit_time_integration=False, volume_constraint=True`, and the input shape reads off each signature.
+Boolean rows route to `manifold3d` (`engine='manifold'` default, `'blender'` fallback) and return a new `Trimesh`; `check_volume=True` rejects non-positive-volume operands, and `reduce_cascade` folds n-ary input pairwise to balance the manifold tree. Smoothing rows mutate `mesh.vertices` in place and return the same `Trimesh`; `repair.fill_holes`/`fix_*` return `bool` and mutate in place; `remesh.*`/`subdivide_to_size` return new vertex/face arrays or a new `Trimesh`. `filter_laplacian` carries `implicit_time_integration=False, volume_constraint=True`.
 
 | [INDEX] | [SURFACE]                                                                          | [CAPABILITY]                                      |
 | :-----: | :--------------------------------------------------------------------------------- | :------------------------------------------------ |
@@ -146,11 +130,8 @@ The `mesh.*` method mirrors are elided; `filter_laplacian` adds `implicit_time_i
 |  [22]   | `remesh.subdivide_loop(vertices, faces, iterations=None)`                          | Loop subdivision                                  |
 
 [ENTRYPOINT_SCOPE]: registration, proximity, sampling, section, split
-- rail: mesh
 
-Registration rows return a transform plus diagnostics; `mesh_other` returns `(matrix, cost)`, `icp`/`procrustes` return `(matrix, transformed, cost)`. Proximity rows return distances/points; `closest_point` and `ProximityQuery.on_surface` return the `(points, distances, triangle_id)` 3-tuple. `sample_surface`/`_even` return `(points, face_index)`. `section`/`section_multiplane` return a `Path3D`/`Path2D`; `slice_plane` returns a clipped `Trimesh`.
-
-Registration signatures are the keyed list below; the `-> Type` returns the lead states are dropped from the section/slice cells.
+Registration rows return a transform with diagnostics; `mesh_other` returns `(matrix, cost)`, `icp`/`procrustes` return `(matrix, transformed, cost)`. Proximity rows return distances/points; `closest_point` and `ProximityQuery.on_surface` return the `(points, distances, triangle_id)` 3-tuple. `sample_surface`/`_even` return `(points, face_index)`. `section`/`section_multiplane` return a `Path3D`/`Path2D`; `slice_plane` returns a clipped `Trimesh`. Full registration signatures are the keyed list below the table.
 
 | [INDEX] | [SURFACE]                                                                  | [CAPABILITY]                                    |
 | :-----: | :------------------------------------------------------------------------- | :---------------------------------------------- |
@@ -182,9 +163,8 @@ Registration signatures are the keyed list below; the `-> Type` returns the lead
 - [05]-[NRICP_SUMNER]: `registration.nricp_sumner(source_mesh, target_geometry, ..., face_pairs_type='vertex')`.
 
 [ENTRYPOINT_SCOPE]: bounds, curvature, collision, ray, voxel, poses
-- rail: mesh
 
-The analysis and spatial surfaces the dense owner composes for measurement, interference, and visibility; the input shape reads off each signature.
+Analysis and spatial surfaces for measurement, interference, and visibility; the input shape reads off each signature.
 
 | [INDEX] | [SURFACE]                                                                            | [CAPABILITY]                                |
 | :-----: | :----------------------------------------------------------------------------------- | :------------------------------------------ |
@@ -209,50 +189,31 @@ The analysis and spatial surfaces the dense owner composes for measurement, inte
 |  [19]   | `mesh.apply_transform(matrix)`                                                       | rigid/affine transform                      |
 |  [20]   | `mesh.apply_scale(factor)`                                                           | scale in place                              |
 
-## [04]-[INTEGRATION_PATTERNS]
+## [04]-[IMPLEMENTATION_LAW]
 
-[STACK_IO_BOUNDARY]: `load`/`export` <-> data mesh codec
-- The geometry owner conditions an in-memory `Trimesh` (`vertices`/`faces` `numpy` arrays) and hands it across the wire to the data tier; `mesh.export(file_type='glb')` returning `bytes` is the only encode path, owned by `data` `MeshPayload` (`rasm.data.spatial.mesh`), not by geometry. The geometry kernel never opens a file handle: it returns the conditioned triangulation, and the data codec owns GLB/3MF/PLY serialization. `available_formats()` is the discriminator a `DatasetKind`-style dispatch reads to route a path to `load` versus a sibling codec.
+[TOPOLOGY]:
+- `import trimesh` at boundary scope only; a module-level import violates the manifest import policy.
+- One `Trimesh` owns `vertices`/`faces` with a `caching` cache of derived geometry keyed on a content hash; mass, topology graphs, normals, curvature, symmetry, and `scipy`/`rtree` spatial indices are lazily cached properties, never parallel subclasses, and `update_vertices`/`update_faces`/`process` invalidate them.
+- `load` dispatches on the resolved `file_type` across `available_formats()` and `export(file_type=...)` writes the same set; the format is an argument, never a `load_<fmt>` family, and geometry returns in-memory triangulations while file encode belongs to the data codec.
+- `boolean.*` and `convex_decomposition` route to `manifold3d`, require watertight operands, and fold n-ary input through `reduce_cascade`; convex hull is `scipy.spatial.ConvexHull` and minimum bounds are `bounds`/`nsphere`.
+- `repair.*` return `bool` success and mutate in place; `smoothing.filter_*` mutate `vertices` over a shared `scipy.sparse` Laplacian and return the same `Trimesh`; `process=True` on construction runs the merge-and-validate pass.
+- `ProximityQuery`, `RayMeshIntersector` (Embree when `ray.has_embree`), `CollisionManager` (FCL), and `VoxelGrid` are persistent query owners amortizing index construction over one fixed mesh.
+- Each op captures a mesh receipt: `load` carries format and vertex/face count with `is_watertight`/`is_winding_consistent`; boolean/decomposition/registration carry the operation, input counts, result validity, and the transform and cost; `mass_properties` carries `MassProperties`.
 
-[STACK_SHAPELY_TO_SOLID]: `shapely` planar -> `creation` solid
-- `creation.extrude_polygon`/`revolve`/`sweep_polygon`/`triangulate_polygon` consume a `shapely` `Polygon`/`LineString` directly. The dense rail composes the `shapely` planar-operation owner (offset, buffer, boolean) to produce a clean profile, then lifts it to a solid through one `creation` call, with `triangulate_polygon(engine='triangle')` selecting the meshing backend. `Trimesh.section(...)` closes the loop back to a `Path3D` whose `.polygons_full` are `shapely` polygons, so section -> planar-op -> re-extrude is a single rail.
+[STACKING]:
+- data mesh codec (`rasm.data.spatial.mesh`): `mesh.export(file_type='glb') -> bytes` is the only encode path, owned by `MeshPayload`; geometry returns the conditioned triangulation and the data codec owns GLB/3MF/PLY serialization, so the kernel never opens a file handle.
+- `manifold3d`(`.api/manifold3d.md`): `boolean.union`/`difference`/`intersection` are the facade over the `Manifold` CSG kernel; an owner needing batched booleans or `+`/`-`/`^` drops to `manifold3d` directly and re-wraps via `Trimesh(vertices=..., faces=...)`, gating on `is_watertight` before the call.
+- `open3d`(`.api/open3d.md`)/`small_gicp`(`.api/small-gicp.md`)/`kiss-matcher`(`.api/kiss-matcher.md`): trimesh owns mesh-mesh rigid (`mesh_other`/`icp`/`procrustes`) and non-rigid (`nricp_amberg`/`nricp_sumner`) alignment; point-cloud global registration and fine GICP route to those engines, and every backend's 4x4 transform feeds the same `apply_transform`.
+- `shapely` planar -> `creation` solid: `creation.extrude_polygon`/`revolve`/`sweep_polygon`/`triangulate_polygon` consume a `shapely` `Polygon`/`LineString`, and `Trimesh.section(...)` closes the loop to a `Path3D` whose `.polygons_full` are `shapely` polygons, so section -> planar-op -> re-extrude is one rail.
+- `scipy.sparse`: `smoothing.laplacian_calculation(pinned_vertices=...)` returns a reusable cotangent/uniform Laplacian; the implicit `filter_laplacian` path solves through `scipy.sparse.linalg.spsolve`, and the operator reuses across `filter_taubin`/`filter_laplacian`/`filter_humphrey` via `laplacian_operator=`.
+- within-lib deviation rail: `ProximityQuery(reference).signed_distance(sample.sample_surface(target, n)[0])` folds a watertight-gated signed-distance distribution into deviation receipt facts, amortizing the `rtree` triangle index across the sample batch.
+- within-lib identity: `Trimesh.identifier_hash`/`Scene.identifier_hash` is a rotation/translation/scale-invariant content hash seeding `ContentIdentity` for memoized boolean/decomposition/registration results.
 
-[STACK_MANIFOLD_CSG]: `boolean` <-> `manifold3d` algebra
-- `boolean.union`/`difference`/`intersection` are the trimesh-side facade over the `manifold3d` CSG kernel; the dense owner that needs the raw `Manifold` algebra (batched booleans, `+`/`-`/`^` operators, warp/refine) drops to `manifold3d` directly and re-wraps via `trimesh.Trimesh(vertices=..., faces=...)`. Boolean operands must be watertight (`is_watertight`); the owner gates on that property before the call and surfaces a typed precondition rather than letting `check_volume` raise inside the kernel. `boolean.reduce_cascade` is the fold for n-ary input, balancing the manifold tree instead of left-folding.
-
-[STACK_SPARSE_SMOOTHING]: `smoothing` <-> `scipy.sparse`
-- `smoothing.laplacian_calculation` returns a reusable `scipy.sparse` cotangent/uniform Laplacian operator; the implicit-integration path of `filter_laplacian` calls `scipy.sparse.linalg.spsolve`. A dense conditioning pipeline computes the operator once with `pinned_vertices=` for feature-preserving boundary constraints, then reuses it across `filter_taubin`/`filter_laplacian`/`filter_humphrey` via the `laplacian_operator=` parameter rather than rebuilding the sparse system per filter.
-
-[STACK_REGISTRATION_HANDOFF]: trimesh `registration` vs `open3d`/`small_gicp`
-- trimesh owns mesh-to-mesh rigid alignment (`mesh_other`, `icp`, `procrustes`) and non-rigid deformation (`nricp_amberg`/`nricp_sumner`); it returns the 4x4 transform that feeds `apply_transform`. Point-cloud global registration (FPFH/FGR/RANSAC) and fine GICP route to `open3d`/`small_gicp`/`kiss-matcher`; the transform those engines return is applied through the same trimesh `apply_transform`, so the registration result is a shared 4x4 matrix the whole rail composes regardless of which backend estimated it.
-
-[STACK_PROXIMITY_RECEIPT]: `proximity`/`sample` <-> deviation evidence
-- The deviation/quality consumers compose `ProximityQuery(reference).signed_distance(sample.sample_surface(target, n)[0])` into one rail: sample the target surface, query signed distance against a watertight reference, fold the distance distribution into deviation receipt facts. `ProximityQuery` amortizes the `rtree` triangle-index build across the sample batch; the one-shot `proximity.closest_point` is the single-query form. The owner gates `reference.is_watertight` before `signed_distance` (the kernel raises otherwise) and lifts the precondition once at the boundary.
-
-[STACK_IDENTITY]: `identifier_hash` <-> content-keyed caching
-- `Trimesh.identifier_hash` (and `Scene.identifier_hash`) is a rotation/translation/scale-invariant content hash the runtime composes as a `ContentIdentity` seed for memoized boolean/decomposition/registration results, so geometry-equal meshes share a cache key without re-running the operation.
-
-## [05]-[IMPLEMENTATION_LAW]
-
-[MESH_TOPOLOGY]:
-- import: `import trimesh` at boundary scope only; module-level import is banned by the manifest import policy.
-- mesh axis: one `Trimesh` owns `vertices`/`faces` plus a `caching` cache of derived geometry keyed on a content hash; mass properties, topology graphs, normals, curvature, symmetry, and `scipy`/`rtree` spatial indices are lazily cached properties, never parallel mesh subclasses. `update_vertices`/`update_faces`/`process` invalidate the dependent cache.
-- IO axis: `load` dispatches on the resolved `file_type` across every entry in `available_formats()`; the format is an argument, never a `load_<fmt>` function family. `export(file_type=...)` is the symmetric writer over the same set, and `force=`/`load_mesh`/`load_scene`/`load_path` collapse ambiguous results to one kind. File encode belongs to the data codec; geometry returns in-memory triangulations.
-- boolean axis: `boolean.union`/`difference`/`intersection` and the `Trimesh` method mirrors route to `manifold3d` (`engine='manifold'`), require watertight operands, and fold n-ary input through `reduce_cascade`; the operation kind is the named function, distinct from the raw `manifold3d` algebra the CSG owner holds.
-- decomposition axis: `convex_decomposition` runs manifold-backed VHACD returning a `list[dict]` of convex parts; convex hull is `scipy.spatial.ConvexHull`, minimum bounds are `bounds`/`nsphere` — none are hand-rolled.
-- registration axis: `icp`/`mesh_other`/`procrustes` perform rigid/similarity alignment returning a 4x4 transform plus cost; `nricp_amberg`/`nricp_sumner` perform non-rigid deformation; the estimation method is the named function. Point-cloud global registration and fine GICP route to `open3d`/`small_gicp`/`kiss-matcher`, sharing the 4x4 transform contract.
-- conditioning axis: `repair.fill_holes`/`fix_normals`/`fix_winding`/`fix_inversion`/`stitch` return `bool` success and mutate in place; `smoothing.filter_*` mutate `vertices` over a shared `scipy.sparse` Laplacian and return the same `Trimesh`; `simplify_quadric_decimation`/`subdivide_*`/`remesh.*` are the resolution operators; `process=True` on construction runs the default merge-and-validate pass.
-- query axis: `ProximityQuery`, `RayMeshIntersector` (Embree-accelerated when `ray.has_embree`), `CollisionManager` (FCL), and `VoxelGrid` are persistent query owners that amortize index construction; prefer them over the one-shot module functions when batching against one fixed mesh.
-- evidence: each load captures format, vertex/face count, and `is_watertight`/`is_winding_consistent`; each boolean/decomposition/registration captures the operation, input counts, result validity, and (registration) the transform plus cost as a mesh receipt; `mass_properties` carries `MassProperties` (volume, area, center of mass, inertia tensor).
-- boundary: trimesh owns triangle-mesh modeling, conditioning, exchange, and mesh-mesh registration. `.3dm`/OpenNURBS exchange routes to `rhino3dm`; STEP/AP242 BREP to `cadquery-ocp`; point-cloud scan registration/reconstruction to `open3d`; fine GICP to `small_gicp`/`kiss-matcher`; the watertight CSG/VHACD kernel to `manifold3d`; planar operations to `shapely`; mesh-file encode to the data `MeshPayload` codec.
-
-## [06]-[LOCAL_ADMISSION]
+[LOCAL_ADMISSION]:
+- `trimesh` is the admitted triangle-mesh modeling, conditioning, and exchange backend for the geometry branch; the mesh and geometry owners compose its IO, operation modules, and query owners rather than a parallel codec, boolean, or spatial-index surface.
 
 [RAIL_LAW]:
 - Package: `trimesh`
 - Owns: triangle-mesh/scene/path IO, primitive creation from `shapely` profiles, convex hull and VHACD decomposition, minimum bounds, manifold boolean CSG, ICP/Procrustes/non-rigid registration, Laplacian/Taubin/Humphrey smoothing, quadric decimation and subdivision remesh, hole/normal/winding repair, signed-distance/closest-point/thickness proximity, surface/volume sampling, ray casting, FCL collision, and voxelization
-- Accept: triangle-mesh modeling, conditioning, and exchange feeding the geometry and mesh owners; the 4x4 registration transform shared with the point-cloud registration backends
-- Reject: wrapper-renames of `load`/`export`; a hand-rolled mesh IO codec, boolean kernel, sparse-Laplacian solve, convex hull, R-tree, or FCL binding where trimesh already binds them; a `load_<format>`/`export_<format>` or `Add<Op>` family over the format/operation argument row; a mesh-file encode path that bypasses the data `MeshPayload` codec; identity minting the runtime owns
-
-[CAPTURE_GAP]:
-- members: verified by introspection against an installed `trimesh==4.12.2` companion distribution with `manifold3d`/`rtree`/`scipy`/`shapely`/`networkx` resolved; every documented type, cached property, query owner, and module entrypoint resolves with the signatures shown — no phantom. `closest_point`/`ProximityQuery.on_surface` confirmed 3-tuple `(points, distances, triangle_id)`; `icp`/`procrustes` 3-tuple `(matrix, transformed, cost)`; `mesh_other` `(matrix, cost)`; `sample_surface`/`_even` `(points, face_index)`; `fill_holes`/`fix_*` return `bool`; `smoothing.filter_*` return the mutated `Trimesh`; `boolean.*` carry `engine=Literal['manifold','blender',None]` and `check_volume`. Open-edge accessors `edges_face` and `facets_boundary` are confirmed cached properties.
+- Accept: triangle-mesh modeling, conditioning, and exchange feeding the geometry and mesh owners; the shared 4x4 registration transform
+- Reject: wrapper-renames of `load`/`export`; a hand-rolled mesh IO codec, boolean kernel, sparse-Laplacian solve, convex hull, R-tree, or FCL binding trimesh already binds; a `load_<format>`/`export_<format>` or `Add<Op>` family over the format/operation argument; a mesh-file encode bypassing the data `MeshPayload` codec; `.3dm`/OpenNURBS (routes to `rhino3dm`), STEP/AP242 BREP (`cadquery-ocp`), or point-cloud scan reconstruction (`open3d`) surfaces trimesh does not own

@@ -1,26 +1,23 @@
 # [PY_GEOMETRY_API_BCF_CLIENT]
 
-`bcf-client` (import `bcf`) supplies BCF (BIM Collaboration Format) v2/v3 file authoring, reading, and REST API client access for the IFC-analysis rail: a `bcf.bcfxml.load` version-detecting loader, versioned `BcfXml` document roots that own the topic/comment/viewpoint lifecycle, `TopicHandler` and `VisualizationInfoHandler` for issue and viewpoint authoring, and the v3 `BcfClient`/`FoundationClient` REST surface. It stacks directly on `ifcopenshell`: `TopicHandler.add_viewpoint(element)` and `VisualizationInfoHandler.set_selected_elements/set_visible_elements/set_hidden_elements` take `ifcopenshell.entity_instance` products and resolve their IFC GlobalIds into the viewpoint's selection/visibility GUID lists, so the BCF exchange leg authors coordination issues from the same IFC model the `ifc/analysis` clash/IDS run produces. Package owner composes `load` plus the versioned `create_new` factories and the viewpoint handlers into the BCF exchange leg of the IFC-analysis owner; it never hand-rolls BCF zip construction or BCF-XML serialization (`xsdata` owns the XML round-trip through the `AbstractXmlParserSerializer` handler).
+`bcf-client` owns BCF (BIM Collaboration Format) v2/v3 file authoring, reading, and the v3 REST client for the IFC-analysis rail's coordination-issue exchange leg. A version-detecting `bcf.bcfxml.load` returns the matching versioned document root that owns the topic, comment, and viewpoint lifecycle; viewpoint authoring resolves `ifcopenshell` element selection and visibility into BCF GlobalId lists. `xsdata` owns the BCF-XML round-trip and this package owns the BCF zip contract, so the analysis owner composes the surface directly.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `bcf-client`
-- package: `bcf-client`
+- package: `bcf-client` (GPLv3)
 - import: `import bcf`
 - owner: `geometry`
 - rail: ifc-companion / bcf-exchange
-- installed: `0.8.5`
-- license: GPLv3 (published metadata classifier `GNU General Public License v3`; the in-tree source headers declare LGPLv3 — treat the published GPLv3 classifier as the binding admission flag, the strongest copyleft reading)
-- depends: `xsdata>=24.4` (BCF-XML bind/parse), `numpy`, `ifcopenshell` (viewpoint element selection), `requests` (the v3 REST client)
+- depends: `xsdata` (BCF-XML bind/parse), `ifcopenshell` (viewpoint element selection), `requests` (v3 REST), `numpy`
 - entry points: none (library only)
-- capability: BCF v2/v3 file read/write, schema-version detection, topic/comment lifecycle, viewpoint authoring with camera/selection/visibility from IFC elements, project and extension metadata, and a v3 REST client covering projects/topics/comments/viewpoints/documents/events for the BCF API
+- capability: BCF v2/v3 read/write, schema-version detection, topic/comment/viewpoint lifecycle, IFC-driven viewpoint selection and visibility, and the v3 BCF REST client
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document root family
-- rail: bcf-exchange
 
-`bcf.bcfxml.BcfXml` is a `Union[BcfXml2, BcfXml3]` type alias, not a class; `BcfXml2`/`BcfXml3` are re-exports of `bcf.v2.bcfxml.BcfXml`/`bcf.v3.bcfxml.BcfXml`. `bcf.bcfxml.load` reads the `bcf.version` zip entry, returns the matching versioned instance, and raises `ValueError` on an unsupported version (only `2.0`/`2.1`/`3.0` are accepted). Import the versioned classes for explicit typing.
+`BcfXml` is a `Union[BcfXml2, BcfXml3]` alias; `BcfXml2`/`BcfXml3` re-export `bcf.v2`/`bcf.v3` `bcfxml.BcfXml`. Import the versioned classes for explicit typing.
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [CAPABILITY]                                    |
 | :-----: | :--------------------- | :------------ | :---------------------------------------------- |
@@ -31,7 +28,6 @@
 |  [05]   | `bcf.v3.bcfxml.BcfXml` | v3 document   | full v3 BCF file lifecycle                      |
 
 [PUBLIC_TYPE_SCOPE]: topic and viewpoint handlers
-- rail: bcf-exchange
 
 | [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY] | [CAPABILITY]                      |
 | :-----: | :---------------------------------------- | :------------ | :-------------------------------- |
@@ -41,9 +37,8 @@
 |  [04]   | `bcf.v3.visinfo.VisualizationInfoHandler` | viewpoint     | v3 camera, selection, visibility  |
 
 [PUBLIC_TYPE_SCOPE]: v2 and v3 markup model family
-- rail: bcf-exchange schema
 
-Markup models are `xsdata` dataclasses generated from the BCF XSD. v3 markup adds `DocumentReference`; both versions share `Topic`/`Comment`/`Markup`/`ViewPoint`/`Header`/`BimSnippet`. `Topic` carries the `title: str`, `guid`, `topic_type`, `topic_status`, `creation_author`, `creation_date`, and `description` fields the issue-authoring rail reads (`TopicHandler.topic.title` is the canonical issue title accessor). Each model resolves as `bcf.v2.model.markup.<Name>` and `bcf.v3.model.markup.<Name>`.
+Markup models are `xsdata` dataclasses from the BCF XSD; `DocumentReference` is v3-only, the rest shared. `TopicHandler.topic.title` is the canonical issue-title accessor, and each model resolves as `bcf.v2.model.markup.<Name>` and `bcf.v3.model.markup.<Name>`.
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY]  | [CAPABILITY]                                                    |
 | :-----: | :------------------ | :------------- | :-------------------------------------------------------------- |
@@ -56,7 +51,6 @@ Markup models are `xsdata` dataclasses generated from the BCF XSD. v3 markup add
 |  [07]   | `DocumentReference` | `xsdata` model | linked document reference (v3 only)                             |
 
 [PUBLIC_TYPE_SCOPE]: v3 REST API family — `bcf.v3.bcfapi`
-- rail: bcf-exchange rest
 
 | [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [CAPABILITY]                             |
 | :-----: | :----------------- | :------------ | :--------------------------------------- |
@@ -67,79 +61,66 @@ Markup models are `xsdata` dataclasses generated from the BCF XSD. v3 markup add
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: BCF file I/O
-- rail: bcf-exchange
 
-`bcf.bcfxml.load` detects the schema version from the `bcf.version` file in the zip and returns the matching versioned `BcfXml`; the versioned `create_new` factories author a fresh document.
+`bcf.bcfxml.load` detects the schema version and returns the matching versioned `BcfXml`; the versioned `create_new` factories author a fresh document. Every I/O and factory member accepts `xml_handler=None`.
 
-- call: `bcf.bcfxml.load(filepath: Path, xml_handler=None) -> BcfXml | None`; `BcfXml.load(filename: Path, xml_handler=None) -> BcfXml | None`; `BcfXml.save(filename: Path | None=None, keep_open: bool=False) -> None`; `BcfXml.close() -> None`
-- call: `bcf.v2.bcfxml.BcfXml.create_new(project_name=None, xml_handler=None)`; `bcf.v3.bcfxml.BcfXml.create_new(project_name=None, extensions=None, xml_handler=None)`
-
-| [INDEX] | [SURFACE]                         | [ENTRY_FAMILY] | [CAPABILITY]                     |
-| :-----: | :-------------------------------- | :------------- | :------------------------------- |
-|  [01]   | `bcf.bcfxml.load`                 | loader         | open BCF file, detect schema     |
-|  [02]   | `BcfXml.load`                     | loader         | open BCF into a version instance |
-|  [03]   | `bcf.v2.bcfxml.BcfXml.create_new` | factory        | new v2 BCF document              |
-|  [04]   | `bcf.v3.bcfxml.BcfXml.create_new` | factory        | new v3 BCF document              |
-|  [05]   | `BcfXml.save`                     | serializer     | write BCF archive to disk        |
-|  [06]   | `BcfXml.close`                    | lifecycle      | close and release zip resources  |
+| [INDEX] | [SURFACE]                                                  | [SHAPE]  | [CAPABILITY]                     |
+| :-----: | :--------------------------------------------------------- | :------- | :------------------------------- |
+|  [01]   | `bcf.bcfxml.load(filepath) -> BcfXml \| None`              | static   | detect schema, open BCF          |
+|  [02]   | `BcfXml.load(filename) -> BcfXml \| None`                  | factory  | open BCF into a version instance |
+|  [03]   | `v2.BcfXml.create_new(project_name=None)`                  | factory  | new v2 BCF document              |
+|  [04]   | `v3.BcfXml.create_new(project_name=None, extensions=None)` | factory  | new v3 BCF document              |
+|  [05]   | `BcfXml.save(filename=None, keep_open=False)`              | instance | write BCF archive to disk        |
+|  [06]   | `BcfXml.close()`                                           | instance | close and release zip resources  |
 
 [ENTRYPOINT_SCOPE]: topic and comment lifecycle
-- rail: bcf-exchange
 
 `add_topic` returns a `TopicHandler`; comment and project mutations accumulate in memory until `save`.
 
-- call: `BcfXml.add_topic(title, description, author, topic_type='', topic_status='') -> TopicHandler`; `get_topics() -> dict[str, TopicHandler]`; `get_topic(guid: str) -> TopicHandler`; `add_comment(_topic, _comment=None)`; `edit_comment()`; `get_project()` / `edit_project(...)` / `save_project(...)`
-
-| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [CAPABILITY]                    |
-| :-----: | :----------------------------------------------------- | :------------- | :------------------------------ |
-|  [01]   | `BcfXml.add_topic`                                     | mutator        | author a new topic              |
-|  [02]   | `BcfXml.get_topics`                                    | query          | all topics keyed by GUID        |
-|  [03]   | `BcfXml.get_topic`                                     | query          | one topic by GUID               |
-|  [04]   | `BcfXml.add_comment`                                   | mutator        | append a comment to a topic     |
-|  [05]   | `BcfXml.edit_comment`                                  | mutator        | edit an existing comment        |
-|  [06]   | `BcfXml.get_project` / `edit_project` / `save_project` | project        | project metadata read and write |
-|  [07]   | `BcfXml.documents`                                     | property (v3)  | v3 `DocumentsHandler` access    |
+| [INDEX] | [SURFACE]                                                         | [SHAPE]       | [CAPABILITY]                    |
+| :-----: | :---------------------------------------------------------------- | :------------ | :------------------------------ |
+|  [01]   | `add_topic(title, description, author, topic_type, topic_status)` | instance      | author a new topic              |
+|  [02]   | `get_topics() -> dict[str, TopicHandler]`                         | instance      | all topics keyed by GUID        |
+|  [03]   | `get_topic(guid)`                                                 | instance      | one topic by GUID               |
+|  [04]   | `add_comment(topic, comment=None)`                                | instance      | append a comment to a topic     |
+|  [05]   | `edit_comment()`                                                  | instance      | edit an existing comment        |
+|  [06]   | `get_project` / `edit_project` / `save_project`                   | instance      | project metadata read and write |
+|  [07]   | `documents`                                                       | property (v3) | v3 `DocumentsHandler` access    |
 
 [ENTRYPOINT_SCOPE]: `TopicHandler` operations
-- rail: bcf-exchange
 
-`TopicHandler` binds viewpoints and comments to a topic and exposes its markup model; the factory and viewpoint-attach signatures hoist to the call line.
-- call: `add_viewpoint(element: entity_instance) -> VisualizationInfoHandler`; `add_viewpoint_from_point_and_guids(position, *guids)`; `add_visinfo_handler(handler)`; `create_new(...)`; `save(destination_zip)`
+`TopicHandler` binds viewpoints and comments to a topic and exposes its markup model.
 
-| [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY] | [CAPABILITY]                                               |
-| :-----: | :---------------------------------------------------- | :------------- | :--------------------------------------------------------- |
-|  [01]   | `add_viewpoint`                                       | mutator        | attach an element viewpoint to the topic                   |
-|  [02]   | `add_viewpoint_from_point_and_guids`                  | mutator        | viewpoint from a camera point plus GUIDs                   |
-|  [03]   | `add_visinfo_handler`                                 | mutator        | bind a prepared `VisualizationInfoHandler`                 |
-|  [04]   | `topic` / `markup` / `comments` / `viewpoints`        | property       | topic model (`.title`), markup, comment/viewpoint handlers |
-|  [05]   | `header` / `bim_snippet` / `reference_files` / `guid` | property       | IFC header, snippet bytes, reference-file bytes, GUID      |
-|  [06]   | `create_new` / `save`                                 | factory / I/O  | in-package topic factory; persist topic into the BCF zip   |
+| [INDEX] | [SURFACE]                                              | [SHAPE]  | [CAPABILITY]                                               |
+| :-----: | :----------------------------------------------------- | :------- | :--------------------------------------------------------- |
+|  [01]   | `add_viewpoint(element) -> VisualizationInfoHandler`   | instance | attach an element viewpoint to the topic                   |
+|  [02]   | `add_viewpoint_from_point_and_guids(position, *guids)` | instance | viewpoint from a camera point plus GUIDs                   |
+|  [03]   | `add_visinfo_handler(handler)`                         | instance | bind a prepared `VisualizationInfoHandler`                 |
+|  [04]   | `topic` / `markup` / `comments` / `viewpoints`         | property | topic model (`.title`), markup, comment/viewpoint handlers |
+|  [05]   | `header` / `bim_snippet` / `reference_files` / `guid`  | property | IFC header, snippet bytes, reference-file bytes, GUID      |
+|  [06]   | `create_new` / `save`                                  | factory  | in-package topic factory; persist topic into the BCF zip   |
 
 [ENTRYPOINT_SCOPE]: `VisualizationInfoHandler` operations
-- rail: bcf-exchange
 
-`VisualizationInfoHandler` authors the camera, selection, and visibility of a viewpoint from `ifcopenshell` elements; the factory and setter signatures hoist to the call lines.
-- call: `create_new(element, xml_handler=None)`; `create_from_point_and_guids(position, *guids, xml_handler=None)`; `from_topic_viewpoints(...)` / `load(topic_dir, vpt, xml_handler=None)` / `save(bcf_zip, topic_dir, vpt)`
-- call: `set_selected_elements(elements: list[entity_instance])`; `set_visible_elements(elements)` / `set_hidden_elements(elements)` / `set_visibility(default_visible, exceptions)`; `get_selected_guids() -> list[str] | None` / `get_elements_visibility() -> tuple[bool, list[str]] | None`
+`VisualizationInfoHandler` authors a viewpoint's camera, selection, and visibility from `ifcopenshell` elements.
 
-| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY] | [CAPABILITY]                                         |
-| :-----: | :----------------------------------------------- | :------------- | :--------------------------------------------------- |
-|  [01]   | `create_new`                                     | factory        | viewpoint from an element                            |
-|  [02]   | `create_from_point_and_guids`                    | factory        | viewpoint from camera point plus GUIDs               |
-|  [03]   | `from_topic_viewpoints` / `load` / `save`        | factory / I/O  | reconstruct from markup; read/write viewpoint        |
-|  [04]   | `set_selected_elements`                          | mutator        | mark selected IFC elements                           |
-|  [05]   | `set_visible_elements` / `set_hidden_elements`   | mutator        | show/hide IFC elements in the viewpoint              |
-|  [06]   | `set_visibility`                                 | mutator        | default visibility plus exception elements           |
-|  [07]   | `get_selected_guids` / `get_elements_visibility` | query          | selected GUIDs; default-visibility + exception GUIDs |
+| [INDEX] | [SURFACE]                                        | [SHAPE]  | [CAPABILITY]                                       |
+| :-----: | :----------------------------------------------- | :------- | :------------------------------------------------- |
+|  [01]   | `create_new(element)`                            | factory  | viewpoint from an element                          |
+|  [02]   | `create_from_point_and_guids(position, *guids)`  | factory  | viewpoint from camera point plus GUIDs             |
+|  [03]   | `from_topic_viewpoints` / `load` / `save`        | factory  | reconstruct from markup; read/write viewpoint      |
+|  [04]   | `set_selected_elements(elements)`                | instance | mark selected IFC elements                         |
+|  [05]   | `set_visible_elements` / `set_hidden_elements`   | instance | show/hide IFC elements in the viewpoint            |
+|  [06]   | `set_visibility(default_visible, exceptions)`    | instance | default visibility plus exception elements         |
+|  [07]   | `get_selected_guids` / `get_elements_visibility` | instance | selected GUIDs; (default_visible, exception GUIDs) |
 
 [ENTRYPOINT_SCOPE]: v3 REST API — `bcf.v3.bcfapi`
-- rail: bcf-exchange rest
 
-`BcfClient` is the polymorphic `requests`-backed REST surface: the typed CRUD methods compose over the `get`/`post`/`put`/`delete` HTTP primitives (carrying endpoint, params, and auth; GET returns `Any`, mutations return `(status, text)`). `FoundationClient` carries auth and version negotiation; `OAuthReceiver` is the `BaseHTTPRequestHandler` servicing the OAuth2 authorization-code callback. Media rows read viewpoint state (snapshot/bitmap/selection/coloring/visibility); events rows return topic and comment audit records.
+`BcfClient` is the `requests`-backed REST surface: typed CRUD methods compose over the `get`/`post`/`put`/`delete` primitives (GET returns `Any`, mutations return `(status, text)`). `FoundationClient` carries auth and version negotiation; `OAuthReceiver` services the OAuth2 authorization-code callback.
 
-- call: the HTTP primitives are `BcfClient.get(endpoint, params=None, is_auth_required=False)`, `post(endpoint, data, params)`, `put(...)`, `delete(...)`; every CRUD row below is a `BcfClient` method.
+- `BcfClient.get(endpoint, params=None, is_auth_required=False)`, `post`/`put`/`delete(endpoint, data, params)` are the primitives every CRUD row composes over.
 
-| [INDEX] | [SURFACE]                                                                                    | [ENTRY_FAMILY] |
+| [INDEX] | [SURFACE]                                                                                    | [CAPABILITY]   |
 | :-----: | :------------------------------------------------------------------------------------------- | :------------- |
 |  [01]   | `get` / `post` / `put` / `delete`                                                            | http primitive |
 |  [02]   | `set_version`                                                                                | config         |
@@ -160,26 +141,22 @@ Markup models are `xsdata` dataclasses generated from the BCF XSD. v3 markup add
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[BCF_TOPOLOGY]:
-- import: `import bcf` at boundary scope only; module-level import is banned by the manifest import policy. Distribution `bcf-client` ships the top-level package `bcf`, never `bcfxml`/`bcfapi`.
-- subpackages: `bcfxml` (version dispatch), `v2` and `v3` (per-schema implementations with `bcfxml`/`model`/`topic`/`visinfo`, plus `document`/`bcfapi` on v3), `agnostic` (version-neutral `extensions`/`model`/`topic`/`visinfo` shared logic), `xml_parser`, `extensions`, `geometry`, `inmemory_zipfile`.
-- version dispatch: `bcf.bcfxml.load` reads the `bcf.version` entry in the zip and returns either `bcf.v2.bcfxml.BcfXml` or `bcf.v3.bcfxml.BcfXml`, raising `ValueError` for any version outside `{2.0, 2.1, 3.0}`; `BcfXml = Union[BcfXml2, BcfXml3]` is a type alias and `BcfXml2`/`BcfXml3` are re-exports — import the versioned classes for explicit typing.
-- v3 additions: `BcfXml.documents` exposes the `DocumentsHandler`; v2 carries `extension_schema` and `extensions` instead.
-- parser: the `xml_handler` parameter accepts any `AbstractXmlParserSerializer` implementation; the default `XmlParserSerializer` binds the BCF XSD models through `xsdata`, so BCF-XML parse/serialize is owned by `xsdata`, never hand-rolled.
+[TOPOLOGY]:
+- import: `bcf-client` ships the top-level `bcf` package, never `bcfxml`/`bcfapi`; import at boundary scope only.
+- version dispatch: `bcf.bcfxml.load` reads the `bcf.version` zip entry and returns `bcf.v2.bcfxml.BcfXml` or `bcf.v3.bcfxml.BcfXml`, raising `ValueError` outside `{2.0, 2.1, 3.0}`.
+- v3 delta: `BcfXml.documents` exposes the `DocumentsHandler` and markup adds `DocumentReference`; v2 carries `extension_schema`/`extensions` instead.
+- parser: `xml_handler` takes any `AbstractXmlParserSerializer`; the default `XmlParserSerializer` binds the BCF XSD models through `xsdata`.
+- factory split: `TopicHandler.create_new` is the in-package factory; `BcfXml.add_topic(title, description, author, topic_type='', topic_status='')` wires the topic into the markup tree and returns its `TopicHandler`. `add_topic`, `add_comment`, and viewpoint mutations accumulate in memory until `BcfXml.save` flushes the archive.
 
-[BCF_EXCHANGE]:
-- in-memory mutation: `add_topic`, `add_comment`, and viewpoint mutations accumulate in memory; call `BcfXml.save` to flush the BCF archive to disk.
-- factory split: `TopicHandler.create_new` is the in-package factory; `BcfXml.add_topic(title, description, author, topic_type="", topic_status="")` is the document-level factory that wires the topic into the markup tree and returns its `TopicHandler`.
-- ifcopenshell stacking: `TopicHandler.add_viewpoint(element)` and the `VisualizationInfoHandler.set_*_elements`/`get_selected_guids` surface take and return `ifcopenshell.entity_instance` products and IFC GlobalId GUIDs, so a viewpoint authored from an `ifc/analysis` clash result selects the same elements by GlobalId without a parallel identity map.
-- REST surface: `BcfClient`/`FoundationClient`/`OAuthReceiver` live in `bcf.v3.bcfapi` over `requests`; the typed CRUD methods compose over the `get`/`post`/`put`/`delete` primitives, so a new endpoint extends the existing client rather than a parallel HTTP layer.
+[STACKING]:
+- `ifcopenshell`(`.api/ifcopenshell.md`): `file.by_type`/`by_guid` `entity_instance` products feed `TopicHandler.add_viewpoint(element)` and `VisualizationInfoHandler.set_selected_elements`/`set_visible_elements`/`set_hidden_elements`, which resolve IFC GlobalIds into the viewpoint's selection and visibility GUID lists — a viewpoint authored from a clash or IDS result selects the same elements by GlobalId with no parallel identity map.
+- `ifc/analysis` owner: composes `bcf.bcfxml.load`, the versioned `create_new` factories, and the topic/viewpoint handlers into the BCF exchange leg, authoring coordination issues from the same IFC model the clash/IDS run produces.
 
-## [05]-[LOCAL_ADMISSION]
+[LOCAL_ADMISSION]:
+- `ifc/analysis` owner admits `load`, the versioned `create_new`, and the topic/viewpoint handlers as the BCF exchange leg: a `Path` opens files, `ifcopenshell` GUIDs drive viewpoint selection, and HTTP credentials reach the v3 REST surface.
 
 [RAIL_LAW]:
 - Package: `bcf-client`
-- Owns: BCF v2/v3 file I/O, schema-version detection, topic/comment/viewpoint lifecycle, element selection and visibility in viewpoints, and the v3 BCF API REST client
-- Accept: `Path` for file I/O; `ifcopenshell` GUIDs for element selection in viewpoints; HTTP credentials for the REST surface
-- Reject: manual BCF zip construction or BCF-XML generation outside this package; wrapper-renames of `load`/`create_new`/`save`; a hand-rolled BCF REST client where `bcf.v3.bcfapi` is admitted
-
-[CAPTURE_GAP]:
-- dependencies: `xsdata>=24.4` (BCF-XML bind/parse), `numpy`, `ifcopenshell` (viewpoint element selection), `requests` (v3 REST) — the manifest comment naming an "lxml" dependency is stale; the XML codec is `xsdata`.
+- Owns: BCF v2/v3 file I/O, schema-version detection, the topic/comment/viewpoint lifecycle, viewpoint element selection and visibility, and the v3 BCF REST client.
+- Accept: `Path` for file I/O; `ifcopenshell` `entity_instance` GUIDs for viewpoint selection; HTTP credentials for the REST surface.
+- Reject: hand-rolled BCF zip construction or BCF-XML serialization; a parallel BCF REST client where `bcf.v3.bcfapi` is admitted.

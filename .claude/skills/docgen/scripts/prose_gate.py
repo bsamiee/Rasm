@@ -3,7 +3,7 @@
 # requires-python = ">=3.14"
 # dependencies = ["cyclopts", "msgspec"]
 # ///
-# ruff: noqa: T201, D100, D101, D103
+# ruff:file-ignore[print, undocumented-public-module, undocumented-public-class, undocumented-public-function]
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 

@@ -2,7 +2,7 @@
 
 Geospatial CLAIMS plane — one third of the spatial triptych, beside the `spatial/query#SPATIAL` in-DB engine and the `spatial/grid#GRID` DGG plane. `VectorGeoClaim` carries CRS/units/axis-order/geometry-family/precision over geopandas/shapely/pyogrio with pyproj backing the axis-order-aware `reproject` prelude and one `VectorOp` in-frame vector-algebra axis; `RasterGeoClaim` carries coverage/band/resampling/nodata/CRS with one `RasterOp` coverage axis spanning the in-memory and streaming/remote/VRT/sample/COG-write rows; `EgressFormat` is one `StrEnum` whose member value IS the OGR driver and whose `write` it carries. STAC claims live on `spatial/catalog#CATALOG` — `StacGeoClaim`/`StacIngest` are re-homed to the STAC-table owner, so this page holds no catalog import.
 
-`RasterGeoClaim.transform` is the provenance affine the `spatial/catalog#ASSETS` `AssetFold` constructs from `proj:transform`. `GEOARROW` egress is the NATIVE buffer path — `to_arrow(geometry_encoding="geoarrow")` exports zero-copy extension arrays serialized as Arrow IPC, never a parquet byte-roundtrip — and `geoarrow_wire` is the `geoarrow-rust-compute` hand-off sharing the `csharp:Rasm.Compute` GLB wire layout. Every network-bearing read routes its blocking provider call through `guarded(RetryClass.HTTP, on_thread, ...)`, the `THREAD_BAND`-bounded hop; every bundle keys by one runtime `ContentIdentity` folding the shared `tabular/columnar#SCAN` `QueryReceipt`. geopandas/shapely/rasterio ride the Forge scientific source build band, so every operation body binds its provider function-local under `# noqa: PLC0415`, never a subprocess seam.
+`RasterGeoClaim.transform` is the provenance affine the `spatial/catalog#ASSETS` `AssetFold` constructs from `proj:transform`. `GEOARROW` egress is the NATIVE buffer path — `to_arrow(geometry_encoding="geoarrow")` exports zero-copy extension arrays serialized as Arrow IPC, never a parquet byte-roundtrip — and `geoarrow_wire` is the `geoarrow-rust-compute` hand-off sharing the `csharp:Rasm.Compute` GLB wire layout. Every network-bearing read routes its blocking provider call through `guarded(RetryClass.HTTP, on_thread, ...)`, the `THREAD_BAND`-bounded hop; every bundle keys by one runtime `ContentIdentity` folding the shared `tabular/columnar#SCAN` `QueryReceipt`. geopandas/shapely/rasterio ride the Forge scientific source build band, so every operation body binds its provider function-local under `# ruff:ignore[import-outside-top-level]`, never a subprocess seam.
 
 ## [01]-[INDEX]
 
@@ -128,15 +128,15 @@ class EgressFormat(StrEnum):
 
     def write(self, frame: GeoDataFrame, path: str) -> RuntimeRail[ContentKey]:
         def emit() -> bytes:
-            import pyogrio  # noqa: PLC0415
+            import pyogrio  # ruff:ignore[import-outside-top-level]
 
             match self:
                 case EgressFormat.GEOPARQUET:
                     frame.to_parquet(path)
                 case EgressFormat.GEOARROW:
                     # native zero-copy geoarrow extension arrays written as Arrow IPC, not the pyogrio driver write.
-                    import pyarrow as pa  # noqa: PLC0415
-                    import pyarrow.feather as paf  # noqa: PLC0415
+                    import pyarrow as pa  # ruff:ignore[import-outside-top-level]
+                    import pyarrow.feather as paf  # ruff:ignore[import-outside-top-level]
 
                     paf.write_feather(pa.table(frame.to_arrow(geometry_encoding="geoarrow")), path)
                 case _:
@@ -144,7 +144,7 @@ class EgressFormat(StrEnum):
             return Path(path).read_bytes()
 
         with _TRACER.start_as_current_span(f"geo.egress.{self.value}", attributes={"rasm.geo.format": self.value}):
-            from pyogrio.errors import DataSourceError  # noqa: PLC0415
+            from pyogrio.errors import DataSourceError  # ruff:ignore[import-outside-top-level]
 
             return boundary(f"geo.egress.{self.value}", emit, catch=(DataSourceError, OSError)).bind(
                 lambda payload: ContentIdentity.of(self.value, payload)
@@ -341,8 +341,8 @@ class VectorGeoClaim(Struct, frozen=True):
     precision: int
 
     async def apply(self, op: VectorOp, frame: "GeoDataFrame") -> "RuntimeRail[GeoDataFrame]":
-        from pyproj.exceptions import CRSError  # noqa: PLC0415
-        from shapely.errors import ShapelyError  # noqa: PLC0415
+        from pyproj.exceptions import CRSError  # ruff:ignore[import-outside-top-level]
+        from shapely.errors import ShapelyError  # ruff:ignore[import-outside-top-level]
 
         # overlay/join/dissolve walk whole frames — a blocking leg riding the banded thread hop, never the loop.
         with _TRACER.start_as_current_span(f"geo.vector.{op.tag}", attributes={"rasm.geo.crs": self.crs, "rasm.geo.op": op.tag}):
@@ -351,7 +351,7 @@ class VectorGeoClaim(Struct, frozen=True):
             )
 
     def reproject(self, frame: "GeoDataFrame") -> "GeoDataFrame":
-        import pyproj  # noqa: PLC0415
+        import pyproj  # ruff:ignore[import-outside-top-level]
 
         target = pyproj.CRS.from_user_input(self.crs)
         if frame.crs is not None and pyproj.CRS.from_user_input(frame.crs) == target:
@@ -360,8 +360,8 @@ class VectorGeoClaim(Struct, frozen=True):
         return frame.to_crs(target) if transformer.has_inverse else frame.set_crs(target, allow_override=True)
 
     def _vector(self, op: VectorOp, frame: "GeoDataFrame") -> "GeoDataFrame":
-        import geopandas as gpd  # noqa: PLC0415
-        import shapely  # noqa: PLC0415
+        import geopandas as gpd  # ruff:ignore[import-outside-top-level]
+        import shapely  # ruff:ignore[import-outside-top-level]
 
         grid = 10.0**-self.precision * (_DEGREE_GRID if self.units == "degree" else 1.0)
         keep_family = self.family in {GeometryFamily.POLYGON, GeometryFamily.MULTIPOLYGON}
@@ -416,7 +416,7 @@ class VectorGeoClaim(Struct, frozen=True):
                     case unreachable_kind:
                         assert_never(unreachable_kind)
             case VectorOp(tag="geodesic", geodesic=kind):
-                import pyproj  # noqa: PLC0415
+                import pyproj  # ruff:ignore[import-outside-top-level]
 
                 # WGS84 ellipsoid true-earth values a planar CRS transform cannot give; the
                 # geodesic runs over lon/lat geometry, so the claim CRS prelude has already landed 4326.
@@ -441,7 +441,7 @@ class RasterGeoClaim(Struct, frozen=True):
     transform: tuple[float, ...] = ()
 
     async def apply(self, op: RasterOp, source: "DatasetReader") -> "RuntimeRail[CoverageResult]":
-        from rasterio.errors import RasterioError  # noqa: PLC0415
+        from rasterio.errors import RasterioError  # ruff:ignore[import-outside-top-level]
 
         # reproject/mask/warp read full arrays — a blocking leg riding the banded thread hop, never the loop.
         with _TRACER.start_as_current_span(
@@ -462,7 +462,7 @@ class RasterGeoClaim(Struct, frozen=True):
         # a `/vsicurl/` GDAL transient is a `RasterioIOError` (rooted at `RasterioError`, not a stdlib
         # transient), so it is re-raised as `ConnectionError` for the `RetryClass.HTTP` `_retry_after`
         # set rather than the resilience owner growing a `rasterio` provider-introspection target.
-        from rasterio.errors import RasterioIOError  # noqa: PLC0415
+        from rasterio.errors import RasterioIOError  # ruff:ignore[import-outside-top-level]
 
         try:
             return self._raster(op, source)
@@ -470,15 +470,15 @@ class RasterGeoClaim(Struct, frozen=True):
             raise ConnectionError(str(cause)) from cause
 
     def _raster(self, op: RasterOp, source: "DatasetReader | None") -> "_Coverage":
-        from contextlib import ExitStack  # noqa: PLC0415
+        from contextlib import ExitStack  # ruff:ignore[import-outside-top-level]
 
-        import numpy as np  # noqa: PLC0415
-        import rasterio  # noqa: PLC0415
-        from rasterio import features, mask, merge, warp, windows  # noqa: PLC0415
-        from rasterio.enums import MergeAlg  # noqa: PLC0415
-        from rasterio.enums import Resampling as RioResampling  # noqa: PLC0415
-        from rasterio.io import MemoryFile  # noqa: PLC0415
-        from rasterio.vrt import WarpedVRT  # noqa: PLC0415
+        import numpy as np  # ruff:ignore[import-outside-top-level]
+        import rasterio  # ruff:ignore[import-outside-top-level]
+        from rasterio import features, mask, merge, warp, windows  # ruff:ignore[import-outside-top-level]
+        from rasterio.enums import MergeAlg  # ruff:ignore[import-outside-top-level]
+        from rasterio.enums import Resampling as RioResampling  # ruff:ignore[import-outside-top-level]
+        from rasterio.io import MemoryFile  # ruff:ignore[import-outside-top-level]
+        from rasterio.vrt import WarpedVRT  # ruff:ignore[import-outside-top-level]
 
         match op:
             case RasterOp(tag="window", window=(bounds, boundless)):
@@ -590,9 +590,9 @@ class RasterGeoClaim(Struct, frozen=True):
         return _Coverage(array=array, transform=transform, op_tag=op_tag, source=source.name)
 
     def _result(self, cover: "_Coverage") -> "RuntimeRail[CoverageResult]":
-        import numpy as np  # noqa: PLC0415
-        import pyarrow as pa  # noqa: PLC0415
-        from msgspec import json as msgjson  # noqa: PLC0415
+        import numpy as np  # ruff:ignore[import-outside-top-level]
+        import pyarrow as pa  # ruff:ignore[import-outside-top-level]
+        from msgspec import json as msgjson  # ruff:ignore[import-outside-top-level]
 
         # content keys hash the REAL coverage bytes — the C-contiguous pixel buffer, or the
         # canonical msgspec-JSON row per feature for the object `Vectorize` array (a `repr()` byte
@@ -624,7 +624,7 @@ class VectorIngress(Struct, frozen=True):
 
 def read_vector(spec: VectorIngress) -> "RuntimeRail[GeoDataFrame]":
     def emit() -> "GeoDataFrame":
-        import pyogrio  # noqa: PLC0415
+        import pyogrio  # ruff:ignore[import-outside-top-level]
 
         return pyogrio.read_dataframe(
             spec.path,
@@ -638,7 +638,7 @@ def read_vector(spec: VectorIngress) -> "RuntimeRail[GeoDataFrame]":
         )
 
     with _TRACER.start_as_current_span("geo.ingress", attributes={"rasm.geo.op": "ingress"}):
-        from pyogrio.errors import DataSourceError  # noqa: PLC0415
+        from pyogrio.errors import DataSourceError  # ruff:ignore[import-outside-top-level]
 
         return boundary("geo.ingress", emit, catch=(DataSourceError, OSError, ValueError))
 
@@ -647,8 +647,8 @@ def geoarrow_wire(frame: "GeoDataFrame") -> "RuntimeRail[tuple[pa.Table, Bounds]
     # exports zero-copy geoarrow extension arrays the `geoarrow-rust-compute` kernel reads natively;
     # `total_bounds` over the combined-chunk geometry column is the wire-evidence fold.
     def emit() -> "tuple[pa.Table, Bounds]":
-        import pyarrow as pa  # noqa: PLC0415
-        from geoarrow.rust.compute import total_bounds  # noqa: PLC0415
+        import pyarrow as pa  # ruff:ignore[import-outside-top-level]
+        from geoarrow.rust.compute import total_bounds  # ruff:ignore[import-outside-top-level]
 
         table = pa.table(frame.to_arrow(geometry_encoding="geoarrow"))
         return table, tuple(total_bounds(table.column("geometry").combine_chunks()))
@@ -668,7 +668,7 @@ class CoverageCf(Struct, frozen=True):
 
     def open(self, path: str, *, masked: bool = True, chunks: dict[str, int] | None = None) -> "RuntimeRail[object]":
         def emit() -> object:
-            import rioxarray  # noqa: PLC0415
+            import rioxarray  # ruff:ignore[import-outside-top-level]
 
             return rioxarray.open_rasterio(path, masked=masked, chunks=chunks)
 
@@ -677,9 +677,9 @@ class CoverageCf(Struct, frozen=True):
 
     def lift(self, result: CoverageResult, dims: tuple[str, ...] = ("band", "y", "x")) -> "RuntimeRail[object]":
         def emit() -> object:
-            import rioxarray  # noqa: F401, PLC0415
-            import xarray as xr  # noqa: PLC0415
-            from rasterio import Affine  # noqa: PLC0415
+            import rioxarray  # ruff:ignore[unused-import, import-outside-top-level]
+            import xarray as xr  # ruff:ignore[import-outside-top-level]
+            from rasterio import Affine  # ruff:ignore[import-outside-top-level]
 
             cube = xr.DataArray(result.array, dims=dims[-result.array.ndim :])
             cube = cube.rio.set_spatial_dims(x_dim="x", y_dim="y")

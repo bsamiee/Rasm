@@ -1,6 +1,6 @@
 # [TS_RUNTIME_API_OPENTELEMETRY_SDK_METRICS]
 
-`@opentelemetry/sdk-metrics` owns the metric collection→export pipeline: the pull-based `MetricReader` (the `PeriodicExportingMetricReader` wrapping a `PushMetricExporter`), the `View`/`AggregationOption` algebra that reshapes instruments before export, the per-instrument-type selector policy (aggregation, temporality, cardinality), and the `MetricData` discriminated-union wire shape. `otel/emit` never constructs a `MeterProvider` directly — `@effect/opentelemetry` `NodeSdk`/`WebSdk` take a `Configuration.metricReader: MetricReader | ReadonlyArray<MetricReader>` (verified: `NodeSdk.d.ts` imports `MetricReader` from here) and wire it through `Metrics.layer`, feeding Effect's built-in `Metric` signals into the reader. It collapses with the pin block at `[OTEL_PIN_BLOCK]`; the native `Otlp` metric lane serializes Effect metrics to OTLP with no reader.
+`@opentelemetry/sdk-metrics` owns the metric collection→export pipeline: the pull-based `MetricReader`, the `View`/`AggregationOption` algebra reshaping instruments before export, the per-instrument-type selector policy, and the `MetricData` discriminated-union wire shape. `otel/emit` never constructs a `MeterProvider` directly — the facade wires `Configuration.metricReader` through `Metrics.layer`, feeding Effect's built-in `Metric` signals into the reader. It collapses with the pin block at `[OTEL_PIN_BLOCK]`; the native `Otlp` metric lane serializes Effect metrics to OTLP with no reader.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -40,14 +40,14 @@ declare class MeterProvider implements IMeterProvider {
 
 ## [03]-[READER_AND_EXPORTER]
 
-Two parameterized surfaces. `MetricReader` (abstract) owns pull-collection + the per-instrument-type selector policy `selectAggregation`/`selectAggregationTemporality`/`selectCardinalityLimit`; `PeriodicExportingMetricReader` is the production row that pulls on an interval and pushes to a `PushMetricExporter`. `PushMetricExporter` owns format/transport; `Console`/`InMemory` are the built-in rows, the OTLP-HTTP sibling the production one. The three selectors are `(InstrumentType) => X` pure policy functions with `DEFAULT_*` constants — a bespoke temporality/aggregation/cardinality policy is a selector value, never a reader subclass. `MetricProducer` is the pull-source a reader collects from.
+`MetricReader` (abstract) owns pull-collection and the selector policy `selectAggregation`/`selectAggregationTemporality`/`selectCardinalityLimit`; `PeriodicExportingMetricReader` is the production row pulling on an interval into a `PushMetricExporter`, which owns format/transport (`Console`/`InMemory` built-in, OTLP-HTTP the production sibling). Selectors are `(InstrumentType) => X` pure policy functions with `DEFAULT_*` constants — a bespoke policy is a selector value, never a reader subclass. `MetricProducer` is the pull-source a reader collects from.
 
 | [INDEX] | [SYMBOL]                                  | [KIND]               | [CAPABILITY_BOUNDARY]                                             |
 | :-----: | :---------------------------------------- | :------------------- | :---------------------------------------------------------------- |
 |  [01]   | `MetricReader` / `IMetricReader`          | abstract / interface | pull-collect + the three per-instrument-type selectors            |
 |  [02]   | `MetricReaderOptions`                     | interface            | the selectors + `metricProducers?` + `otelComponentType?`         |
 |  [03]   | `PeriodicExportingMetricReader`           | class                | interval pull → push; the production reader                       |
-|  [04]   | `PeriodicExportingMetricReaderOptions`    | type                 | `exporter` + `exportIntervalMillis?` + `cardinalityLimits?`       |
+|  [04]   | `PeriodicExportingMetricReaderOptions`    | type                 | the reader options record — every field in the fence below                          |
 |  [05]   | `PushMetricExporter`                      | interface            | `export(ResourceMetrics, cb)` + temporality/aggregation selectors |
 |  [06]   | `ConsoleMetricExporter`                   | class                | stdout diagnostics; `constructor({ temporalitySelector? })`       |
 |  [07]   | `InMemoryMetricExporter`                  | class                | `getMetrics()`/`reset()`; `constructor(AggregationTemporality)`   |
@@ -67,6 +67,7 @@ type PeriodicExportingMetricReaderOptions = {
     counter?: number; gauge?: number; histogram?: number; upDownCounter?: number
     observableCounter?: number; observableGauge?: number; observableUpDownCounter?: number; default?: number
   }
+  maxExportBatchSize?: number                 // @experimental — split a collection larger than this into smaller export batches
 }
 declare class PeriodicExportingMetricReader extends MetricReader { constructor(options: PeriodicExportingMetricReaderOptions) }
 interface PushMetricExporter {
@@ -75,7 +76,7 @@ interface PushMetricExporter {
   selectAggregationTemporality?(instrumentType: InstrumentType): AggregationTemporality   // exporter-preferred temporality (OTLP delta/cumulative)
   selectAggregation?(instrumentType: InstrumentType): AggregationOption
 }
-// The reader-level policy is a pure per-instrument-type function, not a subclass:
+// Reader-level policy is a pure per-instrument-type function, not a subclass:
 type AggregationTemporalitySelector = (instrumentType: InstrumentType) => AggregationTemporality
 declare const DEFAULT_AGGREGATION_TEMPORALITY_SELECTOR: AggregationTemporalitySelector
 ```
@@ -112,7 +113,7 @@ interface IAttributesProcessor { process: (incoming: Attributes, context?: Conte
 
 ## [05]-[METRIC_DATA]
 
-The wire shape the exporter receives. `MetricData` is ONE discriminated union keyed on `dataPointType`; `DataPoint<T>` is the parameterized point (`T = number | Histogram | ExponentialHistogram`). The collection tree is `ResourceMetrics → ScopeMetrics[] → MetricData[]` — one shape, never a per-instrument struct. `InstrumentType` (seven rows) and `DataPointType` are the discriminants every selector and exporter key on.
+`MetricData` is the wire shape the exporter receives: ONE discriminated union keyed on `dataPointType`; `DataPoint<T>` is the parameterized point (`T = number | Histogram | ExponentialHistogram`). Collection nests `ResourceMetrics → ScopeMetrics[] → MetricData[]` — one shape, never a per-instrument struct. `InstrumentType` and `DataPointType` are the discriminants every selector and exporter key on.
 
 | [INDEX] | [SYMBOL]                             | [KIND]              | [SHAPE]                                                        |
 | :-----: | :----------------------------------- | :------------------ | :------------------------------------------------------------- |

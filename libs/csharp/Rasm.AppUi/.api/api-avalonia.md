@@ -171,6 +171,9 @@
 |  [06]   | `InteractiveExtensions.GetObservable(RoutedEvent)`                       | static   | routed-event stream        |
 |  [07]   | `Dispatcher.UIThread.Invoke / InvokeAsync / Post`                        | static   | render-thread marshal      |
 |  [08]   | `Dispatcher.CheckAccess() / VerifyAccess()`                              | instance | thread-affinity guard      |
+|  [09]   | `Dispatcher.ToTaskScheduler() / ToTaskScheduler(DispatcherPriority)`     | instance | TaskScheduler for TPL      |
+
+- `Dispatcher.ToTaskScheduler`: yields a `TaskScheduler` that runs continuations on this dispatcher; the no-arg form captures the current `AvaloniaSynchronizationContext` priority, else `DispatcherPriority.Default`.
 
 [XAML_AND_RENDER_OPERATIONS]: XAML load and visual invalidation
 
@@ -249,7 +252,7 @@
 
 [STACKING]:
 - `api-reactive.md`: `AvaloniaObjectExtensions.GetObservable(property)` and `GetPropertyChangedObservable` emit `IObservable<T>` for `System.Reactive` operators and ReactiveUI `WhenAnyValue`; a control-state reaction is `GetObservable(prop).Throttle(...).DistinctUntilChanged().Subscribe(...)` under a `CompositeDisposable`, and `AvaloniaObject.Bind(property, observable)` pushes a stream back into a property.
-- `api-reactive.md`: `Dispatcher.UIThread` (imperative marshal) and `SynchronizationContextScheduler` (stream marshal) share one render-thread boundary; a live-data bind composes `ObserveOn(SynchronizationContextScheduler)` once at the bind edge, an imperative cross-thread write uses `Dispatcher.UIThread.Post`/`InvokeAsync`.
+- `api-reactive.md`: `Dispatcher.UIThread` (imperative marshal) and `SynchronizationContextScheduler` (stream marshal) share one render-thread boundary; a live-data bind composes `ObserveOn(SynchronizationContextScheduler)` once at the bind edge, an imperative cross-thread write uses `Dispatcher.UIThread.Post`/`InvokeAsync`, and a TPL continuation pins to the render thread through `Dispatcher.UIThread.ToTaskScheduler()` handed to `TaskFactory.StartNew`/`Task.ContinueWith`.
 - `Shell/input` `HOTKEY_DERIVATION`: hotkeys derive from the command table onto Avalonia primitives — a value-equal `KeyGesture(Key, KeyModifiers)` with `Parse`/`Matches`, `KeyBinding` rows carrying `Gesture`/`Command` through `InputElement.KeyBindings`; `RawInputModifiers` carries mouse buttons for the headless input harness.
 - `Shell/input` `DRAG_CLIPBOARD`: a drop target binds through `DragDrop.SetAllowDrop(control, true)` with routed `DragOverEvent`/`DropEvent` handlers reading `DragEventArgs.DataTransfer` and writing `DragEventArgs.DragEffects`; drags start through `DragDrop.DoDragDropAsync(pointerArgs, dataTransfer, allowedEffects)`.
 - `Shell/input` `DRAG_CLIPBOARD`: structured copy crosses one `IClipboard.SetDataAsync(IAsyncDataTransfer)` carrying a `DataTransfer` of one `DataTransferItem` per format, keyed by `DataFormat.CreateBytesApplicationFormat`/`CreateStringApplicationFormat` and built by `DataTransferItem.Create<T>`/`CreateText`; reads ride `TryGetDataAsync` gated by `ClipboardExtensions.GetDataFormatsAsync`, then `TryGetTextAsync`/`TryGetValueAsync<T>`/`TryGetRaw`.

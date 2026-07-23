@@ -27,6 +27,7 @@
 |  [08]   | `NatsSubOpts` (record)                            | sub options      | subscription channel/serializer options for `SubscribeAsync`    |
 |  [09]   | `NatsMsgFlags` (byte enum)                        | message bit      | `None`/`Empty`/`NoResponders` — `IsEmpty`/`HasNoResponders`     |
 |  [10]   | `INatsDeserialize<T>` / `NatsRawSerializer<T>`    | codec            | per-type deserialize; `NatsRawSerializer<byte[]>` passthrough   |
+|  [11]   | `INatsSub<T> : INatsSub`                          | subscription     | manual-drain handle; `Msgs` channel, `DrainAsync` fences drain  |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -36,20 +37,22 @@
 | :-----: | :---------------------------------------------------------------------------- | :------- | :------------------------------------ |
 |  [01]   | `client.SubscribeAsync<byte[]>(subject, queueGroup?, serializer?, opts?, ct)` | instance | `IAsyncEnumerable<NatsMsg<byte[]>>`   |
 |  [02]   | `connection.SubscribeCoreAsync<T>(subject, queueGroup?, …)`                   | instance | `ValueTask<INatsSub<T>>` manual drain |
-|  [03]   | `msg.Data`                                                                    | property | `byte[]?` CloudEvents body            |
-|  [04]   | `msg.Subject` / `msg.ReplyTo`                                                 | property | routing token / reply subject         |
-|  [05]   | `msg.Headers`                                                                 | property | `NatsHeaders?`, null when unset       |
-|  [06]   | `msg.Headers?.TryGetValue(name, out StringValues v)`                          | instance | non-throwing W3C extract              |
-|  [07]   | `msg.Headers?[name]`                                                          | property | `StringValues`, `.Empty` if absent    |
-|  [08]   | `msg.ReplyAsync<TReply>(data, headers?, …)`                                   | instance | reply to a request-subject message    |
-|  [09]   | `connection.RequestAsync<TReq, TReply>(subject, data, …)`                     | instance | `ValueTask<NatsMsg<TReply>>`          |
+|  [03]   | `sub.DrainAsync(ct)`                                                          | instance | fence in-flight, no connection tear   |
+|  [04]   | `msg.Data`                                                                    | property | `byte[]?` CloudEvents body            |
+|  [05]   | `msg.Subject` / `msg.ReplyTo`                                                 | property | routing token / reply subject         |
+|  [06]   | `msg.Headers`                                                                 | property | `NatsHeaders?`, null when unset       |
+|  [07]   | `msg.Headers?.TryGetValue(name, out StringValues v)`                          | instance | non-throwing W3C extract              |
+|  [08]   | `msg.Headers?[name]`                                                          | property | `StringValues`, `.Empty` if absent    |
+|  [09]   | `msg.ReplyAsync<TReply>(data, headers?, …)`                                   | instance | reply to a request-subject message    |
+|  [10]   | `connection.RequestAsync<TReq, TReply>(subject, data, …)`                     | instance | `ValueTask<NatsMsg<TReply>>`          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `NatsConnection`/`NatsClient` is the long-lived per-instance `IAsyncDisposable` handle, thread-safe, multiplexing every subject over one connection — constructed once and shared across the capture lane, never per-subscription and never a process-global static; Compute owns its subscriber independent of the Persistence egress connection.
-- `SubscribeAsync<byte[]>(subject, queueGroup, ct)` drains through `await foreach` until `ct` trips or the connection drops, one `NatsMsg<byte[]>` per iteration; `queueGroup` load-balances the sensor subject across N capture subscribers, null for one.
-- Back-pressure rides the `NatsSubOpts` channel bound and `INatsConnection.SlowConsumerDetected`; admission onto the `WorkLane.CaptureIngest` DropOldest row sheds oldest geometry state at the lane rather than blocking the drain.
+- `SubscribeAsync<byte[]>(subject, queueGroup, ct)` drains through `await foreach` until `ct` trips or the connection drops, one `NatsMsg<byte[]>` per iteration; `queueGroup` load-balances the sensor subject across N capture subscribers, null for one; `SubscribeCoreAsync<byte[]>` yields the `INatsSub<byte[]>` whose `DrainAsync(ct)` fences in-flight deliveries and completes the channel without tearing the shared connection, the graceful stop for one capture subscriber.
+- Back-pressure rides the `NatsSubOpts`/`NatsSubChannelOpts` channel bound and `INatsConnection.SlowConsumerDetected`; the connection default is a 16384-slot pending channel with `BoundedChannelFullMode.DropNewest` surfacing overflow through `MessageDropped`, and admission onto the `WorkLane.CaptureIngest` DropOldest row sheds oldest geometry state at the lane rather than blocking the drain.
+- `RequestAsync`/`ReplyAsync` correlate on the connection inbox in the default `NatsRequestReplyMode.Direct` — the per-reply muxer is skipped and `NatsNoRespondersException` still throws at a no-responder reply, `NatsOpts.RequestReplyMode = SharedInbox` restoring the per-request subscription.
 
 [STACKING]:
 - `api-cloudevents-mqtt`(`.api/api-cloudevents-mqtt.md`): `NatsMsg<byte[]>.Data` (the structured-mode `application/cloudevents+json` body) decodes through the once-constructed shared `JsonEventFormatter<T>` with the pre-declared extension attributes into the typed `SensorEnvelope<T>`, the W3C pair over `NatsMsg.Headers` symmetric to the MQTT `UserProperties` carrier.

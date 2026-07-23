@@ -192,7 +192,7 @@ def _diff(name: str) -> str:
         Unified diff text, or an empty string when mutmut cannot re-read the mutant.
     """
     # Redirected stdout preserves the one-line TestRun wire contract.
-    with contextlib.suppress(Exception), contextlib.redirect_stdout(io.StringIO()):  # noqa: TID251  # best-effort diff boundary adapter
+    with contextlib.suppress(Exception), contextlib.redirect_stdout(io.StringIO()):  # ruff:ignore[banned-api]  # best-effort diff boundary adapter
         return get_diff_for_mutant(name)
     return ""
 

@@ -69,7 +69,7 @@ RING: ContextVar[deque[str] | None] = ContextVar("assay_ring", default=None)
 
 
 @dataclass(frozen=True, slots=True)
-class Inversion(Exception):  # noqa: N818  # surfaced via TypeError, not an *Error leaf
+class Inversion(Exception):  # ruff:ignore[error-suffix-on-exception-name]  # surfaced via TypeError, not an *Error leaf
     """Decoration-time layer ordering failure."""
 
     outer: Slot
@@ -85,7 +85,7 @@ _TRACER: Final = trace.get_tracer("assay.core")
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def ring_processor(logger: object, method_name: str, event_dict: EventDict) -> EventDict:  # noqa: ARG001
+def ring_processor(logger: object, method_name: str, event_dict: EventDict) -> EventDict:  # ruff:ignore[unused-function-argument]
     """Record the event in the context-local ring and stamp active trace IDs.
 
     Returns:
@@ -132,7 +132,7 @@ def _once[**P, T](dec: Callable[[Callable[P, T]], Callable[P, T]]) -> Callable[[
                 return fn
             case False:
                 woven = dec(fn)
-                woven._assay_ids = ids | {tag}  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]  # noqa: SLF001
+                woven._assay_ids = ids | {tag}  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]  # ruff:ignore[private-member-access]
                 return woven
 
     return guard

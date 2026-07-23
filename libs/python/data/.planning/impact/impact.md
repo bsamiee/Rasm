@@ -250,13 +250,13 @@ class MaterialImpact(Struct, frozen=True):
         # BaseException no Exception fence sees — so the kernel guards by qualname and re-raises
         # every other BaseException; the converted JSON lands the typed epdx model.
         def convert() -> ImpactSource:
-            import epdx  # noqa: PLC0415 — banded boundary import
-            from epdx.pydantic import EPD  # noqa: PLC0415
+            import epdx  # ruff:ignore[import-outside-top-level] — banded boundary import
+            from epdx.pydantic import EPD  # ruff:ignore[import-outside-top-level]
 
             text = document.decode() if isinstance(document, bytes) else document
             try:
                 converted = epdx.convert_ilcd(text)
-            except BaseException as panic:  # noqa: BLE001 — the PyO3 panic is BaseException-rooted
+            except BaseException as panic:  # ruff:ignore[blind-except] — the PyO3 panic is BaseException-rooted
                 if type(panic).__name__ != "PanicException":
                     raise
                 raise ValueError("ilcd-parse-panic") from panic
@@ -375,8 +375,8 @@ def _from_epdx(epd: "IlcdEpd") -> MaterialImpact:
 def _from_score(solve: LcaSolve, source: str, identity: bytes) -> MaterialImpact:
     # staged bw2calc solve at mined depth: lci/lcia/score -> the aggregate A1A3 cell; Monte
     # Carlo one draw per next(lca); bw2analyzer contribution rows when the request carries depth.
-    import bw2calc as bc  # noqa: PLC0415 — banded boundary import
-    import bw2data as bd  # noqa: PLC0415
+    import bw2calc as bc  # ruff:ignore[import-outside-top-level] — banded boundary import
+    import bw2data as bd  # ruff:ignore[import-outside-top-level]
 
     demand = dict(solve.demand)
     fu, data_objs, remapping = bd.prepare_lca_inputs(demand=demand, method=solve.method)
@@ -398,7 +398,7 @@ def _from_score(solve: LcaSolve, source: str, identity: bytes) -> MaterialImpact
         spread = Some(Spread(kind="std", value=std, samples=len(samples)))
     rows: tuple[ContributionRow, ...] = ()
     if solve.contributions > 0:
-        from bw2analyzer import ContributionAnalysis  # noqa: PLC0415 — banded boundary import
+        from bw2analyzer import ContributionAnalysis  # ruff:ignore[import-outside-top-level] — banded boundary import
 
         rows = tuple(
             ContributionRow(score=score, supply=supply, activity=str(activity))
@@ -411,7 +411,7 @@ def _from_score(solve: LcaSolve, source: str, identity: bytes) -> MaterialImpact
 
 def _from_olca(solve: OlcaSolve) -> MaterialImpact:
     # documented lifecycle: setup -> calculate -> wait_until_ready -> query -> dispose (finally).
-    import olca_ipc as ipc  # noqa: PLC0415 — banded boundary import
+    import olca_ipc as ipc  # ruff:ignore[import-outside-top-level] — banded boundary import
 
     client = ipc.Client(solve.endpoint)
     result = client.calculate(solve.setup)
@@ -439,7 +439,7 @@ def _from_olca(solve: OlcaSolve) -> MaterialImpact:
 
 
 def _doctyped(body: bytes) -> "Epd | IndustryEpd | GenericEstimate":
-    from openepd.model.factory import RootDocumentFactory  # noqa: PLC0415 — boundary import (patch_pydantic side effect rides it)
+    from openepd.model.factory import RootDocumentFactory  # ruff:ignore[import-outside-top-level] — boundary import (patch_pydantic side effect rides it)
 
     return RootDocumentFactory.from_dict(msgjson.decode(body))
 
@@ -447,7 +447,7 @@ def _doctyped(body: bytes) -> "Epd | IndustryEpd | GenericEstimate":
 def _lower(impact: MaterialImpact) -> "pa.Table":
     # eight-column SELF-DESCRIBING floor: a frame the C# Discipline.Environmental Assessment
     # decode attributes (source/method/declared_unit) and dedupes (content_key) with no side channel.
-    import pyarrow as pa  # noqa: PLC0415 — module-level import banned; deferred at the egress edge
+    import pyarrow as pa  # ruff:ignore[import-outside-top-level] — module-level import banned; deferred at the egress edge
 
     key = impact.content_key.hex
     return pa.Table.from_pydict({

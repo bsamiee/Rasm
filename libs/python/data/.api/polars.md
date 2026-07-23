@@ -73,13 +73,14 @@
 |  [09]   | `scan_csv` / `scan_parquet` / `scan_ipc`                            | scan files into a `LazyFrame`                 |
 |  [10]   | `scan_ndjson` / `scan_delta` / `scan_lines`                         | scan structured / Delta / raw lines           |
 |  [11]   | `scan_iceberg`                                                      | scan an Iceberg table                         |
-|  [12]   | `scan_pyarrow_dataset`                                              | scan a `pyarrow` dataset with pushdown        |
+|  [12]   | `scan_pyarrow_dataset` / `scan_arrow_c_stream`                      | scan a `pyarrow` dataset (pushdown) or an Arrow C-stream |
 |  [13]   | `read_parquet_metadata` / `read_parquet_schema` / `read_ipc_schema` | inspect Parquet/IPC without full read         |
 |  [14]   | `defer` / `explain_all` / `collect_all` / `collect_all_async`       | defer a Python frame; batch-explain/collect   |
 |  [15]   | `io.plugins.register_io_source`                                     | lift a custom Python source lazily            |
 
 - `scan_*` carry: `glob`, `storage_options`, `credential_provider`.
 - `scan_iceberg`: accepts a live `pyiceberg.table.Table` as `src`; `scan_pyarrow_dataset` pushes predicates into the dataset scan.
+- `scan_arrow_c_stream(source) -> LazyFrame`: lazily scans any object exposing `__arrow_c_stream__` (a `pyarrow.RecordBatchReader`, nanoarrow stream), consuming it batch by batch during execution.
 - `io.plugins.register_io_source`: `(io_source, *, schema, validate_schema, is_pure) -> LazyFrame`; the generator yields `DataFrame` windows under projection/predicate/`n_rows`/`batch_size` pushdown.
 
 [ENTRYPOINT_SCOPE]: DataFrame and LazyFrame operations
@@ -103,7 +104,7 @@
 |  [15]   | `sink_parquet` / `sink_csv` / `sink_ipc` / `sink_ndjson`        | streaming write without full collect                |
 |  [16]   | `sink_iceberg` / `sink_delta`                                   | streaming write into an Iceberg/Delta table         |
 |  [17]   | `collect_batches` / `sink_batches`                              | iterate/emit result as a `RecordBatch` stream       |
-|  [18]   | `explain` / `profile` / `show_graph`                            | optimized-plan text, per-node timing, plan DAG      |
+|  [18]   | `explain` / `show_graph`                                        | optimized-plan text and plan DAG                    |
 |  [19]   | `serialize` / `deserialize` / `remote`                          | round-trip a query plan; offload to Polars Cloud    |
 |  [20]   | `with_context` / `match_to_schema` / `cache` / `set_sorted`     | side-frame context, coercion, cache, sortedness     |
 |  [21]   | `write_parquet` / `write_csv` / `write_delta` / `write_iceberg` | write eager frame to storage                        |
@@ -113,7 +114,6 @@
 |  [25]   | `Series.to_frame` / `Series.rename`                             | promote a `Series` to a one-column frame; rename it |
 
 - `collect`: `(engine=, optimizations=QueryOptFlags(...), background=False)`; `sink_*` add `partition_by`, `storage_options`, `credential_provider`, `mkdir`, `sync_on_close`.
-- `profile`: returns `(result, timing)` frames; timing schema `{node: String, start: UInt64, end: UInt64}` in microseconds.
 
 [ENTRYPOINT_SCOPE]: expression functions and namespaces
 
@@ -125,7 +125,7 @@
 |  [04]   | `sum/min/max/mean/median/std/var/quantile`                       | column-wise aggregate expressions                  |
 |  [05]   | `sum_horizontal/min_horizontal/max_horizontal/...`               | row-wise aggregate across columns                  |
 |  [06]   | `all_horizontal` / `any_horizontal`                              | row-wise logical AND/OR                            |
-|  [07]   | `concat_str` / `concat_list` / `concat_arr`                      | row-wise string/list concatenation                 |
+|  [07]   | `concat_str` / `concat_list` / `concat_arr` / `list`             | row-wise string/list concatenation; pack into `List`|
 |  [08]   | `coalesce(*exprs)`                                               | first non-null per row                             |
 |  [09]   | `struct(*exprs)` / `field(name)` / `format`                      | build struct, access field, format                 |
 |  [10]   | `corr` / `cov` / `rolling_corr` / `rolling_cov`                  | correlation and covariance                         |
@@ -135,7 +135,7 @@
 |  [14]   | `Expr.over`                                                      | windowed expression                                |
 |  [15]   | `Expr.rolling` / `Expr.rolling_*`                                | time-anchored rolling windows + 20 reducers        |
 |  [16]   | `Expr.cut` / `qcut` / `rle` / `rle_id` / `value_counts` / `hist` | discretize, run-length encode, histogram           |
-|  [17]   | `Expr.ewm_mean` / `ewm_std` / `ewm_var` / `ewm_mean_by`          | exponentially-weighted moving statistics           |
+|  [17]   | `Expr.ewm_mean`/`ewm_sum`/`ewm_std`/`ewm_var`/`ewm_mean_by`/`ewm_sum_by` | exponentially-weighted moving statistics |
 |  [18]   | `Expr.replace` / `replace_strict` / `is_in` / `is_close`         | value remap, membership, tolerance compare         |
 |  [19]   | `Expr.str` / `Expr.dt` / `Expr.list` / `Expr.arr`                | string/temporal/list/array method families         |
 |  [20]   | `Expr.struct` / `Expr.cat` / `Expr.bin` / `.name` / `.meta`      | struct, categorical, binary, naming, plan-metadata |
@@ -144,6 +144,7 @@
 |  [23]   | `Expr.map_batches` / `map_elements` / `register_plugin`          | Series/element Python UDFs (last resort)           |
 
 - `Expr.over`: `(partition_by, *, order_by=, mapping_strategy=)`; `Expr.rolling(index_column, period=, offset=, closed=)` anchors time windows.
+- `list(exprs, *more_exprs)`: packs each expression's value as one element into a new `List` column (`List(T)` input yields `List(List(T))`), unlike `concat_list` which extends list-typed inputs.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -157,7 +158,7 @@
 
 [STACKING]:
 - `pyiceberg`(`.api/pyiceberg.md`): `scan_iceberg(table, reader_override='native', use_pyiceberg_filter=True)` pushes a live `Table`'s row-filter through PyIceberg's planner — PyIceberg owns catalog/snapshot/manifest planning, Polars owns the scan/transform graph.
-- `pyarrow`(`.api/pyarrow.md`): `scan_pyarrow_dataset` and `from_arrow`/`from_dataframe` consume the Arrow C-stream/interchange zero-copy; `to_arrow(compat_level=)`/`__arrow_c_stream__` export the same wire, never a Python row roundtrip.
+- `pyarrow`(`.api/pyarrow.md`): `scan_pyarrow_dataset`, `scan_arrow_c_stream`, and `from_arrow`/`from_dataframe` consume a `RecordBatchReader`/`arrow_c_stream()` C-stream/interchange zero-copy — `scan_arrow_c_stream` lazily batch by batch; `to_arrow(compat_level=)`/`__arrow_c_stream__` export the same wire, never a Python row roundtrip.
 - `polars-st`(`.api/polars-st.md`): registers its `.st` geometry ops as native `Expr` nodes through `plugins.register_plugin_function`, the first-class path a `#[polars_expr]` kernel declares via `is_elementwise`/`returns_scalar`/`changes_length`.
 - within-lib: the `data` folder composes `scan_*` into a `LazyFrame` `Expr` pipeline closed by `collect(engine='streaming')` or a `sink_*`, native plugins grafting domain kernels onto the same graph.
 

@@ -209,7 +209,7 @@ class IfcAnalysis:
 
     @staticmethod
     def _takeoff(element: "ifcopenshell.entity_instance", quantities: bool) -> AnalysisRow:
-        import ifcopenshell.util.element  # noqa: PLC0415
+        import ifcopenshell.util.element  # ruff:ignore[import-outside-top-level]
 
         psets = ifcopenshell.util.element.get_psets(element, qtos_only=quantities)
         merged = {f"{name}.{key}": value for name, body in psets.items() for key, value in body.items()}
@@ -219,8 +219,8 @@ class IfcAnalysis:
 
     @staticmethod
     def _validate(model: "ifcopenshell.file", spec_path: str) -> AnalysisResult:
-        import ifctester.ids  # noqa: PLC0415
-        import ifctester.reporter  # noqa: PLC0415
+        import ifctester.ids  # ruff:ignore[import-outside-top-level]
+        import ifctester.reporter  # ruff:ignore[import-outside-top-level]
 
         document = ifctester.ids.open(spec_path)
         document.validate(model)
@@ -254,7 +254,7 @@ class IfcAnalysis:
 
     @staticmethod
     def _author(model: "ifcopenshell.file", sides: tuple[str, str]) -> "RuntimeRail[AnalysisResult]":
-        from bcf.v3.bcfxml import BcfXml  # noqa: PLC0415
+        from bcf.v3.bcfxml import BcfXml  # ruff:ignore[import-outside-top-level]
 
         # this leg authors the in-memory archive and reads its topic GUIDs back; the durable save is the data seam's.
         def compose(run: "tuple[Clasher, tuple[ClashRow, ...], ClashSet]") -> AnalysisResult:
@@ -276,7 +276,7 @@ class IfcAnalysis:
 
     @staticmethod
     def _run_clash(model: "ifcopenshell.file", sides: tuple[str, str]) -> "RuntimeRail[tuple[Clasher, tuple[ClashRow, ...], ClashSet]]":
-        from ifcclash.ifcclash import Clasher, ClashSettings, ClashSet, ClashSource  # noqa: PLC0415
+        from ifcclash.ifcclash import Clasher, ClashSettings, ClashSet, ClashSource  # ruff:ignore[import-outside-top-level]
 
         def source(selector: str) -> ClashSource:
             # `file` is a required ClashSource key; the pre-loaded `ifc` model makes the empty path inert. Mode
@@ -299,13 +299,13 @@ class IfcAnalysis:
 
     @staticmethod
     def _unit_scale(model: "ifcopenshell.file") -> float:
-        import ifcopenshell.util.unit  # noqa: PLC0415
+        import ifcopenshell.util.unit  # ruff:ignore[import-outside-top-level]
 
         return float(ifcopenshell.util.unit.calculate_unit_scale(model)) ** 2
 
     @staticmethod
     def _net_area(space: "ifcopenshell.entity_instance") -> float:
-        import ifcopenshell.util.element  # noqa: PLC0415
+        import ifcopenshell.util.element  # ruff:ignore[import-outside-top-level]
 
         qtos = ifcopenshell.util.element.get_psets(space, qtos_only=True)
         return next((float(pset["NetFloorArea"]) for pset in qtos.values() if "NetFloorArea" in pset), 0.0)

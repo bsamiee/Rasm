@@ -37,7 +37,6 @@
 |  [04]   | `applyCustomAttributesOnSpan` / `requestHook` | config field   | bounded attribute stamps; identifier-grade context only   |
 |  [05]   | `ignoreNetworkEvents` / `measureRequestSize`  | config field   | timing-event and request-size toggles                     |
 |  [06]   | `clearTimingResources`                        | config field   | resource-timing buffer hygiene after projection           |
-|  [07]   | `semconvStabilityOptIn`                       | config field   | HTTP semconv selection aligned with the estate schema pin |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

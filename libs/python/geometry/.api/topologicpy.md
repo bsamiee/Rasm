@@ -1,63 +1,57 @@
 # [PY_GEOMETRY_API_TOPOLOGICPY]
 
-`topologicpy` supplies the non-manifold topology modeling surface for the geometry-algebra rail: stateless static-method facades over `topologic_core` C++ handles for the `Vertex` through `CellComplex` topology hierarchy, the central polymorphic `Topology` owner, a `Graph` analysis facade, `Dictionary` attribute carriers, `Vector`/`Matrix`/`Color` algebra, and BIM integration facades (`IFC`, `Honeybee`, `Speckle`). The package owner composes `Topology.ByIFCFile`, the `Cell`/`CellComplex` constructors, and `Graph.ByTopology` into the topology owner gated against the C# `IfcSemanticModel` seam; it never re-implements the non-manifold boolean kernel or graph analytics `topologic_core` and `networkx` already own. It is a LICENSE-GATED row: `topologicpy` is `AGPL-3.0-or-later` (network copyleft) — any network-exposed deployment that links it triggers AGPL source-disclosure obligations, so it MUST be excluded from the default server build and admitted opt-in on the Forge lane only; the spine graph/non-manifold path stays AGPL-free. Replacement of the AGPL dependency is mandated by card `geometry [GEO_TOPOLOGICPY_LICENSE_REPLACE]` (reference only).
+`topologicpy` owns the geometry-algebra rail's non-manifold topology modeling and graph analytics: stateless static-method facades over `topologic_core` C++ handles across the `Vertex`-through-`CellComplex` hierarchy, the polymorphic `Topology` owner, and a `Graph` facade. It never re-implements the boolean kernel or graph analytics `topologic_core` and `networkx` own, and IFC semantic identity stays with the C# `IfcSemanticModel` seam. Its `AGPL-3.0-or-later` network copyleft gates admission opt-in on the Forge lane.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `topologicpy`
-- package: `topologicpy`
-- import: `import topologicpy`
+- package: `topologicpy` (`AGPL-3.0-or-later`)
+- module: `topologicpy`
 - owner: `geometry`
-- rail: geometry-algebra (LICENSE-GATED, opt-in / Forge-lane only)
-- license: `AGPL-3.0-or-later` (own) — NETWORK COPYLEFT; pure-Python distribution riding the `topologic-core` native floor, but the AGPL source-disclosure trigger fires for any network-accessible service that links it. The package MUST be excluded from the default server build and is admitted opt-in on the Forge lane only; replacement is mandated by card `geometry [GEO_TOPOLOGICPY_LICENSE_REPLACE]`. The upstream PyPI `License ::` classifier is mislabeled `GPLv3`, but the bundled `LICENSE` text and `__init__.py` header are AGPLv3 "or any later version" — treat the binding license as AGPL network-copyleft
-- installed: `0.9.50`
-- entry points: none (library only)
+- rail: geometry-algebra, opt-in Forge lane
 - capability: non-manifold vertex/edge/wire/face/shell/cell/cell-complex topology, polymorphic `Topology` analysis and boolean ops, graph construction and centrality/shortest-path analytics, dictionary attribute attachment, vector/matrix/color algebra, and IFC/Honeybee/Speckle BIM integration
 
 ## [02]-[PUBLIC_TYPES]
 
+Every symbol is a stateless static-method facade over a `topologic_core` handle: a `By*` constructor returns the handle the next static call consumes, so state lives in the handle. `Polyskel` is a free-function straight-skeleton module; the BIM rows are integration facades.
+
 [PUBLIC_TYPE_SCOPE]: topology hierarchy facades
-- rail: geometry-algebra
 
-Each facade is a stateless static-method namespace; `By*` constructors return a `topologic_core` handle consumed by the next static call. The method count is the facade breadth.
-
-| [INDEX] | [SYMBOL]      | [METHODS] | [CAPABILITY]                                                |
-| :-----: | :------------ | --------: | :---------------------------------------------------------- |
-|  [01]   | `Topology`    |       157 | central polymorphic owner: IO, analysis, boolean, transform |
-|  [02]   | `Vertex`      |        45 | point topology, coordinates, collinearity, containment      |
-|  [03]   | `Edge`        |        37 | line topology, direction, length, intersection              |
-|  [04]   | `Wire`        |        68 | polyline/profile topology, shape primitives, skeleton       |
-|  [05]   | `Face`        |        67 | planar-region topology, boundaries, medial axis             |
-|  [06]   | `Shell`       |        32 | connected face set topology                                 |
-|  [07]   | `Cell`        |        55 | solid topology, primitives, volume, containment             |
-|  [08]   | `CellComplex` |        29 | non-manifold solid assembly, Voronoi/Delaunay               |
-|  [09]   | `Cluster`     |        26 | heterogeneous topology grouping                             |
-|  [10]   | `Aperture`    |         2 | opening topology bound to a host context                    |
-|  [11]   | `Context`     |         2 | host-topology parameter binding                             |
-|  [12]   | `Grid`        |         5 | parametric grid vertices and edges                          |
+| [INDEX] | [SYMBOL]      | [CAPABILITY]                                                |
+| :-----: | :------------ | :---------------------------------------------------------- |
+|  [01]   | `Topology`    | central polymorphic owner: IO, analysis, boolean, transform |
+|  [02]   | `Vertex`      | point topology, coordinates, collinearity, containment      |
+|  [03]   | `Edge`        | line topology, direction, length, intersection              |
+|  [04]   | `Wire`        | polyline/profile topology, shape primitives, skeleton       |
+|  [05]   | `Face`        | planar-region topology, boundaries, medial axis             |
+|  [06]   | `Shell`       | connected face set topology                                 |
+|  [07]   | `Cell`        | solid topology, primitives, volume, containment             |
+|  [08]   | `CellComplex` | non-manifold solid assembly, Voronoi/Delaunay               |
+|  [09]   | `Cluster`     | heterogeneous topology grouping                             |
+|  [10]   | `Aperture`    | opening topology bound to a host context                    |
+|  [11]   | `Context`     | host-topology parameter binding                             |
+|  [12]   | `Grid`        | parametric grid vertices and edges                          |
 
 [PUBLIC_TYPE_SCOPE]: analysis and algebra facades
-- rail: geometry-algebra
 
-| [INDEX] | [SYMBOL]       | [METHODS] | [CAPABILITY]                                      |
-| :-----: | :------------- | --------: | :------------------------------------------------ |
-|  [01]   | `Graph`        |       179 | graph build, adjacency, centrality, shortest path |
-|  [02]   | `Dictionary`   |        29 | key/value attribute attachment and boolean ops    |
-|  [03]   | `Vector`       |        42 | vector algebra, azimuth/altitude, compass         |
-|  [04]   | `Plotly`       |        26 | figure construction for topologies and graphs     |
-|  [05]   | `Helper`       |        20 | iteration, flattening, and conversion utilities   |
-|  [06]   | `Sun`          |        17 | solar position and shadow analysis                |
-|  [07]   | `Matrix`       |        13 | transform matrices, eigen, multiply/invert        |
-|  [08]   | `Color`        |        11 | color conversion and CSS named colors             |
-|  [09]   | `ShapeGrammar` |         9 | rule-based shape grammar application              |
-|  [10]   | `BVH`          |         6 | bounding-volume hierarchy clash/nearest/raycast   |
-|  [11]   | `CSG`          |         6 | constructive solid geometry operation graph       |
-|  [12]   | `Polyskel`     |       n/a | free-function straight-skeleton module            |
+| [INDEX] | [SYMBOL]       | [CAPABILITY]                                      |
+| :-----: | :------------- | :------------------------------------------------ |
+|  [01]   | `Graph`        | graph build, adjacency, centrality, shortest path |
+|  [02]   | `Dictionary`   | key/value attribute attachment and boolean ops    |
+|  [03]   | `Vector`       | vector algebra, azimuth/altitude, compass         |
+|  [04]   | `Plotly`       | figure construction for topologies and graphs     |
+|  [05]   | `Helper`       | iteration, flattening, and conversion utilities   |
+|  [06]   | `Sun`          | solar position and shadow analysis                |
+|  [07]   | `Matrix`       | transform matrices, eigen, multiply/invert        |
+|  [08]   | `Color`        | color conversion and CSS named colors             |
+|  [09]   | `ShapeGrammar` | rule-based shape grammar application              |
+|  [10]   | `BVH`          | bounding-volume hierarchy clash/nearest/raycast   |
+|  [11]   | `CSG`          | constructive solid geometry operation graph       |
+|  [12]   | `Polyskel`     | free-function straight-skeleton module            |
 
 [PUBLIC_TYPE_SCOPE]: BIM and database integration modules
-- rail: geometry-algebra
 
-| [INDEX] | [SYMBOL]      | [INTEGRATION]   | [CAPABILITY]                             |
+| [INDEX] | [SYMBOL]      | [TYPE_FAMILY]   | [CAPABILITY]                             |
 | :-----: | :------------ | :-------------- | :--------------------------------------- |
 |  [01]   | `IFC`         | IFC exchange    | entities, objects, properties, mesh data |
 |  [02]   | `Honeybee`    | energy model    | HBJSON model from topology               |
@@ -71,53 +65,50 @@ Each facade is a stateless static-method namespace; `By*` constructors return a 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: Topology construction and export (`Topology`)
-- rail: geometry-algebra
 
-`By*File`/`By*Path`/`By*String` read external geometry into a core handle; `ExportTo*` write it back. `ByGeometry`/`ByMeshData` ingest in-memory arrays.
+`By*File`/`By*Path`/`By*String` read external geometry into a core handle; `ExportTo*` write it back; `ByGeometry`/`ByMeshData` ingest in-memory arrays.
 
-| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [CAPABILITY]                                                       |
-| :-----: | :-------------------------------------------- | :------------- | :----------------------------------------------------------------- |
-|  [01]   | `Topology.ByIFCFile(file: ifcopenshell.file)` | construct      | in-memory `ifcopenshell.file` to non-manifold topology `list[Any]` |
-|  [02]   | `Topology.ByBREPString(string)`               | construct      | OpenCASCADE BREP intake                                            |
-|  [03]   | `Topology.ByOBJPath(path)`                    | construct      | Wavefront OBJ intake                                               |
-|  [04]   | `Topology.ByGeometry(vertices, ...)`          | construct      | raw vertex/edge/face array intake                                  |
-|  [05]   | `Topology.ByMeshData(mesh)`                   | construct      | mesh-dict intake                                                   |
-|  [06]   | `Topology.ByOCCTShape(shape)`                 | construct      | OpenCASCADE handle intake                                          |
-|  [07]   | `Topology.ByJSONString(string)`               | construct      | JSON topology intake                                               |
-|  [08]   | `Topology.ExportToBREP(topology)`             | export         | BREP string/file output                                            |
-|  [09]   | `Topology.ExportToOBJ(topology)`              | export         | OBJ output                                                         |
-|  [10]   | `Topology.ExportToJSON(topology)`             | export         | JSON topology output                                               |
-|  [11]   | `Topology.ByIFCPath(path)`                    | construct      | IFC file-path intake to non-manifold topology `list[Any]`          |
+| [INDEX] | [SURFACE]                            | [ENTRY_FAMILY] | [CAPABILITY]                                          |
+| :-----: | :----------------------------------- | :------------- | :---------------------------------------------------- |
+|  [01]   | `Topology.ByIFCFile(file)`           | construct      | in-memory `ifcopenshell.file` to topology `list[Any]` |
+|  [02]   | `Topology.ByIFCPath(path)`           | construct      | IFC file-path intake to topology `list[Any]`          |
+|  [03]   | `Topology.ByBREPString(string)`      | construct      | OpenCASCADE BREP intake                               |
+|  [04]   | `Topology.ByOBJPath(path)`           | construct      | Wavefront OBJ intake                                  |
+|  [05]   | `Topology.ByGeometry(vertices, ...)` | construct      | raw vertex/edge/face array intake                     |
+|  [06]   | `Topology.ByMeshData(mesh)`          | construct      | mesh-dict intake                                      |
+|  [07]   | `Topology.ByOCCTShape(shape)`        | construct      | OpenCASCADE handle intake                             |
+|  [08]   | `Topology.ByJSONString(string)`      | construct      | JSON topology intake                                  |
+|  [09]   | `Topology.ExportToBREP(topology)`    | export         | BREP string/file output                               |
+|  [10]   | `Topology.ExportToOBJ(topology)`     | export         | OBJ output                                            |
+|  [11]   | `Topology.ExportToJSON(topology)`    | export         | JSON topology output                                  |
 
 [ENTRYPOINT_SCOPE]: Topology analysis and boolean (`Topology`)
-- rail: geometry-algebra
 
-Sub-topology accessors return the constituent handles; boolean ops return a new combined handle. Rows [05] and [15] carry their return shape in the keyed list below.
+Accessors return the constituent handles; boolean ops return a new combined handle.
 
-| [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY] | [CAPABILITY]                                         |
-| :-----: | :-------------------------------------------------- | :------------- | :--------------------------------------------------- |
-|  [01]   | `Topology.Cells(topology)`                          | accessor       | constituent cells                                    |
-|  [02]   | `Topology.Faces(topology)`                          | accessor       | constituent faces                                    |
-|  [03]   | `Topology.Edges(topology)`                          | accessor       | constituent edges                                    |
-|  [04]   | `Topology.Vertices(topology)`                       | accessor       | constituent vertices                                 |
-|  [05]   | `Topology.SubTopologies(topology, subTopologyType)` | accessor       | typed sub-topology `list` by `subTopologyType`; [05] |
-|  [06]   | `Topology.AdjacentTopologies(...)`                  | accessor       | topologies adjacent to a sub-topology                |
-|  [07]   | `Topology.Union(a, b)`                              | boolean        | non-manifold union                                   |
-|  [08]   | `Topology.Difference(a, b)`                         | boolean        | non-manifold difference                              |
-|  [09]   | `Topology.Intersect(a, b)`                          | boolean        | non-manifold intersection                            |
-|  [10]   | `Topology.Slice(topology, tool)`                    | boolean        | slice by a cutting topology                          |
-|  [11]   | `Topology.BoundingBox(topology)`                    | analysis       | axis-aligned bound cell                              |
-|  [12]   | `Topology.Centroid(topology)`                       | analysis       | centroid vertex                                      |
-|  [13]   | `Topology.Contains(topology, vtx)`                  | analysis       | point containment test                               |
-|  [14]   | `Topology.Analyze(topology)`                        | analysis       | formatted analysis summary `str` (no keyword params) |
-|  [15]   | `Topology.Decompose(topology, ...)`                 | analysis       | building-element category `dict`; [15]               |
-|  [16]   | `Topology.AddDictionary(topology, dict)`            | attribute      | attach a `Dictionary`                                |
+| [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY] | [CAPABILITY]                           |
+| :-----: | :-------------------------------------------------- | :------------- | :------------------------------------- |
+|  [01]   | `Topology.Cells(topology)`                          | accessor       | constituent cells                      |
+|  [02]   | `Topology.Faces(topology)`                          | accessor       | constituent faces                      |
+|  [03]   | `Topology.Edges(topology)`                          | accessor       | constituent edges                      |
+|  [04]   | `Topology.Vertices(topology)`                       | accessor       | constituent vertices                   |
+|  [05]   | `Topology.SubTopologies(topology, subTopologyType)` | accessor       | typed sub-topology `list`; [05]        |
+|  [06]   | `Topology.AdjacentTopologies(...)`                  | accessor       | topologies adjacent to a sub-topology  |
+|  [07]   | `Topology.Union(a, b)`                              | boolean        | non-manifold union                     |
+|  [08]   | `Topology.Difference(a, b)`                         | boolean        | non-manifold difference                |
+|  [09]   | `Topology.Intersect(a, b)`                          | boolean        | non-manifold intersection              |
+|  [10]   | `Topology.Slice(topology, tool)`                    | boolean        | slice by a cutting topology            |
+|  [11]   | `Topology.BoundingBox(topology)`                    | analysis       | axis-aligned bound cell                |
+|  [12]   | `Topology.Centroid(topology)`                       | analysis       | centroid vertex                        |
+|  [13]   | `Topology.Contains(topology, vtx)`                  | analysis       | point containment test                 |
+|  [14]   | `Topology.Analyze(topology)`                        | analysis       | formatted analysis summary `str`       |
+|  [15]   | `Topology.Decompose(topology, ...)`                 | analysis       | building-element category `dict`; [15] |
+|  [16]   | `Topology.AddDictionary(topology, dict)`            | attribute      | attach a `Dictionary`                  |
 
-- [05]-[SUB_TOPOLOGIES]: `subTopologyType` one of `"vertex"`/`"edge"`/`"wire"`/`"face"`/`"shell"`/`"cell"`/`"cellcomplex"`/`"cluster"`/`"aperture"`; `None` on a bad kind.
-- [15]-[DECOMPOSE]: `Topology.Decompose(topology, tiltAngle=10.0, tolerance=0.0001, silent=False)` returns a `dict` of `cells` plus external/internal/free vertical/horizontal/inclined face lists and their aperture lists; a role classifier, never a hierarchy accessor.
+- `Topology.SubTopologies`: `subTopologyType` one of `"vertex"`/`"edge"`/`"wire"`/`"face"`/`"shell"`/`"cell"`/`"cellcomplex"`/`"cluster"`/`"aperture"`, `None` on a bad kind.
+- `Topology.Decompose`: `(topology, tiltAngle=10.0, tolerance=0.0001, silent=False) -> dict` of `cells` with external/internal/free vertical/horizontal/inclined face and aperture lists — a role classifier, never a hierarchy accessor.
 
 [ENTRYPOINT_SCOPE]: sub-topology constructors and graph/dictionary
-- rail: geometry-algebra
 
 Per-class `By*` constructors build the named handle from lower topology; `Graph`/`Dictionary` rows drive analysis and attribute carriers.
 
@@ -146,24 +137,28 @@ Per-class `By*` constructors build the named handle from lower topology; `Graph`
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[TOPOLOGY_ALGEBRA]:
-- import: per-class `from topologicpy.Topology import Topology` at boundary scope only; module-level import is banned by the manifest import policy.
-- facade axis: every class is a stateless static-method namespace over `topologic_core` C++ handles; there is no instance constructor pattern. `Topology.ByX(...)` returns a handle of `topologic_core` type that the next static call consumes, so state lives in the handle, never the facade.
-- ownership axis: `Topology` is the central polymorphic owner discriminating on the runtime handle kind; `HighestType`/`Type`/`TypeAsString` report the kind, and accessors (`Cells`, `Faces`, `Vertices`) plus boolean ops (`Union`, `Difference`, `Intersect`, `Slice`) work across every topology kind without a per-kind function family.
-- construction axis: each sub-topology facade exposes a `By*` constructor family building from the next-lower topology (`Vertex` -> `Edge` -> `Wire` -> `Face` -> `Shell` -> `Cell` -> `CellComplex`); shape primitives (`Wire.Rectangle`, `Cell.Box`, `Cell.Sphere`) are static factories on the owning facade.
-- attribute axis: `Dictionary.ByKeysValues` builds attribute carriers attached via `Topology.AddDictionary`; `Graph.ByTopology` lifts adjacency into a `Graph` whose 179 methods own centrality, shortest path, connectivity, and partition analytics.
-- graph analytics axis: the centrality verbs `BetweennessCentrality`/`ClosenessCentrality`/`DegreeCentrality` each return a per-vertex score `list` ordered to the graph vertices (NOT values mutated in place), so a leaderboard fold ranks the list directly. `Connectivity` is an ALIAS for `DegreeCentrality` (space-syntax connectivity score), never a component count — the island count is `len(Graph.ConnectedComponents(graph))`, whose return is the list of component sub-graphs sorted by vertex count. `MinimumSpanningTree` returns the MST `Graph`; `Tree` is a vertex-rooted BFS/DFS traversal tree, a different structure. `ShortestPath` returns a `topologic_core.Wire`, so its hop length reads through the polymorphic `Topology.Vertices` accessor (documented over `Topology`, `Graph`, OR `TGraph`), which is the one vertex accessor across both the graph-node count and the path-wire count — there is no separate gated `Graph.Vertices` the analytics rail needs. `JSONData` returns the node-link `dict` the JSON codec encodes; `JSONString` returns the pre-serialized string.
-- IFC-gated rail: `Topology.ByIFCFile(file: ifcopenshell.file)` ingests an in-memory `ifcopenshell.file` object and returns a per-product topology `list[Any]` (folded to one non-manifold handle via `Cluster.ByTopologies` at the consumer), while `Topology.ByIFCPath(path)` ingests a path string and the `IFC` facade ingests IFC geometry; all are gated against the C# `IfcSemanticModel` seam so the Python topology side never owns IFC semantic identity. The live return is a per-product topology list, not a single `CellComplex`.
-- boundary: topologicpy owns non-manifold topology and graph analytics; watertight mesh CSG routes to `manifold3d`, triangle-mesh exchange to `trimesh`, OpenNURBS exchange to `rhino3dm`, and IFC semantic identity to the C# `IfcSemanticModel`.
+[TOPOLOGY]:
+- Import per class at boundary scope (`from topologicpy.Topology import Topology`); the manifest import policy bans module-level import.
+- `Topology` is the central polymorphic owner discriminating on the runtime handle kind; `HighestType`/`Type`/`TypeAsString` report the kind, and accessors (`Cells`/`Faces`/`Vertices`) and boolean ops (`Union`/`Difference`/`Intersect`/`Slice`) span every kind without a per-kind family.
+- Each sub-topology facade exposes a `By*` constructor building from the next-lower topology (`Vertex` -> `Edge` -> `Wire` -> `Face` -> `Shell` -> `Cell` -> `CellComplex`); shape primitives (`Wire.Rectangle`, `Cell.Box`, `Cell.Sphere`) are static factories on the owning facade.
+- `Dictionary.ByKeysValues` builds attribute carriers attached via `Topology.AddDictionary`; `Graph.ByTopology` lifts adjacency into a `Graph` owning centrality, shortest-path, connectivity, and partition analytics.
+- Centrality verbs (`BetweennessCentrality`/`ClosenessCentrality`/`DegreeCentrality`) each return a per-vertex score `list` ordered to the graph vertices, never a value mutated in place, so a leaderboard fold ranks the list directly.
+- `Connectivity` aliases `DegreeCentrality` (space-syntax connectivity score), never a component count; the island count is `len(Graph.ConnectedComponents(graph))`, whose return is the component sub-graphs sorted by vertex count.
+- `MinimumSpanningTree` returns the MST `Graph`; `Tree` is a vertex-rooted BFS/DFS traversal tree. `ShortestPath` returns a `topologic_core.Wire` whose hop length reads through the polymorphic `Topology.Vertices` accessor — the one vertex accessor over both graph nodes and path wires.
+- `JSONData` returns the node-link `dict` the JSON codec encodes; `JSONString` returns the pre-serialized string.
+- `Topology.ByIFCFile(file)` and `Topology.ByIFCPath(path)` return a per-product topology `list[Any]`, folded to one handle via `Cluster.ByTopologies` at the consumer, never a single `CellComplex`; all IFC intake gates against the C# `IfcSemanticModel`, so the Python side never owns IFC semantic identity.
 
-## [05]-[LOCAL_ADMISSION]
+[STACKING]:
+- `ifcopenshell`(`.api/ifcopenshell.md`): `ifcopenshell.open` yields the `ifcopenshell.file` that `Topology.ByIFCFile(file)` ingests into a per-product topology `list`, folded through `Cluster.ByTopologies`.
+- `networkx`(`.api/networkx.md`): `Graph.JSONData` emits the node-link `dict` that `networkx.node_link_graph(data, directed=, multigraph=)` rebuilds for the centrality/community analytics the topologicpy `Graph` does not own.
+- `trimesh`(`.api/trimesh.md`): `Topology.ExportToOBJ`/`ByMeshData` bridge topology to `trimesh.Trimesh(vertices=, faces=)` and onward to the `manifold3d` watertight-CSG kernel; non-manifold cells never enter the boolean path directly.
+- within-lib: the non-manifold cell-complex owner composes `Topology.ByIFCFile`, the `Cell`/`CellComplex` `By*` constructors, and `Graph.ByTopology` into the `topology-graph` subject.
+
+[LOCAL_ADMISSION]:
+- `topologicpy` admits opt-in on the Forge lane only, excluded from the default server build: its `AGPL-3.0-or-later` network copyleft makes any network-exposed deployment that links it inherit the source-disclosure obligation. Its PyPI `License ::` classifier reads `GPLv3`, but the bundled `LICENSE` and `__init__.py` header bind AGPLv3-or-later, so the binding license is network copyleft.
 
 [RAIL_LAW]:
 - Package: `topologicpy`
-- License gate: `AGPL-3.0-or-later` network copyleft (PyPI classifier mislabeled `GPLv3`; bundled license text is AGPLv3-or-later) — admitted opt-in on the Forge lane only and EXCLUDED from the default server build; any network-exposed deployment linking it inherits the AGPL source-disclosure obligation. Replacement of the AGPL dependency is mandated by card `geometry [GEO_TOPOLOGICPY_LICENSE_REPLACE]` (reference only)
-- Owns: non-manifold cell/aperture topology modeling, polymorphic `Topology` analysis and boolean ops, graph construction and analytics, dictionary attributes, and vector/matrix/color algebra gated against the C# `IfcSemanticModel`
-- Accept: non-manifold topology and graph analysis feeding the geometry-algebra owner on the opt-in Forge lane, under the AGPL obligation
-- Reject: wrapper-renames of `Topology.ByX`/`Graph.ByTopology`; a hand-rolled non-manifold boolean or graph-centrality kernel where topologicpy is admitted; a per-kind accessor/boolean family over the polymorphic `Topology` row; minting IFC semantic identity the C# owner holds; linking `topologicpy` into the default server build or any network-exposed deployment outside the opt-in Forge lane
-
-[CAPTURE_GAP]:
-- members: every documented facade, integration module, and `Topology`/`Graph` entrypoint resolves against the `0.9.50` source (`Topology.By*`/`Export*`/accessors/boolean, the `Vertex`->`CellComplex` `By*` constructor chain, the graph analytics surface `Graph.ByTopology`/`ShortestPath`/`BetweennessCentrality`/`ClosenessCentrality`/`DegreeCentrality`/`Connectivity`/`ConnectedComponents`/`MinimumSpanningTree`/`Tree`/`Edges`/`JSONData`/`JSONString` and the polymorphic `Topology.Vertices` graph-or-topology accessor, `Dictionary.ByKeysValues`/`ValueAtKey`); the `IFC`/`Honeybee`/`Speckle`/`EnergyModel`/`Neo4j`/`Kuzu`/`Ontology`/`GraphRAG`/`Polyskel` modules are present as source files. Static-method counts are AST-confirmed against `0.9.50`, and every graph member's exact `def` and documented return shape is line-confirmed in the `0.9.50` `Graph.py` source — no phantom
+- Owns: non-manifold cell/aperture topology modeling, polymorphic `Topology` analysis and boolean ops, graph construction and analytics, dictionary attributes, and vector/matrix/color algebra, gated against the C# `IfcSemanticModel`
+- Accept: non-manifold topology and graph analysis feeding the geometry-algebra owner on the opt-in Forge lane
+- Reject: wrapper-renames of `Topology.ByX`/`Graph.ByTopology`; a hand-rolled non-manifold boolean or graph-centrality kernel; a per-kind accessor/boolean family over the polymorphic `Topology` row; minting the IFC semantic identity the C# owner holds; linking into the default server build or any network-exposed deployment off the Forge lane

@@ -121,7 +121,7 @@ def test_main_tracing_lifecycle_order(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_main_surrogate_argv_does_not_crash(cli: VerbRunner) -> None:
     """Lone surrogate bytes in argv are replaced with U+FFFD before reaching the wire encoder."""
     # POSIX fsdecode can produce this lone surrogate; direct literal avoids platform branching.
-    surrogate_token = "\udcff"  # noqa: S105  # not a credential; lone surrogate probes wire_safe sanitization path
+    surrogate_token = "\udcff"  # ruff:ignore[hardcoded-password-string]  # not a credential; lone surrogate probes wire_safe sanitization path
     res = cli(surrogate_token)
     assert len(res.stdout.splitlines()) == 1
     decoded = read_one_envelope_from_bytes(res.stdout)
@@ -269,7 +269,7 @@ def test_main_subprocess_human_renderer_console_stderr(cli: VerbRunner) -> None:
 
 def test_install_tracing_empty_endpoint_is_noop() -> None:
     """An empty tracing endpoint leaves the current tracer provider untouched."""
-    from opentelemetry.trace import get_tracer_provider as _gtp  # noqa: PLC0415  # deferred: avoids OTel global-provider side-effect at session scope
+    from opentelemetry.trace import get_tracer_provider as _gtp  # ruff:ignore[import-outside-top-level]  # defers OTel global-provider install
 
     before = _gtp()
     install_tracing("")
@@ -286,8 +286,8 @@ def test_install_tracing_non_empty_endpoint_builds_real_provider(monkeypatch: py
     Intercepting the setter observes construction without replacing the session provider, whose once-only
     install and shutdown semantics would contaminate later span-capture tests.
     """
-    from opentelemetry.sdk.trace import TracerProvider  # noqa: PLC0415  # deferred: module-level import installs OTel before monkeypatch
-    import opentelemetry.trace as _ot  # noqa: PLC0415  # deferred: same session-provider contamination reason as TracerProvider
+    from opentelemetry.sdk.trace import TracerProvider  # ruff:ignore[import-outside-top-level]  # module-top installs OTel before monkeypatch
+    import opentelemetry.trace as _ot  # ruff:ignore[import-outside-top-level]  # deferred: same session-provider contamination reason as TracerProvider
 
     captured: list[object] = []
     monkeypatch.setattr(_ot, "set_tracer_provider", captured.append)
@@ -376,7 +376,11 @@ def test_admit_exec_routes_flag_through_validated_env_path(flag_value: str, expe
     assert stripped == ("static",)
     assert _main_mod.os.environ["ASSAY_EXEC_TARGET"] == expected_env
 
-    from tools.assay.composition.settings import AssaySettings, Local, Ssh  # noqa: PLC0415  # admission round-trip through the validated env path
+    from tools.assay.composition.settings import (  # ruff:ignore[import-outside-top-level]  # admission round-trip through the validated env path
+        AssaySettings,
+        Local,
+        Ssh,
+    )
 
     target = AssaySettings(exec_known_hosts=None).exec_target
     assert isinstance(target, Ssh if expected_env else Local), f"flag {flag_value!r} did not admit the expected exec target: {target!r}"

@@ -665,7 +665,7 @@ def _register[**P](
     obj: App | Callable[P, object],
     *,
     name: str | None = None,
-    help: str = "",  # noqa: A002  # cyclopts names this kwarg "help"; intentional shadow
+    help: str = "",  # ruff:ignore[builtin-argument-shadowing]  # cyclopts names this kwarg "help"; intentional shadow
     usage: str | None = None,
 ) -> App:
     # App.command returns the registered object (the leaf command or sub-app), never the parent; returning app keeps reduce folds linear.

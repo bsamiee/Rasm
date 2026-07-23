@@ -363,7 +363,7 @@ def test_close_recurses_rails_and_blocks_and_names_the_diverging_arm() -> None:
 
 def test_close_policy_rides_the_algebraic_oracles_and_refutes() -> None:
     """``close`` slots into every ``eq=`` axis: a tolerant law passes where exact equality breaks, and the witness still refutes."""
-    drift = lambda x: x + 1e-12  # noqa: E731  # one-expression law subject
+    drift = lambda x: x + 1e-12  # ruff:ignore[lambda-assignment]  # one-expression law subject
     with pytest.raises(AssertionError, match="law violated"):
         identity(1.0, drift)
     identity(1.0, drift, eq=close())

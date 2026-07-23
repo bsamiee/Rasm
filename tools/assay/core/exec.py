@@ -47,7 +47,7 @@ from tools.assay.core.govern import (
     stream_artifacts,
     touched,
 )
-from tools.assay.core.model import (  # noqa: TC001  # beartype resolves the Tool annotation on _apphost at runtime under PEP 649
+from tools.assay.core.model import (  # ruff:ignore[typing-only-first-party-import]  # beartype resolves the Tool annotation on _apphost at runtime under PEP 649
     Check,
     Completed,
     Fault,
@@ -149,7 +149,7 @@ def _project_scope(command: tuple[str, ...]) -> str:
 
 
 def _overlay(tool: Tool, settings: AssaySettings, scope: ArtifactScope | None) -> Mapping[str, str]:
-    base: MutableMapping[str, str] = dict(os.environ)  # noqa: TID251  # clones the host environment at the spawn boundary
+    base: MutableMapping[str, str] = dict(os.environ)  # ruff:ignore[banned-api]  # clones the host environment at the spawn boundary
     base.update(settings.python_tool_env)
     base.update(tool.env)
     match scope:
@@ -209,7 +209,7 @@ def _dotnet_root() -> str | None:
                 return None
 
     def from_env() -> str | None:
-        return valid(os.environ.get("DOTNET_ROOT", ""))  # noqa: TID251  # the host override is the probe's first-precedence source
+        return valid(os.environ.get("DOTNET_ROOT", ""))  # ruff:ignore[banned-api]  # the host override is the probe's first-precedence source
 
     def from_runtimes() -> str | None:
         listed = discover(("dotnet", "--list-runtimes"), root=Path.cwd(), timeout=_DOTNET_PROBE_TIMEOUT_S)
@@ -397,7 +397,7 @@ def _is_match_document(raw: bytes) -> bool:
 async def _guarded(
     check: Check, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None
 ) -> Result[Completed, Fault]:
-    import asyncssh  # noqa: PLC0415  # lazy: must bind before the try frame whose except evaluates asyncssh.Error (not an OSError subclass)
+    import asyncssh  # ruff:ignore[import-outside-top-level]  # lazy: must bind before the try frame whose except evaluates asyncssh.Error (not an OSError subclass)
 
     t0 = time.monotonic()
     attempts = [1]
@@ -510,7 +510,7 @@ def _spawn_fault(argv: tuple[str, ...], exc: BaseException, attempts: int) -> Fa
             return Fault(argv, status=RailStatus.FAULTED, message=stamped)
 
 
-async def _execute_retrying(  # noqa: PLR0913  # all params are load-bearing across the retry body; no grouping reduces the count
+async def _execute_retrying(  # ruff:ignore[too-many-arguments]  # all params are load-bearing across the retry body; no grouping reduces the count
     check: Check,
     settings: AssaySettings,
     scope: ArtifactScope | None,
@@ -579,7 +579,7 @@ def retry_predicate(check: Check, deadline: float | None) -> Callable[[BaseExcep
     Returns:
         A predicate that retries connection/OS faults on non-direct runners while budget remains, never spawn/value/timeout faults.
     """
-    import asyncssh  # noqa: PLC0415  # lazy: classify's match arm references asyncssh.Error; must bind before the closure captures it
+    import asyncssh  # ruff:ignore[import-outside-top-level]  # lazy: classify's match arm references asyncssh.Error; must bind before the closure captures it
 
     def within_budget() -> bool:
         left = remaining(deadline)
@@ -606,7 +606,7 @@ async def _inproc(check: Check, limiter: anyio.CapacityLimiter | None = None) ->
         case thunk:
             try:
                 return await to_thread.run_sync(thunk, check, limiter=limiter)
-            except Exception as exc:  # noqa: BLE001  # INPROC resilience: any thunk fault becomes a FAILED receipt; never propagates across the fan
+            except Exception as exc:  # ruff:ignore[blind-except]  # INPROC resilience: any thunk fault becomes a FAILED receipt; never propagates across the fan
                 return receipt((check.tool.name, *check.paths), 1, stderr=f"{type(exc).__name__}: {exc}".encode()[:1024])
 
 
@@ -651,7 +651,7 @@ async def run_check_async(
 class EngineExecutor:
     """Production Executor over the engine spawn rails; the registry weave constructs the one bound instance."""
 
-    def run(  # noqa: PLR6301  # port method: the instance IS the capability rails receive
+    def run(  # ruff:ignore[no-self-use]  # port method: the instance IS the capability rails receive
         self, check: Check, *, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None = None
     ) -> Result[Completed, Fault]:
         """Run one check under a single event loop.
@@ -661,7 +661,7 @@ class EngineExecutor:
         """
         return run_check(check, settings=settings, scope=scope, routed=routed, deadline=deadline)
 
-    def fan(  # noqa: PLR6301  # port method: the instance IS the capability rails receive
+    def fan(  # ruff:ignore[no-self-use]  # port method: the instance IS the capability rails receive
         self, checks: tuple[Check, ...], *, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None = None
     ) -> tuple[Result[Completed, Fault], ...]:
         """Run checks concurrently and preserve input order.

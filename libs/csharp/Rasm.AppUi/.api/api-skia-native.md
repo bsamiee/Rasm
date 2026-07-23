@@ -25,8 +25,8 @@
 | [INDEX] | [ASSET]                                                                       | [ROLE]              |
 | :-----: | :---------------------------------------------------------------------------- | :------------------ |
 |  [01]   | `runtimes/osx/native/libSkiaSharp.dylib`                                      | universal arm64+x64 |
-|  [02]   | `buildTransitive/{net10.0-macos26.2,net9.0-macos15.0,net48,net462}/*.targets` | RID copy logic      |
-|  [03]   | `lib/{net10.0,net10.0-macos26.2}/_._`                                         | compile marker      |
+|  [02]   | `buildTransitive/{net10.0-macos26.0,net9.0-macos15.0,net48,net462}/*.targets` | RID copy logic      |
+|  [03]   | `lib/{net10.0,net10.0-macos26.0}/_._`                                         | compile marker      |
 
 [LINUX_NATIVE]: statically-linked `libSkiaSharp.so`, no system fontconfig/freetype; net10.0 resolves RID copies through the SDK runtime graph, so no net10 `.targets` ships.
 

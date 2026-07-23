@@ -21,7 +21,7 @@ import structlog
 from tools.assay.composition.settings import PullStrategy, resolve_tilde, run_id_host_token, Ssh
 from tools.assay.composition.store import ArtifactScope, size_from_info
 from tools.assay.core.govern import Captured, captured_outputs, drain_pair, line_count, recv_ssh, stream_artifacts
-from tools.assay.core.model import (  # noqa: TC001  # beartype resolves receipt annotations at runtime under PEP 649
+from tools.assay.core.model import (  # ruff:ignore[typing-only-first-party-import]  # beartype resolves receipt annotations at runtime under PEP 649
     Artifact,
     ArtifactKind,
     Completed,
@@ -242,7 +242,7 @@ def _remote_done(plan: ExecPlan, target: Ssh, transfer: _Transfer, outcome: _Out
 
 
 async def _remote_exec(conn: asyncssh.SSHClientConnection, plan: ExecPlan, command: str) -> _Outcome:
-    import asyncssh  # noqa: PLC0415  # lazy: ~83ms cold-start cost; defer past import time
+    import asyncssh  # ruff:ignore[import-outside-top-level]  # lazy: ~83ms cold-start cost; defer past import time
 
     # The raw asyncssh exit_signal ((name, *) tuple or None) rides _Outcome verbatim; ssh_outcome/_signal_name own the decode.
     match plan.streaming:
@@ -308,7 +308,7 @@ async def _push_repo(conn: asyncssh.SSHClientConnection, plan: ExecPlan, manifes
     Returns:
         The pushed-file count and any per-file/per-dir failure or empty-manifest notes.
     """
-    import asyncssh  # noqa: PLC0415  # lazy: bind asyncssh.Error before the except evaluates it; defer the ~83ms cold-start
+    import asyncssh  # ruff:ignore[import-outside-top-level]  # lazy: bind asyncssh.Error before the except evaluates it; defer the ~83ms cold-start
 
     local_root = Path(str(plan.settings.local_root))
     remote_root = plan.cwd.rstrip("/")
@@ -329,7 +329,7 @@ async def _push_repo(conn: asyncssh.SSHClientConnection, plan: ExecPlan, manifes
             # only this subtree, leaving sibling directories to push. error_handler still folds remote-side transfer errors
             # per file (weight 1); a put raise aborts before any transfer, so it carries the whole undelivered group weight.
             locals_in_dir = [str(local_root / (f"{parent}/{name}" if parent else name)) for name in names]
-            handler = lambda exc: failures.append((f"remote.push.failed {type(exc).__name__}: {str(exc)[:120]}", 1))  # noqa: E731
+            handler = lambda exc: failures.append((f"remote.push.failed {type(exc).__name__}: {str(exc)[:120]}", 1))  # ruff:ignore[lambda-assignment]
             try:
                 await sftp.makedirs(remote_dir, exist_ok=True)
                 await sftp.put(locals_in_dir, remote_dir, max_requests=max_requests, error_handler=handler)
@@ -469,7 +469,7 @@ async def _remote_prune(conn: asyncssh.SSHClientConnection, settings: AssaySetti
     Returns:
         Pruned-run notes, or empty when nothing on this host's namespace exceeds the retention bound.
     """
-    import asyncssh  # noqa: PLC0415  # lazy: bind asyncssh.Error before the except evaluates it; defer the ~83ms cold-start past import time
+    import asyncssh  # ruff:ignore[import-outside-top-level]  # lazy: bind asyncssh.Error before the except evaluates it; defer the ~83ms cold-start past import time
 
     target = settings.exec_target
     if not isinstance(target, Ssh):  # pragma: no cover  # the pooled-ssh teardown only prunes under an Ssh target
@@ -628,7 +628,7 @@ async def _connect(target: Ssh) -> AsyncIterator[asyncssh.SSHClientConnection]:
 
 
 async def _connect_once(target: Ssh) -> asyncssh.SSHClientConnection:
-    import asyncssh  # noqa: PLC0415  # lazy: ~83ms cold-start cost; defer past import time
+    import asyncssh  # ruff:ignore[import-outside-top-level]  # lazy: ~83ms cold-start cost; defer past import time
 
     # The Ssh value object owns host/port/username/known_hosts; the engine owns the timeout/keepalive policy and the explicit
     # insecure opt-out: an `insecure` known_hosts token rebinds to asyncssh known_hosts=None and warns once before connecting.
@@ -696,7 +696,7 @@ def _as_bytes(data: bytes | str | None) -> bytes:
 @contextlib.asynccontextmanager
 async def pooled_ssh(settings: AssaySettings) -> AsyncIterator[None]:
     """Pool SSH connections for one fan; teardown prunes this host's stale remote run dirs and closes the pool."""
-    import asyncssh  # noqa: PLC0415  # lazy: the finally except evaluates asyncssh.Error; must bind before the try frame
+    import asyncssh  # ruff:ignore[import-outside-top-level]  # lazy: the finally except evaluates asyncssh.Error; must bind before the try frame
 
     cache = _SshCache({}, anyio.Lock())
     token = _SSH_CACHE.set(cache)

@@ -240,7 +240,7 @@ class DeviationResult(Struct, frozen=True):
 
 
 def _query(reference_glb: bytes, cloud: Cloud, element: str) -> tuple["trimesh.proximity.ProximityQuery", np.ndarray]:
-    import trimesh  # noqa: PLC0415
+    import trimesh  # ruff:ignore[import-outside-top-level]
 
     mesh = trimesh.load_mesh(io.BytesIO(reference_glb), file_type="glb")
     # signed sign is unreliable on a non-watertight reference, so an open closure raises the typed fault.

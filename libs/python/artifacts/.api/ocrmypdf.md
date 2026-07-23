@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_OCRMYPDF]
 
-`ocrmypdf` owns whole-document OCR-to-PDF/A for the artifacts pdf/document rail: one `ocr` entrypoint rasterizes a PDF or image, Tesseract-OCRs each page, grafts the text layer over the raster, and emits a searchable PDF or validated PDF/A — the `document/lens#LENS` `LensProvider.OCRMYPDF` arm of the `OCR` recovery op. It orchestrates the external `tesseract`/`ghostscript`/`unpaper`/`jbig2enc`/`pngquant` executables and re-exports its OCR-adjacent submodule owners, so the whole recovery stays in-package. Its `ExitCode` folds onto the `expression` `Result` rail off the `anyio` `to_process` worker lane.
+`ocrmypdf` owns whole-document OCR-to-PDF/A for the artifacts pdf/document rail: one `ocr` entrypoint rasterizes a PDF or image, Tesseract-OCRs each page, grafts the text layer over the raster, and emits a searchable PDF or validated PDF/A — the `document/lens#LENS` `LensProvider.OCRMYPDF` arm of the `OCR` recovery op. It orchestrates the external `tesseract`/`ghostscript`/`unpaper`/`jbig2enc`/`pngquant` executables; `ExitCode` folds onto the `expression` `Result` rail off the `anyio` `to_process` worker lane.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -14,7 +14,7 @@
 
 [PUBLIC_TYPE_SCOPE]: pipeline result, context, and hOCR-tree roots
 
-`ocr` returns an `ExitCode` and raises `ExitCodeException` subclasses — the lattice below. `OcrOptions` is the pydantic v2 `BaseModel` `ocr` accepts as its positional; `PdfContext`/`PageContext` hold per-run and per-page pipeline state, `PdfContext` carrying the live `PdfInfo`. `Executor` and `OcrEngine` are the `pluggy`-registered `ABC` extension points for concurrency and alternate OCR backends. `OcrElement` is the hOCR tree node family — with `BoundingBox`/`Baseline`/`FontInfo`/`OcrClass`, all re-exported by `hocrtransform` — while `OrientationConfidence` rides the engine contract, not the tree.
+`ocr` returns an `ExitCode` and raises `ExitCodeException` subclasses — the lattice below. `OcrOptions` is the pydantic v2 `BaseModel` `ocr` accepts as its positional; `PdfContext`/`PageContext` hold per-run and per-page pipeline state. `Executor` and `OcrEngine` are the `pluggy`-registered `ABC` extension points for concurrency and alternate OCR backends; `OcrElement` is the hOCR tree node family (`BoundingBox`/`Baseline`/`FontInfo`/`OcrClass`, re-exported by `hocrtransform`), `OrientationConfidence` riding the engine contract, not the tree.
 
 | [INDEX] | [SYMBOL]                | [TYPE_FAMILY]    | [CAPABILITY]                                                                            |
 | :-----: | :---------------------- | :--------------- | :-------------------------------------------------------------------------------------- |
@@ -99,16 +99,20 @@ Rows below are the campaign-consumed subset of a broader keyword-only signature;
 
 - `tesseract_thresholding` takes the `ThresholdingMethod` int the CLI `auto`/`otsu`/`sauvola`/`adaptive-otsu` names map to; `pdf_renderer=hocrdebug` is debug-only.
 
-[ENTRYPOINT_SCOPE]: logging configuration
+[ENTRYPOINT_SCOPE]: logging and stdout configuration
 - call: `configure_logging(verbosity: Verbosity, *, progress_bar_friendly=True, manage_root_logger=False, plugin_manager=None)`
 - call: `configure_debug_logging(log_filename: Path, prefix='') -> tuple[FileHandler, Callable[[], None]]`
+- call: `configure_stdout_protection() -> bool`
 
-| [INDEX] | [SURFACE]                 | [CAPABILITY]                                                                |
-| :-----: | :------------------------ | :-------------------------------------------------------------------------- |
-|  [01]   | `configure_logging`       | install ocrmypdf-style log handlers under `ocrmypdf`                        |
-|  [02]   | `configure_debug_logging` | attach the debug-log file handler; returns the handler + a remover callable |
+| [INDEX] | [SURFACE]                     | [CAPABILITY]                                                                     |
+| :-----: | :---------------------------- | :------------------------------------------------------------------------------- |
+|  [01]   | `configure_logging`           | install ocrmypdf-style log handlers under `ocrmypdf`                             |
+|  [02]   | `configure_debug_logging`     | attach the debug-log file handler; returns the handler + a remover callable      |
+|  [03]   | `configure_stdout_protection` | redirect fd 1 to stderr, reserve a private stdout for the PDF; returns installed |
 
-Campaign code owns its `structlog` root, so it skips `configure_logging` (which installs CLI-style handlers) and lets ocrmypdf log under the `ocrmypdf` stdlib namespace; `manage_root_logger=False` keeps ocrmypdf off the root logger the rail owns.
+- `configure_stdout_protection`: mutates process-global file descriptors (guards `output_file='-'` PDF-to-stdout against stray `print`), returns `False` when stdout is not a real OS descriptor and changes nothing; call once early or never.
+
+Campaign code owns its `structlog` root and its own stdout, so it skips both `configure_logging` (which installs CLI-style handlers) and `configure_stdout_protection` (fd-level, CLI-only), letting ocrmypdf log under the `ocrmypdf` stdlib namespace; `manage_root_logger=False` keeps ocrmypdf off the root logger the rail owns.
 
 [ENTRYPOINT_SCOPE]: lower-level `ocrmypdf.api` pipeline and plugin manager
 
@@ -174,7 +178,7 @@ Campaign code owns its `structlog` root, so it skips `configure_logging` (which 
 
 [TOPOLOGY]:
 - one `ocr` owns the full rasterize-OCR-graft-PDF/A pipeline; `language`/`output_type`/`mode`/`optimize`/`deskew`/`clean`/`rotate_pages`/`color_conversion_strategy`/`tesseract_*` are keyword rows on that call, never a per-config builder or a `run_force`/`run_skip`/`run_redo` family — `mode` discriminates. `document/lens#LENS`'s `OCR` arm calls `ocrmypdf.ocr(source.name, target.name, sidecar=sidecar.name, language=spec.language, output_type='pdfa', mode='force', deskew=, clean=, rotate_pages=, optimize=, progress_bar=False)`; a holder of a validated `OcrOptions` passes it as the positional instead.
-- `output_type` selects `auto`/`pdf`/`pdfa`/`pdfa-1`/`pdfa-2`/`pdfa-3`/`none` as a call row; PDF/A conversion runs the in-package Ghostscript path with `color_conversion_strategy`/`pdfa_image_compression` rows, never a hand-stitched external `gs`. `output_type='none'` runs OCR for the sidecar text only, writing no PDF — the shape when only the recovered text feeds `DocumentNode`.
+- `output_type` selects `auto`/`pdf`/`pdfa`/`pdfa-1`/`pdfa-2`/`pdfa-3`/`none` as a call row; PDF/A conversion runs the in-package Ghostscript path with `color_conversion_strategy`/`pdfa_image_compression` rows, never a hand-stitched external `gs`. `auto` targets PDF/A whenever achievable — the fast Ghostscript-free path validated by veraPDF first, Ghostscript fallback next — and emits a plain PDF preserving the existing text layer only when even Ghostscript cannot safely convert (a non-embedded CID/CJK font), where an explicit `pdfa*` raises instead. `output_type='none'` runs OCR for the sidecar text only, writing no PDF — the shape when only the recovered text feeds `DocumentNode`.
 - `pdfinfo.PdfInfo(infile, detailed_analysis=)` is the cheap pre-flight before a full cycle: `PageInfo.has_text` skips a page, `has_corrupt_text` flags a redo, `is_tagged`/`has_acroform`/`has_signature` route the tagged/form/signed policy — read-only, sharing the pipeline `Executor`/`use_threads`/`max_workers`.
 - pipeline faults raise `ExitCodeException` subclasses, each binding its `ExitCode`; the flat lattice means the boundary discriminates on the `exit_code` int, never a subclass tree, and PDF/A validation failure surfaces as `pdfa_conversion_failed=10`.
 - alternate OCR backends, executors, and renderers extend through the `pluggy` manager (`get_plugin_manager`, `ocr(plugin_manager=...)`) implementing the `OcrEngine`/`Executor` `ABC` with `@hookimpl` hooks, never a pipeline fork; `OcrEngine`'s required `@abstractmethod` set is `creator_tag`/`generate_hocr`/`generate_pdf`/`get_orientation`/`languages`/`version`/`__str__`, with `generate_ocr`/`get_deskew`/`supports_generate_ocr` concrete defaults.

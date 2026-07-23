@@ -1,6 +1,8 @@
 """Run one polyglot static lane: diagnose, restore, then build; ``--fix`` prepends the write-mode fixer rows."""
 
-from collections.abc import Callable  # noqa: TC003  # runtime: callable annotation is resolved through the rail layer
+from collections.abc import (
+    Callable,  # ruff:ignore[typing-only-standard-library-import]  # runtime: callable annotation is resolved through the rail layer
+)
 from dataclasses import dataclass
 from enum import StrEnum
 from hashlib import sha256
@@ -16,9 +18,14 @@ import msgspec
 import structlog
 
 from tools.assay.composition.catalog import select
-from tools.assay.composition.settings import AssaySettings  # noqa: TC001  # runtime: public rail signatures are inspected
+from tools.assay.composition.settings import (
+    AssaySettings,  # ruff:ignore[typing-only-first-party-import]  # runtime: public rail signatures are inspected
+)
 from tools.assay.composition.store import ArtifactScope, DOTNET_BUILD_CLOSURE  # runtime: public rail signatures are inspected
-from tools.assay.core.exec import argv_for, Executor  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
+from tools.assay.core.exec import (  # ruff:ignore[typing-only-first-party-import]  # beartype resolves the executor-port annotation at runtime
+    argv_for,
+    Executor,
+)
 from tools.assay.core.govern import leased, resource_projection
 from tools.assay.core.model import (
     Artifact,
@@ -32,11 +39,11 @@ from tools.assay.core.model import (
     Mode,
     RailStatus,
     receipt,
-    Report,  # noqa: TC001 - beartype resolves runtime annotations
+    Report,  # ruff:ignore[typing-only-first-party-import] - beartype resolves runtime annotations
     Runner,
     StaticRun,
     Step,
-    Tool,  # noqa: TC001 - runtime: Tool participates in public check expansion annotations
+    Tool,  # ruff:ignore[typing-only-first-party-import] - runtime: Tool participates in public check expansion annotations
     ToolArgs,
 )
 from tools.assay.core.routing import expand, infer_languages, place, route, Routed, Scope, target_files, TargetFiles
@@ -267,7 +274,7 @@ def _matches(targets: TargetFiles, routed: tuple[Routed, ...], skipped: SkipRows
     return (*route_matches, *rejected, *skipped_matches)
 
 
-def _detail(  # noqa: PLR0913  # each param is a distinct StaticRun projection input; no grouping reduces the count without a synthetic carrier
+def _detail(  # ruff:ignore[too-many-arguments]  # each param is a distinct StaticRun projection input; no grouping reduces the count without a synthetic carrier
     targets: TargetFiles,
     routed: tuple[Routed, ...],
     planned: tuple[tuple[str, str, str], ...],
@@ -483,7 +490,7 @@ def _probe_compiles(closure_phases: PhaseChecks, routed: Routed, settings: Assay
     _LOG.info("phase.start", phase="probe", checks=len(builds), run_id=settings.run_id, route=routed.language.value)
     try:
         outcomes = tuple(executor.run(check, settings=settings, scope=throwaway, routed=routed) for check in builds)
-        compiles = all(outcome.map(lambda done: done.status in _COMPILES).default_value(False) for outcome in outcomes)  # noqa: FBT003  # expression sentinel default: an Error/ambiguous probe collapses to the safe no-compile path, not a behavior flag
+        compiles = all(outcome.map(lambda done: done.status in _COMPILES).default_value(False) for outcome in outcomes)  # ruff:ignore[boolean-positional-value-in-call]  # expression sentinel default: an Error/ambiguous probe collapses to the safe no-compile path, not a behavior flag
     finally:
         # Throwaway means thrown away: an analyzer-free probe tree is a full solution build that must never accumulate.
         # The scope's dotnet-cli home survives as a live cache so a probe never re-pays the NuGet first-run cost.

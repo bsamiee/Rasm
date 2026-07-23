@@ -1,13 +1,13 @@
 # [TS_RUNTIME_API_OPENTELEMETRY_API_LOGS]
 
-`@opentelemetry/api-logs` is the API tier of the logs signal — the third signal joining the runtime otel plane beside trace and metric APIs. It carries the vocabulary every log leg shares and none may re-declare: `SeverityNumber` (the 24-step severity axis), `LogBody`/`LogAttributes`/`AnyValue` (the content types), the `LogRecord` input shape, and the `Logger`/`LoggerProvider` contracts. The `logs` singleton is the global registration seam: `logs.setGlobalLoggerProvider(provider)` installs the SDK once at the composition root, `logs.getLogger(name, version?, options?)` hands instrumentation a `Logger` that no-ops until a provider exists — the library law in one API: a library emits through this tier and produces nothing until an app installs the SDK. It still rides the overlay `0.220` line while the trace/metric APIs are stable — the named ABI-skew fact of the logs signal. Under the effect facade, application logging is `Effect.log` wired through `Logger.layerLoggerProvider`; this API tier exists for the SDK-bridge leg's vocabulary and for third-party instrumentation that emits OTel logs directly.
+`@opentelemetry/api-logs` is the API tier of the logs signal, beside the trace and metric APIs. It carries the vocabulary no log leg re-declares: `SeverityNumber`, `LogBody`/`LogAttributes`/`AnyValue`, the `LogRecord` input shape, and the `Logger`/`LoggerProvider` contracts. `logs` is the global registration seam — `setGlobalLoggerProvider` installs the SDK once; `getLogger` hands instrumentation a `Logger` that no-ops until a provider exists. Application logging is `Effect.log` under the facade; this tier serves the SDK-bridge leg and third-party instrumentation emitting OTel logs directly.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/api-logs`
 - package: `@opentelemetry/api-logs` (Apache-2.0, OpenTelemetry JS)
 - module format: CJS + ESM dual build; depends on `@opentelemetry/api` (the `Context`/`TimeInput` types) as a regular dependency
-- line: overlay `0.220` family — lock-stepped with `sdk-logs` and the OTLP exporter family; the trace/metric API tier is stable, this signal's API is
+- line: overlay family lock-stepped with `sdk-logs` and the OTLP exporter family; the trace/metric API tier versions on the stable line while the logs-signal API rides the overlay
 - rail: observability/api tier of the logs signal; `@opentelemetry/*` is fenced to `scope:runtime` by the edge ledger
 - public surface: `logs`, `Logger`, `LoggerProvider`, `LogRecord`, `LoggerOptions`, `SeverityNumber`, `LogBody`, `LogAttributes`, `AnyValue`, `AnyValueMap`, `createNoopLogger` — the Noop/Proxy classes exist internally and are NOT exported
 
@@ -61,10 +61,10 @@ type LogBody = AnyValue; type LogAttributes = AnyValueMap
 ## [04]-[IMPLEMENTATION_LAW]
 
 [STACKS_WITH]:
-- `@opentelemetry/sdk-logs` (`.api/opentelemetry-sdk-logs.md`): the SDK leg implements these contracts — `SdkLogRecord` is the mutable build of this `LogRecord` input, `LoggerConfig.minimumSeverity` keys on `SeverityNumber`, and `LogRecordProcessor.enabled?` mirrors `Logger.enabled` as the same pre-build drop at the processor tier. The vocabulary flows downward; nothing here depends on the SDK.
+- `@opentelemetry/sdk-logs` (`.api/opentelemetry-sdk-logs.md`): the SDK leg implements these contracts — `SdkLogRecord` is the mutable build of this `LogRecord` input, `LoggerConfig.minimumSeverity` keys on `SeverityNumber`, and `LogRecordProcessor.enabled?` mirrors `Logger.enabled` as the same pre-build drop at the processor tier. Vocabulary flows downward; nothing here depends on the SDK.
 - `@opentelemetry/exporter-logs-otlp-http` (`.api/opentelemetry-exporter-logs-otlp-http.md`): the OTLP egress of records built against this vocabulary — API → SDK processor → exporter is the one pipeline order.
 - `@effect/opentelemetry` (`.api/effect-opentelemetry.md`): under the facade, application logs are `Effect.log` — the facade wires the provider through `Logger.layerLoggerProvider` and owns the global registration; no `plane:runtime` folder calls `logs.setGlobalLoggerProvider` beside it. Direct `logs.getLogger` is the lane for third-party instrumentation emitting OTel logs outside the Effect rail.
-- `otel/crash`: the fatal-capture lane keys `SeverityNumber.FATAL` + `eventName` on this vocabulary and threads `context` so a crash record correlates to its span.
+- `otel/crash`: fatal capture keys `SeverityNumber.FATAL` + `eventName` on this vocabulary, threading `context` so a crash record correlates to its span.
 
 [LOCAL_ADMISSION]:
 - Declare severity, body, and attribute types from this package only; a local severity enum or body union beside it is the named split-brain.

@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_PYTHON_FCL]
 
-`python-fcl` supplies the Flexible Collision Library (FCL release) narrow-phase collision, distance, and continuous-collision engine for the geometry `mesh/spatial` CORE-clearance worker-lane arm: a `CollisionObject` pairing a `CollisionGeometry` primitive or `BVHModel` mesh with a `Transform` pose, the `collide`/`distance`/`continuousCollide` request-response pipeline, and the `DynamicAABBTreeCollisionManager` broadphase avoiding n-squared group queries. The package owner composes `BVHModel.addSubModel`, `CollisionObject`, and `distance(o1, o2, DistanceRequest(enable_nearest_points=True, enable_signed_distance=True), DistanceResult())` into the spatial owner, reading `DistanceResult.min_distance`/`nearest_points` for signed separation; it never re-implements GJK/EPA, the BVH traversal, or the AABB broadphase tree. It is a `python_version<'3.15'` manifest-row GATED ENRICHMENT backend inside the `mesh/spatial` query rail — it owns the exact narrow-phase mesh-mesh separation the `manifold3d` `min_gap` fall-through and the `rtree` box pre-filter cannot deliver; when the `<3.15` wheel band is unmet the spatial owner falls through to `manifold3d`, and the fall-through is realized selection law per the `[V9]` clearance arm, never a spine dependency.
+`python-fcl` owns the geometry branch's narrow-phase collision, signed-distance, and continuous-collision engine: a `CollisionObject` pairs a primitive or `BVHModel` mesh with a rigid `Transform`, `collide`/`distance`/`continuousCollide` resolve one request-response query per call, and `DynamicAABBTreeCollisionManager` folds group queries onto a broadphase AABB tree. Its `mesh/spatial` CORE-clearance arm composes signed `distance` with the group manager for exact mesh-mesh separation, falling through to the `manifold3d` `min_gap` scalar when the `fcl` import is unavailable.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -10,16 +10,13 @@
 - owner: `geometry`
 - rail: mesh/spatial / clearance-enrichment
 - license: `BSD-3-Clause` (own) over FCL `BSD-3-Clause`
-- entry points: none (library only)
-- admission band: `python_version<'3.15'` — cp314 wheel ceiling; the manifest-recorded blocker condition on the `[V9]` clearance arm
 - capability: narrow-phase collision detection, minimum-distance computation with nearest points and signed distance, continuous-collision time-of-contact; primitive and triangular-mesh geometries; rigid `Transform` poses; broadphase AABB-tree collision/distance managers for one-to-many and many-to-many group queries
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: geometry and object family
-- rail: mesh/spatial
 
-`CollisionGeometry` is the shape base; every primitive and the `BVHModel`/`Convex` mesh wrappers derive from it. `CollisionObject` binds a geometry to a `Transform` pose and is the unit every query consumes, exposing `get`/`set` for `Transform`/`Translation`/`Rotation`/`QuatRotation` plus `isOccupied`/`isFree`/`isUncertain`, and `Transform` carries `getRotation`/`getTranslation`/`getQuatRotation`. `BVHModel` builds via `beginModel`/`addSubModel`/`addVertex`/`addTriangle`/`endModel`.
+`CollisionGeometry` is the shape base every primitive and the `BVHModel`/`Convex` wrapper derives from; `CollisionObject` binds a geometry to a `Transform` pose and is the query unit, carrying `get`/`set` for `Transform`/`Translation`/`Rotation`/`QuatRotation` and `isOccupied`/`isFree`/`isUncertain`. `BVHModel` builds through `beginModel`/`addSubModel`/`addVertex`/`addTriangle`/`endModel`.
 
 | [INDEX] | [SYMBOL]                            | [TYPE_FAMILY] | [CAPABILITY]                                               |
 | :-----: | :---------------------------------- | :------------ | :--------------------------------------------------------- |
@@ -33,9 +30,8 @@
 |  [08]   | `OcTree`                            | mesh (octree) | octomap binary-stream occupancy geometry                   |
 
 [PUBLIC_TYPE_SCOPE]: request, result, and broadphase family
-- rail: mesh/spatial
 
-Each query kind is one request-plus-result pair; the manager wraps a request-response pair in a `CollisionData`/`DistanceData` carrier with a `done` flag for the recursive broadphase walk.
+Each query kind is one request-and-result pair; the manager wraps that pair in a `CollisionData`/`DistanceData` carrier with a `done` flag for the recursive broadphase walk.
 
 | [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]    | [CAPABILITY]                                                              |
 | :-----: | :-------------------------------- | :--------------- | :------------------------------------------------------------------------ |
@@ -47,14 +43,13 @@ Each query kind is one request-plus-result pair; the manager wraps a request-res
 |  [06]   | `ContinuousCollisionResult`       | CCD query        | `is_collide`, `time_of_contact`                                           |
 |  [07]   | `Contact` / `CostSource`          | collision detail | `o1`/`o2`/`b1`/`b2`/`normal`/`pos`/`penetration_depth`; AABB cost density |
 |  [08]   | `DynamicAABBTreeCollisionManager` | broadphase       | broadphase AABB tree over the managed `CollisionObject` set               |
-|  [09]   | `CollisionData` / `DistanceData`  | manager carrier  | request-response pair plus `done` flag for the recursive callback         |
+|  [09]   | `CollisionData` / `DistanceData`  | manager carrier  | request-response pair + `done` flag for the recursive callback            |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: pairwise queries
-- rail: mesh/spatial
 
-Each pairwise query follows one pipeline: populate a request, allocate an empty result, call the free function with the two `CollisionObject` items, read the scalar return and the mutated result. A `None` request or result defaults to the base shape.
+Each pairwise query populates a request, allocates an empty result, calls the free function over two `CollisionObject` items, and reads the scalar return with the mutated result; a `None` request or result defaults to the base shape.
 
 | [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY] | [CAPABILITY]                                          |
 | :-----: | :------------------------------------------------------------- | :------------- | :---------------------------------------------------- |
@@ -63,9 +58,8 @@ Each pairwise query follows one pipeline: populate a request, allocate an empty 
 |  [03]   | `continuousCollide(o1, tf1_end, o2, tf2_end, request, result)` | CCD            | time-of-contact in `(0, 1)`; `time_of_contact`        |
 
 [ENTRYPOINT_SCOPE]: broadphase group queries
-- rail: mesh/spatial
 
-`CollisionObject` items register with a manager before group queries; `collide`/`distance` are polymorphic on the argument shape — a callback pair for internal many-to-many, a `CollisionObject` plus callback for one-to-many, or a second manager plus callback for group many-to-many.
+`collide`/`distance` are polymorphic on argument shape — a callback pair for internal many-to-many, a `CollisionObject` and callback for one-to-many, or a second manager and callback for group many-to-many; every object registers with a manager before a group query.
 
 | [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY] | [CAPABILITY]                                                  |
 | :-----: | :------------------------------------------------------ | :------------- | :------------------------------------------------------------ |
@@ -79,22 +73,22 @@ Each pairwise query follows one pipeline: populate a request, allocate an empty 
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[MESH_SPATIAL_CLEARANCE]:
-- import: `import fcl` function-local at boundary scope under `# noqa: PLC0415`; module-level import is banned by the manifest import policy, and the `<3.15` band makes the import a probed capability, never an unconditional one.
-- geometry axis: a triangulated element lifts through `BVHModel.beginModel`/`addSubModel`/`endModel`; analytic primitives (`Box`/`Sphere`/`Cylinder`/...) are the fast narrow-phase path when the element is a known solid; `Convex` is the convex-hull path with GJK-direct separation.
-- query axis: each query kind is one request-plus-result shape — `collide`/`distance`/`continuousCollide` discriminate by function, never a query-per-shape family; the CORE-clearance arm calls `distance` with `DistanceRequest(enable_nearest_points=True, enable_signed_distance=True)` and reads `min_distance` (negative under penetration) plus `nearest_points` as the signed clearance evidence.
-- broadphase axis: group clearance registers every `CollisionObject` into a `DynamicAABBTreeCollisionManager`, calls `setup`, then `distance(DistanceData(), defaultDistanceCallback)` — the sub-n² path the arm uses over an element set, `update` refreshing the tree after pose mutation.
-- pose axis: `CollisionObject.setTransform`/`setTranslation`/`setQuatRotation` re-pose in place and recompute the AABB; the `Transform` rotation admits a 3x3 matrix or a 4-vector quaternion.
-- fall-through: the `<3.15` wheel ceiling makes `find_spec("fcl")` the gate; an unmet band routes the clearance arm to `manifold3d` `min_gap`, the realized selection law the `[V9]` clearance arm records, never a raised error.
-- evidence: each clearance query captures `min_distance`, the `nearest_points` pair, and the object handles `b1`/`b2`; the clearance receipt keys the minimum separation and the penetrating-pair count the spatial owner folds against the caller ceiling.
-- boundary: fcl owns narrow-phase collision, signed distance, and continuous-collision; the broadphase box pre-filter over a static set stays `rtree`; exact mesh boolean and `min_gap` stay `manifold3d`; nearest-surface proximity and ray stay `trimesh`.
+[TOPOLOGY]:
+- `import fcl` resolves function-local at boundary scope under `# ruff:ignore[import-outside-top-level]`; an unavailable import is a probed capability the fall-through handles, never an unconditional one.
+- Each query kind is one request-and-result shape — `collide`/`distance`/`continuousCollide` discriminate by function, never a query-per-geometry family; the CORE-clearance arm calls `distance` with `DistanceRequest(enable_nearest_points=True, enable_signed_distance=True)` and reads `min_distance` (negative under penetration) with `nearest_points` as signed clearance evidence.
+- A triangulated element lifts through `BVHModel.beginModel`/`addSubModel`/`endModel`, analytic primitives are the fast path for a known solid, and `Convex` is the GJK-direct hull path; `CollisionObject.setTransform`/`setTranslation`/`setQuatRotation` re-pose in place and recompute the AABB.
+- Group clearance registers every `CollisionObject` into a `DynamicAABBTreeCollisionManager`, calls `setup`, then `distance(DistanceData(), defaultDistanceCallback)` over the set, `update` refreshing the tree after pose mutation; the clearance receipt keys the minimum separation, the `nearest_points` pair, the `b1`/`b2` handles, and the penetrating-pair count.
 
-## [05]-[LOCAL_ADMISSION]
+[STACKING]:
+- `manifold3d`(`.api/manifold3d.md`): signed `distance` `min_distance`/`nearest_points` is the exact narrow-phase separation; an unavailable `fcl` import falls the arm through to `Manifold.min_gap(other, search_length)`, the unsigned minimum-gap scalar without signed penetration or a nearest-point pair.
+- `rtree`(`.api/rtree.md`): the `intersection`/`intersection_v` box pre-filter narrows candidate element pairs over a static set, and the surviving pairs enter fcl narrow-phase `distance` or the `DynamicAABBTreeCollisionManager` group walk.
+- `trimesh`(`.api/trimesh.md`): a `Trimesh` `vertices`/`faces` pair feeds `BVHModel.addSubModel` to build the mesh geometry; nearest-surface proximity and ray stay on trimesh.
+
+[LOCAL_ADMISSION]:
+- `python-fcl` is the admitted narrow-phase collision and signed-distance backend for the geometry branch; the `mesh/spatial` clearance owner composes it rather than a parallel GJK/EPA or BVH-traversal surface.
 
 [RAIL_LAW]:
 - Package: `python-fcl`
 - Owns: narrow-phase collision detection, minimum-distance computation with nearest points and signed distance, continuous-collision time-of-contact, primitive and BVH/Convex/OcTree geometries, rigid poses, and broadphase AABB-tree collision/distance managers
-- Accept: the `mesh/spatial` CORE-clearance arm's exact signed separation and group broadphase clearance on the `python_version<'3.15'` band
-- Reject: wrapper-renames of `collide`/`distance`; a hand-rolled GJK/EPA or BVH traversal where fcl is admitted; a query-per-geometry function family over the request-result pipeline; treating the `<3.15` band as a hard failure rather than the `manifold3d` fall-through
-
-[CAPTURE_GAP]:
+- Accept: the `mesh/spatial` CORE-clearance arm's exact signed separation and group broadphase clearance
+- Reject: wrapper-renames of `collide`/`distance`; a hand-rolled GJK/EPA or BVH traversal where fcl is admitted; a query-per-geometry function family over the request-result pipeline; treating an unavailable `fcl` import as a hard failure rather than the `manifold3d` fall-through

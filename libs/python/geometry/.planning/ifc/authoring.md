@@ -35,7 +35,7 @@ from msgspec.structs import replace
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary, railed
 from rasm.runtime.receipts import Receipt
 
-if TYPE_CHECKING:  # worker-only: every runtime `ifcopenshell` reference rides a function-local `import ifcopenshell.<sub>  # noqa: PLC0415`, so the module loads clean under the boundary-scope import policy
+if TYPE_CHECKING:  # worker-only: every runtime `ifcopenshell` reference rides a function-local `import ifcopenshell.<sub>  # ruff:ignore[import-outside-top-level]`, so the module loads clean under the boundary-scope import policy
     import ifcopenshell
 
 # --- [TYPES] ---------------------------------------------------------------------------
@@ -270,8 +270,8 @@ class IfcAuthor:
 
     @staticmethod
     def _record(model: "ifcopenshell.file", carry: AuthorCarry, op: AuthorOp, row: IfcApiVerb, product: "object", severed: int) -> AuthorCarry:
-        import ifcopenshell.guid  # noqa: PLC0415
-        import ifcopenshell.util.element  # noqa: PLC0415
+        import ifcopenshell.guid  # ruff:ignore[import-outside-top-level]
+        import ifcopenshell.util.element  # ruff:ignore[import-outside-top-level]
 
         mints = Capability.MINTS in row.cap
         is_entity = isinstance(product, ifcopenshell.entity_instance)

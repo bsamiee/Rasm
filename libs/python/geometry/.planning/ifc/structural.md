@@ -283,8 +283,8 @@ class IfcStructural:
     def _warping(subject: str, rings: ProfileRings, area: float) -> "RuntimeRail[Enrichment]":
         # deterministic cytriangle mesh-and-solve owns no transiency; a mesh failure folds onto the rail through the fence.
         def solve() -> Enrichment:
-            import sectionproperties.analysis as spa  # noqa: PLC0415
-            import sectionproperties.pre as spp  # noqa: PLC0415
+            import sectionproperties.analysis as spa  # ruff:ignore[import-outside-top-level]
+            import sectionproperties.pre as spp  # ruff:ignore[import-outside-top-level]
 
             # each ring folds its own closed facet loop with a per-ring index offset, so the voids are
             # meshed boundaries the triangulator carves out — not unbounded hole markers in a solid mesh.

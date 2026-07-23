@@ -124,7 +124,7 @@ Only an attribute-carrying wire type enters this row; an attribute-free seam gra
 
 [STACKING]:
 - `api-messagepack-analyzer`: its generator emits the `[GeneratedMessagePackResolver]` partial and its `MsgPack###` diagnostics reject an unattributed, unkeyed, or key-colliding contract at build, so `[Key]` drift breaks the compile rather than the decode.
-- `api-thinktecture-messagepack`: `ThinktectureMessageFormatterResolver.Instance` sits in the composed chain and derives one formatter per generated `[ValueObject]`, `[SmartEnum]`, and `[Union]` owner, so a `NodeId` or `ContentAddress` crosses as its bare key with no hand-written codec.
+- `api-thinktecture-serialization`: `ThinktectureMessageFormatterResolver.Instance` sits in the composed chain and derives one formatter per generated `[ValueObject]`, `[SmartEnum]`, and `[Union]` owner, so a `NodeId` or `ContentAddress` crosses as its bare key with no hand-written codec.
 - `api-hashing`: `Version/commits#CRDT_WIRE` `CrdtWire.ContentKey` hashes the `None`-compression companion encoding through the kernel `ContentHash.Of` entry, so the at-rest `Lz4BlockArray` framing stays out of the key and the Python and TypeScript replicas reproduce it byte-for-byte.
 - `api-cbor` and `api-chr-avro`: codec-selection peers — MessagePack owns the schemaless evolving record, CBOR the content-stable self-describing blob, Avro the schema-governed leg.
 - `api-objectstore`: `MessagePackStreamReader.ReadArrayAsync` is the framed-ingest seam over a length-delimited multi-snapshot blob body, yielding one sequence per element under the codec's own `SequencePool`.

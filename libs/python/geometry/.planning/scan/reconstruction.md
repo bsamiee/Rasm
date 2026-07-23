@@ -82,13 +82,13 @@ class ReconPolicy(Struct, frozen=True):
 
     @property
     def normal_search(self) -> "o3d.geometry.KDTreeSearchParamHybrid":
-        import open3d as o3d  # noqa: PLC0415
+        import open3d as o3d  # ruff:ignore[import-outside-top-level]
 
         return o3d.geometry.KDTreeSearchParamHybrid(self.normal_radius, self.normal_max_nn)
 
     @property
     def radii(self) -> "o3d.utility.DoubleVector":
-        import open3d as o3d  # noqa: PLC0415
+        import open3d as o3d  # ruff:ignore[import-outside-top-level]
 
         return o3d.utility.DoubleVector(self.ball_radii)
 
@@ -158,20 +158,20 @@ def _trim_poisson(mesh: "o3d.geometry.TriangleMesh", density: DensityField, quan
 
 
 def _poisson(cloud: "o3d.geometry.PointCloud", policy: ReconPolicy) -> "o3d.geometry.TriangleMesh":
-    import open3d as o3d  # noqa: PLC0415
+    import open3d as o3d  # ruff:ignore[import-outside-top-level]
 
     mesh, density = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(cloud, depth=policy.poisson_depth, scale=policy.poisson_scale)
     return _trim_poisson(mesh, np.asarray(density), policy.poisson_density_quantile)
 
 
 def _ball_pivoting(cloud: "o3d.geometry.PointCloud", policy: ReconPolicy) -> "o3d.geometry.TriangleMesh":
-    import open3d as o3d  # noqa: PLC0415
+    import open3d as o3d  # ruff:ignore[import-outside-top-level]
 
     return o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(cloud, policy.radii)
 
 
 def _alpha_shape(cloud: "o3d.geometry.PointCloud", policy: ReconPolicy) -> "o3d.geometry.TriangleMesh":
-    import open3d as o3d  # noqa: PLC0415
+    import open3d as o3d  # ruff:ignore[import-outside-top-level]
 
     return o3d.geometry.TriangleMesh.create_from_point_cloud_alpha_shape(cloud, policy.alpha)
 
@@ -218,8 +218,8 @@ def _reconstruct_kernel(
 ) -> tuple[bytes, ReconReceipt]:
     # module-level HOSTILE kernel: the Cloud arrays cross the pickle seam, the legacy handle rebuilds here, and the
     # fold accumulates over the immutable open3d `+` merge, never the in-place `+=` that mutates the seed.
-    import open3d as o3d  # noqa: PLC0415
-    import trimesh  # noqa: PLC0415
+    import open3d as o3d  # ruff:ignore[import-outside-top-level]
+    import trimesh  # ruff:ignore[import-outside-top-level]
 
     oriented = _estimate(cloud.legacy(), policy)
     clusters = _cluster(oriented, policy) if policy.dbscan_eps > 0.0 else (oriented,)

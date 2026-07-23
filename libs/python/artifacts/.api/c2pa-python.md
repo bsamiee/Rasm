@@ -55,25 +55,25 @@
 
 `Builder` constructs from a JSON manifest definition (string or dict); `from_json` names the factory and `from_archive` rehydrates from a written archive stream. `sign` discriminates on its first argument — a `Signer` signs explicitly, a format `str` signs with the `Context` signer — is single-use, closes the builder, and buffers into an in-memory `BytesIO` when `dest` is omitted. Members carry `str | dict` for the `*_json` args, `Optional[ContextProvider]` for `context`, and file-like `source`/`stream`/`dest`.
 
-| [INDEX] | [SURFACE]                                                 | [SHAPE]  | [CAPABILITY]                               |
-| :-----: | :-------------------------------------------------------- | :------- | :----------------------------------------- |
-|  [01]   | `Builder(manifest_json, context=None)`                    | ctor     | construct from a JSON manifest             |
-|  [02]   | `from_json(manifest_json, context=None) -> Builder`       | factory  | named factory from a JSON manifest         |
-|  [03]   | `from_archive(stream) -> Builder`                         | factory  | rehydrate a builder from an archive        |
-|  [04]   | `sign(signer_or_format, ..., dest=None) -> bytes`         | instance | sign source into dest; single-use          |
-|  [05]   | `sign_file(source_path, dest_path, signer=None) -> bytes` | instance | sign a file path to an output path         |
-|  [06]   | `set_intent(intent, digital_source_type=EMPTY)`           | instance | set manifest intent + digital source       |
-|  [07]   | `add_ingredient(ingredient_json, format, source)`         | instance | attach a parent/component ingredient       |
-|  [08]   | `add_ingredient_from_stream(json, format, source)`        | instance | attach an ingredient from an open stream   |
-|  [09]   | `add_ingredient_from_archive(stream)`                     | instance | rehydrate ingredients from an archive      |
-|  [10]   | `write_ingredient_archive(ingredient_id, stream)`         | instance | serialize an ingredient to an archive      |
-|  [11]   | `add_resource(uri, stream)`                               | instance | attach a referenced resource by URI        |
-|  [12]   | `add_action(action_json)`                                 | instance | append a `c2pa.actions` assertion          |
-|  [13]   | `set_remote_url(remote_url)`                              | instance | set the remote manifest URL                |
-|  [14]   | `set_no_embed()`                                          | instance | produce a sidecar (non-embedded) manifest  |
-|  [15]   | `to_archive(stream)`                                      | instance | serialize builder state to an archive      |
-|  [16]   | `with_archive(stream) -> Builder`                         | instance | reload a builder's definition from archive |
-|  [17]   | `get_supported_mime_types() -> list[str]`                 | instance | native signable MIME types                 |
+| [INDEX] | [SURFACE]                                                     | [SHAPE]  | [CAPABILITY]                               |
+| :-----: | :------------------------------------------------------------ | :------- | :----------------------------------------- |
+|  [01]   | `Builder(manifest_json, context=None)`                        | ctor     | construct from a JSON manifest             |
+|  [02]   | `from_json(manifest_json, context=None) -> Builder`           | factory  | named factory from a JSON manifest         |
+|  [03]   | `from_archive(stream) -> Builder`                             | factory  | rehydrate a builder from an archive        |
+|  [04]   | `sign(signer_or_format, ..., dest=None) -> bytes`             | instance | sign source into dest; single-use          |
+|  [05]   | `sign_file(source_path, dest_path, signer=None) -> bytes`     | instance | sign a file path to an output path         |
+|  [06]   | `set_intent(intent, digital_source_type=EMPTY)`               | instance | set manifest intent + digital source       |
+|  [07]   | `add_ingredient(ingredient_json, format, source)`             | instance | attach a parent/component ingredient       |
+|  [08]   | `add_ingredient_from_stream(ingredient_json, format, source)` | instance | attach an ingredient from an open stream   |
+|  [09]   | `add_ingredient_from_archive(stream)`                         | instance | rehydrate ingredients from an archive      |
+|  [10]   | `write_ingredient_archive(ingredient_id, stream)`             | instance | serialize an ingredient to an archive      |
+|  [11]   | `add_resource(uri, stream)`                                   | instance | attach a referenced resource by URI        |
+|  [12]   | `add_action(action_json)`                                     | instance | append a `c2pa.actions` assertion          |
+|  [13]   | `set_remote_url(remote_url)`                                  | instance | set the remote manifest URL                |
+|  [14]   | `set_no_embed()`                                              | instance | produce a sidecar (non-embedded) manifest  |
+|  [15]   | `to_archive(stream)`                                          | instance | serialize builder state to an archive      |
+|  [16]   | `with_archive(stream) -> Builder`                             | instance | reload a builder's definition from archive |
+|  [17]   | `get_supported_mime_types() -> list[str]`                     | static   | native signable MIME types                 |
 
 [ENTRYPOINT_SCOPE]: `Reader` extract and validate
 - rail: provenance
@@ -95,7 +95,7 @@
 |  [11]   | `get_remote_url() -> str \| None`                          | instance | remote manifest URL, or `None` if embedded  |
 |  [12]   | `resource_to_stream(uri, stream) -> int`                   | instance | write a referenced resource to a stream     |
 |  [13]   | `with_fragment(format, stream, fragment_stream) -> Reader` | instance | instance-chain fragmented BMFF              |
-|  [14]   | `get_supported_mime_types() -> list[str]`                  | instance | native readable MIME types                  |
+|  [14]   | `get_supported_mime_types() -> list[str]`                  | static   | native readable MIME types                  |
 
 [ENTRYPOINT_SCOPE]: signer, settings, and module functions
 - rail: provenance
@@ -114,7 +114,7 @@
 |  [08]   | `Settings.update(data) -> Settings`                                  | instance | merge a config dict/JSON into settings       |
 |  [09]   | `Context.from_json(json_str, signer=None) -> Context`                | factory  | context from JSON config + signer            |
 |  [10]   | `Context.from_dict(config, signer=None) -> Context`                  | factory  | context from a config dict + signer          |
-|  [11]   | `Context.has_signer() -> bool`                                       | instance | whether the context carries a signer         |
+|  [11]   | `Context.has_signer -> bool`                                         | property | whether the context carries a signer         |
 |  [12]   | `Context.builder() -> ContextBuilder`                                | instance | fluent `with_settings`/`with_signer`         |
 |  [13]   | `load_settings(settings, format="json") -> None`                     | static   | process-wide thread-local settings load      |
 |  [14]   | `sdk_version() -> str`                                               | static   | underlying `c2pa-rs` core version            |

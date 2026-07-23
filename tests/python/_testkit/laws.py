@@ -2,7 +2,9 @@
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from collections.abc import Callable  # noqa: TC003  # PEP 695 ParamSpec annotations are runtime-evaluated; TYPE_CHECKING guard breaks them
+from collections.abc import (
+    Callable,  # ruff:ignore[typing-only-standard-library-import]  # PEP 695 ParamSpec annotations are runtime-evaluated; TYPE_CHECKING guard breaks them
+)
 from datetime import timedelta
 import enum
 import functools
@@ -118,7 +120,7 @@ def _public_surface(package_name: str) -> tuple[dict[str, object], tuple[tuple[s
                 continue
             try:
                 modules.append(importlib.import_module(mod_name))
-            except Exception as exc:  # noqa: BLE001  # accumulated and surfaced by assert_law_coverage, never swallowed
+            except Exception as exc:  # ruff:ignore[blind-except]  # accumulated and surfaced by assert_law_coverage, never swallowed
                 failures.append((mod_name, repr(exc)))
 
     surface: dict[str, object] = {}
@@ -173,7 +175,7 @@ def spec[**P](
 
         match given:
             case True:
-                from tests.python._testkit.strategies import resolve  # noqa: PLC0415  # deferred to break import cycle
+                from tests.python._testkit.strategies import resolve  # ruff:ignore[import-outside-top-level]  # deferred to break import cycle
 
                 # The registration algebra matches the resolver's: classes, PEP 695 aliases, and
                 # parameterized forms (unions, Literal, Annotated) all inject; bare callables refuse.

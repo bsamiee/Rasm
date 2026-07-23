@@ -56,7 +56,7 @@
 | :-----: | :----------------------------------------- | :--------------------------------------------------- | :-------------------------------- |
 |  [01]   | `av.open`                                  | `open(file, mode="w", ...) -> OutputContainer`       | open a write container            |
 |  [02]   | `av.open`                                  | `open(file, mode="r", *, hwaccel) -> InputContainer` | open a read container (`hwaccel`) |
-|  [03]   | `OutputContainer.add_stream`               | `add_stream(codec_name, rate=None, options=None)`    | typed video/audio/subtitle stream |
+|  [03]   | `OutputContainer.add_stream`               | `add_stream(codec_name, rate, options, hwaccel)` | typed a/v/subtitle stream |
 |  [04]   | `OutputContainer.add_mux_stream`           | `add_mux_stream(codec_name, rate=None, **kwargs)`    | passthrough stream for remux      |
 |  [05]   | `OutputContainer.add_stream_from_template` | `add_stream_from_template(template, opaque=None)`    | clone an existing stream's params |
 |  [06]   | `OutputContainer.add_attachment`           | `add_attachment(name, mimetype, data)`               | embed a font/cover/file           |
@@ -69,6 +69,8 @@
 |  [13]   | `Container.close`                          | `close() -> None`; `__enter__`/`__exit__`            | flush trailer; use `with av.open` |
 |  [14]   | `Container.set_chapters`                   | `set_chapters(chapters: list[Chapter]) -> None`      | bind the chapter list on a remux  |
 |  [15]   | `Stream.metadata`                          | `dict[str, str]` (mutable before header write)       | per-stream tags (title/language)  |
+
+- `OutputContainer.add_stream`: a `hwaccel` device uploads software frames passed to `encode` to the GPU automatically, and `VideoCodecContext.sw_format` sets the pre-upload pixel format the hardware encoder consumes.
 
 [ENTRYPOINT_SCOPE]: container demux, decode, and seek (read side)
 
@@ -109,6 +111,9 @@
 |  [17]   | `CodecContext.extradata`       | writable `bytes \| None`                                  | codec-private header payload            |
 |  [18]   | `Container.format.name`        | property -> `str`                                         | active muxer identifier                 |
 
+- `VideoFrame.reformat`: a transfer/primaries conversion runs only when `dst_color_trc`/`dst_color_primaries` is passed; reserved or unsupported source `color_primaries`/`color_trc` tags (VP9, NVDEC) no longer raise on `reformat`/`to_ndarray`/`to_rgb`/`to_image`.
+- `VideoStream.encode`: a DLPack CUDA frame encodes directly under `pix_fmt="cuda"`, the encoder adopting the frame's `hw_frames_ctx`; downloading a hardware frame to system memory preserves `pts`/`time_base`/colorspace.
+
 [ENTRYPOINT_SCOPE]: filter graph, bitstream filter, and resample
 
 `av.filter.loudnorm.stats` runs the two-pass EBU R128 measurement over an `AudioStream`, the gated integrated-LUFS read a single-pass encode cannot expose.
@@ -118,19 +123,23 @@
 |  [01]   | `Graph.add_buffer`                | `add_buffer(template=None, ...) -> FilterContext`           | create a video source node            |
 |  [02]   | `Graph.add_abuffer`               | `add_abuffer(template=None, ...) -> FilterContext`          | create an audio source node           |
 |  [03]   | `Graph.add`                       | `add(filter, args=None, **kwargs) -> FilterContext`         | add a named libavfilter node          |
-|  [04]   | `Graph.link_nodes`                | `link_nodes(*nodes) -> Graph`                               | link a sequence of filter contexts    |
-|  [05]   | `Graph.push` / `Graph.pull`       | `push(frame) -> None`; `pull() -> VideoFrame \| AudioFrame` | drive frames through the graph        |
+|  [04]   | `Graph.link_nodes`                | `link_nodes(*nodes) -> Graph`                               | chain filter contexts in order    |
+|  [05]   | `Graph.push`/`.vpush`/`.pull`     | `push(frame, at=-1)`; `vpush(vframe, at=-1)`; `pull() -> Frame` | drive frames; `at` picks a source |
 |  [06]   | `Graph.configure`                 | `configure(auto_buffer=True, force=False) -> None`          | validate/configure before pull        |
-|  [07]   | `BitStreamFilterContext`          | `BitStreamFilterContext(filter_description, ...)`           | bitstream rewrite (annexb/extradata)  |
+|  [07]   | `BitStreamFilterContext`          | `BitStreamFilterContext(filter_description, ...)` | bitstream rewrite  |
 |  [08]   | `BitStreamFilterContext.filter`   | `filter(packet=None) -> list[Packet]`; `flush() -> None`    | rewrite a packet bitstream            |
-|  [09]   | `AudioResampler`                  | `AudioResampler(format, layout, rate, frame_size)`          | format/rate/layout resample owner     |
+|  [09]   | `AudioResampler`                  | `AudioResampler(format, layout, rate, frame_size, options=None)` | swresample resample owner |
 |  [10]   | `AudioResampler.resample`         | `resample(frame_or_None) -> list[AudioFrame]`               | resample a frame; `None` flushes      |
 |  [11]   | `AudioFifo.write` / `.read`       | `write(frame)`; `read(samples=-1, partial=False)`           | rebuffer to a fixed frame size        |
 |  [12]   | `CodecContext.create`             | `create(codec, mode=None, hwaccel=None) -> CodecContext`    | standalone codec context              |
 |  [13]   | `CodecContext.parse`              | `parse(raw_input=None) -> list[Packet]`                     | split a raw elementary stream         |
-|  [14]   | `av.filter.loudnorm.stats`        | `stats(loudnorm_args: str, stream: AudioStream) -> bytes`   | two-pass EBU R128 measurement JSON    |
+|  [14]   | `av.filter.loudnorm.stats`        | `stats(loudnorm_args: str, stream: AudioStream) -> bytes`   | two-pass EBU R128 stats JSON    |
 |  [15]   | `Graph.pull` (drain signals)      | raises `BlockingIOError` (needs input) / `EOFError` (EOF)   | drain-loop terminal signals           |
-|  [16]   | `AudioFormat.packed`/`.is_planar` | property -> `AudioFormat` / `bool`                          | planar and packed sample-format twins |
+|  [16]   | `AudioFormat.packed`/`is_planar` | property -> `AudioFormat` / `bool`                          | planar/packed format twins |
+
+- `Graph.push`/`.vpush`: `at` selects one buffer source by index for a multi-input filter (`overlay`), where the single-source default (`at=-1`) cannot disambiguate.
+- `BitStreamFilterContext`: `in_stream` accepts a `Codec` or a codec-name `str`, pinning the input codec without a full `Stream`.
+- `AudioResampler`: `options` passes `libswresample` knobs (`resampler`, `filter_size`, `cutoff`) to the underlying resample graph.
 
 [ENTRYPOINT_SCOPE]: build registries, capability probes, and per-context filter wiring
 
@@ -142,7 +151,7 @@ Multi-input filters wire per context: `FilterContext.link_to` binds explicit pad
 |  [02]   | `av.bitstream_filters_available`       | module attr -> `set[str]`                            | registered bitstream-filter names       |
 |  [03]   | `av.filter.filters_available`          | module attr -> `set[str]`                            | registered libavfilter names            |
 |  [04]   | `av.codec.hwaccel.hwdevices_available` | `hwdevices_available() -> list[str]`                 | hardware decode device-type names       |
-|  [05]   | `av.codec.hwaccel.HWAccel`             | `HWAccel(device_type, allow_software_fallback, ...)` | GPU decode context for `open(hwaccel=)` |
+|  [05]   | `av.codec.hwaccel.HWAccel`             | `HWAccel(device_type, allow_software_fallback, ...)` | GPU decode/encode ctx (`hwaccel=`) |
 |  [06]   | `FilterContext.link_to`                | `link_to(input_, output_idx=0, input_idx=0) -> None` | explicit-pad multi-input wiring         |
 |  [07]   | `FilterContext.push` / `.pull`         | `push(frame) -> None`; `pull() -> Frame`             | per-source drive in a multi-input graph |
 |  [08]   | `av.library_versions`                  | module attr -> `dict[str, tuple]`                    | bundled libav majors                    |
@@ -172,25 +181,26 @@ Each row is set after `add_stream` and before the first `encode`, reading the sh
 |  [13]   | `CodecContext.flags` / `.flags2`                        | flag set                              | codec flag bitsets (`GLOBAL_HEADER`) |
 |  [14]   | `CodecContext.flush_buffers`                            | `flush_buffers() -> None`             | reset codec state at a seek boundary |
 |  [15]   | `CodecContext.hwaccel` / `is_hwaccel`                   | `HWAccel`/`bool`                      | hardware acceleration context        |
-|  [16]   | `Frame.pts`                                             | `int \| None`                         | presentation timestamp (`time_base`) |
-|  [17]   | `Frame.time_base`                                       | `Fraction \| None`                    | timestamp unit for the frame         |
-|  [18]   | `VideoFrame.colorspace` / `color_range`                 | attribute                             | per-frame color metadata (BT.709)    |
-|  [19]   | `VideoFrame.color_primaries` / `color_trc`              | attribute                             | per-frame primaries / transfer curve |
-|  [20]   | `VideoFrame.pict_type` / `key_frame` / `rotation`       | attribute                             | picture type (I/P/B), keyframe, rot  |
-|  [21]   | `AudioStream.sample_rate`                               | `int`                                 | audio sample rate                    |
-|  [22]   | `AudioStream.layout`                                    | `AudioLayout`                         | channel layout                       |
-|  [23]   | `AudioCodecContext.frame_size`                          | `int`                                 | encoder fixed frame size (0 = free)  |
-|  [24]   | `AudioCodecContext.format`/`.layout`/`.rate`            | settable attributes                   | sample format / layout / sample rate |
-|  [25]   | `AudioFrame.rate`                                       | `int` (settable)                      | sample-rate stamp before resample    |
-|  [26]   | `AudioFrame.to_ndarray`                                 | `to_ndarray() -> ndarray`             | extract samples to NumPy             |
+|  [16]   | `VideoCodecContext.sw_format`                           | `VideoFormat \| None` (settable, str) | HW-encoder software pixel format     |
+|  [17]   | `Frame.pts`                                             | `int \| None`                         | presentation timestamp (`time_base`) |
+|  [18]   | `Frame.time_base`                                       | `Fraction \| None`                    | timestamp unit for the frame         |
+|  [19]   | `VideoFrame.colorspace` / `color_range`                 | attribute                             | per-frame color metadata (BT.709)    |
+|  [20]   | `VideoFrame.color_primaries` / `color_trc`              | attribute                             | per-frame primaries / transfer curve |
+|  [21]   | `VideoFrame.pict_type` / `key_frame` / `rotation`       | attribute                             | picture type (I/P/B), keyframe, rot  |
+|  [22]   | `AudioStream.sample_rate`                               | `int`                                 | audio sample rate                    |
+|  [23]   | `AudioStream.layout`                                    | `AudioLayout`                         | channel layout                       |
+|  [24]   | `AudioCodecContext.frame_size`                          | `int`                                 | encoder fixed frame size (0 = free)  |
+|  [25]   | `AudioCodecContext.format`/`.layout`/`.rate`            | settable attributes                   | sample format / layout / sample rate |
+|  [26]   | `AudioFrame.rate`                                       | `int` (settable)                      | sample-rate stamp before resample    |
+|  [27]   | `AudioFrame.to_ndarray`                                 | `to_ndarray() -> ndarray`             | extract samples to NumPy             |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - One polymorphic `MediaOp` discriminates Encode / Decode / Transcode / Remux / Filter; the read side (`demux`/`decode`/`seek`) and the write side (`add_stream`/`encode`/`mux`) are arms of one owner, a transcode being `decode` then optional `Graph` then `encode` then `mux`.
 - One `av.open` opens every container as a context manager (trailer written, IO released); `mode` selects `InputContainer` vs `OutputContainer`, `format` selects the muxer (`mp4`/`webm`/`gif`) as a call row, and `io_open` supplies a Python I/O callback for protocol/segment sinks.
-- `add_stream(codec_name, rate)` is the single typed stream factory: `codec_name` discriminates video (`h264`/`libx264`/`vp9`/`libvpx-vp9`/`libsvtav1`/`gif`) from audio (`aac`/`libopus`), `add_mux_stream`/`add_stream_from_template` carry the remux/clone rows, and codec knobs ride `options`/`**kwargs`.
-- `VideoFrame.from_ndarray` ingests a host array and `from_dlpack` a zero-copy CUDA-context tensor; `reformat` is the swscale resize/colorspace-convert row over the assigned `pts`/`time_base`/`pix_fmt`.
+- `add_stream(codec_name, rate)` is the single typed stream factory: `codec_name` discriminates video (`h264`/`libx264`/`vp9`/`libvpx-vp9`/`libsvtav1`/`gif`) from audio (`aac`/`libopus`), `add_mux_stream`/`add_stream_from_template` carry the remux/clone rows, codec knobs ride `options`/`**kwargs`, and a `hwaccel` device (`h264_nvenc`/`h264_vaapi`/`h264_videotoolbox`) routes hardware encode, `VideoCodecContext.sw_format` fixing the pre-upload pixel format.
+- `VideoFrame.from_ndarray` ingests a host array and `from_dlpack` a zero-copy CUDA-context tensor; a DLPack CUDA frame encodes directly under `pix_fmt="cuda"` (the encoder adopting its `hw_frames_ctx`) while a software frame passed to a `hwaccel` encoder uploads automatically, and `reformat` is the swscale resize/colorspace-convert row over the assigned `pts`/`time_base`/`pix_fmt`.
 - `av.filter.Graph` is the single libavfilter owner: scale/crop/overlay/fps/format/loudnorm are `add(...)` rows wired with `link_nodes`, driven with `push`/`pull`, running between `decode` and `encode`.
 - `BitStreamFilterContext` rewrites a packet bitstream (annexb, extradata) for a `demux` then `bsf.filter` then `mux` copy that changes container or codec without re-decoding.
 - `stream.encode(frame)` then `container.mux(packets)` is the one encode-then-mux row, flushed with `encode(None)`; `mux_one(packet)` serves one-at-a-time backpressure and `AudioFifo` rebuffers to the fixed `frame_size` encoders like AAC demand.
@@ -198,7 +208,7 @@ Each row is set after `add_stream` and before the first `encode`, reading the sh
 - Each op captures container format, codec, `pix_fmt`, frame count, resolution, frame rate, bit rate, GOP size, filter-graph chain, `ffmpeg_version_info`, and input/output byte length as a media receipt.
 
 [STACKING]:
-- `numpy`(`.api/numpy.md`): the frame seam is `VideoFrame.from_ndarray(arr, format)` in / `frame.to_ndarray()` out over a `uint8`/`float32` RGB24/RGBA/GRAY buffer, `from_numpy_buffer` the zero-copy contiguous variant, `from_dlpack` the device edge a `torch`/`cupy`/`jax` CUDA tensor ingests with no host round-trip.
+- `numpy`(`.api/numpy.md`): the frame seam is `VideoFrame.from_ndarray(arr, format)` in / `frame.to_ndarray()` out over a `uint8`/`float32` RGB24/RGBA/GRAY or 10-bit `yuv420p10le` buffer, `from_numpy_buffer` the zero-copy contiguous variant, `from_dlpack` the device edge a `torch`/`cupy`/`jax` CUDA tensor ingests with no host round-trip.
 - `anyio`(`.api/anyio.md`): the synchronous `demux`/`decode`/`encode`/`mux` loop drives one container per `anyio.to_thread.run_sync` worker under a `CapacityLimiter` fan, only the finished bytes crossing back to the async caller.
 - `expression`(`.api/expression.md`): the `FFmpegError` subtree maps at the boundary to `Result[MediaReceipt, MediaError]` — `EncoderNotFoundError`/`MuxerNotFoundError` the unregistered-codec arm, `InvalidDataError` the malformed-input arm, a successful `mux` trailer the `Ok` receipt.
 - `structlog`(`.api/structlog.md`)/`opentelemetry`(`.api/opentelemetry-api.md`): the per-op evidence is the structured event/span payload, and `av.library_versions` read once at boundary init rides the receipt as a deployment fact.

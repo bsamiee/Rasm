@@ -1,6 +1,6 @@
 # [PY_DATA_API_BW_PROCESSING]
 
-`bw-processing` (import `bw_processing`) mints the Brightway data-package format — the `fsspec`-served bundle of `numpy` structured arrays and JSON metadata that encodes every LCA matrix as COO triples (`INDICES_DTYPE` indices, a float `data` array, an optional sign `flip`, an optional `UNCERTAINTY_DTYPE` distributions array). It is the serialization contract between the graph store and the solver — `bw2data` writes it, `bw2calc` maps it into `scipy` sparse matrices — and never solves, holds a graph, or reaches a database.
+`bw-processing` (import `bw_processing`) mints the Brightway data-package format — the `fsspec`-served bundle of `numpy` structured arrays and JSON metadata that encodes every LCA matrix as COO triples (`INDICES_DTYPE` indices, a float `data` array, an optional sign `flip`, an optional `reference` production-exchange marker, an optional `UNCERTAINTY_DTYPE` distributions array). It is the serialization contract between the graph store and the solver — `bw2data` writes it, `bw2calc` maps it into `scipy` sparse matrices — and never solves, holds a graph, or reaches a database.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -51,7 +51,7 @@ A `Datapackage` is a set of named resource *groups*, each group the arrays for o
 |  [07]   | `generic_zipfile_filesystem(*, dirpath, filename, write, compression) -> ZipFileSystem` | single-zip `fs` target                |
 
 [ENTRYPOINT_SCOPE]: matrix build (`Datapackage` instance methods)
-- add carry: `name`, `flip_array`, `rescale_array`, `params_array`, `param_labels`, `param_label_schema`, `keep_proxy`, `matrix_serialize_format_type`.
+- add carry: `name`, `flip_array`, `rescale_array`, `reference_array`, `params_array`, `param_labels`, `param_label_schema`, `keep_proxy`, `matrix_serialize_format_type`.
 
 | [INDEX] | [SURFACE]                                                                          | [CAPABILITY]                               |
 | :-----: | :--------------------------------------------------------------------------------- | :----------------------------------------- |
@@ -89,6 +89,7 @@ A `Datapackage` is a set of named resource *groups*, each group the arrays for o
 
 [TOPOLOGY]:
 - One group encodes one matrix's contribution; its index array is `INDICES_DTYPE` global `bw2data` mapping ids, never dense positions, and `matrix_utils` resolves them to dense positions at solve time.
+- `flip_array`, `rescale_array`, and `reference_array` are optional per-entry side-resources aligned to the index array: `flip` negates the sign, `rescale` multiplies before insertion, and `reference` (`kind="reference"`) marks the production exchange so `bw_graph_tools` reads it directly instead of inferring column structure. Each writes only when at least one entry sets it.
 - Persistent bakes the numbers at write time; dynamic defers to an `interface` evaluated per iteration. Persistent 2-D arrays (`use_arrays=True`) and `UNCERTAINTY_DTYPE` distributions (`use_distributions=True`, via `stats_arrays`) are the two stochastic sources.
 - Serialization routes through `fsspec` end to end: the same `Datapackage` writes to a directory, a zip, or `morefs` memory by swapping `fs`, and `mmap_mode`/`proxy=True` on load keep large background datapackages out of resident memory.
 - `filter_by_attribute`/`exclude` return a `FilteredDatapackage` sharing the underlying arrays, so selective loading never copies; `del_resource_group` mutates in place and needs `write_modified()` to persist.

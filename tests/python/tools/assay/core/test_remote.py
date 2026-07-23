@@ -23,7 +23,7 @@ from tests.python._testkit.env import provision, SshHost
 from tests.python._testkit.spec import assert_ok
 
 # Hypothesis resolves fixture annotations at collection time under PEP 649.
-from tests.python.tools.assay.kit import AssayHarness  # noqa: TC001
+from tests.python.tools.assay.kit import AssayHarness  # ruff:ignore[typing-only-first-party-import]
 from tools.assay.composition.settings import AssaySettings, PullStrategy, run_id_host_token, Ssh
 from tools.assay.composition.store import ArtifactScope
 from tools.assay.core.exec import fan_out, run_check
@@ -106,7 +106,7 @@ async def _git_seed(root: Path, files: Mapping[str, bytes]) -> None:
         (root / rel).parent.mkdir(parents=True, exist_ok=True)
         (root / rel).write_bytes(payload)
     ident = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
-    env = {**os.environ, "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_SYSTEM": "/dev/null", **ident}  # noqa: TID251  # subprocess env clone for the test-local git seed
+    env = {**os.environ, "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_SYSTEM": "/dev/null", **ident}  # ruff:ignore[banned-api]  # subprocess env clone for the test-local git seed
     for argv in (("git", "init", "-q"), ("git", "add", "-A"), ("git", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "seed", "--no-verify")):
         await anyio.run_process([*argv], cwd=str(root), env=env, check=True)
 
@@ -170,7 +170,7 @@ async def test_run_check_remote_round_trips_through_ssh_double(assay_root: Assay
 @pytest.mark.anyio
 @pytest.mark.parametrize("scoped", [False, True], ids=["non-persisted", "scoped-persists-artifact"])
 async def test_run_check_remote_streaming_round_trips(
-    scoped: bool,  # noqa: FBT001
+    scoped: bool,  # ruff:ignore[boolean-type-hint-positional-argument]
     assay_root: AssayHarness,
     ssh_env: SshEnv,
 ) -> None:
@@ -213,7 +213,7 @@ async def test_fan_out_remote_pools_ssh_connection(assay_root: AssayHarness, ssh
 @pytest.mark.parametrize("exc_factory", ["asyncssh", "oserror"])
 async def test_pooled_ssh_logs_close_failures(exc_factory: str) -> None:
     """``_pooled_ssh`` logs close failures from ``asyncssh.Error`` and ``OSError``; a broken close never aborts sibling cleanup."""
-    import asyncssh  # noqa: PLC0415  # deferred: double raises asyncssh.Error directly
+    import asyncssh  # ruff:ignore[import-outside-top-level]  # deferred: double raises asyncssh.Error directly
 
     boom: BaseException = asyncssh.Error(code=1, reason="close failed") if exc_factory == "asyncssh" else OSError("socket reset on close")
     closed = [False]
@@ -221,7 +221,7 @@ async def test_pooled_ssh_logs_close_failures(exc_factory: str) -> None:
     def _mark_closed() -> None:
         closed[0] = True
 
-    async def _wait_closed() -> None:  # noqa: RUF029  # asyncssh-compatible wait_closed double
+    async def _wait_closed() -> None:  # ruff:ignore[unused-async]  # asyncssh-compatible wait_closed double
         raise boom
 
     conn = SimpleNamespace(close=_mark_closed, wait_closed=_wait_closed)
@@ -401,7 +401,7 @@ async def test_remote_transfer_keeps_exec_cancellable_under_deadline(
     assert {"Workspace.slnx", "src/a.cs"} <= landed, f"push leg did not complete before the exec stalled: {landed!r}"
 
 
-async def _async_none() -> None:  # noqa: RUF029  # no-op coroutine: the _probe_toolchain mock must return an awaitable
+async def _async_none() -> None:  # ruff:ignore[unused-async]  # no-op coroutine: the _probe_toolchain mock must return an awaitable
     return None
 
 
@@ -412,7 +412,7 @@ async def _async_none() -> None:  # noqa: RUF029  # no-op coroutine: the _probe_
 def _moto_s3(monkeypatch: pytest.MonkeyPatch) -> Iterator[AbstractFileSystem]:
     # A moto-backed S3FileSystem double: ambient AWS env (creds + endpoint) is production parity — the SHARED-pull store
     # reads them off the executor env, never a settings knob.
-    from moto.server import ThreadedMotoServer  # noqa: PLC0415  # loopback object-store double for the real s3fs read
+    from moto.server import ThreadedMotoServer  # ruff:ignore[import-outside-top-level]  # loopback object-store double for the real s3fs read
 
     for key, value in (("AWS_ACCESS_KEY_ID", "test"), ("AWS_SECRET_ACCESS_KEY", "test"), ("AWS_DEFAULT_REGION", "us-east-1")):
         monkeypatch.setenv(key, value)

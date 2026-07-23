@@ -381,13 +381,13 @@ def _ts_spec(
 
 @functools.cache
 def _ts_context() -> "Any":
-    import tensorstore as ts  # noqa: PLC0415
+    import tensorstore as ts  # ruff:ignore[import-outside-top-level]
 
     return ts.Context()
 
 
 async def _ts_open(spec: JsonSpec, *, create: bool) -> "Any":
-    import tensorstore as ts  # noqa: PLC0415
+    import tensorstore as ts  # ruff:ignore[import-outside-top-level]
 
     return await ts.open(spec, create=create, delete_existing=create, context=_ts_context())
 
@@ -407,7 +407,7 @@ async def _ts_write(ref: ResourceRef, region: TensorRegion, data: "np.ndarray") 
 
 
 async def _ts_write_atomic(ref: ResourceRef, regions: "tuple[Write, ...]") -> int:
-    import tensorstore as ts  # noqa: PLC0415
+    import tensorstore as ts  # ruff:ignore[import-outside-top-level]
 
     txn = ts.Transaction(atomic=True)
     store = await ts.open(_ts_spec(ref), create=False, context=_ts_context(), transaction=txn)

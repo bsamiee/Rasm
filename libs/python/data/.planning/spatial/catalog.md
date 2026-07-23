@@ -63,7 +63,7 @@ type Materialized = tuple["ItemCollection | list[Collection]", tuple[str, ...], 
 # boundary-scoped `planetary_computer` handle, imported once per process and read by every `SchemeRow` callable.
 @cache
 def _pc() -> ModuleType:
-    import planetary_computer  # noqa: PLC0415
+    import planetary_computer  # ruff:ignore[import-outside-top-level]
 
     return planetary_computer
 
@@ -309,7 +309,7 @@ class StacCatalog(Struct, frozen=True):
             ).bind(self._shape(surface))
 
     def _discover(self, row: SurfaceRow, params: SearchParams, max_items: int | None, limit: int | None) -> Materialized:
-        from pystac_client import Client  # noqa: PLC0415
+        from pystac_client import Client  # ruff:ignore[import-outside-top-level]
 
         client = Client.open(self.endpoint, **self.signing.open_kwargs())
         return row.materialize(row.call(client, max_items, limit, params), self.signing)
@@ -403,7 +403,7 @@ class TableSink:
 
 def stac_table(source: TableSource, *, schema: SchemaInference = "FullFile") -> "RuntimeRail[pa.RecordBatchReader]":
     def _parse() -> "pa.RecordBatchReader":
-        from stac_geoparquet.arrow import (  # noqa: PLC0415
+        from stac_geoparquet.arrow import (  # ruff:ignore[import-outside-top-level]
             DEFAULT_JSON_CHUNK_SIZE,
             parse_stac_items_to_arrow,
             parse_stac_ndjson_to_arrow,
@@ -422,9 +422,9 @@ def stac_table(source: TableSource, *, schema: SchemaInference = "FullFile") -> 
 
 def stac_table_egress(table: "pa.RecordBatchReader | pa.Table", sink: TableSink) -> "RuntimeRail[ContentKey]":
     def _write() -> "RuntimeRail[ContentKey]":
-        from pathlib import Path  # noqa: PLC0415
+        from pathlib import Path  # ruff:ignore[import-outside-top-level]
 
-        from stac_geoparquet.arrow import (  # noqa: PLC0415
+        from stac_geoparquet.arrow import (  # ruff:ignore[import-outside-top-level]
             DEFAULT_PARQUET_SCHEMA_VERSION,
             stac_table_to_ndjson,
             to_parquet,
@@ -447,9 +447,9 @@ def stac_table_egress(table: "pa.RecordBatchReader | pa.Table", sink: TableSink)
 
 def stac_table_direct(source: TableSource, sink: TableSink, *, schema: SchemaInference = "FirstBatch") -> "RuntimeRail[ContentKey]":
     def _fuse() -> "RuntimeRail[ContentKey]":
-        from pathlib import Path  # noqa: PLC0415
+        from pathlib import Path  # ruff:ignore[import-outside-top-level]
 
-        from stac_geoparquet.arrow import (  # noqa: PLC0415
+        from stac_geoparquet.arrow import (  # ruff:ignore[import-outside-top-level]
             DEFAULT_JSON_CHUNK_SIZE,
             DEFAULT_PARQUET_SCHEMA_VERSION,
             parse_stac_items_to_parquet,
@@ -494,8 +494,8 @@ def stac_table_direct(source: TableSource, sink: TableSink, *, schema: SchemaInf
 
 def stac_table_rehydrate(table: "pa.Table") -> "RuntimeRail[tuple[object, ...]]":
     def _rehydrate() -> "tuple[object, ...]":
-        import pystac  # noqa: PLC0415
-        from stac_geoparquet.arrow import stac_table_to_items  # noqa: PLC0415
+        import pystac  # ruff:ignore[import-outside-top-level]
+        from stac_geoparquet.arrow import stac_table_to_items  # ruff:ignore[import-outside-top-level]
 
         return tuple(pystac.Item.from_dict(record) for record in stac_table_to_items(table))
 
@@ -629,7 +629,7 @@ def _window_band() -> CapacityLimiter:
 
 
 def _raster_hrefs(collection: object) -> "Iterator[tuple[object, str]]":
-    from pystac import MediaType  # noqa: PLC0415
+    from pystac import MediaType  # ruff:ignore[import-outside-top-level]
 
     raster = {MediaType.COG, MediaType.GEOTIFF}
     return ((asset, asset.href) for item in collection for asset in item.assets.values() if asset.media_type in raster)
@@ -720,7 +720,7 @@ class AssetFold(Struct, frozen=True):
                 assert_never(unreachable)
 
     def _coverage(self, groupby: str, resampling: Resampling, chunks: "dict[str, int] | None") -> "RuntimeRail[StacDiscovery]":
-        import odc.stac  # noqa: PLC0415
+        import odc.stac  # ruff:ignore[import-outside-top-level]
 
         bundle = self._claim(next(iter(self.discovery.collection)), resampling)
         cube = odc.stac.load(

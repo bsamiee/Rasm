@@ -25,7 +25,7 @@ from tests.python.tools.assay.kit import (
     install_cpu_double,
     RailProbe,
     read_one_envelope_from_bytes,
-    SeamExecutor,  # noqa: TC001  # fixture-signature annotation evaluated by pytest at runtime
+    SeamExecutor,  # ruff:ignore[typing-only-first-party-import]  # fixture-signature annotation evaluated by pytest at runtime
     YakShape,
 )
 
@@ -74,19 +74,19 @@ def pytest_configure(config: pytest.Config) -> None:
     write lands before it reads ``benchmark_storage``.
     """
     if hasattr(config.pluginmanager.hook, "pytest_benchmark_update_json") and config.getoption("benchmark_storage") == _BENCHMARK_ROOT_DEFAULT:
-        from tools.assay.composition.catalog import BENCHMARK_STORAGE_URI  # noqa: PLC0415  # canonical URI imported only on the ad-hoc escape path
+        from tools.assay.composition.catalog import BENCHMARK_STORAGE_URI  # ruff:ignore[import-outside-top-level]  # ad-hoc escape path only
 
         config.option.benchmark_storage = BENCHMARK_STORAGE_URI
 
 
 def pytest_runtest_setup(item: pytest.Item) -> None:
     """Reset SUT ContextVars and structlog context before each in-process test."""
-    import structlog  # noqa: PLC0415
+    import structlog  # ruff:ignore[import-outside-top-level]
 
-    from tools.assay.automation.engine import _CPU_PRIMED  # noqa: PLC0415
-    from tools.assay.core.aspect import RING  # noqa: PLC0415
-    from tools.assay.core.govern import RESOURCE  # noqa: PLC0415
-    from tools.assay.core.remote import _SSH_CACHE  # noqa: PLC0415
+    from tools.assay.automation.engine import _CPU_PRIMED  # ruff:ignore[import-outside-top-level]
+    from tools.assay.core.aspect import RING  # ruff:ignore[import-outside-top-level]
+    from tools.assay.core.govern import RESOURCE  # ruff:ignore[import-outside-top-level]
+    from tools.assay.core.remote import _SSH_CACHE  # ruff:ignore[import-outside-top-level]
 
     structlog.contextvars.clear_contextvars()
     seams = ExitStack()
@@ -99,7 +99,7 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
 
 def pytest_runtest_teardown(item: pytest.Item, nextitem: pytest.Item | None) -> None:
     """Close SUT ContextVar seams and clear structlog context after each test."""
-    import structlog  # noqa: PLC0415
+    import structlog  # ruff:ignore[import-outside-top-level]
 
     _ = nextitem
     _SUT_SEAMS.pop(item.nodeid).close()
@@ -148,11 +148,11 @@ def cli(
         list(starmap(monkeypatch.setenv, (extra_env or {}).items()))
         match isolate:
             case False:
-                from tools.assay import __main__ as main_mod  # noqa: PLC0415  # in-proc import keeps the subprocess path import-clean
+                from tools.assay import __main__ as main_mod  # ruff:ignore[import-outside-top-level]  # in-proc; keeps subprocess path import-clean
 
                 if executor is not None:
                     # The public injection channel: rebuild the app with the canned port; main() dispatches through the module global.
-                    from tools.assay.composition.registry import build_app, REGISTRY  # noqa: PLC0415
+                    from tools.assay.composition.registry import build_app, REGISTRY  # ruff:ignore[import-outside-top-level]
 
                     monkeypatch.setattr(main_mod, "app", build_app(REGISTRY, executor=executor))
                 # Keep the session tracer provider alive while exercising main's drain path.
@@ -167,7 +167,7 @@ def cli(
                     pytest.skip("uv not on PATH")
                 if request.node.get_closest_marker("subprocess") is None:
                     pytest.fail("cli(isolate=True) requires @pytest.mark.subprocess; mutation lanes deselect via -m 'not subprocess'")
-                spawn_env = {**os.environ, "ASSAY_ROOT": str(assay_root.root), **(extra_env or {})}  # noqa: TID251  # subprocess env clone
+                spawn_env = {**os.environ, "ASSAY_ROOT": str(assay_root.root), **(extra_env or {})}  # ruff:ignore[banned-api]  # subprocess env clone
                 spawn = functools.partial(anyio.run_process, env=spawn_env, cwd=str(REPO_ROOT), check=False)
                 result = anyio.run(spawn, ["uv", "run", "python", "-m", "tools.assay", *argv])
                 return CliResult(
@@ -184,7 +184,7 @@ def log_processors() -> tuple[Processor, ...]:
     Returns:
         Processor chain extension carrying the assay ring processor.
     """
-    from tools.assay.core.aspect import ring_processor  # noqa: PLC0415  # processor imported at fixture time to keep collection import-clean
+    from tools.assay.core.aspect import ring_processor  # ruff:ignore[import-outside-top-level]  # fixture-time import keeps collection import-clean
 
     return (ring_processor,)
 
@@ -220,7 +220,7 @@ def captured_emits(monkeypatch: pytest.MonkeyPatch) -> list[Envelope]:
     Returns:
         Live list accumulating every captured emit Envelope.
     """
-    from tools.assay.automation import engine as automation_engine  # noqa: PLC0415  # patch target re-imported here
+    from tools.assay.automation import engine as automation_engine  # ruff:ignore[import-outside-top-level]  # patch target re-imported here
 
     probe: SeamProbe[Envelope] = SeamProbe(project=operator.itemgetter(slice(1)))
     probe.install(monkeypatch, automation_engine, "_emit", Sync(None))
@@ -234,7 +234,7 @@ def ssh_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Provisioned[Awai
     Returns:
         Provisioned remote target whose factory runs the asyncssh handshake inside the awaiting loop.
     """
-    from tools.assay.core import remote as remote_mod  # noqa: PLC0415  # patch target re-imported here
+    from tools.assay.core import remote as remote_mod  # ruff:ignore[import-outside-top-level]  # patch target re-imported here
 
     # The Offload always derives an sftp backend for a remote run; the chrooted SFTP subsystem lets the scope pull resolve.
     provisioned = provision(SshHost(sftp_root=tmp_path))

@@ -24,7 +24,7 @@ All four hasher classes share one `_Hasher` interface. `xxh128` is the same clas
 |  [05]   | `xxh128`   | hasher class  | same class object as `xxh3_128`                 |
 
 [PUBLIC_TYPE_SCOPE]: constants and metadata
-- [BINDING_ID]: `VERSION` `XXHASH_VERSION` `VERSION_TUPLE` — release strings and the int tuple, mirrored in `xxhash.version`
+- [BINDING_ID]: `VERSION` `XXHASH_VERSION` — release strings, mirrored in `xxhash.version`
 - [PROBE]: `algorithms_available` — `set[str]` of available algorithm names
 
 ## [03]-[ENTRYPOINTS]
@@ -47,7 +47,7 @@ Construct with optional `input`/`seed`, feed with `update`, read the running sta
 |  [11]   | `block_size`                 | property | internal block size in bytes          |
 
 [ENTRYPOINT_SCOPE]: one-shot digest functions
-Each family exposes `_digest -> bytes`, `_hexdigest -> hex str`, and `_intdigest -> int` one-shot functions over a buffer-protocol `data` with optional `seed=0`. `xxh128_*` aliases `xxh3_128_*`; `xxh64_*` stays distinct from `xxh3_64_*` (classic vs XXH3), and the `.pyi` stub that declares `xxh64_*` aliased to `xxh3_64_*` is wrong — runtime is authoritative.
+Each family exposes `_digest -> bytes`, `_hexdigest -> hex str`, and `_intdigest -> int` one-shot functions over a buffer-protocol `input`, positional or keyword, with optional `seed=0` — argument handling matches the hasher constructors. `xxh128_*` aliases `xxh3_128_*`; `xxh64_*` stays distinct from `xxh3_64_*` (classic vs XXH3), hashing identical content to different values.
 
 - [FAMILIES]: `xxh32` `xxh64` `xxh3_64` `xxh3_128` `xxh128`
 
@@ -64,12 +64,12 @@ Each family exposes `_digest -> bytes`, `_hexdigest -> hex str`, and `_intdigest
 - runtime .NET boundary: `XXH3_128` matches C# `System.IO.Hashing.XxHash128`; the wire-crossing owner pins `xxh3_128`/`xxh128`, a fixed seed, and the big-endian `digest()` so the Python and C# digests agree byte-for-byte.
 
 [LOCAL_ADMISSION]:
-- one-shot `<family>_<form>(data)` is the single-buffer fast path; the stateful `update`/`digest` cycle serves incremental streaming over a chunked source.
+- one-shot `<family>_<form>(input)` is the single-buffer fast path; the stateful `update`/`digest` cycle serves incremental streaming over a chunked source.
 - content-identity and cache keys read `intdigest()` or `hexdigest()`; raw `digest()` bytes serves binary framing and declares its endianness with the consumer.
 - one seed per owner identity; seeded and unseeded hashes never mix in one key namespace.
 
 [RAIL_LAW]:
 - Package: `xxhash`
 - Owns: fast non-cryptographic hashing for content identity, cache keys, and integrity tokens across the xxHash families
-- Accept: one-shot `<family>_<form>(data, seed=)` for single-buffer hashing; the stateful `update`/`digest` cycle for streaming; a fixed family and seed per owner identity
+- Accept: one-shot `<family>_<form>(input, seed=)` for single-buffer hashing; the stateful `update`/`digest` cycle for streaming; a fixed family and seed per owner identity
 - Reject: xxhash for cryptographic security, password storage, or HMAC; a hand-rolled byte-folding hash; mixing families or seeds in one key namespace

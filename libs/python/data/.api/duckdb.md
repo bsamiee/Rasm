@@ -30,12 +30,12 @@
 |  [12]   | `Error`                   | exception     | DB-API 2.0 base of the typed error hierarchy                    |
 
 [DuckDBPyConnection exec]: `execute` `executemany` `sql` `query` `table` `view` `cursor` `duplicate` `close` `interrupt`
-[DuckDBPyConnection fetch]: `fetchone` `fetchmany` `fetchall` `fetchnumpy` `fetchdf` `df` `pl` `arrow` `fetch_arrow_table` `fetch_record_batch` `torch` `tf` `to_arrow_reader`
+[DuckDBPyConnection fetch]: `fetchone` `fetchmany` `fetchall` `fetchnumpy` `fetchdf` `df` `fetch_df_chunk` `pl` `to_arrow_table` `to_arrow_reader` `torch` `tf`
 [DuckDBPyConnection admin]: `register` `unregister` `create_function` `remove_function` `table_function` `install_extension` `load_extension` `begin` `commit` `rollback` `checkpoint`
 [DuckDBPyRelation transform]: `select` `project` `filter` `order` `limit` `distinct` `aggregate` `join` `union` `except_` `intersect` `cross`
 [DuckDBPyRelation reduce]: `count` `sum` `mean` `min` `max` `std` `var` `median` `quantile` `mode` `product` `histogram` `value_counts`
 [DuckDBPyRelation window]: `row_number` `rank` `dense_rank` `lag` `lead` `first_value` `last_value` `n_tile` `cume_dist` `percent_rank`
-[DuckDBPyRelation egress]: `to_df` `pl` `to_arrow_table` `fetchnumpy` `to_table` `to_view` `to_csv` `to_parquet` `insert_into` `create` `create_view`
+[DuckDBPyRelation egress]: `to_df` `pl` `to_arrow_table` `to_arrow_reader` `fetchnumpy` `to_table` `to_view` `to_csv` `to_parquet` `insert_into` `create` `create_view`
 [Expression builders]: `ColumnExpression` `ConstantExpression` `FunctionExpression` `CaseExpression` `LambdaExpression` `SQLExpression` `StarExpression` `DefaultExpression` `CoalesceOperator`
 [Value subclasses]: `IntegerValue` `LongValue` `DoubleValue` `FloatValue` `BooleanValue` `StringValue` `BlobValue` `DateValue` `TimeValue`
 [Value subclasses]: `TimestampValue` `IntervalValue` `DecimalValue` `UUIDValue` `ListValue` `StructValue` `MapValue` `NullValue`
@@ -80,7 +80,7 @@
 
 [STACKING]:
 - `duckdb-extensions.md`(`.api/duckdb-extensions.md`): loadable-extension roster, per-connection load shapes, Substrait plan methods, and DuckLake catalog functions; `install_extension`/`load_extension` are the connection-side load boundary this surface owns.
-- `datafusion`(`.api/datafusion.md`), `polars`, `deltalake`, `pyarrow`: `from_arrow`/`register` ingest and `fetch_arrow_table`/`fetch_record_batch`/`to_arrow_reader`/`pl` egress thread one shared Arrow C-data capsule, so a frame crosses the engine boundary with no copy.
+- `datafusion`(`.api/datafusion.md`), `polars`, `deltalake`, `pyarrow`: `from_arrow`/`register` ingest and `to_arrow_table`/`to_arrow_reader`/`pl` egress thread one shared Arrow C-data capsule, so a frame crosses the engine boundary with no copy.
 - `deltalake`(`.api/deltalake.md`): `register`/`from_arrow` adopts `DeltaTable.to_pyarrow_dataset()` for pushdown SQL, and `to_parquet`/`to_arrow_reader` feeds a `write_deltalake` commit over the same Delta/Parquet files.
 - `tabular` `DuckDbSession`: the request-scoped scan rail composes `register`/`from_arrow` ingest and relation egress as the columnar and query engine behind data-branch egress.
 - udf/retry: an Arrow-vectorized `create_function` batch is the shared capsule; a remote-source query composes under a `stamina` `retry_context` and an OpenTelemetry span keyed by `query_progress()`.

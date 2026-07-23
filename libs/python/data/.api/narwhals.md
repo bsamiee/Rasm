@@ -32,7 +32,7 @@
 | :-----: | :----------------------------- | :------------- | :------------------------------ |
 |  [01]   | `Int8/16/32/64/128`            | integer dtype  | signed integer dtypes           |
 |  [02]   | `UInt8/16/32/64/128`           | integer dtype  | unsigned integer dtypes         |
-|  [03]   | `Float32` / `Float64`          | float dtype    | IEEE float dtypes               |
+|  [03]   | `Float16` / `Float32` / `Float64` | float dtype | IEEE float dtypes               |
 |  [04]   | `Boolean`                      | boolean dtype  | boolean dtype                   |
 |  [05]   | `String`                       | string dtype   | UTF-8 string dtype              |
 |  [06]   | `Binary`                       | binary dtype   | opaque bytes dtype              |
@@ -187,8 +187,10 @@ Module-level expression and frame constructors.
 |  [13]   | `when(*predicates)`                                            | `when(...).then(...).otherwise(...)` builder |
 |  [14]   | `concat(items, how)`                                           | concatenate frames vertically or diag        |
 |  [15]   | `corr(a, b, method)`                                           | Pearson or Spearman correlation              |
-|  [16]   | `struct(*exprs, **named_exprs)`                                | build struct column expression               |
-|  [17]   | `format(f_string, *args)`                                      | format string expression                     |
+|  [16]   | `cov(a, b, *, ddof)`                                           | sample covariance of two columns             |
+|  [17]   | `struct(*exprs, **named_exprs)`                                | build struct column expression               |
+|  [18]   | `list(*exprs)`                                                 | combine columns row-wise into a list column  |
+|  [19]   | `format(f_string, *args)`                                      | format string expression                     |
 
 [ENTRYPOINT_SCOPE]: Expr combinators
 
@@ -258,9 +260,10 @@ Column selectors are composable expression-like objects accepted anywhere an exp
 | :-----: | :------------------------------------------------------- | :--------------------------------- |
 |  [01]   | `by_dtype(*dtypes)`                                      | columns matching narwhals dtypes   |
 |  [02]   | `numeric()` / `boolean()` / `string()` / `categorical()` | columns by broad type class        |
-|  [03]   | `datetime(time_unit=None, time_zone=('*', None))`        | temporal columns by unit/zone      |
-|  [04]   | `matches(pattern)`                                       | columns whose name matches a regex |
-|  [05]   | `all()`                                                  | all columns                        |
+|  [03]   | `enum()`                                                | `Enum`-dtype columns               |
+|  [04]   | `datetime(time_unit=None, time_zone=('*', None))`        | temporal columns by unit/zone      |
+|  [05]   | `matches(pattern)`                                       | columns whose name matches a regex |
+|  [06]   | `all()`                                                  | all columns                        |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -205,7 +205,7 @@ def test_package_bound_requires_slug_and_publish_version() -> None:
 
 
 @pytest.mark.parametrize("label, pattern, expected", _PATTERN_CASES, ids=[label for label, _, _ in _PATTERN_CASES])
-def test_safe_package_pattern_truth_table(label: str, pattern: str, expected: bool) -> None:  # noqa: FBT001
+def test_safe_package_pattern_truth_table(label: str, pattern: str, expected: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
     """_safe_package_pattern accepts only non-empty, path-separator-free, null-free names."""
     assert _safe_package_pattern(pattern) is expected, f"[{label}]: {pattern!r}"
 
@@ -220,7 +220,7 @@ def test_slug_from_bytes_cases(raw: bytes, expected: str) -> None:
 
 
 @pytest.mark.parametrize("slug, pairs, expect_ok, expect_dup", _LONE_CASES)
-def test_lone_match_resolution(slug: str, pairs: tuple[tuple[str, str], ...], expect_ok: bool, expect_dup: bool) -> None:  # noqa: FBT001
+def test_lone_match_resolution(slug: str, pairs: tuple[tuple[str, str], ...], expect_ok: bool, expect_dup: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
     """_lone_match admits one match and faults zero or duplicate matches."""
     result = _lone_match(slug, pairs)
     match expect_ok:

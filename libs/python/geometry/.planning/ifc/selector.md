@@ -272,7 +272,7 @@ class IfcSelector:
 
     @staticmethod
     def filter(model: "ifcopenshell.file", text: str) -> "RuntimeRail[tuple[ifcopenshell.entity_instance, ...]]":
-        import ifcopenshell.util.selector  # noqa: PLC0415
+        import ifcopenshell.util.selector  # ruff:ignore[import-outside-top-level]
 
         return IfcSelector.parse(text).map(lambda query: tuple(ifcopenshell.util.selector.filter_elements(model, query.filter_string)))
 

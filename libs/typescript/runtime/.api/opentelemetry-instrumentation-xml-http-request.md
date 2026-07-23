@@ -37,8 +37,7 @@
 |  [04]   | `applyCustomAttributesOnSpan`                | config field   | bounded span attribute stamp; identifier-grade only    |
 |  [05]   | `ignoreNetworkEvents` / `measureRequestSize` | config field   | network-event and request-size toggles                 |
 |  [06]   | `clearTimingResources`                       | config field   | resource-timing buffer hygiene after projection        |
-|  [07]   | `semconvStabilityOptIn`                      | config field   | HTTP semconv selection aligned with the estate pin     |
-|  [08]   | `enable()` / `disable()`                     | lifecycle      | patch/unpatch the global `XMLHttpRequest`              |
+|  [07]   | `enable()` / `disable()`                     | lifecycle      | patch/unpatch the global `XMLHttpRequest`              |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

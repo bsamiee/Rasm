@@ -125,7 +125,7 @@ def test_codeparams_rejects_multiple_language_flags() -> None:
 
 def test_code_help_exposes_boolean_language_flags(monkeypatch: pytest.MonkeyPatch, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
     """Code help exposes selector flags and never the removed --language value flag."""
-    from tools.assay import __main__ as main_mod  # noqa: PLC0415
+    from tools.assay import __main__ as main_mod  # ruff:ignore[import-outside-top-level]
 
     neutralized = SimpleNamespace(force_flush=lambda *_a, **_k: True, shutdown=lambda: None)
     monkeypatch.setattr(main_mod, "get_tracer_provider", lambda: neutralized)
@@ -293,7 +293,7 @@ def test_targets(
 
 def test_ts_language_tsx_key_resolves_tsx_grammar() -> None:
     """Tsx and typescript resolve to distinct tree-sitter languages."""
-    from tree_sitter import (  # noqa: PLC0415  # local import avoids aliasing `Language` from tools.assay.core.model at module scope
+    from tree_sitter import (  # ruff:ignore[import-outside-top-level]  # local import avoids aliasing `Language` from tools.assay.core.model at module scope
         Language as TSLanguage,
     )
 
@@ -322,7 +322,7 @@ def test_ts_language_tsx_key_resolves_tsx_grammar() -> None:
 def test_rg_status_exact_note_bytes(
     returncode: int,
     stderr: str,
-    has_rows: bool,  # noqa: FBT001  # parametrized bool flag
+    has_rows: bool,  # ruff:ignore[boolean-type-hint-positional-argument]  # parametrized bool flag
     expected: tuple[RailStatus, tuple[str, ...]],
 ) -> None:
     """_rg_status preserves exact status and warning-note tuples across the full rc x rows matrix."""
@@ -371,7 +371,7 @@ def test_apply_row_status_empty_on_exit1(
 def test_ts_rows_produces_match_rows_and_listing(
     name: str,
     text: str,
-    parse_error: bool,  # noqa: FBT001  # parametrized bool flag
+    parse_error: bool,  # ruff:ignore[boolean-type-hint-positional-argument]  # parametrized bool flag
     rc: int,
     status_in: RailStatus,
     expected_id_fragment: str,

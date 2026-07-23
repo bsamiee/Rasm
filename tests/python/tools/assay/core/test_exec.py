@@ -15,13 +15,15 @@ import anyio
 from expression import Error, Ok
 from hypothesis import given, strategies as st
 import msgspec
-from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter  # noqa: TC002  # collection-time fixture annotation
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
+    InMemorySpanExporter,  # ruff:ignore[typing-only-third-party-import]  # collection-time fixture annotation
+)
 import pytest
 
 from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, validity_matrix
 
 # Hypothesis resolves fixture annotations at collection time under PEP 649.
-from tests.python.tools.assay.kit import AssayHarness  # noqa: TC001
+from tests.python.tools.assay.kit import AssayHarness  # ruff:ignore[typing-only-first-party-import]
 import tools.assay.core.exec as exec_mod
 from tools.assay.core.exec import argv_for, EngineExecutor, Executor, fan_out, retry_predicate, run_check, run_check_async, splice_command
 import tools.assay.core.govern as govern_mod
@@ -163,7 +165,7 @@ def test_local_spawn_arms_honor_check_cwd_and_exit_code(mode: Mode, assay_root: 
         ("exhausted-budget-blocks-transport-retry", Runner.DOTNET, ConnectionError("reset"), -1.0, False),
     ],
 )
-def test_retry_predicate_decision_table(label: str, runner: Runner, exc: BaseException, budget: float | None, expected: bool) -> None:  # noqa: FBT001
+def test_retry_predicate_decision_table(label: str, runner: Runner, exc: BaseException, budget: float | None, expected: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
     """``retry_predicate`` retries transport faults on non-direct runners only, and never once the deadline budget is spent."""
     check = Check(tool=msgspec.structs.replace(_ECHO_TOOL, runner=runner))
     started = None if budget is None else time.monotonic() + budget
@@ -517,7 +519,7 @@ def test_run_process_backend_routes_on_exec_target(assay_root: AssayHarness, mon
     """``_run_process_backend`` dispatches to ``_run_remote`` exactly when ``exec_target`` is set, forwarding declared row env."""
     recorded: list[tuple[str, dict[str, str]]] = []
 
-    async def _record(plan: object, target: object) -> object:  # noqa: RUF029  # async to match _run_remote's awaited signature
+    async def _record(plan: object, target: object) -> object:  # ruff:ignore[unused-async]  # async to match _run_remote's awaited signature
         recorded.append((target.url, dict(getattr(plan, "env", {}))))  # ty: ignore[unresolved-attribute]  # target is the Ssh value object
         return receipt(("remote",), 0, stdout=b"recorded")
 

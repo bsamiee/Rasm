@@ -555,7 +555,7 @@ def test_observability_gate_routes_hypothesis_observations_to_artifacts() -> Non
     artifact = REPO_ROOT / ".artifacts" / "python" / "hypothesis" / f"{datetime.now(tz=UTC).date().isoformat()}_testcases.jsonl"
 
     def child(*, observed: bool) -> int:
-        base = {name: value for name, value in os.environ.items() if name != "TESTS_OBSERVABILITY"}  # noqa: TID251  # subprocess env clone
+        base = {name: value for name, value in os.environ.items() if name != "TESTS_OBSERVABILITY"}  # ruff:ignore[banned-api]  # subprocess env clone
         env = {**base, **({"TESTS_OBSERVABILITY": "1"} if observed else {})}
         spawn = functools.partial(anyio.run_process, env=env, cwd=str(REPO_ROOT), check=False)
         result = anyio.run(spawn, [sys.executable, "-m", "pytest", law, "-q"])

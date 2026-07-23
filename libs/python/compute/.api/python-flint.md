@@ -109,7 +109,7 @@
 | :-----: | :------------------------------------------------------------------ | :------------- | :--------------------------------------- |
 |  [01]   | `fmpq.bernoulli(n)` / `fmpq.harmonic(n)`                            | sequences      | exact Bernoulli and harmonic numbers     |
 |  [02]   | `fmpq.dedekind_sum(h, k)`                                           | number theory  | exact Dedekind sum                       |
-|  [03]   | `numer()` / `denom()` / `floor()` / `ceil()` / `round()` / `next()` | access         | numer/denom, rounding, Stern-Brocot next |
+|  [03]   | `numer()`/`denom()`/`floor()`/`ceil()`/`round()`/`next()`/`__float__()` | access | numer/denom, rounding, next, float cast |
 
 [ENTRYPOINT_SCOPE]: `fmpz_mat` and `fmpq_mat` matrix operations
 
@@ -128,15 +128,17 @@
 | [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] | [CAPABILITY]                           |
 | :-----: | :-------------------------------------------------------- | :------------- | :------------------------------------- |
 |  [01]   | `factor()` / `factor_squarefree()`                        | factorization  | full and squarefree factorization      |
-|  [02]   | `gcd(other)` / `resultant(other)`                         | algebra        | GCD, resultant                         |
+|  [02]   | `gcd(other)` / `resultant(other)` / `discriminant()`      | algebra        | GCD, resultant, discriminant           |
 |  [03]   | `roots()` / `real_roots()` / `complex_roots()`            | root finding   | exact, real, and complex roots         |
 |  [04]   | `derivative()` / `integral()` (fmpq_poly)                 | calculus       | formal derivative and integral         |
 |  [05]   | `cyclotomic(n)` / `chebyshev_t(n)` / `swinnerton_dyer(n)` | named poly     | cyclotomic, Chebyshev, Swinnerton-Dyer |
 |  [06]   | `is_cyclotomic()` / `deflate()` / `inflate(n)`            | structure      | cyclotomic test, deflate/inflate       |
-|  [07]   | `degree()`                                                | access         | highest-term exponent                  |
+|  [07]   | `mul_low(other, n)` / `pow_trunc(e, n)`                   | truncated-arith | low-degree product, power truncated to degree n |
+|  [08]   | `degree()`                                                | access         | highest-term exponent                  |
 
 [ENTRYPOINT_SCOPE]: `arb` and `acb` ball arithmetic operations
 - `sinh_cosh()` fuses hyperbolic sine and cosine; `airy_ai_zero(n)` / `airy_bi_zero(n)` return the nth real Airy zeros.
+- `acb_mat.theta_jets(tau, z, ord)` returns Riemann theta values together with their partial derivatives (the jet) up to total order `ord`; `theta(tau, z)` is the `ord=0` value alone.
 
 | [INDEX] | [SURFACE]                                                                                                         | [ENTRY_FAMILY]   |
 | :-----: | :---------------------------------------------------------------------------------------------------------------- | :--------------- |
@@ -163,7 +165,8 @@
 |  [21]   | `acb.dirichlet_l(s, char)` / `acb.zeta_zero(n)` / `acb.zeta_zeros(n, count)` / `arb.zeta_nzeros(t)`               | analytic         |
 |  [22]   | `arb_mat.solve(b)` / `arb_mat.inv()` / `arb_mat.det()` / `arb_mat.eig()` / `arb_mat.exp()` / `arb_mat.charpoly()` | real-matrix      |
 |  [23]   | `arb_mat.dct()`                                                                                                   | real-matrix      |
-|  [24]   | `acb_mat.eig()` / `acb_mat.solve(b)` / `acb_mat.exp()` / `acb_mat.dft()` / `acb_mat.theta()`                      | complex-matrix   |
+|  [24]   | `acb_mat.eig()` / `acb_mat.solve(b)` / `acb_mat.exp()` / `acb_mat.dft()`                                          | complex-matrix   |
+|  [25]   | `acb_mat.theta(tau, z)` / `acb_mat.theta_jets(tau, z, ord)`                                                       | complex-matrix   |
 
 [ENTRYPOINT_SCOPE]: context and precision control
 
@@ -202,7 +205,8 @@
 
 [TOPOLOGY]:
 - `fmpz` and `fmpq` carry the full Python arithmetic operators; results are exact with no rounding.
-- `arb` and `acb` carry an interval `[mid ± rad]`; every operation propagates the radius, the result is certified while `rad` stays finite (`is_finite()`), and `rel_accuracy_bits()` reports the pinned significant bits.
+- `arb` and `acb` carry an interval `[mid ± rad]`; every operation propagates the radius, the result is certified while `rad` stays finite (`is_finite()`), and `rel_accuracy_bits()` reports the pinned significant bits. Only an exact ball hashes; an inexact `arb`/`acb` raises `ValueError` on `hash()`, barring it as a dict key or set member.
+- `factor()` / `roots()` and the mpoly factorizations return terms in a deterministic sorted order, so a factor list is comparable across runs without a caller-side sort.
 - `ctx.prec` sets session bit-precision for all `arb`/`acb` work and `ctx.cap` the default series truncation order; `ctx.extraprec(n)`/`ctx.workprec(n)` are block-scoped managers that bump precision without leaking to the session.
 - `flint.good(func)` re-runs `func` at escalating `ctx.prec` until the ball is accurate to `ctx.dps`, replacing a hand-written precision-retry loop.
 - Matrix constructors accept nested lists or flat data with shape; `eig()` on `arb_mat`/`acb_mat` returns certified eigenvalue balls, never float estimates.

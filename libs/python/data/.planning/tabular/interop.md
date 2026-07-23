@@ -148,7 +148,7 @@ class DoeDataset(Struct, frozen=True):
         """One Arrow training table: axis columns then objective columns, rows the design points."""
 
         def build() -> Any:
-            import pyarrow as pa  # noqa: PLC0415
+            import pyarrow as pa  # ruff:ignore[import-outside-top-level]
 
             if len(self.coordinates) != self.points * len(self.axes) or len(self.responses) != self.points * len(self.objectives):
                 msg = f"<doe-extent:{len(self.coordinates)}x{len(self.responses)}!={self.points}x{len(self.axes)}x{len(self.objectives)}>"

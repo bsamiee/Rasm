@@ -116,19 +116,20 @@ Process-singleton handlers installed once at boundary setup so a missing embedde
 
 | [INDEX] | [SURFACE]                                                 | [SHAPE]  | [CAPABILITY]                                |
 | :-----: | :-------------------------------------------------------- | :------- | :------------------------------------------ |
-|  [01]   | `PdfBookmark.get_title()` / `get_count()` / `get_dest()`  | instance | title, signed sub-item count, destination   |
+|  [01]   | `PdfBookmark.get_title()`·`get_count()`·`get_dest()`·`get_color()` | instance | title, signed sub-item count, destination, RGB color |
 |  [02]   | `PdfDest.get_index()` / `get_view(seqtype=list)`          | instance | destination page index and fit-mode view    |
 |  [03]   | `PdfMatrix(a, b, c, d, e, f)` / `PdfMatrix.from_raw(raw)` | ctor     | affine transform, `FS_MATRIX` inbound       |
 |  [04]   | `PdfSysfontBase().setup(reusable=False)`                  | instance | install deterministic missing-font fallback |
 |  [05]   | `PdfUnspHandler().setup(add_default=True)`                | instance | install unsupported-feature callback        |
 
+- `PdfBookmark.get_color()` returns the outline entry's `(r, g, b)` floats in `0..1` or `None` when unset; it binds a recent PDFium (`FPDFBookmark_GetColor`), so a lagging conda/system-search build falls back to the `raw` seam.
 - [06]-[MATRIX_BUILDERS]: `scale(x, y)` `rotate(angle, ccw=False, rad=False)` `translate(x, y)` `skew(x_angle, y_angle, rad=False)` `mirror(invert_x, invert_y)` `multiply(other)` compose the affine, each returning the composed `PdfMatrix`; `on_point(x, y)` `on_rect(left, bottom, right, top)` `get()` `to_raw()` apply it and bridge outbound.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `PdfPage.render(...) -> PdfBitmap` then `to_numpy()` is the CORE-band raster fold, landing straight onto the runtime band with no Pillow dependency: `bitmap_maker` selects PDFium-owned (`new_native`) versus host-buffer (`new_foreign`) backing, `PdfColorScheme` overrides path/text fill/stroke, and `get_posconv(page)` maps bitmap-to-page coordinates for hit-testing rendered output. This is the distinct band-and-engine axis — the Pillow-free BSD PDFium rasterizer beside Rust `pdf_oxide` and AGPL `pymupdf`.
-- `get_toc(max_depth)` yields `PdfBookmark`s read as one outline triple through `get_title()`, `get_count()` (the signed sub-item count, positive open and negative closed), and `get_dest().get_index()`; `PdfBookmark` exposes no `.level`, so any level derives from walk depth.
+- `get_toc(max_depth)` yields `PdfBookmark`s read as one outline triple through `get_title()`, `get_count()` (the signed sub-item count, positive open and negative closed), and `get_dest().get_index()`, with `get_color()` reading the optional RGB label color when the bundled PDFium carries it; `PdfBookmark` exposes no `.level`, so any level derives from walk depth.
 - `PdfTextPage` with `get_text_range`/`get_text_bounded`/`search` is the text surface; `count_chars`/`get_charbox`/`get_rect`/`get_index`/`get_textobj` recover per-character geometry and the owning text object for layout-faithful reconstruction. Undecodable spans yield the `errors="ignore"` substitution, so empty or partial text is data, never a fault.
 - `get_objects` enumerates content objects, `insert_obj`/`remove_obj` author and drop, and `gen_content()` regenerates the content stream after edits; object placement composes the `PdfMatrix` algebra (`scale`/`rotate`/`translate` builders to the CTM, `set_matrix`/`transform`, `get_quad_points` for the rotated bounds), never a hand-rolled 2x3 affine. Page-as-XObject stamping is `page_as_xobject(index, dest)` to `as_pageobject()` to `insert_obj`.
 - `PdfImage.new` with `set_bitmap`/`load_jpeg` authors embedded rasters and `extract`/`get_bitmap`/`get_data`/`get_filters` recovers them; `load_jpeg` embeds bytes with no re-encode and `SIMPLE_FILTERS` names the inline-decodable codecs, never a raw `raw.FPDFImageObj_*` call where the helper wraps it.

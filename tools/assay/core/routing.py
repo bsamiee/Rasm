@@ -11,17 +11,23 @@ from functools import reduce
 from pathlib import PurePosixPath
 from posixpath import normpath
 from typing import assert_never, Protocol, runtime_checkable, TYPE_CHECKING
-import xml.etree.ElementTree as ET  # noqa: S405  # trusted local .csproj XML from source.read, never network-sourced
+import xml.etree.ElementTree as ET  # ruff:ignore[suspicious-xml-etree-import]  # trusted local .csproj XML from source.read, never network-sourced
 
 import anyio
-from expression import Error, Ok, Result  # noqa: TC002  # beartype resolves routing Result annotations at runtime (PEP 649)
+from expression import (  # ruff:ignore[typing-only-third-party-import]  # beartype resolves routing Result annotations at runtime (PEP 649)
+    Error,
+    Ok,
+    Result,
+)
 import msgspec
 import structlog
 from upath import UPath
 
 from tools.assay.composition.catalog import select
-from tools.assay.composition.settings import AssaySettings  # noqa: TC001  # beartype resolves route/target_files settings annotations at runtime
-from tools.assay.core.model import (  # noqa: TC001  # msgspec needs Language/Tool annotations at runtime
+from tools.assay.composition.settings import (
+    AssaySettings,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves route/target_files settings annotations at runtime
+)
+from tools.assay.core.model import (  # ruff:ignore[typing-only-first-party-import]  # msgspec needs Language/Tool annotations at runtime
     Base,
     Check,
     Claim,
@@ -263,7 +269,7 @@ def parse_csproj(raw: bytes, tag: str, *attrs: str) -> tuple[str, ...]:
         Extracted values in document order, empties dropped.
     """
     try:
-        tree = ET.fromstring(raw or b"<Project/>")  # noqa: S314  # trusted local MSBuild XML, never network-sourced
+        tree = ET.fromstring(raw or b"<Project/>")  # ruff:ignore[suspicious-xml-element-tree-usage]  # trusted local MSBuild XML, never network-sourced
     except ET.ParseError:
         return ()
     nodes = tuple(el for el in tree.iter() if el.tag.rpartition("}")[2] == tag)
@@ -311,7 +317,7 @@ def _resolve(language: Language, changed: tuple[str, ...], universe: tuple[str, 
         sorted(
             p
             for p in closure
-            if source.read(p).map(lambda raw: any(value.casefold() == "true" for value in parse_csproj(raw, "AssayHostBound"))).default_value(False)  # noqa: FBT003  # expression sentinel default, not a behavior flag
+            if source.read(p).map(lambda raw: any(value.casefold() == "true" for value in parse_csproj(raw, "AssayHostBound"))).default_value(False)  # ruff:ignore[boolean-positional-value-in-call]  # expression sentinel default, not a behavior flag
         )
     )
     files = _norm(tuple(owned.keys()))

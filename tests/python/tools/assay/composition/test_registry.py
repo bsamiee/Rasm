@@ -9,14 +9,18 @@ import time
 from typing import TYPE_CHECKING
 
 from beartype.roar import BeartypeCallHintViolation
-from expression import Error, Ok, Result  # noqa: TC002  # Result appears in inner-function annotations evaluated at runtime
+from expression import (  # ruff:ignore[typing-only-third-party-import]  # Result appears in inner-function annotations evaluated at runtime
+    Error,
+    Ok,
+    Result,
+)
 import msgspec
 import msgspec.structs
 from pydantic import BaseModel, ValidationError
 import pytest
 
 from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, support_matrix, validity_matrix, ValidityCase
-from tests.python.tools.assay.kit import (  # noqa: TC001  # fixture annotation resolved at collection time, not import time
+from tests.python.tools.assay.kit import (  # ruff:ignore[typing-only-first-party-import]  # fixture annotation resolved at collection time, not import time
     AssayHarness,
     make_history_envelope,
     pipe_history,
@@ -70,7 +74,7 @@ _STATIC_BIND = next(b for b in REGISTRY if b.claim is Claim.STATIC and b.verb ==
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _strict_params(strict: bool) -> object:  # noqa: FBT001  # boundary factory: production reads `params.strict` via getattr
+def _strict_params(strict: bool) -> object:  # ruff:ignore[boolean-type-hint-positional-argument]  # boundary factory: production reads `params.strict` via getattr
     """Duck-typed params object exposing only the strict flag.
 
     Returns:
@@ -135,7 +139,7 @@ def test_build_app_structure_and_root_configuration() -> None:
     Mutants caught: wrong App type, skipped bind rows, missing root utility commands, argv-derived name,
     missing version, truthy Cyclopts error exits, corrupted result_action, and hidden default parameters.
     """
-    from cyclopts import App  # noqa: PLC0415
+    from cyclopts import App  # ruff:ignore[import-outside-top-level]
 
     app = build_app(REGISTRY)
     assert isinstance(app, App)
@@ -380,7 +384,7 @@ def test_bound_passthrough_identity_and_surplus_fault() -> None:
     ],
     ids=["strict_empty", "strict_skip", "lax_empty", "strict_ok", "lax_ok"],
 )
-def test_strict_gate_truth_table(status: RailStatus, strict: bool, passes: bool) -> None:  # noqa: FBT001  # parametrize matrix columns
+def test_strict_gate_truth_table(status: RailStatus, strict: bool, passes: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]  # parametrize matrix columns
     """_strict promotes only strict EMPTY/SKIP folds to FAULTED; every other cell passes through unchanged.
 
     Mutants caught: removed strict guard, EMPTY-only gating, boolean gate drift, attrless strict defaults, and argv=None on the promoted fault.
@@ -539,7 +543,7 @@ def test_emit_exit_code_duration_and_persistence_matrix(
     label: str,
     outcome: Result[Report, Fault],
     exit_code: int,
-    persisted: bool,  # noqa: FBT001  # parametrize matrix field, not a call-site positional bool
+    persisted: bool,  # ruff:ignore[boolean-type-hint-positional-argument]  # parametrize matrix field, not a call-site positional bool
     assay_root: AssayHarness,
 ) -> None:
     """_emit derives exit code, duration, and persistence from outcome class.
@@ -578,7 +582,7 @@ def test_delta_history_projection(mem_store: ArtifactStore, assay_root: AssayHar
 
     Mutant caught: wrong key set arithmetic in _delta_report → added/removed non-zero; wrong _prior selection.
     """
-    from tools.assay.composition.registry import _delta_report, _prior  # noqa: PLC0415
+    from tools.assay.composition.registry import _delta_report, _prior  # ruff:ignore[import-outside-top-level]
 
     run_a, run_b, run_c = "2026-01-01T00-00-00.000000-9001", "2026-01-02T00-00-00.000000-9001", "2026-01-03T00-00-00.000000-9001"
     pipe_history(mem_store, (run_a, run_b, run_c))
@@ -605,7 +609,7 @@ def test_delta_report_orientation_matrix() -> None:
     Mutants caught: .status on a None side, union instead of difference, dropped removed count, nulled
     EMPTY claim/notes, and corrupted EMPTY counts.
     """
-    from tools.assay.composition.registry import _delta_report  # noqa: PLC0415
+    from tools.assay.composition.registry import _delta_report  # ruff:ignore[import-outside-top-level]
 
     assert _delta_report("run-b", "run-c", make_history_envelope("run-b"), None).status is RailStatus.EMPTY
 
@@ -630,7 +634,7 @@ def test_delta_host_drift_from_bridge_facts() -> None:
 
     Mutants caught: dropping the drift field, comparing unchanged facts, or reading drift from non-bridge details.
     """
-    from tools.assay.composition.registry import _delta_report  # noqa: PLC0415
+    from tools.assay.composition.registry import _delta_report  # ruff:ignore[import-outside-top-level]
 
     def bridge_env(version: str) -> Envelope:
         detail = BridgeLifecycle(verb="status", host=(("rhinoVersion", "9.0"),), capabilities=(("mcp.platform.version", "Ok", version),))
@@ -679,7 +683,7 @@ def test_emit_envelope_persist_is_required_keyword() -> None:
 
     A default would hide caller intent across run, delta, parse_fault, and self_test emit paths.
     """
-    import inspect  # noqa: PLC0415
+    import inspect  # ruff:ignore[import-outside-top-level]
 
     param = inspect.signature(registry_mod._emit_envelope).parameters["persist"]
     assert param.kind is inspect.Parameter.KEYWORD_ONLY
@@ -704,7 +708,7 @@ def test_self_test_structure_and_census(assay_root: AssayHarness, monkeypatch: p
     Results carry the expanded census/health rows while counts.total tracks folded receipts. Mutants caught: wrong identity/status, missing Match
     extension, rhino default drift, summary rewrites, dropped run_id, or wire-invalid Match/notes payloads.
     """
-    import inspect  # noqa: PLC0415
+    import inspect  # ruff:ignore[import-outside-top-level]
 
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
     env = self_test()
@@ -767,7 +771,7 @@ def test_ok_envelope_cap_boundary_and_defect_diagnostic(assay_root: AssayHarness
 
     Mutants caught: cap comparison drift, nulled failed-row filters, corrupted defects tally, and dropped OK status.
     """
-    from tools.assay.composition.registry import _ok_envelope  # noqa: PLC0415
+    from tools.assay.composition.registry import _ok_envelope  # ruff:ignore[import-outside-top-level]
 
     at_cap = tuple(Match(id=f"row-{i}", kind=ArtifactKind.PROCESS, text="x") for i in range(RESULT_CAP))
     env = _ok_envelope(_STATIC_BIND, assay_root.settings, 1.0, Report(Claim.STATIC, "static", RailStatus.OK, results=at_cap))
@@ -798,7 +802,7 @@ def test_ok_envelope_truncation_persists_full_report(assay_root: AssayHarness, c
     The cap signal lives in report/envelope notes and the HISTORY artifact; stderr stays silent. Mutants caught: cap overrun, nulled artifact
     identity/metadata, dropped cap note, or restored stderr side channel.
     """
-    from tools.assay.composition.registry import _ok_envelope  # noqa: PLC0415
+    from tools.assay.composition.registry import _ok_envelope  # ruff:ignore[import-outside-top-level]
 
     rows = tuple(Match(id=f"row-{i}", kind=ArtifactKind.PROCESS, text="x") for i in range(RESULT_CAP + 1))
     env = _ok_envelope(_STATIC_BIND, assay_root.settings, 1.0, Report(Claim.STATIC, "static", RailStatus.OK, results=rows))
@@ -826,7 +830,7 @@ def test_ok_envelope_cap_preserves_defects_over_generated_overflow(assay_root: A
     A blind ``results[:RESULT_CAP]`` slice would clip the trailing error rows that ``_result_rows`` ranks last; the
     defect-preserving cap reserves them first, so the FAILED diagnostic count and the shown error rows both survive.
     """
-    from tools.assay.composition.registry import _ok_envelope  # noqa: PLC0415
+    from tools.assay.composition.registry import _ok_envelope  # ruff:ignore[import-outside-top-level]
 
     generated = tuple(Match(id=f"gen-{i}", kind=ArtifactKind.PROCESS, text="x", severity="warning") for i in range(RESULT_CAP))
     errors = (
@@ -852,7 +856,7 @@ def test_full_report_artifact_oserror_returns_empty(assay_root: AssayHarness, mo
 
     Mutant caught: propagating OSError → _ok_envelope crashes instead of silently skipping the artifact.
     """
-    from tools.assay.composition.registry import _full_report_artifact  # noqa: PLC0415
+    from tools.assay.composition.registry import _full_report_artifact  # ruff:ignore[import-outside-top-level]
 
     _patch_store(monkeypatch, "write_full_report")
     assert _full_report_artifact(assay_root.settings, _STATIC_BIND, Report(Claim.STATIC, "static", RailStatus.OK)) == ()
@@ -876,10 +880,10 @@ def test_leaf_command_closure_and_invocation(assay_root: AssayHarness, monkeypat
 
     Mutants caught: runner(None), wrong params type, and None return instead of Envelope.
     """
-    import inspect  # noqa: PLC0415
-    from types import FunctionType  # noqa: PLC0415
+    import inspect  # ruff:ignore[import-outside-top-level]
+    from types import FunctionType  # ruff:ignore[import-outside-top-level]
 
-    from tools.assay.composition.registry import _leaf  # noqa: PLC0415
+    from tools.assay.composition.registry import _leaf  # ruff:ignore[import-outside-top-level]
 
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
     bind = _STATIC_BIND
@@ -907,7 +911,7 @@ def test_read_version_string_and_oserror_default(monkeypatch: pytest.MonkeyPatch
 
     Mutants caught: nulled parse/version keys and OSError propagation during import.
     """
-    import tomllib  # noqa: PLC0415
+    import tomllib  # ruff:ignore[import-outside-top-level]
 
     expected = tomllib.loads(registry_mod._PYPROJECT.read_text(encoding="utf-8"))["project"]["version"]
     assert registry_mod._read_version() == expected
@@ -920,7 +924,7 @@ def test_register_all_match_arms() -> None:
 
     Mutant caught: one arm calling wrong App method → KeyError or missing registration.
     """
-    from cyclopts import App  # noqa: PLC0415
+    from cyclopts import App  # ruff:ignore[import-outside-top-level]
 
     app = App(name="test-root")
     registry_mod._register(app, App(name="sub-app"))  # (None, _) arm

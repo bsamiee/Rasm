@@ -15,16 +15,16 @@
 
 [PUBLIC_TYPE_SCOPE]: IDS document model
 
-| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]     | [CAPABILITY]                                                                       |
-| :-----: | :--------------------------- | :---------------- | :--------------------------------------------------------------------------------- |
-|  [01]   | `Xids`                       | document root     | the IDS document — groups, load/save, buildingSMART round-trip                     |
-|  [02]   | `SpecificationsGroup`        | spec group        | a named group of `Specification`s under an `Xids`                                  |
-|  [03]   | `Specification`              | specification     | applicability `FacetGroup` + requirement `FacetGroup` + `Cardinality`              |
-|  [04]   | `FacetGroup`                 | facet set         | an `ObservableCollection<IFacet>` with a `FacetUse` role flag                      |
-|  [05]   | `IFacet` / `FacetBase`       | facet contract    | `Short()` / `IsValid()` + `ApplicabilityDescription`/`RequirementDescription`      |
-|  [06]   | `ISpecificationMetadata`     | metadata contract | the `Provider`/`Consumers`/`Stages`/`Name` provenance an `Xids`/group/spec carries |
-|  [07]   | `Project` / `IRepositoryRef` | project ref       | the optional IDS project/repository reference metadata                             |
-|  [08]   | `FacetGroupRepository`       | facet store       | the de-duplicating facet repository an `Xids` owns                                 |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]     | [CAPABILITY]                                                                       |
+| :-----: | :----------------------- | :---------------- | :--------------------------------------------------------------------------------- |
+|  [01]   | `Xids`                   | document root     | the IDS document — groups, load/save, buildingSMART round-trip                     |
+|  [02]   | `SpecificationsGroup`    | spec group        | a named group of `Specification`s under an `Xids`                                  |
+|  [03]   | `Specification`          | specification     | applicability `FacetGroup` + requirement `FacetGroup` + `Cardinality`              |
+|  [04]   | `FacetGroup`             | facet set         | an `ObservableCollection<IFacet>` with a `FacetUse` role flag                      |
+|  [05]   | `IFacet` / `FacetBase`   | facet contract    | `Short()` / `IsValid()` + `ApplicabilityDescription`/`RequirementDescription`      |
+|  [06]   | `ISpecificationMetadata` | metadata contract | the `Provider`/`Consumers`/`Stages`/`Name` provenance an `Xids`/group/spec carries |
+|  [07]   | `Project`                | project ref       | the optional IDS project/repository reference metadata                             |
+|  [08]   | `FacetGroupRepository`   | facet store       | the de-duplicating facet repository an `Xids` owns                                 |
 
 [PUBLIC_TYPE_SCOPE]: the IDS facets
 - note: each facet is `: FacetBase, IFacet`, its match fields `ValueConstraint`s (or nullable strings); `IfcTypeFacet` through `PartOfFacet` are the six core IDS facets, `DocumentFacet`/`IfcRelationFacet` xbim extensions beyond the IDS mirror.
@@ -56,18 +56,16 @@
 [PUBLIC_TYPE_SCOPE]: cardinality, schema, and measures
 - note: `ICardinality` is the IDS occurrence rule the requirement fold checks; `IfcSchemaVersion` is the closed schema axis `IfcSchemaVersionHelper` bridges to `ids-lib`.
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]        | [CAPABILITY]                                                            |
-| :-----: | :-------------------------------- | :------------------- | :---------------------------------------------------------------------- |
-|  [01]   | `ICardinality`                    | cardinality contract | `ExpectsRequirements`/`AllowsRequirements` + `IsSatisfiedBy(int count)` |
-|  [02]   | `RequirementCardinalityOptions`   | cardinality enum     | `.Cardinality`: `Expected`/`Optional`/`Prohibited`                      |
-|  [03]   | `Cardinality.MinMaxCardinality`   | cardinality impl     | bounded-count cardinality                                               |
-|  [04]   | `Cardinality.SimpleCardinality`   | cardinality impl     | simple cardinality                                                      |
-|  [05]   | `IfcSchemaVersion`                | schema enum          | `Undefined`/`IFC2X3`/`IFC4`/`IFC4X3`                                    |
-|  [06]   | `IfcSchemaVersionHelper`          | schema bridge        | `ToIds`/`FromIds` ↔ `IdsLib.IfcSchema.IfcSchemaVersions`                |
-|  [07]   | `Helpers.IfcMeasureInfo`          | measure helper       | IFC measure/unit metadata the property `DataType` resolves              |
-|  [08]   | `Helpers.Measures.MeasureUnit`    | measure helper       | the measure's unit + magnitude                                          |
-|  [09]   | `Helpers.Measures.UnitConversion` | measure helper       | IFC↔SI unit conversion                                                  |
-|  [10]   | `XidsSettings`                    | serialization policy | export/load formatting via `Xids.Settings.PrettyPrint`                  |
+| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]        | [CAPABILITY]                                                                |
+| :-----: | :------------------------------ | :------------------- | :-------------------------------------------------------------------------- |
+|  [01]   | `ICardinality`                  | cardinality contract | `ExpectsRequirements`/`AllowsRequirements` + `IsSatisfiedBy(int count)`     |
+|  [02]   | `RequirementCardinalityOptions` | cardinality enum     | `.Cardinality`: `Expected`/`Optional`/`Prohibited`                          |
+|  [03]   | `Cardinality.MinMaxCardinality` | cardinality impl     | bounded-count cardinality                                                   |
+|  [04]   | `Cardinality.SimpleCardinality` | cardinality impl     | simple cardinality                                                          |
+|  [05]   | `IfcSchemaVersion`              | schema enum          | `Undefined`/`IFC2X3`/`IFC4`/`IFC4X3`                                        |
+|  [06]   | `IfcSchemaVersionHelper`        | schema bridge        | `ToIds`/`FromIds` ↔ `IdsLib.IfcSchema.IfcSchemaVersions`                    |
+|  [07]   | `Helpers.Measures.MeasureUnit`  | measure helper       | the SI unit conversion — 7-fundamental dimensional exponents + ratio/offset |
+|  [08]   | `XidsSettings`                  | serialization policy | export/load formatting via `Xids.Settings.PrettyPrint`                      |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -77,15 +75,14 @@
 | [INDEX] | [SURFACE]                                                        | [SHAPE]  | [CAPABILITY]                                  |
 | :-----: | :--------------------------------------------------------------- | :------- | :-------------------------------------------- |
 |  [01]   | `Xids.LoadBuildingSmartIDS(Stream)` / `(string)` / `(XElement)`  | static   | parses a buildingSMART IDS XML document       |
-|  [02]   | `Xids.ImportBuildingSmartIDS(Stream)` (alias of load)            | static   | the import-spelled IDS XML parse              |
-|  [03]   | `Xids.ExportBuildingSmartIDS(string)` / `(Stream)`               | instance | writes IDS XML/`.zip` → `ExportedFormat`      |
-|  [04]   | `Xids.Load(FileInfo)` / `Xids.LoadFromJson(string sourceFile)`   | static   | native JSON / format-detecting load           |
+|  [02]   | `Xids.ExportBuildingSmartIDS(string)` / `(Stream)`               | instance | writes IDS XML/`.zip` → `ExportedFormat`      |
+|  [03]   | `Xids.Load(FileInfo)` / `Xids.LoadFromJson(string sourceFile)`   | static   | native JSON / format-detecting load           |
+|  [04]   | `Xids.LoadFromJsonAsync(Stream)` -> `Task<Xids?>`                | static   | awaitable native-JSON stream load             |
 |  [05]   | `Xids.SaveAsJson(string destinationFile)` / `(Stream)`           | instance | writes the native JSON form                   |
 |  [06]   | `Xids.CanLoad(FileInfo)` / `IsZipped(Stream)` / `HasData(Xids?)` | static   | format admissibility and content probes       |
 |  [07]   | `Xids.AllSpecifications()`                                       | fold     | flatten groups → `IEnumerable<Specification>` |
-|  [08]   | `Xids.FromStream(Stream s)`                                      | static   | stream load                                   |
-|  [09]   | `Xids.Purge()`                                                   | instance | drop-empty cleanup                            |
-|  [10]   | `Xids.AssemblyVersion`                                           | property | the DLL version stamped into json persistence |
+|  [08]   | `Xids.Purge()`                                                   | instance | drop-empty cleanup                            |
+|  [09]   | `Xids.AssemblyVersion`                                           | property | the DLL version stamped into json persistence |
 
 [ENTRYPOINT_SCOPE]: specification authoring
 - note: `PrepareSpecification` creates a `Specification` for one or more `IfcSchemaVersion`s, wiring it into the document graph; every overload takes trailing `FacetGroup? applicability = null, FacetGroup? requirement = null`.

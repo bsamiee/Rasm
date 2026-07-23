@@ -164,7 +164,7 @@ class District(Struct, frozen=True):
     @classmethod
     def of(cls, source: DistrictSource, lane: LanePolicy) -> "RuntimeRail[Self]":
         def admit() -> Self:
-            from dragonfly.model import Model  # noqa: PLC0415 — AGPL boundary import; the module is `dragonfly`
+            from dragonfly.model import Model  # ruff:ignore[import-outside-top-level] — AGPL boundary import; the module is `dragonfly`
 
             match source:
                 case DistrictSource(tag="dfjson", dfjson=bytes() as raw):
@@ -185,7 +185,7 @@ class District(Struct, frozen=True):
 
     def zone(self, tolerance: float = 0.01) -> "RuntimeRail[Self]":
         def fold() -> Self:
-            from dragonfly.room2d import Room2D  # noqa: PLC0415 — AGPL boundary import
+            from dragonfly.room2d import Room2D  # ruff:ignore[import-outside-top-level] — AGPL boundary import
 
             for story in self.graph.stories:  # Exemption: dragonfly zones stories in place; the ordered pair is its owned surface.
                 Room2D.intersect_adjacency(story.room_2ds, tolerance)
@@ -214,11 +214,11 @@ class District(Struct, frozen=True):
     def assign(self, spec: EnergySpec) -> "RuntimeRail[Self]":
         # one fold over Room2D hosts BEFORE the explode, so a multiplier story assigns once.
         def fold() -> Self:
-            from importlib import import_module  # noqa: PLC0415 — row-resolved AGPL boundary import
+            from importlib import import_module  # ruff:ignore[import-outside-top-level] — row-resolved AGPL boundary import
 
-            import dragonfly_energy  # noqa: F401, PLC0415 — the _extend_dragonfly side effect registers .properties.energy
-            from honeybee_energy.hvac import HVAC_TYPES_DICT  # noqa: PLC0415
-            from honeybee_energy.shw import SHWSystem  # noqa: PLC0415 — the SHW template mint; no lib registry exists
+            import dragonfly_energy  # ruff:ignore[unused-import, import-outside-top-level] — the _extend_dragonfly side effect registers .properties.energy
+            from honeybee_energy.hvac import HVAC_TYPES_DICT  # ruff:ignore[import-outside-top-level]
+            from honeybee_energy.shw import SHWSystem  # ruff:ignore[import-outside-top-level] — the SHW template mint; no lib registry exists
 
             def resolved(kind: StandardsKind, identifier: str) -> object:
                 module, loader = RESOLVERS[kind]
@@ -266,7 +266,7 @@ class District(Struct, frozen=True):
         def fold() -> object:
             match target:
                 case DistrictTarget(tag="urbanopt", urbanopt=(folder, anchor, loop, network)):
-                    from dragonfly_energy.writer import model_to_urbanopt  # noqa: PLC0415 — AGPL boundary import
+                    from dragonfly_energy.writer import model_to_urbanopt  # ruff:ignore[import-outside-top-level] — AGPL boundary import
 
                     return model_to_urbanopt(
                         self.graph,
@@ -302,22 +302,22 @@ class District(Struct, frozen=True):
 
 
 def _location(anchor: Anchor) -> object:
-    from ladybug.location import Location  # noqa: PLC0415 — AGPL boundary import
+    from ladybug.location import Location  # ruff:ignore[import-outside-top-level] — AGPL boundary import
 
     return Location(latitude=anchor.latitude, longitude=anchor.longitude, elevation=anchor.elevation)
 
 
 def _point(anchor: Anchor) -> object:
-    from ladybug_geometry.geometry2d.pointvector import Point2D  # noqa: PLC0415 — AGPL boundary import
+    from ladybug_geometry.geometry2d.pointvector import Point2D  # ruff:ignore[import-outside-top-level] — AGPL boundary import
 
     return Point2D(*anchor.origin)
 
 
 def _massed(specs: Block[BuildingSpec], policy: MassingPolicy) -> "DistrictGraph":
-    from dragonfly.building import Building  # noqa: PLC0415 — AGPL boundary import
-    from dragonfly.model import Model  # noqa: PLC0415
-    from ladybug_geometry.geometry3d.face import Face3D  # noqa: PLC0415
-    from ladybug_geometry.geometry3d.pointvector import Point3D  # noqa: PLC0415
+    from dragonfly.building import Building  # ruff:ignore[import-outside-top-level] — AGPL boundary import
+    from dragonfly.model import Model  # ruff:ignore[import-outside-top-level]
+    from ladybug_geometry.geometry3d.face import Face3D  # ruff:ignore[import-outside-top-level]
+    from ladybug_geometry.geometry3d.pointvector import Point3D  # ruff:ignore[import-outside-top-level]
 
     def built(spec: BuildingSpec) -> Building:
         footprints = [Face3D([Point3D(*xyz) for xyz in ring]) for ring in spec.footprint]

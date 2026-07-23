@@ -38,7 +38,7 @@ def _emit_then_value(emit: Callable[[], None]) -> Callable[[_StderrLogger, pytes
 
 
 def _stdlib_warn(event: str) -> Callable[[], None]:
-    return lambda: logging.getLogger("asyncssh.bridge.law").warning(event)  # noqa: TID251  # the stdlib rail is the law's subject
+    return lambda: logging.getLogger("asyncssh.bridge.law").warning(event)  # ruff:ignore[banned-api]  # the stdlib rail is the law's subject
 
 
 def _structured_payload(event: str) -> Callable[[str], None]:
@@ -96,7 +96,7 @@ def _error_suppresses_info(_logger: _StderrLogger, _monkeypatch: pytest.MonkeyPa
         Sink text containing only the surviving error emission.
     """
     structlog.get_logger("assay.bridge.law").info("suppressed-event")
-    logging.getLogger("assay.bridge.law").info("suppressed-stdlib-event")  # noqa: TID251  # the stdlib rail is the law's subject
+    logging.getLogger("assay.bridge.law").info("suppressed-stdlib-event")  # ruff:ignore[banned-api]  # the stdlib rail is the law's subject
     assert not sink.getvalue()
     structlog.get_logger("assay.bridge.law").error("emitted-event")
     return sink.getvalue()
@@ -143,7 +143,7 @@ def test_reconfigure_does_not_stack_bridge_handlers() -> None:
     configure_logging(LogFormat.CI)
     configure_logging(LogFormat.CI)
 
-    root = logging.getLogger()  # noqa: TID251  # the root-handler set is the law's subject
+    root = logging.getLogger()  # ruff:ignore[banned-api]  # the root-handler set is the law's subject
     bridges = [h for h in root.handlers if isinstance(h, _StderrBridgeHandler)]
     assert len(bridges) == 1
     assert root.handlers == bridges

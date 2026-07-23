@@ -57,7 +57,7 @@ class Input(StrEnum):
     NONE = "none", (), True
     OWNED = "owned", (), True  # command owns its input placement; place() contributes a single empty tail
 
-    def __new__(cls, value: str, flag: tuple[str, ...], scoped: bool) -> Self:  # noqa: FBT001  # enum payload binder mirrors enum field order
+    def __new__(cls, value: str, flag: tuple[str, ...], scoped: bool) -> Self:  # ruff:ignore[boolean-type-hint-positional-argument]  # enum payload binder mirrors enum field order
         """Attach enum payload fields not represented by the StrEnum value."""
         m = str.__new__(cls, value)
         m._value_, m.flag, m.scoped = value, flag, scoped
@@ -103,7 +103,7 @@ class Mode(StrEnum):
     DEPLOY = "deploy", False, False
     PUBLISH = "publish", False, False
 
-    def __new__(cls, value: str, stream: bool, writes: bool) -> Self:  # noqa: FBT001  # enum payload binder mirrors enum field order
+    def __new__(cls, value: str, stream: bool, writes: bool) -> Self:  # ruff:ignore[boolean-type-hint-positional-argument]  # enum payload binder mirrors enum field order
         """Attach enum payload fields not represented by the StrEnum value."""
         m = str.__new__(cls, value)
         m._value_, m.stream, m.writes = value, stream, writes
@@ -256,7 +256,7 @@ class Step(StrEnum):
     LEASE_BUSY = "lease_busy", False
     DEFECTS = "defects", False
 
-    def __new__(cls, value: str, scan: bool) -> Self:  # noqa: FBT001  # positional enum-member payload, not a boolean knob
+    def __new__(cls, value: str, scan: bool) -> Self:  # ruff:ignore[boolean-type-hint-positional-argument]  # positional enum-member payload, not a boolean knob
         """Bind the wire token and the prefix-scan roster flag."""
         member = str.__new__(cls, value)
         member._value_ = value
@@ -285,7 +285,7 @@ class ToolGroup(StrEnum):
     REQUIRES_BENCHMARK = "requires-benchmark", False
     EMPTY_ON_EXIT1 = "empty-on-exit1", False
 
-    def __new__(cls, value: str, uv: bool) -> Self:  # noqa: FBT001  # enum payload binder mirrors enum field order
+    def __new__(cls, value: str, uv: bool) -> Self:  # ruff:ignore[boolean-type-hint-positional-argument]  # enum payload binder mirrors enum field order
         """Attach the uv-dependency-group flag not represented by the StrEnum value."""
         m = str.__new__(cls, value)
         m._value_, m.uv = value, uv
@@ -788,7 +788,7 @@ class Envelope(Base, frozen=True, kw_only=True):
     truncated: bool = False
     notes: tuple[str, ...] = ()
 
-    def __cyclopts_returncode__(self) -> int:  # noqa: PLW3201  # Cyclopts protocol hook: supplies process exit code
+    def __cyclopts_returncode__(self) -> int:  # ruff:ignore[bad-dunder-method-name]  # Cyclopts protocol hook: supplies process exit code
         """Return the process exit code for the Cyclopts runtime."""
         return self.exit_code
 
@@ -843,7 +843,7 @@ class BaseParams:
         Parameter(name="paths", help="Positional tokens: paths plus the verb's leading slots (pattern, symbol, key, token); surplus tokens fault."),
     ] = ()
 
-    def _arity(self, verb: str) -> int | None:  # noqa: PLR6301  # polymorphic dispatch point: package/bridge override on self's type to declare 0
+    def _arity(self, verb: str) -> int | None:  # ruff:ignore[no-self-use]  # polymorphic dispatch point: package/bridge override on self's type to declare 0
         _ = verb
         return None
 

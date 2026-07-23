@@ -83,6 +83,8 @@ Every styled value descends from `items.Item` and a programmatic edit mutates it
 |  [07]   | `register_encoder`   | `register_encoder(encoder: E) -> E`                                      | append encoder to `CUSTOM_ENCODERS` |
 |  [08]   | `unregister_encoder` | `unregister_encoder(encoder: Encoder) -> None`                           | remove a registered encoder         |
 
+- `dumps`: annotated `Mapping`, yet a bare non-`Mapping` tomlkit wrapper (an `Item`/`AoT`/`Array`) is accepted too, lowering through its `as_string()`.
+
 [ENTRYPOINT_SCOPE]: item factories
 - rail: structured documents
 
@@ -107,6 +109,8 @@ Every styled value descends from `items.Item` and a programmatic edit mutates it
 |  [15]   | `datetime`     | `datetime(raw: str)`                                                         | build a styled RFC-3339 datetime     |
 |  [16]   | `comment`      | `comment(string: str)`                                                       | build a comment trivia item          |
 |  [17]   | `nl` / `ws`    | `nl()` / `ws(src: str)`                                                      | build whitespace/newline trivia      |
+
+- `key`: a single-element iterable (`key(['a'])`) returns a bare `SingleKey`, not a one-segment `DottedKey`; a multi-element iterable builds a `DottedKey`, a `str` a `SingleKey`.
 
 [ENTRYPOINT_SCOPE]: container edit and round-trip
 - rail: structured documents — `Container` / `TOMLDocument` / styled-item methods

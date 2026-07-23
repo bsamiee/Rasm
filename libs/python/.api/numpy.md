@@ -105,73 +105,78 @@
 |  [18]   | `save(file, arr)` / `savez(file, *arrays)`                    | static  | write `.npy` / `.npz` archive                    |
 |  [19]   | `loadtxt(fname)`                                              | static  | load text-file array                             |
 
+- `meshgrid`: returns a `tuple` regardless of `sparse`/`copy`.
+
 [ENTRYPOINT_SCOPE]: shape and manipulation
 
-| [INDEX] | [SURFACE]                                                       | [SHAPE] | [CAPABILITY]                                 |
-| :-----: | :-------------------------------------------------------------- | :------ | :------------------------------------------- |
-|  [01]   | `reshape(a, newshape)`                                          | static  | change array shape                           |
-|  [02]   | `ravel(a)`                                                      | static  | 1-D contiguous view                          |
-|  [03]   | `transpose(a, axes)`                                            | static  | permute axes                                 |
-|  [04]   | `swapaxes(a, ax1, ax2)`                                         | static  | swap two axes                                |
-|  [05]   | `moveaxis(a, source, dest)`                                     | static  | move axis to new position                    |
-|  [06]   | `expand_dims(a, axis)`                                          | static  | insert a new axis                            |
-|  [07]   | `squeeze(a, axis)`                                              | static  | remove size-1 axes                           |
-|  [08]   | `concatenate(arrays, axis)`                                     | static  | join arrays along existing axis              |
-|  [09]   | `stack(arrays, axis)`                                           | static  | stack arrays along new axis                  |
-|  [10]   | `hstack`/`vstack`/`dstack`                                      | static  | horizontal/vertical/depth join               |
-|  [11]   | `split(a, indices, axis)`                                       | static  | split into sub-arrays                        |
-|  [12]   | `broadcast_to(a, shape)` / `broadcast_arrays(*arrays)`          | static  | explicit broadcast view(s) without copy      |
-|  [13]   | `lib.stride_tricks.sliding_window_view(x, window_shape, axis)`  | static  | strided rolling-window view (no copy)        |
-|  [14]   | `lib.stride_tricks.as_strided(x, shape, strides)`               | static  | raw stride view (unsafe; bounds not checked) |
-|  [15]   | `pad(array, pad_width, mode)`                                   | static  | bordered/edge-padded copy                    |
-|  [16]   | `atleast_1d(*arys)` / `atleast_2d(*arys)` / `atleast_3d(*arys)` | static  | promote inputs to at-least 1/2/3-D           |
-|  [17]   | `column_stack(tup)`                                             | static  | stack 1-D arrays as columns of a 2-D array   |
-|  [18]   | `append(arr, values, axis)`                                     | static  | concatenated copy with `values` appended     |
-|  [19]   | `delete(arr, obj, axis)`                                        | static  | copy with elements at `obj` indices removed  |
-|  [20]   | `roll(a, shift, axis)`                                          | static  | cyclic shift along axis (wraps; no fill)     |
-|  [21]   | `ix_(*args)`                                                    | static  | open mesh for cross-axis advanced indexing   |
+| [INDEX] | [SURFACE]                                                       | [SHAPE] | [CAPABILITY]                                     |
+| :-----: | :-------------------------------------------------------------- | :------ | :----------------------------------------------- |
+|  [01]   | `reshape(a, /, shape, *, copy)`                                 | static  | change array shape (`copy=False` forbids a copy) |
+|  [02]   | `ravel(a)`                                                      | static  | 1-D contiguous view                              |
+|  [03]   | `transpose(a, axes)`                                            | static  | permute axes                                     |
+|  [04]   | `swapaxes(a, ax1, ax2)`                                         | static  | swap two axes                                    |
+|  [05]   | `moveaxis(a, source, dest)`                                     | static  | move axis to new position                        |
+|  [06]   | `expand_dims(a, axis)`                                          | static  | insert a new axis                                |
+|  [07]   | `squeeze(a, axis)`                                              | static  | remove size-1 axes                               |
+|  [08]   | `concatenate(arrays, axis)`                                     | static  | join arrays along existing axis                  |
+|  [09]   | `stack(arrays, axis)`                                           | static  | stack arrays along new axis                      |
+|  [10]   | `hstack`/`vstack`/`dstack`                                      | static  | horizontal/vertical/depth join                   |
+|  [11]   | `split(a, indices, axis)`                                       | static  | split into sub-arrays                            |
+|  [12]   | `broadcast_to(a, shape)` / `broadcast_arrays(*arrays)`          | static  | explicit broadcast view(s) without copy          |
+|  [13]   | `lib.stride_tricks.sliding_window_view(x, window_shape, axis)`  | static  | strided rolling-window view (no copy)            |
+|  [14]   | `lib.stride_tricks.as_strided(x, shape, strides)`               | static  | raw stride view (unsafe; bounds not checked)     |
+|  [15]   | `pad(array, pad_width, mode)`                                   | static  | bordered/edge-padded copy                        |
+|  [16]   | `atleast_1d(*arys)` / `atleast_2d(*arys)` / `atleast_3d(*arys)` | static  | promote inputs to at-least 1/2/3-D               |
+|  [17]   | `column_stack(tup)`                                             | static  | stack 1-D arrays as columns of a 2-D array       |
+|  [18]   | `append(arr, values, axis)`                                     | static  | concatenated copy with `values` appended         |
+|  [19]   | `delete(arr, obj, axis)`                                        | static  | copy with elements at `obj` indices removed      |
+|  [20]   | `roll(a, shift, axis)`                                          | static  | cyclic shift along axis (wraps; no fill)         |
+|  [21]   | `ix_(*args)`                                                    | static  | open mesh for cross-axis advanced indexing       |
 
 [ENTRYPOINT_SCOPE]: math and reduction
 
-| [INDEX] | [SURFACE]                                        | [SHAPE] | [CAPABILITY]                                                   |
-| :-----: | :----------------------------------------------- | :------ | :------------------------------------------------------------- |
-|  [01]   | `sum`/`prod`/`cumsum`/`cumprod`                  | static  | aggregation along axes                                         |
-|  [02]   | `mean`/`std`/`var`                               | static  | mean, std dev, variance                                        |
-|  [03]   | `min`/`max`/`argmin`/`argmax`                    | static  | extrema and their indices                                      |
-|  [04]   | `dot(a, b)`                                      | static  | vector/matrix dot product                                      |
-|  [05]   | `matmul(x1, x2)`                                 | static  | matrix multiplication (`@`)                                    |
-|  [06]   | `inner`/`outer`/`tensordot`                      | static  | inner, outer, tensor contractions                              |
-|  [07]   | `einsum(subscripts, *operands, optimize)`        | static  | Einstein-summation contraction owner                           |
-|  [08]   | `diagonal(a, offset, axis1, axis2)` / `trace(a)` | static  | extract diagonal / sum of diagonal                             |
-|  [09]   | `where(cond, x, y)`                              | static  | conditional element selection (1-arg form returns indices)     |
-|  [10]   | `nonzero(a)` / `flatnonzero(a)`                  | static  | indices of nonzero elements                                    |
-|  [11]   | `clip(a, a_min, a_max)`                          | static  | bound values to interval                                       |
-|  [12]   | `isfinite(x)` / `isnan(x)` / `isinf(x)`          | static  | element-wise finiteness / NaN / inf mask                       |
-|  [13]   | `allclose(a, b, rtol, atol)` / `isclose(...)`    | static  | tolerant equality (scalar / element-wise)                      |
-|  [14]   | `nan_to_num(x, nan, posinf, neginf)`             | static  | replace non-finite values with finite substitutes              |
-|  [15]   | `sort(a, axis)`/`argsort`/`lexsort(keys)`        | static  | sort, argsort, or stable multi-key `lexsort`                   |
-|  [16]   | `unique(ar, return_counts, return_index)`        | static  | unique elements with optional counts/indices                   |
-|  [17]   | `exp`/`log`/`sqrt`/`power`/`divide`              | static  | exponential/logarithm/power; masked `divide(out=, where=)`     |
-|  [18]   | `sin`/`cos`/`tan`/`arctan2`                      | static  | trigonometric operations                                       |
-|  [19]   | `abs`/`sign`/`round`/`floor`/`ceil`              | static  | absolute, rounding operations                                  |
-|  [20]   | `nansum`/`nanmean`/`nanstd`/`nanmax`             | static  | reductions skipping non-finite entries                         |
-|  [21]   | `angle(z, deg)` / `conj(x)` / `conjugate(x)`     | static  | phase angle and complex conjugate                              |
-|  [22]   | `maximum(x1, x2)` / `minimum(x1, x2)`            | static  | element-wise pairwise extrema (vs `max`/`min` reductions)      |
-|  [23]   | `add`/`subtract`/`multiply`                      | static  | arithmetic binary ufuncs                                       |
-|  [24]   | `bitwise_or`/`bitwise_and`/`bitwise_xor`         | static  | bitwise binary ufuncs (`bitwise_or.reduce` unions flags)       |
-|  [25]   | `median(a, axis)`                                | static  | median along axis (`nanmedian` skips non-finite)               |
-|  [26]   | `count_nonzero(a, axis, keepdims)`               | static  | count of nonzero/`True` elements                               |
-|  [27]   | `interp(x, xp, fp, left, right, period)`         | static  | 1-D piecewise-linear interpolation against monotonic `xp`/`fp` |
-|  [28]   | `gradient(f, *varargs, axis, edge_order)`        | static  | central-difference numerical gradient                          |
-|  [29]   | `diff(a, n, axis)`                               | static  | n-th discrete difference along axis                            |
-|  [30]   | `trapezoid(y, x, dx, axis)`                      | static  | trapezoidal integral                                           |
-|  [31]   | `issubdtype(arg1, arg2)`                         | static  | dtype subclass test vs an abstract scalar base                 |
-|  [32]   | `searchsorted(a, v, side)`                       | static  | insertion indices in a sorted array                            |
-|  [33]   | `percentile(a, q, axis, method)`                 | static  | percentile reduction along an axis                             |
-|  [34]   | `signbit(x)`                                     | static  | element-wise negative-sign mask                                |
-|  [35]   | `any(a, axis)` / `all(a, axis)`                  | static  | existential or universal boolean reduction                     |
-|  [36]   | `deg2rad(x)` / `rad2deg(x)`                      | static  | degree-radian angle conversion                                 |
-|  [37]   | `cross(a, b, axis)`                              | static  | 3-vector cross product over the chosen axis                    |
+| [INDEX] | [SURFACE]                                                        | [SHAPE] | [CAPABILITY]                                                             |
+| :-----: | :--------------------------------------------------------------- | :------ | :----------------------------------------------------------------------- |
+|  [01]   | `sum`/`prod`/`cumsum`/`cumprod`                                  | static  | aggregation along axes                                                   |
+|  [02]   | `mean`/`std`/`var`                                               | static  | mean, std dev, variance                                                  |
+|  [03]   | `min`/`max`/`argmin`/`argmax`                                    | static  | extrema and their indices                                                |
+|  [04]   | `dot(a, b)`                                                      | static  | vector/matrix dot product                                                |
+|  [05]   | `matmul(x1, x2)`                                                 | static  | matrix multiplication (`@`)                                              |
+|  [06]   | `inner`/`outer`/`tensordot`                                      | static  | inner, outer, tensor contractions                                        |
+|  [07]   | `einsum(subscripts, *operands, optimize)`                        | static  | Einstein-summation contraction owner                                     |
+|  [08]   | `diagonal(a, offset, axis1, axis2)` / `trace(a)`                 | static  | extract diagonal / sum of diagonal                                       |
+|  [09]   | `where(cond, x, y)`                                              | static  | conditional element selection (1-arg form returns indices)               |
+|  [10]   | `nonzero(a)` / `flatnonzero(a)`                                  | static  | indices of nonzero elements                                              |
+|  [11]   | `clip(a, a_min, a_max)`                                          | static  | bound values to interval                                                 |
+|  [12]   | `isfinite(x)` / `isnan(x)` / `isinf(x)`                          | static  | element-wise finiteness / NaN / inf mask                                 |
+|  [13]   | `allclose(a, b, rtol, atol)` / `isclose(...)`                    | static  | tolerant equality (scalar / element-wise)                                |
+|  [14]   | `nan_to_num(x, nan, posinf, neginf)`                             | static  | replace non-finite values with finite substitutes                        |
+|  [15]   | `sort(a, axis, *, descending, stable)`/`argsort`/`lexsort` | static  | sort/argsort with `descending`, multi-key `lexsort` |
+|  [16]   | `unique(ar, return_counts, return_index)`                        | static  | unique elements with optional counts/indices                             |
+|  [17]   | `exp`/`log`/`sqrt`/`power`/`divide`                              | static  | exponential/logarithm/power; masked `divide(out=, where=)`               |
+|  [18]   | `sin`/`cos`/`tan`/`arctan2`                                      | static  | trigonometric operations                                                 |
+|  [19]   | `abs`/`sign`/`round`/`floor`/`ceil`/`trunc`                      | static  | absolute value, rounding (`trunc` toward zero)                           |
+|  [20]   | `nansum`/`nanmean`/`nanstd`/`nanmax`                             | static  | reductions skipping non-finite entries                                   |
+|  [21]   | `angle(z, deg)` / `conj(x)` / `conjugate(x)`                     | static  | phase angle and complex conjugate                                        |
+|  [22]   | `maximum(x1, x2)` / `minimum(x1, x2)`                            | static  | element-wise pairwise extrema (vs `max`/`min` reductions)                |
+|  [23]   | `add`/`subtract`/`multiply`                                      | static  | arithmetic binary ufuncs                                                 |
+|  [24]   | `bitwise_or`/`bitwise_and`/`bitwise_xor`                         | static  | bitwise binary ufuncs (`bitwise_or.reduce` unions flags)                 |
+|  [25]   | `median(a, axis)`                                                | static  | median along axis (`nanmedian` skips non-finite)                         |
+|  [26]   | `count_nonzero(a, axis, keepdims)`                               | static  | count of nonzero/`True` elements                                         |
+|  [27]   | `interp(x, xp, fp, left, right, period)`                         | static  | 1-D piecewise-linear interpolation against monotonic `xp`/`fp`           |
+|  [28]   | `gradient(f, *varargs, axis, edge_order)`                        | static  | central-difference numerical gradient                                    |
+|  [29]   | `diff(a, n, axis)`                                               | static  | n-th discrete difference along axis                                      |
+|  [30]   | `trapezoid(y, x, dx, axis)`                                      | static  | trapezoidal integral                                                     |
+|  [31]   | `issubdtype(arg1, arg2)`                                         | static  | dtype subclass test vs an abstract scalar base                           |
+|  [32]   | `searchsorted(a, v, side)`                                       | static  | insertion indices in a sorted array                                      |
+|  [33]   | `percentile(a, q, axis, method)`                                 | static  | percentile reduction along an axis                                       |
+|  [34]   | `signbit(x)`                                                     | static  | element-wise negative-sign mask                                          |
+|  [35]   | `any(a, axis)` / `all(a, axis)`                                  | static  | existential or universal boolean reduction                               |
+|  [36]   | `deg2rad(x)` / `rad2deg(x)`                                      | static  | degree-radian angle conversion                                           |
+|  [37]   | `cross(a, b, axis)`                                              | static  | 3-vector cross product over the chosen axis                              |
+
+- `where`: a Python-int `x`/`y` outside the output dtype range raises `OverflowError`.
+- `cross`: 3-component inputs only; 2-vector inputs are rejected.
 
 [ENTRYPOINT_SCOPE]: top-level constants
 
@@ -196,6 +201,8 @@
 |  [09]   | `linalg.lstsq(a, b)`                             | static  | minimum-norm least-squares                              |
 |  [10]   | `linalg.pinv(a)`                                 | static  | Moore-Penrose pseudo-inverse                            |
 |  [11]   | `linalg.eigvalsh(a, UPLO)` / `linalg.eigvals(a)` | static  | eigenvalues-only (Hermitian / general), no eigenvectors |
+
+- `linalg.eig`/`linalg.eigvals`: always return complex arrays; `eigh`/`eigvalsh` give guaranteed-real output for Hermitian/symmetric input.
 
 [ENTRYPOINT_SCOPE]: fft submodule
 
@@ -231,6 +238,7 @@
 - `einsum` owns general contraction, subsuming `dot`/`matmul`/`inner`/`outer`/`tensordot`/`trace`/`diagonal` under one subscript algebra with `optimize=True` path search.
 - Broadcasting aligns shapes right-to-left, stretches size-1 axes, and raises `ValueError` on incompatible non-1 sizes; `broadcast_to`/`sliding_window_view`/`as_strided` yield no-copy strided views.
 - Integer, boolean-mask, fancy, and slice indexing yield views or copies by contiguity; boolean-mask assignment and `where` own branchless selection.
+- `reshape(a, shape, copy=False)` and `ndarray.view(dtype=...)` own re-viewing; mutating the `shape`/`dtype` attribute in place is unsafe under sharing and is not a re-view owner.
 - `linalg` batches over leading axes: a `(..., M, N)` stack applies the op on the trailing two axes, `LinAlgError` signaling singular/non-converging input.
 - `isfinite`/`isnan`/`isinf`, `nan_to_num`, and the `nan*` reductions own non-finite handling; `errstate` scopes the FP error mode for a kernel block.
 - `random.Generator` owns sampling; `SeedSequence.spawn(n)` derives independent child seeds for parallel streams.

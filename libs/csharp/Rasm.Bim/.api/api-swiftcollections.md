@@ -23,11 +23,13 @@ Each of `SwiftBVH`/`SwiftOctree`/`SwiftSpatialHash` ships a built-in `<TKey>` fo
 |  [02]   | `SwiftOctree`                       | class         | depth/node-capacity bounded subdivision with merge-on-remove            |
 |  [03]   | `SwiftSpatialHash`                  | class         | uniform-grid hash; `QueryNeighborhood` over the padded cell ring        |
 |  [04]   | `BoundVolume`                       | struct        | `Vector3` AABB: `Union`/`Intersects`/`GetCost`/`BoundsEquals`           |
-|  [05]   | `IBoundVolume<TVolume>`             | interface     | generic AABB contract plugging all three structures                     |
+|  [05]   | `IBoundVolume<TVolume>`             | interface     | CRTP-self-constrained AABB contract plugging all three structures       |
 |  [06]   | `SwiftOctreeOptions`                | struct        | `MaxDepth`/`NodeCapacity`/`EnableMergeOnRemove` tuning                  |
 |  [07]   | `SwiftSpatialHashOptions`           | struct        | `NeighborhoodPadding`, static `.Default` — the neighborhood ring        |
 |  [08]   | `IOctreeBoundsPartitioner<TVolume>` | interface     | pluggable octree bounds-partition strategy                              |
 |  [09]   | `ISpatialHashCellMapper<TVolume>`   | interface     | pluggable spatial-hash cell-mapping strategy                            |
+
+- `IBoundVolume<TVolume>` is `where TVolume : struct, IBoundVolume<TVolume>` (CRTP); `BoundVolume` is the built-in `IBoundVolume<BoundVolume>`/`IEquatable<BoundVolume>` volume every `<TKey>` structure defaults to.
 
 [PUBLIC_TYPE_SCOPE]: handle-stable backing collections
 

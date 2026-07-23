@@ -47,8 +47,11 @@
 |  [01]   | `SkiaApplicationExtensions.UseSkia() -> AppBuilder`     | static   | select the Skia rendering subsystem   |
 |  [02]   | `SkiaOptions.MaxGpuResourceSizeBytes` (`long?`)         | property | Ganesh GPU cache byte cap             |
 |  [03]   | `SkiaOptions.UseOpacitySaveLayer` (`bool`)              | property | opacity-group `SaveLayer` toggle      |
-|  [04]   | `SkiaPlatform.Initialize()` / `Initialize(SkiaOptions)` | static   | manual subsystem boot (headless/test) |
-|  [05]   | `SkiaPlatform.DefaultDpi` (`Vector`)                    | property | DPI anchor for render helpers         |
+|  [04]   | `SkiaOptions.UseStencilBuffers` (`bool?`)               | property | render-target stencil-buffer policy   |
+|  [05]   | `SkiaPlatform.Initialize()` / `Initialize(SkiaOptions)` | static   | manual subsystem boot (headless/test) |
+|  [06]   | `SkiaPlatform.DefaultDpi` (`Vector`)                    | property | DPI anchor for render helpers         |
+
+- `SkiaOptions.UseStencilBuffers`: `null` (default) allocates stencil buffers on render targets; `false` opts out.
 
 [LEASE_ENTRYPOINTS]: raw SkiaSharp access through render-interface leases
 
@@ -93,7 +96,7 @@
 
 [TOPOLOGY]:
 - Raw `SKCanvas`/`GRContext`/`SKSurface` access flows only through the `using`-scoped `ISkiaSharpApiLease`, and a draw multiplies `CurrentOpacity` into its leased paints.
-- `UseSkia` selects the one Skia backend; `SkiaOptions.MaxGpuResourceSizeBytes` caps the Ganesh GPU resource cache and `UseOpacitySaveLayer` routes opacity through `SaveLayer`.
+- `UseSkia` selects the one Skia backend; `SkiaOptions.MaxGpuResourceSizeBytes` caps the Ganesh GPU resource cache, `UseOpacitySaveLayer` routes opacity through `SaveLayer`, and `UseStencilBuffers` governs render-target stencil allocation.
 - Every render impl below the lease is internal, reached only through Avalonia composition; the public surface is `UseSkia` + `SkiaOptions` + `SkiaPlatform` + the lease/conversion/helper trio.
 
 [STACKING]:

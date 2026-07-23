@@ -17,7 +17,7 @@ from urllib.parse import urlsplit
 import fsspec  # fsspec ships no py.typed marker (declared in [[tool.mypy.overrides]])
 import msgspec
 from pydantic import AfterValidator, AliasChoices, BaseModel, BeforeValidator, computed_field, ConfigDict, Field, model_validator
-from pydantic_settings import (  # noqa: TC002  # Runtime annotations call the Pydantic source hook.
+from pydantic_settings import (  # ruff:ignore[typing-only-third-party-import]  # Runtime annotations call the Pydantic source hook.
     BaseSettings,
     NoDecode,
     PydanticBaseSettingsSource,
@@ -26,7 +26,10 @@ from pydantic_settings import (  # noqa: TC002  # Runtime annotations call the P
 from upath import UPath
 
 from tools.assay.composition.store import ArtifactStore, safe_segment
-from tools.assay.core.model import ArtifactKind, wire_safe  # noqa: TC001  # Settings/model field hooks evaluate these annotations at runtime.
+from tools.assay.core.model import (  # ruff:ignore[typing-only-first-party-import]  # Settings/model field hooks evaluate these annotations at runtime.
+    ArtifactKind,
+    wire_safe,
+)
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -252,7 +255,7 @@ class ArtifactBackend(BaseModel):
     storage_options: dict[str, str | int | bool] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def _bounded_non_file_root(self) -> ArtifactBackend:  # noqa: N804  # Pydantic v2 mode="after" passes the model instance, not cls.
+    def _bounded_non_file_root(self) -> ArtifactBackend:  # ruff:ignore[invalid-first-argument-name-for-class-method]  # Pydantic v2 mode="after" passes the model instance, not cls.
         # Non-file backend singletons need a non-empty root to avoid cross-store collisions; file backends ignore storage_options.
         match (self.protocol, self.root.strip(), ".." in _root_parts(self.root)):
             case ("file", _, _):
@@ -421,7 +424,7 @@ class Offload(BaseModel):
         return self.backend.capability[2]
 
 
-class AssaySettings(BaseSettings):  # noqa: PLR0904  # AssaySettings is the central runtime-settings owner; its projections compose one concern.
+class AssaySettings(BaseSettings):  # ruff:ignore[too-many-public-methods]  # AssaySettings is the central runtime-settings owner; its projections compose one concern.
     """Validated Assay runtime settings."""
 
     model_config = SettingsConfigDict(

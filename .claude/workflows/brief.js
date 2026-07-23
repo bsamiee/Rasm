@@ -28,7 +28,7 @@ const LANG = {
         tiers: 'libs/csharp/.api/ (shared substrate) + the package .api/ (domain)',
         manifest: 'Directory.Packages.props (hand-edited, label-grouped; never dotnet add) + the target .csproj',
         verify:
-            'UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api over restored assemblies (member truth, verified-local wins) + the nuget MCP (feed truth) + two ' +
+            'uv run python -m tools.assay api over restored assemblies (member truth, verified-local wins) + the nuget MCP (feed truth) + two ' +
             'corroborating web sources; license gate enforced (OSS or free-for-OSS commercial; pay-tiered/seat-licensed/proprietary-gated REJECTED)',
         law:
             'the WORKSPACE_LAW strata govern placement: KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP, depending strictly upward; ' +

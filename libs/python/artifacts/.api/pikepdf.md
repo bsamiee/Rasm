@@ -38,7 +38,7 @@
 | :-----: | :---------------------------------- | :------------ | :--------------------------------------------------------------------------- |
 |  [01]   | `Object`                            | class         | base value: `as_dict`/`to_json`/`read_bytes`/`parse`/`unparse`               |
 |  [02]   | `Dictionary`                        | class         | name-keyed PDF dictionary                                                    |
-|  [03]   | `Array`                             | class         | ordered PDF array                                                            |
+|  [03]   | `Array`                             | class         | ordered PDF array; full `list` interface — slice + insert/pop/remove/reverse |
 |  [04]   | `Name`                              | class         | `/Name` token; `Name.random()` mints a unique resource name                  |
 |  [05]   | `Stream`                            | class         | dictionary plus encoded byte payload                                         |
 |  [06]   | `Operator`                          | class         | content-stream operator token                                                |
@@ -59,7 +59,7 @@
 
 | [INDEX] | [SYMBOL]                             | [TYPE_FAMILY] | [CAPABILITY]                                            |
 | :-----: | :----------------------------------- | :------------ | :------------------------------------------------------ |
-|  [01]   | `models.PdfImage`                    | class         | `as_pil_image`/`extract_to`/`mode`/`colorspace`/`icc`   |
+|  [01]   | `models.PdfImage`                    | class         | `as_pil_image`/`extract_to`/`mode`/`colorspace`/`icc`; `MAX_IMAGE_PIXELS` cap |
 |  [02]   | `models.PdfMetadata`                 | class         | `load_from_docinfo`/`pdfa_status`/`pdfx_status` mapping |
 |  [03]   | `canvas.Canvas`                      | class         | `add_font`/`do`/`to_pdf` page-content builder           |
 |  [04]   | `canvas.ContentStreamBuilder`        | class         | `begin_text`/`show_text`/`set_fill_color`/`cm`/`fill`   |
@@ -75,6 +75,8 @@
 |  [14]   | `InvalidPdfImageError`               | exception     | malformed embedded image data                           |
 |  [15]   | `HifiPrintImageNotTranscodableError` | exception     | hi-fi print image not transcodable                      |
 |  [16]   | `JobUsageError`                      | exception     | invalid `Job`/`JobBuilder` configuration                |
+|  [17]   | `DecompressionBombError`             | exception     | image pixel count exceeds `PdfImage.MAX_IMAGE_PIXELS`    |
+|  [18]   | `DecompressionBombWarning`           | warning       | image pixel count nears the decode cap                  |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -105,7 +107,7 @@
 |  [05]   | `Page.as_form_xobject(handle_transformations=True)` | instance | convert a page to a form XObject          |
 |  [06]   | `Page.contents_add(stream, *, prepend=False)`       | instance | append/merge streams; `contents_coalesce` |
 
-- [07]-[PAGE_MAPS_BOXES]: `Page.images`/`Page.resources` maps and the `mediabox`/`cropbox`/`trimbox`/`bleedbox`/`artbox` `Rectangle` boxes carry the per-page image map, resource dict, and box geometry.
+- [07]-[PAGE_MAPS_BOXES]: `Page.get_images(recursive=True)` (the name→image map that also reaches images nested in form XObjects), `Page.resources`, and the `mediabox`/`cropbox`/`trimbox`/`bleedbox`/`artbox` `Rectangle` boxes carry the per-page image inventory, resource dict, and box geometry.
 
 [ENTRYPOINT_SCOPE]: content-stream tokenize and edit
 
@@ -126,11 +128,13 @@
 | [INDEX] | [SURFACE]                                                  | [SHAPE]  | [CAPABILITY]                                 |
 | :-----: | :--------------------------------------------------------- | :------- | :------------------------------------------- |
 |  [01]   | `canvas.Canvas(page_size=(w, h))`                          | ctor     | author native page content                   |
-|  [02]   | `models.PdfImage(...).as_pil_image()` / `.extract_to(...)` | instance | extract an embedded image to the Pillow rail |
+|  [02]   | `models.PdfImage(...).as_pil_image(*, apply_mask=True)`        | instance | extract an embedded image to the Pillow rail |
+|  [03]   | `models.PdfImage(...).extract_to(*, apply_mask=True) -> str`   | instance | write native codec bytes, mask-composited    |
 
-- [03]-[CONTENTSTREAMBUILDER_OPS]: `begin_text` `set_text_font` `show_text` `show_text_with_kerning` `set_text_leading` `move_cursor_new_line` `set_fill_color` `set_stroke_color` `set_line_width` `set_dashes` `cm` `append_rectangle` `fill` `stroke_and_close` `draw_xobject` `begin_marked_content` to `.build()` — text and vector op emitter; raster rides `draw_xobject`, there is no `draw_image`.
-- [04]-[PDFIMAGE_COLOR]: `.colorspace` `.icc` `.mode` `.bits_per_component` `.palette` `.indexed` `.image_mask` `.is_device_n` `.is_separation` `.filters` `.decode_parms` — color and codec evidence for the extracted image.
-- [05]-[MARKED_CONTENT]: `begin_marked_content(mctype)` `begin_marked_content_proplist(mctype, mcid)` `end_marked_content()` — emit the `/Tag BDC … EMC` operators; the `_proplist` MCID variant binds a canvas-drawn region to the `document/tagged` structure element.
+- `PdfImage.as_pil_image`/`extract_to`: `apply_mask=True` composites the `/SMask` soft mask or `/Mask` stencil/colour-key mask into an alpha channel (`LA`/`RGBA`, transparency-capable format), `apply_mask=False` returns the opaque base; `apply_decode_array=True` (default) folds a non-default `/Decode` per-channel map, `False` yields raw stored samples; `extract_to` writes to a `stream` or a `fileprefix`+ext path and returns that path. A pixel count over `PdfImage.MAX_IMAGE_PIXELS` raises `DecompressionBombError` (set the class attribute to `None` to disable the guard).
+- [04]-[CONTENTSTREAMBUILDER_OPS]: `begin_text` `set_text_font` `show_text` `show_text_with_kerning` `set_text_leading` `move_cursor_new_line` `set_fill_color` `set_stroke_color` `set_line_width` `set_dashes` `cm` `append_rectangle` `fill` `stroke_and_close` `draw_xobject` `begin_marked_content` to `.build()` — text and vector op emitter; raster rides `draw_xobject`, there is no `draw_image`.
+- [05]-[PDFIMAGE_COLOR]: `.colorspace` `.icc` `.mode` `.bits_per_component` `.palette` `.indexed` `.image_mask` `.is_device_n` `.is_separation` `.filters` `.decode_parms` — color and codec evidence for the extracted image.
+- [06]-[MARKED_CONTENT]: `begin_marked_content(mctype)` `begin_marked_content_proplist(mctype, mcid)` `end_marked_content()` — emit the `/Tag BDC … EMC` operators; the `_proplist` MCID variant binds a canvas-drawn region to the `document/tagged` structure element.
 
 [ENTRYPOINT_SCOPE]: encryption, metadata, attachments, jobs
 
@@ -163,7 +167,7 @@
 - Each op captures page count, linearization flag, encryption `R` level and AES state, object-stream mode, object count, `Job` exit/warning state, and output byte length as one `ArtifactReceipt` case.
 
 [STACKING]:
-- `pillow`(`.api/pillow.md`): `models.PdfImage(page.images[name]).as_pil_image()` hands a `PIL.Image` to the `graphic/raster/io#` owner and `extract_to` writes native codec bytes; pikepdf extracts, pillow re-encodes and ICC-converts.
+- `pillow`(`.api/pillow.md`): `models.PdfImage(page.get_images()[name]).as_pil_image()` hands a `PIL.Image` to the `graphic/raster/io#` owner — an `/SMask`/`/Mask`-bearing image arrives alpha-composited (`LA`/`RGBA`) under the `apply_mask=True` default — and `extract_to` writes native codec bytes; pikepdf extracts, pillow re-encodes and ICC-converts.
 - `pypdf`(`.api/pypdf.md`) / `pymupdf`(`.api/pymupdf.md`): `Pdf.save(encryption=Encryption(R=6), linearize=True)` re-encrypts at AES-R6 and linearizes the finished bytes that `pypdf` assembled or `pymupdf` rendered; ruled-table extraction routes to `pdfplumber`(`.api/pdfplumber.md`).
 - `pyhanko`(`.api/pyhanko.md`): `sanitize`/`flatten_annotations` finish the bytes before pyhanko PAdES-signs them; sanitize precedes sign.
 - `ocrmypdf`(`.api/ocrmypdf.md`): whole-document OCR-to-PDF/A routes here, never a hand-stitched per-page text layer.
@@ -175,6 +179,6 @@
 
 [RAIL_LAW]:
 - Package: `pikepdf`
-- Owns: qpdf-backed open/repair, linearization, AES-R6 encryption with permission flags, page assembly and overlay, content-stream tokenization + `TokenFilter` + `externalize_inline_images` + `get_objects_with_ctm`, native authoring (`canvas` + `ContentStreamBuilder`), object-model editing with typed scalars, Separation/DeviceN plate authoring, XMP/docinfo metadata, image extraction with color/codec evidence, attachments, outlines, AcroForm and annotation flatten, `sanitize`, and declarative qpdf jobs via `JobBuilder`/`Job`
+- Owns: qpdf-backed open/repair, linearization, AES-R6 encryption with permission flags, page assembly and overlay, content-stream tokenization + `TokenFilter` + `externalize_inline_images` + `get_objects_with_ctm`, native authoring (`canvas` + `ContentStreamBuilder`), object-model editing with typed scalars, Separation/DeviceN plate authoring, XMP/docinfo metadata, image extraction with color/codec evidence and `/SMask`·`/Mask`·`/Decode` compositing under a `MAX_IMAGE_PIXELS` decompression-bomb cap, attachments, outlines, AcroForm and annotation flatten, `sanitize`, and declarative qpdf jobs via `JobBuilder`/`Job`
 - Accept: structure repair, linearization, encryption, sanitize, and content authoring feeding the document and export-bundle owners; `PdfImage.as_pil_image` feeding the image rail
 - Reject: wrapper-renames of `open`/`save`; scattered permission booleans where `Permissions` rows exist; a hand-rolled tokenizer where `parse_content_stream`/`TokenFilter` exist; a hand-written job-JSON string where `JobBuilder` assembles it; a byte-concatenated colorspace where the typed `Array`/`Dictionary`/`Name` object model builds it; a second renderer where `pymupdf` covers it; simple text/graphic placement routed to `reportlab` where `canvas.Canvas` suffices; a `draw_image` call where raster placement is `draw_xobject`

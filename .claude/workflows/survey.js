@@ -387,7 +387,7 @@ const LANG = {
             '`Directory.Packages.props` (central pins, label-grouped, one-line maintenance comments) + `Directory.Build.props` (net10.0 floor, osx-arm64)',
         registry: 'the owning `.csproj` PackageReference rows and the folder README package sections',
         gate:
-            '`UV_CACHE_DIR=.cache/uv uv run --frozen python -m tools.assay static --project <csproj>` (one JSON Envelope on stdout); assay unavailable: `dotnet restore` + ' +
+            '`uv run python -m tools.assay static --project <csproj>` (one JSON Envelope on stdout); assay unavailable: `dotnet restore` + ' +
             '`dotnet build` at the same green criterion',
         runtime:
             'PLATFORM: osx-arm64 on net10.0 — managed AnyCPU, an osx-arm64 native asset, or a Forge-provisioned native substrate; reject ' +
@@ -659,7 +659,7 @@ const CTX = (t, L) =>
     'process narration, no hedges. Never run git commit.';
 
 const MEMBER_TRUTH = (L) =>
-    'MEMBER TRUTH — verify external members via `UV_CACHE_DIR=.cache/uv uv run --frozen python -m tools.assay api` ' +
+    'MEMBER TRUTH — verify external members via `uv run python -m tools.assay api` ' +
     '(decompile/reflection); when the assay rail is unavailable or errors, truth routes through the fallback tier: both .api tiers, ' +
     'the nuget MCP (feed truth: newest version, license, TFMs, deprecation), Context7 for the official surface, exa/tavily source ' +
     'reads. A package, version, or member no tier can verify is a PHANTOM: never survey it, never cite it, never admit it. ' +

@@ -245,7 +245,7 @@ def _debounce(inner: Fire, window_ms: int, *, edge: Edge) -> tuple[Fire, Worker]
     # The caller owns worker lifetime through its task group and stop scope.
     send, recv = anyio.create_memory_object_stream[ChangeBatch](1)
 
-    async def signal(changes: ChangeBatch) -> None:  # noqa: RUF029  # async required: trigger loop awaits this as a Fire coroutine
+    async def signal(changes: ChangeBatch) -> None:  # ruff:ignore[unused-async]  # async required: trigger loop awaits this as a Fire coroutine
         try:
             match send.statistics().current_buffer_used:
                 case 0:
@@ -343,7 +343,7 @@ def _hardened_fire(fire: Fire, settings: AssaySettings, action: Action | None = 
                 running = True
                 try:
                     missed = await _fire_with_coalesce(fire, settings, changes, missed)
-                except Exception as exc:  # noqa: BLE001  # automation boundary: exceptions emit one FAULTED row instead of escaping the task group
+                except Exception as exc:  # ruff:ignore[blind-except]  # automation boundary: exceptions emit one FAULTED row instead of escaping the task group
                     _emit_automation_fault(exc, settings, action)
                 finally:
                     running = False

@@ -2,13 +2,19 @@
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from collections.abc import Callable  # noqa: TC003  # Callable annotation in parametrize parameter evaluated at collection time
+from collections.abc import (
+    Callable,  # ruff:ignore[typing-only-standard-library-import]  # Callable annotation in parametrize parameter evaluated at collection time
+)
 from dataclasses import dataclass
 from pathlib import Path
 import time
 from typing import TYPE_CHECKING
 
-from expression import Error, Ok, Result  # noqa: TC002  # Result appears in parametrize annotations evaluated at collection time
+from expression import (  # ruff:ignore[typing-only-third-party-import]  # Result appears in parametrize annotations evaluated at collection time
+    Error,
+    Ok,
+    Result,
+)
 import msgspec.structs
 import pytest
 
@@ -90,9 +96,9 @@ def test_process_hygiene_reports_old_repo_orphans(assay_root: AssayHarness, monk
 
 def test_orphan_process_exception_returns_none() -> None:
     """_orphan_process returns None when proc.info raises OSError — a process vanishing mid-scan never crashes hygiene."""
-    from unittest.mock import create_autospec, PropertyMock  # noqa: PLC0415
+    from unittest.mock import create_autospec, PropertyMock  # ruff:ignore[import-outside-top-level]
 
-    import psutil as _ps  # noqa: PLC0415
+    import psutil as _ps  # ruff:ignore[import-outside-top-level]
 
     broken: _ps.Process = create_autospec(_ps.Process, instance=True)
     type(broken).info = PropertyMock(side_effect=OSError("process gone"))
@@ -146,7 +152,7 @@ def test_probe_cache_round_trip_and_retention(assay_root: AssayHarness) -> None:
     key = health_mod._PROBE_CACHE_KEY % "\x00".join(argv)
     prior = {
         key: loaded[key],
-        "probe:ghost": health_mod._ProbeRow(token="t", ts=time.time(), note="gone", ok=True),  # noqa: S106  # mtime token, not a secret
+        "probe:ghost": health_mod._ProbeRow(token="t", ts=time.time(), note="gone", ok=True),  # ruff:ignore[hardcoded-password-func-arg]  # mtime token, not a secret
     }
     health_mod._probe_cache_store(assay_root.settings, prior, {}, frozenset((argv,)))
     assert set(health_mod._probe_cache_load(assay_root.settings)) == {key}
@@ -168,7 +174,7 @@ def test_probe_note_projects_result_to_note(
     label: str,
     outcome: Callable[[], Result[Completed, Fault]],
     want_substrings: tuple[str, ...],
-    want_ok: bool,  # noqa: FBT001  # parametrize matrix field, not a call-site positional bool
+    want_ok: bool,  # ruff:ignore[boolean-type-hint-positional-argument]  # parametrize matrix field, not a call-site positional bool
 ) -> None:
     """_probe_note projects tool and git probe outcomes to note/health pairs keyed on the probe label."""
     note, ok = health_mod._probe_note(label, outcome())
@@ -177,7 +183,7 @@ def test_probe_note_projects_result_to_note(
 
 
 @pytest.mark.parametrize("fresh", [True, False], ids=["fresh", "stale"])
-def test_cache_hit_respects_ttl(fresh: bool) -> None:  # noqa: FBT001  # parametrize-injected, not a call-site positional bool
+def test_cache_hit_respects_ttl(fresh: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]  # parametrize-injected, not a call-site positional bool
     """_cache_hit returns fresh token hits and rejects stale rows."""
     argv = health_mod._probe_argv(health_mod._GIT_HEAD)
     token = health_mod._probe_token(argv)
@@ -253,9 +259,9 @@ def test_census_true_for_catalog_and_false_when_selection_drops_rows(monkeypatch
 
 
 @pytest.mark.parametrize("resolved, ready", [("/opt/yak/yak", True), (None, False)], ids=["on-path", "missing"])
-def test_yak_ready_tracks_path_resolution(resolved: str | None, ready: bool, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: FBT001  # parametrize matrix field
+def test_yak_ready_tracks_path_resolution(resolved: str | None, ready: bool, monkeypatch: pytest.MonkeyPatch) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]  # parametrize matrix field
     """yak_ready() is True exactly when the catalogued PACKAGE yak row resolves on PATH."""
-    import shutil  # noqa: PLC0415
+    import shutil  # ruff:ignore[import-outside-top-level]
 
     monkeypatch.setattr(shutil, "which", lambda name: resolved if name == "yak" else None)
     assert yak_ready() is ready

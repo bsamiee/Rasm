@@ -257,7 +257,7 @@ def _rooted(spec: RecipeSpec) -> str:
     # project root resolves BEFORE any asset byte lands: the caller's settings folder when supplied, else the recipe's
     # own default project folder — one folder owns asset landing, handler reads, and the `run` execution alike, where a
     # cwd-anchored landing strands every asset outside the folder the handler chains read.
-    from lbt_recipes.recipe import Recipe  # noqa: PLC0415 — AGPL boundary import
+    from lbt_recipes.recipe import Recipe  # ruff:ignore[import-outside-top-level] — AGPL boundary import
 
     root = Path(
         spec.settings.bind(lambda held: Option.of_optional(held.folder)).default_with(lambda: Recipe(str(spec.recipe)).default_project_folder)
@@ -289,7 +289,7 @@ def _landed(destination_path: str, got: Buffer) -> int:
 def _declared(recipe: "Recipe") -> tuple[str, ...]:
     # baked `package.json` contract — never a hand-mirrored list — is the roster's source of truth; the cold schema tree loads
     # only at this derivation seam.
-    from queenbee.recipe.recipe import BakedRecipe, RecipeInterface  # noqa: PLC0415 — boundary import beside the AGPL tree
+    from queenbee.recipe.recipe import BakedRecipe, RecipeInterface  # ruff:ignore[import-outside-top-level] — boundary import beside the AGPL tree
 
     return tuple(out.name for out in RecipeInterface.from_recipe(BakedRecipe.from_folder(recipe.path)).outputs)
 
@@ -297,9 +297,9 @@ def _declared(recipe: "Recipe") -> tuple[str, ...]:
 def _staged(spec: RecipeSpec, root: str) -> "RuntimeRail[_Staged]":
     # ONE coercion seam — engine gate, Recipe construction, input assignment, handled inputs.json; the run key derives from the recipe
     # identity + handled bytes, so an identical simulation elides through the lane cache and the persistence ledger dedupes at the wire.
-    from lbt_recipes import version  # noqa: PLC0415 — AGPL boundary import
-    from lbt_recipes.recipe import Recipe  # noqa: PLC0415
-    from lbt_recipes.settings import RecipeSettings  # noqa: PLC0415
+    from lbt_recipes import version  # ruff:ignore[import-outside-top-level] — AGPL boundary import
+    from lbt_recipes.recipe import Recipe  # ruff:ignore[import-outside-top-level]
+    from lbt_recipes.settings import RecipeSettings  # ruff:ignore[import-outside-top-level]
 
     row = spec.row()
     gate = traverse(
@@ -352,8 +352,8 @@ def _execute(staged: _Staged) -> "RuntimeRail[RecipeProduct]":
 
 
 def _interface(spec: RecipeSpec) -> "RecipeInterface":
-    from lbt_recipes.recipe import Recipe  # noqa: PLC0415 — AGPL boundary import
-    from queenbee.recipe.recipe import BakedRecipe, RecipeInterface  # noqa: PLC0415
+    from lbt_recipes.recipe import Recipe  # ruff:ignore[import-outside-top-level] — AGPL boundary import
+    from queenbee.recipe.recipe import BakedRecipe, RecipeInterface  # ruff:ignore[import-outside-top-level]
 
     return RecipeInterface.from_recipe(BakedRecipe.from_folder(Recipe(str(spec.recipe)).path))
 

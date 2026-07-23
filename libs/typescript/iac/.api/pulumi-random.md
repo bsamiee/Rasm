@@ -28,9 +28,9 @@ Every resource extends `pulumi.CustomResource`, carries `static get(name, id, st
 |  [05]   | `RandomInteger`  | `min`, `max`    | `result` (number)                             | seeded bounded integer                         |
 |  [06]   | `RandomShuffle`  | `inputs`        | `results` (string[])                          | `seed`-stable permutation; `resultCount`       |
 |  [07]   | `RandomPet`      | —               | id = pet name (`length`/`prefix`/`separator`) | human-friendly stable resource names           |
-|  [08]   | `RandomUuid`     | —               | `result` (uuid)                               | retired catalog-bound UUID                     |
-|  [09]   | `RandomUuid4`    | —               | `result` (uuid catalog-bound)                 | explicit catalog-bound                         |
-|  [10]   | `RandomUuid7`    | —               | `result` (uuid catalog-bound)                 | time-ordered UUID (sortable ids)               |
+|  [08]   | `RandomUuid`     | —               | `result` (uuid)                               | random UUID (v4)                               |
+|  [09]   | `RandomUuid4`    | —               | `result` (uuid)                               | explicit UUIDv4                                |
+|  [10]   | `RandomUuid7`    | —               | `result` (uuid)                               | time-ordered UUIDv7 (sortable ids)             |
 |  [11]   | `Provider`       | —               | —                                             | explicit provider instance                     |
 
 ## [03]-[MATERIAL_PROJECTIONS]
@@ -45,9 +45,8 @@ Three parameterized patterns own the surface; the roster above is seed data feed
 |  [02]   | `lower` / `upper` / `numeric` / `special`             | character-class toggles (default `true`)                  |
 |  [03]   | `minLower` / `minUpper` / `minNumeric` / `minSpecial` | per-class minimums                                        |
 |  [04]   | `overrideSpecial`                                     | replace the default `!@#$%&*()-_=+[]{}<>:?` set           |
-|  [05]   | `number` (deprecated) → `numeric`                     | retired alias; use `numeric`                              |
 
-The sensitive-vs-plain choice is a mode arm over ONE knob struct: `RandomPassword` (encrypted `result` + `bcryptHash`) vs `RandomString` (plain `result`). Document/drive the policy once; dispatch the resource on a `sensitive` tag.
+Sensitive-vs-plain is a mode arm over ONE knob struct: `RandomPassword` (encrypted `result` + `bcryptHash`) vs `RandomString` (plain `result`); the resource dispatches on a `sensitive` tag.
 
 [PATTERN]: entropy encoding — ONE random source, multiple projections
 - `RandomId(byteLength)` projects the same bytes to `hex` / `dec` / `b64Std` / `b64Url`; `RandomBytes(length)` exposes `base64` / `hex` — pick the encoding a consumer needs (DNS-safe `hex`, URL-safe `b64Url`) rather than post-processing.
@@ -88,7 +87,7 @@ new doppler.Secret("db-password", {
 ## [05]-[IMPLEMENTATION_LAW]
 
 [MATERIAL_TOPOLOGY]:
-- Prefer the provider-tracked resource over an inline random value: state persistence makes the material stable across `up` and diffable, and `keepers` makes rotation explicit and audited.
+- Provider-tracked resources own random material: state persistence keeps it stable across `up` and diffable, and `keepers` makes rotation explicit and audited — an inline random value has neither.
 - `RandomPassword`/`RandomBytes` `result`/`base64` are sensitive; cross a resource boundary only as `pulumi.secret`-tracked `Output`. `RandomString` is plain — never use it for credentials.
 - Choose the id encoding at the source (`hex` for DNS/label safety, `b64Url` for URL tokens); do not post-process an `Output<string>`.
 

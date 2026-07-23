@@ -30,20 +30,21 @@
 
 [ENTRYPOINT_SCOPE]: IPC decode, encode, and the streaming reader
 - rail: lane/olap
-- `tableFromIPC` is overloaded on source shape — bytes decode synchronously, a stream/promise/`Response` asynchronously; `tableToIPC(table, type?, compressionType?)` serializes file or stream format; `RecordBatchReader.from(source)` opens the incremental lane and the reader itself is the `AsyncIterable<RecordBatch>` a `Stream.fromAsyncIterable` lift consumes.
+- `tableFromIPC` is overloaded on source shape — bytes decode synchronously, a stream/promise/`Response` asynchronously; `tableToIPC(table, type?, compressionType?)` serializes file or stream format; `RecordBatchReader.from(source)` opens the incremental lane and the reader itself is the `AsyncIterable<RecordBatch>` a `Stream.fromAsyncIterable` lift consumes; `isArrowTable`/`isArrowRecordBatch` are the narrowing guards the ingest discriminant folds through.
 
-| [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY] | [CONSUMER]                                            |
+| [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY] | [CONSUMER]                                             |
 | :-----: | :------------------------------------------------------ | :------------- | :---------------------------------------------------- |
 |  [01]   | `tableFromIPC(bytes)` → `Table`                         | decode         | `Olap.wire.decode` — engine IPC egress into one Table |
 |  [02]   | `tableToIPC(table, type?, compression?)` → `Uint8Array` | encode         | `Olap.wire.encode` — the outbound engine seam         |
 |  [03]   | `RecordBatchReader.from(source)`                        | stream reader  | `Olap.wire.batches` — bounded-memory interchange      |
 |  [04]   | `reader[Symbol.asyncIterator]()`                        | batch pull     | the `Stream` lift; no whole-Table materialization     |
+|  [05]   | `isArrowTable(x)` / `isArrowRecordBatch(x)`             | guard          | ingest discriminant — narrow a live container at seam |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [INTEGRATION_LAW]:
 - Boundary-kernel wrap: `tableFromIPC`/`tableToIPC` throws fold through `Effect.try` into `OlapFault` (`reason: "wire"`) at the lane owner; `RecordBatchReader` iteration lifts through `Stream.fromAsyncIterable` with the same fault mint — no Arrow throw crosses the data seam raw.
-- DuckDB wasm interop (`.api/duckdb-duckdb-wasm.md`): `conn.send(sql)` pulls record batches lazily so a browser result larger than memory never materializes; ingest is ONE entry discriminating on the source value — a live `Table` rides `insertArrowTable`, IPC bytes ride `insertArrowFromIPCStream`.
+- DuckDB wasm interop (`.api/duckdb-duckdb-wasm.md`): `conn.send(sql)` pulls record batches lazily so a browser result larger than memory never materializes; ingest is ONE entry discriminating on the source value through `isArrowTable` — a live `Table` rides `insertArrowTable`, IPC bytes ride `insertArrowFromIPCStream`.
 - ClickHouse and the node row emit Arrow IPC at the result seam; every engine joins the wire by emitting or accepting IPC, never a per-engine result shape.
 - Viewer handoff: decoded `Table` values flow to `ui`'s geoarrow plane without row materialization; the type-system, builder, and visitor depth those layers exploit lives on `ui`'s catalog.
 

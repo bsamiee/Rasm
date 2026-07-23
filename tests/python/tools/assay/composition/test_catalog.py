@@ -6,7 +6,9 @@ import pytest
 
 from tests.python._testkit.laws import spec
 from tests.python._testkit.spec import assert_roundtrip, idempotent
-from tests.python._testkit.strategies import resolve as _resolve  # noqa: F401  # registers the Tool Hypothesis strategy on import; no call site
+from tests.python._testkit.strategies import (
+    resolve as _resolve,  # ruff:ignore[unused-import]  # registers the Tool Hypothesis strategy on import; no call site
+)
 from tools.assay.composition.catalog import launch, PROBE_TIMEOUT_S, select, TOOLS
 from tools.assay.core.model import Claim, Input, Language, Mode, Parser, Runner, Tool
 from tools.assay.diagnostics import AST_MATCHES, Capture, CAPTURE_ENCODER, CAPTURES, RG_EVENT

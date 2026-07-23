@@ -2,7 +2,7 @@
 
 The CF-conventioned labelled N-D field owner, narrowed to the CF plane: `FieldDataset` reads and writes CF-metadata field cubes over the `FieldEngine` axis, `FieldSelection` owns CF-aware selection and flox-vectorized grouped/binned/resampled reduction and grouped cumulative scan as one closed axis, and `FieldReceipt` folds the content-keyed egress. This is the labelled-field counterpart of the dense `data:gridded/store#STORE` chunk-grid — a distinct owner, never a second labelled-array store inside `store` — and the byte-range virtual-datacube concern lives whole on `data:gridded/virtual#VIRTUAL`, so this page is the pure CF owner.
 
-Import gating is tri-state: `xarray` is banned-module-level, so every call binds function-local under `# noqa: PLC0415`; `netcdf4` is an ungated Forge source build importing module-top; `flox` binds its lowering function-local because `flox.xarray` touches the banned `xarray`, and only the `numba`/`numbagg` `ReductionEngine` rows stay gated on the numba cp315 activation. Egress materializes to the content-keyed `pyarrow`/Zarr surfaces `data:tabular/columnar#SCAN` and `data:gridded/store#STORE` speak, and the absorbed virtual owner mints this same `FieldReceipt` family downward — one receipt family for the labelled plane.
+Import gating is tri-state: `xarray` is banned-module-level, so every call binds function-local under `# ruff:ignore[import-outside-top-level]`; `netcdf4` is an ungated Forge source build importing module-top; `flox` binds its lowering function-local because `flox.xarray` touches the banned `xarray`, and only the `numba`/`numbagg` `ReductionEngine` rows stay gated on the numba cp315 activation. Egress materializes to the content-keyed `pyarrow`/Zarr surfaces `data:tabular/columnar#SCAN` and `data:gridded/store#STORE` speak, and the absorbed virtual owner mints this same `FieldReceipt` family downward — one receipt family for the labelled plane.
 
 ## [01]-[INDEX]
 
@@ -81,7 +81,7 @@ class FieldEngine(StrEnum):
                 return cls.NETCDF4
 
     def open(self, path: str) -> "Callable[[], xr.Dataset]":
-        import xarray as xr  # noqa: PLC0415
+        import xarray as xr  # ruff:ignore[import-outside-top-level]
 
         match self:
             case FieldEngine.ZARR:
@@ -331,7 +331,7 @@ def _select(selection: FieldSelection, dataset: "xr.Dataset") -> "xr.Dataset":
 
 
 def _grouper(by: tuple[str, ...], dim: tuple[str, ...], policy: ReductionPolicy) -> "tuple[object, ...]":
-    from xarray.groupers import TimeResampler  # noqa: PLC0415
+    from xarray.groupers import TimeResampler  # ruff:ignore[import-outside-top-level]
 
     return tuple(TimeResampler(policy.freq) if name == dim[0] and policy.freq else name for name in by)
 
@@ -340,7 +340,7 @@ def _reduce(
     dataset: "xr.Dataset", by: tuple[str, ...], dim: tuple[str, ...], policy: ReductionPolicy, fallback: "tuple[GrouperKind, tuple[object, ...]]"
 ) -> "xr.Dataset":
     if policy.vectorizable:
-        from flox.xarray import xarray_reduce  # noqa: PLC0415
+        from flox.xarray import xarray_reduce  # ruff:ignore[import-outside-top-level]
 
         return xarray_reduce(dataset, *_grouper(by, dim, policy), dim=dim, **policy.kwargs())
     grouped = _FALLBACK_CALL[fallback[0]](dataset, fallback[1])
@@ -349,8 +349,8 @@ def _reduce(
 
 def _scan(dataset: "xr.Dataset", by: tuple[str, ...], policy: ReductionPolicy, fallback: "tuple[GrouperKind, tuple[object, ...]]") -> "xr.Dataset":
     if policy.vectorizable:
-        import xarray as xr  # noqa: PLC0415
-        from flox import groupby_scan  # noqa: PLC0415
+        import xarray as xr  # ruff:ignore[import-outside-top-level]
+        from flox import groupby_scan  # ruff:ignore[import-outside-top-level]
 
         # `groupby_scan` is a raw-array kernel with no xarray-aware mirror, so `apply_ufunc` lifts it onto the labelled cube —
         # never `Dataset.map`, whose mapper must return a `DataArray` the bare-ndarray kernel does not.
@@ -425,7 +425,7 @@ def _write(field: "FieldDataset", dataset: "xr.Dataset", target: ResourceRef, en
 
 
 def _to_arrow(dataset: "xr.Dataset") -> "tuple[pa.Table, tuple[str, ...], int, bytes]":
-    import pyarrow as pa  # noqa: PLC0415
+    import pyarrow as pa  # ruff:ignore[import-outside-top-level]
 
     table = pa.Table.from_pandas(dataset.to_dataframe().reset_index())
     # `combine_chunks().to_batches()[0]` coalesces every chunk so the content key folds a chunk-boundary-stable byte span —

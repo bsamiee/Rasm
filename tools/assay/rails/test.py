@@ -1,15 +1,20 @@
 """Run test, discovery, coverage, and mutation rails."""
 
 from collections import Counter
-from collections.abc import Callable, Iterable  # noqa: TC003  # _MUTATION_SCOPE binds the projection type at import time
+from collections.abc import (  # ruff:ignore[typing-only-standard-library-import]  # _MUTATION_SCOPE binds the projection type at import time
+    Callable,
+    Iterable,
+)
 from dataclasses import dataclass, replace
 from enum import StrEnum
 from pathlib import Path, PurePosixPath
 from typing import Annotated, override, TYPE_CHECKING
-import xml.etree.ElementTree as ET  # noqa: S405  # trusted local Workspace.slnx XML from the repo root
+import xml.etree.ElementTree as ET  # ruff:ignore[suspicious-xml-etree-import]  # trusted local Workspace.slnx XML from the repo root
 
 from cyclopts import Parameter
-from cyclopts.types import NonNegativeInt  # noqa: TC002  # cyclopts resolves Param-annotated dataclass fields at runtime
+from cyclopts.types import (
+    NonNegativeInt,  # ruff:ignore[typing-only-third-party-import]  # cyclopts resolves Param-annotated dataclass fields at runtime
+)
 from expression import Error, Ok, Result  # beartype @checked resolves the handler forward-ref (PEP 649)
 from expression.collections import block
 from expression.extra.result import sequence
@@ -17,8 +22,10 @@ import msgspec
 import structlog
 
 from tools.assay.composition.catalog import select
-from tools.assay.composition.settings import AssaySettings  # noqa: TC001  # beartype resolves rail annotations at runtime
-from tools.assay.composition.store import (  # noqa: TC001  # beartype resolves ArtifactScope/ArtifactStore annotations at runtime
+from tools.assay.composition.settings import (
+    AssaySettings,  # ruff:ignore[typing-only-first-party-import]  # beartype resolves rail annotations at runtime
+)
+from tools.assay.composition.store import (  # ruff:ignore[typing-only-first-party-import]  # beartype resolves ArtifactScope/ArtifactStore annotations at runtime
     ArtifactScope,
     ArtifactStore,
     CS_ARTIFACT_ROOTS,
@@ -26,7 +33,7 @@ from tools.assay.composition.store import (  # noqa: TC001  # beartype resolves 
     PY_ARTIFACT_ROOTS,
     PY_COVERAGE_FILES,
 )
-from tools.assay.core.exec import Executor  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
+from tools.assay.core.exec import Executor  # ruff:ignore[typing-only-first-party-import]  # beartype resolves the executor-port annotation at runtime
 from tools.assay.core.govern import leased
 from tools.assay.core.model import (
     Artifact,
@@ -34,7 +41,7 @@ from tools.assay.core.model import (
     BaseParams,
     Check,
     Claim,
-    Completed,  # noqa: TC001  # _roster_matches uses Completed as a runtime type in the tuple annotation
+    Completed,  # ruff:ignore[typing-only-first-party-import]  # _roster_matches uses Completed as a runtime type in the tuple annotation
     Counts,
     Fault,  # beartype @checked resolves the rail's forward-ref (PEP 649)
     Input,
@@ -45,7 +52,7 @@ from tools.assay.core.model import (
     MutationLane,
     RailStatus,
     receipt,
-    Report,  # noqa: TC001  # beartype @checked resolves the rail's forward-ref (PEP 649)
+    Report,  # ruff:ignore[typing-only-first-party-import]  # beartype @checked resolves the rail's forward-ref (PEP 649)
     Runner,
     TestRun,
     Tool,
@@ -260,7 +267,7 @@ def _relative_project(project: str | Path, settings: AssaySettings) -> str:
 def _solution_projects(settings: AssaySettings) -> Result[tuple[str, ...], Fault]:
     # A corrupt or missing Workspace.slnx must fault loudly: folding to () would green-exit --all with zero checks.
     try:
-        tree = ET.fromstring(settings.solution.read_bytes() or b"<Solution/>")  # noqa: S314  # trusted local solution XML
+        tree = ET.fromstring(settings.solution.read_bytes() or b"<Solution/>")  # ruff:ignore[suspicious-xml-element-tree-usage]  # trusted local solution XML
     except (OSError, ET.ParseError) as exc:
         return Error(Fault(("test", "solution", str(settings.solution)), RailStatus.FAULTED, str(exc)[:1024]))
     rows = (path for node in tree.iter() for path in (node.get("Path") or "",) if path.endswith(".csproj"))
@@ -684,7 +691,7 @@ def run(settings: AssaySettings, scope: ArtifactScope, params: TestParams, execu
     return _thin_rail(settings, scope, params, executor, claim=Claim.TEST, verb="run", mode=Mode.RUN)
 
 
-def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams, executor: Executor) -> Result[Report, Fault]:  # noqa: A001
+def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams, executor: Executor) -> Result[Report, Fault]:  # ruff:ignore[builtin-variable-shadowing]
     """List discovered tests.
 
     The name must match the registry-bound Handler name for verb dispatch.

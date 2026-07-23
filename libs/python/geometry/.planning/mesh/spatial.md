@@ -244,7 +244,7 @@ def _dispatch(mesh: trimesh.Trimesh, q: SpatialQuery, backend: SpatialBackend) -
 
 
 def _bvh(mesh: trimesh.Trimesh) -> "fcl.CollisionObject":
-    import fcl  # noqa: PLC0415
+    import fcl  # ruff:ignore[import-outside-top-level]
 
     model = fcl.BVHModel()
     model.beginModel(len(mesh.vertices), len(mesh.faces))
@@ -258,7 +258,7 @@ def _fcl_gap(
 ) -> tuple[float, tuple[tuple[float, float, float], tuple[float, float, float]]]:
     # DIRECT narrow-phase read: signed separation and the witness pair — richer than the unsigned
     # CollisionManager.min_distance_single float veneer.
-    import fcl  # noqa: PLC0415
+    import fcl  # ruff:ignore[import-outside-top-level]
 
     request = fcl.DistanceRequest(enable_nearest_points=True, enable_signed_distance=True)
     result = fcl.DistanceResult()

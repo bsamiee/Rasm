@@ -4,7 +4,7 @@
 
 from typing import TYPE_CHECKING
 
-from expression import Error, Ok, Result  # noqa: TC002  # canned executor lanes return Result instances at runtime
+from expression import Error, Ok, Result  # ruff:ignore[typing-only-third-party-import]  # canned executor lanes return Result instances at runtime
 import pytest
 
 from tests.python._testkit.spec import assert_error, assert_ok
@@ -66,7 +66,7 @@ def _check(
 def test_check_promotion_and_fault_matrix(
     assay_root: AssayHarness,
     receipts: tuple[Result[Completed, Fault], ...],
-    strict: bool,  # noqa: FBT001  # parametrized bool flag
+    strict: bool,  # ruff:ignore[boolean-type-hint-positional-argument]  # parametrized bool flag
     expect: RailStatus | str,
 ) -> None:
     """Check folds receipts onto one rail: strict promotes only a checkless EMPTY, faults short-circuit first-wins."""

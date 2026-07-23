@@ -61,7 +61,7 @@ Resource detection folds host environment facts into semantic-convention attribu
 - `AddContainerDetector`: `container.id` lands only where a cgroup v1 read, then a v2 mountinfo read, yields a valid id.
 - `AddHostDetector`: `host.name` always lands; `host.id` and `host.arch` drop where no machine id resolves or the architecture maps to nothing.
 - `AddOperatingSystemDetector`: a platform outside `windows`, `linux`, and `darwin` contributes nothing; the descriptive keys read the Windows registry, `os-release`, or the system plist.
-- `AddProcessDetector`: `process.creation.time` lands as an ISO round-trip string, dropping where `Process.StartTime` faults.
+- `AddProcessDetector`: `process.creation.time` lands as a UTC ISO round-trip string, dropping where `Process.StartTime` faults.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

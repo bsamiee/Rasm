@@ -42,6 +42,9 @@
 |  [06]   | `CreateToken(string, …, IDictionary<string, object>)`                    | instance | custom JOSE headers     |
 |  [07]   | `EncryptToken(string, EncryptingCredentials)`                            | instance | existing-JWT encryption |
 |  [08]   | `EncryptToken(string, EncryptingCredentials, string)`                    | instance | explicit-alg encryption |
+|  [09]   | `ReplaceTokenHeader(JsonWebToken, string) -> JsonWebToken`               | instance | header re-emission      |
+
+- `JsonWebTokenHandler.ReplaceTokenHeader`: returns a new `JsonWebToken` over the same parsed payload with only the base64url-encoded header swapped, re-emitting without a full payload re-parse.
 
 [ENTRYPOINT_SCOPE]: reading and validation — `JsonWebTokenHandler`
 
@@ -84,7 +87,7 @@
 - claim mapping: `MapInboundClaims` gates whether inbound claim types remap through `InboundClaimTypeMap` to the long ClaimTypes URIs; left unmapped, the raw short JWT names (`sub`, `azp`) survive as claim types
 - creation algebra: `SecurityTokenDescriptor` (owned by `Microsoft.IdentityModel.Tokens`) is the declarative creation input carrying `Subject`/`Claims`, `Issuer`, `Audience(s)`, `Expires`/`NotBefore`/`IssuedAt`, `SigningCredentials`, `EncryptingCredentials`, and `CompressionAlgorithm`; `IncludeKeyIdInHeader` and `SetDefaultTimesOnTokenCreation` drive `kid` emission and automatic lifetime stamping
 - JWS versus JWE: `SigningCredentials` yields a signed token, `EncryptingCredentials` an encrypted token, both a nested signed-then-encrypted token; `JsonWebToken.IsSigned`/`IsEncrypted` and `InnerToken` reflect the structure on read
-- span path: `ReadJsonWebToken(ReadOnlyMemory<char>)` and the `JsonWebToken(ReadOnlyMemory<char>, …)` constructors parse without copying the token into a new string; the `TryReadJwtClaim` delegate (from the Tokens package) customizes per-claim deserialization
+- span path: `ReadJsonWebToken(ReadOnlyMemory<char>)` and the `JsonWebToken(ReadOnlyMemory<char>, …)` constructors parse without copying the token into a new string; `ReplaceTokenHeader(parsedToken, encodedHeader)` re-emits a parsed token reusing the payload and swapping only the encoded header; the `TryReadJwtClaim` delegate (from the Tokens package) customizes per-claim deserialization
 
 [STACKING]:
 - `Microsoft.IdentityModel.Tokens`(`.api/api-identitymodel-tokens.md`): `ValidateTokenAsync` reads against `TokenValidationParameters`/`ValidationParameters` and that package's keys, landing every failure on `TokenValidationResult.Exception`; `CreateToken` consumes its `SecurityTokenDescriptor`, `SigningCredentials`, and `EncryptingCredentials`

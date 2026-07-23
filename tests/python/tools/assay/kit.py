@@ -2,7 +2,10 @@
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from collections.abc import Callable, Generator  # noqa: TC003  # runtime: Protocol and msgspec fields resolve these annotations
+from collections.abc import (  # ruff:ignore[typing-only-standard-library-import]  # runtime: Protocol and msgspec fields resolve these annotations
+    Callable,
+    Generator,
+)
 from pathlib import Path
 import re
 from types import SimpleNamespace
@@ -469,7 +472,7 @@ def install_cpu_double(monkeypatch: pytest.MonkeyPatch, cpu_percent: CpuSampler,
     Returns:
         The installed module double for further per-test configuration.
     """
-    from tools.assay.automation import engine as automation_engine  # noqa: PLC0415  # patch target re-imported here
+    from tools.assay.automation import engine as automation_engine  # ruff:ignore[import-outside-top-level]  # patch target re-imported here
 
     fake = _make_psutil_module({}, cpu_count=cpu_count)
     fake.cpu_percent = cpu_percent

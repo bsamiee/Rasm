@@ -148,10 +148,10 @@ class Simulation(Struct, frozen=True):
 
     def sim_par(self, spec: SimPar) -> "RuntimeRail[dict[str, object]]":
         def fold() -> dict[str, object]:
-            from honeybee_energy.simulation.output import SimulationOutput  # noqa: PLC0415 — AGPL boundary import
-            from honeybee_energy.simulation.parameter import SimulationParameter  # noqa: PLC0415
-            from honeybee_energy.simulation.runperiod import RunPeriod  # noqa: PLC0415
-            from ladybug.dt import Date  # noqa: PLC0415
+            from honeybee_energy.simulation.output import SimulationOutput  # ruff:ignore[import-outside-top-level] — AGPL boundary import
+            from honeybee_energy.simulation.parameter import SimulationParameter  # ruff:ignore[import-outside-top-level]
+            from honeybee_energy.simulation.runperiod import RunPeriod  # ruff:ignore[import-outside-top-level]
+            from ladybug.dt import Date  # ruff:ignore[import-outside-top-level]
 
             output = SimulationOutput(reporting_frequency=spec.reporting_frequency)
             requests = (
@@ -204,8 +204,8 @@ class Simulation(Struct, frozen=True):
 
     def results(self, sql: Path, query: ResultQuery) -> "RuntimeRail[ResultFrame]":
         def fold() -> ResultFrame:
-            from honeybee_energy.result.eui import eui_from_sql  # noqa: PLC0415 — AGPL boundary import
-            from ladybug.sql import SQLiteResult  # noqa: PLC0415
+            from honeybee_energy.result.eui import eui_from_sql  # ruff:ignore[import-outside-top-level] — AGPL boundary import
+            from ladybug.sql import SQLiteResult  # ruff:ignore[import-outside-top-level]
 
             reader = SQLiteResult(str(sql))
             census = tuple(reader.available_outputs)
@@ -244,7 +244,7 @@ class Simulation(Struct, frozen=True):
 
     def crossing(self, frame: ResultFrame) -> "RuntimeRail[tuple[bytes, ContentKey]]":
         def fold() -> tuple[bytes, ContentKey]:
-            import pyarrow as pa  # noqa: PLC0415 — module-level import banned; deferred at the crossing edge
+            import pyarrow as pa  # ruff:ignore[import-outside-top-level] — module-level import banned; deferred at the crossing edge
 
             table = pa.Table.from_pydict({name: [row[i] for row in frame.rows] for i, name in enumerate(frame.columns)})
             return bytes(arrow_bytes(table)), frame.content_key
@@ -261,9 +261,9 @@ async def _refused[T](fault: object) -> "RuntimeRail[T]":
 
 def _job(interface: "RecipeInterface", run: RunSpec, model: Path, source: str) -> "Job":
     # v1beta1 Jobs carry ONE inner argument list (one parametric run), artifact paths as ProjectFolder sources.
-    from queenbee.io.artifact_source import ProjectFolder  # noqa: PLC0415 — AGPL band boundary import
-    from queenbee.io.inputs.job import JobArgument, JobPathArgument  # noqa: PLC0415
-    from queenbee.job.job import Job  # noqa: PLC0415
+    from queenbee.io.artifact_source import ProjectFolder  # ruff:ignore[import-outside-top-level] — AGPL band boundary import
+    from queenbee.io.inputs.job import JobArgument, JobPathArgument  # ruff:ignore[import-outside-top-level]
+    from queenbee.job.job import Job  # ruff:ignore[import-outside-top-level]
 
     run_arguments = [
         JobPathArgument(name="model", source=ProjectFolder(path=str(model))),
@@ -276,7 +276,7 @@ def _job(interface: "RecipeInterface", run: RunSpec, model: Path, source: str) -
 def _translated(building: BuildingModel, target: TranslateTarget, folder: Path) -> "RuntimeRail[Path]":
     def in_process() -> Path:
         # in-process writers return the serialized document string and take no folder parameter; this kernel owns the artifact write.
-        from importlib import import_module  # noqa: PLC0415 — row-resolved AGPL boundary import
+        from importlib import import_module  # ruff:ignore[import-outside-top-level] — row-resolved AGPL boundary import
 
         writer = getattr(import_module("honeybee_openstudio.writer"), WRITERS[target])
         artifact = folder / f"{building.model.identifier}.{target.value}"
@@ -284,7 +284,7 @@ def _translated(building: BuildingModel, target: TranslateTarget, folder: Path) 
         return artifact
 
     def cli() -> Path:
-        from honeybee_energy.run import run_osw, to_openstudio_osw  # noqa: PLC0415 — AGPL boundary import
+        from honeybee_energy.run import run_osw, to_openstudio_osw  # ruff:ignore[import-outside-top-level] — AGPL boundary import
 
         if target not in (TranslateTarget.OSM, TranslateTarget.IDF):
             raise ValueError(f"cli-translate-unsupported:{target}:requires-openstudio-sdk")  # converted once by the evidence_run fence

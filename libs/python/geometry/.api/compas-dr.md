@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_COMPAS_DR]
 
-`compas_dr` supplies dynamic-relaxation form-finding for axial-force networks on the COMPAS spine: a pure-Python `dr` reference solver, the numpy/scipy-accelerated `dr_numpy` and `dr_constrained_numpy` production solvers, the `InputData`/`ResultData` numerical carriers in `compas_dr.numdata`, the polymorphic `Constraint` registry (`Line`/`Plane`/`Circle`/`NurbsCurve`/`NurbsSurface` -> `*Constraint`), and a callable `SelfweightCalculator` for tributary-area gravity loads. It rides `compas` as its spine — `InputData`/`Constraint` are `compas.data.Data` subclasses that round-trip through the same `json_dumps`/`json_loads` graduation handle, and `InputData.from_mesh` consumes a `compas.datastructures.Mesh`. `graph/algebra.md#ALGEBRA` owner selects this solver through the `FormEngine` sub-enum on the one form-finding case and offloads the numpy band out of process through `compas.rpc.Proxy.function("compas_dr.solvers.dr_numpy")`; it never re-implements the relaxation loop, the RK integrator, or the constraint-projection algebra.
+`compas_dr` owns dynamic-relaxation form-finding for axial-force networks on the COMPAS spine: pure-Python and numpy/scipy relaxation solvers, geometric constraint projection by registered geometry type, and tributary-area selfweight loads. Its `InputData` and `Constraint` carriers extend `compas.data.Data`, graduating through the shared `json_dumps`/`json_loads` handle, and `InputData.from_mesh` consumes a `compas.datastructures.Mesh`. Its numpy band offloads through `compas.rpc.Proxy`, and the relaxation loop, RK integrator, and constraint-projection algebra never re-implement here.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,19 +9,15 @@
 - import: `import compas_dr`
 - owner: `geometry`
 - rail: form-finding
-- installed: `0.3.1`
 - license: MIT
-- depends: `compas>=2.1` (the only runtime dependency; `numba` is an optional `hpc` extra, not admitted)
-- entry points: none (library only; `compas_dr.install` is the COMPAS plugin hook, not a console script)
-- capability: pure-Python and numpy/scipy dynamic-relaxation form-finding with selectable RK order, geometric constraint projection by registered geometry type, tributary-area selfweight loads, and COMPAS `Data` serialization of the input/constraint carriers
+- entry points: none (library only)
+- capability: pure-Python and numpy/scipy dynamic-relaxation form-finding with selectable RK order, geometric constraint projection by registered geometry type, tributary-area selfweight loads, and COMPAS `Data` serialization of the input and constraint carriers
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: solver data carriers — `compas_dr.numdata`
-- rail: form-finding
-- type-family: `compas.data.Data` subclass
 
-`InputData` and `ResultData` live in `compas_dr.numdata`, not the package root (the `compas_dr.__init__` exports only `HOME`/`DATA`/`DOCS`/`TEMP` path anchors). `InputData` lazily materializes numpy arrays from its list inputs and exposes the derived `free`/`q0`/`l0`/`v0`/`r0` properties plus the `C` connectivity matrix, round-tripping through COMPAS JSON; `ResultData.__data__` returns `{}`, so it is an in-memory result carrier whose `from_json`/`to_json` round-trip is lossy — persist results by writing the solved `Mesh`, not the `ResultData`.
+`InputData` and `ResultData` live in `compas_dr.numdata`; `InputData` lazily materializes its numpy arrays and the `C` connectivity matrix from list inputs and round-trips through COMPAS JSON.
 
 | [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]  | [CAPABILITY]                                                                         |
 | :-----: | :----------------------------- | :------------- | :----------------------------------------------------------------------------------- |
@@ -29,10 +25,8 @@
 |  [02]   | `compas_dr.numdata.ResultData` | result carrier | output fields `xyz`/`q`/`forces`/`lengths`/`residuals`; `update_mesh` mesh writeback |
 
 [PUBLIC_TYPE_SCOPE]: constraint registry — `compas_dr.constraints`
-- rail: form-finding
-- type-family: `compas.data.Data` subclass, geometry-keyed registry
 
-`Constraint(geometry)` is itself the polymorphic factory: `Constraint.__new__` calls `get_constraint_cls(geometry)`, which walks the geometry's MRO against the `GEOMETRY_CONSTRAINT` registry (`Line->LineConstraint`, `Plane->PlaneConstraint`, `Circle->CircleConstraint`, `NurbsCurve->CurveConstraint`, `NurbsSurface->SurfaceConstraint`) and returns the concrete subclass — there is no per-verb constructor proliferation. A node binds by setting `constraint.location` (the setter triggers `project()` on first assignment) and `constraint.residual`; `tangent`/`normal`/`param` are lazily computed managed properties.
+`Constraint(geometry)` is itself the polymorphic factory: `__new__` routes through `get_constraint_cls`, an MRO walk over the `GEOMETRY_CONSTRAINT` registry that returns the concrete `*Constraint` subclass, so no per-type constructor exists. A node binds by setting `constraint.location` (the first assignment triggers `project()`) and `constraint.residual`; `tangent`/`normal`/`param` are lazily computed managed properties.
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY]      | [CAPABILITY]                                                                            |
 | :-----: | :------------------ | :----------------- | :-------------------------------------------------------------------------------------- |
@@ -44,8 +38,6 @@
 |  [06]   | `SurfaceConstraint` | surface constraint | project node onto a `NurbsSurface`                                                      |
 
 [PUBLIC_TYPE_SCOPE]: load utilities — `compas_dr.loads`
-- rail: form-finding
-- type-family: callable load computer
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY]   | [CAPABILITY]                                                                                  |
 | :-----: | :--------------------- | :-------------- | :-------------------------------------------------------------------------------------------- |
@@ -54,79 +46,79 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: solvers — `compas_dr.solvers`
-- rail: form-finding
 
-`dr` is the list-based reference path; `dr_numpy` and `dr_constrained_numpy` are the numpy/scipy production paths taking an `InputData`. Every solver shares the relaxation tail `dt=1.0, tol1=1e-3, tol2=1e-6, c=0.1, callback=None, callback_args=None`; the numpy pair adds `rk_steps: Literal[1,2,4]=2` selecting the Runge-Kutta order and defaults `kmax=10000` (the pure `dr` defaults `kmax=100`), and keyword-only `dr_constrained_numpy` takes `constraints: Sequence[Constraint]` applied after each step.
+Free functions sharing one relaxation tail. `dr` is the list-based reference (`kmax=100`); `dr_numpy`/`dr_constrained_numpy` take an `InputData`, default `kmax=10000`, and add `rk_steps: Literal[1,2,4]=2` selecting RK order (`1` explicit Euler, `2` RK2, `4` RK4).
+- solver tail carry: `dt=1.0`, `tol1=1e-3`, `tol2=1e-6`, `c=0.1`, `callback`, `callback_args`
 
-| [INDEX] | [SURFACE]                                                                                                  | [SOLVER]             |
-| :-----: | :--------------------------------------------------------------------------------------------------------- | :------------------- |
-|  [01]   | `dr(vertices, edges, fixed, loads, qpre, fpre=None, lpre=None, linit=None, E=None, radius=None, kmax=100)` | list-based reference |
-|  [02]   | `dr_numpy(indata: InputData, kmax=10000, rk_steps=2) -> ResultData`                                        | vectorized numpy     |
-|  [03]   | `dr_constrained_numpy(*, indata, constraints, kmax=10000, rk_steps=2) -> ResultData`                       | constrained numpy    |
+| [INDEX] | [SURFACE]                                                                            | [CAPABILITY]                       |
+| :-----: | :----------------------------------------------------------------------------------- | :--------------------------------- |
+|  [01]   | `dr(vertices, edges, fixed, loads, qpre, …, kmax=100)`                               | list-based pure-Python reference   |
+|  [02]   | `dr_numpy(indata, kmax=10000, rk_steps=2) -> ResultData`                             | vectorized numpy production        |
+|  [03]   | `dr_constrained_numpy(*, indata, constraints, kmax=10000, rk_steps=2) -> ResultData` | numpy, per-step constraint project |
+
+`callback(k, x, crit1, crit2, callback_args)` fires each iteration; a non-callable `callback` raises `ValueError`.
 
 [ENTRYPOINT_SCOPE]: InputData construction and serialization
-- rail: form-finding
 
-`callback(k, x, crit1, crit2, callback_args)` is invoked each iteration; a non-callable `callback` raises `ValueError`. `from_mesh` takes the source `mesh` then the InputData field arguments `fixed, loads, qpre, fpre=None, lpre=None, linit=None, E=None, radius=None`; `from_json`/`to_json`/`from_jsonstring`/`copy` are inherited from `compas.data.Data`.
+`from_json`/`to_json`/`from_jsonstring`/`copy` inherit from `compas.data.Data`.
 
-| [INDEX] | [SURFACE]                                                                  | [ENTRY]                                          |
-| :-----: | :------------------------------------------------------------------------- | :----------------------------------------------- |
-|  [01]   | `InputData.from_mesh(mesh, fixed, loads, qpre, …) -> InputData`            | build from `Mesh` (`vertices_attributes("xyz")`) |
-|  [02]   | `InputData.from_json(filepath)` / `from_jsonstring(string)` -> `InputData` | COMPAS JSON decode                               |
-|  [03]   | `InputData.to_json(filepath, pretty=False, compact=False, minimal=False)`  | COMPAS JSON encode                               |
-|  [04]   | `InputData.copy(cls=None, copy_guid=False) -> InputData`                   | deep copy                                        |
+| [INDEX] | [SURFACE]                                                                | [SHAPE]  | [CAPABILITY]                                       |
+| :-----: | :----------------------------------------------------------------------- | :------- | :------------------------------------------------- |
+|  [01]   | `InputData.from_mesh(mesh, fixed, loads, qpre, …) -> InputData`          | factory  | build from `Mesh` via `vertices_attributes("xyz")` |
+|  [02]   | `InputData.from_json(path)` / `from_jsonstring(string) -> InputData`     | factory  | COMPAS JSON decode                                 |
+|  [03]   | `InputData.to_json(path, *, pretty=False, compact=False, minimal=False)` | instance | COMPAS JSON encode                                 |
+|  [04]   | `InputData.copy(cls=None, copy_guid=False) -> InputData`                 | instance | deep copy                                          |
 
 [ENTRYPOINT_SCOPE]: ResultData fields and mesh writeback
-- rail: form-finding
 
-| [INDEX] | [SURFACE]                                                   | [ENTRY]                                                               |
-| :-----: | :---------------------------------------------------------- | :-------------------------------------------------------------------- |
-|  [01]   | `ResultData.update_mesh(mesh, vertex_index=None)`           | apply solved `xyz` to a `Mesh`; `vertex_index` defaults to enum       |
-|  [02]   | `ResultData.xyz` / `q` / `forces` / `lengths` / `residuals` | positions, force densities, axial forces, lengths, per-node residuals |
+| [INDEX] | [SURFACE]                                                   | [SHAPE]  | [CAPABILITY]                                                    |
+| :-----: | :---------------------------------------------------------- | :------- | :-------------------------------------------------------------- |
+|  [01]   | `ResultData.update_mesh(mesh, vertex_index=None)`           | instance | apply solved `xyz` to a `Mesh`; `vertex_index` defaults to enum |
+|  [02]   | `ResultData.xyz` / `q` / `forces` / `lengths` / `residuals` | property | positions, densities, forces, lengths, residuals                |
+
+`ResultData.__data__` returns `{}`, so its JSON round-trip is lossy — persist the solved `Mesh`, never the `ResultData`.
 
 [ENTRYPOINT_SCOPE]: Constraint operations
-- rail: form-finding
 
-`get_constraint_cls` returns the constraint class (not an instance) by MRO walk; an unregistered geometry raises `GeometryNotRegisteredAsConstraint`. `project`/`update`/`compute_param`/`compute_normal`/`compute_tangent`/`update_location_at_param` are subclass-implemented (the base raises `NotImplementedError`); `from_json`/`to_json` are inherited.
+Base `project`/`update`/`compute_*`/`update_location_at_param` raise `NotImplementedError`; subclasses implement per geometry. An unregistered geometry raises `GeometryNotRegisteredAsConstraint`.
 
-| [INDEX] | [SURFACE]                                                               | [ENTRY]                                                     |
-| :-----: | :---------------------------------------------------------------------- | :---------------------------------------------------------- |
-|  [01]   | `Constraint(geometry, name=None) -> *Constraint`                        | construct the registered subclass for the geometry type     |
-|  [02]   | `Constraint.get_constraint_cls(geometry, **kwargs) -> type`             | resolve the `*Constraint` class by MRO registry walk        |
-|  [03]   | `Constraint.register(gtype, ctype)`                                     | bind a geometry type to a constraint subclass               |
-|  [04]   | `constraint.project()`                                                  | project the constrained node onto the geometry              |
-|  [05]   | `constraint.update(damping=0.1)`                                        | step `location += tangent*damping`, re-project off-geometry |
-|  [06]   | `constraint.compute_param()` / `compute_normal()` / `compute_tangent()` | populate the `param`/`normal`/`tangent` managed properties  |
+| [INDEX] | [SURFACE]                                                               | [SHAPE]  | [CAPABILITY]                                   |
+| :-----: | :---------------------------------------------------------------------- | :------- | :--------------------------------------------- |
+|  [01]   | `Constraint(geometry, name=None) -> *Constraint`                        | factory  | registered subclass for the geometry type      |
+|  [02]   | `Constraint.get_constraint_cls(geometry) -> type`                       | static   | resolve the `*Constraint` class by MRO walk    |
+|  [03]   | `Constraint.register(gtype, ctype)`                                     | static   | bind a geometry type to a constraint subclass  |
+|  [04]   | `constraint.project()`                                                  | instance | project the node onto the geometry             |
+|  [05]   | `constraint.update(damping=0.1)`                                        | instance | step `location += tangent*damping`, re-project |
+|  [06]   | `constraint.compute_param()` / `compute_normal()` / `compute_tangent()` | instance | populate `param`/`normal`/`tangent`            |
 
 [ENTRYPOINT_SCOPE]: SelfweightCalculator — `compas_dr.loads`
-- rail: form-finding
-- entry-family: load computation
 
-| [INDEX] | [SURFACE]                                                                 | [RAIL]                                                      |
-| :-----: | :------------------------------------------------------------------------ | :---------------------------------------------------------- |
-|  [01]   | `SelfweightCalculator(mesh, density=1.0, thickness_attr_name="t")`        | construct against a `Mesh`; per-vertex thickness into `rho` |
-|  [02]   | `SelfweightCalculator.call(xyz: FloatNx3) -> FloatNx1`                    | tributary area per vertex × `rho` at current `xyz`          |
-|  [03]   | `SelfweightCalculator.compute_tributary_areas(xyz: FloatNx3) -> FloatNx1` | per-vertex tributary area (halfedge fan over loaded faces)  |
-|  [04]   | `SelfweightCalculator.compute_face_matrix() -> scipy.sparse.csr_matrix`   | normalized face-vertex matrix (face centroids)              |
+| [INDEX] | [SURFACE]                                                               | [SHAPE]  | [CAPABILITY]                                     |
+| :-----: | :---------------------------------------------------------------------- | :------- | :----------------------------------------------- |
+|  [01]   | `SelfweightCalculator(mesh, density=1.0, thickness_attr_name="t")`      | ctor     | bind to a `Mesh`; `thickness*density` into `rho` |
+|  [02]   | `SelfweightCalculator.__call__(xyz) -> FloatNx1`                        | instance | `tributary_area * rho` at the current `xyz`      |
+|  [03]   | `SelfweightCalculator.compute_tributary_areas(xyz) -> FloatNx1`         | instance | per-vertex tributary area over loaded faces      |
+|  [04]   | `SelfweightCalculator.compute_face_matrix() -> scipy.sparse.csr_matrix` | instance | normalized face-vertex centroid matrix           |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[DR_TOPOLOGY]:
-- import surface: solvers from `compas_dr.solvers`, carriers from `compas_dr.numdata`, constraints from `compas_dr.constraints`, the calculator from `compas_dr.loads` — at boundary scope only per the manifest import policy; the package root carries no API.
-- `dr` is the list-based reference implementation; `dr_numpy`/`dr_constrained_numpy` are the production vectorized paths accepting `InputData`. `rk_steps` selects RK order: `1` explicit Euler, `2` RK2, `4` RK4.
-- `InputData` properties lazily materialize numpy arrays (`vertices` reshaped Nx3 float64, `edges` Nx2 int32, `loads`/`qpre`/`fpre`/`lpre`/`linit`/`E`/`radius` reshaped float64) and cache the connectivity matrix `C` via `compas.matrices.connectivity_matrix`; `free` is `range(n) - fixed`. Unset `fpre`/`lpre`/`linit`/`E`/`radius` default to zero vectors over the edge count.
-- `Constraint` is a geometry-keyed registry, not a type hierarchy the caller selects: `compas_dr.constraints.__init__` runs the five `Constraint.register(...)` calls at import, so `Constraint(line)` already returns a `LineConstraint`. Damped `update(damping=0.1)` is the per-step relaxation move; `dr_constrained_numpy` applies the constraint sequence after each relaxation step.
-- `SelfweightCalculator` is constructed once against the mesh (caching the face matrix), then called with the current `xyz` each iteration so selfweight tracks geometry change.
+[TOPOLOGY]:
+- import surface: solvers from `compas_dr.solvers`, carriers from `compas_dr.numdata`, constraints from `compas_dr.constraints`, the calculator from `compas_dr.loads`; the package root exports only `HOME`/`DATA`/`DOCS`/`TEMP` path anchors, no API.
+- `InputData` properties lazily materialize numpy arrays (`vertices` reshaped Nx3 float64, `edges` Nx2 int32, the rest reshaped float64) and cache the connectivity matrix `C`; `free` is `range(n) - fixed`, and unset `fpre`/`lpre`/`linit`/`E`/`radius` default to zero over the edge count.
+- `Constraint` is a geometry-keyed registry, not a caller-selected hierarchy: `compas_dr.constraints` runs the `Constraint.register(...)` calls at import, so `Constraint(line)` already returns a `LineConstraint`; `dr_constrained_numpy` applies the constraint sequence after each relaxation step, `update(damping=0.1)` the per-step move.
+- `SelfweightCalculator` binds once against the mesh (caching the face matrix), then recomputes selfweight from the current `xyz` each iteration so gravity tracks geometry change.
+
+[STACKING]:
+- `compas`(`.api/compas.md`): `InputData` and every `Constraint` extend `compas.data.Data`, graduating through `compas.json_dumps`/`json_loads`, and `InputData.from_mesh` consumes a `compas.datastructures.Mesh`; the numpy solvers offload out of process through `compas.rpc.Proxy.function("compas_dr.solvers.dr_numpy")` across the runtime THREAD band under `RetryClass.RPC`, the eager reconnect-or-spawn Proxy lifecycle owned by `compas.md`.
+- `compas-tna`(`.api/compas-tna.md`): the two COMPAS solver companions share the one form-finding fault rail (`RetryClass.RPC`) and ride the same `compas` `Mesh`/`json_*` spine, selected apart by the algebra owner's `FormEngine` sub-enum.
+- `graph/algebra.md#ALGEBRA`: selects this solver on the one form-finding case, threads the `solver_proxy` async-resource scope so a fan of solves shares one reconnected worker, and decodes constraint geometry through `json_loads` so `Constraint(decoded_geometry)` dispatches on the real decoded type.
 
 [LOCAL_ADMISSION]:
-- form-finding pipeline: build `InputData.from_mesh(mesh, fixed, loads, qpre, ...)`, run `dr_numpy(indata)` or `dr_constrained_numpy(indata=..., constraints=[...])`, then `ResultData.update_mesh(mesh)`. Constraints attach by node index and are constructed polymorphically via `Constraint(geometry)`.
-- COMPAS spine integration: `InputData` and every `Constraint` are `compas.data.Data` subclasses; the algebra owner serializes inputs/constraints through `compas.json_dumps` for graduation and decodes constraint geometry through `compas.json_loads` so `Constraint(decoded_geometry)` dispatches on the real decoded type. `InputData.from_mesh` and `ResultData.update_mesh` are the only `Mesh` seams — the solver never touches mesh topology directly.
-- rpc-bridge integration: `graph/algebra.md#bridged` resolves `compas.rpc.Proxy.function("compas_dr.solvers.dr_numpy")` to run the scipy-backed solver out of process on the gated companion interpreter. Proxy is supplied by the `graph/algebra.md#ALGEBRA` `solver_proxy` async-resource scope, not constructed per call: the blocking surface crossing the runtime lane THREAD band is the whole proxy SCOPE — the eager `Proxy(...)` construction (which `_try_reconnect`s to the running localhost server or spawns one through a blocking `start_server()`) on scope entry plus each per-`function` solve — both bounded by the algebra owner's runtime THREAD band, so a fan of dynamic-relaxation solves shares one reconnected worker process under one limiter. Cold-start bring-up transient (`compas.rpc.RPCServerError`/`RPCClientError`) retries under the runtime `reliability/resilience#RESILIENCE` `RetryClass.RPC` row on the scope-entry offload leg, sharing the one form-finding fault rail with `compas_tna` rather than a parallel async surface.
+- form-finding pipeline: build `InputData.from_mesh(mesh, fixed, loads, qpre, ...)`, run `dr_numpy(indata)` or `dr_constrained_numpy(indata=..., constraints=[Constraint(geometry), ...])`, then `ResultData.update_mesh(mesh)`; constraints attach by node index, built polymorphically via `Constraint(geometry)`.
+- `Mesh` seam: `InputData.from_mesh` and `ResultData.update_mesh` are the only `Mesh` touch-points; the solver never reads mesh topology directly.
 
 [RAIL_LAW]:
 - Package: `compas-dr`
 - Owns: dynamic-relaxation form-finding, geometric constraint projection by registered geometry type, tributary-area selfweight loads
 - Accept: `InputData` from a `compas` `Mesh`, constraint sequences built via `Constraint(geometry)`, numpy position arrays
-- Reject: hand-rolled dynamic-relaxation loops, hand-rolled RK integration, direct scipy sparse assembly outside this package, parallel `*Constraint` selection that bypasses the `Constraint(geometry)` registry factory
-
-[CAPTURE_GAP]:
+- Reject: hand-rolled dynamic-relaxation or RK-integration loops, direct scipy sparse assembly outside this package, parallel `*Constraint` selection that bypasses the `Constraint(geometry)` registry factory

@@ -10,7 +10,7 @@
 - owner: `artifacts`
 - rail: text-locale
 - license: `MIT`; the dynamically-linked ICU4C libraries carry the permissive ICU/Unicode license, no copyleft obligation
-- build: sdist-only C++ extension over ICU4C (`icu-i18n`/`icu-uc`/`icu-io` via `pkg-config`, C++11), absent on the current interpreter so the ICU arm dispatches on the gated subprocess seam
+- build: sdist-only C++ extension over ICU4C (`icu-i18n`/`icu-uc`/`icu-io` via `pkg-config`, C++11); the `icu` row in Forge `scientific-tools.nix` supplies the headers and libraries
 - entry points: none; the `_icu` extension is import-only
 
 ## [02]-[PUBLIC_TYPES]
@@ -147,7 +147,7 @@ Normalization, script, transliteration, case, property, search, and confusable-d
 [TOPOLOGY]:
 - translation: `icu` is a hand-written C++ extension mirroring the ICU4C C++ API class-for-class — a `UErrorCode &`/`ParseError &` out-arg drops and raises `icu.ICUError`, a `UnicodeString &` result returns as `str` (or passes in for in-place mutation), and `UDate` is milliseconds since epoch (Python `time()` × 1000 at the boundary).
 - string boundary: an ICU API taking `UnicodeString` also accepts `str` — pass `str` in, read `str` out; allocate an explicit `UnicodeString` only for in-place mutation (`name[12:18] = 'x'`, `+=`), 16-bit `UChar` indexing, or a non-UTF-8 `bytes` decode (`UnicodeString(data, 'latin-1')`), with `countChar32()`/`char32At(i)` for codepoint access over the 16-bit store.
-- gated seam: the extension is absent on the current interpreter, so the ICU arm dispatches on the `runtime` `anyio.to_process.run_sync` subprocess seam `python-bidi`'s `Bidi` arm uses — the ICU calls are GIL-holding C++ that must not stall the event loop, and a Python-subclass `Transliterator` raise maps into the `runtime` `RuntimeRail` fault across the boundary, never bare.
+- gated seam: the ICU arm dispatches on the `runtime` `anyio.to_process.run_sync` subprocess seam `python-bidi`'s `Bidi` arm uses — the ICU calls are GIL-holding C++ that must not stall the event loop, and a Python-subclass `Transliterator` raise maps into the `runtime` `RuntimeRail` fault across the boundary, never bare.
 - data version: the linked `ICU_VERSION`/`UNICODE_VERSION` stamp the segmentation/collation/normalization receipt as the CLDR/UCA data version, so a data bump that shifts a sort key or a break is attributable.
 
 [STACKING]:

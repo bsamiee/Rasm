@@ -16,9 +16,9 @@
       },
       "Meziantou.Analyzer": {
         "type": "Direct",
-        "requested": "[3.0.121, )",
-        "resolved": "3.0.121",
-        "contentHash": "PKNTmwMdzM0YJ7tAvwzWmlgWhtm8ZOma2eNUqchkbmvWwqC8QXoOzNPKwNHZBtPJpehYb7qu9q/182qg4Fmclw=="
+        "requested": "[3.0.125, )",
+        "resolved": "3.0.125",
+        "contentHash": "CexelZXr4mqLJGy9LGthGnAKUkz/Uh5U4Brh0FnbO+VAI7/TUoPoHKXA+8LLJ8kId7DagSWeuAP3KvCiTvPhgQ=="
       },
       "Microsoft.VisualStudio.Threading.Analyzers": {
         "type": "Direct",
@@ -85,8 +85,8 @@
       },
       "SkiaSharp.NativeAssets.Win32": {
         "type": "Transitive",
-        "resolved": "3.119.4",
-        "contentHash": "XOpbx/4CReO2wYsq2s6rbvdauc6dntG4Zv499sHGTJ87bwZaFXszFkwql3+FIZMc8kUPeaj3Mx2ezIJmo8a1Kg=="
+        "resolved": "4.150.1",
+        "contentHash": "qrLSL8OonbkMJdSH8heK0Jl39Y2xxZGdd7Ru4cyBXk2ITdx+Fu1sCFLmvCKmnMaYs//mlN/YSpSpOurEXErcQw=="
       },
       "Thinktecture.Runtime.Extensions.Analyzers": {
         "type": "Transitive",
@@ -138,7 +138,7 @@
           "Google.Protobuf": "[3.35.1, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
-          "NodaTime": "[3.3.2, )",
+          "NodaTime": "[3.3.3, )",
           "NodaTime.Serialization.Protobuf": "[2.0.2, )",
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
@@ -146,7 +146,7 @@
           "System.IO.Hashing": "[10.0.10, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.4.0, )",
-          "UnitsNet": "[5.75.0, )"
+          "UnitsNet": "[5.75.1, )"
         }
       },
       "rasm.fabrication": {
@@ -166,7 +166,7 @@
           "MathNet.Numerics": "[6.0.0-beta2, )",
           "Microsoft.Extensions.Caching.Hybrid": "[10.8.0, )",
           "Microsoft.Extensions.Compliance.Redaction": "[10.8.0, )",
-          "NodaTime": "[3.3.2, )",
+          "NodaTime": "[3.3.3, )",
           "NodaTime.Serialization.SystemTextJson": "[1.4.0, )",
           "OcctNet.Wrapper": "[0.1.1, )",
           "PicoGK": "[2.2.0, )",
@@ -176,13 +176,13 @@
           "RectangleBinPack.CSharp": "[1.0.4, )",
           "Rhino3dm": "[8.17.0, )",
           "Riok.Mapperly": "[4.3.1, )",
-          "Robots": "[2.2.2, )",
+          "Robots": "[2.2.5, )",
           "SharpVoronoiLib": "[1.2.0, )",
           "System.IO.Hashing": "[10.0.10, )",
           "System.Numerics.Tensors": "[10.0.10, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.4.0, )",
-          "UnitsNet": "[5.75.0, )",
+          "UnitsNet": "[5.75.1, )",
           "geometry3Sharp": "[1.0.324, )"
         }
       },
@@ -383,9 +383,9 @@
       },
       "NodaTime": {
         "type": "CentralTransitive",
-        "requested": "[3.3.2, )",
-        "resolved": "3.3.2",
-        "contentHash": "8hI5b1ENTKQCaPyU6YHpYiMwj5aJKZ4Mnv0bLbhk65Dd44gQsXenUohMzyiIphANa8LdW6vcOvpY/l1urvx4dw=="
+        "requested": "[3.3.3, )",
+        "resolved": "3.3.3",
+        "contentHash": "EwouHZv99j5hraq34yQqvCQGDR59dynxPHlxFm2vY/sw2N2aR8cFel29ZxPqohjBWp9Qsnld7QCY+7uZ2PESGg=="
       },
       "NodaTime.Serialization.Protobuf": {
         "type": "CentralTransitive",
@@ -453,9 +453,9 @@
       },
       "Robots": {
         "type": "CentralTransitive",
-        "requested": "[2.2.2, )",
-        "resolved": "2.2.2",
-        "contentHash": "lUIPog1PFLrKkS17iBZqECirlsglRuiqyNab4GxNGa7eYhMs6rSKmupXlvr7rWSMr3+ssibWytmAsjqjAmBqtQ==",
+        "requested": "[2.2.5, )",
+        "resolved": "2.2.5",
+        "contentHash": "Jow8CU1iG1j3eoC6Ms61S0F0vVdsx7SRrefGrEPyGup5xRyFE3j3qte0fVj1PqJSlYs49ljnUT/ZOV7kQy/qYA==",
         "dependencies": {
           "Rhino3dm": "8.17.0",
           "SSH.NET": "2024.0.0"
@@ -469,19 +469,19 @@
       },
       "SkiaSharp": {
         "type": "CentralTransitive",
-        "requested": "[3.119.4, )",
-        "resolved": "3.119.4",
-        "contentHash": "53NOSUZ1Us+91Sm0uCkIivh/k7jOowRErZT2sIWwPFN9mLUvdxnE6rS4sWo4255+Rd2MWUSF+j0NMZHD6Cke+Q==",
+        "requested": "[4.150.1, )",
+        "resolved": "4.150.1",
+        "contentHash": "5v3T8X1N62Dp+AkPO70GNBNS/NRBPGMOTiN+Prg33sZAcm/Ug3YOAH+3RTj/jxJV8NGTJs2idGpC2Qdae2mGLQ==",
         "dependencies": {
-          "SkiaSharp.NativeAssets.Win32": "3.119.4",
-          "SkiaSharp.NativeAssets.macOS": "3.119.4"
+          "SkiaSharp.NativeAssets.Win32": "4.150.1",
+          "SkiaSharp.NativeAssets.macOS": "4.150.1"
         }
       },
       "SkiaSharp.NativeAssets.macOS": {
         "type": "CentralTransitive",
-        "requested": "[3.119.4, )",
-        "resolved": "3.119.4",
-        "contentHash": "fgBOWEqbY012x7gMfJU4ezgz6dfhJb30Z6YdW35h85Zoe39+a8YNbAAwL29ihPfWoppg5AjvyKNzD1oCvlqWwA=="
+        "requested": "[4.150.1, )",
+        "resolved": "4.150.1",
+        "contentHash": "r755HVwaHZhyf1clWjrM2/RoOZYCzkQEmE9pu/mVsebPejWu52niNPUwtfyf112qoF0PIk6OndqVOUoITj6TwQ=="
       },
       "SSH.NET": {
         "type": "CentralTransitive",
@@ -528,9 +528,9 @@
       },
       "UnitsNet": {
         "type": "CentralTransitive",
-        "requested": "[5.75.0, )",
-        "resolved": "5.75.0",
-        "contentHash": "CgzvfvE2FaFE+swo7SzZFjhosmh4GpiVJ7Y1N4cQ1qChaUaw3ymw4al+ZxpoBh1RFoo88d+fo2SG194P9G1X+A=="
+        "requested": "[5.75.1, )",
+        "resolved": "5.75.1",
+        "contentHash": "k03hA739n11FDke7tcVHyk1YXRoWxYlkNGpNMCTX/gfwV8fbGq1oDoYHaMg0tCxhpv9l2BS6M9EsE7FcszVtSg=="
       },
       "Wacton.Unicolour": {
         "type": "CentralTransitive",

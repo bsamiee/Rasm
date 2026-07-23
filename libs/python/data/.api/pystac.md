@@ -7,6 +7,7 @@
 - package: `pystac`
 - license: Apache-2.0
 - module: `import pystac`
+- composition: namespace meta-package — `pystac-core` fills the core `pystac.*` namespace and each extension is an independently-published `pystac-ext-*` distribution publishing into the shared `pystac.extensions.*` namespace via `pkgutil.extend_path`; the caller surface (`import pystac`, `obj.ext.<short>`) is one contract regardless of the split
 - owner: `data`
 - rail: STAC catalog
 - entry points: none (library only)
@@ -44,7 +45,7 @@
 
 [PUBLIC_TYPE_SCOPE]: typed error rail
 
-`STACError` is the base; the leaves are distinct so the data owner discriminates malformed JSON, missing required fields, and extension misuse without string matching.
+`STACError` is the base of the STAC failure tree; the leaves are distinct so the data owner discriminates malformed JSON, missing required fields, and extension misuse without string matching. `TemplateError` sits outside that tree as a bare `Exception` for malformed layout templates.
 
 | [INDEX] | [SYMBOL]                      | [CAPABILITY]                                                        |
 | :-----: | :---------------------------- | :------------------------------------------------------------------ |
@@ -56,6 +57,9 @@
 |  [06]   | `ExtensionTypeError`          | extension applied to the wrong object type                          |
 |  [07]   | `RequiredPropertyMissing`     | a required extension/object property is absent                      |
 |  [08]   | `DuplicateObjectKeyError`     | duplicate key during JSON decode                                    |
+|  [09]   | `TemplateError`               | layout template string malformed (`generate_subcatalogs`/`LayoutTemplate`) |
+
+- `DeprecatedWarning` (a `FutureWarning`) is emitted, not raised, on deprecated-field access; catch it through `warnings`, never the error rail.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -93,29 +97,36 @@
 |  [26]   | `Collection.update_extent_from_items` | `update_extent_from_items() -> None`                                                           |
 |  [27]   | `Item.add_asset` / `get_assets`       | `add_asset(key, asset)`; `get_assets(media_type=None, role=None) -> dict[str, Asset]`          |
 |  [28]   | `Link` factories                      | `Link.{child,item,parent,root,self_href,canonical,collection,derived_from} -> Link`            |
+|  [29]   | `get_stac_version` / `set_stac_version` | `get_stac_version() -> str`; `set_stac_version(version)` set emitted STAC spec version |
+
+- `HIERARCHICAL_LINKS`: names the rel types (`root`/`parent`/`child`/`collection`/`item`/`items`) treated as structural graph edges during `normalize_hrefs`/`save`.
 
 [ENTRYPOINT_SCOPE]: typed extensions via the `obj.ext` accessor (`pystac.extensions.*`)
 
-`obj.ext.<short>` is the apply-and-access surface on every object — `item.ext.proj`, `asset.ext.raster`, `collection.ext.item_assets`. `obj.ext.add(name)` appends the schema URI to `stac_extensions`; `obj.ext.has(name)`/`remove(name)` manage membership. Each per-object accessor (`ItemExt`/`AssetExt`/`CollectionExt`) statically scopes which extensions reach which kind, so the object type is the discriminant and there is no per-extension entrypoint. `[APPLIES_TO]` codes: `I`=Item, `A`=Asset, `C`=Collection, `D`=ItemAssetDefinition.
+`obj.ext.<short>` is the apply-and-access surface on every object — `item.ext.proj`, `asset.ext.raster`; `obj.ext.add(name)` appends the schema URI to `stac_extensions`, `has(name)`/`remove(name)` manage membership. Each per-object accessor (`ItemExt`/`AssetExt`/`CollectionExt`) statically scopes extensions per kind — the object type is the discriminant, never a per-extension entrypoint. `label` is reached through `LabelExtension.ext(obj, add_if_missing=...)`, the classmethod form every extension also exposes. `[APPLIES_TO]` codes: `I`=Item, `A`=Asset, `C`=Collection, `D`=ItemAssetDefinition.
 
-| [INDEX] | [ACCESSOR_EXTENSION]                       | [APPLIES_TO] | [CAPABILITY]                                                        |
-| :-----: | :----------------------------------------- | :----------- | :------------------------------------------------------------------ |
-|  [01]   | `item.ext.proj` / `ProjectionExtension`    | I·A·D        | `epsg/wkt2/projjson/code/geometry/bbox/centroid/shape/transform`    |
-|  [02]   | `item.ext.eo` / `EOExtension`              | I·A          | `bands: list[Band]`, `cloud_cover`, `snow_cover`                    |
-|  [03]   | `asset.ext.raster` / `RasterExtension`     | A            | `bands: list[RasterBand]` per-band statistics, nodata, scale/offset |
-|  [04]   | `item.ext.classification`                  | I·A          | classification class lists and bitfields                            |
-|  [05]   | `item.ext.cube` / `DatacubeExtension`      | I·A·C        | datacube `dimensions`/`variables` description                       |
-|  [06]   | `asset.ext.file` / `FileExtension`         | A            | `size`/`checksum`/`header_size`/`values` byte-level asset metadata  |
-|  [07]   | `item.ext.grid` / `item.ext.mgrs`          | I            | grid-code and MGRS tiling metadata                                  |
-|  [08]   | `item.ext.label` / `LabelExtension`        | I            | ML label `properties`/`classes`/`tasks`/`overviews`                 |
-|  [09]   | `item.ext.mlm`                             | I·A·C        | machine-learning-model card (inputs/outputs/hyperparameters)        |
-|  [10]   | `asset.ext.pc` / `PointcloudExtension`     | I·A          | point-count, type, density, schema for LiDAR/COPC assets            |
-|  [11]   | `item.ext.sar` / `item.ext.sat`            | I·A          | SAR polarization/frequency and satellite orbit metadata             |
-|  [12]   | `item.ext.sci` / `ScientificExtension`     | I·C          | `doi`/`citation`/`publications` provenance                          |
-|  [13]   | `asset.ext.storage` / `item.ext.render`    | I·A·C        | cloud-storage tier/region and visualization render parameters       |
-|  [14]   | `collection.ext.table` / `item.ext.xarray` | I·A·C        | tabular `columns` schema and xarray-assets zarr/kerchunk references |
-|  [15]   | `item.ext.timestamps` / `item.ext.version` | I·C          | published/expires/unpublished timestamps and version/deprecation    |
-|  [16]   | `collection.ext.item_assets`               | C            | collection-level `item_assets` -> `ItemAssetDefinition` template    |
+| [INDEX] | [ACCESSOR_EXTENSION]                         | [APPLIES_TO] | [CAPABILITY]                                                         |
+| :-----: | :------------------------------------------- | :----------- | :------------------------------------------------------------------- |
+|  [01]   | `item.ext.proj` / `ProjectionExtension`      | I·A·D        | `epsg`/`code`/`wkt2`/`projjson`/`geometry`/`bbox`/`transform` |
+|  [02]   | `item.ext.eo` / `EOExtension`                | I·A·D        | `bands: list[Band]`, `cloud_cover`, `snow_cover`                     |
+|  [03]   | `asset.ext.raster` / `RasterExtension`       | A·D          | `bands: list[RasterBand]` per-band statistics, nodata, scale/offset  |
+|  [04]   | `item.ext.classification`                    | I·A·D        | classification `classes`/`bitfields` lists and bitfields             |
+|  [05]   | `item.ext.cube` / `DatacubeExtension`        | I·A·C·D      | datacube `dimensions`/`variables` description                        |
+|  [06]   | `asset.ext.file` / `FileExtension`           | A            | `size`/`checksum`/`header_size`/`values` byte-level asset metadata   |
+|  [07]   | `item.ext.grid` / `item.ext.mgrs`            | I            | grid-code and MGRS tiling metadata                                   |
+|  [08]   | `LabelExtension.ext(item)`                   | I            | ML label `properties`/`classes`/`tasks`/`overviews` (no short accessor) |
+|  [09]   | `item.ext.mlm` / `MLMExtension`              | I·A·C·D      | machine-learning-model card (inputs/outputs/hyperparameters)         |
+|  [10]   | `item.ext.pc` / `PointcloudExtension`        | I·A·D        | point-count, type, density, schema for LiDAR/COPC assets             |
+|  [11]   | `item.ext.sar` / `item.ext.sat`              | I·A·D        | SAR polarization/frequency and satellite orbit metadata              |
+|  [12]   | `item.ext.view` / `ViewExtension`            | I·A·D        | `off_nadir`/`incidence_angle`/`azimuth`/`sun_azimuth`/`sun_elevation` |
+|  [13]   | `item.ext.sci` / `ScientificExtension`       | I·C          | `doi`/`citation`/`publications` provenance                           |
+|  [14]   | `item.ext.render` / `RenderExtension`        | I·C          | render `colormap`/`rescale`/`resampling`; collection `dict[str, Render]` |
+|  [15]   | `item.ext.storage` / `StorageExtension`      | I·A·C·D      | cloud-storage `schemes`/`refs` scheme definitions per asset          |
+|  [16]   | `item.ext.table` / `TableExtension`          | I·A·C·D      | tabular `columns` schema                                             |
+|  [17]   | `item.ext.xarray` / `XarrayAssetsExtension`  | I·A·C        | xarray-assets zarr/kerchunk references                               |
+|  [18]   | `item.ext.timestamps` / `TimestampsExtension`| I·A          | published/expires/unpublished timestamps                            |
+|  [19]   | `item.ext.version` / `VersionExtension`      | I·A·C        | version/deprecation lineage                                          |
+|  [20]   | `collection.ext.item_assets`                 | C            | collection-level `item_assets` -> `ItemAssetDefinition` template     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -126,7 +137,7 @@
 - href: `Link` factories build relative/absolute edges; `normalize_hrefs(root)` then `save`, or the fused `normalize_and_save(root)`, rewrites the tree.
 - vocabulary: `MediaType`/`CatalogType`/`RelType`/`ProviderRole` are `str`-subclass enums, so an enum member is a wire string; media types, catalog self-containment, link relations, and provider roles are enum rows.
 - extension: `obj.ext.<short>` is the single apply-and-access surface; `obj.ext.add`/`has`/`remove` manage the `stac_extensions` URI list, and the object type scopes which extensions are reachable.
-- io: `StacIO.set_default` or a `stac_io=` argument swaps the read/write strategy — cloud, VSI, signed-URL — under every read/write/save.
+- io: `StacIO.set_default` or a `stac_io=` argument swaps the read/write strategy — cloud, VSI, signed-URL — under every read/write/save; a `StacIO` bound on a catalog persists onto the child and item objects read through it, so a strategy set once threads the whole traversal.
 - validation: `validate`/`validate_all` run JSON-Schema validation and raise `STACValidationError` as a typed gate.
 - evidence: each catalog operation captures object type, id, self-href, link/asset counts, applied extension schema URIs, and validation outcome as a STAC receipt.
 

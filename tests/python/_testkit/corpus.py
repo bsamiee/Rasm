@@ -2,7 +2,7 @@
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from collections.abc import Callable  # noqa: TC003  # msgspec resolves fold annotations at runtime
+from collections.abc import Callable  # ruff:ignore[typing-only-standard-library-import]  # msgspec resolves fold annotations at runtime
 from pathlib import Path
 import re
 

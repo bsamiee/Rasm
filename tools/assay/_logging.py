@@ -20,7 +20,9 @@ from structlog.contextvars import merge_contextvars
 from structlog.dev import ConsoleRenderer
 from structlog.processors import add_log_level, CallsiteParameter, CallsiteParameterAdder, dict_tracebacks, JSONRenderer, TimeStamper
 from structlog.stdlib import ProcessorFormatter
-from structlog.typing import Processor  # noqa: TC002  # beartype claw resolves the _chain return annotation at runtime
+from structlog.typing import (
+    Processor,  # ruff:ignore[typing-only-third-party-import]  # beartype claw resolves the _chain return annotation at runtime
+)
 
 from tools.assay.composition.settings import AssaySettings, LogFormat
 from tools.assay.core.aspect import ring_processor
@@ -116,7 +118,7 @@ def configure_logging(log_format: LogFormat | None = None) -> None:
         )
         bridge = _StderrBridgeHandler(level=level)
         bridge.setFormatter(ProcessorFormatter(foreign_pre_chain=chain, processors=[ProcessorFormatter.remove_processors_meta, renderer]))
-        root = logging.getLogger()  # noqa: TID251  # the bridge owner is the one sanctioned root-logger touchpoint
+        root = logging.getLogger()  # ruff:ignore[banned-api]  # the bridge owner is the one sanctioned root-logger touchpoint
         root.handlers[:] = [bridge]  # replace rather than stack bridges on reconfiguration
         root.setLevel(level)
         _LATCH["configured"] = True

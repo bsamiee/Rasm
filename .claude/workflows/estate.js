@@ -333,7 +333,7 @@ const laneLaw = (schema, o) =>
     (o.calls || 60) +
     ' tool calls total. Read in small batches (a handful of files per command, line-capped); never concatenate the whole ' +
     'territory into one command - tool output truncates and the data is lost.\nTooling: uv-backed probes (uv run python -m ' +
-    'tools.assay ...) run prefixed UV_CACHE_DIR=.cache/uv - the default uv cache sits outside this workspace.\n' +
+    'tools.assay ...) run prefixed - the default uv cache sits outside this workspace.\n' +
     'Stop as soon as the product is complete. ' +
     'If something is still uncertain at the budget, proceed and record the residue in the product gap/unverified field ' +
     'instead of re-reading.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited ' +

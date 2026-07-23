@@ -212,7 +212,7 @@ _FAULT_ROWS = (
     _frow("command-missing", {"schemaVersion": 3, "ok": True}, "missing command"),
     _frow("command-empty", {"schemaVersion": 3, "command": "", "ok": True}, "missing command"),
     _frow("command-mismatch", {"schemaVersion": 3, "command": "doctor", "ok": True}, "forge-provision JSON command"),
-    _frow("sensitive-key", _json("status", services={"timescale": {"enabled": True}}, token="redacted"), "sensitive key"),  # noqa: S106  # canned secret-shaped probe
+    _frow("sensitive-key", _json("status", services={"timescale": {"enabled": True}}, token="redacted"), "sensitive key"),  # ruff:ignore[hardcoded-password-func-arg]  # canned secret-shaped probe
     _frow(
         "sensitive-value",
         _json("status", error={"code": "x", "message": "postgres://postgres:pw@127.0.0.1/forge", "exitCode": 1}, ok=False),

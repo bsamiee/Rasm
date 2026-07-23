@@ -2,7 +2,7 @@
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from pathlib import Path  # noqa: TC003  # module-level _PYPROJECT assignment prevents deferral
+from pathlib import Path  # ruff:ignore[typing-only-standard-library-import]  # module-level _PYPROJECT assignment prevents deferral
 import tomllib
 
 from tests.python._testkit.runtime import REPO_ROOT

@@ -1,13 +1,13 @@
 # [TS_DATA_API_TUS_S3_STORE]
 
-`@tus/s3-store` implements the `@tus/utils` `DataStore` contract over S3: `create` opens a multipart upload and writes a `${id}.info` metadata object, `write(src, id, offset)` streams the PATCH body into `UploadPart` calls sized by `partSize` under a `maxConcurrentPartUploads` semaphore, sub-part remainders persist as incomplete-part objects so a resumed PATCH re-reads them, and the final write triggers `CompleteMultipartUpload` — so the tus offset IS the multipart high-water mark and resume costs a `HeadObject` on the info object plus `ListParts`. The store rides the same `@aws-sdk/client-s3` config vocabulary as the object plane (`s3ClientConfig` embeds `S3ClientConfig` plus `bucket`), so endpoint, credentials, and `forcePathStyle` are the one set of provider `Config` facts. The rail treats this store as the STAGING band only: uploads land under tus-minted ids, the finish hook's finalize fold re-homes bytes to their `ContentKey`, and expiration (`expirationPeriodInMilliseconds` + `deleteExpired`) grooms abandoned staging uploads.
+`@tus/s3-store` implements the `@tus/utils` `DataStore` contract over S3: `create` opens a multipart upload and writes a `${id}.info` metadata object, `write(src, id, offset)` streams the PATCH body into `UploadPart` calls under a `maxConcurrentPartUploads` semaphore, and the final write triggers `CompleteMultipartUpload` — the tus offset IS the multipart high-water mark; resume costs `HeadObject` + `ListParts`. It rides the object plane's `@aws-sdk/client-s3` config vocabulary and serves the STAGING band only: the finalize fold re-homes bytes to their `ContentKey`, expiration grooms the rest.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@tus/s3-store`
 - package: `@tus/s3-store`
 - license: `MIT`
-- backing: `@aws-sdk/client-s3` (the `S3` client it constructs from `s3ClientConfig`), `@shopify/semaphore` (part-upload concurrency), `@tus/utils` (`DataStore`, `Upload`, `KvStore`)
+- backing: `@aws-sdk/client-s3` (the `S3` client it constructs from `s3ClientConfig`), `@tus/utils` (`DataStore`, `Upload`, `KvStore`)
 - runtime: server plane (node/bun) — streams PATCH bodies through `node:stream`/temp files
 - module format: ESM; one root export (`S3Store`, `Options`, `MetadataValue`)
 - rail: the `object/stream` staging band beneath `@tus/server` (`.api/tus-server.md`)
@@ -35,7 +35,7 @@
 
 [ENTRYPOINT_SCOPE]: the DataStore members the server drives
 - rail: object/stream
-- The rail never calls these directly — `@tus/server` drives them per protocol verb; the rail's own reads are `read` (the staged bytes for the finalize fold) and `deleteExpired` (the groom). `new S3Store(options)` takes `{ s3ClientConfig: { bucket, endpoint, forcePathStyle, credentials, region }, partSize, maxConcurrentPartUploads, expirationPeriodInMilliseconds }`; `read` returns `Promise<stream.Readable>` lifted through `Stream.fromReadableStream` after `Readable.toWeb`, `deleteExpired` returns `Promise<number>`. The driven members are `store` methods `create(upload)`/`write(src, id, offset)`/`getUpload(id)`/`read(id)`/`remove(id)`/`deleteExpired()`/`getExpiration()`/`declareUploadLength(id, length)`.
+- `@tus/server` drives the store per protocol verb; the rail's own reads are `read` (staged bytes for the finalize fold) and `deleteExpired` (the groom). `new S3Store(options)` takes `{ s3ClientConfig: { bucket, endpoint, forcePathStyle, credentials, region }, partSize, maxConcurrentPartUploads, expirationPeriodInMilliseconds }`; `read` returns `Promise<stream.Readable>` lifted through `Stream.fromReadableStream` after `Readable.toWeb`, `deleteExpired` returns `Promise<number>`. Driven members are `create(upload)`/`write(src, id, offset)`/`getUpload(id)`/`read(id)`/`remove(id)`/`deleteExpired()`/`getExpiration()`/`declareUploadLength(id, length)`.
 
 | [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                      |
 | :-----: | :------------------------------------------- | :------------- | :------------------------------------------------------- |
@@ -48,10 +48,10 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [STAGING_TOPOLOGY]:
-- offsets are multipart arithmetic: a PATCH body streams into parts of `partSize`; the confirmed offset is the byte sum of consecutive uploaded parts plus any incomplete-part object, so resume is exact and no byte re-uploads past the high-water mark.
+- offsets are multipart arithmetic: a PATCH body streams into parts of `partSize`; the confirmed offset is the byte sum of consecutive uploaded parts and any incomplete-part object, so resume is exact and no byte re-uploads past the high-water mark.
 - metadata is an S3 object: `${id}.info` carries the `Upload` record and `UploadId` in object `Metadata`, read by one `HeadObject` and fronted by the `cache` KvStore — the store is stateless across processes by construction.
-- the staging band is not the content band: tus ids are random staging keys; identity is minted by the rail's finalize fold, never by this store — `useTags`/expiration groom what finalize never re-homed.
-- part policy is bounded both ways: `partSize` prefers, `minPartSize` floors, `maxMultipartParts` caps at the S3 limit, and the store recomputes the optimal size from the declared length so a 5 TiB upload still fits 10 000 parts.
+- staging band and content band stay disjoint: tus ids are random staging keys; the rail's finalize fold mints identity, never this store — `useTags`/expiration groom what finalize never re-homed.
+- part policy is bounded both ways: `partSize` targets, `minPartSize` floors, `maxMultipartParts` caps at the S3 limit, and the store recomputes part size from the declared length so a 5 TiB upload still fits 10 000 parts.
 
 [INTEGRATION_LAW]:
 - Stack with `@tus/server` (`.api/tus-server.md`): the store is the `datastore` slot; the server's `onUploadFinish` fires after this store's `CompleteMultipartUpload` settles, so the finalize fold reads a whole, durable staged object.

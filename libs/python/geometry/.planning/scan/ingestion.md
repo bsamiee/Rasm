@@ -94,7 +94,7 @@ class Cloud(Struct, frozen=True):
         return int(self.positions.shape[0])
 
     def tensor(self) -> "o3d.t.geometry.PointCloud":
-        import open3d as o3d  # noqa: PLC0415
+        import open3d as o3d  # ruff:ignore[import-outside-top-level]
 
         cloud = o3d.t.geometry.PointCloud()
         cloud.point.positions = o3d.core.Tensor(self.positions.astype(np.float32))
@@ -105,7 +105,7 @@ class Cloud(Struct, frozen=True):
         return cloud
 
     def legacy(self) -> "o3d.geometry.PointCloud":
-        import open3d as o3d  # noqa: PLC0415
+        import open3d as o3d  # ruff:ignore[import-outside-top-level]
 
         cloud = o3d.geometry.PointCloud()
         cloud.points = o3d.utility.Vector3dVector(self.positions)
@@ -208,7 +208,7 @@ def _structured(x: np.ndarray, y: np.ndarray, z: np.ndarray, rgb: tuple[np.ndarr
 
 
 def _read_e57(path: str) -> tuple[np.ndarray, tuple[StationFact, ...]]:
-    import pye57  # noqa: PLC0415
+    import pye57  # ruff:ignore[import-outside-top-level]
 
     # read_scan(transform=True) is the conditioned intake: coordinate-system auto-detect, spherical
     # projection, invalid-state mask, and per-scan pose all applied.
@@ -234,7 +234,7 @@ def _read_e57(path: str) -> tuple[np.ndarray, tuple[StationFact, ...]]:
 
 
 def _stages(policy: IngestPolicy) -> Option[Block["pdal.Filter"]]:
-    import pdal  # noqa: PLC0415  binds the injected Filter.<name> factories before any _STAGE row call
+    import pdal  # ruff:ignore[import-outside-top-level]  binds the injected Filter.<name> factories before any _STAGE row call
 
     # injected `Filter` class threads into each `_STAGE`/`_FILTER` closure, so the tables never resolve an unbound `pdal` global.
     built = Block.of_seq(_STAGE[stage](pdal.Filter, policy) for stage in policy.stages)

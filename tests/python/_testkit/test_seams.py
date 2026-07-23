@@ -133,7 +133,7 @@ def test_ndjson_one_write_contract_reds_on_double_write(capsys: pytest.CaptureFi
     assert oracle.one(b'{"a":1}\n') == {"a": 1}
     with pytest.raises(AssertionError, match="expected exactly 1"):
         oracle.one(b'{"a":1}\n{"a":2}\n')
-    print('{"a":3}')  # noqa: T201  # the capture arm needs a real stdout write
+    print('{"a":3}')  # ruff:ignore[print]  # the capture arm needs a real stdout write
     assert oracle.from_capture(capsys) == {"a": 3}
 
 

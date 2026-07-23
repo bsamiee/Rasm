@@ -58,7 +58,7 @@ def _admit_exec(tokens: tuple[str, ...]) -> tuple[str, ...]:
     # the env var stays a fallback override; `local` normalizes to the empty (Local) value the modal value object admits.
     stripped, target = _extract_exec(tokens)
     if target is not None:
-        os.environ[_EXEC_ENV] = "" if target == "local" else target  # noqa: TID251  # entrypoint admission: flag -> validated settings env path
+        os.environ[_EXEC_ENV] = "" if target == "local" else target  # ruff:ignore[banned-api]  # entrypoint admission: flag -> validated settings env path
     return stripped
 
 
@@ -95,7 +95,7 @@ def _dispatch(tokens: tuple[str, ...]) -> object:
             except ValidationError as config_error:
                 # Settings construction faults become config-step Envelopes.
                 return parse_fault(tokens, str(config_error), step=Step.CONFIG)
-            except Exception as exc:  # noqa: BLE001  # CLI boundary: preserve single-Envelope stdout contract for unexpected dispatch faults
+            except Exception as exc:  # ruff:ignore[blind-except]  # CLI boundary: preserve single-Envelope stdout contract for unexpected dispatch faults
                 return parse_fault(tokens, f"{type(exc).__name__}: {exc}", step=Step.DISPATCH)
 
 
@@ -140,7 +140,7 @@ def main(argv: list[str] | None = None) -> int:
             case flush if callable(flush):
                 try:
                     flush(DRAIN_MS)
-                except Exception as exc:  # noqa: BLE001  # lifecycle boundary: tracing errors go to stderr, not stdout
+                except Exception as exc:  # ruff:ignore[blind-except]  # lifecycle boundary: tracing errors go to stderr, not stdout
                     sys.stderr.write(f"assay: trace force_flush failed: {exc}\n")
             case _:
                 pass
@@ -148,7 +148,7 @@ def main(argv: list[str] | None = None) -> int:
             case shutdown if callable(shutdown):
                 try:
                     shutdown()
-                except Exception as exc:  # noqa: BLE001  # lifecycle boundary: tracing errors go to stderr, not stdout
+                except Exception as exc:  # ruff:ignore[blind-except]  # lifecycle boundary: tracing errors go to stderr, not stdout
                     sys.stderr.write(f"assay: trace shutdown failed: {exc}\n")
             case _:
                 pass

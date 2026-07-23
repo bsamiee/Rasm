@@ -200,7 +200,7 @@ def test_testparams_language_flags_and_help(monkeypatch: pytest.MonkeyPatch, cap
     assert "--csharp" in fault.message
     assert "--typescript" in fault.message
 
-    from tools.assay import __main__ as main_mod  # noqa: PLC0415
+    from tools.assay import __main__ as main_mod  # ruff:ignore[import-outside-top-level]
 
     monkeypatch.setattr(main_mod, "get_tracer_provider", lambda: SimpleNamespace(force_flush=lambda *_a, **_k: True, shutdown=lambda: None))
     assert main_mod.main(["test", "run", "--help"]) == 0

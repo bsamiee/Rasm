@@ -15,7 +15,7 @@
 
 [PUBLIC_TYPE_SCOPE]: frames, indexes, and dtypes
 
-| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]   | [ROLE]                               |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]   | [CAPABILITY]                         |
 | :-----: | :----------------- | :-------------- | :----------------------------------- |
 |  [01]   | `DataFrame`        | tabular frame   | labeled 2-D table over an `Index`    |
 |  [02]   | `Series`           | labeled column  | labeled 1-D column                   |
@@ -32,7 +32,7 @@
 
 [PUBLIC_TYPE_SCOPE]: scalar and offset types
 
-| [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [ROLE]                             |
+| [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [CAPABILITY]                       |
 | :-----: | :--------------- | :------------ | :--------------------------------- |
 |  [01]   | `Timestamp`      | temporal      | single point in time               |
 |  [02]   | `Timedelta`      | temporal      | duration scalar                    |
@@ -50,43 +50,43 @@
 
 [ENTRYPOINT_SCOPE]: construction and IO
 
-| [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY] | [RAIL]                              |
-| :-----: | :------------------------------------------- | :------------- | :---------------------------------- |
-|  [01]   | `DataFrame(data, index, columns, dtype)`     | construct      | build frame from dict/array/records |
-|  [02]   | `DataFrame.from_dict / from_records`         | construct      | build from dicts or row records     |
-|  [03]   | `read_csv` / `read_fwf` / `read_table`       | text IO        | delimited and fixed-width readers   |
-|  [04]   | `read_parquet` / `read_feather` / `read_orc` | columnar IO    | Arrow-backed columnar readers       |
-|  [05]   | `read_sql / read_sql_query / read_sql_table` | SQL IO         | read from a SQL connection          |
-|  [06]   | `read_excel` / `read_html` / `read_xml`      | structured IO  | spreadsheet and markup readers      |
-|  [07]   | `read_json` / `json_normalize`               | JSON IO        | read and flatten JSON               |
-|  [08]   | `read_iceberg` / `read_hdf` / `read_stata`   | store IO       | table-store and statistical formats |
-|  [09]   | `to_parquet / to_csv / to_feather`           | columnar IO    | write frame to storage              |
-|  [10]   | `to_dict / to_records / to_numpy`            | interop        | export to Python/NumPy structures   |
-|  [11]   | `to_datetime / to_timedelta / to_numeric`    | coerce         | parse and coerce dtypes             |
-|  [12]   | `date_range / period_range / interval_range` | range          | generate labeled index ranges       |
+| [INDEX] | [SURFACE]                                    | [SHAPE]       | [CAPABILITY]                        |
+| :-----: | :------------------------------------------- | :------------ | :---------------------------------- |
+|  [01]   | `DataFrame(data, index, columns, dtype)`     | construct     | build frame from dict/array/records |
+|  [02]   | `DataFrame.from_dict / from_records`         | construct     | build from dicts or row records     |
+|  [03]   | `read_csv` / `read_fwf` / `read_table`       | text IO       | delimited and fixed-width readers   |
+|  [04]   | `read_parquet` / `read_feather` / `read_orc` | columnar IO   | Arrow-backed columnar readers       |
+|  [05]   | `read_sql / read_sql_query / read_sql_table` | SQL IO        | read from a SQL connection          |
+|  [06]   | `read_excel` / `read_html` / `read_xml`      | structured IO | spreadsheet and markup readers      |
+|  [07]   | `read_json` / `json_normalize`               | JSON IO       | read and flatten JSON               |
+|  [08]   | `read_iceberg` / `read_hdf` / `read_stata`   | store IO      | table-store and statistical formats |
+|  [09]   | `to_parquet / to_csv / to_feather`           | columnar IO   | write frame to storage              |
+|  [10]   | `to_dict / to_records / to_numpy`            | interop       | export to Python/NumPy structures   |
+|  [11]   | `to_datetime / to_timedelta / to_numeric`    | coerce        | parse and coerce dtypes             |
+|  [12]   | `date_range / period_range / interval_range` | range         | generate labeled index ranges       |
 
 [ENTRYPOINT_SCOPE]: DataFrame transformation and selection
 
-| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [RAIL]                                 |
-| :-----: | :---------------------------------------------- | :------------- | :------------------------------------- |
-|  [01]   | `loc` / `iloc` / `at` / `iat` / `xs`            | selection      | label and position indexing            |
-|  [02]   | `query(expr)` / `filter(items, like, regex)`    | selection      | expression and label filtering         |
-|  [03]   | `assign(**kwargs)` / `pipe(func)`               | transform      | add columns, chain functions           |
-|  [04]   | `apply / map / agg / transform`                 | transform      | element/column-wise function dispatch  |
-|  [05]   | `astype / convert_dtypes`                       | transform      | cast and infer dtypes                  |
-|  [06]   | `groupby(by, level, dropna, observed)`          | aggregation    | split-apply-combine grouping           |
-|  [07]   | `rolling / expanding / ewm / resample`          | aggregation    | window and time-resample reductions    |
-|  [08]   | `merge / join / concat`                         | combine        | relational joins and concatenation     |
-|  [09]   | `merge_asof / merge_ordered`                    | combine        | as-of and ordered merges               |
-|  [10]   | `pivot / pivot_table / melt / crosstab`         | reshape        | wide/long reshape and cross-tabulation |
-|  [11]   | `stack / unstack / explode / transpose`         | reshape        | level reshape, list expand, transpose  |
-|  [12]   | `get_dummies / from_dummies / factorize`        | encode         | one-hot and integer encoding           |
-|  [13]   | `dropna / fillna / ffill / bfill / interpolate` | missing        | handle missing values                  |
-|  [14]   | `drop_duplicates / duplicated / replace`        | clean          | deduplicate and replace                |
-|  [15]   | `sort_values / sort_index / nlargest / rank`    | order          | sort and rank rows                     |
-|  [16]   | `set_index / reset_index / reindex / rename`    | index          | reshape labels and axes                |
-|  [17]   | `describe / corr / cov / value_counts`          | stats          | summary statistics                     |
-|  [18]   | `Series.str` / `Series.dt` / `Series.cat`       | accessor       | string, datetime, categorical methods  |
+| [INDEX] | [SURFACE]                                       | [SHAPE]     | [CAPABILITY]                           |
+| :-----: | :---------------------------------------------- | :---------- | :------------------------------------- |
+|  [01]   | `loc` / `iloc` / `at` / `iat` / `xs`            | selection   | label and position indexing            |
+|  [02]   | `query(expr)` / `filter(items, like, regex)`    | selection   | expression and label filtering         |
+|  [03]   | `assign(**kwargs)` / `pipe(func)`               | transform   | add columns, chain functions           |
+|  [04]   | `apply / map / agg / transform`                 | transform   | element/column-wise function dispatch  |
+|  [05]   | `astype / convert_dtypes`                       | transform   | cast and infer dtypes                  |
+|  [06]   | `groupby(by, level, dropna, observed)`          | aggregation | split-apply-combine grouping           |
+|  [07]   | `rolling / expanding / ewm / resample`          | aggregation | window and time-resample reductions    |
+|  [08]   | `merge / join / concat`                         | combine     | relational joins and concatenation     |
+|  [09]   | `merge_asof / merge_ordered`                    | combine     | as-of and ordered merges               |
+|  [10]   | `pivot / pivot_table / melt / crosstab`         | reshape     | wide/long reshape and cross-tabulation |
+|  [11]   | `stack / unstack / explode / transpose`         | reshape     | level reshape, list expand, transpose  |
+|  [12]   | `get_dummies / from_dummies / factorize`        | encode      | one-hot and integer encoding           |
+|  [13]   | `dropna / fillna / ffill / bfill / interpolate` | missing     | handle missing values                  |
+|  [14]   | `drop_duplicates / duplicated / replace`        | clean       | deduplicate and replace                |
+|  [15]   | `sort_values / sort_index / nlargest / rank`    | order       | sort and rank rows                     |
+|  [16]   | `set_index / reset_index / reindex / rename`    | index       | reshape labels and axes                |
+|  [17]   | `describe / corr / cov / value_counts`          | stats       | summary statistics                     |
+|  [18]   | `Series.str` / `Series.dt` / `Series.cat`       | accessor    | string, datetime, categorical methods  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

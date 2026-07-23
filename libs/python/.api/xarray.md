@@ -39,7 +39,7 @@
 [arg-reduction]: `idxmax` `idxmin` `argmax` `argmin` `argsort` `rank` `dot` `cumulative_integrate`
 [alignment]: `reindex` `reindex_like` `interp` `interp_like` `interpolate_na` `ffill` `bfill` `fillna` `dropna` `combine_first`
 [fit-calculus]: `polyfit` `polyval` `curvefit` `integrate` `differentiate` `diff`
-[chunking]: `chunk` `chunks` `chunksizes` `compute` `persist` `load` `unify_chunks` `map_blocks` `as_numpy`
+[chunking]: `chunk` `chunks` `chunksizes` `compute` `persist` `load` `load_async` `unify_chunks` `map_blocks` `as_numpy`
 [egress]: `to_netcdf` `to_zarr` `to_pandas` `to_dataframe` `to_dask_dataframe` `to_numpy` `to_dict` `to_dataset` `to_dataarray`
 
 [PUBLIC_TYPE_SCOPE]: computed accessors and registration
@@ -50,8 +50,8 @@
 
 ```text
 .dt (datetime64) — time-component reads and rounders
-year month day hour minute second microsecond nanosecond dayofweek/weekday dayofyear
-weekofyear/week quarter season days_in_month/daysinmonth days_in_year decimal_year
+year month day hour minute second microsecond nanosecond dayofweek/weekday/day_of_week dayofyear/day_of_year
+quarter season days_in_month/daysinmonth days_in_year decimal_year
 is_month_start/is_month_end is_quarter_start/is_quarter_end is_year_start/is_year_end
 is_leap_year calendar time date isocalendar() strftime() floor() ceil() round()
 
@@ -133,12 +133,12 @@ line step hist pcolormesh contour contourf imshow surface scatter quiver streamp
 - `netcdf4`(`libs/python/data/.api/netcdf4.md`): `open_dataset(engine='netcdf4')` and `engine='h5netcdf'` route CF decode through the C-extension owner; reach `netcdf4` directly for low-level group/dimension/variable authoring, MPI-collective write, or `memory=`/`diskless=` round-trips, and `cftime` owns the `CFTimeIndex` calendar.
 - `zarr`(`libs/python/data/.api/zarr.md`): `open_zarr` and `to_zarr(store=...)` target any `StoreLike`, `to_zarr(region=, append_dim=)` does partial and append writes, and an `IcechunkStore` from `repo.writable_session(branch).store` gives the transactional versioned cube.
 - `rioxarray`(`libs/python/data/.api/rioxarray.md`): importing `rioxarray` registers the `.rio` accessor — CRS, transform, nodata, `reproject`, `clip`, `to_raster` — and the `engine='rasterio'` backend, and the raster coverage rail and `odc-stac` lazy cubes ride that accessor.
-- `virtualizarr`(`libs/python/data/.api/virtualizarr.md`): `open_virtual_dataset` returns a `ManifestArray`-backed `Dataset` referencing existing files without copy, and `ds.virtualize.to_icechunk`/`to_kerchunk` persists the reference manifest.
+- `virtualizarr`(`libs/python/data/.api/virtualizarr.md`): `open_virtual_dataset` returns a `ManifestArray`-backed `Dataset` referencing existing files without copy, and `ds.vz.to_icechunk`/`to_kerchunk` persists the reference manifest.
 - `cubed`(`libs/python/data/.api/cubed.md`): `chunk(chunked_array_type="cubed")` caps per-task memory for out-of-core cubes, where `dask`(`libs/python/compute/.api/dask.md`) backs the default chunked graph.
 - within-lib: `numerics/array` extracts `.data` with coords into `NamedAxis` rows through its `ArraySource.Labelled` arm, `FieldSelection` folds `sel`/`isel`/`groupby`/`resample`/`rolling` into one discriminated dispatch, and `FieldDataset` egress shares the content-keyed `pyarrow`/Zarr surface.
 
 [LOCAL_ADMISSION]:
-- `open_dataset(engine=)`/`open_zarr` reads and `to_netcdf`/`to_zarr` writes bind function-local under `# noqa: PLC0415`; egress carries compression, chunking, and fill through per-variable `encoding`.
+- `open_dataset(engine=)`/`open_zarr` reads and `to_netcdf`/`to_zarr` writes bind function-local under `# ruff:ignore[import-outside-top-level]`; egress carries compression, chunking, and fill through per-variable `encoding`.
 - `decode_cf` owns CF metadata, and `sel`/`isel`/`interp`/`groupby`/`groupby_bins`/`resample`/`rolling`/`coarsen`/`weighted` enter as `FieldSelection` cases.
 - `chunk` opts into the dask path with `chunked_array_type="cubed"` selecting the bounded-memory executor; `set_options`/`get_options` set global decode and display policy; a domain accessor registers through `register_*_accessor`.
 

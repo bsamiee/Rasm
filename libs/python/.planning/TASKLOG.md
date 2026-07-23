@@ -22,7 +22,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 
 [LAZY_IMPORT_DIALECT]-[QUEUED]: import deferral converges on the lazy proxy dialect.
 - Capability: one deferral idiom across the branch — a function-local import survives only where module-scope import is banned.
-- Shape: unearned `# noqa: PLC0415` function-local imports reclassify to the `lazy` module-top proxy across the data, geometry, and artifacts pages; each survivor names its module-scope ban.
+- Shape: unearned `# ruff:ignore[import-outside-top-level]` function-local imports reclassify to the `lazy` module-top proxy across the data, geometry, and artifacts pages; each survivor names its module-scope ban.
 - Unlocks: the branch deferral ruling realized; floor audits read one module-top roster.
 - Anchors: the deferral ruling at `libs/python/.planning/RULINGS.md`; the `lazy` DSL owner; the manifest ban comments.
 

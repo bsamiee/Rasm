@@ -174,7 +174,7 @@ def _root_parts(root: str) -> tuple[str, ...]:
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-@dataclass(frozen=True, slots=True)  # noqa: PLR0904  # ArtifactStore is the storage boundary.
+@dataclass(frozen=True, slots=True)  # ruff:ignore[too-many-public-methods]  # ArtifactStore is the storage boundary.
 class ArtifactStore:
     """Validated artifact filesystem boundary."""
 

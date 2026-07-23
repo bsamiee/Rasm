@@ -218,7 +218,7 @@ class Climate(Struct, frozen=True):
     @classmethod
     def of(cls, source: "bytes | str | Path | Mapping[str, object]") -> "RuntimeRail[Self]":
         def admit() -> Self:
-            from ladybug.epw import EPW  # noqa: PLC0415 — AGPL boundary import
+            from ladybug.epw import EPW  # ruff:ignore[import-outside-top-level] — AGPL boundary import
 
             match source:
                 case bytes() as raw:
@@ -233,7 +233,7 @@ class Climate(Struct, frozen=True):
 
     def series(self, spec: SeriesSpec) -> "RuntimeRail[SeriesFact]":
         def fold() -> SeriesFact:
-            from ladybug.analysisperiod import AnalysisPeriod  # noqa: PLC0415 — AGPL boundary import
+            from ladybug.analysisperiod import AnalysisPeriod  # ruff:ignore[import-outside-top-level] — AGPL boundary import
 
             collection = getattr(self.epw, spec.field.value)
             windowed = spec.window.map(lambda w: collection.filter_by_analysis_period(AnalysisPeriod(*w))).default_value(collection)
@@ -255,8 +255,8 @@ class Climate(Struct, frozen=True):
 
     def derive(self, kind: Derived) -> "RuntimeRail[object]":
         def fold() -> object:
-            from ladybug.ddy import DDY  # noqa: PLC0415 — AGPL boundary import
-            from ladybug.wea import Wea  # noqa: PLC0415
+            from ladybug.ddy import DDY  # ruff:ignore[import-outside-top-level] — AGPL boundary import
+            from ladybug.wea import Wea  # ruff:ignore[import-outside-top-level]
 
             # EPW.to_wea/to_ddy take a file_path and WRITE files; the in-memory projections are the
             # Wea radiation constructor and DDY over the percentile-selected design days.
@@ -276,7 +276,7 @@ class Climate(Struct, frozen=True):
 
     def solar(self, query: SolarQuery) -> "RuntimeRail[SunFact | DayFact | tuple[tuple[float, float, float], ...]]":
         def fold() -> SunFact | DayFact | tuple[tuple[float, float, float], ...]:
-            from ladybug.sunpath import Sunpath  # noqa: PLC0415 — AGPL boundary import
+            from ladybug.sunpath import Sunpath  # ruff:ignore[import-outside-top-level] — AGPL boundary import
 
             path = Sunpath.from_location(self.location)
             match query:
@@ -299,7 +299,7 @@ class Climate(Struct, frozen=True):
 
     def comfort(self, spec: ComfortSpec) -> "RuntimeRail[ComfortFact]":
         def fold() -> ComfortFact:
-            from importlib import import_module  # noqa: PLC0415 — row-resolved AGPL boundary import
+            from importlib import import_module  # ruff:ignore[import-outside-top-level] — row-resolved AGPL boundary import
 
             row = COMFORT[spec.model]
             module = import_module(row.module)
@@ -321,7 +321,7 @@ class Climate(Struct, frozen=True):
     def comfort_map(self, kind: MapKind, *matrices: object) -> "RuntimeRail[object]":
         # ladybug_comfort.map kernels over recipe-produced matrices; the MRT rows prepend the admitted Location.
         def fold() -> object:
-            from importlib import import_module  # noqa: PLC0415 — row-resolved AGPL boundary import
+            from importlib import import_module  # ruff:ignore[import-outside-top-level] — row-resolved AGPL boundary import
 
             module, function, wants_location = MAPS[kind]
             kernel = getattr(import_module(module), function)
@@ -346,7 +346,7 @@ class Climate(Struct, frozen=True):
     def mrt(self, surface_temperatures: "object") -> "RuntimeRail[object]":
         # OutdoorSolarCal over the EPW's own solar fields; from_epw internalizes this path for the COMFORT rows.
         def fold() -> object:
-            from ladybug_comfort.collection.solarcal import OutdoorSolarCal  # noqa: PLC0415 — AGPL boundary import
+            from ladybug_comfort.collection.solarcal import OutdoorSolarCal  # ruff:ignore[import-outside-top-level] — AGPL boundary import
 
             return OutdoorSolarCal(
                 self.location,

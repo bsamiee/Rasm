@@ -8,7 +8,7 @@ import re
 from typing import Annotated, ClassVar, Final, override, TYPE_CHECKING
 
 from cyclopts import Parameter
-from cyclopts.types import NonNegativeInt  # noqa: TC002  # Cyclopts evaluates Param dataclass annotations at runtime.
+from cyclopts.types import NonNegativeInt  # ruff:ignore[typing-only-third-party-import]  # Cyclopts evaluates Param dataclass annotations at runtime.
 from expression import Error, Result  # Result unconditional: @checked's beartype resolves the handler forward-ref (PEP 649)
 from expression.collections import block
 from expression.extra.result import sequence
@@ -18,9 +18,13 @@ import tree_sitter_python
 import tree_sitter_typescript
 
 from tools.assay.composition.catalog import select
-from tools.assay.composition.settings import AssaySettings  # noqa: TC001  # unconditional: @checked beartype forward-ref (PEP 649)
-from tools.assay.composition.store import ArtifactScope  # noqa: TC001  # unconditional: @checked beartype forward-ref (PEP 649)
-from tools.assay.core.exec import Executor  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
+from tools.assay.composition.settings import (
+    AssaySettings,  # ruff:ignore[typing-only-first-party-import]  # unconditional: @checked beartype forward-ref (PEP 649)
+)
+from tools.assay.composition.store import (
+    ArtifactScope,  # ruff:ignore[typing-only-first-party-import]  # unconditional: @checked beartype forward-ref (PEP 649)
+)
+from tools.assay.core.exec import Executor  # ruff:ignore[typing-only-first-party-import]  # beartype resolves the executor-port annotation at runtime
 from tools.assay.core.model import (
     Artifact,
     ArtifactKind,

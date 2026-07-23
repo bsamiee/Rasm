@@ -75,7 +75,7 @@ def _size(node: object, cap: int) -> _Size:
 
 
 # msgspec exposes timezone policy as a tri-state field, not a boolean flag.
-def _tz_arg(tz: bool | None) -> st.SearchStrategy[dt.tzinfo | None]:  # noqa: FBT001
+def _tz_arg(tz: bool | None) -> st.SearchStrategy[dt.tzinfo | None]:  # ruff:ignore[boolean-type-hint-positional-argument]
     return st.none() if tz is False else st.timezones() if tz else st.none() | st.timezones()
 
 
@@ -119,7 +119,7 @@ def _decimal_max(md: object, dp: object) -> Decimal | None:
 
 
 # One polymorphic surface over the closed msgspec node taxonomy.
-def _node(node: _mi.Type) -> st.SearchStrategy[object]:  # noqa: C901, PLR0911
+def _node(node: _mi.Type) -> st.SearchStrategy[object]:  # ruff:ignore[complex-structure, too-many-return-statements]
     """Map one ``msgspec.inspect`` node to a codec-bounded strategy.
 
     Returns:
@@ -248,7 +248,7 @@ def _unwrap(schema: _Schema) -> _Schema:
 
 
 # One polymorphic surface over the pydantic-core schema algebra.
-def _pyd_node(schema: _Schema, defs: dict[str, _Schema]) -> st.SearchStrategy[object]:  # noqa: C901, PLR0911
+def _pyd_node(schema: _Schema, defs: dict[str, _Schema]) -> st.SearchStrategy[object]:  # ruff:ignore[complex-structure, too-many-return-statements]
     """Map one ``pydantic-core`` schema node to a constraint-honoring strategy.
 
     Args:
@@ -439,7 +439,8 @@ def resolve[T](subject: TypeForm[T]) -> st.SearchStrategy[T]:
         try:
             node = _mi.type_info(subject)
         except TypeError:
-            return st.from_type(subject)
+            # hypothesis accepts non-class type forms at runtime; its stub under-declares from_type as type[T].
+            return st.from_type(subject)  # ty: ignore[invalid-argument-type]
         # The node algebra proves the element type; TypeForm cannot recover it statically.
         return _node(node)  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
     if subject not in _REGISTERED:

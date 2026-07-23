@@ -94,7 +94,7 @@ def _provision_ssh(spec: SshHost) -> Provisioned[Awaitable[asyncssh.SSHClientCon
             _ = username
             return False
 
-    async def _exec(process: asyncssh.SSHServerProcess[str]) -> None:  # noqa: RUF029  # no await; asyncssh drives the handler synchronously
+    async def _exec(process: asyncssh.SSHServerProcess[str]) -> None:  # ruff:ignore[unused-async]  # no await; asyncssh drives the handler synchronously
         text, code = spec.handler(process.command or "")
         process.stdout.write(text)
         process.exit(code)
@@ -102,7 +102,7 @@ def _provision_ssh(spec: SshHost) -> Provisioned[Awaitable[asyncssh.SSHClientCon
     def _sftp(chan: asyncssh.SSHServerChannel[bytes]) -> asyncssh.SFTPServer:
         return asyncssh.SFTPServer(chan, chroot=os.fsencode(spec.sftp_root) if spec.sftp_root is not None else None)
 
-    async def _serve(sock: socket.socket) -> None:  # noqa: TID251  # asyncssh adopts the pair half; no raw socket I/O
+    async def _serve(sock: socket.socket) -> None:  # ruff:ignore[banned-api]  # asyncssh adopts the pair half; no raw socket I/O
         # No retained handle: asyncssh closes the server side when the client half reaches EOF.
         await asyncssh.run_server(
             sock, server_factory=_Host, server_host_keys=[key], process_factory=_exec, sftp_factory=_sftp if spec.sftp_root is not None else None
@@ -156,7 +156,7 @@ def _provision_store(spec: ObjectStore) -> Provisioned[s3fs.S3FileSystem]:
         # to a later provision — a cached instance would then carry the dead server's dircache.
         fs = s3fs.S3FileSystem(
             key="testing",  # static moto double credential, not a secret
-            secret="testing",  # noqa: S106
+            secret="testing",  # ruff:ignore[hardcoded-password-func-arg]
             endpoint_url=endpoint,
             client_kwargs={"region_name": spec.region},
             skip_instance_cache=True,

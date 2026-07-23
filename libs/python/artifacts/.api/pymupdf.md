@@ -30,6 +30,7 @@
 |  [13]   | `Outline`           | outline node  | a single TOC node (`title`/`dest`/`next`/`down`) for tree walks                |
 |  [14]   | `table.TableFinder` | table engine  | resolved-table container from `find_tables` (submodule `pymupdf.table`)        |
 |  [15]   | `table.Table`       | cell grid     | one resolved table with `extract`/`to_pandas`/`to_markdown`/`bbox`/`rows`      |
+|  [16]   | `Archive`           | resource sink | external-resource archive (`add`/`read_entry`) for reflowable-HTML/`Story` intake |
 
 [PUBLIC_TYPE_SCOPE]: geometry and color value objects
 
@@ -69,24 +70,28 @@ Call rows discriminate on module-level `int`/flag constants, never re-minted loc
 [ENTRYPOINT_SCOPE]: document open and save
 - `save`/`ez_save` carry: `garbage, clean, deflate, deflate_fonts, incremental, linear, use_objstms, encryption, permissions, owner_pw, user_pw, preserve_metadata, compression_effort`
 
-| [INDEX] | [SURFACE]                                           | [SHAPE]  | [CAPABILITY]                                          |
-| :-----: | :-------------------------------------------------- | :------- | :---------------------------------------------------- |
-|  [01]   | `open(filename, stream, filetype)`                  | static   | open from path or in-memory stream (`Document` alias) |
-|  [02]   | `Document(filename, stream, filetype, *, width)`    | ctor     | constructor; `pymupdf.open` is the module alias       |
-|  [03]   | `Document.save(filename, *, ...)`                   | instance | compaction, linearization, and encryption knobs       |
-|  [04]   | `Document.ez_save(filename)`                        | instance | deflate/garbage/use-objstms defaults on               |
-|  [05]   | `Document.convert_to_pdf(*, from_page, to_page)`    | instance | convert a non-PDF document to PDF bytes               |
-|  [06]   | `Document.authenticate(password)`                   | instance | unlock an encrypted document                          |
-|  [07]   | `Document.insert_pdf(docsrc, *, from_page, rotate)` | instance | splice pages from another `Document`                  |
-|  [08]   | `Document.insert_file(src, *, ...)`                 | instance | splice pages from any supported file/stream           |
-|  [09]   | `Document.select(list[int])`                        | instance | reorder/subset to a page-index list in place          |
-|  [10]   | `Document.delete_pages(*, from_page, to_page)`      | instance | drop pages (`delete_page` for one)                    |
-|  [11]   | `Document.copy_page / move_page / fullcopy_page`    | instance | duplicate or relocate a page internally               |
-|  [12]   | `Document.close()` / context manager                | instance | deterministic native-handle release                   |
-|  [13]   | `Document.set_metadata(dict)`                       | instance | write info dict (title/author/subject/…); `{}` clears |
-|  [14]   | `Document.set_xml_metadata(str)`                    | instance | write archival PDF/A XMP metadata                     |
+| [INDEX] | [SURFACE]                                                 | [SHAPE]  | [CAPABILITY]                                             |
+| :-----: | :-------------------------------------------------------- | :------- | :------------------------------------------------------- |
+|  [01]   | `open(filename, stream, filetype)`                        | static   | open from path or in-memory stream (`Document` alias)    |
+|  [02]   | `Document(filename, stream, filetype, *, width, archive)` | ctor     | constructor; `pymupdf.open` is the module alias          |
+|  [03]   | `Document.save(filename, *, ...)`                         | instance | compaction, linearization, and encryption knobs          |
+|  [04]   | `Document.ez_save(filename)`                              | instance | deflate/garbage/use-objstms defaults on                  |
+|  [05]   | `Document.convert_to_pdf(*, from_page, to_page, rotate)`  | instance | convert a non-PDF document to PDF bytes, generating links |
+|  [06]   | `Document.authenticate(password)`                         | instance | unlock an encrypted document                             |
+|  [07]   | `Document.insert_pdf(docsrc, *, from_page, rotate)`       | instance | splice pages from another `Document`                     |
+|  [08]   | `Document.insert_file(src, *, ...)`                       | instance | splice pages from any supported file/stream              |
+|  [09]   | `Document.select(list[int])`                              | instance | reorder/subset to a page-index list in place             |
+|  [10]   | `Document.delete_pages(*, from_page, to_page)`            | instance | drop pages (`delete_page` for one)                       |
+|  [11]   | `Document.copy_page / move_page / fullcopy_page`          | instance | duplicate or relocate a page internally                  |
+|  [12]   | `Document.close()` / context manager                      | instance | deterministic native-handle release                      |
+|  [13]   | `Document.set_metadata(dict)`                             | instance | write info dict (title/author/subject/…); `{}` clears    |
+|  [14]   | `Document.set_xml_metadata(str)`                          | instance | write archival PDF/A XMP metadata                        |
+|  [15]   | `Document.apply_css(css, append)`                         | instance | apply/append CSS to a reflowable HTML/EPUB document      |
 
 - `Document` context manager (`with pymupdf.open(...) as doc`): `__enter__` returns the `Document`, `__exit__` closes the native handle at scope exit rather than GC-reaping it.
+- `Document(archive=)`: an `Archive` resolving the external images/CSS/fonts a reflowable HTML/EPUB document references at layout time.
+- `Document.apply_css`: reflowable-document only — silently no-ops on a PDF/non-reflowable document; `append=False` drops the default type stylesheet instead of extending it.
+- `Document.save`: a non-PDF (reflowable/image) document serializes in PDF format; reach for `convert_to_pdf` when page-range, rotation, or link control is needed.
 
 [ENTRYPOINT_SCOPE]: outline and embedded files
 
@@ -238,7 +243,7 @@ Five PDF page boxes: MediaBox (physical sheet), CropBox (visible region), TrimBo
 - `pdfplumber`(`.api/pdfplumber.md`): higher-recall `lines`/`text`/`explicit` table strategy where the ruled-line `find_tables` path misses, meeting at the page.
 - `ocrmypdf`(`.api/ocrmypdf.md`): whole-document OCR-to-PDF/A against the per-page `get_textpage_ocr` graft, meeting at PDF bytes.
 - `pillow`(`.api/pillow.md`): `Pixmap.pil_tobytes` bridges Pillow's WEBP/AVIF/TIFF encoders MuPDF lacks, off the `Pixmap.samples` buffer.
-- within-lib: `find_tables().tables[i].to_pandas()`/`to_markdown()` feeds the dataframe/markdown owner directly; `not is_pdf` + `new_page`/`insert_image`/`tobytes` wraps a raster into a one-page PDF for OCR intake; `scrub`/`bake`/`subset_fonts`/`rewrite_images` chain the document-level sanitize path.
+- within-lib: `find_tables().tables[i].to_pandas()`/`to_markdown()` feeds the dataframe/markdown owner directly; `not is_pdf` + `new_page`/`insert_image`/`tobytes` wraps a raster into a one-page PDF for OCR intake; `scrub`/`bake`/`subset_fonts`/`rewrite_images` chain the document-level sanitize path; `Document(archive=)` + `apply_css` style a reflowable HTML/EPUB open, then `convert_to_pdf`/`save` render it to linked PDF bytes.
 
 [LOCAL_ADMISSION]:
 - `import pymupdf` at boundary scope only.
@@ -247,6 +252,6 @@ Five PDF page boxes: MediaBox (physical sheet), CropBox (visible region), TrimBo
 
 [RAIL_LAW]:
 - Package: `pymupdf`
-- Owns: native document open, page rasterization, per-page OCR, text/image/table extraction (`TEXTFLAGS_*`, `to_pandas`/`to_markdown`), native outline (`get_toc`/`set_toc`/`Outline`) and embedded-file recovery, the five page boxes (read + `set_*` write), vector drawing (`Shape`/`get_drawings`), PDF-page vector placement (`show_pdf_page`), positioned-glyph + HTML authoring (`TextWriter`/`insert_htmlbox`), the annotation-authoring family + redaction, `scrub`/`bake`/`subset_fonts`/`rewrite_images`, lossless `insert_image` embed, reflowable `Story` layout, page assembly/reorder, OCG/OCMD layers, info-dict + XMP metadata authoring, journalled undo/redo, AES-256/RC4 encrypted incremental save
+- Owns: native document open, page rasterization, per-page OCR, text/image/table extraction (`TEXTFLAGS_*`, `to_pandas`/`to_markdown`), native outline (`get_toc`/`set_toc`/`Outline`) and embedded-file recovery, the five page boxes (read + `set_*` write), vector drawing (`Shape`/`get_drawings`), PDF-page vector placement (`show_pdf_page`), positioned-glyph + HTML authoring (`TextWriter`/`insert_htmlbox`), the annotation-authoring family + redaction, `scrub`/`bake`/`subset_fonts`/`rewrite_images`, lossless `insert_image` embed, reflowable `Story` layout and reflowable-document `apply_css`/`Archive` HTML-to-linked-PDF conversion, page assembly/reorder, OCG/OCMD layers, info-dict + XMP metadata authoring, journalled undo/redo, AES-256/RC4 encrypted incremental save
 - Accept: render, OCR, table (`to_pandas`), outline, drawing, and embedded-file recovery feeding the document/PDF, table/dataframe, and image owners; `pil_tobytes` feeding Pillow encoders; lossless raster embed feeding the image-to-PDF intake
 - Reject: a wrapper-rename of `get_pixmap`/`get_text`/`find_tables`/`get_toc`/`embfile_get`; a second rasterizer where `pypdfium2` covers the BSD render path; an embedded-file recovery re-derived from `get_images`; a hand-clustered table grid where `to_pandas` shapes it; a whole-document OCR-to-PDF/A pipeline where `ocrmypdf` owns it; AES-256-R6 where `pikepdf` owns it; a raster-to-PDF library where `insert_image` embeds losslessly; the AGPL render path inside a distributed closed service; identity minting the runtime owns

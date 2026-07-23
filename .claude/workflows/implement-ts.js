@@ -379,7 +379,7 @@ const LAW = [
         'shapes, surfaces-and-dispatch, rails-and-effects, services-and-layers, concurrency, streams, boundaries — author TypeScript as dense, ' +
         'type-safe, and rich as that bar admits; the doctrine is the FLOOR the work pushes past, never the ceiling. READ every page and conform exactly. ' +
         'Cite ONLY real members of admitted ' +
-        'packages, cross-checked against the published types in node_modules; verify a member via `UV_CACHE_DIR=.cache/uv uv run python -m ' +
+        'packages, cross-checked against the published types in node_modules; verify a member via `uv run python -m ' +
         'tools.assay api` over the node_modules declarations — and when assay is blocked, the published `.d.ts` read directly, ' +
         'BOTH `.api` tiers, and Context7/exa/tavily against the official package docs are the verification rail, never memory.',
     'This is IMPLEMENT, not the in-isolation api-stacking rebuild: realize the area SPECIFIC open IDEAS/TASKLOG cards into deep design-page FENCES. ' +
@@ -423,14 +423,14 @@ const CARD = [
         "`libs/python`, `libs/typescript/.planning`, `libs/.planning` — outside this TypeScript-only run's language rail; land your half stating the " +
         'wire contract, and the card stays open unless it is complete on your half alone).',
     'PROBE FREELY (nothing gates probing): EVERY agent in EVERY phase may — and should — probe to verify reality at any time, for ANY card or design ' +
-        'decision, not only `[BLOCKED]` ones — read the published types in `node_modules` and/or `UV_CACHE_DIR=.cache/uv uv run python -m ' +
+        'decision, not only `[BLOCKED]` ones — read the published types in `node_modules` and/or `uv run python -m ' +
         'tools.assay api` over the node_modules declarations to confirm any member or type ' +
         '(assay unavailable: the direct `.d.ts` read + both `.api` tiers + Context7/exa/' +
         'tavily own the proof); Rhino WIP (never Rhino 8) via the rhino-mcp skill or tools/rhino-bridge if a live ' +
         'host fact is needed. A `[BLOCKED]` card is REALIZED this turn whenever a probe resolves its blocker OR its gating work is in scope (a ' +
         'sibling-area contract resolves at the seam); a blocker is genuinely legitimate ONLY when it depends on work outside this run.',
     'PACKAGE ADMISSION (only when a card genuinely needs a not-yet-admitted package): do the folder-local parts NOW — add the package to the ' +
-        'correct group in the target `README.md` and author the target `.api/<package>.md` from the published types via `UV_CACHE_DIR=.cache/uv ' +
+        'correct group in the target `README.md` and author the target `.api/<package>.md` from the published types via `' +
         'uv run python -m tools.assay api` (or the package `.d.ts` in node_modules with Context7/exa/tavily docs when assay is unavailable). The central ' +
         '`' +
         CENTRAL +
@@ -899,7 +899,7 @@ const discoverPrompt = (folder) =>
             'seam surface, so the writers reach every counterpart hot instead of cold-hunting it): {page, files: every file (the page, its cited ' +
             "catalogs, its seam counterparts) the implementer must open for this row, anchors: exact coordinates backing the row's facts per the ROW " +
             'FORM law, members: the exact verified member spellings backing underutilized, each verified against the published types in node_modules ' +
-            'and its owning `.api` catalog — verify a member via `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` over the node_modules declarations (assay ' +
+            'and its owning `.api` catalog — verify a member via `uv run python -m tools.assay api` over the node_modules declarations (assay ' +
             'unavailable: the `.d.ts` directly + both `.api` tiers + Context7/exa/tavily, never memory); verified members ONLY — a member you cannot ' +
             'verify is a phantom and is NEVER listed; exact spellings and locations, never judgment wording, composed: the capability the page ' +
             'already composes, underutilized: catalog-anchored member FACTS the page does not yet compose, seams: the contextual cross-page/' +
@@ -948,7 +948,7 @@ const implementPrompt = (folder, rpt, seq, note, ownpass) =>
             folder +
             '/.api/*.md` (stack them, the shared ' +
             'Effect/Schema rails layered onto the area packages) — cross-checked against the published types in node_modules; verify a member via ' +
-            '`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` (assay unavailable: the `.d.ts` directly + both `.api` tiers + Context7/exa/tavily, never memory). ' +
+            '`uv run python -m tools.assay api` (assay unavailable: the `.d.ts` directly + both `.api` tiers + Context7/exa/tavily, never memory). ' +
             'Realize EVERY card in `order` (all tasks incl. Atomic, then the ideas) into deep fences in the `' +
             folder +
             '` design pages, in LIFECYCLE ' +
@@ -1117,7 +1117,7 @@ const redteamPrompt = (folder, seq, report, critOk, critReport, ownpass) =>
             "`'s LAST stage and the SOLE owner of its card status. For EVERY card in scope this run, re-read its " +
             'FULL body and the realized fences on CURRENT disk, then ADVERSARIALLY VERIFY — the fences are naive until they survive your attack, a prior ' +
             'pass verdict a rejected self-assessment — that they genuinely fulfill the card `Capability`/`Shape`/`Unlocks` against the published types ' +
-            '(verify a member via `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api`; assay unavailable — the published `.d.ts` + both `.api` tiers + ' +
+            '(verify a member via `uv run python -m tools.assay api`; assay unavailable — the published `.d.ts` + both `.api` tiers + ' +
             'Context7/exa/tavily). FINAL-remediate any weak or partial realization in place NOW, then assign each card a strength: `strong` (every ' +
             'charter clause delivered, fences transcription-complete and fully type-safe against the published types), `partial` (most delivered, a ' +
             'clause still thin), `weak` (charter not met). CLOSE only `strong` cards per the CARD CLOSURE law; a ripple card whose seam you cannot ' +
@@ -1175,7 +1175,7 @@ const pinPrompt = (pins, seams, orphans, backlog, round) =>
                 pins.length
                     ? '(3) PINS: apply each reported catalog pin + `catalog:` row below exactly once, preserving the existing group/order and ' +
                       'deduping semantically identical rows; verify each package + version against the published registry (Context7/exa/tavily ' +
-                      'against the official package docs; `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` over node_modules once installed) before applying; ' +
+                      'against the official package docs; `uv run python -m tools.assay api` over node_modules once installed) before applying; ' +
                       'confirm the area README group and `.api/<package>.md` catalog landed, repairing a missing folder-local part in place: ' +
                       JSON.stringify(pins, null, 1) +
                       '.'

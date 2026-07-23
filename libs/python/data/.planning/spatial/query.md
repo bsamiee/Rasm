@@ -135,7 +135,7 @@ class SpatialEngine(Struct, frozen=True):
                 raw = f"{name}_raw"
                 con.register(raw, table)
                 con.execute(f"CREATE VIEW {_ident(name)} AS SELECT * EXCLUDE wkb, ST_GeomFromWKB(wkb) AS geom FROM {_ident(raw)}")
-            return con.execute(plan.sql, list(plan.parameters)).fetch_arrow_table()
+            return con.execute(plan.sql, list(plan.parameters)).to_arrow_table()
 ```
 
 ## [03]-[RESEARCH]

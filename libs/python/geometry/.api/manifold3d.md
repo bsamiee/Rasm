@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_MANIFOLD3D]
 
-`manifold3d` supplies the geometrically-robust watertight mesh kernel for the geometry CSG/boolean rail: `Manifold` (3D solid, guaranteed-manifold boolean/extrude/revolve/refine/SDF/hull/Minkowski), `CrossSection` (2D polygon CSG and offset over Clipper2), `Mesh`/`Mesh64` (interleaved triangle-soup carriers with merge/run/normal/tangent channels for lossless round-trip), `ExecutionContext` (cancel/progress on long-running ingest/level-set/smooth), and `RayHit` (one hit on a ray-segment cast). The geometry owner composes lazy-transform chains, `batch_boolean` n-ary CSG, and the SDF `level_set` constructor into the spatial-operation union; it never re-implements Clipper2 offsetting, the manifold boolean kernel, marching-tetrahedra, or convex-hull. Compiled nanobind/scikit-build extension — the in-memory `Mesh`/`Mesh64` arrays are the wire to the data mesh codec, never a file.
+`manifold3d` owns the geometry branch's guaranteed-manifold CSG rail: watertight 3D boolean solids, 2D polygon boolean and offset over Clipper2, SDF level sets, convex hull and Minkowski morphology, and ray casting. Geometry owners compose its lazy transform chains, `batch_boolean` n-ary CSG, and the `level_set` SDF constructor into the spatial-operation union rather than re-implementing Clipper2 offsetting, the manifold boolean kernel, or convex hull. In-memory `Mesh`/`Mesh64` arrays wire straight to the data mesh codec, so this nanobind extension never opens a file.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,13 +9,11 @@
 - import: `import manifold3d`
 - owner: `geometry`
 - rail: geometry-csg / spatial-operations
-- installed: `3.5.1`
-- capability: guaranteed-manifold 3D boolean CSG, 2D polygon boolean/offset over Clipper2, lazy chained affine/warp transforms, SDF marching-tetrahedra level sets, convex hull (single + batch), Minkowski sum/difference, edge refinement and tolerance simplification, normal/curvature/arbitrary vertex-property computation, ray-segment casting, and async cancel/progress on long ops
+- capability: guaranteed-manifold 3D boolean CSG and 2D polygon boolean/offset over Clipper2, lazy affine/warp transforms, SDF marching-tetrahedra level sets, convex hull and Minkowski morphology, edge refinement and tolerance simplification, vertex normal/curvature/property computation, and ray-segment casting
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: geometry carriers
-- rail: geometry-csg
 
 | [INDEX] | [SYMBOL]           | [TYPE_FAMILY]     | [CAPABILITY]                                                                             |
 | :-----: | :----------------- | :---------------- | :--------------------------------------------------------------------------------------- |
@@ -27,9 +25,6 @@
 |  [06]   | `RayHit`           | ray-segment hit   | `face_id`, `distance`, `position`, `normal` for a single intersection                    |
 
 [PUBLIC_TYPE_SCOPE]: bounded vocabularies
-- rail: geometry-csg
-
-`FillRule` resolves self-intersecting contours into a clean section.
 
 | [INDEX] | [SYMBOL]   | [TYPE_FAMILY]  | [CAPABILITY]                                                                            |
 | :-----: | :--------- | :------------- | :-------------------------------------------------------------------------------------- |
@@ -41,9 +36,8 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: Manifold construction
-- rail: geometry-csg
 
-`Manifold(mesh)` ingests a `Mesh`/`Mesh64` (merging by the merge vectors, setting an `Error` status if not an oriented 2-manifold); the empty `Manifold()` is the identity element of boolean folds. Method surfaces elide the `Manifold.` prefix; primitive constructors default `circular_segments=0` and `center=False`; the `extrude`/`revolve` tail args are spelled on the `CrossSection` rows.
+`Manifold(mesh)` ingests a `Mesh`/`Mesh64`, merging by the merge vectors; the empty `Manifold()` is the identity element of boolean folds. Method surfaces elide the `Manifold.` prefix, primitive constructors default `circular_segments=0` and `center=False`, and the `extrude`/`revolve` tail args are spelled on the `CrossSection` rows.
 
 | [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] | [CAPABILITY]                                          |
 | :-----: | :-------------------------------------------------------- | :------------- | :---------------------------------------------------- |
@@ -58,13 +52,9 @@
 |  [09]   | `level_set(f, bounds, edgeLength, level=0, tolerance=-1)` | constructor    | SDF marching-tetrahedra over `f(x,y,z)->float`        |
 |  [10]   | `batch_boolean(manifolds, op: OpType)`                    | set operation  | n-ary CSG; empty=>identity, single=>no-op             |
 |  [11]   | `batch_hull(manifolds)` / `hull_points(pts: (N,3) f64)`   | constructor    | convex hull of a set of solids or a point cloud       |
-|  [12]   | `compose(manifolds)`                                      | set operation  | [DEPRECATED]; use `batch_boolean(.., OpType.Add)`     |
-|  [13]   | `reserve_ids(n) -> int`                                   | identity       | reserve n sequential mesh IDs for multi-material runs |
+|  [12]   | `reserve_ids(n) -> int`                                   | identity       | reserve n sequential mesh IDs for multi-material runs |
 
 [ENTRYPOINT_SCOPE]: Manifold operators, transforms, and lazy chaining
-- rail: geometry-csg
-
-Boolean operators `__add__`/`__sub__`/`__xor__` are union/difference/intersection; transforms are combined and applied lazily, so chained `.translate().rotate().scale()` collapses to one matrix.
 
 | [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY] | [CAPABILITY]                                 |
 | :-----: | :----------------------------------------------------------------- | :------------- | :------------------------------------------- |
@@ -81,9 +71,8 @@ Boolean operators `__add__`/`__sub__`/`__xor__` are union/difference/intersectio
 |  [11]   | `m.minkowski_sum(other)` / `m.minkowski_difference(other)`         | morphology     | morphological dilation / erosion             |
 
 [ENTRYPOINT_SCOPE]: Manifold mesh refinement and vertex properties
-- rail: geometry-csg
 
-`set_tolerance` increasing the value performs simplification; `simplify(tolerance)` returns a coarsened copy without changing the stored tolerance.
+`set_tolerance` simplifies as it raises the stored value; `simplify(tolerance)` returns a coarsened copy leaving the stored tolerance unchanged.
 
 | [INDEX] | [SURFACE]                                                            | [ENTRY_FAMILY] | [CAPABILITY]                                    |
 | :-----: | :------------------------------------------------------------------- | :------------- | :---------------------------------------------- |
@@ -99,7 +88,6 @@ Boolean operators `__add__`/`__sub__`/`__xor__` are union/difference/intersectio
 |  [10]   | `m.as_original()`                                                    | identity       | drop ancestor relations, mark as a new original |
 
 [ENTRYPOINT_SCOPE]: Manifold queries, export, and async
-- rail: geometry-csg
 
 | [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] | [CAPABILITY]                                              |
 | :-----: | :-------------------------------------------------------- | :------------- | :-------------------------------------------------------- |
@@ -118,9 +106,8 @@ Boolean operators `__add__`/`__sub__`/`__xor__` are union/difference/intersectio
 |  [13]   | `m.with_context(ctx: ExecutionContext)`                   | async          | attach context; consumed by next eager op (status/refine) |
 
 [ENTRYPOINT_SCOPE]: CrossSection operations
-- rail: geometry-csg
 
-`CrossSection(contours, fillrule=Positive)` unions the contours into an intersection-free section; operators and transforms mirror `Manifold`. Static factory surfaces elide the `CrossSection.` prefix.
+`CrossSection(contours, fillrule=Positive)` unions the contours into an intersection-free section; operators and transforms mirror `Manifold`, and static factory surfaces elide the `CrossSection.` prefix.
 
 | [INDEX] | [SURFACE]                                                                  | [ENTRY_FAMILY] | [CAPABILITY]                              |
 | :-----: | :------------------------------------------------------------------------- | :------------- | :---------------------------------------- |
@@ -141,7 +128,6 @@ Boolean operators `__add__`/`__sub__`/`__xor__` are union/difference/intersectio
 |  [15]   | `cs.bounds()` / `cs.is_empty()`                                            | query          | bounds / emptiness                        |
 
 [ENTRYPOINT_SCOPE]: module-level functions
-- rail: geometry-csg
 
 | [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [CAPABILITY]                                     |
 | :-----: | :------------------------------------------------------------------ | :------------- | :----------------------------------------------- |
@@ -153,26 +139,25 @@ Boolean operators `__add__`/`__sub__`/`__xor__` are union/difference/intersectio
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[CSG_TOPOLOGY]:
-- import: `import manifold3d` at boundary scope only; module-level import is banned by the manifest import policy.
-- boolean axis: `OpType.Add`=union, `OpType.Subtract`=difference (tail differenced from head), `OpType.Intersect`=intersection. Three-or-more-operand CSG folds through `batch_boolean(sequence, op)` (empty=>identity `Manifold`, single=>no-op), never a manual `reduce` over `+`/`-`/`^` — `batch_boolean` is the single n-ary owner. `compose` is deprecated; route topological union through `batch_boolean(.., OpType.Add)`.
-- transform axis: `transform`/`translate`/`rotate`/`scale`/`mirror`/`warp` are lazy — combined and applied on the next eager op, so a transform chain is one fused matrix, not n passes. Euler `rotate` is in z-y'-x" (yaw/pitch/roll) order, exact for multiples of 90 degrees.
-- mesh-carrier axis: `Mesh`/`Mesh64` carry `vert_properties` ((N, numProp) where cols 0..2 are XYZ, optional normals/curvature beyond), `tri_verts` ((N,3) index), plus `merge_from_vert`/`merge_to_vert` (manifold-stitching), `run_index`/`run_original_id`/`run_transform`/`run_flags` (multi-material runs), `face_id`, `halfedge_tangent`, and `tolerance`. `Mesh.merge()` best-effort re-stitches lost merge vectors after a file round-trip. `Manifold(mesh)` ingest sets a non-`NoError` `status()` rather than raising when the soup is not an oriented 2-manifold — gate on `status()`, not exceptions.
-- validation axis: every constructor that can fail sets `status() -> Error` (carrying through subsequent ops including NaN propagation); the boundary checks `status() == Error.NoError` and `is_empty()` rather than trusting a returned non-empty object. `level_set` requires a Python `f(x,y,z)->float` and explicit `bounds`/`edgeLength`; the SDF need not be a true distance or continuous.
-- ray axis: `ray_cast(origin, endpoint)` casts a finite segment and returns `list[RayHit]` sorted by distance (empty list = miss) — it is per-ray with no vectorized batch entry, so a ray-batch is a Python comprehension over the rays (the one CPU-bound spot handed to the geometry offload lane for large batches; a future release exposing a batch ray entry is a one-line arm change). `RayHit.face_id == -1` flags an invalid hit.
-- async axis: `ExecutionContext` (`cancel`/`cancelled`/`progress`) attaches via `with_context` and is consumed by the next eager op (status/refine family); long ingest/`level_set`/`smooth` also run context-bound directly via `ctx.from_mesh`/`ctx.level_set`/`ctx.smooth`, so a cancellable long CSG/SDF run is the context method, not a watchdog thread.
+[TOPOLOGY]:
+- Three-or-more-operand CSG folds through `batch_boolean(sequence, op)`, the single n-ary owner; a manual `reduce` over `+`/`-`/`^` is never the fold.
+- `transform`/`translate`/`rotate`/`scale`/`mirror`/`warp` are lazy — combined and applied on the next eager op, so a transform chain is one fused matrix. Euler `rotate` is z-y'-x" (yaw/pitch/roll) order, exact for multiples of 90 degrees.
+- `Manifold(mesh)` ingest sets a non-`NoError` `status()` when the soup is not an oriented 2-manifold rather than raising; the boundary gates on `status() == Error.NoError` and `is_empty()`, never a returned non-empty object. Status carries through subsequent ops, NaN propagation included.
+- `level_set` takes a Python `f(x,y,z)->float` with explicit `bounds`/`edgeLength`; the SDF need not be a true distance or continuous.
+- `ray_cast(origin, endpoint)` casts a finite segment and returns `list[RayHit]` sorted by distance, empty on miss; `RayHit.face_id == -1` flags an invalid hit.
+- A cancellable long ingest/`level_set`/`smooth` run is the `ExecutionContext` method: `with_context` attaches a context consumed by the next eager op, and `ctx.from_mesh`/`ctx.level_set`/`ctx.smooth` run the long op context-bound with progress and cancellation.
 
-[STACKING_LAW]:
-- `Mesh`/`Mesh64` are the in-memory wire to the data mesh codec: the geometry owner hands `to_mesh()`/`to_mesh64()` arrays (`vert_properties`/`tri_verts`) to `data` `MeshPayload`/GLB encode and ingests them back via the `Mesh` constructor; this kernel never opens a file handle. A `trimesh.Trimesh` round-trips through the `Mesh(vert_properties, tri_verts)` constructor (vertices padded to the property layout) and `to_mesh().vert_properties[:, :3]` / `tri_verts`, so trimesh conditioning and manifold3d CSG compose without a serialized blob.
-- the `level_set` SDF constructor is the bridge from a `compute`/`numerics` signed-distance field to a watertight solid: the field callable feeds `f`, and the resulting `Manifold` enters the same boolean/refine pipeline as primitive-built solids.
-- convex-hull and Minkowski (`hull`/`batch_hull`/`hull_points`, `minkowski_sum`/`minkowski_difference`) own the morphology/offset-in-3D concern the spatial-operation union dispatches to; the 2D analogue is `CrossSection.offset` over Clipper2 — neither is hand-rolled where this kernel is admitted.
+[STACKING]:
+- `trimesh`(`.api/trimesh.md`): a `Trimesh` round-trips through the `Mesh(vert_properties, tri_verts)` constructor and `to_mesh().vert_properties[:, :3]`/`tri_verts`, so trimesh conditioning and manifold3d CSG compose without a serialized blob.
+- data mesh codec: `to_mesh()`/`to_mesh64()` hand `vert_properties`/`tri_verts` to the GLB/`MeshPayload` encode and re-ingest through the `Mesh` constructor; the kernel never opens a file handle.
+- `level_set` bridges a compute/numerics signed-distance field to a watertight solid that enters the same boolean/refine pipeline as primitive-built solids.
+- within-lib morphology: `hull`/`batch_hull`/`hull_points` and `minkowski_sum`/`minkowski_difference` own the 3D offset/morphology concern the spatial-operation union dispatches to; `CrossSection.offset` over Clipper2 is the 2D analogue.
 
-## [05]-[LOCAL_ADMISSION]
+[LOCAL_ADMISSION]:
+- `manifold3d` is the admitted exact-boolean and clearance backend for the geometry branch; the mesh, spatial, and CSG owners compose it rather than a parallel boolean or offset surface.
 
 [RAIL_LAW]:
 - Package: `manifold3d`
 - Owns: guaranteed-manifold 3D boolean CSG, 2D polygon boolean/offset over Clipper2, lazy affine/warp transforms, SDF marching-tetrahedra level sets, convex hull and Minkowski morphology, edge refinement and tolerance simplification, vertex normal/curvature/property computation, and ray-segment casting
 - Accept: `Manifold`/`CrossSection` values from primitives, `Mesh`/`Mesh64` round-trips, SDF level sets, or hull/Minkowski; in-memory triangle arrays from the data mesh codec
-- Reject: hand-rolled boolean mesh ops, hand-rolled Clipper2 offsetting, a manual `reduce` over `+`/`-`/`^` where `batch_boolean` owns n-ary CSG, non-manifold soup trusted without a `status()` gate, a mesh-file/GLB encode that belongs to the data codec, and the deprecated `compose` where `batch_boolean(OpType.Add)` is the union owner
-
-[CAPTURE_GAP]:
+- Reject: hand-rolled boolean mesh ops, hand-rolled Clipper2 offsetting, a manual `reduce` over `+`/`-`/`^` where `batch_boolean` owns n-ary CSG, non-manifold soup trusted without a `status()` gate, and a mesh-file/GLB encode that belongs to the data codec

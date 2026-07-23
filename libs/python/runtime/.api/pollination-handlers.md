@@ -1,99 +1,64 @@
 # [PY_RUNTIME_API_POLLINATION_HANDLERS]
 
-`pollination-handlers` (import `pollination_handlers`) is the execution-time IO coercion layer for the runtime recipe rail: the flat catalog of `inputs.*` and `outputs.*` functions that a recipe's queenbee `IOAliasHandler(language, module, function, index)` names, that `lbt-recipes` resolves by `importlib.import_module(module)` + `getattr(module, function)`, and that the runtime invokes at two boundaries of a recipe run — coercing each job input value to the artifact/scalar the `queenbee local run` subprocess expects (`inputs.*`, ordered by `index` for chained handlers), and reading the finished result folder back into ladybug `DataCollection`s and summary dicts (`outputs.*`). It pairs with `runtime/.api/queenbee.md` (the `IOAliasHandler`/`JobArgument` schema that addresses these functions) and `runtime/.api/lbt-recipes.md` (the `_RecipeParameter` resolver and the `RecipeInput.handle_value`/`RecipeOutput.value` invocation sites). The geometry energy domain authors which handler an input uses (the geometry energy pages, `geometry/.planning/energy/simulate.md`); the runtime owns resolving and running them under its process-resource lane. The package owner composes the handler catalog into the recipe IO-coercion seam; it never re-implements handler resolution, the chained-handler ordering, or the result-folder parsing this package and `lbt-recipes` already own.
+`pollination-handlers` (import `pollination_handlers`) owns execution-time IO coercion for the recipe rail: the flat `inputs.*`/`outputs.*` catalog a recipe's queenbee `IOAliasHandler` addresses by `module`+`function`, that `importlib` resolves and the runtime invokes at the two recipe-run boundaries — a job input coerced to the artifact the `queenbee local run` subprocess expects, and the result folder read back into ladybug `DataCollection`s. queenbee owns the addressing schema, `lbt-recipes` the resolver and invocation sites.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pollination-handlers`
-- package: `pollination-handlers`
-- import: `import pollination_handlers`
-- owner: `runtime`
-- rail: recipe-execution / io-coercion
-- license: `AGPL-3.0` (network copyleft; the binding admission flag for this distribution)
+- package: `pollination-handlers` (AGPL-3.0, network copyleft)
+- module: `pollination_handlers`
 - abi: pure-Python (`py2.py3-none-any`, purelib; no native extension)
-- depends: `lbt-dragonfly (>=0.9.453)` — honeybee/honeybee-energy/honeybee-radiance, ladybug/ladybug-comfort, dragonfly/dragonfly-energy (the domain classes the handlers read and write)
-- entry points: none (library only; functions are addressed by `module`+`function` from a queenbee `IOAliasHandler` and resolved via `importlib`)
-- capability: the input-coercion handlers (object/value -> recipe-input artifact) and result-reader handlers (result folder -> ladybug `DataCollection`/dict) that the recipe executor binds and invokes at the recipe IO boundary
+- rail: recipe-execution / io-coercion
+- depends: `lbt-dragonfly` — the honeybee/ladybug/dragonfly domain classes the handlers read and write
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: package layout (resolution targets)
-- rail: io-coercion
+[PUBLIC_TYPE_SCOPE]: module-tree layout (resolution targets)
 
-No classes — two module trees of pure functions addressed by dotted `module`+`function`, rooted at `pollination_handlers.*`. The module path is the resolution contract: `lbt-recipes` calls `importlib.import_module('pollination_handlers.inputs.model')` then `getattr(mod, 'model_to_json')`.
-
-| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY] | [CAPABILITY]                                                                       |
-| :-----: | :--------------------------------- | :------------ | :--------------------------------------------------------------------------------- |
-|  [01]   | `inputs.*`                         | module tree   | resolved at job-argument time: value -> recipe-input artifact                      |
-|  [02]   | `outputs.*`                        | module tree   | resolved at run-completion time: result folder -> ladybug object/dict              |
-|  [03]   | `inputs.helper` / `outputs.helper` | helper module | tempfile/CSV writers; `read_sensor_grid_result`/`read_grid_results` shared readers |
+No classes: two function module-trees rooted at `pollination_handlers.*`, addressed by dotted `module`+`function` — `inputs.*` coerces values to recipe-input artifacts, `outputs.*` reads result folders to ladybug objects, and `inputs.helper`/`outputs.helper` carry the shared tempfile, CSV, and per-grid-reader primitives.
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: input-coercion handlers (invoked by `RecipeInput.handle_value`)
-- rail: io-coercion
 
-At `handle_value` the executor runs the handler chain (ordered by `IOAliasHandler.index`) on the input value, then casts to the `DAGInput` type. Each handler is polymorphic on the value — a domain object is serialized to a temp artifact, a path/scalar is validated and returned. The `[SURFACE]` globs name the coercion families; the exact per-family handler members follow the table.
+Each handler is polymorphic on the value: a domain object serializes to a temp artifact; a path or scalar validates and returns. Precondition `_check` variants assert their named collection exists before serializing; the wea timestep variants assert timestep 1 or annual coverage.
 
-| [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY]   | [CAPABILITY]                                        |
-| :-----: | :----------------------------------------------------------- | :--------------- | :-------------------------------------------------- |
-|  [01]   | `inputs.model.*`                                             | model coercion   | honeybee/dragonfly `Model` \| path -> HBJSON/DFJSON |
-|  [02]   | `inputs.wea.*` / `inputs.ddy.*`                              | weather coercion | `Wea`/`EPW`/`DDY` \| path -> weather artifact       |
-|  [03]   | `inputs.simulation.*`                                        | sim coercion     | sim-param/measure/list coercion                     |
-|  [04]   | `inputs.data.*` / `inputs.schedule.*`                        | data coercion    | scalar \| `DataCollection` -> str/CSV/file          |
-|  [05]   | `inputs.{north,runperiod,emissions,pit,postprocess}.*`       | value coercion   | orientation/period/emissions/metric coercion        |
-|  [06]   | `inputs.bool_options.*` / `inputs.helper.bool_option_to_str` | option coercion  | bool/option -> the CLI flag string the recipe wants |
-
-Per-family handler members:
-- [01]-[MODEL]: `model_to_json(model_obj)`, precondition variants `model_to_json_{room,hvac,grid,grid_room,view}_check` (assert Rooms/HVAC/SensorGrids/Views exist before serializing), `model_dragonfly_to_json`.
-- [02]-[WEATHER]: `wea_handler`, `wea_handler_timestep_check`, `wea_handler_timestep_annual_check` (assert timestep==1 / annual coverage), `ddy_handler`.
-- [03]-[SIM]: `energy_sim_par_to_json`, `measures_to_folder`, `list_to_additional_strings`, `list_to_additional_idf`, `viz_variables_to_string`, `standard_to_str`.
-- [04]-[DATA]: `value_or_data_to_str`, `value_or_data_to_file`, `value_or_data_to_air_speed_file`, `value_or_data_to_met_file`, `value_or_data_to_clo_file`, `schedule.schedule_to_csv`, `schedule.data_to_csv`.
-- [05]-[VALUE]: `north.north_vector_to_angle`, `runperiod.run_period_to_str`, `emissions.location_to_electricity_emissions`, `pit.point_in_time_metric_to_str`, `postprocess.grid_metrics`.
-- [06]-[OPTION]: `use_multiplier_to_str`, `is_residential_to_str`, `cloudy_bool_to_str`, `sky_view_metric_to_str`, `visible_vs_solar_to_str`, `glare_control_devices_to_str`, `filter_des_days_to_str`, `skip_overture_to_str`, `write_set_map_to_str`, `bldg_lighting_to_str`, `helper.bool_option_to_str`.
+- [01]-[MODEL] `inputs.model`: honeybee/dragonfly `Model` or path -> HBJSON/DFJSON — `model_to_json` `model_to_json_room_check` `model_to_json_hvac_check` `model_to_json_grid_check` `model_to_json_grid_room_check` `model_to_json_view_check` `model_dragonfly_to_json`
+- [02]-[WEATHER] `inputs.wea`/`inputs.ddy`: `Wea`/`EPW`/`DDY` or path -> weather artifact — `wea_handler` `wea_handler_timestep_check` `wea_handler_timestep_annual_check` `ddy_handler`
+- [03]-[SIM] `inputs.simulation`: sim-param, measure, and list coercion — `energy_sim_par_to_json` `measures_to_folder` `list_to_additional_strings` `list_to_additional_idf` `viz_variables_to_string` `standard_to_str`
+- [04]-[DATA] `inputs.data`/`inputs.schedule`: scalar or `DataCollection` -> str/CSV/file — `value_or_data_to_str` `value_or_data_to_file` `value_or_data_to_air_speed_file` `value_or_data_to_met_file` `value_or_data_to_clo_file` `schedule.schedule_to_csv` `schedule.data_to_csv`
+- [05]-[VALUE] `inputs.{north,runperiod,emissions,pit,postprocess}`: orientation, period, emissions, and metric coercion — `north.north_vector_to_angle` `runperiod.run_period_to_str` `emissions.location_to_electricity_emissions` `pit.point_in_time_metric_to_str` `postprocess.grid_metrics`
+- [06]-[OPTION] `inputs.bool_options`: bool or option -> the recipe CLI flag string — `use_multiplier_to_str` `is_residential_to_str` `cloudy_bool_to_str` `sky_view_metric_to_str` `visible_vs_solar_to_str` `glare_control_devices_to_str` `filter_des_days_to_str` `skip_overture_to_str` `write_set_map_to_str` `bldg_lighting_to_str` `helper.bool_option_to_str`
 
 [ENTRYPOINT_SCOPE]: result-reader handlers (invoked by `RecipeOutput.value`)
-- rail: io-coercion
 
-At `RecipeOutput.value(simulation_folder)` the executor joins the output path and runs the output handler chain, turning the raw result folder into a typed Python object the job receipt carries. The `[SURFACE]` globs name the reader families; the exact per-family handler members follow the table.
+Each reader turns the joined result folder into the typed ladybug object or summary dict the job receipt carries.
 
-| [INDEX] | [SURFACE]                             | [ENTRY_FAMILY]    | [CAPABILITY]                                       |
-| :-----: | :------------------------------------ | :---------------- | :------------------------------------------------- |
-|  [01]   | `outputs.daylight.read_*_from_folder` | metric reader     | radiance result folder -> per-sensor metric lists  |
-|  [02]   | `outputs.daylight.*`                  | collection reader | sorted `.ill` files, images, LEED `DataCollection` |
-|  [03]   | `outputs.daylight.*`                  | summary reader    | LEED/credit summaries and grid-metric dicts        |
-|  [04]   | `outputs.{comfort,eui,summary}.*`     | summary reader    | comfort percent, EUI, summary properties/contents  |
-|  [05]   | `outputs.helper.*`                    | reader primitive  | shared per-grid result-file readers                |
-
-Per-family handler members:
-- [01]-[METRIC]: `read_da_from_folder`, `read_udi_from_folder`, `read_cda_from_folder`, `read_ga_from_folder`, `read_df_from_folder`, `read_pit_from_folder`, `read_hours_from_folder`, `read_ase_from_folder`.
-- [02]-[COLLECTION]: `sort_ill_from_folder`, `read_images_from_folder`, `read_leed_datacollection_from_folder`.
-- [03]-[SUMMARY]: `read_leed_summary_grid`, `read_leed_shade_transmittance_schedule`, `read_grid_metrics`, `ill_credit_json_from_path`, `read_json_dict`, `read_json_summary_list`.
-- [04]-[OTHER]: `comfort.read_comfort_percent_from_folder`, `eui.eui_json_from_path`, `summary.json_properties_from_path`, `summary.contents_from_folder`.
-- [05]-[PRIMITIVE]: `read_sensor_grid_result(result_folder, extension, grid_key, is_percent=True, factor=1)`, `read_grid_results(result_folder, extension, grid_key, is_percent=True, factor=1)`.
+- [01]-[METRIC] `outputs.daylight.read_*_from_folder`: radiance result folder -> per-sensor metric lists — `read_da_from_folder` `read_udi_from_folder` `read_cda_from_folder` `read_ga_from_folder` `read_df_from_folder` `read_pit_from_folder` `read_hours_from_folder` `read_ase_from_folder`
+- [02]-[COLLECTION] `outputs.daylight`: sorted `.ill` files, images, and LEED `DataCollection`s — `sort_ill_from_folder` `read_images_from_folder` `read_leed_datacollection_from_folder`
+- [03]-[SUMMARY] `outputs.daylight`: LEED/credit summaries and grid-metric dicts — `read_leed_summary_grid` `read_leed_shade_transmittance_schedule` `read_grid_metrics` `ill_credit_json_from_path` `read_json_dict` `read_json_summary_list`
+- [04]-[OTHER] `outputs.{comfort,eui,summary}`: comfort percent, EUI, and summary properties/contents — `comfort.read_comfort_percent_from_folder` `eui.eui_json_from_path` `summary.json_properties_from_path` `summary.contents_from_folder`
+- [05]-[PRIMITIVE] `outputs.helper`: shared per-grid result readers over `(result_folder, extension, grid_key, is_percent=True, factor=1)` — `read_sensor_grid_result` `read_grid_results` (`read_grid_results` for one value per grid)
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[BINDING_TOPOLOGY]:
-- resolution law: a handler is bound, not imported statically — `lbt_recipes._RecipeParameter` reads the recipe alias `handler` spec and resolves `importlib.import_module(handler['module'])` + `getattr(module, handler['function'])`. The `module`+`function` string from the queenbee `IOAliasHandler` is the only address; the runtime never hard-codes a handler import.
-- chain-order law: when an input declares more than one handler they run in `IOAliasHandler.index` order (output of one feeds the next); the executor applies the full chain in `handle_value` before casting. Handlers are composable, not single-shot.
-- boundary law: input handlers run at `RecipeInput.handle_value` (before the `inputs.json` is written for the subprocess) and output handlers at `RecipeOutput.value` (after the subprocess completes). Both run in the runtime's process, not inside the `queenbee local run` luigi worker — they bracket the subprocess.
-- purity law: handlers are pure value maps with no recipe-execution side effects (input handlers only write temp artifacts under `inputs.helper.get_tempfile`); a failing precondition raises `ValueError`, which the runtime lifts into a typed boundary fault at the IO seam.
+[TOPOLOGY]:
+- resolution: a handler binds by address, never a static import — `lbt-recipes` `_RecipeParameter` resolves `importlib.import_module(module)` + `getattr(module, function)` from the queenbee `IOAliasHandler`, whose `module`+`function` is the sole handler address.
+- chaining: multiple handlers on one input run in `IOAliasHandler.index` order, each output feeding the next, the full chain applied in `handle_value` before the `DAGInput` cast.
+- boundary: input handlers run at `RecipeInput.handle_value` before `inputs.json` writes, output handlers at `RecipeOutput.value` after the subprocess exits; both bracket the `queenbee local run` luigi worker in the runtime process, never inside it.
+- purity: handlers are pure value maps writing only temp artifacts under `inputs.helper.get_tempfile`; a failed precondition raises `ValueError` the runtime lifts into a typed IO-seam boundary fault.
 
-[STACK_LAW]:
-- `queenbee` (schema): the `IOAliasHandler(language='python', module=..., function=..., index=...)` that addresses a handler and the `JobArgument` whose value the input handler coerces are queenbee models (`runtime/.api/queenbee.md`).
-- `lbt-recipes` (resolver/invoker): `_RecipeParameter` resolves the handler via `importlib`; `RecipeInput.handle_value` and `RecipeOutput.value` are the invocation sites; `RecipeInput.INPUT_TYPES` casts the handler output to the `DAGInput` python type (`runtime/.api/lbt-recipes.md`).
-- runtime rails: handler invocation rides the recipe-execution process lane; a handler `ValueError` (missing rooms/grids, bad path) lifts into the boundary-fault `Result` rail and the run receipt, never an inline exception; the bracketing input/output coercion is part of the recipe-run OpenTelemetry span.
-- domain authoring: which handler an input uses is the geometry energy domain's choice (the geometry energy pages, `geometry/.planning/energy/simulate.md`); the runtime owns resolving and running it.
+[STACKING]:
+- `queenbee`(`queenbee.md`): the `IOAliasHandler` (`language`/`module`/`function`/`index`) addressing a handler and the `JobArgument` (`name`/`value`) the input handler coerces are queenbee models.
+- `lbt-recipes`(`lbt-recipes.md`): `_RecipeParameter` is the `importlib` resolution site, `RecipeInput.handle_value`/`RecipeOutput.value` the invocation sites, and `RecipeInput.INPUT_TYPES` casts the handler output to the `DAGInput` python type.
+- runtime rails: handler invocation rides the recipe-execution process lane inside the recipe-run OpenTelemetry span; a handler `ValueError` lifts into the boundary-fault `Result` rail and the run receipt.
 
-## [05]-[LOCAL_ADMISSION]
+[LOCAL_ADMISSION]:
+- AGPL-3.0: network-copyleft — handlers run in the recipe-execution process bracketing a subprocess, never linked into a distributed library surface; the license is the binding admission flag.
+- authoring boundary: the geometry energy domain authors which handler each input uses; this catalog owns the execution-time resolution and invocation of the same package.
 
 [RAIL_LAW]:
 - Package: `pollination-handlers`
-- Owns: the input-coercion and result-reader handler functions the recipe executor binds at the IO boundary — value-to-artifact coercion before the subprocess, result-folder-to-`DataCollection` reading after it
-- Accept: `module`+`function` addressing from a queenbee `IOAliasHandler`, `importlib`-based resolution by `lbt-recipes`, `index`-ordered chained handlers, invocation at `RecipeInput.handle_value`/`RecipeOutput.value` bracketing the `queenbee local run` subprocess, handler `ValueError` lifted into the boundary-fault rail
-- Reject: static/hard-coded handler imports, re-implementing handler resolution or the chained-handler ordering, running a handler inside the luigi worker rather than bracketing the subprocess, a parallel result-folder parser, swallowing a handler `ValueError` instead of lifting it into the receipt
-
-[CAPTURE_GAP]:
-- AGPL-3.0: this distribution is network-copyleft; handlers run in the recipe-execution process bracketing a subprocess, never linked into a distributed library surface. The license is the binding admission flag.
-- domain authoring: the geometry energy domain owns which handler each input uses; this catalog is the execution-time resolution + invocation surface of the same package (the geometry energy pages, `geometry/.planning/energy/simulate.md`).
+- Owns: the input-coercion and result-reader handler functions the recipe executor binds at the IO boundary — value-to-artifact before the subprocess, result-folder-to-`DataCollection` after it
+- Accept: `module`+`function` addressing from a queenbee `IOAliasHandler`, `importlib` resolution by `lbt-recipes`, `index`-ordered chained handlers, invocation at `RecipeInput.handle_value`/`RecipeOutput.value` bracketing the `queenbee local run` subprocess, a handler `ValueError` lifted into the boundary-fault rail
+- Reject: a static handler import, re-implemented handler resolution or chain ordering, a handler run inside the luigi worker, a parallel result-folder parser, a swallowed handler `ValueError`

@@ -47,13 +47,12 @@
 [PUBLIC_TYPE_SCOPE]: the `CobieModel` store (`Xbim.IO.CobieExpress`)
 - note: `CobieModel : IModel, IDisposable` holds the entity graph, transaction log, and serialization surface; author in a `BeginTransaction` scope, serialize through the save family.
 
-| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]    | [CAPABILITY]                                                               |
-| :-----: | :------------------------------------- | :--------------- | :------------------------------------------------------------------------- |
-|  [01]   | `CobieModel`                           | model store      | `: IModel, IDisposable` — the COBie entity store (members [01])            |
-|  [02]   | `COBieModelProviderFactory`            | provider factory | `: IModelProviderFactory` — model-provider wiring (`CreateProvider`/`Use`) |
-|  [03]   | `AttributeTypeResolver` (`.Resolvers`) | type resolver    | `: ITypeResolver` — resolves COBie attribute value types on load           |
-|  [04]   | `ExcelTypeEnum` (`Xbim.IO.Table`)      | spreadsheet kind | XLS/XLSX selector for the `ExportToTable(Stream, …)` overload              |
-|  [05]   | `ModelMapping` (`Xbim.IO.Table`)       | table mapping    | `GetMapping()` mapping for `ExportToTable`/`ImportFromTable`               |
+| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]    | [CAPABILITY]                                                     |
+| :-----: | :------------------------------------- | :--------------- | :--------------------------------------------------------------- |
+|  [01]   | `CobieModel`                           | model store      | `: IModel, IDisposable` — the COBie entity store (members [01])  |
+|  [02]   | `AttributeTypeResolver` (`.Resolvers`) | type resolver    | `: ITypeResolver` — resolves COBie attribute value types on load |
+|  [03]   | `ExcelTypeEnum` (`Xbim.IO.Table`)      | spreadsheet kind | XLS/XLSX selector for the `ExportToTable(Stream, …)` overload    |
+|  [04]   | `ModelMapping` (`Xbim.IO.Table`)       | table mapping    | `GetMapping()` mapping for `ExportToTable`/`ImportFromTable`     |
 
 - [01]-[STORE]: `CobieModel` exposes `Instances`/`Metadata`/`ModelFactors`/`SchemaVersion` + transactions.
 

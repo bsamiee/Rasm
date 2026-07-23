@@ -187,7 +187,7 @@
 [STACKING]:
 - `arro3-core`(`arro3-core.md`): `load_cdf`/`deletion_vectors`/`QueryBuilder.execute` return an `arro3.core.RecordBatchReader` and `get_add_actions` an `arro3.core.Table`, drained via `.read_all()` into the columnar interop owner with no Python-row hop.
 - `pyarrow`(`pyarrow.md`), `datafusion`(`datafusion.md`), `duckdb`(`duckdb.md`): `to_pyarrow_dataset()` is a pushdown-capable `pa.dataset.Dataset` a `SessionContext.register_table` or `con.register` adopts directly, so a Delta table joins Parquet and object-store sources under one engine's SQL with pruning pushed into the Delta scan, never an eager `to_pyarrow_table` copy.
-- `polars`(`polars.md`): `write_deltalake`/`merge` take any Arrow-exportable, so a `LazyFrame.collect()`, a `datafusion` `DataFrame.to_arrow_table()`, or a `duckdb` `fetch_record_batch()` writes straight into a commit.
+- `polars`(`polars.md`): `write_deltalake`/`merge` take any Arrow-exportable, so a `LazyFrame.collect()`, a `datafusion` `DataFrame.to_arrow_table()`, or a `duckdb` `to_arrow_reader()` writes straight into a commit.
 - `substrait`(`substrait.md`): `QueryBuilder` runs embedded DataFusion SQL in-process, while cross-engine plan exchange registers the Delta dataset into the `datafusion`/`duckdb-substrait` spine, so SQL stays local while plans cross engines.
 - within-lib: the data folder's tabular lakehouse rail owns Delta as its ACID table format; `DeltaTable` is the sole lifecycle owner and `write_deltalake` the single write entry, and `CommitProperties.app_transactions` carries an idempotent `Transaction` app-id under a `stamina` `retry_context` keyed by `max_commit_retries`.
 

@@ -16,7 +16,7 @@ Point-cloud and 3D-scan registration over an N-cloud session, not a fixed pair: 
 - Auto: `_engine` resolves the bootstrap backend once per worker lane — `KISS_MATCHER` when `kiss_matcher` resolves, else `OPEN3D_FGR` — and every arm (`GLOBAL`, each `MULTIWAY` edge) reuses that one decision; the tensor arms share the `_tukey` robust kernel and the `_from_tensor` projector rather than re-reading the `open3d` result per arm.
 - Receipt: emission is the weave's harvest — the conforming `RegistrationResult.contribute` streams once on the cleared `Ok`, never an inline emit or page-local `@receipted` leg. `graduates` measures two keys against two policy ceilings, `inlier_rmse` against `rmse_ceiling` and the `1 - fitness` misfit against `misfit_ceiling`, so a coarse `GLOBAL` pose minting a `0.0` placeholder RMSE cannot clear on the vacuous key alone — its inlier-ratio misfit must clear the floor too. That misfit rides the graduation owner's single `_admit` residual-over-ceiling direction, so no second admission direction is minted here.
 - Bench: `bench` rides the graduation `bench_seam` fold over the whole `register` crossing — arity re-proof, offload, solver, weave — cloud-size-parameterized: the subject keys the exact `RegistrationMode` row and the source point count as `rasm.geometry.scan.registration.<mode>.p<points>`, so a latency row compares like-for-like across scan densities; latency and throughput rows per arm, zero instrument rows, graduation's `bench_terminal` wrapping the fold in the runtime `JobRun.bounded` envelope for a process-terminal run.
-- Packages: `kiss_matcher`, `open3d`, `small_gicp` (the three compiled registration backends, each imported function-local at boundary scope under `# noqa: PLC0415`, never module-top), `numpy` (transform assembly via `np.eye`/`np.ravel`/`np.reshape`, never the uncatalogued `np.identity`/`ndarray.flatten`), `expression` (`Block.mapi` the per-edge multiway fold), `msgspec`, and the geometry graduation spine and runtime rails per the fence imports.
+- Packages: `kiss_matcher`, `open3d`, `small_gicp` (the three compiled registration backends, each imported function-local at boundary scope under `# ruff:ignore[import-outside-top-level]`, never module-top), `numpy` (transform assembly via `np.eye`/`np.ravel`/`np.reshape`, never the uncatalogued `np.identity`/`ndarray.flatten`), `expression` (`Block.mapi` the per-edge multiway fold), `msgspec`, and the geometry graduation spine and runtime rails per the fence imports.
 - Growth: a new registration engine is one `RegistrationMode` row and one kernel arm; a new bootstrap backend is one `BootstrapEngine` member and one `_bootstrap` arm; a stricter graduation bar is a `RegistrationPolicy` ceiling the caller passes. `registration_ransac_based_on_feature_matching` is the named next `BootstrapEngine` row when a scene defeats both standing engines.
 - Boundary: the cleaned input `Cloud` is `scan/ingestion.md#INGESTION`'s product and carrier mint; deviation against a reference is `scan/deviation.md#DEVIATION`; surface reconstruction is `scan/reconstruction.md#RECONSTRUCTION`. No mesh repair, tessellation, or durable store here.
 
@@ -159,7 +159,7 @@ def _engine() -> BootstrapEngine:
 
 
 def _tukey(policy: RegistrationPolicy) -> "o3d.t.pipelines.registration.robust_kernel.RobustKernel":
-    import open3d as o3d  # noqa: PLC0415
+    import open3d as o3d  # ruff:ignore[import-outside-top-level]
 
     rk = o3d.t.pipelines.registration.robust_kernel
     return rk.RobustKernel(rk.RobustKernelMethod.TukeyLoss, policy.tukey_k)
@@ -175,7 +175,7 @@ def _homogeneous(rotation: np.ndarray, translation: np.ndarray) -> np.ndarray:
 def _bootstrap(source: Cloud, target: Cloud, engine: BootstrapEngine, policy: RegistrationPolicy) -> RegistrationResult:
     match engine:
         case BootstrapEngine.KISS_MATCHER:
-            import kiss_matcher  # noqa: PLC0415
+            import kiss_matcher  # ruff:ignore[import-outside-top-level]
 
             config = kiss_matcher.KISSMatcherConfig(
                 voxel_size=policy.voxel,
@@ -209,7 +209,7 @@ def _bootstrap(source: Cloud, target: Cloud, engine: BootstrapEngine, policy: Re
                 },
             )
         case BootstrapEngine.OPEN3D_FGR:
-            import open3d as o3d  # noqa: PLC0415
+            import open3d as o3d  # ruff:ignore[import-outside-top-level]
 
             reg = o3d.pipelines.registration
             search = o3d.geometry.KDTreeSearchParamHybrid(policy.voxel * 5, 100)
@@ -253,7 +253,7 @@ def _edge(
 
 
 def _multiway(session: RegistrationSession, policy: RegistrationPolicy, tap: "Queue[PulseFact | None]") -> RegistrationResult:
-    import open3d as o3d  # noqa: PLC0415
+    import open3d as o3d  # ruff:ignore[import-outside-top-level]
 
     reg = o3d.pipelines.registration
     engine = _engine()  # one engine read; every edge solves on the same bootstrap engine
@@ -297,14 +297,14 @@ def _register_kernel(
 ) -> RegistrationResult:
     # module-level HOSTILE kernel: Cloud carriers cross the process seam as arrays, each arm re-inflates the o3d form
     # its solver needs, and a raise converts through the lane's async_boundary onto the rail
-    import open3d as o3d  # noqa: PLC0415
+    import open3d as o3d  # ruff:ignore[import-outside-top-level]
 
     source, target = session[0], session[1]
     pulsed(tap, GeometryPulse.REGISTRATION, PulseBeat(stage=f"solve.{mode.value}", done=0, total=1))  # solve-start beat before the native arm
     reg_t = o3d.t.pipelines.registration
     match mode:
         case RegistrationMode.VGICP:
-            import small_gicp  # noqa: PLC0415
+            import small_gicp  # ruff:ignore[import-outside-top-level]
 
             # small_gicp.align consumes bare (N, 3) arrays, so the carrier feeds it with no o3d rebuild at all
             result = small_gicp.align(

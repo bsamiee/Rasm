@@ -558,6 +558,4 @@ def arrow_bytes(table: pa.Table) -> Buffer:
 
 [DUCKDB_PROFILE_PAYLOAD]-[BLOCKED]: What exact return type and key schema does `DuckDBPyConnection.get_profiling_information()` expose after profiling is enabled; route the signature into `libs/python/data/.api/duckdb.md` before admitting a native decoder here.
 
-[POLARS_PROFILE_PAYLOAD]-[BLOCKED]: What exact tuple and timing-frame schema does `LazyFrame.profile()` return; route the signature into `libs/python/data/.api/polars.md` before admitting a native timing adapter here.
-
 (none)

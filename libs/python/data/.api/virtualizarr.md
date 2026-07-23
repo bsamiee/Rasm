@@ -1,6 +1,6 @@
 # [PY_DATA_API_VIRTUALIZARR]
 
-`virtualizarr` mints virtual Zarr datasets over remote archival files for the data virtual-dataset rail: a per-format `Parser` reads a URL through an `ObjectStoreRegistry` into a `ManifestStore` — a zarr-v3 read store of `ManifestArray` chunk-reference views — that `to_virtual_dataset` lifts into an xarray `Dataset` with no bytes copied, then the `virtualize` accessor exports to Icechunk or Kerchunk. `virtualizarr` owns the manifest reference model, parser dispatch, and reference serialization; byte fetch is the registry-resolved object store's, the `Dataset`/`DataTree` algebra xarray's.
+`virtualizarr` mints virtual Zarr datasets over remote archival files for the data virtual-dataset rail: a per-format `Parser` reads a URL through an `ObjectStoreRegistry` into a `ManifestStore` — a zarr-v3 read store of `ManifestArray` chunk-reference views — that `to_virtual_dataset` lifts into an xarray `Dataset` with no bytes copied, then the `vz` accessor exports to Icechunk or Kerchunk. `virtualizarr` owns the manifest reference model, parser dispatch, and reference serialization; byte fetch is the registry-resolved object store's, the `Dataset`/`DataTree` algebra xarray's.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,7 +9,7 @@
 - module: `virtualizarr`
 - namespaces: `virtualizarr.manifests`, `virtualizarr.parsers`, `virtualizarr.parallel`, `virtualizarr.codecs`
 - rail: virtual-dataset
-- capability: `Parser`-dispatched `ManifestStore` construction over registry-resolved object stores, eager `loadable_variables` materialization, executor-driven multi-file combine, zarr-v2↔v3 codec-config bridging, and `virtualize` accessor export to Kerchunk and Icechunk
+- capability: `Parser`-dispatched `ManifestStore` construction over registry-resolved object stores, eager `loadable_variables` materialization, executor-driven multi-file combine, zarr-v2↔v3 codec-config bridging, and `vz` accessor export to Kerchunk and Icechunk
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -59,13 +59,14 @@ Each `Parser` is a runtime-checkable `Protocol` — `__call__(url, registry) -> 
 | [INDEX] | [SYMBOL]                                                                                 | [CAPABILITY]                     |
 | :-----: | :--------------------------------------------------------------------------------------- | :------------------------------- |
 |  [01]   | `parsers.HDFParser(group, drop_variables, reader_factory)`                               | HDF5 and NetCDF4 files           |
-|  [02]   | `parsers.NetCDF3Parser(group, skip_variables, reader_options)`                           | classic NetCDF3 files            |
-|  [03]   | `parsers.ZarrParser(group, skip_variables)`                                              | Zarr v2/v3 stores                |
-|  [04]   | `parsers.DMRPPParser(group, skip_variables)`                                             | NASA DMR++ sidecar files         |
-|  [05]   | `parsers.FITSParser(group, skip_variables, reader_options)`                              | FITS astronomical image files    |
-|  [06]   | `parsers.KerchunkJSONParser(group, fs_root, skip_variables)`                             | kerchunk JSON reference files    |
-|  [07]   | `parsers.KerchunkParquetParser(group, fs_root, skip_variables, reader_options)`          | kerchunk Parquet reference files |
-|  [08]   | `parsers.IcechunkParser(*, branch, tag, snapshot_id, group, skip_variables, batch_size)` | Icechunk snapshot read           |
+|  [02]   | `parsers.HDF4Parser(group, skip_variables, reader_options)`                              | HDF4 files (via `kerchunk.hdf4`) |
+|  [03]   | `parsers.NetCDF3Parser(group, skip_variables, reader_options)`                           | classic NetCDF3 files            |
+|  [04]   | `parsers.ZarrParser(group, skip_variables)`                                              | Zarr v2/v3 stores                |
+|  [05]   | `parsers.DMRPPParser(group, skip_variables)`                                             | NASA DMR++ sidecar files         |
+|  [06]   | `parsers.FITSParser(group, skip_variables, reader_options)`                              | FITS astronomical image files    |
+|  [07]   | `parsers.KerchunkJSONParser(group, fs_root, skip_variables)`                             | kerchunk JSON reference files    |
+|  [08]   | `parsers.KerchunkParquetParser(group, fs_root, skip_variables, reader_options)`          | kerchunk Parquet reference files |
+|  [09]   | `parsers.IcechunkParser(*, branch, tag, snapshot_id, group, skip_variables, batch_size)` | Icechunk snapshot read           |
 
 [PUBLIC_TYPE_SCOPE]: registry, executors, codecs
 
@@ -97,17 +98,20 @@ Each `Parser` is a runtime-checkable `Protocol` — `__call__(url, registry) -> 
 |  [04]   | `ManifestStore.to_virtual_dataset(group, *, loadable_variables)`      | method   | manifest store → `Dataset`    |
 |  [05]   | `ManifestStore.to_virtual_datatree(group, *, loadable_variables)`     | method   | manifest store → `DataTree`   |
 
-[ENTRYPOINT_SCOPE]: `virtualize` accessor exports
+[ENTRYPOINT_SCOPE]: `vz` accessor exports
 
-`ds.virtualize` is the only write surface: `to_icechunk` writes virtual chunk references into an `IcechunkStore`, `to_kerchunk` emits a reference document, and no `to_zarr` exists since materializing real bytes is out of scope.
+`ds.vz` is the only write surface: `to_icechunk` writes virtual chunk references into an `IcechunkStore`, `to_kerchunk` emits a reference document, and no `to_zarr` exists since materializing real bytes is out of scope.
 
-| [INDEX] | [SURFACE]                                                                      | [SHAPE]  | [CAPABILITY]                     |
-| :-----: | :----------------------------------------------------------------------------- | :------- | :------------------------------- |
-|  [01]   | `ds.virtualize.to_icechunk(store, *, append_dim, region, validate_containers)` | method   | write references to Icechunk     |
-|  [02]   | `ds.virtualize.to_kerchunk(filepath, format, record_size)`                     | method   | write/return kerchunk references |
-|  [03]   | `ds.virtualize.rename_paths(new)`                                              | method   | rewrite chunk reference paths    |
-|  [04]   | `ds.virtualize.nbytes`                                                         | property | virtual dataset reference size   |
-|  [05]   | `dt.virtualize.to_icechunk(store, *, write_inherited_coords)`                  | method   | write data tree to Icechunk      |
+| [INDEX] | [SURFACE]                                                                           | [SHAPE]  | [CAPABILITY]                     |
+| :-----: | :---------------------------------------------------------------------------------- | :------- | :------------------------------- |
+|  [01]   | `ds.vz.to_icechunk(store, *, group, mode, append_dim, region, ...)` | method   | write references to Icechunk |
+|  [02]   | `ds.vz.to_kerchunk(filepath, format, record_size, categorical_threshold)`           | method   | write/return kerchunk references |
+|  [03]   | `ds.vz.rename_paths(new)`                                                            | method   | rewrite chunk reference paths    |
+|  [04]   | `ds.vz.nbytes`                                                                       | property | virtual dataset reference size   |
+|  [05]   | `ds.vz.nrefs()`                                                                      | method   | count virtual chunk references   |
+|  [06]   | `dt.vz.to_icechunk(store, *, mode, write_inherited_coords, ...)` | method | write data tree to Icechunk |
+
+- Both `to_icechunk` forms also take `validate_containers` and `last_updated_at` — store-integrity check and staleness stamp for the written references.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -117,21 +121,21 @@ Each `Parser` is a runtime-checkable `Protocol` — `__call__(url, registry) -> 
 - Read axis: `ManifestStore.to_virtual_dataset` lifts to xarray with `loadable_variables` materialized through the registry-resolved store while every other variable stays a `ManifestArray`; `open_virtual_dataset` is the single-file convenience over the lift.
 - Combine axis: `open_virtual_mfdataset` owns multi-file assembly over the xarray `concat`/`combine`/`join` vocabulary, and `get_executor` resolves `parallel` to a serial, Dask, Lithops, or `type[Executor]` runner, never a hand-rolled fan-out.
 - Codec axis: `codecs.convert_to_codec_pipeline`/`zarr_codec_config_to_v3` bridge zarr-v2 source codecs into the v3 `CodecPipeline` on `ManifestArray.metadata` — the boundary that lets a v2-encoded source write a v3 manifest store.
-- Export axis: the registered `virtualize` accessor is the only write surface — `to_icechunk` (`append_dim`/`region` for incremental writes, `validate_containers` for store integrity) and `to_kerchunk` (`format` in `dict`/`json`/`parquet`).
+- Export axis: the registered `vz` accessor is the only write surface — `to_icechunk` (`group`/`mode` handling a pre-existing group, `append_dim`/`region` for incremental writes, `validate_containers` for store integrity) and `to_kerchunk` (`format` in `dict`/`json`/`parquet`); `nbytes`/`nrefs()` report the virtual reference weight and count.
 
 [STACKING]:
-- `icechunk`(`.api/icechunk.md`): `ds.virtualize.to_icechunk(IcechunkStore)` writes the virtual chunk references into an icechunk session store, and `parsers.IcechunkParser` reads a branch/tag/snapshot back into a `ManifestStore`.
+- `icechunk`(`.api/icechunk.md`): `ds.vz.to_icechunk(IcechunkStore, *, mode)` writes the virtual chunk references into an icechunk session store, and `parsers.IcechunkParser` reads a branch/tag/snapshot back into a `ManifestStore`.
 - `zarr`(`.api/zarr.md`): `ManifestStore` is a zarr-v3 `Store` and `ManifestArray.metadata` a zarr `ArrayV3Metadata`, so a `codecs`-bridged virtual store composes into every zarr array consumer.
 - `obspec-utils`(`.api/obspec-utils.md`): one `ObjectStoreRegistry` resolves each URL scheme to an `obstore` backend, and every `Parser` reads bytes through that registry via the obspec `BlockStoreReader`.
 - `xarray`(`libs/python/.api/xarray.md`): `to_virtual_dataset`/`to_virtual_datatree` lift a `ManifestStore` into an `xarray.Dataset`/`DataTree` whose virtual variables carry `ManifestArray` data, joining the lazy xarray rail.
-- within-lib: `open_virtual_mfdataset` composes a `Parser`, one shared `ObjectStoreRegistry`, and `get_executor`-selected parallelism into a combined virtual `Dataset` the `virtualize` accessor then exports; sharing one registry across opens reuses credentials and connection pools.
+- within-lib: `open_virtual_mfdataset` composes a `Parser`, one shared `ObjectStoreRegistry`, and `get_executor`-selected parallelism into a combined virtual `Dataset` the `vz` accessor then exports; sharing one registry across opens reuses credentials and connection pools.
 
 [LOCAL_ADMISSION]:
 - Import `ObjectStoreRegistry` from `obspec_utils.registry`, and pass a constructed `Parser` instance carrying its format options to `open_virtual_dataset`.
-- Build manifests through `ChunkManifest.from_arrays`, export through the `virtualize` accessor, and share one registry across every open.
+- Build manifests through `ChunkManifest.from_arrays`, export through the `vz` accessor, and share one registry across every open.
 
 [RAIL_LAW]:
 - Package: `virtualizarr`
-- Owns: virtual Zarr `ManifestStore` construction, `Parser`-Protocol format dispatch, the `ChunkManifest`/`ManifestArray`/`ManifestGroup`/`ManifestStore` reference stack, registry-resolved eager `loadable_variables`, executor-driven multi-file combine, zarr-v2↔v3 codec-config bridging, and `virtualize` accessor export to Kerchunk and Icechunk
+- Owns: virtual Zarr `ManifestStore` construction, `Parser`-Protocol format dispatch, the `ChunkManifest`/`ManifestArray`/`ManifestGroup`/`ManifestStore` reference stack, registry-resolved eager `loadable_variables`, executor-driven multi-file combine, zarr-v2↔v3 codec-config bridging, and `vz` accessor export to Kerchunk and Icechunk
 - Accept: remote files referenced by URL with a `Parser` instance and an `obspec_utils` `ObjectStoreRegistry`; manifests lifted via `to_virtual_dataset` and exported via accessor methods
 - Reject: data-copying ingest where virtual reference applies; a hand-rolled kerchunk builder or per-chunk manifest dict where `ChunkManifest.from_arrays` applies; a per-format `open_*` family where one `Parser` Protocol discriminates

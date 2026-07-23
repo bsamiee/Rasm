@@ -321,10 +321,10 @@ def _shape(graph: "AnyGraph") -> "tuple[GraphBackend, GraphKind, int, int, bytes
             return "networkx", kind, graph.number_of_nodes(), graph.number_of_edges(), _wire(graph, "networkx")
 
 
-def _frame(result: GraphResult) -> "pa.Table":  # noqa: PLR0911
+def _frame(result: GraphResult) -> "pa.Table":  # ruff:ignore[too-many-return-statements]
     # `pyarrow` is module-level-import-banned; the deferred import rides the same boundary the
     # columnar/interop owners bind `pl`/`read_excel` under.
-    import pyarrow as pa  # noqa: PLC0415
+    import pyarrow as pa  # ruff:ignore[import-outside-top-level]
 
     match result:
         case GraphResult(tag="scores", scores=rows):
@@ -374,7 +374,7 @@ def _as_rx(graph: "AnyGraph") -> RxGraph:
             return rx.networkx_converter(graph)
 
 
-def _run_rx(g: RxGraph, algo: GraphAlgorithm, kind: GraphKind) -> GraphResult:  # noqa: PLR0911, C901
+def _run_rx(g: RxGraph, algo: GraphAlgorithm, kind: GraphKind) -> GraphResult:  # ruff:ignore[too-many-return-statements, complex-structure]
     match algo:
         case GraphAlgorithm(tag="bfs"):
             return GraphResult(order=(algo.bfs, *(c for _, kids in rx.bfs_successors(g, algo.bfs) for c in kids)))
@@ -484,7 +484,7 @@ def _ig_from(g: RxGraph, kind: GraphKind) -> "igraph.Graph":
     # per endpoint, so an ISOLATED rx node carries no edge and would vanish from the partition;
     # `add_vertices` re-admits the edgeless rx indices as `name`-carrying singleton
     # vertices so the community partition stays TOTAL over the node set.
-    import igraph  # noqa: PLC0415
+    import igraph  # ruff:ignore[import-outside-top-level]
 
     ig = igraph.Graph.TupleList(g.edge_list(), directed=kind.directed)
     isolated = [n for n in g.node_indices() if n not in set(ig.vs["name"])]

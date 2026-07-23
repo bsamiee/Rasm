@@ -22,7 +22,7 @@ The plan rides the agnostic `tabular/interop#INTEROP` frame and the DuckDB/parqu
 - Auto: a passing interrogation yields `ProfileReceipt.of` at `grade=PASSED` with `all_passed()` true; a breach grades through `Grade.of` and folds per-step evidence into the receipt. `Grade` is ordered by severity rank so the overall grade is the maximum breached level; `Grade.LEVELS` is the ascending `(WARNING, ERROR, CRITICAL)` tuple both the breach sweep and the breach-set projection read, never two hand-spelled lists. `Grade.breaches` sweeps `LEVELS` through `plan.above_threshold(level=, i=)` (`i=None` plan-wide, an `int` per-step) and `Grade.of` reads `plan.all_passed()` then returns the max breached level or `PASSED` — one fold, never a per-level boolean tail. The receipt carries the graded `(rows, columns)` off `pb.get_row_count`/`get_column_count` (never a degenerate step-count tuple), the step count, per-step `n_passed`/`n_failed`/`f_passed`/`f_failed` off `plan.*(scalar=False)` as a `dict` keyed by step index, and the per-severity breach set — one typed evidence stream, never re-derived from the raw frame. The plan stays lazy where the backend admits it: the polars/DuckDB/ibis path pushes validation into the scan because pointblank's Narwhals engine never materializes the frame it grades.
 - Output: `report` emits one `ProfileFrame` carrying the `great_tables.GT` on its `frame` slot as opaque `Any` plus the `kind` discriminant and the `grade` — data never imports `great_tables`, never re-renders to HTML, never reaches into `GT` internals; the `python:artifacts/visualization/table` tier renders it through its `TablePlan.rendered` opaque-GT egress and reads the `[SHAPE]` value, exactly as the `tabular/columnar#SCAN` corpus wire hands a flat record to the documents tier. The `json`/`dataframe`/`sundered` cases carry the `str`/native-frame wire value on the same slot, so the publication report, the machine-readable JSON, the grade frame, and the passing/failing row split all leave through one `ProfileFrame` rail, never four emitters.
 - Receipt: `ProfileReceipt.contribute` yields one emitted-phase row through the two-argument `Receipt.of(owner, evidence)` factory decomposing the `(phase, subject, facts)` triple — never the four-positional form the owner does not expose — satisfying the `ReceiptContributor.contribute -> Iterable[Receipt]` Protocol, never a bare single `Receipt`; the `rows`/`columns`/`steps` counts ride as native `int` scalars. The receipt keys by `ContentIdentity` over the plan-content fingerprint: `QualityProfile.fingerprint` folds one deterministic msgspec-JSON row per `ProbeStep` (tag, payload, override presence — a callable projected to its stable code identity `(module, qualname, marshalled bytecode)` so two distinct `<lambda>` predicates never collide) plus the plan-level row over the label, the sampling bound, and the threshold/action policy, returning the railed `RuntimeRail[ContentKey]` the `interrogate` rail threads through `.bind`/`.map` rather than collapsing into a field. An unchanged probe set, threshold policy, and sampling bound reuses its key byte-stable; a changed threshold, a tightened override, an added probe, or a widened sampling bound flips it — the graded-evidence identity a bare `(label, step-count, grade)` string cannot carry, since a changed threshold leaves all three untouched while the counts and grade shift. `contribute` projects the worst per-step failed fraction onto the runtime `Metrics.record` arm under `domain="quality"` keyed by grade, and `interrogate` opens the one profile span around its blocking materialization — the "observability owner" claim realized as instrument and trace, never receipt-only.
-- Packages: `pointblank` (`Validate(data, thresholds=, actions=, final_actions=, label=, tbl_name=, brief=)`/`col_vals_gt`/`ge`/`lt`/`le`/`eq`/`ne`/`col_vals_between(left=, right=, inclusive=)`/`col_vals_outside`/`col_vals_in_set(set=)`/`col_vals_not_in_set`/`col_vals_not_null`/`col_vals_null`/`col_vals_regex(pattern=, inverse=)`/`col_vals_within_spec(spec=)`/`col_vals_increasing(allow_stationary=, decreasing_tol=)`/`col_vals_decreasing(allow_stationary=, increasing_tol=)`/`col_{avg,sum,sd}_{gt,ge,lt,le,eq}`/`col_vals_expr(expr=)`/`col_exists`/`col_schema_match(schema=, complete=, in_order=)`/`col_count_match(count=, inverse=)`/`row_count_match(count=, tol=, inverse=)`/`col_pct_null(p=, tol=)`/`rows_distinct(columns_subset=)`/`rows_complete`/`conjointly`/`tbl_match(tbl_compare=)`/`specially(expr=)`/`interrogate(sample_n=, sample_frac=, get_first_n=, extract_limit=)`/`all_passed()`/`above_threshold(level=, i=)`/`n_passed`/`n_failed`/`f_passed`/`f_failed(i=, scalar=)`/`get_tabular_report(title=, incl_header=, incl_footer=) -> GT`/`get_step_report(i=, columns_subset=, limit=) -> GT`/`get_json_report(use_fields=, exclude_fields=) -> str`/`get_dataframe_report(tbl_type=)`/`get_sundered_data(type=)`/`Thresholds(warning=, error=, critical=)`/`Actions(warning=, error=, critical=, default=, highest_only=)`/`FinalActions`/`Schema`/`col`/`ref`/`starts_with`/`ends_with`/`contains`/`matches`/`everything`/`first_n`/`last_n`/`get_row_count`/`get_column_count`/`DataScan(data, tbl_name=)`/`col_summary_tbl`/`missing_vals_tbl`/`preview(data, columns_subset=, n_head=, n_tail=, limit=)`, imported at boundary scope under `# noqa: PLC0415` since the manifest-banned import transitively loads the heavy `polars`/`great_tables` engines), `tabular/interop#INTEROP` (`FieldShape` projected to a `pb.Schema` for the `schema` probe, imported downward; the agnostic `nw.DataFrame`/`nw.LazyFrame` passes through unmodified into pointblank's own Narwhals `data` admission, never lowered through `FrameInterop.translate`), `beartype` (`@beartype(conf=FAULT_CONF)` on the public `of`/`interrogate`/`report` seams so a malformed `ProbeStep`/`ProfileReport`/`data` argument raises the `BeartypeCallHintViolation` root the `reliability/faults#FAULT` `api` row folds onto the rail; the internal folds and kernels over already-admitted values carry none), runtime (`RuntimeRail`/`boundary`/`async_boundary`/`on_thread`/`FAULT_CONF`/`ContentIdentity`/`ContentKey`/`ReceiptContributor`/`Receipt`).
+- Packages: `pointblank` (`Validate(data, thresholds=, actions=, final_actions=, label=, tbl_name=, brief=)`/`col_vals_gt`/`ge`/`lt`/`le`/`eq`/`ne`/`col_vals_between(left=, right=, inclusive=)`/`col_vals_outside`/`col_vals_in_set(set=)`/`col_vals_not_in_set`/`col_vals_not_null`/`col_vals_null`/`col_vals_regex(pattern=, inverse=)`/`col_vals_within_spec(spec=)`/`col_vals_increasing(allow_stationary=, decreasing_tol=)`/`col_vals_decreasing(allow_stationary=, increasing_tol=)`/`col_{avg,sum,sd}_{gt,ge,lt,le,eq}`/`col_vals_expr(expr=)`/`col_exists`/`col_schema_match(schema=, complete=, in_order=)`/`col_count_match(count=, inverse=)`/`row_count_match(count=, tol=, inverse=)`/`col_pct_null(p=, tol=)`/`rows_distinct(columns_subset=)`/`rows_complete`/`conjointly`/`tbl_match(tbl_compare=)`/`specially(expr=)`/`interrogate(sample_n=, sample_frac=, get_first_n=, extract_limit=)`/`all_passed()`/`above_threshold(level=, i=)`/`n_passed`/`n_failed`/`f_passed`/`f_failed(i=, scalar=)`/`get_tabular_report(title=, incl_header=, incl_footer=) -> GT`/`get_step_report(i=, columns_subset=, limit=) -> GT`/`get_json_report(use_fields=, exclude_fields=) -> str`/`get_dataframe_report(tbl_type=)`/`get_sundered_data(type=)`/`Thresholds(warning=, error=, critical=)`/`Actions(warning=, error=, critical=, default=, highest_only=)`/`FinalActions`/`Schema`/`col`/`ref`/`starts_with`/`ends_with`/`contains`/`matches`/`everything`/`first_n`/`last_n`/`get_row_count`/`get_column_count`/`DataScan(data, tbl_name=)`/`col_summary_tbl`/`missing_vals_tbl`/`preview(data, columns_subset=, n_head=, n_tail=, limit=)`, imported at boundary scope under `# ruff:ignore[import-outside-top-level]` since the manifest-banned import transitively loads the heavy `polars`/`great_tables` engines), `tabular/interop#INTEROP` (`FieldShape` projected to a `pb.Schema` for the `schema` probe, imported downward; the agnostic `nw.DataFrame`/`nw.LazyFrame` passes through unmodified into pointblank's own Narwhals `data` admission, never lowered through `FrameInterop.translate`), `beartype` (`@beartype(conf=FAULT_CONF)` on the public `of`/`interrogate`/`report` seams so a malformed `ProbeStep`/`ProfileReport`/`data` argument raises the `BeartypeCallHintViolation` root the `reliability/faults#FAULT` `api` row folds onto the rail; the internal folds and kernels over already-admitted values carry none), runtime (`RuntimeRail`/`boundary`/`async_boundary`/`on_thread`/`FAULT_CONF`/`ContentIdentity`/`ContentKey`/`ReceiptContributor`/`Receipt`).
 - Growth: a new comparison/range/membership/uniqueness check is one `ProbeStep` threading its `ProbeTables` polarity map; a new column-aggregate stat is one `_STATS` row the `aggregate` comprehension folds; a new column selector is one `Selector` literal the `cols` fold resolves; a new report kind is one `ProfileReport` case (plan-consuming reads `graded()`, plan-free reads the raw table); a new severity level is one `Grade.LEVELS` row plus one `Thresholds`/`Actions` field; a per-step threshold or action override is the existing `ProbeStep` field; a post-interrogation summary callback is the existing `final_actions` field; a sampling or extract-limit knob is a call row on `interrogate`; the AI-driven `prompt` step is admitted as a `ProbeStep` only when an LLM handle arrives through the runtime host seam, never a module-top dependency; a second backend `data` path is admitted free by pointblank's Narwhals engine.
 - Boundary: pointblank owns the validation plan, the warning/error/critical threshold grading, the severity-action callbacks, and the `great_tables.GT` emission; `great_tables` owns the renderable frame downstream and stays `python:artifacts/visualization/table`-owned; Narwhals owns the frame normalization inside pointblank; runtime owns the identity, the receipt rail, and the LLM/host seam. No raising in domain logic — the profile records and grades, never enforces; `assert_below_threshold` is pointblank's raising gate and stays unbound on this page. No second frame translator beside pointblank's Narwhals admission, no `great_tables` import here, no HTML re-render where the `GT` frame needs none, and no re-interrogation of an already-interrogated plan.
 
@@ -226,7 +226,7 @@ class ProfileReceipt(Struct, frozen=True):
 
     @classmethod
     def of(cls, label: str, plan: "pb.Validate", data: Any, steps: int, key: ContentKey) -> "ProfileReceipt":
-        import pointblank as pb  # noqa: PLC0415
+        import pointblank as pb  # ruff:ignore[import-outside-top-level]
 
         return cls(
             label=label,
@@ -330,7 +330,7 @@ class QualityProfile(Struct, frozen=True):
         return ContentIdentity.of("profile", spine)
 
     def _report(self, data: Any, report: ProfileReport) -> ProfileFrame:
-        import pointblank as pb  # noqa: PLC0415
+        import pointblank as pb  # ruff:ignore[import-outside-top-level]
 
         graded = cache(lambda: self._plan(data).interrogate())
         match report:
@@ -358,7 +358,7 @@ class QualityProfile(Struct, frozen=True):
                 assert_never(unreachable)
 
     def _plan(self, data: Any) -> "pb.Validate":
-        import pointblank as pb  # noqa: PLC0415
+        import pointblank as pb  # ruff:ignore[import-outside-top-level]
 
         tables = ProbeTables.bind(pb)
         root = pb.Validate(
@@ -415,22 +415,34 @@ class ProbeTables(Struct, frozen=True):
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  elk:
+    nodePlacementStrategy: NETWORK_SIMPLEX
+    considerModelOrder: NODES_AND_EDGES
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart TD
-    steps["tuple[ProbeStep]"] -->|reduce over ProbeStep.append| plan["pb.Validate"]
-    tables["ProbeTables.bind(pb)"] -->|bound col_vals_* methods| plan
-    thr["pb.Thresholds(warning,error,critical)"] -->|Validate(thresholds=)| plan
-    acts["pb.Actions / pb.FinalActions"] -->|Validate(actions=,final_actions=)| plan
-    data["agnostic frame / DuckDB·parquet path"] -->|Validate(data=)| plan
-    plan -->|interrogate(sample_n,extract_limit) once| interr["interrogated Validate"]
-    interr -->|all_passed then Grade.breaches sweep| grade["Grade: PASSED·WARNING·ERROR·CRITICAL"]
-    interr -->|n_passed·n_failed·f_passed·f_failed·above_threshold| receipt["ProfileReceipt"]
-    data -->|get_row_count·get_column_count| receipt
-    fp["fingerprint: canonical msgspec-JSON probe rows"] -->|ContentIdentity.of profile| key["ContentKey"]
+    accTitle: Profile probe plan and receipt flow
+    accDescr: ProbeStep rows, bound tables, thresholds, and actions fold into one pb.Validate; a single interrogate yields the Grade, the ProfileReceipt with its ContentKey, and the ProfileFrame handed to the great-tables tier.
+    steps["tuple[ProbeStep]"] -->|"reduce over ProbeStep.append"| plan["pb.Validate"]
+    tables["ProbeTables.bind(pb)"] -->|"bound col_vals_* methods"| plan
+    thr["pb.Thresholds(warning,error,critical)"] -->|"Validate(thresholds=)"| plan
+    acts["pb.Actions / pb.FinalActions"] -->|"Validate(actions=,final_actions=)"| plan
+    data["agnostic frame / DuckDB·parquet path"] -->|"Validate(data=)"| plan
+    plan -->|"interrogate(sample_n,extract_limit) once"| interr["interrogated Validate"]
+    interr -->|"all_passed then Grade.breaches sweep"| grade["Grade: PASSED·WARNING·ERROR·CRITICAL"]
+    interr -->|"n_passed·n_failed·f_passed·f_failed·above_threshold"| receipt["ProfileReceipt"]
+    data -->|"get_row_count·get_column_count"| receipt
+    fp["fingerprint: canonical msgspec-JSON probe rows"] -->|"ContentIdentity.of profile"| key["ContentKey"]
     grade --> receipt
     key --> receipt
     receipt -->|contribute| sink["runtime ReceiptContributor"]
-    interr -->|report over plan-consuming ProfileReport| frame["ProfileFrame carrying GT"]
-    scanned["DataScan·col_summary_tbl·missing_vals_tbl·preview"] -->|report over plan-free ProfileReport| frame
+    interr -->|"report over plan-consuming ProfileReport"| frame["ProfileFrame carrying GT"]
+    scanned["DataScan·col_summary_tbl·missing_vals_tbl·preview"] -->|"report over plan-free ProfileReport"| frame
     frame -->|SHAPE| artifacts["python:artifacts/visualization/table great-tables tier"]
 ```
 

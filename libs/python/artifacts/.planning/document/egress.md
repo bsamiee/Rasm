@@ -6,7 +6,7 @@ Security-and-navigation finishing closes over an emitted PDF or Office container
 
 ## [01]-[INDEX]
 
-- [01]-[FINISH]: the one finishing close discriminating `EgressStep` over the `FINISHERS` totality table under the `LicenseLane` footing.
+- [01]-[FINISH]: one finishing close discriminating `EgressStep` over the `FINISHERS` totality table under the `LicenseLane` footing.
 
 ## [02]-[FINISH]
 
@@ -15,7 +15,7 @@ Security-and-navigation finishing closes over an emitted PDF or Office container
 - Auto: each arm returns a `FinishFact` merged onto the running owner through the `FinishFact.combined` monoid (`rails-and-effects.md` STATE_RECEIPTS) — terminal bytes and page count ride the newest fact, single-owner scalars (`encryption_r`, `outline_depth`) survive by right-or-left, additive counters sum — so a chain's earlier evidence never vanishes under a later step's default zeros and `contribute` reads the whole chain's facts without a second parse. `pypdf` is reserved for the structural OUTLINE/IMPOSE/NAVIGATE/FORMS arms and the gated SANITIZE/OPTIMIZE second passes it owns, never a parallel encryptor — qpdf authors every encryption strength through one `pikepdf.Encryption` leg on the rich lane, `pdf_oxide.to_bytes_encrypted` the permissive alternate. Native packages bind as module-scope `lazy import` reified on first arm use; no native import lands on the core owner.
 - Receipt: the node key mints PRE-RUN over the canonical input (steps, source, node, finishing, extras, footing) so keyed admission probes the warm seed before the fold runs, and `receipt.slot == node.key`. REWRITE's OCG-strip count and FORMS' baked-widget count ride the `overlays` slot — content-composition operations of the watermark-overlay family.
 - Packages: `pikepdf` (MPL) owns the qpdf object model, encryption, composition, and save strategy; `pypdf` (BSD) the pure-Python structural arms and the `ObjectDeletionFlag` object pruner; `pymupdf` (AGPL) the richest REDACT burn-in with `search_for` needle match, flagged for supersession on the permissive lane; `pdf_oxide` (MIT/Apache) the permissive ENCRYPT/REDACT/SANITIZE arms and the STRIP running-content removal no other step owns; `msoffcrypto` the bidirectional Office confidentiality rail.
-- Growth: a new finishing step is one `EgressStep` row plus one `Finisher` row, plus one `_PREREQ` row when it needs material; a commercial-safe alternative is one `Finisher.permissive` arm, never a parallel license-keyed table; a new policy concern is one `Finishing` field carrying its own value object; a new receipt fact is one `FinishFact` field plus its `combined` column, never a re-derivation off the bytes; an encryption strength is one `Strength` row plus its `_STRENGTHS` cell; a document-wide strip class is one `PruneClass` member plus one `_PRUNE` row; a deeper chain is one more step in the sequence the rail already folds.
+- Growth: a new finishing step is one `EgressStep` row, one `Finisher` row, and one `_PREREQ` row when it needs material; a commercial-safe alternative is one `Finisher.permissive` arm, never a parallel license-keyed table; a new policy concern is one `Finishing` field carrying its own value object; a new receipt fact is one `FinishFact` field with its `combined` column, never a re-derivation off the bytes; an encryption strength is one `Strength` row with its `_STRENGTHS` cell; a document-wide strip class is one `PruneClass` member with one `_PRUNE` row; a deeper chain is one more step in the sequence the rail already folds.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -1021,7 +1021,7 @@ def _protect(egress: DocumentEgress) -> FinishFact:
                     verification=OfficeVerification.NONE,
                 )
             ooxml = format_ == "ooxml"
-            # the fact records the verification PERFORMED, never the one requested: both verify kwargs are OOXML-only,
+            # fact records the verification PERFORMED, never the one requested: both verify kwargs are OOXML-only,
             # so a legacy container runs neither check and its fact stays NONE rather than claiming the requested axis.
             verification_fact = verification if ooxml else OfficeVerification.NONE
             credentials = {kind: egress.extras.credentials[kind] for kind in key_axis if kind in egress.extras.credentials}
@@ -1126,4 +1126,4 @@ _LANE_GAPS: Final[Map[EgressStep, Callable[[DocumentEgress], bool]]] = Map.of_se
 -->
 
 - [OXIDE_SEARCH]-[OPEN]: does `pdf_oxide.PdfDocument.search_page` return typed rects usable for a permissive-lane needle redaction; verify against the folder `.api/pdf-oxide.md` catalog.
-- [OXIDE_ENCRYPT_R]-[OPEN]: which encryption revision does `pdf_oxide.PdfDocument.to_bytes_encrypted` write, so the permissive ENCRYPT arm can record a true `FinishFact.encryption_r`; verify via `UV_CACHE_DIR=.cache/uv uv run --frozen python` over a sealed round-trip inspected with `pikepdf.open(...).encryption`.
+- [OXIDE_ENCRYPT_R]-[OPEN]: which encryption revision does `pdf_oxide.PdfDocument.to_bytes_encrypted` write, so the permissive ENCRYPT arm can record a true `FinishFact.encryption_r`; verify via `uv run python` over a sealed round-trip inspected with `pikepdf.open(...).encryption`.

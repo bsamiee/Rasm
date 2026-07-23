@@ -165,6 +165,7 @@ One unified leg dispatches on the `ObjectClient` union: each leg takes bucket + 
 |  [02]   | `BlobClient.GenerateSasUri(BlobSasPermissions, DateTimeOffset) -> Uri` | instance | service SAS; needs a shared-key-dialed client  |
 |  [03]   | `UrlSigner.FromCredential(GoogleCredential) -> UrlSigner`              | factory  | credential-bound signer for GCS V4 signed URLs |
 
+- `AmazonS3Client.GetPreSignedURL`: custom `Parameters` with an expiry past 7 days throws `InvalidOperationException` — SigV2 leaves custom parameters unsigned, so the `ObjectLeg.Issue` TTL stays inside the SigV4 7-day ceiling.
 - `BlobClient.GenerateSasUri`: an AAD-dialed client cannot sign — `CanGenerateSasUri` is the probe, so SAS capability is a deployment fact of the host-dialed container. GCS's signer stands separate from `StorageClient`, so the `ObjectClient.Gcs` row carries both.
 
 ## [04]-[IMPLEMENTATION_LAW]

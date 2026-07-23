@@ -1,6 +1,6 @@
 # [TS_DATA_API_DUCKDB_NODE_API]
 
-`@duckdb/node-api` (the "Neo" bindings) is the official promise-native DuckDB binding — vectorized in-process analytics with lossless type support, streaming result readers, and prepared-statement binds. It is a raw promise API, not an Effect service: the OLAP lane wraps instance/connection lifecycle in `Effect.acquireRelease` under `Scope` and lifts every call through `Effect.tryPromise`. The engine reads Parquet/CSV/JSON/Arrow zero-copy, range-reads object storage through `httpfs`, `ATTACH`es Postgres/SQLite, and speaks DuckLake/Iceberg/Delta through extensions — the single-node analytical row of the lane, with ClickHouse past the distributed trigger and `pg_duckdb` for analytics-in-OLTP.
+`@duckdb/node-api` (the "Neo" bindings) is the official promise-native DuckDB binding — vectorized in-process analytics with lossless type support, streaming result readers, and prepared-statement binds. It is a raw promise API — the OLAP lane wraps instance/connection lifecycle in `Effect.acquireRelease` under `Scope` and lifts every call through `Effect.tryPromise`. It reads Parquet/CSV/JSON/Arrow zero-copy, range-reads object storage through `httpfs`, `ATTACH`es Postgres/SQLite, and speaks DuckLake/Iceberg/Delta through extensions — the single-node analytical row of the lane.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -46,11 +46,11 @@ Result types name their producing call: `DuckDBResult` from `run`/`stream`, `Duc
 
 [INTEGRATION_LAW]:
 - Boundary-kernel wrap: every promise lifts through `Effect.tryPromise` with a typed lane fault; instance and connection ride `Effect.acquireRelease` under `Scope`; readers lift to `Stream` at the lane seam.
-- Arrow is the wire (`../../ui/.api/apache-arrow.md`): result interchange with the wasm row, the viewer, and ClickHouse rides Arrow IPC — never row-materialized re-encoding.
+- Arrow is the wire (`.api/apache-arrow.md`): result IPC egress folds through `tableFromIPC`/`Olap.wire.decode` and outbound through `tableToIPC`/`Olap.wire.encode`; interchange with the wasm row, the viewer, and ClickHouse rides Arrow IPC — never row-materialized re-encoding.
 - Storage law: single-file ACID, single concurrent writer, out-of-core spill — the embedded ceiling; past it the workload moves to the ClickHouse row, never to a second embedded instance fleet.
 
 [LOCAL_ADMISSION]:
-- The engine is an analytical accelerator, never a record of truth; journal facts flow in, verdicts flow out.
+- Engines here are analytical accelerators, never a record of truth; journal facts flow in, verdicts flow out.
 - Extension load (`INSTALL`/`LOAD`) is grant-shaped — the lane records which extensions a deployment admits; a load failure refuses the capability, never crashes the lane.
 
 [RAIL_LAW]:

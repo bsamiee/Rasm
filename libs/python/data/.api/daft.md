@@ -72,13 +72,14 @@
 |  [07]   | `read_lance(url, *, version, asof, block_size)`                  | factory | Lance dataset read                        |
 |  [08]   | `read_sql(sql, conn, *, partition_col, num_partitions)`          | factory | partitioned SQL read with pushdown        |
 |  [09]   | `read_warc(path)`                                                | factory | WARC web-archive scan                     |
-|  [10]   | `read_table(identifier, **options)`                              | factory | read a catalog-registered table           |
-|  [11]   | `from_glob_path(path, *, io_config)`                             | factory | file-listing frame from a glob            |
-|  [12]   | `from_pydict(data)`                                              | factory | in-memory frame from a column dict        |
-|  [13]   | `from_pylist(data)`                                              | factory | in-memory frame from row dicts            |
-|  [14]   | `from_arrow(data)`                                               | factory | zero-copy frame from Arrow tables         |
-|  [15]   | `from_pandas(data)`                                              | factory | frame from pandas DataFrames              |
-|  [16]   | `write_table(identifier, df, *, mode, **options)`                | static  | write a frame to a catalog table          |
+|  [10]   | `read_mcap(path, *, topics, start_time, end_time, batch_size)`   | factory | MCAP robotics-log scan by topic and time  |
+|  [11]   | `read_table(identifier, **options)`                              | factory | read a catalog-registered table           |
+|  [12]   | `from_glob_path(path, *, io_config)`                             | factory | file-listing frame from a glob            |
+|  [13]   | `from_pydict(data)`                                              | factory | in-memory frame from a column dict        |
+|  [14]   | `from_pylist(data)`                                              | factory | in-memory frame from row dicts            |
+|  [15]   | `from_arrow(data)`                                               | factory | zero-copy frame from Arrow tables         |
+|  [16]   | `from_pandas(data)`                                              | factory | frame from pandas DataFrames              |
+|  [17]   | `write_table(identifier, df, *, mode, **options)`                | static  | write a frame to a catalog table          |
 
 [ENTRYPOINT_SCOPE]: expression and SQL factories
 
@@ -104,7 +105,7 @@ Transform methods return a new lazy `DataFrame`; `collect`/`show`/`count_rows`/`
 | [INDEX] | [SURFACE]                                                             | [SHAPE]  | [CAPABILITY]                                     |
 | :-----: | :-------------------------------------------------------------------- | :------- | :----------------------------------------------- |
 |  [01]   | `select(*columns, **projections)`                                     | instance | project columns and named expressions            |
-|  [02]   | `where(predicate)`                                                    | instance | filter rows by predicate (`filter` alias)        |
+|  [02]   | `where(predicate)`                                                    | instance | filter rows (`filter` alias)        |
 |  [03]   | `with_column(name, expr)`                                             | instance | add or replace one computed column               |
 |  [04]   | `with_columns(columns)`                                               | instance | add or replace columns from a dict               |
 |  [05]   | `exclude(*names)`                                                     | instance | drop named columns                               |
@@ -120,7 +121,7 @@ Transform methods return a new lazy `DataFrame`; `collect`/`show`/`count_rows`/`
 |  [15]   | `repartition(num, *partition_by)`                                     | instance | hash or round-robin repartition                  |
 |  [16]   | `into_partitions(num)`                                                | instance | coalesce or split into N partitions              |
 |  [17]   | `pivot(group_by, pivot_col, value_col, agg_fn, *, names)`             | instance | long-to-wide pivot with aggregation              |
-|  [18]   | `transform(func, *args, **kwargs)`                                    | instance | apply a `DataFrame -> DataFrame` function        |
+|  [18]   | `transform(func, *args, **kwargs)`                                    | instance | apply a `DataFrame -> DataFrame` fn        |
 |  [19]   | `agg_list(*cols)`                                                     | instance | global list aggregation                          |
 |  [20]   | `collect(*, num_preview_rows)`                                        | instance | execute and cache the result                     |
 |  [21]   | `show(n, *, format, max_width, columns)`                              | instance | execute and render a preview                     |
@@ -129,7 +130,7 @@ Transform methods return a new lazy `DataFrame`; `collect`/`show`/`count_rows`/`
 |  [24]   | `to_arrow() -> pyarrow.Table`                                         | instance | execute and egress to Arrow                      |
 |  [25]   | `to_pydict() -> dict`                                                 | instance | execute and egress to a column dict              |
 |  [26]   | `to_pandas(*, coerce_temporal_nanoseconds)`                           | instance | execute and egress to pandas                     |
-|  [27]   | `write_parquet(root_dir, *, compression, write_mode, partition_cols)` | instance | partitioned Parquet sink                         |
+|  [27]   | `write_parquet(root_dir, *, compression, write_mode, partition_cols, single_file)` | instance | partitioned Parquet sink                         |
 |  [28]   | `write_deltalake(table, *, mode, schema_mode, partition_cols)`        | instance | Delta Lake table sink                            |
 |  [29]   | `write_iceberg(table, *, mode)`                                       | instance | Iceberg table sink                               |
 |  [30]   | `write_csv(root_dir, *, write_mode, partition_cols)`                  | instance | partitioned CSV sink                             |
@@ -139,7 +140,7 @@ Transform methods return a new lazy `DataFrame`; `collect`/`show`/`count_rows`/`
 |  [34]   | `describe() -> DataFrame`                                             | instance | schema as a frame                                |
 |  [35]   | `explain(*, show_all, format, simple)`                                | instance | print the logical or physical plan               |
 |  [36]   | `schema() -> Schema`                                                  | instance | resolved output schema                           |
-|  [37]   | `metrics`                                                             | property | per-operator stats frame, `None` when unattached |
+|  [37]   | `metrics`                                                             | property | per-op stats frame; `None` unattached |
 |  [38]   | `num_partitions()`                                                    | instance | resolved partition count post-execution          |
 
 - `metrics`: `RecordBatch` of per-operator execution stats, raising until `collect` materializes the plan.

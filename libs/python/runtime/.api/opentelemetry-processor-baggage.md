@@ -1,55 +1,53 @@
 # [PY_RUNTIME_API_OPENTELEMETRY_PROCESSOR_BAGGAGE]
 
-`opentelemetry-processor-baggage` copies OTel baggage onto emitted telemetry: a `SpanProcessor` stamping baggage entries onto a span as attributes at start, and a `LogRecordProcessor` stamping them onto a log record at emit, each gated by a per-key predicate. Baggage values also ride every outbound `baggage` header, so the gate stays a closed key set — arbitrary caller baggage never promotes onto spans or wire headers.
+`opentelemetry-processor-baggage` promotes OTel baggage onto emitted telemetry under a per-key predicate: a span processor stamps admitted baggage entries as span attributes at start, a log processor stamps them as log-record attributes at emit. Promoted keys ride every outbound `baggage` header, so the predicate admits a closed key vocabulary, never sensitive material.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `opentelemetry-processor-baggage`
-- package: `opentelemetry-processor-baggage`
+- package: `opentelemetry-processor-baggage` (`Apache-2.0`, OpenTelemetry Authors)
 - module: `opentelemetry.processor.baggage`
-- owner: `runtime`
 - rail: observability
-- asset: pure-Python runtime library
-- namespaces: `opentelemetry.processor.baggage`
-- capability: predicate-gated baggage-to-attribute promotion onto spans at start and log records at emit, log side capped
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: baggage processors
-- rail: observability
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]      | [RAIL]                                             |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]      | [CAPABILITY]                                       |
 | :-----: | :----------------------- | :----------------- | :------------------------------------------------- |
 |  [01]   | `BaggageSpanProcessor`   | span processor     | baggage entries onto a span as attributes at start |
 |  [02]   | `BaggageLogProcessor`    | log processor      | baggage entries onto a log record at emit, capped  |
-|  [03]   | `ALLOW_ALL_BAGGAGE_KEYS` | predicate constant | always-true key gate that admits every baggage key |
+|  [03]   | `ALLOW_ALL_BAGGAGE_KEYS` | predicate constant | always-true key gate admitting every baggage key   |
 |  [04]   | `BaggageKeyPredicates`   | predicate type     | `(str) -> bool` or a sequence of such callables    |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: processor registration
-- rail: observability
-- Constructor accepts one predicate or a sequence: a callable wraps to a single-element list, a sequence materializes to a list, and `on_start`/`on_emit` promote a key when any predicate admits it.
-- `TracerProvider` exposes no `span_processors=` constructor slot; a `BaggageSpanProcessor` enters through `add_span_processor`, a `BaggageLogProcessor` through `LoggerProvider.add_log_record_processor`.
 
-| [INDEX] | [SURFACE]                                                                | [ENTRY_FAMILY] | [RAIL]                         |
-| :-----: | :----------------------------------------------------------------------- | :------------- | :----------------------------- |
-|  [01]   | `BaggageSpanProcessor(baggage_key_predicate)`                            | construct      | span-side baggage gate         |
-|  [02]   | `TracerProvider.add_span_processor(BaggageSpanProcessor(...))`           | register       | stamp spans at start           |
-|  [03]   | `BaggageLogProcessor(baggage_key_predicate, max_baggage_attributes=128)` | construct      | log-side baggage gate, cap 128 |
-|  [04]   | `LoggerProvider.add_log_record_processor(BaggageLogProcessor(...))`      | register       | stamp log records at emit      |
+| [INDEX] | [SURFACE]                                                                | [SHAPE]  | [CAPABILITY]                   |
+| :-----: | :----------------------------------------------------------------------- | :------- | :----------------------------- |
+|  [01]   | `BaggageSpanProcessor(baggage_key_predicate)`                            | ctor     | span-side baggage gate         |
+|  [02]   | `TracerProvider.add_span_processor(BaggageSpanProcessor(...))`           | instance | stamp spans at start           |
+|  [03]   | `BaggageLogProcessor(baggage_key_predicate, max_baggage_attributes=128)` | ctor     | log-side baggage gate, cap 128 |
+|  [04]   | `LoggerProvider.add_log_record_processor(BaggageLogProcessor(...))`      | instance | stamp log records at emit      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[OBSERVABILITY_TOPOLOGY]:
-- reification law: package `__init__` pulls `BaggageLogProcessor`, which imports `opentelemetry.sdk._logs` for its base, so importing anything from the package reifies the `_logs` tier — the runtime telemetry install defers it behind a `lazy from`, reified at the first emitting install.
-- predicate law: a closed key predicate is the Rasm posture — the telemetry `PROMOTED_BAGGAGE` frozenset's `__contains__` — because `ALLOW_ALL_BAGGAGE_KEYS` stamps arbitrary caller baggage onto every span and every outgoing `baggage` header; promoted keys therefore never carry sensitive material.
-- write law: `on_start` sets each admitted key on the span unconditionally with no cap; `on_emit` skips a key already present on the log record and stops at `max_baggage_attributes` (128), so log stamping never overwrites stdlib-logging or downstream-processor attributes and never floods the record.
-- order law: the promotion processor registers before the batch processor so spans and records are stamped before enqueue.
-- consumer anchor: the runtime telemetry install (`_tracer_provider` / `_log_attach`, `PROMOTED_BAGGAGE`) in the observability/telemetry page composes both processors as the sole registration site.
+[TOPOLOGY]:
+- a predicate is one `(str) -> bool` callable or a sequence; the constructor wraps a callable to a single-element list, and a baggage key promotes when any predicate admits it.
+- `on_start` sets every admitted key on the span unconditionally with no cap; `on_emit` skips a key already present on the log record and stops at `max_baggage_attributes` (128), so log stamping never overwrites stdlib-logging or downstream-processor attributes and never floods the record.
+
+[STACKING]:
+- `opentelemetry-sdk`(`.api/opentelemetry-sdk.md`): `BaggageSpanProcessor` implements `sdk.trace.SpanProcessor.on_start` and `BaggageLogProcessor` implements `sdk._logs.LogRecordProcessor.on_emit`, registered through `TracerProvider.add_span_processor` / `LoggerProvider.add_log_record_processor` ahead of the batch processor.
+- `opentelemetry-api`(`.api/opentelemetry-api.md`): both processors read `baggage.get_all(context)` to source the promotion set; the span side stamps each admitted key via `Span.set_attribute`, the log side writes the `ReadWriteLogRecord` attribute map directly.
+- runtime telemetry install: the observability install (`_tracer_provider`/`_log_attach`, `PROMOTED_BAGGAGE`) composes both processors as the sole registration site, gating with the closed `PROMOTED_BAGGAGE.__contains__` predicate.
+
+[LOCAL_ADMISSION]:
+- `PROMOTED_BAGGAGE.__contains__` is the install predicate, a closed key set; `ALLOW_ALL_BAGGAGE_KEYS` stamps arbitrary caller baggage onto every span and outbound `baggage` header, so it is rejected in the install.
+- importing the package reifies the `_logs` tier — `log_processor` imports `opentelemetry.sdk._logs` — so the runtime install defers `BaggageLogProcessor` behind a lazy import until the first emitting install.
 
 [RAIL_LAW]:
 - Package: `opentelemetry-processor-baggage`
-- Owns: predicate-gated baggage-to-attribute promotion onto spans at start and log records at emit
-- Accept: a closed `PROMOTED_BAGGAGE.__contains__` predicate, promotion processor registered before the batch processor
-- Reject: `ALLOW_ALL_BAGGAGE_KEYS` in the install, sensitive material in a promoted key, an eager package import that reifies `_logs` ahead of the first emitting install
+- Owns: predicate-gated promotion of baggage entries onto spans at start and log records at emit
+- Accept: a closed-key predicate, the promotion processor registered before the batch processor, the log side capped by `max_baggage_attributes`
+- Reject: `ALLOW_ALL_BAGGAGE_KEYS` in the install, an eager package import reifying `_logs` ahead of the first emitting install

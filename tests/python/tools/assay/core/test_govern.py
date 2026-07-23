@@ -24,7 +24,9 @@ from hypothesis import given, HealthCheck, settings as hyp_settings, strategies 
 from hypothesis.stateful import Bundle, consumes, invariant, rule, RuleBasedStateMachine
 import msgspec
 from opentelemetry import trace
-from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter  # noqa: TC002  # collection-time fixture annotation
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
+    InMemorySpanExporter,  # ruff:ignore[typing-only-third-party-import]  # collection-time fixture annotation
+)
 import psutil
 import pytest
 from upath import UPath
@@ -32,7 +34,7 @@ from upath import UPath
 from tests.python._testkit.spec import assert_error_status, assert_ok, model_based, monotone, roundtrip, support_matrix, validity_matrix
 
 # Hypothesis resolves fixture annotations at collection time under PEP 649.
-from tests.python.tools.assay.kit import _make_psutil_module, _proc, AssayHarness  # noqa: TC001
+from tests.python.tools.assay.kit import _make_psutil_module, _proc, AssayHarness  # ruff:ignore[typing-only-first-party-import]
 from tools.assay.composition.settings import AssaySettings
 from tools.assay.core.aspect import RING  # ring seam seeded directly for ring-content assertions
 from tools.assay.core.exec import run_check
@@ -188,7 +190,7 @@ _STALE_CASES: tuple[tuple[str, _ProcKw, bool], ...] = (
 
 
 @pytest.mark.parametrize("label, proc_kw, expected", _STALE_CASES, ids=[c[0] for c in _STALE_CASES])
-def test_is_lease_stale_decision_table(label: str, proc_kw: _ProcKw, expected: bool, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: FBT001
+def test_is_lease_stale_decision_table(label: str, proc_kw: _ProcKw, expected: bool, monkeypatch: pytest.MonkeyPatch) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
     """``is_lease_stale``: dead/not-running/create-time-drift/zombie/dead-status ⇒ True; live-and-matching ⇒ False."""
     _ = label
     fake = _make_psutil_module({None: _proc(), 99999: _proc(pid=99999, **proc_kw)})
@@ -216,7 +218,7 @@ _PROC_DEAD_CASES: tuple[tuple[str, _ProcKw, bool], ...] = (
 
 
 @pytest.mark.parametrize("label, proc_kw, expected", _PROC_DEAD_CASES, ids=[c[0] for c in _PROC_DEAD_CASES])
-def test_proc_dead_truth_table(label: str, proc_kw: _ProcKw, expected: bool, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: FBT001
+def test_proc_dead_truth_table(label: str, proc_kw: _ProcKw, expected: bool, monkeypatch: pytest.MonkeyPatch) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
     """``proc_dead``: zombie/dead/vanished pids are dead, a running pid is live — the shared ownership-liveness ladder."""
     _ = label
     monkeypatch.setattr(govern_mod, "psutil", _make_psutil_module({4242: _proc(pid=4242, **proc_kw)}))
@@ -392,7 +394,7 @@ def _spill_plan(assay_root: AssayHarness, scope: ArtifactScope, spill_cap: int) 
 
 
 @pytest.mark.parametrize("size, expect_spill", [(64, False), (65, True)], ids=("at-cap-inline", "over-cap-spills"))
-def test_capture_spill_boundary_is_strict_greater_than(size: int, expect_spill: bool, assay_root: AssayHarness) -> None:  # noqa: FBT001
+def test_capture_spill_boundary_is_strict_greater_than(size: int, expect_spill: bool, assay_root: AssayHarness) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
     """At exactly ``spill_cap`` capture stays inline; one byte past it spills and ``read`` resolves from the store.
 
     White-box: the non-streaming ``_capture_payload`` and streaming ``drain_stream`` paths share one spill predicate.
@@ -445,7 +447,7 @@ def test_streaming_local_receipt_carries_full_payload_and_artifact(
     command: tuple[str, ...],
     language: Language,
     payload: bytes,
-    scoped: bool,  # noqa: FBT001
+    scoped: bool,  # ruff:ignore[boolean-type-hint-positional-argument]
     assay_root: AssayHarness,
 ) -> None:
     """Streaming local tools resolve the receipt stdout to the full sub-cap payload, persisting the scoped artifact.
@@ -566,7 +568,7 @@ _STALL_RUNS: tuple[tuple[str, tuple[str, ...], bool], ...] = (
 def test_stall_monitor_shrunk_constant_matrix(
     label: str,
     command: tuple[str, ...],
-    stalled: bool,  # noqa: FBT001
+    stalled: bool,  # ruff:ignore[boolean-type-hint-positional-argument]
     assay_root: AssayHarness,
     monkeypatch: pytest.MonkeyPatch,
     log_events: list[dict[str, object]],
@@ -782,7 +784,7 @@ _HELD_FLOCK: tuple[tuple[str, bool], ...] = (("populated-body", True), ("empty-b
 
 @pytest.mark.mutation
 @pytest.mark.parametrize("label, populate", _HELD_FLOCK, ids=[c[0] for c in _HELD_FLOCK])
-def test_claim_held_flock_is_busy(label: str, populate: bool, assay_root: AssayHarness) -> None:  # noqa: FBT001
+def test_claim_held_flock_is_busy(label: str, populate: bool, assay_root: AssayHarness) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
     """A live holder under a sibling-held flock maps the contender to ``BUSY`` (never a steal).
 
     Populated and empty mid-write bodies both read as live contention under ``LOCK_EX``.

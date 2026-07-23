@@ -1,6 +1,6 @@
 # [TS_IAC_API_PULUMI_GITHUB]
 
-`@pulumi/github` is the Terraform-bridged provider for the source-control leg of the bootstrap axis: repositories, branch law, deployment environments, Actions configuration, deploy keys, webhooks, and org/team RBAC as typed resources under one `Provider` that binds `token`/`owner` (or a GitHub-App `appAuth`). The package is the standard generated quadruple (`class X extends pulumi.CustomResource` + `XArgs` + `XState` + `X.get`/`X.isInstance`) applied across a large roster — learn the families, not the classes. In `iac` it provisions the SHELLS the delivery pipeline lands on: the `RepositoryEnvironment` rows are what the Doppler `secretssync.GithubActions` mirror populates (`Secrets.mirrored` — secret VALUES never route through this provider), `RepositoryDeployKey` binds a `tls.PrivateKey.publicKeyOpenssh` so machine access keys stay in the one entropy owner, and `RepositoryWebhook` is the event seam a deploy-triggering endpoint subscribes through.
+`@pulumi/github` is the Terraform-bridged provider for the source-control leg of the bootstrap axis: repositories, branch law, deployment environments, Actions configuration, deploy keys, webhooks, and org/team RBAC as typed resources under one `Provider` binding `token`/`owner` (or a GitHub-App `appAuth`). One generated quadruple (`class X extends pulumi.CustomResource` + `XArgs` + `XState` + `X.get`/`X.isInstance`) applies across the roster — learn the families, not the classes. In `iac` it provisions the SHELLS the delivery pipeline lands on; secret VALUES never route through this provider.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -13,7 +13,7 @@
 - runtime: Node deploy-host; every operation is a GitHub REST/GraphQL call under the provider credential
 - depends-on: `@pulumi/pulumi`; composes `@pulumiverse/doppler` (the Actions-secret mirror), `@pulumi/tls` (deploy-key material)
 - capability: repository/branch-law/ruleset provisioning, deployment environments with reviewer and branch-policy gates, Actions secret/variable slots at repo/environment/org scope, deploy keys, webhooks, org settings, team RBAC
-- abi-note: the generated quadruple holds roster-wide; `BranchProtectionV3` is the retired REST twin of `BranchProtection` — one branch-law owner per repo, never both
+- abi-note: the generated quadruple holds roster-wide; `BranchProtectionV3` is the REST-API (v3) twin of `BranchProtection` — one branch-law owner per repo, never both
 
 ## [02]-[PROVIDER_SEAM]
 
@@ -24,7 +24,7 @@
 | [INDEX] | [FIELD]   | [MEANING]                                                                                       |
 | :-----: | :-------- | :---------------------------------------------------------------------------------------------- |
 |  [01]   | `token`   | `Input<string>` — the Doppler fan-in read (`GITHUB_TOKEN`), never a literal                     |
-|  [02]   | `owner`   | `Input<string>` — org/user scope for unqualified names (`organization` is its deprecated alias) |
+|  [02]   | `owner`   | `Input<string>` — org/user scope for unqualified names                                          |
 |  [03]   | `appAuth` | `{ id, installationId, pemFile }` — GitHub-App identity, the durable-machine upgrade over a PAT |
 |  [04]   | `baseUrl` | GitHub Enterprise endpoint row                                                                  |
 
@@ -32,7 +32,7 @@
 
 [FAMILY_SCOPE]: the roster grouped by concern — each row is the generated quadruple
 - rail: source-control
-- Args the `[IMPLEMENTATION_LAW]` below already governs (environment gates, mirror slots, branch-law owner) are stated there; the cells carry class names plus the remaining load-bearing args. `Repository` carries `name`/`visibility`/`autoInit`/`pages`/`securityAndAnalysis`; `Team` carries `name`; `OrganizationSettings` also carries `name`/`billingEmail`/`webCommitSignoffRequired`; `ActionsSecret*` carry `secretName`; `RepositoryWebhook` carries `active`. Each data source pairs a `get*Output` graph-threaded twin.
+- `[IMPLEMENTATION_LAW]` governs environment gates, mirror slots, and the branch-law owner; the cells carry class names and the remaining load-bearing args. `Repository` carries `name`/`visibility`/`autoInit`/`pages`/`securityAndAnalysis`; `Team` carries `name`; `OrganizationSettings` also carries `name`/`billingEmail`/`webCommitSignoffRequired`; `ActionsSecret*` carry `secretName`; `RepositoryWebhook` carries `active`. Each data source pairs a `get*Output` graph-threaded twin.
 
 | [INDEX] | [FAMILY]           | [KEY_CLASSES_LOAD_BEARING_ARGS]                                                                                     |
 | :-----: | :----------------- | :------------------------------------------------------------------------------------------------------------------ |
@@ -56,7 +56,7 @@
 [SOURCE_CONTROL_TOPOLOGY]:
 - mirror law: Actions secret VALUES arrive through the Doppler mirror — `Secrets.mirrored`'s `secretssync.GithubActions` row (`.api/pulumiverse-doppler.md`) writes FROM the canonical config into the repo/environment slots; `ActionsSecret.plaintextValue` is admitted only for a value that is not secret material misfiled as one, and a credential authored here instead of mirrored is the second-source-of-truth defect. `ActionsVariable` rows own non-secret configuration freely.
 - environment law: `RepositoryEnvironment` is the deployment gate shell — `reviewers`, `waitTimer`, `preventSelfReview`, and a `deploymentBranchPolicy` refined by `RepositoryEnvironmentDeploymentPolicy` patterns; the environment names align with the estate's `StackSpec.doppler.config` axis so the mirror, the gate, and the stack speak one environment vocabulary.
-- key law: `RepositoryDeployKey.key` binds `tls.PrivateKey.publicKeyOpenssh` (`.api/pulumi-tls.md`) — the private half never enters this provider; `readOnly: true` is the default posture and a write key is a deliberate row. The webhook `configuration.secret` binds a Doppler-generated entry the receiving endpoint verifies.
+- key law: `RepositoryDeployKey.key` binds `tls.PrivateKey.publicKeyOpenssh` (`.api/pulumi-tls.md`) — the private half never enters this provider; `readOnly: true` is the default posture and a write key is a deliberate row. Webhook `configuration.secret` binds a Doppler-generated entry the receiving endpoint verifies.
 - branch-law law: one owner per repo — `RepositoryRuleset` for rules-engine estates, `BranchProtection` where classic protection suffices, `BranchProtectionV3` only when adopting a pre-existing REST-managed repo; two branch-law owners on one repo is the split the family table forbids.
 - provider law: one `Provider` per owner scope, constructed from the fan-in token exactly once and threaded through tier options; `appAuth` supersedes a PAT when the estate earns a durable machine identity, and rate posture lives on the provider knobs, never in retry loops around resources.
 

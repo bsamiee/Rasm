@@ -328,7 +328,7 @@ const LANG = {
         shared: 'libs/csharp/.api',
         manifest: 'the package `.csproj` and the central `Directory.Packages.props` block for this package',
         verify:
-            '`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` (assay blocked or unavailable: the `.api` catalogs + the nuget MCP for feed truth + ' +
+            '`uv run python -m tools.assay api` (assay blocked or unavailable: the `.api` catalogs + the nuget MCP for feed truth + ' +
             'Context7/exa/tavily own the fallback)',
         stackLaw:
             'read these `docs/stacks/csharp/` pages IN FULL, in this exact order: `README.md`, `language.md`, `shapes.md`, ' +
@@ -342,7 +342,7 @@ const LANG = {
         shared: 'libs/python/.api',
         manifest: 'the root `pyproject.toml` rows this package consumes',
         verify:
-            '`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api resolve <pkg>` (blocked or gated: the `.api` catalogs + PyPI feed truth + ' +
+            '`uv run python -m tools.assay api resolve <pkg>` (blocked or gated: the `.api` catalogs + PyPI feed truth + ' +
             'Context7/exa/tavily own the fallback)',
         stackLaw:
             'read these `docs/stacks/python/` pages IN FULL, in this exact order: `README.md`, `language.md`, `shapes.md`, ' +
@@ -356,7 +356,7 @@ const LANG = {
         shared: 'libs/typescript/.api',
         manifest: 'the `pnpm-workspace.yaml` / package manifest rows this area consumes',
         verify:
-            'the published types in node_modules (`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` over node_modules declarations where ' +
+            'the published types in node_modules (`uv run python -m tools.assay api` over node_modules declarations where ' +
             'a member is novel)',
         stackLaw:
             'read these `docs/stacks/typescript/` pages IN FULL, in this exact order: `README.md`, `language.md`, ' +

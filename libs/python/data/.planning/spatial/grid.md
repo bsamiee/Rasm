@@ -15,7 +15,7 @@ The two-H3-substrate boundary is law: in-frame vectorized cell algebra lives her
 - Entry: the grid boundary catches the h3ronpy FFI fault family plus the page-owned S2 deferral, never an un-narrowed `Exception`.
 - Auto: the geometry-to-cells leg reads the polars-st WKB `GeoExpr` column directly, so the DGGS index shares the one WKB encoding the `spatial/geospatial#GEO` claims and the `spatial/query#SPATIAL` engine speak; `set_failing_to_invalid` keeps array length stable on parse failure, so an invalid cell is a null data row, never a raised exception in the array pipeline; `H3_CRS` and `DEFAULT_CELL_COLUMN` are page-owned anchors with one declaration site, never a per-arm literal; every `arro3` return crosses into polars through `pl.from_arrow` over the Arrow PyCapsule interface, never a positional `pl.Series(name, array)` intake.
 - Receipt: the shared `tabular/columnar` `QueryReceipt.railed` over the result frame, the `engine` carrying the `h3ronpy.<scheme>` route; `GridResult` pairs the frame with that receipt, no new receipt rail.
-- Packages: `h3ronpy` and `polars-st` ride the Forge scientific source build band, so every operation body binds the provider function-local under `# noqa: PLC0415`, never a subprocess seam; the polars-st LGPL-2.1 dynamic-linkage posture stays recorded on `data/.api/polars-st.md`.
+- Packages: `h3ronpy` and `polars-st` ride the Forge scientific source build band, so every operation body binds the provider function-local under `# ruff:ignore[import-outside-top-level]`, never a subprocess seam; the polars-st LGPL-2.1 dynamic-linkage posture stays recorded on `data/.api/polars-st.md`.
 - Growth: a new cell operation is one `GridOp` case; a new index kind one `CellKind` row; a new scalar metric one `Metric`/`AreaUnit` row; a new coverage policy one `ContainmentMode` row; a new frame-geometry verb one literal row the accessor already answers; a new grid scheme one `GridScheme` member.
 - Boundary: no host coupling, no durable cell store, no lonboard/GeoArrow visualization (`artifacts` owns it); the claims plane is `spatial/geospatial#GEO`, the in-DB engine `spatial/query#SPATIAL`, and never a second WKB geometry encoding or a parallel H3 column owner beside them.
 
@@ -93,7 +93,7 @@ class Containment(StrEnum):
     INTERSECTS = "IntersectsBoundary"
 
     def mode(self) -> object:
-        from h3ronpy import ContainmentMode  # noqa: PLC0415
+        from h3ronpy import ContainmentMode  # ruff:ignore[import-outside-top-level]
 
         return getattr(ContainmentMode, self.value)
 
@@ -259,12 +259,12 @@ class GridSystem(Struct, frozen=True):
         return QueryReceipt.railed(engine, tag, frame.to_arrow()).map(lambda receipt: GridResult(frame=frame, receipt=receipt))
 
     def _grid(self, op: GridOp, frame: "pl.DataFrame") -> "pl.DataFrame":
-        import polars as pl  # noqa: PLC0415
+        import polars as pl  # ruff:ignore[import-outside-top-level]
 
         if self.scheme is GridScheme.S2:
             raise NotImplementedError("grid.s2.deferred")
-        import h3ronpy  # noqa: PLC0415
-        from h3ronpy import (  # noqa: PLC0415
+        import h3ronpy  # ruff:ignore[import-outside-top-level]
+        from h3ronpy import (  # ruff:ignore[import-outside-top-level]
             change_resolution,
             change_resolution_list,
             change_resolution_paired,
@@ -277,7 +277,7 @@ class GridSystem(Struct, frozen=True):
             localij_to_cells,
             uncompact,
         )
-        from h3ronpy.vector import cells_bounds_arrays  # noqa: PLC0415
+        from h3ronpy.vector import cells_bounds_arrays  # ruff:ignore[import-outside-top-level]
 
         def attach(name: str, array: object) -> "pl.DataFrame":
             return frame.with_columns(pl.from_arrow(array).rename(name))
@@ -332,8 +332,8 @@ class GridSystem(Struct, frozen=True):
                 assert_never(unreachable)
 
     def _boundary(self, frame: "pl.DataFrame", cells: object, form: BoundaryForm, kind: CellKind, radians: bool) -> "pl.DataFrame":
-        import h3ronpy.vector as vector  # noqa: PLC0415
-        import polars as pl  # noqa: PLC0415
+        import h3ronpy.vector as vector  # ruff:ignore[import-outside-top-level]
+        import polars as pl  # ruff:ignore[import-outside-top-level]
 
         if form == "centroid":
             return pl.from_arrow(vector.cells_to_coordinates(cells, radians=radians))
@@ -344,8 +344,8 @@ class GridSystem(Struct, frozen=True):
         return frame.with_columns(pl.from_arrow(wkb).rename("boundary"))
 
     def _validate(self, frame: "pl.DataFrame", cells: object, mode: ValidateMode, kind: CellKind) -> "pl.DataFrame":
-        import h3ronpy  # noqa: PLC0415
-        import polars as pl  # noqa: PLC0415
+        import h3ronpy  # ruff:ignore[import-outside-top-level]
+        import polars as pl  # ruff:ignore[import-outside-top-level]
 
         column, call = {
             "valid": ("valid", lambda: getattr(h3ronpy, f"{kind.value}_valid")(cells, booleanarray=True)),
@@ -355,18 +355,18 @@ class GridSystem(Struct, frozen=True):
         return frame.with_columns(pl.from_arrow(call()).rename(column))
 
     def _raster_index(self, values: "np.ndarray", transform: tuple[float, ...], resolution: int | None) -> "pa.Table":
-        from h3ronpy.raster import nearest_h3_resolution, raster_to_dataframe  # noqa: PLC0415
+        from h3ronpy.raster import nearest_h3_resolution, raster_to_dataframe  # ruff:ignore[import-outside-top-level]
 
         target = resolution if resolution is not None else nearest_h3_resolution(values.shape, transform)
         return raster_to_dataframe(values, transform, target, nodata_value=None, compact=False)
 
     def _raster_egress(self, cells: object, values: "np.ndarray", size: "int | tuple[int, int]") -> "tuple[np.ndarray, tuple[float, ...]]":
-        from h3ronpy.raster import rasterize_cells  # noqa: PLC0415
+        from h3ronpy.raster import rasterize_cells  # ruff:ignore[import-outside-top-level]
 
         return rasterize_cells(cells, values, size, nodata_value=0)
 
     def _index(self, frame: "pl.DataFrame", resolution: int, source: CellSource) -> object:
-        from h3ronpy.vector import coordinates_to_cells, geometry_to_cells, wkb_to_cells  # noqa: PLC0415
+        from h3ronpy.vector import coordinates_to_cells, geometry_to_cells, wkb_to_cells  # ruff:ignore[import-outside-top-level]
 
         match source:
             case CellSource(tag="coordinates", coordinates=(lat_col, lng_col)):
@@ -383,8 +383,8 @@ class GridSystem(Struct, frozen=True):
 
 
 def _lift(lift: GeoLift) -> "pl.DataFrame":
-    import polars as pl  # noqa: PLC0415
-    import polars_st as st  # noqa: PLC0415
+    import polars as pl  # ruff:ignore[import-outside-top-level]
+    import polars_st as st  # ruff:ignore[import-outside-top-level]
 
     match lift:
         case GeoLift(tag="wkb", wkb=col):
@@ -400,7 +400,7 @@ def _lift(lift: GeoLift) -> "pl.DataFrame":
 
 
 def _geo(op: GeoFrameOp, frame: "pl.DataFrame") -> "pl.DataFrame":
-    import polars as pl  # noqa: PLC0415
+    import polars as pl  # ruff:ignore[import-outside-top-level]
 
     match op:
         case GeoFrameOp(tag="predicate", predicate=(verb, geometry_col, other_col, distance)):

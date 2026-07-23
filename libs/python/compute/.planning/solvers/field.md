@@ -276,7 +276,7 @@ def _interpolate_receipt(key: ContentKey, field: MeshField, dofs: np.ndarray, re
 # residual is a source-space round trip; the callable path reads the projected DOFs back at the target
 # basis's physical coordinates (`global_coordinates`) against the source callable there — never finiteness.
 def _project_receipt(key: ContentKey, field: MeshField, target: ElementKind, source: ProjectSource) -> FieldReceipt:
-    import skfem  # noqa: F401 — worker; project is reachable only on the FEM band.
+    import skfem  # ruff:ignore[unused-import] — worker; project is reachable only on the FEM band.
 
     target_basis = _basis(field, target, skfem)
     match source:

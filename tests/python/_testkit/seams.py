@@ -5,7 +5,7 @@
 from collections.abc import Callable, Iterable
 from contextlib import asynccontextmanager
 from pathlib import Path
-from types import TracebackType  # noqa: TC003  # Protocol dunder __aexit__ annotation requires runtime presence
+from types import TracebackType  # ruff:ignore[typing-only-standard-library-import]  # Protocol dunder __aexit__ annotation requires runtime presence
 from typing import Protocol, Self, TYPE_CHECKING
 from unittest.mock import create_autospec, MagicMock
 
@@ -85,7 +85,7 @@ class Async[R](msgspec.Struct, frozen=True, gc=False):
         """
         _ = log
 
-        async def run_async(*args: object, **kwargs: object) -> R:  # noqa: RUF029  # async required: production callsite awaits this seam
+        async def run_async(*args: object, **kwargs: object) -> R:  # ruff:ignore[unused-async]  # async required: production callsite awaits this seam
             record(args, kwargs)
             return self.value
 

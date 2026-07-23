@@ -421,7 +421,7 @@ const LAW = [
         'resilience, runtime, transport, validation, visuals), then PUSH PAST it to the objectively strongest form the doctrine admits. READ the ' +
         'relevant shard(s) and conform exactly — a hard gate enforced by the `tools/cs-analyzer` compiled-doctrine gate (a true positive is ' +
         'architecture pressure, fix the shape; a false positive is rule pressure, never a suppression). Cite only host/NuGet members confirmed via ' +
-        '`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api`' +
+        '`uv run python -m tools.assay api`' +
         FB +
         '; back bridge claims with EvidenceCertificate + reviewed ReferenceEvidence.',
     'This is IMPLEMENT, not an untied page rebuild: realize the folder SPECIFIC open IDEAS/TASKLOG cards into deep design-page FENCES. A FENCE is a ' +
@@ -458,9 +458,9 @@ const CARD = [
         "`libs/python` — outside this C#-only run's language rail; land your half stating the wire contract, and the card stays open unless it is " +
         'complete on your half alone).',
     'PROBE FREELY (nothing gates probing): EVERY agent in EVERY phase may — and should — probe to verify reality at any time, for ANY card or design ' +
-        'decision, not only `[BLOCKED]` ones — `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api resolve|query` over host DLLs / NuGet to ' +
+        'decision, not only `[BLOCKED]` ones — `uv run python -m tools.assay api resolve|query` over host DLLs / NuGet to ' +
         'confirm any member or signature; Rhino WIP (never Rhino 8) via the rhino-mcp skill or tools/rhino-bridge for live host/GH behavior; ' +
-        '`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay ' +
+        '`uv run python -m tools.assay ' +
         'provision check` (+ tools/assay/README.md) for a native/scientific/database/provisioning band. tools/assay is under concurrent construction: ' +
         'when an assay invocation fails, the probe obligation stands and reroutes — the `.api` catalogs, the `nuget` MCP for feed truth, ' +
         'Context7/exa/tavily for the official surface — and a blocker provable ONLY through downed assay is a legitimate out-of-run blocker, never a ' +
@@ -468,7 +468,7 @@ const CARD = [
         'is genuinely legitimate ONLY when it depends on work outside this run.',
     'PACKAGE ADMISSION (only when a card genuinely needs a not-yet-admitted package): do the folder-local parts NOW — add `<PackageReference ' +
         'Include="..."/>` WITHOUT a version to `<pkg>/<pkg>.csproj`, add the package to the correct group in `<pkg>/README.md`, and author ' +
-        '`<pkg>/.api/api-<pkg>.md` from `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api`' +
+        '`<pkg>/.api/api-<pkg>.md` from `uv run python -m tools.assay api`' +
         FB +
         '. The central repo-root `' +
         CENTRAL +
@@ -540,7 +540,7 @@ const ULTRA = [
         'package + catalog member into single dense owners woven as ONE rail (source-generated owners, `Fold` algebra, data tables), ALWAYS layering ' +
         'the universal Thinktecture/LanguageExt rails onto the domain packages, NOT flat one-shot per-API uses. Use the DEEPEST ' +
         'operator/combinator/generated surface each package itself reaches (LIBRARY_DEPTH); an admitted capability the concept admits but no owner ' +
-        'exploits is a DEFECT you close, and a cited member you cannot verify via `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api`' +
+        'exploits is a DEFECT you close, and a cited member you cannot verify via `uv run python -m tools.assay api`' +
         FB +
         ' is a PHANTOM you delete or ' +
         'correct, never leave standing; reject surface-level subsets, BCL-first reflexes, and thin rename wrappers.',
@@ -997,7 +997,7 @@ const implementPrompt = (folder, seq, report, note, ownpass) =>
             '/` + `' +
             folder +
             '/.api/api-*.md`, enumerated by real listing, never memory — with ' +
-            'the admitted packages; and verify any novel host/NuGet member via `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api`' +
+            'the admitted packages; and verify any novel host/NuGet member via `uv run python -m tools.assay api`' +
             FB +
             '. Realize EVERY card in `order` ' +
             '(all tasks incl. Atomic, then the ideas) into deep fences in the `' +
@@ -1093,7 +1093,7 @@ const critiquePrompt = (folder, seq, report, ownpass) =>
             'in domain logic, NO mutable accumulation.',
         '(6) STRATA/MEMBERS/MODERN — strata correctness (depend strictly upward; NO downward dependency, NO host-type leak into a host-neutral owner; ' +
             'geometry/mesh/IFC meet at the wire with one owner per runtime); cite ONLY host/NuGet members confirmed in a `.api` catalog (verify novel ' +
-            'members via `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api`' +
+            'members via `uv run python -m tools.assay api`' +
             FB +
             '; an unverifiable cited member is a PHANTOM — delete or correct it); latest modern C# 14 on ' +
             'net10 (primary ctors, collection expressions, `params` collections, list/relational/logical patterns, switch expressions, `required` ' +
@@ -1193,7 +1193,7 @@ const redteamPrompt = (folder, seq, report, critReport, critOk, ownpass) =>
             "`'s LAST stage and the SOLE owner of its card status. For EVERY card in scope this run, re-read its " +
             'FULL body and the realized fences on CURRENT disk, then ADVERSARIALLY VERIFY — the fences are naive until they survive your attack, a prior ' +
             'pass verdict a rejected self-assessment — that they genuinely fulfill the card `Capability`/`Shape`/`Unlocks` against the verified `.api` ' +
-            '(verify novel members via `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api`' +
+            '(verify novel members via `uv run python -m tools.assay api`' +
             FB +
             '). FINAL-remediate any weak or partial realization in place NOW, then ' +
             'assign each card a strength: `strong` (every charter clause delivered, fences transcription-complete against the verified `.api`), `partial` ' +
@@ -1236,7 +1236,7 @@ const pinPrompt = (pins, seams, orphans, backlog, round) =>
                 pins.length
                     ? '(1) PINS: apply each reported row exactly once — hand-edit the grouped manifest at the SYMBOL anchor (never a line number), ' +
                       'preserving label-group and alphabetical order, deduping semantically identical rows; verify each package + version via the ' +
-                      '`nuget` MCP or `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api`' +
+                      '`nuget` MCP or `uv run python -m tools.assay api`' +
                       FB +
                       ' before applying; confirm the owning `<pkg>.csproj` carries the versionless `<PackageReference/>` and the folder README/.api ' +
                       'rows landed, repairing a missing folder-local part in place: ' +

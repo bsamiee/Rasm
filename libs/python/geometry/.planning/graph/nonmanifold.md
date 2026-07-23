@@ -104,28 +104,28 @@ _GRAPH_CEILING: Final[Mapping[str, float]] = MappingProxyType({"empty_node_fract
 # default lane and the opt-in Forge lane pays the import once — never a module-top AGPL binding.
 @cache
 def _topo() -> type:
-    from topologicpy.Topology import Topology  # noqa: PLC0415
+    from topologicpy.Topology import Topology  # ruff:ignore[import-outside-top-level]
 
     return Topology
 
 
 @cache
 def _graph() -> type:
-    from topologicpy.Graph import Graph  # noqa: PLC0415
+    from topologicpy.Graph import Graph  # ruff:ignore[import-outside-top-level]
 
     return Graph
 
 
 @cache
 def _cluster() -> type:
-    from topologicpy.Cluster import Cluster  # noqa: PLC0415
+    from topologicpy.Cluster import Cluster  # ruff:ignore[import-outside-top-level]
 
     return Cluster
 
 
 @cache
 def _dictionary() -> type:
-    from topologicpy.Dictionary import Dictionary  # noqa: PLC0415
+    from topologicpy.Dictionary import Dictionary  # ruff:ignore[import-outside-top-level]
 
     return Dictionary
 
@@ -220,7 +220,7 @@ def _ifc_cluster(source: bytes) -> Handle:
     # SPF bytes -> in-memory `ifcopenshell.file` -> per-product topology list folded to one non-manifold
     # `Cluster` handle: `ByIFCFile` takes the file OBJECT (not a path) and returns a list, so the
     # `Cluster.ByTopologies` fold collapses it to one `Handle`, shape-uniform with the sibling rows.
-    import ifcopenshell  # noqa: PLC0415  AGPL companion gate, the same in-memory loader mesh/daemon opens through
+    import ifcopenshell  # ruff:ignore[import-outside-top-level]  AGPL companion gate, the same in-memory loader mesh/daemon opens through
 
     return _cluster().ByTopologies(*_topo().ByIFCFile(ifcopenshell.file.from_string(source.decode("utf-8"))))
 

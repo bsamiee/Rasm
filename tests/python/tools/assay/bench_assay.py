@@ -49,11 +49,11 @@ def _resolve_subject(payload: tuple[object, ...]) -> object:
 
 
 def _place_subject(payload: tuple[object, ...]) -> object:
-    import tempfile  # noqa: PLC0415
+    import tempfile  # ruff:ignore[import-outside-top-level]
 
-    from upath import UPath  # noqa: PLC0415
+    from upath import UPath  # ruff:ignore[import-outside-top-level]
 
-    from tools.assay.composition.settings import AssaySettings  # noqa: PLC0415
+    from tools.assay.composition.settings import AssaySettings  # ruff:ignore[import-outside-top-level]
 
     (routed, tool) = payload
     assert isinstance(routed, Routed)

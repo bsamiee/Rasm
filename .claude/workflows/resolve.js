@@ -357,7 +357,7 @@ const LANG = {
             'collections, QuikGraph, Mapperly and siblings) AND the folder catalogs `<package>/.api/*.md`, always layering the universal ' +
             'Thinktecture/LanguageExt rails onto the domain packages, never the folder set alone.',
         verify:
-            '`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` (assay blocked or unavailable: the `.api` catalogs, the nuget MCP for ' +
+            '`uv run python -m tools.assay api` (assay blocked or unavailable: the `.api` catalogs, the nuget MCP for ' +
             'feed truth, and Context7/exa/tavily for the official surface own the fallback)',
         vocab: '(`[Union]`/`[SmartEnum<TKey>]`/`[ValueObject]`/`Fold`/the rails)',
         slur: 'naive, surface-level code dressed in the right vocabulary',
@@ -383,7 +383,7 @@ const LANG = {
             'structlog, stamina, numpy, psutil, opentelemetry-*) AND the folder catalogs `<package>/.api/*.md`, always layering the shared/universal ' +
             'rails ON TOP OF the folder-specific domain packages, never the folder set alone.',
         verify:
-            '`UV_CACHE_DIR=.cache/uv uv run --frozen python -m tools.assay api resolve <pkg>` (a gated/uninstalled package, or a ' +
+            '`uv run python -m tools.assay api resolve <pkg>` (a gated/uninstalled package, or a ' +
             'blocked/unavailable assay, falls back to its catalog/official surface)',
         vocab: '(`@tagged_union`/`frozendict`/`Result`/`Option`/the rails)',
         slur: 'naive, surface-level, old-style Python dressed in the right vocabulary',
@@ -408,7 +408,7 @@ const LANG = {
             'against the published types in node_modules, always layering the shared Effect ecosystem end-to-end ON TOP OF the area-specific packages, ' +
             'never the folder set alone.',
         verify:
-            'the published types in node_modules (`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` over node_modules declarations where ' +
+            'the published types in node_modules (`uv run python -m tools.assay api` over node_modules declarations where ' +
             'a member is novel)',
         vocab: '(`Schema.Class`/`TaggedClass` families, tagged unions, `Effect`/`Layer`, value-derived vocabulary tables)',
         slur: 'naive JavaScript-in-TypeScript dressed in the right vocabulary',

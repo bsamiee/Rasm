@@ -954,7 +954,7 @@ async def fan_schedule(checks: tuple[Check, ...], worker: FanWorker, *, deadline
                 slot: Result[Completed, Fault]
                 try:
                     slot = await worker(check)
-                except Exception as exc:  # noqa: BLE001  # fan resilience: one escaped check must not cancel sibling workers
+                except Exception as exc:  # ruff:ignore[blind-except]  # fan resilience: one escaped check must not cancel sibling workers
                     slot = Error(Fault((check.tool.name,), status=RailStatus.FAULTED, message=f"{type(exc).__name__}: {exc}"[:1024]))
                 await out.send((i, slot))
 

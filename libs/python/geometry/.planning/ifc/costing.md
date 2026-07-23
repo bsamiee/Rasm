@@ -17,7 +17,7 @@ Every selecting phase admits its query through `IfcSelector` (`ifc/selector.md#S
 - Receipt: kind-specific `evidence` ledger keys the empty-row fraction for `QUANTITY`/`COST`/`SCHEDULE`/`PATCH` (a phase producing no rows for a non-empty subject set is a degenerate run keyed `1.0`) and the changed-over-`population` drift fraction for `DIFF` (never changed-over-changed, which clears every ceiling), so a model breaching the caller's ceiling fails the carrier's `admitted` verdict rather than crossing clean. `graduates()` returns `GeometryHandoff.of(BIM_LIFECYCLE, …)` against the per-key ceiling; the typed `LifecycleRow` is the carry, its per-field `facts` the lossless projection, and `frame()` re-projects the same facts as one phase-homogeneous `EvidenceFrame` through the graduation port so the data plane aggregates lifecycle rollups without receipt re-parsing.
 - Packages: `ifc5d` (`qto.rules`/`quantify`/`edit_qtos` take-off surface only — the `ifc5Dspreadsheet` writer family is the data boundary's), `ifcopenshell` (`api.cost` rollup and in-process model access; selector filtering is the validated gate, never a direct `util.selector.filter_elements` call here), `ifc4d` (`<Format>2Ifc` named parsers), `ifcpatch` (`execute` over the `recipes` namespace; the durable `write` is the data boundary's), `ifcdiff` (`IfcDiff`/`change_register`/`added_elements`/`deleted_elements`; the `export` JSON is the data boundary's), and `geometry`/`expression`/`beartype`/`runtime` per the fence imports; `IfcSelector` is the only `filter_elements` caller.
 - Growth: a new quantity rule set is one `RuleSet` row over the upstream `qto.rules` key; a new cost format one `CostReport` row the data boundary binds to its `ifc5Dspreadsheet` writer subclass; a new schedule format one `ScheduleFormat` row binding its `<Format>2Ifc` parser; a new model transformation one `recipe` name in the `ifcpatch.execute` directive; a new diff classification one `DiffChange` row and one `of_register` arm — zero new surface, no parallel per-phase class family.
-- Boundary: no re-derivation of the C# `IfcSemanticModel` spatial hierarchy; no durable store — cost spreadsheet, `ifcpatch.write` serialization, and diff `export` JSON all defer to `python:data/spatial` as the token or product carried on the receipt; no Rhino/GH mutation. Ecosystem siblings import function-local under `# noqa: PLC0415` at boundary scope per the manifest import policy, and the `spec` selector crosses the `IfcSelector.filter` validated gate, never a raw `util.selector.filter_elements` passthrough.
+- Boundary: no re-derivation of the C# `IfcSemanticModel` spatial hierarchy; no durable store — cost spreadsheet, `ifcpatch.write` serialization, and diff `export` JSON all defer to `python:data/spatial` as the token or product carried on the receipt; no Rhino/GH mutation. Ecosystem siblings import function-local under `# ruff:ignore[import-outside-top-level]` at boundary scope per the manifest import policy, and the `spec` selector crosses the `IfcSelector.filter` validated gate, never a raw `util.selector.filter_elements` passthrough.
 
 ```python signature
 from collections.abc import Iterable
@@ -266,7 +266,7 @@ class IfcLifecycle:
 
     @staticmethod
     def _takeoff(model: "ifcopenshell.file", elements: tuple["ifcopenshell.entity_instance", ...], rule_set: RuleSet) -> LifecycleReceipt:
-        import ifc5d.qto  # noqa: PLC0415
+        import ifc5d.qto  # ruff:ignore[import-outside-top-level]
 
         results = ifc5d.qto.quantify(model, set(elements), ifc5d.qto.rules[rule_set.value])
         ifc5d.qto.edit_qtos(model, results)
@@ -280,7 +280,7 @@ class IfcLifecycle:
 
     @staticmethod
     def _cost(model: "ifcopenshell.file", schedule_guid: str, report: CostReport) -> LifecycleReceipt:
-        import ifcopenshell.api.cost  # noqa: PLC0415
+        import ifcopenshell.api.cost  # ruff:ignore[import-outside-top-level]
 
         schedule = model.by_guid(schedule_guid)
         items = model.by_type("IfcCostItem")
@@ -297,9 +297,9 @@ class IfcLifecycle:
 
     @staticmethod
     def _schedule(model: "ifcopenshell.file", fmt: ScheduleFormat, source: str) -> LifecycleReceipt:
-        import ifc4d.asta2ifc  # noqa: PLC0415
-        import ifc4d.msproject2ifc  # noqa: PLC0415
-        import ifc4d.p62ifc  # noqa: PLC0415
+        import ifc4d.asta2ifc  # ruff:ignore[import-outside-top-level]
+        import ifc4d.msproject2ifc  # ruff:ignore[import-outside-top-level]
+        import ifc4d.p62ifc  # ruff:ignore[import-outside-top-level]
 
         parser = {
             ScheduleFormat.MSPROJECT: ifc4d.msproject2ifc.MSProject2Ifc,
@@ -317,8 +317,8 @@ class IfcLifecycle:
 
     @staticmethod
     def _patch(model: "ifcopenshell.file", recipe: str, args: str) -> tuple[LifecycleReceipt, "ifcopenshell.file"]:
-        import ifcopenshell  # noqa: PLC0415  boundary-scope: the `ifcopenshell.file()` output match needs the name bound
-        import ifcpatch  # noqa: PLC0415
+        import ifcopenshell  # ruff:ignore[import-outside-top-level]  boundary-scope: the `ifcopenshell.file()` output match needs the name bound
+        import ifcpatch  # ruff:ignore[import-outside-top-level]
 
         # `execute` returns `ifcopenshell.file | str | None` — patched model, non-IFC product, or in-place.
         # Product TYPE is the wire carry the data boundary keys `ifcpatch.write` on; no throwaway write here.
@@ -342,8 +342,8 @@ class IfcLifecycle:
 
     @staticmethod
     def _diff(model: "ifcopenshell.file", revision_path: str) -> LifecycleReceipt:
-        import ifcopenshell  # noqa: PLC0415  boundary-scope: the `ifcopenshell.open(revision_path)` revision load needs the name bound
-        import ifcdiff  # noqa: PLC0415
+        import ifcopenshell  # ruff:ignore[import-outside-top-level]  boundary-scope: the `ifcopenshell.open(revision_path)` revision load needs the name bound
+        import ifcdiff  # ruff:ignore[import-outside-top-level]
 
         # `change_register` carries only the surviving-element marker map; the disjoint
         # `added_elements`/`deleted_elements` sets carry the presence rows the register never holds
@@ -380,7 +380,7 @@ def _lifecycle_kernel(source: bytes, phase: LifecyclePhase, spec: str) -> "Runti
     # PATCH recipe that mints a new file serializes THAT file, never the pre-patch original; a `_dispatch` fault crosses
     # home as the typed BoundaryFault on the kernel's own rail — tag, subject, and fields survive the seam whole, and the
     # caller flattens the nested rail exactly once, never a RuntimeError flattening the fault to text.
-    import ifcopenshell  # noqa: PLC0415
+    import ifcopenshell  # ruff:ignore[import-outside-top-level]
 
     model = ifcopenshell.file.from_string(source.decode())
     return IfcLifecycle._dispatch(model, phase, spec).map(lambda pair: (_serialized(pair[1], phase), pair[0]))

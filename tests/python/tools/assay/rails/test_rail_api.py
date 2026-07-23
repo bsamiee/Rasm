@@ -358,7 +358,7 @@ def test_resolve_miss_family(
     assay_root: AssayHarness,
     key: str,
     kind: str,
-    strict: bool,  # noqa: FBT001  # parametrized bool flag
+    strict: bool,  # ruff:ignore[boolean-type-hint-positional-argument]  # parametrized bool flag
     reason: str,
 ) -> None:
     """Resolve misses return ApiResolution candidates, while strict promotes to FAULTED."""
@@ -419,7 +419,7 @@ def test_show_store_windowing(
     assay_root: AssayHarness,
     content: str,
     params: dict[str, object],
-    expect_truncated: bool,  # noqa: FBT001  # parametrized bool flag
+    expect_truncated: bool,  # ruff:ignore[boolean-type-hint-positional-argument]  # parametrized bool flag
     expect_lines: int,
     check_preview: Callable[[str], bool],
 ) -> None:
@@ -453,7 +453,7 @@ def test_show_latest_preference_chain(assay_root: AssayHarness, writes: tuple[tu
     """Show latest prefers retained API-claim evidence, then API scope cache, before any newer generic artifact."""
     store = assay_root.settings.store()
     paths = {label: store.write_text(f"{label} artifact\n", *parts) for label, parts in writes}
-    latest_token = "latest"  # noqa: S105  # not a password — artifact lookup keyword per api.py _LATEST_ARTIFACT
+    latest_token = "latest"  # ruff:ignore[hardcoded-password-string]  # not a password — artifact lookup keyword per api.py _LATEST_ARTIFACT
     r = assert_ok(_run(show, assay_root, token=latest_token, max_lines=50))
     assert r.status is RailStatus.OK
     assert r.artifacts
@@ -467,7 +467,7 @@ def test_show_latest_preference_chain(assay_root: AssayHarness, writes: tuple[tu
 def test_query_key_resolution(
     assay_root: AssayHarness,
     key: str,
-    unsupported: bool,  # noqa: FBT001  # parametrized bool flag
+    unsupported: bool,  # ruff:ignore[boolean-type-hint-positional-argument]  # parametrized bool flag
 ) -> None:
     """Query keeps live and unknown keys on the Ok rail."""
     r = assert_ok(_run(query, assay_root, key=key, symbol=""))
@@ -628,8 +628,8 @@ def test_cs_query_truncation_matrix(
     assay_root: AssayHarness,
     monkeypatch: pytest.MonkeyPatch,
     max_lines: int,
-    full: bool,  # noqa: FBT001  # parametrized bool flag
-    expect_truncated: bool,  # noqa: FBT001  # parametrized bool flag
+    full: bool,  # ruff:ignore[boolean-type-hint-positional-argument]  # parametrized bool flag
+    expect_truncated: bool,  # ruff:ignore[boolean-type-hint-positional-argument]  # parametrized bool flag
     note: str,
 ) -> None:
     """C# decompile lines keep full count while preview honors cap/full, surfacing the window note when capped."""
@@ -942,7 +942,7 @@ def test_inspect_kinds_roster_pins_pep695_alias_row() -> None:
 
 def test_signature_fallback_cases() -> None:
     """_signature renders annotations, synthetic params, or sentinel."""
-    import types  # noqa: PLC0415  # local: a module object is the cleanest unsignable-but-annotated probe
+    import types  # ruff:ignore[import-outside-top-level]  # local: a module object is the cleanest unsignable-but-annotated probe
 
     class ForwardType:
         pass
@@ -982,7 +982,7 @@ def test_malformed_boundary_inputs_degrade_to_empty(assay_root: AssayHarness) ->
 
 def test_pydist_metadata_boundary_degradation(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """_pydist_source handles files=None dists; inventory skips nameless dists and folds root-lookup OSErrors."""
-    import importlib.metadata as importlib_metadata  # noqa: PLC0415  # local: drive the stdlib metadata boundary
+    import importlib.metadata as importlib_metadata  # ruff:ignore[import-outside-top-level]  # local: drive the stdlib metadata boundary
 
     assert oracle_mod._pydist_source("pytest") is not None  # live dist resolves without a file manifest requirement
 
@@ -1047,7 +1047,7 @@ def test_tsdecl_thunk_capture_matrix(assay_root: AssayHarness, monkeypatch: pyte
     assert len(capped) == 1  # capped at the patched RESULT_CAP
     assert all(cap.truncated for cap in capped)  # saturation surfaces the same way code.py surfaces truncated
 
-    from tree_sitter import Parser as TSParser  # noqa: PLC0415  # local: construct the real parser for the read-fail probe
+    from tree_sitter import Parser as TSParser  # ruff:ignore[import-outside-top-level]  # local: construct the real parser for the read-fail probe
 
     parser = TSParser(ts_language(oracle_mod._TS_GRAMMAR))
     assert oracle_mod._ts_captures(parser, assay_root.root / "node_modules" / "ghost" / "absent.d.ts") == ()
@@ -1076,7 +1076,7 @@ def test_tsdecl_member_type_declaration_outranks_property_namesake(assay_root: A
 
 def test_tsdecl_thunk_query_error_surfaces_capture(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """A malformed roster query surfaces as a single query_error capture, mirroring the code rail."""
-    from tree_sitter import QueryError  # noqa: PLC0415  # local: only this law needs the tree-sitter error type
+    from tree_sitter import QueryError  # ruff:ignore[import-outside-top-level]  # local: only this law needs the tree-sitter error type
 
     dts = assay_root.write("pkg/index.d.ts", "export interface Foo { x: string }\n")
     source = oracle_mod.Source("pkg", SourceKind.TSDECL, "1.0.0", package_root=dts.parent, asset_paths=(dts,))
@@ -1124,7 +1124,7 @@ def test_resolve_nuget_kind_path_rows(assay_root: AssayHarness, kind: str) -> No
     ],
     ids=["exact", "ambiguous", "unknown"],
 )
-def test_resolve_key_fuzzy_dispatch(key: str, expect_ok: bool, expect_reason: str) -> None:  # noqa: FBT001  # parametrized bool flag
+def test_resolve_key_fuzzy_dispatch(key: str, expect_ok: bool, expect_reason: str) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]  # parametrized bool flag
     """resolve_key discriminates exact / ambiguous / unknown over the NuGet package map."""
     packages = {"Pkg.Core": "1.0.0", "Pkg.Cache": "2.0.0", "Other": "3.0.0"}
     result = oracle_mod.resolve_key(packages, key)
