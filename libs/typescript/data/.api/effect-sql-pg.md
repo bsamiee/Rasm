@@ -64,7 +64,7 @@ Driver owns the pool, wire protocol, LISTEN/NOTIFY, and the OTel span; every pg 
 |  [04]   | `sql`\``… FOR UPDATE SKIP LOCKED LIMIT $n`\`                             | async lane     | `project/async` competing-consumer drain   |
 |  [05]   | `client.reserve` → `conn` → `COPY … FROM STDIN` write stream             | COPY bulk      | `journal`/`retrieve` bulk ingest           |
 |  [06]   | `client.listen(channel)` ⇒ `Stream` ← `client.notify(channel, id)`       | notify wake    | `project/async` LISTEN/NOTIFY-woken lanes  |
-|  [07]   | `sql`\``SELECT set_config('app.current_tenant', ${tenantId}, true)`\`    | RLS GUC        | `scope/tenant` per-transaction scope       |
+|  [07]   | `sql`\``SELECT set_config('rasm.tenant', ${tenantId}, true)`\`    | RLS GUC        | `scope/tenant` per-transaction scope       |
 |  [08]   | `client.reactive(keys, query): Stream` ← `Reactivity.invalidate(keys)`   | reactive read  | `project/inline` read-your-writes          |
 
 ## [04]-[IMPLEMENTATION_LAW]

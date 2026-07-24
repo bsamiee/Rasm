@@ -53,7 +53,7 @@ class TenantScope extends Context.Reference<TenantScope>()("security/access/Tena
 ## [03]-[RLS_CONTRACT]
 
 [RLS_CONTRACT]:
-- Owner: `SessionCoordinate` — the session-GUC vocabulary the data wave pins per transaction: one row per coordinate carrying the GUC name and the projection over a bound `Principal`, so `tenant` (`app.current_tenant`, the RLS predicate key), `scope` (`app.current_scope`, the store-map partition), and `subject` (`app.current_subject`, the audit attribution) travel one write path the data wave owns and a new coordinate is one row, never a second contract. `TENANT_GUC` derives from the tenant row — the single anchor the RLS `CREATE POLICY` predicate reads through `current_setting`.
+- Owner: `SessionCoordinate` — the session-GUC vocabulary the data wave pins per transaction: one row per coordinate carrying the GUC name and the projection over a bound `Principal`, so `tenant` (`rasm.tenant`, the RLS predicate key), `scope` (`rasm.scope`, the store-map partition), and `subject` (`rasm.subject`, the audit attribution) travel one write path the data wave owns and a new coordinate is one row, never a second contract. `TENANT_GUC` derives from the tenant row — the single anchor the RLS `CREATE POLICY` predicate reads through `current_setting`.
 - Law: every projection reads the core `TenantContext` getters — the branded spelling computed from fields already proven by their own patterns — so the one scope spelling can never disagree with its parts, and an unauthenticated principal projects `none` on every row, the fail-closed default RLS reads zero rows under.
 - Law: the contract is transport-free — this page never composes `@effect/sql` and never spells `SET LOCAL`; the data wave's transaction transformer folds the coordinate table over the bound principal, pinning each `Some` projection, so search-path, tenant, and audit subject travel one write path.
 - Growth: a new session coordinate the data wave pins (a shard key, a search-path override, a region) is one `SessionCoordinate` row; a GUC rename lands once in its row.
@@ -63,17 +63,17 @@ class TenantScope extends Context.Reference<TenantScope>()("security/access/Tena
 ```typescript
 const SessionCoordinate = {
   tenant: {
-    guc: "app.current_tenant",
+    guc: "rasm.tenant",
     read: (principal: Principal): Option.Option<string> =>
       Option.map(principal.context, (context) => String(context.tenant)),
   },
   scope: {
-    guc: "app.current_scope",
+    guc: "rasm.scope",
     read: (principal: Principal): Option.Option<string> =>
       Option.map(principal.context, (context) => String(context.scope)),
   },
   subject: {
-    guc: "app.current_subject",
+    guc: "rasm.subject",
     read: (principal: Principal): Option.Option<string> => principal.subject,
   },
 } as const

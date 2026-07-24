@@ -19,7 +19,7 @@ security/
     └── access/                # Authorization: entitlement fold, tenancy contract, and the security fact rail
         ├── audit.ts           # SecurityFact vocabulary, Witness publish seam, AuditJournal port, pseudonymized egress, board projections
         ├── claim.ts           # Entitlement vocabulary + the RBAC-union-ReBAC evaluation fold, resolved once per request
-        └── tenant.ts          # Ambient TenantContext reference + the app.current_tenant RLS shape the data stratum enforces
+        └── tenant.ts          # Ambient TenantContext reference + the rasm.tenant RLS shape the data stratum enforces
 ```
 
 ## [02]-[STRATA]

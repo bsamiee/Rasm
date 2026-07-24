@@ -56,3 +56,4 @@ Tenant isolation binds every branch that pins or reads shared database session s
 [SESSION_GUC]:
 - Binds: C#, TypeScript.
 - Law: RLS session GUCs carry one namespace spelling shared by every branch that sets or reads them — a `SET`-side namespace and an RLS-predicate namespace that disagree read zero rows under a fail-closed policy, a defect no type or test at either end catches.
+- Law: the namespace is `rasm.*` — `rasm.tenant`, `rasm.scope`, `rasm.subject` — minted once at the security custodian's `SessionCoordinate` catalog and read verbatim by every RLS predicate; `rasm.tenant` doubles as the telemetry tenant dimension, one vocabulary.

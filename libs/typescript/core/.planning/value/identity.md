@@ -106,7 +106,7 @@ declare namespace AppIdentity {
 
 ## [03]-[TENANT_SCOPE]
 
-- Owner: `TenantContext`, a `Schema.Class` of `app` plus `tenant` — the exact `(appKey, tenancy)` pair the data folder keys its per-tenant store Layers on and `security` aligns its `app.current_tenant` claims with — carrying structural `Equal` from the declaration so contexts key `LayerMap` and `HashMap` slots with zero ceremony.
+- Owner: `TenantContext`, a `Schema.Class` of `app` plus `tenant` — the exact `(appKey, tenancy)` pair the data folder keys its per-tenant store Layers on and `security` aligns its `rasm.tenant` claims with — carrying structural `Equal` from the declaration so contexts key `LayerMap` and `HashMap` slots with zero ceremony.
 - Law: `scope` is the derived partition key — the branded `app/tenant` spelling — computed from fields already proven by their own patterns, so the interior mint is total and the one scope spelling can never disagree with its parts.
 - Law: `alike` is the class-derived `Schema.equivalence` — tenancy deduplication and keyed scope comparisons consume the same structural relation as every decode-derived projection.
 - Law: direction is a modality of one owner — `FromScope` is the single bidirectional transform: decode recovers `(app, tenant)` from a bare scope through `Schema.TemplateLiteralParser` (the split is unambiguous because both key alphabets forbid `/`, and each part re-proves its own brand), encode re-emits the parts as the template — so the data wave's per-scope family recovers a `ScopeKey`'s coordinates as a decode, never a hand split, and no free inverse export exists beside the mint.
