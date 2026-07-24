@@ -112,7 +112,7 @@ It folds data, compute, and geometry outputs — and any structured payload — 
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Shared substrate consumed from the Py registry; the registry and its charters own the full contracts, and `libs/python/.api/` holds the shared API evidence.
+Domain libraries this folder admits; versions centralize in the root `pyproject.toml` and corroborate against this folder's `.api/`.
 
 [DOCUMENTS]:
 - `reportlab`
@@ -207,7 +207,7 @@ Shared substrate consumed from the Py registry; the registry and its charters ow
 - `pyexiftool` — cross-format descriptive-metadata read/write
 
 [DELIVERY]:
-- `cloudevents` — CloudEvents structured/binary envelope with W3C trace-and-baggage extensions for the transmittal notice
+- `cloudevents` — structured/binary envelope with the W3C trace-and-baggage extensions
 
 [EDITABLE_EXPORT]:
 - `simpleidml` — IDML package and template mutation
@@ -235,7 +235,7 @@ Shared substrate consumed from the Py registry; the registry and its charters ow
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Cross-cutting substrate consumed from the branch registry; the branch `libs/python/.planning` README and `libs/python/.api/` own the full contracts and API evidence.
+Shared substrate consumed from the Py registry; the registry and its charters own the full contracts, and `libs/python/.api/` holds the shared API evidence.
 
 [TYPING_RAILS]:
 - `expression`

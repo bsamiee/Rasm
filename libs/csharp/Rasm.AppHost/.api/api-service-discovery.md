@@ -93,5 +93,3 @@
 - Owns: outbound endpoint resolution and client-side load balancing
 - Accept: service-name queries and registered endpoint providers
 - Reject: hard-coded endpoint strings or hand-rolled instance round-robin
-</content>
-</invoke>

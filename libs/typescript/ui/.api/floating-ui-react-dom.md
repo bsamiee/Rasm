@@ -1,34 +1,33 @@
 # [TS_UI_API_FLOATING_UI_REACT_DOM]
 
-`@floating-ui/react-dom` is the React DOM binding for the `@floating-ui/dom` positioning engine — the substrate `@floating-ui/react` builds its interaction layer on. It exposes one `useFloating` hook that returns callback ref-setters (`refs.setReference`/`refs.setFloating`), a ready-to-spread `floatingStyles: React.CSSProperties`, an `isPositioned` flicker-guard, and an `update` function, plus React-aware wrappers of every `@floating-ui/dom` middleware factory (`offset`/`flip`/`shift`/`arrow`/`size`/`hide`/`inline`/`autoPlacement`/`limitShift`) that each accept a `Derivable` option (a function of the live `MiddlewareState`) and a `deps: React.DependencyList` second argument so reactive options recompute without stale closures. It re-exports the full `@floating-ui/dom` geometry vocabulary and the imperative engine (`computePosition`/`autoUpdate`/`detectOverflow`). A `view/compose` row imports `@floating-ui/react` for anything interactive; this package is imported directly only for interaction-free anchoring — a static positioned badge, a measured non-dismissible label.
+`@floating-ui/react-dom` binds the `@floating-ui/dom` positioning engine to React: one `useFloating` hook projects live geometry into a spread-ready `floatingStyles`, and React-aware middleware factories take `Derivable` options with a `deps` array so reactive positioning recomputes without stale closures.
+
+`view/compose` reaches this package directly only for interaction-free anchoring — a static positioned badge, a measured non-dismissible label; anything dismissible, focus-trapped, or portaled composes `@floating-ui/react`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@floating-ui/react-dom`
 - package: `@floating-ui/react-dom` (MIT)
-- module format: ESM + UMD (`dist/floating-ui.react-dom.esm.js`, `.d.ts` at `dist/floating-ui.react-dom.d.ts`), `sideEffects: false`; single `.` entry
-- runtime target: React DOM (browser) — the hook binds to real DOM nodes and produces inline `position`/`transform` styles
-- peer: `react@>=catalog`, `react-dom@>=catalog`; dep `@floating-ui/dom@^catalog` (the framework-agnostic engine this package wraps)
-- asset: React positioning hook + React-aware middleware factories; the substrate of `@floating-ui/react`
-- rail: position (the geometry layer under the `view/compose` floating-anchor/sheet rows)
+- module: ESM + UMD, single `.` entry, `sideEffects: false`
+- runtime: React DOM browser — binds real DOM nodes and emits inline `position`/`transform` styles
+- depends: `@floating-ui/dom` (the framework-agnostic engine wrapped here)
+- rail: position — the geometry layer under the `view/compose` floating-anchor and sheet rows
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: position result family — the hook config and return
-- rail: position
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]     | [CONSUMER]                                                                               |
-| :-----: | :----------------------- | :---------------- | :--------------------------------------------------------------------------------------- |
-|  [01]   | `UseFloatingOptions<RT>` | hook config       | `Partial<ComputePositionConfig>` + `whileElementsMounted`/`open`/`elements`/`transform`  |
-|  [02]   | `UseFloatingReturn<RT>`  | hook result       | `refs`/`elements` + `floatingStyles` + `update()` + `UseFloatingData`; no `context` here |
-|  [03]   | `UseFloatingData`        | position snapshot | `ComputePositionReturn & { isPositioned: boolean }` — `x`/`y`/`placement`/`strategy`     |
-|  [04]   | `ReferenceType`          | reference union   | `Element \| VirtualElement` — real node or virtual rect (cursor/selection)               |
-|  [05]   | `ArrowOptions`           | arrow config      | `{ element, padding? }`; `element` is the `arrow` ref target (React ref or node)         |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]     | [CAPABILITY]                                                                            |
+| :-----: | :----------------------- | :---------------- | :-------------------------------------------------------------------------------------- |
+|  [01]   | `UseFloatingOptions<RT>` | hook config       | `Partial<ComputePositionConfig>` + `whileElementsMounted`/`open`/`elements`/`transform` |
+|  [02]   | `UseFloatingReturn<RT>`  | hook result       | `refs`, `elements`, `floatingStyles`, `update`, `UseFloatingData`; no `context`         |
+|  [03]   | `UseFloatingData`        | position snapshot | `ComputePositionReturn & { isPositioned }` — `x`/`y`/`placement`/`strategy`             |
+|  [04]   | `ReferenceType`          | reference union   | `Element \| VirtualElement` — real node or virtual rect (cursor/selection)              |
+|  [05]   | `ArrowOptions`           | arrow config      | `{ element, padding? }`; `element` targets the `arrow` ref (React ref or node)          |
 
 [PUBLIC_TYPE_SCOPE]: re-exported geometry — the `@floating-ui/dom` vocabulary
-- rail: position
 
-| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY]       | [CONSUMER]                                                   |
+| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY]       | [CAPABILITY]                                                 |
 | :-----: | :---------------------------------------------- | :------------------ | :----------------------------------------------------------- |
 |  [01]   | `Placement` / `AlignedPlacement`                | placement union     | `'top'\|'right'\|'bottom'\|'left'` × `'start'\|'end'`        |
 |  [02]   | `Side` / `Alignment`                            | placement axis      | the side and alignment halves a `Placement` composes         |
@@ -43,59 +42,50 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: positioning hook
-- rail: position
-- `useFloating<RT>(options?)` returns `{ refs, elements, floatingStyles, update, placement, middlewareData, isPositioned }`; the interaction-layer `context` is added only by `@floating-ui/react`'s `useFloating`, never this hook
+- `useFloating<RT>(options?)` returns `{ refs, elements, floatingStyles, update, placement, middlewareData, isPositioned }`; interaction `context` is added only by `@floating-ui/react`
 
-| [INDEX] | [SURFACE]                   | [ENTRY_FAMILY] | [CONSUMER]                                                                          |
-| :-----: | :-------------------------- | :------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `useFloating<RT>(options?)` | position hook  | `view/compose` — spread `floatingStyles`; `isPositioned` guards first-paint flicker |
+| [INDEX] | [SURFACE]                   | [SHAPE] | [CAPABILITY]                                                       |
+| :-----: | :-------------------------- | :------ | :----------------------------------------------------------------- |
+|  [01]   | `useFloating<RT>(options?)` | hook    | spread `floatingStyles`; `isPositioned` guards first-paint flicker |
 
-[ENTRYPOINT_SCOPE]: React-aware middleware factories — `(options | Derivable, deps?)`
-- rail: position
+[ENTRYPOINT_SCOPE]: React-aware middleware factories — `(options, deps?)`, options `Derivable` except `offset`
 
-| [INDEX] | [SURFACE]                   | [ENTRY_FAMILY] | [CONSUMER]                                                                           |
-| :-----: | :-------------------------- | :------------- | :----------------------------------------------------------------------------------- |
-|  [01]   | `offset` / `flip` / `shift` | core pipeline  | canonical `offset → flip → shift`: gap, flip cross-axis, slide main-axis on overflow |
-|  [02]   | `arrow` / `size`            | measurement    | center the arrow on the reference; clamp to `availableWidth`/`availableHeight`       |
-|  [03]   | `autoPlacement` / `hide`    | placement      | auto-pick the best side; hide when the reference is clipped                          |
-|  [04]   | `inline` / `limitShift`     | visibility     | anchor inline (wrapped-text) references; bound `shift` displacement                  |
+| [INDEX] | [SURFACE]                   | [SHAPE] | [CAPABILITY]                                                                   |
+| :-----: | :-------------------------- | :------ | :----------------------------------------------------------------------------- |
+|  [01]   | `offset` / `flip` / `shift` | factory | canonical `offset → flip → shift`: gap, flip cross-axis, slide on overflow     |
+|  [02]   | `arrow` / `size`            | factory | center the arrow on the reference; clamp to `availableWidth`/`availableHeight` |
+|  [03]   | `autoPlacement` / `hide`    | factory | auto-pick the best side; hide when the reference is clipped                    |
+|  [04]   | `inline` / `limitShift`     | factory | anchor wrapped-text references; bound `shift` displacement                     |
 
-[ENTRYPOINT_SCOPE]: imperative engine and DOM utilities
-- rail: position
+[ENTRYPOINT_SCOPE]: re-exported imperative engine and DOM utilities
 
-| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [CONSUMER]                                       |
-| :-----: | :------------------------------------------------------- | :------------- | :----------------------------------------------- |
-|  [01]   | `autoUpdate(reference, floating, update, options?)`      | auto-updater   | the required `whileElementsMounted` value        |
-|  [02]   | `computePosition(reference, floating, config)`           | imperative     | one-shot position query outside the hook         |
-|  [03]   | `detectOverflow(state, options?)`                        | imperative     | one-shot overflow query (measurement, tests)     |
-|  [04]   | `getOverflowAncestors(element, list?, traverseIframes?)` | DOM util       | scrollable-ancestor set `autoUpdate` listens on  |
-|  [05]   | `platform`                                               | DOM platform   | the default DOM platform `computePosition` binds |
+| [INDEX] | [SURFACE]                                                | [SHAPE]  | [CAPABILITY]                                     |
+| :-----: | :------------------------------------------------------- | :------- | :----------------------------------------------- |
+|  [01]   | `autoUpdate(reference, floating, update, options?)`      | static   | the required `whileElementsMounted` value        |
+|  [02]   | `computePosition(reference, floating, config)`           | static   | one-shot position query outside the hook         |
+|  [03]   | `detectOverflow(state, options?)`                        | static   | one-shot overflow query for measurement          |
+|  [04]   | `getOverflowAncestors(element, list?, traverseIframes?)` | static   | scrollable-ancestor set `autoUpdate` listens on  |
+|  [05]   | `platform`                                               | property | the default DOM platform `computePosition` binds |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[POSITION_TOPOLOGY]:
-- `useFloating` returns `refs.setReference`/`refs.setFloating` callback setters and a `floatingStyles: React.CSSProperties` object; spreading `floatingStyles` onto the float's `style` prop is the only correct application — the hook owns `position`/`top`/`left`/`transform`, and hand-writing them fights the engine. `isPositioned` is `false` until the first calculation resolves, so a float renders hidden until placed, killing first-paint flicker.
-- Middleware is an ordered pipeline: each factory returns a `Middleware` whose `fn` reads and mutates `MiddlewareState`, and order is semantic — `offset` before `flip` before `shift` before `arrow`/`size`, because each stage consumes the prior stage's coordinates. `MiddlewareData` keys each stage's output by name so the consumer reads `middlewareData.arrow.x` or `middlewareData.hide.referenceHidden`.
-- `deps` second argument and `Derivable` options are the React-reactivity seam: pass `deps` when a middleware's options derive from reactive state (a dynamic `offset` from a prop), and use a `Derivable` (`(state) => options`) when the option depends on the live placement — both prevent the stale-closure bug a plain object option does cause.
-- `whileElementsMounted: autoUpdate` is mandatory for a persistent float: it re-runs positioning on scroll, resize, DOM mutation, and layout shift, and returns a cleanup the hook calls on unmount. Without it a float positions once and drifts.
-- `Strategy` `'fixed'` escapes `overflow`/`transform`/`contain` clipping ancestors; `'absolute'` (default) positions within the nearest positioned ancestor — a portaled float uses `fixed` to break out of a scroll container.
+[TOPOLOGY]:
+- `useFloating` owns `position`/`top`/`left`/`transform` inside `floatingStyles`; a float applies position by spreading `floatingStyles` onto its `style`, and `isPositioned` stays `false` until the first calculation resolves so the float renders hidden until placed.
+- Middleware runs as an ordered pipeline — `offset` before `flip` before `shift` before `arrow`/`size` — each stage consuming the prior stage's coordinates; `MiddlewareData` keys each stage's output by name (`middlewareData.arrow.x`, `middlewareData.hide.referenceHidden`).
+- `Derivable` options and the `deps` array are the React-reactivity seam: an option that depends on live placement is a `Derivable`, an option derived from reactive state carries `deps`; a plain object option computed from state without `deps` reads a stale closure.
+- `whileElementsMounted: autoUpdate` re-runs positioning on scroll, resize, DOM mutation, and layout shift and returns a cleanup the hook calls on unmount; a mounted float without it positions once and drifts.
+- `Strategy` `'fixed'` escapes `overflow`/`transform`/`contain` clipping ancestors; `'absolute'` positions within the nearest positioned ancestor.
 
-[STACKS_WITH]:
-- `@floating-ui/dom` (dep): the framework-agnostic engine this package wraps — `computePosition`, the middleware algorithms, and the geometry types are `dom`'s; react-dom adds the `useFloating` hook, `floatingStyles`, the `deps` arrays, and React ref integration. No positioning logic is re-implemented here.
-- `@floating-ui/react` (dependent, `libs/typescript/ui/.api/floating-ui-react.md`): the full surface that re-exports everything here and adds interaction/focus/portal/tree. A `view/compose` row imports `@floating-ui/react`; it drops to `@floating-ui/react-dom` directly only for interaction-free anchoring (a static badge, a measured decorative pointer) where `useClick`/`useDismiss`/`FloatingFocusManager` are dead weight.
-- `react` (peer): `floatingStyles` is `React.CSSProperties`, the ref setters are React callback refs, and `deps` is a `React.DependencyList` — the hook is the React-native form of the imperative `computePosition` + `autoUpdate` pair.
-- `token/theme` (sibling row): the float element carries the design-token classes/styles beside the spread `floatingStyles`; the two never conflict because floating-ui owns only `position`/`top`/`left`/`transform` and the token layer owns the visual box.
-- react-aria overlay hooks (sibling rows, via `@floating-ui/react`): react-aria's `useOverlayPosition` is the react-aria-native positioner; when a row commits to floating-ui for geometry it uses this engine and lets react-aria own only ARIA/dismiss — the two positioners never both drive one element.
+[STACKING]:
+- `@floating-ui/react`(`.api/floating-ui-react.md`): the superset re-exporting this whole surface and adding interaction/focus/portal/tree; a `view/compose` row composes it and drops to `@floating-ui/react-dom` only for interaction-free anchoring where `useClick`/`useDismiss`/`FloatingFocusManager` are dead weight.
+- within-lib: `view/compose` spreads `floatingStyles` onto the float `style` beside the design-token classes — floating-ui owns only `position`/`top`/`left`/`transform`, the token layer owns the visual box; a row also composing react-aria gives react-aria ARIA and dismiss and this engine placement, so one positioner drives each element.
 
 [LOCAL_ADMISSION]:
-- Prefer `@floating-ui/react`; import `@floating-ui/react-dom` directly only when the float needs no interaction, focus, portal, or dismiss behavior.
-- Spread `floatingStyles` onto the float's `style`; never hand-apply `top`/`left`/`transform`. Pass `open` in options so `isPositioned` resets when the float hides.
-- Supply `whileElementsMounted: autoUpdate` for any persistent float; a one-shot `computePosition` is for measurement, not a mounted element.
-- Order middleware `offset → flip → shift → arrow`/`size`; pass `deps` for reactive options and a `Derivable` for placement-dependent options — never a plain object option computed from state without `deps`.
-- Use `Strategy` `'fixed'` for portaled/overflow-escaping floats; `'absolute'` within a positioned container.
+- `view/compose` composes `@floating-ui/react`, importing `@floating-ui/react-dom` directly only when the float needs no interaction, focus, portal, or dismiss.
+- Every persistent float supplies `whileElementsMounted: autoUpdate`; a one-shot `computePosition` serves measurement alone, and `open` in options resets `isPositioned` when the float hides.
 
 [RAIL_LAW]:
 - Package: `@floating-ui/react-dom`
-- Owns: the React `useFloating` positioning hook, `floatingStyles`/`isPositioned`/`update`, the React-aware middleware factories (`offset`/`flip`/`shift`/`arrow`/`size`/`hide`/`inline`/`autoPlacement`/`limitShift`), and the re-exported `@floating-ui/dom` engine (`autoUpdate`/`computePosition`/`detectOverflow`/`getOverflowAncestors`/`platform`) and geometry vocabulary
-- Accept: refs via `refs.setReference`/`refs.setFloating`, middleware via `UseFloatingOptions.middleware` in canonical order, `autoUpdate` as `whileElementsMounted`, `Derivable` + `deps` for reactive options
-- Reject: manual `top`/`left`/`transform` application, a mounted float without `autoUpdate`, direct import when interaction/focus/dismiss is needed (use `@floating-ui/react`), a middleware option derived from state without `deps`, two positioners on one element
+- Owns: the React `useFloating` positioning hook with `floatingStyles`/`isPositioned`/`update`, the React-aware middleware factories, and the re-exported `@floating-ui/dom` engine and geometry vocabulary
+- Accept: refs via `refs.setReference`/`refs.setFloating`, middleware in canonical order through `UseFloatingOptions.middleware`, `autoUpdate` as `whileElementsMounted`, `Derivable` + `deps` for reactive options
+- Reject: hand-applied `top`/`left`/`transform`, a mounted float without `autoUpdate`, a direct import where interaction/focus/dismiss is needed, a middleware option derived from state without `deps`, two positioners on one element

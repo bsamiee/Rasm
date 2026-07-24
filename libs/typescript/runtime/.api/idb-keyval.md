@@ -1,57 +1,55 @@
 # [TS_RUNTIME_API_IDB_KEYVAL]
 
-Eleven promise-returning KV ops over one IndexedDB object store each close over an optional `UseStore` transaction-runner, and the synchronous `createStore(dbName, storeName)` factory mints one beside the `promisifyRequest` raw-request bridge — free functions, no class and no singleton handle. Omitting `customStore` targets a lazily-created default `keyval-store`/`keyval` store, so the store roster is a value, never a parallel function family.
+Free-function key-value over one IndexedDB object store: each op closes over an optional `UseStore` runner `createStore` mints, `promisifyRequest` lifts a raw request or transaction to a promise, and an omitted store resolves the lazy `keyval-store`/`keyval` default.
 
-`setMany`, `delMany`, and `update` run inside a single IndexedDB transaction and are atomic — an `update` is a read-modify-write in one tx that survives concurrent writers. Values must be structured-cloneable: the `browser/persist.md` Layer encodes domain values through `Schema` to a cloneable shape at the boundary and decodes on read. This is the local-first cache lane, never the record of truth behind `browser/persist.md`'s `EventLog` overlay.
+`setMany`, `delMany`, and `update` run atomically in one transaction, `update` a read-modify-write surviving concurrent writers. This is the cache lane behind `browser/persist.md`'s `EventLog` overlay — values structured-cloneable, never the record of truth.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `idb-keyval`
 - package: `idb-keyval` (Apache-2.0)
-- entry: `.` -> ESM `./dist/index.js`, CJS `./dist/index.cjs`, types `./dist/index.d.ts` (`type: module`)
-- variants: `./dist/compat.*` (retired implicit default-store build, re-exports `./`), `./dist/umd.*` (global build)
-- asset: browser-only KV over the native `IndexedDB` API; zero dependencies; structured-clone value domain
-- runtime: `window`/Worker with `indexedDB`; absent in a bare Node runtime
+- module: `.` ESM `./dist/index.js` / CJS `./dist/index.cjs`, types `./dist/index.d.ts` (`type: module`)
+- runtime: browser or Worker with `indexedDB`; absent in a bare Node runtime; zero dependencies
 - rail: persist-kv
 
-## [02]-[KV_OPERATIONS]
+## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: single-key and batch operations — rail: persist-kv
+[PUBLIC_TYPE_SCOPE]: the transaction-runner every op threads
 
-| [INDEX] | [SYMBOL]  | [ARITY]        | [ATOMICITY]          | [CONSUMER]                  |
-| :-----: | :-------- | :------------- | :------------------- | :-------------------------- |
-|  [01]   | `get`     | single read    | single tx            | cache hit lookup            |
-|  [02]   | `getMany` | batch read     | single tx            | prefetch / hydration        |
-|  [03]   | `set`     | single write   | single tx            | cache write                 |
-|  [04]   | `setMany` | batch write    | atomic (all-or-none) | bulk hydrate / sync replay  |
-|  [05]   | `update`  | read-mod-write | atomic RMW           | counter / queue mutation    |
-|  [06]   | `del`     | single delete  | single tx            | eviction                    |
-|  [07]   | `delMany` | batch delete   | atomic               | bulk eviction               |
-|  [08]   | `clear`   | store wipe     | single tx            | cache reset                 |
-|  [09]   | `keys`    | key scan       | single tx            | queue enumeration           |
-|  [10]   | `values`  | value scan     | single tx            | background-sync replay body |
-|  [11]   | `entries` | pair scan      | single tx            | full-store export           |
+[USE_STORE]: `UseStore = <T>(IDBTransactionMode, (IDBObjectStore) => T | PromiseLike<T>) -> Promise<T>` — runs one callback inside a fresh transaction of the requested mode.
 
-[SURFACES]: `get(IDBValidKey,UseStore?) -> Promise<T|undefined>` `getMany(IDBValidKey[],UseStore?) -> Promise<(T|undefined)[]>` `set(IDBValidKey,any,UseStore?) -> Promise<void>` `setMany([IDBValidKey,any][],UseStore?) -> Promise<void>` `update(IDBValidKey,(oldValue:T|undefined)=>T,UseStore?) -> Promise<void>` `del(IDBValidKey,UseStore?) -> Promise<void>` `delMany(IDBValidKey[],UseStore?) -> Promise<void>` `clear(UseStore?) -> Promise<void>` `keys(UseStore?) -> Promise<K[]>` `values(UseStore?) -> Promise<T[]>` `entries(UseStore?) -> Promise<[K,V][]>`
+## [03]-[ENTRYPOINTS]
 
-## [03]-[STORE_PARAMETERIZATION]
+[ENTRYPOINT_SCOPE]: each KV op is a module-level async function closing over an optional `UseStore`; `createStore(string, string) -> UseStore` opens or upgrades a named database and object store and returns the runner, and `promisifyRequest(IDBRequest<T> | IDBTransaction) -> Promise<T>` bridges the raw requests the custom cursors and indexes higher lanes need.
 
-[PUBLIC_TYPE_SCOPE]: the `UseStore` transaction-runner axis — rail: persist-kv
+| [INDEX] | [SURFACE]                                                                | [CAPABILITY]             |
+| :-----: | :----------------------------------------------------------------------- | :----------------------- |
+|  [01]   | `get(IDBValidKey, UseStore?) -> Promise<T \| undefined>`                 | single read              |
+|  [02]   | `getMany(IDBValidKey[], UseStore?) -> Promise<(T \| undefined)[]>`       | batch read               |
+|  [03]   | `set(IDBValidKey, any, UseStore?) -> Promise<void>`                      | single write             |
+|  [04]   | `setMany([IDBValidKey, any][], UseStore?) -> Promise<void>`              | atomic batch write       |
+|  [05]   | `update(IDBValidKey, (T \| undefined) => T, UseStore?) -> Promise<void>` | atomic read-modify-write |
+|  [06]   | `del(IDBValidKey, UseStore?) -> Promise<void>`                           | single delete            |
+|  [07]   | `delMany(IDBValidKey[], UseStore?) -> Promise<void>`                     | atomic batch delete      |
+|  [08]   | `clear(UseStore?) -> Promise<void>`                                      | store wipe               |
+|  [09]   | `keys(UseStore?) -> Promise<K[]>`                                        | key scan                 |
+|  [10]   | `values(UseStore?) -> Promise<T[]>`                                      | value scan               |
+|  [11]   | `entries(UseStore?) -> Promise<[K, V][]>`                                | pair scan                |
 
-`createStore` is the whole multi-store mechanism: it opens or upgrades a named database and object store and returns a `UseStore` closure that runs a callback inside a fresh transaction of the requested mode. The Layer resolves the closure once at construction and closes every operation over it, never per call. `promisifyRequest` is the raw-request bridge for the custom cursors and indexes the higher lanes need.
+- `update`: reads and writes in one open transaction, so its updater stays synchronous — an await lets the tx close.
 
-[USE_STORE]: `UseStore = <T>(txMode:IDBTransactionMode,// "readonly"|"readwrite"|…`
-[SURFACES]: `createStore(string,string) -> UseStore` `promisifyRequest(IDBRequest<T>|IDBTransaction) -> Promise<T>`
+## [04]-[IMPLEMENTATION_LAW]
 
-## [04]-[INTEGRATION]
+[STACKING]:
+- `effect`(`.api/effect.md`): own the store as one `Layer` over a single `createStore` `UseStore` resolved once at construction; every op becomes an `Effect.tryPromise` mapping the rejection (`DOMException` quota/abort, absent `indexedDB`) onto one typed `KvError`, and `set` composes `Schema.encode(V)` while `get`/`getMany`/`values`/`entries` compose `Schema.decode(V)`, so `V` is the schema `Encoded` and no raw promise or `any` escapes the boundary.
+- `nuqs`(`.api/nuqs.md`): `set(routeKey, serialized)` on each `createSerializer` write and `get(routeKey)` on cold boot persist the last-good query string per route key, so `createLoader` re-decodes typed query-state before the Navigation API resolves the entry — the value is a cloneable `string`, identity-encoded.
+- `browser/*`: `browser/shell.md`'s background-sync outbox enumerates pending frames with `keys`/`values`, re-hydrates atomically with `setMany`, and evicts acknowledged frames with `delMany` in one tx; `browser/boot.md` reads and writes connectivity and last-sync markers, `promisifyRequest` backing the OPFS cursor scans; this lane is the overlay cache beside `browser/persist.md`'s `EventLog`, so divergence is a cache-invalidate.
 
-[STACK]: `idb-keyval` -> `effect` rails + `Schema` + `Layer` — rail: persist-kv
-- Own the store as one Layer over a single `createStore(dbName, storeName)` `UseStore`; every op becomes an `Effect.tryPromise` that maps the rejection (`DOMException` quota/abort, absent `indexedDB`) into one typed `KvError` rail, so no raw promise escapes the boundary. `update`'s `updater` stays synchronous so the RMW tx is not held open across an await.
-- Parse-not-validate at the edge: `set` composes `Schema.encode(V)` to a structured-cloneable encoded value, and `get`/`getMany`/`values`/`entries` compose `Schema.decode(V)` on read, so the Layer's public surface is domain-typed while the stored bytes are canonical — the KV `V` type parameter is the schema `Encoded`, never `any`.
-- Collapse the scan/read/write/delete arities behind one polymorphic `kv` entry that discriminates on request shape (one key or many, read or write or mutate) onto the atomic batch ops, rather than exposing eleven method names downstream.
+[LOCAL_ADMISSION]:
+- Collapse the arities behind one polymorphic `kv` entry discriminating on request shape — one key or many, read or write or mutate — onto the atomic batch ops.
 
-[STACK]: sibling `browser` lanes — rail: persist-kv
-- `browser/shell.md` background-sync replay drains a durable outbox: `keys`/`values` enumerate pending frames, `setMany` re-hydrates atomically after a flush, and `delMany` evicts acknowledged frames in one tx.
-- `browser/persist.md`'s `Overlay` cluster carries the `EventLog` backings and the sqlite-wasm lane seam; this KV lane is the overlay cache beside them, so divergence is a cache-invalidate, never data loss.
-- `browser/boot.md` reads and writes connectivity and last-sync markers here so a cold boot restores session state before the network settles; `promisifyRequest` backs any cursor scan the OPFS lane needs over a shared store.
-- `browser/route.md` (the `nuqs` `browser/persist` consumer) persists the last-good serialized query string per route key: `set(routeKey, serialized)` on each `createSerializer` write, and `get(routeKey)` on cold boot so `nuqs`'s `createLoader` re-decodes typed query-state before the Navigation API resolves the entry. The value is already a cloneable `string`, so this lane's `V` is `Schema.String` (identity encode), never a payload.
+[RAIL_LAW]:
+- Package: `idb-keyval`
+- Owns: browser IndexedDB key-value cache — single and batch reads, writes, and deletes, atomic batch and read-modify-write mutation, and key/value/entry scans over one object store.
+- Accept: one `Layer` over a single `createStore` `UseStore`, every op an `Effect.tryPromise` folding rejection to a typed `KvError`, values `Schema`-encoded at the boundary, arities collapsed behind one polymorphic `kv` entry.
+- Reject: a raw promise or `any`-typed value escaping the boundary, per-op method names downstream, this lane standing as the record of truth behind the `EventLog` overlay.

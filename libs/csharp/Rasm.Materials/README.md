@@ -8,14 +8,14 @@ Component rows feed generated assemblies and fabrication physics, capacity recei
 
 [COMPONENT]:
 - [01]-[COMPONENT](.planning/Component/component.md): Polymorphic component owner and the one section solver over the profile algebra.
-- [02]-[MASONRY](.planning/Component/masonry.md): Masonry component family.
+- [02]-[MASONRY](.planning/Component/masonry.md): Masonry family and the generative bond algebra.
 - [03]-[STEEL](.planning/Component/steel.md): Steel family over the catalogued AISC and EN sections.
-- [04]-[CMU](.planning/Component/cmu.md): Concrete-masonry-unit family.
+- [04]-[CMU](.planning/Component/cmu.md): Concrete-masonry-unit family grounded in the ASTM/TMS published rows.
 - [05]-[TIMBER](.planning/Component/timber.md): Timber family over sawn, glulam, and CLT lamellae.
 - [06]-[GLAZING](.planning/Component/glazing.md): Glazing family over insulated-glass pane, spacer, and cavity records.
 - [07]-[REINFORCEMENT](.planning/Component/reinforcement.md): Reinforcement family over the rebar arrangement and prestressing-strand line.
 - [08]-[FASTENER](.planning/Component/fastener.md): Fastener family over the threaded bolt, nut, and washer assembly.
-- [09]-[CONNECTOR](.planning/Component/connector.md): Connector component family.
+- [09]-[CONNECTOR](.planning/Component/connector.md): Framing-connector family over the manufacturer catalogue and directional resistance algebra.
 - [10]-[JOINT](.planning/Component/joint.md): Joint family over the weld, adhesive, and stud connection record.
 - [11]-[PANEL](.planning/Component/panel.md): Panel family over sheet-goods built elements.
 - [12]-[CAPACITY](.planning/Component/capacity.md): One section-capacity resolution and check rail.

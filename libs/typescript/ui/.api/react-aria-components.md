@@ -1,32 +1,38 @@
 # [TS_UI_API_REACT_ARIA_COMPONENTS]
 
-[PACKAGE_SURFACE]:
+`react-aria-components` owns the headless accessible component spine — unstyled components owning keyboard, focus, ARIA, i18n, and interaction, all styling left to the consumer.
+
+Every component instantiates one pattern — `AriaHook ∘ StateHook ∘ RenderProps<state> ∘ ContextValue ∘ SlotProps` — shipping the uniform `Xxx`/`XxxContext`/`XxxStateContext` triple; a design composes the pattern, never a per-component API.
+
+## [01]-[PACKAGE_SURFACE]
+
+[PACKAGE_SURFACE]: `react-aria-components`
 - package: `react-aria-components` (Apache-2.0)
-- module: dual — `dist/exports/index.mjs` (ESM) + `dist/exports/index.cjs` (CJS); per-component subpaths (`react-aria-components/Button`, …) via `exports["./*"]`; `./i18n` + `./i18n/*` locale bundles. `sideEffects: ["*.css"]` — the headless core is pure; only the optional bundled stylesheet side-effects. `client-only` import ⇒ client-tier (RSC boundary).
-- asset: `dist/types/exports/index.d.ts` + ~80 per-component `.d.ts` (`restore: restored`, 79 declaration assets).
-- runtime: React 19 render-time; internalizes `react-aria@catalog` (behavior/ARIA hooks) + `react-stately@catalog` (collection/selection/form state) + `@internationalized/date catalog` (calendar/date values) + `@react-types/shared` (the shared vocab). Peer react/react-dom 19.
-- plane: `plane:runtime` (W4 `ui`); folder-local to `ui`, the headless spine every `view` row composes.
+- module: dual ESM/CJS (`dist/exports/index.mjs`, `.cjs`) with per-component subpaths (`react-aria-components/Button`) and `./i18n` + `./i18n/*` locale bundles via `exports["./*"]`.
+- asset: `dist/types/exports/index.d.ts` with per-component `.d.ts` declarations.
+- runtime: React render-time; internalizes `react-aria` (behavior/ARIA hooks), `react-stately` (collection/selection/form state), `@internationalized/date` (calendar/date values), `@react-types/shared` (shared vocab); peer `react`/`react-dom`.
+- abi: headless core is pure — only the bundled `*.css` side-effects (`sideEffects: ["*.css"]`); a `client-only` import marks the client tier (RSC boundary).
+- plane: `plane:runtime` (W4 `ui`), folder-local to `ui` — the headless spine every `view` row composes.
 - rail: `ui/view` — the accessible component spine.
-- role: `view/primitive.md` (the component spine + toast/live-region) and `view/compose.md` (Schema→aria FormBinding, picker, table/virtual, floating-anchor/sheet rows).
 
-`react-aria-components` is the headless component spine — ~65 fully-accessible, unstyled components that own keyboard, focus, ARIA, i18n, and interaction, leaving all styling to the consumer. The load-bearing fact for a dense design: it is NOT 65 bespoke APIs but ONE parameterized pattern instantiated 65 times. Every component is `AriaHook(react-aria) ∘ StateHook(react-stately) ∘ RenderProps<state> ∘ ContextValue injection ∘ SlotProps`, and ships a uniform triple — `Xxx` (the element), `XxxContext` (prop injection for compound composition), `XxxStateContext` (the react-stately state exposed to descendants). Styling is state-driven: `className`/`style`/`children` each accept a function of the component's render state, surfaced as `data-*` selectors. The component roster is SEED DATA on the render-props + context + slot mechanism; a new component is a new instance of the pattern, and the folder composes the pattern — not a per-component memorized API. The mechanism owners are documented first because they, not the component list, are what a design reasons against.
+## [02]-[THE_ONE_PATTERN]
 
-## [01]-[THE_ONE_PATTERN]
+`StyleRenderProps<T>` carries `className`/`style`/`render` and `RenderProps<T>` carries `children`, each a value or a function of the component's render state surfaced as `data-*` selectors; `ContextValue<T,E>` injects props for compound composition and `SlotProps` names the slot. Every [03] row varies only the state type these owners carry, and the function form is reserved for state a `data-*` variant cannot express — `render` overrides the aria element where the non-aria plane uses the radix `asChild` slot.
 
-Every component styles through `RenderProps`, injects props through a `ContextValue`, and names its slot through `SlotProps`. These owners are the mechanism; the roster in [02] varies only the state type `T`. The value exports here (`composeRenderProps`, `Provider`, `useRenderProps`, `useContextProps`, `useSlottedContext`, `DEFAULT_SLOT`) and type exports (`RenderProps`, `StyleRenderProps`, `ContextValue`, `SlotProps`) are the entire compositional substrate.
+[PATTERN_SURFACES]: the value substrate a styled wrapper composes.
 
-[CLASS_NAME_OR_FUNCTION]: `ClassNameOrFunction = string|((s:T&{defaultClassName:string|undefined})=>string)`
-[STYLE_RENDER_PROPS]: `StyleRenderProps.className: ClassNameOrFunction<T>` `StyleRenderProps.style: CSSProperties|((s:T&{defaultStyle:CSSProperties})=>CSSProperties|undefined)` `StyleRenderProps.render: (props:JSX.IntrinsicElements[E],renderProps:T)=>ReactElement`
-[RENDER_PROPS]: `RenderProps.children: ReactNode|((s:T&{defaultChildren:ReactNode|undefined})=>ReactNode)`
-[CONTEXT_VALUE]: `ContextValue = SlottedContextValue<T&{ref?:ForwardedRef<E>}>`
-[SLOT_PROPS]: `SlotProps.slot: string|null`
-[SURFACES]: `composeRenderProps(T|((r:U)=>V),(prev:T,r:U)=>V) -> (r:U)=>V` `useRenderProps(RenderPropsHookOptions<T,E>) -> {…}` `DEFAULT_SLOT: unique symbol` `useContextProps(T&SlotProps,ForwardedRef<E>|undefined,Context<ContextValue<U,E>>) -> [T,RefObject<E|null>]` `useSlottedContext(Context<SlottedContextValue<T>>,string|null?) -> T|null|undefined` `Provider({values:readonly[Context<A>,A][];children:ReactNode}) -> JSX.Element`
+| [INDEX] | [SURFACE]                          | [SHAPE]  | [CAPABILITY]                                                       |
+| :-----: | :--------------------------------- | :------- | :----------------------------------------------------------------- |
+|  [01]   | `composeRenderProps(value, wrap)`  | fold     | layer a wrapper over a render-prop value or function               |
+|  [02]   | `useRenderProps(options)`          | fold     | resolve `className`/`style`/`children` against state               |
+|  [03]   | `useContextProps(props, ref, Ctx)` | fold     | merge injected context props with local, return `[props, ref]`     |
+|  [04]   | `useSlottedContext(Ctx, slot?)`    | fold     | read a slotted context value                                       |
+|  [05]   | `Provider({values, children})`     | factory  | collapse nested `XxxContext.Provider` towers to one `values` array |
+|  [06]   | `DEFAULT_SLOT`                     | property | the unnamed-slot key                                               |
 
-Consumer note: styling rarely needs the function form — the `data-*` selectors ([`tailwindcss-react-aria-components`]) express state as Tailwind variants; reach for the `className`/`children` function only for state a variant cannot express. `render` is the element override for the aria spine (radix `asChild` serves the non-aria plane). `Provider` replaces nested `<XContext.Provider>` towers with one `values` array.
+## [03]-[COMPONENT_FAMILIES]
 
-## [02]-[COMPONENT_FAMILIES]
-
-The roster — each row a family of the `Xxx` / `XxxContext` / `XxxStateContext` triple. Every `XxxProps extends Aria<Xxx>Props, RenderProps<XxxRenderProps>, SlotProps` plus a shared DOM-attributes base; each `XxxRenderProps` exposes the boolean/data state (`isHovered`, `isSelected`, `isDisabled`, `isPending`, `isOpen`, …) as `data-*` selectors. This is SEED DATA on [01], not a distinct API per row.
+Each row is a family of the `Xxx`/`XxxContext`/`XxxStateContext` triple; every `XxxProps extends Aria<Xxx>Props, RenderProps<XxxRenderProps>, SlotProps`, and each `XxxRenderProps` exposes boolean state (`isHovered`, `isSelected`, `isDisabled`, `isPending`, `isOpen`) as `data-*` selectors.
 
 | [INDEX] | [FAMILY]    | [COMPONENTS]                                                                                           |
 | :-----: | :---------- | :----------------------------------------------------------------------------------------------------- |
@@ -41,56 +47,46 @@ The roster — each row a family of the `Xxx` / `XxxContext` / `XxxStateContext`
 |  [09]   | structure   | `Group` `Separator` `Heading` `Header` `Text` `Keyboard` `Disclosure`(`Group`)                         |
 |  [10]   | interaction | `Pressable` `Focusable` `VisuallyHidden`                                                               |
 
-State axis per family:
-- [01]-[ACTIONS]: press/toggle/upload; `ButtonRenderProps.isPending`/`isDisabled`.
-- [02]-[COLLECTIONS]: react-stately collection state; selection/sort/drag on the [03] engine.
-- [03]-[PICKERS]: collection + overlay + `useFilter` locale matching.
-- [04]-[OVERLAYS]: focus-trap + dismiss + positioning (`Placement`).
-- [05]-[FIELDS]: `validationBehavior` + `ValidationResult`.
-- [06]-[TOGGLES]: react-stately toggle/slider/number state.
-- [07]-[DATE_TIME]: `@internationalized/date` (`DateValue`/`TimeValue`/`DateRange`).
-- [08]-[COLOR]: `parseColor`/`getColorChannels`; `Color`/`ColorSpace`/`ColorChannel`.
-- [09]-[STRUCTURE]: labeling/structure primitives.
-- [10]-[INTERACTION]: raw press/focus/SR-only on the aria spine.
+Stateful families bind their react-stately state: fields carry `validationBehavior` + `ValidationResult`, date/time bind `@internationalized/date` values, color binds `parseColor`/`getColorChannels`, pickers add `useFilter` locale matching. Compound composition reads the `XxxStateContext` (`ListStateContext`, `TableStateContext`, `OverlayTriggerStateContext`, `SelectStateContext`, `TooltipTriggerStateContext`, `TabListStateContext`) rather than prop-drilling; `XxxContext` injects props via `Provider`.
 
-Consumer note: each component also exports `XxxContext` (inject props via `Provider`) and, where stateful, `XxxStateContext` (read the react-stately state — `ListStateContext`, `TableStateContext`, `OverlayTriggerStateContext`, `SelectStateContext`, `RootMenuTriggerStateContext`, `TooltipTriggerStateContext`, `TabListStateContext`, …). Compound composition reads the state context rather than prop-drilling.
+## [04]-[COLLECTION_ENGINE]
 
-## [03]-[COLLECTION_ENGINE]
-
-Collections, selection, sorting, virtualization, drag-drop, and async data are ONE engine the collection/picker families share — react-stately state surfaced through RAC. A custom item is authored through the factory pair, never hand-parsed `children`.
+Collections, selection, sorting, virtualization, drag-drop, and async data are one react-stately engine the collection and picker families share; a custom item is authored through `createLeafComponent`/`createBranchComponent`, never hand-parsed `children`.
 
 [SURFACES]: `createLeafComponent` `createBranchComponent` `CollectionBuilder` `Collection` `Section` `Virtualizer` `Layout` `ResizableTableContainer` `useTableOptions` `Key` `Selection` `SelectionMode` `SortDescriptor` `SortDirection` `useDragAndDrop` `isFileDropItem` `useAsyncList`
 
-Consumer note: `TableLayout`/`ListLayout`/`GridLayout`/`WaterfallLayout` own virtual geometry; `renderEmptyState` and the `*LoadMoreItem` sentinels (`ListBoxLoadMoreItem`, `TableLoadMoreItem`, `TreeLoadMoreItem`, `GridListLoadMoreItem`) own the empty/loading arms; `ResizableTableContainer` + `ColumnResizer` own resize. A custom item type is `createLeafComponent`/`createBranchComponent`.
+`TableLayout`/`ListLayout`/`GridLayout`/`WaterfallLayout` own virtual geometry; `renderEmptyState` and the `*LoadMoreItem` sentinels (`ListBoxLoadMoreItem`, `TableLoadMoreItem`, `TreeLoadMoreItem`, `GridListLoadMoreItem`) own the empty/loading arms; `ResizableTableContainer` + `ColumnResizer` own resize.
 
-## [04]-[OVERLAYS_FORMS_DND_TOAST_INFRA]
-
-The advanced surfaces beyond the roster — the pieces a dense compose/primitive page wires directly.
+## [05]-[OVERLAYS_FORMS_DND_TOAST_INFRA]
 
 - Overlays: `DialogTrigger`/`Dialog`/`Modal`/`ModalOverlay`/`Popover`/`Tooltip`/`OverlayArrow` own focus-trap, dismiss, and positioning; `Placement` is the anchor axis; `OverlayTriggerStateContext`/`RootMenuTriggerStateContext`/`TooltipTriggerStateContext` expose open state.
-- Forms: `Form` carries the `validationBehavior?: 'native' | 'aria'` axis; `FieldError` renders a `ValidationResult`; `FormValidationContext` injects server/schema errors by field name — the seam for Schema-driven validation.
-- Toast (pre-stable): `UNSTABLE_Toast`/`UNSTABLE_ToastRegion`/`UNSTABLE_ToastList`/`UNSTABLE_ToastContent` render a `queue: UNSTABLE_ToastQueue<T>` (react-stately `ToastQueue`); the region carries a built-in ARIA live region. `QueuedToast`/`ToastOptions`/`ToastState`/`UNSTABLE_ToastStateContext` type the queue.
-- Transitions (pre-stable, 1.19): `SharedElementTransition`/`SharedElement` — the shared-element animation surface pairing with the native View Transitions plane.
+- Forms: `Form` carries the `validationBehavior: 'native' | 'aria'` axis; `FieldError` renders a `ValidationResult`; `FormValidationContext` injects server or schema errors by field name.
+- Toast (pre-stable): `UNSTABLE_Toast`/`UNSTABLE_ToastRegion`/`UNSTABLE_ToastList`/`UNSTABLE_ToastContent` render a `UNSTABLE_ToastQueue<T>` whose region carries a built-in ARIA live region; `QueuedToast`/`ToastOptions`/`ToastState`/`UNSTABLE_ToastStateContext` type the queue.
+- Transitions (pre-stable): `SharedElementTransition`/`SharedElement` pair with the native View Transitions plane.
 - Infra: `I18nProvider`/`useLocale`/`isRTL` (locale over native `Intl`), `RouterProvider` (client-nav integration, `RouterConfig`), `SSRProvider` (id stability), `useFilter` (locale-aware `contains`/`startsWith`/`endsWith`).
-- Re-exported shared vocab (`@react-types/shared`): `Key`, `Selection`, `PressEvent`, `RangeValue`, `ValidationResult`, `RouterConfig`, and the full drag-drop event union (`DroppableCollection*Event`, `DraggableCollection*Event`, `DropItem`/`FileDropItem`/`TextDropItem`/`DirectoryDropItem`).
+- Shared vocab (`@react-types/shared`): `Key`, `Selection`, `PressEvent`, `RangeValue`, `ValidationResult`, `RouterConfig`, and the drag-drop event union (`DroppableCollection*Event`, `DraggableCollection*Event`, `DropItem`/`FileDropItem`/`TextDropItem`/`DirectoryDropItem`).
 
-## [05]-[INTEGRATION]
+## [06]-[IMPLEMENTATION_LAW]
 
-[STACK: `RenderProps` `data-*` + `tailwindcss-react-aria-components` + `cva`/`clsx`/`tailwind-merge` (`.api/tailwindcss-react-aria-components.md`, `.api/class-variance-authority.md`, `.api/clsx.md`, `.api/tailwind-merge.md`)] — the styling rail: RAC emits `data-hovered`/`data-selected`/`data-focus-visible`/`data-pressed`/`data-disabled` on its elements — including parent components, so `group-*`/`peer-*` variants target ancestor RAC state; the tailwind plugin maps each to its variant (`data-hovered`→`hover:`, `data-selected`→`selected:`, `data-focus-visible`→`focus-visible:`, `data-pressed`→`pressed:`, `data-disabled`→`disabled:` — the variant is the attribute's short name, not the `data-*` suffix), so state styling is a class string, not a render function. Where variants compose, `composeRenderProps(className, (cn) => twMerge(cva(base, variants)(state), cn))` layers cva variants over the user class deduped by tailwind-merge — the exact `composeRenderProps` idiom.
+[TOPOLOGY]:
+- Every component folds `AriaHook ∘ StateHook ∘ RenderProps ∘ ContextValue ∘ SlotProps`, so composing the pattern replaces every per-component API.
+- State styling rides `data-*` attributes on every element, parents included, so `group-*`/`peer-*` variants target ancestor state; the function form is reserved for state no variant reaches.
 
-[STACK: `Form`/`FieldError` `validationBehavior:'aria'` + `Schema.standardSchemaV1` (`.api/effect.md`)] — the Schema→aria FormBinding seam: a kernel `Schema` projected via `Schema.standardSchemaV1(FieldSchema)` validates a field; its `ValidationResult` feeds `FieldError`, and `FormValidationContext` injects decode errors by field name. `validationBehavior:'aria'` marks fields invalid via ARIA without blocking native submit — the design's form rows decode once at the boundary and render the same error set.
+[STACKING]:
+- `tailwindcss-react-aria-components`(`.api/tailwindcss-react-aria-components.md`), `class-variance-authority`(`.api/class-variance-authority.md`), `clsx`(`.api/clsx.md`), `tailwind-merge`(`.api/tailwind-merge.md`): RAC `data-hovered`/`data-selected`/`data-focus-visible`/`data-pressed`/`data-disabled` map to tailwind variants keyed by the attribute short name, and `composeRenderProps(className, cn => twMerge(cva(base, variants)(state), cn))` layers cva variants over the user class deduped by tailwind-merge.
+- `effect`(`libs/typescript/.api/effect.md`): `Schema.standardSchemaV1(FieldSchema)` validates a field into a `ValidationResult` fed to `FieldError` while `FormValidationContext` injects decode errors by field name and `validationBehavior:'aria'` marks fields invalid without blocking native submit; a `children`/`className` function dispatches render state through `Match.value`, and `renderEmptyState`/`*LoadMoreItem` arms dispatch async status through `Match.tagsExhaustive`.
+- `effect-atom-atom-react`(`.api/effect-atom-atom-react.md`), `effect-atom-atom`(`.api/effect-atom-atom.md`): controlled props (`selectedKeys`/`value`/`isOpen`/`sortDescriptor`/`expandedKeys`) bind to atoms with RAC in controlled mode, and app-owned list or async state routes through the atom binding instead of `useListData`/`useAsyncList`.
+- `react-aria`(`.api/react-aria.md`): `I18nProvider` over native `Intl` keyed by the kernel `Locale` brand supplies locale, `./i18n/*` bundles localize built-in strings, and `useFilter` supplies the `ComboBox`/`Autocomplete` matcher.
+- within `ui/view`: `primitive.md` composes the component spine and toast/live-region; `compose.md` composes the Schema→aria form binding, picker, table/virtual, and floating-anchor/sheet rows.
 
-[STACK: controlled props + `@effect-atom` (`.api/effect-atom-atom-react.md`, `.api/effect-atom-atom.md`)] — the one state binding: `selectedKeys`/`value`/`isOpen`/`sortDescriptor`/`expandedKeys` bind to atoms (`ONE_FOLD_ONE_BINDING`), RAC running controlled. Boundary: `useListData`/`useAsyncList` are RAC-native, but list/async state the app owns routes through the atom binding and RAC's controlled mode — never a second state store.
+[LOCAL_ADMISSION]:
+- Accessible interactive collection routes to RAC; a heavy grid or faceting model routes to `@tanstack/react-table`/`@tanstack/react-virtual`, wrapped in the react-aria `grid`/`row`/`columnheader`/`gridcell` ARIA + roving-keyboard spine — `aria-rowcount`/`aria-rowindex` carry the full logical count while only the visible span mounts.
+- `Placement` routes an aria overlay to RAC; bespoke non-aria anchoring routes to `@floating-ui/react`, one positioner per node.
+- In-field filtering is RAC `Autocomplete`, a global command palette is `cmdk`, a touch-drag bottom sheet is `vaul`; aria `Label`/`Separator`/`VisuallyHidden`/`render` are RAC, the non-aria styling plane is the radix primitives — a radix `Label` never enters an RAC field.
+- RAC `children` rendering decoded wire HTML sanitizes through `isomorphic-dompurify` first; an async collection wraps in `react-error-boundary` around `renderEmptyState`; `SharedElementTransition` composes the `act/transition` View Transitions owner.
 
-[STACK: render dispatch + `effect/Match` (`.api/effect.md`)] — a `children`/`className` function dispatches the render state with `Match.value(renderProps)` for closed-arm styling; `renderEmptyState`/the `*LoadMoreItem` arms dispatch the `AsyncListData` status through `Match.tagsExhaustive`.
-
-[STACK: `I1 catalognProvider`/`useLocale` + intl plane (`.api/react-aria.md`)] — the intl/format rows compose `I1 catalognProvider` over native `Intl` keyed by the kernel `Locale` brand; RAC reads locale from it, `./i18n/*` bundles localize built-in component strings, and `useFilter` supplies the locale-aware ComboBox/Autocomplete matcher.
-
-[BOUNDARY: RAC vs sibling owners] — `Table`/`Virtualizer` (RAC: accessible interactive collection, selection/sort/resize/drag) vs `@tanstack/react-table`/`@tanstack/react-virtual` (`.api/tanstack-react-table.md`, `.api/tanstack-react-virtual.md`: headless data-grid modeling, arbitrary DOM virtualization) — accessible collection = RAC, heavy grid/faceting model = TanStack; where a heavy TanStack-modeled grid needs accessibility, the react-aria `grid`/`row`/`columnheader`/`gridcell` ARIA + roving-keyboard spine wraps the headless TanStack rows (react-aria semantics over the TanStack model), and `aria-rowcount`/`aria-rowindex` stay on the full logical count while `@tanstack/react-virtual` mounts only the visible span. `Popover`/`Tooltip` (RAC aria overlay + `Placement`) vs `@floating-ui/react` (`.api/floating-ui-react.md`: bespoke non-aria anchoring, presence-cursor cohort) — one positioner per node. `Autocomplete` (in-field filtering) vs `cmdk` (`.api/cmdk.md`: the global command palette). `Modal` vs `vaul` (`.api/vaul.md`: touch-drag bottom sheet). `Label`/`Separator`/`VisuallyHidden`/`render` (aria spine) vs the radix `.api/radix-ui-*` primitives (non-aria styling plane) — never a radix `Label` inside an RAC field. `SharedElementTransition` composes the `act/transition` native View Transitions owner; RAC `children` rendering decoded wire HTML sanitizes through `isomorphic-dompurify` (`.api/isomorphic-dompurify.md`) first; async collections wrap in `react-error-boundary` (`.api/react-error-boundary.md`) around `renderEmptyState`.
-
-## [06]-[RAIL_LAW]
-
-- Owns: the headless accessible component spine — the render-props + context + slot mechanism, the `Xxx`/`XxxContext`/`XxxStateContext` triple, the collection/overlay/form/date/color families, the shared collection engine (`Collection`/`CollectionBuilder`/`Virtualizer`/layouts/drag-drop), toast, and the i18n/router/SSR/filter infra.
-- Accept: composing the [01] pattern (not memorizing per-component APIs); `data-*` tailwind variants for state styling, the `className`/`children` function only where a variant cannot reach; `composeRenderProps` for styled wrappers; `Provider` for context collapse; `validationBehavior:'aria'` + `FieldError` fed by `Schema.standardSchemaV1`; controlled props bound to the atom; `I18nProvider`/`useLocale` over the intl plane; `createLeafComponent`/`createBranchComponent` for custom items; `Virtualizer` + a layout for large collections.
-- Reject: hand-rolling accessibility a component owns; a `className` string where a `data-*` variant expresses the state; nested `XContext.Provider` towers where `Provider` collapses them; `useListData` for state the atom binding owns; double-positioning an aria overlay with floating-ui; a radix `Label`/`Separator`/`VisuallyHidden` inside an aria field; importing the bundled `*.css` (style via tailwind); shipping `UNSTABLE_*` toast / `SharedElementTransition` without noting the pre-stable marker.
-- Boundary: `sideEffects: ["*.css"]` — the headless core is pure, only the optional stylesheet side-effects; `client-only` ⇒ client-tier (RSC boundary). Internalizes `react-aria@catalog` + `react-stately@catalog` + `@internationalized/date`; peer react/react-dom 19. Per-component subpaths + `./i18n/*` locale bundles. `UNSTABLE_`/`SharedElement*` are pre-stable API.
+[RAIL_LAW]:
+- Package: `react-aria-components`
+- Owns: the headless accessible component spine — the render-props/context/slot mechanism, the `Xxx`/`XxxContext`/`XxxStateContext` triple, the collection/overlay/form/date/color families, the shared collection engine, toast, and the i18n/router/SSR/filter infra.
+- Accept: composing the [02] pattern; `data-*` tailwind variants for state, the function form only where a variant cannot reach; `composeRenderProps` for styled wrappers; `Provider` for context collapse; `validationBehavior:'aria'` + `FieldError` fed by `Schema.standardSchemaV1`; controlled props bound to the atom; `I18nProvider`/`useLocale` over the intl plane; `createLeafComponent`/`createBranchComponent` for custom items; `Virtualizer` + a layout for large collections.
+- Reject: hand-rolling accessibility a component owns; a `className` string where a `data-*` variant expresses the state; nested `XxxContext.Provider` towers where `Provider` collapses them; `useListData` for state the atom binding owns; double-positioning an aria overlay with floating-ui; a radix `Label`/`Separator`/`VisuallyHidden` inside an aria field; importing the bundled `*.css`.

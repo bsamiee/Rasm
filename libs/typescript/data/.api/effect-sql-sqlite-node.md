@@ -1,23 +1,21 @@
 # [TS_DATA_API_EFFECT_SQL_SQLITE_NODE]
 
-`@effect/sql-sqlite-node` binds the neutral `@effect/sql` `SqlClient` (`.api/effect-sql.md`) to a synchronous in-process `better-sqlite3` connection — the server-runtime dialect lane. `SqliteClient` extends `SqlClient`, so the entire fragment DSL, `SqlSchema`/`SqlResolver`/`Model`, `withTransaction`, and the SQL overlay bindings compose unchanged against a sqlite file; the driver adds only its runtime-distinct surface — `export` (whole-database `Uint8Array` snapshot), `backup` (online page-progress backup), `loadExtension` (runtime `.so`/`.dylib` load — the sqlite analog to the pg capability matrix), a prepared-statement cache, and WAL control. `updateValues: never` marks the one degradation the dialect declares (no multi-row `UPDATE … FROM`). `layerConfig` sources the filename from `Config` behind `host/config`, and binds both `SqliteClient` (driver capability) and the neutral `SqlClient` the journal/projection rows depend on. Bundled `SqliteMigrator` re-export is branch-banned; DDL is `iac`↔`store` declarative ensure.
+`@effect/sql-sqlite-node` binds the neutral `@effect/sql` `SqlClient` to a synchronous in-process `better-sqlite3` connection — the server-runtime sqlite dialect lane. `SqliteClient` extends `SqlClient`, adding only the driver-distinct capability the neutral surface lacks, and marks `updateValues: never`, the one dialect degradation the pg spine does not carry.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/sql-sqlite-node`
 - package: `@effect/sql-sqlite-node` (MIT)
-- effect-peer: `effect ^catalog`, `@effect/platform ^catalog`, `@effect/experimental ^catalog`, `@effect/sql ^catalog` (`.api/effect.md`, `.api/effect-platform.md`, `.api/effect-experimental.md`, `.api/effect-sql.md`)
-- dependency: `better-sqlite3 ^catalog` (bundled; synchronous in-process N-API sqlite with prebuilt binaries)
-- module format: ESM + CJS dual (`dist/dts` typings); subpaths `@effect/sql-sqlite-node/SqliteClient`, `/SqliteMigrator`; `sideEffects: []`
-- runtime: node/bun server only — `better-sqlite catalog` is native and synchronous; not browser/wasm (that is `@effect/sql-sqlite-wasm`, `.api/effect-sql-sqlite-wasm.md`)
-- rail: the `store` `lane/sqlite` node dialect — the same journal/projection contracts as the pg spine, under the sqlite capability-degradation table
+- effect-peer: `effect`, `@effect/platform`, `@effect/experimental` (`Reactivity`), `@effect/sql` (the `SqlClient` core this extends)
+- backing: `better-sqlite3` (bundled synchronous in-process N-API sqlite, prebuilt binaries)
+- module: ESM + CJS dual (`dist/dts` typings), `sideEffects: []`; subpaths `@effect/sql-sqlite-node/SqliteClient`, `/SqliteMigrator`
+- runtime: node/bun server only — native synchronous binding, never the browser/wasm plane
+- rail: the `store` `lane/sqlite` node dialect — pg-spine journal/projection contracts under the sqlite degradation table
 - modules: `SqliteClient`, `SqliteMigrator` (banned re-export)
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the sqlite client extension and its config
-- rail: boundaries
-- `SqliteClient` is a superset of the neutral `SqlClient` — it satisfies the abstract Tag every `store` row yields AND carries the driver-distinct capability. Driver ADDS only its distinct surface over `.api/effect-sql.md`; the fragment DSL, transactions, `SqlSchema`/`Model`, and overlay bindings stay the neutral surface unchanged.
+[PUBLIC_TYPE_SCOPE]: the sqlite client extension over the neutral `SqlClient`
 
 | [INDEX] | [SYMBOL]                                                           | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                              |
 | :-----: | :----------------------------------------------------------------- | :-------------- | :----------------------------------------------- |
@@ -43,39 +41,35 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: constructing and providing the sqlite lane Layer
-- rail: rails-and-effects
-- `layer`/`layerConfig` provide `SqliteClient \| SqlClient` in one Layer (error `ConfigError`), so a neutral-`SqlClient` row and a `backup`/`loadExtension` row share one binding; `make` returns `Effect<SqliteClient, never, Scope \| Reactivity>`. `layerConfig` sources filename and cache knobs from `Config` behind `host/config` (`PlatformConfigProvider`) — no hardcoded path. WAL is on by default; `disableWAL` is the explicit opt-out.
+- `layer`/`layerConfig` both yield `SqliteClient | SqlClient` in one Layer (error `ConfigError`), so a neutral-`SqlClient` row and a `backup`/`loadExtension` row share one binding; `make` returns `Effect<SqliteClient, never, Scope | Reactivity>`, and `layerConfig` sources `filename` and cache knobs from `Config` behind `host/config`.
 
 | [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                 |
 | :-----: | :---------------------------------------------------------- | :------------- | :-------------------------------------------------- |
 |  [01]   | `SqliteClient.layer(config)`                                | provide lane   | app root `./server`; binds the sqlite lane          |
 |  [02]   | `SqliteClient.layerConfig(Config.Wrap<SqliteClientConfig>)` | provide lane   | filename/cache/WAL from `Config`; no hardcoded path |
 |  [03]   | `SqliteClient.make(config)`                                 | build client   | scoped; requires `Reactivity` for `sql.reactive`    |
-|  [04]   | `export` / `backup(path)` / `loadExtension(path)`           | driver ops     | snapshot/DR + extension; concrete-lane rows only    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[SQLITE_NODE_TOPOLOGY]:
-- neutral-Tag superset: `SqliteClient extends SqlClient`, so `layer(config)` binds both — the journal/projection/capability/retrieve rows keep yielding the abstract `SqlClient` and stay driver-agnostic, while a snapshot or extension-load row yields the concrete `SqliteClient`. Swapping to the bun lane (`@effect/sql-sqlite-bun`) or the pg spine (`@effect/sql-pg`) is a `Layer` selection at the app root; no row changes.
-- capability degradation is a lane fact, not a fork: `updateValues: never` is the type-level signal that the sqlite dialect lacks multi-row `UPDATE … FROM`; a row needing it uses `sql.onDialect` to emit per-row updates on sqlite and set-based updates on pg. Broader degradation table (no RLS → file-per-app tenancy; no `pg_ivm` → in-process `state` folds) is owned by `lane/sqlite` + `capability/matrix`, parameterized over the dialect — this driver contributes the sqlite row, never a parallel journal.
-- native + synchronous: `better-sqlite3` is an in-process synchronous N-API binding with prebuilt platform binaries; there is no connection pool or network round-trip, so `sql.withTransaction` is a real single-connection transaction and the prepared-statement cache (`prepareCacheSize`/`prepareCacheTTL`) is the hot-path lever. WAL (default on) is the concurrent-read + append-throughput mode the journal relies on.
-- extension load is the sqlite capability probe: `loadExtension` is how the lane admits a native sqlite capability (vector search, phonetic) — the fail-closed analog to the pg extension matrix. FTS5 and JSON1 are compiled-in; `capability/row` probes both dialects behind one closed vocabulary.
+[TOPOLOGY]:
+- `SqliteClient extends SqlClient`, so `layer`/`layerConfig` bind both Tags: every journal/projection/capability/retrieve row keeps yielding the abstract `SqlClient` and stays driver-agnostic, and only a snapshot or extension-load row yields the concrete `SqliteClient`. Swapping to the bun lane or the pg spine is a `Layer` selection at the app root.
+- `updateValues: never` is the type-level degradation signal — sqlite lacks multi-row `UPDATE … FROM`, so a row needing it branches through `sql.onDialect` (per-row on sqlite, set-based on pg). `lane/sqlite` + `capability/matrix` own the broader degradation table (no RLS → file-per-app tenancy, no `pg_ivm` → in-process `state` folds), parameterized over the dialect; this driver contributes the sqlite row.
+- `better-sqlite3` is an in-process synchronous N-API binding — no pool, no network round-trip — so `sql.withTransaction` is a real single-connection transaction and the `prepareCacheSize`/`prepareCacheTTL` cache is the hot-path lever; WAL (default on) is the concurrent-read append-throughput mode the journal relies on.
+- `loadExtension` admits a native sqlite capability (vector search, phonetic) — the fail-closed analog to the pg extension matrix; FTS5 and JSON1 are compiled in, and `capability/row` probes both dialects behind one closed vocabulary.
 
-[INTEGRATION_LAW]:
-- Stack on `@effect/sql` (`.api/effect-sql.md`): everything neutral — the `sql` fragment DSL, `SqlSchema`/`SqlResolver`/`Model`, `withTransaction`/savepoints, `reactive`, and the `SqlEventJournal`/`SqlPersistedQueue` overlay bindings — runs against this driver unchanged; this package only supplies the `SqlClient.MakeOptions` (sqlite `Compiler`, acquirer, transaction machinery) the neutral `make` folds.
-- Stack on `@effect/platform` (`.api/effect-platform.md`): `layerConfig` reads `filename`/cache knobs from `Config` behind `PlatformConfigProvider`; the banned `SqliteMigrator` (`run`/`layer`) is the reason `FileSystem`/`Path`/`CommandExecutor` appear in the driver's peer graph — `store` never composes it.
-- Stack on `@effect/experimental` (`.api/effect-experimental.md`): `make` requires `Reactivity`, so `sql.reactive` read-your-writes works on the sqlite lane; `SqlPersistedQueue.layerStore` (from the core) gives `work` a durable job store on the file lane. EventLog's node journal can back onto this lane via `SqlEventJournal.layer` `[SQL_OVERLAY_BACKING]`.
-- Stack across `store`: `SqliteClient.export`/`backup` feed the content-addressed `object` plane (a snapshot blob is content-keyed via `object/key`); `loadExtension` extends `capability/matrix` for the sqlite dialect; `work`/`security/session` see only the neutral `SqlClient` port the lane Layer satisfies.
+[STACKING]:
+- `@effect/sql`(`.api/effect-sql.md`): everything neutral — the `sql` fragment DSL, `SqlSchema`/`SqlResolver`/`Model`, `withTransaction`/savepoints, `reactive`, and the `SqlEventJournal`/`SqlPersistedQueue` overlay bindings — runs against this driver unchanged; this package supplies only the `SqlClient.MakeOptions` (sqlite `Compiler`, acquirer, transaction machinery) the neutral `make` folds.
+- `@effect/platform`(`.api/effect-platform.md`): `layerConfig` reads `filename`/cache knobs from `Config` behind `PlatformConfigProvider`; the banned `SqliteMigrator` (`run`/`layer`) is why `FileSystem`/`Path`/`CommandExecutor` ride the peer graph, never composed.
+- `@effect/experimental`(`.api/effect-experimental.md`): `make` requires `Reactivity`, so `sql.reactive` read-your-writes works on the lane, and `SqlPersistedQueue.layerStore` gives `work` a durable job store on the file lane; EventLog's node journal backs onto this lane via `SqlEventJournal.layer` `[SQL_OVERLAY_BACKING]`.
+- within-`store`: `SqliteClient.export`/`backup` feed the content-addressed `object` plane (a snapshot blob is content-keyed via `object/key`), `loadExtension` extends `capability/matrix` for the sqlite dialect, and `work`/`security/session` see only the neutral `SqlClient` the lane Layer satisfies.
 
 [LOCAL_ADMISSION]:
-- Provide `SqliteClient.layerConfig` on the `./server` runtime subpath at the app root only; never import the driver in a neutral journal/projection/capability row — those yield the abstract `SqlClient`.
-- Yield the concrete `SqliteClient` only where `export`/`backup`/`loadExtension` are genuinely needed (snapshot, DR, extension admission); everywhere else yield `SqlClient` to stay dialect-portable.
-- Express dialect variance through `sql.onDialect` (the `updateValues: never` gap is the canonical case); never fork a journal or projection row per driver.
-- Keep WAL on for the journal lane unless a read-only replica explicitly sets `disableWAL`; source `filename` from `Config`, never a literal path.
+- Provide `SqliteClient.layerConfig` on the `./server` subpath at the app root; yield the concrete `SqliteClient` only where `export`/`backup`/`loadExtension` are genuinely needed, `SqlClient` everywhere else to stay dialect-portable.
+- Source `filename` from `Config` and keep WAL on unless a read-only replica sets `disableWAL`; express every dialect gap through `sql.onDialect`, never a per-driver journal or projection fork.
 - `SqliteMigrator` re-export is banned — no migration run; schema is `iac` declarative ensure verified at `store` startup.
 
 [RAIL_LAW]:
 - Package: `@effect/sql-sqlite-node`
-- Owns: the node/bun-server `SqliteClient` Layer over `better-sqlite3` behind the neutral `SqlClient` Tag, plus the driver-distinct capability — whole-db `export`, online `backup`/`BackupMetadata`, runtime `loadExtension`, the prepared-statement cache and WAL control (`SqliteClientConfig`), and the `updateValues: never` degradation marker
-- Accept: `layerConfig` on the `./server` subpath sourcing `filename`/cache from `Config`, the neutral `SqlClient` yielded by every dialect-agnostic row, `sql.onDialect` for the sqlite/pg gaps, `export`/`backup`/`loadExtension` where the concrete lane is in scope, `Reactivity` for `sql.reactive`
-- Reject: a driver import in a neutral row, a per-driver journal/projection fork, a hardcoded filename, `SqliteMigrator`/migration use, and reliance on `updateValues` (unsupported on sqlite — branch via `onDialect`)
+- Owns: the node/bun-server `SqliteClient` Layer over `better-sqlite3` behind the neutral `SqlClient` Tag, and the driver-distinct capability — whole-db `export`, online `backup`/`BackupMetadata`, runtime `loadExtension`, the `SqliteClientConfig` prepared-statement cache and WAL control, and the `updateValues: never` degradation marker
+- Accept: `layerConfig` on `./server` sourcing `filename`/cache from `Config`, the neutral `SqlClient` yielded by every dialect-agnostic row, `sql.onDialect` for the sqlite/pg gaps, `export`/`backup`/`loadExtension` where the concrete lane is in scope, `Reactivity` for `sql.reactive`
+- Reject: a driver import in a neutral row, a per-driver journal/projection fork, a hardcoded filename, `SqliteMigrator`/migration use, reliance on `updateValues`

@@ -8,10 +8,10 @@ A backend enters as a semantic-guarantee row on its owning lane, never a sibling
 
 ## [01]-[ROUTER]
 
-- [01]-[LANE](.planning/lane/): A backend is a semantic-guarantee row on its lane — fail-closed proof and the single `Tenant.within` write path.
-- [02]-[JOURNAL](.planning/journal/): One atomic write owner folding journal, outbox, and idempotency into one commit; upcasting over migrations.
-- [03]-[OBJECT](.planning/object/): Every object key IS the one `ContentKey` — one admission fold over the store, stream, file, and remote planes.
-- [04]-[READ](.planning/read/): Every row leaves a relation as a decoded value — arity, staleness, and reactivity as combinators on one owner.
+- [01]-[LANE](.planning/lane/): Guarantee-lane matrix — a backend is a semantic row, proving fail-closed at boot, writing through `Tenant.within`.
+- [02]-[JOURNAL](.planning/journal/): Record of truth: journal, outbox, and idempotency settle in one commit; evolution upcasts at read.
+- [03]-[OBJECT](.planning/object/): Content-addressed object plane: every key IS the one `ContentKey`, admitted through one fold on every byte plane.
+- [04]-[READ](.planning/read/): Typed read side — every row leaves a relation decoded; arity, staleness, and reactivity are combinators on one owner.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -25,16 +25,16 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `@effect/sql-sqlite-wasm`
 - `@effect/sql-libsql`
 - `@effect/sql-d1`
-- `@effect/sql-mysql2` — read-oriented interop lane binding `SqlClient` to `mysql2`; its compiler reports the `mysql` dialect, lighting the otherwise-idle `sql.onDialect` `mysql` arm.
-- `@effect/sql-mssql` — read-oriented interop lane binding `SqlClient` to SQL Server over `tedious`; its compiler reports the `mssql` dialect, lighting the idle `sql.onDialect` `mssql` arm, and adds the typed `param` fragment and strongly-typed stored-procedure `call`.
+- `@effect/sql-mysql2` — read-oriented interop lane; its compiler lights the `sql.onDialect` `mysql` arm.
+- `@effect/sql-mssql` — `tedious`-backed read lane lighting the `mssql` arm; adds typed `param` and stored-procedure `call`.
 
 [ANALYTICAL]:
 - `@effect/sql-clickhouse`
 - `@duckdb/node-api`
 - `@duckdb/duckdb-wasm`
-- `@qualithm/arrow-flight-client` — Flight SQL wire for remote columnar engines over the `@connectrpc/connect` transport, decoding to Arrow tables.
+- `@qualithm/arrow-flight-client` — Flight SQL wire to remote columnar engines, decoding to Arrow tables.
 - `apache-arrow` — carries the zero-copy columnar format shared with the interface plane.
-- `parquet-wasm` — engine-free Parquet codec round-tripping `apache-arrow` Tables over IPC or the Arrow C Data Interface; the durable lake format at rest the Arrow wire lacks.
+- `parquet-wasm` — engine-free Parquet codec; the durable at-rest lake format the Arrow wire lacks.
 
 [OBJECT_TRANSPORT]:
 - `@aws-sdk/client-s3`
@@ -51,7 +51,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `chokidar`
 
 [INTERCHANGE]:
-- `cloudevents` — the relay deliverable's wire-neutral egress envelope: `journal/append.md` mints strict-validated `CloudEvent` values at the claim seam; core owns the catalog and the carrier dialect table, runtime owns carriage and binding mode.
+- `cloudevents` — `journal/append.md` mints strict-validated `CloudEvent` values at the claim seam; core owns the catalog, runtime the carriage.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 

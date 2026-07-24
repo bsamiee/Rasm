@@ -1,64 +1,65 @@
 # [TS_RUNTIME_API_CLOUDEVENTS]
 
-`cloudevents` supplies the validated CloudEvents envelope and HTTP binding used by webhook egress. `CloudEvent` construction may throw `ValidationError`; `HTTP.binary` and `HTTP.structured` return a transport-neutral `Message` whose headers and body become the signed `HookPayload` bytes only after the runtime boundary performs one explicit byte encoding.
+`cloudevents` mints the validated CloudEvents 1.0 envelope and the HTTP binary/structured binding that carries webhook egress. `CloudEvent` construction throws `ValidationError`; `HTTP.binary` and `HTTP.structured` return a transport-neutral `Message` whose headers and body sign into `HookPayload` only after the runtime boundary encodes the body to bytes once.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `cloudevents`
 - package: `cloudevents` (Apache-2.0)
-- runtime: envelope construction is isomorphic; `Message.Headers` extends Node `IncomingHttpHeaders`
-- modules: one package barrel exports `CloudEvent`, `ValidationError`, `HTTP`, `Binding`, `Message`, `Headers`, `Serializer`, and `Deserializer`
+- module: one root barrel reaches every documented surface
+- runtime: isomorphic envelope construction; `Message.headers` extends Node `IncomingHttpHeaders`
+- rail: runtime webhook egress
 
-## [02]-[ENVELOPE]
+## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: CloudEvents 1.0 envelope construction
-- rail: runtime/work webhook egress
-- `CloudEventV1<T>` requires `id`, `source`, `type`, and `specversion`; optional members are `datacontenttype`, `dataschema`, `subject`, `time`, `data`, and `data_base64`; `[key: string]: unknown` admits extension attributes such as `traceparent`, `tracestate`, and `baggage`.
+[PUBLIC_TYPE_SCOPE]: the 1.0 envelope, the transport-neutral message, and the binding protocol primitives
 
-| [INDEX] | [SURFACE]                                                                                               | [RETURN]              |
-| :-----: | :------------------------------------------------------------------------------------------------------ | :-------------------- |
-|  [01]   | `new CloudEvent<T = undefined>(event: Partial<CloudEventV1<T>>, strict?: boolean)`                      | `CloudEvent<T>`       |
-|  [02]   | `event.cloneWith(options: Partial<Exclude<CloudEventV1<never>, "data">>, strict?)`                      | `CloudEvent<T>`       |
-|  [03]   | `event.cloneWith<D>(options: Partial<CloudEventV1<D>>, strict?)`                                        | `CloudEvent<D>`       |
-|  [04]   | `CloudEvent.cloneWith(event: CloudEventV1<any>, options: Partial<CloudEventV1<any>>, strict?: boolean)` | `CloudEvent<any>`     |
-|  [05]   | `event.toJSON()` / `event.toString()` / `event.validate()`                                              | record/string/boolean |
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [CAPABILITY]                       |
+| :-----: | :---------------- | :------------ | :--------------------------------- |
+|  [01]   | `CloudEvent<T>`   | class         | validated 1.0 envelope carrier     |
+|  [02]   | `CloudEventV1<T>` | interface     | the 1.0 attribute contract         |
+|  [03]   | `ValidationError` | class         | non-conforming construction fault  |
+|  [04]   | `Message<T>`      | interface     | transport-neutral headers and body |
+|  [05]   | `Binding<B,S>`    | interface     | four-member transport protocol     |
+|  [06]   | `Headers`         | interface     | `ce-*` string header map           |
+|  [07]   | `Serializer<M>`   | interface     | event-to-message conversion        |
+|  [08]   | `Deserializer`    | interface     | message-to-event conversion        |
+|  [09]   | `Detector`        | interface     | message CloudEvent detection       |
 
-`strict` defaults to validation on. Invalid construction and validation throw `ValidationError`; runtime code lifts that throw through `Effect.try` before an envelope enters `HookPayload`.
+- `CloudEventV1<T>`: `id`, `source`, `type`, `specversion` required; every other attribute optional, and `[key: string]: unknown` admits extension attributes such as `traceparent`.
 
-## [03]-[HTTP_BINDING]
+## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: HTTP binary and structured serialization
-- rail: runtime/work webhook egress
-- `HTTP` is declared as `Binding`; its four members therefore inherit the generic `Serializer`, `Deserializer`, and `Detector` declarations exactly.
+[ENTRYPOINT_SCOPE]: envelope construction and clone, and HTTP binary/structured serialization
 
-[HEADERS]: `Headers[string]: string|string[]|undefined`
-[MESSAGE]: `Message.headers: Headers` `Message.body: T|string|Buffer|unknown`
-[SERIALIZER]: `Serializer.call(CloudEventV1<T>) -> M`
-[DESERIALIZER]: `Deserializer.call(Message) -> CloudEventV1<T>|CloudEventV1<T>[]`
-[DETECTOR]: `Detector.call(Message) -> boolean`
-[BINDING]: `Binding.binary: Serializer<B>` `Binding.structured: Serializer<S>` `Binding.toEvent: Deserializer` `Binding.isEvent: Detector`
-[SURFACES]: `HTTP: Binding`
+| [INDEX] | [SURFACE]                                                          | [SHAPE]  | [CAPABILITY]                       |
+| :-----: | :----------------------------------------------------------------- | :------- | :--------------------------------- |
+|  [01]   | `new CloudEvent<T>(Partial<CloudEventV1<T>>, strict?)`             | ctor     | construct and validate an envelope |
+|  [02]   | `event.cloneWith(Partial<CloudEventV1>, strict?) -> CloudEvent`    | instance | clone with updated attributes      |
+|  [03]   | `event.toJSON()` / `event.toString()` / `event.validate()`         | instance | project, stringify, validate       |
+|  [04]   | `HTTP.binary<T>(event) -> Message`                                 | property | attributes into `ce-*` headers     |
+|  [05]   | `HTTP.structured<T>(event) -> Message`                             | property | body plus structured content type  |
+|  [06]   | `HTTP.toEvent<T>(message) -> CloudEventV1<T> \| CloudEventV1<T>[]` | property | decode any transport mode          |
+|  [07]   | `HTTP.isEvent(message) -> boolean`                                 | property | pre-decode detection               |
+|  [08]   | `headersFor<T>(event) -> Headers`                                  | static   | binary-header projection           |
+|  [09]   | `sanitize(headers) -> Headers`                                     | static   | lowercase and normalize headers    |
+|  [10]   | `allowedContentTypes`                                              | static   | admitted binary content-type set   |
+|  [11]   | `requiredHeaders`                                                  | static   | required `ce-*` literal set        |
 
-| [INDEX] | [SURFACE]                   | [DECLARED_RESULT]                      | [WIRE_ROLE]                                |
-| :-----: | :-------------------------- | :------------------------------------- | :----------------------------------------- |
-|  [01]   | `HTTP.binary<T>(event)`     | `Message`                              | CloudEvents attributes in `ce-*` headers   |
-|  [02]   | `HTTP.structured<T>(event)` | `Message`                              | envelope body plus structured content type |
-|  [03]   | `HTTP.toEvent<T>(message)`  | `CloudEventV1<T> \| CloudEventV1<T>[]` | binary, structured, or batch decode        |
-|  [04]   | `HTTP.isEvent(message)`     | `boolean`                              | pre-decode detection                       |
-|  [05]   | `headersFor<T>(event)`      | `Headers`                              | exported HTTP binary-header projection     |
-|  [06]   | `sanitize(headers)`         | `Headers`                              | lowercase and content-type normalization   |
-|  [07]   | `allowedContentTypes`       | content-type literal array             | admitted binary payload content types      |
-|  [08]   | `requiredHeaders`           | required `ce-*` literal array          | binary envelope minimum                    |
+- `event.cloneWith`: three overloads clone — default excludes `data` and preserves `T`, `<D>` retypes data to `D`, and static `CloudEvent.cloneWith(event, options, strict?)` clones a raw `CloudEventV1`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[INTEGRATION_LAW]:
-- Construct one `CloudEvent` from the owned delivery identity, source, type, payload, media type, and carrier extensions; catch `ValidationError` at construction.
-- Select `HTTP.binary` or `HTTP.structured` as an egress modality, preserve its returned headers, and encode its returned body exactly once before signing.
-- Keep CloudEvents framing upstream of webhook signing: `HookPayload` signs the final encoded body and headers without reserializing the envelope.
+[TOPOLOGY]:
+- Construct one `CloudEvent` from delivery identity, source, type, payload, media type, and carrier extensions; `strict` defaults on and a non-conforming envelope throws at construction.
+- `HTTP.binary` and `HTTP.structured` return a transport-neutral `Message`; its body encodes to bytes exactly once upstream of webhook signing, and framing never reserializes after the signature lands.
+
+[STACKING]:
+- `effect`(`.api/effect.md`): a `BOUNDARY ADAPTER` lifts the `CloudEvent`/`validate` throw through `Effect.try`, so a `ValidationError` becomes a tagged fault on the typed error channel rather than an escaping exception.
+- runtime `Hook` egress: `HTTP.binary`/`HTTP.structured` output lands on `HookPayload` headers and body, the body encodes to bytes once, and the `Crypto` service signs those exact bytes into the `webhook-signature` triple.
 
 [RAIL_LAW]:
 - Package: `cloudevents`
-- Owns: `CloudEvent`, `CloudEventV1`, `ValidationError`, `Message`, `Binding`, and the complete `HTTP` binary/structured/toEvent/isEvent family
-- Accept: strict construction, explicit binary/structured selection, exact returned headers, one body-to-bytes encoding
-- Reject: hand-built CloudEvents headers, unchecked constructor throws, post-signing serialization, and treating `Message.body` as bytes without narrowing
+- Owns: the CloudEvents 1.0 envelope, `ValidationError`, the transport-neutral `Message`/`Binding` contract, and the `HTTP` binary/structured/toEvent/isEvent family
+- Accept: strict construction, explicit binary or structured selection, exact returned headers, one body-to-bytes encoding before signing
+- Reject: hand-built CloudEvents headers, an unchecked constructor throw, serialization after signing, `Message.body` read as bytes without narrowing

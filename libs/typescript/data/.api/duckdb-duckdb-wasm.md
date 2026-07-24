@@ -1,6 +1,6 @@
 # [TS_DATA_API_DUCKDB_DUCKDB_WASM]
 
-`@duckdb/duckdb-wasm` runs the full DuckDB engine in a Web Worker — the client-side analytics row that pushes compute to the browser over HTTP-range-read remote Parquet instead of shipping rows through a service. Results are Arrow-native (`query()` returns an `arrow.Table`), ingestion accepts Arrow tables/IPC streams, CSV, JSON, and registered file handles, and OPFS backs durable tables. Self-hosted bundles are the deployment law (the strict CSP forbids CDN loads); the worker split, single-threaded default, and CORS-bound range reads are the row's degradation coordinates.
+`@duckdb/duckdb-wasm` runs the full DuckDB engine in a Web Worker — the browser-side analytical row that pushes compute to the client over HTTP-range reads of remote Parquet instead of shipping rows through a service. Results and ingest are Arrow-native, OPFS backs durable tables, and self-hosted bundles are the deployment law the strict CSP demands.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -12,14 +12,12 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the engine handle, bundle roster, and file protocol
-- rail: lane/olap
-- a `bundle` carries `mainModule`/`mainWorker`/`pthreadWorker`; the connection exposes `query`/`send`/insert members.
+[PUBLIC_TYPE_SCOPE]: the worker-resident engine, its self-hosted bundle coordinates, and the file-residency protocol
 
 | [INDEX] | [SYMBOL]                                            | [TYPE_FAMILY]  | [CONSUMER]                                                    |
 | :-----: | :-------------------------------------------------- | :------------- | :------------------------------------------------------------ |
 |  [01]   | `AsyncDuckDB`                                       | engine handle  | main-thread proxy over the worker-resident engine             |
-|  [02]   | `DuckDBBundles` / `bundle`                          | bundle roster  | self-hosted `mvp`/`eh` artifact coordinates                   |
+|  [02]   | `DuckDBBundles` / `DuckDBBundle`                    | bundle roster  | self-hosted `mvp`/`eh` artifact coordinates                   |
 |  [03]   | `ConsoleLogger`                                     | logger         | engine log sink handed to the constructor                     |
 |  [04]   | connection (from `db.connect()`)                    | session handle | closed to release memory                                      |
 |  [05]   | `DuckDBDataProtocol` (`HTTP`, `BROWSER_FILEREADER`) | file protocol  | `registerFileHandle`/`registerFileURL` residency discriminant |
@@ -27,8 +25,7 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: scoped engine acquire, query, and ingest
-- rail: lane/olap
-- Engine acquisition runs `selectBundle(bundles)` → `new Worker(bundle.mainWorker)` → `new AsyncDuckDB(logger, worker)` → `db.instantiate(bundle.mainModule, bundle.pthreadWorker)`; every read and ingest below is a `conn` member.
+- Acquire runs `selectBundle(bundles)` → `new Worker(bundle.mainWorker)` → `new AsyncDuckDB(logger, worker)` → `db.instantiate(bundle.mainModule, bundle.pthreadWorker)`; every read and ingest below is a `conn` member.
 
 | [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY] | [CONSUMER]                                          |
 | :-----: | :------------------------------------------------------------- | :------------- | :-------------------------------------------------- |
@@ -43,15 +40,18 @@
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[INTEGRATION_LAW]:
-- Boundary-kernel wrap: instantiation and connections ride `Effect.acquireRelease` under `Scope`; queries lift through `Effect.tryPromise`; `send` batches lift to `Stream` at the lane seam.
-- Arrow is the wire (`.api/apache-arrow.md`): `query()` results land as `arrow.Table` and flow to the viewer's geoarrow plane without row materialization; IPC-stream ingest mirrors it inbound.
-- Deployment law: bundles self-host beside the app shell — `selectBundle` over owned artifact URLs; the CDN pattern is rejected by CSP.
+[TOPOLOGY]:
+- Engine resides in the worker; `AsyncDuckDB` proxies it over `postMessage`, so every member returns a promise the lane lifts.
+- Self-hosted bundles are the sole load path — `selectBundle` resolves owned artifact URLs; CSP forecloses the CDN load.
+
+[STACKING]:
+- `apache-arrow`(`.api/apache-arrow.md`): `query<T>()` returns `arrow.Table<T>` and `send<T>()` yields an `arrow.AsyncRecordBatchStreamReader<T>` that lifts through `Stream.fromAsyncIterable`; inbound, a live `arrow.Table` rides `insertArrowTable` and IPC bytes ride `insertArrowFromIPCStream`.
+- `lane/olap`: instantiation and connection ride `Effect.acquireRelease` under `Scope`, `query` lifts through `Effect.tryPromise`, and `send` batches lift to `Stream` at the lane seam.
 
 [LOCAL_ADMISSION]:
-- Single-threaded by default; threads demand cross-origin isolation — a deployment fact, not a code branch.
-- HTTP-range Parquet reads are CORS-bound; the object plane's presigned grants are the sanctioned remote source.
-- Browser analytics is an accelerator over server-minted data, never a record of truth.
+- Single-threaded by default; threads demand cross-origin isolation, a deployment fact rather than a code branch.
+- HTTP-range Parquet reads are CORS-bound; presigned object-plane grants are the sanctioned remote source.
+- Browser analytics accelerates server-minted data, never records truth.
 
 [RAIL_LAW]:
 - Package: `@duckdb/duckdb-wasm`

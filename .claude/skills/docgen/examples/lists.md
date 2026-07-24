@@ -24,14 +24,14 @@ One hyphen fusing a law, its mechanism, two consequences, an exception, and an e
     ```
     ````
 
-- Reason: Law is the entry's one decision; the boundary consequence governs every arm so it rises to the section lead, the decode steps are mechanism a fence owns, and the companion route is a contract qualifier on the law. A rejected-reader roster is a deleted-form litany collapsing to the one positive ownership claim.
+- Reason: Law is the entry's one decision; the boundary consequence governs every arm so it rises to the section lead, the decode steps are mechanism a fence owns, and the companion route is a contract qualifier on the law; a rejected-reader roster is a deleted-form litany collapsing to the one positive ownership claim.
 - Reframe: Keep the law in one to two sentences; demote mechanism to the owning fence, the sibling-governing consequence to the section lead, and a genuine exception to a contract qualifier.
 
 ## [02]-[FRAGMENT_PROMOTION]
 
-An entry whose fragments are all load-bearing at this altitude is not a bullet: it promotes to a GroupedRecord card with earned fields, never shredded into sibling bullets.
+Entries whose fragments are all load-bearing at this altitude are not bullets: each promotes to a GroupedRecord card with earned fields, never shredded into sibling bullets.
 
-- Detection: A single entry carries three or more co-equal facts about one owner — a shape, its fields, its policy, its receipt — where none governs a sibling and none demotes to a fence, so every fragment must survive at this altitude.
+- Detection: Flag a single entry carrying three or more co-equal facts about one owner — a shape, its fields, its policy, its receipt — where none governs a sibling and none demotes to a fence, so every fragment must survive at this altitude.
 - Rejected:
     ```markdown rejected
     - Owner: `Plan` folds the `Work` graph into admission units carrying the pre-minted `key`, the `work` thunk the plan schedules but never invokes, the `parents` upstream keys, the `cost` weight the forward pass sums into earliest-finish, and its `admission` case union, so a node is its key and a dependency is a key edge; the closed `Admission` union selects the lane case (`keyed` the cache-eligible default, `bare` a forced-live one-shot, `retried` a transient offload carrying its class), the `Schedule` computes the critical path once over the graph, and a flat unit list losing the front structure is the deleted form.
@@ -52,7 +52,7 @@ An entry whose fragments are all load-bearing at this altitude is not a bullet: 
 
 Splitting a mega bullet's sentence run into sibling bullets without classifying the fragments shreds the compression instead of repairing it — each sibling still mixes classes.
 
-- Detection: A repair that fans a mega bullet into shorter bullets at sentence boundaries, where a bullet still carries a law fused to its mechanism, consequence, or exception rather than one fragment class per container.
+- Detection: Flag a repair fanning a mega bullet into shorter bullets at sentence boundaries, where a bullet still carries a law fused to its mechanism, consequence, or exception rather than one fragment class per container.
 - Rejected:
     ```markdown rejected
     - `Compose` folds each row through its `Codec` arm and a per-format importer family is the deleted form.
@@ -72,12 +72,12 @@ Splitting a mega bullet's sentence run into sibling bullets without classifying 
     ```
     ````
 
-- Reason: A shredded form re-parses the same fusion at lower volume — each sibling still answers what, how, and what-not in one line. Classification routes mechanism to a fence and the sibling-governing consequence to the lead, so every container holds one class.
+- Reason: Shredded forms re-parse the same fusion at lower volume — each sibling still answers what, how, and what-not in one line. Classification routes mechanism to a fence and the sibling-governing consequence to the lead, so every container holds one class.
 - Reframe: Classify each fragment before splitting; the bullet keeps one law, mechanism moves to a fence, and a shared consequence moves to the section lead.
 
 ## [04]-[MIXED_CONCERN_LIST]
 
-A list whose entries answer different reader questions — what exists, how it runs, what it emits, where ownership stops — is several containers wearing one bullet run.
+Lists whose entries answer different reader questions — what exists, how it runs, what it emits, where ownership stops — are several containers wearing one bullet run.
 
 - Detection: Consecutive entries under one label switch question class — a model inventory beside a package call beside a receipt projection beside an anti-pattern ban — so no single question orders the list.
 - Rejected:
@@ -96,7 +96,7 @@ A list whose entries answer different reader questions — what exists, how it r
     Ownership stops at the capsule.
     ```
 
-- Reason: A model inventory, a decode mechanism, a receipt shape, and a boundary law answer four questions; one bullet run forces the reader to re-sort them, where a card, a prose line, a record, and a boundary line each own one.
+- Reason: Model inventory, decode mechanism, receipt shape, and boundary law answer four questions; one bullet run forces the reader to re-sort them, where a card, a prose line, a record, and a boundary line each own one.
 - Reframe: Split the run by question class — inventory to a card or table, mechanism to prose or a fence, receipt to a record, boundary to one line.
 
 ## [05]-[PSEUDO_SEQUENCE]
@@ -126,14 +126,14 @@ Numbered markers claim an ordered sequence; peers wearing numbers de-number to b
     The plan folds the graph into fronts, each draining under one policy the runtime threads forward as receipts.
     ```
 
-- Reason: A number is a claim of order the lane cases do not carry, so they read as peer bullets; the second run is one sentence broken at its commas, so it reflows to prose where the bullet markers add no parallel structure.
+- Reason: Numbers claim an order the lane cases do not carry, so they read as peer bullets; the second run is one sentence broken at its commas, so it reflows to prose where the bullet markers add no parallel structure.
 - Reframe: De-number peers to bullets and de-list a continuous narrative to a paragraph; reserve ordinals for genuine sequence or data dependence.
 
 ## [06]-[ROSTER_EXEMPTION]
 
-A closed enumeration whose payload is the roster itself is a registry entry, legal past the budget; the members are data, not prose hiding law.
+Closed enumerations whose payload is the roster itself are registry entries, legal past the budget; the members are data, not prose hiding law.
 
-- Detection: An entry over the budget whose body is one closed set of atomic tokens — a banned-word roster, a vocabulary inventory, a code-span registry — carrying no law, mechanism, or consequence between members.
+- Detection: Admit an entry over the budget whose body is one closed set of atomic tokens — a banned-word roster, a vocabulary inventory, a code-span registry — carrying no law, mechanism, or consequence between members.
 - Rejected:
     ```markdown rejected
     - The gate bans hedging: the word should is banned, and could is banned, and would is banned, and might is banned, and maybe is banned, because each softens a settled decision the register forecloses.
@@ -147,9 +147,9 @@ A closed enumeration whose payload is the roster itself is a registry entry, leg
 
 ## [07]-[LEADER_SENTENCE]
 
-A section that opens straight into its first list entry forces that entry to carry the whole section frame; a lead sentence names the container grammar so the entries stay peers.
+Sections opening straight into their first list entry force that entry to carry the whole section frame; a lead sentence names the container grammar so the entries stay peers.
 
-- Detection: A header followed immediately by a list, or a repeated label leader — `Cases:`, `Auto:`, `Owner:` — introducing an inventory without declaring whether the rows are peers, ordered stages, rejected shapes, or owner records.
+- Detection: Flag a header followed immediately by a list, and a repeated label leader — `Cases:`, `Auto:`, `Owner:` — introducing an inventory without declaring whether the rows are peers, ordered stages, rejected shapes, or owner records.
 - Rejected:
     ```markdown rejected
     ## [02]-[COMPOSE_AXIS]
@@ -169,7 +169,7 @@ A section that opens straight into its first list entry forces that entry to car
     |  [02]   | `scene`  | `import` |     yes     |
     ```
 
-- Reason: A lead states the axis law once so each row drops to an atomic lookup; without it the first entry absorbs the owner declaration, the field roster, and the dispatch rule and collapses under the load.
+- Reason: Leads state the axis law once so each row drops to an atomic lookup; without one the first entry absorbs the owner declaration, the field roster, and the dispatch rule and collapses under the load.
 - Reframe: Open the section with one charter sentence naming the container, then let the entries or table rows carry atomic members.
 
 ## [08]-[NESTED_LIST]
@@ -203,7 +203,7 @@ Child entries nested under a parent that is not their governing rule are peers m
 
 Sibling entries each re-carrying one decision in different words are sediment wearing a list — the merge-inverse of the shredded split: restatements collapse into one denser entry while every distinct clause survives intact.
 
-- Detection: Delete all but the strongest sibling; no law lost proves the run was restatements. An entry carrying a genuinely distinct decision — a boundary, an exception, a failure law — stays a sibling.
+- Detection: Delete all but the strongest sibling; no law lost proves the run was restatements, and an entry carrying a genuinely distinct decision — a boundary, an exception, a failure law — stays a sibling.
 - Rejected:
     ```markdown rejected
     - `Compose` folds every row through one dispatch table, never a call-site branch.
@@ -221,9 +221,9 @@ Sibling entries each re-carrying one decision in different words are sediment we
 
 ## [10]-[ARTICLE_HOOK]
 
-An entry opening on `the` buries its owner; marker leaders only disguise the same voice defect.
+Entries opening on an article bury their owner; marker leaders only disguise the same voice defect.
 
-- Detection: Marker bodies opening on `The`/`the`.
+- Detection: Flag marker bodies opening on an article — `The`/`the`, `A`/`An`.
 - Rejected:
     ```markdown rejected
     - [02]-[SOLVE_VOCABULARY]: the solve, eigen, norm, and gauge route algebra every receipt discriminates on.

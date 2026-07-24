@@ -1,72 +1,89 @@
 # [TS_RUNTIME_API_OPENTELEMETRY_SDK_TRACE_WEB]
 
-`@opentelemetry/sdk-trace-web` is `sdk-trace-base` plus the browser context spine and the RUM resource-timing toolkit: `WebTracerProvider` (a `BasicTracerProvider` subclass whose `register()` installs the browser globals), `StackContextManager` (the synchronous window-scoped context manager — the browser counterpart to node's `AsyncLocalStorageContextManager`), and a `utils` module of `PerformanceResourceTiming` → span-network-event helpers keyed by the `PerformanceTimingNames` enum. That RUM toolkit is the whole reason this leg is distinct from base and from node: it turns browser `PerformanceObserver`/Resource-Timing entries into span network events. The barrel re-exports the ENTIRE `sdk-trace-base` roster (samplers, processors, exporters, id generator, every type — catalogued in `opentelemetry-sdk-trace-base.md`), so a browser consumer has one import site. `@effect/opentelemetry` `WebSdk` constructs `new WebTracerProvider({ ...tracerConfig, resource, spanProcessors })` and drives it inside the Effect runtime WITHOUT calling `.register()` — effect owns context wiring through its fiber-backed `Tracer.layer`, so `StackContextManager` is active only on the pure-SDK global path. It collapses with the pin block at `[OTEL_PIN_BLOCK]`.
+`@opentelemetry/sdk-trace-web` mints the browser trace provider: `WebTracerProvider.register()` installs the `StackContextManager` and a W3C composite propagator as OpenTelemetry globals over the re-exported `sdk-trace-base` pipeline.
+
+Its `PerformanceTimingNames` enum keys Resource-Timing phases and `utils` folds a `PerformanceResourceTiming` entry into span network events, the lane every URL-bearing browser span rides; `@effect/opentelemetry` `WebSdk` drives the constructor over `register()`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/sdk-trace-web`
 - package: `@opentelemetry/sdk-trace-web` (Apache-2.0)
-- module: dual — CJS default (`build/src/index.js`, no `"type"` field) + ESM mirror (`build/esm/index.js`, `module`); flat barrel, no `exports` subpath map; `sideEffects: false`.
-- asset: TSDECL `build/src/index.d.ts` (restored; per-concern `.d.ts` under `build/src/{WebTracerProvider,StackContextManager,utils,types,enums}`).
-- peer: `@opentelemetry/api >=catalog <catalog` — the version-pinned API contract; deps `@opentelemetry/core` (the W catalogC `CompositePropagator` `register()` installs), `@opentelemetry/sdk-trace-base` (the re-exported roster + `BasicTracerProvider` base).
-- runtime: browser only — `StackContextManager` binds `window`/DOM and the `utils` module reads `PerformanceResourceTiming`; the node counterpart is `sdk-trace-node` (`NodeTracerProvider`, `AsyncLocalStorageContextManager`).
-- plane: `plane:runtime` / `runtime:browser`, edge-ledger-fenced to `scope:runtime` — no folder outside `telemetry` imports it.
-- rail: observability/sdk-bridge; `[OTEL_PIN_BLOCK]` collapse target — only `semantic-conventions` survives the pin-block retirement.
-- role: backs the `@effect/opentelemetry` `WebSdk` layer (the `telemetry` WebSdk / browser-RUM export row); supplies the browser `WebTracerProvider` effect wraps, the RUM resource-timing utils `otel/vital` composes, and re-exports the whole base trace roster.
+- module: CJS default (`main`) + ESM mirror (`module`); flat barrel, no `exports` subpath map; `sideEffects: false`
+- runtime: browser only — `StackContextManager` binds `window`/DOM and `utils` reads `PerformanceResourceTiming`; `sdk-trace-node` owns the node counterpart
+- depends: `@opentelemetry/api` (`Context`/`ContextManager`/`Span`/`HrTime`), `@opentelemetry/core` (composite W3C propagator `register()` installs), `@opentelemetry/sdk-trace-base` (`BasicTracerProvider` base + re-exported roster)
+- rail: observability/sdk-bridge — the browser trace provider `@effect/opentelemetry` `WebSdk` drives
 
-## [02]-[WEB_PROVIDER]
+## [02]-[PUBLIC_TYPES]
 
-The two symbols this leg adds over base for context/provider. `WebTracerConfig` is a pure alias of `TracerConfig` — no browser-specific config axis; the browser-ness is entirely in `register()`, whose `SDKRegistrationConfig` selects the global context manager and propagator. `StackContextManager` is synchronous and self-documents that it "doesn't fully support the async calls" — an `await`/microtask boundary loses the active context, so cross-`await` span parenting is best-effort in the browser (the concrete reason effect's fiber context, not this manager, is the parenting spine under the facade). Passing `null` for either `register()` field skips that global install; `undefined` takes the browser default.
+[PUBLIC_TYPE_SCOPE]: the browser provider, its window-scoped context manager, and the RUM resource-timing vocabulary
 
-| [INDEX] | [SYMBOL]                | [KIND]                   | [CAPABILITY_BOUNDARY]                                                        |
-| :-----: | :---------------------- | :----------------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `WebTracerProvider`     | class                    | `extends BasicTracerProvider`; `register()` installs the browser globals     |
-|  [02]   | `WebTracerConfig`       | type alias               | `= TracerConfig` — no browser-specific field                                 |
-|  [03]   | `StackContextManager`   | class (`ContextManager`) | synchronous window-scoped context; `active`/`with`/`bind`/`enable`/`disable` |
-|  [04]   | `SDKRegistrationConfig` | interface (re-export)    | `register()` arg — `{ propagator?, contextManager? }`                        |
+| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY] | [CAPABILITY]                                                         |
+| :-----: | :------------------------------ | :------------ | :------------------------------------------------------------------- |
+|  [01]   | `WebTracerProvider`             | class         | `extends BasicTracerProvider`; `register()` installs browser globals |
+|  [02]   | `WebTracerConfig`               | alias         | `= TracerConfig`; browser-ness rides `register()`, not a config axis |
+|  [03]   | `StackContextManager`           | class         | synchronous `window`-scoped api `ContextManager`                     |
+|  [04]   | `PerformanceTimingNames`        | enum          | Resource-Timing phase keys plus `*BodySize` byte keys                |
+|  [05]   | `PerformanceEntries`            | type          | phase-keyed timing map `addSpanNetworkEvents` folds                  |
+|  [06]   | `PerformanceResourceTimingInfo` | interface     | `getResource` return — `mainRequest` + CORS pre-flight companion     |
+|  [07]   | `URLLike`                       | interface     | WHATWG-URL/anchor field bag `parseUrl` returns                       |
+|  [08]   | `PropagateTraceHeaderCorsUrls`  | union         | `(string\|RegExp)[]` allow-list gating `traceparent` injection       |
 
-[WEB_TRACER_PROVIDER]: `WebTracerProvider(WebTracerConfig?)` `WebTracerProvider.register(SDKRegistrationConfig?) -> void`
-[STACK_CONTEXT_MANAGER]: `StackContextManager.active() -> Context` `StackContextManager.with(Context|null,F,ThisParameterType<F>?,...A) -> ReturnType<F>` `StackContextManager.bind(Context,T) -> T` `StackContextManager.enable() -> this` `StackContextManager.disable() -> this`
-[SDKREGISTRATION_CONFIG]: `SDKRegistrationConfig.propagator: TextMapPropagator|null` `SDKRegistrationConfig.contextManager: ContextManager|null`
+- `WebTracerConfig`: `register()` alone carries the browser behavior, so the base `TracerConfig` axes (`sampler`/`spanProcessors`/`idGenerator`) reach the browser provider unchanged.
 
-## [03]-[RUM_TOOLKIT]
+## [03]-[ENTRYPOINTS]
 
-The net-new browser capability over both base and node: one `PerformanceTimingNames` enum keys the Resource-Timing phase set, and the `utils` functions fold a `PerformanceResourceTiming` entry into span network events + content-length attributes. These are the raw material a fetch/XHR RUM span consumes; `otel/vital` reads native `PerformanceObserver` directly (zero web-vitals), so this toolkit is the resource-timing enrichment lane for any browser span that names a URL, never a second RUM source. `getResource` correlates a span URL to its Resource-Timing entry (with the CORS pre-flight companion), `shouldPropagateTraceHeaders` gates `traceparent` injection to same-origin + an allow-list, and `normalizeUrl`/`parseUrl` are the one admitted URL codec (root policy bans stringy URL parsing).
+[ENTRYPOINT_SCOPE]: provider registration and the window-scoped context manager
 
-| [INDEX] | [SYMBOL]                                                 | [KIND]     | [CAPABILITY_BOUNDARY]                                       |
-| :-----: | :------------------------------------------------------- | :--------- | :---------------------------------------------------------- |
-|  [01]   | `PerformanceTimingNames`                                 | enum       | Resource-Timing phase keys + `*_body_size` sizes            |
-|  [02]   | `addSpanNetworkEvent(span, name, entries, ignoreZeros?)` | fold       | one Resource-Timing phase → a span event at its `HrTime`    |
-|  [03]   | `addSpanNetworkEvents(...)`                              | fold       | all phases + `*_body_size` content-length attrs onto a span |
-|  [04]   | `getResource(...)`                                       | correlator | span URL → `PerformanceResourceTimingInfo`                  |
-|  [05]   | `sortResources(entries)`                                 | util       | Resource-Timing ordering                                    |
-|  [06]   | `getElementXPath(target, optimised?)`                    | util       | DOM-event span target XPath                                 |
-|  [07]   | `parseUrl(url): URLLike` / `normalizeUrl(url): string`   | URL codec  | WHATWG URL parse/serialize — the one admitted URL decoder   |
-|  [08]   | `shouldPropagateTraceHeaders(...)` / `hasKey(obj, key)`  | guard      | same-origin + allow-list `traceparent` injection gate       |
+| [INDEX] | [SURFACE]                                            | [SHAPE]  | [CAPABILITY]                                      |
+| :-----: | :--------------------------------------------------- | :------- | :------------------------------------------------ |
+|  [01]   | `WebTracerProvider(WebTracerConfig?)`                | ctor     | the browser provider `WebSdk` wraps               |
+|  [02]   | `WebTracerProvider.register(SDKRegistrationConfig?)` | instance | install the api tracer/propagator/context globals |
+|  [03]   | `StackContextManager.active() -> Context`            | instance | the current window-scoped active context          |
+|  [04]   | `StackContextManager.with(Context\|null, Fn) -> Ret` | instance | run `fn` under a context; `null` binds `window`   |
+|  [05]   | `StackContextManager.bind(Context, T) -> T`          | instance | bind a context to a function or emitter target    |
+|  [06]   | `StackContextManager.enable/disable() -> this`       | instance | create / clear the root context                   |
 
-[PERFORMANCE_TIMING_NAMES]: `FETCH_START` `DOMAIN_LOOKUP_START` `CONNECT_START` `REQUEST_START` `RESPONSE_START` `RESPONSE_END`
-[PROPAGATE_TRACE_HEADER_CORS_URLS]: `PropagateTraceHeaderCorsUrls = (string|RegExp)|(string|RegExp)[]`
-[URLLIKE]: `URLLike.hash: string` `URLLike.host: string` `URLLike.hostname: string` `URLLike.href: string` `URLLike.origin: string` `URLLike.pathname: string` `URLLike.port: string` `URLLike.protocol: string` `URLLike.search: string`
-[SURFACES]: `addSpanNetworkEvents(api.Span,PerformanceEntries,boolean?,boolean?,boolean?) -> void` `getResource(string,api.HrTime,api.HrTime,PerformanceResourceTiming[],WeakSet<PerformanceResourceTiming>?,string?) -> PerformanceResourceTimingInfo` `shouldPropagateTraceHeaders(string,PropagateTraceHeaderCorsUrls?) -> boolean`
+- `WebTracerProvider.register`: a `null` field skips that global install; `undefined` installs the browser default.
+- `StackContextManager.with`: forwards `thisArg` and trailing `...args` to `fn`; synchronous — an `await`/microtask boundary drops the active context.
 
-## [04]-[SUPERSET_BARREL]
+[ENTRYPOINT_SCOPE]: RUM resource-timing toolkit — a `PerformanceResourceTiming` entry folded onto a URL-bearing span
 
-The barrel re-exports the full `sdk-trace-base` public surface — a browser consumer imports the roster and the web provider from one entry. These are the SAME symbols documented in `opentelemetry-sdk-trace-base.md`; not re-catalogued here. The browser-relevant divergence: `BatchSpanProcessor` accepts `BatchSpanProcessorBrowserConfig extends BufferConfig { disableAutoFlushOnDocumentHide? }` — auto-flush on `pagehide`/`visibilitychange` is ON by default, so RUM spans drain before navigation/tab-close (the concrete reason browser batch tuning differs from node's `BufferConfig`).
+| [INDEX] | [SURFACE]                                                            | [SHAPE] | [CAPABILITY]                                       |
+| :-----: | :------------------------------------------------------------------- | :------ | :------------------------------------------------- |
+|  [01]   | `addSpanNetworkEvent(Span, string, PerformanceEntries, boolean?)`    | fold    | one Resource-Timing phase → a span event           |
+|  [02]   | `addSpanNetworkEvents(Span, PerformanceEntries, boolean?, ...)`      | fold    | every phase + `*BodySize` content-length attrs     |
+|  [03]   | `getResource(string, HrTime, HrTime, PerformanceResourceTiming[])`   | static  | span URL → `PerformanceResourceTimingInfo`         |
+|  [04]   | `sortResources(PerformanceResourceTiming[]) -> ...[]`                | static  | Resource-Timing ordering by `startTime`            |
+|  [05]   | `parseUrl(string) -> URLLike` / `normalizeUrl(string) -> string`     | static  | the one admitted WHATWG URL parse/serialize codec  |
+|  [06]   | `shouldPropagateTraceHeaders(string, PropagateTraceHeaderCorsUrls?)` | static  | same-origin + allow-list `traceparent` gate        |
+|  [07]   | `getElementXPath(target, boolean?) -> string`                        | static  | DOM-event span target XPath; `optimised` uses id   |
+|  [08]   | `hasKey(object, PropertyKey) -> boolean`                             | static  | typed-key guard for `PerformanceEntries` iteration |
 
-- classes: `BasicTracerProvider`, `BatchSpanProcessor`, `SimpleSpanProcessor`, `NoopSpanProcessor`, `ConsoleSpanExporter`, `InMemorySpanExporter`, `AlwaysOnSampler`, `AlwaysOffSampler`, `ParentBasedSampler`, `TraceIdRatioBasedSampler`, `RandomIdGenerator` (browser `Math.random`); enum `SamplingDecision`.
-- types: `Sampler`, `SamplingResult`, `Span`, `SpanProcessor`, `SpanExporter`, `ReadableSpan`, `TimedEvent`, `IdGenerator`, `TracerConfig`, `SpanLimits`, `GeneralLimits`, `BufferConfig`, `BatchSpanProcessorBrowserConfig`, `SDKRegistrationConfig`.
+- `addSpanNetworkEvent`: returns the `Span` or `undefined` when the named phase is absent or zeroed under `ignoreZeros`.
+- `getResource`: optional `ignoredResources` `WeakSet` skips reused entries and `initiatorType` filters by kind; the return pairs `mainRequest` with its CORS pre-flight.
+- `addSpanNetworkEvents`: trailing `ignoreNetworkEvents`, `ignoreZeros`, `skipOldSemconvContentLengthAttrs` flags gate emission and legacy content-length keys.
 
-## [05]-[STACKING]
+## [04]-[IMPLEMENTATION_LAW]
 
-- Stack with `.api/effect-opentelemetry.md` `WebSdk`: the primary consumer, and the reason this leg (not base) backs the browser RUM lane. `WebSdk.layer` does `new WebTracerProvider({ ...config.tracerConfig, resource, spanProcessors: [...config.spanProcessor] })` and drives it through the Effect runtime — it does NOT call `.register()`, because effect owns global tracer/context wiring via its fiber-backed `Tracer.layer`/`OtelTracerProvider` Tag. So under the telemetry rail the consumed surface is the `WebTracerProvider` CONSTRUCTOR; `StackContextManager` is bypassed (its sync-only limitation is exactly why effect's fiber context is the parenting spine).
-- Stack with `.api/effect-platform-browser.md` `BrowserHttpClient`: the browser export transport. The native `Otlp.layer` requires `BrowserHttpClient.layerXMLHttpRequest` (XHR — the only browser client exposing upload/download progress + arraybuffer for protobuf frames); `WebSdk` + the browser `OTLPTraceExporter` is the SDK-bridge alternative when SDK processor semantics are required. Browser RUM egress rides the XHR client either way.
-- Stack with `sdk-trace-base` roster: every processor/exporter/sampler passed to the `WebTracerProvider` config is a base symbol reached through this barrel; `new BatchSpanProcessor(new OTLPTraceExporter(cfg), { disableAutoFlushOnDocumentHide: false })` + `ParentBasedSampler({ root: TraceIdRatioBasedSampler(ratio) })` is the production browser trace pipeline.
-- Stack with `otel/vital` + the RUM toolkit: `otel/vital` reads native `PerformanceObserver` for the vital budgets (zero web-vitals); when a browser span names a URL (fetch/XHR/navigation), `addSpanNetworkEvents` + `getResource` fold its Resource-Timing entry into span network events, and `shouldPropagateTraceHeaders` gates `traceparent` injection at the CORS boundary. The convention attribute keys stamped on those spans are `semantic-conventions` rows (`browser.*` incubating + `http.*`/`url.*` stable), never string literals.
-- Stack with runtime split: `sdk-trace-web` (`WebTracerProvider`) vs `sdk-trace-node` (`NodeTracerProvider`) is a browser/node lane selection at the composition root, never a fork in instrumentation; the native `Otlp` lane is runtime-neutral and rides whichever `HttpClient` the runtime provides. `browser/boot` composes the `WebSdk`/native lane once at startup.
+[TOPOLOGY]:
+- `WebTracerProvider` extends `BasicTracerProvider`, and `register()` installs the api globals — the tracer provider, a `CompositePropagator` of W3C trace-context and baggage, and `StackContextManager` — each field opting out with `null` or defaulting with `undefined`.
+- `StackContextManager` parents spans within one call stack and drops the active context across an `await`; effect's fiber context, not this manager, is the async-safe parenting spine under the facade.
+- `utils` folds a `PerformanceResourceTiming` entry into span network events keyed by `PerformanceTimingNames`, so a URL-bearing browser span carries its resource-timing phases as timed events from this one enrichment lane.
 
-## [06]-[RAIL_LAW]
+[STACKING]:
+- `opentelemetry-sdk-trace-base.md` `BasicTracerProvider`/`SpanProcessor`/`Sampler`: the barrel re-exports the whole trace roster, so `new WebTracerProvider({ spanProcessors: [new BatchSpanProcessor(exporter)], sampler: new ParentBasedSampler({ root: new TraceIdRatioBasedSampler(ratio) }) })` reads every processor and sampler from this import, and base-owned `BatchSpanProcessorBrowserConfig.disableAutoFlushOnDocumentHide` drains RUM spans before navigation.
+- `effect-opentelemetry.md` `WebSdk.layerTracerProvider`: the primary consumer wraps `WebTracerProvider` and exposes the `Tracer.OtelTracerProvider` Tag, driving the provider through the Effect runtime rather than `register()` — the consumed surface is the constructor and `StackContextManager` stays bypassed.
+- `opentelemetry-context-zone.md` `ZoneContextManager`: satisfies `SDKRegistrationConfig.contextManager`, replacing the sync-only `StackContextManager` on a pure-SDK `register()` path so async hops keep span parenting.
+- `opentelemetry-instrumentation.md` `registerInstrumentations`: `otel/instrument.ts` binds the browser rows to the web lane's `OtelTracerProvider` Tag through the `tracerProvider` option, each fetch/XHR row mirroring this surface's CORS gate with its own `propagateTraceHeaderCorsUrls`, and the URL-bearing spans consume `addSpanNetworkEvents`/`getResource` for resource-timing enrichment.
+- `otel/instrument.ts` + `browser/boot` (within-lib): boot composes the `WebSdk` lane once at startup and hands the exposed provider to `registerInstrumentations`; the RUM toolkit enriches any span naming a URL, and the stamped attribute keys resolve to `semantic-conventions` rows, never string literals.
 
-- Owns: the browser trace provider — `WebTracerProvider` + the `register()` global-install semantics (`StackContextManager` + W3C composite propagator) — the synchronous `StackContextManager`, the `PerformanceTimingNames` enum + RUM resource-timing toolkit, and the superset barrel re-exporting the full `sdk-trace-base` roster.
-- Accept: `new WebTracerProvider(tracerConfig)` reached through `@effect/opentelemetry` `WebSdk` for the browser RUM lane; `register()` only in a pure-SDK non-Effect path; base processors/exporters/samplers imported from this barrel; the RUM `utils` for span network-event enrichment of URL-bearing browser spans; `BatchSpanProcessorBrowserConfig` pagehide-flush for RUM drain-before-navigation.
-- Reject: calling `.register()` under the effect facade (effect owns global context wiring — a double registration); relying on `StackContextManager` for cross-`await` span parenting (it is sync-only; effect's fiber context is the spine); using this leg in node (`sdk-trace-node` owns that); re-documenting or re-implementing the base roster (it is re-exported, catalogued in `opentelemetry-sdk-trace-base.md`); a hand-rolled URL parser where `parseUrl`/`normalizeUrl` exist; importing outside `scope:runtime`; treating the browser lane as permanent — it collapses at `[OTEL_PIN_BLOCK]`.
-- Boundary: `WebTracerConfig` carries no browser-specific axis (`= TracerConfig`); the browser-specific behavior lives in `register()` + `StackContextManager` + the RUM toolkit. Under effect the `resource` is the `AppIdentity`-derived `Resource` layer, not a field set here; `otel/vital`'s primary RUM source is native `PerformanceObserver`, this toolkit the resource-timing enrichment lane.
+[LOCAL_ADMISSION]:
+- `@opentelemetry/*` admits only inside `scope:runtime` (edge-ledger ban); no folder outside `telemetry` imports `sdk-trace-web`, and instrumentation emits through Effect's native signals against the facade-driven provider.
+- design code reaches the `WebSdk` layer for the browser provider and the RUM `utils` for URL-bearing span enrichment; `register()` serves a pure-SDK non-Effect path alone.
+- native `Otlp` export stays the standing rail; `.api/effect-opentelemetry.md` owns the `[OTEL_PIN_BLOCK]` collapse roster this browser SDK leg joins.
+
+[RAIL_LAW]:
+- Package: `@opentelemetry/sdk-trace-web`
+- Owns: the browser trace provider `WebTracerProvider` with its `register()` global-install semantics (`StackContextManager` and the W3C composite propagator), the synchronous `StackContextManager`, and the `PerformanceTimingNames` enum and `utils` resource-timing enrichment toolkit; the barrel re-exports the `sdk-trace-base` roster catalogued in `opentelemetry-sdk-trace-base.md`.
+- Accept: `new WebTracerProvider(tracerConfig)` reached through `@effect/opentelemetry` `WebSdk`; base processors and samplers imported from this barrel; `BatchSpanProcessorBrowserConfig` pagehide-flush for RUM drain-before-navigation; the `utils` fold enriching any URL-bearing browser span; `register()` on a pure-SDK path.
+- Reject: `.register()` under the effect facade (it owns global context wiring — a double registration); `StackContextManager` for cross-`await` parenting (sync-only — effect's fiber context is the spine); this leg in node (`sdk-trace-node` owns it); a hand-rolled URL parser where `parseUrl`/`normalizeUrl` exist; re-cataloguing the re-exported base roster; importing outside `scope:runtime`.

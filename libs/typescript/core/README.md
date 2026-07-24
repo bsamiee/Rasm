@@ -1,15 +1,15 @@
 # [TS_CORE]
 
-`core` is the TypeScript branch's wave-0 law — the single acyclic base every folder composes: the cross-language value floor, the host-free state algebra over it, the C#-minted wire boundary, and the observability vocabulary, joined by one content identity, one clock law, one fault vocabulary, and one keyed-decode registry. Its bar is decode-once, travel-settled: every primitive is admitted and branded at one seam, cross-runtime parity is proven bit-identical against frozen contract corpora, partiality is honestly typed, and every module runs identically under node, bun, and the browser.
+`core` is the TypeScript branch's S0 law — the single acyclic base every folder composes: the cross-language value floor, the host-free state algebra over it, the C#-minted wire boundary, and the observability vocabulary, joined by one content identity, one clock law, one fault vocabulary, and one keyed-decode registry. Its bar is decode-once, travel-settled: every primitive is admitted and branded at one seam, cross-runtime parity is proven bit-identical against frozen contract corpora, partiality is honestly typed, and every module runs identically under node, bun, and the browser.
 
 Core imports nothing host-bound and nothing from the branch; every other folder composes these owners, and the whole C# estate lands its wire families through the one interchange registry. Unit conversion and non-SI admission stay C#-owned — a `{value, unit}` shape never exists in the branch. Core defines the shapes persistence, transport, serving, and rendering carry, and nothing they run; a new wire family is a census row, a new fault class a table entry, a new identity dimension one static.
 
 ## [01]-[ROUTER]
 
-- [01]-[VALUE](.planning/value/): Decode-once value floor — content mint, `Hlc` clock, SI quantity, fault policy; one edit site per concept.
-- [02]-[STATE](.planning/state/): Host-free algebra over the floor — CRDT merge, the keyed fold with its one `AsOf`, causal lattice, statechart.
-- [03]-[INTERCHANGE](.planning/interchange/): One keyed-decode registry every C#-minted wire family lands on, the capability dial, and the W3C propagation carrier; never serving.
-- [04]-[OBSERVE](.planning/observe/): Observability vocabulary and its total derivations — SLO-as-algebra, the dashboard model, and the hook-rail tap registry; zero exporters.
+- [01]-[VALUE](.planning/value/): Decode-once value floor — every cross-language primitive branded at admission, one edit site per concept.
+- [02]-[STATE](.planning/state/): Host-free state algebra over the floor; one `AsOf` coordinate rules every replay.
+- [03]-[INTERCHANGE](.planning/interchange/): Wire boundary — every C#-minted family decodes once at the keyed registry; never serving.
+- [04]-[OBSERVE](.planning/observe/): Observability vocabulary and its total derivations — SLO algebra through dashboard model; zero exporters.
 
 ## [02]-[DOMAIN_PACKAGES]
 

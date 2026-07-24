@@ -49,10 +49,17 @@ Rasm.Grasshopper/       # refs ../Rasm ONLY; GH2 + Eto host boundary; kernel mat
 
 Four strata order the six sub-domains; `Eto` and `Shell` are one co-recursive UI-thread floor — the `EtoDispatch` marshal and the `GhSession` scope gate each compose the other — and `Components` is the island: pure host-plus-kernel authoring with no interior edge either direction; every cross-stratum consumption edge points down.
 
-- S0 `Eto` + `Shell` — co-recursive floor: dispatch, clock, control, window, session, event, identity, telemetry, hook, and journal owners share same-stratum reach. `GhTelemetry` consumes inert `GhEvidence` from every stratum under the model-only exemption; `GhHooks` and `SessionJournal` own the fault-evidence cell and drained record.
-- S1 `Document` + `Platform` — parallel composers over the floor, cross-blind to each other: `DocumentScope`, `GraphScope`, `HistoryLedger`, and `SolutionControl` beside `MacGate`, `MacAnchor`, `MotionDrive`, `PlatformSeam`, and `SessionCapture`. `Platform/Capture`'s `PaintProof` reads `PaintReceipt` and `JournalExport` as inert evidence under the same model-only exemption the telemetry sink carries, so the forbidden direction stays capability imports upward.
-- S2 `Canvas` — the live host-surface owner nothing composes: `CanvasOperator`, `PaintScene`, `CanvasLayout`, and `CanvasPacer` over session scope, dispatch marshal, undo seal, and the display-link drive.
-- Island `Components` — `GardenData`, `Ports`, `ComponentSpec`, and `GhFault` speak GH2 `IDataAccess` and the kernel alone; no UI-thread sibling imports it and it imports none.
+- S0 `Eto` + `Shell` — dispatch, clock, control, window, session, event, identity, telemetry, hook, and journal owners share same-stratum reach.
+- S0 exemption — `GhTelemetry` consumes inert `GhEvidence` from every stratum under the model-only exemption.
+- S0 evidence — `GhHooks` and `SessionJournal` own the fault-evidence cell and drained record.
+- S1 `Document` + `Platform` — parallel composers over the floor, cross-blind to each other.
+- S1 `Document` — `DocumentScope`, `GraphScope`, `HistoryLedger`, `SolutionControl`.
+- S1 `Platform` — `MacGate`, `MacAnchor`, `MotionDrive`, `PlatformSeam`, `SessionCapture`.
+- S1 exemption — `PaintProof` (`Platform/Capture`) reads `PaintReceipt` and `JournalExport` as inert evidence under the model-only exemption.
+- S1 law — the forbidden direction stays capability imports upward.
+- S2 `Canvas` — the live host-surface owner nothing composes: `CanvasOperator`, `PaintScene`, `CanvasLayout`, `CanvasPacer`.
+- S2 reach — canvas owners compose session scope, dispatch marshal, undo seal, and the display-link drive.
+- `Components` island — `GardenData`, `Ports`, `ComponentSpec`, and `GhFault` speak GH2 `IDataAccess` and the kernel alone.
 
 ```mermaid
 ---
@@ -65,19 +72,19 @@ config:
 flowchart TB
     accTitle: Rasm.Grasshopper interior strata
     accDescr: Three stacked strata from the canvas owner through the document and platform composers onto the co-recursive Eto-Shell UI-thread floor, every consumption edge downward naming one sourced type, and the one forbidden direction marked at the floor.
-    subgraph L2["S2 CANVAS"]
+    subgraph S2["S2 CANVAS"]
         Operator[CanvasOperator]
         Paint[PaintScene]
         Layout[CanvasLayout]
         Pacer[CanvasPacer]
     end
-    subgraph L1["S1 DOCUMENT + PLATFORM"]
+    subgraph S1["S1 DOCUMENT + PLATFORM"]
         Scope[DocumentScope]
         Ledger[HistoryLedger]
         Solution[SolutionControl]
         Drive[MotionDrive]
     end
-    subgraph L0["S0 ETO + SHELL FLOOR"]
+    subgraph S0["S0 ETO + SHELL FLOOR"]
         Session[GhSession]
         Dispatch[EtoDispatch]
         Clock[UiClock]
@@ -93,7 +100,7 @@ flowchart TB
     Scope -->|"[IMPORT]: EtoDispatch"| Dispatch
     Solution -->|"[IMPORT]: UiEvents"| Events
     Drive -->|"[IMPORT]: EtoDispatch"| Dispatch
-    Dispatch -->|"forbidden: floor upward"| L2
+    Dispatch -->|"forbidden: floor upward"| S2
 ```
 
 ## [03]-[SEAMS]

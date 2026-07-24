@@ -8,7 +8,7 @@ It references no sibling package, admitting the kernel only as a boundary contra
 
 [CANVAS]:
 - [01]-[CANVAS](.planning/Canvas/canvas.md): `CanvasOperator.Apply` closes commands and settles detached projections over the live host surface.
-- [02]-[INTERACTION](.planning/Canvas/interaction.md): `InteractionMount` folds focus, drag capture, menus, and gesture capsules onto the lease spine.
+- [02]-[INTERACTION](.planning/Canvas/interaction.md): `InteractionMount` folds focus, drag capture, menus, and gestures onto the lease spine.
 - [03]-[LAYOUT](.planning/Canvas/layout.md): `CanvasLayout` folds arrangements into snap and stretch solvers, sealing move and undo as one mutation.
 - [04]-[MOTION](.planning/Canvas/motion.md): Clock and native display-link pacing consume the one shared `MotionDrive.Step` fold.
 - [05]-[PAINT](.planning/Canvas/paint.md): `PaintPlan` owns culling, stock custody, temporary leases, and monotonic pigment-egress receipts.
@@ -31,12 +31,12 @@ It references no sibling package, admitting the kernel only as a boundary contra
 - [16]-[BINDING](.planning/Eto/binding.md): `BindingRail` fuses control and model through binding machinery with value-gate admission and store rows.
 - [17]-[CONTROLS](.planning/Eto/controls.md): `ControlForge` folds the control-spec tree into tagged plant on Eto, absorbing modality into role rows.
 - [18]-[RUNTIME](.planning/Eto/runtime.md): `EtoDispatch` owns the UI-thread floor: blocking, awaitable, queued, pump lanes, clock, transfer algebra.
-- [19]-[WINDOWS](.planning/Eto/windows.md): `CommandDeck` mints command rows and folds lease-owned menus, closing window, dialog, picker construction.
+- [19]-[WINDOWS](.planning/Eto/windows.md): `CommandDeck` mints command rows and folds lease-owned menus, closing windows, dialogs, and pickers.
 
 [PLATFORM]:
 - [20]-[CAPTURE](.planning/Platform/capture.md): `SessionCapture` leases ScreenCaptureKit recording into stamped frame rings, proving paint claims.
 - [21]-[COMPOSITION](.planning/Platform/composition.md): `Compose` materializes layers into leased mounts: drives, effects, Display-P3 wide-colour.
-- [22]-[HANDLERS](.planning/Platform/handlers.md): `Handlers` owns Eto handler seam: demand, widget-to-handler mint, frozen stylers, native embedding.
+- [22]-[HANDLERS](.planning/Platform/handlers.md): `Handlers` owns the Eto handler seam — widget-to-handler mint, frozen stylers, native embedding.
 - [23]-[NATIVE](.planning/Platform/native.md): `MacGate` gates macOS AppKit touch: monitor and gesture leases, pressure restore, conversion, pacing.
 
 [SHELL]:
@@ -44,7 +44,7 @@ It references no sibling package, admitting the kernel only as a boundary contra
 - [25]-[EDITOR](.planning/Shell/editor.md): `EditorShell` projects chrome-pane slots, mutates boolean posture, returns state, owns Rhino getter.
 - [26]-[EVENTS](.planning/Shell/events.md): `UiEvents` binds GH2 and Eto streams to typed fact cases, minting one leased subscription in sink order.
 - [27]-[HOOKS](.planning/Shell/hooks.md): `GhHooks` folds scoped subscribers through ruled veto/observe/replay points with fault isolation.
-- [28]-[ICONS](.planning/Shell/icons.md): `IconOwner` admits host icon origins, keyed poses, filter chain, modalities, composing rasters into recency.
+- [28]-[ICONS](.planning/Shell/icons.md): `IconOwner` admits host icon origins, keyed poses, and filter chain, composing rasters into recency.
 - [29]-[JOURNAL](.planning/Shell/journal.md): `SessionJournal` folds drained facts and receipts into stamped per-document partitions with export.
 - [30]-[SESSION](.planning/Shell/session.md): `GhSession` closes session work and repaint receipts, bounding projections and keying session cache.
 - [31]-[TELEMETRY](.planning/Shell/telemetry.md): `GhTelemetry` admits factories and projects receipts into attributed instruments.
@@ -80,4 +80,4 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `Microsoft.Extensions.Caching.Hybrid` — tagged L1/L2 recency and stampede control for document-scoped `SessionCache` values
 
 [TELEMETRY]:
-- `Microsoft.Extensions.Logging.Abstractions` — app-neutral logger admission for the `GhTelemetry` capsule; the metric surface (`IMeterFactory`, `Meter`) ships BCL inbox
+- `Microsoft.Extensions.Logging.Abstractions` — app-neutral logger admission for the `GhTelemetry` capsule; the metric surface ships BCL in-box

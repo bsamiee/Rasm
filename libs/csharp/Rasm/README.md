@@ -1,6 +1,6 @@
 # [RASM]
 
-`Rasm` owns the RhinoCommon-aware geometry and numeric kernel below the C# app strata — the exact-arithmetic computational-geometry floor and the operational geometry plane above it, one body. Its robust tier is necessary but not sufficient: the consumer tier composes it into the parametric forms, fabrication toolpaths, GPU residency payloads, and persistence naming every upper stratum consumes. Where no admissible package carries the robustness guarantee the kernel authors from first principles; where the ecosystem owns the concern it composes the categorical-best engine, never both.
+`Rasm` owns the RhinoCommon-aware geometry and numeric kernel below the C# app strata — the exact-arithmetic computational-geometry floor and the operational geometry plane above it, one body. Its robust floor is necessary but not sufficient: the operational plane composes it into the parametric forms, fabrication toolpaths, GPU residency payloads, and persistence naming every upper stratum consumes. Where no admissible package carries the robustness guarantee the kernel authors from first principles; where the ecosystem owns the concern it composes the categorical-best engine, never both.
 
 `Rasm` references no sibling while every upper stratum composes it, and it is the one C# geometry owner — the host-free peers meet it only at the content-identity and tessellation wire. Pure-numeric floor is host-neutral-shaped without minting a host-free assembly, and `Context.Of(RhinoDoc)` and `Analyze.From(RhinoDoc)` are its only doc-coupled entries.
 
@@ -10,11 +10,11 @@
 - [01]-[RAILS](.planning/Domain/rails.md): Kernel ROP substrate — result union, boundary-exception and resource rails, and the `Op`-threading law.
 - [02]-[CONTEXT](.planning/Domain/context.md): Tolerance/units substrate — value objects and immutable context bundle with its doc-coupled adapter.
 - [03]-[IDENTITY](.planning/Domain/identity.md): Determinism owner — seed-zero `ContentHash.Of` federation content key and deterministic derivation.
-- [04]-[VALIDATION](.planning/Domain/validation.md): One acceptance/readiness oracle — the readiness algebra and the canonical admission vocabulary.
+- [04]-[VALIDATION](.planning/Domain/validation.md): Acceptance/readiness oracle — the readiness algebra and the canonical admission vocabulary.
 - [05]-[NORMALIZATION](.planning/Domain/normalization.md): Rhino-kind taxonomy and coercion owner — coercion lattice and its projection carrier.
 - [06]-[EVALUATION](.planning/Domain/evaluation.md): Closest-point evaluation lattice — `ClosestHit` over frames, sampling, signed distance.
 - [07]-[STATS](.planning/Domain/stats.md): Statistics substrate — streaming moments, tolerance-banded extrema, and distribution quantiles.
-- [08]-[TELEMETRY](.planning/Domain/telemetry.md): Kernel signal owner — receipt-tap hook rail, UCUM instrument spine, span band, op-cost capsule, and the bench-claim ledger.
+- [08]-[TELEMETRY](.planning/Domain/telemetry.md): Kernel signal owner — the OTel-free capsule, receipt-tap fabric, and bench-claim ledger.
 
 [NUMERICS]:
 - [09]-[PREDICATES](.planning/Numerics/predicates.md): Exact-predicate floor — orientation, in-circle, and constructed-point tests up the ladder.
@@ -31,7 +31,7 @@
 - [18]-[RECONCILIATION](.planning/Spatial/reconciliation.md): Naming-to-hash fence — canonical byte streams onto `NamingHash` Persistence consumes.
 - [19]-[SUPPORT](.planning/Spatial/support.md): Proximity boundary adapter — capability-gated `SupportProjection` behind its projection gate.
 - [20]-[CLOUD](.planning/Spatial/cloud.md): Point-cloud owner — `VectorCloud` union with lazy indexed admission, metric surface, and hull rail.
-- [21]-[NEIGHBORS](.planning/Spatial/neighbors.md): One neighborhood substrate — queries, orientation, curvature, and rotation-minimizing frame.
+- [21]-[NEIGHBORS](.planning/Spatial/neighbors.md): Neighborhood substrate — proximity queries, orientation, curvature, rotation-minimizing frames.
 - [22]-[TRANSPORT](.planning/Spatial/transport.md): Optimal-transport owner — log-domain Sinkhorn with plan projections and cloud correspondences.
 - [23]-[FIELDS](.planning/Spatial/fields.md): Implicit-field algebra — scalar/vector/tensor unions, the SDF family, and status-tagged sampling seam.
 
@@ -54,7 +54,7 @@
 - [37]-[OFFSET](.planning/Meshing/offset.md): Predicate-exact offsetting — `OffsetOp` union over the wavefront with loop assembly via arrangement.
 - [38]-[SKELETON](.planning/Meshing/skeleton.md): MCF skeleton owner — contraction and collapse into `CurveSkeleton` wire and clearance family.
 - [39]-[MESH](.planning/Meshing/mesh.md): Mesh substrate owner — the `MeshSpace` snapshot, Laplacian memoization, and intrinsic triangulation.
-- [40]-[EDIT](.planning/Meshing/edit.md): Mutable-arena tier — the single-writer `MeshEdit` SoA build arena and the publish-by-freeze seam.
+- [40]-[EDIT](.planning/Meshing/edit.md): Mutable-arena owner — the single-writer `MeshEdit` SoA build arena and the publish-by-freeze seam.
 - [41]-[DEC](.planning/Meshing/dec.md): Mesh-bound DEC assembly owner — connection heat, holonomy, and the Hodge decomposition family.
 - [42]-[RECONSTRUCT](.planning/Meshing/reconstruct.md): Implicit-reconstruction owner — signed-heat spine, mesh-SDF methods, and iso-extraction.
 
@@ -70,10 +70,10 @@
 - [51]-[FLOW](.planning/Processing/flow.md): Streamline/trace owner — dense-output event localization over any vector field.
 - [52]-[REGISTER](.planning/Processing/register.md): Registration owner — the `AlignKind` ICP dispatcher behind one alignment policy record.
 - [53]-[GEODESICS](.planning/Processing/geodesics.md): On-mesh distance suite — heat-method and geodesics, log/exp maps, and parallel transport.
-- [54]-[SEGMENT](.planning/Processing/segment.md): Spectral shape-analysis owner — descriptors, segmentation, cross-fields, and host-capture tier.
+- [54]-[SEGMENT](.planning/Processing/segment.md): Spectral shape-analysis owner — descriptors, segmentation, cross-fields, and host capture.
 
 [SOLVING]:
-- [55]-[SOLVER](.planning/Solving/solver.md): One nonlinear least-squares owner — `Lm.Minimize` and island-decomposed geometric constraint solver.
+- [55]-[SOLVER](.planning/Solving/solver.md): Nonlinear least-squares owner — `Lm.Minimize` and the island-decomposed geometric constraint solver.
 - [56]-[FIT](.planning/Solving/fit.md): Robust primitive-fit — the MLESAC sampler and orthogonal-distance refine returning the typed `FitReceipt`.
 
 [DRAWING]:
@@ -102,7 +102,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `manifoldc` — in-house P/Invoke over `elalish/manifold`, the guaranteed-manifold scale companion.
 
 [HOST_SURFACE]:
-- `RhinoCommon` — host compile surface; the kernel reads geometry values, and `RhinoDoc` enters only at the two charter adapters — never `RhinoApp`/UI.
+- `RhinoCommon` — host compile surface; `RhinoDoc` enters only at the two charter adapters, never `RhinoApp`/UI.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 

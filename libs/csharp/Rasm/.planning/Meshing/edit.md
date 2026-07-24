@@ -7,7 +7,7 @@
 ## [01]-[INDEX]
 
 - [01]-[ARENA]: `ArenaPolicy` the policy row; `MeshEdit` the single-writer SoA build arena over one polymorphic `Of`, span reads, dirty-bitset mutation verbs, partition-disjoint folds, and the `ToSpace` freeze; `Kernels` the weld/diagonal primitive family over the arena columns.
-- [02]-[ARENA_LAW]: the store-mutability and arena-concurrency contract every mutable geometry store obeys.
+- [02]-[ARENA_LAW]: store-mutability and arena-concurrency contract sibling stores compose by name.
 
 ## [02]-[ARENA]
 
@@ -282,7 +282,7 @@ public static class Kernels {
 
 ## [03]-[ARENA_LAW]
 
-Every mutable geometry store in the kernel is an arena under one contract, composed by name at each sibling store.
+One contract carries store mutability and arena concurrency; a sibling store composes it by name.
 
 - Single-writer: an arena has exactly one mutating owner for its lifetime — no lock, no CAS, no interior synchronization. Concurrency enters only through the two sanctioned read modes: a frozen post-freeze projection, or partition-disjoint spans each parallel worker owns through `ParallelHelper` struct actions at the policy floor.
 - Publish-by-freeze: build state becomes composable truth only through the freeze seam — `ToSpace` → `MeshSpace.Of` here, the analogous emission projection on every sibling arena. A consumer holds the frozen artifact, never a live arena across an ownership boundary.

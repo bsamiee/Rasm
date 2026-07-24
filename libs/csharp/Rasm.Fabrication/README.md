@@ -12,7 +12,7 @@ Every manufacturing process folds through a single `FabricationPolicy` dispatch 
 - [03]-[PHYSICS](.planning/Process/physics.md): State-dependent material laws, coolant-coupled cutting response, and energy budgets.
 - [04]-[FAULTS](.planning/Process/faults.md): `FabricationFault` typed-rejection registry partitioned by owning concern.
 - [05]-[DERIVATION](.planning/Process/derivation.md): Aggregate-admitted plan derivation with lot scheduling and critical-path evidence.
-- [06]-[TELEMETRY](.planning/Process/telemetry.md): `FabricationFact` union, instrument roster, projection fan, classification rows, engine spans, hook roster, and SLO rows.
+- [06]-[TELEMETRY](.planning/Process/telemetry.md): `FabricationFact` union with its instrument roster, projection fan, and SLO rows.
 
 [TOOLING]:
 - [07]-[MAGAZINE](.planning/Tooling/magazine.md): ISO-13399 tool-assembly magazine and the minimal-swap tool-life schedule.
@@ -45,7 +45,7 @@ Every manufacturing process folds through a single `FabricationPolicy` dispatch 
 - [26]-[CELL](.planning/Kinematics/cell.md): Robot-cell target compilation and batch placement search over one loaded cell.
 - [27]-[MACHINE](.planning/Kinematics/machine.md): Parameterized machine-chain inverse with TCP/RTCP and dynamics-true timing.
 - [28]-[FLEET](.planning/Kinematics/fleet.md): Shop registry ranking capability over stations, tooling state, and measured performance.
-- [29]-[OBSERVATION](.planning/Kinematics/observation.md): Decoded machine-telemetry slice — the one observation vocabulary every measured consumer reads.
+- [29]-[OBSERVATION](.planning/Kinematics/observation.md): Decoded machine-telemetry slice every measured consumer reads.
 
 [ADDITIVE]:
 - [30]-[SLICING](.planning/Additive/slicing.md): FFF/DED planar slicing — shells, infill, and the bead-section flow law.
@@ -137,7 +137,7 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `JetBrains.Annotations`
 
 [NUMERIC]:
-- `CSparse` — direct sparse Cholesky, LDL', LU, and QR factorization with pattern-reusing refactorization and rank-1 update.
+- `CSparse`
 - `UnitsNet` — cut-parameter and tolerance quantity boundary.
 - `MathNet.Numerics` — capability distribution fits and Monte-Carlo tolerance stackup.
 - `System.Numerics.Tensors` — SIMD-lowered sampling folds across the hot toolpath and nesting lanes.
@@ -155,11 +155,11 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `Thinktecture.Runtime.Extensions.Json` — STJ converters for the generated value objects, smart enums, and unions on every egress.
 
 [OBSERVABILITY]:
-- `Microsoft.Extensions.Compliance.Redaction` — classification attribute surface for the classified receipt members; redactor binding stays at the app root.
-- In-box `System.Diagnostics.Metrics` owns the instrument surface and in-box `System.Diagnostics.ActivitySource` the engine spans; the OpenTelemetry SDK tier composes at `Rasm.AppHost` roots, never here.
+- `Microsoft.Extensions.Compliance.Redaction` — classification attributes on classified receipt members; redactor binding stays at the app root.
+- In-box `System.Diagnostics.Metrics` owns the instrument surface; in-box `System.Diagnostics.ActivitySource` owns the engine spans.
 
 [CACHING]:
-- `Microsoft.Extensions.Caching.Hybrid` — solver memo tier behind the runtime-carried `HybridCache`; the pair-polygon memo keys on the kernel content mint, and the durable L2 federates at the Persistence cache seam.
+- `Microsoft.Extensions.Caching.Hybrid` — solver memo tier behind `HybridCache`; durable L2 federates at the Persistence cache seam.
 
 [TEST]:
 - `xunit.v3.assert`

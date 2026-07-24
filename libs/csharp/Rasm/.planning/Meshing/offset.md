@@ -252,9 +252,8 @@ public static class Offsetting {
             minkowski: static (key, k) => AdmitRing(k.Ring, key).Bind(ring => Convolve(ring, k.Element, key)).Map(static loops => (OffsetResult)new OffsetResult.Curves(loops)),
             clearance: static (key, c) => AdmitRing(c.Ring, key).Map(ring => (OffsetResult)new OffsetResult.Probe(ClearanceAt(ring, c.Probe))));
 
-    // Admission once: finite, closed, non-zero-area, CCW-oriented, SIMPLE — simplicity routes the
-    // ONE crossing owner per non-adjacent pair, never a local straddle copy. The owner evaluates
-    // on the XY projection; the ring's leading elevation rides through to every emission.
+    // Admission once: finite, closed, non-zero-area, CCW-oriented, SIMPLE — simplicity routes the ONE crossing owner per non-adjacent pair,
+    // evaluated on the XY projection; the ring's leading elevation rides through to every emission.
     static Fin<Polyline> AdmitRing(Polyline ring, Op? key) {
         if (ring.Count < 4 || !ring.IsClosed) { return Fail(0); }
         for (int i = 0; i < ring.Count; i++) {
@@ -701,6 +700,13 @@ public static class Offsetting {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     OffsetOp -->|admit: simplicity via Intersection.Apply| Intersection
     OffsetOp -->|Seed bisectors, EdgeSpeed rows| WavefrontStore

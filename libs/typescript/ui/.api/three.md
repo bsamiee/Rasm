@@ -1,21 +1,18 @@
 # [TS_UI_API_THREE]
 
-`three` is the render substrate of the `ui/viewer` Nx project (`scope:viewer`, compile-time excluded from the non-spatial majority): a single scene-graph + renderer + loader engine the `viewer/scene` plane composes into GLB residency and OpenPBR appearance. Two renderer backends live behind one contract — `WebGLRenderer` (core `three`) and `WebGPURenderer` (`three/webgpu`, an async-init unified `Renderer` carrying node-material + compute + post-processing surfaces) — so `viewer/scene/glb` selects a backend at boot without re-authoring the scene. GLB ingestion is a plugin-configured `GLTFLoader`: the DRACO, KTX2/Basis, and Meshopt codecs attach through `.setDRACOLoader`/`.setKTX2Loader`/`.setMeshoptDecoder` (the decode work handed to the `browser` decode-worker port, never run on the render thread), and `viewer/scene/appearance` binds the C# OpenPBR algebra field-for-field onto `MeshPhysicalMaterial`'s coat/sheen/transmission/iridescence/anisotropy lobes. three ships no first-party `.d.ts`; `@types/three` (catalog-bound) is the admitted compile-time declaration source, and every symbol here is verified against the shipped runtime exports (`three.module.js`/`three.webgpu.js`/`three.tsl.js`) and the `examples/jsm/**` addon source — DefinitelyTyped declarations never stand as member truth because they drift from the shipped surface.
+`three` is the render substrate of the `ui/viewer` Nx project (`scope:viewer`, compile-time excluded from the non-spatial majority): one scene-graph + renderer + loader engine `viewer/scene` composes into GLB residency and OpenPBR appearance. Two renderer backends satisfy one usage contract — `WebGLRenderer` (core `three`) and `WebGPURenderer` (`three/webgpu`, an async-init unified `Renderer` carrying node-material, compute, and post-processing surfaces) — so `viewer/scene/glb` selects a backend at boot without re-authoring the scene.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `three`
 - package: `three` (MIT)
-- module format: ESM (`type: module`), `sideEffects: ["./src/nodes/**/*"]` — node-material TSL registration is the one retained side-effect root; four export roots: `three` (core), `three/webgpu` (WebGPU renderer + node materials + compute), `three/tsl` (node-shader language), `three/addons/*` ⇒ `three/examples/jsm/*` (loaders, controls, environments, codecs)
-- runtime target: browser DOM + WebGL2/WebGPU context; no Node binding — the viewer runs it in the app render thread while codec transcoders run in the `browser` worker
-- peer: none declared; the React seam is the app's own `<canvas>` ref + `useEffect` teardown, not a bundled binding
-- asset: pure-JS runtime library shipping NO `.d.ts` (no `types` field, no bundled declarations); `@types/three` (catalog) is the admitted declaration companion for compile only. Members below are verified against the shipped `build/three.cjs` (441 core exports), `build/three.webgpu.js` (629 exports), `build/three.tsl.js` (638 exports), and the `examples/jsm/**` addon source on disk — never against DefinitelyTyped recall
-- rail: viewer scene tier — the renderer/scene/loader/material engine `viewer/scene/glb` (residency) and `viewer/scene/appearance` (OpenPBR binding) compose; `scope:viewer` project-local
+- module: ESM (`type: module`), four export roots — `three` (core), `three/webgpu` (WebGPU renderer + node materials + compute), `three/tsl` (node-shader language), `three/addons/*` ⇒ `three/examples/jsm/*` (loaders, controls, environments, codecs); `sideEffects: ["./src/nodes/**/*"]` retains node-material TSL registration; ships no `.d.ts`, so `@types/three` is the admitted compile-time declaration companion
+- runtime: browser DOM + WebGL2/WebGPU context, no Node binding and no peer binding — the viewer runs it on the app render thread, codec transcoders in the `browser` worker, and the React seam is the app's own `<canvas>` ref + `useEffect` teardown
+- rail: viewer scene tier — `viewer/scene/glb` (residency) and `viewer/scene/appearance` (OpenPBR binding) compose the renderer/scene/loader/material engine; `scope:viewer` project-local
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: scene graph, cameras, and the transform spine
-- rail: scene
 
 | [INDEX] | [SYMBOL]                                                             | [TYPE_FAMILY]   | [CONSUMER]                                     |
 | :-----: | :------------------------------------------------------------------- | :-------------- | :--------------------------------------------- |
@@ -27,9 +24,6 @@
 |  [06]   | `Box3` / `Sphere` / `Frustum` / `Vector3` / `Matrix4` / `Quaternion` | math value      | `viewer/geo`, `viewer/scene/glb` — transform   |
 
 [PUBLIC_TYPE_SCOPE]: materials, textures, and color management — the OpenPBR binding target
-- rail: scene
-
-The OpenPBR lobe fields carried by `MeshPhysicalMaterial` are catalogued in the [03] appearance-binding rows.
 
 | [INDEX] | [SYMBOL]                                                                   | [TYPE_FAMILY] | [CONSUMER]                                  |
 | :-----: | :------------------------------------------------------------------------- | :------------ | :------------------------------------------ |
@@ -42,18 +36,17 @@ The OpenPBR lobe fields carried by `MeshPhysicalMaterial` are catalogued in the 
 |  [07]   | `LightProbe`                                                               | light probe   | `viewer/scene/glb` — irradiance probe       |
 
 [PUBLIC_TYPE_SCOPE]: WebGPU backend, node materials, and compute (`three/webgpu`)
-- rail: scene
 
 | [INDEX] | [SYMBOL]                                                    | [TYPE_FAMILY]    | [CONSUMER]                                     |
 | :-----: | :---------------------------------------------------------- | :--------------- | :--------------------------------------------- |
 |  [01]   | `Renderer` / `WebGPUBackend` / `WebGLBackend`               | unified renderer | `viewer/scene/glb` — WebGPU/WebGL2 backend     |
 |  [02]   | `MeshPhysicalNodeMaterial` / `MeshStandardNodeMaterial`     | node material    | `viewer/scene/appearance` — WebGPU OpenPBR TSL |
-|  [03]   | `PostProcessing` / `RendererUtils`                          | post pipeline    | `viewer/probe/receipt` — `RenderReceipt` chain |
-|  [04]   | `ComputeNode` / `StorageBufferNode`                         | GPU compute      | `viewer/scene/glb` — compute-pass transforms   |
-|  [05]   | `StorageBufferAttribute` / `IndirectStorageBufferAttribute` | compute buffer   | `viewer/scene/glb` — storage/indirect attrs    |
+|  [03]   | `PointsNodeMaterial` / `MeshBasicNodeMaterial`              | node material    | `viewer/scene/glb` — point/unlit node graph    |
+|  [04]   | `PostProcessing` / `RendererUtils`                          | post pipeline    | `viewer/probe/receipt` — `RenderReceipt` chain |
+|  [05]   | `ComputeNode` / `StorageBufferNode`                         | GPU compute      | `viewer/scene/glb` — compute-pass transforms   |
+|  [06]   | `StorageBufferAttribute` / `IndirectStorageBufferAttribute` | compute buffer   | `viewer/scene/glb` — storage/indirect attrs    |
 
 [PUBLIC_TYPE_SCOPE]: loader and animation contracts
-- rail: scene
 
 Every row is consumed by `viewer/scene/glb`.
 
@@ -67,7 +60,6 @@ Every row is consumed by `viewer/scene/glb`.
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: renderer construction and the frame loop
-- rail: scene
 - Both renderers take `{ canvas, antialias, alpha?, powerPreference? }`; every row serves `viewer/scene/glb`.
 
 | [INDEX] | [SURFACE]                                                                                | [ENTRY_FAMILY]       | [CONSUMER]            |
@@ -79,11 +71,10 @@ Every row is consumed by `viewer/scene/glb`.
 |  [05]   | `renderer.compileAsync(s, c)` / `renderer.dispose()` / `computeAsync(node)`              | precompile / dispose | pre-warm, dispose     |
 |  [06]   | `renderer.info` — `.render` / `.compute` / `.memory` / `.autoReset` / `.reset()`         | counter surface      | probe metric sink     |
 
-- [02]-[WEBGPU_UPGRADE]: `hasFeature` (post-`init()`; `hasFeatureAsync` deprecated) gates the upgrade, resolving to `GPUDevice.features.has(name)` (`.api/webgpu-types.md`); the `null` loop pauses under `<Activity>` hidden.
-- [06]-[COUNTER_SURFACE]: the unified `Renderer` base (so `WebGPURenderer` included) carries `info.render` `{calls, frameCalls, drawCalls, triangles, points, lines, timestamp}`, `info.compute` `{calls, frameCalls, timestamp}`, and `info.memory` `{geometries, textures, texturesSize, attributes, attributesSize, programs, renderTargets, readbackBuffers, uniformBuffers, total, …}` — the legacy `render.calls`/`render.triangles`/`memory.geometries`/`memory.textures` spellings hold, widened by per-frame and byte-grade members; an app-managed loop sets `info.autoReset = false` and calls `info.reset()` once per frame.
+- [02]-[WEBGPU_UPGRADE]: `hasFeature` (post-`init()`; `hasFeatureAsync` deprecated) gates the upgrade, resolving through `WebGPUBackend.hasFeature` to `GPUDevice.features.has(name)` (`.api/webgpu-types.md` owns the `GPUFeatureName` vocabulary); the `null` loop pauses under `<Activity>` hidden.
+- [06]-[COUNTER_SURFACE]: `Renderer` (unified base, `WebGPURenderer` included) carries `info.render` `{calls, frameCalls, drawCalls, triangles, points, lines, timestamp}`, `info.compute` `{calls, frameCalls, timestamp}`, and `info.memory` `{geometries, textures, texturesSize, attributes, attributesSize, programs, renderTargets, readbackBuffers, uniformBuffers, total}`; an app-managed loop sets `info.autoReset = false` and calls `info.reset()` once per frame.
 
 [ENTRYPOINT_SCOPE]: GLB ingestion — the plugin-configured decode pipeline
-- rail: scene
 - Every row serves `viewer/scene/glb`; codec wasm runs in the `browser` decode-worker, never the render thread.
 
 | [INDEX] | [SURFACE]                                                                                     | [ENTRY_FAMILY] | [CONSUMER]             |
@@ -95,10 +86,9 @@ Every row is consumed by `viewer/scene/glb`.
 |  [05]   | `KTX2Loader` / `RGBELoader` / `TextureLoader` → `renderer.initTexture(tex)`                   | texture ingest | eager `initTexture`    |
 
 - [01]-[MESHOPT_GATE]: `MeshoptDecoder` wires only when the asset flags `EXT_meshopt_compression`.
-- [04]-[TRANSCODE_TARGET]: `detectSupport` reads the renderer's compressed-format capabilities — `GPUDevice.features` for the `texture-compression-bc`/`-etc2`/`-astc` `GPUFeatureName` members (`.api/webgpu-types.md`) on WebGPU, `WEBGL_compressed_texture_*` extensions on WebGL.
+- [04]-[TRANSCODE_TARGET]: `detectSupport(renderer)` reads the renderer's compressed-format capabilities through `renderer.hasFeature` — `GPUDevice.features` for the `texture-compression-bc`/`-etc2`/`-astc` `GPUFeatureName` members on WebGPU, `WEBGL_compressed_texture_*` extensions on WebGL — and selects the KTX2/Basis transcode target once per asset.
 
 [ENTRYPOINT_SCOPE]: OpenPBR appearance binding on `MeshPhysicalMaterial`
-- rail: scene
 - Every row binds `MeshPhysicalMaterial`/`MeshPhysicalNodeMaterial` fields decoded from `wire#vocab`; consumer `viewer/scene/appearance` unless noted.
 
 | [INDEX] | [SURFACE]                                                                              | [ENTRY_FAMILY]      | [CONSUMER]             |
@@ -116,21 +106,35 @@ Every row is consumed by `viewer/scene/glb`.
 - [08]-[SIDE]: `.side` takes `FrontSide`/`DoubleSide`; `dispersion` rides the [03] glass rows.
 - [09]-[IBL_DEFAULT]: `RoomEnvironment()` is the neutral studio default the prefilter bakes; every `MeshPhysicalMaterial` samples the result.
 
-[ENTRYPOINT_SCOPE]: interaction, node-shader authoring, and evidence
-- rail: scene
-- Node-shader verbs are `three/tsl`; `BufferGeometryUtils` is `three/addons`; `OrbitControls extends Controls extends EventDispatcher`.
+[ENTRYPOINT_SCOPE]: TSL node-shader and GPU-compute authoring (`three/tsl`)
+- `Fn(cb)` builds a node function; `Fn(cb)().compute(count)` yields a compute node the unified `Renderer` dispatches through `renderer.compute(node)`. Node-material fields (`material.colorNode`/`.roughnessNode`/`.positionNode`) bind TSL graphs onto `MeshStandardNodeMaterial`/`MeshPhysicalNodeMaterial`/`PointsNodeMaterial`.
+
+| [INDEX] | [SURFACE]                                                                  | [ENTRY_FAMILY]   | [CONSUMER]                    |
+| :-----: | :------------------------------------------------------------------------- | :--------------- | :---------------------------- |
+|  [01]   | `Fn(cb)` / `If` / `Loop` / `Break` / `Continue`                            | control flow     | shader graph body             |
+|  [02]   | `float` / `int` / `vec3` / `vec4` / `color` / `mat4`                       | value node       | typed shader value            |
+|  [03]   | `uniform(v)` / `texture(t)` / `uv()` / `attribute` / `varying`             | binding node     | CPU→shader input              |
+|  [04]   | `mix` / `hash` / `oscSine` / `time` / `deltaTime`                          | math / time      | animated lobe                 |
+|  [05]   | `vertexColor()` / `vertexIndex` / `instanceIndex`                          | attribute index  | per-vertex/instance read      |
+|  [06]   | `instancedArray(count, type)` / `.element(i)` / `.compute(count)`          | storage buffer   | `viewer/scene/glb` — compute  |
+|  [07]   | `globalId` / `localId` / `workgroupId` / `numWorkgroups`                   | compute built-in | per-invocation index          |
+|  [08]   | `workgroupBarrier()` / `storageBarrier()` / `textureBarrier()`             | sync barrier     | workgroup synchronization     |
+|  [09]   | `atomicAdd` / `atomicSub` / `atomicMax` / `atomicMin` / `atomicOr`         | atomic op        | thread-safe accumulate        |
+|  [10]   | `pass(scene, cam)` / `.setMRT(mrt(...))` / `.getTextureNode(n)` / `output` | post / MRT       | `viewer/probe/receipt` — pass |
+|  [11]   | `wgslFn(src)`                                                              | raw WGSL         | escape-hatch kernel           |
+
+[ENTRYPOINT_SCOPE]: interaction, geometry folding, and evidence
+- `BufferGeometryUtils` is `three/addons`; `OrbitControls extends Controls extends EventDispatcher`.
 
 | [INDEX] | [SURFACE]                                                            | [ENTRY_FAMILY]    | [CONSUMER]                              |
 | :-----: | :------------------------------------------------------------------- | :---------------- | :-------------------------------------- |
 |  [01]   | `new OrbitControls(cam, dom)` / `ArcballControls` / `MapControls`    | camera control    | `viewer/geo/project` — camera nav       |
 |  [02]   | `controls.update()` / `controls.dispose()`                           | control lifecycle | `viewer/geo` — update, `Scope` dispose  |
-|  [03]   | `Fn(...)` / `uniform` / `texture` / `vec3` / `mix` / `mrt`           | node shader       | `viewer/scene/appearance` — TSL lobes   |
-|  [04]   | `renderer.getPixelRatio()` / `.readRenderTargetPixelsAsync(rt, ...)` | frame readback    | `viewer/probe/receipt` — pixel readback |
-|  [05]   | `BufferGeometryUtils.mergeGeometries(list)` / `.mergeVertices(geo)`  | geometry fold     | `viewer/scene/glb` — merge submeshes    |
-|  [06]   | `controls.addEventListener("change", fn)` / `controls.target`        | control events    | `viewer/geo` — `change` folds camera    |
+|  [03]   | `renderer.getPixelRatio()` / `.readRenderTargetPixelsAsync(rt, ...)` | frame readback    | `viewer/probe/receipt` — pixel readback |
+|  [04]   | `BufferGeometryUtils.mergeGeometries(list)` / `.mergeVertices(geo)`  | geometry fold     | `viewer/scene/glb` — merge submeshes    |
+|  [05]   | `controls.addEventListener("change", fn)` / `controls.target`        | control events    | `viewer/geo` — `change` folds camera    |
 
 [ENTRYPOINT_SCOPE]: animation drive and draw-call collapse
-- rail: scene
 - Every row serves `viewer/scene`; loop-mode constants are core `three`.
 
 | [INDEX] | [SURFACE]                                                                        | [ENTRY_FAMILY]  | [CONSUMER]                    |
@@ -152,25 +156,25 @@ Every row is consumed by `viewer/scene/glb`.
 [SCENE_TOPOLOGY]:
 - One `Scene` owns the residency graph; each loaded GLB grafts its `gltf.scene` `Object3D` subtree under it, keyed by the content-key from `viewer/scene/glb`'s `ResidencyManifest`. Removal disposes geometry/material/texture GPU handles — three does not garbage-collect GPU memory, so every `remove` pairs with `.dispose()` under an Effect `Scope` finalizer.
 - Two renderer backends satisfy one usage contract: `WebGLRenderer` (synchronous construct) and `WebGPURenderer` (async `.init()`). `viewer/scene/glb` probes `navigator.gpu` + `renderer.hasFeature` (post-`init()`), selects the backend once at boot, and codes the scene/camera/loop identically after — the WebGPU upgrade is a construction-site swap, never a scene rewrite.
-- GLB decode is dependency injection, not a monolith: `GLTFLoader` holds a DRACO codec, a KTX2 codec, and a Meshopt decoder as *attached* collaborators. The residency row wires each codec's wasm transcoder to run in the `browser` decode-worker (`DRACOLoader.setWorkerLimit`, `KTX2Loader` worker pool, `MeshoptDecoder`), so heavy transcode never blocks the render thread. The meshopt row is gated: attach `MeshoptDecoder` only when the asset declares `EXT_meshopt_compression`.
-- `MeshPhysicalMaterial` is the single OpenPBR bind target: its coat/sheen/transmission/iridescence/anisotropy/specular fields are a superset of the glTF PBR extensions and map field-for-field onto the C# OpenPBR algebra projected through `wire#vocab` appearance. The WebGPU path swaps in `MeshPhysicalNodeMaterial` (same lobes as TSL node graphs) with no change to the appearance-decode row.
-- Image-based lighting is a prefilter step, not a runtime cost: `PMREMGenerator.fromScene`/`fromEquirectangular` bakes the environment into a roughness-mip cube once; `scene.environment` then serves every physical material's IBL sample. The render loop stays a pure `setAnimationLoop(() => renderer.render(scene, camera))`.
+- GLB decode is dependency injection: `GLTFLoader` holds a DRACO codec, a KTX2 codec, and a Meshopt decoder as *attached* collaborators, and `viewer/scene/glb` wires each codec's wasm transcoder into the `browser` decode-worker (`DRACOLoader.setWorkerLimit`, the `KTX2Loader` worker pool, `MeshoptDecoder`), so heavy transcode never blocks the render thread; `MeshoptDecoder` attaches only when the asset declares `EXT_meshopt_compression`.
+- `MeshPhysicalMaterial` is the single OpenPBR bind target: its coat/sheen/transmission/iridescence/anisotropy/specular fields are a superset of the glTF PBR extensions and map field-for-field onto the C# OpenPBR algebra projected through `wire#vocab` appearance. `MeshPhysicalNodeMaterial` swaps in on the WebGPU path (same lobes as TSL node graphs) with no change to the appearance-decode row.
+- Image-based lighting is a prefilter step: `PMREMGenerator.fromScene`/`fromEquirectangular` bakes the environment into a roughness-mip cube once, and `scene.environment` then serves every physical material's IBL sample, so the render loop stays a pure `setAnimationLoop(() => renderer.render(scene, camera))`.
 
-[STACKS_WITH]:
-- `effect` (`libs/typescript/.api/effect.md`): the renderer, controls, loaders, geometries, and prefilter targets are all GPU-resource owners — each construction is acquired inside an `Effect.acquireRelease`/`Scope` whose finalizer calls `.dispose()`, so a viewport unmount releases every GPU handle deterministically. The frame loop is an interruptible `Effect` fiber, paused when `<Activity>` marks the viewport hidden. `Match`/`Schema` classify the decoded `wire` appearance before it reaches `MeshPhysicalMaterial`.
-- `@webgpu/types` (`.api/webgpu-types.md`): supplies the `GPUDevice`/`GPUAdapter`/`GPUTextureFormat` ambient types the `three/webgpu` backend and the `KTX2Loader.detectSupport` capability probe reference — the backend requests an adapter/device through `navigator.gpu` and gates the upgrade on `renderer.hasFeature` (→ `GPUDevice.features.has`), while `detectSupport` reads that same `GPUDevice.features` for the `texture-compression-bc`/`-etc2`/`-astc` `GPUFeatureName` members to pick the transcode target; the two are the WebGPU-path type + runtime halves (types-only ambient package, admitted by a viewer-tsconfig `types` entry, never imported).
-- `@google/model-viewer` (`.api/google-model-viewer.md`): the declarative `<model-viewer>` custom-element row for the simple embed case; three is the imperative full-control path when the viewer needs custom materials, compute, selection ray-casting, or the render receipt. The two are siblings, not layers, over ONE shared three module: `<model-viewer>` peers `three@^catalog`, filled by this same workspace `three@catalog` (pnpm dedupes it onto the single physical copy — NOT a bundled second three), so the element re-exports these exact `catalog` classes yet owns its own internal renderer instance + `<canvas>` + GL context. The `RendererBackend` `Schema.Literal("three", "model-viewer")` literal picks which path draws a given GLB; they meet at the GLB wire.
-- `browser` decode-worker port (declared by `viewer/scene/glb` as `GlbViewport` residency, Layer-provided by `browser`): three's codec transcoders (DRACO wasm, KTX2 Basis, Meshopt) run behind this port, never on the render thread; `ui` declares the port, `browser` provides the worker Layer at app composition.
+[STACKING]:
+- `effect` (`libs/typescript/.api/effect.md`): `Effect.acquireRelease`/`Scope` wraps every GPU-resource owner — renderer, controls, loaders, geometries, prefilter targets — its finalizer calling `.dispose()`, so a viewport unmount releases every GPU handle deterministically. `viewer/scene/glb` drives the frame loop on an interruptible `Effect` fiber, paused when `<Activity>` marks the viewport hidden. `Match`/`Schema` classify the decoded `wire` appearance before it reaches `MeshPhysicalMaterial`.
+- `@webgpu/types` (`.api/webgpu-types.md`): supplies the ambient `GPUDevice`/`GPUAdapter`/`GPUTextureFormat` types the `three/webgpu` backend and the `KTX2Loader.detectSupport` probe read. three owns the runtime mechanism: the backend requests an adapter/device through `navigator.gpu`, gates the upgrade on `renderer.hasFeature` → `WebGPUBackend.hasFeature` → `GPUDevice.features.has`, and `detectSupport` reads that same `GPUDevice.features` for the `texture-compression-bc`/`-etc2`/`-astc` `GPUFeatureName` members to pick the transcode target; `@webgpu/types` is the type floor beneath that runtime, admitted by a viewer-tsconfig `types` entry, never imported.
+- `@google/model-viewer` (`.api/google-model-viewer.md`): `<model-viewer>` is the declarative custom-element row for the simple embed case; three is the imperative full-control path for custom materials, compute, selection ray-casting, or the render receipt. Both are siblings over ONE shared three module — `<model-viewer>` peers `three@catalog`, filled by this same workspace copy (pnpm dedupes onto one physical three), re-exports these exact classes, yet owns its own renderer instance + `<canvas>` + GL context. `RendererBackend`'s `Schema.Literal("three", "model-viewer")` picks which path draws a given GLB; they meet at the GLB wire.
+- `browser` decode-worker port (declared by `viewer/scene/glb` as `GlbViewport` residency, Layer-provided by `browser`): three's codec transcoders (DRACO wasm, KTX2 Basis, Meshopt) run behind this port, never on the render thread; `ui` declares the port and `browser` binds the worker Layer at app composition.
 - `wire#vocab` appearance (`csharp:Rasm.Materials/Appearance/interchange` seam): `viewer/scene/appearance` decodes `MaterialWire`/`OpenPbrGroupsWire`/`AppearanceSummary` once at `wire` and binds the decoded values onto `MeshPhysicalMaterial`; a peer re-mint of the OpenPBR algebra in TypeScript is the `CROSS_LANGUAGE_WIRE` drift defect.
-- `colorjs.io` (`.api/colorjs.io.md`) + `three` `ColorManagement`: theme/appearance colors are authored in OKLCH and gamut-fit in `colorjs.io`, then `to("srgb"/"srgb-linear")`-converted into `coords` whose ids are the exact string values of three's `SRGBColorSpace`/`LinearSRGBColorSpace` constants; `Color.setRGB(r, g, b, colorSpace)` ingests them and `ColorManagement` transforms source→working, so token color and rendered color share one color-space contract.
+- `colorjs.io` (`.api/colorjs.io.md`) + three `ColorManagement`: theme/appearance colors author in OKLCH and gamut-fit in `colorjs.io`, then `to("srgb"/"srgb-linear")`-convert into `coords` whose ids are the exact string values of three's `SRGBColorSpace`/`LinearSRGBColorSpace` constants; `Color.setRGB(r, g, b, colorSpace)` ingests them and `ColorManagement` transforms source→working, so token color and rendered color share one color-space contract.
 
 [LOCAL_ADMISSION]:
-- Import core `three` for the scene/camera/material/geometry spine, `three/webgpu` only inside the WebGPU-backend construction row, `three/tsl` only inside node-material authoring, and `three/addons/*` for `GLTFLoader`/controls/codecs/`RoomEnvironment` — never deep-import `three/examples/jsm/...` by raw path when the `three/addons/*` export alias resolves it.
-- Attach codecs to `GLTFLoader` by injection (`setDRACOLoader`/`setKTX2Loader`/`setMeshoptDecoder`); never fork the loader per codec or decode DRACO/KTX2/Meshopt by hand — the codec wasm belongs in the `browser` decode-worker behind the port.
-- Bind OpenPBR appearance onto `MeshPhysicalMaterial`/`MeshPhysicalNodeMaterial` fields decoded from `wire#vocab`; never re-derive the OpenPBR→glTF-PBR mapping in `ui` (that algebra is owned in C# and mirrored once at `wire`).
-- Acquire every renderer/geometry/material/texture/control/prefilter under an Effect `Scope` and dispose in the finalizer; never let a GPU-resource owner outlive its viewport — three has no GC for GPU memory.
-- Prefilter environments with `PMREMGenerator` once and serve via `scene.environment`; never sample a raw equirect texture per-fragment or rebuild the IBL mip-chain per frame.
-- Verify three member existence against the shipped runtime exports (three ships no `.d.ts`); never trust a `three` signature from `@types/three` recall — the DefinitelyTyped declarations compile the code but drift from the shipped catalog-bound surface, so runtime exports decide member truth.
+- Import core `three` for the scene/camera/material/geometry spine, `three/webgpu` inside the WebGPU-backend construction row, `three/tsl` inside node-material and compute authoring, and `three/addons/*` for `GLTFLoader`/controls/codecs/`RoomEnvironment` — resolve every addon through the `three/addons/*` export alias, never a raw `three/examples/jsm/...` path.
+- Attach codecs to `GLTFLoader` by injection (`setDRACOLoader`/`setKTX2Loader`/`setMeshoptDecoder`); the codec wasm belongs in the `browser` decode-worker behind the port, never a per-codec loader fork or hand-rolled DRACO/KTX2/Meshopt decode.
+- Bind OpenPBR appearance onto `MeshPhysicalMaterial`/`MeshPhysicalNodeMaterial` fields decoded from `wire#vocab`; the OpenPBR→glTF-PBR algebra is owned in C# and mirrored once at `wire`, never re-derived in `ui`.
+- Acquire every renderer/geometry/material/texture/control/prefilter under an Effect `Scope` and dispose in the finalizer — three has no GC for GPU memory, so a GPU-resource owner outliving its viewport leaks the handle.
+- Prefilter environments with `PMREMGenerator` once and serve via `scene.environment`, never a raw per-fragment equirect sample or a per-frame IBL-mip rebuild.
+- Verify three member existence against the shipped runtime exports (`three.module.js`/`three.webgpu.js`/`three.tsl.js`) and the `examples/jsm/**` addon source; `@types/three` compiles the code but drifts from the shipped surface, so runtime exports decide member truth.
 
 [RAIL_LAW]:
 - Package: `three` (`scope:viewer` project-local)

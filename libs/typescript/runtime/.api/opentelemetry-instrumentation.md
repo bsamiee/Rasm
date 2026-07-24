@@ -1,19 +1,19 @@
 # [TS_RUNTIME_API_OPENTELEMETRY_INSTRUMENTATION]
 
-`@opentelemetry/instrumentation` is the activation substrate every instrumentation row extends: `registerInstrumentations` binds a row set to explicit providers and answers the unload thunk the registration bracket releases. Rasm consumes it in the browser boot's `Instrument` node — the fetch, document-load, and user-interaction rows extend its `InstrumentationBase`, and the facade registers no global provider, so activation passes the web lane's tracer provider explicitly or every instrumentation span dies on the no-op global.
+`registerInstrumentations` binds a row set to explicit providers and answers the unload thunk its registration bracket releases; `InstrumentationBase` is the class every instrumentation row extends. Registration installs no global provider, so an omitted `tracerProvider` falls to the no-op api global and every span dies — the browser boot's `Instrument` node passes the web lane's tracer provider explicitly.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/instrumentation`
 - package: `@opentelemetry/instrumentation` (Apache-2.0)
 - base: peers on `@opentelemetry/api` (+ `@opentelemetry/api-logs` for the logger-provider slot)
-- consumed-by: the browser composition root's `Instrument` registration bracket; every admitted instrumentation row extends its base class
-- runtime: neutral — the node module-patching machinery and the browser global-patching rows both ride this base
+- consumed-by: the browser boot's `Instrument` bracket; every admitted instrumentation row extends its base class
+- runtime: neutral — node module-patching and browser global-patching rows both ride this base
+- rail: observability/rum
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: activation + authoring contracts
-- rail: observability/rum
 
 | [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                                    |
 | :-----: | :------------------------------------------------------ | :--------------- | :----------------------------------------------------- |
@@ -27,9 +27,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: activation
-- rail: observability/rum
-- One call activates the whole row set; the returned thunk is the only deactivation path, so registration is bracket-shaped by construction.
-- call: `registerInstrumentations({ instrumentations?, tracerProvider?, meterProvider?, loggerProvider? }): () => void` — the `AutoLoaderOptions` record
 
 | [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                         |
 | :-----: | :---------------------------------------------- | :------------- | :---------------------------------------------------------- |
@@ -39,14 +36,15 @@
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[ACTIVATION_TOPOLOGY]:
-- explicit providers only — an omitted `tracerProvider` falls back to the api global, which the facade never registers, so the spans record nowhere; the `Instrument` bracket passes the web lane's provider Tag value.
-- bracket law — the returned unload thunk pairs with the zone manager's `disable` inside one `acquireRelease`, so a torn-down browser graph leaves no patched global behind.
+[TOPOLOGY]:
+- explicit providers only — an omitted `tracerProvider` falls to the api global the facade never registers, so spans record nowhere; the `Instrument` bracket passes the web lane's provider Tag.
+- unload thunk and zone-manager `disable` pair inside one `acquireRelease`, so a torn-down browser graph leaves no patched global behind.
 
-[INTEGRATION_LAW]:
-- Stack with `opentelemetry-instrumentation-{fetch,document-load,user-interaction}.md`: the three rows are `Instrumentation` values in one registered array; construction policy lives on each row's config, activation lives here.
-- Stack with `.api/effect-opentelemetry.md`: `Tracer.OtelTracerProvider` is the provider the options bind; the web lane's facade-leg assembly is what makes the Tag reachable.
-- Stack with `opentelemetry-context-zone.md`: the zone manager installs globally in the same bracket, so interaction spans parent the fetches they trigger.
+[STACKING]:
+- `opentelemetry-instrumentation-{fetch,document-load,user-interaction}`(`.api/opentelemetry-instrumentation-fetch.md`): the three rows are `Instrumentation` values in one registered array, each extending `InstrumentationBase`; construction policy lives on each row's config, activation here.
+- `@effect/opentelemetry`(`.api/effect-opentelemetry.md`): `WebSdk.layerTracerProvider` exposes the `Tracer.OtelTracerProvider` Tag the `tracerProvider` option binds — the facade-leg assembly makes the Tag reachable.
+- `@opentelemetry/context-zone`(`.api/opentelemetry-context-zone.md`): `ZoneContextManager.enable()` installs in the same bracket, so interaction spans parent the fetches they trigger.
+- `browser/boot`: composes the one `registerInstrumentations` call at the `Instrument` node and hands its unload thunk to the graph teardown.
 
 [LOCAL_ADMISSION]:
 - `scope:runtime`; the activation call lives only in the browser boot graph's `Instrument` node.

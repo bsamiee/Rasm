@@ -1,24 +1,21 @@
 # [TS_IAC_API_PULUMIVERSE_ACME]
 
-`@pulumiverse/acme` is the CA-trusted issuance lane: two resources own the whole ACME protocol — `Registration` binds an account key to a directory endpoint, `Certificate` drives order, challenge, issuance, and renewal as one lifecycle resource — with the directory URL as the single `Provider` knob (`serverUrl`), so staging-versus-production is provider data, never a resource fork. It completes the cert axis the folder already carries: `@pulumi/tls` mints self-signed material for the mesh-internal lane (`Certs.root`/`issue`), cert-manager owns in-cluster ACME on the k8s arm, and this package owns CA-trusted certs OUTSIDE a cluster — the docker arm's edge, bare-metal endpoints, any hostname a browser must trust without a cluster to run cert-manager in. Issuance is DNS-01 by default through `dnsChallenges` rows (the lego provider vocabulary — `cloudflare` against the zone the traffic rows already manage), the issued triple sinks into the same `kubernetes.io/tls`-shaped consumers the self-signed lane feeds, and `minDaysRemaining` plus the ARI window outputs make rotation a drift-visible `update` on this one resource.
+`@pulumiverse/acme` owns CA-trusted certificate issuance outside a cluster: `Registration` binds an account key to a directory endpoint and `Certificate` drives order, challenge, issuance, and renewal as one lifecycle resource, with the directory URL the single `Provider` knob (`serverUrl`) so staging-versus-production is provider data, never a resource fork.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pulumiverse/acme`
 - package: `@pulumiverse/acme` (Apache-2.0)
-- import: `@pulumiverse/acme` → `{ Registration, Certificate, Provider, getServerUrl, getServerUrlOutput, types }`
-- owner: `iac`
-- rail: fabric / cert (the CA-trusted lane beside `@pulumi/tls`'s self-signed lane)
-- runtime: Node deploy-host; DNS-01 needs the DNS provider API reachable, HTTP/TLS challenges need the target host to answer on 80/443
-- depends-on: `@pulumi/pulumi`; composes `@pulumi/tls` (CSR mode), `@pulumi/cloudflare` (the challenged zone), `@pulumiverse/doppler` (challenge credentials)
-- capability: ACME account registration (EAB-capable), certificate order/issue/renew as one resource lifecycle, DNS-01/HTTP-01/TLS-ALPN challenge rows, CSR-mode or provider-minted keys, ARI-driven renewal windows, revoke-on-destroy
-- abi-note: every `Certificate` output mirrors its arg resolved through `Output<T>`; the issued material rides `certificatePem`/`issuerPem`/`privateKeyPem` with the private key state-encrypted and present only when the provider minted the key
+- module: `@pulumiverse/acme` → `{ Registration, Certificate, Provider, getServerUrl, getServerUrlOutput, types }`
+- asset: the bridged ACME provider plugin; every `Certificate` output mirrors its arg through `Output<T>`, `privateKeyPem` state-encrypted and present only on the provider-minted posture
+- runtime: `node` — DNS-01 needs the DNS provider API reachable; HTTP/TLS challenges need the target host answering on 80/443
+- rail: cert — the CA-trusted lane beside `@pulumi/tls`'s self-signed lane
 
 ## [02]-[ACCOUNT_AND_ISSUANCE]
 
 [REGISTRATION_SCOPE]: the account row — one per directory
-- rail: cert
-- `Registration` self-mints its account key when given `accountKeyAlgorithm`/`accountKeyEcdsaCurve`/`accountKeyRsaBits`, or adopts one through `accountKeyPem` (a `tls.PrivateKey.privateKeyPem` output, keeping key mint in the one entropy owner). `externalAccountBinding` (`keyId` + `hmacBase64`) is the EAB row for CAs that require it. `registrationUrl` and the resolved `accountKeyPem` are the outputs every `Certificate` consumes.
+
+`Registration` self-mints its account key from `accountKeyAlgorithm`/`accountKeyEcdsaCurve`/`accountKeyRsaBits`, or adopts a `tls.PrivateKey.privateKeyPem` through `accountKeyPem` to keep key mint in the one entropy owner; `externalAccountBinding` (`keyId`+`hmacBase64`) carries EAB where the CA requires it. `registrationUrl` and the resolved `accountKeyPem` are the outputs every `Certificate` consumes.
 
 | [INDEX] | [SYMBOL]                                                             | [SHAPE_BOUNDARY]                                     |
 | :-----: | :------------------------------------------------------------------- | :--------------------------------------------------- |
@@ -31,8 +28,10 @@
 |  [07]   | `getServerUrl` / `getServerUrlOutput`                                | invoke mirror reading the directory URL              |
 
 [CERTIFICATE_SCOPE]: the one lifecycle resource
-- rail: cert
-- Two key postures on one resource: provider-minted (`commonName` + `subjectAlternativeNames` + `keyType`, the key lands in `privateKeyPem`) or CSR mode (`certificateRequestPem` from a `tls.CertRequest`, the key never leaves the `tls` owner), mutually exclusive. `accountKeyPem` is the required account bind; exactly one challenge family activates per certificate. DNS-01 rows are `dnsChallenges: Input<Input<CertificateDnsChallenge>[]>`, each element `{ provider: Input<string>, config?: Input<{[k]: Input<string>}> }` — the lego provider slug plus its credential map. Non-DNS rows carry `httpChallenge` `{port?, proxyHeader?}`, `httpWebrootChallenge` `{directory}`, `httpMemcachedChallenge` `{hosts}`, `httpS3Challenge` `{s3Bucket}`, `tlsChallenge` `{port?}`.
+
+Two mutually-exclusive key postures on one resource: provider-minted (`commonName`+`subjectAlternativeNames`+`keyType`, key lands in `privateKeyPem`) or CSR (`certificateRequestPem` from a `tls.CertRequest`, key never leaves the `tls` owner). `accountKeyPem` binds the account; exactly one challenge family activates.
+
+DNS-01 rows are `dnsChallenges: Input<Input<CertificateDnsChallenge>[]>`, each `{ provider: Input<string>, config?: Input<{[k]: Input<string>}> }` — a lego provider slug and its credential map; non-DNS rows carry `httpChallenge {port?, proxyHeader?}`, `httpWebrootChallenge {directory}`, `httpMemcachedChallenge {hosts}`, `httpS3Challenge {s3Bucket}`, `tlsChallenge {port?}`.
 
 | [INDEX] | [MEMBER]                                                                     | [SHAPE_MEANING]                                           |
 | :-----: | :--------------------------------------------------------------------------- | :-------------------------------------------------------- |
@@ -59,12 +58,16 @@
 
 ## [03]-[IMPLEMENTATION_LAW]
 
-[ISSUANCE_TOPOLOGY]:
-- lane law: three cert lanes, one sink shape — `Certs.root`/`issue` (self-signed, mesh-internal), cert-manager CRDs (in-cluster ACME on the k8s arm), and this package (CA-trusted, cluster-external); a hostname served to browsers from the docker arm or bare metal issues here, and duplicating an in-cluster cert-manager issuance through this provider is the split-brain the lane split forbids.
-- CSR law: prefer the CSR posture — `tls.PrivateKey → tls.CertRequest → Certificate.certificateRequestPem` keeps every private key in the one `tls` owner (`.api/pulumi-tls.md`) and the issued `certificatePem`/`issuerPem` join that key at the sink; the minted posture is admitted only where a P12 bundle (`certificateP12`) is the consumer's required form.
-- challenge law: DNS-01 through `dnsChallenges: [{ provider: "cloudflare", config }]` against the zone the traffic rows manage — the config map binds Doppler fan-in reads (`.api/pulumiverse-doppler.md`), never literals, and the HTTP/TLS/webroot/S3/memcached rows exist for hosts a DNS API cannot reach; wildcard names are DNS-01-only.
-- rotation law: renewal is this resource's own diff — inside `minDaysRemaining` (or `minDaysDynamic`, which derives the threshold as one-third the certificate lifetime and excludes `minDaysRemaining`, or the ARI-selected window under `useRenewalInfo`) the next `up` reissues as an `update` step the drift fold surfaces, the exact analog of `earlyRenewalHours`/`readyForRenewal` on the self-signed lane; deleting a certificate to rotate it is the same named defect.
-- account law: one `Registration` per directory per estate, `serverUrl` as provider data — a staging directory for proof stacks, production for live ones, switched by provider construction, never by resource edits; `revokeCertificateOnDestroy: true` wherever a torn-down stack must not leave a live cert.
+[TOPOLOGY]:
+- Three cert lanes share one sink shape: `Certs.root`/`issue` (self-signed, mesh-internal), cert-manager CRDs (in-cluster ACME on the k8s arm), and this package (CA-trusted, cluster-external); a hostname served to browsers from the docker arm or bare metal issues here, and re-issuing an in-cluster cert-manager cert through this provider is the split-brain the lane split forbids.
+- Renewal is this resource's own diff: inside `minDaysRemaining` (or `minDaysDynamic`, deriving the threshold as one-third the certificate lifetime and excluding `minDaysRemaining`, or the ARI-selected window under `useRenewalInfo`) the next `up` reissues as an `update` the drift fold surfaces — deleting a certificate to rotate it is the named defect.
+- One `Registration` per directory per estate binds `serverUrl` as provider data: a staging directory for proof stacks, production for live ones, switched by provider construction, never resource edits; `revokeCertificateOnDestroy: true` where a torn-down stack must not leave a live cert.
+
+[STACKING]:
+- `@pulumi/tls`(`.api/pulumi-tls.md`): `tls.PrivateKey → tls.CertRequest.certRequestPem → Certificate.certificateRequestPem` keeps every private key in the one `tls` owner (CSR posture); the issued `certificatePem`/`issuerPem` rejoin that `tls.PrivateKey` at the sink, and the provider-minted posture is admitted only where a P12 bundle (`certificateP12`) is the consumer's required form.
+- `@pulumiverse/doppler`(`.api/pulumiverse-doppler.md`): `getSecretsOutput(...).apply(r => r.map[KEY])` `Output<string>` feeds each `dnsChallenges[].config` credential entry and `externalAccountBinding.hmacBase64`, so challenge and EAB credentials stay Doppler-bound, never literals.
+- `@pulumi/cloudflare`(`.api/pulumi-cloudflare.md`): `dnsChallenges: [{ provider: "cloudflare", config }]` writes the TXT authz into the `cloudflare.Zone` the traffic rows already manage; the non-DNS `httpChallenge`/`tlsChallenge`/webroot/S3/memcached rows serve hosts a DNS API cannot reach, and wildcard names are DNS-01-only.
+- within-lib: the issued `certificatePem`/`issuerPem`/`privateKeyPem` triple sinks into the same `kubernetes.io/tls`-shaped `stringData` consumers the self-signed lane feeds, the ARI window and `minDaysRemaining` making rotation a drift-visible `update`.
 
 [RAIL_LAW]:
 - Package: `@pulumiverse/acme`

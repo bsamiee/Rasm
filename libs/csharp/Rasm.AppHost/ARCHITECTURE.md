@@ -53,11 +53,15 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 
 Five strata order the interior, member-resolved where a folder's owners split across ranks; every consumption edge points down the ladder.
 
-- S0 `Runtime` substrate — mints tenancy and time exactly once (`TenantContext`, `ClockPolicy`, the `FencingToken` lease stamp) and consumes no sibling; every upper stratum stamps these primitives.
+- S0 `Runtime` — mints tenancy and time exactly once: `TenantContext`, `ClockPolicy`, the `FencingToken` lease stamp; it consumes no sibling.
+- S0 reach — every upper stratum stamps the substrate primitives.
 - S1 `Observability` — folds `HealthContributorRow` pressure into the `DegradationReading`/`DegradationLevel` grade over the substrate clock alone.
-- S2 catalog tier — `Agent/Capability` mints `CapabilityDescriptor`, `GrantBroker`, and `Principal`; `Runtime/Determinism`'s `EventLog` co-seats here because the hash-chained log stamps `CommandReceipt` rows; `Runtime/LaneGuard` seats here folding S1 readings into `ShedVerdict`.
+- S2 catalog — `Agent/Capability` mints `CapabilityDescriptor`, `GrantBroker`, and `Principal`.
+- S2 co-seat — the hash-chained `EventLog` (`Runtime/Determinism`) stamps `CommandReceipt` rows.
+- S2 co-seat — `Runtime/LaneGuard` folds S1 readings into `ShedVerdict`.
 - S3 `Wire` — `OutboundHop` delivery and `MembershipView` cluster coordination over the catalog and the substrate lease stamp.
-- S4 broker front — `SandboxIsolation` and `FleetRoll` broker plugins over the wire and the catalog; `Agent/Runtime`'s `CommandDispatch` seats beside them, taking the `GrantHandle` as same-stratum fact and threading every command onto the S2 log.
+- S4 broker front — `SandboxIsolation` and `FleetRoll` broker plugins over the wire and the catalog.
+- S4 `CommandDispatch` (`Agent/Runtime`) — takes `GrantHandle` as same-stratum fact and threads every command onto the S2 log.
 
 ```mermaid
 ---
@@ -70,26 +74,26 @@ config:
 flowchart TB
     accTitle: AppHost interior strata
     accDescr: Five stacked strata from the broker front through wire delivery and the capability catalog onto the observability grade and the runtime substrate, every consumption edge pointing downward and naming one sourced type, and one forbidden upward edge.
-    subgraph L4["S4 BROKER FRONT"]
+    subgraph S4["S4 BROKER FRONT"]
         Isolation[SandboxIsolation]
         Roll[FleetRoll]
         Dispatch[CommandDispatch]
     end
-    subgraph L3["S3 WIRE"]
+    subgraph S3["S3 WIRE"]
         Outbound[OutboundHop]
         Membership[MembershipView]
     end
-    subgraph L2["S2 CATALOG"]
+    subgraph S2["S2 CATALOG"]
         Capability[CapabilityDescriptor]
         Broker[GrantBroker]
         Log[EventLog]
         LaneGuard[LaneGuard]
     end
-    subgraph L1["S1 OBSERVABILITY"]
+    subgraph S1["S1 OBSERVABILITY"]
         Health[HealthContributorRow]
         Reading[DegradationReading]
     end
-    subgraph L0["S0 SUBSTRATE"]
+    subgraph S0["S0 SUBSTRATE"]
         Tenant[TenantContext]
         Clock[ClockPolicy]
     end
@@ -102,7 +106,7 @@ flowchart TB
     LaneGuard -->|"[IMPORT]: DegradationReading"| Reading
     Capability -->|"[IMPORT]: TenantContext"| Tenant
     Health -->|"[IMPORT]: ClockPolicy"| Clock
-    Tenant -->|"forbidden: substrate upward"| L4
+    Tenant -->|"forbidden: substrate upward"| S4
 ```
 
 ## [03]-[SEAMS]
@@ -232,12 +236,16 @@ Boot resolves the one `ResolvedProfile`, folds and freezes the module graph behi
 - Op execution stays Compute, durability stays Persistence, and the MCP protocol routes to the official SDK.
 - Grant broker owns permission-shape evaluation as its own typed `PermissionShape` × `GrantScope` value-object predicate.
 - Sentinels stop at the admission seam: `ClockPolicy.Admit` projects defaults to `Option<Instant>`; interiors never see provider shapes.
-- AppHost owns support trigger and correlation; contributors own artifact classification and payload projection through `SupportContributorPort` rows.
+- AppHost owns support trigger and correlation; contributors own classification and payload projection through `SupportContributorPort` rows.
 - Lib level emits `ILogger` and minted `ActivitySource`/`Meter` pairs only; exporter projection belongs to composition roots.
 
 ## [06]-[PROHIBITIONS]
 
 Deleted patterns the owner regions foreclose:
+- `DeliveryFanout`, `LiveWire`, `AlertEngine`, and `FidelityScale` read the existing hop, health, and power signals, never parallel state machines.
+- An ArchUnitNET rule asserts no GeometryGym edge at or below the element seam; `Rasm.Bim` is the sole owner above it.
+- CSP analyzer diagnostics are architecture pressure: fix the shape, refine the rule on a false positive, never suppress.
+- Authentication produces one `Principal` that `GrantBroker` consumes.
 - NEVER a public type outside a sub-domain owner region; the port records own the cross-package seam.
 - NEVER wrappers, rename adapters, helper or utility files, or thin forwarding surfaces over admitted packages.
 - NEVER a generic receipt, ledger, or reported-value abstraction; every receipt stays its typed record.
@@ -247,7 +255,7 @@ Deleted patterns the owner regions foreclose:
 - NEVER a bare duration literal; every bound traces to a `DeadlineClass` row or a page policy table.
 - NEVER a second scheduler, a second cache owner, or a second retry owner on one seam; database retry stays at the Persistence execution strategy.
 - NEVER ambient `IConfiguration` reads past bootstrap or interior `IOptions` handles; interiors read frozen policy records published at ready.
-- NEVER hand-written service-descriptor spellings or closure-walking scans; the `Describe`/`DescribeKeyed` rows and `FromAssemblies` own registration.
+- NEVER hand-written service-descriptor spellings or closure-walking scans; `Describe`/`DescribeKeyed` rows and `FromAssemblies` own registration.
 - NEVER a process-static `Meter` or `ActivitySource` outliving its provider.
 - NEVER Serilog types below composition roots, and never OTLP exporter pins below service app roots.
 - NEVER a hand-written STJ converter beside the generated Thinktecture and NodaTime converters.
@@ -258,14 +266,10 @@ Deleted patterns the owner regions foreclose:
 - NEVER a second tool-adoption seam in the reasoning loop; it reuses the one brokered `CommandAIFunction`.
 - NEVER an opaque model call; every `IChatClient` call rides the one middleware pipeline, metered by `GrantBroker`, cached, and traced.
 - NEVER a second op-metadata owner beside `CapabilityDescriptor` or a second permission-and-cost owner beside `GrantBroker`.
-- NEVER an in-process third-party plugin outside the isolation boundary or a plugin-private geometry shape; plugins speak the Compute `EncodedTensor`.
+- NEVER an in-process third-party plugin outside the isolation boundary or a plugin-private geometry shape; plugins speak `EncodedTensor`.
 - NEVER a second RNG or non-chained event log; `DeterminismContext` owns seed and float mode, `EventLog` the one hash-chained command log.
 - NEVER a second notification sender, external-binding poller, alerting owner, or power monitor.
-- `DeliveryFanout`, `LiveWire`, `AlertEngine`, and `FidelityScale` read the existing hop, health, and power signals, never parallel state machines.
 - NEVER a second token-validation, JWKS, OAuth, or claims owner beside the `Agent/identity` authorities.
-- Authentication produces one `Principal` that `GrantBroker` consumes.
 - NEVER an unverified release or plugin install; `SupplyChainGate.Admit` proves signature and provenance against the pinned offline root first.
 - NEVER a backing-service probe outside the one `DriverProbe` adapter or on a second connection; a driver row binds the shared pooled driver.
 - NEVER an AEC-domain reference or a GeometryGym/IFC type on AppHost; it contributes only the `ProjectionContext` primitives the app root assembles.
-- An ArchUnitNET rule asserts no GeometryGym edge at or below the element seam; `Rasm.Bim` is the sole owner above it.
-- CSP analyzer diagnostics are architecture pressure: fix the shape, refine the rule on a false positive, never suppress.

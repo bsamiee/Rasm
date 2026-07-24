@@ -1,45 +1,41 @@
 # [TS_UI_API_TURF_TURF]
 
-`@turf/turf` is the umbrella barrel over ~100 pure GeoJSON geometry functions (114 `@turf/*` modules) — the browser-side planar/spherical geometry engine, the JS peer of the C# NetTopologySuite: the same DE-9IM boolean predicates, overlay ops (union/intersect/difference), measurement, and construction, meeting the C# side only at the WKB/GeoJSON wire. It is NOT a flat function grab-bag to enumerate: it is ~8 concern families of pure `(geojson, options) => geojson | scalar` transforms sitting on a parameterized SUBSTRATE — one constructor family (`feature`/`point`/`polygon`/…), one traversal family (`coordEach`/`geomEach`/`featureEach`/`segmentEach` × `Each`/`Reduce`), and one accessor family (`getCoord`/`getGeom`/`getType` normalizing the flexible `Coord` input) — that the `viewer/geo` design page composes against, never re-loops by hand. WKB→GeoJSON decode stays in `wire` (decoded once, never re-minted in `ui`); turf runs over the already-decoded features. It is `scope:viewer` project-local — admitted only by the `ui/viewer` Nx project, compile-time excluded from the non-spatial core.
+`@turf/turf` is the browser-side planar and spherical GeoJSON geometry engine — the JS peer of C# NetTopologySuite meeting it at the WKB/GeoJSON wire: DE-9IM predicates, overlay, measurement, and construction as pure `(geojson, options) => geojson | scalar` transforms over a parameterized constructor/traversal/accessor substrate. `viewer/geo` composes it over `wire`-decoded features, never hand-looping coordinates; `scope:viewer` project-local.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@turf/turf`
 - package: `@turf/turf` (MIT)
-- deps: 114 `@turf/*` modules (each independently versioned `catalog`) + `@types/geojson` (the GeoJSON value types); `tslib`
-- catalog-verdict: KEEP
-- runtime: `scope:viewer` project-local — admitted only by the `ui/viewer` Nx project, compile-time excluded from the non-spatial core (same tier as `@deck.gl/*`/`apache-arrow`/`three`)
-- asset: self-typed ESM+CJS (`main: dist/cjs/index.cjs`, `module: dist/esm/index.js`, `types: dist/esm/index.d.ts`), `sideEffects: false` — tree-shakeable, so the umbrella import prunes to the used ops; a hot module may import `@turf/<op>` directly
-- entry: single `.` barrel re-exporting every op plus the `helpers`/`meta`/`invariant`/`clusters`/`random`/`projection` namespaces; pure sync functions — no runtime, no effect rail, no DOM
+- deps: the `@turf/*` op modules + `@types/geojson` value types; `tslib`
+- runtime: `scope:viewer` project-local — admitted only by the `ui/viewer` Nx project, compile-excluded from the non-spatial core
+- asset: self-typed ESM+CJS, `sideEffects: false` — tree-shakeable, so the umbrella import prunes to used ops and a hot module imports `@turf/<op>` directly
+- entry: the `.` barrel re-exports every op and the `helpers`/`meta`/`invariant`/`clusters`/`random`/`projection` namespaces; pure sync functions — no runtime, no effect rail, no DOM
+- rail: viewer/geo, viewer/mark — the browser GeoJSON geometry engine
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the GeoJSON value vocabulary + turf's flexible input + unit types
-- rail: viewer/geo
-- The value algebra is `geojson` (`@types/geojson`) — `Feature`/`FeatureCollection`/`Geometry`/`Position` and the seven geometry types — re-exported through turf. Turf adds the flexible-input types: `Coord` is ONE coordinate input accepted three ways (`Position | Point | Feature<Point>`) and normalized by `getCoord`, so an op signature never forks per input shape. The unit enums are the bounded `units` option vocabulary every measurement carries.
+[PUBLIC_TYPE_SCOPE]: turf's flexible-input, unit, and grid-option types
 
-Value types are re-exported from `geojson`; the wire value is `Schema`-decoded at `wire` and typed through `wire#vocab` in `ui`.
+`@types/geojson` (`.api/types-geojson.md`) owns the RFC 7946 value vocabulary turf re-exports — the `Geometry` union, the `Feature`/`FeatureCollection`/`GeoJSON<G, P>` generics, `Position`/`BBox`, and the `GeoJsonTypes`/`GeoJsonGeometryTypes` discriminants; turf's own additive types normalize the coordinate input and bound the measurement and grid vocabularies.
 
-| [INDEX] | [SYMBOL]                                                                        | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                  |
-| :-----: | :------------------------------------------------------------------------------ | :-------------- | :----------------------------------- |
-|  [01]   | `Feature<G, P>` / `FeatureCollection<G, P>` / `Geometry` / `GeometryCollection` | value carrier   | `viewer/geo` — decoded wire value    |
-|  [02]   | `Point` / `LineString` / `Polygon` / `Position` / `BBox`                        | geometry type   | single geoms + `Position`/`BBox`     |
-|  [03]   | `MultiPoint` / `MultiLineString` / `MultiPolygon`                               | multi-geometry  | the three multi shapes               |
-|  [04]   | `AllGeoJSON` = `Feature \| FeatureCollection \| Geometry \| GeometryCollection` | any-input union | `meta` + `truncate`/`clone`/`flip`   |
-|  [05]   | `Coord` = `Feature<Point> \| Point \| Position`                                 | flexible coord  | `viewer/geo/project` — `getCoord` in |
-|  [06]   | `Units` (`"kilometers" \| "miles" \| "degrees" \| "radians" \| …`)              | unit vocab      | the `{ units }` measurement option   |
-|  [07]   | `AreaUnits` (`+ "acres" \| "hectares"`)                                         | area unit       | `area` / `convertArea` units         |
-|  [08]   | `Grid` (`"point"\|"square"\|"hex"\|"triangle"`) / `Corners` / `Lines` / `Id`    | option enum     | grid kind, corners, `id` types       |
+| [INDEX] | [SYMBOL]                                                                        | [TYPE_FAMILY] | [CAPABILITY]                         |
+| :-----: | :------------------------------------------------------------------------------ | :------------ | :----------------------------------- |
+|  [01]   | `Coord` = `Feature<Point> \| Point \| Position`                                 | union         | `getCoord`-normalized coord input    |
+|  [02]   | `AllGeoJSON` = `Feature \| FeatureCollection \| Geometry \| GeometryCollection` | union         | any-input arg to `meta` folds        |
+|  [03]   | `Lines` = `LineString \| MultiLineString \| Polygon \| MultiPolygon`            | union         | line-family arg for line ops         |
+|  [04]   | `Units`                                                                         | enum          | distance and length unit vocab       |
+|  [05]   | `AreaUnits`                                                                     | enum          | area units adding `acres`/`hectares` |
+|  [06]   | `Grid` = `"point"\|"square"\|"hex"\|"triangle"`                                 | enum          | grid tessellation kind               |
+|  [07]   | `Corners`                                                                       | enum          | bbox corner and center selector      |
+|  [08]   | `Id` = `string \| number`                                                       | union         | feature identifier                   |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the substrate — one constructor family, one traversal family, one accessor family
-- rail: viewer/geo
-- The parameterized layer the design page composes with. `feature`/`point`/`polygon`/… is ONE constructor pattern instanced per geometry; the `meta` traversal is ONE iteration mechanism over N element granularities (each with an `Each`/`Reduce` pair); `invariant` is ONE accessor normalizing the flexible input. A `viewer/geo` row builds features with the constructors, walks them with `coordEach`/`geomEach`, and reads values with `getCoord`/`getGeom` — never a hand-written coordinate loop.
 
-One `feature(geom, props, opts)` shape per geometry; every traversal fold carries an `Each`/`Reduce` pair and replaces a hand-written loop.
+`viewer/geo` composes the parameterized substrate: `feature`/`point`/`polygon`/… mints one geometry per constructor, the `meta` traversal folds N element granularities each through an `Each`/`Reduce` pair, and `invariant` normalizes the flexible `Coord` input — build, walk, and read through the substrate, never a hand-written coordinate loop.
 
-| [INDEX] | [SURFACE]                                                                                 | [ENTRY_FAMILY]  | [CONSUMER_BOUNDARY]  |
+| [INDEX] | [SURFACE]                                                                                 | [CAPABILITY]    | [CONSUMER]           |
 | :-----: | :---------------------------------------------------------------------------------------- | :-------------- | :------------------- |
 |  [01]   | `feature` / `geometry` / `point`(`s`) / `lineString`(`s`) / `polygon`(`s`)                | constructor     | `viewer/geo/layers`  |
 |  [02]   | `multiPoint` / `multiLineString` / `multiPolygon`                                         | constructor     | `viewer/geo/layers`  |
@@ -53,12 +49,10 @@ One `feature(geom, props, opts)` shape per geometry; every traversal fold carrie
 |  [10]   | `bearingToAzimuth` / `convertLength` / `convertArea`                                      | unit convert    | `viewer/geo`         |
 
 [ENTRYPOINT_SCOPE]: measurement + transformation/overlay — the core geometry ops
-- rail: viewer/geo
-- The scalar-over-geometry measurements and the geometry→geometry transforms/overlays. Each is a pure function taking a `units`/tolerance/step option; the rosters are SEED DATA — a geometry op is one function in a concern family, and a new derived quantity/shape is a new call, not a new mechanism. The overlay ops (`union`/`intersect`/`difference`) are the JTS/NTS overlay peers.
 
-`bbox` → maplibre `fitBounds`, `center`/`centroid` → camera target; overlay ops are the NTS boolean peer, `truncate` trims precision before re-encode.
+Scalar-over-geometry measurements and geometry→geometry transforms, each a pure function taking a `units`/tolerance/step option; `union`/`intersect`/`difference` are the NTS overlay peer, `bbox` → `fitBounds` and `center`/`centroid` → camera target feed the map, and `truncate` trims precision before re-encode.
 
-| [INDEX] | [SURFACE]                                                                              | [ENTRY_FAMILY]   | [CONSUMER_BOUNDARY]         |
+| [INDEX] | [SURFACE]                                                                              | [CAPABILITY]     | [CONSUMER]                  |
 | :-----: | :------------------------------------------------------------------------------------- | :--------------- | :-------------------------- |
 |  [01]   | `area` / `bbox` / `bboxPolygon` / `center` / `centroid`                                | measure (extent) | `viewer/geo/project`        |
 |  [02]   | `centerOfMass` / `centerMean` / `centerMedian`                                         | measure (center) | `viewer/geo/project`        |
@@ -74,12 +68,10 @@ One `feature(geom, props, opts)` shape per geometry; every traversal fold carrie
 |  [12]   | `polygonize` / `lineChunk` / `lineArc` / `tesselate`                                   | convert          | `viewer/geo/layers`         |
 
 [ENTRYPOINT_SCOPE]: boolean predicates + line/segment queries + spatial index
-- rail: viewer/mark
-- The DE-9IM spatial-relationship predicates (the NTS `boolean*` peer) and the line/segment geometric queries, plus turf's own R-tree index for repeated queries. `viewer/mark/selection` uses `booleanPointInPolygon`/`pointsWithinPolygon` for hit-testing and the rbush index to make many-feature selection sub-linear.
 
-One `boolean` per DE-9IM relation (the NTS peer); `booleanPointInPolygon`/`pointsWithinPolygon` hit-test a click/lasso → `GlobalId` set, and one rbush index replaces O(n) scans.
+`booleanPointInPolygon` and its DE-9IM siblings (the NTS `boolean*` peer), the line/segment queries, and turf's R-tree serve `viewer/mark/selection`: a click or lasso hit-tests through `booleanPointInPolygon`/`pointsWithinPolygon`, and the `geojsonRbush` index makes many-feature selection sub-linear.
 
-| [INDEX] | [SURFACE]                                                                            | [ENTRY_FAMILY]   | [CONSUMER_BOUNDARY]     |
+| [INDEX] | [SURFACE]                                                                            | [CAPABILITY]     | [CONSUMER]              |
 | :-----: | :----------------------------------------------------------------------------------- | :--------------- | :---------------------- |
 |  [01]   | `booleanContains` / `booleanWithin` / `booleanCrosses` / `booleanOverlap`            | DE-9IM predicate | `viewer/mark/selection` |
 |  [02]   | `booleanDisjoint` / `booleanIntersects` / `booleanTouches` / `booleanEqual`          | DE-9IM predicate | `viewer/mark/selection` |
@@ -91,46 +83,41 @@ One `boolean` per DE-9IM relation (the NTS peer); `booleanPointInPolygon`/`point
 |  [08]   | `geojsonRbush()` → `{ insert, load, search, collides, remove }`                      | spatial index    | `viewer/mark/selection` |
 
 [ENTRYPOINT_SCOPE]: interpolation + grids + clustering/statistics + projection/random
-- rail: viewer/geo
-- The surface-analysis, tessellation, and spatial-statistics families, plus the projection and random generators. These produce derived FeatureCollections (grids, isolines, clusters) the `viewer/geo/layers` row renders, and the projection ops convert between WGS84 and Web Mercator at the map boundary.
 
-IDW/TIN interpolation and clustering yield FeatureCollections the layers row renders; `toMercator`/`toWgs84` reconcile WGS84 ↔ Web-Mercator at the map/camera boundary.
+Surface-analysis, tessellation, spatial-statistics, projection, and random families: IDW/TIN interpolation, grids, and clusters yield FeatureCollections the `viewer/geo/layers` row renders, and `toMercator`/`toWgs84` reconcile WGS84 ↔ Web Mercator at the map boundary.
 
-| [INDEX] | [SURFACE]                                                                            | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]   |
-| :-----: | :----------------------------------------------------------------------------------- | :------------- | :-------------------- |
-|  [01]   | `interpolate` / `isobands` / `isolines` / `tin` / `planepoint`                       | surface        | `viewer/geo/layers`   |
-|  [02]   | `hexGrid` / `squareGrid` / `triangleGrid` / `pointGrid` / `rectangleGrid` / `sample` | grid           | `viewer/geo`          |
-|  [03]   | `clustersKmeans` / `clustersDbscan` / `clusters` / `collect` / `tag`                 | cluster        | `viewer/geo/layers`   |
-|  [04]   | `standardDeviationalEllipse` / `directionalMean` / `moranIndex`                      | statistic      | `viewer/probe`        |
-|  [05]   | `quadratAnalysis` / `nearestNeighborAnalysis` / `distanceWeight`                     | statistic      | `viewer/probe`        |
-|  [06]   | `toMercator` / `toWgs84`                                                             | projection     | `viewer/geo/project`  |
-|  [07]   | `randomPoint` / `randomLineString` / `randomPolygon` / `randomPosition`              | generator      | `dev`, `viewer/probe` |
+| [INDEX] | [SURFACE]                                                                            | [CAPABILITY] | [CONSUMER]            |
+| :-----: | :----------------------------------------------------------------------------------- | :----------- | :-------------------- |
+|  [01]   | `interpolate` / `isobands` / `isolines` / `tin` / `planepoint`                       | surface      | `viewer/geo/layers`   |
+|  [02]   | `hexGrid` / `squareGrid` / `triangleGrid` / `pointGrid` / `rectangleGrid` / `sample` | grid         | `viewer/geo`          |
+|  [03]   | `clustersKmeans` / `clustersDbscan` / `clusters` / `collect` / `tag`                 | cluster      | `viewer/geo/layers`   |
+|  [04]   | `standardDeviationalEllipse` / `directionalMean` / `moranIndex`                      | statistic    | `viewer/probe`        |
+|  [05]   | `quadratAnalysis` / `nearestNeighborAnalysis` / `distanceWeight`                     | statistic    | `viewer/probe`        |
+|  [06]   | `toMercator` / `toWgs84`                                                             | projection   | `viewer/geo/project`  |
+|  [07]   | `randomPoint` / `randomLineString` / `randomPolygon` / `randomPosition`              | generator    | `dev`, `viewer/probe` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[TURF_TOPOLOGY]:
-- Pure functions over GeoJSON, grouped by concern: every op is a synchronous `(input: Feature/FeatureCollection/Geometry, options) => GeoJSON | scalar` with no state, no effect, no DOM. The 114 modules are ~8 concern families (measure, construct, overlay, convert, predicate, surface, grid, cluster/stat) plus the substrate — a table by concern, not a flat roster to memorize.
-- The substrate is the parameterized layer: `feature`/`point`/`polygon`/… is ONE constructor family per geometry; `coordEach`/`geomEach`/`featureEach`/`segmentEach`/`lineEach` (× `Each`/`Reduce`) is ONE traversal mechanism over element granularity; `getCoord`/`getCoords`/`getGeom`/`getType` is ONE accessor normalizing the flexible `Coord` input. A `viewer/geo` row builds, walks, and reads through the substrate — never a hand-written `feature.geometry.coordinates[i][j]` loop.
-- `Coord` collapses the input fork: a point argument is accepted as `Position | Point | Feature<Point>` and normalized by `getCoord`, so a measurement signature is polymorphic in its input shape without an overload family. The `{ units }` option (bounded by `Units`/`AreaUnits`) is the one place a measurement's unit is chosen — never a `distanceKm`/`distanceMi` sibling.
-- Boolean predicates are the DE- catalogIM peer: `booleanContains`/`Within`/`Crosses`/`Overlap`/`Disjoint`/`Intersects`/`Touches`/`Equal` are the same spatial-relationship matrix NetTopologySuite exposes on the C# side; turf owns the JS runtime, NTS the C# runtime, and they meet at the WKB/GeoJSON wire — a re-mint of the same relation on both sides that does diverge is a cross-language drift defect.
+[TOPOLOGY]:
+- Every op is a synchronous `(input, options) => GeoJSON | scalar` with no state, no effect, no DOM; the concern families (measure, construct, overlay, convert, predicate, surface, grid, cluster/stat) sit on the substrate, catalogued by concern rather than a flat roster.
+- `feature`/`point`/`polygon`/… mints one geometry per constructor, `coordEach`/`geomEach`/`featureEach`/`segmentEach`/`lineEach` (× `Each`/`Reduce`) folds one traversal over element granularity, and `getCoord`/`getCoords`/`getGeom`/`getType` normalizes the flexible `Coord` input — the parameterized substrate `viewer/geo` builds, walks, and reads through, never a hand-written `coordinates` loop.
+- `Coord` collapses the input fork: a point argument enters as `Position | Point | Feature<Point>` and `getCoord` normalizes it, so a measurement stays polymorphic in input shape without an overload family. `{ units }` (bounded by `Units`/`AreaUnits`) is the sole place a measurement's unit is chosen, never a `distanceKm`/`distanceMi` sibling.
+- Boolean predicates are the DE-9IM peer: `booleanContains`/`Within`/`Crosses`/`Overlap`/`Disjoint`/`Intersects`/`Touches`/`Equal` mirror the NetTopologySuite relationship matrix; turf owns the JS runtime and NTS the C#, meeting at the WKB/GeoJSON wire, and a relation that diverges across the two is a cross-language drift defect.
 
-[INTEGRATION_LAW]:
-- Stack with `effect` (`libs/typescript/.api/effect.md`): GeoJSON arrives as a `Schema`-decoded wire projection — WKB→GeoJSON is decoded ONCE at `wire` and typed through `wire#vocab`, never re-minted in `ui`. Turf ops are pure sync; wrap in `Effect.sync` only to sit inside an effectful pipeline, and fold a feature `Stream` through ops with `Stream.map`/`Effect.forEach`. A `ParseError` at decode never reaches turf — turf sees only valid geometry.
-- Stack with `@geoarrow/deck.gl-geoarrow` + `apache-arrow` (`.api/geoarrow-deck.gl-geoarrow.md`, `.api/apache-arrow.md`): the load-bearing boundary — geoarrow renders `arrow.RecordBatch` columns zero-copy, turf works over materialized GeoJSON objects. Run turf on INTERACTION-SCALE features (a drawn query polygon, a buffer, a mask, a boolean hit-test), then feed the result to a GeoJSON layer or re-encode; NEVER materialize a bulk `RecordBatch` to GeoJSON just to run a turf op — that discards the columnar path. geoarrow owns the bulk render, turf the query-scale geometry.
-- Stack with `@deck.gl/layers` (`.api/deck.gl-layers.md`) — the pre-GPU planar-op seam: turf is the CPU-side planar-op stage over `wire`-decoded GeoJSON, deck the GPU rasterizer. A geometry-producing op output — `buffer`/`bboxPolygon` → `Feature<Polygon>`, `union`/`intersect`/`difference` → `Feature<Polygon|MultiPolygon> | null` (turf 7.x takes ONE `FeatureCollection<Polygon|MultiPolygon>` arg, not a feature pair), `simplify` → same-shape `T`, `voronoi`/`isobands` → `FeatureCollection` — binds two ways: as `GeoJsonLayer.data` (`GeoJSON|Feature[]`, the omnibus point/line/fill dispatch) or as `PolygonLayer.getPolygon` (the per-object ring `AccessorFunction` over the `data` feature array). The `featureCollection`/`feature` constructor assembles the `data`; the interaction-scale derived-overlay render path that needs no GeoArrow columnar encoding — bulk columnar geometry stays on the geoarrow route.
-- Stack with `maplibre-gl` (`.api/maplibre-gl.md`): a turf `FeatureCollection` is a `GeoJSONSource`; `bbox` drives `map.fitBounds`, `center`/`centroid` the camera target, `toMercator`/`toWgs84` reconcile the projection — the `viewer/geo/project` camera-sync seam shared with the deck overlay `viewState`.
-- Stack with `geojsonRbush` for repeated queries: build ONE R-tree (`geojsonRbush().load(fc)`) and `search(bbox)`/`collides` it for many-feature point-in-polygon or nearest queries; a per-query `booleanPointInPolygon` scan over the whole collection is the O(n) defect the index removes — the `viewer/mark/selection` many-`GlobalId` hit-test path.
-- Cross-language peer (C# NetTopologySuite): turf is the browser-side planar-geometry engine mirroring the NTS op vocabulary (predicates, overlay, measurement); each side owns its runtime and they meet at the WKB/GeoJSON wire — geometry is decoded per side from the shared wire, never a JS op result shipped back to stand in for the C# computation.
+[STACKING]:
+- `effect` (`libs/typescript/.api/effect.md`): GeoJSON arrives `Schema`-decoded at `wire` and typed through `wire#vocab`; turf ops are pure sync, wrapped in `Effect.sync` only to sit inside an effectful pipeline, and a feature `Stream` folds through them with `Stream.map`/`Effect.forEach`, so a decode `ParseError` never reaches turf.
+- `@geoarrow/deck.gl-geoarrow` + `apache-arrow` (`.api/geoarrow-deck.gl-geoarrow.md`, `.api/apache-arrow.md`): geoarrow renders `arrow.RecordBatch` columns zero-copy while turf runs over materialized GeoJSON at interaction scale — a drawn query polygon, a buffer, a mask, a boolean hit-test — then feeds the result to a layer; materializing a bulk `RecordBatch` to GeoJSON for a turf op discards the columnar path.
+- `@deck.gl/layers` (`.api/deck.gl-layers.md`): a geometry-producing op output binds as `GeoJsonLayer.data` (the omnibus point/line/fill dispatch) or `PolygonLayer.getPolygon` (the per-object ring accessor); `buffer`/`bboxPolygon` yield `Feature<Polygon>`, `union`/`intersect`/`difference` take one `FeatureCollection<Polygon|MultiPolygon>` and yield `Feature<Polygon|MultiPolygon> | null`, `voronoi`/`isobands` yield a `FeatureCollection`, and `featureCollection`/`feature` assemble the `data`.
+- `maplibre-gl` (`.api/maplibre-gl.md`): a turf `FeatureCollection` is a `GeoJSONSource`; `bbox` drives `map.fitBounds`, `center`/`centroid` the camera target, and `toMercator`/`toWgs84` reconcile the projection — the `viewer/geo/project` camera-sync seam shared with the deck overlay `viewState`.
+- `geojsonRbush` (within-lib): build one R-tree (`geojsonRbush().load(fc)`) and `search(bbox)`/`collides` it for many-feature point-in-polygon or nearest queries; a per-query `booleanPointInPolygon` scan over the whole collection is the O(n) defect the index removes, the `viewer/mark/selection` many-`GlobalId` hit-test path.
 
 [LOCAL_ADMISSION]:
-- Consume already-decoded GeoJSON from `wire#vocab`; never decode WKB or re-mint the geometry projection inside `ui` — the decode is `wire`-owned and happens once.
-- Build, walk, and read through the substrate (`feature`/`coordEach`/`getCoord`); never hand-loop `coordinates` arrays or fork a signature per `Coord` input shape.
-- Run turf at interaction scale over materialized features; never materialize a bulk `arrow.RecordBatch` to GeoJSON to run an op — that is the geoarrow columnar path's job.
-- Choose the `{ units }` option for a measurement; never author a per-unit function sibling. Build a `geojsonRbush` index for repeated spatial queries over many features; never O(n)-scan per query.
-- Import from the umbrella (tree-shaken via `sideEffects: false`) or `@turf/<op>` directly in a hot module; keep every turf import inside `scope:viewer` — it is compile-excluded from the core.
+- Consume `wire#vocab`-decoded GeoJSON; the WKB→GeoJSON decode is `wire`-owned and happens once, never re-minted in `ui`.
+- Run turf at interaction scale over materialized features; the bulk `arrow.RecordBatch`→layer path stays on the geoarrow columnar route.
+- Import from the `.` umbrella (tree-shaken via `sideEffects: false`) or `@turf/<op>` directly in a hot module, every turf import inside `scope:viewer`.
 
 [RAIL_LAW]:
 - Package: `@turf/turf`
-- Owns: the browser-side planar/spherical GeoJSON geometry engine — the concern families (measure/construct/overlay/convert/DE-9IM-predicate/surface/grid/cluster-stat), the parameterized substrate (the `feature` constructor family, the `coordEach`/`geomEach`/`featureEach` traversal family, the `getCoord`/`getGeom` accessor family), the unit algebra, the `geojsonRbush` spatial index, and the WGS84↔Mercator projection ops
-- Accept: pure ops over `wire`-decoded GeoJSON, the substrate for build/walk/read, `{ units }`-parameterized measurement, interaction-scale turf beside bulk geoarrow columnar render, `GeoJsonLayer.data`/`PolygonLayer.getPolygon`/`GeoJSONSource` binding of results, a `geojsonRbush` index for repeated queries, `scope:viewer`-local imports, `Effect.sync` only inside an effectful pipeline
-- Reject: WKB decode or geometry re-mint inside `ui`, hand-looped `coordinates` arrays where `meta` traversal folds them, bulk `RecordBatch`→GeoJSON materialization to run a turf op, per-unit function siblings, O(n) predicate scans where an rbush index applies, a re-mint of a C# NTS computation crossing back over the wire, turf imports outside `scope:viewer`
+- Owns: the browser-side planar/spherical GeoJSON geometry engine — the concern families, the `feature`/`coordEach`/`getCoord` substrate, the `Units`/`AreaUnits` algebra, the `geojsonRbush` index, and the WGS84↔Mercator projection ops
+- Accept: pure ops over `wire`-decoded GeoJSON, substrate build/walk/read, `{ units }`-parameterized measurement, interaction-scale turf beside bulk geoarrow render, `GeoJsonLayer.data`/`PolygonLayer.getPolygon`/`GeoJSONSource` result binding, a `geojsonRbush` index for repeated queries, `Effect.sync` inside an effectful pipeline
+- Reject: WKB decode or geometry re-mint in `ui`, hand-looped `coordinates` where `meta` folds them, bulk `RecordBatch`→GeoJSON to run an op, per-unit function siblings, O(n) predicate scans where an rbush index applies, a re-minted C# NTS computation crossing back over the wire, turf imports outside `scope:viewer`

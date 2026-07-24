@@ -102,8 +102,13 @@ A direct supervisor call accepts `status`, `quit`, `redeploy <package>`, and `ve
 ---
 config:
   layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
 ---
 flowchart LR
+    accTitle: Bridge session architecture
+    accDescr: Assay drives the supervisor, which launches or reuses RhinoWIP, connects to the shell ALC over a named pipe, loads cargo, and folds scenario evidence into the run report directory.
     Assay["tools.assay bridge"] --> Supervisor["Supervisor"]
     Supervisor --> Endpoint["~/.rasm/rhino-bridge-rbx.json"]
     Supervisor --> Rhino["RhinoWIP"]
@@ -116,7 +121,7 @@ flowchart LR
     Cargo --> ReportDir[".artifacts/assay/bridge/<runId>"]
 ```
 
-Text equivalent: Assay calls the supervisor; the supervisor reconciles host state, launches or reuses RhinoWIP, reads the endpoint, connects to the shell over a named pipe, loads staged cargo into a collectible ALC, runs typed scenarios, and folds shell events plus spool evidence into one `SessionEnvelope`.
+Text equivalent: Assay calls the supervisor; the supervisor reconciles host state, launches or reuses RhinoWIP, reads the endpoint, connects to the shell over a named pipe, loads staged cargo into a collectible ALC, runs typed scenarios, and folds shell events and spool evidence into one `SessionEnvelope`.
 
 [OWNER_MAP]:
 - `Supervisor`: process boundary, lease, bundle discovery, reconcile, launch, pipe client, staging, quit ladder, session fold.
@@ -210,7 +215,9 @@ Capability requirements live on the attribute as `Requires`. Cargo probes `cargo
 
 Scenario code does not write `#r`, `#load`, absolute build-output paths, local report paths, direct MCP calls, or direct bitmap/capture files. Assay builds the test projects that own typed scenarios, reads each `bridge-closure.json`, aggregates selected closures, and hands the manifest to the supervisor.
 
-`ReferenceEvidence` lives beside the scenario owner under `Scenarios/_references/<theme>/<method>.reference.json`. Its lifecycle: an `--evidence author` run writes `<theme>/<method>.candidate.reference.json` under the reference root; a human review sets `admission` to `reviewed` and renames the file to `<method>.reference.json`; verify mode then matches within declared tolerances. Verify over a root with no reviewed corpus reports `unpromoted` and degrades; a promoted root with a missing or mismatched reference fails. PNGs are forensic artifacts by default; stable object, geometry, viewport, GH2 canvas, scratch, and normalized visual metadata are the reference surface.
+`ReferenceEvidence` lives beside the scenario owner under `Scenarios/_references/<theme>/<method>.reference.json`. Its lifecycle: an `--evidence author` run writes `<theme>/<method>.candidate.reference.json` under the reference root; a human review sets `admission` to `reviewed` and renames the file to `<method>.reference.json`; verify mode then matches within declared tolerances.
+
+Verify over a root with no reviewed corpus reports `unpromoted` and degrades; a promoted root with a missing or mismatched reference fails. PNGs are forensic artifacts by default; stable object, geometry, viewport, GH2 canvas, scratch, and normalized visual metadata are the reference surface.
 
 ## [10]-[INTEGRATIONS]
 
@@ -218,7 +225,7 @@ Scenario code does not write `#r`, `#load`, absolute build-output paths, local r
 - Bundle discovery uses `RHINO_WIP_APP_PATH` when set; otherwise it admits the newest `/Applications/Rhino*.app` by `CFBundleVersion`.
 - Launch sets `RHINO_MCP_AUTOSTART_PORT=0`.
 - Reconcile clears only recovery markers that match supervised quit-journal windows; foreign Rhino state is reported and left intact.
-- Launch-edge recovery clearing runs only when the supervisor actually launches (never on host reuse) and force-clears the recovery-dialog blockers — the `.rhl` recovery file and `Rhinoceros-*.ips` startup crash sentinels — independent of journal windows, so an unclean prior exit cannot wedge a headless launch behind a recovery prompt; foreign documents stay untouched.
+- Launch-edge recovery clearing runs only when the supervisor launches (never on host reuse) and force-clears the recovery-dialog blockers — the `.rhl` recovery file and `Rhinoceros-*.ips` startup crash sentinels — independent of journal windows, so an unclean prior exit cannot wedge a headless launch behind a recovery prompt; foreign documents stay untouched.
 
 [STREAM_JSON_RPC]:
 - Shell exposes `IBridgeShell` over a named pipe with `SystemTextJsonFormatter`.
@@ -234,7 +241,7 @@ Bridge starts no MCP listener of its own. MCP tooling runs through McNeel's Rhin
 
 [INSTALL]:
 - Add the newest McNeel `Rhino-MCP-Platform` to the Rhino package store via the Rhino PackageManager (Yak).
-- That package provides the `rhino-mcp-router` stdio server; the bridge does not bundle, launch, or supervise it.
+- That package ships the `rhino-mcp-router` stdio server; the bridge never bundles, launches, or supervises it.
 
 [REGISTER]:
 - Declare `rhino-mcp-router` to Claude Code at USER scope in `~/.claude.json` as a `type: stdio` server.
@@ -252,7 +259,7 @@ Bridge starts no MCP listener of its own. MCP tooling runs through McNeel's Rhin
 - McNeel platform's `run_csharp` tool evaluates a statement body, not an expression: a trailing `return <expr>;` is rejected at the top level. Emit results through `Console.WriteLine(...)` or assign to the ambient `__rhino_doc__`/document handle, then read stdout. Treat the snippet as a script body, never an expression-returning lambda.
 
 [BRIDGE_IDLE_RULE]:
-- Keep MCP idle during any bridge-held lifecycle: build, status, verify, quit, deploy, and publish. That platform's `run_csharp`, `run_python`, and command tools drive `RhinoApp` command history; an interactive probe interleaved with a bridge-held cycle injects foreign lines into the same `command.history.tail`/`command.capture.tail` evidence the cargo runner spools, contaminating host evidence. Run interactive MCP exploration before or after a bridge cycle, never concurrently inside one live session.
+- Keep MCP idle during any bridge-held lifecycle: build, status, verify, quit, deploy, and publish. Its `run_csharp`, `run_python`, and command tools drive `RhinoApp` command history; an interactive probe interleaved with a bridge-held cycle injects foreign lines into the same `command.history.tail`/`command.capture.tail` evidence the cargo runner spools, contaminating host evidence. Run interactive MCP exploration before or after a bridge cycle, never concurrently inside one live session.
 - Promotion path: MCP observation -> typed `[RhinoScenario]` -> authoring certificate -> reviewed `ReferenceEvidence` -> `bridge verify`.
 - That same contamination rule binds any `Rasm.AppHost` MCP tool that drives a live Rhino host: a host-neutral capability projection stays outside this hazard, but the moment an AppHost tool's `ComputeIntent` reaches `RhinoApp` command history it inherits the idle-during-lease discipline and must not run concurrently with a bridge session.
 

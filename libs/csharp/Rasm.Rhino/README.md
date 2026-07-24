@@ -54,8 +54,8 @@ It references no sibling package — every alignment travels down the one kernel
 
 [ANNOTATION]:
 - [35]-[STYLE](.planning/Annotation/style.md): `StyleField` owns the drafting schema; its patch fold authors, amends, and override-mints styles.
-- [36]-[TEXT](.planning/Annotation/text.md): `Texts.Commit` owns text/leader construction, run edits, `TextFields` formulas, and the outlining family.
-- [37]-[DIMENSION](.planning/Annotation/dimension.md): `Dimensions.Commit` mints, adjusts, and restyles the six-kind family over one override algebra.
+- [36]-[TEXT](.planning/Annotation/text.md): `Texts.Commit` owns text/leader construction, run edits, `TextFields` formulas, and outlining.
+- [37]-[DIMENSION](.planning/Annotation/dimension.md): `Dimensions.Commit` mints, adjusts, restyles the dimension family over one override algebra.
 - [38]-[HATCH](.planning/Annotation/hatch.md): `Hatches.Commit` owns hatch construction, the pattern line-definition model, and `.pat` interchange.
 - [39]-[LINETYPE](.planning/Annotation/linetype.md): `Linetypes.Commit` owns the segment/shape/taper stroke model and `.lin` interchange.
 - [40]-[TYPEFACE](.planning/Annotation/typeface.md): `Typefaces.Resolve` answers face evidence; `Sections.Commit` composes section-cut presentation.
@@ -76,7 +76,7 @@ It references no sibling package — every alignment travels down the one kernel
 [RENDER]:
 - [50]-[CONTENT](.planning/Render/content.md): `ContentRef` addresses the RDK content graph behind the kind axis, change bracket, and snapshot.
 - [51]-[KINDS](.planning/Render/kinds.md): `MaterialBridge` borrows baked material and PBR projections per window; mint verbs yield leased content.
-- [52]-[FIELDS](.planning/Render/fields.md): `FieldValue` owns every typed content parameter through one polymorphic write, recover, and box dispatch.
+- [52]-[FIELDS](.planning/Render/fields.md): `FieldValue` owns every typed content parameter through polymorphic write, recover, and box dispatch.
 - [53]-[REGISTRY](.planning/Render/registry.md): `Registry` runs the content rail through factory vocabulary, receipts, and events.
 - [54]-[SETTINGS](.planning/Render/settings.md): `Settings.Run` applies total render state across the document, archive, and free-floating duality.
 - [55]-[MAPPING](.planning/Render/mapping.md): `MappingSpec` mints texture mappings; the `Mappings` rail binds and recovers them per object channel.
@@ -136,7 +136,7 @@ Observability axis is fault logging with declared projection data: every measure
 [OBSERVABILITY]:
 - `Microsoft.Extensions.Logging.Abstractions`
 - `Microsoft.Extensions.Telemetry.Abstractions`
-- `Microsoft.Extensions.Compliance.Abstractions`
+- `Microsoft.Extensions.Compliance.Abstractions` — transitive `DataClassification` attribute surface; no direct manifest row.
 
 [GRAPH_ALGORITHM]:
 - `QuikGraph` — transient block-graph topology, reachability, and source-first ordering.

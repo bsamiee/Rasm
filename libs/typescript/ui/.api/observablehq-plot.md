@@ -1,26 +1,26 @@
 # [TS_UI_API_OBSERVABLEHQ_PLOT]
 
-[PACKAGE_SURFACE]:
+`plot(options)` is the whole authoring surface: an options value carrying `marks` rows renders a detached `SVGSVGElement | HTMLElement` extended with `scale`/`legend` readbacks and an interactive `value` property.
+
+## [01]-[PACKAGE_SURFACE]
+
+[PACKAGE_SURFACE]: `@observablehq/plot`
 - package: `@observablehq/plot` (ISC)
-- module: `type: module`, ships ESM SOURCE directly (`main`/`module`/`default` → `src/index.js`, `umd` recovery build); `sideEffects: ["./src/index.js"]` — the entry is not tree-shakable past itself.
-- asset: `types: src/index.d.ts`; deps: the whole `d catalog` metapackage (`.api/d3.md`), `interval-tree- catalogd`, `isoformat`; no peers.
-- runtime: builds a detached SVG/figure element headlessly from data — browser or any DOM implementation; no React coupling.
-- plane: `plane:runtime` (W4 `ui`); folder-local to `ui`, the statistical-charting lane.
-- rail: `ui` data-viz — the one-call exploratory/analytical chart owner.
+- module: `type: module`, ESM source at `src/index.js` typed by `src/index.d.ts`; `sideEffects` pins the entry, so tree-shaking stops at the barrel.
+- runtime: builds a detached SVG/figure element headlessly from any DOM; no React coupling.
+- plane: `plane:runtime` (W4 `ui`), the statistical-charting lane.
+- rail: `ui` data-viz — the one-call exploratory/analytic chart owner.
 
-`Plot.plot(options)` is the whole authoring surface: an options value carrying `marks` rows returns a rendered `SVGSVGElement | HTMLElement` (a `<figure>` when legends/captions attach) extended with `scale(name)` and `legend(name, options?)` readbacks and an interactive `value` property. A mark is ONE parameterized shape — data + channel options + a transform slot — and the ~60-name roster is seed data on it: `dot` and `waffleY` differ only in geometry, every mark accepts the same shared option vocabulary, and every transform is an options→options rewriter composed into the mark row. Scales, axes, legends, facets, and projections are INFERRED from channels and overridden by scale options — the grammar means a statistical chart is a data declaration, not a composition program. That is the boundary against visx: Plot for the declared exploratory/analytic chart, visx for the bespoke interactive React-composed one.
+## [02]-[ENTRY]
 
-## [01]-[ENTRY]
+[SURFACES]: `plot(PlotOptions?) -> (SVGSVGElement|HTMLElement)&Plot` `marks(...Markish[]) -> CompoundMark` · readbacks `Plot.scale(ScaleName)` `Plot.legend(ScaleName,LegendOptions?)` `Plot.value`
+[PLOT_OPTIONS]: `marks`, per-scale objects `x` `y` `r` `color` `opacity` `symbol` `length` `fx` `fy`, `facet` `projection`, `width` `height` `aspectRatio` `margin*`, `style` `className` `clip`, `title` `subtitle` `caption`, `grid`.
+[PROJECTIONS]: `albers-usa` `albers` `azimuthal-equal-area` `azimuthal-equidistant` `conic-conformal` `conic-equal-area` `conic-equidistant` `equal-earth` `equirectangular` `gnomonic` `identity` `reflect-y` `mercator` `orthographic` `stereographic` `transverse-mercator`, or a d3 projection factory.
+[MARK_OPTIONS]: base `MarkOptions` — `filter` `reverse` `sort` `transform` `initializer` `render`, `fx` `fy` `facet` `facetAnchor`, `fill`/`stroke` families, `opacity` `mixBlendMode` `imageFilter` `paintOrder` `shapeRendering`, `dx` `dy` `clip` `margin*`, `title` `tip` `href` `target`, `ariaLabel` `ariaDescription` `ariaHidden` `pointerEvents` `className`, `channels`; positional `x` `y` `z` `symbol` are per-mark, never base.
 
-[SURFACES]: `plot(PlotOptions?) -> (SVGSVGElement|HTMLElement)&{scale(name:ScaleName):Scale|…` `marks(...Markish[]) -> CompoundMark`
+## [03]-[MARK_ROSTER]
 
-- `PlotOptions`: `marks`, per-scale option objects (`x` `y` `r` `color` `opacity` `symbol` `length` `fx` `fy`), `facet`, `projection`, `width` `height` `aspectRatio` `margin*`, `style` `className` `clip`, `title` `subtitle` `caption`, `grid` (scale default).
-- Named projections: `albers-usa` `albers` `azimuthal-equal-area` `azimuthal-equidistant` `conic-conformal` `conic-equal-area` `conic-equidistant` `equal-earth` `equirectangular` `gnomonic` `identity` `reflect-y` `mercator` `orthographic` `stereographic` `transverse-mercator` — or a d3 projection factory/implementation.
-- Shared mark options (base `MarkOptions`): `filter` `reverse` `sort` `transform` `initializer` `render`, `fx` `fy` `facet` `facetAnchor`, `fill`/`stroke` families, `opacity` `mixBlendMode` `imageFilter` `paintOrder` `shapeRendering`, `dx` `dy` `clip` `margin*`, `title` `tip` `href` `target`, `ariaLabel`/`ariaDescription`/`ariaHidden` `pointerEvents` `className`, `channels` (extra named channels feeding tips). Positional `x`/`y`/`z`/`symbol` are per-mark, not base.
-
-## [02]-[MARK_ROSTER]
-
-Directional twins encode the fixed axis (`barY` = vertical bars); several families ship NO bare form — `barX/barY`, `ruleX/ruleY`, `tickX/tickY`, `linearRegressionX/Y`, `differenceX/Y`, `waffleX/Y` only.
+Directional twins fix the axis (`barY` = vertical bars); several families ship no bare form — `barX`/`barY`, `ruleX`/`ruleY`, `tickX`/`tickY`, `linearRegressionX`/`Y`, `differenceX`/`Y`, `waffleX`/`Y` only.
 
 | [INDEX] | [FAMILY]        | [MARKS]                                                                 | [AXIS_NOTE]                                 |
 | :-----: | :-------------- | :---------------------------------------------------------------------- | :------------------------------------------ |
@@ -37,16 +37,16 @@ Directional twins encode the fixed axis (`barY` = vertical bars); several famili
 |  [11]   | hierarchy/graph | `delaunayLink` `delaunayMesh` `hull` `voronoi` `voronoiMesh`            | Delaunay/Voronoi geometry                   |
 |  [12]   | geo             | `geo` `sphere` `graticule`                                              | GeoJSON under the `projection` option       |
 |  [13]   | axes/grids      | `axisX` `axisY` `axisFx` `axisFy`                                       | explicit only when inference needs override |
-|  [14]   | axes/grids      | `gridX` `gridY` `gridFx` `gridFy`                                       | explicit grid override                      |
-|  [15]   | interaction     | `tip` · `crosshair` `crosshairX` `crosshairY`                           | pointer tips + crosshair (see [04])         |
+|  [14]   | axes/grids      | `gridX` `gridY` `gridFx` `gridFy` `hexgrid`                             | explicit grid; `hexgrid` overlays `hexbin`  |
+|  [15]   | interaction     | `tip` · `crosshair` `crosshairX` `crosshairY`                           | pointer tips + crosshair                    |
 |  [16]   | interaction     | `pointer` `pointerX` `pointerY`                                         | nearest-datum → `value`/`input`             |
 |  [17]   | auto            | `auto` `autoSpec`                                                       | heuristic mark/transform selection          |
 
-The `density`/`raster`/`contour` marks accept spatial interpolators `interpolateNone`/`interpolateNearest`/`interpolatorBarycentric`/`interpolatorRandomWalk`.
+`density`/`raster`/`contour` accept spatial interpolators `interpolateNone` `interpolateNearest` `interpolatorBarycentric` `interpolatorRandomWalk`.
 
-## [03]-[TRANSFORM_ROSTER]
+## [04]-[TRANSFORM_ROSTER]
 
-Transforms rewrite a mark's options — grouping/binning/stacking happen in the options value, never in a pre-shaped copy of the data.
+Transforms rewrite a mark's options — binning, grouping, and stacking happen in the options value, never in a pre-shaped data copy.
 
 | [INDEX] | [FAMILY] | [TRANSFORMS]                                                         | [ROLE]                                       |
 | :-----: | :------- | :------------------------------------------------------------------- | :------------------------------------------- |
@@ -60,28 +60,30 @@ Transforms rewrite a mark's options — grouping/binning/stacking happen in the 
 |  [08]   | basic    | `transform` `initializer`                                            | the low-level compose primitives             |
 |  [09]   | spatial  | `centroid` `geoCentroid` · `treeNode` `treeLink`                     | geometry→point projection; hierarchy edges   |
 
-Helpers: `valueof(data, value, type?)` `column(source?)` `identity` `indexOf`; formatters `formatNumber(locale?)` `formatMonth` `formatWeekday` `formatIsoDate`; intervals `timeInterval(period)` `utcInterval(period)` `numberInterval(period)` — Plot interval names are plain periods (`"day"`, `"3 months"`), never d3's compound `"utcDay"` spellings.
+Helpers `valueof(data, value, type?)` `column(source?)` `identity` `indexOf`; formatters `formatNumber(locale?)` `formatMonth` `formatWeekday` `formatIsoDate`; intervals `timeInterval(period)` `utcInterval(period)` `numberInterval(period)` take plain periods (`"day"`, `"3 months"`), never d3's compound `"utcDay"`.
 
-## [04]-[INTERACTION]
+## [05]-[INTERACTION]
 
-- `tip: true` on any mark (or an explicit `tip` mark) renders channel values at the pointed instant; extra `channels` rows surface in the tip.
-- `pointer`/`pointerX`/`pointerY` filter a mark to the nearest datum, drive the root element's `value` property, and emit `input` events — the seam for chart-as-input.
-- `crosshair`/`crosshairX`/`crosshairY` compose pointer + rules + axis text as one row.
+- `tip: true` on any mark, or an explicit `tip` mark, renders channel values at the pointed instant; extra `channels` rows surface in the tip.
+- `pointer`/`pointerX`/`pointerY` filter a mark to the nearest datum, drive the root element's `value`, and emit `input` — the chart-as-input seam.
+- `crosshair`/`crosshairX`/`crosshairY` compose pointer, rules, and axis text as one row.
 
-## [05]-[INTEGRATION]
+## [06]-[IMPLEMENTATION_LAW]
 
-[STACK: the React seam (`.api/react.md`)] — Plot returns a DETACHED element: a component mounts it in an effect bracket (`containerRef.current.replaceChildren(plot(...))`, remove on cleanup) keyed on the decoded inputs; rebuild-per-change is the model (the grammar rebuilds cheaply — it is not an incremental engine, which is exactly why streaming/high-frequency series live on uplot). The chart spec derives from atom state; the `pointer` `value`/`input` seam writes back through the atom binding, never component state.
+[TOPOLOGY]:
+- Every mark is one channel-parameterized shape folding the shared `MarkOptions` vocabulary through a transform slot; scales, axes, legends, facets, and projections infer from channels, so the spec is data, never a render program.
 
-[STACK: `apache-arrow` columnar input (`.api/apache-arrow.md`)] — marks accept an Arrow `Table` as `data` with COLUMN-NAME channel shorthand (`Plot.dot(table, { x: "Date", y: "Anomaly" })`) and Arrow date-type detection — a wire-decoded Arrow frame plots with zero row materialization, the same zero-copy law the GeoArrow deck layers follow.
+[STACKING]:
+- `react`(`.api/react.md`): `plot(...)` returns a detached element a component mounts in an effect bracket (`containerRef.current.replaceChildren(plot(...))`, cleanup removes) keyed on decoded inputs; the spec derives from atom state and the `pointer` `value`/`input` seam writes back through the atom binding, never component state.
+- `apache-arrow`(`.api/apache-arrow.md`): marks bind an Arrow `Table` as `data` with column-name channel shorthand (`Plot.dot(table, {x: "Date", y: "Anomaly"})`) and Arrow date detection, so a wire-decoded frame plots with zero row materialization.
+- `d3`(`.api/d3.md`): Plot embeds d3 wholesale as its one runtime dep; scale options, `format`/`timeFormat` specifiers, curve names, and projection factories pass through to d3 vocabularies, and `d3-array` folds prepare data beside the spec.
+- `system/token` theming: Plot emits scoped classes under `className` and inherits CSS custom properties; categorical `color.range` and continuous `color.scheme` resolve from the token authority per the `.api/d3.md` chromatic boundary, `style` last-resort only.
 
-[STACK: the d3 substrate (`.api/d3.md`)] — Plot embeds d3 wholesale (its one runtime dep): scale options, `format`/`timeFormat` specifier strings, curve names, and projection factories pass through to d3 vocabularies. Data preparation beyond the transform roster uses `d3-array` folds beside the spec; a d3-rendered chart beside Plot is the split the substrate law forbids.
+[LOCAL_ADMISSION]:
+- Plot owns the declared exploratory/statistical chart — distributions, facets, regressions, calendars, small multiples; bespoke interactive React-composed SVG routes to `@visx/*`, extreme-point streaming series to `uplot`(`.api/uplot.md`), pivot-grid analytics to `@perspective-dev/*`, geospatial GPU scale to deck.gl, and the `geo` mark serves statistical maps, never the live basemap.
 
-[STACK: `system/token` theming] — Plot emits scoped classes under `className` and inherits CSS custom properties; categorical `color.range`/continuous `color.scheme` resolve from the token authority per the `.api/d3.md` chromatic boundary (data-value colormaps free, UI palettes token-owned). `style` stays a last-resort override.
-
-[BOUNDARY: the viz owners] — Plot owns declared exploratory/statistical charts (distributions, facets, regressions, calendars, small multiples). `@visx/*` owns bespoke interactive React-composed SVG (per-element handlers, RAC-integrated a11y, custom hit logic); `uplot` (`.api/uplot.md`) owns extreme-point-count streaming time series; `@perspective-dev/*` owns pivot-grid analytics; deck.gl owns geospatial GPU scale — Plot's `geo` mark serves statistical maps, never the live basemap.
-
-## [06]-[RAIL_LAW]
-
-- Owns: grammar-of-graphics charting — the `plot(options)` entry, the mark roster as channel-parameterized rows, the transform algebra (bin/group/stack/window/normalize/select/map/dodge/hexbin), inferred scales/axes/legends/facets, named projections, pointer/tip/crosshair interaction, `scale`/`legend` readbacks, and Arrow-native columnar input.
-- Accept: chart specs as data derived from atom state, mounted through the effect bracket; transforms in the options value over pre-shaped data copies; `tip`/`pointer` for inspection with `value` written back through the atom; Arrow tables with column-name shorthand; explicit `axisX`/`gridY` marks only where inference needs override; `marks(...)` composites for reusable layers.
-- Reject: hand-rolled d3 SVG beside a Plot spec; React reconciling Plot's output (the bracket replaces wholesale); streaming/high-frequency series here (uplot's regime); the live basemap here (maplibre/deck.gl); pre-aggregating in JS what `bin`/`group`/`window` declare; d3 compound interval strings in Plot options; a second grammar layer wrapping this one.
+[RAIL_LAW]:
+- Package: `@observablehq/plot`
+- Owns: grammar-of-graphics charting — the `plot(options)` entry, the mark roster as channel-parameterized rows, the transform algebra, inferred scales/axes/legends/facets, named projections, pointer/tip/crosshair interaction, `scale`/`legend` readbacks, Arrow columnar input.
+- Accept: chart specs as atom-derived data mounted through the effect bracket; transforms in the options value over pre-shaped copies; `tip`/`pointer` inspection writing `value` back through the atom; Arrow tables with column-name shorthand; explicit `axisX`/`gridY` only where inference needs override; `marks(...)` composites for reusable layers.
+- Reject: hand-rolled d3 SVG beside a Plot spec; React reconciling Plot's output; streaming/high-frequency series here; the live basemap here; pre-aggregating in JS what `bin`/`group`/`window` declare; d3 compound interval strings; a second grammar layer wrapping this one.

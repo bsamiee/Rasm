@@ -1,49 +1,49 @@
 # [TS_RUNTIME_API_OPENTELEMETRY_INSTRUMENTATION_USER_INTERACTION]
 
-`@opentelemetry/instrumentation-user-interaction` opens one span per admitted DOM interaction (click by default) and parents the async work the handler triggers — the fetch a click causes lands under the click span, closing the user-action→request causality the RUM plane reads. It patches `Zone` when the zone manager is present and `HTMLElement.addEventListener` otherwise, so it is app-composition-root material registered inside the `web` SDK row, with the event roster and span-admission predicate as construction policy.
+`@opentelemetry/instrumentation-user-interaction` opens one span per admitted DOM interaction and parents the async work its handler triggers, so a click's fetch lands under the click span and closes the user-action→request causality the RUM plane reads. It patches `Zone` when the zone manager is present and `HTMLElement.addEventListener` otherwise; the event roster and span-admission predicate are its construction policy.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/instrumentation-user-interaction`
 - package: `@opentelemetry/instrumentation-user-interaction` (Apache-2.0)
-- base: extends `@opentelemetry/instrumentation` `InstrumentationBase`
-- consumed-by: the browser composition root beside the `web` export row and the zone manager
-- runtime: browser only — patches `Zone` or `addEventListener`
+- module: dual CJS + ESM flat barrel, no subpath exports; extends `@opentelemetry/instrumentation` `InstrumentationBase`
+- runtime: browser only — patches `Zone` or `HTMLElement.addEventListener`
+- rail: observability/rum
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: instrumentation + config
-- rail: observability/rum
+[PUBLIC_TYPE_SCOPE]: the interaction instrumentation and its construction-policy shapes
 
-| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                  |
-| :-----: | :------------------------------------- | :-------------- | :--------------------------------------------------- |
-|  [01]   | `UserInteractionInstrumentation`       | instrumentation | one row in the root's registered instrumentation set |
-|  [02]   | `UserInteractionInstrumentationConfig` | config          | event roster + admission predicate at construction   |
-|  [03]   | `EventName`                            | event union     | the admissible DOM event-name vocabulary             |
-|  [04]   | `ShouldPreventSpanCreation`            | predicate shape | per-event span admission — the cardinality gate      |
-|  [05]   | `AttributeNames`                       | attribute rows  | the row's own span-attribute vocabulary              |
+| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY] | [CAPABILITY]                                            |
+| :-----: | :------------------------------------- | :------------ | :------------------------------------------------------ |
+|  [01]   | `UserInteractionInstrumentation`       | class         | one row in the root's registered instrumentation set    |
+|  [02]   | `UserInteractionInstrumentationConfig` | interface     | event roster and admission predicate at construction    |
+|  [03]   | `EventName`                            | union         | admissible DOM event names, `keyof HTMLElementEventMap` |
+|  [04]   | `ShouldPreventSpanCreation`            | delegate      | per-event span admission — the cardinality gate         |
+|  [05]   | `AttributeNames`                       | enum          | emitted span-attribute keys                             |
+
+- `AttributeNames`: `event_type` `target_element` `target_xpath` `http.url`
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: construction policy
-- rail: observability/rum
+[ENTRYPOINT_SCOPE]: construction and its policy fields
 
-| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                              |
-| :-----: | :-------------------------------------------- | :------------- | :----------------------------------------------- |
-|  [01]   | `new UserInteractionInstrumentation(config?)` | ctor           | one construction at the browser root             |
-|  [02]   | `eventNames` config field                     | config field   | the admitted event roster (click-only default)   |
-|  [03]   | `shouldPreventSpanCreation` config field      | config field   | refuse spans for noise targets before they exist |
+| [INDEX] | [SURFACE]                                     | [SHAPE]  | [CAPABILITY]                                     |
+| :-----: | :-------------------------------------------- | :------- | :----------------------------------------------- |
+|  [01]   | `new UserInteractionInstrumentation(config?)` | ctor     | one construction at the browser root             |
+|  [02]   | `eventNames`                                  | property | the admitted event roster, click-only by default |
+|  [03]   | `shouldPreventSpanCreation`                   | property | refuse spans for noise targets before they open  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[RUM_TOPOLOGY]:
+[TOPOLOGY]:
 - composition-root only — the row patches globals; a library registration double-instruments the host.
-- admission before emission — high-frequency events (scroll, mousemove) enter only through a deliberate `eventNames` row with a `shouldPreventSpanCreation` gate, because every admitted event is a span.
+- every admitted event is a span, so a high-frequency event (scroll, mousemove) enters only through a deliberate `eventNames` row gated by `shouldPreventSpanCreation`.
 
-[INTEGRATION_LAW]:
-- Stack with `opentelemetry-context-zone.md`: the zone manager is what parents the triggered fetch under the interaction span; without it the row still opens interaction spans but async causality thins to same-tick work.
-- Stack with `opentelemetry-instrumentation-fetch.md`: the click→fetch trace is these two rows composing — interaction parents, fetch childs, `Vital.enrich` projects timing onto the child.
-- Stack with `otel/emit` `web` row: interaction spans ride the same redaction scrub and pagehide flush.
+[STACKING]:
+- `opentelemetry-context-zone.md` `ZoneContextManager`: the row detects the patched `Zone` and parents the triggered fetch under the interaction span; absent the manager it degrades to `addEventListener` patching and async causality thins to same-tick work.
+- `opentelemetry-instrumentation-fetch.md` `FetchInstrumentation`: the click→fetch trace is these two rows composing — the interaction span parents, the fetch span childs, and `Vital.enrich` projects timing onto the child.
+- `otel/emit` `web` row: interaction spans register in the same web SDK configuration and ride its redaction scrub and pagehide flush.
 
 [LOCAL_ADMISSION]:
 - `scope:runtime`, browser lane; registration lives only in the browser boot graph.

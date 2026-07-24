@@ -96,11 +96,21 @@ Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
 
 Five strata order the sub-domain folders; a folder composes its own owners and lower strata only, `Rasm` kernel namespaces underlie the whole boundary as the host-neutral floor, and two ruled counter-edges stand: Document's configured-open source takes Persistence's `ArchiveMap` as its typed open-options payload, minted before any session exists, and Modeling's projection frame takes Viewport's `CameraSnapshot`/`CameraPose` value shapes — value-only, no lease or borrow crossing. Every other consumption edge points down, so a new folder seats one stratum above its highest composed owner.
 
-- S0 `Document` — spine under everything: the `DocumentSession` demand, `Tables.Commit`, `Layers.Commit`, and the transactional `DocumentStream`; every sibling composes it.
-- S1 single-seam domains — `Persistence`, `Commands`, `Blocks`, `Modeling`, `Annotation`, `Eto` compose the spine alone: `ArchiveMap`, `Settings`, and `AppSettings`; `CommandVerdict` and `PickCapture`; `BlockGraph` and `GraphFold`; `ModelGate` and `Built<TSlot>`; `StyleField` and `Styles`; the `Element` realize fold and the `UiThread` floor — Modeling reaches only the geometry-custody capsule and the ruled `CameraSnapshot`/`CameraPose` frame values, and Eto only the event-detach capsule.
-- S2 composite domains — `Objects` (`Objects`, `Attributes`, `Chronicle`) adds Commands' `PickCapture` custody and Blocks' `GraphFold`/`GraphProjection` evidence; `HostUi` (`HostThread`, `PanelHost`, `HostPage`) adds the whole Eto sub-domain.
-- S3 `Viewport` — `ViewportLease`, `CameraPose`, `Cameras`, and `MotionPump`; every borrow crosses the `HostThread` session rail — `HostThread.Run(HostWork<T>.Session(...))` — under a `SessionNeed`; the capture run rail also takes Modeling's `BenchEvidence`/`BenchBand` value shapes for in-host benchmark harvest — value-only, no lease or borrow crossing.
-- S4 terminal composers — `Display` (`Modes`, `Marks`) and `Exchange` (`Exchanges`, `Publishing`) compose Viewport's camera and capture rails, Display also drawing through the Eto canvas and publishing conduit callback faults through Objects' `ObjectsTelemetry` egress; `Render` (`Registry`, `ContentStream`) borrows only the `Size2i` pixel struct from that surface; no folder composes these three.
+- S0 `Document` — spine under everything: the `DocumentSession` demand, `Tables.Commit`, `Layers.Commit`, the transactional `DocumentStream`.
+- S0 reach — every sibling composes the spine.
+- S1 single-seam — spine-alone composers: `Persistence` (`ArchiveMap`, `Settings`, `AppSettings`), `Commands` (`CommandVerdict`, `PickCapture`).
+- S1 single-seam — `Blocks` (`BlockGraph`, `GraphFold`), `Modeling` (`ModelGate`, `Built<TSlot>`), `Annotation` (`StyleField`, `Styles`).
+- S1 single-seam — `Eto`: the `Element` realize fold and the `UiThread` floor.
+- S1 law — Modeling reaches only the geometry-custody capsule and the ruled `CameraSnapshot`/`CameraPose` frame values.
+- S1 law — Eto reaches only the event-detach capsule.
+- S2 composite — `Objects` (`Objects`, `Attributes`, `Chronicle`) adds Commands' `PickCapture` and Blocks' `GraphFold`/`GraphProjection` evidence.
+- S2 composite — `HostUi` (`HostThread`, `PanelHost`, `HostPage`) adds the whole Eto sub-domain.
+- S3 `Viewport` — `ViewportLease`, `CameraPose`, `Cameras`, and `MotionPump`.
+- S3 law — every borrow crosses the `HostThread` session rail, `HostThread.Run(HostWork<T>.Session(...))`, under a `SessionNeed`.
+- S3 law — the capture run rail takes Modeling's `BenchEvidence`/`BenchBand` value shapes — value-only, no lease or borrow crossing.
+- S4 terminal — `Display` (`Modes`, `Marks`) and `Exchange` (`Exchanges`, `Publishing`) compose Viewport's camera and capture rails.
+- S4 law — Display draws through the Eto canvas and publishes conduit callback faults through Objects' `ObjectsTelemetry` egress.
+- S4 `Render` — (`Registry`, `ContentStream`) borrows only the `Size2i` pixel struct; no folder composes the S4 composers.
 
 ```mermaid
 ---
@@ -113,34 +123,34 @@ config:
 flowchart TB
     accTitle: Rasm.Rhino interior strata
     accDescr: Five stacked strata from the terminal display, exchange, and render composers through the viewport rail and the composite object and host-UI domains onto the single-seam domains and the document spine, every consumption edge downward and solid naming one sourced type, two dashed ruled counter-edges carrying the ArchiveMap open-options payload upward from the document spine to Persistence and the CameraSnapshot and CameraPose frame values upward from the Modeling gate to the viewport rail, and one forbidden upward edge.
-    subgraph L4["S4 TERMINAL COMPOSERS"]
+    subgraph S4["S4 TERMINAL COMPOSERS"]
         Modes[Modes]
         Exchanges[Exchanges]
         Registry[Registry]
     end
-    subgraph L3["S3 VIEWPORT"]
+    subgraph S3["S3 VIEWPORT"]
         Lease[ViewportLease]
         Capture[CaptureSink]
     end
-    subgraph L2["S2 COMPOSITE"]
+    subgraph S2["S2 COMPOSITE"]
         Objects[Objects]
         HostThread[HostThread]
     end
-    subgraph L1["S1 SINGLE-SEAM"]
+    subgraph S1["S1 SINGLE-SEAM"]
         Picks[PickCapture]
         Blocks[GraphFold]
         Eto[UiThread]
         Archive[ArchiveMap]
         Model[ModelGate]
     end
-    subgraph L0["S0 DOCUMENT"]
+    subgraph S0["S0 DOCUMENT"]
         Session[DocumentSession]
     end
     Modes e1@-->|"[IMPORT]: ViewportLease"| Lease
     Exchanges e2@-->|"[IMPORT]: CaptureSink"| Capture
-    Registry e3@-->|"[IMPORT]: Size2i"| L3
+    Registry e3@-->|"[IMPORT]: Size2i"| S3
     Lease e4@-->|"[IMPORT]: HostThread"| HostThread
-    Capture e5@-->|"[IMPORT]: SessionNeed"| L0
+    Capture e5@-->|"[IMPORT]: SessionNeed"| S0
     Objects e6@-->|"[IMPORT]: PickCapture"| Picks
     Objects e7@-->|"[IMPORT]: GraphFold"| Blocks
     HostThread e8@-->|"[IMPORT]: UiThread"| Eto
@@ -148,7 +158,7 @@ flowchart TB
     Modes e12@-->|"[IMPORT]: ObjectsTelemetry"| Objects
     Session e10@-.->|"[COUNTER]: ArchiveMap"| Archive
     Model e11@-.->|"[COUNTER]: CameraSnapshot + CameraPose"| Lease
-    Session f1@-->|"forbidden: spine upward"| L4
+    Session f1@-->|"forbidden: spine upward"| S4
 ```
 
 ## [03]-[SEAMS]

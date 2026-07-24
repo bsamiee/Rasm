@@ -80,8 +80,7 @@ const B = Object.freeze({
     assets: ['bin', 'exr', 'fbx', 'glb', 'gltf', 'hdr', 'mtl', 'obj', 'wasm'],
     builder: { sharedConfigBuild: true, sharedPlugins: true },
     cache: { api: 300, cdn: 604800, max: 50 },
-    // Regex literals inside the exported anchor carry `as RegExp`: TS9013 under isolatedDeclarations otherwise.
-    comp: { f: /\.(js|mjs|json|css|html|svg)$/i as RegExp, t: 10240 },
+    comp: { f: /\.(js|mjs|json|css|html|svg)$/i, t: 10240 },
     csp: {
         'connect-src': ["'self'", 'https:', 'wss:', 'ws:'],
         'default-src': ["'self'"],
@@ -106,9 +105,9 @@ const B = Object.freeze({
     // every test embeds node_modules so app modules never leak into a vendor chunk.
     split: {
         groups: [
-            { name: 'vendor-react', priority: 3, test: /\/node_modules\/(?:\.pnpm\/[^/]+\/node_modules\/)?react(?:-dom)?\// as RegExp },
-            { name: 'vendor-effect', priority: 2, test: /\/node_modules\/(?:\.pnpm\/[^/]+\/node_modules\/)?(?:@effect|effect)\// as RegExp },
-            { name: 'vendor', priority: 1, test: /node_modules/ as RegExp },
+            { name: 'vendor-react', priority: 3, test: /\/node_modules\/(?:\.pnpm\/[^/]+\/node_modules\/)?react(?:-dom)?\// },
+            { name: 'vendor-effect', priority: 2, test: /\/node_modules\/(?:\.pnpm\/[^/]+\/node_modules\/)?(?:@effect|effect)\// },
+            { name: 'vendor', priority: 1, test: /node_modules/ },
         ],
         minSize: 10240,
     },

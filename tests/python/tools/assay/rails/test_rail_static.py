@@ -214,7 +214,7 @@ def test_full_typescript_tsc_has_no_file_tail(assay_root: AssayHarness) -> None:
     routed = Routed(Language.TYPESCRIPT, Scope.FULL, files=("vite.config.ts", "vitest.config.ts"))
     phases, _ = static_rail._phase_checks(routed, assay_root.settings, assay_root.scope(Claim.STATIC), static_rail._MODES)
     planned = static_rail._planned(routed, phases, assay_root.settings, assay_root.scope(Claim.STATIC))
-    assert ("build", "tsc", "pnpm exec tsc --noEmit -p tsconfig.base.json") in planned
+    assert ("build", "tsc", "pnpm --silent exec tsc --noEmit -p tsconfig.base.json") in planned
 
 
 _PLACEMENT_ROWS: tuple[tuple[str, Routed, Callable[[tuple[tuple[str, str, str], ...]], bool]], ...] = (

@@ -1,21 +1,21 @@
 # [TS_DATA_API_EFFECT_SQL_MSSQL]
 
-`@effect/sql-mssql` binds the neutral `@effect/sql` `SqlClient` (`.api/effect-sql.md`) to the `tedious` SQL Server wire as the read-oriented INTEROP lane — a typed ingress into enterprise-held SQL Server data an app already owns, never a record of truth. Its compiler reports `dialect: "mssql"`, so `sql.onDialect`'s `mssql` arm goes live, emitting real T-SQL from one statement definition with no parallel query family. Query, transaction, and typed-IO surface stay the spine's; this driver adds SQL Server's own shape atop the pooled connection and `mssql`-seeded span — the typed `param` fragment, the strongly-typed stored-procedure `call`, and the re-exported `MssqlTypes` `DataType` catalog. `MssqlMigrator` ships banned branch-wide — DDL is `iac`↔`store` declarative ensure, never runtime schema mutation.
+`@effect/sql-mssql` binds the neutral `@effect/sql` `SqlClient` (`.api/effect-sql.md`) to the `tedious` SQL Server wire as the read-oriented interop lane, adding SQL Server's own shape — the typed `param` fragment, the stored-procedure `call`, the `Procedure`/`Parameter` builders, the `MssqlTypes` `DataType` catalog — atop the inherited query, transaction, and typed-IO spine. Its `dialect: "mssql"` compiler lights the `sql.onDialect` `mssql` arm, emitting T-SQL from one statement definition; `MssqlMigrator` ships branch-banned.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/sql-mssql`
 - package: `@effect/sql-mssql` (MIT)
-- effect-peer: `effect`, `@effect/sql` (the `SqlClient` core this extends; `.api/effect-sql.md`), `@effect/experimental` (`Reactivity` — `make` requires it; `.api/effect-experimental.md`), `@effect/platform`
-- backing: `tedious` (SQL Server TDS wire + connection pool; direct dependency, not peer)
-- runtime: `runtime:node`/bun services — `tedious` is a node-native TDS driver; the interop lane never reaches the browser plane
-- modules: `MssqlClient`, `Parameter`, `Procedure`, `MssqlMigrator` (banned), and the `MssqlTypes` re-export of `tedious`'s `TYPES` `DataType` catalog
+- rail: `lane/mssql` — the read-oriented SQL Server interop ingress row
+- effect-peer: `effect`, `@effect/sql` (the `SqlClient` core this extends; `.api/effect-sql.md`), `@effect/experimental` (`Reactivity`, required by `make`; `.api/effect-experimental.md`), `@effect/platform`
+- backing: `tedious` (SQL Server TDS wire + connection pool)
+- runtime: `runtime:node`/bun; `tedious` is a node-native TDS driver, never the browser plane
+- modules: `MssqlClient`, `Parameter`, `Procedure`, `MssqlMigrator` (banned), `MssqlTypes` (re-export of `tedious` `TYPES`)
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the `MssqlClient` service and its config
-- rail: data/lane
-- `MssqlClient extends SqlClient` — providing the layer yields both Tags, so interop rows compose the neutral `SqlClient` and only construction reaches the concrete Tag; the extension adds `config`, the typed `param` fragment builder, and the stored-procedure `call`. `MssqlClientConfig` carries the SQL Server connection shape — `server` required, `domain`/`instanceName`/`authType` for Windows/named-instance auth, `encrypt`/`trustServer` for TLS posture, discrete `database`/`username`/`password`, pool sizing (`minConnections`/`maxConnections`/`connectionTTL`/`connectTimeout`), a `parameterTypes` override map seeding the compiler's `PrimitiveKind`→`DataType` binding, and the shared `spanAttributes`/`transformResultNames`/`transformQueryNames` transforms every dialect driver carries.
+- `MssqlClient extends SqlClient`: providing the layer yields both Tags, so interop rows compose the neutral `SqlClient` and only construction with the SQL-Server-specific `config`/`param`/`call` reaches the concrete Tag. `MssqlClientConfig` carries the connection shape the rows below enumerate, seeding the compiler's `PrimitiveKind`→`DataType` binding through `parameterTypes`.
 
 | [INDEX] | [SYMBOL]                                               | [TYPE_FAMILY]       | [CONSUMER_BOUNDARY]                                 |
 | :-----: | :----------------------------------------------------- | :------------------ | :-------------------------------------------------- |
@@ -24,16 +24,16 @@
 |  [03]   | `MssqlClient.param(type, value, options?)`             | typed fragment      | `DataType`-bound `Fragment`; T-SQL parameter splice |
 |  [04]   | `MssqlClient.call(procedure)`                          | stored-proc invoke  | run a `ProcedureWithValues` → typed output + rows   |
 |  [05]   | `MssqlClientConfig.server` (required)                  | connection          | host or named endpoint; the one non-optional field  |
-|  [06]   | `MssqlClientConfig.domain`/`.instanceName`/`.authType` | auth shape          | Windows-domain and named-instance authentication    |
-|  [07]   | `MssqlClientConfig.encrypt`/`.trustServer`             | TLS posture         | wire encryption + cert-trust policy                 |
-|  [08]   | `MssqlClientConfig.password` (`Redacted.Redacted`)     | credential          | pool auth; never a literal                          |
-|  [09]   | `MssqlClientConfig.minConnections`/`.maxConnections`   | pool sizing         | per-app pool budget; `connectionTTL` a `Duration`   |
-|  [10]   | `MssqlClientConfig.parameterTypes`                     | type override       | `PrimitiveKind`→`DataType` seed the compiler binds  |
-|  [11]   | `MssqlClientConfig.spanAttributes` + name transforms   | telemetry/transform | shared with every dialect driver                    |
+|  [06]   | `MssqlClientConfig.database`/`.username`               | connection          | discrete target DB + login; `Config`-sourced        |
+|  [07]   | `MssqlClientConfig.domain`/`.instanceName`/`.authType` | auth shape          | Windows-domain and named-instance authentication    |
+|  [08]   | `MssqlClientConfig.encrypt`/`.trustServer`             | TLS posture         | wire encryption + cert-trust policy                 |
+|  [09]   | `MssqlClientConfig.password` (`Redacted.Redacted`)     | credential          | pool auth; never a literal                          |
+|  [10]   | `MssqlClientConfig.minConnections`/`.maxConnections`   | pool sizing         | per-app pool budget; `connectionTTL` a `Duration`   |
+|  [11]   | `MssqlClientConfig.parameterTypes`                     | type override       | `PrimitiveKind`→`DataType` seed the compiler binds  |
+|  [12]   | `MssqlClientConfig.spanAttributes` + name transforms   | telemetry/transform | shared with every dialect driver                    |
 
 [PUBLIC_TYPE_SCOPE]: the typed parameter and stored-procedure families
-- rail: shapes
-- `Parameter<A>` names a single `DataType`-typed value (`_tag: "Parameter"`, `name`, `type`, `options`) — the phantom `A` carries the decoded value type. `Procedure<I, O, A>` is the `Pipeable` builder accreting an input-parameter record `I`, an output-parameter record `O`, and a row type `A`; `ProcedureWithValues<I, O, A>` binds concrete input values, and `Procedure.Result<O, A>` is the invocation return — `output` the decoded output-parameter record, `rows` the decoded result set. `MssqlTypes` re-exports `tedious`'s `TYPES` — the `DataType` catalog (`Int`/`NVarChar`/`DateTime2`/`TVP`/…) every `param`/`Parameter`/`Procedure` binding names.
+- `Parameter<A>` names one `DataType`-typed value, its phantom `A` the decoded type; `Procedure<I, O, A>` is the `Pipeable` builder accreting input record `I`, output record `O`, and row type `A`, `compile` binds concrete input values into `ProcedureWithValues<I, O, A>`, and `Procedure.Result<O, A>` returns the decoded `output` record with `rows`. `MssqlTypes` re-exports `tedious` `TYPES` — the `DataType` catalog (`Int`/`NVarChar`/`DateTime2`/`TVP`/…) every `param`/`Parameter`/`Procedure` binding names.
 
 | [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY]      | [CONSUMER_BOUNDARY]                                      |
 | :-----: | :------------------------------------------ | :----------------- | :------------------------------------------------------- |
@@ -47,8 +47,7 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: constructing the driver Layer
-- rail: data/lane
-- `layer`/`layerConfig` yield `MssqlClient | SqlClient` in one Layer, error `ConfigError | SqlError`; `make` returns `Effect<MssqlClient, SqlError, Scope | Reactivity>`. Providing either Layer yields both Tags; only construction reaches the concrete `MssqlClient`. `makeCompiler` returns a `Statement.Compiler` fixed to `dialect: "mssql"`, seeding `db.system.name` and `server.address` on every span; `defaultParameterTypes` is the built-in `PrimitiveKind`→`DataType` map the compiler placeholders bind, overridable via `MssqlClientConfig.parameterTypes`.
+- `layer`/`layerConfig` yield `MssqlClient | SqlClient` in one Layer under error `ConfigError | SqlError`; `make` returns `Effect<MssqlClient, SqlError, Scope | Reactivity>`. `makeCompiler` fixes `dialect: "mssql"`, seeding `db.system.name` and `server.address` per span; `defaultParameterTypes` is the built-in `PrimitiveKind`→`DataType` map, overridable via `MssqlClientConfig.parameterTypes`.
 
 | [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                            |
 | :-----: | :-------------------------------------------------------- | :------------- | :--------------------------------------------- |
@@ -59,8 +58,7 @@
 |  [05]   | `MssqlClient.defaultParameterTypes`                       | type map       | `PrimitiveKind`→`DataType` default binding     |
 
 [ENTRYPOINT_SCOPE]: composing and invoking a stored procedure
-- rail: shapes
-- `Procedure.make(name)` opens an empty builder; `Procedure.param<A>()(name, type, options?)` and `Procedure.outputParam<A>()(name, type, options?)` accrete typed input/output parameters, `Procedure.withRows<A>()` declares the result-set row type, and `Procedure.compile(self)(input)` binds concrete input values into a `ProcedureWithValues` the client's `call` runs. `Parameter.make(name, type, options?)` builds a standalone typed parameter; `MssqlClient.param(type, value, options?)` splices a `DataType`-typed value directly into a `Fragment` for inline T-SQL.
+- `Procedure.make`→`param`/`outputParam`/`withRows` accrete typed input/output parameters and the result-set row type, then `compile(self)(input)` binds concrete input values into a `ProcedureWithValues` the client's `call` runs. `Parameter.make` builds a standalone typed parameter; `MssqlClient.param` splices a `DataType`-typed value directly into a `Fragment` for inline T-SQL.
 
 | [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY]  | [CONSUMER_BOUNDARY]                                |
 | :-----: | :-------------------------------------------- | :-------------- | :------------------------------------------------- |
@@ -73,18 +71,21 @@
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[INTEGRATION_LAW]:
-- Stack on `@effect/sql` (`.api/effect-sql.md`): all query/transaction/typed-IO surface is inherited — `SqlSchema` decodes interop rows into `Schema` models, `SqlResolver` batches the read side, `withTransaction` scopes a multi-statement read. Its compiler carries `dialect: "mssql"`, so `sql.onDialect({ sqlite, pg, mysql, mssql, clickhouse })` emits T-SQL from the same definition the pg spine and sqlite lanes share — the `mssql` arm-key is realized, not a parallel journal.
-- Stack across `data`: the profile is one `lane/mssql` interop row — ingress only, never authority. Journal law holds: an app reads enterprise SQL Server through this Tag and folds facts INTO the append-only journal; nothing folds back as a record of truth. Its typed `param`/`call` surface serves read-side procedure ingress; reactive read-your-writes and LISTEN/NOTIFY are pg-spine capabilities, absent on this ingress lane.
+[TOPOLOGY]:
+- `MssqlClient` serves read-oriented ingress alone: an app reads enterprise SQL Server through this Tag and folds facts INTO the append-only journal, and no fact folds back as authority.
+
+[STACKING]:
+- `@effect/sql`(`.api/effect-sql.md`): inherits every query/transaction/typed-IO surface — `SqlSchema` decodes interop rows into `Schema` models, `SqlResolver` batches the read side, `withTransaction` scopes a multi-statement read; the `dialect: "mssql"` compiler realizes the `sql.onDialect({ sqlite, pg, mysql, mssql, clickhouse })` `mssql` arm, emitting T-SQL from the shared definition rather than a parallel journal.
+- `data` folder: one `lane/mssql` interop row whose typed `param`/`call` serve read-side procedure ingress; reactive read-your-writes and LISTEN/NOTIFY stay pg-spine capabilities absent on this lane.
 
 [LOCAL_ADMISSION]:
-- Provide the layer at the app root only; interop rows yield the neutral `SqlClient` and reach the concrete `MssqlClient` Tag solely for construction and the SQL-Server-specific `param`/`call` surface.
-- `password` rides `Config.redacted`; pool sizing (`minConnections`/`maxConnections`/`connectionTTL`), `encrypt`/`trustServer` TLS posture, and named-instance auth are `Config`/`iac` facts, never literals in a row.
-- Stored procedures compose through `Procedure.make`→`param`/`outputParam`/`withRows`→`compile` and run via `MssqlClient.call`; inline typed values splice through `MssqlClient.param`, naming a `MssqlTypes` `DataType` — never a raw string-built parameter.
-- `MssqlMigrator` (re-exporting `@effect/sql/Migrator`) is banned branch-wide — an interop source is read, not schema-owned; DDL is `iac`↔`store` declarative ensure, runtime never mutates.
+- Provide the layer at the app root only; interop rows yield the neutral `SqlClient` and reach the concrete `MssqlClient` Tag solely for construction and the `param`/`call` surface.
+- `password` rides `Config.redacted`; pool sizing, `encrypt`/`trustServer` TLS posture, and named-instance auth are `Config`/`iac` facts, never row literals.
+- Stored procedures compose `Procedure.make`→`param`/`outputParam`/`withRows`→`compile` and run via `MssqlClient.call`; inline typed values splice through `MssqlClient.param` naming a `MssqlTypes` `DataType`, never a raw string-built parameter.
+- `MssqlMigrator` is banned branch-wide — DDL is `iac`↔`store` declarative ensure, runtime never mutates.
 
 [RAIL_LAW]:
 - Package: `@effect/sql-mssql`
-- Owns: the `tedious` binding of `SqlClient` — `layer`/`layerConfig`/`make`/`makeCompiler`/`defaultParameterTypes`, the `MssqlClientConfig` family, the typed `param` fragment and stored-procedure `call`, the `Parameter`/`Procedure` builders, the `MssqlTypes` `DataType` catalog, the `dialect: "mssql"` compiler that lights the `sql.onDialect` `mssql` arm, and the banned `MssqlMigrator`
-- Accept: the read-oriented interop lane row under the one `@effect/sql` contract, `Config`-sourced credentials, T-SQL emitted through the `mssql` `onDialect` arm, typed procedure ingress via `call`, facts folded into the journal
-- Reject: a driver import in a neutral row, SQL Server treated as a record of truth, `MssqlMigrator` or any runtime schema mutation, hardcoded credentials or pool sizes, raw string-built parameters bypassing `param`/`Parameter`, a second relational contract for interop
+- Owns: the `tedious` binding of `SqlClient` — `layer`/`layerConfig`/`make`/`makeCompiler`/`defaultParameterTypes`, the `MssqlClientConfig` family, the typed `param` fragment and stored-procedure `call`, the `Parameter`/`Procedure` builders, the `MssqlTypes` `DataType` catalog, the `dialect: "mssql"` compiler lighting the `sql.onDialect` `mssql` arm, and the banned `MssqlMigrator`
+- Accept: the read-oriented interop row under the one `@effect/sql` contract, `Config`-sourced credentials, T-SQL through the `mssql` `onDialect` arm, typed procedure ingress via `call`, facts folded into the journal
+- Reject: a driver import in a neutral row, SQL Server as a record of truth, `MssqlMigrator` or any runtime schema mutation, hardcoded credentials or pool sizes, raw string-built parameters bypassing `param`/`Parameter`, a second relational contract for interop

@@ -1,6 +1,6 @@
 # [PY_DATA_ARCHITECTURE]
 
-`data` maps host-free data interchange onto one module per domain concept, each closing its whole concern behind a single polymorphic owner. A `tabular` interchange core carries the columnar, lakehouse, query, materialize, contract, interop, and egress spine, and the `spatial`, `gridded`, `graph`, and `impact` planes each own a distinct domain. Every `from rasm.data.*` import binds a strictly-earlier module, so the module set is a provable acyclic DAG; `[02]-[SEAMS]` records only the cross-`libs/` and cross-language crossings, never an intra-`data` composition.
+`data` maps host-free data interchange onto one module per domain concept, each closing its whole concern behind a single polymorphic owner. A `tabular` interchange core carries the columnar, lakehouse, query, materialize, contract, interop, and egress spine, and the `spatial`, `gridded`, `graph`, and `impact` planes each own a distinct domain. Every `from rasm.data.*` import binds a strictly-earlier module, so the module set is a provable acyclic DAG; `[03]-[SEAMS]` records only the cross-`libs/` and cross-language crossings, never an intra-`data` composition.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -33,144 +33,14 @@ data/
     └── impact.py         # MaterialImpact owner folding the ImpactSource axis into one EN 15804 matrix
 ```
 
-## [02]-[SEAMS]
+## [02]-[STRATA]
+
+Strata rank the data interior; seating rows carry only the law the fence cannot show.
 
 ```mermaid
 ---
 config:
   layout: elk
-  elk:
-    nodePlacementStrategy: NETWORK_SIMPLEX
-    considerModelOrder: NODES_AND_EDGES
-  flowchart:
-    curve: linear
-    padding: 25
----
-flowchart LR
-    accTitle: Data package Python host-runtime seam registry
-    accDescr: Data sub-domain owners exchanging content identity, transport, receipts, and thread boundaries with the Python host runtime sibling.
-    subgraph data[DATA]
-        Tabular[Tabular interchange]
-        Egress[Object egress]
-        Query[Query engine]
-        Materialize[CDC materialize]
-        Catalog[STAC catalog]
-        Gridded[Gridded tensors]
-        Impact[Material impact]
-        Profile[Quality profile]
-        Geospatial[Geospatial claims]
-        Mesh[Mesh exchange]
-    end
-    Runtime{{python:runtime}}
-    Egress e1@-->|"[CONTENT_KEY]: ContentIdentity"| Runtime
-    Query e3@-->|"[RECEIPT]: QueryReceipt"| Runtime
-    Gridded e19@-->|"[RECEIPT]: TensorReceipt"| Runtime
-    Mesh e2@-->|"[CONTENT_KEY]: ContentIdentity"| Runtime
-    Runtime e4@-->|"[TRANSPORT]: ResourceRef"| Tabular
-    Runtime e20@-->|"[TRANSPORT]: ResourceRef"| Egress
-    Runtime e11@-->|"[BOUNDARY]: on_thread"| Query
-    Runtime e17@-->|"[BOUNDARY]: LanePolicy"| Materialize
-    Runtime e23@-->|"[TRANSPORT]: ResourceRef"| Catalog
-    Runtime e18@-->|"[BOUNDARY]: on_thread"| Catalog
-    Runtime e21@-->|"[TRANSPORT]: ResourceRef"| Gridded
-    Runtime e5@-->|"[TRANSPORT]: TransportResource"| Impact
-    Runtime e24@-->|"[BOUNDARY]: on_thread"| Impact
-    Runtime e14@-->|"[BOUNDARY]: on_thread"| Profile
-    Runtime e12@-->|"[BOUNDARY]: on_thread"| Geospatial
-    Runtime e22@-->|"[TRANSPORT]: ResourceRef"| Mesh
-    Runtime e13@-->|"[BOUNDARY]: on_thread"| Mesh
-```
-
-```mermaid
----
-config:
-  layout: elk
-  elk:
-    nodePlacementStrategy: NETWORK_SIMPLEX
-    considerModelOrder: NODES_AND_EDGES
-  flowchart:
-    curve: linear
-    padding: 25
----
-flowchart LR
-    accTitle: Data package Python domain-peer seam registry
-    accDescr: Data sub-domain owners exchanging wires, frame shapes, and mesh boundaries with the Python artifacts, geometry, and compute siblings.
-    subgraph data[DATA]
-        Tabular[Tabular interchange]
-        Profile[Quality profile]
-        Cost[Cost ledger]
-        Geospatial[Geospatial claims]
-        Mesh[Mesh exchange]
-    end
-    Artifacts{{python:artifacts}}
-    Geometry{{python:geometry}}
-    Compute([python:compute])
-    Artifacts e6@-->|"[WIRE]: CorpusRow"| Tabular
-    Profile e7@-->|"[SHAPE]: QualityProfile"| Artifacts
-    Cost e25@-->|"[SHAPE]: CostFrame"| Artifacts
-    Artifacts e8@-->|"[WIRE]: GeoJSON"| Geospatial
-    Mesh e9@-->|"[SHAPE]: MeshPayload"| Geometry
-    Mesh e15@-->|"[SHAPE]: PointRecordTable"| Geometry
-    Geometry e16@-->|"[BOUNDARY]: Trimesh"| Mesh
-    Tabular e10@-->|"[SHAPE]: FrameAdmission"| Compute
-```
-
-```mermaid
----
-config:
-  layout: elk
-  elk:
-    nodePlacementStrategy: NETWORK_SIMPLEX
-    considerModelOrder: NODES_AND_EDGES
-  flowchart:
-    curve: linear
-    padding: 25
----
-flowchart LR
-    accTitle: Data package C#-peer seam registry
-    accDescr: Data sub-domain owners exchanging frame shapes, content keys, plan wires, and the environmental set with the Rasm.Compute, Persistence, Materials, and Bim C# peers.
-    subgraph data[DATA]
-        Tabular[Tabular interchange]
-        Query[Query engine]
-        Geospatial[Geospatial claims]
-        Virtual[Manifest cube]
-        Impact[Material impact]
-    end
-    Persistence[(Rasm.Persistence)]
-    Compute([Rasm.Compute])
-    Materials([Rasm.Materials])
-    Bim([Rasm.Bim])
-    Compute e1@-->|"[SHAPE]: DoeDataset"| Tabular
-    Geospatial e2@-->|"[SHAPE]: GeoArrow"| Compute
-    Tabular e3@-->|"[CONTENT_KEY]: ContentKey"| Persistence
-    Query e4@<-->|"[WIRE]: SubstraitPlan"| Persistence
-    Virtual e5@-->|"[CONTENT_KEY]: ContentKey"| Persistence
-    Impact e6@<-->|"[CONTENT_KEY]: ContentKey"| Persistence
-    Impact e7@-->|"[WIRE]: Assessment"| Materials
-    Bim e8@<-->|"[WIRE]: GeoFeatureWkb"| Geospatial
-    Persistence e9@-->|"[WIRE]: FlightTicket"| Query
-```
-
-Three fences partition by peer: the Python host runtime carries the in-process content, transport, receipt, and thread-boundary contracts; the Python domain siblings carry the wire and frame-shape contracts; and the C# peers carry the cross-runtime wire, durable content keys, and the environmental set. Each collapsed edge stands for every contract at that kind between the two owners, and the owning pages enumerate the rest. `GeoFeatureWkb` spells from its Rasm.Bim owner; the crossing carries raw WKB — `GeoDataFrame.to_wkb` outbound, `ST_GeomFromWKB` on admission — and no data-interior type re-mints the label.
-
-An intra-`data` relation is composition, never a seam; `[03]-[INTERNAL]` renders the acyclic import DAG this registry excludes.
-
-Every `[CONTENT_KEY]` edge derives one typed identity through the runtime `ContentIdentity` primitive over the public `arrow_bytes` fold, never a per-page hash, and each crossing agrees with its counterpart page verbatim. A single-sided edge is declared on the producing side and binds its counterpart when that page lands its mirror row.
-
-## [03]-[INTERNAL]
-
-- S0 `tabular` — interop and columnar form the floor; contract, profile, query, lakehouse, and egress own independent branches; materialize closes the operational apex and folds every hook point through one scope-keyed registration rail; cost closes the evidence apex by folding sibling receipt families into the priced frame.
-- S1 `gridded` + `impact` — gridded rides the interop carrier (`ArrowCStream`) for its ragged Arrow bridge, and its virtual owner mints the field owner's `FieldReceipt` family downward inside the folder; the tensor `PlanReceipt` lowering crosses into the tabular cost ledger as wire data, never an import; impact composes the contract, profile, interop, and columnar rows (`FrameAdmission`, `QualityProfile`, `FrameInterop`, `arrow_bytes`).
-- S1 `graph` — import-isolated: composes runtime alone, and its `GraphResult.frame` node table crosses into columnar as wire data over the pyarrow left-outer join, never an import.
-- S2 `spatial` — the apex consumer: composes columnar (`QueryReceipt`), the object egress (`ObjectEgress`/`StoreOp`), and gridded's virtual plane (`FieldVirtual`, `VirtualReference`).
-
-```mermaid
----
-config:
-  layout: elk
-  elk:
-    nodePlacementStrategy: NETWORK_SIMPLEX
-    considerModelOrder: NODES_AND_EDGES
   flowchart:
     curve: linear
     padding: 25
@@ -225,3 +95,127 @@ flowchart TB
     Spatial ~~~ Graph
     Interop f1@-->|"forbidden: upward import"| D2
 ```
+
+- S0 `tabular` — `interop` and `columnar` form the floor; `contract`, `profile`, `query`, `lakehouse`, and `egress` own independent branches.
+- S0 `materialize` closes the operational apex, folding every hook point through one scope-keyed registration rail.
+- S0 `cost` closes the evidence apex, folding sibling receipt families into the priced frame.
+- S1 `gridded` + `impact` — both compose the tabular floor alone; the fence carries impact's floor imports.
+- S1 `gridded` rides the interop `ArrowCStream` carrier for its ragged Arrow bridge; `virtual` mints the field `FieldReceipt` family in-folder.
+- S1 tensor `PlanReceipt` lowering crosses into the tabular cost ledger as wire data, never an import.
+- S1 `graph` — import-isolated, composing runtime alone; its `GraphResult.frame` node table crosses into columnar as wire data, never an import.
+- S2 `spatial` — apex consumer composing columnar, the object egress (`ObjectEgress`/`StoreOp`), and the gridded virtual plane (`VirtualReference`).
+
+## [03]-[SEAMS]
+
+```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
+flowchart LR
+    accTitle: Data package Python host-runtime seam registry
+    accDescr: Data sub-domain owners exchanging content identity, transport, receipts, and thread boundaries with the Python host runtime sibling.
+    subgraph data[DATA]
+        Tabular[Tabular interchange]
+        Egress[Object egress]
+        Query[Query engine]
+        Materialize[CDC materialize]
+        Catalog[STAC catalog]
+        Gridded[Gridded tensors]
+        Impact[Material impact]
+        Profile[Quality profile]
+        Geospatial[Geospatial claims]
+        Mesh[Mesh exchange]
+    end
+    Runtime{{python:runtime}}
+    Egress e1@-->|"[CONTENT_KEY]: ContentIdentity"| Runtime
+    Query e3@-->|"[RECEIPT]: QueryReceipt"| Runtime
+    Gridded e19@-->|"[RECEIPT]: TensorReceipt"| Runtime
+    Mesh e2@-->|"[CONTENT_KEY]: ContentIdentity"| Runtime
+    Runtime e4@-->|"[TRANSPORT]: ResourceRef"| Tabular
+    Runtime e20@-->|"[TRANSPORT]: ResourceRef"| Egress
+    Runtime e11@-->|"[BOUNDARY]: on_thread"| Query
+    Runtime e17@-->|"[BOUNDARY]: LanePolicy"| Materialize
+    Runtime e23@-->|"[TRANSPORT]: ResourceRef"| Catalog
+    Runtime e18@-->|"[BOUNDARY]: on_thread"| Catalog
+    Runtime e21@-->|"[TRANSPORT]: ResourceRef"| Gridded
+    Runtime e5@-->|"[TRANSPORT]: TransportResource"| Impact
+    Runtime e24@-->|"[BOUNDARY]: on_thread"| Impact
+    Runtime e14@-->|"[BOUNDARY]: on_thread"| Profile
+    Runtime e12@-->|"[BOUNDARY]: on_thread"| Geospatial
+    Runtime e22@-->|"[TRANSPORT]: ResourceRef"| Mesh
+    Runtime e13@-->|"[BOUNDARY]: on_thread"| Mesh
+```
+
+```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
+flowchart LR
+    accTitle: Data package Python domain-peer seam registry
+    accDescr: Data sub-domain owners exchanging wires, frame shapes, and mesh boundaries with the Python artifacts, geometry, and compute siblings.
+    subgraph data[DATA]
+        Tabular[Tabular interchange]
+        Profile[Quality profile]
+        Cost[Cost ledger]
+        Geospatial[Geospatial claims]
+        Mesh[Mesh exchange]
+    end
+    Artifacts{{python:artifacts}}
+    Geometry{{python:geometry}}
+    Compute([python:compute])
+    Artifacts e6@-->|"[WIRE]: CorpusRow"| Tabular
+    Profile e7@-->|"[SHAPE]: QualityProfile"| Artifacts
+    Cost e25@-->|"[SHAPE]: CostFrame"| Artifacts
+    Artifacts e8@-->|"[WIRE]: GeoJSON"| Geospatial
+    Mesh e9@-->|"[SHAPE]: MeshPayload"| Geometry
+    Mesh e15@-->|"[SHAPE]: PointRecordTable"| Geometry
+    Geometry e16@-->|"[BOUNDARY]: Trimesh"| Mesh
+    Tabular e10@-->|"[SHAPE]: FrameAdmission"| Compute
+```
+
+```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
+flowchart LR
+    accTitle: Data package C#-peer seam registry
+    accDescr: Data sub-domain owners exchanging frame shapes, content keys, plan wires, and the environmental set with the C# peers.
+    subgraph data[DATA]
+        Tabular[Tabular interchange]
+        Query[Query engine]
+        Geospatial[Geospatial claims]
+        Virtual[Manifest cube]
+        Impact[Material impact]
+    end
+    Persistence[(Rasm.Persistence)]
+    Compute([Rasm.Compute])
+    Materials([Rasm.Materials])
+    Bim([Rasm.Bim])
+    Compute e1@-->|"[SHAPE]: DoeDataset"| Tabular
+    Geospatial e2@-->|"[SHAPE]: GeoArrow"| Compute
+    Tabular e3@-->|"[CONTENT_KEY]: ContentKey"| Persistence
+    Query e4@<-->|"[WIRE]: SubstraitPlan"| Persistence
+    Virtual e5@-->|"[CONTENT_KEY]: ContentKey"| Persistence
+    Impact e6@<-->|"[CONTENT_KEY]: ContentKey"| Persistence
+    Impact e7@-->|"[WIRE]: Assessment"| Materials
+    Bim e8@<-->|"[WIRE]: GeoFeatureWkb"| Geospatial
+    Persistence e9@-->|"[WIRE]: FlightTicket"| Query
+```
+
+Fences split by peer plane — host runtime, Python siblings, C# peers. Each collapsed edge stands for every contract at that kind between the two owners, and the owning pages enumerate the rest. `GeoFeatureWkb` spells from its Rasm.Bim owner; the crossing carries raw WKB — `GeoDataFrame.to_wkb` outbound, `ST_GeomFromWKB` on admission — and no data-interior type re-mints the label.
+
+An intra-`data` relation is composition, never a seam; `[02]-[STRATA]` renders the acyclic import DAG this registry excludes.
+
+Every `[CONTENT_KEY]` edge derives one typed identity through the runtime `ContentIdentity` primitive over the public `arrow_bytes` fold, never a per-page hash, and each crossing agrees with its counterpart page verbatim. A single-sided edge is declared on the producing side and binds its counterpart when that page lands its mirror row.

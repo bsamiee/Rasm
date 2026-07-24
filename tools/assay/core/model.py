@@ -197,7 +197,7 @@ class Runner(StrEnum):
     DIRECT = "direct", ()
     UV = "uv", ("uv", "run")
     DOTNET = "dotnet", ("dotnet",)
-    PNPM = "pnpm", ("pnpm", "exec")
+    PNPM = "pnpm", ("pnpm", "--silent", "exec")  # --silent keeps the pnpm reporter off stdout, whose JSON belongs to the child tool
     INPROC = "inproc", ()
 
     def __new__(cls, value: str, prefix: tuple[str, ...]) -> Self:

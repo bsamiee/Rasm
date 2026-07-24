@@ -1,6 +1,6 @@
 # [RASM_ELEMENT_ARCHITECTURE]
 
-Domain map of `Rasm.Element` — the lowest AEC-DOMAIN seam between the `Rasm` kernel and the AEC peers `{Rasm.Materials, Rasm.Bim, Rasm.Fabrication}`. Each sub-domain folder maps to one folder-true namespace; every sub-domain composes the one `ElementGraph` and lowers onto the one `ElementFault` band, and the peers depend up on the `IElementProjection`/`IGraphConstraint` contracts, aligning by the content-keyed graph rather than by referencing each other.
+`Rasm.Element` is the lowest AEC-DOMAIN seam between the `Rasm` kernel and the AEC peers `{Rasm.Materials, Rasm.Bim, Rasm.Fabrication}`. Each sub-domain folder maps to one folder-true namespace; every sub-domain composes the one `ElementGraph` and lowers onto the one `ElementFault` band, and the peers depend up on the `IElementProjection`/`IGraphConstraint` contracts, aligning by the content-keyed graph rather than by referencing each other.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -40,11 +40,16 @@ Rasm.Element/             # refs ../Rasm ONLY; no GeometryGym; no host geometry 
 
 Interior is one strongly-connected component at folder grain — `Graph/Element` declares both the primitive `NodeId` every sibling keys and the aggregate `ElementGraph` that composes every sibling — so the ladder resolves member-first: five strata rank the owners, and each consumption edge points down.
 
-- S0 substrate — `ElementFault` and `FaultBand` (`Projection/Fault`), the `CanonicalWriter` canonical-bytes fold (`Projection/Address`), and the primitive `NodeId` (`Graph/Element`); every stratum rails and keys through these.
-- S1 vocabulary — `Classification` and `Discipline`, the `MeasureValue`/`Dimension` quantity signature, and the `GeoReference` georeference record.
-- S2 values — `PropertyValue` with `InheritanceMode`, `MaterialComposition` with `ProfileRef`, the `CoverageGrid` raster descriptor, and the `AssessmentPayload` receipt; each folds vocabulary into node payloads.
-- S3 graph — `ElementGraph`, `GraphDelta`, and the `Relationship` edge algebra composing every value family; `Relations` co-seats because objectified edges and the graph key each other mutually.
-- S4 contracts and codec — `IElementProjection` and `IGraphConstraint` name the graph aggregate in their signatures, and the `ContentAddress` codec folds graph headers, so the cross-stratum contract tier seats above the graph it projects; the `ElementHookRail` fact tap and its `GraphInstrument` projection seat here too, observing every lower stratum without entering one, and the `GraphForge` corpus mint seats beside them, realizing whole graphs through the S3 admission rail it consumes.
+- S0 substrate — `ElementFault` and `FaultBand` (`Projection/Fault`), the `CanonicalWriter` fold (`Projection/Address`), the primitive `NodeId`.
+- S0 reach — every stratum rails and keys through the substrate.
+- S1 vocabulary — `Classification` and `Discipline`, the `MeasureValue`/`Dimension` quantity signature, and the `GeoReference` record.
+- S2 values — `PropertyValue` with `InheritanceMode`, `MaterialComposition` with `ProfileRef`, `CoverageGrid`, `AssessmentPayload`.
+- S2 law — each value family folds vocabulary into node payloads.
+- S3 graph — `ElementGraph`, `GraphDelta`, and the `Relationship` edge algebra composing every value family.
+- S3 co-seat — `Relations`; objectified edges and the graph key each other mutually.
+- S4 contracts — `IElementProjection`, `IGraphConstraint`, and the `ContentAddress` codec seat above the graph they name and fold.
+- S4 observability — `ElementHookRail` and its `GraphInstrument` projection observe every lower stratum without entering one.
+- S4 corpus — `GraphForge` realizes whole graphs through the S3 admission rail it consumes.
 
 ```mermaid
 ---
@@ -57,7 +62,7 @@ config:
 flowchart TB
     accTitle: Rasm.Element interior strata
     accDescr: Five member-resolved strata from the projection contracts and content codec through the element graph and its value and vocabulary families onto the fault-and-key substrate, every consumption edge downward naming one sourced type, and one forbidden upward edge marked.
-    subgraph L4["S4 CONTRACTS"]
+    subgraph S4["S4 CONTRACTS"]
         IProjection[IElementProjection]
         IConstraint[IGraphConstraint]
         Address[ContentAddress]
@@ -65,22 +70,22 @@ flowchart TB
         Instrument[GraphInstrument]
         Forge[GraphForge]
     end
-    subgraph L3["S3 GRAPH"]
+    subgraph S3["S3 GRAPH"]
         ElementGraph[ElementGraph]
         Delta[GraphDelta]
         Relationship[Relationship]
     end
-    subgraph L2["S2 VALUES"]
+    subgraph S2["S2 VALUES"]
         Property[PropertyValue]
         Composition[MaterialComposition]
         Payload[AssessmentPayload]
     end
-    subgraph L1["S1 VOCABULARY"]
+    subgraph S1["S1 VOCABULARY"]
         Classification[Classification]
         Measure[MeasureValue]
         GeoReference[GeoReference]
     end
-    subgraph L0["S0 SUBSTRATE"]
+    subgraph S0["S0 SUBSTRATE"]
         Fault[ElementFault]
         Writer[CanonicalWriter]
         NodeId[NodeId]
@@ -103,7 +108,7 @@ flowchart TB
     Classification -->|"[IMPORT]: ElementFault"| Fault
     GeoReference -->|"[IMPORT]: ElementFault"| Fault
     Measure -->|"[IMPORT]: ElementFault"| Fault
-    Fault -->|"forbidden: substrate upward"| L4
+    Fault -->|"forbidden: substrate upward"| S4
 ```
 
 ## [03]-[SEAMS]
@@ -195,7 +200,8 @@ Each provider mints its own `Object` identity under the owner-mints-its-identity
 [CONTENT_KEY_IDIOM]:
 - Every lane derives its typed `UInt128` through the `Projection/address` seed-zero entry over the one `CanonicalWriter` projection.
 - Content space is shared with the kernel `GeometryHash` and the Python and TypeScript peers; a second hasher or non-zero seed is the named drift.
-- `Graph/wire` carries every content key verbatim; `Graph/corpus` supplies deterministic snapshot fingerprints, and its terminal research row owns the exact parity-pin route until literal addresses exist.
+- `Graph/wire` carries every content key verbatim; `Graph/corpus` supplies deterministic snapshot fingerprints.
+- `Graph/corpus` terminal research row owns the exact parity-pin route until literal addresses exist.
 - `GlbContentHash` is the wire spelling of the `RepresentationContentHash` `Body` entry crossing the python:geometry GLB seam.
 - Non-rooted `NodeId` is the self-hash of the node's own canonical bytes.
 - Rooted `Object` ids carry one regime with two `ObjectKind`-keyed seedings — Guid-v7 placement identity and the exclusion-seeded Type derivation.

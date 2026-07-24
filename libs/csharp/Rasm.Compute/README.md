@@ -106,10 +106,10 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `SharpGLTF.Ext.3DTiles` — 3D Tiles egress extension.
 - `SharpGLTF.Toolkit` — mesh-building toolkit.
 - `Alimer.Bindings.MeshOptimizer` — meshoptimizer simplification and cluster-LOD bindings.
-- `CloudNative.CloudEvents.Mqtt` — structured-mode CloudEvents MQTT binding decoding typed twin sensor envelopes; the capture lane accepts the result through its existing writer.
-- `MQTTnet` — MQTT v5 carrier beneath the admitted CloudEvents message decoder; subscription members remain catalog-blocked.
-- `NATS.Net` — NATS Core subscription seam for broker sensor ingest; `INatsClient.SubscribeAsync<byte[]>`, `NatsMsg.Data`, and `NatsHeaders` W3C lookup arm `BrokerChannels.Nats<T>` beside the MQTT adapter (folder-tier `api-nats` overlay).
-- `Apache.Arrow` — columnar-table construction seam projecting `DoeDataset`/`ChargebackDataset` into a self-describing `RecordBatch` for surrogate-training and billing egress; `RecordBatch.Builder`/`Schema.Builder`, the `PrimitiveArrayBuilder<T,…>` bulk-span appends, and per-lane `MemoryAllocator` arm `Runtime/codecs#ARROW_BATCH` (folder-tier `api-arrow` overlay; IPC/ADBC/Flight egress stays the Persistence overlay's).
+- `CloudNative.CloudEvents.Mqtt` — structured-mode CloudEvents MQTT binding decoding typed twin sensor envelopes.
+- `MQTTnet` — MQTT v5 carrier beneath the admitted CloudEvents message decoder; subscription members stay catalog-blocked.
+- `NATS.Net` — NATS Core subscription seam for broker sensor ingest; the folder `api-nats` overlay carries the members.
+- `Apache.Arrow` — columnar `RecordBatch` construction for surrogate-training and billing egress; IPC/ADBC/Flight egress stays Persistence-side.
 - `Microsoft.IO.RecyclableMemoryStream` — pooled-buffer stream behind the artifact frames.
 - `Grpc.Net.Client.Web` — gRPC-Web handler for HTTP/1.1 and browser-constrained paths.
 - `Grpc.Net.Common` — shared compression and connectivity vocabulary beneath the gRPC rails.

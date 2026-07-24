@@ -1,64 +1,65 @@
 # [TS_DATA_API_CHOKIDAR]
 
-`chokidar` catalog-bound is the local filesystem watcher behind the `object/file` law that a watched directory is a `Stream` of admission events: `watch(paths, options)` mints an `FSWatcher` (a typed `EventEmitter<FSWatcherEventMap>`) whose event rows — `add`/`addDir`/`change`/`unlink`/`unlinkDir` with `(path, stats?)`, the aggregate `all` with `(event, path, stats?)`, `ready`, `raw`, `error` — fold into one admission stream. Glob support is gone by design: `paths` are literal (`string | string[]`), and filtering is the `ignored` matcher algebra — exact-path string, `RegExp`, predicate function, or `{ path, recursive? }` object — so selection is predicate rows, never glob strings. The intake-correctness levers are options, not code: `awaitWriteFinish` (`{ stabilityThreshold, pollInterval }`) holds `add`/`change` until a file's size settles so a half-written file is never digested, `atomic` absorbs editor rename-swap artifacts, `depth` bounds recursion, and `usePolling`/`interval`/`binaryInterval` are the network-FS degrade row. `close()` returns a Promise, strips all listeners synchronously, and MUST be awaited — it is the release arm of the scoped bracket. This is the local half of the watch strategy row; the remote halves (SSH exec-push, SFTP/DAV/FTP poll) live on the remote-origin rows.
+`chokidar` mints an `FSWatcher`, a typed `EventEmitter<FSWatcherEventMap>` folding a watched tree into one admission stream whose `all` listener carries every `(event, path, stats?)` row; selection is the `ignored` predicate algebra over literal paths, never globs, `awaitWriteFinish` settles half-written files before intake, and `close()` is the awaited release arm. It is the local watch row of `object/file` — SSH, DAV, and FTP origins own the remote halves.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `chokidar`
 - package: `chokidar` (MIT)
-- module format: ESM only (`type: module`); single runtime dependency (`readdirp`); node only
-- exports: `watch` (factory), `FSWatcher` (class) — named exports; the default export bags both
-- rail: local watch row (`object/file`); the local half of the watch strategy row
+- module: ESM only (`type: module`); named `watch` (factory) + `FSWatcher` (class), default export bags both
+- runtime: node only; one dependency `readdirp`
+- rail: local watch row (`object/file`)
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the watcher, its event map, and the matcher algebra
-- rail: boundaries
-- `FSWatcher extends EventEmitter<FSWatcherEventMap>` carries `add`/`unwatch`/`close`/`getWatched`; the events fire `(path, stats?)`, and the `ignored` matcher algebra is `string` (exact path) / `RegExp` / predicate / `{ path, recursive? }`.
+[PUBLIC_TYPE_SCOPE]: the watcher, its typed event map, and the `ignored` matcher algebra where a string is an exact path, never a glob
 
-| [INDEX] | [SYMBOL]                                                    | [TYPE_FAMILY]   | [CONSUMER]                                               |
-| :-----: | :---------------------------------------------------------- | :-------------- | :------------------------------------------------------- |
-|  [01]   | `FSWatcher`                                                 | watcher         | scoped resource; `add`/`unwatch` chainable mutations     |
-|  [02]   | events `add` / `addDir` / `change` / `unlink` / `unlinkDir` | event rows      | admission vocabulary; `stats` present under `alwaysStat` |
-|  [03]   | event `all` — `(event, path, stats?)`                       | aggregate       | the one-listener fold, not five registrations            |
-|  [04]   | events `ready` / `error` / `raw`                            | lifecycle       | census barrier, fault row, opaque backend tap            |
-|  [05]   | `ignored: Matcher \| Matcher[]`                             | matcher algebra | predicate rows; a string is equality, NOT a glob         |
-|  [06]   | `getWatched(): Record<string, string[]>`                    | census          | the dir → entries snapshot for reconciliation            |
+| [INDEX] | [SYMBOL]                                             | [TYPE_FAMILY] | [CAPABILITY]                                             |
+| :-----: | :--------------------------------------------------- | :------------ | :------------------------------------------------------- |
+|  [01]   | `FSWatcher`                                          | class         | scoped resource; `add`/`unwatch` return `this`           |
+|  [02]   | `add` / `addDir` / `change` / `unlink` / `unlinkDir` | event rows    | `(path, stats?)`; `stats` rides under `alwaysStat`       |
+|  [03]   | `all` — `(event, path, stats?)`                      | aggregate     | the one-listener fold over every event                   |
+|  [04]   | `ready` / `error` / `raw`                            | lifecycle     | census barrier, fault row, opaque backend tap            |
+|  [05]   | `ignored: Matcher \| Matcher[]`                      | union         | `string` / `RegExp` / predicate / `{ path, recursive? }` |
+|  [06]   | `getWatched(): Record<string, string[]>`             | census        | the dir → entries snapshot for reconciliation            |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: watch lifecycle and the option levers
-- rail: boundaries
-- `watch(paths, options?)` acquires and `watcher.close()` releases; the rows below `[03]`+ are `options` levers, each carrying its default.
+[ENTRYPOINT_SCOPE]: the watch acquire/release bracket
 
-| [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY] | [CONSUMER]                                               |
-| :-----: | :------------------------------------------------------ | :------------- | :------------------------------------------------------- |
-|  [01]   | `watch(paths: string \| string[], options?): FSWatcher` | acquire        | literal paths only; the acquireRelease acquire arm       |
-|  [02]   | `watcher.close(): Promise<void>`                        | release        | awaited release; listeners strip synchronously           |
-|  [03]   | `ignoreInitial`                                         | census policy  | default `false` replays the tree as `add` before `ready` |
-|  [04]   | `awaitWriteFinish`                                      | settle guard   | `{ stabilityThreshold: 2000, pollInterval: 100 }`        |
-|  [05]   | `atomic`                                                | rename guard   | on off-polling, delay `100`; absorbs editor rename-swap  |
-|  [06]   | `usePolling` / `interval` / `binaryInterval`            | degrade row    | `100`/`300`; network-FS row where native events lie      |
-|  [07]   | `depth` / `cwd`                                         | scope levers   | recursion bound; cwd-relative path emission              |
-|  [08]   | `followSymlinks` (`true`) / `alwaysStat`                | scope levers   | link-follow policy; force `stats` on every event         |
-|  [09]   | `ignorePermissionErrors` / `persistent` (`true`)        | scope levers   | skip EACCES entries; keep the process alive              |
+| [INDEX] | [SURFACE]                             | [SHAPE]  | [CAPABILITY]                                                |
+| :-----: | :------------------------------------ | :------- | :---------------------------------------------------------- |
+|  [01]   | `watch(paths, options?) -> FSWatcher` | factory  | acquire arm; `paths` literal `string \| string[]`, no globs |
+|  [02]   | `watcher.close() -> Promise<void>`    | instance | awaited release arm; removes every listener                 |
+
+[OPTION_LEVERS]: intake-correctness knobs on `ChokidarOptions`, each carrying its default
+
+| [INDEX] | [OPTION]                                     | [CAPABILITY]                                                                      |
+| :-----: | :------------------------------------------- | :-------------------------------------------------------------------------------- |
+|  [01]   | `ignoreInitial`                              | default `false` replays the tree as `add` before `ready`                          |
+|  [02]   | `awaitWriteFinish`                           | settles `add`/`change` writes — `{ stabilityThreshold: 2000, pollInterval: 100 }` |
+|  [03]   | `atomic`                                     | off-polling delay `100`; absorbs editor rename-swap artifacts                     |
+|  [04]   | `usePolling` / `interval` / `binaryInterval` | `100` / `300` network-FS degrade row where native events lie                      |
+|  [05]   | `depth` / `cwd`                              | recursion bound; cwd-relative path emission                                       |
+|  [06]   | `followSymlinks` / `alwaysStat`              | link-follow (default `true`); force `stats` on every event                        |
+|  [07]   | `ignorePermissionErrors` / `persistent`      | skip EACCES entries; keep the process alive (default `true`)                      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[STACKS_WITH]:
-- `effect` (`libs/typescript/.api/effect.md`): the watcher acquires under `Effect.acquireRelease(watch(...), (w) => Effect.promise(() => w.close()))`; the `all` listener lifts through `Stream.asyncPush` into one typed admission stream; `error` joins the failure channel; `ready` resolves the initial-census barrier the intake fold gates on.
-- `object/file` intake: an `add`/`change` row (post `awaitWriteFinish` settle) feeds the content-addressed intake fold — stream, digest, conditional put; the watcher supplies admission events, never bytes.
-- `ssh2` / `webdav` / `basic-ftp` (`.api/ssh2.md`, `.api/webdav.md`, `.api/basic-ftp.md`): the remote halves of the watch strategy row — exec-push where the host carries a notify tool, `Schedule`-driven poll diffs elsewhere; the strategy row dispatches on origin kind, and this package is only ever the `file:` arm.
-- `@effect/platform` `FileSystem` (`libs/typescript/.api/effect-platform.md`): stat/read follow-ups on an admission event ride the platform capability, not `node:fs` beside the watcher.
+[STACKING]:
+- `effect` (`libs/typescript/.api/effect.md`): the watcher acquires under `Effect.acquireRelease(watch(...), (w) => Effect.promise(() => w.close()))`; the `all` listener lifts through `Stream.asyncPush` into one typed admission stream, `error` joins the failure channel, and `ready` resolves the initial-census barrier.
+- `object/file` intake: an `add`/`change` row post-settle feeds the content-addressed fold — stream, digest, conditional put; the watcher supplies admission events, never bytes.
+- `ssh2` / `webdav` / `basic-ftp` (`.api/ssh2.md`, `.api/webdav.md`, `.api/basic-ftp.md`): the remote halves of the watch strategy — exec-push where the host carries a notify tool, `Schedule`-driven poll diffs elsewhere; the strategy row dispatches on origin kind and this package is the `file:` arm.
+- `@effect/platform` `FileSystem` (`libs/typescript/.api/effect-platform.md`): stat and read follow-ups on an admission event ride the platform capability, not `node:fs` beside the watcher.
 
 [LOCAL_ADMISSION]:
-- Always await `close()` inside the release arm; an unawaited close leaks native handles across the scope boundary.
+- Await `close()` inside the release arm; an unawaited close leaks native handles across the scope boundary.
 - Gate intake on `awaitWriteFinish` for any directory receiving whole-file writes; digesting an unsettled file is the named defect.
-- Express selection as `ignored` predicate rows; a glob string is dead syntax — it matches nothing but its literal self.
-- Choose `usePolling` as a per-origin config row for network mounts and containers; never as a global default.
+- Express selection as `ignored` predicate rows; a glob string matches nothing but its literal self.
+- Configure `usePolling` per-origin for network mounts and containers, never as a global default.
 
 [RAIL_LAW]:
 - Package: `chokidar`
-- Owns: local filesystem watching — the `FSWatcher` lifecycle, the typed event map, the matcher algebra, write-settle/atomic guards, polling degrade, initial-census replay
+- Owns: local filesystem watching — the `FSWatcher` lifecycle, the typed event map, the matcher algebra, write-settle and atomic guards, polling degrade, initial-census replay
 - Accept: scoped `watch`/awaited-`close` brackets, one `all`-listener lift into a typed admission stream, `ignoreInitial: false` + `ready` as the census barrier, predicate `ignored` rows, per-origin polling config
-- Reject: glob strings anywhere in paths or matchers, unawaited `close()`, raw multi-listener consumption where the `all` fold suffices, intake without a settle guard, a remote origin forced through this local row
+- Reject: glob strings in paths or matchers, unawaited `close()`, raw multi-listener consumption where the `all` fold suffices, intake without a settle guard, a remote origin forced through this local row

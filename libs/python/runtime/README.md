@@ -8,8 +8,8 @@ One polymorphic owner per sub-domain mints the shared value shapes once, and eve
 
 [OBSERVABILITY]:
 - [01]-[RECEIPTS](.planning/observability/receipts.md): Receipt union, drain taxonomy, cost evidence, and contributor-fold port.
-- [02]-[LOGGING](.planning/observability/logging.md): Structlog pipeline, stdout ship law, and the log-ship policy.
-- [03]-[METRICS](.planning/observability/metrics.md): One `MeterProvider`'s instruments, the record mapping, and the instrumentor train.
+- [02]-[LOGGING](.planning/observability/logging.md): `LogPipeline` shared structlog chain and the `LogShip` stdout ship policy.
+- [03]-[METRICS](.planning/observability/metrics.md): `Metrics` instrument spine — the `INSTRUMENTS` table, record mapping, and instrumentor train.
 - [04]-[HOOKS](.planning/observability/hooks.md): Scoped hook registry with modality rows and telemetry taps.
 - [05]-[PROFILES](.planning/observability/profiles.md): Pyroscope push, benchmark receipts, and the offline-job envelope.
 - [06]-[TELEMETRY](.planning/observability/telemetry.md): Profile-gated OTLP install owner.
@@ -28,7 +28,7 @@ One polymorphic owner per sub-domain mints the shared value shapes once, and eve
 [EXECUTION]:
 - [14]-[ADMISSION](.planning/execution/admission.md): Runtime context, causal frames, and settings admission.
 - [15]-[LANES](.planning/execution/lanes.md): Lane-policy task groups and the stage-plan DAG.
-- [16]-[WORKERS](.planning/execution/workers.md): Worker fabric — kind family, kernel crossing, warm pools, remote/device/guest arms, the parented worker emitter, and supervision.
+- [16]-[WORKERS](.planning/execution/workers.md): Worker fabric — the closed kind family, kernel crossing, warm pools, and supervision.
 - [17]-[RECIPE](.planning/execution/recipe.md): Content-keyed recipe execution on the thread lane.
 
 [EVIDENCE]:
@@ -46,10 +46,10 @@ Domain libraries this folder admits directly; versions centralize in the one roo
 [SETTINGS_SECRETS]:
 - `pydantic-settings`
 - `keyring`
-- `google-cloud-secret-manager` — cloud secret-manager read arm behind settings admission.
+- `google-cloud-secret-manager` — GCP `SecretTier.cloud` read arm behind settings admission.
 - `google-crc32c` — secret-payload transport-integrity digest.
-- `hvac` — HashiCorp Vault read arm closing the `SecretTier.cloud` provider family beside the GCP arm.
-- `azure-keyvault-secrets` — Azure Key Vault read arm completing the `SecretTier.cloud` provider family beside the GCP and Vault arms.
+- `hvac` — HashiCorp Vault `SecretTier.cloud` read arm.
+- `azure-keyvault-secrets` — Azure Key Vault `SecretTier.cloud` read arm.
 
 [TRANSPORT]:
 - `httpx`
@@ -63,7 +63,7 @@ Domain libraries this folder admits directly; versions centralize in the one roo
 [OBSERVABILITY]:
 - `opentelemetry-exporter-otlp-proto-grpc` — daemon-selectable OTLP gRPC egress row; proto-http stays the estate default.
 - `opentelemetry-instrumentation-asyncio` — coroutine and `to_thread` context propagation on the train.
-- `opentelemetry-instrumentation-dbapi` — generic PEP-249 wrap seam giving duckdb and ADBC DBAPI drivers db-semconv spans without a dedicated instrumentor.
+- `opentelemetry-instrumentation-dbapi` — PEP-249 wrap seam: db-semconv spans for duckdb and ADBC drivers without a dedicated instrumentor.
 - `opentelemetry-instrumentation-httpx` — client spans on the httpx transport legs.
 - `opentelemetry-instrumentation-jinja2` — template render, compile, and load spans on the train.
 - `opentelemetry-instrumentation-psycopg` — psycopg DBAPI spans the data query surfaces ride.

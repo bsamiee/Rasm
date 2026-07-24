@@ -1,59 +1,66 @@
 # [TS_DATA_API_DUCKDB_NODE_API]
 
-`@duckdb/node-api` (the "Neo" bindings) is the official promise-native DuckDB binding — vectorized in-process analytics with lossless type support, streaming result readers, and prepared-statement binds. It is a raw promise API — the OLAP lane wraps instance/connection lifecycle in `Effect.acquireRelease` under `Scope` and lifts every call through `Effect.tryPromise`. It reads Parquet/CSV/JSON/Arrow zero-copy, range-reads object storage through `httpfs`, `ATTACH`es Postgres/SQLite, and speaks DuckLake/Iceberg/Delta through extensions — the single-node analytical row of the lane.
+`@duckdb/node-api` binds the embedded DuckDB engine in-process over a promise-native surface — vectorized OLAP with lossless typing, streaming result readers, and prepared binds — the single-node analytical row of the `data` lane. It reads Parquet, CSV, JSON, and Arrow zero-copy, range-reads object storage, and `ATTACH`es Postgres or SQLite through extension SQL; past its single-writer embedded ceiling the workload moves to the ClickHouse row.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@duckdb/node-api`
 - package: `@duckdb/node-api` (MIT)
-- backing: `@duckdb/node-bindings` (N-API native, prebuilt platform binaries)
-- runtime: `runtime:node`/bun services and CLI; the browser row is `@duckdb/duckdb-wasm` (`.api/duckdb-duckdb-wasm.md`)
-- rail: `lane/olap` embedded node row — no Effect peer; boundary-kernel wrap is the lane's
+- module: ESM/CJS; native engine via `@duckdb/node-bindings` (N-API, prebuilt platform binaries)
+- runtime: `runtime:node`/bun services and CLI
+- rail: `lane/olap` embedded node row — no Effect peer; the boundary kernel wraps it
 
 ## [02]-[PUBLIC_TYPES]
 
-Result types name their producing call: `DuckDBResult` from `run`/`stream`, `DuckDBResultReader` from `runAndReadAll`/`streamAndRead*`, prepared statement from `connection.prepare`.
+[PUBLIC_TYPE_SCOPE]: result, session, bind, and cell types, each named by its producing call
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]  | [CONSUMER]                                                    |
-| :-----: | :------------------- | :------------- | :------------------------------------------------------------ |
-|  [01]   | `DuckDBInstance`     | engine handle  | one per database file (or `:memory:`); single-writer ACID WAL |
-|  [02]   | `DuckDBConnection`   | session handle | per-fiber-tree leased session; runs statements                |
-|  [03]   | `DuckDBResult`       | result surface | streaming result; `yieldRowObjects()` async batch iterator    |
-|  [04]   | `DuckDBResultReader` | result surface | `getRows()` / `getColumns()` / `getRowObjects()` projections  |
-|  [05]   | prepared statement   | bind surface   | `bind(values, types?)` then `run`/`stream` mirrors            |
-|  [06]   | `DuckDBValue`        | cell union     | typed bind and result cell; crosses the lane kernel cast-free |
+`run` returns `DuckDBMaterializedResult`, `stream` a lazy `DuckDBResult`; the `*AndRead*` family returns `DuckDBResultReader`, `prepare` a `DuckDBPreparedStatement`.
+
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]  | [CAPABILITY]                                            |
+| :-----: | :------------------------ | :------------- | :------------------------------------------------------ |
+|  [01]   | `DuckDBInstance`          | engine handle  | one database file or `:memory:`; single-writer ACID WAL |
+|  [02]   | `DuckDBConnection`        | session handle | leased session running statements                       |
+|  [03]   | `DuckDBResult`            | result surface | lazy stream; `yieldRowObjects()` async batch iterator   |
+|  [04]   | `DuckDBResultReader`      | result surface | materialized `getRows`/`getColumns`/`getRowObjects`     |
+|  [05]   | `DuckDBPreparedStatement` | bind surface   | `bind(values, types?)` then run/stream mirrors          |
+|  [06]   | `DuckDBValue`             | cell union     | typed bind/result cell crossing the kernel cast-free    |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: scoped acquire, execute, stream, and extension SQL
-- rail: lane/olap
-- Every execute/read is a `connection` member; `instance.closeSync()` and `connection.disconnectSync()` (alias `closeSync()`) are the release arms. Extension SQL admits `httpfs`/`postgres`/`sqlite`/`ducklake`/`iceberg`/`delta`/`spatial`/`vss`/`fts`.
+[ENTRYPOINT_SCOPE]: scoped acquire, execute, stream, and prepared binds
 
-| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY] | [CONSUMER]                                             |
-| :-----: | :------------------------------------------------------------ | :------------- | :----------------------------------------------------- |
-|  [01]   | `DuckDBInstance.create(path, config?)`                        | engine acquire | `":memory:"` or file path, `{ threads }`; acquire arm  |
-|  [02]   | `instance.connect()` → `DuckDBConnection`                     | session lease  | scoped connection per analytical unit of work          |
-|  [03]   | `run(sql, values?, types?)`                                   | execute        | DDL/DML to completion                                  |
-|  [04]   | `runAndReadAll(sql, values?, types?)`                         | materialize    | bounded result sets → reader                           |
-|  [05]   | `streamAndReadUntil` / `streamAndReadAll` / `runAndReadUntil` | stream read    | incremental readers to `targetRowCount`; `Stream` lift |
-|  [06]   | `stream(sql, values?, types?)` → `DuckDBResult`               | native stream  | chunk-lazy result; `yieldRowObjects()` no re-buffer    |
-|  [07]   | `prepare(sql)` → `prepared.bind(values, types?)`              | prepared       | repeated parameterized analytics; `.run()`/`.stream()` |
-|  [08]   | `quotedString(input)` / `quotedIdentifier(input)`             | SQL mint       | injection-safe splice for ATTACH/INSTALL mints         |
-|  [09]   | `ATTACH` / `INSTALL` / `LOAD` as SQL                          | extension SQL  | capability admission is a statement, never an API      |
+`connection` owns every execute and read; the read family is `{run,stream}AndRead{All,Until}` returning `DuckDBResultReader`. Release arms are `instance.closeSync()` and `connection.disconnectSync()` (alias `closeSync()`).
+
+| [INDEX] | [SURFACE]                                   | [SHAPE]  | [CAPABILITY]                             |
+| :-----: | :------------------------------------------ | :------- | :--------------------------------------- |
+|  [01]   | `DuckDBInstance.create(string?, Record?)`   | static   | engine acquire; `:memory:` or file path  |
+|  [02]   | `instance.connect() -> DuckDBConnection`    | instance | scoped session lease per unit of work    |
+|  [03]   | `connection.run(sql, values?, types?)`      | instance | DDL/DML to completion, materialized      |
+|  [04]   | `connection.runAndReadAll(sql, values?)`    | instance | bounded set to a reader                  |
+|  [05]   | `connection.streamAndReadUntil(sql, count)` | instance | incremental reader to `targetRowCount`   |
+|  [06]   | `connection.stream(sql, values?, types?)`   | instance | chunk-lazy `DuckDBResult`; no re-buffer  |
+|  [07]   | `connection.prepare(sql)`                   | instance | `DuckDBPreparedStatement`; bind then run |
+|  [08]   | `quotedString(input)`                       | static   | injection-safe string literal splice     |
+|  [09]   | `quotedIdentifier(input)`                   | static   | injection-safe identifier splice         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[INTEGRATION_LAW]:
-- Boundary-kernel wrap: every promise lifts through `Effect.tryPromise` with a typed lane fault; instance and connection ride `Effect.acquireRelease` under `Scope`; readers lift to `Stream` at the lane seam.
-- Arrow is the wire (`.api/apache-arrow.md`): result IPC egress folds through `tableFromIPC`/`Olap.wire.decode` and outbound through `tableToIPC`/`Olap.wire.encode`; interchange with the wasm row, the viewer, and ClickHouse rides Arrow IPC — never row-materialized re-encoding.
-- Storage law: single-file ACID, single concurrent writer, out-of-core spill — the embedded ceiling; past it the workload moves to the ClickHouse row, never to a second embedded instance fleet.
+[TOPOLOGY]:
+- Every promise lifts through `Effect.tryPromise` into a typed lane fault; instance and connection ride `Effect.acquireRelease` under `Scope`; readers lift to `Stream` at the lane seam.
+- Single-file ACID, one concurrent writer, out-of-core spill is the embedded ceiling; past it the workload moves to the ClickHouse row, never a second embedded instance fleet.
+
+[STACKING]:
+- `apache-arrow`(`.api/apache-arrow.md`): result IPC egress folds through `tableFromIPC`/`Olap.wire.decode`, outbound through `tableToIPC`/`Olap.wire.encode`; every engine seam meets on Arrow IPC, never row-materialized re-encoding.
+- `@duckdb/duckdb-wasm`(`.api/duckdb-duckdb-wasm.md`): the browser peer of this node row, sharing the Arrow wire and the `INSTALL`/`LOAD` extension model.
+- `@effect/sql-clickhouse`(`.api/effect-sql-clickhouse.md`): the at-scale OLAP row this engine hands off to past the embedded ceiling, joined on the same Arrow IPC wire.
+- `lane/olap`: its kernel wraps `create`/`connect` in `Effect.acquireRelease` and lifts every `run`/`stream`/`prepare` call through `Effect.tryPromise`, the boundary rail this raw promise API never carries.
 
 [LOCAL_ADMISSION]:
-- Engines here are analytical accelerators, never a record of truth; journal facts flow in, verdicts flow out.
-- Extension load (`INSTALL`/`LOAD`) is grant-shaped — the lane records which extensions a deployment admits; a load failure refuses the capability, never crashes the lane.
+- Analytical accelerator, never a record of truth — journal facts in, verdicts out.
+- Admission crosses as SQL statements minted through `quotedString`/`quotedIdentifier`, never an API member: the lane records which extensions a deployment admits — `httpfs` `postgres` `sqlite` `ducklake` `iceberg` `delta` `spatial` `vss` `fts` — and a load failure refuses the capability, never crashes the lane.
 
 [RAIL_LAW]:
 - Package: `@duckdb/node-api`
 - Owns: the embedded single-node analytical engine — instance/connect lifecycle, run/read/stream/prepared execution, extension SQL admission
-- Accept: scoped acquire-release wrap, `tryPromise` lifts, Arrow interchange, `httpfs`/`ATTACH`/DuckLake as statements
-- Reject: the retired `duckdb` npm binding, OLAP-in-OLTP-transaction coupling, a second hand-rolled analytical client, unscoped instance leaks
+- Accept: scoped acquire-release wrap, `tryPromise` lifts, Arrow IPC interchange, `httpfs`/`ATTACH`/DuckLake as statements
+- Reject: the standalone `duckdb` callback binding, OLAP-in-OLTP transaction coupling, a second hand-rolled analytical client, unscoped instance leaks

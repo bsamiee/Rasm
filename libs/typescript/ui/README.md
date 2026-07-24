@@ -8,7 +8,7 @@ Its bar is one-truth rendering: every state fact binds through the one atom brid
 
 ## [01]-[ROUTER]
 
-- [01]-[SYSTEM](.planning/system/): One token authority dual-sunk to CSS and viewer linear space, one motion vocabulary, one atom binding, one hook fact rail, one vital evidence plane.
+- [01]-[SYSTEM](.planning/system/): Component floor — token authority dual-sunk to CSS and viewer linear space; motion, atom, hook, and vital owners.
 - [02]-[VIEW](.planning/view/): Dense surfaces instantiating the floor — forms, grid, overlay, and chart, each one owner where variation is rows.
 - [03]-[VIEWER](.planning/viewer/): Spatial tier — content-keyed residency behind the `GlbViewport` port and the one `GlobalId` selection plane.
 
@@ -72,15 +72,15 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `@visx/responsive`
 - `@visx/scale`
 - `@visx/shape`
-- `tus-js-client` — owns resumable upload transport
+- `tus-js-client`
 
 [TELEMETRY]:
-- `web-vitals` — supplies browser vital measurements
+- `web-vitals`
 
 [SPATIAL]:
 - `three`
 - `@types/three`
-- `three-mesh-bvh` — accelerates viewer spatial queries
+- `three-mesh-bvh`
 - `@google/model-viewer`
 - `maplibre-gl`
 - `@deck.gl/core`
@@ -89,9 +89,9 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `@deck.gl/mesh-layers`
 - `@deck.gl/extensions`
 - `@deck.gl/mapbox`
-- `@loaders.gl/3d-tiles` — decodes tiled spatial content
+- `@loaders.gl/3d-tiles`
 - `@loaders.gl/core` — owns the viewer loader registry
-- `@loaders.gl/las` — decodes point-cloud content
+- `@loaders.gl/las`
 - `@geoarrow/deck.gl-geoarrow`
 - `@turf/turf`
 - `@lume/kiwi`

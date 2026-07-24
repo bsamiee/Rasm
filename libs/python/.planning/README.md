@@ -1,14 +1,14 @@
 # [PYTHON_BRANCH]
 
-Python is the platform's offline evaluation and production half — host-free science, compute, data, geometry, and IFC capability across peer packages held to the cross-language density bar. `runtime` mints the shared value shapes; `data` moves every dataset the platform touches; `geometry` tessellates, verifies, and evaluates as an independent peer producer; `compute` graduates scientific evidence; `artifacts` lands publication-grade output — and every result crosses to C# as content-keyed wire data, requested and re-imported, never imported as code.
+Python is the platform's offline evaluation and production half — host-free science, compute, data, geometry, and IFC capability across peer packages held to the cross-language density bar. Every result crosses to C# as content-keyed wire data, requested and re-imported, never imported as code.
 
 One root `pyproject.toml` owns interpreter admission and dependency groups; this branch registry owns the substrate tiers every folder composes.
 
 ## [01]-[ROUTER]
 
 - [01]-[ARCHITECTURE](ARCHITECTURE.md): domain map, import strata, and the C# seam registry.
-- [02]-[IDEAS](IDEAS.md): cross-package idea concert.
-- [03]-[TASKLOG](TASKLOG.md): cross-package open work.
+- [02]-[IDEAS](IDEAS.md): cross-package idea pool at the unifying altitude.
+- [03]-[TASKLOG](TASKLOG.md): cross-package task cards at landing grain.
 - [04]-[RUNTIME](../runtime/README.md): shared-rail minting foundation.
 - [05]-[COMPUTE](../compute/README.md): scientific-evidence graduation.
 - [06]-[DATA](../data/README.md): dataset movement and interchange.
@@ -27,7 +27,7 @@ Every folder composes this cross-domain foundation. One root manifest owns versi
 
 [CONCURRENCY]:
 - `anyio` — Structured-concurrency surface: task groups, cancel scopes, offload arms, memory streams, portal bridge.
-- `trio` — Backend `anyio` runs on and the deterministic test kit (`MockClock`, `Sequencer`, `Instrument`); a runtime selection, never a code change.
+- `trio` — Backend `anyio` runs on and the deterministic test kit; a runtime selection, never a code change.
 - `cloudpickle` — Ships closures, lambdas, and module-local kernels across the worker process and subinterpreter seams stdlib pickle refuses.
 - `tblib` — Carries worker-side traceback frames across the pickle seam, so a crossed exception re-raises with its true origin.
 - `loky` — Owns the warm reusable crash-respawning process pool behind the worker fabric's `process` kind.
@@ -37,7 +37,7 @@ Every folder composes this cross-domain foundation. One root manifest owns versi
 - `structlog` — Processor-chain structured logging; the branch's in-process log face.
 - `opentelemetry-api` — Vendor-neutral tracer/meter/propagation surface; the only OTel import a library makes.
 - `opentelemetry-sdk` — Provider, `Resource`, processor, and reader wiring; composition roots alone touch it.
-- `opentelemetry-exporter-otlp-proto-http` — OTLP HTTP+protobuf egress; the estate default transport, its sidecar-only gRPC companion homing folder-local to `runtime`.
+- `opentelemetry-exporter-otlp-proto-http` — OTLP HTTP+protobuf egress; the estate default transport.
 - `psutil` — Whole-process accounting batched through one `Process.oneshot` collection.
 
 [NUMERIC_SUBSTRATE]:

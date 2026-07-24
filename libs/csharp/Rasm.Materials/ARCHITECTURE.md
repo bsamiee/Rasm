@@ -1,6 +1,6 @@
 # [MATERIALS_ARCHITECTURE]
 
-Domain map of `Rasm.Materials` — host-neutral AEC-domain projector onto the `Rasm.Element` seam. `Component`, `Appearance`, `Properties`, and `Projection` collapse to one owner per axis; the one `ComponentProjector : IElementProjection` lowers every owner into the shared `ElementGraph`. Its `Project` fold splits the `Substance` and Type-minting `Type` arms, mints the deterministic-rooted Type `Object` from canonical content, and authors the content-keyed `Material`/`Appearance` subgraph the seam `Assemble` fold merges. AEC peers depend up on `{Rasm, Rasm.Element}` and align by seam contract.
+`Rasm.Materials` is the host-neutral AEC-domain projector onto the `Rasm.Element` seam. `Component`, `Appearance`, `Properties`, and `Projection` collapse to one owner per axis; the one `ComponentProjector : IElementProjection` lowers every owner into the shared `ElementGraph`. Its `Project` fold splits the `Substance` and Type-minting `Type` arms, mints the deterministic-rooted Type `Object` from canonical content, and authors the content-keyed `Material`/`Appearance` subgraph the seam `Assemble` fold merges. AEC peers depend up on `{Rasm, Rasm.Element}` and align by seam contract.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -45,9 +45,12 @@ VividOrange grounds the structural section, capacity, and rebar data in-folder, 
 
 Three strata order the four sub-domains; `Component` and `Appearance` are true peers sharing only the seam `MaterialId`, so every consumption edge points down.
 
-- S0 `Component` + `Appearance` — peers consuming no sibling: `ComponentFamily`, `ComponentClass`, `QuantityRow`, and the `SectionCapacity` rail beside `MaterialGraph`, `MaterialLibrary`, `BsdfLobe`, and the `MaterialWire` mint; alignment between the pair travels the seam `MaterialId`, never an import.
-- S1 `Properties` — `MaterialPropertyCatalogue`, `SustainabilityCatalogue`, and `Published<T>` source rows; engineering dimensional mints pass through the S0 `QuantityRow`, and sustainability lowers basis-relative scalars straight to the seam factories.
-- S2 `Projection` — the one `ComponentProjector : IElementProjection` folding `Component`, `Properties`, and `Appearance` owners into `Fin<GraphDelta>`, beside the `MaterialsFact` signal tap, the benchmark corpus, and the analytics projection reading every lower owner; nothing composes it.
+- S0 `Component` — `ComponentFamily`, `ComponentClass`, `QuantityRow`, and the `SectionCapacity` rail, consuming no sibling.
+- S0 `Appearance` — `MaterialGraph`, `MaterialLibrary`, `BsdfLobe`, and the `MaterialWire` mint.
+- S1 `Properties` — `MaterialPropertyCatalogue`, `SustainabilityCatalogue`, and `Published<T>` source rows.
+- S1 flow — engineering dimensional mints pass through the S0 `QuantityRow`; sustainability lowers basis-relative scalars to the seam factories.
+- S2 `Projection` — the one `ComponentProjector : IElementProjection` folds `Component`, `Properties`, and `Appearance` into `Fin<GraphDelta>`.
+- S2 `Projection` — the `MaterialsFact` signal tap, benchmark corpus, and analytics projection read every lower owner; nothing composes S2.
 
 ```mermaid
 ---
@@ -60,14 +63,14 @@ config:
 flowchart TB
     accTitle: Rasm.Materials interior strata
     accDescr: Three stacked strata from the one component projector through the property catalogues onto the peer component and appearance owners, every consumption edge downward naming one sourced type, and one forbidden upward edge marked.
-    subgraph L2["S2 PROJECTION"]
+    subgraph S2["S2 PROJECTION"]
         Projector[ComponentProjector]
     end
-    subgraph L1["S1 PROPERTIES"]
+    subgraph S1["S1 PROPERTIES"]
         Catalogue[MaterialPropertyCatalogue]
         Sustainability[SustainabilityCatalogue]
     end
-    subgraph L0["S0 COMPONENT + APPEARANCE"]
+    subgraph S0["S0 COMPONENT + APPEARANCE"]
         Component[Component]
         QuantityRow[QuantityRow]
         Library[MaterialLibrary]
@@ -77,7 +80,7 @@ flowchart TB
     Projector e3@-->|"[IMPORT]: Component"| Component
     Projector e4@-->|"[IMPORT]: MaterialLibrary"| Library
     Catalogue e5@-->|"[IMPORT]: QuantityRow"| QuantityRow
-    Component f1@-->|"forbidden: owner upward"| L2
+    Component f1@-->|"forbidden: owner upward"| S2
 ```
 
 ## [03]-[SEAMS]
@@ -167,7 +170,8 @@ Canonical-collapse law the sub-domains share — one owner per axis, one entrypo
 - A model author mints Occurrence `Object`s and `Rasm.Bim` ingests `IfcElementType` into the same Type; the `Bake` inheritance is the seam's.
 - Model is host-neutral: no owner holds a host curve or transform; run and layout geometry lands in `Rasm.Generation` at the app root.
 - Composition over re-mint at every seam: Materials projects onto `Rasm.Element` and re-mints no seam type, color axis, unit owner, or dimension.
-- Color is the admitted perceptual owner consumed directly; units admit UnitsNet once at each owner's declared edge — the photometric boundary and the dimensional component, capacity, and property mints — and ride the seam `MeasureValue`.
+- Color is the admitted perceptual owner consumed directly.
+- Units admit UnitsNet once at each owner's declared edge — the photometric boundary and the dimensional mints — and ride the seam `MeasureValue`.
 - Only the documented author-kernel set — RGB-to-SPD, scene-referred tone-map, BSDF microfacet, noise, the capacity hull ray-cast — is hand-authored.
 - An out-of-gamut, non-finite, or degenerate result rails to its banded fault off the `FaultBand` registry, never a propagated NaN or sentinel.
 - Standards data is in-fence C# under `SEED_ROW_LAW`: a table is `REFLECTED`, `DELEGATED`, or `AUTHORED`.

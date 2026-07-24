@@ -1,19 +1,20 @@
 # [TS_CORE_API_EFFECT_TYPECLASS]
 
-[PACKAGE_SURFACE]:
+`@effect/typeclass` owns the standalone higher-kinded typeclass hierarchy `effect` core underexposes: the `Semigroup`/`Monoid`/`Bounded` merge algebra and the `Covariant`→`Applicative`→`Monad`→`Foldable`→`Traversable` lattice over `TypeLambda`. `state/merge` declares every CRDT/journal merge as one of these instances and asserts its laws over `tests/contracts`, so a new merge is a row on the algebra, never a hand-written combine.
+
+## [01]-[PACKAGE_SURFACE]
+
 - package: `@effect/typeclass` (MIT)
-- module: ESM + CJS (`dist/esm` / `dist/cjs`, `dist/dts` types); `sideEffects: []`. Per-typeclass subpaths (`./Semigroup`, `./Monoid`, `./Bounded`, …) plus per-datatype instance subpaths (`./data/Number`, `./data/Boolean`, `./data/Record`, …) and the flat `.` barrel that re-exports each as a namespace.
-- asset: `dist/dts/index.d.ts` (barrel re-exporting each typeclass and `data/` instance as a namespace).
-- runtime: pure type-level + tiny runtime; the surface is the higher-kinded `TypeLambda`/`Kind<F, R, O, E, A>` encoding — no addon, isomorphic (node/bun/browser/worker).
-- peer: `effect` (the `Order`/`Equivalence`/`Data`/`Duration` values `min`/`max`/instances are parameterized by); no runtime dependencies of its own.
-- plane: `plane:runtime` (W1); folder-local to `state`, catalogued here — the merge-law owner `state/merge` and the `@rasm/ts-testkit` law combinators (`tests/typescript/_testkit`) share.
+- module: ESM + CJS (`dist/esm`/`dist/cjs`, `dist/dts` types), `sideEffects: []`; per-typeclass subpaths (`./Semigroup`), per-`data/` instance subpaths (`./data/Number`), and the `.` barrel re-exporting each as a namespace.
+- asset: `dist/dts/index.d.ts` — barrel namespacing every typeclass and `data/` instance.
+- runtime: pure type-level over the `TypeLambda`/`Kind<F, R, O, E, A>` HKT encoding, isomorphic across node/bun/browser/worker; no addon.
+- peer: `effect` — the `Order`/`Equivalence`/`Data`/`Duration` values `min`/`max`/instances parameterize on; no runtime dependency of its own.
+- plane: `plane:runtime` (W1), folder-local to `state`; `state/merge` owns the merge law and `@rasm/ts-testkit` (`tests/typescript/_testkit`) the law combinators.
 - rail: algebraic-structure / convergence-law.
 
-`@effect/typeclass` is the standalone, complete higher-kinded typeclass hierarchy `effect` core does not fully expose: the full `Semigroup`/`Monoid`/`Bounded` algebra plus the `Covariant`→`Applicative`→`Monad`→`Foldable`→`Traversable` lattice over `TypeLambda`. In `state` it is the ONE thing that makes `state/merge` lawful: a CRDT merge is a `Semigroup<Op>` (an associative `combine`), a bounded merge is a `Monoid<Op>` (associative + identity), and the convergence-legal subset is the idempotent-commutative semilattice — `Semigroup.min(Order)` / `Semigroup.max(Order)` for join/meet, `Record.getSemigroupUnion` for grow-only maps. `state/merge` declares merges as these instances; `state/merge` asserts associativity/commutativity/idempotence as the typeclass laws over the `tests/contracts` corpus; `state/fold` applies the same instance through the d2ts `reduce` — the merge law and the reducer law are one law. Each instance composes structurally (`struct`/`tuple`/`array`), lifts through any functor (`SemiApplicative.getSemigroup`), and folds over any container (`Foldable.combineMap`), so growth is a row on the algebra, never a new hand-written merge.
+## [02]-[MERGE_LAW]
 
-## [01]-[MERGE_LAW]
-
-Three nested contracts are the whole merge substrate — `Semigroup` (associative combine), `Monoid` (adds identity + whole-collection fold), `Bounded` (adds an `Order` with bounds so a `Monoid` empty derives from `minBound`/`maxBound`). Every instance in [02] is one of these.
+Three nested contracts are the merge substrate; each instance in this catalog is one of them.
 
 | [INDEX] | [SYMBOL]                                      | [CONTRACT]                              | [MERGE_ROLE_BOUNDARY]                          |
 | :-----: | :-------------------------------------------- | :-------------------------------------- | :--------------------------------------------- |
@@ -22,11 +23,9 @@ Three nested contracts are the whole merge substrate — `Semigroup` (associativ
 |  [03]   | `Bounded<A>`                                  | `Order<A>` + `minBound` + `maxBound`    | semilattice bounds; derives `Monoid` `empty`   |
 |  [04]   | `SemigroupTypeLambda` / `Kind<F, R, O, E, A>` | HKT encoding                            | machinery the law combinators quantify over    |
 
-[SURFACES]: `Semigroup` `Monoid` `Bounded`
+## [03]-[INSTANCE_VOCABULARY]
 
-## [02]-[INSTANCE_VOCABULARY]
-
-Merge algebra is ONE parameterized pattern: constructors that build a `Semigroup`/`Monoid` from a policy, structural combinators that compose per-field instances, and the `data/*` named instances. Rows below are SEED DATA on the `Semigroup<A>`/`Monoid<A>` shape — a new merge is a new instance row (a new `Order`, a new `struct` field, a new `data/*` constant), never a new merge shape.
+Merge algebra is one parameterized pattern of static factories on the `Semigroup`/`Monoid` namespace: policy constructors, structural combinators, and `data/*` named instances — a new merge is a new row, never a new shape.
 
 | [INDEX] | [SURFACE]                                               | [PRODUCES]     | [MERGE_SEMANTICS]                                         |
 | :-----: | :------------------------------------------------------ | :------------- | :-------------------------------------------------------- |
@@ -41,22 +40,20 @@ Merge algebra is ONE parameterized pattern: constructors that build a `Semigroup
 |  [09]   | `Semigroup.intercalate(sep)`                            | derived        | concat with a separator between elements                  |
 |  [10]   | `Semigroup.imap(to, from)`                              | derived        | profunctor-mapped merge over a wrapper (encode/decode)    |
 
-`data/*` named instances — each a lawful `Semigroup`/`Monoid` leaf on the shape above; a new merge is a new entry, never a new shape:
-- [01]-[NUMBER]: `data/Number` `SemigroupSum`/`SemigroupMultiply`/`SemigroupMin`/`SemigroupMax` (+ `Monoid*`, `Bounded`) — counter (`Sum`) and lattice (`Min`/`Max`) merges; `Sum` is a commutative monoid, not idempotent.
-- [02]-[BOOLEAN]: `data/Boolean` `SemigroupEvery`/`SemigroupSome`/`SemigroupXor`/`SemigroupEqv` (+ `Monoid*`) — AND/OR idempotent flag lattices and XOR/EQV toggle monoids.
-- [03]-[RECORD]: `data/Record` `getSemigroupUnion`/`getSemigroupIntersection` (+ `getMonoidUnion`) — grow-only / observed map CRDT; per-value `Semigroup` merges collisions.
-- [04]-[OPTION_ARRAY]: `data/Option` `getOptionalMonoid(S)` · `data/Array` `getSemigroup`/`getMonoid` — `None` is `empty`, `Some`s merge via `S`; array concat monoid.
-- [05]-[SCALAR]: `data/String` · `data/BigInt` · `data/Duration` · `data/Ordering` · `data/Predicate` — string/bigint/duration sum-max-min lattices, `Ordering` tie-break monoid, predicate boolean lattices.
-- [06]-[EITHER]: `data/Either` `Covariant`/`Monad`/`SemiApplicative`/`Applicative`/`SemiCoproduct`/`SemiAlternative`/`Bicovariant`/`Foldable`/`Traversable` — the `Either` `F` the [03] combinators lift through; `Semigroup<Either<E, Op>>` via `getSemigroup(Either.SemiApplicative)`.
+`data/*` named instances — each a lawful `Semigroup`/`Monoid` leaf on the shape above:
+- [01]-[NUMBER]: `data/Number` `SemigroupSum`/`Multiply`/`Min`/`Max` (+ `MonoidSum`, `Bounded`) — counter (`Sum`, commutative not idempotent) and `Min`/`Max` lattice merges.
+- [02]-[BOOLEAN]: `data/Boolean` `SemigroupEvery`/`Some`/`Xor`/`Eqv` (+ `Monoid*`) — AND/OR idempotent flag lattices and XOR/EQV toggle monoids.
+- [03]-[RECORD]: `data/Record` `getSemigroupUnion`/`getSemigroupIntersection` (+ `getMonoidUnion`) — grow-only/observed map CRDT; per-value `Semigroup` merges collisions.
+- [04]-[OPTION_ARRAY]: `data/Option` `getOptionalMonoid(S)`, `data/Array` `getSemigroup`/`getMonoid` — `None` is `empty`, `Some`s merge via `S`; array concat monoid.
+- [05]-[SCALAR]: `data/String`, `data/BigInt`, `data/Duration`, `data/Ordering`, `data/Predicate` — sum/max/min lattices, `Ordering` tie-break monoid, predicate boolean lattices.
+- [06]-[EITHER]: `data/Either` `Covariant`/`Monad`/`SemiApplicative`/`Applicative`/`SemiCoproduct`/`SemiAlternative`/`Bicovariant`/`Foldable`/`Traversable` — the `F` the law combinators lift through; `Semigroup<Either<E, Op>>` via `getSemigroup(Either.SemiApplicative)`.
 - [07]-[IDENTITY]: `data/Identity` `Monad`/`Applicative`/`Foldable`/`Traversable` (+ `getSemiCoproduct(S)`/`getSemiAlternative(S)`) — the bare-value functor; lift/fold laws proven without a container.
-- [08]-[TUPLE]: `data/Tuple` `Bicovariant` — map both pair positions; the tuple projection under the [03] combinators.
-- [09]-[EFFECT_MICRO]: `data/Effect` · `data/Micro` `Covariant`/`Monad` + `getSemiProduct`/`getProduct`/`getSemiApplicative`/`getApplicative` (concurrency-parameterized) — the effectful lift; `Semigroup<Effect<State>>`/`Monoid<Micro<State>>` with concurrency as the instance parameter.
+- [08]-[TUPLE]: `data/Tuple` `Bicovariant` — map both pair positions under the law combinators.
+- [09]-[EFFECT_MICRO]: `data/Effect`, `data/Micro` `Covariant`/`Monad` + `getSemiProduct`/`getProduct`/`getSemiApplicative`/`getApplicative` — the effectful lift, concurrency as the instance parameter; `Semigroup<Effect<State>>`/`Monoid<Micro<State>>`.
 
-[SURFACES]: `PresenceMerge = Semigroup.struct({…})` `StateMonoid = Monoid.struct({/* … */})` `merged = StateMonoid.combineAll(replicaStates)`
+## [04]-[LAW_COMBINATORS]
 
-## [03]-[LAW_COMBINATORS]
-
-Higher hierarchy is the `@rasm/ts-testkit` law-combinator surface (`tests/typescript/_testkit`): it LIFTS a `Semigroup`/`Monoid` through any functor `F` and FOLDS it over any `Foldable`, so the same merge instance proves its laws inside `Option`, `Either`, `Array`, or a decoded op container without a bespoke harness.
+`@rasm/ts-testkit` (`tests/typescript/_testkit`) lifts a `Semigroup`/`Monoid` through any functor `F` and folds it over any `Foldable`, so one instance proves its laws inside `Option`, `Either`, `Array`, or a decoded op container without a bespoke harness.
 
 | [INDEX] | [SURFACE]                            | [LIFTS_FOLDS]                               | [PROOF_ROLE]                                        |
 | :-----: | :----------------------------------- | :------------------------------------------ | :-------------------------------------------------- |
@@ -65,27 +62,24 @@ Higher hierarchy is the `@rasm/ts-testkit` law-combinator surface (`tests/typesc
 |  [03]   | `Foldable.combineMap(F)(M)`          | fold a container through `M`                | decoded-op container → one merged state             |
 |  [04]   | `Foldable.toArray(F)`                | extract to `Array`                          | drain a functor container to an array               |
 |  [05]   | `Foldable.reduceComposition`         | nested fold                                 | fold a container-of-containers                      |
-|  [06]   | `reduceKind`                         | effectful fold                              | fold under a `Monad` effect                         |
+|  [06]   | `Foldable.reduceKind`                | effectful fold                              | fold under a `Monad` effect                         |
 |  [07]   | `SemiProduct.nonEmptyStruct(F)`      | product by field                            | zip decoded op records field-wise                   |
-|  [08]   | `productComposition`                 | nested product                              | product across nested functors `F`                  |
+|  [08]   | `SemiProduct.productComposition`     | nested product                              | product across nested functors `F`                  |
 |  [09]   | `Covariant.mapComposition`           | nested map                                  | map through nested functors                         |
 |  [10]   | `Covariant.imap`                     | invariant map                               | invariant bidirectional map; functor laws           |
 
-[SURFACES]: `SemiApplicative` `Applicative` `Foldable`
+## [05]-[IMPLEMENTATION_LAW]
 
-## [04]-[INTEGRATION]
+[TOPOLOGY]:
+- Every op folds through the associativity `Semigroup.combine` guarantees; commutativity and idempotence are each instance's own obligation `state/merge` asserts. `first`/`last` are commutative only under a total timestamp order, `struct`/`tuple` as lawful as their weakest field; the `Kind`/`TypeLambda` encoding is compile-time, never a runtime service.
 
-[STACK: `Semigroup` + `effect/Order` + `effect/Data`/`Equal` (`.api/effect.md`)] — the semilattice is Order-parameterized: `Semigroup.min`/`max` take an `effect/Order<A>` (there is NO `@effect/typeclass/data/Order` — Order is core `effect`). A CRDT op is an `effect/Data.TaggedEnum`, and `Equal.equals` gives the idempotence witness `state/merge` checks (`combine(a, a) ≡ a`). `Bounded` wraps `Order` + `minBound`/`maxBound` so `Monoid.min`/`max` derive `empty` — the lattice-CRDT bottom/top.
+[STACKING]:
+- `effect`(`.api/effect.md`): `Semigroup.min`/`max` take an `effect/Order<A>` (Order is core `effect`, never a `data/Order`); `Bounded` wraps `Order` + `minBound`/`maxBound` so `Monoid.min`/`max` derive `empty` — the lattice-CRDT bottom/top. A CRDT op is an `effect/Data.TaggedEnum` and `Equal.equals` is the idempotence witness `state/merge` checks (`combine(a, a) ≡ a`); the C#-minted wire op family and app journal families are `Schema.TaggedClass` unions decoded by `wire`/`store`, and `state/merge` binds one `Semigroup` per op `_tag` via `Semigroup.struct` or a `Match` dispatch — a new op is a new `struct` row with its `converge` law.
+- `@electric-sql/d2ts`(`.api/electric-sql-d2ts.md`), `@electric-sql/d2mini`(`.api/electric-sql-d2mini.md`): `state/fold` applies the merge as the `reduce` reducer — `reduce((vals: [Op, number][]) => …)` is `Semigroup.combineMany` projected onto signed multiplicities, and `groupByOperators.{sum,min,max}` are `Number.Monoid{Sum,Min,Max}` specialized to the dataflow. One instance declared in `state/merge`, applied at both fold altitudes; the reducer law is the merge law.
+- `@rasm/ts-testkit`(`tests/typescript/_testkit`): `state/merge` states the semilattice laws as property tests — `@effect/vitest` `it.prop` (`.api/effect-vitest.md`) over `Schema`-derived `fast-check` arbitraries (`tests/typescript/.api/`) checks `combine` associativity/commutativity/idempotence and `empty` identity per instance, fixtures pinned in `tests/contracts`; `Foldable.combineMap` folds a generated op-sequence to the expected merged state inside the law body.
+- within-lib: `state/merge` composes per-op `Semigroup.struct`/`tuple` into a record/tuple CRDT and folds the state vector through `Monoid.combineAll`; `state/fold` threads the same instance through the incremental `reduce`.
 
-[STACK: merge instance + d2ts/d2mini `reduce` (`.api/electric-sql-d2ts.md`, `.api/electric-sql-d2mini.md`)] — `state/fold` applies the merge as the `reduce` reducer: the d2ts/d2mini `reduce((vals: [Op, number][]) => …)` is `Semigroup.combineMany` projected onto signed multiplicities, and `groupByOperators.{sum,min,max}` are `Number.Monoid{Sum,Min,Max}` specialized to the dataflow. One instance declared in `state/merge`, applied incrementally at both fold altitudes — the reducer law IS the merge law.
-
-[STACK: convergence laws + `@rasm/ts-testkit` (`.api/effect-vitest.md`, `fast-check` catalogued at `tests/typescript/.api/`)] — `state/merge` states the semilattice laws as property tests: `@effect/vitest` `it.prop` over `Schema`-derived `fast-check` arbitraries checks `combine` associativity/commutativity/idempotence and `empty` identity for each declared instance, with fixtures pinned in the `tests/contracts` corpus. `Foldable.combineMap` folds a generated op-sequence to the expected merged state inside the law body — the merge instance and its proof share this package.
-
-[STACK: `Schema` op vocabulary (`.api/effect.md`)] — the merge is generic over the op vocabulary: the C#-minted wire op family and app-authored journal families are `Schema.TaggedClass` unions decoded by `wire`/`store`, and `state/merge` binds one `Semigroup` per op `_tag` via `Semigroup.struct`/a `Match` dispatch. A new op is a new `struct` row plus its `converge` law — never a fork of the merge algebra.
-
-## [05]-[RAIL_LAW]
-
-- Owns: the lawful merge algebra — `Semigroup`/`Monoid`/`Bounded` contracts, the `make`/`min`/`max`/`first`/`last`/`constant`/`struct`/`tuple`/`array`/`reverse`/`imap` constructors, the `data/*` named instances (Number/Boolean/String/BigInt/Duration/Ordering/Record/Array/Option/Predicate/Either/Identity/Tuple/Effect/Micro), and the higher law-combinators (`getSemigroup`/`getMonoid`/`combineMap`/`nonEmptyStruct`/`mapComposition`) that lift and fold an instance through any functor.
-- Accept: a CRDT/journal merge declared as a `Semigroup`/`Monoid` instance; `Semigroup.min`/`max` (Order-parameterized) or `Record.getSemigroupUnion` for the convergence-legal semilattice subset; `Semigroup.struct`/`tuple` to compose a record/tuple CRDT from component instances; a `Monoid` instance's `combineAll` for the state-vector fold; the `data/*` instances as the scalar leaves; the law combinators as the shared `@rasm/ts-testkit` harness.
-- Reject: an ad hoc merge function where a `Semigroup` instance fits; a non-idempotent/non-commutative instance on a convergence path without a proof obligation (`Sum` is a commutative monoid, not a semilattice — its convergence argument is counter-CRDT, not last-writer); a phantom `data/Order` import (Order is `effect/Order`); re-deriving a per-container merge where `getSemigroup`/`getMonoid` lifts the base instance.
-- Boundary: `Semigroup.combine` guarantees associativity only — commutativity and idempotence are the instance's own law obligations `state/merge` must assert. `first`/`last` are commutative only under a total timestamp order; `struct`/`tuple` are as lawful as their weakest field. HKT `Kind`/`TypeLambda` encoding is compile-time; nothing here is a runtime service.
+[RAIL_LAW]:
+- Owns: the lawful merge algebra — the `Semigroup`/`Monoid`/`Bounded` contracts, their constructors and structural combinators, the `data/*` named instances, and the law-combinators lifting and folding an instance through any functor.
+- Accept: a CRDT/journal merge as a `Semigroup`/`Monoid` instance; `Semigroup.min`/`max` or `Record.getSemigroupUnion` for the convergence-legal semilattice subset; `Semigroup.struct`/`tuple` to compose a record/tuple CRDT; `Monoid.combineAll` for the state-vector fold; the `data/*` instances as scalar leaves; the law combinators as the shared `@rasm/ts-testkit` harness.
+- Reject: an ad hoc merge function where a `Semigroup` instance fits; a non-idempotent/non-commutative instance on a convergence path without a proof obligation (`Sum` is a commutative counter-CRDT monoid, not a semilattice); a phantom `data/Order` import (Order is `effect/Order`); a re-derived per-container merge where `getSemigroup`/`getMonoid` lifts the base instance.

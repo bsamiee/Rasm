@@ -366,9 +366,7 @@ const D = ROOT + '/.claude/skills/docgen/';
 const STD = ROOT + '/docs/standards/';
 const LAW_FILES = [
     D + 'SKILL.md',
-    D + 'references/structure.md',
     D + 'references/defects.md',
-    D + 'references/rewriting.md',
     STD + 'style-guide.md',
     STD + 'information-structure.md',
     STD + 'formatting.md',
@@ -406,20 +404,21 @@ const RULINGS_TEMPLATE = D + 'templates/rulings.template.md';
 const CAMPAIGN_METHOD = ROOT + '/libs/.planning/campaign-method.md';
 // the RULINGS extraction charter — appended to finder, fixer, and collector when a target is under a .planning/ tree
 const rulingsLaw =
-    '\n\nRULINGS EXTRACTION — a `.planning/` design page sometimes carries FOLDER-WIDE law mis-homed as page-local prose: a settled decision that governs the ' +
-    'owning package or branch, whose re-litigation guard (the one why that stops it being re-argued) has NO durable home. That belongs in the folder RULINGS.md ' +
-    'decision registry, never restated on a design page. Read IN FULL its owning law before acting: ' +
+    '\n\nRULINGS EXTRACTION — WHY THIS EXISTS: RULINGS.md is the folder`s PERMANENT decision registry, the guidance that builds, grows, extends, and maintains the folder ' +
+    'for its whole life. A `.planning/` design page is EPHEMERAL — it converts to a code file and every prose line dies with the conversion — so a folder-wide decision ' +
+    'guard living only in page prose is on borrowed time. Extraction rescues exactly that class: a SETTLED decision governing the owning package or branch, with the one ' +
+    'why that stops its re-litigation. Read IN FULL its owning law before acting: ' +
     RULINGS_TEMPLATE +
-    ' (admission bar, closed section vocabulary, tier placement, `(none)` convention, guard-grade row anatomy) and ' +
+    ' (admission bar, closed section vocabulary, tier placement, `(none)` convention, guard-grade row anatomy, row width law) and ' +
     CAMPAIGN_METHOD +
-    ' [03] rulings discipline. ADMISSION BAR (all must hold): the content is a SETTLED decision (open work or a violation is a card, NOT a ruling — leave it); it ' +
-    'governs SIBLINGS or the folder, not just this one page (a page-local design decision STAYS on the page); its why has NO durable home (RULINGS, a README/ARCHITECTURE ' +
-    'registry, a manifest, or a fence does not already carry both the what and the why); and it seats in exactly one closed section — `[PACKAGES]` admission/rejection, ' +
-    '`[SHAPE]` owner-choice discriminant, `[COLLAPSE]` density refusal, `[STRUCTURE]` layout/retirement, `[PROCESS]` folder-learned working law. A guard-grade row pairs a ' +
-    'subject code-span, a decision-verb in owning voice (KEEP / rejected / homes at / stays / does-not-re-enter), the one load-bearing why, the recurring WRONG MOVE it ' +
-    'guards against, the correct route, and — for an evidence-bound call — the reopen predicate; one decision per row. NOT FORCED: most pages carry no such ruling; extraction ' +
-    'is the rare, high-confidence case, and forcing page-local design into RULINGS pollutes the registry and strips the page. When unsure a line is folder-wide vs ' +
-    'page-local, KEEP it on the page.';
+    ' [03] rulings discipline. ADMISSION (all must hold): SETTLED — open work, an un-landed prescription, or a violation is a card, never a row; FOLDER-WIDE — it governs ' +
+    'siblings or the folder, and a page-local design decision stays on the page; TRUE NOW — every named surface and claim verifies against live disk before transcription, ' +
+    'and a stale claim is corrected to disk truth or dropped, never transcribed on fluency; PERMANENTLY HOMELESS — no permanent surface (a RULINGS tier, README/ARCHITECTURE ' +
+    'registry, or manifest) already carries both fact and why, and a design page or fence comment carrying the why does NOT home it — that is the migration case. MIGRATION ' +
+    'IS A MOVE, never a copy: the row lands in RULINGS and the page-side guard prose — the why, the wrong-move litany, the reopen clause — is DELETED from the page in the ' +
+    'same pass; the page keeps mechanism and at most one boundary pointer (what homes where, one consumed symbol). Two surfaces stating one guard fork truth on first edit; ' +
+    'zero surfaces is the loss extraction prevents. NOT FORCED: most pages carry no ruling — forcing page-local design into RULINGS pollutes the registry and strips the ' +
+    'page; when unsure folder-wide vs page-local, keep it on the page.';
 
 // the ownership interrogation — the dominant diagnostic; appended to finder, fixer, and grader mandates with the owner surfaces they fork against
 const ownershipClause = (paths) =>
@@ -498,7 +497,8 @@ const tableIntegrityLaw =
 const apiStructureLaw =
     '\n\nAPI STRUCTURE — land this `.api` catalog TEMPLATE-TRUE against ' +
     templatePath('api') +
-    ', read IN FULL: it is the declared schema — the two body modes (ROSTER_FIRST default, CONCEPT_PARTITIONED for a large multi-namespace substrate), the closed column set, the fixed ' +
+    ', read IN FULL: it is the declared schema — the three body modes (ROSTER_FIRST default, CONCEPT_PARTITIONED for a large multi-namespace substrate, RESOURCE_PROVIDER for an infrastructure ' +
+    'provider SDK whose surface is resource classes keyed by inputs and outputs), the closed column set, the fixed ' +
     '`[04]` sub-labels, the `[01]` field vocabulary, and the abbreviated-signature rule. CONFORM the page to the schema STRUCTURALLY — understand it and rebuild the page to fit, never ' +
     'mechanically paste a block. Repair each recurring deformation. (1) TEARDOWN: a member table torn into `[SLUG]:` card clusters or `- signature — desc` prose bullets is REBUILT AS A ' +
     'TABLE (the teardown was never forced — a code-span signature is a legal atomic cell at any length, and rows are unbounded under the 150-column width cap). (2) SIGNATURE BLOAT: a ' +
@@ -508,8 +508,10 @@ const apiStructureLaw =
     'an `.api` catalog — a fence only bloats the file; the transcription-complete declaration lives on the design page that composes this surface, never here. (3) RUN-ON MEMBERS: a ' +
     '`- Members: a, b, c` mega-bullet or a `[SLUG]: - Members:` card becomes one table row per member, or one inline `[<TYPE>]: `a` `b` `c`` token line for a bare roster. (4) UNIVERSAL ' +
     'RAIL COLUMN: a per-row `[RAIL]` column repeating one value is DELETED — the rail is a single `[01]-[PACKAGE_SURFACE]` field, never a column. (5) COLUMN / LABEL DRIFT: a drifted ' +
-    'column renames to the closed set (`[SYMBOL] [TYPE_FAMILY] [CAPABILITY]` for types, `[SURFACE] [SHAPE] [CAPABILITY]` for entrypoints, optional `[CONSUMER]` only where it varies and ' +
-    'is load-bearing) and a drifted `[04]` sub-label renames to `[TOPOLOGY] [STACKING] [LOCAL_ADMISSION] [RAIL_LAW]`; a `[<PKG>_TOPOLOGY]` or `[STACKS_WITH]`/`[STACK_LAW]` spelling is ' +
+    'column renames to the ARCHETYPE-APPROPRIATE closed set (`[SYMBOL] [TYPE_FAMILY] [CAPABILITY]` for a type roster; `[SYMBOL] [RESOURCE_FAMILY] [KEY_ARGS] [KEY_OUTPUTS]` for a ' +
+    'RESOURCE_PROVIDER `[02]-[RESOURCES]` roster, where `[TYPE_FAMILY]` collapses to one uniform `class` and the args/outputs carry the load-bearing signal; `[SURFACE] [SHAPE] [CAPABILITY]` ' +
+    'for entrypoints, optional `[CONSUMER]` only where it varies and is load-bearing) and a drifted `[04]` sub-label renames to `[TOPOLOGY] [STACKING] [LOCAL_ADMISSION] [RAIL_LAW]`; a ' +
+    '`[<PKG>_TOPOLOGY]` or `[STACKS_WITH]`/`[STACK_LAW]` spelling is ' +
     'the drift. (6) NO `version` FIELD and no install line in `[01]` — the manifest owns versions. Every rebuilt table lands within the 150-column cap by relieving cells, proven by the gate.';
 
 // .api legacy/obsolete purge — appended to fixer and red-team for `api`-kind files ONLY; a catalog carries only the library's current live surface, every outdated anchor silently removed under judgment
@@ -751,7 +753,7 @@ const fixMandate = (f, seed) => {
         'distinct law. A nuance lost in the collapse is the same defect as the accumulation; resolution must rise while lines fall, and a merged form is never a concatenated ' +
         'mega-entry where a structured container serves. After every fold, re-scan the destination for a fresh twin the fold minted. SEDIMENT: an oversized single list item ' +
         'is a compressed section wearing a hyphen — classify its fragments (law, mechanism, consequence, exception, example, duplicate) and route each to its container per ' +
-        'rewriting.md [05]-[LIST_REPAIR], never shred it into sibling bullets unclassified; a guard justified only by a past failure the current surface, tooling, or agent can ' +
+        'SKILL.md [11]-[REWRITING] [LIST_REPAIR], never shred it into sibling bullets unclassified; a guard justified only by a past failure the current surface, tooling, or agent can ' +
         'no longer commit dies with its dead threat.' +
         '\n\nDEMOTE-VERIFY — capability leaves prose only by PROVEN demotion, and capability loss is the one forbidden move: every decision, invariant, boundary ruling, and ' +
         'trap survives, in fewer words or demoted to the owner that keeps it true. Before a prose copy dies, OPEN the destination owner and confirm it carries EVERY demoted ' +
@@ -1057,11 +1059,12 @@ const collectMandate = (targets) =>
     '(a) CROSS-OWNER DEDUP — the same ruling extracted from two pages, or from two different owners, is ONE row merged to the single strongest guard-grade spelling ' +
     '(reason=merged-with-sibling for each dropped copy); near-similar candidates fold into one higher-resolution row where every distinct clause survives, never a ' +
     'concatenated mega-row. (b) TIER — a ruling that governs siblings ACROSS owners does not belong in either package registry: it seats at the branch or cross-`libs/` ' +
-    'tier, recorded in deferred with its tier and written nowhere else. Then per candidate: (c) ALREADY-HOMED — the resolved RULINGS.md, a README/ARCHITECTURE registry, ' +
-    'a manifest, the instruction chain, or a fence already carries the fact AND its why → reject (reason=already-homed); the page-removal already stands and no row is ' +
-    'minted, so no duplication. (d) CONTRADICTION — a candidate that conflicts with a ruling already standing in any registry you read is rejected ' +
-    '(reason=contradicts-standing-law), never silently written beside the rule it contradicts. (e) GUARD-GRADE — a row missing its wrong-move, route, or reopen predicate, ' +
-    'or carrying two decisions, is repaired to anatomy or split into siblings; an irreparably non-guard candidate is rejected (reason=not-guard-grade).' +
+    'tier, recorded in deferred with its tier and written nowhere else. Then per candidate: (c) ALREADY-HOMED — a PERMANENT surface (the resolved RULINGS.md, a ' +
+    'README/ARCHITECTURE registry, a manifest, or the instruction chain) already carries the fact AND its why → reject (reason=already-homed); the page-removal already ' +
+    'stands and no row is minted, so no duplication — a design page or fence is never a home, only the migration source. (d) CONTRADICTION — a candidate that conflicts ' +
+    'with a ruling already standing in any registry you read is rejected (reason=contradicts-standing-law), never silently written beside the rule it contradicts. ' +
+    '(e) GUARD-GRADE — a row failing the template`s row anatomy or width law is repaired to it or split into siblings; an irreparably non-guard candidate is rejected ' +
+    '(reason=not-guard-grade).' +
     '\n\nRECONCILE TO CURRENT STANDING POLICY — a candidate extracted from a design page can carry a RATIONALE or discriminant that predates the current libs/.planning ' +
     'policy: a stale license framing, a superseded owner-choice, an admission reason the standing law has since replaced. Before admitting, reconcile its framing against the ' +
     'policy you read and admit the CORRECTED form aligned to current standing law — NEVER transcribe the source page`s outdated framing verbatim. State every admitted rule as ' +

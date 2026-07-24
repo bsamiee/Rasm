@@ -34,11 +34,13 @@ data/
 
 ## [02]-[STRATA]
 
-- S0 floor — independent mints, none importing a data sibling: `lane/postgres` guarantee rows and the shared profile-receipt band (`Pg.rows`, `Pg.Profile`), `lane/capability` the fail-closed rail (`Capability`) fed by argument, never import, `lane/cache` the latency rows (`CacheLane`), `journal/evolve` the upcast chains (`Upcast`), `read/live` the reactivity keys (`Live`).
-- S1 `lane/tenant` + `lane/sqlite` — `tenant` pins the tenancy write path over `Capability` and `Pg`; `sqlite` degrades the `Pg` contract through the grant-key type read and harvests query evidence into `Pg.Profile`, its one value read.
-- S2 `journal` — `append` commits journal, outbox, and idempotency in one transaction composing `Upcast`, `Tenancy`, and `Live` invalidation stamps, mints the CloudEvents relay envelope, and owns the core-brand `Hook` point vocabulary with its publisher port; `retain` ages and `fact` meters over `Journal` inside the wave, `retain` fanning its erase tombstone through `Hook`.
-- S3 `object` — every byte plane binds `Journal` custody under the one content identity: `store` roots, `stream`/`file`/`remote` compose it, `stream`/`file` tapping `Hook` at their admission seams, `remote` alone reaching `CacheLane`.
-- S4 `read` — consumption over everything below: `query`/`batch`/`search`/`fold` compose `Journal`, `ObjectStore`, `Live`, and the rails; `lane/olap` sits beside them composing `ObjectStore` and the `Pg.Profile` harvest band.
+- S0 floor — independent mints, none importing a data sibling; `capability` is the fail-closed rail fed by argument, never import.
+- S1 `lane/tenant` — pins the tenancy write path over `Capability` and `Pg`.
+- S1 `lane/sqlite` — degrades the `Pg` contract through the grant-key type read, harvesting query evidence into `Pg.Profile` — its one value read.
+- S2 `journal` — `append` commits journal, outbox, and idempotency in one transaction; `retain` ages and `fact` meters inside the stratum.
+- S2 `append` mints the CloudEvents relay envelope and owns the core-brand `Hook` vocabulary; `retain` fans its erase tombstone through it.
+- S3 `object` — every byte plane binds `Journal` custody under the one content identity; `store` roots, `stream` and `file` tap `Hook` at admission.
+- S4 `read` — consumption over everything below; `lane/olap` sits beside it composing `ObjectStore` and the `Pg.Profile` harvest band.
 
 ```mermaid
 ---
@@ -50,7 +52,7 @@ config:
 ---
 flowchart TB
     accTitle: Data interior import strata
-    accDescr: Five interior waves — read and olap over object over journal over the tenant write path onto the mint floor — every import downward, labeled edges naming one sourced type each, remote alone reaching the cache lane, sqlite and olap reading the Pg profile band beside the tenant write path, and one forbidden upward edge styled red.
+    accDescr: Five interior strata onto the mint floor; imports downward, remote alone reaching the cache lane, olap and sqlite reading the Pg band.
     subgraph S4["S4 READ"]
         Olap[olap]
         Read["query · batch · search · fold"]
@@ -106,7 +108,7 @@ config:
 ---
 flowchart LR
     accTitle: Data package seam registry
-    accDescr: Data sub-domain owners exchanging content keys, tenancy, custody, reactive shapes, Convention instrument vocabulary, and the CloudEvents envelope with the core, security, runtime, and IaC packages, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: Data owners exchanging content keys, tenancy, custody, and reactive shapes with the core, security, runtime, and iac peers.
     subgraph data[DATA]
         Fold[Projection fold]
         Store[Object store]
@@ -153,7 +155,7 @@ flowchart LR
     Append e25@-->|"[SHAPE]: Tap.Registry"| Runtime
 ```
 
-## [04]-[ORGANIZATION]
+## [04]-[INTERNAL]
 
 `lane` prices guarantees, never durability tiers: `postgres` is the spine, the embedded, analytical, and latency lanes sit beside it, `capability` refuses to boot an engine that cannot prove its rows, and `tenant` is the single write path pinning the tenancy GUC. `journal` is the record of truth — `append` commits journal, outbox, and idempotency together, and read-time upcasting keeps the log append-only. `object` binds every byte plane to the one content identity through a single admission fold. `read` composes the lanes into consumption, from proven-shape CRUD to reciprocal-rank fusion.
 

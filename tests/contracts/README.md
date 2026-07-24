@@ -1,14 +1,14 @@
 # [CONTRACTS_CORPUS]
 
-`tests/contracts/` is the cross-language frozen corpus: the wire bytes and canonical JSON that prove every polyglot seam decodes to the same facts in C#, Python, and TypeScript. This corpus is a neutral seam — it belongs to no single language tree, and no language-local snapshot store substitutes for it. Corpus assets are rebuilt ground-up whenever the owning wire contract changes shape; stale assets are regenerated or deleted, never patched by hand or aliased for old consumers. [MANIFEST.md](MANIFEST.md) is the corpus registry: every committed seam holds one manifest entry before its first asset exists, and the entry's pin state separates frozen expectations from unpinned design gaps.
+`tests/contracts/` is the cross-language frozen corpus: the wire bytes and canonical JSON that prove every polyglot seam decodes to the same facts in C#, Python, and TypeScript — a neutral seam no language tree owns and no language-local snapshot store substitutes for. Assets rebuild ground-up when the owning wire contract changes shape; a stale asset regenerates or dies, never hand-patched or aliased. [MANIFEST.md](MANIFEST.md) is the corpus registry: every committed seam holds one manifest entry before its first asset exists, and the entry's pin state separates frozen expectations from unpinned design gaps.
 
 ## [01]-[PRODUCER_CONSUMER]
 
-C# is the sole producer: corpus assets are emitted by the owning C# wire surface, never authored by hand and never written by Python or TypeScript. Consumers are round-trip read-only — each consumer decodes an asset, re-encodes it, and proves equivalence through its language snapshot rail (`Verify` in C#, `inline-snapshot` in Python, `toMatchFileSnapshot` in TypeScript): wire bytes re-encode byte-identical, and the canonical JSON projection re-encodes to the same canonical facts. A consumer that cannot round-trip an asset has found a seam defect in its decoder or in the producer, never a reason to fork a language-local variant of the asset.
+C# is the sole producer: corpus assets are emitted by the owning C# wire surface, never authored by hand and never written by Python or TypeScript. Consumers are round-trip read-only — each consumer decodes an asset, re-encodes it, and proves equivalence through its language snapshot rail (`Verify` in C#, `inline-snapshot` in Python, `toMatchFileSnapshot` in TypeScript): wire bytes re-encode byte-identical, and the canonical JSON projection re-encodes to the same canonical facts. A consumer that cannot round-trip an asset found a seam defect, never a reason to fork a language-local variant.
 
 ## [02]-[LAYOUT]
 
-Assets subdivide by seam, then by message: one directory per cross-language seam, one asset pair (wire bytes plus canonical JSON) per message shape inside it. A seam directory exists only when a real producer emits into it — no reserved directories, no placeholder assets, no speculative message homes. `MANIFEST.md` precedes every directory: a seam is committed by its manifest entry, and its directory appears the day its producer emits.
+Assets subdivide by seam, then by message: one directory per cross-language seam, one asset pair (wire bytes and canonical JSON) per message shape inside it. A seam directory exists only when a real producer emits into it — no reserved directories, no placeholder assets, no speculative message homes. `MANIFEST.md` precedes every directory: a seam is committed by its manifest entry, and its directory appears the day its producer emits.
 
 ```text conceptual
 tests/contracts/

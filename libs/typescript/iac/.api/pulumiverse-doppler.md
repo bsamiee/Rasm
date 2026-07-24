@@ -1,6 +1,6 @@
 # [TS_IAC_API_PULUMIVERSE_DOPPLER]
 
-`@pulumiverse/doppler` is the canonical secret owner of the deploy plane: the `Project → Environment → Config → Secret` hierarchy provisions the secret store, `ServiceToken` scopes a config for `doppler run` runtime injection, `getSecrets` reads a whole config as an `Output` map, and the `integration`/`secretssync` namespaces mirror a config to N external destinations. `iac` composes it as the store where `random`/`tls`-generated material lands canonically and the `ServiceToken.key` that meets the `security/secret` read path at the process boundary — never an import in either direction. The Project→Config→Secret nesting is ONE parent-chained owner pattern; the destination fan-out is ONE integration+sync pair parameterized by target.
+`@pulumiverse/doppler` is the canonical secret owner of the deploy plane: the `Project → Environment → BranchConfig → Secret` chain provisions the store, `ServiceToken` scopes a config to mint the `DOPPLER_TOKEN` for `doppler run` injection, `getSecrets` reads a whole config as an `Output` map, and the `integration`/`secretssync` namespaces mirror a config to N external destinations. `iac` composes it as the store where `random`/`tls`-generated material lands canonically and the source every sibling `Provider` credential binds to — never an import in either direction.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -17,15 +17,14 @@ Every resource extends `pulumi.CustomResource` with `static get`/`isInstance` + 
 
 [PUBLIC_TYPE_SCOPE]: store hierarchy
 
-| [INDEX] | [SYMBOL]       | [REQUIRED_ARGS]                      | [NOTE]                                                        |
-| :-----: | :------------- | :----------------------------------- | :------------------------------------------------------------ |
-|  [01]   | `Project`      | `name`                               | top of the hierarchy; `description`                           |
-|  [02]   | `Environment`  | `name`, `project`, `slug`            | dev/stg/prd stage; `personalConfigs`                          |
-|  [03]   | `BranchConfig` | `project`, `environment`             | the "config" — a branch of an environment                     |
-|  [04]   | `Secret`       | `project`, `config`, `name`, `value` | `value` (secret) + `computed` resolves `${ref}`; `visibility` |
+| [INDEX] | [SYMBOL]       | [REQUIRED_ARGS]                      | [NOTE]                                     |
+| :-----: | :------------- | :----------------------------------- | :----------------------------------------- |
+|  [01]   | `Project`      | `name`                               | top of the hierarchy; `description`        |
+|  [02]   | `Environment`  | `name`, `project`, `slug`            | dev/stg/prd stage; `personalConfigs`       |
+|  [03]   | `BranchConfig` | `project`, `environment`             | the config — a branch of an environment    |
+|  [04]   | `Secret`       | `project`, `config`, `name`, `value` | `computed` resolves `${ref}`; `visibility` |
 
 [PUBLIC_TYPE_SCOPE]: access, identity, RBAC, delivery
-- rail: secret
 
 | [INDEX] | [SYMBOL]                                 | [REQUIRED_ARGS]             | [NOTE]                                                       |
 | :-----: | :--------------------------------------- | :-------------------------- | :----------------------------------------------------------- |
@@ -38,7 +37,6 @@ Every resource extends `pulumi.CustomResource` with `static get`/`isInstance` + 
 |  [07]   | `Provider`                               | —                           | explicit provider; bootstrap token                           |
 
 [PUBLIC_TYPE_SCOPE]: reads (data sources)
-- rail: secret
 
 | [INDEX] | [SURFACE]                       | [MODE]    | [NOTE]                                     |
 | :-----: | :------------------------------ | :-------- | :----------------------------------------- |
@@ -48,18 +46,16 @@ Every resource extends `pulumi.CustomResource` with `static get`/`isInstance` + 
 
 ## [03]-[SECRET_TOPOLOGY]
 
-Three parameterized patterns own the surface; the namespace rosters are seed data feeding them.
+Three parameterized patterns own the surface; the target roster is seed data feeding them.
 
 [PATTERN]: nested-owner hierarchy — ONE parent chain
-- `Project` → `Environment(project)` → `BranchConfig(project, environment)` → `Secret(project, config)`. Chain them with `{ parent }` so the ComponentResource tier owns the whole store; a per-app store is one `Project` with the environment set its `StackSpec` names.
+- `Project` → `Environment(project)` → `BranchConfig(project, environment)` → `Secret(project, config)`, chained with `{ parent }` so the ComponentResource tier owns the whole store; a per-app store is one `Project` with the environment set its `StackSpec` names.
 
 [PATTERN]: config-scoped access — the injection token family
-- `ServiceToken(config, access)` mints `key` (the `DOPPLER_TOKEN`) scoped to ONE config; `read` for consumers, `read/write` only for provisioners. `ServiceAccount`/`ServiceAccountToken` give a durable machine identity. `key` is the sole value that leaves Doppler, and it leaves as an env fact for `doppler run`, never a secret payload.
+- `ServiceToken(config, access)` mints `key` (the `DOPPLER_TOKEN`) scoped to ONE config; `read` for consumers, `read/write` for provisioners. `ServiceAccount`/`ServiceAccountToken` give a durable machine identity. `key` is the sole value leaving Doppler, and it leaves as an env fact for `doppler run`, never a secret payload.
 
 [PATTERN]: destination fan-out — ONE integration + sync pair per target
-- Mirroring a config outward is a pair: `integration.<Target>` creates the credential link (returns an integration id), `secretssync.<Target>` syncs a `config` to the destination referencing that `integration`. The targets are rows, not recipes:
-
-Every target carries both `integration.<Target>` and `secretssync.<Target>`, except `GithubActions` whose integration is a pre-existing GitHub-App slug.
+- Mirroring a config outward is a pair: `integration.<Target>` creates the credential link (returns an integration id), `secretssync.<Target>` syncs a `config` to the destination referencing that `integration`. Every target carries both, except `GithubActions` whose integration is a pre-existing GitHub-App slug.
 
 | [INDEX] | [TARGET]            | [INTEGRATION_T]     | [SYNC_ARG_SHAPE]                                           |
 | :-----: | :------------------ | :------------------ | :--------------------------------------------------------- |
@@ -70,11 +66,11 @@ Every target carries both `integration.<Target>` and `secretssync.<Target>`, exc
 |  [05]   | `Flyio`             | ✓                   | app target                                                 |
 |  [06]   | `GithubActions`     | — (GitHub-App slug) | `syncTarget` (`"repo"`\|`"org"`); repo/org scope, see note |
 
-Every sync arg carries `config` + `integration` + `project`; document/drive the pair once parameterized by `<Target>`, not six times. `GithubActions` [06] additionally requires the pre-existing `integration` slug, then `syncTarget` = `"repo"`\|`"org"` with `repoName`/`environmentName` or `orgScope`, plus `deleteBehavior`.
+Every sync arg carries `config` + `integration` + `project`. `GithubActions` [06] takes the pre-existing `integration` slug, then `syncTarget` = `"repo"`\|`"org"` selecting `repoName`/`environmentName` or `orgScope`, with `deleteBehavior`.
 
 ## [04]-[INTEGRATION]
 
-Doppler is the canonical store in the generate → store → inject rail; `effect` owns the bootstrap token, the provider `Layer`, and the config decode. Doppler is equally the SOURCE side of the provider-credential seam every sibling provider catalog names inbound — one config read supplies each `Provider` auth `pulumi.Input<string>`, closing the seam on both sides.
+Doppler is the canonical store in the generate → store → inject rail; `effect` owns the bootstrap token, provider `Layer`, and config decode.
 
 [RAIL]: `doppler → effect + sibling providers`
 
@@ -87,9 +83,9 @@ Doppler is the canonical store in the generate → store → inject rail; `effec
 |  [05]   | `secretssync.<Target>`       | external stores (AWS/CI/Fly)       | mirror the canonical config outward; one pair per target      |
 |  [06]   | `Secret.computed` (`${ref}`) | `interpolate` / `Output` graph     | referenced/composed secrets resolve server-side               |
 
-[SEAM]: provider-credential fan-in — ONE Doppler read → every sibling `Provider` `Input<string>`
+[SEAM]: provider-credential fan-in — ONE Doppler read feeds every sibling `Provider` auth `Input<string>`
 
-Doppler is the SOURCE each sibling provider catalog binds its auth field to; ONE parameterized read feeds them all, consumers as rows, never per-provider code. In-graph binders pluck a single key as an `Output<string>` that stays in the Pulumi graph (state-encrypted, never process env): `getSecretsOutput({ project, config }).apply(r => r.map[KEY])` → `Output<string>` → `pulumi.Input<string>`. Env binders read the same config after `doppler run` injects it: `ServiceToken(config, "read").key` → `DOPPLER_TOKEN` → `doppler run -- <host>` → `process.env[KEY]` → `Config.redacted` → `Input<string>`.
+Doppler is the source both ends of the seam each sibling catalog names inbound; one parameterized read binds them all, consumers as rows, never per-provider read paths. `getSecretsOutput({project, config})` returns `Output<GetSecretsResult>` whose `.map` is `{[k]: string}` — a single-key pluck is the sole difference from the whole-config `Schema` decode, and a new consuming provider is a row here.
 
 | [INDEX] | [CONSUMER]                                     | [CATALOG]                     | [INJECTION_MODE]                        |
 | :-----: | :--------------------------------------------- | :---------------------------- | :-------------------------------------- |
@@ -100,21 +96,18 @@ Doppler is the SOURCE each sibling provider catalog binds its auth field to; ONE
 |  [05]   | `docker` `types.input.Registry.password`       | `.api/pulumi-docker.md`       | in-graph `Output` bind                  |
 |  [06]   | `aws.Provider` creds (`profile`/`assumeRoles`) | `.api/pulumi-aws.md`          | `StackSpec` Doppler ref                 |
 
-The `KEY` is a row on the config the store already owns; a new consuming provider is a row here, never a new read path. `getSecretsOutput` returns `Output<GetSecretsResult>` whose `.map` is `{[k]: string}` — the single-key pluck is the sole difference from the row [04] whole-config `Schema` decode.
-
-[SURFACES]: `cfg = new doppler.BranchConfig("prd",{project:proj.name,environment:env.slug},{parent})` `token = new doppler.ServiceToken("prd-app",{project:proj.name,config:cfg.name,name:"app",access:"read",},{parent})` `grafanaAuth = doppler.getSecretsOutput({project:proj.name,config:cfg.name}).apply(r=>r.map["GRAFANA_TOKEN"])`
+[SURFACES]: `cfg = new doppler.BranchConfig("prd",{project:proj.name,environment:env.slug},{parent})` `token = new doppler.ServiceToken("prd-app",{project:proj.name,config:cfg.name,name:"app",access:"read"},{parent})` `grafanaAuth = doppler.getSecretsOutput({project:proj.name,config:cfg.name}).apply(r=>r.map["GRAFANA_TOKEN"])`
 [COMPOSITION]: `RandomPassword.result -> doppler.Secret.value`
 
 ## [05]-[IMPLEMENTATION_LAW]
 
 [SECRET_TOPOLOGY]:
-- Doppler is the system of record for secret values; `random`/`tls` generate, Doppler stores, apps read via `doppler run` — a value is never duplicated into a second store except through a `secretssync.<Target>` mirror.
-- `Secret.value` and `ServiceToken.key` are sensitive; a Doppler value leaves the store two ways only — an in-graph single-key `getSecretsOutput(...).apply(r => r.map[KEY])` `Output<string>` bound to a sibling `Provider` credential `Input` (state-encrypted, stays in the Pulumi graph), or `key` as the `DOPPLER_TOKEN` env for `doppler run` at the process boundary — never a decrypted payload in an import.
-- Doppler is the source BOTH sides of the provider-credential seam: every sibling `Provider` auth field (`grafana.auth`, `cloudflare.apiToken`, `gcp.credentials`, `postgresql`/`docker` `password`, `aws` creds) is fed by one config read, the consumers rows on the [04] fan-in, never per-provider read paths.
-- Scope `ServiceToken.access` to `read` for consumers; reserve `read/write` for provisioners.
+- `random`/`tls` generate, Doppler stores, apps read via `doppler run`; a value duplicates into a second store only through a `secretssync.<Target>` mirror.
+- `Secret.value` and `ServiceToken.key` are sensitive; a value leaves two ways only — an in-graph `getSecretsOutput(...).apply(r => r.map[KEY])` `Output<string>` bound to a sibling `Provider` credential `Input` (state-encrypted, stays in the Pulumi graph), or `key` as the `DOPPLER_TOKEN` env for `doppler run` at the process boundary — never a decrypted payload in an import.
+- Scope `ServiceToken.access` to `read` for consumers, `read/write` for provisioners.
 
 [RAIL_LAW]:
 - Package: `@pulumiverse/doppler`
 - Owns: project/environment/config/secret provisioning, service tokens, RBAC, webhooks, external sync destinations
-- Accept: `pulumi.secret`-tracked generated material as `Secret.value`; the bootstrap `DOPPLER_TOKEN` from `Config.redacted`; `getSecrets.map` decoded through `Schema`; a single-key `getSecretsOutput(...).apply(r => r.map[KEY])` `Output<string>` bound to a sibling `Provider` credential `Input<string>`; the `parent` chain for the hierarchy
-- Reject: a plaintext secret value in source; a sibling `Provider` credential as a literal or a second-sourced value where the Doppler read is canonical; a second store as the source of truth (mirror via `secretssync` instead); the `DOPPLER_TOKEN` in state as anything but redacted; six per-target sync (or per-consumer read) code paths where one parameterized pattern dispatches on `<Target>`/`KEY`
+- Accept: `pulumi.secret`-tracked generated material as `Secret.value`; the bootstrap `DOPPLER_TOKEN` from `Config.redacted`; `getSecrets.map` decoded through `Schema`; a single-key `getSecretsOutput` pluck bound to a sibling `Provider` credential `Input<string>`; the `parent` chain for the hierarchy
+- Reject: a plaintext secret value in source; a sibling `Provider` credential as a literal or second-sourced value where the Doppler read is canonical; a second store as source of truth (mirror via `secretssync`); the `DOPPLER_TOKEN` in state as anything but redacted; per-target sync or per-consumer read code paths where one pattern dispatches on `<Target>`/`KEY`

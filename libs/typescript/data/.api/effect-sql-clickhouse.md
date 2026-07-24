@@ -1,21 +1,19 @@
 # [TS_DATA_API_EFFECT_SQL_CLICKHOUSE]
 
-`@effect/sql-clickhouse` binds the neutral `@effect/sql` `SqlClient` (`.api/effect-sql.md`) to `@clickhouse/client` — the ONLY row of the OLAP lane that crosses the single-node ceiling: distributed columnar MergeTree, high-throughput concurrent ingestion, incremental materialized views. It extends the neutral contract with the ClickHouse-native members the analytical lane needs — typed `param` fragments, streamed `insertQuery` ingestion, command-mode routing, per-query settings. Its compiler reports the `sqlite` dialect, so `sql.onDialect` sees `sqlite`; ClickHouse divergence reaches the concrete Tag members and the `param` custom fragment, never a dialect arm. OLAP lane never shares the OLTP transaction; Arrow is the wire between engines.
+`@effect/sql-clickhouse` binds the neutral `@effect/sql` `SqlClient` to `@clickhouse/client` — the one `data` OLAP row past the single-node ceiling (distributed columnar MergeTree, concurrent high-throughput ingestion, incremental materialized views), extending the contract with ClickHouse-native `param` fragments, streamed `insertQuery` ingest, command-mode routing, and per-query settings.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/sql-clickhouse`
 - package: `@effect/sql-clickhouse` (MIT)
-- effect-peer: `effect`, `@effect/sql` (`.api/effect-sql.md`), `@effect/experimental` (`Reactivity`), `@effect/platform-node` (`NodeStream` — the node-only streaming reason)
-- backing: `@clickhouse/client` (HTTP interface, streaming inserts, `ClickHouseClientConfigOptions`)
-- runtime: `runtime:node`/bun services; the browser analytical row is `@duckdb/duckdb-wasm` (`.api/duckdb-duckdb-wasm.md`)
-- modules: `ClickhouseClient`
+- effect-peer: `effect`, `@effect/sql` (`.api/effect-sql.md`), `@effect/experimental` (`Reactivity`), `@effect/platform-node` (`NodeStream`)
+- backing: `@clickhouse/client` — HTTP interface, streamed inserts, `ClickHouseClientConfigOptions`
+- module: `ClickhouseClient`; `runtime:node`/bun (browser analytical row is `@duckdb/duckdb-wasm`, `.api/duckdb-duckdb-wasm.md`)
+- rail: the at-scale OLAP row of the `data` lane
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the `ClickhouseClient` service and its OLAP-native additions
-- rail: data/lane
-- `ClickhouseClient extends SqlClient`, so providing the layer yields both Tags; OLAP rows compose the neutral `SqlClient` and reach the concrete Tag only for `param`/`insertQuery`/`asCommand`/`withClickhouseSettings`. `ClickhouseClientConfig` extends `ClickHouseClientConfigOptions` with the shared `spanAttributes`/`transformResultNames`/`transformQueryNames` transforms.
+[PUBLIC_TYPE_SCOPE]: the `ClickhouseClient` service and its OLAP-native additions over `SqlClient`
 
 | [INDEX] | [SYMBOL]                                                      | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                              |
 | :-----: | :------------------------------------------------------------ | :-------------- | :----------------------------------------------- |
@@ -32,8 +30,7 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: constructing the driver Layer
-- rail: data/lane
-- `layer`/`layerConfig` yield `ClickhouseClient \| SqlClient` in one Layer, error `ConfigError \| SqlError` (`make` opens the connection with a `SELECT 1` probe under a 5-second timeout); `make` returns `Effect<ClickhouseClient, SqlError, Scope \| Reactivity>`.
+- `layer`/`layerConfig` yield `ClickhouseClient \| SqlClient` in one Layer (`layerConfig` adds `ConfigError`); `make` opens the connection with a `SELECT 1` probe under a 5-second connect timeout and returns `Effect<ClickhouseClient, SqlError, Scope \| Reactivity>`.
 
 | [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                  |
 | :-----: | :------------------------------------------------------------------ | :------------- | :----------------------------------- |
@@ -44,16 +41,17 @@
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[INTEGRATION_LAW]:
-- Stack on `@effect/sql` (`.api/effect-sql.md`): the `sql` DSL and typed IO are inherited; the ClickHouse compiler carries `dialect: "sqlite"`, so `sql.onDialect` branches ClickHouse under `sqlite` and typed splicing rides `param`'s `ClickhouseParam` custom fragment instead. `SqlSchema` decodes analytical result rows exactly as OLTP rows, and `executeStream` folds `JSONEachRow` chunks through `@effect/platform-node`'s `NodeStream`.
-- Stack across `data`: admitted only past the crisp trigger — concurrent high-throughput ingestion, multi-node scale, high-cardinality real-time serving; below it the OLAP lane's embedded rows (`.api/duckdb-node-api.md`) own the workload. Arrow output is the interchange back to the embedded rows and the viewer.
+[STACKING]:
+- `@effect/sql`(`.api/effect-sql.md`): inherits the `sql` DSL and typed IO — its compiler reports the `sqlite` dialect, so `sql.onDialect` sees `sqlite` and ClickHouse divergence rides the concrete Tag members and `param`'s `ClickhouseParam` custom `Segment` the core `Compiler` folds, never a dialect arm; `SqlSchema` decodes `JSONEachRow` rows as OLTP rows and `executeStream` folds chunks through `@effect/platform-node` `NodeStream`.
+- `@duckdb/node-api`(`.api/duckdb-node-api.md`): the embedded OLAP row owns every workload below the distributed trigger; `apache-arrow`(`.api/apache-arrow.md`) IPC is the interchange back to those rows and the viewer.
+- `data` lane: journal facts replicate INTO MergeTree for concurrent high-throughput serving, and nothing folds back as authority.
 
 [LOCAL_ADMISSION]:
-- Provide the layer at the app root only; analytical rows yield `SqlClient` and reach the concrete Tag solely for `param`/`insertQuery`/`asCommand`/`withClickhouseSettings`.
-- OLAP lane is correctness-adjacent, never the record of truth — journal facts replicate INTO MergeTree; nothing folds back as authority.
+- Provide the layer at the app root only; OLAP rows yield `SqlClient` and reach the concrete Tag solely for `param`/`insertQuery`/`asCommand`/`withClickhouseSettings`.
+- Admit ClickHouse only past the crisp trigger — concurrent high-throughput ingestion, multi-node scale, high-cardinality real-time serving; it never rides the OLTP transaction and is never the record of truth.
 
 [RAIL_LAW]:
 - Package: `@effect/sql-clickhouse`
 - Owns: the ClickHouse binding of `SqlClient` — `layer`/`layerConfig`/`make`/`makeCompiler`, `param` typed fragments, `insertQuery` streamed ingest, `asCommand`, `withQueryId`/`withClickhouseSettings`, the execution-mode FiberRefs
 - Accept: the at-scale OLAP row past the distributed trigger, streamed fact ingestion, Arrow interchange to the embedded rows
-- Reject: ClickHouse below the single-node ceiling, OLAP riding the OLTP transaction, ClickHouse as a record of truth, a driver import in a neutral row
+- Reject: ClickHouse below the single-node ceiling, OLAP on the OLTP transaction, ClickHouse as a record of truth, a driver import in a neutral row, `ClickhouseMigrator` or any runtime schema mutation

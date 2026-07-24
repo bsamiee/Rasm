@@ -172,5 +172,3 @@
 - Owns: typed columnar storage, lazy query optimization, `Expr`-based transformation, and the native expression-plugin host.
 - Accept: dicts, rows, NumPy/torch, Arrow tables/C-stream, pandas frames, Iceberg/Delta/pyarrow datasets, and file/database sources via `read_*`/`scan_*`.
 - Reject: per-row Python loops, eager reads where a lazy scan admits pushdown, hand-rolled join/window/fold logic, `map_elements` where a native plugin or expr combinator exists, hardcoded column-name lists where `selectors` apply.
-</content>
-</invoke>

@@ -1,103 +1,93 @@
 # [TS_IAC_API_GRAFANA_GRAFANA_FOUNDATION_SDK]
 
-[PACKAGE_SURFACE]:
+Typed dashboard, panel, and query construction: every builder is a fluent `cog.Builder<T>` whose `.build()` emits the plain Grafana JSON model, and that JSON is the sole boundary the `@pulumiverse/grafana` apply consumes.
+
+## [01]-[PACKAGE_SURFACE]
+
 - package: `@grafana/grafana-foundation-sdk` (Apache-2.0)
-- module: exports-map subpaths only — one module per builder domain (`./dashboard`, `./timeseries`, `./stat`, `./gauge`, `./heatmap`, `./logs`, `./table`, `./geomap`, `./nodegraph`, `./prometheus`, `./loki`, `./grafanapyroscope`, `./units`, `./common`, `./cog`, …); each subpath resolves `dist/<domain>/index.d.ts` re-exporting its `types.gen` and one `*Builder.gen` file per builder.
-- shape: every builder is a fluent `cog.Builder<T>` class — chainable members, terminal `.build()` emitting the plain Grafana JSON model — so authoring is typed and the emission boundary is one `.build()` call feeding `oss.Dashboard.configJson`.
-- plane: `plane:deploy` — consumed only by `operate/observe.md`'s `_compiled` fold; no runtime module resolves it.
-- rail: deployment / dashboard-compile.
+- module: exports-map subpaths, one module per builder domain; each resolves `dist/<domain>/index.d.ts` re-exporting its `types.gen` and per-builder `*Builder.gen`
+- runtime: isomorphic — builders emit plain JSON, no runtime peer
+- plane: `plane:deploy` — folded only by `operate/observe.md`'s `_compiled`; no runtime module resolves it
+- rail: deployment / dashboard-compile
 
-`@grafana/grafana-foundation-sdk` is the typed compile leg between the core `DashboardModel` and the `@pulumiverse/grafana` apply: `observe/board` emits encoded models, `_compiled` folds them through `DashboardBuilder` and the per-tag panel builders, and the provider posts the built JSON. Structure is the SDK's concern — compile-time member checking against the Grafana schema — and provisioning (apply, diff, drift) is the provider's. A hand-authored dashboard JSON blob where a builder subpath exists is the rejected form.
+## [02]-[DASHBOARD_MODULE]
 
-## [01]-[DASHBOARD_MODULE]
+[DASHBOARD_TYPE_SCOPE]: `./dashboard` owns `DashboardBuilder` (root) beside the companion builders `RowBuilder`, the variable-builder family, `ThresholdsConfigBuilder`, `TimePickerBuilder`, `DashboardLinkBuilder`, `AnnotationQueryBuilder`. Every member is a fluent instance setter terminating at `.build()`.
 
-`./dashboard` carries the root builder and the shared companion builders (`RowBuilder`, `QueryVariableBuilder` and the variable-builder family, `ThresholdsConfigBuilder`, `TimePickerBuilder`, `DashboardLinkBuilder`, `AnnotationQueryBuilder`). `DashboardBuilder` members, verified against the shipped declarations:
+| [INDEX] | [SURFACE]                                                         | [CAPABILITY]                            |
+| :-----: | :---------------------------------------------------------------- | :-------------------------------------- |
+|  [01]   | `new DashboardBuilder(title)` / `.build()`                        | root construction and JSON emission     |
+|  [02]   | `.uid(uid)` / `.title(title)` / `.tags(tags)`                     | identity fields                         |
+|  [03]   | `.refresh(refresh)` / `.time({ from, to })`                       | refresh cadence and time range          |
+|  [04]   | `.withPanel(panel)` / `.withRow(rowPanel)`                        | panel composition from per-tag builders |
+|  [05]   | `.withVariable(variable)` / `.variables(rows)`                    | template variables                      |
+|  [06]   | `.annotation(row)` / `.annotations(rows)`                         | annotation queries                      |
+|  [07]   | `.link(row)` / `.timepicker(row)` / `.editable()` / `.readonly()` | presentation policy                     |
 
-| [INDEX] | [MEMBER]                                                          | [ROLE]                                            |
-| :-----: | :---------------------------------------------------------------- | :------------------------------------------------ |
-|  [01]   | `new DashboardBuilder(title)` / `.build()`                        | root construction and JSON emission               |
-|  [02]   | `.uid(uid)` / `.title(title)` / `.tags(tags)`                     | identity — the core model's `uid`/`title`/`tags`  |
-|  [03]   | `.refresh(refresh)` / `.time({ from, to })`                       | cadence and range — the model's `refresh`/`since` |
-|  [04]   | `.withPanel(panel)` / `.withRow(rowPanel)`                        | panel composition from the per-tag builders       |
-|  [05]   | `.withVariable(variable)` / `.variables(rows)`                    | template variables — the tenant row lands here    |
-|  [06]   | `.annotation(row)` / `.annotations(rows)`                         | annotation queries — the slo spec annotations     |
-|  [07]   | `.link(row)` / `.timepicker(row)` / `.editable()` / `.readonly()` | presentation policy rows                          |
+[ThresholdsConfigBuilder]: `.mode(ThresholdsMode)` `.steps(Threshold[])` — `ThresholdsMode.Absolute | .Percentage`; steps sort ascending by `value` over `Threshold { value: number | null, color: string }`, the first row `value: null` as the mandatory -Infinity base.
+[AnnotationQueryBuilder]: `.name(string)` `.iconColor(string)` `.enable(boolean)`
+[DashboardLinkBuilder]: `.title(string)` `.type(DashboardLinkType)` `.icon(string)` `.tooltip(string)` `.url(string)` `.tags(string[])` `.asDropdown(boolean)` `.placement(DashboardLinkPlacement.InControlsMenu)` `.targetBlank(boolean)` `.includeVars(boolean)` `.keepTime(boolean)` — `DashboardLinkType = Link | Dashboards`; panel `.links(...)` takes `cog.Builder<dashboard.DashboardLink>[]`, so links stay typed through emission.
 
-Companion-builder members, verified against the module reference: `ThresholdsConfigBuilder.mode(mode)` (`ThresholdsMode.Absolute | .Percentage`) and `.steps(steps)` over `Threshold { value: number | null, color: string }` rows sorted ascending by `value` with the first row `value: null` — the mandatory -Infinity base; `AnnotationQueryBuilder.name(name)` / `.iconColor(color)` / `.enable(enable)` — the rows the core model's annotation slug/tone land on.
+## [03]-[PANEL_MODULES]
 
-`DashboardLinkBuilder(title)` implements `cog.Builder<dashboard.DashboardLink>` and terminates at `.build()`. Its exact setters are `.title(string)`, `.type(DashboardLinkType)`, `.icon(string)`, `.tooltip(string)`, `.url(string)`, `.tags(string[])`, `.asDropdown(boolean)`, `.placement(DashboardLinkPlacement.InControlsMenu)`, `.targetBlank(boolean)`, `.includeVars(boolean)`, and `.keepTime(boolean)`. `DashboardLinkType` is `Link | Dashboards`; every panel's `.links(...)` accepts `cog.Builder<dashboard.DashboardLink>[]`, so panel links remain typed through emission.
+[PANEL_ENTRY_SCOPE]: one `PanelBuilder` per visualization subpath; the shared members below ride every panel module (verified on `timeseries`) and map onto the core panel family's `_PanelFields`. Every member is a fluent instance setter.
 
-## [02]-[PANEL_MODULES]
+| [INDEX] | [SURFACE]                                                | [CAPABILITY]                                 |
+| :-----: | :------------------------------------------------------- | :------------------------------------------- |
+|  [01]   | `new PanelBuilder()` / `.build()`                        | one panel row; feeds `.withPanel`            |
+|  [02]   | `.title(t)` / `.description(d)` / `.transparent(b)`      | shared emission fields                       |
+|  [03]   | `.gridPos({ h, w, x, y })` / `.span(w)` / `.height(h)`   | placement — `DashboardModel.laid` lands here |
+|  [04]   | `.withTarget(dataquery)` / `.datasource(ref)`            | query binding and datasource pin             |
+|  [05]   | `.unit(u)` / `.min(n)` / `.max(n)` / `.thresholds(b)`    | value display                                |
+|  [06]   | `.legend(b)` / `.tooltip(b)`                             | common-options builders from `./common`      |
+|  [07]   | `.repeat(r)` / `.links(rows)` / `.withTransformation(t)` | repetition, panel links, transform rows      |
 
-One `PanelBuilder` per visualization subpath; the shared members below ride every panel module, verified on the `timeseries` declaration — the shared surface the core panel family's `_PanelFields` maps onto:
+`.datasource(ref)` takes `common.DataSourceRef { type?, uid? }` and pins `uid` to the `_SOURCES` row key.
+[logs.PanelBuilder]: `.showTime(boolean)` `.wrapLogMessage(boolean)` `.sortOrder(LogsSortOrder)` `.dedupStrategy(LogsDedupStrategy)` — `LogsSortOrder = Descending | Ascending`; `LogsDedupStrategy = none | exact | numbers | signature`.
 
-| [INDEX] | [MEMBER]                                                         | [ROLE]                                                        |
-| :-----: | :--------------------------------------------------------------- | :------------------------------------------------------------ |
-|  [01]   | `new PanelBuilder()` / implements `cog.Builder<dashboard.Panel>` | one panel row; feeds `.withPanel`                             |
-|  [02]   | `.title(t)` / `.description(d)` / `.transparent(b)`              | the shared emission fields                                    |
-|  [03]   | `.gridPos({ h, w, x, y })` / `.span(w)` / `.height(h)`           | placement — `DashboardModel.laid` positions land on `gridPos` |
-|  [04]   | `.withTarget(dataquery)` / `.datasource(ref)`                    | query binding — the prometheus or loki dataquery rows         |
-|  [05]   | `.unit(u)` / `.min(n)` / `.max(n)` / `.thresholds(b)`            | value display — the model's unit/ceiling/steps columns        |
-|  [06]   | `.legend(b)` / `.tooltip(b)`                                     | common-options builders from `./common`                       |
-|  [07]   | `.repeat(r)` / `.links(rows)` / `.withTransformation(t)`         | repetition, panel links, transform rows — on every subpath    |
+### [03.1]-[GEOMAP]
 
-`.datasource(ref)` takes `common.DataSourceRef { type?: string; uid?: string }` — the compile leg pins `uid` to the `_SOURCES` row key; the logs subpath adds `.showTime(b)` / `.wrapLogMessage(b)` / `.sortOrder(common.LogsSortOrder)` (`Descending | Ascending`) / `.dedupStrategy(common.LogsDedupStrategy)` (`none | exact | numbers | signature`) — the display rows the model's Logs case lands.
+`./geomap` carries `PanelBuilder`, `MapViewConfigBuilder`, and `ControlsOptionsBuilder`; map-layer and geometry-source builders live in `./common`. Every companion constructor is zero-argument and `.build()` returns its plain model.
 
-### [02.1]-[GEOMAP]
+[geomap.PanelBuilder]: `.view(MapViewConfigBuilder)` `.controls(ControlsOptionsBuilder)` `.basemap(MapLayerOptionsBuilder)` `.layers(MapLayerOptionsBuilder[])`
+[MapViewConfigBuilder]: `.id` `.lat` `.lon` `.zoom` `.minZoom` `.maxZoom` `.padding` `.allLayers` `.lastOnly` `.layer` `.shared`
+[MapLayerOptionsBuilder]: `.type` `.name` `.config` `.location(FrameGeometrySourceBuilder)` `.filterData` `.opacity` `.tooltip(boolean)`
+[FrameGeometrySourceBuilder]: `.mode(Auto | Geohash | Coords | Lookup)` `.geohash` `.latitude` `.longitude` `.wkt` `.lookup` `.gazetteer`
 
-`./geomap` carries `PanelBuilder` and `MapViewConfigBuilder`; map-layer and geometry-source builders live in `./common`.
+### [03.2]-[TABLE]
 
-| [INDEX] | [BUILDER]                    | [MEMBERS]                                                                |
-| :-----: | :--------------------------- | :----------------------------------------------------------------------- |
-|  [01]   | `geomap.PanelBuilder`        | `.view(view)` / `.controls(controls)`                                    |
-|  [02]   | `geomap.PanelBuilder`        | `.basemap(layer)` / `.layers(layers[])`                                  |
-|  [03]   | `MapViewConfigBuilder`       | `.id` / `.lat` / `.lon` / `.zoom` / `.minZoom` / `.maxZoom` / `.padding` |
-|  [04]   | `MapViewConfigBuilder`       | `.allLayers` / `.lastOnly` / `.layer` / `.shared`                        |
-|  [05]   | `MapLayerOptionsBuilder`     | `.type` / `.name` / `.config` / `.location` / `.filterData` / `.opacity` |
-|  [06]   | `MapLayerOptionsBuilder`     | `.tooltip(boolean)`; `.location` takes `FrameGeometrySourceBuilder`      |
-|  [07]   | `FrameGeometrySourceBuilder` | `.mode` / `.geohash` / `.latitude` / `.longitude` / `.wkt` / `.lookup`   |
-|  [08]   | `FrameGeometrySourceBuilder` | `.gazetteer`; mode is `Auto \| Geohash \| Coords \| Lookup`              |
+[table.PanelBuilder]: `.frameIndex(number)` `.showHeader(boolean)` `.showTypeIcons(boolean)` `.sortBy(cog.Builder<TableSortByFieldState>[])` `.footer(cog.Builder<TableFooterOptions>)`
+[TableSortByFieldStateBuilder]: `.displayName(string)` `.desc(boolean)`
+[TableFooterOptionsBuilder]: `.show(boolean)` `.reducer(string[])` `.fields(string[])` `.enablePagination(boolean)` `.countRows(boolean)`
 
-Every companion constructor is zero-argument and every `.build()` returns its plain model: `MapViewConfig`, `MapLayerOptions`, or `FrameGeometrySource`. `PanelBuilder.view` and `.controls` take one builder; `.basemap` takes one `MapLayerOptionsBuilder`; `.layers` takes an array.
+### [03.3]-[TIMESERIES]
 
-### [02.2]-[TABLE]
+[timeseries.PanelBuilder]: `.axisPlacement(AxisPlacement)` `.axisColorMode(AxisColorMode)` `.axisLabel(string)` `.axisWidth(number)` `.axisSoftMin(number)` `.axisSoftMax(number)` `.axisGridShow(boolean)` `.scaleDistribution(cog.Builder<ScaleDistributionConfig>)` `.axisCenteredZero(boolean)` `.axisBorderShow(boolean)` — `AxisPlacement = Auto | Top | Right | Bottom | Left | Hidden`; `AxisColorMode = Text | Series`.
+[ScaleDistributionConfigBuilder]: `.type(Linear | Log | Ordinal | Symlog)` `.log(number)` `.linearThreshold(number)`
+[VizTooltipOptionsBuilder]: `.mode(Single | Multi | None)` `.sort(Ascending | Descending | None)` `.maxWidth(number)` `.maxHeight(number)` `.hideZeros(boolean)` — consumed by `PanelBuilder.tooltip`.
 
-`./table` `PanelBuilder` carries `.frameIndex(number)`, `.showHeader(boolean)`, `.showTypeIcons(boolean)`, `.sortBy(cog.Builder<common.TableSortByFieldState>[])`, and `.footer(cog.Builder<common.TableFooterOptions>)`. `TableSortByFieldStateBuilder()` terminates at `.build(): TableSortByFieldState` and sets `.displayName(string)` / `.desc(boolean)`. `TableFooterOptionsBuilder()` terminates at `.build(): TableFooterOptions` and sets `.show(boolean)`, `.reducer(string[])`, `.fields(string[])`, `.enablePagination(boolean)`, and `.countRows(boolean)`.
+## [04]-[QUERY_MODULES]
 
-### [02.3]-[TIMESERIES]
+[prometheus.DataqueryBuilder]: `.expr(expr)` `.refId(id)` `.exemplar(boolean)` `.legendFormat(f)` `.instant()` `.range()` `.datasource(ref)` `.format(PromQueryFormat)` `.hide(boolean)` — `PromQueryFormat = TimeSeries | Table | Heatmap`; `.instant()`/`.range()` are zero-argument mode selectors.
+[loki.DataqueryBuilder]: `.expr(expr)` `.refId(id)` `.legendFormat(f)` `.maxLines(number)` `.instant(boolean)` `.range(boolean)` `.datasource(ref)`
+[grafanapyroscope.DataqueryBuilder]: `.labelSelector(string)` `.spanSelector(string[])` `.profileTypeId(string)` `.groupBy(string[])` `.limit(number)` `.maxNodes(number)` `.refId(string)` `.hide(boolean)` `.queryType(string)` `.datasource(DataSourceRef)` — `PyroscopeQueryType = Metrics | Profile | Both`.
 
-`./timeseries` `PanelBuilder` carries the exact axis setters `.axisPlacement(AxisPlacement)`, `.axisColorMode(AxisColorMode)`, `.axisLabel(string)`, `.axisWidth(number)`, `.axisSoftMin(number)`, `.axisSoftMax(number)`, `.axisGridShow(boolean)`, `.scaleDistribution(cog.Builder<ScaleDistributionConfig>)`, `.axisCenteredZero(boolean)`, and `.axisBorderShow(boolean)`. `AxisPlacement` is `Auto | Top | Right | Bottom | Left | Hidden`; `AxisColorMode` is `Text | Series`.
+`./grafanapyroscope` ships no visualization or panel builder: a Pyroscope panel arm has no SDK member to compile, while Pyroscope query rows stay fully typed.
 
-`ScaleDistributionConfigBuilder()` terminates at `.build(): ScaleDistributionConfig` and sets `.type(Linear | Log | Ordinal | Symlog)`, `.log(number)`, and `.linearThreshold(number)`. `VizTooltipOptionsBuilder()` terminates at `.build(): VizTooltipOptions` and sets `.mode(Single | Multi | None)`, `.sort(Ascending | Descending | None)`, `.maxWidth(number)`, `.maxHeight(number)`, and `.hideZeros(boolean)`; `PanelBuilder.tooltip` consumes that builder.
+## [05]-[IMPLEMENTATION_LAW]
 
-## [03]-[QUERY_MODULES]
+[TOPOLOGY]:
+- `DashboardModel` is the authority and the builder the emitter: `_compiled` reads `typeof DashboardModel.Encoded` and maps every model field onto one builder member — `laid` positions become `gridPos`, rendered `Query` strings become `expr` — so a model field with no builder member fails the fold at compile time.
 
-`./prometheus` `DataqueryBuilder` — the query row every metrics-backed panel target rides:
+[STACKING]:
+- `@pulumiverse/grafana`(`.api/pulumiverse-grafana.md`): `.build()` output feeds `oss.Dashboard.configJson` through `pulumi.jsonStringify`, and `storeDashboardSha256` diffs by content hash, so one builder-emitted byte change is exactly one drift row.
+- `@rasm/ts/core` `DashboardModel`: `_compiled` folds each encoded model through `DashboardBuilder` and the per-tag `PanelBuilder`s, one builder row per core panel tag, inventing no name, threshold, or layout.
 
-| [INDEX] | [MEMBER]                                       | [ROLE]                                             |
-| :-----: | :--------------------------------------------- | :------------------------------------------------- |
-|  [01]   | `.expr(expr)` / `.refId(id)`                   | the rendered `Query` string and its slot letter    |
-|  [02]   | `.exemplar(bool)`                              | exemplar overlay — gated on the store row's column |
-|  [03]   | `.legendFormat(f)` / `.instant()` / `.range()` | series labeling and query mode                     |
-|  [04]   | `.datasource(ref)` / `.format(f)` / `.hide(b)` | binding and display posture                        |
+[LOCAL_ADMISSION]:
+- builders resolve only inside the `_compiled` fold on the deploy plane; `.build()` is the single emission seam.
 
-`.format(f)` takes `PromQueryFormat` (`time_series | table | heatmap` as `PromQueryFormat.TimeSeries`/`.Table`/`.Heatmap`); `.instant()`/`.range()` are zero-argument mode selectors. `./loki` `DataqueryBuilder` is the Logs-panel target row — `.expr(expr)`, `.refId(id)`, `.legendFormat(f)`, `.maxLines(n)`, `.instant(b)`/`.range(b)`, `.datasource(ref)`.
-
-`./grafanapyroscope` exports `DataqueryBuilder`, a zero-argument `cog.Builder<cog.Dataquery>` whose `.build()` returns `grafanapyroscope.dataquery`. Its exact setters are `.labelSelector(string)`, `.spanSelector(string[])`, `.profileTypeId(string)`, `.groupBy(string[])`, `.limit(number)`, `.maxNodes(number)`, `.refId(string)`, `.hide(boolean)`, `.queryType(string)`, and `.datasource(common.DataSourceRef)`. `PyroscopeQueryType` supplies `Metrics | Profile | Both` (`"metrics" | "profile" | "both"`).
-
-No Pyroscope visualization or panel builder ships in this package. A raw-JSON-free Pyroscope panel arm has no SDK member to compile, while Pyroscope query rows remain fully typed.
-
-## [04]-[INTEGRATION]
-
-[STACK: `@rasm/ts/core` `DashboardModel`] — the model is the authority, the builder is the emitter: `_compiled` reads `typeof DashboardModel.Encoded`, maps model fields onto builder members one-for-one, and never invents a name, threshold, or layout — `DashboardModel.laid` positions become `gridPos`, rendered `Query` strings become `expr` rows, and a model field with no builder member fails the fold at compile time.
-
-[STACK: `@pulumiverse/grafana` `oss.Dashboard`] — `.build()` output feeds `configJson` through `pulumi.jsonStringify`; `storeDashboardSha256: true` then diffs by content hash, so a builder-emitted byte change is exactly one drift row.
-
-[STACK: version posture] — the emitted-JSON boundary insulates the provider from SDK churn: a builder bump re-emits JSON, the provider applies it, and no other surface moves.
-
-## [05]-[RAIL_LAW]
-
+[RAIL_LAW]:
 - Package: `@grafana/grafana-foundation-sdk`
-- Owns: typed dashboard construction — the builder members panel and query typing survive through
-- Accept: builders inside `operate/observe.md`'s `_compiled` fold only; one builder row per core panel tag; `.build()` as the single emission seam
-- Reject: hand-authored dashboard JSON where a builder subpath exists, builder use outside the deploy plane, a second model authority beside `DashboardModel`
+- Owns: typed dashboard construction — panel and query typing survive through to emission
+- Accept: one builder row per core panel tag; `.build()` as the single JSON seam
+- Reject: hand-authored dashboard JSON where a builder subpath exists; a second model authority beside `DashboardModel`

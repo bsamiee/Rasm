@@ -6,23 +6,23 @@ A package earns a registry row only where two or more folders share it; a folder
 
 ## [01]-[ROUTER]
 
-Package roots in strata order; each root README routes its own design pages.
+Package roots in strata order; each root README routes its own design pages, and the host-boundary shells reference only `Rasm`.
 
 - [01]-[KERNEL]: [Rasm](../Rasm/README.md) — RhinoCommon-aware geometry/numeric kernel.
-- [02]-[AEC-DOMAIN]: [Rasm.Element](../Rasm.Element/README.md) — lowest-AEC element seam.
-- [03]-[AEC-DOMAIN]: [Rasm.Materials](../Rasm.Materials/README.md) — profiles, appearance, construction.
-- [04]-[AEC-DOMAIN]: [Rasm.Bim](../Rasm.Bim/README.md) — BIM object model and IFC/glTF/STEP exchange.
+- [02]-[AEC-DOMAIN]: [Rasm.Element](../Rasm.Element/README.md) — canonical property-graph element model; the lowest AEC seam.
+- [03]-[AEC-DOMAIN]: [Rasm.Materials](../Rasm.Materials/README.md) — architectural substance, appearance, and buildable component type.
+- [04]-[AEC-DOMAIN]: [Rasm.Bim](../Rasm.Bim/README.md) — openBIM object model and IFC/glTF/STEP exchange.
 - [05]-[AEC-DOMAIN]: [Rasm.Fabrication](../Rasm.Fabrication/README.md) — host-neutral design-to-fabrication making-domain owner.
-- [06]-[APP-PLATFORM]: [Rasm.AppHost](../Rasm.AppHost/README.md) — runtime spine.
-- [07]-[APP-PLATFORM]: [Rasm.Compute](../Rasm.Compute/README.md) — measured execution.
-- [08]-[APP-PLATFORM]: [Rasm.Persistence](../Rasm.Persistence/README.md) — durable stores.
-- [09]-[APP-PLATFORM]: [Rasm.AppUi](../Rasm.AppUi/README.md) — Avalonia product UI.
-- [10]-[HOST-BOUNDARY]: [Rasm.Rhino](../Rasm.Rhino/README.md) — RhinoCommon + Eto host boundary; references only `Rasm`.
-- [11]-[HOST-BOUNDARY]: [Rasm.Grasshopper](../Rasm.Grasshopper/README.md) — GH2 + Eto host boundary; references only `Rasm`.
+- [06]-[APP-PLATFORM]: [Rasm.AppHost](../Rasm.AppHost/README.md) — host-neutral runtime spine every app root folds.
+- [07]-[APP-PLATFORM]: [Rasm.Compute](../Rasm.Compute/README.md) — measured-execution engine and discipline-assessment authority.
+- [08]-[APP-PLATFORM]: [Rasm.Persistence](../Rasm.Persistence/README.md) — content-addressed durable system of record.
+- [09]-[APP-PLATFORM]: [Rasm.AppUi](../Rasm.AppUi/README.md) — Avalonia product surface over the receipt spine.
+- [10]-[HOST-BOUNDARY]: [Rasm.Rhino](../Rasm.Rhino/README.md) — RhinoCommon + Eto host boundary.
+- [11]-[HOST-BOUNDARY]: [Rasm.Grasshopper](../Rasm.Grasshopper/README.md) — GH2 + Eto host boundary.
 
 ## [02]-[SUBSTRATE_PACKAGES]
 
-Cross-folder substrate every C# package composes; each folder README names the rows it consumes and its own domain additions, and `libs/csharp/.api/` holds the shared API evidence. Libraries emit telemetry through the in-box `System.Diagnostics` surface, so the OpenTelemetry SDK, exporter, and instrumentation train composes at app roots alone — those packages carry branch-tier catalogs without registry rows. Host SDK assemblies are not packages: `RhinoCommon` evidence homes at the branch tier catalogue-only because the kernel and both host-boundary folders compose one surface.
+Cross-folder substrate every C# package composes. Libraries emit telemetry through the in-box `System.Diagnostics` surface, so the OpenTelemetry SDK, exporter, and instrumentation train composes at app roots alone — those packages carry branch-tier catalogs without registry rows. Host SDK assemblies are not packages: `RhinoCommon` evidence homes at the branch tier catalogue-only because the kernel and both host-boundary folders compose one surface.
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`
@@ -61,9 +61,9 @@ Cross-folder substrate every C# package composes; each folder README names the r
 - `Microsoft.Extensions.Compliance.Redaction` — classified-data redaction at the logging and persistence boundary.
 
 [OBSERVABILITY]:
-- `Microsoft.Extensions.Logging.Abstractions` — `ILogger` emission contract and the `[LoggerMessage]` generator every instrumented library references.
+- `Microsoft.Extensions.Logging.Abstractions` — `ILogger` emission contract and the `[LoggerMessage]` generator.
 - `Microsoft.Extensions.Telemetry` — log sampling, buffering, enrichment rows, and the latency-context ledger.
-- `Microsoft.Extensions.Telemetry.Abstractions` — `[LogProperties]`/`[TagProvider]` emission grammar and enricher contracts instrumented libraries reference.
+- `Microsoft.Extensions.Telemetry.Abstractions` — `[LogProperties]`/`[TagProvider]` emission grammar and enricher contracts.
 - `Microsoft.Extensions.Diagnostics.ResourceMonitoring` — process and container utilization source behind the health fold.
 
 [AI_CONTRACTS]:
@@ -91,11 +91,11 @@ Cross-folder substrate every C# package composes; each folder README names the r
 - `System.Drawing.Common` — compile-only GDI+ surface at the Rhino/Eto host seam.
 
 [TEST_SUBSTRATE]:
-- `xunit.v3.*` — assert/common/extensibility.core/mtp-v2.
+- `xunit.v3.*`
 - `CsCheck`
 - `coverlet.MTP`
 - `Microsoft.Extensions.TimeProvider.Testing` — `FakeTimeProvider` deterministic clock for the proof gauges.
 - `Microsoft.Extensions.Diagnostics.Testing` — `MetricCollector<T>` measurement-assertion rail over any instrument.
-- `Microsoft.Testing.Platform` stack.
-- `BenchmarkDotNet` — drives the benchmark session over the hot paths.
+- `Microsoft.Testing.Platform`
+- `BenchmarkDotNet`
 - `Verify.XunitV3` + `Verify.DiffPlex` — architecture and generator snapshot laws.

@@ -15,7 +15,7 @@ runtime/
     │   └── worker.ts          # Off-thread worker protocol: zero-copy crossings over one pool
     ├── net/                   # Outbound transport and the fanout/replay port
     │   ├── client.ts          # Outbound HTTP lane table: status admission and retry pulses off the core budget
-    │   ├── channel.ts         # Framed long-lived byte channels: socket duplex and SSE feeds over one frame vocabulary
+    │   ├── channel.ts         # Framed long-lived byte channels: socket duplex, SSE, and MQTT v5 over one frame vocabulary
     │   ├── pubsub.ts          # Fanout — the engine-blind broadcast, replay, and blob port over one Broker
     │   └── coordinate.ts      # Accord — the engine-blind lease, elect, and CAS coordination port
     ├── otel/                  # OTLP wire: egress, W3C continuation, crash capture, browser RUM
@@ -55,8 +55,11 @@ runtime/
 ## [02]-[STRATA]
 
 - S0 `net` egress floor — `client` lanes and `channel` frames mint outbound transport (`Client`, `Feed`) and import no runtime sibling.
-- S1 `proc` substrate — `config` resolves `Setting` once over `Client`, `flag` rides `Feed` channels, `exec`/`life`/`worker` mint their rails floor-free; the worker runner entry (`worker.main.ts`) hands `Report.worker` in as composition-root code, never a stratum import.
-- S2 carriers + work — `net/pubsub` and `net/coordinate` compose `Setting`; `otel` composes `Life`; `browser` composes `Client`, folds `Vital.enrich` over its dial spans, and stands parallel to the server plane, importing none of serve, work, or ai; `work` prices the durable plane over `Setting`, `Client`, and the `Bench` protocol at the same rank and marks its settlement facts through the otel meter bridge — the meter mark, the vital projection, and the fanout carriage continuation (`pubsub` composing `Propagation`) are the three lateral edges inside S2.
+- S1 `proc` — `config` resolves `Setting` once over `Client`, `flag` rides `Feed` channels, `exec`/`life`/`worker` mint their rails floor-free.
+- S1 `worker.main.ts` hands `Report.worker` in as composition-root code, never a stratum import.
+- S2 carriers + work — `pubsub`/`coordinate`, `otel`, `browser`, and `work` seat at one rank; every lateral edge stays inside the stratum.
+- S2 `browser` stands parallel to the server plane, importing none of serve, work, or ai.
+- S2 `work` prices the durable plane over `Setting`, `Client`, and the `Bench` protocol, marking settlement facts through the otel meter bridge.
 - S3 `serve` — the front door composing `Fanout`, `Propagation`, and `Life`; nothing imports serve.
 - `ai` composes no runtime sibling — its edges run outward to core, data, and security alone, standing beside the strata rather than inside them.
 
@@ -70,7 +73,7 @@ config:
 ---
 flowchart TB
     accTitle: Runtime interior import strata
-    accDescr: Four interior waves — serve over the pubsub and otel carriers, with browser and work seated at the same carrier rank parallel to the server plane, over the proc substrate onto the net egress floor — imports downward with three lateral edges inside S2 (the work-to-otel meter mark, the browser-to-otel vital projection, the pubsub-to-otel carriage continuation), labeled edges naming one sourced type each, and one forbidden upward edge.
+    accDescr: Four strata — serve over the carriers, browser and work at the same rank, over proc onto the net floor; lateral edges stay inside S2.
     subgraph S3["S3 SERVE"]
         Serve["api · route · live · problem · cli"]
     end
@@ -116,7 +119,7 @@ config:
 ---
 flowchart LR
     accTitle: Runtime domain-peer seam registry
-    accDescr: Runtime sub-domain owners exchanging flag, budget, convention, identity, custody, durable-store, tenant-projection, carrier-context, and tap-registry shapes with the core, security, and data TypeScript domain peers, one edge per contract family mirrored at each counterpart.
+    accDescr: Runtime owners exchanging flag, budget, convention, identity, custody, and tap shapes with the core, security, and data peers.
     subgraph runtime[RUNTIME]
         Proc[Proc substrate]
         Net[Net egress]
@@ -162,7 +165,7 @@ config:
 ---
 flowchart LR
     accTitle: Runtime platform and cross-runtime seam registry
-    accDescr: Runtime sub-domain owners exchanging settings, stack outputs, transcoder assets, subscribable planes, tap registries, and OTLP telemetry with the iac and ui TypeScript peers and the Rasm.AppHost cross-runtime host, one edge per contract family mirrored at each counterpart.
+    accDescr: Runtime owners exchanging settings, stack outputs, subscribable planes, and OTLP telemetry with iac, ui, and the Rasm.AppHost host.
     subgraph runtime[RUNTIME]
         Otel[Otel wire]
         Proc[Proc substrate]
@@ -185,11 +188,11 @@ flowchart LR
     Otel e10@-->|"[TRANSPORT]: Profile.live"| Iac
 ```
 
-## [04]-[ORGANIZATION]
+## [04]-[INTERNAL]
 
 `proc` is the substrate every plane boots on: a runtime is a row, config resolves once, flags evaluate as data, lifecycle folds evidence, workers speak one protocol. `net` owns egress geometry — every outbound call inherits a lane's compiled pulse and circuit row, every long-lived channel one frame vocabulary, every broadcast the engine-blind fanout port, every agreement the coordination port over the same wire. `otel` owns the wire half of observability; its vocabulary lives in core.
 
-`serve` enforces the one front-door law: libraries export route, verb, and group data, the app assembles exactly one `HttpApi`, one CLI root, and one serve fold, and faults leave only as self-rendering `Problem`s. `work` prices every durable surface against one `WorkClass` table, so the durable plane shares one service-class economy. `ai` folds five providers onto one capability table and satisfies the data wave's retrieval ports. `browser` is the same package under the browser condition: one boot, one shell, one persistence vocabulary, one typed router carrying the session plane.
+`serve` enforces the one front-door law: libraries export route, verb, and group data, the app assembles exactly one `HttpApi`, one CLI root, and one serve fold, and faults leave only as self-rendering `Problem`s. `work` prices every durable surface against one `WorkClass` table, so the durable plane shares one service-class economy. `ai` folds five providers onto one capability table and satisfies the data stratum's retrieval ports. `browser` is the same package under the browser condition: one boot, one shell, one persistence vocabulary, one typed router carrying the session plane.
 
 ## [05]-[BOUNDARIES]
 

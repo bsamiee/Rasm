@@ -1,23 +1,25 @@
 # [TS_DATA_API_EFFECT_SQL]
 
-`@effect/sql` is the SQL core the whole `store` plane types against — one `SqlClient` `Context.Tag` a driver `Layer` satisfies, so the journal, projection, capability, scope, retrieve, and object rows code once against the neutral contract and the app root picks the runtime (`-pg` durable spine, `-sqlite-node`/`-bun` server lane, `-sqlite-wasm` browser lane). `sql` builds a `Fragment` that is simultaneously an `Effect<ReadonlyArray<A>>`, a `Stream`, and a `Pipeable`, carrying a dialect-parameterized `Compiler` and the polymorphic helper surface (`sql.insert`/`update`/`in`/`and`/`or`/`csv`/`join`/`onDialect`) — a new dialect is a driver `Layer` with an `onDialect` arm, never a parallel journal. `SqlSchema` decodes rows through a `Schema` at both request and result edge; `SqlResolver` batches N+1 through `effect`'s `Request`/`RequestResolver` with span links; `Model.Class` derives six wire variants (`select`/`insert`/`update`/`json`/`jsonCreate`/`jsonUpdate`) from one declaration; `withTransaction` nests as savepoints and makes the OCC-append + outbox + idempotency-ledger atomic. `SqlEventJournal`/`SqlEventLogServer`/`SqlPersistedQueue` bind the SQL spine under `@effect/experimental`'s overlay `Storage` Tags. `Migrator` ships but stays branch-banned — the record of truth is the append-only journal with read-time upcasting, and DDL is idempotent declarative ensure split `iac`↔`store`.
+`@effect/sql` mints the neutral SQL core the `store` plane types against: one `SqlClient` `Context.Tag` a driver `Layer` satisfies, so every row codes against the contract while the app root selects the runtime.
+
+`sql` builds a `Fragment` that is at once `Effect`, `Stream`, and `Pipeable`, dialect-parameterized through `onDialect`; `SqlSchema`/`SqlResolver`/`Model` parse every row through a `Schema`, `withTransaction` nests as savepoints, and the append-only journal — never `Migrator` — holds truth.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/sql`
 - package: `@effect/sql` (MIT)
-- effect-peer: `effect ^catalog`, `@effect/platform ^catalog`, `@effect/experimental ^catalog` (universal-tier substrate; `.api/effect.md`, `.api/effect-platform.md`, `.api/effect-experimental.md`)
-- dependency: `uuid ^11` (bundled; binary-UUID mint for `Model.UuidV4Insert`)
+- effect-peer: `effect`, `@effect/platform`, `@effect/experimental`
+- dependency: `uuid` (bundled; binary-UUID mint for `Model.UuidV4Insert`)
 - module format: ESM + CJS dual (`dist/dts` typings); per-module deep-import subpaths (`@effect/sql/SqlClient`, `/Statement`, `/Model`, …), `sideEffects: []`
-- runtime: dialect-neutral abstract core — no driver binding of its own; a `-pg`/`-sqlite-node`/`-sqlite-bun`/`-sqlite-wasm` package binds the `SqlClient` `Layer`. Portable to every runtime the driver reaches
-- rail: the `store` SQL contract (journal spine, projection lanes, capability probes, tenancy scopes, dialect lanes, retrieval, object metadata) — the neutral vocabulary `work` imports as its `SqlClient` port
+- runtime: dialect-neutral abstract core with no driver binding; a `-pg`/`-sqlite-node`/`-sqlite-bun`/`-sqlite-wasm` package binds the `SqlClient` `Layer`, so the core rides every runtime the driver reaches
+- rail: the `store` SQL contract every plane composes as its `SqlClient` port
 - modules: `SqlClient`, `Statement`, `SqlSchema`, `SqlResolver`, `SqlConnection`, `SqlError`, `SqlStream`, `Model`, `Migrator` (banned), `SqlEventJournal`, `SqlEventLogServer`, `SqlPersistedQueue`
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the client contract, connection, and transaction spine
-- rail: boundaries
-- `SqlClient` is the one `Context.Tag` every row yields; it extends `Statement.Constructor` so the client value IS the `sql` template. `Connection` is the driver-level execute surface a `Connection.Acquirer` (`Effect<Connection, SqlError, Scope>`) leases; `TransactionConnection` carries the in-flight connection + savepoint depth so nested `withTransaction` folds to savepoints, not a second BEGIN. `MakeOptions` carries `acquirer`/`compiler`/`transactionAcquirer`/`beginTransaction`/`commit`/`rollback`/`savepoint`/`transformRows`; `Connection` exposes `execute`/`executeRaw`/`executeStream`/`executeValues`/`executeUnprepared`.
+- `SqlClient` extends `Statement.Constructor`, so the client value IS the `sql` template; a `Connection.Acquirer` (`Effect<Connection, SqlError, Scope>`) leases the driver `Connection`, and `TransactionConnection` carries `[conn, depth]` so a nested `withTransaction` folds to a savepoint, not a second `BEGIN`.
+- `MakeOptions` fields: `acquirer`/`compiler`/`transactionAcquirer`/`beginTransaction`/`commit`/`rollback`/`savepoint`/`transformRows`; `Connection` members: `execute`/`executeRaw`/`executeStream`/`executeValues`/`executeUnprepared`.
 
 | [INDEX] | [SYMBOL]                                           | [TYPE_FAMILY]       | [CONSUMER_BOUNDARY]                                          |
 | :-----: | :------------------------------------------------- | :------------------ | :----------------------------------------------------------- |
@@ -30,8 +32,9 @@
 |  [07]   | `SqlClient.SafeIntegers`                           | `Context.Reference` | per-fiber bigint-safety toggle for large-integer columns     |
 
 [PUBLIC_TYPE_SCOPE]: the fragment-DSL statement and dialect compiler
-- rail: surfaces-and-dispatch
-- `Statement<A>` is the polymorphic query value: a `Fragment`, an `Effect<ReadonlyArray<A>>` (yield to run), and `Pipeable` at once. `Segment` is the closed union `Literal`/`Identifier`/`Parameter`/`ArrayHelper`/`Record*Helper`/`Custom` the `Compiler` folds to `[sql, params]`. `sql` callable `Constructor` carries `sql`…`` / `sql(id)` / `.unsafe` / `.literal` / `.insert` / `.update` / `.updateValues` / `.in` / `.and` / `.or` / `.csv` / `.join` / `.onDialect` / `.onDialectOrElse` — a dialect (`pg`/`sqlite`/`mysql`/`mssql`/`clickhouse`) is an `onDialect` arm-key, never a `sql.<dialect>` method. `Dialect` is the five-way discriminant `sql.onDialect` branches on. Every execution projection opens a `sql.execute` client span (`.stream` through a scoped span of the same name) stamping the driver's `spanAttributes` — the pg driver seeds `db.system.name=postgresql`, `db.namespace`, `server.address`, `server.port` — beside `db.operation.name` (`execute`/`executeStream`/`executeValues`/`executeRaw`/`executeUnprepared`/`executeWithoutTransform`) and `db.query.text`; `withTransaction` opens `sql.transaction` and marks `db.transaction.commit`/`db.transaction.savepoint`/`db.transaction.rollback` as span events — board queries key on these settled names.
+- `Statement<A>` is at once a `Fragment`, an `Effect<ReadonlyArray<A>>`, and `Pipeable`; `Segment` is the closed union (`Literal`/`Identifier`/`Parameter`/`ArrayHelper`/`Record*Helper`/`Custom`) the `Compiler` folds to `[sql, params]`.
+- `sql` `Constructor` members: `` sql`…` ``/`sql(id)`/`.unsafe`/`.literal`/`.insert`/`.update`/`.updateValues`/`.in`/`.and`/`.or`/`.csv`/`.join`/`.onDialect`/`.onDialectOrElse`; a `Dialect` (`pg`/`sqlite`/`mysql`/`mssql`/`clickhouse`) is an `onDialect` arm-key, never a `sql.<dialect>` method.
+- every execution opens a `sql.execute` span (`.stream` a scoped same-name span) stamping the driver `spanAttributes` beside `db.operation.name`/`db.query.text`; `withTransaction` opens `sql.transaction` marking `db.transaction.commit`/`savepoint`/`rollback` events board queries key on.
 
 | [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]     | [CONSUMER_BOUNDARY]                                                   |
 | :-----: | :----------------------------------- | :---------------- | :-------------------------------------------------------------------- |
@@ -44,8 +47,8 @@
 |  [07]   | `PrimitiveKind` / `Helper`           | value taxonomy    | parameter-binding kinds the compiler placeholders; helper union       |
 
 [PUBLIC_TYPE_SCOPE]: schema-typed query, batching resolver, and error rail
-- rail: rails-and-effects
-- `SqlSchema` and `SqlResolver` are the parse-not-validate query surface: a `Request` `Schema` validates input, a `Result` `Schema` decodes rows, and decode failures ride `ParseError` in the `Effect` error channel — never an untyped row. `SqlResolver<T, I, A, E, R>`/`SqlRequest<T, A, E>` layer `effect`'s `Request`/`RequestResolver` batching over that, exposing `execute`/`request`/`cachePopulate`/`cacheInvalidate` with a `spanLink` per request; each resolver window runs inside a `sql.Resolver.batch <tag>` span carrying those links, and `Model.makeRepository` members span as `<spanPrefix>.<op>` with `makeDataLoaders` resolver tags spelled `<spanPrefix>/<op>`. Variant axis splits `Model.VariantsDatabase` (`select`/`insert`/`update`) from `Model.VariantsJson` (`json`/`jsonCreate`/`jsonUpdate`). `SqlError` is the one tagged fault the whole rail fails into.
+- `SqlSchema`/`SqlResolver` parse-not-validate: a request `Schema` validates input, a result `Schema` decodes the untyped `Connection.Row`, and a decode miss rides `ParseError` on the `Effect` channel. `SqlResolver<T, I, A, E, R>`/`SqlRequest<T, A, E>` layer `effect`'s `Request`/`RequestResolver` batching with a `spanLink` per request inside a `sql.Resolver.batch <tag>` window span.
+- `Model.VariantsDatabase` (`select`/`insert`/`update`) splits from `Model.VariantsJson` (`json`/`jsonCreate`/`jsonUpdate`); `SqlError` is the one tagged fault the rail fails into.
 
 | [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                             |
 | :-----: | :---------------------------------------------- | :-------------- | :-------------------------------------------------------------- |
@@ -56,8 +59,7 @@
 |  [05]   | `Model.VariantsDatabase` / `Model.VariantsJson` | variant axis    | DB-variant trio vs JSON-variant trio (members in lead)          |
 
 [PUBLIC_TYPE_SCOPE]: the `Model` variant-schema field families
-- rail: shapes
-- `Model.Class` derives one struct into six wire variants; a field's presence per variant is its type. Field families below are the parameterized vocabulary — a journal event, snapshot header, projection row, or idempotency-ledger row is a `Model.Class` composed from these, never per-entity insert/update/json schemas hand-written three times. `Model.Field`/`FieldOnly`/`FieldExcept`/`fieldEvolve`/`fieldFromKey` build/narrow/rename a variant field set, and `Override` forces a value into a generated variant.
+- `Model.Class` derives one struct into six wire variants, a field's per-variant presence its type; `Field`/`FieldOnly`/`FieldExcept`/`fieldEvolve`/`fieldFromKey` build, narrow, and rename a variant field set, and `Override` forces a value into a generated variant. A journal event, snapshot header, projection row, or ledger row composes from the field families below, never a hand-written per-entity trio.
 
 | [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                                              |
 | :-----: | :------------------------------------------------ | :--------------- | :--------------------------------------------------------------- |
@@ -73,8 +75,8 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: composing and running a statement
-- rail: surfaces-and-dispatch
-- `sql` is the one query surface; `` sql`… ${id}` `` → `Statement<A>`, `yield*` runs it, and `.stream`/`.values`/`.raw`/`.unprepared` project it (a driver backs `.stream` with the `SqlStream.asyncPauseResume` backpressured cursor). `sql.onDialect({ sqlite, pg, mysql, mssql, clickhouse })` requires all five arms and returns the selected one; `sql.onDialectOrElse({ orElse, sqlite?, pg?, mysql?, mssql?, clickhouse? })` requires `orElse` with each dialect arm optional. DML helpers are `sql.insert(rows)`/`sql.update(row, omit?)`/`sql.updateValues(rows, alias)`/`.returning(cols)`; clause helpers `sql.in(col, values)`/`sql.and(clauses)`/`sql.or(clauses)`/`sql.csv(prefix, values)`/`sql.join(lit)`; escape hatches `sql.unsafe(text, params?)`/`sql.literal(text)`/`Statement.unsafeFragment(text, params?)`; transformers `Statement.setTransformer(f)`/`withTransformer(f)`/`withTransformerDisabled`. `SqlStream.asyncPauseResume(register, bufferSize?)` → `Stream<A, E, R>` backs `Statement.stream`; `register` exposes `single`/`chunk`/`array`/`fail`/`end` emit with `onInterrupt`/`onPause`/`onResume` so demand pauses the cursor.
+- `` sql`… ${id}` `` yields `Statement<A>`; `yield*` runs it and `.stream`/`.values`/`.raw`/`.unprepared` project it, `.stream` over the `SqlStream.asyncPauseResume(register, bufferSize?)` backpressured cursor whose `register` emits `single`/`chunk`/`array`/`fail`/`end` with `onInterrupt`/`onPause`/`onResume`.
+- `sql.onDialect({ sqlite, pg, mysql, mssql, clickhouse })` requires all five arms; `sql.onDialectOrElse` requires `orElse` with each arm optional. DML: `sql.insert(rows)`/`update(row, omit?)`/`updateValues(rows, alias)`/`.returning(cols)`; clauses: `in`/`and`/`or`/`csv`/`join`; escapes: `unsafe`/`literal`/`Statement.unsafeFragment`; transformers: `setTransformer`/`withTransformer`/`withTransformerDisabled`.
 
 | [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                         |
 | :-----: | :---------------------------------------------------- | :------------- | :---------------------------------------------------------- |
@@ -88,8 +90,8 @@
 |  [08]   | `SqlStream.asyncPauseResume(register, bufferSize?)`   | cursor stream  | backpressured async-emit a driver wraps its `pg-cursor` in  |
 
 [ENTRYPOINT_SCOPE]: transactions, savepoints, and reactive reads
-- rail: rails-and-effects
-- `withTransaction` wraps any `Effect` so every statement inside runs on one leased connection; nested calls become savepoints via `TransactionConnection` depth. `reactive`/`reactiveMailbox` (over `@effect/experimental` `Reactivity`) turn a query into a `Stream` that re-emits when its keys are invalidated — the `project/inline` read-your-writes signal. `sql.withTransaction(effect)` returns `Effect<A, E | SqlError, R>`, `sql.reserve` returns `Effect<Connection, SqlError, Scope>`, and `sql.reactive(keys, effect)` returns `Stream<A, E, R>`. `SqlClient.makeWithTransaction({ transactionTag, acquireConnection, begin, savepoint, commit, rollback, … })` is a driver's transaction machinery; `sql.reactiveMailbox(keys, effect)` returns `Effect<ReadonlyMailbox<A, E>, never, R | Scope>`, and `SqlClient.make(options)` returns `Effect<SqlClient, never, Reactivity>`.
+- `sql.withTransaction(effect)` leases one connection for every inner statement, nesting to savepoints by `TransactionConnection` depth; `sql.reserve` yields `Effect<Connection, SqlError, Scope>` for LISTEN/NOTIFY, COPY, and advisory locks.
+- `sql.reactive(keys, effect)` and `sql.reactiveMailbox(keys, effect)` (over `@effect/experimental` `Reactivity`) re-emit a `Stream`/`ReadonlyMailbox` when `Reactivity.invalidate(keys)` fires — the `project/inline` read-your-writes signal; `SqlClient.make(options)` returns `Effect<SqlClient, never, Reactivity>` and `makeWithTransaction(opts)` is the driver's transaction machinery.
 
 | [INDEX] | [SURFACE]                             | [ENTRY_FAMILY]   | [CONSUMER_BOUNDARY]                                                   |
 | :-----: | :------------------------------------ | :--------------- | :-------------------------------------------------------------------- |
@@ -101,8 +103,8 @@
 |  [06]   | `SqlClient.make(options)`             | assemble client  | a driver builds the neutral client from `MakeOptions`                 |
 
 [ENTRYPOINT_SCOPE]: schema-typed query and batching resolver
-- rail: rails-and-effects
-- `SqlSchema.*` is the typed query: input `Schema` in, result `Schema` out, `ParseError` on the error channel — `findAll`/`findOne` (→ `Option`)/`single` (→ `A | NoSuchElement`)/`void`, each `{ Request, Result, execute }`. `SqlResolver.*` is the batched form over `RequestResolver` — `ordered(tag, { Request, Result, execute })`, `grouped(tag, { Request, RequestGroupKey, Result, ResultGroupKey, execute })`, `findById(tag, { Id, Result, ResultId, execute })` → `Option`, `void(tag, { Request, execute })`; `resolver.execute(input)`/`.cachePopulate(id, result)`/`.cacheInvalidate(id)` dispatch and cache. Read lanes collapse N+1 into one round-trip.
+- `SqlSchema` typed query: input `Schema` in, result `Schema` out, `ParseError` on the error channel — `findAll`/`findOne` (→ `Option`)/`single` (→ `A | NoSuchElement`)/`void`, each `{ Request, Result, execute }`.
+- `SqlResolver` batches the same over `RequestResolver`: `ordered(tag, opts)` (`ResultLengthMismatch` on count skew), `grouped(tag, opts)` (per-key `RequestGroupKey`/`ResultGroupKey`), `findById(tag, opts)` → `Option`, `void(tag, opts)`; `resolver.execute`/`.cachePopulate`/`.cacheInvalidate` dispatch and cache, collapsing N+1 to one round-trip.
 
 | [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                |
 | :-----: | :-------------------------------------------- | :------------- | :----------------------------------------------------------------- |
@@ -114,8 +116,8 @@
 |  [06]   | `resolver.execute`/`.cacheInvalidate`         | dispatch/cache | run a batched request; seed/evict the per-resolver cache           |
 
 [ENTRYPOINT_SCOPE]: the `Model` domain class and its repository/loader helpers
-- rail: shapes
-- `Model.Class<Self>(id)(fields)` is one declaration yielding `.select`/`.insert`/`.update`/`.json`/`.jsonCreate`/`.jsonUpdate` schemas; variant access is `Row.insert`/`Row.update`/`Row.json`/`Row.jsonCreate`/`Row.jsonUpdate`/`Model.fields(Row)`. `Model.makeRepository(Row, { tableName, spanPrefix, idColumn })` → `{ insert, update, findById, delete, … }` and `Model.makeDataLoaders(Row, { tableName, spanPrefix, idColumn, window, maxBatchSize? })` are the mutable-CRUD and batched-loader helpers — admissible for projection tables, the snapshot store, and the idempotency ledger, but NOT the record of truth (the append-only journal never issues UPDATE/DELETE). Variant builders are `Field`/`FieldOnly`/`FieldExcept`/`Struct`/`Union`/`extract`.
+- `Model.Class<Self>(id)(fields)` yields `.select`/`.insert`/`.update`/`.json`/`.jsonCreate`/`.jsonUpdate` schemas, accessed as `Row.insert`/… and `Model.fields(Row)`; variant builders are `Field`/`FieldOnly`/`FieldExcept`/`Struct`/`Union`/`extract`.
+- `Model.makeRepository(Row, { tableName, spanPrefix, idColumn })` and `Model.makeDataLoaders(Row, { …, window, maxBatchSize? })` serve projection, snapshot, and idempotency-ledger tables, spanning `<spanPrefix>.<op>` / `<spanPrefix>/<op>`; the append-only journal issues no UPDATE/DELETE, so neither backs it.
 
 | [INDEX] | [SURFACE]                                          | [ENTRY_FAMILY]  | [CONSUMER_BOUNDARY]                                               |
 | :-----: | :------------------------------------------------- | :-------------- | :---------------------------------------------------------------- |
@@ -126,8 +128,8 @@
 |  [05]   | variant builders `Field`/`FieldOnly`/…             | variant compose | nested/renamed field sets; `Union` for multi-`_tag` families      |
 
 [ENTRYPOINT_SCOPE]: the `@effect/experimental` overlay-storage SQL bindings
-- rail: rails-and-effects
-- These bind the SQL spine under `@effect/experimental`'s overlay `Context.Tag`s (`.api/effect-experimental.md` `[SQL_OVERLAY_BACKING]`/`[OVERLAY_BOUNDARY_RULING]`). EventLog overlay's SERVER side and durable queue persist onto the same journal-owning `SqlClient` — the overlay accelerates local-first reads, the SQL journal stays the record of truth. `SqlEventJournal.layer({ eventLogTable?, remotesTable? })` → `Layer<EventJournal, SqlError, SqlClient>`; `SqlEventLogServer.layerStorage({ entryTablePrefix?, remoteIdTable?, insertBatchSize? })` → `Layer<EventLogServer.Storage, SqlError, SqlClient | EventLogEncryption>` with a `layerStorageSubtle(options?)` Web-Crypto variant; `SqlPersistedQueue.layerStore({ tableName?, pollInterval?, lockRefreshInterval?, lockExpiration? })` → `Layer<PersistedQueueStore, SqlError, SqlClient>`.
+- `SqlEventJournal.layer({ eventLogTable?, remotesTable? })` → `Layer<EventJournal, SqlError, SqlClient>`; `SqlEventLogServer.layerStorage({ entryTablePrefix?, remoteIdTable?, insertBatchSize? })` → `Layer<EventLogServer.Storage, SqlError, SqlClient | EventLogEncryption>`, `layerStorageSubtle(options?)` the zero-knowledge Web-Crypto variant; `SqlPersistedQueue.layerStore({ tableName?, pollInterval?, lockRefreshInterval?, lockExpiration? })` → `Layer<PersistedQueueStore, SqlError, SqlClient>`.
+- these bind the SQL spine under `@effect/experimental`'s overlay Tags (`.api/effect-experimental.md`): the overlay accelerates local-first reads, the SQL journal stays the record of truth.
 
 | [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY]    | [CONSUMER_BOUNDARY]                                         |
 | :-----: | :----------------------------------------------- | :---------------- | :---------------------------------------------------------- |
@@ -139,25 +141,25 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SQL_TOPOLOGY]:
-- one Tag, driver-supplied Layer: `SqlClient` is an abstract `Context.Tag` with no binding that every `store` row yields (`const sql = yield* SqlClient`), and the app root binds exactly one driver `Layer` (`PgClient.layer` durable, `SqliteClient.layer` node/bun, `SqliteClient.layer` wasm browser). Runtime portability is a `Layer` selection — the journal code never names a dialect. A new lane is one driver `Layer` and, where SQL differs, one `sql.onDialect` arm; never a parallel journal, projection, or client family.
-- polymorphic statement surface: `sql\`…\`` returns a value that is a `Fragment`, an `Effect`, and `Pipeable` at once — the caller `yield*`s it to get rows, read `.stream` for a backpressured cursor, `.values` for raw tuples, `.raw` for driver-native output, `.unprepared` to skip the prepared-statement cache, `.compile()` to reflect `[sql, params]`. There is no `query`/`queryOne`/`queryMany` proliferation: arity lives in the `SqlSchema` combinator (`findAll`/`findOne`/`single`), and dialect lives in `onDialect`.
-- transactions nest as savepoints: `sql.withTransaction(effect)` leases one connection and runs every statement inside it; a nested `withTransaction` reads `TransactionConnection` depth and emits `SAVEPOINT`/`RELEASE`/`ROLLBACK TO`, so the OCC append + transactional outbox + idempotency-ledger claim commit atomically and a composed sub-operation rolls back to its savepoint without aborting the outer commit.
-- parse-not-validate at both edges: `SqlSchema`/`SqlResolver`/`Model` decode every row through a `Schema` — the request schema validates input, the result schema decodes the untyped `Connection.Row`, and a decode miss is a `ParseError` on the `Effect` error channel. No untyped row reaches domain code; no exception carries a query failure (`SqlError` is a tagged `YieldableError`).
-- migrations are banned: the `Migrator` family (`Migrator.make`, `fromGlob`/`fromBabelGlob`/`fromRecord`, and the driver `SqliteMigrator`/`PgMigrator` re-exports) exists in the package but is NOT admitted. `store` is no-migration by construction — the record of truth is the append-only journal, schema evolution is a read-time `journal/upcast` total fold, and DDL is idempotent declarative ensure split `iac` (apply at provision) ↔ `store` (verify at startup). Runtime never mutates schema.
+- one Tag, driver-supplied Layer: `SqlClient` is an abstract `Context.Tag` every `store` row yields (`const sql = yield* SqlClient`), and the app root binds exactly one driver `Layer`, so runtime portability is a `Layer` selection and the journal code never names a dialect. A new lane adds one driver `Layer` and one `sql.onDialect` arm where SQL differs — never a parallel journal, projection, or client family.
+- polymorphic statement surface: one `sql` value serves every read and write — `.stream` for a backpressured cursor, `.values` for raw tuples, `.raw` for driver-native output, `.unprepared` to skip the prepared-statement cache, `.compile()` to reflect `[sql, params]` — so no `query`/`queryOne`/`queryMany` proliferation exists; arity lives in the `SqlSchema` combinator (`findAll`/`findOne`/`single`) and dialect in `onDialect`.
+- transactions nest as savepoints: `sql.withTransaction(effect)` leases one connection for every inner statement, and a nested call reads `TransactionConnection` depth to emit `SAVEPOINT`/`RELEASE`/`ROLLBACK TO`, so the OCC append, transactional outbox, and idempotency claim commit atomically while a composed sub-operation rolls back to its savepoint alone.
+- parse-not-validate at both edges: `SqlSchema`/`SqlResolver`/`Model` decode every untyped `Connection.Row` through a `Schema`, a request schema validating input and a decode miss riding `ParseError` on the `Effect` error channel; no untyped row reaches domain code and `SqlError` (a tagged `YieldableError`) carries every query fault.
+- migrations are banned: `Migrator` (`make`, `fromGlob`/`fromBabelGlob`/`fromRecord`, the driver `SqliteMigrator`/`PgMigrator` re-exports) ships but is not admitted; `store` is no-migration by construction — schema evolution is a read-time `journal/upcast` total fold, and DDL is idempotent declarative ensure split `iac` (apply at provision) ↔ `store` (verify at startup). Runtime never mutates schema.
 
 [INTEGRATION_LAW]:
-- Stack on `effect` (`.api/effect.md`): the statement is an `Effect`; `withTransaction` is an effect transformer; `SqlError` is a tagged member of the `Effect` error channel discriminated by `catchTag`. `Model` fields ARE `Schema` (`Generated`/`Sensitive`/`DateTimeInsert` compose `Schema.brand`/`optionalWith`/`transform`), and `SqlSchema`/`SqlResolver` lift `ParseResult.ParseError` into `E`. `sql.reactive` yields a `Stream`, and `SqlResolver` composes `Request`/`RequestResolver` for batching — this SQL tier adds no new rail, it is `effect` applied to durable persistence.
-- Stack on `@effect/experimental` (`.api/effect-experimental.md`): `SqlClient.reactive`/`reactiveMailbox` require the `Reactivity` service — `project/inline` emits `Reactivity.invalidate(keys)` after an OCC append, re-running the reactive query (read-your-writes). `Model.Class` builds on `@effect/experimental` `VariantSchema`. `SqlEventJournal`/`SqlEventLogServer`/`SqlPersistedQueue` satisfy the overlay's `EventJournal`/`EventLogServer.Storage`/`PersistedQueueStore` Tags `[SQL_OVERLAY_BACKING]`, so the SQL journal is the durable backing beneath the local-first overlay, never a second authority `[OVERLAY_BOUNDARY_RULING]`.
-- Stack on `@effect/platform` (`.api/effect-platform.md`): the driver `layerConfig` reads its DSN/filename from `Config` behind `PlatformConfigProvider`; a `sql.reserve`d `Connection` frames LISTEN/NOTIFY and COPY over the platform `Socket`. Banned `SqliteMigrator`'s `FileSystem`/`Path`/`CommandExecutor` requirements are exactly why it stays out — `store` needs no filesystem-driven schema step.
-- Stack across `store`: the driver Layer's `SqlClient` is the sole seam `journal`/`project`/`capability`/`scope`/`retrieve`/`object` share; `scope/tenant` sets the `app.current_tenant` GUC inside `withTransaction`; `capability/row` compiles fail-closed extension probes via `sql.unsafe`/`.compile()`; `work` and `security/session` never import `store` — they declare a `SqlClient`/journal port the `store` Layer satisfies at the app root.
+- Stack on `effect` (`.api/effect.md`): the statement is an `Effect`, `withTransaction` an effect transformer, `SqlError` a `catchTag`-discriminated member of the error channel; `Model` fields ARE `Schema` (`Generated`/`Sensitive`/`DateTimeInsert` compose `Schema.brand`/`optionalWith`/`transform`) and `SqlSchema`/`SqlResolver` lift `ParseError` into `E`. This tier adds no rail — it is `effect` applied to durable persistence.
+- Stack on `@effect/experimental` (`.api/effect-experimental.md`): `reactive`/`reactiveMailbox` require the `Reactivity` service — `project/inline` emits `Reactivity.invalidate(keys)` after an OCC append; `Model.Class` builds on `VariantSchema`; `SqlEventJournal`/`SqlEventLogServer`/`SqlPersistedQueue` satisfy the overlay's `EventJournal`/`EventLogServer.Storage`/`PersistedQueueStore` Tags `[SQL_OVERLAY_BACKING]`, the durable backing never a second authority `[OVERLAY_BOUNDARY_RULING]`.
+- Stack on `@effect/platform` (`.api/effect-platform.md`): the driver `layerConfig` reads its DSN/filename from `Config` behind `PlatformConfigProvider`, and a `sql.reserve`d `Connection` frames LISTEN/NOTIFY and COPY over the platform `Socket`; the banned `SqliteMigrator`'s `FileSystem`/`Path`/`CommandExecutor` needs are exactly why it stays out.
+- Stack across `store`: the driver Layer's `SqlClient` is the sole seam `journal`/`project`/`capability`/`scope`/`retrieve`/`object` share; `scope/tenant` sets the `app.current_tenant` GUC inside `withTransaction`, `capability/row` compiles fail-closed extension probes via `sql.unsafe`/`.compile()`, and `work`/`security/session` declare a `SqlClient`/journal port the `store` Layer satisfies rather than importing `store`.
 
 [LOCAL_ADMISSION]:
-- Use `SqlClient` (the neutral Tag) in every row; never import a driver package (`-pg`/`-sqlite-*`) inside `journal`/`project`/`capability`/`retrieve`/`scope` — drivers are admitted only at the app composition root and on the runtime-scoped `./server`/`./browser`/`./wasm` subpaths.
-- Use the `sql` fragment DSL (`sql.insert`/`update`/`in`/`and`/`or`/`csv`/`join`) and `sql.onDialect` for dialect variance; never string-concatenate SQL or hand-write a per-dialect journal — `sql.unsafe`/`.literal` is the only escape and only for provably-safe literals.
-- Use `SqlSchema`/`SqlResolver`/`Model` for typed I/O; never read a raw `Connection.Row` in domain code, never a `query`/`getById`/`getMany` family — one `SqlSchema` combinator discriminates arity.
-- Use `sql.withTransaction` for the OCC-append + outbox + ledger atomic commit; never a manual `BEGIN`/`COMMIT` statement pair — nested composition must fold to savepoints.
-- `Model.makeRepository`/`makeDataLoaders` are for projection/snapshot/ledger tables only; the append-only event journal never issues UPDATE/DELETE on its events (crypto-shredding is key destruction in `retain`, never a row rewrite).
-- `Migrator` is banned branch-wide; a schema change is an `iac` declarative-ensure edit with a `store` startup verify, never a migration script.
+- Yield the neutral `SqlClient` Tag in every row; a driver package (`-pg`/`-sqlite-*`) is imported only at the app composition root and the runtime-scoped `./server`/`./browser`/`./wasm` subpaths.
+- Build every query through the `sql` fragment DSL and `sql.onDialect` for dialect variance; `sql.unsafe`/`.literal` is the sole escape, only for provably-safe literals.
+- Type all I/O through `SqlSchema`/`SqlResolver`/`Model`, one `SqlSchema` combinator discriminating arity, so no raw `Connection.Row` read and no `query`/`getById`/`getMany` family survive.
+- Wrap the OCC-append + outbox + ledger commit in `sql.withTransaction`; nested composition folds to savepoints, never a manual `BEGIN`/`COMMIT` pair.
+- `Model.makeRepository`/`makeDataLoaders` serve projection, snapshot, and ledger tables only; the append-only journal issues no UPDATE/DELETE on its events (crypto-shredding is key destruction in `retain`, never a row rewrite).
+- A schema change is an `iac` declarative-ensure edit with a `store` startup verify; `Migrator` is banned branch-wide.
 
 [RAIL_LAW]:
 - Package: `@effect/sql`

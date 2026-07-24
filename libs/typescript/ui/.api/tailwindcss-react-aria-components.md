@@ -1,116 +1,64 @@
 # [TS_UI_API_TAILWINDCSS_REACT_ARIA_COMPONENTS]
 
-`tailwindcss-react-aria-components` is a build-time Tailwind CSS catalog-bound plugin (zero runtime, no component import) that registers a variant for each state a react-aria-components primitive exposes. RAC renders its interaction state as DOM `data-*` attributes — `data-hovered`, `data-pressed`, `data-selected`, `data-focus-visible`, `data-disabled`, `data-open`, `data-entering`/`data-exiting`, and the enum attributes `data-placement`, `data-orientation`, etc. — and this plugin maps each to a Tailwind variant selecting that attribute, through one `addVariant` fold over a data table of `(attribute → selector)` pairs. The payoff is a collapse: RAC's render-prop `className`/`style` functions (`className={({isSelected, isPressed}) => isSelected ? "…" : "…"}`) become static, composable utility strings (`className="selected:… pressed:…"`), so state-conditional styling lives in the `token`/`view` class vocabulary and flows through the same `cn` merge rail as everything else. It is registered CSS-first in catalog-bound via `@plugin "tailwindcss-react-aria-components"`, with an optional `prefix` to namespace the variants; unprefixed, the native-overlapping variants (`hover`/`focus`/`disabled`/…) are emitted as a unified `:is()` selector so they also apply to non-RAC native elements.
+`tailwindcss-react-aria-components` registers one Tailwind variant per react-aria-components interaction state, so RAC render-prop `className`/`style` functions collapse into static utility strings that flow through the folder's `cn` merge rail. It runs build-time only as an `@plugin` carrying a single `prefix` knob — zero runtime, never imported by a component.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `tailwindcss-react-aria-components`
 - package: `tailwindcss-react-aria-components` (Apache-2.0)
-- module format: CommonJS Tailwind plugin (`module.exports = plugin.withOptions(...)`); the shipped `.d.ts` types it as `plugin(options?: { prefix?: string }) => { handler }` with `__isOptionsFunction`
-- runtime target: build-time only — a PostCSS/Tailwind plugin evaluated during CSS compilation; ZERO runtime, never imported by a component
-- peer: `tailwindcss@^catalog` (the folder's `tailwindcss catalog`); catalog registers it CSS-first via `@plugin`, not a JS `plugins: []` array
-- mechanism: data-attribute driven — the variants select the `data-*` attributes react-aria-components emits (`.api/react-aria-components.md`); the plugin adds them via `addVariant` and carries no knowledge of React
+- module: CommonJS Tailwind plugin (`module.exports = plugin.withOptions(...)`); `.d.ts` types it `plugin(options?: { prefix?: string }) => { handler }` with `__isOptionsFunction`
+- runtime: build-time PostCSS/Tailwind plugin run during CSS compilation; zero runtime, never imported by a component, entirely outside the Effect boundary; `tailwindcss` peer registered CSS-first through `@plugin`
 - rail: the `token`/`view` styling plane — turns RAC render-prop state into the class vocabulary that composes through `cn`/`twMerge`
-- not-Effect: build-time CSS transform; entirely outside the runtime and the Effect boundary
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the boolean state variants — one per RAC render-prop flag
-- rail: types
-- Each row is a *category* of the closed variant set the plugin registers, grouped as its source groups them; a variant name is what the caller write in `className`, and it selects the matching `data-*` attribute RAC emits. This is a data table fed to one `addVariant` loop, not a hand-written selector per state — a new RAC state is a new row upstream, not a new mechanism.
+[PUBLIC_TYPE_SCOPE]: the closed variant vocabulary — one variant per RAC render-prop boolean flag, one `name-value` variant per render-prop enum, each selecting the `data-*` attribute RAC emits; `selection-mode`/`resizable-direction`/`sort-direction` register under the short `selection`/`resizable`/`sort` names.
 
-| [INDEX] | [VARIANT_FAMILY]                                                                         | [STATE_KIND]   |
-| :-----: | :--------------------------------------------------------------------------------------- | :------------- |
-|  [01]   | `hover` `focus` `focus-visible` `focus-within` `pressed` `active` `disabled`             | interactive    |
-|  [02]   | `selected` `selection-start` `selection-end` `indeterminate`                             | selection      |
-|  [03]   | `open` `expanded` `entering` `exiting`                                                   | overlay/motion |
-|  [04]   | `required` `invalid` `unavailable` `read-only` `placeholder-shown` `pending` `empty`     | field/value    |
-|  [05]   | `dragging` `drop-target` `resizing` `allows-dragging` `allows-removing` `allows-sorting` | drag/resize    |
-|  [06]   | `has-submenu` `has-child-items` `current` `outside-month` `outside-visible-range`        | structural     |
-
-- [01]-[INTERACTIVE]: `isHovered`/`isFocused`/`isFocusVisible`/`isPressed`/`isDisabled` — the core interaction styling on every `view/primitive` row.
-- [02]-[SELECTION]: `isSelected` + range endpoints — list/table/grid item and calendar-cell selection styling.
-- [03]-[OVERLAY_MOTION]: `isOpen`/`isExpanded` + transition phases — `entering`/`exiting` pair with `tw-animate-css` for enter/exit.
-- [04]-[FIELD_VALUE]: field validity + value states — the `Schema`→aria `FormBinding` surfaces `invalid`/`required` here.
-- [05]-[DRAG_RESIZE]: `isDragging`/`isDropTarget` + capability flags — dnd + column-resize affordance styling.
-- [06]-[STRUCTURAL]: menu/collection structure + calendar range edges — `current` marks the active nav item.
-
-[PUBLIC_TYPE_SCOPE]: the enum variants — one per RAC render-prop enum, as `name-value`
-- rail: types
-- The enum attributes take a value, so the variant is `name-value` (`placement-bottom`, `orientation-horizontal`); `selection-mode`/`resizable-direction`/`sort-direction` register under the short names `selection`/`resizable`/`sort`. Same one-loop mechanism over a `{ attribute: [values] }` data table.
-
-| [INDEX] | [VARIANT_FAMILY]                    | [ENUM_KIND]       |
-| :-----: | :---------------------------------- | :---------------- |
-|  [01]   | `placement-{left,right,top,bottom}` | overlay side      |
-|  [02]   | `orientation-{horizontal,vertical}` | axis              |
-|  [03]   | `selection-{single,multiple}`       | selection mode    |
-|  [04]   | `sort-{ascending,descending}`       | sort direction    |
-|  [05]   | `resizable-{right,left,both}`       | resize dir        |
-|  [06]   | `type-{literal,year,month,day}`     | date segment      |
-|  [07]   | `layout-{grid,stack}`               | collection layout |
-
-- [01]-[OVERLAY_SIDE]: `data-placement` on popover/tooltip — arrow + entry-direction styling, paired with `floating-ui` placement.
-- [02]-[AXIS]: `data-orientation` on tabs/slider/separator/toolbar — axis-dependent layout.
-- [03]-[SELECTION_MODE]: `data-selection-mode` — collection affordance (checkboxes vs highlight) by mode.
-- [04]-[SORT_DIRECTION]: `data-sort-direction` on a table column header — sort-indicator styling.
-- [05]-[RESIZE_DIR]: `data-resizable-direction` on a resizable table column.
-- [06]-[DATE_SEGMENT]: `data-type` on a date-field segment — per-segment styling in a latent date `view` row.
-- [07]-[COLLECTION_LAYOUT]: `data-layout` on a GridList/collection — layout-dependent item styling.
+| [INDEX] | [KIND]            | [SHAPE] | [VARIANTS]                                                                               |
+| :-----: | :---------------- | :------ | :--------------------------------------------------------------------------------------- |
+|  [01]   | interactive       | boolean | `hover` `focus` `focus-visible` `focus-within` `pressed` `active` `disabled`             |
+|  [02]   | selection         | boolean | `selected` `selection-start` `selection-end` `indeterminate`                             |
+|  [03]   | overlay/motion    | boolean | `open` `expanded` `entering` `exiting`                                                   |
+|  [04]   | field/value       | boolean | `required` `invalid` `unavailable` `read-only` `placeholder-shown` `pending` `empty`     |
+|  [05]   | drag/resize       | boolean | `dragging` `drop-target` `resizing` `allows-dragging` `allows-removing` `allows-sorting` |
+|  [06]   | structural        | boolean | `has-submenu` `has-child-items` `current` `outside-month` `outside-visible-range`        |
+|  [07]   | overlay side      | enum    | `placement-{left,right,top,bottom}`                                                      |
+|  [08]   | axis              | enum    | `orientation-{horizontal,vertical}`                                                      |
+|  [09]   | selection mode    | enum    | `selection-{single,multiple}`                                                            |
+|  [10]   | sort direction    | enum    | `sort-{ascending,descending}`                                                            |
+|  [11]   | resize dir        | enum    | `resizable-{right,left,both}`                                                            |
+|  [12]   | date segment      | enum    | `type-{literal,year,month,day}`                                                          |
+|  [13]   | collection layout | enum    | `layout-{grid,stack}`                                                                    |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: registration and the prefix option
-- rail: surfaces-and-dispatch
-- The whole surface is a catalog-bound `@plugin` directive in the folder's Tailwind entry CSS; there is no JS import. The `prefix` option namespaces every variant (`rac-selected:`) when a name does collide with a project convention.
+[ENTRYPOINT_SCOPE]: registration and variant use — the whole surface is one `@plugin` directive in the `token` entry CSS, never a JS import.
 
-| [INDEX] | [SURFACE]                                                               | [ENTRY_FAMILY] |
-| :-----: | :---------------------------------------------------------------------- | :------------- |
-|  [01]   | `@plugin "tailwindcss-react-aria-components";`                          | registration   |
-|  [02]   | `@plugin "tailwindcss-react-aria-components" { prefix: rac; }`          | namespaced     |
-|  [03]   | `selected:` / `pressed:` / `placement-bottom:` … applied in `className` | variant use    |
-
-- [01]-[REGISTRATION]: the `token`/CSS entry — registers all boolean + enum variants; catalog-bound CSS-first, not a JS config array.
-- [02]-[NAMESPACED]: prefixes every variant (`rac-selected:`) — only when the unprefixed names collide with an existing convention.
-- [03]-[VARIANT_USE]: the composed surface — a variant scopes the utilities after it; stacks with `hover:`/`md:` and flows through `cn`.
-
-[ENTRYPOINT_SCOPE]: the unprefixed native-collapse behavior
-- rail: surfaces-and-dispatch
-- Unprefixed (`prefix: ''`), variants that overlap a native CSS state (`hover`→`:hover`, `focus`→`:focus`, `disabled`/`read-only`/`open`/…) are emitted as a unified `:is()` selector so the variant applies to BOTH a RAC element (`[data-rac][data-hovered]`) and a plain native element (`:not([data-rac]):hover`) — one variant name covers custom and native. `hover` additionally wraps `@media (hover: hover)` to avoid sticky touch styles.
-
-| [INDEX] | [SURFACE]                                                                             | [ENTRY_FAMILY]  |
-| :-----: | :------------------------------------------------------------------------------------ | :-------------- |
-|  [01]   | `&:is(:where([data-rac])[data-hovered], :where(:not([data-rac])):hover)` (unprefixed) | native collapse |
-|  [02]   | `@media (hover: hover)` wrapper on `hover`                                            | pointer gate    |
-|  [03]   | `placeholder-shown:` merges `[data-placeholder], :placeholder-shown`                  | merge selector  |
-
-- [01]-[NATIVE_COLLAPSE]: `hover`/`focus`/`active`/`disabled`/`read-only`/`open`/`expanded` apply to RAC + native; `:where()` keeps specificity at (0,1,0).
-- [02]-[POINTER_GATE]: prevents sticky `hover:` styles on touch; still composable with `group-hover:`/`peer-hover:`/`not-hover:`.
-- [03]-[MERGE_SELECTOR]: applies to both a RAC field and a native input placeholder without a second variant.
+| [INDEX] | [SURFACE]                                                 | [SHAPE]   | [CAPABILITY]                                               |
+| :-----: | :-------------------------------------------------------- | :-------- | :--------------------------------------------------------- |
+|  [01]   | `@plugin "tailwindcss-react-aria-components"`             | directive | registers every variant; `{ prefix: rac }` namespaces them |
+|  [02]   | `selected:` `pressed:` `placement-bottom:` in `className` | variant   | scopes trailing utilities; stacks with `hover:`/`md:`      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[TWRAC_TOPOLOGY]:
-- one data-attribute → one variant, via one fold: the plugin holds a table of RAC states (`attributes.boolean`, `attributes.enum`) and runs a single `addVariant` loop registering `<name>:` → `&[data-<attr>]` (boolean) or `<name>-<value>:` → `&[data-<attr>="<value>"]` (enum). The variant vocabulary IS that data table — there is no per-state hand-written selector, and a new RAC state becomes available by an upstream row, not a mechanism change.
-- the variant is the state binding: because RAC renders `isSelected`/`isPressed`/… as `data-*` attributes, the plugin lets styling read them declaratively — `className="selected:bg-accent pressed:scale-95"` replaces the render-prop `className={({isSelected,isPressed}) => …}` function. State-conditional styling collapses out of JS ternaries into the utility vocabulary.
-- build-time and runtime-free: it is a Tailwind catalog-bound plugin evaluated during CSS compilation. A component never imports it; it emits no JS. Registration is the CSS `@plugin` directive, and the `prefix` option is the only knob.
-- unprefixed variants collapse RAC + native: to avoid overriding native `:hover`/`:focus`/`:disabled` on non-RAC elements, the default (empty-prefix) build targets `[data-rac]` for the RAC branch and the native pseudo-class for the non-RAC branch inside one `:is()`, with `@media (hover: hover)` on hover — so `hover:`/`focus:`/`disabled:` are single names that work everywhere and stay composable with `group-*`/`peer-*`/`not-*`.
+[TOPOLOGY]:
+- One `addVariant` fold over a `(data-attribute → selector)` table mints every variant — `<name>:` → `&[data-<attr>]` for a boolean, `<name>-<value>:` → `&[data-<attr>="<value>"]` for an enum — so `className="selected:… pressed:…"` reads state declaratively where a render-prop `className={({isSelected}) => …}` function stood; a new RAC state is a new upstream row, never a hand-written selector.
+- Unprefixed, a variant overlapping a native CSS state emits one `&:is(:where([data-rac])[data-hovered], :where(:not([data-rac])):hover)` selector so `hover:`/`focus:`/`disabled:` cover RAC and native elements alike; `hover` wraps `@media (hover: hover)`, `placeholder-shown` merges `[data-placeholder], :placeholder-shown`, and `:where()` holds specificity at (0,1,0) so `group-*`/`peer-*`/`not-*` stay composable.
 
-[INTEGRATION_LAW]:
-- Stack with `react-aria-components` (`.api/react-aria-components.md`): this plugin is the styling counterpart of RAC — every RAC render-prop boolean (`isHovered`/`isSelected`/`isInvalid`/…) and enum (`placement`/`orientation`/`selectionMode`/…) has a matching variant, so a `view/primitive` row styles interaction state entirely in classes and never writes a render-prop `className`/`style` function.
-- Stack with `tailwindcss@4` (`.api/tailwindcss.md`): registered via the catalog-bound `@plugin` directive in the `token` entry CSS; the variants compose with Tailwind's own (`selected:hover:…`, `md:pressed:…`) and with `group-*`/`peer-*` since RAC exposes group/peer data-attributes on parents.
-- Stack with `tailwind-merge` (`.api/tailwind-merge.md`): the variants are modifiers `twMerge` preserves as conflict scopes with no config change, so RAC-state styling flows through the folder's one `cn = twMerge(clsx(...))` rail exactly like any variant; only an order-sensitive interaction needs `orderSensitiveModifiers`.
-- Stack with `tw-animate-css` (`.api/tw-animate-css.md`): `entering:`/`exiting:` are the RAC transition phases — pair them with tw-animate enter/exit utilities (`entering:animate-in entering:fade-in exiting:animate-out exiting:fade-out`) so overlay/popover motion is declared in classes, driven by RAC's `data-entering`/`data-exiting`.
-- Stack with `class-variance-authority` (`.api/class-variance-authority.md`): a `cva` variant's class string may include these state variants (`selected:` inside a `cva` slot), so a token-driven component still binds RAC state declaratively while `cva` selects the design variant.
+[STACKING]:
+- `react-aria-components` (`.api/react-aria-components.md`): every render-prop boolean (`isHovered`/`isSelected`/`isInvalid`) and enum (`placement`/`orientation`/`selectionMode`) has a matching variant, so a styled row expresses interaction state in classes instead of a render-prop `className`/`style` function.
+- `tailwindcss` (`.api/tailwindcss.md`): registered through the `@plugin` directive; the variants compose with Tailwind's own (`selected:hover:…`, `md:pressed:…`) and with `group-*`/`peer-*` over RAC's group/peer data-attributes.
+- `tailwind-merge` (`.api/tailwind-merge.md`): the variants are modifiers `twMerge` preserves as conflict scopes, flowing through the one `cn = twMerge(clsx(...))` rail; an order-sensitive interaction registers `orderSensitiveModifiers`.
+- `tw-animate-css` (`.api/tw-animate-css.md`): `entering:`/`exiting:` drive RAC transition phases — pairing them with `animate-in`/`animate-out` declares overlay motion in classes off RAC's `data-entering`/`data-exiting`.
+- `class-variance-authority` (`.api/class-variance-authority.md`): a `cva` slot's class string carries these state variants (`selected:` inside a variant), binding RAC state declaratively while `cva` selects the design variant.
+- `view/primitive` + `view/compose`: the folder styles every RAC state through these variants, so the `Schema`→aria `FormBinding` surfaces `invalid:`/`required:` in classes and no styled row hand-writes a state branch.
 
 [LOCAL_ADMISSION]:
-- Register once via `@plugin` in the `token` entry CSS; never import the plugin from a component and never add it to a JS `plugins: []` array (catalog-bound style) under `tailwindcss@4`.
-- Style RAC interaction state with variants (`selected:`/`pressed:`/`invalid:`/`placement-bottom:`); never re-implement the branch with a render-prop `className`/`style` function or a JS ternary when a variant exists.
-- Pair `entering:`/`exiting:` with `tw-animate-css` for RAC overlay transitions; never hand-write keyframe state machines for enter/exit.
-- Keep the variants flowing through the `cn`/`twMerge` rail like any modifier; never special-case them in class composition.
-- Choose a `prefix` only when an unprefixed name genuinely collides; otherwise keep the native-collapse default so `hover:`/`focus:`/`disabled:` cover RAC and native elements alike.
+- Register once via `@plugin` in the `token` entry CSS; a component never imports the plugin or lists it in a JS `plugins: []` array, and a `prefix` is chosen only when an unprefixed name genuinely collides.
+- Style RAC state with variants (`selected:`/`pressed:`/`invalid:`/`placement-bottom:`) and pair `entering:`/`exiting:` with `tw-animate-css` for overlay transitions, never a render-prop `className`/`style` function or a hand-written enter/exit keyframe machine where a variant exists.
 
 [RAIL_LAW]:
 - Package: `tailwindcss-react-aria-components`
-- Owns: the build-time mapping of react-aria-components state to Tailwind variants — the boolean state variants (interactive/selection/overlay-motion/field/drag/structural), the `name-value` enum variants (`placement`/`orientation`/`selection`/`sort`/`resizable`/`type`/`layout`), the catalog-bound `@plugin` registration + `prefix` option, and the unprefixed native-collapse selector emission
-- Accept: CSS-first `@plugin` registration, declarative variant styling of RAC state, `entering:`/`exiting:` + tw-animate for transitions, composition through the `cn`/`twMerge` rail and with `cva`/`group-*`/`peer-*`, the unprefixed native-collapse default
-- Reject: importing the plugin from a component, a JS `plugins: []` registration under catalog-bound, render-prop `className`/`style` functions where a variant exists, hand-written enter/exit keyframe machines, and a needless `prefix` that breaks the native-collapse of `hover`/`focus`/`disabled`
+- Owns: the build-time mapping of react-aria-components render-prop state to Tailwind variants — boolean state variants, `name-value` enum variants, the `@plugin` registration with its `prefix` option, and the unprefixed native-collapse selector emission
+- Accept: CSS-first `@plugin` registration, declarative variant styling of RAC state, `entering:`/`exiting:` + tw-animate transitions, composition through the `cn`/`twMerge` rail and with `cva`/`group-*`/`peer-*`
+- Reject: importing the plugin from a component, a JS `plugins: []` registration, render-prop `className`/`style` functions where a variant exists, hand-written enter/exit keyframe machines, a needless `prefix` that breaks native-collapse

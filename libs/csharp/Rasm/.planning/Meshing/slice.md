@@ -1,6 +1,6 @@
 # [RASM_INTERSECTION_SLICE]
 
-`Slicing.Apply(SliceOp, Op?)` owns the slice stack of `Rasm.Meshing` — one section fold composing `Intersection.Apply(IntersectOp.PlaneMesh(...))` over a parallel-plane family, never a crossing kernel of its own. Crossing existence, on-plane vertex handling, segment orientation, and chain connectivity are the intersect owner's exact machinery, composed one level up rather than re-founded as another `IntersectOp` case. `LayerPlan` generates the plane family rather than enumerating it: its cases are height-law data over one `March` integrator, so the next layer policy is one case carrying one height law, never a sibling planner body.
+`Slicing.Apply(SliceOp, Op?)` owns the slice stack of `Rasm.Meshing` — one section fold composing `Intersection.Apply(IntersectOp.PlaneMesh(...))` over a parallel-plane family. Crossing existence, on-plane vertex handling, segment orientation, and chain connectivity are the intersect owner's exact machinery, composed one level up. `LayerPlan` generates the plane family rather than enumerating it: its cases are height-law data over one `March` integrator, so the next layer policy is one case carrying one height law, never a sibling planner body.
 
 Per-layer contours arrive oriented from the composed fold — intersect stores each segment `from → to` along `cut.Normal × faceNormal`, so closed loops close outer-CCW and holes CW by construction — and a non-watertight section lands as typed open `Chain(Closed: false)` rows, or under `SlicePolicy.RequireWatertight` as the typed `GeometryFault.SectionFault` 2425. Contour nesting is an exact-parity containment fold over the same canonical coordinates every decoder reads, so the forest is a deterministic function of the wire it ships with; QuikGraph serves in-computation only per the bounded-lane law. `SliceStack`, the kernel-owned SoA forest wire, is the result the `Rasm.Fabrication` `Additive/slicing` and `Rasm.Compute` circulation decoders bind, `Chain` rows projecting from the channels on read.
 
@@ -338,6 +338,13 @@ public static class Slicing {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     SliceOp -->|SliceFrame.Of — one soup pass| SliceFrame
     SliceFrame -->|height laws over ONE March| LayerPlan

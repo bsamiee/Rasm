@@ -23,7 +23,7 @@ It projects GeometryGym models into canonical `ElementGraph` deltas over the `Ra
 [MODEL]:
 - [11]-[ELEMENTS](.planning/Model/elements.md): Generated `IfcClass` taxonomy with release map, domain partition, and predefined egress gate.
 - [12]-[FAULTS](.planning/Model/faults.md): `BimFault` closed union lifting every rejection onto the seam fault band's typed rail.
-- [13]-[OBSERVABILITY](.planning/Model/observability.md): `BimHooks` composition-scoped hook rail, `BimTelemetry` receipt-projected instruments, corpus-gated `BimBenchReceipt` claims.
+- [13]-[OBSERVABILITY](.planning/Model/observability.md): `BimHooks` rail, `BimTelemetry` receipt-projected instruments, corpus-gated bench claims.
 - [14]-[QUERY](.planning/Model/query.md): Set-algebraic `ElementSet` query over a closed predicate union, `PredicateWire`, `StorePlan` push-down.
 - [15]-[SPATIAL](.planning/Model/spatial.md): Spatial rank vocabulary, containment tree over seam compose edges, adjacency, and linear positioning.
 - [16]-[STRUCTURAL](.planning/Model/structural.md): Structural-analysis reader lowering restraints, loads, and topology onto seam payloads.
@@ -97,7 +97,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `VividOrange.Cases`
 - `VividOrange.Stages`
 - `VividOrange.Countries`
-- `VividOrange.IStandards` — verified-transitive through `VividOrange.Cases`; no direct manifest row.
+- `VividOrange.IStandards` — transitive through `VividOrange.Cases`; no direct manifest row.
 - `NodaMoney` — 5D cost-value money type.
 
 [ENERGY_EXCHANGE]:

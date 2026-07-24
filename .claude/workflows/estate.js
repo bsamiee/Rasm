@@ -71,7 +71,7 @@ const TRACKS = {
             'tooling admissions via the pnpm catalog on merit, wired or rejected. tools/biome modernized and extended (justified biome/nx plugins admitted; ' +
             'assay stays the operator boundary). Root TS config coherence: tsconfig.base.json, tsconfig.json, biome.json, nx.json.',
         gates:
-            'pnpm install clean; pnpm run typecheck (tsgo AND tsc) fully clean; pnpm run check fully clean on touched files (never biome-ignore); pnpm run ' +
+            'pnpm install clean; assay static ts lane (tsc + biome) fully clean on touched files (never biome-ignore); pnpm run ' +
             'test and pnpm run e2e green for tests/typescript suites; prose gate zero FAILs on every touched .md. Zero-error law: findings fixed correctly ' +
             'root/ground-up — never any-casts, suppressions, or bandaids.',
     },
@@ -88,7 +88,7 @@ const FINAL_TRACK = {
         'what they missed.',
     gates:
         'dotnet restore Workspace.slnx clean; dotnet build Workspace.slnx zero errors and warnings; dotnet format Workspace.slnx --verify-no-changes clean; ' +
-        'dotnet test tests/csharp/_architecture green; uv run ruff check + ty check + mypy all clean; pnpm run typecheck and pnpm run check clean; prose ' +
+        'dotnet test tests/csharp/_architecture green; uv run python -m tools.assay static clean across all languages; prose ' +
         'gate zero FAILs on every touched .md. Zero-error law: fixed root/ground-up, never suppressed.',
 };
 

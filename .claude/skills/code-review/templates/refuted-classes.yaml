@@ -250,7 +250,7 @@ classes:
         - '(?s)^(?!.*(hedge|weak.?verb|twin|litany|anchor|mirror|coupling|restat|spread|defect)).*(prefer|consider|suggest).{0,40}(tone|wording|phras|rephras|softer)'
         - '(?s)^(?!.*(hedge|weak.?verb|twin|litany|anchor|mirror|coupling|restat|spread|defect)).*(too|overly) (terse|verbose|dense|blunt).{0,40}(prose|sentence|line|register)'
         - '(?s)^(?!.*(hedge|weak.?verb|twin|litany|anchor|mirror|coupling|restat|spread|defect)).*(add|expand|elaborate).{0,30}(explanation|context|detail).{0,30}(reader|clarity)'
-      refuting_citation: 'docgen SKILL [03]-[REGISTER] — the house owns the register: deliberate load-bearing terseness and declarative owner-subject law are the standard, and a bare wording preference is void; the matchers'' negative lookahead encodes the discriminator — a claim naming a catalog defect class (hedge, weak verb, twin truth) never enters this class and adjudicates as a live finding'
+      refuting_citation: 'docgen SKILL [02]-[REGISTER] — the house owns the register: deliberate load-bearing terseness and declarative owner-subject law are the standard, and a bare wording preference is void; the matchers'' negative lookahead encodes the discriminator — a claim naming a catalog defect class (hedge, weak verb, twin truth) never enters this class and adjudicates as a live finding'
       landed_surfaces: []
       recurrences: 0
     - class_id: altitude-misjudgment
@@ -258,7 +258,7 @@ classes:
       matchers:
         - '(too much|excessive|low.?level) (detail|mechanism).{0,50}(reference|catalog|template|\.api)'
         - '(belongs|move|hoist).{0,30}(to|into).{0,30}(root|index|readme|skill\.md)'
-      refuting_citation: 'docgen references/structure.md altitude tiers — reference, catalog, and template pages carry the mechanism the index abstracts, so depth at its owning tier is by design; the discriminator is direction — mechanism sitting AT the index tier is the true positive (MECHANISM_LEAK), mechanism at its owning reference is not'
+      refuting_citation: 'docgen SKILL.md [04]-[ALTITUDE] — reference, catalog, and template pages carry the mechanism the index abstracts, so depth at its owning tier is by design; the discriminator is direction — mechanism sitting AT the index tier is the true positive (MECHANISM_LEAK), mechanism at its owning reference is not'
       landed_surfaces: []
       recurrences: 0
     - class_id: context-blind-duplication
@@ -364,7 +364,7 @@ classes:
       matchers:
         - '(Ship|Replace) rows?.{0,60}(narration|delete)'
         - 'header.{0,40}(rows?|schema).{0,50}narration'
-      refuting_citation: 'sibling-template header schema plus docgen structure.md file-kind consistency — a template header states its fill-and-replace contract in the bundle-consistent schema (r4b-05)'
+      refuting_citation: 'sibling-template header schema plus docgen SKILL.md [10]-[SCHEMA_OWNERSHIP] — a template header states its fill-and-replace contract in the bundle-consistent schema (r4b-05)'
       landed_surfaces:
         - '.coderabbit.yaml'
         - '.greptile/rules.md'

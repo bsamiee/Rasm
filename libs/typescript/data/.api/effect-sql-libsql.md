@@ -1,21 +1,21 @@
 # [TS_DATA_API_EFFECT_SQL_LIBSQL]
 
-`@effect/sql-libsql` binds the neutral `@effect/sql` `SqlClient` (`.api/effect-sql.md`) to the `@libsql/client` SDK — the edge-replica profile of the ONE sqlite lane: a local replica file serves microsecond reads while writes forward to the remote primary, and the sync cadence is a config fact. Query, transaction, and typed-IO surface stay the spine's, routed through `sql.onDialect`'s `sqlite` arm; this driver owns only connection, embedded-replica sync, span, and a real interactive `withTransaction` (write-mode `transaction` plus `SAVEPOINT` nesting) the D1 profile refuses. Tenancy on this profile is database-per-tenant (cheap-database model) — the lane degradation table records the verdict.
+`@effect/sql-libsql` binds the neutral `@effect/sql` `SqlClient` (`.api/effect-sql.md`) to the `@libsql/client` SDK — the edge-replica profile of the one sqlite lane, a local replica serving reads while writes forward to the remote primary. This driver owns the interactive-transaction machinery — write-mode `transaction` with `SAVEPOINT` nesting — the D1 profile refuses; tenancy is database-per-tenant.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/sql-libsql`
 - package: `@effect/sql-libsql` (MIT)
-- effect-peer: `effect`, `@effect/sql` (the `SqlClient` core this extends; `.api/effect-sql.md`), `@effect/experimental` (`Reactivity`), `@effect/platform`
-- backing: `@libsql/client` (embedded-replica + remote sync protocol; direct dependency, not peer)
-- runtime: `runtime:node`/bun server and edge hosts; never the browser plane (`@effect/sql-sqlite-wasm` owns it)
+- effect-peer: `effect`, `@effect/sql` (the extended `SqlClient` core; `.api/effect-sql.md`), `@effect/experimental` (`Reactivity`), `@effect/platform`
+- backing: `@libsql/client` (embedded-replica + remote-sync protocol)
+- runtime: node/bun server and edge hosts; the browser lane is `@effect/sql-sqlite-wasm`
 - modules: `LibsqlClient`
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the `LibsqlClient` service and its config
 - rail: data/lane
-- `LibsqlClient extends SqlClient` — providing the layer yields both Tags; lane rows compose the neutral `SqlClient` and only construction reaches the concrete Tag. Config splits `Full` (driver-owned connection) from `Live` (adopt an app-owned `Libsql.Client`); `LibsqlClientConfig.Base` carries the shared `spanAttributes`/`transformResultNames`/`transformQueryNames` transforms.
+- `LibsqlClient` extends `SqlClient`, adding `[TypeId]` and a resolved `config`; every lane row yields the neutral Tag and only construction reaches the concrete one. `LibsqlClientConfig` splits `Full` (driver-owned connection) from `Live` (an app-owned `Libsql.Client` adopted as a value) over a shared `Base` carrying the `spanAttributes`/`transformResultNames`/`transformQueryNames` transforms.
 
 | [INDEX] | [SYMBOL]                                                               | [TYPE_FAMILY]       | [CONSUMER_BOUNDARY]                     |
 | :-----: | :--------------------------------------------------------------------- | :------------------ | :-------------------------------------- |
@@ -33,7 +33,7 @@
 
 [ENTRYPOINT_SCOPE]: constructing the driver Layer on the `./server` subpath
 - rail: data/lane
-- `layer` yields `Layer<LibsqlClient \| SqlClient>` infallibly, `layerConfig` adds only `ConfigError`; `make` returns `Effect<LibsqlClient, never, Scope \| Reactivity>`. Providing either Layer yields both Tags; only construction reaches the concrete `LibsqlClient`.
+- `layer` yields `Layer<LibsqlClient \| SqlClient>` infallibly; `layerConfig` adds only `ConfigError`; `make` returns `Effect<LibsqlClient, never, Scope \| Reactivity>` for construction inside a larger acquire graph.
 
 | [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                            |
 | :-----: | :---------------------------------------------------------- | :------------- | :--------------------------------------------- |
@@ -44,16 +44,16 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [INTEGRATION_LAW]:
-- Stack on `@effect/sql` (`.api/effect-sql.md`): all query/transaction/typed-IO surface is inherited; the driver owns only the connection, replica sync, and span.
-- Stack across `data`: the profile is one `lane/sqlite` row — reads hit the local replica, writes serialize at the primary; LISTEN/NOTIFY degrades to the sync-pull cadence, RLS to database-per-tenant.
+- Stack on `@effect/sql` (`.api/effect-sql.md`): libsql rides the `sqlite` arm of `sql.onDialect` and supplies only the `SqlClient.MakeOptions` (sqlite `Compiler`, connection acquirer, interactive-transaction machinery) the neutral `make` folds; the fragment DSL, `SqlSchema`/`SqlResolver`/`Model`, `withTransaction`, and the overlay-storage Layers compose unchanged.
+- Stack across `data`: one `lane/sqlite` row — local-replica reads, primary-serialized writes; LISTEN/NOTIFY degrades to the sync-pull cadence, RLS to database-per-tenant.
 
 [LOCAL_ADMISSION]:
 - Provide the layer on the `./server` subpath at the app root only; neutral rows yield `SqlClient`.
-- `url`/`authToken`/`encryptionKey` ride `Config.redacted`; sync cadence is a `Config` duration fact, never a literal.
-- Compatibility is contract-level, not byte-level — the engine is not the C sqlite3 library; the lane degradation table is the sole divergence record.
+- `url`/`authToken`/`encryptionKey` ride `Config.redacted`; sync cadence rides a `Config` duration.
+- libsql is contract-compatible with sqlite, not byte-compatible with the C `sqlite3` engine; the lane degradation table records every divergence.
 
 [RAIL_LAW]:
 - Package: `@effect/sql-libsql`
-- Owns: the libSQL binding of `SqlClient` — `layer`/`layerConfig`/`make`, the `Full`/`Live` config family, embedded-replica sync knobs
-- Accept: the edge-replica profile row under the one sqlite lane contract, `Config`-sourced credentials, database-per-tenant isolation
-- Reject: a driver import in a neutral row, a second relational contract for the edge, byte-level sqlite assumptions, hardcoded sync cadence or credentials
+- Owns: the libSQL binding of `SqlClient` — `layer`/`layerConfig`/`make`, the `Full`/`Live`/`Base` config family, the embedded-replica sync knobs, the interactive-transaction machinery
+- Accept: the edge-replica profile row under the one sqlite lane, `Config`-sourced credentials, database-per-tenant isolation
+- Reject: a driver import in a neutral row, a second relational contract for the edge, byte-level sqlite assumptions, a hardcoded sync cadence or credential

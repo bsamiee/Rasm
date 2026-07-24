@@ -1,14 +1,15 @@
 # [TS_IAC_API_PULUMI_RANDOM]
 
-`@pulumi/random` is the provider-tracked entropy owner: passwords, strings, ids, byte suffixes, integers, seeded shuffles, and versioned UUIDs whose value lives in Pulumi state and regenerates ONLY when its `keepers` recreation-trigger map changes — deterministic across `up` runs, unlike a runtime RNG. `iac` composes it as generated secret material that flows sensitive into the `secret`/`kube`/`data` rows: one `keepers` rotation pattern owns recreation everywhere, and one char-class policy shape drives both `RandomPassword` and `RandomString`.
+`@pulumi/random` mints provider-tracked entropy: its value persists in Pulumi state and regenerates only when a resource's `keepers` map changes, so material is deterministic across `up` runs where a runtime RNG is not.
+
+`iac` composes it as sensitive `Output` material feeding the secret, kube, and data rows: one `keepers` bump rotates any credential, and one char-class policy shape drives both `RandomPassword` and `RandomString`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pulumi/random`
 - package: `@pulumi/random` (Apache-2.0)
-- module: `@pulumi/random`
-- asset: provider-tracked random material (passwords, strings, ids, bytes, integers, shuffles, UUIDs)
-- runtime: `node` — Terraform-bridge provider plugin auto-downloads on first resource registration; values persist in stack state
+- module: `@pulumi/random` — flat resource-class exports over the Terraform-bridge provider plugin
+- runtime: `node`; the provider plugin auto-downloads on first resource registration and values persist in stack state
 - rail: fabric
 
 ## [02]-[RESOURCE_SURFACE]
@@ -16,25 +17,24 @@
 Every resource extends `pulumi.CustomResource`, carries `static get(name, id, state?, opts?)` + `static isInstance(obj)` + `constructor(name, args, opts?)`, and shares the universal `keepers?: Input<{[k]: Input<string>}>` recreation trigger. Generated values surface as `Output<T>`; `RandomPassword`/`RandomString` `result` is state-encrypted sensitive.
 
 [PUBLIC_TYPE_SCOPE]: resource roster
-- rail: fabric
 
-| [INDEX] | [SYMBOL]         | [REQUIRED_ARGS] | [KEY_OUTPUTS]                                 | [NOTE]                                         |
-| :-----: | :--------------- | :-------------- | :-------------------------------------------- | :--------------------------------------------- |
-|  [01]   | `RandomPassword` | `length`        | `result` (secret), `bcryptHash`               | cryptographic RNG; sensitive; char-class knobs |
-|  [02]   | `RandomString`   | `length`        | `result`                                      | same knobs as `RandomPassword`, non-sensitive  |
-|  [03]   | `RandomId`       | `byteLength`    | `hex`, `dec`, `b64Std`, `b64Url`              | N random bytes projected to four encodings     |
-|  [04]   | `RandomBytes`    | `length`        | `base64`, `hex`                               | raw random bytes; sensitive base64             |
-|  [05]   | `RandomInteger`  | `min`, `max`    | `result` (number)                             | seeded bounded integer                         |
-|  [06]   | `RandomShuffle`  | `inputs`        | `results` (string[])                          | `seed`-stable permutation; `resultCount`       |
-|  [07]   | `RandomPet`      | —               | id = pet name (`length`/`prefix`/`separator`) | human-friendly stable resource names           |
-|  [08]   | `RandomUuid`     | —               | `result` (uuid)                               | random UUID (v4)                               |
-|  [09]   | `RandomUuid4`    | —               | `result` (uuid)                               | explicit UUIDv4                                |
-|  [10]   | `RandomUuid7`    | —               | `result` (uuid)                               | time-ordered UUIDv7 (sortable ids)             |
-|  [11]   | `Provider`       | —               | —                                             | explicit provider instance                     |
+| [INDEX] | [SYMBOL]         | [REQUIRED_ARGS] | [KEY_OUTPUTS]                                 | [NOTE]                     |
+| :-----: | :--------------- | :-------------- | :-------------------------------------------- | :------------------------- |
+|  [01]   | `RandomPassword` | `length`        | `result` (secret), `bcryptHash`               | cryptographic RNG          |
+|  [02]   | `RandomString`   | `length`        | `result`                                      | same char-class knobs      |
+|  [03]   | `RandomId`       | `byteLength`    | `hex`, `dec`, `b64Std`, `b64Url`              | bytes to four encodings    |
+|  [04]   | `RandomBytes`    | `length`        | `base64` (secret), `hex`                      | raw random bytes           |
+|  [05]   | `RandomInteger`  | `min`, `max`    | `result` (number)                             | seeded bounded integer     |
+|  [06]   | `RandomShuffle`  | `inputs`        | `results`, `resultCount`                      | `seed`-stable permutation  |
+|  [07]   | `RandomPet`      | —               | id = pet name (`length`/`prefix`/`separator`) | human-friendly names       |
+|  [08]   | `RandomUuid`     | —               | `result` (uuid)                               | random UUID v4             |
+|  [09]   | `RandomUuid4`    | —               | `result` (uuid)                               | explicit UUIDv4            |
+|  [10]   | `RandomUuid7`    | —               | `result` (uuid)                               | time-ordered sortable ids  |
+|  [11]   | `Provider`       | —               | —                                             | explicit provider instance |
 
 ## [03]-[MATERIAL_PROJECTIONS]
 
-Three parameterized patterns own the surface; the roster above is seed data feeding them, not eleven independent recipes.
+Three parameterized patterns own the surface; the roster above is seed data feeding them, not one recipe per resource.
 
 [PATTERN]: char-class policy — ONE shape drives `RandomPassword` + `RandomString`
 
@@ -43,45 +43,35 @@ Three parameterized patterns own the surface; the roster above is seed data feed
 |  [01]   | `length`                                              | total length; `≥ minLower+minUpper+minNumeric+minSpecial` |
 |  [02]   | `lower` / `upper` / `numeric` / `special`             | character-class toggles (default `true`)                  |
 |  [03]   | `minLower` / `minUpper` / `minNumeric` / `minSpecial` | per-class minimums                                        |
-|  [04]   | `overrideSpecial`                                     | replace the default `!@#$%&*()-_=+[]{}<>:?` set           |
+|  [04]   | `overrideSpecial`                                     | replace the default special-character set                 |
 
-Sensitive-vs-plain is a mode arm over ONE knob struct: `RandomPassword` (encrypted `result` + `bcryptHash`) vs `RandomString` (plain `result`); the resource dispatches on a `sensitive` tag.
+`RandomPassword` (encrypted `result` + `bcryptHash`) and `RandomString` (plain `result`) are one knob struct under a sensitivity arm; the `iac` dispatch picks the resource on a `sensitive` tag.
 
 [PATTERN]: entropy encoding — ONE random source, multiple projections
-- `RandomId(byteLength)` projects the same bytes to `hex` / `dec` / `b64Std` / `b64Url`; `RandomBytes(length)` exposes `base64` / `hex` — pick the encoding a consumer needs (DNS-safe `hex`, URL-safe `b64Url`) rather than post-processing.
+- `RandomId(byteLength)` projects the same bytes to `hex` / `dec` / `b64Std` / `b64Url` and `RandomBytes(length)` to `base64` / `hex`; pick the encoding a consumer needs (DNS-safe `hex`, URL-safe `b64Url`) at the source.
 
 [PATTERN]: `keepers` rotation — ONE recreation trigger on every resource
-- `keepers` is an arbitrary `{[k]: string}` map; changing any value forces recreation (new material) on the next `up`. Rotate a credential by bumping a keeper (`{ epoch: "<n>" }`), never by deleting the resource. This is the single rotation mechanism across all eleven resources.
+- `keepers` is an arbitrary `{[k]: string}` map; changing any value forces recreation on the next `up`. Rotate a credential by bumping a keeper (`{ epoch: "<n>" }`), never by deleting the resource.
 
-## [04]-[INTEGRATION]
+## [04]-[IMPLEMENTATION_LAW]
 
-Generated material is a sensitive `Output` that stacks into the secret + workload rows; `effect` owns the policy shape and the rotation epoch.
+[TOPOLOGY]:
+- Provider-tracked resources own random material: state persistence keeps it stable and diffable across `up`, and `keepers` makes rotation explicit and audited.
+- `RandomPassword`/`RandomBytes` `result`/`base64` are sensitive and cross a boundary only as `pulumi.secret`-tracked `Output`; `RandomString` is plain, never a credential.
+- Choose the id encoding at the source (`hex` for DNS/label safety, `b64Url` for URL tokens); never post-process an `Output<string>`.
 
-[RAIL]: `random → effect + sibling providers`
+[STACKING]:
+- `@pulumiverse/doppler`(`.api/pulumiverse-doppler.md`): `pulumi.secret(RandomPassword.result)` binds `Secret.value`, storing the credential canonically.
+- `@pulumi/kubernetes`(`.api/pulumi-kubernetes.md`): `RandomPassword.result` feeds `core.v1.Secret.stringData`; seeded `RandomShuffle.results` spreads AZ/replica placement stable across `up`.
+- `@pulumi/postgresql`(`.api/pulumi-postgresql.md`): `RandomPassword.result` binds a `Role.password`.
+- `effect`(`libs/typescript/.api/effect.md`): a `Schema.Struct`-decoded char-class policy drives `RandomPassword`/`RandomString` args, and `keepers = { epoch }` reads an Effect `Config`/`Redacted` value.
+- within-lib: `RandomId.hex`/`RandomBytes.base64` name collision-free `ComponentResource` children under a tier, and `RandomUuid7.result` surfaces as a time-ordered `StackOutputs` id.
 
-| [INDEX] | [RANDOM_SEAM]                    | [STACKS_WITH]                            | [COMPOSED_RAIL]                                         |
-| :-----: | :------------------------------- | :--------------------------------------- | :------------------------------------------------------ |
-|  [01]   | char-class knob struct           | `Schema.Struct` (from `StackSpec`)       | decoded `PasswordPolicy` → `RandomPassword` args        |
-|  [02]   | `RandomPassword.result` (secret) | `@pulumiverse/doppler` `Secret({value})` | `pulumi.secret(result)` → Doppler stores it canonically |
-|  [03]   | `RandomPassword.result`          | `@pulumi/kubernetes` `Secret.stringData` | generated credential feeds workload rows                |
-|  [04]   | `RandomPassword.result`          | `@pulumi/postgresql` role password       | generated credential feeds DB rows                      |
-|  [05]   | `RandomId.hex` / `RandomBytes`   | `ComponentResource` child names          | collision-free bucket/db/stack suffixes under a tier    |
-|  [06]   | `RandomShuffle.results` (seeded) | `kube` workload placement                | seed-stable AZ / replica spreading, stable across `up`  |
-|  [07]   | `keepers`                        | `Redacted` / `Config` rotation epoch     | `keepers = { epoch }` from an Effect `Config` value     |
-|  [08]   | `RandomUuid7.result`             | typed `StackOutputs`                     | time-ordered ids surfaced as outputs                    |
-
-[SURFACES]: `dbPassword = new random.RandomPassword("db-password",{…})`
-[COMPOSITION]: `RandomPassword.result -> doppler.Secret.value`
-
-## [05]-[IMPLEMENTATION_LAW]
-
-[MATERIAL_TOPOLOGY]:
-- Provider-tracked resources own random material: state persistence keeps it stable across `up` and diffable, and `keepers` makes rotation explicit and audited — an inline random value has neither.
-- `RandomPassword`/`RandomBytes` `result`/`base64` are sensitive; cross a resource boundary only as `pulumi.secret`-tracked `Output`. `RandomString` is plain — never use it for credentials.
-- Choose the id encoding at the source (`hex` for DNS/label safety, `b64Url` for URL tokens); do not post-process an `Output<string>`.
+[LOCAL_ADMISSION]:
+- Admitted wherever generated material must persist and diff in state and rotate under audit; an inline runtime RNG value is rejected for that role.
 
 [RAIL_LAW]:
 - Package: `@pulumi/random`
 - Owns: provider-tracked passwords, strings, ids, bytes, integers, seeded shuffles, versioned UUIDs
-- Accept: one `Schema`-decoded char-class policy for `RandomPassword`/`RandomString`; `keepers` epoch from an Effect `Config` value; the source encoding a consumer needs
-- Reject: `RandomString` for secrets; per-resource rotation logic where one `keepers` bump suffices; post-processing an id `Output` where a native projection exists; enumerating password recipes where one policy shape dispatches
+- Accept: one `Schema`-decoded char-class policy for `RandomPassword`/`RandomString`; a `keepers` epoch from an Effect `Config` value; the source encoding a consumer needs
+- Reject: `RandomString` for secrets; per-resource rotation logic where one `keepers` bump suffices; post-processing an id `Output` where a native projection exists; a password recipe enumerated per resource where one policy shape dispatches

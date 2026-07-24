@@ -39,13 +39,13 @@ It meets C# only at the wire through content identity and the GLB tessellation r
 
 [ENERGY]:
 - [22]-[CLIMATE](.planning/energy/climate.md): EPW weather admission, series algebra, solar geometry, and the point-comfort tier.
-- [23]-[MODEL](.planning/energy/model.md): One HBJSON building-model admission under one `check_all` gate with standards-resolved assignment.
+- [23]-[MODEL](.planning/energy/model.md): `BuildingModel` HBJSON and BIM-to-BEM admission under one `check_all` gate, energy-assigned.
 - [24]-[DISTRICT](.planning/energy/district.md): Dragonfly 2.5-D urban massing exploding onto the model owner.
 - [25]-[SIMULATE](.planning/energy/simulate.md): Simulation egress — offloaded translation, recipe binding, and self-describing result decode.
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Domain libraries the folder admits; substrate lives in `[03]-[SUBSTRATE_PACKAGES]`. Every admitted package — the AGPL Ladybug band included — carries a root `pyproject.toml` row, and the recipe schema binding is `[RUNTIME]`-owned. A `Deferred` tag marks a library a forward task draws on that no admission yet backs.
+Domain libraries this folder admits; versions centralize in the root `pyproject.toml`, and the recipe schema binding homes to `runtime`. A `Deferred` tag marks a branch-admitted library a carded task draws on that geometry does not yet compose.
 
 [IFC_BIM]:
 - `ifcopenshell` — IFC model, geometry, and tessellation spine

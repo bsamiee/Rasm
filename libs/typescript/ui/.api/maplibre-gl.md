@@ -1,38 +1,36 @@
 # [TS_UI_API_MAPLIBRE_GL]
 
-`maplibre-gl` is the `viewer/geo/layers` basemap runtime: a `Map` owns one WebGL context, one camera, and the vector style; `MapboxOverlay` interleaves GPU layers as an `IControl` sharing that context, `turf` runs planar ops on decoded GeoJSON, and `@geoarrow/deck.gl-geoarrow` streams `apache-arrow` columns; WKB→geometry decode stays in `wire`. Seams stay single-sourced: one GL context, one camera, one event stream folding into the panel atom. React owns only mount/unmount and the atom binding; `scope:viewer` project-local.
+`maplibre-gl` owns the vector basemap: one `Map` binds one WebGL2 context, one camera, one typed event stream, and the declarative style, driving populate/navigate/query through parameterized source/layer/control/handler rails. deck.gl interleaves GPU layers through the `addControl`/`CustomLayerInterface` rail into that one context — never a peer camera — while React owns mount and unmount alone and the imperative lifecycle folds into the `viewer` panel atom; `scope:viewer` project-local.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `maplibre-gl`
 - package: `maplibre-gl` (BSD-3-Clause)
-- deps: framework-agnostic (`type: module` ESM, zero peer deps); re-exports the `@maplibre/maplibre-gl-style-spec` declarative style types
-- catalog-verdict: KEEP
-- runtime: `scope:viewer` project-local, `runtime:browser` — needs a DOM container + WebGL catalog; admitted by the `ui/viewer` Nx project alone; the container/context is a `browser`-provided port the viewer declares
-- modules: `Map` (`= Map$1`, also `MapLibreMap`) forwarding the composed camera API, source classes, control classes, `Marker`/`Popup`, handler classes, the event algebra (real event classes over a generic `Evented<EventType>`), the geometry value types, the worker/plugin globals, and the re-exported `*Specification` style vocabulary
+- module: `type: module` ESM, zero peer deps; re-exports the `@maplibre/maplibre-gl-style-spec` `*Specification` style vocabulary
+- runtime: browser — a DOM container and a WebGL2 context, both `browser`-provided ports the `viewer` declares; `scope:viewer`
+- rail: the basemap render surface `viewer/geo/layers` binds; one `Map` per viewport
+- modules: `Map` (`Map$1`, alias `MapLibreMap`) forwarding the composed camera API; source/control/handler classes; `Marker`/`Popup`; the event classes over generic `Evented<EventType>`; the geometry value types; the worker/plugin globals; the re-exported `*Specification` vocabulary
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: map root + camera
-- rail: viewer/geo/layers, viewer/geo/project
-- `Map extends Evented<MapEventType>` composing an internal `Camera`: the root is configured by one parameterized `MapOptions` record and drives all navigation through the forwarded camera vocabulary — `jumpTo`/`easeTo`/`flyTo` and the `get*`/`set*` camera verbs are `Map` methods (`Camera` itself is not a public export). `MapOptions` is the single knob surface — container/style/view + interaction gates + request/worker policy — never a wrapper-per-option. Multi-field interface shapes (`MapOptions`, `CustomLayerInterface`, `IControl`) live in the signature fence below.
+- `Map extends Evented<MapEventType>` composes an internal `Camera` — `jumpTo`/`easeTo`/`flyTo` and the `get*`/`set*` camera verbs are `Map` methods, and `Camera` never exports. One `MapOptions` record is the whole knob surface: container/style/view, interaction gates, request/worker policy. `MapOptions`, `CustomLayerInterface`, and `IControl` field shapes ride the inline records below.
 
-| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                         |
-| :-----: | :------------------------------------------------------- | :------------- | :------------------------------------------ |
-|  [01]   | `Map` (`Map$1 as Map` / `MapLibreMap`)                   | map root       | the one basemap instance; panel-atom bound  |
-|  [02]   | `MapOptions`                                             | option record  | the single knob config; fields in the fence |
-|  [03]   | `CameraOptions` / `JumpToOptions` / `EaseToOptions`      | camera intents | `jumpTo` instant intent options             |
-|  [04]   | `FlyToOptions` / `FitBoundsOptions` / `AnimationOptions` | camera intents | `easeTo`/`flyTo` animated intent options    |
+| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]  | [CAPABILITY]                               |
+| :-----: | :------------------------------------------------------- | :------------- | :----------------------------------------- |
+|  [01]   | `Map` (`Map$1 as Map` / `MapLibreMap`)                   | map root       | the one basemap instance; panel-atom bound |
+|  [02]   | `MapOptions`                                             | option record  | the single knob config; fields below       |
+|  [03]   | `CameraOptions` / `JumpToOptions` / `EaseToOptions`      | camera intents | `jumpTo` instant intent options            |
+|  [04]   | `FlyToOptions` / `FitBoundsOptions` / `AnimationOptions` | camera intents | `easeTo`/`flyTo` animated intent options   |
 
-[MAP_OPTIONS]: `MapOptions.container: unknown` `MapOptions.style: unknown` `MapOptions.center: unknown` `MapOptions.zoom: unknown` `MapOptions.bearing: unknown` `MapOptions.pitch: unknown` `MapOptions.roll: unknown` `MapOptions.hash: unknown` `MapOptions.interactive: unknown` `MapOptions.transformRequest: unknown` `MapOptions.transformCameraUpdate: unknown` `MapOptions.locale: unknown` `MapOptions.pixelRatio: unknown` `MapOptions.maxBounds: unknown` `MapOptions.minZoom: unknown` `MapOptions.maxZoom: unknown` `MapOptions.minPitch: unknown` `MapOptions.maxPitch: unknown` `MapOptions.renderWorldCopies: unknown` `MapOptions.canvasContextAttributes: unknown` `MapOptions.attributionControl: unknown` `MapOptions.validateStyle: unknown` `MapOptions.terrainSkirtLength: unknown` `MapOptions.zoomLevelsToOverscale: unknown`
-[CUSTOM_LAYER_INTERFACE]: `CustomLayerInterface.id: unknown` `CustomLayerInterface.type: "custom"` `CustomLayerInterface.renderingMode: unknown` `CustomLayerInterface.render: unknown` `CustomLayerInterface.prerender: unknown` `CustomLayerInterface.onAdd(unknown,unknown)`
-[ICONTROL]: `IControl.onAdd(unknown) -> HTMLElement` `IControl.onRemove(unknown) -> void` `IControl.getDefaultPosition()`
+[MAP_OPTIONS]: `container` `style` `center` `zoom` `bearing` `pitch` `roll` `hash` `interactive` `transformRequest` `transformCameraUpdate` `locale` `pixelRatio` `maxBounds` `minZoom` `maxZoom` `minPitch` `maxPitch` `renderWorldCopies` `canvasContextAttributes` `attributionControl` `validateStyle` `terrainSkirtLength` `zoomLevelsToOverscale`
+[CUSTOM_LAYER_INTERFACE]: `id` `type:"custom"` `renderingMode` `render(gl,matrix)` `prerender(gl,matrix)` `onAdd(map,gl)` `onRemove(map,gl)`
+[ICONTROL]: `onAdd(map) -> HTMLElement` `onRemove(map)` `getDefaultPosition()`
 
 [PUBLIC_TYPE_SCOPE]: geometry value types
-- rail: viewer/geo/project
-- lnglat↔pixel↔mercator value types; `*Like` unions accept plain-array/object literals — callers pass raw coordinates, the class instances carry the methods.
+- lnglat↔pixel↔mercator value types; the `*Like` unions accept plain-array or object literals, so callers pass raw coordinates and the class instances carry the methods.
 
-| [INDEX] | [SYMBOL]                            | [TYPE_FAMILY]     | [CONSUMER_BOUNDARY]                                                    |
+| [INDEX] | [SYMBOL]                            | [TYPE_FAMILY]     | [CAPABILITY]                                                           |
 | :-----: | :---------------------------------- | :---------------- | :--------------------------------------------------------------------- |
 |  [01]   | `LngLat` / `LngLatLike`             | geographic point  | the coordinate value; `LngLatLike` accepts `[lng, lat]`/`{lng,lat}`    |
 |  [02]   | `LngLatBounds` / `LngLatBoundsLike` | bbox              | `fitBounds`/`cameraForBounds`/`maxBounds` input                        |
@@ -41,16 +39,15 @@
 |  [05]   | `EdgeInsets` / `PaddingOptions`     | viewport padding  | camera padding for panel-occluded viewports                            |
 
 [PUBLIC_TYPE_SCOPE]: source + layer + style vocabulary
-- rail: viewer/geo/layers
-- Sources and layers are parameterized rails, not fixed rosters: every `Source` implementer is a row of `addSource(id, spec)` discriminated by `spec.type`; every layer is `addLayer(AddLayerObject)` where `AddLayerObject = LayerSpecification | CustomLayerInterface`. `CustomLayerInterface` (fence above) is the GPU interleave hook deck.gl registers. `*Specification` types are declarative data (expressions are data, not code) re-exported from `@maplibre/maplibre-gl-style-spec`.
+- Every `Source` implementer is a row of `addSource(id, spec)` keyed by `spec.type`; every layer is `addLayer(AddLayerObject)` where `AddLayerObject = LayerSpecification | CustomLayerInterface`. `*Specification` types are declarative data re-exported from `@maplibre/maplibre-gl-style-spec`.
 
-| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY]       | [CONSUMER_BOUNDARY]                                       |
+| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY]       | [CAPABILITY]                                              |
 | :-----: | :---------------------------------------------- | :------------------ | :-------------------------------------------------------- |
 |  [01]   | `GeoJSONSource` / `VectorTileSource`            | source rows         | geojson + vector tile sources, keyed by `spec.type`       |
 |  [02]   | `RasterTileSource` / `RasterDEMTileSource`      | source rows         | raster + raster-DEM tile sources                          |
 |  [03]   | `ImageSource` / `CanvasSource` / `VideoSource`  | source rows         | image / canvas / video sources                            |
 |  [04]   | `addSourceType(name, SourceClass)`              | source extension    | register a custom source type — the vocabulary is open    |
-|  [05]   | `CustomLayerInterface`                          | GPU interleave hook | the `AddLayerObject` variant deck.gl registers (fence)    |
+|  [05]   | `CustomLayerInterface`                          | GPU interleave hook | the `AddLayerObject` variant deck.gl registers            |
 |  [06]   | `StyleSpecification` / `LayerSpecification`     | declarative style   | root style + per-layer JSON                               |
 |  [07]   | `SourceSpecification` / `FilterSpecification`   | declarative style   | source + filter JSON; expressions are data                |
 |  [08]   | `PropertyValueSpecification` / `AddLayerObject` | declarative style   | paint/layout value data; `Layer` or `Custom` layer object |
@@ -58,10 +55,9 @@
 |  [10]   | `FeatureIdentifier`                             | feature key         | the feature-state key                                     |
 
 [PUBLIC_TYPE_SCOPE]: control + DOM-overlay rows
-- rail: viewer/geo/layers, viewer/mark
-- Controls are one rail: every `IControl` implementer (contract in the fence) is added via `addControl(control, position?)`. `MapboxOverlay` (`@deck.gl/mapbox`, `.api/deck.gl-mapbox.md`) implements `IControl` and joins through the same rail. `Marker`/`Popup` are DOM overlays (HTML anchored at a `LngLat`), distinct from deck.gl's GPU overlays.
+- Every `IControl` implementer is added via `addControl(control, position?)`; `MapboxOverlay` satisfies it and joins the same rail. `Marker`/`Popup` are DOM overlays anchored at a `LngLat`, distinct from deck.gl's GPU overlays.
 
-| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                                         |
+| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY]    | [CAPABILITY]                                                |
 | :-----: | :------------------------------------------ | :--------------- | :---------------------------------------------------------- |
 |  [01]   | `IControl`                                  | control contract | the one `addControl` contract; `MapboxOverlay` satisfies it |
 |  [02]   | `NavigationControl` / `ScaleControl`        | control rows     | rows of one `addControl(control, ControlPosition)` rail     |
@@ -72,10 +68,9 @@
 |  [07]   | `Marker` / `Popup` (both `extends Evented`) | DOM overlay      | `viewer/mark` HTML anchors at a `LngLat`; draggable marker  |
 
 [PUBLIC_TYPE_SCOPE]: event algebra + interaction handlers
-- rail: viewer/geo/layers, act/gesture
-- Events are one typed rail: `on`/`once`/`off` over the `MapEventType`/`MapLayerEventType`/`SourceEventType` maps return a `Subscription`; a layer-scoped overload filters by layer id. `Evented<EventType>` is generic + abstract, so subclasses type `on`/`once`/`off` without re-declaring overloads; every event is a real class instantiated on fire. Interaction handlers are one `map.<handler>` `enable`/`disable`/`isEnabled` vocabulary, gated at construction by `MapOptions`.
+- `on`/`once`/`off` over the `MapEventType`/`MapLayerEventType`/`SourceEventType` maps return a `Subscription`, and a layer-id overload filters by layer. Generic abstract `Evented<EventType>` types the rail without re-declaring overloads; every event is a real class fired as an instance. Handlers share one `map.<handler>` `enable`/`disable`/`isEnabled` surface gated at construction by `MapOptions`.
 
-| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]     | [CONSUMER_BOUNDARY]                                     |
+| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]     | [CAPABILITY]                                            |
 | :-----: | :------------------------------------------------------- | :---------------- | :------------------------------------------------------ |
 |  [01]   | `Evented<EventType>`                                     | event base        | generic abstract base; typed `on`/`once`/`off`          |
 |  [02]   | `MapMouseEvent` / `MapTouchEvent` / `MapWheelEvent`      | event payloads    | pointer/wheel payloads, typed by event name             |
@@ -89,10 +84,9 @@
 |  [10]   | `Subscription`                                           | handle            | `{ unsubscribe() }` — the `on`/`once` return            |
 
 [PUBLIC_TYPE_SCOPE]: worker + plugin globals
-- rail: viewer/geo/layers (module-level runtime policy)
-- Module-level functions configuring the worker pool, RTL text shaping, and the request-protocol vocabulary; `addProtocol` is the open extension point for custom tile transports (auth-wrapped, `pmtiles`, COG).
+- Module-level functions configure the worker pool, RTL text shaping, and the request-protocol vocabulary; `addProtocol` is the open extension for custom tile transports (auth-wrapped, `pmtiles`, COG).
 
-| [INDEX] | [SYMBOL]                                                   | [TYPE_FAMILY]      | [CONSUMER_BOUNDARY]                                  |
+| [INDEX] | [SYMBOL]                                                   | [TYPE_FAMILY]      | [CAPABILITY]                                         |
 | :-----: | :--------------------------------------------------------- | :----------------- | :--------------------------------------------------- |
 |  [01]   | `addProtocol(scheme, loadFn)` / `removeProtocol(scheme)`   | protocol extension | custom tile transport (auth, `pmtiles`, COG)         |
 |  [02]   | `AddProtocolAction`                                        | protocol type      | the `loadFn` loader signature                        |
@@ -106,10 +100,9 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construct, populate, interleave, drive, query, tear down
-- rail: viewer/geo/layers
-- Lifecycle is imperative and single-sourced: one `new Map(options)`, populate with the `addSource`/`addLayer`/`addControl` rails, interleave deck.gl through the `addControl` rail, drive with the `Camera` vocabulary, read with `project`/`queryRenderedFeatures`, and `remove()` at unmount. Every populate/drive method returns `this` for fluent folds; queries and projections return values.
+- Lifecycle is imperative and single-sourced: `new Map(options)`, populate through `addSource`/`addLayer`/`addControl`, interleave deck.gl through `addControl`, drive with the camera vocabulary, read with `project`/`queryRenderedFeatures`, `remove()` at unmount. Populate and drive methods return `this` for fluent folds; queries and projections return values.
 
-| [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY]  | [CONSUMER_BOUNDARY]                                  |
+| [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY]  | [CAPABILITY]                                         |
 | :-----: | :------------------------------------------------------------- | :-------------- | :--------------------------------------------------- |
 |  [01]   | `new Map(options: MapOptions)`                                 | construct       | the one basemap; `container` is a `browser` port     |
 |  [02]   | `addSource(id, spec)` / `removeSource(id)`                     | source rail     | add/remove keyed by `spec.type`                      |
@@ -137,30 +130,29 @@
 |  [24]   | `resize()` / `remove()` / `redraw()` / `triggerRepaint()`      | lifecycle       | `remove()` frees the GL context at unmount           |
 |  [25]   | `getCanvas()` / `getContainer()`                               | lifecycle       | the DOM/canvas handles                               |
 
-- `Map.setMissingStyleImageResolver`: supplies absent style images on demand (sync or async); the `styleimagemissing` event is notify-only and cannot itself provide an image.
+- `Map.setMissingStyleImageResolver`: supplies an absent style image on demand, sync or async; the `styleimagemissing` event is notify-only.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[GEO_TOPOLOGY]:
-- one context, one camera, one event stream: the `Map` owns the WebGL2 context and forwards its composed camera's navigation, and the generic `Evented<EventType>` base owns the typed event rail. deck.gl does not create a second context or a peer camera — it interleaves.
-- style is data, not code: `StyleSpecification`/`LayerSpecification`/`FilterSpecification`/`PropertyValueSpecification` are declarative JSON the `addLayer`/`setFilter`/`setPaintProperty` rails consume; expressions are evaluated by maplibre, never hand-written as render code.
-- sources/layers/controls/handlers are parameterized rails, not rosters: `addSource` discriminates on `spec.type`, `addLayer` on `LayerSpecification | CustomLayerInterface`, `addControl` on the `IControl` contract, and handlers share one `enable`/`disable`/`isEnabled` surface gated at construction by `MapOptions` — a new capability is a spec row or an `IControl`/`Source` implementer, never a new method family.
+[TOPOLOGY]:
+- One `Map` owns the WebGL2 context and forwards its composed camera; generic `Evented<EventType>` owns the typed event rail. deck.gl interleaves — never a second context or peer camera.
+- Style is data: `StyleSpecification`/`LayerSpecification`/`FilterSpecification`/`PropertyValueSpecification` are declarative JSON the `addLayer`/`setFilter`/`setPaintProperty` rails consume, and maplibre evaluates expressions rather than hand-written render code.
+- Sources, layers, controls, and handlers are parameterized rails: `addSource` discriminates on `spec.type`, `addLayer` on `LayerSpecification | CustomLayerInterface`, `addControl` on `IControl`, handlers on one `enable`/`disable`/`isEnabled` surface — a new capability is a spec row or an implementer, never a method family.
 
-[INTEGRATION_LAW]:
-- Stack with `@deck.gl/mapbox` `MapboxOverlay` (`.api/deck.gl-mapbox.md`): `map.addControl(overlay)` adds it; `interleaved: true` registers deck layers as maplibre `CustomLayerInterface` entries drawing into the shared GL context and depth buffer, so 3D deck geometry occludes correctly; `overlaid` composites on a separate canvas above.
-- Overlay view-state is never authored — it syncs from the maplibre camera each `move` through `getCenter`/`getZoom`/`getBearing`/`getPitch`/`getPadding` (+ `getProjection` for globe), `project`/`unproject` supplying overlay-mark screen↔lngLat; deck's `getFreeCameraOptions?()` is mapbox-only and guarded, so under maplibre deck derives camera altitude from `getCameraTargetElevation()`. One context, one camera.
-- Stack with `@geoarrow/deck.gl-geoarrow` + `apache-arrow` (`.api/geoarrow-deck.gl-geoarrow.md`, `.api/apache-arrow.md`): GeoArrow deck.gl layers consume `apache-arrow` `RecordBatch`es column-wise (catalog-bound grain: one `RecordBatch` per layer, fanned from `Table.batches`); the WKB→geometry decode stays in `wire` (the seam law), so maplibre/deck.gl receive decoded columnar geometry and never re-parse WKB here.
-- Stack with `@turf/turf` (`.api/turf-turf.md`): planar ops (buffer/simplify/intersect) run on decoded GeoJSON in-browser as the NTS-equivalent peer, feeding a `GeoJSONSource` `setData` or a deck.gl layer — turf is the compute peer, maplibre the render surface.
-- Stack with `@effect-atom` + `Stream`/`Match` (universal, `.api/effect.md`, `.api/effect-atom-atom.md`): the `Map` instance and camera state bind through the one panel atom (`ONE_FOLD_ONE_BINDING`); `on('moveend'|'idle'|'click', …)` `Subscription`s fold into the atom (the `Stream`-from-events idiom), and `Match` dispatches typed event payloads. React owns only mount (`new Map`) and unmount (`remove()`); the imperative map lifecycle never leaks into render.
-- Stack with the `browser` runtime port: the DOM container, WebGL context, and worker pool are `browser`-provided — `viewer` declares the viewport/worker port and `browser` supplies it at app composition; `transformRequest` routes tile URLs through the app's auth boundary.
+[STACKING]:
+- `@deck.gl/mapbox` `MapboxOverlay` (`.api/deck.gl-mapbox.md`): `map.addControl(overlay)` mounts it; `interleaved: true` registers deck layers as `CustomLayerInterface` entries drawing into the shared GL context and depth buffer, so 3D deck geometry occludes; `overlaid` composites on a separate canvas above.
+- Overlay view-state syncs from the camera each `move` through `getCenter`/`getZoom`/`getBearing`/`getPitch`/`getPadding` (+ `getProjection` for globe), `project`/`unproject` supplying overlay-mark screen↔lngLat; deck's `getFreeCameraOptions?()` is mapbox-only, so under maplibre deck derives altitude from `getCameraTargetElevation()`.
+- `@geoarrow/deck.gl-geoarrow` + `apache-arrow` (`.api/geoarrow-deck.gl-geoarrow.md`, `.api/apache-arrow.md`): GeoArrow layers consume `apache-arrow` `RecordBatch`es column-wise, one per layer fanned from `Table.batches`; WKB→geometry decode stays in `wire`, so maplibre and deck.gl receive decoded columnar geometry.
+- `@turf/turf` (`.api/turf-turf.md`): planar ops (buffer/simplify/intersect) run on decoded GeoJSON in-browser, feeding a `GeoJSONSource.setData` or a deck layer — turf computes, maplibre renders.
+- `@effect-atom` + `Stream`/`Match` (`libs/typescript/.api/effect.md`, `.api/effect-atom-atom.md`): the `Map` and camera state bind through the one panel atom; `on('moveend'|'idle'|'click', …)` `Subscription`s fold in as `Stream`-from-events, `Match` dispatches typed payloads, and React owns only `new Map` and `remove()`.
+- `browser` runtime port: the DOM container, WebGL context, and worker pool are `browser`-provided; `transformRequest` routes tile URLs through the app's auth boundary.
 
 [LOCAL_ADMISSION]:
-- `scope:viewer` project-local; the core `ui` never imports it — heavy render deps stay compile-time excluded from the non-spatial majority.
-- one GL context and one camera: deck.gl interleaves through `addControl`/`CustomLayerInterface`, never a peer context; a second camera source is the defect.
-- WKB decode stays in `wire`; style is authored as `*Specification` data; coordinate math goes through `project`/`unproject`, never a hand-rolled projection.
+- `scope:viewer` project-local; the core `ui` never imports it, keeping heavy render deps out of the non-spatial majority.
+- WKB decode stays in `wire`, style is authored as `*Specification` data, and coordinate math goes through `project`/`unproject`.
 
 [RAIL_LAW]:
 - Package: `maplibre-gl`
-- Owns: the vector basemap `Map`, the single WebGL context + `Camera` + typed event rail, the declarative style vocabulary, the parameterized source/layer/control/handler rails, the DOM `Marker`/`Popup` overlays, and the worker/RTL/protocol globals
-- Accept: one `new Map` per viewport, the `addSource`/`addLayer`/`addControl` rails, `MapboxOverlay` interleaving through `addControl` into the shared context, the `Camera` as the single navigation authority with its getters (`getCenter`/`getZoom`/`getBearing`/`getPitch`/`getPadding`) as deck's per-`move` view-state source, `project`/`unproject` for coordinate sync, `on`→`Subscription` folded into the panel atom, `*Specification` style data, `addProtocol`/`transformRequest` for transport
-- Reject: a second GL context or peer camera, WKB decode in `ui`, style authored as code instead of `*Specification` data, hand-rolled projection math, importing it into the core `ui`, a React wrapper owning the imperative map lifecycle beyond mount/unmount
+- Owns: the vector basemap `Map`, its single WebGL2 context + `Camera` + typed event rail, the declarative style vocabulary, the parameterized source/layer/control/handler rails, the DOM `Marker`/`Popup` overlays, and the worker/RTL/protocol globals
+- Accept: one `new Map` per viewport; the `addSource`/`addLayer`/`addControl` rails; `MapboxOverlay` interleaving through `addControl` into the shared context; the `Camera` as the single navigation authority whose getters feed deck's per-`move` view-state; `project`/`unproject` for coordinate sync; `on`→`Subscription` folded into the panel atom; `*Specification` style data; `addProtocol`/`transformRequest` for transport
+- Reject: a second GL context or peer camera, WKB decode in `ui`, style authored as code, hand-rolled projection math, importing it into the core `ui`, a React wrapper owning the map lifecycle beyond mount/unmount

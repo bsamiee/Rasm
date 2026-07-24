@@ -1,71 +1,68 @@
 # [TS_UI_API_REACT_ERROR_BOUNDARY]
 
-`react-error-boundary` is the one error-boundary owner for the folder: a single `ErrorBoundary` component whose recovery strategy is a three-arm discriminated prop union (`fallback` static node, `fallbackRender` render prop, or `FallbackComponent`), plus the `useErrorBoundary` hook that escalates the failures React never catches in render — carrier-less event-handler and raw-promise throws — into the nearest boundary. It is the seam where the Effect typed-error channel meets the React tree: a failed `@effect-atom/atom-react` `useAtomSuspense(atom)` read throws `Cause.squash(cause)` — the squashed `E` out of the atom's `Result.Failure` — synchronously in render, so the boundary catches it natively and the recovery folds that tagged `E` through a `Match` into the `wire/fault` problem-detail projection. The async-failure rail is therefore Suspense (the `waiting` arm) plus this boundary (the `Failure` arm), never a per-component `try/catch`. React 19 widens the render catch to transitions, so an atom write awaited in a `startTransition` escalates its failed `Effect` automatically; only a throw with no atom/suspense/transition carrier reaches `showBoundary`. The boundary pairs with the `react-dom` root `onCaughtError`/`onUncaughtError` callbacks that frame it — never hand-roll a `componentDidCatch` class.
+`react-error-boundary` owns the folder's one render-catch boundary: `ErrorBoundary`, whose recovery is a three-arm discriminated prop union, with `useErrorBoundary` escalating the carrier-less throws React never catches in render.
+
+`ErrorBoundary` seams the Effect typed-error channel to the React tree: a failed `useAtomSuspense` read throws `Cause.squash(cause)` in render, so the boundary catches the tagged `E` and the recovery folds it through `Match` into the `wire/fault` projection.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `react-error-boundary`
 - package: `react-error-boundary` (MIT)
-- react-peer: `react catalog` (the `catalog peer` major dropped `catalog peer`; client component — `"use client"`; the boundary uses class-component `getDerivedStateFromError`/`componentDidCatch`)
-- asset: self-typed ESM+CJS runtime library (`dist/react-error-boundary.d.ts`)
-- catches: errors thrown while rendering the subtree — including a failed `useAtomSuspense` read that throws `Cause.squash(cause)` in render; and (React 19) errors from a `startTransition`(`useTransition`) callback
-- does-not-catch: SSR render, event handlers, async callbacks (`setTimeout`, unresolved promises), errors thrown inside the boundary itself — these escalate through `useErrorBoundary().showBoundary`
-- catalog-verdict: KEEP
+- module: self-typed ESM (`dist/react-error-boundary.d.ts`)
+- runtime: client component, `"use client"`; peer `react`
+- rail: view/primitive — the render-catch boundary every subtree fault folds through
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the boundary prop union, recovery contract, and context
-- rail: view/primitive
-- `ErrorBoundaryProps` is a discriminated union — exactly one of the three recovery arms is set (the others typed `never`), so the recovery strategy is one prop choice, not three parallel components. The arms: `fallback` (static `ReactNode`), `FallbackComponent` (`ComponentType<FallbackProps>`), `fallbackRender` ((`FallbackProps`) => `ReactNode`). `FallbackProps` is the payload every arm receives.
+[PUBLIC_TYPE_SCOPE]: the recovery prop union, payload, and context contract
 
-| [INDEX] | [SYMBOL]                                               | [TYPE_FAMILY] | [CONSUMER_BOUNDARY]                                      |
-| :-----: | :----------------------------------------------------- | :------------ | :------------------------------------------------------- |
-|  [01]   | `ErrorBoundaryProps`                                   | props union   | the three mutually-exclusive recovery arms (see lead)    |
-|  [02]   | `FallbackProps` (`error`, `resetErrorBoundary`)        | payload       | the `Cause.squash`ed tagged `E`; renders `wire/fault`    |
-|  [03]   | `ErrorBoundarySharedProps`                             | shared props  | `onError`→telemetry, `resetKeys` re-arm, `onReset` retry |
-|  [04]   | `onReset` `{reason:"imperative-api", args}`            | reset kind    | an explicit `resetErrorBoundary()` call                  |
-|  [05]   | `onReset` `{reason:"keys", prev, next}`                | reset kind    | a `resetKeys` dependency change                          |
-|  [06]   | `OnErrorCallback` (`(error, info: ErrorInfo) => void`) | error cb      | `info.componentStack` locates the throw site             |
-|  [07]   | `ErrorBoundaryContext` / `ErrorBoundaryContextType`    | context       | `didCatch`/`error`/`resetErrorBoundary` context          |
-|  [08]   | `UseErrorBoundaryApi`                                  | hook api      | async/event escalation + reset                           |
+`ErrorBoundaryProps` discriminates three exported arms — `ErrorBoundaryPropsWithFallback` (static `ReactNode`), `ErrorBoundaryPropsWithComponent` (`ComponentType<FallbackProps>`), `ErrorBoundaryPropsWithRender` (`(FallbackProps) => ReactNode`) — exactly one arm set, the others `never`. Every arm carries `onError` telemetry, `resetKeys` re-arm, and `onReset` (reason `"keys"` with prev/next, or `"imperative-api"` with args), and delivers `FallbackProps` to its recovery.
+
+| [INDEX] | [SYMBOL]                                                         | [TYPE_FAMILY] | [CAPABILITY]                                          |
+| :-----: | :--------------------------------------------------------------- | :------------ | :---------------------------------------------------- |
+|  [01]   | `ErrorBoundaryProps`                                             | props union   | one recovery arm set, the others `never`              |
+|  [02]   | `FallbackProps` (`error`, `resetErrorBoundary`)                  | record        | the `Cause.squash`ed tagged `E`; renders `wire/fault` |
+|  [03]   | `OnErrorCallback` (`(error, info: ErrorInfo) => void`)           | callback      | `info.componentStack` locates the throw site          |
+|  [04]   | `ErrorBoundaryContext` / `ErrorBoundaryContextType`              | context       | `didCatch`/`error`/`resetErrorBoundary` for a reader  |
+|  [05]   | `UseErrorBoundaryApi` (`error`, `resetBoundary`, `showBoundary`) | record        | the `useErrorBoundary` return contract                |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: boundary component, escalation hook, and HOC wrap
-- rail: view/primitive
-- Three entries: the boundary component, the hook that pushes uncaught failures into it, and the HOC that wraps a row. One boundary owner; the modality (static / render-prop / component recovery) is the prop union arm. `withErrorBoundary` returns a `ForwardRefExoticComponent`.
+[ENTRYPOINT_SCOPE]: boundary component, escalation hook, HOC wrap, and message extractor
 
-| [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                    |
-| :-----: | :----------------------------------------------------------- | :------------- | :----------------------------------------------------- |
-|  [01]   | `<ErrorBoundary … onError onReset resetKeys>`                | boundary       | wraps a subtree; render errors → fault projection      |
-|  [02]   | `useErrorBoundary(): { error, resetBoundary, showBoundary }` | escalate       | escalate a carrier-less throw; `resetBoundary` retries |
-|  [03]   | `withErrorBoundary(Component, errorBoundaryProps)`           | HOC wrap       | ref-forwarded HOC wrap where JSX nesting is awkward    |
-|  [04]   | `getErrorMessage(thrown: unknown): string \| undefined`      | extract        | display message from an unknown throw; pre-`Match`     |
+One boundary owner drives all recovery; the modality is the prop-union arm, never a second component. `withErrorBoundary` returns a `ForwardRefExoticComponent`.
+
+| [INDEX] | [SURFACE]                                                    | [SHAPE]   | [CAPABILITY]                                           |
+| :-----: | :----------------------------------------------------------- | :-------- | :----------------------------------------------------- |
+|  [01]   | `<ErrorBoundary onError onReset resetKeys>`                  | component | wraps a subtree; render errors fold to the fault row   |
+|  [02]   | `useErrorBoundary(): { error, resetBoundary, showBoundary }` | hook      | escalate a carrier-less throw; `resetBoundary` retries |
+|  [03]   | `withErrorBoundary(Component, ErrorBoundaryProps)`           | HOC       | ref-forwarded wrap where JSX nesting is awkward        |
+|  [04]   | `getErrorMessage(unknown): string \| undefined`              | function  | message from an unknown throw, pre-`Match`             |
+
+- `useErrorBoundary`: valid only inside an `ErrorBoundary` subtree.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[ERROR_BOUNDARY_TOPOLOGY]:
-- One boundary owner, three recovery arms as a discriminated union: `fallback` for a static node, `fallbackRender` for an inline render prop, `FallbackComponent` for a named component — the props type forbids setting more than one. The recovery always receives `FallbackProps` (`error`, `resetErrorBoundary`), so the reset path is uniform regardless of arm.
-- The boundary catches render errors: React unwinds the subtree on a throw during render and mounts the recovery. A failed `useAtomSuspense(atom)` read is exactly this path — the hook detects the `Failure` arm and `throw`s `Cause.squash(cause)` synchronously in render, so the boundary catches it with no `showBoundary`, while the atom's `waiting` arm suspends to the nearest `<Suspense>`. Suspense owns the pending arm, the boundary owns the failed arm — the async-read rail is those two, never a per-row `try/catch`.
-- Only throws with no render carrier need imperative escalation: an event-handler throw, a `setTimeout`/raw-promise rejection, or a failure resolved after commit is invisible to the boundary, so `useErrorBoundary().showBoundary(Cause.squash(cause))` re-throws it inside the boundary's render on the next commit — pass the squashed `E` so the recovery `Match` sees the same shape as the suspense path.
-- React 19 widens the catch to transitions: a throw from the `startTransition` returned by `useTransition` is caught by the nearest boundary, so an atom write awaited in a transition (`useAtomSet(atom, { mode: "promise" })`) surfaces its failed `Effect` at the boundary with no manual `showBoundary`.
-- Reset is dependency-driven or imperative: `resetKeys` re-arms the boundary when a listed value changes (bind it to the atom's query key so a new input clears a stale error); `resetErrorBoundary(...args)` is the explicit retry. `onReset` receives the discriminated reason (`"keys"` with prev/next, or `"imperative-api"` with args) so the retry effect knows what triggered it and can re-run the failed `Effect`.
+[TOPOLOGY]:
+- Whichever arm is set, the recovery receives `FallbackProps` (`error`, `resetErrorBoundary`), so reset is arm-independent.
+- `ErrorBoundary` unwinds the subtree and mounts the recovery on a render throw; a failed `useAtomSuspense(atom)` read is exactly this path — throwing `Cause.squash(cause)` in render with no `showBoundary`, its `waiting` arm suspending to `<Suspense>` — so Suspense owns the pending arm and the boundary the failed arm.
+- `useErrorBoundary().showBoundary(Cause.squash(cause))` escalates a throw with no render carrier — an event handler, a `setTimeout`/raw-promise rejection, a post-commit failure — re-throwing it in render on the next commit; a `startTransition` callback throw carries to the boundary directly, and passing the squashed `E` gives the recovery `Match` the same shape as the suspense path.
+- `resetKeys` re-arms on a listed value change (bind it to the atom query key); `resetErrorBoundary(...args)` is the explicit retry; `onReset` receives the discriminated reason so the retry re-runs the failed `Effect`.
 
-[INTEGRATION_LAW]:
-- The Effect-fault seam (`.api/effect-atom-atom-react.md`): `useAtomSuspense(atom)` is the primary async-failure rail into this boundary. It reads an atom's `Result<A, E>`, suspends the `waiting` arm to `<Suspense>`, returns `Success`, and on `Failure` throws `Cause.squash(cause)` in render — so the boundary catches the failed read natively, with no `showBoundary`. Because `Cause.squash` unwraps the `Result.Failure`'s `Cause<E>` to the tagged error `E`, `FallbackProps.error` is that `E` directly, which is exactly what the recovery's `Match.tagsExhaustive` folds — a raw `Cause` does not tag-match. `includeFailure: true` is the escape hatch: the read returns the `Failure` arm inline for a local `Result.match` instead of throwing. A throw with no atom carrier escalates through `showBoundary(Cause.squash(cause))` so `FallbackProps.error` stays the same `E` regardless of path. The rail is Suspense + this boundary, never a per-component `try/catch`.
-- Fault projection through `Match` (`libs/typescript/.api/effect.md`): the recovery dispatches over the tagged error family with `Match.tagsExhaustive`/`Data.taggedEnum().$match` and renders the `wire/fault` problem-detail row, localized through the `intl/format` formatters. The boundary owns the tree unwind; `Match` owns the branch; `intl` owns the message. No `if/instanceof` ladder in a recovery.
-- The `react-dom` frame (`.api/react-dom.md`): the boundary is the inner catch; the `createRoot` `RootOptions` are the outer frame. `onCaughtError` observes what a boundary caught and forwards it to `telemetry`; `onUncaughtError` catches what escaped every boundary; `onRecoverableError` handles hydration divergence. `onError` on the boundary and `onCaughtError` on the root are the same event at two altitudes — the boundary log is the row, the root log is the app-wide sink.
-- Retry as a rail (`libs/typescript/.api/effect.md`): `resetErrorBoundary`/`resetKeys` re-runs the atom's `Effect`; the `Effect.retry(Schedule)` policy lives on the effect, and the boundary is the manual, user-driven retry surface layered over the automatic one — the same failed computation, re-entered from the UI.
+[STACKING]:
+- `@effect-atom/atom-react` (`.api/effect-atom-atom-react.md`): `useAtomSuspense(atom)` is the primary async rail — its `Failure` arm throws `Cause.squash(cause)` in render as `FallbackProps.error`, the tagged `E` that `Match.tagsExhaustive` needs where a raw `Cause` will not tag-match; `includeFailure: true` returns the `Failure` inline for a local `Result.match` instead; `resetKeys`/`onReset` re-run the atom through `useAtomRefresh`.
+- `effect` (`libs/typescript/.api/effect.md`): the recovery dispatches the tagged fault family through `Match.tagsExhaustive`/`Data.taggedEnum().$match` into the `wire/fault` row, localized by `intl/format`; `resetErrorBoundary` re-enters the failed computation whose `Effect.retry(Schedule)` policy lives on the effect — the boundary owns the unwind, `Match` the branch, `intl` the message.
+- `react-dom` (`.api/react-dom.md`): the `createRoot` `RootOptions` error trio frames the boundary — `onCaughtError` forwards a caught error to `telemetry`, `onUncaughtError` catches what escaped every boundary, `onRecoverableError` handles hydration divergence; boundary `onError` and root `onCaughtError` are one event at two altitudes.
+- `view` rows (within-lib): every `view` row wraps its `useAtomSuspense` reads in one `<Suspense>` + `ErrorBoundary` pair, and the recovery is the sole fault-render surface.
 
 [LOCAL_ADMISSION]:
-- Use `ErrorBoundary` as the single boundary owner; never author a `componentDidCatch`/`getDerivedStateFromError` class or a second boundary abstraction.
-- Choose exactly one recovery arm per boundary; the props union rejects mixing `fallback`/`fallbackRender`/`FallbackComponent`.
-- Read async atoms through `useAtomSuspense` under a `<Suspense>` + this boundary so the `waiting` arm suspends and the `Failure` arm throws to the boundary; escalate only carrier-less throws (event handlers, raw promises) with `showBoundary(Cause.squash(cause))`, and never swallow a rejected promise or re-implement boundary catch in a per-component `try/catch` that renders its own error UI.
-- Bind `resetKeys` to the atom/query input and re-run the failed `Effect` in `onReset`; never reset a boundary without re-driving the computation that failed.
-- Render the recovery through a `Match` over the tagged fault family localized by `intl`; never string-format an `unknown` error inline beyond the `getErrorMessage` last-resort.
+- `ErrorBoundary` is the single boundary owner; one prop-union arm per boundary selects the recovery modality.
+- Read async atoms through `useAtomSuspense` under a `<Suspense>` + this boundary; escalate only carrier-less throws with `showBoundary(Cause.squash(cause))`.
+- Bind `resetKeys` to the atom/query input and re-run the failed `Effect` in `onReset`.
+- Render the recovery through `Match` over the tagged fault family localized by `intl`; `getErrorMessage` is the last-resort unknown-throw extractor.
 
 [RAIL_LAW]:
 - Package: `react-error-boundary`
-- Owns: the single `ErrorBoundary` component with a three-arm discriminated recovery union, the `useErrorBoundary` escalation hook, the `withErrorBoundary` HOC, and the `ErrorBoundaryContext`/`FallbackProps` contract
-- Accept: one recovery arm per boundary, `useAtomSuspense` as the primary async-read failure rail (Suspense `waiting` + boundary `Failure`), `showBoundary(Cause.squash(cause))` only for carrier-less event-handler/raw-promise throws, `resetKeys` bound to the atom input with an `Effect`-re-running `onReset`, `FallbackProps.error` (the squashed tagged `E`) projected through `Match` + `intl`, the `react-dom` root error callbacks as the outer frame
-- Reject: a hand-rolled `componentDidCatch` class, mixing recovery arms, a per-component `try/catch` around a `useAtomSuspense` read where the boundary owns the `Failure` arm, swallowed promise rejections, a boundary reset that does not re-drive the failed `Effect`, an inline `instanceof`/`if` ladder where `Match` owns the fault family
+- Owns: the single `ErrorBoundary` render-catch owner with a three-arm discriminated recovery union, the `useErrorBoundary` escalation hook, the `withErrorBoundary` HOC, and the `FallbackProps`/`ErrorBoundaryContext` contract
+- Accept: one recovery arm per boundary, `useAtomSuspense` as the primary async rail (`<Suspense>` waiting + boundary `Failure`), `showBoundary(Cause.squash(cause))` for carrier-less throws, `resetKeys` bound to the atom input with an `Effect`-re-running `onReset`, `FallbackProps.error` projected through `Match` + `intl`, the `react-dom` root error trio as the outer frame
+- Reject: a hand-rolled `componentDidCatch` class, mixed recovery arms, a per-component `try/catch` around a `useAtomSuspense` read, a swallowed promise rejection, a reset that does not re-drive the failed `Effect`, an inline `instanceof`/`if` ladder where `Match` owns the fault family

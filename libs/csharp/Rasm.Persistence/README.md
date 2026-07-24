@@ -55,7 +55,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime`
 - `Npgsql.NetTopologySuite`
 - `Npgsql.OpenTelemetry`
-- `OpenTelemetry.Instrumentation.EntityFrameworkCore` — trace-only ORM-layer command spans off the `Microsoft.EntityFrameworkCore` diagnostic source, complementing the ADO-layer `Npgsql.OpenTelemetry` spans at the AppHost root
+- `OpenTelemetry.Instrumentation.EntityFrameworkCore` — trace-only ORM-layer command spans complementing the ADO-layer `Npgsql.OpenTelemetry` spans
 - `EFCore.NamingConventions`
 - `linq2db.EntityFrameworkCore`
 - `Microsoft.EntityFrameworkCore.Design`
@@ -68,9 +68,9 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Microsoft.EntityFrameworkCore.Sqlite`
 - `Microsoft.Data.Sqlite`
 - `SQLitePCLRaw.bundle_e_sqlite3`
-- `SQLitePCLRaw.bundle_e_sqlite3mc` — SQLite3 Multiple Ciphers native bundle; the encrypted embedded floor keying `Store/provisioning#EMBEDDED_FLOOR` under a KMS-custodied data key, superseding the plain bundle where the cipher floor mounts
+- `SQLitePCLRaw.bundle_e_sqlite3mc` — Multiple Ciphers bundle; encrypted embedded floor under a KMS-custodied key, superseding the plain bundle
 
-[SERVER_EXTENSIONS]: PostgreSQL 18 SQL-provisioned extensions carrying no managed assembly; the `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension` roster is authoritative and supersets this consumer-facing list with the base-bridge rows only the verification fold admits. Roster keys carry the server `CREATE EXTENSION` spelling; cards here carry the package spelling. Each carries a folder `.api/` catalogue of its SQL surface.
+[SERVER_EXTENSIONS]: PostgreSQL SQL-provisioned extensions carrying no managed assembly; the `Store/provisioning` `ServerExtension` roster is authoritative and supersets this consumer-facing list with the base-bridge rows only the verification fold admits. Roster keys carry the server `CREATE EXTENSION` spelling; cards here carry the package spelling. Each carries a folder `.api/` catalogue of its SQL surface.
 - `timescaledb` — hypertable, continuous-aggregate, retention, and columnstore
 - `timescaledb_toolkit` — hyperfunction and time-weighted-aggregate layer over `timescaledb`
 - `pg_duckdb` — in-PG DuckDB analytical bridge, distinct from the in-process `DuckDB.NET` lane
@@ -87,7 +87,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `pgaudit` — session and object audit logging
 - `h3-pg` — Uber-H3 hex indexing in PostgreSQL; cell ids match the `pocketken.H3` pin
 - `apache-age` — openCypher over `agtype`, demoted beneath QuikGraph and disabled by default
-- `pgrouting` — network routing over `postgis` backing the `Query/cypher#GRAPH_QUERY` routing cases
+- `pgrouting` — network routing over `postgis` backing the `Query/cypher` routing cases
 - `pg_graphql` — in-Postgres GraphQL schema and resolver reflection
 - `pg_net` — asynchronous non-blocking HTTP/HTTPS from SQL
 
@@ -135,15 +135,15 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Speckle.Objects`
 - `PollinationSDK` — cloud-run transport, sidecar-only; the durable `Version/provenance` `CloudRunFact` half
 - `Confluent.Kafka`
-- `OpenTelemetry.Instrumentation.ConfluentKafka` — instrumented producer/consumer builders carrying messaging spans and meters; the producer twin binds at the `Version/egress` Kafka sink leg and the consumer twins at the `Version/ingress` CDC consume leg.
+- `OpenTelemetry.Instrumentation.ConfluentKafka` — instrumented producer/consumer builders carrying messaging spans and meters
 - `Confluent.SchemaRegistry` — Schema Registry REST client, subject compatibility and evolution
 - `Confluent.SchemaRegistry.Serdes.Avro`
 - `Confluent.SchemaRegistry.Serdes.Protobuf` — registry-governed Protobuf serde over `Google.Protobuf`
 - `Confluent.SchemaRegistry.Serdes.Json`
 - `CloudNative.CloudEvents`
-- `CloudNative.CloudEvents.Amqp` — CloudEvents AMQP 1.0 binding over AMQPNetLite's `Amqp.Message`; the AMQP-native egress path distinct from the `RabbitMQ.Client` 0-9-1 leg
+- `CloudNative.CloudEvents.Amqp` — CloudEvents AMQP 1.0 binding; the AMQP-native egress path distinct from the `RabbitMQ.Client` 0-9-1 leg
 - `CloudNative.CloudEvents.Kafka`
-- `CloudNative.CloudEvents.Mqtt` — structured-mode CloudEvents MQTT v5 binding mapping a `CloudEvent` onto MQTTnet's `MqttApplicationMessage`; backs `EgressSink.Mqtt`, the payload-body-only egress path with no header-route binary mode
+- `CloudNative.CloudEvents.Mqtt` — structured-mode CloudEvents MQTT v5 binding; backs `EgressSink.Mqtt`, payload-body-only with no binary mode
 - `CloudNative.CloudEvents.SystemTextJson`
 - `NATS.Net` — Core pub/sub and JetStream durable streams; backs `EgressSink.Nats`
 - `RabbitMQ.Client` — AMQP 0-9-1 with publisher confirms; backs `EgressSink.RabbitMq`
@@ -152,13 +152,13 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 
 [OBJECT_CACHE_KMS]: Cloud object stores, the Redis cache backplane, and KMS custody.
 - `AWSSDK.S3`
-- `OpenTelemetry.Instrumentation.AWS` — one root registration spanning both AWSSDK legs: the `AWSSDK.S3` object-store transfers and the `AWSSDK.KeyManagementService` custody calls, hooking the shared `AWSSDK.Core` pipeline into the AppHost-root trace
+- `OpenTelemetry.Instrumentation.AWS` — one root registration spanning the S3 and KMS legs through the shared `AWSSDK.Core` pipeline
 - `Azure.Storage.Blobs`
 - `Google.Cloud.Storage.V1`
 - `Minio` — endpoint-agnostic S3-compatible client for the self-hosted lane
 - `StackExchange.Redis` — backs the `Query/cache` L2 backplane and the `Version/egress` `EgressSink.RedisStream` sink
 - `Microsoft.Extensions.Caching.StackExchangeRedis`
-- `OpenTelemetry.Instrumentation.StackExchangeRedis` — trace-only command spans hooking the held cache and egress multiplexers into the AppHost-root trace
+- `OpenTelemetry.Instrumentation.StackExchangeRedis` — trace-only command spans hooking the cache and egress multiplexers into the root trace
 - `AWSSDK.KeyManagementService`
 - `Azure.Security.KeyVault.Keys`
 - `Google.Cloud.Kms.V1`

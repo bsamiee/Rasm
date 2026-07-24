@@ -1,6 +1,6 @@
 # [TS_CORE_ARCHITECTURE]
 
-`core` is the branch's wave-0 vocabulary-and-law package: `value`, `state`, `interchange`, and `observe` meet through one content identity, one clock law, one fault vocabulary, and one keyed-decode wire registry. Core owns decode, vocabulary, and the capability dial — never serving or persistence. `value` roots the internal graph — every other sub-domain composes it and none feeds back.
+`core` is the branch's S0 vocabulary-and-law package: `value`, `state`, `interchange`, and `observe` meet through one content identity, one clock law, one fault vocabulary, and one keyed-decode wire registry. Core owns decode, vocabulary, and the capability dial — never serving or persistence. `value` roots the internal graph — every other sub-domain composes it and none feeds back.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -39,10 +39,11 @@ core/
 
 ## [02]-[STRATA]
 
-- S0 `value` — mints the floor exactly once (`Refined` brands, `Hlc`, `ContentKey` under the `Digest` engine, `Quantity`/`Dimension`, `AppIdentity`/`TenantContext`, `Budget`) and imports no sibling sub-domain; `identity` and `fault` compose `schema`'s `Refined` vocabulary alone.
-- S1 `state` — pure algebra over the value floor: `causal` composes `merge` and `Hlc`, `fold` composes `causal`, `evidence` mints `ProgressMark` over `fold` and `TenantContext`, `feed` orders `evidence` by `Hlc` under a `Dimension` band; `commit` rides with `causal` on `ContentKey`, `presence` with `merge`, and `machine` composes no interior sibling — the merge↔fold cycle never forms because `Fold.run` arrives as a caller parameter, never an import.
-- S1 `observe` — vocabulary and derivation over the value floor alone: `convention` roots, `slo` derives `Alert`, `board` composes both into `DashboardModel`, and `tap` stands beside them composing `AppIdentity` and `FaultClass` into the hook-rail registry; peer to state with no edge between them.
-- S2 `interchange` — the decode boundary composing all three: `format` proto engines under `codec`'s keyed registry, `frame`/`contract`/`invoke` over `Wire`, `frame` admitting under `Ingress`, `codec` landing `ProgressMark`, `invoke` landing `Convention` and composing `carrier`, whose propagation context imports `TenantContext` off the floor.
+- S0 `value` — mints the floor exactly once and imports no sibling sub-domain; `identity` and `fault` compose `schema`'s `Refined` vocabulary alone.
+- S1 `state` — pure algebra over the value floor; the merge↔fold cycle never forms: `Fold.run` arrives as a caller parameter, never an import.
+- S1 `commit` rides beside `causal` on `ContentKey`, `presence` beside `merge`; `machine` composes no interior sibling.
+- S1 `observe` — vocabulary and derivation over the value floor alone; peer to `state` with no edge between them.
+- S2 `interchange` — the decode boundary composing all three ranks; `contract` and `invoke` consume `codec`'s `Wire` beside `frame`.
 
 ```mermaid
 ---
@@ -54,7 +55,7 @@ config:
 ---
 flowchart TB
     accTitle: Core interior import strata
-    accDescr: Three interior waves — interchange over the state and observe peer wave onto the value floor — every import downward or floor-interior, labeled edges naming one sourced type each, and one forbidden upward edge styled red.
+    accDescr: Three interior strata — interchange over the state and observe peers onto the value floor; imports downward, one forbidden upward edge.
     subgraph S2["S2 INTERCHANGE"]
         Invoke[invoke]
         CarrierP[carrier]
@@ -122,7 +123,7 @@ config:
 ---
 flowchart LR
     accTitle: Core C# wire-plane seam registry
-    accDescr: Core value, interchange, and state owners decoding kinded wires spelled verbatim from the C# endpoint pages — the kernel, compute, element, persistence, bim, materials, the app UI, and the app host — edge rails colored by kind and nodes classed by seam direction.
+    accDescr: Core owners decoding kinded wires spelled verbatim from the owning C# endpoint pages, one edge per landed family.
     subgraph core[CORE]
         ContentKey[Content key]
         Quantity[Quantity]
@@ -168,7 +169,7 @@ config:
 ---
 flowchart LR
     accTitle: Core TypeScript sibling seam registry
-    accDescr: Core value, state, interchange, and observe owners handing content identity and decoded shapes to the data, runtime, ui, security, and iac siblings, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: Core owners handing content identity and decoded shapes to the data, runtime, ui, security, and iac siblings.
     subgraph core[CORE]
         ContentKey[Content key]
         Codec[Wire codec]
@@ -210,13 +211,13 @@ flowchart LR
     Tap e20@-->|"[SHAPE]: Tap.Point"| Iac
 ```
 
-## [04]-[ORGANIZATION]
+## [04]-[INTERNAL]
 
 One authority per concept and growth-as-row is the organization law: `value` mints each floor primitive exactly once and everything above composes it settled, `state` stays pure algebra whose one `AsOf` coordinate forbids a second replay vocabulary, `interchange` lands a new C#-minted wire family as one census row with its landing row — never a page — and `observe` owns vocabulary and derivation only. Exact delegating sites and per-owner wiring live on the owning implementation pages.
 
 ## [05]-[BOUNDARIES]
 
 - Core imports nothing from the branch and nothing host-bound; every module runs identically under node, bun, and the browser.
-- C# owns every `*Wire` shape; core decodes it verbatim, authors no wire, and lands each family's decoded shape once even for a later-wave consumer.
+- C# owns every `*Wire` shape; core decodes it verbatim, authors no wire, and lands each decoded family once even for a later-stratum consumer.
 - Secret derivation is the security folder's concern; the digest engine here is content identity only.
 - Persistence, serving, transport hosting, rendering, and exporters are later-wave concerns; core defines the shapes they carry and nothing they run.

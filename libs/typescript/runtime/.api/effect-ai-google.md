@@ -1,84 +1,125 @@
 # [TS_RUNTIME_API_EFFECT_AI_GOOGLE]
 
-`@effect/ai-google` (MIT) · dual CJS+ESM, `sideEffects:[]`, per-module `exports` subpaths (`@effect/ai-google/GoogleClient`) · marker TSDECL `node_modules/@effect/ai-google/dist/dts/*.d.ts` · peers `@effect/ai`, `@effect/platform`, `@effect/experimental`, `effect` through catalog ownership · tier node|browser (platform-neutral; depends only on `@effect/ai`, `@effect/platform`, `effect`)
+`@effect/ai-google` binds Gemini's generateContent API onto the `@effect/ai` core, resolving the provider-agnostic `LanguageModel` and `Tool` tags against Gemini and attaching a `google` slot to the core `Prompt`/`Response` part interfaces.
 
-`@effect/ai-google` binds the Google Generative AI (Gemini) generateContent API onto `@effect/ai`, resolving the provider-agnostic `LanguageModel`/`Tool` tags against Gemini. Its asymmetry row is the leanest of the admitted providers — a language model and four provider-defined tools, but no curated embedding, tokenizer, or telemetry owner module; embeddings and token-counting exist only through the raw `Generated.Client` (`EmbedContent`/`BatchEmbedContents`/`CountTokens`), so `ai/embed.ts` cannot bind a Google `EmbeddingModel` the way it binds OpenAI, and the design routes Google embeddings through the low-level client. Five owner modules re-export through the barrel (`GoogleClient`, `GoogleConfig`, `GoogleLanguageModel`, `GoogleTool`, `Generated`); the Gemini wire corpus (`Generated`) is a category with named anchors. Success/failure flows through the core `AiError.AiError`; all I/O is `Effect`/`Stream`.
+It curates a language model and four provider-executed tools; embeddings and token-counting stay on the raw `Generated.Client`, so `ai/embed.ts` routes a Google embedding through the low-level `EmbedContent`/`CountTokens` rail. Failure flows through `AiError`, all I/O through `Effect`/`Stream`.
 
-## [01]-[ASYMMETRY]
+## [01]-[PACKAGE_SURFACE]
 
-| [INDEX] | [COLUMN]               | [GOOGLE]                                | [OPENAI]          | [ANTHROPIC]                | [BEDROCK]       |
-| :-----: | :--------------------- | :-------------------------------------- | :---------------- | :------------------------- | :-------------- |
-|  [01]   | provider id            | `"google"`                              | openai            | anthropic                  | amazon-bedrock  |
-|  [02]   | language model         | `GoogleLanguageModel` (generateContent) | Responses         | Messages                   | Converse        |
-|  [03]   | embedding model        | raw client only (`EmbedContent`)        | curated ×2        | —                          | —               |
-|  [04]   | tokenizer              | — (raw `CountTokens` only)              | `make({model})`   | value                      | —               |
-|  [05]   | provider-defined tools | 4 (`GoogleTool`)                        | 4                 | 5 families                 | 8               |
-|  [06]   | telemetry module       | —                                       | `OpenAiTelemetry` | —                          | —               |
-|  [07]   | model-id kind          | free-form `string` (no enum)            | enum              | 21-id enum                 | 91-id enum      |
-|  [08]   | auth                   | `Redacted` apiKey only                  | +org/project      | +version                   | SigV4 keys      |
-|  [09]   | per-request Config     | `Config` (+`toolConfig`)                | `strict`          | `disableParallelToolCalls` | Converse fields |
-|  [10]   | streaming fold         | `GenerateContentResponse` re-emit       | 49-member         | 8-member                   | 11-member       |
-|  [11]   | `withConfigOverride`   | — (no per-effect override)              | ✓                 | ✓                          | ✓               |
+[PACKAGE_SURFACE]: `@effect/ai-google`
+- package: `@effect/ai-google` (MIT)
+- module: per-namespace subpath exports (`@effect/ai-google/GoogleClient`), dual CJS+ESM, `sideEffects:[]`
+- runtime: node|browser, platform-neutral; peers `@effect/ai`, `@effect/experimental`, `@effect/platform`, `effect`
+- rail: ai-google provider — Gemini generateContent onto the `@effect/ai` core
 
-## [02]-[CLIENT]
+## [02]-[PUBLIC_TYPES]
 
-`GoogleClient` is a `Context.TagClass` (id `@effect/ai-google/GoogleClient`) wrapping the generated `Client` plus curated generateContent entrypoints. Distinct from the OpenAI/Anthropic siblings, the streaming surface re-emits the SAME `GenerateContentResponse` schema per chunk rather than a distinct tagged event union — consumers fold `response.candidates[]` deltas, not `event.type`. `streamRequest` decodes arbitrary SSE against a `Schema`.
+[PUBLIC_TYPE_SCOPE]: the service tags and their resolved shapes
 
-[SERVICE]: `Service.client: Generated.Client` `Service.streamRequest: <A,I,R>(request:HttpClientRequest.HttpClientRequest,schema:Schema.Schema<A,I,R>)=>Stream.Stream<A,AiError.AiError,R>` `Service.generateContent: (request:typeof Generated.GenerateContentRequest.Encoded)=>Effect.Effect<Generated.GenerateContentResponse,AiError.AiError>` `Service.generateContentStream: (request:typeof Generated.GenerateContentRequest.Encoded)=>Stream.Stream<Generated.GenerateContentResponse,AiError.AiError>`
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [CAPABILITY]                                                |
+| :-----: | :--------------------- | :------------ | :---------------------------------------------------------- |
+|  [01]   | `GoogleClient`         | class         | `Context.TagClass` id `@effect/ai-google/GoogleClient`      |
+|  [02]   | `GoogleClient.Service` | interface     | raw `Generated.Client` plus curated generateContent entries |
+|  [03]   | `GoogleConfig`         | class         | `Context.TagClass` id `@effect/ai-google/GoogleConfig`      |
+|  [04]   | `Config`               | class         | `Context.TagClass` id `.../GoogleLanguageModel/Config`      |
+|  [05]   | `Model`                | type          | `string`; Gemini ships no model-id enum, autocomplete open  |
 
-ONE constructor pattern, three arities over `apiKey`/`apiUrl`/`transformClient` — no `organizationId`/`projectId` (Gemini authenticates by API key alone). `apiUrl` default is asymmetric between arities: `make` → host root, `layer`/`layerConfig` → the `/v1beta` versioned root. `make` requires `HttpClient | Scope`; the layers require `HttpClient`; `layerConfig` adds `ConfigError`.
+- `Config`, `GoogleConfig`: each carries a `static getOrUndefined` reader for the resolved service.
+- `Config.Service`: `GenerateContentRequest.Encoded` minus `contents`/`tools`/`toolConfig`/`systemInstruction` made partial, with a partial `toolConfig.functionCallingConfig: Omit<FunctionCallingConfig.Encoded,"mode">` — the tier-routing seam `ai/model.ts` writes per call.
+- `GoogleConfig.Service`: one optional `transformClient: (HttpClient) => HttpClient` mutating the request client.
 
-[SURFACES]: `make({…}) -> Effect.Effect<Service,never,HttpClient.HttpClient|Scope.Scope>` `layer({apiKey?;apiUrl?;transformClient?}) -> Layer.Layer<GoogleClient,never,HttpClient.HttpClient>` `layerConfig({apiKey?:Config.Config<Redacted|undefined>;apiUrl?:Config.Config<string|undefined>;transformClient?}) -> Layer.Layer<GoogleClient,ConfigError,HttpClient.HttpClient>`
+[PUBLIC_TYPE_SCOPE]: the provider boundary-hook augmentations — each `declare module` attaches one optional `google` key
 
-## [03]-[LANGUAGE_MODEL]
+| [INDEX] | [SYMBOL]                                      | [TYPE_FAMILY] | [CAPABILITY]                                                |
+| :-----: | :-------------------------------------------- | :------------ | :---------------------------------------------------------- |
+|  [01]   | `Prompt.{Reasoning,Text,ToolCall}PartOptions` | interface     | `google.thoughtSignature?` reasoning-continuity carrier     |
+|  [02]   | `Response` streaming part-metadata            | interface     | `google.thoughtSignature?` on each text/reasoning/tool part |
+|  [03]   | `Response.FinishPartMetadata`                 | interface     | `google` folds grounding/safety/urlContext/usage metadata   |
 
-`GoogleLanguageModel` binds generateContent onto the core `LanguageModel`/`Model` contracts. Model argument is `(string & {}) | Model` where `Model = string` — Gemini ships no generated model-id enum, so autocomplete stays open. ONE model/layer family, narrower than OpenAI/Anthropic: `model`/`make`/`layer` only — no `modelWithTokenizer`/`layerWithTokenizer` (no tokenizer binding) and no `withConfigOverride` (per-effect override is absent; use the `Config` tag directly).
+- `Response.FinishPartMetadata.google`: aggregates `groundingMetadata?`, `safetyRatings?` (`ReadonlyArray<SafetyRating>`), `urlContextMetadata?`, and `usageMetadata?` off a finished response.
 
-[MODEL]: `Model = string`
-[SURFACES]: `model((string&{})|Model,Omit<Config.Service,"model">?) -> AiModel.Model<"google",LanguageModel.LanguageModel,GoogleClient>` `make({model:(string&{})|Model;config?:Omit<Config.Service,"model">}) -> Effect.Effect<LanguageModel.Service,never,GoogleClient>` `layer({model;config?}) -> Layer.Layer<LanguageModel.LanguageModel,never,GoogleClient>`
+[PUBLIC_TYPE_SCOPE]: the machine-generated Google Generative AI REST wire surface
 
-`Config` (tag `@effect/ai-google/GoogleLanguageModel/Config`, `static getOrUndefined`) is the `GenerateContentRequest` minus SDK-owned keys (`contents`/`tools`/`toolConfig`/`systemInstruction`) made partial, with a re-added partial `toolConfig.functionCallingConfig` (the mode-less function-calling policy). It is the tier-routing seam `ai/model.ts` writes per call.
+| [INDEX] | [SYMBOL]                                                                    | [TYPE_FAMILY] | [CAPABILITY]                         |
+| :-----: | :-------------------------------------------------------------------------- | :------------ | :----------------------------------- |
+|  [01]   | `GenerateContentRequest` `GenerateContentResponse`                          | class         | the generateContent wire pair        |
+|  [02]   | `FunctionCallingConfig` `FunctionCallingConfigMode`                         | class/enum    | function-calling mode enum           |
+|  [03]   | `GroundingMetadata` `SafetyRating` `UrlContextMetadata` `UsageMetadata`     | class         | finish-part metadata shapes          |
+|  [04]   | `ExecutableCodeLanguage` `CodeExecutionResult` `DynamicRetrievalConfigMode` | class/enum    | tool wire shapes                     |
+|  [05]   | `Content` `Part` `Blob` `FileData`                                          | class         | the Gemini content algebra           |
+|  [06]   | `FunctionCall` `FunctionResponse` `ExecutableCode`                          | class         | the Gemini call/result algebra       |
+|  [07]   | `Tool` `FunctionDeclaration` `Schema` `Type`                                | class         | Gemini function-param schema dialect |
+|  [08]   | `Client`                                                                    | interface     | PascalCase-operation REST endpoints  |
 
-[CONFIG.SERVICE]: `Config.Service.toolConfig: Partial<{readonly functionCallingConfig:Omit<typeof Generated.FunctionCallingConfig.Encoded,"mode">}>`
+- `FunctionCallingConfigMode`: `MODE_UNSPECIFIED|AUTO|ANY|NONE|VALIDATED`.
+- `Generated.Schema`/`Generated.Type`: the Gemini function-parameter JSON-schema dialect, not `effect/Schema`.
+- `Client` methods return `Effect<typeof <Response>.Type, HttpClientError.HttpClientError | ParseError>`; its internal `transformClient` is effectful (`(client) => Effect<HttpClient>`), unlike the synchronous transform on the public surfaces.
 
-`declare module` augmentations attach an optional `google` key — ONE boundary-hook pattern. `google.thoughtSignature` is the reasoning-continuity carrier threaded across the Prompt and Response part interfaces below; `FinishPartMetadata.google` is the single surface aggregating `groundingMetadata?`, `safetyRatings?`, `urlContextMetadata?`, and `usageMetadata?` off a finished response — the `safetyRatings?` slot is what the `ai/model.ts` guardrail gate reads for output moderation.
+## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [AUGMENTS] | [INTERFACES]                                                                                       | [GOOGLE_SLOT]       |
-| :-----: | :--------- | :------------------------------------------------------------------------------------------------- | :------------------ |
-|  [01]   | `Prompt`   | `Reasoning/Text/ToolCall PartOptions`                                                              | `thoughtSignature?` |
-|  [02]   | `Response` | `Text{Start,Delta}`, `Reasoning{,Start,Delta}`, `ToolParams{Start,Delta}`, `ToolCall` PartMetadata | `thoughtSignature?` |
+[ENTRYPOINT_SCOPE]: construct the client and call generateContent — three constructors share `opts = { apiKey?: Redacted, apiUrl?: string, transformClient? }`, `optsConfig` wrapping `apiKey`/`apiUrl` in `Config`
 
-## [04]-[TOOL]
+| [INDEX] | [SURFACE]                                                                                           | [SHAPE]  | [CAPABILITY]          |
+| :-----: | :-------------------------------------------------------------------------------------------------- | :------- | :-------------------- |
+|  [01]   | `make(opts) -> Effect<Service, never, HttpClient\|Scope>`                                           | factory  | scoped client         |
+|  [02]   | `layer(opts) -> Layer<GoogleClient, never, HttpClient>`                                             | factory  | client Layer          |
+|  [03]   | `layerConfig(optsConfig) -> Layer<GoogleClient, ConfigError, HttpClient>`                           | factory  | config-resolved Layer |
+|  [04]   | `generateContent(GenerateContentRequest.Encoded) -> Effect<GenerateContentResponse, AiError>`       | instance | one-shot generate     |
+|  [05]   | `generateContentStream(GenerateContentRequest.Encoded) -> Stream<GenerateContentResponse, AiError>` | instance | streamed generate     |
+|  [06]   | `streamRequest(HttpClientRequest, Schema<A,I,R>) -> Stream<A, AiError, R>`                          | instance | decode arbitrary SSE  |
+|  [07]   | `client -> Generated.Client`                                                                        | property | raw REST rail         |
 
-`GoogleTool` exports four provider-executed tool constructors (`requiresHandler:false` — the provider runs them), each ONE instance of `<Mode extends Tool.FailureMode | undefined>(args) => Tool.ProviderDefined<"Google<Name>", { …; failureMode: Mode extends undefined ? "error" : Mode }, false>`. Only `CodeExecution` carries model-supplied `parameters` and a real `success` schema; the other three are grounding switches (`EmptyParams`, `Void` success).
+- `make`: `apiUrl` defaults to the host root; `layer`/`layerConfig` default to the `/v1beta` root. Gemini authenticates by the `Redacted` `apiKey` alone — no org or project id.
+- `generateContentStream`: re-emits a full `GenerateContentResponse` per chunk, so a consumer folds `response.candidates[]` deltas, never a tagged `event.type` union.
 
-| [INDEX] | [CTOR]                  | [TAG]                   | [PARAMETERS_SUCCESS]                                                 |
-| :-----: | :---------------------- | :---------------------- | :------------------------------------------------------------------- |
-|  [01]   | `CodeExecution`         | `GoogleCodeExecution`   | `{ language: ExecutableCodeLanguage; code }` / `CodeExecutionResult` |
-|  [02]   | `GoogleSearch`          | `GoogleSearch`          | `EmptyParams` / `Void`                                               |
-|  [03]   | `GoogleSearchRetrieval` | `GoogleSearchRetrieval` | `EmptyParams` / `Void`                                               |
-|  [04]   | `UrlContext`            | `GoogleUrlContext`      | `EmptyParams` / `Void`                                               |
+[ENTRYPOINT_SCOPE]: bind generateContent onto the core `LanguageModel` — `id = (string & {}) | Model`, `config = Omit<Config.Service, "model">`
 
-`GoogleSearch` is the current search-grounding switch and `UrlContext` the URL-context switch; `GoogleSearchRetrieval` is the retired Gemini 1.5 dynamic-retrieval path, taking `{ mode?; dynamicThreshold? }` — `args.mode` is `DynamicRetrievalConfigMode` (`MODE_UNSPECIFIED | MODE_DYNAMIC`) and `dynamicThreshold` (0.0–1.0) gates the model's autonomous decision to search. `failure` is `Schema.Never` on all four.
+| [INDEX] | [SURFACE]                                                                              | [SHAPE] | [CAPABILITY]              |
+| :-----: | :------------------------------------------------------------------------------------- | :------ | :------------------------ |
+|  [01]   | `model(id, config?) -> Model<"google", LanguageModel, GoogleClient>`                   | factory | provider row for the fold |
+|  [02]   | `make({ model, config? }) -> Effect<LanguageModel.Service, never, GoogleClient>`       | factory | resolve the service       |
+|  [03]   | `layer({ model, config? }) -> Layer<LanguageModel.LanguageModel, never, GoogleClient>` | factory | provide the tag           |
 
-## [05]-[CONFIG]
+- Write the `Config` tag directly for a per-effect override; no tokenizer binding and no `withConfigOverride` exist on this provider.
 
-`GoogleConfig` (`Context.TagClass`, id `@effect/ai-google/GoogleConfig`, `static getOrUndefined`) is the request-scoped client transform — a per-request `HttpClient` mutation without rebuilding transport, dual data-first/data-last. Mirrors `OpenAiConfig.withClientTransform` exactly.
+[ENTRYPOINT_SCOPE]: the four provider-executed tools — each `<Mode extends Tool.FailureMode|undefined>(args) -> Tool.ProviderDefined<Tag, Cfg, false>`, `requiresHandler:false`
 
-[SURFACES]: `GoogleConfig` `Service` `withClientTransform`
+| [INDEX] | [SURFACE]                                                                                      | [SHAPE] | [CAPABILITY]             |
+| :-----: | :--------------------------------------------------------------------------------------------- | :------ | :----------------------- |
+|  [01]   | `CodeExecution({}) -> ProviderDefined<"GoogleCodeExecution">`                                  | factory | model-run code execution |
+|  [02]   | `GoogleSearch({}) -> ProviderDefined<"GoogleSearch">`                                          | factory | grounding switch         |
+|  [03]   | `GoogleSearchRetrieval({mode?,dynamicThreshold?}) -> ProviderDefined<"GoogleSearchRetrieval">` | factory | dynamic-retrieval switch |
+|  [04]   | `UrlContext({}) -> ProviderDefined<"GoogleUrlContext">`                                        | factory | grounding switch         |
 
-## [06]-[GENERATED]
+- `CodeExecution` alone carries model-supplied `parameters` (`{ language: ExecutableCodeLanguage, code }`) and a real `CodeExecutionResult` `success`; the other three expose `Tool.EmptyParams` and a `Void` success, `failure` is `Schema.Never` on all four.
+- `GoogleSearchRetrieval`: `mode` is `DynamicRetrievalConfigMode` (`MODE_UNSPECIFIED|MODE_DYNAMIC`) and `dynamicThreshold` (0.0–1.0) gates the model's autonomous search decision.
 
-`Generated` is the machine-generated Google Generative AI REST surface: exported owners (`Schema.Class` wire schemas, `Schema.Literal` enums, `Schema.Struct`/`Schema.Record` shapes) plus one `Client` interface of PascalCase-operation endpoints. It is not enumerated — owner modules reach it through named anchors, and planning code reaches REST via `GoogleClient.Service.client.<PascalCaseOperationId>(...)`. Each method returns `Effect.Effect<typeof <Response>.Type, HttpClientError.HttpClientError | ParseError>`. `Generated`-internal client `transformClient` is effectful (`(client) => Effect.Effect<HttpClient>`), unlike the synchronous transform on the public `make`/`layer`/`GoogleConfig` surfaces.
+[ENTRYPOINT_SCOPE]: request-scoped `HttpClient` transform without rebuilding transport
 
-Load-bearing anchors (exact spelling): `GenerateContentRequest` (Config derives from its `Encoded`), `GenerateContentResponse`, `FunctionCallingConfig`/`FunctionCallingConfigMode` (`MODE_UNSPECIFIED|AUTO|ANY|NONE|VALIDATED`), `GroundingMetadata`, `SafetyRating`, `UrlContextMetadata`, `UsageMetadata` (the four `FinishPartMetadata.google` payloads), `ExecutableCodeLanguage`, `CodeExecutionResult`, `DynamicRetrievalConfigMode` (the `GoogleTool` sub-schemas), and the Gemini content algebra (`Content`, `Part`, `Blob`, `FileData`, `FunctionCall`, `FunctionResponse`, `ExecutableCode`, `Tool`, `FunctionDeclaration`, plus `Schema`/`Type` — the Gemini function-parameter JSON-schema dialect, NOT `effect/Schema`).
+| [INDEX] | [SURFACE]                                              | [SHAPE]  | [CAPABILITY]                       |
+| :-----: | :----------------------------------------------------- | :------- | :--------------------------------- |
+|  [01]   | `withClientTransform(transform) -> (Effect) -> Effect` | instance | data-last request-client mutation  |
+|  [02]   | `withClientTransform(Effect, transform) -> Effect`     | instance | data-first request-client mutation |
 
-Curated `Service` entries cover `generateContent`/`generateContentStream` alone; embeddings (`EmbedContent`/`BatchEmbedContents`, anchor `EmbedContentRequest`), token-counting (`CountTokens`, anchor `CountTokensRequest`), context caching (`CreateCachedContent` family), semantic file-search stores (`CreateFileSearchStore`/`UploadToFileSearchStore` family), batches (`BatchGenerateContent`), files, tuned models, and long-running operations (`GetOperation`/`ListOperations`/`CancelOperation`) reach only through the raw `client.*` rail — no high-level `createEmbedding` wrapper exists.
+## [04]-[IMPLEMENTATION_LAW]
 
-## [07]-[INTEGRATION]
+[TOPOLOGY]:
+- Generation rides `Effect`/`Stream` and fails into `AiError.AiError`; `generateContentStream` re-emits a full `GenerateContentResponse` per chunk, so a consumer folds `candidates[]` deltas rather than a tagged event union.
+- Gemini authenticates by one `Redacted` apiKey and carries no model-id enum, tokenizer binding, per-effect `withConfigOverride`, or telemetry module; per-request tuning writes the `Config` tag, and embeddings and token-counting ride the raw `Generated.Client`.
 
-- Universal Effect rails: `GoogleLanguageModel.model(id)` produces the same `LanguageModel.LanguageModel` tag as every sibling — provider choice is a single `Layer` swap in `ai/model.ts`. `Redacted`+`Config` own credential resolution; `Stream` folds the re-emitted `GenerateContentResponse` (candidate deltas, not a `type`-union); `Schema` decodes `Config`/responses; `Effect.catchTag` branches `AiError`. Compose top-down: `Effect.provide(GoogleLanguageModel.model(id))` over `GoogleClient.layer({ apiKey })` over an `HttpClient` layer.
-- `@effect/platform` seam: every `layer*` requires `HttpClient.HttpClient` from the `net/client` default-policy row; platform-neutral, so `FetchHttpClient.layer` (browser) or `NodeHttpClient.layer` (node) both satisfy it.
-- `@effect/ai` core (sibling catalog `effect-ai.md`): satisfies `LanguageModel.LanguageModel`, `Tool.ProviderDefined`/`Tool.FailureMode`; augments `Prompt`/`Response` provider slots. No `EmbeddingModel`, `Tokenizer`, or `Telemetry` tag — those asymmetry cells are empty, and any Google embedding/token-count goes through the raw `Generated.Client`, never a curated binding.
-- Sibling providers: the leanest row — `ai/model.ts` reads Google's empty embedding/tokenizer/telemetry cells against the OpenAI reference row and the free-form (enum-less) model-id column.
-- Design consumers: `ai/model.ts` (row + tier-routing + the guardrail gate, which reads `FinishPartMetadata.google.safetyRatings` for output moderation), `ai/tool.ts`+`ai/tool.ts` (the four provider-defined tools projected). No `ai/model.ts` tokenizer binding and no `ai/embed.ts` `EmbeddingModel` — both are asymmetry gaps the design fills through the raw client or another provider.
+[STACKING]:
+- `@effect/ai`(`.api/effect-ai.md`): `GoogleLanguageModel.model(id)` resolves the core `LanguageModel.LanguageModel` tag and `GoogleTool.*` return `Tool.ProviderDefined`/`Tool.FailureMode`, so provider choice is one `Layer` swap; the `declare module` augmentations attach the `google` slot onto the core `Prompt`/`Response` part interfaces, and no `EmbeddingModel`/`Tokenizer`/`Telemetry` tag binds here.
+- `@effect/platform`(`.api/effect-platform.md`): every `layer*` requires the `HttpClient.HttpClient` Tag and `Service.streamRequest` consumes an `HttpClientRequest.HttpClientRequest`; `FetchHttpClient.layer` (browser) or `NodeHttpClient.layerUndici` (node) satisfies the Tag at the app root.
+- `ai/model.ts`: folds the Google row into the provider table, reads `FinishPartMetadata.google.safetyRatings` for the output-moderation guardrail gate, and writes the `Config` tag per call for tier routing.
+- `ai/tool.ts`: projects the four `GoogleTool` provider-defined tools under the shared safety owner.
+- `ai/embed.ts`: binds no Google `EmbeddingModel` — a Google embedding routes through `GoogleClient.Service.client.EmbedContent` on the low-level `Generated.Client` rail, or through another provider's tag.
+
+[LOCAL_ADMISSION]:
+- Bind Gemini through `GoogleClient.layer({ apiKey })` under an `HttpClient` layer, then `GoogleLanguageModel.model(id)` over it; the app root picks the runtime `HttpClient`.
+- Write the `Config` tag for per-request tuning and `GoogleConfig.withClientTransform` for a request-scoped client mutation; reach embeddings, token-counting, caching, batches, and operations through `Service.client.*` alone.
+
+[RAIL_LAW]:
+- Package: `@effect/ai-google`
+- Owns: the Gemini `GoogleClient` (`make`/`layer`/`layerConfig` with generateContent), `GoogleLanguageModel` (`model`/`make`/`layer` with the per-request `Config` tag), the four `GoogleTool` provider-defined tools, `GoogleConfig` request-scoped transform, and the `Generated` REST wire surface
+- Accept: `GoogleLanguageModel.model(id)` resolved into the core `LanguageModel` tag, the `Config` tag written per call, `GoogleTool` tools projected through `ai/tool.ts`, credential via `Redacted`+`Config`, `HttpClient` satisfied at the app root
+- Reject: a hand-rolled Gemini REST client, a fabricated `createEmbedding` or tokenizer wrapper, a per-effect config-override call, a model-id enum invention, or a second provider generation API

@@ -1,24 +1,21 @@
 # [TS_UI_API_WEB_VITALS]
 
-[PACKAGE_SURFACE]:
+`web-vitals` owns field measurement of the Core Web Vitals: five idempotent per-metric capture functions each observe one vital across the full page lifecycle — bfcache restore and visibility-change flush included — and report one normalized `Metric` per instance. Measurement is the whole charter; the library never transports, a reporter folds each `Metric` onto the `viewer/probe` row shape, and the app plane owns OTLP egress.
+
+## [01]-[PACKAGE_SURFACE]
+
+[PACKAGE_SURFACE]: `web-vitals`
 - package: `web-vitals` (Apache-2.0)
-- module: dual build — `dist/web-vitals.js` (`module`, ESM), `dist/web-vitals.umd.cjs` (`require`); types at `dist/modules/index.d.ts` via the `exports` `types` condition, no top-level `types` field.
-- subpath: `.` ships the standard build (five capture functions + metric types); `web-vitals/attribution` ships the attribution build (same five functions re-exported, each metric enriched with a diagnostic `attribution` object); per-metric subpaths (`web-vitals/onLCP.js`, `web-vitals/attribution/onINP.js`, …) tree-shake to one probe.
-- runtime: browser only — reads `PerformanceObserver`, Navigation/Paint/Event/LoAF timing, and Layout Shift entries; no Node surface, no framework coupling, callback-per-metric with no scheduler.
-- plane: `plane:runtime` (W4 `ui`); folder-local to `ui`, the `[VITAL_PLANE]` browser performance-evidence lane feeding `system/vital.md`.
-- rail: `ui` telemetry — the canonical Core Web Vitals source, one function per metric, one `Metric` row shape across all five.
+- module: dual build — ESM `dist/web-vitals.js` (`default`), CJS `dist/web-vitals.umd.cjs` (`require`), declarations at `dist/modules/index.d.ts` via the `exports` `types` condition (no top-level `types`); subpaths `.` ships the standard build (five capture functions, metric types), `web-vitals/attribution` re-exports the five enriched with a diagnostic `attribution` object, and per-metric `web-vitals/onLCP.js` / `web-vitals/attribution/onINP.js` tree-shake to one probe.
+- runtime: browser only — reads `PerformanceObserver`, Navigation/Paint/Event/LoAF timing, and Layout Shift entries; no Node surface, no framework coupling, one callback per metric with no scheduler.
+- plane: `plane:runtime` (W4 `ui`); the `[VITAL_PLANE]` browser performance-evidence lane, folder-local to `ui`.
+- rail: `ui` telemetry — the Core Web Vitals source, one function per metric and one `Metric` row shape across all five.
 
-`web-vitals` is the field-measurement end of the ui telemetry spectrum: five idempotent capture functions (`onLCP` `onCLS` `onINP` `onFCP` `onTTFB`) each observe one Core Web Vital across the full page lifecycle — bfcache restore and visibility-change flush included — reporting one normalized `Metric` per instance.
+## [02]-[METRIC_MODEL]
 
-Its contract is ONE metric shape (`Metric`: `name`/`value`/`delta`/`rating`/`id`/`entries`/`navigationType` with the `navigationId`/`navigationInteractionId`/`navigationStartTime`/`navigationURL` soft-navigation coordinates), FIVE narrowings fixing `name` and the `entries` element type, and ONE opt bag (`reportAllChanges` streaming versus terminal report, `reportSoftNavs` opting into soft-navigation reporting). Measurement is the whole charter — the library never transports; a reporter folds each `Metric` into the probe row shape and the app plane owns OTLP egress.
+One base `Metric` interface carries the closed `name` union and the reporting fields every metric shares; each narrowing fixes `name` to its literal and `entries` to the concrete `PerformanceEntry` subtype it computes from. `MetricType` is the discriminated union a single reporter switches on; `MetricRatingThresholds` is the `[good, needs-improvement]` cutoff pair each `*Thresholds` constant fills.
 
-Every metric carries a stable `id` for dedupe and a running `delta` so an analytics sink can either sum deltas into a session total or report the terminal value once; `rating` pre-buckets the value against the metric's `MetricRatingThresholds`, so a board colors good/needs-improvement/poor without re-deriving the cutoffs.
-
-## [01]-[METRIC_MODEL]
-
-One base `Metric` interface with a closed `name` union; each metric narrows `name` to its literal and `entries` to the concrete `PerformanceEntry` subtype it computes from. `MetricType` is the discriminated union a single reporter switches on; `MetricRatingThresholds` is the `[good, needs-improvement]` cutoff pair each `*Thresholds` constant fills.
-
-[METRIC]: `Metric.name: 'CLS'|'FCP'|'INP'|'LCP'|'TTFB'` `Metric.value: number` `Metric.rating: 'good'|'needs-improvement'|'poor'` `Metric.delta: number` `Metric.id: string` `Metric.entries: PerformanceEntry[]` `Metric.navigationType: 'navigate'|'reload'|'back-forward'|'back-forward-cache'|'prerender'|'restore'|'soft-navigation'` `Metric.navigationId: number` `Metric.navigationInteractionId: number` `Metric.navigationStartTime: number` `Metric.navigationURL: string`
+[METRIC]: `Metric.name: 'CLS'|'FCP'|'INP'|'LCP'|'TTFB'` `Metric.value: number` `Metric.rating: 'good'|'needs-improvement'|'poor'` `Metric.delta: number` `Metric.id: string` `Metric.entries: PerformanceEntry[]` `Metric.navigationType: 'navigate'|'reload'|'back-forward'|'back-forward-cache'|'prerender'|'restore'|'soft-navigation'` `Metric.navigationId: number` `Metric.navigationInteractionId?: number` `Metric.navigationStartTime?: number` `Metric.navigationURL?: string`
 [CLSMETRIC]: `CLSMetric.name: 'CLS'` `CLSMetric.entries: LayoutShift[]`
 [FCPMETRIC]: `FCPMetric.name: 'FCP'` `FCPMetric.entries: PerformancePaintTiming[]`
 [INPMETRIC]: `INPMetric.name: 'INP'` `INPMetric.entries: PerformanceEventTiming[]`
@@ -28,25 +25,25 @@ One base `Metric` interface with a closed `name` union; each metric narrows `nam
 [METRIC_RATING_THRESHOLDS]: `MetricRatingThresholds = [number,number]`
 [LOAD_STATE]: `LoadState = 'loading'|'dom-interactive'|'dom-content-loaded'|'complete'`
 
-## [02]-[CAPTURE_FUNCTIONS]
+## [03]-[CAPTURE_FUNCTIONS]
 
-Five capture functions, one per vital; each takes a metric-narrowed callback and an optional opt bag, returns `void`, and is idempotent per page. `reportAllChanges: true` fires on every intermediate change; the default fires once at finalize. `reportSoftNavs: true` reports metrics against soft navigations where the browser exposes the entries. `durationThreshold` (the `event-timing` floor, default `40`) rides the base opt bag; `onINP`'s `INPReportOpts` re-declares it. Each `*Thresholds` export is the metric's rating cutoff pair.
+Five module-level capture functions, one per vital; each takes a metric-narrowed callback and an optional opt bag, returns `void`, and is idempotent per page. `reportAllChanges: true` fires on every intermediate change while the default reports once at finalize; `reportSoftNavs: true` reports against soft navigations where the browser exposes the entries. `durationThreshold` floors `event-timing` at `40` ms on the base bag, and `onINP`'s `INPReportOpts` re-declares it.
 
-| [INDEX] | [FN]     | [METRIC]     | [OPTS]          | [CUTOFFS]        | [CAPTURES]                                     |
-| :-----: | :------- | :----------- | :-------------- | :--------------- | :--------------------------------------------- |
-|  [01]   | `onLCP`  | `LCPMetric`  | `ReportOpts`    | `LCPThresholds`  | largest-contentful-paint render time           |
-|  [02]   | `onCLS`  | `CLSMetric`  | `ReportOpts`    | `CLSThresholds`  | cumulative layout-shift score, session windows |
-|  [03]   | `onINP`  | `INPMetric`  | `INPReportOpts` | `INPThresholds`  | worst interaction-to-next-paint latency        |
-|  [04]   | `onFCP`  | `FCPMetric`  | `ReportOpts`    | `FCPThresholds`  | first-contentful-paint time                    |
-|  [05]   | `onTTFB` | `TTFBMetric` | `ReportOpts`    | `TTFBThresholds` | time-to-first-byte from navigation start       |
+| [INDEX] | [SURFACE]                                  | [THRESHOLDS]     | [CAPABILITY]                                 |
+| :-----: | :----------------------------------------- | :--------------- | :------------------------------------------- |
+|  [01]   | `onLCP((LCPMetric)=>void, ReportOpts?)`    | `LCPThresholds`  | largest-contentful-paint render time         |
+|  [02]   | `onCLS((CLSMetric)=>void, ReportOpts?)`    | `CLSThresholds`  | cumulative layout-shift over session windows |
+|  [03]   | `onINP((INPMetric)=>void, INPReportOpts?)` | `INPThresholds`  | worst interaction-to-next-paint latency      |
+|  [04]   | `onFCP((FCPMetric)=>void, ReportOpts?)`    | `FCPThresholds`  | first-contentful-paint time                  |
+|  [05]   | `onTTFB((TTFBMetric)=>void, ReportOpts?)`  | `TTFBThresholds` | time-to-first-byte from navigation start     |
 
-[REPORT_OPTS]: `ReportOpts.reportAllChanges: boolean` `ReportOpts.durationThreshold: number` `ReportOpts.reportSoftNavs: boolean`
-[INPREPORT_OPTS]: `INPReportOpts.durationThreshold: number`
-[SURFACES]: `onLCP((metric:LCPMetric)=>void,ReportOpts?) -> void` `onCLS((metric:CLSMetric)=>void,ReportOpts?) -> void` `onINP((metric:INPMetric)=>void,INPReportOpts?) -> void` `onFCP((metric:FCPMetric)=>void,ReportOpts?) -> void` `onTTFB((metric:TTFBMetric)=>void,ReportOpts?) -> void` `LCPThresholds: MetricRatingThresholds` `CLSThresholds: MetricRatingThresholds` `INPThresholds: MetricRatingThresholds` `FCPThresholds: MetricRatingThresholds` `TTFBThresholds: MetricRatingThresholds`
+[REPORT_OPTS]: `ReportOpts.reportAllChanges?: boolean` `ReportOpts.durationThreshold?: number` `ReportOpts.reportSoftNavs?: boolean`
+[INPREPORT_OPTS]: `INPReportOpts extends ReportOpts` `INPReportOpts.durationThreshold?: number`
+[THRESHOLDS]: each `*Thresholds` export is a `MetricRatingThresholds` cutoff pair.
 
-## [03]-[ATTRIBUTION_BUILD]
+## [04]-[ATTRIBUTION_BUILD]
 
-`web-vitals/attribution` re-exports the same five functions with each metric widened to a `*MetricWithAttribution` carrying a diagnostic `attribution` object — the field-debugging payload pinpointing WHICH element, subpart, or timing phase drove a poor value. `AttributionReportOpts` adds `generateTarget` (a custom node→selector mapper); `INPAttributionReportOpts` further adds `includeProcessedEventEntries`. Each shape decomposes its metric into causal subparts; a `*target` selector (`interactionTarget`/`largestShiftTarget`) and the raw `*Entry` handles ride alongside the timing splits below.
+`web-vitals/attribution` re-exports the five functions with each metric widened to a `*MetricWithAttribution` carrying a diagnostic `attribution` object — the field-debugging payload decomposing the value into causal subparts, a `*target` selector (`interactionTarget`/`largestShiftTarget`), and the raw `*Entry` handles. `AttributionReportOpts` adds `generateTarget` (a custom node→selector mapper); `INPAttributionReportOpts` further adds `includeProcessedEventEntries`.
 
 | [INDEX] | [SHAPE]           | [PRINCIPAL_SUBPARTS]                                                              |
 | :-----: | :---------------- | :-------------------------------------------------------------------------------- |
@@ -56,14 +53,14 @@ Five capture functions, one per vital; each takes a metric-narrowed callback and
 |  [04]   | `FCPAttribution`  | `timeToFirstByte` `firstByteToFCP` `loadState` `fcpEntry`                         |
 |  [05]   | `TTFBAttribution` | `waitingDuration` `dnsDuration` `connectionDuration` `requestDuration`            |
 
-[METRIC_WITH_ATTRIBUTION]: `MetricWithAttribution = CLSMetricWithAttribution|FCPMetricWithAttribution|…`
-[ATTRIBUTION_REPORT_OPTS]: `AttributionReportOpts.generateTarget: (el:Node|null)=>string|undefined`
-[INPATTRIBUTION_REPORT_OPTS]: `INPAttributionReportOpts.durationThreshold: number` `INPAttributionReportOpts.includeProcessedEventEntries: boolean`
+[METRIC_WITH_ATTRIBUTION]: `MetricWithAttribution = CLSMetricWithAttribution|FCPMetricWithAttribution|INPMetricWithAttribution|LCPMetricWithAttribution|TTFBMetricWithAttribution`
+[ATTRIBUTION_REPORT_OPTS]: `AttributionReportOpts extends ReportOpts` `AttributionReportOpts.generateTarget?: (el:Node|null)=>string|undefined`
+[INPATTRIBUTION_REPORT_OPTS]: `INPAttributionReportOpts extends AttributionReportOpts` `INPAttributionReportOpts.durationThreshold?: number` `INPAttributionReportOpts.includeProcessedEventEntries?: boolean`
 [INPLONGEST_SCRIPT_SUMMARY]: `INPLongestScriptSummary.entry: PerformanceScriptTiming` `INPLongestScriptSummary.subpart: 'input-delay'|'processing-duration'|'presentation-delay'` `INPLongestScriptSummary.intersectingDuration: number`
 
-## [04]-[PERFORMANCE_GLOBALS]
+## [05]-[PERFORMANCE_GLOBALS]
 
-Its types build augments the DOM lib with the not-yet-standard performance interfaces the metrics read, so a consumer types raw entries without a second `@types` package. `INPAttribution.longAnimationFrameEntries` surfaces the Long Animation Frame API directly. Soft navigation adds `InteractionContentfulPaint` and `PerformanceSoftNavigation` — the entry types a `soft-navigation` metric computes from, keyed into the augmented `Performance.getEntriesByType`.
+`web-vitals` ships a types build augmenting `lib.dom` with the performance interfaces the metrics read but no shipped declaration carries, so a consumer types raw entries without a second `@types` package. Soft navigation adds `InteractionContentfulPaint` and `PerformanceSoftNavigation` — the entry types a `soft-navigation` metric computes from, keyed into the augmented `Performance.getEntriesByType`.
 
 | [INDEX] | [GLOBAL]                              | [FIELDS_USED]                                                                       |
 | :-----: | :------------------------------------ | :---------------------------------------------------------------------------------- |
@@ -73,12 +70,26 @@ Its types build augments the DOM lib with the not-yet-standard performance inter
 |  [04]   | `PerformanceLongAnimationFrameTiming` | `renderStart` `styleAndLayoutStart` `blockingDuration` `scripts`                    |
 |  [05]   | `PerformanceScriptTiming`             | `invokerType` `invoker` `executionStart` `sourceURL` `forcedStyleAndLayoutDuration` |
 |  [06]   | `InteractionContentfulPaint`          | `interactionId` `largestContentfulPaint?`                                           |
-|  [07]   | `PerformanceSoftNavigation`           | `interactionId` `navigationType?` `paintTime?` `presentationTime?` + LICP getter    |
+|  [07]   | `PerformanceSoftNavigation`           | `interactionId` `navigationType?` `paintTime?` `presentationTime?`                  |
 
-- `PerformanceSoftNavigation.getLargestInteractionContentfulPaint?()`: resolves that soft navigation's LICP entry.
+- `PerformanceSoftNavigation.getLargestInteractionContentfulPaint?()` resolves that soft navigation's LICP entry.
 
-## [05]-[INTEGRATION]
+## [06]-[IMPLEMENTATION_LAW]
 
-Each `Metric` maps field-for-field onto the probe row shape (`viewer/probe.md`): `name` keys the metric family, `value`/`delta` fold into the seeded bounded window, `rating` colors the claim-versus-local board, and `id` dedupes across bfcache restores. Under `reportSoftNavs` a metric arrives against a prior URL; the reporter keys the fact stream on `navigationId`/`navigationURL`. A reporter registers all five functions once at composition and folds every callback into one fact stream; OTLP minting and egress stay at the app/runtime plane.
+[TOPOLOGY]:
+- Each vital folds its `PerformanceObserver` entries into one normalized `Metric`; `reportAllChanges` streams intermediate values while the default reports the terminal value once, and a stable `id` lets a sink dedupe across bfcache restores or sum `delta` into a session total.
+- `rating` pre-buckets `value` against the metric's `*Thresholds`, so a board colors good/needs-improvement/poor without re-deriving the cutoffs.
 
-LoAF entries from `INPAttribution.longAnimationFrameEntries` and the augmented `PerformanceScriptTiming` feed the long-task and render-profiling rows `[VITAL_PLANE]` folds beside the vitals; `three`/deck.gl GPU capture already owns the render-frame lane those rows extend.
+[STACKING]:
+- `viewer/probe`: each `Metric` folds field-for-field onto the probe row shape — `name` keys the metric family, `value`/`delta` fold into the seeded bounded window, `rating` colors the claim-versus-local board, `id` dedupes across restores; under `reportSoftNavs` the reporter keys the fact stream on `navigationId`/`navigationURL` when a metric arrives against a prior URL.
+- `three`(`.api/three.md`): `INPAttribution.longAnimationFrameEntries` LoAF rows and the augmented `PerformanceScriptTiming` feed the long-task and render-profiling rows that fold beside three's `renderer.info` per-frame counters in the `viewer/probe/receipt` render-frame lane.
+
+[LOCAL_ADMISSION]:
+- Register all five capture functions once at composition and fold every callback into one fact stream; the library measures and never transports, so OTLP minting and egress stay at the app/runtime plane.
+- Import a per-metric subpath (`web-vitals/onLCP.js`) to tree-shake to the probed vitals, and import `web-vitals/attribution` only where field debugging needs the `attribution` payload.
+
+[RAIL_LAW]:
+- Package: `web-vitals`
+- Owns: field measurement of the five Core Web Vitals — one idempotent capture function per vital, the `Metric` shape and its five narrowings, the `*Thresholds` rating cutoffs, the `attribution` diagnostic build, and the augmented DOM performance globals.
+- Accept: one reporter registering all five functions at composition, each `Metric` folded onto the `viewer/probe` row shape, `reportAllChanges` streaming versus terminal report, `reportSoftNavs` keyed on `navigationId`/`navigationURL`, attribution subparts routed to field debugging.
+- Reject: transporting or minting OTLP inside `ui`, re-deriving `rating` cutoffs a `*Thresholds` constant owns, a second `@types` package for the performance globals this build augments, hand-rolled `PerformanceObserver` wiring the capture functions own.

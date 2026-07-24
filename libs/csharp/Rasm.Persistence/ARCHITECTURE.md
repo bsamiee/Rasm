@@ -47,10 +47,14 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 
 S0–S3 order the sub-domains; `Version` and `Store` co-seat as a coupled pair — retention classes flow down into blob GC while storage tiers flow back into retention facts — and the one ruled counter-edge is `Element/Graph`'s `GraphStoreOp.ReadAsOf` taking the Version `TimeCut` as its typed as-of payload; every other consumption edge points down.
 
-- S0 `Element` — the system-of-record spine consuming no sibling: `ModelId`, `GraphStoreOp`, the `SnapshotCodec` content-address codec, the `IdentityStore` one-transaction identity owner, and the `GrantSet` ACL algebra.
-- S1 `Ingest` — file-codec ingress over the spine alone: `TabularSource`, `GeoFeatureRow`, `ScheduleSpec`, and the durable `TaskRelation` rows the Bim sequencing DAG orders.
-- S2 `Version` + `Store` — the coupled durable tier: `OpLogEntry`, `Hlc`, `TimeCut`, and `RetentionClass` beside `ObjectStore`, `StorageTier`, `LeaseToken`, and `OutboxCursor`; their mutual retention-tier exchange is same-stratum fact.
-- S3 `Query` — read lanes nothing composes: `FederationPlan`, `TopologyView`, `VectorCodebook`, and the `ArtifactIndexRow` reuse index pinning reads at the Version `TimeCut`.
+- S0 `Element` — the system-of-record spine consuming no sibling: `ModelId`, `GraphStoreOp`, the `SnapshotCodec` content-address codec.
+- S0 `Element` — the `IdentityStore` one-transaction identity owner and the `GrantSet` ACL algebra.
+- S1 `Ingest` — file-codec ingress over the spine alone: `TabularSource`, `GeoFeatureRow`, `ScheduleSpec`, the durable `TaskRelation` rows.
+- S1 law — the Bim sequencing DAG orders the `TaskRelation` rows.
+- S2 `Version` — `OpLogEntry`, `Hlc`, `TimeCut`, and `RetentionClass`, the coupled durable stratum's version half.
+- S2 `Store` — `ObjectStore`, `StorageTier`, `LeaseToken`, and `OutboxCursor`; the mutual retention-tier exchange stays same-stratum.
+- S3 `Query` — read lanes nothing composes: `FederationPlan`, `TopologyView`, `VectorCodebook`, `ArtifactIndexRow`.
+- S3 law — the `ArtifactIndexRow` reuse index pins reads at the Version `TimeCut`.
 
 ```mermaid
 ---
@@ -62,18 +66,18 @@ config:
 ---
 flowchart TB
     accTitle: Rasm.Persistence interior strata
-    accDescr: Four stacked strata from the query read lanes through the coupled version-and-store tier and the ingest codecs onto the element system-of-record spine, every consumption edge downward and solid naming one sourced type, one dashed ruled counter-edge carrying the ReadAsOf TimeCut payload upward from Element to Version, and one forbidden upward edge styled red.
-    subgraph L3["S3 QUERY"]
+    accDescr: Four stacked strata from the query read lanes through the coupled version-and-store stratum and the ingest codecs onto the element system-of-record spine, every consumption edge downward and solid naming one sourced type, one dashed ruled counter-edge carrying the ReadAsOf TimeCut payload upward from Element to Version, and one forbidden upward edge styled red.
+    subgraph S3["S3 QUERY"]
         Query[Query]
     end
-    subgraph L2["S2 VERSION + STORE"]
+    subgraph S2["S2 VERSION + STORE"]
         Version[Version]
         Store[Store]
     end
-    subgraph L1["S1 INGEST"]
+    subgraph S1["S1 INGEST"]
         Ingest[Ingest]
     end
-    subgraph L0["S0 ELEMENT"]
+    subgraph S0["S0 ELEMENT"]
         Element[Element]
     end
     Query e1@-->|"[IMPORT]: TimeCut"| Version
@@ -83,7 +87,7 @@ flowchart TB
     Store e5@-->|"[IMPORT]: ContentAddress"| Element
     Ingest e6@-->|"[IMPORT]: ProjectionContext"| Element
     Element e7@-.->|"[COUNTER]: TimeCut"| Version
-    Element f1@-->|"forbidden: spine upward"| L3
+    Element f1@-->|"forbidden: spine upward"| S3
 ```
 
 ## [03]-[SEAMS]
@@ -203,8 +207,7 @@ One `IDocumentSession` commits the `GraphDelta` event and the identity row toget
 
 - Persistence is not a domain service layer, repository framework, ORM wrapper, provider wrapper, or host-boundary package; it is RhinoCommon-free.
 - It depends up on the `Rasm.Element` seam and the `Rasm` kernel and never references a sibling AEC-domain peer.
-- Marten owns the durable append and the rebuildable read views; the version engine PROJECTS from its events, never a bespoke op-log store beneath it.
-- One transaction owner for identity and event is the `IDocumentSession` — identity lands as the one compiled-model-derived upsert `IdentityStore.Stamp` queues on the session, never a Marten document and never a second ORM write.
+- Identity lands as the compiled-model upsert `IdentityStore.Stamp` queues on the `IDocumentSession`, never a Marten document or second ORM write.
 - Geometry blobs are write-first and reference-after, with no free two-ORM atomicity.
 - Authoritative topology reads bind the inline projection and the in-process QuikGraph view; analytical lanes are async under a watermark.
 - Typed projection records and the seam `ElementGraph` are the only egress; provider failure converts once per rail.
@@ -217,10 +220,11 @@ Deleted patterns the owner regions foreclose:
 - NEVER a public type outside a sub-domain owner region; a new capability is a row, case, or policy value on a budgeted owner.
 - NEVER a bespoke op-log store beneath Marten, a per-node stream grain, or a whole-graph event body; per-model streams carry the `GraphDelta`.
 - NEVER route an interactive-correctness read to an async projection; strong-consistency reads block on non-stale data through the inline projection.
-- NEVER a second materializer beside `Crdt.Apply`/`GraphDelta.Apply`; the projection, the live merge, and the AS-OF reconstruction fold the one delta.
+- NEVER a second materializer beside `Crdt.Apply`/`GraphDelta.Apply`; projection, live merge, and AS-OF reconstruction fold the one delta.
 - NEVER a second content-hash, identity, CRDT, selection-shape, or geometry-representation owner; each spine concept rides its one owner.
 - NEVER a head-only geometry GC; reachability runs over the full event history, or geometry GC is forbidden in favor of dedup and cold-tiering.
-- NEVER a raw clock, stopwatch, or timer; the injected `ProjectionContext` frame is the only time seam and the HLC the only causal clock — a deadline or policy value applied at both a provider wire and a domain catalog derives once from one sampled instant threaded through the write path, so even the injected clock is never sampled twice for one policy value.
+- NEVER a raw clock, stopwatch, or timer; the injected `ProjectionContext` frame is the only time seam, the HLC the only causal clock.
+- A policy value applied at both a provider wire and a domain catalog derives once from one sampled instant threaded through the write path.
 - An AppHost `ClockPolicy` parameter on a Persistence signature is the named strata inversion.
 - NEVER hand-written converters, formatters, or migration code beside the generated rails.
 - NEVER a generic receipt abstraction; each sub-domain outcome stays its own typed receipt or fact record.

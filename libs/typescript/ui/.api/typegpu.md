@@ -1,58 +1,133 @@
 # [TS_UI_API_TYPEGPU]
 
-[PACKAGE_SURFACE]:
+`typegpu` owns typed standalone GPGPU compute — data-parallel kernels that live outside a three scene. One `TgpuRoot` owns the `GPUDevice` and every resource, the `d.*` schema types each buffer as its own WGSL layout with `d.Infer<T>` deriving the TS value, and kernels author as TS that the build transform lowers to WGSL. Scene-resident compute routes to `three/tsl`.
+
+## [01]-[PACKAGE_SURFACE]
+
+[PACKAGE_SURFACE]: `typegpu`
 - package: `typegpu` (MIT)
-- module: `type: module`, `sideEffects: false`; exports `.` (the `tgpu` root), `./data` (the `d` schema namespace), `./std` (WGSL builtins as TS), `./common` — no deeper subpath is public.
-- asset: deps `typed-binary` (schema serialization), `tinyest` (embedded-AST for TS→WGSL), `tsover-runtime`; a `typegpu` bin ships alongside.
-- build: `unplugin-typegpu` (peer `typegpu`) is the transform that lets kernel bodies be plain TS — it recognizes `'use gpu'`-directive functions and `tgpu.fn` bodies and rewrites them for WGSL generation; bundler subpaths `./vite` `./rollup` `./webpack` `./esbuild` `./rspack` `./rolldown` `./bun` `./babel`.
-- types: the shipped `.d.ts` references `GPUDevice`/`GPUBuffer`/… as BARE AMBIENT globals — nothing resolves without `@webgpu/types` (`.api/webgpu-types.md`) in the consuming tsconfig `types` array; `scope:viewer` project-local, like every WebGPU surface.
-- plane: `plane:runtime` (W4 `ui`, `scope:viewer`); rail: standalone GPGPU compute.
+- module: ESM, `sideEffects: false`; subpath exports `.` (the `tgpu` root), `./data` (the `d` schema namespace), `./std` (WGSL builtins as TS), `./common`
+- runtime: browser WebGPU; the shipped `.d.ts` binds `GPUDevice`/`GPUBuffer`/`GPUFeatureName` as ambient globals that resolve only with `@webgpu/types` in the consumer tsconfig `types` array
+- depends: `unplugin-typegpu` rewrites `'use gpu'` and `tgpu.fn` bodies to WGSL across every major bundler; `typed-binary` and `tinyest` carry buffer serialization and the embedded TS→WGSL AST
+- plane: `plane:runtime` (W4 `ui`, `scope:viewer`)
+- rail: standalone typed GPGPU compute
 
-`typegpu` is the typed GPGPU owner for data-parallel kernels that live OUTSIDE a three scene — geometry post-processing, simulation steps, analytic folds over large buffers. Its design is one root object (`TgpuRoot`) owning the `GPUDevice` and every resource, a `d.*` schema vocabulary that types buffers end-to-end (the `msgspec`-for-VRAM move: the schema IS the layout, `d.Infer<T>` IS the TS type), and kernels authored as TS functions the build transform + `tgpu.resolve` lower to WGSL — no hand-written shader strings, no untyped bind indices. It carries NO recovery: WebGPU-absent environments never construct a root, so admission is capability-gated behind the same `navigator.gpu` probe the viewer already runs, with the CPU/worker path as the degrade arm. Compute that lives INSIDE a three scene stays on `three/tsl` — two altitudes of one concern, split by scene residency, never two engines on one kernel.
+## [02]-[PUBLIC_TYPES]
 
-## [01]-[ROOT_AND_RESOURCES]
+[PUBLIC_TYPE_SCOPE]: the root, its typed resources, and the resolution-time composition plane
 
-[TGPU]: `tgpu.init({adapter?:GPURequestAdapterOptions;device?:GPUDeviceDescriptor}?) -> Promise<TgpuRoot>` `tgpu.initFromDevice({device:GPUDevice}) -> TgpuRoot`
-[TGPU_ROOT]: `TgpuRoot.device: GPUDevice` `TgpuRoot.enabledFeatures: ReadonlySet<GPUFeatureName>` `TgpuRoot.createBuffer(T,d.Infer<T>|GPUBuffer?) -> TgpuBuffer<T>` `TgpuRoot.createUniform(T,d.Infer<T>?) -> TgpuUniform<T>` `TgpuRoot.createMutable(T,d.Infer<T>?) -> TgpuMutable<T>` `TgpuRoot.createReadonly(T,d.Infer<T>?) -> TgpuReadonly<T>` `TgpuRoot.createTexture(unknown)` `TgpuRoot.createSampler(unknown)` `TgpuRoot.createQuerySet(GPUQueryType,number)` `TgpuRoot.createBindGroup(TgpuBindGroupLayout,Record<string,unknown>) -> TgpuBindGroup` `TgpuRoot.createComputePipeline(unknown) -> TgpuComputePipeline` `TgpuRoot.unwrap(unknown) -> GPUBuffer|GPUBindGroup|GPUComputePipeline|GPURenderPipeline|GPUTextureView|GPUSampler|GPUQuerySet` `TgpuRoot.destroy() -> void` `TgpuRoot.'~unstable': {beginRenderPass;beginRenderBundleEncoder;createGuardedComputePipeline;flush;pipe;with;withCompute;withVertex}`
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [CAPABILITY]                        |
+| :-----: | :-------------------- | :------------ | :---------------------------------- |
+|  [01]   | `TgpuRoot`            | interface     | owns the device and all resources   |
+|  [02]   | `TgpuBuffer<T>`       | interface     | schema-typed buffer with read/write |
+|  [03]   | `TgpuUniform<T>`      | interface     | uniform-usage buffer view           |
+|  [04]   | `TgpuMutable<T>`      | interface     | read-write storage view             |
+|  [05]   | `TgpuReadonly<T>`     | interface     | read-only storage view              |
+|  [06]   | `TgpuComputePipeline` | interface     | dispatchable compute pipeline       |
+|  [07]   | `TgpuBindGroupLayout` | interface     | named schema-typed bindings         |
+|  [08]   | `TgpuBindGroup`       | interface     | layout bound to concrete resources  |
+|  [09]   | `TgpuSlot<T>`         | interface     | resolution-time injection point     |
+|  [10]   | `TgpuLazy<T>`         | interface     | memoized resolution-time derivation |
+|  [11]   | `TgpuAccessor<T>`     | interface     | slot-backed in-kernel value         |
 
-Render-pipeline authoring (`withVertex`/`beginRenderPass`) is `'~unstable'` and out of scope here — rendering belongs to three/deck.gl; this catalog admits the compute lane.
+[SCHEMA_TYPE_SCOPE]: `typegpu/data` (`import * as d from 'typegpu/data'`) — the WGSL memory-layout vocabulary enforced at the type level
 
-## [02]-[SCHEMA_PLANE]
+| [INDEX] | [FAMILY]  | [MEMBERS]                                                                     | [ROLE]                            |
+| :-----: | :-------- | :---------------------------------------------------------------------------- | :-------------------------------- |
+|  [01]   | scalar    | `d.f32` `d.f16` `d.u32` `d.i32` `d.bool`                                      | element types                     |
+|  [02]   | vector    | `d.vec2f`/`3f`/`4f` `vec2u`/`3u`/`4u` `vec2i`/`3i`/`4i` `vec2h`/`3h`/`4h`     | constructor and schema node       |
+|  [03]   | matrix    | `d.mat2x2f` `d.mat3x3f` `d.mat4x4f`                                           | column-major layout               |
+|  [04]   | composite | `d.struct({...})` `d.arrayOf(T, n)` `d.atomic(d.u32\|d.i32)`                  | host-shareable buffer shapes      |
+|  [05]   | loose     | `d.disarrayOf` `d.unstruct`                                                   | packed non-host-shareable layout  |
+|  [06]   | attribute | `d.size(n, T)` `d.align(n, T)` `d.location(n, T)` `d.builtin` `d.interpolate` | explicit layout and IO decoration |
+|  [07]   | inference | `d.Infer<T>`                                                                  | schema-to-TS typing seam          |
 
-`typegpu/data` (`import * as d from 'typegpu/data'`) is the one layout vocabulary — WGSL memory rules (alignment, padding, host-shareability) enforced at the type level.
+## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [FAMILY]   | [MEMBERS]                                                                       | [ROLE]                                 |
-| :-----: | :--------- | :------------------------------------------------------------------------------ | :------------------------------------- |
-|  [01]   | scalar     | `d.f32` `d.f16` `d.u32` `d.i32` `d.bool`                                        | element types                          |
-|  [02]   | vector     | `d.vec2f`/`3f`/`4f` · `vec2u`/`3u`/`4u` · `vec2i`/`3i`/`4i` · `vec2h`/`3h`/`4h` | callable constructors AND schema nodes |
-|  [03]   | matrix     | `d.mat2x2f` `d.mat3x3f` `d.mat4x4f`                                             | column-major WGSL layout               |
-|  [04]   | composite  | `d.struct({...})` `d.arrayOf(type, n)` `d.atomic(d.u32 \| d.i32)`               | buffer shapes; ordered struct fields   |
-|  [05]   | loose      | `d.disarrayOf` `d.unstruct`                                                     | packed non-host-shareable layouts      |
-|  [06]   | attributes | `d.size(n, T)` `d.align(n, T)` `d.location(n, T)` `d.builtin` `d.interpolate`   | explicit layout/IO decoration          |
-|  [07]   | inference  | `d.Infer<T>`                                                                    | schema → TS value type; typing seam    |
+[ENTRYPOINT_SCOPE]: root construction and schema-typed resource factories
 
-## [03]-[KERNELS_AND_RESOLUTION]
+| [INDEX] | [SURFACE]                                                           | [SHAPE]  | [CAPABILITY]                   |
+| :-----: | :------------------------------------------------------------------ | :------- | :----------------------------- |
+|  [01]   | `tgpu.init(InitOptions?) -> Promise<TgpuRoot>`                      | factory  | request device and build root  |
+|  [02]   | `tgpu.initFromDevice({device}) -> TgpuRoot`                         | factory  | adopt an existing `GPUDevice`  |
+|  [03]   | `TgpuRoot.createBuffer(T, Infer<T>\|GPUBuffer?) -> TgpuBuffer<T>`   | instance | schema-typed buffer            |
+|  [04]   | `TgpuRoot.createUniform(T, Infer<T>?) -> TgpuUniform<T>`            | instance | uniform resource               |
+|  [05]   | `TgpuRoot.createMutable(T, Infer<T>?) -> TgpuMutable<T>`            | instance | read-write storage             |
+|  [06]   | `TgpuRoot.createReadonly(T, Infer<T>?) -> TgpuReadonly<T>`          | instance | read-only storage              |
+|  [07]   | `TgpuRoot.createComputePipeline(descriptor) -> TgpuComputePipeline` | instance | compute dispatch               |
+|  [08]   | `TgpuRoot.createBindGroup(layout, entries) -> TgpuBindGroup`        | instance | bind resources to a layout     |
+|  [09]   | `TgpuRoot.createTexture(props) -> TgpuTexture`                      | instance | storage or sampled texture     |
+|  [10]   | `TgpuRoot.createSampler(props) -> TgpuFixedSampler`                 | instance | texture sampler                |
+|  [11]   | `TgpuRoot.createQuerySet(type, count) -> TgpuQuerySet`              | instance | timestamp or occlusion queries |
+|  [12]   | `TgpuRoot.unwrap(resource) -> GPU*`                                 | instance | expose the raw WebGPU handle   |
+|  [13]   | `TgpuRoot.destroy()`                                                | instance | release device and resources   |
+|  [14]   | `TgpuRoot.enabledFeatures: ReadonlySet<GPUFeatureName>`             | property | negotiated device features     |
+|  [15]   | `TgpuBuffer.read() -> Promise<Infer<T>>`                            | instance | async readback to a TS value   |
+|  [16]   | `TgpuBuffer.write(Infer<T>)`                                        | instance | upload a TS value              |
 
-- `tgpu.fn(argSchemas, returnSchema?)(impl)` — a typed shader function shell; with the build transform active the body is plain TS (`tinyest`-parsed), callable from JS AND resolvable to WGSL.
-- `'use gpu'` directive — marks a plain function for JS→WGSL transpilation (the only directive; there is no `'kernel'`); such a function runs on CPU for tests and on GPU when resolved.
-- `tgpu.computeFn({ workgroupSize: number[], in?: IORecord })(impl)` — the compute entry point; `tgpu.vertexFn`/`tgpu.fragmentFn` exist for the out-of-scope render lane.
-- `tgpu.resolve(items[])` / `tgpu.resolve({ externals, template })` → WGSL string; `tgpu.resolveWithContext(...)` → `{ code, usedBindGroupLayouts, catchall }` for hand-assembled pipelines.
-- Composition vocabulary: `tgpu.slot` (resolution-time injection point), `tgpu.lazy` (memoized derivation — `derived` is its DEPRECATED alias, never author it), `tgpu.accessor`/`mutableAccessor`, `tgpu.const`, `tgpu.privateVar`/`tgpu.workgroupVar` (address-space variables), `tgpu.comptime`, `tgpu.unroll`.
-- `tgpu.bindGroupLayout({...})` — named, schema-typed bindings replacing numeric index bookkeeping; `tgpu.vertexLayout` types the vertex-buffer side.
-- `typegpu/std` mirrors WGSL builtins as typed TS (dual CPU/GPU semantics): arithmetic (`add`/`mul`/`dot`/`cross`/`normalize`/`length`/`distance`), trig, `clamp`/`mix`/`step`/`smoothstep`/`min`/`max`/`floor`/`pow`/`exp`/`log`, the full atomic family (`atomicAdd`/`atomicLoad`/`atomicStore`/`atomicMax`/…), barriers (`workgroupBarrier`/`storageBarrier`/`textureBarrier`), texture ops (`textureSample`/`textureLoad`/`textureStore`/`textureDimensions`), `select`/`discard`.
+[ENTRYPOINT_SCOPE]: TS-authored kernels and their WGSL resolution
 
-## [04]-[INTEGRATION]
+| [INDEX] | [SURFACE]                                                                | [SHAPE] | [CAPABILITY]                         |
+| :-----: | :----------------------------------------------------------------------- | :------ | :----------------------------------- |
+|  [01]   | `tgpu.fn(argSchemas, returnSchema?)(impl)`                               | factory | typed shader-function shell          |
+|  [02]   | `tgpu.computeFn({workgroupSize, in?})(impl)`                             | factory | compute entry point                  |
+|  [03]   | `tgpu.resolve(items[]) -> string`                                        | static  | lower resolvables to WGSL            |
+|  [04]   | `tgpu.resolve({externals, template}) -> string`                          | static  | resolve a WGSL template              |
+|  [05]   | `tgpu.resolveWithContext(...) -> {code, usedBindGroupLayouts, catchall}` | static  | resolve for hand-assembled pipelines |
 
-[STACK: `@webgpu/types` (`.api/webgpu-types.md`)] — typegpu declares no dependency on it yet types against the ambient `GPU*` graph; the viewer tsconfig `types` entry that already serves `three/webgpu` is the same admission this package rides. Both stay `scope:viewer` project-local.
+- `'use gpu'`: marks a plain function for JS→WGSL transpilation — it runs on CPU under test and lowers to WGSL when resolved, and a `tgpu.fn` body transpiles the same way under `unplugin-typegpu`.
 
-[BOUNDARY: `three/tsl` compute (`.api/three.md`)] — scene residency picks the altitude. Kernels whose inputs/outputs live in a three scene (instance transforms, particle state feeding materials) are TSL: `Fn(...)().compute(count)` dispatched via `renderer.compute`/`computeAsync`, with the verified TSL vocabulary (`instancedArray`, `instanceIndex`, `storage`, `textureStore`, `uniform`, `uniformArray`, `deltaTime`, `time`, `Loop`, `If`, `workgroupBarrier`, `workgroupArray`, `subgroupAdd`, `atomicAdd`). Standalone data-parallel kernels with no scene consumer are typegpu. Where the two must share a device, `tgpu.initFromDevice({ device })` adopts the renderer's device and `root.unwrap(buffer)` exposes the raw `GPUBuffer` at the seam — one device, one memory space, zero readback round-trips.
+[ENTRYPOINT_SCOPE]: the resolution-time composition plane and binding declarations
 
-[STACK: the Effect rail + atom store (`.api/effect-atom-atom-react.md`)] — the root is a scoped resource: acquisition (`tgpu.init()`) and release (`root.destroy()`) bracket in a `Scope`-owned boundary adapter, `buffer.read()`'s promise crosses into the rail via the one async seam, and kernel results land in atoms — a component never touches a `GPUBuffer`. Capability probing (`navigator.gpu` absent, feature missing from `root.enabledFeatures`) is a typed refusal at the adapter, not a throw in a component.
+| [INDEX] | [SURFACE]                                                       | [SHAPE] | [CAPABILITY]                     |
+| :-----: | :-------------------------------------------------------------- | :------ | :------------------------------- |
+|  [01]   | `tgpu.slot(default?) -> TgpuSlot<T>`                            | factory | resolution-time injection point  |
+|  [02]   | `tgpu.lazy(() => T) -> TgpuLazy<T>`                             | factory | memoized derivation              |
+|  [03]   | `tgpu.accessor(T, default?) -> TgpuAccessor<T>`                 | factory | slot-backed kernel value         |
+|  [04]   | `tgpu.mutableAccessor(T, default?) -> TgpuMutableAccessor<T>`   | factory | mutable slot-backed value        |
+|  [05]   | `tgpu.const(T, value) -> TgpuConst<T>`                          | factory | module-scope WGSL constant       |
+|  [06]   | `tgpu.privateVar(T, init?) -> TgpuVar<'private', T>`            | factory | private address-space variable   |
+|  [07]   | `tgpu.workgroupVar(T) -> TgpuVar<'workgroup', T>`               | factory | workgroup address-space variable |
+|  [08]   | `tgpu.comptime(fn) -> TgpuComptime`                             | factory | resolution-time constant fold    |
+|  [09]   | `tgpu.unroll(iterable) -> iterable`                             | factory | unroll a for-loop iterable       |
+|  [10]   | `tgpu.bindGroupLayout({...}) -> TgpuBindGroupLayout`            | factory | named schema-typed bindings      |
+|  [11]   | `tgpu.vertexLayout((n) => T, stepMode?) -> TgpuVertexLayout<T>` | factory | vertex-buffer layout             |
 
-[BOUNDARY: the GPU-viz siblings] — deck.gl (`.api/deck.gl-core.md`) and three own RENDER; typegpu owns compute-without-a-scene. A typegpu kernel may prepare buffers a deck.gl layer or three geometry consumes, but it never grows a render pass of its own (`withVertex`/`beginRenderPass` stay unadmitted).
+[ENTRYPOINT_SCOPE]: `typegpu/std` mirrors WGSL builtins as typed TS with dual CPU/GPU semantics
 
-## [05]-[RAIL_LAW]
+| [INDEX] | [FAMILY]   | [MEMBERS]                                                                                 | [ROLE]                  |
+| :-----: | :--------- | :---------------------------------------------------------------------------------------- | :---------------------- |
+|  [01]   | arithmetic | `add` `sub` `mul` `div` `dot` `cross` `normalize` `length` `distance` `reflect` `refract` | vector and scalar math  |
+|  [02]   | common     | `clamp` `mix` `step` `smoothstep` `min` `max`                                             | clamp and interpolation |
+|  [03]   | math       | `abs` `sign` `floor` `ceil` `fract` `sqrt` `pow` `exp` `log`                              | scalar math             |
+|  [04]   | trig       | `sin` `cos` `tan` `atan2`                                                                 | trigonometry            |
+|  [05]   | atomic     | `atomicAdd` `atomicSub` `atomicLoad` `atomicStore` `atomicMax` `atomicMin`                | atomic memory ops       |
+|  [06]   | barrier    | `workgroupBarrier` `storageBarrier` `textureBarrier`                                      | execution barriers      |
+|  [07]   | texture    | `textureSample` `textureLoad` `textureStore` `textureDimensions`                          | texture access          |
+|  [08]   | control    | `select` `discard`                                                                        | branch-free control     |
 
-- Owns: standalone typed WebGPU compute — root/device lifecycle, schema-typed buffer/uniform/mutable/readonly resources, `d.*` layout vocabulary, TS-authored kernels (`tgpu.fn`/`computeFn`/`'use gpu'`), WGSL resolution (`resolve`/`resolveWithContext`), named bind-group layouts, the slot/lazy/accessor composition plane, and `typegpu/std` builtins.
-- Accept: `d.struct`/`d.arrayOf` schemas with `d.Infer` as the one typing seam; plain-TS kernel bodies under `unplugin-typegpu`; `root.createComputePipeline` for dispatch; `initFromDevice` + `unwrap` at the three seam; Scope-bracketed root lifecycle behind a boundary adapter; capability-gated admission with a CPU/worker degrade arm; exact pinning with export re-verification (pre-1.0 surface moves).
-- Reject: hand-written WGSL strings where `tgpu.fn`/`resolve` own generation; numeric bind-index bookkeeping beside `bindGroupLayout`; the deprecated `tgpu['~unstable'].withCompute`/`derived` spellings; scene-resident compute authored here instead of TSL; any render-pass authoring; a second device/root beside an adoptable one; ungated construction where `navigator.gpu` may be absent.
+## [04]-[IMPLEMENTATION_LAW]
+
+[TOPOLOGY]:
+- Every kernel resolves to WGSL through `tgpu.resolve`; the `d.*` schema is the sole source of buffer layout and `d.Infer<T>` the sole source of a buffer's TS type, so a hand-written shader string or a numeric bind index never appears.
+- `TgpuRoot` owns the `GPUDevice` and every resource; a WebGPU-absent environment never constructs a root, so `navigator.gpu` presence gates admission and the CPU/worker path is the degrade arm.
+- Scene residency picks the compute altitude: a kernel with a three-scene consumer resolves as TSL, a kernel with no scene consumer resolves as typegpu — one concern at two altitudes, never two engines on one kernel.
+
+[STACKING]:
+- `webgpu-types`(`.api/webgpu-types.md`): the `.d.ts` binds `GPUDevice`/`GPUBuffer`/`GPUFeatureName` as ambient globals `@webgpu/types` resolves, and `root.enabledFeatures` reads the same `GPUSupportedFeatures` set the viewer tsconfig `types` entry already admits for `three/webgpu`.
+- `three`(`.api/three.md`): scene-resident compute is `three/tsl` — `Fn(...)().compute(count)` dispatched via `renderer.compute`/`computeAsync` over the TSL vocabulary (`instancedArray`, `instanceIndex`, `storage`, `textureStore`, `uniform`, `uniformArray`, `deltaTime`, `time`, `Loop`, `If`, `workgroupBarrier`, `workgroupArray`, `subgroupAdd`, `atomicAdd`); a shared device joins at `tgpu.initFromDevice({device})` and `root.unwrap(buffer)` exposes the raw `GPUBuffer`, one memory space with zero readback round-trips.
+- `effect-atom-atom-react`(`.api/effect-atom-atom-react.md`): `tgpu.init()` and `root.destroy()` bracket a `Scope`-owned adapter, `buffer.read()`'s promise crosses the async seam, and kernel results land in atoms, so a component never touches a `GPUBuffer` and a missing feature is a typed refusal at the adapter.
+- `deck.gl-core`(`.api/deck.gl-core.md`): deck.gl and three own render while typegpu owns compute-without-a-scene; a typegpu kernel prepares buffers a deck.gl layer or three geometry consumes, never growing a render pass.
+- within-lib: the `ui` viewer folds root acquisition, capability probing, and kernel dispatch behind one boundary adapter, so a component consumes atom-delivered results rather than a raw device or buffer.
+
+[LOCAL_ADMISSION]:
+- `scope:viewer` project-local, like every WebGPU surface; the tsconfig `types` entry serving `three/webgpu` admits the ambient `GPU*` graph this package rides.
+- Plain-TS kernel bodies require the `unplugin-typegpu` build transform recognizing `'use gpu'` and `tgpu.fn` bodies; absent the transform, generate WGSL through `tgpu.resolve`.
+- Admission gates on `navigator.gpu` presence and `root.enabledFeatures` membership, with the CPU/worker path as the degrade arm.
+- Render authoring — `createRenderPipeline` and the `root['~unstable']` render and render-bundle surface — stays out of scope; render belongs to three and deck.gl.
+
+[RAIL_LAW]:
+- Package: `typegpu`
+- Owns: standalone typed WebGPU compute — root and device lifecycle, schema-typed buffer/uniform/mutable/readonly resources, the `d.*` layout vocabulary, TS-authored kernels, WGSL resolution, named bind-group layouts, the slot/lazy/accessor composition plane, and `typegpu/std` builtins.
+- Accept: `d.struct`/`d.arrayOf` schemas with `d.Infer` as the one typing seam; plain-TS kernel bodies under `unplugin-typegpu`; `createComputePipeline` dispatch; `initFromDevice` plus `unwrap` at the three seam; a `Scope`-bracketed root behind a boundary adapter; capability-gated admission with a CPU/worker degrade arm.
+- Reject: hand-written WGSL where `tgpu.fn`/`resolve` own generation; numeric bind-index bookkeeping beside `bindGroupLayout`; scene-resident compute authored here instead of TSL; render-pass authoring; a second device or root beside an adoptable one; ungated construction where `navigator.gpu` may be absent.

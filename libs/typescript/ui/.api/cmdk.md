@@ -1,28 +1,24 @@
 # [TS_UI_API_CMDK]
 
-`cmdk` is the command-palette state machine the `view/compose` plane composes: one compound `Command` component owning the search input, filtered+scored item list, keyboard navigation (arrows, loop, vim bindings), and an internal store, exposed as a namespace (`Command.Input`/`.List`/`.Item`/`.Group`/`.Separator`/`.Empty`/`.Loading`/`.Dialog`) plus flat `Command*` aliases. It builds on Radix (`@radix-ui/react-dialog`/`react-slot`/`react-id`), so every primitive accepts `asChild` to merge onto the folder's react-aria pressable spine, and its `filter` scorer is swappable while `useCommandState` subscribes to the filtered store for empty/loading rows. `cmdk` owns list+filter+keyboard state; `cva`/`cn` styles the shell; `lucide-react` supplies item glyphs; `@effect-atom` drives async command sources — never a hand-rolled filter or keyboard loop.
+`cmdk` owns the command-palette machine the `view/compose` plane mounts: one compound `Command` drives the search input, scored-and-filtered item list, keyboard navigation, and an internal store, exposed as a slot namespace with flat `Command*` aliases. Every primitive takes `asChild` to merge onto the folder's react-aria pressable spine, the `filter` scorer swaps, and `useCommandState` selects the store for empty and loading rows — cmdk owns list, filter, and keyboard while styling, glyphs, async sources, and the host modal are sibling rails.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `cmdk`
 - package: `cmdk` (MIT)
-- deps: `@radix-ui/react-dialog`, `@radix-ui/react-compose-refs`, `@radix-ui/react-id`, `@radix-ui/react-primitive` (`asChild` Slot, portal Dialog, SSR-safe ids)
-- react-peer: React 19 spine (`.api/react.md`); compiled by react-compiler, memoization never hand-written
-- catalog-verdict: KEEP
-- runtime: React client component — DOM + focus management; not universal
-- exports: `.` only (`Command` compound + `Command*` flat aliases, `useCommandState`, `defaultFilter`); `command-score` is internal, not a public subpath
+- module: `.` only — `Command` compound + `Command*` flat aliases, `useCommandState`, `defaultFilter`; `command-score` is not a public subpath
+- runtime: React client component — DOM + focus management, not universal
+- depends: `@radix-ui/react-dialog` (portal Dialog host), `@radix-ui/react-primitive` (`asChild` Slot), `@radix-ui/react-id` (SSR-safe ids), `@radix-ui/react-compose-refs`
+- rail: view/command-palette
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the filter scorer and the store shape
-- rail: view/command-palette
-- `CommandFilter` is the swap point for match ranking; `State` is what `useCommandState` selects over. Both are the seam a design page composes — a custom scorer and a store selector for the empty/count rows.
+[PUBLIC_TYPE_SCOPE]: the filter scorer and store shape — the seam a design page composes a custom scorer and store selector against, reached through the `filter` prop and the `useCommandState` selector rather than name-imported
 
-[COMMAND_FILTER]: `CommandFilter = (value:string,search:string,keywords?:string[])=>number`
-[STATE]: `State.search: string` `State.value: string` `State.selectedItemId: string` `State.filtered: {count:number;items:Map<string,number>;groups:Set<string>}`
-[SURFACES]: `defaultFilter: CommandFilter`
+[COMMAND_FILTER]: `CommandFilter = (value: string, search: string, keywords?: string[]) => number`
+[STATE]: `State.search: string` `State.value: string` `State.selectedItemId?: string` `State.filtered: {count: number; items: Map<string,number>; groups: Set<string>}`
 
-| [INDEX] | [SYMBOL]        | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                                          |
+| [INDEX] | [SYMBOL]        | [TYPE_FAMILY]  | [CONSUMER]                                                   |
 | :-----: | :-------------- | :------------- | :----------------------------------------------------------- |
 |  [01]   | `CommandFilter` | scorer         | `filter` prop; returns 0..1 relevance, 0 hides the item      |
 |  [02]   | `State`         | store snapshot | the shape `useCommandState` selects over                     |
@@ -31,10 +27,10 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the compound component and its store hook
-- rail: view/command-palette
-- one root owns the machine; children are slots. Every primitive is a `ForwardRefExoticComponent` accepting `asChild`. Root and `CommandDialog` share the full control surface; `CommandDialog` adds the Radix portal shell. Per-component props are the keyed roster below.
 
-| [INDEX] | [SURFACE]                                | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                               |
+- one root owns the machine, children are slots; every primitive is a `ForwardRefExoticComponent` taking `asChild`. `Command` and `CommandDialog` share the full control surface — `CommandDialog` adds the Radix portal shell. Per-component props are the keyed roster below.
+
+| [INDEX] | [SURFACE]                                | [ENTRY_FAMILY] | [CONSUMER]                                                        |
 | :-----: | :--------------------------------------- | :------------- | :---------------------------------------------------------------- |
 |  [01]   | `Command` / `CommandRoot`                | root           | the palette state machine; controlled via `value`/`onValueChange` |
 |  [02]   | `Command.Input` / `CommandInput`         | search input   | search-value source; controlled for async filtering               |
@@ -50,7 +46,7 @@
 - [01]-[ROOT]: `label`, `shouldFilter`, `filter`, `value`, `defaultValue`, `onValueChange`, `loop`, `disablePointerSelection`, `vimBindings`, `asChild`.
 - [02]-[INPUT]: `value`, `onValueChange(search)` (+ `<input>` attrs).
 - [03]-[LIST]: `label`; CSS var `--cmdk-list-height`.
-- [04]-[ITEM]: `value`, `onSelect(value)`, `keywords`, `disabled`, `forceMount`, `asChild` — `value` = stable command key, `keywords` = alias tokens.
+- [04]-[ITEM]: `value`, `onSelect(value)`, `keywords`, `disabled`, `forceMount`, `asChild`.
 - [05]-[GROUP]: `heading`, `value`, `forceMount`.
 - [06]-[SEPARATOR]: `alwaysRender`.
 - [08]-[LOADING]: `progress`, `label`.
@@ -59,24 +55,23 @@
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[COMMAND_SEMANTICS]:
-- filtering is automatic and scored: each item is ranked by `filter` (default `defaultFilter`, command-score fuzzy) against `search`, matched against the item `value`, `children` text, and `keywords`; score 0 hides it, and `Command.Empty` renders when `filtered.count` is 0. Set `shouldFilter={false}` to own matching yourself (render only the items the caller computed).
-- keyboard model: arrows move selection, `loop` wraps ends, `vimBindings` enables ctrl+n/j/p/k, `disablePointerSelection` keeps selection keyboard-driven under a moving pointer. `value`/`onValueChange` control the active item; `Command.Input` `value`/`onValueChange` control the search.
-- `value` stability: an item's `value` is its identity — when visible text changes between renders, pass a stable `value`, or filtering and selection break. `forceMount` keeps an item/group mounted through filtering for enter/exit animation.
-- `command-score` is internal: catalog-bound exports only `.`, so the scorer is reached through `defaultFilter` (compose or replace it via `filter`), never imported as `cmdk/command-score`.
+[TOPOLOGY]:
+- filtering is automatic and scored: `filter` (default `defaultFilter`, command-score fuzzy) ranks each item against `search` over its `value`, `children` text, and `keywords`; a 0 score hides it and `Command.Empty` renders when `filtered.count` is 0. `shouldFilter={false}` hands matching to the caller, who renders only the items it computed.
+- keyboard model: arrows move selection, `loop` wraps ends, `vimBindings` adds ctrl+n/j/p/k, `disablePointerSelection` keeps selection keyboard-driven under a moving pointer; `value`/`onValueChange` control the active item and `Command.Input` `value`/`onValueChange` control the search.
+- `value` is an item's identity: pass a stable `value` when visible text changes between renders, or filtering and selection break; `forceMount` keeps an item or group mounted through filtering for enter/exit animation.
 
-[INTEGRATION_LAW]:
-- Stack with `@radix-ui/react-slot` (`asChild`) + react-aria: every primitive merges its behavior onto a child via Slot, so `Command.Item asChild` wraps a react-aria pressable/link — cmdk owns list+filter+roving-focus, react-aria owns press/hover/focus semantics, no double focus machinery.
-- Stack with `@effect-atom` for async command sources (`ONE_FOLD_ONE_BINDING`): set `shouldFilter={false}`, bind `Command.Input` `onValueChange` to a search atom, run the remote query as an `Effect`, and render matched items from the derived atom; select `search`/`filtered.count` via `useCommandState` to drive `Command.Loading` `progress` and the empty row. `onSelect(value)` dispatches the command as a `ControlIntent`/action where `value` is a `Schema.Literal` command-id union.
-- Stack with `cva`/`cn` + `lucide-react`: style the palette shell, items, and groups with `cva` selectors through the one `cn` rail; render item leading glyphs as `lucide-react` icons. `Command.List` `--cmdk-list-height` animates via `tw-animate-css` keyframes on the token scale.
-- Stack with the folder's floating/sheet owners — the host seam (cmdk owns list+filter+keyboard; the overlay is only the host it mounts INTO, picked by modality): a centered-modal palette is `CommandDialog` (cmdk's own Radix-Dialog wrapper) OR a bare `Command` inside `vaul`'s `Drawer.Content`; an anchored/combobox palette (positioned to an input, not centered) is a bare `Command` inside `@floating-ui/react`'s `useFloating` + `FloatingPortal` + `FloatingFocusManager` (non-modal, `preserveTabOrder`), where floating-ui owns ONLY position/portal/focus-return and cmdk owns the whole keyboard+filter inside it. floating-ui's `useListNavigation`/`useTypeahead` are the hand-built NON-cmdk list — they drive a caller-owned `listRef`/`activeIndex` over items the caller render, and `useTypeahead` targets menu buttons not a searchable input — so they are never layered over a cmdk list (that is the double-keyboard defect). Choose exactly one host; never `CommandDialog` inside another `vaul`/floating host (double portal + double focus trap is the named defect).
+[STACKING]:
+- `@radix-ui/react-slot`(`.api/radix-ui-react-slot.md`) + react-aria(`.api/react-aria.md`): every primitive merges its behavior onto a child via Slot, so `Command.Item asChild` wraps a react-aria pressable — cmdk owns list+filter+roving-focus, react-aria owns press/hover/focus, no double focus machinery.
+- `@effect-atom/atom-react`(`.api/effect-atom-atom-react.md`): async command sources fold `ONE_FOLD_ONE_BINDING` — `shouldFilter={false}`, bind `Command.Input` `onValueChange` to a search atom, run the remote query as an `Effect`, render matched items from the derived atom; `useCommandState` selects `search`/`filtered.count` to drive `Command.Loading` `progress` and the empty row, and `onSelect(value)` dispatches a `ControlIntent`/action where `value` is a `Schema.Literal` command-id union.
+- `class-variance-authority`(`.api/class-variance-authority.md`) + `clsx`/`tailwind-merge`(`.api/clsx.md`) + `lucide-react`(`.api/lucide-react.md`): `cva` selectors through the one `cn` rail style the palette shell, items, and groups; item leading glyphs render as `lucide-react` icons; `Command.List` `--cmdk-list-height` animates via `tw-animate-css` keyframes on the token scale.
+- `vaul`(`.api/vaul.md`) / `@floating-ui/react`(`.api/floating-ui-react.md`): the host seam — cmdk owns list+filter+keyboard, the overlay only hosts it, picked by modality. Modality selects the host: `CommandDialog` (cmdk's own Radix-Dialog wrapper) or a bare `Command` inside `vaul`'s `Drawer.Content` serves a centered modal, and a bare `Command` inside `@floating-ui/react`'s `useFloating` + `FloatingPortal` + `FloatingFocusManager` (non-modal, `preserveTabOrder`) serves an anchored/combobox palette, floating-ui owning only position/portal/focus-return. floating-ui's `useListNavigation`/`useTypeahead` are the hand-built non-cmdk list and never layer over a cmdk list (the double-keyboard defect); one host is chosen, and `CommandDialog` inside another `vaul`/floating host is the double-portal + double-focus-trap defect.
 
 [LOCAL_ADMISSION]:
-- the command-palette list+filter+keyboard machine only; styling is `cva`/`cn`, glyphs are `lucide-react`, async data is `@effect-atom`, the surrounding modal/sheet is `vaul`/`@floating-ui/react` unless `CommandDialog` is the deliberate host.
-- one `Command` root per palette; new command families are `Command.Group` rows, new commands are `Command.Item` rows keyed by a stable `value`.
+- admit only the command-palette list+filter+keyboard machine; `cva`/`cn` styles it, `lucide-react` supplies glyphs, `@effect-atom` drives async data, and `vaul`/`@floating-ui/react` hosts the surrounding modal or sheet unless `CommandDialog` is the deliberate host.
+- one `Command` root per palette; a command family is a `Command.Group` row, a command is a `Command.Item` row keyed by a stable `value`.
 
 [RAIL_LAW]:
 - Package: `cmdk`
 - Owns: the palette search input, scored+filtered item list, keyboard navigation, internal store, and the `Command.Dialog` Radix-portal host
-- Accept: the compound `Command` with slot children, `asChild` bridging to react-aria, a swapped `filter` (composing `defaultFilter`), `shouldFilter={false}` + `@effect-atom` for async sources, `useCommandState` for empty/count/loading rows, stable item `value` + `keywords`, `cva`/`cn` styling and `lucide-react` glyphs
-- Reject: a hand-rolled search-filter or keyboard loop, re-implementing fuzzy scoring instead of `filter`/`defaultFilter`, importing `commandScore`/`cmdk/command-score` as a subpath, unstable item `value`, double-wrapping `CommandDialog` inside another `vaul`/floating host, layering `@floating-ui/react`'s `useListNavigation`/`useTypeahead` over a cmdk list (cmdk owns the keyboard; floating-ui hosts only position/portal/focus via `useFloating`/`FloatingPortal`/`FloatingFocusManager`), duplicating react-aria's focus machinery instead of `asChild`
+- Accept: the compound `Command` with slot children, `asChild` bridging to react-aria, a swapped `filter` composing `defaultFilter`, `shouldFilter={false}` + `@effect-atom` for async sources, `useCommandState` for empty/count/loading rows, stable item `value` + `keywords`, `cva`/`cn` styling and `lucide-react` glyphs
+- Reject: a hand-rolled search-filter or keyboard loop, re-implemented fuzzy scoring instead of `filter`/`defaultFilter`, `commandScore`/`cmdk/command-score` imported as a subpath, unstable item `value`, `CommandDialog` double-wrapped inside another `vaul`/floating host, `@floating-ui/react`'s `useListNavigation`/`useTypeahead` layered over a cmdk list, react-aria focus machinery duplicated instead of `asChild`

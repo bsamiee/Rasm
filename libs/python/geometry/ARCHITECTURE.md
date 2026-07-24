@@ -38,7 +38,50 @@ geometry/
     └── simulate.py       # Offloaded energy translation, recipe binding, and result decode
 ```
 
-## [02]-[SEAMS]
+## [02]-[STRATA]
+
+Strata rank the geometry interior; seating rows carry only the law the fence cannot show.
+
+```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
+flowchart TB
+    accTitle: Geometry interior import strata
+    accDescr: Three import strata from scan down to the graduation foundation; each labeled edge names one sourced type.
+    subgraph G2["S2 SCAN"]
+        Scan[scan]
+    end
+    subgraph G1["S1 PRODUCERS"]
+        Mesh[mesh]
+        Ifc[ifc]
+        Graph[graph]
+        Energy[energy]
+    end
+    subgraph G0["S0 GRADUATION"]
+        Graduation[graduation]
+    end
+    Scan s1@-->|"[IMPORT]: QualityMetrics"| Mesh
+    Scan s2@-->|"[IMPORT]: GeometryHandoff"| Graduation
+    Mesh s3@-->|"[IMPORT]: GeometrySubject"| Graduation
+    Ifc s4@-->|"[IMPORT]: GeometryHandoff"| Graduation
+    Graph s5@-->|"[IMPORT]: GeometryHandoff"| Graduation
+    Energy s6@-->|"[IMPORT]: GeometryHandoff"| Graduation
+    Scan ~~~ Energy
+    Graduation f1@-->|"forbidden: upward import"| G2
+```
+
+- S0 `graduation` — mints the evidence spine (`GeometrySubject`, `GeometryHandoff`, the `ContentKey` fold) exactly once and imports no sibling.
+- S0 every graduating producer returns through its `evidence_run` weave.
+- S1 `mesh` + `ifc` + `graph` + `energy` — producer stratum composing the spine alone; no import crosses among the four.
+- S1 each graduating owner folds its evidence onto `GeometryHandoff`; engine and gate owners stream typed receipts without a subject.
+- S2 `scan` — sole cross-producer consumer, composing graduation and mesh `QualityMetrics` receipts for deviation and reconstruction closure grading.
+
+## [03]-[SEAMS]
 
 Seam map splits by counterpart role — the C# cross-runtime peers on one fence, the Python siblings on the other. An in-package relation between two geometry sub-domains is never a seam; it lives in the codemap, and the `graph` sub-domain projects only onto the home `graduation` spine, so it carries no cross-boundary edge.
 
@@ -52,7 +95,7 @@ config:
 ---
 flowchart LR
     accTitle: Geometry cross-runtime C# peer seams
-    accDescr: Geometry sub-domain owners exchanging tessellation wires, content keys, IFC crossings, and validation evidence with the C# runtimes Rasm.Compute, Rasm.Element, and Rasm.Bim, one labeled edge per contract family.
+    accDescr: Geometry sub-domain owners exchanging tessellation wires, content keys, IFC crossings, and validation evidence with the C# peers.
     subgraph geometry[GEOMETRY]
         Mesh[Mesh tessellation]
         Ifc[IFC analysis]
@@ -81,7 +124,7 @@ config:
 ---
 flowchart LR
     accTitle: Geometry Python sibling seams
-    accDescr: Geometry sub-domain owners exchanging graduation receipts, tessellation registry rows, mesh payloads, point records, a recipe port, benchmark receipts, HOSTILE kernel crossings, and arrow-serialized evidence frames with the Python compute, runtime, data, and artifacts siblings, one labeled edge per contract family.
+    accDescr: Geometry sub-domain owners exchanging graduation receipts, payloads, ports, and kernel crossings with the Python siblings.
     subgraph geometry[GEOMETRY]
         Graduation[Graduation spine]
         Mesh[Mesh tessellation]
@@ -107,46 +150,11 @@ flowchart LR
     Scan e13@-->|"[PORT]: Kernel"| Runtime
 ```
 
-Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind: the streaming GLB transport, the IFC projection, and the payload shapes fold into the one labeled rail, and the per-contract wiring lives on the owning implementation pages. Both `arrow_bytes` edges name the data-owned crossing: `EvidenceFrame` and the energy `ResultFrame` are the geometry-side columnar carriers, each converted to one `pyarrow` Table at its crossing edge and serialized through the data `tabular/columnar` `arrow_bytes` fold, so the data end holds one Arrow entry and no geometry frame type crosses as a foreign shape. The `BenchmarkReceipt` rail collapses the whole bench observability contract — the `Bench.run` measurement tier, the `Signals`-harvested receipt row, and the `bench_terminal` `JobRun.bounded` process-terminal envelope; the `Kernel` rail collapses the HOSTILE process-offload contract every compiled mesh and scan kernel crosses through `LanePolicy.offload`, the lane conduit's pickled pulse tap riding it so `GeometryPulse` beats reach the runtime `Hooks` registry through the parent-side drain. `GlbContentHash` spells from its Rasm.Element owner; geometry interior pages spell only the `ContentKey` mint beneath it. Scene facts cross one-way as glb bytes the artifacts `SceneGrid.of_glb` admits, and geometry receives nothing back on that boundary.
+Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind — the streaming GLB transport, the IFC projection, and the payload shapes fold into the one labeled rail, per-contract wiring on the owning implementation pages. `GlbContentHash` spells from its Rasm.Element owner; geometry interior pages spell only the `ContentKey` mint beneath it. Scene facts cross one-way as GLB bytes the artifacts `SceneGrid.of_glb` admits; nothing returns.
 
-## [03]-[INTERNAL]
+Both `arrow_bytes` edges name the data-owned crossing: `EvidenceFrame` and the energy `ResultFrame` are the geometry-side columnar carriers, each converted to one `pyarrow` Table at its crossing edge and serialized through the data `tabular/columnar` `arrow_bytes` fold, so the data end holds one Arrow entry and no geometry frame type crosses as a foreign shape.
 
-- S0 `graduation` — mints the evidence spine exactly once (`GeometrySubject`, `GeometryHandoff`, the `ContentKey` fold) and imports no sibling; every graduating producer returns through its `evidence_run` weave.
-- S1 `mesh` + `ifc` + `graph` + `energy` — producer tier composing the spine alone; no import crosses among the four, each graduating owner folds its evidence onto `GeometryHandoff`, and the engine and gate owners stream typed receipts without a subject.
-- S2 `scan` — the one cross-producer consumer: composes graduation and the mesh quality receipts (`QualityMetrics`) for deviation and reconstruction closure grading.
-
-```mermaid
----
-config:
-  layout: elk
-  flowchart:
-    curve: linear
-    padding: 25
----
-flowchart TB
-    accTitle: Geometry interior import strata
-    accDescr: Three import strata — scan over the mesh, ifc, graph, and energy producer tier over the graduation foundation — each labeled downward edge naming its one sourced type beside one forbidden upward edge.
-    subgraph G2["S2 SCAN"]
-        Scan[scan]
-    end
-    subgraph G1["S1 PRODUCERS"]
-        Mesh[mesh]
-        Ifc[ifc]
-        Graph[graph]
-        Energy[energy]
-    end
-    subgraph G0["S0 GRADUATION"]
-        Graduation[graduation]
-    end
-    Scan s1@-->|"[IMPORT]: QualityMetrics"| Mesh
-    Scan s2@-->|"[IMPORT]: GeometryHandoff"| Graduation
-    Mesh s3@-->|"[IMPORT]: GeometrySubject"| Graduation
-    Ifc s4@-->|"[IMPORT]: GeometryHandoff"| Graduation
-    Graph s5@-->|"[IMPORT]: GeometryHandoff"| Graduation
-    Energy s6@-->|"[IMPORT]: GeometryHandoff"| Graduation
-    Scan ~~~ Energy
-    Graduation f1@-->|"forbidden: upward import"| G2
-```
+`BenchmarkReceipt` carries the whole bench observability contract on one rail — the `Bench.run` measurement tier, the `Signals`-harvested receipt row, and the `bench_terminal` `JobRun.bounded` process-terminal envelope. `Kernel` carries the HOSTILE process-offload contract every compiled mesh and scan kernel crosses through `LanePolicy.offload`; the lane conduit's pickled pulse tap rides it, so `GeometryPulse` beats reach the runtime `Hooks` registry through the parent-side drain.
 
 ## [04]-[COMPANION_LANES]
 

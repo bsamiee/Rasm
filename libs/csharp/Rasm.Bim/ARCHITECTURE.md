@@ -1,6 +1,6 @@
 # [RASM_BIM_ARCHITECTURE]
 
-Domain map of `Rasm.Bim`, the host-neutral BIM/IFC owner and IFC arm of the `Rasm.Element` seam. `Projection/Semantic` `SemanticProjector : IElementProjection` lowers GeometryGym `DatabaseIfc` into the canonical `ElementGraph`, `IfcLegality : IGraphConstraint` owns IFC-semantic legality, and every sub-domain rejects onto the one `BimFault` band. Consumer-facing element is the seam `Bake(objectNode)` fold, never a parallel `BimModel`; Bim stays the sole GeometryGym/IFC owner, references no AEC peer, and aligns through the shared seam graph and content-keyed wire with simulation Compute-owned.
+`Rasm.Bim` is the host-neutral BIM/IFC owner and IFC arm of the `Rasm.Element` seam. `Projection/Semantic` `SemanticProjector : IElementProjection` lowers GeometryGym `DatabaseIfc` into the canonical `ElementGraph`, `IfcLegality : IGraphConstraint` owns IFC-semantic legality, and every sub-domain rejects onto the one `BimFault` band. Consumer-facing element is the seam `Bake(objectNode)` fold, never a parallel `BimModel`; Bim stays the sole GeometryGym/IFC owner, references no AEC peer, and aligns through the shared seam graph and content-keyed wire with simulation Compute-owned.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -56,11 +56,16 @@ Sub-domain dependency graph is acyclic: every sub-domain projects onto or reads 
 
 Strata order the sub-domains under the acyclic law — every cross-stratum consumption edge points down; `Review` and `Planning` co-seat on the delivery stratum, coordination reading the estimate and the schedule as same-stratum input, never a return edge.
 
-- S0 `Model` — settled vocabulary consuming no sibling: the `BimFault` band-2600 union, the `ElementPredicate`/`ElementSet` query algebra, the generated `IfcClass` roster, the `IfcRepresentation` content key, and the `BimHooks`/`BimTelemetry`/`BimBenchClaim` observability rail whose `BimFact` payloads carry closed-vocabulary KEY strings so no upper stratum type leaks down.
-- S1 `Semantics` — element-bound enrichment over the vocabulary: `MaterialProjection`, `QuantityDerivation`, the bSDD `ClassificationSystem` axis, and the `GeoModel` geospatial algebra.
-- S2 `Projection` — the seam arm composing model and semantics: `SemanticProjector : IElementProjection`, `IfcLegality : IGraphConstraint`, the Materials-implemented `IIfcTypeReconciler` port, and the folder-internal `IIfcProfileStore` capture the egress re-author reads.
-- S3 `Exchange` — the interchange codec over the projection arm: the `InterchangeFormat` axis, the `IfcWire` cross-runtime artifact, the `TessellationRequest`/`TessellationOutcome` bridge, and the `BimEvent`/`BimEnvelope` event fabric whose case slots carry closed-vocabulary KEY strings so the S4 mint sites project down.
-- S4 `Energy` + `Review` + `Planning` — delivery tier over everything below: `EnergyProjector` and `EnergyArtifact`; `IdsSpecification`, `ModelDiff`, and `IssueBoard`; `ScheduleNetwork` and `CostSchedule` — coordination reads the estimate and the schedule as same-stratum input with no return edge.
+- S0 `Model` — settled vocabulary consuming no sibling: the `BimFault` band-2600 union, the `ElementPredicate`/`ElementSet` query algebra.
+- S0 `Model` — the generated `IfcClass` roster, the `IfcRepresentation` content key, and the `BimHooks`/`BimTelemetry`/`BimBenchClaim` rail.
+- S0 law — `BimFact` payloads carry closed-vocabulary KEY strings, so no upper-stratum type leaks down.
+- S1 `Semantics` — element-bound enrichment: `MaterialProjection`, `QuantityDerivation`, the bSDD `ClassificationSystem` axis, `GeoModel`.
+- S2 `Projection` — the seam arm: `SemanticProjector : IElementProjection` and `IfcLegality : IGraphConstraint` compose model and semantics.
+- S2 ports — the Materials-implemented `IIfcTypeReconciler` and the folder-internal `IIfcProfileStore` capture the egress re-author reads.
+- S3 `Exchange` — the interchange codec: the `InterchangeFormat` axis, `IfcWire`, the `TessellationRequest`/`TessellationOutcome` bridge.
+- S3 events — the `BimEvent`/`BimEnvelope` fabric; case slots carry closed-vocabulary KEY strings, so S4 mint sites project down.
+- S4 delivery — `Energy`: `EnergyProjector`, `EnergyArtifact`; `Planning`: `ScheduleNetwork`, `CostSchedule`.
+- S4 delivery — `Review`: `IdsSpecification`, `ModelDiff`, `IssueBoard`.
 
 ```mermaid
 ---
@@ -72,27 +77,27 @@ config:
 ---
 flowchart TB
     accTitle: Rasm.Bim interior strata
-    accDescr: Stacked strata from the energy, review, and planning delivery tier through the interchange codec and the projection arm onto the semantic enrichment and the model vocabulary, every consumption edge downward and solid naming one sourced type, and one forbidden upward edge named as such.
-    subgraph L4["S4 DELIVERY"]
+    accDescr: Stacked strata from the energy, review, and planning delivery stratum through the interchange codec and the projection arm onto the semantic enrichment and the model vocabulary, every consumption edge downward and solid naming one sourced type, and one forbidden upward edge named as such.
+    subgraph S4["S4 DELIVERY"]
         EnergyProjector[EnergyProjector]
         Ids[IdsSpecification]
         Cost[CostSchedule]
         Board[IssueBoard]
     end
-    subgraph L3["S3 EXCHANGE"]
+    subgraph S3["S3 EXCHANGE"]
         Format[InterchangeFormat]
         Wire[IfcWire]
     end
-    subgraph L2["S2 PROJECTION"]
+    subgraph S2["S2 PROJECTION"]
         Projector[SemanticProjector]
         Legality[IfcLegality]
     end
-    subgraph L1["S1 SEMANTICS"]
+    subgraph S1["S1 SEMANTICS"]
         Material[MaterialProjection]
         Quantity[QuantityDerivation]
         Axis[ClassificationSystem]
     end
-    subgraph L0["S0 MODEL"]
+    subgraph S0["S0 MODEL"]
         Fault[BimFault]
         Predicate[ElementPredicate]
         Class[IfcClass]
@@ -106,7 +111,7 @@ flowchart TB
     Projector -->|"[IMPORT]: MaterialProjection"| Material
     Projector -->|"[IMPORT]: IfcClass"| Class
     Axis -->|"[IMPORT]: IfcClass"| Class
-    Fault -->|"forbidden: vocabulary upward"| L4
+    Fault -->|"forbidden: vocabulary upward"| S4
 ```
 
 ## [03]-[SEAMS]
@@ -208,7 +213,11 @@ flowchart LR
     Review -->|"[WIRE]: ModelDiff"| Ui
 ```
 
-Two fences partition by counterpart role: the same-branch AEC peers with Compute and Persistence carry domain construction, analysis, and storage; the Python geometry and data runtimes, the TypeScript peers, the app shell, the app composition root (`Rasm.AppHost` composes the `BimHooks` rail per instance, admits the `Rasm.Bim` meter and source at its telemetry root, and binds the sealed `BimEvent` envelope onto its broker transports), and the host boundary carry cross-runtime wire, presentation, and host interchange. Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind, and the owning pages enumerate the rest. `GeoWire` owns both `GeoFeature` wire projections — the GeoJSON text the Python and TypeScript peers decode and the GeoPackage blob the Persistence geo-store persists; `GeoWkb` stays the interior OGR-to-NTS bridge, never a seam wire.
+Two fences partition by counterpart role: the same-branch AEC peers with Compute and Persistence carry domain construction, analysis, and storage; the Python geometry and data runtimes, the TypeScript peers, the app shell, the app composition root, and the host boundary carry cross-runtime wire, presentation, and host interchange. Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind, and the owning pages enumerate the rest.
+
+`Rasm.AppHost` composes the `BimHooks` rail per instance, admits the `Rasm.Bim` meter and source at its telemetry root, and binds the sealed `BimEvent` envelope onto its broker transports.
+
+`GeoWire` owns both `GeoFeature` wire projections — the GeoJSON text the Python and TypeScript peers decode and the GeoPackage blob the Persistence geo-store persists; `GeoWkb` stays the interior OGR-to-NTS bridge, never a seam wire.
 
 `[CONTENT_KEY]` edges are one canonical idiom, not per-page schemes: every page joining the federation, solver, cache, or diff lane derives a typed `UInt128` through the ONE kernel seed-zero hasher — `ContentHash.Of` over the seam `CanonicalWriter` fold — and the Compute content-addressing lane joins the same content space, never a downward `InterchangeIdentity` reference from Bim. A second scheme, a per-page hash, or a `Guid`-keyed join is the named cross-folder drift defect. Per-page key tuples and the pages carrying no parallel key live on the owning implementation pages.
 

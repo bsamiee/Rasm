@@ -2,7 +2,7 @@
 
 `Rasm.Domain` statistics is the kernel's evidence layer over scalar samples: every summary, extremum, quantile, and moment a host evaluation produces becomes one typed, admitted receipt minted here. Each receipt carries its own validity invariant, so a downstream reader trusts the summary without re-inspecting the samples behind it.
 
-Every receipt composes the `Domain/rails` `ValidityClaim` rows and re-enters the `Domain/validation` oracle through `Op.AcceptValue`, registering through the single `IValidityEvidence` arm. `SampleMoment` and `Stat.Extrema` are the kernel's sole covariance and extremum owners — `Spatial/cloud`, `Analysis/select`, and `Solving/fit` compose them upstream of their own boundaries.
+Every receipt composes the `Domain/rails` `ValidityClaim` rows and re-enters the `Domain/validation` oracle through `Op.AcceptValue`, registering through the single `IValidityEvidence` arm.
 
 ## [01]-[INDEX]
 
@@ -208,6 +208,13 @@ internal readonly record struct SampleMoment(int Dimension, Arr<double> Mean, Ar
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     Samples["Seq&lt;double&gt; host samples"] -->|Welford fold + fused UnsetValue admission| Stat
     Stat -->|Rms / WithinTolerance / IsValid| Oracle["Domain/validation oracle via IValidityEvidence"]

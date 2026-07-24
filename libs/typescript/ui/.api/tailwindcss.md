@@ -1,114 +1,88 @@
 # [TS_UI_API_TAILWINDCSS]
 
-`tailwindcss` catalog-bound is a CSS-first styling engine, not a JavaScript config library: the design-token plane authors `@theme` namespaces directly in CSS, and each namespace *generates both* a CSS custom property and its utility-class family. `token/theme` compiles into the `--color-*`/`--font-*` namespaces (OKLCH values, project hues extending the stock palette), and `token/scale` into `--spacing`/`--text-*`/`--radius-*`/`--ease-*`/`--animate-*`/`--breakpoint-*` — so declaring one token emits one variable plus its utilities, and no `ui` component hardcodes a color or size. The engine is driven by CSS at-rule directives (`@import "tailwindcss"`, `@theme`, `@utility`, `@variant`, `@custom-variant`, `@apply`, `@source`, `@reference`, `@plugin`, `@config`) resolved at build time by `@tailwindcss/vite`; the retired JavaScript surface (`tailwindcss/plugin`, `tailwindcss/colors`, `tailwindcss/defaultTheme`) survives as a typed compat layer for programmatic plugins. Utilities never reach a component raw — they flow through the `cva`/`clsx`/`tailwind-merge` variant dispatch, and react-aria component states become variants through `tailwindcss-react-aria-components`.
+`tailwindcss` is a CSS-first styling engine: an `@theme` namespace authored in CSS generates a CSS custom property and its utility-class family from one declaration, so a new color, size, or motion token is one line and no component hardcodes a value.
+
+`@tailwindcss/vite` resolves the directive surface at build with zero client JS; the typed `tailwindcss/plugin` API stays for the rare algorithmic utility family, and every utility reaches a component only through the `cva`/`clsx`/`twMerge` variant dispatch.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `tailwindcss`
 - package: `tailwindcss` (MIT)
-- module format: CSS-first — the primary artifact is the shipped stylesheet set (`index.css`, `theme.css`, `preflight.css`, `utilities.css`); a dual ESM+CJS (`type: commonjs`) `dist/` carries the typed JS compat surface, `sideEffects: false`
-- runtime target: build-time CSS generation (zero runtime, zero client JS); the browser receives only generated CSS custom properties + utility classes
-- peer: none for the engine; `@tailwindcss/vite` peers `vite catalog`, satisfied by the branch Vite build
-- asset: CSS-first — directives + `@theme` namespaces verified from the shipped `theme.css`/`index.css` and the official catalog-bound directive reference; the JS compat surface (`tailwindcss/plugin`, `tailwindcss/colors`, `tailwindcss/defaultTheme`, `tailwindcss/lib/util/flattenColorPalette`) IS typed and declaration-shaped via `dist/*.d.ts` (`plugin.d.ts`, `colors.d.ts`, `default-theme.d.ts`)
-- rail: token plane — the utility/token vocabulary the `token/theme` and `token/scale` rows compile into and every component styles through
+- module: CSS-first stylesheets (`index.css`, `theme.css`, `preflight.css`, `utilities.css`); a dual ESM+CJS `dist/` carries the typed JS compat surface, `sideEffects: false`
+- runtime: build-time CSS generation, zero client JS; `@tailwindcss/vite` peer binds the branch Vite build
+- rail: token plane — the utility and token vocabulary every component styles through
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the `@theme` namespace vocabulary — one namespace generates a variable + its utilities
-- rail: token
+[PUBLIC_TYPE_SCOPE]: the `@theme` namespace vocabulary — one namespace generates a variable and its utility family; `token/theme` and `token/scale` are the folder owners that consume it.
 
-| [INDEX] | [SYMBOL]                                                                                                   | [TYPE_FAMILY]       |
-| :-----: | :--------------------------------------------------------------------------------------------------------- | :------------------ |
-|  [01]   | `--color-*`                                                                                                | color namespace     |
-|  [02]   | `--font-*` / `--font-weight-*` / `--tracking-*` / `--leading-*`                                            | type namespace      |
-|  [03]   | `--text-*` (+ paired `--text-*--line-height`)                                                              | text-size namespace |
-|  [04]   | `--spacing` / `--radius-*` / `--breakpoint-*` / `--container-*` / `--aspect-*`                             | layout namespace    |
-|  [05]   | `--shadow-*` / `--inset-shadow-*` / `--drop-shadow-*` / `--text-shadow-*` / `--blur-*` / `--perspective-*` | effect namespace    |
-|  [06]   | `--ease-*` / `--animate-*` / `--default-transition-*`                                                      | motion namespace    |
+| [INDEX] | [SYMBOL]     | [TYPE_FAMILY]       | [CONSUMER]    | [CAPABILITY]                               |
+| :-----: | :----------- | :------------------ | :------------ | :----------------------------------------- |
+|  [01]   | `--color-*`  | color namespace     | `token/theme` | OKLCH palette emitting color utilities     |
+|  [02]   | `--font-*`   | type namespace      | `token/scale` | font family weight spacing leading         |
+|  [03]   | `--text-*`   | text-size namespace | `token/scale` | type scale with paired line-height         |
+|  [04]   | `--spacing`  | layout namespace    | `token/scale` | spacing radius breakpoint container aspect |
+|  [05]   | `--shadow-*` | effect namespace    | `token/theme` | shadow blur perspective filter tokens      |
+|  [06]   | `--ease-*`   | motion namespace    | `token/scale` | easing curves and named animations         |
 
-- [01]-[COLOR_NAMESPACE]: `token/theme` — each `--color-<hue>-<step>` (OKLCH) emits `bg-`/`text-`/`border-`/`ring-`/… utilities; the plane extends the stock palette with project hues (this install carries `mauve`/`olive`/`mist`/`taupe` beyond the base).
-- [02]-[TYPE_NAMESPACE]: `token/scale` — font families, weights, letter-spacing, line-height; drive `font-`/`tracking-`/`leading-` utilities.
-- [03]-[TEXT_SIZE_NAMESPACE]: `token/scale` — the type scale; each step emits a `text-<step>` utility carrying its default line-height.
-- [04]-[LAYOUT_NAMESPACE]: `token/scale` — the single `--spacing` multiplier drives every `p-`/`m-`/`gap-`/`w-`/`h-`; radius, responsive breakpoints, container queries, aspect ratios.
-- [05]-[EFFECT_NAMESPACE]: `token/theme` — elevation, inner shadow, filter blur, and 3D perspective token families.
-- [06]-[MOTION_NAMESPACE]: `token/scale` — easing curves and named keyframe animations (the `tw-animate-css` motion rows land here); the motion-token half of the scale plane.
+[TYPE]: `--font-*` `--font-weight-*` `--tracking-*` `--leading-*`
+[TEXT_SIZE]: `--text-*` `--text-*--line-height`
+[LAYOUT]: `--spacing` `--radius-*` `--breakpoint-*` `--container-*` `--aspect-*`
+[EFFECT]: `--shadow-*` `--inset-shadow-*` `--drop-shadow-*` `--text-shadow-*` `--blur-*` `--perspective-*`
+[MOTION]: `--ease-*` `--animate-*` `--default-transition-*`
 
-[PUBLIC_TYPE_SCOPE]: the typed JS plugin surface (`tailwindcss/plugin`)
-- rail: token
+[PUBLIC_TYPE_SCOPE]: the typed JS plugin surface (`tailwindcss/plugin`) — read when a token axis is authored in JS rather than `@theme` CSS.
 
-| [INDEX] | [SYMBOL]                                               | [TYPE_FAMILY]   |
-| :-----: | :----------------------------------------------------- | :-------------- |
-|  [01]   | `Config` / `UserConfig` / `ThemeConfig`                | config type     |
-|  [02]   | `PluginAPI` / `PluginCreator` / `PluginWithOptions<T>` | plugin type     |
-|  [03]   | `CssInJs` / `NamedUtilityValue` / `PluginUtils`        | css-object type |
-|  [04]   | `DarkModeStrategy` / `ContentFile`                     | policy type     |
-
-- [01]-[CONFIG_TYPE]: `token/theme` — the theme-config shape when a token axis is authored in JS rather than `@theme` CSS (rare; the CSS path is canonical).
-- [02]-[PLUGIN_TYPE]: `token/scale`, `token/theme` — the API a programmatic plugin receives; `withOptions` is the parameterized-plugin variant.
-- [03]-[CSS_OBJECT_TYPE]: `token/scale` — the CSS-in-JS object shape `addUtilities`/`matchUtilities`/`addComponents` consume.
-- [04]-[POLICY_TYPE]: `token/theme` — dark-mode selector strategy and the content-source descriptor (the `@custom-variant dark` + `@source` CSS equivalents).
+[CONFIG]: `Config` `UserConfig` `ThemeConfig`
+[PLUGIN]: `PluginAPI` `PluginFn` `PluginWithOptions<T>` `Plugin`
+[CSS_OBJECT]: `CssInJs` `NamedUtilityValue` `PluginUtils`
+[POLICY]: `DarkModeStrategy` `ContentFile`
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: the CSS-first directive surface — the primary authoring rail
-- rail: token
+[ENTRYPOINT_SCOPE]: the CSS-first directive and function surface `@tailwindcss/vite` resolves at build — the primary authoring rail; `@theme` blocks tokens, the `--*()` functions read them inline.
 
-| [INDEX] | [SURFACE]                                                                                                    | [ENTRY_FAMILY]         |
-| :-----: | :----------------------------------------------------------------------------------------------------------- | :--------------------- |
-|  [01]   | `@import "tailwindcss";`                                                                                     | engine entry           |
-|  [02]   | `@theme { --color-brand-500: oklch(...); }` / `@theme inline` / `@theme static` / `@theme reference`         | define tokens          |
-|  [03]   | `@utility name { … }` / `@variant hover { … }` / `@custom-variant dark (&:where([data-theme=dark] *))`       | custom utility/variant |
-|  [04]   | `@apply bg-surface text-fg` / `theme(--color-brand-500)` / `--spacing(4)` / `--alpha(var(--color-fg) / 60%)` | inline / read          |
-|  [05]   | `@source "../app"` / `@reference "../theme.css"` / `@plugin "./rac"` / `@config "./legacy.js"`               | wiring                 |
+[ENGINE]: `@import "tailwindcss"`
+[DEFINE]: `@theme` (`inline` substitutes, `static` emits every variable, `reference` imports without emit)
+[AUTHOR]: `@utility` `@variant` `@custom-variant` `@apply`
+[WIRE]: `@source` `@reference` `@plugin` `@config`
+[READ]: `theme(--token)` `--spacing(n)` `--alpha(color / pct)`
 
-- [01]-[ENGINE_ENTRY]: `token/theme` — the one entry pulling preflight + theme + utilities; the branch's single global stylesheet imports it.
-- [02]-[DEFINE_TOKENS]: `token/theme`, `token/scale` — declare token namespaces; `inline` substitutes values, `reference` imports without emitting variables, `static` emits every variable unconditionally.
-- [03]-[CUSTOM_UTILITY_VARIANT]: `token/scale`, `act/gesture` — author a token-driven utility, apply a variant inside custom CSS, or define a data-attribute-driven variant (the theme/state selectors); `@slot` marks the variant body insertion point.
-- [04]-[INLINE_READ]: `view/primitive` — inline existing utilities into a component base layer; `theme()`/`--spacing()` read token values and `--alpha()` derives an OKLCH opacity variant (`color-mix` in oklab) inside arbitrary CSS.
-- [05]-[WIRING]: `token/theme` — declare class-detection sources, import theme into a scoped stylesheet without duplication, and load a JS plugin/retired config.
+[ENTRYPOINT_SCOPE]: build integration and the typed JS compat API — `@tailwindcss/vite`, `tailwindcss/plugin`, and the default-value subpaths.
 
-[ENTRYPOINT_SCOPE]: build integration and the typed JS compat API
-- rail: token
+| [INDEX] | [SURFACE]                                     | [SHAPE] | [CAPABILITY]                          |
+| :-----: | :-------------------------------------------- | :------ | :------------------------------------ |
+|  [01]   | `tailwindcss({ optimize })`                   | factory | the one Vite build integration        |
+|  [02]   | `plugin(fn, config?)`                         | factory | a programmatic utility or variant set |
+|  [03]   | `plugin.withOptions(fn, cfg?)`                | factory | a parameterized plugin                |
+|  [04]   | `colors` `defaultTheme` `flattenColorPalette` | static  | stock palette and default objects     |
 
-| [INDEX] | [SURFACE]                                                                                      | [ENTRY_FAMILY]       |
-| :-----: | :--------------------------------------------------------------------------------------------- | :------------------- |
-|  [01]   | `import tailwindcss from '@tailwindcss/vite'` → `tailwindcss({ optimize })`                    | build plugin         |
-|  [02]   | `import plugin from 'tailwindcss/plugin'` → `plugin(fn, config?)`                              | JS plugin            |
-|  [03]   | `plugin.withOptions((opts) => api => …, (opts) => config)`                                     | parameterized plugin |
-|  [04]   | `tailwindcss/colors` / `tailwindcss/defaultTheme` / `tailwindcss/lib/util/flattenColorPalette` | default values       |
-
-- [01]-[BUILD_PLUGIN]: the app Vite build, listed in `vite.config` plugins — the one integration point; scans sources, resolves `@theme`/`@utility`, emits optimized CSS.
-- [02]-[JS_PLUGIN]: `token/scale` — a programmatic utility/variant generator when a token family is algorithmic rather than enumerated in `@theme`; the callback receives `addUtilities`/`matchUtilities`/`addVariant`/`matchVariant`/`addBase`/`addComponents`/`theme`.
-- [03]-[PARAMETERIZED_PLUGIN]: `token/scale` — a plugin accepting options; the parameterized form when one plugin serves many token configurations.
-- [04]-[DEFAULT_VALUES]: `token/theme` — the stock OKLCH palette and default theme objects (`import colors`/`import defaultTheme`) and the palette-flatten util, read when seeding or extending `@theme` from JS.
+- `plugin` is the default export of `tailwindcss/plugin`, passing the `PluginAPI` (`addUtilities`/`matchUtilities`/`addVariant`/`matchVariant`/`addBase`/`addComponents`/`theme`); the default-value imports are `tailwindcss/colors`, `tailwindcss/defaultTheme`, `tailwindcss/lib/util/flattenColorPalette`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[TOKEN_TOPOLOGY]:
-- CSS-first is the law, JS config is compat: the token plane authors `@theme` namespaces in the branch stylesheet, not a `tailwind.config.js`. `@import "tailwindcss"` is the single entry; `@theme` declares tokens; `@tailwindcss/vite` resolves it at build time. The `tailwindcss/plugin` JS surface is reserved for the rare algorithmic utility family that cannot be enumerated in CSS.
-- One namespace generates a variable *and* its utilities: declaring `--color-brand-500: oklch(...)` emits both the `--color-brand-500` custom property (readable via `theme()` or raw `var()`) and the `bg-brand-500`/`text-brand-500`/`border-brand-500`/`ring-brand-500`/… utility family. This is the single parameterized token mechanism — a new color, size, radius, easing, or animation is one `@theme` line, never a hand-written utility or a config-object edit. The `--color-*`/`--font-*`/`--text-*`/`--spacing`/`--radius-*`/`--ease-*`/`--animate-*` roster is seed data feeding that one generation rule.
-- Variants are data-attribute selectors, not JS conditionals: `@custom-variant dark (&:where([data-theme=dark] *))` binds the theme selector; react-aria component states (`data-selected`, `data-pressed`, `data-focus-visible`) become variants through the `tailwindcss-react-aria-components` plugin, so a component styles its states declaratively (`selected:bg-accent`) with no JS class branching.
-- The single `--spacing` multiplier scales the whole layout system: every `p-`/`m-`/`gap-`/`w-`/`h-`/`size-` utility derives from one `--spacing` value, so a density change is one token edit, not a scale rewrite. The `--text-*` scale pairs each step with its line-height, and `--breakpoint-*`/`--container-*` drive responsive + container-query variants from the same namespace mechanism.
-- Utilities never reach a component raw: the class string flows through `cva` (variant→class dispatch), `clsx` (conditional fold), and `tailwind-merge` (conflict resolution), so a component's styling is a typed variant surface, not a hand-concatenated class string. `token/theme` owns the token values; the components own only variant selection.
+[TOPOLOGY]:
+- CSS-first is the law, JS config the compat: `@import "tailwindcss"` is the single entry, `@theme` declares tokens, `@tailwindcss/vite` resolves the directive surface at build, and `tailwindcss/plugin` serves only an algorithmic utility family CSS cannot enumerate.
+- One `@theme` namespace generates a CSS variable and its whole utility family from one declaration, so a color, size, radius, easing, or animation lands as one line, readable back through `theme()` or raw `var()`.
+- Variants are data-attribute selectors: `@custom-variant dark (&:where([data-theme=dark] *))` binds the theme selector and react-aria states become variants through the tw-rac plugin, so a component styles state declaratively with no JS class branching.
+- One `--spacing` multiplier scales every `p-`/`m-`/`gap-`/`w-`/`h-` utility, so a density change is one token edit; `--text-*` pairs each step with its line-height and `--breakpoint-*`/`--container-*` drive responsive and container-query variants.
 
-[STACKS_WITH]:
-- `colorjs.io` (`.api/colorjs.io.md`): the OKLCH token values in `@theme --color-*` are generated and range-checked through `colorjs.io` (gamut mapping, contrast, interpolation), so the palette is a computed color-space artifact fed into the CSS namespace — the token plane authors color *math*, tailwind emits the *utilities*.
-- `class-variance-authority` (`.api/class-variance-authority.md`) + `clsx` (`.api/clsx.md`): `cva` maps a component's typed variant props (size/tone/state) to tailwind utility strings and `clsx` folds the conditionals; this is the dispatch layer between the token vocabulary and the rendered component.
-- `tailwind-merge` (`.api/tailwind-merge.md`): `twMerge` deterministically resolves conflicting utilities (a later `p-4` wins over an earlier `p-2`) so composed/overridden class strings collapse to one coherent set — the required last step whenever `ui` merges base + override classes. A customized `@theme` (custom `--color-*`/`--spacing`/`--radius-*` scales) is unknown to the default `twMerge`, so ONE shared `extendTailwindMerge(fromTheme(...))` instance teaches it the custom utility groups — otherwise conflicts on custom-token utilities silently survive un-deduplicated.
-- `tailwindcss-react-aria-components` (`.api/tailwindcss-react-aria-components.md`): loaded via `@plugin`, it exposes react-aria component render-prop states as tailwind variants (`selected:`/`pressed:`/`focus-visible:`/`disabled:`), binding the headless interaction states of the `view/primitive` spine to the token vocabulary.
-- `tw-animate-css` (`.api/tw-animate-css.md`): imported alongside `tailwindcss`, it contributes the `--animate-*` keyframe/motion token rows the `token/scale` motion half composes, so enter/exit/attention animations are tokens, not per-component keyframes.
-- `effect` `Schema` (`.api/effect.md`): the `Theme`/token record is a `Schema`-typed value in `token/theme`; a theme switch is a validated data change writing the `data-theme` attribute the `@custom-variant` selectors key on, keeping the token model typed end-to-end.
+[STACKING]:
+- `colorjs.io` (`.api/colorjs.io.md`): `@theme --color-*` OKLCH values are computed and gamut-mapped through `colorjs.io`, so the palette is a color-space artifact tailwind emits utilities from.
+- `class-variance-authority` (`.api/class-variance-authority.md`) + `clsx` (`.api/clsx.md`): `cva` maps typed variant props to utility strings and `clsx` folds the conditionals — the dispatch layer between token vocabulary and rendered component.
+- `tailwind-merge` (`.api/tailwind-merge.md`): `twMerge` resolves conflicting utilities last-wins; a customized `@theme` teaches ONE shared `extendTailwindMerge(fromTheme(...))` instance the custom groups, else custom-token conflicts survive un-deduplicated.
+- `tailwindcss-react-aria-components` (`.api/tailwindcss-react-aria-components.md`): loaded via `@plugin`, it exposes react-aria states as `selected:`/`pressed:`/`focus-visible:` variants binding the primitive spine to the token vocabulary.
+- `tw-animate-css` (`.api/tw-animate-css.md`): imported alongside `tailwindcss`, it contributes the `--animate-*` keyframe rows the motion scale composes.
+- `effect` `Schema` (`libs/typescript/.api/effect.md`): the `Theme` token record is a `Schema`-typed value; a theme switch is a validated write of the `data-theme` attribute the `@custom-variant` selectors key on.
 
 [LOCAL_ADMISSION]:
-- Author tokens in `@theme` CSS namespaces; never introduce a `tailwind.config.js` for values that belong in CSS — the config path is compat, the CSS path is canonical.
-- Add a color/size/radius/easing/animation as one `@theme` line and consume its generated utilities/variable; never hand-write a utility class or a raw `var(--…)` where the namespace already emits the pair.
-- Reach for `tailwindcss/plugin` only for an algorithmic utility family (`matchUtilities` over a computed value set); never wrap a static utility list in a JS plugin where `@utility`/`@theme` fits.
-- Bind interaction/theme variants through `@custom-variant` + the react-aria-components plugin; never branch class strings in JS for a component state a data-attribute variant expresses.
-- Pass every composed class string through `cva`/`clsx`/`twMerge`; never concatenate raw utility strings that can silently conflict.
-- Wire the build through `@tailwindcss/vite`; never hand-run the CLI or add a PostCSS pipeline where the Vite plugin owns generation.
+- Author every color, size, radius, easing, and animation as one `@theme` line and consume its generated variable and utilities.
+- Reserve `tailwindcss/plugin` for an algorithmic utility family over a computed value set (`matchUtilities`); `@utility` and `@theme` own every static utility.
+- Bind interaction and theme state through `@custom-variant` and the react-aria-components plugin, expressed as data-attribute variants.
+- Compose every conflict-prone class string through the `cva`/`clsx`/`twMerge` rail and wire the build through `@tailwindcss/vite`.
 
 [RAIL_LAW]:
-- Package: `tailwindcss` (catalog-bound CSS engine) + `@tailwindcss/vite` (build owner)
-- Owns: the `@theme` token-namespace vocabulary (color/type/spacing/effect/motion), the CSS directive surface (`@import`/`@theme`/`@utility`/`@variant`/`@custom-variant`/`@apply`/`@source`/`@reference`/`@plugin`/`@config`), the `theme()`/`--spacing()`/`--alpha()` CSS functions, the typed JS compat plugin API, and the Vite build integration
-- Accept: CSS-first token authoring in `@theme`, one namespace generating variable + utilities, data-attribute variants for theme/state, the single `--spacing` scale, `cva`/`clsx`/`twMerge` variant dispatch, `colorjs.io`-computed OKLCH values, react-aria-components state variants via `@plugin`, `@tailwindcss/vite` build ownership
-- Reject: `tailwind.config.js` for CSS-authorable values, hand-written utilities or raw `var()` where a namespace emits the pair, JS plugins wrapping static utility lists, JS class-string branching for data-attribute-expressible states, raw class concatenation bypassing `twMerge`, a hand-run CLI or PostCSS pipeline beside the Vite plugin
+- Package: `tailwindcss` + `@tailwindcss/vite`
+- Owns: the `@theme` token-namespace vocabulary, the CSS directive and function surface, and the typed JS compat plugin API and Vite build
+- Accept: CSS-first `@theme` token authoring, one namespace generating variable and utilities, data-attribute variants, the single `--spacing` scale, `cva`/`clsx`/`twMerge` dispatch, `colorjs.io`-computed OKLCH values
+- Reject: a `tailwind.config.js` for CSS-authorable values, a hand-written utility or raw `var()` where a namespace emits the pair, JS class-string branching for a data-attribute-expressible state, raw class concatenation bypassing `twMerge`

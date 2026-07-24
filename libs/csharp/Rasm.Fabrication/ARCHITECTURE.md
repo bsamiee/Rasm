@@ -12,7 +12,7 @@ Rasm.Fabrication/
 │   ├── Physics.cs           # Material identity carrying per-modality physics and the removal budget
 │   ├── Faults.cs            # FabricationFault registry over the FaultBand.Fabrication band
 │   ├── Derivation.cs        # Derivation.Apply plan orchestrator
-│   └── Telemetry.cs         # FabricationFact union, rasm.fabrication.* instrument roster, projection fan, classification rows, engine spans, hook roster, SLO rows
+│   └── Telemetry.cs         # FabricationFact union, rasm.fabrication.* instrument roster, projection fan, SLO rows
 ├── Tooling/                 # ISO-13399 tool intelligence, machinability, and wear
 │   ├── Magazine.cs          # Provider-detached ToolAssembly owner, correspondence tables, typed-shortfall kitting, and ordered life scheduling
 │   ├── CuttingData.cs       # Kienzle seeds, evidence-domain guard, power-law fit, and cutter-form projection on typed evidence rails
@@ -90,12 +90,22 @@ Sub-domain dependencies are acyclic. Split packages declare ledger nodes without
 
 Six strata order the sub-domains; split-package ledger nodes preserve one direction: `Process` places atoms at the floor and `Derivation` beside the CAM plane, while `Kinematics` places motion at S1 and its consuming fleet at S3. `Verify` parses the `CutProgram` AST `Posting` emits as a same-stratum fact; every cross-stratum consumption edge points down.
 
-- S0 `Process` atoms — the one vocabulary floor: `FabricationPolicy`, `FabricationResult`, `EgressKind`, `ContentKey`, `Move`, `MotionDirective`, `SpecializedToolpathEnvelope`, `Loop`, `MaterialSpec`, `ProcessRange`, `EquipmentEnvelope`, and `FabricationFault`; every plane reads it, and it reads no sibling.
-- S1 `Geometry2D` + `Ingress` + `Kinematics` motion and observation — substrate lanes over the atoms alone: `PolygonAlgebra`, `ArcAlgebra`, and `CurveAlgebra`; the `Ingress.Admit` fold and `AdmittedGeometry`; `MachineTool`, `MachineKinematics`, `RobotProgram`, and the `MachineObservation` decoded slice its measured consumers at S2 and above fold.
-- S2 `Tooling` + `Nesting` + `Additive` — capability owners over the 2D algebra: `ToolAssembly`, `ToolSelection`, `CuttingData`, `PowerLawFit`, and `ToolWear`; `Nest`, `StockNest`, and `NoFitPolygon`; `Slice`, `SupportPolicy`, `ScanPolicy`, and `Audit`.
-- S3 `Fixturing` + `Forming` + `Joining` + `Spec` + `Kinematics` fleet — planning owners: `Workholding`, `ExclusionZone`, and `SetupSchedule`; `FlatPattern` and `TubeProgram`; `Weld`, `JointPrep`, `Sequence`, and `Procedure`; `Tolerance`, `Capability`, and `Manufacturability`; `MachineInstance`, `ProcessEnvelope`, and `Fleet`.
-- S4 `Toolpath` + `Process/Derivation` — the CAM plane composing tools, kinematics, and keep-outs (`Cam`, `MotionRun`, `Guard`, `BevelPass`) beside the `Derivation`/`FabricationProjector` terminal aggregator over the downstream plans.
-- S5 `Posting` + `Verify` + `Documentation` + `Process` telemetry — emission and truth: the `CutProgram` AST and `Dialect` emit, the `Removal`/`Probe`/`Simulate` verifiers, the `Hlr`/`Traveler`/`QualityReport` shop documents, and the `FabricationFact` fan projecting settled receipts onto the `rasm.fabrication.*` instruments.
+- S0 `Process` atoms — the one vocabulary floor; every plane reads it, and it reads no sibling.
+- S0 atoms — `FabricationPolicy`, `FabricationResult`, `EgressKind`, `ContentKey`, `Move`, `MotionDirective`, `Loop`, `FabricationFault`.
+- S0 atoms — `SpecializedToolpathEnvelope`, `MaterialSpec`, `ProcessRange`, `EquipmentEnvelope`.
+- S1 `Geometry2D` — `PolygonAlgebra`, `ArcAlgebra`, and `CurveAlgebra`, substrate lanes over the atoms alone.
+- S1 `Ingress` — the `Ingress.Admit` fold and `AdmittedGeometry`.
+- S1 `Kinematics` motion and observation — `MachineTool`, `MachineKinematics`, `RobotProgram`, and the `MachineObservation` decoded slice.
+- S2 `Tooling` — `ToolAssembly`, `ToolSelection`, `CuttingData`, `PowerLawFit`, and `ToolWear`, capability owners over the 2D algebra.
+- S2 `Nesting` + `Additive` — `Nest`, `StockNest`, `NoFitPolygon`; `Slice`, `SupportPolicy`, `ScanPolicy`, `Audit`.
+- S3 planning — `Fixturing`: `Workholding`, `ExclusionZone`, `SetupSchedule`; `Forming`: `FlatPattern`, `TubeProgram`.
+- S3 planning — `Joining`: `Weld`, `JointPrep`, `Sequence`, `Procedure`; `Spec`: `Tolerance`, `Capability`, `Manufacturability`.
+- S3 planning — `Kinematics` fleet: `MachineInstance`, `ProcessEnvelope`, `Fleet`.
+- S4 `Toolpath` — the CAM plane composing tools, kinematics, and keep-outs: `Cam`, `MotionRun`, `Guard`, `BevelPass`.
+- S4 `Process/Derivation` — the `Derivation`/`FabricationProjector` terminal aggregator over the downstream plans.
+- S5 `Posting` + `Verify` — the `CutProgram` AST and `Dialect` emit; the `Removal`/`Probe`/`Simulate` verifiers.
+- S5 `Documentation` — the `Hlr`/`Traveler`/`QualityReport` shop documents.
+- S5 `Process` telemetry — the `FabricationFact` fan projects settled receipts onto the `rasm.fabrication.*` instruments.
 
 Same-stratum policy exchange among `Fixturing`, `Joining`, `Spec`, and the kinematics fleet carries no dependency-order edge; only their downstream consumers enter the stratum graph.
 
@@ -109,35 +119,35 @@ config:
 ---
 flowchart TB
     accTitle: Rasm.Fabrication interior strata
-    accDescr: Six stacked strata from the posting, verify, and documentation truth tier through the CAM plane and derivation aggregator, the planning owners, the capability owners, and the substrate lanes onto the process atoms floor, every consumption edge downward and solid naming one sourced type, and one forbidden upward edge labeled as such.
-    subgraph L5["S5 EMISSION + TRUTH"]
+    accDescr: Six stacked strata from the posting, verify, and documentation truth stratum through the CAM plane and derivation aggregator, the planning owners, the capability owners, and the substrate lanes onto the process atoms floor, every consumption edge downward and solid naming one sourced type, and one forbidden upward edge labeled as such.
+    subgraph S5["S5 EMISSION + TRUTH"]
         Posting[Posting]
         Verify[Verify]
         Documentation[Documentation]
         Telemetry[Process telemetry]
     end
-    subgraph L4["S4 CAM + DERIVATION"]
+    subgraph S4["S4 CAM + DERIVATION"]
         Toolpath[Toolpath]
         Derivation[Derivation]
     end
-    subgraph L3["S3 PLANNING"]
+    subgraph S3["S3 PLANNING"]
         Fixturing[Fixturing]
         Forming[Forming]
         Joining[Joining]
         Spec[Spec]
         Fleet[Kinematics fleet]
     end
-    subgraph L2["S2 CAPABILITY"]
+    subgraph S2["S2 CAPABILITY"]
         Tooling[Tooling]
         Nesting[Nesting]
         Additive[Additive]
     end
-    subgraph L1["S1 SUBSTRATE"]
+    subgraph S1["S1 SUBSTRATE"]
         Geometry2D[Geometry2D]
         Ingress[Ingress]
         Motion[Kinematics motion]
     end
-    subgraph L0["S0 PROCESS ATOMS"]
+    subgraph S0["S0 PROCESS ATOMS"]
         Atoms[Process atoms]
     end
     Verify e2@-->|"[IMPORT]: DatumReceipt"| Fixturing
@@ -164,7 +174,7 @@ flowchart TB
     Telemetry e26@-->|"[IMPORT]: MachineMatch"| Fleet
     Telemetry e27@-->|"[IMPORT]: CapabilityReport"| Spec
     Telemetry e28@-->|"[IMPORT]: RunEvidence"| Atoms
-    Atoms f1@-->|"forbidden: atoms upward"| L5
+    Atoms f1@-->|"forbidden: atoms upward"| S5
 ```
 
 ## [03]-[SEAMS]
@@ -172,10 +182,13 @@ flowchart TB
 `Toolpath/guard` owns every PicoGK voxel lease, and `Kinematics/cell` owns every Rhino3dm robot adapter; downstream receipts carry evidence and no native handle.
 
 [POSTING]:
-- `Posting/program` sends `CutProgram` and `EmitPolicy` to `Posting/dialect`; `PostImage` owns rendered records, bytes, physical count, and emitted `ContentKey`.
-- `Toolpath` preserves controller instructions and specialized evidence through `MotionDirective`; `Posting/program` retains each directive in `GNode`, while `Posting/dialect` owns executable lowering or annotation spelling.
-- `Posting/program` projects analytic `ProgramEvent.Motion` rows into the kernel `ToolpathPath`; line and arc spans share one `PackOp.Toolpath` carrier, and arc centre and sense remain digest-bearing channels.
-- `Posting/program`, `Process/physics`, and `Tooling/cuttingdata` feed `Posting/optimization`; `OptimizationIngress` and `OptimizationEgress` close on `Fin<OptimizationResult>`.
+- `Posting/program` sends `CutProgram` and `EmitPolicy` to `Posting/dialect`; `PostImage` owns rendered records, bytes, and the emitted `ContentKey`.
+- `Toolpath` preserves controller instructions and evidence through `MotionDirective`; `Posting/program` retains each directive in `GNode`.
+- `Posting/dialect` owns executable lowering or annotation spelling.
+- `Posting/program` projects analytic `ProgramEvent.Motion` rows into the kernel `ToolpathPath`.
+- Line and arc spans share one `PackOp.Toolpath` carrier; arc centre and sense stay digest-bearing channels.
+- `Posting/program`, `Process/physics`, and `Tooling/cuttingdata` feed `Posting/optimization`.
+- `OptimizationIngress` and `OptimizationEgress` close on `Fin<OptimizationResult>`.
 - `Posting/dialect` lowers `GNode.CoordinateFrame` through `WcsSlot` into offset write and selection words.
 - `Posting/optimization` prices every span through `MotionDynamics` rapid, feed, acceleration, and junction law.
 
@@ -256,19 +269,31 @@ flowchart LR
 
 Every `FabricationFault` case declares its owning `FabConcern` and stratum, so receipts partition without a second table; degenerate fixture geometry routes through `GeometryFault.DegenerateInput`.
 
-## [05]-[CROSS_PACKAGE]
+## [05]-[BOUNDARIES]
 
 Seam edges carry which package exchanges which shape; the load-bearing cross-package invariants are:
 - Every machine-consumable egress mints its content key through the kernel `ContentHash.Of` seed-zero entry, with no second mint.
 - `EgressKind`, the local discriminant, federates to the Persistence `ArtifactKind` rows at the content-key boundary, never a type reference.
 - `Fabrication` realizes the one `FabricationProjector` registration; every quantity lowered back to the seam rides that projector.
 - An absent peer capability binds as an injected delegate column, so the contract remains whole without an implementation-shape dependency.
-- Machine telemetry enters through the AppHost decode lane, never a direct transport reference; `Kinematics/observation` admits the decoded entities once, and every measured consumer — wear signals, fleet performance refresh, engagement measured-load ceilings — folds the one `MachineObservation` slice.
-- Durable shop state rides the Persistence slot registry's contributed span as the `store.fabrication.<domain>.<verb>` family — remnant transitions, fleet performance horizons, magazine exchanges, capability history — each owning page naming its slot spellings as value federation, mounted as call-site data at the composition root.
-- Solver memo truth content-keys through the same kernel mint the egress spine seeds: the runtime-carried `HybridCache` tier replays NFP pair polygons under `PairTable.Key` identities in process, and the durable tier federates at the Persistence cache seam beside the benchmark index.
-- Fabrication speed claims resolve to `BenchmarkReceipt` rows: the `FabricationBench` roster keys the branch bench tier's gated cases as `{Suite}/{Case}` Persistence `BenchmarkRow` claims, and `ProbeRoute.Measured` authorizes its parallel substrate only against a mintable claim key.
-- Program delivery closes chain-of-custody by value: the cell drive receipt re-mints a content key from the exact controller-bound records, `Posting/dialect` `ProgramDelivery` proves transfer integrity by digest equality, and the delivery fact rides the tap onto the receipt rail.
-- Fabrication facts leave through the one `FabricationTap` port onto the AppHost receipt rail as `FabricationFact` envelopes; the `TelemetryContributorPort` carries the `rasm.fabrication.*` instrument roster inward at composition, the `FabricationInstruments.Arms` kind-arm table merges onto the AppHost receipt fan beside its own arms, and classification federates by value to the suite `DataClassification` taxonomy — never a type reference in either direction.
-- Fabrication hook points register on the AppHost hook registry at composition through the runtime-carried `FabricationHooks` roster; modality and payload close at declaration, and subscribers attach only at app roots.
-- Engine spans ride the `ActivitySource` named by `TelemetrySource.Fabrication`, admitted at the AppHost root source roster; trace-based exemplars join the fabrication histograms to their solve traces.
-- `FabricationSlos` rows feed the AppHost alert rail and the deploy-plane dashboard compile from one row set; burn thresholds stay the core multi-window burn table, never re-decided here.
+- Machine telemetry enters through the AppHost decode lane, never a direct transport reference.
+- `Kinematics/observation` admits the decoded entities once; every measured consumer folds the one `MachineObservation` slice.
+- Durable shop state rides the Persistence slot registry's contributed span as the `store.fabrication.<domain>.<verb>` family.
+- Each owning page names its slot spellings as value federation, mounted as call-site data at the composition root.
+- Solver memo truth content-keys through the same kernel mint the egress spine seeds.
+- Runtime-carried `HybridCache` replays NFP pair polygons under `PairTable.Key` identities in process.
+- Durable memo tier federates at the Persistence cache seam beside the benchmark index.
+- Speed claims resolve to `BenchmarkReceipt` rows: `FabricationBench` keys gated cases as `{Suite}/{Case}` Persistence `BenchmarkRow` claims.
+- `ProbeRoute.Measured` authorizes its parallel substrate only against a mintable claim key.
+- Program delivery closes chain-of-custody by value: the cell drive receipt re-mints a content key from the exact controller-bound records.
+- `Posting/dialect` `ProgramDelivery` proves transfer integrity by digest equality; the delivery fact rides the tap onto the receipt rail.
+- Fabrication facts leave through the one `FabricationTap` port onto the AppHost receipt rail as `FabricationFact` envelopes.
+- `TelemetryContributorPort` carries the `rasm.fabrication.*` instrument roster inward at composition.
+- `FabricationInstruments.Arms` kind-arm table merges onto the AppHost receipt fan beside its own arms.
+- Classification federates by value to the suite `DataClassification` taxonomy — never a type reference in either direction.
+- Fabrication hook points register on the AppHost hook registry at composition through the runtime-carried `FabricationHooks` roster.
+- Hook modality and payload close at declaration; subscribers attach only at app roots.
+- Engine spans ride the `ActivitySource` named by `TelemetrySource.Fabrication`, admitted at the AppHost root source roster.
+- Trace-based exemplars join the fabrication histograms to their solve traces.
+- `FabricationSlos` rows feed the AppHost alert rail and the deploy-plane dashboard compile from one row set.
+- Burn thresholds stay the core multi-window burn table, never re-decided here.

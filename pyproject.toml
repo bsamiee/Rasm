@@ -46,7 +46,7 @@ dependencies = [
     "structlog",
     "tblib",                                   # [RUNTIME]: cross-process traceback fidelity for worker faults
     "tomlkit",
-    "tree-sitter",
+    "tree-sitter<0.26",                        # [TOOLING]: 0.26.0 Node ancestor-traversal use-after-free segfaults the assay TSDECL rail (py-tree-sitter #472)
     "tree-sitter-python",
     "tree-sitter-typescript",
     "trio",                                    # [TESTKIT]: trio anyio backend for the deterministic-test-kit doubles

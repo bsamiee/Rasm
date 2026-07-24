@@ -32,7 +32,7 @@ Rasm/
 │   ├── Neighbors.cs         # One kNN/radius/graph proximity substrate
 │   ├── Transport.cs         # Log-domain Sinkhorn optimal-transport solver
 │   └── Fields.cs            # Scalar/vector/tensor field and SDF vocabulary
-├── Parametric/              # Vendored NURBS engine and host-neutral op tier
+├── Parametric/              # Vendored NURBS engine and host-neutral op rail
 │   ├── Nurbs.cs             # One vendored NURBS evaluation engine
 │   ├── Curve.cs             # Parametric curve-operation rail
 │   ├── Surface.cs           # Parametric surface-operation rail
@@ -84,10 +84,16 @@ Rasm/
 
 Four strata order the sub-domains; a co-recursive pair co-seats one stratum, so every cross-stratum consumption edge points down the ladder.
 
-- S0 `Domain` + `Numerics` — co-recursive floor: `Op`, `Context`, `ContentHash`, `CurveForm`, and `TelemetrySink` beside `MatrixKernel`, `GeometryFault`, `PerceptualColor`, and `AtomProjection`; every sibling threads the rail and the exact-predicate floor, and the pair's mutual reach (`Op` into integration, `AtomProjection` into evaluation) is same-stratum fact.
-- S1 `Spatial` + `Meshing` — co-recursive lattice composing the floor alone: `SpatialIndex`, `VectorCloud`, `GeometryHash`, and `ScalarField` beside `MeshSpace`, `MeshEdit`, `SliceStack`, and `CurveSkeleton`; intersection reads the index and reconciliation reads the mesh, both interior to the stratum.
-- S2 `Processing` + `Solving` — co-recursive rails over the lattice: `HealOp`, `RemeshOp`, `ChartAtlas`, `VectorIntent`, and `SampleKind` beside the `Lm` solver and `FitReceipt`; the registration optimizer instantiating the `Lm` functor is the pair's same-stratum reach, and everything else consumes S0-S1 below.
-- S3 `Parametric` + `Drawing` + `Analysis` — terminal producers nothing composes: `NurbsForm`, `MonotonicTimeline`, and `PanelField`; `DrawingProjection` and `EncodedGeometry`; `AnalysisQuery` and `Measure`.
+- S0 `Domain` — seats `Op`, `Context`, `ContentHash`, `CurveForm`, and `TelemetrySink`; every sibling threads the rail.
+- S0 `Numerics` — seats `MatrixKernel`, `GeometryFault`, `PerceptualColor`, and `AtomProjection`; every sibling threads the exact-predicate floor.
+- S0 reach — `Op` into integration and `AtomProjection` into evaluation stay same-stratum.
+- S1 `Spatial` — seats `SpatialIndex`, `VectorCloud`, `GeometryHash`, and `ScalarField`, composing the floor alone.
+- S1 `Meshing` — seats `MeshSpace`, `MeshEdit`, `SliceStack`, and `CurveSkeleton`.
+- S1 reach — intersection reads the index and reconciliation reads the mesh, both interior to the stratum.
+- S2 `Processing` — seats `HealOp`, `RemeshOp`, `ChartAtlas`, `VectorIntent`, and `SampleKind`, rails over the lattice.
+- S2 `Solving` — seats the `Lm` solver and `FitReceipt`; the registration optimizer instantiating the `Lm` functor stays same-stratum reach.
+- S3 `Parametric` — seats `NurbsForm`, `MonotonicTimeline`, and `PanelField`; nothing composes S3.
+- S3 `Drawing` + `Analysis` — seat `DrawingProjection` and `EncodedGeometry`; `AnalysisQuery` and `Measure`.
 
 ```mermaid
 ---
@@ -100,20 +106,20 @@ config:
 flowchart TB
     accTitle: Rasm kernel interior strata
     accDescr: Four stacked strata from the terminal parametric, drawing, and analysis producers through the processing and solving rails onto the spatial-meshing lattice and the domain-numerics floor, every consumption edge downward and solid naming one sourced type, and one forbidden upward edge marked.
-    subgraph L3["S3 TERMINAL PRODUCERS"]
+    subgraph S3["S3 TERMINAL PRODUCERS"]
         Analysis[Analysis]
         Parametric[Parametric]
         Drawing[Drawing]
     end
-    subgraph L2["S2 ALGORITHM RAILS"]
+    subgraph S2["S2 ALGORITHM RAILS"]
         Solving[Solving]
         Processing[Processing]
     end
-    subgraph L1["S1 LATTICE"]
+    subgraph S1["S1 LATTICE"]
         Meshing[Meshing]
         Spatial[Spatial]
     end
-    subgraph L0["S0 FLOOR"]
+    subgraph S0["S0 FLOOR"]
         Numerics[Numerics]
         Domain[Domain]
     end
@@ -132,7 +138,7 @@ flowchart TB
     Solving e13@-->|"[IMPORT]: VectorCloud"| Spatial
     Meshing e14@-->|"[IMPORT]: SparseMatrix"| Numerics
     Spatial e15@-->|"[IMPORT]: Context"| Domain
-    Domain f1@-->|"forbidden: floor upward"| L3
+    Domain f1@-->|"forbidden: floor upward"| S3
 ```
 
 ## [03]-[SEAMS]
@@ -198,7 +204,7 @@ flowchart LR
         Spatial[Spatial fields]
         Numerics[Numerics floor]
         Meshing[Mesh lattice]
-        Parametric[Parametric tier]
+        Parametric[Parametric producers]
         Processing[Processing rail]
         Drawing[Drawing producers]
     end
@@ -226,7 +232,7 @@ flowchart LR
     subgraph rasm[RASM KERNEL]
         Domain[Domain floor]
         Numerics[Numerics floor]
-        Parametric[Parametric tier]
+        Parametric[Parametric producers]
         Processing[Processing rail]
         Analysis[Analysis entry]
     end
@@ -246,12 +252,18 @@ flowchart LR
 
 Content-key edges federate one hasher: `Domain/Identity` mints the seed-zero `XxHash128` entry every partner composes, and `Spatial/Reconciliation` reproduces that seed byte-for-byte with the Python and TypeScript peers so one content space addresses across runtimes. A second hasher or a non-zero seed is the named cross-folder drift.
 
-Each partner edge carries its load-bearing shape on the graph; the owning sub-domain page enumerates the rest. Three invariants the graph cannot show: `Meshing` shares one 2D/3D clearance family with the fabrication toolpath planner rather than crossing a second boundary for it, `Drawing` encodes geometry once — one payload delivered as `EncodedGeometry` to the sandbox host and wrapped as `EncodedTensor` for compute residency, its `PackSchema` columnar identity (`ContentHash`-derived id over field/dtype/stride/null rows) riding the same wire as the one schema authority storage adapters read — and the signal fabric exits once: `Domain/Telemetry` owns the branch's one OTel-free signal capsule — hook point, modality, registry, instrument row and set, buckets, level cells, receipt fan, contributor port, identity mint — every stratum composes downward as instances, `TelemetrySink` is the kernel's own first-consumer arm the AppHost fan admits by name (`rasm.kernel` meter, `rasm.rasm.<domain>` sources), and `BenchClaim` rows are the enumeration its corpus gate ingests.
+Each partner edge carries its load-bearing shape on the graph; the owning sub-domain page enumerates the rest. Invariants the graph cannot show:
+- `Meshing` shares one 2D/3D clearance family with the fabrication toolpath planner rather than crossing a second boundary for it.
+- `Drawing` encodes geometry once — one payload, `EncodedGeometry` to the sandbox host, wrapped as `EncodedTensor` for compute residency.
+- `PackSchema` columnar identity, `ContentHash`-derived, rides that same wire as the one schema authority storage adapters read.
+- Signal exits once: `Domain/Telemetry` owns the branch's OTel-free signal capsule, and every stratum composes it downward as instances.
+- `TelemetrySink` is the kernel's first-consumer arm the AppHost fan admits by name — `rasm.kernel` meter, `rasm.rasm.<domain>` sources.
+- `BenchClaim` rows are the enumeration the telemetry corpus gate ingests.
 
 ## [04]-[NAMESPACES]
 
 Namespace mirrors folder path — `.editorconfig` `dotnet_style_namespace_match_folder = true:error`: every fence under `Rasm/<Folder>/` declares `namespace Rasm.<Folder>;`, one root namespace per sub-domain folder.
 
-Kernel compiles as ONE assembly — the single `Rasm.csproj` — so internal members cross the sub-domain namespaces with no build edge; two recorded exceptions to strata direction ride that one-assembly law: the root-homed `GeometryFault` union composing upper-tier discriminants (`Numerics/Faults.cs`), and `TensorField.Curvature` (`Spatial/Fields.cs`) carrying the `Parametric` `SurfaceSpace` capsule so the one shape-operator owner stays `Parametric/Projections.cs`.
+Kernel compiles as ONE assembly — the single `Rasm.csproj` — so internal members cross the sub-domain namespaces with no build edge; two recorded exceptions to strata direction ride that one-assembly law: the root-homed `GeometryFault` union composing upper-stratum discriminants (`Numerics/Faults.cs`), and `TensorField.Curvature` (`Spatial/Fields.cs`) carrying the `Parametric` `SurfaceSpace` capsule so the one shape-operator owner stays `Parametric/Projections.cs`.
 
 `Rasm.Domain.Fault` and the band-2400 `GeometryFault` family (`Numerics/Faults.cs`) are two families by explicit decision — kernel-substrate faults and robust-core geometry faults; `Numerics/Faults.cs` and `Domain/Rails.cs` each state the seam, and neither absorbs the other.

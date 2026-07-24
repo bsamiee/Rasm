@@ -25,7 +25,8 @@ Each index doc opens with one or two declarative lines stating its own organizat
 - Domain packages: the folder-specific libraries it uses, planned or implemented, grouped into `[CONCERN]` cards under `## [2]-[DOMAIN_PACKAGES]`.
 - A card carries no version pin and no `.api/` link; versions centralize in the owning manifest, and coupling the README to the catalogue is fragile.
 - New admissions land here from the folder's ideas and tasks.
-- License gate: this estate is fully OSS with zero commercial intent — any license granting full free use to an OSS project admits, copyleft included; a package requiring payment or gating capability behind paid tiers rejects; no deeper license analysis.
+- License gate: any license granting an OSS project full free use admits, copyleft included — the estate is fully OSS with zero commercial intent.
+- Payment-required or paid-tier-gated capability rejects; no deeper license analysis runs.
 - Package-card row form: `- ` with the backticked package id, optionally one concise dash-led line of prose — never parentheses — within 150 columns.
 - Depth beyond the one line belongs to the package's `.api/` catalogue, never the card.
 - Substrate packages: a `## [3]-[SUBSTRATE_PACKAGES]` section after the domain list names the language substrate the folder consumes.
@@ -38,15 +39,17 @@ Each index doc opens with one or two declarative lines stating its own organizat
 - A codemap node is named by its real domain concept, never a generic file-naming scheme.
 - Each codemap node renders the eventual source file in the language's own folder and file casing; the `.planning/` scaffold is never shown.
 - No prose sits between the `[1]` heading and the tree fence.
-- `[2]-[SEAMS]` is the curated record of every cross-folder and cross-language alignment, rendered as one or two Mermaid seam-registry diagrams (`flowchart LR`): the folder's sub-domain owners as interior nodes, counterpart packages as exterior nodes, one edge per contract family.
+- `[2]-[SEAMS]` records every cross-folder and cross-language alignment as Mermaid seam-registry diagrams (`flowchart LR`).
+- Seam nodes: sub-domain owners interior, counterpart packages exterior, one edge per contract family.
 - Edge label form: `[<KIND>]: <shared shape>`; `-->` produces/projects toward the consumer, `<-->` a shared shape.
 - `[KIND]` is a closed vocabulary; a row outside it retags to the nearest canonical kind, and a new kind amends this standard.
 - Kinds: `[WIRE]` `[SHAPE]` `[PROJECTION]` `[PORT]` `[BOUNDARY]` `[RECEIPT]` `[CONTENT_KEY]` `[TRANSPORT]` `[TESSELLATION]` `[GRADUATION]` `[FAULT]`.
 - A codemap fence line never exceeds 150 columns; its `#` comment carries the high-signal what/why an agent needs, never code-body detail.
-- Every edge appears on both endpoint folders with mirrored direction and identical `[KIND]`; an in-package relation stays in the codemap, never a seam.
+- Every edge appears on both endpoint folders, mirrored and `[KIND]`-identical; an in-package relation stays in the codemap, never a seam.
 - A domain map fuels ideas and tasks: a planned-but-empty sub-domain is a visible gap.
 - Dependency direction is stated once in the branch `ARCHITECTURE.md` and never restated per folder; there is no owner-state registry.
-- Branch-tier `ARCHITECTURE.md` (`libs/<lang>/.planning/`) carries the branch strata map, the once-stated dependency direction, the cross-folder seam registry at branch grain, and the folder roster with one-line charters; folder maps compose it and never restate it.
+- Branch-tier `ARCHITECTURE.md` carries the strata map, dependency direction, branch-grain seam registry, and folder roster with one-line charters.
+- Folder maps compose the branch map, never restate it.
 - Transient build-order detail stays on the task that builds a seam; the settled alignment is recorded in `[2]-[SEAMS]`.
 
 [IDEAS] — the folder's forward pool of higher-order concepts.
@@ -83,8 +86,9 @@ Design pages live at `<pkg>/.planning/<sub-domain>/<page>.md`, one sub-domain fo
 - A fence comment is one in-situ constraint the code cannot show, never a duplicate of a card line; cluster invariants live on the card.
 - Every literal traces to an axis on the page or an earlier page, or becomes a RESEARCH item.
 - Every fact has one owner: a line trap in its fence comment, a cluster decision on the card, a page boundary on the lead — never two at once.
-- An external member is written only after the folder's `.api/` catalogue verifies its spelling; an unverified member is a RESEARCH item, never prose.
-- A Forge-provided service, server extension, or host tool-surface fact verifies through `tools.assay provision` evidence; an unverified availability claim is a RESEARCH item carrying that route.
+- An external member lands only after the folder's `.api/` catalogue verifies its spelling; an unverified member is a RESEARCH item, never prose.
+- A Forge service, server-extension, or host tool-surface fact verifies through `tools.assay provision` evidence.
+- An unverified availability claim is a RESEARCH item carrying its verification route.
 
 ## [04]-[NOTATION]
 

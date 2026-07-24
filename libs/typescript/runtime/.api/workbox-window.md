@@ -1,57 +1,75 @@
 # [TS_RUNTIME_API_WORKBOX_WINDOW]
 
-`workbox-window` runs in the WINDOW, never the service worker. `browser/shell.md` holds one `Workbox` instance as an `Effect.acquireRelease` resource, bridges its lifecycle event target through `Stream.asyncScoped` into a single `SwLifecycle` `SubscriptionRef`, and drives the `messageSkipWaiting` update handshake that reloads on the next `controlling` event. The service-worker ASSET it registers is emitted at build time by `workbox-build` — distinct altitude, one concern each, so a cache-strategy row authored here is the named two-owner defect. The runtime SW-side background-sync `Queue` owns replay; this package OBSERVES and kicks it through window→worker messaging.
+`Workbox` owns the WINDOW-side service-worker lifecycle: registration, the update handshake, and the event target whose lifecycle tags surface every phase transition. `messageSW` carries the sole window↔worker channel.
+
+`Workbox` registers exactly the build-emitted worker asset (the `workbox-build` altitude), so a cache-strategy row authored here is the two-owner defect.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `workbox-window`
 - package: `workbox-window` (MIT)
-- module: ESM `index.mjs` + UMD `build/workbox-window.prod.umd.js`; types `index.d.ts`; window-only — touches `navigator.serviceWorker` and `window`, so it belongs to the browser subpath and never a node/wasm bundle
-- marker: build-floor baseline browsers with the Service Worker API; `TrustedScriptURL` supported for the script URL
-- exports: `Workbox`, `messageSW`, and the `utils/WorkboxEvent` event-map types (`WorkboxLifecycleEventMap`, `WorkboxEventMap`, `WorkboxLifecycleEvent`, `WorkboxLifecycleWaitingEvent`, `WorkboxMessageEvent`)
-- bound asset: TSDECL `node_modules/workbox-window/{index,Workbox,messageSW,utils/WorkboxEvent}.d.ts`
-- admission: folder-local `# browser` catalog group; version centralized in `pnpm-workspace.yaml`
-- role: `browser/shell.md` (SW runtime lifecycle + update handshake + sync-replay observation); `browser/shell.md` reads the update-available cell for a refresh affordance
+- module: types `index.d.ts`; ESM `build/workbox-window.prod.es5.mjs`, UMD `build/workbox-window.prod.umd.js`; barrel re-exports `Workbox`, `messageSW`, and the `utils/WorkboxEvent` type family
+- runtime: window-only — touches `navigator.serviceWorker` and `window`, absent in a Worker or Node bundle; peer `trusted-types` types the script URL
 - rail: `browser/shell`
 
-## [02]-[WORKBOX_LIFECYCLE_OWNER]
+## [02]-[PUBLIC_TYPES]
 
-`Workbox` is the registration and update owner — a `WorkboxEventTarget` subclass whose async accessors and message methods are the whole runtime handle.
+[PUBLIC_TYPE_SCOPE]: the registration owner and the lifecycle/message event algebra its target dispatches
 
-[WORKBOX]: `Workbox(string|TrustedScriptURL,{}?)` `Workbox.register({immediate?:boolean}?) -> Promise<ServiceWorkerRegistration|undefined>` `Workbox.update() -> Promise<void>` `Workbox.active: Promise<ServiceWorker>` `Workbox.controlling: Promise<ServiceWorker>` `Workbox.getSW() -> Promise<ServiceWorker>` `Workbox.messageSW(object) -> Promise<any>` `Workbox.messageSkipWaiting() -> void`
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                             |
+| :-----: | :----------------------------- | :------------ | :--------------------------------------- |
+|  [01]   | `Workbox`                      | class         | registration and update owner            |
+|  [02]   | `WorkboxEvent<K>`              | class         | Event-shim base for every dispatched tag |
+|  [03]   | `WorkboxMessageEvent`          | interface     | `message` payload: `data`, `ports`       |
+|  [04]   | `WorkboxLifecycleEvent`        | interface     | lifecycle event carrying `isUpdate`      |
+|  [05]   | `WorkboxLifecycleWaitingEvent` | interface     | waiting event adding refinement flag     |
+|  [06]   | `WorkboxLifecycleEventMap`     | interface     | lifecycle tag → event-type map           |
+|  [07]   | `WorkboxEventMap`              | interface     | lifecycle map with `message`             |
 
-Consumer note: hold as `Effect.acquireRelease(Effect.sync(() => new Workbox("/sw.js")), (wb) => Effect.promise(() => wb.update()).pipe(Effect.ignore))`; wrap `register()`/`messageSW` in `Effect.promise`, `messageSkipWaiting()` in `Effect.sync`. A raw `navigator.serviceWorker.register` outside this owner is the named defect.
+- `WorkboxLifecycleEventMap` keys the addEventListener discriminant: `installing`/`installed`/`activating`/`activated`/`controlling`/`redundant` → `WorkboxLifecycleEvent`, `waiting` → `WorkboxLifecycleWaitingEvent`; `WorkboxEventMap` adds `message` → `WorkboxMessageEvent`.
+- `WorkboxEvent<K>`: carries `sw`, `originalEvent`, `isExternal`, and `target`; `WorkboxLifecycleWaitingEvent.wasWaitingBeforeRegister` marks a worker already waiting at `register()`.
 
-## [03]-[LIFECYCLE_EVENTS]
+## [03]-[ENTRYPOINTS]
 
-The event target is the state source: seven lifecycle tags plus `message`, each carrying the SW and the original DOM event. `installing`/`activating` fire on transitions the older Workbox releases omitted, so a fold over the full map stays total.
+[ENTRYPOINT_SCOPE]: the `Workbox` construction, update, messaging, and event-target surface with the standalone message function
 
-[WORKBOX_EVENT_TARGET]: `WorkboxEventTarget.addEventListener(K,(e:WorkboxEventMap[K])=>any) -> void` `WorkboxEventTarget.removeEventListener(K,(e:WorkboxEventMap[K])=>any) -> void` `WorkboxEventTarget.dispatchEvent(WorkboxEvent<any>) -> void`
-[WORKBOX_LIFECYCLE_EVENT_MAP]: `WorkboxLifecycleEventMap.installing: unknown` `WorkboxLifecycleEventMap.installed: unknown` `WorkboxLifecycleEventMap.waiting: unknown` `WorkboxLifecycleEventMap.activating: unknown` `WorkboxLifecycleEventMap.activated: unknown` `WorkboxLifecycleEventMap.controlling: unknown` `WorkboxLifecycleEventMap.redundant: unknown`
-[WORKBOX_LIFECYCLE_WAITING_EVENT]: `WorkboxLifecycleWaitingEvent.wasWaitingBeforeRegister: boolean`
-[WORKBOX_MESSAGE_EVENT]: `WorkboxMessageEvent.data: any` `WorkboxMessageEvent.originalEvent: Event` `WorkboxMessageEvent.ports: readonly MessagePort[]`
-[WORKBOX_EVENT_MAP]: `WorkboxEventMap.message: WorkboxMessageEvent`
+| [INDEX] | [SURFACE]                                                                          | [SHAPE]  | [CAPABILITY]                      |
+| :-----: | :--------------------------------------------------------------------------------- | :------- | :-------------------------------- |
+|  [01]   | `new Workbox(string\|TrustedScriptURL, {}?)`                                       | ctor     | bind an instance to a SW script   |
+|  [02]   | `Workbox.register({immediate?}?) -> Promise<ServiceWorkerRegistration\|undefined>` | instance | register the bound worker         |
+|  [03]   | `Workbox.update() -> Promise<void>`                                                | instance | poll for a fresh worker           |
+|  [04]   | `Workbox.active -> Promise<ServiceWorker>`                                         | property | resolve when the SW activates     |
+|  [05]   | `Workbox.controlling -> Promise<ServiceWorker>`                                    | property | resolve when the SW controls      |
+|  [06]   | `Workbox.getSW() -> Promise<ServiceWorker>`                                        | instance | resolve the matching SW handle    |
+|  [07]   | `Workbox.messageSW(object) -> Promise<any>`                                        | instance | request/response into the SW      |
+|  [08]   | `Workbox.messageSkipWaiting() -> void`                                             | instance | post `SKIP_WAITING` to the waiter |
+|  [09]   | `Workbox.addEventListener(K, (WorkboxEventMap[K]) => any) -> void`                 | instance | subscribe one tag                 |
+|  [10]   | `Workbox.removeEventListener(K, (WorkboxEventMap[K]) => any) -> void`              | instance | release one listener              |
+|  [11]   | `Workbox.dispatchEvent(WorkboxEvent<any>) -> void`                                 | instance | dispatch to listeners             |
+|  [12]   | `messageSW(ServiceWorker, {}) -> Promise<any>`                                     | static   | request/response into any SW      |
 
-Consumer note: `Stream.asyncScoped` acquires one `addEventListener` per tag and releases every listener on scope close; each emission folds through `Match.value`/`Match.exhaustive` into a `SwLifecycle` `SubscriptionRef`. `waiting` flips an `updateAvailable` `SubscriptionRef` to `true`; the `controlling` arm reads the prior phase and reloads exactly once when it is `Reloading` (the `set(Reloading)`-then-`messageSkipWaiting` order is load-bearing).
+- `Workbox.register`: defers registration until window `load` unless `immediate: true`.
+- `Workbox.messageSW` / `messageSW`: resolves only when the worker replies via `event.ports[0].postMessage`; a handler setting no response leaves the promise pending.
+- `Workbox.messageSkipWaiting`: no-op when no worker sits in `waiting`.
+- `Workbox.active` / `Workbox.controlling`: resolve to the already-controlling worker when the script URL matches, else await the next update's activate or control.
 
-## [04]-[MESSAGING]
+## [04]-[IMPLEMENTATION_LAW]
 
-The window↔worker channel is `messageSW` (request/response over a `MessagePort`) and the standalone `messageSW(sw, data)` for an arbitrary SW handle.
+[TOPOLOGY]:
+- A registered worker installs then either activates or stalls in `waiting`; `Workbox` fires `installing`→`installed`→(`waiting` | `activating`→`activated`), `controlling` on the container's `controllerchange`, and `redundant` on replacement.
+- `waiting` refines a first-install stall from a genuine update: `isUpdate` marks a worker already controlling at `register()` and `wasWaitingBeforeRegister` one already waiting — either flags an actionable refresh, a bare stall renders none.
+- `messageSkipWaiting` closes an ordered handshake: a consumer commits its reload intent first, so the ensuing `controlling` fires exactly one reload and every other `controllerchange` passes through inert.
 
-[SURFACES]: `messageSW(ServiceWorker,{}) -> Promise<any>`
+[STACKING]:
+- `effect`(`.api/effect.md`): hold `Workbox` as `Effect.acquireRelease` released by `update()`; bridge one `addEventListener` per lifecycle tag through `Stream.asyncScoped` and fold each `WorkboxEventMap[K]` via `Match.exhaustive` into a `SwLifecycle` `SubscriptionRef`; `register`/`messageSW` ride `Effect.tryPromise`, `messageSkipWaiting` an `Effect.sync` sequenced after the cell sets `Reloading`.
+- `workbox-build`(`.api/workbox-build.md`): the asset `injectManifest(InjectManifestOptions)` emits is exactly the script `new Workbox(script)` registers; a type-only `RuntimeCaching.options.backgroundSync.name` names the SW-side replay queue the window observes by decoding the `message` event into a `Replayed` report — this package holds no queue.
+- `browser/shell.md`: `Sw` `Effect.Service` acquires one `Workbox` through `Sw.Default(script)`, `_lifecycle(wb)` bridges its event target, `apply` sets `Reloading` then calls `wb.messageSkipWaiting()`, `signal` wraps `wb.messageSW`, `reports` decodes the `message` feed, and `register` maps `wb.register()` to a boolean phase fact.
 
-Consumer note: background-sync replay lives in the SERVICE WORKER — the `Queue` from `workbox-background-sync`, configured at build time via `workbox-build` `RuntimeCaching.options.backgroundSync: { name, options: QueueOptions }` — and drains automatically on reconnect. The window observes drain completion and triggers an on-demand replay through `Workbox.messageSW`/the `message` event; `workbox-window` carries no queue of its own, so the "background-sync replay rows" are this messaging seam, not a local queue API.
+[LOCAL_ADMISSION]:
+- Folder-local `# browser` catalog group; one `Workbox` per app held as a scoped resource with register/update/message/skip collapsed behind the `Sw` service, its event target the single phase writer.
 
-## [05]-[STACKING]
-
-- `effect`: `Effect.acquireRelease` (the `Workbox` resource), `Stream.asyncScoped` (event bridge), `SubscriptionRef` (lifecycle + update-available cells), `Data.taggedEnum` (`SwLifecycle`), `Match.value`/`Match.exhaustive` (the fold), `Effect.forkScoped` (drain), `Effect.Service`/`Layer` (the `ServiceWorkerHost` owner Layer the app root selects).
-- `@effect/platform-browser`: `BrowserStream` is the alternate typed event-source adapter when a `Stream` from a DOM `EventTarget` is preferred over the hand-bridged `asyncScoped`.
-- sibling `workbox-build`: shares the `RuntimeCaching`/`StrategyName` vocabulary across the build/runtime seam — the asset generated at build is exactly what `Workbox` registers; a type-only import keeps the strategy rows one source of truth.
-- `ui` port: the `updateAvailable` `SubscriptionRef` surfaces to `ui` through a declared runtime-capability port bound to an `@effect-atom` binding — `browser` provides the Layer at app composition, `ui` never imports `browser`.
-- `core/value/identity`: the SW script URL and precache cache-version derive from the `AppIdentity` build fingerprint, so a build bump forces a fresh install rather than a silent stale worker.
-
-## [06]-[RAIL_LAW]
-
-- Owns: the WINDOW-side service-worker lifecycle — registration, the update handshake, and background-sync replay observation.
-- Accept: one `Workbox` held as a scoped resource; the lifecycle event stream folded into a `SwLifecycle` cell; `messageSW`/`messageSkipWaiting` as the only window→worker channel.
-- Reject: a raw `navigator.serviceWorker`/`caches` call outside the owner (named defect); authoring cache STRATEGY here (build-time `RuntimeCaching` rows own it); a second `Workbox` boot (the single-boot law).
+[RAIL_LAW]:
+- Package: `workbox-window`
+- Owns: the window-side service-worker lifecycle — registration, the update handshake, window↔worker messaging, and lifecycle-event observation.
+- Accept: one `Workbox` scoped resource; the lifecycle event stream folded into a `SwLifecycle` cell; `messageSW`/`messageSkipWaiting` as the only window→worker channel.
+- Reject: a raw `navigator.serviceWorker`/`caches` call outside the owner; authoring cache strategy here (build-time `RuntimeCaching` owns it); a second `Workbox` boot.

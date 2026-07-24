@@ -1,108 +1,66 @@
 # [TS_SECURITY_API_SIMPLEWEBAUTHN_BROWSER]
 
-`@simplewebauthn/browser` is the client half of the WebAuthn passkey ceremony `authn/webauthn` composes: it wraps `navigator.credentials.create()`/`.get()` into two `Promise` entries (`startRegistration`/`startAuthentication`) that take the server-issued options JSON and return the response JSON to POST back. It is browser-only (`navigator`/`window`), so it is a `runtime:browser` package fenced by the `tests/typescript/_architecture` suite, and it is exactly one endpoint of a two-package seam — its `PublicKeyCredentialCreationOptionsJSON`/`RegistrationResponseJSON` type vocabulary is the same wire shape `@simplewebauthn/server` (`.api/simplewebauthn-server.md`) generates and verifies. At catalog-bound the ceremony entries take a single options object (`{ optionsJSON }`), not the pre-1 catalog positional argument — a design page citing the positional form is a phantom. It owns the capability probes that gate the ceremony, the base6 catalogurl codecs, the single-ceremony `WebAuthnAbortService`, and the `WebAuthnError` rail that intuits *why* a `DOMException` fired.
+`@simplewebauthn/browser` owns the client half of the passkey ceremony `authn/webauthn` composes: two `Promise` entries fold `navigator.credentials.create()`/`.get()` over the server-issued options JSON and return the response JSON to POST back. Capability probes gate the call, `WebAuthnAbortService` holds one ceremony live, and every rejection carries a coded `WebAuthnError` naming why an opaque `DOMException` fired.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@simplewebauthn/browser`
 - package: `@simplewebauthn/browser` (MIT)
-- module: dual ESM (`import` → `esm/index.js`) + CJS (`require` → `script/index.js`); the browser-safe entry (`@simplewebauthn/server` is the separate node/edge verifier half)
-- effect-boundary: `startRegistration`/`startAuthentication` return `Promise` → `Effect.tryPromise({ try, catch })`; the reject value is already a coded `WebAuthnError` (classified internally), so the `catch` narrows on `.code` rather than re-classifying. `.api/effect.md`
-- catalog-verdict: KEEP — the one `navigator.credentials` ceremony wrapper; the abort service + error-intuition rail are capability WebCrypto/raw `navigator` do not provide
-- runtime: `runtime:browser` — uses `navigator`/`window`; edge-ledger banned inside `runtime:node`, mirrors the `@effect/platform-browser` subpath-purity law
-- API_VERSION: catalog-bound ceremony entries take a single `{ optionsJSON, … }` object; the pre-12 positional form is banned
+- module: dual ESM (`import` → `esm/index.js`) and CJS (`require` → `script/index.js`); one root entry, no subpaths
+- runtime: `runtime:browser` — binds `navigator`/`window`; `@simplewebauthn/server` is the node/edge verifier half
+- rail: `authn/webauthn` client ceremony
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the JSON wire vocabulary — the seam shared with `@simplewebauthn/server`
-- rail: authn/webauthn
-- These are the exact shapes the server half generates (options) and verifies (response). The browser never mints or verifies them — it receives the options from the server, invokes the authenticator, and returns the response. A `Schema` at the fetch boundary decodes both directions.
+[PUBLIC_TYPE_SCOPE]: call options, the coded fault rail, and the response-union alias; `@simplewebauthn/server` (`.api/simplewebauthn-server.md`) owns the JSON wire vocabulary both halves share, decoded by one `Schema.Struct` per shape at the fetch boundary.
 
-| [INDEX] | [SYMBOL]                                                                                            | [TYPE_FAMILY]   |
-| :-----: | :-------------------------------------------------------------------------------------------------- | :-------------- |
-|  [01]   | `PublicKeyCredentialCreationOptionsJSON` / `PublicKeyCredentialRequestOptionsJSON`                  | server → client |
-|  [02]   | `RegistrationResponseJSON` / `AuthenticationResponseJSON`                                           | client → server |
-|  [03]   | `AuthenticatorAttestationResponseJSON` / `AuthenticatorAssertionResponseJSON`                       | nested response |
-|  [04]   | `Base64URLString` / `AuthenticatorTransportFuture` (`'ble'\|'hybrid'\|'internal'\|'nfc'\|'usb'\|…`) | wire scalar     |
-|  [05]   | `WebAuthnCredential` / `PublicKeyCredentialHint` / `CredentialDeviceType` / `AttestationFormat`     | domain vocab    |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                                                      |
+| :-----: | :------------------------ | :------------ | :---------------------------------------------------------------- |
+|  [01]   | `StartRegistrationOpts`   | interface     | `optionsJSON` plus the `useAutoRegister` password-manager upgrade |
+|  [02]   | `StartAuthenticationOpts` | interface     | `optionsJSON` plus the two conditional-UI autofill flags          |
+|  [03]   | `WebAuthnError`           | class         | `Error` carrying `code` and the originating `DOMException` cause  |
+|  [04]   | `WebAuthnErrorCode`       | union         | recovery discriminant an exhaustive match folds over              |
+|  [05]   | `PublicKeyCredentialJSON` | union         | both response shapes under one POST handler                       |
 
-[CONSUMER_BOUNDARY] per shape:
-- [01]-[OPTIONS_IN]: input to `startRegistration`/`startAuthentication`; issued by the server generators.
-- [02]-[RESPONSE_OUT]: output POSTed back to `verifyRegistrationResponse`/`verifyAuthenticationResponse`.
-- [03]-[NESTED]: the credential response payloads inside the two response JSONs.
-- [04]-[WIRE_SCALAR]: base64url credential fields; transport hints for the descriptor.
-- [05]-[DOMAIN_VOCAB]: the stored-credential shape and the ceremony hint/format enums.
-
-[PUBLIC_TYPE_SCOPE]: the ceremony option shapes and the error rail
-- rail: authn/webauthn
-- `StartRegistrationOpts`/`StartAuthenticationOpts` are the exact call-option types; `WebAuthnError` is the tagged fault whose `code` (12-arm union) discriminates the failure the raw `DOMException` obscures.
-
-| [INDEX] | [SYMBOL]                                                                                      | [TYPE_FAMILY]      |
-| :-----: | :-------------------------------------------------------------------------------------------- | :----------------- |
-|  [01]   | `StartRegistrationOpts` `{ optionsJSON; useAutoRegister? }`                                   | call option        |
-|  [02]   | `StartAuthenticationOpts` `{ optionsJSON; useBrowserAutofill?; verifyBrowserAutofillInput? }` | call option        |
-|  [03]   | `WebAuthnError` (`extends Error`, `code: WebAuthnErrorCode`, `cause`)                         | tagged fault       |
-|  [04]   | `WebAuthnErrorCode`                                                                           | error discriminant |
-
-[CONSUMER_BOUNDARY] per shape:
-- [01]-[REG_OPTS]: the `startRegistration` argument shape.
-- [02]-[AUTH_OPTS]: the `startAuthentication` argument shape.
-- [03]-[FAULT]: the pre-classified reject value the ceremony `Promise` throws; the `catch` arm of the ceremony `Effect`.
-- [04]-[ERROR_CODE]: `Match` on `.code` → tagged domain fault + user-facing message; the 12-arm union includes `'ERROR_CEREMONY_ABORTED'` \| `'ERROR_INVALID_RP_ID'` \| `'ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED'` \| … .
+[WEBAUTHN_ERROR_CODE]: `ERROR_CEREMONY_ABORTED` `ERROR_INVALID_DOMAIN` `ERROR_INVALID_RP_ID` `ERROR_INVALID_USER_ID_LENGTH` `ERROR_MALFORMED_PUBKEYCREDPARAMS` `ERROR_AUTHENTICATOR_GENERAL_ERROR` `ERROR_AUTHENTICATOR_MISSING_DISCOVERABLE_CREDENTIAL_SUPPORT` `ERROR_AUTHENTICATOR_MISSING_USER_VERIFICATION_SUPPORT` `ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED` `ERROR_AUTHENTICATOR_NO_SUPPORTED_PUBKEYCREDPARAMS_ALG` `ERROR_AUTO_REGISTER_USER_VERIFICATION_FAILURE` `ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY`
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: the two ceremonies — the only stateful calls (object-argument form)
-- rail: authn/webauthn
-- Each takes the server-issued options JSON and returns the response JSON. `useBrowserAutofill` opts into conditional-UI (passkey autofill on a login field); `useAutoRegister` silently upgrades a just-signed-in password to a passkey. Both auto-arm the abort service.
+[ENTRYPOINT_SCOPE]: the two stateful ceremonies and the probes, codecs, and abort guard bounding them
 
-| [INDEX] | [SURFACE]                                                                                 | [ENTRY_FAMILY] |
-| :-----: | :---------------------------------------------------------------------------------------- | :------------- |
-|  [01]   | `startRegistration({ optionsJSON, useAutoRegister? }): Promise<RegistrationResponseJSON>` | register       |
-|  [02]   | `startAuthentication({ optionsJSON, … }): Promise<AuthenticationResponseJSON>`            | authenticate   |
+| [INDEX] | [SURFACE]                                                    | [SHAPE]  | [CAPABILITY]                                     |
+| :-----: | :----------------------------------------------------------- | :------- | :----------------------------------------------- |
+|  [01]   | `startRegistration(StartRegistrationOpts)`                   | static   | attestation ceremony; `RegistrationResponseJSON` |
+|  [02]   | `startAuthentication(StartAuthenticationOpts)`               | static   | assertion ceremony; `AuthenticationResponseJSON` |
+|  [03]   | `browserSupportsWebAuthn() -> boolean`                       | static   | synchronous gate before offering a passkey       |
+|  [04]   | `platformAuthenticatorIsAvailable() -> Promise<boolean>`     | static   | platform-authenticator probe                     |
+|  [05]   | `browserSupportsWebAuthnAutofill() -> Promise<boolean>`      | static   | conditional-UI probe                             |
+|  [06]   | `base64URLStringToBuffer(string) -> ArrayBuffer`             | static   | wire decode for a credential field               |
+|  [07]   | `bufferToBase64URLString(ArrayBuffer) -> string`             | static   | wire encode for a credential field               |
+|  [08]   | `WebAuthnAbortService.createNewAbortSignal() -> AbortSignal` | instance | arms the live-ceremony signal                    |
+|  [09]   | `WebAuthnAbortService.cancelCeremony()`                      | instance | cancels the live ceremony                        |
 
-[CONSUMER_BOUNDARY] per ceremony:
-- [01]-[REGISTER]: attestation ceremony; options from server `generateRegistrationOptions`.
-- [02]-[AUTHENTICATE]: assertion ceremony; options from server `generateAuthenticationOptions`; `useBrowserAutofill`/`verifyBrowserAutofillInput` opt into conditional-UI (full opts shape in the ceremony-options table).
-
-[ENTRYPOINT_SCOPE]: capability probes, codecs, and the ceremony abort guard
-- rail: authn/webauthn
-- The probes gate the ceremony at the `ui` edge (feature-detect before offering passkeys); the codecs bridge `ArrayBuffer`↔`Base64URLString`; the abort service enforces one live ceremony. The DOM-exception→`WebAuthnError` classification is internal to `startRegistration`/`startAuthentication` (the `identify*Error` mappers are not root-exported), so the rejected `Promise` already carries a coded `WebAuthnError`.
-
-| [INDEX] | [SURFACE]                                                                          | [ENTRY_FAMILY]   |
-| :-----: | :--------------------------------------------------------------------------------- | :--------------- |
-|  [01]   | `browserSupportsWebAuthn(): boolean`                                               | capability probe |
-|  [02]   | `platformAuthenticatorIsAvailable(): Promise<boolean>`                             | capability probe |
-|  [03]   | `browserSupportsWebAuthnAutofill(): Promise<boolean>`                              | capability probe |
-|  [04]   | `base64URLStringToBuffer(s): ArrayBuffer` / `bufferToBase64URLString(buf): string` | wire codec       |
-|  [05]   | `WebAuthnAbortService.createNewAbortSignal()` / `.cancelCeremony()`                | ceremony guard   |
-
-[CONSUMER_BOUNDARY] per surface:
-- [01]-[PROBES]: `ui` feature-gate before offering passkey / conditional-UI (rows [01]-[03]).
-- [04]-[CODEC]: `ArrayBuffer`↔base64url for hand-built credential fields.
-- [05]-[GUARD]: single-live-ceremony law; cancel on client-route change.
+- `startRegistration`/`startAuthentication`: two guard paths throw a plain `Error` ahead of classification — an unsupported browser and an incomplete autofill ceremony.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[CEREMONY_TOPOLOGY]:
-- two ceremonies, object argument: `startRegistration`/`startAuthentication` are the only stateful entries; both take a single options object at catalog-bound. Never the pre-12 positional form.
-- one live ceremony: `WebAuthnAbortService` is a singleton — each ceremony auto-arms a fresh `AbortSignal` and a new call cancels the prior. This is the single-ceremony law (kin to the `@effect/platform-browser` one-boot law); a client-router navigation calls `.cancelCeremony()`.
-- the browser never verifies: it invokes the authenticator and returns the response. Attestation/assertion *verification* — challenge match, origin/RP-ID check, signature-counter — is `@simplewebauthn/server` in the node/edge half. The browser half is unforgeable-input collection only.
-- error intuition, not raw throw: `navigator.credentials` rejects with an opaque `DOMException` (`NotAllowedError` covers both user-cancel and timeout). The ceremony entries classify it internally into a `WebAuthnError` with a `WebAuthnErrorCode` and re-throw that, so the rejected `Promise` carries the coded fault — except two plain-`Error` guard throws (`'WebAuthn is not supported in this browser'`, `'…​ was not completed'`) the caller must still handle.
+[TOPOLOGY]:
+- `WebAuthnAbortService` is a module singleton: a ceremony auto-arms a fresh `AbortSignal` and supersedes the prior one, so a client-router navigation calls `.cancelCeremony()`.
+- Browser code collects unforgeable input only; challenge match, origin and RP-ID checks, and signature-counter defense belong to the RP half.
+- Ceremony entries classify the opaque `DOMException` into a `WebAuthnError` before rejecting, so `.code` discriminates recovery where the DOM error name conflates user-cancel with timeout.
 
-[INTEGRATION_LAW]:
-- Stack with `.api/effect.md` rails: `Effect.tryPromise({ try: () => startRegistration({ optionsJSON }), catch: (e) => e instanceof WebAuthnError ? new WebAuthnCeremony({ code: e.code, cause: e }) : new WebAuthnCeremony({ code: "ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY", cause: e }) })` lifts the ceremony and normalizes the pre-classified `WebAuthnError` (and the two plain-`Error` guards) into one `Data.TaggedError("WebAuthnCeremony")`; dispatch recovery with `Match.value(err.code).pipe(Match.when("ERROR_CEREMONY_ABORTED", …), …, Match.exhaustive)`. Gate the whole `Effect` on `browserSupportsWebAuthn()` so an unsupported browser short-circuits to a typed capability fault before the call.
-- Stack with the browser↔server seam (`.api/simplewebauthn-server.md`): the server issues `PublicKeyCredentialCreationOptionsJSON` (with the challenge parked in a short-lived `session` store), the browser runs the ceremony, and the returned `RegistrationResponseJSON` POSTs back to `verifyRegistrationResponse`. A single `Schema.Struct` per JSON shape decodes both the inbound options and the outbound response at the fetch boundary — one owner schema, two crossings, no hand-parsed credential fields.
-- Stack with `@effect/platform-browser` (`.api/effect-platform-browser.md`): the ceremony runs inside the `BrowserRuntime.runMain` boot; the response POST rides the `BrowserHttpClient.layerXMLHttpRequest`/`FetchHttpClient` client with the shared `host/net` retry/timeout policy. Capability probes feed a `BrowserStream.fromEventListener*` connectivity/visibility row so a backgrounded tab defers the conditional-UI prompt.
-- Stack with `@oslojs/encoding` base6 catalogurl (`.api/oslojs-encoding.md`): the browser ships its own `base6 catalogURLStringToBuffer`/`bufferToBase6 catalogURLString` for the `runtime:browser` half (no node-subpath pull); the `sign`-side base6 catalogurl for the server-verified credential public key at rest is the encoding sibling — same alphabet, opposite runtime, no cross-import.
+[STACKING]:
+- `effect`(`.api/effect.md`): `Effect.tryPromise({ try, catch })` lifts each ceremony and the `catch` narrows the pre-coded `WebAuthnError` into one `Data.TaggedError`; `Match.value(err.code)` closed on `Match.exhaustive` folds recovery, and `browserSupportsWebAuthn()` gates the whole `Effect` so an unsupported browser short-circuits to a typed capability fault.
+- `@simplewebauthn/server`(`.api/simplewebauthn-server.md`): `generateRegistrationOptions` output enters `startRegistration`, and the returned `RegistrationResponseJSON` feeds `verifyRegistrationResponse`; one `Schema.Struct` per JSON shape owns both crossings of the fetch seam.
+- `@effect/platform-browser`(`.api/effect-platform-browser.md`): the ceremony runs inside the `BrowserRuntime.runMain` boot, the response POST rides `BrowserHttpClient.layerXMLHttpRequest` under the shared `host/net` retry policy, and a `BrowserStream.fromEventListenerDocument` visibility row defers the conditional-UI prompt on a backgrounded tab.
+- `@oslojs/encoding`(`.api/oslojs-encoding.md`): `bufferToBase64URLString`/`base64URLStringToBuffer` cover the browser-side `Base64URLString` fields, leaving `encodeBase64url`/`decodeBase64url` the `sign/` owner for credential material at rest — one alphabet, two runtimes, no cross-import.
+- `authn/webauthn`: its browser subpath composes probe → ceremony → POST as one `Effect` pipeline, binding the abort service to the client router's navigation stream.
 
 [LOCAL_ADMISSION]:
-- imported only inside the `authn/webauthn` browser-safe subpath; a node/edge rail importing it is the defect the `tests/typescript/_architecture` import audit catches — the node half is `@simplewebauthn/server`.
-- `runtime:browser` purity: banned inside `runtime:node`; the ceremony belongs to a browser composition, its verify counterpart to the server composition.
-- probe before prompt: `browserSupportsWebAuthn()`/`browserSupportsWebAuthnAutofill()` gate the ceremony; never call a ceremony entry without the capability guard.
+- Resolves only inside the browser-safe `authn/webauthn` subpath; a node composition binds `@simplewebauthn/server`.
 
 [RAIL_LAW]:
 - Package: `@simplewebauthn/browser`
-- Owns: the `navigator.credentials` registration/authentication ceremonies, the capability probes, the base64url codecs, the single-ceremony `WebAuthnAbortService`, the internally-classified `WebAuthnError`/`WebAuthnErrorCode` rail, and the browser half of the JSON wire vocabulary
-- Accept: the catalog-bound `{ optionsJSON }` object form, `Effect.tryPromise` catching the pre-thrown `WebAuthnError` (guarding the two plain-`Error` cases), `Match` on `WebAuthnErrorCode`, a `Schema` per JSON shape across the fetch seam, the probes as the ceremony gate, the abort service as the single-ceremony law, verification delegated to `@simplewebauthn/server`
-- Reject: the pre-1 catalog positional `startRegistration` form (a phantom), verifying attestation/assertion in the browser (it is the server half), the raw `DOMException` in the error channel instead of a coded `WebAuthnError`, hand-parsed credential fields instead of the shared JSON schema, calling a ceremony without a capability probe, any import inside `runtime:node`/outside `authn/`
+- Owns: the `navigator.credentials` registration and authentication ceremonies, the capability probes, the credential-field base64url codecs, the single-ceremony `WebAuthnAbortService`, and the `WebAuthnError`/`WebAuthnErrorCode` classification rail
+- Accept: `Effect.tryPromise` over each ceremony, exhaustive `Match` on `WebAuthnErrorCode`, one `Schema` per JSON shape across the fetch seam, a probe as the ceremony gate, verification delegated to `@simplewebauthn/server`
+- Reject: a raw `DOMException` in the error channel, hand-parsed credential fields, attestation or assertion verified in the browser, a ceremony call with no capability probe

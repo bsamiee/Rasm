@@ -1,21 +1,21 @@
 # [TS_DATA_API_EFFECT_SQL_SQLITE_BUN]
 
-`@effect/sql-sqlite-bun` binds the abstract `@effect/sql` `SqlClient` Tag to Bun's native `bun:sqlite` as a `SqliteClient` — the `runtime:node`/bun durability lane that runs the SAME journal and projection statements as the PG spine, selected by `sql.onDialect({ pg, sqlite })`. It has zero native-addon dependencies (the driver is Bun's built-in synchronous SQLite), adds `export` (serialize the whole database to bytes for backup/ship) and `loadExtension(path)` over `SqlClient`, and marks `updateValues: never` — the one `SqlClient` member SQLite drops, and the anchor of the `lane/sqlite` capability-degradation table. Its peer lanes are `@effect/sql-sqlite-node` (the node lane over `better-sqlite catalog`) and `@effect/sql-sqlite-wasm` (the OPFS browser lane); the three share the neutral `SqlClient` contract and the same `lane/sqlite` journal/projection statements, so a lane swap is a Layer selection at the neutral tier — the driver-distinct supersets diverge (node adds online `backup`/`BackupMetadata` and a `prepareCacheSize`/`prepareCacheTTL` cache, wasm adds `import`/`OpfsWorker`/`withTransferables`, and this bun lane adds neither: `bun:sqlite`'s `db.query()` caches statements internally). `SqliteMigrator` ships and is banned — DDL is idempotent declarative ensure, and with no RLS the sqlite tenancy law is file-per-app.
+`@effect/sql-sqlite-bun` binds the neutral `@effect/sql` `SqlClient` (`.api/effect-sql.md`) to Bun's synchronous `bun:sqlite` as a `SqliteClient` — the server durability lane running the PG spine's journal and projection statements, dialect-selected by `sql.onDialect`. It carries no native addon, adds `export` (whole-database `Uint8Array` snapshot) and `loadExtension` over the neutral contract, and marks `updateValues: never` — the one member SQLite drops and the anchor of the `lane/sqlite` degradation table. `SqliteMigrator` ships branch-banned; with no RLS, tenancy is `filename`-per-app.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/sql-sqlite-bun`
 - package: `@effect/sql-sqlite-bun` (MIT)
-- effect-peer: `effect catalog`, `@effect/sql catalog` (the `SqlClient` core this extends; `.api/effect-sql.md`), `@effect/experimental catalog` (`Reactivity` — `make`/`reactive` require it; `.api/effect-experimental.md`), `@effect/platform catalog` (`FileSystem`/`Path`/`CommandExecutor` — `SqliteMigrator` only; `.api/effect-platform.md`)
-- backing: none — `bun:sqlite` is Bun's built-in synchronous SQLite (no npm dependency, no native addon); WAL, FTS5, and JSON1 ship in Bun
-- runtime: `runtime:node`/bun only — imports `bun:sqlite`; the node peer lane is `@effect/sql-sqlite-node`, the browser peer lane `@effect/sql-sqlite-wasm` over OPFS
-- modules: `SqliteClient`, `SqliteMigrator`
+- effect-peer: `effect`, `@effect/sql` (the `SqlClient` core; `.api/effect-sql.md`), `@effect/experimental` (`Reactivity` for `make`/`reactive`; `.api/effect-experimental.md`), `@effect/platform` (`FileSystem`/`Path` for the banned `SqliteMigrator`; `.api/effect-platform.md`)
+- module: ESM + CJS dual (`dist/dts` typings); subpaths `@effect/sql-sqlite-bun/SqliteClient`, `/SqliteMigrator`; `sideEffects: []`
+- runtime: `runtime:node`/bun only — imports `bun:sqlite`, Bun's built-in synchronous SQLite with no npm dependency and no native addon (WAL, FTS5, JSON1 compiled in); the node peer lane is `@effect/sql-sqlite-node`, the browser lane `@effect/sql-sqlite-wasm`
+- rail: the `store` `lane/sqlite` bun dialect — the PG spine's journal/projection contracts under the sqlite capability-degradation table
+- modules: `SqliteClient`, `SqliteMigrator` (banned re-export)
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the `SqliteClient` service and its sqlite-native additions
-- rail: store/lane
-- `SqliteClient extends SqlClient` — `layer` binds both the `SqliteClient` Tag and the `SqlClient` Tag, so `lane/sqlite` rows compose the neutral `SqlClient` and only `export`/`loadExtension` rows reach the `SqliteClient` Tag (this lane has no `backup` member — that is the node lane's better-sqlite3 addition). `updateValues: never` is the degradation seam, not an omission.
+- `SqliteClient extends SqlClient`; `layer` binds both Tags, so a `lane/sqlite` row yields the neutral `SqlClient` and only `export`/`loadExtension` reach the concrete `SqliteClient`. This lane carries no `backup` (the node lane's `better-sqlite3` addition); `updateValues: never` is the degradation seam, not an omission.
 
 | [INDEX] | [SYMBOL]                                                           | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                              |
 | :-----: | :----------------------------------------------------------------- | :-------------- | :----------------------------------------------- |
@@ -26,8 +26,7 @@
 |  [05]   | `SqliteClient.config: SqliteClientConfig`                          | resolved config | `filename`/WAL introspection                     |
 
 [PUBLIC_TYPE_SCOPE]: configuration
-- rail: store/lane
-- `SqliteClientConfig` is a single-connection file config — no pool, no TLS, no timeouts. `filename` keys the file-per-app tenancy; `disableWAL` toggles the concurrency mode; the transforms match the spine so canonical camelCase rows survive a dialect swap.
+- `SqliteClientConfig` is a single-connection file config — no pool, TLS, or timeouts. `filename` keys file-per-app tenancy, `disableWAL` toggles the concurrency mode, and the name transforms match the spine so a dialect swap preserves canonical camelCase rows.
 
 | [INDEX] | [SYMBOL]                                     | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                                      |
 | :-----: | :------------------------------------------- | :------------- | :------------------------------------------------------- |
@@ -37,71 +36,39 @@
 |  [04]   | `transformResultNames`/`transformQueryNames` | name transform | snake_case ⇄ camelCase; match PG spine for `onDialect`   |
 |  [05]   | `spanAttributes`                             | telemetry      | per-query OTel span attributes                           |
 
-[PUBLIC_TYPE_SCOPE]: the inherited `SqlClient` core the sqlite lane composes
-- rail: store/lane
-- Lane runs the same `@effect/sql` contracts (`.api/effect-sql.md`) as the spine; `sql.onDialect` selects the sqlite fragment where syntax diverges. `updateValues` is `never`, so `onDialect` routes bulk updates to a chunked-insert path on this lane. `sql` `Constructor` exposes `in`/`unsafe`/`literal`/`insert`/`update`/`and`/`or`/`csv`/`join` (`updateValues` excluded here); `sqlite` is an `onDialect` arm-KEY, not a `sql.sqlite` method.
-
-| [INDEX] | [SYMBOL]                                                       | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                                   |
-| :-----: | :------------------------------------------------------------- | :------------- | :---------------------------------------------------- |
-|  [01]   | `SqlClient.withTransaction(effect)`                            | transaction    | `journal/append` OCC + outbox atomic commit           |
-|  [02]   | `SqlClient.reserve: Effect<Connection, SqlError, Scope>`       | dedicated conn | pinned-connection work; single-connection, serializes |
-|  [03]   | `SqlClient.reactive(keys, effect): Stream` / `reactiveMailbox` | reactive read  | `lane` read-your-writes via in-process `Reactivity`   |
-|  [04]   | `Statement` `sql` `Constructor`                                | statement      | shared journal/projection statements                  |
-|  [05]   | `sql.onDialect({ sqlite, pg, mysql, mssql, clickhouse })`      | dialect switch | select sqlite fragment; cross-lane portability        |
-|  [06]   | `sql.onDialectOrElse({ orElse, sqlite? })`                     | dialect switch | default arm plus an optional `sqlite` override        |
-|  [07]   | `SqlSchema.findAll`/`findOne`/`single`                         | result decode  | typed row decode, identical to the spine              |
-|  [08]   | `SqlResolver.ordered`/`grouped`/`findById`                     | batch resolver | N+1-free batched reads, identical to the spine        |
-|  [09]   | `Model.makeRepository`/`makeDataLoaders`                       | table model    | typed tables over a lane table                        |
-|  [10]   | `SqlStream.asyncPauseResume` / `SqlError`                      | stream/fault   | streamed cursors; the one tagged SQL error rail       |
-
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: constructing the lane Layer
-- rail: store/lane
-- `layer` binds both Tags from a fixed config; `layerConfig` resolves `filename`/mode from `Config`. All bind `SqliteClient \| SqlClient` in one Layer (error `ConfigError`); `make` returns `Effect<SqliteClient, never, Scope \| Reactivity>` (open failures surface later as `SqlError` at query time), scoped to close the database on release.
+[ENTRYPOINT_SCOPE]: constructing the lane and its two native operations
+- `layer` binds both Tags from a fixed config and `layerConfig` resolves `filename`/mode from `Config`, each yielding `SqliteClient | SqlClient` in one `Layer` (`ConfigError`); `make` returns `Effect<SqliteClient, never, Scope | Reactivity>`, scoped to close the database on release. `export` and `loadExtension` are the two lane-native operations; every journal/projection statement is the spine's, routed through `sql.onDialect` where SQLite syntax differs.
 
 | [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                               |
 | :-----: | :------------------------------------------------------------------ | :------------- | :------------------------------------------------ |
 |  [01]   | `SqliteClient.layer(config: SqliteClientConfig)`                    | lane layer     | `lane/sqlite` app-root row (fixed `filename`)     |
 |  [02]   | `SqliteClient.layerConfig(config: Config.Wrap<SqliteClientConfig>)` | lane layer     | `host/config` file/mode resolution; standing row  |
 |  [03]   | `SqliteClient.make(config)`                                         | scoped make    | scoped construction inside a larger acquire graph |
-
-[ENTRYPOINT_SCOPE]: the sqlite lane patterns — same contracts, degraded capabilities
-- rail: store/lane
-- Every journal/projection statement is the spine's, routed through `onDialect` where SQLite syntax differs. Snapshot `export` and `loadExtension` are the two lane-native operations.
-
-| [INDEX] | [SURFACE]                                                        | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                 |
-| :-----: | :--------------------------------------------------------------- | :------------- | :-------------------------------------------------- |
-|  [01]   | `sql.onDialect({ pg, sqlite })`                                  | idempotency    | pg `(xmax = 0)` vs sqlite `changes()`; outbox claim |
-|  [02]   | `sql.onDialect({ pg: bulkUpdateValues, sqlite: chunkedInsert })` | updateValues   | route the `never` member to chunked-insert          |
-|  [03]   | `client.export` → `Uint8Array` → content-addressed snapshot      | backup         | `journal/retain` ship/restore; `":memory:"` dump    |
-|  [04]   | `client.loadExtension(vecPath)`                                  | vector index   | `retrieve/index` `vec0` virtual table               |
-|  [05]   | `client.reactive(keys, query): Stream`                           | reactive read  | `lane` read-your-writes; in-process `Reactivity`    |
+|  [04]   | `client.export` → `Uint8Array`                                      | snapshot       | `journal/retain` ship/restore; `":memory:"` dump  |
+|  [05]   | `client.loadExtension(vecPath)`                                     | extension      | `retrieve/index` `vec0` virtual table             |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SQLITE_LANE_TOPOLOGY]:
-- `SqliteClient` IS a `SqlClient`: `layer*` binds `SqliteClient | SqlClient`, so `lane/sqlite` rows compose the neutral `SqlClient` Tag and share the journal/projection statements with the PG spine. `sql.onDialect({ pg, sqlite })` is the seam — one statement, two dialect fragments, selected at compile of the fragment.
-- `updateValues: never` is the degradation anchor: the one `SqlClient` member SQLite cannot express. `onDialect` routes bulk updates to a chunked-insert path on this lane; the `lane/sqlite` table enumerates the rest as DATA — no RLS → file-per-app tenancy, no `pg_ivm` → in-process projection folds, no LISTEN/NOTIFY → in-process `Reactivity` wake, no COPY → chunked inserts, no advisory locks → the single-writer file.
-- single connection, WAL for concurrency: SQLite has no pool — `bun:sqlite` is one synchronous handle. WAL (`disableWAL: false`) admits concurrent readers with one writer; `reserve` serializes a pinned-connection unit of work. Tenancy is `filename`-per-app, not a connection fork.
-- `export` is the backup/ship primitive: serialize the whole database to bytes for a content-addressed snapshot or a `":memory:"` spec dump — the sqlite analogue of a `pg_dump`, as one `Effect`.
-- Bun-native, no addon: the driver is `bun:sqlite`, so the lane carries no native-build step and needs no prepare-cache knob — `db.query()` caches statements internally, where the `@effect/sql-sqlite-node` peer binds `better-sqlite3` (native N-API) with an explicit `prepareCacheSize`/`prepareCacheTTL`. Both share the neutral `SqlClient` contract and the `lane/sqlite` statements, so a lane swap is a Layer selection.
+- `SqliteClient` IS a `SqlClient`: `layer*` binds `SqliteClient | SqlClient`, so `lane/sqlite` rows compose the neutral Tag and share the PG spine's journal/projection statements. `sql.onDialect({ pg, sqlite })` is the seam — one statement, two dialect fragments, selected at compile of the fragment.
+- `updateValues: never` is the degradation anchor, the one `SqlClient` member SQLite cannot express; `onDialect` routes bulk updates to a chunked-insert path, and the `lane/sqlite` degradation table owns every remaining PG-vs-sqlite divergence as data.
+- Single synchronous handle, no addon: `bun:sqlite` is one connection with no pool and no native build; WAL admits concurrent readers under one writer, `reserve` serializes a pinned unit of work, and `db.query()` caches statements internally — no prepare-cache knob, where the `@effect/sql-sqlite-node` peer binds `better-sqlite3` with an explicit cache. Tenancy is `filename`-per-app, not a connection fork.
 
 [INTEGRATION_LAW]:
-- Stack with `@effect/sql` core (`.api/effect-sql.md`): the lane runs the same `SqlSchema` decoders, `SqlResolver` batchers, `Model` repositories, and `SqlStream` cursors as the spine; only `sql.onDialect` fragments and the `updateValues` degradation differ — stacked onto the core, never re-implemented.
-- Stack with `@effect/sql-sqlite-node` / `@effect/sql-sqlite-wasm` (`.api/effect-sql-sqlite-node.md`, `-wasm`): the three sqlite lanes share the neutral `SqlClient` contract and the `lane/sqlite` statements, so a lane is a Layer row under one contract. Driver-distinct supersets diverge: node adds online `backup`/`BackupMetadata`, wasm adds `import`/`OpfsWorker`/`withTransferables`, this lane adds only the `create`/`readwrite` open-mode flags; `wasm` swaps `filename` for an OPFS worker handle.
-- Stack with `@effect/sql-pg` (`.api/effect-sql-pg.md`): the PG spine is the reference contract; this lane is its degraded mirror. `sql.onDialect` keeps one journal/projection statement across both, and the capability-degradation table is the map of what routes differently.
-- Stack with `@effect/experimental` (`.api/effect-experimental.md`): `make`/`reactive` require `Reactivity`; the sqlite lane's read-your-writes signal is in-process `Reactivity.invalidate` (no LISTEN/NOTIFY channel). `@effect/platform-bun` `BunContext` supplies the `FileSystem`/`Path` the banned `SqliteMigrator` does need.
-- Stack with `@effect/opentelemetry`: every statement auto-spans with `spanAttributes`; the exporter Layer under the graph ships them with no per-query wiring.
+- Stack with `@effect/sql` (`.api/effect-sql.md`): the lane runs the spine's `SqlSchema` decoders, `SqlResolver` batchers, `Model` repositories, and `SqlStream` cursors unchanged — only the `sql.onDialect` fragments and the `updateValues` degradation differ.
+- Stack with `@effect/sql-sqlite-node`/`-wasm` (`.api/effect-sql-sqlite-node.md`): the three sqlite lanes share the neutral `SqlClient` and the `lane/sqlite` statements, so a lane is a `Layer` row under one contract; the driver-distinct supersets diverge — node adds `backup`/`BackupMetadata`, wasm adds `import`/`OpfsWorker`/`withTransferables`, this lane adds only the `create`/`readwrite` open-mode flags.
+- Stack with `@effect/sql-pg` (`.api/effect-sql-pg.md`): the PG spine is the reference contract and this lane its degraded mirror; `sql.onDialect` holds one journal/projection statement across both, and the degradation table maps what routes differently.
+- Stack with `@effect/experimental` (`.api/effect-experimental.md`): `make`/`reactive` require `Reactivity`, so read-your-writes rides in-process `Reactivity.invalidate`; `@effect/platform-bun` `BunContext` supplies the `FileSystem`/`Path` the banned `SqliteMigrator` requires.
 
 [LOCAL_ADMISSION]:
-- compose the neutral `SqlClient` Tag in lane rows; reach for the `SqliteClient` Tag only for `export`/`loadExtension`. Journal/projection statements are shared with the spine via `sql.onDialect`, never re-authored per lane.
-- express the `updateValues` degradation through `sql.onDialect`, never a lane-only helper; the degradation table is the parameterized owner of every PG-vs-sqlite divergence.
-- `SqliteMigrator` (`run`/`layer`) is banned branch-wide with `PgMigrator`: DDL is idempotent declarative ensure, and with no RLS the sqlite tenancy law is file-per-app.
-- `filename` and open mode are `Config`/tenancy facts, never literals in a row; keep the name transforms identical to the spine so a dialect swap is transparent.
+- Yield the neutral `SqlClient` in every row and reach for the concrete `SqliteClient` only for `export`/`loadExtension`; express the `updateValues` degradation and every PG-vs-sqlite divergence through `sql.onDialect`, never a lane-only helper or a re-authored statement.
+- `SqliteMigrator` (`run`/`layer`) is banned branch-wide with `PgMigrator`: DDL is idempotent declarative ensure, and with no RLS the tenancy law is `filename`-per-app.
+- Source `filename` and open mode from `Config`, never a row literal, and keep the name transforms identical to the spine so a dialect swap stays transparent.
 
 [RAIL_LAW]:
 - Package: `@effect/sql-sqlite-bun`
-- Owns: the `bun:sqlite` binding of `SqlClient` to a `SqliteClient`, the `export` whole-db serialize, `loadExtension`, the `updateValues: never` degradation anchor, and `layer`/`layerConfig`/`make` construction
-- Accept: `SqliteClient` as a `SqlClient` provider, journal/projection statements shared with the PG spine through `sql.onDialect`, the capability-degradation table as DATA, in-process `Reactivity` for read-your-writes, `export` as the backup primitive, `filename`-per-app tenancy, `spanAttributes` auto-spanned
-- Reject: a `SqliteClient`-typed row that is `SqlClient`, a lane-only re-authoring of a shared statement, `updateValues` faked outside `onDialect`, `SqliteMigrator` or any runtime schema mutation, a pool or RLS assumption on a single-connection file lane, hardcoded `filename`/mode
+- Owns: the `bun:sqlite` binding of `SqlClient` to a `SqliteClient`, the whole-database `export`, `loadExtension`, the `updateValues: never` degradation anchor, and `layer`/`layerConfig`/`make` construction
+- Accept: `SqliteClient` as a `SqlClient` provider, journal/projection statements shared with the PG spine through `sql.onDialect`, the degradation table as data, in-process `Reactivity` for read-your-writes, `export` as the backup primitive, `filename`-per-app tenancy, `spanAttributes` auto-spanned
+- Reject: a `SqliteClient`-typed row that should be `SqlClient`, a lane-only re-authoring of a shared statement, `updateValues` faked outside `onDialect`, `SqliteMigrator` or any runtime schema mutation, a pool or RLS assumption on a single-connection file lane, a hardcoded `filename`/mode

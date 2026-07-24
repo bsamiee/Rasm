@@ -1,21 +1,18 @@
 # [TS_RUNTIME_API_NATS_IO_JETSTREAM]
 
-`@nats-io/jetstream` layers NATS JetStream over a `@nats-io/nats-core` connection: `jetstreamManager(nc)` administers streams (subjects, retention `max_age`, `duplicate_window`, storage, replicas) and `jetstream(nc)` is the client — `publish` with `msgID` dedup identity and `expect` optimistic-concurrency arms returning a `PubAck` whose `duplicate` flag is idempotency evidence, and `consumers.get(stream, nameOrOptions?)` minting ordered or durable consumers whose `consume()`/`fetch()`/`next()` deliver `JsMsg` values carrying the full ack algebra — `ack()`, `ackAck()` (the double-ack that confirms the acknowledgement itself), `nak(millis?)` redelivery, `term(reason?)` poison rejection. Replay is anchored: `DeliverPolicy` start rows (`opt_start_seq`, `opt_start_time`) re-read a bounded window by sequence or instant. This is the fanout/replay ENGINE row of `net/pubsub` — at-least-once with server-clocked redelivery, exactly-once publish inside the dedup window — and never the system of record: retention bounds every stream, and full history is the data journal's.
+`@nats-io/jetstream` layers JetStream over a `@nats-io/nats-core` connection: `jetstreamManager` administers streams, `jetstream` mints the client whose `publish` arms `msgID` dedup and `expect` optimistic concurrency, whose consumers deliver `JsMsg` values carrying the full ack algebra, and whose `DeliverPolicy` anchors bounded replay. It is the fanout/replay engine of `net/pubsub` — at-least-once with server-clocked redelivery, exactly-once publish inside the dedup window — never the system of record: retention bounds every stream, and the data journal owns full history.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@nats-io/jetstream`
 - package: `@nats-io/jetstream` (Apache-2.0)
-- module format: ESM + CJS dual; catalog-bound modular sibling of `@nats-io/nats-core`
-- runtime target: wherever the core connection runs — node, bun, browser over websockets
-- peer: `@nats-io/nats-core` (the `NatsConnection` input)
-- server caveat: JetStream file-store fsync defaults to a 2-minute interval — committed-write loss under coordinated power failure is the documented risk; the deploy plane hardens `sync_interval` and replica quorum, and the engine row never carries system-of-record data
-- rail: fanout/replay engine (`net/pubsub#JETSTREAM_ROW`)
+- module: ESM + CJS dual; modular sibling of `@nats-io/nats-core`
+- runtime: node, bun, or browser-over-websockets, wherever the core connection runs; peer `@nats-io/nats-core` supplies the `NatsConnection`
+- rail: fanout/replay engine row of `net/pubsub`
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: streams, consumers, messages; the `StreamConfig`/`ConsumerConfig` field rosters are keyed below the table
-- rail: boundaries
+[PUBLIC_TYPE_SCOPE]: streams, consumers, messages
 
 | [INDEX] | [SYMBOL]           | [TYPE_FAMILY]  | [CONSUMER]                                                                               |
 | :-----: | :----------------- | :------------- | :--------------------------------------------------------------------------------------- |
@@ -30,13 +27,12 @@
 |  [09]   | `AckPolicy`        | ack rows       | `None`/`All`/`Explicit`; `Explicit` durable, ordered consumers fixed to `None`           |
 |  [10]   | `ReplayPolicy`     | replay pacing  | `Instant`/`Original`; original-timing replay is a growth row on the ordered lane         |
 
-- [03]-[STREAMCONFIG]: `name`, `subjects`, `max_age`, `duplicate_window`, `retention`, `storage`, `num_replicas`.
-- [04]-[CONSUMERCONFIG]: `ack_policy`, `deliver_policy`, `durable_name`, `opt_start_seq`, `opt_start_time`, `replay_policy`, `idle_heartbeat`, `flow_control`.
+[STREAMCONFIG]: `name` `subjects` `max_age` `duplicate_window` `retention` `storage` `num_replicas`
+[CONSUMERCONFIG]: `ack_policy` `deliver_policy` `durable_name` `opt_start_seq` `opt_start_time` `replay_policy` `idle_heartbeat` `flow_control`
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: publish, consume, administer; the `js.publish` options shape is keyed below the table
-- rail: boundaries
+[ENTRYPOINT_SCOPE]: publish, consume, administer
 
 | [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [CONSUMER]                                                          |
 | :-----: | :---------------------------------------------- | :------------- | :------------------------------------------------------------------ |
@@ -51,25 +47,26 @@
 |  [09]   | `msg.nak(millis?)` / `msg.working()`            | redelivery     | redelivery request; `working()` heartbeats ack-wait                 |
 |  [10]   | `msg.term(reason?)`                             | poison         | terminal reject for unprocessable poison                            |
 
-- [02]-[PUBLISH_OPTS]: `{ msgID, expect?: { lastMsgID, lastSequence, lastSubjectSequence, lastSubjectSequenceSubject, streamName } }` — `lastSubjectSequenceSubject` redirects the `lastSubjectSequence` constraint onto an alternative (wildcardable) subject; the typed `lastSubjectSequenceValue` member maps to no publish header and is dead surface.
+[PUBLISH_OPTS]: `{ msgID, expect?: { lastMsgID, lastSequence, lastSubjectSequence, lastSubjectSequenceSubject, streamName } }` — `expect` arms optimistic concurrency; `lastSubjectSequenceSubject` redirects the `lastSubjectSequence` constraint onto a wildcardable subject.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[STACKS_WITH]:
-- `@nats-io/nats-core` (`.api/nats-io-nats-core.md`): the connection and the `Nats-Msg-Id` header carriage; the `msgID` publish option writes the same header the consumer reads back as identity.
-- `effect` (`.api/effect.md`): every promise member converts through `Effect.tryPromise` at the engine seam; `ConsumerMessages` lifts through `Stream.fromAsyncIterable` under `Effect.acquireRelease` whose release is `close()`; ack members are sync-void except `ackAck()`, which awaits server confirmation as `Effect.promise`.
-- `core/value/contentKey` + `core/value/clock`: the publish `msgID` is content-derived — the kernel mint or the `Hlc` stamp — so dedup identity is cross-language by construction.
-- data journal: the stream is a bounded window; a projection rebuilt from fanout instead of the journal is the named defect.
+[STACKING]:
+- `@nats-io/nats-core` (`.api/nats-io-nats-core.md`): the connection and `Nats-Msg-Id` carriage — the `msgID` publish option writes the header the consumer reads back as identity.
+- `effect` (`.api/effect.md`): every promise member converts through `Effect.tryPromise`; `ConsumerMessages` lifts through `Stream.fromAsyncIterable` under `Effect.acquireRelease` releasing `close()`; ack members are sync-void except `ackAck()`, awaited as `Effect.promise`.
+- `core/value/contentKey` + `core/value/clock`: the publish `msgID` is content-derived — kernel mint or `Hlc` stamp — so dedup identity is cross-language by construction.
+- data journal: the stream is a bounded window; the journal owns full history.
 
 [LOCAL_ADMISSION]:
-- Ensure streams at engine Layer build from the topic rows; stream shape never lives beside a call site.
-- Publish always carries `msgID`; a keyless publish forfeits the dedup guarantee row silently and is rejected.
-- Ack after handler success only; a pre-ack consume lane converts at-least-once into at-most-once and is the named defect; `nak` on handler failure, `working()` heartbeats a handler outliving half its `ack_wait`, `term` only for poison the handler proves unprocessable.
-- Ordered consumers cannot ack — a nameless `consumers.get(stream, options)` mint is fixed to `AckPolicy.None`, so every ack member on its messages is a no-op; at-least-once consumption declares a durable through `jsm.consumers.add` with `AckPolicy.Explicit` and binds it by name — the two lanes never share a mint.
-- Anchored replay validates against retention — an anchor beyond `max_age` answers the typed horizon fault, never an empty stream read as success.
+- Ensure streams at engine Layer build from topic rows; stream shape never lives beside a call site.
+- Every publish carries a content-derived `msgID`; a keyless publish forfeits dedup and is rejected.
+- Ack after handler success; `nak` on failure, `working()` heartbeats a handler outliving half its `ack_wait`, `term` only for poison the handler proves unprocessable.
+- Ordered and durable consumers never share a mint: a nameless `consumers.get(stream, options)` is fixed to `AckPolicy.None` and its every ack member is a no-op, while at-least-once consumption declares a durable through `jsm.consumers.add` with `AckPolicy.Explicit` and binds it by name.
+- Anchored replay validates against retention; an anchor beyond `max_age` answers the typed horizon fault, never an empty read reported as success.
+- Server durability deploys rather than assumes: file-store fsync defaults to a 2-minute interval, so the engine row holds no system-of-record data and the deploy plane owns `sync_interval` and replica quorum.
 
 [RAIL_LAW]:
 - Package: `@nats-io/jetstream`
 - Owns: stream administration, dedup-windowed publish with OCC arms, ordered/durable consumers with anchored starts, the `JsMsg` ack algebra, bounded replay
 - Accept: Layer-build stream ensure, content-derived `msgID` on every publish, ack-after-success with row-selected `ackAck`, `Stream.fromAsyncIterable` over a scoped `consume()`
-- Reject: keyless publishes, pre-ack consumption, the stream as system of record, hand pull loops beside the lifted iterator, server durability posture assumed instead of deployed
+- Reject: keyless publishes, pre-ack consumption, the stream as system of record, hand pull loops beside the lifted iterator

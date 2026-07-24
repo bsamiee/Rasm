@@ -176,5 +176,3 @@ Each concrete exporter adds its assembly-backend traits: `HTMLExporter` inlines/
 - Owns: export-target resolution, the `Exporter`/`TemplateExporter` class family, and notebook-to-PDF/HTML/LaTeX/Markdown/RST/AsciiDoc/slides/script conversion with its `(output, resources)` contract
 - Accept: notebook-node export feeding the report, document, and visuals owners
 - Reject: wrapper-renames of `get_exporter`/`export`/`from_notebook_node`; CLI subprocess conversion; per-format render functions; hand-rolled Jinja, LaTeX, Chromium, or cell-stripping pipelines; per-config exporter subclasses; inline blocking render; loose trait kwargs outside `ExportPolicy.exporter_kwargs()`; escaping registry faults; export-name output routing; and the `notebook` round-trip target owned by `jupytext.writes`
-</content>
-</invoke>

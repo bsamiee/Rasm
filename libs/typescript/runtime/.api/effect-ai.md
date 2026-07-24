@@ -1,24 +1,26 @@
 # [TS_RUNTIME_API_EFFECT_AI]
 
-`@effect/ai` mints the provider-agnostic core every `model/*`, `embed/*`, `tool/*`, and `agent/*` page composes: it defines the `LanguageModel`/`EmbeddingModel`/`Tokenizer`/`Chat`/`IdGenerator` service Tags, the `Prompt`/`Response` part algebras, `Tool`/`Toolkit` as `Schema`-typed data, GenAI OpenTelemetry conventions, and — natively — the MCP server (`McpServer`/`McpSchema`). Provider packages never subclass these: each resolves a provider-tagged `Model` (`Model.make(name, layer)`) into these Tags, so a provider is one row on the capability-asymmetry table, never a fork. All generation rides `Effect`/`Stream`; all failure flows through the tagged `AiError` union; every tool-augmented call type-infers its added errors and context from the toolkit (`ExtractError`/`ExtractContext`). `ai/model.ts` wraps `generateText`/`streamText` in the guardrail gate; `ai/agent.ts` composes `Chat.Persistence`; `ai/tool.ts` hosts on `McpServer`.
+`@effect/ai` mints the provider-agnostic LLM core — service tags, the `Prompt`/`Response` part algebras, `Tool`/`Toolkit` as `Schema`-typed data, GenAI OpenTelemetry conventions, and the native MCP server.
+
+Every provider resolves a `Model.make` row into these tags, so provider choice is one composition-root layer swap.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/ai`
 - package: `@effect/ai` (MIT)
-- entry: `@effect/ai` re-exports namespaces `AiError`, `Chat`, `EmbeddingModel`, `IdGenerator`, `LanguageModel`, `McpSchema`, `McpServer`, `Model`, `Prompt`, `Response`, `Telemetry`, `Tokenizer`, `Tool`, `Toolkit`
-- peer floor: `effect ^catalog`, `@effect/platform ^catalog`, `@effect/experimental ^catalog`, `@effect/rpc ^catalog` (MCP transport)
-- asset: provider-agnostic LLM service Tags, prompt/response/tool data algebra, stateful chat, embeddings, tokenizer, GenAI OTel conventions, native MCP server
+- module: per-namespace subpath exports (`@effect/ai/LanguageModel`), `sideEffects:[]`
+- runtime: node|browser; peers `effect`, `@effect/platform`, `@effect/experimental`, `@effect/rpc`
+- asset: provider-agnostic LLM service tags, prompt/response/tool data algebra, stateful chat, embeddings, tokenizer, GenAI OTel conventions, native MCP server
 - rail: ai-core
 
 ## [02]-[LANGUAGE_MODEL]
 
-[PUBLIC_TYPE_SCOPE]: generation contract + free functions — rail: ai-core
+[PUBLIC_TYPE_SCOPE]: generation contract and the free functions binding it
 
 | [INDEX] | [SYMBOL]                                    | [FAMILY]         | [CAPABILITY]                             |
 | :-----: | :------------------------------------------ | :--------------- | :--------------------------------------- |
 |  [01]   | `LanguageModel.LanguageModel`               | `Context.Tag`    | service tag `"@effect/ai/LanguageModel"` |
-|  [02]   | `LanguageModel.generateText`                | function         | text generation (adds Tag to `R`)        |
+|  [02]   | `LanguageModel.generateText`                | function         | text generation (adds tag to `R`)        |
 |  [03]   | `LanguageModel.generateObject`              | function         | `Schema`-shaped structured output        |
 |  [04]   | `LanguageModel.streamText`                  | function         | streaming `Response.StreamPart` fold     |
 |  [05]   | `LanguageModel.make`                        | constructor      | build `Service` from provider params     |
@@ -29,49 +31,48 @@
 |  [10]   | `LanguageModel.ConstructorParams`           | interface        | provider implementation seam             |
 |  [11]   | `LanguageModel.ExtractError/ExtractContext` | conditional type | toolkit error/context inference          |
 
-[GENERATE_TEXT_OPTIONS]: `GenerateTextOptions.prompt: Prompt.RawInput` `GenerateTextOptions.toolkit: Toolkit.WithHandler<Tools>|Effect.Effect<Toolkit.WithHandler<Tools>,any,any>` `GenerateTextOptions.toolChoice: ToolChoice<{[N in keyof Tools]:Tools[N]["name"]}[keyof Tools]>` `GenerateTextOptions.concurrency: Concurrency` `GenerateTextOptions.disableToolCallResolution: boolean`
-[GENERATE_OBJECT_OPTIONS]: `GenerateObjectOptions.objectName: string` `GenerateObjectOptions.schema: Schema.Schema<A,I,R>`
-[TOOL_CHOICE]: `ToolChoice = |"auto"|"none"|"required"|{readonly tool:Tools}|{readonly mode?:"auto"|"required";readonly oneOf:ReadonlyArray<Tools>}`
-[GENERATE_TEXT_RESPONSE]: `GenerateTextResponse.content: Array<Response.Part<Tools>>` `GenerateTextResponse.text: string` `GenerateTextResponse.reasoning: Array<Response.ReasoningPart>` `GenerateTextResponse.reasoningText: string|undefined` `GenerateTextResponse.toolCalls: Array<Response.ToolCallParts<Tools>>` `GenerateTextResponse.toolResults: Array<Response.ToolResultParts<Tools>>` `GenerateTextResponse.finishReason: Response.FinishReason` `GenerateTextResponse.usage: Response.Usage`
-[GENERATE_OBJECT_RESPONSE]: `GenerateObjectResponse.value: A`
-[PROVIDER_OPTIONS]: `ProviderOptions.prompt: Prompt.Prompt` `ProviderOptions.tools: ReadonlyArray<Tool.Any>` `ProviderOptions.responseFormat: {readonly type:"text"}|{readonly type:"json";readonly objectName:string;readonly schema:Schema.Schema.Any}` `ProviderOptions.toolChoice: ToolChoice<any>` `ProviderOptions.span: Span`
-[CONSTRUCTOR_PARAMS]: `ConstructorParams.generateText: (o:ProviderOptions)=>Effect.Effect<Array<Response.PartEncoded>,AiError.AiError,IdGenerator>` `ConstructorParams.streamText: (o:ProviderOptions)=>Stream.Stream<Response.StreamPartEncoded,AiError.AiError,IdGenerator>`
-[SURFACES]: `generateText(Options&GenerateTextOptions<Tools>) -> Effect.Effect<GenerateTextResponse<Tools>,ExtractError<Options>,LanguageModel|ExtractContext<Options>>` `generateObject(Options&GenerateObjectOptions<Tools,A,I,R>) -> Effect.Effect<GenerateObjectResponse<Tools,A>,ExtractError<Options>,LanguageModel|R|ExtractContext<Options>>` `streamText(Options&GenerateTextOptions<Tools>) -> Stream.Stream<Response.StreamPart<Tools>,ExtractError<Options>,LanguageModel|ExtractContext<Options>>` `make(ConstructorParams) -> Effect.Effect<Service>`
+[GENERATE_TEXT_OPTIONS]: `prompt: Prompt.RawInput` `toolkit: Toolkit.WithHandler<Tools> | Effect.Effect<…>` `toolChoice: ToolChoice<Tools>` `concurrency: Concurrency` `disableToolCallResolution: boolean`
+[GENERATE_OBJECT_OPTIONS]: `objectName: string` `schema: Schema.Schema<A,I,R>`
+[TOOL_CHOICE]: `ToolChoice = "auto" | "none" | "required" | {tool} | {mode?:"auto"|"required"; oneOf}`
+[GENERATE_TEXT_RESPONSE]: `content: Array<Response.Part<Tools>>` `text: string` `reasoning: Array<Response.ReasoningPart>` `reasoningText?: string` `toolCalls: Array<Response.ToolCallParts<Tools>>` `toolResults: Array<Response.ToolResultParts<Tools>>` `finishReason: Response.FinishReason` `usage: Response.Usage` (`GenerateObjectResponse` extends it with `value: A`)
+[PROVIDER_OPTIONS]: `prompt: Prompt.Prompt` `tools: ReadonlyArray<Tool.Any>` `responseFormat: {type:"text"} | {type:"json"; objectName; schema}` `toolChoice: ToolChoice<any>` `span: Span`
+[CONSTRUCTOR_PARAMS]: `generateText: (ProviderOptions) => Effect<Array<Response.PartEncoded>, AiError, IdGenerator>` `streamText: (ProviderOptions) => Stream<Response.StreamPartEncoded, AiError, IdGenerator>`
+[SURFACES]: `generateText(GenerateTextOptions) -> Effect<GenerateTextResponse, ExtractError, LanguageModel|ExtractContext>` `generateObject(GenerateObjectOptions) -> Effect<GenerateObjectResponse, ExtractError, LanguageModel|R|ExtractContext>` `streamText(GenerateTextOptions) -> Stream<Response.StreamPart, ExtractError, LanguageModel|ExtractContext>` `make(ConstructorParams) -> Effect<Service>`
 
 ## [03]-[MODEL]
 
-[PUBLIC_TYPE_SCOPE]: the capability-asymmetry row abstraction — rail: ai-core
+[PUBLIC_TYPE_SCOPE]: the capability-asymmetry row abstraction
 
-`Model.make(name, layer)` is the provider row: a value that is BOTH a `Layer` (provide it to bind the Tags) AND an `Effect` (yield it to lift the provider's dependencies into a parent). It auto-binds `ProviderName`, so the guardrail/tier-routing folds read the active provider by yielding one Tag. `ai/model.ts` folds every provider (anthropic/openai/google/bedrock/openrouter) onto this one constructor — asymmetry lives in the row's config, never in a parallel API.
+`Model.make(name, layer)` returns a value that is BOTH a `Layer` (provide it to bind the tags) AND an `Effect` (yield it to lift the provider's dependencies into a parent); it auto-binds `ProviderName`, so a tier-routing fold reads the active provider by yielding one tag. Asymmetry lives in the row's config, never a parallel API.
 
-[MODEL]: `Model.provider: Provider`
-[SURFACES]: `TypeId = "~@effect/ai/Model"` `make(Provider,Layer.Layer<Provides,never,Requires>) -> Model<Provider,Provides,Requires>`
+[MODEL]: `provider: Provider`
+[SURFACES]: `TypeId = "~@effect/ai/Model"` `make(Provider, Layer.Layer<Provides,never,Requires>) -> Model<Provider,Provides,Requires>`
 
-[PROVIDER_ROWS]: the five sibling catalogs this table owner folds — each resolves `model(...)`/`layer(...)` into the core `LanguageModel.LanguageModel` (plus `EmbeddingModel`/`Tokenizer` where the asymmetry column is populated), so provider choice is a single composition-root layer swap. That row grammar (Client `make`/`layer`/`layerConfig` with `Redacted` key + `HttpClient` requirement, per-request `Config` + `withConfigOverride`, the `<Provider>LanguageModel.model`/`.layer` entry — `.modelWithTokenizer` where the row carries a Tokenizer — returning `AiModel.Model<provider,…>`) is uniform across all five; the asymmetry lives in the row config, catalogued per page.
+[PROVIDER_ROWS]: each sibling catalog resolves its `model(...)`/`layer(...)` into the core `LanguageModel` tag, and `EmbeddingModel`/`Tokenizer` where the asymmetry column populates. Every row shares one grammar — a Client `make`/`layer`/`layerConfig` binding a `Redacted` key and requiring `HttpClient`, a per-request `Config` with `withConfigOverride`, and a `<Provider>LanguageModel.model`/`.layer` (`.modelWithTokenizer` where the row carries a tokenizer) returning `Model<provider,…>`, the asymmetry catalogued per page.
 
 | [INDEX] | [PROVIDER]      | [CATALOG]                     | [EXTRA_ASYMMETRY]                                                      |
 | :-----: | :-------------- | :---------------------------- | :--------------------------------------------------------------------- |
 |  [01]   | OpenAI          | `effect-ai-openai.md`         | embeddings ×2 + `OpenAiTokenizer` + `OpenAiTelemetry`                  |
-|  [02]   | Anthropic       | `effect-ai-anthropic.md`      | `AnthropicTokenizer` Layer + `prepareTools` export                     |
+|  [02]   | Anthropic       | `effect-ai-anthropic.md`      | `AnthropicTokenizer` layer + `prepareTools` export                     |
 |  [03]   | Google (Gemini) | `effect-ai-google.md`         | raw-client embeddings/token-count only                                 |
 |  [04]   | Amazon Bedrock  | `effect-ai-amazon-bedrock.md` | SigV4 creds + native guardrail assessment + Anthropic-on-Bedrock tools |
 |  [05]   | OpenRouter      | `effect-ai-openrouter.md`     | aggregator provider-routing + per-response cost metadata               |
 
 ## [04]-[EMBEDDING_MODEL]
 
-[PUBLIC_TYPE_SCOPE]: vector embedding + built-in batch/cache — rail: ai-embed
+[PUBLIC_TYPE_SCOPE]: vector embedding with built-in batch and cache
 
-`make` already owns request batching (`maxBatchSize`) and an Effect `Cache` (`capacity`/`timeToLive`); `makeDataLoader` owns time-window coalescing (Scope-scoped). `ai/embed.ts` satisfies the `store/retrieve` `Embedder` port with the `EmbeddingModel` Tag; `ai/embed.ts` feeds `embedMany`.
+`make` owns request batching (`maxBatchSize`) and an Effect `Cache` (`capacity`/`timeToLive`); `makeDataLoader` owns Scope-scoped time-window coalescing.
 
-[SERVICE]: `Service.embed: (input:string)=>Effect.Effect<Array<number>,AiError.AiError>` `Service.embedMany: (input:ReadonlyArray<string>,options?:{…})=>Effect.Effect<Array<Array<number>>,AiError.AiError>`
-[RESULT]: `Result.index: number` `Result.embeddings: Array<number>`
-[SURFACES]: `make({…}) -> Effect.Effect<Service>` `makeDataLoader({…}) -> Effect.Effect<Service,never,Scope>`
+[SERVICE]: `embed: (input:string) => Effect<Array<number>, AiError>` `embedMany: (input:ReadonlyArray<string>, options?) => Effect<Array<Array<number>>, AiError>`
+[RESULT]: `index: number` `embeddings: Array<number>`
+[SURFACES]: `make({…}) -> Effect<Service>` `makeDataLoader({…}) -> Effect<Service, never, Scope>`
 
 ## [05]-[TOOL_AND_TOOLKIT]
 
-[PUBLIC_TYPE_SCOPE]: `Schema`-typed tools as data — rail: ai-tool
+[PUBLIC_TYPE_SCOPE]: `Schema`-typed tools as data
 
-`Tool.make` defines a user tool from `parameters`/`success`/`failure` `Schema`s; `providerDefined` declares a provider-executed tool (web search, code exec); `fromTaggedRequest` lifts an existing `Schema.TaggedRequest`. `failureMode: "return"` keeps handler errors in the tool result (self-correcting model loop) instead of the error channel. MCP-aligned annotations (`Readonly`/`Destructive`/`Idempotent`/`OpenWorld`/`Title`) project one-to-one onto MCP tool hints. `Toolkit.make(...tools)` is the collection; `.toLayer(handlers)`/`.toContext` bind handlers; `merge` composes toolkits (later wins). Every provider tool roster (`OpenAiTool`/`AnthropicTool`/`GoogleTool`/`AmazonBedrockTool`) is typed `Tool.ProviderDefined<"<Provider><Name>", { …; failureMode }, RequiresHandler>` — `ProviderDefined`/`FailureMode`/`Any` are the core brands those catalogs return, never per-provider types.
+`Tool.make` defines a user tool from `parameters`/`success`/`failure` `Schema`s; `providerDefined` declares a provider-executed tool; `fromTaggedRequest` lifts a `Schema.TaggedRequest`. `failureMode: "return"` keeps handler errors in the tool result for a self-correcting loop; the MCP-aligned annotations project onto MCP tool hints. `Toolkit.make(...tools)` collects, `toLayer`/`toContext` bind handlers, `merge` composes toolkits (later wins). Every provider tool roster returns the core `Tool.ProviderDefined`/`FailureMode`/`Any` brands, never a per-provider type.
 
 | [INDEX] | [SYMBOL]                                               | [FAMILY]     | [CAPABILITY]                                              |
 | :-----: | :----------------------------------------------------- | :----------- | :-------------------------------------------------------- |
@@ -89,19 +90,17 @@
 |  [12]   | `Tool.FailureMode`                                     | union        | `"error" \| "return"` failure-routing policy              |
 |  [13]   | `Tool.Any`                                             | erased bound | `Record<string, Tool.Any>` keys every options/toolkit sig |
 
-[SURFACES]: `make` `Name` `providerDefined` `FailureMode` `Any` `ProviderDefined` `getJsonSchema` `fromTaggedRequest` `Toolkit` `empty` `merge` `Toolkits`
-
 ## [06]-[PROMPT_AND_RESPONSE]
 
-[PUBLIC_TYPE_SCOPE]: prompt construction + response part algebra — rail: ai-core
+[PUBLIC_TYPE_SCOPE]: prompt construction and the response part algebra
 
-`Prompt` is the conversation value: `make`/`fromMessages`/`fromResponseParts` build it, `merge`/`setSystem`/`prependSystem`/`appendSystem` are the context-assembly combinators `ai/model.ts` folds app-passed retrieval into. `RawInput` is what `generateText({ prompt })` accepts (string | encoded messages | `Prompt`). `Response` is the discriminated part union `streamText` yields — the design's streaming fold discriminates on `part.type`.
+`Prompt` is the conversation value: `make`/`fromMessages`/`fromResponseParts` build it, `merge`/`setSystem`/`prependSystem`/`appendSystem` assemble context; `RawInput` is what `generateText({ prompt })` accepts (string, encoded messages, or `Prompt`). `Response` is the discriminated part union `streamText` yields, folded on `part.type`.
 
-[SURFACES]: `RawInput` `empty` `make` `fromMessages` `fromResponseParts` `merge` `setSystem` `FinishReason` `Usage` `makePart` `prependSystem` `appendSystem` `stop`
+[SURFACES]: `RawInput` `empty` `make` `fromMessages` `fromResponseParts` `merge` `setSystem` `prependSystem` `appendSystem` `makePart` `FinishReason` `Usage`
 
-[AUGMENTATION_BASE]: the provider boundary-hook seam — every provider `declare module`-augments these interface twins, never the schema — rail: ai-core
+[AUGMENTATION_BASE]: the provider boundary-hook seam — every provider `declare module`-augments these interface twins, never the schema
 
-Each `Prompt` message/part carries a `Prompt.ProviderOptions` slot and each `Response` part a `Response.ProviderMetadata` slot (both `Schema.Record<string, Record<string, unknown> | undefined>` bases). A provider package attaches its one optional provider-named key (`openai`/`anthropic`/`google`/`bedrock`/`openrouter`) by `declare module`-augmenting the SAME interfaces below — the roster every sibling catalog's augmentation table targets. Internal code reads canonical shapes; the edge maps the slots.
+Each `Prompt` message/part carries a `Prompt.ProviderOptions` slot and each `Response` part a `Response.ProviderMetadata` slot (both `Schema.Record<string, Record<string, unknown> | undefined>` bases). A provider attaches its one optional provider-named key by augmenting the same interfaces below; internal code reads canonical shapes, and the edge maps the slots.
 
 | [INDEX] | [MODULE]              | [AUGMENTATION_BASE_INTERFACES]                                                         |
 | :-----: | :-------------------- | :------------------------------------------------------------------------------------- |
@@ -113,72 +112,74 @@ Each `Prompt` message/part carries a `Prompt.ProviderOptions` slot and each `Res
 |  [06]   | `@effect/ai/Response` | `ToolCall`/`ToolResult` `PartMetadata`                                                 |
 |  [07]   | `@effect/ai/Response` | `File`/`DocumentSource`/`UrlSource`/`ResponseMetadata`/`Finish`/`Error` `PartMetadata` |
 
-[SURFACES]: `FinishPartMetadata` `FilePartOptions`
-
 ## [07]-[CHAT]
 
-[PUBLIC_TYPE_SCOPE]: stateful conversation + persistence — rail: ai-agent
+[PUBLIC_TYPE_SCOPE]: stateful conversation and persistence
 
-`Chat` maintains history in a `Ref<Prompt>` and mirrors `generateText`/`streamText`/`generateObject` while appending both turns. `export`/`exportJson` serialize; `fromJson`/`fromExport`/`fromPrompt` restore. `Persistence` + `layerPersisted` back durable sessions — the substrate `ai/agent.ts` composes for durable agents over `work` entities.
+`Chat` keeps history in a `Ref<Prompt>` and mirrors `generateText`/`streamText`/`generateObject` while appending both turns; `export`/`exportJson` serialize, `fromJson`/`fromExport`/`fromPrompt` restore, and `Persistence` + `layerPersisted` back durable sessions.
 
 [SURFACES]: `Chat` `Service` `empty` `fromPrompt` `fromExport` `fromJson` `ChatNotFoundError` `Persistence` `Persisted` `makePersisted` `layerPersisted` `Layer`
 
 ## [08]-[TOKENIZER]
 
-[PUBLIC_TYPE_SCOPE]: token counting + budget truncation — rail: ai-token
+[PUBLIC_TYPE_SCOPE]: token counting and budget truncation
 
-`ai/model.ts` budgets own this Tag; the two provider tokenizers `AnthropicTokenizer` (bare `Service` value) and `OpenAiTokenizer.make({model})` are the Layers that bind it (`effect-ai-anthropic.md` [04] / `effect-ai-openai.md` [05]); `modelWithTokenizer`/`layerWithTokenizer` fold either into the provided Tags. `truncate` is the budget enforcement — trim a `Prompt` to a token ceiling before generation.
+Two provider tokenizers bind this tag — `AnthropicTokenizer` a bare `Service` value, `OpenAiTokenizer.make({model})` a factory — and `modelWithTokenizer`/`layerWithTokenizer` fold either into the provided tags; `truncate` trims a `Prompt` to a token ceiling before generation.
 
-[SERVICE]: `Service.tokenize: (input:Prompt.RawInput)=>Effect.Effect<Array<number>,AiError.AiError>` `Service.truncate: (input:Prompt.RawInput,tokens:number)=>Effect.Effect<Prompt.Prompt,AiError.AiError>`
-[SURFACES]: `make({readonly tokenize:(content:Prompt.Prompt)=>Effect.Effect<Array<number>,AiError.AiError>}) -> Service`
+[SERVICE]: `tokenize: (input:Prompt.RawInput) => Effect<Array<number>, AiError>` `truncate: (input:Prompt.RawInput, tokens:number) => Effect<Prompt.Prompt, AiError>`
+[SURFACES]: `make({tokenize: (Prompt.Prompt) => Effect<Array<number>, AiError>}) -> Service`
 
 ## [09]-[MCP_HOSTING]
 
-[PUBLIC_TYPE_SCOPE]: native MCP server + protocol schema — rail: ai-tool
+[PUBLIC_TYPE_SCOPE]: native MCP server and protocol schema
 
-`ai/tool.ts` hosts app toolkits as MCP tools with NO extra dependency: `McpServer.toolkit(toolkit)` registers a `Toolkit` as MCP tools, and one transport Layer (`layerStdio`/`layerHttp`/`layerHttpRouter`) serves it. `resource`/`prompt`/`elicit` round out server capability; `McpSchema` is the full MCP wire (Schema.Class-based) with typed error subclasses. This is the sole MCP host — `@modelcontextprotocol/sdk` is client-only.
+`McpServer.toolkit(toolkit)` registers a `Toolkit` as MCP tools with no extra dependency, and one transport layer (`layerStdio`/`layerHttp`/`layerHttpRouter`) serves it; `resource`/`prompt`/`elicit` round out server capability, and `McpSchema` is the full `Schema.Class`-based MCP wire with typed error subclasses. This is the sole MCP host.
 
 | [INDEX] | [SYMBOL]                                | [FAMILY]    | [CAPABILITY]                         |
 | :-----: | :-------------------------------------- | :---------- | :----------------------------------- |
 |  [01]   | `McpServer.toolkit / registerToolkit`   | tool        | register a `Toolkit` as MCP tools    |
-|  [02]   | `McpServer.layerStdio`                  | transport   | stdio-served server Layer            |
-|  [03]   | `McpServer.layerHttp / layerHttpRouter` | transport   | HTTP-served server Layer             |
+|  [02]   | `McpServer.layerStdio`                  | transport   | stdio-served server layer            |
+|  [03]   | `McpServer.layerHttp / layerHttpRouter` | transport   | HTTP-served server layer             |
 |  [04]   | `McpServer.resource / registerResource` | capability  | resource + typed-param template      |
 |  [05]   | `McpServer.prompt / registerPrompt`     | capability  | `Schema`-typed prompt w/ completions |
 |  [06]   | `McpServer.elicit`                      | capability  | server-requested structured input    |
 |  [07]   | `McpSchema.*`                           | wire        | MCP protocol Schemas + typed errors  |
 |  [08]   | `McpSchema.param`                       | constructor | typed resource-template parameter    |
 
-[SURFACES]: `toolkit` `layerStdio` `layerHttp` `resource` `prompt` `elicit` `param` `uri`
-
 ## [10]-[TELEMETRY_IDS_ERRORS]
 
-[PUBLIC_TYPE_SCOPE]: GenAI telemetry, id generation, error rail — rail: ai-core
+[PUBLIC_TYPE_SCOPE]: GenAI telemetry, id generation, error rail
 
-`Telemetry.addGenAIAnnotations(span, opts)` writes OpenTelemetry GenAI semantic-convention attributes (system/operation/request.model/usage.*) onto the current span — the bridge every provider call rides into `@effect/opentelemetry`. `system` draws from `WellKnownSystem` (`anthropic`/`aws.bedrock`/`gemini`/`openai`/…) and `operation.name` from `WellKnownOperationName`; the provider `*Telemetry` modules extend `GenAITelemetryAttributes` via `AttributesWithPrefix<Req, "gen_ai.<provider>.request">` over `AllAttributes` — the seam `OpenAiTelemetry` composes onto (`effect-ai-openai.md` [07]). `IdGenerator` is the pluggable tool-call id source. `AiError` is the one tagged failure union — `Match.tag` dispatch, never ad-hoc throws.
+`Telemetry.addGenAIAnnotations(span, opts)` writes GenAI semantic-convention attributes onto the span; a provider `*Telemetry` module extends `GenAITelemetryAttributes` via `AttributesWithPrefix` over `AllAttributes`. `IdGenerator` is the pluggable tool-call id source; `AiError` is the one tagged failure union under `Match.tag` dispatch.
 
-[WELL_KNOWN_SYSTEM]: `WellKnownSystem = "anthropic"|"aws.bedrock"|…`
-[WELL_KNOWN_OPERATION_NAME]: `WellKnownOperationName = "chat"|"embeddings"|"text_completion"`
-[ATTRIBUTES_WITH_PREFIX]: ``AttributesWithPrefix = {[K in keyof A as `${Prefix}.${K&string}`]:A[K]}``
-[ALL_ATTRIBUTES]: `AllAttributes = BaseAttributes&OperationAttributes&TokenAttributes&UsageAttributes&RequestAttributes&ResponseAttributes`
-[MAKE_OPTIONS]: `MakeOptions.alphabet: string` `MakeOptions.prefix: string` `MakeOptions.separator: string` `MakeOptions.size: number`
-[AI_ERROR]: `AiError = HttpRequestError|HttpResponseError|MalformedInput|MalformedOutput|UnknownError`
-[SURFACES]: `addGenAIAnnotations(Span,GenAITelemetryAttributeOptions) -> void` `addSpanAttributes(Span,GenAITelemetryAttributes) -> void` `defaultIdGenerator: Service` `make(MakeOptions) -> Effect.Effect<Service,Cause.IllegalArgumentException>` `layer(MakeOptions) -> Layer.Layer<IdGenerator,Cause.IllegalArgumentException>` `isAiError(unknown) -> u is AiError`
+[WELL_KNOWN_SYSTEM]: `WellKnownSystem = "anthropic" | "aws.bedrock" | …`
+[WELL_KNOWN_OPERATION_NAME]: `WellKnownOperationName = "chat" | "embeddings" | "text_completion"`
+[ATTRIBUTES_WITH_PREFIX]: ``AttributesWithPrefix = {[K in keyof A as `${Prefix}.${K&string}`]: A[K]}``
+[ALL_ATTRIBUTES]: `AllAttributes = BaseAttributes & OperationAttributes & TokenAttributes & UsageAttributes & RequestAttributes & ResponseAttributes`
+[MAKE_OPTIONS]: `alphabet: string` `prefix?: string` `separator: string` `size: number`
+[AI_ERROR]: `AiError = HttpRequestError | HttpResponseError | MalformedInput | MalformedOutput | UnknownError`
+[SURFACES]: `addGenAIAnnotations(Span, GenAITelemetryAttributeOptions) -> void` `addSpanAttributes(Span, GenAITelemetryAttributes) -> void` `defaultIdGenerator: Service` `make(MakeOptions) -> Effect<Service, Cause.IllegalArgumentException>` `layer(MakeOptions) -> Layer<IdGenerator, Cause.IllegalArgumentException>` `isAiError(unknown) -> u is AiError`
 
-## [11]-[INTEGRATION]
+## [11]-[IMPLEMENTATION_LAW]
 
-[STACK]: provider rows + the ONE guardrail gate — rail: ai-core
-- `ai/model.ts` is a table of `Model.make(name, providerLayer)` rows the app root binds one of; guardrail gate wraps `generateText`/`streamText` in a fold where input moderation runs before the call, output moderation + `Schema`-refusal admission run over the `Response.Part` stream, and a rejected call short-circuits into `AiError` — one admission surface over every row, not a per-provider fork.
-- Tier-routing reads `Model.ProviderName` + provider finish-part cost metadata to pick the row; a new provider is a new row.
-- `disableToolCallResolution: true` hands tool execution to the guardrail so no handler runs before admission; `failureMode: "return"` keeps a failed tool call in-band for a self-correcting model loop.
+[TOPOLOGY]:
+- Generation rides `Effect`/`Stream`; failure flows through the tagged `AiError` union under `Match.tag` dispatch; a new provider is a new `Model.make` row, never a fork.
 
-[STACK]: universal-tier rails — rail: ai-core
-- `effect`: `Schema` types every tool/prompt/response and the `generateObject` output; `Stream` carries `streamText` deltas folded by `part.type`; `Layer`/`Context.Tag` bind every service; `Match.tag` dispatches `AiError`; `Cache`/`Duration` back `EmbeddingModel.make`.
-- `@effect/platform`: provider Layers require `HttpClient` — `net/client` supplies the default-policy client (timeout/retry/proxy); `McpServer.layerHttp` composes `HttpRouter`/`HttpLayerRouter`.
-- `@effect/opentelemetry`: `Telemetry.addGenAIAnnotations` writes GenAI semconv onto the `ProviderOptions.span`; the `telemetry` folder's OTLP exporter ships them — one span per generation, tool call, and agent run.
-- `@effect/experimental` + `@effect/rpc`: `Chat.layerPersisted` durable sessions and the `McpServer` RPC transport ride these peers; `agent/*` composes `Chat.Persistence` over `work` cluster entities.
-- `@effect/vitest`: kit-driven law specs exercise providers behind a stub `LanguageModel.make` and drive MCP hosting through an in-memory transport.
+[STACKING]:
+- `effect`: `Schema` types every tool/prompt/response and the `generateObject` output; `Stream` folds `streamText` deltas by `part.type`; `Layer`/`Context.Tag` bind every service; `Cache`/`Duration` back `EmbeddingModel.make`.
+- `effect-ai-openai.md`/`effect-ai-anthropic.md`/`effect-ai-google.md`/`effect-ai-amazon-bedrock.md`/`effect-ai-openrouter.md`: each `model(...)`/`layer(...)` resolves the core `LanguageModel`/`EmbeddingModel`/`Tokenizer` tags; `[03]` catalogs the per-provider asymmetry.
+- `effect-opentelemetry.md` (`@effect/opentelemetry`): `Telemetry.addGenAIAnnotations` writes GenAI semconv onto `ProviderOptions.span`, one span per generation, tool call, and agent run over the OTLP rail.
+- `effect-rpc.md` + `@effect/experimental`: `Chat.layerPersisted` durable sessions and the `McpServer` RPC transport ride these peers.
+- `modelcontextprotocol-sdk.md` (`@modelcontextprotocol/sdk`): admits as MCP client only; `McpServer.toolkit` registering a `Toolkit` under one transport layer is the sole host path.
+- `@effect/platform`: every provider `layer*` requires `HttpClient` from `net/client`; `McpServer.layerHttp` composes `HttpRouter`.
+- `ai/model.ts`: folds the provider rows into one guardrail gate over `generateText`/`streamText` — input moderation before the call, output moderation and `Schema`-refusal admission over the `Response.Part` stream, a rejected call short-circuiting into `AiError`; tier-routing reads `Model.ProviderName` and finish-part cost metadata; `disableToolCallResolution: true` hands execution to the gate, `failureMode: "return"` keeps a failed call in-band.
+- `ai/embed.ts`: publishes the `EmbeddingModel` tag as the `Layer` wired into the `store/retrieve` `Embedder` port, retrieval folding into a `Prompt` via `merge`/`appendSystem`; `ai/agent.ts` composes `Chat.Persistence` over `work` cluster entities.
 
-[STACK]: `embed` -> `store` `Embedder` port — rail: ai-embed
-- `ai/embed.ts` publishes the `EmbeddingModel` Tag (batched + cached via `make`, or window-coalesced via `makeDataLoader`) as the `Layer` the app root wires into the `store/retrieve` `Embedder` port, and `ai` imports no `store` code.
-- `ai/model.ts` folds app-passed `store/retrieve` results into a `Prompt` via `merge`/`appendSystem` — retrieval arrives as values, never a `store` import edge.
+[LOCAL_ADMISSION]:
+- `@effect/ai` with its five provider siblings is the admitted LLM surface; `@modelcontextprotocol/sdk` admits as MCP client only, never a second host.
+
+[RAIL_LAW]:
+- Package: `@effect/ai`
+- Owns: the provider-agnostic LLM contract — service tags, prompt/response/tool algebra, chat, embeddings, tokenizer, GenAI telemetry, MCP hosting.
+- Accept: one `Model.make` row per provider resolved into the shared tags, every call folded through the `ai/model.ts` guardrail gate.
+- Reject: a per-provider generation API, an ad-hoc `throw`, a hand-rolled MCP host, a second embedding or tokenizer port.

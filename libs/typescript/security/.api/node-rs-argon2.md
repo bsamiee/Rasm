@@ -1,72 +1,66 @@
 # [TS_SECURITY_API_NODE_RS_ARGON2]
 
-`@node-rs/argon2` is the argon2 password-hashing primitive the `security/sign/crypto` design composes for credential-at-rest — a NAPI-RS native addon (Rust `argon2` crate) exposing `hash`/`verify` as promise-returning members off the libuv threadpool, with `hashRaw` for raw digest bytes and `*Sync` mirrors for non-Effect boot paths. The whole cost/policy surface is ONE `Options` carrier — `memoryCost`/`timeCost`/`parallelism`/`outputLen`/`algorithm`/`version`/`secret`/`salt` — so the design pins a single named policy row per credential class rather than scattering knobs across call sites. `hash` emits a self-describing PHC string that embeds the salt and every cost parameter, so `verify` needs no options to check a stored digest; the argon2id variant (`Algorithm.Argon2id`, `Version.V0x13`) is the hybrid GPU-and-side-channel-resistant default the design fixes. `secret` is a server-side pepper (a `Redacted` key injected at layer construction), `salt` defaults to a fresh CSPRNG value, and both async members accept an `AbortSignal` so a request-scoped hash cancels with its fiber. The package is node-only (native `.node` binary per platform, wasm32-wasi recovery), which is why `sign/` carries the node-only-subpath ban.
+`@node-rs/argon2` owns argon2id credential hashing at rest for `security/sign/crypto`: a NAPI native addon whose async members run the Rust hash off the libuv threadpool under an `AbortSignal`. One `Options` carrier holds the whole cost surface, so a named policy row per credential class replaces call-site knobs, and the PHC string `hash` emits self-describes salt and cost so `verify` needs no options.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@node-rs/argon2`
 - package: `@node-rs/argon2` (MIT)
-- module format: CommonJS (`main: index.js`, `engines.node >= 10`); the `.node` loader is selected by the root package via per-platform `optionalDependencies`, imported through the `@node-rs/argon2` root — no deep subpaths
-- runtime target: node-only — a native NAPI addon linking the Rust `argon2` crate, prebuilt for 14 targets (`darwin-arm64`/`-x64`, `linux-x64/arm64-gnu/musl`, `win32-x64/arm64/ia32`, `android`, `freebsd`, `armv7`) with a `wasm32-wasi` recovery; no browser build, so `sign/crypto` is node-boundary despite jose's isomorphism
-- asset: native addon (`.node` per-platform binary + `.js` loader + `.d.ts`); the ABI is the real gate — a missing/mismatched prebuilt or Node ABI break is a load-time failure, not a type error, so the install must resolve the arch-matched optional dependency
-- rail: `security/sign` — the argon2 hashing primitive within the crypto owner (admitted in `sign/` only, node-only subpath; catalogued at the folder tier)
+- module: CommonJS root entry; the per-platform `.node` loader resolves through the root import, never a deep subpath
+- runtime: node-only — the Rust `argon2` crate ships as a per-target prebuilt addon with a `wasm32-wasi` recovery, which makes `sign/crypto` a node boundary
+- abi: the arch-matched prebuilt resolves at install; a missing or ABI-mismatched binary fails at load, never at typecheck
+- rail: `security/sign` — the credential-digest primitive inside the crypto owner
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the single cost/policy carrier and its bounded vocabularies — consumer `sign/crypto`
-- rail: shapes
+[PUBLIC_TYPE_SCOPE]: the single cost carrier and the two bounded vocabularies it discriminates on
 
-| [INDEX] | [SYMBOL]                                             | [TYPE_FAMILY]       | [CONSUMER]                                               |
-| :-----: | :--------------------------------------------------- | :------------------ | :------------------------------------------------------- |
-|  [01]   | `Options`                                            | cost policy         | the one policy carrier; fields at [01] below             |
-|  [02]   | `Algorithm` (`Argon2d`=0, `Argon2i`=1, `Argon2id`=2) | variant enum        | `Argon2id` the only admitted arm                         |
-|  [03]   | `Version` (`V0x10`=0, `V0x13`=1)                     | format-version enum | `V0x13` pinned default; `V0x10` verifies retired digests |
+| [INDEX] | [SYMBOL]    | [TYPE_FAMILY] | [CAPABILITY]                         |
+| :-----: | :---------- | :------------ | :----------------------------------- |
+|  [01]   | `Options`   | interface     | the whole cost and policy surface    |
+|  [02]   | `Algorithm` | enum          | the argon2 variant vocabulary        |
+|  [03]   | `Version`   | enum          | the argon2 format-version vocabulary |
 
-- [01]-[OPTIONS]: `memoryCost`, `timeCost`, `parallelism`, `outputLen`, `algorithm`, `version`, `secret`, `salt` — `memoryCost`/`timeCost`/`parallelism` the security-vs-latency dial, `outputLen` the digest width.
+[OPTIONS]: `memoryCost` `timeCost` `outputLen` `parallelism` `algorithm` `version` `secret` `salt`
+[ALGORITHM]: `Argon2d` `Argon2i` `Argon2id`
+[VERSION]: `V0x10` `V0x13`
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: hash and verify — the async rail (default) and its sync mirror; consumer `sign/crypto`. Async members take `(password|hashed: string | Uint8Array, options?: Options, abortSignal?: AbortSignal)`; the `*Sync` mirrors drop `abortSignal`.
-- rail: rails-and-effects
+[ENTRYPOINT_SCOPE]: mint and check on an async rail and its blocking mirror; `Options` is optional on every member, and each async member takes a trailing optional `AbortSignal`
 
-| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY] | [CONSUMER]                                                       |
-| :-----: | :--------------------------------------------------- | :------------- | :--------------------------------------------------------------- |
-|  [01]   | `hash(...)` → `Promise<string>`                      | hash → PHC     | ← `authn/apikey`, `secret/material`; PHC stored verbatim         |
-|  [02]   | `verify(hashed, password, ...)` → `Promise<boolean>` | verify         | constant-time; reads PHC cost params; `false`/throw on malformed |
-|  [03]   | `hashRaw(...)` → `Promise<Buffer>`                   | hash → raw     | raw digest bytes for KDF derivation, not the PHC envelope        |
-|  [04]   | `hashSync` / `hashRawSync` / `verifySync`            | sync mirror    | boot/CLI outside the Effect rail; never on a request fiber       |
+| [INDEX] | [SURFACE]                                                                     | [SHAPE] | [CAPABILITY]                               |
+| :-----: | :---------------------------------------------------------------------------- | :------ | :----------------------------------------- |
+|  [01]   | `hash(string\|Uint8Array, Options) -> Promise<string>`                        | static  | mint the self-describing PHC digest        |
+|  [02]   | `verify(string\|Uint8Array, string\|Uint8Array, Options) -> Promise<boolean>` | static  | constant-time check of a stored PHC digest |
+|  [03]   | `hashRaw(string\|Uint8Array, Options) -> Promise<Buffer>`                     | static  | raw digest bytes for KDF derivation        |
+|  [04]   | `hashSync(string\|Uint8Array, Options) -> string`                             | static  | blocking mint on a boot or CLI path        |
+|  [05]   | `hashRawSync(string\|Uint8Array, Options) -> Buffer`                          | static  | blocking raw digest on a boot path         |
+|  [06]   | `verifySync(string\|Uint8Array, string\|Uint8Array, Options) -> boolean`      | static  | blocking check on a boot or CLI path       |
 
-Exact shipped declarations, verified against `node_modules/@node-rs/argon2/index.d.ts`:
-
-[OPTIONS]: `Options.memoryCost: number` `Options.timeCost: number` `Options.outputLen: number` `Options.parallelism: number` `Options.algorithm: Algorithm` `Options.version: Version` `Options.secret: Uint8Array` `Options.salt: Uint8Array`
-[ALGORITHM]: `Argon2d` `Argon2i` `Argon2id`
-[VERSION]: `V0x10` `V0x13`
-[SURFACES]: `hash(string|Uint8Array,Options|undefined|null?,AbortSignal|undefined|null?) -> Promise<string>` `hashRaw(string|Uint8Array,Options|undefined|null?,AbortSignal|undefined|null?) -> Promise<Buffer>` `verify(string|Uint8Array,string|Uint8Array,Options|undefined|null?,AbortSignal|undefined|null?) -> Promise<boolean>` `hashSync(string|Uint8Array,Options|undefined|null?) -> string` `hashRawSync(string|Uint8Array,Options|undefined|null?) -> Buffer` `verifySync(string|Uint8Array,string|Uint8Array,Options|undefined|null?) -> boolean`
+- `verify`: throws on a structurally malformed stored digest, so `false` is the auth-fail arm and the throw a corrupt-record fault.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[ARGON2_TOPOLOGY]:
-- The four async members run the Rust hash off the libuv threadpool and honor `AbortSignal`, so a per-request hash is cancellable and does not block the event loop. The `*Sync` mirrors block the calling thread and exist only for boot/CLI paths; a sync hash on a request fiber is a starvation defect.
-- `Options` is the entire tuning surface. The design fixes `algorithm: Argon2id` + `version: V0x13` and pins a named cost row per credential class (an interactive-login row and a higher-cost api-key row) as a `Layer`/`Config` value — `memoryCost`/`timeCost`/`parallelism` are the security-vs-latency dial, `outputLen` the digest width. Cost is never chosen at a call site.
-- `hash` returns a PHC string (`$argon2id$v=19$m=...,t=...,p=...$salt$hash`) that self-describes the salt and every parameter, so `verify` reconstructs the KDF from the stored string with no options. Rehash-on-login is therefore a design fold, not a package member: after a successful `verify`, the design compares the PHC-embedded parameters to the current policy row and re-`hash`es when they drift — `@node-rs/argon2` exposes no `needsRehash`, so the fold owns it.
-- `secret` is a server-side pepper: a `Redacted` key mixed into the hash so a stolen digest is uncrackable without the app key, held at layer construction and unwrapped only into the call. `salt` defaults to a fresh CSPRNG value per hash; the design overrides it only for deterministic KDF derivation via `hashRaw`.
-- `verify` is constant-time and returns a boolean; it throws only when the stored hash is structurally malformed. The design treats a `false` as an ordinary auth-fail arm and the throw as a corrupt-record fault, never conflating the two.
+[TOPOLOGY]:
+- Async members honor `AbortSignal` off the threadpool, so a request-scoped hash cancels with its fiber; a `*Sync` member on a request fiber starves the event loop.
+- `Options` is the entire tuning surface: `memoryCost`, `timeCost`, and `parallelism` set the security-versus-latency dial and `outputLen` the digest width, fixed as a named cost row per credential class.
+- `hash` emits a PHC string embedding the salt, the variant, and every cost parameter, so `verify` reconstructs the KDF from the stored string alone and rehash-on-login folds those embedded parameters against the current policy row, re-`hash`ing on drift.
+- `secret` mixes a server-side pepper into the digest, so a stolen digest resists cracking without the app key; `salt` defaults to a fresh CSPRNG value and pins only for deterministic `hashRaw` derivation.
 
-[STACKS_WITH]:
-- `effect` (`.api/effect.md`): `Effect.tryPromise({ try: (signal) => argon2.verify(stored, pw, opts, signal), catch })` lifts hash/verify onto the rail and threads the fiber's interrupt through the `AbortSignal`, so canceling the request cancels the hash; `Redacted` holds the password, the pepper (`secret`), and the resulting digest, unwrapped only at the argon2 call; the named cost `Options` rows are `Config`/`Layer` values; the rehash-needed decision is a `Match` fold over the PHC-embedded params versus the policy row; a malformed-hash throw becomes a `Data.TaggedError`.
-- `security/sign/crypto` (in-folder owner): argon2 is one primitive inside `sign/crypto` alongside HMAC webhook signing and the AES-GCM envelope; `sign/crypto` is the single owner `authn/apikey` delegates its digest-at-rest to and `secret/material` derives key material through, so no folder re-imports argon2 directly.
-- `@oslojs/crypto` (`.api/oslojs-crypto.md`): the sibling's `constantTimeEqual` (subpath `@oslojs/crypto/subtle`) guards fixed-length token/digest comparisons where argon2 is the wrong tool (opaque session-token lookup by hash) — argon2's own `verify` is already constant-time, so a stored argon2 digest is checked by `verify`, never re-compared through oslo; the two never double-wrap.
-- `authn/apikey` (in-folder consumer): machine-credential secrets are minted, then their `hash` PHC string is stored and prefix-indexed for `byHash` resolution; the plaintext key is shown once and never persisted.
+[STACKING]:
+- `effect`(`.api/effect.md`): `Effect.tryPromise({ try: (signal) => verify(stored, pw, opts, signal), catch })` threads the fiber interrupt into `AbortSignal`; cost rows ride `Config`/`Layer` values, the rehash decision is a `Match` fold, and a malformed-digest throw becomes a `Data.TaggedError`.
+- `@oslojs/encoding`(`.api/oslojs-encoding.md`): `hashRaw` bytes and the `secret` pepper render at rest through `encodeHexLowerCase` and parse back through `decodeHex`; the `hash` PHC string stores verbatim and never re-encodes.
+- `@oslojs/crypto`(`.api/oslojs-crypto.md`): `constantTimeEqual` guards fixed-length token lookup where argon2 is the wrong tool; a stored argon2 digest checks through `verify` alone, so the two never double-wrap.
+- `otplib`(`.api/otplib.md`): recovery and backup codes minted by `generateSecret`/`generateRandomString` take `hash` for digest-at-rest and `verify` for redemption — otplib owns no credential-storage row.
+- `security/sign/crypto` (in-folder owner): argon2 sits beside HMAC signing and the AES-GCM envelope under one owner; `secret/material` derives key material through it, and `authn/apikey` delegates its digest-at-rest, storing the `hash` PHC string prefix-indexed for `byHash` resolution while the plaintext shows once.
 
 [LOCAL_ADMISSION]:
-- Use the async `hash`/`verify` wrapped in `Effect.tryPromise` with the fiber's `AbortSignal`; never a `*Sync` member on a request fiber, and never a bare `Promise` in domain logic.
-- Use `Algorithm.Argon2id` + `Version.V0x13` with a named cost `Options` row per credential class; never pick cost parameters at a call site and never a non-id variant.
-- Store the PHC string from `hash` verbatim and let `verify` read its params; own rehash-on-login as a `Match` fold over the embedded parameters, since the package has no `needsRehash`.
-- Hold the password, the `secret` pepper, and the digest in `Redacted`; unwrap only into the argon2 call, and never log any of them.
-- Route every credential digest through `sign/crypto`; never re-import argon2 in `authn`/`secret` folders.
+- `Algorithm.Argon2id` with `Version.V0x13` on a named cost `Options` row per credential class fixes both the variant and the cost.
+- Password, `secret` pepper, and digest are the `Redacted` values on this surface.
 
 [RAIL_LAW]:
 - Package: `@node-rs/argon2`
-- Owns: argon2id credential hashing at rest — `hash` (PHC), `hashRaw` (bytes), `verify` (constant-time), their sync mirrors, the single `Options` cost carrier, and the `Algorithm`/`Version` vocabularies
-- Accept: async `hash`/`verify` under `Effect.tryPromise` with `AbortSignal` threading, `Argon2id`+`V0x13` with named `Options` cost rows as `Layer`/`Config` values, PHC-string storage, a design-owned rehash fold, `Redacted` password/pepper/digest, the arch-matched native prebuilt resolved at install
-- Reject: a `*Sync` member on a request fiber, call-site cost knobs, a non-id variant, a hand-rolled constant-time compare of an argon2 digest, a re-import outside `sign/crypto`, a password/pepper/digest outside `Redacted`, treating a `false` verify as an error rather than an auth-fail arm
+- Owns: argon2id credential hashing at rest — PHC mint, raw digest bytes, constant-time verify, the blocking mirrors, the single `Options` cost carrier, and the `Algorithm`/`Version` vocabularies
+- Accept: async members under `Effect.tryPromise` with `AbortSignal` threading, `Argon2id` with `V0x13` on named `Options` cost rows, verbatim PHC storage, a design-owned rehash fold, `Redacted` credential material
+- Reject: call-site cost knobs, a `*Sync` member on a request fiber, a hand-rolled constant-time compare of an argon2 digest, an import outside `sign/crypto`

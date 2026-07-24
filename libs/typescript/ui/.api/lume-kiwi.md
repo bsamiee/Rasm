@@ -1,76 +1,73 @@
 # [TS_UI_API_LUME_KIWI]
 
-`@lume/kiwi` is the zero-dependency Cassowary (incremental simplex) solver the `viewer/panel/layout` row runs to re-solve the ordered `LayoutConstraintWire` program authored by `csharp:Rasm.AppUi/Shell/solver`. The seam contract is bit-identical geometry, not a plausible layout: the panel decodes the wire program once at `wire` (through the `#vocab` subpath), folds its ordered variables/terms/constraints into one `Solver`, and reads `Variable.value()` back — the TS replay MUST land on the same positions the C# solver produced, so the folder re-solves for local interaction latency while the C# side stays authoritative. A peer re-mint of a *different* constraint program (reordered, re-strengthed, or algebra-rebuilt in TS) is the `CROSS_LANGUAGE_WIRE` drift defect, mirroring the appearance-seam law. Pure CPU (no DOM, no GL), `scope:viewer` project-local, compile-time excluded from the core `ui`.
+`@lume/kiwi` owns the incremental Cassowary simplex re-solve the `viewer/panel/layout` row runs over the ordered `LayoutConstraintWire` program: fold the decoded variables, terms, and constraints into one `Solver`, drive it, read `Variable.value()` back.
+
+C# `Rasm.AppUi/Shell/solver` produces the authoritative solve; the TS replay reproduces its tableau bit-for-bit over the identical ordered program, so positional drift is a program-construction defect, never a re-solve tolerance.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@lume/kiwi`
 - package: `@lume/kiwi` (BSD-3-Clause)
-- deps: none — self-contained ESM Cassowary port (`kiwi.d.ts` barrel re-exports the module set); no peer, no runtime
-- catalog-verdict: KEEP
-- runtime: `scope:viewer` project-local, CPU-only — admitted by the `ui/viewer` Nx project alone; no browser Web API, GL context, or React binding of its own
-- modules: `Variable`, `Expression`, `Operator`, `Constraint`, `Strength`, `Solver` (barrelled through `kiwi.d.ts`); `IMap`/`createMap` are the internal id-keyed associative map
+- module: `@lume/kiwi` ESM barrel (`kiwi.d.ts`), self-contained; no peer, no runtime dependency
+- runtime: CPU-only, no DOM, GL context, or React binding; the `ui/viewer` Nx project admits it and the core `ui` never imports it
+- rail: viewer/panel/layout
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: constraint algebra + tableau solver
-- rail: viewer/panel/layout
-- The value algebra is built bottom-up: a `Variable` is a named cell; `plus`/`minus`/`multiply`/`divide` fold `Variable`s and constants into an `Expression` (linear terms + constant, RHS implicitly zero); a `Constraint` pairs an `Expression` with an `Operator` and a `Strength`; the `Solver` holds the tableau and re-solves incrementally. Strength is a numeric algebra, not a fixed enum: `Strength.create(strong, medium, weak, weight?)` produces any symbolic strength and the four named constants are seed rows of that algebra.
+[PUBLIC_TYPE_SCOPE]: constraint algebra and incremental tableau solver
 
-| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                                                     |
-| :-----: | :-------------------------------------- | :--------------- | :---------------------------------------------------------------------- |
-|  [01]   | `Variable(name?)`                       | value cell       | `plus`/`minus`/`multiply`/`divide`; `value()` reads the solved position |
-|  [02]   | `Expression(...args)`                   | linear form      | args: `number`, `Variable`, `Expression`, or `[coeff, var]` pairs       |
-|  [03]   | `Operator`                              | relation enum    | `Le = 0` / `Ge = 1` / `Eq = 2` — the wire relational operator           |
-|  [04]   | `Constraint(expr, op, rhs?, strength?)` | equation         | one decoded constraint row; `strength` defaults to `required`           |
-|  [05]   | `Strength.create(a, b, c, w?)`          | strength algebra | the seed constants `required`/`strong`/`medium`/`weak`                  |
-|  [06]   | `Solver`                                | tableau solver   | the re-solve engine; `maxIterations` (default `10000`) bounds it        |
-|  [07]   | `IMap<T, U>` / `createMap`              | internal map     | solver-internal id-keyed store; not a consumer surface                  |
+Bottom-up, `Variable` cells fold through `plus`/`minus`/`multiply`/`divide` into an `Expression`, a `Constraint` pairs that `Expression` with an `Operator` and a numeric `Strength`, and the `Solver` holds the tableau.
+
+| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY] | [CAPABILITY]                                                            |
+| :-----: | :-------------------------------------- | :------------ | :---------------------------------------------------------------------- |
+|  [01]   | `Variable(name?)`                       | value cell    | `plus`/`minus`/`multiply`/`divide` build an `Expression`                |
+|  [02]   | `Expression(...args)`                   | linear form   | the constraint LHS from summed `number`/`Variable`/`[coeff, var]` terms |
+|  [03]   | `Operator`                              | enum          | wire relational operator `Le`/`Ge`/`Eq` = `0`/`1`/`2`                   |
+|  [04]   | `Constraint(expr, op, rhs?, strength?)` | class         | one decoded constraint row; `strength` defaults to `required`           |
+|  [05]   | `Strength.create(a, b, c, w?)`          | class         | numeric strength algebra seeding `required`/`strong`/`medium`/`weak`    |
+|  [06]   | `Solver`                                | class         | the incremental simplex re-solve engine                                 |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: fold the wire program into a solver, re-solve, read positions
-- rail: viewer/panel/layout
-- The panel builds the algebra in the wire program's order, then drives the solver. Methods below are on `solver` unless prefixed. Two constraint entrypoints are equivalent: `new Constraint(...)` + `addConstraint(c)`, or `createConstraint(lhs, op, rhs, strength?)` which constructs and adds in one call. Edit variables model live drag: register with a sub-required strength, `suggestValue` per frame, `updateVariables` to re-solve.
 
-| [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY]   | [CONSUMER_BOUNDARY]                                       |
-| :-----: | :-------------------------------------------------------- | :--------------- | :-------------------------------------------------------- |
-|  [01]   | `new Variable(name)`                                      | build vars       | one `Variable` per decoded wire cell, in wire order       |
-|  [02]   | `new Expression([coeff, v], …)` / `v.multiply(c).plus(…)` | build expr       | fold the wire term-list into the constraint LHS           |
-|  [03]   | `Strength.create(a, b, c, w?)` + named consts             | resolve strength | map the wire strength field to the exact numeric strength |
-|  [04]   | `createConstraint(lhs, op, rhs, strength?)`               | add constraint   | = `new Constraint` + `addConstraint`, in wire order       |
-|  [05]   | `addConstraint(c)` / `removeConstraint(c)`                | mutate set       | incremental add/remove of a constraint                    |
-|  [06]   | `hasConstraint(c)` / `getConstraints()`                   | inspect set      | `hasConstraint` guards idempotent replay                  |
-|  [07]   | `addEditVariable(v, strength)` / `removeEditVariable(v)`  | edit register    | register live-drag variables; `strength` `< required`     |
-|  [08]   | `hasEditVariable(v)`                                      | edit probe       | test whether a variable is an edit variable               |
-|  [09]   | `suggestValue(v, value)` then `updateVariables()`         | suggest + solve  | per-frame drag target, then incremental re-solve          |
-|  [10]   | `v.value()` after `updateVariables()`                     | read position    | the solved coordinate the panel binds; the seam output    |
+`ui` folds the algebra in wire order, then drives the solver; members below sit on `Solver` unless prefixed. `new Constraint(...)`+`addConstraint(c)` and `createConstraint(lhs, op, rhs, strength?)` are equivalent, the latter constructing and adding in one call. Live drag registers an edit variable at sub-`required` strength, calls `suggestValue` per frame, and `updateVariables()` re-solves.
+
+| [INDEX] | [SURFACE]                                                | [SHAPE]  | [CAPABILITY]                                            |
+| :-----: | :------------------------------------------------------- | :------- | :------------------------------------------------------ |
+|  [01]   | `new Variable(name)`                                     | ctor     | one `Variable` per decoded wire cell, in wire order     |
+|  [02]   | `new Expression([coeff, v], …)`                          | ctor     | fold the wire term-list into the constraint LHS         |
+|  [03]   | `Strength.create(a, b, c, w?)`                           | static   | map the wire strength field to a numeric strength       |
+|  [04]   | `createConstraint(lhs, op, rhs, strength?)`              | instance | construct-and-add one constraint, in wire order         |
+|  [05]   | `addConstraint(c)` / `removeConstraint(c)`               | instance | incremental add or remove of a constraint               |
+|  [06]   | `hasConstraint(c)` / `getConstraints()`                  | instance | `hasConstraint` guards idempotent replay                |
+|  [07]   | `addEditVariable(v, strength)` / `removeEditVariable(v)` | instance | register live-drag variables at `strength` `< required` |
+|  [08]   | `hasEditVariable(v)`                                     | instance | test whether a variable is an edit variable             |
+|  [09]   | `suggestValue(v, value)` then `updateVariables()`        | instance | per-frame drag target, then incremental re-solve        |
+|  [10]   | `v.value()` after `updateVariables()`                    | instance | the solved coordinate the panel binds — the seam output |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[SOLVER_TOPOLOGY]:
-- one solver, incremental: `Solver` holds a simplex tableau; `addConstraint`/`removeConstraint`/`suggestValue` mutate it and `updateVariables()` re-optimizes without a full rebuild. `maxIterations` (default `10000`) caps iteration to fail loud on a pathological program rather than hang.
-- strength is numeric, not categorical: `required` is a hard constraint (the solver guarantees it or throws on an unsatisfiable required set); `strong`/`medium`/`weak` and any `create(a,b,c,w)` value are soft — the solver minimizes weighted violation. Edit variables reject `required` strength; a required edit is a construction error.
-- RHS-implicit-zero: a `Constraint` normalizes to `expr op 0`; `createConstraint(lhs, op, rhs, …)` folds `lhs − rhs` into that form. `suggestValue` only applies to a registered edit variable.
+[TOPOLOGY]:
+- one incremental solver: `Solver` holds a simplex tableau; `addConstraint`/`removeConstraint`/`suggestValue` mutate it and `updateVariables()` re-optimizes without a rebuild, while `maxIterations` (default `10000`) caps iteration to fail loud on a pathological program.
+- strength is numeric, not categorical: `required` is hard and the solver satisfies it or throws on an unsatisfiable required set; `strong`/`medium`/`weak` and any `Strength.create(a, b, c, w)` value are soft, minimizing weighted violation, and an edit variable rejects `required` strength.
+- `Constraint` normalizes to `expr op 0`; `createConstraint(lhs, op, rhs, …)` folds `lhs − rhs` into that form, and `suggestValue` applies only to a registered edit variable.
+- identical ordered inputs yield identical positions: under equal-strength competition the tableau depends on constraint insertion order and edit weights, so the seam fixes every axis — constraint set, insertion order, strengths, edit-suggestion sequence — and both sides run the same Cassowary algorithm to one tableau; drift surfaces at the panel as a construction defect, never a re-solve-until-close loop.
 
-[DETERMINISM_LAW]:
-- identical positions require identical inputs in identical order: Cassowary's solution is unique for a fully-determined system, but under equal-strength competition the result depends on constraint INSERTION ORDER and edit/stay weights. The seam therefore fixes all the axes — identical constraint set, identical insertion order, identical strengths, identical edit-suggestion sequence — and the wire program is *ordered* precisely so the TS replay reproduces the C# tableau.
-- the wire carries the program, `ui` never authors it: the panel folds decoded rows in the received order and MUST NOT insert, reorder, re-strengthen, or synthesize constraints locally; interactive drag adds only edit-variable `suggestValue` calls over the frozen program, never new structural constraints.
-- floating-point parity is the seam's tolerance contract, not kiwi's concern: both sides run the same Cassowary algorithm, so equal-order equal-strength programs converge to the same tableau; any observed drift is a program-construction defect (wrong order/strength/algebra), surfaced at the panel, never papered over with a re-solve-until-close loop.
-
-[INTEGRATION_LAW]:
-- Stack with `wire#vocab`: the `LayoutConstraintWire` is decoded once at `wire` (Schema-typed, `.api/effect.md`), and `ui` types the decoded ordered program through the `wire` `#vocab` subpath — the codec interior is unexported, so the panel physically cannot re-parse or re-mint the program. The fold consumes decoded values only.
-- Stack with `@effect-atom` (`.api/effect-atom-atom.md`): the solved `Variable.value()` set binds through the one panel atom (`ONE_FOLD_ONE_BINDING`); `updateVariables()` runs inside the atom's write fold so a suggested value and its re-solve land as one state transition the panel view reads.
-- Stack with the gesture rows (`act/gesture`, react-aria / `.api/use-gesture-react.md`): a drag gesture is the only writer into `suggestValue`; the gesture delta targets an edit variable, `updateVariables()` re-solves, and the atom re-renders — one gesture → one suggest → one solve → one bind.
-- Stack with `csharp:Rasm.AppUi/Shell/solver`: C# owns the authoritative solve and serializes the ordered program; TS re-solves for local latency. The two are the same Cassowary algorithm over the same ordered program — a TS-side algebra rebuild that diverges from the wire order is the `CROSS_LANGUAGE_WIRE` drift defect.
+[STACKING]:
+- `wire`#vocab (`effect` Schema, `libs/typescript/.api/effect.md`): `ui` types the decoded ordered program through the `wire` `#vocab` subpath; the codec interior stays unexported, so the panel cannot re-parse or re-mint the program and the fold consumes decoded values only.
+- `@effect-atom`(`.api/effect-atom-atom.md`): the solved `Variable.value()` set binds through one panel atom, and `updateVariables()` runs inside the atom's write fold so a suggested value and its re-solve land as one state transition.
+- `use-gesture-react`(`.api/use-gesture-react.md`): a drag gesture is the sole writer into `suggestValue`, its delta targeting an edit variable so `updateVariables()` re-solves and the atom re-renders — one gesture, one suggest, one solve, one bind.
+- `csharp:Rasm.AppUi/Shell/solver`: C# owns the authoritative solve and serializes the ordered program; TS re-solves the identical program for local latency, and a TS-side algebra rebuild that diverges from wire order is the `CROSS_LANGUAGE_WIRE` drift defect.
+- within-lib: one `Solver` per layout panel folds the decoded `LayoutConstraintWire` in received order, and `ui` adds only edit-variable suggestions over the frozen program.
 
 [LOCAL_ADMISSION]:
-- `scope:viewer` project-local; the core `ui` never imports it. No DOM/GL — pure numeric solve.
-- the wire program is the single source of constraints; `ui` adds only edit-variable suggestions, never structural constraints.
-- one `Solver` per layout panel; strengths are resolved through `Strength.create`/the named constants, never hardcoded magic numbers.
+- `scope:viewer` project-local, pure numeric solve with no DOM or GL; the core `ui` never imports it.
+- `ui` draws every constraint from the wire program and adds only edit-variable suggestions, never a structural constraint.
+- strengths resolve through `Strength.create` or the named constants, never a hardcoded magic number.
 
 [RAIL_LAW]:
 - Package: `@lume/kiwi`
-- Owns: the incremental Cassowary re-solve of the ordered wire `LayoutConstraintWire` program, the `Variable`/`Expression`/`Constraint`/`Strength` algebra, and the edit-variable drag protocol
-- Accept: one `Solver` folding the decoded program in wire order, `Strength.create`/named constants for every strength, `addEditVariable`+`suggestValue`+`updateVariables` for live drag, `Variable.value()` as the seam-verified position read
-- Reject: authoring/reordering/re-strengthening constraints in `ui`, a TS-side algebra re-mint that diverges from the wire order, `required`-strength edit variables, a re-solve-until-close loop hiding a construction defect, importing it into the core `ui`, hand-rolling a linear solver
+- Owns: the incremental Cassowary re-solve of the ordered `LayoutConstraintWire` program, the `Variable`/`Expression`/`Constraint`/`Strength` algebra, and the edit-variable drag protocol
+- Accept: one `Solver` folding the decoded program in wire order, `Strength.create` or named constants for every strength, `addEditVariable`+`suggestValue`+`updateVariables` for live drag, `Variable.value()` as the seam-verified position read
+- Reject: authoring/reordering/re-strengthening constraints in `ui`, a TS-side algebra re-mint diverging from wire order, `required`-strength edit variables, a re-solve-until-close loop hiding a construction defect, importing it into the core `ui`, hand-rolling a linear solver

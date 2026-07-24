@@ -17,7 +17,7 @@ Rasm.AppUi/
 │   ├── Dialogs.cs        # Typed-Fin dialog intents with dismissal-as-value and agnostic pickers
 │   ├── Input.cs          # Command-derived hotkeys, behavior rows, pan-zoom canvas, device drivers
 │   └── Accessibility.cs  # Automation identity, tab-order and trap law, one WCAG luminance gate
-├── Render/               # Pure GPU-viewport and temporal tier
+├── Render/               # Pure GPU-viewport and temporal plane
 │   ├── Pipeline.cs       # Render-graph pass-DAG over per-backend GPU targets and the resolve ladder
 │   ├── Meshlets.cs       # Compute residency cluster consumption with hysteresis LOD and cull cut
 │   ├── PathTrace.cs      # BVH, ReSTIR, denoise oracle, and sun study over the one light rig
@@ -52,7 +52,7 @@ Rasm.AppUi/
 │   ├── Proof.cs          # Capture lanes, headless proof matrix, frame-bench lanes, goldens, and a typed proof fault
 │   ├── DevLoop.cs        # Hot-reload knobs, inspector, HUD, flamegraph, solve scrub, and a REPL
 │   └── Governor.cs       # Perf-budget quality governor with timestamp attribution
-└── Theme/                # Pure vocabulary tier: tokens, typography, motion, assets, locale
+└── Theme/                # Pure vocabulary: tokens, typography, motion, assets, locale
     ├── Tokens.cs         # Design-token engine with an OKLab ramp mix and atomic theme swap
     ├── Typography.cs     # Type roles, embedded-font admission, one shaping rail, live front-matter
     ├── Motion.cs         # Motion tokens with spring algebra and a progress-to-token map
@@ -60,16 +60,19 @@ Rasm.AppUi/
     └── Locale.cs         # Locale rows over Resx, ICU, and time, a typed locale fault, live captioning
 ```
 
-`Shell` owns the host-mount axis and application spine — the mount precedes the shell, the shell precedes the screens it routes — and `Theme` is the pure vocabulary tier every literal traces to. `Render` owns the GPU-viewport and temporal tier, `Document` the recompute graph and every paginated output, and `Diagnostics` the 6xxx fault registry, the proof matrix, the telemetry spine, and the quality governor. `Collab/sync` holds the one live-merge authority and the typed `EditIntent` union that is durable truth on the Persistence ledger — no Loro byte crosses durable truth.
+`Shell` owns the host-mount axis and application spine — the mount precedes the shell, the shell precedes the screens it routes — and `Theme` is the pure vocabulary every literal traces to. `Render` owns the GPU viewport and the temporal plane, `Document` the recompute graph and every paginated output, and `Diagnostics` the 6xxx fault registry, the proof matrix, the telemetry spine, and the quality governor. `Collab/sync` holds the one live-merge authority and the typed `EditIntent` union that is durable truth on the Persistence ledger — no Loro byte crosses durable truth.
 
 ## [02]-[STRATA]
 
 Four member-resolved strata order the interior; `Diagnostics/Evidence` is the reciprocal hub — every owner derives its fault codes through `AppUiFaultBand` while `EvidenceReceipt` nests every producer's receipt record — so the hub seats S0 and the nesting reads as co-ownership, never an upward import; every consumption edge points down.
 
-- S0 substrate — the `AppUiFaultBand` 6xxx registry and `AppUiTelemetry` spine (`Diagnostics/Evidence`) beside the pure `Theme` vocabulary (`TokenRow`, `MotionToken`, `AssetKeys`); every literal and every fault code traces here.
-- S1 spines — one owner per fabric: the `CommandIntent` verb table with its `CommandDeck`, the `VirtualWindowSpec` windowing fabric, the `LayoutSolver` constraint panel, the `EditReceipt` inspection rail, and the `RenderReceipt`/`RenderGraph` render tier.
-- S2 streams — `BehaviorRail` binding, the `EditIntent`/`IntentLedger` live-merge authority (`Collab/Sync`), and the `RevertibleOp` inverse algebra, each folding the S1 spines.
-- S3 surfaces — `ControlFactory` materializing every control over the spines and streams, and the `IssueBoard` projection over the intent ledger; the notebook, export, and screen planes compose these same rungs.
+- S0 substrate — the `AppUiFaultBand` 6xxx registry and `AppUiTelemetry` spine (`Diagnostics/Evidence`); every fault code traces here.
+- S0 vocabulary — pure `Theme` (`TokenRow`, `MotionToken`, `AssetKeys`); every visual literal traces here.
+- S1 spines — one owner per fabric: the `CommandIntent` verb table with its `CommandDeck`, and the `VirtualWindowSpec` windowing fabric.
+- S1 spines — the `LayoutSolver` constraint panel, the `EditReceipt` inspection rail, and the `RenderReceipt`/`RenderGraph` render spine.
+- S2 streams — `BehaviorRail` binding, the `EditIntent`/`IntentLedger` live-merge authority (`Collab/Sync`), and the `RevertibleOp` inverse algebra.
+- S3 surfaces — `ControlFactory` materializes every control over the spines and streams; `IssueBoard` projects over the intent ledger.
+- S3 planes — notebook, export, and screen planes compose the same rungs.
 
 ```mermaid
 ---
@@ -82,23 +85,23 @@ config:
 flowchart TB
     accTitle: Rasm.AppUi interior strata
     accDescr: Four member-resolved strata from the control and issue surfaces through the binding, intent, and revert streams and the one-owner spines onto the fault-band and theme substrate, every consumption edge downward and naming one sourced type.
-    subgraph L3["S3 SURFACES"]
+    subgraph S3["S3 SURFACES"]
         Factory[ControlFactory]
         Board[IssueBoard]
     end
-    subgraph L2["S2 STREAMS"]
+    subgraph S2["S2 STREAMS"]
         Rail[BehaviorRail]
         Intent[EditIntent]
         Revert[RevertibleOp]
     end
-    subgraph L1["S1 SPINES"]
+    subgraph S1["S1 SPINES"]
         Command[CommandIntent]
         Virtual[VirtualWindowSpec]
         Solver[LayoutSolver]
         Inspect[EditReceipt]
         Graph[RenderGraph]
     end
-    subgraph L0["S0 SUBSTRATE"]
+    subgraph S0["S0 SUBSTRATE"]
         Fault[AppUiFaultBand]
         Token[TokenRow]
     end
@@ -131,7 +134,7 @@ flowchart LR
     accTitle: AppUi AEC-domain, render-source, and storage seams
     accDescr: AppUi render, chart, and collaboration owners exchanging residency projections, receipts, boundaries, content keys, and shared-device shapes with the AEC peers Compute, Fabrication, Materials, Bim, the kernel, and the Persistence store.
     subgraph appui[RASM.APPUI]
-        Render[Render tier]
+        Render[Render plane]
         Charts[Chart planes]
         Collab[Collab plane]
     end
@@ -171,7 +174,7 @@ flowchart LR
     accDescr: AppUi shell, render, editing, document, and diagnostics owners exchanging command, residency, and evidence wires, render receipts, determinism and receipt-hook ports, and the fault-band adjacency with the app host and the TypeScript core and viewer peers.
     subgraph appui[RASM.APPUI]
         Shell[Shell spine]
-        Render[Render tier]
+        Render[Render plane]
         Editing[Edit surfaces]
         Document[Document plane]
         Diagnostics[Diagnostics]
@@ -189,14 +192,23 @@ flowchart LR
     AppHost -->|"[PORT]: ReceiptSinkPort + HookRail"| Diagnostics
 ```
 
-- `[PORT]: DeterminismContext` into `Document` is the one AppHost runtime port spine every surface composes at app composition, resolving through the one `Rasm.AppHost/Runtime` boundary; `Document/notebook` `CapabilityPin` is its consumer anchor.
-- `[PORT]` into `Diagnostics` is the observability spine: owners seal evidence through `ReceiptSinkPort`, contribute instrument rows through `TelemetryContributorPort` mounted on the `TelemetrySource.AppUi` meter, and the evidence fan subscribes to the `HookRail` receipt point as one observe row — telemetry projects facts, never produces them.
-- `[CONTENT_KEY]` edges are one idiom: every AppUi content-identity mint composes the kernel `ContentHash.Of` seed-zero entry, and Compute-minted residency and splat keys stay decode-only.
-- `[PROJECTION]: ReplayWindow` also serves the Render version-compare lane: the Persistence `ReplayWindow`/commit-DAG fold derives the `(ElementId, DiffClass)` classification `VersionGhost` renders as diff-classed `VisibilityOverride` rows — values only, AppUi runs no ledger read.
-- `[RECEIPT]: ConstructionState` carries the 4D schedule-phase consumption: `Render/animation.md` `SchedulePlayback.FromSchedule` reads as values off `Rasm.Bim/Planning/schedule.md` `ConstructionState.At`/`TaskKind`.
-- `[RECEIPT]: DuckProfileReceipt` into `Charts` is the store-profile board feed: `Charts/telemetry.md` tiles consume the Persistence `Store/observability` profile receipts as values over the analytical query lane — profiling custody, the pg_stat slots, and the `store.<domain>.<verb>` grammar stay Persistence-side.
-- `[CARRIER]: CollabWireContext` rides the AppHost collab-delta feed: `Collab/sync` frames each broadcast delta as a `CollabFrame` (W3C carrier + Loro bytes) and extracts the originating correlation on merge, but the W3C injection/extraction adapter pair is AppHost `TraceContext`'s — AppUi holds only the composition-bound `Inject`/`Extract` delegates; the reciprocal `Rasm.AppHost [COLLAB_WIRE_CONTEXT]` (the `TraceContext` collab-frame adapter and the `COLLAB_DELTA_FEED` frame schema) is the deferred counterpart.
-- `[FEED]: ProfileSample` into `Diagnostics/devloop` is the host profile-sample flame join: AppHost owns capture (Pyroscope span profiles, EventPipe CPU stacks) and delivers correlation-keyed samples through the composition-bound `ProfileSampleSource`, which `FlameNode.Of` folds into the frame tree — the feed rides an existing AppHost port (a registration row, never an eighth `PortCardinality` port), and the reciprocal `Rasm.AppHost [PROFILE_FLAME_JOIN]` is the deferred counterpart.
+- `[PORT]: DeterminismContext` into `Document` — the AppHost runtime port spine composed at app composition; `CapabilityPin` anchors it.
+- `[PORT]` into `Diagnostics` — observability spine: owners seal evidence through `ReceiptSinkPort`; telemetry projects facts, never produces them.
+- Instrument rows contribute through `TelemetryContributorPort` on the `TelemetrySource.AppUi` meter.
+- Evidence fan subscribes to the `HookRail` receipt point as one observe row.
+- `[CONTENT_KEY]` edges are one idiom — every content-identity mint composes the kernel `ContentHash.Of` seed-zero entry.
+- Compute-minted residency and splat keys stay decode-only.
+- `[PROJECTION]: ReplayWindow` also serves the Render version-compare lane — values only, AppUi runs no ledger read.
+- Persistence `ReplayWindow`/commit-DAG fold derives the `(ElementId, DiffClass)` classification `VersionGhost` renders as `VisibilityOverride` rows.
+- `[RECEIPT]: ConstructionState` — `SchedulePlayback.FromSchedule` reads `ConstructionState.At`/`TaskKind` as Bim-owned 4D schedule values.
+- `[RECEIPT]: DuckProfileReceipt` into `Charts` — telemetry tiles consume the Persistence profile receipts as values over the analytical query lane.
+- Profiling custody, the pg_stat slots, and the `store.<domain>.<verb>` grammar stay Persistence-side.
+- `[CARRIER]: CollabWireContext` rides the AppHost collab-delta feed — `Collab/sync` frames each delta as a `CollabFrame`, W3C carrier + Loro bytes.
+- Merge extracts the originating correlation; AppUi holds only the composition-bound `Inject`/`Extract` delegates of AppHost `TraceContext`.
+- `Rasm.AppHost [COLLAB_WIRE_CONTEXT]` owns the reciprocal — the `TraceContext` collab-frame adapter and the `COLLAB_DELTA_FEED` frame schema.
+- `[FEED]: ProfileSample` into `Diagnostics/devloop` — AppHost delivers correlation-keyed samples through `ProfileSampleSource`.
+- Capture stays AppHost-side — Pyroscope span profiles, EventPipe CPU stacks; `FlameNode.Of` folds the samples into the frame tree.
+- Feed rides an existing AppHost port row, never a new `PortCardinality` port; `Rasm.AppHost [PROFILE_FLAME_JOIN]` owns the reciprocal.
 
 `Diagnostics ⇄ Rasm.AppHost` `[FAULT]` edge is the 6xxx `AppUiFaultBand` neighborhood: AppUi lowers every fault union onto its band and the AppHost lifecycle registry pins the reciprocal range, so fault codes never collide across the platform seam.
 

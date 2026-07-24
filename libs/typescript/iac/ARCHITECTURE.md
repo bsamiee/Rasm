@@ -26,10 +26,10 @@ iac/
 
 ## [02]-[STRATA]
 
-- S0 `program/spec` + `program/automation` — the co-base pair: `StackSpec`/`StackOutputs` decode the one deploy value, `DeployFault`/`RunReceipt` rail every run; the two compose mutually (spec reads `DeployFault`, automation reads `StackSpec`) and nothing sits below them.
-- S1 `operate` + `program/source` — each composes the base alone: `secret`/`observe`/`cloud` read `Tier`, `policy` drives `Automation` receipts, `source` shells read `Tier`; no operate module imports an operate sibling.
-- S2 `kube` — the estate tiers realized over `Tier` rows; `traffic` alone adds a type-only `Certs` read on `operate/secret`, its issue verb injected partially applied.
-- S3 `program/provider` — the `_estate` composition sink: the capability-by-arm map pulls every kube and operate tier, `Source.distribute`, `StackOutputs`, and `DeployFault`; nothing imports it.
+- S0 `program/spec` + `program/automation` — co-base pair composing mutually: spec reads `DeployFault`, automation reads `StackSpec`.
+- S1 `operate` + `program/source` — each composes the base alone: `policy` alone drives `Automation` receipts, none imports an operate sibling.
+- S2 `kube` — estate tiers over `Tier` rows; `traffic` alone adds a type-only `Certs` read on `operate/secret`, its issue verb injected.
+- S3 `program/provider` — the `_estate` composition sink pulling every tier through the capability-by-arm map; nothing imports it.
 
 ```mermaid
 ---
@@ -41,7 +41,7 @@ config:
 ---
 flowchart TB
     accTitle: Iac interior import strata
-    accDescr: Four interior waves — the provider composition sink over the kube estate over the operate plane onto the spec and automation co-base — every import downward, labeled edges naming one sourced type each, and one edge marking the forbidden upward import.
+    accDescr: Four strata — the provider sink over the kube estate over the operate plane onto the spec-automation co-base; imports point downward.
     subgraph S3["S3 COMPOSITION SINK"]
         Provider[provider]
     end
@@ -84,7 +84,7 @@ config:
 ---
 flowchart LR
     accTitle: IaC package seam registry
-    accDescr: IaC plane owners exchanging stack outputs, data-plane shapes, lifecycle posture, board packs, observability projections, and lease custody with runtime, data, core, and security packages, one labeled edge per landed contract family.
+    accDescr: IaC owners exchanging stack outputs, data-plane shapes, board packs, and lease custody with runtime, data, core, and security.
     subgraph iac[IAC]
         Program[Program plane]
         Operate[Operate plane]
@@ -108,7 +108,7 @@ flowchart LR
     Security e13@-->|"[BOUNDARY]: LeaseSpec"| Operate
 ```
 
-## [04]-[ORGANIZATION]
+## [04]-[INTERNAL]
 
 One `StackSpec` decodes into an arm, and the arm realizer proves every spec coordinate on the `DeployFault` rail before minting a `PulumiFn` — a rejected coordinate never reaches a provider. `provider` holds the single `_estate` composition the metal bootstrap and the EKS escalation both feed, beside the docker machine estate at container depth. `automation` is the sole executor and internalizes resilience, retry, and per-run budgets. Per-file wiring — tier rows, mirror fan-out, the reconcile loop — lives on the owning pages.
 
@@ -117,5 +117,5 @@ One `StackSpec` decodes into an arm, and the arm realizer proves every spec coor
 - Nothing imports this package at runtime; values cross back only as typed stack outputs read from env at boot.
 - iac applies DDL and extensions; data verifies at startup, runtime never mutates schema, so divergence fails closed, never a pulumi read-back.
 - Object-engine admission requires conditional-create semantics; `minio | ceph` are the conforming rows.
-- Static distribution publishes caller-owned artifact rows at `assets/<digest>/<file>` on the `served` output plane and carries no UI codec semantics.
+- Static distribution publishes caller-owned artifact rows at `assets/<digest>/<file>` on the `served` plane and carries no UI codec semantics.
 - Queue durability is the SKIP-LOCKED outbox with the runtime relay owned by the data and runtime planes.

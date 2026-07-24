@@ -1,76 +1,74 @@
 # [TS_RUNTIME_API_OPENTELEMETRY_RESOURCES]
 
-`@opentelemetry/resources` owns the OTLP `Resource` — the immutable, `merge`-composable attribute bundle (`service.name`, `telemetry.sdk.*`, host/os/process facts) stamped on every span, metric, and log so a backend can attribute a signal to its emitter. Its value is the exact type the facade's `Resource.Resource` Tag wraps (`@effect/opentelemetry` declares `Tag<Resource, Resources.Resource>` — this package IS the concrete carrier), so the one Rasm identity spine flows `AppIdentity → Resource.layer → resourceFromAttributes → Resources.Resource → both export lanes`. Its second capability is the `ResourceDetector` family (`env`/`host`/`os`/`process`/`serviceInstanceId`) that `detectResources` folds onto that base to enrich the resource with environment facts the app root does not carry by hand. Inside Rasm it is one row of the `[OTLP_SDK]` SDK-bridge pin block; the edge ledger fences `@opentelemetry/*` to `scope:runtime`, and it is an `[OTEL_PIN_BLOCK]`-collapse member (the native `Otlp` lane's `OtlpResource` replaces it once parity closes; `semantic-conventions` survives, this does not).
+`@opentelemetry/resources` owns the OTLP `Resource`: an immutable, `merge`-composable attribute bundle (`service.name`, `telemetry.sdk.*`, host/os/process facts) every span, metric, and log carries so a backend attributes a signal to its emitter, and `detectResources` folds the `ResourceDetector` family onto that base to enrich it with environment facts. It is the concrete value the facade `Resource.Resource` Tag wraps, so one `AppIdentity`-derived resource reaches both export lanes.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/resources`
 - package: `@opentelemetry/resources` (Apache-2.0)
-- otel-peer: `@opentelemetry/api >=catalog <catalog` (the `Attributes`/`AttributeValue` source); deps `@opentelemetry/core catalog` (`SDK_INFO`/env readers seed `defaultResource`) + `@opentelemetry/semantic-conventions ^catalog` (the attribute-key vocabulary)
-- consumed-by: `otel/emit` resource composition; the facade's `Resource` module (`@effect/opentelemetry` `Resource.Resource` = `Tag<_, Resources.Resource>`); every `@opentelemetry/sdk-*` provider requires a `Resource`
-- catalog-verdict: KEEP as SDK-bridge peer; edge-ledger fences `@opentelemetry/*` to `scope:runtime`; `[OTEL_PIN_BLOCK]`-collapse member (native `OtlpResource` supersedes)
-- runtime: dual — one index over a `detectors/platform/{node,browser}` split; node detectors read `os`/`process`/machine-id, browser detectors degrade to `noop`; the `Resource` value + constructors are runtime-neutral
-- module-families: the `Resource` value (`merge`, async-attributes), the `resourceFromAttributes`/`defaultResource`/`emptyResource` constructors, and the `ResourceDetector` family run by `detectResources`
+- module: ESM, single index; a `detectors/platform/{node,browser}` split resolves per runtime
+- runtime: isomorphic — node detectors read `os`/`process`/machine-id, browser detectors degrade to `noop`; the `Resource` value and constructors are runtime-neutral
+- depends: `@opentelemetry/api` (`Attributes`/`AttributeValue`), `@opentelemetry/core` (`SDK_INFO`, env readers), `@opentelemetry/semantic-conventions` (attribute-key vocabulary)
+- rail: observability/resource — the identity bundle both export lanes stamp on every signal
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the `Resource` value + detector contract
-- rail: observability/resource
-- `Resource` is an immutable attribute bundle with a `merge` monoid (`AppIdentity` base ⊕ detector output ⊕ env) and an async-attribute channel: `asyncAttributesPending` flags detectors that resolve a `Promise` (machine-id, service-instance-id), and `waitForAsyncAttributes()` is the barrier the SDK awaits before first export. Resource sources are ONE parameterized family — every enricher implements `ResourceDetector.detect(config?): DetectedResource`, so a new source is a detector row in the `detectResources` set, never a new constructor. The detector value shape is `RawResourceAttribute = [string, MaybePromise<AttributeValue | undefined>]` with `MaybePromise<T> = T | Promise<T>`.
+[PUBLIC_TYPE_SCOPE]: the `Resource` value and the detector contract
 
-| [INDEX] | [SYMBOL]                                                       | [TYPE_FAMILY]     | [CONSUMER_BOUNDARY]                                |
-| :-----: | :------------------------------------------------------------- | :---------------- | :------------------------------------------------- |
-|  [01]   | `Resource { attributes; schemaUrl?; asyncAttributesPending? }` | resource value    | identity bundle both lanes stamp on every signal   |
-|  [02]   | `Resource.merge(other: Resource \| null): Resource`            | monoid            | fold base ⊕ detector ⊕ env into one resource       |
-|  [03]   | `Resource.waitForAsyncAttributes?(): Promise<void>`            | async barrier     | await pending detectors before first export        |
-|  [04]   | `getRawAttributes(): RawResourceAttribute[]`                   | raw read          | unresolved `[key, MaybePromise]` pairs             |
-|  [05]   | `ResourceDetector { detect(config?): DetectedResource }`       | detector contract | the one enricher interface `detectResources` folds |
-|  [06]   | `DetectedResource { attributes?: DetectedResourceAttributes }` | detector output   | sync-or-async attribute map a detector returns     |
-|  [07]   | `ResourceDetectionConfig { detectors?: ResourceDetector[] }`   | run config        | the ordered detector set `detectResources` runs    |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                                                                              |
+| :-----: | :------------------------ | :------------ | :---------------------------------------------------------------------------------------- |
+|  [01]   | `Resource`                | interface     | immutable `attributes`/`schemaUrl?`/`asyncAttributesPending?` bundle both lanes stamp     |
+|  [02]   | `ResourceDetector`        | interface     | the one enricher contract `detectResources` folds — `detect(config?) -> DetectedResource` |
+|  [03]   | `DetectedResource`        | type          | `{ attributes?: DetectedResourceAttributes }` sync-or-async map a detector returns        |
+|  [04]   | `ResourceDetectionConfig` | interface     | `{ detectors?: ResourceDetector[] }` ordered set `detectResources` runs                   |
+|  [05]   | `RawResourceAttribute`    | tuple         | `[string, MaybePromise<AttributeValue \| undefined>]` unresolved attribute pair           |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: resource construction
-- rail: observability/resource
-- The `AppIdentity`-derived resource is `defaultResource()` (which seeds `service.name` + core's `SDK_INFO` `telemetry.sdk.*`) merged with `resourceFromAttributes(AppIdentity attributes)`, `options.schemaUrl?` setting the schema URL. `emptyResource()` is the merge identity element. The facade's `Resource.layer({ serviceName, serviceVersion, attributes })` sits directly on top of `resourceFromAttributes`, so design code composes the facade layer and this constructor is the concrete builder it delegates to.
+[ENTRYPOINT_SCOPE]: resource construction and the `Resource` monoid
 
-| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                     |
-| :-----: | :------------------------------------------------------- | :------------- | :------------------------------------------------------ |
-|  [01]   | `resourceFromAttributes(attributes, options?): Resource` | constructor    | `AppIdentity` resource behind `Resource.layer`          |
-|  [02]   | `defaultResource(): Resource`                            | constructor    | `service.name` + `telemetry.sdk.*` seed; the merge base |
-|  [03]   | `emptyResource(): Resource`                              | identity       | the `merge` identity element                            |
-|  [04]   | `defaultServiceName(): string`                           | default        | recovery `service.name` when `AppIdentity` omits one    |
+| [INDEX] | [SURFACE]                                               | [SHAPE]  | [CAPABILITY]                                              |
+| :-----: | :------------------------------------------------------ | :------- | :-------------------------------------------------------- |
+|  [01]   | `resourceFromAttributes(DetectedResourceAttributes)`    | factory  | the `AppIdentity` resource behind `Resource.layer`        |
+|  [02]   | `defaultResource()`                                     | factory  | `service.name` + `telemetry.sdk.*` seed; the `merge` base |
+|  [03]   | `emptyResource()`                                       | factory  | the `merge` identity element                              |
+|  [04]   | `defaultServiceName() -> string`                        | factory  | recovery `service.name` when `AppIdentity` omits one      |
+|  [05]   | `Resource.merge(Resource \| null) -> Resource`          | instance | fold base ⊕ detector ⊕ env; other wins collisions         |
+|  [06]   | `Resource.waitForAsyncAttributes() -> Promise<void>`    | instance | await pending async detectors before first export         |
+|  [07]   | `Resource.getRawAttributes() -> RawResourceAttribute[]` | instance | unresolved `[key, MaybePromise]` pairs                    |
 
-[ENTRYPOINT_SCOPE]: environment detectors
-- rail: observability/resource/detect
-- `detectResources({ detectors })` runs the detector family and returns a `Resource` whose async attributes resolve lazily; it is merged onto the `AppIdentity` base. `envDetector` ingests `OTEL_RESOURCE_ATTRIBUTES`/`OTEL_SERVICE_NAME` (via core's env readers); the host/os/process/serviceInstanceId detectors add environment facts a multi-tenant deployment attributes on — the node platform reads `os`/`process`, the browser platform degrades these to a `noop` detector.
+- `resourceFromAttributes`: `options?` sets `schemaUrl`.
 
-| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                        |
-| :-----: | :---------------------------------------------- | :------------- | :--------------------------------------------------------- |
-|  [01]   | `detectResources(config?): Resource`            | detector fold  | run an ordered `ResourceDetector[]` into one resource      |
-|  [02]   | `envDetector`                                   | detector       | `OTEL_RESOURCE_ATTRIBUTES` / `OTEL_SERVICE_NAME` ingestion |
-|  [03]   | `hostDetector` / `osDetector`                   | detector       | `host.*` / `os.*` attributes                               |
-|  [04]   | `processDetector` / `serviceInstanceIdDetector` | detector       | `process.*` / async `service.instance.id`                  |
+[ENTRYPOINT_SCOPE]: environment detectors — `detectResources` folds an ordered `ResourceDetector[]` onto the `AppIdentity` base
+
+| [INDEX] | [SURFACE]                                               | [SHAPE] | [CAPABILITY]                                                        |
+| :-----: | :------------------------------------------------------ | :------ | :------------------------------------------------------------------ |
+|  [01]   | `detectResources(ResourceDetectionConfig?) -> Resource` | fold    | the detector fold; async attributes resolve lazily                  |
+|  [02]   | `envDetector`                                           | static  | `OTEL_RESOURCE_ATTRIBUTES`/`OTEL_SERVICE_NAME` via core env readers |
+|  [03]   | `hostDetector` / `osDetector`                           | static  | `host.*`/`os.*` facts; node reads `os`, browser `noop`              |
+|  [04]   | `processDetector` / `serviceInstanceIdDetector`         | static  | `process.*` / async `service.instance.id`                           |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[SDK_BRIDGE_TOPOLOGY]:
-- one resource, one identity: both export lanes consume ONE `Resource` derived from `AppIdentity` — the same value `browser` boot and the `store` `StoreHandle` scope use — so a per-app telemetry fork is structurally impossible (`core/observe/board` dashboards are `AppIdentity → DashboardModel` total functions). This package is the concrete carrier of that one value.
-- `merge` is the composition law, not construction: the `AppIdentity` base, the detector output, and the `OTEL_RESOURCE_ATTRIBUTES` env are three `Resource` values folded by `merge` — never three constructors or a mutable attribute map.
+[TOPOLOGY]:
+- one resource, one identity: both export lanes consume one `Resource` derived from `AppIdentity` — the value `browser` boot and the `store` `StoreHandle` scope share — so a per-app telemetry fork is structurally impossible, this package being that value's concrete carrier.
+- `merge` is the composition law, not construction: the `AppIdentity` base, detector output, and `OTEL_RESOURCE_ATTRIBUTES` env fold as three `Resource` values, never a mutable attribute map.
+- resource sources are one parameterized family: every enricher implements `ResourceDetector.detect`, so a new source is a detector row in `detectResources`, never a new constructor.
+- `asyncAttributesPending` flags a detector resolving a `Promise` (machine-id, service-instance-id) and `waitForAsyncAttributes` is the barrier the SDK awaits before first export.
 
-[INTEGRATION_LAW]:
-- Stack with `.api/effect-opentelemetry.md` `Resource` (the primary seam): the facade's `Resource.Resource` Tag is `Tag<_, Resources.Resource>` — it literally carries this package's `Resource`. `Resource.layer({ serviceName, serviceVersion, attributes })` and `configToAttributes` build the attributes; `resourceFromAttributes`/`defaultResource` are the concrete constructors underneath. Design code composes `Resource.layer` fed the `AppIdentity` value; both `NodeSdk`/`WebSdk` (`Configuration.resource`) and the native `Otlp` lane require that one Tag.
-- Stack with the sibling SDK providers: `opentelemetry-sdk-trace-node` (`NodeTracerProvider`), `sdk-metrics` (`MeterProvider`), and `sdk-logs` (`LoggerProvider`) each take a `Resource` at construction; the facade's `NodeSdk`/`WebSdk` wire this one resource into all three so trace/metric/log carry identical identity.
-- Stack with `.api/opentelemetry-core.md`: `defaultResource()` merges core's `SDK_INFO` (`telemetry.sdk.name/language/version`); the `envDetector` reads `OTEL_RESOURCE_ATTRIBUTES` through core's `getStringListFromEnv`. The async-attribute barrier (`waitForAsyncAttributes`) gates first export until the `serviceInstanceIdDetector` promise resolves.
-- Stack with `core/value/identity` `AppIdentity`: the resource attributes ARE the `AppIdentity` projection; the egress-redaction policy rows on `otel/emit` scrub PII from attributes at the export boundary before serialization, so a detector-added host fact never leaks a hostname into a shared backend unfiltered.
+[STACKING]:
+- `effect-opentelemetry`(`.api/effect-opentelemetry.md`): the facade `Resource.Resource` Tag is `Tag<_, Resources.Resource>` carrying this value; `Resource.layer({ serviceName, serviceVersion, attributes })` builds the attributes over `resourceFromAttributes`, and native `Otlp` with `NodeSdk`/`WebSdk` (`Configuration.resource`) all require that one Tag.
+- `opentelemetry-core`(`.api/opentelemetry-core.md`): `defaultResource` merges core's `SDK_INFO` (`telemetry.sdk.name/language/version`); `envDetector` reads `OTEL_RESOURCE_ATTRIBUTES` through core's `getStringListFromEnv`.
+- SDK providers `opentelemetry-sdk-trace-node`(`.api/opentelemetry-sdk-trace-node.md`) `NodeTracerProvider`, `opentelemetry-sdk-metrics`(`.api/opentelemetry-sdk-metrics.md`) `MeterProvider`, and `opentelemetry-sdk-logs`(`.api/opentelemetry-sdk-logs.md`) `LoggerProvider` each take a `Resource` at construction, so the facade wires this one value into all three and trace/metric/log carry identical identity.
+- `otel/emit` (within-lib): the export-boundary owner feeds `Resource.layer` the `core/value/identity` `AppIdentity` and scrubs PII from attributes through egress-redaction rows before serialization, so a detector-added host fact never leaks a hostname unfiltered.
 
 [LOCAL_ADMISSION]:
-- `@opentelemetry/*` is admitted ONLY inside `scope:runtime` (edge-ledger ban); no other folder constructs a `Resource`. Instrumentation code never imports this package — it emits through Effect's native signals against the one facade `Resource`.
-- prefer the facade `Resource.layer` over raw `resourceFromAttributes`; reach for `detectResources` + the detector family only when SDK-only environment attributes (host/os/process) are required, and record it as an `[OTEL_PIN_BLOCK]` non-collapsed dependency.
-- `resourceFromDetectedResource` and `noopDetector` exist in source but are NOT on the package index — do not transcribe them; the public detector set is the five named rows.
+- `@opentelemetry/*` admits only inside `scope:runtime` (edge-ledger ban); no other folder constructs a `Resource`, and instrumentation emits through Effect's native signals against the one facade `Resource`.
+- design code composes the facade `Resource.layer` over raw `resourceFromAttributes`, reaching for `detectResources` and the detector family only where SDK-only environment attributes (host/os/process) are required.
+- it persists as the native lane's `Resource`-identity substrate; `.api/effect-opentelemetry.md` owns the `[OTEL_PIN_BLOCK]` survive-and-collapse roster.
 
 [RAIL_LAW]:
 - Package: `@opentelemetry/resources`
-- Owns: the immutable `merge`-composable `Resource` value (the concrete carrier of the facade `Resource` Tag), the `resourceFromAttributes`/`defaultResource`/`emptyResource` constructors, and the `env`/`host`/`os`/`process`/`serviceInstanceId` `ResourceDetector` family run by `detectResources`
-- Accept: one `AppIdentity`-derived `Resource` via the facade `Resource.layer`; `merge` as the composition law folding base ⊕ detectors ⊕ env; `detectResources({ detectors })` for SDK-only environment enrichment; the async-attribute barrier before first export
-- Reject: `@opentelemetry/*` imports outside `scope:runtime`, per-app resource forks (dashboards are identity-derived data), a new constructor where a `ResourceDetector` row belongs, mutable attribute accumulation instead of `merge`, transcribing the non-indexed `resourceFromDetectedResource`/`noopDetector`
+- Owns: the immutable `merge`-composable `Resource` value (concrete carrier of the facade `Resource` Tag), the `resourceFromAttributes`/`defaultResource`/`emptyResource` constructors, and the `env`/`host`/`os`/`process`/`serviceInstanceId` `ResourceDetector` family run by `detectResources`
+- Accept: one `AppIdentity`-derived `Resource` via the facade `Resource.layer`; `merge` folding base ⊕ detectors ⊕ env; `detectResources({ detectors })` for SDK-only environment enrichment; the async-attribute barrier before first export
+- Reject: `@opentelemetry/*` imports outside `scope:runtime`, per-app resource forks, a new constructor where a `ResourceDetector` row belongs, mutable attribute accumulation instead of `merge`

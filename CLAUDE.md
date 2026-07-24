@@ -3,14 +3,14 @@
 MUST READ: `libs/.planning/RULINGS.md` + `libs/.planning/ARCHITECTURE.md`
 
 Rasm is in a long-term planning phase, working strictly within design/spec-sheets, not code files. List all files in `libs/.planning` for all guidance:
-- All `libs/` spec docs are the rebuild surface: rebuilt ground-up each pass, freely and considerably, ahead of code implementation.
+- All `libs/` spec docs are the rebuild surface: rebuilt ground-up each pass, freely and aggressively.
 - Each `lib/<language>/` and `libs/<language>/<sub-folder>` carry a `.api/` folder; all work stacks external-lib capability from BOTH altitudes — REQUIRED.
 
 ## [01]-[REQUIRED]
 
 - Work in `libs/<language>/` requires a FULL reading of `libs/<language>/.planning/RULINGS.md` + `libs/<language>/.planning/ARCHITECTURE.md`
-- Work in `libs/<language>/` requires a FULL reading of ALL files in the root of `docs/stacks/<language>/`, for csharp, the `domain/` folder is case by case.
-- Durable infra docs — README/ARCHITECTURE/RULINGSIDEAS/TASKLOG, `.api` files, and system pages — follow maintenance law in `libs/.planning/campaign-method.md`.
+- Work in `libs/<language>/` requires a FULL reading of ALL files in the root of `docs/stacks/<language>/` at start of turn (not repeated).
+- Durable infra docs — README/ARCHITECTURE/RULINGS/IDEAS/TASKLOG, `.api` files, and spec sheets all follow approach in `libs/.planning/campaign-method.md`.
 - `docs/laws/` — repo-wide maintenance-law corpus; durable lessons land ONLY at the end of session, only where refute-first proves no surface owns the fact.
 
 [STANDARDS_ROUTING]: Use the route-owned standard for the file being edited; an HTML artifact routes durable to `docs/atlas/`, temp to `.claude/scratch`:
@@ -22,17 +22,18 @@ Rasm is in a long-term planning phase, working strictly within design/spec-sheet
 |  [03]   | TypeScript (`.ts`, `.tsx`) | Docs: `docs/stacks/typescript` | `libs/typescript`              | `camelCase`                    |
 |  [04]   | Bash/sh (`.sh`, `.bash`)   | Skill: `coding-bash`           | [ANY]                          | `kebab-case`                   |
 |  [05]   | SQL (`.sql`)               | Skill: `coding-pg`             | [ANY]                          | `snake_case`                   |
-|  [06]   | Durable markdown (`.md`)   | Skill: `docgen`                | [ANY]                          | `kebab-case`                   |
-|  [07]   | Mermaid fences             | Skill: `mermaid-diagramming`   | Inside `.md` and `.html` pages | [N/A]                          |
-|  [08]   | HTML artifacts (`.html`)   | Skill: `html-studio`           | `docs/atlas/`                  | `<kind>.<scope>[.<slug>].html` |
+|  [06]   | Markdown (`.md`)           | Skill: `docgen`                | [ANY]                          | `kebab-case`                   |
+|  [07]   | Mermaid                    | Skill: `mermaid-diagramming`   | Inside `.md` and `.html` pages | [N/A]                          |
+|  [08]   | HTML (`.html`)             | Skill: `html-studio`           | `docs/atlas/`                  | `<kind>.<scope>[.<slug>].html` |
 
 [TOOL_ROUTING]:
 - [ALWAYS]: use `exa` MCP to start open-web search with neural discovery, the right page, repo, paper, or entity; REPLACES `WebFetch` entirely.
 - [ALWAYS]: use `tavily-search` skill on known targets — extract or crawl a site, or run a cited multi-source report.
 - [ALWAYS]: use `context7-search` skill when working on code/fences with external libraries, never guess on SDK/framework/API capabilities or implementations.
 - [ALWAYS]: use `nuget` MCP to validate the existence of a package and newest version available.
-- [ALWAYS]: use `tools.assay provision` for Forge service, Postgres-extension, and DuckDB/SQLite surface evidence before an availability claim lands.
 - [ALWAYS]: use `claudeCodeDocs` MCP when working on Claude Code configs or harness questions; capabilities, memory, skills, hooks, plugins, settings.
+- [ALWAYS]: use `uv run python -m tools.assay static` for static quality `.py`, `.ts/.tsx`, and `.cs` files (ruff/ty/mypy, tsc/biome, dotnet format/build).
+- [ALWAYS]: use `tools.assay provision` for Forge service, Postgres-extension, and DuckDB/SQLite surface evidence before an availability claim lands.
 - [ALWAYS]: read `tests/README.md` + `tests/RULINGS.md` before touching any testing surface; a language tree adds its own README + RULINGS pair.
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
@@ -47,8 +48,10 @@ Rasm is in a long-term planning phase, working strictly within design/spec-sheet
 - [NEVER]: delete functionality to satisfy a density or LOC signal. Preserve capability through denser owners.
 
 [IMPORTANT]:
-- [ALWAYS]: ASSUME 10X THE COMPLEXITY/DEMANDS ON CODE, NEVER SETTLING FOR SIMPLE/NAIVE SOLUTIONS, NEVER TOLERATE SURFACE LEVEL FUNCTIONALITY. A class carrying 4 fields for a concept that admits 12+ is extended to the full concept in anticipation of all the needs NOW, not later; object proliferation is never the answer.
-- [ALWAYS]: aggressively rebuild code and planning docs GROUND/ROOT-UP, tear apart any existing patterns to achieve the optimized code surface density without losing functionality; new functionality is always made as if it was there from the start, never as tacked-on/flat-code spam.
+- [ALWAYS]: ASSUME 10X THE COMPLEXITY AND DEMANDS ON EVERY SURFACE — a naive, simple, or surface-level solution is rejected on sight.
+- [ALWAYS]: extend a class to the full concept it admits NOW — a 4-field shape for a 12+ concept widens in place, never proliferates objects.
+- [ALWAYS]: rebuild code and planning docs GROUND-UP — tear existing patterns apart for surface density with zero functionality lost.
+- [ALWAYS]: land new functionality as if designed in from the start, never as tacked-on flat-code spam.
 - [ALWAYS]: co-locate domain logic with its owner instead of scattering it into generic support files.
 - [ALWAYS]: drive logic with data, bounded vocabularies, discriminants, table rows, and reusable projections.
 - [ALWAYS]: collapse related variants into one polymorphic surface before adding entrypoints.
@@ -62,23 +65,23 @@ Rasm is in a long-term planning phase, working strictly within design/spec-sheet
 - [ALWAYS]: extend the canonical owner before adding rails, public surfaces, wrappers, commands, flags, provider selectors, schemas, models, helpers, or files.
 - [ALWAYS]: keep boundary mapping at the edge; internal code uses canonical names and shapes.
 - [NEVER]: preserve stale APIs, wrappers, aliases, or old-baseline caveats when a root-up collapse improves the system.
-- [NEVER]: create operation families like `Get`, `GetMany`, `GetBy<Key>`, `List`, or `Search` for a concept when one polymorphic operation can discriminate by input value.
+- [NEVER]: create `Get`/`GetMany`/`GetBy<Key>`/`List`/`Search` operation families; one polymorphic operation discriminates on input shape.
 
 ## [03]-[DEPENDENCY_POLICY]
 
 [IMPORTANT] - External libraries, manifests, and host APIs are implementation surfaces:
-- [ALWAYS]: put shared substrate API catalogues under `libs/<language>/.api/`; package `.api/` folders carry domain catalogues and folder-specific overlays.
-- [ALWAYS]: mine admitted packages to their full useful capability before writing local kernels; treat admitted packages as first class and priority.
-- [ALWAYS]: use ecosystem libraries that already own the domain concern over lower-level reinvention; treat ecosystem libraries as first class and priority.
+- [ALWAYS]: home substrate API catalogues at `libs/<language>/.api/`; package `.api/` folders carry domain catalogues and overlays.
+- [ALWAYS]: treat admitted packages and ecosystem libraries as first class; mine their full capability before any local kernel or hand-roll.
 - [ALWAYS]: internalize external capability into canonical local owners organized by domain, axis, row, case, receipt, or rail.
-- [ALWAYS]: keep C# MSBuild, NuGet, and `.csproj` manifests label-grouped by owner, sorted within coherent clusters, limited to one-line maintenance comments.
-- [ALWAYS]: keep the package touch-point set bi-directionally aligned; central manager row, owning project manifest, branch README registry, folder README registry, owning `.api` tier; an orphaned member of the set is a defect to fix at its owner, never removed/dropped.
-- [ALWAYS]: keep central package/version/tool ownership centralized in the one owning manifest or tool configuration — no per-package `pyproject.toml`, `package.json`, or `*.props`; assume the newest stable release and pin a package only when it is not yet compatible, removing the pin when compatibility lands.
-- [ALWAYS]: keep Python dependencies in root `pyproject.toml` as lean unpinned package names by default; add bounds or `python_version` markers only when resolver evidence requires them, prefer the newest viable release, remove constraints as compatibility lands, and keep wheel/floor/gate rationale out of Python docs, design docs, `.api` files, and comments.
-- [NEVER]: mint a folder-tier `.api` file that duplicates or redirects to a substrate catalogue; a folder composing a substrate-carried package REGISTERS it.
-- [NEVER]: hand-roll functionality provided by admitted dependencies.
+- [ALWAYS]: keep C# MSBuild/NuGet manifests label-grouped by owner, cluster-sorted, with one-line maintenance comments at most.
+- [ALWAYS]: align the package touch-point set both ways: central manager row, project manifest, branch/folder README registries, owning `.api` tier.
+- [ALWAYS]: repair an orphaned touch-point member at its owner, never by removal.
+- [ALWAYS]: centralize package, version, and tool ownership in one owning manifest — no per-package `pyproject.toml`, `package.json`, or `*.props`.
+- [ALWAYS]: assume the newest stable release; pin only while incompatible and drop the pin when compatibility lands.
+- [ALWAYS]: keep root `pyproject.toml` dependencies as lean unpinned names; bounds or `python_version` markers land only on resolver evidence.
+- [NEVER]: mint a folder-tier `.api` file duplicating or redirecting to a substrate catalogue; a folder composing a substrate package REGISTERS it.
 - [NEVER]: create thin wrappers that rename, forward, or partially expose external APIs without adding domain value.
-- [NEVER]: encode package versions, provider caveats, or command catalogs outside the owning manifest, package charter, README, or tool owner.
+- [NEVER]: encode versions, pin/floor rationale, provider caveats, or command catalogs outside the owning manifest, charter, README, or tool owner.
 
 ## [04]-[FILE_ORGANIZATION]
 
@@ -121,21 +124,25 @@ Canonical order, omitting unused sections: `TYPES` -> `CONSTANTS` -> `MODELS` ->
 - [ALWAYS]: treat logger handles, provider handles, and dependency-backed runtime capabilities as `[SERVICES]`, not immutable anchors.
 - [ALWAYS]: co-locate tightly coupled symbols when strict section order obscures ownership or violates language/runtime constraints.
 - [ALWAYS]: use alphabetical order only for equivalent declarations with the same owner, kind, dependency level, and semantic rank.
-- [ALWAYS]: treat one generated type, smart enum, value object, schema/model family, wire model family, kernel, registry, catalog, table, dispatcher, query family, or composition root as an owner block; sort inside the owner instead of flattening its members into unrelated top-level sections.
-- [ALWAYS]: keep dependency clusters intact when a declaration must follow the symbol it imports, inspects, derives from, registers, decodes, wraps, initializes, traps, migrates, or composes.
-- [ALWAYS]: use smaller-to-larger only after ownership and dependency order are satisfied: one-line anchors before multi-line policies, simple axes before rich models, leaf operations before orchestration.
-- [ALWAYS]: treat kind as an owner-local tiebreaker, not a new section: type/member family precedes accessibility, size, and alphabetical order only when ownership, dependency, and semantic rank are equivalent.
-- [ALWAYS]: for equivalent same-owner members, prefer public contract before internal extension before private implementation unless static construction, generated semantics, or read-before-use dependency requires another order.
-- [ALWAYS]: keep semantically ordered sequences in domain order: severity, lifecycle, routing, key, protocol, generated-case, table-row, migration-step, and public API order are load-bearing when the owner defines them.
-- [ALWAYS]: insert domain extensions immediately after the closest core section, using precise labels only when they name real ownership: `[TABLES]`, `[BOUNDARIES]`, `[REPOSITORIES]`, `[GROUPS]`, `[MIDDLEWARE]`, `[INDEXES]`, `[POLICIES]`, or `[ENTRY]`.
+- [ALWAYS]: treat one generated type, smart enum, value object, schema/model/wire family, kernel, dispatcher, or query family as an owner block.
+- [ALWAYS]: treat one registry, catalog, table, or composition root the same; sort inside the owner, never flattened into top-level sections.
+- [ALWAYS]: a declaration follows what it imports, inspects, derives from, registers, decodes, wraps, initializes, traps, migrates, or composes.
+- [ALWAYS]: apply smaller-to-larger only after ownership and dependency: anchors before policies, axes before models, leaf ops before orchestration.
+- [ALWAYS]: treat kind as an owner-local tiebreaker, not a new section — it ranks only among peers equal in ownership, dependency, and semantic rank.
+- [ALWAYS]: order same-owner peers public, then internal, then private — unless static construction, generated semantics, or read-before-use wins.
+- [ALWAYS]: hold owner-defined domain order: severity, lifecycle, routing, key, protocol, generated-case, table-row, migration-step, public API.
+- [ALWAYS]: insert a domain extension right after its closest core section; a precise label is earned by real ownership.
+- [ALWAYS]: extension vocabulary: `[TABLES]`, `[BOUNDARIES]`, `[REPOSITORIES]`, `[GROUPS]`, `[MIDDLEWARE]`, `[INDEXES]`, `[POLICIES]`, `[ENTRY]`.
 - [NEVER]: rename recurring categories per file; use canonical labels unless a domain extension is materially clearer.
-- [NEVER]: use alias or drift labels that merely rename core categories or hide complexity: `SCHEMA`, `FUNCTIONS`, `LAYERS`, `IMPORTS`, `INTERFACES`, `ENUMS`, `DTO`, `QUERIES`, `HELPERS`, `UTILS`, `COMMON`, `MISC`.
-- [NEVER]: split source-generated owners, delegate-backed enum behavior, validation partials, private operation-local state, resource/disposal boundaries, dispatch tables, SQL invariants, or migration units to satisfy mechanical section order.
-- [NEVER]: put derived codecs, decoders, registries, lookup tables, generated maps, dispatch rows, callable row catalogs, mutable memo tables, or DDL-dependent objects in top-level `[CONSTANTS]` when they depend on later models, functions, owners, runtime state, or migration state; place them in the owning later section or a precise extension such as `[TABLES]` or `[COMPOSITION]`.
+- [NEVER]: use category-drift labels: `SCHEMA` `FUNCTIONS` `LAYERS` `IMPORTS` `INTERFACES` `ENUMS` `DTO` `QUERIES` `HELPERS` `UTILS` `COMMON` `MISC`.
+- [NEVER]: split source-generated owners, delegate-backed enum behavior, validation partials, or operation-local state for mechanical section order.
+- [NEVER]: split resource/disposal boundaries, dispatch tables, SQL invariants, or migration units to satisfy section order.
+- [NEVER]: seat codecs, decoders, registries, lookup tables, generated maps, or dispatch rows in `[CONSTANTS]` ahead of what they depend on.
+- [NEVER]: seat callable row catalogs, memo tables, or DDL-dependent objects in `[CONSTANTS]`; home each in its owning later section or extension.
 
 Language overlays refine the canonical order by runtime semantics:
-- [CSHARP]: `[Union]`, `[SmartEnum]`, `[ValueObject]`, generated case families, static entries, delegate partials, validation partials, factories, and projections stay inside the declaring owner block. Preserve generated-case and smart-enum semantic order, with one generated case or static entry per physical declaration line unless a generator or runtime contract requires grouping. Static construction order inside a type is semantic when later fields derive from earlier fields. Static kernels, projectors, acceptors, and extension folds are `[OPERATIONS]` unless they own an actual dependency or service boundary. Inside a section, prefer attributes/delegates/marker types, enums/smart enums, readonly structs/records/value objects, records/classes/services, then owner-local private types when all earlier ordering constraints are equal. Inside a C# owner block, prefer generated/static dependency entries, fields/state, constructors/factories, properties, public operations, explicit boundary adapters, internal operations, then private kernels/implementation details.
-- [PYTHON]: imports, `TYPE_CHECKING`, and import-time gates precede ordinary sections. Runtime decoders, encoders, registries, and tables follow the models/functions they inspect because module-level assignments execute immediately and runtime annotation consumers such as `msgspec` and `beartype` resolve real objects. `Annotated` validator functions may use `[BOUNDARIES]` between immutable constants and dependent aliases when the aliases must reference the real validator object.
-- [TYPESCRIPT]: side-effect/value imports preserve runtime order, and `import type`/`export type` stay explicit. Runtime schemas/classes are `[MODELS]`, `Effect.Service` owners are `[SERVICES]`, `Layer`/runtime wiring is `[COMPOSITION]`, and catalog or registry rows that reference functions/classes stay after their referenced owners.
-- [BASH]: shebang, ShellCheck directives, `set`/`shopt`, and environment/path gates are `[RUNTIME_PRELUDE]`; `readonly` values are `[CONSTANTS]`; `declare -Ar` maps are `[TABLES]`; traps, dispatch, source guards, and `_main` are late `[COMPOSITION]` or `[ENTRY]`.
-- [PO_SQL]: extensions, schemas, and search-path guards are `[RUNTIME_PRELUDE]`; domains and types are `[TYPES]`; tables, constraints, generated columns, and partitions are `[MODELS]`; functions split by service boundary or query operation; indexes, triggers, row-level security, and policies are `[COMPOSITION]`; grants and comments are late `[EXPORTS]`.
+- [CSHARP]: `[Union]`, `[SmartEnum]`, `[ValueObject]`, generated case families, static entries, delegate/validation partials, factories, and projections stay inside the declaring owner block. Generated-case and smart-enum order is semantic — one case or static entry per line unless a generator or runtime contract groups them — and static construction order is semantic when later fields derive from earlier ones. Static kernels, projectors, acceptors, and extension folds are `[OPERATIONS]` unless they own a real dependency or service boundary. In-section kind order: attributes/delegates/marker types, enums/smart enums, readonly structs/records/value objects, records/classes/services, owner-local private types. In-owner order: generated/static dependency entries, fields/state, constructors/factories, properties, public operations, boundary adapters, internal operations, private kernels.
+- [PYTHON]: imports, `TYPE_CHECKING`, and import-time gates precede ordinary sections. Runtime decoders, encoders, registries, and tables follow the models/functions they inspect — module-level assignments execute immediately and runtime annotation consumers (`msgspec`, `beartype`) resolve real objects. `Annotated` validators may sit in `[BOUNDARIES]` between immutable constants and the dependent aliases that must reference the real validator object.
+- [TYPESCRIPT]: side-effect/value imports keep runtime order; `import type`/`export type` stay explicit. Runtime schemas/classes are `[MODELS]`, `Effect.Service` owners `[SERVICES]`, `Layer`/runtime wiring `[COMPOSITION]`, and catalog or registry rows referencing functions/classes stay after their owners.
+- [BASH]: shebang, ShellCheck directives, `set`/`shopt`, and environment/path gates are `[RUNTIME_PRELUDE]`; `readonly` values `[CONSTANTS]`; `declare -Ar` maps `[TABLES]`; traps, dispatch, source guards, and `_main` late `[COMPOSITION]` or `[ENTRY]`.
+- [PO_SQL]: extensions, schemas, and search-path guards are `[RUNTIME_PRELUDE]`; domains and types `[TYPES]`; tables, constraints, generated columns, and partitions `[MODELS]`; functions split by service boundary or query operation; indexes, triggers, row-level security, and policies `[COMPOSITION]`; grants and comments late `[EXPORTS]`.

@@ -1,6 +1,6 @@
 # [RASM_TELEMETRY]
 
-`Rasm.Domain` (`Domain/Telemetry.cs`) owns the C# branch's one OTel-free signal capsule — the generic hook, instrument, and receipt mechanism every stratum composes downward as an instance — and is its own first consumer. One home holds the capsule TYPE; a stratum above composes an INSTANCE against its own fact union, never a second capsule type.
+`Rasm.Domain` (`Domain/Telemetry.cs`) owns the C# branch's one OTel-free signal capsule — the generic hook, instrument, and receipt mechanism every stratum composes downward as an instance — and is its own first consumer. One home holds the capsule TYPE; a stratum above composes an INSTANCE against its own fact union.
 
 Every owner is instance-owned and composition-entered — the evidence cell, meter, and registry arrive from the composing app, so two compositions never contend for one slot. Dependency split draws the boundary: this page carries `System.Diagnostics.Metrics`, LanguageExt, and Thinktecture; OTel-SDK wiring, exporters, sampling, the source roster, and the correlation-and-tenant-laced receipt envelope stay at the app platform. Fire is synchronous from any stratum.
 
@@ -577,6 +577,13 @@ public sealed class BenchLedger {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     accTitle: Kernel signal fabric
     accDescr: Typed receipts, faults, and cost capsules flow through one sink onto instruments and the keyed signal rail, every stratum composes the same capsule downward, and claim rows fold into the ledger the AppHost gate ingests.

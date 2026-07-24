@@ -46,7 +46,7 @@ Rasm.Compute/
 │   ├── Admission.cs       # Typed intent admission with substrate axis and total dispatch
 │   ├── Scheduling.cs      # Bounded work-lanes and the dependency job-graph scheduler
 │   ├── Progress.cs        # Monotonic phase family and the progress capsule
-│   ├── Receipts.cs        # ComputeReceipt fact union, instrument projection and traces, replay folds, wire stamps, claim table, hook rail, tenant cost ledger, dashboard descriptor
+│   ├── Receipts.cs        # ComputeReceipt fact union — instrument projection, replay folds, hook rail, tenant cost ledger
 │   ├── Wire.cs            # Wire contract: proto vocabulary, evolution, and fault projection
 │   ├── Transport.cs       # Channel mechanics: transport rows, tuning, and the artifact frame law
 │   ├── Codecs.cs          # Field, result, and geometry-delta codecs and the tessellation bridge
@@ -70,11 +70,15 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 
 Five strata order the seven sub-domains; `Runtime` seats lowest as the vocabulary mint while its dispatch table routes to the lane owners and its `ComputeReceipt` union gains cases as partials declared by the owning stratum — co-ownership, never an upward import — so every consumption edge points down.
 
-- S0 `Runtime` — mints the admit-to-receipt substrate exactly once: `ComputeIntent`, `ComputeReceipt`, `ComputeFault`, `WorkLane`, and the `Substrate` axis; every lane lands here.
-- S1 `Tensor` + `Symbolic` — peers over the substrate: `TensorOps`, `OrtResidency`, and the `LowDiscrepancy` sampler beside `QuantityFamily`, `DimensionMonomial`, and the `CompiledExpr` cache.
-- S2 `Model` + `Stats` — `ModelIdentity`, `ModelSessions`, and the `GraduationEnvelope` admission gate beside the `EstimatorKind` fit axis, the spectral rail, and the `StreamMonitor` capsule family.
-- S3 `Solver` — the discretize-solve-optimize-sweep spine: `MeshKernel`, `OptimizerKind`, `SweepLane`, the `ClashScale` collision fold, and the `DoeDataset` wire shape over tensors, symbols, surrogates, and estimators.
-- S4 `Analysis` — the discipline-assessment rail nothing composes: `AssessmentRoute`, `AssemblyAggregator`, and the `SolarPosition` kernel reading the `ElementGraph` upward and writing content-keyed deltas.
+- S0 `Runtime` — mints the admit-to-receipt substrate once: `ComputeIntent`, `ComputeReceipt`, `ComputeFault`, `WorkLane`, the `Substrate` axis.
+- S1 `Tensor` — `TensorOps`, `OrtResidency`, and the `LowDiscrepancy` sampler, peers over the substrate.
+- S1 `Symbolic` — `QuantityFamily`, `DimensionMonomial`, and the `CompiledExpr` cache.
+- S2 `Model` — `ModelIdentity`, `ModelSessions`, and the `GraduationEnvelope` admission gate.
+- S2 `Stats` — the `EstimatorKind` fit axis, the spectral rail, and the `StreamMonitor` capsule family.
+- S3 `Solver` — the discretize-solve-optimize-sweep spine over tensors, symbols, surrogates, and estimators.
+- S3 `Solver` — `MeshKernel`, `OptimizerKind`, `SweepLane`, the `ClashScale` collision fold, and the `DoeDataset` wire shape.
+- S4 `Analysis` — the discipline-assessment rail nothing composes: `AssessmentRoute`, `AssemblyAggregator`, the `SolarPosition` kernel.
+- S4 reach — `Analysis` reads the `ElementGraph` and writes content-keyed deltas.
 
 ```mermaid
 ---
@@ -86,28 +90,28 @@ config:
 ---
 flowchart TB
     accTitle: Rasm.Compute interior strata
-    accDescr: Five stacked strata from the analysis rail through the solve spine, the model and stats tier, and the tensor-symbolic peers onto the runtime substrate, every consumption edge downward and solid naming one sourced type, and one labeled forbidden upward edge.
-    subgraph L4["S4 ANALYSIS"]
+    accDescr: Five stacked strata from the analysis rail through the solve spine, the model and stats stratum, and the tensor-symbolic peers onto the runtime substrate, every consumption edge downward and solid naming one sourced type, and one labeled forbidden upward edge.
+    subgraph S4["S4 ANALYSIS"]
         Assessment[AssessmentRoute]
         Daylight[SolarPosition]
     end
-    subgraph L3["S3 SOLVER"]
+    subgraph S3["S3 SOLVER"]
         Sweep[SweepLane]
         Mesh[MeshKernel]
         Optimizer[OptimizerKind]
         Clash[ClashScale]
     end
-    subgraph L2["S2 MODEL + STATS"]
+    subgraph S2["S2 MODEL + STATS"]
         Envelope[GraduationEnvelope]
         Identity[ModelIdentity]
         Estimator[EstimatorKind]
     end
-    subgraph L1["S1 TENSOR + SYMBOLIC"]
+    subgraph S1["S1 TENSOR + SYMBOLIC"]
         Sampling[LowDiscrepancy]
         Ops[TensorOps]
         Compiled[CompiledExpr]
     end
-    subgraph L0["S0 RUNTIME"]
+    subgraph S0["S0 RUNTIME"]
         Receipt[ComputeReceipt]
         Lane[WorkLane]
     end
@@ -120,7 +124,7 @@ flowchart TB
     Identity e7@-->|"[IMPORT]: ComputeReceipt"| Receipt
     Mesh e8@--> Ops
     Sweep e9@-->|"[IMPORT]: WorkLane"| Lane
-    Receipt f1@-->|"forbidden: substrate upward"| L4
+    Receipt f1@-->|"forbidden: substrate upward"| S4
 ```
 
 ## [03]-[SEAMS]
@@ -259,7 +263,7 @@ flowchart LR
 
 Spine admits once, selects substrate over row data, enqueues on bounded lanes, dispatches to the tensor, model, or remote lane, and lands every outcome on a `ComputeReceipt` case at the sink while admission and selection failures fall to `ComputeFault` and `ProgressCell` streams cadence-gated marks. Per-stage guards, conditioning, and rails each lane composes live on the owning implementation pages.
 
-## [05]-[CROSS_PACKAGE]
+## [05]-[BOUNDARIES]
 
 Seam graph carries which owner exchanges which shape; the load-bearing cross-boundary invariants each Compute owner holds are:
 - `Substrate.DeviceWgpu` binds the AppUi-owned wgpu device and holds compute-only resources; no second device or residency lattice.
@@ -273,10 +277,15 @@ Seam graph carries which owner exchanges which shape; the load-bearing cross-bou
 - `EnergyRoute` converges local and cloud runs on the one `SqlFile` fold.
 - Closed-form ISO/EN folds and the multi-ply `AssemblyAggregator` live in `Analysis`; single-material folds stay seam-owned, composed here.
 - Design codes ride the `DesignCode`×`LimitState` capacity table.
-- `Analysis/daylight` consumes the kernel `Spatial.Apply(SpatialOp.Wire)` decoded scene as the app-staged `ObstructionScene` request payload — its content key folds the assessment content key so a re-shaded site re-keys — and site evidence is the EPW header or the request's explicit `SolarSite`, never a fabricated site.
-- `Runtime/receipts` descriptor and chargeback rows are data the `typescript:iac` compile leg consumes; Compute owns no IaC surface, and the tenant partition every ledger fold reads is the AppHost `TenantContext` stamped on the envelope, never a Compute-minted tenancy.
-- `Runtime/transport` decodes typed MQTT and NATS CloudEvents and preserves the W3C pair (MQTT from composition, NATS inline from `NatsMsg.Headers`), the NATS Core subscription pump draining `SubscribeAsync<byte[]>` onto `WorkLane.CaptureIngest`; the MQTT subscription pump and activity restoration remain catalog-blocked research.
-- `Runtime/codecs#ARROW_BATCH` builds the `DoeDataset`/`ChargebackDataset` columnar `RecordBatch` Compute produces; the Persistence `api-arrow` overlay carries it (IPC, LZ4/Zstd, ADBC, Flight-SQL) and the `Query/columnar` `Land` port redeems it — Compute holds one core `Apache.Arrow` reference and opens no Flight listener.
+- `Analysis/daylight` consumes the kernel `Spatial.Apply(SpatialOp.Wire)` decoded scene as the app-staged `ObstructionScene` payload.
+- Daylight content key folds the assessment content key, so a re-shaded site re-keys; site evidence is the EPW header or the explicit `SolarSite`.
+- `Runtime/receipts` descriptor and chargeback rows are data the `typescript:iac` compile leg consumes; Compute owns no IaC surface.
+- Every ledger fold reads the AppHost `TenantContext` stamped on the envelope as its tenant partition, never a Compute-minted tenancy.
+- `Runtime/transport` decodes typed MQTT and NATS CloudEvents, preserving the W3C pair — MQTT from composition, NATS inline from `NatsMsg.Headers`.
+- NATS Core pump drains `SubscribeAsync<byte[]>` onto `WorkLane.CaptureIngest`; the MQTT pump and activity restoration stay catalog-blocked.
+- `Runtime/codecs` builds the `DoeDataset`/`ChargebackDataset` columnar `RecordBatch` Compute produces.
+- Persistence `api-arrow` overlay carries IPC, LZ4/Zstd, ADBC, and Flight-SQL; its `Query/columnar` `Land` port redeems the batch.
+- Compute holds one core `Apache.Arrow` reference and opens no Flight listener.
 
 ## [06]-[OWNER_LAW]
 

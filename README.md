@@ -6,6 +6,8 @@ Rasm is a polyglot AEC platform organized into strict strata: the C# branch is t
 
 All `libs/` content powers future apps of every kind — in-host on Rhino 9/WIP and GH2, standalone, remote, and web. Libraries own the core logic and expose it agent-first: host, GH2, and external-package APIs are fully captured and internalized behind higher-order abstractions, so an agent composes parameterized, polymorphic capability instead of learning hundreds of provider calls, and builds feature-rich apps with minimal code, boilerplate, or ceremony. Every folder is designed around its entry points and envisioned downstream usage — no knob or ceremony spam; intelligence is internalized, multi-modal, and automatic so consumers have minimal room to hand-roll or misuse `libs/` capability.
 
+Review depth: `.coderabbit.yaml`, `.greptile/`, and `.macroscope/` carry the repo's reviewer tone, scope maps, and doctrine-derived guidance; review behavior is tuned there and never duplicated into docs.
+
 ## [01]-[TARGET]
 
 - [CRITICAL]: Rhino 9/WIP on macOS — the WIP lane IS the Rhino 9 target
@@ -30,18 +32,11 @@ All `libs/` content powers future apps of every kind — in-host on Rhino 9/WIP 
 |  [09]   | `tools/yak`          | Package metadata         | Tracked Yak manifests and icons for package roots.                            |
 |  [10]   | `docs`               | Durable doctrine         | Agent-facing standards, host notes, stack doctrine, and reference material.   |
 
-## [03]-[ENTRY]
-
-- Session grounding: `/prime` (`.claude/commands/prime.md`) grounds a planning session — topology, campaign state, planning law — before the objective arrives; this README and `CLAUDE.md` arrive preloaded.
-- Operator proof: `uv run python -m tools.assay self-test` is the first command; one JSON `Envelope` on stdout is the health receipt, and `--rhino` opts the live bridge lane into the smoke.
-- Campaign engines: `ls .claude/workflows/` enumerates the standing roster, each script self-describing through its `meta` block; `rebuild.js` is the hostile rebuild engine over any mix of `libs/` planning targets, and `libs/.planning/campaign-method.md` is the loop those engines execute.
-- Review depth: `.coderabbit.yaml`, `.greptile/`, and `.macroscope/` carry the repo's reviewer tone, scope maps, and doctrine-derived guidance; review behavior is tuned there and never duplicated into docs.
-
-## [04]-[LIBRARY_OWNERS]
+## [03]-[LIBRARY_OWNERS]
 
 `libs/.planning/ARCHITECTURE.md` owns the package roster, each package's charter, the dependency direction, and the universal-vs-host-capture rule; `libs/.planning/README.md` introduces the branch roles and the planning corpus.
 
-## [05]-[HOST_RUNTIME]
+## [04]-[HOST_RUNTIME]
 
 RhinoWIP and GH2 assemblies resolve through shared build properties, not per-project references. Host assemblies stay outside package output: `RhinoCommon`, `Rhino.UI`, `Rhino.Runtime.Code`, `Grasshopper2`, `GrasshopperIO`, `Eto`, `Microsoft.macOS`, and RhinoWIP-hosted drawing assemblies.
 
@@ -49,7 +44,7 @@ Live host evidence flows through the bridge plugin. Scenarios are source-only di
 
 Plugin projects classify themselves in their project files; build behavior does not depend on product names. Package membership is evaluated from MSBuild properties and package metadata.
 
-## [06]-[TOOL_OWNERS]
+## [05]-[TOOL_OWNERS]
 
 Every root, tool, and library routes generated output through an owned store: `.artifacts`, `.cache`, package staging roots, scoped report directories, or owner-declared state files. Root scratch output is a defect, and the boundary is enforced rather than assumed — `tests/python/_testkit/test_policy.py` holds the closed allowlist of legitimate repo-root entries, so any unrouted tool write fails the suite by name and a deliberate new root file lands with its allowlist row in the same change.
 
@@ -62,11 +57,11 @@ Every root, tool, and library routes generated output through an owned store: `.
 - `tools/yak` stores package metadata only. Package staging, deployment, publish, artifact roots, and host refresh are Assay/package responsibilities.
 - GitHub repository settings — merge hygiene, rulesets, review automation — are settings-as-code `@pulumi/github` rows in Parametric_Forge `services/topology.ts`; the services driver preview is the verification surface, never the GitHub UI. Agent secrets arrive through the canonical `.claude/hooks/setup-env.sh` Doppler rail; custody law is the `secrets` skill.
 
-## [07]-[PLANNING_AND_EVIDENCE]
+## [06]-[PLANNING_AND_EVIDENCE]
 
 New foundational libraries use planning campaigns before production source when scope is broad or future-consumer-facing. Planning law lives in `libs/.planning/` — `ARCHITECTURE.md` (the topology), `campaign-method.md` (the loop, the bar, the agent-role law), `README.md` (the authoring standard), `planning-targets.md` (every planning surface). A campaign makes infra truth honest, captures manifests and lockfiles, extracts API catalogs through repo evidence rails, runs research and adversarial passes before authoring, enumerates isolated and in-concert capability across modalities, then collapses surviving capability into owner ledgers, row/case/policy axes, and decision-complete pages.
 
-## [08]-[DEVELOPMENT_MODEL]
+## [07]-[DEVELOPMENT_MODEL]
 
 Code starts from the deepest reusable library owner that can absorb the capability. App and plugin layers declare product intent, ports, and output bindings; they do not reimplement geometry kernels, host lifecycles, GH2 wiring, runtime composition, UI primitives, compute orchestration, persistence, packaging, or evidence capture.
 

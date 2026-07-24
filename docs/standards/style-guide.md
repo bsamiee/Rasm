@@ -6,18 +6,7 @@ One term names one concept, one owner decides each wording question, and every s
 
 Apply when writing or reviewing prose, headings, captions, notes, examples, comments, commands, paths, symbols, placeholders, terminology, and accessibility-sensitive wording in any durable artifact — docs, standards, specs, skills, prompts, templates, and code fences.
 
-## [02]-[WORDING_PRECEDENCE]
-
-Use the first owner that decides a naming or wording question:
-1. Current repository material, manifests, generated contracts, API fields, and actual product or package names.
-2. Active document-type standard for the document being written.
-3. Maintained product names, UI labels, APIs, commands, and support status.
-4. This guide for local prose and notation rules.
-5. Established editorial style for unresolved general mechanics.
-
-When owners conflict, choose the repo-local term only when a current route or contract proves it.
-
-## [03]-[SENTENCES]
+## [02]-[SENTENCES]
 
 Use a front-and-close paragraph shape: the opening sentence states the rule, claim, or scope, and the closing sentence lands the consequence, boundary, or route the reader retains.
 
@@ -44,7 +33,7 @@ Use a front-and-close paragraph shape: the opening sentence states the rule, cla
 - State conditions before the actions they control; keep modifiers next to the terms they govern; keep parallel items parallel in grammar and scope.
 - Write a cross-reference as a clean phrase naming the owner and one concern; a reduced relative clause compressing owner and concern into an ambiguous noun-run — `the managers X names`, `the catalogues X rosters` — is rewritten as a full clause or dropped.
 
-## [04]-[TERMINOLOGY]
+## [03]-[TERMINOLOGY]
 
 Use one term for one concept inside a bounded context. Product names, package names, API members, commands, file paths, UI labels, and config keys are load-bearing and match the verified surface exactly.
 
@@ -53,7 +42,7 @@ Use one term for one concept inside a bounded context. Product names, package na
 - Use singular `they` when gender is unknown, irrelevant, or intentionally unspecified.
 - Reader-facing names denote a real current surface; internal concepts stay unnamed to readers.
 
-## [05]-[PUNCTUATION]
+## [04]-[PUNCTUATION]
 
 [LOCAL_MECHANICS]:
 - Use U.S. English spelling unless a product or proper name differs.
@@ -76,7 +65,7 @@ Use one term for one concept inside a bounded context. Product names, package na
 - Place commas and periods inside closing quotation marks in ordinary prose quotations; preserve literal punctuation for copied text.
 - Use straight quotes and ASCII-safe punctuation in copyable Markdown.
 
-## [06]-[CODE_SAFE_MARKDOWN]
+## [05]-[CODE_SAFE_MARKDOWN]
 
 - Wrap commands, flags, paths, environment variables, package IDs, symbols, UI labels, literal values, exact strings, copied literals, and placeholders in backticks.
 - Name placeholders by route, such as `<scenario-glob>` or `<package-name>`.
@@ -90,7 +79,7 @@ Use one term for one concept inside a bounded context. Product names, package na
 - Accepted: `Variant`, `PRIMARY`, `SECONDARY`, `"<variant-a>"`. Near miss: `Mode`, `PROD`, `STAGING`, `"premium"`. Reason: accepted names teach enum shape without deployment or pricing semantics.
 - Accepted: `SELECTED`, `SELECTED_RESULT`, `"<value-a>"`. Near miss: `active_customer`, `invoice_total`, `"alice"`. Reason: accepted names mark selection and data position without anchoring the sample to an identity or product.
 
-## [07]-[EXAMPLES]
+## [06]-[EXAMPLES]
 
 Examples prove shape or prevent misuse. Place them beside the rule they clarify.
 
@@ -98,7 +87,7 @@ Examples prove shape or prevent misuse. Place them beside the rule they clarify.
 - Keep example wording aligned with the terminology it teaches.
 - Mark every example block with its declared fence intent.
 
-## [08]-[ACCESSIBILITY]
+## [07]-[ACCESSIBILITY]
 
 - Carry meaning through text, not through color, position, shape, pointer movement, screenshots, or sound alone.
 - Provide text equivalents for visual, audio, or screenshot-only information — diagrams carry `accTitle`/`accDescr`, glyph-heavy structures carry adjacent prose stating the relation they encode. A syntax-teaching fence inside a diagram skill's own reference corpus is exempt where the directives corrupt or pollute the taught grammar and adjacent prose already states the relation.

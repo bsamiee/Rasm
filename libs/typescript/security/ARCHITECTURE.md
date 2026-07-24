@@ -1,6 +1,6 @@
 # [TS_SECURITY_ARCHITECTURE]
 
-`security` owns the identity-and-custody concern — the `crypt`, `authn`, and `access` sub-domains meeting through one crypto authority, one session vocabulary, and one tenancy contract. Every stateful obligation is a port Tag the data wave satisfies at app composition, so the folder imports only core.
+`security` owns the identity-and-custody concern — the `crypt`, `authn`, and `access` sub-domains meeting through one crypto authority, one session vocabulary, and one tenancy contract. Every stateful obligation is a port Tag the data stratum satisfies at app composition, so the folder imports only core.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -19,15 +19,15 @@ security/
     └── access/                # Authorization: entitlement fold, tenancy contract, and the security fact rail
         ├── audit.ts           # SecurityFact vocabulary, Witness publish seam, AuditJournal port, pseudonymized egress, board projections
         ├── claim.ts           # Entitlement vocabulary + the RBAC-union-ReBAC evaluation fold, resolved once per request
-        └── tenant.ts          # Ambient TenantContext reference + the app.current_tenant RLS shape the data wave enforces
+        └── tenant.ts          # Ambient TenantContext reference + the app.current_tenant RLS shape the data stratum enforces
 ```
 
 ## [02]-[STRATA]
 
-- S0 `access/audit` + `access/tenant` — two floor mints importing only core: `audit` mints the security fact plane (`SecurityFact`, the silent `Witness` seam, the `AuditJournal` port, the pseudonymized egress and board projections); `tenant` mints the `TenantScope` reference and the RLS shape.
-- S1 `crypt/sign` — the crypto authority originating every digest, signature, token, and envelope (`Crypto`, `Jwt`, `AccessClaims`, `Shredder`, `SealedEnvelope`, `Calibration`), composing `Witness` from the fact floor so its shred-open and JWKS-quarantine arms publish facts and its cost rows carry bench receipts.
-- S2 `crypt/verify` + `crypt/secret` + `authn/session` + `authn/credential` — each composes `sign`: `verify` folds `Crypto` over held octets, `secret` scopes the Doppler lease behind `Crypto` and publishes rotation facts, `session` mints `Jwt` tokens as the identity spine and publishes reuse facts, `credential` rides its private digest idiom over `Crypto`.
-- S3 `authn/oauth` + `authn/webauthn` + `access/claim` — ceremonies and decisions over the spine: `oauth` and `webauthn` compose `Token` from `session` beside `sign`, `webauthn` publishing clone and ceremony facts; `claim` folds `AccessClaims` with `TenantScope` and publishes deny facts; `authn` and `access` stay mutually independent peers.
+- S0 `access/audit` + `access/tenant` — floor mints importing only core; `audit` the fact plane, `tenant` the `TenantScope` reference and RLS shape.
+- S1 `crypt/sign` — the crypto authority originating every digest, signature, token, and envelope.
+- S2 `crypt/verify` + `crypt/secret` + `authn/session` + `authn/credential` — each composes the `sign` authority.
+- S3 `authn/oauth` + `authn/webauthn` + `access/claim` — ceremonies and decisions over the spine; `authn` and `access` stay independent peers.
 
 ```mermaid
 ---
@@ -39,7 +39,7 @@ config:
 ---
 flowchart TB
     accTitle: Security interior import strata
-    accDescr: Four interior waves — ceremonies and the entitlement fold over the verify, secret, session, and credential spine onto the sign authority and the audit and tenant floor — every import downward, labeled edges naming one sourced type each, and one forbidden upward edge styled red.
+    accDescr: Four strata — ceremonies and the entitlement fold over the spine onto the sign authority and the audit-tenant floor; imports downward.
     subgraph S3["S3 CEREMONY + DECISION"]
         Ceremony["oauth · webauthn"]
         Claim[claim]
@@ -88,7 +88,7 @@ config:
 ---
 flowchart LR
     accTitle: Security package seam registry
-    accDescr: Security sub-domain owners exchanging identity, custody, tenancy, and telemetry contracts with the core, data, runtime, and IaC packages, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: Security owners exchanging identity, custody, tenancy, and telemetry contracts with the core, data, runtime, and iac peers.
     subgraph security[SECURITY]
         Crypt[Crypt authority]
         Authn[Authn spine]
@@ -115,16 +115,21 @@ flowchart LR
     Access e15@-->|"[SHAPE]: Tap.Registry"| Runtime
 ```
 
-## [04]-[ORGANIZATION]
+## [04]-[INTERNAL]
 
-`crypt/sign` is the sole mint and `crypt/verify` its inbound mirror over held octets, so no route hand-rolls a signature check; `crypt/secret` scopes the Doppler client to the folder's leased surfaces. `authn/session` is the identity spine the ceremonies feed: `credential` funnels every second factor through one mint-and-resolve idiom, `oauth` models issuers as rows, `webauthn` splits the passkey ceremony by runtime subpath. `access` turns verified identity into decisions and evidence: `claim` evaluates entitlements once per request, `tenant` states the tenancy contract the data wave enforces as RLS, and `audit` is the fact rail — every loud arm publishes a typed `SecurityFact` through the silent `Witness` seam, the class-routed lanes drain into the `AuditJournal` port, and the board, alert, snapshot, and analytics views are projections of one receipt plane.
+`crypt/sign` is the sole mint and `crypt/verify` its inbound mirror over held octets, so no route hand-rolls a signature check; `crypt/secret` scopes the Doppler client to the folder's leased surfaces. `authn/session` is the identity spine the ceremonies feed: `credential` funnels second factors through one mint-and-resolve idiom, `oauth` models issuers as rows, `webauthn` splits the passkey ceremony by runtime subpath.
+
+`access` turns verified identity into decisions and evidence: `claim` evaluates entitlements once per request, `tenant` declares the contract the data stratum enforces as RLS, and `audit` is the fact rail — every loud arm publishes a typed `SecurityFact` through the silent `Witness` seam, class-routed lanes draining into the `AuditJournal` port, every board, alert, and analytics view a projection of one receipt plane.
 
 ## [05]-[BOUNDARIES]
 
-- Persistence lives outside by construction: every store is a port Tag the data wave satisfies and the app root binds.
+- Persistence lives outside by construction: every store is a port Tag the data stratum satisfies and the app root binds.
 - Content-identity digesting stays core's; this folder owns secret derivation and authenticated crypto only.
 - Cookie framing and CSRF are egress projections declared here and consumed by the runtime browser plane; no browser API is touched here.
-- Tenancy is declared here and enforced in the data wave; the folder opens no database transaction.
-- Flag evaluation is the `FlagGate` consumer port the runtime wave satisfies; the entitlement fold composes flag verdicts and owns no flag engine.
-- Audit facts persist through the `AuditJournal` port the data wave satisfies on its journal spine; analytics egress leaves only as the `AuditTrace` projection under the keyed `Pseudonym` mask, and board/alert compilation rides the core-to-iac `DashboardModel`/`Alert.Spec` seams over the folder's declared objectives.
-- KDF cost claims leave as core `Claim` receipts — the `BenchmarkClaimWire` landing under `Claim.admit` host admission; this folder measures against its own bulkhead and never persists or grades a claim.
+- Tenancy is declared here and enforced in the data stratum; the folder opens no database transaction.
+- Flag evaluation is the `FlagGate` consumer port the runtime stratum satisfies; the entitlement fold composes flag verdicts and owns no flag engine.
+- Audit facts persist through the `AuditJournal` port the data stratum satisfies on its journal spine.
+- Analytics egress leaves only as the `AuditTrace` projection under the keyed `Pseudonym` mask.
+- Board and alert compilation rides the core-to-iac `DashboardModel`/`Alert.Spec` seams over the folder's declared objectives.
+- KDF cost claims leave as core `Claim` receipts — the `BenchmarkClaimWire` landing under `Claim.admit` host admission.
+- KDF measurement runs against the folder's own bulkhead, never persisting or grading a claim.

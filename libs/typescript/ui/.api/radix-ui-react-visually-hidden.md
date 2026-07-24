@@ -1,42 +1,54 @@
 # [TS_UI_API_RADIX_UI_REACT_VISUALLY_HIDDEN]
 
-[PACKAGE_SURFACE]:
+`@radix-ui/react-visually-hidden` owns the SR-only clip primitive: `VisuallyHidden` renders a `Primitive.span` whose clip styles keep the node in the accessibility tree while hiding it from sight, and `VISUALLY_HIDDEN_STYLES` exports that same frozen rule for any element without the component.
+
+## [01]-[PACKAGE_SURFACE]
+
+[PACKAGE_SURFACE]: `@radix-ui/react-visually-hidden`
 - package: `@radix-ui/react-visually-hidden` (MIT)
-- module: dual — `dist/index.mjs` (ESM) + `dist/index.js` (CJS); `sideEffects: false`; one `.` barrel, no subpaths.
-- asset: `dist/index.d.ts` (`restore: restored`).
-- runtime: React render-time; renders one `<span>` via `@radix-ui/react-primitive@catalog` (inheriting its `asChild` merge). Peer react/react-dom 19.
-- plane: `plane:runtime` (W4 `ui`); folder-local to `ui`, catalogued here.
-- rail: `ui/view` — the visually-hidden accessibility primitive.
-- role: `view/primitive.md` visually-hidden rows — icon-button labels, SR status text, skip-link text.
+- module: dual `dist/index.mjs` (ESM) + `dist/index.js` (CJS); `sideEffects: false`; one `.` barrel, no subpaths
+- runtime: React render-time; renders one `Primitive.span` via `@radix-ui/react-primitive` inheriting `asChild`; peer `react`/`react-dom`
+- rail: ui/view — the SR-only clip primitive behind icon-button labels, SR status text, and skip-link text
 
-`@radix-ui/react-visually-hidden` hides content from sighted users while keeping it in the accessibility tree — the screen-reader-only technique. `VisuallyHidden` renders a `<span>` carrying the clip styles; `VISUALLY_HIDDEN_STYLES` exports the same style object as a reusable constant, so ANY element goes SR-only without the component. Composing `@radix-ui/react-primitive` inherits `asChild`, clipping an existing element instead of nesting a redundant span. A bespoke live/status region applies `VISUALLY_HIDDEN_STYLES` directly, never re-derives the clip rule.
+## [02]-[PUBLIC_TYPES]
 
-## [01]-[SURFACE]
+[PUBLIC_TYPE_SCOPE]: the clip component, its native prop contract, and the reusable style constant
 
-Three exports: the component (and its `Root` alias), its props type, and the reusable clip-style constant. Clip styling — never `display:none`/`visibility:hidden` — keeps the node readable by assistive tech.
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CAPABILITY]                                                                    |
+| :-----: | :-------------------------- | :------------ | :------------------------------------------------------------------------------ |
+|  [01]   | `VisuallyHidden` (= `Root`) | component     | forwardRef `<span>` carrying the clip styles; `asChild` clips a passed child    |
+|  [02]   | `VisuallyHiddenProps`       | interface     | `ComponentPropsWithoutRef<typeof Primitive.span>` — every span prop + `asChild` |
+|  [03]   | `VISUALLY_HIDDEN_STYLES`    | const         | frozen clip-style object, applied directly to any element for SR-only           |
 
-| [INDEX] | [SYMBOL]                    | [KIND]    | [CAPABILITY_BOUNDARY]                                                           |
-| :-----: | :-------------------------- | :-------- | :------------------------------------------------------------------------------ |
-|  [01]   | `VisuallyHidden` (= `Root`) | component | ForwardRef `<span>` with the clip styles; `asChild` clips a passed child        |
-|  [02]   | `VisuallyHiddenProps`       | type      | `ComponentPropsWithoutRef<typeof Primitive.span>` — every span prop + `asChild` |
-|  [03]   | `VISUALLY_HIDDEN_STYLES`    | const     | the frozen clip-style object, reusable on any element without the component     |
+## [03]-[ENTRYPOINTS]
 
-[EXPORTS]: `Root` `VISUALLY_HIDDEN_STYLES` `VisuallyHidden` `VisuallyHiddenProps`
-[SURFACES]: `VISUALLY_HIDDEN_STYLES: Readonly<…>` `VisuallyHidden: React.ForwardRefExoticComponent<VisuallyHiddenProps&React.RefAttributes<HTMLSpanElement>>`
+[ENTRYPOINT_SCOPE]: clip a child SR-only, clip an existing element, or apply the raw style constant
 
-## [02]-[INTEGRATION]
+| [INDEX] | [SURFACE]                                          | [SHAPE]    | [CAPABILITY]                                                    |
+| :-----: | :------------------------------------------------- | :--------- | :-------------------------------------------------------------- |
+|  [01]   | `<VisuallyHidden>{label}</VisuallyHidden>`         | component  | clip content out of sight while holding it in the a11y tree     |
+|  [02]   | `<VisuallyHidden asChild>{child}</VisuallyHidden>` | slot-merge | clip a passed element via `createSlot('Primitive.span')`        |
+|  [03]   | `VISUALLY_HIDDEN_STYLES`                           | const      | apply the frozen clip rule to any element without the component |
 
-[BOUNDARY: three SR-only owners — radix vs `react-aria-components` `VisuallyHidden` vs `react-aria` `useVisuallyHidden` (`.api/react-aria-components.md`, `.api/react-aria.md`)] — RAC re-exports its own `VisuallyHidden` (from `react-aria/VisuallyHidden`) and `react-aria` exposes `useVisuallyHidden` (with an `isFocusable` reveal-on-focus mode for skip-links). Radix's primitive owns the STYLING-plane cases: the `VISUALLY_HIDDEN_STYLES` constant applied directly to a cva atom or a non-aria element. Within the aria spine use RAC's `VisuallyHidden`; the design never mixes a radix hidden-span into an aria component. One SR-only owner per node.
+## [04]-[IMPLEMENTATION_LAW]
 
-[STACK: `VISUALLY_HIDDEN_STYLES` + `@react-aria/live-announcer` (`.api/react-aria-live-announcer.md`)] — the live-announcer region is built from the identical clip styles (its vanilla-DOM impl copies them). Status routes through `announce()`; a hand-authored region NOT routed through it applies `VISUALLY_HIDDEN_STYLES` to stay SR-only.
+[TOPOLOGY]:
+- `VisuallyHidden === Root`: one component under two names; the clip holds the node in the accessibility tree while removing it from sight, where `display:none`/`visibility:hidden` drops it from assistive tech.
+- `asChild` is inherited: `Primitive.span` is `asChild ? createSlot('Primitive.span') : 'span'`, so the clip merges onto a passed child rather than nesting a second span, never a component-local re-clone.
+- `VISUALLY_HIDDEN_STYLES` is that same frozen rule as a plain object; a bespoke SR-only element applies it directly where the component cannot wrap.
 
-[STACK: `VisuallyHidden` + `class-variance-authority` / `clsx` / `lucide-react` (`.api/class-variance-authority.md`, `.api/clsx.md`, `.api/lucide-react.md`)] — `VISUALLY_HIDDEN_STYLES` seeds a cva base or an `sr-only` utility; the icon-button atom pairs a `lucide-react` glyph with a `<VisuallyHidden>` label so the control carries an accessible name with no visible text.
+[STACKING]:
+- `react-aria-components`(`.api/react-aria-components.md`) / `react-aria`(`.api/react-aria.md`): RAC re-exports `VisuallyHidden` from `react-aria/VisuallyHidden`; `react-aria` `useVisuallyHidden({isFocusable})` adds the reveal-on-focus mode for skip-links — the aria spine owns SR-only for every node it renders.
+- `@react-aria/live-announcer`(`.api/react-aria-live-announcer.md`): its vanilla-DOM region copies these clip styles; status routes through `announce()`, and a hand-authored region applies `VISUALLY_HIDDEN_STYLES` to stay SR-only.
+- `class-variance-authority`(`.api/class-variance-authority.md`) / `clsx`(`.api/clsx.md`) / `lucide-react`(`.api/lucide-react.md`): `VISUALLY_HIDDEN_STYLES` seeds a cva base or an `sr-only` utility; the icon-button atom pairs a `lucide-react` glyph with a `<VisuallyHidden>` label so the control carries an accessible name with no visible text.
+- `@radix-ui/react-slot`(`.api/radix-ui-react-slot.md`): the inherited `asChild` IS the `Slot` merge through `@radix-ui/react-primitive`, clipping an existing `<label>`/`<span>` onto that child rather than nesting a second span.
 
-[STACK: `VisuallyHidden asChild` + `@radix-ui/react-slot` (`.api/radix-ui-react-slot.md`)] — the `asChild` VisuallyHidden inherits from `@radix-ui/react-primitive` IS the `Slot` merge; clipping an existing `<label>`/`<span>` composes onto that child rather than nesting a second span.
+[LOCAL_ADMISSION]:
+- core `ui`/`view` plane only; RAC's own `VisuallyHidden` owns any aria-spine node, and a radix hidden-span there is the double-primitive defect.
+- one clip owner per node: the component where it can wrap, `VISUALLY_HIDDEN_STYLES` where it cannot.
 
-## [03]-[RAIL_LAW]
-
-- Owns: the SR-only clip primitive — the `VisuallyHidden` span and the reusable `VISUALLY_HIDDEN_STYLES` constant.
-- Accept: `<VisuallyHidden>` for icon-button labels and SR status text; `asChild` to clip an existing element; `VISUALLY_HIDDEN_STYLES` applied to a cva base or a bespoke element that must be SR-only.
-- Reject: `display:none`/`visibility:hidden` where content must reach assistive tech (the named naive defect — those drop it from the tree); a radix hidden-span inside an aria component (RAC's `VisuallyHidden` owns that); re-deriving the clip rule where the exported constant serves.
-- Boundary: render-time only; composes `@radix-ui/react-primitive` (inherits `asChild`); the style object stays frozen (`Readonly`). Peer react/react-dom 19.
+[RAIL_LAW]:
+- Package: `@radix-ui/react-visually-hidden`
+- Owns: the SR-only clip primitive — the `VisuallyHidden` span and the frozen `VISUALLY_HIDDEN_STYLES` constant, render-time only
+- Accept: `<VisuallyHidden>` for icon-button labels and SR status text; `asChild` to clip an existing element; `VISUALLY_HIDDEN_STYLES` on a cva base or a bespoke SR-only element
+- Reject: `display:none`/`visibility:hidden` where content must reach assistive tech; a radix hidden-span inside an aria component (RAC's `VisuallyHidden` owns any aria-spine node); re-deriving the clip rule where the constant serves

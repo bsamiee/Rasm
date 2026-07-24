@@ -1,67 +1,62 @@
 # [TS_UI_API_CLASS_VARIANCE_AUTHORITY]
 
-`class-variance-authority` (`cva`) is the declarative variant→class dispatch table the `token` plane authors component styling against: one `cva(base, config)` call owns a component's base classes, its `variants` axes, per-axis `defaultVariants`, and cross-axis `compoundVariants`, returning a `(props) => string` selector that folds the matched classes through `cx` (which IS `clsx`). It is framework-agnostic at runtime — only the `VariantProps` type utility touches React — and it resolves no Tailwind conflicts, so the shipped catalog-bound output MUST be wrapped in `tailwind-merge`'s `twMerge`. `cva` owns the variant table, `clsx`/`cx` folds, `twMerge` de-conflicts, and `VariantProps` bridges the axis vocabulary into a component's prop type: the four compose into the single `cn(variants(props))` styling rail, never four parallel mechanisms.
+`cva` mints the declarative variant→class dispatch table the `token` plane styles components against: one `cva(base, config)` call owns a component's whole variant algebra and returns a `(props) => string` selector folding the matched classes through `cx` (which IS `clsx`). It resolves no Tailwind conflict, so a shipped selector binds the `twMerge` wrap; only `VariantProps` touches React, lifting the axis vocabulary into a component's prop type.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `class-variance-authority`
 - package: `class-variance-authority` (Apache-2.0)
-- deps: `clsx ^catalog` (re-exported as `cx`; `.api/clsx.md`)
-- catalog-verdict: KEEP
-- runtime: universal at runtime (framework-agnostic); `VariantProps` is a React-typed compile-time utility only
-- exports: `.` (`cva`, `cx`, `VariantProps`, `CxOptions`, `CxReturn`), `./types` (the class-value + class-prop vocabulary)
-- gap: catalog-bound does NOT merge Tailwind conflicts — the `twMerge` wrap is mandatory, not optional
+- module: `.` barrel (`cva`, `cx`, and the prop-bridge types) and `./types` (the class-value and class-prop vocabulary)
+- runtime: framework-agnostic at runtime; `VariantProps` is a React-typed compile-time utility only
+- rail: token/variant-dispatch
+- depends: `clsx`, re-exported as `cx` (`.api/clsx.md`)
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the variant vocabulary and the prop bridge
-- rail: token/variant-dispatch
-- `VariantProps<Component extends (...a: any) => any>` = `Omit<OmitUndefined<Parameters<Component>[0]>, "class" | "className">` lifts a `cva` selector's axis union into a component's prop type and `effect`'s `Schema`; `StringToBoolean` is why a `{ true, false }` variant axis accepts a `boolean` prop; `ClassProp` is the `class` XOR `className` union `{ class: ClassValue; className?: never } | { class?: never; className: ClassValue } | { class?: never; className?: never }` every generated selector accepts. These types are the contract a design page composes, not incidental exports.
 
-| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]     | [CONSUMER_BOUNDARY]                                                             |
-| :-----: | :------------------------ | :---------------- | :------------------------------------------------------------------------------ |
-|  [01]   | `VariantProps<Component>` | prop extractor    | lift a `cva` selector's axis union into a component's props + `Schema`          |
-|  [02]   | `ClassValue`              | class input       | `= clsx.ClassValue`; every `variants[axis][value]` cell and `base`              |
-|  [03]   | `ClassProp`               | XOR prop          | the ad-hoc class escape hatch on the selector + `compoundVariants`              |
-|  [04]   | `ClassPropKey`            | prop key          | `"class" \| "className"` — the two accepted ad-hoc class prop names             |
-|  [05]   | `StringToBoolean<T>`      | boolean-axis lift | `T extends "true"\|"false" ? boolean : T`; a `{ true, false }` axis → `boolean` |
-|  [06]   | `OmitUndefined<T>`        | prop cleaner      | strips `undefined` from extracted axis unions                                   |
-|  [07]   | `CxOptions` / `CxReturn`  | cx alias          | `Parameters`/`ReturnType` of `clsx`; re-exported so `cx` needs no import        |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]    | [CAPABILITY]                                                       |
+| :-----: | :------------------------ | :--------------- | :----------------------------------------------------------------- |
+|  [01]   | `VariantProps<Component>` | utility type     | lifts a `cva` selector's axis union into props and a `Schema`      |
+|  [02]   | `ClassValue`              | union alias      | `= clsx.ClassValue`; every `variants[axis][value]` cell and `base` |
+|  [03]   | `ClassProp`               | XOR union        | the `class` XOR `className` ad-hoc escape hatch on the selector    |
+|  [04]   | `ClassPropKey`            | string union     | `"class" \| "className"` — the two accepted ad-hoc prop names      |
+|  [05]   | `StringToBoolean<T>`      | conditional type | maps a `{ true, false }` axis to a `boolean` prop                  |
+|  [06]   | `OmitUndefined<T>`        | conditional type | strips `undefined` from an extracted axis union                    |
+|  [07]   | `CxOptions` / `CxReturn`  | clsx alias       | `Parameters`/`ReturnType` of `clsx`, so `cx` needs no import       |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: the dispatch factory and the fold re-export
-- rail: token/variant-dispatch
-- `cva<T>(base?: ClassValue, config?: Config<T>): (props?: Props<T>) => string` is one polymorphic factory: `base` alone, `base` + `variants`, `defaultVariants` for unspecified axes, and `compoundVariants` for cross-axis rules all flow through the single `config` shape. `cx` is the `clsx` fold surfaced so a `cva` module needs no second import.
+[ENTRYPOINT_SCOPE]: one polymorphic `cva` factory whose single `config` unifies every variant axis and cross-axis rule; `cx` surfaces `clsx` so a `cva` module needs no second import.
 
-| [INDEX] | [SURFACE]                 | [ENTRY_FAMILY]   | [CONSUMER_BOUNDARY]                                                        |
-| :-----: | :------------------------ | :--------------- | :------------------------------------------------------------------------- |
-|  [01]   | `cva(base?, config?)`     | dispatch factory | the per-component selector `(props) => string`; output feeds `twMerge`     |
-|  [02]   | `config.variants`         | axis table       | `Record<Axis, Record<Value, ClassValue>>` — the variant→class map          |
-|  [03]   | `config.defaultVariants`  | axis defaults    | `{ [Axis]?: Value }` — classes applied when a prop omits that axis         |
-|  [04]   | `config.compoundVariants` | cross-axis rules | `(ConfigVariants \| ConfigVariantsMulti) & ClassProp` — several axes match |
-|  [05]   | `cx`                      | fold re-export   | `= typeof clsx`; the `clsx` fold, imported from `cva` in a `cva` module    |
+| [INDEX] | [SURFACE]                 | [SHAPE]  | [CAPABILITY]                                                           |
+| :-----: | :------------------------ | :------- | :--------------------------------------------------------------------- |
+|  [01]   | `cva(base?, config?)`     | factory  | the per-component selector `(props) => string`, feeding `twMerge`      |
+|  [02]   | `config.variants`         | property | `Record<Axis, Record<Value, ClassValue>>`, the variant→class map       |
+|  [03]   | `config.defaultVariants`  | property | classes applied when a prop omits that axis                            |
+|  [04]   | `config.compoundVariants` | property | `(ConfigVariants \| ConfigVariantsMulti) & ClassProp` cross-axis rules |
+|  [05]   | `cx`                      | fold     | `= typeof clsx`; the `clsx` fold imported from `cva`                   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[DISPATCH_SEMANTICS]:
-- the selector folds, in order, `base` → matched `variants` classes → matched `compoundVariants` classes → `props.class`/`props.className`, all through `cx`. A boolean axis is a `{ true, false }` variant map that `StringToBoolean` types as a `boolean` prop.
-- `compoundVariants` rows carry a `ClassProp` payload and match either a single value per axis (`ConfigVariants`) or an array of values (`ConfigVariantsMulti`, e.g. `{ intent: ["primary","danger"], size: "lg", class: "..." }`) — one row owns a set of axis combinations, never one row per combination.
-- no conflict resolution: `cva` concatenates via `cx`; two variants emitting conflicting Tailwind utilities both survive in the string. Correct last-wins requires the `twMerge` wrap. This is the single most load-bearing fact about catalog-bound.
+[TOPOLOGY]:
+- `cva`'s selector folds in order — `base`, matched `variants`, matched `compoundVariants`, then `props.class`/`className` — all through `cx`; a boolean axis is a `{ true, false }` map `StringToBoolean` types as a `boolean` prop.
+- `compoundVariants` collapses axis combinations into one row: a row matches one value per axis (`ConfigVariants`) or an array (`ConfigVariantsMulti`), owning a set of combinations rather than one row per combination.
+- `cva` concatenates through `cx` and resolves no Tailwind conflict — two variants emitting conflicting utilities both survive the string, so last-wins correctness binds the `twMerge` wrap.
 
-[INTEGRATION_LAW]:
-- Stack with `tailwind-merge` + `clsx` into the one `cn`: `const buttonVariants = cva(base, { variants, defaultVariants, compoundVariants }); const cn = (...i: ClassValue[]) => twMerge(clsx(i)); className={cn(buttonVariants({ intent, size }), props.className)}`. `cva` selects, `clsx` folds the selector output with ad-hoc classes, `twMerge` de-conflicts last. Register design-token utility groups with `extendTailwindMerge`/`fromTheme` so custom token classes participate in conflict resolution.
-- Stack with `VariantProps` → React + `effect` `Schema`: `type ButtonVariants = VariantProps<typeof buttonVariants>` is the component's variant prop type; a `Schema.Struct` whose axis fields are `Schema.Literal("primary","secondary",...)` (and `Schema.Boolean` for boolean axes, aligned by `StringToBoolean`) decodes config-driven or `wire`-arriving variant selections into exactly `Props<T>`. This is the `wire`→`ui` styling seam: variant tokens are decoded values, not stringly guesses.
-- Stack with `@radix-ui/react-slot`: apply the `cn(variants(props))` className to a `Slot` when `asChild`, so a `cva`-styled wrapper composes its classes onto any child element — the `view/primitive` polymorphic-element pattern shares one variant table across concrete tags.
-- Stack with `effect` `Match` for the residual: when styling depends on cross-field logic beyond the `compoundVariants` table, compute a `ClassValue` with `Match.value(props).pipe(Match.when(...), Match.exhaustive)` and fold it through `cx` alongside the selector — but exhaust the declarative `variants`/`compoundVariants` table first; reach for `Match` only for what the table structurally cannot express.
+[STACKING]:
+- `tailwind-merge` + `clsx` (`.api/tailwind-merge.md`, `.api/clsx.md`): the selector output flows into `cn = twMerge(clsx(...))` — `cva` selects, `clsx` folds, `twMerge` de-conflicts last; `extendTailwindMerge`/`fromTheme` teaches custom token groups to the resolver.
+- `VariantProps` → `.api/react.md` + `effect` `Schema`: `VariantProps<typeof selector>` types a component's variant props, and a `Schema.Struct` of `Schema.Literal` axis fields (`Schema.Boolean` where `StringToBoolean` lifts a `{ true, false }` axis) decodes `wire`/config selections into `Props<T>`, the `wire`→`ui` styling seam carrying decoded values.
+- `@radix-ui/react-slot` (`.api/radix-ui-react-slot.md`): apply `cn(variants(props))` to a `Slot` under `asChild`, sharing one variant table across every concrete tag the wrapper styles.
+- `effect` `Match`: a residual `ClassValue` beyond the `compoundVariants` table computes through `Match.value(props).pipe(Match.when(...), Match.exhaustive)` folded through `cx`, reached only for cross-field logic the declarative table cannot express.
 
 [LOCAL_ADMISSION]:
-- the variant table and its selector only; conflict resolution is `tailwind-merge`, folding is `clsx`/`cx`, icon glyphs are `lucide-react`.
-- one `cva` selector per component surface; a new visual axis is a `variants` row, a new cross-axis rule is a `compoundVariants` row — never a second selector or a parallel class-name helper.
-- the `cn = twMerge(clsx(...))` wrap is defined once at the `token` owner and imported; never inlined per component.
+- `cva`'s variant table and selector only; conflict resolution rides `tailwind-merge`, folding rides `clsx`/`cx`, icon glyphs ride `lucide-react`.
+- one `cva` selector per component surface — a new visual axis lands as a `variants` row and a new cross-axis rule as a `compoundVariants` row, never a second selector or a parallel class-name helper.
+- `token` owner binds the `cn = twMerge(clsx(...))` wrap once and imports it everywhere, never inlined per component.
 
 [RAIL_LAW]:
 - Package: `class-variance-authority`
 - Owns: the declarative `base`/`variants`/`defaultVariants`/`compoundVariants` dispatch table, its `(props) => string` selector, the `cx` fold re-export, and the `VariantProps` prop-type bridge
-- Accept: one `cva` selector per component, axes as rows and cross-axis rules as `compoundVariants` (multi-valued where they collapse combinations), `VariantProps` feeding React props + a `Schema.Literal` axis union, the mandatory `twMerge(clsx(...))` wrap, `cx` as the in-module fold, `Slot` for `asChild` styling
-- Reject: treating catalog-bound output as conflict-resolved (wrap `twMerge`), a hand-rolled variant-map + ternary ladder, a second class helper beside `cva`, importing `clsx` separately when `cx` is present, one `compoundVariants` row per combination where a multi-valued match collapses them, per-component `cn` duplication
+- Accept: one `cva` selector per component with axes as `variants` rows and cross-axis rules as `compoundVariants` (multi-valued where they collapse combinations), `VariantProps` feeding React props and a `Schema.Literal` axis union, the mandatory `twMerge(clsx(...))` wrap, `cx` as the in-module fold, `Slot` for `asChild` styling
+- Reject: catalog output treated as conflict-resolved, a hand-rolled variant-map plus ternary ladder, a second class helper beside `cva`, importing `clsx` separately when `cx` is present, one `compoundVariants` row per combination a multi-valued match collapses, per-component `cn` duplication

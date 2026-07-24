@@ -10,15 +10,17 @@ libs/python/
 ├── compute/    # Offline scientific evidence that graduates through one rail
 ├── data/       # Portable data interchange: tabular, spatial, gridded, graph
 ├── geometry/   # Host-free geometry + IFC/BIM companion and cross-boundary owner
-└── artifacts/  # Self-contained artifact-production utility under one ArtifactReceipt
+└── artifacts/  # Publication and print-production engine under one ArtifactReceipt
 ```
 
 ## [02]-[STRATA]
 
-- S0 `runtime` — imports no sibling and mints every shared rail exactly once; machinery a second sibling composes homes here, at the lowest stratum every consumer references, so a sibling extends a runtime owner by one row and mints no parallel.
-- S1 `data` — composes runtime alone and publishes the surfaces its upper strata import: the tabular contract (`FrameAdmission`/`FrameInterop`) and the columnar `arrow_bytes` projection; the mesh and point-record shapes (`MeshPayload`, `PointRecordTable`) cross to geometry as seam payloads, never imports.
-- S2 `compute` + `geometry` — peers composing runtime and data; no import crosses between them, so geometry evidence enters `compute` as `GeometryHandoff` wire data.
-- S3 `artifacts` — composes runtime and compute's graduation handoff; geometry scene facts cross one-way as GLB bytes admitted through `SceneGrid.of_glb`, and no package imports another's interior — cross-package coupling is a published boundary import or a content-keyed wire.
+Cross-package coupling is a published boundary import or a content-keyed wire; no package imports another's interior.
+
+- S0 `runtime` — imports no sibling and mints every shared rail exactly once; a sibling extends a runtime owner by one row, never a parallel mint.
+- S1 `data` — composes runtime alone; upper strata import its `FrameAdmission`/`FrameInterop` tabular contract and `arrow_bytes` columnar projection.
+- S2 `compute` + `geometry` — peers over runtime and data; geometry evidence enters `compute` as `GeometryHandoff` wire, never an import.
+- S3 `artifacts` — composes runtime and compute's graduation handoff; geometry scene facts cross one-way as GLB bytes through `SceneGrid.of_glb`.
 
 ```mermaid
 ---
@@ -30,7 +32,7 @@ config:
 ---
 flowchart TB
     accTitle: Python branch import strata
-    accDescr: Four import strata — artifacts over the compute-geometry peer pair over data over the runtime foundation — every package importing runtime directly with each labeled edge naming its one sourced surface, geometry evidence crossing into compute as dashed wire data rather than import, one forbidden upward edge named as such, and runtime's interior rails descending from wire/serve through lanes/workers, joined by roots, onto resilience, receipts, identity, and faults.
+    accDescr: Four import strata from artifacts down to the runtime foundation; labeled edges name one sourced surface, dashed edges carry wire data.
     subgraph S3["S3 ARTIFACTS"]
         Artifacts[artifacts]
     end
@@ -82,7 +84,7 @@ config:
 ---
 flowchart LR
     accTitle: Python branch C# seam registry
-    accDescr: Python packages exchanging kinded contract shapes with their C# counterparts — every edge labeled kind plus shape — persistence as the one data store, bidirectional peers as hexagons, one-way sources and sinks as stadiums.
+    accDescr: Python packages exchanging kinded contract shapes with their C# counterparts; every edge carries kind plus shape.
     subgraph python[LIBS/PYTHON]
         Geometry[geometry]
         Runtime[runtime]
@@ -131,7 +133,7 @@ config:
 ---
 flowchart LR
     accTitle: Python branch graduation spine
-    accDescr: Geometry, compute producers, and artifacts folding evidence onto the compute graduation hub, the one handoff axis crossing outward, and the reverse evidence envelope returning to the hub as dashed wire.
+    accDescr: Producers fold evidence onto the compute graduation hub; one handoff axis crosses outward, the reverse envelope returns as dashed wire.
     Geometry[geometry] e1@-->|"GeometryHandoff"| Hub[compute graduation hub]
     Producers[compute producers] e2@-->|"GraduationReceipt"| Hub
     Artifacts[artifacts] e3@-->|"HandoffAxis"| Hub
@@ -151,7 +153,7 @@ config:
 ---
 flowchart LR
     accTitle: Python branch observability spine
-    accDescr: Sibling packages firing hook facts and folding receipts into the runtime observability owners, hook taps and receipt records metering onto the one instrument table, and the telemetry install alone carrying OTLP egress outward to the collector.
+    accDescr: Siblings fire hook facts and fold receipts into runtime observability; one instrument table meters, telemetry alone egresses.
     Siblings[compute · data · geometry · artifacts]
     subgraph runtime[RUNTIME OBSERVABILITY]
         Hooks[Hooks registry]
@@ -181,6 +183,6 @@ flowchart LR
 
 ## [06]-[ADMISSION_POLICY]
 
-One root manifest owns interpreter admission, dependency groups, version bounds, and `python_version` markers. This branch targets a normal-GIL CPython core; worker-lane exceptions stay in the root manifest until resolver evidence permits removal. Installation rationale stays in the manifest; package-local docs name capability, entrypoints, boundaries, and exclusions.
+One root manifest owns interpreter admission, dependency groups, version bounds, and `python_version` markers. This branch targets a normal-GIL CPython core; worker-lane exceptions live as root-manifest markers.
 
-`protobuf` and `grpcio` are core runtime dependencies. `grpcio-tools` is codegen-only. Native rendering and OCCT/STEP concerns stay on their owning geometry/artifacts tasks and root-manifest admissions. `specklepy` is not a branch dependency.
+`protobuf` and `grpcio` are core runtime dependencies; `grpcio-tools` is codegen-only. Native rendering and OCCT/STEP admissions home to the owning `artifacts` and `geometry` registries.

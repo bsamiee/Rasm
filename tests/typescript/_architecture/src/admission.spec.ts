@@ -64,7 +64,7 @@ const _PLUGIN_SCOPE = ['**/libs/typescript/**', '!**/*.spec.*', '!**/*.test.*', 
 
 // Domain arming is a closed ruling row set, drift-fenced in both directions: `test` runs
 // recommended; `project` and `types` stay disarmed — their whole-graph type inference belongs to
-// the dual compiler floor, not the lint rail. A silent flip either way is a violation.
+// the `tsc` gate, not the lint rail. A silent flip either way is a violation.
 const _DOMAINS = { project: 'none', test: 'recommended', types: 'none' } as const;
 
 // A rule file is armed only when it registers an error diagnostic and carries both proof spans.

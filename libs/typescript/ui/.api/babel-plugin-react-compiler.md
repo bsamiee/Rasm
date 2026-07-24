@@ -1,95 +1,94 @@
 # [TS_UI_API_BABEL_PLUGIN_REACT_COMPILER]
 
-`babel-plugin-react-compiler` is the React Compiler as a Babel plugin: it analyzes each component/hook, infers reactive dependencies, and rewrites the function to memoize values and JSX through a per-render cache slot array (`const $ = _c(n)`), so hand-written `useMemo`/`useCallback`/`React.memo` become a build artifact the `ui` React 19 spine never authors. Its surface is NOT a runtime API — it is a `PluginOptions` config bag consumed once at build wiring, a `"use memo"`/`"use no memo"` directive escape hatch, and a programmatic compile + diagnostic API. The config is fully parameterized: `target`, `compilationMode`, `panicThreshold`, `gating`, `logger`, `sources`, and the `environment` knob bag are policy values on one options object, never plugin variants. Inside Rasm both the `ui` core and `ui/viewer` Nx projects enable it; `target: "19"` binds React 19's built-in `react/compiler-runtime`, so the sibling `react-compiler-runtime` package is the sub-19 recovery + the dev structural-check lane, dormant at the shipped React version.
+`babel-plugin-react-compiler` compiles each component and hook at build time, inferring reactive dependencies and rewriting the body to memoize values and JSX through a `const $ = _c(n)` cache-slot array, so `ui` bans hand-written `useMemo`/`useCallback`/`React.memo`. Its surface is a build-wiring config bag (`PluginOptions`), a `"use memo"`/`"use no memo"` directive escape hatch, and a programmatic compile and diagnostic API — never a runtime import.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `babel-plugin-react-compiler`
 - package: `babel-plugin-react-compiler` (MIT)
-- module: CJS `main` `dist/index.js`; dep `@babel/types`. The default export is the Babel plugin `BabelPluginReactCompiler(babel): PluginObj`.
-- asset: ships `dist/index.d.ts` (51 KB, the full compiler surface) even though `package.json` declares NO `types` field — a resolution quirk; the TSDECL is present and `assay api resolve babel-plugin-react-compiler` restores it (the resolver's `types`-field read returns `empty`; the file exists at `dist/index.d.ts`).
-- runtime: BUILD-TIME only — the plugin runs in the bundler's Babel pass and emits nothing to the browser except calls into the compiler runtime (`_c`); it is a `devDependency`-class tool, never imported by `ui` source.
-- plane: `plane:ui` (build) — enabled for the `ui` core and `ui/viewer` React projects; wired through the bundler, not a folder edge.
-- rail: ui/compiler; the `[COMPILER]` group (`babel-plugin-react-compiler`, `react-compiler-runtime`).
-- role: the memoization-compilation pass that lets `ui` ban hand-written `useMemo`/`useCallback`/`memo`; paired with `react` 19 (`react/compiler-runtime` provides `_c`) and the sibling `react-compiler-runtime` (recovery + dev checks).
+- module: CJS `dist/index.js`, default export `BabelPluginReactCompiler(babel) -> PluginObj`; depends `@babel/types`
+- asset: ships `dist/index.d.ts` with no `package.json` `types` field — resolution reads the declaration by path, not by field
+- runtime: build-time Babel pass emitting `_c` calls into the compiler runtime, never imported by `ui` source
+- plane: `plane:ui` (build) — enabled for the `ui` core and `ui/viewer` React projects, wired through the bundler
+- rail: ui/compiler — the memoization-compilation pass paired with `react-compiler-runtime` (`.api/react-compiler-runtime.md`)
 
-## [02]-[PLUGIN_OPTIONS]
+## [02]-[PUBLIC_TYPES]
 
-`PluginOptions` is `Partial<>` of one config bag — every axis a policy value validated by `parsePluginOptions`/`validateEnvironmentConfig` (a zod schema internally). The load-bearing axes are `target` (React runtime — must match the installed React so `_c` resolves), `compilationMode` (which functions compile), and `panicThreshold` (bail-out severity). `gating`/`dynamicGating` enable incremental rollout: both the compiled and original function are emitted and a runtime flag picks. `environment` is the inference + emission bag: it tunes ref/effect inference AND carries the dev-validator emission flags (`enableEmitHookGuards`/`enableChangeDetectionForDebugging`/`enableEmitInstrumentForget`/`enableEmitFreeze`) that wire compiled dev output to `react-compiler-runtime` (`[ENVIRONMENT_EMISSION]`) — extend it, never fork the plugin.
+[PUBLIC_TYPE_SCOPE]: the config bag, directive vocabulary, and diagnostic and HIR algebra the package exports
 
-Types are the signature below; the table carries the decision per axis.
+| [INDEX] | [SYMBOL]                                                       | [TYPE_FAMILY] | [CAPABILITY]                                       |
+| :-----: | :------------------------------------------------------------- | :------------ | :------------------------------------------------- |
+|  [01]   | `PluginOptions`                                                | config bag    | `Partial<>` axes validated by `parsePluginOptions` |
+|  [02]   | `ExternalFunction`                                             | struct        | `{ source, importSpecifierName }` emission target  |
+|  [03]   | `OPT_IN_DIRECTIVES` / `OPT_OUT_DIRECTIVES`                     | directive set | per-fn compile opt-in / opt-out                    |
+|  [04]   | `CompilerError` / `CompilerErrorDetail` / `CompilerDiagnostic` | diagnostic    | typed bail-out the `logger` classifies             |
+|  [05]   | `ErrorCategory` / `ErrorSeverity`                              | vocabulary    | bail-out severity and category                     |
+|  [06]   | `CompilerSuggestionOperation` / `LintRules`                    | vocabulary    | fix-suggestion op and lint-rule roster             |
+|  [07]   | `LoggerEvent`                                                  | union         | the `logger.logEvent` payload (cases below)        |
+|  [08]   | `Effect` / `ValueKind` / `ValueReason` / `ProgramContext`      | HIR algebra   | internal inference vocabulary (tooling)            |
+
+- `LoggerEvent` cases: `CompileSuccess` `CompileError` `CompileDiagnostic` `CompileSkip` `Timing`.
+
+[PLUGIN_OPTIONS_AXES]: every `PluginOptions` axis is a policy value on one bag; extend `environment`, never fork the plugin
 
 | [INDEX] | [OPTION]                   | [DECISION_BOUNDARY]                                                                         |
 | :-----: | :------------------------- | :------------------------------------------------------------------------------------------ |
 |  [01]   | `target`                   | React runtime; `"19"` = built-in `react/compiler-runtime`, 17/18 = `react-compiler-runtime` |
 |  [02]   | `compilationMode`          | `infer` (components+hooks by heuristic, default); `annotation` = only `"use memo"`; `all`   |
 |  [03]   | `panicThreshold`           | `none` (prod: skip a fn on any diagnostic, never break the build) vs strict CI              |
-|  [04]   | `sources`                  | which files compile — the include predicate                                                 |
+|  [04]   | `sources`                  | the include predicate deciding which files compile                                          |
 |  [05]   | `gating` / `dynamicGating` | static/runtime rollout: emit compiled + original, a flag picks                              |
 |  [06]   | `logger`                   | the compile-diagnostic sink (success/error/skip/timing events)                              |
-|  [07]   | `environment`              | inference tuning + the dev-validator emission flags; extend, never fork                     |
+|  [07]   | `environment`              | inference tuning plus the dev-validator emission flags                                      |
 |  [08]   | `noEmit`                   | analyze-only: compile + diagnose, emit nothing (the CI gate mode)                           |
 |  [09]   | `eslintSuppressionRules`   | skip a fn already carrying a suppressed ESLint rule                                         |
 |  [10]   | `flowSuppressions`         | skip a fn under a Flow suppression comment                                                  |
 |  [11]   | `ignoreUseNoForget`        | compile even a `"use no memo"`-marked fn                                                    |
 |  [12]   | `customOptOutDirectives`   | extend the opt-out directive vocabulary                                                     |
 
-[PLUGIN_OPTIONS]: `PluginOptions = Partial<…>`
-[SURFACES]: `BabelPluginReactCompiler(typeof BabelCore) -> BabelCore.PluginObj`
+[ENVIRONMENT_EMISSION]: each dev-validator axis is an `ExternalFunction` (`{ source, importSpecifierName }`, default `null` = off) naming the `react-compiler-runtime` export a compiled dev body imports; production strips the call
 
-[ENVIRONMENT_EMISSION]: the dev-validator emission flags — how the plugin wires compiled dev output to `react-compiler-runtime`
+| [INDEX] | [ENVIRONMENT_FLAG]                  | [EMITTED_CALL]                                    | [GUARD]                                     |
+| :-----: | :---------------------------------- | :------------------------------------------------ | :------------------------------------------ |
+|  [01]   | `enableEmitHookGuards`              | `$dispatcherGuard(kind: GuardKind)`               | throws on a conditional / indirect hook     |
+|  [02]   | `enableChangeDetectionForDebugging` | `$structuralCheck(old, new, name, fn, kind, loc)` | diffs a stable value against recompute      |
+|  [03]   | `enableEmitInstrumentForget`        | `useRenderCounter(name)`                          | rerender probe into `renderCounterRegistry` |
+|  [04]   | `enableEmitFreeze`                  | `$makeReadOnly()`                                 | deep-freeze; runtime stub, flag stays off   |
 
-The `environment` axes decide whether the compiler emits a dev-validator call into each compiled body and which module/export it imports. None is a boolean — each is one `ExternalFunction`-shaped config `{ source: string; importSpecifierName: string }` (nullable, default `null` = off), so the flag is a parameterized import target: `enableEmitHookGuards: { source: "react-compiler-runtime", importSpecifierName: "$dispatcherGuard" }` emits `import { $dispatcherGuard } from "react-compiler-runtime"` plus the guard call at each body head. This is the reciprocal seam to `.api/react-compiler-runtime.md`'s dev-validator surface — the flag names the emit, the runtime owns the implementation — and the calls are stripped from production output.
+- `enableEmitInstrumentForget` carries the richer `{ fn, gating, globalGating }` payload adding a per-emit gating fn and env-var name.
 
-| [INDEX] | [ENVIRONMENT_FLAG]                  | [EMITTED_CALL]                                    |
-| :-----: | :---------------------------------- | :------------------------------------------------ |
-|  [01]   | `enableEmitHookGuards`              | `$dispatcherGuard(kind: GuardKind)`               |
-|  [02]   | `enableChangeDetectionForDebugging` | `$structuralCheck(old, new, name, fn, kind, loc)` |
-|  [03]   | `enableEmitInstrumentForget`        | `useRenderCounter(name)`                          |
-|  [04]   | `enableEmitFreeze`                  | `$makeReadOnly()`                                 |
+## [03]-[ENTRYPOINTS]
 
-- [01]-[HOOK_GUARDS]: wraps each compiled body; throws on a conditional, renamed, or indirectly-called hook (the runtime source comment names this exact flag).
-- [02]-[CHANGE_DETECTION]: deep-diffs a compiler-assumed-stable value against recompute and `console.error`s the divergence path.
-- [03]-[INSTRUMENT_FORGET]: rerender probe into `renderCounterRegistry`; the richer payload adds a per-emit `gating` external-fn and a `globalGating` env-var name (`{ fn; gating; globalGating }`).
-- [04]-[EMIT_FREEZE]: the reserved deep-freeze; the runtime stubs it (throws), so the flag stays off until the runtime lands it.
+[ENTRYPOINT_SCOPE]: the plugin default export and the programmatic compile, config-codec, and directive-probe surface — used by tooling and the `logger` sink, not `ui` source
 
-## [03]-[DIRECTIVE_CONTROL]
+| [INDEX] | [SURFACE]                                                                 | [SHAPE] | [CAPABILITY]                          |
+| :-----: | :------------------------------------------------------------------------ | :------ | :------------------------------------ |
+|  [01]   | `BabelPluginReactCompiler(BabelCore) -> PluginObj`                        | factory | the default-export Babel plugin       |
+|  [02]   | `compile` / `compileProgram`                                              | static  | programmatic fn / program compile     |
+|  [03]   | `runBabelPluginReactCompiler(text, file, language, options, includeAst?)` | static  | raw source to compiled program        |
+|  [04]   | `parsePluginOptions(options)` / `validateEnvironmentConfig(env)`          | static  | normalize / validate config           |
+|  [05]   | `findDirectiveEnablingMemoization` / `findDirectiveDisablingMemoization`  | static  | detect the opt-in / opt-out directive |
+|  [06]   | `printHIR`                                                                | static  | HIR debug printer (tooling)           |
 
-The per-function escape hatch is a string directive, not a config fork: `"use memo"` opts a function IN (`OPT_IN_DIRECTIVES`), `"use no memo"` opts it OUT (`OPT_OUT_DIRECTIVES`) — the one admitted way to exclude a component the compiler mis-handles, and a defect marker to remove, never a standing pattern. `compilationMode: "annotation"` inverts the default so ONLY `"use memo"` functions compile. `customOptOutDirectives`/`ignoreUseNoForget` retune the opt-out vocabulary at the config seam.
+## [04]-[IMPLEMENTATION_LAW]
 
-| [INDEX] | [SYMBOL]                                                                 | [KIND]        | [CAPABILITY_BOUNDARY]                      |
-| :-----: | :----------------------------------------------------------------------- | :------------ | :----------------------------------------- |
-|  [01]   | `OPT_IN_DIRECTIVES` / `OPT_OUT_DIRECTIVES`                               | directive set | the per-fn opt-in / opt-out compile toggle |
-|  [02]   | `findDirectiveEnablingMemoization` / `findDirectiveDisablingMemoization` | probe         | detect the directive on a fn body          |
-|  [03]   | `customOptOutDirectives` / `ignoreUseNoForget` (options)                 | config axis   | retune/ignore the opt-out vocabulary       |
+[TOPOLOGY]:
+- `BabelPluginReactCompiler` runs first in the bundler's React Babel transform, emitting to the browser only `_c(N)` cache-slot allocations and, in dev, the `environment`-gated validator calls; `target: "19"` binds React's built-in `react/compiler-runtime` for `_c`, and a mismatched `target` breaks `_c` resolution.
+- Memoization is compiled: a hand-written `useMemo`/`useCallback`/`React.memo` in a `ui` row is the defect the plugin's presence bans.
 
-## [04]-[PROGRAMMATIC_AND_DIAGNOSTICS]
+[STACKING]:
+- `react-compiler-runtime`(`.api/react-compiler-runtime.md`): compiled output calls `const $ = _c(N)` to allocate the per-render memo cache; `target: "19"` routes `_c` to React's built-in runtime, leaving the sibling dormant as the sub-19 recovery and the dev-validator lane its `environment` `{ source, importSpecifierName }` flags import (`$dispatcherGuard`/`$structuralCheck`/`useRenderCounter`/`$makeReadOnly`).
+- `react`(`.api/react.md`): compiled bodies compose with `useTransition`/`<Suspense>` and React's own `useMemoCache` untouched, no manual dependency tracking.
+- `effect-atom-atom-react`(`.api/effect-atom-atom-react.md`): `useAtomValue`/`useAtomSet` are ordinary hooks, so `ONE_FOLD_ONE_BINDING` components and their selector-scoped reads compile with no annotation; the compiler stabilizes the hook results, so no `useMemo` wraps them.
+- bundler Babel pass — `@vitejs/plugin-react` / `@rolldown/plugin-babel`: the plugin wires first in the React transform (`babel: { plugins: [["babel-plugin-react-compiler", { target: "19" }]] }`), seeing source before other transforms lower it.
+- `@biomejs/biome` lint boundary: Rasm lints with Biome, so no `eslint-plugin-react-hooks` react-compiler rule fires; the diagnostic path is the build-time `logger` sink and `panicThreshold: "none"` (a non-compilable component skips silently), and `noEmit: true` is the CI analyze-only mode surfacing `CompilerError` without emitting.
 
-Beyond the plugin, the package exposes the compile entry points and the diagnostic rail — used by tests, custom bundler integrations, and the `logger` sink, not by `ui` source. `CompilerError`/`CompilerDiagnostic` carry `ErrorCategory` + `ErrorSeverity` so a build can classify a bail-out; `LoggerEvent` is the discriminated event the `logger.logEvent` sink receives. `Effect`/`ValueKind`/`ValueReason` are the compiler's internal HIR inference algebra (exported for tooling, not a consumer surface).
+[LOCAL_ADMISSION]:
+- Wire the plugin first in the bundler React Babel pass with `{ target: "19", compilationMode: "infer", panicThreshold: "none" }`; never import this package from `ui` source — it is a build tool.
+- `"use no memo"` marks a rare component the compiler mishandles, a defect flag to remove; `gating` admits only a deliberate incremental rollout.
 
-| [INDEX] | [SYMBOL]                                                                        | [KIND]        | [CAPABILITY_BOUNDARY]                  |
-| :-----: | :------------------------------------------------------------------------------ | :------------ | :------------------------------------- |
-|  [01]   | `compile` / `compileProgram`                                                    | compile entry | programmatic fn/program compile        |
-|  [02]   | `runBabelPluginReactCompiler(text, file, language, options, includeAst?)`       | compile entry | raw source→compiled program            |
-|  [03]   | `parsePluginOptions(options)` / `validateEnvironmentConfig(env)`                | config codec  | normalize/validate config before use   |
-|  [04]   | `CompilerError` / `CompilerErrorDetail` / `CompilerDiagnostic`                  | diagnostic    | typed bail-out the `logger` classifies |
-|  [05]   | `ErrorCategory` / `ErrorSeverity` / `CompilerSuggestionOperation` / `LintRules` | vocabulary    | severity/category + lint-rule roster   |
-|  [06]   | `LoggerEvent`                                                                   | event union   | the `logEvent` payload union ([07])    |
-|  [07]   | `Effect` / `ValueKind` / `ValueReason` / `ProgramContext` / `printHIR`          | internal HIR  | HIR algebra + debug printers (tooling) |
-
-- [07]-[LOGGER_EVENT]: `CompileSuccess`/`CompileError`/`CompileDiagnostic`/`CompileSkip`/`Timing`/… — the union `logger.logEvent` receives.
-
-## [05]-[STACKING]
-
-- Stack with the bundler Babel pass — `vite` 8 + `@vitejs/plugin-react` / `@rolldown/plugin-babel`: the plugin runs as the FIRST Babel plugin in the React transform (order matters: it must see the source before other transforms lower it). It wires through `@vitejs/plugin-react`'s `babel: { plugins: [["babel-plugin-react-compiler", { target: "19" }]] }` or `@rolldown/plugin-babel` (both admitted in the tooling catalog). The compile is build-time; nothing about the plugin ships to the browser.
-- Stack with `react` 19.2 + `react-compiler-runtime` (the `_c` primitive): compiled output calls `const $ = _c(N)` to allocate the per-render memo-cache slot array. `target: "19"` binds React's BUILT-IN `react/compiler-runtime` for `_c`, so the sibling `react-compiler-runtime` package is dormant at the shipped version — it is the sub-19 `runtimeModule` recovery AND the dev-validator lane (`$dispatcherGuard`/`$structuralCheck`/`useRenderCounter`/`$makeReadOnly`) the `environment` emission flags (`[ENVIRONMENT_EMISSION]`) point their `{ source, importSpecifierName }` at. The `[COMPILER]` group carries both; only the plugin + built-in runtime are live.
-- Stack with `.api/effect-atom-atom-react.md` state hooks: the compiler respects the Rules of React, and `@effect-atom/atom-react` hooks (`useAtomValue`/`useAtom`) are ordinary hooks, so `ONE_FOLD_ONE_BINDING` components compile with no annotation; the compiler memoizes the derived-atom reads `atom/derive` produces without hand-written `useMemo`. A component the compiler cannot prove is marked `"use no memo"` as a defect flag, not left hand-memoized.
-- Stack with Biome lint boundary — no ESLint react-compiler rule: Rasm lints with `@biomejs/biome`, not ESLint, so the standard `eslint-plugin-react-hooks` react-compiler lint rule is NOT wired. The compile-diagnostic path is therefore the build-time `logger` sink + `panicThreshold` (`"none"` in production: a non-compilable component is silently skipped, never a build break) — `noEmit: true` is the analyze-only mode a CI gate does run to surface `CompilerError` diagnostics without emitting.
-- Stack with the `ui` memoization law: because memoization is compiled, `ui`/`ui/viewer` source authors ZERO `useMemo`/`useCallback`/`React.memo`; those are the compiler's output. A hand-written memo in a `view`/`act`/`atom` row is the defect this plugin's presence bans.
-
-## [06]-[RAIL_LAW]
-
-- Owns: the build-time memoization-compilation pass (the `BabelPluginReactCompiler` default export), the `PluginOptions` config bag, the `"use memo"`/`"use no memo"` directive control, and the programmatic compile + `CompilerError`/`LoggerEvent` diagnostic API.
-- Accept: the plugin wired FIRST in the bundler React Babel pass (`@vitejs/plugin-react`/`@rolldown/plugin-babel`) with `{ target: "19", compilationMode: "infer", panicThreshold: "none" }`; `"use no memo"` as a rare, marked escape hatch; the `logger`/`noEmit` diagnostic path since Biome owns lint; `gating` only for a deliberate incremental rollout.
-- Reject: importing this package from `ui` source (it is a build tool, never a runtime import); a `target` mismatched to the installed React (breaks `_c` resolution); hand-written `useMemo`/`useCallback`/`memo` in `ui` (memoization is compiled); a standing `"use no memo"` (a defect marker, not a pattern); relying on an ESLint react-compiler rule (Biome is the linter — use `logger`/`noEmit`).
-- Boundary: build-time only — nothing ships to the browser but `_c` calls into the compiler runtime (and, in dev, the `environment`-flag-gated `$dispatcherGuard`/`$structuralCheck`/`useRenderCounter` validators). `react/compiler-runtime` (built into React 19) provides `_c`; `react-compiler-runtime` is the sub-19 recovery + dev-validator lane. The `types` field is absent from `package.json` but `dist/index.d.ts` is present.
+[RAIL_LAW]:
+- Package: `babel-plugin-react-compiler`
+- Owns: the build-time memoization-compilation pass, the `PluginOptions` config bag, the `"use memo"`/`"use no memo"` directive control, and the programmatic compile and `CompilerError`/`LoggerEvent` diagnostic API
+- Accept: the plugin wired first in the bundler React transform with `target: "19"`; `"use no memo"` as a marked escape hatch; the `logger`/`noEmit` diagnostic path; `gating` for a deliberate rollout
+- Reject: importing this package from `ui` source; a `target` mismatched to the installed React; hand-written `useMemo`/`useCallback`/`React.memo` in `ui`; a standing `"use no memo"`; relying on an ESLint react-compiler rule

@@ -41,7 +41,58 @@ compute/                    # Offline scientific evidence, graduating outward th
     └── observability.py    # COMPUTE_POINTS/ResourceUsage — hook rail, measure taps, hub-woven resource band
 ```
 
-## [02]-[SEAMS]
+## [02]-[STRATA]
+
+Strata rank the compute interior; seating rows carry only the law the fence cannot show.
+
+```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
+flowchart TB
+    accTitle: Compute interior import strata
+    accDescr: Three import strata from the producers down to the graduation foundation; each labeled edge names one sourced type.
+    subgraph C2["S2 PRODUCERS"]
+        Analysis[analysis]
+        Experiments[experiments]
+        Optimization[optimization]
+    end
+    subgraph C1["S1 NUMERICS + SOLVERS"]
+        Numerics[numerics]
+        Solvers[solvers]
+    end
+    subgraph C0["S0 GRADUATION"]
+        Codegen[codegen]
+        Handoff[handoff]
+    end
+    Analysis s1@-->|"[IMPORT]: ArrayPayload"| Numerics
+    Analysis s2@-->|"[IMPORT]: EvidenceScope"| Handoff
+    Experiments s3@-->|"[IMPORT]: JitBackend"| Numerics
+    Experiments s4@-->|"[IMPORT]: EvidenceScope"| Handoff
+    Optimization s5@-->|"[IMPORT]: SolveStatus"| Solvers
+    Optimization s6@-->|"[IMPORT]: EvidenceScope"| Handoff
+    Numerics s7@-->|"[IMPORT]: GraduationReceipt"| Handoff
+    Solvers s8@-->|"[IMPORT]: GraduationReceipt"| Handoff
+    Codegen s9@-->|"[IMPORT]: EvidenceScope"| Handoff
+    Handoff f1@-->|"forbidden: upward import"| C2
+```
+
+- S0 `graduation` — mints the outward rail (`HandoffAxis`, `GraduationReceipt`, `EvidenceScope`) exactly once and imports no compute sibling.
+- S0 `codegen` and `observability` compose `handoff` in-stratum; the hub weave re-enters `observability` through one lazy seam.
+- S0 point rail and resource ledger ride every producer dispatch; every producer returns through the hub.
+- S1 `numerics` + `solvers` — one module-acyclic stratum: `solvers` folds `SolverReceipt`/`SolveStatus` onto the rail.
+- S1 `numerics` admits `ArrayPayload` and the `JitBackend`/`LoweredSpec` compile routes.
+- S1 interleave: `quadrature` composes `jit`; `receipt` mounts the `jit` `EngineProfile` band; `interval` composes the receipt `graduate` fold.
+- S2 `analysis` + `experiments` + `optimization` — the producer stratum no sibling imports.
+- S2 `analysis` composes `ArrayPayload`; `experiments` the `JitBackend` capture and study spine.
+- S2 `optimization` composes the `SolveStatus` verdicts and the receipt `graduate` fold.
+- S2 all three stream receipts through the hub weave under their `EvidenceScope` rows; axis owners project `GraduationReceipt`.
+
+## [03]-[SEAMS]
 
 ```mermaid
 ---
@@ -53,7 +104,7 @@ config:
 ---
 flowchart LR
     accTitle: Compute package seam registry
-    accDescr: Compute sub-domain owners exchanging graduation evidence, quantities, content keys, frame shapes, and the runtime Kernel port with Rasm.Compute and the Python geometry, artifacts, runtime, and data peers, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: Compute sub-domain owners exchanging graduation evidence, quantities, content keys, and the Kernel port with peers.
     subgraph compute[COMPUTE]
         Graduation[Graduation rail]
         Solvers[Solve receipt]
@@ -88,7 +139,7 @@ flowchart LR
 
 `ContentIdentity` keys ride beneath the `ParityReceipt` parity seam, the graduation reverse leg carries `EvidenceBundle` — C#-owned as `GraduationEvidence`, an offline artifact `codegen` decodes — and `UncertainQuantity` is the interior owner beneath the C#-spelled `QuantityFamily` wire; each collapsed edge stands for every contract between the two owners at that kind, with the per-contract wiring on the owning implementation pages.
 
-## [03]-[INTERNAL]
+## [04]-[INTERNAL]
 
 Independent sub-domains produce nothing outward on their own: every producer streams runtime receipts through the hub evidence weave under its `EvidenceScope` row — the universal floor — while the graduating axis owners project `GraduationReceipt` onto the single rail that crosses outward; the study, history, statistics, signal, transform, spatial, field, mesh, and sensitivity owners stop at the receipt rail by charter.
 
@@ -102,7 +153,7 @@ config:
 ---
 flowchart LR
     accTitle: Compute internal convergence
-    accDescr: The independent numeric-science sub-domains folding solve receipts and graduating axis evidence onto the single graduation rail that crosses outward, edge rails colored by the shape each stage folds.
+    accDescr: Numeric-science sub-domains fold solve receipts and graduating axis evidence onto the single graduation rail crossing outward.
     SolveRoutes[[Solve routes]] e1@-->|"SolverReceipt"| Receipt[Solve receipt]
     Optimization[[Optimization programs]] e2@-->|"OutcomeReceipt"| Receipt
     Optimization e3@-->|"ConvexReceipt"| Handoff[Graduation rail]
@@ -114,50 +165,6 @@ flowchart LR
     Numerics[[Numeric substrate]] e9@-->|"ArrayPayload · QuantityReceipt · IntervalReceipt"| Handoff
     Handoff e10@-->|"HandoffAxis"| Out([Outward egress])
 ```
-
-Convergence above answers what folds where; the strata below answer which sub-domain may import which.
-
-- S0 `graduation` — mints the outward rail exactly once (`HandoffAxis`, `GraduationReceipt`, `EvidenceScope`) and imports no compute sibling; `codegen` and `observability` compose `handoff` inside the stratum — the hub weave re-enters `observability` through one lazy seam, so the point rail and resource ledger ride every producer dispatch — and every producer returns through the hub.
-- S1 `numerics` + `solvers` — one band: `solvers` folds `SolverReceipt`/`SolveStatus` onto the rail, `numerics` admits `ArrayPayload` and the `JitBackend`/`LoweredSpec` compile routes; the interleave is module-acyclic — `quadrature` composes `jit`, `receipt` mounts the `jit` `EngineProfile` band, `interval` composes the receipt `graduate` fold — so no stratum cycle exists at module grain.
-- S2 `analysis` + `experiments` + `optimization` — the producer tier no sibling imports: analysis composes `ArrayPayload`, experiments the `JitBackend` capture and the study spine, optimization the `SolveStatus` verdicts and the receipt `graduate` fold; all three stream receipts through the hub weave under their `EvidenceScope` rows, and their axis owners project `GraduationReceipt`.
-
-```mermaid
----
-config:
-  layout: elk
-  flowchart:
-    curve: linear
-    padding: 25
----
-flowchart TB
-    accTitle: Compute interior import strata
-    accDescr: Three import strata — the analysis, experiments, and optimization producers over the numerics-solvers band over the graduation foundation — each labeled downward edge naming its one sourced type, the band interleave held to prose, and one forbidden upward edge styled red.
-    subgraph C2["S2 PRODUCERS"]
-        Analysis[analysis]
-        Experiments[experiments]
-        Optimization[optimization]
-    end
-    subgraph C1["S1 NUMERICS + SOLVERS"]
-        Numerics[numerics]
-        Solvers[solvers]
-    end
-    subgraph C0["S0 GRADUATION"]
-        Codegen[codegen]
-        Handoff[handoff]
-    end
-    Analysis s1@-->|"[IMPORT]: ArrayPayload"| Numerics
-    Analysis s2@-->|"[IMPORT]: EvidenceScope"| Handoff
-    Experiments s3@-->|"[IMPORT]: JitBackend"| Numerics
-    Experiments s4@-->|"[IMPORT]: EvidenceScope"| Handoff
-    Optimization s5@-->|"[IMPORT]: SolveStatus"| Solvers
-    Optimization s6@-->|"[IMPORT]: EvidenceScope"| Handoff
-    Numerics s7@-->|"[IMPORT]: GraduationReceipt"| Handoff
-    Solvers s8@-->|"[IMPORT]: GraduationReceipt"| Handoff
-    Codegen s9@-->|"[IMPORT]: EvidenceScope"| Handoff
-    Handoff f1@-->|"forbidden: upward import"| C2
-```
-
-## [04]-[ORGANIZATION]
 
 Sub-domains are independent numeric-science concerns meeting only through the one solve receipt and the one graduation rail. Each discriminates variation by problem structure — solve route, program class, experiment stage — and composes the numeric substrate rather than re-owning it, so a new route or program class lands as a case on the owning discriminant, never a parallel owner. Per-owner wiring lives on the owning implementation pages.
 

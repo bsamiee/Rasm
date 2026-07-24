@@ -8,7 +8,7 @@
 - package: `effect` (MIT)
 - module format: ESM + CJS dual (`dist/esm` + `dist/cjs`, types `dist/dts`), `sideEffects: []`; the flat `effect` barrel and per-module deep-import subpaths (`effect/Effect`, `effect/Schema`, …), deep-imported only where tree-shaking one module matters
 - runtime target: isomorphic (node, bun, browser, worker); zero runtime dependencies, no native addon
-- asset: pure-TypeScript runtime (`.js` + `.d.ts`); the type-level surface (branded refinements, `typeof schema.Type`) is load-bearing, so `tsc`/`tsgo` gate it
+- asset: pure-TypeScript runtime (`.js` + `.d.ts`); the type-level surface (branded refinements, `typeof schema.Type`) is load-bearing, so `tsc` gate it
 - rail: substrate — every folder types against it
 
 ## [02]-[PUBLIC_TYPES]

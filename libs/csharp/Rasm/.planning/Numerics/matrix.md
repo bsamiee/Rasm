@@ -1,6 +1,6 @@
 # [RASM_NUMERICS_MATRIX]
 
-`Rasm.Numerics` grounds every kernel solver on one linear-algebra substrate: the dense, sparse, and complex matrix owners, the solve/eigen/gauge route algebra, and `MatrixKernel`, the sole MathNet and CSparse access path they compose. Every operation leaves as a typed receipt carrying its route, stop, and recomputed residual; a raw `Matrix<double>` or bare factorization never crosses the surface.
+`Rasm.Numerics` grounds every kernel solver on one linear-algebra substrate: the dense, sparse, and complex matrix owners, the solve/eigen/gauge route algebra, and `MatrixKernel`, the sole MathNet and CSparse factorization path they compose. Every operation leaves as a typed receipt carrying its route, stop, and recomputed residual; a raw `Matrix<double>` or bare factorization never crosses the surface.
 
 A rebuild composes the `Rasm.Domain` rails as the receipt validity floor and stays host-neutral: finiteness reads through `TensorPrimitives.IsFiniteAll` over flat spans, every tolerance draws from an `EpsilonPolicy` row, and no `RhinoMath` member or absolute literal appears. MathNet and CSparse are the mined standard library.
 
@@ -444,7 +444,7 @@ public readonly record struct GaugeReceipt(
 
 ## [06]-[SOLVE_KERNEL]
 
-- Owner: `MatrixKernel` the `internal static` numeric kernel and the one MathNet and CSparse access path in the corpus, organized by operation family.
+- Owner: `MatrixKernel` the `internal static` numeric kernel and the one MathNet and CSparse factorization path in the corpus, organized by operation family.
 - Entry: every public-facing operation enters through the owning model member; the kernel is reached only through them.
 - Auto: `SingularGaugeSolve` derives every threshold from `OperatorFrobeniusScale` and the rhs scale — relative gates, never absolute literals — and witnesses the true residual against the original un-shifted operator; `LobpcgCore` seeds its basis deterministically off the `Domain/identity` splitmix64 owner for bit-stable replay and terminates typed, never a hidden dense fallback.
 - Packages: MathNet.Numerics (the managed provider path only — `UseManaged`, no `Control.UseNative*` call, no provider package), CSparse (`SparseCholesky`, `SparseLU`, AMD ordering), Rasm.Domain (`Op`, `Context`, `Deterministic` splitmix64), System.Numerics.Tensors, TYoshimura.DoubleDouble (`ddouble`, the 106-bit residual-witness lane), BCL (`System.Numerics.Complex`).

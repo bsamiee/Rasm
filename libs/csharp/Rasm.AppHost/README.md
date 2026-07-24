@@ -40,7 +40,7 @@
 - [25]-[ADMISSION](.planning/Sandbox/admission.md): One supply-chain admission gate — offline Sigstore, SLSA provenance, SemVer contract.
 - [26]-[ISOLATION](.planning/Sandbox/isolation.md): Capability-brokered WASM and process plugin isolation with unified call mediation.
 - [27]-[SOLVER](.planning/Sandbox/solver.md): Solver-plugin contract with canonical-representation negotiation.
-- [28]-[PROVISIONING](.planning/Sandbox/provisioning.md): Post-fetch self-update state machine over the canary, blue-green, and linear-wave roll axis.
+- [28]-[PROVISIONING](.planning/Sandbox/provisioning.md): Post-fetch self-update state machine over the staged fleet-roll axis.
 
 [OBSERVABILITY]:
 - [29]-[TELEMETRY](.planning/Observability/telemetry.md): Unified four-signal telemetry through minted identities and egress redaction.
@@ -73,14 +73,14 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Cronos`
 - `Microsoft.Extensions.Caching.Hybrid`
 - `Microsoft.Extensions.ObjectPool`
-- `System.Threading.Tasks.Dataflow` — carries the drainable-queue dataflow blocks, framework-provided with no package row.
+- `System.Threading.Tasks.Dataflow` — drainable-queue dataflow blocks; framework-provided, no manifest row.
 
 [OBSERVABILITY]:
-- `Microsoft.Extensions.Diagnostics` — `AddMetrics` mints the per-ALC `IMeterFactory` the plugin capsule provider resolves for `PluginTelemetryHost.Meters`.
+- `Microsoft.Extensions.Diagnostics` — `AddMetrics` mints the per-ALC `IMeterFactory` behind the plugin capsule provider.
 - `Microsoft.Extensions.Diagnostics.HealthChecks`
 - `Microsoft.Extensions.Diagnostics.ResourceMonitoring`
 - `Microsoft.Diagnostics.NETCore.Client` — process-dump and EventPipe capture feeding the support-bundle fan.
-- `Microsoft.Diagnostics.Runtime` — ClrMD `DataTarget.LoadDump` post-capture heap/thread/stack triage projecting the captured dump into support-bundle receipts.
+- `Microsoft.Diagnostics.Runtime` — ClrMD `DataTarget.LoadDump` post-capture triage feeding support-bundle receipts.
 - `Microsoft.Diagnostics.Tracing.TraceEvent` — decodes the EventPipe event stream off the diagnostics session.
 - `AspNetCore.HealthChecks.NpgSql`
 - `AspNetCore.HealthChecks.Redis`
@@ -94,14 +94,14 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Microsoft.Extensions.Telemetry`
 - `Microsoft.Extensions.Telemetry.Abstractions`
 - `OpenTelemetry`
-- `OpenTelemetry.Extensions` — `BaggageActivityProcessor` promoting predicate-scoped tenant/cost baggage onto spans for cost attribution; `RateLimitingSampler` per-second head cap.
+- `OpenTelemetry.Extensions` — `BaggageActivityProcessor` cost-attribution baggage promotion; `RateLimitingSampler` per-second head cap.
 - `OpenTelemetry.Extensions.Hosting`
 - `OpenTelemetry.Instrumentation.AspNetCore` — service-root inbound request spans and the built-in hosting meters.
 - `OpenTelemetry.Instrumentation.GrpcNetClient` — client-span semconv over the `Grpc.Net.Client` hops.
 - `OpenTelemetry.Instrumentation.Http`
 - `OpenTelemetry.Instrumentation.Runtime`
 - `OpenTelemetry.Exporter.OpenTelemetryProtocol` — projects the OTLP exporter at the composition root.
-- `OpenTelemetry.PersistentStorage.FileSystem` — file-system-backed `FileBlobProvider` offline queue for failed OTLP export batches; replays on reconnection.
+- `OpenTelemetry.PersistentStorage.FileSystem` — `FileBlobProvider` offline queue replaying failed OTLP batches on reconnect.
 - `OpenTelemetry.Resources.Container` — `container.id` resource detector at the identity seam.
 - `OpenTelemetry.Resources.Host` — `host.name`/`host.id`/`host.arch` resource detector at the identity seam.
 - `OpenTelemetry.Resources.OperatingSystem` — `os.*` resource detector at the identity seam.
@@ -121,7 +121,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Polly.RateLimiting`
 - `Microsoft.Extensions.ServiceDiscovery`
 - `Grpc.AspNetCore.HealthChecks`
-- `Grpc.HealthCheck` — transitive `grpc.health.v1` `HealthServiceImpl` serving-status surface under `Grpc.AspNetCore.HealthChecks`, never a direct reference.
+- `Grpc.HealthCheck` — transitive `grpc.health.v1` serving-status surface under `Grpc.AspNetCore.HealthChecks`, never a direct reference.
 - `Grpc.AspNetCore.Web` — binds the `UseGrpcWeb` middleware at the composition root.
 - `Grpc.Core.Api`
 - `Microsoft.AspNetCore.JsonPatch.SystemTextJson`

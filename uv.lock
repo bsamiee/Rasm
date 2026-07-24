@@ -7596,9 +7596,9 @@ wheels = [
 
 [[package]]
 name = "tree-sitter"
-version = "0.26.0"
+version = "0.25.2"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/f7/03/5600b84aff2e6c4fe80cfebb4063fe2f50299521befe5f6092ab8c082f4a/tree_sitter-0.26.0.tar.gz", hash = "sha256:b40c219edccc4564530c96f8f1556f6202b37cda964d1cbd7bd2b7e68b40a245", size = 191423, upload-time = "2026-06-30T12:14:27.933Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/66/7c/0350cfc47faadc0d3cf7d8237a4e34032b3014ddf4a12ded9933e1648b55/tree-sitter-0.25.2.tar.gz", hash = "sha256:fe43c158555da46723b28b52e058ad444195afd1db3ca7720c59a254544e9c20", size = 177961, upload-time = "2025-09-25T17:37:59.751Z" }
 
 [[package]]
 name = "tree-sitter-python"
@@ -8867,7 +8867,7 @@ requires-dist = [
     { name = "tifffile" },
     { name = "tomlkit" },
     { name = "topologicpy" },
-    { name = "tree-sitter" },
+    { name = "tree-sitter", specifier = "<0.26" },
     { name = "tree-sitter-python" },
     { name = "tree-sitter-typescript" },
     { name = "trimesh" },

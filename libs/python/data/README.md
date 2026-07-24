@@ -7,7 +7,7 @@ It consumes runtime `ContentIdentity`, `ReceiptContributor`, and `TransportResou
 ## [01]-[ROUTER]
 
 [TABULAR]:
-- [01]-[INTEROP](.planning/tabular/interop.md): Backend-agnostic frame translation over `narwhals` with a pyarrow-free Arrow C Data Interface carrier.
+- [01]-[INTEROP](.planning/tabular/interop.md): Backend-agnostic frame translation over `narwhals`; pyarrow-free Arrow C Data Interface carrier.
 - [02]-[COLUMNAR](.planning/tabular/columnar.md): Dataset-ref owner and the one request-scoped `DuckDbSession` scan rail behind columnar egress.
 - [03]-[LAKEHOUSE](.planning/tabular/lakehouse.md): Transactional lakehouse crossing one `LakeOp` axis over the Delta/Iceberg/Lance/DuckLake formats.
 - [04]-[QUERY](.planning/tabular/query.md): Relational engine folding every `QuerySpec` frontend to uniform Arrow with column-provenance lineage.
@@ -15,7 +15,7 @@ It consumes runtime `ContentIdentity`, `ReceiptContributor`, and `TransportResou
 - [06]-[CONTRACT](.planning/tabular/contract.md): Data-contract gate folding dataframely covenants and pandera rules onto one `ContractClaim`.
 - [07]-[PROFILE](.planning/tabular/profile.md): Graded data-quality plane over `pointblank` thresholds emitting the `QualityProfile` frame.
 - [08]-[EGRESS](.planning/tabular/egress.md): Native object-store egress façade over `obstore` keyed by content identity.
-- [09]-[COST](.planning/tabular/cost.md): Receipt-derived cost ledger folding the receipt families into one content-keyed, tenant-attributed priced frame.
+- [09]-[COST](.planning/tabular/cost.md): Cost ledger folding the receipt families into one content-keyed, tenant-attributed priced frame.
 
 [SPATIAL]:
 - [10]-[GEOSPATIAL](.planning/spatial/geospatial.md): Vector and raster geo claims over the `VectorOp`/`RasterOp` axes with native-GeoArrow egress.
@@ -46,7 +46,7 @@ Data-domain libraries admitted by this folder; versions centralize in the one br
 - `narwhals`
 - `pyarrow`
 - `arro3-core`
-- `arro3-compute` — Arrow compute over the `arro3.core` memory model.
+- `arro3-compute`
 - `arro3-io` — pyarrow-free Arrow codec and object-store transport.
 - `nanoarrow`
 - `fastexcel`
@@ -68,9 +68,9 @@ Data-domain libraries admitted by this folder; versions centralize in the one br
 - `connectorx`
 - `adbc-driver-manager`
 - `adbc-driver-flightsql`
-- `adbc-driver-postgresql` — native ADBC PostgreSQL transport.
-- `adbc-driver-snowflake` — native ADBC Snowflake transport.
-- `adbc-driver-sqlite` — native ADBC SQLite transport.
+- `adbc-driver-postgresql`
+- `adbc-driver-snowflake`
+- `adbc-driver-sqlite`
 - `obspec-utils` — multi-store object-store routing.
 
 DuckDB loadable extensions back the plan and table-format rows without a pip dependency, all riding the one `DuckDbSession` rail: `substrait`, `ducklake`, `iceberg`, `httpfs`, and `spatial`/`h3`, provisioned through the Forge DuckDB-extensions catalog.
@@ -97,7 +97,7 @@ DuckDB loadable extensions back the plan and table-format rows without a pip dep
 
 [GRIDDED]:
 - `zarr`
-- `numcodecs` — zarr v3 chunk filter/compressor codec registry; `Blosc`/`Zstd` own archival numeric chunk compression.
+- `numcodecs` — zarr v3 chunk filter/compressor codec registry.
 - `cubed`
 - `tensorstore`
 - `awkward`
@@ -106,14 +106,14 @@ DuckDB loadable extensions back the plan and table-format rows without a pip dep
 - `virtualizarr`
 - `h5py`
 - `netcdf4`
-- `h5netcdf` — pure-h5py netCDF-4 engine backing `FieldEngine.H5NETCDF`; rejects the netCDF-C lossy-quantization keys.
+- `h5netcdf` — pure-h5py netCDF-4 engine backing `FieldEngine.H5NETCDF`.
 
 [GRAPH_MESH]:
 - `rustworkx`
 - `igraph`
 - `trimesh`
 - `rhino3dm`
-- `laspy` — LAS/LAZ/COPC point-cloud interchange owner; `laspy.copc` carries the octree byte-range subset.
+- `laspy` — LAS/LAZ/COPC point-cloud interchange owner.
 - `lazrs`
 - `laszip`
 
@@ -153,9 +153,7 @@ Shared substrate consumed from the Py registry; the registry and its charters ow
 
 [OBSERVABILITY]:
 - `opentelemetry-api` — one module tracer per measured leg across every plane; the SDK, exporters, and instrumentor train stay runtime-owned.
-- A failed rail marks the active span inside the runtime `boundary` fence; outbound network legs open `SpanKind.CLIENT`.
-- `rasm.tenant` folds onto measurements inside `Metrics.record`; span-level tenant promotion is the telemetry install's concern, never a page fold.
 
 [TRANSPORT]:
 - `fsspec` — Filesystem-resolution substrate beneath `universal-pathlib`; the `UPath.fs` handle threads into the DuckDB scan session.
-- `obstore` — Object-store substrate for content-keyed egress, conditional mutation, Arrow listing, credentials, retry, and fsspec adaptation.
+- `obstore` — Object-store substrate beneath the content-keyed egress owner.

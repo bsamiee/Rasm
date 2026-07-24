@@ -7,7 +7,7 @@ include:
 
 # [TYPESCRIPT_DOCTRINE]
 
-`docs/stacks/typescript/` is the floor for every TypeScript surface — fence code judged as production on the dual TS7/TS6 compiler floor with Effect as the substrate. Absolutes: zero `any`, zero `throw`, zero `enum`; absence is `Option`; files end at one terminal `// --- [EXPORTS]` block.
+`docs/stacks/typescript/` is the floor for every TypeScript surface — fence code judged as production under the one native `tsc` gate with Effect as the substrate. Absolutes: zero `any`, zero `throw`, zero `enum`; absence is `Option`; files end at one terminal `// --- [EXPORTS]` block.
 
 ## [01]-[SCHEMA_AND_RAILS]
 
@@ -34,4 +34,4 @@ include:
 
 ## [03]-[MODULE_SHAPE]
 
-Declarations author unexported with interiors `_`-prefixed; `export default`, re-export barrels (`export ... from`, `export *`), an `export` keyword on a body declaration, `enum`, runtime `namespace`, and constructor parameter properties are findings. `@ts-nocheck`/`@ts-ignore` anywhere, a `@ts-expect-error` spanning a live finding, and a construct only one compiler of the dual floor accepts are findings.
+Declarations author unexported with interiors `_`-prefixed; `export default`, re-export barrels (`export ... from`, `export *`), an `export` keyword on a body declaration, `enum`, runtime `namespace`, and constructor parameter properties are findings. `@ts-nocheck`/`@ts-ignore` anywhere, and a `@ts-expect-error` spanning a live finding, are findings.

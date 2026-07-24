@@ -1,6 +1,6 @@
 # [RASM_ANALYSIS_RELATIONS]
 
-`Relations` owns pairwise geometric relation across the RhinoCommon-native intersection surface — intersection, classification, deviation, self-intersection, and ray casting. One data-driven lattice binds each type-pair to an admission predicate, a result shape, and a host-`Intersection` compute delegate, so a new geometry pair is one row, never an `IntersectXxYy` method family. It is the host-parametric altitude, capturing the host's tolerance-banded machinery rather than re-deriving crossings from exact predicates.
+`Relations` owns pairwise geometric relation across the RhinoCommon-native intersection surface — intersection, classification, deviation, self-intersection, and ray casting. One data-driven lattice binds each type-pair to an admission predicate, a result shape, and a host-`Intersection` compute delegate, so a new geometry pair is one row, never an `IntersectXxYy` method family. It is the host-parametric altitude, capturing the host's tolerance-banded machinery.
 
 Every relation answer is oracle-admitted evidence: the hit `[Union]`, the `RayQuery` request, and the `CurveDeviation` receipt declare `IValidityEvidence` and register with the one `Domain/validation` oracle. Curve-like operands recover through the `Domain/normalization` `CurveForm` lease, tangency classification folds the `Processing/intent` `VectorIntent.Relation` rail onto the intersection answer, and every pair builder shares the one `PairOp` admission spine — with `IntersectionHit` and `RayQuery` the frozen boundary spellings the Grasshopper surface re-enters by name.
 
@@ -557,6 +557,13 @@ public static partial class Analyze {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     Query[Analysis/query relation band] -->|Pair / Single dispatch| Builders[RelationIntersection · Classification · Deviation · SelfIntersection · Ray]
     Builders -->|PairOp: kind-resolve × Requirement × ray asymmetry| Table[25-row IntersectionCases]

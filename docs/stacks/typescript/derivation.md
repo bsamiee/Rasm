@@ -1,6 +1,8 @@
 # [TYPESCRIPT_DERIVATION]
 
-This page is the derivation law: every type, vocabulary, and secondary surface computes from one anchor, and a hand-written parallel is a second, unverified source of truth. The type plane is the value plane's derived shadow — one declaration anchors each correspondence; `typeof`, `keyof typeof`, indexed access, mapped generation, template literals, and conditional decomposition compute everything downstream; inference is solved once at the owner — `const` type parameters, `NoInfer`, instantiation expressions, reverse-mapped parameters — so no consumer restates what the anchor carries; and the plane's own machinery — the registry merge seam, the `unique symbol` nominal regime, `HKT.TypeLambda`, typestate — exists only where a witness proves it. Everything around the algebra is shed by kind: the stated-annotation export gate and emit seam are `language.md`'s, collection and scalar selection is `values.md`'s, Schema owners and their derived surfaces are `shapes.md`'s, and overload sets, `Match` terminals, and `Function.dual` operators are `surfaces-and-dispatch.md`'s.
+This page is the derivation law: every type, vocabulary, and secondary surface computes from one anchor, and a hand-written parallel is a second, unverified source of truth. One declaration anchors each correspondence, inference solves once at the owner so no consumer restates what the anchor carries, and the plane's own machinery — the registry merge seam, the `unique symbol` nominal regime, `HKT.TypeLambda`, typestate — exists only where a witness proves it.
+
+Everything around the algebra is shed by kind: the stated-annotation export gate and emit seam are `language.md`'s, collection and scalar selection is `values.md`'s, Schema owners and their derived surfaces are `shapes.md`'s, and overload sets, `Match` terminals, and `Function.dual` operators are `surfaces-and-dispatch.md`'s.
 
 ## [01]-[ANCHOR_ALGEBRA]
 
@@ -142,7 +144,7 @@ export { Tier };
 
 ```typescript conceptual
 interface Registry {
-    // the one sanctioned open interface: the row set is open, the row shape is not
+    // Registry is the corpus's one sanctioned open interface: row set open, row shape closed
     readonly narrow: { readonly weight: 5; readonly admit: (raw: string) => boolean };
 }
 
@@ -152,7 +154,7 @@ interface Registry {
 }
 
 declare namespace Registry {
-    // the hub merges onto the interface: one exported name carries rows, contract, and derived types
+    // one exported name carries rows, contract, and derived types: the hub merges onto the interface
     type Kind = keyof Registry; // derives across every contribution; no central list to edit
     type Row = { readonly weight: number; readonly admit: (raw: string) => boolean };
     type Weight<K extends Kind = Kind> = Registry[K]["weight"];
@@ -276,7 +278,7 @@ export type { Step };
 
 ```typescript conceptual
 declare namespace lattice {
-    // the row contract rides the operation's own merged hub: one export serves both planes
+    // lattice's merged hub carries the row contract: one export serves both planes
     type Cell<A> = { readonly seed: A; readonly step: (state: A, tick: number) => A };
 }
 
@@ -308,7 +310,7 @@ export { lattice };
 - Reject: chained single-`infer` conditionals where one clause extracts every channel; a naked conditional that must answer once for the whole — `boolean` splits to `true | false` and `never` distributes to nothing, so an undeclared posture is a latent bug, not a style choice; recursion that wraps its own result — pending work stacks toward the depth gate that the tail form elides; a directive over `TS2589` or `TS2590` — the overrun is the architecture finding, not the noise.
 - Law: `infer M extends Realm` narrows inside the clause — the constraint participates in the match itself, and a failed constraint selects the false branch; a post-filter conditional after an unconstrained `infer` is the rejected two-step spelling.
 - Law: budgets are form-selected — the tail-position accumulator evaluates to roughly 800 iterations before the depth gate where the self-wrapping form holds roughly 40, so the accumulator buys a 20x budget; a template cross product carries to roughly 10^4 members before the union gate; type-level parsing or arithmetic over domain data re-derives what the value level owns, and the repair is one value computation whose result the type level derives from the anchor.
-- Law: decomposition is ASCII-bounded — a single-step `infer` split advances by UTF-16 code unit under TS6 `tsc6` and by code point under TS7 `tsc`, so a literal beyond ASCII has no parity-stable decomposition; alphabets past ASCII split at the value level, and the type derives from that computation's anchor.
+- Law: a single-step `infer` split advances by code point under `tsc`, so grapheme clusters spanning multiple code points have no type-level decomposition; alphabets past code-point-simple segmentation split at the value level, and the type derives from that computation's anchor.
 - Boundary: exhaustive dispatch over an extracted union is `surfaces-and-dispatch.md`'s; variance declaration and witness on public carriers is the nominal-carrier contract's.
 
 ```typescript conceptual

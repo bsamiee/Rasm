@@ -23,11 +23,17 @@ Planning-scoped packages carry a `.planning/` scaffold of index docs and design 
 
 ## [02]-[STRATA]
 
-- L1 `Rasm` — references no sibling and carries every stratum above it.
-- Shared-machinery homing: a mechanism serving multiple packages homes at the LOWEST stratum every consumer references; a shared owner homed above a consumer's reach manufactures per-folder twins and is the named strata defect.
-- L2 AEC domain — `Rasm.Element` references only `Rasm` and mints the one `ElementGraph` seam; the peers (`Rasm.Materials`, `Rasm.Bim`, `Rasm.Fabrication`) reference `{Rasm, Rasm.Element}`, never a peer — alignment travels seam contracts and the content-keyed wire.
-- L3 app platform — `Rasm.AppHost` references only `Rasm`, a PORT peer decoding Persistence shapes without a downward reference; `Rasm.Persistence` references `{Rasm, Rasm.Element}` and persists the `ElementGraph` as system of record; `Rasm.Compute` reads it one-way; `Rasm.AppUi` references downward only and aligns with peers by contract, never by reference.
-- L4 host boundary — `Rasm.Rhino` and `Rasm.Grasshopper` reference only `Rasm` and enter at the host app root; no host-neutral package references them.
+Shared machinery homes at the LOWEST stratum every consumer references; homing above a consumer's reach manufactures per-folder twins.
+
+- S0 `Rasm` — references no sibling and carries every stratum above it.
+- S1 AEC domain — `Rasm.Element` references only `Rasm` and mints the one `ElementGraph` seam.
+- S1 peers — `Rasm.Materials`, `Rasm.Bim`, and `Rasm.Fabrication` reference `{Rasm, Rasm.Element}`, never a peer.
+- S1 alignment — peers align through seam contracts and the content-keyed wire.
+- S2 app platform — `Rasm.AppHost` references only `Rasm` and PORT-decodes Persistence shapes without a downward reference.
+- S2 stores — `Rasm.Persistence` references `{Rasm, Rasm.Element}` and persists the `ElementGraph` as system of record.
+- S2 reads — `Rasm.Compute` reads the system of record one-way; `Rasm.AppUi` references downward only, aligning with peers by contract.
+- S3 host boundary — `Rasm.Rhino` and `Rasm.Grasshopper` reference only `Rasm` and enter at the host app root.
+- S3 law — no host-neutral package references the host boundary.
 
 ```mermaid
 ---
@@ -40,23 +46,23 @@ config:
 flowchart TB
     accTitle: C# branch package import strata
     accDescr: Four stacked strata from the host boundary through the app platform and the AEC domain onto the kernel — every reference edge downward and solid, labeled edges naming one sourced type, the host boundary skipping straight to the kernel, and one forbidden host-neutral upward edge.
-    subgraph L4["L4 HOST BOUNDARY"]
+    subgraph S3["S3 HOST BOUNDARY"]
         Rhino[Rasm.Rhino]
         Grasshopper[Rasm.Grasshopper]
     end
-    subgraph L3["L3 APP PLATFORM"]
+    subgraph S2["S2 APP PLATFORM"]
         Persistence[Rasm.Persistence]
         Compute[Rasm.Compute]
         AppHost[Rasm.AppHost]
         AppUi[Rasm.AppUi]
     end
-    subgraph L2["L2 AEC DOMAIN"]
+    subgraph S1["S1 AEC DOMAIN"]
         Bim[Rasm.Bim]
         Element[Rasm.Element]
         Materials[Rasm.Materials]
         Fabrication[Rasm.Fabrication]
     end
-    subgraph L1["L1 KERNEL"]
+    subgraph S0["S0 KERNEL"]
         Rasm[Rasm]
     end
     Rhino ~~~ AppHost
@@ -78,7 +84,7 @@ flowchart TB
     Fabrication -->|"[IMPORT]: IElementProjection"| Element
     Fabrication -->|"[IMPORT]: MeshSpace"| Rasm
     Element -->|"[IMPORT]: ContentHash"| Rasm
-    Rasm -->|"forbidden: host-neutral upward"| L4
+    Rasm -->|"forbidden: host-neutral upward"| S3
 ```
 
 ## [03]-[SEAMS]
@@ -200,7 +206,7 @@ Two projection surfaces, both declared in `Rasm.Element`, are the only cross-pac
 
 Materials carries IFC names only as neutral `IfcBinding` row data; Bim never re-derives section geometry or material data; Element never carries a fact only one projector understands. A consumer that needs the thing reads the graph; a consumer that needs the IFC meaning reads Bim's projection; nothing reads across. A canonical seam surface changes only through an explicit brief entry naming the owner and the migration.
 
-Signal crosses the strata on one fabric: the OTel-free signal capsule is kernel L1 vocabulary every stratum composes as instances, per-folder fact unions are the only legitimate per-folder signal types, and the app platform alone laces OTel, correlation, tenancy, and host evidence over the composed surface — telemetry leaves the branch opaque on the `[TRANSPORT]` seam.
+Signal crosses the strata on one fabric: the OTel-free signal capsule is kernel S0 vocabulary every stratum composes as instances, per-folder fact unions are the only legitimate per-folder signal types, and the app platform alone laces OTel, correlation, tenancy, and host evidence over the composed surface — telemetry leaves the branch opaque on the `[TRANSPORT]` seam.
 
 ```mermaid
 ---
@@ -243,7 +249,7 @@ Every extension lands on a canonical owner — a row where possible, a compiler-
 |  [08]   | new seam participant        | `IElementProjection` + `FaultBand`       | one projector + one band row                |
 |  [09]   | new folder signal surface   | the folder's composed capsule instance   | one fact case, point row, or instrument row |
 |  [10]   | new capsule mechanism       | kernel signal capsule (`Rasm`)           | one member on the one mechanism             |
-|  [11]   | new OTel wiring or exporter | `Rasm.AppHost` `SignalGovernance`        | one governance row; lacing stays L3         |
+|  [11]   | new OTel wiring or exporter | `Rasm.AppHost` `SignalGovernance`        | one governance row; lacing stays S2         |
 
 ## [06]-[ADMISSION_POLICY]
 

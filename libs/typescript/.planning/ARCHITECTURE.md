@@ -1,6 +1,6 @@
 # [TYPESCRIPT_BRANCH_ARCHITECTURE]
 
-`libs/typescript` in dependency waves — capability domains, acyclic with `core` at the base. Wire decode is the core interchange plane's boundary concern, never the branch center; deployment (`iac`) is the plane-distinct citizen outside the runtime graph; dev infrastructure lives under `tests/` (`tests/contracts/`, `tests/typescript/`), never the branch.
+`libs/typescript` in dependency strata — capability domains, acyclic with `core` at the base. Wire decode is the core interchange plane's boundary concern, never the branch center; deployment (`iac`) is the plane-distinct citizen outside the runtime graph.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -16,11 +16,12 @@ libs/typescript/
 
 ## [02]-[STRATA]
 
-- W0 `core` — imports nothing and runs identically under node, bun, and the browser; `value` roots the interior — `state` is pure algebra over it, `interchange` the one keyed-decode registry every C#-minted wire family lands on, `observe` composing the same floor — and every runtime folder composes it.
-- W1 `security` — composes core alone (`TenantContext`); every stateful obligation is a port Tag a downstream folder satisfies, and the folder never imports `data`.
-- W2 `data` — composes core (`ContentKey`) and security's one edge (`journal/retain` Shredder, `lane/tenant` TenantScope); a backend is a semantic-guarantee row.
-- W3 `runtime` — composes core, security, and data (`Budget`, `CookieSpec`, `Embedder`) across both process planes; the browser condition is the same package, never a sibling.
-- W4 `ui` + `iac` — `ui` imports core alone (`Feed.Document`) and reaches runtime only through its declared `GlbViewport` port and atom-bridge bindings the app root satisfies, `viewer` a second Nx project under the same law; `iac` composes core and data as type/value reads (`DashboardModel`, `Pg`), plane-distinct outside the runtime graph.
+- S0 `core` — imports nothing and runs identically under node, bun, and the browser; every runtime folder composes it.
+- S1 `security` — composes core alone (`TenantContext`); every stateful obligation is a port Tag a downstream folder satisfies; never imports `data`.
+- S2 `data` — composes core (`ContentKey`) and security (`Shredder`, `TenantScope`); a backend is a semantic-guarantee row.
+- S3 `runtime` — composes core (`Budget`), security (`CookieSpec`), and data (`Embedder`); the browser condition rides the same package.
+- S4 `ui` — imports core alone (`Feed.Document`); reaches runtime only through the `GlbViewport` port and the atom-bridge bindings.
+- S4 `iac` — composes core and data as type/value reads (`DashboardModel`, `Pg`), plane-distinct outside the runtime graph.
 
 Port satisfaction happens at app composition, never as an import: every port Tag a folder declares binds to another folder's Layer at the composition root — `security` ports fill from `data`, `ui`'s `GlbViewport` fills from runtime `Depot` arrivals — so no folder reaches across for its dependency. One value crosses back: typed `StackOutputs.sharding` read by `runtime` `ShardingConfig.layerFromEnv` — an env fact, never an import.
 
@@ -34,21 +35,21 @@ config:
 ---
 flowchart TB
     accTitle: TypeScript branch import strata
-    accDescr: Five import waves — ui and iac over runtime over data over security onto the core foundation — every wave importing downward only, each labeled import naming one sourced surface, iac composing data and core directly, ui reaching runtime through its dashed GlbViewport port binding rather than an import, and one forbidden upward edge naming the rejected direction.
-    subgraph W4["W4 APP + DEPLOY"]
+    accDescr: Five import strata onto the core foundation; imports point downward, and ui reaches runtime only through its GlbViewport port binding.
+    subgraph S4["S4 APP + DEPLOY"]
         Ui[ui]
         Iac[iac]
     end
-    subgraph W3["W3 RUNTIME"]
+    subgraph S3["S3 RUNTIME"]
         Runtime[runtime]
     end
-    subgraph W2["W2 DATA"]
+    subgraph S2["S2 DATA"]
         Data[data]
     end
-    subgraph W1["W1 SECURITY"]
+    subgraph S1["S1 SECURITY"]
         Security[security]
     end
-    subgraph W0["W0 CORE"]
+    subgraph S0["S0 CORE"]
         Core[core]
     end
     Ui e1@-.->|"[PORT]: GlbViewport"| Runtime
@@ -61,7 +62,7 @@ flowchart TB
     Runtime e8@-->|"[IMPORT]: Budget"| Core
     Data e9@-->|"[IMPORT]: ContentKey"| Core
     Security e10@-->|"[IMPORT]: TenantContext"| Core
-    W0 f1@-->|"forbidden: upward import"| W3
+    S0 f1@-->|"forbidden: upward import"| S3
 ```
 
 ## [03]-[SEAMS]
@@ -76,7 +77,7 @@ config:
 ---
 flowchart LR
     accTitle: TypeScript branch C# seam registry
-    accDescr: TypeScript owners core, runtime, and ui exchanging kinded wires with the C# packages — persistence as the one data store, bidirectional peers as hexagons, one-way sources as stadiums.
+    accDescr: Core, runtime, and ui exchanging kinded wires with the C# packages; node shapes carry seam direction.
     subgraph ts[LIBS/TYPESCRIPT]
         Core[core]
         Runtime[runtime]
@@ -107,7 +108,7 @@ flowchart LR
 
 Every C#-minted family decodes once through the core interchange codec registry: `Core` edges freeze the wire spelling verbatim from the owning C# endpoint file, and `ui` edges name the decoded landing materializing there. Schema drift across these endpoints is a graded boot verdict at the core interchange contract gate — an additive change admits decode, a breaking change refuses as typed evidence — never a runtime decode failure. TS consumes the GLB tessellation rail through the C#-owned wire; no TS↔Python seam exists — both peers couple only to the C# wire.
 
-Companion contracts (`CapabilityDescriptor`, `DegradationLevel`, `SnapshotHeader`, `GeometryResidencyWire`, `EvidenceTimelineWire`, `RenderReceipt`, `BcfViewpointWire`, `DiffWire`, `GeoFeatureWire`, `CoercedValueWire`, `WriteReceiptWire`, `LayoutConstraintWire`, `CommandGateWire`, `BenchmarkClaimWire`, `HostFingerprintWire`) fold to the folder `[03]-[SEAMS]` rows, mirrored verbatim under their folder-registered kinds.
+Companion contract families beyond the diagrammed set fold to the folder `[03]-[SEAMS]` registries, mirrored verbatim under their folder-registered kinds; a new family lands as one folder seam row, never a branch edge.
 
 ## [04]-[INTERNAL]
 
@@ -121,7 +122,7 @@ config:
 ---
 flowchart LR
     accTitle: TypeScript branch data spine
-    accDescr: C#-minted wire octets decode once at the core interchange plane, land in owned vocabulary, fold through the core state algebra, persist through the data journal, project through the read lanes, and serve outward through the runtime front door to the ui surfaces.
+    accDescr: Wire octets decode once at core interchange, fold through the state algebra, persist in the data journal, and serve to the ui surfaces.
     Octets([C#-minted wire octets])
     Decode[core interchange · decode once]
     Vocab[core value + state · owned vocabulary]
@@ -151,7 +152,7 @@ config:
 ---
 flowchart LR
     accTitle: TypeScript branch observability spine
-    accDescr: Branch folders mint instruments under the core convention names, the runtime otel plane laces them into one OTLP egress toward the deploy plane's collector, store, and boards, and the data journal fact stream settles spend and usage beside the series.
+    accDescr: Folders mint instruments under core convention names; runtime otel laces the OTLP egress toward the deploy collector and boards.
     Names[core observe · convention names]
     Mint[branch folders · mint instruments]
     Egress[runtime otel · OTLP egress]
@@ -187,7 +188,7 @@ Each folder mints its own instruments against the core observe convention — th
 ## [06]-[BOUNDARIES]
 
 - Folders are capability domains named for their own concern; no folder name mirrors a sibling C# or Python package.
-- Each C#-minted receipt family lands as its own typed decode — the gateway's per-verb receipt schemas keep the family typed end to end, so no erased union receipt exists.
+- Each C#-minted receipt family lands as its own typed decode; per-verb receipt schemas keep the family typed end to end.
 - IFC and BCF vocabulary lives only at the codec registry landings and the viewer marks; every consumer reads the decoded landing.
 
 ## [07]-[ADMISSION_POLICY]

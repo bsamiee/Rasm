@@ -1,82 +1,54 @@
 # [TS_SECURITY_API_OSLOJS_ENCODING]
 
-`@oslojs/encoding` is the pure-TypeScript, dependency-free byte↔string codec `sign` pairs with `@oslojs/crypto`: the digest/MAC bytes one produces, this renders to a wire string and parses back. It is one parameterized matrix — alphabet (`hex` · `base32` · `base64` · `base64url`) × case (`lower` · `upper`) × padding (`padded` · `noPadding`) × direction (`encode` · `decode` · `decodeIgnorePadding`) — not a bag of unrelated functions. Every `decode*` is *total*: it throws on malformed input rather than returning a partial value, so a boundary lift is one `Effect.try` with a typed fault. It is admitted over `effect`'s built-in `Encoding` module precisely because it owns base32 (the TOTP/authenticator + Crockford-family alphabet `Encoding` lacks) and the full padding/case/url variant grid with a uniform throwing contract — not because it re-implements base64.
+`@oslojs/encoding` renders the bytes `@oslojs/crypto` mints into wire strings and parses them back. One axis product — alphabet × case × padding × direction — spans the surface, so a caller selects axis values off the domain need rather than a bespoke name; every `decode*` throws on malformed input, making the parse boundary one `Effect.try`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@oslojs/encoding`
 - package: `@oslojs/encoding` (MIT)
-- module: ESM-only (`"type": "module"`); single root export (`dist/index.d.ts`) — every codec is a named import from `@oslojs/encoding`
-- effect-boundary: pure synchronous functions — `encode*` is total (`Effect.sync`/inline), `decode*` throws on malformed input (`Effect.try`). `.api/effect.md`
-- catalog-verdict: KEEP — owns base32 (absent from `effect` `Encoding`) plus the case/padding/url variant grid with a uniform total-decode contract; pairs 1:1 with `@oslojs/crypto` digest bytes
-- runtime: `runtime:neutral` — pure JS, no `node:*`; safe in a `runtime:browser` composition
-- exports: `hex` · `base32` · `base64` · `base64url` codecs (single entry surface, no subpaths)
+- module: ESM-only, one root export; every codec is a named import from the package root, no subpaths
+- runtime: `runtime:neutral` — pure JS, zero `node:*`, composes inside a `runtime:browser` build
+- rail: sign — the byte↔string half of every digest, MAC, and secret the folder mints
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the codec matrix — one axis set, not a function bag
-- rail: sign
-- Every member is `(bytes: Uint8Array) => string` (encode) or `(encoded: string) => Uint8Array` (decode). The variation is axis *values*, so a call is chosen by (alphabet, case, padding, direction), never by a bespoke name. The `decodeIgnorePadding`/`…urlIgnorePadding` arm is the lenient parse for inputs whose padding was stripped in transit.
+[PUBLIC_TYPE_SCOPE]: the two call shapes every export inhabits; the package exports functions alone and names no type.
 
-| [INDEX] | [ALPHABET]  | [ENCODE_ROWS]                                   | [DECODE_ROWS]                                      |
-| :-----: | :---------- | :---------------------------------------------- | :------------------------------------------------- |
-|  [01]   | `hex`       | `encodeHexLowerCase` · `encodeHexUpperCase`     | `decodeHex`                                        |
-|  [02]   | `base32`    | `encodeBase32UpperCase` · `…UpperCaseNoPadding` | `decodeBase32` · `decodeBase32IgnorePadding`       |
-|  [03]   | `base32`    | `encodeBase32LowerCase` · `…LowerCaseNoPadding` | `decodeBase32` · `decodeBase32IgnorePadding`       |
-|  [04]   | `base64`    | `encodeBase64` · `encodeBase64NoPadding`        | `decodeBase64` · `decodeBase64IgnorePadding`       |
-|  [05]   | `base64url` | `encodeBase64url` · `encodeBase64urlNoPadding`  | `decodeBase64url` · `decodeBase64urlIgnorePadding` |
-
-[CONSUMER_BOUNDARY] per alphabet:
-- [01]-[HEX]: digest/MAC at-rest string; `@node-rs/argon2` peppers, fingerprints.
-- [02]-[BASE32]: the RFC-4648/authenticator alphabet class `effect` cannot serve; backs the optional otplib `Base32Plugin` swap.
-- [03]-[BASE64]: binary blob at-rest (PEM DER, attestation objects).
-- [04]-[BASE64URL]: WebAuthn `Base64URLString`, apikey prefix, session/recovery material; JOSE/JWS segment stays in `jose`.
-
-[PUBLIC_TYPE_SCOPE]: deprecated aliases — never author against these
-- rail: sign
-- `encodeBase32`/`encodeBase32NoPadding` are `@deprecated` re-spellings of the `UpperCase` rows, kept for source compatibility. Author against the explicit case-named rows so the produced alphabet is unambiguous at the call site.
-
-| [INDEX] | [SYMBOL]                                 | [REPLACED_BY]                          | [CONSUMER_BOUNDARY]                  |
-| :-----: | :--------------------------------------- | :------------------------------------- | :----------------------------------- |
-|  [01]   | `encodeBase32` / `encodeBase32NoPadding` | `encodeBase32UpperCase` / `…NoPadding` | avoid — case-ambiguous retired alias |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]                                              |
+| :-----: | :----------------------- | :------------ | :-------------------------------------------------------- |
+|  [01]   | `(Uint8Array) -> string` | delegate      | render bytes to the alphabet's wire string, total         |
+|  [02]   | `(string) -> Uint8Array` | delegate      | parse a wire string to bytes, throwing on malformed input |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: the two directions `sign` composes
-- rail: sign
-- Encode is total; decode throws. The digest→string→digest round-trip that stores and re-compares a MAC/API-key hash is the canonical pairing with `@oslojs/crypto`.
+[ENTRYPOINT_SCOPE]: every export grouped by alphabet; a name spells its own axis values and the two shapes above fix its signature.
 
-| [INDEX] | [SURFACE]                                                                                        | [ENTRY_FAMILY] |
-| :-----: | :----------------------------------------------------------------------------------------------- | :------------- |
-|  [01]   | `encodeHexLowerCase(bytes)` / `encodeBase64url(bytes)` / `encodeBase32UpperCaseNoPadding(bytes)` | render (total) |
-|  [02]   | `decodeHex(s)` / `decodeBase64url(s)` / `decodeBase32(s)`                                        | parse (throws) |
-|  [03]   | `decodeBase64urlIgnorePadding(s)` / `decodeBase32IgnorePadding(s)`                               | lenient parse  |
-
-[CONSUMER_BOUNDARY] per direction:
-- [01]-[RENDER]: digest/MAC/secret → at-rest or wire string.
-- [02]-[PARSE]: stored string → bytes before `constantTimeEqual`; lift in `Effect.try`.
-- [03]-[LENIENT]: wire input whose padding was stripped in transit.
+[HEX]: `encodeHexLowerCase` `encodeHexUpperCase` `decodeHex`
+[BASE32]: `encodeBase32UpperCase` `encodeBase32UpperCaseNoPadding` `encodeBase32LowerCase` `encodeBase32LowerCaseNoPadding` `decodeBase32` `decodeBase32IgnorePadding`
+[BASE64]: `encodeBase64` `encodeBase64NoPadding` `decodeBase64` `decodeBase64IgnorePadding`
+[BASE64URL]: `encodeBase64url` `encodeBase64urlNoPadding` `decodeBase64url` `decodeBase64urlIgnorePadding`
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[CODEC_TOPOLOGY]:
-- one matrix, not a function bag: choose a codec by (alphabet, case, padding, direction). The 24-odd exported names are the enumeration of that axis product; author code reads the axis values off the domain need (WebAuthn/apikey ⇒ base64url-noPadding, TOTP ⇒ base32, digest-at-rest ⇒ hex-lower), never invents a wrapper.
-- total decode: `decode*` throws on any invalid character or length. That throw is the boundary — one `Effect.try` converts it to a typed fault; there is no partial/`Option` decode to branch on.
-- padding discipline: the `NoPadding` encode + `IgnorePadding` decode pair is the wire-safe combination (WebAuthn/JWS wire strips `=`); the padded pair is the at-rest/PEM combination. Never mix a padded encode with a strict decode across a transport that rewrites padding.
+[TOPOLOGY]:
+- Domain need selects the axis values — WebAuthn and apikey wire take base64url-noPadding, TOTP provisioning takes base32, digest-at-rest takes hex-lower — and the selected export is the call.
+- `decode*` throws on any invalid character or length, so one `Effect.try` at that call converts the throw to a typed fault; the surface carries no partial or `Option` arm to branch on.
+- `NoPadding` encode pairs with `IgnorePadding` decode across a transport that rewrites padding, and the padded pair holds at rest.
 
-[INTEGRATION_LAW]:
-- Stack with `@oslojs/crypto` (`.api/oslojs-crypto.md`): the crypto sibling emits `Uint8Array` digests/MACs/random bytes; this package is their string rendering. A stored API-key hash is `encodeHexLowerCase(hmac(SHA256, pepper, key))`; verification is `decodeHex(stored)` → `constantTimeEqual`. The two form the single byte↔string seam `sign` exposes.
-- Stack with `.api/effect.md` — chosen over `Encoding` and behind `Schema`: `effect`'s `Encoding.encodeBase64`/`decodeHex` return `Either` and own no base32; this package owns base32 and the case/url/padding grid with a throwing contract. When the crossing lives inside a boundary `Schema`, prefer the `Schema.Uint8ArrayFromBase64`/`Schema.StringFromHex` codecs so the transform is declarative and derivation-visible; drop to these imperative functions for the base32 rows and for MAC material that never enters a `Schema`.
-- Stack with `authn/apikey` + `session/token` across the `sign/` seam, bounded against `sign/jwt` (`.api/jose.md`): base64url-noPadding is the non-JOSE wire alphabet — the `authn/apikey` prefix index, opaque `session/token`/recovery material, and WebAuthn `Base64URLString` attestation/credential bytes rendered in `sign/` and consumed across the seam; the JOSE/JWS compact segment is NOT oslo's — `jose` owns that base64url internally (`jose/base64url` `encode`/`decode` under `CompactSign`/`SignJWT`), so oslo never encodes a JWS segment and never receives one to decode. base32 is the provisioning-secret alphabet of the otpauth:// URI, reached by `authn/otp` only through the optional `Base32Plugin` swap (otplib's bundled scure is the default, `.api/otplib.md`). All secret/digest strings stay inside a `Redacted` carrier once rendered.
-- Stack with `@simplewebauthn/browser` (`.api/simplewebauthn-browser.md`): the browser package ships its own `base6 catalogURLStringToBuffer`/`bufferToBase6 catalogURLString` for the `runtime:browser` half; this package is the `sign`-side base6 catalogurl for the server-verified attestation/credential bytes at rest — same alphabet, opposite runtime, no cross-import.
+[STACKING]:
+- `@oslojs/crypto`(`.api/oslojs-crypto.md`): its `Uint8Array` output renders here — a stored API-key hash is `encodeHexLowerCase(hmac(SHA256, pepper, key))`, and verification parses the stored string back through `decodeHex` into `constantTimeEqual`.
+- `effect`(`.api/effect.md`): a crossing inside a boundary `Schema` rides `Schema.Uint8ArrayFromBase64`, `Schema.Uint8ArrayFromBase64Url`, or `Schema.StringFromHex` so the transform stays declarative; these imperative codecs carry the base32 rows and the MAC material no `Schema` sees.
+- `jose`(`.api/jose.md`): `jose` renders every JWS compact segment through its own internal `base64url`, so this package never encodes or decodes a JOSE segment; base64url here serves the opaque non-JOSE wire alone.
+- `otplib`(`.api/otplib.md`): base32 renders the `otpauth://` provisioning secret only through the optional `Base32Plugin` swap, `ScureBase32Plugin` holding the default slot.
+- `@simplewebauthn/browser`(`.api/simplewebauthn-browser.md`): `bufferToBase64URLString`/`base64URLStringToBuffer` render credential fields inside the `runtime:browser` half; this package renders the server-verified bytes at rest — same alphabet, opposite runtime, no cross-import.
+- `@simplewebauthn/server`(`.api/simplewebauthn-server.md`): the verified `WebAuthnCredential.publicKey` bytes and the `./helpers` `iso.isoBase64URL` output render through `encodeBase64urlNoPadding` and parse back through `decodeBase64urlIgnorePadding` before the journalled credential re-enters `verifyAuthenticationResponse`.
+- `sign/`: every mint the folder exposes ends on one of these codecs — `authn/apikey` prefix index, opaque `session/token` and recovery material, WebAuthn credential bytes — and each rendered string stays inside a `Redacted` carrier.
 
 [LOCAL_ADMISSION]:
-- imported only inside `sign/` subpaths; a non-`sign` rail that needs a codec receives already-encoded material across the seam, never this import.
-- pure-JS and runtime-neutral: no `node:*`; safe in any composition. The `sign/` node caveat is `@node-rs/argon2`, not this package.
-- author the case-explicit rows: never the `@deprecated` `encodeBase32`/`encodeBase32NoPadding` aliases.
+- `sign/` subpaths hold the sole import; every other rail receives already-encoded material across the folder seam.
 
 [RAIL_LAW]:
 - Package: `@oslojs/encoding`
-- Owns: the hex/base32/base64/base64url codec matrix with case + padding + lenient-decode variants and a uniform total-decode contract
-- Accept: codec selection by (alphabet, case, padding, direction) axis values, base32 as the row `effect` cannot serve, `Effect.try` around `decode*`, `Schema.*FromBase64`/`FromHex` for in-`Schema` crossings, pairing 1:1 with `@oslojs/crypto` bytes, base64url-noPadding for the WebAuthn/apikey/session wire (JOSE/JWS segments stay in `jose`)
-- Reject: a bespoke per-format wrapper over the matrix, the `@deprecated` case-ambiguous base32 aliases, a padded-encode/strict-decode mismatch across a padding-rewriting transport, re-implementing base64 that `effect` `Encoding` already owns for non-base32 in-`Schema` cases, encoding a JOSE/JWS compact segment here (`jose` owns JOSE base64url internally), any import outside `sign/`
+- Owns: the hex, base32, base64, and base64url matrix with its case, padding, and lenient-decode axes under one throwing decode contract
+- Accept: codec selection by axis values, base32 as the row `effect` `Encoding` never carries, `Effect.try` around `decode*`, `Schema.*FromBase64`/`FromHex` for in-`Schema` crossings, `@oslojs/crypto` bytes as the 1:1 input, base64url-noPadding for the WebAuthn, apikey, and session wire
+- Reject: a bespoke per-format wrapper over the matrix, a padded-encode against a strict decode across a padding-rewriting transport, re-implementing the base64 rows `effect` `Encoding` already owns for in-`Schema` non-base32 crossings, rendering a JOSE compact segment, any import outside `sign/`

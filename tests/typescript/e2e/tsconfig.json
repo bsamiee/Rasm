@@ -1,9 +1,6 @@
 {
     "extends": "../../../tsconfig.base.json",
     "compilerOptions": {
-        // Spec-plane package: nothing emits declarations, so the stated-annotation gate does not bind.
-        "declaration": false,
-        "isolatedDeclarations": false,
         "rootDir": ".",
         "types": ["node"]
     },

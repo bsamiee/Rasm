@@ -1,22 +1,21 @@
 # [TS_IAC_API_PULUMI_PULUMI]
 
-`@pulumi/pulumi` is the deploy-plane engine: the `Output<T>`/`Input<T>` async-dependency algebra, the `Resource`/`ComponentResource` model the `stack` tiers extend, `Config`/`StackReference` state access, and the full Automation API (`LocalWorkspace` inline programs, `Stack` up|preview|refresh|destroy) whose `EngineEvent` stream and `OpType`/`OpMap` deltas feed the typed run-receipt ledger. `iac` composes it as ONE Effect rail — a mapped-record ledger dispatch over the `Stack` methods, the `onEvent` callback bridged through `Stream.asyncPush` whose acquire/release owns an `AbortController` so Effect interruption aborts the run, one `Stream.runFold` pass folding summary, steps, diagnostics, violations, stdout, and the timestamp band, and the `OutputMap` decoding through `Schema` into StackOutputs. No `Pulumi.yaml`, no CLI shell-out — the pulumi CLI-binary is one `PulumiCommand` deploy-host fact and the self-managed state backend is one `ProjectSettings.backend.url`.
+`@pulumi/pulumi` is the deploy-plane engine: the `Output<T>`/`Input<T>` async-dependency algebra, the `Resource`/`ComponentResource` model every `stack` tier extends, `Config`/`StackReference` state access, and the Automation API whose `EngineEvent` stream and `OpType`/`OpMap` deltas feed the run-receipt ledger. `iac` composes it as one Effect rail — inline `LocalWorkspace` programs against a self-managed backend, no `Pulumi.yaml` and no CLI shell-out.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pulumi/pulumi`
 - package: `@pulumi/pulumi` (Apache-2.0)
-- module: `@pulumi/pulumi` (core — including the `InvokeOptions`/`InvokeOutputOptions` data-source-invoke seam), `@pulumi/pulumi/automation` (programmatic lifecycle), `@pulumi/pulumi/{asset,log,dynamic,provider,runtime,iterable,queryable}` (submodules — `queryable.ResolvedResource<T>` backs `@pulumi/policy` stack narrowing)
-- asset: output algebra, resource model, config, stack references, error rails, Automation API, engine-event stream
-- runtime: `node` — the `pulumi` CLI binary is a deploy-host fact wrapped once via `PulumiCommand`/`LocalWorkspaceOptions.pulumiCommand`; provider plugins auto-download on first resource registration
+- module: `@pulumi/pulumi` core (the `InvokeOptions`/`InvokeOutputOptions` data-source-invoke seam) + `@pulumi/pulumi/automation` lifecycle + `@pulumi/pulumi/{asset,log,dynamic,provider,runtime,iterable,queryable}` submodules
+- asset: the resource-registration runtime and Automation-API surface every provider SDK and the engine bind against
+- runtime: `node` — the `pulumi` CLI binary is a deploy-host fact wrapped through `PulumiCommand`/`LocalWorkspaceOptions.pulumiCommand`, and provider plugins auto-download on first resource registration
 - rail: deployment
 
 ## [02]-[OUTPUT_ALGEBRA]
 
-Every resource arg and output flows through `Output<T>`, the async-dependency monad. `Output<T>` is `OutputInstance<T> & Lifted<T>` — property access on `Output<{a:string}>` yields `Output<string>` without `.apply`. All lifting is `output`/`secret`; all joining is `all` (pick the tuple overload to preserve element types); all string shaping is `interpolate`/`concat`; serialization is `jsonStringify`/`jsonParse`.
+Every resource arg and output flows through `Output<T>`, the async-dependency monad: `OutputInstance<T> & Lifted<T>`, so property access on a struct output lifts to `Output<field>` without `.apply`. Lifting, joining, string shaping, and JSON transit each own one combinator.
 
 [PUBLIC_TYPE_SCOPE]: output types
-- rail: deployment
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [NOTE]                                     |
 | :-----: | :------------------ | :------------ | :----------------------------------------- |
@@ -29,7 +28,6 @@ Every resource arg and output flows through `Output<T>`, the async-dependency mo
 |  [07]   | `Unknown`           | sentinel      | preview-time unresolved marker (`unknown`) |
 
 [ENTRYPOINT_SCOPE]: output combinators
-- rail: deployment
 
 | [INDEX] | [SURFACE]                                            | [FAMILY]         | [NOTE]                                        |
 | :-----: | :--------------------------------------------------- | :--------------- | :-------------------------------------------- |
@@ -50,10 +48,9 @@ Every resource arg and output flows through `Output<T>`, the async-dependency mo
 
 ## [03]-[RESOURCE_MODEL]
 
-`stack` ComponentResource tiers extend this class hierarchy, and the `kube`/`secret`/`observe` rows instantiate it. `ComponentResource` is the grouping owner every tier subclasses (call `registerOutputs` last); `parent`/`dependsOn`/`protect`/`ignoreChanges` on the option interfaces build the ownership DAG; `mergeOptions` folds a base option bag into per-resource overrides so a tier passes ONE inherited `opts` down its children.
+`stack` ComponentResource tiers subclass this hierarchy and the `kube`/`secret`/`observe` rows instantiate it. `ComponentResource` is the grouping owner (`registerOutputs` runs last), the resource-option interfaces build the ownership DAG, and `mergeOptions` folds one inherited `opts` bag down a tier's children.
 
 [PUBLIC_TYPE_SCOPE]: resource classes + options
-- rail: deployment
 
 | [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]  | [NOTE]                                                                             |
 | :-----: | :------------------------------ | :------------- | :--------------------------------------------------------------------------------- |
@@ -77,7 +74,6 @@ Every resource arg and output flows through `Output<T>`, the async-dependency mo
 |  [18]   | `queryable.ResolvedResource<T>` | utility        | `Omit<Resolved<T>, "urn"\|"getProvider">` — `@pulumi/policy` stack-narrowing view  |
 
 [PUBLIC_TYPE_SCOPE]: config, assets, errors, log
-- rail: deployment
 
 | [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY] | [NOTE]                                                       |
 | :-----: | :------------------------------------------------------- | :------------ | :----------------------------------------------------------- |
@@ -91,11 +87,9 @@ Every resource arg and output flows through `Output<T>`, the async-dependency mo
 
 ## [04]-[AUTOMATION_API]
 
-`@pulumi/pulumi/automation` is the programmatic lifecycle — the ONLY entry `iac` uses. `LocalWorkspace.createOrSelectStack({stackName, projectName, program})` is idempotent; `program: PulumiFn` is the inline typed program whose returned record becomes stack outputs. `LocalWorkspaceOptions` carries every deploy-host fact — the CLI wrap, self-managed backend, state-secrets provider, env — so nothing leaks to disk. Every lifecycle method returns a typed result folded into the run receipt.
+`@pulumi/pulumi/automation` is the programmatic lifecycle, the sole entry `iac` drives. `LocalWorkspace.createOrSelectStack` is idempotent, `program: PulumiFn` returns the record that becomes stack outputs, and `LocalWorkspaceOptions` carries every deploy-host fact — CLI wrap, self-managed backend, state-secrets provider, env — so nothing leaks to disk. Every lifecycle method returns a typed result folded into the run receipt.
 
 [PUBLIC_TYPE_SCOPE]: workspace + program
-- rail: deployment
-- module: `@pulumi/pulumi/automation`
 
 | [INDEX] | [SYMBOL]                | [TYPE_FAMILY] | [NOTE]                                                                   |
 | :-----: | :---------------------- | :------------ | :----------------------------------------------------------------------- |
@@ -105,7 +99,7 @@ Every resource arg and output flows through `Output<T>`, the async-dependency mo
 |  [04]   | `InlineProgramArgs`     | args          | `{stackName, projectName, program}`                                      |
 |  [05]   | `LocalProgramArgs`      | args          | `{stackName, workDir}`                                                   |
 |  [06]   | `LocalWorkspaceOptions` | options       | deploy-host facts bag (fields in [06] below)                             |
-|  [07]   | `PulumiCommand`         | class         | resolved CLI binary; version-pin + install owner                         |
+|  [07]   | `PulumiCommand`         | class         | resolved CLI binary; install owner                                       |
 |  [08]   | `ProjectSettings`       | settings      | project-level settings block                                             |
 |  [09]   | `ProjectBackend`        | settings      | `backend.url` selects the self-managed state store (`file://`/`s3://`/…) |
 |  [10]   | `ConfigMap`             | config        | `{ [key]: ConfigValue }` config bag                                      |
@@ -114,12 +108,10 @@ Every resource arg and output flows through `Output<T>`, the async-dependency mo
 |  [13]   | `WhoAmIResult`          | info          | caller identity                                                          |
 |  [14]   | `PluginInfo`            | info          | plugin inventory                                                         |
 
-- [02]-[WORKSPACE]: `program`/`projectSettings`/`stackSettings`/`whoAmI`/`listStacks`/`installPlugin`/`stackOutputs`.
-- [06]-[LOCAL_WORKSPACE_OPTIONS]: `pulumiCommand`/`secretsProvider`/`projectSettings`/`stackSettings`/`envVars`/`pulumiHome`/`workDir`.
+- [02]-[WORKSPACE]: `program` `projectSettings` `stackSettings` `whoAmI` `listStacks` `installPlugin` `stackOutputs`.
+- [06]-[LOCAL_WORKSPACE_OPTIONS]: `pulumiCommand` `secretsProvider` `projectSettings` `stackSettings` `envVars` `pulumiHome` `workDir`.
 
 [ENTRYPOINT_SCOPE]: stack lifecycle
-- rail: deployment
-- module: `@pulumi/pulumi/automation`
 
 | [INDEX] | [SURFACE]                                                             | [FAMILY] | [NOTE]                                          |
 | :-----: | :-------------------------------------------------------------------- | :------- | :---------------------------------------------- |
@@ -140,15 +132,13 @@ Every resource arg and output flows through `Output<T>`, the async-dependency mo
 |  [15]   | `Stack.import(opts): Promise<ImportResult>`                           | adopt    | batch-adopt existing cloud resources into state |
 |  [16]   | `fullyQualifiedStackName(org, project, stack): string`                | helper   | canonical stack name                            |
 
-[PREPARED_ROW]: `RemoteWorkspace.{create,select,createOrSelect}Stack(RemoteGitProgramArgs, RemoteWorkspaceOptions): Promise<RemoteStack>` — Pulumi-Deployments Git-sourced runs, demoted; `iac` runs inline `LocalWorkspace` programs against a self-managed backend, so `RemoteWorkspace` is a prepared row, not the entry.
+[PREPARED_ROW]: `RemoteWorkspace.{create,select,createOrSelect}Stack(RemoteGitProgramArgs, RemoteWorkspaceOptions) -> Promise<RemoteStack>` runs Pulumi-Deployments Git-sourced stacks; `iac` drives inline `LocalWorkspace` against a self-managed backend, so this is a prepared row, not the entry.
 
 ## [05]-[ENGINE_EVENT_STREAM]
 
-Native drift + progress pipeline the receipt ledger folds. Every lifecycle `opts.onEvent` delivers a discriminated `EngineEvent` per engine step; `previewRefresh` re-reads provider state read-only and streams `resourcePreEvent` steps where `StepEventMetadata.op` classifies the divergence and `detailedDiff` carries the per-property delta — the desired-vs-actual drift source, reconciled against `PreviewResult.changeSummary`. `OpType` is the 15-member operation vocabulary the drift fold buckets over.
+Every lifecycle `opts.onEvent` delivers a discriminated `EngineEvent` per engine step, the drift-and-progress pipeline the receipt ledger folds. `previewRefresh` re-reads provider state read-only and streams `resourcePreEvent` steps where `StepEventMetadata.op` classifies the divergence and `detailedDiff` carries the per-property delta, reconciled against `PreviewResult.changeSummary`. `OpType` is the operation vocabulary the drift fold buckets over.
 
 [PUBLIC_TYPE_SCOPE]: engine events
-- rail: deployment
-- module: `@pulumi/pulumi/automation`
 
 | [INDEX] | [SYMBOL]                               | [TYPE_FAMILY] | [NOTE]                                                                  |
 | :-----: | :------------------------------------- | :------------ | :---------------------------------------------------------------------- |
@@ -169,20 +159,25 @@ Native drift + progress pipeline the receipt ledger folds. Every lifecycle `opts
 |  [15]   | `StartDebuggingEvent`                  | interface     | DAP-attach                                                              |
 |  [16]   | `CommandError`                         | error base    | `ConcurrentUpdateError`/`StackNotFoundError`/`StackAlreadyExistsError`  |
 
-[OP_TYPE]: `OpType = |"same"|…`
-[OP_MAP]: `OpMap = {[key in OpType]?:number}`
-[STEP_EVENT_METADATA]: `StepEventMetadata.op: OpType` `StepEventMetadata.urn: string` `StepEventMetadata.type: string` `StepEventMetadata.provider: string` `StepEventMetadata.old: StepEventStateMetadata` `StepEventMetadata.new: StepEventStateMetadata` `StepEventMetadata.keys: string[]` `StepEventMetadata.diffs: string[]` `StepEventMetadata.detailedDiff: Record<string,PropertyDiff>` `StepEventMetadata.logical: boolean`
-[DIAGNOSTIC_EVENT]: `DiagnosticEvent.urn: string` `DiagnosticEvent.prefix: string` `DiagnosticEvent.message: string` `DiagnosticEvent.color: string` `DiagnosticEvent.severity: "info"|"info#err"|"warning"|"error"` `DiagnosticEvent.streamID: number` `DiagnosticEvent.ephemeral: boolean`
-[ENGINE_EVENT]: `EngineEvent.sequence: number` `EngineEvent.timestamp: number` `EngineEvent.resourcePreEvent: ResourcePreEvent` `EngineEvent.resOutputsEvent: ResOutputsEvent` `EngineEvent.resOpFailedEvent: ResOpFailedEvent` `EngineEvent.summaryEvent: SummaryEvent` `EngineEvent.diagnosticEvent: DiagnosticEvent` `EngineEvent.policyEvent: PolicyEvent` `EngineEvent.stdoutEvent: StdoutEngineEvent` `EngineEvent.preludeEvent: PreludeEvent` `EngineEvent.cancelEvent: CancelEvent` `EngineEvent.startDebuggingEvent: StartDebuggingEvent`
-[PREVIEW_RESULT]: `PreviewResult.stdout: string` `PreviewResult.stderr: string` `PreviewResult.changeSummary: OpMap`
-[GLOBAL_OPTS]: `GlobalOpts.color: "always"|"never"|"raw"|"auto"` `GlobalOpts.tracing: string` `GlobalOpts.debug: boolean` `GlobalOpts.suppressOutputs: boolean` `GlobalOpts.suppressProgress: boolean`
-[UP_OPTIONS]: `UpOptions.parallel: number` `UpOptions.message: string` `UpOptions.expectNoChanges: boolean` `UpOptions.refresh: boolean` `UpOptions.diff: boolean` `UpOptions.target: string[]` `UpOptions.replace: string[]` `UpOptions.exclude: string[]` `UpOptions.excludeDependents: boolean` `UpOptions.targetDependents: boolean` `UpOptions.policyPacks: string[]` `UpOptions.policyPackConfigs: string[]` `UpOptions.plan: string` `UpOptions.continueOnError: boolean` `UpOptions.attachDebugger: boolean` `UpOptions.onOutput: (out:string)=>void` `UpOptions.onEvent: (event:EngineEvent)=>void` `UpOptions.onError: (err:string)=>void` `UpOptions.signal: AbortSignal`
+[STEP_EVENT_METADATA]: `op: OpType` `urn: string` `type: string` `provider: string` `old: StepEventStateMetadata` `new: StepEventStateMetadata` `keys: string[]` `diffs: string[]` `detailedDiff: Record<string,PropertyDiff>` `logical: boolean`
+[DIAGNOSTIC_EVENT]: `urn: string` `prefix: string` `message: string` `color: string` `severity: "info"|"info#err"|"warning"|"error"` `streamID: number` `ephemeral: boolean`
+[ENGINE_EVENT]: `sequence: number` `timestamp: number` `resourcePreEvent` `resOutputsEvent` `resOpFailedEvent` `summaryEvent` `diagnosticEvent` `policyEvent` `stdoutEvent` `preludeEvent` `cancelEvent` `startDebuggingEvent`
+[PREVIEW_RESULT]: `stdout: string` `stderr: string` `changeSummary: OpMap`
+[GLOBAL_OPTS]: `color: "always"|"never"|"raw"|"auto"` `tracing: string` `debug: boolean` `suppressOutputs: boolean` `suppressProgress: boolean`
+[UP_OPTIONS]: `parallel: number` `message: string` `expectNoChanges: boolean` `refresh: boolean` `diff: boolean` `target: string[]` `replace: string[]` `exclude: string[]` `excludeDependents: boolean` `targetDependents: boolean` `policyPacks: string[]` `policyPackConfigs: string[]` `plan: string` `continueOnError: boolean` `attachDebugger: boolean` `onOutput: (out:string)=>void` `onEvent: (event:EngineEvent)=>void` `onError: (err:string)=>void` `signal: AbortSignal`
 
-## [06]-[INTEGRATION]
+## [06]-[IMPLEMENTATION_LAW]
 
-Receipt-ledger rail — how `@pulumi/pulumi` stacks onto the `effect` substrate into ONE typed program. Automation API is Promise-shaped and callback-driven; the rail wraps it once so every downstream row composes typed Effects, never raw promises.
+[TOPOLOGY]:
+- `Output<T>` property access is direct through `Lifted`; `.apply` transforms, `all` joins, `interpolate` templates, never raw promise chaining across a resource boundary.
+- `.get()` is cloud-runtime-only and throws during planning; `.apply` may skip at preview when the value is `unknown`, guarded by `isUnknown`.
+- `secret()`/`Config.requireSecret` mark a value state-encrypted, so a generated `random`/`tls` credential or a `Doppler` value crosses a resource boundary only as a secret-tracked `Output`.
+- `LocalWorkspace` is the sole workspace for inline programs; the CLI wrap, `backend.url`, and `secretsProvider` bind through `LocalWorkspaceOptions`, never an authored `Pulumi.yaml`.
+- `_LEDGER` maps the op vocabulary to `Stack` methods as the whole ledger; `previewRefresh` is the non-mutating drift leg, `expectNoChanges`/`plan` gate CI, `policyPacks` attach CrossGuard, `Stack.import` adopts existing resources, `exportStack` backs up state, and `addEnvironments` attaches ESC.
 
-[RAIL]: `automation → effect` — the stacking seams (all `effect` members verified real)
+[STACKING]:
+- `effect`(`libs/typescript/.api/effect.md`): every `Stack` op resolves onto `Effect.acquireRelease`/`Stream.runFold`/`Schema.decodeUnknown`, wrapping the Promise-shaped, callback-driven Automation API into one typed rail so every downstream row composes typed Effects; the full member-level seam maps below.
+- within-lib: the receipt rail folds the `_LEDGER` op dispatch and the `_streamed` bridge into one typed program.
 
 | [INDEX] | [PULUMI_SEAM]                         | [EFFECT_MEMBER]                                      |
 | :-----: | :------------------------------------ | :--------------------------------------------------- |
@@ -195,32 +190,16 @@ Receipt-ledger rail — how `@pulumi/pulumi` stacks onto the `effect` substrate 
 |  [07]   | `CommandError` family + `RunError`    | `Match.instanceOf` triage → `Data.TaggedError`       |
 |  [08]   | ephemeral stack lifecycle             | `Effect.acquireRelease`                              |
 
-- [01]-[LEDGER_DISPATCH]: `_LEDGER` maps each op (`reconcile` included) to its `Stack` method under a mapped contract — a sixth op is a compile error at the record, not four drivers.
-- [02]-[INTERRUPT]: the bridge acquires an `AbortController` and releases by aborting — interruption, scope close, and budget exhaustion all cancel the run; no orphan updates.
-- [03]-[EVENT_STREAM]: engine events become one Effect `Stream`; `Stream.runFold` drives the single `_folded` pass on the live path and `Array.reduce` drives the same fold on the batch path.
-- [04]-[RECEIPT_DECODE]: the fold product decodes once into `RunReceipt` — summary, steps, diagnostics, violations, stdout lines, and the first/last-timestamp band; the drift fold reconciles vs `changeSummary`.
-- [05]-[HOST_CONFIG]: `pulumiCommand`/`backend.url`/`secretsProvider`/`envVars` from Effect `Config`, not literals.
-- [06]-[SECRET_OUTPUTS]: secret-flagged outputs refuse at the gate; typed StackOutputs → `ShardingConfig`.
-- [07]-[TAGGED_FAULTS]: `ConcurrentUpdateError`/`StackNotFoundError`/input errors triage through one `Match.instanceOf` ladder into the reason-discriminated fault family.
-- [08]-[SCOPED_LIFECYCLE]: `createOrSelectStack` acquired, `destroy` released — scoped teardown.
-
 [_LEDGER]: `_LEDGER.up` `_LEDGER.preview` `_LEDGER.refresh` `_LEDGER.destroy` `_LEDGER.reconcile`
-[SURFACES]: `_streamed(Stack,string,RunReceipt.Op,Automation.Options?)`
+[SURFACES]: `_streamed(Stack, string, RunReceipt.Op, Automation.Options?)`
 
-## [07]-[IMPLEMENTATION_LAW]
-
-[OUTPUT_TOPOLOGY]:
-- `Output<T>` property access is direct (`Lifted`); reach for `.apply` only to transform, `all` only to join, `interpolate` only to template — never chain raw promises across a resource boundary.
-- `.get()` is cloud-runtime-only; calling it during planning throws. `.apply` may be skipped at preview when the value is `unknown` — guard with `isUnknown`.
-- `secret()`/`Config.requireSecret` mark values state-encrypted; a generated credential (`random`/`tls`) or a `Doppler` value crosses resource boundaries only as a secret-tracked `Output`.
-
-[AUTOMATION_TOPOLOGY]:
-- `LocalWorkspace` is the sole workspace for inline programs; `PulumiFn` returns the outputs record. Configure the CLI wrap, `backend.url`, and `secretsProvider` through `LocalWorkspaceOptions` — never author `Pulumi.yaml`.
-- The `_LEDGER` mapped record over the op vocabulary is the whole ledger; `previewRefresh` is the non-mutating drift leg; `expectNoChanges`/`plan` gate CI runs; `policyPacks` attach CrossGuard.
-- Adopt existing cloud resources with `Stack.import`; back up state with `exportStack`; attach ESC with `addEnvironments`.
+- `_LEDGER` maps every op, `reconcile` included, to its `Stack` method, so a sixth op is a compile error at the record, not a fifth driver.
+- `Effect.acquireRelease` wraps an `AbortController` whose abort cancels the run on interruption, scope close, or budget exhaustion, leaving no orphan update; an ephemeral stack acquires at `createOrSelectStack` and releases at `destroy`.
+- Engine events fold once: `Stream.runFold` drives the live path and `Array.reduce` the batch path, decoding into `RunReceipt` — summary, steps, diagnostics, violations, stdout, and the first/last-timestamp band — reconciled against `changeSummary`.
+- Secret-flagged outputs refuse at the decode gate and typed StackOutputs decode into `ShardingConfig`; the `CommandError` family and `RunError` triage through one `Match.instanceOf` ladder into the reason-discriminated fault family.
 
 [RAIL_LAW]:
 - Package: `@pulumi/pulumi`
 - Owns: output algebra, resource model, config, stack references, Automation API, engine-event stream, error rails
-- Accept: `Output<T>` for all inter-resource value flow; the acquire/release `AbortController` for cancellation; `Config.redacted` for host secrets; `Schema` for `OutputMap` decode
-- Reject: authored `Pulumi.yaml`; raw `pulumi` CLI shell-out; promise chaining across resource boundaries; `Config.get` for secrets; four parallel op drivers where the one `_LEDGER` mapped record owns them
+- Accept: `Output<T>` for inter-resource value flow; the acquire/release `AbortController` for cancellation; `Config.redacted` for host secrets; `Schema` for `OutputMap` decode
+- Reject: authored `Pulumi.yaml`; raw `pulumi` CLI shell-out; promise chaining across resource boundaries; `Config.get` for secrets; parallel op drivers where the one `_LEDGER` mapped record owns them

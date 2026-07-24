@@ -17,7 +17,7 @@ A rebuild composes the `Meshing/edit` arena as the sole position and face carrie
 - Receipt: `RemeshTrace` witnesses every rewrite; `QuadProvenance` rides `RewriteResult.Quads` on the quad arm alone.
 - Packages: `Rasm.Meshing`, `Rasm.Spatial`, `Rasm.Processing`, `Rasm.Numerics`, and `Rasm.Domain` are the composed kernel siblings over Rhino.Geometry at the seam; QuikGraph's `ConnectedComponents` labels the patch decomposition, CommunityToolkit.HighPerformance's `IAction` drives the double-buffered relax sweep, and Thinktecture.Runtime.Extensions with LanguageExt.Core generate the op dispatch and its `Fin` rail.
 - Growth: a new rewrite modality is one `RemeshOp` case over the same pass machinery; a curvature-adaptive sizing field is one policy delegate replacing the constant `ℓ` in the same hysteresis tests; feature-vertex sliding is one relax-arm branch on the feature census; a new pass verb is one arm in the fold.
-- Boundary: `RemeshOp` owns the author-kernel rewrite alone — `segment`'s host-capture tier and `decimate`'s voxel modality stay distinct owners — and QuikGraph's adjacency graph never leaves the extraction.
+- Boundary: `RemeshOp` owns the author-kernel rewrite alone, and QuikGraph's adjacency graph never leaves the extraction.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -525,6 +525,13 @@ public static class Remeshing {
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     RemeshOp -->|Isotropic: split/collapse/flip/relax/project passes| MeshEdit
     MeshEdit -->|exact flip gate — two QuadDiagonal probes| Kernels

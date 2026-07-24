@@ -31,9 +31,13 @@ ui/
 
 ## [02]-[STRATA]
 
-- S0 `system` — the capability floor: `atom` the one store bridge (`AtomRef`, `Atom.subscribable`), `act` the gesture and motion owner, `intl` the `Format` plane, `token` the `Theme` authority whose `cn` composer `primitive`'s recipes compose, `hook` the per-app `rasm.ui.<domain>.<point>` fact rail every plane taps, `vital` the performance-evidence fold minting probe-shaped rows.
-- S1 `view` — dense surfaces over the floor: `form` binds draft cursors through `AtomRef`, `table` folds `TableState` on the one store and formats bands through `Format`, `overlay` and `chart` ride `act` gesture and motion rows under the same recipes.
-- S2 `viewer` — the spatial Nx project atop both: `scene` parks its frame loop on `act`, binds color through the `token` authority, and rides its `Machine` lifecycle on the atom bridge; `mark` and `scene` compose `geo`'s `Camera` inside the wave — one camera vocabulary, per-backend adapters; `probe` renders its claim board through `view/table`'s `Grid` rows and `view/chart` series while `panel` folds receipts on the store; evidence taps and browser vitals arrive through the `hook` and `vital` floor owners.
+- S0 `system` — capability floor: `primitive` recipes compose `token`'s `cn` composer; every plane taps the `rasm.ui.<domain>.<point>` fact rail.
+- S1 `view` — dense surfaces over the floor: `form` binds draft cursors through `AtomRef`; `table` folds `TableState` on the one store.
+- S1 `table` formats bands through `Format`; `overlay` and `chart` ride `act`'s gesture and motion rows under the same recipes.
+- S2 `viewer` — the spatial Nx project atop both strata: `scene` frame-loops on `act`, binds `token` color, rides `Machine` on the atom bridge.
+- S2 `mark` and `scene` compose `geo`'s `Camera` inside the stratum — one camera vocabulary, per-backend adapters.
+- S2 `probe` renders its claim board through `view/table` `Grid` rows and `view/chart` series; `panel` folds receipts on the store.
+- S2 evidence taps and browser vitals arrive through the `hook` and `vital` floor owners.
 
 ```mermaid
 ---
@@ -45,7 +49,7 @@ config:
 ---
 flowchart TB
     accTitle: Ui interior import strata
-    accDescr: Three interior waves — the viewer spatial project over the view surfaces onto the system floor — every import downward, labeled edges naming one sourced type each, and one forbidden upward edge styled red.
+    accDescr: Three strata — the viewer project over the view surfaces onto the system floor; imports downward, one forbidden upward edge.
     subgraph S2["S2 VIEWER"]
         Scene["scene · geo · mark"]
         Board["panel · probe"]
@@ -91,7 +95,7 @@ config:
 ---
 flowchart LR
     accTitle: UI package seam registry
-    accDescr: UI sub-domain owners exchanging value, wire, port, boundary, and receipt contracts with the core, runtime, Materials, AppHost, AppUi, and Bim packages, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: UI owners exchanging value, wire, port, and receipt contracts with core, runtime, and the C# packages; nodes classed by direction.
     subgraph ui[UI]
         System[System floor]
         View[View plane]
@@ -120,7 +124,7 @@ flowchart LR
     System e15@-->|"[SHAPE]: Tap.Registry"| Runtime
 ```
 
-## [04]-[ORGANIZATION]
+## [04]-[INTERNAL]
 
 `system` is the capability floor the views instantiate; `view` composes those owners into dense surfaces — form, grid, overlay, chart — each a single owner where variation is rows (columns, commands, field kinds, chart regimes), never sibling components; `viewer` is the spatial tier as a separate Nx project consuming decoded wire and owning render alone. Selection stays one atom whose applied ops publish once into the bounded echo channel; the grid `RowSelectionState` and the `scrollToIndex` echo project it, never a second plane. Per-owner wiring lives on the owning implementation pages.
 
@@ -130,4 +134,5 @@ flowchart LR
 - A browser composition root — `GlbViewport` from Depot arrivals, host planes bound into atoms — is app composition, out of scope here.
 - `EXT_meshopt_compression` assets refuse with the `codec-absent` reason until the iac plane admits the wasm decoder identity and its serving row.
 - History consumers compose from the landed system pages; a second history owner never appears beside the selection atom.
-- Telemetry leaves through app-composed hook taps — the folder mints no OTel instrument and imports no collector; the bridge layer subscribes `system/hook` points at app composition and carries rows to the estate spine.
+- Telemetry leaves through app-composed hook taps; the folder mints no OTel instrument and imports no collector.
+- A bridge layer subscribes `system/hook` points at app composition and carries rows to the estate spine.
