@@ -58,7 +58,6 @@ Rasm is in a long-term planning phase, working strictly within design/spec-sheet
 ## [02]-[IMPLEMENTATION_STANDARDS]
 
 [CRITICAL]:
-- [NEVER]: add comments that carry task, session, subagent, review-label, proof, history, or process narration.
 - [NEVER]: use weak, unbounded, or erased types where the language can express the domain precisely.
 - [NEVER]: use exception-style control flow in domain logic; use typed error rails and the required route's recovery patterns.
 - [NEVER]: use imperative branching when a bounded vocabulary, dispatch table, generated switch, match, fold, or monadic rail can own the variation.
@@ -69,20 +68,20 @@ Rasm is in a long-term planning phase, working strictly within design/spec-sheet
 [IMPORTANT]:
 - [ALWAYS]: ASSUME 10X THE COMPLEXITY AND DEMANDS ON EVERY SURFACE — a naive, simple, or surface-level solution is rejected on sight.
 - [ALWAYS]: extend a class to the full concept it admits NOW — a 4-field shape for a 12+ concept widens in place, never proliferates objects.
-- [ALWAYS]: rebuild code and planning docs GROUND-UP — tear existing patterns apart for surface density with zero functionality lost.
+- [ALWAYS]: treat planned future consumers as real design pressure. Zero current consumers never reduces the capability bar.
+- [ALWAYS]: rebuild functionality/code/logic GROUND-UP — tear existing patterns apart for surface density with zero functionality lost.
 - [ALWAYS]: land new functionality as if designed in from the start, never as tacked-on flat-code spam.
+- [ALWAYS]: extend the canonical owner before adding rails, public surfaces, wrappers, commands, flags, provider selectors, schemas, models, helpers, or files.
 - [ALWAYS]: co-locate domain logic with its owner instead of scattering it into generic support files.
+- [ALWAYS]: create code as polymorphic, agnostic, and universal by default, ALWAYS PARAMETERIZE INPUTS/OUTPUTS + INGRESS/EGRESS.
 - [ALWAYS]: drive logic with data, bounded vocabularies, discriminants, table rows, and reusable projections.
 - [ALWAYS]: collapse related variants into one polymorphic surface before adding entrypoints.
 - [ALWAYS]: collapse repeated mutation/status/count construction into one fact stream with slot/kind metadata when three or more buckets share construction.
 - [ALWAYS]: keep typed algorithm receipts when fields carry route, status, sampling, solver, spectral, mesh, extraction, benchmark, or host evidence.
+- [ALWAYS]: keep boundary mapping at the edge; internal code uses canonical names and shapes.
 - [ALWAYS]: treat analyzer diagnostics as architecture pressure: fix true positives, refine false positives, and never use suppressions.
-- [ALWAYS]: treat planned future consumers as real design pressure. Zero current consumers never reduces the capability bar.
-- [ALWAYS]: create code as polymorphic, agnostic, and universal by default, ALWAYS PARAMETERIZE INPUTS/OUTPUTS + INGRESS/EGRESS.
 - [ALWAYS]: maintain semantic consistency in naming patterns of files, code functionality, types, classes, and functions.
 - [ALWAYS]: use one canonical semantic name per bounded concept; arity, filters, provider, and modality live in request shape, case, or policy row.
-- [ALWAYS]: extend the canonical owner before adding rails, public surfaces, wrappers, commands, flags, provider selectors, schemas, models, helpers, or files.
-- [ALWAYS]: keep boundary mapping at the edge; internal code uses canonical names and shapes.
 - [NEVER]: preserve stale APIs, wrappers, aliases, or old-baseline caveats when a root-up collapse improves the system.
 - [NEVER]: create `Get`/`GetMany`/`GetBy<Key>`/`List`/`Search` operation families; one polymorphic operation discriminates on input shape.
 
@@ -91,7 +90,6 @@ Rasm is in a long-term planning phase, working strictly within design/spec-sheet
 [IMPORTANT] - External libraries, manifests, and host APIs are implementation surfaces:
 - [ALWAYS]: home substrate API catalogues at `libs/<language>/.api/`; package `.api/` folders carry domain catalogues and overlays.
 - [ALWAYS]: treat admitted packages and ecosystem libraries as first class; mine their full capability before any local kernel or hand-roll.
-- [ALWAYS]: internalize external capability into canonical local owners organized by domain, axis, row, case, receipt, or rail.
 - [ALWAYS]: keep C# MSBuild/NuGet manifests label-grouped by owner, cluster-sorted, with one-line maintenance comments at most.
 - [ALWAYS]: align the package touch-point set both ways: central manager row, project manifest, branch/folder README registries, owning `.api` tier.
 - [ALWAYS]: repair an orphaned touch-point member at its owner, never by removal.
@@ -106,22 +104,16 @@ Rasm is in a long-term planning phase, working strictly within design/spec-sheet
 
 Section separators: language comment marker + space + `---` + bracketed UPPERCASE snake label with no internal spaces + dash fill.
 
-```typescript conceptual
+```md
+// Typescript/Csharp Styling
 // --- [TYPES] ---------------------------------------------------------------------------
 
 // --- [SUBSECTION]
-```
 
-```python conceptual
+# Python Styling
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 # --- [SUBSECTION]
-```
-
-```csharp conceptual
-// --- [SERVICES] ------------------------------------------------------------------------
-
-// --- [SUBSECTION]
 ```
 
 Canonical order, omitting unused sections: `TYPES` -> `CONSTANTS` -> `MODELS` -> `ERRORS` -> `SERVICES` -> `OPERATIONS` -> `COMPOSITION` -> `EXPORTS`.
@@ -137,7 +129,6 @@ Canonical order, omitting unused sections: `TYPES` -> `CONSTANTS` -> `MODELS` ->
 
 [IMPORTANT]:
 - [ALWAYS]: order as `section` -> `owner block` -> `runtime/declaration dependency` -> `semantic rank` -> `kind` -> `smaller-to-larger` -> `alphabetical`.
-- [ALWAYS]: order concept discovery order from stable declarations to composition: vocabulary, constants, models, errors, services, operations, wiring, exports.
 - [ALWAYS]: use nested algorithm subsection labels inside large kernels to identify a real operation family, such as `[VECTOR_HEAT]` or `[NORMAL_ESTIMATION]`.
 - [ALWAYS]: keep internal cache keys, memo tables, mutable registries, and algorithm state records with the operation/kernel/runtime owner that mutates them.
 - [ALWAYS]: treat logger handles, provider handles, and dependency-backed runtime capabilities as `[SERVICES]`, not immutable anchors.
@@ -149,13 +140,6 @@ Canonical order, omitting unused sections: `TYPES` -> `CONSTANTS` -> `MODELS` ->
 - [ALWAYS]: hold owner-defined domain order: severity, lifecycle, routing, key, protocol, generated-case, table-row, migration-step, public API.
 - [ALWAYS]: insert a domain extension right after its closest core section; a precise label is earned by real ownership.
 - [ALWAYS]: extension vocabulary: `[TABLES]`, `[BOUNDARIES]`, `[REPOSITORIES]`, `[GROUPS]`, `[MIDDLEWARE]`, `[INDEXES]`, `[POLICIES]`, `[ENTRY]`.
-- [NEVER]: use category-drift labels: `SCHEMA` `FUNCTIONS` `LAYERS` `IMPORTS` `INTERFACES` `ENUMS` `DTO` `QUERIES` `HELPERS` `UTILS` `COMMON` `MISC`.
 - [NEVER]: split source-generated owners, delegate-backed enum behavior, validation partials, or operation-local state for mechanical section order.
 - [NEVER]: split resource/disposal boundaries, dispatch tables, SQL invariants, or migration units to satisfy section order.
 - [NEVER]: seat callable row catalogs, memo tables, or DDL-dependent objects in `[CONSTANTS]`; home each in its owning later section or extension.
-
-Language overlays refine the canonical order by runtime semantics:
-- [CSHARP]: `[Union]`, `[SmartEnum]`, `[ValueObject]`, generated case families, static entries, delegate/validation partials, factories, and projections stay inside the declaring owner block. Generated-case and smart-enum order is semantic — one case or static entry per line unless a generator or runtime contract groups them — and static construction order is semantic when later fields derive from earlier ones. Static kernels, projectors, acceptors, and extension folds are `[OPERATIONS]` unless they own a real dependency or service boundary. In-section kind order: attributes/delegates/marker types, enums/smart enums, readonly structs/records/value objects, records/classes/services, owner-local private types. In-owner order: generated/static dependency entries, fields/state, constructors/factories, properties, public operations, boundary adapters, internal operations, private kernels.
-- [TYPESCRIPT]: side-effect/value imports keep runtime order; `import type`/`export type` stay explicit. Runtime schemas/classes are `[MODELS]`, `Effect.Service` owners `[SERVICES]`, `Layer`/runtime wiring `[COMPOSITION]`, and catalog or registry rows referencing functions/classes stay after their owners.
-- [BASH]: shebang, ShellCheck directives, `set`/`shopt`, and environment/path gates are `[RUNTIME_PRELUDE]`; `readonly` values `[CONSTANTS]`; `declare -Ar` maps `[TABLES]`; traps, dispatch, source guards, and `_main` late `[COMPOSITION]` or `[ENTRY]`.
-- [PO_SQL]: extensions, schemas, and search-path guards are `[RUNTIME_PRELUDE]`; domains and types `[TYPES]`; tables, constraints, generated columns, and partitions `[MODELS]`; functions split by service boundary or query operation; indexes, triggers, row-level security, and policies `[COMPOSITION]`; grants and comments late `[EXPORTS]`.
