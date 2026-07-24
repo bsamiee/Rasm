@@ -26,9 +26,8 @@ READ 100%, one batch (`==> path <==` headers delimit files):
 fd -H -t f -e md -E 'IDEAS.md' -E 'TASKLOG.md' . libs/.planning libs/csharp/.planning libs/python/.planning libs/typescript/.planning docs/laws -X tail -n +1
 ```
 
-Batch grounds all Tier-0 and branch law, including every `RULINGS.md`. `IDEAS.md` and `TASKLOG.md` load only when a dispatched rail works their cards.
-
-Batch reads `docs/laws/`: `topology.md` binds counterparts on multi-surface edits; `patterns.md` and `scars.md` bind cross-branch and regression law.
+- Batch grounds all Tier-0 and branch law, including every `RULINGS.md`. `IDEAS.md` and `TASKLOG.md` load only when a dispatched rail works their cards.
+- Batch reads `docs/laws/`: `topology.md` binds counterparts on multi-surface edits; `patterns.md` and `scars.md` bind cross-branch and regression law.
 
 ## [03]-[TARGET_DEEPENING]
 
