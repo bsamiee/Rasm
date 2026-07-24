@@ -43,8 +43,5 @@ fd -H -t f --max-depth 3 -E '_tmp' -E '.planning' '^(README|ARCHITECTURE|RULINGS
 
 ## [04]-[CLOSE]
 
-Report grounded branches/packages, law, and target deepening in a few lines.
-
-Continue into any actionable argument or objective already in context.
-
-Otherwise request the objective, scope, and constraints, then stop.
+1. Report grounded branches/packages, law, and target deepening in a few lines.
+2. Continue into any actionable argument or objective already in context; otherwise request the objective, scope, and constraints, then stop.
