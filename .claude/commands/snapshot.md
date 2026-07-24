@@ -5,7 +5,7 @@ disable-model-invocation: true
 
 # [SNAPSHOT]
 
-A snapshot freezes the whole tree as one recoverable, inspectable commit and pushes it — mid-run artifacts included, nothing judged, gated, formatted, or reviewed.
+Freeze and push the full tree as one recoverable, inspectable commit; include mid-run artifacts without judgment, gating, formatting, or review.
 
 1. `git status --porcelain=v2` — empty status returns `[SKIP] nothing to snapshot` and stops; never an empty commit.
 2. `git add -A`
