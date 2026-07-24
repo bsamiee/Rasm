@@ -142,26 +142,20 @@ Canonical order, omitting unused sections: `TYPES` -> `CONSTANTS` -> `MODELS` ->
 - [ALWAYS]: keep internal cache keys, memo tables, mutable registries, and algorithm state records with the operation/kernel/runtime owner that mutates them.
 - [ALWAYS]: treat logger handles, provider handles, and dependency-backed runtime capabilities as `[SERVICES]`, not immutable anchors.
 - [ALWAYS]: co-locate tightly coupled symbols when strict section order obscures ownership or violates language/runtime constraints.
-- [ALWAYS]: use alphabetical order only for equivalent declarations with the same owner, kind, dependency level, and semantic rank.
-- [ALWAYS]: treat one generated type, smart enum, value object, schema/model/wire family, kernel, dispatcher, or query family as an owner block.
 - [ALWAYS]: treat one registry, catalog, table, or composition root the same; sort inside the owner, never flattened into top-level sections.
-- [ALWAYS]: seat every declaration after what it imports, inspects, derives from, registers, decodes, wraps, initializes, traps, migrates, or composes.
 - [ALWAYS]: apply smaller-to-larger only after ownership and dependency: anchors before policies, axes before models, leaf ops before orchestration.
 - [ALWAYS]: treat kind as an owner-local tiebreaker, not a new section — it ranks only among peers equal in ownership, dependency, and semantic rank.
 - [ALWAYS]: order same-owner peers public, then internal, then private — unless static construction, generated semantics, or read-before-use wins.
 - [ALWAYS]: hold owner-defined domain order: severity, lifecycle, routing, key, protocol, generated-case, table-row, migration-step, public API.
 - [ALWAYS]: insert a domain extension right after its closest core section; a precise label is earned by real ownership.
 - [ALWAYS]: extension vocabulary: `[TABLES]`, `[BOUNDARIES]`, `[REPOSITORIES]`, `[GROUPS]`, `[MIDDLEWARE]`, `[INDEXES]`, `[POLICIES]`, `[ENTRY]`.
-- [NEVER]: rename recurring categories per file; use canonical labels unless a domain extension is materially clearer.
 - [NEVER]: use category-drift labels: `SCHEMA` `FUNCTIONS` `LAYERS` `IMPORTS` `INTERFACES` `ENUMS` `DTO` `QUERIES` `HELPERS` `UTILS` `COMMON` `MISC`.
 - [NEVER]: split source-generated owners, delegate-backed enum behavior, validation partials, or operation-local state for mechanical section order.
 - [NEVER]: split resource/disposal boundaries, dispatch tables, SQL invariants, or migration units to satisfy section order.
-- [NEVER]: seat codecs, decoders, registries, lookup tables, generated maps, or dispatch rows in `[CONSTANTS]` ahead of what they depend on.
 - [NEVER]: seat callable row catalogs, memo tables, or DDL-dependent objects in `[CONSTANTS]`; home each in its owning later section or extension.
 
 Language overlays refine the canonical order by runtime semantics:
 - [CSHARP]: `[Union]`, `[SmartEnum]`, `[ValueObject]`, generated case families, static entries, delegate/validation partials, factories, and projections stay inside the declaring owner block. Generated-case and smart-enum order is semantic — one case or static entry per line unless a generator or runtime contract groups them — and static construction order is semantic when later fields derive from earlier ones. Static kernels, projectors, acceptors, and extension folds are `[OPERATIONS]` unless they own a real dependency or service boundary. In-section kind order: attributes/delegates/marker types, enums/smart enums, readonly structs/records/value objects, records/classes/services, owner-local private types. In-owner order: generated/static dependency entries, fields/state, constructors/factories, properties, public operations, boundary adapters, internal operations, private kernels.
-- [PYTHON]: imports, `TYPE_CHECKING`, and import-time gates precede ordinary sections. Runtime decoders, encoders, registries, and tables follow the models/functions they inspect — module-level assignments execute immediately and runtime annotation consumers (`msgspec`, `beartype`) resolve real objects. `Annotated` validators may sit in `[BOUNDARIES]` between immutable constants and the dependent aliases that must reference the real validator object.
 - [TYPESCRIPT]: side-effect/value imports keep runtime order; `import type`/`export type` stay explicit. Runtime schemas/classes are `[MODELS]`, `Effect.Service` owners `[SERVICES]`, `Layer`/runtime wiring `[COMPOSITION]`, and catalog or registry rows referencing functions/classes stay after their owners.
 - [BASH]: shebang, ShellCheck directives, `set`/`shopt`, and environment/path gates are `[RUNTIME_PRELUDE]`; `readonly` values `[CONSTANTS]`; `declare -Ar` maps `[TABLES]`; traps, dispatch, source guards, and `_main` late `[COMPOSITION]` or `[ENTRY]`.
 - [PO_SQL]: extensions, schemas, and search-path guards are `[RUNTIME_PRELUDE]`; domains and types `[TYPES]`; tables, constraints, generated columns, and partitions `[MODELS]`; functions split by service boundary or query operation; indexes, triggers, row-level security, and policies `[COMPOSITION]`; grants and comments late `[EXPORTS]`.
