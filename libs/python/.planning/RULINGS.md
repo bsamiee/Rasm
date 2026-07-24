@@ -1,6 +1,6 @@
 # [PYTHON_BRANCH_RULINGS]
 
-Branch-tier decision registry — the settled rulings agents re-litigate for lack of a home, each spanning more than one folder. A row earns its place as a package admission or rejection with the reason it holds, an owner-choice discriminant between folders, a collapse refusal naming the guarantee the denser form loses, or a branch-learned working law. Append-mostly; a row earns its seat while its why stays homeless, and dies only when fact and why both live at one durable surface.
+Branch-tier decision registry for `libs/python` — the settled rulings spanning two or more folders that agents re-litigate for lack of a home. Each row is one decision with the one why guarding its re-litigation: a package admission or rejection, an owner-choice discriminant, a collapse refusal naming the lost guarantee, a structure retirement, or a working law. Append-mostly; a row earns its seat while its why stays homeless, dies only when fact and why both live at one durable surface, and a decision scoped to one folder homes at that tier, an estate-spanning one at cross-libs. `(none)` marks a section awaiting its first ruling.
 
 ## [01]-[PACKAGES]
 
@@ -10,7 +10,6 @@ Branch-tier decision registry — the settled rulings agents re-litigate for lac
 ## [02]-[SHAPE]
 
 - Model georeference extracts once at geometry's IFC band — map conversion, projected CRS, and true north cross as one decoded fact every consumer admits as a first-class CRS source, while a dataset's own file CRS (a LAS header, a STAC projection) stays a data-owned origin; re-deriving model georeference from caller-supplied guesses, or routing a dataset's file CRS through geometry, forks the one earth anchor the reproject prelude and the C# geospatial plane read.
-- Every content-key preimage over variable-length blocks folds each block's ordinal and shape into the digest — bare delimiter-less concatenation collides structurally distinct payloads onto one cache slot, and a hit then returns the wrong converged result; a spine of fixed-width digests concatenates injectively and needs no framing.
 
 ## [03]-[COLLAPSE]
 
@@ -22,6 +21,7 @@ Branch-tier decision registry — the settled rulings agents re-litigate for lac
 
 - `trimesh` stays dual-registered at data and geometry — data admits only the file-identity and extraction role the S1 stratum can hold, geometry owns the in-memory kernel operations; a dedup sweep removing either registry entry breaks the stratum split, because S1 cannot import geometry kernels and geometry never re-owns interchange identity.
 - `rustworkx` stays dual-registered at data and artifacts — data owns the S1 analysis-reducer kernel over stable integer indices, artifacts owns the S3 DAG topology (detail cross-references, CPM schedule, plan producer graph, layout); neither role nests in the other, and a dedup sweep collapsing the two registries onto one owner forces a forbidden cross-stratum import or re-keys one folder's node vocabulary; re-opens only when one folder drops its `rustworkx` use.
+- Native-gated worker modules cross only through the runtime `workers` fabric `shipped` gate with a module-scope `covered(module, names)` import-time witness — a page-local `getattr` crossing gate re-spelled beside it defers a misspelled roster from worker import to mid-offload and forks the one crossing law every native-gated consumer composes.
 
 ## [05]-[PROCESS]
 

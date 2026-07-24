@@ -134,37 +134,34 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`
 - `Thinktecture.Runtime.Extensions`
+- `Thinktecture.Runtime.Extensions.Json` — STJ converters for the generated value objects, smart enums, and unions on every egress.
 - `JetBrains.Annotations`
 
-[NUMERIC]:
+[TIME_IDENTITY]:
+- `System.IO.Hashing` — reached only through the kernel content-hash mint every egress key seeds from.
+- `NodaTime` — instant stamps on travelers, quality records, probing receipts, and tool-life schedules.
+- `NodaTime.Serialization.SystemTextJson` — STJ codec carrying those instants, intervals, and zones across the content-keyed wire.
+
+[NUMERIC_SUBSTRATE]:
 - `CSparse`
 - `UnitsNet` — cut-parameter and tolerance quantity boundary.
 - `MathNet.Numerics` — capability distribution fits and Monte-Carlo tolerance stackup.
 - `System.Numerics.Tensors` — SIMD-lowered sampling folds across the hot toolpath and nesting lanes.
 - `CommunityToolkit.HighPerformance` — 2D span grids for grayscale, engagement, and layer-census rasters.
 
-[IDENTITY_TIME]:
-- `System.IO.Hashing` — reached only through the kernel content-hash mint every egress key seeds from.
-- `NodaTime` — instant stamps on travelers, quality records, probing receipts, and tool-life schedules.
-- `NodaTime.Serialization.SystemTextJson` — STJ codec carrying those instants, intervals, and zones across the content-keyed wire.
-
-[MAPPING_GRAPH]:
-- `Generator.Equals` — compile-time structural equality and member-level difference receipts over attributed partial owners.
-- `Riok.Mapperly` — source-generated boundary projections, including the `extern alias R3` seam copyists.
+[GRAPH_ALGORITHM]:
 - `QuikGraph` — setup-precedence, assembly, and rapid-link routing graphs.
-- `Thinktecture.Runtime.Extensions.Json` — STJ converters for the generated value objects, smart enums, and unions on every egress.
 
-[OBSERVABILITY]:
-- `Microsoft.Extensions.Compliance.Redaction` — classification attributes on classified receipt members; redactor binding stays at the app root.
-- In-box `System.Diagnostics.Metrics` owns the instrument surface; in-box `System.Diagnostics.ActivitySource` owns the engine spans.
-
-[CACHING]:
+[RECENCY_CACHE]:
 - `Microsoft.Extensions.Caching.Hybrid` — solver memo tier behind `HybridCache`; durable L2 federates at the Persistence cache seam.
 
-[TEST]:
-- `xunit.v3.assert`
-- `xunit.v3.common`
-- `xunit.v3.extensibility.core`
-- `xunit.v3.mtp-v2`
-- `CsCheck`
-- `coverlet.MTP`
+[DATA_CLASSIFICATION]:
+- `Microsoft.Extensions.Compliance.Redaction` — classification attributes on classified receipt members; redactor binding stays at the app root.
+
+[WIRE_CODEGEN]:
+- `Generator.Equals` — compile-time structural equality and member-level difference receipts over attributed partial owners.
+- `Riok.Mapperly` — source-generated boundary projections, including the `extern alias R3` seam copyists.
+
+[RUNTIME_INBOX]:
+- `System.Diagnostics.Metrics` — in-box owner of the instrument surface.
+- `System.Diagnostics.ActivitySource` — in-box owner of the engine spans.

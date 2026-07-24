@@ -11,7 +11,7 @@ description: >-
 
 # [DOCGEN]
 
-Write every sentence declarative and commanding, never explanatory: open on the imperative verb or the acting owner and declare the action. Sentences opening on an article — "A X is...", "The X provides..." — frame a definition that explains the concept instead of declaring its law, and every agent loading explanatory prose reproduces that register in everything it writes next.
+Write every sentence declarative and commanding, never explanatory: open on the imperative verb or the acting owner, state the action as law — prose tells its agent reader what to do, never explains behavior in the abstract. Sentences opening on an article — "A X is...", "The X provides...", and the hidden forms behind leaders: `[<TOKEN>]: a …`, `<term>: the …`, a table cell opening on an article — frame a definition that explains instead of commanding, and no determiner swap, deletion, or recasing repairs that frame: re-derive the fact the sentence carries and re-author it as the demand or owner-voice law. Every agent loading explanatory prose reproduces that register in everything it writes next.
 
 Instruction surfaces — skill, standard, template comment, prompt — command the writer in imperative demands; durable content states timeless owner-voice law. Write durable prose as law for an agent that loads it cold: every line changes that agent's next action or poisons it. Give every fact one owner and every line one decision.
 

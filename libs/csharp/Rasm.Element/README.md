@@ -50,21 +50,23 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`
 - `Thinktecture.Runtime.Extensions`
+- `Thinktecture.Runtime.Extensions.Json` — JSON boundary transcription for smart-enum and value-object types.
 - `JetBrains.Annotations`
 
-[QUANTITY_GRAPH]:
-- `UnitsNet` — quantity-type registry and SI-coercion boundary.
-- `QuikGraph` — built-once incidence and topology view over the graph.
-
-[IDENTITY_TIME]:
+[TIME_IDENTITY]:
 - `System.IO.Hashing` — kernel seed-zero content-hash seed.
 - `NodaTime` — instant stamps on assessments, provenance, and headers.
 - `NodaTime.Serialization.Protobuf` — `Instant` wire crossing on the `Graph/wire` headers.
 - `TimeProvider` — in-box injected monotonic clock behind every timed seam decoration.
 
-[WIRE_TRANSCRIPTION]:
+[NUMERIC_SUBSTRATE]:
+- `UnitsNet` — quantity-type registry and SI-coercion boundary.
+
+[GRAPH_ALGORITHM]:
+- `QuikGraph` — built-once incidence and topology view over the graph.
+
+[WIRE_CODEGEN]:
 - `Google.Protobuf` — `rasm.element.v1` message flow and payload-limit gate.
 - `Grpc.Tools` — build-only proto codegen; never a runtime surface.
 - `Riok.Mapperly` — source-generated seam↔wire case transcription.
 - `Generator.Equals` — structural equality and member diff feeding the 3-way merge.
-- `Thinktecture.Runtime.Extensions.Json` — JSON boundary transcription for smart-enum and value-object types.

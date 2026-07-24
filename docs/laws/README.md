@@ -25,6 +25,8 @@ Each fact kind below routes to its owner; a fact earns a row in this corpus only
 |  [07]   | Cross-surface edit coupling  | `topology.md`                                      |
 |  [08]   | Cross-branch pattern law     | `patterns.md`                                      |
 |  [09]   | Paid-for regression trap     | `scars.md`                                         |
+|  [10]   | Settled recurring decision   | the narrowest owning `RULINGS.md` tier             |
+|  [11]   | Test-estate law              | `tests/README.md` + the owning `tests/` tree tier  |
 
 [EXTENSION_LADDER]:
 - Law: capability extends the owner before it mints a page — harden an existing clause, then extend an existing page inside its owner, then mint a new page, each move proving the prior cannot carry the fact.
@@ -43,13 +45,8 @@ Each fact kind below routes to its owner; a fact earns a row in this corpus only
 - Law: a reviewer rule mirrors across all three reviewer configs.
 
 [RE_PROVING]:
-- Law: rows are re-proven against the live tree, never archived.
-- Law: a scar moves out the moment a gate or doctrine page absorbs it.
-- Law: a patterns row that stops binding two branches demotes to the surviving branch's stack page.
+- Law: heavy workflow runs re-prove every row against the live tree; no row archives.
 
 ## [03]-[PAGE_SHAPE]
 
 - Law: a page owns one law family in the representation that states it — a comparison table whose rows share one question, marker-led `[TOKEN]:` cards where each law owns its own contrast, or numbered doctrine sections for a universal law; no shape is the default.
-- Law: every shape binds the register — timeless law, real repo surfaces in exact code-span spellings, one owner per fact, no run provenance or process narration.
-- Law: a page is context for the next writer, so no member roster freezes a census, no forbidden-form litany anchors the anti-shape, and no count reads as a ceiling; the extension rule stands in the anchor's place.
-- Law: every touched page passes the prose gate to zero FAILs.

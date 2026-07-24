@@ -43,5 +43,7 @@ Shared substrate consumed from the Ts registry; the registry and its charters ow
 
 [TYPING_RAILS]:
 - `effect`
-- `@effect/experimental`
+
+[PLATFORM]:
 - `@effect/platform`
+- `@effect/experimental`

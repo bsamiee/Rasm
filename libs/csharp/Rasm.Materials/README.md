@@ -2,7 +2,7 @@
 
 `Rasm.Materials` owns architectural substance, appearance, and buildable component type — what a building is made of, how it performs, and how it renders. One polymorphic `Component` carries every standardized family as policy rows over one section-profile algebra and one capacity rail, so a new family, section shape, or unit is a data row and every standards value traces to its published source or vendor factory. Its appearance plane is physically based end to end — BSDF lobes, OpenPBR lowering, spectral and perceptual color science, Kubelka-Munk finishes — held at render grade.
 
-Component rows feed generated assemblies and fabrication physics, capacity receipts feed structural assessment, and appearance feeds path-traced viewports and MaterialX interchange. It projects property catalogues, the component-family axis, section profiles, and capacity receipts onto the `Rasm.Element` seam through the one `ComponentProjector`, reminting no vector, color, unit, or seam type; it references no AEC peer — alignment travels through seam contracts and the content-keyed wire.
+Component rows feed generated assemblies and fabrication physics, capacity receipts feed structural assessment, and appearance feeds path-traced viewports and MaterialX interchange. It composes the `Rasm` admission floor and the `Rasm.AppHost` observability spine. It projects property catalogues, the component-family axis, section profiles, and capacity receipts onto the `Rasm.Element` seam through the one `ComponentProjector`, reminting no vector, color, unit, or seam type; it references no AEC peer — alignment travels through seam contracts and the content-keyed wire.
 
 ## [01]-[ROUTER]
 
@@ -37,9 +37,9 @@ Component rows feed generated assemblies and fabrication physics, capacity recei
 
 [PROJECTION]:
 - [24]-[PROJECTION](.planning/Projection/component.md): `ComponentProjector` mints Type Objects and material subgraphs.
-- [25]-[OBSERVABILITY](.planning/Projection/observability.md): `MaterialsFact`, latency, and descriptor policy; signal rails stay blocked.
-- [26]-[BENCHMARKS](.planning/Projection/benchmarks.md): Content-bound `BenchKernel` workload corpus with catalog-blocked receipt gating.
-- [27]-[ANALYTICS](.planning/Projection/analytics.md): Composite-key schemas and parameterized folds; SI selectors stay blocked.
+- [25]-[OBSERVABILITY](.planning/Projection/observability.md): `MaterialsFact`, latency, and descriptor policy.
+- [26]-[BENCHMARKS](.planning/Projection/benchmarks.md): Content-bound `BenchKernel` workload corpus with receipt gating.
+- [27]-[ANALYTICS](.planning/Projection/analytics.md): Composite-key schemas and parameterized folds.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -64,11 +64,6 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `MessagePack` — binary appearance-interchange wire with source-generated resolver and untrusted-data hardening.
 - `MessagePackAnalyzer` — build-only proof of `[Key]` coverage on every wire record.
 
-[PROJECTS]:
-- `Rasm` — geometry kernel: value-objects, the admission floor, and the seed-zero content-hash entry.
-- `Rasm.AppHost` — observability spine: hook points, instrument rows, the receipt fan capsule, and the benchmark gate.
-- `Rasm.Element` — projected element seam: graph algebra, material vocabulary, and `IElementProjection`.
-
 ## [03]-[SUBSTRATE_PACKAGES]
 
 Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
@@ -80,19 +75,23 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `Thinktecture.Runtime.Extensions.MessagePack`
 - `JetBrains.Annotations`
 
-[NUMERIC]:
+[TIME_IDENTITY]:
+- `NodaTime` — `Duration` fact columns and the `LocalDate` evidence expiry.
+
+[NUMERIC_SUBSTRATE]:
 - `UnitsNet`
 - `MathNet.Numerics` — overdetermined least-squares rail for the measured-BRDF GGX fit.
 - `CommunityToolkit.HighPerformance` — dense appearance planes read as spans, never offsets.
 
-[OBSERVABILITY]:
-- `Microsoft.Extensions.Logging.Abstractions` — `ILogger` and generated-log contracts for the catalog-blocked fixed-severity fault projection.
-- `Microsoft.Extensions.Telemetry.Abstractions` — `ILatencyContext` checkpoint ledger over the eager constructions.
-- `NodaTime` — `Duration` fact columns and the `LocalDate` evidence expiry.
-
-[MAPPING_GRAPH]:
-- `Riok.Mapperly` — source-generated boundary transcription under the completeness gate.
+[GRAPH_ALGORITHM]:
 - `QuikGraph` — appearance-DAG topological sort.
 
 [COLOR_SCIENCE]:
 - `Wacton.Unicolour` — color-space conversion and perceptual difference for the appearance engine.
+
+[OBSERVABILITY]:
+- `Microsoft.Extensions.Logging.Abstractions` — `ILogger` and generated-log contracts for the fixed-severity fault projection.
+- `Microsoft.Extensions.Telemetry.Abstractions` — `ILatencyContext` checkpoint ledger over the eager constructions.
+
+[WIRE_CODEGEN]:
+- `Riok.Mapperly` — source-generated boundary transcription under the completeness gate.

@@ -4,7 +4,7 @@
 
 Its bar is trust made structural: no engine boots unproven — every extension and relation demand is proven at `Layer` construction; truth is never rewritten — evolution is read-time upcasting behind the causal frontier; atomicity is one commit — outbox rows, projection slots, the idempotency claim, and their events settle together, a replay returning the stored receipt; erasure is cryptographically total — destroying the sole wrapped key folds every sealed read to a redaction marker.
 
-A backend enters as a semantic-guarantee row on its owning lane, never a sibling shape. This folder stores only wrapped key material — custody stays with security — and enforces the security-declared tenancy contract at every write through the one pinned transaction path; the deploy plane applies schema at provision while data proves it fail-closed at startup and never mutates it.
+Each owning lane admits a backend as a semantic-guarantee row, never a sibling shape. This folder stores only wrapped key material — custody stays with security — and enforces the security-declared tenancy contract at every write through the one pinned transaction path; the deploy plane applies schema at provision while data proves it fail-closed at startup and never mutates it.
 
 ## [01]-[ROUTER]
 

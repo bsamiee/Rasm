@@ -2,7 +2,7 @@
 
 `Rasm.Rhino` is the single host boundary over RhinoCommon, Rhino UI, Eto, and the macOS native surface — the full Rhino host captured as typed, leased capability. Every host concern folds through one owner behind thread-affinity and capability gates, every native resource is retained only across its leased extent, and every outcome is a typed receipt. Its bar is total capture: an app root or an agent composes parameterized host capability without learning RhinoCommon's raw surface, and Rhino-native drafting, sheets, and file I/O stay rich rather than thinned toward a host-neutral floor.
 
-It references no sibling package — every alignment travels down the one kernel seam, and it enters only at the app roots, never as an interior dependency of a host-neutral package.
+It references no sibling package — every alignment travels down the one kernel seam, and it enters only at the app roots, never as an interior dependency of a host-neutral package. Every measured surface mints the typed receipt carrying its own run evidence; instrument execution over those declarations is app-root altitude, never a second measurement truth inside the boundary.
 
 ## [01]-[ROUTER]
 
@@ -120,13 +120,6 @@ Host assemblies admitted by this folder bind as `Directory.Build.props` host ref
 ## [03]-[SUBSTRATE_PACKAGES]
 
 Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
-
-Observability axis is fault logging with declared projection data: every measured surface mints the typed receipt carrying its own run evidence, and instrument execution over those declarations is app-root altitude, never a second measurement truth inside the boundary:
-- `ObjectsTelemetry` (`Objects/authoring.md`) owns the one structured-log egress behind plugin-keyed sinks.
-- `RhinoInstrumentPartition` and the `MarshalLatency` checkpoints declare the instrument projection as data.
-- `MountRegistry` (`Document/events.md`) names every fact stream as a `rasm.rhino.<domain>.<point>` row.
-- `BenchEvidence` (`Modeling/solids.md`) carries in-host benchmark harvest through the `ModelGate` spine and the capture run rail.
-- `DocumentCensus` (`Objects/state.md`) folds the one analytics-ready document census.
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`

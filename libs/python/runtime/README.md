@@ -1,6 +1,6 @@
 # [PY_RUNTIME]
 
-`runtime` is stratum zero of the Python branch: the host-free execution foundation every sibling composes, where proof outranks feature reach. Every shared vocabulary — content identity, fault and resilience rails, admission, lanes, logical time, receipts and telemetry, resource transport, the companion server — mints once, symbol-consumed; the module set stands alone, zero siblings installed. A defect here multiplies — every fold returns through the fault rail, every retry rides the one policy table, the C# host drives the served wire — so nothing lands as convention that can land as proof.
+`runtime` is stratum zero of the Python branch: the host-free execution foundation every sibling composes, where proof outranks feature reach. Every shared vocabulary — content identity, fault and resilience rails, admission, lanes, logical time, receipts and telemetry, resource transport, the companion server — mints once, symbol-consumed; the module set stands alone, zero siblings installed. Defects here multiply — every fold returns through the fault rail, every retry rides the one policy table, the C# host drives the served wire — so nothing lands as convention that can land as proof.
 
 One polymorphic owner per sub-domain mints the shared value shapes once, and every sibling returns through them rather than re-minting its own. Companion decode admits only C#-minted wire shapes and owns no wire vocabulary, so identity crosses the runtime boundary through a single mint.
 
@@ -41,7 +41,7 @@ One polymorphic owner per sub-domain mints the shared value shapes once, and eve
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Domain libraries this folder admits directly; versions centralize in the one root manifest.
+Domain-specific libraries admitted by this folder; versions centralize in the root `pyproject.toml` and corroborate against this folder's `.api/`.
 
 [SETTINGS_SECRETS]:
 - `pydantic-settings`
@@ -123,8 +123,10 @@ Shared substrate consumed from the Py registry; the registry and its charters ow
 - `obstore`
 - `universal-pathlib`
 
-[WIRE]:
-- `protobuf`
+[COMPRESSION]:
+- `lz4`
+
+[WIRE_CODEGEN]:
 - `grpcio`
 - `grpcio-tools`
-- `lz4`
+- `protobuf`

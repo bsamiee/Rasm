@@ -34,7 +34,7 @@ Its shell mounts onto any admitted substrate through the abstract `SurfaceHost` 
 [CHARTS]:
 - [20]-[DASHBOARDS](.planning/Charts/dashboards.md): Chart series and axis rows with downsampled stream binding and brushing.
 - [21]-[CUSTOM](.planning/Charts/custom.md): Custom-visual Skia layout algebra with a keyed color-policy projection.
-- [22]-[BASEMAP](.planning/Charts/basemap.md): Tiled basemap with Bim-owned overlays, EditManager redlining, and camera verbs beside the viewport.
+- [22]-[BASEMAP](.planning/Charts/basemap.md): Tiled basemap with Bim-owned overlays, redlining, and camera verbs beside the viewport.
 - [23]-[TELEMETRY](.planning/Charts/telemetry.md): Telemetry board over instrument, SLO burn-rate, store-profile, and evidence-track tiles.
 
 [EDITING]:

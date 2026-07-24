@@ -54,18 +54,18 @@ It references no sibling package, admitting the kernel only as a boundary contra
 Host assemblies admitted by this folder bind as `Directory.Build.props` host references from the installed Rhino bundle — never manifest package rows — and this folder's `.api/` corroborates each surface.
 
 [MANAGED_HOST]:
-- `Grasshopper2` — hosts the component, canvas, document, and solution surface
-- `GrasshopperIO` — `IReader`/`IWriter` host-document persistence
-- `RhinoCommon` — Rhino document and geometry carriers with the getter and dialog handoff
-- `Rhino.UI` — Rhino styling and the native UI bridge
-- `System.Drawing.Common` — compile-time GDI carrier interop at the GH1 icon boundary
+- `Grasshopper2` — hosts the component, canvas, document, and solution surface.
+- `GrasshopperIO` — `IReader`/`IWriter` host-document persistence.
+- `RhinoCommon` — Rhino document and geometry carriers with the getter and dialog handoff.
+- `Rhino.UI` — Rhino styling and the native UI bridge.
+- `System.Drawing.Common` — compile-time GDI carrier interop at the GH1 icon boundary.
 
 [UI_TOOLKIT]:
-- `Eto` — carries the cross-platform UI toolkit: forms, drawing, binding, dispatch, controls, windows, and input
-- `Eto.macOS` — backs Eto with AppKit and the `IMacControlHandler` view roles
+- `Eto` — carries the cross-platform UI toolkit: forms, drawing, binding, dispatch, controls, windows, and input.
+- `Eto.macOS` — backs Eto with AppKit and the `IMacControlHandler` view roles.
 
 [PLATFORM_NATIVE]:
-- `Microsoft.macOS` — AppKit, CoreAnimation, CoreGraphics, CoreImage, and Foundation bindings behind the gated native owners
+- `Microsoft.macOS` — AppKit, CoreAnimation, CoreGraphics, CoreImage, and Foundation bindings behind the gated native owners.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
@@ -77,7 +77,7 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `JetBrains.Annotations`
 
 [RECENCY_CACHE]:
-- `Microsoft.Extensions.Caching.Hybrid` — tagged L1/L2 recency and stampede control for document-scoped `SessionCache` values
+- `Microsoft.Extensions.Caching.Hybrid` — tagged L1/L2 recency and stampede control for document-scoped `SessionCache` values.
 
-[TELEMETRY]:
-- `Microsoft.Extensions.Logging.Abstractions` — app-neutral logger admission for the `GhTelemetry` capsule; the metric surface ships BCL in-box
+[OBSERVABILITY]:
+- `Microsoft.Extensions.Logging.Abstractions` — app-neutral logger admission for the `GhTelemetry` capsule; the metric surface ships BCL in-box.

@@ -253,7 +253,7 @@ public static class Seam {
 - Law: proofs are deterministic folds over already-materialized metadata — one enumeration at boot, structurally incapable of scaling with traffic — and a proof failure is a typed fault in the capability band, so boot failures and message-time rejections fold into one stream.
 - Law: the swept vocabularies, exemption lists, and matrix rows are the seam documentation — drift is structurally impossible because the document is the data the proof reads, and the opt-out registry is itself swept, so a permissive row whose seam no longer exists is dead policy caught at boot.
 - Law: fail-closed is the one default across every admission surface — unknown configuration keys, unknown wire members, undefined enum bits including flag combinations, unregistered cases — and a permissive row is earned only where unknown input is provably non-actionable and the row is enumerable by the proofs.
-- Law: a pass or compliance verdict quantified over a required evidence stream gates non-emptiness before the fold — universal quantification over an empty sequence passes vacuously, so absent required evidence reads as compliance; the verdict derives from the stream with the empty stream failing closed.
+- Law: a verdict fold over a required evidence stream gates non-emptiness first, the empty stream failing closed as a typed capability-band fault.
 
 ```csharp conceptual
 public sealed record SeamVocabulary(Seq<string> Codes, Seq<string> MemberExempt, Seq<string> PairingExempt);

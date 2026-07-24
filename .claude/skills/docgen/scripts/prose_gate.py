@@ -251,6 +251,9 @@ NUMBERED_LEAD = re.compile(r"^\d+[.)]\s")
 LINK = re.compile(r"(?<!!)\[([^\]\n]+)\]\(((?:[^()\s]|\([^()\s]*\))+)(?:\s+\"[^\"]*\")?\)")
 NUMBERED_SECTION = re.compile(r"^\[(?P<n>\d{2})\]-\[(?P<token>[A-Z][A-Z0-9_]*)\](?:-\[[A-Z][A-Z0-9_]*\])*$")
 PLACEHOLDER = re.compile(r"<[a-z][a-z0-9]*(?:[-_][a-z0-9]+)+>")
+# Agent bodies under `.claude/agents/` are dispatched system prompts: whole-line XML spine tags are structure, never
+# unfilled slots, and the second-person demand voice is the register, so bare `you` leaves the hedge scan there.
+AGENT_SPINE = re.compile(r"^</?[a-z][a-z0-9_]*>\s*$")
 SENTENCE_END = re.compile(r"[.!?](?:\s|$)")
 SETEXT = re.compile(r"^\s*(?:=+|-{3,})\s*$")
 TABLE_SEP = re.compile(r"^\s*\|(?:\s*:?-+:?\s*\|)+\s*$")
@@ -646,6 +649,10 @@ def teaching(path: Path) -> bool:
     return bool(TEACHING & parts) and bool({".claude", "skills", "docs"} & parts)
 
 
+def agent_body(path: Path) -> bool:
+    return any(a == ".claude" and b == "agents" for a, b in pairwise(path.parts))
+
+
 def fence_closes(matched: re.Match[str] | None, glyph: str, width: int, margin: int) -> bool:
     # One owner decides fence closure everywhere: same glyph, at least the opening run, bare info, bounded indent.
     return (
@@ -822,13 +829,26 @@ def lex(path: Path, text: str, cap: int) -> tuple[Document, tuple[Row, ...]]:
                     f"router card {len(line)} cols > cap {cap}; one owner, one charter phrase — demote the tail",
                 )
             )
-        if path.name == "ARCHITECTURE.md" and last_rubric == "STRATA" and not template and not (path.parent.name == ".planning" and path.parent.parent.name == "libs"):
+        if (
+            path.name == "ARCHITECTURE.md"
+            and last_rubric == "STRATA"
+            and not template
+            and not (path.parent.name == ".planning" and path.parent.parent.name == "libs")
+        ):
             if line.startswith(("    -", "\t-")):
                 rows.append(row(path, number, Check.STRATA_ROW, "fail", "nested seating row; seatings are flat `S<N>`-keyed bullets"))
             elif STRATA_ROW_KEY.match(line) and len(line) > cap:
                 rows.append(row(path, number, Check.STRATA_ROW, "fail", f"seating row {len(line)} cols > cap {cap}; one decision per keyed row"))
             elif line.startswith("- ") and not STRATA_ROW_KEY.match(line) and not line.startswith("- `"):
-                rows.append(row(path, number, Check.STRATA_ROW, "warn", "seating row lacks its `S<N>` key; a code-span-led strata-external citizen is the one legal keyless row"))
+                rows.append(
+                    row(
+                        path,
+                        number,
+                        Check.STRATA_ROW,
+                        "warn",
+                        "seating row lacks its `S<N>` key; a code-span-led strata-external citizen is the one legal keyless row",
+                    )
+                )
         if heading := HEADING.match(line):
             headings.append(Heading(number, len(heading.group("level")), heading.group("title")))
             rubrics = re.findall(r"\[([A-Z][A-Z0-9_]*)\]", heading.group("title"))
@@ -865,13 +885,9 @@ def lex(path: Path, text: str, cap: int) -> tuple[Document, tuple[Row, ...]]:
         links.extend(LinkRef(number, link.group(2)) for link in LINK.finditer(re.sub(r"`[^`]*`", "", line)))
         if not template and not EXAMPLE_LINE.match(line):
             if ARTICLE_ANNOTATION.match(line):
-                rows.append(
-                    row(path, number, Check.ARTICLE_OPENER, "fail", f"annotation opens on an article{ARTICLE_CURE}")
-                )
+                rows.append(row(path, number, Check.ARTICLE_OPENER, "fail", f"annotation opens on an article{ARTICLE_CURE}"))
             elif ARTICLE_FRAGMENT.match(line):
-                rows.append(
-                    row(path, number, Check.ARTICLE_OPENER, "fail", f"entry opens on an article{ARTICLE_CURE}")
-                )
+                rows.append(row(path, number, Check.ARTICLE_OPENER, "fail", f"entry opens on an article{ARTICLE_CURE}"))
         if item := LIST_ITEM.match(line):
             if item.group("mark") in "*+":
                 rows.append(row(path, number, Check.LIST_MARKER, "fail", f"bullet marker {item.group('mark')} where - is the only legal marker"))
@@ -1126,22 +1142,17 @@ def link_rows(doc: Document) -> tuple[Row, ...]:
 
 
 def prose_rows(doc: Document) -> tuple[Row, ...]:
+    agent = agent_body(Path(doc.path))
     rows: list[Row] = []
     for span in doc.prose:
         if EXAMPLE_LINE.match(span.text):
             if not QUOTE_LINE.match(span.text):
                 rows.extend(
-                    row(
-                        doc.path,
-                        span.line,
-                        Check.ARTICLE_OPENER,
-                        "fail",
-                        f"{hit.group(0).lstrip('.!?:; ')}{ARTICLE_CURE}",
-                    )
+                    row(doc.path, span.line, Check.ARTICLE_OPENER, "fail", f"{hit.group(0).lstrip('.!?:; ')}{ARTICLE_CURE}")
                     for hit in SENTENCE_ARTICLE.finditer(QUOTED_SPAN.sub(" ", span.text))
                 )
             continue
-        if not doc.template:
+        if not doc.template and not (agent and AGENT_SPINE.match(span.text)):
             rows.extend(
                 row(doc.path, span.line, Check.TEMPLATE_SLOT, "fail", f"{hit.group(0)} is an unfilled template slot; fill it or delete the line")
                 for hit in PLACEHOLDER.finditer(span.text)
@@ -1160,6 +1171,7 @@ def prose_rows(doc: Document) -> tuple[Row, ...]:
             for check, pattern, status, cure in PATTERNS
             for hit in pattern.finditer(voiced)
             if not (check is Check.VERSION_ANCHOR and CITATION_LEAD.search(voiced[: hit.start()]))
+            and not (agent and check is Check.HEDGE and hit.group(0).lower() == "you")
         )
     return tuple(rows)
 
@@ -1189,7 +1201,12 @@ def list_rows(doc: Document) -> tuple[Row, ...]:
                     f"{entry.text.split(':', 1)[0]} is not a legal leader — [NN]-[TOKEN]:, [TOKEN]:, or [NN]: with UPPERCASE_SNAKE tokens",
                 )
             )
-        if entry.span_share < ROSTER_SPAN_SHARE and not entry.text.startswith("`") and FIELD_LINE.match(entry.text) is None and QUOTE_LINE.match(entry.text) is None:
+        if (
+            entry.span_share < ROSTER_SPAN_SHARE
+            and not entry.text.startswith("`")
+            and FIELD_LINE.match(entry.text) is None
+            and QUOTE_LINE.match(entry.text) is None
+        ):
             sentences = len(SENTENCE_END.findall(entry.prose))
             if sentences > LIST_SENTENCE_CAP:
                 detail = f"{sentences} sentences > cap {LIST_SENTENCE_CAP}; split distinct decisions into sibling entries, delete restatements"

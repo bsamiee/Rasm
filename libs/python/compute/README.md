@@ -47,7 +47,7 @@ It imports no host runtime and re-owns no peer interior — geometry, columnar d
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Scientific and solver libraries admitted by this folder; versions centralize in the root `pyproject.toml` and corroborate against this folder's `.api/`.
+Domain-specific libraries admitted by this folder; versions centralize in the root `pyproject.toml` and corroborate against this folder's `.api/`.
 
 [ARRAY_AND_JIT]:
 - `array-api-compat`
@@ -56,6 +56,7 @@ Scientific and solver libraries admitted by this folder; versions centralize in 
 - `jax`
 - `jaxtyping`
 - `sparse`
+- `dask` — passive `array_namespace` backend; compute imports no Dask runtime.
 
 [SOLVERS]:
 - `scipy`
@@ -89,6 +90,7 @@ Scientific and solver libraries admitted by this folder; versions centralize in 
 [EXPERIMENTS]:
 - `SALib`
 - `pyDOE3` — classical design-of-experiments matrix generation.
+- `narwhals` — admits the study DOE frame through the published `data/tabular` contract surfaces.
 - `scikit-learn`
 - `onnx`
 - `onnxruntime`
@@ -108,18 +110,16 @@ Shared substrate consumed from the Py registry; the registry and its charters ow
 - `msgspec`
 - `beartype`
 
+[OBSERVABILITY]:
+- `opentelemetry-api` — hub-only trace surface folding the geometry producer context as a span `Link`.
+- `psutil` — two-block `oneshot` resource band beneath the hub weave, own-process handle only.
+
 [NUMERIC_SUBSTRATE]:
 - `numpy`
-- `dask` — passive array-backend row only; its catalog homes folder-local, and compute imports no Dask runtime.
 - `xarray`
-- `narwhals` — admits the study DOE frame, consumed through the published `data/tabular` contract surfaces.
-- `meshio`
 
-[OBSERVABILITY]:
-- `rasm.runtime.receipts` — `measured` weave the hub `evidence_run` binding composes.
-- `rasm.runtime.hooks` — `HookPoint` registry, `fire`, and the built-in receipt/metric taps the compute point rail registers on.
-- `psutil` — two-block `oneshot` resource band beneath the hub weave, own-process handle only.
-- `opentelemetry-api` — hub-only trace surface folding the geometry producer context as a span `Link`; no SDK construction.
-
-[RESOURCES]:
+[TRANSPORT]:
 - `universal-pathlib`
+
+[MESH_INTERCHANGE]:
+- `meshio`

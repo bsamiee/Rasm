@@ -128,28 +128,26 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 
 Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
 
-[SEAM_CONTRACTS]:
-- `Rasm.Element` — element seam Bim depends UP on: canonical graph with projection and constraint contracts.
-- `Riok.Mapperly` — compile-time boundary transcription over the seam unions.
-- `Generator.Equals` — structural equality and member diff behind the emit change derivation.
-
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`
 - `Thinktecture.Runtime.Extensions`
 - `Thinktecture.Runtime.Extensions.Json`
 - `JetBrains.Annotations`
 
-[NUMERIC_ALGORITHM]:
+[TIME_IDENTITY]:
+- `NodaTime`
+- `System.IO.Hashing` — reached only through the kernel content-hash mint every content key seeds from.
+
+[NUMERIC_SUBSTRATE]:
 - `UnitsNet`
-- `NetTopologySuite` — OGC Simple-Features planar algebra behind the geospatial seam; IO codecs stay folder additions.
-- `QuikGraph` — CPM sort, system-trace reachability, commit-DAG ancestor, and coordination closure walks.
 - `CommunityToolkit.HighPerformance` — pooled buffer staging behind the mesh encoders.
 
-[IDENTITY_TIME]:
-- `System.IO.Hashing` — reached only through the kernel content-hash mint every content key seeds from.
-- `NodaTime`
+[GRAPH_ALGORITHM]:
+- `QuikGraph` — CPM sort, system-trace reachability, commit-DAG ancestor, and coordination closure walks.
 
-[TEST]:
-- `xunit.v3.*`
-- `CsCheck`
-- `coverlet.MTP`
+[PLANAR_GEOMETRY]:
+- `NetTopologySuite` — OGC Simple-Features planar algebra behind the geospatial seam; IO codecs stay folder additions.
+
+[WIRE_CODEGEN]:
+- `Riok.Mapperly` — compile-time boundary transcription over the seam unions.
+- `Generator.Equals` — structural equality and member diff behind the emit change derivation.

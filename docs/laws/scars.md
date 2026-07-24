@@ -1,6 +1,6 @@
 # [SCARS]
 
-Regression-proven law with no other owner: each scar is standing law, and its trigger names the falsifiable failure mode the law forecloses. A scar whose law gains a real owner — a gate, a doctrine page, a skill — moves there and leaves no copy.
+Regression-proven law with no other owner: each scar is standing law, and its trigger names the falsifiable failure mode the law forecloses. Gaining a real owner — a gate, a doctrine page, a skill — moves the scar there and leaves no copy.
 
 ## [01]-[LEDGER]
 

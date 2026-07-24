@@ -99,7 +99,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Microsoft.Data.Sqlite` — read-only eplusout.sql tabular reader.
 - `NREL.OpenStudio.macOS-arm64` — in-process SWIG SDK lowering `ElementGraph` to OSM and IDF and reading `SqlFile`.
 - `PollinationSDK` — `EnergyRoute.Cloud` transport onto the same `SqlFile` fold.
-- `EC3` — openEPD REST service, no NuGet row: consumed hand-thin over `HttpClient`; the adjacent `.api` catalog is the integration contract.
+- `EC3` — openEPD REST service consumed hand-thin over `HttpClient`; no manifest row.
 
 [INTERCHANGE_TRANSPORT]:
 - `SharpGLTF.Core` — glTF core read and write.
@@ -107,8 +107,8 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `SharpGLTF.Toolkit` — mesh-building toolkit.
 - `Alimer.Bindings.MeshOptimizer` — meshoptimizer simplification and cluster-LOD bindings.
 - `CloudNative.CloudEvents.Mqtt` — structured-mode CloudEvents MQTT binding decoding typed twin sensor envelopes.
-- `MQTTnet` — MQTT v5 carrier beneath the admitted CloudEvents message decoder; subscription members stay catalog-blocked.
-- `NATS.Net` — NATS Core subscription seam for broker sensor ingest; the folder `api-nats` overlay carries the members.
+- `MQTTnet` — MQTT v5 carrier beneath the admitted CloudEvents message decoder.
+- `NATS.Net` — NATS Core subscription seam for broker sensor ingest.
 - `Apache.Arrow` — columnar `RecordBatch` construction for surrogate-training and billing egress; IPC/ADBC/Flight egress stays Persistence-side.
 - `Microsoft.IO.RecyclableMemoryStream` — pooled-buffer stream behind the artifact frames.
 - `Grpc.Net.Client.Web` — gRPC-Web handler for HTTP/1.1 and browser-constrained paths.
@@ -124,38 +124,39 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `Thinktecture.Runtime.Extensions.Json`
 - `JetBrains.Annotations`
 
-[NUMERIC]:
+[TIME_IDENTITY]:
+- `NodaTime`
+- `NodaTime.Serialization.Protobuf`
+- `System.IO.Hashing`
+
+[NUMERIC_SUBSTRATE]:
 - `CommunityToolkit.HighPerformance`
 - `CSparse` — managed sparse direct-factor terminal.
 - `MathNet.Numerics` — quadrature, distributions, and the MKL/OpenBLAS provider hooks.
 - `System.Numerics.Tensors`
 - `UnitsNet`
 
-[IDENTITY_TIME]:
-- `NodaTime`
-- `System.IO.Hashing`
+[GRAPH_ALGORITHM]:
+- `QuikGraph` — `Analysis/circulation` path and topology algebra over the space-adjacency view.
+
+[PLANAR_GEOMETRY]:
+- `NetTopologySuite` — isovist and visibility polygons at the circulation planar boundary.
+- `Clipper2` — corridor-clearance offset algebra at the same boundary.
 
 [RECENCY_CACHE]:
 - `Microsoft.Extensions.Caching.Hybrid` — one `HybridCache` per lane.
 
-[GRAPH_GEOMETRY]:
-- `QuikGraph` — `Analysis/circulation` path and topology algebra over the space-adjacency view.
-- `NetTopologySuite` — isovist and visibility polygons at the circulation planar boundary.
-- `Clipper2` — corridor-clearance offset algebra at the same boundary.
-
-[MODEL_ABSTRACTION]:
+[AI_CONTRACTS]:
 - `Microsoft.Extensions.AI.Abstractions` — `IChatClient` abstraction the AppHost provider binds.
 
-[MAPPING_WIRE]:
+[WIRE_CODEGEN]:
 - `Riok.Mapperly` — per-case proto↔domain transcription at the `Runtime/wire` boundary.
 - `Generator.Equals` — `[Equatable]` structural equality where a class-root wire shape surrenders record equality.
 - `Google.Protobuf`
 - `Grpc.Net.Client`
 - `Grpc.AspNetCore`
 - `Grpc.Tools`
-- `NodaTime.Serialization.Protobuf`
 
-[TEST]:
-Rows bind in branch test and benchmark projects, never the package csproj.
+[TEST_SUBSTRATE]: Rows bind in branch test and benchmark projects, never the package csproj.
 - `BenchmarkDotNet`
 - `Microsoft.AspNetCore.TestHost` — in-memory server the `RemoteTransport.InProcess` row injects in the transport test harness.

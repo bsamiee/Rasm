@@ -2,7 +2,7 @@
 
 `libs/csharp` is the platform's producer branch — the Rhino 9/GH2-aware AEC platform spanning the geometry kernel, the AEC domain, the app platform, and the host boundaries, minting the wire vocabulary and capability descriptors every peer runtime consumes. It routes the C# packages in strata order — the `Rasm` kernel at the base up to the host-boundary shells — and owns the substrate registry every folder composes.
 
-A package earns a registry row only where two or more folders share it; a folder README owns its own additions, `libs/csharp/.api/` holds the shared API catalogues, and the one C# manifest pins versions.
+This branch registry admits a package only where two or more folders share it; a folder README owns its own additions, `libs/csharp/.api/` holds the shared API catalogues, and the one C# manifest pins versions.
 
 ## [01]-[ROUTER]
 
@@ -22,7 +22,7 @@ Package roots in strata order; each root README routes its own design pages, and
 
 ## [02]-[SUBSTRATE_PACKAGES]
 
-Cross-folder substrate every C# package composes. Libraries emit telemetry through the in-box `System.Diagnostics` surface, so the OpenTelemetry SDK, exporter, and instrumentation train composes at app roots alone — those packages carry branch-tier catalogs without registry rows. Host SDK assemblies are not packages: `RhinoCommon` evidence homes at the branch tier catalogue-only because the kernel and both host-boundary folders compose one surface.
+Cross-folder substrate every C# package composes. Libraries emit telemetry through the in-box `System.Diagnostics` surface, so the OpenTelemetry SDK, exporter, and instrumentation train composes at app roots alone — those packages carry branch-tier catalogues without registry rows. Host SDK assemblies are not packages: `RhinoCommon` evidence homes at the branch tier catalogue-only because the kernel and both host-boundary folders compose one surface.
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`

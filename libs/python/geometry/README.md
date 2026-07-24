@@ -45,57 +45,57 @@ It meets C# only at the wire through content identity and the GLB tessellation r
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Domain libraries this folder admits; versions centralize in the root `pyproject.toml`, and the recipe schema binding homes to `runtime`. A `Deferred` tag marks a branch-admitted library a carded task draws on that geometry does not yet compose.
+Domain-specific libraries admitted by this folder; versions centralize in the root `pyproject.toml` and corroborate against this folder's `.api/`.
 
 [IFC_BIM]:
-- `ifcopenshell` — IFC model, geometry, and tessellation spine
-- `ifctester` — buildingSMART IDS validation
-- `ifcclash` — BCF-producing clash detection
-- `bcf-client` — buildingSMART BCF I/O
-- `ifc5d` — Quantity take-off and cost-schedule rollup
-- `ifccsv` — IFC to CSV/ODS/XLSX/Pandas schedule round-trip
-- `ifc4d` — Construction scheduling
-- `ifcpatch` — Recipe transformation
-- `ifcdiff` — Model revision comparison
-- `lark` — IDS and selector grammar engine
+- `ifcopenshell` — IFC model, geometry, and tessellation spine.
+- `ifctester` — buildingSMART IDS validation.
+- `ifcclash` — BCF-producing clash detection.
+- `bcf-client` — buildingSMART BCF I/O.
+- `ifc5d` — Quantity take-off and cost-schedule rollup.
+- `ifccsv` — IFC to CSV/ODS/XLSX/Pandas schedule round-trip.
+- `ifc4d` — Construction scheduling.
+- `ifcpatch` — Recipe transformation.
+- `ifcdiff` — Model revision comparison.
+- `lark` — IDS and selector grammar engine.
 
 [SCAN]:
-- `open3d` — Point-cloud registration and reconstruction
-- `small-gicp` — Fine point-cloud registration
-- `kiss-matcher` — Global initialization-free registration
-- `probreg` — Probabilistic CPD/FilterReg/SVR non-rigid registration
-- `pye57` — E57 I/O
-- `pdal` — Scan-ingestion filter graph
+- `open3d` — Point-cloud registration and reconstruction.
+- `small-gicp` — Fine point-cloud registration.
+- `kiss-matcher` — Global initialization-free registration.
+- `probreg` — Probabilistic CPD/FilterReg/SVR non-rigid registration.
+- `pye57` — E57 I/O.
+- `pdal` — Scan-ingestion filter graph.
 
 [TOPOLOGY_GRAPH]:
-- `topologicpy` — Non-manifold cell-complex topology
-- `compas` — Network adjacency, form-finding, and mesh algebra
-- `compas_dr` — Dynamic relaxation
-- `compas_tna` — Thrust-network analysis
+- `topologicpy` — Non-manifold cell-complex topology.
+- `compas` — Network adjacency, form-finding, and mesh algebra.
+- `compas_dr` — Dynamic relaxation.
+- `compas_tna` — Thrust-network analysis.
 
 [MESH_CAD]:
-- `trimesh` — In-memory mesh operations, proximity, ray, and containment
-- `manifold3d` — Exact-boolean and clearance backend
-- `cadquery-ocp` — OCCT B-rep kernel and XCAF assembly for the STEP/IGES hop
-- `sectionproperties` — Warping, plastic, and shear enrichment
-- `rtree` — R-tree bounding-box index for the spatial bounds arm
-- `python-fcl` — Narrow-phase collision and signed-distance for the clearance arm
-- `gmsh` — Deferred
+- `trimesh` — In-memory mesh operations, proximity, ray, and containment.
+- `manifold3d` — Exact-boolean and clearance backend.
+- `cadquery-ocp` — OCCT B-rep kernel and XCAF assembly for the STEP/IGES hop.
+- `sectionproperties` — Warping, plastic, and shear enrichment.
+- `rtree` — R-tree bounding-box index for the spatial bounds arm.
+- `python-fcl` — Narrow-phase collision and signed-distance for the clearance arm.
+- `gmsh`
 
 [ENERGY]:
-- `ladybug-geometry` — Planar and solid value-object substrate of the Ladybug band
-- `ladybug-core` — Climate backbone: weather, unit registry, Sunpath, and results
-- `ladybug-comfort` — Thermal-comfort models and spatial comfort maps
-- `honeybee-core` — HBJSON building-model object graph and the `check_all` spine
-- `honeybee-energy` — Building-energy constructions, loads, schedules, and HVAC exchange
-- `honeybee-openstudio` — In-process OpenStudio/EnergyPlus translator
-- `honeybee-standards` — Baseline construction, schedule, and program data
-- `honeybee-energy-standards` — ASHRAE 90.1 and DOE-prototype construction sets
-- `dragonfly-core` — District 2.5-D massing model exploding to Honeybee
-- `dragonfly-energy` — District-energy translation
-- `queenbee` — Recipe and workflow schema contract
-- `lbt-recipes` — Recipe binding and input coercion
-- `pollination-handlers` — Model-to-recipe-input handler adapters
+- `ladybug-geometry` — Planar and solid value-object substrate of the Ladybug band.
+- `ladybug-core` — Climate backbone: weather, unit registry, Sunpath, and results.
+- `ladybug-comfort` — Thermal-comfort models and spatial comfort maps.
+- `honeybee-core` — HBJSON building-model object graph and the `check_all` spine.
+- `honeybee-energy` — Building-energy constructions, loads, schedules, and HVAC exchange.
+- `honeybee-openstudio` — In-process OpenStudio/EnergyPlus translator.
+- `honeybee-standards` — Baseline construction, schedule, and program data.
+- `honeybee-energy-standards` — ASHRAE 90.1 and DOE-prototype construction sets.
+- `dragonfly-core` — District 2.5-D massing model exploding to Honeybee.
+- `dragonfly-energy` — District-energy translation.
+- `queenbee` — Recipe and workflow schema contract; the schema binding homes to `runtime`.
+- `lbt-recipes` — Recipe binding and input coercion.
+- `pollination-handlers` — Model-to-recipe-input handler adapters.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
@@ -110,15 +110,15 @@ Shared substrate consumed from the Py registry; the registry and its charters ow
 [CONCURRENCY]:
 - `anyio`
 
+[OBSERVABILITY]:
+- `opentelemetry-api` — graduation-spine tracer surface.
+- `psutil` — graduation cost bracket: one `oneshot` cpu/rss sample pair per evidence crossing.
+
 [NUMERIC_SUBSTRATE]:
 - `numpy`
 
 [GRAPH_SUBSTRATE]:
 - `networkx`
-
-[OBSERVABILITY]:
-- `opentelemetry-api` — graduation-spine tracer surface; SDK and exporters stay runtime-owned.
-- `psutil` — graduation cost bracket: one `oneshot` cpu/rss sample pair per evidence crossing.
 
 [WIRE_CODEGEN]:
 - `grpcio`

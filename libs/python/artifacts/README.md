@@ -112,126 +112,126 @@ It folds data, compute, and geometry outputs — and any structured payload — 
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Domain libraries this folder admits; versions centralize in the root `pyproject.toml` and corroborate against this folder's `.api/`.
+Domain-specific libraries admitted by this folder; versions centralize in the root `pyproject.toml` and corroborate against this folder's `.api/`.
 
 [DOCUMENTS]:
 - `reportlab`
-- `weasyprint` — HTML-to-PDF with outline tree
-- `typst` — PDF/A compile with data binding
+- `weasyprint` — HTML-to-PDF with outline tree.
+- `typst` — PDF/A compile with data binding.
 - `pymupdf`
 - `pypdfium2`
-- `pdf-oxide` — Rust PDF extract/render/create/forms
-- `pypdf` — assembly and outline/transform egress
-- `pikepdf` — repair, encrypt, overlay, and structure-tree authoring
+- `pdf-oxide` — Rust PDF extract/render/create/forms.
+- `pypdf` — assembly and outline/transform egress.
+- `pikepdf` — repair, encrypt, overlay, and structure-tree authoring.
 - `python-docx`
 - `python-pptx`
 - `openpyxl`
-- `xlsxwriter` — write-only XLSX with charts and formats
-- `python-calamine` — fast read-only XLSX/XLS/ODS ingest
-- `odfpy` — OpenDocument read/write
-- `docxtpl` — jinja2 DOCX template render
-- `msoffcrypto-tool` — encrypted Office decrypt at ingest
-- `pdfplumber` — page text/table/word geometry extraction
-- `ocrmypdf` — OCR text layer over scanned PDF
+- `xlsxwriter` — write-only XLSX with charts and formats.
+- `python-calamine` — fast read-only XLSX/XLS/ODS ingest.
+- `odfpy` — OpenDocument read/write.
+- `docxtpl` — jinja2 DOCX template render.
+- `msoffcrypto-tool` — encrypted Office decrypt at ingest.
+- `pdfplumber` — page text/table/word geometry extraction.
+- `ocrmypdf` — OCR text layer over scanned PDF.
 - `lxml`
 - `ruamel-yaml`
 - `tomlkit`
 - `jinja2`
 - `papermill`
 - `nbclient`
-- `nbconvert` — notebook export to HTML/PDF/script
-- `jupytext` — notebook/text round-trip
+- `nbconvert` — notebook export to HTML/PDF/script.
+- `jupytext` — notebook/text round-trip.
 
 [VISUALIZATION]:
 - `altair`
 - `matplotlib`
-- `lets-plot` — second host-free chart engine
-- `vl-convert-python` — primary host-free chart export
-- `vegafusion` — chart export transform pre-pass
-- `great-tables` — publication-table producer
-- `polars` — first-class table and frame substrate
+- `lets-plot` — second host-free chart engine.
+- `vl-convert-python` — primary host-free chart export.
+- `vegafusion` — chart export transform pre-pass.
+- `great-tables` — publication-table producer.
+- `polars` — first-class table and frame substrate.
 
 [DIAGRAMS]:
-- `rustworkx` — graph layout, detail DAG, and plan producer graph
-- `grandalf` — second Sugiyama layered-layout engine
-- `pyelk` — ELK layered/orthogonal/ports/nesting layout
-- `fast-sugiyama` — Rust Sugiyama layered placement
-- `kiwisolver` — Cassowary constraint-layout solver
-- `ziafont` — glyph text-to-SVG-path outlining
-- `ziamath` — math-to-SVG rendering
-- `schemdraw` — native-SVG schematic diagrams
-- `drawpyo` — draw.io editable export
-- `pvlib` — NREL solar-position ephemeris
+- `rustworkx` — graph layout, detail DAG, and plan producer graph.
+- `grandalf` — second Sugiyama layered-layout engine.
+- `pyelk` — ELK layered/orthogonal/ports/nesting layout.
+- `fast-sugiyama` — Rust Sugiyama layered placement.
+- `kiwisolver` — Cassowary constraint-layout solver.
+- `ziafont` — glyph text-to-SVG-path outlining.
+- `ziamath` — math-to-SVG rendering.
+- `schemdraw` — native-SVG schematic diagrams.
+- `drawpyo` — draw.io editable export.
+- `pvlib` — NREL solar-position ephemeris.
 
 [IMAGING]:
-- `pillow` — raster IO/transform/ICC, annotation, metadata
-- `scikit-image` — measured-score and transform arms
-- `pyvips` — fused libvips decode/downscale/ICC/smartcrop
-- `resvg-py` — SVG-to-raster render
-- `tifffile` — TIFF container IO and layered-TIFF writer
-- `psdtags` — Photoshop TIFF image resources
-- `imagecodecs` — PackBits/ZIP channel codecs
+- `pillow` — raster IO/transform/ICC, annotation, metadata.
+- `scikit-image` — measured-score and transform arms.
+- `pyvips` — fused libvips decode/downscale/ICC/smartcrop.
+- `resvg-py` — SVG-to-raster render.
+- `tifffile` — TIFF container IO and layered-TIFF writer.
+- `psdtags` — Photoshop TIFF image resources.
+- `imagecodecs` — PackBits/ZIP channel codecs.
 
 [VECTOR_CAD]:
-- `svgelements` — pure-Python SVG geometry and parse
-- `skia-pathops` — boolean/offset/stroke-to-outline
-- `drawsvg` — hierarchical named-layer SVG authoring
-- `ezdxf` — DXF model, render backend, block store, symbol-table lowering
+- `svgelements` — pure-Python SVG geometry and parse.
+- `skia-pathops` — boolean/offset/stroke-to-outline.
+- `drawsvg` — hierarchical named-layer SVG authoring.
+- `ezdxf` — DXF model, render backend, block store, symbol-table lowering.
 
 [MARKS]:
-- `segno` — QR/Micro-QR
-- `python-barcode` — linear 1D symbologies
-- `zxing-cpp` — 2D-matrix symbology encode/decode
+- `segno` — QR/Micro-QR.
+- `python-barcode` — linear 1D symbologies.
+- `zxing-cpp` — 2D-matrix symbology encode/decode.
 
 [COLOR]:
 - `colour-science`
-- `coloraide` — CSS-space parse/interpolate/gamut-map
-- `colour-cxf` — CxF3 spot/spectral color exchange
+- `coloraide` — CSS-space parse/interpolate/gamut-map.
+- `colour-cxf` — CxF3 spot/spectral color exchange.
 
 [TYPOGRAPHY]:
 - `fonttools`
-- `uharfbuzz` — OpenType shaping and outline bridge
-- `blackrenderer` — COLRv1 color-glyph render
-- `python-bidi` — UAX#9 bidirectional reorder
-- `uniseg` — Unicode line/grapheme/word segmentation
-- `pyphen` — language-aware soft-hyphenation
-- `opentype-feature-freezer` — freeze OpenType features into the default set
-- `vharfbuzz` — HarfBuzz shaping QA and buffer-diff
-- `PyICU` — ICU line-break, bidi, and collation power path
+- `uharfbuzz` — OpenType shaping and outline bridge.
+- `blackrenderer` — COLRv1 color-glyph render.
+- `python-bidi` — UAX#9 bidirectional reorder.
+- `uniseg` — Unicode line/grapheme/word segmentation.
+- `pyphen` — language-aware soft-hyphenation.
+- `opentype-feature-freezer` — freeze OpenType features into the default set.
+- `vharfbuzz` — HarfBuzz shaping QA and buffer-diff.
+- `PyICU` — ICU line-break, bidi, and collation power path.
 
 [EXCHANGE]:
-- `pyhanko` — PAdES PDF signing and conformance
-- `c2pa-python` — C2PA content-credential sign/verify
-- `puremagic` — pure-Python format sniffer, default detect path
-- `python-magic` — libmagic format-ID power path
-- `pyexiftool` — cross-format descriptive-metadata read/write
+- `pyhanko` — PAdES PDF signing and conformance.
+- `c2pa-python` — C2PA content-credential sign/verify.
+- `puremagic` — pure-Python format sniffer, default detect path.
+- `python-magic` — libmagic format-ID power path.
+- `pyexiftool` — cross-format descriptive-metadata read/write.
 
 [DELIVERY]:
-- `cloudevents` — structured/binary envelope with the W3C trace-and-baggage extensions
+- `cloudevents` — structured/binary envelope with the W3C trace-and-baggage extensions.
 
 [EDITABLE_EXPORT]:
-- `simpleidml` — IDML package and template mutation
-- `PhotoshopAPI` — native PSD/PSB layered writer
-- `psd-tools` — PSD read/inspect and pixel author
-- `pdfimpose` — saddle/wire/card/cut/fold/signature page-order
+- `simpleidml` — IDML package and template mutation.
+- `PhotoshopAPI` — native PSD/PSB layered writer.
+- `psd-tools` — PSD read/inspect and pixel author.
+- `pdfimpose` — saddle/wire/card/cut/fold/signature page-order.
 
 [MEDIA]:
-- `av` — PyAV container/codec/filtergraph
-- `pysubs2` — subtitle parse/convert/retime/restyle
+- `av` — PyAV container/codec/filtergraph.
+- `pysubs2` — subtitle parse/convert/retime/restyle.
 
 [SCENE]:
 - `pyvista`
 - `vtk`
-- `usd-core` — USD/USDA/USDC scene authoring
+- `usd-core` — USD/USDA/USDC scene authoring.
 
 [COMPRESSION]:
 - `zstandard`
 - `brotli`
-- `zlib-ng` — accelerated gzip/zlib behind the GZIP codec
+- `zlib-ng` — accelerated gzip/zlib behind the GZIP codec.
 - `py7zr`
-- `stream-zip` — streaming ZIP emit
-- `stream-unzip` — streaming ZIP ingest
-- `detools` — binary diff/patch for delta bundles
+- `stream-zip` — streaming ZIP emit.
+- `stream-unzip` — streaming ZIP ingest.
+- `detools` — binary diff/patch for delta bundles.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 

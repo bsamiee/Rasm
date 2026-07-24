@@ -298,7 +298,7 @@ class StacCatalog(Struct, frozen=True):
         params = reduce(lambda acc, q: acc | q.params(), queries, {})
         surface = Surface.of_queries(queries)
         row = surface.row
-        # discovery is an outbound network leg — kind=CLIENT per the store-transport law, the guarded child span riding beneath.
+        # discovery is an outbound network leg — kind=CLIENT per the store span-kind law, the guarded child span riding beneath.
         with _TRACER.start_as_current_span(
             f"stac.discover.{surface.value}", kind=SpanKind.CLIENT, attributes={"rasm.geo.remote": True, "rasm.geo.op": f"discover.{surface.value}"}
         ):
@@ -544,7 +544,7 @@ class StacGeoClaim(Struct, frozen=True):
 
     async def apply_remote(self, op: StacIngest) -> "RuntimeRail[StacResult]":
         # abandon frees the band slot when an enclosing deadline trips — a wedged remote read runs out unobserved;
-        # kind=CLIENT marks the outbound network leg per the catalog span-kind law.
+        # kind=CLIENT marks the outbound network leg per the store span-kind law.
         with _TRACER.start_as_current_span(f"stac.claim.{op.tag}", kind=SpanKind.CLIENT, attributes={"rasm.geo.remote": True, "rasm.geo.op": op.tag}):
             acquired = await guarded(RetryClass.HTTP, on_thread, lambda: self._stac(op), abandon=True, subject=f"stac.claim.{op.tag}")
             # `_stac` is itself railed, so `guarded` yields a doubled `RuntimeRail`; the identity `bind` is the monadic join flattening it.

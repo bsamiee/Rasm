@@ -102,7 +102,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `manifoldc` — in-house P/Invoke over `elalish/manifold`, the guaranteed-manifold scale companion.
 
 [HOST_SURFACE]:
-- `RhinoCommon` — host compile surface; `RhinoDoc` enters only at the two charter adapters, never `RhinoApp`/UI.
+- `RhinoCommon` — `Directory.Build.props` host reference, no manifest row; `RhinoDoc` enters only at the two charter adapters, never `RhinoApp`/UI.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
@@ -113,13 +113,17 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `Thinktecture.Runtime.Extensions`
 - `JetBrains.Annotations`
 
-[NUMERIC]:
+[TIME_IDENTITY]:
+- `System.IO.Hashing` — reached only through the seed-zero content-hash mint.
+
+[NUMERIC_SUBSTRATE]:
 - `MathNet.Numerics` — dense linear-algebra and distribution substrate under the matrix owner.
 - `CSparse` — sparse direct-solve substrate under the matrix owner.
 - `System.Numerics.Tensors`
 - `CommunityToolkit.HighPerformance` — 2D spans and pooled owners on the SoA build arenas.
 
-[BOUNDED_LANES]:
-- `System.IO.Hashing` — reached only through the seed-zero content-hash mint.
+[GRAPH_ALGORITHM]:
 - `QuikGraph` — bounded graph-algorithm lane; every graph result leaves as a kernel-owned SoA wire.
+
+[COLOR_SCIENCE]:
 - `Wacton.Unicolour` — perceptual color model behind the one atoms color owner.

@@ -2,16 +2,36 @@
 
 MUST READ: `libs/.planning/RULINGS.md` + `libs/.planning/ARCHITECTURE.md`
 
-Rasm is in a long-term planning phase, working strictly within design/spec-sheets, not code files. List all files in `libs/.planning` for all guidance:
+Rasm is in a long-term planning phase, working strictly within design/spec-sheets, not code files:
 - All `libs/` spec docs are the rebuild surface: rebuilt ground-up each pass, freely and aggressively.
-- Each `lib/<language>/` and `libs/<language>/<sub-folder>` carry a `.api/` folder; all work stacks external-lib capability from BOTH altitudes — REQUIRED.
+- Each `libs/<language>/` and `libs/<language>/<sub-folder>` carry a `.api/` folder; all work stacks external-lib capability from BOTH altitudes — REQUIRED.
+- `/prime <target>` executes the batched grounding ladder — folder paths deepen folders, a language word deepens its branch; never hand-derive the read set.
 
 ## [01]-[REQUIRED]
 
-- Work in `libs/<language>/` requires a FULL reading of `libs/<language>/.planning/RULINGS.md` + `libs/<language>/.planning/ARCHITECTURE.md`
-- Work in `libs/<language>/` requires a FULL reading of ALL files in the root of `docs/stacks/<language>/` at start of turn (not repeated).
-- Durable infra docs — README/ARCHITECTURE/RULINGS/IDEAS/TASKLOG, `.api` files, and spec sheets all follow approach in `libs/.planning/campaign-method.md`.
-- `docs/laws/` — repo-wide maintenance-law corpus; durable lessons land ONLY at the end of session, only where refute-first proves no surface owns the fact.
+- Design work in `libs/<language>/` requires FULL reading of ALL files in root `docs/stacks/<language>/` at start of turn; review/maintenance passes resolve owners from `[DOC_TOPOLOGY]` on demand.
+- Design work in `libs/<language>/` requires FULL reading of `libs/<language>/.planning/RULINGS.md` + `libs/<language>/.planning/ARCHITECTURE.md`
+- Durable planning docs — index docs, design pages, `.api` catalogs — follow `libs/.planning/README.md`; the campaign loop follows `campaign-method.md`.
+- `RULINGS.md` is settled law at every tier: read before re-deciding; narrowest tier owns; a violation routes as a card at the owning tier, never inline.
+- Every homeless settled decision lands its RULINGS row at the narrowest owning tier in the same pass — mint-on-demand, never deferred to session end.
+- `docs/laws/topology.md` binds counterpart obligations — consult it before any multi-surface edit.
+- Durable lessons land ONLY at session end through the `docs/laws/README.md` admission ladder; refute-first proves no owner already holds the fact.
+- Dispatch `infra-custodian` (`/custodian`) after any pass editing load-bearing infra.
+
+[DOC_TOPOLOGY]: Every durable question has one owning surface — consult the owner, never re-derive or guess:
+
+| [INDEX] | [SURFACE]                                   | [OWNS]                                                                          |
+| :-----: | :------------------------------------------ | :------------------------------------------------------------------------------ |
+|  [01]   | `libs/.planning/campaign-method.md`         | Campaign loop, quality bar, agent-role law                                      |
+|  [02]   | `libs/.planning/README.md`                  | Doc-set per tier, card schema + lifecycle markers, design-page grammar          |
+|  [03]   | `libs/.planning/ARCHITECTURE.md`            | Strata, dependency direction, wire seams, `.planning/` lifecycle                |
+|  [04]   | `libs/.planning/RULINGS.md`                 | Cross-libs settled decisions                                                    |
+|  [05]   | `libs/.planning/planning-targets.md`        | Target index across the corpus                                                  |
+|  [06]   | `libs/<language>/<folder>/`                 | Folder doc set at root — core three README/ARCHITECTURE/RULINGS + IDEAS/TASKLOG |
+|  [07]   | `docs/README.md`                            | Doctrine router: `standards/`, `stacks/<language>/`, `laws/`, `atlas/`          |
+|  [08]   | `docs/laws/`                                | Repo maintenance law: edit couplings, cross-branch patterns, regression scars   |
+|  [09]   | `tests/README.md` + `tests/RULINGS.md`      | Proof-estate law — read before any test work; a language tree adds its own pair |
+|  [10]   | root `README.md` + `tools/<tool>/README.md` | Tool owners, output routing, operator roles                                     |
 
 [STANDARDS_ROUTING]: Use the route-owned standard for the file being edited; an HTML artifact routes durable to `docs/atlas/`, temp to `.claude/scratch`:
 
@@ -34,7 +54,6 @@ Rasm is in a long-term planning phase, working strictly within design/spec-sheet
 - [ALWAYS]: use `claudeCodeDocs` MCP when working on Claude Code configs or harness questions; capabilities, memory, skills, hooks, plugins, settings.
 - [ALWAYS]: use `uv run python -m tools.assay static` for static quality `.py`, `.ts/.tsx`, and `.cs` files (ruff/ty/mypy, tsc/biome, dotnet format/build).
 - [ALWAYS]: use `tools.assay provision` for Forge service, Postgres-extension, and DuckDB/SQLite surface evidence before an availability claim lands.
-- [ALWAYS]: read `tests/README.md` + `tests/RULINGS.md` before touching any testing surface; a language tree adds its own README + RULINGS pair.
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 
@@ -126,7 +145,7 @@ Canonical order, omitting unused sections: `TYPES` -> `CONSTANTS` -> `MODELS` ->
 - [ALWAYS]: use alphabetical order only for equivalent declarations with the same owner, kind, dependency level, and semantic rank.
 - [ALWAYS]: treat one generated type, smart enum, value object, schema/model/wire family, kernel, dispatcher, or query family as an owner block.
 - [ALWAYS]: treat one registry, catalog, table, or composition root the same; sort inside the owner, never flattened into top-level sections.
-- [ALWAYS]: a declaration follows what it imports, inspects, derives from, registers, decodes, wraps, initializes, traps, migrates, or composes.
+- [ALWAYS]: seat every declaration after what it imports, inspects, derives from, registers, decodes, wraps, initializes, traps, migrates, or composes.
 - [ALWAYS]: apply smaller-to-larger only after ownership and dependency: anchors before policies, axes before models, leaf ops before orchestration.
 - [ALWAYS]: treat kind as an owner-local tiebreaker, not a new section — it ranks only among peers equal in ownership, dependency, and semantic rank.
 - [ALWAYS]: order same-owner peers public, then internal, then private — unless static construction, generated semantics, or read-before-use wins.

@@ -38,7 +38,7 @@ It consumes runtime `ContentIdentity`, `ReceiptContributor`, and `TransportResou
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Data-domain libraries admitted by this folder; versions centralize in the one branch manifest, and the adjacent `.api/` folder holds the API evidence.
+Domain-specific libraries admitted by this folder; versions centralize in the root `pyproject.toml` and corroborate against this folder's `.api/`.
 
 [FRAMES]:
 - `polars`
@@ -73,7 +73,13 @@ Data-domain libraries admitted by this folder; versions centralize in the one br
 - `adbc-driver-sqlite`
 - `obspec-utils` — multi-store object-store routing.
 
-DuckDB loadable extensions back the plan and table-format rows without a pip dependency, all riding the one `DuckDbSession` rail: `substrait`, `ducklake`, `iceberg`, `httpfs`, and `spatial`/`h3`, provisioned through the Forge DuckDB-extensions catalog.
+[DUCKDB_EXTENSIONS]: Loadable extensions backing the plan and table-format rows without a pip dependency, riding the one `DuckDbSession` rail and provisioned through the Forge DuckDB-extensions catalog.
+- `substrait`
+- `ducklake`
+- `iceberg`
+- `httpfs`
+- `spatial`
+- `h3`
 
 [GEOSPATIAL]:
 - `geopandas`
@@ -141,6 +147,9 @@ Shared substrate consumed from the Py registry; the registry and its charters ow
 [CONCURRENCY]:
 - `anyio`
 
+[OBSERVABILITY]:
+- `opentelemetry-api` — one module tracer per measured leg across every plane.
+
 [NUMERIC_SUBSTRATE]:
 - `numpy`
 - `xarray`
@@ -148,12 +157,9 @@ Shared substrate consumed from the Py registry; the registry and its charters ow
 [GRAPH_SUBSTRATE]:
 - `networkx`
 
-[MESH_INTERCHANGE]:
-- `meshio`
-
-[OBSERVABILITY]:
-- `opentelemetry-api` — one module tracer per measured leg across every plane; the SDK, exporters, and instrumentor train stay runtime-owned.
-
 [TRANSPORT]:
 - `fsspec` — Filesystem-resolution substrate beneath `universal-pathlib`; the `UPath.fs` handle threads into the DuckDB scan session.
 - `obstore` — Object-store substrate beneath the content-keyed egress owner.
+
+[MESH_INTERCHANGE]:
+- `meshio`

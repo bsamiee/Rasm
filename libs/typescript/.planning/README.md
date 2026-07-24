@@ -2,7 +2,7 @@
 
 `libs/typescript` is the platform's host-free web/edge runtime: capability domains composing into whole products, shipped as one npm package `@rasm/ts` with per-domain subpath exports and `server`/`browser`/`wasm` conditions. Sibling coupling is decode-only: C# owns every wire vocabulary and the tessellation rail, the branch decodes each family once at one keyed registry, owns no geometry or IFC semantics, and re-derives content identity bit-identically from the C#-owned seed — aligned by wire bytes, frozen corpora, and the descriptor drift gate, never by import.
 
-`ARCHITECTURE.md` carries the branch topology and seams; the `pnpm-workspace.yaml` catalog pins versions. Test infrastructure lives under `tests/`, never the branch: the frozen corpus is `tests/contracts/`, the `@rasm/ts-testkit` kit is `tests/typescript/_testkit`, and the gauge audits are the `tests/typescript/_architecture` suite.
+One `pnpm-workspace.yaml` catalog pins versions; test infrastructure lives under `tests/`, never the branch.
 
 ## [01]-[ROUTER]
 
@@ -28,4 +28,4 @@ Cross-folder substrate; a consuming folder names its substrate set in its README
 
 ## [03]-[API_CATALOGUE_LAW]
 
-One catalogue per published package, named for the package (`effect.md`, `effect-platform.md`, a scoped slash collapsing to a dash). Substrate-tier catalogues live at `libs/typescript/.api/`, folder-local tiers at `<folder>/.api/`, the dev-tool tier at `tests/typescript/.api/`. A substrate package is catalogued at exactly one tier; a domain-seam package shared across folders carries one folder-scoped catalogue per consuming folder. A design fence transcribes an external member only at a spelling its owning catalogue verifies; an unverifiable member is a RESEARCH item, never settled code.
+One catalogue per published package, named for the package (`effect.md`, `effect-platform.md`, a scoped slash collapsing to a dash): substrate-tier catalogues live at `libs/typescript/.api/`, folder-local tiers at `<folder>/.api/`, and the dev-tool tier at `tests/typescript/.api/`.

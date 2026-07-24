@@ -66,6 +66,21 @@
             "path": "tests/typescript/RULINGS.md",
             "description": "TypeScript test-tree decision registry: settled re-litigation guards, colocated unit specs included",
             "scope": ["tests/typescript/**", "libs/typescript/**/*.spec.ts", "libs/typescript/**/*.test.ts"]
+        },
+        {
+            "path": "tools/assay/RULINGS.md",
+            "description": "Assay tool decision registry: settled re-litigation guards for the polyglot quality operator",
+            "scope": ["tools/assay/**"]
+        },
+        {
+            "path": "tools/cs-analyzer/RULINGS.md",
+            "description": "cs-analyzer tool decision registry: settled re-litigation guards for the analyzer tool",
+            "scope": ["tools/cs-analyzer/**"]
+        },
+        {
+            "path": "tools/rhino-bridge/RULINGS.md",
+            "description": "rhino-bridge tool decision registry: settled re-litigation guards for the bridge tool",
+            "scope": ["tools/rhino-bridge/**"]
         }
     ]
 }

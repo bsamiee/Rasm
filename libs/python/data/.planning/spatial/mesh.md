@@ -501,7 +501,7 @@ class PointCloud(Struct, frozen=True):
             reader = _open_copc(path, selection)
             return PointRecordTable.of(query.query(reader), crs_wkt=str(reader.header.parse_crs() or ""))
 
-        # the remote COPC leg is an outbound network read — kind=CLIENT per the catalog span-kind law; a local path stays INTERNAL.
+        # the remote COPC leg is an outbound network read — kind=CLIENT per the store span-kind law; a local path stays INTERNAL.
         with _TRACER.start_as_current_span(
             "pointcloud.subset", kind=SpanKind.CLIENT if remote else SpanKind.INTERNAL, attributes={"rasm.pointcloud.remote": remote}
         ):

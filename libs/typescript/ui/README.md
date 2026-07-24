@@ -90,7 +90,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `@deck.gl/extensions`
 - `@deck.gl/mapbox`
 - `@loaders.gl/3d-tiles`
-- `@loaders.gl/core` — owns the viewer loader registry
+- `@loaders.gl/core` — owns the viewer loader registry.
 - `@loaders.gl/las`
 - `@geoarrow/deck.gl-geoarrow`
 - `@turf/turf`
@@ -103,10 +103,10 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 
 Shared substrate consumed from the Ts registry; the registry and its charters own the full contracts, and `libs/typescript/.api/` holds the shared API evidence.
 
-[EFFECT_CORE]:
+[TYPING_RAILS]:
 - `effect`
 
 [PLATFORM]:
-- `@effect/experimental`
 - `@effect/platform`
 - `@effect/platform-browser`
+- `@effect/experimental`

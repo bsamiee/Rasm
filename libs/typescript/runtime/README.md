@@ -23,14 +23,14 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `@effect/workflow`
 - `@effect/rpc`
 - `@nats-io/nats-core`
-- `@nats-io/transport-node` — native TCP/TLS `connect` for the node/bun lane; the browser lane rides `wsconnect`
+- `@nats-io/transport-node` — native TCP/TLS `connect` for the node/bun lane; the browser lane rides `wsconnect`.
 - `@nats-io/jetstream`
 - `@nats-io/kv`
 - `@nats-io/obj`
-- `@confluentinc/kafka-javascript` — librdkafka client backing the Kafka broker engine row on the shared C# broker plane
-- `@connectrpc/connect-node` — Node Connect/gRPC transport factories; `net/client.md` owns transport dispatch
-- `mqtt` — `net/channel.md` owns the MQTT v5 channel seam
-- `cloudevents` — `work/deliver.md` and `serve/route.md` own the HTTP binding; `net/pubsub.md` carries the opaque envelope
+- `@confluentinc/kafka-javascript` — librdkafka client backing the Kafka broker engine row on the shared C# broker plane.
+- `@connectrpc/connect-node` — Node Connect/gRPC transport factories; `net/client.md` owns transport dispatch.
+- `mqtt` — `net/channel.md` owns the MQTT v5 channel seam.
+- `cloudevents` — `work/deliver.md` and `serve/route.md` own the HTTP binding; `net/pubsub.md` carries the opaque envelope.
 
 [INTELLIGENCE]:
 - `@effect/ai`
@@ -42,9 +42,9 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `@modelcontextprotocol/sdk`
 
 [TELEMETRY]:
-- `@effect/opentelemetry` — Effect-signal bridge both export lanes compose; imported nowhere outside this folder
+- `@effect/opentelemetry` — Effect-signal bridge both export lanes compose; imported nowhere outside this folder.
 - `@opentelemetry/api`
-- `@opentelemetry/api-logs` — peer contract the sdk-logs processors type against; log records mint through `Effect.log*`, never this API
+- `@opentelemetry/api-logs` — peer contract the sdk-logs processors type against; log records mint through `Effect.log*`, never this API.
 - `@opentelemetry/core`
 - `@opentelemetry/resources`
 - `@opentelemetry/resource-detector-aws`
@@ -53,28 +53,28 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `@opentelemetry/opentelemetry-browser-detector`
 - `@opentelemetry/sdk-logs`
 - `@opentelemetry/sdk-metrics`
-- `@opentelemetry/host-metrics` — host and process series on the node lane's exposed meter provider
+- `@opentelemetry/host-metrics` — host and process series on the node lane's exposed meter provider.
 - `@opentelemetry/sdk-trace-base`
-- `@opentelemetry/sdk-trace-node` — `NodeSdk` facade substrate on the node lane; no direct import
+- `@opentelemetry/sdk-trace-node` — `NodeSdk` facade substrate on the node lane; no direct import.
 - `@opentelemetry/sdk-trace-web`
-- `@opentelemetry/baggage-span-processor` — promotes admitted `rasm.*` baggage onto span attributes under the one promotion predicate
+- `@opentelemetry/baggage-span-processor` — promotes admitted `rasm.*` baggage onto span attributes under the one promotion predicate.
 - `@opentelemetry/exporter-trace-otlp-http`
-- `@opentelemetry/exporter-trace-otlp-proto` — protobuf span leg of the SDK bridge
+- `@opentelemetry/exporter-trace-otlp-proto` — protobuf span leg of the SDK bridge.
 - `@opentelemetry/exporter-metrics-otlp-http`
-- `@opentelemetry/exporter-metrics-otlp-proto` — protobuf metric leg of the SDK bridge
+- `@opentelemetry/exporter-metrics-otlp-proto` — protobuf metric leg of the SDK bridge.
 - `@opentelemetry/exporter-logs-otlp-http`
-- `@opentelemetry/exporter-logs-otlp-proto` — protobuf log leg of the SDK bridge
+- `@opentelemetry/exporter-logs-otlp-proto` — protobuf log leg of the SDK bridge.
 - `@opentelemetry/context-zone`
-- `@opentelemetry/instrumentation` — `registerInstrumentations` activation and the `InstrumentationBase` contract under the browser rows
-- `@opentelemetry/instrumentation-runtime-node` — event-loop, GC, and V8 heap series on the node lane's meter provider
+- `@opentelemetry/instrumentation` — `registerInstrumentations` activation and the `InstrumentationBase` contract under the browser rows.
+- `@opentelemetry/instrumentation-runtime-node` — event-loop, GC, and V8 heap series on the node lane's meter provider.
 - `@opentelemetry/instrumentation-fetch`
 - `@opentelemetry/instrumentation-document-load`
 - `@opentelemetry/instrumentation-user-interaction`
 - `@opentelemetry/instrumentation-xml-http-request`
-- `@pyroscope/nodejs` — continuous-profiling push; `otel/profile.md` owns the lifecycle, composed only at the node root
+- `@pyroscope/nodejs` — continuous-profiling push; `otel/profile.md` owns the lifecycle, composed only at the node root.
 
 [BENCH]:
-- `mitata` — `proc/exec.md` owns the trial-engine route
+- `mitata` — `proc/exec.md` owns the trial-engine route.
 
 [TERMINAL]:
 - `@effect/cli`
@@ -103,7 +103,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 
 Shared substrate consumed from the Ts registry; the registry and its charters own the full contracts, and `libs/typescript/.api/` holds the shared API evidence.
 
-[RAILS]:
+[TYPING_RAILS]:
 - `effect`
 
 [PLATFORM]:

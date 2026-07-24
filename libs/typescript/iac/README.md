@@ -43,7 +43,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 
 [REALIZATION]:
 - `@pulumiverse/grafana`
-- `@grafana/grafana-foundation-sdk` — typed dashboard builders compiling the core board model into the JSON the provider applies
+- `@grafana/grafana-foundation-sdk` — typed dashboard builders compiling the core board model into the JSON the provider applies.
 - `@pulumi/postgresql`
 - `@pulumi/github`
 
@@ -53,5 +53,7 @@ Shared substrate consumed from the Ts registry; the registry and its charters ow
 
 [TYPING_RAILS]:
 - `effect`
+
+[PLATFORM]:
 - `@effect/platform`
 - `@effect/platform-node`

@@ -6,18 +6,15 @@ One root `pyproject.toml` owns interpreter admission and dependency groups; this
 
 ## [01]-[ROUTER]
 
-- [01]-[ARCHITECTURE](ARCHITECTURE.md): domain map, import strata, and the C# seam registry.
-- [02]-[IDEAS](IDEAS.md): cross-package idea pool at the unifying altitude.
-- [03]-[TASKLOG](TASKLOG.md): cross-package task cards at landing grain.
-- [04]-[RUNTIME](../runtime/README.md): shared-rail minting foundation.
-- [05]-[COMPUTE](../compute/README.md): scientific-evidence graduation.
-- [06]-[DATA](../data/README.md): dataset movement and interchange.
-- [07]-[GEOMETRY](../geometry/README.md): geometry and IFC evidence production.
-- [08]-[ARTIFACTS](../artifacts/README.md): publication-grade output.
+- [01]-[RUNTIME](../runtime/README.md): shared-rail minting foundation.
+- [02]-[COMPUTE](../compute/README.md): scientific-evidence graduation.
+- [03]-[DATA](../data/README.md): dataset movement and interchange.
+- [04]-[GEOMETRY](../geometry/README.md): geometry and IFC evidence production.
+- [05]-[ARTIFACTS](../artifacts/README.md): publication-grade output.
 
 ## [02]-[SUBSTRATE_PACKAGES]
 
-Every folder composes this cross-domain foundation. One root manifest owns versions; each runtime-composable package carries one catalogue at the branch `libs/python/.api/<dist>.md`, folder overlays carry only local admission law, and the test tier is manifest-owned with no branch catalogue. Branch tier admits only the vendor-neutral surface every folder imports; composition-root machinery — the `opentelemetry-instrumentation-*` train, the `pyroscope-otel` push — homes folder-local to `runtime`.
+Every folder composes this cross-domain foundation. Each runtime-composable package carries one catalogue at the branch `libs/python/.api/<dist>.md`, folder overlays carry only local admission law, and the test tier is manifest-owned with no branch catalogue. Branch tier admits only the vendor-neutral surface every folder imports; composition-root machinery — the `opentelemetry-instrumentation-*` train, the `pyroscope-otel` push — homes folder-local to `runtime`.
 
 [TYPING_RAILS]:
 - `expression` — `Result`/`Option` carriers, do-notation builders, `pipe`/`compose`, and `Block`/`Map` immutable traversal.

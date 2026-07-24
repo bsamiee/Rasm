@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_RULINGS]
 
-Per-folder decision registry for the artifact engine — the settled rulings agents re-litigate for lack of a home. A row earns its place as a package admission or rejection with the reason it holds, an owner-choice discriminant, a collapse refusal naming the guarantee the denser form loses, or a structure law the pages instantiate without stating. Append-mostly; a row earns its seat while its why stays homeless, and dies only when fact and why both live at one durable surface.
+Per-folder decision registry for the artifact engine — the settled rulings agents re-litigate for lack of a home. Each row is one decision with the one why guarding its re-litigation: a package admission or rejection, an owner-choice discriminant, a collapse refusal naming the lost guarantee, a structure retirement, or a working law. Append-mostly; a row earns its seat while its why stays homeless, dies only when fact and why both live at one durable surface, and a decision spanning folders homes at the branch tier. `(none)` marks a section awaiting its first ruling.
 
 ## [01]-[PACKAGES]
 
@@ -20,7 +20,8 @@ Per-folder decision registry for the artifact engine — the settled rulings age
 - Receipt facts MEASURE the delivered product — a re-probe of the muxed bytes, or the delivery walk when the product is unprobeable; request policy enters only as labeled policy facts, because an echoed request knob attests the input, never the artifact.
 - Batch admission accumulates every casualty through an associative fault monoid — one refusal reports every failed gate; first-failure abort hides the sibling casualties, and a `Result.to_option` erasure discards the fault evidence the refusal owes its caller.
 - Producer heads split on input origin — a head normalizing an already-typed op union raises through its folder-configured ingress conf, and a head admitting untrusted external payload returns `Result[Self, <Fault>]`; unifying the two families flattens either the caller's typed refusal or the payload fault evidence, and the ingress conf mints once per folder — a second same-valued conf under a new name is the rejected fork.
-- A fold offloading caller-programmable input rails the builder's `ValueError` as `invalid` — an admission raise reachable from a public case payload is caller data, never a programming defect, so the composing fold carries the `ValueError` arm its sibling folds hold; surfacing it as an opaque worker fault strips the refusal evidence the caller owes.
+- Folds offloading caller-programmable input rail the builder's `ValueError` as `invalid` — an admission raise reachable from a public case payload is caller data, never a programming defect, so the composing fold carries the `ValueError` arm its sibling folds hold; surfacing it as an opaque worker fault strips the refusal evidence the caller owes.
+- Producer worker offload rides the producer's own `lane: LanePolicy` instance field through `self.lane.offload` — a class-qualified `LanePolicy.offload` carries no bound instance, and a folder-minted `CapacityLimiter` oversubscribes the host against the shared runtime process band.
 
 ## [03]-[COLLAPSE]
 
@@ -31,3 +32,7 @@ Per-folder decision registry for the artifact engine — the settled rulings age
 ## [04]-[STRUCTURE]
 
 - Worker-body homing splits on provider floor-legality — a provider importable on every floor keeps its workers in-page behind lazy import with qualified-name dispatch; the dedicated worker-module form with its import-time roster witness is earned only by a floor-illegal eager native.
+
+## [05]-[PROCESS]
+
+- (none)

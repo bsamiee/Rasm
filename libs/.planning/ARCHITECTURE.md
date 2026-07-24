@@ -130,6 +130,7 @@ Four-signal telemetry — metrics, logs, traces, profiles — correlates across 
 - Exemplars: a measurement recorded inside a sampled active span carries its trace and span ids.
 - Metric-to-trace click-through gates on the selected store row's exemplar column at `typescript:iac/operate/observe`.
 - Histograms: base2 exponential is the wire default in every branch; explicit-bucket advisory rows are the per-instrument fallback a view re-arms.
+- Counters: DELTA temporality is the wire default in every branch; cumulative is the monotonic-totals alternative a policy row selects.
 - Tenant: `rasm.tenant` is the one dimension — baggage promoted onto spans and logs by allowlisted processors, folded onto metrics under view caps.
 - An absent tenant entry is single-tenant, never a sentinel value.
 - Receipts stay the truth: signals project from typed receipts through the per-branch owners `InstrumentFan`, `Metrics.record`, and `Pulse`.
