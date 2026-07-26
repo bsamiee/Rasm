@@ -1,8 +1,8 @@
 # [PY_RUNTIME_SERVE]
 
-Companion server-host and daemon composition root: `ServerHost` owns the inbound `grpc.aio` lifecycle and the one `dispatch` servicer-body aspect every registered method folds through, `CapabilityInvoke` the descriptor-driven outbound invoke over the C#-generated capability SDK, and `Entrypoint` the daemon boot/serve/drain choreography. It hosts the geometry companion daemon over the existing C# gRPC contract on the UDS leg and re-mints nothing it composes.
+Companion server-host and daemon composition root: `ServerHost` owns the inbound `grpc.aio` lifecycle and the one `dispatch` servicer-body aspect every registered method folds through, `CapabilityInvoke` the descriptor-driven outbound invoke over the C#-generated capability SDK, and `Entrypoint` the daemon boot/serve/drain choreography. It hosts the geometry companion daemon over the corpus gRPC contract on the UDS leg and re-mints nothing it composes.
 
-Wire vocabulary is `transport/shapes#VOCABULARY`'s, the transcode machinery `transport/wire#PROTO_TRANSCODE`'s, causal time `clock#CLOCK`'s, and the admitted context `execution/admission#CONTEXT`'s. Seam ledgers file the `CredentialPolicy` axis decode and the W3C inbound extraction on this page — the interceptor at this ingress is the one trace-context authority.
+Wire vocabulary is `transport/shapes#VOCABULARY`'s, the transcode machinery `transport/wire#PROTO_TRANSCODE`'s, causal time `clock/clock#CLOCK`'s, and the admitted context `execution/admission#CONTEXT`'s. Seam ledgers file the `CredentialPolicy` axis decode and the W3C inbound extraction on this page — the interceptor at this ingress is the one trace-context authority.
 
 ## [01]-[INDEX]
 
@@ -12,8 +12,8 @@ Wire vocabulary is `transport/shapes#VOCABULARY`'s, the transcode machinery `tra
 
 ## [02]-[SERVE]
 
-- Owner: `ServerHost` is the boundary capsule over one `grpc.aio` server with the registered health servicer; a servicer method is a `Route` row — service, method, descriptor id, two registry row names, arity member, railed handler — never a hand-written admit/transcode/abort prologue. It composes the wire codec, the `clock#CLOCK` `CausalFrame.decode` sole carrier fence, the admitted `RuntimeContext`, and the `FaultDetail` shape, re-minting none.
-- Cases: `CredentialPolicy` decodes the C#-minted five-row axis under one spelling on both sides of the wire, and the UDS serve leg admits exactly one constructible case — peer identity is the kernel-reported `(pid, uid)` the C# `Rasm.AppHost/Wire/companion#PEER_ADMISSION` reads at accept through `SO_PEERCRED`/`LOCAL_PEERCRED`, never a wire-carried PEM; the four outbound rows are the client legs the C# host dials, each a typed construction failure serve-side.
+- Owner: `ServerHost` is the boundary capsule over one `grpc.aio` server with the registered health servicer; a servicer method is a `Route` row — service, method, descriptor id, two registry row names, arity member, railed handler — never a hand-written admit/transcode/abort prologue. It composes the wire codec, the `clock/clock#CLOCK` `CausalFrame.decode` sole carrier fence, the admitted `RuntimeContext`, and the `FaultDetail` shape, re-minting none.
+- Cases: `CredentialPolicy` mints the contract five-row axis under one spelling on both sides of the wire, and the UDS serve leg admits exactly one constructible case — peer identity is the kernel-reported `(pid, uid)` the C# `csharp:Rasm.AppHost/Wire/companion#PEER_ADMISSION` reads at accept through `SO_PEERCRED`/`LOCAL_PEERCRED`, never a wire-carried PEM; the four outbound rows are the client legs a calling host dials, each a typed construction failure serve-side.
 
 Entry: the method roster:
 
@@ -29,11 +29,11 @@ Entry: the method roster:
 |  [08]   | `CredentialPolicy.server_credentials() -> RuntimeRail[ServerCredentials]` | loopback → `local_server_credentials(UDS)`              |
 |  [09]   | `_stream_invoke(codec_pair, frame, context, handler)`                     | per-frame decode → railed fold → framed encode          |
 
- `serve()` refuses an empty roster with a typed `config` fault — never a silent empty bind — signals readiness through its `ready` hook once the health flips land, and awaits termination directly; supervision is the `[04]-[ENTRY]` composition root's. `inbound` lifts `ServicerContext.time_remaining()` into the admitted `Deadline`, feeding the C#-dialed budget to the deadline rail — never an unbounded handler. `dispatch` runs every route through the `observability/metrics#METRIC` `Metrics.measured(descriptor)` weave minted once at registration, so each method's duration and rail outcome land on the request histogram with no per-handler timing. A `BIDI` row rides the same weave at per-frame grain — each inbound frame drives the railed handler once and its `Block` return frames onto the response stream, a fault aborting mid-stream through the same `settle` trailer egress. `status` is the one worker-facing flip the `execution/workers#SUPERVISION` actuator drives, so pool liveness advertises through the same servicer the C# host polls and no second health surface exists.
+ `serve()` refuses an empty roster with a typed `config` fault — never a silent empty bind — signals readiness through its `ready` hook once the health flips land, and awaits termination directly; supervision is the `[04]-[ENTRY]` composition root's. `inbound` lifts `ServicerContext.time_remaining()` into the admitted `Deadline`, feeding the caller-dialed budget to the deadline rail — never an unbounded handler. `dispatch` runs every route through the `observability/metrics#METRIC` `Metrics.measured(descriptor)` weave minted once at registration, so each method's duration and rail outcome land on the request histogram with no per-handler timing. A `BIDI` row rides the same weave at per-frame grain — each inbound frame drives the railed handler once and its `Block` return frames onto the response stream, a fault aborting mid-stream through the same `settle` trailer egress. `status` is the one worker-facing flip the `execution/workers#SUPERVISION` actuator drives, so pool liveness advertises through the same servicer a calling host polls and no second health surface exists.
 
-- Auto: this interceptor is the ONE trace-context authority — it extracts the C#-minted W3C parent and opens the SERVER span natively, so `inbound` re-extracts nothing, `dispatch` opens no second scope, and a `Signals.attach` around the handler body re-roots spans the interceptor already parented. Its health filter suppresses liveness noise from a protocol that is actually served — the registered servicer answers `Check`/`Watch`, so the filter claim is real. `enrich` is `set_attributes` inside the interceptor's active scope, not a hook param on `aio_server_interceptor` (which takes none) and not a hand-rolled tracing interceptor. `dispatch` binds the admitted context onto structlog contextvars for the handler window, so `merge_contextvars` stamps every handler log line with the same admitted identity.
+- Auto: this interceptor is the ONE trace-context authority — it extracts the inbound W3C parent and opens the SERVER span natively, so `inbound` re-extracts nothing, `dispatch` opens no second scope, and a `Signals.attach` around the handler body re-roots spans the interceptor already parented. Its health filter suppresses liveness noise from a protocol that is actually served — the registered servicer answers `Check`/`Watch`, so the filter claim is real. `enrich` is `set_attributes` inside the interceptor's active scope, not a hook param on `aio_server_interceptor` (which takes none) and not a hand-rolled tracing interceptor. `dispatch` binds the admitted context onto structlog contextvars for the handler window, so `merge_contextvars` stamps every handler log line with the same admitted identity.
 - Growth: a new servicer method is one `Route` row, a streaming method the same row with its `arity` member; a new wire message is one shapes registry row; a new fault-to-status mapping is one `_FAULT_STATUS` row; a new health surface is automatic with the lifecycle; a new span dimension is one `enrich` key; a new compression algorithm is one `grpc.Compression` member at construction.
-- Boundary: the wire contract is the existing C# proto — the runtime mints no transport, no channel, and no second wire vocabulary; the C# host lifecycle and product telemetry export stay AppHost-owned.
+- Boundary: the wire contract is the corpus-homed `.proto` — the runtime mints no transport, no channel, and no second wire vocabulary; host lifecycle and product telemetry export stay with the composing application.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -103,7 +103,7 @@ class CredentialPolicy:
             case CredentialPolicy(tag="insecure_loopback"):
                 return Ok(grpc.local_server_credentials(grpc.LocalConnectionType.UDS))
             case CredentialPolicy(tag="tls" | "mtls" | "bearer" | "composed" as outbound):
-                return Error(BoundaryFault(config=(outbound, "outbound C# client credential; the companion serves insecure_loopback over UDS only")))
+                return Error(BoundaryFault(config=(outbound, "outbound peer client credential; this branch serves insecure_loopback over UDS only")))
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -206,11 +206,15 @@ class ServerHost:
 
     @staticmethod
     def inbound(servicer_context: grpc.aio.ServicerContext) -> RuntimeRail[RuntimeContext]:
-        # ambient scope IS remote-parented by the interceptor; this reads only the causal frame and the inbound budget.
+        # one inbound map, three disjoint reads: the causal frame off the `SLOTS` slots, the deadline off the call, and the
+        # W3C context the admitted `Correlation` adopts — the interceptor parents the ambient span off the same headers, so
+        # withholding the carrier here would root a fresh trace beside a remote-parented span and fracture the two apart.
         carrier = dict(servicer_context.invocation_metadata())
         budget = Option.of_optional(servicer_context.time_remaining()).map(lambda remaining: Deadline(timedelta(seconds=remaining)))
         return CausalFrame.decode(carrier).map(
-            lambda causal: RuntimeContext.admit(RuntimeProfile.SIDECAR, deadline=budget.to_optional(), causal=causal)
+            lambda causal: RuntimeContext.admit(
+                RuntimeProfile.SIDECAR, deadline=budget.to_optional(), causal=causal, carrier=carrier
+            )
         )
 
     @staticmethod
@@ -334,12 +338,12 @@ def _sealed(fault: BoundaryFault, context: RuntimeContext, status: grpc.StatusCo
 
 ## [03]-[CAPABILITY_INVOKE]
 
-- Owner: `CapabilityInvoke` decodes the C# `Rasm.AppHost/Agent/capability#SDK_CODEGEN` Python target into one dispatch — the request's own `Struct` type and the caller's `into` type are the codec discriminants off the `_ROW_BY_STRUCT` table, so one `run` genuinely spans the whole catalog and no injected per-shape codec pair narrows it. Outbound legs retry under the bare cached `guard(RetryClass.WIRE)` caller with a two-fence ingress — a `guarded(...)` wrap is the ruled-out composition because its terminal lift consumes the exception before the trailer read — so no bare gRPC exception escapes and no trailer erases to a bare `boundary` tag.
+- Owner: `CapabilityInvoke` decodes the C# `csharp:Rasm.AppHost/Agent/capability#SDK_CODEGEN` Python target into one dispatch — the request's own `Struct` type and the caller's `into` type are the codec discriminants off the `_ROW_BY_STRUCT` table, so one `run` genuinely spans the whole catalog and no injected per-shape codec pair narrows it. Outbound legs retry under the bare cached `guard(RetryClass.WIRE)` caller with a two-fence ingress — a `guarded(...)` wrap is the ruled-out composition because its terminal lift consumes the exception before the trailer read — so no bare gRPC exception escapes and no trailer erases to a bare `boundary` tag.
 - Cases: the per-descriptor `input_schema` is the C# `SuiteContracts.Schema` JSON Schema carried as a deferred `msgspec.Raw` slot, so the routing decode never pays the schema-document parse; the argument payload is the already-typed canonical `Struct` the resolved codec transcodes, never a hand-mirrored mapping re-validated against a schema document. `effect`/`idempotency`/cost-unit keys decode as the C# smart-enum string keys.
 - Entry: the per-call descriptor dimension rides the interceptor-set `rpc.service`/`rpc.method` attributes natively — the invoke path IS `/rasm.capability/{descriptor_id}` — while the channel-stable hooks enrich tenant and fault case on the CLIENT span; an ambient per-call `set_attribute` lands on whatever span was current BEFORE the CLIENT span opened.
 - Packages: `msgspec`, `grpcio`, `opentelemetry-instrumentation-grpc`, and the shapes/wire/resilience/faults rails per the fence imports; `guard` is exported for exactly this composed per-seam aspect.
-- Growth: a new capability is one descriptor row the C# registry already folds — the companion reads it through the existing `discover`/`run` pair; a new wire shape reaches the invoke through one shapes registry row with zero edits here; a new span dimension is one hook key.
-- Boundary: the descriptor is the suite's only op-metadata owner and the C# registry its sole mint; the companion re-authors no capability shape. Cross-language shape identity is the C# `SuiteContracts.Schema` JSON Schema all three SDKs bind, evolution riding the one `ContractGuard.AdditiveOnly` classifier. Channel liveness rides the `WIRE` row's `UNAVAILABLE` transient, so no client `HealthStub` pre-probe rides `connect`.
+- Growth: a new capability is one descriptor row the `Rasm.AppHost` capability broker folds — this branch reads it through the existing `discover`/`run` pair; a new wire shape reaches the invoke through one shapes registry row with zero edits here; a new span dimension is one hook key.
+- Boundary: the descriptor is the suite's only op-metadata owner and the capability broker its sole mint, named by the brokered-capability domain it holds; this branch re-authors no capability shape. Cross-language shape identity is the broker's `SuiteContracts.Schema` JSON Schema all three SDKs bind, evolution riding the contract's additive-only rule. Channel liveness rides the `WIRE` row's `UNAVAILABLE` transient, so no client `HealthStub` pre-probe rides `connect`.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -587,10 +591,13 @@ def _booted(bind: str, grace: float, routes: Block[Route]) -> Generator[Any, Any
     # composed host rides the Ok payload; an absent otel or pyroscope endpoint installs nothing — no literal.
     settings = yield from boundary("config", SettingsAdmission)
     LogPipeline.configure()
-    Option.of_optional(settings.otel_endpoint).map(lambda endpoint: Telemetry.install(RuntimeProfile.SIDECAR, str(endpoint)))
+    # one admitted context serves both installs, so the telemetry and profile gates read the same axis row
+    # under one boot correlation; a second admit here would mint a second correlation for the same process.
+    ctx = RuntimeContext.admit(RuntimeProfile.SIDECAR)
+    Option.of_optional(settings.otel_endpoint).map(lambda endpoint: Telemetry.install(ctx, str(endpoint)))
     Metrics.install()  # instruments register against whatever provider the telemetry line set; a silent profile enrolls no-op instruments
     Instrumentation.install()  # contrib train patches under the same gate: no provider, no export cost
-    Option.of_optional(settings.pyroscope_endpoint).map(lambda endpoint: Profiles.install(RuntimeProfile.SIDECAR, str(endpoint)))
+    Option.of_optional(settings.pyroscope_endpoint).map(lambda endpoint: Profiles.install(ctx, str(endpoint)))
     install(RetryMode.EMIT)
     yield from traversed(LIFECYCLE_POINTS.map(Hooks.register), by=Disposition.ACCUMULATE)
     yield from traversed(

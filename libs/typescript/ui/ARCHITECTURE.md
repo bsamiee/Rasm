@@ -25,7 +25,7 @@ ui/
         ├── scene.ts           # Content-keyed GLB residency behind the GlbViewport port
         ├── geo.ts             # Geospatial surface: one shared WebGL context as a pure layer value tree
         ├── mark.ts            # GlobalId mark plane: one selection atom every pick pipeline folds into
-        ├── panel.ts           # Wire materializer rendering the C#-minted control vocabularies through the owners
+        ├── panel.ts           # Wire materializer rendering the shell control vocabularies through the owners
         └── probe.ts           # Render evidence: benchmarks paired with wire-decoded receipts, never gating
 ```
 
@@ -109,6 +109,7 @@ flowchart LR
     Bim([Rasm.Bim])
     Core e1@-->|"[SHAPE]: Feed.Document"| View
     Core e12@-->|"[SHAPE]: Residency.Ledger"| Viewer
+    Core e16@-->|"[SHAPE]: BcfTopic/BcfViewpoint/ControlIntent/LayoutProgram/GeoFeature/PbrGroups"| Viewer
     Runtime e2@-->|"[PORT]: Atom.subscribable"| System
     Runtime e3@-->|"[PORT]: GlbViewport"| Viewer
     Runtime e4@-->|"[BOUNDARY]: EXT_meshopt_compression"| Viewer
@@ -126,11 +127,14 @@ flowchart LR
 
 ## [04]-[INTERNAL]
 
-`system` is the capability floor the views instantiate; `view` composes those owners into dense surfaces — form, grid, overlay, chart — each a single owner where variation is rows (columns, commands, field kinds, chart regimes), never sibling components; `viewer` is the spatial tier as a separate Nx project consuming decoded wire and owning render alone. Selection stays one atom whose applied ops publish once into the bounded echo channel; the grid `RowSelectionState` and the `scrollToIndex` echo project it, never a second plane. Per-owner wiring lives on the owning implementation pages.
+`system` is the capability floor the views instantiate; `view` composes those owners into dense surfaces — form, grid, overlay, chart — each a single owner where variation is rows (columns, commands, field kinds, chart regimes), never sibling components; `viewer` is the spatial tier as a separate Nx project consuming decoded wire and owning render alone.
+
+Every state fact binds through the one atom bridge, so a component projects and never runs an effect or mirrors domain state. Selection stays one atom whose applied ops publish once into the bounded echo channel; the grid `RowSelectionState` and the `scrollToIndex` echo project it, never a second plane. Color is one OKLCH artifact — gamut-fit and contrast-gated at decode — feeding the CSS plane and the viewer's linear render space as one object, and visualization data crosses zero-copy on one Arrow bus. Per-owner wiring lives on the owning implementation pages.
 
 ## [05]-[BOUNDARIES]
 
-- IFC semantics and geometry stay unowned; GLB, BCF, and selection arrive decoded through the core interchange plane, rendered, never re-authored.
+- IFC semantics and geometry stay unowned; GLB, BCF, WKB, and selection arrive decoded through the core interchange plane, rendered, never re-authored.
+- Every GPU resource is scope-bracketed, so a lost context or a torn-down surface releases its allocations through the same bracket that acquired them.
 - A browser composition root — `GlbViewport` from Depot arrivals, host planes bound into atoms — is app composition, out of scope here.
 - `EXT_meshopt_compression` assets refuse with the `codec-absent` reason until the iac plane admits the wasm decoder identity and its serving row.
 - History consumers compose from the landed system pages; a second history owner never appears beside the selection atom.

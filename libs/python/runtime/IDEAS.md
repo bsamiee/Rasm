@@ -57,7 +57,15 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Tension: receipts stay the data plane by ruling — a row lands only for a measure the charter table spells, nothing beyond its roster.
 - Ripple: `geometry` `[PRODUCER_DISTRIBUTIONS]`.
 
-[SUPPORT_BUNDLE_CAPSULE]-[BLOCKED]: support-bundle capture completes over the C#-minted wire vocabulary.
+[GENERATION_RECOVERY_CONTRACT]-[QUEUED]: this branch's backend generation carries its own recovery verdict.
+- Capability: a restored store admits on evidence — the observed generation proves contract identity while the measured data frontier proves recency — so a Python-only application verdicts a point-in-time restore, a promoted replica, and a rebuilt embedded store on one rail with no peer branch present.
+- Shape: recovery columns on the contract owner at `libs/python/runtime/.planning/execution/admission.md` `[03]-[BACKEND_CONTRACT]` — the declared recovery objective admission reads, and the measured-window comparison `admit` folds beside its realized-observation evidence.
+- Unlocks: `libs/.planning` `[GENERATION_RECOVERY_CONTRACT]` — the Python mint of the corpus recovery rows, so a merged-generation restore verdicts without this branch's runbook standing in for the law.
+- Anchors: `BackendGeneration` `compose`/`admit`/`merge` on `execution/admission#BACKEND_CONTRACT`; `tests/contracts/MANIFEST.md` `BACKEND_CONTRACT` and its peer minters; the `RuntimeContext` profile rows admission already gates on.
+- Tension: recovery evidence is time-shaped where the generation is content-shaped — the verdict separates contract identity from data recency without minting a second generation notion.
+- Ripple: `libs/.planning` `[GENERATION_RECOVERY_CONTRACT]`.
+
+[SUPPORT_BUNDLE_CAPSULE]-[BLOCKED]: support-bundle capture completes over the neutral diagnostic contract.
 - Capability: capsule capture and the diagnostic `Route` — already landed — gain their wire vocabulary, closing the bundle capture loop across the runtime/Compute channel.
 - Shape: the two restored `PROTO_VOCABULARY` rows on `libs/python/runtime/.planning/transport/shapes.md`.
 - Unlocks: end-to-end support-bundle capture across the runtime/Compute wire.
@@ -69,6 +77,8 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 <!-- source-only: closed idea card template:
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
+
+[CONSUMPTION_AXIS_SPELLING]-[COMPLETE]: the six-axis roster landed at all three branch minters with identical closed-axis vocabularies and one common open-axis descriptor shape; refusal is one axis/value/reason grammar everywhere, and the corpus entry's roster blocker is discharged.
 
 [WORKER_TELEMETRY_PARENTING]-[COMPLETE]: landed as the `WorkerBoot` capture + one `_worker_boot` initializer on `.planning/execution/workers.md` — parented `worker.<name>` span in `traced_kernel`, `WORKER_SIGNAL_PROFILE` geometry through the telemetry injection seams, seal-carried remote-floor boot, daemon spawn-env forwarding, and the exit-owned flush law.
 [WORKER_PROFILER_ATTACH]-[COMPLETE]: landed as `_worker_boot`'s profiler arm with the `worker.kind` install tag and kernel-subject `phase` window in `traced_kernel`; `Profiles.install` samples on-CPU Python and GIL-releasing native kernels, `Profiles.phase` supplies the null-window no-op, and `Profiles.receipt` supplies the boot-capture read on `.planning/observability/profiles.md`.

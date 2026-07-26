@@ -134,7 +134,7 @@ Facet constructors carry a `cardinality="required", instructions=None` tail — 
 
 [STACKING]:
 - `ifcopenshell`(`.api/ifcopenshell.md`): `Ids.validate`/`Specification.validate` take an `ifcopenshell.file` target, and `Facet.filter(ifc_file, elements)` runs the match over its `entity_instance` elements — the single engine, never a hand-rolled entity filter.
-- `geometry:ifc/analysis.md#ANALYSIS` IDS arm: `ids.open(spec)` -> `Ids.validate(model)` -> fold each `Specification.status` into a `compliance` `AnalysisRow`; `status is None` (skipped) collapses to skip, distinct from `False`, and `passed_entities`/`failed_entities` set sizes with `Json(ids).report()` `Results.percent_checks_pass` and `ResultsSpecification.total_applicable_fail` sharpen the per-check failing fraction the boolean verdict drops, keying `AnalysisResult.evidence`.
+- `ifc/analysis#ANALYSIS` IDS arm: `ids.open(spec)` -> `Ids.validate(model)` -> fold each `Specification.status` into a `compliance` `AnalysisRow`; `status is None` (skipped) collapses to skip, distinct from `False`, and `passed_entities`/`failed_entities` set sizes with `Json(ids).report()` `Results.percent_checks_pass` and `ResultsSpecification.total_applicable_fail` sharpen the per-check failing fraction the boolean verdict drops, keying `AnalysisResult.evidence`.
 - `bcf-client`(`.api/bcf-client.md`) / `ifcclash`(`.api/ifcclash.md`): IDS-side BCF export is `Bcf(ids).to_file(path)` over validation failures, disjoint from clash-issue authoring (`ifcclash` + `bcf-client`, `analysis.md` `BCF` arm); the IDS arm authors no clash topic.
 
 [LOCAL_ADMISSION]:

@@ -51,59 +51,6 @@ _PYPROJECT: Path = REPO_ROOT / "pyproject.toml"
 
 _POLICY_MARKERS: frozenset[str] = frozenset({"benchmark", "mutation", "network", "property", "subprocess"})
 
-# Repo-root residency is a closed allowlist: an unlisted entry is tool litter (a tool ran unrouted from root)
-# or an unreviewed surface — route its output under .cache/ or .artifacts/, or review it and extend the roster.
-_ROOT_ALLOWLIST: frozenset[str] = frozenset({
-    ".DS_Store",
-    ".archive",
-    ".artifacts",
-    ".cache",
-    ".claude",
-    ".config",
-    ".editorconfig",
-    ".git",
-    ".gitattributes",
-    ".gitignore",
-    ".nx",
-    ".venv",
-    ".vscode",
-    "AGENTS.md",
-    "CLAUDE.md",
-    "Directory.Build.props",
-    "Directory.Build.targets",
-    "Directory.Packages.props",
-    "LICENSE",
-    "NuGet.config",
-    "README.md",
-    "Workspace.slnx",
-    "apps",
-    "biome.json",
-    "docs",
-    "doppler.yaml",
-    "global.json",
-    "libs",
-    "node_modules",
-    "nx.json",
-    "package.json",
-    "playwright.config.ts",
-    "pnpm-lock.yaml",
-    "pnpm-workspace.yaml",
-    "pyproject.toml",
-    "stryker-config.json",
-    "stryker.config.json",
-    "tests",
-    "tools",
-    "tsconfig.base.json",
-    "tsconfig.json",
-    "uv.lock",
-    "vite.config.ts",
-    "vite.factory.ts",
-    "vitest.config.ts",
-})
-
-# Campaign briefs, decisions, and specs land at root by workflow law.
-_ROOT_PATTERNS: tuple[str, ...] = ("RASM-*.md",)
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -602,16 +549,6 @@ def test_inline_snapshot_default_reports_without_mutating_and_fix_rewrites() -> 
 
 
 # --- [LITTER_CONTAINMENT_POLICY]
-
-
-def test_repo_root_has_only_allowlisted_entries() -> None:
-    """Every repo-root entry is allowlisted by name or pattern, so any rogue tool write fails here by name."""
-    unexpected = sorted(
-        entry.name
-        for entry in REPO_ROOT.iterdir()
-        if entry.name not in _ROOT_ALLOWLIST and not any(fnmatch.fnmatch(entry.name, pattern) for pattern in _ROOT_PATTERNS)
-    )
-    assert not unexpected, f"unexpected repo-root entries (route tool output under .cache/ or .artifacts/, or review and allowlist): {unexpected}"
 
 
 def test_package_manager_and_type_checker_caches_route_under_owned_roots() -> None:

@@ -1,6 +1,6 @@
 # [PYTHON_BRANCH_ARCHITECTURE]
 
-`libs/python` is the host-free science, compute, data, geometry, and IFC companion. `runtime` mints the shared value shapes; `compute`, `data`, `geometry`, and `artifacts` compose them at their boundary.
+`libs/python` is the independently adoptable host-free science, compute, data, geometry, IFC, and artifact platform. `runtime` mints the shared Python value shapes; `compute`, `data`, `geometry`, and `artifacts` compose them at their boundaries.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -9,7 +9,7 @@ libs/python/
 ├── runtime/    # Host-free execution foundation four siblings compose
 ├── compute/    # Offline scientific evidence that graduates through one rail
 ├── data/       # Portable data interchange: tabular, spatial, gridded, graph
-├── geometry/   # Host-free geometry + IFC/BIM companion and cross-boundary owner
+├── geometry/   # Host-free geometry + IFC/BIM production and cross-boundary owner
 └── artifacts/  # Publication and print-production engine under one ArtifactReceipt
 ```
 
@@ -72,7 +72,7 @@ flowchart TB
 
 ## [03]-[SEAMS]
 
-Python couples to C# only at the wire — content-keyed shapes cross serialized, never as imported code. Each edge freezes one {KIND, name, direction} representative at the owner's spelling; companion legs fold to prose — runtime↔Rasm.AppHost also carries `TraceContext` and `HlcStamp`, runtime↔Rasm.Compute an `XxHash128` leg, `ContentAddress` spells from the Element owner over the runtime `ContentKey` minting, and the graduation seam's reverse payload is `EvidenceBundle`, C#-owned as `GraduationEvidence`. File-level detail lives on the owning folder's design page and the cross-`libs/` ledger.
+Python meets peer branches through corpus contracts and serialized artifacts, never imported peer code. Each edge freezes one `{KIND, name, direction}` representative at the endpoint spelling; peer legs fold to prose — runtime↔Rasm.AppHost also carries `TraceContext` and `HlcStampWire`, runtime↔Rasm.Compute an `XxHash128` leg, `ContentAddress` spells from the Element owner over the runtime `ContentKey` mint, and the graduation seam's reverse payload is `EvidenceBundle`, C#-spelled `GraduationEvidence`. File-level detail lives on the owning folder's design page and the cross-`libs/` ledger.
 
 ```mermaid
 ---
@@ -112,7 +112,7 @@ flowchart LR
     Data e7@-->|"[SHAPE]: DoeDataset"| RasmCompute
     Data e6@<-->|"[WIRE]: SubstraitPlan"| Persistence
     Data e8@-->|"[WIRE]: Environmental"| Materials
-    Bim e9@-->|"[WIRE]: GeoFeatureWkb"| Data
+    Bim e9@-->|"[WIRE]: GeoFeatureWire"| Data
     Artifacts e14@-->|"[CONTENT_KEY]: SignedArtifact"| Persistence
     Fabrication e15@-->|"[SHAPE]: Tolerance"| Artifacts
 ```
@@ -178,7 +178,7 @@ flowchart LR
 |  [02]   | a graduating evidence axis          | `compute/graduation/handoff.py`    | one `HandoffAxis` case                           |
 |  [03]   | a branch metric or signal           | `runtime/observability/metrics.py` | one `INSTRUMENTS` row                            |
 |  [04]   | a hook point                        | `runtime/observability/hooks.py`   | one `HookPoint` row under a package-qualified id |
-|  [05]   | a C#-minted proto wire family       | `runtime/transport/shapes.py`      | one `PROTO_VOCABULARY` row the drift gate proves |
+|  [05]   | an external proto wire family       | `runtime/transport/shapes.py`      | one `PROTO_VOCABULARY` row the drift gate proves |
 |  [06]   | a package dependency                | root `pyproject.toml`              | one admission row in the owning group            |
 
 ## [06]-[ADMISSION_POLICY]

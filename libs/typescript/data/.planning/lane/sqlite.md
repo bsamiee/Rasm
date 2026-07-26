@@ -8,14 +8,17 @@ ONE sqlite lane runs journal, projection, tenancy, and capability contracts acro
 | :-----: | :------------------ | :---------------------------------------------------------------------------------- |
 |  [01]   | `DEGRADATION_TABLE` | the grant-total capability-to-fallback matrix — the lane's whole difference as data |
 |  [02]   | `PROFILE_ROWS`      | Layer constructors and their runtime coordinates                                    |
-|  [03]   | `SNAPSHOT_IO`       | whole-database export/backup/seed, zero-copy transfer, extension load               |
-|  [04]   | `PROFILE_HARVEST`   | the per-profile query-evidence arm — availability rows, timed EXPLAIN, page stats   |
+|  [03]   | `PGLITE_PROFILE`    | generation-qualified embedded PostgreSQL, neutral SQL Layer, and dump custody       |
+|  [04]   | `SNAPSHOT_IO`       | whole-database export/backup/seed, zero-copy transfer, extension load               |
+|  [05]   | `PROFILE_HARVEST`   | the per-profile query-evidence arm — availability rows, timed EXPLAIN, page stats   |
 
 ## [02]-[DEGRADATION_TABLE]
 
-- Owner: the `_degrades` anchor — one row per `Pg.Grant` member, carrying a verdict per profile column; the derived `Sqlite.Fallback` union every consumer dispatches on, and the two-directional guard pair binding the key space to the spine's grant union.
+- Owner: the `_degrades` anchor — one row per `Pg.Grant` member, carrying a verdict per embedded-profile column; the derived `Sqlite.Fallback` union every consumer dispatches on, and the two-directional guard pair binding the key space to the spine's grant union.
 - Packages: none — the table is pure vocabulary over `lane/postgres.md`'s grant keys, reached through the one `Pg` import.
-- Growth: a new spine grant breaks `_Rows` at this declaration the day it lands in the matrix — completeness is a compile fact, never a census; a sixth profile is one more column across every row.
+- Growth: a new spine grant breaks `_Rows` at this declaration the day it lands in the matrix — completeness is a compile fact, never a census; another embedded profile is one more column across every row.
+- Law: the pglite column prices an embedded POSTGRESQL engine, so a spine grant it inherits reads `builtIn`, single-connection residency answers the concurrency primitives, and every extension grant reads `extensionOption` because a `PGlite.create` option row is the one admission shape — presence stays the capability probe's answer, never a column's claim. `engineVersion` marks the grants the embedded PostgreSQL major decides, the generation policy pinning that major as deployment data.
+- Law: `Sqlite.Lane` narrows the column set to the four profiles the sqlite statements serve; pglite runs neither `EXPLAIN QUERY PLAN` nor the page pragmas, so its diagnosis rides the PostgreSQL EXPLAIN arm and its harvest row prices every sqlite evidence source absent.
 - Law: the table is consumed, never consulted ad hoc — the projection wake reads `channel` through the optional `PgClient` service, the append lock arm reads `advisory` through `onDialectOrElse`, tenancy reads `rls` by never constructing `Tenancy` scopes on this lane; the rows document dispatch that already exists in the statements.
 - Law: `none` is a lawful verdict — analytics, geo, h3, timeseries, graphql, audit, statements, and asyncIo have no substitute, so consumer gates refuse them; guards make an absent row impossible. `statements` is `none` on every profile because the `sqlite3_stmt_status` C counters are unreachable through every admitted driver — the harvest table already prices the same refusal as `stmtStatus`, and the explicit harness-timed diagnosis arm is evidence, never a cumulative-statistics substitute.
 - Law: the lane is capability-different — `bm25` degrades to FTS5, `vector` to a server extension or libSQL built-in, `virtualGenerated` and `skipScan` are engine-native, and every profile includes FTS5 and JSONB.
@@ -27,47 +30,49 @@ ONE sqlite lane runs journal, projection, tenancy, and capability contracts acro
 import { Pg } from "./postgres.ts" // Grant keys stay type-plane reads; profile receipt is the one consumed value.
 
 const _degrades = {
-  rls: { server: "filePerApp", wasm: "originScope", libsql: "databasePerTenant", d1: "databasePerTenant" },
-  channel: { server: "poll", wasm: "reactivityHooks", libsql: "syncPull", d1: "none" },
-  advisory: { server: "singleWriter", wasm: "singleTab", libsql: "primarySerialized", d1: "primarySerialized" },
-  skipLocked: { server: "singleWriter", wasm: "singleTab", libsql: "primarySerialized", d1: "primarySerialized" },
-  conflictClaim: { server: "conflictChanges", wasm: "conflictChanges", libsql: "conflictChanges", d1: "conflictChanges" },
-  merge: { server: "upsert", wasm: "upsert", libsql: "upsert", d1: "upsert" },
-  copy: { server: "chunkedInsert", wasm: "chunkedInsert", libsql: "chunkedInsert", d1: "batchInsert" },
-  uuidv7: { server: "appMint", wasm: "appMint", libsql: "appMint", d1: "appMint" },
-  returningOldNew: { server: "preRead", wasm: "preRead", libsql: "preRead", d1: "preRead" },
-  virtualGenerated: { server: "builtIn", wasm: "builtIn", libsql: "builtIn", d1: "builtIn" },
-  temporal: { server: "appCheck", wasm: "appCheck", libsql: "appCheck", d1: "appCheck" },
-  skipScan: { server: "plannerOwned", wasm: "plannerOwned", libsql: "plannerOwned", d1: "plannerOwned" },
-  asyncIo: { server: "none", wasm: "none", libsql: "none", d1: "none" },
-  ivm: { server: "asyncLane", wasm: "inTabFold", libsql: "appSide", d1: "none" },
-  cron: { server: "hostSchedule", wasm: "none", libsql: "appSide", d1: "platformCron" },
-  partition: { server: "snapshotTruncate", wasm: "snapshotTruncate", libsql: "appSide", d1: "none" },
-  incremental: { server: "checkpointLane", wasm: "none", libsql: "none", d1: "none" },
-  vector: { server: "loadExtension", wasm: "none", libsql: "builtIn", d1: "none" },
-  vchord: { server: "loadExtension", wasm: "none", libsql: "builtIn", d1: "none" },
-  bm25: { server: "fts5", wasm: "fts5", libsql: "fts5", d1: "fts5" },
-  trigram: { server: "fts5", wasm: "fts5", libsql: "fts5", d1: "fts5" },
-  phonetic: { server: "loadExtension", wasm: "none", libsql: "none", d1: "none" },
-  fuzzy: { server: "loadExtension", wasm: "none", libsql: "none", d1: "none" },
-  jsonschema: { server: "schemaDecode", wasm: "schemaDecode", libsql: "schemaDecode", d1: "schemaDecode" },
-  statements: { server: "none", wasm: "none", libsql: "none", d1: "none" },
-  parquet: { server: "none", wasm: "none", libsql: "none", d1: "none" },
-  analytics: { server: "none", wasm: "none", libsql: "none", d1: "none" },
-  graphql: { server: "none", wasm: "none", libsql: "none", d1: "none" },
-  audit: { server: "none", wasm: "none", libsql: "none", d1: "none" },
-  geo: { server: "none", wasm: "none", libsql: "none", d1: "none" },
-  h3: { server: "none", wasm: "none", libsql: "none", d1: "none" },
-  timeseries: { server: "none", wasm: "none", libsql: "none", d1: "none" },
+  rls: { server: "filePerApp", wasm: "originScope", libsql: "databasePerTenant", d1: "databasePerTenant", pglite: "builtIn" },
+  channel: { server: "poll", wasm: "reactivityHooks", libsql: "syncPull", d1: "none", pglite: "builtIn" },
+  advisory: { server: "singleWriter", wasm: "singleTab", libsql: "primarySerialized", d1: "primarySerialized", pglite: "singleWriter" },
+  skipLocked: { server: "singleWriter", wasm: "singleTab", libsql: "primarySerialized", d1: "primarySerialized", pglite: "singleWriter" },
+  conflictClaim: { server: "conflictChanges", wasm: "conflictChanges", libsql: "conflictChanges", d1: "conflictChanges", pglite: "builtIn" },
+  merge: { server: "upsert", wasm: "upsert", libsql: "upsert", d1: "upsert", pglite: "engineVersion" },
+  copy: { server: "chunkedInsert", wasm: "chunkedInsert", libsql: "chunkedInsert", d1: "batchInsert", pglite: "builtIn" },
+  uuidv7: { server: "appMint", wasm: "appMint", libsql: "appMint", d1: "appMint", pglite: "engineVersion" },
+  returningOldNew: { server: "preRead", wasm: "preRead", libsql: "preRead", d1: "preRead", pglite: "engineVersion" },
+  virtualGenerated: { server: "builtIn", wasm: "builtIn", libsql: "builtIn", d1: "builtIn", pglite: "engineVersion" },
+  temporal: { server: "appCheck", wasm: "appCheck", libsql: "appCheck", d1: "appCheck", pglite: "engineVersion" },
+  skipScan: { server: "plannerOwned", wasm: "plannerOwned", libsql: "plannerOwned", d1: "plannerOwned", pglite: "engineVersion" },
+  asyncIo: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "engineVersion" },
+  ivm: { server: "asyncLane", wasm: "inTabFold", libsql: "appSide", d1: "none", pglite: "extensionOption" },
+  cron: { server: "hostSchedule", wasm: "none", libsql: "appSide", d1: "platformCron", pglite: "extensionOption" },
+  partition: { server: "snapshotTruncate", wasm: "snapshotTruncate", libsql: "appSide", d1: "none", pglite: "builtIn" },
+  incremental: { server: "checkpointLane", wasm: "none", libsql: "none", d1: "none", pglite: "extensionOption" },
+  vector: { server: "loadExtension", wasm: "none", libsql: "builtIn", d1: "none", pglite: "extensionOption" },
+  vchord: { server: "loadExtension", wasm: "none", libsql: "builtIn", d1: "none", pglite: "extensionOption" },
+  bm25: { server: "fts5", wasm: "fts5", libsql: "fts5", d1: "fts5", pglite: "extensionOption" },
+  trigram: { server: "fts5", wasm: "fts5", libsql: "fts5", d1: "fts5", pglite: "extensionOption" },
+  phonetic: { server: "loadExtension", wasm: "none", libsql: "none", d1: "none", pglite: "extensionOption" },
+  fuzzy: { server: "loadExtension", wasm: "none", libsql: "none", d1: "none", pglite: "extensionOption" },
+  jsonschema: { server: "schemaDecode", wasm: "schemaDecode", libsql: "schemaDecode", d1: "schemaDecode", pglite: "extensionOption" },
+  statements: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "extensionOption" },
+  parquet: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "extensionOption" },
+  analytics: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "extensionOption" },
+  graphql: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "extensionOption" },
+  audit: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "extensionOption" },
+  geo: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "extensionOption" },
+  h3: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "extensionOption" },
+  timeseries: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "extensionOption" },
 } as const
 
 declare namespace Sqlite {
   type Degraded = keyof typeof _degrades
   type Profile = keyof (typeof _degrades)[Degraded]
+  type Lane = Exclude<Profile, "pglite">
   type Fallback = (typeof _degrades)[Degraded][Profile]
   type _Rows<T extends Record<Pg.Grant, Record<Profile, string>> = typeof _degrades> = T
   type _Keys<K extends Pg.Grant = Degraded> = K
 }
+
 ```
 
 ## [03]-[PROFILE_ROWS]
@@ -141,7 +146,160 @@ const _d1 = (db: D1Database): Layer.Layer<D1Client.D1Client | SqlClient.SqlClien
   D1Client.layer({ db })
 ```
 
-## [04]-[SNAPSHOT_IO]
+## [04]-[PGLITE_PROFILE]
+
+- Owner: `PgliteRuntime.layer` creates, hydrates, observes, and admits one unpublished PGLite generation.
+- Lifecycle: `PGlite.create` and `close` form one scoped acquire/release; one semaphore owns the single-user connection.
+- Transaction: transaction acquisition holds the permit through begin, body, commit or rollback; statement execution cannot interleave.
+- Execution: `PgClient.makeCompiler` compiles neutral fragments; PGLite receives SQL and bound parameters through `query`.
+- Stream: source streaming fails typed because `PGliteInterface` exposes materialized results only.
+- Hydration: `PgliteSeed` closes empty, logical SQL, and physical PGDATA inputs; only creation accepts physical state.
+- Snapshot: `snapshot` discriminates physical `dumpDataDir` and logical `pgDump`; both exclude statements for their complete run.
+- Boundary: coordinates derive from admitted generation policy; caller options cannot set recovery, durability, or server configuration.
+- Growth: storage residency is one coordinate policy row; an extension is one typed `PGlite.create` option row.
+- Packages: PGLite, PGLite tools, Effect, `@effect/sql`, `@effect/sql-pg`, and `Reactivity`.
+
+```typescript signature
+import { PGlite, type PGliteInterface } from "@electric-sql/pglite"
+import { pgDump } from "@electric-sql/pglite-tools"
+import { Reactivity } from "@effect/experimental"
+import { SqlClient } from "@effect/sql"
+import type { Connection } from "@effect/sql/SqlConnection"
+import { SqlError } from "@effect/sql/SqlError"
+import { PgClient } from "@effect/sql-pg"
+import { Context, Effect, Layer, Stream } from "effect"
+import { Backend, type BackendFault } from "./capability.ts"
+
+declare namespace PgliteRuntime {
+  type Coordinate = (contract: Backend.Contract) => string
+  type Snapshot = "physical" | "logical"
+  type Seed =
+    | { readonly _tag: "empty" }
+    | { readonly _tag: "logical"; readonly script: string }
+    | { readonly _tag: "physical"; readonly archive: Blob | File }
+  type Observe = (
+    sql: SqlClient.SqlClient,
+    expected: Backend.Contract,
+  ) => Effect.Effect<Backend.Observation, BackendFault | SqlError>
+  type Service = {
+    readonly generation: Backend.Generation
+    readonly snapshot: (kind: Snapshot) => Effect.Effect<Blob | File, SqlError>
+  }
+}
+
+const _sqlFault = (message: string, cause: unknown): SqlError =>
+  new SqlError({ message, cause })
+
+const _pgliteQuery = (
+  pg: PGliteInterface,
+  statement: string,
+  parameters: ReadonlyArray<unknown>,
+): Effect.Effect<ReadonlyArray<Record<string, unknown>>, SqlError> =>
+  Effect.tryPromise({
+    try: () => pg.query<Record<string, unknown>>(statement, [...parameters]),
+    catch: (cause) => _sqlFault("PGLite query failed", cause),
+  }).pipe(Effect.map((result) => result.rows))
+
+const _pgliteConnection = (
+  pg: PGliteInterface,
+  permit: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>,
+): Connection => ({
+  execute: (statement, parameters, transformRows) =>
+    permit(_pgliteQuery(pg, statement, parameters)).pipe(
+      Effect.map((rows) => transformRows?.(rows) ?? rows),
+    ),
+  executeRaw: (statement, parameters) =>
+    permit(Effect.tryPromise({
+      try: () => pg.query(statement, [...parameters]),
+      catch: (cause) => _sqlFault("PGLite raw query failed", cause),
+    })),
+  executeStream: () =>
+    Stream.fail(_sqlFault("PGLite source streaming unavailable", "materialized-only")),
+  executeValues: (statement, parameters) =>
+    permit(_pgliteQuery(pg, statement, parameters)).pipe(
+      Effect.map((rows) => rows.map((row) => Object.values(row))),
+    ),
+  executeUnprepared: (statement, parameters, transformRows) =>
+    permit(_pgliteQuery(pg, statement, parameters)).pipe(
+      Effect.map((rows) => transformRows?.(rows) ?? rows),
+    ),
+})
+
+class PgliteRuntime extends Context.Tag("data/PgliteRuntime")<
+  PgliteRuntime,
+  PgliteRuntime.Service
+>() {
+  static layer(
+    projection: Backend.Projection,
+    coordinate: PgliteRuntime.Coordinate,
+    seed: PgliteRuntime.Seed,
+    observe: PgliteRuntime.Observe,
+  ): Layer.Layer<
+    PgliteRuntime | SqlClient.SqlClient,
+    BackendFault | SqlError,
+    Reactivity.Reactivity
+  > =>
+    Layer.scopedContext(Effect.gen(function* () {
+      const gate = yield* Effect.makeSemaphore(1)
+      const pg = yield* Effect.acquireRelease(
+        Effect.tryPromise({
+          try: () => PGlite.create(
+            coordinate(projection.contract),
+            seed._tag === "physical" ? { loadDataDir: seed.archive } : {},
+          ),
+          catch: (cause) => _sqlFault("PGLite open failed", cause),
+        }),
+        (handle) => Effect.promise(() => handle.close()).pipe(Effect.orDie),
+      )
+      yield* seed._tag === "logical"
+        ? Effect.tryPromise({
+            try: () => pg.exec(seed.script),
+            catch: (cause) => _sqlFault("PGLite hydrate failed", cause),
+          })
+        : Effect.void
+      const connection = _pgliteConnection(pg, gate.withPermits(1))
+      const transaction = _pgliteConnection(pg, (effect) => effect)
+      const sql = yield* SqlClient.make({
+        acquirer: Effect.succeed(connection),
+        transactionAcquirer: Effect.acquireRelease(
+          gate.take(1),
+          () => gate.release(1),
+        ).pipe(Effect.as(transaction)),
+        compiler: PgClient.makeCompiler(),
+        spanAttributes: [
+          ["db.system.name", "postgresql"],
+          ["db.namespace", projection.contract.wire.contract],
+        ],
+        beginTransaction: "BEGIN",
+        commit: "COMMIT",
+        rollback: "ROLLBACK",
+        savepoint: (name) => `SAVEPOINT "${name}"`,
+        rollbackSavepoint: (name) => `ROLLBACK TO SAVEPOINT "${name}"`,
+      })
+      const generation = yield* Effect.flatMap(
+        observe(sql, projection.contract),
+        (observed) => Backend.admit(projection.contract, observed),
+      )
+      const runtime = {
+        generation,
+        snapshot: (kind: PgliteRuntime.Snapshot): Effect.Effect<Blob | File, SqlError> =>
+          gate.withPermits(1)(
+            Effect.tryPromise({
+              try: () => kind === "physical" ? pg.dumpDataDir("gzip") : pgDump({ pg }),
+              catch: (cause) => _sqlFault("PGLite snapshot failed", cause),
+            }),
+          ),
+      } satisfies PgliteRuntime.Service
+      return Context.make(PgliteRuntime, runtime).pipe(
+        Context.add(SqlClient.SqlClient, sql),
+      )
+    }))
+}
+
+export { PgliteRuntime }
+```
+
+## [05]-[SNAPSHOT_IO]
 
 - Owner: `Sqlite.bytes(io)` — ONE byte-operation entry whose modality is the `Sqlite.Io` case value: `Snapshot` (whole-database export content-addressed into the object plane across either server profile), `Backup` (node-only non-blocking online backup with page-progress metadata), `Seed`/`Dump` (wasm import/export), and `Extend` (runtime extension load across either server profile); `_server` resolves the structurally common byte-capable client from the environment without making the caller select the profile.
 - Packages: `@effect/sql-sqlite-node` (`client.export`, `client.backup`, `client.loadExtension`, `BackupMetadata`); `@effect/sql-sqlite-bun` (`client.export`, `client.loadExtension`); `@effect/sql-sqlite-wasm` (`client.import`, `client.export`, `SqliteClient.withTransferables`); the object plane's put entry consumes the exported bytes at the composition seam.
@@ -202,14 +360,15 @@ const _bytes = (io: SqliteIo) =>
 
 ```
 
-## [05]-[PROFILE_HARVEST]
+## [06]-[PROFILE_HARVEST]
 
-- Owner: the lane's `Pg.Profile` arm — `_harvest` prices measures, `_profiled` folds wall span, plan structure, and page counters, `_dbstat` probes the virtual table once at arm construction (a `SELECT 1 … LIMIT 1` presence read, never a per-diagnosis aggregate scan), and `Sqlite` assembles the export.
+- Owner: the lane's `Pg.Profile` arm — `_harvest` prices measures and GATES every statement the arm issues, `_profiled` folds wall span, plan structure, and page counters, `_dbstat` probes the virtual table once at arm construction where the row prices it (a `SELECT 1 … LIMIT 1` presence read, never a per-diagnosis aggregate scan), `_ENGINE` binds each profile to the engine its receipt stamps, and `Sqlite` assembles the export.
 - Packages: `@effect/sql` (`SqlClient`, `SqlSchema`, `Statement` — the profiled statement is a `Fragment` value); `effect` (`Duration`, `Effect`, `Schema`); `./postgres.ts` (`Pg.Profile` — the shared receipt schema, the lane's one value read beside the type-only grant vocabulary).
-- Entry: the maintenance composition constructs the arm once per layer — `Sqlite.profile.of(sql, engine)` probes `dbstat` a single time and yields the diagnosis closure — and each explicit diagnosis call runs that closure with `(statement, label)` on any profile; the composition projects `wallMillis` onto the `Convention.instrument.profileDuration` histogram tagged `Convention.rasm.profileEngine` exactly as the pg and DuckDB arms do — receipts stay the truth, the instrument the lossy channel.
+- Entry: the maintenance composition constructs the arm once per layer — `Sqlite.profile.of(sql, profile)` reads that profile's harvest row, probes `dbstat` only where the row prices it, and yields the diagnosis closure — and each explicit diagnosis call runs that closure with `(statement, label)` on any sqlite profile; the composition projects `wallMillis` onto the `Convention.instrument.profileDuration` histogram tagged `Convention.rasm.profileEngine` exactly as the pg and DuckDB arms do — receipts stay the truth, the instrument the lossy channel.
 - Receipt: `Pg.Profile` with `engine` selected by the live profile (`sqliteServer` | `sqliteWasm` | `libsql` | `d1`), operators from the `EXPLAIN QUERY PLAN` rows carrying `Option.none()` timing — the engine exposes plan structure without per-operator clocks, and an absent measure is omission, never a zero — and `counters` holding `pageCount`, `freelistCount`, and the `dbstat` aggregates where the probe granted them.
 - Growth: an evidence source is one `_harvest` row and harvest line; another profile adds an availability column that the guard requires.
-- Law: availability is priced as row data — `explainPlan` and the page pragmas are `builtIn` everywhere, `dbstat` is `probe` on the server and wasm profiles (the virtual table is a compile-time engine fact `_dbstat` answers per deployment, never a static claim) and `none` on the edge rows, and `stmtStatus` is `none` on every profile because the `sqlite3_stmt_status` C counters are unreachable through every admitted driver — the refusal is a recorded verdict, and no arm fabricates a zero where a counter is absent.
+- Law: availability is priced as row data and the arm READS that price — every evidence statement gates on the active profile's `_harvest` column, so a profile the table marks without page pragmas issues none and omits the counter; a probe running past its own row erases the table's reason to exist and fires SQL at a surface the deployment does not carry.
+- Law: `dbstat` is `probe` on the server and wasm profiles — the virtual table is a compile-time engine fact `_dbstat` answers per deployment, never a static claim — and `stmtStatus` is `none` on every profile because the `sqlite3_stmt_status` C counters are unreachable through every admitted driver; a recorded refusal omits its counter and no arm fabricates a zero.
 - Law: wall span is harness-measured — the engine exposes no per-query clock through any admitted driver, so `_profiled` times the statement's own run with `Effect.timed` and the span covers exactly the profiled execution; the diagnosis therefore EXECUTES the statement, scoping the arm to explicit calls like the pg EXPLAIN arm.
 - Law: the harvest never re-parses driver rows by hand — `EXPLAIN QUERY PLAN` rows, `pragma_page_count()`/`pragma_freelist_count()` reads, and the `dbstat` aggregate all decode through `SqlSchema`, so a malformed cell is a `ParseError` on the admission rail.
 
@@ -219,16 +378,26 @@ import { SqlClient, SqlSchema, type Statement } from "@effect/sql"
 import { Array, Duration, Schema } from "effect"
 
 const _harvest = {
-  explainPlan: { server: "builtIn", wasm: "builtIn", libsql: "builtIn", d1: "builtIn" },
-  pageStats: { server: "builtIn", wasm: "builtIn", libsql: "builtIn", d1: "none" },
-  dbstat: { server: "probe", wasm: "probe", libsql: "none", d1: "none" },
-  stmtStatus: { server: "none", wasm: "none", libsql: "none", d1: "none" },
+  explainPlan: { server: "builtIn", wasm: "builtIn", libsql: "builtIn", d1: "builtIn", pglite: "none" },
+  pageStats: { server: "builtIn", wasm: "builtIn", libsql: "builtIn", d1: "none", pglite: "none" },
+  dbstat: { server: "probe", wasm: "probe", libsql: "none", d1: "none", pglite: "none" },
+  stmtStatus: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "none" },
 } as const
+
+// `_ENGINE` binds each profile column to the receipt engine it stamps, so the harvest gate and the receipt
+// read ONE key and no call site carries both spellings.
+const _ENGINE = {
+  server: "sqliteServer",
+  wasm: "sqliteWasm",
+  libsql: "libsql",
+  d1: "d1",
+  pglite: "pglite",
+} as const satisfies Record<Sqlite.Profile, Pg.ProfileEngine>
 
 declare namespace Sqlite {
   type Evidence = keyof typeof _harvest
   type Availability = (typeof _harvest)[Evidence][keyof (typeof _harvest)[Evidence]]
-  type ProfileEngine = Extract<Pg.ProfileEngine, "sqliteServer" | "sqliteWasm" | "libsql" | "d1">
+  type ProfileEngine = (typeof _ENGINE)[Sqlite.Lane]
   type _Harvest<T extends Record<Evidence, Record<Sqlite.Profile, string>> = typeof _harvest> = T
 }
 
@@ -243,49 +412,64 @@ const _DbstatRow = Schema.Struct({ btrees: Schema.Number, unusedBytes: Schema.Nu
 const _dbstat = (sql: SqlClient.SqlClient): Effect.Effect<boolean> =>
   Effect.match(sql`SELECT 1 AS probed FROM dbstat LIMIT 1`, { onFailure: () => false, onSuccess: () => true })
 
-// Construction-effect: the arm probes dbstat exactly once and closes over the verdict — a compile-time engine
-// fact never re-probes per diagnosis, and every diagnosis reuses the cached availability.
-const _profiled = (sql: SqlClient.SqlClient, engine: Sqlite.ProfileEngine) =>
-  Effect.map(_dbstat(sql), (granted) => (statement: Statement.Fragment, label: string) =>
-    Effect.gen(function* () {
-      const plan = yield* SqlSchema.findAll({
-        Request: Schema.Void,
-        Result: _PlanRow,
-        execute: () => sql`EXPLAIN QUERY PLAN ${statement}`,
-      })(void 0)
-      const [span, rows] = yield* Effect.timed(sql`${statement}`)
-      const pages = yield* SqlSchema.single({
-        Request: Schema.Void,
-        Result: _PageRow,
-        execute: () => sql`SELECT pragma_page_count() AS pages, pragma_freelist_count() AS freelist`,
-      })(void 0)
-      const space = yield* (granted
-        ? Effect.map(
-            SqlSchema.single({
+// Construction-effect: the arm reads its profile's `_harvest` row ONCE, probes dbstat only where that row
+// prices it `probe`, and closes over the verdict — so an edge profile pays no construction round trip, a
+// compile-time engine fact never re-probes per diagnosis, and every diagnosis reuses the cached availability.
+// Each evidence source below gates on the same row, so a profile whose column reads `none` issues no statement
+// against a surface it does not carry and omits the counter rather than erroring or forging a zero.
+const _profiled = (sql: SqlClient.SqlClient, profile: Sqlite.Lane) =>
+  Effect.map(
+    _harvest.dbstat[profile] === "probe" ? _dbstat(sql) : Effect.succeed(false),
+    (granted) => (statement: Statement.Fragment, label: string) =>
+      Effect.gen(function* () {
+        const plan = yield* (_harvest.explainPlan[profile] === "builtIn"
+          ? SqlSchema.findAll({
               Request: Schema.Void,
-              Result: _DbstatRow,
-              execute: () => sql`SELECT count(*) AS btrees, coalesce(sum(unused), 0) AS unusedBytes FROM dbstat`,
-            })(void 0),
-            Option.some,
-          )
-        : Effect.succeed(Option.none<typeof _DbstatRow.Type>()))
-      return new Pg.Profile({
-        engine,
-        statement: label,
-        wallMillis: Duration.toMillis(span),
-        rows: rows.length,
-        operators: Array.map(plan, (step) => ({ name: step.detail, millis: Option.none(), rows: Option.none() })),
-        counters: {
-          pageCount: pages.pages,
-          freelistCount: pages.freelist,
-          ...Option.match(space, {
-            onNone: () => ({}), // dbstat refused: the counters stay absent, never zero-forged
-            onSome: (held) => ({ dbstatBtrees: held.btrees, dbstatUnusedBytes: held.unusedBytes }),
-          }),
-        },
-        window: Option.none(),
-      })
-    }))
+              Result: _PlanRow,
+              execute: () => sql`EXPLAIN QUERY PLAN ${statement}`,
+            })(void 0)
+          : Effect.succeed<ReadonlyArray<typeof _PlanRow.Type>>([]))
+        const [span, rows] = yield* Effect.timed(sql`${statement}`)
+        const pages = yield* (_harvest.pageStats[profile] === "builtIn"
+          ? Effect.map(
+              SqlSchema.single({
+                Request: Schema.Void,
+                Result: _PageRow,
+                execute: () => sql`SELECT pragma_page_count() AS pages, pragma_freelist_count() AS freelist`,
+              })(void 0),
+              Option.some,
+            )
+          : Effect.succeed(Option.none<typeof _PageRow.Type>()))
+        const space = yield* (granted
+          ? Effect.map(
+              SqlSchema.single({
+                Request: Schema.Void,
+                Result: _DbstatRow,
+                execute: () => sql`SELECT count(*) AS btrees, coalesce(sum(unused), 0) AS unusedBytes FROM dbstat`,
+              })(void 0),
+              Option.some,
+            )
+          : Effect.succeed(Option.none<typeof _DbstatRow.Type>()))
+        return new Pg.Profile({
+          engine: _ENGINE[profile],
+          statement: label,
+          wallMillis: Duration.toMillis(span),
+          rows: rows.length,
+          operators: Array.map(plan, (step) => ({ name: step.detail, millis: Option.none(), rows: Option.none() })),
+          counters: {
+            ...Option.match(pages, {
+              onNone: () => ({}),
+              onSome: (held) => ({ pageCount: held.pages, freelistCount: held.freelist }),
+            }),
+            ...Option.match(space, {
+              onNone: () => ({}),
+              onSome: (held) => ({ dbstatBtrees: held.btrees, dbstatUnusedBytes: held.unusedBytes }),
+            }),
+          },
+          window: Option.none(),
+        })
+      }),
+  )
 
 const Sqlite = {
   degrades: _degrades,
@@ -307,11 +491,12 @@ const Sqlite = {
 export { Sqlite, SqliteFault }
 ```
 
-## [06]-[RESEARCH]
+## [07]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-(none)
+- [PGLITE_ENGINE_MAJOR]-[OPEN]: which PostgreSQL major does `@electric-sql/pglite` embed, and does that major carry `uuidv7()`, `RETURNING old.*/new.*`, `VIRTUAL` generated columns, `WITHOUT OVERLAPS`, skip scan, and `io_method`; resolve each `engineVersion` cell against `data/.api/electric-sql-pglite.md` once the catalog records the embedded major.
+- [D1_BINDING_TYPE]-[BLOCKED]: which admitted package supplies the `D1Database` binding type `_d1` names; `data/.api/effect-sql-d1.md` sources it from `@cloudflare/workers-types`, which carries no `pnpm-workspace.yaml` catalog row, so the import stays unspellable until that row lands.

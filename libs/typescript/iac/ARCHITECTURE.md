@@ -1,6 +1,6 @@
 # [TS_IAC_ARCHITECTURE]
 
-`iac` owns the plane-distinct deploy package outside the runtime graph: sub-domains `program`, `operate`, and `kube` meet through one `StackSpec` value, one arm-keyed dispatch, and one Automation-API ledger. Every runtime alignment is a mirrored deploy fact, never an import the runtime carries.
+`iac` owns the plane-distinct deploy package outside the runtime graph: sub-domains `program`, `operate`, and `kube` meet through one `StackSpec` value, one arm-keyed dispatch, one backend projection, and one Automation-API ledger. Every runtime alignment is a mirrored deploy fact, never an import the runtime carries.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -12,23 +12,24 @@ iac/
     │   ├── provider.ts   # Capability-by-arm map and realizer over the shared k8s and docker estates
     │   ├── automation.ts # Sole executor — the Automation-API driver with resilience and the fleet verbs
     │   └── source.ts     # Source-control shells the Doppler mirror fills, with the distribution leg
-    ├── operate/          # Secrets, observability realization, policy, and the hosted control plane
+    ├── operate/          # Secrets, observability, policy, backend convergence, and hosted control plane
     │   ├── secret.ts     # Doppler hierarchy, mirror fan-out, access RBAC, and the three-lane cert axis
     │   ├── observe.ts    # Store-row metrics family, signal backends, collector ingest, dev estate, board compile
-    │   ├── policy.ts     # Guard policies, drift projection, the evidence sink spine, and the in-cluster PKO reconcile loop
+    │   ├── policy.ts     # Guard policies, drift projection, the evidence sink spine, in-cluster PKO reconcile
+    │   ├── converge.ts   # Immutable generation construction, hydration, proof, cutover, and retention
     │   └── cloud.ts      # Hosted control-plane twin set, gated on the cloud backend
     └── kube/             # K8s estate tiers realized on either plane
-        ├── workload.ts   # One spec row realized as the full typed workload set with its _LIFE anchor
-        ├── traffic.ts    # Gateway API edge with external-dns automation and the tunnel/WAF/vanity rows
-        ├── data.ts       # Typed CNPG data plane — object store, NATS, backups, pooler, replication
-        └── tenant.ts     # Isolation modes and the cross-stack platform seam
+    │   ├── workload.ts   # Service and worker roles from one spec row, typed workload set, `_LIFE` anchor
+    │   ├── traffic.ts    # Gateway API edge with external-dns automation and the tunnel/WAF/vanity rows
+    │   ├── data.ts       # Typed CNPG data plane — object store, NATS, backups, pooler, replication
+    │   └── tenant.ts     # Isolation modes and the cross-stack platform seam
 ```
 
 ## [02]-[STRATA]
 
 - S0 `program/spec` + `program/automation` — co-base pair composing mutually: spec reads `DeployFault`, automation reads `StackSpec`.
-- S1 `operate` + `program/source` — each composes the base alone: `policy` alone drives `Automation` receipts, none imports an operate sibling.
-- S2 `kube` — estate tiers over `Tier` rows; `traffic` alone adds a type-only `Certs` read on `operate/secret`, its issue verb injected.
+- S1 `operate` + `program/source` — convergence consumes backend projections and produces retained evidence.
+- S2 `kube` — workload roles, data targets, traffic, and tenancy over `Tier` rows.
 - S3 `program/provider` — the `_estate` composition sink pulling every tier through the capability-by-arm map; nothing imports it.
 
 ```mermaid
@@ -50,7 +51,7 @@ flowchart TB
         Traffic[traffic]
     end
     subgraph S1["S1 OPERATE"]
-        Operate["secret · observe · policy · cloud"]
+        Operate["secret · observe · policy · converge · cloud"]
         Source[source]
     end
     subgraph S0["S0 PROGRAM BASE"]
@@ -97,6 +98,7 @@ flowchart LR
     Program e1@-->|"[PORT]: StackOutputs"| Runtime
     Data e2@-->|"[SHAPE]: Pg.rows"| Kube
     Data e3@-->|"[BOUNDARY]: Tenancy.rls"| Kube
+    Data e14@-->|"[PROJECTION]: Backend.Projection"| Operate
     Runtime e4@-->|"[BOUNDARY]: Fanout.jetstream"| Kube
     Runtime e5@-->|"[SHAPE]: Setting.life"| Kube
     Core e7@-->|"[PROJECTION]: DashboardModel"| Operate
@@ -110,12 +112,17 @@ flowchart LR
 
 ## [04]-[INTERNAL]
 
-One `StackSpec` decodes into an arm, and the arm realizer proves every spec coordinate on the `DeployFault` rail before minting a `PulumiFn` — a rejected coordinate never reaches a provider. `provider` holds the single `_estate` composition the metal bootstrap and the EKS escalation both feed, beside the docker machine estate at container depth. `automation` is the sole executor and internalizes resilience, retry, and per-run budgets. Per-file wiring — tier rows, mirror fan-out, the reconcile loop — lives on the owning pages.
+One `StackSpec` decodes into an arm, and the arm realizer proves every spec coordinate on the `DeployFault` rail before minting a `PulumiFn` — a rejected coordinate never reaches a provider. `provider` holds the single `_estate` composition the metal bootstrap and the EKS escalation both feed, beside the docker machine estate at container depth. `automation` is the sole executor and internalizes resilience, retry, and per-run budgets.
+
+Growth is one row on the owning surface — a cloud, capability, credential, tenancy tier, or injected env fact — so promoting a metal cluster to a managed estate is one provider seam swap and finalizing a cloud is a spec value, never a lib edit. Deploy and drift evidence share one receipt vocabulary, so drift stays pure projection and cannot fork. Per-file wiring — tier rows, mirror fan-out, the reconcile loop — lives on the owning pages.
 
 ## [05]-[BOUNDARIES]
 
 - Nothing imports this package at runtime; values cross back only as typed stack outputs read from env at boot.
-- iac applies DDL and extensions; data verifies at startup, runtime never mutates schema, so divergence fails closed, never a pulumi read-back.
+- Coordinates publish and material never does: the output gate refuses any secret-flagged value, and the one secret source of truth reaches external stores only as mirrors.
+- IaC builds unpublished generations and re-runs convergence on deployment fences; data admits the published generation read-only.
+- Convergence treats recovery as clean-target materialization and returns it through the normal publication path.
+- Every workload role mounts the proved contract and active-generation pointer before scheduling.
 - Object-engine admission requires conditional-create semantics; `minio | ceph` are the conforming rows.
 - Static distribution publishes caller-owned artifact rows at `assets/<digest>/<file>` on the `served` plane and carries no UI codec semantics.
 - Queue durability is the SKIP-LOCKED outbox with the runtime relay owned by the data and runtime planes.

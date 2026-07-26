@@ -8,7 +8,8 @@ Composition is settled: the thread and subinterpreter crossing arms stay `execut
 
 - [01]-[FABRIC]: the `WorkerKind` family and its policy rows, the `KernelTrait` isolation classifier, the one `Kernel` crossing owner with shipping, wire, deadline, and enforcement as fields, the shared-memory span channel, the parented-emitter worker gate — kernel span, profiler phase, and cost bracket over the stitch-and-resolve pair — the remote-floor entry, the guest sandbox arm with its epoch pacer, and the tblib fidelity latch.
 - [02]-[POOL]: the warm reusable `WorkerPool` capsule — loky, pebble, and per-device arms under one lifecycle vocabulary, the `WorkerBoot` install seam and its exit-owned flush law, band-bounded settle, in-band worker-death retry, and the asyncssh remote arm crossing the sealed kernel to a fleet host.
-- [03]-[SUPERVISION]: the restart actuator — kind-scoped psutil probes as data verdicts, the windowed restart budget, escalation, the serve-facing health projection, and the bundle-facing verdict projection.
+- [03]-[LEASE]: one fenced claim, heartbeat, settlement, and drain algebra over an admitted backend generation.
+- `[04]-[SUPERVISION]`: kind-scoped psutil verdicts, restart budget and escalation, serving health, and bundle verdict projection.
 
 ## [02]-[FABRIC]
 
@@ -24,7 +25,7 @@ Composition is settled: the thread and subinterpreter crossing arms stay `execut
 - Law: `_guest` is `GUEST` shipping's worker-floor arm — zero-import instantiation (no WASI, no ambient capability), a fresh `Store` per call so guest state never leaks across kernels, `GUEST_MEMORY` bounding linear memory, and request/reply crossing as bytes over the `GUEST_ABI` exports; the module compiles once per digest per interpreter, so the per-call cost is instantiation alone.
 - Law: the guest deadline is the engine's epoch — one daemon pacer heartbeats the engine-global epoch every `EPOCH_TICK` while each store carries its own relative tick budget, so concurrent guests never kill each other and a guest dies mid-kernel at wall clock IN-PROCESS, the enforcement no thread or interpreter arm owns. `WasmtimeError` exposes no addressable trap code, so the arm discriminates by elapsed budget: an epoch kill re-raises `TimeoutError` onto the faults `deadline` row, and a genuine trap crosses whole into the catch-all `boundary` case with its trap message.
 - Growth: a new worker kind is one `WorkerKind` member with one `KIND_POLICY` row; a new isolation answer is one `KernelTrait` member with one `TRAIT_ROW` row and every call site untouched; a new shipping form is one `Shipping` member with one `shipped` arm; a new enforcement arm is one `Enforcement` member with one offload projection row; a new payload crossing is one `Wire` member with one `exported` arm; a new cost measure is one `Cost` field at the receipts owner with one `INSTRUMENTS` row at the metrics owner, reaching this bracket through `measures` with zero gate edits.
-- Boundary: trait declaration stays consumer domain knowledge — this owner never inspects a callable for GIL behavior; picklability is the one property `Kernel.of` classifies itself. Thread and subinterpreter crossing arms and the offload hop stay `execution/lanes#LANE`'s; this page mints the vocabulary the hop consumes, the process bands, and the process pools.
+- Boundary: trait declaration stays consumer domain knowledge — this owner never inspects a callable for GIL behavior; picklability is the one property `Kernel.of` classifies itself. Thread and subinterpreter crossing arms and the offload hop stay `execution/lanes#LANE`'s; this page mints the vocabulary the hop consumes, the process bands, and the process pools. `execution/admission#CONTEXT` admits the `isolation` axis upstream and refuses an unbound fabric there, so `KernelTrait` selects the worker kind INSIDE a value the profile already serves — `INLINE` under `in-proc`, `PURE` and `RELEASING` under `thread`, `HOSTILE` under `process`, `SANDBOXED` under `wasm`, the `WorkerKind.REMOTE` fleet arm under `remote` — and a kernel reaching a fabric the profile never admitted is unrepresentable, never a runtime downgrade this owner absorbs.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -486,7 +487,7 @@ from opentelemetry import propagate
 from opentelemetry.exporter.otlp.proto.http import Compression
 from opentelemetry.sdk.resources import SERVICE_INSTANCE_ID, SERVICE_NAME, SERVICE_NAMESPACE, Resource
 
-from rasm.runtime.admission import RuntimeProfile
+from rasm.runtime.admission import RuntimeContext, RuntimeProfile
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, async_boundary
 from rasm.runtime.receipts import OPEN, Receipt, Signals, receipted
 from rasm.runtime.resilience import guard
@@ -621,13 +622,16 @@ def _worker_boot(boot: WorkerBoot) -> None:
         os.environ.update(boot.device.env)
     if KIND_POLICY[boot.kind].fidelity:
         fidelity()
+    # Readmission rebuilds the axis row both emission gates read from the preset NAME the boot capture carried, so no
+    # context object crosses the pickle seam and the telemetry and profile installs share one boot correlation.
+    ctx = RuntimeContext.admit(boot.profile)
     if boot.otel is not None:
         atexit.register(Telemetry.shutdown)
-        Telemetry.install(boot.profile, boot.otel, resource=worker_resource(boot.kind), signal_profile=WORKER_SIGNAL_PROFILE)
+        Telemetry.install(ctx, boot.otel, resource=worker_resource(boot.kind), signal_profile=WORKER_SIGNAL_PROFILE)
         Metrics.install()
     if boot.pyroscope is not None:
         atexit.register(Profiles.shutdown)
-        Profiles.install(boot.profile, boot.pyroscope, tags={"worker.kind": boot.kind.value}, tenant=boot.tenant)
+        Profiles.install(ctx, boot.pyroscope, tags={"worker.kind": boot.kind.value}, tenant=boot.tenant)
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -931,7 +935,209 @@ class WorkerPool:
         return PoolReceipt(phase=self._phase, kind=self._kind, enforcement=self._enforcement, workers=0)
 ```
 
-## [04]-[SUPERVISION]
+## [04]-[LEASE]
+
+- Owner: `LeaseSession` composes one `LeasePort` with an admitted `BackendGeneration` and one existing `WorkerPool`.
+- Algebra: `LeaseOp` closes claim, heartbeat, settle, and drain behind one provider-polymorphic `apply`.
+- Claim: `LeaseDemand` carries generation, worker identity, and capability evidence; `WorkLease` returns one fenced token and payload. Generation crosses as the admission owner's `Digest128`, so the claim, the returned fence, and the drift compare read one 32-hex domain.
+- Heartbeat: a sibling task races pool execution; lease loss cancels the crossing under the kernel's declared enforcement.
+- Settlement: success carries a kernel content identity; failure carries the typed runtime fault tag; the provider fences both by token.
+- Drain: provider admission closes before pool drain, so no claim enters after local execution begins settling.
+- Boundary: adapters own PostgreSQL, broker, or service calls; this owner carries no SQL, polling protocol, or provider transaction.
+- Growth: a provider implements one port; a lease transition is one union case; worker execution and supervision remain unchanged.
+- Packages: AnyIO structured concurrency, `expression` rails, `msgspec` unions, and runtime `ContentIdentity`.
+
+```python signature
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Annotated, Literal, Protocol, assert_never
+
+import anyio
+from expression import Error, Ok, Result, case, tag, tagged_union
+from msgspec import Meta, Struct
+
+from rasm.runtime.admission import BackendGeneration, Digest128
+from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary
+from rasm.runtime.identity import ContentIdentity
+
+
+class LeaseDemand(Struct, frozen=True):
+    # Generation crosses as the admission owner's own 32-hex domain, so a fence token and a demand read one spelling
+    # and a truncated or re-based digest fails at construction rather than at the provider's key compare.
+    generation: Digest128
+    worker: str
+    capabilities: frozenset[str]
+
+
+class LeasePolicy(Struct, frozen=True, gc=False):
+    heartbeat: Annotated[float, Meta(gt=0.0)]
+
+
+class WorkLease(Struct, frozen=True):
+    token: str
+    generation: Digest128
+    payload: bytes
+
+
+@tagged_union(frozen=True)
+class LeaseSettlement:
+    tag: Literal["succeeded", "failed"] = tag()
+    succeeded: int = case()
+    failed: str = case()
+
+
+@tagged_union(frozen=True)
+class LeaseOp:
+    tag: Literal["claim", "heartbeat", "settle", "drain"] = tag()
+    claim: LeaseDemand = case()
+    heartbeat: WorkLease = case()
+    settle: tuple[WorkLease, LeaseSettlement] = case()
+    drain: str = case()
+
+
+@tagged_union(frozen=True)
+class LeaseVerdict:
+    tag: Literal["claimed", "renewed", "settled", "drained", "empty", "lost"] = tag()
+    claimed: WorkLease = case()
+    renewed: str = case()
+    settled: str = case()
+    drained: str = case()
+    empty: str = case()
+    lost: str = case()
+
+
+class LeasePort(Protocol):
+    async def apply(self, operation: LeaseOp, /) -> RuntimeRail[LeaseVerdict]: ...
+
+
+type LeaseRace[T] = (
+    tuple[Literal["work"], RuntimeRail[T]]
+    | tuple[Literal["lease"], BoundaryFault]
+)
+
+
+@dataclass(frozen=True, slots=True)
+class LeaseSession:
+    port: LeasePort
+    pool: WorkerPool
+    generation: BackendGeneration
+    worker: str
+    policy: LeasePolicy
+
+    async def run[T](
+        self,
+        kernel: Kernel[T],
+        evidence: Callable[[T], bytes],
+        /,
+    ) -> RuntimeRail[T]:
+        demand = LeaseDemand(
+            generation=self.generation.generation,
+            worker=self.worker,
+            capabilities=self.generation.observed.capabilities,
+        )
+        claimed = await self.port.apply(LeaseOp(claim=demand))
+        match claimed:
+            case Result(tag="error") as refused:
+                return refused
+            case Result(tag="ok", ok=LeaseVerdict(tag="empty")):
+                return Error(BoundaryFault(resource=("workers.lease", "empty")))
+            case Result(tag="ok", ok=LeaseVerdict(tag="claimed", claimed=lease)):
+                if lease.generation != demand.generation:
+                    return Error(BoundaryFault(config=("workers.lease", "generation-drift")))
+            case Result(tag="ok"):
+                return Error(BoundaryFault(config=("workers.lease", "claim-verdict")))
+            case _ as unreachable:
+                assert_never(unreachable)
+
+        send, receive = anyio.create_memory_object_stream[LeaseRace[T]](1)
+
+        async def worked() -> None:
+            await send.send(("work", await self.pool.submit(kernel, lease.payload)))
+
+        async def pulsed() -> None:
+            while True:
+                await anyio.sleep(self.policy.heartbeat)
+                renewed = await self.port.apply(LeaseOp(heartbeat=lease))
+                match renewed:
+                    case Result(tag="ok", ok=LeaseVerdict(tag="renewed")):
+                        continue
+                    case Result(tag="error", error=fault):
+                        await send.send(("lease", fault))
+                        return
+                    case Result(tag="ok", ok=LeaseVerdict(tag="lost", lost=reason)):
+                        await send.send(
+                            ("lease", BoundaryFault(resource=("workers.lease", reason)))
+                        )
+                        return
+                    case Result(tag="ok"):
+                        await send.send(
+                            ("lease", BoundaryFault(config=("workers.lease", "heartbeat-verdict")))
+                        )
+                        return
+                    case _ as unreachable:
+                        assert_never(unreachable)
+
+        async with send, receive, anyio.create_task_group() as group:
+            group.start_soon(worked)
+            group.start_soon(pulsed)
+            raced = await receive.receive()
+            group.cancel_scope.cancel()
+
+        match raced:
+            case ("lease", fault):
+                return Error(fault)
+            case ("work", Result(tag="error", error=fault) as outcome):
+                settlement: RuntimeRail[LeaseSettlement] = Ok(
+                    LeaseSettlement(failed=fault.tag)
+                )
+            case ("work", Result(tag="ok", ok=value) as outcome):
+                settlement = boundary(
+                    "workers.lease.evidence",
+                    lambda: LeaseSettlement(
+                        succeeded=ContentIdentity.key(
+                            "worker-settlement",
+                            evidence(value),
+                            seed=Some(0),
+                        ).value
+                    ),
+                )
+            case _ as unreachable:
+                assert_never(unreachable)
+
+        match settlement:
+            case Result(tag="error") as refused:
+                return refused
+            case Result(tag="ok", ok=sealed):
+                settled = await self.port.apply(LeaseOp(settle=(lease, sealed)))
+            case _ as unreachable:
+                assert_never(unreachable)
+
+        match settled:
+            case Result(tag="error") as refused:
+                return refused
+            case Result(tag="ok", ok=LeaseVerdict(tag="settled")):
+                return outcome
+            case Result(tag="ok", ok=LeaseVerdict(tag="lost", lost=reason)):
+                return Error(BoundaryFault(resource=("workers.lease", reason)))
+            case Result(tag="ok"):
+                return Error(BoundaryFault(config=("workers.lease", "settle-verdict")))
+            case _ as unreachable:
+                assert_never(unreachable)
+
+    async def drain(self) -> RuntimeRail[PoolReceipt]:
+        closed = await self.port.apply(LeaseOp(drain=self.worker))
+        match closed:
+            case Result(tag="error") as refused:
+                return refused
+            case Result(tag="ok", ok=LeaseVerdict(tag="drained")):
+                return Ok(await self.pool.drain())
+            case Result(tag="ok"):
+                return Error(BoundaryFault(config=("workers.lease", "drain-verdict")))
+            case _ as unreachable:
+                assert_never(unreachable)
+```
+
+## [05]-[SUPERVISION]
 
 - Owner: `Supervisor` binds the probe evidence, the restart rows, and the health projection into the one actuator loop the branch lacked: every ingredient existed — psutil probes, retry backoff, health status, worker-death markers — and this owner closes them. A `SupervisionPolicy` row per supervised subject carries the probe ceilings and the windowed restart budget; verdicts are data the loop folds, never inline judgment.
 - Cases: `Verdict` closes the probe outcomes — `LIVE`, `DEGRADED` (a ceiling breached: rss over budget, involuntary context-switch storm), `DEAD` (child gone, pool retired) — and `_actuate` maps each onto its actuation: `LIVE` re-arms the probe, `DEGRADED` rolls the arm, `DEAD` flips the subject down and re-spawns under the kind's restart row with stamina backoff. Budgets are windowed: `restarts` actuations inside `window` seconds park the subject `NOT_SERVING` until the window drains, so a crash storm holds down instead of thrashing.
@@ -1149,7 +1355,7 @@ if __name__ == "__main__":  # fleet floor: the remote arm's session command land
     sys.exit(remote_floor())
 ```
 
-## [05]-[RESEARCH]
+## [06]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

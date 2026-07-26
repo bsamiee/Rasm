@@ -1831,12 +1831,12 @@ public static class Notices {
 ## [09]-[TELEMETRY_ROOT]
 
 - Owner: `ShellTelemetry` — the plugin app-root composition seam over the AppHost `PluginTelemetryHost`; one capsule per plugin `AssemblyLoadContext`, opened once at plugin load, never per feature.
-- Entry: `ShellTelemetry.Open(Assembly pluginRoot, string plugin, Op? key = null)` → `Fin<PluginTelemetryHost>` — resolves the plugin ALC from the root assembly, folds one `HostFacts` process probe into the resource identity, and opens the capsule under `HostProfile.RhinoPlugin`.
+- Entry: `ShellTelemetry.Open(Assembly pluginRoot, string plugin, Op? key = null)` → `Fin<PluginTelemetryHost>` — resolves the plugin ALC from the root assembly, folds one `HostFacts` process probe into the resource identity, and opens the capsule under the `HostRows.Rhino` consumption row.
 - Law: the app root alone references `Rasm.AppHost` beside `Rasm.Rhino` — no `Rasm.Rhino` package source names an AppHost or OpenTelemetry type, so the strata law holds while the composition realizes at the root.
 - Law: resource identity is the estate triple with the plugin discriminator — `service.namespace` `rasm`, `service.name` `rasm.rhino`, the plugin assembly version, a boot-minted `service.instance.id`, and the `rasm.plugin` attribute — so co-resident plugins in one `Rhino.exe` separate downstream by resource, never by meter name.
 - Law: `HostSnapshot` supplies the host-identity evidence — process name and version cross as `host.process`/`host.version` attributes, read through one `HostFacts.Probe(new HostProbe.Process())` at open, never re-probed per signal.
 - Boundary: lifetime is the capsule's own `AssemblyLoadContext.Unloading` hook — `ForceFlush` then `Dispose` per the AppHost provider-lifetime law — so the shell registers no second unload path; every Rasm meter in the plugin process reaches the capsule `IMeterFactory`, and a process-static `Meter` stays the named defect.
-- Packages: app root only — Rasm.AppHost (`PluginTelemetryHost`, `HostProfile`), OpenTelemetry (`ResourceBuilder`), BCL inbox (`AssemblyLoadContext`).
+- Packages: app root only — Rasm.AppHost (`PluginTelemetryHost`, `ConsumptionProfile`, `HostRows`), OpenTelemetry (`ResourceBuilder`), BCL inbox (`AssemblyLoadContext`).
 - Growth: a new resource dimension is one attribute row in the identity delegate; a second plugin is a second `Open` call with its own discriminator; zero new surface.
 
 ```csharp signature
@@ -1853,9 +1853,17 @@ public static class ShellTelemetry {
                from snapshot in fact is HostFact.ProcessCase process
                    ? Fin.Succ(value: process.Snapshot)
                    : Fin.Fail<HostSnapshot>(error: op.InvalidResult())
+               // Rhino owns the process and the plugin binds no provider port, so this row samples
+               // whole and projects its logs locally.
                from capsule in op.Catch(() => Fin.Succ(value: PluginTelemetryHost.Open(
                    alc: alc,
-                   profile: HostProfile.RhinoPlugin,
+                   profile: new ConsumptionProfile(
+                       Tenancy: Tenancy.None,
+                       Topology: DeploymentTopology.InHost,
+                       Host: Some(HostRows.Rhino),
+                       Lifecycle: LifecycleOwner.CallerOwned,
+                       Isolation: Isolation.InProc,
+                       Providers: []),
                    identity: resource => resource
                        .AddService(
                            serviceName: "rasm.rhino",

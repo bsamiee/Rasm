@@ -140,6 +140,21 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Unlocks: IDEAS.md [EPD_RECORD_WIRE] — audited whole-life carbon on the C# side from evidence-dated records, one EPD sourcing plane serving every estate consumer.
 - Anchors: idea `[EPD_RECORD_WIRE]`; `openepd`/`epdx` declaration arms; the content-keyed Arrow-bytes crossing.
 
+[COST_FRAME_CONSUMER]-[QUEUED]: Settle whether the priced frame has a sibling consumer or ends at this package.
+- Capability: the cost ledger states a true egress — either a sibling realizes the priced frame or the ledger owns its own terminal projection, so no page advertises a reader that does not exist.
+- Shape: the lead sentence on `libs/python/data/.planning/tabular/cost.md` naming the renderer consumer, resolved against the artifacts corpus.
+- Unlocks: the cost seam either lands bilaterally or the claim drops, and the ledger's egress reads true either way.
+- Anchors: `CostLedger.frame` on `tabular/cost.md`; the `QualityProfile` seam as the realized precedent at `libs/python/artifacts/.planning/visualization/table.md`.
+- Tension: no artifacts design page consumes a cost ledger, frame, or receipt today, so the named renderer is either unbuilt work or a false claim — the seam edge was already removed as unsupported.
+- Atomic: one lead-sentence resolution with its card disposition.
+
+[DUCKLAKE_CHANGE_FEED_CONSUMER]-[QUEUED]: Derived refresh reads the DuckLake change feed its provider already admits.
+- Capability: incremental materialization spans every format whose change feed the lake owner reaches, so a DuckLake-backed source recomputes touched partitions instead of refusing the refresh outright.
+- Shape: the format guard and CDF read on `libs/python/data/.planning/tabular/materialize.md` gain the DuckLake `table_changes` arm beside the Delta `load_cdf` arm, both folding into the one key-sorted partition split.
+- Unlocks: the refusal narrows to the formats the lake owner's matrix rejects, and derived snapshots stop being Delta-only.
+- Anchors: the `changefeed` op and its DuckLake `table_changes` binding on `tabular/lakehouse.md`; the `LakeRefusal` matrix, which carries Iceberg and Lance change-feed rows and no DuckLake row.
+- Tension: the two feeds differ in shape and versioning vocabulary, so the split must fold both into one partition pass rather than forking the recompute path.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:

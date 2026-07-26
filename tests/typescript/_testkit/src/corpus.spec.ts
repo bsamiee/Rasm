@@ -39,18 +39,18 @@ layer(NodeContext.layer)('corpus', (it) => {
     it.effect('manifest ledger decodes with honest pin states', () =>
         Effect.gen(function* () {
             const registry = yield* Corpus.manifest;
-            const identity = yield* HashMap.get(registry, 'CANONICAL_BYTE_IDENTITY');
+            const golden = yield* HashMap.get(registry, 'MESH_ADJACENCY_GOLDEN');
             const drift = yield* HashMap.get(registry, 'DESCRIPTOR_DRIFT');
-            expect(identity.pin).toBe('REAL');
-            expect(identity.seam).toBe('content-identity');
-            expect(identity.payloads).toContain('digest');
+            expect(golden.pin).toBe('REAL');
+            expect(golden.seam).toBe('mesh-adjacency');
+            expect(golden.payloads).toContain('digest');
             expect(drift.pin).toBe('DESIGN-PIN');
         }),
     );
 
     it.effect('a REAL fixture never resolves Blocked; an unemitted DESIGN-PIN resolves Blocked', () =>
         Effect.gen(function* () {
-            const real = yield* Corpus.resolve('CANONICAL_BYTE_IDENTITY');
+            const real = yield* Corpus.resolve('MESH_ADJACENCY_GOLDEN');
             const pinned = yield* Corpus.resolve('HLC_TWO_HALF');
             expect(Asset.$is('Blocked')(real)).toBe(false);
             expect(Asset.$is('Blocked')(pinned)).toBe(true);
@@ -146,28 +146,28 @@ layer(NodeContext.layer)('corpus', (it) => {
 
 // The named TS consumer law: seed-zero XxHash128 over the frozen 52-byte stream reproduces the canonical digest.
 layer(ContentDigest.Default)('content digest', (it) => {
-    it.effect('reproduces the frozen CANONICAL_BYTE_IDENTITY digest', () =>
+    it.effect('reproduces the frozen MESH_ADJACENCY_GOLDEN digest', () =>
         Effect.gen(function* () {
-            const digest = yield* ContentDigest.x128(Corpus.CANONICAL_BYTE_IDENTITY.bytes);
-            expect(digest).toBe(Corpus.CANONICAL_BYTE_IDENTITY.digest);
+            const digest = yield* ContentDigest.x128(Corpus.MESH_ADJACENCY_GOLDEN.bytes);
+            expect(digest).toBe(Corpus.MESH_ADJACENCY_GOLDEN.digest);
         }),
     );
 
     it.effect('a single flipped byte refutes the digest', () =>
         Effect.gen(function* () {
-            const corrupted = Uint8Array.from(Corpus.CANONICAL_BYTE_IDENTITY.bytes);
+            const corrupted = Uint8Array.from(Corpus.MESH_ADJACENCY_GOLDEN.bytes);
             corrupted[0] = 0xff;
             const digest = yield* ContentDigest.x128(corrupted);
-            expect(digest).not.toBe(Corpus.CANONICAL_BYTE_IDENTITY.digest);
+            expect(digest).not.toBe(Corpus.MESH_ADJACENCY_GOLDEN.digest);
         }),
     );
 
     it.effect('the canonical digest is the byte-reversed little-endian twin', () =>
         Effect.sync(() => {
-            const reversed = Option.map(Option.fromNullable(Corpus.CANONICAL_BYTE_IDENTITY.memoryLe.match(/../g)), (pairs) =>
+            const reversed = Option.map(Option.fromNullable(Corpus.MESH_ADJACENCY_GOLDEN.memoryLe.match(/../g)), (pairs) =>
                 [...pairs].reverse().join(''),
             );
-            expect(reversed).toEqual(Option.some(Corpus.CANONICAL_BYTE_IDENTITY.digest));
+            expect(reversed).toEqual(Option.some(Corpus.MESH_ADJACENCY_GOLDEN.digest));
         }),
     );
 });

@@ -1,8 +1,8 @@
 # [APPHOST]
 
-`Rasm.AppHost` is the federation's runtime spine — the host-neutral backbone every app root folds. It owns the composition-root doctrine, the reproducibility kernel with its hash-chained command log, the crash-durable workflow engine over one `CommandDispatch`, the agentic capability surface, the industrial external-binding studio, fleet provisioning with supply-chain admission, and the four-signal observability plane. Its bar is distributed honesty: crash-durable claims cover node death, delivery honesty states per sink, and a replay claim survives process restarts against the durable store.
+`Rasm.AppHost` is the host-neutral runtime spine every app root folds. It owns the composition-root doctrine, the reproducibility kernel with its hash-chained command log, the crash-durable workflow engine over one `CommandDispatch`, the agentic capability surface, the industrial external-binding studio, fleet provisioning with supply-chain admission, and the four-signal observability plane. Its bar is distributed honesty: crash-durable claims cover node death, delivery honesty states per sink, and a replay claim survives process restarts against the durable store.
 
-`Compute`, `Persistence`, and `AppUi` adapt to the spine and never reverse it; it mints one owner per runtime axis across the Runtime, Agent, Wire, Sandbox, and Observability folders, holds no AEC-domain reference, and contributes only the `ProjectionContext` ingredients the app composition root assembles.
+It mints one owner per runtime axis across the Runtime, Agent, Wire, Sandbox, and Observability folders, holds no AEC-domain reference, and contributes only the `ProjectionContext` ingredients the app composition root assembles.
 
 ## [01]-[ROUTER]
 

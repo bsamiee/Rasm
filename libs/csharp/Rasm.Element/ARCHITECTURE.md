@@ -94,7 +94,7 @@ flowchart TB
     IConstraint -->|"[IMPORT]: GraphDelta"| Delta
     HookRail -->|"[IMPORT]: GraphDelta"| Delta
     HookRail -->|"[IMPORT]: ElementFault"| Fault
-    Instrument -->|"[TAP]: ElementFact"| HookRail
+    Instrument -->|"[IMPORT]: ElementFact"| HookRail
     Forge -->|"[IMPORT]: GraphDelta"| Delta
     Address -->|"[IMPORT]: NodeId"| NodeId
     ElementGraph -->|"[IMPORT]: PropertyValue"| Property

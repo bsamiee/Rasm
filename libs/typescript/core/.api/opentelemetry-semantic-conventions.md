@@ -40,7 +40,7 @@ Stable (`.`) namespaces, imported by default:
 |  [03]   | `http.request.*`/`http.response.*`/`http.route`, `user_agent.original`        | edge ingress http span attrs                             |
 |  [04]   | `url.*`, `server.*`/`client.*`                                                | `host/net` client span attrs                             |
 |  [05]   | `error.type`, `exception.*`, `EVENT_EXCEPTION`, `code.*`                      | `value/fault` `FaultCapture.Forensic` crash anchors      |
-|  [06]   | `deployment.environment.name`; `db.*` (`ATTR_DB_*`, `DB_SYSTEM_NAME_VALUE_*`) | env tag on resource; `db` rows feed `board#QUERY` only   |
+|  [06]   | `deployment.environment.name`; `db.*` (`ATTR_DB_*`, `DB_SYSTEM_NAME_VALUE_*`) | env tag on resource; `db` rows feed `observe/board#QUERY` only   |
 
 Incubating (`./incubating`) namespaces, imported behind the alias row:
 

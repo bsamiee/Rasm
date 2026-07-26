@@ -814,12 +814,13 @@ public static class ToolWear {
 }
 ```
 
-## [03]-[SEAMS]
-
 ```mermaid
 ---
 config:
   layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
 ---
 flowchart LR
     accTitle: Tool-wear composition
@@ -832,7 +833,7 @@ flowchart LR
     Receipt --> Estimate["Estimation"]
 ```
 
-## [04]-[RESEARCH]
+## [03]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

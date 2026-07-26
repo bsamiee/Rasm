@@ -171,12 +171,13 @@ config:
 ---
 flowchart LR
     accTitle: AppUi platform-host and cross-runtime wire seams
-    accDescr: AppUi shell, render, editing, document, and diagnostics owners exchanging command, residency, and evidence wires, render receipts, determinism and receipt-hook ports, and the fault-band adjacency with the app host and the TypeScript core and viewer peers.
+    accDescr: AppUi owners exchanging wires, receipts, ports, transport, and the fault-band adjacency with the app host and the TypeScript peers.
     subgraph appui[RASM.APPUI]
         Shell[Shell spine]
         Render[Render plane]
         Editing[Edit surfaces]
         Document[Document plane]
+        Collab[Collab plane]
         Diagnostics[Diagnostics]
     end
     AppHost{{Rasm.AppHost}}
@@ -185,11 +186,13 @@ flowchart LR
     Shell -->|"[WIRE]: CommandPayloadWire"| Core
     Render -->|"[WIRE]: GeometryResidencyWire"| Core
     Diagnostics -->|"[WIRE]: EvidenceTimelineWire"| Core
-    Shell -->|"[WIRE]: ControlIntentWire"| Ui
+    Shell -->|"[WIRE]: ControlIntentWire + CommandGateWire + LayoutConstraintWire"| Ui
     Render -->|"[RECEIPT]: RenderReceipt"| Ui
     AppHost -->|"[PORT]: DeterminismContext"| Document
     Diagnostics <-->|"[FAULT]: FaultBand"| AppHost
     AppHost -->|"[PORT]: ReceiptSinkPort + HookRail"| Diagnostics
+    AppHost -->|"[PORT]: ProfileSampleSource"| Diagnostics
+    Collab <-->|"[TRANSPORT]: CollabWireContext"| AppHost
 ```
 
 - `[PORT]: DeterminismContext` into `Document` — the AppHost runtime port spine composed at app composition; `CapabilityPin` anchors it.
@@ -203,10 +206,10 @@ flowchart LR
 - `[RECEIPT]: ConstructionState` — `SchedulePlayback.FromSchedule` reads `ConstructionState.At`/`TaskKind` as Bim-owned 4D schedule values.
 - `[RECEIPT]: DuckProfileReceipt` into `Charts` — telemetry tiles consume the Persistence profile receipts as values over the analytical query lane.
 - Profiling custody, the pg_stat slots, and the `store.<domain>.<verb>` grammar stay Persistence-side.
-- `[CARRIER]: CollabWireContext` rides the AppHost collab-delta feed — `Collab/sync` frames each delta as a `CollabFrame`, W3C carrier + Loro bytes.
+- `[TRANSPORT]: CollabWireContext` — `Collab/sync` frames each delta as a `CollabFrame`, W3C carrier and Loro bytes.
 - Merge extracts the originating correlation; AppUi holds only the composition-bound `Inject`/`Extract` delegates of AppHost `TraceContext`.
 - `Rasm.AppHost [COLLAB_WIRE_CONTEXT]` owns the reciprocal — the `TraceContext` collab-frame adapter and the `COLLAB_DELTA_FEED` frame schema.
-- `[FEED]: ProfileSample` into `Diagnostics/devloop` — AppHost delivers correlation-keyed samples through `ProfileSampleSource`.
+- `[PORT]: ProfileSampleSource` lands at `Diagnostics/devloop`, each sample keyed by correlation.
 - Capture stays AppHost-side — Pyroscope span profiles, EventPipe CPU stacks; `FlameNode.Of` folds the samples into the frame tree.
 - Feed rides an existing AppHost port row, never a new `PortCardinality` port; `Rasm.AppHost [PROFILE_FLAME_JOIN]` owns the reciprocal.
 
@@ -218,26 +221,18 @@ flowchart LR
 - Cost and schedule dashboards consume the Bim `CostSchedule` and `ScheduleNetwork` planning receipts as `Charts/dashboards` feed values.
 - Whisper.net owns translate-to-English captioning; broader translation binds through a locale service row.
 - Kernel `Analyze` receipt projection enters inspector and dashboard surfaces through the receipt spine.
-- `SurfaceHost.RhinoPanel` mounts only when a Rhino lease supplies `EmbedCapsule` and the `Render/pipeline` render-graph GPU lease.
-
-## [05]-[PROHIBITIONS]
-
-Deleted patterns the owner regions foreclose:
-- NEVER runtime XAML for production views — the `Surfaces` mount gate rejects runtime loads, so views enter only through the compiled-XAML class.
-- NEVER per-host `GpuBackend`/`GRContext` construction in a dispatch arm — Avalonia owns backend selection through `EmbedOptions.RenderingMode`.
-- NEVER a per-surface image loader, telemetry sink, or receipt sink — every owner contributes through the one `AppUiTelemetry.Contribute` spine.
-- NEVER an `SKSurface` outside the `Offscreen` capsule — the capture capsule owns the one Skia draw boundary.
-- NEVER ReactiveUI code-behind view binding — the `BehaviorRail` intent bridge is the single C# binding seam and rejects binder symbols.
-- NEVER a second command, hotkey, palette, or conflict registry beside the one `CommandIntent` table — every verb is a derivation fold over it.
-- NEVER a parallel control-generation framework — the one `ControlIntent` union through `ControlFactory` materializes every control.
-- NEVER a parallel layout framework — constraint layout is the one `LayoutConstraint` algebra solved by one `LayoutSolver` panel.
-- NEVER a per-surface virtualizer — the one `VirtualWindow` owner over `DynamicData` change-sets owns every windowed surface.
-- NEVER a generic `IReceipt` or ledger abstraction — every receipt stays its typed record sealed through `ReceiptSinkPort`.
-- NEVER a fault code outside the `Diagnostics/evidence` registry — every AppUi fault union's `Code` derives through its `AppUiFaultBand` row.
-- NEVER a Loro byte as durable truth — the durable stream is the one `EditIntent` union projected onto Persistence-owned `OpLogEntry` rows.
-- A Loro snapshot survives only as a content-keyed cold-start accelerator.
-- NEVER a second revert vocabulary — `RevertibleOp` folds forward and inverse deltas across the recorder and the durable inverse stream.
-- NEVER a second BCF or coordination owner in AppUi — `Rasm.Bim` owns the openBIM semantics; AppUi keeps only the `Viewpoint` board projection.
-- NEVER an AppUi-local content-identity mint — every AppUi content hash composes the one kernel `ContentHash.Of` seed-zero entry.
-- NEVER a local geodesy, solar-position, clustering, or recompute engine — Bim, Compute, and the AppHost `RecomputeGraph` own those.
-- CSP analyzer diagnostics are architecture pressure: fix the shape, refine the rule on a false positive, never suppress.
+- `SurfaceMount.Panel` mounts on an embedded host surface only when a Rhino lease supplies `EmbedCapsule` and the `Render/pipeline` render-graph GPU lease.
+- `Surfaces` mount gate admits a production view only as its compiled-XAML class, so a runtime XAML load has no mount path.
+- Avalonia owns GPU backend selection through `EmbedOptions.RenderingMode`; no dispatch arm constructs a per-host `GpuBackend` or `GRContext`.
+- `Offscreen` capsule owns the one Skia draw boundary and every `SKSurface` inside it.
+- `BehaviorRail` intent bridge is the single C# view-binding seam and rejects binder symbols, so ReactiveUI code-behind binding has no seam to enter.
+- `AppUiTelemetry.Contribute` is the one spine every owner routes image-load, telemetry, and receipt facts through; every receipt stays a typed record sealed at `ReceiptSinkPort`.
+- `CommandIntent` table is the one verb registry — hotkey, palette, and conflict views are derivation folds over it.
+- `ControlIntent` union through `ControlFactory` materializes every control, and the `LayoutConstraint` algebra solved by one `LayoutSolver` panel owns every layout.
+- `VirtualWindow` over `DynamicData` change-sets owns every windowed surface.
+- Every AppUi fault union derives its `Code` through its `AppUiFaultBand` row in the `Diagnostics/evidence` registry.
+- Durable truth is the one `EditIntent` union projected onto Persistence-owned `OpLogEntry` rows; a Loro snapshot survives only as a content-keyed cold-start accelerator.
+- `RevertibleOp` folds forward and inverse deltas across the recorder and the durable inverse stream.
+- `Rasm.Bim` owns openBIM and coordination semantics; AppUi keeps the `Viewpoint` board projection alone.
+- Every AppUi content hash composes the one kernel `ContentHash.Of` seed-zero entry, the branch's frozen content-key entry.
+- Bim, Compute, and the AppHost `RecomputeGraph` own geodesy, solar position, clustering, and recompute.

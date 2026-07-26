@@ -2,7 +2,7 @@
 
 One frequency-domain transform owner rules: `TransformOp` discriminates the pocketfft Fourier family, the trigonometric cosine/sine transforms, the FFTLog fast Hankel transform, and the FFT-backed analytic signal, folded through the single `apply` entry, so a spectrum, an energy-compacted basis, a log-radial coefficient set, and an instantaneous envelope are transform evidence on one owner rather than a per-transform method family. Pocketfft's eight entrypoints collapse to one forward body and one inverse body indexing a `FOURIER_ROUTES` row per `FourierBasis`, and one `SpectralReadout` axis folds every dominant-band read, so output is parameterized as tightly as input. These are in-memory transforms; columnar and gridded statistical aggregation defers to the `data` branch gridded/field owners.
 
-Operands admit through `numerics/array.md#PAYLOAD` for the finite gate and the operand `ContentKey`; the receipt keys the RESULT through the op-owned `identity_buffer` fold, so two different ops over one operand never share a key; the resolved receipt is the `ReceiptContributor` the weave harvest and the study spine consume. `scipy.fft` is Array-API-aware, so the Fourier/Trigonometric/Hankel arms ride the resolved `xp` while the analytic arm stays numpy-resident — `scipy.signal.hilbert` is jax-skipped behind the `SCIPY_ARRAY_API` gate. Every body crosses the runtime thread band under the `RELEASING` trait through `lane.offload`, and the pocketfft worker team binds to `LanePolicy.capacity`, never the unbounded `-1` team that oversubscribes an already-offloaded kernel.
+Operands admit through `numerics/array#PAYLOAD` for the finite gate and the operand `ContentKey`; the receipt keys the RESULT through the op-owned `identity_buffer` fold, so two different ops over one operand never share a key; the resolved receipt is the `ReceiptContributor` the weave harvest and the study spine consume. `scipy.fft` is Array-API-aware, so the Fourier/Trigonometric/Hankel arms ride the resolved `xp` while the analytic arm stays numpy-resident — `scipy.signal.hilbert` is jax-skipped behind the `SCIPY_ARRAY_API` gate. Every body crosses the runtime thread band under the `RELEASING` trait through `lane.offload`, and the pocketfft worker team binds to `LanePolicy.capacity`, never the unbounded `-1` team that oversubscribes an already-offloaded kernel.
 
 ## [01]-[INDEX]
 
@@ -38,7 +38,7 @@ from rasm.runtime.workers import Kernel, KernelTrait
 # --- [TYPES] ----------------------------------------------------------------------------
 
 if TYPE_CHECKING:
-    # `ModuleType` types the resolved `xp`/`fft`/`sig` module params; `Array` imports the canonical `numerics/array.md#PAYLOAD`
+    # `ModuleType` types the resolved `xp`/`fft`/`sig` module params; `Array` imports the canonical `numerics/array#PAYLOAD`
     # backend union rather than redefining it, so the signature never drifts a member, and the gated backend symbols never import at runtime.
     from types import ModuleType
 

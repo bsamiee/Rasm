@@ -932,12 +932,13 @@ public static class ChatterStability {
 }
 ```
 
-## [03]-[SEAMS]
-
 ```mermaid
 ---
 config:
   layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
 ---
 flowchart LR
     accTitle: Cutting-data composition
@@ -951,7 +952,7 @@ flowchart LR
     Resolve --> Turning["Turning / Posting"]
 ```
 
-## [04]-[RESEARCH]
+## [03]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

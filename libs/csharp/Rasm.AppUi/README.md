@@ -1,10 +1,10 @@
 # [APPUI]
 
-`Rasm.AppUi` is the federation's product surface — one Avalonia body spanning the shell, the GPU viewport engine over one wgpu device with Compute-streamed cluster-LOD residency, path-traced appearance from the Materials BSDF, reality capture and OpenXR review, the sheet-drafting surface emitting DWG/DXF/PDF, the chart plane, the typed-edit plane with revert algebra, the reproducible-notebook plane, live collaboration whose durable truth replays in any runtime, the diagnostics plane, and the theme vocabulary every visual literal traces to.
+`Rasm.AppUi` is one Avalonia product surface spanning the shell, the GPU viewport engine over one wgpu device with Compute-streamed cluster-LOD residency, path-traced appearance from the Materials BSDF, reality capture and OpenXR review, the sheet-drafting surface emitting DWG/DXF/PDF, the chart plane, the typed-edit plane with revert algebra, the reproducible-notebook plane, live collaboration whose durable truth replays in any runtime, the diagnostics plane, and the theme vocabulary every visual literal traces to.
 
 Its bar is product honesty: every screen windows through one virtualization fabric, every fault crosses one typed envelope, every collaborative surface converges through one merge authority, and every visual export leaves color-managed and print-honest.
 
-Its shell mounts onto any admitted substrate through the abstract `SurfaceHost` axis, folding AppHost ports, Persistence queries, and Compute receipts into settled product vocabulary. It references no host toolkit directly, so every Rhino and GH2 surface reaches the shell through a seam contract.
+Its shell mounts onto any admitted substrate through the `SurfaceMount` and host-surface axes a supplied profile row carries, folding AppHost ports, Persistence queries, and Compute receipts into settled product vocabulary. It references no host toolkit directly, so every Rhino and GH2 surface reaches the shell through a seam contract.
 
 ## [01]-[ROUTER]
 

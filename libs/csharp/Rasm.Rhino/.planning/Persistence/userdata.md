@@ -655,11 +655,9 @@ Archive admission follows `ArchiveExchange` → schema check → checksum check 
 
 Roster mutations capture both censuses on the exception rail. Removal, purge, and move convert failed post-mutation disposal, transfer, or census work into `CustodySettlement.PartialCase`; `Fin.Fail` remains reserved for a refusal before committed mutation. Shared reads report whether Rhino created its internal carrier. Replacement and merge return schema-compatible prior/current maps plus their structural diff. Rollback detaches and releases a newly created carrier or restores a pre-existing carrier's prior typed map before returning the original failure with any rollback fault appended.
 
-## [05]-[SEAMS]
-
 `SnapshotCodec` uses `ArchiveIo.Cross` and receives the same `ArchiveEnvelope` as `TypedUserData<TSelf>`. `ArchiveMap` remains the only payload currency; live `BinaryArchiveReader`, `BinaryArchiveWriter`, `UserDataList`, and `ArchivableDictionary` values never cross the boundary.
 
-## [06]-[RESEARCH]
+## [05]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

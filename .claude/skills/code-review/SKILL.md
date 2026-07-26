@@ -70,7 +70,7 @@ Step order never proves a drain, the owning receipt does: `reconcile` surfaces `
 - WATCH: diff-sample touched blocks — density rose, integrations weave, additions earned; the `trimmed` self-report verifies against the diff.
 - KNOB: agent-file wording, the single versioned tuning surface.
 
-[STEP_9]-[VERIFY]: `registry --apply --rows <path>` lands only a clean set, append-only, refusing whole and naming each fault; `registry --check --rows <path>` diagnoses the refusal, bare `registry --check` lints the standing yaml. `verify --round N` proves each surface-ledger guard in its surface's own oracle.
+[STEP_9]-[VERIFY]: `registry --apply --rows <path>` lands only a clean set, append-only, refusing whole and naming each fault; `registry --check --rows <path>` diagnoses the refusal, bare `registry --check` lints the standing yaml and proves each row's `landed_surfaces` claim. `verify --round N` proves each surface-ledger guard in its surface's own oracle.
 - WATCH: an ineffective row marks failed wording — harden the owner and re-verify before `round`, since the close is one-shot.
 - KNOB: guard wording at its owning surface.
 
@@ -152,7 +152,7 @@ Bare `findings` reprints the admission summary. `--top N` bounds the digest's pe
 
 `reconcile` covers all lanes bare. `lanes` takes exactly one of `--fill` or `--spawns` with an optional `--lane <name>` filter (a bare letter reads as `lane-<letter>`); its spawn oracle is the codex rollout store — the per-lane events stream records zero spawns by design and is never consulted — and a `fault` of `no-events|no-session|no-rollout` is a per-lane fact, not a refusal.
 
-`round` refuses a duplicate close and fails loud on findings without lane reports. `verify` takes exactly one of `--rule <text> [--path <file>]` (greptile cascade check) or `--round N` (all-surface ledger check). `selftest` proves the rail's pure contracts, exiting nonzero naming each failed proof.
+`round` refuses a duplicate close and fails loud on findings without lane reports. `verify` takes exactly one of `--rule <text> [--path <file>]` (greptile cascade check) or `--round N` (all-surface ledger check). `selftest` proves the rail's pure contracts beside the harvest law's two spellings, exiting nonzero naming each failed proof and the law line a one-sided edit diverged.
 
 ## [04]-[LANE_CONTRACT]
 
@@ -191,7 +191,7 @@ Round dirs sit outside reviewer-harvest's write territory, so project its return
 
 Project one row per landed addition and consolidation — `corpus` rows never project, a ruling, index repair, or card proving itself on disk with no engine oracle; a receipt whose `source` is `surface-ledger` marks a malformed row (blank text or an unmapped surface name), never failed wording.
 
-- [REGISTRY]: `harvest` proposes new rows in the feed, `registry --check --rows` proves them (matcher compile, schema, dedup), and a judgment-bearing merge into an existing row is a hand edit re-proved by bare `registry --check`.
+- [REGISTRY]: `harvest` proposes new rows in the feed, `registry --check --rows` proves them (matcher compile, schema, dedup, each named surface resolving to its engine oracle on disk), and a judgment-bearing merge into an existing row is a hand edit re-proved by bare `registry --check`, which refuses `unmirrored` until every engine carries the class — a proposal's roster fills as its guards land.
 - [RAIL_GAPS]: rail gaps a round exposes harden the script.
 - [VERIFY]: `verify --round` re-proves each landed guard — a `.coderabbit.yaml` `path_instructions` clause by text, a greptile rule by substring over the resolved `greptile config` output (never by id — org rules re-key to server UUIDs) falling back to full-text over `.greptile/config.json` and `.greptile/rules.md` when the cascade truncates or a scoped rule never resolves at the probe path, the receipt `source` naming the oracle that matched, a macroscope topic file by presence and content, a blank path scanning `.macroscope/**/*.md` whole.
 - [FEED_OUTPUTS]: provenance and corroboration histograms feed review-the-reviewer — a class one engine raises and rounds keep refuting marks that engine's false-positive tendency, and multi-engine corroboration marks high-confidence work.

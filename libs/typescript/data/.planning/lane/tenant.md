@@ -206,7 +206,7 @@ const _verified = (
   locus: _Locus,
   ensures: ReadonlyArray<Capability.Ensure>,
 ): Layer.Layer<Capability, SqlError.SqlError | ParseResult.ParseError | Capability.Fault, SqlClient.SqlClient> =>
-  Capability.Default({ rows: Pg.rows, ensures, core: Pg.core.pg, demands: Pg.demands, schema: locus.schema })
+  Capability.Default({ rows: Pg.rows, ensures, core: Pg.core, demands: Pg.demands, schema: locus.schema })
 
 const _lookup = (
   scope: ScopeKey,

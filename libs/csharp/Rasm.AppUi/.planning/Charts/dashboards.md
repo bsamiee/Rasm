@@ -76,9 +76,11 @@ public sealed partial class ChartSeriesSpec {
 
     public Option<string> GeoAssetKey => Optional(geoAssetKey);
 
+    // Baseline rows exist only on the offscreen mount — `SurfaceMount.Offscreen` is the one deterministic
+    // render target the hash lane grabs — so the row carries no surface predicate and admission stays there.
     public CaptureRow Baseline((ThemeVariantRow Variant, DensityRow Density) cell, double scale,
         Func<ChartSeriesSpec, (ThemeVariantRow, DensityRow), Func<double, Func<IO<Unit>>, IO<SKImage>>> grab) =>
-        new($"{Key}@{cell.Variant.Key}-{cell.Density.Key}", static host => host is SurfaceHost.Headless, scale, 1, grab(this, cell));
+        new($"{Key}@{cell.Variant.Key}-{cell.Density.Key}", scale, 1, grab(this, cell));
 }
 ```
 

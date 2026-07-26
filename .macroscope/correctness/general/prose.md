@@ -32,6 +32,18 @@ Durable markdown is agent-facing law governed by `docs/standards/style-guide.md`
 - Marker families are closed sets — result, change, lifecycle, state — and invented tokens, emojis, and checkmarks are findings; invocation markers (`[IMPORTANT]`/`[NEVER]`) belong only in instruction and prompt files.
 - Fence intent labels (`copy-safe`, `template`, `conceptual`, `signature`, `accepted`/`rejected`, `codemap`, `seams`) bind the body and bound the demand: a body dishonoring its label retags or repairs, a `template` body carries neutral placeholder slots by definition, and validity-as-written binds `copy-safe` bodies alone — a valid-as-written demand against a `template` body is void.
 
-## [03]-[DIAGRAMS]
+## [03]-[REFUTED_CLAIMS]
+
+Standing false-positive classes on durable prose — flagging one is the defect, and each carries the discriminator that keeps the true positive live:
+
+- A bare wording, tone, or verbosity preference is void: the house owns the register, so deliberate load-bearing terseness and declarative owner-subject law are the standard. A claim naming a catalog defect class — hedge, weak verb, twin truth, enumeration or version anchor, coupled link, same-decision spread — is a live finding and never this class.
+- Depth at its owning tier is by design: a reference, catalog, or template page carries the mechanism its index abstracts, so a too-much-detail or hoist-to-the-root demand against one is void. The true positive runs the other direction — mechanism sitting AT the index tier demotes to the owning spec.
+- A routing row restating its destination's subject is the routing contract, never duplication, because routing surfaces own cross-references as their file class. The true positives are one fact owned by two NON-routing prose sites, and two routing rows aimed at one target.
+- Deterministic classes the docgen gate's Check and Repair vocabularies own — article openers, puffery and copula lexemes, heading and index numbering, table padding and alignment — belong to the gate's own fixer, never a review finding; a semantic or altitude defect outside those vocabularies stays review work.
+- A finding grounded in a superseded ruling is void, the prose twin of the stale-quoted-shape rule: a claim citing a deleted, retired, or re-ruled standard refutes itself, while the cited law re-verified on current disk keeps the finding live.
+- macOS TCC attributes automation to the responsible process and devolves to the shared parent for CLI children, so a preflight probe reporting an identity other than the acting binary is the documented attribution, never a broken permission binding.
+- Producer-written receipts under ruled custody stand: the producing lane writes its own report as its final act, the harness states the exact model identity in that lane's own prompt, and no rail verb mutates a lane report — a demand relocating custody to the keeper, dispatcher, or orchestrator re-litigates the ruling.
+
+## [04]-[DIAGRAMS]
 
 Mermaid fences answer the diagram template law, never completeness intuition: a strata node earns its place only when a sourcing decision names the member, same-stratum mutual reads ride prose and never edges, a seam graph resolves interior owners home-side only, and an edge-free island rides prose by construction — a finding demanding an excluded node, a same-stratum rung, or an island's edge re-litigates the template. A visual owns one question, is regenerable, and never repeats a table; node and edge labels carry a concept name and at most one charter phrase, no signatures or versions.

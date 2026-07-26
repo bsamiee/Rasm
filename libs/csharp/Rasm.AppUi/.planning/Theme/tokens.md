@@ -241,7 +241,7 @@ public sealed partial class Colormap {
 - Auto: host appearance flips ride the mount transaction's appearance-change facts into `Track`, so a host dark-mode change re-resolves and receipts with zero per-control handlers; each brand row's `Variant` is the `Semi.Avalonia`-shipped `ThemeVariant` so a brand swap selects the Semi palette base and the OKLCH ramp writes the brand paints over it, never a re-templated control set.
 - Packages: Avalonia, Semi.Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new shipped brand theme is one `ThemeVariantRow` row carrying its `Semi.Avalonia` `ThemeVariant`; user personalization is `ThemePolicy` data carrying one admitted variant key and one optional accent seed, and it never pretends to mint a new variant identity.
-- Boundary: probes are host-agnostic delegate columns supplied at mount — the rhino probe lands as one registration row on the host-attach port reading `HostUtils.RunningInDarkMode` with change flips riding `Rhino.UI.ThemeSettings.ThemeChanged` host-side, gh2 rows ride the same host probe, empty-host standalone rows read `IPlatformSettings.GetColorValues()` whose `PlatformColorValues` carries `ThemeVariant` and `ContrastPreference` with re-probe on `ColorValuesChanged`, and the browser probe stays a designed-only column on the web-browser growth case with zero authored interop; the per-surface override is the `SurfaceOverride` delegate column on the swap capsule, so a panel tracks its host while a sidecar stays user-chosen.
+- Boundary: probes are host-agnostic delegate columns supplied at mount — the rhino probe lands as one registration row on the host-attach port reading `HostUtils.RunningInDarkMode` with change flips riding `Rhino.UI.ThemeSettings.ThemeChanged` host-side, gh2 rows ride the same host probe, empty-host standalone rows read `IPlatformSettings.GetColorValues()` whose `PlatformColorValues` carries `ThemeVariant` and `ContrastPreference` with re-probe on `ColorValuesChanged`, and the browser probe stays a designed-only column on the web-browser growth case with zero authored interop; the per-surface override is the `SurfaceOverride` delegate column on the swap capsule, reading the supplied `ConsumptionProfile` beside the resolved `SurfaceMount`, so a `HostSurface.Embedded` profile tracks its host while a standalone sidecar stays user-chosen.
 
 ```csharp signature
 
@@ -374,13 +374,13 @@ public sealed record ThemePolicy(string Variant, string Density, Option<string> 
 
 public sealed class ThemeCell(
     Atom<ResolvedTheme> current,
-    Func<SurfaceHost, Option<ThemeVariantRow>> surfaceOverride,
+    Func<ConsumptionProfile, SurfaceMount, Option<ThemeVariantRow>> surfaceOverride,
     Func<ResolvedTheme, IO<Unit>> apply,
     Func<ThemeSwitchReceipt, IO<Unit>> sink,
     ClockPolicy clocks) {
     public Atom<ResolvedTheme> Current { get; } = current;
 
-    public Func<SurfaceHost, Option<ThemeVariantRow>> SurfaceOverride { get; } = surfaceOverride;
+    public Func<ConsumptionProfile, SurfaceMount, Option<ThemeVariantRow>> SurfaceOverride { get; } = surfaceOverride;
 
     public Func<ResolvedTheme, IO<Unit>> Apply { get; } = apply;
 
@@ -388,17 +388,19 @@ public sealed class ThemeCell(
 
     public ClockPolicy Clocks { get; } = clocks;
 
+    // Two axis reads carry the posture each product name implied: sidecar topology alone wants the dark
+    // compact always-on-top shell, and the host surface class fixes every other pair — an embedded surface
+    // tracks its host at compact density, a windowed one tracks it at default, and a surfaceless or
+    // offscreen one pins Light so a service export and a render-hash lane stay deterministic.
     public static (ThemeVariantRow Variant, DensityRow Density) Defaults(ResolvedProfile resolved) =>
-        resolved.Profile.Switch(
-            state: unit,
-            rhinoPlugin: static _ => (ThemeVariantRow.HostMatched, DensityRow.Compact),
-            gh2Plugin: static _ => (ThemeVariantRow.HostMatched, DensityRow.Compact),
-            standaloneDesktop: static _ => (ThemeVariantRow.HostMatched, DensityRow.Default),
-            companionProcess: static _ => (ThemeVariantRow.HostMatched, DensityRow.Default),
-            sidecar: static _ => (ThemeVariantRow.Dark, DensityRow.Compact),
-            headlessService: static _ => (ThemeVariantRow.Light, DensityRow.Default),
-            webService: static _ => (ThemeVariantRow.Light, DensityRow.Default),
-            testHost: static _ => (ThemeVariantRow.Light, DensityRow.Default));
+        resolved.Profile.Topology == DeploymentTopology.Sidecar
+            ? (ThemeVariantRow.Dark, DensityRow.Compact)
+            : resolved.Profile.Surface.Switch(
+                state: unit,
+                embedded: static _ => (ThemeVariantRow.HostMatched, DensityRow.Compact),
+                windowed: static _ => (ThemeVariantRow.HostMatched, DensityRow.Default),
+                offscreen: static _ => (ThemeVariantRow.Light, DensityRow.Default),
+                none: static _ => (ThemeVariantRow.Light, DensityRow.Default));
 
     public IO<ThemeSwitchReceipt> Swap(ThemeRequest request, Func<Option<ThemeVariantRow>> probe, CorrelationId correlation) =>
         IO.lift(() => (Previous: Current.Value, Next: ThemeCatalog.Resolve(request.Variant, request.Density, probe, request.Accent)))
@@ -413,8 +415,8 @@ public sealed class ThemeCell(
             ? new ReloadOutcome.Rejected(ThemePolicy.Section, ConfigError.Create(error.Message))
             : new ReloadOutcome.Applied(ThemePolicy.Section);
 
-    public ResolvedTheme For(SurfaceHost surface, Func<Option<ThemeVariantRow>> probe) =>
-        SurfaceOverride(surface)
+    public ResolvedTheme For(ConsumptionProfile profile, SurfaceMount mount, Func<Option<ThemeVariantRow>> probe) =>
+        SurfaceOverride(profile, mount)
             .Map(row => ThemeCatalog.Resolve(row, Current.Value.Density, probe, Current.Value.Accent))
             .IfNone(() => Current.Value);
 

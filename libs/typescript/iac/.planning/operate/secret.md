@@ -21,13 +21,13 @@
 - Law: the token is the only egress fact — `ServiceToken` with `access: "read"` scoped to the one config; `read/write` tokens exist only for provisioners and never leave the graph; the `key` output is sensitive by construction and crosses solely into the workload env assembly.
 - Law: a static token has no expiry field — the resource identity includes `spec.epoch`, so an epoch change mints the replacement before Pulumi revokes the prior token and the workload receives the new `key` through the existing graph edge; `_TOKEN_NAME` owns Doppler's display-name ceiling and hash width, and `_serviceTokenName` preserves a fitting value or derives a bounded prefix-plus-hash discriminator for a long identity.
 - Law: consuming working trees carry zero Doppler files — machine-side directory scopes (`doppler configure set project=<p> config=<c> --scope <dir>`) map a checkout to its config and apply idempotently from declared scope rows, and a service token's embedded project/config outranks every flag and scope at run time; a repo-local `doppler.yaml` beside the scope rows is the second scope source this law deletes.
-- Law: a missing read key aborts cleanly — `read(key)` resolves the whole-config map once and a key the config does not carry throws `pulumi.RunError` inside the apply, failing the run with the key named, never forging an empty string.
+- Law: a missing read key aborts as typed evidence — `read(key)` resolves the whole-config map once, `Record.get` lifts the pluck to `Option`, and a key the config does not carry mints `SecretAbsent` naming it; the apply body is the engine's own execution context, so `Effect.runSync` is the rail's exit there and no empty string is ever forged.
 - Law: `store(key, value)` is the late-landing write — a value minted AFTER the tier constructs (a `Certs` CA key, a Grafana automation token, an ACME-issued edge pair) lands as one more `Secret` row under the same tier through the same parent chain, so construction-time `entries` and graph-late material share one canonical store and no second write surface exists.
 - Entry: `new Secrets("secrets", { spec, entries }, opts)` inside every provider arm; `secrets.read("DB_PASSWORD")` at any credential `Input`; `secrets.store("MESH_CA_KEY", ca.key.privateKeyPem)` for graph-late material; `secrets.token` into `Workload.token`.
 - Law: access is the `_ACCESS` handler record — `machine` mints the durable `ServiceAccount`/`ServiceAccountToken` identity (the workplace-RBAC upgrade over the config-scoped token), `group` binds a workplace group onto the project at a role with optional environment scoping, `member` binds a service account the same way; tenant secret isolation is rows of this record against the one store, never a second store per tenant.
 - Growth: a new credential is one entries row (`digest: true` stores the `bcryptHash` projection for a consumer that never needs the value); a new policy axis is one `_Policy` field with its default; a new access posture is one `_ACCESS` row.
 - Boundary: runtime consumption through `doppler run` is the workload assembly's process boundary; generated-material laws (`keepers`, encodings) are the entropy provider's contract; the bootstrap `DOPPLER_TOKEN` for the provider plugin itself is deploy-host env under `doppler run`.
-- Packages: `@pulumiverse/doppler` (`Project`, `Environment`, `BranchConfig`, `Secret`, `ServiceToken`, `Webhook`, `getSecretsOutput`, the `integration`/`secretssync` namespaces); `@pulumi/random` (`RandomPassword`); `@pulumi/pulumi` (`Output`, `secret`, `RunError`); `effect` (`Schema`, `Predicate`, `Record`, `Array`, `Hash`, `Option`); `../program/spec.ts` (`StackSpec`, `Tier`).
+- Packages: `@pulumiverse/doppler` (`Project`, `Environment`, `BranchConfig`, `Secret`, `ServiceToken`, `Webhook`, `getSecretsOutput`, the `integration`/`secretssync` namespaces); `@pulumi/random` (`RandomPassword`); `@pulumi/pulumi` (`Output`, `secret`); `effect` (`Array`, `Data`, `Effect`, `Hash`, `Option`, `Predicate`, `Record`, `Schema`); `../program/spec.ts` (`StackSpec`, `Tier`).
 
 ```typescript
 import * as pulumi from "@pulumi/pulumi"
@@ -36,8 +36,15 @@ import * as doppler from "@pulumiverse/doppler"
 import * as integration from "@pulumiverse/doppler/integration"
 import * as projectmember from "@pulumiverse/doppler/projectmember"
 import * as secretssync from "@pulumiverse/doppler/secretssync"
-import { Array, Hash, Option, Predicate, Record, Schema } from "effect"
+import { Array, Data, Effect, Hash, Option, Predicate, Record, Schema } from "effect"
 import { Tier, type StackSpec } from "../program/spec.ts"
+
+// --- [ERRORS] ----------------------------------------------------------------------------
+
+class SecretAbsent extends Data.TaggedError("SecretAbsent")<{
+  readonly axis: "config"
+  readonly key: string
+}> {}
 
 const _Policy = Schema.Struct({
   length: Schema.optionalWith(Schema.Int.pipe(Schema.between(16, 128)), { default: () => 32 }),
@@ -56,8 +63,10 @@ declare namespace Secrets {
   type Args = { readonly spec: StackSpec; readonly entries: Record.ReadonlyRecord<string, Entry> }
 }
 
-const _required = (map: Record<string, string>, key: string): string =>
-  map[key] ?? (() => { throw new pulumi.RunError(`<missing-secret:${key}>`) })()
+// `apply` executes inside the engine's Output graph, which no Effect rail reaches from outside, so
+// `Record.get` mints the refusal typed and `runSync` carries it out.
+const _plucked = (map: Record.ReadonlyRecord<string, string>, key: string): string =>
+  Effect.runSync(Effect.mapError(Record.get(map, key), () => new SecretAbsent({ axis: "config", key })))
 
 const _minted = (key: string, policy: Secrets.Policy, epoch: string, child: pulumi.CustomResourceOptions): random.RandomPassword =>
   new random.RandomPassword(key, {
@@ -142,7 +151,7 @@ class Secrets extends Tier {
   }
   read(key: string): pulumi.Output<string> {
     return doppler.getSecretsOutput({ project: this.project.name, config: this.config.name }, { parent: this })
-      .apply((result) => _required(result.map, key))
+      .apply((result) => _plucked(result.map, key))
   }
   store(key: string, value: pulumi.Input<string>): doppler.Secret {
     return new doppler.Secret(key, {
@@ -406,7 +415,7 @@ const Certs = {
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Certs, Secrets }
+export { Certs, SecretAbsent, Secrets }
 ```
 
 ## [05]-[RESEARCH]

@@ -23,7 +23,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [SELECTION_FOLD]-[QUEUED]: Land the model-selection fold on the estimator lane — information criteria, hyper-parameter paths, and the ranked candidate verdict.
 - Capability: information criteria over fitted likelihoods, candidate `EstimatorPolicy` path evaluation (penalty strength, kernel width, cluster count), and a chooser folding `Validate` scores into one ranked verdict with per-candidate evidence.
 - Shape: a selection member on `EstimatorFold` beside `Fit`/`Predict`/`Validate` in `libs/csharp/Rasm.Compute/.planning/Stats/estimator.md`; candidates are policy rows.
-- Unlocks: `[STATS_MODEL_SELECTION]` realized; the C# half of the graduation-evidence selection discipline.
+- Unlocks: `[STATS_MODEL_SELECTION]` realized; the C# graduation binding carries the selection discipline.
 - Anchors: `EstimatorFold.Validate` k-fold and forward-chain scoring (landed), `EstimatorPolicy` admitted ranges, `ValidationReport` carrier.
 
 [SELECTION_EXACT_ACCUMULATION]-[QUEUED]: Accumulate large-n log-likelihood sums for information criteria in extended precision.
@@ -71,7 +71,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Capability: `RoutingModel`/`RoutingIndexManager` behind one `OptimizerKind` row over typed nodes, arcs, capacity/time-window `RoutingDimension` columns, and vehicles; `RoutingSearchStatus.Types.Value` maps onto the fault rail; `Optimization` receipt evidence.
 - Shape: one exact-lane row in `libs/csharp/Rasm.Compute/.planning/Solver/optimizer.md` under the disposal law the circulation natives set.
 - Unlocks: `[OPTIMIZER_ROUTING_LANE]` core.
-- Anchors: folder `.api` `api-ortools.md` solver#ROUTING rail, `OptimizerKind` row law, `MaxFlow`/`MinCostFlow` disposal precedent.
+- Anchors: folder `.api` `api-ortools#ENTRYPOINTS` routing rail, `OptimizerKind` row law, `MaxFlow`/`MinCostFlow` disposal precedent.
 
 [ROUTING_SEARCH_POLICY]-[QUEUED]: Pin the routing search-policy rows.
 - Capability: `RoutingSearchParameters` first-solution and metaheuristic choices as policy rows with time-limit columns, never call-site knobs.
@@ -82,7 +82,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 
 [BASIS_VERDICT_COSIGN]-[QUEUED]: Co-sign the `DesignBasis` re-cut of the design-check verdict vocabulary the structural consumer reads.
 - Capability: the Materials basis axis renames the `SectionCapacity` case family; the `(DesignCode, LimitState)` capacity table and the `MemberCheck` carriers re-read the re-cut vocabulary in the same pass, so consumer and owner never hold two spellings.
-- Shape: verdict-vocabulary alignment rows on `libs/csharp/Rasm.Compute/.planning/Analysis/structural.md#DESIGN_CHECK`; the re-cut itself lands Materials-side.
+- Shape: verdict-vocabulary alignment rows on `Analysis/structural#DESIGN_CHECK`; the re-cut itself lands Materials-side.
 - Unlocks: EC3/EN 1994/EN 1996 basis rows flow through the standing capacity table without a parallel verdict family.
 - Anchors: `DesignCode`/`LimitState` SmartEnum rows, `SectionCapacity`/`MemberCheck` carriers, the Materials capacity rail.
 - Ripple: `Rasm.Materials` `[DESIGN_BASIS_AXIS]`.
@@ -90,7 +90,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 
 [ENERGY_RESULTS_WIRE]-[QUEUED]: Mint the typed energy-results receipt wire — zone and space result rows keyed by the `EnergyArtifact` content key.
 - Capability: the `SqlFile` result read emits a typed receipt — annual and peak loads, comfort hours, EUI per zone and space — keyed by the `EnergyArtifact` content key, the record the Bim results-admission fold consumes; `SqlFile` decode stays Compute's per the standing simulation ruling.
-- Shape: one receipt record and emit row on `libs/csharp/Rasm.Compute/.planning/Analysis/energy.md#SIMULATION_RUN` beside `ReadResults`.
+- Shape: one receipt record and emit row on `Analysis/energy#SIMULATION_RUN` beside `ReadResults`.
 - Unlocks: results survive the run directory — Bim annotates zones and re-exports Psets from the receipt.
 - Anchors: `EnergySimulation.Run` fact stream, the `SqlFile` readers, `AssessmentSink` content-keyed landing.
 - Ripple: `Rasm.Bim` `[ENERGY_RESULTS_ANNOTATION]`.
@@ -152,20 +152,28 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: `Rasm.Persistence` `[PERS_L1]` Flight SQL serving; the `Apache.Arrow.Flight.Sql` catalog tiers.
 - Arms: the reciprocal Persistence port lands and both required catalog tiers complete.
 
+[GRADUATION_EVIDENCE_OWNER]-[QUEUED]: Land the reverse graduation-evidence envelope the python companion already decodes.
+- Capability: the C# half of the graduation crossing gains a real owner — the evidence envelope carrying owner descriptors and their leaf field shapes — so the seam is a two-ended contract rather than one branch-architecture sentence.
+- Shape: a `GraduationEvidence` cluster on a `libs/csharp/Rasm.Compute/.planning/Model/` page beside the landed `GraduationEnvelope`, spelling the descriptor and leaf-field roster the companion's stub projector reads.
+- Unlocks: the branch seam ledger's `[GRADUATION]` edge gains its C# endpoint, and the companion's decode target stops naming an owner no page holds.
+- Anchors: the seam sentence at `libs/csharp/.planning/ARCHITECTURE.md` `[03]-[SEAMS]`; the landed `GraduationEnvelope` on `libs/csharp/Rasm.Compute/.planning/Model/identity.md`.
+- Tension: the field roster is the companion's assumption until this owner fixes it, so landing it may contradict a shape the peer already transcribed.
+- Ripple: mirrors `python:compute` `[GRADUATION_EVIDENCE_COUNTERPART]`.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-[HOOK_POINT_ROSTER]-[COMPLETE]: five-point roster landed in `.planning/Runtime/receipts.md#HOOK_POINTS` (`ComputeHookRail.Live`, `HookId.Create` four-segment ids, one payload type and modality per point) with the admit/dispatch thread on `.planning/Runtime/admission.md#SUBSTRATE_AXIS`; `rasm.compute.solve.iteration` is Replay depth 256, not Observe.
-[HOOK_FAULT_ISOLATION]-[COMPLETE]: `.planning/Runtime/receipts.md#HOOK_POINTS` boundary law composes the kernel capsule fork-shield — subscriber faults park as `IsolatedFault` rows on the roster evidence cell — with the bounded replay buffer under the progress cadence gate and telemetry-as-tap.
-[GOVERNOR_UTILIZATION_FOLD]-[COMPLETE]: `.planning/Runtime/scheduling.md#CPU_BUDGET` `ResourceGovernor.Steer` folds `UtilizationSample` values into the reserve-and-memory-scale re-resolve, returns no fact for a steady sample, and emits one `Governor` fact for each budget or spill transition; `JobGraph` seals the current effective memory limit onto each `JobRun` per invocation.
-[COST_VECTOR_ROWS]-[COMPLETE]: `.planning/Runtime/receipts.md#COST_LEDGER` `CostPolicy.Admit` rate rows price elapsed, token, byte, and remote axes into the `CostVector` monoid with the `rasm.compute.cost.units` roster row.
-[TENANT_PARTITIONED_FOLDS]-[COMPLETE]: `.planning/Runtime/receipts.md#FOLD_PROJECTIONS` `Journal` joins the envelope tenant; `TenantCosts`/`TenantRouteCosts`/`TenantFacts` and `ChargebackDataset.Of` fold the partitioned ledger.
-[DESCRIPTOR_PROJECTION]-[COMPLETE]: `.planning/Runtime/receipts.md#DASHBOARD_DESCRIPTOR` `ComputeDescriptors.Panels` derives from the primary `ReceiptSurface.Specs` roster (not the mounted `Instruments` table), thresholds from the explicit spec column.
-[SLO_ALERT_ROWS]-[COMPLETE]: `.planning/Runtime/receipts.md#DASHBOARD_DESCRIPTOR` lands solve-nonconvergence, remote-call-failure, backpressure-drop, and twin-anomaly `SloAlertRow` values over `CanonicalBurn` multiwindow pairs.
-[PROFILE_ARTIFACT_UNION]-[COMPLETE]: `.planning/Runtime/receipts.md#BENCHMARK_CLAIMS` `ProfileArtifact` (ChromeTrace/BenchmarkExport/EpContext) replaces the loose strings on `ModelRun.Profile` and `BenchmarkClaim.Artifacts`; `.planning/Model/inference.md` `RunOps.Profile` mints `ChromeTrace` from the admitted row's `ContentAddress` and `ProfilingStartTimeNs`.
-[SPAN_PROFILE_CORRELATION]-[COMPLETE]: `.planning/Runtime/receipts.md#TELEMETRY_PROJECTION` boundary states the shared-`TraceId` join to the root-span `pyroscope.profile.id` stamp with zero Compute OTel reference.
+[HOOK_POINT_ROSTER]-[COMPLETE]: five-point roster landed in `.planning/Runtime/receipts#HOOK_POINTS` (`ComputeHookRail.Live`, `HookId.Create` four-segment ids, one payload type and modality per point) with the admit/dispatch thread on `.planning/Runtime/admission#SUBSTRATE_AXIS`; `rasm.compute.solve.iteration` is Replay depth 256, not Observe.
+[HOOK_FAULT_ISOLATION]-[COMPLETE]: `.planning/Runtime/receipts#HOOK_POINTS` boundary law composes the kernel capsule fork-shield — subscriber faults park as `IsolatedFault` rows on the roster evidence cell — with the bounded replay buffer under the progress cadence gate and telemetry-as-tap.
+[GOVERNOR_UTILIZATION_FOLD]-[COMPLETE]: `.planning/Runtime/scheduling#CPU_BUDGET` `ResourceGovernor.Steer` folds `UtilizationSample` values into the reserve-and-memory-scale re-resolve, returns no fact for a steady sample, and emits one `Governor` fact for each budget or spill transition; `JobGraph` seals the current effective memory limit onto each `JobRun` per invocation.
+[COST_VECTOR_ROWS]-[COMPLETE]: `.planning/Runtime/receipts#COST_LEDGER` `CostPolicy.Admit` rate rows price elapsed, token, byte, and remote axes into the `CostVector` monoid with the `rasm.compute.cost.units` roster row.
+[TENANT_PARTITIONED_FOLDS]-[COMPLETE]: `.planning/Runtime/receipts#FOLD_PROJECTIONS` `Journal` joins the envelope tenant; `TenantCosts`/`TenantRouteCosts`/`TenantFacts` and `ChargebackDataset.Of` fold the partitioned ledger.
+[DESCRIPTOR_PROJECTION]-[COMPLETE]: `.planning/Runtime/receipts#DASHBOARD_DESCRIPTOR` `ComputeDescriptors.Panels` derives from the primary `ReceiptSurface.Specs` roster (not the mounted `Instruments` table), thresholds from the explicit spec column.
+[SLO_ALERT_ROWS]-[COMPLETE]: `.planning/Runtime/receipts#DASHBOARD_DESCRIPTOR` lands solve-nonconvergence, remote-call-failure, backpressure-drop, and twin-anomaly `SloAlertRow` values over `CanonicalBurn` multiwindow pairs.
+[PROFILE_ARTIFACT_UNION]-[COMPLETE]: `.planning/Runtime/receipts#BENCHMARK_CLAIMS` `ProfileArtifact` (ChromeTrace/BenchmarkExport/EpContext) replaces the loose strings on `ModelRun.Profile` and `BenchmarkClaim.Artifacts`; `.planning/Model/inference.md` `RunOps.Profile` mints `ChromeTrace` from the admitted row's `ContentAddress` and `ProfilingStartTimeNs`.
+[SPAN_PROFILE_CORRELATION]-[COMPLETE]: `.planning/Runtime/receipts#TELEMETRY_PROJECTION` boundary states the shared-`TraceId` join to the root-span `pyroscope.profile.id` stamp with zero Compute OTel reference.
 [MONITOR_PAGE_SPINE]-[COMPLETE]: `.planning/Stats/monitor.md` lands `StreamMonitor` EWMA/P²/`FittedModel` detector capsules, `MonitorChannel` extraction rows, and `MonitorLane` advance/observe folds; detector verdicts call the fitted estimator instead of fabricating window-only results.
 [MONITOR_VERDICT_SEAM]-[COMPLETE]: `MonitorVerdict.Receipt` mints the `Drift` receipt case the `ComputeInstrumentFan` counts onto `rasm.compute.monitor.breaches`, and `MonitorLane.AsDetector` satisfies the `Solver/clash` injected-detector slot.

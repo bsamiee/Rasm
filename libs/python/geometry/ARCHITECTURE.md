@@ -110,7 +110,7 @@ flowchart LR
     Mesh e3@<-->|"[WIRE]: GlbContentHash"| Element
     Ifc e4@<-->|"[WIRE]: IfcWire"| Bim
     Ifc e5@-->|"[BOUNDARY]: IdsVerdict"| Bim
-    Bim e6@-->|"[SHAPE]: GlbReference"| Scan
+    Bim e6@-->|"[CONTENT_KEY]: RepresentationContentHash"| Scan
     Energy e7@<-->|"[WIRE]: Hbjson"| Bim
 ```
 
@@ -146,19 +146,19 @@ flowchart LR
     Energy e8@-->|"[PORT]: RecipeInterface"| Runtime
     Energy e9@-->|"[BOUNDARY]: arrow_bytes"| Data
     Graduation e11@-->|"[RECEIPT]: BenchmarkReceipt"| Runtime
-    Mesh e12@-->|"[PORT]: Kernel"| Runtime
-    Scan e13@-->|"[PORT]: Kernel"| Runtime
+    Runtime e12@-->|"[PORT]: Kernel"| Mesh
+    Runtime e13@-->|"[PORT]: Kernel"| Scan
 ```
 
-Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind — the streaming GLB transport, the IFC projection, and the payload shapes fold into the one labeled rail, per-contract wiring on the owning implementation pages. `GlbContentHash` spells from its Rasm.Element owner; geometry interior pages spell only the `ContentKey` mint beneath it. Scene facts cross one-way as GLB bytes the artifacts `SceneGrid.of_glb` admits; nothing returns.
+Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind — the streaming GLB transport, the IFC projection, and the payload shapes fold into the one labeled rail, per-contract wiring on the owning implementation pages. `GlbContentHash` spells from its Rasm.Element owner and `RepresentationContentHash` from its Rasm.Bim owner; geometry interior pages spell only the `ContentKey` mint beneath both. Scene facts cross one-way as GLB bytes the artifacts `SceneGrid.of_glb` admits; nothing returns.
 
 Both `arrow_bytes` edges name the data-owned crossing: `EvidenceFrame` and the energy `ResultFrame` are the geometry-side columnar carriers, each converted to one `pyarrow` Table at its crossing edge and serialized through the data `tabular/columnar` `arrow_bytes` fold, so the data end holds one Arrow entry and no geometry frame type crosses as a foreign shape.
 
 `BenchmarkReceipt` carries the whole bench observability contract on one rail — the `Bench.run` measurement tier, the `Signals`-harvested receipt row, and the `bench_terminal` `JobRun.bounded` process-terminal envelope. `Kernel` carries the HOSTILE process-offload contract every compiled mesh and scan kernel crosses through `LanePolicy.offload`; the lane conduit's pickled pulse tap rides it, so `GeometryPulse` beats reach the runtime `Hooks` registry through the parent-side drain.
 
-## [04]-[COMPANION_LANES]
+## [04]-[ENGINE_LANES]
 
-Every sub-domain rides the companion engine the branch manifest selects, with the compiled geometry and IFC cores and the copyleft packages isolated at the process boundary.
+Every sub-domain rides the native engine the branch manifest selects, with the compiled geometry and IFC cores and the copyleft packages isolated at the process boundary.
 
 Runtime lane carries the pure-Python spine owners; the worker lanes carry the compiled enrichment rows and the IFC core behind function-local gates. Probe selection over `find_spec` selects a capability tier, never an offload route — module presence is identical on every floor of the one shared venv. Compiled bands cross worker seams as `KernelTrait.HOSTILE` kernels on the warm process pool, and a live native handle never meets the pickle seam: shapes cross as sealed STEP octets, clouds as the scan `Cloud` array carrier, models as document bytes.
 

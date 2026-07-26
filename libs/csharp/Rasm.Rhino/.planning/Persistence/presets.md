@@ -692,11 +692,9 @@ public static class Presets
 
 Construction-plane projection covers plane, grid, visibility, depth, and five colors. Named-position projection covers identity, participants, and every stored transform. Layer-state reads remain name-only because Rhino exposes no stored-property payload reader.
 
-## [05]-[SEAMS]
-
 `Presets.Commit` composes `DocumentSession` and `UndoBracket` directly. Named views stay in Viewport; the layer tree — topology, face, and per-detail overrides — lives on the Document layer owner, while `LayerRestore` consumes only the host's state mask.
 
-## [06]-[RESEARCH]
+## [05]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

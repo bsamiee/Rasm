@@ -184,7 +184,7 @@
 - `grpc.aio` for async service code, sync `grpc` for thread-pool wrappers; `aio.init_grpc_aio()` binds the C-core to the running loop on first channel/server use
 - mTLS binds `ssl_channel_credentials(root_certificates, private_key, certificate_chain)`; `dynamic_ssl_server_credentials` rotates server certs without downtime
 - loopback/UDS pairs `local_channel_credentials(LocalConnectionType.UDS)` with `local_server_credentials` for in-host sidecar transport
-- `CredentialPolicy` decode (the Python half of the C#-minted axis) is the single mint point for the TLS, local-loopback, and per-call credential families where the runtime serve leg composes this transport for HTTP/2 RPC — one RPC transport, one channel type per security mode; TLS material comes from the caller-owned settings model, never inline literals
+- `CredentialPolicy` decode (the Python mint of the contract axis) is the single mint point for the TLS, local-loopback, and per-call credential families where the runtime serve leg composes this transport for HTTP/2 RPC — one RPC transport, one channel type per security mode; TLS material comes from the caller-owned settings model, never inline literals
 
 [RAIL_LAW]:
 - Package: `grpcio`

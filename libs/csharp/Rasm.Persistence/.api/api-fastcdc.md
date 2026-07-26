@@ -44,7 +44,7 @@
 - `System.IO.Hashing`(`libs/csharp/.api/api-hashing.md`): each cut span carries an `XxHash3.HashToUInt64` short tag (the `HashPolicy.Content` row) beside its 128-bit key, so `ContentChunker.Novel` probes the cheap tag sketch before the authoritative `holds` compare — a tag miss proves a chunk novel with no index lookup, a false positive costs one fall-through compare.
 - `Element/codec#CONTENT_CHUNKING`: sole consumer, where `ChunkPolicy.Over(source)` mints the chunker, `toSeq(…GetChunks())` folds each cut span through the kernel `ContentHash.Of` 128-bit key (the `HashPolicy.Identity` row) into a `ChunkManifest`, and `ContentChunker.Reassemble` rebuilds the payload from that manifest.
 - `Store/blobstore#MULTIPART_TRANSFER`: an upload window spans a whole number of content-defined chunks rather than a fixed `PartSize` slice, and the manifest keys dedup against `Query/cache#ARTIFACT_BLOB_INDEX`, so a re-uploaded artifact skips the chunks the index already holds.
-- `Compute/Runtime/codecs#GEOMETRY_DELTA`: `DeltaCodec` chunks quantization-normalized geometry bytes under its own `DeltaPolicy` while this surface chunks opaque payload bytes; the two share the gear-hash technique and meet nowhere in code.
+- `Rasm.Compute/Runtime/codecs#GEOMETRY_DELTA`: `DeltaCodec` chunks quantization-normalized geometry bytes under its own `DeltaPolicy` while this surface chunks opaque payload bytes; the two share the gear-hash technique and meet nowhere in code.
 
 [LOCAL_ADMISSION]:
 - Callers hand the whole segment as a `byte[]`, and `min`/`avg`/`max`/`eof` ride one `ChunkPolicy` row rather than a call-site literal.

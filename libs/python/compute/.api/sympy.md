@@ -198,7 +198,7 @@
 
 [TOPOLOGY]:
 - assumptions (`real`, `positive`, `integer`) declared on `symbols`/`sympify` are derivation inputs, not post-hoc filters, so a derivation constrains its domain at construction.
-- exact symbolic results are offline evidence; production algebra lives in the C# owner after graduation, and the Python side never mutates a Rhino/GH document.
+- exact symbolic results graduate as evidence on the one rail, and this branch mutates no host document.
 - graduation emits one artifact per candidate — a numeric callable (`lambdify`/`ufuncify`) or C/C++/Fortran/Rust source (`ccode`/`codegen`) through one printer-family surface, never parallel emitters — and `cse` factors shared subexpressions before emission.
 - each derivation folds one receipt: input expression, transform route, `cse` factoring, emitted source or callable, target language, and the `mpmath`-backed precision claim.
 
@@ -216,4 +216,4 @@
 - Package: `sympy`
 - Owns: offline symbolic algebra, calculus, solving, simplification, polynomial/matrix algebra, set/assumption logic, geometry primitives, `mpmath`-backed exact-to-numeric evaluation, and the multi-language code-generation graduation path
 - Accept: exact symbolic derivation producing a graduation candidate or a numeric study callable
-- Reject: wrapper-renames of `diff`/`solve`/`simplify`; numeric kernels SciPy or NumPy owns; production algebra a C# owner holds after graduation
+- Reject: wrapper-renames of `diff`/`solve`/`simplify`; numeric kernels SciPy or NumPy owns; any host-document mutation

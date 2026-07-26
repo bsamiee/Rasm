@@ -169,7 +169,7 @@ def _rhino3dm_export(model: "rhino3dm.File3dm", out: ResourceRef, fmt: str) -> N
 # Each row narrows `fault` to the engine's real raise surface so a non-engine exception escapes rather than masquerading as a mesh fault: `rhino3dm`
 # signals load failure by null (the `_rhino3dm_load` `FileNotFoundError`) plus `OSError` on the Draco/`Write` egress; `trimesh.load` raises a bare
 # `ValueError` on a malformed/unknown source plus `OSError`; `meshio` carries its own `ReadError`/`WriteError` codec roots. The tuple `catch` is the
-# `reliability/faults#FAULT` `boundary` widening (`type[Exception] | tuple[...]`) the `except` clause accepts natively.
+# `runtime/reliability/faults#FAULT` `boundary` widening (`type[Exception] | tuple[...]`) the `except` clause accepts natively.
 _BACKEND: Final[Map[str, _Backend]] = Map.of_seq([
     (
         "rhino3dm",
@@ -311,7 +311,7 @@ class MeshPayload(Struct, frozen=True):
     async def timeseries(self, ref: ResourceRef) -> "RuntimeRail[Frames]":
         # reader open and `read_points_cells` (where `ReadError` surfaces) run eagerly inside the
         # fence; only the per-step `read_data` loop stays lazy, its provider-fault lift deferred to the
-        # consumer that drains it — the same STREAM-arm convention `transport/roots#RESOURCE` holds, the
+        # consumer that drains it — the same STREAM-arm convention `runtime/transport/roots#RESOURCE` holds, the
         # generator's own `with` owning the HDF5 `TimeSeriesReader.__exit__` close on exhaustion or break.
         def run() -> Frames:
             reader = meshio.xdmf.TimeSeriesReader(str(ref.path))

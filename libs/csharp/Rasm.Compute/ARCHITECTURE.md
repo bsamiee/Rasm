@@ -163,10 +163,12 @@ flowchart LR
     Rasm e20@-->|"[SHAPE]: RemeshOp"| Solver
     Rasm e21@-->|"[WIRE]: EncodedGeometry"| Tensor
     Model e15@<-->|"[CONTENT_KEY]: ArtifactIndexRow"| Persistence
+    Model e27@<-->|"[CONTENT_KEY]: VectorCodebook"| Persistence
     Tensor e16@-->|"[CONTENT_KEY]: ShardPlan"| Persistence
     Symbolic e14@-->|"[CONTENT_KEY]: CompiledExpr"| Persistence
     Analysis e13@-->|"[CONTENT_KEY]: AssessmentPayload"| Persistence
     Runtime e17@<-->|"[CONTENT_KEY]: InterchangeIdentity"| Persistence
+    Runtime e28@<-->|"[CONTENT_KEY]: GeometryHash"| Persistence
     Solver e8@<-->|"[SHAPE]: MaterialPropertySet"| Element
     Symbolic e7@<-->|"[SHAPE]: DimensionMonomial"| Element
     Element e5@-->|"[SHAPE]: ElementGraph"| Analysis
@@ -192,7 +194,7 @@ config:
 ---
 flowchart LR
     accTitle: Compute platform and cross-runtime seams
-    accDescr: Compute sub-domain owners exchanging ports, receipts, projections, wires, and graduation evidence with the AppHost and AppUi platform peers and the Python and TypeScript cross-runtime peers, one edge per contract family labeled by kind and shared shape.
+    accDescr: Compute owners exchanging port, receipt, projection, wire, content-key, and graduation contracts with platform and cross-runtime peers.
     subgraph compute[RASM.COMPUTE]
         Model[Model runtime]
         Tensor[Tensor core]
@@ -203,29 +205,31 @@ flowchart LR
     end
     AppHost{{Rasm.AppHost}}
     AppUi{{Rasm.AppUi}}
-    Data([python:data])
+    Data{{python:data}}
     Geometry{{python:geometry}}
     PyRuntime{{python:runtime}}
     Compute{{python:compute}}
     Core{{typescript:core}}
     Runtime e1@<-->|"[PORT]: WorkLane"| AppHost
     AppHost e2@-->|"[PORT]: IChatClient"| Model
+    AppHost e17@-->|"[PORT]: ShedVerdict"| Runtime
     Solver e3@-->|"[RECEIPT]: DigitalTwin"| AppHost
     Tensor e4@<-->|"[SHAPE]: EncodingKind"| AppHost
+    Runtime e15@-->|"[PORT]: ComputeHookRail"| AppHost
     Runtime e5@-->|"[PROJECTION]: ResidencyPayload"| AppUi
     Tensor e6@<-->|"[SHAPE]: WgpuDevice"| AppUi
     Analysis e7@-->|"[SHAPE]: SolarPosition"| AppUi
     Runtime e8@<-->|"[WIRE]: ComputeService"| Geometry
+    Runtime e18@<-->|"[CONTENT_KEY]: ContentIdentity"| Geometry
     Runtime e9@<-->|"[WIRE]: ProtoVocabulary"| PyRuntime
+    Runtime e19@-->|"[WIRE]: XxHash128"| PyRuntime
     Compute e10@-->|"[GRADUATION]: HandoffAxis"| Runtime
     Runtime e11@-->|"[WIRE]: GraduationEvidence"| Compute
     Symbolic e12@<-->|"[WIRE]: QuantityFamily"| Compute
     Solver e13@-->|"[SHAPE]: DoeDataset"| Data
-    Iac{{typescript:iac}}
+    Data e20@-->|"[SHAPE]: GeoArrow"| Runtime
     Runtime e14@-->|"[WIRE]: ReceiptEnvelopeWire"| Core
-    Runtime e15@-->|"[PORT]: ComputeHookRail"| AppHost
     Symbolic e16@<-->|"[WIRE]: QuantityFamily"| Core
-    Runtime e17@-->|"[WIRE]: SloAlertRow"| Iac
 ```
 
 ## [04]-[INTERNAL]
@@ -263,7 +267,19 @@ flowchart LR
 
 Spine admits once, selects substrate over row data, enqueues on bounded lanes, dispatches to the tensor, model, or remote lane, and lands every outcome on a `ComputeReceipt` case at the sink while admission and selection failures fall to `ComputeFault` and `ProgressCell` streams cadence-gated marks. Per-stage guards, conditioning, and rails each lane composes live on the owning implementation pages.
 
-## [05]-[BOUNDARIES]
+## [05]-[ROUTING]
+
+| [INDEX] | [CHANGE]                            | [OWNER_SURFACE]        | [SHAPE_OF_THE_EDIT]                                             |
+| :-----: | :---------------------------------- | :--------------------- | :-------------------------------------------------------------- |
+|  [01]   | a new execution device or backend   | `Tensor/residency.md`  | one `Substrate` row                                             |
+|  [02]   | a new sparse tensor operation       | `Tensor/factor.md`     | one `SparseTensorOpFamily` row                                  |
+|  [03]   | a new differentiable primitive      | `Tensor/autodiff.md`   | one `DifferentiableOp` case beside its `Forward` arm            |
+|  [04]   | a new estimator, optimizer, or UQ   | `Solver/optimizer.md`  | one `EstimatorKind`/`OptimizerKind`/`UncertaintyMethod` row     |
+|  [05]   | a new material stress-update law    | `Solver/constitutive.md` | one `ConstitutiveModel` case                                  |
+|  [06]   | a new discipline assessment         | `Analysis/assessment.md` | one `AssessmentResult` runner over the shared fact stream     |
+|  [07]   | a new fault arm                     | `Runtime/admission.md` | one arm at the 2200-band free frontier on its custody lane      |
+
+## [06]-[BOUNDARIES]
 
 Seam graph carries which owner exchanges which shape; the load-bearing cross-boundary invariants each Compute owner holds are:
 - `Substrate.DeviceWgpu` binds the AppUi-owned wgpu device and holds compute-only resources; no second device or residency lattice.
@@ -272,14 +288,14 @@ Seam graph carries which owner exchanges which shape; the load-bearing cross-bou
 - Compute owns the channel and companion-rpc orchestration; `Rasm.Bim` owns every semantic read, and neither crosses the seam.
 - Strata run one direction: the AEC peers admit `UnitsNet` in-folder rather than reference the app-platform unit and solve owners downward.
 - `Analysis` reads the concrete `ElementGraph` upward and writes a content-keyed assessment `GraphDelta` the caller applies; it mutates nothing.
-- C# owns inference and classical fit; every offline-learned model is the Python companion's, decoded by content key over the graduation evidence.
+- C# owns inference and classical fit; Python compute owns offline-learned models exchanged by content key over graduation evidence.
 - `EnergyToolchain` resolves EnergyPlus by env var, configured path, or bundle; no hardcoded path or token column enters the policy.
 - `EnergyRoute` converges local and cloud runs on the one `SqlFile` fold.
 - Closed-form ISO/EN folds and the multi-ply `AssemblyAggregator` live in `Analysis`; single-material folds stay seam-owned, composed here.
 - Design codes ride the `DesignCode`×`LimitState` capacity table.
 - `Analysis/daylight` consumes the kernel `Spatial.Apply(SpatialOp.Wire)` decoded scene as the app-staged `ObstructionScene` payload.
 - Daylight content key folds the assessment content key, so a re-shaded site re-keys; site evidence is the EPW header or the explicit `SolarSite`.
-- `Runtime/receipts` descriptor and chargeback rows are data the `typescript:iac` compile leg consumes; Compute owns no IaC surface.
+- `Runtime/receipts` descriptor and chargeback rows stay Compute-owned data a composition owner encodes onward; Compute owns no IaC surface.
 - Every ledger fold reads the AppHost `TenantContext` stamped on the envelope as its tenant partition, never a Compute-minted tenancy.
 - `Runtime/transport` decodes typed MQTT and NATS CloudEvents, preserving the W3C pair — MQTT from composition, NATS inline from `NatsMsg.Headers`.
 - NATS Core pump drains `SubscribeAsync<byte[]>` onto `WorkLane.CaptureIngest`; the MQTT pump and activity restoration stay catalog-blocked.
@@ -287,9 +303,7 @@ Seam graph carries which owner exchanges which shape; the load-bearing cross-bou
 - Persistence `api-arrow` overlay carries IPC, LZ4/Zstd, ADBC, and Flight-SQL; its `Query/columnar` `Land` port redeems the batch.
 - Compute holds one core `Apache.Arrow` reference and opens no Flight listener.
 
-## [06]-[OWNER_LAW]
-
-Every device, sparse, autodiff, estimator, optimizer, UQ, or constitutive capability is a row or case on its existing owner — a `Substrate` row, a `SparseTensorOpFamily` row, a `DifferentiableOp`+`Forward` pair, an `EstimatorKind`/`OptimizerKind`/`UncertaintyMethod` row, or a `ConstitutiveModel` case — never a sibling owner or a second admission spine.
+## [07]-[OWNER_LAW]
 
 `System.Numerics.Tensors` `Tensor<T>` is the tensor, device-ness the `OrtResidency.DeviceResident` discriminant, and `TensorBridge` the sole `OrtValue` C-data factory feeding the single `BoundFlow` capsule; `LinearProvider`/`DenseOps`/`LevenbergMarquardt` and `SparseOps`/`SparseTensorOps` own the dense and sparse math. Solver, optimizer, UQ, and constitutive oracle couples only through the `Func<DesignPoint, Fin<Seq<double>>>` contract, an OR-Tools `CpModel` builds through the typed model-builder API, one `HybridCache` binds per lane, and one session binds per model identity.
 

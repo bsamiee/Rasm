@@ -1,6 +1,6 @@
 # [UI_PANEL]
 
-Panel materializes three C#-minted shell vocabularies: livewire events, `ControlIntent`, and `LayoutProgram`. `Panel.fold` builds receipt-reconciled binding rows, `Panel.route` exhaustively dispatches controls, and `Panel.solve` preserves Cassowary insertion order and strengths. Payloads remain verbatim carriage; missing wire cases fail at their row. Module: `ui/viewer/src/panel.ts`.
+Panel materializes three shell vocabularies the AppUi shell produces: livewire events, `ControlIntent`, and `LayoutProgram`. `Panel.fold` builds receipt-reconciled binding rows, `Panel.route` exhaustively dispatches controls, and `Panel.solve` preserves Cassowary insertion order and strengths. Payloads remain verbatim carriage; missing wire cases fail at their row. Module: `ui/viewer/src/panel.ts`.
 
 ## [01]-[CLUSTERS]
 
@@ -23,7 +23,7 @@ Panel materializes three C#-minted shell vocabularies: livewire events, `Control
 - Law: unknown-value payloads stay opaque — `offered`/`landed` are `Schema.Unknown` on the wire by design; the panel renders them through one value-presenter row, never assuming shape.
 - Law: bursts coalesce before the store — `Panel.drain` shapes the feed with `Stream.groupedWithin(events, 128, "16 millis")`, folds each chunk through the SAME `_fold`, and lands one atom write per window inside `Atom.batch`, so a livewire storm costs one notification pass per frame; `Stream.throttle` composes on the same rail where a transport demands rate-shaping, and a per-event atom write is the named defect.
 - Law: imperative drivers read atomically — a non-React consumer (the solve seam, a test harness) reads and advances the board through `registry.modify(atom, f)`, value and next state in one step, never a get-then-set pair.
-- Boundary: the feed's transport and decode are `core`/app composition; the write path is C#-owned and this module emits intents only; the telemetry timeline a panel renders over its own event history is `view/chart#SERIES_SURFACE` material — rows here, series there.
+- Boundary: the feed's transport and decode are `core`/app composition; the write path belongs to the shell producer and this module emits intents only; the telemetry timeline a panel renders over its own event history is `view/chart#SERIES_SURFACE` material — rows here, series there.
 
 ```typescript
 import type { BindingStatus, CoercedValue, Hlc, WriteReceipt } from "@rasm/ts/core"

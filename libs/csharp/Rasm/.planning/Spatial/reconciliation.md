@@ -15,7 +15,7 @@
 - Receipt: `NamingHash` is the reconciliation evidence the Persistence structural merge consumes per node, registering into the `OpAcceptance.ValidityOf` oracle like every kernel receipt — no parallel reconciliation ledger.
 - Packages: `Rasm.Meshing` `MeshSpace` with the `RhinoCommon` welded-topology read behind `MeshSpace.DuplicateNative`, `VectorCloud`, `Rasm.Domain` for the seed-zero `ContentHash.Of` and the `Op`/`IValidityEvidence` rails, `Thinktecture.Runtime.Extensions`, `LanguageExt.Core`, `System.Buffers.Binary`.
 - Growth: a new geometry modality is one `EncodeForm` case with its own frozen stream; a new per-case content column is one counted layout block on the owning case's stream, the cluster mass block the precedent; a new reconciliation projection is one column on `NameAddress`; a native-brep adjacency source is one `CanonicalTopology.Of*` factory under the same canonical-order law.
-- Boundary: `EncodeForm` owns three frozen canonical byte layouts — `Mesh`, `Cloud`, `Parametric` — contiguous and unpadded, non-finite values refused upstream, the `Mesh` stream pinned as the `CANONICAL_BYTE_IDENTITY` fixture. A digest is meaningful only under its form, so every seam carries `(form, digest)`, and Persistence reads this identical mesh layout rather than a second encoding, so a drifted byte order is a caught defect. `CanonicalTopology` is immutable, so its bytes are referentially transparent, and `IsValid` claims the canonical row order and the `Self`-sequential kind partition — a `with`-mutated or permuted record fails at the `Apply` gate before it forks one content into two keys. `EncodeForm.Of` validates knot normalization; weight-scale canonicalization of a rational carrier is the parametric producer's projection obligation.
+- Boundary: `EncodeForm` owns three frozen canonical byte layouts — `Mesh`, `Cloud`, `Parametric` — contiguous and unpadded, non-finite values refused upstream, each framed under the `tests/contracts/MANIFEST.md` `CANONICAL_BYTE_IDENTITY` framing and seed law this owner mints, and the `Mesh` stream alone produces the `MESH_ADJACENCY_GOLDEN` vector peers decode. A digest is meaningful only under its form, so every seam carries `(form, digest)`, and Persistence reads this identical mesh layout rather than a second encoding, so a drifted byte order is a caught defect. `CanonicalTopology` is immutable, so its bytes are referentially transparent, and `IsValid` claims the canonical row order and the `Self`-sequential kind partition — a `with`-mutated or permuted record fails at the `Apply` gate before it forks one content into two keys. `EncodeForm.Of` validates knot normalization; weight-scale canonicalization of a rational carrier is the parametric producer's projection obligation.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------
@@ -239,7 +239,7 @@ public static class Reconciliation {
         cloud: static c => CloudStream(c.Source),
         parametric: static p => ParametricStream(p));
 
-    // Field order is the persisted decode contract the CANONICAL_BYTE_IDENTITY fixture pins.
+    // Field order is the persisted decode contract the MESH_ADJACENCY_GOLDEN vector freezes.
     static ArrayBufferWriter<byte> MeshStream(CanonicalTopology topology) {
         ArrayBufferWriter<byte> stream = new(12 + (topology.Edges.Count * 8) + topology.Faces.Sum(static cycle => 4 + (cycle.Length * 4)));
         stream.Word(topology.VertexCount);

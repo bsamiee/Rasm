@@ -62,11 +62,11 @@
 ## [07]-[TELEMETRY_ROOT]
 
 - Owner: `PlatformTelemetry` — the GH2 plugin app-root composition seam over the AppHost `PluginTelemetryHost`; one capsule per plugin `AssemblyLoadContext`, opened once at plugin load, never per canvas or component.
-- Entry: `PlatformTelemetry.Open(Assembly pluginRoot, string plugin, Op? key = null)` → `Fin<PluginTelemetryHost>` — resolves the plugin ALC (the RhinoCode collectible context under isolated loading) from the root assembly and opens the capsule under `HostProfile.Gh2Plugin`.
+- Entry: `PlatformTelemetry.Open(Assembly pluginRoot, string plugin, Op? key = null)` → `Fin<PluginTelemetryHost>` — resolves the plugin ALC (the RhinoCode collectible context under isolated loading) from the root assembly and opens the capsule under the `HostRows.Gh2` consumption row.
 - Law: the app root alone references `Rasm.AppHost` beside `Rasm.Grasshopper` — no `Rasm.Grasshopper` package source names an AppHost or OpenTelemetry type, so the strata law holds while the composition realizes at the root.
 - Law: resource identity is the estate triple plus the plugin discriminator — `service.namespace` `rasm`, `service.name` `rasm.grasshopper`, the plugin assembly version, a boot-minted `service.instance.id`, and the `rasm.plugin` attribute — so a GH2 plugin and a Rhino plugin co-resident in one process separate downstream by resource, never by meter name.
 - Boundary: lifetime is the capsule's own `AssemblyLoadContext.Unloading` hook — `ForceFlush` then `Dispose` per the AppHost provider-lifetime law — the load-bearing bound for a collectible context, because an unflushed batch tail dies with the ALC; the capsule needs no `MacGate` admission because telemetry composition touches no AppKit surface.
-- Packages: app root only — Rasm.AppHost (`PluginTelemetryHost`, `HostProfile`), OpenTelemetry (`ResourceBuilder`), BCL inbox (`AssemblyLoadContext`).
+- Packages: app root only — Rasm.AppHost (`PluginTelemetryHost`, `ConsumptionProfile`, `HostRows`), OpenTelemetry (`ResourceBuilder`), BCL inbox (`AssemblyLoadContext`).
 - Growth: a new resource dimension is one attribute row in the identity delegate; zero new surface.
 
 ```csharp signature
@@ -79,9 +79,17 @@ public static class PlatformTelemetry {
         return from name in op.AcceptText(value: plugin)
                from alc in Optional(AssemblyLoadContext.GetLoadContext(pluginRoot)).ToFin(op.MissingContext())
                from version in Optional(pluginRoot.GetName().Version).ToFin(op.MissingContext())
+               // Rhino owns the canvas process and the plugin binds no provider port, so this row
+               // samples whole and projects its logs locally.
                from capsule in op.Catch(body: () => Fin.Succ(value: PluginTelemetryHost.Open(
                    alc: alc,
-                   profile: HostProfile.Gh2Plugin,
+                   profile: new ConsumptionProfile(
+                       Tenancy: Tenancy.None,
+                       Topology: DeploymentTopology.InHost,
+                       Host: Some(HostRows.Gh2),
+                       Lifecycle: LifecycleOwner.CallerOwned,
+                       Isolation: Isolation.InProc,
+                       Providers: []),
                    identity: resource => resource
                        .AddService(
                            serviceName: "rasm.grasshopper",

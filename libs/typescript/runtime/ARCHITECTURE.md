@@ -1,6 +1,6 @@
 # [TS_RUNTIME_ARCHITECTURE]
 
-`runtime` owns the branch's execution substrate across both process planes: `proc`, `net`, `otel`, `serve`, `work`, and `ai` meet through one runtime-row table, one budget ledger, one fault law, and one front-door assembly law, and `browser` is the same package under the browser condition, never a sibling. Owners align with the core, security, and data peers, the interface and deploy planes, and the C# host by seam contract, never a cross-package reference.
+`runtime` owns the branch's execution substrate across both process planes: `proc`, `net`, `otel`, `serve`, `work`, and `ai` meet through one runtime-row table, one budget ledger, one fault law, and one front-door assembly law, and `browser` is the same package under the browser condition, never a sibling. Owners align with the core, security, and data peers, the interface and deploy planes, and peer branches by seam contract, never a cross-package reference.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -153,6 +153,7 @@ flowchart LR
     Security e19@-->|"[SHAPE]: Tap.Registry"| Otel
     Data e20@-->|"[SHAPE]: Journal.envelope"| Work
     Core e21@-->|"[SHAPE]: Carrier.Context"| Otel
+    Data e22@-->|"[SHAPE]: Backend.Generation"| Net
 ```
 
 ```mermaid
@@ -190,13 +191,14 @@ flowchart LR
 
 ## [04]-[INTERNAL]
 
-`proc` is the substrate every plane boots on: a runtime is a row, config resolves once, flags evaluate as data, lifecycle folds evidence, workers speak one protocol. `net` owns egress geometry — every outbound call inherits a lane's compiled pulse and circuit row, every long-lived channel one frame vocabulary, every broadcast the engine-blind fanout port, every agreement the coordination port over the same wire. `otel` owns the wire half of observability; its vocabulary lives in core.
+`proc` is the substrate every plane boots on: a runtime is a row, config resolves once, flags evaluate as data, lifecycle folds evidence, workers speak one protocol. `net` owns egress geometry — every outbound call inherits a lane's compiled pulse and circuit row, every long-lived channel one frame vocabulary, every broadcast the engine-blind fanout port, every agreement the coordination port over the same wire. `otel` owns the wire half of observability under one ambient redaction scrub every capture seam inherits; its vocabulary lives in core.
 
 `serve` enforces the one front-door law: libraries export route, verb, and group data, the app assembles exactly one `HttpApi`, one CLI root, and one serve fold, and faults leave only as self-rendering `Problem`s. `work` prices every durable surface against one `WorkClass` table, so the durable plane shares one service-class economy. `ai` folds five providers onto one capability table and satisfies the data stratum's retrieval ports. `browser` is the same package under the browser condition: one boot, one shell, one persistence vocabulary, one typed router carrying the session plane.
 
 ## [05]-[BOUNDARIES]
 
 - App root, never this folder, assembles the `HttpApi`, satisfies port `Tag`s, selects runtime rows, and binds the browser composition root.
+- Degradation reads as a `Layer` choice the composition root makes; a capability never narrows its own surface under pressure as hidden behavior.
 - Data owns the record of truth; work composes data's outbox and mailbox, never a second store; NATS carries fanout and replay, never truth.
 - Content identity is never minted here; the browser decode worker delegates to the core `Digest` engine.
 - Cluster runs leaderless over `RunnerStorage` advisory locks; the node-bound cluster and rpc-http upstreams are never admitted.

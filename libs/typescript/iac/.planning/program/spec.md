@@ -1,6 +1,6 @@
 # [IAC_SPEC]
 
-Program shapes of the deploy plane in one page: `StackSpec` is the decoded value an app supplies to deploy — the closed arm union, coordinate options, and capability profile — and the coordinates-never-material law makes every spec value loggable, diffable, and receipt-safe. `iac/src/program/spec.ts` is the module; a new cloud is one arm entry realized by `provider.md`, a new deployment axis is one profile field with its default, and a new published plane is one `Option` field whose channels derive from the field record.
+`StackSpec` is the decoded value an app supplies to deploy — the closed arm union, the consumption-axis rosters, coordinate options, and capability profile — and the coordinates-never-material law keeps every spec value loggable, diffable, and receipt-safe. Deployment shape arrives here and nowhere else, so no tier infers a topology, tenant count, or pooling posture. `iac/src/program/spec.ts` is the module; a new cloud is one arm entry `provider.md` realizes, a new axis one profile field with its default, a new plane one `Option` field.
 
 `Connection` owns the SSH coordinate product, and its `ssh` projection is the only spelling of the daemon URL. `Tier` adapts Pulumi's class model with one option fold and one terminal output registration, `StackOutputs` is the typed exit whose secret-refusal gate holds the raw `OutputMap` and whose `pairsOf` owns the one `<plane>.<field>` flatten, and `sharding` is the sole plane crossing back into the runtime graph — the two planes meet at the process boundary and never import each other.
 
@@ -27,22 +27,40 @@ Program shapes of the deploy plane in one page: `StackSpec` is the decoded value
 - Owner: `StackSpec`, one `Schema.Class` — `name` (a DNS-safe stack slug brand), `app` (the core `AppKey` brand composed as `AppIdentity.fields.app`, so app identity has one spelling branch-wide), `target` (the arm literal), `backend` (`self-managed` gates the local drift sweep and ephemeral bracket; `cloud` gates the `operate/cloud.md` control plane and the `RemoteWorkspace` execution row), the coordinate options (`region` for cloud arms, `domain`/`zone` for the traffic rows, `project` for the gcp project scope, `account` for the Cloudflare account scope, `connection` for the selfhosted bootstrap, `image` for the app workload ref), the `doppler` project/config ref, the `epoch` rotation trigger, and the `profile` capability record.
 - Law: coordinates, never material — `Connection` carries host/user/port with the hardening coordinates (`hostKey` is the host's public key pinned against a MITM re-key, `bastion` is the jump-hop's own host/user/port row reusing the same struct) and no key field; the SSH private key, provider tokens, and generated passwords travel the provider material read or the in-graph Doppler fan-in, so a spec value never leaks into state, receipt, or log; the `ssh` getter on `Connection` is the one spelling of the daemon URL every consumer reads.
 - Law: `epoch` is the one rotation trigger — it feeds every `@pulumi/random` `keepers` map and every `@pulumi/command` `triggers` list, so bumping one field re-mints credentials and re-runs bootstrap deliberately; per-resource rotation knobs are the named defect.
-- Law: the profile is defaults-total — `scale` selects the `kube/workload` sizing row, `compute` selects the cloud-arm workload posture (`serverless` = the managed container cell, `cluster` = the managed-Kubernetes escalation that reuses the whole `kube/*` roster), `extensions` names the `data` extension-matrix subset the data tier finalizes (validated against `Pg.rows` at `kube/data.md`, never here), `objectEngine` selects a conditional-put-conforming self-host row (`minio` = the maintained continuation image, `ceph` = the RGW row; the engine that cannot CAS has no literal to select), `exposure` selects the traffic posture (`direct` = the metal-address DNS row, `tunnel` = the Zero-Trust row, `internal` = no edge — the workload stands service-only and no edge coordinate is demanded), `data` carries instance count, storage, backup cron, and retention, `fanout` carries the NATS replica quorum and stream storage, and `tenancy` carries the isolation posture — every field defaulted at the declaration so `_Profile.make({})` is a complete standard deployment and an app states only its deltas.
+- Law: the profile is defaults-total — `scale` selects the `kube/workload` sizing row, `compute` selects the cloud-arm workload posture (`serverless` = the managed container cell, `cluster` = the managed-Kubernetes escalation that reuses the whole `kube/*` roster), `extensions` names the `data` extension-matrix subset the data tier finalizes (validated against `Pg.rows` at `kube/data.md`, never here), `objectEngine` selects a conditional-put-conforming self-host row (`minio` = the maintained continuation image, `ceph` = the RGW row; the engine that cannot CAS has no literal to select), `exposure` selects the traffic posture (`direct` = the metal-address DNS row, `tunnel` = the Zero-Trust row, `internal` = no edge — the workload stands service-only and no edge coordinate is demanded), `data` carries instance count, storage, backup cron, retention, and the pooling pair, `fanout` carries the NATS replica quorum and stream storage, and `tenancy` carries the isolation posture — every field defaulted at the declaration so `_Profile.make({})` is a complete standard deployment and an app states only its deltas.
+- Law: `topology` is the deployment-shape axis a composition root supplies, not a fact a package infers — `proc/config#ADMISSION_ROWS` owns the closed roster and `ConsumptionProfile.topologies` spreads that one spelling into this schema, `service` is the deploy plane's own default, and a tier serving a proper subset refuses the rest at admission with typed evidence naming the axis and the rejected value; `operate/converge.md` is the first such refusal, `_SERVED` its subset.
+- Law: `data.pooling` is a capability input, not a chart knob — the mode selects the PgBouncer posture AND the primitive set that posture voids, `session` is the default because it voids none, `data.primitives` names the pooled-bind primitives the app composes, `kube/data.md` refuses the intersection at admission, and the realized mode publishes on the `data` plane so the runtime capability rail gates on deployment truth instead of assuming a session.
+- Law: a wire literal carries a refined brand, never a bare string — `_Quantity` holds the Kubernetes resource-quantity grammar every storage and sizing field spells, `_Cron` holds the six-field seconds-leading dialect the CNPG schedule consumes, and `_Window` holds the retention duration every store row's `retain` projection reads; a value failing its grammar fails at decode, where the coordinate is still loggable, never inside a chart the operator already accepted.
 - Law: the observability backend is spec data — `observe.store` selects the metrics-store row (`prometheus` the reference row; `mimir` the fleet escalation whose object-store binding reuses the object plane and whose org-id header scopes the stack; `victoriametrics` the resource-pressure escape), `observe.retention` the store retention window, `observe.profiles` the Pyroscope row, `observe.ingest` the pg-server metrics arm, `observe.costs` the OpenCost pricing row, and `observe.ebpf` the privileged zero-code instrumentation row — every coordinate interpreted by `operate/observe.md`'s row family, never a second program body.
-- Law: tenancy is data, never code paths — `tenancy.mode` selects the isolation tier (`single` = one app one namespace; `namespace` = Capsule-governed namespace-per-tenant soft isolation; `vcluster` = virtual-control-plane-per-tenant hard isolation), `tenancy.pgTier` selects the data-plane escalation (`shared-rls` = one database with `Tenancy.rls` policy rows; `db-per-tenant` = one CNPG cluster with one `Database` CR per tenant; `cluster-per-tenant` = one CNPG `Cluster` per tenant), and `tenancy.tenants` names the tenant slugs the `kube/tenant.md` owner realizes rows for; a tenancy escalation is a spec delta interpreted by the owning tiers, never a second program body.
+- Law: tenancy is data, never code paths — `tenancy.mode` selects the isolation tier (`single` = one app one namespace; `namespace` = Capsule-governed namespace-per-tenant soft isolation; `vcluster` = virtual-control-plane-per-tenant hard isolation), `tenancy.pgTier` selects the data-plane escalation (`shared-rls` = one database with `Tenancy.rls` policy rows; `db-per-tenant` = one CNPG cluster with one `Database` CR per tenant; `cluster-per-tenant` = one CNPG `Cluster` per tenant with its own custody envelope), and `tenancy.tenants` names the tenant slugs the `kube/tenant.md` owner realizes rows for; a tenancy escalation is a spec delta interpreted by the owning tiers, never a second program body.
+- Law: an escalation with no tenant is unrepresentable — `_Tenancy` is a union discriminated on `mode`, the `single` arm carrying neither `pgTier` nor `tenants` and each escalated arm carrying `pgTier` beside a `NonEmptyArray` of slugs, so a data-plane tier paired with an empty tenant roster fails at decode instead of realizing zero tenant databases in silence; the `pgTier` getter projects the shared tier for `single`, giving every consumer one total read.
 - Law: absence is `Option` admitted by `Schema.optionalWith(..., { as: "Option" })` — a cloud arm demanding an absent `region`, or a selfhosted arm demanding an absent `connection`, fails as a typed `DeployFault` inside its provider arm before the `PulumiFn` is entered, never as an `undefined` read and never as a construction-time throw inside a tier.
 - Entry: `StackSpec.make(...)` at the app seam; `Schema.decodeUnknown(StackSpec)` where the value arrives as data.
-- Growth: a new coordinate is one field with its dialect chosen here; a new profile axis is one `_Profile` field with its default; a new tenancy tier is one literal with its interpreting row in the owning tier.
+- Growth: a new coordinate is one field with its dialect chosen here; a new profile axis is one `_Profile` field with its default; a new tenancy tier is one literal with its interpreting row in the owning tier; a new consumption axis is one roster the runtime admission owner mints with one `_Profile` field spreading it.
 - Boundary: deploy-host facts (backend URL, passphrase, CLI root) are `automation.md`'s Config surface; extension validation is `kube/data.md`'s; sizing interpretation is `kube/workload.md`'s; tenant realization is `kube/tenant.md`'s.
-- Packages: `effect` (`Schema`); `@rasm/ts/core` (`AppIdentity`).
+- Packages: `effect` (`Schema`); `@rasm/ts/core` (`AppIdentity`); `@rasm/ts/runtime` (`Consumption`, `Profile`).
 
 ```typescript
 import { AppIdentity } from "@rasm/ts/core"
+import { type Consumption, Profile as ConsumptionProfile } from "@rasm/ts/runtime"
 import { Schema } from "effect"
 
 const _arms = ["selfhosted-k8s", "selfhosted-docker", "aws", "gcp", "cloudflare"] as const
 
 const _Name = Schema.String.pipe(Schema.pattern(/^[a-z][a-z0-9-]{1,39}$/), Schema.brand("StackName"))
+const _Slug = Schema.String.pipe(Schema.pattern(/^[a-z][a-z0-9-]{1,30}$/), Schema.brand("TenantSlug"))
+// Kubernetes admits a binary suffix (Ki…Ei) or a decimal one (n u m k M G T P E) over a decimal
+// mantissa; the scientific form the API also parses is refused here because no estate value spells it.
+const _Quantity = Schema.String.pipe(
+  Schema.pattern(/^[+-]?(?:\d+(?:\.\d+)?|\.\d+)(?:Ki|Mi|Gi|Ti|Pi|Ei|[numkMGTPE])?$/),
+  Schema.brand("K8sQuantity"),
+)
+// Six fields, seconds leading: the CNPG `ScheduledBackup` dialect, not the five-field crontab one.
+const _Cron = Schema.String.pipe(
+  Schema.pattern(/^[0-9A-Z*/,?-]+(?: [0-9A-Z*/,?-]+){5}$/),
+  Schema.brand("CronExpression"),
+)
+const _Window = Schema.String.pipe(Schema.pattern(/^\d+(?:ms|s|m|h|d|w|y)$/), Schema.brand("RetentionWindow"))
 
 const _Bastion = Schema.Struct({
   host: Schema.NonEmptyString,
@@ -67,25 +85,32 @@ const _Doppler = Schema.Struct({
 
 const _Data = Schema.Struct({
   instances: Schema.optionalWith(Schema.Int.pipe(Schema.between(1, 9)), { default: () => 2 }),
-  storage: Schema.optionalWith(Schema.NonEmptyString, { default: () => "20Gi" }),
-  backupCron: Schema.optionalWith(Schema.NonEmptyString, { default: () => "0 0 3 * * *" }),
-  retention: Schema.optionalWith(Schema.NonEmptyString, { default: () => "30d" }),
+  storage: Schema.optionalWith(_Quantity, { default: () => _Quantity.make("20Gi") }),
+  backupCron: Schema.optionalWith(_Cron, { default: () => _Cron.make("0 0 3 * * *") }),
+  retention: Schema.optionalWith(_Window, { default: () => _Window.make("30d") }),
+  pooling: Schema.optionalWith(Schema.Literal("session", "transaction", "statement"), { default: () => "session" as const }),
+  primitives: Schema.optionalWith(Schema.Array(Schema.NonEmptyString), { default: () => [] }),
 })
 
 const _Fanout = Schema.Struct({
   replicas: Schema.optionalWith(Schema.Int.pipe(Schema.between(1, 5)), { default: () => 3 }),
-  storage: Schema.optionalWith(Schema.NonEmptyString, { default: () => "2Gi" }),
+  storage: Schema.optionalWith(_Quantity, { default: () => _Quantity.make("2Gi") }),
 })
 
-const _Tenancy = Schema.Struct({
-  mode: Schema.optionalWith(Schema.Literal("single", "namespace", "vcluster"), { default: () => "single" as const }),
+const _Isolated = Schema.Struct({
   pgTier: Schema.optionalWith(Schema.Literal("shared-rls", "db-per-tenant", "cluster-per-tenant"), { default: () => "shared-rls" as const }),
-  tenants: Schema.optionalWith(Schema.Array(Schema.String.pipe(Schema.pattern(/^[a-z][a-z0-9-]{1,30}$/))), { default: () => [] }),
+  tenants: Schema.NonEmptyArray(_Slug),
 })
+
+const _Tenancy = Schema.Union(
+  Schema.Struct({ mode: Schema.Literal("single") }),
+  Schema.Struct({ mode: Schema.Literal("namespace"), ..._Isolated.fields }),
+  Schema.Struct({ mode: Schema.Literal("vcluster"), ..._Isolated.fields }),
+)
 
 const _Observe = Schema.Struct({
   store: Schema.optionalWith(Schema.Literal("prometheus", "mimir", "victoriametrics"), { default: () => "prometheus" as const }),
-  retention: Schema.optionalWith(Schema.NonEmptyString, { default: () => "30d" }),
+  retention: Schema.optionalWith(_Window, { default: () => _Window.make("30d") }),
   profiles: Schema.optionalWith(Schema.Boolean, { default: () => true }),
   ingest: Schema.optionalWith(Schema.Literal("scrape", "native"), { default: () => "scrape" as const }),
   costs: Schema.optionalWith(Schema.Boolean, { default: () => false }),
@@ -94,6 +119,7 @@ const _Observe = Schema.Struct({
 
 const _Profile = Schema.Struct({
   scale: Schema.optionalWith(Schema.Literal("dev", "standard", "fleet"), { default: () => "standard" as const }),
+  topology: Schema.optionalWith(Schema.Literal(...ConsumptionProfile.topologies), { default: () => "service" as const }),
   compute: Schema.optionalWith(Schema.Literal("serverless", "cluster"), { default: () => "serverless" as const }),
   extensions: Schema.optionalWith(Schema.Array(Schema.NonEmptyString), { default: () => [] }),
   objectEngine: Schema.optionalWith(Schema.Literal("minio", "ceph"), { default: () => "minio" as const }),
@@ -101,7 +127,7 @@ const _Profile = Schema.Struct({
   data: Schema.optionalWith(_Data, { default: () => _Data.make({}) }),
   fanout: Schema.optionalWith(_Fanout, { default: () => _Fanout.make({}) }),
   observe: Schema.optionalWith(_Observe, { default: () => _Observe.make({}) }),
-  tenancy: Schema.optionalWith(_Tenancy, { default: () => _Tenancy.make({}) }),
+  tenancy: Schema.optionalWith(_Tenancy, { default: () => ({ mode: "single" as const }) }),
 })
 
 class StackSpec extends Schema.Class<StackSpec>("StackSpec")({
@@ -121,22 +147,37 @@ class StackSpec extends Schema.Class<StackSpec>("StackSpec")({
   profile: Schema.optionalWith(_Profile, { default: () => _Profile.make({}) }),
 }) {
   static readonly arms: StackSpec.Arms = _arms
+  static readonly topologies: StackSpec.Topologies = ConsumptionProfile.topologies
   get hosted(): boolean {
     return this.backend === "cloud"
   }
-  get tenants(): ReadonlyArray<string> {
+  get tenants(): ReadonlyArray<StackSpec.Slug> {
     return this.profile.tenancy.mode === "single" ? [] : this.profile.tenancy.tenants
+  }
+  // `single` carries no tier field, so this projection seats the shared tier and every data-plane
+  // consumer reads one total value instead of re-deriving the mode-to-tier correspondence.
+  get pgTier(): StackSpec.PgTier {
+    return this.profile.tenancy.mode === "single" ? "shared-rls" : this.profile.tenancy.pgTier
   }
 }
 
 declare namespace StackSpec {
   type Arms = typeof _arms
   type Arm = (typeof _arms)[number]
+  type Topologies = Consumption.Topologies
+  type Topology = Consumption.Topology
+  type Slug = typeof _Slug.Type
+  type Quantity = typeof _Quantity.Type
+  type Window = typeof _Window.Type
   type Connection = InstanceType<typeof Connection>
+  type Data = typeof _Data.Type
+  type Pooling = Data["pooling"]
   type Observe = typeof _Observe.Type
   type Profile = typeof _Profile.Type
   type Tenancy = typeof _Tenancy.Type
+  type PgTier = (typeof _Isolated.Type)["pgTier"]
   type _Keys<K extends Arm = (typeof _arms)[number]> = K
+  type _Axes<K extends Topology = Profile["topology"]> = K
 }
 ```
 
@@ -194,7 +235,7 @@ abstract class Tier extends pulumi.ComponentResource {
 ## [05]-[OUTPUT_PLANES]
 
 [OUTPUT_PLANES]:
-- Owner: `StackOutputs`, one `Schema.Class` of `Option`-carried plane records — `ingress` (public hostname), `data` (host, port, database, role), `object` (endpoint, bucket), `fanout` (the NATS websocket origin), `otlp` (collector ingest endpoint), `grafana` (board URL), `sharding` (runner endpoint), `served` (caller-owned artifact slug to content-addressed path), `deploy` (the time-ordered `RandomUuid7` deployment identity) — each an inline `Schema.Struct` block because no plane has a second consumer shape, while `served` is an open `Schema.Record` because its key vocabulary belongs to its caller; the arm that realizes a plane returns its keys from the `PulumiFn`, and absence means the arm did not realize it.
+- Owner: `StackOutputs`, one `Schema.Class` of `Option`-carried plane records — `ingress` (public hostname), `data` (host, port, database, role, realized pooling mode), `object` (endpoint, bucket), `fanout` (the NATS websocket origin), `otlp` (collector ingest endpoint), `grafana` (board URL), `sharding` (runner endpoint), `served` (caller-owned artifact slug to content-addressed path), `deploy` (the time-ordered `RandomUuid7` deployment identity) — each an inline `Schema.Struct` block because no plane has a second consumer shape, while `served` is an open `Schema.Record` because its key vocabulary belongs to its caller; the arm that realizes a plane returns its keys from the `PulumiFn`, and absence means the arm did not realize it.
 - Law: `pairsOf(planes, render)` is the one channel-flatten — the `<plane>.<field>` spelling and the plane iteration exist exactly here, parameterized on the value renderer; the decoded `pairs` getter rides it with `String`, the in-program live assembly rides it with `pulumi.output(value).apply(String)`, and the plane set feeding the getter derives from the class's own field record through `Record.getSomes`, so no hand-listed plane tuple exists, a new field cannot be silently dropped, and the two modalities cannot drift.
 - Law: `read(stack, name)` is the one exit from the engine's `OutputMap` — `stack.outputs()` converts at this seam with the `DeployFault` triage, one entries scan yields both the secret-refusal verdict and the leaked-key evidence (the gate refuses any `{ secret: true }` entry naming the keys in the fault detail), the `{ value, secret }` envelope strips to plain values, and the record decodes through the class; the `Object` reads sit inside the boundary because the map is FFI material, and no decoded value is re-checked downstream.
 - Law: coordinates, never material — a role name, host, port, origin, or URL is publishable; a password, token, or key is not, and the fix for a refused output is moving the value into the Doppler store, never widening the gate.
@@ -220,6 +261,7 @@ class StackOutputs extends Schema.Class<StackOutputs>("StackOutputs")({
     port: _Port,
     database: Schema.NonEmptyString,
     role: Schema.NonEmptyString,
+    pooling: Schema.Literal("session", "transaction", "statement"),
   }), { as: "Option" }),
   object: Schema.optionalWith(Schema.Struct({ endpoint: Schema.NonEmptyString, bucket: Schema.NonEmptyString }), { as: "Option" }),
   fanout: Schema.optionalWith(Schema.Struct({ origin: Schema.NonEmptyString }), { as: "Option" }),

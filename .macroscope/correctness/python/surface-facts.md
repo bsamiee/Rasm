@@ -24,7 +24,13 @@ Corpus floor is py3.15 — its surface is never flagged as invalid syntax, a mis
 
 Doctrine pages license named statement kernels where a `for`, `try`, or in-place mutation is platform-forced — never flag these as rail violations: the ordered-capture admission kernel (`except ValidationError` before `except ValueError`, since pydantic subclasses `ValueError`), the `TypeAdapter.validate_python` payload gate, the `EnumType(value)` `try/except ValueError` vocabulary crossing, the module `__getattr__` resolver, the aspect `try/except BeartypeCallHintViolation` rail-lift, the capsule `memoryview` release kernel, the async sequential fold under `move_on_after`, the shielded teardown `await`, recursion-frontier `while` kernels, and in-place heap operations. A single `if not isinstance(stream, (str, bytes))` guard on the `Iterable()` normalization arm is the named platform-forced seam, not a smuggled discriminant.
 
-## [03]-[VERIFIED_TRAPS]
+## [03]-[ADMISSION_CLASSES]
+
+- Construction-guaranteed carrier — the admitted-value class outright: a frozen `msgspec.Struct` declaring `__post_init__` runs that check on every construction route the library ships — direct call, `msgspec.json`/`msgpack` decode, `msgspec.convert` including `strict=False`, and `msgspec.structs.replace` — and `object.__new__` on a Struct raises `TypeError`, so no unchecked instance exists. A `@checked`/beartype-wrapped signature carries the same guarantee at its own boundary. Interior re-validation of either is deleted-form residue.
+- Gate-bypass construction path — the seam a redundancy claim must never delete: `msgspec.structs.force_setattr` writes through a frozen instance past `__post_init__`, and a Struct declaring no `__post_init__` or validator carries no guarantee at all, so a value reaching a consumer through either route admits at the consuming seam. `copy.copy` and a pickle round-trip rebuild without re-running the check, which is correct for an already-admitted source and a live defect once a forced write precedes them.
+- Host-crossing read, import, or decode of foreign material legitimately admits: a finding there is real, and only the interior classes above push back.
+
+## [04]-[VERIFIED_TRAPS]
 
 Truths that flip the polarity of a naive finding — the listed shape is the FIX, its inverse the bug:
 

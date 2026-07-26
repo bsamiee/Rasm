@@ -856,11 +856,9 @@ public static class AppSettings
 
 Theme adoption routes through `AppTheme` rows — `SetToDarkMode`/`SetToLightMode` behind one `Adopt` column with `GetDefaultState(darkMode)` as the themed fallback — and the paint/widget surface stays keyed: a color slot is a `PaintColor`/`WidgetColor` enum row inside one `Option`-discriminated read/write case, never a per-slot member family.
 
-## [05]-[SEAMS]
-
 `SettingsRoot.ApplicationCase` (settings.md) owns the raw `PersistentSettings.RhinoAppSettings` node tree these families persist through; this page never writes a node, and settings.md never reaches a typed `Rhino.ApplicationSettings` owner. `HistorySettings` stays with Document undo governance, `ViewSettings.DefinedViewSet*` restore-scope flags and analysis states feed display-mode attachment, and `PlugIn.GetPluginSettings` custody stays with the plug-in root.
 
-## [06]-[RESEARCH]
+## [05]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

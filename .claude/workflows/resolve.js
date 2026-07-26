@@ -749,7 +749,7 @@ const RIPPLE_LAW =
     'to-do or a would/should hedge. The writing is YOURS: a delegate may only fetch information. Your ripple authority is ' +
     'LIBS-WIDE — any file under libs/, any language, corrective AND generative — under four bounds that are evidence, never ' +
     'radius. (1) EVIDENCE — an out-of-scope edit traces to a resolvable anchor: a seam-ledger row, a consumer anchor, an index ' +
-    'claim, or a wire row in the branch ARCHITECTURE.md [02]-[SEAMS] ledger; an unanchored edit is drift, forbidden. ' +
+    'claim, or a wire row in the branch ARCHITECTURE.md [03]-[SEAMS] ledger; an unanchored edit is drift, forbidden. ' +
     '(2) EXPAND-FORM — a foreign edit made while sibling folders run is ADDITIVE only: add the case, row, field, operation, or ' +
     'counterpart; renaming, removing, or collapsing a foreign surface is recorded in `deferred` for the terminal fixer, never ' +
     'raced. Wire-canonical names stay frozen; a foreign-language counterpart is repaired at ITS branch doctrine bar with ' +

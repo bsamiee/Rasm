@@ -317,6 +317,7 @@ const _admitted = (
 import { Array, Effect, HashMap, HashSet, Match, Option, type ParseResult, Record, Schema } from "effect"
 import { SqlClient, SqlSchema, type SqlError, type Statement } from "@effect/sql"
 import { Capability } from "../lane/capability.ts"
+import type { Pg } from "../lane/postgres.ts"
 
 declare namespace Search {
   type Filter = typeof _Filter.Type
@@ -536,7 +537,7 @@ const _facetArm = (
 const _of = (corpus: Search.Corpus) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
-    const capability = yield* Capability // grants are scope-construction facts: read once at bind
+    const capability = yield* Capability.of<Pg.Grant>() // grants are scope-construction facts: read once at bind
     const hits = Schema.decodeUnknown(Schema.Array(_HitRow))
     const bodies = SqlSchema.findAll({
       Request: Schema.Array(Schema.String),

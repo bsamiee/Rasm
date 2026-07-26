@@ -1,6 +1,6 @@
 # [PY_RUNTIME_ARCHITECTURE]
 
-`runtime` maps the host-free execution foundation every `libs/python` sibling composes: one polymorphic owner per sub-domain closes its concern, each folder mapping to exactly one module namespace. Content identity reproduces the C# `XxHash128` seed bit-identically and never re-mints, so a value carries one key across the runtime boundary; companion decode admits only C#-minted wire shapes and owns no wire vocabulary. It references no sibling — alignment travels through seam contracts and the content-keyed wire.
+`runtime` maps the host-free execution foundation every `libs/python` sibling composes: one polymorphic owner per sub-domain closes its concern, each folder mapping to one module namespace. Python owns its content-key implementation, contract bindings, wire codecs, backend admission, and execution lifecycle; shared semantics prove against the neutral contract corpus. Runtime references no sibling.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -28,10 +28,10 @@ runtime/
 │   ├── workers.py      # Worker fabric: kind family, kernel crossing, warm pools, remote/device arms, the guest sandbox, and supervision
 │   └── recipe.py       # Content-keyed recipe execution on the thread lane
 ├── evidence/           # Content-addressing, the seed-parity corpus, and structural-surface evidence
-│   ├── identity.py     # Content identity and key reproducing the C# seed bit-identically
+│   ├── identity.py     # Content identity and key implementing the shared digest contract
 │   ├── reproduction.py # Seed-reproduction corpus and its parity fold
 │   └── evidence.py     # Evidence union, catalogue member facts, and grammar registry
-└── clock/              # Logical time: the host-minted HLC stamp and the (origin, logical) element id
+└── clock/              # Logical time: the locally minted HLC stamp and the (origin, logical) element id
     └── clock.py        # HLC stamp, element id, tenant, and causal frame
 ```
 
@@ -129,6 +129,7 @@ flowchart LR
     accDescr: Runtime sub-domain owners exchanging content keys, wire codecs, gRPC transport, and clock stamps with the C# peers.
     subgraph runtime[RUNTIME]
         Evidence[Evidence]
+        Admission[Admission]
         Transport[Transport]
         Observability[Observability]
         Clock[Clock]
@@ -143,9 +144,10 @@ flowchart LR
     Compute e3@-->|"[WIRE]: XxHash128"| Evidence
     Transport e4@<-->|"[WIRE]: ProtoVocabulary"| Compute
     Transport e5@<-->|"[WIRE]: OpLogEntry"| Persistence
+    Persistence e9@<-->|"[CONTRACT]: BackendContract"| Admission
     Transport e6@<-->|"[WIRE]: DiscoveryResult"| AppHost
     Observability e7@<-->|"[TRANSPORT]: TraceContext"| AppHost
-    AppHost e8@<-->|"[WIRE]: HlcStamp"| Clock
+    AppHost e8@<-->|"[WIRE]: HlcStampWire"| Clock
 ```
 
 ```mermaid
@@ -158,7 +160,7 @@ config:
 ---
 flowchart LR
     accTitle: Runtime cross-package Python seams
-    accDescr: Runtime sub-domain owners exchanging content identity, transport, recipe ports, and receipts with the Python siblings.
+    accDescr: Runtime sub-domain owners exchanging content identity, transport, kernel and hook ports, and receipts with the Python siblings.
     subgraph runtime[RUNTIME]
         Transport[Transport]
         Evidence[Evidence]
@@ -168,7 +170,7 @@ flowchart LR
     Geometry{{python:geometry}}
     Data{{python:data}}
     Artifacts{{python:artifacts}}
-    Compute([python:compute])
+    Compute{{python:compute}}
     Transport e5@<-->|"[WIRE]: TessellationRequest"| Geometry
     Geometry e1@-->|"[CONTENT_KEY]: ContentIdentity"| Evidence
     Geometry e9@-->|"[PORT]: RecipeInterface"| Execution
@@ -179,14 +181,20 @@ flowchart LR
     Data e17@-->|"[RECEIPT]: TensorReceipt"| Observability
     Execution e14@-->|"[BOUNDARY]: on_thread"| Data
     Execution e18@-->|"[BOUNDARY]: LanePolicy"| Data
+    Execution e19@-->|"[SHAPE]: BackendGeneration"| Data
     Evidence e3@-->|"[CONTENT_KEY]: ContentIdentity"| Artifacts
     Artifacts e10@-->|"[RECEIPT]: ArtifactReceipt"| Observability
     Execution e8@-->|"[CONTENT_KEY]: ContentKey"| Artifacts
     Execution e15@-->|"[PORT]: Kernel"| Artifacts
+    Artifacts e20@-->|"[PORT]: HookPoint"| Observability
     Evidence e4@-->|"[CONTENT_KEY]: ParityReceipt"| Compute
     Transport e7@-->|"[BOUNDARY]: ResourceRef"| Compute
     Observability e13@-->|"[PORT]: measured"| Compute
     Execution e12@-->|"[PORT]: Kernel"| Compute
+    Observability e21@-->|"[PORT]: Hooks"| Compute
+    Compute e22@-->|"[PROJECTION]: BenchmarkReceipt"| Observability
+    Execution e23@-->|"[PORT]: Kernel"| Geometry
+    Geometry e24@-->|"[RECEIPT]: BenchmarkReceipt"| Observability
 ```
 
 Each fence's home roster holds only the sub-domains carrying a seam with that peer plane: `reliability` crosses no boundary, `clock` faces only the C# plane, `execution` only the Python plane. Frozen registry names spell from the counterpart's endpoint page; `ServerHost`/`CommandReceipt`, `PROTO_VOCABULARY`, `CrdtOp`, and `ContentKey` are this package's interior spellings behind the `DiscoveryResult`, `ProtoVocabulary`, `OpLogEntry`, and `ContentAddress` wires.
@@ -197,7 +205,7 @@ Each sub-domain charter is the codemap comment; the boundary law below fixes the
 
 - `observability` — produces local evidence only, never an AppHost envelope or health status.
 - One shared OTLP exporter and one `MeterProvider` install behind the profile gate; every receipt folds through one attribute-keyed drain.
-- Every serve-leg span rides the inbound C# parent context.
+- Every serve-leg span rides the inbound parent context.
 - A pickled worker without its own telemetry install runs unparented; the carrier still crosses.
 - Structured JSON events ship to stdout and the collector promotes them to OTLP log records.
 - Only the telemetry root names the in-process log escape hatch.
@@ -213,8 +221,8 @@ Each sub-domain charter is the codemap comment; the boundary law below fixes the
 - Every kernel leaves the loop as one `Kernel` value on the closed worker-kind family.
 - Warm pools, restart actuation, and the serve health-flip verdict projection stay the workers owner's.
 - Lane capacity projects from the admitted profile row.
-- `evidence` — keys identity by content through the one hashing owner reproducing the C# `XxHash128` seed.
+- `evidence` — keys identity through the Python implementation of the shared content-key contract.
 - Evidence catalogue and grammar surfaces emit what the `assay code` rail consumes.
-- `clock` — owns the one `Hlc`/`ElementId`/`Tenant` spelling; the two-half stamp reproduces the C# mint bit-identically and is never re-minted.
-- A stamp's physical half is host-minted rather than wall-clock; its element id is the `(origin, logical)` identity.
+- `clock` — owns Python's `Hlc`/`ElementId`/`Tenant` spelling and proves its two-half encoding against the shared contract.
+- A stamp's physical half samples the admitted local clock; its element id is the `(origin, logical)` identity.
 - `wire` and `admission` alone consume the clock owner.

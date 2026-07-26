@@ -1,6 +1,6 @@
 # [IAC_WORKLOAD]
 
-`Workload` turns one `selfhosted-k8s` spec row into the identity cell, deployment, disruption budget, autoscaler, and service. Derived labels bind selector, pod template, and service. `_KEYS` owns environment spellings, one Kubernetes `Secret` carries `DOPPLER_TOKEN`, and `doppler run --` is the injection edge. `_LIFE` mirrors the runtime drain budget and probe routes into pod grace, probes, and `RUNTIME_LIFE_DRAIN`. `_scale` interprets `StackSpec.profile.scale`. Module `iac/src/kube/workload.ts` grows by one key row, args field, sizing column, or `CronJob` invocation.
+`Workload` lowers one service or worker row into shared identity, pod, sizing, lifecycle, and optional network cells. Service rows own rolling replacement, CPU elasticity, and a `Service`; worker rows own claim-safe `Recreate` replacement and no network surface. `_KEYS` owns environment spellings, one Kubernetes `Secret` carries `DOPPLER_TOKEN`, and `doppler run --` is the injection edge. `_LIFE` mirrors runtime drain and probe facts into pod grace and health gates. `_scale` interprets `StackSpec.profile.scale`.
 
 ## [01]-[CLUSTERS]
 
@@ -9,7 +9,7 @@
 |  [01]   | `SIZING_ROWS`   | the scale vocabulary: replicas, requests, limits per profile row        | `Workload` |
 |  [02]   | `LIFE_MIRROR`   | the drain-budget and probe-route anchor mirrored from the runtime plane | `Workload` |
 |  [03]   | `ENV_ASSEMBLY`  | the key map, the token secret, the env rows, the entrypoint wrap        | `Workload` |
-|  [04]   | `WORKLOAD_TIER` | the typed deployment/service/account set and the cron verb              | `Workload` |
+|  [04]   | `WORKLOAD_TIER` | service/worker lowering, identity, deployment, optional service, cron   | `Workload` |
 
 ## [02]-[SIZING_ROWS]
 
@@ -29,7 +29,7 @@
 - Growth: a new probe kind on the runtime side is one `probes` row here; a drain-budget change is one `drainSeconds` edit propagating to both projections.
 - Boundary: the drain fold, the report grades, and the phase spine are the runtime plane's; this anchor is the deploy-side mirror of a settled contract, never a re-derivation.
 
-```typescript
+```typescript signature
 const _LIFE = {
   drainSeconds: 25,
   margin: 5,
@@ -50,7 +50,7 @@ declare namespace _LIFE {
 
 [ENV_ASSEMBLY]:
 - Owner: the env seam — `_KEYS` is the channel-to-variable map (the one place a `StackOutputs` channel becomes an environment spelling), `Workload.token` provisions the namespace-scoped `core/v1.Secret` carrying `DOPPLER_TOKEN`, `Workload.rows` assembles the container's `EnvVar` list, and `Workload.entrypoint` is the `doppler run --` wrap; pair values are `Input`-typed, so live tier `Output`s (the in-program assembly) and decoded `StackOutputs.Pair` strings (the post-run projection) ride one signature.
-- Law: the map is total over emitted channels — a channel with no `_KEYS` row is dropped by `filterMap` and that drop is deliberate absence, so publishing a new channel to processes is exactly one map row; the runtime-consumed spellings are pinned to their owners: `otlp.endpoint → OTEL_EXPORTER_OTLP_ENDPOINT` (the OTel exporter contract), `fanout.origin → RUNTIME_FANOUT_ORIGIN` (the runtime `Setting` fanout group), `object.* → OBJECT_*` (the data object plane's own Config rows), `sharding.* → IAC_SHARDING_*` (the rows `ShardingConfig.layerFromEnv` reads at the work seam).
+- Law: the map is total over emitted channels — a channel with no `_KEYS` row is dropped by `filterMap` and that drop is deliberate absence, so publishing a new channel to processes is exactly one map row; the runtime-consumed spellings are pinned to their owners: `otlp.endpoint → OTEL_EXPORTER_OTLP_ENDPOINT` (the OTel exporter contract), `fanout.origin → RUNTIME_FANOUT_ORIGIN` (the runtime `Setting` fanout group), `object.* → OBJECT_*` (the data object plane's own Config rows), `data.pooling → DATA_PG_POOLING` (the realized PgBouncer mode the capability rail gates its session-scoped primitives on), `sharding.* → IAC_SHARDING_*` (the rows `ShardingConfig.layerFromEnv` reads at the work seam).
 - Law: policy rows stamp beside output rows — `_POLICY` carries the deploy-owned runtime Setting rows no output plane emits: `RUNTIME_LIFE_DRAIN` from the `_LIFE` anchor and `RUNTIME_CLUSTER_LOCK_REFRESH`/`RUNTIME_CLUSTER_LOCK_EXPIRY` (the leaderless grid's advisory-lock cadence, a topology posture the deploy plane owns); the `rows` signature's `policy` parameter is the merge seam an arm widens with the `RUNTIME_MAIL_*` coordinate set (SMTP host, port, user, DKIM domain and selector, rate ceiling) when the app's mail coordinates exist — widening rows merge over the `_POLICY` base, so an arm never re-spells the standing rows to add one. Every value is a coordinate or a duration literal — the SMTP password rides Doppler like every credential.
 - Law: coordinates ride plain rows, material rides references — output pairs are non-secret by `StackOutputs.read`'s gate, so they inject as `value`; the token is the only settled `secretKeyRef`, and any other secret row is evidence a value bypassed Doppler.
 - Law: the entrypoint wrap is the injection moment — a container carrying a `command` stamps `Workload.entrypoint(cmd)`, and a container without one runs an image whose baked `ENTRYPOINT` is the same `doppler run --` wrap (the app image's build contract), so `doppler run` resolves the scoped config into the process environment at start and the runtime's provider chain reads validated values; the deploy plane never writes a decrypted payload to any surface a process reads before injection.
@@ -59,7 +59,7 @@ declare namespace _LIFE {
 - Boundary: pair emission is `program/spec.md`'s; token minting is `operate/secret.md`'s; runtime variable spellings are the runtime `Setting` owner's contract, mirrored here and recorded as a seam.
 - Packages: `@pulumi/kubernetes` (`core.v1.Secret`, `types.input.core.v1.EnvVar`); `@pulumi/pulumi` (`Input`, `Output`); `effect` (`Array`, `Option`, `Record`).
 
-```typescript
+```typescript signature
 import * as k8s from "@pulumi/kubernetes"
 import * as pulumi from "@pulumi/pulumi"
 import { Array, Option, Record } from "effect"
@@ -71,6 +71,7 @@ const _KEYS = {
   "data.port": "DATA_PG_PORT",
   "data.database": "DATA_PG_DATABASE",
   "data.role": "DATA_PG_ROLE",
+  "data.pooling": "DATA_PG_POOLING",
   "object.endpoint": "OBJECT_ENDPOINT",
   "object.bucket": "OBJECT_BUCKET",
   "fanout.origin": "RUNTIME_FANOUT_ORIGIN",
@@ -123,19 +124,23 @@ const _entrypoint = (command: ReadonlyArray<string>): ReadonlyArray<string> => [
 ## [05]-[WORKLOAD_TIER]
 
 [WORKLOAD_TIER]:
-- Owner: `Workload` — one constructor builds the full identity cell (`ServiceAccount` always; `rbac/v1.Role` + `RoleBinding` compiled from the `rbac` rule rows when the workload reaches the API, so identity is three typed resources from data, never a bare account), the `Deployment` (selector and template labels derived from one `_labels` projection; the container carrying image, port, env rows, the three `_LIFE` probe blocks, and the scale row's resources; the pod carrying the derived `terminationGracePeriodSeconds`, a hostname `topologySpreadConstraints` row, and — when `zones` arrive — a `RandomShuffle` seed-stable preferred-zone affinity whose ordering survives every `up`), the scale row's `PodDisruptionBudget`/`HorizontalPodAutoscaler` realizations, and the `Service` (the same label selector, port-to-port); the service rides the tier as a readonly field so consumers wire `workload.service.metadata.name` onward, and the assembly members (`token`, `rows`, `entrypoint`, `cron`) ride the class as statics so one import carries the tier and its env seam.
+- Owner: `Workload` lowers the `role` discriminant through one constructor; identity, pod, sizing, probes, placement, and drain remain shared.
+- Service: rolling replacement, CPU HPA where the scale row admits it, and one label-derived `Service`.
+- Worker: `Recreate` prevents claim overlap, replica count remains explicit, and the network surface is absent.
 - Law: the image is a digest ref — `Workload.Args.image` receives a `docker-build.Image` `ref`/`digest` value or an app-supplied `...@sha256:...` string; a mutable tag is admitted nowhere on this tier, and the compile-time gate is `operate/policy.md`'s digest policy over exactly this resource class.
 - Law: labels are one derivation — `_labels(name)` stamps `app.kubernetes.io/name` and `app.kubernetes.io/managed-by`, and selector, template, and service all read the same value; a hand-written selector beside the derived labels is the drift this collapse deletes.
-- Law: env is assembled on this page and appended nowhere else — the rows arrive from `Workload.rows` (token reference, policy rows, output pairs); a literal env row at a call site is a value that bypassed Doppler or the outputs seam.
+- Law: `Workload.rows` owns application settings; the backend projection adds only generated-file paths beside those rows.
+- Law: the backend generation is caller-supplied, never assumed — `_backed` folds its absence to three empty pod slots, so a workload composing no schema contract deploys with no projected volume and no pointer path; a required generation narrows this tier to the one deployment shape that already carries a merged, deployed, admitted contract.
 - Law: namespace is a parameter — the arm constructs one `core/v1.Namespace` and threads `metadata.name` here; the tier never mints its own namespace, so every arm resource shares one blast-radius scope.
 - Law: the cron verb is the host-schedule surface — `Workload.cron(name, args)` is one `batch/v1.CronJob` member reading the same labels, env assembly, and entrypoint wrap; it exists for schedules a database grant refusal pushes out of `pg_cron` and for deploy-plane maintenance verbs, and its schedule string is the caller's cron dialect fact.
-- Entry: `new Workload("app", { spec, namespace, image, port, env }, opts)` inside the k8s arm, `opts` carrying the arm provider.
+- Entry: `new Workload("app", { spec, namespace, image, role, env }, opts)` inside the k8s arm.
 - Growth: a new elasticity or availability posture is one `_scale` row column; an API grant is one `rbac` rule row; a second exposed port is one field consumed at the one construction site.
-- Boundary: ingress to the service is `kube/traffic.md`'s; probe grading and drain choreography are the runtime plane's; cluster-scoped RBAC (`ClusterRole`) stays an arm decision, never a tier default.
+- Boundary: runtime owns claims, leases, backlog evidence, handlers, and generation admission; this tier only lowers carrier facts.
 - Packages: `@pulumi/kubernetes` (`core.v1`, `apps.v1`, `batch.v1`); `@pulumi/pulumi` (`Input`, `Output`); `../program/spec.ts` (`StackSpec`, `Tier`).
 
-```typescript
+```typescript signature
 import * as random from "@pulumi/random"
+import { Match } from "effect"
 import { Tier, type StackSpec } from "../program/spec.ts"
 
 const _scale = {
@@ -170,16 +175,51 @@ const _probe = (kind: _LIFE.Kind, port: number): k8s.types.input.core.v1.Probe =
   failureThreshold: _LIFE.probes[kind].failureThreshold,
 })
 
+// Absence is the whole fold: a workload the caller composed without a backend generation mounts no
+// projection and stamps no pointer path, so the three pod slots the row fills stay empty together.
+const _backed = (backend: Workload.Backend | undefined): {
+  readonly env: ReadonlyArray<Workload.EnvRow>
+  readonly mounts: ReadonlyArray<k8s.types.input.core.v1.VolumeMount>
+  readonly volumes: ReadonlyArray<k8s.types.input.core.v1.Volume>
+} =>
+  backend === undefined
+    ? { env: [], mounts: [], volumes: [] }
+    : {
+        env: [
+          { name: "RASM_BACKEND_CONTRACT_ROOT", value: backend.root },
+          { name: "RASM_BACKEND_POINTER_PATH", value: `${backend.root}/generation` },
+        ],
+        mounts: [{ name: "backend", mountPath: backend.root, readOnly: true }],
+        volumes: [{
+          name: "backend",
+          projected: {
+            sources: [
+              { configMap: { name: backend.contract.metadata.name } },
+              { configMap: { name: backend.pointer.metadata.name } },
+            ],
+          },
+        }],
+      }
+
 declare namespace Workload {
   type Scale = StackSpec.Profile["scale"]
   type Row = (typeof _scale)[Scale]
   type Rule = { readonly apiGroups: ReadonlyArray<string>; readonly resources: ReadonlyArray<string>; readonly verbs: ReadonlyArray<string> }
+  type Role =
+    | { readonly _tag: "service"; readonly port: number }
+    | { readonly _tag: "worker"; readonly probePort: number }
+  type Backend = {
+    readonly contract: k8s.core.v1.ConfigMap
+    readonly pointer: k8s.core.v1.ConfigMap
+    readonly root: string
+  }
   type Args = {
     readonly spec: StackSpec
     readonly namespace: pulumi.Input<string>
     readonly image: pulumi.Input<string>
-    readonly port: number
+    readonly role: Role
     readonly env: ReadonlyArray<Workload.EnvRow>
+    readonly backend?: Backend
     readonly command?: ReadonlyArray<string>
     readonly rbac?: ReadonlyArray<Rule>
     readonly zones?: ReadonlyArray<string>
@@ -222,11 +262,16 @@ class Workload extends Tier {
         },
       },
     }, opts)
-  readonly service: k8s.core.v1.Service
+  readonly service: Option.Option<k8s.core.v1.Service>
   constructor(name: string, args: Workload.Args, opts?: pulumi.ComponentResourceOptions) {
     super("Workload", name, opts)
     const row = _scale[args.spec.profile.scale]
+    const backed = _backed(args.backend)
     const labels = _labels(name)
+    const port = Match.value(args.role).pipe(Match.tagsExhaustive({
+      service: (role) => role.port,
+      worker: (role) => role.probePort,
+    }))
     const account = new k8s.core.v1.ServiceAccount(name, {
       metadata: { namespace: args.namespace, labels },
     }, this.child())
@@ -248,7 +293,10 @@ class Workload extends Tier {
     new k8s.apps.v1.Deployment(name, {
       metadata: { name, namespace: args.namespace, labels },
       spec: {
-        ...("autoscale" in row ? {} : { replicas: row.replicas }),
+        ...(args.role._tag === "service" && "autoscale" in row ? {} : { replicas: row.replicas }),
+        strategy: args.role._tag === "worker"
+          ? { type: "Recreate" }
+          : { type: "RollingUpdate", rollingUpdate: { maxSurge: 1, maxUnavailable: 0 } },
         selector: { matchLabels: labels },
         template: {
           metadata: { labels },
@@ -276,13 +324,15 @@ class Workload extends Tier {
               name,
               image: args.image,
               ...(args.command !== undefined && { command: [..._entrypoint(args.command)] }),
-              ports: [{ containerPort: args.port }],
-              env: [...args.env],
-              startupProbe: _probe("started", args.port),
-              readinessProbe: _probe("ready", args.port),
-              livenessProbe: _probe("live", args.port),
+              ports: [{ containerPort: port }],
+              env: [...args.env, ...backed.env],
+              volumeMounts: [...backed.mounts],
+              startupProbe: _probe("started", port),
+              readinessProbe: _probe("ready", port),
+              livenessProbe: _probe("live", port),
               resources: { requests: row.requests, limits: row.limits },
             }],
+            volumes: [...backed.volumes],
           },
         },
       },
@@ -293,7 +343,7 @@ class Workload extends Tier {
         spec: { minAvailable: row.disruptionBudget.minAvailable, selector: { matchLabels: labels } },
       }, this.child())
     }
-    if ("autoscale" in row) {
+    if (args.role._tag === "service" && "autoscale" in row) {
       new k8s.autoscaling.v2.HorizontalPodAutoscaler(name, {
         metadata: { namespace: args.namespace, labels },
         spec: {
@@ -307,14 +357,19 @@ class Workload extends Tier {
         },
       }, this.child())
     }
-    this.service = new k8s.core.v1.Service(name, {
-      metadata: { namespace: args.namespace, labels },
-      spec: {
-        selector: labels,
-        ports: [{ port: args.port, targetPort: args.port }],
-      },
-    }, this.child())
-    this.seal({ service: this.service.metadata.name })
+    this.service = args.role._tag === "service"
+      ? Option.some(new k8s.core.v1.Service(name, {
+          metadata: { namespace: args.namespace, labels },
+          spec: { selector: labels, ports: [{ port, targetPort: port }] },
+        }, this.child()))
+      : Option.none()
+    this.seal({
+      role: args.role._tag,
+      service: Option.match(this.service, {
+        onNone: () => undefined,
+        onSome: (service) => service.metadata.name,
+      }),
+    })
   }
 }
 

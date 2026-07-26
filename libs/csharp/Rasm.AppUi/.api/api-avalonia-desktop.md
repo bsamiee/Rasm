@@ -33,15 +33,15 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `UsePlatformDetect` collapses host-substrate selection into the shared AppUi boot, so the standalone, sidecar, and companion-window modalities all enter one `SurfaceHost` axis with no per-host boot fork.
+- `UsePlatformDetect` collapses host-substrate selection into the shared AppUi boot, so the standalone, sidecar, and companion-window modalities all enter the one `SurfaceMount` axis with no per-host boot fork.
 - Each selected backend loads its native payload — `libAvaloniaNative.dylib` on macOS, `Avalonia.Win32.dll` on Windows, `Avalonia.X11.dll` on Linux — alongside the `Avalonia.Skia.dll` renderer every OS branch wires.
 
 [STACKING]:
 - `Avalonia`(`.api/api-avalonia.md`): `UsePlatformDetect` chains off `AppBuilder.Configure<App>()` and returns the builder for the classic-desktop lifetime tail.
 - `Avalonia.Skia`(`.api/api-avalonia-skia.md`): the internal `UseSkia` admits `ISkiaSharpApiLeaseFeature`, so desktop boot and the custom-visual rail's leased `SKCanvas` share one renderer and leased draws present in-airspace.
 - `SkiaSharp.NativeAssets.*`(`.api/api-skia-native.md`): the `libSkiaSharp` payload the selected backend loads keeps the macOS-native and headless-Linux render paths self-contained.
-- `Avalonia.Headless`(`.api/api-headless.md`): server, container, and CI proof swap `UsePlatformDetect` for `UseHeadless` with `Avalonia.Skia`'s raster path; the host-neutral `SurfaceHost` serves both branches and only the boot tail differs.
-- Rhino panel and GH2 companion modalities mount the same `App`/`SurfaceHost` through the host's own Avalonia-in-host embedding, never `UsePlatformDetect`.
+- `Avalonia.Headless`(`.api/api-headless.md`): server, container, and CI proof swap `UsePlatformDetect` for `UseHeadless` with `Avalonia.Skia`'s raster path; the host-neutral `SurfaceMount` axis serves both branches and only the boot tail differs.
+- Rhino panel and GH2 companion modalities mount the same `App` through the host's own Avalonia-in-host embedding, never `UsePlatformDetect`.
 
 [LOCAL_ADMISSION]:
 - One package reference transitively admits the backend graph; the desktop shell composes only `UsePlatformDetect`, never a backend `Use*` at a call site.

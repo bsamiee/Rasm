@@ -1,26 +1,28 @@
 # [PLANNING_STANDARD]
 
-Authoring standard for the `libs/` planning corpus: it owns the doc-set per tier, the index-doc templates, and the design-page grammar. Form — containers, tables, markers, prose — follows `docs/standards/information-structure.md`, `formatting.md`, and `style-guide.md`; the monorepo topology follows `ARCHITECTURE.md`. Neither is restated here.
+Authoring standard for the `libs/` corpus, it owns the doc-set per tier, index-docs, and spec-sheet grammar, for Forms and Topology:
+- Form: Containers, tables, markers, prose — follows `docs/standards/information-structure.md`, `formatting.md`, and `style-guide.md`
+- Topology: Follow `ARCHITECTURE.md`, also owns the `.planning/` lifecycle for planning.
 
 ## [01]-[DOC_SET]
 
-This planning corpus widens by scope: a folder owns one package's planning, a branch aggregates its language, and the cross-`libs/` core binds the three languages. Only the cross-`libs/` core names another language; a branch or folder consumes a peer only through the wire contracts.
+This planning corpus widens by scope: a folder owns one package, a branch aggregates one independently adoptable language estate, and the cross-`libs/` core owns polyglot contracts. Peer languages appear in a branch or folder doc only as seam-registry counterpart nodes; every capability, ownership, and dependency claim spanning languages stays at the cross-`libs/` core.
 
 - Cross-`libs/` core (`libs/.planning/`): `ARCHITECTURE.md`, `campaign-method.md`, `README.md`, `planning-targets.md`, `RULINGS.md`, `IDEAS.md`, `TASKLOG.md`.
 - Branch (`libs/<lang>/.planning/`): `README.md`, `ARCHITECTURE.md`, `RULINGS.md`, `IDEAS.md`, `TASKLOG.md`.
-- Folder (`<pkg>/`): the branch index-doc set at the package root and design pages under one `<pkg>/.planning/<sub-domain>/<page>.md`; a single-page concept seats flat at `<pkg>/.planning/<page>.md`.
-- Each folder `.api/` carries generated catalogues for folder-specific libraries and overlays; no `FEATURES.md`, no `.planning/README.md`.
-- Branch `.api/` (`libs/<lang>/.api/`): one catalogue per language-wide substrate package.
-- Every folder consuming a substrate package reads the branch catalogue and lists it in its README `## [03]-[SUBSTRATE_PACKAGES]` section.
-- Folder `.api/` overlays for the same package exist only when a folder design page records additional seam facts.
+- Folder (`<pkg>/`): branch index docs at root; design pages in `.planning/` use `<sub-domain>/<page>.md`, or `<page>.md` for a single-page concept.
 
-`ARCHITECTURE.md` owns the `.planning/` lifecycle — the transient greenfield scaffold, the single-`.planning/`-per-package nesting rule, and the dissolution once a folder lands code; the cross-`libs/` core and each branch `<lang>/.planning/` are the standing exceptions that persist for the campaign duration. This standard owns only the doc-set, the templates, and the page grammar those folders carry.
+[API_TIERS] — this section owns the two-tier catalogue law; every other surface points here:
+- Branch `.api/` (`libs/<lang>/.api/`): one catalogue per language-wide substrate package.
+- Folder `.api/`: exists in two tiers, Domain and Substrate, the former being specific to a package, and the latter being language branch wide.
+- Every folder consuming a substrate package reads the branch catalogue and lists the package in its README `## [03]-[SUBSTRATE_PACKAGES]` section.
+- Centralization is absolute: no per-package manifest exists, and every package and version lives in the one language manifest at monorepo root.
 
 ## [02]-[INDEX_DOCS]
 
-Each index doc opens on its own charter law, then its content. Keep each load-bearing: a file that only restates another doc is deleted, not maintained.
+Each index doc opens on its own charter law, then its content. Keep each load-bearing.
 
-[README] — the folder's file router and package registry.
+[README] — the folder's file router and package registry:
 - Router: the design-page index under `.planning/`.
 - Domain packages: the folder-specific libraries it uses, planned or implemented, grouped into `[CONCERN]` cards under `## [02]-[DOMAIN_PACKAGES]`.
 - Cards carry no version pin and no `.api/` link; versions centralize in the owning manifest, and coupling the README to the catalogue is fragile.
@@ -29,30 +31,17 @@ Each index doc opens on its own charter law, then its content. Keep each load-be
 - Payment-required or paid-tier-gated capability rejects; no deeper license analysis runs.
 - Package-card row form: `- ` with the backticked package id, optionally one concise dash-led line of prose — never parentheses — within 150 columns.
 - Depth beyond the one line belongs to the package's `.api/` catalogue, never the card.
-- Substrate packages: a `## [03]-[SUBSTRATE_PACKAGES]` section after the domain list names the language substrate the folder consumes.
-- That section points to the branch registry and the branch `libs/<lang>/.api/` catalogue.
-- Centralization is absolute: no per-package manifest exists; every package and version lives in the one language manifest.
+- Substrate packages: the `## [03]-[SUBSTRATE_PACKAGES]` section names the branch substrate the folder consumes, under `[01]-[DOC_SET]` `[API_TIERS]`.
 
-[ARCHITECTURE] — the folder's domain map and seam record.
-- Section order: a standardized intro paragraph, a constant reading-contract block, then the numbered sections opening on `[DOMAIN_MAP]`.
-- Codemap law: the codemap names the full sub-domain structure, including target sub-domains without design pages, each with a one-line charter.
-- Each codemap node takes its name from its real domain concept, never a generic file-naming scheme.
-- Each codemap node renders the eventual source file in the language's own folder and file casing; the `.planning/` scaffold is never shown.
-- No prose sits between the `[DOMAIN_MAP]` heading and the tree fence.
-- `[SEAMS]` records every cross-folder and cross-language alignment as Mermaid seam-registry diagrams (`flowchart LR`).
-- Seam nodes: sub-domain owners interior, counterpart packages exterior, one edge per contract family.
-- Edge label form: `[<KIND>]: <shared shape>`; `-->` produces/projects toward the consumer, `<-->` a shared shape.
-- `[KIND]` is a closed vocabulary; a row outside it retags to the nearest canonical kind, and a new kind amends this standard.
-- Kinds: `[WIRE]` `[SHAPE]` `[PROJECTION]` `[PORT]` `[BOUNDARY]` `[RECEIPT]` `[CONTENT_KEY]` `[TRANSPORT]` `[TESSELLATION]` `[GRADUATION]` `[FAULT]`.
-- Codemap fence lines never exceed 150 columns; each `#` comment carries the high-signal what/why an agent needs, never code-body detail.
-- Every edge appears on both endpoint folders, mirrored and `[KIND]`-identical; an in-package relation stays in the codemap, never a seam.
-- Domain maps fuel ideas and tasks: a planned-but-empty sub-domain is a visible gap.
-- Dependency direction is stated once in the branch `ARCHITECTURE.md` and never restated per folder; there is no owner-state registry.
-- Branch-tier `ARCHITECTURE.md` carries the strata map, dependency direction, branch-grain seam registry, and folder roster with one-line charters.
-- Folder maps compose the branch map, never restate it.
-- Transient build-order detail stays on the task that builds a seam; the settled alignment is recorded in `[SEAMS]`.
+[ARCHITECTURE] — the folder's topology:
+- Codemaps name the complete eventual source structure under the real domain concept each node owns, planned-but-empty sub-domain stays visible.
+- Branch architecture owns dependency direction and the folder roster with one-line charters; folder architecture composes that direction.
+- Every seam appears at both endpoint folders with identical kind and direction; a new kind amends this standard before use.
+- Settled architecture contains no owner-state registry or transient build order; task cards own construction order.
+- `[<KIND>]: <shape>`; `KIND = WIRE | CONTRACT | SHAPE | PROJECTION | PORT | BOUNDARY | RECEIPT | CONTENT_KEY | TRANSPORT | TESSELLATION | GRADUATION | FAULT`.
 
-[RULINGS] — the folder's permanent decision registry and re-litigation guard; with README and ARCHITECTURE it forms the folder's core three.
+[RULINGS] — the folder's permanent decision registry:
+- `RULINGS.md` are leaf specific source of truth, prevents re-litigation; with README and ARCHITECTURE it forms the folder's core.
 - Schema, admission law, row anatomy, and tier scope: `.claude/skills/docgen/templates/rulings.template.md`; sections are a closed vocabulary.
 
 [IDEAS] — the folder's forward pool of higher-order concepts.
@@ -61,7 +50,7 @@ Each index doc opens on its own charter law, then its content. Keep each load-be
 - Folder ideas are bigger concepts — a new file, sub-domain, or capability — grounded in the folder's domain, never speculation.
 - Each idea drives one or more tasks; resolved ideas move to `[CLOSED]` with a one-line disposition, so the same idea is never re-litigated.
 
-[TASKLOG] — the folder's open and closed work, distilled from its ideas.
+[TASKLOG] — the folder's open and closed work, distilled from its ideas:
 - Two sections, `[01]-[OPEN]` and `[02]-[CLOSED]`; each task card's leader carries a status marker.
 - Open markers: `[QUEUED]`, `[ACTIVE]`, `[BLOCKED]`; closed: `[COMPLETE]`, `[DROPPED]`.
 - Task cards carry three to four bullets: the capability or file to build, the packages to integrate, the boundaries or wires, and the considerations.
@@ -97,6 +86,10 @@ Design pages live at `<pkg>/.planning/<sub-domain>/<page>.md`, one sub-domain fo
 
 One integration-point notation, scope-qualified by distance: `page#CLUSTER` inside a folder, `pkg/page#CLUSTER` across folders in a language, `lang:pkg/page#CLUSTER` across languages (cross-`libs/` only). Type names recur across packages only when the concepts are genuinely distinct in distinct namespaces; a recurring wire-projection name is disambiguated at the source, never carried twice.
 
+- Path segments name the page and every folder above it under its package, carrying no `.md` suffix, no `.planning/` or `.api/` tier segment, and no hyphen-joined stand-in for a path separator.
+- `#CLUSTER` names a `## [NN]-[CLUSTER]` section header on that page — never a code symbol, a fence-local binding, or a table row index, which the owning table renumbers out from under the reference.
+- References into a live table name the row's stable token, so growth in the table never silently re-points them.
+
 ## [05]-[LANGUAGE]
 
 - Agent-directed declarative present tense; the doc states law as fact.
@@ -113,6 +106,6 @@ Signature fences transcribe an external member as settled fence code only when t
 
 ## [07]-[CROSS_CUTTING_PACKAGES]
 
-This cross-`libs/` core registers only the packages that are genuinely project-level — shared tooling spanning languages, or the dependencies of an admin/meta `libs/<x>` surface that is not bound to the AEC/Rhino pipelines. Its registry names the package and its language scope, never a version or a link. There is no project-level `.api/`.
+This cross-`libs/` core registers only the packages that are genuinely project-level — shared tooling spanning languages, or the dependencies of an admin/meta `libs/<x>` surface bound to no branch domain. Its registry names the package and its language scope, never a version or a link. There is no project-level `.api/`.
 
-Language-wide substrate packages — the typing, concurrency, observability, numeric, and wire-codegen tiers a branch's `.planning/` `[2]-[SUBSTRATE_PACKAGES]` registry names — carry one catalogue at the branch `libs/<lang>/.api/`, and each consuming folder lists them in its README `## [3]-[SUBSTRATE_PACKAGES]` section. Packages shared across folders only as a domain seam keep a per-folder catalogue in each consuming folder because the seam resource is folder-local. Per-language packages that are not cross-cutting stay folder-local in the folder README and `.api/`.
+Catalogue homing follows `[01]-[DOC_SET]` `[API_TIERS]`: a package shared across folders only as a domain seam keeps a per-folder catalogue in each consuming folder, because the seam resource is folder-local, and a per-language package that is not cross-cutting stays folder-local in the folder README and `.api/`.

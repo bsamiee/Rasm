@@ -1,6 +1,6 @@
 # [RASM_FABRICATION_SLICING]
 
-Additive slicing consumes kernel `SliceStack` truth once, materializes the layer-region table before any neighbour-reading pass, preserves `PolygonAlgebra` topology receipts, derives planar deposition from parameterized line and cell seeds, and projects arc-bearing bead paths through caller-owned egress. `SliceRegion` remains the shared region atom, `AdditivePolicy` remains the `owner#run` dispatch, and `Slice.Layers` remains the sole planar-or-implicit fold.
+Additive slicing consumes kernel `SliceStack` truth once, materializes the layer-region table before any neighbour-reading pass, preserves `PolygonAlgebra` topology receipts, derives planar deposition from parameterized line and cell seeds, and projects arc-bearing bead paths through caller-owned egress. `SliceRegion` remains the shared region atom, `AdditivePolicy` remains the `owner#RUN_FOLD` dispatch, and `Slice.Layers` remains the sole planar-or-implicit fold.
 
 ## [01]-[INDEX]
 
@@ -1157,7 +1157,7 @@ config:
 flowchart LR
     accTitle: Additive slicing dispatch and fill
     accDescr: Additive policy dispatches slicing, scan, or production while planar slicing preserves region, shell, skin, support, and infill rails.
-    Demand["owner#run Additive case"] --> Solve["Slice.Solve: Layers · Scan · Build"]
+    Demand["owner#RUN_FOLD Additive case"] --> Solve["Slice.Solve: Layers · Scan · Build"]
     Solve --> Kernel["K3 Slicing.Apply"]
     Kernel --> Stack["SliceStack: LayerPlan heights · nesting forest · typed open rows"]
     Stack --> Gate["open-row gate → NonManifoldSlice 2708 (both routes)"]

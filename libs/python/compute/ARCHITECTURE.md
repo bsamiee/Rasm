@@ -120,13 +120,12 @@ flowchart LR
     Data([python:data])
     Graduation e1@-->|"[GRADUATION]: HandoffAxis"| Compute
     Compute e2@-->|"[WIRE]: EvidenceBundle"| Graduation
-    Solvers e3@-->|"[PROJECTION]: SolverReceipt"| Compute
     Numerics e4@<-->|"[WIRE]: QuantityFamily"| Compute
     Geometry e5@-->|"[GRADUATION]: GeometryHandoff"| Graduation
     Artifacts e6@-->|"[GRADUATION]: HandoffAxis"| Graduation
     Artifacts e7@-->|"[SHAPE]: SignalOp"| Analysis
     Runtime e8@-->|"[CONTENT_KEY]: ParityReceipt"| Numerics
-    Experiments e9@-->|"[BOUNDARY]: ResourceRef"| Runtime
+    Runtime e9@-->|"[BOUNDARY]: ResourceRef"| Experiments
     Data e10@-->|"[SHAPE]: FrameAdmission"| Experiments
     Experiments e17@-->|"[PROJECTION]: BenchmarkReceipt"| Runtime
     Runtime e11@-->|"[PORT]: Kernel"| Solvers
@@ -137,7 +136,7 @@ flowchart LR
     Runtime e15@-->|"[PORT]: Kernel"| Optimization
 ```
 
-`ContentIdentity` keys ride beneath the `ParityReceipt` parity seam, the graduation reverse leg carries `EvidenceBundle` — C#-owned as `GraduationEvidence`, an offline artifact `codegen` decodes — and `UncertainQuantity` is the interior owner beneath the C#-spelled `QuantityFamily` wire; each collapsed edge stands for every contract between the two owners at that kind, with the per-contract wiring on the owning implementation pages.
+`ContentIdentity` keys ride beneath the `ParityReceipt` parity seam, the graduation reverse leg carries `EvidenceBundle` — C#-spelled `GraduationEvidence`, an offline artifact `codegen` decodes — and `UncertainQuantity` is the interior owner beneath the C#-spelled `QuantityFamily` wire; each collapsed edge stands for every contract between the two owners at that kind, with the per-contract wiring on the owning implementation pages.
 
 ## [04]-[INTERNAL]
 

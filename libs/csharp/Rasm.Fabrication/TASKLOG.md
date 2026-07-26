@@ -111,7 +111,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Shape: projection consumes the symbol rows while the render tier keeps layout, and the seam ledger names one APP-stratum owner.
 - Unlocks: `[GDT_ANNOTATION_AS_SPEC_EVIDENCE]` lands with its consumer seam pinned.
 - Anchors: `Spec/tolerance.md`, `Documentation/projection.md`, IDEAS `[GDT_ANNOTATION_AS_SPEC_EVIDENCE]`.
-- Tension: blocker question — which APP-stratum owner receives `ProjectionReceipt` and the drafting symbols, `Rasm.App` or `Rasm.AppUi`; route — the AppUi drafting seam page `libs/csharp/Rasm.AppUi/.planning/Render/drafting.md` and this folder's ARCHITECTURE seam ledger.
+- Tension: blocker question — whether the drafting symbols ride the landed `HiddenLineResult` seam onto `Rasm.AppUi` or wait for the app shell outside `libs/csharp`; route — the AppUi drafting seam page `libs/csharp/Rasm.AppUi/.planning/Render/drafting.md` and this folder's ARCHITECTURE seam ledger.
 
 [MOVE_ORIENTATION_PAYLOAD]-[QUEUED]: Widen the motion atom with continuous tool-frame and contact payload.
 - Capability: `Move` gains continuous orientation and contact; indexed 3+2 stays on `SurfaceFrame`, and the consumer census spans surface swarf, machine solve, posting, and swept guard.

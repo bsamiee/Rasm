@@ -1,10 +1,6 @@
 # [PY_ARTIFACTS]
 
-`artifacts` is one body: a publication and print-production engine carrying a high-end AEC documentation engine on top. Its pub/print plane — color-managed, separations-aware, PDF/X-correct, typographically complete, layered-export-clean, provenance-sealed — composes under the AEC plane — sheet sets, drawing standards, dimensions, annotation, schedules, specifications, ISO 19650 delivery — and every owner grades against both planes at once.
-
-Output bar is art-directed generation: editorial documents and forms at the InDesign-native grade, AEC sheet sets sharp and contemporary over CAD-vendor default, and architectural diagrams — massing, sun-path, circulation, stacking, program, site — at the grade top offices and schools publish. Artistic style is a graded axis of every visual owner, carried as theme data and never left to library defaults; hand-off files organize as a professional builds them — named, meaningfully grouped layers, never thousands of loose elements.
-
-It folds data, compute, and geometry outputs — and any structured payload — into layer-clean files keyed by the runtime content key and carrying one kind-discriminated `ArtifactReceipt`. It owns no UI, no durable store, no IFC/GLB geometry, and no columnar or mesh interchange — those cross at the content-keyed wire, never by reference.
+`artifacts` is one body — a publication and print-production engine carrying a high-end AEC documentation engine on top, its pub/print plane composing under the AEC plane. It folds data, compute, geometry, and any structured payload into layer-clean files keyed by the runtime content key and carrying one kind-discriminated `ArtifactReceipt`.
 
 ## [01]-[ROUTER]
 

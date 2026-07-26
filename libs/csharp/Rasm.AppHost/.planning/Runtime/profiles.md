@@ -1,32 +1,135 @@
 # [APPHOST_HOST_PROFILES]
 
-Rasm.AppHost boots every process through one host-variance axis: eight string-keyed `HostProfile` rows carry every modality difference as column values and delegate bindings, one `Resolve` fold materializes the `ResolvedProfile` record siblings consume, one `Boot` fold turns that record into a configured Generic Host builder, one identity fold derives per-user roots and telemetry resource attributes from the same record, and one power-and-fidelity fold reads the live power state and thermal budget to scale compute fidelity on a battery- or thermally-constrained host. The per-modality durability objective is one `RecoveryObjective(Rpo, Rto)` column on the `HostProfile` row — a web service targets a tighter RPO/RTO window than a Rhino plugin — projected onto `ResolvedProfile` so `Rasm.Persistence/Version/recovery` reads the DR target as settled vocabulary and never mints it locally. The page owns the profile axis, the per-modality DR objective, the lifetime-adapter delegate rows, the resource-identity fold, and the energy-aware fidelity scaling over Microsoft.Extensions.Hosting, Thinktecture-generated vocabulary, LanguageExt rails, NodaTime instants, the OpenTelemetry resource seam, and the macOS IOKit/SMC power-state native reads.
+Rasm.AppHost boots every process from one supplied `ConsumptionProfile` row: a composition root states `tenancy`, `topology`, `host`, `lifecycle`, `isolation`, and `providers`, `Resolve` admits that row against the fabrics this branch answers, and every boot fact folds out of the axis values — server GC, ReadyToRun, module scan, single-instance, co-hosted assets, ship vehicle, OTLP export, builder construction, lifetime attach. `Boot` turns the resolved record into a configured Generic Host builder, one identity fold derives per-user roots and telemetry resource attributes from it, and one power-and-fidelity fold reads the live power state and thermal budget to scale compute fidelity on a battery- or thermally-constrained host.
+
+`RecoveryObjective` rides the host descriptor and the topology row as the declared `(Rpo, Rto)` window and projects onto `ResolvedProfile`, so `Rasm.Persistence/Version/recovery` reads the DR target as settled vocabulary and never mints it locally. This page owns the six-axis roster, the host and provider descriptor shapes, the axis-refusal rail, the per-modality DR objective, the boot-attach delegate rows, the resource-identity fold, and the energy-aware fidelity scaling over Microsoft.Extensions.Hosting, Thinktecture-generated vocabulary, LanguageExt rails, NodaTime instants, the OpenTelemetry resource seam, and the macOS IOKit/SMC power-state native reads.
 
 ## [01]-[INDEX]
 
-- [01]-[PROFILE_AXIS]: Eight rows resolve every modality variance into one record.
+- [01]-[PROFILE_AXIS]: Six-axis consumption roster, descriptor shapes, axis refusal, one resolved record.
 - [02]-[LIFETIME_ADAPTERS]: Builder selection, lifetime delegates, `HostOptions` policy, and hook projection.
 - [03]-[RESOURCE_IDENTITY]: Per-user roots and telemetry resource identity.
 - [04]-[POWER_AND_FIDELITY]: Power-state and thermal-budget reads; energy-aware compute-fidelity scaling.
 
 ## [02]-[PROFILE_AXIS]
 
-- Owner: `HostProfile` — one `[SmartEnum<string>]` host-variance axis; `RecoveryObjective` the per-modality `(Rpo, Rto)` durability target column; `ResolvedProfile` is the only profile artifact siblings consume.
-- Cases: rhino-plugin, gh2-plugin, standalone-desktop, companion-process, sidecar, headless-service, web-service, test-host; `RuntimeAttachment` = Isolated | Integrating; `ProfileFault` = Text | AttachmentRejected | RootUnresolved in the 1100 code band.
-- Entry: `Fin<ResolvedProfile> Resolve(HostProfile profile, string applicationName, string environmentName, string contentRoot, string serviceVersion, IClock clock, Option<RuntimeAttachment> attachment = default)` — `Fin` aborts on attachment and root rejection.
-- Auto: one Resolve fold replaces eight bootstrap programs — column values, attachment legality, per-user roots, and process identity land in one record; raw profile keys admit through the generated `Validate` against `ProfileFault`.
+- Owner: `ProfileAxis` names the six-axis roster; `Tenancy`, `DeploymentTopology`, `LifecycleOwner`, and `Isolation` close their vocabularies; `HostDescriptor` and `ProviderDescriptor` fix the two open axes' descriptor shape; `ConsumptionProfile` carries the supplied row, `RecoveryObjective` its `(Rpo, Rto)` durability column, and `ResolvedProfile` the only profile artifact siblings consume.
+- Cases: `tenancy` = none | single | multi; `topology` = in-host | sidecar | companion | service | edge | cli; `lifecycle` = caller-owned | package-owned; `isolation` = in-proc | thread | process | wasm | remote; `host` and `providers` carry descriptor rows this branch supplies through `HostRows` and `ProviderRows`; `HostAttach` = Foreign | AppRoot | Quiet | Managed; `HostSurface` = Embedded | Windowed | Offscreen | None; `RuntimeAttachment` = Isolated | Integrating; `ProfileFault` = Text | AttachmentRejected | RootUnresolved | AxisUnsupported in the 1100 code band.
+- Entry: `Fin<ResolvedProfile> Resolve(ConsumptionProfile profile, string applicationName, string environmentName, string contentRoot, string serviceVersion, IClock clock, Option<RuntimeAttachment> attachment = default)` — `Admit` gates the axis values first, so `Fin` aborts on axis refusal, attachment rejection, and root rejection.
+- Auto: one supplied row replaces every bootstrap program — a host descriptor overrides its topology row's `Vehicle`, `Attach`, `Surface`, and `Durability` columns while an unhosted profile reads the topology row, so `ServerGc`, `ReadyToRun`, `ModuleScan`, `SingleInstance`, `CoHostedAssets`, `LocalStore`, `HostDocument`, and `OtlpExport` fold from axis values with no key roster between them; raw axis keys admit through each vocabulary's generated `Validate` against `ProfileFault`.
+- Receipt: `Canonical()` emits the six axis rows in roster order under an ordinal provider-key sort — the `canonical-json` preimage `CONSUMPTION_PROFILE` corpus parity proves across the three branches.
 - Packages: Microsoft.Extensions.Hosting, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
-- Growth: one profile row — key, eight column values, two delegate bindings — absorbs a new host modality with zero new surface; standalone-integrating stays the `Integrating` field, never a ninth row.
-- Boundary: column values are app-root publish and composition facts — DATAS tuning knobs enter only behind a losing benchmark claim, the standalone single-instance value is probed through the discovery manifest, the web row serves the built TS bundle same-origin from its app root with cross-origin headers held as designed growth, and the test row composes FakeTimeProvider, FakeClock, in-memory configuration, instant deadline overrides, and LeakTrackingObjectPool over provider-validation proof; the `RecoveryObjective` column is the one DR-target source — `Rasm.Persistence/Version/recovery` `Recovery.Objective(ResolvedProfile)` reads `ResolvedProfile.Recovery` as settled vocabulary through the `Runtime ⇄ Rasm.Persistence/Version/recovery # [PORT]: ResolvedProfile DR-objective inputs` seam and never re-derives the per-modality `(Rpo, Rto)` from the profile key, so a host-band-keyed RPO/RTO table on the Persistence side is the deleted form and the durability objective stays a profile column the runtime owns, the engine arms gauge their measured RPO/RTO against, never a second DR taxonomy.
+- Growth: one host integration is one `HostRows` descriptor row and one bound port is one `ProviderRows` row, each at zero new surface; a new closed-axis value is one member on its owning vocabulary, and a new axis is one `ProfileAxis` row beside one `ConsumptionProfile` column, both settling at the corpus roster first.
+- Boundary: axis values stay data — a compile-time assumption, an ambient global, a build flag, and a package branching on which product hosts it are the four deleted forms, so a host integration lands as a descriptor row and never as a closed case; `Admit` refuses an unservable axis value with `ProfileFault.AxisUnsupported` carrying `AxisEvidence` that names the axis, so silent degradation and a narrowed public surface never happen; in-host topology carrying no host descriptor refuses on the `host` axis because a consuming application supplies its own row; `isolation` refuses where no bound provider supplies the fabric's capability; `RuntimeAttachment.Integrating` admits only where the resolved row carries `SingleInstance`, so a shared store root reaches exactly one live instance; `RecoveryObjective` is the one DR-target source — `Rasm.Persistence/Version/recovery` `Recovery.Objective(ResolvedProfile)` reads `ResolvedProfile.Recovery` as settled vocabulary through the `Runtime ⇄ Rasm.Persistence/Version/recovery # [PORT]: ResolvedProfile DR-objective inputs` seam and never re-derives the `(Rpo, Rto)` window, so a host-band-keyed RPO/RTO table on the Persistence side is the deleted form and the engine arms gauge their measured RPO/RTO against the column, never a second DR taxonomy; column values stay app-root publish and composition facts — DATAS tuning knobs enter only behind a losing benchmark claim, the `SingleInstance` value is probed through the discovery manifest, a `CoHostedAssets` host serves the built TS bundle same-origin from its app root with cross-origin headers held as designed growth, and the test-harness row composes FakeTimeProvider, FakeClock, in-memory configuration, instant deadline overrides, and LeakTrackingObjectPool over provider-validation proof.
+
+Each `isolation` value names the fabric that answers it; an unbound capability refuses on the `isolation` axis rather than degrading to a weaker fabric:
+
+| [INDEX] | [ISOLATION] | [FABRIC_OWNER]                     | [ADMISSION]                    |
+| :-----: | :---------- | :--------------------------------- | :----------------------------- |
+|  [01]   | `in-proc`   | `Runtime/laneguard#LANE_GUARD`     | always served                  |
+|  [02]   | `thread`    | `Runtime/laneguard#LANE_GUARD`     | always served                  |
+|  [03]   | `process`   | `Wire/companion#PROCESS_MODALITY`  | `Capability.LocalCompute` row  |
+|  [04]   | `wasm`      | `Sandbox/isolation#ISOLATION_AXIS` | `Capability.LocalCompute` row  |
+|  [05]   | `remote`    | `Wire/outbound#HOP_AXIS`           | `Capability.RemoteCompute` row |
 
 ```csharp signature
 
-[SmartEnum]
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ProfileAxis {
+    public static readonly ProfileAxis Tenancy = new("tenancy", closed: true);
+    public static readonly ProfileAxis Topology = new("topology", closed: true);
+    public static readonly ProfileAxis Host = new("host", closed: false);
+    public static readonly ProfileAxis Lifecycle = new("lifecycle", closed: true);
+    public static readonly ProfileAxis Isolation = new("isolation", closed: true);
+    public static readonly ProfileAxis Providers = new("providers", closed: false);
+
+    // Closed marks the axes whose value set the corpus roster fixes; an open axis fixes the descriptor
+    // shape alone, so a row minted here is capability this branch supplies, never a corpus vocabulary.
+    public bool Closed { get; }
+}
+
+[SmartEnum<string>]
+[ValidationError<ProfileFault>]
+public sealed partial class Tenancy {
+    public static readonly Tenancy None = new("none");
+    public static readonly Tenancy Single = new("single");
+    public static readonly Tenancy Multi = new("multi");
+}
+
+[SmartEnum<string>]
+[ValidationError<ProfileFault>]
+public sealed partial class LifecycleOwner {
+    public static readonly LifecycleOwner CallerOwned = new("caller-owned");
+    public static readonly LifecycleOwner PackageOwned = new("package-owned");
+}
+
+[SmartEnum<string>]
+[ValidationError<ProfileFault>]
+public sealed partial class Isolation {
+    public static readonly Isolation InProc = new("in-proc", needs: None);
+    public static readonly Isolation Thread = new("thread", needs: None);
+    public static readonly Isolation Process = new("process", needs: Some(Capability.LocalCompute));
+    public static readonly Isolation Wasm = new("wasm", needs: Some(Capability.LocalCompute));
+    public static readonly Isolation Remote = new("remote", needs: Some(Capability.RemoteCompute));
+
+    public Option<Capability> Needs { get; }
+}
+
+[SmartEnum<string>]
 public sealed partial class ShipVehicle {
-    public static readonly ShipVehicle Yak = new();
-    public static readonly ShipVehicle DesktopBundle = new();
-    public static readonly ShipVehicle Oci = new();
-    public static readonly ShipVehicle Folder = new();
+    public static readonly ShipVehicle Yak = new("yak", readyToRun: false);
+    public static readonly ShipVehicle DesktopBundle = new("desktop-bundle", readyToRun: true);
+    public static readonly ShipVehicle Oci = new("oci", readyToRun: false);
+    public static readonly ShipVehicle Folder = new("folder", readyToRun: false);
+
+    // Ahead-of-time compilation buys start-up latency on a locally launched bundle alone; a long-lived
+    // container and a host-loaded plugin assembly both pay the size for a warm-up they never repeat.
+    public bool ReadyToRun { get; }
+}
+
+[SmartEnum<string>]
+public sealed partial class HostAttach {
+    public static readonly HostAttach Foreign = new("foreign", createBuilder: ProfileBoot.CreateEmpty, attachLifetime: ProfileBoot.Detached);
+    public static readonly HostAttach AppRoot = new("app-root", createBuilder: ProfileBoot.CreateApp, attachLifetime: ProfileBoot.Inherit);
+    public static readonly HostAttach Quiet = new("quiet", createBuilder: ProfileBoot.CreateApp, attachLifetime: ProfileBoot.Quiet);
+    public static readonly HostAttach Managed = new("managed", createBuilder: ProfileBoot.CreateApp, attachLifetime: ProfileBoot.Service);
+
+    [UseDelegateFromConstructor]
+    public partial HostApplicationBuilder CreateBuilder(HostApplicationBuilderSettings settings);
+
+    [UseDelegateFromConstructor]
+    public partial IHostApplicationBuilder AttachLifetime(IHostApplicationBuilder builder);
+}
+
+[SmartEnum<string>]
+public sealed partial class HostSurface {
+    public static readonly HostSurface Embedded = new("embedded");
+    public static readonly HostSurface Windowed = new("windowed");
+    public static readonly HostSurface Offscreen = new("offscreen");
+    public static readonly HostSurface None = new("none");
+}
+
+[SmartEnum<string>]
+[ValidationError<ProfileFault>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class DeploymentTopology {
+    public static readonly DeploymentTopology InHost = new("in-host", serverGc: false, vehicle: ShipVehicle.Yak, attach: HostAttach.AppRoot, surface: HostSurface.Windowed, durability: RecoveryObjective.Standard);
+    public static readonly DeploymentTopology Sidecar = new("sidecar", serverGc: true, vehicle: ShipVehicle.DesktopBundle, attach: HostAttach.Quiet, surface: HostSurface.Windowed, durability: RecoveryObjective.Standard);
+    public static readonly DeploymentTopology Companion = new("companion", serverGc: true, vehicle: ShipVehicle.DesktopBundle, attach: HostAttach.Quiet, surface: HostSurface.Windowed, durability: RecoveryObjective.Standard);
+    public static readonly DeploymentTopology Service = new("service", serverGc: true, vehicle: ShipVehicle.Oci, attach: HostAttach.Managed, surface: HostSurface.None, durability: RecoveryObjective.Strict);
+    public static readonly DeploymentTopology Edge = new("edge", serverGc: true, vehicle: ShipVehicle.Oci, attach: HostAttach.Managed, surface: HostSurface.None, durability: RecoveryObjective.Strict);
+    public static readonly DeploymentTopology Cli = new("cli", serverGc: false, vehicle: ShipVehicle.Folder, attach: HostAttach.AppRoot, surface: HostSurface.None, durability: RecoveryObjective.Relaxed);
+
+    // Four columns state what an UNHOSTED profile inherits; a host descriptor overrides each of them,
+    // so in-host values sit here only as the shape a consumer-supplied descriptor is measured against.
+    public bool ServerGc { get; }
+    public ShipVehicle Vehicle { get; }
+    public HostAttach Attach { get; }
+    public HostSurface Surface { get; }
+    public RecoveryObjective Durability { get; }
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -34,6 +137,12 @@ public abstract partial record RuntimeAttachment {
     private RuntimeAttachment() { }
     public sealed record Isolated : RuntimeAttachment;
     public sealed record Integrating(string SharedStoreRoot) : RuntimeAttachment;
+}
+
+// Refusal evidence names the AXIS, so a consumer reads which of the six the composition root must
+// restate; a detail string alone forces the caller to parse prose back into an axis coordinate.
+public sealed record AxisEvidence(ProfileAxis Axis, string Value, string Reason) {
+    public string Detail => $"{Axis.Key}={Value}:{Reason}";
 }
 
 [Union]
@@ -45,11 +154,16 @@ public abstract partial record ProfileFault : Expected, IValidationError<Profile
     public sealed record Text : ProfileFault { public Text(string detail) : base(detail, FaultBand.Profile.Code(0)) { } }
     public sealed record AttachmentRejected : ProfileFault { public AttachmentRejected(string detail) : base(detail, FaultBand.Profile.Code(1)) { } }
     public sealed record RootUnresolved : ProfileFault { public RootUnresolved(string detail) : base(detail, FaultBand.Profile.Code(2)) { } }
+
+    public sealed record AxisUnsupported : ProfileFault {
+        public AxisUnsupported(AxisEvidence evidence) : base(evidence.Detail, FaultBand.Profile.Code(3)) => Evidence = evidence;
+
+        public AxisEvidence Evidence { get; }
+    }
 }
 
-// The per-modality durability objective: the declared (Rpo, Rto) DR window each HostProfile row carries and
-// projects onto ResolvedProfile. Rasm.Persistence/Version/recovery reads ResolvedProfile.Recovery as settled
-// vocabulary and gauges its measured RPO/RTO against it, never re-deriving the window from the profile key.
+// A host descriptor or its topology row declares this (Rpo, Rto) window and projects it onto
+// ResolvedProfile; Rasm.Persistence/Version/recovery gauges its measured RPO/RTO against the column.
 public readonly record struct RecoveryObjective(Duration Rpo, Duration Rto) {
     public static readonly RecoveryObjective Strict = new(Duration.FromMinutes(1), Duration.FromMinutes(15));
     public static readonly RecoveryObjective Standard = new(Duration.FromMinutes(5), Duration.FromMinutes(30));
@@ -60,47 +174,108 @@ public readonly record struct RecoveryObjective(Duration Rpo, Duration Rto) {
     public bool MeetsRto(Duration measured) => measured <= Rto;
 }
 
-[SmartEnum<string>]
+[ComplexValueObject]
 [ValidationError<ProfileFault>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
-public sealed partial class HostProfile {
-    public static readonly HostProfile RhinoPlugin = new("rhino-plugin", serverGc: false, readyToRun: false, moduleScan: true, otlpExport: false, singleInstance: false, coHostedAssets: false, vehicle: ShipVehicle.Yak, recovery: RecoveryObjective.Relaxed, createBuilder: ProfileBoot.CreateEmpty, attachLifetime: ProfileBoot.Detached);
-    public static readonly HostProfile Gh2Plugin = new("gh2-plugin", serverGc: false, readyToRun: false, moduleScan: true, otlpExport: false, singleInstance: false, coHostedAssets: false, vehicle: ShipVehicle.Yak, recovery: RecoveryObjective.Relaxed, createBuilder: ProfileBoot.CreateEmpty, attachLifetime: ProfileBoot.Detached);
-    public static readonly HostProfile StandaloneDesktop = new("standalone-desktop", serverGc: false, readyToRun: true, moduleScan: true, otlpExport: false, singleInstance: true, coHostedAssets: false, vehicle: ShipVehicle.DesktopBundle, recovery: RecoveryObjective.Standard, createBuilder: ProfileBoot.CreateApp, attachLifetime: ProfileBoot.Inherit);
-    public static readonly HostProfile CompanionProcess = new("companion-process", serverGc: true, readyToRun: true, moduleScan: true, otlpExport: true, singleInstance: false, coHostedAssets: false, vehicle: ShipVehicle.DesktopBundle, recovery: RecoveryObjective.Standard, createBuilder: ProfileBoot.CreateApp, attachLifetime: ProfileBoot.Quiet);
-    public static readonly HostProfile Sidecar = new("sidecar", serverGc: true, readyToRun: true, moduleScan: true, otlpExport: true, singleInstance: false, coHostedAssets: false, vehicle: ShipVehicle.DesktopBundle, recovery: RecoveryObjective.Standard, createBuilder: ProfileBoot.CreateApp, attachLifetime: ProfileBoot.Quiet);
-    public static readonly HostProfile HeadlessService = new("headless-service", serverGc: true, readyToRun: false, moduleScan: true, otlpExport: true, singleInstance: false, coHostedAssets: false, vehicle: ShipVehicle.Oci, recovery: RecoveryObjective.Strict, createBuilder: ProfileBoot.CreateApp, attachLifetime: ProfileBoot.Service);
-    public static readonly HostProfile WebService = new("web-service", serverGc: true, readyToRun: false, moduleScan: false, otlpExport: true, singleInstance: false, coHostedAssets: true, vehicle: ShipVehicle.Oci, recovery: RecoveryObjective.Strict, createBuilder: ProfileBoot.CreateApp, attachLifetime: ProfileBoot.Inherit);
-    public static readonly HostProfile TestHost = new("test-host", serverGc: false, readyToRun: false, moduleScan: true, otlpExport: false, singleInstance: false, coHostedAssets: false, vehicle: ShipVehicle.Folder, recovery: RecoveryObjective.Instant, createBuilder: ProfileBoot.CreateApp, attachLifetime: ProfileBoot.Inherit);
-
-    public bool ServerGc { get; }
-    public bool ReadyToRun { get; }
+public sealed partial class HostDescriptor {
+    public string Key { get; }
+    public ShipVehicle Vehicle { get; }
+    public HostAttach Attach { get; }
+    public HostSurface Surface { get; }
+    public RecoveryObjective Durability { get; }
+    public bool Document { get; }
+    public bool LocalStore { get; }
     public bool ModuleScan { get; }
-    public bool OtlpExport { get; }
     public bool SingleInstance { get; }
     public bool CoHostedAssets { get; }
-    public ShipVehicle Vehicle { get; }
-    public RecoveryObjective Recovery { get; }
-
-    [UseDelegateFromConstructor]
-    public partial HostApplicationBuilder CreateBuilder(HostApplicationBuilderSettings settings);
-
-    [UseDelegateFromConstructor]
-    public partial IHostApplicationBuilder AttachLifetime(IHostApplicationBuilder builder);
 }
 
-public sealed record ResolvedProfile(HostProfile Profile, string ApplicationName, string EnvironmentName, string ContentRoot, string ServiceVersion, ProfileRoots Roots, Option<RuntimeAttachment> Attachment, int ProcessId, Instant StartInstant) {
+[ComplexValueObject]
+[ValidationError<ProfileFault>]
+public sealed partial class ProviderDescriptor {
+    public string Key { get; }
+    public Capability Supplies { get; }
+    // Reach is the degradation coordinate: a remote-reaching provider drops out of the retained set the
+    // moment DegradationLevel stops retaining RemoteCompute, while an in-proc row survives every level.
+    public Isolation Reach { get; }
+}
+
+// Rows this branch supplies for the OPEN axes. A consumer embedding the estate inside its own product
+// mints its own row against the same shape; nothing here is a closed set a package may switch over.
+public static class HostRows {
+    public static readonly HostDescriptor Rhino = HostDescriptor.Create("rhino", ShipVehicle.Yak, HostAttach.Foreign, HostSurface.Embedded, RecoveryObjective.Relaxed, document: true, localStore: true, moduleScan: true, singleInstance: false, coHostedAssets: false);
+    public static readonly HostDescriptor Gh2 = HostDescriptor.Create("gh2", ShipVehicle.Yak, HostAttach.Foreign, HostSurface.Embedded, RecoveryObjective.Relaxed, document: true, localStore: true, moduleScan: true, singleInstance: false, coHostedAssets: false);
+    public static readonly HostDescriptor DesktopShell = HostDescriptor.Create("desktop-shell", ShipVehicle.DesktopBundle, HostAttach.AppRoot, HostSurface.Windowed, RecoveryObjective.Standard, document: false, localStore: true, moduleScan: true, singleInstance: true, coHostedAssets: false);
+    public static readonly HostDescriptor WebAppRoot = HostDescriptor.Create("web-app-root", ShipVehicle.Oci, HostAttach.AppRoot, HostSurface.None, RecoveryObjective.Strict, document: false, localStore: false, moduleScan: false, singleInstance: false, coHostedAssets: true);
+    public static readonly HostDescriptor TestHarness = HostDescriptor.Create("test-harness", ShipVehicle.Folder, HostAttach.AppRoot, HostSurface.Offscreen, RecoveryObjective.Instant, document: false, localStore: false, moduleScan: true, singleInstance: false, coHostedAssets: false);
+}
+
+public static class ProviderRows {
+    public static readonly ProviderDescriptor OtlpCollector = ProviderDescriptor.Create("otlp-collector", Capability.TelemetryExport, Isolation.Remote);
+    public static readonly ProviderDescriptor RemoteSolver = ProviderDescriptor.Create("remote-solver", Capability.RemoteCompute, Isolation.Remote);
+    public static readonly ProviderDescriptor LocalSolver = ProviderDescriptor.Create("local-solver", Capability.LocalCompute, Isolation.Process);
+    public static readonly ProviderDescriptor DocumentBridge = ProviderDescriptor.Create("document-bridge", Capability.HostDocument, Isolation.InProc);
+    public static readonly ProviderDescriptor StoreReader = ProviderDescriptor.Create("store-reader", Capability.StoreRead, Isolation.InProc);
+    public static readonly ProviderDescriptor StoreWriter = ProviderDescriptor.Create("store-writer", Capability.StoreWrite, Isolation.InProc);
+}
+
+public sealed record ConsumptionProfile(
+    Tenancy Tenancy,
+    DeploymentTopology Topology,
+    Option<HostDescriptor> Host,
+    LifecycleOwner Lifecycle,
+    Isolation Isolation,
+    Seq<ProviderDescriptor> Providers) {
+    public FrozenSet<Capability> Grants { get; } = Providers.Map(static row => row.Supplies).ToFrozenSet();
+
+    public ShipVehicle Vehicle => Host.Map(static host => host.Vehicle).IfNone(Topology.Vehicle);
+    public HostAttach Attach => Host.Map(static host => host.Attach).IfNone(Topology.Attach);
+    public HostSurface Surface => Host.Map(static host => host.Surface).IfNone(Topology.Surface);
+    public RecoveryObjective Recovery => Host.Map(static host => host.Durability).IfNone(Topology.Durability);
+    public bool ServerGc => Topology.ServerGc;
+    public bool ReadyToRun => Vehicle.ReadyToRun;
+    public bool ModuleScan => Host.Map(static host => host.ModuleScan).IfNone(true);
+    public bool SingleInstance => Host.Map(static host => host.SingleInstance).IfNone(false);
+    public bool CoHostedAssets => Host.Map(static host => host.CoHostedAssets).IfNone(false);
+    public bool LocalStore => Host.Map(static host => host.LocalStore).IfNone(false);
+    public bool HostDocument => Host.Map(static host => host.Document).IfNone(false);
+    public bool OtlpExport => Supplies(Capability.TelemetryExport);
+    public string HostKey => Host.Map(static host => host.Key).IfNone("none");
+
+    public bool Supplies(Capability capability) => Grants.Contains(capability);
+
+    // Six rows in roster order under an ordinal provider-key sort: the canonical-json preimage the
+    // corpus parity reads, so a set literal reordered at the composition root re-serializes identically.
+    public ImmutableArray<KeyValuePair<string, string>> Canonical() => [
+        new(ProfileAxis.Tenancy.Key, Tenancy.Key),
+        new(ProfileAxis.Topology.Key, Topology.Key),
+        new(ProfileAxis.Host.Key, HostKey),
+        new(ProfileAxis.Lifecycle.Key, Lifecycle.Key),
+        new(ProfileAxis.Isolation.Key, Isolation.Key),
+        new(ProfileAxis.Providers.Key, string.Join(',', Providers.Map(static row => row.Key).Order(StringComparer.Ordinal))),
+    ];
+}
+
+public sealed record ResolvedProfile(ConsumptionProfile Profile, string ApplicationName, string EnvironmentName, string ContentRoot, string ServiceVersion, ProfileRoots Roots, Option<RuntimeAttachment> Attachment, int ProcessId, Instant StartInstant) {
     public RecoveryObjective Recovery => Profile.Recovery;
 }
 
 public static class ProfileSurface {
-    public static Fin<ResolvedProfile> Resolve(HostProfile profile, string applicationName, string environmentName, string contentRoot, string serviceVersion, IClock clock, Option<RuntimeAttachment> attachment = default) =>
-        from admitted in attachment.IsSome && profile != HostProfile.StandaloneDesktop
-            ? Fin.Fail<Option<RuntimeAttachment>>(new ProfileFault.AttachmentRejected(profile.Key))
+    public static Fin<ConsumptionProfile> Admit(ConsumptionProfile profile) =>
+        (profile.Topology == DeploymentTopology.InHost && profile.Host.IsNone, profile.Isolation.Needs) switch {
+            (true, _) => Fin.Fail<ConsumptionProfile>(new ProfileFault.AxisUnsupported(
+                new AxisEvidence(ProfileAxis.Host, "none", "in-host topology carries no host descriptor row"))),
+            (_, { IsSome: true, Case: Capability needed }) when !profile.Supplies(needed) => Fin.Fail<ConsumptionProfile>(
+                new ProfileFault.AxisUnsupported(new AxisEvidence(ProfileAxis.Isolation, profile.Isolation.Key, needed.Key))),
+            _ => Fin.Succ(profile),
+        };
+
+    public static Fin<ResolvedProfile> Resolve(ConsumptionProfile profile, string applicationName, string environmentName, string contentRoot, string serviceVersion, IClock clock, Option<RuntimeAttachment> attachment = default) =>
+        from row in Admit(profile)
+        from admitted in attachment.IsSome && !row.SingleInstance
+            ? Fin.Fail<Option<RuntimeAttachment>>(new ProfileFault.AttachmentRejected(row.HostKey))
             : Fin.Succ(attachment)
-        from roots in ProfileIdentity.Roots(profile, applicationName, admitted)
-        select new ResolvedProfile(profile, applicationName, environmentName, contentRoot, serviceVersion, roots, admitted, Environment.ProcessId, clock.GetCurrentInstant());
+        from roots in ProfileIdentity.Roots(row, applicationName, admitted)
+        select new ResolvedProfile(row, applicationName, environmentName, contentRoot, serviceVersion, roots, admitted, Environment.ProcessId, clock.GetCurrentInstant());
 }
 ```
 
@@ -108,11 +283,11 @@ public static class ProfileSurface {
 
 - Owner: `ProfileBoot` — builder selection, lifetime-adapter delegate rows, and `HostOptions` policy as one fold.
 - Entry: `IHostApplicationBuilder Boot(ResolvedProfile resolved, Duration startupDeadline, Duration shutdownDeadline, Option<IHostApplicationBuilder> external = default)` — total over every row; both deadline values arrive from the deadline vocabulary.
-- Auto: Boot composes the row's `CreateBuilder` and `AttachLifetime` delegates with `HostOptions` — startup and shutdown timeouts, concurrent start and stop, `BackgroundServiceExceptionBehavior.StopHost` — deleting per-host bootstrap programs; the `Service` row registers `AddSystemd` for the Linux-server backend, and `MirrorService` rides the existing `Lifecycle.Subscribe` fold so every committed transition fires its service-state mirror through one subscriber seat, never a per-callsite emission; `Watchdog` rides the schedule-port heartbeat row as the keep-alive notify, never a second timer; `Aborted` flattens a `HostAbortedException` into the boot-fault trigger value with no second state machine.
+- Auto: Boot composes the resolved `HostAttach` row's `CreateBuilder` and `AttachLifetime` delegates with `HostOptions` — startup and shutdown timeouts, concurrent start and stop, `BackgroundServiceExceptionBehavior.StopHost` — deleting per-host bootstrap programs; the `Managed` row registers `AddSystemd` for the Linux-server backend, and `MirrorService` rides the existing `Lifecycle.Subscribe` fold so every committed transition fires its service-state mirror through one subscriber seat, never a per-callsite emission; `Watchdog` rides the schedule-port heartbeat row as the keep-alive notify, never a second timer; `Aborted` flattens a `HostAbortedException` into the boot-fault trigger value with no second state machine.
 - Packages: Microsoft.Extensions.Hosting, Microsoft.Extensions.Hosting.Systemd, Microsoft.Extensions.Options, NodaTime
 - Receipt: `ServiceNotify` projects each `RuntimePhase` transition to its `ServiceState` sd_notify mirror through one table lookup, so a new host modality inherits the mirror as one row; `Watchdog` emits the `WatchdogPing` keep-alive payload on the same `ISystemdNotifier`, gated on the live notify socket; `Aborted` yields a `PhaseTrigger.FaultCommitted` value carrying `FaultSource.Unhandled` evidence with `Terminating: true`.
-- Growth: one adapter row — a static delegate target bound through the row constructor — extends the lifetime surface with zero new surface; one `ServiceNotify` row binds a new phase-to-state mirror without leaving the fold; the keep-alive notify stays one `Watchdog` emission bound to the existing schedule-port heartbeat, never a new port.
-- Boundary: the web row crosses in through `external` — its builder is constructed at the web app root, where ASP.NET Core enters as a shared-framework asset only; the host registers `ConsoleLifetime` as the default `IHostLifetime` on every builder path including the empty builder, so plugin rows swap in the no-op `DetachedLifetime` through `Detached` and host-attach trigger injection drives phases; `AddSystemd` is the one service-manager registration — `SystemdHelpers.IsSystemdService` gates the live `ISystemdNotifier.Notify` emission so the notify socket is written only under systemd on the Linux-server backend; `MirrorService` registers one `Lifecycle.Subscribe` observer at the composition root for the service row, so `Emit` fires on every committed `PhaseReceipt` — `ServiceState.Ready` mirrors the ready transition and `ServiceState.Stopping` mirrors the draining transition, the two confirmed notify payloads — and the service-manager liveness keep-alive rides the schedule-port heartbeat row through `Watchdog`, which writes the `WatchdogPing` payload (`new ServiceState("WATCHDOG=1")`) on each heartbeat tick under the same notify-socket gate; `HostAbortedException` during build projects through `Aborted` to a boot-fault trigger value consumed by the transition entrypoint, never a second state machine.
+- Growth: one `HostAttach` row — a key beside two static delegate targets bound through the row constructor — extends the lifetime surface with zero new surface; one `ServiceNotify` row binds a new phase-to-state mirror without leaving the fold; the keep-alive notify stays one `Watchdog` emission bound to the existing schedule-port heartbeat, never a new port.
+- Boundary: a `CoHostedAssets` host crosses in through `external` — its builder is constructed at the web app root, where ASP.NET Core enters as a shared-framework asset only; the host registers `ConsoleLifetime` as the default `IHostLifetime` on every builder path including the empty builder, so a `Foreign` attach swaps in the no-op `DetachedLifetime` through `Detached` and host-attach trigger injection drives phases; `AddSystemd` is the one service-manager registration — `SystemdHelpers.IsSystemdService` gates the live `ISystemdNotifier.Notify` emission so the notify socket is written only under systemd on the Linux-server backend; `MirrorService` registers one `Lifecycle.Subscribe` observer at the composition root for the `Managed` row, so `Emit` fires on every committed `PhaseReceipt` — `ServiceState.Ready` mirrors the ready transition and `ServiceState.Stopping` mirrors the draining transition, the two confirmed notify payloads — and the service-manager liveness keep-alive rides the schedule-port heartbeat row through `Watchdog`, which writes the `WatchdogPing` payload (`new ServiceState("WATCHDOG=1")`) on each heartbeat tick under the same notify-socket gate; `HostAbortedException` during build projects through `Aborted` to a boot-fault trigger value consumed by the transition entrypoint, never a second state machine.
 
 ```csharp signature
 public static class ProfileBoot {
@@ -156,7 +331,7 @@ public static class ProfileBoot {
 
     public static IHostApplicationBuilder Boot(ResolvedProfile resolved, Duration startupDeadline, Duration shutdownDeadline, Option<IHostApplicationBuilder> external = default) =>
         Tuned(
-            resolved.Profile.AttachLifetime(external.IfNone(() => resolved.Profile.CreateBuilder(new HostApplicationBuilderSettings {
+            resolved.Profile.Attach.AttachLifetime(external.IfNone(() => resolved.Profile.Attach.CreateBuilder(new HostApplicationBuilderSettings {
                 ApplicationName = resolved.ApplicationName,
                 EnvironmentName = resolved.EnvironmentName,
                 ContentRootPath = resolved.ContentRoot,
@@ -204,13 +379,13 @@ Lifetime signals project into phase-transition trigger values consumed by the tr
 - Auto: identity derives from the resolved record before any provider construction; the resolved record feeds one `IResourceDetector` whose `Detect` returns the `ResourceAttributes` projection through `new Resource(IEnumerable<KeyValuePair<string, object>>)`, and `ConfigureResource` over `ResourceBuilder.AddDetector` on every signal provider admits that detector as the one resource feed — a per-call attribute push at each provider is the deleted form.
 - Packages: OpenTelemetry, NodaTime, LanguageExt.Core, BCL inbox
 - Growth: one attribute row or one root policy value per new identity fact, or one sibling `IResourceDetector` composed through `ConfigureResource`; zero new surface.
-- Boundary: roots are ApplicationData-rooted per-user paths — store under the application base on plugin and standalone rows, a scoped companion store on the companion row, no local store on sidecar, headless, web, and test rows; Persistence consumes the resolved record and derives no path; host-document identity enters as one extra attribute row on plugin rows; `service.instance.id` is pid joined with the start instant; `HostResourceDetector` is the one resource-discovery seam — `ConfigureResource` composes it ahead of any environment or telemetry-SDK detector so the resolved-record attributes are authoritative, and a hand-pushed attribute list at a provider builder is the deleted pattern.
+- Boundary: roots are ApplicationData-rooted per-user paths — a `LocalStore` host stores under the application base, companion topology scopes its own companion store, and every other row runs scratch-only; Persistence consumes the resolved record and derives no path; host-document identity enters as one extra attribute row where the descriptor carries `Document`; `service.instance.id` is pid joined with the start instant; `HostResourceDetector` is the one resource-discovery seam — `ConfigureResource` composes it ahead of any environment or telemetry-SDK detector so the resolved-record attributes are authoritative, and a hand-pushed attribute list at a provider builder is the deleted pattern.
 
 ```csharp signature
 public sealed record ProfileRoots(string AppRoot, Option<string> StoreRoot, string SupportRoot);
 
 public static class ProfileIdentity {
-    public static Fin<ProfileRoots> Roots(HostProfile profile, string applicationName, Option<RuntimeAttachment> attachment) =>
+    public static Fin<ProfileRoots> Roots(ConsumptionProfile profile, string applicationName, Option<RuntimeAttachment> attachment) =>
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) is { Length: > 0 } data
             ? Fin.Succ(Folded(profile, Path.Join(data, applicationName), attachment))
             : Fin.Fail<ProfileRoots>(new ProfileFault.RootUnresolved(nameof(Environment.SpecialFolder.ApplicationData)));
@@ -220,7 +395,11 @@ public static class ProfileIdentity {
         new("service.version", resolved.ServiceVersion),
         new("service.instance.id", $"{resolved.ProcessId}:{InstantPattern.ExtendedIso.Format(resolved.StartInstant)}"),
         new("deployment.environment", resolved.EnvironmentName),
-        new("rasm.host.kind", resolved.Profile.Key),
+        new("rasm.host.kind", resolved.Profile.HostKey),
+        new("rasm.deploy.tenancy", resolved.Profile.Tenancy.Key),
+        new("rasm.deploy.topology", resolved.Profile.Topology.Key),
+        new("rasm.deploy.lifecycle", resolved.Profile.Lifecycle.Key),
+        new("rasm.deploy.isolation", resolved.Profile.Isolation.Key),
         .. extra,
     ];
 
@@ -228,19 +407,15 @@ public static class ProfileIdentity {
         public Resource Detect() => new(ResourceAttributes(Resolved));
     }
 
-    static ProfileRoots Folded(HostProfile profile, string baseRoot, Option<RuntimeAttachment> attachment) =>
-        profile.Switch(
-            state: (Base: baseRoot, Attachment: attachment),
-            rhinoPlugin: static s => Stored(s.Base),
-            gh2Plugin: static s => Stored(s.Base),
-            standaloneDesktop: static s => s.Attachment is { IsSome: true, Case: RuntimeAttachment.Integrating link }
-                ? new ProfileRoots(s.Base, Some(link.SharedStoreRoot), Path.Join(s.Base, "support"))
-                : Stored(s.Base),
-            companionProcess: static s => new ProfileRoots(s.Base, Some(Path.Join(s.Base, "companion")), Path.Join(s.Base, "support")),
-            sidecar: static s => Scratch(s.Base),
-            headlessService: static s => Scratch(s.Base),
-            webService: static s => Scratch(s.Base),
-            testHost: static s => Scratch(s.Base));
+    // Companion topology outranks the store column because a companion process scopes its own store
+    // beside the parent's; every other row reads the host descriptor's LocalStore value alone.
+    static ProfileRoots Folded(ConsumptionProfile profile, string baseRoot, Option<RuntimeAttachment> attachment) =>
+        (profile.Topology == DeploymentTopology.Companion, profile.LocalStore, attachment.Case) switch {
+            (true, _, _) => new ProfileRoots(baseRoot, Some(Path.Join(baseRoot, "companion")), Path.Join(baseRoot, "support")),
+            (_, true, RuntimeAttachment.Integrating link) => new ProfileRoots(baseRoot, Some(link.SharedStoreRoot), Path.Join(baseRoot, "support")),
+            (_, true, _) => Stored(baseRoot),
+            _ => Scratch(baseRoot),
+        };
 
     static ProfileRoots Stored(string baseRoot) => new(baseRoot, Some(Path.Join(baseRoot, "store")), Path.Join(baseRoot, "support"));
 

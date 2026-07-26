@@ -691,11 +691,9 @@ Scripted operations follow roster capture → precondition → serial-pinned scr
 
 Participant archive flow follows `ArchiveIo.Cross` → schema admission → codec upgrade → lane. Lane-produced transforms and bounds cross the shared result-admission oracle before any host `ref` assignment. Registration releases a rejected local reservation and retains every accepted client id for the process lifetime.
 
-## [05]-[SEAMS]
-
 `SnapshotCodec` and `TypedUserData<TSelf>` consume the same `ArchiveExchange`/`ArchiveEnvelope` contract. `DocumentStream` owns worksession change observation, and the Document session owner carries every worksession read and transition through `WorksessionSnapshot` and `WorksessionOp`.
 
-## [06]-[RESEARCH]
+## [05]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

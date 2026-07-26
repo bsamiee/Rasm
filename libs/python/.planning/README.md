@@ -1,6 +1,6 @@
 # [PYTHON_BRANCH]
 
-Python is the platform's offline evaluation and production half — host-free science, compute, data, geometry, and IFC capability across peer packages held to the cross-language density bar. Every result crosses to C# as content-keyed wire data, requested and re-imported, never imported as code.
+Python is an independently adoptable host-free platform for science, compute, data, geometry, IFC, and artifact production across peer packages held to the cross-language density bar. Python applications originate and operate these capabilities from the branch package graph alone; polyglot applications exchange contract-conforming artifacts at app roots, requested and re-imported as data, never imported as code.
 
 One root `pyproject.toml` owns interpreter admission and dependency groups; this branch registry owns the substrate tiers every folder composes.
 

@@ -1,6 +1,6 @@
 # [TS_CORE_API_CBOR_X]
 
-`cbor-x` owns canonical-CBOR decode of the C#-minted `SnapshotHeader` — the folder's one RFC 8949 boundary. Every decode runs through a configured-once `Decoder` (`useRecords:false`), never the top-level `decode` whose default record extension is a cbor-x-only dialect no C# writer speaks; decoded bytes re-verify their content key and cross `Schema.decodeUnknown` into owned vocabulary, never leaking raw.
+`cbor-x` owns canonical-CBOR decode of the contract `SnapshotHeader` — the folder's one RFC 8949 boundary. Every decode runs through a configured-once `Decoder` (`useRecords:false`), never the top-level `decode` whose default record extension is a cbor-x-only dialect no C# writer speaks; decoded bytes re-verify their content key and cross `Schema.decodeUnknown` into owned vocabulary, never leaking raw.
 
 ## [01]-[PACKAGE_SURFACE]
 

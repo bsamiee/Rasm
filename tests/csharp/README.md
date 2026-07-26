@@ -6,12 +6,12 @@ Authoring law for every C# spec, kit member, scenario, and benchmark under `test
 
 - [01]-[RULINGS](RULINGS.md): Settled C#-tree testing decisions — package admissions, oracle discriminants, structure retirements.
 - [02]-[API](.api/): Dev-tool API catalogs, one per test-stack package family; kit members and specs transcribe at catalog-verified spellings.
-- [03]-[CONTRACTS](../contracts/README.md): Corpus producer law — C# emits every asset the sibling trees round-trip.
+- [03]-[CONTRACTS](../contracts/README.md): Corpus conformance law — C# emits or round-trips fixtures by manifest role.
 - [04]-[BRIDGE](../../tools/rhino-bridge/README.md): Scenario lifecycle, reference admission, and tolerance law for the live-host rail.
 
 ## [02]-[TOPOLOGY]
 
-Classifiers route every project into its lane: `Directory.Build.props` derives the kit, scenario-kit, benchmark, and test classifiers from project path, `Directory.Build.targets` seals the classifier vocabulary, and the assay routing closure consumes the shell and host-bound lanes. A csproj states its classifier and adds only its suite-owned harness packages; the shared test stack never re-wires per project:
+Classifiers route every project into its lane, and `Directory.Build.props` derives the kit, scenario-kit, benchmark, and test classifiers from project path, `Directory.Build.targets` seals the classifier vocabulary, and the assay routing closure consumes the shell and host-bound lanes. Each csproj states its classifier and adds only its suite-owned harness packages; the shared test stack never re-wires per project:
 
 | [INDEX] | [CLASSIFIER]           | [MEANING]                                                                                                  |
 | :-----: | :--------------------- | :--------------------------------------------------------------------------------------------------------- |
@@ -25,7 +25,7 @@ Classifiers route every project into its lane: `Directory.Build.props` derives t
 - Per-package suites live in `tests/csharp/libs/<Package>/` and mirror `libs/csharp` paths with `<Source>.spec.cs` files.
 - `Rasm.AppUi`'s suite is an `AssayTestShell` shell carrying `Avalonia.Headless.XUnit` as its headless UI session runner.
 - `tests/csharp/_architecture` carries the assembly boundary laws (`AssemblyBoundaries.spec.cs`, `CatalogueBoundaries.spec.cs`) and the infra-primitive falsification suites proving the kits, the benchmark gate, and the snapshot-hygiene rail (`TestInfrastructurePrimitives.spec.cs`, `ScenarioKitPrimitives.spec.cs`, `BenchmarkGatePrimitives.spec.cs`, `SnapshotHygiene.spec.cs`).
-- A kit capability without a falsification law in `_architecture` is unproven and gets deleted or proven, never trusted.
+- Kit capability without a falsification law in `_architecture` stays unproven and gets deleted or proven, never trusted.
 - Every ArchUnit rule is vacuously true over an empty type set: `HostFreeModel.NonVacuous` runs before any boundary rule, and every kit fold refuses an empty table as proving nothing.
 
 ## [03]-[KIT]
@@ -42,7 +42,7 @@ Classifiers route every project into its lane: `Directory.Build.props` derives t
 `Rasm.ScenarioKit` is the sibling host-aware SDK; `ScenarioContext` is the one evidence channel, and an unbound SDK call fails typed:
 - `[RhinoScenario(theme)]` declares a scenario with optional `Requires`/`BudgetMs`.
 - `Require`/`Expect` assert facts, `Note` records observations; the `Manifest` writer derives lane admission from the Contract fact-prefix family.
-- A new Contract manifest lane needs no SDK edit; a foreign manifest role is an input guard.
+- New Contract manifest lanes need no SDK edit; a foreign manifest role is an input guard.
 - `Certify` emits reference evidence over typed or raw `JsonElement` actuals as `{name, actual, tolerance}`; admission stays supervisor-decided.
 - `Case` brackets a sub-case, converting a throwing body to typed failure while always landing its status fact.
 - `Scratch` refuses path escape, `Stamp` derives run stamps from the stem, and `Artifact` registers captures.
@@ -95,7 +95,7 @@ Rail, numeric, matrix, and wire proofs ride the kit oracles:
 
 ## [08]-[BENCHMARKS]
 
-`Rasm.Benchmarks` is the one measurement session: BenchmarkDotNet rides the `_benchmarks` switcher under `IsBenchmarkProject`, never inside unit runs. Registry and discovery are parity-locked: `Regression.RegistryParity` fails the `_architecture` suite on a `[Benchmark]` without a `BenchCase` row and on a phantom row without a benchmark. A gated benchmark is one `BenchCase` registry row — the exact BDN `FullName`, an absolute budget over a `GateStat` row (`Min`/`Median`/`Mean`), and a `MaxRelIqr` dispersion ceiling; a new gated case is a row, never a parallel harness.
+`Rasm.Benchmarks` is the one measurement session: BenchmarkDotNet rides the `_benchmarks` switcher under `IsBenchmarkProject`, never inside unit runs. Registry and discovery stay parity-locked: `Regression.RegistryParity` fails the `_architecture` suite on a `[Benchmark]` without a `BenchCase` row and on a phantom row without a benchmark. Gated benchmarks are one `BenchCase` registry row each — the exact BDN `FullName`, an absolute budget over a `GateStat` row (`Min`/`Median`/`Mean`), and a `MaxRelIqr` dispersion ceiling; a new gated case is a row, never a parallel harness.
 
 One `gate` verb consumes BDN `*-report-full.json` reports newest-last, folds a `Pass`/`TooNoisy`/`Breach` verdict per case, and runs the sustained-regression segmenter across the report series. Breach and noise exit distinctly — `TooNoisy` never folds into pass — and an ungateable case (absent benchmark, missing statistics, dispersion over ceiling) is a visible verdict, never silence; an empty registry still gates visibly through the session receipt.
 
@@ -103,7 +103,10 @@ One `gate` verb consumes BDN `*-report-full.json` reports newest-last, folds a `
 
 Verify owns stable artifact snapshots only — generated source, emitted contracts, durable wire goldens — registered once per assembly through a `[ModuleInitializer]` calling `VerifyDiffPlex.Initialize()`. Snapshot only what an independent producer emits, and treat a `.verified.txt` diff as evidence about the producer, never as a file to re-accept reflexively.
 
-Its hygiene gate pair lives in `_architecture`: `VerifyChecks.Run()` audits solution-wide snapshot conventions — orphaned `*.received.*` litter, csproj-imported snapshot nestings, the `.gitignore`/`.gitattributes`/`.editorconfig` rows for every verified extension — and `DanglingSnapshots.Run()` fails a build-server run on verified files no executed test tracked. C# is the sole producer for `tests/contracts/`: corpus assets are emitted by the owning wire surface and round-trip-proven through Verify under the corpus law.
+Its hygiene gate pair lives in `_architecture`: `VerifyChecks.Run()` audits orphaned received files, imported snapshot roots, and repository snapshot policy; `DanglingSnapshots.Run()` rejects verified files no executed test tracks. Verify proves every C# binding an admitted manifest entry names, and a golden whose producer and every decoder are C# homes here under the `tests/RULINGS.md` `[04]-[STRUCTURE]` corpus-seat ruling.
+
+[BRANCH_GOLDENS] — wires this tree owns end to end, producer and every decoder inside `libs/csharp`:
+- Clash node-link: `csharp:Rasm/Spatial/index#SPATIAL_INDEX` emits the `NodeLinkProjection` stream. Consumers census: `csharp:Rasm.Compute/Solver/clash#CLASH_AND_TWIN` owns the sole decode — `Decode` and the leaf tail, reached through `ClashScale.NodeLinkPairs`, `Clearance`, `SweptClearance`, and `Occluded`; `csharp:Rasm.Compute/Analysis/daylight#SKY_AND_SHADOW` rides the decoded wire through `ClashScale.Occluded`; `csharp:Rasm.AppUi/Render/pathtrace#PATH_TRACE` names the wire as its foreclosed crossing shape, minting no acceleration egress. Its producer's `[WIRE]` region freezes the structural expectation — the pinned 8-box input, `BuildPolicy.Canonical`, `NodeCount == 3`, the three descriptors, the identity `Order`, and the 160-byte `Bounds`-then-`Nodes` framing — while the `[NODE_LINK_GOLDEN]` research row holds the unminted hex, so byte identity gates on that mint and no snapshot admits before it.
 
 ## [10]-[DENSITY_AND_BANS]
 

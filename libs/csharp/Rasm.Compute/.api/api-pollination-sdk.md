@@ -43,7 +43,7 @@
 - `LBT.RestSharp` and `LBT.Newtonsoft.Json` — the vendored SDK fork closure — load OUTSIDE-RHINO on the sidecar, never in the in-Rhino plugin assembly.
 
 [STACKING]:
-- `PollinationSDK`(`libs/csharp/Rasm.Persistence/.api/api-pollination-sdk.md`): the durable half lands Persistence-side — artifact bytes at `Store/blobstore`, lineage at `Version/provenance`, the completed run at `Query/cache#ArtifactKind.CloudRun` — and that catalog owns the full REST/auth/artifact transport surface.
+- `PollinationSDK`(`libs/csharp/Rasm.Persistence/.api/api-pollination-sdk.md`): the durable half lands Persistence-side — artifact bytes at `Store/blobstore`, lineage at `Version/provenance`, the completed run at `Query/cache#ARTIFACT_BLOB_INDEX` — and that catalog owns the full REST/auth/artifact transport surface.
 - `api-sqlite`(`api-sqlite.md`): the pulled `SqlFile` folds through the same `Microsoft.Data.Sqlite` read-only extraction over the bracketed scratch artifact the local subprocess route drives.
 - within-lib: `EnergyRoute.Cloud` builds `JobInfo` from recipe + `ElementGraph`-derived OSM/IDF inputs behind the `Analysis/energy` runner entry point, so a cloud simulation and a local one share one result-extraction seam.
 

@@ -146,6 +146,14 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: `Drawing/pack.md` schema-and-evidence law; `libs/csharp/.api/api-system-text-json.md` options rows.
 - Arms: `api-system-text-json.md` admits `public void JsonSerializerOptions.MakeReadOnly()`; until then the frozen identity stays research.
 
+[GEOMETRY_MEASURES_OWNER]-[QUEUED]: Seat the measure bundle two AEC consumers already transcribe as kernel vocabulary.
+- Capability: the kernel metrology surface names the aggregate bundle its consumers compose, so a downstream page transcribes an owned type rather than asserting one the kernel never declares.
+- Shape: a `GeometryMeasures` cluster on `libs/csharp/Rasm/.planning/Analysis/measure.md` beside the `Measure`/`MassKind`/`MassProperty` family, or a paired respelling of the consumers onto that existing surface — the choice belongs to the metrology owner.
+- Unlocks: the branch import edge naming the bundle resolves to a real kernel page, and the AEC seam rows stop carrying an unowned spelling.
+- Anchors: `Analysis/measure.md` length/area/volume family; the branch import row at `libs/csharp/.planning/ARCHITECTURE.md` `[02]-[STRATA]`; the consuming fences on `Rasm.Bim/.planning/Semantics/properties.md` and `Planning/cost.md`.
+- Tension: two consumers already transcribe the bundle at fence depth, so seating it must match what they compose or force the paired respelling.
+- Atomic: one cluster decision on the metrology owner.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:

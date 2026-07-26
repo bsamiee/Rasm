@@ -126,7 +126,7 @@ config:
 ---
 flowchart LR
     accTitle: Bim same-branch domain and storage seams
-    accDescr: Bim sub-domain owners exchanging projections, content keys, and tessellation with the AEC peers Element, Materials, Fabrication, the kernel, Compute, and Persistence — one edge per contract family labeled by kind, bidirectional peers as hexagons, the store as a cylinder, one-way partners as stadiums.
+    accDescr: Bim sub-domain owners exchanging projections, content keys, and tessellation with the same-branch AEC peers and the durable store.
     subgraph bim[RASM.BIM]
         Projection[Projection arm]
         Model[Object model]
@@ -140,7 +140,6 @@ flowchart LR
     Compute{{Rasm.Compute}}
     Persistence[(Rasm.Persistence)]
     Materials([Rasm.Materials])
-    Fabrication([Rasm.Fabrication])
     Rasm([Rasm])
     Projection -->|"[PROJECTION]: GraphDelta"| Element
     Projection -->|"[PORT]: IGraphConstraint"| Element
@@ -149,7 +148,6 @@ flowchart LR
     Semantics -->|"[PROJECTION]: GeoReference"| Element
     Materials -->|"[PORT]: IIfcTypeReconciler"| Projection
     Materials -->|"[SHAPE]: DetailSchema"| Semantics
-    Exchange -->|"[SHAPE]: AcadReader"| Fabrication
     Rasm -->|"[SHAPE]: GeometryMeasures"| Semantics
     Model -->|"[CONTENT_KEY]: RepresentationContentHash"| Compute
     Exchange <-->|"[TESSELLATION]: TessellationOutcome"| Compute
@@ -175,7 +173,7 @@ config:
 ---
 flowchart LR
     accTitle: Bim cross-runtime, presentation, and host seams
-    accDescr: Bim sub-domain owners exchanging wires, receipts, and boundaries with the Python geometry and data runtimes, the TypeScript peers, the app shell, the app composition root, and the host boundary — one edge per contract family labeled by kind, bidirectional peers as hexagons, one-way partners as stadiums.
+    accDescr: Bim owners exchanging wires, shapes, receipts, and boundaries with the cross-runtime peers, the app platform, and the host boundary.
     subgraph bim[RASM.BIM]
         Model[Object model]
         Semantics[Semantic enrichment]
@@ -196,21 +194,23 @@ flowchart LR
     Geometry -->|"[BOUNDARY]: IdsVerdict"| Review
     Energy <-->|"[WIRE]: Hbjson"| Geometry
     Semantics -->|"[SHAPE]: GeoTiles"| AppUi
+    Semantics -->|"[SHAPE]: GeoReference"| AppUi
     Planning -->|"[RECEIPT]: CostSchedule"| AppUi
+    Planning -->|"[RECEIPT]: ConstructionState"| AppUi
     Review -->|"[PORT]: IssueBoard"| AppUi
+    Review -->|"[BOUNDARY]: BcfViewpoint"| AppUi
     Model -->|"[SHAPE]: BimHooks"| AppHost
     Model -->|"[RECEIPT]: BimBenchReceipt"| AppHost
     Exchange -->|"[WIRE]: BimEvent"| AppHost
     Host -->|"[BOUNDARY]: GlobalId"| Exchange
-    Semantics -->|"[WIRE]: GeoWire"| Data
+    Semantics -->|"[WIRE]: GeoFeatureWire"| Data
     Exchange -->|"[WIRE]: IfcWire"| Core
-    Semantics -->|"[WIRE]: GeoWire"| Core
+    Review -->|"[WIRE]: BcfTopicWire"| Core
+    Semantics -->|"[WIRE]: GeoFeatureWire"| Core
     Review -->|"[WIRE]: BcfTopicWire"| Ui
     Review -->|"[WIRE]: BcfViewpointWire"| Ui
-    Semantics -->|"[WIRE]: GeoWire"| Ui
-    Model <-->|"[WIRE]: PredicateWire"| Ui
-    Model -->|"[WIRE]: GlobalIdSet"| Ui
-    Review -->|"[WIRE]: ModelDiff"| Ui
+    Semantics -->|"[WIRE]: GeoFeatureWire"| Ui
+    Review -->|"[WIRE]: DiffWire"| Ui
 ```
 
 Two fences partition by counterpart role: the same-branch AEC peers with Compute and Persistence carry domain construction, analysis, and storage; the Python geometry and data runtimes, the TypeScript peers, the app shell, the app composition root, and the host boundary carry cross-runtime wire, presentation, and host interchange. Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind, and the owning pages enumerate the rest.
@@ -219,6 +219,6 @@ Two fences partition by counterpart role: the same-branch AEC peers with Compute
 
 `GeoWire` owns both `GeoFeature` wire projections — the GeoJSON text the Python and TypeScript peers decode and the GeoPackage blob the Persistence geo-store persists; `GeoWkb` stays the interior OGR-to-NTS bridge, never a seam wire.
 
-`[CONTENT_KEY]` edges are one canonical idiom, not per-page schemes: every page joining the federation, solver, cache, or diff lane derives a typed `UInt128` through the ONE kernel seed-zero hasher — `ContentHash.Of` over the seam `CanonicalWriter` fold — and the Compute content-addressing lane joins the same content space, never a downward `InterchangeIdentity` reference from Bim. A second scheme, a per-page hash, or a `Guid`-keyed join is the named cross-folder drift defect. Per-page key tuples and the pages carrying no parallel key live on the owning implementation pages.
+Every `[CONTENT_KEY]` edge derives its typed `UInt128` through `ContentHash.Of` over the seam `CanonicalWriter` fold, joining the Compute content-addressing space; per-page key tuples live on the owning implementation pages.
 
 [HOST_BOUNDARY_EDGE]: `Host boundary → Exchange` is single-sided, not an interior dependency — `Rasm.Bim` never names `Rasm.Rhino`, and the edge resolves only where the app root binds the live host, projecting a `RhinoDoc` import to a host-neutral mesh with `GlobalId` the `Exchange/import` fold admits as a wire payload. Bim owns the payload, Rhino the host-side production. Because Rhino FileIO and the managed readers decode the same OBJ/STL/PLY/3MF/glTF/STEP bytes to divergent meshes, the app root declares per path the authoritative reader; the two coexist, neither gutted for the other.

@@ -483,13 +483,11 @@ public sealed record ArchiveMap
 
 `ArchiveMap.Mint` creates one `ArchivableDictionary(Version, Name)` and traverses all slot writes on `Fin`. Nested dictionaries recurse through the same currency; geometry, `ObjRef`, `MeshingParameters`, arrays, and fonts copy on both crossings through the slot's one `Detach` law. `ArchiveMerge` rows resolve on the rail, so a `RejectConflict` collision is a typed fault, never a thrown exception inside a fold.
 
-## [03]-[SEAMS]
-
 `SessionSource.Configured` consumes only `ArchiveMap.Mint`. `ArchiveIo` and `SnapshotCodec` exchange only `ArchiveMap`; neither surface receives a live `ArchivableDictionary` or a mutable payload. `SettingKind` consumes this carrier for every `PersistentSettings` payload — its rows lift and lower through `ArchiveValue.Of`/`Project` and share `EnumMint` — so the folder carries exactly one typed-value vocabulary across both KV boundaries.
 
 Enum values admitted through `ArchiveValue.Of` or `ArchiveMap.WithEnum<T>` retain their enum identity and mint through `ArchivableDictionary.SetEnumValue<T>` via the shared reflection seam. Values detached from a native dictionary remain text because Rhino stores enum names as ordinary strings and exposes no readable enum discriminant.
 
-## [04]-[RESEARCH]
+## [03]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

@@ -202,23 +202,28 @@ config:
 ---
 flowchart LR
     accTitle: Fabrication AEC-domain peer seams
-    accDescr: Fabrication exchanges its registered projector and admitted graph shape with Element, publishes the tolerance wire to the Python artifacts plane, and sends its telemetry fact envelopes to the AppHost receipt rail; peer implementation shapes never cross any seam.
+    accDescr: Fabrication owners exchanging projector, graph, tolerance, yield, and telemetry contracts with the AEC peers and the artifacts plane.
     subgraph fabrication[RASM.FABRICATION]
         Process[Process rail]
         Telemetry[Process telemetry]
         Ingress[Ingress admission]
         Joining[Joining engineering]
+        Kinematics[Kinematics observation]
+        Nesting[Nesting layout]
         Spec[Spec tolerances]
     end
     Element{{Rasm.Element}}
     Artifacts{{python:artifacts}}
     AppHost{{Rasm.AppHost}}
+    Compute([Rasm.Compute])
     Process e1@-->|"[PROJECTION]: FabricationProjector"| Element
     Element e2@-->|"[SHAPE]: ElementGraph"| Ingress
     Spec e8@-->|"[WIRE]: IToleranceEncoder bytes"| Artifacts
     Telemetry e9@-->|"[RECEIPT]: FabricationFact"| AppHost
     AppHost e10@-->|"[PORT]: TelemetryContributorPort"| Telemetry
-    Telemetry e11@-->|"[HOOK]: FabricationHooks points"| AppHost
+    Telemetry e11@-->|"[PORT]: FabricationHooks"| AppHost
+    AppHost e12@-->|"[RECEIPT]: MachineObservationWire"| Kinematics
+    Nesting e13@-->|"[PROJECTION]: NestYield"| Compute
 ```
 
 ```mermaid
@@ -231,7 +236,7 @@ config:
 ---
 flowchart LR
     accTitle: Fabrication kernel and platform seams
-    accDescr: Fabrication sub-domain owners consuming kernel geometry from Rasm, publishing the toolpath pack back into it, and delivering the hidden-line receipt to the app shell, one labeled edge per contract family.
+    accDescr: Fabrication sub-domain owners consuming kernel geometry from Rasm, publishing the toolpath pack back into it, and delivering the hidden-line receipt to the app-platform UI package, one labeled edge per contract family.
     subgraph fabrication[RASM.FABRICATION]
         Process[Process rail]
         Ingress[Ingress admission]
@@ -247,7 +252,7 @@ flowchart LR
         Posting[Posting emission]
     end
     Rasm{{Rasm}}
-    App([Rasm.App])
+    AppUi([Rasm.AppUi])
     Rasm e1@-->|"[SHAPE]: Predicate"| Process
     Rasm e2@-->|"[WIRE]: MeshSpace"| Ingress
     Rasm e3@-->|"[WIRE]: ParametricOp"| Geometry2D
@@ -258,9 +263,10 @@ flowchart LR
     Rasm e9@-->|"[PROJECTION]: ChartAtlas"| Nesting
     Rasm e10@-->|"[WIRE]: Stat"| Spec
     Rasm e11@-->|"[WIRE]: FitReceipt"| Verify
-    Rasm e12@-->|"[WIRE]: DrawingProjection"| Documentation
+    Rasm e12@-->|"[PROJECTION]: DrawingProjection"| Documentation
     Posting e13@-->|"[WIRE]: ToolpathPath"| Rasm
-    Documentation e14@-->|"[RECEIPT]: ProjectionReceipt"| App
+    Documentation e14@-->|"[RECEIPT]: HiddenLineResult"| AppUi
+    Rasm e15@-->|"[SHAPE]: SpatialIndex"| Toolpath
 ```
 
 ## [04]-[FAULT_REGISTRY]

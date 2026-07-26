@@ -1,8 +1,8 @@
 # [COMPUTE]
 
-`Rasm.Compute` is the federation's measured-execution engine: the discipline-assessment authority over the `ElementGraph` — a solver farm engineering failure as rigorously as success, every verdict and failure a content-keyed fact with retry policy — over a building-scale numeric substrate, an optimization and uncertainty spine over one evaluate oracle, a symbolic CAS lane, and the ONNX model plane. Screening loops re-solve thousands of variants, so failure caching, keyed reuse, and dispatchable sweeps are load-bearing, and a declared discipline Compute cannot answer is a coverage defect.
+`Rasm.Compute` is the measured-execution engine and discipline-assessment authority over the `ElementGraph` — a solver farm engineering failure as rigorously as success, every verdict and failure a content-keyed fact with retry policy — over a building-scale numeric substrate, an optimization and uncertainty spine over one evaluate oracle, a symbolic CAS lane, and the ONNX model plane. Screening loops re-solve thousands of variants, so failure caching, keyed reuse, and dispatchable sweeps are load-bearing, and a declared discipline Compute cannot answer is a coverage defect.
 
-One intent rail admits every execution request once, a substrate axis routes it over row data, bounded lanes carry it, and the one `ComputeReceipt` union records every outcome. It reads the `Rasm` kernel, the `Rasm.Element` seam, AppHost ports, and Persistence stores as settled lower-stratum vocabulary and never reverses the dependency onto the AEC-domain peers.
+One intent rail admits every execution request once, a substrate axis routes it over row data, bounded lanes carry it, and the one `ComputeReceipt` union records every outcome. It reads the `Rasm` kernel, the `Rasm.Element` seam, AppHost ports, and Persistence stores as settled lower-stratum vocabulary.
 
 ## [01]-[ROUTER]
 

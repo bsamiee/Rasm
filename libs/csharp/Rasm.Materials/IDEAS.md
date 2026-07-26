@@ -24,7 +24,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Shape: A `DesignBasis` policy row selecting per-basis kernels (EC3 §6.3.1 buckling curves with per-class imperfection α, §6.3.2 χLT, γM0/γM1 partial factors over the typed `VividOrange.Standards` `En1993`/`En1994`/`En1996` rows with `NationalAnnex` threaded); lands in `libs/csharp/Rasm.Materials/.planning/Component/capacity.md`, `libs/csharp/Rasm.Materials/.planning/Component/steel.md`, and `libs/csharp/Rasm.Materials/.planning/Component/masonry.md`.
 - Unlocks: EU-deliverable member verdicts over the already-seeded two-region catalogue; the international sizing product the seed tables promise.
 - Anchors: `steel#STEEL_FAMILY` `SteelDesign`/`DesignCapacity`, `capacity#SECTION_CAPACITY` `SectionCapacity`/`CapacityReceipt`, `SteelGrade.YieldMpa` already reading the Table 3.1 registered `f_y` per annex; the folder `RULINGS.md` basis-column row.
-- Tension: the basis-tagged re-cut of the closed verdict vocabulary lands only with the `Rasm.Compute/structural#DESIGN_CHECK` co-sign.
+- Tension: the basis-tagged re-cut of the closed verdict vocabulary lands only with the `Rasm.Compute/Analysis/structural#DESIGN_CHECK` co-sign.
 
 [ASSESSMENT_WIRE_INGESTION]-[QUEUED]: A real Materials end for the declared Assessment wire — typed in-situ assessment and declaration records lowered onto `Published<T>` evidence rows.
 - Capability: assessment record vocabulary — in-situ test results, condition grades, dated declarations — admitted with provenance and expiry onto `Published<T>`/`PropertyEvidence` and folded into `MaterialPropertyCatalogue`/`SustainabilityCatalogue` rows as evidence-dated overrides beside the seed rows, so the `[WIRE]: Assessment` edge gains its owning page.

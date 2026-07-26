@@ -227,8 +227,8 @@ flowchart LR
     Fabrication([csharp:Rasm.Fabrication])
     Runtime e1@-->|"[CONTENT_KEY]: ContentKey"| Core
     Core e2@-->|"[RECEIPT]: ArtifactReceipt"| Runtime
-    Runtime e3@-->|"[CONTENT_KEY]: ContentKey"| Exchange
-    Runtime e4@-->|"[CONTENT_KEY]: ContentKey"| Package
+    Runtime e3@-->|"[CONTENT_KEY]: ContentIdentity"| Exchange
+    Runtime e4@-->|"[CONTENT_KEY]: ContentIdentity"| Package
     Core e5@-->|"[GRADUATION]: HandoffAxis"| Compute
     Media e6@-->|"[SHAPE]: SignalOp"| Compute
     Document e7@-->|"[WIRE]: CorpusRow"| Data
@@ -238,11 +238,10 @@ flowchart LR
     Geometry e12@-->|"[BOUNDARY]: SceneGrid"| Scene
     Exchange e13@-->|"[CONTENT_KEY]: SignedArtifact"| Persistence
     Runtime e14@-->|"[PORT]: Kernel"| Scene
-    Core e15@-->|"[HOOK]: HookPoint"| Runtime
-    Core e16@-->|"[BENCH]: BenchmarkReceipt"| Runtime
+    Core e15@-->|"[PORT]: HookPoint"| Runtime
 ```
 
-Frozen names spell from the owner's endpoint page: `SignedArtifact` from Rasm.Persistence with the runtime `ContentKey` minting beneath it, `IToleranceEncoder` bytes from Rasm.Fabrication admitted into `GdtFrame` at dimensioning, and the graduation hub as `HandoffAxis`, C#-owned as `GraduationEvidence`.
+Frozen names spell from the owner's endpoint page: `SignedArtifact` from Rasm.Persistence with the runtime `ContentKey` minting beneath it, `IToleranceEncoder` bytes from Rasm.Fabrication admitted into `GdtFrame` at dimensioning, and the graduation hub as `HandoffAxis`, C#-spelled `GraduationEvidence`.
 
 Production-fact points register onto the runtime `Hooks` registry under the `rasm.artifacts.<domain>.<point>` grammar, and the bench corpus consumes the runtime `Bench` tier, minting no timing. `TransmittalNotice` seals the settled close as a CloudEvents envelope whose transport stays the composing app's, so no broker edge joins this registry.
 
@@ -299,3 +298,8 @@ High-order producer planes sit on a shared primitive substrate. `graphic` and `t
 - Engine selection is the second structural axis: heavy render, raster, compression, text-layout, and 3D arms cross as runtime `Kernel` values.
 - A `KernelTrait` row derives each kernel's thread, subinterpreter, or process arm.
 - Provider-heavy modules never import into the core runtime path.
+
+## [05]-[BOUNDARIES]
+
+- `artifacts` owns durable output alone — page composition, visual authoring, and file emission, every artifact keyed by the runtime content key and receipted as one `ArtifactReceipt` case.
+- UI surfaces, durable stores, IFC/GLB geometry, and columnar or mesh interchange stay peer-owned, crossing at the content-keyed wire and never by reference.

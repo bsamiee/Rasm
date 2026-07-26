@@ -211,8 +211,8 @@ const LANG = {
         casing: 'PascalCase',
         corpus: 'libs/csharp planning corpus (markdown specs of intended C# package designs)',
         strata:
-            '`libs/.planning/ARCHITECTURE.md` owns the strata law (KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP; ' +
-            'depend strictly upward; a host-neutral owner only where a non-Rhino runtime consumes the contract).',
+            '`libs/csharp/.planning/ARCHITECTURE.md` `[02]-[STRATA]` owns the branch strata table — resolve it live, never a ' +
+            'transcribed chain; depend strictly upward, and mint a host-neutral owner only where a non-Rhino runtime consumes the contract.',
         stackFloor:
             'docs/stacks/csharp is the FLOOR, never the ceiling — every fence pushes past it to the strongest form the doctrine ' +
             'admits; the tools/cs-analyzer gate enforces it (a true positive is architecture pressure, a false positive rule ' +
@@ -272,7 +272,7 @@ const LANG = {
         ],
         casing: 'snake_case',
         corpus: 'libs/python planning corpus (markdown specs of intended Python module designs)',
-        strata: '`libs/.planning/ARCHITECTURE.md` owns the branch topology law.',
+        strata: '`libs/python/.planning/ARCHITECTURE.md` `[02]-[STRATA]` owns the branch topology law.',
         stackFloor:
             'docs/stacks/python is the bar and docs/stacks/csharp the density/ambition FLOOR — match its richness, never import C#-shaped idioms.',
         apiTiers:
@@ -335,7 +335,7 @@ const LANG = {
         ],
         casing: 'camelCase',
         corpus: 'libs/typescript planning corpus (markdown specs of intended TypeScript module designs)',
-        strata: '`libs/.planning/ARCHITECTURE.md` owns the branch topology law.',
+        strata: '`libs/typescript/.planning/ARCHITECTURE.md` `[02]-[STRATA]` owns the branch topology law.',
         stackFloor: 'docs/stacks/typescript composed in full is the bar — author ultra-advanced TS only, discarding naive idioms wholesale.',
         apiTiers:
             'the SHARED/universal `libs/typescript/.api/*.md` Effect substrate rails AND the folder catalogs ' +
@@ -842,7 +842,7 @@ const densityMapPrompt = (L, pkg, set) =>
             JSON.stringify(set.map((s) => ({ page: s.page, map: s.map }))),
         'GROUND FIRST, at source: `libs/.planning/ARCHITECTURE.md`; the branch `' +
             L.root +
-            '/.planning/ARCHITECTURE.md` with its [02]-[SEAMS] ledger; the package ARCHITECTURE.md + README.md at `' +
+            '/.planning/ARCHITECTURE.md` with its [03]-[SEAMS] ledger; the package ARCHITECTURE.md + README.md at `' +
             pkg +
             '`; then BOTH `.api` tiers (`' +
             L.root +

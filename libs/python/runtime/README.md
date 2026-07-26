@@ -1,8 +1,6 @@
 # [PY_RUNTIME]
 
-`runtime` is stratum zero of the Python branch: the host-free execution foundation every sibling composes, where proof outranks feature reach. Every shared vocabulary — content identity, fault and resilience rails, admission, lanes, logical time, receipts and telemetry, resource transport, the companion server — mints once, symbol-consumed; the module set stands alone, zero siblings installed. Defects here multiply — every fold returns through the fault rail, every retry rides the one policy table, the C# host drives the served wire — so nothing lands as convention that can land as proof.
-
-One polymorphic owner per sub-domain mints the shared value shapes once, and every sibling returns through them rather than re-minting its own. Companion decode admits only C#-minted wire shapes and owns no wire vocabulary, so identity crosses the runtime boundary through a single mint.
+`runtime` is stratum zero of the Python branch — the standalone host-free execution foundation every sibling composes, one polymorphic owner per sub-domain minting Python's shared value shapes once. Siblings return through those mints instead of re-minting their own, and the module set stands alone: a Python application operates with no sibling installed and no foreign runtime or emitted bundle present.
 
 ## [01]-[ROUTER]
 
@@ -32,7 +30,7 @@ One polymorphic owner per sub-domain mints the shared value shapes once, and eve
 - [17]-[RECIPE](.planning/execution/recipe.md): Content-keyed recipe execution on the thread lane.
 
 [EVIDENCE]:
-- [18]-[IDENTITY](.planning/evidence/identity.md): Content identity and key reproducing the C# seed bit-identically.
+- [18]-[IDENTITY](.planning/evidence/identity.md): Python content-key implementation proving the shared digest contract.
 - [19]-[REPRODUCTION](.planning/evidence/reproduction.md): Seed-reproduction corpus and its parity fold.
 - [20]-[EVIDENCE](.planning/evidence/evidence.md): Evidence union, catalogue member facts, and grammar registry.
 

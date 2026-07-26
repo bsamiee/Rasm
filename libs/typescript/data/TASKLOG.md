@@ -39,14 +39,14 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Shape: decoder and replay-fold rows on `libs/typescript/data/.planning/journal/append.md`; the entry-payload upcast road on `libs/typescript/data/.planning/journal/evolve.md`.
 - Unlocks: IDEAS.md [HOST_OPLOG_CRDT_CONSUMER] — multi-runtime document sync into the durable plane and deterministic replay for audit, the consumer half arming the producer's wire.
 - Anchors: `journal/append.md` `Journal.publish`/`Occ`/`StreamKey` and the windowed `READ_SURFACE`; `journal/evolve.md` `Upcast.plan`; `object/store.md` `ContentKey` payload custody.
-- Tension: C# mints the wire schema — this side decodes, never re-mints; operation identity never conflates with payload identity.
+- Tension: the neutral op-log contract owns identity; TypeScript owns local encoding, decoding, and merge.
 
-[INTEROP_LANE_PAGE]-[QUEUED]: Interop lane page mints and pglite joins the pg profile rows — realizes `[RELATIONAL_SET_COMPLETION]`.
-- Capability: `libs/typescript/data/.planning/lane/interop.md` mints with the foreign-relational ingress rows — mysql2 and mssql guarantee pricing, capability degradation against `Pg.Grant`, read-oriented ingress law; `@effect/sql-pglite` lands as the in-process pg profile row beside the driver mints.
-- Shape: one new page `libs/typescript/data/.planning/lane/interop.md`; the pglite profile row on `libs/typescript/data/.planning/lane/postgres.md` `DRIVER_ROWS`.
-- Unlocks: IDEAS.md [RELATIONAL_SET_COMPLETION] — browser-resident pg semantics without the sqlite degradation table and enterprise MSSQL/MySQL ingress, closing the effect-sql client family.
-- Anchors: `.api/effect-sql.md` `mysql`/`mssql` dialect arms; `lane/sqlite.md` `_degrades` as the pricing template; `lane/postgres.md` `_client`/`_fromPool` mint pattern; the read-only-interop ruling at `libs/typescript/data/RULINGS.md` `[01]-[PACKAGES]`.
-- Tension: ingress lanes never become records of truth and never reach the tenant write path — the `README.md` interop rows align to that posture (the "lighting the idle arms" phrasing dies with this landing); the three admissions ride the serialized admission lane.
+[FOREIGN_RELATIONAL_READS]-[QUEUED]: Existing query ownership admits MySQL and MSSQL clients.
+- Capability: Composition-root clients feed provider-neutral typed reads.
+- Shape: `read/query.md` gains client admission and query rows; no new page or lane owner.
+- Unlocks: IDEAS.md [FOREIGN_RELATIONAL_READS].
+- Anchors: Existing SQL package catalogs and `read/query.md`.
+- Tension: Foreign clients remain read ingress, preserve journal authority, and never impersonate PostgreSQL grants.
 
 [FACT_JOURNAL_RLS_ROW]-[QUEUED]: `fact_journal` registers under the tenancy law like every journal relation.
 - Capability: the fact table's DDL carries the RLS registration its own law line asserts, so the tenant write path's every-relation-registers demand is structural, never prose.

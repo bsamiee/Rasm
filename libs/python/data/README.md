@@ -1,8 +1,6 @@
 # [PY_DATA]
 
-`data` is the Python branch's host-free interchange plane: every AEC dataset — BIM quantities, scan point clouds, simulation tensors, carbon declarations — crosses as typed, content-keyed, Arrow-carried claims. One columnar, relational, and lakehouse tabular core carries the `spatial`, `gridded`, `graph`, and `impact` planes; the bar is interchange trust — a frame that leaves is self-describing, so a consumer decodes by name and never re-derives attribution. Compute schedules studies over its frames, Persistence federates its content keys and Substrait plans, artifacts renders its profiles.
-
-It consumes runtime `ContentIdentity`, `ReceiptContributor`, and `TransportResource` at the boundary and re-mints none, meeting C# only at the content-identity wire and the companion seams.
+`data` is the Python branch's host-free interchange plane — every AEC dataset crosses as a typed, content-keyed, Arrow-carried claim, graded on interchange trust: a frame that leaves is self-describing, so a consumer decodes by name and never re-derives attribution. It composes the runtime `ContentIdentity`, `ReceiptContributor`, and `TransportResource` owners at the boundary and re-mints none, and peer branches meet it only through contract-conforming datasets and plans.
 
 ## [01]-[ROUTER]
 

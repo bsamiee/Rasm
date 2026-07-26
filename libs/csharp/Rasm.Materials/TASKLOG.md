@@ -55,10 +55,10 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 
 [PANEL_VOCABULARY_RENAME]-[QUEUED]: Dashboard descriptor vocabulary sheds the board-family names.
 - Capability: one `PanelKind`/`PanelRow` meaning per package — the board-type catalogue keeps the domain names and the dashboard descriptors carry their own, so a same-named `[SmartEnum]` pair never splits one spelling across two concepts.
-- Shape: `libs/csharp/Rasm.Materials/.planning/Projection/observability.md` dashboard descriptor block — the `PanelKind`/`PanelRow` re-declarations rename to dash-scoped names, the IaC `_PACKS` decode counterpart in the same pass.
+- Shape: `libs/csharp/Rasm.Materials/.planning/Projection/observability.md` dashboard descriptor block — the `PanelKind`/`PanelRow` re-declarations rename to dash-scoped names.
 - Unlocks: the one-canonical-name law holds package-wide; `Component/panel.md` keeps sole custody of the board vocabulary.
 - Anchors: `Component/panel.md` `PanelKind` board roster; the semantic-consistency naming law.
-- Atomic: one rename pair with its decode counterpart.
+- Atomic: one package-local rename pair; the descriptor rows reach a deploy plane through their composition owner's encoded pack, so no peer decode counterpart moves with it.
 
 [README_APPHOST_ROW_RECUT]-[QUEUED]: README's AppHost row states the benchmark-gate consumer and its deferred arming.
 - Capability: the registry row carries the live coupling truth — the benchmark gate as sole compile consumer, deferred until armed, observability surfaces attributed to the kernel capsule — so the up-reference is never cut as dead.

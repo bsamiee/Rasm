@@ -23,7 +23,7 @@ core/
     │   ├── evidence.ts   # Decoded outcome family — receipts, progress, and availability
     │   ├── feed.ts       # Hlc-ordered evidence timeline and its column band
     │   └── presence.ts   # Actor-presence CRDT over proven merge rows
-    ├── interchange/      # C#-minted wire plane — decode, vocabulary, and the capability dial; never serving
+    ├── interchange/      # Contract wire plane — generated bindings, codecs, and the capability dial; never serving
     │   ├── format.ts     # Byte-dialect engines behind one decode transform
     │   ├── codec.ts      # One keyed-decode registry over the closed wire-family census
     │   ├── frame.ts      # Frame reassembly, geometry tensor views, and the residency ledger under the Ingress budget
@@ -204,6 +204,7 @@ flowchart LR
     Board e11@-->|"[PROJECTION]: DashboardModel"| Iac
     Slo e14@-->|"[PROJECTION]: Alert.Spec"| Iac
     Frame e15@-->|"[SHAPE]: Residency.Ledger"| Ui
+    Codec e21@-->|"[SHAPE]: BcfTopic/BcfViewpoint/ControlIntent/LayoutProgram/GeoFeature/PbrGroups"| Ui
     Slo e16@-->|"[PROJECTION]: Slo.Objective"| Iac
     Tap e17@-->|"[SHAPE]: Tap.Registry"| Runtime
     Carrier e18@-->|"[SHAPE]: Carrier.Context"| Runtime
@@ -213,11 +214,14 @@ flowchart LR
 
 ## [04]-[INTERNAL]
 
-One authority per concept and growth-as-row is the organization law: `value` mints each floor primitive exactly once and everything above composes it settled, `state` stays pure algebra whose one `AsOf` coordinate forbids a second replay vocabulary, `interchange` lands a new C#-minted wire family as one census row with its landing row — never a page — and `observe` owns vocabulary and derivation only. Exact delegating sites and per-owner wiring live on the owning implementation pages.
+One authority per concept and growth-as-row is the organization law: `value` mints each floor primitive exactly once and everything above composes it settled, `state` stays pure algebra whose one `AsOf` coordinate forbids a second replay vocabulary, `interchange` lands a new contract family as one census row with its landing row — never a page — and `observe` owns vocabulary and derivation only.
+
+Growth is one edit at the owner: a wire family is a census row, a fault class a table entry, an identity dimension one static. Exact delegating sites and per-owner wiring live on the owning implementation pages.
 
 ## [05]-[BOUNDARIES]
 
 - Core imports nothing from the branch and nothing host-bound; every module runs identically under node, bun, and the browser.
-- C# owns every `*Wire` shape; core decodes it verbatim, authors no wire, and lands each decoded family once even for a later-stratum consumer.
+- Core owns TypeScript contract bindings; one registry encodes or decodes each conforming wire family for every later-stratum consumer.
+- Every cross-language primitive admits and brands at one seam, and cross-runtime parity proves bit-identical against the frozen contract corpus.
 - Secret derivation is the security folder's concern; the digest engine here is content identity only.
 - Persistence, serving, transport hosting, rendering, and exporters are later-wave concerns; core defines the shapes they carry and nothing they run.

@@ -29,24 +29,24 @@ Each fact kind below routes to its owner; a fact earns a row in this corpus only
 |  [11]   | Test-estate law              | `tests/README.md` + the owning `tests/` tree tier  |
 
 [EXTENSION_LADDER]:
-- Law: capability extends the owner before it mints a page — harden an existing clause, then extend an existing page inside its owner, then mint a new page, each move proving the prior cannot carry the fact.
-- Law: a new page lands its `[01]-[PAGES]` row in the same change.
+- Law: Capability extends the owner before it mints a page — harden an existing clause, then extend an existing page inside its owner, then mint a new page, each move proving the prior cannot carry the fact.
+- Law: A new page lands its `[01]-[PAGES]` row in the same change.
 
 [SECOND_COPY]:
-- Law: a fact owned elsewhere never gains a copy here; the owner keeps it, and a topology row may name it as a counterpart.
+- Law: A fact owned elsewhere never gains a copy here; the owner keeps it, and a topology row may name it as a counterpart.
 
 [THRESHOLD]:
-- Law: admission demands recurrence across independent units, or a structural singleton whose blast radius spans folders or branches.
-- Boundary: a unit-local lesson stays in the run report, and adding nothing is a first-class verdict.
+- Law: Admission demands recurrence across independent units, or a structural singleton whose blast radius spans folders or branches.
+- Boundary: A unit-local lesson stays in the run report, and adding nothing is a first-class verdict.
 
 [GATE_ROUTING]:
-- Law: a rule a formatter, analyzer, or gate can enforce routes to that gate, never to a doctrine page.
-- Law: a constitution fact lands at its one acting reader.
-- Law: a reviewer rule mirrors across all three reviewer configs.
+- Law: A rule a formatter, analyzer, or gate can enforce routes to that gate, never to a doctrine page.
+- Law: A constitution fact lands at its one acting reader.
+- Law: A reviewer rule mirrors across all three reviewer configs.
 
 [RE_PROVING]:
-- Law: heavy workflow runs re-prove every row against the live tree; no row archives.
+- Law: Heavy workflow runs re-prove every row against the live tree; no row archives.
 
 ## [03]-[PAGE_SHAPE]
 
-- Law: a page owns one law family in the representation that states it — a comparison table whose rows share one question, marker-led `[TOKEN]:` cards where each law owns its own contrast, or numbered doctrine sections for a universal law; no shape is the default.
+- Law: A page owns one law family in the representation that states it — a comparison table whose rows share one question, marker-led `[TOKEN]:` cards where each law owns its own contrast, or numbered doctrine sections for a universal law; no shape is the default.

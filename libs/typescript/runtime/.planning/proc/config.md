@@ -1,22 +1,22 @@
 # [RUNTIME_CONFIG]
 
-The one config owner of the process plane: an ordered provider chain answers every `Config` read, and one boot-validated `Setting` contract resolves against it exactly once. A source is a case of one closed `Stage` family — process env (where `doppler run` injection lands), dotenv file, K8s file tree, remote document, literal table — folded left through `ConfigProvider.orElse` into one provider installed once beneath the whole graph, so precedence is tuple order and the empty chain is unspellable. Construction faults keep their channel: only a dotenv file's verified absence (`SystemError` with `reason: "NotFound"`) folds to a skipped stage, and every other construction failure rides the layer's typed error channel to the root proof. `Setting` is the runtime folder's environment contract and simultaneously the config-family form every folder and app instantiates: described rows, structural parsers, `Schema.Config` shaped scalars, sealed secrets, `Config.nested` namespaces, the whole record resolved at Layer construction so a malformed environment fails the root's wiring proof at the boot line. A scattered `process.env` read, a per-site `Config.string`, a second resolve, a second `setConfigProvider` altitude, and a blanket construction-fault-to-absence fold are the named defects. The module is `runtime/src/proc/config.ts`.
+The one config owner of the process plane: an ordered provider chain answers every `Config` read, and one boot-validated `Setting` contract resolves against it exactly once. A source is a case of one closed `Stage` family — process env (where `doppler run` injection lands), dotenv file, K8s file tree, remote document, literal table — folded left through `ConfigProvider.orElse` into one provider installed once beneath the whole graph, so precedence is tuple order and the empty chain is unspellable. Construction faults keep their channel: only a dotenv file's verified absence (`SystemError` with `reason: "NotFound"`) folds to a skipped stage, and every other construction failure rides the layer's typed error channel to the root proof. `Setting` is the runtime folder's environment contract, the config-family form every folder and app instantiates, and the seat where the supplied `Profile` consumption row admits: described rows, structural parsers, `Schema.Config` shaped scalars, sealed secrets, `Config.nested` namespaces, the whole record resolved at Layer construction so a malformed environment fails the root's wiring proof at the boot line. A scattered `process.env` read, a per-site `Config.string`, a second resolve, a second `setConfigProvider` altitude, and a blanket construction-fault-to-absence fold are the named defects. The module is `runtime/src/proc/config.ts`.
 
 ## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                       | [PUBLIC]   |
-| :-----: | :--------------- | :--------------------------------------------------------------------------- | :--------- |
-|  [01]   | `STAGE_FAMILY`   | the closed source vocabulary and the doppler-injection law                   | `Provider` |
-|  [02]   | `CHAIN_FOLD`     | the orElse fold, skip-versus-fail construction, the one install site         | `Provider` |
-|  [03]   | `SETTING_OWNER`  | the boot-validated runtime contract and the config-family form               | `Setting`  |
-|  [04]   | `ADMISSION_ROWS` | the row vocabulary: parsers, shaped scalars, secrets, defaults, descriptions | `Setting`  |
+| [INDEX] | [CLUSTER]        | [OWNS]                                                                    | [PUBLIC]   |
+| :-----: | :--------------- | :------------------------------------------------------------------------ | :--------- |
+|  [01]   | `STAGE_FAMILY`   | the closed source vocabulary and the doppler-injection law                | `Provider` |
+|  [02]   | `CHAIN_FOLD`     | the orElse fold, skip-versus-fail construction, the one install site      | `Provider` |
+|  [03]   | `SETTING_OWNER`  | the boot-validated runtime contract and the config-family form            | `Setting`  |
+|  [04]   | `ADMISSION_ROWS` | the row vocabulary and the six-axis consumption profile the root supplies | `Profile`  |
 
 ## [02]-[STAGE_FAMILY]
 
 [STAGE_FAMILY]:
 - Owner: `Provider.Stage` — one `Data.taggedEnum` family: `Env` (process environment), `DotEnv` carrying its file path, `Tree` carrying the mount root (the K8s secret-mount form, one file per key), `Remote` carrying the document origin, `Table` carrying a literal row map (the harness and inline-override form); constructors ride the exported `Provider` owner, so declaring a chain is one import.
 - Law: doppler is env — `doppler run --` injects leased secrets as process environment before the runtime boots, so the doppler stage IS the `Env` stage's content and holds env precedence; the chain never dials Doppler at runtime, and the runtime leased-secret axis — TTL rotation, `Redacted` end to end — is `security`'s crypt owner.
-- Law: the remote stage is a boot-time document — fetched once at chain construction through the `batch` egress lane (`client#DIAL_SEAM`), so the chain inherits the branch egress posture, decoded as one JSON document, served through `ConfigProvider.fromJson` under `ConfigProvider.constantCase` so a camelCase remote document answers CONSTANT_CASE reads; live re-evaluation is not a config concern — the one live remote surface is the flag feed (`flag#GATE_SERVICE`), never a mutating config chain.
+- Law: the remote stage is a boot-time document — fetched once at chain construction through the `batch` egress lane (`net/client#DIAL_SEAM`), so the chain inherits the branch egress posture, decoded as one JSON document, served through `ConfigProvider.fromJson` under `ConfigProvider.constantCase` so a camelCase remote document answers CONSTANT_CASE reads; live re-evaluation is not a config concern — the one live remote surface is the flag feed (`flag#GATE_SERVICE`), never a mutating config chain.
 - Law: a stage carries data, not behavior — path, root, origin, rows are case payloads; the build arm owns the mechanics, so a chain declaration reads as policy, and proof pins ride the same family: `Table` under `ConfigProvider.fromMap` composed at the head of a spec chain, never a second override mechanism.
 - Growth: a new source is one case plus one build arm.
 - Packages: `effect` (`ConfigProvider`, `Data`); `@effect/platform` (`PlatformConfigProvider`, `HttpClientRequest`); `../net/client.ts` (`Client`).
@@ -174,6 +174,9 @@ const _fanout = Config.nested(
             Config.withDefault([]),
             Config.withDescription('Kafka bootstrap brokers the kafka engine row dials; empty leaves the row unarmed'),
         ),
+        registry: Config.option(Config.url('REGISTRY')).pipe(
+            Config.withDescription('Schema Registry origin the Kafka contract row requires'),
+        ),
         dedup: Config.duration('DEDUP').pipe(
             Config.withDefault(Duration.minutes(2)),
             Config.withDescription('stream duplicate-detection window the msgID dedup rides'),
@@ -262,9 +265,14 @@ const _serve = Config.nested(
 );
 
 class Setting extends Effect.Service<Setting>()('runtime/Setting', {
-    effect: Config.nested(
-        Config.unwrap({ cluster: _cluster, fanout: _fanout, flag: _flag, life: _life, mail: _mail, otel: _otel, serve: _serve }),
-        'RUNTIME',
+    // Config is a subtype of Effect, so the axis gate rides the SAME construction the record resolves
+    // in: a refused axis value and a malformed variable both fail the Default layer at one boot line.
+    effect: Effect.flatMap(
+        Config.nested(
+            Config.unwrap({ cluster: _cluster, fanout: _fanout, flag: _flag, life: _life, mail: _mail, otel: _otel, profile: _profile, serve: _serve }),
+            'RUNTIME',
+        ),
+        (resolved) => Effect.map(Profile.admit(resolved.profile.row), () => resolved),
     ),
 }) {
     static readonly tiers = _tiers;
@@ -279,11 +287,119 @@ class Setting extends Effect.Service<Setting>()('runtime/Setting', {
 - Law: `Config.withDefault` states ownership of the fallback — default at the row when the owner fixes the value and no consumer distinguishes absent from defaulted; no default when an unset variable must fail the boot; a fallback repeated at read sites marks a default that belonged on the row.
 - Law: shaped rows keep validation at the seam — a `Schema.Config` row arrives branded and bounded, so no regex check, range guard, or parse survives past the resolve; the branded scalar the row admits is the same refinement the owning Schema field carries — one refinement, two admission sites, zero drift; `Config.string` survives only for a genuinely free-form value.
 - Law: the family form is proven by `Setting` itself — the `SERVE` group carries the vocabulary's every member (literal spread from the `_tiers` anchor, `Schema.Config` branded scalar, defaulted structural port) and the `MAIL` group carries the sealed-secret rows; a sibling contract instantiates the identical form under its own namespace, and a second demonstration service beside the real owner is the duplication this page deletes.
+- Owner: `Profile` — the six-axis consumption row a composition root supplies as one canonical-json document on `RUNTIME.PROFILE.ROW`: `tenancy`, `topology`, `lifecycle`, and `isolation` are closed literal unions, `host` and `providers` carry descriptor structs whose rows this branch supplies, and `_fabric` is a mapped type over the isolation union so a new axis value fails the object literal at compile time instead of falling through at runtime. `Profile.topologies` and the `Consumption` type namespace publish those closed rosters branch-wide, so `iac/program/spec` spreads this spelling into `StackSpec` and the branch carries one topology vocabulary.
+- Law: deployment shape is data the root states, never a fact the branch infers — an ambient `process.platform` read, a build flag, a bundler condition, and a branch on which product embeds the runtime are the four deleted forms; `Profile.admit` runs inside `Setting`'s own effect, so an unservable axis value fails the boot line beside every `ConfigError` and the graph never half-builds.
+- Law: refusal names the axis — `ProfileRefused` carries `axis`, `value`, and `reason`, matching the deploy plane's own refusal grammar, so a caller reads which of the six coordinates to restate; silent degradation and a narrowed public surface are the two failed forms.
+- Law: this branch answers `in-proc` on the Effect fiber runtime, `thread` through `proc/worker`'s pool, `process` through `proc/exec`'s subprocess spec behind a bound `local-spawn` provider, and `remote` through `net/client` behind a bound `remote-compute` provider; `wasm` refuses outright because no guest runtime hosts foreign bytecode here, and the worker pool nearest it gives thread isolation alone.
+- Law: `Profile`, its descriptor schemas, and `_profile` seat above the `Setting` region of `runtime/src/proc/config.ts` — the fences split by cluster, never by file order, so `Setting` composes them as one module's earlier declarations.
+- Entry: `Profile.admit(row)` at `Setting` construction; `yield* Setting` then reads `profile.row` everywhere else.
+- Packages: `effect` (`Config`, `Data`, `Effect`, `Option`, `Schema`).
+
+```typescript signature
+const _tenancies = ['none', 'single', 'multi'] as const;
+const _topologies = ['in-host', 'sidecar', 'companion', 'service', 'edge', 'cli'] as const;
+const _lifecycles = ['caller-owned', 'package-owned'] as const;
+const _isolations = ['in-proc', 'thread', 'process', 'wasm', 'remote'] as const;
+const _axes = ['tenancy', 'topology', 'host', 'lifecycle', 'isolation', 'providers'] as const;
+const _capabilities = ['host-document', 'local-spawn', 'remote-compute', 'store-read', 'store-write', 'telemetry-export'] as const;
+
+declare namespace Consumption {
+    type Tenancy = (typeof _tenancies)[number];
+    type Topologies = typeof _topologies;
+    type Topology = (typeof _topologies)[number];
+    type Lifecycle = (typeof _lifecycles)[number];
+    type Isolation = (typeof _isolations)[number];
+    type Axis = (typeof _axes)[number];
+    type Capability = (typeof _capabilities)[number];
+    type Host = Schema.Schema.Type<typeof _Host>;
+    type Provider = Schema.Schema.Type<typeof _Provider>;
+}
+
+const _Host = Schema.Struct({
+    key: Schema.NonEmptyString,
+    surface: Schema.Literal('embedded', 'windowed', 'offscreen', 'none'),
+    lanes: _Extent,
+    document: Schema.Boolean,
+});
+
+const _Provider = Schema.Struct({
+    key: Schema.NonEmptyString,
+    supplies: Schema.Literal(..._capabilities),
+    reach: Schema.Literal(..._isolations),
+});
+
+// Mapped over the isolation union, so adding a value to _isolations breaks this literal at compile
+// time: 'served' runs unconditionally, 'unserved' refuses always, a capability gates on a bound row.
+const _fabric: { readonly [K in Consumption.Isolation]: Consumption.Capability | 'served' | 'unserved' } = {
+    'in-proc': 'served',
+    thread: 'served',
+    process: 'local-spawn',
+    wasm: 'unserved',
+    remote: 'remote-compute',
+};
+
+class ProfileRefused extends Data.TaggedError('ProfileRefused')<{
+    readonly axis: Consumption.Axis;
+    readonly value: string;
+    readonly reason: string;
+}> {}
+
+class Profile extends Schema.Class<Profile>('runtime/Profile')({
+    tenancy: Schema.optionalWith(Schema.Literal(..._tenancies), { default: () => 'single' as const }),
+    topology: Schema.optionalWith(Schema.Literal(..._topologies), { default: () => 'service' as const }),
+    host: Schema.optionalWith(_Host, { as: 'Option' }),
+    lifecycle: Schema.optionalWith(Schema.Literal(..._lifecycles), { default: () => 'package-owned' as const }),
+    isolation: Schema.optionalWith(Schema.Literal(..._isolations), { default: () => 'thread' as const }),
+    providers: Schema.optionalWith(Schema.Array(_Provider), { default: () => [] }),
+}) {
+    // Peers spread this roster into their own literals instead of re-declaring the axis, so the branch
+    // carries one topology spelling and a new value breaks every consumer at compile time.
+    static readonly topologies: Consumption.Topologies = _topologies;
+
+    get grants(): ReadonlySet<Consumption.Capability> {
+        return new Set(this.providers.map((row) => row.supplies));
+    }
+
+    get hostKey(): string {
+        return Option.match(this.host, { onNone: () => 'none', onSome: (row) => row.key });
+    }
+
+    // Six rows in roster order under an ordinal provider-key sort: the canonical-json preimage the
+    // corpus parity reads, so a provider array reordered at the root re-serializes byte-identically.
+    get canonical(): readonly (readonly [Consumption.Axis, string])[] {
+        return [
+            ['tenancy', this.tenancy],
+            ['topology', this.topology],
+            ['host', this.hostKey],
+            ['lifecycle', this.lifecycle],
+            ['isolation', this.isolation],
+            ['providers', [...this.providers.map((row) => row.key)].sort().join(',')],
+        ];
+    }
+
+    static readonly admit = (row: Profile): Effect.Effect<Profile, ProfileRefused> =>
+        row.topology === 'in-host' && Option.isNone(row.host)
+            ? Effect.fail(new ProfileRefused({ axis: 'host', value: 'none', reason: 'in-host topology carries no host descriptor row' }))
+            : _fabric[row.isolation] === 'served' || row.grants.has(_fabric[row.isolation] as Consumption.Capability)
+              ? Effect.succeed(row)
+              : Effect.fail(new ProfileRefused({ axis: 'isolation', value: row.isolation, reason: _fabric[row.isolation] }));
+}
+
+const _profile = Config.nested(
+    Config.unwrap({
+        row: Schema.Config('ROW', Schema.parseJson(Profile)).pipe(
+            Config.withDefault(Profile.make({})),
+            Config.withDescription('canonical-json consumption profile row the composition root supplies'),
+        ),
+    }),
+    'PROFILE',
+);
+```
 
 ```typescript signature
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Provider, Setting };
+export { type Consumption, Profile, ProfileRefused, Provider, Setting };
 ```
 
 ## [06]-[RESEARCH]

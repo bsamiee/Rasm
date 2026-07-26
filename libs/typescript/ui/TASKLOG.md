@@ -82,21 +82,21 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 
 [ASSET_IDENTITY_ROSTER]-[QUEUED]: Consolidate the served-asset identity roster in `viewer/scene.md`.
 - Capability: one roster value feeding the `setDRACOLoader`/`setKTX2Loader`/`setMeshoptDecoder` paths, model-viewer decoder locations, and the perspective wasm identity; the `[CODEC_IDENTITY_GATE]` gate reads the roster; drives from IDEAS `[ASSET_IDENTITY]`.
-- Shape: roster rows in `libs/typescript/ui/.planning/viewer/scene.md#RESIDENCY_GRAFT` and `#EMBED_ROW`; `libs/typescript/ui/ARCHITECTURE.md` boundary row naming the iac serving counterpart.
+- Shape: roster rows in `viewer/scene#RESIDENCY_GRAFT` and `#EMBED_ROW`; `libs/typescript/ui/ARCHITECTURE.md` boundary row naming the iac serving counterpart.
 - Unlocks: IDEAS.md [ASSET_IDENTITY] — iac serves the roster as content-addressed stack rows, CSP stays airtight with no foreign-CDN side-load, and a new codec is one roster row.
 - Anchors: scene codec-injection law; ARCHITECTURE `codec-absent` boundary.
 - Atomic: one roster value and its boundary rows.
 
 [POINT_CLOUD_LAYER_ROWS]-[QUEUED]: Land the point-cloud layer rows in `viewer/geo.md`.
 - Capability: `PointCloudLayer` payload rows over `@loaders.gl/las`, an eye-dome `PostProcessEffect` on the shared context, loaders-core registration; `@loaders.gl/3d-tiles` pinned as the existing `Tile3DLayer` row's loader; drives from IDEAS `[POINT_CLOUD]`.
-- Shape: rows in `libs/typescript/ui/.planning/viewer/geo.md#LAYER_ROWS` and `#EXTENSION_ROWS`.
+- Shape: rows in `viewer/geo#LAYER_ROWS` and `#EXTENSION_ROWS`.
 - Unlocks: IDEAS.md [POINT_CLOUD] — reality-capture review lands site scans beside the model on the one selection plane, `PostProcessEffect` gaining its consumer.
 - Anchors: geo tile-engine law; `.api/deck.gl-core.md` `PostProcessEffect<ShaderPassT>`.
 - Tension: the loaders family rides the admission lane; the rows assume the admission lands.
 
 [BVH_PICK_ACCELERATION]-[QUEUED]: Land BVH pick acceleration in `viewer/mark.md`.
 - Capability: `three-mesh-bvh` accelerated raycast rows in the pick pipes — BVH built at graft, shared across pick, section, and measure, with the graft fold owning invalidation: a residency mutation or streamed-geometry edit rebuilds or refits the tree (the hierarchy is static per build), and consumers read only the version-stamped structure so spatial queries never go stale; drives from IDEAS `[POINT_CLOUD]`.
-- Shape: rows in `libs/typescript/ui/.planning/viewer/mark.md#PICK_PIPES`; BVH build, version stamp, and rebuild/refit seam on `libs/typescript/ui/.planning/viewer/scene.md#RESIDENCY_GRAFT`.
+- Shape: rows in `viewer/mark#PICK_PIPES`; BVH build, version stamp, and rebuild/refit seam on `viewer/scene#RESIDENCY_GRAFT`.
 - Unlocks: IDEAS.md [POINT_CLOUD] — mark's pick pipes stay interactive over merged meshes and dense clouds, point-cloud sectioning and measurement riding accelerated raycast.
 - Anchors: mark pick pipes; scene graft fold; admission lane row for `three-mesh-bvh`.
 

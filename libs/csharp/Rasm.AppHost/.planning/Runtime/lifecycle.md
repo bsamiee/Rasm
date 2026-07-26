@@ -70,15 +70,15 @@ public abstract partial record LifecycleFault : Expected, IValidationError<Lifec
     public sealed record IllegalTransition : LifecycleFault { public IllegalTransition(RuntimePhase from, string trigger) : base($"{from.Key}:{trigger}", FaultBand.Lifecycle.Code(1)) { } }
 }
 
-public readonly record struct PhaseReceipt(RuntimePhase From, RuntimePhase To, string Trigger, Instant At, Duration Held, HostProfile Profile, CorrelationId CorrelationId);
+public readonly record struct PhaseReceipt(RuntimePhase From, RuntimePhase To, string Trigger, Instant At, Duration Held, ConsumptionProfile Profile, CorrelationId CorrelationId);
 
 public readonly record struct PhaseSubscription(Seq<Action> Detachers) : IDisposable {
     public void Dispose() => Detachers.Rev().Iter(static detach => detach());
 }
 
-public sealed class Lifecycle(HostProfile profile, IClock clock, TimeProvider time, CorrelationId correlationId) {
+public sealed class Lifecycle(ConsumptionProfile profile, IClock clock, TimeProvider time, CorrelationId correlationId) {
     readonly Atom<PhaseReceipt> cell = Atom(new PhaseReceipt(RuntimePhase.Boot, RuntimePhase.Boot, nameof(RuntimePhase.Boot), clock.GetCurrentInstant(), Duration.Zero, profile, correlationId));
-    public HostProfile Profile { get; } = profile;
+    public ConsumptionProfile Profile { get; } = profile;
     public IClock Clock { get; } = clock;
     public TimeProvider Time { get; } = time;
     public CorrelationId CorrelationId { get; } = correlationId;
@@ -319,7 +319,7 @@ public sealed partial class FaultBand {
     public static readonly FaultBand Federation       = new(4800,   10, BandKind.Fault, "Agent/federation#FEDERATION_AXIS", mirror: false);
     public static readonly FaultBand Support          = new(4810,   10, BandKind.Fault, "Observability/bundles#CAPTURE_PIPELINE", mirror: false);
     public static readonly FaultBand Drain            = new(4820,   10, BandKind.Fault, "Runtime/resources#DRAIN_QUEUES", mirror: false);
-    public static readonly FaultBand Hook             = new(4830,   10, BandKind.Fault, "Observability/hooks#HOOK_REGISTRY", mirror: false);
+    public static readonly FaultBand Hook             = new(4830,   10, BandKind.Fault, "Observability/hooks#HOOK_RAIL", mirror: false);
     public static readonly FaultBand Benchmark        = new(4840,   10, BandKind.Fault, "Observability/benchmarks#BENCHMARK_RECEIPT", mirror: false);
     // Mirror rows — foreign neighborhoods reserved; source of truth is the sibling registry.
     public static readonly FaultBand ComputeCore      = new(2200,   24, BandKind.Fault, "Rasm.Compute/Runtime/admission", mirror: true);

@@ -1,8 +1,8 @@
 # [RASM_BIM]
 
-`Rasm.Bim` owns host-neutral BIM semantics — the federation's openBIM authority over the IFC vocabularies, model readers, 4D/5D delivery networks, IDS/BCF/clash/diff review, content-addressed versioning, energy-model exchange, and geospatial site context. Its bar is round-trip fidelity at coordination grade: a foreign model lowers onto the seam graph without semantic loss, re-emits as legal IFC through the per-token admission gate, and every review verdict lands as a typed receipt the issue board and review planes consume directly.
+`Rasm.Bim` owns host-neutral openBIM semantics over the IFC vocabularies, model readers, 4D/5D delivery networks, IDS/BCF/clash/diff review, content-addressed versioning, energy-model exchange, and geospatial site context. Its bar is round-trip fidelity at coordination grade: a foreign model lowers onto the seam graph without semantic loss, re-emits as legal IFC through the per-token admission gate, and every review verdict lands as a typed receipt the issue board and review planes consume directly.
 
-It projects GeometryGym models into canonical `ElementGraph` deltas over the `Rasm.Element` seam, re-emits IFC through `SemanticProjector.Emit`, gates legality through `IfcLegality`, and mints the vocabularies every consumer composes. It references no AEC peer — exchange, review, geospatial, energy, cost, and schedule carriers lower foreign formats to seam graph, content-key, or receipt surfaces, simulation stays Compute-owned, and the Python IFC companion meets only at the wire.
+It projects GeometryGym models into canonical `ElementGraph` deltas over the `Rasm.Element` seam, re-emits IFC through `SemanticProjector.Emit`, gates legality through `IfcLegality`, and mints the vocabularies every consumer composes. Exchange, review, geospatial, energy, cost, and schedule carriers lower foreign formats to seam graph, content-key, or receipt surfaces, and simulation stays Compute-owned.
 
 ## [01]-[ROUTER]
 

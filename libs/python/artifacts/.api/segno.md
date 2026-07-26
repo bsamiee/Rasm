@@ -134,7 +134,7 @@ Per-kind `save` options:
 - within-lib: `segno.helpers.make_*_data` returns formatted `str` the `Content` family carries typed once at ingress, so the QR encoding is a pure transform; the encode-correctness round-trip segno cannot express is a `zxingcpp.read_barcodes` decode pass on the rendered raster, owned by the zxing-cpp `matrix` arm (`graphic/marks/decode#DECODE`), the `Mark` owner providing it across arms.
 
 [LOCAL_ADMISSION]:
-- lazy `import segno` (and `from segno import helpers`) at the `encode#MARK` boundary; module-level import violates the manifest import policy, and the annotation-only `from segno import QRCode, QRCodeSequence` rides the `if TYPE_CHECKING` block.
+- lazy `import segno` (and `from segno import helpers`) at the `graphic/marks/encode#MARK` boundary; module-level import violates the manifest import policy, and the annotation-only `from segno import QRCode, QRCodeSequence` rides the `if TYPE_CHECKING` block.
 - segno is strictly QR/Micro-QR — DataMatrix/PDF417/Aztec/MaxiCode/rMQR route to the zxing-cpp `matrix` arm and the linear symbologies to python-barcode; the dependency-free SVG bytes feed the `svgelements`/document figure owners with no rasterization, and live UI stays outside this package.
 
 [RAIL_LAW]:

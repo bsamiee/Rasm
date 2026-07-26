@@ -1798,8 +1798,8 @@ config:
 flowchart LR
     accTitle: Fabrication orchestration fold
     accDescr: One generated run dispatch routes ten policy variants to their plane kernels, folds every result back through shared fabrication atoms, and projects content-keyed persistence facts.
-    Atoms["owner#atoms Loop+Bulges · Move · CutterForm · AdmittedComponent · PlannedStep · BendStep · ResidualStock · StockSnapshot · CapabilityVerdict · EgressKind · ContentKey · RunLineage"]
-    Run["owner#run 10-arm generated total Switch"]
+    Atoms["owner#ATOM_ADMISSION Loop+Bulges · Move · CutterForm · AdmittedComponent · PlannedStep · BendStep · ResidualStock · StockSnapshot · CapabilityVerdict · EgressKind · ContentKey · RunLineage"]
+    Run["owner#RUN_FOLD 10-arm generated total Switch"]
     Family["family leaf axes ProcessKind · Machine · CutStrategy · PostDialect"]
     Run -->|HiddenLine| Hlr["Documentation/projection Hlr.Solve"]
     Run -->|Cam| Cam["Toolpath/motion Cam.Solve → conditioned Motion"]

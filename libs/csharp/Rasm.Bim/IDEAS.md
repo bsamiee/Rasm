@@ -19,6 +19,14 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
+[QUERY_PREDICATE_SEAM]-[QUEUED]: Set-algebraic model query reaches the web tier as a decoded predicate, not a re-implemented filter language.
+- Capability: a browser client composes the same closed predicate algebra the model owner evaluates, so selection semantics carry one definition across runtimes instead of forking into a per-tier filter dialect.
+- Shape: `libs/csharp/Rasm.Bim/.planning/Model/query.md` `[02]-[PREDICATE_WIRE]` gains its cross-runtime consumer, and the seam edge re-enters `ARCHITECTURE.md` `[03]-[SEAMS]` only once the counterpart lands.
+- Unlocks: `PredicateWire` becomes a bound contract rather than a producer-local DTO family, and the `ElementSet` result rides the same wire the web tier already decodes.
+- Anchors: `Model/query#PREDICATE_WIRE` `PredicateCodec.Seal`/`Admit`; `typescript:core/interchange/codec` `[06]-[LANDING_WIRE]` wire-suite registry as the admission surface.
+- Tension: the seam was declared unilaterally before any counterpart existed, so the settled registry carried a claim the peer never made; a seam row earns its seat only after both endpoints spell it.
+- Ripple: precedes `typescript:core` `[LANDING_WIRE]` admission of the predicate family.
+
 [CONNECTION_INTERFACE_GEOMETRY_DECODE]-[QUEUED]: Land the Bim lowering and re-materialization for the seam-landed `Connect.Interface` content key.
 - Capability: `IfcConnectionGeometry` and `IfcRelSpaceBoundary2ndLevel` interface surfaces ride the graph as content-keyed typed geometry instead of stranding in `Generic` attributes.
 - Shape: the `Projection/relations` projector hashes the interface surface into the blob store and stamps the key on the `Connect` edge (`IfcRelConnectsElements.ConnectionGeometry` and the 2nd-level space-boundary route off `Generic`); the `Projection/egress` re-materializes it; the landed seam decodes the interface key through the one `GeometrySource.ResolveFootprint` leg — never a third port.

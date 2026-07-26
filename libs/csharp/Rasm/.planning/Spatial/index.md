@@ -14,7 +14,7 @@
 - Receipt: `QueryResult` carries every query verdict, and the index itself is the registered validity evidence, so this owner mints no receipt type.
 - Packages: `RhinoCommon` through `Rasm.Numerics`, `Rasm.Domain`, CommunityToolkit.HighPerformance, System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new kernel is one `SpatialKind` row over the shared `NodeStore`, a new query one `SpatialQuery` case with its `QueryKind` row and `Query` arm, a new op one `SpatialOp` case and `Apply` arm, a new knob one `BuildPolicy` column; a new node layout is one `SpatialIndex` case, admitted only by charter amendment.
-- Boundary: every failure routes the one `Fin` rail — `GeometryFault` on the geometry channel, `key.InvalidInput()` on the admission channel; point k-NN and radius over a bare point set route `neighbors.md`.
+- Boundary: every failure routes the one `Fin` rail — `GeometryFault` on the geometry channel, `key.InvalidInput()` on the admission channel; point k-NN and radius over a bare point set route `neighbors.md`. `NodeLinkProjection` is the producer of the clash node-link branch golden `tests/csharp/README.md` `[09]-[SNAPSHOTS]` registers — producer and every decoder are C#, so the wire binds no peer runtime and earns no `tests/contracts/` corpus seat.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -572,7 +572,19 @@ public abstract partial record SpatialIndex : IValidityEvidence {
     }
 
     // --- [WIRE]
-    // A leaf descriptor packs a TAIL-RELATIVE LeafStart'; bounds copy the store's already-outward-rounded floats, so no second rounding site exists.
+    // Leaf descriptors pack a TAIL-RELATIVE LeafStart'; bounds copy the store's already-outward-rounded floats, so no second rounding site exists.
+    // Framing law: the tuple concatenates Bounds THEN Nodes little-endian — 6*Count float32, then Count + Order.Length int64. Decoders recover the
+    // split by bounds.Length / 6, so any harness that flattens the tuple to one stream owes this order and nothing else reconstructs it.
+    // Branch golden [NODE_LINK_GOLDEN], frozen structural expectation over eight BoundingBox primitives — (0,0,0)->(1,1,1), (0.5,0,0)->(1.5,1,1),
+    // (2,0,0)->(3,1,1), (2.5,0,0)->(3.5,1,1), (10,0,0)->(11,1,1), (10.5,0,0)->(11.5,1,1), (12,0,0)->(13,1,1), (12.5,0,0)->(13.5,1,1) — built through
+    // Spatial.Apply(new SpatialOp.Build(SpatialKind.Bvh, primitives, BuildPolicy.Canonical)) and projected through SpatialOp.Wire:
+    //   Store.Count == 3; Order is the identity permutation; Nodes[0] = 2097154, Nodes[1] = -5, Nodes[2] = -8388613; tail [0,1,2,3,4,5,6,7];
+    //   stream length 160 bytes (18 float32 = 72, 11 int64 = 88).
+    // Derivation: Y and Z centroid extents vanish, so BestSah elects axis 0 by elimination; bucket 2 costs 2.411 against runner-up 4.98 under a
+    // surface-area BoundingBox.Area and 2.199 against 4.866 under a volume reading, so the tree survives that ambiguity; StablePartition yields mid = 4.
+    // Node 1 packs tail - count = 0 as -((0 << 21) | 4) - 1; node 2 packs tail - count = 4 as -((4 << 21) | 4) - 1; both counts clear PackedCountMax.
+    // Hex stays UNMINTED: each float32 passes Down/Up outward rounding at the Arena.Write seam, which only a host run resolves.
+    // Regenerate when the node-link layout, BuildPolicy.Canonical, or the pinned 8-box input changes.
     internal static Fin<(float[] Bounds, long[] Nodes)> NodeLinkProjection(NodeStore store, Op key) {
         for (int node = 0; node < store.Count; node++)
             if (store.LeafCount[node] > BuildPolicy.PackedCountMax || store.ChildCount[node] > BuildPolicy.PackedCountMax)
@@ -754,4 +766,4 @@ public static class Spatial {
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-(none)
+- [NODE_LINK_GOLDEN]-[BLOCKED]: what hex does the `[WIRE]` 160-byte stream carry once `Down`/`Up` rounding resolves each `float32`; mint it from a `[RhinoScenario("spatial")]` scenario at `tests/csharp/libs/Rasm/Spatial/Scenarios/`, no `Requires` capability since the path touches `BoundingBox` and `Point3d` alone, asserting the `[WIRE]` facts and `Certify`-ing the hex under `uv run python -m tools.assay bridge verify --evidence author spatial`; `Rasm.Scenarios.csproj` references no project and `Rasm.Tests.csproj` runs `AssayTestShell`, so nothing executes the build yet.

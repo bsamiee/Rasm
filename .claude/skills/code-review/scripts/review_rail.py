@@ -15,7 +15,7 @@ from fnmatch import fnmatch
 from functools import reduce
 import hashlib
 import io
-from itertools import accumulate, groupby, islice
+from itertools import accumulate, groupby, islice, zip_longest
 import json
 from operator import itemgetter
 import os
@@ -91,6 +91,11 @@ type FaultCode = Literal[
     "no-matchers",
     "unknown-key",
     "duplicate-class",
+    "unmapped-surface",
+    "no-surface",
+    "unprobed",
+    "unguarded",
+    "unmirrored",
     "dedup-collapse",
     "no-findings",
     "no-lanes",
@@ -156,6 +161,12 @@ WALL_OUTLIER_FACTOR: Final = 2.0  # a lane is a wall-time outlier above this mul
 CR_META_NAMES: Final = frozenset({"git.json", "internalState.json", "diff.json", "incrementalDiff.json"})
 GT_ORACLE_FILES: Final[tuple[str, ...]] = (".greptile/config.json", ".greptile/rules.md")
 MS_HOME: Final = ".macroscope"
+# Path prefix -> owning engine, longest prefix first: a registry row's landed surface resolves its oracle here, and an unmatched path carries no guard the rail can prove.
+ENGINE_SURFACE_ROWS: Final[tuple[tuple[str, Reviewer], ...]] = (
+    (".coderabbit.yaml", "coderabbit"),
+    (".greptile", "greptile"),
+    (MS_HOME, "macroscope"),
+)
 ROSTER_KEYS: Final = ("members", "roster", "symbols")
 SEVERITIES: Final[tuple[Severity, ...]] = ("critical", "major", "minor", "trivial", "info")
 RANK: Final[Mapping[Severity, int]] = MappingProxyType({level: rank for rank, level in enumerate(SEVERITIES)})
@@ -219,6 +230,14 @@ ANSI_RE: Final = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 EXIT_LINE_RE: Final = re.compile(rf"^{EXIT_MARK}(\d+)\s*$")
 ISSUE_AT_RE: Final = re.compile(r"issue_event\s*=\s*")
 STEM_RE: Final = re.compile(r"\W+")
+# Twin proof: templates/harvest.md [02] and the agent definition spell one law twice. The comparison strips the three spellings the two surfaces legitimately
+# differ in — identifier fencing (backticks against the codex block's quotes), each surface's own naming of its counterpart, and the path a preloaded skill
+# supplies to the agent yet the codex block spells — so any remaining divergence is one surface edited alone.
+HARVEST_LAW_RE: Final = re.compile(r"## \[02\]-\[LAW\]\s*\n+```markdown template\n(.*?)\n```", re.DOTALL)
+TWIN_OBLIGATION_RE: Final = re.compile(r"[^ ]*(?: \[\d+\])? is this law's \w+ twin;[^.]*\.")
+TWIN_PATH_GLOSS_RE: Final = re.compile(r"\s*\((?:[a-z]+ )*[\w./-]+\.(?:md|py|json|yaml|toml)\)")
+TWIN_FENCING: Final[tuple[str, ...]] = ("`", '"')
+TWIN_LAW_OPEN: Final = "<role>"
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -382,6 +401,7 @@ class RefutedClass(msgspec.Struct, frozen=True):
     matchers: tuple[str, ...] = ()
     refuting_citation: str = ""
     landed_surfaces: tuple[str, ...] = ()
+    guard_probe: str = ""
     recurrences: int = 0
 
 
@@ -2709,6 +2729,72 @@ def round_verified(context: Context, /) -> Result[tuple[VerifyReceipt, ...], Fau
 # --- [REGISTRY_GUARD]
 
 ROW_FIELDS: Final[frozenset[str]] = frozenset(RefutedClass.__struct_fields__)
+ENGINE_SURFACES: Final[frozenset[Reviewer]] = frozenset(engine for _prefix, engine in ENGINE_SURFACE_ROWS)
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class SurfaceProbe:
+    # The standing registry proves the whole mirror; a proposal's guards land after its row, so an incoming roster stays admissible while empty.
+    repo: Path
+    mirrored: bool
+
+
+def engine_of(surface: str, /) -> Reviewer | None:
+    held = PurePosixPath(surface).parts[:1]
+    return next((engine for prefix, engine in ENGINE_SURFACE_ROWS if held == (prefix,)), None)
+
+
+def guard_carried(repo: Path, surface: str, needle: str, /) -> bool:
+    # The guard is prose in each engine's own grain, so the probe is a verbatim span the row's author lifted from it.
+    return (
+        read_bytes(repo / surface)
+        .map(lambda payload: needle.casefold() in payload.decode("utf-8", "replace").casefold())
+        .default_with(lambda _f: False)
+    )
+
+
+def surface_faults(row: RefutedClass, probe: SurfaceProbe, /) -> tuple[Fault, ...]:
+    # landed_surfaces claims a guard carries the class on that surface. Path resolution alone proves nothing — a row naming three real files
+    # while none carries a guard is the exact drift unmirrored exists to catch — so a claim earns admission by a guard_probe found in every
+    # surface it names, and covers every engine, since an unguarded engine re-mints the class the guarded ones refuse.
+    resolved = tuple((surface, engine_of(surface)) for surface in row.landed_surfaces)
+    missing = sorted(ENGINE_SURFACES - {engine for _surface, engine in resolved if engine})
+    landed = tuple(surface for surface, engine in resolved if engine and (probe.repo / surface).is_file())
+    return (
+        *(
+            Fault(code="unmapped-surface", detail=f"{row.class_id}: {surface} maps to no engine oracle, so no verb can prove its guard")
+            for surface, engine in resolved
+            if engine is None
+        ),
+        *(
+            Fault(code="no-surface", detail=f"{row.class_id}: {surface} carries no guard — the path does not resolve under {probe.repo}")
+            for surface, engine in resolved
+            if engine and not (probe.repo / surface).is_file()
+        ),
+        *(
+            (
+                Fault(
+                    code="unprobed",
+                    detail=f"{row.class_id}: names {len(landed)} landed surface(s) with no guard_probe — the claim asserts a guard nothing reads",
+                ),
+            )
+            if landed and not row.guard_probe
+            else ()
+        ),
+        *(
+            Fault(
+                code="unguarded",
+                detail=f"{row.class_id}: {surface} resolves but carries no span matching guard_probe — the row claims a guard that is absent",
+            )
+            for surface in landed
+            if row.guard_probe and not guard_carried(probe.repo, surface, row.guard_probe)
+        ),
+        *(
+            (Fault(code="unmirrored", detail=f"{row.class_id}: no landed guard on {', '.join(missing)} — an unguarded engine re-mints the class"),)
+            if probe.mirrored and missing
+            else ()
+        ),
+    )
 
 
 def class_entries(parsed: object, origin: str, /) -> Result[tuple[object, ...], Fault]:
@@ -2747,7 +2833,7 @@ def matcher_faults(row: RefutedClass, /) -> tuple[Fault, ...]:
     )
 
 
-def row_checked(at: int, entry: object, taken: frozenset[str], /) -> RowVerdict:
+def row_checked(at: int, entry: object, taken: frozenset[str], /, *, probe: SurfaceProbe | None = None) -> RowVerdict:
     if not isinstance(entry, dict):
         return RowVerdict(at=at, class_id="", faults=(Fault(code="malformed", detail=f"row {at}: not a class mapping"),))
     try:
@@ -2768,40 +2854,45 @@ def row_checked(at: int, entry: object, taken: frozenset[str], /) -> RowVerdict:
                 if row.class_id and row.class_id in taken
                 else ()
             ),
+            *(surface_faults(row, probe) if probe else ()),
         ),
     )
 
 
-def rows_checked(entries: tuple[object, ...], standing: frozenset[str], /) -> tuple[RowVerdict, ...]:
+def rows_checked(entries: tuple[object, ...], standing: frozenset[str], /, *, probe: SurfaceProbe | None = None) -> tuple[RowVerdict, ...]:
     def stepped(acc: tuple[frozenset[str], tuple[RowVerdict, ...]], pair: tuple[int, object], /) -> tuple[frozenset[str], tuple[RowVerdict, ...]]:
         taken, verdicts = acc
-        verdict = row_checked(pair[0], pair[1], taken)
+        verdict = row_checked(pair[0], pair[1], taken, probe=probe)
         return taken | ({verdict.class_id} if verdict.class_id else set()), (*verdicts, verdict)
 
     seed: tuple[frozenset[str], tuple[RowVerdict, ...]] = (standing, ())
     return reduce(stepped, tuple(enumerate(entries, start=1)), seed)[1]
 
 
-def check_built(path: Path, standing: frozenset[str], entries: tuple[object, ...], /) -> RegistryCheckReceipt:
-    verdicts = rows_checked(entries, standing)
+def check_built(path: Path, standing: frozenset[str], entries: tuple[object, ...], probe: SurfaceProbe, /) -> RegistryCheckReceipt:
+    verdicts = rows_checked(entries, standing, probe=probe)
     faulted = tuple(verdict for verdict in verdicts if verdict.faults)
     return RegistryCheckReceipt(path=str(path), standing=len(standing), rows=len(entries), clean=len(verdicts) - len(faulted), faulted=faulted)
 
 
-def registry_checked(rows_spec: str, /) -> Result[RegistryCheckReceipt, Fault]:
+def registry_checked(rows_spec: str, repo: Path, /) -> Result[RegistryCheckReceipt, Fault]:
     if not rows_spec:
+        standing = SurfaceProbe(repo=repo, mirrored=True)
         if not REGISTRY_PATH.is_file():
-            return Ok(check_built(REGISTRY_PATH, frozenset(), ()))
-        return entries_of(REGISTRY_PATH).map(lambda entries: check_built(REGISTRY_PATH, frozenset(), entries))
+            return Ok(check_built(REGISTRY_PATH, frozenset(), (), standing))
+        return entries_of(REGISTRY_PATH).map(lambda entries: check_built(REGISTRY_PATH, frozenset(), entries, standing))
     path = Path(rows_spec)
+    probe = SurfaceProbe(repo=repo, mirrored=False)
     return registry_loaded().bind(
-        lambda registry: proposed_entries(path).map(lambda entries: check_built(path, frozenset(row.class_id for row in registry.classes), entries))
+        lambda registry: proposed_entries(path).map(
+            lambda entries: check_built(path, frozenset(row.class_id for row in registry.classes), entries, probe)
+        )
     )
 
 
-def registry_applied(rows_path: Path, /) -> Result[RegistryApplyReceipt, Fault]:
+def registry_applied(rows_path: Path, repo: Path, /) -> Result[RegistryApplyReceipt, Fault]:
     def admitted(entries: tuple[object, ...], registry: Registry, /) -> Result[tuple[RefutedClass, ...], Fault]:
-        verdicts = rows_checked(entries, frozenset(row.class_id for row in registry.classes))
+        verdicts = rows_checked(entries, frozenset(row.class_id for row in registry.classes), probe=SurfaceProbe(repo=repo, mirrored=False))
         faulted = tuple(verdict for verdict in verdicts if verdict.faults)
         if faulted:
             roster = "; ".join(
@@ -2891,7 +2982,20 @@ def registry_proofs() -> tuple[tuple[str, bool], ...]:
         {**template, "class_id": "<standing-a>"},
         "<not-a-mapping>",
     )
+    surfaced: tuple[object, ...] = (
+        {**template, "class_id": "<class-d>", "landed_surfaces": []},
+        {**template, "class_id": "<class-e>", "landed_surfaces": ["docs/<file-a>.md"]},
+    )
+    unfound = Path("<no-repo>")
     fired = tuple(tuple(fault.code for fault in verdict.faults) for verdict in rows_checked(entries, frozenset({"<standing-a>"})))
+    proposed = tuple(
+        tuple(fault.code for fault in verdict.faults)
+        for verdict in rows_checked(surfaced, frozenset(), probe=SurfaceProbe(repo=unfound, mirrored=False))
+    )
+    standing = tuple(
+        tuple(fault.code for fault in verdict.faults)
+        for verdict in rows_checked((template,), frozenset(), probe=SurfaceProbe(repo=unfound, mirrored=True))
+    )
     return (
         ("registry-clean-row-passes", fired[0] == ()),
         ("registry-bad-matcher-loud", fired[1] == ("bad-matcher",)),
@@ -2899,6 +3003,9 @@ def registry_proofs() -> tuple[tuple[str, bool], ...]:
         ("registry-unknown-key-loud", fired[3] == ("unknown-key",)),
         ("registry-standing-duplicate-loud", fired[4] == ("duplicate-class",)),
         ("registry-shape-drift-loud", fired[5] == ("malformed",)),
+        ("registry-proposal-empty-roster-passes", proposed[0] == ()),
+        ("registry-unmapped-surface-loud", proposed[1] == ("unmapped-surface",)),
+        ("registry-absent-surface-and-mirror-gap-loud", standing[0] == ("no-surface", "unmirrored")),
     )
 
 
@@ -3035,6 +3142,32 @@ def rollup_proofs() -> tuple[tuple[str, bool], ...]:
     )
 
 
+def twin_law(text: str, /) -> tuple[str, ...]:
+    fenceless = reduce(lambda held, mark: held.replace(mark, ""), TWIN_FENCING, text)
+    return tuple(" ".join(line.split()) for line in TWIN_PATH_GLOSS_RE.sub("", TWIN_OBLIGATION_RE.sub("", fenceless)).splitlines() if line.strip())
+
+
+def twin_bodies(repo: Path, /) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    def texted(path: Path, /) -> str:
+        return read_bytes(path).map(lambda raw: raw.decode(errors="replace")).default_with(lambda _fault: "")
+
+    fenced = HARVEST_LAW_RE.search(texted(BUNDLE / "templates" / "harvest.md"))
+    agent = texted(repo / AGENT_DEFINITION)
+    at = agent.find(TWIN_LAW_OPEN)
+    return (twin_law(fenced.group(1)) if fenced else ()), (twin_law(agent[at:]) if at >= 0 else ())
+
+
+def twin_proofs(repo: Path, /) -> tuple[tuple[str, bool], ...]:
+    # The sync obligation both surfaces state is mechanical here: one law edited on one surface diverges a law line, and the failing proof names it.
+    codex, agent = twin_bodies(repo)
+    divergence = next((at for at, pair in enumerate(zip_longest(codex, agent, fillvalue=""), start=1) if pair[0] != pair[1]), 0)
+    return (
+        ("twin-codex-law-extracted", bool(codex)),
+        ("twin-agent-law-extracted", bool(agent)),
+        (f"twin-law-bodies-identical{f' (first divergence: law line {divergence})' if divergence else ''}", bool(codex) and not divergence),
+    )
+
+
 def grade_proofs() -> tuple[tuple[str, bool], ...]:
     def stat_of(lane: str, verdicts: dict[str, int], phantom: tuple[str, ...], /, *, gate: bool) -> LaneStat:
         return LaneStat(
@@ -3057,7 +3190,7 @@ def grade_proofs() -> tuple[tuple[str, bool], ...]:
     )
 
 
-def selftest_proofs() -> tuple[tuple[str, bool], ...]:
+def selftest_proofs(repo: Path, /) -> tuple[tuple[str, bool], ...]:
     primary, nulled = selftest_fixture()
     full = report_decoded(primary, LaneReport, "<selftest-primary>")
     empty = report_decoded(nulled, LaneReport, "<selftest-null>")
@@ -3105,6 +3238,7 @@ def selftest_proofs() -> tuple[tuple[str, bool], ...]:
         *spawn_proofs(),
         *fill_proofs(),
         *rollup_proofs(),
+        *twin_proofs(repo),
         *grade_proofs(),
     )
 
@@ -4172,11 +4306,11 @@ def round_cmd(
 
 
 @APP.command
-def registry(*, check: bool = False, apply: bool = False, rows: str = "") -> int:
-    """Prove proposed refuted-class rows (--check; bare lints the standing yaml) or land a fully clean set append-only (--apply)."""
+def registry(*, check: bool = False, apply: bool = False, rows: str = "", directory: _Dir = None) -> int:
+    """Prove proposed refuted-class rows (--check; bare lints the standing yaml and its landed guards) or land a fully clean set append-only (--apply)."""
     match check, apply, bool(rows):
         case (True, False, _):
-            match registry_checked(rows):
+            match repo_root(directory).bind(lambda repo: registry_checked(rows, repo)):
                 case Result(tag="ok", ok=receipt):
                     emitted(receipt)
                     return 0 if not receipt.faulted else 1
@@ -4185,7 +4319,7 @@ def registry(*, check: bool = False, apply: bool = False, rows: str = "") -> int
                 case _:
                     return 1
         case (False, True, True):
-            return delivered(registry_applied(Path(rows)))
+            return delivered(repo_root(directory).bind(lambda repo: registry_applied(Path(rows), repo)))
         case (False, True, False):
             return refused(Fault(code="bad-flag", detail="--apply requires --rows <path> naming the proposed classes: rows"))
         case _:
@@ -4221,9 +4355,9 @@ def verify(*, rule: str = "", path: str = "", round_no: _RoundNo = None, directo
 
 
 @APP.command
-def selftest() -> int:
-    """Prove the rail's pure contracts and exit nonzero naming each failed proof."""
-    rows = selftest_proofs()
+def selftest(*, directory: _Dir = None) -> int:
+    """Prove the rail's contracts — pure shapes plus the twin law bodies on disk — and exit nonzero naming each failed proof."""
+    rows = selftest_proofs(repo_root(directory).default_with(lambda _fault: BUNDLE.parents[2]))
     failures = tuple(name for name, held in rows if not held)
     emitted(SelftestReceipt(proofs=len(rows), passed=len(rows) - len(failures), failures=failures))
     return 0 if not failures else 1

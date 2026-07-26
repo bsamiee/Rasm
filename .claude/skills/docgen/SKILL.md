@@ -23,19 +23,19 @@ Fix prose by silent removal, never by mutation in place: delete the defect whole
 - [01]-[DEFECTS](references/defects.md): defect classes — detection test and reframe per class
 
 [TEMPLATES]: Start a new instance from its kind's template — copy the structure, fill the declared slots:
-- [01]-[IDEAS](templates/ideas.template.md): idea-card grammar at concept altitude
-- [02]-[TASKLOG](templates/tasklog.template.md): task-card grammar at landing grain
-- [03]-[README](templates/readme.template.md): exact structure, slots only
-- [04]-[ARCHITECTURE](templates/architecture.template.md): exact structure, replace only the slots
-- [05]-[SPEC](templates/spec.template.md): exact section spine, slots carry their budgets
-- [06]-[API_CATALOG](templates/api-catalog.template.md): exact structure, replace only the slots
-- [07]-[RULINGS](templates/rulings.template.md): permanent decision registry
+- [01]-[IDEAS](templates/ideas.template.md): Idea-card grammar at concept altitude
+- [02]-[TASKLOG](templates/tasklog.template.md): Task-card grammar at landing grain
+- [03]-[README](templates/readme.template.md): Exact structure, slots only
+- [04]-[ARCHITECTURE](templates/architecture.template.md): Exact structure, replace only the slots
+- [05]-[SPEC](templates/spec.template.md): Exact section spine, slots carry their budgets
+- [06]-[API_CATALOG](templates/api-catalog.template.md): Exact structure, replace only the slots
+- [07]-[RULINGS](templates/rulings.template.md): Permanent decision registry
 
 [EXAMPLES]: Consult the matching symptom-indexed set before building or repairing the container:
-- [01]-[TABLES](examples/tables.md): table crimes and their structural repairs
-- [02]-[LISTS](examples/lists.md): list crimes and their classified repairs
-- [03]-[MARKERS](examples/markers.md): marker crimes and the declared-vocabulary repair
-- [04]-[INTROS](examples/intros.md): leads that legislate and the rejected frames
+- [01]-[TABLES](examples/tables.md): Table crimes and their structural repairs
+- [02]-[LISTS](examples/lists.md): List crimes and their classified repairs
+- [03]-[MARKERS](examples/markers.md): Marker crimes and the declared-vocabulary repair
+- [04]-[INTROS](examples/intros.md): Leads that legislate and the rejected frames
 
 ## [02]-[REGISTER]
 

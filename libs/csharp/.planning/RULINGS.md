@@ -1,6 +1,6 @@
 # [CSHARP_BRANCH_RULINGS]
 
-Branch-tier decision registry for `libs/csharp` — the settled rulings spanning two or more folders that agents re-litigate for lack of a home. Each row is one decision with the one why guarding its re-litigation: a package admission or rejection, an owner-choice discriminant, a collapse refusal naming the lost guarantee, a structure retirement, or a working law. Append-mostly; a row earns its seat while its why stays homeless, dies only when fact and why both live at one durable surface, and a decision scoped to one folder homes at that tier, an estate-spanning one at cross-libs. `(none)` marks a section awaiting its first ruling.
+`libs/csharp` rulings settle branch-spanning decisions.
 
 ## [01]-[PACKAGES]
 
@@ -8,6 +8,7 @@ Branch-tier decision registry for `libs/csharp` — the settled rulings spanning
 
 ## [02]-[SHAPE]
 
+- The kernel is RhinoCommon-aware by charter and the whole branch inherits that host dependence through it — every package the strata table seats above the kernel links RhinoCommon transitively, so the branch builds only against a host bundle; a host-free kernel twin, a `Rasm3dm` substitution, or a claim that a host-neutral package is adoptable off the bundle each contradict `[03]-[UNIVERSAL_VS_CAPTURE]`, which licenses exactly this capture. Host-neutral names the absence of a host-aware flag and a host namespace in a package's own manifest, never freedom from the kernel's bundle. Reopens only on a kernel split proving a host-free numeric floor no consumer re-couples.
 - Composition-root surfaces — host boot shells, cache and endpoint registrations, host-side preset tables — home at the app-shell stratum; a host-boundary or parity-source package blocked on the not-yet-landed shell stays blocked, and pulling the surface down into the boundary package to clear the block is the rejected shortcut that seats composition below its stratum.
 - Folder hook registries beside the kernel `HookPoint` are earned solely by plugin-identity grant custody — first-mount-wins seat arbitration the kernel's composition-frozen point mount does not own; a registry that re-keys `(point, scope, token)` is the deleted form, and a grant-custody registry is never deleted as redundant on the strength of a sibling's drop.
 - Benchmark-grading AEC peers compile-reference `Rasm.AppHost` legally — admission is by-name string scope, never a reverse type reference, so the up-reference is cycle-safe and exists only for the gate-stamped receipt; an observability-only peer reaches the signal plane through the kernel capsule with no AppHost reference.

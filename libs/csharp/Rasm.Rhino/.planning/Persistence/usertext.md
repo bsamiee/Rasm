@@ -714,11 +714,9 @@ public static class Texts
 
 Search policy remains one value across admission and projects `SearchRoute` and `CaseSensitive` only inside `FindByUserString`. Store rows retain independent host routing, and each match carries the exact contributing row set.
 
-## [05]-[SEAMS]
-
 `DocumentStream` alone observes `RhinoDoc.UserStringChanged`; `Texts.Commit` never creates a parallel event surface. Object mutation terminates at `Tables.Commit`, while document text remains under the session's undo bracket.
 
-## [06]-[RESEARCH]
+## [05]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

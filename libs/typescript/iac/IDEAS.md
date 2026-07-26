@@ -56,6 +56,13 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Anchors: the `_PACKS` provenance rows; `libs/csharp/Rasm.Grasshopper/.planning/Shell/telemetry.md` telemetry fan.
 - Arms: every producer route exposes an executable `{ boards, alerts }` projection, the absent `grasshopper.fan` dashboard descriptor at `libs/csharp/Rasm.Grasshopper/.planning/Shell/telemetry.md` first.
 
+[GENERATION_ROLLOUT_STRATEGY]-[QUEUED]: A backend generation cuts over under a declared rollout strategy, not one atomic pointer flip.
+- Capability: cutover becomes a strategy row the deploy plane folds — immediate, canary over a traffic fraction, or paired blue-green targets — each carrying its own admission evidence and its own abort predicate, so a generation that proves in the cluster but fails under live traffic retires without a manual runbook.
+- Shape: one strategy vocabulary on `operate/converge.md` `[04]-[PUBLICATION]` threading the pointer write, with the traffic split reading the `kube/traffic.md` Gateway rows.
+- Unlocks: a generation reaches production behind a measured gate instead of an all-at-once pointer write, and rollback becomes strategy data rather than a second verb.
+- Anchors: `operate/converge.md` `[04]-[PUBLICATION]` retained-evidence and pointer rows; `kube/traffic.md` Gateway API edge; the Automation-API ledger serializing pointer writes.
+- Tension: the pointer write is currently the atomic cutover and the whole rollback story; a strategy row that keeps two generations live at once forces readiness to compare against a set rather than one pointer value.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed idea card template:

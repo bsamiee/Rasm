@@ -60,6 +60,14 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: `IDEAS.md` `[SUPPORT_BUNDLE]`; `libs/csharp/Rasm.AppUi/.planning/Document/export.md` `[02]-[EXPORT_DESTINATIONS]`; `libs/csharp/Rasm.AppUi/.planning/Diagnostics/proof.md` `[04]-[PROOF_LAW]`; `BundleMember`/`ContentHash.Of`/`ProofLaw.BundleShape`.
 - Tension: arming trigger — add the post-redaction, post-cap content key to `SupportManifest.Entry`, `Written`, and `Faulted` in `libs/csharp/Rasm.AppHost/.planning/Observability/bundles.md`, then pin that field in the manifest golden.
 
+[CAPTURE_ROW_FACTORY_CALLS]-[QUEUED]: Render-twin capture rows mint through the owner's factory instead of an inaccessible constructor.
+- Capability: every capture row admits through the one owner-held rail, so a twin carries its colour policy and an admission failure lands typed rather than as a construction that cannot compile.
+- Shape: the two `RenderTwin` mints on `libs/csharp/Rasm.AppUi/.planning/Charts/custom.md` and `Charts/dashboards.md` compose the `Diagnostics/proof.md` `[02]` factory and return its rail, carrying the gamut column both sites omit.
+- Unlocks: the chart twins compile against the landed owner, and capture evidence states its colour policy rather than defaulting silently.
+- Anchors: the private constructor and its five-column shape on `libs/csharp/Rasm.AppUi/.planning/Diagnostics/proof.md`; the `RenderHashLane` row entry beside it.
+- Tension: both sites pass four positional arguments against a five-column private constructor, so the gamut value is a real decision the diagnostics owner makes, never a filled-in default.
+- Atomic: two call sites onto one existing factory.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:

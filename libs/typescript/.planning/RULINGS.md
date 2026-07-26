@@ -1,6 +1,6 @@
 # [TYPESCRIPT_BRANCH_RULINGS]
 
-Branch-tier decision registry for `libs/typescript` — the settled rulings spanning two or more folders that agents re-litigate for lack of a home. Each row is one decision with the one why guarding its re-litigation: a package admission or rejection, an owner-choice discriminant, a collapse refusal naming the lost guarantee, a structure retirement, or a working law. Append-mostly; a row earns its seat while its why stays homeless, dies only when fact and why both live at one durable surface, and a decision scoped to one folder homes at that tier, an estate-spanning one at cross-libs. `(none)` marks a section awaiting its first ruling.
+`libs/typescript` rulings settle branch-spanning decisions.
 
 ## [01]-[PACKAGES]
 
@@ -19,7 +19,7 @@ Branch-tier decision registry for `libs/typescript` — the settled rulings span
 
 - Schema-variant derivation stays bounded to structurally-parallel projections of one decoded truth, collapsed to one field-level owner; a family whose forms differ semantically stays separate declarations — a semantically-divergent form forced into a variant key is a second truth wearing one owner's name.
 - Store-backed rate limiting stays three postures, each admitting new sites — refuse (the serve pressure gate, 429 with `retryAfter`), delay (the replay-surviving sleeps of the durable work quota and the olap ingest quota), count (the auth throttle's reject stream); one branch limiter-policy owner with a single fault bridge erases the refuse-vs-delay posture each edge's law prices — the shared surface is the policy-row shape, never one owner.
-- Fault altitudes stay three — interchange reconstruction adopts C#-minted detail verbatim, folder rails raise local typed faults, and the runtime serve plane alone prices outbound exposure; folding reconstruction into folder rails re-raises foreign truth as local truth, and folding folder rails into the serve mapping couples every folder to transport status — each altitude owns a truth source the others cannot.
+- Fault altitudes stay three — interchange reconstruction adopts a peer-minted detail verbatim, folder rails raise local typed faults, and the runtime serve plane alone prices outbound exposure; folding reconstruction into folder rails re-raises foreign truth as local truth, and folding folder rails into the serve mapping couples every folder to transport status — each altitude owns a truth source the others cannot.
 
 ## [04]-[STRUCTURE]
 

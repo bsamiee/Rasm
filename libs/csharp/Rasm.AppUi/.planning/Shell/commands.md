@@ -15,9 +15,9 @@ Rasm.AppUi runs one command rail: a single `CommandIntent` row table is the only
 - Owner: `CommandIntent` row record with its nested `Availability` input struct; `CommandPayload` `[Union]` argument shapes; `CommandDeck` per-surface frozen result carrying the row table, the normalized palette index, and the gesture-conflict fold.
 - Cases: `CommandPayload` = None | Single | Many | Text under the locked kind literals none, single, many, text — parameterized intents discriminate on payload shape, never on name suffixes; each row's `Accepts` set names its admitted kind domain, and `Admit` seals `CommandFault.PayloadRejected` before `Execute` on every invocation modality.
 - Entry: `public static Fin<CommandDeck> Freeze(CommandComposition composition, params ReadOnlySpan<CommandIntent> rows)` — `Fin` aborts on a duplicate intent key, duplicate palette label, or scope-local gesture collision with a typed `CommandFault` case deriving through the `AppUiFaultBand.Command` registry row (6070); one freeze per mounted surface, and the composition-time services travel as one carrier.
-- Auto: the `Surfaces` predicate filters rows exactly once at freeze, so a row absent from a surface never materializes there; `GestureConflicts` groups on scope plus normalized chord, and `Freeze` refuses the first deterministic row before any command materializes.
+- Auto: the `Surfaces` predicate filters rows exactly once at freeze against the supplied `ConsumptionProfile` and the resolved `SurfaceMount`, so a row absent from a surface never materializes there; `GestureConflicts` groups on scope plus normalized chord, and `Freeze` refuses the first deterministic row before any command materializes.
 - Receipt: `CommandComposition.Conflict` seals the deterministic `GestureConflict` through the composition-bound evidence sink immediately before `Freeze` returns `CommandFault.GestureConflict`; execution receipts begin only after a conflict-free deck exists.
-- Packages: Thinktecture.Runtime.Extensions, Avalonia, LanguageExt.Core, BCL inbox
+- Packages: Thinktecture.Runtime.Extensions, Avalonia, LanguageExt.Core, Rasm.AppHost (project), BCL inbox
 - Growth: one `CommandIntent` row absorbs a new verb across every derived surface and one `CommandPayload` case absorbs a new argument shape; zero new surface.
 - Boundary: the locked row shape — intent key, availability delegate with `DegradationLevel` input, `Option<KeyGesture>`, surface predicate — deletes menu registries, toolbar registries, palette registries, hotkey tables, and deep-link maps in one stroke; the intent key is simultaneously the localization string key the `label` resolver consumes and the icon catalog key, so a label column and an icon column are the deleted forms; the `chord` delegate is the host-agnostic Cmd/Ctrl column transform, so duplicate per-platform gesture rows are the rejected form; `Execute` delegates bind host work at composition and no case body names a host API outside its own row; `ViewportVerbs.Visibility` projects the `Render/pipeline.md` `VisibilityAction` folds into `viewport.*` rows so viewport interaction, palette, and remote invocation share the one visibility language, and the media transport verbs enter as rows keyed by the `Document/media.md` `TransportVerb.Intent` derivation (`media.track`, `media.subtitle`, `media.section-loop` beside the existing `media.*` keys) with their payloads bound at composition — a second verb registry beside the one table is the deleted form.
 
@@ -29,7 +29,7 @@ public sealed record CommandIntent(
     FrozenSet<string> Accepts,
     Func<CommandIntent.Availability, bool> When,
     Option<KeyGesture> Gesture,
-    Func<SurfaceHost, bool> Surfaces,
+    Func<ConsumptionProfile, SurfaceMount, bool> Surfaces,
     Func<CommandPayload, IO<Unit>> Execute) {
     public readonly record struct Availability(DegradationLevel Level, bool Valid, SelectionSnapshot Selection, bool Busy);
 
@@ -95,7 +95,8 @@ public abstract partial record CommandFault : Expected {
 public sealed record GestureConflict(CommandScope Scope, string Gesture, Seq<string> Keys);
 
 public sealed record CommandComposition(
-    SurfaceHost Surface,
+    ConsumptionProfile Profile,
+    SurfaceMount Mount,
     string SurfaceKey,
     Func<KeyGesture, KeyGesture> Chord,
     Func<string, string> Label,
@@ -127,7 +128,7 @@ public sealed record CommandDeck(
     public static Fin<CommandDeck> Freeze(
         CommandComposition composition,
         params ReadOnlySpan<CommandIntent> rows) =>
-        Admitted(toSeq(rows.ToArray()).Filter(row => row.Surfaces(composition.Surface)), composition.Label)
+        Admitted(toSeq(rows.ToArray()).Filter(row => row.Surfaces(composition.Profile, composition.Mount)), composition.Label)
             .Map(admitted => new CommandDeck(
                 admitted.Map(static row => KeyValuePair.Create(row.Key, row)).ToFrozenDictionary(StringComparer.Ordinal),
                 admitted.Map(row => KeyValuePair.Create(composition.Label(row.Key).ToLowerInvariant(), row.Key)).ToFrozenDictionary(StringComparer.Ordinal),
@@ -425,7 +426,7 @@ flowchart LR
 
 ## [06]-[TS_PROJECTION]
 
-- Owner: `CommandIntentWire`, `CommandGateWire`, `CommandInvocationWire`, `CommandPayloadWire`, `CommandOutcomeWire`, `CommandReceiptWire` — the command wire contract the TS layer consumes today while `SurfaceHost` WebBrowser stays a designed-only growth case.
+- Owner: `CommandIntentWire`, `CommandGateWire`, `CommandInvocationWire`, `CommandPayloadWire`, `CommandOutcomeWire`, `CommandReceiptWire` — the command wire contract the TS layer consumes today while the browser host row carries `HostSurface.None`, mounts no shell, and stays a designed-only growth case.
 - Packages: BCL inbox
 - Growth: one wire member row per new receipt field and one kind literal per new payload or outcome case; zero new surface.
 - Boundary: shapes transcribe the camelCase emission of the suite wire law — intent keys cross as ordinal strings, the level field crosses as the degradation smart-enum string key, elapsed crosses as ISO-8601 duration text, correlation crosses as a guid string, gesture crosses as its parse-round-trip text, and payload and outcome discriminate on the locked kind literals; the receipt binds as the payload type parameter on the envelope wire record from the suite wire law; `CommandGateWire` transcribes the per-row `CanExecute` gate verdict — the frozen name `CommandAvailabilityWire` is `Rasm.AppHost/Observability` health.md's `DegradationLevel` command-availability snapshot, a different carrier this palette wire never shadows.

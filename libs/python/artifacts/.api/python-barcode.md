@@ -53,7 +53,7 @@
 | [INDEX] | [SURFACE]                 | [CALL_SHAPE]                                     | [CAPABILITY]                                         |
 | :-----: | :------------------------ | :----------------------------------------------- | :--------------------------------------------------- |
 |  [01]   | `Barcode.render`          | `render(writer_options=None, text=None)`         | in-memory SVG `str` or `PIL.Image`                   |
-|  [02]   | `Barcode.write`           | `write(fp, options=None, text=None) -> None`     | open binary stream; the `encode#MARK` `BytesIO` sink |
+|  [02]   | `Barcode.write`           | `write(fp, options=None, text=None) -> None`     | open binary stream; the `graphic/marks/encode#MARK` `BytesIO` sink |
 |  [03]   | `Barcode.save`            | `save(filename, options=None, text=None) -> str` | file write; extension by writer; full filename       |
 |  [04]   | `Barcode.build`           | `build() -> list[str]`                           | single-element 1s/0s module-extent list              |
 |  [05]   | `Barcode.get_fullcode`    | `get_fullcode() -> str`                          | check-digit-completed code; `linear` score evidence  |
@@ -79,7 +79,7 @@
 - `stream-zip` (`.api/stream-zip.md`): the `write(BytesIO(), …)` SVG stream feeds a `MemberFile` data iterable, so a batch of barcode SVGs streams into a ZIP label bundle without buffering whole files — identical to the segno `save(BytesIO, kind='svg')` bundle path.
 
 [LOCAL_ADMISSION]:
-- lazy `import barcode` (and `from barcode.errors import …`) at the `encode#MARK` boundary; module-level import violates the manifest import policy.
+- lazy `import barcode` (and `from barcode.errors import …`) at the `graphic/marks/encode#MARK` boundary; module-level import violates the manifest import policy.
 - python-barcode is strictly 1D — QR/Micro-QR route to the segno `qr` arm and DataMatrix/PDF417/Aztec/MaxiCode/rMQR to the zxing-cpp `matrix` arm; the SVG bytes feed the `svgelements`/document figure owners with no rasterization, and the `ImageWriter` raster path stays off-core so the Pillow dependency stays unengaged.
 
 [RAIL_LAW]:

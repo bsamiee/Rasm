@@ -81,7 +81,7 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Package root exports only `OfficeFile` and `exceptions`; the concrete `OOXMLFile`/97 classes are factory-returned, never caller-selected constructors. Import at boundary scope only (`lazy import msoffcrypto` in `folder:document/egress#EGRESS`); module-level import is banned by the manifest import policy.
+- Package root exports only `OfficeFile` and `exceptions`; the concrete `OOXMLFile`/97 classes are factory-returned, never caller-selected constructors. Import at boundary scope only (`lazy import msoffcrypto` in `document/egress#FINISH`); module-level import is banned by the manifest import policy.
 - `OfficeFile(file)` is the single entry; container kind is a stream-layout discriminant resolved by the factory, never a caller-selected format flag or a per-extension reader.
 - `load_key` owns key derivation; `password`/`private_key`/`secret_key` are call rows, never a per-credential method family, and `keyTypes` advertises which rows the container `type` admits.
 - OOXML folds verification into the call opt-in (`verify_password` on `load_key`, `verify_integrity` on `decrypt`) while the 97 path always verifies inside `load_key`; `decrypt` writes to the caller's handle under an always-on post-decrypt zip-validity gate, never an in-package buffer.
@@ -91,8 +91,8 @@
 [STACKING]:
 - `openpyxl`(`.api/openpyxl.md`)/`python-docx`(`.api/python-docx.md`)/`python-pptx`(`.api/python-pptx.md`): the decrypted plaintext stream is their document-open input; this owner unlocks and never re-parses the OOXML/OLE tree they model.
 - `py7zr`(`.api/py7zr.md`)/`stream-zip`(`.api/stream-zip.md`): the plaintext or resealed bytes flow to the persistence archive owners.
-- within-lib detect: `folder:exchange/detect#DETECT` routes the `MediaClass.ENCRYPTED`/`OFFICE_LEGACY` verdict here, so this owner reads one routing member and never re-sniffs the bytes.
-- within-lib egress: `folder:document/egress#EGRESS` folds the format-discriminated unlock/reseal into its `PROTECT` `EgressStep`; an `expression` Result carries `RuntimeRail[ContentKey]`, the `async_boundary` capsule maps a `DecryptionError`/`FileFormatError` to a `BoundaryFault`, and the `anyio` `lane.offload` seam runs the GIL-releasing decrypt off the event loop.
+- within-lib detect: `exchange/detect#DETECT` routes the `MediaClass.ENCRYPTED`/`OFFICE_LEGACY` verdict here, so this owner reads one routing member and never re-sniffs the bytes.
+- within-lib egress: `document/egress#FINISH` folds the format-discriminated unlock/reseal into its `PROTECT` `EgressStep`; an `expression` Result carries `RuntimeRail[ContentKey]`, the `async_boundary` capsule maps a `DecryptionError`/`FileFormatError` to a `BoundaryFault`, and the `anyio` `lane.offload` seam runs the GIL-releasing decrypt off the event loop.
 - within-lib capsule: `xxhash`-backed `ContentIdentity.of` mints the content key over the decrypted/resealed bytes, `beartype` validates the boundary over a per-finish `BytesIO(egress.source)` handle, and `structlog` excludes key material from every event.
 - receipt: the result rides the `msgspec.Struct` `FinishFact` the egress fold threads through `structs.replace`, contributing one kind-discriminated `ArtifactReceipt` case via the runtime `ReceiptContributor` port; the `Confidentiality` `@tagged_union` (`unlock`/`reseal`) is the closed disposition the `PROTECT` arm matches on.
 

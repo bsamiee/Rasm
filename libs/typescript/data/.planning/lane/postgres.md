@@ -16,7 +16,7 @@ PostgreSQL's guarantee-lane spine owns first-party capabilities, concurrency pri
 
 - Owner: the `_spine` key tuple — one closed key per first-party engine capability; the derived `Pg.Spine` union is the first-party half of the grant vocabulary the sqlite degradation table mirrors row for row, and the SQL idiom each key names lives in this cluster's law lines, spliced by ensure authors as settled fact.
 - Packages: none — the rows are engine facts, not packages.
-- Entry: `journal/append.md` composes `uuidv7()` defaults and `RETURNING` evidence per these laws; `journal/evolve.md` reads `virtualGenerated` for derived snapshot columns; ensure authors read `temporal` for range-exclusive constraints; `lane/tenant.md` predicates the `rls` row's policy family; `lane/capability.md` seeds the pg granted set from `Pg.core.pg`.
+- Entry: `journal/append.md` composes `uuidv7()` defaults and `RETURNING` evidence per these laws; `journal/evolve.md` reads `virtualGenerated` for derived snapshot columns; ensure authors read `temporal` for range-exclusive constraints; `lane/tenant.md` predicates the `rls` row's policy family; `lane/capability.md` seeds the pg granted set from `Pg.core`.
 - Growth: a new engine capability is one tuple key — the grant union, the sqlite mirror row, and every gate inherit it; a capability subsumed by a newer engine form deletes its extension row and lands here.
 - Law: `uuidv7` is the identity-mint row — timestamp-ordered, index-local, keyset-paginatable; the extension that duplicated it is pruned from the matrix, and a surrogate key column defaults `uuidv7()` on the pg spine while the sqlite lanes mint in-app through the degradation row.
 - Law: `returningOldNew` is the single-statement evidence form — `RETURNING old.*, new.*` on INSERT/UPDATE/DELETE/MERGE discriminates insert-versus-update and yields before/after evidence without a second scan or a trigger; receipt-bearing writes splice it instead of re-reading.
@@ -36,10 +36,11 @@ declare namespace Pg {
 
 ## [03]-[PRIMITIVE_TABLE]
 
-- Owner: the `_primitives` anchor — one row per first-party concurrency/queue primitive, each carrying `upholds` and `denies`; the denies column is the table's reason to exist, because every composed correctness lane is built from what a primitive refuses as much as from what it grants.
-- Packages: none — engine facts.
+- Owner: the `_primitives` anchor — one row per first-party concurrency/queue primitive, each carrying `upholds` and `denies`, beside `_primitiveKeys`, the name roster consumers gate on; the denies column is the table's reason to exist, because every composed correctness lane is built from what a primitive refuses as much as from what it grants.
+- Packages: `effect` (`Record`) — the rows themselves are engine facts, never packages.
 - Entry: `journal/append.md` composes `advisory` for OCC serialization, `conflictClaim` for the idempotency ledger, `skipLocked` for relay claims, and `channel` for the post-commit wake; the projection and work drains read the same rows through their `SqlClient` ports.
-- Growth: a new primitive is one row with both columns filled — a row missing its denies column is an unfinished admission.
+- Growth: a new primitive is one row with both columns filled — a row missing its denies column is an unfinished admission — and `Pg.primitiveKeys` carries it to every consumer with zero consumer edits.
+- Law: this table is the ONE primitive roster, published as a value beside its type — a consumer gating on primitive names (the deploy plane's pooling-mode intersection) reads `Pg.primitiveKeys` and refuses an unknown name; a transcribed key set drifts the day a row lands.
 - Law: `skipLocked` claims exactly-one-live-transaction, never delivery — a crashed claimant releases silently, so every drain pairs it with a visibility or attempts column for redelivery; global ordering under concurrency is refused by construction and priority is an `ORDER BY` term, never an assumption.
 - Law: `channel` is a transactional wake pulse, never a queue — delivery fires only on COMMIT, deduped per channel/payload per transaction, absent listeners hear nothing, and the async queue is bounded in-memory; every listener re-polls on reconnect and the pulse only collapses poll latency.
 - Law: `conflictClaim` — `INSERT … ON CONFLICT DO UPDATE … RETURNING` with an explicit insert/update marker — is atomic first-writer discrimination without reading transaction internals; what it refuses is replay truth across statements, so the ledger row, never the claim, carries the stored receipt.
@@ -48,6 +49,8 @@ declare namespace Pg {
 - Law: `partition` (declarative partitioning with replication) refuses automated lifecycle — premake and retention drop are the `pg_partman` extension row's, and `journal/retain.md` gates on that grant.
 
 ```typescript signature
+import { Record } from "effect"
+
 const _primitives = {
   skipLocked: {
     upholds: "non-blocking competing-consumer claim, one live tx per row",
@@ -79,6 +82,11 @@ const _primitives = {
   },
 } as const
 
+// `_primitiveKeys` crosses the primitive NAMES as a value, so a consumer gating on them refuses an unknown name
+// against this owner's roster instead of transcribing the key set into a second table that drifts on the next
+// row; a type alone reaches no run-time check.
+const _primitiveKeys = Record.keys(_primitives)
+
 declare namespace Pg {
   type Primitive = keyof typeof _primitives
   type _PrimitiveRows<
@@ -99,11 +107,14 @@ declare namespace Pg {
 - Law: native `uuidv7()` subsumes the identity-mint extension class entirely — no row exists, and any image fact naming one is stale.
 - Law: flags price deployment facts and derive from one tuple — `timescaledb` carries `tsl` (source-available licensing), `excludesSharding` (mutually exclusive with a sharding engine in one database), and `preload`; the `preload` flag on it, `pg_cron`, and `pg_stat_statements` marks the `shared_preload_libraries` demand the deploy plane's CNPG derivation filters on, so a new preload-demanding extension is a flag edit with zero deploy-plane code change; every flag travels into the image projection so the deployment derivation prices the roster, and a core-layer row carrying any flag joins the projection too — contrib ships in every image, but its deployment fact still needs the derivation to see it.
 - Law: dependency demands are data — `_demands` pairs a row flag with the grant it requires (`requiresCron` demands `cron`), `lane/capability.md` refuses a flagged row whose demanded grant is absent, and the deploy plane's `_DEMANDS` table reads the same pairs; `pg_incremental`'s exactly-once checkpointed batch folds are the maintenance plane's incremental lane, admitted only where `pg_cron` also probes true.
+- Law: `_backend` pairs each contract capability key with the grant that proves it, so backend observation resolves against the one granted set; an identity extension-to-extension row reads version evidence instead and reports every core-seeded grant missing.
+- Law: `_core` is the pg dialect seed alone — a sqlite profile seeds the grants its own `lane/sqlite.md` degradation row proves native, so no pg-authored arm speaks for a lane it cannot probe.
 - Law: `pg_parquet` grants the object-store COPY egress — `COPY TO/FROM` Parquet against the object plane — interchange only, never a query engine; the OLAP lane owns querying what it writes.
 - Law: the standard probe is structural — a row without `probeSql` rides the one batched catalog scan `lane/capability.md` owns; `probeSql` exists ONLY as the exotic per-row override, so probe dispatch reads field presence, never string shape.
 
 ```typescript signature
 import { Record } from "effect"
+import type { Backend } from "./capability.ts"
 
 const _flags = ["tsl", "excludesSharding", "preload", "requiresCron"] as const
 
@@ -130,10 +141,15 @@ const _rows = {
 
 const _demands = [["requiresCron", "cron"]] as const
 
-const _core = {
-  pg: [..._spine, ...Record.keys(_primitives)],
-  sqlite: [],
-} as const
+// One adapter per capability a row grants: the contract keys a capability row by the extension a deployment
+// declares while the probe publishes GRANTS, so the pair IS that translation and a row granting two
+// capabilities proves its extension through either — an identity row would resolve against version evidence
+// and report every core-seeded grant missing.
+const _backend = Record.values(_rows).flatMap((row) =>
+  row.capabilities.map((grant) => ({ canonical: row.extension, local: grant }))
+) satisfies ReadonlyArray<Backend.Adapter>
+
+const _core = [..._spine, ..._primitiveKeys] as const
 
 declare namespace Pg {
   type Kind = keyof typeof _rows
@@ -160,7 +176,7 @@ declare namespace Pg {
 - Packages: `@effect/sql-pg` (`PgClient.layer`, `PgClient.layerConfig`, `PgClient.layerFromPool`, `PgClient.listen`, `PgClient.notify`, `PgClient.json`); `effect` (`Config`, `Duration`, `Redacted`, `Schedule`).
 - Entry: `lane/tenant.md` composes `Pg.client` and `Pg.fromPool` inside its `Stores` lookup; `journal/append.md` owns the optional `PgClient.listen` subscription as `Journal.wake(app)` and writes `pg_notify(channel, payload)` through its transaction-bound neutral client.
 - Growth: a pool knob is a `Config` field on `_client` (`maxConnections`, `connectionTTL`, `idleTimeout` are the standing rows); a second physical spine (a read replica) is one more mint call with its own database coordinate, keyed by the scope that owns it.
-- Law: domain rows yield the neutral `SqlClient` — the concrete Tag is reached only for `listen`/`json`; `PgClient.notify` calls the pool directly and is therefore rejected for a pulse whose contract is transaction-gated. A row typed against `PgClient` while composing no pg-native member blocks every other lane and is the named defect.
+- Law: domain rows yield the neutral `SqlClient` — the concrete Tag is reached only for `listen`/`json`; `PgClient.notify` calls the pool directly and is therefore rejected for a pulse whose contract is transaction-gated. Typing a row against `PgClient` while it composes no pg-native member blocks every other lane, the named defect.
 - Law: credentials are `Redacted` and pool budgets are `Config` facts — `url`, `maxConnections`, `connectionTTL`, `idleTimeout` never appear as literals in any row; `applicationName` pins the span-to-`pg_stat_activity` correlation and defaults from config so a fleet of processes disambiguates itself.
 - Law: the shared-pool row is the tenancy fan-out primitive — one app-owned pool acquired once, adopted by every row-scoped and schema-scoped tenant Layer through `layerFromPool`, so a diamond of N apps on one database costs one pool.
 - Law: construction is resilient at the Layer value — `Layer.retry` under the jittered bounded schedule rides both mints, gated by `Schedule.whileInput` to the `SqlError` tag so a malformed config fails immediately while a transient pool-acquire refusal at boot re-attempts as graph policy; a persistent refusal still fails typed after the budget.
@@ -202,6 +218,7 @@ const _fromPool = (
 - Growth: a new engine arm is one `_PROFILE_ENGINES` key with its owning harvest fence; a new evidence axis is a `counters` entry; a statements column is a `_StatRow` field and `_delta` line.
 - Law: `pg_stat_statements` is cumulative shared state — receipts are `_delta` window deltas keyed by `queryid`, never raw counters; any backwards counter marks a reset and makes the later snapshot the whole delta, so no receipt turns negative. Calls-floor gating applies to the WINDOW delta, never the snapshot — snapshots retain the full row set for prior-state matching, so a query crossing the floor mid-window reports only its window increment, never its cumulative history baselined as new.
 - Law: `EXPLAIN (ANALYZE, FORMAT JSON)` EXECUTES the statement — the arm scopes to explicit diagnosis calls, never ambient reads, and the profiled statement is a `Fragment` spliced whole, so parameter binding survives and no probe re-derives SQL by string assembly.
+- Law: the EXPLAIN arm serves both PostgreSQL engines and stamps the caller's engine, so the embedded generation spells its own receipt; the statements arm stays `pg` alone because its cumulative counters ride a preload contrib the embedded image carries no row for.
 - Law: the statements row rides `_rows` as a core-layer contrib carrying `preload` — `lane/capability.md`'s batched catalog probe inherits it with zero probe edits, the `statements` grant gates both arms fail-closed, and the flag-bearing core row reaches the image projection so the deploy derivation configures `shared_preload_libraries`.
 
 ```typescript signature
@@ -209,7 +226,12 @@ import { DateTime, HashMap } from "effect"
 import type { Statement } from "@effect/sql"
 import { SqlSchema } from "@effect/sql"
 
-const _PROFILE_ENGINES = ["pg", "sqliteServer", "sqliteWasm", "libsql", "d1", "duckdbNode"] as const
+// `_PG_DIALECT` closes the two PostgreSQL engines sharing one EXPLAIN arm and one receipt spelling: PGLite
+// compiles neutral fragments through the same `PgClient` compiler, so its diagnosis names its own engine
+// instead of borrowing `pg`.
+const _PG_DIALECT = ["pg", "pglite"] as const
+
+const _PROFILE_ENGINES = [..._PG_DIALECT, "sqliteServer", "sqliteWasm", "libsql", "d1", "duckdbNode"] as const
 
 class _Profile extends Schema.Class<_Profile>("Pg.Profile")({
   engine: Schema.Literal(..._PROFILE_ENGINES),
@@ -238,6 +260,7 @@ const _StatRow = Schema.Struct({
 
 declare namespace Pg {
   type ProfileEngine = (typeof _PROFILE_ENGINES)[number]
+  type PgEngine = (typeof _PG_DIALECT)[number]
   type Profile = _Profile
   type StatSnapshot = { readonly at: DateTime.Utc; readonly rows: ReadonlyArray<typeof _StatRow.Type> }
 }
@@ -352,7 +375,7 @@ const _operators = (node: _PlanNode): ReadonlyArray<Pg.Profile["operators"][numb
   ...Option.match(node.Plans, { onNone: () => [], onSome: Array.flatMap(_operators) }),
 ]
 
-const _explain = (sql: SqlClient.SqlClient) =>
+const _explain = (sql: SqlClient.SqlClient, engine: Pg.PgEngine = "pg") =>
   (statement: Statement.Fragment, label: string) =>
     Effect.map(
       SqlSchema.findAll({
@@ -362,7 +385,7 @@ const _explain = (sql: SqlClient.SqlClient) =>
       })(void 0),
       Array.flatMap((row) => Array.map(row["QUERY PLAN"], (plan) =>
         new _Profile({
-          engine: "pg",
+          engine,
           statement: label,
           wallMillis: plan["Execution Time"],
           rows: Math.trunc(plan.Plan["Actual Rows"]),
@@ -375,7 +398,7 @@ const _explain = (sql: SqlClient.SqlClient) =>
 const Pg = {
   spine: _spine,
   primitives: _primitives,
-  ..._rows,
+  primitiveKeys: _primitiveKeys,
   Profile: _Profile,
   profile: { engines: _PROFILE_ENGINES, statements: _statements, delta: _delta, explain: _explain },
   rows: Record.values(_rows),
@@ -385,6 +408,7 @@ const Pg = {
       : Option.none()),
   core: _core,
   demands: _demands,
+  backend: _backend,
   client: _client,
   fromPool: _fromPool,
 } as const

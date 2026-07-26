@@ -22,7 +22,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 
 [BATCH_SEAM_LEDGER]-[QUEUED]: Ledger the producer→landing record-batch seams with their custody split.
 - Capability: one seam table naming each producer wire, its batch-shape owner, its landing slot, and its content-key metadata columns — the arbitration keeping four folder pairs on one discipline.
-- Shape: seam rows on `libs/csharp/.planning/ARCHITECTURE.md#SEAMS`, each pair mirrored at BOTH endpoint registries with identical `[KIND]` and direction — `libs/csharp/Rasm/ARCHITECTURE.md`, `libs/csharp/Rasm.Compute/ARCHITECTURE.md`, `libs/csharp/Rasm.Element/ARCHITECTURE.md`, and `libs/csharp/Rasm.Materials/ARCHITECTURE.md` each against `libs/csharp/Rasm.Persistence/ARCHITECTURE.md` — closure holds only when all five endpoint pages carry their edges.
+- Shape: seam rows on `ARCHITECTURE#SEAMS`, each pair mirrored at BOTH endpoint registries with identical `[KIND]` and direction — `libs/csharp/Rasm/ARCHITECTURE.md`, `libs/csharp/Rasm.Compute/ARCHITECTURE.md`, `libs/csharp/Rasm.Element/ARCHITECTURE.md`, and `libs/csharp/Rasm.Materials/ARCHITECTURE.md` each against `libs/csharp/Rasm.Persistence/ARCHITECTURE.md` — closure holds only when all five endpoint pages carry their edges.
 - Unlocks: `[ANALYTICS_LAKE_CONCERT]` holds as one discipline instead of four bespoke handoffs.
 - Anchors: the kernel/Compute/Element/Materials egress cards, Persistence `[PERS_L1]`, the seam-registry grammar.
 

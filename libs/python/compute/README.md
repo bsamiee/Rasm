@@ -1,8 +1,6 @@
 # [PY_COMPUTE]
 
-`compute` is the terminal evidence plane of the Python branch: host-free scientific computation converging on the one graduation hub through which every Python-branch crossing to the C# managed owner clears. Its bar is the composed hub, not the solver roster: evidence lands under receipts, admits against governed ceilings, keys over canonical bytes, and emits self-describing so the C# graduation gate decodes without re-derivation; heavy solves run off the event loop, and a study resumes from history under provably equal keys.
-
-It imports no host runtime and re-owns no peer interior — geometry, columnar data, and tensor sessions cross only as receipt data at the `HandoffAxis`. Every producer streams runtime receipts through the hub evidence weave, solve routes fold the one solve receipt, and each graduating axis owner clears the one admission rail.
+`compute` is the terminal evidence plane of the Python branch — host-free scientific computation converging on one graduation hub, graded on the composed hub rather than the solver roster: evidence lands under receipts, admits against governed ceilings, keys over canonical bytes, and emits self-describing so a consumer decodes without re-derivation. It imports no host runtime and re-owns no peer interior — geometry, columnar data, and tensor sessions cross only as receipt data at the `HandoffAxis` — while a study resumes from history under provably equal keys.
 
 ## [01]-[ROUTER]
 

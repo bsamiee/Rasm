@@ -2,7 +2,7 @@
 
 One incremental CDC-materialization owner, the composing concern above the engines it composes: `DerivedSnapshot` folds the `tabular/lakehouse#LAKEHOUSE` change feed, the `tabular/query#QUERY` engine, and runtime `ContentIdentity` into a partition-delta recompute, and `PartitionBundle` is the per-partition content-keyed Arrow bundle. All three composition edges point strictly down the folder order, keeping `columnar` a pure base with zero back-edges.
 
-Only CDF-changed partitions recompute — an unchanged partition's content key is reused untouched, and a full re-scan is the rejected form. Each touched bundle keys through `columnar`'s public `arrow_bytes` fold, and the parent `snapshot_key` Merkle-folds the child keys. Change-feed reads ride the same `deltalake.load_cdf` surface the `lakehouse` `ChangeFeed` op binds; the `lakehouse` `_PORTABLE` row proves `changefeed` is Delta-exclusive, so the non-Delta reject here is table-derived law.
+Only CDF-changed partitions recompute — an unchanged partition's content key is reused untouched, and a full re-scan is the rejected form. Each touched bundle keys through `columnar`'s public `arrow_bytes` fold, and the parent `snapshot_key` Merkle-folds the child keys. Change-feed reads ride the same `deltalake.load_cdf` surface the `lakehouse` `ChangeFeed` op binds, and this consumer binds that path alone — the lakehouse admits a DuckLake `table_changes` feed its refusal matrix never rejects, so the non-Delta refusal here is a consumer bound, never table-derived law.
 
 ## [01]-[INDEX]
 

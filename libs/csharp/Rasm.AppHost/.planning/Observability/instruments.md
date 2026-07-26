@@ -203,7 +203,7 @@ public static class InstrumentFan {
 ## [04]-[PROVIDER_LIFETIME]
 
 - Owner: `PluginTelemetryHost` — the zero-host trace-and-metric capsule for Rhino/GH plugin processes; one instance per plugin `AssemblyLoadContext` — the Grasshopper canvas ALC and the Rhino plugin ALC each open their own capsule, the custody the `[03]` contributor roster names.
-- Entry: `PluginTelemetryHost.Open(AssemblyLoadContext alc, HostProfile profile, Action<ResourceBuilder> identity)` — builds the minimal per-ALC service provider, the explicit tracer and meter providers, and the unload hook; `identity` arrives as the `ResourceIdentity.Compose` product, so the detector rows ride the capsule resource exactly as the hosted root.
+- Entry: `PluginTelemetryHost.Open(AssemblyLoadContext alc, ConsumptionProfile profile, Action<ResourceBuilder> identity)` — builds the minimal per-ALC service provider, the explicit tracer and meter providers, and the unload hook; `identity` arrives as the `ResourceIdentity.Compose` product, so the detector rows ride the capsule resource exactly as the hosted root.
 - Auto: `new ServiceCollection().AddMetrics()` mints the per-ALC `IMeterFactory`, so two co-resident plugins minting a `Rasm.Compute` meter in one `Rhino.exe` stay isolated by provider scope; `AssemblyLoadContext.Unloading` drives bounded `ForceFlush` then `Dispose` on both providers before the mini provider; the exemplar filter pins `ExemplarFilterType.TraceBased` so any measurement recorded inside an active span carries its trace and span id with zero wiring; the tracer builder carries the same `AddBaggageActivityProcessor(SignalGovernance.PromotedBaggage)` promotion row the hosted root binds, so tenant attribution holds on plugin spans.
 - Packages: OpenTelemetry, OpenTelemetry.Extensions, OpenTelemetry.Exporter.OpenTelemetryProtocol, Microsoft.Extensions.DependencyInjection, LanguageExt.Core, BCL inbox.
 - Growth: a new plugin-visible meter or source is one `AddMeter`/`AddSource` row in `Open`; a new resource dimension is one detector or identity line inside `ResourceIdentity.Compose`; `FlushBound` is the one unload-flush policy value.
@@ -223,7 +223,7 @@ public sealed class PluginTelemetryHost : IDisposable {
 
     public IMeterFactory Meters => services.GetRequiredService<IMeterFactory>();
 
-    public static PluginTelemetryHost Open(AssemblyLoadContext alc, HostProfile profile, Action<ResourceBuilder> identity) {
+    public static PluginTelemetryHost Open(AssemblyLoadContext alc, ConsumptionProfile profile, Action<ResourceBuilder> identity) {
         var services = new ServiceCollection().AddMetrics().BuildServiceProvider();
         var tracing = Sdk.CreateTracerProviderBuilder()
             .ConfigureResource(identity)

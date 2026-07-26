@@ -195,7 +195,8 @@ class BuildingModel(Struct, frozen=True):
 
     def wire(self) -> "RuntimeRail[tuple[bytes, ContentKey]]":
         # wire key is SEED-ZERO over the format-key-then-document chunk stream, reproducing the C# CanonicalWriter
-        # String(format.Key).Raw(bytes) fold; the reproduction-corpus HBJSON golden fixture proves the parity cross-runtime.
+        # String(format.Key).Raw(bytes) fold under the CANONICAL_BYTE_IDENTITY framing law, so parity holds off this branch's
+        # own canonical writer rather than a peer-supplied digest.
         def fold() -> tuple[bytes, ContentKey]:
             document = _ENCODER.encode(self.model.to_dict(included_prop=("energy",)))
             return document, ContentIdentity.key("hbjson", (b"hbjson", document), seed=Some(0))

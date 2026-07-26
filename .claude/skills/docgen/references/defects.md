@@ -4,13 +4,13 @@ Findings cite class and line; every fix reframes the passage whole. Repairs hold
 
 ## [01]-[ENUMERATION_ANCHOR]
 
-Prose enumerates the present cases, fields, operations, or files of an owner so exhaustively that today's roster becomes the stated law: list-shaped truth standing in for the owner algebra, so a rebuild reads the count as the contract. Its self-directed form counts or characterizes the document's own content — a member count, a completeness claim, an ordinal self-reference, a size self-description — and the next entry falsifies it.
+Prose enumerates the present cases, fields, operations, or files of an owner so exhaustively that today's roster becomes the stated law: list-shaped truth standing in for the owner algebra, so a rebuild reads the count as the contract. Its self-directed form counts or characterizes the document's own content — a member count, a completeness claim, an ordinal self-reference, a size self-description — and the next entry falsifies it. Its enforcement form transcribes a live table's rows into a reviewer rule, agent definition, or gate, which then enforces the roster that stood when it was written.
 
-- Detection: Flag a prose sentence naming more than two sibling members of one owner, and any scalar count of enumerable content whose members live outside the counting clause; a quantity survives only as a rule threshold, a domain value, or a same-clause count. Boundary reads at the owner: a registry table at its own declaration — minting its members, or the sole repo carrier of an externally-owned key set — is the accepted form, and derivation is owed only where an elsewhere owner exists.
+- Detection: Flag a prose sentence naming more than two sibling members of one owner, and any scalar count of enumerable content whose members live outside the counting clause; a quantity survives only as a rule threshold, a domain value, or a same-clause count. Boundary reads at the owner: a registry table at its own declaration — minting its members, or the sole repo carrier of an externally-owned key set — is the accepted form, and derivation is owed only where an elsewhere owner exists. Enforcement surfaces convict the moment their owning table carries a row the rule never names.
 - [REJECTED]: `Kind` carries `ScaleFit`, `Tile`, `Crop`, `Merge`, `Matte`, `Rotate`, and `Overlay`, the seven composition operations.
 - [ACCEPTED]: `Kind` grows by one row on the compose spine; the fence carries the row set.
 - Reason: Extension law replaces the roster, and the fence, table, or catalog keeps the roster true. Prose names a member only where it forces a design decision, and a domain value is data, not enumeration.
-- Reframe: State how a row extends; move the roster to the surface that keeps it true.
+- Reframe: State how a row extends; move the roster to the surface that keeps it true, and walk that surface from the enforcing rule instead of copying it.
 
 ## [02]-[STALE_MIRROR]
 
@@ -206,7 +206,7 @@ One decision spread across a passage as near-similar restatements: N sentences i
 
 Prose restates law the instruction chain already binds — root manifests, harness behavior, resident tool availability, system-injected obedience — forking a fact no page owns onto a surface that cannot keep it current.
 
-- Detection: Flag a sentence naming root instructions, load order, skill loading, available tooling, or standing obedience the harness injects every session; a rule true for every agent regardless of this page is the tell.
+- Detection: Flag a sentence naming root instructions, load order, skill loading, available tooling, or standing obedience the harness injects every session; a rule true for every agent regardless of this page is the tell. Boundary reads at the mirror obligation: a fact each engine surface carries in its own grain under a stated mirror law is that law met, never a chain fork.
 - [REJECTED]: Follow CLAUDE.md, use the available tools, obey the system instructions, and run the standard checks before returning.
 - [ACCEPTED]: (silence — the chain already binds; the page states only the law it owns.)
 - Reason: Restatements fork a chain-owned fact and bury page law under ambient rule; TWIN_TRUTH owns the corpus fork, this class the chain fork.

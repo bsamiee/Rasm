@@ -1,8 +1,6 @@
 # [TS_SECURITY]
 
-`security` is the branch's identity-and-custody authority. Its bar is unspellable bypass: every crypto operation originates from one canonical owner through a single key-admission path, every secret is `Redacted` from first decode and unwraps only into the primitive call, and single-use ceremony snapshots type-witness leg order — replay, cross-ceremony completion, and out-of-order finish cannot be written. Every credential-verify surface is throttled and telemetered structurally; a rejected credential is a verdict arm, never a fault; a new provider, dialect, surface, or role is a table row.
-
-This folder is stateless over ports by construction — every durable obligation is a port Tag satisfied downstream at app composition, identity and claim stores by the data stratum and flag evaluation by the runtime stratum — so a zero-durable-state browser app composes it whole. It holds keys and verdicts, never rows; content-identity digesting stays core's; tenancy is declared here and enforced as row-level security in the data stratum.
+`security` is the branch's identity-and-custody authority — the crypto mint and its inbound mirror, the authentication ceremonies over one session spine, and the access plane turning verified identity into decisions and evidence. It holds keys and verdicts, never rows.
 
 ## [01]-[ROUTER]
 

@@ -1,6 +1,6 @@
 # [TS_CORE_API_BUFBUILD_PROTOBUF]
 
-`@bufbuild/protobuf` owns the schema-first proto runtime under every C#-minted `*Wire` decode and the descriptor-reflection engine the drift gate walks. A message is plain data branded by `$typeName`; every operation takes the descriptor first, and `create(schema, init?)` is the sole constructor.
+`@bufbuild/protobuf` owns the schema-first proto runtime under every contract `*Wire` decode and the descriptor-reflection engine the drift gate walks. A message is plain data branded by `$typeName`; every operation takes the descriptor first, and `create(schema, init?)` is the sole constructor.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -94,7 +94,7 @@
 
 | [INDEX] | [SURFACE]                                                         | [SHAPE] | [CAPABILITY]                                  |
 | :-----: | :---------------------------------------------------------------- | :------ | :-------------------------------------------- |
-|  [01]   | `fromBinary<Desc>(schema, bytes, options?): MessageShape<Desc>`   | static  | decode a C#-minted `*Wire` payload            |
+|  [01]   | `fromBinary<Desc>(schema, bytes, options?): MessageShape<Desc>`   | static  | decode a conforming `*Wire` payload            |
 |  [02]   | `mergeFromBinary<Desc>(schema, target, bytes, options?)`          | static  | accumulate a partial into a message           |
 |  [03]   | `toBinary<Desc>(schema, message, options?): Uint8Array`           | static  | egress + the canonical content-key bytes      |
 |  [04]   | `sizeDelimitedEncode<Desc>(desc, message, options?): Uint8Array`  | static  | length-prefix a frame for egress              |
@@ -137,7 +137,7 @@
 
 | [INDEX] | [SURFACE]                                                | [SHAPE] | [CAPABILITY]                                |
 | :-----: | :------------------------------------------------------- | :------ | :------------------------------------------ |
-|  [01]   | `createFileRegistry(fileDescriptorSet)`                  | static  | decode the C#-minted set, then walk `files` |
+|  [01]   | `createFileRegistry(fileDescriptorSet)`                  | static  | decode a conforming set, then walk `files` |
 |  [02]   | `createFileRegistry(proto, resolve)`                     | static  | build from a proto with a resolver          |
 |  [03]   | `createFileRegistry(...registries)`                      | static  | merge existing registries                   |
 |  [04]   | `createRegistry(...input)`                               | static  | assemble the `Any`/extension resolver       |
@@ -201,14 +201,14 @@
 - Every operation reads `(schema, value, options?)` — descriptor first, the message plain data carrying only `$typeName`, and `create(schema, init?)` the sole constructor. A `codec/*` page imports the `GenMessage` from generated `_pb.ts`, `fromBinary(Schema, bytes)` infers `MessageShape<Schema>` with no annotation, and a decoded value discriminates by `$typeName` or `isMessage(v, Schema)`, never `instanceof`.
 - INT64/UINT64 fields are `bigint` (or `string` under long-as-string codegen), bridged by `protoInt64` — `.parse(s)` from a string, `.zero` the identity; `Number`-coercing a 64-bit field loses precision past 2^53.
 - `toBinary(schema, msg)` is deterministic per field order — the canonical byte source the `value/identity` `XxHash128` seed-zero mint hashes for a content key, the same mint `frame/*` reassembly verifies against.
-- `interchange/contract`'s drift gate is pure reflection: `fromBinary(FileDescriptorSetSchema, bytes)` decodes the C#-minted set, `createFileRegistry(set)` builds it, and the walk `registry.files → DescMessage → DescField` diffs the prior generation into a typed `ContractDrift`; `readUnknownFields`/`ignoreUnknownFields` preserve an unknown field rather than throw.
+- `interchange/contract`'s drift gate is pure reflection: `fromBinary(FileDescriptorSetSchema, bytes)` decodes the conforming set, `createFileRegistry(set)` builds it, and the walk `registry.files → DescMessage → DescField` diffs the prior generation into a typed `ContractDrift`; `readUnknownFields`/`ignoreUnknownFields` preserve an unknown field rather than throw.
 - `reflect(desc, message)` yields a `ReflectMessage` reading/writing fields by `DescField` with no generated type — the `interchange/codec` content-key projection walks wire fields this way to compute parity, and `buildPath(schema)`/`parsePath(schema, path)` address a field-mask target; `ScalarType` + `scalarZeroValue` classify a leaf, `qualifiedName`/`protoCamelCase` canonicalize across the C#↔TS casing boundary.
 
 [STACKING]:
 - `@connectrpc/connect`(`.api/connectrpc-connect.md`), `@connectrpc/connect-web`(`.api/connectrpc-connect-web.md`): this runtime IS the Connect message layer — a `DescMethod` carries `GenMessage` input/output schemas and the transport calls `toBinary`/`fromBinary` internally, while `interchange/invoke` picks the protocol axis (`connect` | `grpc-web`) and never re-implements the runtime.
 - `effect`(`libs/typescript/.api/effect.md`): `fromBinary` yields the WIRE shape and `Schema.decode(KernelSchema)(wire)` parses it into branded `kernel` vocabulary — proto is transport, `Schema` is domain, a proto message never a domain model; a synchronous codec call that throws on malformed bytes wraps in `Effect.try`, and `sizeDelimitedDecodeStream(desc, asyncIterable)` feeds `Stream.fromAsyncIterable` for backpressured framed decode.
-- `cbor-x`/`@msgpack/msgpack`/`rfc6902`(`.api/`): the interchange plane is multi-codec — each sibling owns its own C#-mint format and a `codec` page composes exactly one.
-- `@bufbuild/protoc-gen-es`(same `catalog`): emits the `_pb.ts` `GenMessage` consts from the C#-shared `.proto`; the generated file is build output the `codec/*` pages import.
+- `cbor-x`/`@msgpack/msgpack`/`rfc6902`(`.api/`): the interchange plane is multi-codec — each sibling owns its own wire format and a `codec` page composes exactly one.
+- `@bufbuild/protoc-gen-es`(same `catalog`): emits the `_pb.ts` `GenMessage` consts from the corpus-homed `.proto`; the generated file is build output the `codec/*` pages import.
 - `value/identity` (within-lib edge): `toBinary` canonical bytes are the `XxHash128` content-key input the `frame/*` mint verifies — one seed, one mint site, proto bytes in.
 
 [LOCAL_ADMISSION]:
@@ -219,5 +219,5 @@
 [RAIL_LAW]:
 - Package: `@bufbuild/protobuf`
 - Owns: the schema-first proto runtime (`create`/`clone`/`merge`/`equals`/`isMessage`), the binary + JSON + text codec including size-delimited streaming under `readMaxBytes`, the descriptor-reflection engine (`createFileRegistry`/`reflect`/`buildPath`), extensions and options, the well-known types (`Any`/`Timestamp`/`Duration`/`Struct`), and the low-level `./wire` primitives (`BinaryReader`/`BinaryWriter`/`WireType`/base64)
-- Accept: generated `GenMessage` schemas from `@bufbuild/protoc-gen-es`, a C#-minted `FileDescriptorSet` decoded through `FileDescriptorSetSchema`, `protoInt64` for 64-bit fields, a `Registry` for `Any`/extension resolution, `Effect.try`/`Stream` for the error and streaming rails, `Schema.decode` as the domain boundary above the wire shape
+- Accept: generated `GenMessage` schemas from `@bufbuild/protoc-gen-es`, a conforming `FileDescriptorSet` decoded through `FileDescriptorSetSchema`, `protoInt64` for 64-bit fields, a `Registry` for `Any`/extension resolution, `Effect.try`/`Stream` for the error and streaming rails, `Schema.decode` as the domain boundary above the wire shape
 - Reject: `new`-ing a message or calling a method on it, a hand-authored proto shape, a decoded proto reused as a domain model, `Number`-coercing a 64-bit field, a second content-hash over anything but `toBinary` canonical bytes, reflection where a generated schema exists, and reaching for a sibling codec on a proto family

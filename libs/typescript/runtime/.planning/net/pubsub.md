@@ -29,13 +29,16 @@ Retention makes replay a warm-up and recovery window, never the system of record
 
 ```typescript signature
 import {
+    Cause,
     Chunk,
     Context,
     Data,
     DateTime,
     Duration,
     Effect,
+    Exit,
     HashMap,
+    HashSet,
     Layer,
     Match,
     Option,
@@ -63,7 +66,18 @@ import {
     type StreamInfo,
 } from '@nats-io/jetstream';
 import { Objm, type ObjectStore } from '@nats-io/obj';
+import {
+    Compatibility,
+    JsonDeserializer,
+    JsonSerializer,
+    RuleRegistry,
+    SchemaId,
+    SchemaRegistryClient,
+    SerdeType,
+    type SchemaInfo,
+} from '@confluentinc/schemaregistry';
 import { Carrier, type FaultClass } from '@rasm/ts/core';
+import type { Backend } from '@rasm/ts/data';
 import { Setting } from '../proc/config.ts';
 import { Breaker } from './client.ts';
 
@@ -154,6 +168,42 @@ const _kafkaFrame = (headers: Readonly<Record<string, _KafkaHeader>>): Carrier.F
 const _kafkaBand = (band: Readonly<Record<string, string>>): Readonly<Record<string, Buffer>> =>
     Record.map(band, (value) => Buffer.from(value));
 
+const _KafkaPayload = Schema.Struct({
+    key: Schema.NonEmptyString,
+    body: Schema.Uint8ArrayFromBase64,
+});
+
+type _KafkaContract = {
+    readonly artifact: Option.Option<string>;
+    readonly subject: string;
+    readonly id: number;
+    readonly version: number;
+    readonly compatibility: Compatibility;
+    readonly schema: SchemaInfo & { readonly schemaType: 'JSON' };
+    readonly rules: () => RuleRegistry;
+    readonly actions: ReadonlyArray<string>;
+};
+
+type _KafkaCodec = {
+    readonly encode: (topic: string, envelope: Envelope) => Effect.Effect<Buffer, FanoutFault>;
+    readonly decode: (
+        topic: string,
+        key: Buffer | null,
+        payload: Buffer,
+        headers: KafkaJS.IHeaders,
+    ) => Effect.Effect<Envelope, FanoutFault>;
+    readonly close: () => void;
+};
+
+const _kafkaNamed = <A>(
+    rows: Readonly<Record<string, A>>,
+    topic: string,
+): Effect.Effect<A, FanoutFault> =>
+    Option.match(Option.fromNullable(rows[topic]), {
+        onNone: () => Effect.fail(new FanoutFault({ reason: 'horizon', topic, detail: '<no-contract-row>' })),
+        onSome: Effect.succeed,
+    });
+
 const _fanoutEnvelope = (envelope: Envelope): Effect.Effect<Envelope> =>
     Effect.map(
         Propagation.current,
@@ -162,7 +212,7 @@ const _fanoutEnvelope = (envelope: Envelope): Effect.Effect<Envelope> =>
 
 const _named = (topics: Fanout.Topics, topic: string): Effect.Effect<Fanout.Topic, FanoutFault> =>
     Option.match(Option.fromNullable(topics[topic]), {
-        onNone: () => Effect.fail(new FanoutFault({ reason: 'horizon', topic })),
+        onNone: () => Effect.fail(new FanoutFault({ reason: 'horizon', topic, detail: '<undeclared-topic>' })),
         onSome: Effect.succeed,
     });
 ```
@@ -172,15 +222,19 @@ const _named = (topics: Fanout.Topics, topic: string): Effect.Effect<Fanout.Topi
 [PORT_SHAPE]:
 - Owner: the `Fanout` Tag — six members over the topic key. This envelope lane: `publish(topic, envelope)` yields the evidence receipt whose position is either a stream sequence or a partition-offset coordinate; `subscribe(topic)` is the live fanout stream with the topic's replay window warming a late attach; `consume(topic, consumer, anchor, handler)` is the at-least-once lane whose explicit consumer identity derives a distinct durable name, preventing independent logical subscribers from accidentally load-balancing one durable consumer; `replay(topic, anchor)` re-reads within retention as `Fanout.Replayed`, pairing each envelope with its engine-minted coordinate. This blob lane streams transient large-binary handoff through `stash` / `haul`, never a second content-addressing vocabulary or durable store.
 - Law: the fault family is one reason-discriminated class — `dial` (the engine's transport is unreachable, class `unavailable`), `horizon` (the anchor precedes the engine's window, the topic is undeclared, or the blob is absent — class `absent`), `publish` (an unacknowledged publish or a rejected stash, class `unavailable`), `poison` (the handler proves an envelope unprocessable, class `malformed` — the consume lane's terminate signal) — so the core budget gate re-drives the transient rows and a horizon miss routes as the terminal evidence it is.
+- Law: `reason` bands the fault and `detail` proves it — every mint carries the evidence its own site holds: a caught cause stringified, or an angle-bracketed marker naming the structural refusal and the operand that decided it (the missed window bound, the shelf ceiling, the drifted contract axes, the unbound axis). Each re-minted reason therefore keeps one band while its site stays diagnosable, so a `dial` names its transport failure instead of reporting that dialing failed and nothing more.
 - Law: delivery semantics are the row's, not the call site's — a consumer never re-states ack posture, replay depth, retention, or redelivery ceiling; it names the topic and the engine answers the row; an unknown topic answers `horizon` identically on every engine and every member.
 - Law: the port is engine-blind — no member names NATS, and swapping any row for another edits the root merge and nothing else; the engine roster law is the services doctrine's, instantiated here.
-- Entry: `yield* Fanout` then the six members; engines land as `Fanout.local(topics)` / `Fanout.tab(topics)` / `Fanout.jetstream(topics)` / `Fanout.kafka(topics)` root Layers.
+- Entry: engines land through one `Fanout` layer; Kafka receives its generated contract projection.
 - Packages: `effect` (`Context`, `Data`, `Stream`).
 
 ```typescript signature
 class FanoutFault extends Data.TaggedError('FanoutFault')<{
     readonly reason: 'dial' | 'horizon' | 'publish' | 'poison';
     readonly topic: string;
+    // `reason` bands the fault, `detail` carries what actually failed: a caught cause stringified, or an
+    // angle-bracketed marker naming the structural refusal no cause accompanies.
+    readonly detail: string;
 }> {
     get class(): FaultClass.Kind {
         return this.reason === 'horizon' ? 'absent' : this.reason === 'poison' ? 'malformed' : 'unavailable';
@@ -214,7 +268,13 @@ class Fanout extends Context.Tag('runtime/Fanout')<
     static readonly local = (topics: Fanout.Topics, policy: Fanout.LocalPolicy = new _LocalPolicy({})): Layer.Layer<Fanout> => _local(topics, policy);
     static readonly tab = (topics: Fanout.Topics, policy: Fanout.LocalPolicy = new _LocalPolicy({})): Layer.Layer<Fanout> => _tab(topics, policy);
     static readonly jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Setting | Broker> => _jetstream(topics);
-    static readonly kafka = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Setting> => _kafka(topics);
+    static readonly kafka = (
+        topics: Fanout.Topics,
+        contracts: Readonly<Record<string, _KafkaContract>>,
+        // Composition roots bind this backend-generation port as an axis value: unbound, a contract naming an
+        // artifact refuses at admission by axis name; bound, it proves that artifact declared and observed.
+        generation: Option.Option<Backend.Generation> = Option.none(),
+    ): Layer.Layer<Fanout, FanoutFault, Setting> => _kafka(topics, contracts, generation);
 }
 ```
 
@@ -243,7 +303,7 @@ const _minted = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Effect.Effe
         const seqs = yield* Ref.make(HashMap.empty<string, number>());
         const held = (topic: string): Effect.Effect<PubSub.PubSub<Fanout.Replayed>, FanoutFault> =>
             Option.match(Option.fromNullable(cells[topic]), {
-                onNone: () => Effect.fail(new FanoutFault({ reason: 'horizon', topic })),
+                onNone: () => Effect.fail(new FanoutFault({ reason: 'horizon', topic, detail: '<undeclared-topic>' })),
                 onSome: Effect.succeed,
             });
         const offer: _Port['publish'] = (topic, envelope) =>
@@ -270,7 +330,7 @@ const _minted = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Effect.Effe
                                               duplicate: false,
                                           }),
                                       )
-                                    : Effect.fail(new FanoutFault({ reason: 'publish', topic })),
+                                    : Effect.fail(new FanoutFault({ reason: 'publish', topic, detail: '<pubsub-offer-rejected>' })),
                         ),
                 ),
             );
@@ -285,7 +345,7 @@ const _minted = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Effect.Effe
                           Stream.unwrap(Effect.map(held(topic), (cell) => Stream.map(Stream.fromPubSub(cell), (row) => row.envelope))),
                           (envelope) => Propagation.ingress(handler(envelope), Carrier.extract('fanout', envelope.band)),
                       )
-                    : Effect.fail(new FanoutFault({ reason: 'horizon', topic })),
+                    : Effect.fail(new FanoutFault({ reason: 'horizon', topic, detail: `<local-window-anchor-only:${anchor._tag}>` })),
             replay: (topic, anchor) =>
                 _Anchor.$is('Window')(anchor)
                     ? Stream.unwrap(
@@ -301,14 +361,15 @@ const _minted = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Effect.Effe
                               ),
                           ),
                       )
-                    : Stream.fail(new FanoutFault({ reason: 'horizon', topic })),
+                    : Stream.fail(new FanoutFault({ reason: 'horizon', topic, detail: `<local-window-anchor-only:${anchor._tag}>` })),
             stash: (topic, name, body) =>
                 Effect.zipRight(
                     held(topic),
                     Effect.flatMap(
                         Stream.runFoldEffect(body, { size: 0, chunks: Chunk.empty<Uint8Array>() }, (acc, part) =>
+                            // `policy.shelf` is typed evidence: an over-bound stash refuses instead of exhausting memory
                             acc.size + part.byteLength > policy.shelf
-                                ? Effect.fail(new FanoutFault({ reason: 'publish', topic })) // the ceiling is typed evidence: an over-bound stash refuses instead of exhausting memory
+                                ? Effect.fail(new FanoutFault({ reason: 'publish', topic, detail: `<shelf-ceiling:${policy.shelf}>` }))
                                 : Effect.succeed({ size: acc.size + part.byteLength, chunks: Chunk.append(acc.chunks, part) }),
                         ),
                         (folded) =>
@@ -328,7 +389,8 @@ const _minted = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Effect.Effe
                                           ] as const);
                                 }),
                                 Option.match({
-                                    onNone: () => Effect.fail(new FanoutFault({ reason: 'publish', topic })),
+                                    onNone: () =>
+                                        Effect.fail(new FanoutFault({ reason: 'publish', topic, detail: `<shelf-ceiling:${policy.shelf}>` })),
                                     onSome: Effect.succeed,
                                 }),
                             ),
@@ -338,7 +400,7 @@ const _minted = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Effect.Effe
                 Stream.unwrap(
                     Effect.map(Ref.get(shelf), (kept) =>
                         Option.match(HashMap.get(kept.bodies, _blobKey([topic, name])), {
-                            onNone: () => Stream.fail(new FanoutFault({ reason: 'horizon', topic })),
+                            onNone: () => Stream.fail(new FanoutFault({ reason: 'horizon', topic, detail: `<no-shelved-blob:${name}>` })),
                             onSome: (body) => Stream.fromChunk(body.chunks),
                         }),
                     ),
@@ -406,7 +468,7 @@ const _tab = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Layer.Layer<Fa
 ## [06]-[JETSTREAM_ROW]
 
 [JETSTREAM_ROW]:
-- Owner: `Fanout.jetstream(topics)` — the NATS engine. This connection is capability: the exported `Broker` Tag holds the one scoped dial against `Setting.fanout.origin` — the runtime row's `nats` TCP/TLS binding (`exec#RUNTIME_ROWS`) on the server lanes, the `wsconnect` default on the browser lane — drained on scope close, and the one connection fans into the stream lanes, the object store, and the sibling coordination engine (`coordinate#KV_ROW`) — a second dial beside `Broker.live` is the named defect. Construction reconciles the substrate: `jetstreamManager(nc)` inspects each topic stream, adds an absent stream, and updates a present stream's mutable retention, subject, and dedup policy; `Objm.create` creates or opens the blob store. Restart is therefore convergence, never a duplicate-create failure, while the server's own durability posture (fsync interval, replicas) stays a deployment fact.
+- Owner: `Fanout.jetstream(topics)` — the NATS engine. This connection is capability: the exported `Broker` Tag holds the one scoped dial against `Setting.fanout.origin` — the runtime row's `nats` TCP/TLS binding (`proc/exec#RUNTIME_ROWS`) on the server lanes, the `wsconnect` default on the browser lane — drained on scope close, and the one connection fans into the stream lanes, the object store, and the sibling coordination engine (`coordinate#KV_ROW`) — a second dial beside `Broker.live` is the named defect. Construction reconciles the substrate: `jetstreamManager(nc)` inspects each topic stream, adds an absent stream, and updates a present stream's mutable retention, subject, and dedup policy; `Objm.create` creates or opens the blob store. Restart is therefore convergence, never a duplicate-create failure, while the server's own durability posture (fsync interval, replicas) stays a deployment fact.
 - Law: the consumer lanes are split by ack capability — the ordered lane (`subscribe`, `replay`) mints a nameless ordered consumer fixed to `AckPolicy.None`; the durable lane (`consume`) derives `durable_name` from topic and the caller's logical consumer identity, declares explicit ack posture, and binds that same name. Independent consumers therefore receive independent durable streams, while replicas sharing one identity intentionally load-balance.
 - Law: exactly-once publish is the dedup window under the circuit — `js.publish` carries the content-derived `msgID` and the envelope's optional expectation projected through `_expected`; the server recognizes a replay inside `duplicate_window`, enforces every `StreamExpectations` arm, and returns a `PubAck` whose sequence and `duplicate` flag ride a receipt bound to the addressed topic, subject, and key; the whole publish rides `Breaker.guard` so a dead broker sheds fast instead of hammering.
 - Law: at-least-once is the full ack algebra — the handler runs under a heartbeat race that stamps `msg.working()` every half `ack_wait` so a long handler never triggers spurious redelivery; success acks — `ack()` on `"fire"` rows, `ackAck()` awaited on `"double"` rows so the acknowledgement itself is confirmed; a `poison` handler fault terminates through `msg.term(reason)`, every other handler fault `nak()`s, and only that ruled handler-failure branch returns `Effect.void`; an `ackAck()` rejection remains a `dial` fault on the consume rail and cannot be mistaken for handled work.
@@ -468,11 +530,17 @@ const _within = (topic: string, anchor: Fanout.Anchor, info: StreamInfo): Effect
         ? Effect.void
         : _Anchor.$match(anchor, {
               Window: () => Effect.void,
-              Sequence: ({ seq }) => (seq < info.state.first_seq ? Effect.fail(new FanoutFault({ reason: 'horizon', topic })) : Effect.void),
+              Sequence: ({ seq }) =>
+                  seq < info.state.first_seq
+                      ? Effect.fail(new FanoutFault({ reason: 'horizon', topic, detail: `<before-first-seq:${info.state.first_seq}>` }))
+                      : Effect.void,
               Instant: ({ at }) =>
                   Option.match(DateTime.make(info.state.first_ts), {
-                      onNone: () => Effect.fail(new FanoutFault({ reason: 'dial', topic })),
-                      onSome: (first) => (DateTime.lessThan(at, first) ? Effect.fail(new FanoutFault({ reason: 'horizon', topic })) : Effect.void),
+                      onNone: () => Effect.fail(new FanoutFault({ reason: 'dial', topic, detail: `<unreadable-first-ts:${info.state.first_ts}>` })),
+                      onSome: (first) =>
+                          DateTime.lessThan(at, first)
+                              ? Effect.fail(new FanoutFault({ reason: 'horizon', topic, detail: `<before-first-ts:${info.state.first_ts}>` }))
+                              : Effect.void,
                   }),
           });
 
@@ -492,7 +560,7 @@ class Broker extends Context.Tag('runtime/Broker')<Broker, NatsConnection>() {
                 Effect.acquireRelease(
                     Effect.tryPromise({
                         try: () => dial({ servers: setting.fanout.origin.href }),
-                        catch: () => new FanoutFault({ reason: 'dial', topic: '*' }),
+                        catch: (cause) => new FanoutFault({ reason: 'dial', topic: '*', detail: String(cause) }),
                     }),
                     (live) => Effect.orDie(Effect.tryPromise(() => live.drain())),
                 ),
@@ -509,7 +577,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
             const js = jetstream(nc);
             const jsm = yield* Effect.tryPromise({
                 try: () => jetstreamManager(nc),
-                catch: () => new FanoutFault({ reason: 'dial', topic: '*' }),
+                catch: (cause) => new FanoutFault({ reason: 'dial', topic: '*', detail: String(cause) }),
             });
             yield* Effect.forEach(
                 Record.toEntries(topics),
@@ -528,7 +596,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                                 onFailure: (cause) =>
                                     cause instanceof JetStreamApiError && cause.code === JetStreamApiCodes.StreamNotFound
                                         ? Effect.succeed(Option.none())
-                                        : Effect.fail(new FanoutFault({ reason: 'dial', topic: name })),
+                                        : Effect.fail(new FanoutFault({ reason: 'dial', topic: name, detail: String(cause) })),
                                 onSuccess: (info) => Effect.succeed(Option.some(info)),
                             }),
                         );
@@ -536,12 +604,12 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                             onNone: () =>
                                 Effect.tryPromise({
                                     try: () => jsm.streams.add({ name, ...config }),
-                                    catch: () => new FanoutFault({ reason: 'dial', topic: name }),
+                                    catch: (cause) => new FanoutFault({ reason: 'dial', topic: name, detail: String(cause) }),
                                 }),
                             onSome: () =>
                                 Effect.tryPromise({
                                     try: () => jsm.streams.update(name, config),
-                                    catch: () => new FanoutFault({ reason: 'dial', topic: name }),
+                                    catch: (cause) => new FanoutFault({ reason: 'dial', topic: name, detail: String(cause) }),
                                 }),
                         });
                     }),
@@ -549,7 +617,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
             );
             const store: ObjectStore = yield* Effect.tryPromise({
                 try: () => new Objm(nc).create(_BLOB.store),
-                catch: () => new FanoutFault({ reason: 'dial', topic: _BLOB.store }),
+                catch: (cause) => new FanoutFault({ reason: 'dial', topic: _BLOB.store, detail: String(cause) }),
             });
 
             const named = (topic: string): Effect.Effect<Fanout.Topic, FanoutFault> => _named(topics, topic);
@@ -565,11 +633,11 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                         const messages = yield* Effect.acquireRelease(
                             Effect.tryPromise({
                                 try: () => pull(consumer),
-                                catch: () => new FanoutFault({ reason: 'dial', topic }),
+                                catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
                             }),
                             (live) => Effect.orDie(Effect.tryPromise(() => live.close())),
                         );
-                        return Stream.fromAsyncIterable(messages, () => new FanoutFault({ reason: 'dial', topic })).pipe(
+                        return Stream.fromAsyncIterable(messages, (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) })).pipe(
                             Stream.map(
                                 (msg: JsMsg) =>
                                     [
@@ -596,7 +664,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                         named(topic),
                         Effect.tryPromise({
                             try: () => js.consumers.get(topic, _start(anchor)),
-                            catch: () => new FanoutFault({ reason: 'horizon', topic }),
+                            catch: (cause) => new FanoutFault({ reason: 'horizon', topic, detail: String(cause) }),
                         }),
                     ),
                     Option.match(bound, {
@@ -626,7 +694,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                         Effect.flatMap(
                             Effect.tryPromise({
                                 try: () => jsm.streams.info(topic),
-                                catch: () => new FanoutFault({ reason: 'dial', topic }),
+                                catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
                             }),
                             (info) =>
                                 Stream.map(
@@ -648,7 +716,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                             onFailure: (cause) =>
                                 cause instanceof JetStreamApiError && cause.code === JetStreamApiCodes.ConsumerNotFound
                                     ? Effect.succeed(Option.none())
-                                    : Effect.fail(new FanoutFault({ reason: 'dial', topic })),
+                                    : Effect.fail(new FanoutFault({ reason: 'dial', topic, detail: String(cause) })),
                             onSuccess: (info) => Effect.succeed(Option.some(info)),
                         }),
                     );
@@ -663,17 +731,17 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                                         max_deliver: row.attempts,
                                         ..._start(anchor),
                                     }),
-                                catch: () => new FanoutFault({ reason: 'dial', topic }),
+                                catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
                             }),
                         onSome: () =>
                             Effect.tryPromise({
                                 try: () => jsm.consumers.update(topic, durable, { ack_wait: _nanos(row.wait), max_deliver: row.attempts }),
-                                catch: () => new FanoutFault({ reason: 'dial', topic }),
+                                catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
                             }),
                     });
                     return yield* Effect.tryPromise({
                         try: () => js.consumers.get(topic, durable),
-                        catch: () => new FanoutFault({ reason: 'dial', topic }),
+                        catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
                     });
                 });
 
@@ -683,7 +751,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                         Effect.flatMap(
                             Effect.tryPromise({
                                 try: () => jsm.streams.info(topic),
-                                catch: () => new FanoutFault({ reason: 'dial', topic }),
+                                catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
                             }),
                             (info) =>
                                 Effect.as(
@@ -714,10 +782,12 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                                         headers: _hdrs(Carrier.inject('nats', context, envelope.band)),
                                         ..._expected(envelope.expect),
                                     }),
-                                catch: () => new FanoutFault({ reason: 'publish', topic }),
+                                catch: (cause) => new FanoutFault({ reason: 'publish', topic, detail: String(cause) }),
                             }),
                         ).pipe(
-                            Effect.mapError((fault) => (fault._tag === 'Lapse' ? new FanoutFault({ reason: 'publish', topic }) : fault)),
+                            Effect.mapError((fault) =>
+                                fault._tag === 'Lapse' ? new FanoutFault({ reason: 'publish', topic, detail: '<breaker-open>' }) : fault,
+                            ),
                             Effect.map(
                                 (ack) =>
                                     new _Receipt({
@@ -750,12 +820,12 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                                             ? Effect.flatMap(
                                                   Effect.tryPromise({
                                                       try: () => msg.ackAck(),
-                                                      catch: () => new FanoutFault({ reason: 'dial', topic }),
+                                                      catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
                                                   }),
                                                   (confirmed) =>
                                                       confirmed
                                                           ? Effect.void
-                                                          : Effect.fail(new FanoutFault({ reason: 'dial', topic })),
+                                                          : Effect.fail(new FanoutFault({ reason: 'dial', topic, detail: '<ack-unconfirmed>' })),
                                               )
                                             : Effect.sync(() => msg.ack()),
                                 },
@@ -773,7 +843,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                                         { name: _blobKey([topic, name]), options: { max_chunk_size: setting.fanout.chunk } },
                                         Stream.toReadableStream(body),
                                     ),
-                                catch: () => new FanoutFault({ reason: 'publish', topic }),
+                                catch: (cause) => new FanoutFault({ reason: 'publish', topic, detail: String(cause) }),
                             }),
                             (info) => new _Stowed({ size: info.size, digest: Option.some(info.digest) }),
                         ),
@@ -783,14 +853,14 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                         Effect.map(
                             Effect.tryPromise({
                                 try: () => store.get(_blobKey([topic, name])),
-                                catch: () => new FanoutFault({ reason: 'dial', topic }),
+                                catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
                             }),
                             (result) =>
                                 result === null
-                                    ? Stream.fail(new FanoutFault({ reason: 'horizon', topic }))
+                                    ? Stream.fail(new FanoutFault({ reason: 'horizon', topic, detail: `<no-stored-object:${name}>` }))
                                     : Stream.fromReadableStream({
                                           evaluate: () => result.data,
-                                          onError: () => new FanoutFault({ reason: 'dial', topic }),
+                                          onError: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
                                       }).pipe(
                                           Stream.concat(
                                               Stream.drain(
@@ -798,10 +868,12 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                                                       Effect.flatMap(
                                                           Effect.tryPromise({
                                                               try: () => result.error,
-                                                              catch: () => new FanoutFault({ reason: 'dial', topic }),
+                                                              catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
                                                           }),
                                                           (fault) =>
-                                                              fault === null ? Effect.void : Effect.fail(new FanoutFault({ reason: 'dial', topic })),
+                                                              fault === null
+                                                                  ? Effect.void
+                                                                  : Effect.fail(new FanoutFault({ reason: 'dial', topic, detail: String(fault) })),
                                                       ),
                                                   ),
                                               ),
@@ -818,23 +890,44 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
 ## [07]-[KAFKA_ROW]
 
 [KAFKA_ROW]:
-- Owner: `Fanout.kafka(topics)` — the Kafka engine over the librdkafka promise surface, the TypeScript counterpart of the C# host's `Confluent.Kafka` on the shared broker plane. This client is one scoped `new KafkaJS.Kafka(config)` from `Setting.fanout.brokers` — an empty broker list is the config row's unarmed contract, so construction refuses `dial` before any client mints — its `producer()`/`admin()` acquired at construction under `connect`/`disconnect` brackets; boot reconciles the substrate through `admin.createTopics` exactly as the jetstream row reconciles streams, so restart is convergence.
+- Owner: `Fanout.kafka(topics, contracts, generation)` — one scoped client pair over the topic-contract roster, with the backend-generation port arriving as an axis value the composition root binds and defaulting unbound.
+- Admission: boot proves a total topic-contract map, an inhabited broker roster, exact subject identity, compatibility, writer schema, and rule coverage; a contract naming its backend artifact demands the bound generation port too and refuses by axis name when the root leaves it unbound, while a contract naming none admits and claims no attestation.
+- Law: every admission refusal reports the axes that decided it — the roster drift names both key sets, the identity sweep folds one row per proven axis into a `<contract-drift:…>` list, and the artifact read names the unproven artifact.
+- Codec: one matched JSON pair per topic carries exact `useSchemaId`, explicit subject selection, validation, and a local `RuleRegistry`.
 - Law: the guarantee ledger reads honestly per column — at-least-once holds on the sequential manual-commit lane (`consumer.run({ eachBatch })` with auto-resolve disabled): each record retries under the topic row, resolution and commit follow handler success, and exhaustion stops the run before a higher offset. Kafka keys select partitions, never deduplicate, so every receipt answers `duplicate: false` with its exact partition-offset position; positional consume anchors, ordered replay, warm subscription, and blob carriage answer `horizon` because `Fanout.Anchor` carries no partition coordinate and this row carries no object store. `Window` alone selects the unpositioned consumer-group flow.
+- Law: registry framing owns key and base64 body; trace and application headers remain Kafka headers.
+- Law: `autoRegisterSchemas: false` keeps registration out of the producer path; exact identity admits before `Fanout` exists.
 - Law: the consumer identity derives exactly as the durable lane's — `groupId` is `${topic}:${consumer}`, so independent logical subscribers hold independent groups and replicas sharing one identity load-balance; `subscribe({ topic: row.subject })` precedes `run`, and the handler continues any caller-supplied parent through `Carrier.extract('kafka', ...)` and `Propagation.ingress`.
 - Law: the header band is the message's `headers` record both directions — publish projects caller-supplied string values to broker bytes, ingress normalizes repeated broker values once and extracts through the Kafka row, and no NATS dialect impersonates Kafka; causal injection remains blocked in `[08]-[RESEARCH]`.
 - Boundary: broker deployment — partitions, replication, retention, SASL/TLS posture — is the deploy plane's; the bootstrap roster and security rows are `Setting` rows, and no broker literal exists in the engine.
-- Packages: `@confluentinc/kafka-javascript` (`KafkaJS.Kafka`, producer/consumer/admin promise surface), `effect` (`Effect`, `Layer`, `Stream`), `../proc/config.ts` (`Setting`).
+- Packages: `@confluentinc/kafka-javascript`; `@confluentinc/schemaregistry`; `effect`; `../proc/config.ts`.
 
 ```typescript signature
-const _kafka = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Setting> =>
+const _kafka = (
+    topics: Fanout.Topics,
+    contracts: Readonly<Record<string, _KafkaContract>>,
+    generation: Option.Option<Backend.Generation>,
+): Layer.Layer<Fanout, FanoutFault, Setting> =>
     Layer.scoped(
         Fanout,
         Effect.gen(function* () {
             const setting = yield* Setting;
-            // empty brokers is the unarmed row (Setting.fanout.brokers contract): selection refuses at
-            // layer construction, before any client mints or dials
+            const registryOrigin = yield* Option.match(setting.fanout.registry, {
+                onNone: () => Effect.fail(new FanoutFault({ reason: 'dial', topic: '*', detail: '<no-schema-registry-origin>' })),
+                onSome: Effect.succeed,
+            });
+            const topicKeys = Object.keys(topics).sort();
+            const contractKeys = Object.keys(contracts).sort();
             yield* setting.fanout.brokers.length === 0
-                ? Effect.fail(new FanoutFault({ reason: 'dial', topic: '*' }))
+                ? Effect.fail(new FanoutFault({ reason: 'dial', topic: '*', detail: '<empty-broker-roster>' }))
+                : topicKeys.length !== contractKeys.length || topicKeys.some((topic, index) => topic !== contractKeys[index])
+                ? Effect.fail(
+                      new FanoutFault({
+                          reason: 'dial',
+                          topic: '*',
+                          detail: `<topic-contract-roster-drift:${topicKeys.join('|')}!=${contractKeys.join('|')}>`,
+                      }),
+                  )
                 : Effect.void;
             const kafka = new KafkaJS.Kafka({ kafkaJS: { brokers: [...setting.fanout.brokers] } });
             const producer = yield* Effect.acquireRelease(
@@ -844,7 +937,7 @@ const _kafka = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Setting
                         await minted.connect();
                         return minted;
                     },
-                    catch: () => new FanoutFault({ reason: 'dial', topic: '*' }),
+                    catch: (cause) => new FanoutFault({ reason: 'dial', topic: '*', detail: String(cause) }),
                 }),
                 (live) => Effect.orDie(Effect.tryPromise(() => live.disconnect())),
             );
@@ -855,121 +948,337 @@ const _kafka = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Setting
                         await minted.connect();
                         return minted;
                     },
-                    catch: () => new FanoutFault({ reason: 'dial', topic: '*' }),
+                    catch: (cause) => new FanoutFault({ reason: 'dial', topic: '*', detail: String(cause) }),
                 }),
                 (live) => Effect.orDie(Effect.tryPromise(() => live.disconnect())),
             );
+            const registry = yield* Effect.acquireRelease(
+                Effect.sync(() => new SchemaRegistryClient({ baseURLs: [registryOrigin.href] })),
+                (live) => Effect.sync(() => live.close()),
+            );
+            const admitted = yield* Effect.forEach(
+                Object.entries(contracts),
+                ([topic, contract]) =>
+                    Effect.gen(function* () {
+                        // Every contract naming an artifact demands the bound generation port on the providers axis, so
+                        // an unbound port refuses by axis name and a bound one proves declared and observed both carry it.
+                        yield* Option.match(contract.artifact, {
+                            onNone: () => Effect.void,
+                            onSome: (artifact) =>
+                                Option.match(generation, {
+                                    onNone: () =>
+                                        Effect.fail(
+                                            new FanoutFault({
+                                                reason: 'dial',
+                                                topic,
+                                                detail: `<providers-axis-unbound:backend-generation-for-${artifact}>`,
+                                            }),
+                                        ),
+                                    onSome: (proved) =>
+                                        HashSet.has(proved.artifacts, artifact) && HashSet.has(proved.observed.artifacts, artifact)
+                                            ? Effect.void
+                                            : Effect.fail(
+                                                  new FanoutFault({ reason: 'dial', topic, detail: `<artifact-unobserved:${artifact}>` }),
+                                              ),
+                                }),
+                        });
+                        const [metadata, compatibility, compatible, id, writer] = yield* Effect.tryPromise({
+                            try: () => Promise.all([
+                                registry.getSchemaMetadata(contract.subject, contract.version, false),
+                                registry.getCompatibility(contract.subject),
+                                registry.testSubjectCompatibility(contract.subject, contract.schema),
+                                registry.getId(contract.subject, contract.schema, true),
+                                registry.getBySubjectAndId(contract.subject, contract.id),
+                            ]),
+                            catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
+                        });
+                        const rules = yield* Effect.acquireRelease(
+                            Effect.try({
+                                try: contract.rules,
+                                catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
+                            }),
+                            (live) => Effect.sync(() => live.clear()),
+                        );
+                        const declaredRules = [
+                            ...(metadata.ruleSet?.migrationRules ?? []),
+                            ...(metadata.ruleSet?.domainRules ?? []),
+                        ];
+                        // one identity roster replaces the boolean ladder: each row names the axis it proves, so a
+                        // refusal reports exactly which axes drifted rather than one undifferentiated tag.
+                        const drift = (
+                            [
+                                ['metadata-id', metadata.id === contract.id],
+                                ['metadata-version', metadata.version === contract.version],
+                                ['compatibility', compatibility === contract.compatibility],
+                                ['subject-compatible', compatible],
+                                ['registered-id', id === contract.id],
+                                ['metadata-schema', metadata.schema === contract.schema.schema],
+                                ['metadata-schema-type', metadata.schemaType === contract.schema.schemaType],
+                                ['writer-schema', writer.schema === contract.schema.schema],
+                                ['writer-schema-type', writer.schemaType === contract.schema.schemaType],
+                                ['rule-executors', declaredRules.every((rule) => rules.getExecutor(rule.type) !== undefined)],
+                                ['rule-actions', contract.actions.every((action) => rules.getAction(action) !== undefined)],
+                            ] as const
+                        ).flatMap(([axis, holds]) => (holds ? [] : [axis]));
+                        yield* drift.length === 0
+                            ? Effect.void
+                            : Effect.fail(new FanoutFault({ reason: 'dial', topic, detail: `<contract-drift:${drift.join(',')}>` }));
+                        const codec = yield* Effect.acquireRelease(
+                            Effect.try({
+                                try: (): _KafkaCodec => {
+                                    const wireTopic = topics[topic]!.subject;
+                                    const subjectNameStrategy = () => contract.subject;
+                                    const serializer = new JsonSerializer(
+                                        registry,
+                                        SerdeType.VALUE,
+                                        {
+                                            autoRegisterSchemas: false,
+                                            useSchemaId: contract.id,
+                                            normalizeSchemas: true,
+                                            subjectNameStrategy,
+                                            validate: true,
+                                        },
+                                        rules,
+                                    );
+                                    const deserializer = new JsonDeserializer(
+                                        registry,
+                                        SerdeType.VALUE,
+                                        { subjectNameStrategy, validate: true },
+                                        rules,
+                                    );
+                                    return {
+                                        encode: (logical, envelope) =>
+                                            Effect.flatMap(
+                                                Schema.encode(_KafkaPayload)({ key: envelope.key, body: envelope.body }),
+                                                (payload) =>
+                                                    Effect.tryPromise({
+                                                        try: () => serializer.serialize(wireTopic, payload),
+                                                        catch: (cause) =>
+                                                            new FanoutFault({ reason: 'publish', topic: logical, detail: String(cause) }),
+                                                    }),
+                                            ).pipe(
+                                                Effect.mapError(
+                                                    (cause) =>
+                                                        new FanoutFault({ reason: 'publish', topic: logical, detail: String(cause) }),
+                                                ),
+                                            ),
+                                        decode: (logical, key, payload, headers) =>
+                                            Effect.flatMap(
+                                                Effect.tryPromise({
+                                                    try: async () => {
+                                                        const frame = new SchemaId(contract.schema.schemaType);
+                                                        frame.fromBytes(payload);
+                                                        return {
+                                                            decoded: await deserializer.deserialize(
+                                                                wireTopic,
+                                                                payload,
+                                                                headers,
+                                                            ),
+                                                            schemaId: frame.id,
+                                                        };
+                                                    },
+                                                    catch: (cause) =>
+                                                        new FanoutFault({ reason: 'poison', topic: logical, detail: String(cause) }),
+                                                }),
+                                                ({ decoded, schemaId }) =>
+                                                    schemaId === contract.id
+                                                        ? Schema.decodeUnknown(_KafkaPayload)(decoded)
+                                                        : Effect.fail(
+                                                              new FanoutFault({
+                                                                  reason: 'poison',
+                                                                  topic: logical,
+                                                                  detail: `<schema-id-drift:${schemaId}!=${contract.id}>`,
+                                                              }),
+                                                          ),
+                                            ).pipe(
+                                                Effect.flatMap((decoded) =>
+                                                    key !== null && decoded.key === key.toString('utf8')
+                                                        ? Effect.succeed(
+                                                              new Envelope({
+                                                                  key: decoded.key,
+                                                                  body: decoded.body,
+                                                                  band: Record.map(
+                                                                      _kafkaFrame(headers),
+                                                                      (value) => new TextDecoder().decode(value),
+                                                                  ),
+                                                              }),
+                                                          )
+                                                        : Effect.fail(
+                                                              new FanoutFault({
+                                                                  reason: 'poison',
+                                                                  topic: logical,
+                                                                  detail: `<record-key-drift:${decoded.key}>`,
+                                                              }),
+                                                          ),
+                                                ),
+                                                Effect.mapError(
+                                                    (cause) =>
+                                                        new FanoutFault({ reason: 'poison', topic: logical, detail: String(cause) }),
+                                                ),
+                                            ),
+                                        close: () => {
+                                            serializer.close();
+                                            deserializer.close();
+                                        },
+                                    };
+                                },
+                                catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
+                            }),
+                            (live) => Effect.sync(() => live.close()),
+                        );
+                        return [topic, codec] as const;
+                    }),
+                { concurrency: 'unbounded' },
+            );
+            const codecs: Readonly<Record<string, _KafkaCodec>> = Record.fromEntries(admitted);
             yield* Effect.tryPromise({
-                // reconcile: topic convergence at boot, the jetstream stream-add law on the Kafka substrate
                 try: () => admin.createTopics({ topics: Record.values(topics).map((row) => ({ topic: row.subject })) }),
-                catch: () => new FanoutFault({ reason: 'dial', topic: '*' }),
+                catch: (cause) => new FanoutFault({ reason: 'dial', topic: '*', detail: String(cause) }),
             });
 
             const named = (topic: string): Effect.Effect<Fanout.Topic, FanoutFault> => _named(topics, topic);
+
+            const run = async <A>(
+                effect: Effect.Effect<A, FanoutFault>,
+                topic: string,
+            ): Promise<A> => {
+                const exit = await Effect.runPromiseExit(effect);
+                return Exit.match(exit, {
+                    onFailure: (cause) => {
+                        throw Option.getOrElse(
+                            Cause.failureOption(cause),
+                            () => new FanoutFault({ reason: 'dial', topic, detail: '<defect-or-interrupt>' }),
+                        );
+                    },
+                    onSuccess: (value) => value,
+                });
+            };
 
             const consumed = (
                 topic: string,
                 group: string,
                 handler: (envelope: Envelope) => Effect.Effect<void, FanoutFault>,
             ): Effect.Effect<void, FanoutFault> =>
-                Effect.flatMap(named(topic), (row) =>
-                    Effect.acquireUseRelease(
-                        Effect.tryPromise({
-                            try: async () => {
-                                const minted = kafka.consumer({ kafkaJS: { groupId: group, autoCommit: false } });
-                                await minted.connect();
-                                await minted.subscribe({ topic: row.subject });
-                                return minted;
-                            },
-                            catch: () => new FanoutFault({ reason: 'dial', topic }),
-                        }),
-                        (consumer) =>
-                            Effect.async<void, FanoutFault>((resume) => {
-                                void consumer
-                                    .run({
-                                        eachBatchAutoResolve: false,
-                                        partitionsConsumedConcurrently: 1,
-                                        eachBatch: async ({ batch, heartbeat, isRunning, isStale, resolveOffset }) => {
-                                            for (const message of batch.messages) {
-                                                if (!isRunning() || isStale()) return;
-                                                const frame = _kafkaFrame(message.headers ?? {});
-                                                const envelope = new Envelope({
-                                                    key: message.key?.toString() ?? `${batch.partition}:${message.offset}`,
-                                                    body: new Uint8Array(message.value ?? new Uint8Array()),
-                                                    band: Record.map(frame, (value) => new TextDecoder().decode(value)),
-                                                });
-                                                await Effect.runPromise(
-                                                    Propagation.ingress(handler(envelope), Carrier.extract('kafka', frame)).pipe(
-                                                        Effect.retry(
-                                                            Schedule.intersect(
-                                                                Schedule.recurs(row.attempts - 1),
-                                                                Schedule.spaced(row.wait),
+                Effect.flatMap(
+                    Effect.all({ codec: _kafkaNamed(codecs, topic), row: named(topic) }),
+                    ({ codec, row }) =>
+                        Effect.acquireUseRelease(
+                            Effect.tryPromise({
+                                try: async () => {
+                                    const minted = kafka.consumer({ kafkaJS: { groupId: group, autoCommit: false } });
+                                    await minted.connect();
+                                    await minted.subscribe({ topic: row.subject });
+                                    return minted;
+                                },
+                                catch: (cause) => new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
+                            }),
+                            (consumer) =>
+                                Effect.async<void, FanoutFault>((resume) => {
+                                    void consumer
+                                        .run({
+                                            eachBatchAutoResolve: false,
+                                            partitionsConsumedConcurrently: 1,
+                                            eachBatch: async ({ batch, heartbeat, isRunning, isStale, resolveOffset }) => {
+                                                for (const message of batch.messages) {
+                                                    if (!isRunning() || isStale()) return;
+                                                    const frame = _kafkaFrame(message.headers ?? {});
+                                                    const envelope = await run(
+                                                        codec.decode(
+                                                            topic,
+                                                            message.key,
+                                                            Buffer.from(message.value ?? new Uint8Array()),
+                                                            message.headers ?? {},
+                                                        ),
+                                                        topic,
+                                                    );
+                                                    await run(
+                                                        Propagation.ingress(handler(envelope), Carrier.extract('kafka', frame)).pipe(
+                                                            Effect.retry(
+                                                                Schedule.intersect(
+                                                                    Schedule.recurs(row.attempts - 1),
+                                                                    Schedule.spaced(row.wait),
+                                                                ),
                                                             ),
                                                         ),
-                                                    ),
-                                                );
-                                                resolveOffset(message.offset);
-                                                await consumer.commitOffsets([
-                                                    {
-                                                        topic: batch.topic,
-                                                        partition: batch.partition,
-                                                        offset: (BigInt(message.offset) + 1n).toString(),
-                                                    },
-                                                ]);
-                                                await heartbeat();
-                                            }
-                                        },
-                                    })
-                                    .catch(() => resume(Effect.fail(new FanoutFault({ reason: 'dial', topic }))));
-                            }),
-                        (consumer) => Effect.orDie(Effect.tryPromise(() => consumer.disconnect())),
-                    ),
+                                                        topic,
+                                                    );
+                                                    resolveOffset(message.offset);
+                                                    await consumer.commitOffsets([
+                                                        {
+                                                            topic: batch.topic,
+                                                            partition: batch.partition,
+                                                            offset: (BigInt(message.offset) + 1n).toString(),
+                                                        },
+                                                    ]);
+                                                    await heartbeat();
+                                                }
+                                            },
+                                        })
+                                        .catch((cause) =>
+                                            resume(
+                                                Effect.fail(
+                                                    cause instanceof FanoutFault
+                                                        ? cause
+                                                        : new FanoutFault({ reason: 'dial', topic, detail: String(cause) }),
+                                                ),
+                                            ));
+                                }),
+                            (consumer) => Effect.orDie(Effect.tryPromise(() => consumer.disconnect())),
+                        ),
                 );
 
             return {
                 publish: (topic, envelope) =>
-                    Effect.flatMap(Effect.all({ context: Propagation.current, row: named(topic) }), ({ context, row }) =>
-                        Effect.flatMap(
-                            Effect.tryPromise({
-                                try: () =>
-                                    producer.send({
-                                        topic: row.subject,
-                                        messages: [{
-                                            key: envelope.key,
-                                            value: Buffer.from(envelope.body),
-                                            headers: Carrier.inject('kafka', context, _kafkaBand(envelope.band)),
-                                        }],
+                    Effect.flatMap(
+                        Effect.all({
+                            codec: _kafkaNamed(codecs, topic),
+                            context: Propagation.current,
+                            row: named(topic),
+                        }),
+                        ({ codec, context, row }) =>
+                            Effect.flatMap(
+                                codec.encode(topic, envelope),
+                                (value) =>
+                                    Effect.tryPromise({
+                                        try: () => producer.send({
+                                            topic: row.subject,
+                                            messages: [{
+                                                key: envelope.key,
+                                                value,
+                                                headers: Carrier.inject('kafka', context, _kafkaBand(envelope.band)),
+                                            }],
+                                        }),
+                                        catch: (cause) => new FanoutFault({ reason: 'publish', topic, detail: String(cause) }),
                                     }),
-                                catch: () => new FanoutFault({ reason: 'publish', topic }),
-                            }),
-                            (metadata) => {
-                                const landed = metadata[0];
-                                return landed?.offset === undefined
-                                    ? Effect.fail(new FanoutFault({ reason: 'publish', topic }))
-                                    : Effect.succeed(
-                                          new _Receipt({
-                                              topic,
-                                              subject: row.subject,
-                                              key: envelope.key,
-                                              position: {
-                                                  _tag: 'PartitionOffset',
-                                                  partition: landed.partition,
-                                                  offset: landed.offset,
-                                              },
-                                              duplicate: false, // honest column: Kafka keys route partitions, never deduplicate
-                                          }),
-                                      );
-                            },
-                        ),
+                            ).pipe(
+                                Effect.flatMap((metadata) => {
+                                    const landed = metadata[0];
+                                    return landed?.offset === undefined
+                                        ? Effect.fail(new FanoutFault({ reason: 'publish', topic, detail: '<no-broker-ack-metadata>' }))
+                                        : Effect.succeed(
+                                              new _Receipt({
+                                                  topic,
+                                                  subject: row.subject,
+                                                  key: envelope.key,
+                                                  position: {
+                                                      _tag: 'PartitionOffset',
+                                                      partition: landed.partition,
+                                                      offset: landed.offset,
+                                                  },
+                                                  duplicate: false,
+                                              }),
+                                          );
+                                }),
+                            ),
                     ),
-                subscribe: (topic) => Stream.fail(new FanoutFault({ reason: 'horizon', topic })), // the ordered warm-up lane is the jetstream row's; Kafka fanout attaches through consume groups
+                subscribe: (topic) => Stream.fail(new FanoutFault({ reason: 'horizon', topic, detail: '<kafka-no-warm-subscription>' })),
                 consume: (topic, consumer, anchor, handler) =>
                     _Anchor.$is('Window')(anchor)
                         ? consumed(topic, `${topic}:${consumer}`, handler)
-                        : Effect.fail(new FanoutFault({ reason: 'horizon', topic })),
-                replay: (topic) => Stream.fail(new FanoutFault({ reason: 'horizon', topic })),
-                stash: (topic) => Effect.fail(new FanoutFault({ reason: 'horizon', topic })), // no object store on this substrate: the blob contract is the jetstream row's
-                haul: (topic) => Stream.fail(new FanoutFault({ reason: 'horizon', topic })),
+                        : Effect.fail(new FanoutFault({ reason: 'horizon', topic, detail: `<kafka-no-positional-anchor:${anchor._tag}>` })),
+                replay: (topic) => Stream.fail(new FanoutFault({ reason: 'horizon', topic, detail: '<kafka-no-ordered-replay>' })),
+                stash: (topic) => Effect.fail(new FanoutFault({ reason: 'horizon', topic, detail: '<kafka-no-object-store>' })),
+                haul: (topic) => Stream.fail(new FanoutFault({ reason: 'horizon', topic, detail: '<kafka-no-object-store>' })),
             };
         }),
     );

@@ -51,7 +51,7 @@
 - `MathNet.Numerics`(`.api/api-mathnet-numerics.md`): folder marshalling lifts HyperJet's `double[]` gradient and `double[,]` Hessian into MathNet `Vector`/`Matrix` for the numeric-spine factorization and solve owners.
 - `Stats/estimator`: ARMA-MLE, `HoltFilter`, and `StateSpaceFilter` recursions author once over `DDScalar` (`Constant` data reads, `Variables(theta, order: 1)` parameters), so each `LevenbergMarquardt.Minimize` fit takes a machine-exact gradient.
 - `Solver/uncertainty`: FORM/SORM limit-state gradient joins beside the finite-difference row — an owned smooth limit-state takes exact HyperJet AD, a caller-supplied black-box oracle stays on finite differences.
-- `Tensor/blas#LEVENBERG_MARQUARDT`: HyperJet is the canonical Jacobian provider — each residual row's `GetGradient()` assembles the exact Jacobian the normal-equation step consumes.
+- `Tensor/blas#DENSE_ALGEBRA`: HyperJet is the canonical Jacobian provider — each residual row's `GetGradient()` assembles the exact Jacobian the normal-equation step consumes.
 
 [LOCAL_ADMISSION]:
 - Admit `HyperJet` for any exact gradient or Hessian of a smooth scalar objective or residual expressed in generic math; a caller-supplied black-box objective stays on the finite-difference row.

@@ -6,7 +6,7 @@ Authoring law for every TypeScript spec, kit member, gauge, and e2e suite. Every
 
 - [01]-[RULINGS](RULINGS.md): Settled TypeScript-tree testing decisions — package admissions, oracle discriminants, structure retirements.
 - [02]-[API](.api/): Dev-tool API catalogs, one per dev-plane package; kit members and specs transcribe at catalog-verified spellings.
-- [03]-[CONTRACTS](../contracts/README.md): Corpus consumer law — byte-identical round-trips over every C#-emitted asset.
+- [03]-[CONTRACTS](../contracts/README.md): Corpus conformance law — TypeScript emits or round-trips fixtures by manifest role.
 
 ## [02]-[TOPOLOGY]
 
@@ -20,7 +20,7 @@ Authoring law for every TypeScript spec, kit member, gauge, and e2e suite. Every
 `@rasm/ts-testkit` is the one shared kit — a private, source-exporting workspace package imported via the workspace graph, never by reach-around.
 
 Kit ships no barrel — each owner is an exports-map subpath — and pins no versions; every dependency resolves via the workspace catalog or graph:
-- [01]-`/corpus`: Manifest-keyed corpus readers with typed absence (`Emitted`/`Awaiting`/`Blocked`), `ContentDigest`, `CANONICAL_BYTE_IDENTITY`.
+- [01]-`/corpus`: Manifest-keyed corpus readers with typed absence (`Emitted`/`Awaiting`/`Blocked`), `ContentDigest`, `MESH_ADJACENCY_GOLDEN`.
 - [02]-`/laws`: Witness-mandatory `Law` combinators — construction demands a refuting foil, and registration runs the tautology audit.
 - [03]-`/arbitraries`: Schema-derived arbitraries with the field-absence and distinct-payload lanes.
 - [04]-`/harness`: Mints the harness `Layer`s — pglite fast lane, container rows as data, transactional `sandbox`, object store, loopback capsule.
@@ -36,7 +36,7 @@ Specs are written against the installed vitest major — the `@effect/vitest` pe
 - `it.effect` runs a law inside the Effect test environment with `TestClock` control; `it.live` opts into real time and real services when the law is about wall-clock behavior.
 - `it.layer` shares an expensive `Layer` across a suite; layer construction inside each test body is a density failure.
 - `it.effect.prop` is the one property surface: fast-check arbitraries feed Effect laws without losing `TestClock`. `@fast-check/vitest` is rejected for exactly that loss.
-- Property engine is the one `effect/FastCheck` re-export. A direct `fast-check` workspace admission is rejected: a second engine copy breaks `Arbitrary` class identity across the kit's input dispatch, so `Arbitrary.make`, `it.effect.prop`, and every kit combinator must resolve the same engine instance.
+- Property engine is the one `effect/FastCheck` re-export. Direct `fast-check` workspace admission is rejected: a second engine copy breaks `Arbitrary` class identity across the kit's input dispatch, so `Arbitrary.make`, `it.effect.prop`, and every kit combinator must resolve the same engine instance.
 - `it.scoped` and direct `TestServices` reach-ins are banned; scoping rides the effect under test, service substitution rides layers.
 
 Time-dependent laws advance `TestClock` deterministically instead of sleeping; a spec that awaits real time in the unit lane is an integration test mislabeled or a flake being incubated.
@@ -60,7 +60,7 @@ Schema, failure-tag, and union proofs ride these rails; typed error tags and exh
 - Roster is proven live, not textually: the gauge executes the real binary over each rule's own spans in a scratch config, every `FIRES` line must draw the plugin diagnostic as its own isolated fixture — a multi-arm rule proves every arm, never just its loudest — and the `CLEAN` spans must lint silent as one file; a span that fails to parse proves nothing and fails red.
 - Source-walking audits run the real rule set — ledger edges, folder-scoped external admissions, the security sub-folder crypto rows, the migrator ban — through the kit's import engine: while `libs/typescript` ships no source the verdict is `Unsupported`, never a vacuous green, and every verdict is proven red-capable against synthetic sources, so the audit is armed the day source lands.
 - Estate-wide snapshot-hygiene sweep stands here as the kit gauge's one standing consumer.
-- A gauge verdict is a structural fact — a law the compiler or exports map already enforces physically is never re-proven here.
+- Gauge verdicts are structural facts — a law the compiler or exports map already enforces physically is never re-proven here.
 
 ## [07]-[E2E]
 
@@ -92,7 +92,7 @@ Browser-mode suites are never mutated: the mutation runner does not support them
 
 ## [10]-[DENSITY_AND_BANS]
 
-A spec file is strong when one generated domain attacks decoding, projection, failure tags, and an independent oracle together. Before a second `it` that shares setup with an existing one, collapse into `it.effect.prop`, a case matrix, or an `it.layer` suite; a spec earns lines only through a new oracle, boundary, or product-bug guard. Architecture suite gauges the 175-LOC density cap over colocated runtime-branch specs live; the kit falsification and gauge suites under `tests/typescript/` are the declared carve-out.
+Spec files are strong when one generated domain attacks decoding, projection, failure tags, and an independent oracle together. Before a second `it` that shares setup with an existing one, collapse into `it.effect.prop`, a case matrix, or an `it.layer` suite; a spec earns lines only through a new oracle, boundary, or product-bug guard. Architecture suite gauges the 175-LOC density cap over colocated runtime-branch specs live; the kit falsification and gauge suites under `tests/typescript/` are the declared carve-out.
 
 [BANNED_SHAPES]:
 - Real-time waits in the unit lane; `TestClock` owns time.

@@ -1,6 +1,6 @@
 # [RASM_BIM_API_NTS_GEOPACKAGE]
 
-`NetTopologySuite.IO.GeoPackage` is the pure-managed codec for the OGC GeoPackage *StandardGeoPackageBinary* geometry encoding — the per-feature BLOB stored in a `.gpkg` geometry column. Its `GeoPackageGeoReader`/`GeoPackageGeoWriter` pair round-trips that BLOB to a `NetTopologySuite` `Geometry` with `Ordinates` (XY/XYZ/XYM/XYZM) and SRID handling; the `.gpkg` SQLite container stays out of scope. It is the GeoPackage leg of the `Semantics/georeference#GEOSPATIAL_SEAM`: the container layer yields the geometry-column bytes, this codec materializes the planar algebra `NetTopologySuite` owns.
+`NetTopologySuite.IO.GeoPackage` is the pure-managed codec for the OGC GeoPackage *StandardGeoPackageBinary* geometry encoding — the per-feature BLOB stored in a `.gpkg` geometry column. Its `GeoPackageGeoReader`/`GeoPackageGeoWriter` pair round-trips that BLOB to a `NetTopologySuite` `Geometry` with `Ordinates` (XY/XYZ/XYM/XYZM) and SRID handling; the `.gpkg` SQLite container stays out of scope. It is the GeoPackage leg of the `Semantics/geospatial#GEOSPATIAL_SEAM`: the container layer yields the geometry-column bytes, this codec materializes the planar algebra `NetTopologySuite` owns.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -57,7 +57,7 @@ Each reader seeds `DefaultCoordinateSequenceFactory`/`DefaultPrecisionModel` fro
 [STACKING]:
 - `NetTopologySuite`(`libs/csharp/.api/api-nettopologysuite.md`): the codec consumes and produces `Geometry` directly and reuses the NTS `WKBWriter`/`WKBReader` for the body, so a decoded geometry flows straight into the planar predicate/overlay/`STRtree` algebra and a `BimElement` footprint flows out through `Write`.
 - `MaxRev.Gdal.Core`(`api-maxrev-gdal`): the GeoPackage rail stacks this codec onto a SQLite reader — `Microsoft.Data.Sqlite` selects the geometry-column `byte[]` and attribute columns, `Read(blob)` materializes the geometry, and the attribute columns pair into an NTS `Feature`; the OGR `GPKG` driver is the all-in-one container path when the full GDAL matrix is already loaded.
-- `format#INTERCHANGE`: GeoPackage read/write is one row beside the shapefile (`api-nts-esri-shapefile`), GeoJSON (`api-nts-geojson4stj`), GeoParquet (`api-gisblox-geoparquet`), and FlatGeobuf (`api-flatgeobuf`) codecs, all exchanging one NTS `Geometry` and differing only in container and envelope.
+- `format#FORMAT_AXIS`: GeoPackage read/write is one row beside the shapefile (`api-nts-esri-shapefile`), GeoJSON (`api-nts-geojson4stj`), GeoParquet (`api-gisblox-geoparquet`), and FlatGeobuf (`api-flatgeobuf`) codecs, all exchanging one NTS `Geometry` and differing only in container and envelope.
 - within-lib: the Persistence owner round-trips a geometry BLOB into a SQLite/GeoPackage store while the Bim owner ingests site and context GeoPackage data, two rails over one `Geometry` shape.
 
 [LOCAL_ADMISSION]:

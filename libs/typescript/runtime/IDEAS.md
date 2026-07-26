@@ -66,6 +66,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[CONSUMPTION_AXIS_SPELLING]-[COMPLETE]: the six-axis roster landed at all three branch minters with identical closed-axis vocabularies and one common open-axis descriptor shape; refusal is one axis/value/reason grammar everywhere, and the corpus entry's roster blocker is discharged.
 [WORK_METER_BRIDGE]-[COMPLETE]: work-plane meter bridge — realized as `otel/meter.md` (`Pulse`): fact→instrument projection, census gauges, log-floor wiring, tenant views.
 [CHANNEL_MQTT]-[COMPLETE]: `net/channel.md` `Mqtt` composes the catalog-verified v5 members (`connectAsync`, `subscribeAsync`, `publishAsync`, `endAsync`, the `userProperties` carrier frame) under scoped acquisition; the `[MQTT_V5]` research row resolved against `libs/typescript/core/.api/mqtt.md` and is deleted.
 [PROFILE_SIGNAL]-[COMPLETE]: realized as the minted `otel/profile.md` — `Profile.live` init/start/stop bracket over `@pyroscope/nodejs` with `SourceMapper.create` symbolication, `StripFilenamesMode` posture, rank-91 `Life` drain, and `Setting.otel.profile` admission.

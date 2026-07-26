@@ -1,6 +1,6 @@
 # [PYTHON_BRANCH_RULINGS]
 
-Branch-tier decision registry for `libs/python` — the settled rulings spanning two or more folders that agents re-litigate for lack of a home. Each row is one decision with the one why guarding its re-litigation: a package admission or rejection, an owner-choice discriminant, a collapse refusal naming the lost guarantee, a structure retirement, or a working law. Append-mostly; a row earns its seat while its why stays homeless, dies only when fact and why both live at one durable surface, and a decision scoped to one folder homes at that tier, an estate-spanning one at cross-libs. `(none)` marks a section awaiting its first ruling.
+`libs/python` rulings settle branch-spanning decisions.
 
 ## [01]-[PACKAGES]
 

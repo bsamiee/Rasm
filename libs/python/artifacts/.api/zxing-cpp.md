@@ -92,7 +92,7 @@ One `Mark` owner composes both directions: the `matrix` arm folds `create_barcod
 - decode round-trip: the round-trip the segno `qr` and python-barcode `linear` arms cannot express is this owner's — a segno QR or python-barcode linear raster is proven correct by a `zxingcpp.read_barcodes` pass (`valid=True`, matching `format`), so the `Mark` owner folds it across arms through the zxing decode body; one imaging owner discriminates on `(EncodeArm, kind)` and `MarkOp.Decode`, never a per-format type or per-symbology decode entrypoint.
 
 [LOCAL_ADMISSION]:
-- lazy `import zxingcpp` at the `encode#MARK` / `decode#DECODE` boundary; module-level import violates the manifest import policy, and the annotation-only type imports ride the `if TYPE_CHECKING` block.
+- lazy `import zxingcpp` at the `graphic/marks/encode#MARK` / `graphic/marks/decode#DECODE` boundary; module-level import violates the manifest import policy, and the annotation-only type imports ride the `if TYPE_CHECKING` block.
 - zxing-cpp is the 2D-matrix `matrix` arm and the sole decode owner — QR/Micro-QR encode routes to segno and the linear symbologies to python-barcode; the dependency-free SVG bytes feed the `svgelements`/document figure owners with no rasterization, and the decode body is the round-trip proof across all three arms.
 
 [RAIL_LAW]:

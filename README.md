@@ -1,30 +1,31 @@
 # [RASM_WORKSPACE]
 
-Rasm is a RhinoWIP and Grasshopper2 monorepo for product-neutral AEC libraries, host-boundary packages, agent-operated tooling, and downstream Rhino/GH2 products. Apps and plugins are consumers; shared capability lands first in libraries that absorb geometry, host, runtime, UI, compute, persistence, packaging, and evidence concerns behind canonical owners.
+Rasm is a polyglot monorepo of independently adoptable library estates. C# carries the Rhino 9/WIP and GH2-aware AEC domain, Python the host-free science, compute, data, geometry, and IFC domain, and TypeScript the host-free web, edge, backend, and deployment domain. Each branch originates, operates, and deploys through its own toolchain, so a single-language application ships with no peer branch present. Apps and plugins are consumers: shared capability lands first in the libraries, never coupled in logic - made as polymorphic and parameterized abstracted functionality to serve the app/source that requires it, but also to serve any future app without app specific coupling in the shape, naming, or structure of the code.
 
-Rasm is a polyglot AEC platform organized into strict strata: the C# branch is the Rhino9(WIP)/GH2-aware producer (the geometry kernel, the host-neutral AEC-domain, the app-platform, and the host boundaries); Python is the host-free science/compute/data/geometry/IFC companion; TypeScript is the host-free web/edge platform. All three branches couple only at the wire. `libs/.planning/ARCHITECTURE.md` owns the canonical hierarchy — the strata, the dependency direction, the universal-vs-Rhino-capture rule, and the geometry/mesh/IFC flow.
+Cross-language contracts split in two classes. Every branch mints an infrastructure contract from its own inputs, and `tests/contracts/` defines the shape and proves parity across the mints. One producer named by the capability it holds emits a domain contract, and every peer decodes it. `tests/contracts/MANIFEST.md` binds each contract to its class; `libs/.planning/ARCHITECTURE.md` owns the stratification law, the consumption model, the entry-point law, and that class boundary.
 
-All `libs/` content powers future apps of every kind — in-host on Rhino 9/WIP and GH2, standalone, remote, and web. Libraries own the core logic and expose it agent-first: host, GH2, and external-package APIs are fully captured and internalized behind higher-order abstractions, so an agent composes parameterized, polymorphic capability instead of learning hundreds of provider calls, and builds feature-rich apps with minimal code, boilerplate, or ceremony. Every folder is designed around its entry points and envisioned downstream usage — no knob or ceremony spam; intelligence is internalized, multi-modal, and automatic so consumers have minimal room to hand-roll or misuse `libs/` capability.
+Every `libs/` package is an independently versioned dependency an unrelated application takes exactly as it takes any external package. One branch serves N count of unrelated consumers at once — single-tenant and multi-tenant, in-host and headless, sidecar, companion, standalone, CLI, service and edge — a package assumes no consumer, or sibling set. Deployment shape arrives as data on the axis roster the composition root supplies, and a package unable to serve an axis value refuses at admission with typed evidence.
+
+All `libs/` content powers future apps of every kind — in-host on Rhino 9/WIP and GH2, standalone, remote, and web. Libraries own the core logic and expose it, designed to be agent-first: host and external-package APIs are fully captured and internalized behind higher-order abstractions, so an agent composes parameterized, polymorphic capability instead of learning hundreds of provider calls, and builds feature-rich apps with minimal code, boilerplate, or ceremony. Every folder is designed around one polymorphic entry per bounded concept — no knob or ceremony spam; intelligence is internalized, multi-modal, and automatic for agents to write minimal hand-roll code or misuse `libs/` capability.
 
 Review depth: `.coderabbit.yaml`, `.greptile/`, and `.macroscope/` carry the repo's reviewer tone, scope maps, and doctrine-derived guidance; review behavior is tuned there and never duplicated into docs.
 
 ## [01]-[TARGET]
 
-- [CRITICAL]: Rhino 9/WIP on macOS — the WIP lane IS the Rhino 9 target
+- [CRITICAL]: Rhino 9/WIP on macOS — the WIP lane IS the Rhino 9 target; NO GH1 `.gha` OR Rhino 8, Windows target:
 - `net10.0` for hosted plugins and shared C# projects.
 - Grasshopper product surfaces through `Grasshopper2`.
 - Yak package output for Mac package roots.
-- Polyglot workspace roots: C# libraries and plugins, Python companion libraries and tooling, TypeScript web/edge platform libraries.
-- Out of scope: NO GH1 `.gha` OR Rhino 8 target, Windows package target, RhinoCode publishing path, speculative Rhino command shells, and app-side reinvention of shared library capability.
+- Polyglot workspace roots: independent C#, Python, and TypeScript library estates with their own tooling.
 
 ## [02]-[TOPOLOGY]
 
 | [INDEX] | [SURFACE]            | [OWNER]                  | [ROLE]                                                                        |
 | :-----: | :------------------- | :----------------------- | :---------------------------------------------------------------------------- |
-|  [01]   | `libs/csharp`        | C# library suite         | Foundational packages for AEC app development (Rhino 9/WIP, GH2)              |
-|  [02]   | `libs/python`        | Python library suite     | Host-free companion packages.                                                 |
+|  [01]   | `libs/csharp`        | C# library suite         | Rhino 9/WIP and GH2-aware AEC and host-boundary packages.                     |
+|  [02]   | `libs/python`        | Python library suite     | Host-free science, compute, data, geometry, IFC, and artifact packages.       |
 |  [03]   | `libs/typescript`    | TypeScript library suite | Host-free web/edge platform.                                                  |
-|  [04]   | `tests`              | Polyglot proof surface   | C#, Python, and TypeScript suites plus generated contract fixtures.           |
+|  [04]   | `tests`              | Polyglot proof surface   | C#, Python, and TypeScript suites plus the cross-language contract corpus.    |
 |  [05]   | `tools/assay`        | Typed operator           | Static, test, bridge, package, code, docs, provision, and API evidence rails. |
 |  [06]   | `tools/rhino-bridge` | Live Rhino owner         | Host lifecycle, scenario execution, cargo, spool, protocol, and evidence.     |
 |  [07]   | `tools/cs-analyzer`  | C# architecture pressure | Local Roslyn diagnostics for repeated source-shape laws.                      |
@@ -34,7 +35,7 @@ Review depth: `.coderabbit.yaml`, `.greptile/`, and `.macroscope/` carry the rep
 
 ## [03]-[LIBRARY_OWNERS]
 
-`libs/.planning/ARCHITECTURE.md` owns the package roster, each package's charter, the dependency direction, and the universal-vs-host-capture rule; `libs/.planning/README.md` introduces the branch roles and the planning corpus.
+`libs/.planning/ARCHITECTURE.md` owns the stratification law, the consumption axis roster, and the universal-vs-branch-local rule; each branch `ARCHITECTURE.md` owns its package roster, those packages' charters, and their reference direction; `libs/.planning/README.md` contains the branch roles and planning corpus.
 
 ## [04]-[HOST_RUNTIME]
 
@@ -46,7 +47,7 @@ Plugin projects classify themselves in their project files; build behavior does 
 
 ## [05]-[TOOL_OWNERS]
 
-Every root, tool, and library routes generated output through an owned store: `.artifacts`, `.cache`, package staging roots, scoped report directories, or owner-declared state files. Root scratch output is a defect, and the boundary is enforced rather than assumed — `tests/python/_testkit/test_policy.py` holds the closed allowlist of legitimate repo-root entries, so any unrouted tool write fails the suite by name and a deliberate new root file lands with its allowlist row in the same change.
+Every root, tool, and library routes generated output through an owned store: `.artifacts`, `.cache`, package staging roots, scoped report directories, or owner-declared state files. Root scratch output is a defect that repairs at the writing tool's own configuration, never through a wrapper that relocates the write after the fact.
 
 - `tools/assay` is the repo operator: its registry owns public command shape, its envelopes own result interpretation, and it returns typed reports, artifacts, faults, routing notes, and evidence rather than stderr or human-scanned logs. Structural search, API catalogs, static analysis, tests, bridge orchestration, package work, and docs checks route through the relevant Assay rail.
 - `tools/assay provision` is the Rasm evidence envelope for Forge-provisioned server and native campaign facts. `Parametric_Forge` owns service composition, installed provisioning and scientific executables, Docker/Compose assets, credential and port policy, and native exports; Rasm owns the sanitized `ProvisionRun` facts, manifests, locks, `.api` catalogues, and evidence that consume those machine surfaces.
@@ -59,12 +60,10 @@ Every root, tool, and library routes generated output through an owned store: `.
 
 ## [06]-[PLANNING_AND_EVIDENCE]
 
-New foundational libraries use planning campaigns before production source when scope is broad or future-consumer-facing. Planning law lives in `libs/.planning/` — `ARCHITECTURE.md` (the topology), `campaign-method.md` (the loop, the bar, the agent-role law), `README.md` (the authoring standard), `planning-targets.md` (every planning surface). A campaign makes infra truth honest, captures manifests and lockfiles, extracts API catalogs through repo evidence rails, runs research and adversarial passes before authoring, enumerates isolated and in-concert capability across modalities, then collapses surviving capability into owner ledgers, row/case/policy axes, and decision-complete pages.
+New foundational libraries use planning campaigns before production source when scope is broad or future-consumer-facing. Planning law lives in `libs/.planning/` — `ARCHITECTURE.md` (the topology), `campaign-method.md` (the loop, the bar, the agent-role law), `README.md` (the authoring standard), `planning-targets.md` (every planning surface). Each campaign makes infra truth honest, captures manifests and lockfiles, extracts API catalogs through repo evidence rails, runs research and adversarial passes before authoring, enumerates isolated and in-concert capability across modalities, then collapses surviving capability into owner ledgers, row/case/policy axes, and decision-complete pages.
 
 ## [07]-[DEVELOPMENT_MODEL]
 
 Code starts from the deepest reusable library owner that can absorb the capability. App and plugin layers declare product intent, ports, and output bindings; they do not reimplement geometry kernels, host lifecycles, GH2 wiring, runtime composition, UI primitives, compute orchestration, persistence, packaging, or evidence capture.
 
-External libraries, host APIs, package catalogs, and generated evidence are implementation material. A provider capability becomes a local row, case, delegate column, receipt field, or boundary adapter on the owning surface. Thin wrappers, provider-branded public shapes, command spam, flag spam, and app-local copies are defects.
-
-Quality proof follows the changed owner and the active instruction cadence. Documentation and instruction changes use text, owner, path, and preservation checks unless an executable rail is explicitly requested.
+External libraries, host APIs, package catalogs, and generated evidence are implementation material. Provider capability enters as a local row, case, delegate column, receipt field, or boundary adapter on the owning surface. Thin wrappers, provider-branded public shapes, command spam, flag spam, and app-local copies are defects.

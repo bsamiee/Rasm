@@ -198,7 +198,7 @@ Dirichlet conditioners share `(A, b=None, x=None, I=None, D=None)`; `D`/`I` acce
 - import: top-level `skfem`; the assembled `spmatrix` is `scipy.sparse`.
 - transfer: a callable source/Dirichlet field projects with `basis.project`; physical-point transfer fidelity uses `basis.probes`/`global_coordinates`/`doflocs`, feeding the `FieldQuery` transfer-residual receipt.
 - adaptive: an error estimator drives `adaptive_theta(est, theta)` -> `mesh.refined(ix)`, the loop capturing the estimator and marked-element count as study evidence.
-- boundary: the conditioned `spmatrix`/solution crosses to scipy for sparse solve, and production substrate/benchmark authority stays in `Rasm.Compute`.
+- boundary: the conditioned `spmatrix`/solution crosses to scipy for sparse solve, and benchmark evidence stays branch-local, grading no peer runtime.
 
 [RAIL_LAW]:
 - Package: `scikit-fem`

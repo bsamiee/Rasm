@@ -1,6 +1,6 @@
 # [RASM_BIM_RULINGS]
 
-Per-folder decision registry for the BIM semantic layer — the settled rulings agents re-litigate for lack of a home. Each row is one decision with the one why guarding its re-litigation: a package admission or rejection, an owner-choice discriminant, a collapse refusal naming the lost guarantee, a structure retirement, or a working law. Append-mostly; a row earns its seat while its why stays homeless, dies only when fact and why both live at one durable surface, and a decision spanning folders homes at the branch tier. `(none)` marks a section awaiting its first ruling.
+`Rasm.Bim` rulings settle package-scoped decisions.
 
 ## [01]-[PACKAGES]
 
@@ -10,6 +10,7 @@ Per-folder decision registry for the BIM semantic layer — the settled rulings 
 
 - Ingested `IfcClass`/`PredefinedType` tokens admit BARE at `SemanticProjector` ingress, validity deferring to the `Emit` egress gate [PREDEFINED_TOKEN_RULING] — ingress validation aborts a whole import on one unknown entity and forks the token vocabulary between ingress and egress.
 - Every `IfcRel*` name, directionality, and inverse-attribute pair lives on `IfcRelKind` rows lowering onto the neutral `Relationship` edge, the typed case carrying only `SubKind` and `Generic` alone carrying wire-name and attribute bag [NEUTRAL_EDGE_RULING] — a typed `IfcRel*` seam case leaks GeometryGym below the seam and forks the neutral edge algebra.
+- Content keys ride ONE kernel seed-zero hasher across every federation, solver, cache, and diff edge — a per-page hash, a second scheme, or a `Guid`-keyed join forks the content space Compute's content-addressing lane shares, and a downward `InterchangeIdentity` reference from Bim inverts the strata.
 
 ## [03]-[COLLAPSE]
 

@@ -75,7 +75,7 @@
 - `LanguageExt.Core`: an out-of-range or unparseable foreign load quantity at the SAF/IFC ingest boundary lowers onto `Model/faults#FAULT_BAND` `BimFault.CodecReject`/`Fin<T>` through `.ToError()`, never a thrown exception inside the load fold
 
 [LOCAL_ADMISSION]:
-- `Model/structural#ANALYSIS_MODEL` `LoadGroup` owns load-group topology by GlobalId while the typed `ILoad` carries the applied action quantity; the group references items, the load carries the force, and the two never merge into one stringly-typed record
+- `Model/structural#STRUCTURAL_PROJECTION` `LoadGroup` owns load-group topology by GlobalId while the typed `ILoad` carries the applied action quantity; the group references items, the load carries the force, and the two never merge into one stringly-typed record
 - a load quantity is always a `UnitsNet` struct; SI-base coercion is the `libs/csharp/.api/api-unitsnet.md` `ToUnit(UnitSystem.SI)` path
 - `PointForce`/`LineForce`/… concrete classes are mutable settable-property carriers; ingest them as boundary DTOs and project onto the immutable Bim record set, never as in-graph authority
 

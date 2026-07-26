@@ -18,7 +18,7 @@ declare namespace Corpus {
 const _MANIFEST = 'MANIFEST.md';
 const _EXTENSIONS = { bin: '.bin', json: '.json' } as const;
 
-// CANONICAL_BYTE_IDENTITY frozen expectation: the single-triangle canonical-adjacency stream and its seed-zero XxHash128 digest.
+// MESH_ADJACENCY_GOLDEN frozen expectation: the single-triangle canonical-adjacency stream and its seed-zero XxHash128 digest.
 const _TRIANGLE_HEX = '03000000030000000000000001000000000000000200000001000000020000000100000003000000000000000100000002000000';
 const _TRIANGLE_DIGEST = { canonical: '9462a71a5dd13dcfa3b1d6d225fcbe70', memoryLe: '70befc25d2d6b1a3cf3dd15d1aa76294' } as const;
 
@@ -154,7 +154,7 @@ function resolve(name?: string): Effect.Effect<Asset | ReadonlyArray<Asset>, Cor
 
 const Corpus = {
     // The frozen REAL expectation the TS consumer law reproduces: bytes, canonical digest, and hash-wasm's LE hex twin.
-    CANONICAL_BYTE_IDENTITY: {
+    MESH_ADJACENCY_GOLDEN: {
         bytes: _hexBytes(_TRIANGLE_HEX),
         digest: _TRIANGLE_DIGEST.canonical,
         memoryLe: _TRIANGLE_DIGEST.memoryLe,

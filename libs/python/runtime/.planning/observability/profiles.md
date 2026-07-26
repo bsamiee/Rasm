@@ -13,7 +13,7 @@ Install custody is two-tier — per-composition `ProfilesReceipt`s key by the re
 ## [02]-[PROFILES]
 
 - Owner: `Profiles.install` configures the push agent once — application name from the faults-owned `SCOPES[Scope.SERVICE]` row, server address, static tags, and tenant caller-supplied — and attaches `PyroscopeSpanProcessor` to the registered SDK `TracerProvider`, so every root span carries `pyroscope.profile.id` and the profiler's thread tags carry `span_id`/`span_name`/`trace_id` for the reverse jump. `tenant_id` threads the folder's first-class tenant dimension onto the push, so a multi-tenant profile store slices flame graphs by the same org routing every measurement already carries; `Profiles.phase` scopes sample tags to a bounded window — a recipe stage, a worker kernel window — so a flame graph slices by phase while static dimensions stay install-time `tags=`. Worker floors attach through the workers-owned boot capture: `install` runs in every pool initializer with the `worker.kind` install tag and the parent-captured tenant, the kernel-subject `phase` window rides `traced_kernel`, and the atexit-registered `shutdown` stops the push at worker retirement — so flames come from the process that burns the cycles and a slow offload span clicks through to its worker's graph.
-- Entry: a silent profile caches a `SILENT` receipt per scope and starts no agent, so PACKAGE/TEST processes pay nothing; a same-scope re-install returns its cached receipt stamped `REENTRANT` off the `_receipts` map fold, and a later composition arriving after the push agent exists receives `ADOPTED` through the `latched` reentrant closure — the agent never doubles. `PyroscopeSpanProcessor` attaches only when the global resolves to the SDK `TracerProvider` the telemetry install registered — the API no-op provider matches no arm and the receipt records `linked=False`. `shutdown` is scope-keyed custody: only the scope holding the `INSTALLED` receipt stops the push thread and clears every scope receipt; a `SILENT`/`ADOPTED` scope retires its own receipt alone.
+- Entry: a composition whose providers bind no telemetry export caches a `SILENT` receipt per scope and starts no agent, so an embedded or test-harness process pays nothing; a same-scope re-install returns its cached receipt stamped `REENTRANT` off the `_receipts` map fold, and a later composition arriving after the push agent exists receives `ADOPTED` through the `latched` reentrant closure — the agent never doubles. `PyroscopeSpanProcessor` attaches only when the global resolves to the SDK `TracerProvider` the telemetry install registered — the API no-op provider matches no arm and the receipt records `linked=False`. `shutdown` is scope-keyed custody: only the scope holding the `INSTALLED` receipt stops the push thread and clears every scope receipt; a `SILENT`/`ADOPTED` scope retires its own receipt alone.
 - Auto: `oncpu=True` and `gil_only=False` keep samples on-CPU across Python and native kernels that release the GIL, while idle waits fall out; `shutdown` stops the push thread through `pyroscope.shutdown()` on the drain fold beside the telemetry providers.
 - Packages: `pyroscope-otel` (`PyroscopeSpanProcessor` and its bundled push agent `pyroscope.configure`/`shutdown`/`tag_wrapper`/`add_thread_tag`), `opentelemetry-sdk` (the `TracerProvider` match arm — composition-root altitude), runtime (`latched`, `SCOPES`, admission gate).
 - Growth: a new static profile dimension is one entry in the caller's `tags` mapping; a bounded-window dimension one entry in a `Profiles.phase` mapping; a new worker-floor dimension is one entry in the workers boot-capture tags; a new agent knob is one `configure` keyword threaded through `install`; a new composition is one `ScopeKey` value threaded through the `scope` keyword.
@@ -41,7 +41,7 @@ from opentelemetry.sdk.resources import SERVICE_INSTANCE_ID, SERVICE_NAME, SERVI
 from opentelemetry.sdk.trace import TracerProvider
 from pyroscope.otel import PyroscopeSpanProcessor
 
-from rasm.runtime.admission import PROFILE_POLICY, RuntimeProfile
+from rasm.runtime.admission import RuntimeContext
 from rasm.runtime.faults import SCOPES, RuntimeRail, Scope, boundary, latched
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
@@ -97,13 +97,15 @@ class Profiles:
     @classmethod
     def install(
         cls,
-        profile: RuntimeProfile,
+        ctx: RuntimeContext,
         endpoint: str,
         tags: Mapping[str, str] | None = None,
         tenant: str | None = None,
         *,
         scope: ScopeKey = DEFAULT_SCOPE,
     ) -> ProfilesReceipt:
+        # `ctx.policy.emit_otel` folds off the bound telemetry-export provider, so the push gate reads the same
+        # axis value the telemetry install reads and the preset name never discriminates here.
         with cls._gate:
             match cls._receipts.try_find(scope):
                 case Option(tag="some", some=prior):
@@ -111,7 +113,7 @@ class Profiles:
                 case _:
                     receipt = (
                         ProfilesReceipt(ProfilesOutcome.SILENT, SCOPES[Scope.SERVICE], endpoint, linked=False, tenant=tenant)
-                        if not PROFILE_POLICY[profile].emit_otel
+                        if not ctx.policy.emit_otel
                         else cls._pushed(endpoint, tags if tags is not None else {}, tenant)
                     )
                     cls._receipts = cls._receipts.add(scope, receipt)
@@ -154,7 +156,7 @@ class Profiles:
 - Owner: `BenchmarkReceipt` carries the macro-benchmark evidence — subject, rounds, warmup, the latency quartet, throughput — and `Bench.run` is the one runner: warmup rounds discarded, measured rounds folded into per-round wall samples, quantiles derived at read, never fold state. One measured window yields both latency and throughput; a mode knob cannot alter facts already present in the same samples.
 - Receipt: `contribute` streams one `Receipt.of("runtime.bench", ("emitted", subject, facts))` row and projects the duration and throughput measures onto the `Metrics.record` mapping arm under `domain="bench"`, so the receipt stays truth and the instruments stay projections of it.
 - Growth: a new benchmark statistic is one `BenchmarkReceipt` field derived from the held samples; a new bench instrument is one measure name here and one `InstrumentSpec` row on the metrics owner.
-- Boundary: this family owns local macro evidence; cross-runtime benchmark authority and corpus gates stay the C# owner's, reached only through the wire. A process-terminal bench run rides the `JobRun.bounded` envelope so the final `domain="bench"` projection flushes before exit; an in-daemon bench rides the standing periodic reader.
+- Boundary: this family owns the branch's macro evidence and its own corpus gate; benchmark authority stays branch-local, so no peer runtime's figure is graded or cited here and a cross-runtime speed comparison has no owner. `JobRun.bounded` envelopes a process-terminal bench run so the final `domain="bench"` projection flushes before exit; an in-daemon bench rides the standing periodic reader.
 
 ```python signature
 class BenchmarkReceipt(Struct, frozen=True):
@@ -209,7 +211,7 @@ class Bench:
 - Auto: `job_resource` hand-builds identity — `service.name` off `SCOPES[Scope.SERVICE]`, a per-run `service.instance.id`, `job.id`/`run.id` as the job axes — because no auto-detector carries job semantics, and two runs of one job binary must key distinct instances. `JOB_SIGNAL_PROFILE` sets a high export interval so the periodic timer is the safety net and the boundary flush is the egress.
 - Cases: `JOB_TEMPORALITY` names the one launcher-environment knob — `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE=delta` — so each flush is self-contained and the backend sums deltas across runs; a cumulative stream from an exited process orphans its last window.
 - Growth: a new job axis is one attribute in `job_resource`; a new lane geometry is one `JOB_SIGNAL_PROFILE` field value.
-- Boundary: the envelope composes `Telemetry.install`/`shutdown` with `Metrics.install` and constructs no provider of its own; long-lived daemons keep the profile-keyed `SIGNAL_PROFILE` rows and never ride this envelope.
+- Boundary: the envelope threads one admitted `RuntimeContext` into `Telemetry.install`/`shutdown` beside `Metrics.install` and constructs no provider of its own, so the job lane gates emission on the axis value every daemon path reads; long-lived daemons keep the profile-keyed `SIGNAL_PROFILE` rows and never ride this envelope.
 
 ```python signature
 # one launcher-environment knob the job lane sets; each flush self-contains so the backend sums deltas across runs.
@@ -231,8 +233,8 @@ def job_resource(job_id: str, run_id: str) -> Resource:
 
 class JobRun:
     @staticmethod
-    def bounded[T](profile: RuntimeProfile, endpoint: str, job_id: str, run_id: str, body: Callable[[], T]) -> RuntimeRail[T]:
-        Telemetry.install(profile, endpoint, resource=job_resource(job_id, run_id), signal_profile=JOB_SIGNAL_PROFILE)
+    def bounded[T](ctx: RuntimeContext, endpoint: str, job_id: str, run_id: str, body: Callable[[], T]) -> RuntimeRail[T]:
+        Telemetry.install(ctx, endpoint, resource=job_resource(job_id, run_id), signal_profile=JOB_SIGNAL_PROFILE)
         Metrics.install()
         outcome = boundary(f"job.{job_id}", body)
         drained = Telemetry.shutdown()  # flush-then-shutdown per provider, ACCUMULATE — runs on the fault arm too

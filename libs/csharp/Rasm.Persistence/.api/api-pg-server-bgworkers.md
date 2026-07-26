@@ -8,7 +8,7 @@ PG18 server-tier maintenance companions carry the Persistence PostgreSQL profile
 - packages: `pg_cron` (PostgreSQL), `pg_partman` (PostgreSQL), `pg_squeeze` (BSD-3-Clause), `pg_jsonschema` (Apache-2.0), `pgaudit` (PostgreSQL)
 - namespace: SQL — the `cron`, `partman`, `squeeze`, and `pgaudit` schemas; `pg_jsonschema` registers unqualified functions and the `jsonschema` type
 - registration: `pg_cron`, `pg_partman_bgw`, `pg_squeeze`, and `pgaudit` ride the `ClusterConfig` `shared_preload_libraries` row and verify through `PreloadProbe`; `pg_jsonschema` registers on `CREATE EXTENSION` alone
-- consumed by: `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension` rows, `Query/lane#DOCUMENT_LANE`, `Version/retention#AUDIT_BINDING`, the AppHost persistence-maintenance schedule
+- consumed by: `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension` rows, `Query/lane#READ_ROUTING`, `Version/retention#RETENTION_CLASSES`, the AppHost persistence-maintenance schedule
 - rail: cluster-config, document-lane, audit-binding, schedule
 
 ## [02]-[PG_CRON]
@@ -89,7 +89,7 @@ A bloated table rewrites from the WAL decode stream and takes `ACCESS EXCLUSIVE`
 |  [08]   | `jsonschema_is_valid(json) -> bool`                                 | function | the schema document is itself well-formed           |
 |  [09]   | `jsonschema`                                                        | type     | compiled-validator cast target, cached per callsite |
 
-- `Query/lane#DOCUMENT_LANE` declares one `ServerExtension` `CreateSql` over `(Table, Column, Constraint, Schema)` emitting `ALTER TABLE … ADD CONSTRAINT … CHECK (jsonb_matches_schema('<schema>', <column>))`, so a declared-shape document is rejected at WRITE.
+- `Query/lane#READ_ROUTING` declares one `ServerExtension` `CreateSql` over `(Table, Column, Constraint, Schema)` emitting `ALTER TABLE … ADD CONSTRAINT … CHECK (jsonb_matches_schema('<schema>', <column>))`, so a declared-shape document is rejected at WRITE.
 - Schema strings arrive pre-frozen from the document-lane shape, never raw runtime input, so the `jsonschema` cast stays stable for the life of the constraint.
 - A `Validate` receipt reads `jsonschema_validation_errors` for the per-error rail the `CHECK` boolean cannot surface.
 - Absent the pgrx-compiled extension, the `ServerExtension("pg_jsonschema", Fallback: "Json.Schema.JsonSchema.Evaluate")` row moves the same verdict in-process; `api-jsonschema-net.md` owns that evaluator's surface.
@@ -98,7 +98,7 @@ A bloated table rewrites from the WAL decode stream and takes `ACCESS EXCLUSIVE`
 
 [PGAUDIT_ENTRY_SCOPE]: session and object audit logging into the server log
 
-Every surface is a GUC bound through `SET`; the runtime obligation is the bound value verified read-only through `SELECT setting FROM pg_settings WHERE name = ANY(...)`. `Version/retention#AUDIT_BINDING` maps one `DataClassification` to one audit class.
+Every surface is a GUC bound through `SET`; the runtime obligation is the bound value verified read-only through `SELECT setting FROM pg_settings WHERE name = ANY(...)`. `Version/retention#RETENTION_CLASSES` maps one `DataClassification` to one audit class.
 
 | [INDEX] | [SURFACE]                        | [SHAPE] | [CAPABILITY]                                                         |
 | :-----: | :------------------------------- | :------ | :------------------------------------------------------------------- |
@@ -134,7 +134,7 @@ Every surface is a GUC bound through `SET`; the runtime obligation is the bound 
 - A server-local cadence enters only where the process must not own the job; anything the AppHost schedule port can drive stays process-side.
 - A partitioned history table declares one `create_parent` call in a migration; `part_config.retention` is the drop policy the `Version/retention` destructive gate reads.
 - A `jsonb` column carrying a declared document shape takes one `CHECK` over the pre-frozen schema, cast to `jsonschema` where the column is write-hot.
-- An audit class binds through the `Version/retention#AUDIT_BINDING` classification table and verifies read-only; preloads are deploy-time `postgresql.conf` values the runtime observes.
+- An audit class binds through the `Version/retention#RETENTION_CLASSES` classification table and verifies read-only; preloads are deploy-time `postgresql.conf` values the runtime observes.
 
 [RAIL_LAW]:
 - Package: `pg_cron` (PostgreSQL), `pg_partman` (PostgreSQL), `pg_squeeze` (BSD-3-Clause), `pg_jsonschema` (Apache-2.0), `pgaudit` (PostgreSQL)

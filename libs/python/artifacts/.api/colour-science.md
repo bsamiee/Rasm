@@ -154,7 +154,7 @@ CCT rows share `(coords, method)`; `dominant_wavelength`/`complementary_waveleng
 - `coloraide`(`.api/coloraide.md`): the numeric XYZ/`xy` vector is the seam — a measured XYZ from `sd_to_XYZ` or an appearance coordinate enters `coloraide` as `Color(('xyz-d65', coords))` for the per-color gamut/CSS/CVD/palette legs `coloraide` owns; `colour` never parses CSS strings, `coloraide` never runs spectral sd→XYZ integration.
 - imaging codec: `read_image`/`write_image` route to Imageio/OpenImageIO float buffers; the multi-bit-depth pixel array feeds the imaging owner, the colour transform running on the array before encode, never on a serialized blob.
 - figures owner: chromaticity (`XYZ_to_xy`), spectral locus (`wavelength_to_XYZ`), and CCT (`CCT_to_xy`) coordinates feed the plot owner as numeric arrays; `plot_*` stays Matplotlib-gated at the figures owner, never invoked in the colour rail.
-- universal rail (`libs/python/.api`): numeric XYZ/`xy`/Lab ndarrays project into one `derive#DERIVE` `ColorModel`/`Derivation` case; `numpy` materializes the coordinate arrays and the typing rail refines their rank, dtype, and finiteness.
+- universal rail (`libs/python/.api`): numeric XYZ/`xy`/Lab ndarrays project into one `graphic/color/derive#DERIVE` `ColorModel`/`Derivation` case; `numpy` materializes the coordinate arrays and the typing rail refines their rank, dtype, and finiteness.
 
 [RAIL_LAW]:
 - Package: `colour-science`

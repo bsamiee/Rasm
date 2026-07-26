@@ -177,7 +177,7 @@ One unified leg dispatches on the `ObjectClient` union: each leg takes bucket + 
 
 [STACKING]:
 - `Minio`(`.api/api-minio`): the fourth self-hosted `ObjectClient` provider row on the same `BlobRemote` placement contract, supplying the same four legs, range-read, and the `#WRITE_ONCE_SEAL` edge (`ObjectConditionalQueryArgs.WithMatchETag`/`CopyConditions`).
-- within-lib: the `ObjectClient` union dispatches one `Store/blobstore#OBJECT_STORE` placement row across S3/Azure/GCS/Minio; the SSE-KMS KEK reference rides the tenant `Element/identity#KEY_ENVELOPE` DEK envelope, and framing is settled at `#ARTIFACT_FRAMES`.
+- within-lib: the `ObjectClient` union dispatches one `Store/blobstore#OBJECT_STORE` placement row across S3/Azure/GCS/Minio; the SSE-KMS KEK reference rides the tenant `Element/identity#KMS_CUSTODY` DEK envelope, and framing is settled at `#ARTIFACT_FRAMES`.
 
 [LOCAL_ADMISSION]:
 - Conditional-write conflict — S3 `PreconditionFailed`/412, Azure `ConditionNotMet`/412, GCS 412 on generation-match — folds to `RemoteStoreFault.Conflict`, a benign write-once no-op since the content is already durably present, identical by hash.

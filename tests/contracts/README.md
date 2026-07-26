@@ -1,21 +1,34 @@
 # [CONTRACTS_CORPUS]
 
-`tests/contracts/` is the cross-language frozen corpus: the wire bytes and canonical JSON that prove every polyglot seam decodes to the same facts in C#, Python, and TypeScript — a neutral seam no language tree owns and no language-local snapshot store substitutes for. Assets rebuild ground-up when the owning wire contract changes shape; a stale asset regenerates or dies, never hand-patched or aliased. [MANIFEST.md](MANIFEST.md) is the corpus registry: every committed seam holds one manifest entry before its first asset exists, and the entry's pin state separates frozen expectations from unpinned design gaps.
+`tests/contracts/` carries both corpus roles: each seam schema DEFINES the contract every conforming branch implements, and the frozen wire bytes and canonical JSON PROVE that C#, Python, and TypeScript resolve it to the same facts — a neutral surface no language tree owns and no language-local snapshot store substitutes for. Definitions and assets rebuild ground-up when a contract changes shape; a stale asset regenerates or dies, never hand-patched.
 
-## [01]-[PRODUCER_CONSUMER]
+[MANIFEST.md](MANIFEST.md) is the corpus registry: every committed seam holds one manifest entry before its first asset exists, and the entry's pin state separates frozen expectations from unpinned design gaps.
 
-C# is the sole producer: corpus assets are emitted by the owning C# wire surface, never authored by hand and never written by Python or TypeScript. Consumers are round-trip read-only — each consumer decodes an asset, re-encodes it, and proves equivalence through its language snapshot rail (`Verify` in C#, `inline-snapshot` in Python, `toMatchFileSnapshot` in TypeScript): wire bytes re-encode byte-identical, and the canonical JSON projection re-encodes to the same canonical facts. A consumer that cannot round-trip an asset found a seam defect, never a reason to fork a language-local variant.
+## [01]-[AUTHORITY]
+
+Each entry declares one of two classes, and the class alone decides who mints the shape, what proves conformance, and which drift is the defect.
+
+[INFRASTRUCTURE]:
+- Mint: every branch anchor the entry's `Minters` field names mints the shape from its own inputs; the seam schema is the definition, and no branch is another's source or prerequisite, and the entry freezes the payload-agnostic law alone — each branch-owned payload instantiating it takes its own `domain` entry at its own seam.
+- Proof: each minter emits into the seam and every other minter reproduces the identical facts on decode, so parity across minters IS the conformance.
+- Drift defect: a second mint of one shape inside one branch — that branch then carries two spellings where the corpus proves one.
+
+[DOMAIN]:
+- Mint: the single `Producer` anchor emits the canonical asset, named by the domain capability it holds and never by language rank.
+- Proof: every participating branch decodes, re-encodes, and proves equivalence through its local snapshot rail; wire bytes round-trip byte-identically, and canonical JSON re-encodes to the same facts.
+- Drift defect: a second producer for one contract — two emitters fork the semantic model the contract carries.
 
 ## [02]-[LAYOUT]
 
-Assets subdivide by seam, then by message: one directory per cross-language seam, one asset pair (wire bytes and canonical JSON) per message shape inside it. A seam directory exists only when a real producer emits into it — no reserved directories, no placeholder assets, no speculative message homes. `MANIFEST.md` precedes every directory: a seam is committed by its manifest entry, and its directory appears the day its producer emits.
+Assets subdivide by seam, then by message: one directory per cross-language seam, one definition asset at its head, one asset pair (wire bytes and canonical JSON) per message shape inside it. Each seam directory opens with its `contract.schema.json` and gains frozen assets the day a minter or producer emits — no reserved directories, no placeholder assets, no speculative message homes. `MANIFEST.md` precedes every directory: the entry commits the seam, the directory lands the day its definition does, and the registry is the census a reader walks. Everything below states that landing schema, never the current tree.
 
 ```text conceptual
 tests/contracts/
-├── MANIFEST.md          # the seam registry: pin states, producers, frozen expectations
+├── MANIFEST.md              # the seam registry: classes, pin states, minters, frozen expectations
 └── <seam>/
-    ├── <message>.bin    # frozen wire bytes, producer-emitted
-    └── <message>.json   # canonical JSON projection of the same payload
+    ├── contract.schema.json # the definition every conforming branch implements
+    ├── <message>.bin        # frozen wire bytes
+    └── <message>.json       # canonical JSON projection of the same payload
 ```
 
 Peer assets beside the seam directories — descriptor-set snapshots, exported schemas, or other contract assets — land the day they become real, never in advance, and each is registered as a manifest entry with its own payload kind.
@@ -25,28 +38,30 @@ Peer assets beside the seam directories — descriptor-set snapshots, exported s
 [MANIFEST.md](MANIFEST.md) is machine-consumed Markdown: corpus audits verify it against disk, producer pages flip its pin states, and per-language corpus readers resolve assets through it. It keeps this exact shape instead of ordinary page normalization:
 
 [MACHINE_RECORD]:
-- Consumer: corpus audits (producer-anchor resolution, pin-state honesty), producers (pin-state graduation), per-language corpus readers (asset resolution by seam and fixture).
+- Consumer: audits resolve producer anchors and verify pin-state honesty; producers graduate pins; branch readers resolve assets by seam and fixture.
 - Required shape: one summary lookup table over all entries, then one H3 record per fixture carrying the field grammar below in field order.
-- Checked fields: `Producer` anchors resolve to a real page and cluster on disk; `Pin` comes from the closed vocabulary; a `DESIGN-PIN` entry carries `Blocker` and no `Expectation`; a `REAL` entry carries `Expectation` and no `Blocker`; `Payload` comes from the closed vocabulary.
+- Checked fields: `Class`/`Pin`/`Payload` use closed terms; every `Minters` and `Producer` anchor resolves on disk; exclusive maps: `infrastructure`→`Minters`, `domain`→`Producer`, `DESIGN-PIN`→`Blocker`, `REAL`→`Expectation`.
 - Owner: this README owns the schema; the manifest owns the instances.
 - Refresh trigger: any seam commitment, pin graduation, producer re-anchor, or payload change lands with its manifest entry in the same change.
 
 [ENTRY_SCHEMA]:
 - `Seam`: names the corpus directory the fixture's assets land in, lowercase-hyphenated.
-- `Producer`: names the owning C# page cluster as `csharp:<page>#<CLUSTER>` — the surface that pins the byte-deriving input and emits the asset. A fixture family with several descriptor sources lists one anchor per source; the sole-producer law holds for each.
+- `Class`: `infrastructure` binds every branch to mint the shape; `domain` binds one producer to emit it.
+- `Minters`: `infrastructure` only — every branch anchor minting the shape, as `lang:<pkg>/<page>#<CLUSTER>`; each mints from its own inputs.
+- `Producer`: `domain` only — names the owning page cluster as `lang:<pkg>/<page>#<CLUSTER>`; that surface pins the byte-deriving input and emits the asset.
 - `Consumers`: lists the committed round-trip readers as `lang:<pkg>/<page>#<CLUSTER>` or folder tokens; consumers never re-derive a fixture.
 - `Payload`: one or more of `wire-bytes`, `canonical-json`, `digest`, `descriptor-set`.
-- `Pin`: `REAL` when the byte-deriving input and expected values are frozen on the producer page — host-derived or deterministically derivable from a settled design; `DESIGN-PIN` when the producer has not pinned the byte-deriving input.
+- `Pin`: `REAL` binds producer-page-frozen byte input and expectations, host-derived or settled-design-determined; `DESIGN-PIN` marks input unpinned.
 - `Blocker`: `DESIGN-PIN` only — the named producer gap that must close before bytes can derive.
 - `Shape`: states the committed payload shape and the law the fixture proves.
 - `Expectation`: `REAL` only — the frozen values the producer emit must reproduce.
 - `Regenerate when`: names the owning contract change that forces re-emission.
 
 [EXPECTATION_LAW]:
-- An `Expectation` field carries committed law data — the value the producer must reproduce byte-for-byte — never a corpus asset. Corpus assets exist only as producer-emitted files under `<seam>/`; a ledger value never substitutes for the emitted asset, and a consumer round-trips the asset, not the ledger.
-- A `DESIGN-PIN` entry carries no byte set, no digest, and no fabricated stand-in. Its bytes derive only after the named producer pins the missing input; a fabricated byte set for an unpinned fixture is the rejected form in every runtime.
-- Graduation from `DESIGN-PIN` to `REAL` happens on the producer page first: the producer freezes its byte-deriving input there, then flips the manifest entry in the same change. Manifest entries never lead the producer.
+- `Expectation` binds byte-exact emitting law, never an asset; consumers round-trip only emitted `<seam>/` assets, never ledger values.
+- `DESIGN-PIN` carries no bytes, digest, or stand-in; every minter or the producer pins the missing input before bytes derive; all runtimes reject fabricated bytes.
+- `DESIGN-PIN` graduates to `REAL` only after every minter — or the single producer — freezes its byte-deriving input; the manifest entry follows in the same change.
 
 ## [04]-[REGENERATION]
 
-Regeneration triggers when the owning C# wire contract changes: the producer re-emits the affected seam's assets, updates the manifest entry, and every consumer round-trip re-proves in the same change. `buf breaking` (FILE category, against `main`) is the required proto gate from the day the first `.proto` lands. A regenerated asset that breaks a consumer round-trip blocks the change until the seam is reconciled on both ends; committing the new bytes while a consumer still decodes the old shape is a corpus corruption, not a migration strategy.
+Contract changes trigger regeneration by class: an `infrastructure` schema change re-proves every minter against the new definition, and a `domain` contract change re-emits from its producer. Either path updates the manifest in the same change, and a regenerated asset lands only with every participating binding reconciled. `buf breaking` uses FILE category from the first `.proto`.

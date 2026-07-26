@@ -1,6 +1,6 @@
 # [IAC_DATA]
 
-`ObjectStore`, `Nats`, and `Postgres` own k8s durability. `ObjectStore` admits conditional-put engines through typed chart values; `Nats` realizes the JetStream endpoint, websocket, persistence, and quorum; `Postgres` composes CNPG archiving, backups, PgBouncer, and finalization. `_TENANCY` selects shared RLS, database-per-tenant, or cluster-per-tenant. `Pg.rows` governs extensions and preload demand; one job per database applies ensure DDL, and runtime verifies capability. Growth is one matrix, engine, tenancy, backup, or quorum row.
+`ObjectStore`, `Nats`, and `Postgres` own k8s durability — conditional-put object engines through typed chart values, the JetStream endpoint with websocket, persistence, and quorum, and CNPG archiving, backup, recovery, PgBouncer, and database targets behind one `admit` rail whose `DataRefused` faults name the extension, pooling, and recovery axes. `_TENANCY` selects the tenant escalation and `_custody` gives each realized cluster its own credential triple and archive prefix. Growth is one matrix, engine, tenancy, pooling, or recovery row.
 
 ## [01]-[CLUSTERS]
 
@@ -8,8 +8,8 @@
 | :-----: | :------------- | :-------------------------------------------------------------------------- | :------------ |
 |  [01]   | `OBJECT_STORE` | the conforming-engine vocabulary and the chart-realized store + credentials | `ObjectStore` |
 |  [02]   | `FANOUT_STORE` | the NATS JetStream server row: websocket, fsync hardening, quorum           | `Nats`        |
-|  [03]   | `CNPG_CLUSTER` | operator + plugin charts, the typed cluster, archive CR, pooler, backups    | `Postgres`    |
-|  [04]   | `APP_FINALIZE` | the tenancy escalation record, Database CRs, replication seam, ensure job   | `Postgres`    |
+|  [03]   | `CNPG_CLUSTER` | the admission rail, operator charts, per-scope custody, pooler, backups     | `Postgres`    |
+|  [04]   | `APP_FINALIZE` | tenancy escalation, empty Database targets, and the replication seam        | `Postgres`    |
 
 ## [02]-[OBJECT_STORE]
 
@@ -24,7 +24,7 @@
 - Boundary: chart-value keys are the pinned chart's contract, drifting only with the pinned `version`; the managed object cells (S3, R2, GCS) are the cloud arms' rows in `program/provider.md`.
 - Packages: `@pulumi/kubernetes` (`helm.v4.Chart`, `core.v1.Secret`); `../crds/rook` (`ceph.v1.CephObjectStoreUser` — crd2pulumi, regenerated on chart bumps like every committed CRD module); `@pulumi/pulumi` (`Input`, `Output`, `interpolate`); `../program/spec.ts` (`StackSpec`, `Tier`).
 
-```typescript
+```typescript signature
 import * as k8s from "@pulumi/kubernetes"
 import * as pulumi from "@pulumi/pulumi"
 import * as rook from "../crds/rook"
@@ -130,7 +130,7 @@ class ObjectStore extends Tier {
 - Boundary: chart-value keys are the pinned chart's contract; publish/consume semantics, ack posture, and the dedup window are the runtime fanout owner's; the deployment posture here is the durability fact that page deliberately does not carry.
 - Packages: `@pulumi/kubernetes` (`helm.v4.Chart`); `@pulumi/pulumi` (`interpolate`); `../program/spec.ts` (`StackSpec`, `Tier`).
 
-```typescript
+```typescript signature
 class Nats extends Tier {
   readonly origin: pulumi.Output<string>
   constructor(name: string, args: { readonly spec: StackSpec; readonly namespace: pulumi.Input<string>; readonly version: pulumi.Input<string> }, opts?: pulumi.ComponentResourceOptions) {
@@ -162,21 +162,31 @@ class Nats extends Tier {
 
 [CNPG_CLUSTER]:
 - Owner: `Postgres` — the CNPG operator and the Barman Cloud plugin install as two `helm.v4.Chart` rows (typed values, `skipCrds` false so the CRDs ride the charts), and every CNPG object is a COMMITTED `crd2pulumi`-generated class from `../crds/cnpg` — `postgresql.v1.Cluster`/`Database`/`ScheduledBackup`/`Pooler`/`Publication`/`Subscription` and `barmancloud.v1.ObjectStore` — so the operator vocabulary is compile-checked where the estate is PG-heaviest and a raw `CustomResource<any>` catch-all has no spelling here; the generated module regenerates on operator bumps, never an npm pin.
-- Law: WAL archiving rides the plugin, never the in-tree block — the removal-slated `spec.backup.barmanObjectStore` has no spelling; the cluster declares `spec.plugins: [{ name: "barman-cloud.cloudnative-pg.io", isWALArchiver: true, parameters: { barmanObjectName } }]` against one `barmancloud.cnpg.io/v1` `ObjectStore` CR carrying `configuration.destinationPath`/`endpointURL`/`s3Credentials` aimed at the object tier's `credentials` sink, and the `ScheduledBackup` CR drives the profile's `backupCron` with `method: "plugin"` — scheduled backup with PITR on one object-store destination, all four resources typed.
-- Law: the image realizes the matrix — `imageName` must carry every `Pg.image` row (`{ extension, floor, flags }` from `@rasm/ts/data`); the image ref is a pin, conformance is proven twice — the extension rows below pin floors at DDL time, the data plane's capability probe verifies at startup — and an image missing a row fails the probe, never silently degrades. `flags` price the roster at derivation: `tsl` stays self-managed, `excludesSharding` bars a sharding engine from the same image, and `preload` marks the `shared_preload_libraries` demand.
+- Law: Barman plugin rows own WAL archiving, scheduled backup, full recovery, and PITR against one typed `ObjectStore` resource.
+- Law: `Postgres.Recovery` admits empty or archive bootstrap; `RecoveryPoint` closes latest, time, LSN, XID, named, and immediate targets.
+- Archive recovery names a distinct source server; `_cluster` folds image, preload, slots, roles, backup, and recovery into every cluster.
+- Law: the image realizes the matrix — `imageName` must carry every `Pg.image` row (`{ extension, floor, flags }` from `@rasm/ts/data`); the image ref is a pin and the floor is a lower bound the startup capability probe alone enforces, because CNPG's extension `version` field demands an exact match and a floor fed to it refuses every image shipping a newer build; an image missing a row fails the probe, never silently degrades. `flags` price the roster at derivation: `tsl` stays self-managed, `excludesSharding` bars a sharding engine from the same image, and `preload` marks the `shared_preload_libraries` demand.
 - Law: preload derives from the matrix flag — `_preload` filters the granted rows on the `preload` flag and stamps the cluster's `shared_preload_libraries` list, so the next preload-demanding extension lands as a data-matrix flag with zero code edit here; `pgaudit` is CNPG-managed — the operator injects its preload automatically — so no hand list exists and an unloaded preload cannot pass the startup probe.
-- Law: the pooler is the published bind — one `Pooler` CR (`type: "rw"`, PgBouncer `poolMode: "transaction"`, two instances) fronts the write service, `postgres.host` publishes the pooler service DNS so every app connection multiplexes through it, and the operator-maintained `-rw` service stays the interior host the ensure job's DDL binds directly — pooled for the many, direct for the DDL.
-- Law: the credentials are ours, not the operator's — three `kubernetes.io/basic-auth` secrets carry the Doppler-generated `admin`, `app`, and `analyst` entries: the cluster's `superuserSecret`/`enableSuperuserAccess` rows point at the first, and the two `managed.roles` rows bind the others, so no operator-minted credential exists outside the rotation epoch.
+- Law: `admit` is the one entry — the extension matrix, the pooling axis, and every realized scope's recovery source prove on the typed `DataRefused` rail before a chart is declared, each fault naming its axis; a refused spec never half-constructs a tier and construction-time refusal has no spelling left on this page.
+- Law: the pooler mode is the spec's pooling axis, not a tier literal — `spec.profile.data.pooling` drives `pgbouncer.poolMode`, `pooling` publishes the realized mode on the tier and the `data` output plane, and each target exposes the operator-maintained direct host so convergence runners hold a session the pooler mode never truncates.
+- Law: the credentials are ours, not the operator's, and they key by scope — `_custody` mints one `kubernetes.io/basic-auth` triple (`admin`, `app`, `analyst`) and one barman `ObjectStore` per realized cluster out of the caller's `auth(scope)` mint, the cluster's `superuserSecret`/`enableSuperuserAccess` rows pointing at that scope's admin and its two `managed.roles` rows at the others; a shared superuser secret or a shared WAL destination across dedicated clusters returns exactly the blast radius the dedicated tier buys, so the archive prefix carries the scope.
 - Law: dependent-CR cluster references are create-only and explicitly named — `Database`, `ScheduledBackup`, and `Pooler` `cluster.name` references are CEL-validated immutable on the operator's CRDs, the generators treat them as create-time constants, and re-pointing one is a new resource by construction; the `Cluster` CR states its `metadata.name` because a nameless metadata autonames under the provider, every literal `cluster.name` reference then dangles, and the cluster name is the `-rw` service-DNS root — referenced CRs and autonaming never mix.
-- Entry: interior to `Postgres`; consumers read `postgres.host`, `postgres.port`, `postgres.database`, `postgres.role`.
-- Growth: a new operator fact (a replica cluster, an `ImageCatalog` row) is one typed CR row on this tier; the logical-replication seam is `[5]`'s static pair.
-- Boundary: the operator chart's values and the CR field dialect drift with the pinned versions — the pins are args; the object-store row is `[2]`'s; the fanout row is `[3]`'s.
-- Packages: `@pulumi/kubernetes` (`helm.v4.Chart`, `core.v1.Secret`); `../crds/cnpg` (typed CNPG + barmancloud classes — crd2pulumi); `@pulumi/pulumi` (`all`, `interpolate`); `@rasm/ts/data` (`Pg`); `effect` (`Array`).
+- Entry: `Postgres.admit("data", { spec, namespace, image, operatorVersion, barmanVersion, objects, auth, recovery }, opts)` inside the k8s arm; consumers read `postgres.host`, `postgres.port`, `postgres.database`, `postgres.role`, `postgres.pooling`.
+- Growth: a new operator fact is one typed CR row; a recovery criterion is one `RecoveryPoint` case; a new refusal axis is one `DataRefused` literal with its proof in `admit`; logical replication is `[5]`'s static pair.
+- Boundary: the operator chart's values and the CR field dialect drift with the pinned versions — the pins are args; the object-store row is `[2]`'s; the fanout row is `[3]`'s; the per-scope credential mint is the composing arm's `auth` callback.
+- Packages: `@pulumi/kubernetes` (`helm.v4.Chart`, `core.v1.Secret`); `../crds/cnpg` (typed CNPG + barmancloud classes — crd2pulumi); `@pulumi/pulumi` (`all`, `interpolate`); `@rasm/ts/data` (`Pg`); `effect` (`Array`, `Data`, `Effect`, `Record`).
 
-```typescript
+```typescript signature
 import { Pg } from "@rasm/ts/data"
-import { Array, Option } from "effect"
+import { Array, Data, Effect, Match, Option, Record } from "effect"
 import * as cnpg from "../crds/cnpg"
+
+// --- [ERRORS] ----------------------------------------------------------------------------
+
+class DataRefused extends Data.TaggedError("DataRefused")<{
+  readonly axis: "extensions" | "pooling" | "recovery"
+  readonly detail: string
+}> {}
 
 const _preload = (granted: ReadonlyArray<(typeof Pg.rows)[number]>): ReadonlyArray<string> =>
   Array.map(
@@ -185,6 +195,20 @@ const _preload = (granted: ReadonlyArray<(typeof Pg.rows)[number]>): ReadonlyArr
   )
 
 declare namespace Postgres {
+  type RecoveryBound = {
+    readonly backup: Option.Option<string>
+    readonly exclusive: boolean
+  }
+  type RecoveryPoint =
+    | { readonly _tag: "latest" }
+    | ({ readonly _tag: "time"; readonly at: string } & RecoveryBound)
+    | ({ readonly _tag: "lsn"; readonly at: string } & RecoveryBound)
+    | { readonly _tag: "xid"; readonly at: string; readonly backup: string; readonly exclusive: boolean }
+    | { readonly _tag: "name"; readonly at: string; readonly backup: string; readonly exclusive: boolean }
+    | { readonly _tag: "immediate"; readonly backup: string }
+  type Recovery =
+    | { readonly _tag: "empty" }
+    | { readonly _tag: "archive"; readonly server: string; readonly point: RecoveryPoint }
   type Auth = {
     readonly admin: pulumi.Input<string>
     readonly app: pulumi.Input<string>
@@ -197,12 +221,201 @@ declare namespace Postgres {
     readonly operatorVersion: pulumi.Input<string>
     readonly barmanVersion: pulumi.Input<string>
     readonly objects: ObjectStore
-    readonly auth: Auth
-    readonly ensures?: ReadonlyArray<string>
+    readonly auth: (scope: string) => Auth
+    readonly recovery: (scope: string) => Recovery
+  }
+  type Target = {
+    readonly name: string
+    readonly database: string
+    readonly direct: pulumi.Output<string>
+    readonly ready: cnpg.postgresql.v1.Database
+    readonly env: ReadonlyArray<k8s.types.input.core.v1.EnvVar>
+  }
+  type Targets = readonly [Target, ...ReadonlyArray<Target>]
+}
+
+const _BARMAN_PLUGIN = "barman-cloud.cloudnative-pg.io"
+
+// PgBouncer's mode decides which server-side state survives a client's next statement, so the mode
+// is a capability input: every primitive a row names dies under that mode across the pooled bind.
+const _VOIDS = {
+  session: [],
+  transaction: ["advisory", "channel"],
+  statement: ["advisory", "channel", "skipLocked"],
+} as const satisfies Record.ReadonlyRecord<StackSpec.Pooling, ReadonlyArray<Pg.Primitive>>
+
+// `_scopes` enumerates every cluster the tenancy escalation realizes, so recovery proves against
+// that whole set and never the primary alone.
+const _scopes = (name: string, spec: StackSpec): ReadonlyArray<string> =>
+  spec.pgTier === "cluster-per-tenant"
+    ? [name, ...Array.map(spec.tenants, (tenant) => `${name}-${tenant}`)]
+    : [name]
+
+const _optionalBackup = (backup: Option.Option<string>) =>
+  Option.match(backup, {
+    onNone: () => ({}),
+    onSome: (backupID) => ({ backupID }),
+  })
+
+const _recoveryTarget = (point: Postgres.RecoveryPoint) =>
+  Match.value(point).pipe(
+    Match.tagsExhaustive({
+      latest: () => ({}),
+      time: ({ at, backup, exclusive }) => ({
+        recoveryTarget: { targetTime: at, exclusive, ..._optionalBackup(backup) },
+      }),
+      lsn: ({ at, backup, exclusive }) => ({
+        recoveryTarget: { targetLSN: at, exclusive, ..._optionalBackup(backup) },
+      }),
+      xid: ({ at, backup, exclusive }) => ({
+        recoveryTarget: { targetXID: at, backupID: backup, exclusive },
+      }),
+      name: ({ at, backup, exclusive }) => ({
+        recoveryTarget: { targetName: at, backupID: backup, exclusive },
+      }),
+      immediate: ({ backup }) => ({
+        recoveryTarget: { targetImmediate: true, backupID: backup },
+      }),
+    }),
+  )
+
+// Admission already proved the source names a foreign server for every realized scope, so the fold
+// is total and no construction-time refusal remains.
+const _bootstrap = (
+  target: string,
+  recovery: Postgres.Recovery,
+  archive: pulumi.Input<string>,
+) =>
+  Match.value(recovery).pipe(
+    Match.tagsExhaustive({
+      empty: () => ({}),
+      archive: ({ server, point }) => {
+        const source = `${target}-recovery`
+        return {
+          bootstrap: { recovery: { source, ..._recoveryTarget(point) } },
+          externalClusters: [{
+            name: source,
+            plugin: {
+              name: _BARMAN_PLUGIN,
+              parameters: { barmanObjectName: archive, serverName: server },
+            },
+          }],
+        }
+      },
+    }),
+  )
+
+type _Custody = {
+  readonly archive: cnpg.barmancloud.v1.ObjectStore
+  readonly admin: k8s.core.v1.Secret
+  readonly app: k8s.core.v1.Secret
+  readonly analyst: k8s.core.v1.Secret
+}
+
+type _ClusterArgs = {
+  readonly args: Postgres.Args
+  readonly granted: ReadonlyArray<(typeof Pg.rows)[number]>
+  readonly custody: _Custody
+  readonly role: string
+  readonly analystRole: string
+}
+
+// One cluster, one custody envelope: the scope keys its own credential triple out of the caller's
+// per-scope mint and its own archive prefix, so a dedicated cluster shares neither superuser
+// material nor WAL destination with the primary or with a sibling tenant.
+const _custody = (
+  scope: string,
+  args: Postgres.Args,
+  role: string,
+  analystRole: string,
+  child: pulumi.CustomResourceOptions,
+): _Custody => {
+  const auth = args.auth(scope)
+  const secret = (kind: string, username: string, password: pulumi.Input<string>): k8s.core.v1.Secret =>
+    new k8s.core.v1.Secret(`${scope}-${kind}`, {
+      metadata: { namespace: args.namespace },
+      type: "kubernetes.io/basic-auth",
+      stringData: { username, password },
+    }, child)
+  return {
+    archive: new cnpg.barmancloud.v1.ObjectStore(`${scope}-archive`, {
+      metadata: { namespace: args.namespace },
+      spec: {
+        configuration: {
+          destinationPath: pulumi.interpolate`s3://${args.objects.bucket}/postgres/${scope}`,
+          endpointURL: args.objects.endpoint,
+          s3Credentials: {
+            // Selected engine rows own sink and key spellings for MinIO and Ceph custody.
+            accessKeyId: { name: args.objects.credentials.name, key: args.objects.credentials.keys.access },
+            secretAccessKey: { name: args.objects.credentials.name, key: args.objects.credentials.keys.secret },
+          },
+        },
+      },
+    }, child),
+    admin: secret("admin", "postgres", auth.admin),
+    app: secret("app", role, auth.app),
+    analyst: secret("analyst", analystRole, auth.analyst),
   }
 }
 
+const _cluster = (
+  name: string,
+  ctx: _ClusterArgs,
+  child: pulumi.CustomResourceOptions,
+): cnpg.postgresql.v1.Cluster => {
+  const cluster = new cnpg.postgresql.v1.Cluster(name, {
+    metadata: { name, namespace: ctx.args.namespace },
+    spec: {
+      instances: ctx.args.spec.profile.data.instances,
+      imageName: ctx.args.image,
+      storage: { size: ctx.args.spec.profile.data.storage },
+      postgresql: { "shared_preload_libraries": [..._preload(ctx.granted)] },
+      replicationSlots: { highAvailability: { enabled: true } },
+      enableSuperuserAccess: true,
+      superuserSecret: { name: ctx.custody.admin.metadata.name },
+      plugins: [{
+        name: _BARMAN_PLUGIN,
+        isWALArchiver: true,
+        parameters: { barmanObjectName: ctx.custody.archive.metadata.name },
+      }],
+      managed: {
+        roles: [
+          {
+            name: ctx.role,
+            ensure: "present",
+            login: true,
+            superuser: false,
+            connectionLimit: 64,
+            passwordSecret: { name: ctx.custody.app.metadata.name },
+          },
+          {
+            name: ctx.analystRole,
+            ensure: "present",
+            login: true,
+            superuser: false,
+            inRoles: ["pg_read_all_data"],
+            passwordSecret: { name: ctx.custody.analyst.metadata.name },
+          },
+        ],
+      },
+      backup: { retentionPolicy: ctx.args.spec.profile.data.retention },
+      ..._bootstrap(name, ctx.args.recovery(name), ctx.custody.archive.metadata.name),
+    },
+  }, { ...child, protect: true })
+  new cnpg.postgresql.v1.ScheduledBackup(`${name}-backup`, {
+    metadata: { namespace: ctx.args.namespace },
+    spec: {
+      schedule: ctx.args.spec.profile.data.backupCron,
+      cluster: { name },
+      method: "plugin",
+      pluginConfiguration: { name: _BARMAN_PLUGIN },
+    },
+  }, { ...child, dependsOn: [cluster] })
+  return cluster
+}
+
 class Postgres extends Tier {
+  static readonly scopes = _scopes
   static readonly publication = (
     name: string,
     args: Postgres.Replication & { readonly target: { readonly allTables: boolean } },
@@ -227,15 +440,37 @@ class Postgres extends Tier {
         externalClusterName: args.external,
       },
     }, child)
+  // `admit` is the one entry: the extension matrix, the pooling axis, and every realized scope's
+  // recovery source prove on the typed rail before a chart is declared, so a refused spec never
+  // half-constructs a tier and no construction-time throw stands in for a spec-derivable verdict.
+  static admit(
+    name: string,
+    args: Postgres.Args,
+    opts?: pulumi.ComponentResourceOptions,
+  ): Effect.Effect<Postgres, DataRefused> {
+    return Effect.gen(function* () {
+      const granted = yield* _granted(args.spec.profile.extensions)
+      yield* _pooled(args.spec.profile.data)
+      yield* _recoverable(name, args)
+      return new Postgres(name, granted, args, opts)
+    })
+  }
   readonly host: pulumi.Output<string>
   readonly port: number = 5432
   readonly database: string
   readonly role: string
-  constructor(name: string, args: Postgres.Args, opts?: pulumi.ComponentResourceOptions) {
+  readonly pooling: StackSpec.Pooling
+  readonly targets: Postgres.Targets
+  private constructor(
+    name: string,
+    granted: ReadonlyArray<(typeof Pg.rows)[number]>,
+    args: Postgres.Args,
+    opts?: pulumi.ComponentResourceOptions,
+  ) {
     super("Postgres", name, opts)
     this.database = args.spec.app
     this.role = `${args.spec.app}_app`
-    const granted = _granted(args.spec.profile.extensions)
+    this.pooling = args.spec.profile.data.pooling
     const operator = new k8s.helm.v4.Chart(`${name}-operator`, {
       chart: "cloudnative-pg",
       repositoryOpts: { repo: "https://cloudnative-pg.github.io/charts" },
@@ -250,96 +485,39 @@ class Postgres extends Tier {
       namespace: args.namespace,
       skipCrds: false,
     }, this.child({ dependsOn: [operator] }))
-    const archive = new cnpg.barmancloud.v1.ObjectStore(`${name}-archive`, {
-      metadata: { namespace: args.namespace },
-      spec: {
-        configuration: {
-          destinationPath: pulumi.interpolate`s3://${args.objects.bucket}/postgres`,
-          endpointURL: args.objects.endpoint,
-          s3Credentials: {
-            // Selected engine rows own sink and key spellings for MinIO and Ceph custody.
-            accessKeyId: { name: args.objects.credentials.name, key: args.objects.credentials.keys.access },
-            secretAccessKey: { name: args.objects.credentials.name, key: args.objects.credentials.keys.secret },
-          },
-        },
-      },
-    }, this.child({ dependsOn: [barman] }))
-    const admin = new k8s.core.v1.Secret(`${name}-admin`, {
-      metadata: { namespace: args.namespace },
-      type: "kubernetes.io/basic-auth",
-      stringData: { username: "postgres", password: args.auth.admin },
-    }, this.child())
-    const app = new k8s.core.v1.Secret(`${name}-app`, {
-      metadata: { namespace: args.namespace },
-      type: "kubernetes.io/basic-auth",
-      stringData: { username: this.role, password: args.auth.app },
-    }, this.child())
     const analystRole = `${args.spec.app}_analyst`
-    const analyst = new k8s.core.v1.Secret(`${name}-analyst`, {
-      metadata: { namespace: args.namespace },
-      type: "kubernetes.io/basic-auth",
-      stringData: { username: analystRole, password: args.auth.analyst },
-    }, this.child())
-    const cluster = new cnpg.postgresql.v1.Cluster(name, {
-      metadata: { name, namespace: args.namespace },
-      spec: {
-        instances: args.spec.profile.data.instances,
-        imageName: args.image,
-        storage: { size: args.spec.profile.data.storage },
-        postgresql: { "shared_preload_libraries": [..._preload(granted)] },
-        replicationSlots: { highAvailability: { enabled: true } }, // physical slots survive failover as operator data; the logical pair rides the typed CRs
-        enableSuperuserAccess: true,
-        superuserSecret: { name: admin.metadata.name },
-        plugins: [{
-          name: "barman-cloud.cloudnative-pg.io",
-          isWALArchiver: true,
-          parameters: { barmanObjectName: archive.metadata.name },
-        }],
-        managed: {
-          roles: [
-            {
-              name: this.role,
-              ensure: "present",
-              login: true,
-              superuser: false,
-              connectionLimit: 64,
-              passwordSecret: { name: app.metadata.name },
-            },
-            {
-              name: analystRole,
-              ensure: "present",
-              login: true,
-              superuser: false,
-              inRoles: ["pg_read_all_data"],
-              passwordSecret: { name: analyst.metadata.name },
-            },
-          ],
-        },
-        backup: { retentionPolicy: args.spec.profile.data.retention },
-      },
-    }, this.child({ dependsOn: [operator, archive], protect: true }))
-    new cnpg.postgresql.v1.ScheduledBackup(`${name}-backup`, {
-      metadata: { namespace: args.namespace },
-      spec: {
-        schedule: args.spec.profile.data.backupCron,
-        cluster: { name },
-        method: "plugin",
-        pluginConfiguration: { name: "barman-cloud.cloudnative-pg.io" },
-      },
-    }, this.child({ dependsOn: [cluster] }))
+    const custody = _custody(name, args, this.role, analystRole, this.child({ dependsOn: [barman] }))
+    const cluster = _cluster(name, { args, granted, custody, role: this.role, analystRole },
+      this.child({ dependsOn: [operator, custody.archive] }))
     const pool = new cnpg.postgresql.v1.Pooler(`${name}-pool`, {
       metadata: { namespace: args.namespace },
       spec: {
         cluster: { name },
         instances: 2,
         type: "rw",
-        pgbouncer: { poolMode: "transaction" },
+        pgbouncer: { poolMode: this.pooling },
       },
     }, this.child({ dependsOn: [cluster] }))
     const direct = pulumi.all([cluster.metadata, args.namespace]).apply(([meta, namespace]) => `${meta.name}-rw.${namespace}.svc`)
     this.host = pulumi.all([pool.metadata, args.namespace]).apply(([meta, namespace]) => `${meta.name}.${namespace}.svc`)
-    _finalized({ owner: this, cluster: name, args, granted, admin, app, analyst, direct, child: this.child({ dependsOn: [cluster] }) })
-    this.seal({ host: this.host, port: this.port, database: this.database, role: this.role })
+    this.targets = _finalized({
+      owner: this,
+      cluster: name,
+      args,
+      granted,
+      custody,
+      analystRole,
+      direct,
+      child: this.child({ dependsOn: [cluster] }),
+    })
+    this.seal({
+      host: this.host,
+      port: this.port,
+      database: this.database,
+      role: this.role,
+      pooling: this.pooling,
+      targets: Array.map(this.targets, (target) => target.name),
+    })
   }
 }
 ```
@@ -347,58 +525,97 @@ class Postgres extends Tier {
 ## [05]-[APP_FINALIZE]
 
 [APP_FINALIZE]:
-- Law: finalization is declarative and in-cluster — the deploy host reaches only the Kubernetes API, never the cluster's `.svc` network, so no deploy-side SQL provider can bind the `-rw` service; the app role is the cluster's `managed.roles` row (login, non-superuser, connection-limited, `passwordSecret` at the app basic-auth secret — never the admin entry), and the per-app database is one typed `Database` CR (`cluster`-referenced create-only, `owner`-bound to the managed role, `template0` base) whose `extensions` rows pin every granted matrix row to its floor with `ensure: "present"`; `pg_incremental`'s hard `cron` dependency is a matrix flag the grant subset must prove, so an inconsistent profile fails at `_granted`, never mid-apply.
-- Law: tenancy escalation is the `_TENANCY` record — keyed by `StackSpec.Tenancy["pgTier"]`, exhaustive by mapped annotation: `shared-rls` adds nothing here because `Tenancy.rls` policy rows ride the ensure roster against the one database; `db-per-tenant` realizes one `Database` CR per tenant slug on the shared cluster (declarative `owner`/`extensions` — the CRD exists for exactly this, never hand-rolled `CREATE DATABASE`); `cluster-per-tenant` realizes a dedicated `Cluster` with its `Database` per tenant, sized by the same profile rows, for the tenant whose isolation demands its own WAL and failure domain; a fourth tier is one record row.
+- Law: finalization is declarative and in-cluster; the deploy host reaches only Kubernetes, never the cluster's `.svc` network.
+- Law: each typed `Database` CR converges the managed app role, `template0`, and granted extension floors after cluster readiness.
+- Law: `_granted` refuses unknown extensions and ungranted dependency capabilities on the rail before any target reaches the provider.
+- Law: `_TENANCY` exhaustively maps each `pgTier` to zero or more additional targets and reads `spec.pgTier`, the one total projection over the tenancy union; a fourth tier is one record row.
+- Law: `Postgres.targets` exposes readiness and libpq environment rows; `Converge` owns framework materialization, hydration, and proof.
+- Law: a target authenticates as its scope's managed owner — the libpq rows carry `ctx.owner.role` against that scope's app secret, so every relation the runner authors lands owned by the role the application then binds as, and no grant fold repairs a superuser-owned schema after the fact.
 - Law: the replication seam is the typed static pair — `Postgres.publication(name, { cluster, database, target }, child)` and `Postgres.subscription(name, { cluster, database, publication, external }, child)` construct the CNPG `Publication`/`Subscription` CRs for the multi-region or tenant-migration estate; the pair is dormant capability with a typed spelling, so a replication topology is rows at the composition site, never a tier rewrite.
-- Law: the profile subset proves against the matrix — every `profile.extensions` name resolves through `Array.findFirst` over `Pg.rows` on the `extension` column, then every resolved row proves its dependency edges through the `_DEMANDS` table (a flag on the row demands a capability some granted peer carries — `requiresCron` demands a `cron` grant); an unknown name or an ungranted dependency throws `pulumi.RunError` naming it — this is the one platform-seam throw the tier keeps, because the matrix rows are foreign table data, not spec coordinates.
-- Law: the ensure roster applies transactionally at provision — the `ensures` rows (relation DDL, `Tenancy.rls(relation)` policy blocks, `pg_partman` parent registrations, `pg_cron` schedule rows the data maintenance plane emits) arrive as SQL strings the app root collects from the data plane's published roster, and one `batch/v1.Job` per `_DatabaseTarget` executes them through `psql` with `ON_ERROR_STOP=1` and an explicit `BEGIN`/`COMMIT` wrapper against that database's DIRECT `-rw` service (DDL never rides the transaction-pooled bind), `PGPASSWORD` from the admin secret reference, `dependsOn` the target Database CR, job name suffixed by the spec `epoch` so a roster change re-runs deliberately and a mid-roster failure leaves no partial DDL; the runtime's `Capability` probe then verifies fail-closed at startup — apply here, verify there, mutate never at runtime.
-- Law: ownership carries the grants — the managed role owns its database, so connect and create are ownership facts; the analyst read tier is one more `managed.roles` row (`login`, non-superuser, `inRoles: ["pg_read_all_data"]`, its own `passwordSecret`) with one `ALTER DEFAULT PRIVILEGES` statement on the ensure roster, never a second grant surface — the docker cell's bridged `Grant`/`GrantRole`/`DefaultPrivileges` rows are the same tier in the other carrier's spelling.
-- Law: the replication seam carries slots on both spellings — the cluster's `replicationSlots.highAvailability` row keeps physical slots synchronized across failover as CNPG data, the typed `Publication`/`Subscription` pair carries the logical topology, and the docker cell's bridged `ReplicationSlot` row is the same seam where the daemon host is deploy-reachable; a security-label posture (`SECURITY LABEL` provider rows) rides the ensure roster on this arm and the bridged `SecurityLabel` class on the docker cell.
+- Law: the profile subset proves against the matrix and the matrix alone owns the demand pairs — every `profile.extensions` name resolves through `Array.findFirst` over `Pg.rows` on the `extension` column, then every resolved row proves its dependency edges against `Pg.demands`, the pairs the owning matrix already exports; a second deploy-side demand table evaluates a different closure from the runtime probe's and drifts on the first edge either side adds.
+- Law: pooling proves against the primitives the app declares — `_VOIDS` names what each PgBouncer mode kills across the pooled bind (`transaction` ends the session `advisory` locks and `channel` listeners survive on, `statement` ends the transaction `skipLocked` claims inside), the admission refuses the intersection with `profile.data.primitives` naming both mode and casualties, and the realized mode publishes so the runtime capability rail proves the roster it cannot see from inside a connection.
+- Law: the managed role owns its database; generated grants and default privileges remain framework artifacts on the convergence runner.
+- Law: CNPG owns physical slot survival; typed `Publication` and `Subscription` CRs own logical topology.
+- Law: security labels remain generated framework artifacts; each carrier applies its native projection through convergence.
 - Law: replace-on-change fields are create-time constants — `template`, `encoding`, and locale rows on the Database CR never appear as mutable knobs; changing them is a new database by construction, and `protect` guards the cluster above it.
-- Growth: a second app database on one cluster is a second `Postgres` construction, never a widened tier; a new extension dependency edge is one `_DEMANDS` row; a new tenancy tier is one `_TENANCY` row; the `@pulumi/postgresql` row family survives only on the `selfhosted-docker` cell, where the daemon host coordinate is deploy-reachable — its `getSchemas`/`getTables` read-back feeds `operate/policy.md`'s drift correlation on that cell alone.
-- Boundary: what each granted capability unlocks is the data plane's consumer law; role secret rotation is the spec `epoch` through the `Secrets` entries; the CR field dialect is the operator's own, versioned by the operator chart pin and the regenerated `crds/cnpg` module; out-of-band DDL drift detection is the runtime verify, ruled there.
-- Packages: `@pulumi/kubernetes` (`batch.v1.Job`); `../crds/cnpg` (`postgresql.v1.Database`, `Cluster`, `Publication`, `Subscription`); `effect` (`Array`, `Option`); `@rasm/ts/data` (`Pg`).
+- Growth: a second app database is another `Postgres`; a dependency edge is one `Pg.demands` pair at the matrix owner; a tenancy tier is one `_TENANCY` row; a pooling mode is one `_VOIDS` row.
+- Boundary: recovery bootstraps a new cluster; the ordinary database and convergence folds then materialize, hydrate, prove, and publish it; the primitive roster and its grant semantics are the matrix owner's.
+- Packages: `@pulumi/kubernetes`; `../crds/cnpg`; `effect` (`Array`, `Effect`, `Option`); `@rasm/ts/data` (`Pg`).
 
-```typescript
-const _DEMANDS = [["requiresCron", "cron"]] as const
+```typescript signature
+const _granted = (names: ReadonlyArray<string>): Effect.Effect<ReadonlyArray<(typeof Pg.rows)[number]>, DataRefused> =>
+  Effect.forEach(names, (name) =>
+    Effect.mapError(
+      Array.findFirst(Pg.rows, (row) => row.extension === name),
+      () => new DataRefused({ axis: "extensions", detail: `<unknown-extension:${name}>` }),
+    )).pipe(
+      Effect.tap((rows) =>
+        Effect.forEach(rows, (row) =>
+          Effect.forEach(Pg.demands, ([flag, capability]) =>
+            !Array.contains(row.flags, flag) || Array.some(rows, (peer) => Array.contains(peer.capabilities, capability))
+              ? Effect.void
+              : Effect.fail(new DataRefused({
+                  axis: "extensions",
+                  detail: `<ungranted-dependency:${row.extension}:${capability}>`,
+                })), { discard: true }), { discard: true })),
+    )
 
-const _granted = (names: ReadonlyArray<string>): ReadonlyArray<(typeof Pg.rows)[number]> =>
-  ((rows: ReadonlyArray<(typeof Pg.rows)[number]>) =>
-    Array.map(rows, (row) =>
-      Option.getOrThrowWith(
-        Option.liftPredicate(row, () =>
-          Array.every(_DEMANDS, ([flag, capability]) =>
-            !Array.contains(row.flags, flag) || Array.some(rows, (peer) => Array.contains(peer.capabilities, capability)))),
-        () => new pulumi.RunError(`<ungranted-dependency:${row.extension}>`),
-      )))(
-    Array.map(names, (name) =>
-      Option.getOrThrowWith(
-        Array.findFirst(Pg.rows, (row) => row.extension === name),
-        () => new pulumi.RunError(`<unknown-extension:${name}>`),
-      )),
-  )
+const _pooled = (data: StackSpec.Data): Effect.Effect<void, DataRefused> => {
+  const voided = Array.filter(_VOIDS[data.pooling], (primitive) => Array.contains(data.primitives, primitive))
+  return Array.isNonEmptyReadonlyArray(voided)
+    ? Effect.fail(new DataRefused({ axis: "pooling", detail: `${data.pooling}:${voided.join(",")}` }))
+    : Effect.void
+}
+
+const _recoverable = (name: string, args: Postgres.Args): Effect.Effect<void, DataRefused> =>
+  Effect.forEach(_scopes(name, args.spec), (scope) => {
+    const recovery = args.recovery(scope)
+    return recovery._tag === "archive" && recovery.server === scope
+      ? Effect.fail(new DataRefused({ axis: "recovery", detail: `<recovery-source-conflicts:${scope}>` }))
+      : Effect.void
+  }, { discard: true })
 
 type _Finalize = {
   readonly owner: Postgres
   readonly cluster: string
   readonly args: Postgres.Args
   readonly granted: ReadonlyArray<(typeof Pg.rows)[number]>
-  readonly admin: k8s.core.v1.Secret
-  readonly app: k8s.core.v1.Secret
-  readonly analyst: k8s.core.v1.Secret
+  readonly custody: _Custody
+  readonly analystRole: string
   readonly direct: pulumi.Output<string>
   readonly child: pulumi.CustomResourceOptions
 }
 
-type _DatabaseTarget = {
-  readonly name: string
-  readonly database: string
-  readonly direct: pulumi.Output<string>
-  readonly ready: cnpg.postgresql.v1.Database
-}
+// CNPG's `version` is an exact demand while a matrix `floor` is a lower bound, so the DDL row asks
+// for presence and the startup capability probe alone refuses an image sitting below the floor.
+const _extensions = (granted: ReadonlyArray<(typeof Pg.rows)[number]>): ReadonlyArray<{ name: string; ensure: string }> =>
+  Array.map(granted, (row) => ({ name: row.extension, ensure: "present" }))
 
-const _extensions = (granted: ReadonlyArray<(typeof Pg.rows)[number]>): ReadonlyArray<{ name: string; version: string; ensure: string }> =>
-  Array.map(granted, (row) => ({ name: row.extension, version: row.floor, ensure: "present" }))
+const _target = (
+  name: string,
+  database: string,
+  direct: pulumi.Output<string>,
+  ready: cnpg.postgresql.v1.Database,
+  custody: _Custody,
+  ctx: _Finalize,
+): Postgres.Target => ({
+  name,
+  database,
+  direct,
+  ready,
+  env: [
+    { name: "PGHOST", value: direct },
+    { name: "PGPORT", value: "5432" },
+    { name: "PGDATABASE", value: database },
+    // Convergence authors the relations the application then reads, so its runner binds as this
+    // scope's managed owner; a superuser run leaves every relation owned off-role.
+    { name: "PGUSER", value: ctx.owner.role },
+    {
+      name: "PGPASSWORD",
+      valueFrom: { secretKeyRef: { name: custody.app.metadata.name, key: "password" } },
+    },
+  ],
+})
 
 const _database = (
   name: string,
@@ -420,88 +637,39 @@ const _database = (
   }, child)
 
 const _TENANCY: {
-  readonly [K in StackSpec.Tenancy["pgTier"]]: (ctx: _Finalize) => ReadonlyArray<_DatabaseTarget>
+  readonly [K in StackSpec.PgTier]: (ctx: _Finalize) => ReadonlyArray<Postgres.Target>
 } = {
   "shared-rls": () => [],
   "db-per-tenant": (ctx) =>
     Array.map(ctx.args.spec.tenants, (tenant) => {
       const name = `${ctx.owner.database}-${tenant}`
       const database = `${ctx.owner.database}_${tenant}`
-      return { name, database, direct: ctx.direct, ready: _database(name, database, ctx, ctx.cluster) }
+      return _target(name, database, ctx.direct, _database(name, database, ctx, ctx.cluster), ctx.custody, ctx)
     }),
   "cluster-per-tenant": (ctx) =>
     Array.map(ctx.args.spec.tenants, (tenant) => {
       const cluster = `${ctx.cluster}-${tenant}`
       const name = `${ctx.owner.database}-${tenant}`
-      const dedicated = new cnpg.postgresql.v1.Cluster(cluster, {
-        metadata: { name: cluster, namespace: ctx.args.namespace },
-        spec: {
-          instances: ctx.args.spec.profile.data.instances,
-          imageName: ctx.args.image,
-          storage: { size: ctx.args.spec.profile.data.storage },
-          superuserSecret: { name: ctx.admin.metadata.name },
-          managed: {
-            roles: [
-              {
-                name: ctx.owner.role,
-                ensure: "present",
-                login: true,
-                superuser: false,
-                passwordSecret: { name: ctx.app.metadata.name },
-              },
-              {
-                name: `${ctx.owner.database}_analyst`,
-                ensure: "present",
-                login: true,
-                superuser: false,
-                inRoles: ["pg_read_all_data"],
-                passwordSecret: { name: ctx.analyst.metadata.name },
-              },
-            ],
-          },
-        },
-      }, { ...ctx.child, protect: true })
-      return {
-        name,
-        database: ctx.owner.database,
-        direct: pulumi.interpolate`${cluster}-rw.${ctx.args.namespace}.svc`,
-        ready: _database(name, ctx.owner.database, ctx, cluster, { ...ctx.child, dependsOn: [dedicated] }),
-      }
+      const custody = _custody(cluster, ctx.args, ctx.owner.role, ctx.analystRole, ctx.child)
+      const dedicated = _cluster(cluster, {
+        args: ctx.args,
+        granted: ctx.granted,
+        custody,
+        role: ctx.owner.role,
+        analystRole: ctx.analystRole,
+      }, ctx.child)
+      const direct = pulumi.interpolate`${cluster}-rw.${ctx.args.namespace}.svc`
+      const ready = _database(name, ctx.owner.database, ctx, cluster, { ...ctx.child, dependsOn: [dedicated] })
+      return _target(name, ctx.owner.database, direct, ready, custody, ctx)
     }),
 }
 
-const _finalized = (ctx: _Finalize): void => {
+const _finalized = (ctx: _Finalize): Postgres.Targets => {
   const database = _database(ctx.owner.database, ctx.owner.database, ctx, ctx.cluster)
-  const targets: ReadonlyArray<_DatabaseTarget> = [
-    { name: ctx.owner.database, database: ctx.owner.database, direct: ctx.direct, ready: database },
-    ..._TENANCY[ctx.args.spec.profile.tenancy.pgTier](ctx),
+  return [
+    _target(ctx.owner.database, ctx.owner.database, ctx.direct, database, ctx.custody, ctx),
+    ..._TENANCY[ctx.args.spec.pgTier](ctx),
   ]
-  const ensures = [
-    ...(ctx.args.ensures ?? []),
-    `ALTER DEFAULT PRIVILEGES FOR ROLE ${ctx.owner.role} IN SCHEMA public GRANT SELECT ON TABLES TO ${ctx.owner.database}_analyst`,
-  ]
-  Array.forEach(targets, (target) => {
-    new k8s.batch.v1.Job(`${target.name}-ensure-${ctx.args.spec.epoch}`, {
-      metadata: { namespace: ctx.args.namespace },
-      spec: {
-        backoffLimit: 2,
-        template: {
-          spec: {
-            restartPolicy: "Never",
-            containers: [{
-              name: "ensure",
-              image: ctx.args.image,
-              command: target.direct.apply((host) => [
-                "psql", "-v", "ON_ERROR_STOP=1", "-h", host, "-d", target.database, "-U", "postgres",
-                "-c", `BEGIN;\n${ensures.join(";\n")};\nCOMMIT;`,
-              ]),
-              env: [{ name: "PGPASSWORD", valueFrom: { secretKeyRef: { name: ctx.admin.metadata.name, key: "password" } } }],
-            }],
-          },
-        },
-      },
-    }, { ...ctx.child, dependsOn: [target.ready] })
-  })
 }
 
 declare namespace Postgres {
@@ -514,7 +682,7 @@ declare namespace Postgres {
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Nats, ObjectStore, Postgres }
+export { DataRefused, Nats, ObjectStore, Postgres }
 ```
 
 ## [06]-[RESEARCH]

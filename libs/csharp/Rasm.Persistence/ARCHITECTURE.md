@@ -36,7 +36,8 @@ Rasm.Persistence/            # refs the Rasm.Element seam + Rasm kernel ONLY; no
 │   └── Issue.cs             # BCF issue-file codec and issue-cycle reconcile
 └── Store/                   # Durable-home and coordination substrate
     ├── BlobStore.cs         # Content-keyed object store with a write-blob-first seal
-    ├── Provisioning.cs      # Verification-first extension tier and provider-binding rows
+    ├── Schema.cs            # Sole current-state contract and immutable generation state machine
+    ├── Provisioning.cs      # Verify-only extension tier and provider materializer rows
     ├── Coordination.cs      # Token-fenced lease store: budget, CAS, lease, membership, outbox
     └── Observability.cs     # Engine-stat and plan harvests, slot registry, hook rail, usage census, instrument contributor
 ```
@@ -92,7 +93,7 @@ flowchart TB
 
 ## [03]-[SEAMS]
 
-Seams split into two fences by counterpart group. First fence binds the AEC-domain peers and the kernel — the shape, content-key, and projection contracts through which durable state aligns with `Rasm.Element`, `Rasm.Bim`, and `Rasm.Compute`. Second fence binds the platform host and the cross-runtime peers — the port, wire, and receipt contracts that reach `Rasm.AppHost`, `Rasm.AppUi`, and the Python and TypeScript runtimes. Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind; the owning pages enumerate the rest.
+Seams split into two fences by counterpart group: the first binds the kernel and the AEC-domain peers through shape, content-key, wire, and projection contracts; the second binds the platform host and the cross-runtime peers through port, wire, contract, and receipt families. Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind; the owning pages enumerate the rest.
 
 ```mermaid
 ---
@@ -104,7 +105,7 @@ config:
 ---
 flowchart LR
     accTitle: Persistence domain and kernel content seams
-    accDescr: Persistence sub-domain owners exchanging shapes, content keys, and projections with the kernel and the AEC peers Element, Bim, and Compute, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: Persistence sub-domain owners exchanging shapes, content keys, wires, and projections with the kernel and every AEC peer.
     subgraph persistence[RASM.PERSISTENCE]
         Element[Element store]
         Version[Version engine]
@@ -115,20 +116,31 @@ flowchart LR
     RasmElement{{Rasm.Element}}
     Rasm([Rasm])
     Bim{{Rasm.Bim}}
+    Materials([Rasm.Materials])
     Compute{{Rasm.Compute}}
     RasmElement e1@-->|"[SHAPE]: ElementGraph"| Element
     RasmElement e12@-->|"[SHAPE]: GraphDelta"| Element
     RasmElement e13@-->|"[CONTENT_KEY]: ContentAddress"| Element
+    RasmElement e25@-->|"[SHAPE]: GraphEventEnvelope"| Version
     Ingest e2@-->|"[WIRE]: ElementGraph"| RasmElement
     Rasm e3@-->|"[CONTENT_KEY]: ContentHash"| Element
     Rasm e4@-->|"[CONTENT_KEY]: GeometryHash"| Version
     Bim e5@-->|"[PROJECTION]: BimOpenSchema"| Query
     Bim e6@-->|"[CONTENT_KEY]: RepresentationContentHash"| Store
+    Bim e15@-->|"[CONTENT_KEY]: EnergyArtifact"| Store
+    Bim e16@<-->|"[CONTENT_KEY]: ArtifactKey"| Store
+    Bim e17@<-->|"[CONTENT_KEY]: CommitKey"| Version
+    Bim e18@-->|"[WIRE]: BimEvent"| Version
     Ingest e7@<-->|"[WIRE]: TaskRelation"| Bim
+    Bim e14@-->|"[WIRE]: GeoWire"| Ingest
+    Materials e19@-->|"[WIRE]: AnalyticsSchema"| Query
     Compute e8@-->|"[CONTENT_KEY]: AssessmentPayload"| Version
     Compute e9@<-->|"[CONTENT_KEY]: VectorCodebook"| Query
-    Compute e10@-->|"[PROJECTION]: ArtifactIndexRow"| Query
+    Compute e10@<-->|"[CONTENT_KEY]: ArtifactIndexRow"| Query
+    Compute e20@-->|"[CONTENT_KEY]: ShardPlan"| Query
+    Compute e21@-->|"[CONTENT_KEY]: CompiledExpr"| Query
     Compute e11@<-->|"[CONTENT_KEY]: GeometryHash"| Store
+    Compute e22@<-->|"[CONTENT_KEY]: InterchangeIdentity"| Store
 ```
 
 ```mermaid
@@ -149,8 +161,9 @@ flowchart LR
         Store[Store substrate]
     end
     AppHost{{Rasm.AppHost}}
-    AppUi([Rasm.AppUi])
+    AppUi{{Rasm.AppUi}}
     Core([typescript:core])
+    TsData{{typescript:data}}
     Runtime{{python:runtime}}
     Data{{python:data}}
     Artifacts([python:artifacts])
@@ -170,8 +183,11 @@ flowchart LR
     Store e18@<-->|"[PORT]: TelemetryContributorPort"| AppHost
     AppHost e19@-->|"[PORT]: HookPoint"| Store
     Store e13@-->|"[RECEIPT]: ProvisionVerdict"| AppHost
+    Store e22@<-->|"[CONTRACT]: BackendContract"| Runtime
+    Store e23@<-->|"[CONTRACT]: BackendContract"| TsData
     AppUi e14@-->|"[PROJECTION]: ReplayWindow"| Version
     AppUi e15@-->|"[CONTENT_KEY]: SnapshotAccelerator"| Store
+    Store e24@-->|"[RECEIPT]: DuckProfileReceipt"| AppUi
 ```
 
 ## [04]-[INTERNAL]
@@ -206,28 +222,17 @@ One `IDocumentSession` commits the `GraphDelta` event and the identity row toget
 ## [05]-[BOUNDARIES]
 
 - Persistence is not a domain service layer, repository framework, ORM wrapper, provider wrapper, or host-boundary package; it is RhinoCommon-free.
-- It depends up on the `Rasm.Element` seam and the `Rasm` kernel and never references a sibling AEC-domain peer.
+- It depends up on the `Rasm.Element` seam and the `Rasm` kernel; the seam and the content-keyed wire carry every sibling-domain and host alignment, so no AEC peer or host-SDK type is referenced.
+- Public capability extends its budgeted sub-domain owner region as a row, case, or policy value; a public type outside an owner region draws on no budget.
+- `Store/Schema` owns contract composition, generated artifacts, generation identity, and admission verdicts.
+- `Store/Provisioning` verifies PostgreSQL state and emits reconcile artifacts; PostgreSQL is the sole relational engine, deployment owns the process, and no Rasm process spawns one.
+- Marten owns the op-log at per-model stream grain carrying `GraphDelta` bodies — a per-node stream grain and a whole-graph event body are the two rejected granularities.
 - Identity lands as the compiled-model upsert `IdentityStore.Stamp` queues on the `IDocumentSession`, never a Marten document or second ORM write.
 - Geometry blobs are write-first and reference-after, with no free two-ORM atomicity.
-- Authoritative topology reads bind the inline projection and the in-process QuikGraph view; analytical lanes are async under a watermark.
-- Typed projection records and the seam `ElementGraph` are the only egress; provider failure converts once per rail.
-- AppHost owns scheduling, drain, hop retry, correlation, and the cache port; Persistence contributes rows, never reversing the dependency.
-- Database retry is excluded from the AppHost hop law; the relational rows own their own retry.
-
-## [06]-[PROHIBITIONS]
-
-Deleted patterns the owner regions foreclose:
-- NEVER a public type outside a sub-domain owner region; a new capability is a row, case, or policy value on a budgeted owner.
-- NEVER a bespoke op-log store beneath Marten, a per-node stream grain, or a whole-graph event body; per-model streams carry the `GraphDelta`.
-- NEVER route an interactive-correctness read to an async projection; strong-consistency reads block on non-stale data through the inline projection.
-- NEVER a second materializer beside `Crdt.Apply`/`GraphDelta.Apply`; projection, live merge, and AS-OF reconstruction fold the one delta.
-- NEVER a second content-hash, identity, CRDT, selection-shape, or geometry-representation owner; each spine concept rides its one owner.
-- NEVER a head-only geometry GC; reachability runs over the full event history, or geometry GC is forbidden in favor of dedup and cold-tiering.
-- NEVER a raw clock, stopwatch, or timer; the injected `ProjectionContext` frame is the only time seam, the HLC the only causal clock.
-- A policy value applied at both a provider wire and a domain catalog derives once from one sampled instant threaded through the write path.
-- An AppHost `ClockPolicy` parameter on a Persistence signature is the named strata inversion.
-- NEVER hand-written converters, formatters, or migration code beside the generated rails.
-- NEVER a generic receipt abstraction; each sub-domain outcome stays its own typed receipt or fact record.
-- NEVER admit a new relational engine row; the sweep is closed, PostgreSQL is never spawned by a Rasm process, and provisioning is verification-only.
-- NEVER reference a sibling AEC-domain peer or a host-SDK type; alignment travels through the `Rasm.Element` seam and the content-keyed wire.
-- CSP analyzer diagnostics are architecture pressure: fix the shape, refine the rule on a false positive, never suppress.
+- Interactive-correctness reads bind the inline projection and the in-process QuikGraph view, blocking on non-stale data; async projections serve analytical lanes under a watermark alone.
+- Typed projection records and the seam `ElementGraph` are the only egress; provider failure converts once per rail, and each sub-domain outcome keeps its own typed receipt or fact record.
+- Generated rails own converters, formatters, and migration artifacts.
+- Retention reachability spans the full event history; a store class unable to prove full-history reachability retains blobs through deduplication and cold tiering instead of collecting them.
+- `ProjectionContext` is the one time seam and the HLC the one causal clock; a policy value applied at both a provider wire and a domain catalog derives once from one sampled instant threaded through the write path.
+- Each spine concept keeps one owner across content hash, identity, CRDT, selection shape, and geometry representation.
+- AppHost owns scheduling, drain, hop retry, correlation, and the cache port; Persistence contributes rows and never reverses the dependency, while database retry stays outside the AppHost hop law with the relational rows owning it.

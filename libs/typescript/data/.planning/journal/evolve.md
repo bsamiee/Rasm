@@ -62,7 +62,7 @@ const _sized = (tag: string, chain: Upcast.Chain): Either.Either<Upcast.Chain, C
 - Law: an unknown persisted tag fails the decode as a minted `ParseResult.ParseError` on the same rail every malformed row rides — the read stays typed, the finding quarantines, and the sanctioned retirement path remains the tombstone union member, so a correctly maintained family never reaches that arm and a dropped one degrades to evidence, never to a crash.
 - Law: the lift first admits an integer version inside `1..latest`, then runs `Array.reduce` over `Array.drop(steps, version - 1)` — versions already at `latest` fold through zero steps, invalid coordinates cannot exploit JavaScript slice semantics, and hot reads pay one interval check plus one decode.
 - Law: totality is proven per chain by the test-estate law combinators over `plan.census` — the `(tag, latest)` roster projection the plan carries — so every `(tag, version)` pair present in the corpus composes to a decodable value and the proof reads its coordinates off the plan value itself.
-- Boundary: snapshot bodies ride `chain` with `snapshot_schema_version` as the coordinate; C#-minted wire shapes arrive already decoded through the interchange codec and never re-enter this fold.
+- Boundary: snapshot bodies ride `chain` with `snapshot_schema_version` as the coordinate; contract wire shapes arrive already decoded through the interchange codec and never re-enter this fold.
 
 ```typescript signature
 import { Array, Effect, Either, Option, ParseResult, Record, Schema, SchemaAST } from "effect"
@@ -135,7 +135,7 @@ const Upcast = {
 - Law: the upsert is monotonic — `WHERE excluded.version > journal_snapshot.version` — a stale snapshotter racing a fresh one commits nothing, so cadence needs no coordination.
 - Law: `snapshot_schema_version` is stamped from `lift.latest` at save and consumed by `lift.decode` at load — write coordinate and read fold share one anchor exactly as events do.
 - Law: a load whose body fails the lift is `ParseError` on the admission rail — the consuming lane discards the snapshot and replays; corruption degrades to cost, never to wrong state.
-- Boundary: the C#-minted snapshot header arrives decoded through the interchange codec and lands here as an ordinary save by its consuming lane — this page never re-decodes wire bytes.
+- Boundary: a peer-minted snapshot header arrives decoded through the interchange codec and lands here as an ordinary save by its consuming lane — this page never re-decodes wire bytes.
 
 ```typescript signature
 import { SqlClient, SqlSchema, type SqlError } from "@effect/sql"

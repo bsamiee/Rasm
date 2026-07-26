@@ -2,7 +2,7 @@
 
 `UncertainQuantity` is the one unit-bearing uncertain-quantity owner, threading a correlated `uncertainties.UFloat` magnitude through the pint unit algebra via the native `pint.Measurement` bridge, so unit conversion, first-order error propagation, content identity, and graduation compose on one value. Linear first-order propagation is the boundary — a large-uncertainty regime routes to the study Monte-Carlo sampler.
 
-One read-only frozen application registry owns the unit vocabulary, shared through `pint.get_application_registry` — no per-call `UnitRegistry()`, no owner-side `define` — so every minted `Quantity`/`Measurement` stays arithmetically compatible across the folder. Dimensional-consistency claims graduate through the `graduation/handoff.md#GRADUATION` `unit_law` axis — the same residual-over-ceiling gate `experiments/inference.md#BAYESIAN` `uncertainty_law` evidence feeds — and a cohort whose data admits as a `numerics/array.md#PAYLOAD` payload keys under the same `ContentIdentity` seed.
+One read-only frozen application registry owns the unit vocabulary, shared through `pint.get_application_registry` — no per-call `UnitRegistry()`, no owner-side `define` — so every minted `Quantity`/`Measurement` stays arithmetically compatible across the folder. Dimensional-consistency claims graduate through the `graduation/handoff#GRADUATION` `unit_law` axis — the same residual-over-ceiling gate `experiments/inference#BAYESIAN` `uncertainty_law` evidence feeds — and a cohort whose data admits as a `numerics/array#PAYLOAD` payload keys under the same `ContentIdentity` seed.
 
 ## [01]-[INDEX]
 

@@ -20,29 +20,29 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[ESTATE_OTLP_BACKEND]-[BLOCKED]: A live estate backend receives the three runtimes' OTLP egress.
+[ESTATE_OTLP_BACKEND]-[BLOCKED]: One live estate backend receives the three runtimes' OTLP egress.
 - Capability: Collector gateway and store set per the iac observe page models — Prometheus reference row, log and trace stores, Pyroscope, Grafana — run as estate infrastructure, so the published OTLP endpoint resolves to a live sink for every runtime.
-- Shape: `typescript:iac/operate/observe.md#_stores` realizes the stack; app roots read the endpoint from stack outputs; the dev loop rides the single all-in-one row with byte-identical SDK export config.
-- Unlocks: every runtime's OTLP egress resolves to a live estate sink — queryable trace, metric, log, and profile stores plus Grafana boards — so an app reads the endpoint from stack outputs and embeds no backend.
-- Anchors: `typescript:iac/program/spec.md#_Observe`; `typescript:runtime/otel/emit.md#POLICY`; `python:runtime/observability/telemetry.md#TELEMETRY`; `csharp:Rasm.AppHost/Observability/telemetry.md#SIGNAL_GOVERNANCE` exporter seam.
+- Shape: `typescript:iac/operate/observe#STORE_ROWS` realizes the stack; app roots read the endpoint from stack outputs; the dev loop rides the single all-in-one row with byte-identical SDK export config.
+- Unlocks: every runtime's OTLP egress resolves to a live estate sink — queryable trace, metric, log, and profile stores beside Grafana boards — so an app reads the endpoint from stack outputs and embeds no backend.
+- Anchors: `typescript:iac/program/spec#SPEC_OWNER`; `typescript:runtime/otel/emit#POLICY`; `python:runtime/observability/telemetry#TELEMETRY`; `csharp:Rasm.AppHost/Observability/telemetry#SIGNAL_GOVERNANCE` exporter seam.
 - Arms: an estate host repo declares the container placement composing the iac `Lgtm`/`Dev` rows and the published `StackOutputs.otlp` endpoint resolves live — libs-side design is landed whole and only the deployment leg remains.
 - Tension: Container placement lands in the estate host repos, never in libs; the iac package stays host-agnostic and the deployment consumes it.
 
 [LAYER_FACT_SCHEMA]-[QUEUED]: Canonical `LayerTopologyFact` schema and codec pin at the producing end.
-- Capability: `[LAYER_TOPOLOGY_GRAPH_FACTS]` decomposes into the schema pin — identity, nesting, membership, and override fields with their typed keys — owned beside the `csharp:Rasm.Rhino/Document/layers.md#TREE_SNAPSHOT` emitter before any peer decodes.
+- Capability: `[LAYER_TOPOLOGY_GRAPH_FACTS]` decomposes into the schema pin — identity, nesting, membership, and override fields with their typed keys — owned beside the `csharp:Rasm.Rhino/Document/layers#TREE_SNAPSHOT` emitter before any peer decodes.
 - Shape: Schema and codec rows at the C# owner; decode landings stay with the `python:data` `[LAYER_TOPOLOGY_DECODER]` and `typescript:data` `[LAYER_TOPOLOGY_GRAPH_FACTS]` counterpart cards.
 - Unlocks: IDEAS.md [LAYER_TOPOLOGY_GRAPH_FACTS] — the Python and TypeScript decoders build against one pinned schema, host-organized element queries answered without a host handle.
 - Anchors: `[LAYER_TOPOLOGY_GRAPH_FACTS]`; `Layers.Ask` emission; `Rasm.Element` `IElementProjection` fold.
 
 [SCENE_DESCRIPTOR_SCHEMA]-[QUEUED]: Daylighting descriptor schema lands in the shared wire vocabulary.
 - Capability: `[DAYLIGHTING_SCENE_DESCRIPTOR]` decomposes into the descriptor field pin — sun state, photometric roster, GLB shading payload, tessellation-fidelity axis — ruled once before producer or consumer builds.
-- Shape: Descriptor schema rows in the wire vocabulary; producer pins on `csharp:Rasm.Rhino/Render/settings.md#SUN_ASTRONOMY` and `csharp:Rasm.Rhino/Objects/lights.md#SEED_AND_EDIT`; consumer pin on `python:geometry/energy/simulate.md#SIMULATE`.
+- Shape: Descriptor schema rows in the wire vocabulary; producer pins on `csharp:Rasm.Rhino/Render/settings#SUN_ASTRONOMY` and `csharp:Rasm.Rhino/Objects/lights#SEED_AND_EDIT`; consumer pin on `python:geometry/energy/simulate#SIMULATE`.
 - Unlocks: IDEAS.md [DAYLIGHTING_SCENE_DESCRIPTOR] — producer and consumer build against a settled descriptor, closing the loop on solar, shading, and daylight studies off the live model.
 - Anchors: `[DAYLIGHTING_SCENE_DESCRIPTOR]`; the geometry-flow law crossing at content identity and the GLB rail.
 
 [OPLOG_ENTRY_SCHEMA]-[QUEUED]: `OperationId` and the op-log entry schema pin at the commit envelope.
 - Capability: `[HOST_OPLOG_CRDT_PRODUCER]` decomposes into the shared identity pin — the `OperationId` `[ComplexValueObject]` with sorted vector-clock encoding — and the entry schema over the sealed-commit facts, ruled before replay or merge lands anywhere.
-- Shape: Identity and entry rows at the C# wire owner; the `csharp:Rasm.Rhino/Document/events.md#STREAM_OWNER` tap and the `typescript:data` `[HOST_OPLOG_CRDT_CONSUMER]` decode consume the pinned schema.
+- Shape: Identity and entry rows at the C# wire owner; the `csharp:Rasm.Rhino/Document/events#STREAM_OWNER` tap and the `typescript:data` `[HOST_OPLOG_CRDT_CONSUMER]` decode consume the pinned schema.
 - Unlocks: IDEAS.md [HOST_OPLOG_CRDT_PRODUCER] — replay, merge, and cross-runtime sync build against one pinned identity, equal payloads staying distinct operations.
 - Anchors: `[HOST_OPLOG_CRDT_PRODUCER]`; `DocumentCommit.Sealed` as the single tap point.
 

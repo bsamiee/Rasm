@@ -1,6 +1,6 @@
 # [TYPESCRIPT_BRANCH]
 
-`libs/typescript` is the platform's host-free web/edge runtime: capability domains composing into whole products, shipped as one npm package `@rasm/ts` with per-domain subpath exports and `server`/`browser`/`wasm` conditions. Sibling coupling is decode-only: C# owns every wire vocabulary and the tessellation rail, the branch decodes each family once at one keyed registry, owns no geometry or IFC semantics, and re-derives content identity bit-identically from the C#-owned seed — aligned by wire bytes, frozen corpora, and the descriptor drift gate, never by import.
+`libs/typescript` is an independently adoptable host-free web, edge, and deployment platform shipped as `@rasm/ts` with per-domain subpath exports and `server`/`browser`/`wasm` conditions. TypeScript applications originate and operate branch-owned runtime, persistence, security, UI, and deployment capability with no peer branch present; polyglot applications exchange contract-conforming artifacts through generated TypeScript bindings, aligned by wire bytes, the frozen corpus, and the descriptor drift gate, never by import.
 
 One `pnpm-workspace.yaml` catalog pins versions; test infrastructure lives under `tests/`, never the branch.
 

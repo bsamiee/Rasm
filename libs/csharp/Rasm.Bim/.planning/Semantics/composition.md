@@ -208,7 +208,7 @@ public static class MaterialProjection {
     // this at compile time, never a runtime-silent _. A definition/usage modality mismatch faults at this boundary;
     // returning the bare definition would silently erase the occurrence binding. The neutral
     // LayerSetDirection/DirectionSense map to the GeometryGym enums inline (the inverse of the ingress Projection/
-    // semantic#RELATION_ALGEBRA UsageOf); the in-range CardinalPoint int casts to IfcCardinalPointReference. The
+    // Projection/relations#RELATION_ALGEBRA UsageOf); the in-range CardinalPoint int casts to IfcCardinalPointReference. The
     // layer-usage ReferenceExtent has NO public GG write channel (4-arg ctor only, setter non-public — decompile-
     // confirmed): the seam LayerSet.ReferenceExtent is ingest-only here; the profile-usage setter is public and round-trips.
     public static Fin<IfcMaterialSelect> AuthorUsage(IfcMaterialDefinition definition, MaterialUsage usage) => usage.Switch(

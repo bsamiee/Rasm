@@ -8,7 +8,7 @@ One folder scheme spans all languages:
 
 ```text conceptual
 tests/
-├── contracts/         # cross-language frozen corpus; C# produces, Python/TS round-trip
+├── contracts/         # cross-language contract corpus: seam schemas define, frozen assets prove
 ├── csharp/
 │   ├── .api/          # dev-tool API catalogs the kit and suites compose
 │   ├── _architecture/ # boundary + infra-primitive laws proving both kits
@@ -142,7 +142,7 @@ Heavy-lane invocation law: the bounded lanes — unit, property, and benchmark s
 
 ## [08]-[CONTRACTS_CORPUS]
 
-`tests/contracts/` is the cross-language frozen corpus: wire bytes with canonical JSON per seam and message, C#-produced, consumed read-only by Python and TypeScript. [tests/contracts/README.md](contracts/README.md) carries the full producer/consumer, layout, and regeneration law.
+`tests/contracts/` is the cross-language contract corpus: each seam schema defines the contract, and the frozen assets prove it. An `infrastructure` entry names every branch that mints the shape; a `domain` entry names the one producer that emits it. [tests/contracts/README.md](contracts/README.md) carries the authority, layout, manifest, and regeneration law.
 
 ## [09]-[TOOLING_AWARENESS]
 

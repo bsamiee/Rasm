@@ -2,7 +2,7 @@
 
 One validated-numerics owner producing certified enclosures over a layered floor ladder: `IntervalNumerics` evaluates an interval extension over a box, certifies that an enclosure contains a target, refines an enclosure by bisection toward a width tolerance, and isolates certified polynomial roots, every operation one tag on one `IntervalOp` dispatch. Its receipt names which `Floor` certified an enclosure and how tight the ball is — Arb and mpmath certify, the numpy grid is a sound-but-uncertified band — so rigor is first-class evidence, never a bare boolean.
 
-`run` rides the hub `evidence_run` weave under the `compute.interval` scope row, and `graduates` feeds the solver-axis projection on `solvers/receipt.md#RECEIPT` with the `(ledger, ceiling, key)` triple projected from its own `Certificate`. Identity is op-owned: `identity_buffer` folds the extension key, bounds, target, and every yield-changing knob through runtime `ContentIdentity`, and a box admitting from a `numerics/array.md#PAYLOAD` payload keys through the same seed.
+`run` rides the hub `evidence_run` weave under the `compute.interval` scope row, and `graduates` feeds the solver-axis projection on `solvers/receipt#RECEIPT` with the `(ledger, ceiling, key)` triple projected from its own `Certificate`. Identity is op-owned: `identity_buffer` folds the extension key, bounds, target, and every yield-changing knob through runtime `ContentIdentity`, and a box admitting from a `numerics/array#PAYLOAD` payload keys through the same seed.
 
 ## [01]-[INDEX]
 

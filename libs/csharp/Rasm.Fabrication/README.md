@@ -2,7 +2,7 @@
 
 `Rasm.Fabrication` is a production digital-fabrication engine: one polymorphic `Fabrication` owner closes 3D model to verified machine program across subtractive CAM, production additive, true-shape nesting, sheet and tube forming, welding, steel exchange, and controller-family posting. Machine truth is the output bar — every program survives voxel removal verification, on-machine probing, and modal cycle-time simulation before it posts — and the spec plane, shop documentation, and signed quality records ride the same content-keyed spine.
 
-Every manufacturing process folds through a single `FabricationPolicy` dispatch to a content-keyed artifact minted on the `EgressKind` egress spine, over the `Rasm` geometry kernel and the `Rasm.Element` seam. It references no AEC peer — alignment travels through seam contracts and the content-keyed wire.
+Every manufacturing process folds through a single `FabricationPolicy` dispatch to a content-keyed artifact minted on the `EgressKind` egress spine, over the `Rasm` geometry kernel and the `Rasm.Element` seam.
 
 ## [01]-[ROUTER]
 

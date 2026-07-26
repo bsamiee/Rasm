@@ -2,7 +2,7 @@
 
 `Rasm.Materials` owns architectural substance, appearance, and buildable component type — what a building is made of, how it performs, and how it renders. One polymorphic `Component` carries every standardized family as policy rows over one section-profile algebra and one capacity rail, so a new family, section shape, or unit is a data row and every standards value traces to its published source or vendor factory. Its appearance plane is physically based end to end — BSDF lobes, OpenPBR lowering, spectral and perceptual color science, Kubelka-Munk finishes — held at render grade.
 
-Component rows feed generated assemblies and fabrication physics, capacity receipts feed structural assessment, and appearance feeds path-traced viewports and MaterialX interchange. It composes the `Rasm` admission floor and the `Rasm.AppHost` observability spine. It projects property catalogues, the component-family axis, section profiles, and capacity receipts onto the `Rasm.Element` seam through the one `ComponentProjector`, reminting no vector, color, unit, or seam type; it references no AEC peer — alignment travels through seam contracts and the content-keyed wire.
+Component rows feed generated assemblies and fabrication physics, capacity receipts feed structural assessment, and appearance feeds path-traced viewports and MaterialX interchange. It composes the `Rasm` admission floor and the `Rasm.AppHost` observability spine. It projects property catalogues, the component-family axis, section profiles, and capacity receipts onto the `Rasm.Element` seam through the one `ComponentProjector`, reminting no vector, color, unit, or seam type.
 
 ## [01]-[ROUTER]
 

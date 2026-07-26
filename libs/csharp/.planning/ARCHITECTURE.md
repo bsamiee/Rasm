@@ -1,6 +1,6 @@
 # [CSHARP_BRANCH_ARCHITECTURE]
 
-`libs/csharp` orders the C# packages across the strata under one acyclic, upward-only reference graph: the `Rasm` kernel at the base, the AEC domain and app platform above it, the host boundary at the leaf. Each package's interior is its own architecture's charter; the branch roster, the cross-runtime seams, the cross-package flow spines, and the stratum-permission law are the branch grain.
+`libs/csharp` orders the C# packages across the strata under one acyclic, upward-only reference graph: the `Rasm` kernel at the base, the seam and runtime spine above it, the AEC domain and stores over those, and orchestration under the app-platform leaf, with the host boundary a plane-distinct pair beside the spine. Each package's interior is its own architecture's charter; the branch roster, the cross-runtime seams, the cross-package flow spines, and the stratum-permission law are the branch grain.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -15,25 +15,33 @@ libs/csharp/
 ├── Rasm.Compute/      # [APP_PLATFORM]   Measured tensor, model, and solver execution
 ├── Rasm.Persistence/  # [APP_PLATFORM]   Durable element, query, and version stores
 ├── Rasm.AppUi/        # [APP_PLATFORM]   Avalonia product UI shell
+├── Rasm.Generation/   # [APP_PLATFORM]   Layout, generation, and assembly orchestration onto kernel geometry
 ├── Rasm.Rhino/        # [HOST_BOUNDARY]  RhinoCommon host APIs; references only Rasm
 └── Rasm.Grasshopper/  # [HOST_BOUNDARY]  GH2 host APIs; references only Rasm
 ```
 
-Planning-scoped packages carry a `.planning/` scaffold of index docs and design pages; `Rasm.Rhino` and `Rasm.Grasshopper` add a folder `.api/` tier over their host assemblies (RhinoCommon + Eto; Grasshopper2 + Eto).
+Planning-scoped packages carry a `.planning/` scaffold of index docs and design pages; `Rasm.Rhino` and `Rasm.Grasshopper` add a folder `.api/` tier over their host assemblies (RhinoCommon + Eto; Grasshopper2 + Eto). `Rasm.Generation` is the branch's one target package — it turns a sited occurrence, inherited generative data, construction primitives, and bond/layout policy into kernel geometry; the map seats it, `libs/.planning/planning-targets.md` registers it, and its folder lands with its first design page.
 
 ## [02]-[STRATA]
 
-Shared machinery homes at the LOWEST stratum every consumer references; homing above a consumer's reach manufactures per-folder twins.
+Rank is reference depth, not domain family: two packages share a rank only when neither reaches the other, so the app platform spreads across four ranks rather than wearing one label. Domain charter and rank are orthogonal — `[01]-[DOMAIN_MAP]` names the family a package serves, this table names what it may reference.
 
-- S0 `Rasm` — references no sibling and carries every stratum above it.
-- S1 AEC domain — `Rasm.Element` references only `Rasm` and mints the one `ElementGraph` seam.
-- S1 peers — `Rasm.Materials`, `Rasm.Bim`, and `Rasm.Fabrication` reference `{Rasm, Rasm.Element}`, never a peer.
-- S1 alignment — peers align through seam contracts and the content-keyed wire.
-- S2 app platform — `Rasm.AppHost` references only `Rasm` and PORT-decodes Persistence shapes without a downward reference.
+- S0 kernel — `Rasm` references no sibling and carries every rank above it.
+- S1 seam — `Rasm.Element` references only `Rasm` and mints the one `ElementGraph` seam.
+- S1 spine — `Rasm.AppHost` references only `Rasm` and PORT-decodes store shapes without a downward reference.
+- S1 law — the seam and the spine never reference each other, so a package composes either alone.
+- S1 host plane — `Rasm.Rhino` and `Rasm.Grasshopper` reference only `Rasm`, sit outside the host-neutral graph, and enter at the host app root.
+- S1 host law — bake stays at the host boundary, no host-neutral package references it, and the two boundaries never reference each other.
+- S2 domain — `Rasm.Bim`, `Rasm.Fabrication`, and `Rasm.Materials` reference `{Rasm, Rasm.Element}`.
+- S2 benchmark — `Rasm.Materials` adds `Rasm.AppHost` for its stamped benchmark receipt alone.
 - S2 stores — `Rasm.Persistence` references `{Rasm, Rasm.Element}` and persists the `ElementGraph` as system of record.
-- S2 reads — `Rasm.Compute` reads the system of record one-way; `Rasm.AppUi` references downward only, aligning with peers by contract.
-- S3 host boundary — `Rasm.Rhino` and `Rasm.Grasshopper` reference only `Rasm` and enter at the host app root.
-- S3 law — no host-neutral package references the host boundary.
+- S2 law — S2 members never reference each other; alignment travels seam contracts and the content-keyed wire.
+- S3 reads — `Rasm.Compute` references `{Rasm, Rasm.Element, Rasm.AppHost, Rasm.Persistence}` and reads the system of record one-way.
+- S3 generation — `Rasm.Generation` depends up on the kernel, the seam, and the AEC peers, and nothing references it downward.
+- S3 law — the two S3 members never reference each other, and generation composes the kernel's geometry operations rather than owning primitives.
+- S4 leaf — `Rasm.AppUi` references `{Rasm, Rasm.AppHost, Rasm.Compute, Rasm.Persistence}` and stays the consuming leaf, never the composition root.
+- S5 app shell — `apps/<host>/<Plugin>/` shells seat outside `libs/csharp` and compose the app platform with the host boundary.
+- S5 shell law — composition-root surfaces home at the app shell; a package blocked on the shell waits rather than pulling composition down.
 
 ```mermaid
 ---
@@ -44,52 +52,58 @@ config:
     padding: 25
 ---
 flowchart TB
-    accTitle: C# branch package import strata
-    accDescr: Four stacked strata from the host boundary through the app platform and the AEC domain onto the kernel — every reference edge downward and solid, labeled edges naming one sourced type, the host boundary skipping straight to the kernel, and one forbidden host-neutral upward edge.
-    subgraph S3["S3 HOST BOUNDARY"]
-        Rhino[Rasm.Rhino]
-        Grasshopper[Rasm.Grasshopper]
-    end
-    subgraph S2["S2 APP PLATFORM"]
-        Persistence[Rasm.Persistence]
-        Compute[Rasm.Compute]
-        AppHost[Rasm.AppHost]
+    accTitle: C# branch package reference strata
+    accDescr: Five host-neutral ranks from the app-platform leaf down to the kernel beside a plane-distinct host boundary at the seam rank — every reference edge downward and solid, labeled edges naming one sourced type, no edge inside any rank, and one forbidden host-neutral upward edge.
+    subgraph S4["S4 APP LEAF"]
         AppUi[Rasm.AppUi]
     end
-    subgraph S1["S1 AEC DOMAIN"]
+    subgraph S3["S3 ORCHESTRATION"]
+        Compute[Rasm.Compute]
+    end
+    subgraph S2["S2 DOMAIN AND STORES"]
         Bim[Rasm.Bim]
-        Element[Rasm.Element]
         Materials[Rasm.Materials]
         Fabrication[Rasm.Fabrication]
+        Persistence[Rasm.Persistence]
+    end
+    subgraph S1["S1 SEAM AND SPINE"]
+        Element[Rasm.Element]
+        AppHost[Rasm.AppHost]
+    end
+    subgraph HOST["S1 HOST PLANE"]
+        Rhino[Rasm.Rhino]
+        Grasshopper[Rasm.Grasshopper]
     end
     subgraph S0["S0 KERNEL"]
         Rasm[Rasm]
     end
-    Rhino ~~~ AppHost
-    Rhino ~~~ AppUi
-    Grasshopper ~~~ Compute
-    Grasshopper ~~~ Persistence
     Rhino -->|"[IMPORT]: PerceptualColor"| Rasm
     Grasshopper -->|"[IMPORT]: MonotonicTimeline"| Rasm
+    Element -->|"[IMPORT]: ContentHash"| Rasm
     AppHost -->|"[IMPORT]: ContentHash"| Rasm
     Persistence -->|"[IMPORT]: ElementGraph"| Element
     Persistence -->|"[IMPORT]: ContentHash"| Rasm
-    Compute -->|"[IMPORT]: ElementGraph"| Element
-    Compute -->|"[IMPORT]: ContentHash"| Rasm
-    AppUi -->|"[IMPORT]: ContentHash"| Rasm
     Materials -->|"[IMPORT]: IElementProjection"| Element
     Materials -->|"[IMPORT]: Op"| Rasm
+    Materials -->|"[IMPORT]: BenchmarkGate"| AppHost
     Bim -->|"[IMPORT]: GraphDelta"| Element
     Bim -->|"[IMPORT]: GeometryMeasures"| Rasm
     Fabrication -->|"[IMPORT]: IElementProjection"| Element
     Fabrication -->|"[IMPORT]: MeshSpace"| Rasm
-    Element -->|"[IMPORT]: ContentHash"| Rasm
-    Rasm -->|"forbidden: host-neutral upward"| S3
+    Compute -->|"[IMPORT]: ElementGraph"| Element
+    Compute -->|"[IMPORT]: ContentHash"| Rasm
+    Compute -->|"[IMPORT]: ShedVerdict"| AppHost
+    Compute -->|"[IMPORT]: ArtifactIndexRow"| Persistence
+    AppUi -->|"[IMPORT]: ContentHash"| Rasm
+    AppUi -->|"[IMPORT]: ReceiptSinkPort"| AppHost
+    AppUi -->|"[IMPORT]: ResidencyPayload"| Compute
+    AppUi -->|"[IMPORT]: DuckProfileReceipt"| Persistence
+    Rasm -->|"forbidden: host-neutral upward"| HOST
 ```
 
 ## [03]-[SEAMS]
 
-Every cross-runtime seam is data-bearing: the peer decodes the content-keyed wire without re-minting. Each edge freezes the single load-bearing contract at its partner grain, spelled verbatim from the owning package page; companion wires fold to the package pages, which enumerate the per-shape bytes. Two fences partition by peer runtime. Graduation crosses one seam: python's `HandoffAxis` names the forward receipt axis, and C# owns the reverse evidence envelope as `GraduationEvidence`, python-spelled `EvidenceBundle`.
+Every cross-runtime seam is data-bearing: the peer decodes the contract-conforming wire without re-minting. Each edge freezes the single load-bearing contract at its partner grain, spelled verbatim from the owning package page; per-shape byte detail folds to the package pages. Two fences partition by peer runtime. Graduation crosses one seam: python's `HandoffAxis` names the forward receipt axis, and C# spells the reverse evidence envelope `GraduationEvidence` against python's `EvidenceBundle`.
 
 ```mermaid
 ---
@@ -121,7 +135,7 @@ flowchart LR
     Element <-->|"[WIRE]: GlbContentHash"| PyGeometry
     Element <-->|"[CONTENT_KEY]: ContentAddress"| PyRuntime
     Bim <-->|"[WIRE]: IfcWire"| PyGeometry
-    Bim -->|"[WIRE]: GeoWire"| PyData
+    Bim -->|"[WIRE]: GeoFeatureWire"| PyData
     PyData -->|"[WIRE]: Environmental"| Materials
     Fabrication -->|"[SHAPE]: Tolerance"| PyArtifacts
     AppHost <-->|"[WIRE]: DiscoveryResult"| PyRuntime
@@ -166,10 +180,9 @@ flowchart LR
     Materials -->|"[WIRE]: MaterialWire"| TsCore
     AppUi -->|"[WIRE]: CommandPayloadWire"| TsCore
     AppHost -->|"[WIRE]: ReceiptEnvelopeWire"| TsCore
-    Bim -->|"[WIRE]: GlobalIdSet"| TsUi
     Materials -->|"[WIRE]: OpenPbrGroupsWire"| TsUi
-    AppUi -->|"[WIRE]: ControlIntentWire"| TsUi
-    AppHost -->|"[WIRE]: BindingStatusWire"| TsUi
+    AppUi -->|"[WIRE]: ControlIntentWire + CommandGateWire + LayoutConstraintWire"| TsUi
+    AppHost -->|"[WIRE]: BindingStatusWire + CoercedValueWire + WriteReceiptWire + HostFingerprintWire"| TsUi
     AppHost -->|"[TRANSPORT]: OtelExport"| TsRuntime
 ```
 
@@ -204,7 +217,7 @@ flowchart LR
 
 Two projection surfaces, both declared in `Rasm.Element`, are the only cross-package contracts: `IElementProjection` (Materials' `ComponentProjector`, Bim's `SemanticProjector`) and `IGraphConstraint` (Bim's `IfcLegality`, rejecting an illegal delta at composition time). Owners mint their own identity at their own seam — Materials the deterministic Type node, Bim the per-ingest rooted id — and nothing re-mints a peer's.
 
-Materials carries IFC names only as neutral `IfcBinding` row data; Bim never re-derives section geometry or material data; Element never carries a fact only one projector understands. A consumer that needs the thing reads the graph; a consumer that needs the IFC meaning reads Bim's projection; nothing reads across. A canonical seam surface changes only through an explicit brief entry naming the owner and the migration.
+Materials carries IFC names only as neutral `IfcBinding` row data; Bim never re-derives section geometry or material data; Element never carries a fact only one projector understands. Consumers needing the thing read the graph; consumers needing the IFC meaning read Bim's projection; nothing reads across. Canonical seam surfaces change only through an explicit brief entry naming the owner and the migration.
 
 Signal crosses the strata on one fabric: the OTel-free signal capsule is kernel S0 vocabulary every stratum composes as instances, per-folder fact unions are the only legitimate per-folder signal types, and the app platform alone laces OTel, correlation, tenancy, and host evidence over the composed surface — telemetry leaves the branch opaque on the `[TRANSPORT]` seam.
 
@@ -253,4 +266,6 @@ Every extension lands on a canonical owner — a row where possible, a compiler-
 
 ## [06]-[ADMISSION_POLICY]
 
-Root `Directory.Packages.props` owns NuGet package admission and central version pins; per-package `.csproj` manifests stay label-grouped by owner and carry no versions. Host assemblies (RhinoCommon, Grasshopper2, Eto) enter only through the host-boundary packages' folder `.api/` tiers; no host-neutral package names a host assembly.
+Root `Directory.Packages.props` owns NuGet admission as one `PackageVersion` row per package; each `.csproj` carries the bare `PackageReference`, label-grouped by owner and versionless. Every admission moves its whole touch-point set together: central row, consuming `.csproj` reference, folder `README.md` registry card, and owning `.api` tier.
+
+Root `Directory.Build.props` owns every host-assembly `Reference` and its `HintPath`, resolved from one overridable host-bundle path property and gated by the RhinoCommon-, Grasshopper-, and host-UI-aware flags project classification sets. Each `.csproj` names host NAMESPACES as `Using` rows and never the assembly, so classification drives the reference and a host package carries no manifest row; `System.Drawing.Common` alone holds both a central row and a gated host reference. `Rasm` is RhinoCommon-aware by charter and the host boundaries add Grasshopper2 and Eto; folder `.api/` tiers catalog those surfaces rather than admitting them, and no package outside the gated set carries a host-aware flag.

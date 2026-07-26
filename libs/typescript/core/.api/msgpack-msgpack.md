@@ -1,6 +1,6 @@
 # [TS_CORE_API_MSGPACK_MSGPACK]
 
-`@msgpack/msgpack` is the MessagePack codec `interchange/codec` decodes the C#-minted `CrdtOpWire` union and streams the `OpLog` through. A configured-once `Decoder` carries the load-bearing surface: one `ExtensionCodec` row decodes the 16-byte `Hlc` extension cell into the kernel `Hlc`, and the `context` thread rides the `value/identity` interner through every ext decode so the mint stays decode-once.
+`@msgpack/msgpack` is the MessagePack codec `interchange/codec` decodes the contract `CrdtOpWire` union and streams the `OpLog` through. A configured-once `Decoder` carries the load-bearing surface: one `ExtensionCodec` row decodes the 16-byte `Hlc` extension cell into the kernel `Hlc`, and the `context` thread rides the `value/identity` interner through every ext decode so the mint stays decode-once.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -44,13 +44,13 @@
 |  [04]   | `decodeArrayStream(streamLike, options?): AsyncGenerator<unknown>` | stream array   | top-level array streamed element-by-element      |
 |  [05]   | `decodeAsync(streamLike, options?): Promise<unknown>`              | async one      | one large frame arriving in chunks               |
 |  [06]   | `new Decoder({ extensionCodec, context, useBigInt64, ...limits })` | configured     | reused decoder: `Hlc` ext + interner context     |
-|  [07]   | `extensionCodec.register({ type, encode, decode })`                | ext row        | C#-minted 16-byte `Hlc` ext → kernel `Hlc`       |
+|  [07]   | `extensionCodec.register({ type, encode, decode })`                | ext row        | contract 16-byte `Hlc` ext → kernel `Hlc`       |
 |  [08]   | `new Encoder({ sortKeys:true }).encode(v)` / `.encodeSharedRef(v)` | egress         | canonical re-encode; zero-copy `Worker` transfer |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `interchange/codec` registers one `ExtensionCodec` row `{ type, decode }` reading the C#-minted 16-byte `Hlc` extension cell into the kernel `Hlc`, the ext type-byte carrying the union discriminant; the `CrdtOpWire` op union decodes as a tagged array/map whose discriminant selects the op arm, so the ext registry and the tag dispatch stay two tables, never a branch ladder.
+- `interchange/codec` registers one `ExtensionCodec` row `{ type, decode }` reading the contract 16-byte `Hlc` extension cell into the kernel `Hlc`, the ext type-byte carrying the union discriminant; the `CrdtOpWire` op union decodes as a tagged array/map whose discriminant selects the op arm, so the ext registry and the tag dispatch stay two tables, never a branch ladder.
 - `context` threads the mint decode-once: `DecoderOptions.context` (`ContextOf<C>`) passes into every `ExtensionDecoderType` call, so the `value/identity` interner and the `Hlc` node-id table ride the decode as state, and the mint happens once inside the ext decoder at the seam.
 - `useBigInt64:true` decodes MessagePack int64/uint64 as `bigint` — the HLC physical-time counter, ordinals, and version-vector entries; a decoder without it truncates past 2^53, the named precision defect.
 - `decodeMultiStream` is an `AsyncGenerator` over a `ReadableStreamLike` so `OpLog` frames arrive backpressured and the codec stays a pure function; the Effect `Stream` owns concurrency and the poison-frame halt.
@@ -67,7 +67,7 @@
 - construct one `new Decoder({ extensionCodec, context, useBigInt64:true, ...max*Length })` per policy and register the `Hlc` and domain CRDT ext rows once; the top-level `decode` cannot see the 16-byte `Hlc` ext without the shared `ExtensionCodec`.
 - thread the `value/identity` interner through `context`; the ext decoder is where the `Hlc` is interned.
 - decode output crosses `Schema.decodeUnknown` before a consumer reads it; a raw MessagePack object or an `ExtData` reaching `state/crdt` undispatched is the leak defect.
-- `EXT_TIMESTAMP` (`-1`) stays registered for `Date` fields; domain ext type-bytes are the C#-owned positive range, numbered once on the C# side.
+- `EXT_TIMESTAMP` (`-1`) stays registered for `Date` fields; domain ext type-bytes ride the contract-allocated positive range, each byte numbered once at the corpus.
 
 [RAIL_LAW]:
 - Package: `@msgpack/msgpack`

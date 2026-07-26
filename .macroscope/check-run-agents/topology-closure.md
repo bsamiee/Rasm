@@ -7,12 +7,15 @@ include:
   - "docs/stacks/**"
   - "docs/laws/**"
   - "libs/.planning/ARCHITECTURE.md"
+  - "libs/.planning/README.md"
+  - "tests/contracts/**"
   - "tests/csharp/_architecture/**"
   - ".claude/skills/**"
   - ".claude/agents/**"
   - ".claude/commands/**"
   - "CLAUDE.md"
   - "AGENTS.md"
+  - "Directory.Packages.props"
   - ".config/dotnet-tools.json"
   - ".coderabbit.yaml"
   - ".greptile/**"
@@ -21,14 +24,18 @@ include:
 
 # [TOPOLOGY_CLOSURE]
 
-Cross-surface closure is this pass's one question: whether every surface `docs/laws/topology.md` couples moved together in one change. Correctness review names topology coupling a standing duty but grades file-locally; this pass walks the coupling rows as a closure set and the `docs/laws/README.md` admission ladder. Dependency multi-surface admission, catalog phantoms, and the seam-ledger fence sweep are owned by the correctness dependency and planning-corpus checks and the doctrine check-run agent; this agent owns the residual rows and the admission discipline.
+Cross-surface closure is this pass's one question: whether every surface `docs/laws/topology.md` couples moved together in one change. Correctness review names topology coupling a standing duty but grades file-locally; this pass resolves the coupling table live, walks it as a closure set, and grades additions against the `docs/laws/README.md` admission ladder.
 
-Hunt these classes, each finding naming the edited surface and the missing counterpart:
-- Reviewer-config drift: a `docs/stacks/<language>/` doctrine page edited without its derived reviewer rule updated across all three configs — `.coderabbit.yaml`, `.greptile/`, and `.macroscope/` move together; one updated and two stale is the finding.
-- Strata-spec drift: a `libs/.planning/ARCHITECTURE.md` strata edge edited without the `tests/csharp/_architecture` boundary specs that land the strata law at both ends.
-- Estate propagation: a `.claude/` steering surface — skills, agents, commands — edited where the sibling-repo copies are byte-identical propagation targets; when the copies lie outside the diff, record an explicit unreachable naming them rather than a silent pass. Workflow scripts stay repo-owned and never propagate.
-- Constitution split: a `CLAUDE.md` fact landed without its `AGENTS.md` cross-reference, or a fact duplicated into both where one acting reader owns it.
-- Tool-runtime coupling: a `.config/dotnet-tools.json` tool row edited without the `tools/assay` decompile rails that depend on it.
-- Admission-ladder breach: a new `docs/laws/` page without its pages-index row in the same change, a fact copied into the laws corpus that an existing owner already carries, or a scar or pattern row that no longer binds and demotes to its surviving owner. Flag the miss as hard as the spam: an addition without recurrence evidence or branch-spanning blast radius, and equally the neighboring clause that owed the collapse and was left untouched.
+Derive the hunt from the table itself — a lens carrying its own copy of the rows reads stale the moment a row lands, which is the enforcement-transcription-drift defect:
+
+- Read `docs/laws/topology.md` `[01]-[COUPLINGS]` and every `[02]-[CONDITIONED]` card at review time. Each row's SURFACE column is one hunt class; its OBLIGATES column is that class's closure set.
+- For every row whose SURFACE the diff edits, resolve the obligated counterparts on disk and prove each moved in the same change. A counterpart lying outside the diff records an explicit unreachable naming it, never a silent pass.
+- A conditioned card states its proof condition as law: hunt the card only where its condition holds, and cite the condition in the finding.
+- A diff satisfying a row through a surface the row does not name is drift in the table — report the row and the surface so the table repairs, not the diff.
+- A row the live tree no longer proves is a cull candidate reported at the table, and a coupling the diff demonstrates that no row carries earns a new row.
+
+Dependency multi-surface admission, catalog phantoms, and the seam-ledger fence sweep belong to the correctness dependency and planning-corpus checks and the doctrine check-run agent; this agent owns the residual rows and the admission discipline.
+
+Admission-ladder breach is the class this lens owns outright: a new `docs/laws/` page without its pages-index row in the same change, a fact copied into the laws corpus an existing owner already carries, or a scar or pattern row that no longer binds and demotes to its surviving owner. Flag the miss as hard as the spam — an addition without recurrence evidence or branch-spanning blast radius, and equally the neighbouring clause that owed the collapse and was left untouched.
 
 Capability extends the owner before it mints a page, and a fact owned elsewhere never gains a copy in the laws corpus. Adding nothing is a first-class verdict, stated plainly.

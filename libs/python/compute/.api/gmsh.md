@@ -118,7 +118,7 @@
 
 [LOCAL_ADMISSION]:
 - import: top-level `gmsh` module; namespaced functions carry no return-object identity, so extraction tuples cross as data into the `MeshField`/`MeshExchange` owner, and no geometry-branch kernel is imported — boundary input arrives as data per the compute charter.
-- boundary: gmsh generation is offline study evidence; the generated `MeshField` crosses the `HandoffAxis` as receipt data, and production mesh-substrate authority stays in the C# managed owner.
+- boundary: the generated `MeshField` crosses the `HandoffAxis` as receipt data, and a consumer selects its own mesh substrate off that receipt.
 
 [RAIL_LAW]:
 - Package: `gmsh`

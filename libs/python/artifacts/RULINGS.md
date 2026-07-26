@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_RULINGS]
 
-Per-folder decision registry for the artifact engine — the settled rulings agents re-litigate for lack of a home. Each row is one decision with the one why guarding its re-litigation: a package admission or rejection, an owner-choice discriminant, a collapse refusal naming the lost guarantee, a structure retirement, or a working law. Append-mostly; a row earns its seat while its why stays homeless, dies only when fact and why both live at one durable surface, and a decision spanning folders homes at the branch tier. `(none)` marks a section awaiting its first ruling.
+`python/artifacts` rulings settle package-scoped decisions.
 
 ## [01]-[PACKAGES]
 
@@ -35,4 +35,5 @@ Per-folder decision registry for the artifact engine — the settled rulings age
 
 ## [05]-[PROCESS]
 
-- (none)
+- Every visual owner grades against the pub/print and AEC planes at once — color management, separations, PDF/X correctness, typographic completeness, layer-clean export, and provenance sealing hold on a sheet set exactly as on an editorial document; grading one plane alone ships output that is legal CAD and illegitimate print, or an editorial page no delivery standard admits.
+- Output bar is art-directed generation — editorial documents at the InDesign-native grade, AEC sheet sets above CAD-vendor default, architectural diagrams at the grade top offices publish — with artistic style a graded axis carried as theme data on every visual owner; a library default left in place ships the tool's taste as the product's, and a hand-off file organizes as a professional builds it, named and meaningfully grouped rather than thousands of loose elements.

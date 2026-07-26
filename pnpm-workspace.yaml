@@ -55,6 +55,8 @@ catalog:
   '@effect/sql-mysql2': 0.53.0
   '@effect/sql-mssql': 0.53.0
   '@effect/sql-clickhouse': 0.50.0
+  '@electric-sql/pglite': 0.5.4
+  '@electric-sql/pglite-tools': 0.4.4
   '@duckdb/node-api': 1.5.5-r.1
   '@duckdb/duckdb-wasm': 1.33.1-dev61.0
   '@qualithm/arrow-flight-client': 0.1.14
@@ -78,6 +80,7 @@ catalog:
   '@nats-io/kv': 3.4.0
   '@nats-io/obj': 3.4.0
   '@confluentinc/kafka-javascript': 1.10.0
+  '@confluentinc/schemaregistry': 1.10.0
   '@connectrpc/connect-node': 2.1.2
   nodemailer: 9.0.3
   '@types/nodemailer': 8.0.1
@@ -234,7 +237,6 @@ catalog:
   '@vitest/coverage-v8': 4.1.10
   '@vitest/ui': 4.1.10
   testcontainers: 12.0.4
-  '@electric-sql/pglite': 0.5.4
   '@playwright/test': 1.61.1
   '@stryker-mutator/core': 9.6.1
   '@stryker-mutator/typescript-checker': 9.6.1

@@ -45,8 +45,8 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 -->
 
 [TENANT_COST_SPAN_PROMOTION]-[COMPLETE]: `AddBaggageActivityProcessor(PromotedBaggage)` allowlist rows landed at both provider owners with the governance-table policy row.
-[FLEET_DEPLOY_ANNOTATIONS]-[COMPLETE]: `RollAnnotationWire` record and per-wave projection fold landed on `Sandbox/provisioning.md#ROLLOVER_DRAIN`, fanned under `InstrumentFan.RollKind` and joined to the `AppHostWireContext` roster.
-[DIAGNOSTIC_HEAP_ANALYSIS]-[COMPLETE]: `DumpTriage.Walk` ClrMD fold and the `SupportArtifact.DumpAnalysis` factory row landed on `Observability/bundles.md#CAPTURE_PIPELINE` under `DumpPolicy.CensusCap`/`TriageRows`/`FrameCap` bounds with shallow heap-sample semantics.
+[FLEET_DEPLOY_ANNOTATIONS]-[COMPLETE]: `RollAnnotationWire` record and per-wave projection fold landed on `Sandbox/provisioning#ROLLOVER_DRAIN`, fanned under `InstrumentFan.RollKind` and joined to the `AppHostWireContext` roster.
+[DIAGNOSTIC_HEAP_ANALYSIS]-[COMPLETE]: `DumpTriage.Walk` ClrMD fold and the `SupportArtifact.DumpAnalysis` factory row landed on `Observability/bundles#CAPTURE_PIPELINE` under `DumpPolicy.CensusCap`/`TriageRows`/`FrameCap` bounds with shallow heap-sample semantics.
 [MACHINE_OBSERVATION_LANE]-[COMPLETE]: `MachineLane`/`MachineObservationWire` decode lane landed on `Wire/livewire.md` fanned under `InstrumentFan.ObservationKind`; the `MachineObservation` domain vocabulary is Fabrication-owned per its observation card.
 [DOMAIN_INSTRUMENT_CATALOG]-[COMPLETE]: Domain-instrument catalog over the receipt fan — landed as `.planning/Observability/instruments.md` with the roster, projection fold, per-ALC provider capsule, and observation rail.
 [TYPED_HOOK_RAIL]-[COMPLETE]: Typed hook rail over the existing bus, lifecycle, and receipt seams — landed as `.planning/Observability/hooks.md` with id grammar, modality rows, registry, and fault isolation.

@@ -8,7 +8,7 @@
 - package: `skia-pathops` (BSD-3-Clause)
 - import: `pathops`
 - owner: `artifacts`
-- rail: figure (the `graphic/vector#VECTOR` boolean/offset/outline arms)
+- rail: figure (the `graphic/vector/region#REGION` boolean/offset/outline arms)
 - abi: forward-compatible abi3 wheel (`_pathops.abi3.so`) binding the Skia `pathops`/`core` subset
 - entry points: none (library only)
 
@@ -26,7 +26,7 @@ Three runtime owners carry the whole concern: `Path` is the one mutable geometry
 
 [PUBLIC_TYPE_SCOPE]: bounded enum vocabulary
 
-`graphic/vector` keys its `VectorOp` arms against these closed enums — a boolean kind selects a `PathOp`, a stroke style `LineCap`/`LineJoin`, a winding policy `FillType` — each a catalogued enum, never a stringly knob.
+`graphic/vector/region#REGION` keys its `RegionOp` arms against these closed enums — a boolean kind selects a `PathOp`, a stroke style `LineCap`/`LineJoin`, a winding policy `FillType` — each a catalogued enum, never a stringly knob.
 
 | [INDEX] | [ENUM]      | [MEMBERS]                                                                | [ROLE]                                          |
 | :-----: | :---------- | :----------------------------------------------------------------------- | :---------------------------------------------- |
@@ -40,7 +40,7 @@ Three runtime owners carry the whole concern: `Path` is the one mutable geometry
 
 [PUBLIC_TYPE_SCOPE]: typed faults
 
-`PathOpsError` is the provider root; each leaf names the precise structural cause. `graphic/vector` maps every leaf onto its closed `VectorFault` `@tagged_union` at the incurring arm, never a bare `except Exception`.
+`PathOpsError` is the provider root; each leaf names the precise structural cause. `graphic/vector/region#REGION` maps every leaf onto its closed `RegionFault` `@tagged_union` at the incurring arm, never a bare `except Exception`.
 
 | [INDEX] | [TYPE]                 | [BASE]         | [RAISE_SITE]                                                                              |
 | :-----: | :--------------------- | :------------- | :---------------------------------------------------------------------------------------- |
@@ -133,23 +133,23 @@ Three runtime owners carry the whole concern: `Path` is the one mutable geometry
 
 [TOPOLOGY]:
 - import: `import pathops` at boundary scope only, a `lazy import` beside the `svgelements`/`resvg_py` lazies so the abi3 `.so` load stays off the import-time path; the distribution is `skia-pathops`, the import name `pathops`.
-- boolean axis: `op(one, two, operator)` keys one boolean `VectorOp` arm to a `PathOp` member, never five sibling methods; `OpBuilder.add ×N` then `resolve()` is the one N-way fold, never a hand-rolled reduce of repeated `op`. Because the rail already holds `Path`s, `op`/`OpBuilder` is the in-rail form and the binary `op(…, PathOp.REVERSE_DIFFERENCE)` sidesteps the operations-module import asymmetry; the pen-form wrappers serve a fontTools contour caller.
+- boolean axis: `op(one, two, operator)` keys one boolean `RegionOp` arm to a `PathOp` member, never five sibling methods; `OpBuilder.add ×N` then `resolve()` is the one N-way fold, never a hand-rolled reduce of repeated `op`. Because the rail already holds `Path`s, `op`/`OpBuilder` is the in-rail form and the binary `op(…, PathOp.REVERSE_DIFFERENCE)` sidesteps the operations-module import asymmetry; the pen-form wrappers serve a fontTools contour caller.
 - offset axis: `Path.stroke(width, cap, join, miter_limit, dash_array, dash_offset)` is the one fixed-width offset / stroke-to-outline owner, never a hand-tessellated parallel-curve offset; round caps/joins emit conics, so follow with `convertConicsToQuads(tolerance)` before an SVG/quad pen.
 - canonicalize axis: `simplify`/`Path.simplify` removes self-intersections and repairs winding; every boolean result and every imported outline passes through it before a fill/area/contains read is trusted, under one shared policy triple never re-derived per call.
 - ingest/egress axis: `getPen()` ingests any pen-speaking producer (an `svgelements` `Path`, a fontTools glyph, a `uharfbuzz` outline), `draw(pen)` replays out to a SVG-path or glyph pen — ONE geometry spine, never a `d`-string re-parse between ops.
 - conic axis: `arcTo`/`conicTo` and round strokes emit `PathVerb.CONIC`; `convertConicsToQuads(tolerance)` is the one conic→quad bridge for SVG egress, distinct from the `svgelements` arc-flatten — flatten on whichever owner holds the geometry.
 - query axis: `area`/`bounds`/`controlPointBounds`/`contains`/`isConvex`/`clockwise`/`firstPoints` answer the layout/hit-test/winding question a placement, hole-detection, or toolpath consumer needs; `len(path)` is the contour count, and the fill rule is `Path.fillType`, set before the query.
 - transform axis: `Path.transform(...)` is the 3×3 affine/perspective owner on the `pathops` side; transform on whichever side holds the geometry, never round-trip solely to transform.
-- fault axis: `PathOpsError` is the provider root; the leaves map onto the closed `VectorFault` `@tagged_union` at the incurring arm, never a bare `except Exception` and never trusting `async_boundary` to swallow an unclassified Skia raise.
+- fault axis: `PathOpsError` is the provider root; the leaves map onto the closed `RegionFault` `@tagged_union` at the incurring arm, never a bare `except Exception` and never trusting `async_boundary` to swallow an unclassified Skia raise.
 - offload axis: every `op`/`simplify`/`stroke`/`OpBuilder.resolve` is synchronous native CPU work, riding the `WORKER_BAND`-bounded `to_process` seam the `resvg`/`svgelements` ops cross, never inline on the event loop.
 - evidence: each op captures operand count, `PathOp` member (or stroke width/cap/join/dash), in/out contour count, output `bounds`/`area`, and serialized `d` byte length as a figure-receipt field on the consuming owner; `pathops` mints no receipt of its own.
 - boundary: `pathops` owns boolean set-ops, simplify/winding, stroke-to-outline/offset, conic flatten, affine, and geometric query over `SkPath`; SVG parse/transform/measure stays `svgelements`, rasterization stays `resvg_py`/`vl-convert`/`pyvips`/`pillow`, glyph-table and shaping I/O stay `fonttools`/`uharfbuzz`.
 
 [STACKING]:
-- `graphic/vector#VECTOR` admits this as the boolean/offset arm: a `VectorOp.Boolean(sources, op=PathOp.UNION)` case ingests each `svgelements`-parsed outline into a `pathops.Path` via `getPen()`, folds through `OpBuilder.add`+`resolve()` (or binary `op` for two), runs `simplify`, then `draw`s back to a fontTools `SVGPathPen` for one styled-egress fragment — closing the boolean gap with zero new geometry engine.
-- `VectorOp.Outline(source, width, cap, join, dash=None)` ingests the centerline, calls `Path.stroke`, `convertConicsToQuads(...)` for SVG round-trip, then `draw`s the filled outline back — the stroke-to-outline / offset the `marks`/`diagram` plane needs for thick connectors and offset boundaries, routed through one arm.
+- `graphic/vector/region#REGION` admits this as the boolean/offset arm: a `RegionOp.Boolean(sources, op=PathOp.UNION)` case ingests each `svgelements`-parsed outline into a `pathops.Path` via `getPen()`, folds through `OpBuilder.add`+`resolve()` (or binary `op` for two), runs `simplify`, then `draw`s back to a fontTools `SVGPathPen` for one styled-egress fragment — closing the boolean gap with zero new geometry engine.
+- `RegionOp.Outline(source, width, cap, join, dash=None)` ingests the centerline, calls `Path.stroke`, `convertConicsToQuads(...)` for SVG round-trip, then `draw`s the filled outline back — the stroke-to-outline / offset the `marks`/`diagram` plane needs for thick connectors and offset boundaries, routed through one arm.
 - `getPen`/`draw` unifies the spine across typography: `fonttools`/`uharfbuzz` glyph outlines flow through the same `AbstractPen` protocol `getPen()` consumes, so a glyph ∩ clip knockout or a glyph-outline offset composes `pathops` directly onto the `typography/shape`+`typography/font` producers without a serialization hop.
-- Each op rails its provider raise into the page's `VectorFault` `@tagged_union` and returns through the `expression` `Result[VectorResult, VectorFault]` the rail speaks (`Ok`/`Error`, `bind`/`map`, `Block`-collected over a batch) — a typed `VectorResult.document`/`contours`/`extent` case carrying the result `d`/`bounds`/`area`, never an erased `bytes` a consumer re-parses.
+- Each op rails its provider raise into the page's `RegionFault` `@tagged_union` and returns through the `expression` `Result[RegionResult, RegionFault]` the rail speaks (`Ok`/`Error`, `bind`/`map`, `Block`-collected over a batch) — a typed `RegionResult.document`/`contours`/`extent` case carrying the result `d`/`bounds`/`area`, never an erased `bytes` a consumer re-parses.
 - Geometric query and the `segments`/`contours` views feed a `msgspec`/`pydantic` figure-receipt model (operand count, `PathOp` member, output contour count, `bounds`, `d` byte length), so the boolean/offset arm contributes the same structured receipt shape every other `graphic/vector` op does.
 
 [RAIL_LAW]:

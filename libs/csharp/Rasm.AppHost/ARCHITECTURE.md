@@ -138,7 +138,8 @@ flowchart LR
     Runtime -->|"[WIRE]: ReceiptEnvelopeWire"| Core
     Observability -->|"[WIRE]: DegradationLevel"| Core
     Wire -->|"[WIRE]: BindingStatusWire"| Core
-    Wire -->|"[WIRE]: BindingStatusWire"| Ui
+    Wire -->|"[WIRE]: BindingStatusWire + CoercedValueWire + WriteReceiptWire"| Ui
+    Runtime -->|"[WIRE]: HostFingerprintWire"| Ui
     Observability e10@-->|"[WIRE]: BenchmarkClaimWire"| Ui
     Observability -->|"[TRANSPORT]: OtelExport"| TsRuntime
     Agent <-->|"[WIRE]: DiscoveryResult"| PyRuntime
@@ -156,7 +157,7 @@ config:
 ---
 flowchart LR
     accTitle: AppHost C# platform seams
-    accDescr: AppHost sub-domain owners exchanging ports, shapes, wires, receipts, and faults with the kernel, Bim, Element, AppUi, Fabrication, Persistence, and Compute packages, one edge per contract family labeled by kind.
+    accDescr: AppHost sub-domain owners exchanging ports, shapes, wires, receipts, content keys, and faults with every C# peer, one edge per kind.
     subgraph apphost[RASM.APPHOST]
         Runtime[Runtime spine]
         Agent[Agent surface]
@@ -164,9 +165,10 @@ flowchart LR
         Sandbox[Sandbox broker]
         Observability[Observability signals]
     end
-    Kernel{{Rasm}}
+    Kernel([Rasm])
     Bim{{Rasm.Bim}}
     Element([Rasm.Element])
+    Materials([Rasm.Materials])
     AppUi{{Rasm.AppUi}}
     Compute{{Rasm.Compute}}
     Fabrication{{Rasm.Fabrication}}
@@ -174,10 +176,14 @@ flowchart LR
     Kernel -->|"[WIRE]: EncodedGeometry"| Sandbox
     Kernel e23@-->|"[SHAPE]: TelemetrySink"| Observability
     Kernel e24@-->|"[WIRE]: BenchClaim"| Observability
+    Kernel e30@-->|"[CONTENT_KEY]: ContentHash"| Runtime
     Bim e25@-->|"[SHAPE]: BimHooks"| Observability
     Bim e26@-->|"[RECEIPT]: BimBenchReceipt"| Observability
-    Runtime -->|"[CONTENT_KEY]: ContentHash"| Kernel
+    Bim e39@-->|"[WIRE]: BimEvent"| Wire
     Runtime e3@-->|"[PORT]: ProjectionContext"| Element
+    Observability e31@-->|"[PORT]: IMeterFactory"| Element
+    Materials e32@-->|"[PORT]: TelemetryContributorPort"| Observability
+    Materials e33@-->|"[WIRE]: BenchmarkReceipt"| Observability
     Runtime -->|"[PORT]: DeterminismContext"| AppUi
     Runtime e6@<-->|"[PORT]: ProjectionContext"| Persistence
     Wire e8@<-->|"[PORT]: CoordinationOp"| Persistence
@@ -186,17 +192,24 @@ flowchart LR
     Runtime e17@<-->|"[PORT]: HybridCache"| Persistence
     Persistence e18@-->|"[RECEIPT]: ProvisionVerdict"| Observability
     Observability e14@<-->|"[PORT]: TelemetryContributorPort"| Persistence
+    Observability e34@-->|"[PORT]: HookPoint"| Persistence
     Observability e19@-->|"[PORT]: ReceiptSinkPort + HookRail"| AppUi
     Runtime e20@<-->|"[FAULT]: FaultBand"| AppUi
-    Observability e27@-->|"[FEED]: ProfileSample"| AppUi
+    Observability e27@-->|"[PORT]: ProfileSampleSource"| AppUi
     Fabrication e21@-->|"[RECEIPT]: FabricationFact"| Observability
+    Fabrication e35@-->|"[PORT]: FabricationHooks"| Observability
     Observability e22@-->|"[PORT]: TelemetryContributorPort"| Fabrication
     Wire e28@-->|"[RECEIPT]: MachineObservationWire"| Fabrication
     Runtime -->|"[PORT]: ShedVerdict"| Compute
-    Agent -->|"[PORT]: GoverningChatClient"| Compute
-    Compute -->|"[RECEIPT]: HopReceipt"| Wire
+    Runtime e36@<-->|"[PORT]: WorkLane"| Compute
+    Agent -->|"[PORT]: IChatClient"| Compute
+    Compute e37@-->|"[PORT]: ComputeHookRail"| Observability
+    Compute e38@-->|"[RECEIPT]: DigitalTwin"| Wire
+    Wire e29@<-->|"[TRANSPORT]: CollabWireContext"| AppUi
     Sandbox <-->|"[SHAPE]: EncodingKind"| Compute
 ```
+
+Two AppUi edges carry reciprocals the counterpart page names: `[TRANSPORT]: CollabWireContext` is the collab-delta feed whose `TraceContext` adapter and `CollabFrame` schema this package owns, `Collab/sync` framing each delta AppUi-side; `[PORT]: ProfileSampleSource` delivers correlation-keyed Pyroscope and EventPipe samples over an existing port row, `Diagnostics/devloop` folding them into its frame tree.
 
 ## [04]-[INTERNAL]
 
@@ -233,43 +246,28 @@ Boot resolves the one `ResolvedProfile`, folds and freezes the module graph behi
 - Protocol-runtime types the fences carry stay lib references, never app-root pins; the Sandbox and Wire owners hold the certified transport stack.
 - Statement carve-outs are boundary capsules named per fence on the owning page; every other member stays expression-shaped on typed rails.
 - Op catalog, command transaction, grant/cost broker, MCP projection, sandbox, solver, binding, and determinism are runtime-policy axes.
-- Op execution stays Compute, durability stays Persistence, and the MCP protocol routes to the official SDK.
+- Op execution stays Compute, durability stays Persistence, and the official SDKs own the MCP and industrial-protocol wires.
 - Grant broker owns permission-shape evaluation as its own typed `PermissionShape` × `GrantScope` value-object predicate.
 - Sentinels stop at the admission seam: `ClockPolicy.Admit` projects defaults to `Option<Instant>`; interiors never see provider shapes.
 - AppHost owns support trigger and correlation; contributors own classification and payload projection through `SupportContributorPort` rows.
-- Lib level emits `ILogger` and minted `ActivitySource`/`Meter` pairs only; exporter projection belongs to composition roots.
-
-## [06]-[PROHIBITIONS]
-
-Deleted patterns the owner regions foreclose:
-- `DeliveryFanout`, `LiveWire`, `AlertEngine`, and `FidelityScale` read the existing hop, health, and power signals, never parallel state machines.
+- Lib level emits `ILogger` and minted `ActivitySource`/`Meter` pairs only; exporter projection belongs to composition roots, and each instrument lives and dies with its provider.
+- Public capability extends its sub-domain owner region as a row, case, or policy value; the port records own the cross-package seam.
+- `Lifecycle` is the one runtime phase cell — shutdown and readiness read it rather than a parallel flag or sibling phase enum.
+- `CancelScope` owns every cancellation source below the composition root.
+- `ClockPolicy` owns the wall clock and the monotonic clock, and every duration bound traces to a `DeadlineClass` row or a page policy table.
+- Interiors read frozen policy records published at ready; `IConfiguration` and `IOptions` handles stop at bootstrap.
+- `Describe`/`DescribeKeyed` rows and `FromAssemblies` own every service registration, so no descriptor spelling is hand-written and no closure walk scans for one.
+- Generated Thinktecture and NodaTime converters own STJ serialization, and classified values redact at every exporter and bundle seam.
+- One scheduler, one cache owner, and one retry owner sit on each seam; database retry stays at the Persistence execution strategy.
+- Every outcome stays its own typed receipt record rather than a shared ledger or reported-value abstraction.
+- `DeliveryFanout`, `LiveWire`, `AlertEngine`, and `FidelityScale` read the existing hop, health, and power signals as their only state, and each is the one notification sender, external-binding poller, alerting owner, and power monitor.
+- Plugin rows drive their phases through host-attach injection; posix traps and single-instance enforcement belong to the service and standalone rows.
+- Third-party plugins run inside the isolation boundary and speak `EncodedTensor`, so no plugin-private geometry shape crosses.
+- `DeterminismContext` owns seed and float mode, and `EventLog` is the one hash-chained command log.
+- `Agent/identity` authorities own token validation, JWKS, OAuth, and claims, producing the one `Principal`.
+- `CapabilityDescriptor` owns op metadata and `GrantBroker` owns permission shape and cost, consuming that `Principal`; federated capability enters as brokered descriptor rows, the one tool catalog.
+- Reasoning-loop tool adoption rides the one brokered `CommandAIFunction`, and every `IChatClient` call rides the one middleware pipeline — metered by `GrantBroker`, cached, and traced.
 - An ArchUnitNET rule asserts no GeometryGym edge at or below the element seam; `Rasm.Bim` is the sole owner above it.
-- CSP analyzer diagnostics are architecture pressure: fix the shape, refine the rule on a false positive, never suppress.
-- Authentication produces one `Principal` that `GrantBroker` consumes.
-- NEVER a public type outside a sub-domain owner region; the port records own the cross-package seam.
-- NEVER wrappers, rename adapters, helper or utility files, or thin forwarding surfaces over admitted packages.
-- NEVER a generic receipt, ledger, or reported-value abstraction; every receipt stays its typed record.
-- NEVER a second state machine, shutdown flag, or sibling phase enum beside `Lifecycle`.
-- NEVER a free-floating `CancellationTokenSource` below the `CancelScope` spine.
-- NEVER a raw wall-clock or stopwatch call site; `ClockPolicy` owns both clocks and projects sentinels at the admission seam.
-- NEVER a bare duration literal; every bound traces to a `DeadlineClass` row or a page policy table.
-- NEVER a second scheduler, a second cache owner, or a second retry owner on one seam; database retry stays at the Persistence execution strategy.
-- NEVER ambient `IConfiguration` reads past bootstrap or interior `IOptions` handles; interiors read frozen policy records published at ready.
-- NEVER hand-written service-descriptor spellings or closure-walking scans; `Describe`/`DescribeKeyed` rows and `FromAssemblies` own registration.
-- NEVER a process-static `Meter` or `ActivitySource` outliving its provider.
-- NEVER Serilog types below composition roots, and never OTLP exporter pins below service app roots.
-- NEVER a hand-written STJ converter beside the generated Thinktecture and NodaTime converters.
-- NEVER an unredacted classified value at an exporter or bundle seam.
-- NEVER posix traps or single-instance enforcement on plugin rows; host-attach injection drives phases there.
-- NEVER a hand-rolled MCP transport or industrial-protocol client beside the certified Sandbox and Wire stack; the official SDKs own those wires.
-- NEVER an unbrokered external-MCP side channel or a second tool catalog; federated capability enters only as brokered `CapabilityDescriptor` rows.
-- NEVER a second tool-adoption seam in the reasoning loop; it reuses the one brokered `CommandAIFunction`.
-- NEVER an opaque model call; every `IChatClient` call rides the one middleware pipeline, metered by `GrantBroker`, cached, and traced.
-- NEVER a second op-metadata owner beside `CapabilityDescriptor` or a second permission-and-cost owner beside `GrantBroker`.
-- NEVER an in-process third-party plugin outside the isolation boundary or a plugin-private geometry shape; plugins speak `EncodedTensor`.
-- NEVER a second RNG or non-chained event log; `DeterminismContext` owns seed and float mode, `EventLog` the one hash-chained command log.
-- NEVER a second notification sender, external-binding poller, alerting owner, or power monitor.
-- NEVER a second token-validation, JWKS, OAuth, or claims owner beside the `Agent/identity` authorities.
 - NEVER an unverified release or plugin install; `SupplyChainGate.Admit` proves signature and provenance against the pinned offline root first.
 - NEVER a backing-service probe outside the one `DriverProbe` adapter or on a second connection; a driver row binds the shared pooled driver.
 - NEVER an AEC-domain reference or a GeometryGym/IFC type on AppHost; it contributes only the `ProjectionContext` primitives the app root assembles.

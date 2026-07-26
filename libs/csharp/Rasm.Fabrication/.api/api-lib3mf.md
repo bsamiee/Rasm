@@ -135,7 +135,7 @@
 
 [STACKING]:
 - `api-picogk`(`.api/api-picogk.md`): a PicoGK `Lattice` (`AddBeam`/`AddSphere`) lowers its beam and node sets onto the build mesh's `BeamLattice()` through `lattice.SetBeams(sBeam[])` + `lattice.SetBalls(sBall[])`, and a `Voxels.mshAsMesh()` extraction marshals to `mesh.SetGeometry(sPosition[], sTriangle[])` — the beam-lattice extension is the native carrier over any STL tessellation
-- `Additive/production#Production.Plan`: marshals the oriented `MeshSpace` result to `mesh.SetGeometry`, drives `model.SetUnit` and base-material rows from the machine profile, places the oriented part through `model.AddBuildItem`, and produces the content-keyed package through `model.QueryWriter("3mf").WriteToBuffer`
+- `Additive/production#DELIVERY`: marshals the oriented `MeshSpace` result to `mesh.SetGeometry`, drives `model.SetUnit` and base-material rows from the machine profile, places the oriented part through `model.AddBuildItem`, and produces the content-keyed package through `model.QueryWriter("3mf").WriteToBuffer`
 
 [LOCAL_ADMISSION]:
 - solid ingress traverses `model.GetBuildItems`, composes nested component transforms, and detaches resources through `mesh.GetVertices`/`GetTriangleIndices` before canonical mesh admission

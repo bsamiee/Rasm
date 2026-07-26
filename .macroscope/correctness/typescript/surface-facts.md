@@ -25,7 +25,13 @@ Verified Effect and compiler truths a generic reviewer misfires on — each list
 - `Redacted` implements `Equal`, prints `<redacted>` on every string, JSON, and inspect channel, and `unsafeWipe` makes later `value` reads throw terminally — a sealed secret comparing through `Redacted.getEquivalence` and unwrapping once at the consuming boundary is safety by construction, not missing discipline.
 - `Arbitrary.make`/`Pretty.make` throw `Missing annotation` at first derivation over a bare `Schema.declare`, while `Schema.equivalence` silently falls back to `Equal.equals` (reference identity on a foreign instance) — the silent fallback is the audit line, so a foreign owner admits with its annotation set complete or not at all.
 
-## [02]-[COMPILER_SURFACE]
+## [02]-[ADMISSION_CLASSES]
+
+- Construction-guaranteed carrier — the admitted-value class outright: a `Schema.decode` output and a branded or refined type exist only through the decode that proves the refinement, so interior re-validation of one is deleted-form residue and a re-check demand against a decoded field is a false positive.
+- Gate-bypass construction path — the seam a redundancy claim must never delete: an `as` cast and a struct literal the compiler accepted by assertion rather than by decode both reach a constructor carrying no proof, so the decode seam guarding that entry is mandatory and a redundancy claim against it is the inverse false positive.
+- Host-crossing read, import, or decode of foreign material legitimately admits — a foreign value resurfacing past the seam decodes again as a second admission site, never a duplicate validation.
+
+## [03]-[COMPILER_SURFACE]
 
 - `import { Array, type Duration } from "effect"` inline-type specifiers on one statement are required under `verbatimModuleSyntax`; `Array`/`Order`/`Record`/`Struct` deliberately shadow globals on the value plane while `ReadonlyArray<T>` stays the global type — alias rebinding to spare a shadowed global is the rejected form.
 - `?: T` (exact-optional) versus `T | undefined` (always-present, no value) are distinct spellings; the `?: T | undefined` blur is the defect, not the distinction. Dot-on-declared-key versus bracket-on-signature-member is required key-provenance spelling, and a bracket read lifts to `Option` at the seam, never `!`.

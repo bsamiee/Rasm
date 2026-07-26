@@ -1028,12 +1028,13 @@ public static class ToolMagazine {
 }
 ```
 
-## [03]-[SEAMS]
-
 ```mermaid
 ---
 config:
   layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
 ---
 flowchart LR
     accTitle: Tool-magazine composition
@@ -1047,7 +1048,7 @@ flowchart LR
     Magazine --> Posting["Posting"]
 ```
 
-## [04]-[RESEARCH]
+## [03]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

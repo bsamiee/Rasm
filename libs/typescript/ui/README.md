@@ -1,10 +1,6 @@
 # [TS_UI]
 
-`ui` is the browser product surface over the Rasm wire — the component-system floor, the dense view plane, and the `viewer` spatial tier as a second Nx project. One engine per surface: a table, chart, or element carries exactly one owner.
-
-Its bar is one-truth rendering: every state fact binds through the one atom bridge, so components are projection surfaces that never run effects or mirror domain state; selection is one `GlobalId` set every echo projects from simultaneously; color is one OKLCH artifact, gamut-fit and contrast-gated at decode, feeding the CSS plane and the viewer's linear render space as one object; visualization data crosses zero-copy on one Arrow bus; and every C#-minted vocabulary materializes field-for-field — a clamp, remap, or local default is cross-language drift.
-
-`viewer` parses no geometry byte and authors no BCF value — WKB and wire decode stay behind the core interchange codec, every GPU resource is scope-bracketed, and the folder declares the viewport and host-plane ports the app composition root satisfies. It owns zero geometry and zero IFC semantics; render is the whole charter.
+`ui` is the branch's browser interface plane — the component-system floor, the dense view plane, and the `viewer` spatial tier as a second Nx project. One engine per surface: a table, chart, or element carries exactly one owner.
 
 ## [01]-[ROUTER]
 

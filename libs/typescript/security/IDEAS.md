@@ -32,7 +32,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Unlocks: one complete security operations board reaches the existing iac `Boards` compiler without local query or alert-rule forks.
 - Anchors: `access/audit.md` `[05]-[BOARD]`, core `board.md` `_securityRejects`/`_securityFacets` and `_PACKS.security`, iac `operate/observe.md` `Boards`.
 - Arms: `libs/typescript/core/.planning/observe/board.md` `_PACKS.security` contains the five missing signal panels and a `Convention.rasm.tenant` pack variable; current disk contains only authenticity rejects and reject facets with no variables.
-- Ripple: `core` `board#PACKS`.
+- Ripple: `core/observe/board#PACKS`.
 
 [ADMITTED_SURFACE_COMPLETION]-[QUEUED]: admitted-surface completion — every verified-unexploited folder and branch catalog member lands as a row on its owning page, closing the census gap between catalogs and pages.
 - Capability: `getTimeStepUsed` replaces the hand-rolled TOTP window math; `encodeBase64urlNoPadding` gives opaque tokens a base64url wire row; `preferredAuthenticatorType` and `verifyBrowserAutofillInput` complete the webauthn policy and autofill surfaces; `secrets.list` backs the partial-refresh planner with the full-object census.

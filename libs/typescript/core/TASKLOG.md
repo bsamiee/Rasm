@@ -24,15 +24,15 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Capability: a declaration-time generator deriving the kinds tuple, literal schema, guard pair, positional `Order`, and assembled `Shape` from one row-table declaration.
 - Shape: lands in `libs/typescript/core/.planning/value/schema.md` as the owner the six re-spelled assembly grammars become declarations of; drives from IDEAS `[VALUE_VOCABULARY_TABLE]`.
 - Unlocks: IDEAS.md [VALUE_VOCABULARY_TABLE] — the next value-floor vocabulary is one row-table declaration, the position-to-`Order` projection carrying one spelling branch-wide.
-- Anchors: `fault.md#CLASS_VOCABULARY`; the derivation vocabulary-table owner form.
+- Anchors: `value/fault#CLASS_VOCABULARY`; the derivation vocabulary-table owner form.
 - Tension: the fault-module collapse ruling keeps the three row families distinct, and the stated-annotation export gate constrains a generic assembled-owner annotation.
 
 [BIM_CENSUS_RECONCILE]-[BLOCKED]: Reconcile the interchange BIM/geo census to the post-rebuild C# wire owners.
-- Capability: `codec.md#WIRE_CENSUS` rows and landings for the Bim families re-anchored to the wire owners the C# rebuild settled — the IFC interchange wire, the kind-discriminated model diff, the BCF wire — with each row's arm matching its owner's dialect.
+- Capability: `interchange/codec#WIRE_CENSUS` rows and landings for the Bim families re-anchored to the wire owners the C# rebuild settled — the IFC interchange wire, the kind-discriminated model diff, the BCF wire — with each row's arm matching its owner's dialect.
 - Shape: census rows, `_landingRows`, and the landing classes in `interchange/codec.md`; the seam labels in `ARCHITECTURE.md` follow.
 - Unlocks: Bim interchange census decodes each C#-settled wire family — IFC interchange wire, kind-discriminated model diff, BCF wire — exactly once, each arm matching its owner's dialect.
-- Anchors: `interchange/codec.md#WIRE_CENSUS` rows and `_landingRows`; `ARCHITECTURE.md` seam labels; `csharp:Rasm.Bim` seam registry, `Exchange`, and `Review` pages holding the frozen wire spellings.
-- Tension: the frozen spellings are C#-owned and `csharp:Rasm.Bim`'s seam registry disagrees with its own Exchange and Review pages; core cannot pick unilaterally.
+- Anchors: `interchange/codec#WIRE_CENSUS` rows and `_landingRows`; `ARCHITECTURE.md` seam labels; `csharp:Rasm.Bim` seam registry, `Exchange`, and `Review` pages holding the frozen wire spellings.
+- Tension: the frozen spellings are the IFC domain producer.s and `csharp:Rasm.Bim`'s seam registry disagrees with its own Exchange and Review pages; core cannot pick unilaterally.
 - Ripple: `csharp:Rasm.Bim` seam-registry self-reconciliation.
 
 [COMMAND_GATE_LANDING]-[QUEUED]: `CommandGateWire` closes its guard pair — census, format suite, and landing agree.
@@ -44,7 +44,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 
 [EVIDENCE_TIMELINE_KIND]-[QUEUED]: `EvidenceTimelineWire` reconciles to one kind — census family or process-local composition, spelled identically at every seam.
 - Capability: the AppUi evidence-timeline crossing carries one truth: a census-plus-landing pair making it a decoded wire family, or every seam registry re-kinds it to the `ReceiptEnvelopeWire` reuse the feed page states — no `[WIRE]`-labeled family sits outside the closed census.
-- Shape: census and landing rows in `libs/typescript/core/.planning/interchange/codec.md`, or seam re-labeling on the AppUi edge in `libs/typescript/core/ARCHITECTURE.md` `[03]-[SEAMS]` and the branch companion-contract list.
+- Shape: codec census and landing rows, or one seam relabeling on the AppUi edge and branch external-contract registry.
 - Unlocks: decode-once reads consistently — every `[WIRE]`-kinded seam edge resolves to a census row.
 - Anchors: `state/feed.md` `Feed.Timeline` (`ReceiptEnvelope` wire-twin reuse); `codec.md` `_families` (no row); the core and branch seam registries naming the family as `[WIRE]`.
 - Atomic: one kind reconciliation across three surfaces.
@@ -67,9 +67,9 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [DIALECT_EXPORT_PAIR]-[COMPLETE]: `observe/board.md` gained the `_DIALECT` export-label pair with the invoke fault-reason and vital grade panels — the last instrument rows without board consumers; `ARCHITECTURE.md` seam labels reconciled to the page-owned wire spellings (`EvidenceTimelineWire`, `GeoFeatureWire`) and `Alert.Spec` re-sourced to its `slo` owner; `README.md` registered `@effect/experimental` and the interchange charter gained the capability dial.
 [OBJECT_CONVENTION_ROWS]-[COMPLETE]: object rows landed in `observe/convention.md` (`objectWritten`/`objectBytes`/`objectReclaimed`/`streamBytes`, the `bjectOutcome` axis) with `observe/board.md`'s `object` pack as their standing consumer.
 [TAP_PAGE]-[COMPLETE]: `observe/tap.md` landed with the point brand, modality table, subscription contract, and breach isolation; `README.md` routes OBSERVE to the hook rail and `ARCHITECTURE.md` carries the `tap.ts` codemap row and the `Tap.Registry` runtime seam.
-[TAP_POINT_ANCHORS]-[COMPLETE]: three standing tap points ride `tap.md`'s `_points` rows with publisher anchors at `state/machine.md#ACTOR`, `interchange/invoke.md#COMMAND_GATEWAY`, and `interchange/codec.md#FAULT_RAIL`.
+[TAP_POINT_ANCHORS]-[COMPLETE]: three standing tap points ride `tap.md`'s `_points` rows with publisher anchors at `state/machine#ACTOR`, `interchange/invoke#COMMAND_GATEWAY`, and `interchange/codec#FAULT_RAIL`.
 [CARRIER_PAGE]-[COMPLETE]: `interchange/carrier.md` landed — typed triple, total folds, `rasm.tenant` promotion, and the closed connect/nats/kafka/mqtt/cloudevents dialect table — with the codemap row and the `Carrier.Context` runtime seam in `ARCHITECTURE.md`.
-[BINARY_HEADER_LANE]-[COMPLETE]: `Carrier.bin` rows land the `-bin` lane at `carrier.md#DIALECT_TABLE` over `encodeBinaryHeader`/`decodeBinaryHeader` (`rasm-tenant-bin`/`rasm-stamp-bin`), consumed by `invoke#DIAL_AXIS`'s interceptor law.
+[BINARY_HEADER_LANE]-[COMPLETE]: `Carrier.bin` rows land the `-bin` lane at `interchange/carrier#DIALECT_TABLE` over `encodeBinaryHeader`/`decodeBinaryHeader` (`rasm-tenant-bin`/`rasm-stamp-bin`), consumed by `interchange/invoke#DIAL_AXIS`'s interceptor law.
 [PROFILE_CONVENTION_ROWS]-[COMPLETE]: `Convention.profile`/`Convention.profiled` landed in `observe/convention.md`; `observe/board.md` gained the `Flamegraph` row with the per-tag datasource arm and the `profile` pack.
-[SPAN_LIFETIME_ANCHORS]-[COMPLETE]: `Effect.makeSpanScoped` lifetime anchors landed — `machine/<name>` on the actor boot/restore path (`state/machine.md#ACTOR` `risen`) and `gateway/duplex` on the duplex acquisition (`interchange/invoke.md#COMMAND_GATEWAY`).
-[CLAIM_BAND_LANDING]-[COMPLETE]: `Claim.Band` landed on the `interchange/codec.md#LANDING_WIRE` claim landing mirroring the mitata `stats` record; `observe/board.md#BENCH` carries `Bench.graded` with the host-print refusal and the `bench` pack trends the bridged series.
+[SPAN_LIFETIME_ANCHORS]-[COMPLETE]: `Effect.makeSpanScoped` lifetime anchors landed — `machine/<name>` on the actor boot/restore path (`state/machine#ACTOR` `risen`) and `gateway/duplex` on the duplex acquisition (`interchange/invoke#COMMAND_GATEWAY`).
+[CLAIM_BAND_LANDING]-[COMPLETE]: `Claim.Band` landed on the `interchange/codec#LANDING_WIRE` claim landing mirroring the mitata `stats` record; `observe/board#BENCH` carries `Bench.graded` with the host-print refusal and the `bench` pack trends the bridged series.

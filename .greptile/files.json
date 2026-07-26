@@ -18,6 +18,21 @@
             "scope": ["libs/**", "libs/.planning/**", "libs/**/.planning/**"]
         },
         {
+            "path": "libs/.planning/ARCHITECTURE.md",
+            "description": "Tier-0 topology law: the stratification law every branch answers, contract classes, telemetry wire transcription anchors, the consumption-axis roster deployment shape rides",
+            "scope": ["libs/**", "libs/.planning/**", "libs/**/.planning/**", "libs/**/.api/**", "tests/contracts/**", "docs/laws/**"]
+        },
+        {
+            "path": "tests/contracts/MANIFEST.md",
+            "description": "Cross-language contract ledger: each entry's class, the branch anchors an infrastructure entry mints, the one producer a domain entry names",
+            "scope": ["libs/**", "libs/.planning/**", "libs/**/.planning/**", "tests/**"]
+        },
+        {
+            "path": "docs/laws/topology.md",
+            "description": "Coupling table a consumer walks and resolves live: which surface obligates which counterparts in one change, self-contained rows plus conditioned cards",
+            "scope": ["libs/**", "docs/**", "tests/**", "tools/**", ".claude/**", ".coderabbit.yaml", ".greptile/**", ".macroscope/**"]
+        },
+        {
             "path": ".claude/skills/docgen/references/defects.md",
             "description": "Named prose defect catalog for durable markdown: per-class detection tests, true-positive discriminators, and reframe rules",
             "scope": ["**/*.md", ".claude/**", "docs/**"]

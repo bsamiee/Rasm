@@ -2,15 +2,15 @@ export const meta = {
     name: 'implement-cs',
     whenToUse: 'Realize open IDEAS and TASKLOG cards into design-page code fences across the C# target folders.',
     description:
-        "Realize every open IDEAS/TASKLOG card across the C# target set (default: Rasm.AppHost, Rasm.Compute, Rasm.AppUi, Rasm.Persistence; any libs/csharp package via args) into deep design-page code FENCES at the docs/stacks/csharp bar, repair every ripple in-pass, and truthfully close the cards. Each target folder runs its OWN discover -> implement -> critique -> redteam chain, ALL chains concurrent under one pooled cap: a folder starts the moment its own discovery lands, a folder with no open cards no-ops after its own discovery, and a failed chain isolates without rejecting the pool. Discovery hands downstream stages navigation FACTS (paths, verified catalog members, seam targets) and never verdicts; it runs as a recon lane, writes its COMPLETE product as one on-disk report the folder's implement/critique/redteam stages read IN FULL from disk, and returns a thin receipt with the jq-extracted structural skeleton (order, card rows with verified pages, ripple classes, gates) the orchestrator's no-op/fan/ripple control flow runs on; when the skeleton proves page-disjoint card groups, the implement stage fans over them. Every stage WRITES and repairs the page-level ripples its own work exposes in the same pass — in-scope seams aligned against current disk, 1-hop out-of-scope C# counterpart fences realized directly — with BLOCKED probes and folder-local package admission inline. The redteam is each folder chain's terminal stage and sole card-status owner: it final-remediates weak realizations in place and closes only cards whose realization it verified strong on disk. Two handoffs route to the run's terminal single-writer, the central Directory.Packages.props pin and the package ARCHITECTURE.md [02]-[SEAMS] row: folder agents report exact rows, one terminal writer applies them serially. Every writing stage also nominates generalizable lessons into a required-usually-empty harvest — each stage's rows ride its own return, the critique lane's swept from its fixlog on disk by the doctrine lander (nomination transport never rides a living fold); the terminal stage is a DRAIN LOOP over the pooled deferred backlog with every critique fixlog (the redteam fold-forward is lossy even when it lands) that also applies the central pins and ARCHITECTURE seam rows and re-feeds the still-open remainder under a round cap + no-shrinkage progress gate, then one doctrine lander adjudicates the pooled harvest with every critique fixlog harvest array from disk against the docs/laws admission bar (land-nothing legal) before the run closes. C#-only. args = a target path string, an array of target paths, or empty for the defaults.",
+        "Realize every open IDEAS/TASKLOG card across the C# target set (default: Rasm.AppHost, Rasm.Compute, Rasm.AppUi, Rasm.Persistence; any libs/csharp package via args) into deep design-page code FENCES at the docs/stacks/csharp bar, repair every ripple in-pass, and truthfully close the cards. Each target folder runs its OWN discover -> implement -> critique -> redteam chain, ALL chains concurrent under one pooled cap: a folder starts the moment its own discovery lands, a folder with no open cards no-ops after its own discovery, and a failed chain isolates without rejecting the pool. Discovery hands downstream stages navigation FACTS (paths, verified catalog members, seam targets) and never verdicts; it runs as a recon lane, writes its COMPLETE product as one on-disk report the folder's implement/critique/redteam stages read IN FULL from disk, and returns a thin receipt with the jq-extracted structural skeleton (order, card rows with verified pages, ripple classes, gates) the orchestrator's no-op/fan/ripple control flow runs on; when the skeleton proves page-disjoint card groups, the implement stage fans over them. Every stage WRITES and repairs the page-level ripples its own work exposes in the same pass — in-scope seams aligned against current disk, 1-hop out-of-scope C# counterpart fences realized directly — with BLOCKED probes and folder-local package admission inline. The redteam is each folder chain's terminal stage and sole card-status owner: it final-remediates weak realizations in place and closes only cards whose realization it verified strong on disk. Two handoffs route to the run's terminal single-writer, the central Directory.Packages.props pin and the package ARCHITECTURE.md [03]-[SEAMS] row: folder agents report exact rows, one terminal writer applies them serially. Every writing stage also nominates generalizable lessons into a required-usually-empty harvest — each stage's rows ride its own return, the critique lane's swept from its fixlog on disk by the doctrine lander (nomination transport never rides a living fold); the terminal stage is a DRAIN LOOP over the pooled deferred backlog with every critique fixlog (the redteam fold-forward is lossy even when it lands) that also applies the central pins and ARCHITECTURE seam rows and re-feeds the still-open remainder under a round cap + no-shrinkage progress gate, then one doctrine lander adjudicates the pooled harvest with every critique fixlog harvest array from disk against the docs/laws admission bar (land-nothing legal) before the run closes. C#-only. args = a target path string, an array of target paths, or empty for the defaults.",
     phases: [
         {
             title: 'Realize',
-            detail: 'all folder chains concurrent under one pooled cap: discover(recon lane; navigation-facts product to disk, thin receipt + structural skeleton on the wire) -> implement(reads the discovery report from disk, fans over discovery-proven page-disjoint card groups) -> critique(ONE codex lane, write lane; fixlog to disk, receipt on the wire) -> redteam(terminal close; reads the critique fixlog from disk as refutation targets and folds its surviving ripples/pins/seams/deferred rows into its own return); a folder with no open cards no-ops after its own discovery; every writing stage re-reads current disk, repairs page-level ripples in-pass, and reports central pin rows + ARCHITECTURE.md [02]-[SEAMS] rows for the terminal single-writer instead of editing those surfaces',
+            detail: 'all folder chains concurrent under one pooled cap: discover(recon lane; navigation-facts product to disk, thin receipt + structural skeleton on the wire) -> implement(reads the discovery report from disk, fans over discovery-proven page-disjoint card groups) -> critique(ONE codex lane, write lane; fixlog to disk, receipt on the wire) -> redteam(terminal close; reads the critique fixlog from disk as refutation targets and folds its surviving ripples/pins/seams/deferred rows into its own return); a folder with no open cards no-ops after its own discovery; every writing stage re-reads current disk, repairs page-level ripples in-pass, and reports central pin rows + ARCHITECTURE.md [03]-[SEAMS] rows for the terminal single-writer instead of editing those surfaces',
         },
         {
             title: 'Pins',
-            detail: 'a terminal DRAIN LOOP: one serial single-writer per round applies every reported central Directory.Packages.props pin row at the symbol anchor and every reported ARCHITECTURE.md [02]-[SEAMS] row, drains every critique fixlog (the redteam fold-forward is lossy even when it lands) and the pooled deferred backlog against live disk, and re-feeds the still-open remainder under a round cap + no-shrinkage progress gate; then one doctrine lander adjudicates the pooled harvest nominations against the docs/laws admission bar (land-nothing legal). Runs only when pins, seams, orphans, backlog, or harvest exist',
+            detail: 'a terminal DRAIN LOOP: one serial single-writer per round applies every reported central Directory.Packages.props pin row at the symbol anchor and every reported ARCHITECTURE.md [03]-[SEAMS] row, drains every critique fixlog (the redteam fold-forward is lossy even when it lands) and the pooled deferred backlog against live disk, and re-feeds the still-open remainder under a round cap + no-shrinkage progress gate; then one doctrine lander adjudicates the pooled harvest nominations against the docs/laws admission bar (land-nothing legal). Runs only when pins, seams, orphans, backlog, or harvest exist',
             model: 'opus',
         },
     ],
@@ -412,7 +412,7 @@ const LAW = [
         ', each on its canonical stratum; `Rasm.AppHost` ' +
         'is the host-neutral runtime spine `Compute`/`Persistence`/`AppUi` adapt to. Each target holds `IDEAS.md` + `TASKLOG.md` + ' +
         '`ARCHITECTURE.md` + `README.md` + `<pkg>.csproj` at the package ROOT, a deep `.api/api-*.md` capability catalog, and design pages at ' +
-        '`<pkg>/.planning/<subdomain>/*.md`. Read the package-root `ARCHITECTURE.md` (sub-domain map + `[02]-[SEAMS]`), `README.md` (admitted-package ' +
+        '`<pkg>/.planning/<subdomain>/*.md`. Read the package-root `ARCHITECTURE.md` (sub-domain map + `[03]-[SEAMS]`), `README.md` (admitted-package ' +
         'roster), and `.api/` as the governing context and capability tier for that target. Cross-folder repair lands at seams, counterpart cards, and ' +
         'consumer sites — never by rebuilding a sibling owner interior.',
     'MANDATORY STANDARDS — docs/stacks/csharp/ is the FLOOR, not the ceiling: every fence MUST meet docs/stacks/csharp/ (README, language, shapes, ' +
@@ -437,7 +437,7 @@ const LAW = [
         "was skipped). TWO handoffs route to the run's terminal single-writer and are NEVER edited by a folder agent: the central `" +
         CENTRAL +
         '` ' +
-        'pin (report the exact row in `pins`) and any package `ARCHITECTURE.md` `[02]-[SEAMS]` row (report {file, row} in `seams` — the ' +
+        'pin (report the exact row in `pins`) and any package `ARCHITECTURE.md` `[03]-[SEAMS]` row (report {file, row} in `seams` — the ' +
         'highest-collision shared surface); every other page-level ripple stays yours, repaired distributed under the anchored-Edit discipline. If ' +
         'after real investigation a fence is already correct, say so — never invent edits to look busy.',
 ].join('\n');
@@ -479,7 +479,7 @@ const CARD = [
         '`.',
     'CARD CLOSURE (the folder red-team ONLY — implement and critique NEVER change card status): a genuinely-complete card moves to its file ' +
         '`[02]-[CLOSED]` section as a collapsed one-liner `[ID]-[COMPLETE]: <one-line disposition>; Ripple: <pkg> [SLUG]` (or `[DROPPED]: <reason>`); ' +
-        'report the owning `<pkg>/ARCHITECTURE.md` `[02]-[SEAMS]` row as {file, row} in `seams` ONLY when a real cross-folder seam landed (for a ' +
+        'report the owning `<pkg>/ARCHITECTURE.md` `[03]-[SEAMS]` row as {file, row} in `seams` ONLY when a real cross-folder seam landed (for a ' +
         "shared entry the owning-stratum folder's row wins — `Rasm.Persistence` owns durable-store seams, `Rasm.AppHost` owns host-neutral contract " +
         "seams); the run's terminal single-writer applies it, never you. A ripple-carrying card closes COMPLETE only when its seam is verified landed " +
         'on BOTH ends on current disk; close only `strong` cards and honestly re-open the rest.',
@@ -1019,7 +1019,7 @@ const implementPrompt = (folder, seq, report, note, ownpass) =>
             'PACKAGE ADMISSION per the card law: folder-local parts NOW, the central `' +
             CENTRAL +
             '` row reported in `pins`, never edited; a landed ' +
-            "cross-folder seam's `ARCHITECTURE.md` `[02]-[SEAMS]` row reported in `seams`, never edited. Do NOT close any card — the folder red-team " +
+            "cross-folder seam's `ARCHITECTURE.md` `[03]-[SEAMS]` row reported in `seams`, never edited. Do NOT close any card — the folder red-team " +
             'owns card status. Modern C# 14 / net10 to the metal, high-signal prose all-backticked, comment hygiene, fix-in-place (read-then-extend, ' +
             'preserve capability). Return verdict + realized slugs + deferred (any card you could not realize, with reason) + collapsed (before->after ' +
             'counts) + ripples + pins + seams + harvest + summary. ' +
@@ -1110,7 +1110,7 @@ const critiquePrompt = (folder, seq, report, ownpass) =>
             'that generator.',
         '(8) SEAMS — check every cross-page and cross-folder symbol these cards compose against the counterpart as it NOW stands on disk: a signature ' +
             'mismatch corrects at the weaker end, a conflict resolves to the stronger form, never a revert; a seam counterpart or consumer site your fix ' +
-            'exposes is repaired in this same pass wherever it lives, recorded in `ripples` (a package `ARCHITECTURE.md` `[02]-[SEAMS]` row change is ' +
+            'exposes is repaired in this same pass wherever it lives, recorded in `ripples` (a package `ARCHITECTURE.md` `[03]-[SEAMS]` row change is ' +
             'reported in `seams` for the terminal single-writer, never edited directly).',
         'Also enforce the docs/stacks/csharp file-organization + section-order law, cross-package convention consistency, and prose + comment hygiene. ' +
             'FIX every hit NOW wherever it lives per WRITE-FULLY; report any central `' +
@@ -1175,7 +1175,7 @@ const redteamPrompt = (folder, seq, report, critReport, critOk, ownpass) =>
             'concerns, geometry/mesh/IFC not meeting at ONE wire owner per runtime, coupling to a sibling owner INTERIOR (vs its seam/wire), OR a sibling ' +
             'planning page left STALE by this folder change even when no ripple card names it (ports/boundaries/wires/seams drift) is a defect: fix it ' +
             'NOW wherever it lives — the stale sibling page, the seam counterpart, the consumer site — and record the repair in `ripples` (a package ' +
-            '`ARCHITECTURE.md` `[02]-[SEAMS]` row change is reported in `seams` for the terminal single-writer, never edited directly). (E) ' +
+            '`ARCHITECTURE.md` `[03]-[SEAMS]` row change is reported in `seams` for the terminal single-writer, never edited directly). (E) ' +
             'SURFACE-SPRAWL-IN-TIME — an admitted package whose `.api` or the universal rails expose capability the fence re-derives by hand, flat code ' +
             'below the operator depth the packages reach, a phantom `.api`/host member, or a thin wrapper: collapse to package depth, verify every cited ' +
             'member (via `assay api`' +
@@ -1229,7 +1229,7 @@ const pinPrompt = (pins, seams, orphans, backlog, round) =>
             'nomination; your returned `harvest` carries the same rows.',
         "TASK: TERMINAL SINGLE-WRITER + BACKLOG DRAIN — you are the run's SOLE writer for the repo-root `" +
             CENTRAL +
-            '` and for every package `ARCHITECTURE.md` `[02]-[SEAMS]` section, and its LAST agent. TRANCHE ORDER IS EXECUTION ORDER — apply the ' +
+            '` and for every package `ARCHITECTURE.md` `[03]-[SEAMS]` section, and its LAST agent. TRANCHE ORDER IS EXECUTION ORDER — apply the ' +
             'prerequisite pins (1) and seam rows (2) before draining the capability backlog (4), since a deferred card may need a pin landed first; ' +
             'never demote the backlog behind mechanical dedupe beyond that genuine dependency.\n' +
             [
@@ -1244,8 +1244,8 @@ const pinPrompt = (pins, seams, orphans, backlog, round) =>
                       '.'
                     : '',
                 seams.length
-                    ? "(2) SEAM ROWS: upsert each reported {file, row} into the named file's `[02]-[SEAMS]` section exactly once, preserving the " +
-                      "section's row format and order and deduping semantically identical rows; a missing file or absent `[02]-[SEAMS]` section " +
+                    ? "(2) SEAM ROWS: upsert each reported {file, row} into the named file's `[03]-[SEAMS]` section exactly once, preserving the " +
+                      "section's row format and order and deduping semantically identical rows; a missing file or absent `[03]-[SEAMS]` section " +
                       'rejects the row: ' +
                       JSON.stringify(seams, null, 1) +
                       '.'

@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_IDEAS]
 
-Forward pool of higher-order concepts for `geometry`, grounded in the host-free companion role. Each idea is a card — slug leader with the capability, what it unlocks, and the gap or technique it draws on — and spawns one or more tasks in `TASKLOG.md`. `[1]-[OPEN]` holds live concepts; `[2]-[CLOSED]` records dispositions so an idea is never re-litigated.
+Geometry ideas extend the standalone host-free geometry and IFC platform; folder tasks carry promoted work.
 
 OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with.
 
@@ -46,8 +46,8 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Unlocks: estimator and scheduler workflows without a BIM authoring tool in the loop; completes the ifcopenshell exchange family — `ifcdiff`, `ifcpatch`, `ifc4d`, `ifc5d` — per the set-completion law.
 - Anchors: the admitted root-manifest `ifccsv` row; `libs/python/geometry/.planning/ifc/selector.md` grammar as the scoping input; the costing partition vocabulary.
 
-[DAYLIGHTING_SCENE_DESCRIPTOR]-[QUEUED]: host-minted daylighting scene descriptors decode into the energy simulation plane.
-- Capability: the C#-minted content-keyed scene descriptor — `SunState` astronomy, photometric light roster with distribution payloads, GLB shading tessellation — decodes into the building-model admission so radiation, shading, and daylight-autonomy studies run from the live host scene with zero host dependency.
+[DAYLIGHTING_SCENE_DESCRIPTOR]-[QUEUED]: capture-produced daylighting scene descriptors decode into the energy simulation plane.
+- Capability: the capture-produced content-keyed scene descriptor — `SunState` astronomy, photometric light roster with distribution payloads, GLB shading tessellation — decodes into the building-model admission so radiation, shading, and daylight-autonomy studies run from the live host scene with zero host dependency.
 - Shape: a descriptor decode fold ahead of the `translate` pair on `libs/python/geometry/.planning/energy/simulate.md` — sun state onto the climate owner's solar vocabulary at `libs/python/geometry/.planning/energy/climate.md`, light roster onto the model admission at `libs/python/geometry/.planning/energy/model.md`, GLB shading through the standing tessellation rail; daylight recipes ride the existing `RecipeName` row shape, results returning as the page's self-describing frames keyed by the descriptor's content identity.
 - Unlocks: closed-loop solar and daylight studies from the live Rhino scene; the estate scene-descriptor vocabulary gains its first consumer.
 - Anchors: `energy/simulate.md` recipe binding and frame discipline; `energy/climate.md` solar vocabulary; the content-keyed crossing law and the GLB rail.

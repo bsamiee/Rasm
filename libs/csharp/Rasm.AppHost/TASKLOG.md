@@ -88,7 +88,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [HLC_HEADER_KEY_MINT]-[QUEUED]: Correlation spine mints the HLC carrier-header key contract every cross-runtime decoder proves against.
 - Capability: one host-owned spelling authority for the causal-stamp carrier keys — the wire's header vocabulary becomes a minted contract row set, so a decoder proves its mirror at boot instead of hand-mirroring spellings a host rename silently defaults to zeroed stamps.
 - Shape: `libs/csharp/Rasm.AppHost/.planning/Observability/telemetry.md` `[03]-[CORRELATION_SPINE]` — the HLC stamp's carrier header keys spelled as contract rows beside the `TraceContext` `traceparent`/`tracestate` fold.
-- Unlocks: the python companion's boot gate arms — its `SLOTS` mirror proves against the minted keys and a silently-defaulted causal-order fork dies at daemon boot.
+- Unlocks: Python runtime's boot gate proves its `SLOTS` binding against the shared keys before causal admission.
 - Anchors: `Correlation`/`TraceContext` on the `[CORRELATION_SPINE]` owner; python `SLOTS` and `CausalFrame.decode` at `libs/python/runtime/.planning/clock/clock.md`; the cross-libs single-writer measure-authority ruling.
 - Ripple: `python runtime` `[HLC_HEADER_DRIFT_GATE]` — precedes.
 - Atomic: one contract row set on one owner section.
@@ -99,12 +99,14 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-[RESOURCE_DETECTOR_ROWS]-[COMPLETE]: Five contrib detector rows landed as `ResourceIdentity.Compose` on `Observability/telemetry.md#SIGNAL_GOVERNANCE` — host/os/process/runtime always-on, container gated on the containerized profile rows.
+[CONSUMPTION_AXIS_SPELLING]-[COMPLETE]: the six-axis roster landed at all three branch minters with identical closed-axis vocabularies and one common open-axis descriptor shape; refusal is one axis/value/reason grammar everywhere, and the corpus entry's roster blocker is discharged.
+
+[RESOURCE_DETECTOR_ROWS]-[COMPLETE]: Five contrib detector rows landed as `ResourceIdentity.Compose` on `Observability/telemetry#SIGNAL_GOVERNANCE` — host/os/process/runtime always-on, container gated on the OCI-vehicle rows.
 [HTTP_TELEMETRY_ROWS]-[COMPLETE]: `AddHttpClientLatencyTelemetry` and `AddExtendedHttpClientLogging` rows landed in `SignalGovernance.EnrichContext` with the four `*DataClasses` taxonomy maps.
-[PYROSCOPE_AGENT_ROWS]-[COMPLETE]: Pyroscope agent rows landed on `Observability/benchmarks.md#PROFILE_CORRELATION` — `ProfileTracking` toggle policy, `ProfileLabels.Scoped` bounded label frames over `LabelSet.BuildUpon`/`LabelsWrapper.Do`.
+[PYROSCOPE_AGENT_ROWS]-[COMPLETE]: Pyroscope agent rows landed on `Observability/benchmarks#PROFILE_CORRELATION` — `ProfileTracking` toggle policy, `ProfileLabels.Scoped` bounded label frames over `LabelSet.BuildUpon`/`LabelsWrapper.Do`.
 [BAGGAGE_PROCESSOR_ROWS]-[COMPLETE]: `AddBaggageActivityProcessor(PromotedBaggage)` rows landed at both provider owners with the allowlist policy row.
-[ROLL_ANNOTATION_WIRE]-[COMPLETE]: `RollAnnotationWire` record and per-wave fold landed on `Sandbox/provisioning.md#ROLLOVER_DRAIN`, fanned under `InstrumentFan.RollKind`, `[JsonSerializable]` row on `AppHostWireContext`.
-[DUMP_TRIAGE_FOLD]-[COMPLETE]: `DumpTriage` fold landed on `Observability/bundles.md#CAPTURE_PIPELINE` — verified ClrMD members, `SupportArtifact.DumpAnalysis` row, `DumpPolicy.CensusCap`/`TriageRows`/`FrameCap` bounds, and shallow heap-sample semantics.
+[ROLL_ANNOTATION_WIRE]-[COMPLETE]: `RollAnnotationWire` record and per-wave fold landed on `Sandbox/provisioning#ROLLOVER_DRAIN`, fanned under `InstrumentFan.RollKind`, `[JsonSerializable]` row on `AppHostWireContext`.
+[DUMP_TRIAGE_FOLD]-[COMPLETE]: `DumpTriage` fold landed on `Observability/bundles#CAPTURE_PIPELINE` — verified ClrMD members, `SupportArtifact.DumpAnalysis` row, `DumpPolicy.CensusCap`/`TriageRows`/`FrameCap` bounds, and shallow heap-sample semantics.
 [SCHEMA_PINNED_MINT]-[COMPLETE]: Schema-pinned mint landed — `TelemetryContributorPort.SchemaUrl` stamped as `MeterOptions.TelemetrySchemaUrl` at `TelemetryIdentity.Mint` and `InstrumentFan.Mount`.
 [MACHINE_OBSERVATION_DECODE]-[COMPLETE]: Observation decode rows landed as `MachineLane`/`MachineObservationWire` on `Wire/livewire.md` under `InstrumentFan.ObservationKind`; the crossing rides the receipt stream and the `MachineObservation` domain vocabulary is Fabrication-owned — no eighth port.
 [OBSERVABILITY_PAGES_AUTHORED]-[COMPLETE]: Instruments, hooks, and benchmarks pages authored under `.planning/Observability/`; `InstrumentRow` widened to carry unit, description, and bind; `FaultBand` gained the `Hook` and `Benchmark` rows; `BenchmarkReceipt` joined the `AppHostWireContext` roster.

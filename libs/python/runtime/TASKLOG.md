@@ -130,7 +130,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Atomic: one refusal on one parameter.
 
 [HLC_HEADER_DRIFT_GATE]-[BLOCKED]: the HLC carrier headers join the boot-proved wire vocabulary.
-- Capability: the four `SLOTS` carrier keys prove against the C#-minted header contract at boot, so a host-side header rename surfaces as a gate failure instead of a silently-defaulted clock forking the causal order.
+- Capability: the four `SLOTS` keys prove against the shared header contract at boot, so schema drift fails before causal admission.
 - Shape: one boot-time assertion beside `aligned` in the serve boot fold proving the `SLOTS` keys of `libs/python/runtime/.planning/clock/clock.md` against the host header contract; `CausalFrame.decode`'s absent-slot defaults stay, guarded upstream by the gate.
 - Unlocks: the HLC header family stops being an unguarded hand mirror — a causal-order fork dies at boot, never in silently-zeroed stamps.
 - Anchors: `SLOTS` and `CausalFrame.decode` on `libs/python/runtime/.planning/clock/clock.md`; the `aligned` descriptor gate on `libs/python/runtime/.planning/transport/shapes.md`; `libs/csharp/Rasm.AppHost/.planning/Observability/telemetry.md` `[CORRELATION_SPINE]`.

@@ -18,7 +18,7 @@ Rasm.AppUi screens are catalog rows over one activatable base: a frozen `ScreenC
 - Auto: dock factories, window titles, palette listings, automation names, and headless proof specs derive as folds over `Rows` — zero per-derivation registries; `IViewFor<TViewModel>` views register through `RegisterViews(m => m.Map<TViewModel, TView>())` on the ReactiveUI builder at the composition root (the catalog-verified spelling — `RegisterView<...>` does not exist), one registration per catalog row.
 - Packages: ReactiveUI, LanguageExt.Core, BCL inbox
 - Growth: one catalog row carries screen, dockable, title, automation name, headless proof, and the generative control-intent body; zero new surface.
-- Boundary: `Key` is the one identity cell; `Id`, `RouteKey`, `AutomationName`, and `IconKey` are derived members, while `Title` resolves from the same key through the composition-bound label column. Deep links, remote invocation, dock identity, automation, palette listings, and proof names therefore cannot drift by independently authored literals; the shell route index is itself a roster projection — `Shell/navigation.md` `ShellRoot.Freeze` folds `Rows` onto `RouteKey`, never an independent route-pair sequence. `TitleRole` remains an orthogonal typography policy, `Surface` is the single per-host admission gate, and `ProofLane` is the proof policy. A per-screen base-class family is rejected; `Body` projects the screen model onto the one `ControlIntent` vocabulary and crosses the `ControlIntentWire` seam unchanged.
+- Boundary: `Key` is the one identity cell; `Id`, `RouteKey`, `AutomationName`, and `IconKey` are derived members, while `Title` resolves from the same key through the composition-bound label column. Deep links, remote invocation, dock identity, automation, palette listings, and proof names therefore cannot drift by independently authored literals; the shell route index is itself a roster projection — `Shell/navigation.md` `ShellRoot.Freeze` folds `Rows` onto `RouteKey`, never an independent route-pair sequence. `TitleRole` remains an orthogonal typography policy, `Surface` is the single admission gate over the supplied `ConsumptionProfile` and the resolved `SurfaceMount`, and `ProofLane` is the proof policy. A per-screen base-class family is rejected; `Body` projects the screen model onto the one `ControlIntent` vocabulary and crosses the `ControlIntentWire` seam unchanged.
 
 ```csharp signature
 public sealed record ScreenCatalogRow(
@@ -26,7 +26,7 @@ public sealed record ScreenCatalogRow(
     Func<string, string> Label,
     string TitleRole,
     ProofLane Proof,
-    Func<SurfaceHost, bool> Surface,
+    Func<ConsumptionProfile, SurfaceMount, bool> Surface,
     Func<string, ScreenBase> Model,
     Func<ScreenBase, ControlIntent> Body) {
     public string Id => Key;
@@ -53,8 +53,10 @@ public sealed record ScreenCatalog(FrozenDictionary<string, ScreenCatalogRow> Ro
     public Option<ScreenCatalogRow> Resolve(string id) =>
         Rows.TryGetValue(id, out ScreenCatalogRow? row) ? Some(row) : None;
 
-    public Seq<ScreenCatalogRow> For(SurfaceHost host) =>
-        toSeq(Rows.Values).Filter(row => row.Surface(host));
+    // Admission reads two axis values, never a product name: the supplied profile answers whether a host
+    // surface exists at all and the resolved mount answers which shape the shell took inside it.
+    public Seq<ScreenCatalogRow> For(ConsumptionProfile profile, SurfaceMount mount) =>
+        toSeq(Rows.Values).Filter(row => row.Surface(profile, mount));
 
     // The fault names the offending key: the first id declared more than once rides the DuplicateId
     // detail — CountBy folds per key in one pass where GroupBy materialized every group.
@@ -321,7 +323,7 @@ flowchart LR
 - Auto: `ScreenCatalogRow.Body` projects the screen's model onto one `ControlIntent` tree (`Shell/controls`), so a `ScreenCatalog` row carries its whole body as a generative intent rather than a per-screen XAML literal — the XAML-literal screen body is deleted across the frozen-row table; the intent stream re-emits on the screen's `ReactiveObject.Changed` property edges — every `RaiseAndSetIfChanged` write is a re-projection edge, throttled so a burst of edges collapses to one re-materialize — and a one-shot `Observable.Return` projection dressed as a state stream is the rejected form; the materialized root mounts at the surface root where `AccessOps.Identify` applies the catalog automation identity, so the screen's automation name and the control-intent automation names compose one tree.
 - Packages: ReactiveUI, System.Reactive, Avalonia, LanguageExt.Core
 - Growth: a screen is one `ScreenBase` subclass plus one catalog row whose `Body` names its control-intent tree; a new control on a screen is one intent in the tree, never a XAML edit; zero new surface.
-- Boundary: the screen body is the one `ControlIntent` tree materialized through `ControlFactory` — a per-screen compiled-XAML view class is the deleted body form (the view still enters the tree through its `Configure<TApp>` shell host, but the screen content is the materialized intent tree, not a hand-authored XAML literal), so the `[05]-[PROHIBITIONS]` parallel-control-framework clause holds and `ControlFactory` is the only materialization path; the intent stream paces through the runtime throttle alone — `Calm`'s distinct gate is wrong over unit-shaped edges, so `Wire` throttles the `Changed` edge stream directly and a burst model change collapses before re-materialize; control recycling rides the `RecycleScope` pool over the `VirtualWindow` window so a windowed screen recycles its realized controls; the body crosses the `ControlIntentWire` seam unchanged, so the same screen materializes on the web head; binding stays `BehaviorRail.Intent`-only through the materialize fold, so a screen body names no `ICommand` call site and a `BindCommand` in a screen is the deleted form.
+- Boundary: the screen body is the one `ControlIntent` tree materialized through `ControlFactory` — a per-screen compiled-XAML view class is the deleted body form (the view still enters the tree through its `Configure<TApp>` shell host, but the screen content is the materialized intent tree, not a hand-authored XAML literal), so the `[04]-[BOUNDARIES]` parallel-control-framework clause holds and `ControlFactory` is the only materialization path; the intent stream paces through the runtime throttle alone — `Calm`'s distinct gate is wrong over unit-shaped edges, so `Wire` throttles the `Changed` edge stream directly and a burst model change collapses before re-materialize; control recycling rides the `RecycleScope` pool over the `VirtualWindow` window so a windowed screen recycles its realized controls; the body crosses the `ControlIntentWire` seam unchanged, so the same screen materializes on the web head; binding stays `BehaviorRail.Intent`-only through the materialize fold, so a screen body names no `ICommand` call site and a `BindCommand` in a screen is the deleted form.
 
 ```csharp signature
 public sealed record ScreenBody(Control Root, RecycleScope Recycle);

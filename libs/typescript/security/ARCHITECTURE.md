@@ -117,13 +117,17 @@ flowchart LR
 
 ## [04]-[INTERNAL]
 
-`crypt/sign` is the sole mint and `crypt/verify` its inbound mirror over held octets, so no route hand-rolls a signature check; `crypt/secret` scopes the Doppler client to the folder's leased surfaces. `authn/session` is the identity spine the ceremonies feed: `credential` funnels second factors through one mint-and-resolve idiom, `oauth` models issuers as rows, `webauthn` splits the passkey ceremony by runtime subpath.
+`crypt/sign` is the sole mint and `crypt/verify` its inbound mirror over held octets, so no route hand-rolls a signature check; `crypt/secret` scopes the Doppler client to the folder's leased surfaces, holding every secret `Redacted` from first decode into the primitive call, so no signature, log, or snapshot carries raw material.
+
+`authn/session` is the identity spine the ceremonies feed: `credential` funnels second factors through one mint-and-resolve idiom, `oauth` models issuers as rows, `webauthn` splits the passkey ceremony by runtime subpath, and single-use snapshots type-witness leg order so replay, cross-ceremony completion, and out-of-order finish stay unspellable.
 
 `access` turns verified identity into decisions and evidence: `claim` evaluates entitlements once per request, `tenant` declares the contract the data stratum enforces as RLS, and `audit` is the fact rail — every loud arm publishes a typed `SecurityFact` through the silent `Witness` seam, class-routed lanes draining into the `AuditJournal` port, every board, alert, and analytics view a projection of one receipt plane.
 
 ## [05]-[BOUNDARIES]
 
-- Persistence lives outside by construction: every store is a port Tag the data stratum satisfies and the app root binds.
+- Persistence lives outside by construction: every store is a port Tag the data stratum satisfies and the app root binds, so a consumer carrying zero durable state composes the folder whole.
+- Every credential-verify surface is throttled and telemetered structurally, and a rejected credential is a verdict arm, never a fault.
+- Growth is one table row per provider, dialect, surface, or role; no capability class earns a sibling owner beside its table.
 - Content-identity digesting stays core's; this folder owns secret derivation and authenticated crypto only.
 - Cookie framing and CSRF are egress projections declared here and consumed by the runtime browser plane; no browser API is touched here.
 - Tenancy is declared here and enforced in the data stratum; the folder opens no database transaction.

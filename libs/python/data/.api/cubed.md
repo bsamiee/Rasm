@@ -113,7 +113,7 @@ Array-API creation factories; every factory accepts `chunks=` and `spec=` to bin
 
 [LOCAL_ADMISSION]:
 - Array operations compose as a lazy graph under one `Spec` naming `work_dir`, `allowed_mem`, and executor; `compute` fires once at the graph boundary.
-- Cubed execution is offline study evidence; the materialized result crosses as a Zarr store or an Arrow/xarray frame, and production substrate selection stays in the C# compute owner.
+- Cubed execution materializes to a Zarr store or an Arrow/xarray frame, the one crossing shape; substrate selection reads off the emitted receipt at the consumer.
 
 [RAIL_LAW]:
 - Package: `cubed`

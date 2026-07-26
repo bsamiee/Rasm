@@ -73,7 +73,7 @@
 |  [10]   | `create_named_range(name, worksheet=None, value=None, scope=None)` | register a `DefinedName` range                     |
 |  [11]   | `defined_names -> DefinedNameDict`                                 | workbook-scoped name to `DefinedName` resolution   |
 |  [12]   | `properties -> DocumentProperties`                                 | descriptive metadata; the `exchange/metadata` seam |
-|  [13]   | `security -> WorkbookProtection`                                   | workbook structure/window lock (`egress#PROTECT`)  |
+|  [13]   | `security -> WorkbookProtection`                                   | workbook structure/window lock (`document/egress#FINISH`)  |
 |  [14]   | `sheetnames -> list[str]` / `Workbook[title] -> Worksheet`         | sheet lookup by title (no `get_sheet_by_name`)     |
 |  [15]   | `iso_dates` / `epoch` / `template`                                 | ISO date toggle; `1900`/`1904` epoch; `.xltx` flag |
 |  [16]   | `save(filename)`                                                   | serialize the workbook to a path or stream         |
@@ -100,7 +100,7 @@
 |  [14]   | `freeze_panes = "A2"`                                                     | freeze rows/columns above-left of a cell            |
 |  [15]   | `auto_filter -> AutoFilter` (`.add_filter_column`, `.add_sort_condition`) | filterable + sortable header range                  |
 |  [16]   | `conditional_formatting.add(range_string, cfRule)`                        | attach a conditional-format rule                    |
-|  [17]   | `protection -> SheetProtection` (`.sheet`, `.password`)                   | per-sheet lock complementing `egress#PROTECT`       |
+|  [17]   | `protection -> SheetProtection` (`.sheet`, `.password`)                   | per-sheet lock complementing `document/egress#FINISH`       |
 
 [ENTRYPOINT_SCOPE]: style, chart, formatting, formula, and coordinate authoring
 - `ColorScaleRule(start_type, start_value, start_color, end_type, end_value, end_color)` is the color-scale ctor; each `formatting.rule` kind lowers to one `DifferentialStyle`; `formula.Translator(formula, origin)` shifts refs via `.translate_formula(dest)` / `.translate_range(range_str, rdelta, cdelta)`
@@ -148,9 +148,9 @@
 - `pydantic`(`.api/pydantic.md`): admission rejects a bad `EmitPayload` through a `TypeAdapter`, and the conditional-format/number-format/validation options derive from the same column schema that drives the writes, never hand-built twice.
 - `expression`(`.api/expression.md`): an arm raise converts to the runtime `BoundaryFault` via `async_boundary` on the `Result` rail, exactly as the sibling office arms route.
 - `opentelemetry-api`(`.api/opentelemetry-api.md`): one span stamps sheet/cell extent, style/name/feature counts, streaming mode, and output byte length onto the `EmitFact` carrier, never re-derived off the bytes by a second reader.
-- `xlsxwriter`(`.api/xlsxwriter.md#SPREADSHEET_STREAMING_ROW`): constant-memory bulk authoring (write-only, no read) when a dataset exceeds openpyxl's `write_only` budget.
-- `python-calamine`(`.api/python-calamine.md#OFFICE_INGEST_XLSX`): value-only fast Excel read (the `document/lens#LENS` `XLSX_READ` arm); openpyxl reads when style/chart/validation/defined-name fidelity matters, calamine when only the values do.
-- `msoffcrypto-tool`(`.api/msoffcrypto-tool.md`): encrypted ECMA-376 workbooks decrypt (or route through the `document/egress#PROTECT` unlock arm) before `load_workbook`; ODF routes to `odfpy`, Word to `python-docx`, PowerPoint to `python-pptx`.
+- `xlsxwriter`(`.api/xlsxwriter.md`): constant-memory bulk authoring (write-only, no read) when a dataset exceeds openpyxl's `write_only` budget.
+- `python-calamine`(`.api/python-calamine.md`): value-only fast Excel read (the `document/lens#LENS` `XLSX_READ` arm); openpyxl reads when style/chart/validation/defined-name fidelity matters, calamine when only the values do.
+- `msoffcrypto-tool`(`.api/msoffcrypto-tool.md`): encrypted ECMA-376 workbooks decrypt (or route through the `document/egress#FINISH` unlock arm) before `load_workbook`; ODF routes to `odfpy`, Word to `python-docx`, PowerPoint to `python-pptx`.
 - `document/emit#DOCUMENT` `XLSX` arm: `_xlsx_in_memory` lowers the `document/model#NODE` `TableNode` grid — `Workbook(write_only=True, iso_dates=True)` -> `create_sheet` -> per-row `append([value.write_openpyxl() for value in row])` -> `freeze_panes = "A2"` -> `save(BytesIO())`; bytes thread onto one `EmitFact` (`copy.replace`) the `@receipted` weave drains, and the producer mints the `core/receipt#RECEIPT` `ArtifactReceipt.Office(key, bytes)` case off the `Backend.kind=OFFICE` discriminant. Read side: `exchange/detect#DETECT` routes `MediaClass.SPREADSHEET` to a `load_workbook(read_only=True, data_only=True)` walk.
 
 [LOCAL_ADMISSION]:

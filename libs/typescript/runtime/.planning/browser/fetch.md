@@ -16,11 +16,11 @@ Browser byte transport and the folder's kernel-delegating mint site: the browser
 ## [02]-[BINDING_ROWS]
 
 [BINDING_ROWS]:
-- Owner: `Web`, the browser counterpart of `exec#RUNTIME_ROWS` — one `as const` roster of the Layer rows the browser root merges: `client` (`BrowserHttpClient.layerXMLHttpRequest`, the `HttpClient` every `Client.dial` reaches — XHR selected deliberately for the shipped arraybuffer-response control), `socket` (`BrowserSocket.layerWebSocketConstructor`, the `Socket.WebSocketConstructor` row `net/channel`'s framed transport and `persist#OVERLAY_AND_LANE`'s sync row construct against), `channel(url)` (`BrowserSocket.layerWebSocket`, the ready socket for a fixed peer), and `workers(spawn)` (`BrowserWorker.layer` over the app-supplied spawn factory — the worker script URL is app data, never a lib literal).
+- Owner: `Web`, the browser counterpart of `proc/exec#RUNTIME_ROWS` — one `as const` roster of the Layer rows the browser root merges: `client` (`BrowserHttpClient.layerXMLHttpRequest`, the `HttpClient` every `Client.dial` reaches — XHR selected deliberately for the shipped arraybuffer-response control), `socket` (`BrowserSocket.layerWebSocketConstructor`, the `Socket.WebSocketConstructor` row `net/channel`'s framed transport and `persist#OVERLAY_AND_LANE`'s sync row construct against), `channel(url)` (`BrowserSocket.layerWebSocket`, the ready socket for a fixed peer), and `workers(spawn)` (`BrowserWorker.layer` over the app-supplied spawn factory — the worker script URL is app data, never a lib literal).
 - Law: the rows compose once at `boot#SINGLE_BOOT`'s root — a lane never names a binding fact, domain modules import zero rows, and the per-runtime subpath gate keeps node and bun bindings physically unresolvable from this lane; the OTLP exporter and the config chain dial through the same XHR client, so telemetry egress inherits the browser posture like every other call.
 - Law: the credentials posture is root material — the cookie-carrying dial rides `route#SESSION_PLANE`'s `posture` row configured at the client binding, so no per-call credentials knob exists.
 - Growth: a new browser binding (a shared-worker spawner row, a WebTransport row) is one roster entry consumed at the same root seam.
-- Boundary: the abstract Tags are `@effect/platform`'s; the node and bun rows are `exec#RUNTIME_ROWS`'s; which rows an app merges is root selection.
+- Boundary: the abstract Tags are `@effect/platform`'s; the node and bun rows are `proc/exec#RUNTIME_ROWS`'s; which rows an app merges is root selection.
 - Packages: `@effect/platform-browser` (`BrowserHttpClient`, `BrowserSocket`, `BrowserWorker`).
 
 ```typescript

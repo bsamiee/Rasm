@@ -1,6 +1,6 @@
 # [RASM_BIM_API_USD]
 
-`UniversalSceneDescription` is the managed OpenUSD scene-graph codec owning the read and write of `.usd`/`.usda`/`.usdc`/`.usdz` through `UsdStage`, backing the `Exchange/format#FORMAT_TABLE` `InterchangeCodec.UsdStage` slot. USD is a scene-graph peer to the GeometryGym IFC semantic graph, never a BIM-semantic replacement: it carries the geometry, shading, and instancing scene while the IFC graph carries the BIM vocabulary, and the two coexist at one `format#FORMAT_TABLE` row. A codec load fault lifts to `BimFault.CodecReject` at the boundary.
+`UniversalSceneDescription` is the managed OpenUSD scene-graph codec owning the read and write of `.usd`/`.usda`/`.usdc`/`.usdz` through `UsdStage`, backing the `Exchange/format#FORMAT_AXIS` `InterchangeCodec.UsdStage` slot. USD is a scene-graph peer to the GeometryGym IFC semantic graph, never a BIM-semantic replacement: it carries the geometry, shading, and instancing scene while the IFC graph carries the BIM vocabulary, and the two coexist at one `format#FORMAT_AXIS` row. A codec load fault lifts to `BimFault.CodecReject` at the boundary.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,7 +9,7 @@
 - assembly: `UniversalSceneDescription.dll`, `USD.NET.dll` — both `lib/net10.0/`, one shared `pxr` public surface
 - namespace: `pxr`
 - asset: managed SWIG wrapper over per-RID native USD — `runtimes/{osx-arm64,osx-x64,linux-x64,win-x64}/native` ship `libusd_*.dylib`/`.so`/`.dll`, the Pixar `usd/plugInfo.json` plugin tree, and `libAlembic`; a stage op with no matching RID native payload and plugin tree faults at native load
-- rail: `format#FORMAT_TABLE` (the `usd-stage` codec; scene-graph peer to the IFC semantic graph)
+- rail: `format#FORMAT_AXIS` (the `usd-stage` codec; scene-graph peer to the IFC semantic graph)
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -171,9 +171,9 @@
 - Every `pxr` handle is `IDisposable` over a native USD object; the `SWIGTYPE_p_*`/`*PINVOKE` types are interop plumbing that stays out of canonical owners.
 
 [STACKING]:
-- `SharpGLTF`(`.api/api-sharpgltf`): USD and glTF are sibling scene codecs on `format#FORMAT_TABLE` sharing one kernel mesh vocabulary; a glTF export of a USD scene crosses that shared vocabulary, never a USD↔glTF direct converter minted in Bim.
-- `GeometryGym.Ifc`(`.api/api-geometrygym-ifc`): USD carries the geometry/shading/instancing scene while the IFC graph carries the BIM element vocabulary (`Model/elements#ELEMENT_MODEL` `BimElement`/`IfcClass`); the two coexist at one `format#FORMAT_TABLE` row, and `BimElement`/`IfcClass` derive from the IFC graph, never USD prim type names.
-- `format#FORMAT_TABLE`: `usd`/`usdz` `InterchangeFormat` rows and the `InterchangeCodec.UsdStage` slot drive `import#IMPORT_RAIL` `BimIo` and `export#EXPORT_RAIL` `BimExport` by row data, never an `if (usd)` call-site branch; the `FrameNormalization` row coerces the imported Y-up op stack (`UsdGeomXformable` / `UsdGeomXformCache.GetLocalToWorldTransform` `GfMatrix4d`) onto the canonical Z-up kernel frame.
+- `SharpGLTF`(`.api/api-sharpgltf`): USD and glTF are sibling scene codecs on `format#FORMAT_AXIS` sharing one kernel mesh vocabulary; a glTF export of a USD scene crosses that shared vocabulary, never a USD↔glTF direct converter minted in Bim.
+- `GeometryGym.Ifc`(`.api/api-geometrygym-ifc`): USD carries the geometry/shading/instancing scene while the IFC graph carries the BIM element vocabulary (`Model/elements#IFC_CLASS` `BimElement`/`IfcClass`); the two coexist at one `format#FORMAT_AXIS` row, and `BimElement`/`IfcClass` derive from the IFC graph, never USD prim type names.
+- `format#FORMAT_AXIS`: `usd`/`usdz` `InterchangeFormat` rows and the `InterchangeCodec.UsdStage` slot drive `import#IMPORT_RAIL` `BimIo` and `export#EXPORT_RAIL` `BimExport` by row data, never an `if (usd)` call-site branch; the `FrameNormalization` row coerces the imported Y-up op stack (`UsdGeomXformable` / `UsdGeomXformCache.GetLocalToWorldTransform` `GfMatrix4d`) onto the canonical Z-up kernel frame.
 - mesh bridge: a kernel mesh crosses `UsdGeomMesh` through the typed-array seam — `GetPointsAttr().Get(VtValue)` yields a `VtVec3fArray` of `GfVec3f` and `GetFaceVertexIndicesAttr()`/`GetFaceVertexCountsAttr()` the topology; export builds `VtVec3fArray`/`VtIntArray` and writes them through the attribute `Set` (never a `Set*Attr`), with `UsdGeomPrimvarsAPI.CreatePrimvar` carrying uv/color.
 - shading seam: `UsdShadeMaterial`/`UsdShadeShader` (UsdPreviewSurface), read and authored through `UsdShadeMaterialBindingAPI`, map to the `Semantics/appearance#APPEARANCE_PROJECTION` `AppearanceSummary` host-neutral PBR record, reconciled with the `csharp:Rasm.Materials` OpenPBR owner at the content-key seam.
 - federation: USD references/payloads/variants are the layered-federation mechanism — a per-discipline model is a sublayer or reference, a design option a variant set — so `Review/diff#MODEL_DIFF` and `AppUi` variant switching compose on USD's native arcs, and `OpenMasked`/`UsdStageLoadRules` stream partial stages for large scenes.
@@ -182,7 +182,7 @@
 - `UsdStage` is the one USD codec root; one stage reads and writes every `.usd*` variant by the native plugin tree, never a per-format `UsdaReader`/`UsdcReader` family.
 - Prim and attribute authoring goes through the typed schemas and the `SdfValueTypeName`/`VtValue`/`Vt*Array` value path; a raw attribute-name string beside the typed schema is the rejected form.
 - BIM semantics stay the GeometryGym IFC graph's; deriving `BimElement`/`IfcClass` from USD prim names is the named boundary violation.
-- `FrameNormalization`'s Y-up→Z-up row (on `format#FORMAT_TABLE`) normalizes the imported frame; a USD-local frame leaking into the kernel is the rejected form.
+- `FrameNormalization`'s Y-up→Z-up row (on `format#FORMAT_AXIS`) normalizes the imported frame; a USD-local frame leaking into the kernel is the rejected form.
 - Native handles enter only through declared `IDisposable` roots and release deterministically; a stage op with no matching RID native payload and plugin tree faults at native load as `BimFault.CapabilityMiss`.
 - MPL-2.0 file-level reciprocity is satisfied by referencing the unmodified NuGet binaries, never modifying its source files.
 

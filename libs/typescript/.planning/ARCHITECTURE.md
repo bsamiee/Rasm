@@ -21,7 +21,7 @@ libs/typescript/
 - S2 `data` — composes core (`ContentKey`) and security (`Shredder`, `TenantScope`); a backend is a semantic-guarantee row.
 - S3 `runtime` — composes core (`Budget`), security (`CookieSpec`), and data (`Embedder`); the browser condition rides the same package.
 - S4 `ui` — imports core alone (`Feed.Document`); reaches runtime only through the `GlbViewport` port and the atom-bridge bindings.
-- S4 `iac` — composes core and data as type/value reads (`DashboardModel`, `Pg`), plane-distinct outside the runtime graph.
+- S4 `iac` — composes core, data, and runtime as type/value reads (`DashboardModel`, `Pg`, `Consumption`), plane-distinct outside the runtime graph.
 
 Port satisfaction happens at app composition, never as an import: every port Tag a folder declares binds to another folder's Layer at the composition root — `security` ports fill from `data`, `ui`'s `GlbViewport` fills from runtime `Depot` arrivals — so no folder reaches across for its dependency. One value crosses back: typed `StackOutputs.sharding` read by `runtime` `ShardingConfig.layerFromEnv` — an env fact, never an import.
 
@@ -59,6 +59,7 @@ flowchart TB
     Data e5@-->|"[IMPORT]: TenantScope"| Security
     Ui e6@-->|"[IMPORT]: Feed.Document"| Core
     Iac e7@-->|"[IMPORT]: DashboardModel"| Core
+    Iac e11@-->|"[IMPORT]: Consumption.topologies"| Runtime
     Runtime e8@-->|"[IMPORT]: Budget"| Core
     Data e9@-->|"[IMPORT]: ContentKey"| Core
     Security e10@-->|"[IMPORT]: TenantContext"| Core
@@ -106,9 +107,9 @@ flowchart LR
     AppHost e9@-->|"[TRANSPORT]: OtelExport"| Runtime
 ```
 
-Every C#-minted family decodes once through the core interchange codec registry: `Core` edges freeze the wire spelling verbatim from the owning C# endpoint file, and `ui` edges name the decoded landing materializing there. Schema drift across these endpoints is a graded boot verdict at the core interchange contract gate — an additive change admits decode, a breaking change refuses as typed evidence — never a runtime decode failure. TS consumes the GLB tessellation rail through the C#-owned wire; no TS↔Python seam exists — both peers couple only to the C# wire.
+Each contract family decodes once through the core interchange codec registry: `core` edges freeze the wire spelling verbatim from the owning endpoint file, and `ui` edges name the decoded landing materializing there. Schema drift across these endpoints is a graded boot verdict at the core interchange contract gate — an additive change admits decode, a breaking change refuses as typed evidence — never a runtime decode failure. TypeScript consumes the GLB tessellation rail through that contract; no TS↔Python seam exists, both branches binding the same corpus contracts.
 
-Companion contract families beyond the diagrammed set fold to the folder `[03]-[SEAMS]` registries, mirrored verbatim under their folder-registered kinds; a new family lands as one folder seam row, never a branch edge.
+Contract families beyond the diagrammed set fold to the folder `[03]-[SEAMS]` registries, mirrored verbatim under their folder-registered kinds; a new family lands as one folder seam row, never a branch edge.
 
 ## [04]-[INTERNAL]
 
@@ -123,7 +124,7 @@ config:
 flowchart LR
     accTitle: TypeScript branch data spine
     accDescr: Wire octets decode once at core interchange, fold through the state algebra, persist in the data journal, and serve to the ui surfaces.
-    Octets([C#-minted wire octets])
+    Octets([contract-conforming wire octets])
     Decode[core interchange · decode once]
     Vocab[core value + state · owned vocabulary]
     Journal[(data journal · record of truth)]
@@ -138,9 +139,9 @@ flowchart LR
     Serve e6@-->|"serve: resumable feed"| Surface
 ```
 
-One crossing law rules the spine: `core` mints each cross-cutting primitive exactly once — content identity, clock, quantity, app identity — and every keying or stamping site delegates to the one mint. Wire octets enter at one boundary, the core interchange registry, each family landing whole into an owned vocabulary or a wire-owned decoded shape, so nothing downstream re-decodes. One fold algebra serves two altitudes — in-memory through the core state plane, durable through the data read lane — with wire-minted and app-authored families as instances of one op vocabulary.
+One crossing law rules the spine: `core` mints each cross-cutting primitive exactly once — content identity, clock, quantity, app identity — and every keying or stamping site delegates to that one mint. Wire octets enter at one boundary, the core interchange registry, each family landing whole into an owned vocabulary or a wire-owned decoded shape, so nothing downstream re-decodes. One fold algebra serves two altitudes — in-memory through the core state plane, durable through the data read lane — with wire-decoded and app-authored families as instances of one op vocabulary.
 
-Order crosses on one clock law with one `AsOf` replay coordinate; tenancy crosses as one scope value derived from the one app identity, pinned by the single tenant write path. Fault altitudes stay three — the decode rail reconstructs C#-minted fault detail, each folder raises its own local typed rail, and the runtime serve plane alone projects outward. Exact per-stage wiring lives on the owning implementation pages.
+Order crosses on one clock law with one `AsOf` replay coordinate; tenancy crosses as one scope value derived from the one app identity, pinned by the single tenant write path. Fault altitudes stay three — the decode rail reconstructs a peer-minted fault detail, each folder raises its own local typed rail, and the runtime serve plane alone projects outward. Exact per-stage wiring lives on the owning implementation pages.
 
 ```mermaid
 ---
@@ -188,7 +189,7 @@ Each folder mints its own instruments against the core observe convention — th
 ## [06]-[BOUNDARIES]
 
 - Folders are capability domains named for their own concern; no folder name mirrors a sibling C# or Python package.
-- Each C#-minted receipt family lands as its own typed decode; per-verb receipt schemas keep the family typed end to end.
+- Each external receipt family lands as its own typed decode; per-verb receipt schemas keep the family typed end to end.
 - IFC and BCF vocabulary lives only at the codec registry landings and the viewer marks; every consumer reads the decoded landing.
 
 ## [07]-[ADMISSION_POLICY]

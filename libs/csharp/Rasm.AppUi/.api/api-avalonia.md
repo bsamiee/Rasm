@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_AVALONIA]
 
-`Avalonia` owns the retained UI object model every `SurfaceHost` mounts onto: typed property and element trees, binding, styles, resources, input, routed events, and the render dispatcher. It holds the data-transfer boundary — clipboard and drag-drop — the shell input page composes, and marshals every cross-thread UI mutation through one render-thread hop. Every `SurfaceHost` binds the whole substrate through the retained-ui rail.
+`Avalonia` owns the retained UI object model every `SurfaceMount` mounts onto: typed property and element trees, binding, styles, resources, input, routed events, and the render dispatcher. It holds the data-transfer boundary — clipboard and drag-drop — the shell input page composes, and marshals every cross-thread UI mutation through one render-thread hop. Every `SurfaceMount` case binds the whole substrate through the retained-ui rail.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -265,6 +265,6 @@
 
 [RAIL_LAW]:
 - Package: `Avalonia`
-- Owns: retained object, property, style, resource, input, routed-event, drag-drop, data-transfer, and render contracts behind the one `SurfaceHost` axis — application roots, top levels, windows, screens, and panels — and XAML load, style and resource include, template metadata, compiled-binding generation, and namescope identity.
+- Owns: retained object, property, style, resource, input, routed-event, drag-drop, data-transfer, and render contracts behind the one `SurfaceMount` axis — application roots, top levels, windows, screens, and panels — and XAML load, style and resource include, template metadata, compiled-binding generation, and namescope identity.
 - Accept: product UI concepts enter through typed retained surfaces observed via `GetObservable`; host, sidecar, companion, and diagnostics shells share one UI rail; generated and handwritten markup share one namescope and resource rail.
 - Reject: untyped wrapper layers over controls, properties, resources, or events; separate UI families per host modality; reflection `{Binding}` where a compiled binding is admissible; the `DataObject`/`DataFormats`/`IDataObject` clipboard surface.

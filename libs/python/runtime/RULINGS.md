@@ -1,6 +1,6 @@
 # [PY_RUNTIME_RULINGS]
 
-Per-folder decision registry for the execution foundation — the settled rulings agents re-litigate for lack of a home. Each row is one decision with the one why guarding its re-litigation: a package admission or rejection, an owner-choice discriminant, a collapse refusal naming the lost guarantee, a structure retirement, or a working law. Append-mostly; a row earns its seat while its why stays homeless, dies only when fact and why both live at one durable surface, and a decision spanning folders homes at the branch tier. `(none)` marks a section awaiting its first ruling.
+`python/runtime` rulings settle package-scoped decisions.
 
 ## [01]-[PACKAGES]
 
@@ -10,7 +10,7 @@ Per-folder decision registry for the execution foundation — the settled ruling
 
 - `measured`'s free `scope` parameter carries the branch telemetry grammar the hook, meter, and instrument owners already enforce — `rasm.`-rooted lowercase dot-segments; a bare package-prefixed scope entering the exported weave forks the branch's one telemetry namespace.
 - Every new blocking concern earns its own named `CapacityLimiter` sized by its owner, and the anyio ambient default thread limiter stays refused branch-wide — an unnamed shared limiter lets one concern silently oversubscribe the host against every other.
-- Physical time mints once at the C# host port — the companion's clock and admission decode the host-minted causal stamp and `tick` advances only the logical half; a Python-side physical mint is a second time origin forking the physical-dominant HLC order and the prefix-replay join, so convergence and seed-reproduction parity hold only under one physical authority.
+- `Hlc` samples this branch's own admitted clock for local events and merges every inbound stamp before `tick` — the join-semilattice over `(physical, logical)` converges under independent physical mints, so a privileged single physical authority buys no ordering guarantee while making a Python-only deployment impossible; re-litigation opens only if merge stops dominating on the physical half.
 - Wire integers above the `int64` band carry the `ge=0` floor alone with the ceiling enforced by the railed decode — msgspec meta expresses no above-`int64` bound, so an above-band ceiling annotation is a phantom the decoder never enforces; an in-band ceiling (`I63`) rides `Meta(le=...)` and is enforced.
 - Telemetry install failure policy is fail-before-publish — `_pipeline` completes provider construction before `_commit` publishes, because the OpenTelemetry globals (`set_meter_provider`, `set_tracer_provider`, `set_logger_provider`, `propagate.set_global_textmap`) are set-once surfaces with no unset member; a demanded post-publication rollback compensates through a phantom inverse and is void, the real hardening moving work before publication; re-opens only when the SDK ships a public unset.
 - OTLP gRPC egress is refused on every forked or spawned worker floor — a persistent gRPC channel never survives `fork()` — so HTTP proto is the fork-safe default, `GRPC_ELIGIBLE` admits the gRPC transport only for the non-forking SIDECAR daemon, and install clamps every other profile's injected gRPC row back to HTTP with the receipt carrying the effective geometry, never a silent downgrade.

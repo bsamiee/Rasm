@@ -225,7 +225,7 @@ public sealed record SupportPolicy(
 
 public sealed record SupportRuntime(
     SupportPolicy Policy,
-    HostProfile Profile,
+    ConsumptionProfile Profile,
     string StorageRoot,
     ImmutableDictionary<string, string> Versions,
     ClockPolicy Clocks,
@@ -352,7 +352,7 @@ public sealed record SupportManifest(
     CorrelationId Correlation,
     Instant WindowStart,
     Instant WindowEnd,
-    HostProfile Profile,
+    ConsumptionProfile Profile,
     ImmutableArray<Entry> Entries,
     ImmutableDictionary<string, string> PackageVersions) {
     public sealed record Entry(string Name, string Classification, long Bytes, long TruncatedBytes, int Redactions, Option<string> Fault = default);

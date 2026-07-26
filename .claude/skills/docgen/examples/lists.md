@@ -40,10 +40,10 @@ Entries whose fragments are all load-bearing at this altitude are not bullets: e
     ```markdown accepted
     [Plan]:
 
-    - Shape: folds the `Work` graph into admission units; a node is its `key`, a dependency a `key` edge.
+    - Shape: Folds the `Work` graph into admission units; a node is its `key`, a dependency a `key` edge.
     - Fields: `key`, `work`, `parents`, `cost`, `admission`.
     - Admission: `keyed` cache-eligible default, `bare` forced-live, `retried` transient offload with its class.
-    - Schedule: critical path, computed once over the graph.
+    - Schedule: Critical path, computed once over the graph.
     ```
 - Reason: These fragments are peer facts about one owner, each earning a field line the cell budget of a bullet forbids; a GroupedRecord keeps every payload greppable under one key where a shredded sibling split strips the owner relation.
 - Reframe: Promote the entry to a `[KEY]:` card with `- Field: value` lines when every fragment is load-bearing at this altitude.
@@ -90,7 +90,7 @@ Lists whose entries answer different reader questions — what exists, how it ru
     [Row model]:
     - Fields: `format`, `extent`, `style`.
 
-    [Decode]: the `mesh` arm folds `Reader.Decode` over the accessor contract.
+    [Decode]: The `mesh` arm folds `Reader.Decode` over the accessor contract.
     [Receipt]: `(key, bytes, count)`.
 
     Ownership stops at the capsule.
@@ -119,9 +119,9 @@ Numbered markers claim an ordered sequence; peers wearing numbers de-number to b
 - Accepted:
 
     ```markdown accepted
-    - `keyed`: cache-eligible default.
-    - `bare`: forced-live one-shot.
-    - `retried`: transient offload with its class.
+    - `keyed`: Cache-eligible default.
+    - `bare`: Forced-live one-shot.
+    - `retried`: Transient offload with its class.
 
     The plan folds the graph into fronts, each draining under one policy the runtime threads forward as receipts.
     ```
@@ -180,9 +180,9 @@ Child entries nested under a parent that is not their governing rule are peers m
 - Rejected:
     ```markdown rejected
     - Boundary: `Compose` closes the lane and prepares each arm, never authoring content.
-        - [MESH_CODECS]: the `mesh` arm names `Reader` as its package and grounds the `stl`/`obj`/`off` rows, import-only, the writer family out of scope.
-        - [SCENE_CODECS]: the `scene` arm folds `Context.Import` over the triangulate steps, the leaked types never crossing the seam.
-        - [PROTOCOL]: the `step` rows split a managed leg and a companion geometry leg keyed on the row.
+        - [MESH_CODECS]: The `mesh` arm names `Reader` as its package and grounds the `stl`/`obj`/`off` rows, import-only, the writer family out of scope.
+        - [SCENE_CODECS]: The `scene` arm folds `Context.Import` over the triangulate steps, the leaked types never crossing the seam.
+        - [PROTOCOL]: The `step` rows split a managed leg and a companion geometry leg keyed on the row.
     ```
 - Accepted:
 
@@ -226,7 +226,7 @@ Entries opening on an article bury their owner; marker leaders only disguise the
 - Detection: Flag marker bodies opening on an article — `The`/`the`, `A`/`An`.
 - Rejected:
     ```markdown rejected
-    - [02]-[SOLVE_VOCABULARY]: the solve, eigen, norm, and gauge route algebra every receipt discriminates on.
+    - [02]-[SOLVE_VOCABULARY]: The solve, eigen, norm, and gauge route algebra every receipt discriminates on.
     ```
 - Accepted:
     ```markdown accepted

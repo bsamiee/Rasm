@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_POLLINATION_SDK]
 
-`PollinationSDK` owns the Pollination cloud compute transport: the OpenAPI `*Api` REST clients, the `Client.Configuration` token-auth surface, and the `Wrapper` job/run/asset orchestration. Its durable result half lands across three Persistence owners — artifact bytes at `Store/blobstore`, lineage at `Version/provenance`, the run index at `Query/cache#ArtifactKind.CloudRun` — while submission and watch route to `Rasm.Compute`. Sidecar isolation binds it outside-Rhino behind the vendored `LBT.RestSharp`/`LBT.Newtonsoft.Json` fork closure and a local `Microsoft.Data.Sqlite` cache, never loaded by the plugin assembly.
+`PollinationSDK` owns the Pollination cloud compute transport: the OpenAPI `*Api` REST clients, the `Client.Configuration` token-auth surface, and the `Wrapper` job/run/asset orchestration. Its durable result half lands across three Persistence owners — artifact bytes at `Store/blobstore`, lineage at `Version/provenance`, the run index at `Query/cache#ARTIFACT_BLOB_INDEX` — while submission and watch route to `Rasm.Compute`. Sidecar isolation binds it outside-Rhino behind the vendored `LBT.RestSharp`/`LBT.Newtonsoft.Json` fork closure and a local `Microsoft.Data.Sqlite` cache, never loaded by the plugin assembly.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -125,7 +125,7 @@ Each op pairs a model-returning `*Async` (throws `ApiException`) with a `*WithHt
 [STACKING]:
 - `api-objectstore.md`(`Store/blobstore`): `ArtifactsApi.CreateArtifactAsync` returns an `S3UploadRequest` presigned PUT and the `*Download*` ops resolve S3-backed assets, so the byte transfer rides the folder's object-store owner (`AWSSDK.S3`/`Minio`) on the same S3 plane; a downloaded `RunAsset` lands content-keyed (`XxHash128`) through that same body bridge, never a second HTTP uploader.
 - `Rasm.Compute`: routes the job-submission and watch half to the cloud-run dispatch owner — this catalog owns the SDK transport surface, the recipe-run policy is a Compute concern.
-- within-lib: a `Run` result and its `RunOutputAsset`s land at `Version/provenance` (lineage) and `Query/cache#ArtifactKind.CloudRun` (result index), so a completed cloud run becomes a content-addressed, lineage-tracked artifact set.
+- within-lib: a `Run` result and its `RunOutputAsset`s land at `Version/provenance` (lineage) and `Query/cache#ARTIFACT_BLOB_INDEX` (result index), so a completed cloud run becomes a content-addressed, lineage-tracked artifact set.
 
 [LOCAL_ADMISSION]:
 - No in-Rhino plugin assembly admits `PollinationSDK` or its RestSharp-106/Newtonsoft-fork closure; the SDK and its SQLite cache load only on the cloud-run sidecar.
@@ -133,5 +133,5 @@ Each op pairs a model-returning `*Async` (throws `ApiException`) with a `*WithHt
 [RAIL_LAW]:
 - Package: `PollinationSDK` (MIT)
 - Owns: the Pollination cloud compute transport — the `*Api` REST clients, `Configuration`/`TokenRepo` auth, `Wrapper` job/run/asset orchestration, and the model DTOs
-- Accept: a recipe-run job submitted to a Pollination project, watched to completion, and its result assets pulled back — the durable half projected to `Store/blobstore`, `Version/provenance`, and `Query/cache#ArtifactKind.CloudRun` while the dispatch half routes to `Rasm.Compute`, artifact bytes transferred via the object-store owner
+- Accept: a recipe-run job submitted to a Pollination project, watched to completion, and its result assets pulled back — the durable half projected to `Store/blobstore`, `Version/provenance`, and `Query/cache#ARTIFACT_BLOB_INDEX` while the dispatch half routes to `Rasm.Compute`, artifact bytes transferred via the object-store owner
 - Reject: loading the SDK or its forks in the in-Rhino assembly; a second S3 uploader where `api-objectstore.md` owns the object plane; a hand-rolled token store where `Configuration`/`TokenRepo` carry auth; treating the netstandard2.0 floor as a net8+ surface

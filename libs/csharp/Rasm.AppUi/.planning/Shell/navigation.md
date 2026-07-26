@@ -1,6 +1,6 @@
 # [APPUI_SHELL_NAVIGATION]
 
-Rasm.AppUi composes one shell: a five-case `NavRequest` union dispatches over the `ShellRoot` router capsule with two view-resolution hosts, one `ShellDockFactory` folds route-keyed `DockableRow` rows into the Dock model graph so dockables are screens, `LayoutLedger` flows layout checkpoints as versioned hashed blobs through `LayoutPersistence` delegates with cadence, drain, support, telemetry, and crash-restore registrations on the AppHost ports, `ShellChrome` derives menu, toolbar, status, and tray rows from intent keys per `SurfaceHost` row, and `AdaptiveLayout` owns the breakpoint table. The page owns the routing spine, dock layouts with checkpoint-cadence, external-dock-surface, and crash-restore values, chrome derivation, and adaptive layout over ReactiveUI, Dock.Avalonia, Dock.Model.ReactiveUI, Xaml.Behaviors.Avalonia, PanAndZoom, Thinktecture vocabulary, and LanguageExt rails.
+Rasm.AppUi composes one shell: a five-case `NavRequest` union dispatches over the `ShellRoot` router capsule with two view-resolution hosts, one `ShellDockFactory` folds route-keyed `DockableRow` rows into the Dock model graph so dockables are screens, `LayoutLedger` flows layout checkpoints as versioned hashed blobs through `LayoutPersistence` delegates with cadence, drain, support, telemetry, and crash-restore registrations on the AppHost ports, `ShellChrome` derives menu, toolbar, status, and tray rows from intent keys per supplied `ConsumptionProfile`, and `AdaptiveLayout` owns the breakpoint table. The page owns the routing spine, dock layouts with checkpoint-cadence, external-dock-surface, and crash-restore values, chrome derivation, and adaptive layout over ReactiveUI, Dock.Avalonia, Dock.Model.ReactiveUI, Xaml.Behaviors.Avalonia, PanAndZoom, Thinktecture vocabulary, and LanguageExt rails.
 
 ## [01]-[INDEX]
 
@@ -17,7 +17,7 @@ Rasm.AppUi composes one shell: a five-case `NavRequest` union dispatches over th
 - Auto: `RoutedViewHost` re-resolves the view on every router transition; deep links and remote verbs enter through `Parse` with no second admission path.
 - Packages: ReactiveUI, ReactiveUI.Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new navigation verb is one case on `NavRequest`, a new screen is one `ScreenCatalog` row whose route the index projects through `Freeze`, and a new navigation instrument is one `InstrumentRow` on `ShellRoot.TelemetryRow`; zero new surface.
-- Boundary: `Freeze` projects the route index off the frozen `ScreenCatalog` roster — keys are `row.RouteKey` by construction, so an independently authored route pair is unrepresentable; each `Navigate` dispatch folds one observation into the `ShellRoot.NavigateInstrument` count and an unknown-route abort folds one into the `ShellRoot.RouteMissInstrument` count through the composition-bound `Count` delegate, both declared through the one `AppUiTelemetry.Contribute` spine, so navigation volume and route-miss rate are attributable and a router-local meter is the deleted form; `ShellRoot` is the named boundary capsule — ReactiveUI command execution awaits inside its private kernels and nowhere else; `RoutedViewHost` and `ViewModelViewHost` are the only view-resolution surfaces, binding `Router` and `ViewModel` from the shell root, and view lookup beside the two hosts is the deleted pattern; the `ViewContract` value on `RoutedViewHost` carries the `SurfaceHost` row key so one screen resolves a surface-specific template; route keys are ordinal strings shared by deep links, remote invocation, the dock factory, and the web projection, so the same grammar admits every caller today; modal presentation crosses to the dialog-session owner through the `PresentModal` delegate; viewport-scoped navigation rides the same five-verb grammar — a `Push`/`Pop` over a `ZoomBorder`-hosted screen drives `ZoomBorder.NavigateBack`/`NavigateForward` view history and `ClearViewHistory` on a `Reset`, so a per-canvas back-stack is the deleted pattern and viewport history is one verb dispatch, never a second navigation owner; a second router beside the router cell and a region framework are the rejected forms.
+- Boundary: `Freeze` projects the route index off the frozen `ScreenCatalog` roster — keys are `row.RouteKey` by construction, so an independently authored route pair is unrepresentable; each `Navigate` dispatch folds one observation into the `ShellRoot.NavigateInstrument` count and an unknown-route abort folds one into the `ShellRoot.RouteMissInstrument` count through the composition-bound `Count` delegate, both declared through the one `AppUiTelemetry.Contribute` spine, so navigation volume and route-miss rate are attributable and a router-local meter is the deleted form; `ShellRoot` is the named boundary capsule — ReactiveUI command execution awaits inside its private kernels and nowhere else; `RoutedViewHost` and `ViewModelViewHost` are the only view-resolution surfaces, binding `Router` and `ViewModel` from the shell root, and view lookup beside the two hosts is the deleted pattern; the `ViewContract` value on `RoutedViewHost` carries `profile.HostKey` so one screen resolves a host-specific template; route keys are ordinal strings shared by deep links, remote invocation, the dock factory, and the web projection, so the same grammar admits every caller today; modal presentation crosses to the dialog-session owner through the `PresentModal` delegate; viewport-scoped navigation rides the same five-verb grammar — a `Push`/`Pop` over a `ZoomBorder`-hosted screen drives `ZoomBorder.NavigateBack`/`NavigateForward` view history and `ClearViewHistory` on a `Reset`, so a per-canvas back-stack is the deleted pattern and viewport history is one verb dispatch, never a second navigation owner; a second router beside the router cell and a region framework are the rejected forms.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -237,14 +237,17 @@ public static class ShellPolicy {
     public const string RestoreInstrument = "rasm.appui.layout.restored";
     public static readonly Duration CheckpointCadence = Duration.FromSeconds(120);
 
-    public static bool FloatingWindows(SurfaceHost host) =>
-        host is not (SurfaceHost.RhinoPanel or SurfaceHost.WebBrowser);
+    // Each predicate reads the axis its product name implied: a panel mount owns no floating host
+    // window, a surfaceless profile materializes neither a floating window nor a drop adorner, and the
+    // embedded surface class is exactly the set of mounts a foreign host owns the frame for.
+    public static bool FloatingWindows(ConsumptionProfile profile, SurfaceMount mount) =>
+        mount is not SurfaceMount.Panel && profile.Surface != HostSurface.None;
 
-    public static bool DropSelector(SurfaceHost host) =>
-        host is not SurfaceHost.WebBrowser;
+    public static bool DropSelector(ConsumptionProfile profile) =>
+        profile.Surface != HostSurface.None;
 
-    public static bool ExternalSurface(SurfaceHost host) =>
-        host is SurfaceHost.RhinoPanel or SurfaceHost.RhinoModal or SurfaceHost.Gh2CompanionWindow;
+    public static bool ExternalSurface(ConsumptionProfile profile) =>
+        profile.Surface == HostSurface.Embedded;
 }
 
 public sealed record LayoutContent(string Payload, Seq<string> RouteStack);
@@ -360,10 +363,10 @@ flowchart LR
 
 - Owner: `ComparerAccessors.StringOrdinal` accessor; `ChromeSlot` `[SmartEnum<string>]` four-slot chrome vocabulary; `ChromeRow` derivation row; `ShellChrome` projection fold.
 - Cases: menu, toolbar, status, tray
-- Entry: `public static Seq<ChromeRow> Project(SurfaceHost host, ChromeSlot slot, Seq<ChromeRow> rows)` — pure projection; rows filter on slot and host predicate and order by rank.
+- Entry: `public static Seq<ChromeRow> Project(ConsumptionProfile profile, ChromeSlot slot, Seq<ChromeRow> rows)` — pure projection; rows filter on slot and profile predicate and order by rank.
 - Packages: Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new chrome surface is one `ChromeSlot` case, and a new entry is one `ChromeRow` row naming an existing intent key; zero new surface.
-- Boundary: rows carry intent keys only — command mechanics, gestures, and availability live on the intent table and arrive as settled vocabulary, so menu item classes and per-surface registries are the deleted patterns; the Menu slot projects to the macOS global-menu export through the `NativeMenu.MenuProperty` attached value on the `TopLevel` with `GetIsNativeMenuExported` as the export probe, and to the managed `NativeMenuBar` in-window control elsewhere; the Tray slot materializes only where the matrix admits it through the `TrayIcon.IconsProperty` attached `TrayIcons` collection with `Icon`, `ToolTipText`, `Command`, `Menu`, and `IsVisible` per icon; embedded rows suppress menu and status chrome because the host owns its own chrome, and the WebBrowser row exposes serialized keys only; window titles compose the product name with the active dockable `Title` through `Title`; the Headless floating cell stays vacuously open because no `HostWindow` materializes without a windowing platform.
+- Boundary: rows carry intent keys only — command mechanics, gestures, and availability live on the intent table and arrive as settled vocabulary, so menu item classes and per-surface registries are the deleted patterns; the Menu slot projects to the macOS global-menu export through the `NativeMenu.MenuProperty` attached value on the `TopLevel` with `GetIsNativeMenuExported` as the export probe, and to the managed `NativeMenuBar` in-window control elsewhere; the Tray slot materializes only where the matrix admits it through the `TrayIcon.IconsProperty` attached `TrayIcons` collection with `Icon`, `ToolTipText`, `Command`, `Menu`, and `IsVisible` per icon; embedded mounts suppress menu and status chrome because the host owns its own chrome, and a `HostSurface.None` profile mints no surface, so every slot reads vacuously false; window titles compose the product name with the active dockable `Title` through `Title`; the offscreen floating cell stays vacuously open because no `HostWindow` materializes without a windowing platform.
 
 ```csharp signature
 
@@ -377,11 +380,11 @@ public sealed partial class ChromeSlot {
     public static readonly ChromeSlot Tray = new("tray");
 }
 
-public sealed record ChromeRow(string IntentKey, ChromeSlot Slot, string Path, int Rank, Func<SurfaceHost, bool> Visible);
+public sealed record ChromeRow(string IntentKey, ChromeSlot Slot, string Path, int Rank, Func<ConsumptionProfile, bool> Visible);
 
 public static class ShellChrome {
-    public static Seq<ChromeRow> Project(SurfaceHost host, ChromeSlot slot, Seq<ChromeRow> rows) =>
-        toSeq(rows.Filter(row => row.Slot == slot && row.Visible(host)).OrderBy(static row => row.Rank));
+    public static Seq<ChromeRow> Project(ConsumptionProfile profile, ChromeSlot slot, Seq<ChromeRow> rows) =>
+        toSeq(rows.Filter(row => row.Slot == slot && row.Visible(profile)).OrderBy(static row => row.Rank));
 
     public static string Title(string product, Option<string> active) =>
         active is { IsSome: true, Case: string current } ? $"{current} — {product}" : product;
@@ -390,15 +393,14 @@ public static class ShellChrome {
 
 Visibility matrix — the value source for every `Visible` predicate and for `FloatingWindows`:
 
-| [INDEX] | [HOST_ROW]            | [MENU] | [TOOLBAR] | [STATUS] | [TRAY] | [FLOATING] |
-| :-----: | :-------------------- | :----: | :-------: | :------: | :----: | :--------: |
-|  [01]   | AvaloniaDesktopWindow |   on   |    on     |    on    |  off   |    open    |
-|  [02]   | RhinoPanel            |  off   |    on     |   off    |  off   | suppressed |
-|  [03]   | RhinoModal            |  off   |    on     |   off    |  off   |    open    |
-|  [04]   | Gh2CompanionWindow    |  off   |    on     |    on    |  off   |    open    |
-|  [05]   | SidecarShell          |   on   |    on     |    on    |   on   |    open    |
-|  [06]   | WebBrowser            |  off   |    off    |   off    |  off   | suppressed |
-|  [07]   | Headless              |  off   |    off    |   off    |  off   |    open    |
+| [INDEX] | [MOUNT]    | [TOPOLOGY] | [MENU] | [TOOLBAR] | [STATUS] | [TRAY] | [FLOATING] |
+| :-----: | :--------- | :--------- | :----: | :-------: | :------: | :----: | :--------: |
+|  [01]   | Standalone | sidecar    |   on   |    on     |    on    |   on   |    open    |
+|  [02]   | Standalone | in-host    |   on   |    on     |    on    |  off   |    open    |
+|  [03]   | Panel      | in-host    |  off   |    on     |   off    |  off   | suppressed |
+|  [04]   | Modal      | in-host    |  off   |    on     |   off    |  off   |    open    |
+|  [05]   | Companion  | in-host    |  off   |    on     |    on    |  off   |    open    |
+|  [06]   | Offscreen  | any        |  off   |    off    |   off    |  off   |    open    |
 
 ## [05]-[ADAPTIVE_LAYOUT]
 

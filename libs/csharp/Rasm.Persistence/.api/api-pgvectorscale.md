@@ -50,7 +50,7 @@ Session GUCs the planner reads to widen a diskann scan, `SET LOCAL` per session/
 
 [STACKING]:
 - `api-pgvector-ef.md`: `DiskAnnOps.Cosine`/`L2`/`InnerProduct` reuse the catalogued `CosineDistance`/`L2Distance`/`MaxInnerProduct` distance functions, one operator driving both build and the `VectorMetric.Order` `Switch`-projected `ORDER BY`; a `vector(N)` distance query planner-routes through diskann with no rewrite, the always-present exact scan staying the `store.vector.route` correctness baseline diskann complements past RAM-resident HNSW.
-- `api-pg-search.md`: `FusionRank.Fuse` composes the diskann vector branch with the `pg_search` BM25 branch in one reciprocal-rank-fusion CTE projecting identities, no learned reranker (`Query/retrieval#FUSION_AND_REUSE`); the probed embedding is generated upstream at `Compute/models#INFERENCE_MODES`.
+- `api-pg-search.md`: `FusionRank.Fuse` composes the diskann vector branch with the `pg_search` BM25 branch in one reciprocal-rank-fusion CTE projecting identities, no learned reranker (`Query/retrieval#FUSION_AND_REUSE`); the probed embedding is generated upstream at `Rasm.Compute/Model/inference#INFERENCE_MODES`.
 
 [LOCAL_ADMISSION]:
 - A `<#>` inner-product build against `storage_layout = plain` is a typed `ProvisionSql` `Fin.Fail` caught at the deploy gate before `Sql()` lands — SBQ requires `memory_optimized`.

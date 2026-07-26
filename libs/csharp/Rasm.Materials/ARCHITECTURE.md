@@ -124,7 +124,7 @@ config:
 ---
 flowchart LR
     accTitle: Materials platform, compute, and cross-runtime seams
-    accDescr: Materials sub-domain owners exchanging capacity, property, appearance, capture, telemetry, benchmark, analytics, and descriptor wires with compute, the app host spine, the persistence store plane, the render host, the Python data peer, and the TypeScript core, viewer, and IaC peers, one edge per contract family labeled by kind.
+    accDescr: Materials sub-domain owners exchanging capacity, property, appearance, capture, telemetry, benchmark, and analytics wires with compute, the app host spine, the persistence store plane, the render host, the Python data peer, and the TypeScript core and viewer peers, one edge per contract family labeled by kind.
     subgraph materials[RASM.MATERIALS]
         Component[Component families]
         Properties[Property source]
@@ -138,7 +138,6 @@ flowchart LR
     DataPeer([python:data])
     Core([typescript:core])
     Ui([typescript:ui])
-    Iac([typescript:iac])
     Host([Host boundary])
     Component e1@-->|"[WIRE]: SectionCapacity"| Compute
     Properties e2@-->|"[WIRE]: MaterialPropertySet"| Compute
@@ -150,32 +149,31 @@ flowchart LR
     Projection e8@-->|"[PORT]: TelemetryContributorPort"| AppHost
     Projection e9@-->|"[WIRE]: BenchmarkReceipt"| AppHost
     Projection e10@-->|"[WIRE]: AnalyticsSchema"| Persistence
-    Projection e11@-->|"[WIRE]: PanelRow + AlertRow"| Iac
 ```
 
-## [04]-[DOMAIN_LAW]
+## [04]-[ROUTING]
 
-Canonical-collapse law the sub-domains share — one owner per axis, one entrypoint family per rail, growth by data. Per-page boundary cards carry the concrete seams.
+| [INDEX] | [CHANGE]                              | [OWNER_SURFACE]              | [SHAPE_OF_THE_EDIT]                                               |
+| :-----: | :------------------------------------ | :--------------------------- | :---------------------------------------------------------------- |
+|  [01]   | a new standardized component family   | `Component/component.md`     | one `ComponentFamily` row carrying its `ComponentClass`           |
+|  [02]   | a new anchor, panel, or board product | `Component/connector.md`     | one `FastenerKind` arm or `PanelKind` row                         |
+|  [03]   | a new scattering lobe                 | `Appearance/bsdf.md`         | one `BsdfLobe` case, admitted only where no parameterization fits |
+|  [04]   | a new material or finish              | `Appearance/graph.md`        | one `MaterialLibrary` row over the one `MaterialGraph`            |
+|  [05]   | a new standards table                 | the owning catalogue page    | one `SEED_ROW_LAW` table with per-column provenance               |
+|  [06]   | a new fault case                      | the owning owner page        | one arm at its `FaultBand` free frontier                          |
+|  [07]   | a new seam payload                    | `Rasm.Element` composition   | seam growth the projector composes, never a local remint          |
 
-- One component owner: a cross-section is a `ComponentFamily` row over one `Component`, solved by the one dispatch over the closed profile algebra.
-- One appearance owner: a material is a `MaterialLibrary` row over one `MaterialGraph`, a lobe a case, a layering modifier a `Slab`.
-- One `ComponentProjector.Project` carries the whole material-and-Type subgraph.
-- Growth is a row or a closed-union case; a per-family type, a second projector, or a generic material abstraction is the named drift.
-- `ComponentFamily` is a closed axis, each family carrying its `ComponentClass` discriminant over the Primary, Panel, and Minor rows.
-- An anchor folds as a `FastenerKind` arm; a metal deck, gypsum board, or rigid-board insulation is a `PanelKind` row, never a new family.
-- `BsdfLobe` is a closed family; a new lobe admits only when no parameterization reproduces the measured physics, then serves every material.
-- Material-composition vocabulary is the seam `MaterialComposition`, referenced and never re-owned; a new case is seam growth.
-- Owner mints its own identity: the `ComponentProjector` mints the deterministic-rooted Type `Object` from the exclusion-seeded canonical bytes.
-- A Type stamps `Classification`/`PredefinedType` off the stored `IfcBinding` row, so a later geometry attach never re-keys it.
-- A model author mints Occurrence `Object`s and `Rasm.Bim` ingests `IfcElementType` into the same Type; the `Bake` inheritance is the seam's.
-- Model is host-neutral: no owner holds a host curve or transform; run and layout geometry lands in `Rasm.Generation` at the app root.
-- Composition over re-mint at every seam: Materials projects onto `Rasm.Element` and re-mints no seam type, color axis, unit owner, or dimension.
-- Color is the admitted perceptual owner consumed directly.
-- Units admit UnitsNet once at each owner's declared edge — the photometric boundary and the dimensional mints — and ride the seam `MeasureValue`.
-- Only the documented author-kernel set — RGB-to-SPD, scene-referred tone-map, BSDF microfacet, noise, the capacity hull ray-cast — is hand-authored.
-- An out-of-gamut, non-finite, or degenerate result rails to its banded fault off the `FaultBand` registry, never a propagated NaN or sentinel.
-- Standards data is in-fence C# under `SEED_ROW_LAW`: a table is `REFLECTED`, `DELEGATED`, or `AUTHORED`.
-- Every seed column carries `VENDOR`, `DEFINED`, or `PUBLISHED` provenance.
-- Policy vocabularies stay `[SmartEnum]`, standards enums become frozen row tables, and every seed row flows the one catalogue-to-solver rail.
-- Telemetry is a tap: `MaterialsTap` decorators fire typed `MaterialsFact` cases at composition, so domain owners emit nothing.
-- Benchmark truth is a gate-stamped `BenchmarkReceipt`; analytics truth is a columnar projection of registered rows and typed facts.
+## [05]-[BOUNDARIES]
+
+Boundaries state one positive ownership line each at the folder's own grain — one owner per axis, one entrypoint family per rail, growth by data; per-page boundary cards carry the concrete seams.
+
+- Materials owns architectural substance, appearance, and buildable component type: one `Component` over the closed profile algebra and one capacity rail, one `MaterialGraph` under a physically based appearance plane.
+- `ComponentFamily` is a closed axis over the Primary, Panel, and Minor rows, each family carrying its `ComponentClass` discriminant; a per-family type, a second projector, or a generic material abstraction is the named drift.
+- Standards data is in-fence C# under `SEED_ROW_LAW` — a table is `REFLECTED`, `DELEGATED`, or `AUTHORED`, every seed column carries `VENDOR`, `DEFINED`, or `PUBLISHED` provenance, policy vocabularies stay `[SmartEnum]` while standards enums become frozen row tables, and every seed row flows the one catalogue-to-solver rail.
+- One `ComponentProjector.Project` carries the whole material-and-Type subgraph onto `Rasm.Element`, minting the deterministic-rooted Type `Object` from exclusion-seeded canonical bytes and stamping `Classification`/`PredefinedType` off the stored `IfcBinding` row, so a later geometry attach never re-keys it.
+- Model authors mint Occurrence `Object`s and `Rasm.Bim` ingests `IfcElementType` into the same Type; the `Bake` inheritance is the seam's.
+- Model owners stay host-neutral: none holds a host curve or transform, and run and layout geometry lands in `Rasm.Generation` at the app root.
+- `Rasm.Element` owns material-composition vocabulary, the admitted perceptual owner owns color, and UnitsNet admits once at each declared edge riding the seam `MeasureValue`; Materials re-mints none of them.
+- Only the documented author-kernel set — RGB-to-SPD, scene-referred tone-map, BSDF microfacet, noise, the capacity hull ray-cast — is hand-authored; every other concern composes its admitted engine.
+- Every out-of-gamut, non-finite, or degenerate result rails to its banded fault, never a propagated NaN or sentinel.
+- Telemetry is a tap: `MaterialsTap` decorators fire typed `MaterialsFact` cases at composition, so domain owners emit nothing; benchmark truth is a gate-stamped `BenchmarkReceipt` and analytics truth a columnar projection of registered rows and typed facts.

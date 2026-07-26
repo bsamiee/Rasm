@@ -29,18 +29,18 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 
 [HOST_OPLOG_CRDT_CONSUMER]-[QUEUED]: Host op-log entries decode, replay, and merge against the journal plane — the TypeScript end of the shared op-log CRDT wire owner.
 - Capability: `OperationId`-keyed causal entries decode at the boundary and replay through the journal's one write owner, so cross-runtime sync, collaborative merge, and checkpoint replay land as journal operations keyed by the shared causal identity, with `ContentHash` payloads resolved through the object plane.
-- Shape: A boundary decoder admits the C#-minted op-log wire rows; replay folds entries into `Journal.publish` intents under `Occ` arbitration, merge applies the CRDT commutation policy per mutation kind before append, and a checkpoint snapshot bounds replay windows through the journal's windowed `read`; lands in `libs/typescript/data/.planning/journal/append.md` with the payload-version road in `libs/typescript/data/.planning/journal/evolve.md`.
+- Shape: TypeScript contract bindings admit op-log rows; replay, merge, and checkpoints fold through the journal owners.
 - Unlocks: Multi-runtime document sync into the durable plane, deterministic replay for audit, and the consumer half that arms the producer's wire.
 - Anchors: `journal/append.md` `Journal.publish`/`Occ`/`StreamKey`; `journal/evolve.md` upcast road for entry payload versions; `object/store.md` `ContentKey` payload custody.
-- Tension: C# mints the wire schema and codec — this plane decodes and never re-mints; merge policy settles commutation per mutation kind without conflating operation identity with payload identity.
+- Tension: a neutral op-log contract owns schema and identity; TypeScript owns its codec binding and merge policy.
 - Ripple: `libs/.planning` `[HOST_OPLOG_CRDT_PRODUCER]`.
 
-[RELATIONAL_SET_COMPLETION]-[QUEUED]: Effect-sql store family completes — pglite joins the pg lane as its in-process profile, mysql2 and mssql land as foreign-relational ingress rows.
-- Capability: `@effect/sql-pglite` runs the true pg contract in-process (WASM, zero daemon) as a pg-lane profile row for browser and edge arms; `@effect/sql-mysql2` and `@effect/sql-mssql` open read-oriented interop lanes into enterprise-held MySQL/SQL-Server data — the `sql.onDialect` union already carries `mysql`/`mssql` arms no lane exploits, so the dialect algebra is pre-paid.
-- Shape: One new page `libs/typescript/data/.planning/lane/interop.md` owns the foreign-relational ingress rows — guarantee pricing, capability degradation against the `Pg.Grant` vocabulary, never a record of truth — and the pglite profile row lands beside the driver mints in `libs/typescript/data/.planning/lane/postgres.md`.
-- Unlocks: Browser-resident pg semantics without the sqlite degradation table, enterprise data ingress for AEC apps whose estate data lives in MSSQL/MySQL, and closure of the effect-sql client family the manifest holds partially.
-- Anchors: `.api/effect-sql.md` five-way `Dialect` discriminant with `mysql`/`mssql` arm-keys; `lane/sqlite.md` `_degrades` as the degradation-pricing template; `README.md` law that a backend enters as a semantic-guarantee row on its owning lane; the read-only-interop ruling at `libs/typescript/data/RULINGS.md` `[01]-[PACKAGES]`; `@electric-sql/pglite` already vetted in the test cluster.
-- Tension: Interop lanes are ingress, never authority — journal law holds; admission of `@effect/sql-pglite`, `@effect/sql-mysql2`, `@effect/sql-mssql` rides the serialized admission lane.
+[FOREIGN_RELATIONAL_READS]-[QUEUED]: MySQL and MSSQL enter through the existing read owner.
+- Capability: Composition-root clients expose typed enterprise relations through the provider-neutral query surface.
+- Shape: `read/query.md` consumes the admitted `SqlClient`; no backend lane or interop page is added.
+- Unlocks: Typed enterprise reads without another relational authority.
+- Anchors: Existing SQL package catalogs and `read/query.md`.
+- Tension: Foreign clients remain read ingress, preserve journal authority, and never impersonate PostgreSQL grants.
 
 [OBJECT_ARCHIVE_TIER]-[QUEUED]: Object plane gains the cold-tier archival axis — storage-class transitions keyed by retention class, restore as a typed verb.
 - Capability: `StorageClass` on the conditional put, lifecycle transition rules generated from `Retain.Policy` beside the existing expiry rules, `RestoreObjectCommand` as the restore verb with `InvalidObjectState` folded to a typed archive-state fault, restore-progress evidence on `ObjectStore.Stat` via `GetObjectAttributesCommand`'s `StorageClass` member, and `SelectObjectContentCommand` as the server-side projection read over archived structured objects — cold data prices storage honestly without leaving the content-addressed plane.
@@ -77,6 +77,21 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Unlocks: cache census joins the settled pool, OLAP, and outbox projections, lane health reading one instrument plane.
 - Anchors: `lane/cache.md` `[05]-[POOLS]`; `lane/olap.md` `_waited`/`_retried`/`_deferred`; `journal/append.md` `Journal.census`.
 - Arms: `libs/typescript/.api/effect.md` declares the exact `Cache.Cache` census member and return type.
+
+[OBJECT_CUSTODY_GENERATION]-[QUEUED]: Object-plane custody joins the backend generation instead of standing outside it.
+- Capability: bucket topology, lifecycle class, encryption custody, and retention lock become artifact rows the branch contract carries, so a generation states the whole durable surface rather than the relational half and a hydrate phase can prove object custody the same way it proves a catalog.
+- Shape: object-plane rows on `lane/capability.md` `[05]-[CONTRACT]` sources, with their observation adapters beside the existing provider rows.
+- Unlocks: one admission verdict covers relational and object state together, and an object plane provisioned outside the generation stops reading as compliant.
+- Anchors: `object/store.md` S3-conditional store; `journal/retain.md` retention classes and crypto-shredding; `lane/capability.md` `Backend.compose` source rows.
+- Tension: object custody is provider-shaped where relational artifacts are content-shaped; a bucket has no canonical byte form, so its artifact row keys on a declared custody descriptor rather than content, and that descriptor must stay identity-bearing without turning operator settings into generation inputs.
+
+[GENERATION_RECOVERY_CONTRACT]-[QUEUED]: Restored lanes admit on evidence — the contract owner grades recovery instead of trusting the store it opened.
+- Capability: the contract admission verdict widens to a restored store — recovered generation identity, the frontier instant the restore reached, and the objective the composition root declares grade together, so a promoted replica, a point-in-time restore, and a rebuilt embedded lane resolve on one verdict; the branch mints its recovery evidence from its own lanes and reads no peer's runbook.
+- Shape: recovery observation and verdict rows on `libs/typescript/data/.planning/lane/capability.md` `[05]-[CONTRACT]`, sourced from the lane owners that already carry restore mechanics — `lane/sqlite.md` embedded rebuild and `journal/evolve.md` generation succession.
+- Unlocks: a TypeScript-only application restores and admits with no peer present, and the merged-generation restore in a polyglot root reads one verdict shape at every branch.
+- Anchors: `lane/capability.md` `Backend.observe`/`Backend.admit` join and its `_Check` invariant rows; `journal/retain.md` retention classes bounding the reachable window; `tests/contracts/MANIFEST.md` `BACKEND_CONTRACT`.
+- Tension: contract identity is content-shaped where recovery evidence is time-shaped — a restore lands a valid generation whose data frontier trails it, so the verdict carries both facts without minting a second generation notion.
+- Ripple: mirrors `libs` `[GENERATION_RECOVERY_CONTRACT]`, the cross-libs origin carding the corpus-schema rows; peer counterpart `python:runtime` `[GENERATION_RECOVERY_CONTRACT]`.
 
 ## [02]-[CLOSED]
 

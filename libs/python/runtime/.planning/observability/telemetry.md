@@ -1,8 +1,8 @@
 # [PY_RUNTIME_TELEMETRY]
 
-`Telemetry` is the one composition-root install owner for OTLP signal egress — every other observability surface assumes the providers it registers and owns no construction. Install custody is two-tier: the per-composition receipt map keys by the receipts-owned `ScopeKey` — a same-scope re-install returns its cached `InstallReceipt` stamped `REENTRANT`, a second composition arriving after the pipeline exists receives its own receipt stamped `ADOPTED` — while one generation reservation serializes the process-global provider mint and drain. Provider construction and bounded drain run outside the reservation condition; a guarded owner-generation commit publishes the carrier and receipts atomically. Admission's `emit_otel` cell gates every mint: an emitting profile installs the batched providers, a silent one keeps the `opentelemetry-api` no-ops and opens no batch thread. Its LOG row rides the `LogShip` gate: only the `INPROCESS_OTLP` escape hatch registers the in-process `LoggerProvider` this composition root alone names. Egress rides two wire-law rows fixed here: the `EgressTransport` axis keys the per-transport exporter-factory triple — proto-http the estate default, the gRPC row SIDECAR-eligible alone because a persistent channel never survives `fork()` — and the metric exporter carries the base2-exponential histogram default that keeps Python bucket algebra identical to the C# and TS legs.
+`Telemetry` is the one composition-root install owner for OTLP signal egress — every other observability surface assumes the providers it registers and owns no construction. Install custody is two-tier: the per-composition receipt map keys by the receipts-owned `ScopeKey` — a same-scope re-install returns its cached `InstallReceipt` stamped `REENTRANT`, a second composition arriving after the pipeline exists receives its own receipt stamped `ADOPTED` — while one generation reservation serializes the process-global provider mint and drain. Provider construction and bounded drain run outside the reservation condition; a guarded owner-generation commit publishes the carrier and receipts atomically. Admission's `emit_otel` cell gates every mint: an emitting profile installs the batched providers, a silent one keeps the `opentelemetry-api` no-ops and opens no batch thread. Its LOG row rides the `LogShip` gate: only the `INPROCESS_OTLP` escape hatch registers the in-process `LoggerProvider` this composition root alone names. Egress rides two wire-law rows fixed here: the `EgressTransport` axis keys the per-transport exporter-factory triple — proto-http the estate default, the gRPC row eligible on the sidecar topology alone because a persistent channel never survives `fork()` — and the metric exporter carries the base2-exponential histogram default that keeps Python bucket algebra identical to the C# and TS legs.
 
-One `SIGNAL_SPECS` fold owns the batched span/log pair; the meter stands beside it — `metric_readers` are construction-only — built FIRST, threaded as `meter_provider=` into both exporters. Its composite propagator seeds one cross-language trace for the inbound `observability/receipts#RECEIPT` extract and outbound `transport/serve#CAPABILITY_INVOKE` interceptors; `PARENT_SAMPLER` honors the C#-minted parent's sampled bit, so the Python leg never fractures `ONE_DISTRIBUTED_TRACE`. `MeterProvider` carries `exemplar_filter=TraceBasedExemplarFilter()` — the `observability/metrics#METRIC` exemplar contract's install half.
+One `SIGNAL_SPECS` fold owns the batched span/log pair; the meter stands beside it — `metric_readers` are construction-only — built FIRST, threaded as `meter_provider=` into both exporters. `PROPAGATORS` registers one W3C composite as the process global, the sole inbound-context reader every extract seam folds — the `observability/receipts#RECEIPT` extract, the `transport/serve#CAPABILITY_INVOKE` interceptors, and the `execution/admission#CONTEXT` correlation adoption — and `PARENT_SAMPLER` honors the parent it decodes, so the Python leg continues `ONE_DISTRIBUTED_TRACE` instead of rooting a second one. `MeterProvider` carries `exemplar_filter=TraceBasedExemplarFilter()` — the `observability/metrics#METRIC` exemplar contract's install half.
 
 ## [01]-[INDEX]
 
@@ -11,7 +11,8 @@ One `SIGNAL_SPECS` fold owns the batched span/log pair; the meter stands beside 
 ## [02]-[TELEMETRY]
 
 - Owner: a `SignalSpec` row owns the `(provider, attach)` wiring pair and the global-register cell, so the span/log install is one fold and a new batch-processor signal is one row; the exporter lives apart on the `EGRESS` table — one `EgressTransport`-keyed row-map per transport holding the signal-keyed factory triple, so transport is a policy value the profile row carries and never a sibling install path — and the `_batched` kernel lifts the bound `add_*` method and processor class over one shared queue-and-deadline geometry, never two sibling closures. `InstallReservation` carries owner thread, scope, and generation across unlocked construction or drain; `PendingInstall` carries the completed provider graph into the guarded commit; `InstalledProviders` holds the trio as one atomically-assigned `Drainable`-typed carrier, never parallel `| None` provider slots.
-- Entry: the silent gate caches a `SILENT` receipt per scope, so a later re-admission under the same composition still no-ops, and the cost of OTel under a silent profile is exactly the API no-op providers. `resource=` and `signal_profile=` are injection seams — the profiles-owned job envelope hands in its hand-built job identity and high-interval geometry, the workers boot hands in its worker identity and small-queue worker geometry, every daemon path resolves `RUNTIME_RESOURCE` and the profile-keyed row — the injected row's `transport` clamps to HTTP outside `GRPC_ELIGIBLE` with the receipt carrying the effective geometry so the fork-hazard fence is visible evidence, never a silent divergence, and `ship=` is the same `LogShip` value the `LogPipeline.configure` call carries, so the provider half and the handler half of the log escape hatch cannot diverge. `install` reserves custody, builds outside the condition, and commits only the matching owner-generation; competing scopes wait, and same-thread recursion refuses. `shutdown` detaches custody before its unlocked `force_flush`-then-`shutdown` fold — each provider runs through `boundary(signal.value, ...)` under `traversed(ACCUMULATE)`, so a wedged exporter never short-circuits the remaining flushes — then releases the matching generation; a `SILENT`/`ADOPTED` scope's shutdown retires only its own receipt. The pipeline mints at most once per process — the OTel `set_*_provider` globals are set-once with no unset — so a post-drain emitting install refuses loudly, commit publishes only after every fallible construction lands, and custody releases on every commit exit so a fault never wedges a waiting install.
+- Entry: `Telemetry.install(ctx, endpoint, ...)` takes the admitted `RuntimeContext`, so the fork-safety gate reads `ctx.shape.topology` and the emission gate reads `ctx.policy.emit_otel` — the preset name rides through as the geometry key and the receipt column alone. Silent scopes cache a `SILENT` receipt, so a later re-admission under the same composition still no-ops, and OTel under a silent profile costs exactly the API no-op providers. `resource=` and `signal_profile=` are injection seams — the profiles-owned job envelope hands in its hand-built job identity and high-interval geometry, the workers boot hands in its worker identity and small-queue worker geometry, every daemon path resolves `RUNTIME_RESOURCE` and the profile-keyed row — the injected row's `transport` clamps to HTTP outside `GRPC_ELIGIBLE` with the receipt carrying the effective geometry so the fork-hazard fence is visible evidence, never a silent divergence, and `ship=` is the same `LogShip` value the `LogPipeline.configure` call carries, so the provider half and the handler half of the log escape hatch cannot diverge. `install` reserves custody, builds outside the condition, and commits only the matching owner-generation; competing scopes wait, and same-thread recursion refuses. `shutdown` detaches custody before its unlocked `force_flush`-then-`shutdown` fold — each provider runs through `boundary(signal.value, ...)` under `traversed(ACCUMULATE)`, so a wedged exporter never short-circuits the remaining flushes — then releases the matching generation; a `SILENT`/`ADOPTED` scope's shutdown retires only its own receipt. The pipeline mints at most once per process — the OTel `set_*_provider` globals are set-once with no unset — so a post-drain emitting install refuses loudly, commit publishes only after every fallible construction lands, and custody releases on every commit exit so a fault never wedges a waiting install.
+- Correlation: W3C trace-context is the identity wire — a 16-byte trace id crossing every hop of one trace beside the 8-byte span id naming one hop's parent — and `_commit` publishes the `PROPAGATORS` composite as the one global textmap, so every ingress adopts the decoded parent and mints a root only where the carrier holds none. `clock/clock#CLOCK` stamps its two-half cell on the same carrier as an independent read projecting onto spans as the `rasm.hlc` attribute, so no causal cell occupies a trace or span id slot.
 - Auto: `RUNTIME_RESOURCE` carries the `service.namespace`/`service.name`/`service.instance.id` uniqueness triple and orders the env detector last, so a deployment-time `OTEL_RESOURCE_ATTRIBUTES`/`OTEL_SERVICE_NAME` override wins the merge without a code change and the three signals join one identity — a bare `{"service.name": ...}` literal degrades to `unknown_service`. Exporters' own `create_exporter_metrics` counters land on the one threaded meter when `OTEL_PYTHON_SDK_INTERNAL_METRICS_ENABLED` admits them, never a parallel pipeline. Serve-leg `SERVER` span emission stays `transport/serve#SERVE`-owned: its defaulted `tracer_provider` resolves the global this install registers, and a global `GrpcAioInstrumentorServer` double-patches the leg — two overlapping `SERVER` spans per RPC, the serve health-check filter bypassed — so no instrumentor activates here.
 - Growth: a new batch-processor signal is one `Signal` member, one `SignalSpec` row, and one factory cell per `EGRESS` transport row, reaching the install and drain folds with no entrypoint edit; a construction-only-reader signal seeds the carrier beside the fold and registers through the body's matching `set_*_provider`, since it owns no `attach` step; a new egress transport is one `EgressTransport` member with one `EGRESS` row-map and its `GRPC_ELIGIBLE`-style eligibility fact; a new per-profile geometry or transport knob is one `SignalProfile` column with its `SIGNAL_PROFILE` values; a new composition is one `ScopeKey` value threaded through `install`/`shutdown`'s `scope` keyword; a new propagator format one `PROPAGATORS` row folded by the one `set_global_textmap`; a new resource detector one entry in the `get_aggregated_resources` list; a new per-span cardinality cap one `SPAN_LIMITS` argument; a new promoted signal dimension one `PROMOTED_BAGGAGE` member reaching span and log promotion through the one predicate.
 - Boundary: no second `TracerProvider`/`MeterProvider`/`LoggerProvider`, no AppHost telemetry envelope, sampler-floor ownership, or product export, and no SDK import outside this owner; every provider disables its private atexit hook because `Telemetry.shutdown` owns the sole flush-and-shutdown rail. `_logs` and gRPC exporter tiers ride module-scope `lazy from`, reified only when an emitting install selects them — the baggage-promotion package's own `__init__` imports `_logs`, so its pair defers with it — never at module import. Histogram wire shape is ruled here: `WIRE_AGGREGATION` sets the base2-exponential default at the metric exporter's `preferred_aggregation`, matching the estate bucket algebra across languages, while `views=` stays the deployment override valve — where a deployment rules an instrument's explicit shape, one `View` re-selects `ExplicitBucketHistogramAggregation` and the instrument's API-level bucket advisory supplies the boundaries, the metrics owner's advisory rows being exactly that fallback contract. `SPAN_LIMITS` rides the trace row's provider construction, capping span, event, and link attributes and value lengths so a hostile caller-shaped payload never balloons the batch queue's memory envelope. `SignalProfile.export_timeout_ms` reaches both batch processors and the metric reader, and its gRPC metric row shares `max_export_batch_size`; exporter transport timeout remains the terminal wire deadline. Span- and log-level `rasm.tenant` promotion is this install's seam alone — the `PROMOTED_BAGGAGE`-filtered `BaggageSpanProcessor`/`BaggageLogProcessor` pair registered at provider construction — so no producer page folds tenant onto spans and the metric-side fold stays the metrics owner's.
@@ -57,7 +58,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 from opentelemetry.sdk.trace.sampling import ALWAYS_ON, ParentBased, Sampler
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
-from rasm.runtime.admission import PROFILE_POLICY, RuntimeProfile
+from rasm.runtime.admission import RuntimeContext, RuntimeProfile, Topology
 from rasm.runtime.faults import SCOPES, Disposition, RuntimeRail, Scope, boundary, traversed
 from rasm.runtime.logging import LogShip
 from rasm.runtime.metrics import TENANT_BAGGAGE
@@ -133,9 +134,10 @@ RUNTIME_RESOURCE: Final[Resource] = get_aggregated_resources(
 
 PARENT_SAMPLER: Final[Sampler] = ParentBased(root=ALWAYS_ON)
 
-# fork-hazard fence as data: a persistent gRPC channel never survives fork(), so only the non-forking sidecar daemon may
-# carry the GRPC transport value; install clamps every other profile's injected row to HTTP with the receipt as witness.
-GRPC_ELIGIBLE: Final[frozenset[RuntimeProfile]] = frozenset({RuntimeProfile.SIDECAR})
+# fork-hazard fence as data on the topology axis: a persistent gRPC channel never survives fork(), so only the
+# non-forking sidecar daemon shape may carry the GRPC transport value; install clamps every other injected row to HTTP
+# with the receipt as witness, and a new non-forking shape earns the transport by one member here.
+GRPC_ELIGIBLE: Final[frozenset[Topology]] = frozenset({Topology.SIDECAR})
 
 # wire law pair every metric exporter row carries: DELTA counters, and the base2-exponential histogram default that
 # matches the C# and TS legs so cross-runtime latency panels merge one bucket algebra with no translation re-bucketing.
@@ -154,8 +156,8 @@ SPAN_LIMITS: Final[SpanLimits] = SpanLimits(
     max_span_attribute_length=4096,
 )
 
-# W3C composite the install folds into one `set_global_textmap`; a new wire format is one
-# row here, never a second propagator install — the C# CORRELATION_SPINE composite at the wire.
+# W3C composite the install folds into one `set_global_textmap`: trace-context beside baggage, the one inbound reader
+# every extract seam resolves, so a new wire format is one row here and never a second propagator install.
 PROPAGATORS: Final[Sequence[TextMapPropagator]] = (TraceContextTextMapPropagator(), W3CBaggagePropagator())
 
 # signal-side dimension promotion: the metrics-owned rasm.tenant baggage entry lands as a span attribute at
@@ -476,7 +478,7 @@ class Telemetry:
     @classmethod
     def install(
         cls,
-        profile: RuntimeProfile,
+        ctx: RuntimeContext,
         endpoint: str,
         headers: Mapping[str, str] | None = None,
         *,
@@ -488,6 +490,9 @@ class Telemetry:
         # resource/signal_profile are injection seams: the profiles-owned job envelope hands in its hand-built identity
         # and high-interval geometry; every daemon path resolves the standing rows. The transport clamp is the
         # fork-hazard fence made visible: the receipt carries the effective geometry, never a silently divergent one.
+        # Both gates read axis values off the admitted context — the deployment shape decides fork safety and the
+        # bound telemetry provider decides emission, so the preset name stays a geometry key and never a discriminant.
+        profile = ctx.profile
         while True:
             with cls._gate:
                 match cls._receipts.try_find(scope):
@@ -508,10 +513,10 @@ class Telemetry:
                 requested = signal_profile if signal_profile is not None else SIGNAL_PROFILE[profile]
                 geometry = (
                     replace(requested, transport=EgressTransport.HTTP)
-                    if requested.transport is EgressTransport.GRPC and profile not in GRPC_ELIGIBLE
+                    if requested.transport is EgressTransport.GRPC and ctx.shape.topology not in GRPC_ELIGIBLE
                     else requested
                 )
-                if not PROFILE_POLICY[profile].emit_otel:
+                if not ctx.policy.emit_otel:
                     receipt = InstallReceipt(profile, InstallOutcome.SILENT, endpoint, geometry)
                     cls._receipts = cls._receipts.add(scope, receipt)
                     return receipt

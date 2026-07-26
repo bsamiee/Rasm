@@ -77,7 +77,7 @@
 [STACKING]:
 - `Confluent.SchemaRegistry`(`.api/api-schemaregistry.md`): one shared `ISchemaRegistryClient` registers the `FileDescriptorSet` and its `SchemaReference` imports, `SchemaId` frames the id and message-index list, and `RuleRegistry` supplies the CSFLE and migration executors.
 - `Confluent.Kafka`(`.api/api-kafka.md`): the serde IS the `IAsyncSerializer<T>`/`IAsyncDeserializer<T>` mounted on `ProducerBuilder.SetValueSerializer`/`ConsumerBuilder.SetValueDeserializer`; `SerializationContext.Component` carries the key/value split.
-- `Google.Protobuf`(`../../.api/api-protobuf.md`): `IMessage<T>` is the `T` constraint and `FileDescriptor`/`FileDescriptorSet` the registered descriptor graph — the wire form the `Rasm.Compute` egress (`Version/egress#WIRE`) already emits.
+- `Google.Protobuf`(`../../.api/api-protobuf.md`): `IMessage<T>` is the `T` constraint and `FileDescriptor`/`FileDescriptorSet` the registered descriptor graph — the wire form the `Rasm.Compute` egress (`Rasm.Compute/Runtime/wire#CONTRACT_EVOLUTION`) already emits.
 - `CloudNative.CloudEvents.Kafka`(`.api/api-cloudevents.md`): `SchemaIdSerializerStrategy.Header` moves the id into `Message<TKey,TValue>.Headers` beside the CloudEvents attributes, leaving the value a clean Protobuf message for a non-Confluent consumer.
 - within-lib: one serde per changefeed stream, built at composition over the single shared `CachedSchemaRegistryClient`, its strategy set frozen by config before the first send.
 

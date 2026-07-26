@@ -6,7 +6,7 @@ Authoring law for every Python spec, kit member, and tool suite under `tests/pyt
 
 - [01]-[RULINGS](RULINGS.md): Settled Python-tree testing decisions — package admissions, oracle discriminants, structure retirements.
 - [02]-[API](.api/): Dev-tool API catalogs, one per test-stack package; kit members and specs transcribe at catalog-verified spellings.
-- [03]-[CONTRACTS](../contracts/README.md): Corpus consumer law — byte-identical round-trips over every C#-emitted asset.
+- [03]-[CONTRACTS](../contracts/README.md): Corpus conformance law — Python emits or round-trips fixtures by manifest role.
 
 ## [02]-[TOPOLOGY]
 

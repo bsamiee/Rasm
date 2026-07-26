@@ -1,8 +1,6 @@
 # [TS_RUNTIME]
 
-`runtime` is the branch's execution substrate — one body across the process plane, the distributed plane, and the browser condition, one package under one build flag. Its bar is structural singularity: one circuit ledger every dial inherits, one ambient redaction scrub at every capture seam, one `WorkClass` economy pricing every durable surface, one assembled front door no lib can hold itself — every capability is a row, and only the boot module reads a concrete one. Faults leave only as self-rendering values, and degradation is a readable `Layer` choice, never hidden behavior.
-
-It imports core, security, and data and is composed by the interface and deploy planes: security satisfies its guard and intake seams into the front door, data owns the outbox, mailbox, and journal its durable work composes, the deploy plane's outputs arrive only as typed env facts, and the C# host meets its export lanes on the one OTLP collector wire. It mints no content identity and holds no record of truth of its own.
+`runtime` is the branch's execution substrate — one body across the process plane, the distributed plane, and the browser condition, one package under one build flag. Every capability is a row, and only the boot module reads a concrete one.
 
 ## [01]-[ROUTER]
 
@@ -28,6 +26,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `@nats-io/kv`
 - `@nats-io/obj`
 - `@confluentinc/kafka-javascript` — librdkafka client backing the Kafka broker engine row on the shared C# broker plane.
+- `@confluentinc/schemaregistry` — Kafka schema identity, compatibility admission, subject resolution, and codec framing.
 - `@connectrpc/connect-node` — Node Connect/gRPC transport factories; `net/client.md` owns transport dispatch.
 - `mqtt` — `net/channel.md` owns the MQTT v5 channel seam.
 - `cloudevents` — `work/deliver.md` and `serve/route.md` own the HTTP binding; `net/pubsub.md` carries the opaque envelope.

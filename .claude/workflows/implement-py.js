@@ -2,15 +2,15 @@ export const meta = {
     name: 'implement-py',
     whenToUse: 'Realize open IDEAS and TASKLOG cards into design-page code fences across the Python target folders.',
     description:
-        "Realize every open IDEAS/TASKLOG card across the Python target set (libs/python/artifacts, compute, data, geometry, runtime) into deep design-page code FENCES at the docs/stacks/python bar (with docs/stacks/csharp as the ambition floor), repair every ripple in-pass, and truthfully close the cards. Each target folder runs its OWN discover -> implement -> critique -> redteam chain, ALL chains concurrent under one pooled cap: a folder starts the moment its own discovery lands, a folder with no open cards no-ops after its own discovery, and a failed chain isolates without rejecting the pool. Discovery hands downstream stages navigation FACTS (paths, verified members, seam targets) and never verdicts; it runs as a recon lane, lands its full navigation-facts product as one JSON report on disk under the workflow scratch dir, and returns only a thin receipt with the jq-cut structural skeleton (order, pages, ripples, gates) inline; downstream stages read the report IN FULL from disk, and when the skeleton proves page-disjoint card groups, the implement stage fans over them. Every stage WRITES and repairs the page-level ripples its own work exposes in the same pass — in-scope seams aligned against current disk, 1-hop out-of-scope same-language counterpart fences realized directly — with BLOCKED probes and folder-local package admission inline. The redteam is each folder chain's terminal stage and sole card-status owner: it final-remediates weak realizations in place and closes only cards whose realization it verified strong on disk. Two handoffs route to the run's terminal single-writer, the central pyproject.toml pin row + band marker and the target ARCHITECTURE.md [02]-[SEAMS] row: folder agents report exact rows, one terminal writer applies them serially. Every writing stage also nominates generalizable lessons into a required-usually-empty harvest — each stage's rows ride its own return, the critique lane's swept from its fixlog on disk by the doctrine lander (nomination transport never rides a living fold); the terminal stage is a DRAIN LOOP over the pooled deferred backlog and every critique fixlog (the redteam fold-forward is lossy even when it lands) that also applies the central pins and ARCHITECTURE seam rows and re-feeds the still-open remainder under a round cap + no-shrinkage progress gate, then one doctrine lander adjudicates the pooled harvest and every critique fixlog harvest array from disk against the docs/laws admission bar (land-nothing legal) before the run closes. Card-driven (it implements ideas/tasks), NOT the in-isolation api-stacking of the rebuild engine. Python-only. args = a target path string, an array of paths, or empty for the defaults. The language-wide libs/python/.planning is out of scope.",
+        "Realize every open IDEAS/TASKLOG card across the Python target set (libs/python/artifacts, compute, data, geometry, runtime) into deep design-page code FENCES at the docs/stacks/python bar (with docs/stacks/csharp as the ambition floor), repair every ripple in-pass, and truthfully close the cards. Each target folder runs its OWN discover -> implement -> critique -> redteam chain, ALL chains concurrent under one pooled cap: a folder starts the moment its own discovery lands, a folder with no open cards no-ops after its own discovery, and a failed chain isolates without rejecting the pool. Discovery hands downstream stages navigation FACTS (paths, verified members, seam targets) and never verdicts; it runs as a recon lane, lands its full navigation-facts product as one JSON report on disk under the workflow scratch dir, and returns only a thin receipt with the jq-cut structural skeleton (order, pages, ripples, gates) inline; downstream stages read the report IN FULL from disk, and when the skeleton proves page-disjoint card groups, the implement stage fans over them. Every stage WRITES and repairs the page-level ripples its own work exposes in the same pass — in-scope seams aligned against current disk, 1-hop out-of-scope same-language counterpart fences realized directly — with BLOCKED probes and folder-local package admission inline. The redteam is each folder chain's terminal stage and sole card-status owner: it final-remediates weak realizations in place and closes only cards whose realization it verified strong on disk. Two handoffs route to the run's terminal single-writer, the central pyproject.toml pin row + band marker and the target ARCHITECTURE.md [03]-[SEAMS] row: folder agents report exact rows, one terminal writer applies them serially. Every writing stage also nominates generalizable lessons into a required-usually-empty harvest — each stage's rows ride its own return, the critique lane's swept from its fixlog on disk by the doctrine lander (nomination transport never rides a living fold); the terminal stage is a DRAIN LOOP over the pooled deferred backlog and every critique fixlog (the redteam fold-forward is lossy even when it lands) that also applies the central pins and ARCHITECTURE seam rows and re-feeds the still-open remainder under a round cap + no-shrinkage progress gate, then one doctrine lander adjudicates the pooled harvest and every critique fixlog harvest array from disk against the docs/laws admission bar (land-nothing legal) before the run closes. Card-driven (it implements ideas/tasks), NOT the in-isolation api-stacking of the rebuild engine. Python-only. args = a target path string, an array of paths, or empty for the defaults. The language-wide libs/python/.planning is out of scope.",
     phases: [
         {
             title: 'Realize',
-            detail: 'all folder chains concurrent under one pooled cap: discover(recon; product to disk, thin receipt + structural skeleton inline) -> implement(reads the discovery report from disk, fans over skeleton-proven page-disjoint card groups) -> critique(ONE codex lane, write; fixlog to disk, receipt on the wire) -> redteam(terminal close; reads the critique fixlog from disk as refutation targets and folds its surviving ripples/pins/seams/deferred rows into its own return); a folder with no open cards no-ops after its own discovery; every writing stage re-reads current disk, repairs page-level ripples in-pass, and reports central pin rows + ARCHITECTURE.md [02]-[SEAMS] rows for the terminal single-writer instead of editing those surfaces',
+            detail: 'all folder chains concurrent under one pooled cap: discover(recon; product to disk, thin receipt + structural skeleton inline) -> implement(reads the discovery report from disk, fans over skeleton-proven page-disjoint card groups) -> critique(ONE codex lane, write; fixlog to disk, receipt on the wire) -> redteam(terminal close; reads the critique fixlog from disk as refutation targets and folds its surviving ripples/pins/seams/deferred rows into its own return); a folder with no open cards no-ops after its own discovery; every writing stage re-reads current disk, repairs page-level ripples in-pass, and reports central pin rows + ARCHITECTURE.md [03]-[SEAMS] rows for the terminal single-writer instead of editing those surfaces',
         },
         {
             title: 'Pins',
-            detail: 'a terminal DRAIN LOOP: one serial single-writer per round applies every reported central pyproject.toml pin row + band marker and every reported ARCHITECTURE.md [02]-[SEAMS] row, drains every critique fixlog (the redteam fold-forward is lossy even when it lands) and the pooled deferred backlog against live disk, and re-feeds the still-open remainder under a round cap + no-shrinkage progress gate; then one doctrine lander adjudicates the pooled harvest nominations against the docs/laws admission bar (land-nothing legal). Runs only when pins, seams, orphans, backlog, or harvest exist',
+            detail: 'a terminal DRAIN LOOP: one serial single-writer per round applies every reported central pyproject.toml pin row + band marker and every reported ARCHITECTURE.md [03]-[SEAMS] row, drains every critique fixlog (the redteam fold-forward is lossy even when it lands) and the pooled deferred backlog against live disk, and re-feeds the still-open remainder under a round cap + no-shrinkage progress gate; then one doctrine lander adjudicates the pooled harvest nominations against the docs/laws admission bar (land-nothing legal). Runs only when pins, seams, orphans, backlog, or harvest exist',
             model: 'opus',
         },
     ],
@@ -365,7 +365,7 @@ const LAW = [
         '. Each holds `IDEAS.md` ' +
         '+ `TASKLOG.md` + `ARCHITECTURE.md` + `README.md` at its package ROOT, design pages at `<folder>/.planning/<subdomain>/*.md`, and a ' +
         'folder-specific `.api/*.md` catalog. The language-wide `libs/python/.planning` is OUT of scope this run. Read the package-root ' +
-        '`ARCHITECTURE.md` (sub-domain map + `[02]-[SEAMS]`) and `README.md` (admitted-package roster) as governing context. Cross-folder repair ' +
+        '`ARCHITECTURE.md` (sub-domain map + `[03]-[SEAMS]`) and `README.md` (admitted-package roster) as governing context. Cross-folder repair ' +
         'lands at seams, counterpart cards, and consumer sites — never by rebuilding a sibling owner interior.',
     'STANDARD: docs/stacks/python/ is the route-owned law ' +
         '(README/language/shapes/surfaces-and-dispatch/rails-and-effects/algorithms/iteration/concurrency/boundaries/runtime/system-apis) — author ' +
@@ -396,7 +396,7 @@ const LAW = [
         "was skipped). TWO handoffs route to the run's terminal single-writer and are NEVER edited by a folder agent: the central `" +
         CENTRAL +
         '` ' +
-        'pin (report the exact row + band marker in `pins`) and any target `ARCHITECTURE.md` `[02]-[SEAMS]` row (report {file, row} in `seams` — the ' +
+        'pin (report the exact row + band marker in `pins`) and any target `ARCHITECTURE.md` `[03]-[SEAMS]` row (report {file, row} in `seams` — the ' +
         'highest-collision shared surface); every other page-level ripple stays yours, repaired distributed under the anchored-Edit discipline. If ' +
         'after real investigation a fence is already correct, say so — never invent edits to look busy.',
 ].join('\n');
@@ -443,7 +443,7 @@ const CARD = [
         '`.',
     'CARD CLOSURE (the folder red-team ONLY — implement and critique NEVER change card status): a genuinely-complete card moves to its file ' +
         '`[02]-[CLOSED]` section as a collapsed one-liner `[ID]-[COMPLETE]: <one-line disposition>; Ripple: <pkg> [SLUG]` (or `[DROPPED]: <reason>`); ' +
-        "report the target `ARCHITECTURE.md` `[02]-[SEAMS]` row as {file, row} in `seams` ONLY when a real cross-folder seam landed; the run's " +
+        "report the target `ARCHITECTURE.md` `[03]-[SEAMS]` row as {file, row} in `seams` ONLY when a real cross-folder seam landed; the run's " +
         'terminal single-writer applies it, never you. A ripple-carrying card closes COMPLETE only when its seam is verified landed on BOTH ends on ' +
         'current disk; close only `strong` cards and honestly re-open the rest.',
 ].join('\n');
@@ -1007,7 +1007,7 @@ const implementPrompt = (folder, seq, note, report, ownpass) =>
             'PACKAGE ADMISSION per the card law: decide the band, folder-local parts NOW, the central `' +
             CENTRAL +
             '` row + band marker reported in ' +
-            "`pins`, never edited; a landed cross-folder seam's `ARCHITECTURE.md` `[02]-[SEAMS]` row reported in `seams`, never edited. Do NOT close " +
+            "`pins`, never edited; a landed cross-folder seam's `ARCHITECTURE.md` `[03]-[SEAMS]` row reported in `seams`, never edited. Do NOT close " +
             'any card — the folder red-team owns card status. High-signal prose all-backticked, comment hygiene, fix-in-place (read-then-extend, ' +
             'preserve capability). Return verdict + realized slugs + deferred (any card you could not realize, with reason) + collapsed (before->after ' +
             'counts) + ripples + pins + seams + harvest + summary. ' +
@@ -1079,7 +1079,7 @@ const critiquePrompt = (folder, seq, report, ownpass) =>
             'generator should own the space); rebuild to the generative form on either hit.',
         '(8) SEAMS — check every cross-page and cross-folder symbol these cards compose against the counterpart as it NOW stands on disk: a signature ' +
             'mismatch corrects at the weaker end, a conflict resolves to the stronger form, never a revert; a seam counterpart or consumer site your fix ' +
-            'exposes is repaired in this same pass wherever it lives, recorded in `ripples` (a target `ARCHITECTURE.md` `[02]-[SEAMS]` row change is ' +
+            'exposes is repaired in this same pass wherever it lives, recorded in `ripples` (a target `ARCHITECTURE.md` `[03]-[SEAMS]` row change is ' +
             'reported in `seams` for the terminal single-writer, never edited directly).',
         'Also enforce both-tier `.api` use (a thin folder-only subset ignoring the shared rails the card needs is a defect), cross-folder convention ' +
             'consistency, and prose + comment hygiene. FIX every hit NOW wherever it lives per WRITE-FULLY; report any central `' +
@@ -1140,7 +1140,7 @@ const redteamPrompt = (folder, seq, report, critReport, critOk, ownpass) =>
             'interior edits? (D) BOUNDARY-INTEGRITY — a concern owned twice in a runtime, a folder mixing concerns, a concern scattered across folders, ' +
             'coupling to a sibling owner INTERIOR (vs its wire/seam), OR a sibling planning page left STALE by this folder change even when no ripple card ' +
             'names it (ports/boundaries/wires/seams drift) is a defect: fix it NOW wherever it lives — the stale sibling page, the seam counterpart, the ' +
-            'consumer site — and record the repair in `ripples` (a target `ARCHITECTURE.md` `[02]-[SEAMS]` row change is reported in `seams` for the ' +
+            'consumer site — and record the repair in `ripples` (a target `ARCHITECTURE.md` `[03]-[SEAMS]` row change is reported in `seams` for the ' +
             'terminal single-writer, never edited directly). (E) SURFACE-SPRAWL-IN-TIME — an admitted package whose `.api` exposes capability the ' +
             'card needs but the fence re-derives by hand, flat code below the operator depth the packages reach, a phantom `.api` member, or a thin ' +
             'wrapper: collapse to package depth and verify the member exists (via `assay api`' +
@@ -1193,7 +1193,7 @@ const pinPrompt = (pins, seams, orphans, backlog, round) =>
             'round loses no nomination; your returned `harvest` carries the same rows.',
         "TASK: TERMINAL SINGLE-WRITER + BACKLOG DRAIN — you are the run's SOLE writer for the repo-root `" +
             CENTRAL +
-            '` and for every target `ARCHITECTURE.md` `[02]-[SEAMS]` section, and its LAST agent. TRANCHE ORDER IS EXECUTION ORDER — the ' +
+            '` and for every target `ARCHITECTURE.md` `[03]-[SEAMS]` section, and its LAST agent. TRANCHE ORDER IS EXECUTION ORDER — the ' +
             'critique-fixlog drain and backlog card realization (the substantive tranches) precede the mechanical pin + seam application by ' +
             'design; never demote them behind the manifest edits, and the checkpoint ledger re-feeds any tranche a truncated round left ' +
             'unreceipted, so ordering by value costs no durability.\n' +
@@ -1223,8 +1223,8 @@ const pinPrompt = (pins, seams, orphans, backlog, round) =>
                       '.'
                     : '',
                 seams.length
-                    ? "(4) SEAM ROWS — upsert each reported {file, row} into the named file's `[02]-[SEAMS]` section exactly once, preserving the " +
-                      "section's row format and order and deduping semantically identical rows; a missing file or absent `[02]-[SEAMS]` section " +
+                    ? "(4) SEAM ROWS — upsert each reported {file, row} into the named file's `[03]-[SEAMS]` section exactly once, preserving the " +
+                      "section's row format and order and deduping semantically identical rows; a missing file or absent `[03]-[SEAMS]` section " +
                       'rejects the row: ' +
                       JSON.stringify(seams, null, 1) +
                       '.'

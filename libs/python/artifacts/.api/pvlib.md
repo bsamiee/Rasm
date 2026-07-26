@@ -70,7 +70,7 @@ Every function vectorizes over the input `DatetimeIndex` (`time`/`times`), never
 [STACKING]:
 - `numpy`(`.api/numpy.md`): the SPA frame is a `numpy`-vectorized `pandas.DataFrame`/`Series` on the `DatetimeIndex`; the `azimuth`/`apparent_elevation` columns read as dense arrays feeding the arc generator with no per-timestamp loop.
 - `visualization/diagram/solar#SOLAR` binds one `Location(latitude, longitude, tz, altitude)` per site and samples `Location.get_solarposition(pandas.date_range(...))` across the three cardinal declination days at `freq='5min'`, feeding the returned columns through its owned `SolarProjection` into the `graphic/vector/path#PATH` arc generator, so a labeled sun-path chart is real ephemeris geometry.
-- `sun_rise_set_transit_spa` bounds each date arc at true horizon crossing and `nrel_earthsun_distance` scales the sun disc; arc labels route to `typography/shape#SHAPE` outlines and the furniture projects into `graphic/layer#LAYERED` named layers the `visualization/diagram/draw#DRAW` terminal emits.
+- `sun_rise_set_transit_spa` bounds each date arc at true horizon crossing and `nrel_earthsun_distance` scales the sun disc; arc labels route to `typography/shape#SHAPE` outlines and the furniture projects into `graphic/layer#LAYER` named layers the `visualization/diagram/draw#DRAW` terminal emits.
 - `visualization/diagram/layout#LAYOUT`'s `SUN_PATH` kind receives the column-named solar geometry as its coordinate ingress.
 
 [LOCAL_ADMISSION]:

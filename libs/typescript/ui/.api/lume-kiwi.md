@@ -58,7 +58,7 @@ Bottom-up, `Variable` cells fold through `plus`/`minus`/`multiply`/`divide` into
 - `wire`#vocab (`effect` Schema, `libs/typescript/.api/effect.md`): `ui` types the decoded ordered program through the `wire` `#vocab` subpath; the codec interior stays unexported, so the panel cannot re-parse or re-mint the program and the fold consumes decoded values only.
 - `@effect-atom`(`.api/effect-atom-atom.md`): the solved `Variable.value()` set binds through one panel atom, and `updateVariables()` runs inside the atom's write fold so a suggested value and its re-solve land as one state transition.
 - `use-gesture-react`(`.api/use-gesture-react.md`): a drag gesture is the sole writer into `suggestValue`, its delta targeting an edit variable so `updateVariables()` re-solves and the atom re-renders — one gesture, one suggest, one solve, one bind.
-- `csharp:Rasm.AppUi/Shell/solver`: C# owns the authoritative solve and serializes the ordered program; TS re-solves the identical program for local latency, and a TS-side algebra rebuild that diverges from wire order is the `CROSS_LANGUAGE_WIRE` drift defect.
+- `csharp:Rasm.AppUi/Shell/solver`: the AppUi shell owns the authoritative solve as its layout capability and serializes the ordered program; TS re-solves the identical program for local latency, and a TS-side algebra rebuild that diverges from wire order is the `CROSS_LANGUAGE_WIRE` drift defect.
 - within-lib: one `Solver` per layout panel folds the decoded `LayoutConstraintWire` in received order, and `ui` adds only edit-variable suggestions over the frozen program.
 
 [LOCAL_ADMISSION]:

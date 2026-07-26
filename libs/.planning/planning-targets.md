@@ -3,7 +3,7 @@
 [CENTRAL]:
 - Directory: `libs/.planning`
 - Doctrine: `libs/.planning/campaign-method.md`, `libs/.planning/planning-targets.md`
-- Root docs: `libs/.planning/README.md`, `libs/.planning/architecture.md`, `libs/.planning/IDEAS.md`, `libs/.planning/TASKLOG.md`
+- Root docs: `libs/.planning/README.md`, `libs/.planning/ARCHITECTURE.md`, `libs/.planning/RULINGS.md`, `libs/.planning/IDEAS.md`, `libs/.planning/TASKLOG.md`
 
 [CSHARP]:
 - Core dir: `libs/csharp/.planning`
@@ -29,8 +29,9 @@
 
 [CROSS_CUTTING_SURFACES]:
 - Central manifests: `Directory.Packages.props`, `Directory.Build.props`, `Directory.Build.targets`, `global.json`, `NuGet.config`, `pyproject.toml`, `pnpm-workspace.yaml`, `.config/`
+- Cross-language contracts: `tests/contracts/` defines every seam schema and proves it; a branch page minting or producing a contract binds its `MANIFEST.md` entry.
 - Per-folder catalogues: every `<pkg>/.api/` catalogue set
 - Toolchain evidence: Assay provision reports and per-folder `.api` catalogues verify Forge-provided server services, native capabilities, and extension availability.
 - Pass execution: `.claude/workflows/` (campaign workflows) and `.claude/commands/` (session skills)
-- Code doctrine: `docs/stacks/<lang>/`, composed in full by whichever agent writes or judges fences in that language
+- Code doctrine: `docs/stacks/<lang>/`
 - Form standards: `docs/standards/information-structure.md`, `docs/standards/formatting.md`, `docs/standards/style-guide.md`

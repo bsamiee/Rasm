@@ -66,6 +66,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[CONSUMPTION_AXIS_RECORD]-[COMPLETE]: the six-axis roster landed at all three branch minters with identical closed-axis vocabularies and one common open-axis descriptor shape; refusal is one axis/value/reason grammar everywhere, and the corpus entry's roster blocker is discharged.
 [FETCH_TIMING_SETTLE]-[COMPLETE]: `browser/fetch.md` `[04]-[DIAL_SURFACE]` holds the caller span through body consumption and resolves the `PerformanceResourceTiming` race with the `_SETTLE` bounded poll; the page's `[08]-[RESEARCH]` emptied to `(none)`.
 [MQTT_FENCE_VERIFIED]-[COMPLETE]: `net/channel.md` `Mqtt` fence composes the v5 members verified at `libs/typescript/core/.api/mqtt.md` (`connectAsync`, `subscribeAsync`, `publishAsync`, `endAsync`, `userProperties`); the `[MQTT_V5]` research row deleted as resolved; drives from IDEAS `[CHANNEL_MQTT]`.
 [PULSE_METER_PAGE]-[COMPLETE]: `otel/meter.md` landed — `Pulse.mark`/`Pulse.live` over Convention work-plane rows, `Probe` port for the data census, `verbosity`, `tenants`.

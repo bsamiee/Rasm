@@ -148,7 +148,7 @@ Each `lets_plot.bistro` constructor returns a fully-assembled `PlotSpec` or `Sup
 
 [ENTRYPOINT_SCOPE]: in-process export
 
-`to_svg`/`to_png`/`to_pdf`/`to_html`/`as_dict`/`props` are instance methods on the plot object, mirrored on `SupPlotsSpec`, and `export#EXPORT` `LP_RENDER` keys the serializers; `ggsave` is the module factory for format-by-extension file export. lets-plot ships no `to_jpeg` — the JPEG lane rasterizes the lets-plot SVG through the `vl-convert-python` resvg core, and `as_dict` is the receipt evidence.
+`to_svg`/`to_png`/`to_pdf`/`to_html`/`as_dict`/`props` are instance methods on the plot object, mirrored on `SupPlotsSpec`, and `visualization/chart/export#EXPORT` `LP_RENDER` keys the serializers; `ggsave` is the module factory for format-by-extension file export. lets-plot ships no `to_jpeg` — the JPEG lane rasterizes the lets-plot SVG through the `vl-convert-python` resvg core, and `as_dict` is the receipt evidence.
 
 | [INDEX] | [SURFACE]                                                                   | [CAPABILITY]                                             |
 | :-----: | :-------------------------------------------------------------------------- | :------------------------------------------------------- |
@@ -179,8 +179,8 @@ Each `lets_plot.bistro` constructor returns a fully-assembled `PlotSpec` or `Sup
 - `msgspec`(`.api/msgspec.md`): each render captures geom/stat-layer kinds, the mapped channels (read from `PlotSpec.as_dict`), the registered manual-palette values, active theme/flavor, output format, and byte length as a `Struct` visuals receipt, projected onto `core/receipt#RECEIPT` `ArtifactReceipt.Chart(key, engine, dialect, scale, theme, byte_len)` — engine the matched `ChartSpec.tag` `"lets_plot"`, dialect the `ExportFormat` value, scale/theme the `RenderPolicy` knobs.
 - `structlog`(`.api/structlog.md`) + `opentelemetry`(`.api/opentelemetry-api.md`): the receipt emits under one `structlog` event inside one span.
 - `expression`(`.api/expression.md`): an export failure — a bad `path`, a raster format without `pillow`, a `geom_livemap` non-HTML request — folds onto the `Result` rail rather than raising into the producer.
-- `graphic/color/derive#DERIVE` + `visualization/chart/spec#CHART`: `DERIVE` `ColorReceipt.coords` threads the `Palette` through `scale_color_manual`/`scale_fill_manual` (lazily imported by `export#EXPORT`) and the shared `hex_ramp` RGB-to-hex projection on `CHART`.
-- within-lib: `export#EXPORT` `LP_RENDER` maps `ExportFormat -> method-name` and keys the `to_*` serializers, and `ChartSpec.LetsPlot(plot, palette)` on `spec#CHART` carries the raw `PlotSpec` to the worker lane, detected by `type(engine).__module__.startswith("lets_plot")`.
+- `graphic/color/derive#DERIVE` + `visualization/chart/spec#CHART`: `DERIVE` `ColorReceipt.coords` threads the `Palette` through `scale_color_manual`/`scale_fill_manual` (lazily imported by `visualization/chart/export#EXPORT`) and the shared `hex_ramp` RGB-to-hex projection on `CHART`.
+- within-lib: `visualization/chart/export#EXPORT` `LP_RENDER` maps `ExportFormat -> method-name` and keys the `to_*` serializers, and `ChartSpec.LetsPlot(plot, palette)` on `visualization/chart/spec#CHART` carries the raw `PlotSpec` to the worker lane, detected by `type(engine).__module__.startswith("lets_plot")`.
 
 [LOCAL_ADMISSION]:
 - lets-plot is admitted for host-free ggplot2-grammar self-render; the declarative-Vega path routes to `altair`→`vl-convert-python`→`vegafusion`, publication display tables to `great-tables` (`.api/great-tables.md`), standalone SVG-to-PNG rasterization to `resvg-py` (`.api/resvg-py.md`), and a `geom_livemap` interactive map UI or live web UI stays outside this package.

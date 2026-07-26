@@ -2,11 +2,27 @@
 
 <architecture-lead-2-3-sentences: the unit's charter in owning voice — what it owns, the one invariant band it lowers onto, and its boundary to the peers it aligns with by contract, never by reference.>
 
-<!-- source-only: scope — governs branch `libs/<lang>/.planning/ARCHITECTURE.md` and folder `<package>/ARCHITECTURE.md`; Tier-0 `libs/.planning/ARCHITECTURE.md` keeps its prose-law form, no seam diagram, no [ROUTING]. Unused sections omit and survivors renumber — numbering here is the full-set numbering. Branch grain earns [04]-[INTERNAL] (one flowchart per subsystem spine), [05]-[ROUTING] (the merged extension table), and [06]-[ADMISSION_POLICY] — the admission-route law — where no registry owns it; [03]-[SEAMS] stays the cross-runtime registry. Folder grain carries every section, [05]-[ROUTING] earned only where the folder owns 3+ extension classes, else its growth law stays on design pages; a folder-grain extension section ([NAMESPACES], [FAULT_REGISTRY]) is earned only by real ownership no canonical section carries. -->
+<!-- source-only: scope — governs branch `libs/<lang>/.planning/ARCHITECTURE.md` and folder `<package>/ARCHITECTURE.md`; Tier-0 `libs/.planning/ARCHITECTURE.md` carries the tier-0 spine below in prose-law form, no seam diagram, no [ROUTING]. Unused sections omit and survivors renumber — numbering here is the full-set numbering, and an extension section seats after the canonical sections it follows, cited by name because its index moves with the survivors. Branch grain earns [04]-[INTERNAL] (one flowchart per subsystem spine), [05]-[ROUTING] (the merged extension table), and an [ADMISSION_POLICY] extension after [06]-[BOUNDARIES] — the admission-route law — where no registry owns it; [03]-[SEAMS] stays the cross-runtime registry. Folder grain carries every section, [05]-[ROUTING] earned only where the folder owns 3+ extension classes, else its growth law stays on design pages; a folder-grain extension section ([NAMESPACES], [FAULT_REGISTRY]) is earned only by real ownership no canonical section carries. -->
 
-<!-- source-only: diagrams — every committed fence carries exactly one frontmatter `config:` block setting `layout: elk` and `flowchart: {curve: linear, padding: 25}`, nothing more; NO themeVariables, themeCSS, theme, classDef, style, linkStyle, or %%{init}%% — theming is render-time, owned by the mermaid-diagramming skill. accTitle and accDescr are required on every fence; accDescr is one sentence under 150 columns naming the diagram's question, never its edge or node roster.
-  STRATA   `flowchart TB` — one subgraph per stratum, every edge downward labeled `[IMPORT]: SourcedType` (one sourced type per edge), one `forbidden:` edge naming the rejected upward direction.
-  SEAM     `flowchart LR` — home owners in one subgraph, one node per counterpart, edges `[KIND]: shape-name` spelled verbatim from the owning endpoint, node shape carrying direction: `{{x}}` bidirectional peer, `([x])` one-way source or sink, `[(x)]` store; a seam edge collapses every contract between its endpoints at that kind, an instance stating per-edge exceptions only, never the convention.
+<!-- source-only: tier-0 spine — the corpus-root topology page carries these sections in this order, each stating law no branch or folder can own; a section with nothing to rule omits and survivors renumber. Every row is prose law and keyed tables, never a diagram, and names a language only where the topology itself does.
+  [01] STRATA               stratification law every branch answers — rank vocabulary, edge abstraction, homing, counter-edges; a package roster seats at its branch.
+  [02] DEPENDENCY_DIRECTION cross-branch direction alone: what a branch resolves with no peer present, what a contract carries; per-owner direction stays at the branch.
+  [03] UNIVERSAL_VS_CAPTURE what a corpus contract defines against what stays branch-local at full richness, the discriminant stated.
+  [04] <CONCERN>_FLOW       one owner per runtime for each cross-runtime concern, and the wire where the runtimes meet.
+  [05] PLANNING_LIFECYCLE   where design pages live, what a mature folder carries instead, and when the scaffold dissolves.
+  [06] PER_LANGUAGE_ROLES   the domain each branch estate carries, under peer independence — no branch ranks, gates, or precedes another.
+  [07] CROSS_LANGUAGE_WIRE  the contract registry, one entry per contract class, each class carrying its producer law and its drift defect.
+  [08] <SIGNAL>_WIRE_LAW    cross-runtime signal rows transcribed identically in meaning, with the branch owner that repairs a drifted row.
+  [09] BACKEND_STATE        the state contract each branch mints alone, and what composition merges at the application root.
+  [10] CONSUMPTION_MODEL    the deployment-shape axis roster: closed axes fix their vocabulary here, an open axis fixes the descriptor shape alone and grows at its supplying branch, and a value an owner assumes at compile time is the defect the roster forecloses.
+  [11] ENTRY_POINT_LAW      one polymorphic entry per bounded concept, with the refused shapes and the growth form.
+-->
+
+<!-- source-only: tier-0 register — a section states the invariant and its extension rule, never a branch's member roster, package registry, or file names; the narrowest tier owning a fact keeps it, and Tier-0 keeps only what spans branches. -->
+
+<!-- source-only: diagrams — every committed fence carries exactly one frontmatter `config:` block setting `layout: elk` and `flowchart: {curve: linear, padding: 25}`; themeVariables, themeCSS, theme, classDef, style, linkStyle, and `%%{init}%%` never appear. accTitle and accDescr ride every fence; accDescr states one sentence under 150 columns naming the diagram's question, never its edge or node roster.
+  STRATA   `flowchart TB` — one subgraph per stratum, every edge downward labeled `[IMPORT]: SourcedType` (one sourced type per edge), one `forbidden:` edge naming the rejected upward direction. Ruled counter-edges draw dotted `-.->` labeled `[COUNTER]: PayloadType`, earning a seat only where the payload is a value the lower stratum consumes rather than an owner it imports, so the type graph stays acyclic.
+  SEAM     `flowchart LR` — home owners in one subgraph, one node per counterpart, edges `[KIND]: shape-name` spelled verbatim from the owning endpoint. Node shape carries the counterpart's ROLE — `{{x}}` bidirectional peer, `([x])` one-way source or sink, `[(x)]` store — while the arrow carries the CONTRACT's direction: a single-headed arrow projects toward the consumer, a double-headed arrow marks a shape both ends mint. Each seam edge collapses every contract between its endpoints at that kind, an instance stating per-edge exceptions only.
   INTERNAL `flowchart TB|LR` — stage or owner nodes in flow order, edge labels naming the carried fact or verb, a subsystem spine reading entry -> transform -> egress. -->
 
 ## [01]-[DOMAIN_MAP]
@@ -55,15 +71,10 @@ core/
 
 ## [06]-[BOUNDARIES]
 
-Boundaries state one line each at the unit's own grain: what the unit is not, which pin stays at the app root, which concern a peer owns.
+<!-- source-only: prohibition retirement — convert a `[PROHIBITIONS]` section, never delete it: each NEVER row becomes either a positive law whose violation is unrepresentable by construction (the owner mechanism seated here) or a `RULINGS.md` row at the narrowest owning tier. Carry the row's discriminant — the fact that decided the prohibition — through the conversion; dropping it loses the law and is the failed form. -->
 
-- <unit-negation: the neighbouring package classes this unit is not>
-- <app-root pin: the composition-root-only binding that never sinks into the lib>
-- <peer ownership: the concern a named peer owns, reached only through the seam>
+Boundaries state one positive ownership line each at the unit's own grain: its admitted role, the app-root pin, and the peer-owned concern.
 
-## [07]-[PROHIBITIONS]
-
-Deleted patterns the owner regions foreclose, each line naming the mechanism that forecloses it:
-
-- NEVER <forbidden form>; <owner mechanism> forecloses it by construction.
-- NEVER a second owner for <concern>; <canonical owner> holds it alone.
+- <unit role: the capability class this unit owns>
+- <app-root pin: the composition-root-only binding>
+- <peer ownership: the concern a named peer owns through the seam>

@@ -84,6 +84,14 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Unlocks: IDEAS.md [STUDY_DESIGN_FAMILIES] — response-surface and screening studies over solver routes, and `RunHistory` comparison across design families under provably equal content keys.
 - Anchors: `experiments/study#STUDY` `StudyMethod` route table; the admitted root-manifest `pyDOE3` row.
 
+[GRADUATION_EVIDENCE_COUNTERPART]-[BLOCKED]: Bind the stub projector's decode target to a landed peer owner.
+- Capability: `StubCodegen` decodes a named, landed envelope instead of an assumed shape, so one agreed field roster spans the crossing rather than two independent guesses.
+- Shape: the owner and cases rows on `libs/python/compute/.planning/graduation/codegen.md` carry the peer anchor for `EvidenceBundle`, `OwnerDescriptor`, and the `FieldNode` leaf union once the counterpart lands.
+- Unlocks: the graduation crossing becomes citable at both ends, and the leaf roster stops being a one-sided assumption.
+- Anchors: the owner and cases rows on `libs/python/compute/.planning/graduation/codegen.md`; the seam sentence at `libs/csharp/.planning/ARCHITECTURE.md` `[03]-[SEAMS]`.
+- Arms: the peer evidence-envelope owner page lands and names its descriptor and leaf-field roster.
+- Ripple: mirrors `csharp:Rasm.Compute` `[GRADUATION_EVIDENCE_OWNER]`.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
@@ -91,7 +99,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 -->
 
 [HOOK_POINT_ROWS]-[COMPLETE]: landed as the derived `COMPUTE_POINTS` table over `SCOPE_DOMAIN` with the closed payload family and the `registered` composition gate on `libs/python/compute/.planning/graduation/observability.md`.
-[HOOK_TAP_PROJECTIONS]-[COMPLETE]: landed as the `_measures` polymorphic projection and the `tapped` per-point receipt/metric subscription fold on `libs/python/compute/.planning/graduation/observability.md`; the `rasm.compute.*` instrument rows remain a runtime `observability/metrics#METRIC` ripple.
+[HOOK_TAP_PROJECTIONS]-[COMPLETE]: landed as the `_measures` polymorphic projection and the `tapped` per-point receipt/metric subscription fold on `libs/python/compute/.planning/graduation/observability.md`; the `rasm.compute.*` instrument rows remain a runtime `runtime/observability/metrics#METRIC` ripple.
 [RESOURCE_SAMPLE_FOLD]-[COMPLETE]: landed as the two-block `oneshot` bracket (`_opened`/`_closed`) and `resource_sampled` on `libs/python/compute/.planning/graduation/observability.md`; the settled band records before/after RSS — cross-platform `pmem` carries no peak field — superseding this card's peak-RSS claim.
 [PROFILE_BAND_FIELDS]-[COMPLETE]: landed as `EngineProfile` with the `_profiled` dispatcher harvest and `_printed_lines` tally on `libs/python/compute/.planning/numerics/jit.md`, mounted as the optional per-case `profile` slot with the `profile.`-namespaced spread on `libs/python/compute/.planning/solvers/receipt.md`.
 [STUDY_BENCH_FOLD]-[COMPLETE]: landed as `StudyReceipt.benched` feeding `BenchmarkReceipt.of` from held measurements — `.serial` baseline series under SPEEDUP, zero-elapsed RESULT suppression — composed into the contributor harvest on `libs/python/compute/.planning/experiments/study.md`.

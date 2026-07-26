@@ -2,7 +2,7 @@
 
 One dense chunked N-D array store over one `TensorBackend` engine axis: `TensorStore` owns the `zarr` v3 array — chunk grid, three-slot codec pipeline, orthogonal region write — with `ZARR` the pure-Python sync engine and `TENSORSTORE` the async engine opening the IDENTICAL Zarr v3 chunk grid over a native `KvStore` backend. Out-of-core is not a backend but the `cubed` plan over either store, and the versioned and ragged dimensions live on their own `gridded/virtual` and `gridded/ragged` owners, never as backend tags here.
 
-Its backend is recovered from the store URL scheme through the `runtime/roots#RESOURCE`-owned `OBJECT_STORE_SCHEMES` vocabulary — config as a domain value carrying its `create`/`write`/`read` behaviour, never an `engine=` flag set and never a parallel store class per engine. `TensorReceipt` and `PlanReceipt` key by one runtime `ContentIdentity`; the plan receipt carries the `allowed_mem` budget beside the measured peak the `cubed` executor records.
+Its backend is recovered from the store URL scheme through the `runtime/transport/roots#RESOURCE`-owned `OBJECT_STORE_SCHEMES` vocabulary — config as a domain value carrying its `create`/`write`/`read` behaviour, never an `engine=` flag set and never a parallel store class per engine. `TensorReceipt` and `PlanReceipt` key by one runtime `ContentIdentity`; the plan receipt carries the `allowed_mem` budget beside the measured peak the `cubed` executor records.
 
 ## [01]-[INDEX]
 
@@ -474,7 +474,7 @@ flowchart LR
 - Cases: the `linalg` arm's factor tuple persists whole at materialization, so a `svd`/`qr` never drops a factor.
 - Receipt: the plan emits no receipt while lazy — it builds a graph; materialization folds one `PlanReceipt` as budget-vs-peak evidence, and the materialized store re-enters through `[02]-[STORE]` as a fresh content-keyed `TensorReceipt`. The materialize span carries the whole flat receipt as attributes through the `to_builtins` projection — one lowering serving wire and span alike.
 - Growth: a new reduction is one `Reduction` literal the Array API namespace answers; a new factorization one `_LINALG` row; a new executor one `Executor` literal; a new execution dimension (`executor_options`, `zarr_compressor`) is one `PlanBudget` field with `plan`'s signature untouched; a new measured fact is one field off the `Callback` lifecycle; zero new surface and never a `cubed` backend tag on `TensorBackend`.
-- Boundary: cubed execution is offline study evidence — production substrate selection stays in the C# `csharp:Rasm.Compute` owner; `data` emits a bounded-memory plan plus its typed peak-memory receipt, never a runtime compute graph.
+- Boundary: `data` emits a bounded-memory plan plus its typed peak-memory receipt, never a runtime compute graph, and a consumer selects its own substrate off that receipt.
 
 ```python signature
 from collections.abc import Callable, Iterable

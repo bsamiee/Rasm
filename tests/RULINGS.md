@@ -1,6 +1,6 @@
 # [TESTS_RULINGS]
 
-Estate-tier decision registry for the polyglot proof estate — settled rulings spanning two or more language trees that agents re-litigate for lack of a home. Each row is one decision with the one why that guards its re-litigation — package admission, oracle or lane discriminant, collapse refusal naming the lost guarantee, structure retirement, or working law. Append-mostly; a row earns its seat while its why stays homeless, dies only when fact and why both live at one durable surface, and a decision scoped to one tree homes at that tier. `(none)` marks a section awaiting its first ruling.
+`tests/` rulings settle cross-tree decisions.
 
 ## [01]-[PACKAGES]
 
@@ -16,8 +16,8 @@ Estate-tier decision registry for the polyglot proof estate — settled rulings 
 
 ## [04]-[STRUCTURE]
 
-- (none)
+- `tests/contracts/` seats a contract only where a peer runtime binds it — a golden whose producer and every decoder sit inside one branch homes at that branch's test tree, since an entry no peer decodes proves parity against nothing yet charges the neutral corpus's regeneration and manifest cost; the seat opens the day a second runtime decodes the wire.
 
 ## [05]-[PROCESS]
 
-- (none)
+- `Expectation` on a `REAL` pin carries its bytes inline, else the pin is `DESIGN-PIN` — describing an unminted vector reads frozen and gates nothing.

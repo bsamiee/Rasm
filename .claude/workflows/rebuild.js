@@ -528,8 +528,8 @@ const LANG = {
         casing: 'PascalCase',
         corpus: 'libs/csharp planning corpus (markdown specs of intended C# package designs)',
         strata:
-            '`libs/.planning/ARCHITECTURE.md` owns the strata law (KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP; ' +
-            'depend strictly upward; a host-neutral owner only where a non-Rhino runtime consumes the contract).',
+            '`libs/csharp/.planning/ARCHITECTURE.md` `[02]-[STRATA]` owns the branch strata table — resolve it live, never a ' +
+            'transcribed chain; depend strictly upward, and mint a host-neutral owner only where a non-Rhino runtime consumes the contract.',
         stackFloor:
             'docs/stacks/csharp is the FLOOR, never the ceiling — every fence pushes past it to the strongest form the doctrine ' +
             'admits; the tools/cs-analyzer gate enforces it (a true positive is architecture pressure, a false positive rule ' +
@@ -576,7 +576,7 @@ const LANG = {
         stack: 'docs/stacks/python',
         casing: 'snake_case',
         corpus: 'libs/python planning corpus (markdown specs of intended Python module designs)',
-        strata: '`libs/.planning/ARCHITECTURE.md` owns the branch topology law.',
+        strata: '`libs/python/.planning/ARCHITECTURE.md` `[02]-[STRATA]` owns the branch topology law.',
         stackFloor:
             'docs/stacks/python is the bar and docs/stacks/csharp the density/ambition FLOOR — match its richness, never import C#-shaped idioms.',
         apiTiers:
@@ -625,7 +625,7 @@ const LANG = {
         stack: 'docs/stacks/typescript',
         casing: 'camelCase',
         corpus: 'libs/typescript planning corpus (markdown specs of intended TypeScript module designs)',
-        strata: '`libs/.planning/ARCHITECTURE.md` owns the branch topology law.',
+        strata: '`libs/typescript/.planning/ARCHITECTURE.md` `[02]-[STRATA]` owns the branch topology law.',
         stackFloor: 'docs/stacks/typescript composed in full is the bar — author ultra-advanced TS only, discarding naive idioms wholesale.',
         apiTiers:
             'the SHARED/universal `libs/typescript/.api/*.md` Effect substrate rails AND the folder catalogs ' +
@@ -1058,7 +1058,7 @@ const RIPPLE_LAW =
     'a ledger, or a would/should hedge. The writing is YOURS — a delegate may only fetch information. Ripple authority is ' +
     'LIBS-WIDE (any file under libs/, any language, corrective AND generative) under four bounds that are evidence, never ' +
     'radius. (1) EVIDENCE — an out-of-scope edit traces to a resolvable anchor: a seam-ledger row, a consumer anchor, an index ' +
-    'claim, or a wire row in the branch ARCHITECTURE.md [02]-[SEAMS] ledger; an anchorless edit is drift, forbidden. ' +
+    'claim, or a wire row in the branch ARCHITECTURE.md [03]-[SEAMS] ledger; an anchorless edit is drift, forbidden. ' +
     '(2) EXPAND-FORM — a foreign edit made while sibling batches run is ADDITIVE only (add the case, row, field, operation, or ' +
     'counterpart); renaming, removing, or collapsing a foreign surface is recorded in `deferred` for the terminal fixer, never ' +
     'raced. Wire-canonical names stay frozen; a foreign-language counterpart is repaired at ITS branch doctrine bar (read that ' +
@@ -1352,7 +1352,7 @@ const ctxLensPrompt = (L, batch, dossier, reg) =>
             '`seams`/`anchors`, so a writer NAVIGATES (trust, then verify at the anchor) instead of exploring; relevance is ' +
             'fact, never a suggested change. Each entry also carries `files` and typed `anchors` per the entry form. GROUNDING DOSSIER: write `' +
             dossier +
-            '` — Tier-1: the branch ARCHITECTURE.md [02]-[SEAMS] rows covering these pages quoted verbatim with `file:line` ' +
+            '` — Tier-1: the branch ARCHITECTURE.md [03]-[SEAMS] rows covering these pages quoted verbatim with `file:line` ' +
             'anchors, folder-context and charter-intent anchors; Tier-2: pointer rows (path + one line) for every sibling page ' +
             'composed. FORBIDDEN: doctrine digests, removal framing, unanchored claims, prescriptive designs. Return worklist + coverage.',
     ].join('\n\n');
@@ -1558,8 +1558,9 @@ const redteamPrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped, nav
                 L.exhaust +
                 '). (C) LONG-TAIL — empty/singular/plural/stream/malformed/concurrent/cancelled/partial-failure/version-skew; ' +
                 'accumulate-vs-abort correct for the real boundary; ingress AND egress parameterized. (D) BOUNDARY/STRATA — ' +
-                'grade every concern against `libs/.planning/ARCHITECTURE.md` and the branch ARCHITECTURE.md [02]-[SEAMS] ' +
-                'ledger (read the ledger, never a summary): a concern owned twice, a downward dependency, a host-type leak, or ' +
+                'grade every concern against `libs/.planning/ARCHITECTURE.md`, the branch ARCHITECTURE.md [02]-[STRATA] table, ' +
+                'and its [03]-[SEAMS] ledger (read them at source, never a summary): a concern owned twice, a downward ' +
+                'dependency, a host-type leak, or ' +
                 'coupling to a sibling interior is fixed both ends per RIPPLE LAW. (E) SPRAWL + PHANTOMS — hand-re-derived ' +
                 'package capability, flat code below the operator depth the packages reach, a phantom member (delete), a thin ' +
                 'wrapper; and the inverse: an edit this run made that ADDED surface where doctrine demands collapse is ' +

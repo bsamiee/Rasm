@@ -119,6 +119,7 @@ flowchart LR
         Stream[Resumable stream]
         Search[Retrieval fusion]
         Postgres[Pg lane]
+        Capability[Capability admission]
         Fact[Fact journal]
         Batch[Request batching]
         Cache[Cache lane]
@@ -128,6 +129,7 @@ flowchart LR
     Security{{security}}
     Runtime{{runtime}}
     Iac([iac])
+    Persistence[(Rasm.Persistence)]
     Core e1@-->|"[SHAPE]: Fold.Plan"| Fold
     Core e2@-->|"[CONTENT_KEY]: ContentKey"| Store
     Core e3@-->|"[SHAPE]: TenantContext"| Tenant
@@ -153,16 +155,23 @@ flowchart LR
     Append e23@-->|"[SHAPE]: Journal.envelope"| Runtime
     Core e24@-->|"[SHAPE]: Tap.Point"| Append
     Append e25@-->|"[SHAPE]: Tap.Registry"| Runtime
+    Capability e26@-->|"[PROJECTION]: Backend.Projection"| Iac
+    Capability e27@-->|"[SHAPE]: Backend.Generation"| Runtime
+    Persistence e28@<-->|"[CONTRACT]: BackendContract"| Capability
+    Append e29@-->|"[PORT]: AuditJournal"| Security
 ```
 
 ## [04]-[INTERNAL]
 
-`lane` prices guarantees, never durability tiers: `postgres` is the spine, the embedded, analytical, and latency lanes sit beside it, `capability` refuses to boot an engine that cannot prove its rows, and `tenant` is the single write path pinning the tenancy GUC. `journal` is the record of truth — `append` commits journal, outbox, and idempotency together, and read-time upcasting keeps the log append-only. `object` binds every byte plane to the one content identity through a single admission fold. `read` composes the lanes into consumption, from proven-shape CRUD to reciprocal-rank fusion.
+`lane` prices guarantees, never durability tiers: `postgres` is the spine, the embedded, analytical, and latency lanes sit beside it, `capability` refuses to boot an engine that cannot prove its rows, and `tenant` is the single write path pinning the tenancy GUC. `journal` is the record of truth — `append` commits journal, outbox, and idempotency together so a replay returns the stored receipt, and read-time upcasting keeps the log append-only. `object` binds every byte plane to the one content identity through a single admission fold.
+
+`read` composes the lanes into consumption, from proven-shape CRUD to reciprocal-rank fusion. One pool and one code path serve a fleet-scale consumer with tenancy carried as a scope value; an artifact hashed in any runtime is reusable by every other; and `retain` makes erasure cryptographically total — destroying the sole wrapped key folds every sealed read to a redaction marker.
 
 ## [05]-[BOUNDARIES]
 
-- DDL is declarative additive ensure: iac applies at provision, this folder verifies fail-closed at startup, and runtime never mutates schema.
-- One sole carve-out exists: the operator rebuild verb — the session-locked shadow swap — never scheduled, never reachable from a request path.
+- Generated framework artifacts apply through IaC convergence; this folder verifies realized state and never mutates schema at runtime.
+- Generated backend projections drive admission and provider adapters without transferring contract authority into this package.
+- Operator rebuild materializes, verifies, and publishes a fresh target outside every request path.
 - Key custody stays out: no authorization decision here, the security-declared tenancy contract enforced, only wrapped key material stored.
 - Engine names never leak upward: consumers bind guarantee lanes, and a new engine is a row on its owning lane page.
 - Object-plane conformance refuses any engine that cannot honor `If-None-Match: *` conditional put; refused rows are recorded once.

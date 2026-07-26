@@ -115,7 +115,7 @@
 [LOCAL_ADMISSION]:
 - `get_application_registry` serves the rail's one shared registry; per-claim registries are rejected.
 - each array-admission and study result carries a `Quantity` unit claim, converted via `to`/`to_base_units`/`convert`; error-bearing magnitudes use `Measurement`/`plus_minus`.
-- unit claims are offline study evidence; product unit policy stays in the C# owners after graduation.
+- unit claims graduate as evidence on the one rail, and a consumer folds them into its own unit policy.
 
 [RAIL_LAW]:
 - Package: `pint`

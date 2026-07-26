@@ -1,8 +1,6 @@
 # [PY_GEOMETRY]
 
-`geometry` is the host-free geometry and IFC/BIM evaluation companion of the Python branch — an independent peer producer, never a Rasm consumer. It owns the IfcOpenShell GLB tessellation daemon, scan verification from ingest to watertight reconstruction, IFC analysis, authoring, costing, and structural evaluation, exact mesh algebra and non-manifold topology, graph analytics, and the Ladybug Tools building-physics band. Every crossing is content-keyed and receipted, produced off the event loop for the C# Bim/Compute rail, the TypeScript viewer, and the artifacts report plane.
-
-It meets C# only at the wire through content identity and the GLB tessellation rail over the `ComputeService`/`ArtifactSync` gRPC contract, and graduates evidence through the geometry-minted `rasm.geometry.graduation` spine, never an import.
+`geometry` is Python's standalone host-free geometry and IFC/BIM platform, every crossing content-keyed and receipted, produced off the event loop for whichever consumer requests it. Peer branches meet it through content identity and the GLB tessellation rail over the `ComputeService`/`ArtifactSync` gRPC contract, and it graduates evidence through its own `rasm.geometry.graduation` spine, never an import.
 
 ## [01]-[ROUTER]
 
@@ -24,7 +22,7 @@ It meets C# only at the wire through content identity and the GLB tessellation r
 
 [MESH]:
 - [11]-[DAEMON](.planning/mesh/daemon.md): IfcOpenShell tessellation daemon folding source bytes and policy into per-element GLB, source-keyed.
-- [12]-[SERVE](.planning/mesh/serve.md): Geometry-side wire owner streaming GLB over `ArtifactSync` to the C#-minted request.
+- [12]-[SERVE](.planning/mesh/serve.md): Geometry wire owner streaming GLB over contract-conforming `ArtifactSync`.
 - [13]-[CAD](.planning/mesh/cad.md): CAD-STEP tessellation hop over `cadquery-ocp`, companion to the C# `StepIso10303` codec.
 - [14]-[REPAIR](.planning/mesh/repair.md): Robust mesh repair, winding and normal fix, and the public exact-boolean `to_manifold` kernel.
 - [15]-[BREP](.planning/mesh/brep.md): `cadquery-ocp` B-rep evaluation minting the `mesh-algebra` subject.

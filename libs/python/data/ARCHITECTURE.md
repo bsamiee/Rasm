@@ -138,6 +138,7 @@ flowchart LR
     Runtime e4@-->|"[TRANSPORT]: ResourceRef"| Tabular
     Runtime e20@-->|"[TRANSPORT]: ResourceRef"| Egress
     Runtime e11@-->|"[BOUNDARY]: on_thread"| Query
+    Runtime e26@-->|"[SHAPE]: BackendGeneration"| Query
     Runtime e17@-->|"[BOUNDARY]: LanePolicy"| Materialize
     Runtime e23@-->|"[TRANSPORT]: ResourceRef"| Catalog
     Runtime e18@-->|"[BOUNDARY]: on_thread"| Catalog
@@ -160,11 +161,10 @@ config:
 ---
 flowchart LR
     accTitle: Data package Python domain-peer seam registry
-    accDescr: Data sub-domain owners exchanging wires, frame shapes, and mesh boundaries with the Python artifacts, geometry, and compute siblings.
+    accDescr: Data sub-domain owners exchanging wires, frame shapes, columnar bytes, and mesh boundaries with the Python artifacts, geometry, and compute siblings.
     subgraph data[DATA]
         Tabular[Tabular interchange]
         Profile[Quality profile]
-        Cost[Cost ledger]
         Geospatial[Geospatial claims]
         Mesh[Mesh exchange]
     end
@@ -172,8 +172,8 @@ flowchart LR
     Geometry{{python:geometry}}
     Compute([python:compute])
     Artifacts e6@-->|"[WIRE]: CorpusRow"| Tabular
+    Geometry e25@-->|"[BOUNDARY]: arrow_bytes"| Tabular
     Profile e7@-->|"[SHAPE]: QualityProfile"| Artifacts
-    Cost e25@-->|"[SHAPE]: CostFrame"| Artifacts
     Artifacts e8@-->|"[WIRE]: GeoJSON"| Geospatial
     Mesh e9@-->|"[SHAPE]: MeshPayload"| Geometry
     Mesh e15@-->|"[SHAPE]: PointRecordTable"| Geometry
@@ -210,11 +210,11 @@ flowchart LR
     Virtual e5@-->|"[CONTENT_KEY]: ContentKey"| Persistence
     Impact e6@<-->|"[CONTENT_KEY]: ContentKey"| Persistence
     Impact e7@-->|"[WIRE]: Assessment"| Materials
-    Bim e8@<-->|"[WIRE]: GeoFeatureWkb"| Geospatial
+    Bim e8@-->|"[WIRE]: GeoFeatureWire"| Geospatial
     Persistence e9@-->|"[WIRE]: FlightTicket"| Query
 ```
 
-Fences split by peer plane — host runtime, Python siblings, C# peers. Each collapsed edge stands for every contract at that kind between the two owners, and the owning pages enumerate the rest. `GeoFeatureWkb` spells from its Rasm.Bim owner; the crossing carries raw WKB — `GeoDataFrame.to_wkb` outbound, `ST_GeomFromWKB` on admission — and no data-interior type re-mints the label.
+Fences split by peer plane — host runtime, Python siblings, C# peers. Each collapsed edge stands for every contract at that kind between the two owners, and the owning pages enumerate the rest.
 
 An intra-`data` relation is composition, never a seam; `[02]-[STRATA]` renders the acyclic import DAG this registry excludes.
 

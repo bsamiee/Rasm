@@ -153,7 +153,7 @@ config:
 ---
 flowchart LR
     accTitle: Kernel content-key and compute-plane seams
-    accDescr: Kernel sub-domain owners federating content keys and exchanging compute wires with the element, persistence, compute, app-host, app-shell, and the Python and TypeScript peers, one edge per contract family labeled by kind.
+    accDescr: Kernel owners federating content keys and exchanging compute, measure, and signal shapes with same-branch and cross-runtime peers.
     subgraph rasm[RASM KERNEL]
         Domain[Domain floor]
         Numerics[Numerics floor]
@@ -161,6 +161,7 @@ flowchart LR
         Meshing[Mesh lattice]
         Processing[Processing rail]
         Drawing[Drawing producers]
+        Analysis[Analysis entry]
     end
     Element{{Rasm.Element}}
     Compute{{Rasm.Compute}}
@@ -169,6 +170,7 @@ flowchart LR
     Persistence[(Rasm.Persistence)]
     AppHost([Rasm.AppHost])
     AppUi([Rasm.AppUi])
+    Bim([Rasm.Bim])
     Domain e1@<-->|"[CONTENT_KEY]: XxHash128"| Element
     Domain e2@-->|"[CONTENT_KEY]: ContentHash"| Persistence
     Domain e3@-->|"[CONTENT_KEY]: ContentHash"| Compute
@@ -187,6 +189,7 @@ flowchart LR
     Drawing e15@-->|"[WIRE]: EncodedGeometry"| AppHost
     Domain e17@-->|"[SHAPE]: TelemetrySink"| AppHost
     Domain e18@-->|"[WIRE]: BenchClaim"| AppHost
+    Analysis e19@-->|"[SHAPE]: GeometryMeasures"| Bim
 ```
 
 ```mermaid
@@ -199,13 +202,15 @@ config:
 ---
 flowchart LR
     accTitle: Kernel fabrication seams
-    accDescr: Kernel sub-domain owners projecting index, predicate, slice, skeleton, parametric-op, atlas, and drawing shapes to the fabrication peer, one edge per contract family labeled by kind.
+    accDescr: Kernel owners projecting substrate, algorithm, and drawing shapes to the fabrication peer and reading its posted toolpath pack back.
     subgraph rasm[RASM KERNEL]
+        Domain[Domain floor]
         Spatial[Spatial fields]
         Numerics[Numerics floor]
         Meshing[Mesh lattice]
         Parametric[Parametric producers]
         Processing[Processing rail]
+        Solving[Solving owners]
         Drawing[Drawing producers]
     end
     Fabrication{{Rasm.Fabrication}}
@@ -216,6 +221,12 @@ flowchart LR
     Parametric e5@-->|"[WIRE]: ParametricOp"| Fabrication
     Processing e6@-->|"[PROJECTION]: ChartAtlas"| Fabrication
     Drawing e7@-->|"[PROJECTION]: DrawingProjection"| Fabrication
+    Meshing e8@-->|"[WIRE]: MeshSpace"| Fabrication
+    Parametric e9@-->|"[WIRE]: Development"| Fabrication
+    Processing e10@-->|"[WIRE]: VectorIntent"| Fabrication
+    Domain e11@-->|"[WIRE]: Stat"| Fabrication
+    Solving e12@-->|"[WIRE]: FitReceipt"| Fabrication
+    Fabrication e13@-->|"[WIRE]: ToolpathPath"| Drawing
 ```
 
 ```mermaid

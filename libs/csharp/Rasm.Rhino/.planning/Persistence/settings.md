@@ -902,11 +902,9 @@ public static class Settings
 
 Explicit reads use `TryGet*` and never call mutating defaulted getters. `AdmitTarget` compares each payload row with the existing host type, including exact enum identity, before explicit or default writes. One mutation fold owns observable and write-only receipts; failed post-write reads land as `FaultedCase` evidence, and deletion emits absence only after a host re-probe.
 
-## [05]-[SEAMS]
-
 `ArchiveValue` (dictionary.md) is the one payload carrier across this boundary — `SettingKind` rows lift host values through `ArchiveValue.Of`, lower through `Project<T>`, and mint enum payloads through the shared `EnumMint` seam. `SettingsTree` admits and orders value and child keys before recursive projection. `PlugIn.SettingsSaved` observation encloses root projection and sink delivery in one catch frame under the Document subscription owner; this page owns no parallel event lifecycle.
 
-## [06]-[RESEARCH]
+## [05]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

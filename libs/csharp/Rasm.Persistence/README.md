@@ -1,8 +1,8 @@
 # [PERSISTENCE]
 
-`Rasm.Persistence` is the federation's durable truth: the content-addressed system of record for the `ElementGraph`; the version-control engine over it — commit-DAG, CRDT merge, AS-OF time travel, three-way merge, attested provenance, classification-driven retention, verified recovery; the consistency-split read lanes; the content-keyed geometry object store; and the fenced coordination substrate. Its bar: a Type re-key reads as a rename, a million-event model scrubs at the cost of its delta, and every cross-runtime reuse key resolves bit-identically against the kernel content-hash.
+`Rasm.Persistence` is the content-addressed durable system of record for the `ElementGraph`; the version-control engine over it — commit-DAG, CRDT merge, AS-OF time travel, three-way merge, attested provenance, classification-driven retention, verified recovery; the consistency-split read lanes; the content-keyed geometry object store; and the fenced coordination substrate. Its bar: a Type re-key reads as a rename, a million-event model scrubs at the cost of its delta, and every cross-runtime reuse key resolves bit-identically against the kernel content-hash.
 
-It persists the graph over a Marten append substrate, depends up on the `Rasm.Element` seam and the `Rasm` kernel content-hash, consumes the AppHost port vocabulary as settled contract, and references no sibling AEC-domain peer — alignment travels through seam contracts and the content-keyed wire.
+It persists the graph over a Marten append substrate, depends up on the `Rasm.Element` seam and the `Rasm` kernel content-hash, and consumes the AppHost port vocabulary as settled contract.
 
 ## [01]-[ROUTER]
 
@@ -40,9 +40,10 @@ It persists the graph over a Marten append substrate, depends up on the `Rasm.El
 
 [STORE]:
 - [25]-[BLOBSTORE](.planning/Store/blobstore.md): Content-keyed geometry object store with its write-blob-first seal.
-- [26]-[PROVISIONING](.planning/Store/provisioning.md): Verification-first extension tier and provider-binding rows.
-- [27]-[COORDINATION](.planning/Store/coordination.md): Token-fenced lease store owning budget, CAS, lease, membership, and outbox.
-- [28]-[OBSERVABILITY](.planning/Store/observability.md): Engine-stat and plan-shape harvest receipts, the hook rail, and the instrument contributor.
+- [26]-[SCHEMA](.planning/Store/schema.md): Owns the canonical backend contract and generation algebra.
+- [27]-[PROVISIONING](.planning/Store/provisioning.md): Verify-only extension tier and provider materializer rows.
+- [28]-[COORDINATION](.planning/Store/coordination.md): Token-fenced lease store owning budget, CAS, lease, membership, and outbox.
+- [29]-[OBSERVABILITY](.planning/Store/observability.md): Engine-stat and plan-shape harvests, hook rail, and instrument contributor.
 
 ## [02]-[DOMAIN_PACKAGES]
 

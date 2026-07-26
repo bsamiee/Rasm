@@ -100,7 +100,7 @@
 - `api-nettopologysuite`: FGB exchanges the canonical NTS `IFeature`/`FeatureCollection` directly and the `FlatGeobufCoordinateSequence` is an NTS `CoordinateSequence`, so the `GeoVector` fold reads FGB exactly as `NetTopologySuite.IO.Esri.Shapefile` reads a shapefile, producing the `GeoFeature` row the `GEOSPATIAL_SEAM` `GeoModel` indexes.
 - `api-nts-esri-shapefile`: managed codec peer — `Deserialize(stream, rect)` / `AsyncFeatureEnumerator.Create(…, rect, …)` is the `Envelope` bbox push-down that clips a continental `.fgb` to the project extent over the Packed R-tree, no whole-file decode and no client-side filter.
 - `csharp:Rasm.Persistence/Store`: `ObjectStore.Fetch` supplies the `.fgb` bytes `Deserialize(byte[])` decodes; `PackedRTree.StreamSearch` over an object-store `ReadNode` random read is the escalation for a remote `.fgb` too large to fetch whole, `Helpers.ReadHeader` decoding the head fetch and `FromByteBuffer` lowering each matched record.
-- `data-interchange#GEO_INTERCHANGE`: `GeoJsonConversions` bridges a GeoJSON string to and from FGB, orthogonal to the canonical GeoJSON-text `GeoWire` — FGB is the storage/transport codec, the cross-runtime geometry wire stays `GeoWire`.
+- `docs/stacks/csharp/domain/data-interchange#GEO_INTERCHANGE`: `GeoJsonConversions` bridges a GeoJSON string to and from FGB, orthogonal to the canonical GeoJSON-text `GeoWire` — FGB is the storage/transport codec, the cross-runtime geometry wire stays `GeoWire`.
 
 [LOCAL_ADMISSION]:
 - FGB read/write enters through `FlatGeobuf.NTS.FeatureCollectionConversions` producing and consuming the canonical NTS `IFeature`; the FlatBuffers `FlatGeobuf.*` schema structs stay behind the codec under the boundary-mapping law.

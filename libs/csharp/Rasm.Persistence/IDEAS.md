@@ -30,7 +30,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Capability: the as-built half of the model lifecycle — scan header/metadata rows, registration transform, chunked blob residence, per-region cells — feeding compare-to-design compute without owning scan semantics.
 - Shape: one new Ingest codec page at `libs/csharp/Rasm.Persistence/.planning/Ingest/pointcloud.md` under the [A.4] growth row, bytes through Store/blobstore#MULTIPART_TRANSFER + Element/codec#CONTENT_CHUNKING, region cells through Element/identity H3Cell.
 - Unlocks: scan-to-BIM verification; the heaviest residence-demanding payload class gains an entry point.
-- Anchors: Store/blobstore#CONTENT_CHUNKING (FastCDC), Element/identity H3Cell, Ingest/geospatial and Ingest/issue (the [A.4] codec-page pattern).
+- Anchors: Element/codec#CONTENT_CHUNKING (FastCDC), Element/identity H3Cell, Ingest/geospatial and Ingest/issue (the [A.4] codec-page pattern).
 - Arms: one answerable question resolved — which managed E57/LAS/LAZ codec package admits under the gate (license, maintenance signal, net10 asset)?
 - Route: nuget MCP survey over the E57/LAS candidate family; hand-rolling the E57 XML+binary layout without that ruling is the forbidden alternative.
 
@@ -56,11 +56,11 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 
 [STORE_OBSERVABILITY]-[COMPLETE]: Engine-stat observability and the receipt-slot registry — landed as `.planning/Store/observability.md` with the `store.<domain>.<verb>` slot grammar, the composition-time registry, and the pg/DuckDB/SQLite harvest receipts.
 [PERS_V4]-[COMPLETE]: inbound CDC consume leg landed as `.planning/Version/ingress.md` `CdcIngress` — instrumented consumer twins, envelope-`id` content-key dedup, store-first offsets, `FaultBand.Ingress` 8500.
-[PERS_S1]-[COMPLETE]: hook rail landed as `.planning/Store/observability.md#HOOK_RAIL` `PersistenceHooks` — six typed points, `Guarded`/`Swept` composition adapters, per-composition mounts.
-[PERS_Q1]-[COMPLETE]: census egress landed as `StoreInstruments.Census` on `.planning/Store/observability.md#STORE_INSTRUMENTS` — rows, bucket hints, mounted slots, projected-arm keys in one wire record.
-[PERS_S2]-[COMPLETE]: usage attribution landed as `.planning/Store/observability.md#USAGE_PROJECTION` `StoreUsage.Fold` with the `rasm.persistence.usage.*` gauge rows.
-[PERS_S3]-[COMPLETE]: plan-profile rail landed as `.planning/Store/observability.md#PLAN_PROFILE` — three engine legs, shape-only digests, `PlanVerdict` under `store.stat.plan`.
+[PERS_S1]-[COMPLETE]: hook rail landed as `.planning/Store/observability#HOOK_RAIL` `PersistenceHooks` — six typed points, `Guarded`/`Swept` composition adapters, per-composition mounts.
+[PERS_Q1]-[COMPLETE]: census egress landed as `StoreInstruments.Census` on `.planning/Store/observability#STORE_INSTRUMENTS` — rows, bucket hints, mounted slots, projected-arm keys in one wire record.
+[PERS_S2]-[COMPLETE]: usage attribution landed as `.planning/Store/observability#USAGE_PROJECTION` `StoreUsage.Fold` with the `rasm.persistence.usage.*` gauge rows.
+[PERS_S3]-[COMPLETE]: plan-profile rail landed as `.planning/Store/observability#PLAN_PROFILE` — three engine legs, shape-only digests, `PlanVerdict` under `store.stat.plan`.
 [PERS_S5]-[COMPLETE]: Redis/EF/AWS instrumentation landed as the four settled-composition rows on the `.planning/Store/observability.md` lead and the README registry rows.
-[PERS_S6]-[COMPLETE]: desired-state manifest landed as `ClusterProvision.Manifest`/`ProvisionManifest` on `.planning/Store/provisioning.md#SERVER_EXTENSIONS` with `#STORE_AXIS_MAP` axis coordinates on every row.
-[PERS_S4]-[COMPLETE]: encrypted embedded floor landed on `.planning/Store/provisioning.md#EMBEDDED_FLOOR` — `bundle_e_sqlite3mc` provider, `raw.sqlite3_key` first crossing, `Rekey` rotation, DEK custody through `Element/identity#KMS_CUSTODY`.
-[PERS_Q2]-[COMPLETE]: benchmark corpus landed as `BenchmarkFamily` on `.planning/Query/cache.md#BENCHMARK_INDEX` — six suite rows with subject owners and suite-owned claim keys.
+[PERS_S6]-[COMPLETE]: desired-state manifest landed as `ClusterProvision.Manifest`/`ProvisionManifest` on `.planning/Store/provisioning#SERVER_EXTENSIONS` with `#STORE_AXIS_MAP` axis coordinates on every row.
+[PERS_S4]-[COMPLETE]: encrypted embedded floor landed on `.planning/Store/provisioning#EMBEDDED_FLOOR` — `bundle_e_sqlite3mc` provider, `raw.sqlite3_key` first crossing, `Rekey` rotation, DEK custody through `Element/identity#KMS_CUSTODY`.
+[PERS_Q2]-[COMPLETE]: benchmark corpus landed as `BenchmarkFamily` on `.planning/Query/cache#BENCHMARK_INDEX` — six suite rows with subject owners and suite-owned claim keys.

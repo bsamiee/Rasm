@@ -1,6 +1,6 @@
 # [CSHARP_BRANCH]
 
-`libs/csharp` is the platform's producer branch — the Rhino 9/GH2-aware AEC platform spanning the geometry kernel, the AEC domain, the app platform, and the host boundaries, minting the wire vocabulary and capability descriptors every peer runtime consumes. It routes the C# packages in strata order — the `Rasm` kernel at the base up to the host-boundary shells — and owns the substrate registry every folder composes.
+`libs/csharp` is an independently adoptable Rhino 9/GH2-aware AEC estate spanning the geometry kernel, the element seam and its AEC peers, the app platform, and the host boundaries. C# applications originate and operate these capabilities from the branch package graph alone; polyglot applications exchange contract-conforming artifacts at app roots, aligned by wire bytes and the frozen corpus, never by import.
 
 This branch registry admits a package only where two or more folders share it; a folder README owns its own additions, `libs/csharp/.api/` holds the shared API catalogues, and the one C# manifest pins versions.
 

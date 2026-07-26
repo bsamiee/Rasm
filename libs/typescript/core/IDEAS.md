@@ -23,7 +23,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Capability: a declaration-time generator deriving the kinds tuple, literal schema, guard pair, positional `Order`, and assembled `Shape` from one row-table declaration.
 - Shape: lands in `libs/typescript/core/.planning/value/schema.md` as the declaration-time owner the six re-spelled assembly grammars (`FaultClass`, `Budget`, `Degrade`, `Uncertainty.grades`, `Availability._ROWS`, `WireFault._policy`) become declarations of.
 - Unlocks: the next vocabulary is one row-table declaration; the position-to-`Order` projection has one spelling branch-wide.
-- Anchors: `fault.md#CLASS_VOCABULARY` assembly grammar; `clock.md` `Uncertainty`; `evidence.md` `Availability`; `codec.md` `WireFault._policy`; the derivation vocabulary-table owner form.
+- Anchors: `value/fault#CLASS_VOCABULARY` assembly grammar; `clock.md` `Uncertainty`; `evidence.md` `Availability`; `codec.md` `WireFault._policy`; the derivation vocabulary-table owner form.
 - Tension: the fault-module collapse ruling keeps the three row families distinct — the generator shares machinery, never merges; the stated-annotation export gate constrains a generic assembled-owner annotation.
 
 [CONVENTION_METER_FACTORY]-[QUEUED]: Instrument rows materialize through one Convention-owned factory — per-site constructor picks collapse.
@@ -40,6 +40,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 
 - [OBJECT_PLANE_ROWS]-[COMPLETE]: object-plane rows landed in `observe/convention.md` (`objectWritten`/`objectBytes`/`objectReclaimed`/`streamBytes` with the `objectOutcome` axis) with the `object` pack as their `observe/board.md` consumer; the data-side `[OBJECT_PLANE_INSTRUMENT_PROJECTION]` counterpart was already closed against these rows.
 - [OBSERVE_TAP_OWNER]-[COMPLETE]: `observe/tap.md` landed as the fourth observe owner — `TapPoint` brand, veto/observe/replay modality table, subscription contract, `FaultClass` breach isolation, `Tap.Registry` — with the codemap and runtime seam registered.
-- [INTERCHANGE_CARRIER]-[COMPLETE]: `interchange/carrier.md` landed — the typed `traceparent`/`tracestate`/`baggage` value with total folds, `rasm.tenant` promotion, the closed connect/nats/kafka/mqtt/cloudevents dialect table, and the `-bin` typed-metadata lane — composed by `invoke#DIAL_AXIS`'s `_stamped` fold.
+- [INTERCHANGE_CARRIER]-[COMPLETE]: `interchange/carrier.md` landed — the typed `traceparent`/`tracestate`/`baggage` value with total folds, `rasm.tenant` promotion, the closed connect/nats/kafka/mqtt/cloudevents dialect table, and the `-bin` typed-metadata lane — composed by `interchange/invoke#DIAL_AXIS`'s `_stamped` fold.
 - [PROFILE_SIGNAL_VOCABULARY]-[COMPLETE]: profile signal landed — `Convention.profile`/`Convention.profiled` correlation vocabulary in `observe/convention.md`, the `Flamegraph` panel row with the per-tag datasource arm, and the `profile` pack in `observe/board.md`.
-- [CLAIM_MEASUREMENT_BAND]-[COMPLETE]: claim measurement band landed on `interchange/codec.md#LANDING_WIRE` (`Claim.Band` mirroring the mitata `stats` record) with `observe/board.md#BENCH`'s `Bench.graded` per-host-print regression fold and the `bench` pack.
+- [CLAIM_MEASUREMENT_BAND]-[COMPLETE]: claim measurement band landed on `interchange/codec#LANDING_WIRE` (`Claim.Band` mirroring the mitata `stats` record) with `observe/board#BENCH`'s `Bench.graded` per-host-print regression fold and the `bench` pack.

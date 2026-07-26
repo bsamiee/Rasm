@@ -42,7 +42,7 @@ const _rows = {
 - Law: rails scope through the app brand — a registry is keyed by `AppIdentity.Key` beside its rows, so two apps composing identical point names occupy distinct rails and compose without collision; the branded scope key stays `TenantContext.scope`, the tenancy partition, and never enters the hook plane.
 - Law: point mints are declaration-time — the mint re-proves the brand over the compile-checked `rasm.${string}.${string}.${string}` template, so a malformed name surfaces at module init on the authoring side, never inside a dispatch; a point defaults to the `observe` modality because observation is the one semantic every publisher admits, and veto or replay is a deliberate widening on the row.
 - Growth: a new hook point is one `_points` row for a core publisher, or one app-side `point` mint over its own name; a publisher gaining veto or replay widens its row's modality set, never mints a second point.
-- Boundary: publication stays the publisher's law — `state/machine.md#ACTOR`, `interchange/invoke.md#COMMAND_GATEWAY`, and `interchange/codec.md#FAULT_RAIL` each name their point beside the surface that feeds it; attribute, metric, and event name space stays `convention`'s — a point name is hook vocabulary, never a telemetry attribute key.
+- Boundary: publication stays the publisher's law — `state/machine#ACTOR`, `interchange/invoke#COMMAND_GATEWAY`, and `interchange/codec#FAULT_RAIL` each name their point beside the surface that feeds it; attribute, metric, and event name space stays `convention`'s — a point name is hook vocabulary, never a telemetry attribute key.
 - Packages: `effect` (`Schema`, `Predicate`); `../value/identity.ts` (`AppIdentity`).
 
 ```typescript signature
