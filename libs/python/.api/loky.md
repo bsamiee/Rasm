@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_LOKY]
 
-`loky` mints the process-global reusable pool: one warm fabric resized on re-acquisition, respawned whole on worker death, reached through `get_reusable_executor`. Worker death surfaces its pending future as `TerminatedWorkerError` and swaps the broken pool for a fresh instance; cloudpickle payloads carry closures across the boundary stdlib `ProcessPoolExecutor` rejects. It feeds the `WorkerPool` COOPERATIVE-`PROCESS` arm.
+`loky` mints the process-global reusable pool: one warm executor resized on re-acquisition, respawned whole on worker death, reached through `get_reusable_executor`. Worker death surfaces its pending future as `TerminatedWorkerError` and swaps the broken pool for a fresh instance; cloudpickle payloads carry closures across the boundary stdlib `ProcessPoolExecutor` rejects. It feeds the `WorkerPool` COOPERATIVE-`PROCESS` arm.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -8,7 +8,7 @@
 - package: `loky` (BSD-3-Clause)
 - import: `loky`
 - owner: `runtime`
-- rail: worker fabric
+- rail: worker crossing
 - namespaces: `loky`, `loky.process_executor`, `loky.reusable_executor`, `loky.backend`, `loky.cloudpickle_wrapper`, `loky.initializers`
 - capability: process-global crash-respawning reusable process pool with cloudpickle payloads, dynamic resize, idle-worker reaping, per-worker `initializer`/`env` warm state, and host-aware CPU sizing
 
@@ -110,5 +110,5 @@
 [RAIL_LAW]:
 - Package: `loky`
 - Owns: the process-global reusable crash-respawning process pool, cloudpickle task payloads, dynamic pool resize, idle-worker reaping, per-worker `initializer`/`env` warm state, and host-aware CPU sizing
-- Accept: `get_reusable_executor` for the singleton fabric, `submit`/`map` over cloudpickle payloads, `shutdown(kill_workers=)` teardown, `cpu_count` for host sizing, `_processes` for per-pid introspection, `wrap_non_picklable_objects` for a resistant argument
+- Accept: `get_reusable_executor` for the singleton executor, `submit`/`map` over cloudpickle payloads, `shutdown(kill_workers=)` teardown, `cpu_count` for host sizing, `_processes` for per-pid introspection, `wrap_non_picklable_objects` for a resistant argument
 - Reject: a per-task `ProcessPoolExecutor` where the warm singleton serves, a local catch that swallows `TerminatedWorkerError`/`BrokenProcessPool` instead of the resilience retry, a hand-rolled multiprocessing pool where loky owns crash respawn, oversubscribing the host past the worker band, pinning a non-cloudpickle `loky_pickler` that drops closure payloads

@@ -42,7 +42,7 @@
   "rules": [
     {
       "id": "entry-point-sprawl",
-      "rule": "One polymorphic entry per rail, discriminating on input shape. Parallel entry points, modality-named siblings, get/getMany/getById families, and direction-named twins of one correspondence are defects; demand absorption into the one owner, never a new sibling. Judge every touched module's public roster as a designed artifact: arity twins, mode flags, and exports grown per capability are the same defect at folder altitude; a helper with exactly one caller, no plausible second consumer, and no meaning in isolation inlines into that caller, and a consumer forced to sequence a module's internals marks the weak boundary the entrypoint absorbs.",
+      "rule": "One polymorphic entry per rail, discriminating on input shape. Parallel entry points, modality-named siblings, get/getMany/getById families, and direction-named twins of one correspondence are defects; demand absorption into the one owner, never a new sibling. Judge every touched module's public roster as a designed artifact: arity twins, mode flags, and exports grown per capability are the same defect at folder tier; a helper with exactly one caller, no plausible second consumer, and no meaning in isolation inlines into that caller, and a consumer forced to sequence a module's internals marks the weak boundary the entrypoint absorbs.",
       "severity": "high",
       "enabled": true,
       "scope": [
@@ -320,7 +320,7 @@
     },
     {
       "id": "rulings-drift",
-      "rule": "RULINGS.md files are universal per-folder decision registries — standing at every registry-carrying tier: package folders, branch tiers, cross-libs, and the tests/ estate root and language trees, an unpopulated instance carrying (none)-marked sections — and their rows are settled law with the force of the owning page. Review runs both directions. Diffs against rulings: an edit re-litigating a settled ruling — re-admitting a rejected package, folding a ruled-plural surface, re-homing a ruled owner, re-adding a retired structure — fires with the ruling row cited verbatim, and the demanded fix routes as a card (an IDEA at unifying altitude or a TASK at landing grain), never an inline workaround. Rulings against disk: a RULINGS.md diff answers the admission bar — a row dies only when its fact AND its why both live at one durable surface, and a page stating the what while the discriminant, lost guarantee, or refuted objection stays homeless ADMITS the row; a fact-and-why-carried row is derivable creep demanding deletion; a row contradicting landed pages or manifests is drift; a ruling homed above the narrowest tier containing it, duplicated across tiers, or spelled outside the closed section vocabulary ([PACKAGES]/[SHAPE]/[COLLAPSE]/[STRUCTURE]/[PROCESS]) is a defect. Positive direction equally: a diff realizing a capability a ruling anticipated is conformance worth naming, a diff whose stronger form a ruling anticipates receives the ruling-aligned deeper demand — a fix landing below the ruled bar is unfinished — and a diff exposing a homeless discriminant — two lawful twin surfaces whose separating rule lives nowhere durable — earns the new ruling row at the narrowest owning tier.",
+      "rule": "RULINGS.md files are universal per-folder decision registries — standing at every registry-carrying tier: package folders, branch tiers, cross-libs, and the tests/ estate root and language trees, an unpopulated instance carrying (none)-marked sections — and their rows are settled law with the force of the owning page. Review runs both directions. Diffs against rulings: an edit re-litigating a settled ruling — re-admitting a rejected package, folding a ruled-plural surface, re-homing a ruled owner, re-adding a retired structure — fires with the ruling row cited verbatim, and the demanded fix routes as a card (an IDEA at concept grain or a TASK at landing grain), never an inline workaround. Rulings against disk: a RULINGS.md diff answers the admission bar — a row dies only when its fact AND its why both live at one durable surface, and a page stating the what while the discriminant, lost guarantee, or refuted objection stays homeless ADMITS the row; a fact-and-why-carried row is derivable creep demanding deletion; a row contradicting landed pages or manifests is drift; a ruling homed above the narrowest tier containing it, duplicated across tiers, or spelled outside the closed section vocabulary ([PACKAGES]/[SHAPE]/[COLLAPSE]/[STRUCTURE]/[PROCESS]) is a defect. Positive direction equally: a diff realizing a capability a ruling anticipated is conformance worth naming, a diff whose stronger form a ruling anticipates receives the ruling-aligned deeper demand — a fix landing below the ruled bar is unfinished — and a diff exposing a homeless discriminant — two lawful twin surfaces whose separating rule lives nowhere durable — earns the new ruling row at the narrowest owning tier.",
       "severity": "high",
       "enabled": true,
       "scope": [
@@ -382,8 +382,8 @@
       ]
     },
     {
-      "id": "guidance-sediment",
-      "rule": "Guidance sediment (docgen SAME_DECISION_SPREAD) is a run of near-similar rules each restating most of one decision — across the sentences of one passage, the rows of one durable, or the files of one bundle or config, including two near-similar lines a diff introduces or leaves standing — distinct from a fact fork, which duplicates one fact. Demand the nuance-preserving restructure at the ruled owner: one higher-resolution ruling absorbing the run, smaller than its sources, every distinct decision surviving as its own clause — never a mega-entry concatenating the collapsed items, never a longer merged line, never brute deletion. A neighbor separating a different failure class or false-positive discriminator is distinct law, never sediment — do not flag it. Example: three body rules each restating validate-before-return in different verbs collapse to the one gate contract; two guards whose discriminators split interior re-validation from host-crossing admission stay siblings.",
+      "id": "decision-spread",
+      "rule": "One decision spread (docgen SAME_DECISION_SPREAD) is a run of near-similar rules each restating most of one decision — across the sentences of one passage, the rows of one durable, or the files of one bundle or config, including two near-similar lines a diff introduces or leaves standing — distinct from a fact fork, which duplicates one fact. Demand the nuance-preserving restructure at the ruled owner: one higher-resolution ruling absorbing the run, smaller than its sources, every distinct decision surviving as its own clause — never a mega-entry concatenating the collapsed items, never a longer merged line, never brute deletion. A neighbor separating a different failure class or false-positive discriminator is distinct law, never a restatement — do not flag it. Example: three body rules each restating validate-before-return in different verbs collapse to the one gate contract; two guards whose discriminators split interior re-validation from host-crossing admission stay siblings.",
       "severity": "medium",
       "enabled": true,
       "scope": [
@@ -451,7 +451,7 @@
     },
     {
       "id": "cross-language-transcription-drift",
-      "rule": "Transcription is the conformance mechanism wherever Tier-0 law says so, and a drifted row is a defect repaired at its owning branch page in the same change, never through a shared library and never by demanding one branch import another's spelling. The three standing transcription sets: [08]-[TELEMETRY_WIRE_LAW] fixes rows each branch transcribes identically in meaning at its three named branch anchors; each INFRASTRUCTURE contract entry spells one shape in three branch type systems; and the consumption-axis roster spells one axis set at each branch's admission owner. A diff touching one anchor without its counterparts, and a counterpart whose meaning has drifted from the canonical row, are both findings naming the canonical owner and each stale anchor.",
+      "rule": "Transcription is the conformance mechanism wherever Tier-0 law says so, and a drifted row is a defect repaired at its owning branch page in the same change, never through a shared library and never by demanding one branch import another's spelling. The three standing transcription sets: [08]-[OBSERVABILITY_CONFORMANCE] fixes rows each branch transcribes identically in meaning at its three named branch anchors; each INFRASTRUCTURE contract entry spells one shape in three branch type systems; and the consumption-axis roster spells one axis set at each branch's admission owner. A diff touching one anchor without its counterparts, and a counterpart whose meaning has drifted from the canonical row, are both findings naming the canonical owner and each stale anchor.",
       "severity": "high",
       "enabled": true,
       "scope": [
@@ -459,6 +459,18 @@
         "libs/.planning/**",
         "libs/**/.planning/**",
         "libs/**/.api/**",
+        "tests/contracts/**"
+      ]
+    },
+    {
+      "id": "derived-plane-authority",
+      "rule": "Append-only log planes own truth and every derived plane carries zero authority: folds, snapshots, traces, cell tables, overlays, and actor configurations accelerate reads and drop at warm-up cost. A shape crossing planes names its truth plane, its rebuild route, and the retention floor below which rebuild fails, so a crossing stating fewer than all three is a finding naming the page that owns the crossing. Reading a projection as authority is the defect it forecloses: a dropped accelerator becomes loss, and a write-back path into the derived plane folds drift into the log. An owner carrying no log declares itself ephemeral, so a durability or as-of claim on an unlogged owner is a finding whose repair is the missing declaration or the missing log.",
+      "severity": "high",
+      "enabled": true,
+      "scope": [
+        "libs/**",
+        "libs/.planning/**",
+        "libs/**/.planning/**",
         "tests/contracts/**"
       ]
     },
@@ -488,6 +500,15 @@
         "libs/**/.api/**",
         "tools/**",
         ".claude/**"
+      ]
+    },
+    {
+      "id": "term-sense-drift",
+      "rule": "Terms the corpus reuses carry one binding sense minted at docs/glossary/, and every claim resolves that corpus live on the diff — a finding carrying a copy of a definition or a term roster reads stale the moment an entry lands. Two conditions fire: a spelling a glossary entry's [NOT] line names, and a glossary-defined term used against the sense its entry binds; both name the owning entry. A concept a durable page names with no glossary entry binding its sense, recurring across two or more surfaces, is the third finding and routes as the entry mint at the owning band, never as a page-local definition. Synonym choice among words no glossary entry defines is void — the house owns the voice, so a term finding cites the entry or dies.",
+      "severity": "medium",
+      "enabled": true,
+      "scope": [
+        "**/*.md"
       ]
     }
   ]

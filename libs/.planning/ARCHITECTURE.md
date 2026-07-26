@@ -1,28 +1,28 @@
 # [MONOREPO_ARCHITECTURE]
 
-Tier-0 topology law owns the cross-cutting hierarchy no branch or package can own, and it alone names a language — a branch or folder consumes the topology as settled vocabulary. Per-package details lives at each folder `ARCHITECTURE.md`, never restated here.
+Rasm carries a platform tier and a product tier: `libs/` holds independently adoptable library estates, and every app, plugin, and service composes them exactly as it takes an external package. Capability lands in the platform first, parameterized for consumers that do not yet exist; a product shell declares intent, binds host edges, and emits output.
+
+Estates couple through defined contracts alone — no estate imports a peer, and none is a prerequisite, producer, or build-order edge for another. Tier-0 owns the law no branch or package can own and names languages alone; branch and folder `ARCHITECTURE.md` own their package rosters, charters, and reference direction.
 
 ## [01]-[STRATA]
 
-Rasm is a polyglot library monorepo organized into strict strata. Each language branch is independently adoptable, and each package must stand on it's own as a complete concept and set of capability, aligned with sibling packages and branches through alignment of shape, functionality logic, and signature, cross package integration can only occure with strict adherance to the `ARCHITECTURE.md` hierarchy, packages are higher-order domains. Polyglot applications compose branch-owned capability through language-neutral contracts.
-
-Stratification is the law every branch answers: ranks run `S0` upward, the dependency edge runs strictly upward, the graph stays acyclic, and shared machinery homes at the lowest stratum every consumer reaches — homing above a consumer's reach manufactures per-folder twins. Each branch orders its own packages under that law at its `[02]-[STRATA]`, and that table is the roster a reader resolves; Tier-0 names no branch's packages.
+Stratification is the law every branch answers: ranks run `S0` upward, the dependency edge runs strictly upward, the graph stays acyclic, and shared machinery seats at the lowest stratum every consumer reaches — seating above a consumer's reach manufactures per-folder twins. Each branch orders its own packages under that law at its `[02]-[STRATA]`, and that table is the roster a reader resolves.
 
 - Strata is the only rank vocabulary; wave, band, and tier never name a rank.
-- Dependency edges stay abstract: a branch spells one as a project reference, module import, composed layer, or port bound at the composition root, the upward law binds every spelling.
+- Dependency edges stay abstract: a branch spells one as a project reference, module import, composed layer, or port bound at the composition root, and the upward law binds every spelling.
 - Cross-package coupling reaches a published boundary or a content-keyed wire, never a peer's interior.
 - Peers at one rank never reference each other; alignment travels the seam contracts and the content-keyed wire, so each package stays usable in isolation.
-- Counter-edges carry a value the lower stratum consumes, never an owner it imports; the type graph stays acyclic, member-seating rows state that qualifier.
+- Counter-edges carry a value the lower stratum consumes, never an owner it imports; the type graph stays acyclic, and member-seating rows state that qualifier.
 - Plane-distinct members seat at a rank yet stay outside the runtime graph, carrying the same upward law.
 - Higher strata consume lower-stratum capability and re-own none of it.
-- Composition roots are the leaf: host binding, port satisfaction, and cross-branch composition happen there, nowhere below. Product shells outside `libs/` compose a branch's top strata as consumers of the estate, never as a stratum of it.
+- Composition roots are the leaf: host binding, port satisfaction, and cross-branch composition happen there, nowhere below. Product shells compose a branch's top strata as consumers of the estate, never as a stratum of it.
 
 ## [02]-[DEPENDENCY_DIRECTION]
 
 Direction inside a branch is the branch's own `[02]-[STRATA]` to state per owner. Across branches direction dissolves: no branch is a dependency edge, producer, or prerequisite of another.
 
 - Cross-branch relations are contracts, never dependencies: each carries data, obligates no build order, and admits no reference in either direction.
-- Single-language applications resolve their branch's whole graph with no peer present; branch contributions meet only at the composition root, merged by artifact key under the `[09]-[BACKEND_STATE]` order.
+- Single-language applications resolve their branch's whole graph with no peer present; branch contributions meet only at the composition root, merged by artifact key under the `[09]-[SCHEMA_STATE]` order.
 - Each branch proves its own direction with its own gate, and that gate parses the owning branch's strata table live rather than carrying a transcribed copy.
 
 ## [03]-[UNIVERSAL_VS_CAPTURE]
@@ -31,20 +31,18 @@ Direction inside a branch is the branch's own `[02]-[STRATA]` to state per owner
 
 - Universal owners exist only for corpus-defined contracts; `[07]-[CROSS_LANGUAGE_WIRE]` splits them into the infrastructure and domain classes.
 - Branch-local owners retain host, toolchain, and native capability no contract carries, at full richness.
-- `Rasm.Rhino` exchange and drafting stay rich Rhino features and are NOT thinned; Rhino owns Make2D, sheet layout, and native file IO.
-- `Rasm.Bim` implements IFC in C# while IfcOpenShell implements it in Python; both conform to the portable IFC contract, and neither branch reads the other.
-- Host boundaries own native surfaces, and branch adapters project them into a corpus contract at the seam alone.
+- Host-boundary packages own their host's native surface whole — exchange, drafting, sheet layout, native file IO stay rich host features and thin toward no contract.
+- One semantic implementation per runtime conforms to a portable domain contract, and neither implementation reads the other.
+- Branch adapters project a native surface into a corpus contract at the seam that contract declares, never earlier.
 
 ## [04]-[GEOMETRY_FLOW]
 
-Geometry, meshing, and IFC each have exactly one owner per runtime; the runtimes meet only at the wire. No concern is owned twice within a runtime, and no runtime re-implements a peer's geometry.
+Geometry, meshing, and semantic exchange each carry exactly one owner per runtime; the runtimes meet only at the contract. No concern is owned twice within a runtime, and no runtime re-implements a peer's kernel.
 
-- C# geometry source-of-truth is `Rasm`; the compute, persistence, and BIM owners consume it and never own or re-implement it.
-- Python owns host-free geometry for offline scan/IFC work — an independent peer producer, not a `Rasm` consumer.
-- `Rasm` and Python geometry meet only at the wire: content identity and the GLB tessellation rail.
-- TypeScript decodes that wire at its render tier; the contract carries geometry across a runtime boundary, and no runtime re-implements a peer's kernel.
-- Meshing has one owner per runtime — the C# kernel, the Python scan plane, the TypeScript render tier.
-- IFC has one semantic implementation per runtime — `Rasm.Bim` in C# and IfcOpenShell in Python — aligned by the portable IFC contract.
+- Each runtime carries one geometry owner, one meshing owner, and one semantic-exchange implementation; a second owner inside one runtime is the duplication defect.
+- Runtimes meet at content identity and the tessellation rail alone; a decoder at that rail composes the payload rather than re-deriving it.
+- Independent peer producers stay independent: a host-free geometry owner produces for its own domain rather than consuming a peer's kernel.
+- Each runtime's owners are its branch `ARCHITECTURE.md` to name.
 
 ## [05]-[PLANNING_LIFECYCLE]
 
@@ -57,19 +55,19 @@ Geometry, meshing, and IFC each have exactly one owner per runtime; the runtimes
 - Mature folders with real code carry NO `.planning/`; the co-located source architecture note is the only design surface.
 - Mature folders route open split, cleanup, and re-architect work to task cards in the branch `TASKLOG.md`.
 - One exception stands: a genuinely new unbuilt sub-domain inside a mature package keeps its scaffold in that sub-domain folder.
-- `Rasm.Rhino` and `Rasm.Grasshopper` are HOST-BOUNDARY planning folders with a folder `.api/` tier over their host assemblies.
-- Their solution rows stay out of `Workspace.slnx` under the architecture-test host-boundary gate.
+- Host-boundary planning folders carry a folder `.api/` tier over their host assemblies, and their rows stay outside the branch build root under the host-boundary gate.
 
 ## [06]-[PER_LANGUAGE_ROLES]
 
 Each branch is an independently adoptable library estate. Branch-local capability originates, composes, operates, and evolves from that branch's packages, manifests, generated bindings, and toolchain.
 
 - Each row names the domain its estate carries; rank, dependency, and a ceiling on what an estate may carry all sit outside the row.
-- C# carries the Rhino 9/GH2-aware AEC domain: the geometry kernel, the element seam and its AEC peers, the app platform, and the host boundaries.
-- Python carries the host-free science, compute, data, geometry, IFC, and artifact domain.
+- C# carries the host-bound AEC domain: the geometry kernel, the element seam and its AEC peers, the app platform, and the host boundaries.
+- Python carries the host-free science, compute, data, geometry, exchange, and artifact domain.
 - TypeScript carries the host-free web, edge, runtime, persistence, security, UI, and deployment domain.
-- Each branch composes, mints, verifies, and deploys its own backend state — schema, migration, recovery, evidence — with no peer branch present.
+- Each branch composes, mints, verifies, and deploys its own schema state — schema, migration, recovery, evidence — with no peer branch present.
 - Cross-language composition adds peers to a complete branch; it never supplies a branch's missing operational base.
+- Domains widen at their owning branch under `[12]-[ADMISSION]`; the rows above carry no ceiling on what a branch admits next.
 
 Within each language the same organization principle holds: real higher-order domain folders (no weak or mini sibling — a small isolated concern folds into the bigger concept it belongs to), source-mirroring sub-domain organization, OOP capsules at boundaries and FP-ROP internals. Each branch re-derives its topology from the finalized owner set, never from a stale layout.
 
@@ -87,9 +85,9 @@ Within each language the same organization principle holds: real higher-order do
 - Producers project a branch-local concept into a shared contract at the seam that contract declares, never before it.
 - Drift defect: a second producer for one domain contract forks the semantic model that contract carries.
 
-Composition merges branch contributions at the application root by artifact key under one total order. Content identity derives bit-identically in every branch from the `docs/laws/patterns.md` `[CONTENT_KEY]` law.
+Every shape crossing a branch boundary carries a `MANIFEST.md` entry; a convention-aligned shape crossing without one is coincidence that forks on first edit, never interop. Composition merges branch contributions at the application root by artifact key under one total order. Content identity derives bit-identically in every branch from the `docs/laws/patterns.md` `[CONTENT_KEY]` law.
 
-## [08]-[TELEMETRY_WIRE_LAW]
+## [08]-[OBSERVABILITY_CONFORMANCE]
 
 Four-signal telemetry — metrics, logs, traces, profiles — correlates across the three runtimes through rows each branch transcribes identically in meaning: canonical here, transcribed at `csharp:Rasm.AppHost/Observability/telemetry`, `python:runtime/observability/telemetry`, and `typescript:runtime/otel/emit`, the name vocabulary at `typescript:core/observe/convention`. Drifted rows repair at their owning branch page, never through a shared library — transcription is the conformance mechanism because the three SDK trains move on split maturity channels.
 
@@ -131,9 +129,9 @@ Four-signal telemetry — metrics, logs, traces, profiles — correlates across 
 |  [03]   | TypeScript | `Profile.live` push bracket over the node profiler        | a profiles lane row beside the `Export.live` exporters |
 |  [04]   | Collector  | `otlphttp/profiles` exporter + `profiles` pipeline        | already OTLP-shaped; the ingest door holds unchanged   |
 
-## [09]-[BACKEND_STATE]
+## [09]-[SCHEMA_STATE]
 
-Backend state is an infrastructure contract: every branch composes its own schema contract from its own framework artifacts and mints its own generation identity, so a single-language application declares, materializes, proves, and deploys its schema with no peer present.
+Schema state is an infrastructure contract: every branch composes its own schema contract from its own framework artifacts and mints its own generation identity, so a single-language application declares, materializes, proves, and deploys its schema with no peer present.
 
 - Contract shape, canonicalization, artifact ordering, and generation-identity derivation live in the `BACKEND_CONTRACT` corpus entry.
 - That entry names each branch's minting anchor, and every branch spells the entry's law in its own types rather than sharing an implementation.
@@ -157,19 +155,50 @@ Every `libs/` package is an independently versioned library an unrelated applica
 |  [06]   | `providers` | open   | capability-descriptor rows the owning branch supplies                 |
 
 - Closed axes fix their value vocabulary here; an open axis fixes the descriptor shape alone, and each of its rows is capability one branch supplies.
-- Host integration lands as one descriptor row: Rhino and GH2 are rows C# supplies, future inetgrations: energy engine, simulation host, design tools, etc.
+- Host integration lands as one descriptor row on the `host` axis, supplied by the branch whose runtime reaches that host.
 - Enumerating an open axis's instances here re-anchors the roster to the instance set that happens to exist — the anchoring defect the open form forecloses.
 - Each branch spells the roster in its own types, and `tests/contracts/` `CONSUMPTION_PROFILE` proves parity like any other infrastructure contract.
-- Growth is one Tier-0 row beside one row per branch for a new axis, one case on its owning closed axis for new values; open axes grow at supplying branch alone.
-- Axis values stay data: compile-time assumption, ambient global, build flag, or package branching on which product hosts it re-mint the assumed consumer roster forecloses.
+- Growth is one Tier-0 row beside one row per branch for a new axis, one case on its owning closed axis for new values; open axes grow at their supplying branch alone.
+- Axis values stay data: a compile-time assumption, ambient global, build flag, or package branching on which product hosts it re-mints the assumed consumer roster the roster forecloses.
 - Packages unable to serve an axis value refuse at admission with typed evidence naming the axis; silent degradation and narrowed public surface are the two failed forms.
-- Sibling presence is an axis value — a package composes a sibling through a declared port the composition root binds, an unbound port is a refused capability, never a crash.
+- Sibling presence is an axis value — a package composes a sibling through a declared port the composition root binds, and an unbound port is a refused capability, never a crash.
 
-## [11]-[ENTRY_POINT_LAW]
+## [11]-[DESIGN_LANGUAGE]
 
-One polymorphic entry serves each bounded concept: modality, arity, tenancy, topology, and provider ride the request shape or a policy row the entry folds. Entries internalize policy resolution, routing, and lifecycle, so a consumer composes capability instead of assembling it.
+One design language makes disparate estates read as one system: a consumer crossing packages, branches, or hosts meets the same shapes under different spellings, so capability composes without per-package relearning. Each row states the invariant, and `docs/stacks/<language>/` owns its spelling.
 
-- `Get`/`GetMany`/`GetBy<Key>` families, per-topology entries, and boolean knob pairs are the three refused shapes; each pushes the fold onto every caller.
+| [INDEX] | [INVARIANT]            | [LAW]                                                                                              |
+| :-----: | :--------------------- | :------------------------------------------------------------------------------------------------- |
+|  [01]   | one concept, one name  | One semantic name per bounded concept, spelled in the branch's casing law.                         |
+|  [02]   | one polymorphic entry  | One entry folds modality, arity, tenancy, topology, and provider off the request shape.            |
+|  [03]   | failure is a value     | Domain logic returns typed error rails; exception flow stays at the boundary.                      |
+|  [04]   | results carry receipts | Route, status, sampling, solver, and host evidence ride typed receipt fields.                      |
+|  [05]   | variation is data      | Rows, cases, tables, and policy values own variation; a bounded vocabulary dispatches.             |
+|  [06]   | refusal at admission   | An unservable axis value refuses with typed evidence naming the axis, once at the admission owner. |
+
+- `Get`/`GetMany`/`GetBy<Key>` families, per-topology entries, and boolean knob pairs each push the fold onto every caller; the entry folds instead.
 - Growth is one row, arm, or case on the owner; a new consumer shape never widens the public surface.
-- Each owning cluster's card `Entry` field names the entry; the folder `README.md` router reaches it through the owning design page.
-- Axis admission states once at the package's admission owner, never per entry.
+- Each owning cluster's card `Entry` field names the entry, and the folder `README.md` router reaches it through the owning design page.
+- Names align because the concept is one: a name mirrored into a peer branch for symmetry alone forks two concepts under one spelling.
+
+## [12]-[ADMISSION]
+
+New capability enters at the narrowest rung that holds it, and each rung above is earned by evidence the rung below cannot carry. Reaching past the evidence mints a surface every consumer then folds around, and the earn-test decides the rung, never scope ambition or file size.
+
+| [INDEX] | [RUNG]                | [EARNED_BY]                                                                                                    |
+| :-----: | :-------------------- | :------------------------------------------------------------------------------------------------------------- |
+|  [01]   | row or case           | A new instance of a settled concept whose vocabulary already admits it.                                        |
+|  [02]   | adapter               | A foreign surface reaching an existing port, translating that surface's vocabulary at the boundary.            |
+|  [03]   | design page           | One owner inside a settled sub-domain, under that sub-domain's invariants.                                     |
+|  [04]   | sub-domain            | New nouns under the package's existing invariants and published boundary.                                      |
+|  [05]   | package               | Own nouns, own invariants, and a published boundary an unrelated application adopts alone — a bounded context. |
+|  [06]   | host-boundary package | A host's native surface, referencing the branch base alone and composed at a product root.                     |
+|  [07]   | branch                | A target runtime no existing branch reaches.                                                                   |
+
+- Packages name concepts: a host name, a provider name, a verb, or a size-driven split each names something other than a bounded context.
+- Hosts enter as one host-boundary package beside descriptor rows and cases on the domain owners their demands prove; domain packages never name a host.
+- Host vocabulary translates at the boundary adapter, and the domain keeps its own nouns whole.
+- Generalization pressure arrives with each new host: its demands widen the owners already holding the concept, and a concept only that host reveals lands as a bounded context named for the concept.
+- Hosts scripted in a branch's own language earn no branch; that runtime is already reached.
+- Ecosystem preference earns no branch — a branch answers reach, and a capability an existing branch reaches lands as a package there.
+- Every rung lands its counterpart obligations in the same pass: `[02]-[STRATA]` rank, manifest row, `.api/` tier, and router entry under `docs/laws/topology.md`.

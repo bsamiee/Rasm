@@ -49,10 +49,10 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: `libs/python/runtime/.planning/transport/roots.md`; `libs/python/runtime/.api/httpx.md`; `libs/python/.api/anyio.md`; `libs/python/.api/fsspec.md`.
 - Atomic: three member rows on one page.
 
-[PROBE_MEMBER_PINS]-[QUEUED]: pin the fabric admission gate and channel-evidence members.
+[PROBE_MEMBER_PINS]-[QUEUED]: pin the crossing admission gate and channel-evidence members.
 - Capability: `wasmtime` `Module.validate` before instantiation on the WASM arm as a typed `config` refusal; `psutil` `Process.net_connections` evidence columns on REMOTE/DAEMON supervision verdicts.
 - Shape: `wasmtime` `Module.validate` as the guest-admission gate before instantiation on the WASM arm, and `psutil` `Process.net_connections` evidence columns on REMOTE/DAEMON supervision verdicts, both on `libs/python/runtime/.planning/execution/workers.md`.
-- Unlocks: IDEAS.md [FABRIC_ADMISSION_PROBES] — a malformed guest refuses at admission with a typed `config` fault instead of an instantiation trap, and supervision verdicts distinguish a dead channel from a saturated one.
+- Unlocks: IDEAS.md [CROSSING_ADMISSION_PROBES] — a malformed guest refuses at admission with a typed `config` fault instead of an instantiation trap, and supervision verdicts distinguish a dead channel from a saturated one.
 - Anchors: the guest arm and `Supervisor` on `libs/python/runtime/.planning/execution/workers.md`; `libs/python/runtime/.api/wasmtime.md`; `libs/python/.api/psutil.md`.
 - Atomic: one gate and two verdict columns.
 
@@ -161,4 +161,4 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [EGRESS_TRANSPORT_TABLE]-[COMPLETE]: already realized on disk — telemetry `EgressTransport`, the `SignalProfile.transport` column, `GRPC_ELIGIBLE`, endpoint derivation, and both `EGRESS` factory triples.
 [OBSERVABILITY_PAGES]-[COMPLETE]: landed in `.planning/observability/{logging,hooks,profiles}.md` with the `metrics.md`/`telemetry.md`/`receipts.md` deepening — chain ownership moved to the logging page, `SCHEMA_URL` pin and `resource`/`signal_profile`/`ship` injection seams on the telemetry install, instrument names renamed to `rasm.*`, query/geometry/bench domain rows added, and the instrumentation train — `opentelemetry-instrumentation-jinja2` (artifacts template render/compile/load spans), `opentelemetry-instrumentation-system-metrics` (`_SYSTEM_SLICE`: `system.*` and `cpython.gc.*` alone, process family stays on `rasm.process.*`), `opentelemetry-instrumentation-threading` (cross-thread context propagation) — composed on `metrics.md` `[02]-[INSTRUMENTATION]` and catalogued under `.api/`.
 [REMOTE_KIND_ROW]-[COMPLETE]: landed in `.planning/execution/workers.md` — `WorkerKind.REMOTE` + `KIND_POLICY` SSH restart row, `WorkerPool` remote arm sealing the kernel over `asyncssh` `create_process`, `remote_floor` entry, Supervisor channel probe; `transport/roots` scope law amended with the `RemoteEndpoint` dial owner.
-[SHM_CHANNEL_OWNER]-[COMPLETE]: landed in `.planning/execution/workers.md` — `ShmSpan` + `exported`/`released` on the fabric, decode inside `shipped`, exporter-owned unlink after the offload settles.
+[SHM_CHANNEL_OWNER]-[COMPLETE]: landed in `.planning/execution/workers.md` — `ShmSpan` + `exported`/`released` on the crossing, decode inside `shipped`, exporter-owned unlink after the offload settles.

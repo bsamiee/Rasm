@@ -60,7 +60,7 @@ All agents (main agent included) regardless of type (critique/redteam/other) alw
 - COVERAGE naivety — a thin slice of the concept: three obvious fields where the domain carries fifteen, a two-case family for a twenty-case domain.
 - APPROACH naivety — hardcoded enumerated instances where a parameterized algorithmic owner generates the space.
 - AUTHORITY naivety — a selected profile, provider mechanism, historical receipt, observed state, or external package is treated as the semantic owner.
-- Ruling violations route as cards — IDEA at the unifying altitude, TASK at landing grain — never inline workarounds.
+- Ruling violations route as cards — IDEA at concept grain, TASK at landing grain — never inline workarounds.
 - Items formulated in isolation of their folder's ground-up code-doctrine integration are corrected or removed.
 - Cross-language ideas land at their right touchpoints the same turn; full ripple coverage and refactoring to the ENTIRE splash radius.
 - Collapse freedom: every enumerated collapse-signal list in a workflow prompt is a floor, never the complete set.

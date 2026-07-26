@@ -926,10 +926,10 @@ const ROOT_LAW =
     'another checkout of the repository.';
 const CONTEXT = (L) => ROOT_LAW + '\n\nRasm monorepo — ' + L.corpus + '. ' + L.strata + ' ' + L.stackFloor;
 
-// Register table — one row set per EXECUTING model, keyed by recon()'s dispatch branch. Substance is identical across rows (burden of proof on the
+// Voice table — one row set per EXECUTING model, keyed by recon()'s dispatch branch. Substance is identical across rows (burden of proof on the
 // work, both naivety axes, illusion hunting, no-churn, second-pass self-verify, findings-never-designs); only phrasing forks: claude carries the
-// estate hostile register, codex the same demands de-conflicted and neutral — probe-measured: the hostile register makes a codex lane over-read,
-// probe out of territory, and spend more input tokens for equal output (the codex skill's prompt-contract law). Register-neutral rows (selfCheck,
+// estate hostile voice, codex the same demands de-conflicted and neutral — probe-measured: the hostile voice makes a codex lane over-read,
+// probe out of territory, and spend more input tokens for equal output (the codex skill's prompt-contract law). Voice-neutral rows (selfCheck,
 // antiAnchor) live once as shared constants — a forked copy is a drift bill with no probe evidence behind it.
 const SELF_CHECK =
     'SELF-VERIFY (second pass, before returning): re-derive every entry from disk — re-open each cited anchor and confirm it ' +

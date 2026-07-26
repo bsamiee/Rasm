@@ -17,13 +17,13 @@ dependencies = [
     "jinja2",                                  # [ARTIFACTS]: report templating between visual and document outputs
     "keyring",                                 # [RUNTIME]: OS keychain credential boundary
     "lark",                                    # [GEOMETRY]: IDS and selector parsing grammar
-    "loky",                                    # [RUNTIME]: warm reusable crash-respawning process pool for the worker fabric
+    "loky",                                    # [RUNTIME]: warm reusable crash-respawning process pool for the worker crossing
     "lxml",                                    # [ARTIFACTS]: XML processing
     "msgspec",
     "opentelemetry-api",
     "opentelemetry-exporter-otlp-proto-grpc",  # [RUNTIME]: daemon-selectable OTLP gRPC egress row beside the proto-http default
     "opentelemetry-exporter-otlp-proto-http",
-    "opentelemetry-instrumentation-asyncio",   # [RUNTIME]: coroutine/to_thread/future trace-context propagation for the worker fabric
+    "opentelemetry-instrumentation-asyncio",   # [RUNTIME]: coroutine/to_thread/future trace-context propagation for the worker crossing
     "opentelemetry-instrumentation-dbapi",     # [RUNTIME]: generic PEP-249 wrap seam for drivers without a dedicated instrumentor (duckdb, ADBC DBAPI)
     "opentelemetry-instrumentation-grpc",      # [RUNTIME]: gRPC server/client span instrumentation for server/serve
     "opentelemetry-instrumentation-httpx",     # [TRANSPORT]: httpx client spans carrying W3C trace context

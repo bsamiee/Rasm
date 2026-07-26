@@ -65,7 +65,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Capability: orientation-true polygon normals become one composed floor capability; the exact axis carrier and the inexact vector stay two owners by decision.
 - Shape: one floor member on `libs/csharp/Rasm/.planning/Numerics/atoms.md`; composition edits on `libs/csharp/Rasm/.planning/Spatial/neighbors.md` (local `NewellNormal` deleted) and `libs/csharp/Rasm/.planning/Parametric/panelize.md`; a derives-from note on `libs/csharp/Rasm/.planning/Numerics/predicates.md`.
 - Unlocks: ring-case Bishop seeding, panel plane fits, and the remesh flip gate read one fold; `Spatial/cloud.md`'s fitted-plane ring normal keeps its winding guard as the deliberate divergent method.
-- Anchors: the folder `RULINGS.md` Newell-owner row; the cured `DominantAxis` five-page collapse as precedent; `predicates.md`'s exact-carrier boundary.
+- Anchors: the folder `RULINGS.md` Newell-owner row; the repaired `DominantAxis` five-page collapse as precedent; `predicates.md`'s exact-carrier boundary.
 
 [CAUSAL_FRAME_CAPSULE]-[QUEUED]: Cross-stratum causal-frame primitives join the kernel signal capsule — every stratum emits receipts through kernel-owned identity, tenancy, and envelope types.
 - Capability: receipt emission stops splitting into two paradigms — the neutral-`Guid`/`string` twins and the L3 value objects collapse onto one kernel-owned causal frame every package names legally.
@@ -88,8 +88,8 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Anchors: `libs/csharp/.planning/RULINGS.md` burn-rate carrier row; the SRE multiwindow discipline both sinks already encode.
 - Ripple: `[CAPSULE_EXTENSION_MINTS]`.
 
-[KERNEL_SIGNAL_FABRIC]-[BLOCKED]: Analysis-runtime charge completes the kernel signal fabric — runtime capability reads join the settled spans, metrics, hooks, cost evidence, and bench ledger.
-- Capability: the analysis-runtime capability read over `Eff.runtime<RT>()` — the last research remnant of the signal fabric restored to settled fences, so analysis effects read their capability from the runtime record.
+[KERNEL_SIGNAL_FABRIC]-[BLOCKED]: Analysis-runtime charge completes the kernel signal plane — runtime capability reads join the settled spans, metrics, hooks, cost evidence, and bench ledger.
+- Capability: the analysis-runtime capability read over `Eff.runtime<RT>()` — the last research remnant of the signal plane restored to settled fences, so analysis effects read their capability from the runtime record.
 - Shape: settled `[03]` fences on `libs/csharp/Rasm/.planning/Analysis/query.md` (runtime charge).
 - Unlocks: analysis pipelines read runtime capability without service location — the last unsettled band of the observability theme closes.
 - Anchors: `libs/csharp/.api/api-languageext.md` runtime rows; the settled span, metric, hook, cost, and bench bands on `Domain/telemetry.md`.

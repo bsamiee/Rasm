@@ -176,7 +176,7 @@ ARTICLE_FRAGMENT = re.compile(r"^\s*(?:[-+*]|\d+[.)])\s+(?:\[[A-Z0-9][A-Z0-9_|]*
 # Sentence boundaries reject article-led voice \u2014 `The` in every case, `A`/`An` where capitalization marks a sentence
 # start; colons, semicolons, and leader dashes retain lowercase continuation.
 SENTENCE_ARTICLE = re.compile(r"^\s*(?:[Tt]he\b|An?\s)|[.!?]\s+(?:[Tt]he\b|An?\s)|[:;\u2013\u2014]\s+(?:The\b|An?\s)")
-# One cure, every article site: the article heads a definition whose subject is not the acting owner; the repair is structural, never a determiner edit.
+# One repair, every article site: the article heads a definition whose subject is not the acting owner; the repair is structural, never a determiner edit.
 ARTICLE_CURE = "; find the actor, seat it as subject under a present-active owning verb; deleting the article or swapping determiners re-heads the same broken clause"
 # Comments obey the same owner-first voice; capitalized A/An marks a sentence start, never a wrapped continuation.
 COMMENT_ARTICLE = re.compile(r"^(?:[Tt]he|An?)\s")
@@ -203,7 +203,7 @@ EXAMPLE_LINE = re.compile(
     r"(?:\s*\([^)]*\))?:"
 )
 # Quote-labeled fields carry defective prose by design and skip every check; guidance-voice fields (Detection/Reason/Reframe/Accepted)
-# skip the register rosters they must name yet still answer the article-opener check — their voice is the skill's own.
+# skip the voice rosters they must name yet still answer the article-opener check — their voice is the skill's own.
 QUOTE_LINE = re.compile(r"^\s*(?:>\s*)?(?:[-+*]|\d+[.)])?\s*\[?(?i:Reject(?:ed)?|Near miss|Banned|Survivors)\]?(?:\s*\([^)]*\))?:")
 # Any-indent fences: list-nested fences open at the item's content column; close indent is bounded at the check site.
 FENCE = re.compile(r"^(?P<indent>[ \t]*)(?P<marker>`{3,}|~{3,})(?P<info>.*)$")
@@ -243,7 +243,7 @@ LIST_ITEM = re.compile(r"^(?P<indent>\s*)(?P<mark>[-+*]|\d+[.)])\s+(?P<body>\S.*
 LIST_LEADER = re.compile(r"^\s*(?:[-+*]|\d+[.)])\s+\[(?:\d{2}(?:\.\d+)?(?:-[A-Z0-9_]+)?|[A-Z0-9_]+|[OX!~ ])\](?:\s+[—-]|[-:]\s*|:)")
 # Invocation-marker leaders weight the imperative following them directly — no colon, no dash — per the formatting standard's closed family.
 INVOCATION_LEADER = re.compile(r"^\s*[-+*]\s+\[(?:ALWAYS|NEVER|IMPORTANT|CRITICAL)\]\s+\S")
-# Record fields `- Field: value` answer to the earned-field law at card altitude; the entry budget binds peer bullets.
+# Record fields `- Field: value` answer to the earned-field law at card tier; the entry budget binds peer bullets.
 FIELD_LINE = re.compile(r"^[A-Z][A-Za-z-]*(?: [A-Za-z-]+){0,2}: \S")
 # Hard-wrap detection: a flush-left prose line whose predecessor is also flush-left prose; structural leads are excluded.
 PLAIN_EXCLUDED = ("#", "-", "*", "+", ">", "|", "<", "=", "[")
@@ -252,7 +252,7 @@ LINK = re.compile(r"(?<!!)\[([^\]\n]+)\]\(((?:[^()\s]|\([^()\s]*\))+)(?:\s+\"[^\
 NUMBERED_SECTION = re.compile(r"^\[(?P<n>\d{2})\]-\[(?P<token>[A-Z][A-Z0-9_]*)\](?:-\[[A-Z][A-Z0-9_]*\])*$")
 PLACEHOLDER = re.compile(r"<[a-z][a-z0-9]*(?:[-_][a-z0-9]+)+>")
 # Agent bodies under `.claude/agents/` are dispatched system prompts: whole-line XML spine tags are structure, never
-# unfilled slots, and the second-person demand voice is the register, so bare `you` leaves the hedge scan there.
+# unfilled slots, and the second-person demand voice is the voice law, so bare `you` leaves the hedge scan there.
 AGENT_SPINE = re.compile(r"^</?[a-z][a-z0-9_]*>\s*$")
 SENTENCE_END = re.compile(r"[.!?](?:\s|$)")
 SETEXT = re.compile(r"^\s*(?:=+|-{3,})\s*$")
@@ -324,10 +324,10 @@ NO_OP_WORD = re.compile(
     r"|blazing|lightning-fast|battle-tested|production-ready|enterprise-grade|next-generation|revolutionary|innovative)\b",
     re.IGNORECASE,
 )
-# Sentence-initial `So` is filler glue delaying the subject; its cure is a recast, never a comma swap. The causal `, so …`
+# Sentence-initial `So` is filler glue delaying the subject; its repair is a recast, never a comma swap. The causal `, so …`
 # join states real consequence law and is the corpus's canonical connector, so only the lead-in form answers here.
 SENTENCE_SO = re.compile(r"(?:^|[.!?]\s+)So\b")
-# AI-register lexemes fail: puffery, significance theater, transition filler, summary tails, and abstract nouns carry zero
+# AI-prose lexemes fail: puffery, significance theater, transition filler, summary tails, and abstract nouns carry zero
 # domain load; each hit is delete-or-reframe. Estate terms `leverage`, `overall`, `therefore`, `thus`, `likewise`, and
 # `backbone` retain concrete stacking, grading, ordering, or spine semantics, so the roster excludes them.
 AI_LEXICON = re.compile(
@@ -341,7 +341,7 @@ AI_LEXICON = re.compile(
 )
 # Copula avoidance warns: an identity claim states is/are/has; a serves-as apposition re-labels the surface without owning its concern.
 COPULA_AVOIDANCE = re.compile(r"\b(?:serves|stands|functions|operates)\s+as\b|\bboasts\b", re.IGNORECASE)
-# Additive filler fails: `plus` pads a clause it never joins. Cure runs shortest-first — delete the word with its comma, folding the tail
+# Additive filler fails: `plus` pads a clause it never joins. Repair runs shortest-first — delete the word with its comma, folding the tail
 # into the clause or a serial list; then `with`, which carries accompaniment; then FANBOYS `and` where a compound subject needs the
 # conjunction; then a precise shorter word where the coinage admits one. Every longer connector costs more characters than the defect.
 # Emphasis casing and quantity sense survive the swap. Hyphen lookarounds spare compound tokens (`delete-plus-create`), read as names.
@@ -382,8 +382,8 @@ SPREAD_FLOOR = 6
 SPREAD_SHARE = 0.5
 SPREAD_WORD = re.compile(r"[a-z]{4,}")
 SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
-# Cure clauses ride each pattern row: the matched span names the defect, the appended clause names the move that
-# clears it at the grain an agent acts on; an empty cure marks a review-adjudicated warn.
+# Repair clauses ride each pattern row: the matched span names the defect, the appended clause names the move that
+# clears it at the grain an agent acts on; an empty repair marks a review-adjudicated warn.
 PATTERNS: tuple[tuple[Check, re.Pattern[str], Status, str], ...] = (
     (Check.HEDGE, HEDGE_WORDS, "fail", "; state the settled fact or delete the sentence"),
     (Check.HEDGE, MARKER_WORDS, "fail", "; open work is a tracked card, never prose"),
@@ -937,7 +937,7 @@ def lex(path: Path, text: str, cap: int) -> tuple[Document, tuple[Row, ...]]:
                         Check.PROSE_BLOAT,
                         "warn",
                         f"paragraph {len(stripped)} chars / {sentence_count} sentences past caps {PROSE_CHAR_CAP}/{PROSE_SENTENCE_CAP};"
-                        " cut 20-30% — kill sediment, tighten phrasing, split only where two concerns separate",
+                        " cut 20-30% — kill restatements, tighten phrasing, split only where two concerns separate",
                     )
                 )
         plain_run = plain
@@ -1167,8 +1167,8 @@ def prose_rows(doc: Document) -> tuple[Row, ...]:
         )
         voiced = QUOTED_SPAN.sub(" ", span.text)
         rows.extend(
-            row(doc.path, span.line, check, status, f"{hit.group(0).lstrip('.!?:; ')}{cure}")
-            for check, pattern, status, cure in PATTERNS
+            row(doc.path, span.line, check, status, f"{hit.group(0).lstrip('.!?:; ')}{repair}")
+            for check, pattern, status, repair in PATTERNS
             for hit in pattern.finditer(voiced)
             if not (check is Check.VERSION_ANCHOR and CITATION_LEAD.search(voiced[: hit.start()]))
             and not (agent and check is Check.HEDGE and hit.group(0).lower() == "you")

@@ -129,7 +129,7 @@ class DerivedSnapshot(Struct, frozen=True):
             for (key, count), offset in zip(runs, offsets, strict=True)
         )
         # independent recomputes drain as bare units under the owner's lane — capacity, deadline, cancellation, and the
-        # drain receipt arrive from the fabric instead of a page-local task-group rig; any casualty fails the refresh
+        # drain receipt arrive from the crossing instead of a page-local task-group rig; any casualty fails the refresh
         # closed with the combined aggregate, because a snapshot that merges survivors over stale priors is mixed-version.
         receipt = await self.lane.drain(Block.of_seq([Admit(bare=partial(self._recompute, delta, partition)) for delta, partition in deltas]))
         return (

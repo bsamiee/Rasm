@@ -7,7 +7,7 @@
 [PACKAGE_SURFACE]: `wasmtime`
 - package: `wasmtime` (Apache-2.0 WITH LLVM-exception)
 - module: `wasmtime`
-- rail: worker fabric
+- rail: worker crossing
 - namespaces: `wasmtime`
 
 ## [02]-[PUBLIC_TYPES]
@@ -66,7 +66,7 @@
 
 [LOCAL_ADMISSION]:
 - wasmtime is the branch's sole guest-sandbox owner; a second WASM runtime, a subprocess-per-guest scheme, or an `exec`-based plugin sandbox is the deleted form.
-- guest modules reach the fabric only as `Kernel.of(wasm_bytes)`; no page constructs an `Engine`, `Store`, or `Instance` beside the workers arm.
+- guest modules reach the crossing only as `Kernel.of(wasm_bytes)`; no page constructs an `Engine`, `Store`, or `Instance` beside the workers arm.
 
 [RAIL_LAW]:
 - Package: `wasmtime`

@@ -6,6 +6,7 @@ conclusion: neutral
 include:
   - "docs/stacks/**"
   - "docs/laws/**"
+  - "docs/glossary/**"
   - "libs/.planning/ARCHITECTURE.md"
   - "libs/.planning/README.md"
   - "tests/contracts/**"

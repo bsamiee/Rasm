@@ -22,10 +22,10 @@ runtime/
 │   ├── serve.py        # gRPC server lifecycle, route roster, capability invoke, and the daemon composition root
 │   ├── shapes.py       # Proto vocabulary and its descriptor drift gate
 │   └── wire.py         # Protobuf transcode, frame legs, and the CRDT-op codec
-├── execution/          # Caller-owned host-fact admission, bounded concurrency, the worker fabric, and recipe execution
+├── execution/          # Caller-owned host-fact admission, bounded concurrency, the worker crossing, and recipe execution
 │   ├── admission.py    # Runtime context, causal frames, and settings admission
 │   ├── lanes.py        # Lane-policy task groups and the stage-plan DAG
-│   ├── workers.py      # Worker fabric: kind family, kernel crossing, warm pools, remote/device arms, the guest sandbox, and supervision
+│   ├── workers.py      # Worker crossing: kind family, kernel value, warm pools, remote/device arms, the guest sandbox, and supervision
 │   └── recipe.py       # Content-keyed recipe execution on the thread lane
 ├── evidence/           # Content-addressing, the seed-parity corpus, and structural-surface evidence
 │   ├── identity.py     # Content identity and key implementing the shared digest contract

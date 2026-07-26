@@ -607,10 +607,10 @@ const ROOT_LAW =
     'absence; a search returning nothing re-runs in its correct form before any conclusion rests on the emptiness.';
 const CONTEXT = (L) => ROOT_LAW + '\n\nRasm monorepo — ' + L.corpus + '. ' + L.strata + ' ' + L.stackFloor;
 
-// Register table — one row set per EXECUTING model, keyed by recon()'s dispatch branch. Substance is identical across rows (burden of proof on the
+// Voice table — one row set per EXECUTING model, keyed by recon()'s dispatch branch. Substance is identical across rows (burden of proof on the
 // work, both naivety axes, illusion hunting, no-churn, second-pass self-verify, findings-never-designs); only phrasing forks: claude carries the
-// estate hostile register, codex the same demands de-conflicted and neutral — probe-measured: the hostile register makes a codex lane over-read,
-// probe out of territory, and spend more input tokens for equal output (the codex skill's prompt-contract law). Register-neutral rows (selfCheck,
+// estate hostile voice, codex the same demands de-conflicted and neutral — probe-measured: the hostile voice makes a codex lane over-read,
+// probe out of territory, and spend more input tokens for equal output (the codex skill's prompt-contract law). Voice-neutral rows (selfCheck,
 // antiAnchor) live once as shared constants — a forked copy is a drift bill with no probe evidence behind it.
 const SELF_CHECK =
     'SELF-VERIFY (second pass, before returning): re-derive every entry from disk — re-open each cited anchor and confirm it ' +
@@ -728,11 +728,11 @@ const PROSE_COMMENTS = (L) =>
     ' bloat.';
 
 // Territory bound for the terminal writers: they carry no READ LAW block of their own, so without this a lane editing
-// markdown design pages with no stated prose register goes and loads one — the docgen bundle, measured at four files
+// markdown design pages with no stated prose voice goes and loads one — the docgen bundle, measured at four files
 // before a repair landed. Instruction files and skill bundles are never inputs to a corpus writer under any root.
 const SCOPE_BOUND =
     'OUT OF SCOPE: instruction files (CLAUDE.md, AGENTS.md, `.claude/` config), skill bundles under ANY root ' +
-    '(`.claude/skills/`, `~/.codex/skills/` — the PROSE block above is the complete register law for this lane, and the ' +
+    '(`.claude/skills/`, `~/.codex/skills/` — the PROSE block above is the complete voice law for this lane, and the ' +
     'docgen bundle is never opened), and the repo-root README. Discovery stays inside the territory this brief names — ' +
     'never `rg --files` or `tree` from the repo root, and a name this brief states is never searched for on disk.';
 const INFO_LAW =

@@ -27,7 +27,7 @@ Every folder composes this cross-domain foundation. Each runtime-composable pack
 - `trio` — Backend `anyio` runs on and the deterministic test kit; a runtime selection, never a code change.
 - `cloudpickle` — Ships closures, lambdas, and module-local kernels across the worker process and subinterpreter seams stdlib pickle refuses.
 - `tblib` — Carries worker-side traceback frames across the pickle seam, so a crossed exception re-raises with its true origin.
-- `loky` — Owns the warm reusable crash-respawning process pool behind the worker fabric's `process` kind.
+- `loky` — Owns the warm reusable crash-respawning process pool behind the worker crossing's `process` kind.
 - `pebble` — Owns terminal deadline enforcement: a wall-clock timeout kills the worker mid-kernel and reclaims the slot.
 
 [OBSERVABILITY]:

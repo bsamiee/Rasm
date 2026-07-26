@@ -44,7 +44,7 @@ Prose describes the artifact's own job, its siblings, the doc-set contract, or a
 
 ## [05]-[TWIN_TRUTH]
 
-One fact carried at more than one altitude or in more than one wording — a seam restated across tiers, a sibling's mechanics re-taught at the consumer, a legal prohibition recited as liturgy on every page of a folder. Each copy is independently mutable; the truth forks on first edit.
+One fact carried at more than one tier or in more than one wording — a seam restated across tiers, a sibling's mechanics re-taught at the consumer, a legal prohibition recited as liturgy on every page of a folder. Each copy is independently mutable; the truth forks on first edit.
 
 - Detection: Flag a key term with a second prose owner, even in agreement; a doctrine on every page of a folder is this class, not diligence.
 - [REJECTED]: The same "a second store is the named defect" clause closing forty pages.
@@ -156,7 +156,7 @@ Law stated as prohibition with the positive rule absent or buried: a lone `never
 
 Prose adopts a foreign authority's posture toward the corpus's own ruled standard: an upstream maturity label (`experimental`, `beta`) on a ruled capability, the ecosystem's default presented as the default here, a fallback or safe alternative named beside the ruling, probationary ceremony on the ruled path, setup caveats the environment already resolves, defect facts arranged as an indictment of the ruling.
 
-- Detection: Flag a register the ruling never produced — a maturity label, a named alternative, selective ceremony, or a foreign-environment caveat attached to a ruled standard; any sentence whose deference points outside the corpus is the generalized tell.
+- Detection: Flag a stance the ruling never produced — a maturity label, a named alternative, selective ceremony, or a foreign-environment caveat attached to a ruled standard; any sentence whose deference points outside the corpus is the generalized tell.
 - [REJECTED]: The engine stays experimental — a diagram ships only after its render is inspected, and the shared renderer is the fallback when a defect bites.
 - [ACCEPTED]: This engine lays out every graph family; an unfit family routes to its own engine truth, and each trap carries its authoring rule.
 - Reason: Maturity labels, defaults, and risk postures are facts about the upstream, never law here; the ruling outranks the source it was mined from.
@@ -194,9 +194,9 @@ Prose restating a rule a deterministic tool already enforces — a gate check, l
 
 ## [20]-[SAME_DECISION_SPREAD]
 
-One decision spread across a passage as near-similar restatements: N sentences in a paragraph or N sibling entries each re-carrying the same ruling in new words, or concept build-up delaying the operative law behind scene-setting that decides nothing. Accumulation reads as emphasis and rots as sediment — every restatement is independently editable, so no spelling stays the law.
+One decision spread across a passage as near-similar restatements: N sentences in a paragraph or N sibling entries each re-carrying the same ruling in new words, or concept build-up delaying the operative law behind scene-setting that decides nothing. Accumulation reads as emphasis and rots into competing spellings — every restatement is independently editable, so no spelling stays the law.
 
-- Detection: Delete all but the strongest sentence or entry; lost law proves distinct decisions, nothing lost proves restatements — a neighbor separating a different failure class or a false-positive discriminator is distinct law, never sediment. TWIN_TRUTH owns the cross-location fork and the register's word economy owns clause-level padding; this class is the intra-passage spread between them.
+- Detection: Delete all but the strongest sentence or entry; lost law proves distinct decisions, nothing lost proves restatements — a neighbor separating a different failure class or a false-positive discriminator is distinct law, never a restatement. TWIN_TRUTH owns the cross-location fork and the voice's word economy owns clause-level padding; this class is the intra-passage spread between them.
 - [REJECTED]: Slices stay small so depth beats breadth. A small slice frees capacity for depth. Freed capacity never funds early finish — it deepens the fix.
 - [ACCEPTED]: Slices stay small so freed capacity deepens the fix, never finishing early.
 - Reason: Four spellings, two decisions: small slices buy depth, freed capacity never funds early finish; the merge keeps both, restatements die.
@@ -242,7 +242,7 @@ Prose closes on a recital of soft reminders — ensure quality, validate, docume
 - Reason: Reminders are paraphrased or skipped under pressure; a gate with an exit signal is executed or visibly failed.
 - Reframe: Replace the tail with the concrete gate invocation, or delete it.
 
-## [25]-[SEDIMENT]
+## [25]-[SCAR_ACCRETION]
 
 Prose accretes one guard per past incident until dead threats outweigh live law — a rule explained only by a failure nothing current still commits.
 
@@ -274,13 +274,13 @@ Header entries enumerate members their detail entries each expand, duplicating t
 
 ## [28]-[REGISTER_FILLER]
 
-Vocabulary carrying zero domain load: a grade word rating a fact the fact already states, an AI-register lexeme or summary tail imported from generic prose, the additive `plus` that joins nothing, and the sentence-initial `So` that delays the subject. Each reads as emphasis and spends a reader's word on nothing; the gate's `no-op-word`, `ai-lexicon`, and `filler-word` checks own the mechanical roster, and a surviving hit marks prose written for effect over law.
+Vocabulary carrying zero domain load: a grade word rating a fact the fact already states, an AI-prose lexeme or summary tail imported from generic prose, the additive `plus` that joins nothing, and the sentence-initial `So` that delays the subject. Each reads as emphasis and spends a reader's word on nothing; the gate's `no-op-word`, `ai-lexicon`, and `filler-word` checks own the mechanical roster, and a surviving hit marks prose written for effect over law.
 
 - Detection: Delete the word and re-read — no law lost proves it filler; a term the corpus owns as domain vocabulary stays legal and off the roster: `robust` predicates, `optimal` collapse, an algebraic `ideal`, `perfect` forwarding, `first-class` packages, `rich` host features, `leverage` as the stacking axis, and the contrastive `rather than`.
 - [REJECTED]: So the resolver is a very powerful component that provides comprehensive support for the batch case.
 - [ACCEPTED]: `Resolver` maps every key, batch included.
 - Reason: Each grade rates a claim the verb already carries; lead-in `So` buries the owner; recovery shortens it as consequence, never goal.
-- Reframe: Delete a grade word outright — no synonym, no softer grade; an AI lexeme deletes or its clause recasts around the owner, and a synonym swap preserving the register is not a repair. Recast a sentence-initial `So` owner-first rather than swapping it for a comma join — it signals voice, not a word defect — while the causal `, so …` join states real consequence law and stays legal.
+- Reframe: Delete a grade word outright — no synonym, no softer grade; an AI lexeme deletes or its clause recasts around the owner, and a synonym swap preserving the voice is not a repair. Recast a sentence-initial `So` owner-first rather than swapping it for a comma join — it signals voice, not a word defect — while the causal `, so …` join states real consequence law and stays legal.
 
 ## [29]-[COMPOUND_REFRAME]
 

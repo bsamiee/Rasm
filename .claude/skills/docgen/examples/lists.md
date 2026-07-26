@@ -29,9 +29,9 @@ One hyphen fusing a law, its mechanism, two consequences, an exception, and an e
 
 ## [02]-[FRAGMENT_PROMOTION]
 
-Entries whose fragments are all load-bearing at this altitude are not bullets: each promotes to a GroupedRecord card with earned fields, never shredded into sibling bullets.
+Entries whose fragments are all load-bearing at this tier are not bullets: each promotes to a GroupedRecord card with earned fields, never shredded into sibling bullets.
 
-- Detection: Flag a single entry carrying three or more co-equal facts about one owner — a shape, its fields, its policy, its receipt — where none governs a sibling and none demotes to a fence, so every fragment must survive at this altitude.
+- Detection: Flag a single entry carrying three or more co-equal facts about one owner — a shape, its fields, its policy, its receipt — where none governs a sibling and none demotes to a fence, so every fragment must survive at this tier.
 - Rejected:
     ```markdown rejected
     - Owner: `Plan` folds the `Work` graph into admission units carrying the pre-minted `key`, the `work` thunk the plan schedules but never invokes, the `parents` upstream keys, the `cost` weight the forward pass sums into earliest-finish, and its `admission` case union, so a node is its key and a dependency is a key edge; the closed `Admission` union selects the lane case (`keyed` the cache-eligible default, `bare` a forced-live one-shot, `retried` a transient offload carrying its class), the `Schedule` computes the critical path once over the graph, and a flat unit list losing the front structure is the deleted form.
@@ -46,7 +46,7 @@ Entries whose fragments are all load-bearing at this altitude are not bullets: e
     - Schedule: Critical path, computed once over the graph.
     ```
 - Reason: These fragments are peer facts about one owner, each earning a field line the cell budget of a bullet forbids; a GroupedRecord keeps every payload greppable under one key where a shredded sibling split strips the owner relation.
-- Reframe: Promote the entry to a `[KEY]:` card with `- Field: value` lines when every fragment is load-bearing at this altitude.
+- Reframe: Promote the entry to a `[KEY]:` card with `- Field: value` lines when every fragment is load-bearing at this tier.
 
 ## [03]-[SHREDDED_SPLIT]
 
@@ -136,7 +136,7 @@ Closed enumerations whose payload is the roster itself are registry entries, leg
 - Detection: Admit an entry over the budget whose body is one closed set of atomic tokens — a banned-word roster, a vocabulary inventory, a code-span registry — carrying no law, mechanism, or consequence between members.
 - Rejected:
     ```markdown rejected
-    - The gate bans hedging: the word should is banned, and could is banned, and would is banned, and might is banned, and maybe is banned, because each softens a settled decision the register forecloses.
+    - The gate bans hedging: the word should is banned, and could is banned, and would is banned, and might is banned, and maybe is banned, because each softens a settled decision the voice forecloses.
     ```
 - Accepted:
     ```markdown accepted
@@ -201,7 +201,7 @@ Child entries nested under a parent that is not their governing rule are peers m
 
 ## [09]-[SAME_DECISION_SIBLINGS]
 
-Sibling entries each re-carrying one decision in different words are sediment wearing a list — the merge-inverse of the shredded split: restatements collapse into one denser entry while every distinct clause survives intact.
+Sibling entries each re-carrying one decision in different words are restatements wearing a list — the merge-inverse of the shredded split: restatements collapse into one denser entry while every distinct clause survives intact.
 
 - Detection: Delete all but the strongest sibling; no law lost proves the run was restatements, and an entry carrying a genuinely distinct decision — a boundary, an exception, a failure law — stays a sibling.
 - Rejected:

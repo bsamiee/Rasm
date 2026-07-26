@@ -390,7 +390,7 @@ const PREAMBLE =
 const ACID =
     'THE ACID TEST — for every prose sentence: does it stay true, unchanged, across any doctrine-conforming rebuild of the fences it accompanies? Prose couples to ' +
     'intent; the fence couples to shape. A sentence whose truth depends on the current fence body is FRAGILE (it drifts when the fence improves); a sentence naming ' +
-    "the current shape is POISON (it walls the next rebuild inside today's design). Both cure the same way: state what the rebuild must preserve, and let the fence " +
+    "the current shape is POISON (it walls the next rebuild inside today's design). Both repair the same way: state what the rebuild must preserve, and let the fence " +
     'own the shape. PROSE-CODE BOUNDARY: prose names owners, code carries mechanism — a prose line names at most the owning symbol as a code span and states its law; ' +
     'signatures, parameter lists, member chains, and option rosters belong to the fence, not prose.';
 
@@ -435,10 +435,10 @@ const ownershipClause = (paths) =>
     'A demotion is UNPROVEN until you open the named owner and confirm it carries EVERY forked member, across ALL candidate owners — not the first that holds part of it; ' +
     'stopping at the first owner both manufactures false over-deletions and misses real forks. Flag a fork against an owner surface as a finding whose direction names that owner.';
 
-// silent-removal and token-trim discipline — shared by the fixer and the red-team; the register bans force-keeping and grades the cut in tokens, not lines alone
+// silent-removal and token-trim discipline — shared by the fixer and the red-team; the voice bans force-keeping and grades the cut in tokens, not lines alone
 const silentAndTrim =
     '\n\nSILENT REMOVAL — never force-keep a line to protect a floor or out of caution. A line whose load already stands elsewhere — the positive law standing, a fence, ' +
-    'a sibling owner, the register itself — is DELETED silently: no tombstone, no "removed X" note, no apologetic pointer minted to stand in for the cut. Keeping weak prose ' +
+    'a sibling owner, the voice itself — is DELETED silently: no tombstone, no "removed X" note, no apologetic pointer minted to stand in for the cut. Keeping weak prose ' +
     '"just in case" is the defect this pass kills; the only survivor is a line whose deletion loses law no other surface holds. A comment the code already shows is deleted ' +
     'whole, not tightened.' +
     '\n\nTRIM TO THE TOKEN — reduction is not line-level alone. Inside every surviving line, cut to the load-bearing words: strip filler, hedges, redundant qualifiers, ' +
@@ -697,7 +697,7 @@ const fixMandate = (f, seed) => {
         f.prose +
         ' lines, comments ' +
         f.comments +
-        ' lines. Also read the nearest ancestor README.md as your register exemplar if one exists — leads that legislate in owning voice, dense with the ' +
+        ' lines. Also read the nearest ancestor README.md as your voice exemplar if one exists — leads that legislate in owning voice, dense with the ' +
         "folder's own vocabulary, zero narration; your leads read as the same hand." +
         '\n\nFINDER FINDINGS for this file' +
         (hasSeed
@@ -723,7 +723,7 @@ const fixMandate = (f, seed) => {
         (tpl || 'the docgen page-shape') +
         '. ' +
         (spec
-            ? 'This is a SPEC page: exactly two strong lead paragraphs at the README exemplar bar — a telos lead (the capability this page owns, its piece in the ' +
+            ? 'This is a SPEC page: exactly two strong lead paragraphs at the README exemplar bar — a charter lead (the capability this page owns, its piece in the ' +
               'folder system, the boundary it holds) and a composition lead (the settled facts a rebuild composes before editing: reused axes, seam obligations, ' +
               'wire names, rails, policy rows); then `## [01]-[INDEX]` (one line per cluster, `- [NN]-[TOKEN]: <hook>`, built when absent, rebuilt when stale); then the ' +
               'cluster sections renumbered contiguously. The terminal RESEARCH section is specified below and is mandatory.'
@@ -742,7 +742,7 @@ const fixMandate = (f, seed) => {
         'delete narration, restatement of fence content, enumeration anchors, deleted-form litanies, process ledger, hedges, meta frames, twin truths, chain restatements; ' +
         'tighten every survivor to the load-bearing-word law. REMOVAL IS THE DEFAULT REPAIR, reframe the exception: a forked, hedged, restated, or chain-bound line is ' +
         'deleted outright — no replacement, no note explaining the removal, and never a substitute `never X` / `not Y` clause minted to stand in for the cut (fresh ' +
-        'NEGATION_ONLY sediment; naming a forbidden form primes its re-emission). The positive law already standing forecloses the removed form. Reframe only where the line ' +
+        'NEGATION_ONLY residue; naming a forbidden form primes its re-emission). The positive law already standing forecloses the removed form. Reframe only where the line ' +
         'carries load no other surface holds.' +
         silentAndTrim +
         versionBanLaw +
@@ -751,9 +751,9 @@ const fixMandate = (f, seed) => {
         '\n\nCOLLAPSE IS A RESTRUCTURE, never a brute-delete: a SAME_DECISION_SPREAD merges pure restatements into the single strongest spelling and keeps every DISTINCT ' +
         'clause as its own clause or entry — only true restatements die, and a neighbor separating a different failure class or carrying a false-positive discriminator is ' +
         'distinct law. A nuance lost in the collapse is the same defect as the accumulation; resolution must rise while lines fall, and a merged form is never a concatenated ' +
-        'mega-entry where a structured container serves. After every fold, re-scan the destination for a fresh twin the fold minted. SEDIMENT: an oversized single list item ' +
+        'mega-entry where a structured container serves. After every fold, re-scan the destination for a fresh twin the fold minted. LIST_BLOAT: an oversized single list item ' +
         'is a compressed section wearing a hyphen — classify its fragments (law, mechanism, consequence, exception, example, duplicate) and route each to its container per ' +
-        'SKILL.md [11]-[REWRITING] [LIST_REPAIR], never shred it into sibling bullets unclassified; a guard justified only by a past failure the current surface, tooling, or agent can ' +
+        'SKILL.md [11]-[REWRITING] [LIST_REPAIR], never shred it into sibling bullets unclassified. SCAR_ACCRETION: a guard justified only by a past failure the current surface, tooling, or agent can ' +
         'no longer commit dies with its dead threat.' +
         '\n\nDEMOTE-VERIFY — capability leaves prose only by PROVEN demotion, and capability loss is the one forbidden move: every decision, invariant, boundary ruling, and ' +
         'trap survives, in fewer words or demoted to the owner that keeps it true. Before a prose copy dies, OPEN the destination owner and confirm it carries EVERY demoted ' +
@@ -773,7 +773,7 @@ const fixMandate = (f, seed) => {
         '2, 2 to 1 wherever the prose fits); re-wrap toward the 150-column cap, lead packed and tail carrying real width; inline a one-line survivor governing one ' +
         'line as its trailing tail. A constraint the code cannot show survives the cut; a section divider is never deleted. The surviving comment count is a ' +
         'consequence of the ladder, not a quota — a page with only load-bearing comments reports a low cut and that is correct.' +
-        '\n\nHONESTY OVER BAND: if an honest full-register rebuild lands outside a band, the register wins — report the true numbers and say why in notes. A padded ' +
+        '\n\nHONESTY OVER BAND: if an honest full-voice rebuild lands outside a band, the voice wins — report the true numbers and say why in notes. A padded ' +
         'count, an invented research row, an unproven demotion recorded verified, or an unrun gate reported clean is a defect worse than a missed band.' +
         (planning
             ? rulingsLaw +
@@ -909,7 +909,7 @@ const redteamMandate = (group) => {
         ownershipClause(paths) +
         '\n\nHUNT WHAT A FIRST PASS ALWAYS MISSES, per file: litter it introduced (a tombstone note explaining its own removal, a substitute `never X` minted for a cut, a fold that ' +
         'left a fresh twin at the destination, a pointer that re-narrates instead of naming its owner, a `## [NN]-[RESEARCH]` section BLANKED to `(none)` or stripped of its `[SLUG]` ' +
-        'settled-law bullets the predecessor mistook for junk rows), weak or bloated survivors it kept out of caution, sediment it softened instead of killing, an imported frame it ' +
+        'settled-law bullets the predecessor mistook for junk rows), weak or bloated survivors it kept out of caution, restatements it softened instead of killing, an imported frame it ' +
         'left standing, and char-level padding under a line band it already hit. Read each file IN FULL before touching it.' +
         '\n\nADJUDICATE WHAT IT REMOVED — the diff`s deleted lines are half the evidence and the half a second pass usually skips: read EVERY line the predecessor cut and rule on it. ' +
         'A cut that dropped a real decision, invariant, boundary ruling, or trap is RESTORED from the baseline; a cut that removed narration, restatement, frame, or hedge STANDS. Any ' +
@@ -1002,7 +1002,7 @@ const verifyMandate = (group) => {
         ownershipClause(paths) +
         '\n\nTHE DIFF IS YOUR ONE LEVER. For each file, diff the HEAD baseline against the current disk state and read the CUMULATIVE change hostilely — two aggressive passes ran over ' +
         'this page and the compounding is where real law dies. Work the DELETED lines hardest: a removal is correct only against evidence. Repair each of five defects in place. ' +
-        '(1) LOST LAW — a decision, invariant, boundary ruling, or trap present in the baseline and absent now, with no proven owner holding it: RESTORE it, rewritten to the register, ' +
+        '(1) LOST LAW — a decision, invariant, boundary ruling, or trap present in the baseline and absent now, with no proven owner holding it: RESTORE it, rewritten to the voice, ' +
         'never pasted back verbatim. (2) UNPROVEN DEMOTION — for every demotion the ledger claims, OPEN the named owner across ALL candidate owners and confirm it carries EVERY demoted ' +
         'member at exact set width; if it does not, restore the law to this page, and watch POINTER-SET-WIDENING (three members demoted to an owner that now implies eight is wrong law). ' +
         '(3) FRESH TWIN — a fold that re-duplicated a rule at its destination: delete the copy at the losing site. (4) RESIDUAL FRAME — read the page as the COLD REBUILD AGENT working ' +

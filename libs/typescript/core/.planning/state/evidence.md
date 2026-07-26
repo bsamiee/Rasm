@@ -83,6 +83,7 @@ declare namespace Receipt {
 - Law: `ReceiptEnvelope.plan` keys by `command` — the per-command receipt table is one plan row, so it runs identically as a pure snapshot, a stream trace, a live handle, or a durable projection; `settled` reads terminality from the `_RANKS` row, never a `_tag` ladder.
 - Law: dedup is structural — `ReceiptEnvelope.alike` is the `Schema.equivalence`-derived equality riding the owner as a static, so two decodes of one wire receipt compare equal under the declaration's own proof, idempotent delivery through the engine's `consolidate` costs nothing here, and a hand-written `Equivalence.struct` beside the Schema owner is a second unverified equality truth.
 - Law: correlating receipts with their produced artifacts at live altitude is `fold#DATAFLOW_VERBS`'s `joined` handle over the command key — never a hand walk over two folded tables.
+- Law: folded receipt tables are derived and hold no authority — receipts arrive as feed entries the journal owns, so a dropped table costs one replay from the retained prefix while a write straight into the table forks the record.
 - Boundary: decode placement and the wire twin are the interchange codec's; `feed#ENTRY_FAMILY` wraps envelopes into feed entries; shells consume the folded table through `fold#MEMORY_LANE` views.
 
 ```typescript signature

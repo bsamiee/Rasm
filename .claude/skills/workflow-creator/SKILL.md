@@ -107,7 +107,7 @@ export const meta = {
 
 `meta.phases[].model` is a dialog label only — the model is set per `agent()` call; a re-tiered phase sets both or the dialog lies. Meta is a selection surface, never a second copy of the prompts: `description` states what the run produces, the args shape, and the phase spine; `whenToUse` is one selection clause; `phases[].detail` names each phase's concept. Law text, consumption protocols, and derived agent tallies live in the prompts and the code — a meta that re-serializes them drifts on every stage edit and buries the contract the dialog exists to show ([22]-[FRAGILE_PROSE]).
 
-Size is never the metric, in meta or in prompts: prose optimizes by density — wording refined per the docgen register until fewer words carry the same guidance — never by dropping guidance the acting agent needs; no gate or script imposes a length cap. Lean-prompt shaping that trims intensifiers and hostile register is codex-lane law (external-lanes reference), never a general bar.
+Size is never the metric, in meta or in prompts: prose optimizes by density — wording refined per the docgen voice until fewer words carry the same guidance — never by dropping guidance the acting agent needs; no gate or script imposes a length cap. Lean-prompt shaping that trims intensifiers and hostile voice is codex-lane law (external-lanes reference), never a general bar.
 
 Then the body: async JavaScript with injected globals — `agent(prompt, opts?)`, `pipeline(items, …stages)`, `parallel(thunks)`, `phase(title)`, `log(msg)`, `console`, `budget`, `args`, `workflow(name, args?)` — and the body's `return` becomes the tool result. Full signatures and the `args` shape map live in the api reference.
 

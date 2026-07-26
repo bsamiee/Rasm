@@ -20,9 +20,9 @@ Caller-owned context and settings admission: one immutable `RuntimeContext` carr
 - Growth: a new context field is one `RuntimeContext` column; a new host integration is one `HOST_ROWS` descriptor and a new bound port one `PROVIDER_ROWS` descriptor; a new feature is one `Feature` case supplied by a provider row; a new killswitch is one `Killswitch` case with one `KILLSWITCH_FEATURE` disabling edge — never a parallel boolean knob; a new attribute dimension is one entry in the `attribute` projection; a new propagated wire format is one row at the telemetry install's composite, reaching `seed` with no edit here.
 - Boundary: no environment probing, host discovery, service-root construction, or global mutable context lives here — deployment shape arrives as one supplied row and this package infers none of it; axis values stay data, so a compile-time assumption, an ambient global, an environment flag, and a fold branching on which product hosts the package are the four deleted forms; `ConsumptionProfile.admit` refuses an unservable axis value with `AxisRefused` naming the axis, so silent degradation and a narrowed public surface never happen; in-host topology carrying no host descriptor refuses on the `host` axis because a consuming application supplies its own row; killswitches ride `RuntimeContext.killswitches` as caller-supplied operational state, never a profile column, so revoking a feature never re-cuts deployment shape; `CausalFrame`/`Hlc`/`Tenant` stay the `clock/clock#CLOCK` owner's records; propagator registration stays the `observability/telemetry#TELEMETRY` install's, this owner reading the global it publishes; each branch spells the roster in its own types, so a peer branch's descriptor rows are never mirrored here row-for-row.
 
-Each `isolation` value names the worker fabric that answers it; `Kernel` selects the `WorkerKind` inside a value and never widens the axis, and an unbound feature refuses on the `isolation` axis rather than silently dropping to a weaker fabric:
+Each `isolation` value names the worker crossing that answers it; `Kernel` selects the `WorkerKind` inside a value and never widens the axis, and an unbound feature refuses on the `isolation` axis rather than silently dropping to a weaker crossing:
 
-| [INDEX] | [ISOLATION] | [FABRIC]                              | [ADMISSION]                  |
+| [INDEX] | [ISOLATION] | [CROSSING]                            | [ADMISSION]                  |
 | :-----: | :---------- | :------------------------------------ | :--------------------------- |
 |  [01]   | `in-proc`   | loop-resident `KernelTrait.INLINE`    | always served                |
 |  [02]   | `thread`    | `WorkerKind.THREAD`, `INTERPRETER`    | always served                |
@@ -125,7 +125,7 @@ KILLSWITCH_FEATURE: Final[Map[Killswitch, Feature]] = Map.of_seq([
     (Killswitch.DISABLE_SECRET_MANAGER, Feature.SECRET_MANAGER),
 ])
 
-# each isolation value names the feature a bound provider must supply before the fabric answering it can
+# each isolation value names the feature a bound provider must supply before the crossing answering it can
 # run; the two loop-resident values need none, so `Nothing` is the served-unconditionally answer.
 ISOLATION_FEATURE: Final[Map[Isolation, Option[Feature]]] = Map.of_seq([
     (Isolation.IN_PROC, Nothing),
@@ -216,7 +216,7 @@ class ConsumptionProfile(Struct, frozen=True):
     @classmethod
     def admit(cls, row: "ConsumptionProfile") -> Result["ConsumptionProfile", AxisRefused]:
         # one axis gate for both open questions: in-host names a host the consumer supplies, and an
-        # isolation value whose fabric feature no provider carries refuses rather than dropping a tier.
+        # isolation value whose crossing feature no provider carries refuses rather than dropping a tier.
         if row.topology is Topology.IN_HOST and row.host is Nothing:
             return Error(AxisRefused(axis=ProfileAxis.HOST, value="none", reason="in-host topology carries no host descriptor row"))
         match ISOLATION_FEATURE[row.isolation]:

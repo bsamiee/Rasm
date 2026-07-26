@@ -219,7 +219,7 @@ Two projection surfaces, both declared in `Rasm.Element`, are the only cross-pac
 
 Materials carries IFC names only as neutral `IfcBinding` row data; Bim never re-derives section geometry or material data; Element never carries a fact only one projector understands. Consumers needing the thing read the graph; consumers needing the IFC meaning read Bim's projection; nothing reads across. Canonical seam surfaces change only through an explicit brief entry naming the owner and the migration.
 
-Signal crosses the strata on one fabric: the OTel-free signal capsule is kernel S0 vocabulary every stratum composes as instances, per-folder fact unions are the only legitimate per-folder signal types, and the app platform alone laces OTel, correlation, tenancy, and host evidence over the composed surface — telemetry leaves the branch opaque on the `[TRANSPORT]` seam.
+Signal crosses the strata on one plane: the OTel-free signal capsule is kernel S0 vocabulary every stratum composes as instances, per-folder fact unions are the only legitimate per-folder signal types, and the app platform alone laces OTel, correlation, tenancy, and host evidence over the composed surface — telemetry leaves the branch opaque on the `[TRANSPORT]` seam.
 
 ```mermaid
 ---
@@ -230,7 +230,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: C# branch signal fabric spine
+    accTitle: C# branch signal plane spine
     accDescr: The kernel signal capsule composing as its own kernel rail and as per-folder fact-union instances, both emitting signal facts into the AppHost governance lacing, and the laced series leaving on the OtelExport transport seam.
     Capsule[Rasm · signal capsule]
     KernelRail[Rasm · SignalRail]

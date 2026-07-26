@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_PEBBLE]
 
-`pebble` owns the terminal-kill worker fabric: `ProcessPool`/`ThreadPool` schedule callables onto recyclable workers, and `ProcessPool.schedule(timeout=)` enforces a wall-clock deadline by KILLING the worker mid-execution — the interruption cooperative `anyio` cancellation cannot express against a native C loop or a blocking syscall. `schedule` and `submit` are two argument spellings over that one kill mechanism; the `concurrent`/`asynchronous` decorators bridge a single call to a fresh worker. It feeds the `WorkerPool` TERMINAL-`PROCESS` arm.
+`pebble` owns the terminal-kill worker crossing: `ProcessPool`/`ThreadPool` schedule callables onto recyclable workers, and `ProcessPool.schedule(timeout=)` enforces a wall-clock deadline by KILLING the worker mid-execution — the interruption cooperative `anyio` cancellation cannot express against a native C loop or a blocking syscall. `schedule` and `submit` are two argument spellings over that one kill mechanism; the `concurrent`/`asynchronous` decorators bridge a single call to a fresh worker. It feeds the `WorkerPool` TERMINAL-`PROCESS` arm.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -8,7 +8,7 @@
 - package: `pebble` (LGPL-3.0)
 - import: `pebble`
 - owner: `runtime`
-- rail: worker fabric
+- rail: worker crossing
 - namespaces: `pebble`, `pebble.concurrent`, `pebble.asynchronous`
 - capability: process/thread worker pools with per-task wall-clock kill-on-deadline, `max_tasks` worker recycling, running-task cancellation, `OSError`-typed worker-death evidence, stdlib-`Executor`-shaped `submit` beside collection-shaped `schedule`, input-order chunked `map`, one-call process/thread decorators over both `concurrent.futures` and `asyncio` futures, and signal-handler/synchronization/wait primitives
 

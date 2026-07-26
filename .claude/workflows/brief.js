@@ -1,7 +1,7 @@
 export const meta = {
     name: 'brief',
     description:
-        'Durable polyglot campaign-brief author over libs/{python,csharp,typescript} planning corpora. args = {targets, upstream, deep, mandate, review, gold} — targets a folder path or an ORDERED array (a waterfall: each later brief consumes every earlier one as finalized law with surgical ripple authority back); upstream = pre-existing finalized brief paths (any language) joining the corpus; deep = true or a target-path subset gaining 2 OSS-ecosystem research lanes; mandate = a scope-expansion law string for all targets or a {targetPath: text} map; review = extra brief paths for the terminal cross-corpus review, or false to skip it; gold = the exemplar brief (default RASM-PY-ARTIFACTS-BRIEF.md). Per target: 5 surveyors (corpus halves + api/manifest tiers + seam/consumer census + cross-folder strata census; +2 deep lanes) all dispatched lanes (surveyors write dossiers, deep lanes add live web search; every lane leaves its dossier + typed report on disk and returns a thin receipt) -> 1 author (a single-phase decision-complete brief that never requires a second document, carrying the bidirectional CROSS_FOLDER enablement section, the section-utility anti-chaff law, and the header campaign law) -> 4 sequential adversarial passes (architecture, capability incl. the cross-folder audit, roster under the integration-first/seal-challenge/package-waterfall laws, cold-read + hedge-kill + chaff-sweep + RIPPLE AUDIT re-verifying every claimed upstream edit on disk). Terminal: when 1+ briefs were produced, 3 sequential review passes (initial/critique/redteam) cross-align the WHOLE corpus in place. Every adversarial refine + review pass carries a required-but-usually-empty harvest attestation; when the pooled nominations are non-empty, ONE terminal doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal). Output naming RASM-<PY|CS|TS>-<NAME>-BRIEF.md.',
+        'Durable polyglot campaign-brief author over libs/{python,csharp,typescript} planning corpora. args = {targets, upstream, deep, mandate, review, gold} — targets a folder path or an ORDERED array (a waterfall: each later brief consumes every earlier one as finalized law with surgical ripple authority back); upstream = pre-existing finalized brief paths (any language) joining the corpus; deep = true or a target-path subset gaining 2 OSS-ecosystem research lanes; mandate = a scope-expansion law string for all targets or a {targetPath: text} map; review = extra brief paths for the terminal cross-corpus review, or false to skip it; gold = the exemplar brief (default RASM-PY-ARTIFACTS-BRIEF.md). Per target: 5 surveyors (corpus halves + api/manifest tiers + seam/consumer census + cross-folder strata census; +2 deep lanes) all dispatched lanes (surveyors write dossiers, deep lanes add live web search; every lane leaves its dossier + typed report on disk and returns a thin receipt) -> 1 author (a single-phase decision-complete brief that never requires a second document, carrying the bidirectional CROSS_FOLDER enablement section, the section-utility law, and the header campaign law) -> 4 sequential adversarial passes (architecture, capability incl. the cross-folder audit, roster under the integration-first/seal-challenge/package-waterfall laws, cold-read + hedge-kill + utility-sweep + RIPPLE AUDIT re-verifying every claimed upstream edit on disk). Terminal: when 1+ briefs were produced, 3 sequential review passes (initial/critique/redteam) cross-align the WHOLE corpus in place. Every adversarial refine + review pass carries a required-but-usually-empty harvest attestation; when the pooled nominations are non-empty, ONE terminal doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal). Output naming RASM-<PY|CS|TS>-<NAME>-BRIEF.md.',
     whenToUse:
         'The standing brief engine: author one brief, or a dependency-ordered waterfall of them, in any language mix, with the cross-corpus review built in. Empty args = no-op.',
 };
@@ -327,7 +327,7 @@ const CROSS_FOLDER_LAW =
     'boundaries — content keys, frozen wire names, entry/receipt ports — never a coupling to a sibling interior; cross-language rows bind at the ' +
     'wire only. A cross-folder row without a named seam is a defect.';
 
-const CHAFF_LAW =
+const UTILITY_LAW =
     'SECTION UTILITY LAW: the brief is LAW the rebuild engine executes directly — it never requires a second document, a follow-up ' +
     "design pass, or a DECISION file. Every section, verdict clause, evidence row, and table row must change the executing agent's behavior; " +
     'boilerplate framing, restated doctrine, generic methodology, empty filler sections, and prose that describes rather than rules are deleted on ' +
@@ -398,7 +398,7 @@ const preOf = (t, corpus, reg) => {
         'to growth). ' +
         CROSS_FOLDER_LAW +
         ' ' +
-        CHAFF_LAW +
+        UTILITY_LAW +
         (corpus.length ? ' CORPUS (finalized briefs, dependency order): ' + JSON.stringify(corpus) + '. ' + RIPPLE_LAW : '') +
         (m ? '\nSCOPE MANDATE (binding): ' + m : '')
     );
@@ -615,7 +615,7 @@ const authorPrompt = (pre, t, out, roster, unmapped) =>
             '/.planning/. GOLD STANDARD: read ' +
             GOLD +
             ' (repo root) COMPLETELY first — match its density, structure, ' +
-            'and law-grade voice. The brief carries: [00]-SHARED_LAW (a VERDICT with independently-fatal proofs anchored file:line; TELOS with the ' +
+            'and law-grade voice. The brief carries: [00]-SHARED_LAW (a VERDICT with independently-fatal proofs anchored file:line; PURPOSE with the ' +
             '5x-consumer bar; STRUCTURAL_AUTHORITY incl. split/merge/move/new-folder freedom; the placement/strata law; GENERATOR_LAW; the seam/entry/' +
             'rail law; roster reconciliation), [01] NUMBERED BINDING VERDICTS (V1..Vn — each a structural ruling with a recommended-shape floor and a ' +
             'ruled default where decidable NOW; a hedge carries its deciding criteria), [02] the EVIDENCE REGISTER (E-rows with file:line anchors + the ' +
@@ -699,7 +699,7 @@ const passPrompts = (pre, brief) => [
             'brief twice, as a first reader and as the most hostile one: cross-reference closure (every verdict <-> evidence row <-> escalation delta ' +
             '<-> package row <-> leg assignment <-> cross-folder row; fix every dangling end); hedge-kill (where "the campaign decides" is decidable ' +
             'NOW, decide it with a ruled default; where genuinely open, verify deciding criteria exist — a two-phase deferral or DECISION-file pointer ' +
-            'is a defect rewritten to a decided verdict); CHAFF SWEEP (delete every section, row, or clause that fails the section utility law); ' +
+            'is a defect rewritten to a decided verdict); UTILITY SWEEP (delete every section, row, or clause that fails the section utility law); ' +
             'executability dry-run ([01]+[05] alone must run without guessing); ' +
             'HEADER check (line 3 carries track order + the invocation + the one constraint). RIPPLE AUDIT: re-verify ON DISK every upstream ' +
             'ripple the author and passes 1-3 claimed — read the upstream brief at the claimed site; a claimed-but-absent edit is APPLIED by you now ' +
@@ -827,7 +827,7 @@ for (let ti = 0; ti < TARGETS.length; ti++) {
                   lane: 'ecosystem-a',
                   focus:
                       "Sweep the OSS ecosystem for the target's CORE domain concerns: the categorical-best owners for capability " +
-                      'the mandate/telos demands, judged against what the roster already admits.',
+                      'the mandate purpose demands, judged against what the roster already admits.',
               },
               {
                   lane: 'ecosystem-b',

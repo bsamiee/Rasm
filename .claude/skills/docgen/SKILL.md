@@ -2,7 +2,7 @@
 name: docgen
 description: >-
     Owns all prose, markdown files and the comments inside source files and fences
-    through a register law, an anti-anchoring rule against rosters, counts, and freezes,
+    through a voice law, an anti-anchoring rule against rosters, counts, and freezes,
     a named defect catalog, file-kind templates, and a deterministic gate and fixer.
     Use when authoring, editing, or reviewing markdown of any kind and comments in
     source files; when designing a document schema or marker vocabulary; when pruning code
@@ -11,7 +11,7 @@ description: >-
 
 # [DOCGEN]
 
-Write every sentence declarative and commanding, never explanatory: open on the imperative verb or the acting owner, state the action as law — prose tells its agent reader what to do, never explains behavior in the abstract. Sentences opening on an article — "A X is...", "The X provides...", and the hidden forms behind leaders: `[<TOKEN>]: a …`, `<term>: the …`, a table cell opening on an article — frame a definition that explains instead of commanding, and no determiner swap, deletion, or recasing repairs that frame: re-derive the fact the sentence carries and re-author it as the demand or owner-voice law. Every agent loading explanatory prose reproduces that register in everything it writes next.
+Write every sentence declarative and commanding, never explanatory: open on the imperative verb or the acting owner, state the action as law — prose tells its agent reader what to do, never explains behavior in the abstract. Sentences opening on an article — "A X is...", "The X provides...", and the hidden forms behind leaders: `[<TOKEN>]: a …`, `<term>: the …`, a table cell opening on an article — frame a definition that explains instead of commanding, and no determiner swap, deletion, or recasing repairs that frame: re-derive the fact the sentence carries and re-author it as the demand or owner-voice law. Every agent loading explanatory prose reproduces that voice in everything it writes next.
 
 Instruction surfaces — skill, standard, template comment, prompt — command the writer in imperative demands; durable content states timeless owner-voice law. Write durable prose as law for an agent that loads it cold: every line changes that agent's next action or poisons it. Give every fact one owner and every line one decision.
 
@@ -23,7 +23,7 @@ Fix prose by silent removal, never by mutation in place: delete the defect whole
 - [01]-[DEFECTS](references/defects.md): defect classes — detection test and reframe per class
 
 [TEMPLATES]: Start a new instance from its kind's template — copy the structure, fill the declared slots:
-- [01]-[IDEAS](templates/ideas.template.md): Idea-card grammar at concept altitude
+- [01]-[IDEAS](templates/ideas.template.md): Idea-card grammar at concept grain
 - [02]-[TASKLOG](templates/tasklog.template.md): Task-card grammar at landing grain
 - [03]-[README](templates/readme.template.md): Exact structure, slots only
 - [04]-[ARCHITECTURE](templates/architecture.template.md): Exact structure, replace only the slots
@@ -37,7 +37,7 @@ Fix prose by silent removal, never by mutation in place: delete the defect whole
 - [03]-[MARKERS](examples/markers.md): Marker crimes and the declared-vocabulary repair
 - [04]-[INTROS](examples/intros.md): Leads that legislate and the rejected frames
 
-## [02]-[REGISTER]
+## [02]-[VOICE]
 
 [OWNING_SUBJECT] — Seat the acting owner as the grammatical subject of every law sentence, under a present-active verb that exercises ownership: mints, owns, folds, routes, drives, binds, derives, admits, rejects. State the total positive claim that forecloses every alternative; a surface that merely `supports`, `offers`, or `provides` is not yet designed.
 
@@ -47,7 +47,7 @@ Fix prose by silent removal, never by mutation in place: delete the defect whole
 
 [LOAD_BEARING_WORD] — Make every word earn its slot and write present active — an owner acts now, never was-acting, will-act, or is-acted-upon. Never trade capability for economy: split a two-decision entry into siblings, never write a longer line.
 
-[ADDITIVE_CURE] — Cure additive filler shortest-first: delete the word and fold the tail into the clause or a serial list; then `with` carrying accompaniment; then FANBOYS `and` where a compound subject needs it; then a precise shorter word. Keep emphasis casing and the sense a quantity phrase carries.
+[ADDITIVE_REPAIR] — Repair additive filler shortest-first: delete the word and fold the tail into the clause or a serial list; then `with` carrying accompaniment; then FANBOYS `and` where a compound subject needs it; then a precise shorter word. Keep emphasis casing and the sense a quantity phrase carries.
 
 [CAPABILITY] — State capability as present-tense owned fact with deep foresight; give an unmodelable capability silence. Reserve future tense for a card growth line and a research item carrying the exact question and its verification route.
 
@@ -61,9 +61,9 @@ Fix prose by silent removal, never by mutation in place: delete the defect whole
 
 [REGENERATION_TEST] — Delete the sentence; when a fresh agent regenerates the fact from disk and stated invariants, keep it deleted or demote it to a fence where structure must show. On an always-loaded surface, also delete every line the agent already obeys — retained rules dilute one another's pull. Regeneration rules out the mirror alone; a surviving fact still answers every defect class.
 
-[ONE_OWNER] — Give every fact one prose owner — a second copy at any altitude forks on first edit — and pick the owner by lifespan: the home outlives the fact, and relocation is a move, the losing surface stripped in the same pass. Interrogate every law sentence for who else binds it — the always-loaded chain, a sibling surface, a deterministic tool. Point with the owner and its one consumed symbol; compose doctrine silently downstream, never re-taught.
+[ONE_OWNER] — Give every fact one prose owner — a second copy at any tier forks on first edit — and pick the owner by lifespan: the home outlives the fact, and relocation is a move, the losing surface stripped in the same pass. Interrogate every law sentence for who else binds it — the always-loaded chain, a sibling surface, a deterministic tool. Point with the owner and its one consumed symbol; compose doctrine silently downstream, never re-taught.
 
-## [04]-[ALTITUDE]
+## [04]-[TIER]
 
 Land every fact at the lowest tier that owns it; hold the higher tier to the one invariant the fact instantiates. Move a sentence one tier down whenever the move loses no governing force over more than one child. Failure runs both ways: prose reaching below its tier freezes mechanism a rebuild must be free to re-derive, and prose floated above its tier dissolves into a platitude no rebuild can act on — delete any sentence whose deletion changes no rebuild.
 
@@ -143,16 +143,16 @@ Arm before reading: rebuilding an existing document is harder than writing fresh
 - Re-derive hardest where source framing matches the first-draft instinct — the match is the anchor's strongest signal, never permission to proceed.
 
 Run every pass touching an existing durable doc in this order:
-1. Load the defect catalog, the register, and the sibling exemplar of the target's kind; read the target as evidence.
+1. Load the defect catalog, the voice, and the sibling exemplar of the target's kind; read the target as evidence.
 2. Keep from the source only facts failing the regeneration test, mechanism whose owner sits here or lower, and open questions becoming tracked items.
-3. Classify every suspect passage against the defect catalog before any fix; an unclassifiable passage is legal register or a new class worth naming.
+3. Classify every suspect passage against the defect catalog before any fix; an unclassifiable passage is legal voice or a new class worth naming.
 4. Author the new document from the exemplar's shape and the extracted payload; consult the source for payload completeness alone.
-5. Move mechanism above its altitude to its owner before the copy dies; split a compound of charter facet and mechanism first, never cut it whole.
+5. Move mechanism above its tier to its owner before the copy dies; split a compound of charter facet and mechanism first, never cut it whole.
 6. Land both ends of every ripple in the same pass — seam counterpart, pointing consumer, registry row; re-scan every fold target for a minted twin.
 
 [TABLE_REPAIR] — Repair a broken table through the moves examples/tables.md owns, never by flattening into prose or bare lists: decide eligibility first, repair in place, and convert a resisting row family last with index, label, and payload intact.
 
-[LIST_REPAIR] — Classify fragments before cutting; fragment class, never length, selects the container: the law stays the bullet, mechanism moves to its fence, a sibling-governing consequence to the lead, a genuine exception to a contract qualifier on the law, and an entry whose fragments are all load-bearing at this altitude promotes to a card with earned fields. Split entries answering different questions into separate containers.
+[LIST_REPAIR] — Classify fragments before cutting; fragment class, never length, selects the container: the law stays the bullet, mechanism moves to its fence, a sibling-governing consequence to the lead, a genuine exception to a contract qualifier on the law, and an entry whose fragments are all load-bearing at this tier promotes to a card with earned fields. Split entries answering different questions into separate containers.
 
 Exit only when the rewrite survives every test — the producer's grade admits, the cold read decides:
 - Cold read: a fresh agent reading only the result cannot reconstruct the source's structure, emphasis, or history.

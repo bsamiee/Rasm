@@ -7,7 +7,7 @@
 [PACKAGE_SURFACE]: `asyncssh`
 - package: `asyncssh` (EPL-2.0 OR GPL-2.0-or-later)
 - module: `asyncssh`
-- rail: transport, worker fabric
+- rail: transport, worker crossing
 - namespaces: `asyncssh`, `asyncssh.connection`, `asyncssh.sftp`, `asyncssh.known_hosts`
 
 ## [02]-[PUBLIC_TYPES]
@@ -58,7 +58,7 @@
 |  [02]   | `read_known_hosts(filelist)`                                                                                          | verify  |
 
 [ENTRYPOINT_SCOPE]: remote-exec crossing
-- rail: worker fabric
+- rail: worker crossing
 - `create_process(command, encoding=None)` keeps both stdio streams binary for the sealed-blob round trip; the session is an async context manager whose exit closes the channel, so a cooperatively abandoned session HUP-reaps the far process.
 
 | [INDEX] | [SURFACE]                                           | [SHAPE]   | [CAPABILITY]                                     |

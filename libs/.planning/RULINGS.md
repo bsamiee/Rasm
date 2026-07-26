@@ -4,7 +4,11 @@
 
 ## [01]-[PACKAGES]
 
-- (none)
+- Package admission runs the bounded-context test — own nouns, own invariants, and a published boundary an unrelated application adopts alone; anything extending a settled vocabulary lands as a row, case, adapter, page, or sub-domain on its owner, and `ARCHITECTURE.md` `[12]-[ADMISSION]` owns the ladder. Host names, provider names, verbs, and size-driven splits name no bounded context, so a package minted on one pushes onto every consumer the fold its owner withholds.
+- Host integration lands as one host-boundary package beside descriptor rows and cases on the domain owners its demands prove — a domain package naming a host couples every consumer of that domain to that host, and a per-host domain package forks the concept the host merely reveals. Generalization pressure arrives with each new host: its nuances widen the owners already holding the concept, and only a concept exclusive to that host earns a bounded context, named for the concept.
+- Branch admission answers reach alone — a target runtime no existing branch reaches earns a branch, and a host scripted in a branch's own language is already reached. Ecosystem preference for a capability an existing branch reaches lands as a package in that branch; minting a branch for it splits one design language across two toolchains and manufactures a contract for every shape that then crosses.
+- Cross-branch names align because the concept is one, spelled in each branch's casing law — a name mirrored into a peer for structural symmetry forks two concepts under one spelling, and a genuinely distinct concept keeps a distinct name. Roster symmetry across branch trees is never the goal, so a branch gains no package to match a peer's shape.
+- Every shape crossing a branch boundary carries a `tests/contracts/MANIFEST.md` entry — convention alignment without one is coincidence that forks on first edit, never interop, and a cross-branch flow claimed on naming and shape parity alone has no conformance proof behind the claim.
 
 ## [02]-[SHAPE]
 
@@ -17,6 +21,7 @@
 - Library tiers stay app-neutral — instrumentation binds the API surface only, and no exporter, SDK wiring, correlation/tenant/host envelope, or ambient sink enters below the composition root; the composing app alone laces cross-cutting evidence — an app-bound library tier couples every consumer to one composition and manufactures per-folder twins of the app's lacing.
 - Columnar-lake query ends ride one Flight SQL plane in every runtime — a per-runtime second query transport re-derives the lake's admission, auth, and typing at every end and drifts them independently; a runtime needing a new query capability extends the one plane's surface, never mints a sidecar transport.
 - Retrieval fusion stays host-local per runtime — the C# store and the typescript data end each fold reciprocal-rank fusion in one database statement, and no cross-language fusion parity or projection seam exists; a ripple sweep seeing the two fusion owners side by side re-proposes the removed cross-runtime projection, the refuted fabrication; the row reopens only if retrieval federation stops being host-local.
+- Append-only log planes own truth and every derived plane carries zero authority — folds, snapshots, traces, cell tables, overlays, and actor configurations accelerate reads and drop at warm-up cost; a shape crossing planes names its truth plane, its rebuild route, and the retention floor below which rebuild fails. Reading a projection as authority turns a dropped accelerator into loss and opens the write-back path folding drift into the log; an owner with no log declares itself ephemeral.
 
 ## [03]-[COLLAPSE]
 

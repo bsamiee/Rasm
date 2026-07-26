@@ -1,6 +1,6 @@
 # [TESTS]
 
-`tests/` is the polyglot proof estate: one adversarial kit per language, per-package suite homes, the live-host scenario rail, and the cross-language contract corpus. Everything under this root exists to falsify production behavior and is rebuilt ground-up the moment a denser shape exists — kits, suites, test libraries, and tooling alike; breaking old tests is never a reason to preserve chaff, and a gate nobody can run is deleted. Settled decisions live in the estate and language-tree `RULINGS.md` registries — read before re-deciding, extended when a decision lacks a durable home.
+`tests/` is the polyglot proof estate: one adversarial kit per language, per-package suite homes, the live-host scenario rail, and the cross-language contract corpus. Everything under this root exists to falsify production behavior and is rebuilt ground-up the moment a denser shape exists — kits, suites, test libraries, and tooling alike; breaking old tests is never a reason to preserve them, and a gate nobody can run is deleted. Settled decisions live in the estate and language-tree `RULINGS.md` registries — read before re-deciding, extended when a decision lacks a durable home.
 
 ## [01]-[LAYOUT]
 

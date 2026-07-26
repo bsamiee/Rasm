@@ -287,7 +287,7 @@ class Setting extends Effect.Service<Setting>()('runtime/Setting', {
 - Law: `Config.withDefault` states ownership of the fallback — default at the row when the owner fixes the value and no consumer distinguishes absent from defaulted; no default when an unset variable must fail the boot; a fallback repeated at read sites marks a default that belonged on the row.
 - Law: shaped rows keep validation at the seam — a `Schema.Config` row arrives branded and bounded, so no regex check, range guard, or parse survives past the resolve; the branded scalar the row admits is the same refinement the owning Schema field carries — one refinement, two admission sites, zero drift; `Config.string` survives only for a genuinely free-form value.
 - Law: the family form is proven by `Setting` itself — the `SERVE` group carries the vocabulary's every member (literal spread from the `_tiers` anchor, `Schema.Config` branded scalar, defaulted structural port) and the `MAIL` group carries the sealed-secret rows; a sibling contract instantiates the identical form under its own namespace, and a second demonstration service beside the real owner is the duplication this page deletes.
-- Owner: `Profile` — the six-axis consumption row a composition root supplies as one canonical-json document on `RUNTIME.PROFILE.ROW`: `tenancy`, `topology`, `lifecycle`, and `isolation` are closed literal unions, `host` and `providers` carry descriptor structs whose rows this branch supplies, and `_fabric` is a mapped type over the isolation union so a new axis value fails the object literal at compile time instead of falling through at runtime. `Profile.topologies` and the `Consumption` type namespace publish those closed rosters branch-wide, so `iac/program/spec` spreads this spelling into `StackSpec` and the branch carries one topology vocabulary.
+- Owner: `Profile` — the six-axis consumption row a composition root supplies as one canonical-json document on `RUNTIME.PROFILE.ROW`: `tenancy`, `topology`, `lifecycle`, and `isolation` are closed literal unions, `host` and `providers` carry descriptor structs whose rows this branch supplies, and `_crossing` is a mapped type over the isolation union so a new axis value fails the object literal at compile time instead of falling through at runtime. `Profile.topologies` and the `Consumption` type namespace publish those closed rosters branch-wide, so `iac/program/spec` spreads this spelling into `StackSpec` and the branch carries one topology vocabulary.
 - Law: deployment shape is data the root states, never a fact the branch infers — an ambient `process.platform` read, a build flag, a bundler condition, and a branch on which product embeds the runtime are the four deleted forms; `Profile.admit` runs inside `Setting`'s own effect, so an unservable axis value fails the boot line beside every `ConfigError` and the graph never half-builds.
 - Law: refusal names the axis — `ProfileRefused` carries `axis`, `value`, and `reason`, matching the deploy plane's own refusal grammar, so a caller reads which of the six coordinates to restate; silent degradation and a narrowed public surface are the two failed forms.
 - Law: this branch answers `in-proc` on the Effect fiber runtime, `thread` through `proc/worker`'s pool, `process` through `proc/exec`'s subprocess spec behind a bound `local-spawn` provider, and `remote` through `net/client` behind a bound `remote-compute` provider; `wasm` refuses outright because no guest runtime hosts foreign bytecode here, and the worker pool nearest it gives thread isolation alone.
@@ -330,7 +330,7 @@ const _Provider = Schema.Struct({
 
 // Mapped over the isolation union, so adding a value to _isolations breaks this literal at compile
 // time: 'served' runs unconditionally, 'unserved' refuses always, a capability gates on a bound row.
-const _fabric: { readonly [K in Consumption.Isolation]: Consumption.Capability | 'served' | 'unserved' } = {
+const _crossing: { readonly [K in Consumption.Isolation]: Consumption.Capability | 'served' | 'unserved' } = {
     'in-proc': 'served',
     thread: 'served',
     process: 'local-spawn',
@@ -380,9 +380,9 @@ class Profile extends Schema.Class<Profile>('runtime/Profile')({
     static readonly admit = (row: Profile): Effect.Effect<Profile, ProfileRefused> =>
         row.topology === 'in-host' && Option.isNone(row.host)
             ? Effect.fail(new ProfileRefused({ axis: 'host', value: 'none', reason: 'in-host topology carries no host descriptor row' }))
-            : _fabric[row.isolation] === 'served' || row.grants.has(_fabric[row.isolation] as Consumption.Capability)
+            : _crossing[row.isolation] === 'served' || row.grants.has(_crossing[row.isolation] as Consumption.Capability)
               ? Effect.succeed(row)
-              : Effect.fail(new ProfileRefused({ axis: 'isolation', value: row.isolation, reason: _fabric[row.isolation] }));
+              : Effect.fail(new ProfileRefused({ axis: 'isolation', value: row.isolation, reason: _crossing[row.isolation] }));
 }
 
 const _profile = Config.nested(

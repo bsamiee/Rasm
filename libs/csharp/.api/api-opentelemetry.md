@@ -234,7 +234,7 @@ Extension verbs list the arguments past their receiver.
 - `System.Diagnostics`(`api-diagnostics-activity.md`) and `System.Diagnostics.Metrics`(`api-diagnostics-metrics.md`): `AddSource` and `AddMeter` subscribe this SDK to the in-box `ActivitySource` and `Meter` names an emitting library mints.
 - `Microsoft.Extensions.Diagnostics`(`api-extensions-diagnostics.md`): its provider-owned `IMeterFactory` scopes same-named meters per load context, so `AddMeter` admits one plugin's streams without touching a co-resident twin.
 - instrumentation packages(`api-otel-instrumentation-*.md`): each `Add*Instrumentation` verb registers a foreign library's emission onto these builders through `AddInstrumentation<T>`.
-- `Rasm.AppHost` `Observability/telemetry`: resource identity, scope naming, and metric naming compose from the wire law that page owns, bound here by the `AddService`, `AddView`, and `SetExemplarFilter` rows.
+- `Rasm.AppHost` `Observability/telemetry`: resource identity, scope naming, and metric naming compose from the observability conformance that page owns, bound here by the `AddService`, `AddView`, and `SetExemplarFilter` rows.
 - Within-lib: one `OpenTelemetrySdk.Create` call folds identity, sampler, view rows, exemplar policy, reader cadence, and the processor chain onto a single root, so a plugin composes its whole telemetry graph in one pass and drains through one handle.
 
 [LOCAL_ADMISSION]:

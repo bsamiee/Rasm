@@ -1,8 +1,10 @@
 # [RASM_WORKSPACE]
 
-Rasm is a polyglot monorepo of independently adoptable library estates. C# carries the Rhino 9/WIP and GH2-aware AEC domain, Python the host-free science, compute, data, geometry, and IFC domain, and TypeScript the host-free web, edge, backend, and deployment domain. Each branch originates, operates, and deploys through its own toolchain, so a single-language application ships with no peer branch present. Apps and plugins are consumers: shared capability lands first in the libraries, never coupled in logic - made as polymorphic and parameterized abstracted functionality to serve the app/source that requires it, but also to serve any future app without app specific coupling in the shape, naming, or structure of the code.
+Rasm carries a platform tier and a product tier: `libs/` holds independently adoptable library estates, and every app, plugin, and service composes them exactly as it takes an external package. Capability lands in the platform first — polymorphic, parameterized, and free of app coupling in shape, naming, or structure — so a product shell declares intent, binds host edges, and emits output.
 
-Cross-language contracts split in two classes. Every branch mints an infrastructure contract from its own inputs, and `tests/contracts/` defines the shape and proves parity across the mints. One producer named by the capability it holds emits a domain contract, and every peer decodes it. `tests/contracts/MANIFEST.md` binds each contract to its class; `libs/.planning/ARCHITECTURE.md` owns the stratification law, the consumption model, the entry-point law, and that class boundary.
+Estates carry the domains they hold: C# the host-bound AEC domain, Python the host-free science, compute, data, geometry, and exchange domain, TypeScript the host-free web, edge, backend, and deployment domain. Each originates, operates, and deploys through its own toolchain, so a single-language application ships with no peer branch present, and a domain widens at its owning branch under one admission ladder.
+
+Cross-language contracts split in two classes. Every branch mints an infrastructure contract from its own inputs, and `tests/contracts/` defines the shape and proves parity across the mints. One producer named by the capability it holds emits a domain contract, and every peer decodes it. `tests/contracts/MANIFEST.md` binds each contract to its class; `libs/.planning/ARCHITECTURE.md` owns the stratification law, the consumption model, the design language, the admission ladder, and that class boundary.
 
 Every `libs/` package is an independently versioned dependency an unrelated application takes exactly as it takes any external package. One branch serves N count of unrelated consumers at once — single-tenant and multi-tenant, in-host and headless, sidecar, companion, standalone, CLI, service and edge — a package assumes no consumer, or sibling set. Deployment shape arrives as data on the axis roster the composition root supplies, and a package unable to serve an axis value refuses at admission with typed evidence.
 
@@ -10,13 +12,16 @@ All `libs/` content powers future apps of every kind — in-host on Rhino 9/WIP 
 
 Review depth: `.coderabbit.yaml`, `.greptile/`, and `.macroscope/` carry the repo's reviewer tone, scope maps, and doctrine-derived guidance; review behavior is tuned there and never duplicated into docs.
 
-## [01]-[TARGET]
+## [01]-[HOSTS]
 
-- [CRITICAL]: Rhino 9/WIP on macOS — the WIP lane IS the Rhino 9 target; NO GH1 `.gha` OR Rhino 8, Windows target:
-- `net10.0` for hosted plugins and shared C# projects.
-- Grasshopper product surfaces through `Grasshopper2`.
-- Yak package output for Mac package roots.
-- Polyglot workspace roots: independent C#, Python, and TypeScript library estates with their own tooling.
+Each host row is `host` axis capability the owning branch supplies; a new host lands as one host-boundary package under `libs/.planning/ARCHITECTURE.md` `[12]-[ADMISSION]`, and the domain packages gain descriptor rows rather than the host's name.
+
+[CRITICAL]: Rhino 9/WIP on macOS, the WIP lane IS the Rhino 9 target; NO GH1 `.gha` OR Rhino 8, Windows target.
+
+| [INDEX] | [HOST]         | [BRANCH] | [SURFACE]                                                           |
+| :-----: | :------------- | :------- | :------------------------------------------------------------------ |
+|  [01]   | Rhino 9/WIP    | C#       | `net10.0` hosted plugins, Yak package output for Mac package roots. |
+|  [02]   | `Grasshopper2` | C#       | GH2 product surfaces; shared C# projects target `net10.0`.          |
 
 ## [02]-[TOPOLOGY]
 
@@ -24,7 +29,7 @@ Review depth: `.coderabbit.yaml`, `.greptile/`, and `.macroscope/` carry the rep
 | :-----: | :------------------- | :----------------------- | :---------------------------------------------------------------------------- |
 |  [01]   | `libs/csharp`        | C# library suite         | Rhino 9/WIP and GH2-aware AEC and host-boundary packages.                     |
 |  [02]   | `libs/python`        | Python library suite     | Host-free science, compute, data, geometry, IFC, and artifact packages.       |
-|  [03]   | `libs/typescript`    | TypeScript library suite | Host-free web/edge platform.                                                  |
+|  [03]   | `libs/typescript`    | TypeScript library suite | Host-free web, edge, runtime, persistence, security, UI, and deployment.      |
 |  [04]   | `tests`              | Polyglot proof surface   | C#, Python, and TypeScript suites plus the cross-language contract corpus.    |
 |  [05]   | `tools/assay`        | Typed operator           | Static, test, bridge, package, code, docs, provision, and API evidence rails. |
 |  [06]   | `tools/rhino-bridge` | Live Rhino owner         | Host lifecycle, scenario execution, cargo, spool, protocol, and evidence.     |
@@ -35,7 +40,7 @@ Review depth: `.coderabbit.yaml`, `.greptile/`, and `.macroscope/` carry the rep
 
 ## [03]-[LIBRARY_OWNERS]
 
-`libs/.planning/ARCHITECTURE.md` owns the stratification law, the consumption axis roster, and the universal-vs-branch-local rule; each branch `ARCHITECTURE.md` owns its package roster, those packages' charters, and their reference direction; `libs/.planning/README.md` contains the branch roles and planning corpus.
+`libs/.planning/ARCHITECTURE.md` owns the stratification law, the consumption axis roster, the universal-vs-branch-local rule, the design language every estate shares, and the admission ladder a new row, adapter, page, sub-domain, package, host boundary, or branch climbs. Each branch `ARCHITECTURE.md` owns its package roster, those packages' charters, and their reference direction; `libs/.planning/README.md` owns the branch roles and the planning corpus standard.
 
 ## [04]-[HOST_RUNTIME]
 

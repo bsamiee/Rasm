@@ -5,9 +5,7 @@ MUST READ: `libs/.planning/RULINGS.md` + `libs/.planning/ARCHITECTURE.md`
 Rasm is in a long-term planning phase, working strictly within spec-sheets, not code files:
 - All `libs/` spec docs are the rebuild surface: rebuilt ground-up each pass, freely and aggressively; always address cross file/folder ripples on landing.
 - `/prime <target>` executes the grounding ladder; never hand-derive the read set.
-- `/custodian` dispatches
-
-Dispatch `infra-custodian` () after any pass editing load-bearing infra.
+- `/custodian`: Dispatch `infra-custodian` () after any pass editing load-bearing infra.
 
 ## [01]-[REQUIRED]
 
@@ -21,19 +19,20 @@ Dispatch `infra-custodian` () after any pass editing load-bearing infra.
 
 [DOC_TOPOLOGY]: Every durable question has one owning surface — consult the owner, never re-derive or guess:
 
-| [INDEX] | [SURFACE]                                   | [OWNS]                                                                          |
-| :-----: | :------------------------------------------ | :------------------------------------------------------------------------------ |
-|  [01]   | `libs/.planning/campaign-method.md`         | Approach standards, quality bar, agent-role law                                 |
-|  [02]   | `libs/.planning/README.md`                  | Doc-set per tier, card schema + lifecycle markers, spec-sheet grammar           |
-|  [03]   | `libs/.planning/ARCHITECTURE.md`            | Stratification law, cross-branch direction, wire seams, `.planning/` lifecycle  |
-|  [04]   | `libs/.planning/RULINGS.md`                 | Cross-libs settled decisions                                                    |
-|  [05]   | `libs/.planning/planning-targets.md`        | Target index across the corpus                                                  |
-|  [06]   | `libs/<language>/.planning/`                | Language-wide doc-set for cross-folder decisions                                |
-|  [07]   | `libs/<language>/<folder>/`                 | Folder doc set at root — core three README/ARCHITECTURE/RULINGS + IDEAS/TASKLOG |
-|  [08]   | `docs/README.md`                            | Doctrine router: `standards/`, `stacks/<language>/`, `laws/`, `atlas/`          |
-|  [09]   | `docs/laws/`                                | Repo maintenance law: edit couplings, cross-branch patterns, regression scars   |
-|  [10]   | `tests/README.md` + `tests/RULINGS.md`      | Proof-estate law — read before any test work                                    |
-|  [11]   | root `README.md` + `tools/<tool>/README.md` | Tool owners, output routing, operator roles                                     |
+| [INDEX] | [SURFACE]                                   | [OWNS]                                                                              |
+| :-----: | :------------------------------------------ | :---------------------------------------------------------------------------------- |
+|  [01]   | `libs/.planning/campaign-method.md`         | Approach standards, quality bar, agent-role law                                     |
+|  [02]   | `libs/.planning/README.md`                  | Doc-set per tier, card schema + lifecycle markers, spec-sheet grammar               |
+|  [03]   | `libs/.planning/ARCHITECTURE.md`            | Stratification law, cross-branch direction, wire seams, `.planning/` lifecycle      |
+|  [04]   | `libs/.planning/RULINGS.md`                 | Cross-libs settled decisions                                                        |
+|  [05]   | `libs/.planning/planning-targets.md`        | Target index across the corpus                                                      |
+|  [06]   | `libs/<language>/.planning/`                | Language-wide doc-set for cross-folder decisions                                    |
+|  [07]   | `libs/<language>/<folder>/`                 | Folder doc set at root — core three README/ARCHITECTURE/RULINGS + IDEAS/TASKLOG     |
+|  [08]   | `docs/README.md`                            | Doctrine router: `standards/`, `stacks/<language>/`, `laws/`, `atlas/`, `glossary/` |
+|  [09]   | `docs/laws/`                                | Repo maintenance law: edit couplings, cross-branch patterns, regression scars       |
+|  [10]   | `docs/glossary/`                            | Binding sense per reused term, and the divergence its `[NOT]` line names            |
+|  [11]   | `tests/README.md` + `tests/RULINGS.md`      | Proof-estate law — read before any test work                                        |
+|  [12]   | root `README.md` + `tools/<tool>/README.md` | Tool owners, output routing, operator roles                                         |
 
 [STANDARDS_ROUTING]: Use the route-owned standard for the file being edited; an HTML artifact routes durable to `docs/atlas/`, temp to `.claude/scratch`:
 

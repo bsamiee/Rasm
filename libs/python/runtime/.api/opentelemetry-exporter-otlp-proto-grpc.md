@@ -48,10 +48,10 @@
 
 [LOCAL_ADMISSION]:
 - One exporter per signal, built at the composition root and handed to the matching SDK processor through the telemetry install's exporter-factory seam.
-- A forking-worker fabric (loky/pebble) stays on proto-http; the gRPC channel dies at `fork()`.
+- Forking-worker crossings (loky/pebble) stay on proto-http; the gRPC channel dies at `fork()`.
 
 [RAIL_LAW]:
 - Package: `opentelemetry-exporter-otlp-proto-grpc`
 - Owns: OTLP span/metric/log egress over a persistent gRPC channel to a `host:port` collector target
 - Accept: the daemon transport row on a long-lived non-forking server, selected through the telemetry install's exporter-factory seam
-- Reject: the estate default (proto-http owns it), selection inside a forking-worker fabric, a library-level import of an exporter class
+- Reject: the estate default (proto-http owns it), selection inside a forking-worker crossing, a library-level import of an exporter class

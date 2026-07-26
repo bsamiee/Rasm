@@ -19,7 +19,7 @@
         },
         {
             "path": "libs/.planning/ARCHITECTURE.md",
-            "description": "Tier-0 topology law: the stratification law every branch answers, contract classes, telemetry wire transcription anchors, the consumption-axis roster deployment shape rides",
+            "description": "Tier-0 topology law: the stratification law every branch answers, contract classes, observability conformance anchors, the consumption-axis roster deployment shape rides",
             "scope": ["libs/**", "libs/.planning/**", "libs/**/.planning/**", "libs/**/.api/**", "tests/contracts/**", "docs/laws/**"]
         },
         {
@@ -31,6 +31,31 @@
             "path": "docs/laws/topology.md",
             "description": "Coupling table a consumer walks and resolves live: which surface obligates which counterparts in one change, self-contained rows plus conditioned cards",
             "scope": ["libs/**", "docs/**", "tests/**", "tools/**", ".claude/**", ".coderabbit.yaml", ".greptile/**", ".macroscope/**"]
+        },
+        {
+            "path": "docs/glossary/README.md",
+            "description": "Glossary corpus router: the entry schema, the [NOT] earn rule, the polysemy refusal law, and the band-admission ladder",
+            "scope": ["**/*.md"]
+        },
+        {
+            "path": "docs/glossary/estate.md",
+            "description": "Binding sense of the structural vocabulary: ownership tiers and units, dependency rank and concern planes, boundary kinds, corpus surfaces, pass verbs, and the words refused bare",
+            "scope": ["**/*.md"]
+        },
+        {
+            "path": "docs/glossary/patterns.md",
+            "description": "Binding sense of the shape vocabulary: code shapes and boundary roles, the algebraic properties a merge claims, replicated-state and logical-time protocols, durable history, and derived views",
+            "scope": ["**/*.md"]
+        },
+        {
+            "path": "docs/glossary/platform.md",
+            "description": "Binding sense of the substrate vocabulary: the telemetry model, its transport and backends, engine classes, schema change, replication, columnar storage, and the execution substrate",
+            "scope": ["**/*.md"]
+        },
+        {
+            "path": "docs/glossary/domain.md",
+            "description": "Binding sense of the discipline vocabulary: the building model, fabrication, drawing, geometry, geospatial reference, and building physics",
+            "scope": ["libs/**", "docs/**"]
         },
         {
             "path": ".claude/skills/docgen/references/defects.md",

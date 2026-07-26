@@ -28,7 +28,7 @@ Yellow sits at OKLCH `0.89 0.139 90` — true gold, clear of the green-adjacent 
 
 ## [02]-[ROLE_MAP]
 
-Every token carries its role on two surfaces: the `themeVariables` that spend it diagram-wide and the `classDef` or `linkStyle` rail that spends it per node and per edge — a token with no rail is unspendable, so every token names both. Same meaning, same token, corpus-wide; a role outside this set composes from the nearest listed role, never a new hex. Rank, tier, and altitude are not color roles: a tiered structure encodes rank by Y-position and subgraph membership, and the ordinal-palette families — `pie*`, `cScale*`, `fillType*`, `git*` — sequence hues as arbitrary category identity only.
+Every token carries its role on two surfaces: the `themeVariables` that spend it diagram-wide and the `classDef` or `linkStyle` rail that spends it per node and per edge — a token with no rail is unspendable, so every token names both. Same meaning, same token, corpus-wide; a role outside this set composes from the nearest listed role, never a new hex. Rank and tier are not color roles: a tiered structure encodes rank by Y-position and subgraph membership, and the ordinal-palette families — `pie*`, `cScale*`, `fillType*`, `git*` — sequence hues as arbitrary category identity only.
 
 [BACKGROUND]:
 - Role: canvas + bright-fill text

@@ -62,7 +62,7 @@ Each index doc opens on its own charter law, then its content. Keep each load-be
 Design pages live at `<pkg>/.planning/<sub-domain>/<page>.md`, one sub-domain folder per eventual source sub-tree, one page per eventual source file. Each page is a decision-complete blueprint an implementation agent transcribes, never a narrative or research log.
 
 - H1 `# [<PKG>_<PAGE>]`; sections `## [k]-[TOKEN]` numbered from 1, section [1] the index of the page's clusters.
-- Leads run two paragraphs: the telos paragraph — the capability the owner owns, its piece in the folder's system, the boundary it holds.
+- Leads run two paragraphs: the charter paragraph — the capability the owner owns, its piece in the folder's system, the boundary it holds.
 - Its composition paragraph carries the settled facts a rebuild composes without re-derivation, present only when the page carries them.
 - Composition facts: reused axes with their owning pages, seam obligations and frozen wire names, admission and receipt rails, policy rows.
 - `[RESEARCH]` is the terminal section: each row is `- [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>`.

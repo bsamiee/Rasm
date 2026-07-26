@@ -24,7 +24,7 @@
 
 ## [04]-[STRUCTURE]
 
-- `workers` stays one module spanning fabric, pool, and supervision — the closed `WorkerKind`/`KernelTrait` vocabulary is the single discriminant all three regions project, and a file split forces that closed vocabulary across a module seam, re-deriving the kind family at three sites.
+- `workers` stays one module spanning crossing, pool, and supervision — the closed `WorkerKind`/`KernelTrait` vocabulary is the single discriminant all three regions project, and a file split forces that closed vocabulary across a module seam, re-deriving the kind family at three sites.
 
 ## [05]-[PROCESS]
 

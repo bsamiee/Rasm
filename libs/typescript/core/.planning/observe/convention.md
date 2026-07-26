@@ -2,15 +2,15 @@
 
 Vocabulary spine of the four-signal plane: every name a telemetry node stamps — attribute key, metric, event, bounded value, instrument row — is a typed row on the one `Convention` owner: semconv constants as literal-typed data, incubating names behind a churn-absorbing alias table, Rasm-owned families minted beside them, and the one `AppIdentity -> Identity` projection parameterizing the plane per app. A new name family is one row in its owning table; a string literal or call-site unit conversion at a signal site is the named defect — the row is the instruction.
 
-Estate wire law rides as rows: dotted `rasm.<domain>.<measure>` metric names under UCUM units, `Convention.scope` as the one instrumentation-scope spelling, and `Convention.wire` pinning `schema_url` and the `NoUTF8EscapingWithSuffixes` translation, so all three runtimes' series stay byte-identical. Cross-language parity with the C# OTLP egress is name-level against the OpenTelemetry spec — this page is the JS-side name source, never a shared artifact. Its module is `core/src/observe/convention.ts`.
+Estate observability conformance rides as rows: dotted `rasm.<domain>.<measure>` metric names under UCUM units, `Convention.scope` as the one instrumentation-scope spelling, and `Convention.wire` pinning `schema_url` and the `NoUTF8EscapingWithSuffixes` translation, so all three runtimes' series stay byte-identical. Cross-language parity with the C# OTLP egress is name-level against the OpenTelemetry spec — this page is the JS-side name source, never a shared artifact. Its module is `core/src/observe/convention.ts`.
 
 ## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]             | [OWNS]                                                                                   |
-| :-----: | :-------------------- | :--------------------------------------------------------------------------------------- |
-|  [01]   | `SEMCONV_ROWS`        | the stable/incubating import law, the value families, the alias seam, the deprecated ban |
-|  [02]   | `RASM_ROWS`           | the project-owned name families spanning the signal, work-plane, and security domains    |
-|  [03]   | `IDENTITY_PROJECTION` | the assembled owner: key census, record contract, identity projection, scope + wire law  |
+| [INDEX] | [CLUSTER]             | [OWNS]                                                                                          |
+| :-----: | :-------------------- | :---------------------------------------------------------------------------------------------- |
+|  [01]   | `SEMCONV_ROWS`        | the stable/incubating import law, the value families, the alias seam, the deprecated ban        |
+|  [02]   | `RASM_ROWS`           | the project-owned name families spanning the signal, work-plane, and security domains           |
+|  [03]   | `IDENTITY_PROJECTION` | the assembled owner: key census, record contract, identity projection, scope + conformance pins |
 
 ## [02]-[SEMCONV_ROWS]
 

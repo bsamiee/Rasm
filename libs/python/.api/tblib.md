@@ -69,7 +69,7 @@
 - `structlog`(`.api/structlog.md`): renders what tblib reconstructs — `processors.format_exc_info` folds the rebuilt `__traceback__` to a string and `processors.dict_tracebacks` to a JSON-safe frame list, a display projection distinct from `Traceback.to_dict`, which alone rebuilds a re-raisable native traceback.
 
 [LOCAL_ADMISSION]:
-- `install()` at process init is the worker-fabric default, making every crossing exception faithful with zero carrier code at the call site; the explicit `Traceback` carrier serves a consumer transporting a traceback as data over `to_dict`/`from_dict` outside the pickle path.
+- `install()` at process init is the worker-crossing default, making every crossing exception faithful with zero carrier code at the call site; the explicit `Traceback` carrier serves a consumer transporting a traceback as data over `to_dict`/`from_dict` outside the pickle path.
 - locals capture stays off unless a fault's frame locals are the diagnostic payload, because one unpicklable local breaks the whole crossing before it inflates any wire form.
 - `from_string` is the last-resort recovery lane when only formatted text survived a boundary; a producer owning the live exception uses the pickle rail or `to_dict`.
 - re-raise is `raise exc.with_traceback(tb.as_traceback())` at the owning boundary, and interior code receives the `Result`/`Option` rail.
@@ -77,5 +77,5 @@
 [RAIL_LAW]:
 - Package: `tblib`
 - Owns: cross-process traceback fidelity — the picklable `Traceback` carrier, dict and stacktrace-string round-trips, native-traceback reconstruction for re-raise, and the process-global `pickling_support.install` latch round-tripping any exception and traceback through pickle
-- Accept: `install()` at worker-fabric init; per-class `install(cls)` or per-instance `install(exc)` over the instance's cause/context/group graph; the explicit `Traceback` carrier for dict/string transport; `raise exc.with_traceback(tb.as_traceback())` at the owning boundary
-- Reject: a hand-rolled traceback serializer; a reconstructed frame treated as live or executable; default-on locals capture across an untrusted crossing; a per-submission install where the fabric-init latch already holds; `from_string` re-parsing over a live exception the pickle rail owns
+- Accept: `install()` at worker-crossing init; per-class `install(cls)` or per-instance `install(exc)` over the instance's cause/context/group graph; the explicit `Traceback` carrier for dict/string transport; `raise exc.with_traceback(tb.as_traceback())` at the owning boundary
+- Reject: a hand-rolled traceback serializer; a reconstructed frame treated as live or executable; default-on locals capture across an untrusted crossing; a per-submission install where the crossing-init latch already holds; `from_string` re-parsing over a live exception the pickle rail owns

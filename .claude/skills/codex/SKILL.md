@@ -100,7 +100,7 @@ Before <anchor>, spawn exactly <N> parallel sub-agents with collaboration.spawn_
 - Chain-of-thought scaffolding and plan-narration preambles.
 - Intensifier stacks ("THOROUGH", "exhaustive") — measured to cause tool over-use.
 - Per-file read caps and "read each file at most once" phrasing.
-- Hostile-stance paragraphs and estate-register law verbatim — a lane takes de-conflicted, task-scoped law.
+- Hostile-stance paragraphs and estate-voice law verbatim — a lane takes de-conflicted, task-scoped law.
 - Broad write authority — the writable directory is the lane's whole world; cross-territory obligations belong to the caller.
 - "Ask if unclear", "you may spawn", and every other permissive form whose imperative twin is the working one.
 

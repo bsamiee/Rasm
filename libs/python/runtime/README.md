@@ -26,7 +26,7 @@
 [EXECUTION]:
 - [14]-[ADMISSION](.planning/execution/admission.md): Runtime context, causal frames, and settings admission.
 - [15]-[LANES](.planning/execution/lanes.md): Lane-policy task groups and the stage-plan DAG.
-- [16]-[WORKERS](.planning/execution/workers.md): Worker fabric — the closed kind family, kernel crossing, warm pools, and supervision.
+- [16]-[WORKERS](.planning/execution/workers.md): Worker crossing — the closed kind family, kernel value, warm pools, and supervision.
 - [17]-[RECIPE](.planning/execution/recipe.md): Content-keyed recipe execution on the thread lane.
 
 [EVIDENCE]:

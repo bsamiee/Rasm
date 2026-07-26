@@ -12,7 +12,7 @@
 
 - Owner: `DfmConcern` and `DfmFeature` close domain vocabulary; `DfmMeasure` and `DfmCriterion` close typed comparison; `DfmRule` parameterizes applicability, evidence obligation, minimum confidence, severity, and remediation; `DfmObservation` preserves measured evidence and provenance.
 - Provenance: `DfmProvenance` owns the evidence-key namespace and the confidence each derivation route earns, so an analytic measurement, a sampled medial axis, and a ray probe are never equally trusted and no lane spells a key literal.
-- Gate: `DfmVerdict.Gates` defers every consequence to `DfmSeverity`, and `DfmPolicy` admission proves each required concern carries a gating rule — the telos that no absent lane reads as conforming holds structurally instead of by outcome-kind override.
+- Gate: `DfmVerdict.Gates` defers every consequence to `DfmSeverity`, and `DfmPolicy` admission proves each required concern carries a gating rule — the invariant that no absent lane reads as conforming holds structurally instead of by outcome-kind override.
 - Routing: `RouteObjective` rows carry their own yield-adjusted measurement and weight selector, so `RouteScore` folds `RouteColumn` values and a new routing dimension is one row with no scoring expression re-spelled.
 - Cases: removal covers access, draft, undercut, feature depth, corner radius, thread, finish, stock, datum, and inspection constraints; additive covers feature size, wall, overhang, bridge, enclosed volume, escape, support removal, recoater, anisotropy, thermal, and integrity constraints; forming covers bend radius, edge and hole distance, flange, hem, draw, grain, tonnage, springback, and thinning constraints; joining covers access, root gap, throat, heat input, distortion, qualification, inspection, and assembly constraints.
 - Entry: `Manufacturability.Assess(DfmRequest)` is the sole cross-modality fold. Geometry, capability, supplied evidence, and assembly allowances join applicatively; kernel failures remain typed `Fin` failures, while producibility failures remain report rows.
@@ -556,7 +556,7 @@ public sealed partial class DfmPolicy {
         bool ownersValid = rules.ForAll(static rule => rule is not null) && candidates.ForAll(static row => row is not null);
         bool rulesReachable = ownersValid && rules.ForAll(rule => rule.Classes.ForAll(cls =>
             candidates.Exists(row => row.Process.Modality.Class == cls && rule.AppliesTo(row))));
-        // A required concern's rule must gate, so DfmVerdict can defer every consequence to severity without weakening the telos.
+        // A required concern's rule must gate, so DfmVerdict can defer every consequence to severity without weakening that invariant.
         bool requiredCovered = ownersValid && candidates.ForAll(row => toSeq(DfmConcern.Items)
             .Filter(concern => concern.Required && concern.AppliesTo(row.Process.Modality.Class))
             .ForAll(concern => rules.Exists(rule => rule.Concern == concern

@@ -102,7 +102,7 @@ Records carry independently scanned items; lists carry peer facts or true sequen
 [INDEXED_LIST] — An indexed list is the three-field alternative to a table: `- [NN]-[LABEL]: Prose.` carries an index for stable reference, a bracketed label for scanning, and one prose clause for the payload. It is not a heading tier and never joins the `#` hierarchy.
 
 - Reach for it when the information is index, label, and prose — and the prose outgrows a cell budget; a genuine fourth field promotes the set to a table, and entries nobody references by position demote to plain bullets.
-- Entries number `[01]` onward in document order; the label is a bracketed uppercase rubric; the prose obeys the register and stays one clause to one short sentence.
+- Entries number `[01]` onward in document order; the label is a bracketed uppercase rubric; the prose obeys the voice and stays one clause to one short sentence.
 - Additions append or renumber consciously — an indexed list another artifact cites by index renumbers only with its citers.
 
 [FIELD_LINES]:
@@ -136,8 +136,8 @@ A type standard narrows this vocabulary only when it declares exact casing, acti
 - Use `-` for bullets; never `*` or `+`. Bullets carry equivalent items; numbered lists carry true sequence; never mix ordered and unordered items in one logical block.
 - A bullet is one atomic entry: one fact, one rule, one member. A bullet whose content is a run of parallel values is a mis-container — either each value takes its own bullet, or the set collapses out of list form entirely.
 - An entry carries one decision in one to two sentences, three at the hard cap; past the cap the entry is hiding a card, a labeled block, or section prose. A law and its mechanism, consequences, and exceptions packed into one bullet is a compressed section wearing a hyphen.
-- Decompress by classifying fragments and routing each to its container: the ruling stays the bullet, a mechanism or signature moves to a fence, a consequence shared with sibling entries rises to the section lead, an example moves to a fence or record, and a fragment a nearer owner already holds dies. A split leaving the fragments as a longer run of sibling bullets has moved the compression, not cured it.
-- Closed enumerations whose payload is the member roster itself — banned-word lists, generated member sets, fault-code ledgers, package rows — are registry entries and legal at length, and a `- Field: value` record field answers to the earned-field law at card altitude, its defect class fragment fusion rather than length; every other entry obeys the budget.
+- Decompress by classifying fragments and routing each to its container: the ruling stays the bullet, a mechanism or signature moves to a fence, a consequence shared with sibling entries rises to the section lead, an example moves to a fence or record, and a fragment a nearer owner already holds dies. A split leaving the fragments as a longer run of sibling bullets has moved the compression, not repaired it.
+- Closed enumerations whose payload is the member roster itself — banned-word lists, generated member sets, fault-code ledgers, package rows — are registry entries and legal at length, and a `- Field: value` record field answers to the earned-field law at card tier, its defect class fragment fusion rather than length; every other entry obeys the budget.
 - A closed token set that is referenced rather than defined rides inline after its group label — ``[SET_LABEL]: `TOKEN_A` `TOKEN_B` `TOKEN_C` `` — one line, no list; the list form is earned only when members carry per-member content.
 - Split lists past seven items into named sets; keep nesting to two levels with four-space child indentation.
 - A complete lead sentence ending in a colon introduces a list with no blank gap; a section may open directly with its primary rule list after the heading blank line.

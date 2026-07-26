@@ -9,24 +9,29 @@ Consumers walk this table and resolve each row live. Transcribing rows into a se
 | [INDEX] | [SURFACE]                                    | [OBLIGATES]                                | [WHY]                                        |
 | :-----: | :------------------------------------------- | :----------------------------------------- | :------------------------------------------- |
 |  [01]   | `docs/stacks/` page, template, or Tier-0 law | every reviewer config                      | reviewer prose derives from the law it binds |
-|  [02]   | `libs/csharp/.planning/ARCHITECTURE.md` edge | `tests/csharp/_architecture` specs         | strata law lands at both ends                |
-|  [03]   | `.claude/skills/` master trees               | sibling-repo skill copies                  | propagation is byte-identical copy           |
-|  [04]   | `CLAUDE.md` fact                             | `AGENTS.md` cross-reference                | one fact serves its acting reader            |
-|  [05]   | `.config/dotnet-tools.json` tool row         | `tools/assay` decompile rails              | manifest tools are assay runtime deps        |
-|  [06]   | workflow codex-lane dispatch shape           | `workflow-creator` and `codex` skills      | canon lives in the owning skill              |
-|  [07]   | `RULINGS.md` tier mint or retirement         | template scope sentence + ingest rosters   | registries ground reviewers per tier         |
-|  [08]   | shape-family template or instance fix        | the template + every sibling instance      | one family holds one shape, whole            |
-|  [09]   | `FaultBand` decade mint or retirement        | every sibling registry's pinned mirror row | disjointness is type-enforced per registry   |
-|  [10]   | `tests/contracts/` seam schema or class row  | every minter and producer the entry names  | class decides who re-proves conformance      |
-|  [11]   | Tier-0 consumption-axis roster row           | each branch admission owner + the fixture  | one roster, three branch spellings           |
-|  [12]   | `libs/.planning/README.md` seam-kind row     | every seam edge label across the corpus    | a closed vocabulary censuses by grep         |
-|  [13]   | design-page cluster anchor rename or retire  | every `MANIFEST.md` field naming it        | manifest anchors resolve on disk             |
+|  [02]   | Tier-0 consumption-axis roster row           | each branch admission owner + the fixture  | one roster, three branch spellings           |
+|  [03]   | Tier-0 `[12]-[ADMISSION]` rung landing       | strata rank, manifest, `.api/`, router row | a rung is one multi-surface fact             |
+|  [04]   | Tier-0 `[11]-[DESIGN_LANGUAGE]` row          | each `docs/stacks/<language>/` spelling    | one invariant carries three spellings        |
+|  [05]   | `libs/csharp/.planning/ARCHITECTURE.md` edge | `tests/csharp/_architecture` specs         | strata law lands at both ends                |
+|  [06]   | `.claude/skills/` master trees               | sibling-repo skill copies                  | propagation is byte-identical copy           |
+|  [07]   | `CLAUDE.md` fact                             | `AGENTS.md` cross-reference                | one fact serves its acting reader            |
+|  [08]   | `.config/dotnet-tools.json` tool row         | `tools/assay` decompile rails              | manifest tools are assay runtime deps        |
+|  [09]   | workflow codex-lane dispatch shape           | `workflow-creator` and `codex` skills      | canon lives in the owning skill              |
+|  [10]   | `RULINGS.md` tier mint or retirement         | template scope sentence + ingest rosters   | registries ground reviewers per tier         |
+|  [11]   | shape-family template or instance fix        | the template + every sibling instance      | one family holds one shape, whole            |
+|  [12]   | `FaultBand` decade mint or retirement        | every sibling registry's pinned mirror row | disjointness is type-enforced per registry   |
+|  [13]   | `tests/contracts/` seam schema or class row  | every minter and producer the entry names  | class decides who re-proves conformance      |
+|  [14]   | `libs/.planning/README.md` seam-kind row     | every seam edge label across the corpus    | a closed vocabulary censuses by grep         |
+|  [15]   | design-page cluster anchor rename or retire  | every `MANIFEST.md` field naming it        | manifest anchors resolve on disk             |
+|  [16]   | glossary term sense mint or divergence       | each surface reusing it as vocabulary      | one sense, many spellings                    |
+|  [17]   | Tier-0 `ARCHITECTURE.md` section rename      | architecture-template spine row            | template generates the instance it names     |
+|  [18]   | `docs/glossary/` band page add or retire     | `.greptile/files.json` + topology-closure  | an unread band governs nothing               |
 
 ## [02]-[CONDITIONED]
 
 [MANIFEST_ADMISSION]:
 - Surface: Central manifest dependency rows — `Directory.Packages.props`, `pyproject.toml`, or `pnpm-workspace.yaml`.
-- Obligates: The folder `README.md` and the `.api/` catalog tiers, because dependency admission is a multi-surface fact.
+- Obligates: Folder `README.md` and the `.api/` catalog tiers, because dependency admission is a multi-surface fact.
 - Law: `Directory.Packages.props` rows also obligate the consuming `.csproj`.
 
 [CATALOG_MEMBER]:
@@ -50,5 +55,5 @@ Consumers walk this table and resolve each row live. Transcribing rows into a se
 
 [INSTRUMENT_ADMISSION]:
 - Surface: Python-producer measure rows — an instrument-name constant with its `_measures` arm, or a geometry `CHARTER` `MeasureRow`.
-- Obligates: The runtime `INSTRUMENTS` counterpart row under the producer's `domain`, and the ts iac dashboard compile leg where a `CHARTER` row names the measure.
+- Obligates: Runtime's `INSTRUMENTS` counterpart row under the producer's `domain`, and the ts iac dashboard compile leg where a `CHARTER` row names the measure.
 - Law: Producers record only spellings the runtime instrument census admits — every new measure lands its `INSTRUMENTS` row in the same change, and the census set-membership gate re-proves drift, never substituting for the edit.
