@@ -31,7 +31,13 @@
 | [INDEX] | [SURFACE]                                                   | [SHAPE] | [CAPABILITY]                                        |
 | :-----: | :---------------------------------------------------------- | :------ | :-------------------------------------------------- |
 |  [01]   | `connect(uri=None) -> AdbcDatabase`                         | factory | low-level SQLite database handle                    |
-|  [02]   | `dbapi.connect(uri=None, **kwargs) -> AdbcSqliteConnection` | factory | DBAPI connection; `**kwargs` forward to the manager |
+|  [02]   | `dbapi.connect(uri=None, **kwargs) -> AdbcSqliteConnection` | factory | DBAPI connection; `**kwargs` reach `Connection.__init__` |
+
+[CONNECT_SHAPE]: `dbapi.connect` binds the database itself and forwards `**kwargs` to `AdbcSqliteConnection.__init__`, NOT to the manager's `connect` — a `db_kwargs=`/`conn_kwargs=` keyword its sibling drivers accept raises `TypeError` here, so the URI is this driver's whole connect surface.
+
+[PARTITION_REACH]: `Cursor.adbc_execute_partitions` answers `NotSupportedError NOT_IMPLEMENTED` on this driver, live-proved; a partitioned read against it refuses at the consumer's reach matrix rather than crossing to the provider.
+
+[CONSUMER]: `tabular/query#QUERY` `_DRIVER` rows `RemoteDriver.SQLITE` at `DriverKind.LOCAL` — the kind whose connect projection is the URI alone — with `(SQLITE, PARTITION)` on its `_REMOTE_REFUSAL` matrix.
 
 - `None`/`:memory:` opens a private in-memory database; a path or `file:` URI opens a local file.
 

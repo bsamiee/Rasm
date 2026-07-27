@@ -27,6 +27,12 @@
 |  [08]   | `currentQueryId`                                              | FiberRef        | query-id correlation coordinate                  |
 |  [09]   | `currentClickhouseSettings`                                   | FiberRef        | fiber-scoped settings coordinate                 |
 
+- `insertQuery<T>({ table, values, format? })` answers `Effect<Clickhouse.InsertResult, SqlError>` and every read answers decoded rows, so NO member on this surface publishes query cost — profile evidence is a second read of `system.query_log` keyed by the statement's id, gated on `SYSTEM FLUSH LOGS query_log` because that log is written asynchronously.
+- `withQueryId` and `withClickhouseSettings` are both `Function.dual` — `(value) => (effect) => effect` beside `(effect, value) => effect` — and each is `Effect.locally` over its `FiberRef`, so the scope is the WHOLE wrapped effect: several statements inside one `withQueryId` file under one log key and lose per-statement attribution.
+- Every execution mode stamps `query_id` — the `query`, `command`, and `insert` arms each pass it — and an unset `currentQueryId` defaults to a fresh `Crypto.randomUUID()`, so a caller that wants to read its own row back supplies the id rather than discovering one.
+- Interruption mints `KILL QUERY WHERE query_id = '<id>'` on the `query`/`command` and `insert` arms alike, so a shared id makes one interrupt kill every sibling statement under that scope.
+- `ClickhouseClientConfig` extends `Clickhouse.ClickHouseClientConfigOptions` with `spanAttributes`, `transformResultNames`, and `transformQueryNames`.
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: constructing the driver Layer

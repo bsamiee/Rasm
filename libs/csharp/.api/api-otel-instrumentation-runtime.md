@@ -33,6 +33,10 @@
 
 [TOPOLOGY]:
 - One registration per meter provider seats the whole CLR series, and `AddMeter("System.Runtime")` is that same admission spelled directly.
+- Both verbs branch on `Environment.Version.Major >= 9` at call time.
+- At and above that floor the call subscribes the inbox `System.Runtime` meter and returns, mounting no package-owned series.
+- Below that floor a package-owned meter carries the `process.runtime.dotnet.*` family under a `generation` tag.
+- `RuntimeInstrumentationOptions` never constructs at the branch runtime floor, so its delegate is unreachable rather than ignored.
 - Every series but `dotnet.exceptions` is an observable read at collection cadence; `dotnet.exceptions` counts on the first-chance hook, so a caught-and-handled throw increments it.
 - Runtime-owned tags key the grain: `dotnet.gc.collections` carries `gc.heap.generation` over the closed generation set, `dotnet.exceptions` carries `error.type` unbounded — the one dimension a view row bounds.
 
@@ -40,7 +44,7 @@
 - `OpenTelemetry`(`api-opentelemetry.md`): one builder row inside `WithMetrics`, where `AddView` shapes or drops a series by meter name or instrument name.
 - `System.Diagnostics.Metrics`(`api-diagnostics-metrics.md`): the runtime mints `System.Runtime` through that surface, so every series obeys its instrument-identity and observable-collection law.
 - `Microsoft.Extensions.Diagnostics.ResourceMonitoring`(`Rasm.AppHost/.api/api-resource-monitoring.md`): `dotnet.process.*` carries raw process CPU time, processor count, and working set; limit-relative container utilization rides that meter alone.
-- `Rasm.AppHost` telemetry spine: `TelemetrySource.SystemRuntime` holds `System.Runtime` as an unminted vocabulary row and the meter fold admits every row key in one `AddMeter` span, so the verb never enters the composition fence.
+- `Rasm.AppHost/Observability/telemetry#TELEMETRY_IDENTITY`: `ForeignSource.SystemRuntime` holds `System.Runtime` as the metric-publishing foreign row — the kernel `TelemetrySource` roster carries minted Rasm scopes alone — and `ForeignSource.Admitting` folds every admitted key into one `AddMeter` span at `#SIGNAL_GOVERNANCE`, so the verb never enters the composition fence.
 
 [LOCAL_ADMISSION]:
 - Each provider wanting CLR series admits `System.Runtime` on its own vocabulary fold; a plugin load context minting its own provider carries its own row.

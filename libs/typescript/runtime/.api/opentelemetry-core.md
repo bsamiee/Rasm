@@ -96,6 +96,8 @@ Timestamp conversion folds one `api.HrTime` `[seconds, nanos]` tuple: a new time
 |  [11]   | `merge` / `BindOnceFuture` / `callWithTimeout` + `TimeoutError` | util            | config-merge, once-shutdown future, deadline wrap |
 |  [12]   | `isUrlIgnored` / `urlMatches` / `unrefTimer`                    | util            | URL-filter predicates, timer unref                |
 
+- `urlMatches(url, pattern)` splits on the pattern's own type: a `RegExp` matches the URL partially, a STRING compares by whole-value equality. `isUrlIgnored` folds a roster under it, and every browser instrumentation's `ignoreUrls` and `propagateTraceHeaderCorsUrls` runs exactly this predicate — so an origin spelled as a string never matches a request URL carrying a path, and a self-exclusion or CORS roster that must cover a prefix carries anchored patterns.
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:

@@ -8,7 +8,7 @@
 - package: `parquet-wasm` (MIT)
 - module: `exports["."]` condition-selects the synchronous `node` build (wasm inlined) against the async `esm`/`bundler` default; `./node`, `./esm`, `./bundler` name each build explicitly
 - runtime: both lanes — the `node` build rides the `@duckdb/node-api` server lane, the async build the `@duckdb/duckdb-wasm` browser lane beside the worker engine
-- rail: `lane/olap` `[06]-[ARROW_WIRE]` at the parquet-at-rest edge — every read decodes to Arrow IPC, every write accepts it
+- rail: `lane/olap` `[08]-[ARROW_WIRE]` at the parquet-at-rest edge — every read decodes to Arrow IPC, every write accepts it
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -25,6 +25,8 @@
 |  [07]   | `ReaderOptions`                       | read shape     | batch/projection/limit read knobs |
 
 - `Table`, `ParquetFile`, `Schema`, `RecordBatch`, and each metadata class are `!Send` heap resources carrying `free()` and `[Symbol.dispose]`; `ParquetMetaData` spans `FileMetaData`, `RowGroupMetaData`, `ColumnChunkMetaData`.
+- `ReaderOptions` carries `batchSize`, `rowGroups`, `limit`, `offset`, `columns`, and `concurrency` — the read-policy row every lazy entry takes, so a scan states its batch grain and its request fan rather than inheriting silent defaults.
+- Members prefixed `into` consume their receiver and members prefixed `to` keep it alive for a later `free()`; `writeParquet` consumes BOTH its table and its writer properties, so the write path leaves nothing to release.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -40,6 +42,10 @@
 |  [06]   | `transformParquetStream(stream, props?)`          | static  | encode a `RecordBatch` stream out  |
 |  [07]   | `Table.fromIPCStream(buf)` / `.intoIPCStream()`   | factory | the `apache-arrow` round-trip seam |
 
+- `ParquetFile.fromUrl(url)` and `.stream(options?)` both answer a `Promise` — `stream` resolves a web `ReadableStream` of this package's own `RecordBatch`, so the lifted form awaits both and never treats either as synchronous.
+- `ParquetFile.fromUrl` reads by RANGE on both builds: opening costs three bounded requests — a suffix range for the footer length, a suffix range for the footer metadata, and one bounded span for the page index — and the stream then draws exactly ONE range request per row group, so a scan pays metadata and the groups it reads, never a whole-object GET.
+- `ReaderOptions.concurrency` bounds range requests in flight at precisely its value on the node build, and `batchSize` splits each row group into ceil(rowGroupRows / batchSize) emitted batches, so both knobs are live on the server lane rather than browser-only.
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
@@ -48,15 +54,17 @@
 [STACKING]:
 - `apache-arrow`(`.api/apache-arrow.md`): read folds `readParquet(bytes).intoIPCStream()` into `tableFromIPC`; write folds `tableToIPC(table, "stream")` into `Table.fromIPCStream(bytes)` then `writeParquet`; `toFFI()`/`intoFFI()` cross the Arrow C Data Interface zero-copy, `toFFI` keeping the source alive for its `free()` and `intoFFI` consuming it.
 - `@duckdb/duckdb-wasm`(`.api/duckdb-duckdb-wasm.md`): lake parquet bytes are content-addressed objects — a read pulls the object then `readParquet`s it, a write hashes the `writeParquet` output into the store, and large objects ride `ParquetFile.fromUrl` range requests with `stream()` so the browser never materializes a whole file.
-- `lane/olap`: writer policy is one `WriterPropertiesBuilder` chain — `setCompression(Compression.ZSTD)`, `setStatisticsEnabled(EnabledStatistics.Page)`, `setMaxRowGroupSize(n)`, `build()` — policy on one owner, never per-call flags; `Olap.lake.read`/`.write`/`.batches`/`.sink` bind `readParquet`/`writeParquet`/`stream`/`transformParquetStream`.
+- `lane/olap`: `Olap.lake` binds this codec at `[08]-[ARROW_WIRE]` — `read`/`schema` fold `readParquet`/`readSchema` through `intoIPCStream` onto `tableFromIPC`, `batches` streams `ParquetFile.stream` range reads, `write` folds `Table.fromIPCStream` into `writeParquet`, and `sink` weights an Arrow batch feed by rows into one object per row group; writer policy is one `_PARQUET` row driving the `WriterPropertiesBuilder` chain, never per-call flags.
+- `lane/olap`: `transformParquetStream` is DECLINED at that owner — its input grain is this package's own `RecordBatch`, reachable from an Arrow batch only through a per-batch round trip whose intermediate container the consumer cannot free, so the weighted-window write buys the same bounded egress with no orphaned handle.
 
 [LOCAL_ADMISSION]:
-- Every wasm handle acquires through `Effect.acquireRelease` releasing `free()`, or `Effect.addFinalizer` over `[Symbol.dispose]`; a `Table` escaping its scope is rejected.
-- Each async build resolves `initWasm()` once at `Layer` construction, proven before any entry; the `node` build skips it, so the lane owner selects the build by runtime, never at the call site.
+- Ownership is per member, never a blanket bracket: `intoIPCStream`, `writeParquet`, and `WriterPropertiesBuilder.build` each call `__destroy_into_raw` and CONSUME their handle, so a release arm around one frees a pointer the call already took; `ParquetFile` outlives its mint and is the container that acquires under `Effect.acquireRelease` releasing `free()`.
+- No container leaves the expression that minted it — bytes and `apache-arrow` values are the only egress, so no linear-memory view crosses a lane seam.
+- Each async build resolves its default initializer once at construction, proven before any entry; the `node` build inlines its wasm and resolves nothing, so the lane owner takes the initializer as a coordinate and no call site branches on runtime.
 - Unbounded lake objects ride `ParquetFile.stream`/`readParquetStream` lifted through `Stream.fromReadableStream`; `readParquet` whole-buffer decode admits only where the object is provably bounded.
 
 [RAIL_LAW]:
 - Package: `parquet-wasm`
 - Owns: engine-free Parquet decode, encode, and the streaming reader/writer at the lake-at-rest edge, round-tripping `apache-arrow` Tables over IPC or the Arrow C Data Interface
-- Accept: the parquet↔Arrow-IPC round-trip, `WriterPropertiesBuilder` policy, `ParquetFile` range-request and stream reads, `FFIStream` zero-copy handoff, scoped `free()` on every handle
-- Reject: a DuckDB or Flight engine booted only to transcode parquet, parquet's own `Table` leaking as a value, an unscoped wasm handle, a second columnar codec, row-object re-encoding between lake and wire
+- Accept: the parquet↔Arrow-IPC round-trip, `WriterPropertiesBuilder` policy as one row, `ParquetFile` range-request and stream reads under a bracket that frees, `FFIStream` zero-copy handoff, a consuming member's handle released by the call itself
+- Reject: a DuckDB or Flight engine booted only to transcode parquet, parquet's own `Table` leaking as a value, a release arm over a handle a consuming member already took, an unbracketed `ParquetFile`, a second columnar codec, row-object re-encoding between lake and wire

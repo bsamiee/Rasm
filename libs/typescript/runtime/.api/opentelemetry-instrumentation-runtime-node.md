@@ -9,7 +9,7 @@
 - base: `RuntimeNodeInstrumentation` extends `@opentelemetry/instrumentation` `InstrumentationBase`; per-series `BaseCollector` implementations register observables against the bound `Meter`
 - backing: `@opentelemetry/api` `Meter`, `@opentelemetry/api-logs` `LoggerProvider` for the exception-log path, node `perf_hooks`/`v8`/`process` as the sample source
 - rail: observability/vitals — node engine interior on the meter plane
-- consumed-by: the node composition root beside the metric-reader row; `otel/emit` binds its `Meter` through `Hooks.Meter`
+- consumed-by: the node composition root beside the metric-reader row; `otel/emit` binds its `Meter` off `Hooks.Meter`'s `provider` member
 - runtime: node only — reads `perf_hooks` monitors and `v8` heap statistics
 
 ## [02]-[PUBLIC_TYPES]

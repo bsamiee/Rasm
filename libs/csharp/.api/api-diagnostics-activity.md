@@ -87,9 +87,12 @@ Every `tags` parameter resolves to `IEnumerable<KeyValuePair<string, object?>>?`
 |  [38]   | `ActivityContext.TryParse(string?, string?, bool, out ActivityContext) -> bool`           | static   | `traceparent` admission          |
 |  [39]   | `ActivityTraceId.CreateRandom() -> ActivityTraceId`                                       | static   | fresh trace identity             |
 |  [40]   | `ActivitySpanId.CreateRandom() -> ActivitySpanId`                                         | static   | fresh span identity              |
-|  [41]   | `TagList(params ReadOnlySpan<KeyValuePair<string, object?>>)`                             | ctor     | stack tag buffer for a write     |
-|  [42]   | `DistributedContextPropagator.Current`                                                    | static   | process propagator seat          |
-|  [43]   | `DistributedContextPropagator.CreateW3CPropagator()`                                      | static   | W3C `traceparent` carrier codec  |
+|  [41]   | `ActivityLink(ActivityContext, ActivityTagsCollection?)`                                  | ctor     | edge mint over a parsed context  |
+|  [42]   | `ActivityLink.Context -> ActivityContext`                                                 | property | linked context read off the edge |
+|  [43]   | `ActivityLink.Tags -> IEnumerable<KeyValuePair<string, object?>>?`                        | property | edge tag set, null when unset    |
+|  [44]   | `TagList(params ReadOnlySpan<KeyValuePair<string, object?>>)`                             | ctor     | stack tag buffer for a write     |
+|  [45]   | `DistributedContextPropagator.Current`                                                    | static   | process propagator seat          |
+|  [46]   | `DistributedContextPropagator.CreateW3CPropagator()`                                      | static   | W3C `traceparent` carrier codec  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -107,9 +110,11 @@ Every `tags` parameter resolves to `IEnumerable<KeyValuePair<string, object?>>?`
 [STACKING]:
 - `System.Diagnostics.Metrics`(`.api/api-diagnostics-metrics.md`): one scope name and version spells both this `ActivitySource` mint and the `Meter` mint, so span and instrument admit together at the composition root.
 - `OpenTelemetry`(`.api/api-opentelemetry.md`): `TracerProviderBuilder.AddSource(params string[])` admits these source names and seats the sampler and processor chain an emitting library never references.
-- `SpanBand`: freezes one `ActivitySource` per `KernelDomain` trace scope, and `Traced` folds `HasListeners`, the `using` open, and `MapFail`-driven `SetStatus` into one `Fin` bracket every measured kernel entry composes.
+- `SpanBand`: freezes one `ActivitySource` per `KernelDomain` trace scope, and `Traced` folds `HasListeners`, the `using` open, and `MapFail`-driven `SetStatus` into one `Fin` bracket every measured kernel entry composes; its trailing `links` carriage reaches the parent-bearing `StartActivity` overload with a DEFAULT `ActivityContext`, which the runtime resolves to `Activity.Current` for both the sampling vote and the parent edge, so a link-free bracket keeps byte-identical parenting.
+- `TraceCarrier`: owns the kernel's one fan-in causal edge — `Of(Activity?)` captures `Activity.Id`/`TraceStateString` where a producing span is live, and `Link(facts)` folds `ActivityContext.TryParse(…, isRemote: true, …)` and an `ActivityTagsCollection` into `Option<ActivityLink>`, so a malformed carrier drops its own edge and never the batch's; `Rasm.AppHost/Wire/outbox#DISPATCH_SWEEP` persists it on `OutboxRow` at enqueue and folds one edge per relayed row into the drain bracket, the estate's one hand-composed link set.
+- `OpenTelemetry.Instrumentation.ConfluentKafka`(`.api/api-otel-instrumentation-confluentkafka.md`): the instrumented consumer owns the producer-to-consumer edge, so a Kafka consume fold composes no `TraceCarrier.Link` of its own — the shipped link is the one edge for that cause.
 - `Rasm.Element`: `ElementPoint.Plane` derives one `TraceScope` per point off the hook id's own `rasm.<pkg>.<domain>` head and `ElementHookRail.Spanned` brackets every decoration in the band, so the package owns no source; `ElementFact.Marks` stamps identifier-grade content keys through `SetTag` on the open span, one slot per semantic because set-or-replace collapses two facts sharing a span.
-- `Rasm.Bim`: `BimPoint.Plane` derives the same way and `BimTelemetry.Traced` stamps caller-supplied identifier-grade marks — `rasm.bim.model` chief among them — post-start, so no mark reaches the sampling verdict and a mark-less call stamps nothing; metric-plane tenancy rides the kernel `TenantContext` projection and span-plane tenancy the app root's baggage promotion, so no emitting page reads a baggage store.
+- `Rasm.Bim`: `BimPoint.Plane` derives the same way and `BimTelemetry.Traced` takes a NULLABLE band — a composition admitting no scope runs the identical rail untraced rather than minting a source its root never disposes — stamping `rasm.bim.model` from its own required argument beside any caller-supplied identifier-grade marks, all post-start, so no stamp reaches the sampling verdict and no Bim span exists unattributed; metric-plane tenancy rides the kernel `TenantContext` projection and span-plane tenancy the app root's baggage promotion, so no emitting page reads a baggage store.
 
 [LOCAL_ADMISSION]:
 - Span opens live inside a package's declared telemetry-spine fence; a library-tier page declares its `TraceScope` rows and the kernel `SpanBand` owns every `StartActivity` call, so only a composition root mints an `ActivitySource`.

@@ -39,6 +39,7 @@
 [TOPOLOGY]:
 - composition-root only — patching `globalThis.XMLHttpRequest` at library altitude double-instruments the host.
 - self-exclusion is mandatory — the collector origin rides `ignoreUrls`, else every export batch mints its own span and the feed traces itself.
+- `ignoreUrls` and `propagateTraceHeaderCorsUrls` both run core's `urlMatches`, which compares a STRING entry to the whole request URL by equality and only a `RegExp` entry partially: a bare collector origin never equals the `/v1/<signal>` URL the exporter posts to, so the exclusion is an anchored pattern and a string entry serves the exact-URL case alone.
 
 [STACKING]:
 - `otel/emit` `web` row: registers inside the `web` SDK configuration, so XHR-span attributes pass its export-boundary redaction processor.

@@ -25,6 +25,12 @@
 |  [05]   | `DuckDBPreparedStatement` | bind surface   | `bind(values, types?)` then run/stream mirrors          |
 |  [06]   | `DuckDBValue`             | cell union     | typed bind/result cell crossing the kernel cast-free    |
 
+- `DuckDBValue` opens on `null | boolean | number | bigint | string` beside the wrapper classes — `DuckDBArrayValue`, `DuckDBBitValue`, `DuckDBBlobValue`, `DuckDBDateValue`, `DuckDBDecimalValue`, `DuckDBGeometryValue`, `DuckDBIntervalValue`, `DuckDBListValue`, `DuckDBMapValue`, `DuckDBStructValue`, the four `DuckDBTimestamp*Value` widths beside `DuckDBTimestampTZValue`, `DuckDBTime*Value`, `DuckDBUnionValue`, `DuckDBUUIDValue`, `DuckDBVariantValue` — so a `VARCHAR` column reads as a JS `string` and a wrapper class carries every type JS holds no primitive for.
+- `getRowObjects(): Record<string, DuckDBValue>[]` keys each row by column name; `convertRowObjects<T>(converter)`, `getRowObjectsJS()`, and `getRowObjectsJson()` are the converted twins, and `getRows`/`getColumns`/`getColumnsObject` carry the same four-way conversion family.
+- `EXPLAIN ANALYZE` under `PRAGMA enable_profiling='json'` answers exactly ONE row of two `VARCHAR` columns — `explain_key` reading `analyzed_plan` and `explain_value` carrying the profile JSON — so a harvest reads the second cell as a string and parses it.
+- That profile tree nests the analyzed plan one level under an `EXPLAIN_ANALYZE` operator the harvest's own statement introduced, and the root's `rows_returned` measures the OUTER statement, so it reads zero on every harvest and returned rows come from the plan root's `operator_cardinality` instead.
+- Root fields are `latency` and `query_name` beside the counter set `cpu_time`, `blocked_thread_time`, `cumulative_cardinality`, `cumulative_rows_scanned`, `result_set_size`, `total_bytes_read`, `total_bytes_written`, `total_memory_allocated`, `system_peak_buffer_memory`, and `system_peak_temp_dir_size`; each child carries `operator_type`, `operator_name`, `operator_timing`, `operator_cardinality`, and `operator_rows_scanned`, and every timing is SECONDS.
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: scoped acquire, execute, stream, and prepared binds

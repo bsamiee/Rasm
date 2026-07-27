@@ -120,7 +120,7 @@
 - `timescaledb`(`.api/api-timescaledb.md`): `time_bucket` groups the samples each aggregate folds, and a `timescaledb.continuous` view materialises the summary column `rollup` later re-aggregates across bucket widths.
 - `npgsql`(`.api/api-npgsql.md`): `NpgsqlDataReader.GetDouble` and `GetFieldValue<Instant>` read every accessor projection; a summary type carries no managed mapping, so the accessor closes server-side before the reader sees a column.
 - `duckdb`(`.api/api-duckdb.md`): `postgres_scan` joins the accessor-projected scalar columns as a columnar leg, the summary types staying inside the server process.
-- `Query/columnar#SERIES_AND_SCALEOUT`: `SeriesLane.Weighted` composes `average(time_weight('linear', at, value))` over raw chunks where the pre-bucketed `SeriesLane.Bucketed` read cannot answer, and the `SeriesKind` row carries the bucket both share.
+- `Query/columnar#ANALYTICS_RESIDENCE`: its Series arm materialises `time_weight` beside `percentile_agg` in the continuous aggregate and `SeriesLane.Bucketed` projects `average`/`approx_percentile` over that state, so a cheap read and `SeriesLane.Weighted`'s raw-chunk fold answer ONE statistic; the `SeriesKind` row carries the bucket both share, and each fold groups by series because `rollup` combines disjoint summaries alone.
 - Within-library composition folds one aggregate into many reads: a single `time_weight` continuous aggregate feeds `average`, `integral`, `first_val`, and `last_val`, and the `interpolated_*` accessor family closes each bucket bound off its `lag`/`lead` neighbour.
 
 [LOCAL_ADMISSION]:

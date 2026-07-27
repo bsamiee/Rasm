@@ -149,6 +149,7 @@ Constructor signatures the table abbreviates as `...`; the numeric and non-numer
 - integer `Meta` bounds must fit int64: a `gt`/`ge`/`lt`/`le` past `2**63 - 1` raises `ValueError` at constraint build, so a full-`uint64` slot carries the `ge=0` floor alone and enforces its ceiling in the producer domain.
 - `UNSET` (an `UnsetType` singleton) and `NODEFAULT` are distinct singletons (`UNSET is NODEFAULT` is `False`): a field typed `T | UnsetType = UNSET` models tri-state presence and round-trips as absent under `omit_defaults`, while `NODEFAULT` surfaces only in `FieldInfo.default`.
 - `gc=False` drops a leaf struct holding only non-container fields from the cyclic GC set, removing per-instance tracking overhead on high-allocation paths; each subclass keyword surfaces on the per-class `structs.StructConfig`.
+- `decimal.Decimal` fields encode to their JSON string and decode back at the SAME scale (`Decimal("12.3400")` survives as `Decimal("12.3400")`, never renormalized), so an exact-decimal policy value crosses the wire without a float hop and a scale a settlement depends on is never silently dropped.
 - `Struct.__struct_config__` recovers the tagged-union discriminant off an instance with no `match` (`.tag` value, `.tag_field` key); `Struct.__struct_fields__` is the declaration-order name tuple, and `structs.fields` returns the richer `FieldInfo` tuple.
 
 [STACKING]:

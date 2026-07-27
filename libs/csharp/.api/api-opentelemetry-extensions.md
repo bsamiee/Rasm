@@ -35,8 +35,10 @@
 |  [04]   | `RateLimitingSampler(int)`                                         | ctor     | mint the per-second head cap                        |
 |  [05]   | `RateLimitingSampler.ShouldSample(in SamplingParameters)`          | instance | verdict carrying `sampler.type` and `sampler.param` |
 
-- `AddAutoFlushActivityProcessor`: registers after every exporter-bound processor.
-- Predicate seats read a throw as false: the baggage key drops and the flush is skipped.
+- `AddAutoFlushActivityProcessor`: registers after every exporter-bound processor, and its `timeoutMilliseconds` admits `[-1, int.MaxValue]` where `Timeout.Infinite` (`-1`) waits indefinitely; anything below throws `ArgumentOutOfRangeException` at registration.
+- Its processor latches OFF permanently the first time it ends a span under a parent provider that is not a `TracerProvider`, so a flush seat mounted on the wrong provider degrades silently rather than faulting — registration through this verb is the only mount that cannot reach that state.
+- Each registration verb WRAPS the caller predicate in the swallow and the processors run that wrapper, never the raw seat, so a throw reads as false — the baggage key drops, the flush is skipped — and the verb logs `BaggageKeyActivityPredicateException`, `BaggageKeyLogRecordPredicateException`, or the flush fault on `OpenTelemetryExtensionsEventSource`.
+- `BaggageActivityProcessor` declares an `internal` constructor, so `AddBaggageActivityProcessor` is its one mint and `AllowAllBaggageKeys` its one reachable member: a composition naming the type reads that predicate or holds the registered instance, never constructs one.
 - `RateLimitingSampler(int maxTracesPerSecond)` throws `ArgumentOutOfRangeException` at or below zero, and its `Description` reads `RateLimitingSampler{<rate:0.00>}` — the string a sampling-posture receipt carries verbatim.
 - Both verdicts stamp `sampler.type` = `ratelimiting` beside `sampler.param` = the rate as a `double`, so a dropped trace and a kept one are distinguishable by decision alone, never by attribute presence.
 
@@ -54,7 +56,7 @@
 - `AddBaggageProcessor`: four overloads, the predicate and predicate-free forms each extending `OpenTelemetryLoggerOptions` and `LoggerProviderBuilder`; a predicate-free overload substitutes the internal allow-all predicate.
 - Log-side promotion exposes no processor type and no `AllowAllBaggageKeys` seat — its `BaggageLogRecordProcessor` is internal, so the predicate-free overload is the only allow-all spelling on the log leg while the span leg reaches `BaggageActivityProcessor.AllowAllBaggageKeys` directly.
 - `AttachLogsToActivityEvent` extends `OpenTelemetryLoggerOptions` alone and returns it for chaining; no `LoggerProviderBuilder` overload exists, so the log-to-event leg composes on the options delegate of `WithLogging`, never its builder delegate.
-- `StateConverter` and `ScopeConverter` default to `DefaultLogStateConverter.ConvertState`/`ConvertScope`, so a composition overriding one seat keeps the shipped projection on the other.
+- `StateConverter` and `ScopeConverter` default to `DefaultLogStateConverter.ConvertState`/`ConvertScope`, so a composition overriding one seat keeps the shipped projection on the other; that converter type is `internal`, so an override REPLACES the shipped projection whole and can neither delegate to it nor wrap it.
 - `Filter` reads a throw as `false` — the record is dropped from the span, never surfaced as a conversion fault.
 
 ## [04]-[IMPLEMENTATION_LAW]

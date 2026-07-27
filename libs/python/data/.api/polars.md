@@ -112,8 +112,10 @@
 |  [23]   | `sql` / `SQLContext` / `sql_expr`                               | run SQL over frames; parse a SQL fragment to `Expr` |
 |  [24]   | `slice` / `head` / `height`                                     | row-offset slice, first-n rows, row count           |
 |  [25]   | `Series.to_frame` / `Series.rename`                             | promote a `Series` to a one-column frame; rename it |
+|  [26]   | `LazyFrame.profile`                                             | collect beside a per-node execution-timing frame    |
 
 - `collect`: `(engine=, optimizations=QueryOptFlags(...), background=False)`; `sink_*` add `partition_by`, `storage_options`, `credential_provider`, `mkdir`, `sync_on_close`.
+- `profile`: `(*, show_plot=False, truncate_nodes=0, figsize=(18, 8), engine='auto', optimizations=QueryOptFlags(...), **opt-toggle kwargs) -> tuple[DataFrame, DataFrame]` — the result frame beside a `{node: String, start: UInt64, end: UInt64}` timing frame whose spans are MICROSECONDS off one monotonic origin, the first row `optimization` and each later row one plan node. It takes the same `engine=` selector `collect` does, so profiling never silently changes which backend ran the query.
 
 [ENTRYPOINT_SCOPE]: expression functions and namespaces
 

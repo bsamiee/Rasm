@@ -56,9 +56,9 @@
 - Every enrichment band is honestly optional at the boundary: `counters` populates only under the `@mitata/counters` addon and process counter access (Linux root, macOS Xcode toolchain), `gc`/`heap` only on a runtime exposing manual GC and heap metrics (`node --expose-gc`, bun); timing fields carry nanoseconds, `heap` bytes.
 
 [STACKING]:
-- `interchange/codec`(`BenchmarkClaimWire`): the wire band decodes `stats` present-or-absent per field; `run({ format: { json: { samples: true } } })` feeds the codec, which pairs the decoded band with `HostFingerprintWire` so a claim compares within one host print.
+- `interchange/codec`(`BenchmarkClaimWire`): `run({ format: { json: { samples: true } } })` feeds the codec, which folds each `stats` rung into the claim band's measured-rung map and pairs the document with `HostFingerprintWire` so a claim compares within one host print; the package computes neither `p95` nor a standard deviation, so those two rungs stay unmeasured on every mitata-minted claim while a C#-side sweep fills them.
 - `observe/board`(bench pack): trends landed claims through a percentile-ladder panel per alias, a GC-timing panel where `gc` is present, and an IPC/cache/branch panel over the counter block; claim-shaped rows ride the shared pack dispatch.
-- `observe/board`(regression fold): a pure fold grades a candidate against the `baseline`-flagged claim per percentile, yielding a gate-read verdict; a cross-fingerprint pair yields the refusal verdict.
+- `observe/board`(regression fold): a pure fold grades a candidate against the `baseline`-flagged claim on the one rung its tolerance names, yielding a gate-read verdict; a cross-fingerprint pair and an unmeasured rung each yield the refusal verdict.
 
 [LOCAL_ADMISSION]:
 - Core imports the `stats` type; the registration/render surface stays in the runtime/tests bench lane, never `scope:core` domain code.
@@ -66,5 +66,5 @@
 [RAIL_LAW]:
 - Package: `mitata`
 - Owns: the benchmark measurement shape — the `stats` percentile ladder, `gc`/`heap` bands, and addon-gated counter block — and the state-free `measure` kernel for raw sampling.
-- Accept: the `stats` record as the wire measurement band; `run({ format: 'json' })` output as the codec feed; every enrichment band as optional; the deep `src/lib.mjs` `measure` for state-free sampling.
+- Accept: the `stats` record as the rung source the wire band folds; `run({ format: 'json' })` output as the codec feed; every enrichment band as optional; the deep `src/lib.mjs` `measure` for state-free sampling.
 - Reject: the module-global registration surface in domain code; comparing claims across differing host fingerprints; assuming an enrichment band present when its addon or runtime capability is absent; tinybench for durable claims, its in-suite vitest timing carrying no counter or GC band.

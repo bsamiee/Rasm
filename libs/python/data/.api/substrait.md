@@ -1,6 +1,6 @@
 # [PY_DATA_API_SUBSTRAIT]
 
-`substrait` mints the standalone typed Substrait plan IR the data branch gates before execution: a protobuf `Plan` model over raw wire bytes, an `ExtensionRegistry` resolving functions by URN and signature, and `type_inference` validating a plan by its inferred output `NamedStruct`. Package owner folds `Plan.ParseFromString`, `infer_plan_schema`, and `ExtensionRegistry.lookup_function` into one admission gate over inbound Persistence plan bytes. `datafusion` and the DuckDB substrait extension exchange this wire `Plan`, so the owner gates the shared artifact rather than either engine's parser.
+`substrait` mints the standalone typed Substrait plan IR the data branch gates before execution: a protobuf `Plan` model over raw wire bytes, an `ExtensionRegistry` resolving functions by URN and signature, and `type_inference` validating a plan by its inferred output `NamedStruct`. Package owner folds `Plan.ParseFromString`, `ExtensionRegistry.lookup_urn`, and `infer_plan_schema` into one admission gate over inbound Persistence plan bytes. `datafusion` and the DuckDB substrait extension exchange this wire `Plan`, so the owner gates the shared artifact rather than either engine's parser.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -39,7 +39,7 @@
 |  [17]   | `proto.Type`                           | type              | Substrait type node (nested `Type.Struct`)                            |
 |  [18]   | `proto.NamedStruct`                    | schema            | field-named struct schema                                             |
 |  [19]   | `proto.Version`                        | version           | plan producer/substrait version stamp                                 |
-|  [20]   | `proto.SimpleExtensionURN`             | extension         | extension-space URN declaration                                       |
+|  [20]   | `proto.SimpleExtensionURN`             | extension         | extension-space declaration — `urn` beside `extension_urn_anchor`     |
 |  [21]   | `proto.SimpleExtensionDeclaration`     | extension         | function/type extension binding                                       |
 |  [22]   | `proto.AdvancedExtension`              | extension         | optimization/enhancement extension payload                            |
 |  [23]   | `extension_registry.ExtensionRegistry` | registry          | extension-YAML/dict loader and function resolver                      |
@@ -63,6 +63,8 @@ Every surface is a `proto.Plan` method: the gate parses untrusted bytes with `Pa
 |  [06]   | `HasField`          | `(field_name: str) -> bool`         | presence probe (peer `WhichOneof(oneof)`)   |
 |  [07]   | `IsInitialized`     | `() -> bool`                        | required-field completeness check           |
 
+[CONSUMER]: `tabular/query#QUERY` `_plan_refusal` parses the inbound `Federation.execute` wire with `ParseFromString` and reads `relations` and `extension_urns` off the parsed message; a `google.protobuf.message.DecodeError` is the `PlanRefusal.UNPARSEABLE` row and an empty `relations` the `NO_RELATION` row.
+
 [ENTRYPOINT_SCOPE]: `type_inference` schema validation
 
 `infer_plan_schema` walks the relation tree and returns the output `NamedStruct`, raising on a malformed or type-inconsistent relation — a returned struct is schema-valid, a raise is the gate's rejection. Peers infer at each altitude.
@@ -76,9 +78,11 @@ Every surface is a `proto.Plan` method: the gate parses untrusted bytes with `Pa
 |  [05]   | `infer_nested_type`                | `(nested: Expression.Nested, parent_schema) -> Type` | infer a nested (list/map/struct) type   |
 |  [06]   | `infer_extended_expression_schema` | `(ee: ExtendedExpression) -> Type.Struct`            | infer an extended-expression schema     |
 
+[CONSUMER]: `tabular/query#QUERY` `_plan_refusal` calls `infer_plan_schema` as the last admission step and reads the raise alone, which arrives as a bare `Exception` for every unhandled relation and type shape alike — so the catch is as wide as this surface raises, and a successful inference is the `UNTYPED_OUTPUT` row not firing.
+
 [ENTRYPOINT_SCOPE]: `ExtensionRegistry` function resolution and extension loading
 
-`ExtensionRegistry(load_default_extensions=True)` loads the bundled simple-extension YAMLs at construction; `register_extension_yaml`/`register_extension_dict` add custom definitions. `lookup_function` resolves a `(urn, name, signature)` triple to a `(FunctionEntry, Type)` pair or `None` — a `None` rejects a plan referencing an unresolved function.
+`ExtensionRegistry(load_default_extensions=True)` loads the bundled simple-extension YAMLs at construction; `register_extension_yaml`/`register_extension_dict` add custom definitions. `lookup_urn` maps one declared extension space to its anchor or `None`, which is the resolution a gate over `Plan.extension_urns` reads; `lookup_function` resolves a `(urn, name, signature)` triple to a `(FunctionEntry, Type)` pair or `None`, the finer overload check a walk over `Plan.extensions` earns.
 
 | [INDEX] | [SURFACE]                    | [CALL_SHAPE]                                                   | [CAPABILITY]                           |
 | :-----: | :--------------------------- | :------------------------------------------------------------- | :------------------------------------- |
@@ -89,6 +93,12 @@ Every surface is a `proto.Plan` method: the gate parses untrusted bytes with `Pa
 |  [05]   | `list_functions`             | `(urn, name, sig) -> list[(FunctionEntry, Type)]`              | enumerate overloads within a URN       |
 |  [06]   | `list_functions_across_urns` | `(name, sig) -> list[(FunctionEntry, Type)]`                   | enumerate overloads across URNs        |
 |  [07]   | `lookup_urn`                 | `(urn: str) -> int \| None`                                    | map a URN to its extension anchor      |
+
+[CONSUMER]: `tabular/query#QUERY` holds one default-loaded `_REGISTRY` and resolves every `extension_urns` entry through `lookup_urn`, a `None` answering the `PlanRefusal.UNKNOWN_EXTENSION` row; an estate function vocabulary beyond the bundled set registers there once through `register_extension_yaml`, so every inbound plan reads one vocabulary. `lookup_function` stays unbound: the gate resolves the extension SPACE a plan declares, and resolving each function overload needs the `(name, signature)` pair only a declaration walk carries.
+
+[CONSUMER]: `tabular/query#QUERY` `_plan_provenance` re-reads `extension_urns` on the admitted plan and lands each `SimpleExtensionURN.urn` as a `("substrait-urn", urn)` lineage edge on the `QueryReceipt`, so the foreign producer's function vocabulary survives the gate that resolved it.
+
+[EXTENSION_SCHEMA_SKEW]: this installed distribution carries the URN-era extension schema and no URI-era field survives beside it — `Plan.extension_urns` sits at field 8 over `SimpleExtensionURN { extension_urn_anchor = 1, urn = 2 }`, field 1 is unassigned, and each `SimpleExtensionDeclaration` nested row (`ExtensionType`, `ExtensionTypeVariation`, `ExtensionFunction`) back-references its space through `extension_urn_reference` at field 4. Producers still minting the retired `extension_uris` at field 1 with `extension_uri_reference` at field 1 therefore parse CLEAN: proto3 files both retired fields into the unknown set, `extension_urns` reads empty, and every declaration's reference reads the 0 default. `libs/csharp/Rasm.Persistence/.api/api-flowtide-substrait.md` records the producer end that does exactly this, so `tabular/query#QUERY` refuses declarations-without-spaces on its own `RETIRED_EXTENSION_SCHEMA` row ahead of the resolution check, which a vacuous empty list otherwise passes.
 
 [ENTRYPOINT_SCOPE]: `builders.plan` relation construction
 
@@ -146,15 +156,15 @@ Every `builders.plan` surface returns `Callable[[ExtensionRegistry], Plan]` — 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- One admission gate folds three checks over inbound bytes: `proto.Plan.ParseFromString` structural parse first, `type_inference.infer_plan_schema` type-check second (a returned `NamedStruct` is valid, a raise is rejection), `ExtensionRegistry.lookup_function` reference resolution third (a `None` rejects); a decode failure short-circuits before inference.
-- `SerializeToString` re-emits canonical bytes after admission and `ByteSize` stamps the receipt; the admitted artifact is the wire `Plan` itself, never a re-encoded copy.
+- One admission gate folds five checks over inbound bytes in cost order: `proto.Plan.ParseFromString` structural parse, a non-empty `relations`, a schema-skew probe (declarations present while `extension_urns` is empty), `ExtensionRegistry.lookup_urn` over every `extension_urns` entry (a `None` rejects), then `type_inference.infer_plan_schema` (a returned `NamedStruct` is valid, a raise is rejection). Skew precedes resolution because a retired-schema plan presents as an extension-free plan and otherwise passes an empty resolution loop vacuously; resolution precedes inference because an unresolvable extension space names its own reason where inference reports only that the shape is unknowable.
+- `Plan` crosses as the wire artifact itself, never a re-encoded copy: `SerializeToString` and `ByteSize` re-emit and measure a plan this package MINTS, while a gated inbound plan hands its original bytes onward untouched so the producer's content key survives.
 - `builders.plan`/`builders.type`/`builders.extended_expression` thunk `Callable[[ExtensionRegistry], Plan]`, building a plan lazily and binding functions against one registry; `read_named_table` and unary/binary combinators own the relation family.
 - `PlanPrinter.stringify_plan` renders a rejected or admitted plan to gate-log text — a display path, never a parse path.
-- Each gate decision captures plan byte length, relation count, inferred output field names, resolved function URNs, and the admit/reject verdict as the plan-gate receipt.
+- Rejection answers a typed refusal row naming which of the four checks stopped, never an engine fault lifted onto the rail; admission carries no receipt of its own, since the consuming query's receipt already censuses the plan — one owner reports the wire and the gate stays free of receipt concerns.
 - `protobuf` owns the wire codec beneath `ParseFromString`/`SerializeToString`; `datafusion` and the DuckDB substrait extension own plan production and execution; downstream owners consume an admitted `Plan` or its bytes.
 
 [STACKING]:
-- `datafusion`(`.api/datafusion.md`) / `duckdb`(`.api/duckdb.md`): `datafusion.substrait.Serde.serialize_bytes(sql, ctx)` and DuckDB `con.get_substrait(sql)` emit the same wire `Plan`; the gate runs `ParseFromString` + `infer_plan_schema` + `lookup_function` once, then hands admitted bytes to `datafusion.substrait.Consumer.from_substrait_plan` or DuckDB `con.from_substrait(buf)`, so one validator guards the artifact both engines exchange.
+- `datafusion`(`.api/datafusion.md`) / `duckdb`(`.api/duckdb.md`): `datafusion.substrait.Serde.serialize_bytes(sql, ctx)` and the BLOB DuckDB's `con.execute("CALL get_substrait(?)", [sql]).fetchone()[0]` returns emit the same wire `Plan`; the gate runs `ParseFromString` + `lookup_urn` + `infer_plan_schema` once, then hands admitted bytes to `datafusion.substrait.Consumer.from_substrait_plan` or DuckDB `con.execute("CALL from_substrait(?)", [buf])`, so one validator guards the artifact both engines exchange. DuckDB reaches substrait through the extension's SQL table functions alone, never a connection-bound method — `.api/duckdb-extensions.md` `[03]` is the shape.
 - `dataframely`(`.api/dataframely.md`) / `pandera`(`.api/pandera.md`): the `NamedStruct` from `infer_plan_schema` names the plan's output fields, so a data contract binds the inferred schema pre-execution and rejects a plan whose inferred names or types violate it before materialization.
 - within-lib: Persistence content-hashes a stored plan's `SerializeToString` bytes under the branch `xxhash` identity and re-runs the gate on re-ingest, so a persisted plan re-validates against the current `ExtensionRegistry` on replay rather than trusting storage.
 
@@ -164,5 +174,5 @@ Every `builders.plan` surface returns `Callable[[ExtensionRegistry], Plan]` — 
 [RAIL_LAW]:
 - Package: `substrait[extensions]`
 - Owns: the typed Substrait `Plan` protobuf model with byte ingress/egress, an `ExtensionRegistry` resolving functions by URN and signature over simple-extension YAML/dict definitions, `type_inference` schema validation over plans/relations/expressions, registry-threaded plan/type/expression `builders`, a `simple_extension_utils` dict loader, a `derivation_expression` evaluator, and a `PlanPrinter` renderer
-- Accept: gating inbound plan bytes pre-execution — `ParseFromString` structural parse, `infer_plan_schema` type-check, and `ExtensionRegistry.lookup_function` reference resolution — and round-tripping the same wire `Plan` with `datafusion.substrait` and the DuckDB substrait extension
+- Accept: gating inbound plan bytes pre-execution — `ParseFromString` structural parse, `ExtensionRegistry.lookup_urn` reference resolution, and `infer_plan_schema` type-check — censusing an admitted plan's relation tree and extension urns onto the consuming receipt, and round-tripping the same wire `Plan` with `datafusion.substrait` and the DuckDB substrait extension
 - Reject: wrapper-renames of `Plan`/`ExtensionRegistry`/`infer_plan_schema`; a hand-rolled Substrait protobuf parser, function-resolution table, or schema-inference walk; a plan trusted from an engine's internal parser where the standalone gate validates the wire artifact; a per-engine validation boundary where one `Plan` gate guards both engines; raw `substrait_antlr`/`_internal` handles crossing the package boundary

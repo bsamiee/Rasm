@@ -36,6 +36,7 @@
 
 [STACKING]:
 - `opentelemetry-api`(`.api/opentelemetry-api.md`): each patched member opens its span through `Tracer.start_as_current_span` off the `tracer_provider`, defaulting to the global provider; `jinja2.template_name`/`jinja2.template_path` land as `Span.set_attribute` values. SDK provider install is the composition-root concern, never this row.
+- `opentelemetry-instrumentation`(`.api/opentelemetry-instrumentation.md`): the patching class is one `BaseInstrumentor` subclass, so it is a process singleton whose dependency gate returns silently on an unmet requirement row unless the call arms the raising arm.
 - within-lib: the runtime metrics `Instrumentation.install` train row activates this once at runtime altitude, while jinja2 renders execute at artifacts altitude (`libs/python/artifacts/.api/jinja2.md`) — a cross-tier consumer whose spans light up only after the runtime train runs.
 
 [LOCAL_ADMISSION]:

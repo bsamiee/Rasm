@@ -230,6 +230,7 @@
 [TOPOLOGY]:
 - `SubstraitBaseType` over its `SubstraitType` discriminant types every value, and `NamedStruct` is the row type `ReadRelation.BaseSchema` and `WriteRelation.TableSchema` carry.
 - Every function node resolves by extension URI and name from the `Functions*` catalogs.
+- Generated `Substrait.Protobuf.Plan` carries the RETIRED URI-era extension schema: `ExtensionUris` (`RepeatedField<SimpleExtensionURI>`) at field 1, `Extensions` at 2, `Relations` at 3, `AdvancedExtensions` at 4, `ExpectedTypeUrls` at 5, `Version` at 6, and each `SimpleExtensionDeclaration` nested row back-references its space through `ExtensionUriReferenceFieldNumber = 1`. No URN field exists on this pin and no later release carries one, so this assembly is the producer half of a cross-runtime schema skew rather than a bump away from parity.
 - Decode is public and encode internal: `SubstraitDeserializer` lifts wire and JSON plans, `SubstraitSerializer` never leaves the assembly, so an outbound plan is the retained inbound payload.
 - Every `Relation` and `Expression` folds through `Accept`; a transform overrides only the arms it handles.
 
@@ -241,6 +242,7 @@
 - `DeltaLake.Net`(`.api/api-deltalake.md`): the same visitor lowers a subtree to DataFusion SQL for `DeltaTable.QueryAsync(SelectQuery)`, which streams `RecordBatch`.
 - `Apache.Arrow`(`.api/api-arrow.md`): a backend `Schema` maps to `NamedStruct` for `SqlPlanBuilder.AddTableDefinition`, so one lattice types every registered table.
 - `Google.Protobuf`(`.api/api-protobuf.md`): `Substrait.Protobuf.Plan` is a generated `IMessage` — `MessageParser<Plan>.ParseFrom` decodes the wire form and `MessageExtensions.ToByteArray`/`WriteTo` re-emits the retained payload.
+- `libs/python/data/.api/substrait.md`: this consumer parses the URN-era schema, where the extension space moved to `extension_urns` at field 8 and each declaration's back-reference to `extension_urn_reference` at field 4. Neither retired field exists there, so proto3 files every field-1 row this producer writes into the unknown set: a plan minted here parses clean on the python end, reports an EMPTY extension-space list, and reads every declaration's reference as the 0 default. That consumer's gate refuses the signature on its own `RETIRED_EXTENSION_SCHEMA` row, so the skew fails loudly at one named seam instead of admitting vacuously and dropping every function-vocabulary lineage edge.
 - within-lib: the federation rail folds text ingress and foreign ingress into one `Plan`, fans each `ReadRelation` to its lane through a single `RelationVisitor` subclass, and hands that same plan to `SubstraitToDifferentialCompute.Convert` — one IR serving the one-shot query and the maintained view alike.
 
 [LOCAL_ADMISSION]:

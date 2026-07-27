@@ -63,6 +63,18 @@
 |  [10]   | `sdk.metrics.SimpleFixedSizeExemplarReservoir`        | reservoir     | fixed-size random exemplar reservoir  |
 |  [11]   | `sdk.metrics.AlignedHistogramBucketExemplarReservoir` | reservoir     | one exemplar per histogram bucket     |
 
+[PUBLIC_TYPE_SCOPE]: SDK instrument families — the preference-map key axis, each deriving from its API namesake
+
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY] | [CAPABILITY]                           |
+| :-----: | :------------------------------------ | :------------ | :------------------------------------- |
+|  [01]   | `sdk.metrics.Counter`                 | sync family   | monotonic sum preference key           |
+|  [02]   | `sdk.metrics.UpDownCounter`           | sync family   | non-monotonic sum preference key       |
+|  [03]   | `sdk.metrics.Histogram`               | sync family   | distribution preference key            |
+|  [04]   | `sdk.metrics._Gauge`                  | sync family   | synchronous last-value preference key  |
+|  [05]   | `sdk.metrics.ObservableCounter`       | async family  | async monotonic sum preference key     |
+|  [06]   | `sdk.metrics.ObservableUpDownCounter` | async family  | async non-monotonic sum preference key |
+|  [07]   | `sdk.metrics.ObservableGauge`         | async family  | async last-value preference key        |
+
 [PUBLIC_TYPE_SCOPE]: metrics export, reader, view, and aggregation family
 
 | [INDEX] | [SYMBOL]                                                                         | [TYPE_FAMILY] | [CAPABILITY]                          |
@@ -90,26 +102,26 @@
 
 [PUBLIC_TYPE_SCOPE]: logs SDK and resource family
 
-| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY] | [CAPABILITY]                                   |
-| :-----: | :------------------------------------------ | :------------ | :--------------------------------------------- |
-|  [01]   | `sdk._logs.LoggerProvider`                  | provider      | SDK logger provider implementation             |
-|  [02]   | `sdk._logs.Logger`                          | logger        | SDK logger implementation                      |
-|  [03]   | `sdk._logs.LoggingHandler`                  | bridge        | stdlib `logging.Handler` -> OTel bridge        |
-|  [04]   | `sdk._logs.LogLimits`                       | config        | log-record attribute count/length caps         |
-|  [05]   | `sdk._logs.ReadableLogRecord`               | log view      | immutable log record for exporters             |
-|  [06]   | `sdk._logs.ReadWriteLogRecord`              | log record    | mutable in-pipeline log record                 |
-|  [07]   | `sdk._logs.LogRecordProcessor`              | abstract      | log-record pipeline hook                       |
-|  [08]   | `sdk._logs.export.BatchLogRecordProcessor`  | processor     | async batching log processor                   |
-|  [09]   | `sdk._logs.export.SimpleLogRecordProcessor` | processor     | synchronous one-by-one log processor           |
-|  [10]   | `sdk._logs.export.LogExporter`              | abstract      | exporter contract for log records              |
-|  [11]   | `sdk._logs.export.LogExportResult`          | enum          | `SUCCESS`, `FAILURE`                           |
-|  [12]   | `sdk._logs.export.ConsoleLogExporter`       | exporter      | stdout log exporter for dev                    |
-|  [13]   | `sdk._logs.export.InMemoryLogExporter`      | exporter      | captures log records for assertions            |
-|  [14]   | `sdk.resources.Resource`                    | value         | service identity key-value labels              |
-|  [15]   | `sdk.resources.ResourceDetector`            | abstract      | resource-detection contract                    |
-|  [16]   | `sdk.resources.OTELResourceDetector`        | detector      | `OTEL_RESOURCE_ATTRIBUTES`/`OTEL_SERVICE_NAME` |
-|  [17]   | `sdk.resources.ProcessResourceDetector`     | detector      | process pid/runtime/command resource           |
-|  [18]   | `sdk.resources.OsResourceDetector`          | detector      | OS type/version resource                       |
+| [INDEX] | [SYMBOL]                                     | [TYPE_FAMILY] | [CAPABILITY]                                        |
+| :-----: | :------------------------------------------- | :------------ | :-------------------------------------------------- |
+|  [01]   | `sdk._logs.LoggerProvider`                   | provider      | SDK logger provider implementation                  |
+|  [02]   | `sdk._logs.Logger`                           | logger        | SDK logger implementation                           |
+|  [03]   | `sdk._logs.LoggingHandler`                   | bridge        | DEPRECATED stdlib `logging.Handler` -> OTel         |
+|  [04]   | `sdk._logs.LogRecordLimits`                  | config        | log-record caps; `LogLimits` is its dead alias      |
+|  [05]   | `sdk._logs.ReadableLogRecord`                | log view      | immutable log record for exporters                  |
+|  [06]   | `sdk._logs.ReadWriteLogRecord`               | log record    | mutable in-pipeline log record                      |
+|  [07]   | `sdk._logs.LogRecordProcessor`               | abstract      | log-record pipeline hook                            |
+|  [08]   | `sdk._logs.export.BatchLogRecordProcessor`   | processor     | async batching log processor                        |
+|  [09]   | `sdk._logs.export.SimpleLogRecordProcessor`  | processor     | synchronous one-by-one log processor                |
+|  [10]   | `sdk._logs.export.LogRecordExporter`         | abstract      | exporter contract; `LogExporter` is its alias       |
+|  [11]   | `sdk._logs.export.LogRecordExportResult`     | enum          | `SUCCESS`, `FAILURE`; `LogExportResult` alias       |
+|  [12]   | `sdk._logs.export.ConsoleLogRecordExporter`  | exporter      | stdout dev exporter; `ConsoleLogExporter` alias     |
+|  [13]   | `sdk._logs.export.InMemoryLogRecordExporter` | exporter      | capture for assertions; `InMemoryLogExporter` alias |
+|  [14]   | `sdk.resources.Resource`                     | value         | service identity key-value labels                   |
+|  [15]   | `sdk.resources.ResourceDetector`             | abstract      | resource-detection contract                         |
+|  [16]   | `sdk.resources.OTELResourceDetector`         | detector      | `OTEL_RESOURCE_ATTRIBUTES`/`OTEL_SERVICE_NAME`      |
+|  [17]   | `sdk.resources.ProcessResourceDetector`      | detector      | process pid/runtime/command resource                |
+|  [18]   | `sdk.resources.OsResourceDetector`           | detector      | OS type/version resource                            |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -135,7 +147,7 @@
 [ENTRYPOINT_SCOPE]: MeterProvider construction and lifecycle
 - `MeterProvider(metric_readers=(), resource=None, exemplar_filter=None, shutdown_on_exit=True, views=())` — provider constructor
 - `PeriodicExportingMetricReader(exporter, export_interval_millis=None, export_timeout_millis=None)` — push-reader constructor, three parameters whole
-- `MetricReader(preferred_temporality=None, preferred_aggregation=None, *, otel_component_type=None)` — this base constructor owns both preference maps, keyed `type[Instrument] -> AggregationTemporality | Aggregation`
+- `MetricReader(preferred_temporality=None, preferred_aggregation=None, *, otel_component_type=None)` — this base constructor owns both preference maps, each keyed on the seven `sdk.metrics` instrument FAMILY classes alone
 - `View(instrument_type=None, instrument_name=None, meter_name=None, meter_version=None, meter_schema_url=None, name=None, description=None, attribute_keys=None, aggregation=None, exemplar_reservoir_factory=None, instrument_unit=None)` — eleven fields match and shape one instrument set
 
 | [INDEX] | [SURFACE]                                                                                | [SHAPE]  | [CAPABILITY]                       |
@@ -155,20 +167,22 @@
 
 [ENTRYPOINT_SCOPE]: LoggerProvider construction and lifecycle
 - `LoggerProvider(resource=None, shutdown_on_exit=True, multi_log_record_processor=None, *, meter_provider=None)` — provider constructor
-- `LogLimits(max_attributes=None, max_attribute_length=None, max_log_record_attributes=None, max_log_record_attribute_length=None)` — four log-record caps mirror `SpanLimits` on the log leg
+- `LogRecordLimits(max_attributes=None, max_attribute_length=None, max_log_record_attributes=None, max_log_record_attribute_length=None)` — four log-record caps mirror `SpanLimits` on the log leg, each resolving env then default and the record-specific column falling back to its global twin; `LogLimits` subclasses it under a `@deprecated` marker and is slated for removal
 - `BatchLogRecordProcessor(exporter, schedule_delay_millis=None, max_export_batch_size=None, export_timeout_millis=None, max_queue_size=None, *, meter_provider=None)` — burst knobs run in log-side parameter order, which differs from `BatchSpanProcessor`'s
 
-| [INDEX] | [SURFACE]                                                       | [SHAPE]  | [CAPABILITY]                             |
-| :-----: | :-------------------------------------------------------------- | :------- | :--------------------------------------- |
-|  [01]   | `LoggerProvider(...)`                                           | ctor     | SDK logger provider with resource        |
-|  [02]   | `LoggerProvider.add_log_record_processor(log_record_processor)` | instance | attach a log-record processor            |
-|  [03]   | `LoggerProvider.force_flush(timeout_millis=30000) -> bool`      | instance | flush all log processors                 |
-|  [04]   | `LoggerProvider.shutdown()`                                     | instance | flush + shut down all log processors     |
-|  [05]   | `BatchLogRecordProcessor(exporter, ...)`                        | ctor     | batching log-record processor            |
-|  [06]   | `SimpleLogRecordProcessor(exporter, *, meter_provider=None)`    | ctor     | synchronous processor for the test rail  |
-|  [07]   | `InMemoryLogExporter()`                                         | ctor     | zero-argument capture exporter for tests |
-|  [08]   | `LogLimits(...)`                                                | ctor     | log-record attribute count/length caps   |
-|  [09]   | `LoggingHandler(level=NOTSET, logger_provider=None)`            | ctor     | stdlib `logging.Handler` bridge          |
+| [INDEX] | [SURFACE]                                                       | [SHAPE]  | [CAPABILITY]                               |
+| :-----: | :-------------------------------------------------------------- | :------- | :----------------------------------------- |
+|  [01]   | `LoggerProvider(...)`                                           | ctor     | SDK logger provider with resource          |
+|  [02]   | `LoggerProvider.add_log_record_processor(log_record_processor)` | instance | attach a log-record processor              |
+|  [03]   | `LoggerProvider.force_flush(timeout_millis=30000) -> bool`      | instance | flush all log processors                   |
+|  [04]   | `LoggerProvider.shutdown()`                                     | instance | flush + shut down all log processors       |
+|  [05]   | `BatchLogRecordProcessor(exporter, ...)`                        | ctor     | batching log-record processor              |
+|  [06]   | `SimpleLogRecordProcessor(exporter, *, meter_provider=None)`    | ctor     | synchronous processor for the test rail    |
+|  [07]   | `InMemoryLogRecordExporter()`                                   | ctor     | zero-argument capture exporter for tests   |
+|  [08]   | `LogRecordLimits(...)`                                          | ctor     | log-record attribute count/length caps     |
+|  [09]   | `LoggingHandler(level=NOTSET, logger_provider=None)`            | ctor     | DEPRECATED stdlib `logging.Handler` bridge |
+|  [10]   | `InMemoryLogRecordExporter.get_finished_logs()`                 | instance | captured `ReadableLogRecord` tuple         |
+|  [11]   | `InMemoryLogRecordExporter.clear()`                             | instance | drop the captured records between specs    |
 
 [ENTRYPOINT_SCOPE]: Resource construction and detection
 
@@ -188,29 +202,45 @@
 
 [TOPOLOGY]:
 - one provider per signal at the composition root over a shared `Resource`; `TracerProvider`/`LoggerProvider` take processors at construction or via `add_*`, `MeterProvider` takes `metric_readers`/`views` at construction only — readers never added later.
+- `InstrumentationScope` keys each provider's tracer and meter cache on `(name, version, schema_url, attributes)` and coerces a `None` schema url to `""`, leaving VERSION the one slot where `None` and `""` stay distinct values.
+- `TracerProvider.get_tracer` normalizes an unset version to `""` before minting that scope and `MeterProvider.get_meter` does not, so the API module helper's `""` default and the provider method's `None` default mint TWO meters for one name — an unstamped metric scope splits its instruments across two exported scopes where an unstamped trace scope collapses to one.
 - `BatchSpanProcessor`/`BatchLogRecordProcessor` own the production path: a background thread and bounded queue tuned by `max_queue_size`/`schedule_delay_millis`/`max_export_batch_size`/`export_timeout_millis`; `Simple*Processor` runs synchronously for tests.
 - `Sampler` runs once at span start; `ParentBased` routes by parent state across `root`/`remote_parent_sampled`/`remote_parent_not_sampled`/`local_parent_sampled`/`local_parent_not_sampled`, `TraceIdRatioBased(rate)` is the probabilistic head sampler, `ALWAYS_ON`/`ALWAYS_OFF`/`DEFAULT_ON`/`DEFAULT_OFF` are pre-built singletons.
 - `View` + `Aggregation` set metric output shape: a `View` matches instruments by type/name/meter/unit and routes them to an `Aggregation`, attribute-key filter, and `exemplar_reservoir_factory`; `DropAggregation` mutes an instrument, `ExponentialBucketHistogramAggregation` is the dense base-2 histogram, unmatched instruments fall to `DefaultAggregation`.
+- `View` matching is one-to-many, so EVERY matching view mints its own stream for the instrument: a wildcard row beside a name-exact row over the same instrument exports that instrument twice under one name. `instrument_name` accepts `fnmatch` wildcards and pairs with `name` only when it carries none — the constructor raises otherwise — and construction with no matching criterion raises as well; `attribute_keys` is an allow-list, so a key outside it drops before the stream is identified.
+- `views` and `metric_readers` are construction-only on `MeterProvider`; neither admits a later addition, so every view a composition needs lands in the constructor call.
+- `preferred_temporality`/`preferred_aggregation` keys match by IDENTITY against the seven `sdk.metrics` families and every other class raises `Exception("Invalid instrument class found ...")` inside `MetricReader.__init__` — so an `opentelemetry.metrics` namesake, the API BASE each family derives from, kills the reader at construction rather than degrading, and the raise surfaces at the reader even though the map was handed to the exporter. `sdk.metrics._Gauge` names the SDK synchronous-gauge family while `opentelemetry.metrics._Gauge` names the API base: one spelling, two classes, one admissible as a key.
+- OTLP metric exporters seed a full family table before merging those maps over it, so a partial map leaves every unpinned family to the deployment environment.
+- `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE` selects `CUMULATIVE` absent the variable, `DELTA`, or `LOWMEMORY` across that seed.
+- `OTEL_EXPORTER_OTLP_METRICS_DEFAULT_HISTOGRAM_AGGREGATION` selects `explicit_bucket_histogram` absent the variable or `base2_exponential_bucket_histogram`.
+- No seed table rows the synchronous gauge, so a last-value stream exports as a temporality-free Gauge point.
 - `MeterProvider(exemplar_filter=...)` selects `AlwaysOn`/`AlwaysOff`/`TraceBased`; the per-view reservoir (`SimpleFixedSizeExemplarReservoir`, `AlignedHistogramBucketExemplarReservoir`) captures representative measurements with trace context for metric-to-trace linking.
+- `exemplar_reservoir_factory` receives the stream's PRIVATE `_Aggregation` subclass, not the public `Aggregation` a view declares, so a caller branching on that argument names an internal type; each aggregation then re-wraps the returned builder — explicit-bucket supplies `boundaries=`, exponential supplies `size=min(20, max_bucket_count)`, sum and last-value supply nothing. Caller-pinned `size` therefore governs sum and last-value streams alone, `AlignedHistogramBucketExemplarReservoir` needs no caller-supplied boundaries, and omitting the factory selects the SDK default: aligned for explicit-bucket, single-slot fixed-size elsewhere.
+- `View(aggregation=None)` resolves `DefaultAggregation`, which DEFERS to the reader's `preferred_aggregation` map keyed by instrument class — so a per-instrument view set never overrides an exporter's temporality or aggregation preference, while a view naming an aggregation outright silently wins over it.
 - collected metrics serialize through the `MetricsData -> ResourceMetrics -> ScopeMetrics -> Metric -> (Sum|Gauge|Histogram|ExponentialHistogram) -> *DataPoint` tree the OTLP exporter consumes directly.
 - `Resource.create()` runs the built-in detectors and merges `OTEL_SERVICE_NAME`/`OTEL_RESOURCE_ATTRIBUTES`, ordering the env detector last so env attributes win the merge.
-- `LoggingHandler` bridges stdlib `logging` records into OTel `LogRecord`s, honoring any stdlib `Formatter` and `extra` attributes; install once on the root logger with `logger_provider` bound.
+- `LoggingHandler` bridges stdlib `logging` records into OTel `LogRecord`s, honoring any stdlib `Formatter` and `extra` attributes, and is DEPRECATED — construction warns and names `opentelemetry-instrumentation-logging` as its successor. Its body falls to `record.getMessage()` whenever a `Formatter` is attached-free, and its attributes are `vars(record)` minus a reserved key set, widened by injected `code.*`/`exception.*`, so it can carry only what a stdlib record already holds and never a projection built before the render.
+- Logs tier runs mid-rename to `*LogRecord*` spellings and every old name survives only as a `@deprecated` alias slated for removal — `LogExporter`, `LogExportResult`, `ConsoleLogExporter`, `InMemoryLogExporter`, and `LogLimits` each warn at use — while `LoggingHandler` is deprecated outright with no in-repo successor, so a composition spells the `LogRecord` name and never the alias.
+- `LogRecordLimits` reaches the record through `ReadWriteLogRecord.limits`, whose default factory constructs a fresh instance per record from env, and neither `LoggerProvider` nor `Logger.emit` nor `ReadWriteLogRecord._from_api_log_record` carries a limits argument — so a composition sets log-record caps through `OTEL_ATTRIBUTE_COUNT_LIMIT`/`OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT`/`OTEL_LOGRECORD_ATTRIBUTE_COUNT_LIMIT`/`OTEL_LOGRECORD_ATTRIBUTE_VALUE_LENGTH_LIMIT` alone, or bounds its own payload before emitting.
+- `ReadWriteLogRecord` rebuilds its attributes as `BoundedAttributes(..., extended_attributes=True)`, so the log leg runs the `AnyValue` cleaner while spans run the flat primitive one — `None`, `bytes`, and nested mapping and sequence values reach the wire intact and `dropped_attributes` counts only what the count cap cut. That cleaner truncates `str` alone, so nesting depth, collection width, and byte length are unbounded at this tier: a producer emitting caller-shaped structure carries those three bounds itself or a self-referential mapping recurses until the interpreter's frame limit raises. Mixed-type sequences are the silent loss beside them — the cleaner types a sequence off its first non-null element and nulls the WHOLE value at the first element of another type, and `dropped_attributes` never counts it — while the count cap evicts OLDEST-first, so insertion order decides what survives.
+- `Logger.emit(exception=...)` derives the whole semconv triple — `exception.type` MODULE-QUALIFIED for a non-builtin, `exception.message`, `exception.stacktrace` — through `_get_attributes_with_exception`, merging under any attribute a producer already set; a producer whose chain consumed the live exception before the emit stamps the pair it can still reach and takes the unqualified type name that costs.
 
 [STACKING]:
 - `opentelemetry-api`(`.api/opentelemetry-api.md`): SDK providers implement the API's abstract `TracerProvider`/`MeterProvider`/`LoggerProvider` and register through `trace.set_tracer_provider(...)` at startup; instrumentation binds the no-op API surface, so a live SDK is a composition-root swap invisible to library code.
 - `opentelemetry-exporter-otlp-proto-http`(`.api/opentelemetry-exporter-otlp-proto-http.md`): its `OTLPSpanExporter`/`OTLPMetricExporter`/`OTLPLogExporter` are the terminal sink wired into `BatchSpanProcessor`/`PeriodicExportingMetricReader`/`BatchLogRecordProcessor`; SDK processors own batching/sampling/resource, the exporter owns transport, and the wire temporality and aggregation preferences ride the METRIC EXPORTER constructor — `PeriodicExportingMetricReader` accepts neither, so a composition passing them to the reader raises `TypeError` at construction.
 - `psutil`(`.api/psutil.md`): a process-health gauge or observable counter fed by `psutil.Process(...).memory_info()`/`cpu_percent()` registers through the API `Meter` and takes shape from an SDK `View`; SDK aggregation is the only place a raw psutil reading becomes a temporality-correct metric point.
-- within-lib test rail: `InMemorySpanExporter`/`InMemoryMetricReader`/`InMemoryLogExporter` capture `ReadableSpan`/`MetricsData`/`ReadableLogRecord` for assertion without a live collector.
+- within-lib test rail: `InMemorySpanExporter`/`InMemoryMetricReader`/`InMemoryLogRecordExporter` capture `ReadableSpan`/`MetricsData`/`ReadableLogRecord` for assertion without a live collector; the log exporter reaches an already-registered `LoggerProvider` through `add_log_record_processor(SimpleLogRecordProcessor(...))`, so a spec captures without minting a second provider against the set-once global.
 
 [LOCAL_ADMISSION]:
 - SDK providers construct at the composition root only; instrumentation and library code bind the no-op API surface and never import `opentelemetry.sdk`.
 - providers and `Batch*Processor` require `shutdown()` on exit (`shutdown_on_exit=True` is the default); short-lived processes `force_flush()` before exit.
 - `PeriodicExportingMetricReader` defaults to a 60_000 ms interval; tune via `export_interval_millis` or `OTEL_METRIC_EXPORT_INTERVAL`.
 - Temporality and aggregation preference homes at the constructing surface that owns the wire: an exporting composition sets both on the OTLP metric exporter, and a reader-side preference exists only on `MetricReader` subclasses that carry no exporter — `InMemoryMetricReader` on the test rail.
+- Preference maps state every family whose wire shape the composition rules, since an unstated one falls to the exporter's environment seed; both maps spell their keys from `sdk.metrics`, never from `opentelemetry.metrics`.
 - pass explicit `service.name` via `Resource.create({SERVICE_NAME: ...})` at startup; an unset name degrades to `unknown_service`.
 
 [RAIL_LAW]:
 - Package: `opentelemetry-sdk`
 - Owns: concrete provider implementations, batch/simple processors, samplers, id generators, metric readers, view/aggregation/exemplar machinery, resource detection, and in-memory/console exporters
-- Accept: one SDK provider per signal at the composition root, `Resource.create()` with `SERVICE_NAME`, `Batch*Processor` + `PeriodicExportingMetricReader` for production, `View`/`Aggregation` for metric shaping, `LoggingHandler` stdlib bridge, in-memory exporters for tests
-- Reject: SDK imports in library code, metric readers added after `MeterProvider` construction, `Simple*Processor` in production, missing `shutdown()`/`force_flush()` on exit, hand-built `MetricsData` trees, temporality or aggregation preferences passed to `PeriodicExportingMetricReader`
+- Accept: one SDK provider per signal at the composition root, `Resource.create()` with `SERVICE_NAME`, `Batch*Processor` + `PeriodicExportingMetricReader` for production, `View`/`Aggregation` for metric shaping, in-memory exporters for tests
+- Reject: SDK imports in library code, metric readers added after `MeterProvider` construction, `Simple*Processor` in production, missing `shutdown()`/`force_flush()` on exit, hand-built `MetricsData` trees, temporality or aggregation preferences passed to `PeriodicExportingMetricReader` or keyed on `opentelemetry.metrics` instrument classes, the deprecated `Log*` aliases and the `LoggingHandler` stdlib bridge

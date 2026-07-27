@@ -43,7 +43,7 @@
 [STACKING]:
 - `opentelemetry-sdk`(`.api/opentelemetry-sdk.md`): each exporter is the terminal sink behind one SDK processor — `OTLPSpanExporter` -> `BatchSpanProcessor` -> `TracerProvider`, `OTLPMetricExporter` -> `PeriodicExportingMetricReader` -> `MeterProvider`, `OTLPLogExporter` -> `BatchLogRecordProcessor` -> `LoggerProvider`; the processor owns batching and queueing, the exporter owns transport and reconnect.
 - `grpcio`(`.api/grpcio.md`): the persistent channel is a `grpc.Channel` from `insecure_channel`/`secure_channel` over a `ChannelCredentials`, `compression=` a `grpc.Compression`, reconnect triggered by `grpc.StatusCode.UNAVAILABLE`.
-- `protobuf`(`.api/protobuf.md`): SDK `ReadableSpan`/`MetricsData`/`LogData` encode to OTLP protobuf inside `_export`; the composing owner hands over SDK views and never hand-builds the protobuf tree.
+- `protobuf`(`.api/protobuf.md`): SDK `ReadableSpan`/`MetricsData`/`ReadableLogRecord` encode to OTLP protobuf inside `_export`; the composing owner hands over SDK views and never hand-builds the protobuf tree.
 - `opentelemetry-exporter-otlp-proto-http`(`.api/opentelemetry-exporter-otlp-proto-http.md`): the peer default egress this row substitutes for — proto-http carries the estate default, this gRPC row selects only on a long-lived non-forking server.
 
 [LOCAL_ADMISSION]:

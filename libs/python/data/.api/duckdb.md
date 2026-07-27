@@ -62,7 +62,7 @@
 |  [11]   | `remove_function(name)` / `table_function(name, parameters)`                    | static   | drop a UDF or call a table function      |
 |  [12]   | `install_extension(ext, *, repository)` / `load_extension(ext)`                 | instance | connection-side extension load boundary  |
 |  [13]   | `begin` / `commit` / `rollback` / `checkpoint` / `interrupt` / `query_progress` | static   | transaction and execution control        |
-|  [14]   | `enable_profiling` / `disable_profiling` / `get_profiling_information`          | instance | profiling toggle and JSON dump           |
+|  [14]   | `enable_profiling` / `disable_profiling` / `get_profiling_information(format)`  | instance | profiling toggle and payload dump        |
 
 [Logical-type constructors]: `array_type` `list_type` `map_type` `struct_type` `union_type` `row_type` `decimal_type` `enum_type` `string_type` `sqltype`
 
@@ -73,13 +73,17 @@
 - Module-level functions proxy the default connection; `connect` is the explicit owner for isolated databases, configs, read-only mode, and concurrent cursors.
 - Frames and Arrow objects register zero-copy as scannable relations through `register`/`from_df`/`from_arrow`; SQL references them by view name without materialization.
 - `DuckDBPyRelation` and a raw SQL string address one engine; the relation builder composes `select`/`filter`/`aggregate`/`join` and the window methods as the canonical form.
-- Prepared parameters bind positionally as `?` or by `$name` through `execute(query, parameters)`, never string interpolation.
+- Prepared parameters bind positionally as `?` or by `$name` through `execute(query, parameters)`, never string interpolation; a `CALL` of a table function binds its arguments the same way, named arguments (`arg => ?`) included.
+- `to_arrow_table`/`to_arrow_reader` are the live Arrow egress spellings on both the connection and the relation; the `fetch_arrow_table`/`fetch_record_batch` twins survive as deprecated aliases emitting a `DeprecationWarning` and never enter a fence. `arrow()` returns a `RecordBatchReader`, not a `Table`, so it is not the table spelling its name suggests.
 - `create_function` registers a scalar or `type='arrow'` vectorized UDF under an explicit `parameters`/`return_type` and a `PythonExceptionHandling` policy.
 - Window methods take a `window_spec` string and `projected_columns`, returning a chained `DuckDBPyRelation`.
-- `get_profiling_information('json')` returns metric-dependent JSON text; a consumer decodes the string and probes each key with `.get`, never assuming presence — durations are seconds, sizes bytes, cardinalities row counts, `children` operator nodes, `extra_info` the open detail map.
+- `get_profiling_information(format='json')` returns a `str`, never a mapping: `json` yields metric JSON text a consumer decodes, `query_tree` the box-drawn plan render. Profiling unarmed answers `{"result": "disabled"}`, and `custom_profiling_settings` narrows the published key set at root and node alike, so every read probes with `.get` — durations are float seconds, sizes bytes, cardinalities row counts.
+- `PRAGMA enable_profiling = 'no_output'` is the silent arming; the `enable_profiling()` method defaults to the query-graph renderer and prints the plan to stdout on every statement, so a library arming it that way writes into its host's console.
+- `PRAGMA profiling_mode = 'detailed'` adds the optimizer, planner, and physical-planner timing keys to the root node; `standard` publishes the query-level and operator metrics alone.
+- One metric node roots the payload and its `children` carry the physical plan depth-first: root-only keys are `query_name`, `latency`, `blocked_thread_time`, `rows_returned`, `cumulative_cardinality`, `cumulative_rows_scanned`, `total_bytes_read`, `total_bytes_written`, `total_memory_allocated`, and `system_peak_temp_dir_size`, while each child adds `operator_name`, `operator_type`, `operator_timing`, `operator_cardinality`, and `operator_rows_scanned` beside the shared `cpu_time`, `result_set_size`, `system_peak_buffer_memory`, and `extra_info`.
 
 [STACKING]:
-- `duckdb-extensions.md`(`.api/duckdb-extensions.md`): loadable-extension roster, per-connection load shapes, Substrait plan methods, and DuckLake catalog functions; `install_extension`/`load_extension` are the connection-side load boundary this surface owns.
+- `duckdb-extensions.md`(`.api/duckdb-extensions.md`): loadable-extension roster, per-connection load shapes, the Substrait plan TABLE FUNCTIONS, and DuckLake catalog functions; `install_extension`/`load_extension` are the connection-side load boundary this surface owns, and a loaded extension adds SQL alone — it binds no method onto `DuckDBPyConnection`, so every extension capability is reached through `execute` under prepared parameters.
 - `datafusion`(`.api/datafusion.md`), `polars`, `deltalake`, `pyarrow`: `from_arrow`/`register` ingest and `to_arrow_table`/`to_arrow_reader`/`pl` egress thread one shared Arrow C-data capsule, so a frame crosses the engine boundary with no copy.
 - `deltalake`(`.api/deltalake.md`): `register`/`from_arrow` adopts `DeltaTable.to_pyarrow_dataset()` for pushdown SQL, and `to_parquet`/`to_arrow_reader` feeds a `write_deltalake` commit over the same Delta/Parquet files.
 - `tabular` `DuckDbSession`: the request-scoped scan rail composes `register`/`from_arrow` ingest and relation egress as the columnar and query engine behind data-branch egress.

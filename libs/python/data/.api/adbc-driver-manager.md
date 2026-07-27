@@ -63,6 +63,8 @@
 
 [ENTRYPOINT_SCOPE]: DBAPI connection lifecycle
 - `connect` carry: `connect(driver=None, uri=None, *, profile=None, entrypoint=None, db_kwargs=None, conn_kwargs=None, autocommit=False)`
+- `connect` derives the shared-library name from the URI SCHEME when `driver` is omitted and `dlopen`s it, so the manager reaches a database only where that library resolves on the loader path; `driver`/`entrypoint` name it explicitly
+- `adbc_ingest` ANSWERS the driver's inserted-row count (`-1` where the driver cannot report one), so the count is the operation's own evidence rather than a discarded return
 
 | [INDEX] | [SURFACE]                                     | [SHAPE]  | [CAPABILITY]                             |
 | :-----: | :-------------------------------------------- | :------- | :--------------------------------------- |
@@ -75,6 +77,8 @@
 
 [ENTRYPOINT_SCOPE]: cursor execution and fetch
 - `adbc_ingest` carry: `adbc_ingest(table_name, data, mode='create', *, catalog_name=None, db_schema_name=None, temporary=False)`
+
+[CONSUMER]: `tabular/query#QUERY` `_DRIVER` rows `RemoteDriver.ADBC` at `DriverKind.MANAGER`; one `_dbapi` leg opens `cursor(adbc_stmt_kwargs=)` once and every `RemoteOp` rides it, `adbc_execute_partitions`/`adbc_read_partition` pairing rebind-and-fetch per descriptor, `adbc_ingest` projecting its row count as the op's evidence table, and `adbc_get_table_schema` composing the `catalog_filter`/`db_schema_filter` pair.
 
 | [INDEX] | [SURFACE]                                                | [SHAPE]  | [CAPABILITY]                                |
 | :-----: | :------------------------------------------------------- | :------- | :------------------------------------------ |
@@ -91,7 +95,7 @@
 |  [11]   | `Cursor.adbc_prepare(operation)`                         | instance | pre-compile and return parameter schema     |
 |  [12]   | `Cursor.adbc_execute_schema(operation, parameters=None)` | instance | result `pyarrow.Schema` without execution   |
 |  [13]   | `Cursor.adbc_execute_partitions(operation, params=None)` | instance | return `(partitions, schema)` descriptors   |
-|  [14]   | `Cursor.adbc_read_partition(partition)`                  | instance | open one partition as a `RecordBatchReader` |
+|  [14]   | `Cursor.adbc_read_partition(partition)`                  | instance | rebind cursor onto one partition, `None`    |
 |  [15]   | `Cursor.adbc_cancel()`                                   | instance | cancel the in-flight statement              |
 |  [16]   | `Cursor.adbc_statement`                                  | property | low-level `AdbcStatement` handle            |
 |  [17]   | `Cursor.rowcount`                                        | property | affected-row count                          |
@@ -149,7 +153,7 @@
 [STACKING]:
 - `arro3-core`(`.api/arro3-core.md`): `Cursor.fetch_record_batch()` yields a `pyarrow.RecordBatchReader` whose `__arrow_c_stream__` feeds `arro3.core.RecordBatchReader.from_stream` zero-copy, and `Cursor.fetch_arrow_table()` round-trips through `arro3.core.Table.from_arrow`.
 - `polars`(`.api/polars.md`): `Cursor.fetch_polars()` is the native escape, and `polars.from_arrow(cursor.fetch_record_batch())` consumes the capsule for a lazy frame.
-- partition spine: `adbc_execute_partitions` returns opaque partition descriptors, each opened by `adbc_read_partition` as an independent `RecordBatchReader`, so a distributed driver fans result endpoints across workers on the manager's handoff.
+- partition spine: `adbc_execute_partitions` returns opaque partition descriptors; `adbc_read_partition` RETURNS `None` and rebinds the calling cursor onto that partition, so the rows drain off `fetch_arrow_table`/`fetch_record_batch` and never off the call. Each call clears the previous result first, so one cursor drains partitions strictly in sequence and a distributed driver fans endpoints across workers only by giving each worker its own cursor.
 - retry rail: wrapping `execute`/`adbc_ingest` retries a `status_code in {TIMEOUT, IO}` under the runtime backoff while `IntegrityError`/`ProgrammingError` fail fast.
 
 [LOCAL_ADMISSION]:

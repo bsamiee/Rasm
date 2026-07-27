@@ -89,6 +89,7 @@
 [STACKING]:
 - `grpcio`(`.api/grpcio.md`): `aio_server_interceptor(tracer_provider, filter_)` threads into `grpc.aio.server(interceptors=[...])`, `aio_client_interceptors(...)` is the four-element list into `grpc.aio.insecure_channel(target, interceptors=[...])`; the sync legs use `grpc.server(interceptors=[server_interceptor(...)])` and `grpcext.intercept_channel(grpc.insecure_channel(target), client_interceptor(...))` — one interceptor object per channel/server, never per-call.
 - `opentelemetry-api`(`.api/opentelemetry-api.md`): `tracer_provider` and the `request_hook`/`response_hook` span objects are the `Tracer`/`Span`; the interceptor sets `rpc.system`/`rpc.service`/`rpc.method`/`rpc.grpc.status_code` semantic-convention attributes and propagates context across the wire. SDK provider install is the composition-root concern, never inside this row.
+- `opentelemetry-instrumentation`(`.api/opentelemetry-instrumentation.md`): the four patching classes are `BaseInstrumentor` subclasses, so each is a process singleton whose dependency gate returns silently on an unmet requirement row unless the call arms the raising arm.
 - within-lib: one filter predicate (`negate(any_of(health_check(), service_prefix("grpc.reflection")))`) shared by the matched client and server interceptors under one `tracer_provider`, with a `response_hook` recording the unary status detail as a span attribute.
 
 [LOCAL_ADMISSION]:

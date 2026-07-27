@@ -32,19 +32,19 @@
 
 [PUBLIC_TYPE_SCOPE]: metrics family
 
-| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                                          |
-| :-----: | :------------------------ | :------------ | :---------------------------------------------------- |
-|  [01]   | `MeterProvider`           | abstract      | meter factory contract                                |
-|  [02]   | `Meter`                   | abstract      | instrument creation contract                          |
-|  [03]   | `Counter`                 | abstract      | monotonically increasing count                        |
-|  [04]   | `UpDownCounter`           | abstract      | bidirectional count                                   |
-|  [05]   | `Histogram`               | abstract      | value distribution recording                          |
-|  [06]   | `Meter.create_gauge(...)` | factory       | synchronous gauge factory (`Gauge` ABC not top-level) |
-|  [07]   | `ObservableCounter`       | abstract      | async monotonic count                                 |
-|  [08]   | `ObservableGauge`         | abstract      | async current value                                   |
-|  [09]   | `ObservableUpDownCounter` | abstract      | async bidirectional count                             |
-|  [10]   | `Observation`             | value         | (value, attributes) for async                         |
-|  [11]   | `CallbackOptions`         | value         | timeout hint for async callbacks                      |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                                                                            |
+| :-----: | :------------------------ | :------------ | :-------------------------------------------------------------------------------------- |
+|  [01]   | `MeterProvider`           | abstract      | meter factory contract                                                                  |
+|  [02]   | `Meter`                   | abstract      | instrument creation contract                                                            |
+|  [03]   | `Counter`                 | abstract      | monotonically increasing count                                                          |
+|  [04]   | `UpDownCounter`           | abstract      | bidirectional count                                                                     |
+|  [05]   | `Histogram`               | abstract      | value distribution recording                                                            |
+|  [06]   | `_Gauge`                  | abstract      | synchronous last-value gauge; `__all__` spells it `_Gauge` and `Gauge` resolves nowhere |
+|  [07]   | `ObservableCounter`       | abstract      | async monotonic count                                                                   |
+|  [08]   | `ObservableGauge`         | abstract      | async current value                                                                     |
+|  [09]   | `ObservableUpDownCounter` | abstract      | async bidirectional count                                                               |
+|  [10]   | `Observation`             | value         | (value, attributes) for async                                                           |
+|  [11]   | `CallbackOptions`         | value         | timeout hint for async callbacks                                                        |
 
 [PUBLIC_TYPE_SCOPE]: logs and context family
 
@@ -53,7 +53,7 @@
 |  [01]   | `LoggerProvider`                | abstract      | logger factory contract                                   |
 |  [02]   | `Logger`                        | abstract      | log record emission contract                              |
 |  [03]   | `LogRecord`                     | value         | structured log record carrier                             |
-|  [04]   | `SeverityNumber`                | enum          | severity levels `TRACE1`..`FATAL4`                        |
+|  [04]   | `SeverityNumber`                | enum          | `UNSPECIFIED` then five four-wide bands `TRACE`..`FATAL4` |
 |  [05]   | `Context`                       | value         | immutable propagation context                             |
 |  [06]   | `Token`                         | value         | context attachment token                                  |
 |  [07]   | `TextMapPropagator`             | abstract      | carrier-based context propagator                          |
@@ -109,7 +109,10 @@
 |  [11]   | `Counter.add(amount, attributes, context)`                 | record     | increment counter                       |
 |  [12]   | `UpDownCounter.add(amount, attributes, context)`           | record     | adjust bidirectional counter            |
 |  [13]   | `Histogram.record(amount, attributes, context)`            | record     | record histogram measurement            |
-|  [14]   | `Gauge.set(amount, attributes, context)`                   | record     | set synchronous gauge value             |
+|  [14]   | `_Gauge.set(amount, attributes, context)`                  | record     | set synchronous gauge value             |
+
+- `metrics.get_meter(name, version="", meter_provider=None, schema_url=None, attributes=None)` defaults its version slot to an EMPTY STRING, while the `MeterProvider.get_meter` it forwards to defaults the same slot to `None` — one meter name reached through the module helper and through a held provider therefore carries two different unset versions.
+- `trace.get_tracer` defaults that slot to `None` on the module helper and the provider method alike, so the metric leg is the one carrying the divergence and a version-stamped call site is what closes it.
 
 [ENTRYPOINT_SCOPE]: context and propagation
 - W3C propagators import from `opentelemetry.trace.propagation.tracecontext`, `opentelemetry.baggage.propagation`, and `opentelemetry.propagators.composite`
@@ -135,22 +138,29 @@
 |  [17]   | `CompositePropagator(propagators)`                                 | propagator  | chain propagators via `set_global_textmap`    |
 
 [ENTRYPOINT_SCOPE]: logs API
+- `_logs.get_logger(instrumenting_module_name, instrumenting_library_version="", logger_provider=None, schema_url=None, attributes=None)` carries the whole scope coordinate, so a log scope version-stamps and schema-pins exactly as `get_tracer`/`get_meter` do
+- `Logger.emit(record=None, *, timestamp=None, observed_timestamp=None, context=None, severity_number=None, severity_text=None, body=None, attributes=None, event_name=None, exception=None)` — its keyword form builds the record itself, so a producer hands structured attributes and a typed severity with no `LogRecord` construction
 
-| [INDEX] | [SURFACE]                                    | [SHAPE]  | [CAPABILITY]                   |
-| :-----: | :------------------------------------------- | :------- | :----------------------------- |
-|  [01]   | `_logs.get_logger_provider()`                | provider | global logger provider         |
-|  [02]   | `_logs.set_logger_provider(logger_provider)` | provider | install global logger provider |
-|  [03]   | `_logs.get_logger(name, version, ...)`       | logger   | obtain instrumentation logger  |
-|  [04]   | `Logger.emit(record)`                        | emit     | emit a `LogRecord`             |
+| [INDEX] | [SURFACE]                                    | [SHAPE]  | [CAPABILITY]                           |
+| :-----: | :------------------------------------------- | :------- | :------------------------------------- |
+|  [01]   | `_logs.get_logger_provider()`                | provider | global logger provider                 |
+|  [02]   | `_logs.set_logger_provider(logger_provider)` | provider | install global logger provider         |
+|  [03]   | `_logs.get_logger(...)`                      | logger   | obtain a scoped instrumentation logger |
+|  [04]   | `Logger.emit(record=None, **fields)`         | emit     | emit a record or build one from fields |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `get_tracer_provider()`/`get_meter_provider()`/`get_logger_provider()` return no-ops until `set_*_provider` installs the SDK; library code never calls `set_*`
+- `LogRecord` resolves its own correlation: an absent `context` falls to the ambient one and `trace_id`/`span_id`/`trace_flags` read off the active span there, so `context` is the one admitted spelling and the three explicit slots carry a `@deprecated` marker — a producer copying them into `attributes` renders one fact twice on the wire
+- `Logger` handles mint per `get_logger` call under no SDK cache, so a per-emit mint allocates on the hot path; memoize the handle per provider identity, never per call, and a pre-install no-op provider is a distinct object so the memo upgrades at install with no invalidation
 - `Context` is immutable and contextvars-backed; `attach`/`detach` are scoped and token-paired
 - `start_span` returns a detached span; `start_as_current_span` activates and ends the span as a context manager
-- attribute values are `str | bool | int | float | Sequence[str | bool | int | float]` under non-empty string keys; `set_attributes` binds a mapping in one call
-- synchronous `Counter`/`UpDownCounter`/`Histogram`/`Gauge` record imperatively (`add`/`record`/`set`); observable instruments pull via callbacks yielding `Observation` under a `CallbackOptions` timeout — one instrument is push or pull, never both
+- span attribute values are `str | bool | int | float | Sequence[str | bool | int | float]` under non-empty string keys; `set_attributes` binds a mapping in one call
+- log-record attributes take the WIDER `_ExtendedAttributes`/`AnyValue` shape on `Logger.emit(attributes=)` and `get_logger(attributes=)` — `None`, `bytes`, and nested mapping and sequence values survive the record cleaner where a span attribute of that shape drops with a warning — so a producer projects a whole structured event onto one record rather than flattening it; nesting depth, collection width, and byte length stay its own bounds, since that cleaner truncates `str` alone
+- extended sequences stay HOMOGENEOUS or vanish: `_clean_extended_attribute_value` types a sequence off its first non-null element and nulls the WHOLE value at the first element of another type — `bool` beside `int` reaches that bar — while a mapping carries no such rule, so a mixed collection projects onto an index-keyed mapping or vanishes unread; `None` elements never type the sequence, `bytes` survive undecoded here, and a value outside `AnyValue` stringifies rather than dropping
+- synchronous `Counter`/`UpDownCounter`/`Histogram`/`_Gauge` record imperatively (`add`/`record`/`set`), so a consumer holding a synchronous instrument resolves its write member from the family rather than assuming one spelling; observable instruments pull via callbacks yielding `Observation` under a `CallbackOptions` timeout — one instrument is push or pull, never both
+- `get_meter` before the install resolves `_ProxyMeterProvider`, whose `_ProxyMeter` mints a `_Proxy*` instrument per family; each SUBCLASSES the abstract family here, so `isinstance` narrowing and a structural `match` over `Counter | UpDownCounter | Histogram | _Gauge` hold identically on a proxy, and `set_meter_provider` re-mints every registered proxy against the real meter with no consumer invalidation — so an instrument set built at import time stays live and correctly typed across the install
 - baggage is cross-process key-value context (`set_baggage` derives a new immutable `Context`), distinct from span-local attributes and never auto-copied onto a span
 - `TextMapPropagator` reads via `Getter[CarrierT]` and writes via `Setter[CarrierT]`; one `CompositePropagator([TraceContextTextMapPropagator(), W3CBaggagePropagator()])` chains both W3C codecs over one carrier, installed via `set_global_textmap`
 
@@ -158,12 +168,12 @@
 - `grpcio`(`.api/grpcio.md`): a client interceptor stamps the active context via `propagate.inject(metadata, setter=...)`, a server interceptor continues it via `propagate.extract(invocation_metadata, getter=...)` then `start_as_current_span(kind=SpanKind.SERVER)`; this surface owns the W3C `traceparent`/`tracestate` encoding, `grpcio` owns the `aio.Metadata` carrier
 - `msgspec`(`.api/msgspec.md`): `to_builtins(struct, str_keys=True)` yields exactly the primitive `str | bool | int | float | Sequence[...]` mapping `Span.set_attributes` accepts, annotating a span from a decoded wire struct with no manual flattening
 - `structlog`(`.api/structlog.md`): `get_current_span().get_span_context()` yields the `trace_id`/`span_id` that `format_trace_id`/`format_span_id` render as the hex fields a `structlog` processor binds for trace-log correlation
-- `opentelemetry-sdk`(`.api/opentelemetry-sdk.md`): this surface emits no-op providers until the SDK installs real ones via `set_*_provider` at the composition root; library code calls `get_tracer`/`get_meter`/`get_logger` and never imports the SDK
+- `opentelemetry-sdk`(`.api/opentelemetry-sdk.md`): this surface emits no-op providers until the SDK installs real ones via `set_*_provider` at the composition root; library code calls `get_tracer`/`get_meter`/`get_logger` and never imports the SDK. That SDK re-exports a same-named class per instrument family — including its own `_Gauge` — that DERIVES from the abstract here, and its temporality and aggregation preference maps admit those SDK classes alone, raising on every class from this surface
 - retry rail (`stamina`): a `retry_context` loop wraps each attempt in a child span; a final `RpcError.code()` maps to `Status(StatusCode.ERROR)` via `Span.set_status` + `Span.record_exception`
 
 [LOCAL_ADMISSION]:
 - library code imports only from `opentelemetry-api`; SDK imports belong to the composition root
-- a multi-dict carrier such as `grpc.aio.Metadata` binds a custom `Getter`, not the default
+- multi-dict carriers such as `grpc.aio.Metadata` bind a custom `Getter`, never the default
 - metrics instruments are created once per meter and reused, synchronous or observable per measurement model, never per-request
 - `start_as_current_span` is the default; `start_span` is reserved for a span whose activation crosses an async boundary the context manager cannot hold
 

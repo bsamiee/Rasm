@@ -31,6 +31,8 @@
 |  [01]   | `connect(uri, db_kwargs) -> AdbcDatabase`                            | factory | low-level Snowflake database handle |
 |  [02]   | `dbapi.connect(uri, db_kwargs, conn_kwargs, **kwargs) -> Connection` | factory | DBAPI connection over Snowflake     |
 
+[CONSUMER]: `tabular/query#QUERY` `_DRIVER` rows `RemoteDriver.SNOWFLAKE` at `DriverKind.NATIVE` — the kind whose connect projection threads `uri`/`db_kwargs`/`conn_kwargs` — with `db.system.name` `snowflake` on its `DbapiSeam` row.
+
 [ENTRYPOINT_SCOPE]: `DatabaseOptions` keys
 
 Timeouts are duration strings; `AUTH_TYPE` gates which credential rows apply.
@@ -103,7 +105,7 @@ Timeouts are duration strings; `AUTH_TYPE` gates which credential rows apply.
 [STACKING]:
 - `adbc-driver-manager`(`.api/adbc-driver-manager.md`): delegates driver loading, the DBAPI tree (`Connection`/`Cursor`/`Error`, `AdbcStatusCode` mapping), and Arrow delivery; this catalog adds only the Snowflake option vocabulary and `AuthType`, and inherits the manager's ADBC Go-driver OTel telemetry contract.
 - `pyarrow`(`.api/pyarrow.md`) / `arro3-core`(`.api/arro3-core.md`) / `polars`(`.api/polars.md`): each result-chunk `RecordBatchReader.__arrow_c_stream__` feeds `arro3.core.RecordBatchReader.from_stream` or `polars.from_arrow` zero-copy; fan chunks across workers and collapse with one terminal `fetch_arrow_table`/`read_all`.
-- partition deepen: `REMOTE_PARTITION_DEEPEN` runs `Cursor.adbc_execute_partitions` for the chunk descriptors, opens each with `adbc_read_partition` as an independent `RecordBatchReader`, and downloads from cloud staging concurrently under `PREFETCH_CONCURRENCY` with `RESULT_QUEUE_SIZE` read-ahead.
+- partition deepen: `REMOTE_PARTITION_DEEPEN` runs `Cursor.adbc_execute_partitions` for the chunk descriptors, rebinds each onto a cursor with `adbc_read_partition` (returning `None`) and drains it off that cursor's own fetch — one cursor per concurrent chunk, since a second rebind clears the first result — and downloads from cloud staging concurrently under `PREFETCH_CONCURRENCY` with `RESULT_QUEUE_SIZE` read-ahead.
 - staged ingest: `Cursor.adbc_ingest` writes Arrow to internal-stage Parquet then `COPY INTO`, tuned by `INGEST_WRITER_CONCURRENCY`, `INGEST_UPLOAD_CONCURRENCY`, `INGEST_COPY_CONCURRENCY`, and `INGEST_TARGET_FILE_SIZE`.
 
 [LOCAL_ADMISSION]:

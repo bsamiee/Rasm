@@ -41,6 +41,7 @@
 
 - `OpenTelemetryServicesExtensions.AddOpenTelemetry`: mints a fresh builder per call over the same `IServiceCollection` and inserts the hosted seat once, so repeated calls converge on one provider set.
 - `OpenTelemetryBuilder.WithLogging`: only the two-delegate overload admits a null leg; the single-delegate overload faults on a null configure.
+- Two homes carry this verb and neither is wrong: `OpenTelemetryBuilder` declares the INSTANCE overloads here, each forwarding to the `IOpenTelemetryBuilder` STATIC extension `api-opentelemetry.md` rows, so a fence naming the concrete builder binds the instance form and one naming the interface binds the extension.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -55,7 +56,7 @@
 - `OpenTelemetry.Resources.*`(`api-otel-resources.md`): each `Add<X>Detector` chains inside the `ConfigureResource` delegate, folding host, OS, process, container, and runtime attributes into the one resource.
 - `Microsoft.Extensions.Logging.Abstractions`(`api-logging-abstractions.md`): `WithLogging` registers the `OpenTelemetry`-named `ILoggerProvider` onto the host logging builder, so every library's `ILogger` record reaches the log provider.
 - instrumentation packages (`api-otel-instrumentation-*.md`): each `Add*Instrumentation` verb lands inside the `WithTracing` or `WithMetrics` delegate.
-- `Rasm.AppHost`: its observability root threads one `AddOpenTelemetry()` chain — identity through `ConfigureResource`, instrumentation and view rows inside the three delegates, `UseOtlpExporter` last — folded as a state-threaded builder pass, so a new signal row lands as data.
+- `Rasm.AppHost`: its observability root threads one `AddOpenTelemetry()` chain — identity through `ConfigureResource`, then instrumentation, view, and per-signal `AddOtlpExporter` rows inside the three delegates — folded as a state-threaded builder pass, so a new signal row lands as data; the cross-signal claim verb stays declined there because its reader, processor, and transport options are internal.
 
 [LOCAL_ADMISSION]:
 - `serviceInstanceId` pins from the suite boot mint inside `ConfigureResource`; auto-generation anonymizes restart lineage.

@@ -38,6 +38,7 @@
 [STACKING]:
 - `opentelemetry-instrumentation-dbapi`(`.api/opentelemetry-instrumentation-dbapi.md`): `SQLite3Instrumentor` patches `sqlite3.connect` and delegates every cursor span to the dbapi `DatabaseApiIntegration`/`CursorTracer` substrate.
 - `opentelemetry-api`(`libs/python/.api/opentelemetry-api.md`): `tracer_provider` defaults to `trace.get_tracer_provider()`, a no-op until the SDK installs a real provider at the composition root.
+- `opentelemetry-instrumentation`(`.api/opentelemetry-instrumentation.md`): `SQLite3Instrumentor` is one `BaseInstrumentor` subclass, so it is a process singleton whose dependency gate returns silently on an unmet requirement row unless the call arms the raising arm.
 
 [RAIL_LAW]:
 - Package: `opentelemetry-instrumentation-sqlite3`

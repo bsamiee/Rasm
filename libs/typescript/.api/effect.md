@@ -54,26 +54,30 @@
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: `Effect` carrier — construct, boundary lift, run; every surface is `Effect.*`
+[ENTRYPOINT_SCOPE]: `Effect` carrier — construct, boundary lift, observe, run; surfaces are `Effect.*` unless qualified
 - rail: rails-and-effects
 
-| [INDEX] | [SURFACE]                                               | [SHAPE]        | [CAPABILITY]                                           |
-| :-----: | :------------------------------------------------------ | :------------- | :----------------------------------------------------- |
-|  [01]   | `succeed` / `fail` / `sync` / `suspend`                 | construct      | values + thunks; `fail` seeds the error channel        |
-|  [02]   | `gen(function*(){ … })` / `fn("span")(body, …pipeline)` | do-notation    | every flow; body per attempt, policy pipeline          |
-|  [03]   | `tryPromise({...})` / `try` / `async` / `promise`       | boundary lift  | `Promise`/throw → typed error at the seam              |
-|  [04]   | `all(effects, {...})` / `forEach` / `validateAll`       | applicative    | operands accumulate; `mode`: abort vs validate-all     |
-|  [05]   | `flatMap` / `andThen` / `zipWith` / `tap`               | sequence       | steps; `andThen` = value / `Effect` / thunk            |
-|  [06]   | `catchTag` / `catchTags` / `catchAll` / `tapErrorTag`   | recover        | `core/interchange`/`data` typed recovery by `_tag`     |
-|  [07]   | `retry` / `timeout` / `withExecutionPlan` / `race`      | resilience     | `net`/`ai`/`work` — `ExecutionPlan` multi-tier         |
-|  [08]   | `acquireRelease` / `acquireUseRelease`                  | resource       | scoped acquire; release on success/fail/interrupt      |
-|  [09]   | `addFinalizer` / `scoped`                               | resource       | `proc/life`, `data`, `work` leases                     |
-|  [10]   | `fork` / `forkScoped` / `forkDaemon` / `interrupt`      | concurrency    | `serve/live`, `browser` — scoped forks die with scope  |
-|  [11]   | `provide` / `provideService` / `updateService`          | context supply | app root injects `Layer`/service; per-Tag at a site    |
-|  [12]   | `withSpan` / `annotateLogs` / `withMetric` / `log*`     | observe seam   | `otel` — span/log/metric attach onto the rail          |
-|  [13]   | `runFork` / `runPromise` / `runSync` / `runPromiseExit` | run            | imperative edge; `runtime` re-enters foreign callbacks |
+| [INDEX] | [SURFACE]                                                  | [SHAPE]        | [CAPABILITY]                                           |
+| :-----: | :--------------------------------------------------------- | :------------- | :----------------------------------------------------- |
+|  [01]   | `succeed` / `fail` / `sync` / `suspend`                    | construct      | values + thunks; `fail` seeds the error channel        |
+|  [02]   | `gen(function*(){ … })` / `fn("span")(body, …pipeline)`    | do-notation    | every flow; body per attempt, policy pipeline          |
+|  [03]   | `tryPromise({...})` / `try` / `async` / `promise`          | boundary lift  | `Promise`/throw → typed error at the seam              |
+|  [04]   | `all(effects, {...})` / `forEach` / `validateAll`          | applicative    | operands accumulate; `mode`: abort vs validate-all     |
+|  [05]   | `flatMap` / `andThen` / `zipWith` / `tap`                  | sequence       | steps; `andThen` = value / `Effect` / thunk            |
+|  [06]   | `catchTag` / `catchTags` / `catchAll` / `tapErrorTag`      | recover        | `core/interchange`/`data` typed recovery by `_tag`     |
+|  [07]   | `retry` / `timeout` / `withExecutionPlan` / `race`         | resilience     | `net`/`ai`/`work` — `ExecutionPlan` multi-tier         |
+|  [08]   | `acquireRelease` / `acquireUseRelease`                     | resource       | scoped acquire; release on success/fail/interrupt      |
+|  [09]   | `addFinalizer` / `scoped`                                  | resource       | `proc/life`, `data`, `work` leases                     |
+|  [10]   | `fork` / `forkScoped` / `forkDaemon` / `interrupt`         | concurrency    | `serve/live`, `browser` — scoped forks die with scope  |
+|  [11]   | `provide` / `provideService` / `updateService`             | context supply | app root injects `Layer`/service; per-Tag at a site    |
+|  [12]   | `withSpan` / `annotateLogs` / `withMetric` / `log*`        | observe seam   | `otel` — span/log/metric attach onto the rail          |
+|  [13]   | `runFork` / `runPromise` / `runSync` / `runPromiseExit`    | run            | imperative edge; `runtime` re-enters foreign callbacks |
+|  [14]   | `exit` / `onExit` / `onError` / `ensuring`                 | outcome        | reify the settled outcome; observe it once per run     |
+|  [15]   | `Exit.match` / `Cause.isInterruptedOnly` / `failureOption` | outcome fold   | one interrupt-first discrimination over the cause tree |
 
 - `Effect.tryPromise`: its `try` callback receives the fiber's interrupt-wired `AbortSignal`, so a crossing deadline or interrupt threads it.
+- `Effect.onExit(cleanup: (exit: Exit.Exit<A, E>) => Effect<X, never, R2>)` is `Function.dual` and fires ONCE after the outcome settles, which is what makes it the single emission point for an outcome dimension: a string minted inside a recovery arm double-counts every retried attempt and never sees a defect. `Effect.onError` narrows the same aspect to failure, `Effect.ensuring` finalizes with no outcome in hand, and `Effect.exit` reifies the rail into `Exit<A, E>` for a caller folding it later.
+- `Exit.match({ onFailure, onSuccess })` folds the outcome and hands `onFailure` the whole `Cause`, never a bare error. Discrimination runs interrupt-first — `Cause.isInterruptedOnly(cause)` answers `boolean` and `Cause.failureOption(cause)` answers `Option<E>` — because an interrupted run carries no outcome and a defect is not a typed fault; reading `failureOption` first classifies an interrupt as an unknown failure.
 
 [ENTRYPOINT_SCOPE]: `Schema` — decode, project, transform, derive; surfaces are `Schema.*` unless qualified
 - rail: boundaries
@@ -172,15 +176,27 @@
 |  [07]   | `Duration.seconds` / `Duration.decode` / `Cron.parse`        | time           | `core/value/clock` HLC, `work` deadlines, `data` windows |
 |  [08]   | `DateTime.now` / `DateTime.addDuration`                      | time           | wall-clock evidence over the HLC composition             |
 |  [09]   | `Metric.counter` / `histogram` / `gauge`                     | metric         | `otel` `(app, tenant)`-tagged instruments                |
-|  [10]   | `Metric.timerWithBoundaries` / `increment` / `incrementBy`   | metric         | `incrementBy` charges batch counts (`data/journal`)      |
+|  [10]   | `Metric.increment` / `incrementBy` / `update` / `set`        | metric         | per-kind update aspects; `incrementBy` charges batches   |
 |  [11]   | `Logger.make` / `replace` / `batched`                        | logger         | structured logging; `batched` buffered export            |
 |  [12]   | `Metric.snapshot` / `Tracer.externalSpan`                    | signal read    | `core/observe/board` reads; `externalSpan` continues W3C |
 |  [13]   | `Effect.makeSpanScoped`                                      | signal read    | a scoped span the algorithm owns                         |
 |  [14]   | `MetricBoundaries.linear` / `.exponential` / `.fromIterable` | boundaries     | generated bucket edges; a literal array is last resort   |
 |  [15]   | `MetricPair` / `MetricState` / `MetricKey`                   | snapshot shape | `Metric.snapshot` output, read per state kind            |
+|  [16]   | `Metric.trackDuration` / `.trackDurationWith`                | metric         | elapsed-wall aspects; `With` converts the input          |
+|  [17]   | `Metric.timer` / `.timerWithBoundaries`                      | metric         | `Duration`-input histograms stamping `time_unit`         |
+|  [18]   | `Metric.mapInput` / `.withConstantInput`                     | metric         | recast the admitted update without a second mint         |
+|  [19]   | `Metric.trackError` / `trackSuccess` / `trackDefect` / `All` | metric         | outcome-channel aspects; each `*With` converts the input |
+|  [20]   | `Metric.frequency` / `.summary` / `.summaryTimestamp`        | metric         | word census; quantiles where no boundary vector fits     |
 
 - `Metric.tagged`: returns a NEW metric value — `Metric.increment(Metric.tagged(counter, key, value))` is the per-dispatch tagged-increment spelling.
+- `Metric.counter(name, options?)` and `.gauge(name, options?)` overload on a LITERAL `bigint: true`, so a variable-typed flag resolves the `number` overload and strands the 64-bit carrier; `counter` also takes `incremental` (monotonic-only when `true`, the up-down idiom when `false`), and `.frequency(name, options?)` takes `preregisteredWords` so every admitted word reports zero before its first occurrence.
+- `Metric.timer` and `.timerWithBoundaries(name, edges, description?)` pipe `histogram` through `tagged("time_unit", "milliseconds")` and fix `In` at `Duration.Duration`: the stamped tag is the descriptor unit an exporter reads, so a row measuring seconds or nanoseconds minted through either exports the wrong magnitude under the wrong word. `Metric.mapInput` over `Metric.histogram` is the scaled-`Duration` mint that carries an own unit tag instead.
+- `Metric.trackDuration(effect, metric)` demands `In = Duration.Duration` and `Metric.trackDurationWith(effect, metric, convert)` supplies the converter for every other input, both `Function.dual` — so a `Duration`-input mint consumes through the aspect and never through a call-site `Duration.toMillis` before `Metric.update`.
+- `Metric.update(self, input)` is the general aspect; `increment`/`incrementBy` narrow to counters and gauges, `set` to gauges, and each overloads `number` against `bigint` on the carrier's own width.
 - `Metric.histogram(name, boundaries, description?)`: three arguments, `boundaries` a `MetricBoundaries` value and never a bare number array. `MetricBoundaries.linear({ start, width, count })` and `.exponential({ start, factor, count })` GENERATE the edge set from three scalars, so an explicit-bucket row parameterizes rather than enumerating; `.fromIterable(numbers)` is the escape for edges an algorithm already holds.
+- `MetricBoundaries.fromIterable` appends `Number.POSITIVE_INFINITY` and dedupes but NEVER SORTS, so an unordered edge vector mints a distribution whose every bucket bound lies; both generators spend one `count` slot on that appended bucket — `linear` and `exponential` each mint `count - 1` FINITE rungs — so a caller whose `count` means finite edges generates its own ascending rungs into `fromIterable`, and delegating to a generator drops the top rung silently.
+- `Metric.trackErrorWith(effect, metric, convert)` folds the error channel into a metric input and leaves the channel untouched, which is the frequency-over-a-closed-reason-vocabulary spelling; `trackError`/`trackSuccess`/`trackDefect`/`trackAll` narrow the same aspect to a matching input, and every member of the family is `Function.dual`.
+- `Metric.summary({ name, maxAge, maxSize, error, quantiles, description? })` takes ALL FIVE leading options — no defaults exist — and mints `Metric.Summary<number>`; `summaryTimestamp` is the twin whose `In` is `readonly [value, timestamp]` for a caller supplying its own observation instant. Quantiles are the sliding-window read where no boundary vector pre-names the range, so a summary and a histogram are two answers to one question and a row picks by whether the range is known.
 - `Metric.snapshot`: reads the whole global registry as `MetricPair.Untyped[]`, each pair a `MetricKey` beside a `MetricState`; a filtered read is a caller-side projection over it.
 - `MetricState` closes over five cases — `Counter<number | bigint>`, `Gauge<number | bigint>`, `Frequency`, `Histogram`, `Summary` — each with its own `is*State` refinement, so a snapshot fold dispatches on the guard and never on a shape probe.
 - `Schedule`: values compose — `exponential |> jittered |> intersect(recurs(n))` is one recurrence value, never a hand-rolled retry loop.
@@ -195,14 +211,16 @@
 |  [03]   | `Option.match` / `Option.zipWith`               | stdlib fold  | join optional evidence without a null sentinel     |
 |  [04]   | `Order.*` / `Equivalence.*` / `Predicate.*`     | comparison   | ordering + `Predicate.and`/`or` refinement algebra |
 |  [05]   | `Equal.equals` / `Hash.hash`                    | comparison   | `Data`-backed structural equality                  |
-|  [06]   | `Cache.make({...})` / `RcMap.make`              | cache / pool | TTL + reference counting; `data/lane` lookups      |
+|  [06]   | `Cache.make({...})` / `RcMap.make`              | cache / pool | TTL + refcount + `cacheStats` census; `data/lane`  |
 |  [07]   | `KeyedPool.make` / `Pool.make`                  | cache / pool | `net/client` connection pools, `ai` clients        |
 |  [08]   | `RateLimiter.make({...})` / `Request.Class`     | rate / batch | `net` API-key limits; request de-duplication       |
 |  [09]   | `RequestResolver.makeBatched`                   | rate / batch | batch requests under one resolver                  |
 |  [10]   | `Encoding.encodeBase64` / `Encoding.decodeHex`  | codec        | `security` byte encodings, `core/interchange`      |
 |  [11]   | `Redacted.make` / `Redacted.value`              | secret       | unwrap only at the crypto boundary                 |
 
+- `Cache.ConsumerCache` carries the read-side census `Cache` inherits — `cacheStats: Effect<CacheStats>` returning `{ hits, misses, size }` as CUMULATIVE totals, beside `size`, `keys`, `values`, `contains`, `entryStats`, `invalidate`, `invalidateWhen`, and `invalidateAll` — so a hit-economics projection SETS levels from one periodic snapshot and instruments no lookup; a tally minted beside the cache re-implements a counter the substrate already keeps.
 - `Equal.equals`: compares structurally only over `Data`-constructed or `Equal`-implementing values — `HashMap` and `Redacted` both implement `Equal`.
+- `Record.map(self, f)` hands `f` the `(value, key)` pair and returns a record keyed identically, so a table of policy rows mints one derived value per row with the key in hand — the spelling a per-row instrument or projection fold takes instead of an entry-array round trip. JS `Array.prototype.map` passes an INDEX second, so a callback written against that habit reads a key as a number.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

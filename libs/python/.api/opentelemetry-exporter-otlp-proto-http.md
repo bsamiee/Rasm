@@ -14,12 +14,12 @@
 
 [PUBLIC_TYPE_SCOPE]: exporter family
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]   | [CAPABILITY]                                    |
-| :-----: | :------------------- | :-------------- | :---------------------------------------------- |
-|  [01]   | `OTLPSpanExporter`   | span exporter   | OTLP/HTTP span batch POST (`SpanExporter`)      |
-|  [02]   | `OTLPMetricExporter` | metric exporter | OTLP/HTTP metric batch POST (`MetricExporter`)  |
-|  [03]   | `OTLPLogExporter`    | log exporter    | OTLP/HTTP log-record batch POST (`LogExporter`) |
-|  [04]   | `Compression`        | enum            | `NoCompression` / `Deflate` / `Gzip`            |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]   | [CAPABILITY]                                          |
+| :-----: | :------------------- | :-------------- | :---------------------------------------------------- |
+|  [01]   | `OTLPSpanExporter`   | span exporter   | OTLP/HTTP span batch POST (`SpanExporter`)            |
+|  [02]   | `OTLPMetricExporter` | metric exporter | OTLP/HTTP metric batch POST (`MetricExporter`)        |
+|  [03]   | `OTLPLogExporter`    | log exporter    | OTLP/HTTP log-record batch POST (`LogRecordExporter`) |
+|  [04]   | `Compression`        | enum            | `NoCompression` / `Deflate` / `Gzip`                  |
 
 [COMPRESSION_VALUES]:
 - `NoCompression` = `"none"`, default absent `OTEL_EXPORTER_OTLP_COMPRESSION`
@@ -48,12 +48,12 @@
 
 [ENTRYPOINT_SCOPE]: OTLPLogExporter
 
-| [INDEX] | [SURFACE]                                    | [SHAPE]  | [CAPABILITY]                             |
-| :-----: | :------------------------------------------- | :------- | :--------------------------------------- |
-|  [01]   | `OTLPLogExporter(...)`                       | ctor     | log-record exporter with full config     |
-|  [02]   | `export(batch) -> LogExportResult`           | instance | encode + POST `LogData` batch with retry |
-|  [03]   | `force_flush(timeout_millis=10_000) -> bool` | instance | no-op true                               |
-|  [04]   | `shutdown()`                                 | instance | set shutdown flag, abort backoff         |
+| [INDEX] | [SURFACE]                                    | [SHAPE]  | [CAPABILITY]                                       |
+| :-----: | :------------------------------------------- | :------- | :------------------------------------------------- |
+|  [01]   | `OTLPLogExporter(...)`                       | ctor     | log-record exporter with full config               |
+|  [02]   | `export(batch) -> LogRecordExportResult`     | instance | encode + POST `ReadableLogRecord` batch with retry |
+|  [03]   | `force_flush(timeout_millis=10_000) -> bool` | instance | no-op true                                         |
+|  [04]   | `shutdown()`                                 | instance | set shutdown flag, abort backoff                   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -70,12 +70,12 @@
 [STACKING]:
 - `opentelemetry-sdk`(`.api/opentelemetry-sdk.md`): each exporter is the terminal sink behind one SDK processor — `OTLPSpanExporter` -> `BatchSpanProcessor` -> `TracerProvider`, `OTLPMetricExporter` -> `PeriodicExportingMetricReader` -> `MeterProvider`, `OTLPLogExporter` -> `BatchLogRecordProcessor` -> `LoggerProvider`; the processor owns batching and queueing, the exporter owns transport and retry.
 - `opentelemetry-sdk`(`.api/opentelemetry-sdk.md`): the exporter `preferred_temporality` binds the reader `preferred_temporality` and the backend — `CUMULATIVE` for Prometheus-style scrape, `DELTA` for OTLP-delta backends — set once at construction.
-- `protobuf`(`.api/protobuf.md`): SDK `ReadableSpan`/`MetricsData`/`LogData` encode to OTLP protobuf inside `export`; the composing owner passes SDK views and never hand-builds the protobuf tree.
+- `protobuf`(`.api/protobuf.md`): SDK `ReadableSpan`/`MetricsData`/`ReadableLogRecord` encode to OTLP protobuf inside `export`; the composing owner passes SDK views and never hand-builds the protobuf tree.
 - `meter_provider` on the span/log exporter routes the exporter's own success/failure/duration metrics into the same `MeterProvider`, closing the self-observability loop without a second pipeline.
 
 [LOCAL_ADMISSION]:
 - One exporter instance per signal, built at the composition root and handed to the matching SDK processor or reader.
-- A deployment holding a configured `Session` (mTLS client certs, proxy adapters, pool sizing) passes it through `session` rather than the env certificate files.
+- Deployments holding a configured `Session` — mTLS client certs, proxy adapters, pool sizing — pass it through `session` rather than the env certificate files.
 - Built-in retry is the whole retry budget; an external retry around `export` multiplies the backoff.
 
 [RAIL_LAW]:

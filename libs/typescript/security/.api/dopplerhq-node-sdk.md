@@ -50,6 +50,7 @@ Every `secrets` read keys on `(project, config)`; `includeDynamicSecrets` with `
 
 - `new DopplerSDK`: `Config.accessToken` is optional in the type, so an unset token constructs a client that faults only at first call.
 - `dynamicSecrets.revokeLease`: keys the lease by `slug` while `IssueLeaseResponse` returns `id` and `expires_at`, and an inline `list`/`download` lease surfaces no identifier — the refresh window is the only reclaim path for those.
+- `secrets.list`: `SecretsListResponse.secrets` types as an interface declaring FOUR fixed example key names (`STRIPE`, `ALGOLIA`, `DATABASE`, `USER`), a codegen artifact of the spec's example payload — the wire carries an arbitrary name-keyed map of `{ raw, computed, note, rawVisibility, computedVisibility }`, so a consumer decodes the response and never reads a name off the declared shape. Its `optionalParams` are `accepts` `includeDynamicSecrets` `dynamicSecretsTtlSec` `secrets` `includeManagedSecrets`; `secrets` narrows the read to a comma-separated allowlist, and `includeDynamicSecrets` is what turns a census into an unreclaimable lease.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

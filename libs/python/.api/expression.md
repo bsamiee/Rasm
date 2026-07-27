@@ -137,7 +137,7 @@
 |  [01]   | `Block.of_seq(xs)` / `Block.empty()`                                        | constructor | from seq / empty                      |
 |  [02]   | `Block.singleton(x)` / `Block.range(...)`                                   | constructor | singleton / range                     |
 |  [03]   | `Block.cons(x)` / `Block.append(other)`                                     | structural  | prepend / concat                      |
-|  [04]   | `Block.tail()` / `Block.head()` / `Block.try_head()`                        | structural  | decompose head/tail                   |
+|  [04]   | `Block.tail()` / `Block.head()` / `Block.try_head()` / `Block.is_empty()`   | structural  | decompose head/tail; emptiness probe  |
 |  [05]   | `Block.map(f)` / `Block.mapi(f)` / `Block.choose(f)` / `Block.collect(f)`   | transform   | map / indexed / filter-map / flat-map |
 |  [06]   | `Block.filter(p)` / `Block.partition(p)`                                    | transform   | filter / split by predicate           |
 |  [07]   | `Block.fold(folder, state)` / `Block.reduce(reducer)`                       | reduce      | left fold / reduce                    |
@@ -170,6 +170,7 @@
 - `Result[T, E]`/`Option[T]`/`Try` are `@tagged_union` monads: build with `Ok`/`Error`/`Some`/`Nothing`, decompose with structural `match`, chain with the `map`/`bind`/`map2`/`filter` methods or the curried `expression.result`/`expression.option` module callables under `pipe`.
 - `@tagged_union` with `tag()`/`case()` is the canonical owner for every bounded variant set; `frozen=True` makes instances hashable, `order=True` derives comparison.
 - Effect builders bind through the generator protocol: `yield from m` unwraps the inner value, an absent/error case raises `EffectError` and short-circuits the block to `Nothing`/`Error`; they carry bind chains past three levels, explicit `bind`/`map2` the shorter ones.
+- `Map` is an AVL tree, so every key compares against every other key with `<` and a key type mixing comparability raises `TypeError` inside `add` — never at construction, and only once a SECOND incomparable key arrives, so a single-tenant fold passes and the first mixed row kills it. Composite keys carrying an optional half therefore rank that half on its own present/absent column rather than admitting `None` beside a value; `Block` stays unconstrained and needs `SupportsLessThan` only under `sort`.
 
 [STACKING]:
 - `beartype`(`.api/beartype.md`): a boundary adapter catches `BeartypeCallHintViolation` onto `Result.Error`; `door.is_bearable(value, hint)` narrows before `Ok(value)`, `door.is_subhint` validates a `@tagged_union` registry at startup.

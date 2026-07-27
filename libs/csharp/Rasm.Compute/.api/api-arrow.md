@@ -71,6 +71,9 @@
 |  [19]   | `new RecordBatch(Schema, IEnumerable<IArrowArray>, int)` | ctor     | binds metadata schema, arrays, and length   |
 |  [20]   | `Table.TableFromRecordBatches(Schema, IList<batch>)`     | static   | collects batches into one `Table`           |
 |  [21]   | `MemoryAllocator.Default.Value` / `Allocate(int)`        | property | shared default arena; `Allocate` a buffer   |
+|  [22]   | `Schema.FieldsList -> IReadOnlyList<Field>`              | property | ordered field vocabulary; schema identity   |
+|  [23]   | `RecordBatch.Schema` / `.Length` / `.Arrays`             | property | sealed batch reads back schema and length   |
+|  [24]   | `Field.Name` / `Field.DataType -> IArrowType`            | property | the `(name, TypeId)` pair a digest folds    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -82,7 +85,8 @@
 
 [STACKING]:
 - `api-nodatime`(`libs/csharp/.api/api-nodatime.md`): an `Instant` projects to the `TimestampArray` epoch column under `TimestampType.Default` at the builder edge — the one clock seam the Arrow wire, the receipt fold, and the Persistence store share.
-- `api-arrow`(`libs/csharp/Rasm.Persistence/.api/api-arrow.md`): a sealed `RecordBatch` crosses to the Persistence egress overlay over the `Runtime/transport` wire plane, redeemed at `Rasm.Persistence/Query/federation#FLIGHT_RESULT_PLANE`; Compute stops at the sealed batch and opens no Arrow-owned transport.
+- `api-arrow`(`libs/csharp/Rasm.Persistence/.api/api-arrow.md`): a sealed `RecordBatch` crosses to the one lake custodian at `Rasm.Persistence/Query/columnar#FLAT_TABLE_EGRESS` `Land`, which owns writers, residence, hive generation, and index custody; the `#FLIGHT_RESULT_PLANE` Flight server is the READ end serving plans back, never a landing door, so a producer dialing Flight to write forks lake custody.
+- `Query/columnar#FLAT_TABLE_EGRESS`(`libs/csharp/Rasm.Persistence/.planning/Query/columnar.md`): `LandingArm` and `LakeGeneration` are the corpus types the landing projection composes — Compute names its arm row and readable segment and derives its schema key off `Schema.FieldsList`, so an additive column lands a compatible generation and every writer stays Persistence-side.
 - within-lib: `SweepLane.Run` lands a `SweepResult`, `SweepLane.Dataset` folds it into a content-keyed `DoeDataset`, this build projects the labeled table into one `RecordBatch` crossing to the Python graduation companion, which returns a graduated ONNX surrogate over `GraduationEvidence` to `Solver/optimizer`; `ChargebackDataset.Of` folds the identical typed-array/`Schema.Builder`/`RecordBatch` path for billing egress — one construction owner, two dataset producers.
 
 [LOCAL_ADMISSION]:

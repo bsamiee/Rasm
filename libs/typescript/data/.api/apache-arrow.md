@@ -8,7 +8,7 @@
 - package: `apache-arrow` (Apache-2.0)
 - module: `exports["."]` condition-selects `Arrow.node` under the `node` condition, `Arrow.dom` by default; `sideEffects: false`
 - runtime: isomorphic — the wasm row rides the dom build, the node row the node build; no peer dependency
-- rail: `lane/olap` `[06]-[ARROW_WIRE]`, the wire every engine row joins by emitting or accepting IPC
+- rail: `lane/olap` `[08]-[ARROW_WIRE]`, the wire every engine row joins by emitting or accepting IPC
 
 ## [02]-[PUBLIC_TYPES]
 

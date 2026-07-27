@@ -156,6 +156,9 @@
 |  [06]   | `FlightCallOptions` | call options       | per-call `Metadata Headers` + `TimeSpan Timeout`                                         |
 |  [07]   | `DoPutResult`       | put result         | `Writer` + `Reader`; `ReadMetadataAsync`/`CompleteAsync` finalize an ingest              |
 
+[FLIGHTSQLSERVER_SUBCLASS_COST]: `FlightSqlServer` declares 27 `protected abstract` handlers and no base implementation among them, so a subclass realizes every one whatever it serves — twelve `Get*FlightInfo` describe verbs, eleven `DoGet*` stream verbs, the `CreatePreparedStatement`/`ClosePreparedStatement` action pair, and the three `Put*` ingest verbs. It seals nothing and overrides `GetFlightInfo`, `DoGet`, `DoAction`, `DoPut`, and `ListActions` from `FlightServer`, each dispatching on a Flight SQL command protobuf it unpacks from the descriptor or ticket.
+[SUBSTRAIT_COMMAND_UNROUTED]: `Arrow.Flight.Protocol.Sql` generates `CommandStatementSubstraitPlan { Plan = 1, TransactionId = 2 }` over `SubstraitPlan { Plan = 1, Version = 2 }`, and the `FlightSqlServer` dispatch matches NEITHER — its `GetCommand`, `GetFlightInfo`, and `DoGet` folds enumerate `CommandStatementQuery`, the eleven catalog-metadata commands, and the prepared-statement pair alone, throwing `InvalidOperationException` on anything else. Plan-carrying servers therefore override `GetFlightInfo` regardless, which is why `Query/federation#FLIGHT_RESULT_PLANE` serves a plain `FlightServer` and declines this base.
+
 [PUBLIC_TYPE_SCOPE]: IPC compression family (`Apache.Arrow.Compression`)
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                                                                        |
@@ -186,6 +189,24 @@
 |  [15]   | `Field.Builder.Build()`                                  | factory call   | yields immutable `Field`                     |
 |  [16]   | `RecordBatch.Slice(offset, length)` / `SliceShared`      | zero-copy view | windows a batch without copying buffers      |
 |  [17]   | `RecordBatch.Column(name)` / `Column(int)`               | column access  | reads one `IArrowArray` column by name/index |
+|  [18]   | `new RecordBatch(Schema, IEnumerable<IArrowArray>, int)` | ctor           | binds pre-built columns to a declared schema |
+|  [19]   | `new Schema(IEnumerable<Field>, IEnumerable<KVP>)`       | ctor           | ordered field list, metadata nullable        |
+|  [20]   | `new Field(string, IArrowType, bool, metadata?)`         | ctor           | one field from name, type, nullability       |
+|  [21]   | `new Int64Array.Builder()` / `.AppendRange(long)`        | array builder  | builds the signed 64-bit column              |
+|  [22]   | `new TimestampArray.Builder(TimestampType)`              | array builder  | builds under the field's own unit and zone   |
+|  [23]   | `TimestampArray.Builder.AppendRange(DateTimeOffset)`     | array builder  | appends instants at the builder's unit       |
+
+[ENTRYPOINT_SCOPE]: type-system values (`Apache.Arrow.Types`) — a schema field takes an `IArrowType` instance, so the parameterless types expose one shared `Default` and the parameterized two take their whole shape at construction
+
+| [INDEX] | [SURFACE]                                | [SHAPE]      | [CAPABILITY]                                 |
+| :-----: | :--------------------------------------- | :----------- | :------------------------------------------- |
+|  [01]   | `StringType.Default`                     | type value   | UTF-8 variable-length binary                 |
+|  [02]   | `DoubleType.Default`                     | type value   | IEEE 64-bit floating point                   |
+|  [03]   | `Int64Type.Default`                      | type value   | signed 64-bit integer                        |
+|  [04]   | `BooleanType.Default`                    | type value   | 1-bit boolean                                |
+|  [05]   | `Date32Type.Default`                     | type value   | 32-bit day-unit date                         |
+|  [06]   | `new TimestampType(TimeUnit, string)`    | ctor         | unit plus timezone; `Default` is millisecond |
+|  [07]   | `new FixedSizeBinaryType(int byteWidth)` | ctor         | fixed-width binary; a non-positive width throws |
 
 [ENTRYPOINT_SCOPE]: IPC read and write
 
@@ -305,7 +326,7 @@
 - `RecordBatch` implements `IArrowRecord` and `IArrowArray` and is `IDisposable`; `Slice`/`SliceShared` window a batch with zero buffer copy.
 - `IpcOptions.CompressionCodec` (`CompressionCodecType?`, `Lz4Frame` \| `Zstd`) is inert unless `CompressionCodecFactory` is set; the concrete `ICompressionCodecFactory` is `Apache.Arrow.Compression.CompressionCodecFactory`, never core Arrow, invoked per batch for the per-codec `ICompressionCodec`.
 - `AdbcConnection.GetObjectsDepth` discriminates `All`/`Catalogs`/`DbSchemas`/`Tables`; `AdbcStatement.SqlQuery` and `SubstraitPlan` are mutually-exclusive query inputs.
-- Flight SQL layers over the Flight transport, never a second listener: `FlightSqlServer` (`: FlightServer`) decodes the SQL command protobufs and reuses the `DoGet` ticket redemption.
+- Flight SQL layers over the Flight transport, never a second listener: `FlightSqlServer` (`: FlightServer`) decodes the SQL command protobufs and reuses the `DoGet` ticket redemption. Its serve side is a SQL-catalog contract, so a plan-carrying result plane subclasses `FlightServer` directly and its client side stays fully composable — `FlightSqlClient` over a constructed `FlightClient` reaches any served node.
 
 [STACKING]:
 - `api-duckdb`(`.api/api-duckdb.md`): the DuckDB ADBC driver is the in-process analytical engine reached through this `AdbcConnection`/`AdbcStatement` surface, so a federated rail dispatches SQL or a `SubstraitPlan` and reads back one `IArrowArrayStream` — `ExecutePartitioned` + `ReadPartition` fan a large scan, `BulkIngest` lands a `RecordBatch` stream.
@@ -313,6 +334,7 @@
 - `api-nodatime`(`.api/api-nodatime.md`): an `Instant`/`ZonedDateTime` projects to `TimestampArray` (epoch-nanosecond) at the builder edge, so the Arrow wire carries the relational store's clock seam, never a bare `DateTime`.
 - `api-lz4`(`.api/api-lz4.md`): the Arrow-IPC buffer codec through `CompressionCodecFactory` is distinct from the snapshot-codec LZ4 rail driving `LZ4Pickler`/`CompressionPolicy` over `K4os.Compression.LZ4` for standalone snapshot/blob frames.
 - within-lib: the Persistence egress owner folds IPC, ADBC, and Flight behind one `IArrowArrayStream`, composes each batch through `RecordBatch.Builder` typed `.Append` columns, and reads one typed column via `RecordBatch.Column(name)` returning `IArrowArray` — one boundary materialisation, never a `PrimitiveArray<T>` batch accessor.
+- within-lib: `Query/columnar#ANALYTICS_RESIDENCE`'s `AnalyticsSchema.Fields` projects the residence column roster into `Field`/`Schema` values off each `ColumnType` row's own `IArrowType`, so a landing binds pre-built columns through the `RecordBatch(Schema, …, length)` ctor rather than re-declaring field order at a builder — the DDL, the batch, and every reader's ordinals derive from one declaration.
 
 [LOCAL_ADMISSION]:
 - `WriteStart`/`WriteStartAsync` emits the schema message and `WriteEnd`/`WriteEndAsync` the mandatory EOS terminator; a writer disposed without `WriteEnd` leaves a truncated stream the reader rejects.

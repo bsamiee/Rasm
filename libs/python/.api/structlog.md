@@ -62,26 +62,26 @@
 
 [PUBLIC_TYPE_SCOPE]: processors and renderers
 
-| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY] | [CAPABILITY]                                                                     |
-| :-----: | :------------------------------------ | :------------ | :------------------------------------------------------------------------------- |
-|  [01]   | `processors.TimeStamper`              | processor     | add timestamp (`fmt=`, `utc=`, `key=`) to the event                              |
-|  [02]   | `processors.MaybeTimeStamper`         | processor     | add timestamp only when the key is absent                                        |
-|  [03]   | `processors.add_log_level`            | processor fn  | inject the level name into the event                                             |
-|  [04]   | `processors.CallsiteParameterAdder`   | processor     | inject selected callsite fields (`parameters=`, `additional_ignores=`)           |
-|  [05]   | `processors.CallsiteParameter`        | enum          | field selector: `FILENAME`/`LINENO`/`FUNC_NAME`/`MODULE`/`PROCESS`/`THREAD`/…    |
-|  [06]   | `processors.EventRenamer`             | processor     | rename the `event` key (`to=`, `replace_by=`)                                    |
-|  [07]   | `processors.UnicodeDecoder`           | processor     | decode `bytes` values to `str`                                                   |
-|  [08]   | `processors.UnicodeEncoder`           | processor     | encode `str` values to `bytes`                                                   |
-|  [09]   | `processors.StackInfoRenderer`        | processor     | render `stack_info=True` call sites into the event                               |
-|  [10]   | `processors.ExceptionRenderer`        | processor     | render `exc_info` via an `ExceptionTransformer`                                  |
-|  [11]   | `processors.ExceptionDictTransformer` | processor     | convert an exception into a JSON-safe nested dict                                |
-|  [12]   | `processors.dict_tracebacks`          | processor fn  | preconfigured `ExceptionRenderer(ExceptionDictTransformer())` for JSON pipelines |
-|  [13]   | `processors.format_exc_info`          | processor fn  | render `exc_info` to a `exception` traceback string                              |
-|  [14]   | `processors.ExceptionPrettyPrinter`   | processor     | pretty-print exceptions to a stream (dev only)                                   |
-|  [15]   | `processors.get_processname`          | processor fn  | inject the OS process name                                                       |
-|  [16]   | `processors.JSONRenderer`             | renderer      | serialize the event dict to JSON (`serializer=`, `**dumps_kw`)                   |
-|  [17]   | `processors.KeyValueRenderer`         | renderer      | serialize to `key=value` (`sort_keys=`, `key_order=`, `drop_missing=`)           |
-|  [18]   | `processors.LogfmtRenderer`           | renderer      | serialize to logfmt                                                              |
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY] | [CAPABILITY]                                                                      |
+| :-----: | :------------------------------------ | :------------ | :-------------------------------------------------------------------------------- |
+|  [01]   | `processors.TimeStamper`              | processor     | add timestamp (`fmt=`, `utc=`, `key=`) to the event                               |
+|  [02]   | `processors.MaybeTimeStamper`         | processor     | add timestamp only when the key is absent                                         |
+|  [03]   | `processors.add_log_level`            | processor fn  | inject the level name into the event                                              |
+|  [04]   | `processors.CallsiteParameterAdder`   | processor     | inject selected callsite fields (`parameters=`, `additional_ignores=`)            |
+|  [05]   | `processors.CallsiteParameter`        | enum          | field selector: `FILENAME`/`LINENO`/`FUNC_NAME`/`MODULE`/`PROCESS`/`THREAD`/…     |
+|  [06]   | `processors.EventRenamer`             | processor     | rename the `event` key (`to=`, `replace_by=`)                                     |
+|  [07]   | `processors.UnicodeDecoder`           | processor     | decode `bytes` values to `str`                                                    |
+|  [08]   | `processors.UnicodeEncoder`           | processor     | encode `str` values to `bytes`                                                    |
+|  [09]   | `processors.StackInfoRenderer`        | processor     | render `stack_info=True` call sites into the event                                |
+|  [10]   | `processors.ExceptionRenderer`        | processor     | render `exc_info` via an `ExceptionTransformer`                                   |
+|  [11]   | `processors.ExceptionDictTransformer` | processor     | exception -> JSON-safe nested dict; `show_locals`/`use_rich` default ON           |
+|  [12]   | `processors.dict_tracebacks`          | processor fn  | `ExceptionRenderer(ExceptionDictTransformer())` at those defaults, unconfigurable |
+|  [13]   | `processors.format_exc_info`          | processor fn  | render `exc_info` to a `exception` traceback string                               |
+|  [14]   | `processors.ExceptionPrettyPrinter`   | processor     | pretty-print exceptions to a stream (dev only)                                    |
+|  [15]   | `processors.get_processname`          | processor fn  | inject the OS process name                                                        |
+|  [16]   | `processors.JSONRenderer`             | renderer      | serialize the event dict to JSON (`serializer=`, `**dumps_kw`)                    |
+|  [17]   | `processors.KeyValueRenderer`         | renderer      | serialize to `key=value` (`sort_keys=`, `key_order=`, `drop_missing=`)            |
+|  [18]   | `processors.LogfmtRenderer`           | renderer      | serialize to logfmt                                                               |
 
 [PUBLIC_TYPE_SCOPE]: dev renderer and traceback formatters
 
@@ -100,7 +100,7 @@
 |  [11]   | `dev.set_exc_info`            | processor fn  | set `exc_info=True` when an exception is being logged                         |
 
 [PUBLIC_TYPE_SCOPE]: tracebacks, contextvars, testing
-- `tracebacks.ExceptionDictTransformer` carries `show_locals, max_frames, suppress, use_rich`
+- `tracebacks.ExceptionDictTransformer(*, show_locals=True, locals_max_length=10, locals_max_string=80, locals_hide_dunder=True, locals_hide_sunder=False, suppress=(), max_frames=50, use_rich=True)` — `show_locals` emits every frame local into the rendered stack, past any field policy keyed on top-level names, and `use_rich` reaches for `rich`, so a pipeline carrying untrusted or classified state spells the transformer explicitly rather than taking `dict_tracebacks`
 
 | [INDEX] | [SYMBOL]                              | [TYPE_FAMILY] | [CAPABILITY]                                            |
 | :-----: | :------------------------------------ | :------------ | :------------------------------------------------------ |
@@ -143,12 +143,12 @@
 [ENTRYPOINT_SCOPE]: bound-logger methods and testing helpers
 - async mirrors exist only on `FilteringBoundLogger`
 
-| [INDEX] | [SURFACE]                                                      | [SHAPE]  | [CAPABILITY]                                         |
-| :-----: | :------------------------------------------------------------- | :------- | :--------------------------------------------------- |
-|  [01]   | `log.{bind,new}(**kw)` / `log.{unbind,try_unbind}(*keys)`      | instance | derive a child logger with mutated context           |
-|  [02]   | `log.debug/info/warning/error/critical/exception(event, **kw)` | instance | emit through the processor chain                     |
-|  [03]   | `await log.adebug/ainfo/awarning/aerror(...)`                  | instance | async-mirror levels offloading the chain to a thread |
-|  [04]   | `testing.capture_logs()`                                       | static   | capture every event in the block as a list of dicts  |
+| [INDEX] | [SURFACE]                                                                          | [SHAPE]  | [CAPABILITY]                                        |
+| :-----: | :--------------------------------------------------------------------------------- | :------- | :-------------------------------------------------- |
+|  [01]   | `log.{bind,new}(**kw)` / `log.{unbind,try_unbind}(*keys)`                          | instance | derive a child logger with mutated context          |
+|  [02]   | `log.debug/info/warn/warning/error/critical/fatal/exception/msg/log(event, **kw)`  | instance | emit through the processor chain                    |
+|  [03]   | `await log.a{debug,info,warn,warning,error,critical,fatal,exception,msg,log}(...)` | instance | async mirrors, chain on a thread                    |
+|  [04]   | `testing.capture_logs()`                                                           | static   | capture every event in the block as a list of dicts |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -156,9 +156,11 @@
 - `get_logger()` returns a lazy proxy resolving configuration on the first log call, so module-level `get_logger(__name__)` is safe before `configure()` runs. Each call seeds an event dict, folds it left-to-right through the processor list, and the last processor must be a renderer returning `str`/`bytes`/a `(args, kwargs)` tuple.
 - a processor is `(logger, method_name, event_dict) -> event_dict | str | bytes | tuple`; `DropEvent` silently discards the event. `contextvars.merge_contextvars` runs FIRST so the ambient context reaches every downstream processor; the renderer runs LAST.
 - `make_filtering_bound_logger(min_level)` generates a class whose sub-threshold level methods and async mirrors are literal no-ops — filtering at method-resolution time, cheaper than a `filter_by_level` processor that still constructs the event dict.
-- `stdlib.ProcessorFormatter` bridges the two systems: structlog processors run up to `wrap_for_formatter` (the last processor), then a stdlib `Handler` runs `ProcessorFormatter(processors=, foreign_pre_chain=)` so structlog-origin and foreign records share one render chain; `remove_processors_meta` strips the internal `_record`/`_from_structlog` keys.
+- `stdlib.ProcessorFormatter` bridges the two systems: structlog processors run up to `wrap_for_formatter` (the last processor), then a stdlib `Handler` runs `ProcessorFormatter(processors=, foreign_pre_chain=)` so structlog-origin and foreign records share one render chain; `remove_processors_meta` strips the internal `_record`/`_from_structlog` keys. `format` seeds BOTH arms with `_record` and `_from_structlog` before any processor runs and reaches `foreign_pre_chain` on the foreign arm alone, so a chain row discriminates origin on `_record` presence while `wrap_for_formatter` itself carries only `_logger`/`_name`, and those two ride the stdlib record rather than the event dict.
+- `stdlib.ExtraAdder()` with no `allow` collection copies EVERY attribute a foreign record carries beyond the standard `logging.LogRecord` set, so a library's own `extra` reaches the event dict wholesale and overwrites any chain-owned key an injector has not yet written; a chain that means one thing by a key writes it unconditionally downstream of the adder, and `allow=` narrows the merge where the producer set is known.
 - exception rendering carries three tiers: `format_exc_info` (string traceback), `dict_tracebacks`/`ExceptionDictTransformer` (JSON-safe nested dict for `JSONRenderer`), and `ConsoleRenderer`'s `RichTracebackFormatter` (colored locals-bearing dev traceback); `ExceptionDictTransformer(use_rich=False)` drops the `rich` dependency.
-- `CallsiteParameterAdder` resolves the call frame once per event and is comparatively expensive, so it runs after the filtering wrapper admits the event.
+- `CallsiteParameterAdder` resolves the call frame once per event and is comparatively expensive, so it runs after the filtering wrapper admits the event. Its `parameters` default is the WHOLE eleven-member enum — four keys naming one source location (`pathname`, `filename`, `module`, `qual_module`), two naming the process, two the thread, two the function — so a pipeline taking the default charges every record its full width against whatever attribute cap the sink applies, and a narrowed `parameters=` collection is the shape a wire-bound chain passes.
+- `ExceptionRenderer` reads three `exc_info` spellings through `_figure_out_exc_info` — an `(type, value, traceback)` triple, a bare `BaseException`, and any other truthy value falling back to `sys.exc_info()` — and POPS the slot before writing `exception`, so a row needing the live exception downstream resolves and re-seats it ahead of the renderer rather than reading the rendered frames back. `ProcessorFormatter.format` seeds a foreign record's `exc_info` and `stack_info` onto the event dict, so both spellings reach one shared chain.
 - `JSONRenderer(serializer=orjson.dumps)` swaps the JSON backend; pair it with `BytesLoggerFactory` so the `bytes` output reaches the sink without a re-encode.
 
 [STACKING]:

@@ -76,6 +76,10 @@
 |  [10]   | `RequestResolver.PersistedRequest`                              | request mixin  | persisted request for `dataLoader`/`persisted`     |
 |  [11]   | `DevTools.*` / `VariantSchema.*`                                | dev / schema   | DevTools wiring + multi-variant schema build       |
 
+- `VariantSchema.make({ variants, defaultVariant })` mints the whole builder set from one declaration — `Struct`, `Field`, `FieldOnly(...keys)`, `FieldExcept(...keys)`, `fieldEvolve`, `fieldFromKey`, `Class<Self>(identifier)(fields, annotations?)`, `Union(...members)`, and `extract(variant)` — each `Function.dual` where it takes a subject, and `Struct.Validate` is what refuses a field naming a variant the set never declared.
+- `Override(value)` brands a value the `Overrideable(from, to, {...})` property signature admits, so a variant supplies its own computed field without a second schema declaration.
+- `@effect/sql` `Model` IS this constructor applied to the relational variant set — `select`, `insert`, `update`, `json`, `jsonCreate`, `jsonUpdate` — so a relation family derives every projection through `Model.Class` and a bespoke `VariantSchema.make` earns its seat only where the variant axis is not the relational one.
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: EventLog client assembly

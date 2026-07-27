@@ -30,19 +30,19 @@
 [PUBLIC_TYPE_SCOPE]: synchronization primitives
 - rail: concurrency
 
-| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [RAIL]                                                   |
-| :-----: | :-------------------------- | :------------ | :------------------------------------------------------- |
-|  [01]   | `Event`                     | event class   | set-once async notification                              |
-|  [02]   | `Lock`                      | lock class    | async mutual exclusion (`fast_acquire=`)                 |
-|  [03]   | `Semaphore`                 | sema class    | async counting semaphore                                 |
-|  [04]   | `Condition`                 | cond class    | async condition variable                                 |
-|  [05]   | `CapacityLimiter`           | limiter class | concurrent slot limiter (`total_tokens`)                 |
-|  [06]   | `ResourceGuard`             | guard class   | reject concurrent use of a single-reader/writer resource |
-|  [07]   | `EventStatistics`           | stats record  | event subscriber count snapshot                          |
-|  [08]   | `LockStatistics`            | stats record  | lock holder/waiter snapshot                              |
-|  [09]   | `ConditionStatistics`       | stats record  | condition waiter snapshot                                |
-|  [10]   | `SemaphoreStatistics`       | stats record  | semaphore slot snapshot                                  |
-|  [11]   | `CapacityLimiterStatistics` | stats record  | limiter borrower/waiter snapshot                         |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [RAIL]                                                                                |
+| :-----: | :-------------------------- | :------------ | :------------------------------------------------------------------------------------ |
+|  [01]   | `Event`                     | event class   | set-once async notification                                                           |
+|  [02]   | `Lock`                      | lock class    | async mutual exclusion (`fast_acquire=`)                                              |
+|  [03]   | `Semaphore`                 | sema class    | async counting semaphore                                                              |
+|  [04]   | `Condition`                 | cond class    | async condition variable                                                              |
+|  [05]   | `CapacityLimiter`           | limiter class | slot limiter; `total_tokens`/`borrowed_tokens`/`available_tokens` read live occupancy |
+|  [06]   | `ResourceGuard`             | guard class   | reject concurrent use of a single-reader/writer resource                              |
+|  [07]   | `EventStatistics`           | stats record  | event subscriber count snapshot                                                       |
+|  [08]   | `LockStatistics`            | stats record  | lock holder/waiter snapshot                                                           |
+|  [09]   | `ConditionStatistics`       | stats record  | condition waiter snapshot                                                             |
+|  [10]   | `SemaphoreStatistics`       | stats record  | semaphore slot snapshot                                                               |
+|  [11]   | `CapacityLimiterStatistics` | stats record  | limiter borrower/waiter snapshot                                                      |
 
 [PUBLIC_TYPE_SCOPE]: networking and connectables
 - rail: concurrency
@@ -171,9 +171,14 @@
 [ENTRYPOINT_SCOPE]: memory streams
 - rail: concurrency
 
-| [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [RAIL]                                |
-| :-----: | :------------------------------------------------------------------ | :------------- | :------------------------------------ |
-|  [01]   | `create_memory_object_stream[T](max_buffer_size=0, item_type=None)` | factory        | paired `(send, receive)` channel pair |
+| [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [RAIL]                                       |
+| :-----: | :------------------------------------------------------------------ | :------------- | :------------------------------------------- |
+|  [01]   | `create_memory_object_stream[T](max_buffer_size=0, item_type=None)` | factory        | paired `(send, receive)` channel pair        |
+|  [02]   | `MemoryObjectSendStream.send(item)` / `send_nowait(item)`           | producer       | suspending back-pressure send; no-wait send  |
+|  [03]   | `MemoryObjectReceiveStream.receive()` / `receive_nowait()`          | consumer       | suspending receive; checkpoint-free take     |
+|  [04]   | `MemoryObjectSendStream.close()`                                    | teardown       | sync close for a non-async caller            |
+|  [05]   | `MemoryObjectSendStream.aclose()` / `clone()`                       | teardown       | async close; `clone` opens a second send end |
+|  [06]   | `MemoryObjectReceiveStream.aclose()` / `statistics()`               | teardown       | async close; live buffer/waiter snapshot     |
 
 [ENTRYPOINT_SCOPE]: networking, TLS, and signals
 - rail: concurrency
@@ -245,16 +250,18 @@
 - `tg.start(func, ...)` blocks until the child calls `task_status.started(value)` and returns that value; `return_handle=True` yields the `TaskHandle` whose `.start_value` carries the handshake. `tg.start_soon` runs no handshake and returns `TaskHandle[T]` — `.return_value` reads the terminal after the block closes, `.status` its closed `TaskHandle.Status`.
 - `CancelScope(deadline=, shield=)` is the cancellation primitive `fail_after`/`move_on_after` wrap; cancellation is level-triggered, so a scope stays cancelled and a swallowed cancellation re-raises at the next checkpoint unless shielded.
 - `create_memory_object_stream[T](...)` is subscripted for the item type; `send_nowait`/`receive_nowait` raise `WouldBlock`, and a send onto a closed receive end raises `BrokenResourceError`.
+- Closing the LAST send end drains losslessly: every buffered item still delivers, `__aiter__` then stops and a direct `receive()` raises `EndOfStream`, so a graceful shutdown closes the send end and awaits the consumer instead of cancelling it. `clone()` opens an additional send end, and the receiver terminates only once every clone closes.
+- Cancelled `receive()` sheds nothing: `send_nowait` skips a receiver already carrying a pending cancellation and buffers instead, and a receiver whose item landed before the scope tripped returns that item before the cancellation surfaces at its next checkpoint, so a `move_on_after` window around `receive()` is a batching primitive rather than a drop.
 - TLS rides `connect_tcp(..., tls=True, tls_hostname=...)` inline or `streams.tls.TLSStream.wrap(...)` over any `ByteStream`; peer cert and ALPN read through `stream.extra(TLSAttribute.*)`.
-- Offload splits by cost: `to_thread.run_sync` bounds a `CapacityLimiter` thread pool (40 default), `to_process.run_sync` crosses a persistent subprocess by pickle, `to_interpreter.run_sync` dispatches a PEP-734 subinterpreter (own GIL, in-process) where only PEP-734-shareable values cross copy-free — a non-shareable payload still pickles on the hop, so serialization cost is a lane-selection input. A worker raise or death surfaces as `BrokenWorkerProcess`/`BrokenWorkerInterpreter`.
+- Offload splits by cost: `to_thread.run_sync` bounds a `CapacityLimiter` thread pool (40 default), `to_process.run_sync` crosses a persistent subprocess by pickle, `to_interpreter.run_sync` dispatches a PEP-734 subinterpreter (own GIL, in-process) where only PEP-734-shareable values cross copy-free — a non-shareable payload still pickles on the hop, so serialization cost is a lane-selection input. Worker raises and deaths surface as `BrokenWorkerProcess`/`BrokenWorkerInterpreter`.
 - `from_thread.BlockingPortalProvider(backend, backend_options)` shares one loop across many threads; `portal.call`/`portal.start_task_soon`/`portal.wrap_async_context_manager` bridge sync callers in, raising `RunFinishedError` after the loop closes.
 - `stream.extra(attr)` is the one polymorphic surface for socket, TLS, and file metadata; an owner-local wrapper declares a `TypedAttributeSet`.
 
 [STACKING]:
 - `grpcio`(`.api/grpcio.md`): `grpc.aio` servers and channels enter via `anyio.run(serve, backend='asyncio')`, every blocking servicer body bounded through `to_thread.run_sync(..., limiter=...)`; per-call deadlines map onto `fail_after`/`move_on_after`, sync entrypoints bridge through a `BlockingPortalProvider`.
-- `httpx`: an `httpx.AsyncClient` call takes an `anyio` deadline via `fail_after`, and one `create_task_group` fans concurrent requests so a single failure cancels siblings and aggregates as an `ExceptionGroup`.
+- `httpx`: `httpx.AsyncClient` calls take an `anyio` deadline via `fail_after`, and one `create_task_group` fans concurrent requests so a single failure cancels siblings and aggregates as an `ExceptionGroup`.
 - `msgspec`/`pydantic`(`.api/msgspec.md`, `.api/pydantic.md`): `BufferedByteReceiveStream.receive_until(b'\n', max_bytes)` or `receive_exactly(n)` frames a raw `ByteStream`, the frame feeding `msgspec.json.Decoder(type=T).decode(...)` for a zero-copy validated wire decode; a `MemoryObjectReceiveStream[T]` typed on a `msgspec.Struct` moves validated objects between tasks with no re-serialization.
-- `stamina`: a `connect_tcp`/`run_process`/`to_thread.run_sync` effect wraps in `stamina.retry_context(...)` whose retry sleep IS an `anyio.sleep` checkpoint, so an enclosing `move_on_after` still preempts a retry storm.
+- `stamina`: `connect_tcp`/`run_process`/`to_thread.run_sync` effects wrap in `stamina.retry_context(...)` whose retry sleep IS an `anyio.sleep` checkpoint, so an enclosing `move_on_after` still preempts a retry storm.
 - `structlog`/`opentelemetry`(`.api/structlog.md`, `.api/opentelemetry-sdk.md`): a `RunVar` (or a per-task-propagated `contextvars.ContextVar`) carries the trace context across task-group hops and `from_thread` bridges; one OTel span per task, opened inside the child coroutine.
 - `expression`(`.api/expression.md`): an offloaded `to_thread.run_sync` return lifts into `Result` via `result.of_option`/a try-builder at the boundary adapter, so a `BrokenWorkerProcess`/`TimeoutError` never escapes raw.
 - `loky`(`.api/loky.md`): `get_reusable_executor().submit(...)` returns a blocking `concurrent.futures` future; `to_thread.run_sync(future.result, abandon_on_cancel=True, limiter=...)` bridges its wait off the loop, so the `WorkerPool` COOPERATIVE-`PROCESS` arm never stalls the event loop.

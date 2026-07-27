@@ -29,12 +29,13 @@
 
 - `PyroscopeConfig`: `appName?` `serverAddress?` `authToken?` `basicAuthUser?` `basicAuthPassword?` `tenantID?` `flushIntervalMs?` `tags?: LabelSet` `wall?` `heap?` `sourceMapper?` `stripFilenames?: StripFilenamesMode` `shortenPaths?`
 - `PyroscopeWallConfig`: `samplingDurationMs?` `samplingIntervalMicros?` `collectCpuTime?`; `PyroscopeHeapConfig`: `samplingIntervalBytes?` `stackDepth?`
+- Rows [01]-[03] re-export from the root ALONE. `StripFilenamesMode`, `LabelSet`, `SourceMapper`, and `Logger` declare in their own modules and reach no root specifier, so an import of the bare name resolves nowhere — each reads off the surface carrying it: `NonNullable<PyroscopeConfig["stripFilenames"]>`, `NonNullable<PyroscopeConfig["tags"]>`, `InstanceType<typeof Pyroscope.SourceMapper>`, `Parameters<typeof Pyroscope.setLogger>[0]`.
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: bootstrap, the profiler lifecycle, label scoping, and the pull-mode middleware
 
-`init` seats `appName`/`serverAddress`/`tags`; auth rides `authToken` bearer or `basicAuthUser`/`basicAuthPassword` basic with `tenantID`; `wall`/`heap` toggle the two profilers, and `flushIntervalMs` paces the push. Named exports are `init`/`start`/`stop`/`wrapWithLabels`; the remaining surfaces reach through the default-export object.
+`init` seats `appName`/`serverAddress`/`tags`; auth rides `authToken` bearer or `basicAuthUser`/`basicAuthPassword` basic with `tenantID`; `wall`/`heap` toggle the two profilers, and `flushIntervalMs` paces the push. Named VALUE exports are `init`/`start`/`stop`/`wrapWithLabels`; every other surface — the per-profiler pairs, the label ops, `SourceMapper`, `setLogger`, and the middleware factories — reaches through the default-export object alone.
 
 | [INDEX] | [SURFACE]                                                                       | [SHAPE] | [CAPABILITY]                             |
 | :-----: | :------------------------------------------------------------------------------ | :------ | :--------------------------------------- |
@@ -44,12 +45,15 @@
 |  [04]   | `wrapWithLabels(Record<string,string\|number>, ()=>void, ...unknown[]) -> void` | static  | band ambient labels on a sync region     |
 |  [05]   | `startWallProfiling() -> void` / `stopWallProfiling() -> Promise<void>`         | static  | per-profiler wall arm/drain              |
 |  [06]   | `startHeapProfiling() -> void` / `stopHeapProfiling() -> Promise<void>`         | static  | per-profiler heap arm/drain              |
-|  [07]   | `getLabels() -> LabelSet` / `setLabels(LabelSet) -> void`                       | static  | read/set the wall ambient labels         |
-|  [08]   | `expressMiddleware()` / `fastifyMiddleware() -> FastifyPluginCallback`          | factory | mount a pull-mode profile endpoint       |
-|  [09]   | `SourceMapper.create(string[], boolean?) -> Promise<SourceMapper>`              | factory | build the symbolicator over roots        |
-|  [10]   | `setLogger(Logger) -> void`                                                     | static  | inject the profiler + pprof log sink     |
+|  [07]   | `startCpuProfiling() -> void` / `stopCpuProfiling() -> Promise<void>`           | static  | per-profiler cpu arm/drain               |
+|  [08]   | `getWallLabels()` / `setWallLabels()` / `getLabels()` / `setLabels(LabelSet)`   | static  | read/set the wall ambient labels         |
+|  [09]   | `expressMiddleware()` / `fastifyMiddleware() -> FastifyPluginCallback`          | factory | mount a pull-mode profile endpoint       |
+|  [10]   | `SourceMapper.create(string[], boolean?) -> Promise<SourceMapper>`              | factory | build the symbolicator over roots        |
+|  [11]   | `setLogger(Logger) -> void`                                                     | static  | inject the profiler + pprof log sink     |
 
-- `start`/`stop` fan to both profilers — `start` arms wall then heap, `stop` awaits both drains in parallel; a granular row targets one profiler.
+- `start`/`stop` reach wall and heap ALONE — `start` arms wall then heap, `stop` awaits those two drains in parallel, and the `cpu` pair is a third native sampler the aggregate never touches, so a per-profiler roster is strictly wider than the aggregate rather than a granular restatement of it.
+- Every start and stop resolves the singleton profiler, which `init` seats — so a stop reached before a successful `init` THROWS rather than no-opping, while a stop on a started-then-idle profiler returns immediately. Registering a drain ahead of the arm therefore turns a construction failure into a shutdown fault, so an arm and its stop belong to one bracket. Stopping past a live arm still rejects on a failed final push, since the last export awaits before the profiler's own capture guard.
+- `Logger` declares six members — `error`/`warn`/`info`/`debug`/`trace`/`fatal` — each `(...args: Array<{}>) => void`, so a bridge spells a mutable rest array; `setLogger` installs the sink on both this package and `@datadog/pprof`.
 - `getLabels`/`setLabels` bind the wall profiler's ambient thread labels; the heap profiler's label ops are no-ops.
 - `wrapWithLabels` bands the callback synchronously — samples taken during `fn` carry the labels and `...args` forward to `fn`; an async region escapes the band.
 - `SourceMapper.create` returns before `init` seats the mapper; `SourceMapper.hasMappingInfo(string)` and `mappingInfo(GeneratedLocation) -> SourceLocation` examine a built map.
@@ -66,15 +70,15 @@
 [STACKING]:
 - `@effect/opentelemetry`(`.api/effect-opentelemetry.md`): `PyroscopeConfig.appName`/`tags` fold from the same `AppIdentity` that `Resource.layer({ serviceName, attributes })` stamps on the shared `Resource.Resource` Tag, so a profile carries the `service.name` traces and metrics already carry — one identity, two transports.
 - `@opentelemetry/resources`(`.api/opentelemetry-resources.md`): `PyroscopeConfig.tags` and the `resourceFromAttributes` `service.name` attribute derive from one `AppIdentity`, so a backend correlates a pprof profile with its OTLP signal on the shared coordinate.
-- `otel/profile` (within-lib): `Profile.live(policy)` folds the policy into one `PyroscopeConfig` — `authToken` from a `Redacted` unwrapped once, `tags` from `Convention.identity`, `sourceMapper` from `SourceMapper.create(roots)` — brackets `init`/`start` in a `Layer.scopedDiscard` whose release runs `stop()` as a ranked `Life` drain row, and `Profile.banded` scopes `wrapWithLabels` around a schema-decoded band.
+- `otel/profile` (within-lib): `Profile.live(policy)` folds the policy into one `PyroscopeConfig` — the tagged credential arm's own fields from a `Redacted` unwrapped once, `tags` from `Convention.profiled`, `sourceMapper` from `SourceMapper.create(roots)` — arms each rostered sampler as its own `acquireRelease` extended into the child scope a ranked `Life` row closes, bridges `setLogger` onto the Effect log rail, and `Profile.banded` scopes `wrapWithLabels` around a schema-decoded band whose parser is held per vocabulary.
 
 [LOCAL_ADMISSION]:
 - `scope:runtime`, node lane only — `init`/`start`/`stop` live in the node boot and drain graph; the browser and worker lanes carry no profiler.
 - push is the default rail — `expressMiddleware`/`fastifyMiddleware` mount a pull endpoint only where a scrape topology owns collection.
-- `Setting.otel.profile` carries the backend origin and sealed token; an absent origin leaves the lane unarmed and composes zero profiler code.
+- `Setting.otel.profile` carries the backend origin and the sealed credential — bearer or basic pair; an absent origin leaves the lane unarmed and composes zero profiler code.
 
 [RAIL_LAW]:
 - Package: `@pyroscope/nodejs`
-- Owns: continuous wall + heap profiling push over the native pprof engine — the `init`/`start`/`stop` lifecycle, `wrapWithLabels` label banding, `SourceMapper` symbolication, and the express/fastify pull middleware
-- Accept: one node-root seat pointed at the `Setting.otel`-provisioned backend with `AppIdentity`-projected `tags`, `stop()` on the ranked process drain, synchronous label bands
-- Reject: library-altitude `init`, a profile label divergent from the resource identity, a second sampler beside `@datadog/pprof`, an async region inside a `wrapWithLabels` band
+- Owns: continuous wall, heap, and cpu profiling push over the native pprof engine — the `init` seat, the aggregate and per-profiler lifecycles, `wrapWithLabels` label banding, `SourceMapper` symbolication, the six-level `Logger` sink, and the express/fastify pull middleware
+- Accept: one node-root seat pointed at the `Setting.otel`-provisioned backend with `AppIdentity`-projected `tags`, a per-profiler roster armed and drained by the same fold, the drain on the ranked process fold, synchronous label bands
+- Reject: library-altitude `init`, a profile label divergent from the resource identity, the aggregate `start` where a policy roster decides the samplers, a second sampler beside `@datadog/pprof`, an async region inside a `wrapWithLabels` band

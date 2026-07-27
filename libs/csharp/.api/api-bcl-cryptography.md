@@ -29,6 +29,9 @@
 |  [11]   | `CryptographicOperations`            | static class   | zeroization and constant-time integrity     |
 |  [12]   | `RandomNumberGenerator`              | abstract class | cryptographic entropy fill and draw         |
 |  [13]   | `HashAlgorithmName`                  | struct         | digest algorithm selector on every call     |
+|  [14]   | `X509ChainPolicy`                    | sealed class   | chain-build inputs: anchors, stores, revocation |
+|  [15]   | `X509ChainTrustMode`                 | enum           | `System` platform roots / `CustomRootTrust` |
+|  [16]   | `X509Certificate2Collection`         | class          | certificate set a store or chain input holds |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -75,6 +78,21 @@
 |  [09]   | `RawDataMemory -> ReadOnlyMemory<byte>`                                              | property  | certificate DER without a copy    |
 |  [10]   | `GetECDsaPrivateKey() -> ECDsa?`                                                     | extension | signing key; `null` when absent   |
 |  [11]   | `GetECDsaPublicKey() -> ECDsa?`                                                      | extension | verifying key; `null` when absent |
+
+[ENTRYPOINT_SCOPE]: chain-build policy (`X509ChainPolicy`)
+
+| [INDEX] | [SURFACE]                                          | [SHAPE]  | [CAPABILITY]                                     |
+| :-----: | :------------------------------------------------- | :------- | :----------------------------------------------- |
+|  [01]   | `TrustMode -> X509ChainTrustMode`                  | property | selects platform roots or the custom store       |
+|  [02]   | `CustomTrustStore -> X509Certificate2Collection`   | property | anchor set `CustomRootTrust` builds against      |
+|  [03]   | `ExtraStore -> X509Certificate2Collection`         | property | intermediates offered to the builder             |
+|  [04]   | `RevocationMode -> X509RevocationMode`             | property | `NoCheck` / `Online` / `Offline` posture         |
+|  [05]   | `RevocationFlag -> X509RevocationFlag`             | property | which chain elements revocation covers           |
+|  [06]   | `VerificationFlags -> X509VerificationFlags`       | property | per-check waivers the build applies              |
+|  [07]   | `Clone() -> X509ChainPolicy`                       | instance | independent copy for a second consumer           |
+
+- `CustomTrustStore` and `ExtraStore` are get-only collections, so a policy fills them through a nested object initializer or `Add`, never assignment.
+- `TrustMode` at `CustomRootTrust` NARROWS the anchor set to `CustomTrustStore` alone — platform roots stop applying, so a private chain admits and a public one no longer does.
 
 [ENTRYPOINT_SCOPE]: AEAD seal (`AesGcm`)
 

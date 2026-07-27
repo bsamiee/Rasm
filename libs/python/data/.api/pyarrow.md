@@ -129,17 +129,19 @@
 |  [01]   | `compute.sum/min/max/mean/count`                                             | static  | vectorized reductions                 |
 |  [02]   | `compute.filter/take/sort_indices`                                           | static  | selection and ordering kernels        |
 |  [03]   | `compute.if_else/case_when/fill_null`                                        | static  | conditional and null-fill kernels     |
-|  [04]   | `compute.field(name)` / `compute.scalar(v)`                                  | static  | dataset filter expressions            |
-|  [05]   | `parquet.read_table` / `parquet.write_table`                                 | static  | read/write Parquet files              |
-|  [06]   | `parquet.ParquetFile` / `ParquetDataset`                                     | ctor    | row-group and partitioned access      |
-|  [07]   | `parquet.write_to_dataset`                                                   | static  | partitioned dataset write             |
-|  [08]   | `csv.read_csv` / `csv.write_csv` / `open_csv`                                | static  | read, write, and stream CSV           |
-|  [09]   | `feather.read_table` / `feather.write_feather`                               | static  | Arrow IPC file (Feather)              |
-|  [10]   | `ipc.open_stream` / `ipc.new_stream`                                         | static  | Arrow streaming IPC                   |
-|  [11]   | `OSFile(path, mode='r', memory_pool=None)`                                   | ctor    | on-disk `NativeFile` sink/source      |
-|  [12]   | `dataset.dataset(source, format, partitioning)`                              | factory | multi-file lazy dataset with pushdown |
-|  [13]   | `fs.LocalFileSystem`                                                         | ctor    | local filesystem                      |
-|  [14]   | `fs.S3FileSystem` / `GcsFileSystem` / `AzureFileSystem` / `HadoopFileSystem` | ctor    | cloud object stores                   |
+|  [04]   | `compute.map_lookup(container, query_key, occurrence)`                       | static  | pull one key out of a `map_` column   |
+|  [05]   | `compute.match_substring_regex(strings, pattern)`                            | static  | vectorized regex predicate            |
+|  [06]   | `compute.field(name)` / `compute.scalar(v)`                                  | static  | dataset filter expressions            |
+|  [07]   | `parquet.read_table` / `parquet.write_table`                                 | static  | read/write Parquet files              |
+|  [08]   | `parquet.ParquetFile` / `ParquetDataset`                                     | ctor    | row-group and partitioned access      |
+|  [09]   | `parquet.write_to_dataset`                                                   | static  | partitioned dataset write             |
+|  [10]   | `csv.read_csv` / `csv.write_csv` / `open_csv`                                | static  | read, write, and stream CSV           |
+|  [11]   | `feather.read_table` / `feather.write_feather`                               | static  | Arrow IPC file (Feather)              |
+|  [12]   | `ipc.open_stream` / `ipc.new_stream`                                         | static  | Arrow streaming IPC                   |
+|  [13]   | `OSFile(path, mode='r', memory_pool=None)`                                   | ctor    | on-disk `NativeFile` sink/source      |
+|  [14]   | `dataset.dataset(source, format, partitioning)`                              | factory | multi-file lazy dataset with pushdown |
+|  [15]   | `fs.LocalFileSystem`                                                         | ctor    | local filesystem                      |
+|  [16]   | `fs.S3FileSystem` / `GcsFileSystem` / `AzureFileSystem` / `HadoopFileSystem` | ctor    | cloud object stores                   |
 
 [ENTRYPOINT_SCOPE]: streaming execution, dataset write, UDFs, and cross-engine plans
 - call: `acero.Declaration(kind, options, inputs)` with `kind` in `"scan"`/`"filter"`/`"project"`/`"aggregate"`/`"hashjoin"`/`"asofjoin"`/`"order_by"`, then `Declaration.from_sequence([decls]) -> .to_table()`/`.to_reader()`
@@ -162,19 +164,47 @@
 |  [13]   | `parquet.encryption.KmsConnectionConfig`                    | ctor    | KMS endpoint and credentials                            |
 |  [14]   | `parquet.encryption.EncryptionConfiguration`                | ctor    | per-column encryption key policy                        |
 |  [15]   | `RecordBatchReader.from_stream` / `from_batches`            | factory | import a C-stream object; wrap a batch iterator         |
-|  [16]   | `substrait.run_query`                                       | static  | run a Substrait plan against Arrow tables               |
-|  [17]   | `substrait.serialize_expressions`                           | static  | Arrow `Expression` -> Substrait bytes                   |
-|  [18]   | `substrait.deserialize_expressions`                         | static  | Substrait bytes -> Arrow `Expression`                   |
-|  [19]   | `flight.connect` / `FlightClient` / `FlightServerBase`      | static  | Arrow Flight client/server for columnar RPC             |
+|  [16]   | `substrait.run_query(plan, *, table_provider, use_threads)` | static  | execute plan bytes into a `RecordBatchReader`           |
+|  [17]   | `substrait.serialize_expressions`                           | static  | Arrow `Expression` -> `ExtendedExpression` bytes        |
+|  [18]   | `substrait.deserialize_expressions`                         | static  | bytes -> `BoundExpressions`                             |
+|  [19]   | `substrait.serialize_schema` / `deserialize_schema`         | static  | Arrow `Schema` <-> `SubstraitSchema` bytes              |
+|  [20]   | `substrait.get_supported_functions`                         | static  | the Acero-bound extension-function URN roster           |
+|  [21]   | `flight.connect` / `FlightClient` / `FlightServerBase`      | static  | Arrow Flight client/server for columnar RPC             |
+|  [22]   | `dataset.WrittenFile.path`/`.size`/`.metadata`              | field   | one written file's path, on-disk bytes, parquet footer  |
+
+[CONSUMER]: `tabular/query#QUERY` DECLINES `substrait` here as CONSUMER-ONLY: this roster mints no `Plan` — `serialize_expressions` emits an `ExtendedExpression` and `serialize_schema` a `SubstraitSchema`, neither carrying the relational plan a federation wire needs — so a bidirectional seam finds no outbound producer, and `run_query` resolves each `NamedTable` through a per-call `table_provider` callback rather than a registered catalog, validating nothing ahead of execution.
+
+[CONSUMER]: `tabular/columnar#SCAN` `ColumnarEgress.Dataset` collects each `WrittenFile` through `file_visitor` and answers `Landed` off `path` beside `size`, the ONE surface reporting what a partitioned write landed. `size` measures the real on-disk byte count, where `metadata.row_group(i).total_byte_size` measures the UNCOMPRESSED column volume and reads identically under every codec — a byte fact folded from row-group sizes therefore never moves when the compression policy does.
+
+[ENTRYPOINT_SCOPE]: Flight ticket redemption
+
+- `FlightClient` carry: `FlightClient(location, tls_root_certs=None, *, cert_chain=None, private_key=None, override_hostname=None, middleware=None, write_size_limit_bytes=None, disable_server_verification=None, generic_options=None)`, a context manager whose `close` releases the transport
+- `FlightCallOptions` carry: `FlightCallOptions(timeout=None, write_options=None, headers=None, read_options=None)`; `headers` is a sequence of `(bytes, bytes)` pairs
+
+| [INDEX] | [SURFACE]                                                        | [SHAPE] | [CAPABILITY]                                      |
+| :-----: | :--------------------------------------------------------------- | :------ | :------------------------------------------------ |
+|  [01]   | `flight.FlightDescriptor.for_command(bytes)`                     | factory | address a flight by an opaque command payload     |
+|  [02]   | `FlightClient.get_flight_info(descriptor, options) -> FlightInfo` | rpc     | plan a flight and receive its endpoint set        |
+|  [03]   | `FlightInfo.endpoints` / `.schema` / `.ordered`                  | member  | endpoint fan-out, result schema, meaningful order |
+|  [04]   | `FlightEndpoint.ticket` / `.locations` / `.expiration_time`      | member  | redemption ticket and the peers serving it        |
+|  [05]   | `flight.Location.uri` (`bytes`)                                  | member  | peer coordinate a per-endpoint client connects to |
+|  [06]   | `FlightClient.do_get(ticket, options) -> FlightStreamReader`     | rpc     | redeem one ticket as record batches               |
+|  [07]   | `flight.FlightError` family                                      | error   | eight leaves the wire fault vocabulary folds      |
+
+[FLIGHT_ERRORS]: `FlightCancelledError` `FlightInternalError` `FlightServerError` `FlightTimedOutError` `FlightUnauthenticatedError` `FlightUnauthorizedError` `FlightUnavailableError` `FlightWriteSizeExceededError`
+
+[CONSUMER]: `tabular/query#QUERY` `_flight_ticket` redeems EVERY `FlightInfo.endpoint` in the producer's own order and answers `schema.empty_table()` on an empty set; `Transport.client_kwargs` supplies the PEM octets the ADBC option enums carry as text, and `Transport.call_options` builds the header and timeout row.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- a `Table` is a list of `ChunkedArray` columns sharing one `Schema`; a `RecordBatch` is a single contiguous chunk
+- `Table` holds a list of `ChunkedArray` columns sharing one `Schema`; `RecordBatch` holds a single contiguous chunk
 - `Array`/`ChunkedArray` carry a `DataType`, a validity bitmap, and value buffers; nested types (`struct`, `list`, `map`) compose child arrays
 - dtype factory functions return `DataType` values; `field(name, type, nullable)` and `schema(fields)` build metadata; `KeyValueMetadata` attaches string metadata
 - `compute` kernels operate on `Array`/`ChunkedArray`/`Table` and return Arrow values; `compute.field`/`compute.scalar` build `Expression` predicates whose `&`/`|`/`~`/comparison operators compose for `dataset`/`acero`/`Table.join` pushdown
-- `Table.group_by(keys).aggregate([(col, func)])` returns a `Table`; aggregation functions follow the `compute` hash-aggregate names
+- `Table.group_by(keys).aggregate([(col, func)])` returns a `Table` whose aggregate column reads back as `<col>_<func>`; aggregation functions follow the `compute` hash-aggregate names
+- `compute.map_lookup(column, query_key=<key>, occurrence="first")` answers one value per row and NULL where the map omits the key, so an open key-value column reduces column-wise with no per-row Python decode; `MapLookupOptions(query_key, occurrence)` carries the same pair when the kernel is invoked through `call_function`
+- `compute.match_substring_regex` matches ANYWHERE in the value, so a whole-value grammar anchors its own pattern; `cast` to a numeric type RAISES on a non-conforming string, which is why the guard runs as `if_else(match_substring_regex(...), value, "0")` ahead of the cast rather than as a caught failure
 - `dataset.dataset(...)` scans many files lazily with projection and filter pushdown; `Scanner.from_dataset(filter=, columns=)` materializes via `to_table()`/`to_batches()`
 - `acero.Declaration` builds an explicit streaming exec-node graph (scan/filter/project/aggregate/join/order) that runs out-of-core and emits a `Table` or `RecordBatchReader`, the native alternative to chaining `Table` ops in memory
 - `__arrow_c_stream__`/`RecordBatchReader.from_stream` (C-stream) and `__arrow_c_array__` (C-array) carry zero-copy interchange with polars, pandas, DuckDB, nanoarrow, and arro3

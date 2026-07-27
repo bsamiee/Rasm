@@ -10,6 +10,7 @@
 - owner: data
 - rail: array-store
 - namespaces: `tensorstore.experimental` (Prometheus metrics collection and flush), `tensorstore.ocdbt` (`DistributedCoordinatorServer` and manifest `dump`/`undump` for the ocdbt B+tree kvstore)
+- reach: FLOOR-GATED — the manifest row carries a `python_version` marker no supported interpreter satisfies, `find_spec("tensorstore")` resolves `None`, and no member below is callable while that holds. Every row is catalog-sourced under that marker; `gridded/store#STORE` refuses each `TensorBackend.TENSORSTORE` selection at its `_UNREACHED` gate, so this file documents an admitted-but-unreachable surface and every member re-verifies by live reflection the moment the marker lifts.
 
 ## [02]-[PUBLIC_TYPES]
 

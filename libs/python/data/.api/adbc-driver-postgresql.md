@@ -29,6 +29,8 @@
 |  [01]   | `connect(uri, db_kwargs=) -> AdbcDatabase`                                   | factory | low-level libpq database handle |
 |  [02]   | `dbapi.connect(uri, db_kwargs=, conn_kwargs=, *, autocommit=) -> Connection` | factory | DBAPI connection over libpq     |
 
+[CONSUMER]: `tabular/query#QUERY` `_DRIVER` rows `RemoteDriver.POSTGRESQL` at `DriverKind.NATIVE` — the kind whose connect projection threads `uri`/`db_kwargs`/`conn_kwargs` — with `db.system.name` `postgresql` on its `DbapiSeam` row.
+
 [ENTRYPOINT_SCOPE]: `ConnectionOptions` keys
 
 | [INDEX] | [MEMBER]             | [VALUE]                              | [CAPABILITY]                                             |
@@ -56,7 +58,7 @@
 - factory axis: one `connect` binds the native driver with the libpq URI in `db_kwargs`; `dbapi.connect` derives the DBAPI `Connection` adding `conn_kwargs` and `autocommit` — the database object is shared, connections derive from it, never a parallel client class.
 - option axis: `ConnectionOptions`/`StatementOptions` values are the canonical `adbc.postgresql.*` keys, flowing as `conn_kwargs`/statement-option dicts keyed by enum value, never ad hoc string literals; no `DatabaseOptions`, since identity and TLS keywords ride the libpq URI.
 - ingest axis: `Cursor.adbc_ingest` streams a `pyarrow.Table`/`RecordBatch`/`RecordBatchReader` (or any `__arrow_c_stream__` producer) into a table over binary `COPY`, keyed by `mode` (`append`/`create`/`create_append`/`replace`), returning the row count; `USE_COPY` gates the fast path and `BATCH_SIZE_HINT_BYTES` bounds the assembled batch.
-- partition axis: `adbc_execute_partitions` yields serialized partition descriptors, each opened by `adbc_read_partition` as an independent Arrow stream over libpq server-side cursors.
+- partition axis: `adbc_execute_partitions` yields serialized partition descriptors, each rebound onto the calling cursor by `adbc_read_partition` (returning `None`) and drained off that cursor's own fetch over libpq server-side cursors.
 - transport axis: TLS rides libpq keywords (`sslmode`, `sslrootcert`, `sslcert`, `sslkey`) inside the connection URI; pooling and identity minting stay outside the driver.
 - telemetry axis: inherits the manager's ADBC Go-driver OTel contract (`adbc-driver-manager.md` `[04]-[IMPLEMENTATION_LAW]`) with no postgres delta.
 

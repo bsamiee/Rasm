@@ -10,6 +10,7 @@ It reads and writes Parquet from a managed `Stream` or Arrow batch with no SQL e
 - package: `ParquetSharp` (Apache-2.0)
 - assembly: `ParquetSharp`
 - namespace: `ParquetSharp`, `ParquetSharp.Schema`, `ParquetSharp.Arrow`, `ParquetSharp.RowOriented`, `ParquetSharp.Encryption`, `ParquetSharp.IO`
+- admission: Parquet Modular Encryption ships INSIDE this package as the `ParquetSharp.Encryption` namespace — `CryptoFactory`, `KmsConnectionConfig`, `EncryptionConfiguration`, and `DecryptionConfiguration` all decompile out of `ParquetSharp.dll` — so no separate `PackageVersion` row and no second catalogue exist to mint; a manifest row named `ParquetSharp.Encryption` is a phantom package.
 - target: multi-target (`net8.0`, `netstandard2.1`, `net471`); the `net10.0` consumer binds `lib/net8.0`
 - native: `runtimes/<rid>/native/ParquetSharpNative.dylib` (`osx-arm64`, `osx-x64`, `linux-x64`, `linux-arm64`, `win-x64`, `win-arm64`) — the wrapped Apache Arrow/Parquet C++ core, P/Invoke-loaded at `ParquetFileWriter`/`ParquetFileReader` handle construction, RID-resolved at load
 - rail: columnar-file-codec
@@ -74,9 +75,12 @@ For a runtime-only element type, `ColumnDescriptor.Apply<TReturn>(LogicalTypeFac
 |  [04]   | `LogicalType`                                        | logical type      | base; `Decimal`/`Timestamp`/`String` factory subtypes  |
 |  [05]   | `SchemaDescriptor`                                   | schema descriptor | flattened leaf-column descriptor                       |
 |  [06]   | `ColumnDescriptor`                                   | column descriptor | one leaf column's type/levels                          |
-|  [07]   | `Statistics` / `Statistics<TValue>`                  | column statistics | typed min/max/null-count per column chunk              |
-|  [08]   | `ByteArray` / `FixedLenByteArray`                    | physical value    | variable/fixed binary cell (decimal materializes here) |
-|  [09]   | `Int96` / `Date` / `DateTimeNanos` / `TimeSpanNanos` | physical value    | legacy/temporal physical cells                         |
+|  [07]   | `Schema.ColumnPath`                                  | column path       | the dotted leaf address every per-column knob targets  |
+|  [08]   | `Statistics` / `Statistics<TValue>`                  | column statistics | typed min/max/null-count per column chunk              |
+|  [09]   | `ByteArray` / `FixedLenByteArray`                    | physical value    | variable/fixed binary cell (decimal materializes here) |
+|  [10]   | `Int96` / `Date` / `DateTimeNanos` / `TimeSpanNanos` | physical value    | legacy/temporal physical cells                         |
+
+- `ColumnPath` ctors take a `string[]` dot-vector, a dotted `string`, or a `Schema.Node`, and `Extend` appends one name, so a nested leaf addresses structurally rather than through a hand-joined name a dot inside a field name silently splits.
 
 [PUBLIC_TYPE_SCOPE]: enum and policy family
 
@@ -96,6 +100,51 @@ For a runtime-only element type, `ColumnDescriptor.Apply<TReturn>(LogicalTypeFac
 |  [08]   | `SortOrder` / `ColumnOrder` | order enum      | column sort-order metadata                                     |
 |  [09]   | `ParquetCipher`             | crypto enum     | `AesGcmV1`/`AesGcmCtrV1` PME cipher                            |
 |  [10]   | `SizeStatisticsLevel`       | statistics enum | none/chunk/page size-statistics level                          |
+
+[PUBLIC_TYPE_SCOPE]: writer, reader, and Arrow-bridge property family
+
+Every reader and writer ctor takes its policy as a constructed object, and the two sides mint oppositely: the write side builds an immutable `WriterProperties` through a builder, the read side mutates a live `ReaderProperties` in place. `ParquetSharp.Arrow` layers a second policy per direction over the same handles.
+
+| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY]       | [CAPABILITY]                                                     |
+| :-----: | :------------------------------------------ | :------------------ | :--------------------------------------------------------------- |
+|  [01]   | `WriterPropertiesBuilder`                   | writer builder      | the whole write-side tuning surface, `Build()` materializing it  |
+|  [02]   | `WriterProperties`                          | writer policy       | resolved immutable policy, per-column readback by `ColumnPath`   |
+|  [03]   | `WriterProperties.SortingColumn`            | sort row            | `ColumnIndex`, `IsDescending`, `NullsFirst`                      |
+|  [04]   | `DefaultWriterProperties`                   | static defaults     | nullable process-wide overrides seeding every builder            |
+|  [05]   | `ReaderProperties`                          | reader policy       | buffering, checksums, thrift bounds, footer read size, PME mount |
+|  [06]   | `ArrowReaderProperties`                     | arrow read policy   | batch grain, threading, range coalescing, Arrow type steering    |
+|  [07]   | `ArrowWriterPropertiesBuilder`              | arrow write builder | timestamp coercion, stored schema, nesting, engine selection     |
+|  [08]   | `ArrowWriterProperties`                     | arrow write policy  | the resolved read-only Arrow write policy                        |
+|  [09]   | `ArrowWriterProperties.WriterEngineVersion` | engine enum         | `V1` / `V2` Arrow write path the builder selects                 |
+|  [10]   | `CacheOptions`                              | range-read policy   | `hole_size_limit` `range_size_limit` `lazy` `prefetch_limit`     |
+|  [11]   | `MemoryPool`                                | allocator handle    | named Arrow allocator with live allocation counters              |
+
+- `DefaultWriterProperties` carries mutable STATIC nullable fields the `WriterPropertiesBuilder` ctor applies through its own `ApplyDefaults`, so it is ambient policy no per-file builder can scope: a set field re-tunes every writer later minted in that load context, including one another composition owns.
+- `ReaderProperties` exposes no builder and no immutable twin, so a read policy is a live object each reader ctor captures by reference: one instance reused across readers propagates every later mutation, and `WithMemoryPool` is the only mint that differs from the default.
+- `ArrowWriterProperties` exposes getters alone, so `ArrowWriterPropertiesBuilder` is its one mint — the same builder/immutable split the core write side carries, while `ArrowReaderProperties` mutates in place like `ReaderProperties`.
+- `CacheOptions` is a mutable struct behind a property, so it assigns whole; a field write through the property getter does not compile and a per-field tune reads back, mutates the local, and assigns the whole struct.
+
+[PUBLIC_TYPE_SCOPE]: Parquet Modular Encryption family (`ParquetSharp.Encryption` beside the root property types)
+
+Two legs derive one pair of property types over the same native core: `CryptoFactory` resolves them from a KMS-wrapped key hierarchy, and `FileEncryptionPropertiesBuilder`/`FileDecryptionPropertiesBuilder` build them from explicit keys the caller already holds, taking per-column rows from `ColumnEncryptionPropertiesBuilder`/`ColumnDecryptionPropertiesBuilder`.
+
+`WriterPropertiesBuilder.Encryption` mounts the write leg and `ReaderProperties.FileDecryptionProperties` the read leg, so both derivations terminate at the two property types the writer and reader ctors already take. Every type below holds a native handle and disposes, and `CryptoFactory` alone must outlive what it derives.
+
+| [INDEX] | [SYMBOL]                         | [TYPE_FAMILY]      | [CAPABILITY]                                                    |
+| :-----: | :------------------------------- | :----------------- | :-------------------------------------------------------------- |
+|  [01]   | `CryptoFactory`                  | KMS crypto factory | derives both property sets from a KMS-wrapped key hierarchy     |
+|  [02]   | `CryptoFactory.KmsClientFactory` | client delegate    | `IKmsClient(ReadonlyKmsConnectionConfig)` — the one client mint |
+|  [03]   | `IKmsClient`                     | KMS contract       | `WrapKey(byte[], string)` / `UnwrapKey(string, string)`         |
+|  [04]   | `KmsConnectionConfig`            | KMS coordinates    | instance id, url, access token, custom conf; token refresh      |
+|  [05]   | `ReadonlyKmsConnectionConfig`    | KMS coordinates    | the immutable view handed to the client delegate                |
+|  [06]   | `EncryptionConfiguration`        | write-side policy  | footer key, column key map, cipher, wrapping, cache window      |
+|  [07]   | `DecryptionConfiguration`        | read-side policy   | `CacheLifetimeSeconds` — the whole read-side surface            |
+|  [08]   | `FileEncryptionProperties`       | write properties   | derived footer key, key metadata, file AAD, column lookup       |
+|  [09]   | `FileDecryptionProperties`       | read properties    | derived footer key, AAD prefix, retriever and verifier seats    |
+|  [10]   | `ColumnEncryptionProperties`     | column properties  | one column's key, metadata, encrypted-with-footer-key flag      |
+|  [11]   | `ColumnDecryptionProperties`     | column properties  | one column's key by column path                                 |
+|  [12]   | `DecryptionKeyRetriever`         | retriever seat     | `GetKey(string keyMetadata) -> byte[]` on the read leg          |
+|  [13]   | `AadPrefixVerifier`              | verifier seat      | `Verify(string aadPrefix)` at footer read                       |
 
 [PUBLIC_TYPE_SCOPE]: dataset scan family (`ParquetSharp.Dataset`)
 
@@ -173,26 +222,114 @@ For a runtime-only element type, `ColumnDescriptor.Apply<TReturn>(LogicalTypeFac
 |  [09]   | `Arrow.FileReader.ParquetReader`                                     | accessor    | drops to the low-level reader                |
 |  [10]   | `Arrow.FileReader.SchemaManifest`                                    | accessor    | the Arrow schema map                         |
 
-[ENTRYPOINT_SCOPE]: writer tuning and Parquet Modular Encryption
+[ENTRYPOINT_SCOPE]: writer tuning — `WriterPropertiesBuilder`
 
-`WriterPropertiesBuilder` is the full tuning surface; every `[SURFACE]` below is a `.` builder call, and every column-targeting method carries a global, `string path`, and `ColumnPath` overload (the `path?` slot). `Encryption.CryptoFactory` derives `FileEncryptionProperties`/`FileDecryptionProperties` from a `KmsConnectionConfig` and an `EncryptionConfiguration`, wrapping data-encryption keys with KEKs from a customer `IKmsClient`.
+`WriterPropertiesBuilder` is the full tuning surface; every `[SURFACE]` below is a `.` builder call, and every column-targeting method carries a global, `string path`, and `ColumnPath` overload (the `path?` slot).
 
-| [INDEX] | [SURFACE]                                                               | [SHAPE] | [CAPABILITY]                               |
-| :-----: | :---------------------------------------------------------------------- | :------ | :----------------------------------------- |
-|  [01]   | `.Compression(path?, codec)` / `.CompressionLevel(path?, n)`            | builder | per-column codec and level                 |
-|  [02]   | `.EnableDictionary(path?)` / `.DisableDictionary(path?)`                | builder | per-column dictionary encoding             |
-|  [03]   | `.Encoding(path?, encoding)`                                            | builder | per-column physical encoding               |
-|  [04]   | `.EnableWritePageIndex(path?)` / `.EnablePageChecksum()`                | builder | column/offset index + CRC page checksums   |
-|  [05]   | `.SortingColumns(WriterProperties.SortingColumn[])`                     | builder | declares sorted-column metadata            |
-|  [06]   | `.EnableStatistics(path?)` / `.SetMaxStatisticsSize(n)`                 | builder | per-column statistics policy               |
-|  [07]   | `.MaxRowGroupLength(n)` / `.DataPagesize(n)` / `.WriteBatchSize(n)`     | builder | row-group / page / batch sizing            |
-|  [08]   | `.Version(ParquetVersion)` / `.DataPageVersion(ParquetDataPageVersion)` | builder | format and data-page version               |
-|  [09]   | `.EnableStoreDecimalAsInteger()` / `.CreatedBy(s)`                      | builder | decimal storage + writer signature         |
-|  [10]   | `.Encryption(FileEncryptionProperties?)` / `.Build()`                   | builder | binds PME, materializes `WriterProperties` |
-|  [11]   | `new CryptoFactory(kmsClientFactory)`                                   | ctor    | binds a customer `IKmsClient` factory      |
-|  [12]   | `.GetFileEncryptionProperties(kmsConfig, encConfig, filePath?)`         | crypto  | derives PME file encryption properties     |
-|  [13]   | `.GetFileDecryptionProperties(kmsConfig, decConfig, filePath?)`         | crypto  | derives PME file decryption properties     |
-|  [14]   | `.RotateMasterKeys(kmsConfig, path, doubleWrapping, cacheLifetime)`     | crypto  | re-wraps keys for an existing file         |
+| [INDEX] | [SURFACE]                                                                   | [SHAPE] | [CAPABILITY]                               |
+| :-----: | :-------------------------------------------------------------------------- | :------ | :----------------------------------------- |
+|  [01]   | `.Compression(path?, codec)` / `.CompressionLevel(path?, n)`                | builder | per-column codec and level                 |
+|  [02]   | `.EnableDictionary(path?)` / `.DisableDictionary(path?)`                    | builder | per-column dictionary encoding             |
+|  [03]   | `.Encoding(path?, encoding)`                                                | builder | per-column physical encoding               |
+|  [04]   | `.EnableWritePageIndex(path?)` / `.DisableWritePageIndex(path?)`            | builder | per-column column and offset index         |
+|  [05]   | `.EnablePageChecksum()` / `.DisablePageChecksum()`                          | builder | CRC page checksums                         |
+|  [06]   | `.SortingColumns(WriterProperties.SortingColumn[])`                         | builder | declares sorted-column metadata            |
+|  [07]   | `.EnableStatistics(path?)` / `.DisableStatistics(path?)`                    | builder | per-column statistics policy               |
+|  [08]   | `.SetMaxStatisticsSize(n)` / `.SetSizeStatisticsLevel(SizeStatisticsLevel)` | builder | statistics byte cap and size-stats grain   |
+|  [09]   | `.MaxRowGroupLength(n)` / `.DataPagesize(n)` / `.WriteBatchSize(n)`         | builder | row-group / page / batch sizing            |
+|  [10]   | `.DictionaryPagesizeLimit(n)`                                               | builder | dictionary-page byte ceiling               |
+|  [11]   | `.Version(ParquetVersion)` / `.DataPageVersion(ParquetDataPageVersion)`     | builder | format and data-page version               |
+|  [12]   | `.EnableStoreDecimalAsInteger()` / `.DisableStoreDecimalAsInteger()`        | builder | decimal physical storage                   |
+|  [13]   | `.CreatedBy(s)` / `.MemoryPool(MemoryPool)`                                 | builder | writer signature and allocator             |
+|  [14]   | `.Encryption(FileEncryptionProperties?)` / `.Build()`                       | builder | binds PME, materializes `WriterProperties` |
+
+- `SetSizeStatisticsLevel(PageAndColumnChunk)` writes NO page-level size statistics while the page index stays disabled, degrading silently to column-chunk grain — the level and `EnableWritePageIndex` arm together or the finer level buys nothing.
+- Every knob here is builder-global except the `path?` slot's own overloads, so `DictionaryPagesizeLimit`, the two page-version rows, `SetMaxStatisticsSize`, and `SetSizeStatisticsLevel` apply file-wide with no per-column form.
+
+[ENTRYPOINT_SCOPE]: read tuning — `ReaderProperties`, `ArrowReaderProperties`, and `ArrowWriterPropertiesBuilder`
+
+`ReaderProperties` mints from a static factory and mutates in place; `ArrowReaderProperties` does the same for the Arrow decode side, and `ArrowWriterPropertiesBuilder` mints the Arrow encode policy. Each bare `.` row continues the receiver its scope block names, and all three objects pass into the reader and writer ctors above.
+
+| [INDEX] | [SURFACE]                                                                  | [SHAPE]  | [CAPABILITY]                               |
+| :-----: | :------------------------------------------------------------------------- | :------- | :----------------------------------------- |
+|  [01]   | `ReaderProperties.GetDefaultReaderProperties()`                            | factory  | the read policy every reader ctor takes    |
+|  [02]   | `ReaderProperties.WithMemoryPool(MemoryPool)`                              | factory  | the same policy over a named allocator     |
+|  [03]   | `.EnableBufferedStream()` / `.DisableBufferedStream()` / `.BufferSize`     | instance | stream buffering mode and its window       |
+|  [04]   | `.EnablePageChecksumVerification()` / `.DisablePageChecksumVerification()` | instance | verify written page CRCs on read           |
+|  [05]   | `.SetThriftStringSizeLimit(int)` / `.SetThriftContainerSizeLimit(int)`     | instance | footer-parse ceilings on a hostile file    |
+|  [06]   | `.SetFooterReadSize(long)`                                                 | instance | bytes the first footer read pulls          |
+|  [07]   | `.FileDecryptionProperties`                                                | property | mounts PME read properties onto the reader |
+|  [08]   | `.MemoryPool`                                                              | property | the allocator this policy resolves         |
+|  [09]   | `ArrowReaderProperties.GetDefault()`                                       | factory  | the Arrow decode policy                    |
+|  [10]   | `.BatchSize` / `.UseThreads`                                               | property | rows per `RecordBatch`, parallel decode    |
+|  [11]   | `.PreBuffer` / `.CacheOptions`                                             | property | range coalescing for a remote read         |
+|  [12]   | `.BinaryType` / `.ListType`                                                | property | Arrow binary and list type on decode       |
+|  [13]   | `.CoerceInt96TimestampUnit` / `.ArrowExtensionEnabled`                     | property | INT96 unit and Arrow extension admission   |
+|  [14]   | `.GetReadDictionary(int)` / `.SetReadDictionary(int, bool)`                | instance | per-column dictionary-array decode         |
+|  [15]   | `new ArrowWriterPropertiesBuilder()` / `.Build()`                          | ctor     | the Arrow encode policy                    |
+|  [16]   | `.CoerceTimestamps(TimeUnit)` / `.AllowTruncatedTimestamps()`              | builder  | timestamp unit and its truncation stance   |
+|  [17]   | `.DisallowTruncatedTimestamps()` / `.StoreSchema()`                        | builder  | refuse lossy coercion, embed the schema    |
+|  [18]   | `.EnableCompliantNestedTypes()` / `.DisableCompliantNestedTypes()`         | builder  | spec-compliant list and map element naming |
+|  [19]   | `.EngineVersion(WriterEngineVersion)` / `.UseThreads(bool)`                | builder  | write engine and parallel column encode    |
+
+- `MemoryPool` mints from four static seats — `GetDefaultMemoryPool`, `SystemMemoryPool`, `JemallocMemoryPool`, `MimallocMemoryPool` — and reports `BytesAllocated`, `MaxMemory`, and `BackendName`, so allocator choice and its live counters ride one handle across `ReaderProperties.WithMemoryPool` and `WriterPropertiesBuilder.MemoryPool`.
+
+- `PreBuffer` defaults ON and exists for high-latency filesystems, so an object-store read already coalesces; `CacheOptions` tunes that coalescing to the filesystem — `hole_size_limit` bounds the gap two ranges merge across, `range_size_limit` caps a merged range, and `lazy` defers each fetch to first touch instead of issuing at open.
+- `SetThriftStringSizeLimit` and `SetThriftContainerSizeLimit` bound footer deserialization, so a corrupt or hostile footer refuses at a declared ceiling rather than allocating against a length the file itself declares — the two knobs an untrusted-Parquet ingress sets before any other.
+- `StoreSchema` writes the binary Arrow schema into Parquet key-value metadata, and a reader finding it IGNORES `BinaryType` and `ListType` whole: the embedded schema wins, so a write-side `StoreSchema` silently disarms the read-side type steering and the two sides pick one owner of Arrow typing.
+- `EnableCompliantNestedTypes` defaults ON and renames a list's values field from Arrow's `item` to the spec's `element`, so an Arrow list round-trips under a changed field name unless the write disables it or `StoreSchema` carries the original naming.
+- `CoerceTimestamps` casts nanoseconds to microseconds under Parquet `V1_0` and `V2_4` whatever unit the call names, and truncation loss FAULTS by default — `AllowTruncatedTimestamps` is the opt-in that turns that refusal into a silent narrowing, `DisallowTruncatedTimestamps` restoring it.
+
+[ENTRYPOINT_SCOPE]: KMS-managed PME derivation — `ParquetSharp.Encryption`
+
+`CryptoFactory` wraps each data-encryption key with a master key the customer `IKmsClient` holds, so key material never leaves the KMS and the file carries wrapped keys alone. `EncryptionConfiguration` is the whole write-side policy and `DecryptionConfiguration` the whole read-side one; a bare `.` row below is a `CryptoFactory` call.
+
+| [INDEX] | [SURFACE]                                                                   | [SHAPE]  | [CAPABILITY]                                 |
+| :-----: | :-------------------------------------------------------------------------- | :------- | :------------------------------------------- |
+|  [01]   | `new CryptoFactory(kmsClientFactory)`                                       | ctor     | binds the customer `IKmsClient` mint         |
+|  [02]   | `.GetFileEncryptionProperties(kmsConfig, encConfig, filePath?)`             | crypto   | derives KMS-wrapped write properties         |
+|  [03]   | `.GetFileDecryptionProperties(kmsConfig, decConfig, filePath?)`             | crypto   | derives KMS-wrapped read properties          |
+|  [04]   | `.RotateMasterKeys(kmsConfig, path, doubleWrapping, cacheSeconds)`          | crypto   | re-wraps an existing file's data keys        |
+|  [05]   | `new KmsConnectionConfig()` / `.RefreshKeyAccessToken(token)`               | ctor     | mints coordinates, swaps the token in place  |
+|  [06]   | `KmsConnectionConfig.KmsInstanceId` / `.KmsInstanceUrl` / `.KeyAccessToken` | property | KMS instance identity and access token       |
+|  [07]   | `KmsConnectionConfig.CustomKmsConf`                                         | property | extra provider-specific KMS settings         |
+|  [08]   | `new EncryptionConfiguration(footerKey)`                                    | ctor     | seats the footer master-key identifier       |
+|  [09]   | `EncryptionConfiguration.ColumnKeys` / `.UniformEncryption`                 | property | per-column key map, or one key for all       |
+|  [10]   | `EncryptionConfiguration.EncryptionAlgorithm` / `.PlaintextFooter`          | property | `ParquetCipher` and footer encryption stance |
+|  [11]   | `EncryptionConfiguration.DoubleWrapping` / `.CacheLifetimeSeconds`          | property | KEK double-wrap and key-cache window         |
+|  [12]   | `EncryptionConfiguration.InternalKeyMaterial` / `.DataKeyLengthBits`        | property | key-material residence and DEK bit width     |
+|  [13]   | `new DecryptionConfiguration()` / `.CacheLifetimeSeconds`                   | ctor     | read-side key-cache window                   |
+
+- `CryptoFactory` OUTLIVES every reader armed from its `GetFileDecryptionProperties` result: the derived properties hold native references into the factory that the package cannot manage, so disposing it while a generation still streams faults in native memory where no managed catch reaches. Custody is a composition-held value, never a per-call `using`.
+- `EncryptionConfiguration.ColumnKeys` is `IReadOnlyDictionary<string, IReadOnlyList<string>>` marshalling through one joined string of `masterKeyId:col,col` groups separated by `;`, so a master-key id or column path carrying `:`, `,`, or `;` corrupts the grouping silently rather than faulting at assignment.
+- `InternalKeyMaterial` decides where wrapped keys rest: true stores them in the Parquet footer and false writes a sidecar key file beside the data, which is why `filePath` is optional on both derivations and required the moment key material goes external.
+- `CacheLifetimeSeconds` is a `double` on both configurations and `RotateMasterKeys` defaults its own to 600, so a rotation run inherits a ten-minute KEK and client cache unless the call names its own window.
+- `KmsClientFactory` and both `IKmsClient` verbs run behind a marshalling shim catching every escape into `ex.ToString()` beside an empty wrapped key from a throwing `WrapKey`, so a KMS outage crosses the boundary as a flattened message carrying no exception type and no stack — the adapter states its own typed diagnosis or a credential fault reads as a crypto fault.
+
+[ENTRYPOINT_SCOPE]: explicit-key PME derivation — the root properties builders
+
+Callers already holding raw AES keys build the same `FileEncryptionProperties`/`FileDecryptionProperties` `CryptoFactory` derives, so the two legs are alternatives at one seam rather than two encryption models. Each bare `.` row continues the builder the `new` row above it opened.
+
+| [INDEX] | [SURFACE]                                                            | [SHAPE]  | [CAPABILITY]                                |
+| :-----: | :------------------------------------------------------------------- | :------- | :------------------------------------------ |
+|  [01]   | `new FileEncryptionPropertiesBuilder(footerKey)`                     | ctor     | explicit-key write build over a footer key  |
+|  [02]   | `.Algorithm(ParquetCipher)` / `.SetPlaintextFooter()`                | builder  | cipher and footer encryption stance         |
+|  [03]   | `.FooterKeyId(id)` / `.FooterKeyMetadata(metadata)`                  | builder  | footer key identity carried in the file     |
+|  [04]   | `.AadPrefix(prefix)` / `.DisableAadPrefixStorage()`                  | builder  | AAD prefix and whether the file stores it   |
+|  [05]   | `.EncryptedColumns(ColumnEncryptionProperties[])` / `.Build()`       | builder  | binds column rows, materializes properties  |
+|  [06]   | `new FileDecryptionPropertiesBuilder()` / `.FooterKey(bytes)`        | ctor     | explicit-key read build over a footer key   |
+|  [07]   | `.ColumnKeys(ColumnDecryptionProperties[])` / `.Build()`             | builder  | per-column keys, materializes properties    |
+|  [08]   | `.KeyRetriever(DecryptionKeyRetriever)`                              | builder  | resolves a column key from its key metadata |
+|  [09]   | `.AadPrefixVerifier(AadPrefixVerifier)` / `.AadPrefix(prefix)`       | builder  | AAD prefix and the verifier that checks it  |
+|  [10]   | `.DisableFooterSignatureVerification()` / `.PlaintextFilesAllowed()` | builder  | signature and mixed-plaintext read stance   |
+|  [11]   | `new ColumnEncryptionPropertiesBuilder(columnName)`                  | ctor     | one encrypted column                        |
+|  [12]   | `.Key(bytes)` / `.KeyId(id)` / `.KeyMetadata(metadata)` / `.Build()` | builder  | its key, key id, key metadata, build        |
+|  [13]   | `new ColumnDecryptionPropertiesBuilder(columnName)` / `.Key(bytes)`  | ctor     | one decrypted column and its key            |
+|  [14]   | `ReaderProperties.FileDecryptionProperties`                          | property | mounts read properties onto reader ctors    |
+
+- Both column builders overload their ctor on `string` column name and `ColumnPath`, so a nested leaf targets by path rather than by a hand-joined dotted name.
+- `DecryptionKeyRetriever.GetKey(keyMetadata)` and `AadPrefixVerifier.Verify(aadPrefix)` are abstract seats a composition subclasses, and the native core holds the GC handle on each instance — reverse of every other handle here — so the seat must outlive the reader that mounted it.
+- Both seats run behind a marshalling shim that catches every escape and hands the native side `ex.ToString()` alone, so exception type and stack are lost at the boundary and a retriever throw yields a zero key beside that message; the seat carries its own typed diagnosis or the failure reads as a corrupt-key decrypt.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -200,6 +337,8 @@ For a runtime-only element type, `ColumnDescriptor.Apply<TReturn>(LogicalTypeFac
 - three layers terminate at one `ParquetSharpNative.dylib` handle: low-level (`ParquetFileWriter`→`RowGroupWriter`→`ColumnWriter`→`LogicalColumnWriter<TValue>`), row-oriented (`RowOriented.ParquetFile`→`ParquetRowWriter<TTuple>`), and Arrow (`Arrow.FileWriter`/`FileReader` ↔ `Apache.Arrow`).
 - `ParquetSharpNative` wraps the Apache Arrow/Parquet C++ build; codec selection is C++-side, never a managed re-implementation.
 - `WriterProperties` is immutable, built by `WriterPropertiesBuilder`; the bare-`Compression` writer ctors are sugar over a default builder.
+- Four policies govern one file — core write, core read, Arrow encode, Arrow decode — and each reader and writer ctor takes its pair, so tuning is constructed state a composition owns rather than a call-site argument.
+- Read policy carries no builder and no immutable form, so `ReaderProperties` and `ArrowReaderProperties` are live objects a ctor captures; a policy shared across readers propagates every later mutation and one per reader is the isolating shape.
 - `Column[]` ctors derive a `GroupNode` schema automatically; the `GroupNode` ctors take a hand-built tree for nested/repeated columns the flat `Column[]` shape cannot express.
 - handles are `IDisposable` and own native memory; `Close()` flushes the footer, and a reader/writer over a managed `Stream` honors `leaveOpen`.
 - `Arrow.FileReader.GetRecordBatchReader` returns `Apache.Arrow.Ipc.IArrowArrayStream` and `Arrow.FileWriter.WriteRecordBatch`/`WriteTable` consume `RecordBatch`/`Table`; `api-arrow` owns the in-memory Arrow model, and the two compose at the `RecordBatch`/`Schema` boundary — this file codec never re-declares that model.
@@ -216,11 +355,15 @@ For a runtime-only element type, `ColumnDescriptor.Apply<TReturn>(LogicalTypeFac
 [LOCAL_ADMISSION]:
 - Parquet file write enters behind the `Query/columnar#ARTIFACT_EGRESS` columnar-extract receipt: a `[ValueObject]`/`[SmartEnum]` owner projects to its physical key through the snapshot codec, and `LogicalColumnWriter<TValue>.WriteBatch` (or Arrow `WriteRecordBatch`) writes the column.
 - managed `Stream` ctors are the admitted sink/source for object-store residence: a Parquet extract writes into an S3/MinIO upload stream and reads from a download stream with `leaveOpen`, so the store owns the stream lifecycle.
+- Object-store reads tune on the policy objects rather than around them: `PreBuffer` with a `CacheOptions` row sized to the store, `SetFooterReadSize` past the typical footer, and `BatchSize` at the downstream batch grain — a hand-rolled range-request layer re-implements coalescing the native core already owns.
+- Untrusted Parquet enters behind `SetThriftStringSizeLimit` and `SetThriftContainerSizeLimit` set at the ingress, since footer parse allocates against lengths the file declares.
+- `DefaultWriterProperties` stays unset: process-wide static policy crosses plugin load contexts and silently re-tunes an extract another composition owns, so every knob rides its own `WriterPropertiesBuilder`.
 - `ParquetRowWriter<TTuple>` is the admitted path for fact-record extracts of fixed tuple/POCO shape; the low-level `LogicalColumnWriter<TValue>` path is admitted where the column type is computed at runtime through the visitor.
-- PME is the admitted at-rest encryption for sensitive extracts: `CryptoFactory` wraps DEKs with a tenant KEK from an `IKmsClient` adapter.
+- PME is the admitted at-rest encryption for sensitive extracts and the KMS leg is the admitted derivation: `CryptoFactory` wraps DEKs with a tenant KEK an `IKmsClient` adapter reaches, so no process holds a master key and rotation is `RotateMasterKeys` over the published file.
+- Explicit-key builders enter for a fixture or a recovery read whose key is already in hand; a published extract deriving from them re-homes master-key custody into process memory, which is the custody the KMS leg exists to remove.
 
 [RAIL_LAW]:
 - Packages: `ParquetSharp`, `ParquetSharp.Dataset`
-- Owns: native Parquet file read/write — low-level column chunks, typed logical batches, row-oriented tuple mapping, the `Apache.Arrow` C-Data bridge, Parquet Modular Encryption, and the partitioned multi-file dataset scan over that native core
-- Accept: `ParquetFileWriter`/`ParquetFileReader` over a managed `Stream`, typed `LogicalColumnWriter<TValue>.WriteBatch`/`ParquetRowWriter<TTuple>`, the `Arrow.FileReader`/`FileWriter` `RecordBatch` bridge, `CryptoFactory` PME over an `IKmsClient` adapter, and `DatasetReader.ToBatches`/`ToTable` with `Col`/`IFilter` pushdown over a partitioned directory
-- Reject: hand-rolled Parquet byte framing, a per-cell write loop where a typed batch or Arrow `RecordBatch` exists, a managed re-implementation of a codec the native core owns, a hand-rolled directory walk where `DatasetReader` owns partitioned scan, and re-declaring the `Apache.Arrow` model `api-arrow` owns
+- Owns: native Parquet file read/write — low-level column chunks, typed logical batches, row-oriented tuple mapping, the `Apache.Arrow` C-Data bridge, the four-policy read and write tuning plane, Parquet Modular Encryption, and the partitioned multi-file dataset scan over that native core
+- Accept: `ParquetFileWriter`/`ParquetFileReader` over a managed `Stream`, typed `LogicalColumnWriter<TValue>.WriteBatch`/`ParquetRowWriter<TTuple>`, the `Arrow.FileReader`/`FileWriter` `RecordBatch` bridge, `CryptoFactory` PME over an `IKmsClient` adapter mounted through `WriterPropertiesBuilder.Encryption` and `ReaderProperties.FileDecryptionProperties`, and `DatasetReader.ToBatches`/`ToTable` with `Col`/`IFilter` pushdown over a partitioned directory
+- Reject: hand-rolled Parquet byte framing, a per-cell write loop where a typed batch or Arrow `RecordBatch` exists, a managed re-implementation of a codec the native core owns, an envelope-encryption pass over finished Parquet bytes where PME encrypts pages and footer in place under per-column keys, a hand-rolled directory walk where `DatasetReader` owns partitioned scan, a caller-built range-request layer where `PreBuffer` and `CacheOptions` own coalescing, a `DefaultWriterProperties` write standing in for a builder row, a `using` bounding a `CryptoFactory` around a derivation, and re-declaring the `Apache.Arrow` model `api-arrow` owns

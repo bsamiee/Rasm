@@ -52,7 +52,7 @@
 | :-----: | :--------------------------------------------------------------------------------- | :------------- | :--------------------------------- |
 |  [01]   | `store.from_url(url, **kwargs) -> ObjectStore`                                     | construct      | URL-dispatched store construction  |
 |  [02]   | `S3Store` / `GCSStore` / `AzureStore` / `HTTPStore` / `LocalStore` / `MemoryStore` | construct      | typed store construction           |
-|  [03]   | `parse_scheme(url) -> Literal["s3","gcs","http","local","memory","azure"]`         | classify       | URL backend classification         |
+|  [03]   | `obstore.parse_scheme(url) -> Literal["s3","gcs","http","local","memory","azure"]` | classify       | URL backend classification         |
 |  [04]   | `auth.boto3.*`                                                                     | credential     | AWS boto3 credential provider      |
 |  [05]   | `auth.google.*`                                                                    | credential     | GCS credential provider            |
 |  [06]   | `auth.azure.*`                                                                     | credential     | Azure credential provider          |
