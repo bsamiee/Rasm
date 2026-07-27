@@ -54,7 +54,7 @@ const sections = ["geometry kernel", "mesh pipeline", "IFC export"];
 const out = await pipeline(
     sections,
     (s) => agent(`Outline the doc section for: ${s}. Return headings only.`, { label: `outline:${s}`, phase: "Outline", schema: OUTLINE_SCHEMA }),
-    (outline, s) => agent(`Draft "${s}" from this outline:\n${JSON.stringify(outline)}`, { label: `draft:${s}`, phase: "Draft" }),
+    (outline, s) => agent(`Draft "${s}" from this outline:\n${(outline?.headings ?? []).join("\n")}`, { label: `draft:${s}`, phase: "Draft" }),
     (draft, s) => agent(`Tighten this "${s}" draft — cut redundancy, keep every claim:\n${draft}`, { label: `tighten:${s}`, phase: "Tighten" }),
 );
 
@@ -86,7 +86,8 @@ const findings = await parallel(
 const clean = findings.map((f, i) => (f ? { question: questions[i], ...f } : null)).filter(Boolean);
 
 phase("Synthesize");
-const report = await agent("Combine the research below into one cohesive briefing; call out disagreements.\n\n" + JSON.stringify(clean, null, 2));
+const brief = clean.map((c) => `${c.question}\n${c.finding}`).sort().join("\n\n"); // stable projection, never the nested result
+const report = await agent("Combine the research below into one cohesive briefing; call out disagreements.\n\n" + brief);
 
 return { questionCount: clean.length, report };
 ```
@@ -211,7 +212,8 @@ const done = (
 ).filter(Boolean);
 
 phase("Integrate");
-const integrated = await agent("Integrate these independently-completed units; resolve any seam between them.\n\n" + JSON.stringify(done));
+const units = done.map((d) => `${d.id} :: ${d.file} :: ${d.outcome}`).sort().join("\n");
+const integrated = await agent("Integrate these independently-completed units; resolve any seam between them.\n\n" + units);
 return { integrated, unitCount: done.length };
 ```
 
@@ -227,7 +229,8 @@ for (let rev = 1; !plan?.done && rev <= MAX_REVISIONS && (!budget.total || budge
             (plan.tasks ?? []).map((t) => () => agent(t.instruction, { label: `work:${rev}:${t.id}`, schema: WORK }).then((r) => ({ id: t.id, ...r }))),
         )
     ).filter(Boolean);
-    plan = await agent("Revise the plan from these receipts. Issue only remaining work; emit done=true when nothing remains.\n" + JSON.stringify(done), {
+    const receipts = done.map((d) => `${d.id} :: ${d.outcome}`).sort().join("\n");
+    plan = await agent("Revise the plan from these receipts. Issue only remaining work; emit done=true when nothing remains.\n" + receipts, {
         label: `replan:${rev}`,
         schema: PLAN,
     });
@@ -615,6 +618,9 @@ const FIX = {
     },
 };
 
+// Deferrals cross as sorted primitive rows — a stringified object re-serializes differently on resume and misses cache.
+const rows = (cl) => cl.map((r) => `${r.files.slice().sort().join(" | ")} :: ${r.claim}`).sort().join("\n");
+
 const done = (await parallel(items.map((it) => () => agent(workPrompt(it), { schema: FIX })))).filter(Boolean);
 
 // BARRIER (pure JS, zero tokens): collect, dedup, cluster by connected file-set (union-find).
@@ -628,9 +634,9 @@ if (clusters.length) {
     const out = await pipeline(
         // each disjoint cluster verifies the moment ITS fix lands
         clusters,
-        (cl) => agent("Fix these cross-file deferrals in place; read every listed file.\n" + JSON.stringify(cl), { schema: FIXED }),
+        (cl) => agent("Fix these cross-file deferrals in place; read every listed file.\n" + rows(cl), { schema: FIXED }),
         (fix, cl) =>
-            agent("Adversarially verify each claim is ACTUALLY resolved; read the files from disk. One verdict per claim.\n" + JSON.stringify(cl), {
+            agent("Adversarially verify each claim is ACTUALLY resolved; read the files from disk. One verdict per claim.\n" + rows(cl), {
                 schema: VERIFY,
             }).then((v) => ({ cl, v })),
     );
@@ -684,7 +690,7 @@ phase("Gather");
 const research = await workflow("research-fanout", ["question one", "question two"]);
 
 phase("Write");
-const article = await agent("Write an article from this research:\n" + JSON.stringify(research));
+const article = await agent("Write an article from this research:\n" + (research?.report ?? ""));
 return { article };
 ```
 
@@ -956,7 +962,9 @@ log(roster.filter((r) => r.ok).reduce((a, r) => a + r.entries, 0) + " entries ac
 
 // FIXLOG: {files, resolved[], beyond[], rejected[], summary} — required-but-possibly-empty
 // `beyond` is an attestation that the reader's own hunt ran, not only the signal list.
-const done = await agent(readerPrompt() + " UNMAPPED: " + JSON.stringify(unmapped) + " ROSTER: " + JSON.stringify(roster), {
+const unmappedRows = unmapped.map((u) => `${u.lane} :: ${u.scope}`).sort().join("\n");
+const rosterRows = roster.map((r) => `${r.lane} :: ${r.ok ? r.report : "FAILED " + r.failure}`).sort().join("\n");
+const done = await agent(readerPrompt() + " UNMAPPED:\n" + unmappedRows + "\nROSTER:\n" + rosterRows, {
     label: "resolve",
     phase: "Resolve",
     model: "fable",

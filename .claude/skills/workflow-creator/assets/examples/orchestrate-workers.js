@@ -110,7 +110,10 @@ while (!plan?.done && (plan?.tasks ?? []).length && rev < MAX_REVISIONS && (!bud
             'list; emit done=true with empty tasks when nothing remains.\n\nTASK: ' +
             task +
             '\n\nRECEIPTS: ' +
-            JSON.stringify(wave),
+            wave
+                .map((w) => `${w.id} :: ${w.outcome}`)
+                .sort()
+                .join('\n'),
         { label: `replan:${rev}`, phase: 'Plan', schema: PLAN },
     );
 }
@@ -124,7 +127,10 @@ const integrated = await agent(
         'references — and report what you aligned.\n\nTASK: ' +
         task +
         '\n\nUNITS: ' +
-        JSON.stringify(receipts.map((r) => ({ id: r.id, file: r.file, files: r.files }))),
+        receipts
+            .map((r) => `${r.id} :: ${r.file} :: ${(r.files ?? []).slice().sort().join(' | ')}`)
+            .sort()
+            .join('\n'),
     { label: 'integrate', phase: 'Integrate' },
 );
 

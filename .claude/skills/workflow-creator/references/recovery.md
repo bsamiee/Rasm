@@ -50,11 +50,12 @@ Resume replays the journal by key: `Workflow({ scriptPath, resumeFromRunId })` r
 
 Resume is one specific call, and each of these mistakes silently turns it into a fresh run:
 
-- No `resumeFromRunId`. A bare `Workflow({ scriptPath })` or `Workflow({ name })` is a NEW run with an empty journal — it never consults a prior run's cache. Most common cause of an unexpected restart.
-- A different session. That journal lives under the launching session's directory; a plain resume from a new session (or after a process restart) finds an empty journal and re-runs from zero. Recover with the transplant at [05].
-- A changed cache key from the top. Script edits or changed `args` miss the cache at the affected call and rerun from there; keep launched scripts stable while resumable.
-- A changed file behind a path argument. Cache keys carry the path string, not file content, so freeze referenced briefs during resumable runs; changed content requires a fresh run.
-- An unstable launch source. Launch from a stable on-disk `scriptPath` so the exact bytes that ran stay on disk to replay against; an inline `script` string leaves nothing stable to resume from.
+- OMITTING `resumeFromRunId` starts a NEW run with an empty journal that never consults the prior cache — the most common cause of an unexpected restart.
+- RESUMING FROM ANOTHER SESSION finds an empty journal and re-runs from zero, because the journal lives under the launching session's directory. Recover with the transplant at [05].
+- EDITING THE SCRIPT or changing `args` misses the cache at the affected call and reruns from there; keep launched scripts stable while resumable.
+- CHANGING A FILE BEHIND A PATH ARGUMENT breaks replay silently, because keys carry the path string and never file content; freeze referenced briefs during resumable runs and take a fresh run for changed content.
+- LAUNCHING FROM AN INLINE `script` leaves nothing stable to replay against; launch from an on-disk `scriptPath` so the exact bytes that ran survive.
+- STRINGIFYING A PRIOR AGENT'S RESULT into a prompt misses on replay: keys hash prompt TEXT, and `JSON.stringify(prevResult)` re-serializes an object the resume rebuilt by parsing `journal.jsonl`, which never reproduces the live validated one byte for byte. That stage misses while every stage embedding no prior-result data replays clean. Project stable primitives instead — a sorted, joined path or key list. Empty prior-result slots on the first pass — a null barrier, an absent nav — hide the fault until a later phase fills them.
 
 A run ledger makes the first rule reliable: the moment `Workflow` returns, write the run ID, launched `scriptPath`, `args`, and resume command to the session scratchpad (never the repo) — copy `assets/templates/run-ledger.template.md`, updated on every resume or restart. That ledger is not the journal — the journal is the automatic result cache that DOES the resuming; the ledger is the run-ID note a later turn passes back.
 
@@ -62,9 +63,13 @@ A lost run ID is recoverable in-session: the launch result prints it, the comple
 
 ## [04]-[VERIFY]
 
-Resume-cache keys may change across sessions, harness builds, or sibling calls across stop/resume. Verify every resume immediately: classify fresh `started` records against agent transcript task lines; the correct outcome is the next pending stage. Fresh `started` records for completed work signal a key mismatch, so stop the run and diff against the bytes that ran.
+Resume-cache keys may change across sessions, harness builds, or sibling calls across stop/resume. Verify every resume immediately: classify fresh `started` records against agent transcript task lines; the correct outcome is the next pending stage. Fresh `started` records for completed work signal a key mismatch.
 
-Stop a run re-executing cached work the moment drift is confirmed; otherwise stop only at stage boundaries (journal `result` count equals the stage's agent total), so the journal holds complete stages a continuation script reconstructs cleanly.
+Bound the miss before ruling on it, because the classification IS the diagnosis: group every agent by role and completion, and read which stages replayed. Misses confined to one stage while upstream and downstream replay clean name the offending prompt slot — the sole varying input is what that stage interpolates. Misses from the top mean the script bytes or `args` moved.
+
+Ruling follows the blast radius, never the mismatch alone. Unbounded misses re-execute the run for nothing: stop and diff against the bytes that ran. Misses bounded to a stage whose re-run is idempotent — a reviewer re-deriving from current disk, a verifier re-probing — cost spend, not correctness, and stopping forfeits every in-flight agent while any prompt fix invalidates that same stage anyway; let it finish and repair the interpolation before the next launch.
+
+Absent confirmed drift, stop only at stage boundaries (journal `result` count equals the stage's agent total), so the journal holds complete stages a continuation script reconstructs cleanly.
 
 ## [05]-[TRANSPLANT]
 

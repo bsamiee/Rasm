@@ -81,16 +81,17 @@ Rules that break runs, each carried in depth by its owning reference:
 - [14]-[SAFE_DEFAULT]: A no-args run defaults to a safe no-op, never a full-corpus sweep.
 - [15]-[PROMPT_CONCAT]: Wrap long prompt strings with adjacent `+`, the space kept on the left segment.
 - [16]-[NO_TEMPLATE_LITERAL]: Never a multi-line template literal in a prompt — it injects `\n` and changes both the value and the resume key.
-- [17]-[LIVE_INTERPOLATION]: Prompts embedding receipts interpolate live: `+ JSON.stringify(receipts) +` or single-line `${JSON.stringify(receipts)}`.
-- [18]-[NO_PATCH_TOKENS]: Never a `__TOKEN__` placeholder patched later or a `${'$'}{…}` escape — both ship literal text the agent reads as data.
-- [19]-[LINTER_RERUN]: Both patch shapes fail the linter; a patched persisted script re-runs it before the launch is trusted.
-- [20]-[INSTANCE_SCRATCH]: Run scratch is minted per INSTANCE: `.claude/scratch/<name>-<slug>-<hash>`, derived deterministically from normalized args.
-- [21]-[SCRATCH_KEY]: A per-workflow constant dir mixes concurrent and successive runs' products; a clock- or random-based path breaks resume.
-- [22]-[FRAGILE_PROSE]: No prose mirrors what the code owns: a constant's value lives ONLY on its declaration, naming the concept, never the number.
-- [23]-[CLAIM_VERIFIED]: A roster, model, or path claim is verified against the code or deleted.
-- [24]-[LIVE_CONSTANT]: A prompt needing a tunable interpolates its constant live (`' + CAP + '`).
-- [25]-[EXACTNESS_KEPT]: Exactness that governs the actor stays exact — schema bounds, protocol facts, thresholds, notes and counts at their owner.
-- [26]-[PRECISION_KEPT]: Hardening removes fragility, never precision.
+- [17]-[LIVE_INTERPOLATION]: Interpolate static values live — `+ JSON.stringify(args) +` or single-line `${JSON.stringify(TARGETS)}`.
+- [18]-[STABLE_PROJECTION]: Project a prior agent's result into a prompt as sorted, joined primitives built in JS. Keys hash prompt text and a resume rebuilds that result by parsing the journal, so a nested object re-serializes differently and re-runs its stage (recovery reference).
+- [19]-[NO_PATCH_TOKENS]: Never a `__TOKEN__` placeholder patched later or a `${'$'}{…}` escape — both ship literal text the agent reads as data.
+- [20]-[LINTER_RERUN]: Both patch shapes fail the linter; a patched persisted script re-runs it before the launch is trusted.
+- [21]-[INSTANCE_SCRATCH]: Run scratch is minted per INSTANCE: `.claude/scratch/<name>-<slug>-<hash>`, derived deterministically from normalized args.
+- [22]-[SCRATCH_KEY]: A per-workflow constant dir mixes concurrent and successive runs' products; a clock- or random-based path breaks resume.
+- [23]-[FRAGILE_PROSE]: No prose mirrors what the code owns: a constant's value lives ONLY on its declaration, naming the concept, never the number.
+- [24]-[CLAIM_VERIFIED]: A roster, model, or path claim is verified against the code or deleted.
+- [25]-[LIVE_CONSTANT]: A prompt needing a tunable interpolates its constant live (`' + CAP + '`).
+- [26]-[EXACTNESS_KEPT]: Exactness that governs the actor stays exact — schema bounds, protocol facts, thresholds, notes and counts at their owner.
+- [27]-[PRECISION_KEPT]: Hardening removes fragility, never precision.
 
 ## [05]-[FILE]
 

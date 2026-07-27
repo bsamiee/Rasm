@@ -222,9 +222,16 @@ log(
 phase('Resolve');
 const resolved = await agent(
     'Consolidate this audit. UNMAPPED scopes get your own cold read FIRST: ' +
-        JSON.stringify(unmapped) +
+        unmapped
+            .map((u) => `${u.lane} :: ${u.scope}`)
+            .sort()
+            .join('\n') +
         '. Then read every ok report file IN FULL from disk (they sit under a gitignored dir — use the exact paths, never search): ' +
-        JSON.stringify(roster.filter((r) => r.ok).map((r) => r.report)) +
+        roster
+            .filter((r) => r.ok)
+            .map((r) => r.report)
+            .sort()
+            .join('\n') +
         '. Re-verify each finding at its anchor; confirm or reject with reason, and hunt past the signal list on your own authority.',
     { label: 'resolve', phase: 'Resolve', model: 'fable', effort: 'high', schema: RESOLUTION },
 );

@@ -2,6 +2,8 @@
 
 List repair classifies fragments before cutting: a fragment's class, never its length, selects the container it routes to.
 
+Budget bounds an entry, never shapes it. Index-tier entries — README, ARCHITECTURE, and every router — land under 150 columns; the gate fails any entry past 500 characters or three sentences. Registry kinds carrying settled law with its governing reason, RULINGS above all, run past that width by design. Read an over-width index entry as payload belonging one tier down, and demote it whole. Width licenses no split: one decision stays one entry at any length, and slicing it at a comma to reach a column count is the shredded split at [03].
+
 ## [01]-[MEGA_BULLET]
 
 One hyphen fusing a law, its mechanism, two consequences, an exception, and an example is the canonical crime; repair keeps the law and routes every other fragment to the container that owns it.

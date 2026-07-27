@@ -34,7 +34,9 @@ const collected = [];
 const seen = new Set();
 let dry = 0;
 while (dry < 2 && collected.length < 200 && (!budget.total || budget.remaining() > 50_000)) {
-    const r = await agent('TODO: instruction. Do not repeat anything already found below.\n\n' + JSON.stringify(collected), {
+    // Exclusions cross as a SORTED JOINED string, never a stringified accumulator: cache keys hash prompt text, and a resume
+    // rebuilds a prior result by parsing the journal, so a nested object re-serializes differently and this call misses cache.
+    const r = await agent('TODO: instruction. Do not repeat anything already found below.\n\n' + [...seen].sort().join('\n'), {
         schema: RESULT_SCHEMA,
         effort: 'low',
     });

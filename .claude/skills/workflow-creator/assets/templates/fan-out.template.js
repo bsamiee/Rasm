@@ -45,12 +45,18 @@ const results = await parallel(
 const clean = results.map((r, i) => (r ? { item: items[i], ...r } : null)).filter(Boolean);
 log(`${clean.length}/${items.length} returned usable results.`);
 
-// PHASE 2 — one synthesis agent. It is a fresh context: it never saw the workers. It learns the results only because we paste them into its prompt.
-// Paste fan-in is the SMALL-output shape; past ~50 rows the product moves to a run-scratch report file + thin receipt — the patterns reference
-// report-file shape, with the scratch dir instance-minted from the normalized args (the scratch convention), never a per-workflow constant.
+// PHASE 2 — one synthesis agent. It is a fresh context: it never saw the workers, so it learns their results only from this prompt.
+// Fan-in crosses as a STABLE PROJECTION built in JS — sorted, joined, primitive. Cache keys hash prompt text, and a resume rebuilds a
+// prior result by parsing the journal, so stringifying a worker's object here re-serializes differently and misses cache on every replay.
+// Paste fan-in is the SMALL-output shape; past ~50 rows the product moves to a run-scratch report file + thin receipt — the patterns
+// reference report-file shape, with the scratch dir instance-minted from the normalized args, never a per-workflow constant.
 
 // --- [SYNTHESIZE]
 phase('Synthesize');
-const report = await agent('TODO: instruction — combine the results below into one deliverable.\n\n' + JSON.stringify(clean, null, 2));
+const brief = clean
+    .map((c) => c.item + ' :: ' + [c.finding, c.detail].filter(Boolean).join(' | '))
+    .sort()
+    .join('\n');
+const report = await agent('TODO: instruction — combine the results below into one deliverable.\n\n' + brief);
 
 return { count: clean.length, report };

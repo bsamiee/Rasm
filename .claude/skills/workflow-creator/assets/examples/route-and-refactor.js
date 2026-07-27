@@ -117,7 +117,10 @@ const report = await agent(
     `These per-file refactors landed across the tri-language workspace. Write a review ` +
         `briefing: group the changes by language, flag any cross-file follow-up a specialist ` +
         `deferred, and call out any seam where two branches must stay aligned at the wire.\n\n` +
-        JSON.stringify(touched, null, 2),
+        touched
+            .map((t) => `${t.file} :: ${t.change}`)
+            .sort()
+            .join('\n'),
     { label: 'report', phase: 'Report' },
 );
 

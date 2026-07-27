@@ -9,7 +9,7 @@ export const meta = {
         { title: 'Implement', detail: 'one ground-up writer per territory over its disjoint page set' },
         { title: 'Critique', detail: 'predicate-positive conformance and capability audit, repaired in place' },
         { title: 'RedTeam', detail: 'predicate-negative pre-mortem, rebuilt in place' },
-        { title: 'Serial', detail: 'ordered closers over shared governance surfaces' },
+        { title: 'Serial', detail: 'ordered closers over shared governance surfaces', model: 'fable' },
         { title: 'Drain', detail: 'cluster pooled residuals by shared file, fix and verify each cluster' },
         { title: 'Verify', detail: 'adversarial proof on disk against the campaign verification section' },
     ],
@@ -306,7 +306,47 @@ const PHASE_ROWS = {
         ],
     },
     4: {
-        title: 'Telemetry as analytics subject',
+        title: 'Analytics plane, plus the phase 3 and 5 remnants',
+        barrier: {
+            key: 'p4-ground',
+            parallel: [
+                {
+                    key: 'query-target',
+                    pages: ['libs/typescript/core/.planning/observe/board.md', 'libs/typescript/core/.planning/observe/convention.md'],
+                    charter:
+                        'Section [04.2] — the axis that keeps ONE paradigm, landed before any residence consumer composes it. Query gains ' +
+                        'a Target axis over promql|sql resolved from the residence a tile declares, so Query.render(query, target) stays ' +
+                        'one entry with two renderers and the closed family never changes. SQL rendering maps Instant to a point read, ' +
+                        'Windowed to a time-bucketed aggregate, Quantile to the engine quantile function, and Aggregate to GROUP BY over ' +
+                        'the same census-ordered keys _selector already walks; label matchers become predicates over the attribute map or ' +
+                        'its materialized column. Query.breach and Query.indicator fold IDENTICALLY under both targets — a target-specific ' +
+                        'breach expression re-imports the forked discipline board.md:20 deletes. Resolve the suffix disagreement the ' +
+                        'phase-1 residual carried: NoUTF8EscapingWithSuffixes governs the PromQL target alone, so suffixing is a target ' +
+                        'property and never a name property. On convention.md, make service.namespace required and stamped rasm by ' +
+                        'default. You own these two pages ALONE; every residence consumer is a later fan.',
+                },
+                {
+                    key: 'iac-ground',
+                    pages: [
+                        'libs/typescript/iac/.planning/operate/observe.md',
+                        'libs/typescript/iac/.planning/program/spec.md',
+                        'libs/.planning/ARCHITECTURE.md',
+                    ],
+                    charter:
+                        'Section [04.6] plus every phase-3 remnant, since a residence with no gateway is unreachable. Verified absent on ' +
+                        'disk and all owed here: the k8sattributes processor (ZERO occurrences today, and a wide-event row carrying no ' +
+                        'pod, node, or workload identity cannot answer what the residence exists for); the three _Observe axes ' +
+                        'observe.sampling head|tail, observe.topology gateway|agent, observe.buffer file|broker; and observe.analytics ' +
+                        'over none|lake|clickhouse|both defaulting to lake. Add the ClickHouse chart row and a clickhouse exporter with ' +
+                        'create_schema false under branch-owned DDL carrying tenant in ORDER BY — the default schema leaves attributes in ' +
+                        'a Map outside the sort key, so a high-cardinality tenant filter scans other tenants granules. Land the ' +
+                        'recording-rule fence, resolve the three remaining BLOCKED rows, and resolve the phantom provenance keys per ' +
+                        'campaign [03.7]. On Tier-0 delete the contrib-image half of FLEET_ESCALATION arm [02] ONLY; the [08] rows belong ' +
+                        'to the serial closers and you touch nothing else there. Evaluate otelarrow for the gateway hop and record the ' +
+                        'verdict as a row — arming or declining with a stated reason, never silence.',
+                },
+            ],
+        },
         territories: [
             {
                 key: 'cs-analytics',
@@ -317,20 +357,25 @@ const PHASE_ROWS = {
                     'libs/csharp/Rasm.AppUi/.planning/Diagnostics/evidence.md',
                 ],
                 charter:
-                    'Section [04.1]. Rasm.Persistence is the single columnar custodian per the branch ruling, so every piece lands ' +
+                    'Section [04.3]. Rasm.Persistence is the single columnar custodian per the branch ruling, so every piece lands ' +
                     'there and producers hand typed record-batch schemas across the seam. Land the telemetry SeriesKind row with the ' +
                     'full hypertable treatment including continuous aggregates, the AnalyticsSchema + ArtifactClass for the ' +
                     'kernel-homed ReceiptEnvelope transcribing the Rasm.Materials analytics producer-side pattern, and the chargeback ' +
                     'fact table giving UsageReceipt a named StoreSlot and a flat-table projection. Then bind the three AppUi telemetry ' +
                     'board tiles to the real projection and DELETE the designed-empty declaration. EvidenceJoin.Correlate and ' +
                     'TenantUsageFold.Fold keep their in-process live folds and gain a durable counterpart read over the columnar table. ' +
-                    'Signals stay the lossy health projection; the receipt stream is the evidence plane and the only thing ingested.',
+                    'Signals stay the lossy health projection; the receipt stream is the evidence plane. Then land the residence depth the charter ' +
+                    'names and the branch already admits: api-clickhouse binds the wide-event read end with DDL owned HERE not created ' +
+                    'by the exporter, api-flowtide-substrait carries one logical plan across residences so no query is written twice, ' +
+                    'api-adbc-apache is the Flight SQL query end satisfying the Tier-0 one-plane ruling, and api-parquetsharp with ' +
+                    'ParquetSharp.Encryption writes the cold tail with its Directory.Packages.props row landed in the same pass. State ' +
+                    'the no-cardinality-cap law at this residence owner.',
             },
             {
                 key: 'py-journal',
                 pages: ['libs/python/runtime/.planning/observability/'],
                 charter:
-                    'The journal half of section [04.2]. Python has no journal at all while the TypeScript one is the system of record. ' +
+                    'The journal half of section [04.4]. Python has no journal at all while the TypeScript one is the system of record. ' +
                     'Mint the journal owner under this folder transcribing libs/typescript/data/.planning/journal/{fact,append,evolve,' +
                     'retain}.md in Python spelling: append-only fact stream, the closed AuditFact/MeterFact union, exact-decimal ' +
                     'rating, the Retain.Class retention vocabulary, and the evidence-vs-series law stated identically. Erasure is ' +
@@ -341,18 +386,22 @@ const PHASE_ROWS = {
                 key: 'py-sink',
                 pages: ['libs/python/data/.planning/tabular/'],
                 charter:
-                    'The sink half of section [04.2]. A DatasetKind member for the receipt stream written through the existing ' +
+                    'The sink half of section [04.4]. A DatasetKind member for the receipt stream written through the existing ' +
                     'Lakehouse LakeOp x TableFormat matrix — Delta for the mutable evidence table, Parquet on the object plane for the ' +
                     'cold tail — partitioned on (domain, date) and Z-ordered on (tenant, content_key), with the existing WriteTuning ' +
                     'statistics and bloom-filter machinery applying unchanged. CostLedger keeps its in-process harvest and gains a ' +
                     'lake-sourced path so a cost frame reconstructs from the sink rather than only from live baggage; CostDomain gains ' +
-                    'a telemetry member. Add aws, azure, and postgres_scanner to the extension roster.',
+                    'a telemetry member. Add aws, azure, and postgres_scanner to the extension roster. Engines enter as ROWS on the existing ' +
+                    'selection, never parallel pipelines: datafusion and daft own the distributed scan tier over the cold residence, ' +
+                    'polars and narwhals own dataframe egress, duckdb owns local interactive query, pyiceberg rides the same LakeOp x ' +
+                    'TableFormat matrix as the alternative table format, substrait carries plan interchange matching the C# flowtide ' +
+                    'leg, and adbc-driver-flightsql is the query end. State the no-cardinality-cap law at this residence owner.',
             },
             {
                 key: 'ts-olap',
                 pages: ['libs/typescript/data/.planning/lane/olap.md'],
                 charter:
-                    'Section [04.3]. Write the missing [05]-[FLIGHT] section — the cluster is declared, the catalog, manifest, README ' +
+                    'Section [04.5]. Write the missing [05]-[FLIGHT] section — the cluster is declared, the catalog, manifest, README ' +
                     'row, and TASKLOG card all exist, and six of seven clusters are realized. Scoped createFlightSqlClient off lane ' +
                     'config, query/executeUpdate/prepared/transaction/metadata, decodeFlightDataToTable onto the same Arrow plane ' +
                     'Olap.ingest rides, encodeRecordBatchesToFlightData for doPut, the FlightError family folded into the existing ' +
@@ -360,69 +409,51 @@ const PHASE_ROWS = {
                     '[FLIGHT_SQL_INGRESS_ROW]-[QUEUED]. Add the CREATE SECRET credential rail transcribing the C# reference form, ' +
                     'sourcing material from the object plane existing grant. Complete _extensions with postgres, sqlite, aws, azure. ' +
                     'Land the OTLP-to-lake lane with identity as the join key so the derived plane stays derived. Grow the lead ' +
-                    'paragraph to name PROFILE, ARROW_WIRE, and FLIGHT.',
-            },
-        ],
-    },
-    5: {
-        title: 'Contract, .api truth, manifests, closure',
-        territories: [
-            {
-                key: 'api-repairs',
-                pages: ['libs/csharp/.api/', 'libs/python/.api/', 'libs/typescript/runtime/.api/', 'libs/typescript/.api/'],
-                charter:
-                    'Section [05.2]. Seven fabricated or wrong rows to correct or delete, ten uncataloged members that fences already ' +
-                    'compose to add, and the 61-constant semconv verification. EVERY row verifies before it lands on the rail its ' +
-                    'language names in the campaign verification section — assay api query for C# host and NuGet surfaces, live ' +
-                    'reflection against the repo .venv for Python, node_modules inspection plus Context7 for TypeScript. ' +
-                    'api-otel-persistent-storage.md is re-extracted whole, being the weakest catalog in the set. ' +
-                    'SpanProcessor.onEnding is the single most consequential uncataloged member on the TypeScript branch and its row ' +
-                    'carries the experimental flag the consuming fence comment already names. A member you cannot verify is NEVER ' +
-                    'authored — file it as a residual naming the catalog and the consuming fence.',
+                    'paragraph to name PROFILE, ARROW_WIRE, and FLIGHT. Bind the clickhouse residence through the admitted effect-sql-clickhouse ' +
+                    'as a read end under the SAME Olap owner, never a sibling lane, and compose the Query render-target axis the ' +
+                    'barrier landed rather than minting any second query path.',
             },
             {
-                key: 'api-mints',
-                pages: ['libs/python/.api/', 'libs/typescript/runtime/.api/', 'libs/csharp/Rasm.Persistence/.api/'],
+                key: 'api-truth',
+                pages: ['libs/csharp/.api/', 'libs/python/.api/', 'libs/csharp/Rasm.Persistence/.api/', 'Directory.Packages.props'],
                 charter:
-                    'Section [05.3] rows [01], [02], [04], [05], [06], [07] — row [03], the collector catalog, already landed in phase ' +
-                    '3 and is not re-minted. Mint each catalog at full depth with verified members and a STACKING section, homed to the ' +
-                    'owning tier. Also resolve the memray question at its owner: admit it with its catalog or record the refusal on the ' +
-                    'bundle page boundary, since the support-bundle profile artifact has no producer either way today.',
+                    'The phase-5 catalog remnants, each verified still open on disk. DELETE the MeterProviderBuilder.SetMaxMetricStreams ' +
+                    'row from api-opentelemetry.md — removed in OpenTelemetry .NET 1.5.0 against a 1.17.0 pin, with cardinality living on ' +
+                    'MetricStreamConfiguration.CardinalityLimit. CORRECT the AddBaggageProcessor row in api-opentelemetry-extensions.md ' +
+                    'against the rail; the package ships AddBaggageActivityProcessor for spans and AttachLogsToActivityEvent for logs. ' +
+                    'MINT the two absent Python catalogs, opentelemetry-semantic-conventions and opentelemetry-instrumentation, both ' +
+                    'installed transitively at 0.65b0 — the first is why SCHEMA_URL stays a hand-spelled literal and the second owns the ' +
+                    'BaseInstrumentor four catalogs already cite. DELETE the fabricated `os.name` row from api-otel-resources.md; the real ' +
+                    'detector set is os.type, os.description, os.build_id, os.version. MINT the absent ParquetSharp.Encryption catalog at ' +
+                    'the Persistence tier and land its Directory.Packages.props row with its consuming csproj. Then the rest of campaign ' +
+                    '[05.2] this pass has not reached: the ten uncataloged members fences already compose, and the 61 semconv constants ' +
+                    'convention.md imports, each verified against the installed distribution with every survivor rowed. Every row verifies ' +
+                    'on its language rail before it lands, and a member that will not verify is DELETED with its consuming fence repaired, ' +
+                    'never left standing.',
             },
             {
-                key: 'dual-home',
-                light: true,
-                pages: ['libs/csharp/.api/', 'libs/csharp/Rasm.AppHost/.api/', 'libs/csharp/Rasm.Persistence/.api/'],
+                key: 'ts-instrument-materialization',
+                pages: ['libs/typescript/core/.planning/observe/convention.md', 'libs/typescript/core/RULINGS.md'],
                 charter:
-                    'Section [05.4]. Eight packages carry both a branch-tier and a folder-tier catalog. Keep the branch tier — the ' +
-                    'deeper file in every pair — merge any folder-tier row the branch tier lacks, delete the folder-tier file, and ' +
-                    're-point every research-row route that currently reaches the thinner tier first. Then the mirror defect in the ' +
-                    'opposite direction: api-otel-instrumentation-aws.md sits at the shared tier with one folder consumer and moves ' +
-                    'down. The catalog-alignment law in campaign-method.md [03] governs.',
-            },
-            {
-                key: 'manifests',
-                light: true,
-                pages: ['Directory.Packages.props', 'pyproject.toml', 'pnpm-workspace.yaml', 'libs/typescript/runtime/RULINGS.md'],
-                charter:
-                    'Section [05.5]. Every new package row confirms on the feed before it lands — mcp__nuget__get_latest_package_version ' +
-                    'for NuGet, the registry for npm. Resolve the @opentelemetry/api 1.9.1 pin question against the registry: it is the ' +
-                    'one pin on the observability roster that does not corroborate. Rewrite the runtime RULINGS @opentelemetry/* row to ' +
-                    'govern the ELEVEN real independent pin lines rather than the two it claims. Narrow the AppHost no-in-memory-' +
-                    'exporter prose to production tiers rather than dropping the package. Split Lgtm.Versions so a chart version and an ' +
-                    'image reference are distinct fields.',
+                    'Close the two rows phase 2 carried rather than force-closed, together, because landing either alone is the split-brain ' +
+                    '[FENCE_SEAM] forbids. core RULINGS [02]-[SHAPE] already rules that instrument-to-Metric materialization homes at the ' +
+                    'Convention owner; the branch still picks a constructor per site at roughly 25 sites across twelve pages in data/, ' +
+                    'security/, core/, and ui/. Land the factory at the owner AND move every site onto it in the same pass, carrying the ' +
+                    'synthetic UCUM unit tag at each — the unit-tag sweep rides the identical site set, so splitting them re-opens the ' +
+                    'defect. Census the sites with `rg --hidden` before you start: a plain directory rg skips every .planning/ page and ' +
+                    'reports a false zero. The tracked card is [INSTRUMENT_MATERIALIZATION]-[QUEUED] at libs/typescript/core/TASKLOG.md; ' +
+                    'close it against the landed work.',
             },
             {
                 key: 'stacks-exemplar',
                 light: true,
                 pages: ['docs/stacks/typescript/rails-and-effects.md'],
                 charter:
-                    'Section [05.7], and NOTHING else in docs/stacks/ is touched and no card is minted against it. Fix the three metric ' +
-                    'names to the dotted no-suffix grammar, keep the snippet project-agnostic, and state the UCUM unit carrier: Effect ' +
-                    'metric constructors accept no unit option and the @effect/opentelemetry bridge derives the descriptor unit from a ' +
-                    'metric tag named unit, so construction applies Metric.tagged and a generated SDK view strips the synthetic tag from ' +
-                    'exported attributes while preserving the descriptor unit. Add the base2-exponential default beside the ' +
-                    'explicit-bucket fallback in [BOUNDED_DIMENSIONS].',
+                    'Campaign [05.7], and NOTHING else under docs/stacks/ is touched and no card is minted against it. Fix pour_total, ' +
+                    'pour_fault_reason, and pour_latency_millis to the dotted no-suffix grammar. State the UCUM unit carrier: Effect ' +
+                    'metric constructors accept no unit option and the bridge derives the descriptor unit from a metric tag named unit, ' +
+                    'so construction applies Metric.tagged and a generated SDK view strips the synthetic tag from exported attributes ' +
+                    'while preserving the descriptor unit. Add the base2-exponential default beside the explicit-bucket fallback.',
             },
         ],
         serial: [
@@ -430,28 +461,34 @@ const PHASE_ROWS = {
                 key: 'namespace-authority',
                 pages: ['libs/.planning/ARCHITECTURE.md'],
                 charter:
-                    'Section [05.6]. 601 distinct rasm.* names exist, minted independently per branch under three conventions, with ' +
-                    'four prefixes claimed by two or three packages each and nothing detecting a collision. The overlaps are NOT ' +
-                    'defects — the domain segment names a capability domain, not a package — but that is nowhere stated. Land one ' +
-                    'Tier-0 [08] row fixing the closed domain vocabulary with each branch mapping its packages onto it, plus the gate ' +
-                    'that a domain segment outside the vocabulary fails the check. Derive the vocabulary from the real name census on ' +
-                    'disk, never from a guess.',
+                    'Campaign [05.6], running after every territory so the census reads the names this phase landed. Derive the closed ' +
+                    'capability-domain vocabulary from the REAL rasm.* name census on disk, never a guess. The overlaps are not defects ' +
+                    '— a domain segment names a capability domain rather than a package, so two runtimes serving one domain share the ' +
+                    'prefix and service.name disambiguates — but that is stated nowhere, which IS the defect. Land it as ONE Tier-0 [08] ' +
+                    'row fixing the vocabulary with each branch mapping its packages onto it, plus the gate that a segment outside the ' +
+                    'vocabulary fails the check. Tier-0 states estate law only: no branch mechanism and no package detail enters here.',
             },
             {
                 key: 'contract',
                 pages: ['tests/contracts/MANIFEST.md', 'tests/RULINGS.md', 'libs/.planning/ARCHITECTURE.md'],
                 charter:
-                    'Section [05.1]. One infrastructure entry, ledger row [13], following the [ENTRY_SCHEMA] in ' +
-                    'tests/contracts/README.md EXACTLY. Its shape is the closed row set the campaign [02] audit table enumerates, and ' +
-                    'the metric-name grammar carries the domain vocabulary the previous serial stage landed. Rewrite the Tier-0 [08] ' +
-                    'carve sentence: transcription remains how each branch spells the rows, and the corpus entry is what proves the ' +
-                    'three spellings agree — a manifest entry is a schema plus frozen assets, not a shared library, so the ' +
-                    'split-maturity reason never applied to it. Role-aware absence is part of the shape, not an exception to it. ' +
-                    'tests/RULINGS.md gains its first observability row recording that.',
+                    'Campaign [05.1]. The TELEMETRY_CONVENTION entry ALREADY EXISTS at ledger row [13] with a full [02.13] body — verify ' +
+                    'it against what this campaign landed rather than re-minting it, and correct any minter anchor, consumer, or Shape ' +
+                    'row disk now refutes. Its metric-name grammar carries the domain vocabulary the prior closer landed. Rewrite the ' +
+                    'Tier-0 [08] carve sentence: transcription remains how each branch spells the rows, and the corpus entry is what ' +
+                    'proves the three spellings agree, because a manifest entry is a schema plus frozen assets rather than a shared ' +
+                    'library. tests/RULINGS.md gains its observability row recording exactly that and nothing wider. ' +
+                    'THEN close BenchmarkClaimWire, carried from phase 2: one wire name spans two incompatible shapes — a flat ' +
+                    'input/substrate/mean/median/p95/allocatedBytes row at Rasm.Compute Runtime/receipts.md, against suite + metrics[] + ' +
+                    'host + minted at typescript core interchange/codec.md, corroborated by format.md and security/crypt/sign.md. No ' +
+                    'MANIFEST entry exists, which is the libs RULINGS [01] violation that let the ends fork. Rule the surviving shape on ' +
+                    'the evidence, mint the entry, and repair the losing end in the same pass; recording the fork without resolving it ' +
+                    'repeats the failure this entry exists to catch.',
             },
             {
                 key: 'closure',
                 pages: [
+                    'libs/.planning/ARCHITECTURE.md',
                     'libs/.planning/RULINGS.md',
                     'libs/csharp/.planning/RULINGS.md',
                     'libs/typescript/runtime/RULINGS.md',
@@ -461,14 +498,15 @@ const PHASE_ROWS = {
                     'libs/.planning/TASKLOG.md',
                 ],
                 charter:
-                    'Section [05.8], the terminal closer. Land all seven RULINGS rows at the narrowest owning tier and all four new ' +
-                    'topology couplings, and grow [INSTRUMENT_ADMISSION] with its C# and TypeScript halves — today it binds Python ' +
-                    'producers only while the same census law applies to InstrumentFan rows and Convention._instrument rows. Reconcile ' +
-                    'the cards: reopen each of the four falsely-[COMPLETE] cards with its specific residual and then close it against ' +
-                    'the landed work rather than deleting the history; the two [BLOCKED] cards stay blocked and gain the arming ' +
-                    'coordinate phase 3 made real. Verify every claim against current disk — earlier phases may have already closed ' +
-                    'part of a card. Finally delete observability-initial-plan.md at the repo root. ' +
-                    'IDEAS cards for security.audit, grasshopper.fan, and compute.descriptor land at their OWNING folders, not here.',
+                    'Campaign [05.8], the terminal closer, and the pass that makes Tier-0 TRUTHFUL about the system this campaign built. ' +
+                    'Rewrite [08]-[OBSERVABILITY_CONFORMANCE] so it captures the conformance rows, the analytics plane, and the hook ' +
+                    'plane as they now stand on disk — every claim re-derived from the corpus, none carried from the campaign doc. Land ' +
+                    'the RULINGS rows at the NARROWEST owning tier and the topology couplings, and grow INSTRUMENT_ADMISSION with its C# ' +
+                    'and TypeScript halves. Reconcile the cards: reopen each falsely-COMPLETE card with its specific residual, then close ' +
+                    'it against landed work rather than deleting history. Delete observability-initial-plan.md at the repo root. ' +
+                    'IDEAS cards for security.audit, grasshopper.fan, and compute.descriptor land at their OWNING folders, never here. ' +
+                    'Sediment is the primary target: a fact standing at two altitudes loses the copy the narrower tier does not own, and ' +
+                    'a row restating its own section lead is deleted rather than reworded.',
             },
         ],
     },
@@ -555,14 +593,27 @@ const PHASE_ROWS = {
                     'libs/.planning/TASKLOG.md',
                 ],
                 charter:
-                    'The campaign custody close. Dispatch the infra-custodian subagent over the touched infra set — Tier-0, the four ' +
-                    'RULINGS tiers, docs/laws/topology.md, tests/contracts/MANIFEST.md, and the card files — and IMPLEMENT its ' +
-                    'returned verdict rows yourself; its findings are signals you re-verify on disk, never law. Then run ' +
-                    'uv run python -m tools.assay docs check over every page this campaign touched and clear what it reports, with ' +
-                    'tables re-padded to the 150-column cap. Confirm every card the campaign claimed to close is genuinely closed ' +
-                    'against landed work and that no card was closed by deleting its history. Confirm observability-initial-plan.md ' +
-                    'is gone from the repo root. Land the pooled harvest through the docs/laws/README.md admission ladder, ' +
-                    'refutation-first — landing nothing is a first-class verdict.',
+                    'The campaign custody close, and the pass that leaves the governance estate TRUTHFUL rather than merely complete. ' +
+                    'Dispatch the infra-custodian subagent over the touched infra set and IMPLEMENT its verdict rows yourself, treating ' +
+                    'each as a signal you re-verify on disk rather than law. ' +
+                    'TIER-0 ARCHITECTURE: [08] must describe the observability conformance system, the analytics plane, and the hook ' +
+                    'plane exactly as they stand on disk after this campaign — open the owning fences and re-derive every claim, because ' +
+                    'a row carried from the campaign doc that the corpus now refutes is the defect this stage exists to catch. Estate law ' +
+                    'and transcribed rows only: a branch mechanism, a package name, or a folder detail at Tier-0 moves down. ' +
+                    'RULINGS AT EVERY TIER: each row states a settled decision its own tier OWNS. A cross-branch decision homes at ' +
+                    'libs/.planning, a branch nuance at that branch, a folder-only decision at that folder, and a maintenance coupling or ' +
+                    'regression scar at docs/laws where no RULINGS row owns it. Delete any row that is fake, refuted by disk, or a ' +
+                    'restatement of a row at another altitude. ' +
+                    'SEDIMENT IS THE PRIMARY TARGET: two rows carrying one rule collapse into one stronger row keeping every distinct ' +
+                    'clause, never a same-size mash and never a cross-reference standing in for the cut. A row restating its own section ' +
+                    'lead is no-op content and is removed, not reworded. ' +
+                    'Then the gate: every README and ARCHITECTURE this campaign touched passes docs check with tables re-padded to the ' +
+                    '150-column cap. Bloat is the failure mode to hunt, since agents widened these pages mid-campaign while the corpus ' +
+                    'they joined was already declarative and tight — restore that register, carrying one decision per entry, demoting ' +
+                    'every tail and mechanism to its owner, and splitting a two-decision entry into siblings rather than lengthening it. ' +
+                    'Confirm every card is genuinely closed against landed work with none closed by deleting its history, confirm ' +
+                    'observability-initial-plan.md is gone from the repo root, and land the pooled harvest through the ' +
+                    'docs/laws/README.md admission ladder refutation-first, where landing nothing is a first-class verdict.',
             },
         ],
     },
@@ -799,7 +850,12 @@ const LAW_RIPPLE =
     'router row, the folder ARCHITECTURE codemap and seam ledger at BOTH ends, the .api catalog row, and the central manifest row. ' +
     'A settled decision with no home lands as a RULINGS row at the narrowest owning tier; a new-owner or scope-expansion finding ' +
     'lands as a complete card at the narrowest tier following that file own template comment. docs/laws/topology.md binds ' +
-    'counterpart obligations — consult it before any multi-surface edit.';
+    'counterpart obligations — consult it before any multi-surface edit. ' +
+    'MINTING A NEW FILE escapes the page-disjointness your territory rests on, because a path that does not yet exist appears in ' +
+    'no territory roster and two lanes can mint it concurrently, the later write erasing the earlier whole. Probe the path with ' +
+    '`fd -H` before authoring; find a file already there and EXTEND it rather than replace it, whatever your own draft holds. ' +
+    'SEARCH WITH `rg --hidden` for any corpus census: a plain directory rg skips every dot-directory, so `.planning/` and `.api/` ' +
+    'return a silent false zero, and a negative conclusion drawn from one is unproven.';
 
 const LAW_RESIDUAL =
     'RESIDUAL SHAPE: a residual is work you could not land because a LIVE sibling territory in this run owns the file, or because ' +
@@ -819,7 +875,31 @@ const LAW_HARVEST =
     'class, a hard-won coupling, a review rule that would catch the defect class before review — each citing the exact existing ' +
     'clause it hardens or proving absence across the surfaces you searched. A stage-local fix NEVER nominates.';
 
-const DOCTRINE = LAW_GROUND + '\n\n' + LAW_WRITE + '\n\n' + LAW_MEMBER + '\n\n' + LAW_PROSE + '\n\n' + LAW_RIPPLE;
+const LAW_TIER =
+    'TIER DISCIPLINE: specificity increases downward and a fact lives at exactly ONE altitude. Tier-0 ' +
+    '`libs/.planning/ARCHITECTURE.md` states estate-spanning law and the conformance rows every branch transcribes — never a ' +
+    'branch mechanism, never a package name, never a folder detail. `libs/.planning/RULINGS.md` settles cross-branch decisions ' +
+    'alone. `docs/laws/` owns repo maintenance law — edit couplings, cross-branch patterns, regression scars — and never ' +
+    'restates a design decision a RULINGS row owns. A branch `RULINGS.md` carries that branch system nuance; a folder ' +
+    'ARCHITECTURE and RULINGS carry what only that folder decides. A fact appearing at two altitudes is SEDIMENT: delete the ' +
+    'copy at the wider tier when the narrower one owns it, delete the narrower when the wider governs, and never leave both ' +
+    'with a cross-reference standing in for the cut. A row restating what its own section lead already says is no-op content ' +
+    'and is removed, not reworded.';
+
+const LAW_SHAPE =
+    'PROSE SHAPE, binding on every page you touch, and hardest on README and ARCHITECTURE. Load the docgen skill before durable ' +
+    'prose and hold its voice: seat the acting owner as grammatical subject under a present-active verb, state law rather than ' +
+    'explain behavior, and open no sentence, entry, or leader tail on an article — re-derive the fact and re-author it as ' +
+    'owner-voice law, since a determiner swap keeps the broken frame. ' +
+    'CARRY ONE DECISION PER LIST ENTRY — one owner, one charter phrase — and demote every tail, second clause, and mechanism ' +
+    'aside to its owning fence, catalog, or table. Split a two-decision entry into sibling entries; never lengthen the line to ' +
+    'hold both. Entries stay under 150 columns, so a bullet running past that carries payload belonging one tier down. ' +
+    'Prefer demotion to deletion: move the mechanism to its owner rather than dropping the capability it names. ' +
+    'Every touched page passes `uv run python -m tools.assay docs check --paths <one path>` with zero prose errors you ' +
+    'introduced, and a pre-existing error on a line you edit is repaired as you pass.';
+
+const DOCTRINE =
+    LAW_GROUND + '\n\n' + LAW_WRITE + '\n\n' + LAW_MEMBER + '\n\n' + LAW_PROSE + '\n\n' + LAW_TIER + '\n\n' + LAW_SHAPE + '\n\n' + LAW_RIPPLE;
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -858,7 +938,7 @@ const writePrompt = (t, dossierPath, priorNav) =>
     'recon dossier at ' +
     dossierPath +
     ' IN FULL as grounding to verify and exceed — never a ceiling, never a settled question you relitigate. ' +
-    (priorNav ? '(3) Navigation from an already-landed sibling stage, location facts only: ' + JSON.stringify(priorNav) + '. ' : '') +
+    (priorNav ? '(3) Navigation from an already-landed sibling stage, location facts only: ' + priorNav + '. ' : '') +
     '\n\nCHARTER: ' +
     t.charter +
     '\n\n' +
@@ -879,7 +959,7 @@ const critiquePrompt = (t, dossierPath, nav) =>
     'Then the recon dossier at ' +
     dossierPath +
     ' as grounding, and these location facts to reach touched territory fast: ' +
-    JSON.stringify(nav) +
+    nav +
     '\n\nYOUR OBJECTIVE is predicate-POSITIVE — the clause-by-clause conformance and capability-completeness audit, distinct from ' +
     'the red-team that follows you: DOCTRINE, every route-owned clause holds at its owning fence; SHAPE, the collapse, owner, knob, ' +
     'aspect, rail, language, and entry-point laws hold and repeated structure folds into its algebraic owner; CAPABILITY, bodies ' +
@@ -902,10 +982,10 @@ const redteamPrompt = (t, nav, claims) =>
     '. You are the terminal pre-mortem on this territory and you RECONSTRUCT rather than annotate. ' +
     DOCTRINE +
     '\n\nCOLD PASS FIRST: derive your own attack from the pages on disk. Location facts to reach territory fast: ' +
-    JSON.stringify(nav) +
+    nav +
     ' A prior reviewer filed these as landed — treat them strictly as UNVERIFIED CLAIMS to refute against the current pages, ' +
     'never as a settled record: ' +
-    JSON.stringify(claims) +
+    claims +
     '\n\nYOUR OBJECTIVE is predicate-NEGATIVE: COUNTERFACTUAL — remove the central owner, enumeration, dispatch, or hand-rolled ' +
     'kernel and land the stronger form the removal exposes. GROWTH — owner data absorbs the next case, dimension, modality, ' +
     'provider, or consumer, and the proof of a correct shape is the diff of the next feature: one declaration inside the owner, ' +
@@ -941,7 +1021,7 @@ const finalizePrompt = (t, dossierPath, nav) =>
     '\n\nGrounding, read AFTER your own cold probes have run: the recon dossier at ' +
     dossierPath +
     ', and these location facts from the phases that landed: ' +
-    JSON.stringify(nav) +
+    nav +
     '\n\nReport each probe you ran and its verdict in `landed` as `<check> :: PASS|FAIL :: <evidence>`, what you repaired in ' +
     '`files` and `beyond`, and anything genuinely unreachable as a residual. ' +
     LAW_RESIDUAL +
@@ -958,7 +1038,7 @@ const serialPrompt = (t, landedNav) =>
     '\n\nEvery claim you land verifies against CURRENT disk — earlier stages in this run already changed the corpus, and a claim ' +
     'carried from the campaign doc that disk now refutes is corrected, not transcribed. Location facts from the stages that ran ' +
     'before you: ' +
-    JSON.stringify(landedNav) +
+    landedNav +
     '\n\n' +
     LAW_RESIDUAL +
     ' ' +
@@ -969,7 +1049,19 @@ const serialPrompt = (t, landedNav) =>
 const STAGE_ONE = { write: writePrompt, verify: finalizePrompt };
 const openPrompt = (t, dossierPath, nav) => (STAGE_ONE[t.kind] || writePrompt)(t, dossierPath, nav);
 
-const navOf = (r) => (r ? { files: r.files || [], deltas: r.deltas || [], beyond: r.beyond || [] } : { files: [], deltas: [], beyond: [] });
+// Navigation crosses stages as a STABLE STRING, never a nested object. Cache keys hash prompt text, and
+// a resume rebuilds a prior result by parsing the journal — that copy never re-serializes byte-identically
+// to the live validated one, so a stringified object misses cache and re-runs a completed stage.
+const navOf = (r) => {
+    const uniq = (xs) => [...new Set((xs || []).filter(Boolean))].sort();
+    const files = uniq(r && r.files);
+    const deltas = uniq(((r && r.deltas) || []).map((d) => (d && d.symbol ? d.symbol + '~' + (d.change || '') : '')));
+    const beyond = uniq(r && r.beyond);
+    return (
+        'FILES: ' + (files.join(' | ') || 'none') + ' // DELTAS: ' + (deltas.join(' | ') || 'none') + ' // BEYOND: ' + (beyond.join(' | ') || 'none')
+    );
+};
+const navGroup = (rows) => rows.map((x) => x.key + ' >> ' + navOf(x)).join('  ///  ') || 'none';
 
 const lane = (t, promptText) =>
     agent(
@@ -1087,7 +1179,7 @@ if (barrierLanes.length) {
     ).filter(Boolean);
     log('barrier landed: ' + barrierLogs.map((b) => b.key + '(' + (b.files || []).length + ' files)').join(' · '));
 }
-const barrierNav = barrierLogs.length ? { barrier: barrierLogs.map((b) => ({ key: b.key, ...navOf(b) })) } : null;
+const barrierNav = barrierLogs.length ? navGroup(barrierLogs) : null;
 
 // --- [IMPLEMENT]
 
@@ -1113,20 +1205,30 @@ const chains = (
         (prev, t) =>
             t.light
                 ? { key: t.key, stages: [prev.fix].filter(Boolean) }
-                : agent(redteamPrompt(t, navOf(prev.fix), (prev.crit && prev.crit.landed) || []), {
-                      label: 'redteam:' + t.key,
-                      phase: 'RedTeam',
-                      effort: 'max',
-                      schema: FIXLOG,
-                  }).then((red) => ({ key: t.key, stages: [prev.fix, prev.crit, red].filter(Boolean) })),
+                : agent(
+                      redteamPrompt(
+                          t,
+                          navOf(prev.fix),
+                          [...new Set(((prev.crit && prev.crit.landed) || []).filter(Boolean))].sort().join(' | ') || 'none',
+                      ),
+                      {
+                          label: 'redteam:' + t.key,
+                          phase: 'RedTeam',
+                          effort: 'max',
+                          schema: FIXLOG,
+                      },
+                  ).then((red) => ({ key: t.key, stages: [prev.fix, prev.crit, red].filter(Boolean) })),
     )
 ).filter(Boolean);
 
-const territoryNav = chains.map((c) => ({
-    key: c.key,
-    files: [...new Set(c.stages.flatMap((s) => s.files || []))],
-    deltas: c.stages.flatMap((s) => s.deltas || []),
-}));
+const territoryNav = navGroup(
+    chains.map((c) => ({
+        key: c.key,
+        files: c.stages.flatMap((s) => s.files || []),
+        deltas: c.stages.flatMap((s) => s.deltas || []),
+        beyond: c.stages.flatMap((s) => s.beyond || []),
+    })),
+);
 log(chains.length + '/' + ROW.territories.length + ' territory chains completed');
 
 // --- [SERIAL]
@@ -1135,9 +1237,10 @@ const serialLogs = [];
 if (ROW.serial) {
     phase('Serial');
     for (const s of ROW.serial) {
-        const out = await agent(serialPrompt(s, territoryNav.concat(serialLogs.map((x) => ({ key: x.key, ...navOf(x) })))), {
+        const out = await agent(serialPrompt(s, territoryNav + (serialLogs.length ? '  ///  ' + navGroup(serialLogs) : '')), {
             label: 'serial:' + s.key,
             phase: 'Serial',
+            model: 'fable',
             effort: 'max',
             schema: FIXLOG,
         });
@@ -1277,6 +1380,16 @@ const verdict = await agent(
         '\n\nRESIDUALS STILL OPEN after the drain — verify each is genuinely blocked rather than merely deferred, and close every one ' +
         'you can reach: ' +
         JSON.stringify(pending) +
+        '\n\nLEDGER, required: append one `## [NN]-[PHASE_' +
+        PHASE +
+        ']` section to ' +
+        REPO +
+        '/.claude/scratch/observability/OPEN-LEDGER.md in the exact shape the existing phase-1 sections use — a check table with ' +
+        'evidence, owner, and state, then a carried-residual table. Before appending, walk every OPEN row already in that file and ' +
+        'update its state against current disk: a row this phase closed flips to CLOSED with the probe result or page anchor that ' +
+        'proves it, and a row still open keeps its state and gains nothing. Never delete a row and never soften one to close it — ' +
+        'the file is the terminal audit that proves nothing was missed between phases, so a row silently dropped defeats its whole ' +
+        'purpose. A probe that produced nothing gets recorded as such; an absent row reads as an unrun check, never a clean one.' +
         '\n\nCARRY-FORWARD, your last act and NOT optional: write the rows you could not close to ' +
         REPO +
         '/' +

@@ -17,6 +17,7 @@ COLUMNS — a closed set, never renamed per file:
   `[02]` types       = `[INDEX] [SYMBOL] [TYPE_FAMILY] [CAPABILITY]`                  ([TYPE_FAMILY]: union / smart-enum / value-object / struct / class / interface / enum / delegate)
   `[02]` resources   = `[INDEX] [SYMBOL] [RESOURCE_FAMILY] [KEY_ARGS] [KEY_OUTPUTS]`  (mode [C] only; [RESOURCE_FAMILY] the grouping service namespace, [KEY_ARGS]/[KEY_OUTPUTS] the load-bearing required inputs and resolved outputs)
   `[03]` entrypoints = `[INDEX] [SURFACE] [SHAPE] [CAPABILITY]`                       ([SHAPE]: static / instance / factory / ctor / property / operator / fold)
+    [SHAPE] resolves on the DECLARING type, never the call site: an extension, module-level, or free function reads `static` whatever fluent chain it joins, and `instance` claims the receiver type declares the member. Spell the row `Receiver.verb(args)` either way, and name the declaring static class beside its namespace wherever a caller needs the import.
   `[CONSUMER]` rides as an optional column ONLY where the binding consumer is load-bearing and varies per row; no per-row `[RAIL]` column — the rail is one `[01]` field.
 
 MEMBERS — table rows or one inline token line (`[<TYPE>]: `a` `b` `c``); never a run-on `- Members: a, b, c` bullet or a `[SLUG]: - Members:` card cluster; a row that will not fit relieves its cells or splits into sibling scopes — a table is never torn into prose. Rows are unbounded; the 150-column width cap is the only size law.

@@ -144,6 +144,12 @@ const clusters = (() => {
 })();
 log('Reconcile: ' + uniq.length + ' deferrals -> ' + clusters.length + ' disjoint clusters');
 
+// Deferrals cross as sorted primitive rows; a stringified object re-serializes differently on resume and misses cache.
+const clusterRows = (cl) =>
+    cl
+        .map((r) => `${(r.files ?? []).slice().sort().join(' | ')} :: ${r.claim}`)
+        .sort()
+        .join('\n');
 let hard = [];
 if (clusters.length) {
     phase('Reconcile');
@@ -155,7 +161,7 @@ if (clusters.length) {
             (cl) =>
                 agent(
                     'Fix these cross-file deferrals in place. Read EVERY listed file; make the shared fix once, consistently, regress nothing.\n' +
-                        JSON.stringify(cl, null, 1),
+                        clusterRows(cl),
                     { label: 'fix', phase: 'Reconcile', schema: FIXED },
                 ),
             (fix, cl, i) =>
@@ -163,9 +169,9 @@ if (clusters.length) {
                     ? agent(
                           'Adversarially verify each claim is ACTUALLY resolved — read the named files from disk, default resolved=false on ' +
                               'any doubt. Return one verdict per claim.\nClaims:\n' +
-                              JSON.stringify(cl, null, 1) +
+                              clusterRows(cl) +
                               '\nFiles the fixer touched: ' +
-                              JSON.stringify(fix.files),
+                              (fix.files ?? []).slice().sort().join(' | '),
                           { label: 'verify:' + i, phase: 'Reconcile', schema: VERIFY },
                       ).then((v) => ({ cl, v }))
                     : null,

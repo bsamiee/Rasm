@@ -83,7 +83,9 @@ const PROMPT =
 
 - Break at a space and keep that space on the left segment; dropping it fuses two words — a silent prompt change.
 - Never wrap with a multi-line template literal: real newlines inject `\n` into the value, changing what the agent reads and the resume-cache key. `+` concatenation changes the source only, never the value.
-- Receipts and rosters interpolate live at author time — `+ JSON.stringify(x) +` or a single-line `${JSON.stringify(x)}`. A `__TOKEN__` placeholder patched later and a `${'$'}{…}` escape both ship literal text — the script parses, the run launches, and the stage fires with no data — so the linter flags both shapes. When patching a persisted script with `sd`, `$` is a capture reference — patch with `sd -F` or Edit, then re-run the linter before resuming.
+- Interpolate static values live at author time — `+ JSON.stringify(args) +` or a single-line `${JSON.stringify(TARGETS)}`.
+- Project a prior agent's result as sorted, joined primitives instead: keys hash prompt text, and a resume rebuilds that result by parsing the journal, so a nested object re-serializes differently and misses cache (recovery reference).
+- Never patch a `__TOKEN__` placeholder later, and never write a `${'$'}{…}` escape: both ship literal text, so the script parses, the run launches, and the stage fires with no data — the linter flags both shapes. When patching a persisted script with `sd`, `$` is a capture reference — patch with `sd -F` or Edit, then re-run the linter before resuming.
 - Body prompts only; never wrap inside `meta` — a long `meta.description` stays one line.
 
 ### [03.4]-[FILE_ORGANIZATION]
