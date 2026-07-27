@@ -9,22 +9,22 @@ Consumers walk this table and resolve each row live. Transcribing rows into a se
 | [INDEX] | [SURFACE]                                    | [OBLIGATES]                                | [WHY]                                        |
 | :-----: | :------------------------------------------- | :----------------------------------------- | :------------------------------------------- |
 |  [01]   | `docs/stacks/` page, template, or Tier-0 law | every reviewer config                      | reviewer prose derives from the law it binds |
-|  [02]   | Tier-0 consumption-axis roster row           | each branch admission owner + the fixture  | one roster, three branch spellings           |
-|  [03]   | Tier-0 `[12]-[ADMISSION]` rung landing       | strata rank, manifest, `.api/`, router row | a rung is one multi-surface fact             |
-|  [04]   | Tier-0 `[11]-[DESIGN_LANGUAGE]` row          | each `docs/stacks/<language>/` spelling    | one invariant carries three spellings        |
-|  [05]   | `libs/csharp/.planning/ARCHITECTURE.md` edge | `tests/csharp/_architecture` specs         | strata law lands at both ends                |
-|  [06]   | `.claude/skills/` master trees               | sibling-repo skill copies                  | propagation is byte-identical copy           |
-|  [07]   | `CLAUDE.md` fact                             | `AGENTS.md` cross-reference                | one fact serves its acting reader            |
-|  [08]   | `.config/dotnet-tools.json` tool row         | `tools/assay` decompile rails              | manifest tools are assay runtime deps        |
-|  [09]   | workflow codex-lane dispatch shape           | `workflow-creator` and `codex` skills      | canon lives in the owning skill              |
-|  [10]   | `RULINGS.md` tier mint or retirement         | template scope sentence + ingest rosters   | registries ground reviewers per tier         |
-|  [11]   | shape-family template or instance fix        | the template + every sibling instance      | one family holds one shape, whole            |
-|  [12]   | `FaultBand` decade mint or retirement        | every sibling registry's pinned mirror row | disjointness is type-enforced per registry   |
-|  [13]   | `tests/contracts/` seam schema or class row  | every minter and producer the entry names  | class decides who re-proves conformance      |
-|  [14]   | `libs/.planning/README.md` seam-kind row     | every seam edge label across the corpus    | a closed vocabulary censuses by grep         |
-|  [15]   | design-page cluster anchor rename or retire  | every `MANIFEST.md` field naming it        | manifest anchors resolve on disk             |
-|  [16]   | glossary term sense mint or divergence       | each surface reusing it as vocabulary      | one sense, many spellings                    |
-|  [17]   | Tier-0 `ARCHITECTURE.md` section rename      | architecture-template spine row            | template generates the instance it names     |
+|  [02]   | Tier-0 `ARCHITECTURE.md` section rename      | architecture-template spine row            | template generates the instance it names     |
+|  [03]   | Tier-0 `[11]-[DESIGN_LANGUAGE]` row          | each `docs/stacks/<language>/` spelling    | one invariant carries three spellings        |
+|  [04]   | Tier-0 `[12]-[ADMISSION]` rung landing       | strata rank, manifest, `.api/`, router row | a rung is one multi-surface fact             |
+|  [05]   | Tier-0 consumption-axis roster row           | each branch admission owner + the fixture  | one roster, three branch spellings           |
+|  [06]   | `libs/csharp/.planning/ARCHITECTURE.md` edge | `tests/csharp/_architecture` specs         | strata law lands at both ends                |
+|  [07]   | `.claude/skills/` master trees               | sibling-repo skill copies                  | propagation is byte-identical copy           |
+|  [08]   | `CLAUDE.md` fact                             | `AGENTS.md` cross-reference                | one fact serves its acting reader            |
+|  [09]   | `.config/dotnet-tools.json` tool row         | `tools/assay` decompile rails              | manifest tools are assay runtime deps        |
+|  [10]   | workflow codex-lane dispatch shape           | `workflow-creator` and `codex` skills      | canon lives in the owning skill              |
+|  [11]   | `RULINGS.md` tier mint or retirement         | template scope sentence + ingest rosters   | registries ground reviewers per tier         |
+|  [12]   | shape-family template or instance fix        | the template + every sibling instance      | one family holds one shape, whole            |
+|  [13]   | `FaultBand` decade mint or retirement        | every sibling registry's pinned mirror row | disjointness is type-enforced per registry   |
+|  [14]   | `tests/contracts/` seam schema or class row  | every minter and producer the entry names  | class decides who re-proves conformance      |
+|  [15]   | `libs/.planning/README.md` seam-kind row     | every seam edge label across the corpus    | a closed vocabulary censuses by grep         |
+|  [16]   | design-page cluster anchor rename or retire  | every `MANIFEST.md` field naming it        | manifest anchors resolve on disk             |
+|  [17]   | glossary term sense mint or divergence       | each surface reusing it as vocabulary      | one sense, many spellings                    |
 |  [18]   | `docs/glossary/` band page add or retire     | `.greptile/files.json` + topology-closure  | an unread band governs nothing               |
 
 ## [02]-[CONDITIONED]

@@ -36,7 +36,7 @@ CRITIQUE agents WRITE every proven repair in place; their reads and notes serve 
 - Doctrine: every route-owned clause holds at its owning fence; the doctrine remains the floor wherever a stronger form exists.
 - Shape: collapse, owner, knob, aspect, rail, language, and entry-point laws hold; repeated structure folds into its algebraic owner.
 - Capability: bodies deliver every capability their names, cards, packages, and boundaries promise; CRITIQUE closes admitted omissions in place.
-- Truth: both `.api` tiers support every external member and capability claim; unverifiable members become `[RESEARCH]` rows.
+- Truth: both `.api` tiers support every external member and capability claim; unverifiable members/usage are investigate, and fixed in place.
 - Ownership: strata, seams, and rulings agree at every touched end; CRITIQUE repairs duplicated, scattered, or sibling-interior concerns at their owner.
 
 RED-TEAM agents WRITE every proven rebuild in place; their reads and notes serve a predicate-negative terminal pre-mortem that reconstructs rather than annotates.

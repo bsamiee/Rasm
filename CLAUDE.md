@@ -9,6 +9,8 @@ Rasm is in a long-term planning phase, working strictly within spec-sheets, not 
 
 ## [01]-[REQUIRED]
 
+All mistakes/problems/oversights that are structural are abstracted/defined and added in `docs/laws/scars.md` (Ex: identifying a rebuild of a system of capability, finding various mistakes in fundamental approach, code logic structure, etc). Nuanced mistakes or problems are also recorded to ensure no repeat of the same approach, likewise, code rebuilding/refactoring due to code quality gaps, or strata integration oversights are recorded as well. ALWAYS read the `docs/laws/scars.md` at the start of a session, to ensure mistakes are not repeated.
+
 - Design work in `libs/<language>/` requires FULL reading and adherence across ALL files in `libs/<language>/.planning/` AND `docs/stacks/<language>/`.
 - Each `libs/<language>/` and `libs/<language>/<sub-folder>/` carry a `.api/` folder; all work stacks external-lib capability from BOTH sources — REQUIRED.
 - Durable planning docs — index docs, spec-sheets, `.api` catalogs — follow `libs/.planning/README.md`; the campaign loop follows `campaign-method.md`.
