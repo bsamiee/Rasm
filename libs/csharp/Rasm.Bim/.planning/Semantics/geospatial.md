@@ -6,9 +6,9 @@ One `GeoFeature` carries the OGC Simple-Features `NetTopologySuite` `Geometry`, 
 
 ## [01]-[INDEX]
 
-- [01]-[GEOSPATIAL_SEAM]: `GeoFeature` row, `GeoModel` spatial index, DE-9IM/k-NN/overlay algebra, MVT pyramid, and the vector→`Object` projection.
-- [02]-[VECTOR_INGEST]: `GeoVector` fold admitting every managed and OGR source onto `GeoFeature`, the `GeoWkb` bridge, and remote-`.fgb` streaming.
-- [03]-[RASTER_INGEST]: `GeoRaster` GDAL ingest — band read, typed schema, overview pyramid, DEM/contour vectors, and raster→`Coverage` projection.
+- [02]-[GEOSPATIAL_SEAM]: `GeoFeature` row, `GeoModel` spatial index, DE-9IM/k-NN/overlay algebra, MVT pyramid, and the vector→`Object` projection.
+- [03]-[VECTOR_INGEST]: `GeoVector` fold admitting every managed and OGR source onto `GeoFeature`, the `GeoWkb` bridge, and remote-`.fgb` streaming.
+- [04]-[RASTER_INGEST]: `GeoRaster` GDAL ingest — band read, typed schema, overview pyramid, DEM/contour vectors, and raster→`Coverage` projection.
 
 ## [02]-[GEOSPATIAL_SEAM]
 

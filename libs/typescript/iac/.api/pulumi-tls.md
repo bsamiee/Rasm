@@ -46,10 +46,10 @@ ONE pipeline owns issuance; the four resources are its stages, not four recipes.
 - `PrivateKey(algorithm, rsaBits|ecdsaCurve)` mints the key.
 - CA leaf: `CertRequest(privateKeyPem, subject, SANs)` → `LocallySignedCert(certRequestPem, caPrivateKeyPem, caCertPem, allowedUses, validityPeriodHours)`.
 - Standalone: `SelfSignedCert(privateKeyPem, subject, SANs, allowedUses, validityPeriodHours)` collapses request and sign into one resource.
-- A `Match` arm over the profile's `issuer` tag picks self-signed vs CA-signed; a CA root is one `SelfSignedCert({ isCaCertificate: true, maxPathLength })` whose key and cert sign every leaf.
+- `Match` over the profile's `issuer` tag picks self-signed against CA-signed, and one `SelfSignedCert({ isCaCertificate: true, maxPathLength })` roots the CA whose key and cert sign every leaf.
 
 [PATTERN]: `allowedUses` key-usage vocabulary
-- A bounded string set (`server_auth`, `client_auth`, `digital_signature`, `key_encipherment`, `key_agreement`, `cert_signing`, `crl_signing`, `code_signing`) models as a `Schema.Literal` union, never free strings; `isCaCertificate`/`maxPathLength`/`setAuthorityKeyId`/`setSubjectKeyId` shape CA-chain semantics.
+- `Schema.Literal` models the bounded string set (`server_auth`, `client_auth`, `digital_signature`, `key_encipherment`, `key_agreement`, `cert_signing`, `crl_signing`, `code_signing`); `isCaCertificate`/`maxPathLength`/`setAuthorityKeyId`/`setSubjectKeyId` shape CA-chain semantics.
 
 [PATTERN]: renewal trigger
 - `validityPeriodHours` sets lifetime, `earlyRenewalHours` moves the window forward, and `readyForRenewal: Output<boolean>` flips inside it; the `previewRefresh` drift fold watches `readyForRenewal`/`validityEndTime` to schedule reissue — the cert analog of `@pulumi/random`'s `keepers`.

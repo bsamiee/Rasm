@@ -4,12 +4,12 @@ Rasm.AppHost owns the in-process reasoning front door beside MCP server projecti
 
 ## [01]-[INDEX]
 
-- [01]-[REASONING_LOOP]: `ReasoningSession` over `IChatClient` streaming; `ChatOptions.Tools` is the brokered `CommandAIFunction`.
-- [02]-[SEMANTIC_DISCOVERY]: `IEmbeddingGenerator` cosine fold; the `DiscoveryQuery.ByIntent` case over the registry.
-- [03]-[REPLAYABLE_TRANSCRIPT]: Exact function-result receipts chain into `EventLog`; absent joins remain explicit.
-- [04]-[MODEL_GOVERNANCE]: One middleware fold: model-selection routing, content-filter guardrail, token-to-cost-to-ledger, cached-response replay, and two model front doors.
-- [05]-[MODAL_INPUT]: Gated `ModalClient` `[Union]` reading the same descriptor catalog.
-- [06]-[TS_PROJECTION]: Reasoning-session, transcript, and intent-match wire shapes the dashboard consumes.
+- [02]-[REASONING_LOOP]: `ReasoningSession` over `IChatClient` streaming; `ChatOptions.Tools` is the brokered `CommandAIFunction`.
+- [03]-[SEMANTIC_DISCOVERY]: `IEmbeddingGenerator` cosine fold; the `DiscoveryQuery.ByIntent` case over the registry.
+- [04]-[REPLAYABLE_TRANSCRIPT]: Exact function-result receipts chain into `EventLog`; absent joins remain explicit.
+- [05]-[MODEL_GOVERNANCE]: One middleware fold: model-selection routing, content-filter guardrail, token-to-cost-to-ledger, cached-response replay, and two model front doors.
+- [06]-[MODAL_INPUT]: Gated `ModalClient` `[Union]` reading the same descriptor catalog.
+- [07]-[TS_PROJECTION]: Reasoning-session, transcript, and intent-match wire shapes the dashboard consumes.
 
 ## [02]-[REASONING_LOOP]
 

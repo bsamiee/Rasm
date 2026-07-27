@@ -4,9 +4,9 @@ The in-process work-lane resilience governor for the runtime spine: one `LaneGua
 
 ## [01]-[INDEX]
 
-- [01]-[LANE_GUARD]: One keyed Polly `ResiliencePipeline` per `WorkLane` with bulkhead, breaker, hedge, and chaos rows.
-- [02]-[ADAPTIVE_ARMS]: The ResourceMonitoring-fed concurrency arm and the `DegradationReading` load-shed arm.
-- [03]-[SHED_VERDICT]: The per-`WorkLane` shed verdict minted once and crossed to Compute admission.
+- [02]-[LANE_GUARD]: One keyed Polly `ResiliencePipeline` per `WorkLane` with bulkhead, breaker, hedge, and chaos rows.
+- [03]-[ADAPTIVE_ARMS]: The ResourceMonitoring-fed concurrency arm and the `DegradationReading` load-shed arm.
+- [04]-[SHED_VERDICT]: The per-`WorkLane` shed verdict minted once and crossed to Compute admission.
 
 ## [02]-[LANE_GUARD]
 

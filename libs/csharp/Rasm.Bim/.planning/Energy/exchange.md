@@ -14,7 +14,7 @@ Faults route the existing `Model/faults#FAULT_BAND` `BimFault` arms — band 260
 
 ## [01]-[INDEX]
 
-- [01]-[ENERGY_EXCHANGE]: `EnergyExchange.Apply` over `EnergyOp` `[Union]`, the `EnergyDoc`/`EnergyArtifact` carriers, `EnergyScope`, `EnergyReceipt`.
+- [02]-[ENERGY_EXCHANGE]: `EnergyExchange.Apply` over `EnergyOp` `[Union]`, the `EnergyDoc`/`EnergyArtifact` carriers, `EnergyScope`, `EnergyReceipt`.
 
 ## [02]-[ENERGY_EXCHANGE]
 

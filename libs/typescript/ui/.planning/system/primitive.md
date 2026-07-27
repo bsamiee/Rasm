@@ -2,7 +2,7 @@
 
 The headless component spine: react-aria-components is ONE render-props + context + slot pattern instanced across every family, and this module owns how the folder rides it — the `styled` recipe factory fusing a `cva` variant table with RAC's render-state through `composeRenderProps` and the one `cn` rail, the roster law (which library owns which primitive class, radix included), the toast queue + live-region announce rows, the failure envelope (`react-error-boundary` folding the atom's squashed tagged `E`), the one sanitize gate every HTML-bearing string passes before a DOM sink, and the `Clipboard` capability port the browser composition satisfies. Styling is state-as-data: RAC emits `data-*` attributes, the `tailwindcss-react-aria-components` variants read them, and a `className` function survives only where a variant cannot express the state. The module is `ui/src/system/primitive.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]          | [OWNS]                                                                         | [PUBLIC]    |
 | :-----: | :----------------- | :----------------------------------------------------------------------------- | :---------- |

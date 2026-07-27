@@ -157,6 +157,9 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `Grpc.AspNetCore`
 - `Grpc.Tools`
 
+[RUNTIME_INBOX]:
+- `System.Text.Json` — generated wire contexts and hand-written `Utf8JsonWriter` codecs beside protobuf on the receipt and descriptor lanes.
+
 [TEST_SUBSTRATE]: Rows bind in branch test and benchmark projects, never the package csproj.
 - `BenchmarkDotNet`
 - `Microsoft.AspNetCore.TestHost` — in-memory server the `RemoteTransport.InProcess` row injects in the transport test harness.

@@ -4,7 +4,7 @@ Browser RUM is a vocabulary table, one scoped observer bridge, and one report in
 
 Emission is two bounded instruments per fact — the current level as a tagged gauge, the graded occurrence as a tagged counter — named by `Convention` rows; grading derives from the row thresholds, so a budget change is a row edit that moves the grade fold, the metrics, and every dashboard panel at once. This module is `runtime:browser` — the `./browser` subpath alone resolves it. Its module is `runtime/src/otel/vital.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]  | [OWNS]                                                                                | [PUBLIC] |
 | :-----: | :--------- | :------------------------------------------------------------------------------------ | :------- |

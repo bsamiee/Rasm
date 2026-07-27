@@ -4,8 +4,8 @@ Rasm.Persistence offers an optional self-hosted analytical graph lane over Apach
 
 ## [01]-[INDEX]
 
-- [01]-[GRAPH_SESSION]: the `CypherEnablement` self-hosted gate, the `CypherFault` closed boundary band, the `GraphDdl` graph/label lifecycle surface, and the `GraphSession` owning the per-physical-connection `LOAD 'age'`+`search_path` init, the async daemon projection, and the `agtype`/path/Edges-SQL decode primitives both lanes compose.
-- [02]-[GRAPH_QUERY]: the ONE `GraphQuery` `[Union]` collapsing every AGE openCypher and `pgrouting` verb, the `RouteMode`/`FlowKind`/`CleaveKind` function-selector rows, the `GraphResult` typed carrier, the `H3Cell` vertex-id node space, and the total-`Switch` `Run` that lowers each case to its server-side SQL and decodes its rows into the NODE-space `ElementSet` (AGE), the CELL-space `H3Cell` mesh (`pgrouting`), or the raw EDGE space (`pgr_bridges`/`pgr_biconnectedComponents`/the flow labeling).
+- [02]-[GRAPH_SESSION]: the `CypherEnablement` self-hosted gate, the `CypherFault` closed boundary band, the `GraphDdl` graph/label lifecycle surface, and the `GraphSession` owning the per-physical-connection `LOAD 'age'`+`search_path` init, the async daemon projection, and the `agtype`/path/Edges-SQL decode primitives both lanes compose.
+- [03]-[GRAPH_QUERY]: the ONE `GraphQuery` `[Union]` collapsing every AGE openCypher and `pgrouting` verb, the `RouteMode`/`FlowKind`/`CleaveKind` function-selector rows, the `GraphResult` typed carrier, the `H3Cell` vertex-id node space, and the total-`Switch` `Run` that lowers each case to its server-side SQL and decodes its rows into the NODE-space `ElementSet` (AGE), the CELL-space `H3Cell` mesh (`pgrouting`), or the raw EDGE space (`pgr_bridges`/`pgr_biconnectedComponents`/the flow labeling).
 
 ## [02]-[GRAPH_SESSION]
 

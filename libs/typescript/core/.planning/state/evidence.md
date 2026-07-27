@@ -2,7 +2,7 @@
 
 The decoded evidence vocabularies as one bounded family: `Receipt`/`ReceiptEnvelope` — the closed command-outcome union the C# AppHost mints, carried with its stamp, tenant, and causal basis; `ProgressMark`/`Progress` — the per-operation progress evidence the C# Compute runtime emits, folded into monotone state with horizon-parameterized verdicts; `Availability` — the degradation-level and per-command verdict snapshot the serving gate types against, merged worst-wins as a lattice. Every shape decodes through the interchange codec INTO this module, composes `Hlc`, `TenantContext`, `ContentKey`, `FaultClass`, and `Vector` from their owners — never re-mints — and every fold is a `fold#PLAN_CONTRACT` plan row on a `merge#INSTANCE_CONTRACT` instance, so evidence runs identically as a pure snapshot, a stream trace, a live handle, or a durable projection. The C# typed families never collapse into erased TS shapes: every kind is its own union member with kind-specific evidence fields, and evidence is fields policy reads, never message strings. The module is `core/src/state/evidence.ts`; a new receipt kind, progress axis, or availability level is one union member or row with every exhaustive consumer breaking loudly until its arm exists.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]              | [OWNS]                                                               | [PUBLIC]                   |
 | :-----: | :--------------------- | :------------------------------------------------------------------- | :------------------------- |

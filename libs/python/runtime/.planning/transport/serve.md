@@ -6,9 +6,9 @@ Wire vocabulary is `transport/shapes#VOCABULARY`'s, the transcode machinery `tra
 
 ## [01]-[INDEX]
 
-- [01]-[SERVE]: the inbound server-host lifecycle, the `Route` roster, the dispatch aspect, and the `FaultDetail` trailer egress.
-- [02]-[CAPABILITY_INVOKE]: the descriptor-driven outbound invoke and the `fault_detail` trailer ingress.
-- [03]-[ENTRY]: the daemon composition root — railed boot, supervised serve, the diagnostic-capsule mount, the ordered receipted drain, and the one-shot recipe command.
+- [02]-[SERVE]: the inbound server-host lifecycle, the `Route` roster, the dispatch aspect, and the `FaultDetail` trailer egress.
+- [03]-[CAPABILITY_INVOKE]: the descriptor-driven outbound invoke and the `fault_detail` trailer ingress.
+- [04]-[ENTRY]: the daemon composition root — railed boot, supervised serve, the diagnostic-capsule mount, the ordered receipted drain, and the one-shot recipe command.
 
 ## [02]-[SERVE]
 

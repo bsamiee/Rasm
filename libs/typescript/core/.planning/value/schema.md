@@ -2,7 +2,7 @@
 
 The decode-once law's type floor: one `Refined` vocabulary owner carries every cross-language branded primitive — Guid-v7, `OrdinalKey`, `JsonPointer`, BCP-47 `Locale` — and one `Ingress` owner carries the decode-budget ceilings plus the budget-gated schema combinator every untrusted seam composes. A raw `string` or `number` never occupies an identity slot past a decode seam: every wire shape, journal event, config read, and message catalog composes these schemas at its own field record, so each brand has exactly one edit site and every folder reads one nominal identity per concept. The module is `core/src/value/schema.ts`; a new cross-language primitive is one interior anchor plus one owner row — never a per-folder re-declaration, never a standalone sibling export.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]         | [OWNS]                                                  | [PUBLIC]  |
 | :-----: | :---------------- | :------------------------------------------------------ | :-------- |

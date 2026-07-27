@@ -10,7 +10,7 @@ Wire posture: HOST-LOCAL. These axes cross only the in-process `FabricationInput
 
 ## [01]-[INDEX]
 
-- [01]-[PROCESS_FAMILY]: owns bounded process axes, generated equipment, graph relations, keyed admission, compatibility queries, and allocation receipts.
+- [02]-[PROCESS_FAMILY]: owns bounded process axes, generated equipment, graph relations, keyed admission, compatibility queries, and allocation receipts.
 
 ## [02]-[PROCESS_FAMILY]
 

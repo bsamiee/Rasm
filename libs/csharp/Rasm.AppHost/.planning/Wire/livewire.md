@@ -6,12 +6,12 @@ Live-wire composition consumes `QuantityFamily`/`UnitAlgebra`/`UnitPolicy`, `Out
 
 ## [01]-[INDEX]
 
-- [01]-[TRANSPORT_AXIS]: Ten industrial-transport rows with one read/write adapter contract.
-- [02]-[TRANSPORT_BINDING]: Per-case `Read`/`Write` dispatch; OPC-UA session/subscription and MQTT client.
-- [03]-[BINDING_SPEC]: Source-target binding, direction, edge unit coercion, and poll/subscribe cadence.
-- [04]-[WRITE_BACK]: Outbound write-back transaction, acknowledgement, and rollback.
-- [05]-[BINDING_HEALTH]: Per-binding connect/subscribe/stale/fault lifecycle and health contribution.
-- [06]-[TS_PROJECTION]: Binding-status and write-receipt wire shapes the studio dashboard consumes.
+- [02]-[TRANSPORT_AXIS]: Ten industrial-transport rows with one read/write adapter contract.
+- [03]-[TRANSPORT_BINDING]: Per-case `Read`/`Write` dispatch; OPC-UA session/subscription and MQTT client.
+- [04]-[BINDING_SPEC]: Source-target binding, direction, edge unit coercion, and poll/subscribe cadence.
+- [05]-[WRITE_BACK]: Outbound write-back transaction, acknowledgement, and rollback.
+- [06]-[BINDING_HEALTH]: Per-binding connect/subscribe/stale/fault lifecycle and health contribution.
+- [07]-[TS_PROJECTION]: Binding-status and write-receipt wire shapes the studio dashboard consumes.
 
 ## [02]-[TRANSPORT_AXIS]
 

@@ -6,7 +6,7 @@ Block authoring and placement recover one identity from one registry. `DetailSou
 
 ## [01]-[INDEX]
 
-- [01]-[DETAIL]: the `Detail` owner over the `Callout` family, the content-addressed `DetailLibrary` block store, and the `rustworkx` cross-reference `PyDAG`, dual-lowering over `SymbolTarget` to a `drawsvg` boundary/leader group or the `ezdxf` detail-library block store.
+- [02]-[DETAIL]: the `Detail` owner over the `Callout` family, the content-addressed `DetailLibrary` block store, and the `rustworkx` cross-reference `PyDAG`, dual-lowering over `SymbolTarget` to a `drawsvg` boundary/leader group or the `ezdxf` detail-library block store.
 
 ## [02]-[DETAIL]
 

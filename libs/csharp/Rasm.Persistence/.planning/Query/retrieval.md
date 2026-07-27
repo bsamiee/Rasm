@@ -4,10 +4,10 @@ Rasm.Persistence owns the coupled ANN retrieval subsystem behind the `Query/lane
 
 ## [01]-[INDEX]
 
-- [01]-[SEARCH_PROVISIONING_PROBE]: the `EmbeddingArity`/`VectorMetric` store-binding axes, the `VectorRoute` residence cases, the server-side LINQ `ORDER BY` leg, and the `store.vector.route` fact.
-- [02]-[LEXICAL_ALGEBRA]: the `Bm25Predicate` typed builder/operator/cast union, the `SearchProjection` score/snippet surface, and the `LexicalRank` ts_rank fallback arm.
-- [03]-[VECTOR_CODEBOOK]: the `ProductCodebook` Compute encodes against, the per-subspace k-means training, the coarse→fine fine-form resolve, the amortized asymmetric-distance corpus scan, and the `RetrievalFault` band.
-- [04]-[FUSION_AND_REUSE]: the typed `RetrievalBranch` axis, the n-ary reciprocal-rank fusion with per-hit lineage, the receipt-keyed read-through reuse, and the one `RetrievalOp` entry.
+- [02]-[SEARCH_PROVISIONING_PROBE]: the `EmbeddingArity`/`VectorMetric` store-binding axes, the `VectorRoute` residence cases, the server-side LINQ `ORDER BY` leg, and the `store.vector.route` fact.
+- [03]-[LEXICAL_ALGEBRA]: the `Bm25Predicate` typed builder/operator/cast union, the `SearchProjection` score/snippet surface, and the `LexicalRank` ts_rank fallback arm.
+- [04]-[VECTOR_CODEBOOK]: the `ProductCodebook` Compute encodes against, the per-subspace k-means training, the coarse→fine fine-form resolve, the amortized asymmetric-distance corpus scan, and the `RetrievalFault` band.
+- [05]-[FUSION_AND_REUSE]: the typed `RetrievalBranch` axis, the n-ary reciprocal-rank fusion with per-hit lineage, the receipt-keyed read-through reuse, and the one `RetrievalOp` entry.
 
 ## [02]-[SEARCH_PROVISIONING_PROBE]
 

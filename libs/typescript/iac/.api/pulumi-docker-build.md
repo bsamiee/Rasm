@@ -67,8 +67,8 @@
 
 [TOPOLOGY]:
 - `docker-build.Image` is the buildx-native build owner across the branch, superseding the classic `@pulumi/docker.Image` (`.api/pulumi-docker.md`) on the `selfhosted-docker` arm and serving as the builder `awsx.ecr.Image` (`.api/pulumi-awsx.md`) bundles on the `aws` arm; author `docker-build.Image` for a new image.
-- A workload pins the immutable `digest` (sha256) or `ref` (`tag@digest`), never a mutable tag; `push` is required-explicit, so a build without an export stays local.
-- A registry/s3/gha cache backend reuses layers across CI runs rather than rebuilding them.
+- Workloads pin the immutable `digest` (sha256) or `ref` (`tag@digest`); `push` is required-explicit, so a build without an export stays local.
+- Registry, s3, and gha cache backends reuse layers across CI runs rather than rebuilding them.
 
 [STACKING]:
 - `@pulumiverse/doppler`(`.api/pulumiverse-doppler.md`): `registries[].password` and `secrets` bind its `Secret` `Output` by value — no on-disk or env material.

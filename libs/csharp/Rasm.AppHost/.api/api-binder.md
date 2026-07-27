@@ -50,7 +50,7 @@
 
 [LOCAL_ADMISSION]:
 - Policy records bind once at bootstrap and validate before runtime start.
-- A closed policy surface fails on any unmapped key through `ErrorOnUnknownConfiguration`.
+- `ErrorOnUnknownConfiguration` fails a closed policy surface on any unmapped key.
 - Non-public property binding admits only where a package-owned policy type sets `BindNonPublicProperties`.
 - Source-generated binding is the admitted path for trim- and AOT-sensitive policy records.
 

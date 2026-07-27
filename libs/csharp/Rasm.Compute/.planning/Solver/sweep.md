@@ -6,7 +6,7 @@ Per-point evaluation stays contract-uniform with the `Solver/optimizer#OPTIMIZER
 
 ## [01]-[INDEX]
 
-- [01]-[SWEEP_AND_BUDGET]: N-dim DOE design-matrix strategy; binned global sensitivity; frame-budgeted early-stop; rolled-up per-point progress aggregate.
+- [02]-[SWEEP_AND_BUDGET]: N-dim DOE design-matrix strategy; binned global sensitivity; frame-budgeted early-stop; rolled-up per-point progress aggregate.
 
 ## [02]-[SWEEP_AND_BUDGET]
 

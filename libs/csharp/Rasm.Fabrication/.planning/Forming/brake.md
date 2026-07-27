@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[BEND_SEQUENCE]: Generated tooling and method families, physical panel-state evolution, accumulated feasibility evidence, finite best-first sequencing, and executable result projection.
+- [02]-[BEND_SEQUENCE]: Generated tooling and method families, physical panel-state evolution, accumulated feasibility evidence, finite best-first sequencing, and executable result projection.
 
 ## [02]-[BEND_SEQUENCE]
 

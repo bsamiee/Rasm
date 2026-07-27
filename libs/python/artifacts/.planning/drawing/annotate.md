@@ -6,7 +6,7 @@ ISO 128-2 annotation lowering lives in `Annotate`, one owner over `AnnotateOp.le
 
 ## [01]-[INDEX]
 
-- [01]-[ANNOTATE]: `Annotate` dual-lowers closed `AnnotateOp.leader`/`textnote`/`revcloud` marks over `SymbolTarget` into named SVG layers or an `ezdxf` layout.
+- [02]-[ANNOTATE]: `Annotate` dual-lowers closed `AnnotateOp.leader`/`textnote`/`revcloud` marks over `SymbolTarget` into named SVG layers or an `ezdxf` layout.
 
 ## [02]-[ANNOTATE]
 

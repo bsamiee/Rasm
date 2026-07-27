@@ -4,9 +4,9 @@ The in-process event-bus topology for the runtime spine: a `Topic<T>` fans a `Do
 
 ## [01]-[INDEX]
 
-- [01]-[TOPIC_FABRIC]: `Topic<T>` over a `BroadcastBlock` fan and the `DomainEvent` carrier.
-- [02]-[SUBSCRIPTION_FABRIC]: Offset-ordered bounded subscriptions, consumers, and correlation joins.
-- [03]-[BUS_CONDUCTOR]: One conductor folding topics and subscriptions under the drain band with back-pressure.
+- [02]-[TOPIC_FABRIC]: `Topic<T>` over a `BroadcastBlock` fan and the `DomainEvent` carrier.
+- [03]-[SUBSCRIPTION_FABRIC]: Offset-ordered bounded subscriptions, consumers, and correlation joins.
+- [04]-[BUS_CONDUCTOR]: One conductor folding topics and subscriptions under the drain band with back-pressure.
 
 ## [02]-[TOPIC_FABRIC]
 

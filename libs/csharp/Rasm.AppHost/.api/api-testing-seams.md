@@ -101,7 +101,7 @@ Test-only substitution surfaces fold the AppHost runtime's time, clock, logging,
 - `TimeProvider` (BCL runtime contract): `FakeTimeProvider` derives it and overrides `GetUtcNow`/`GetTimestamp`/`CreateTimer`, so any port taking `TimeProvider` binds the fake and its `ITimer` scheduling under test.
 - `NodaTime`(`.api/api-nodatime.md`): `FakeClock` implements `IClock.GetCurrentInstant()`, substituting `SystemClock.Instance`; `FromUtc`/`Advance`/`Reset` drive the `Instant` a `ZonedClock` reads.
 - `System.Diagnostics.Metrics`(`.api/api-diagnostics-metrics.md`): `MetricCollector<T>` binds an `Instrument<T>`, `ObservableInstrument<T>`, or `Meter`+name and captures its `Measurement<T>` writes as `CollectedMeasurement<T>`.
-- `Microsoft.Extensions.Logging`(`.api/api-logging.md`): `FakeLogger` implements `ILogger`/`IBufferedLogger`, folding every `ILogger.Log<TState>` emission into `FakeLogCollector` records.
+- `Microsoft.Extensions.Logging.Abstractions`(`libs/csharp/.api/api-logging-abstractions.md`): `FakeLogger` implements `ILogger`/`IBufferedLogger`, folding every `ILogger.Log<TState>` emission into `FakeLogCollector` records.
 
 [LOCAL_ADMISSION]:
 - Testing seams restore and compose only inside the AppHost test closure; production depends on the `TimeProvider` and `IClock` contracts.

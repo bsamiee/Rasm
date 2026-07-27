@@ -6,8 +6,8 @@
 
 ## [01]-[INDEX]
 
-- [01]-[RECEIPT]: the kind-discriminated artifact-evidence union over native-scalar `case()` payloads, its roster-derived `_CASES`/`_KEYS`/`_BAND` owner, the `contribute` projection onto the runtime spine, and the `graduates` outward hand-off.
-- [02]-[SIGNALS]: the receipt-fold consumer seams, the outward figure hand-off, and the span-coverage charter.
+- [02]-[RECEIPT]: the kind-discriminated artifact-evidence union over native-scalar `case()` payloads, its roster-derived `_CASES`/`_KEYS`/`_BAND` owner, the `contribute` projection onto the runtime spine, and the `graduates` outward hand-off.
+- [03]-[SIGNALS]: the receipt-fold consumer seams, the outward figure hand-off, and the span-coverage charter.
 
 ## [02]-[RECEIPT]
 

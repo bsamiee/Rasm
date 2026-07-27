@@ -2,7 +2,7 @@
 
 `Secrets` and `Certs` own deploy-plane material. `Secrets` provisions the Doppler `Project → Environment → BranchConfig → Secret` hierarchy, lands generated credentials under one epoch-bound policy, scopes a read-only `ServiceToken`, fans credentials into sibling providers, and mirrors outward through destination rows. External stores remain mirrors. `Certs` drives `PrivateKey → CertRequest → {self-signed CA | CA-signed leaf}` from one profile, bounds `allowedUses`, exposes renewal-window evidence, and stores durable CA material in Doppler. Values leave only as state-encrypted provider inputs or the workload's `DOPPLER_TOKEN`. Growth is an entries row, fan-in key, mirror row, access row, or issuance call.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]         | [OWNS]                                                          | [PUBLIC]  |
 | :-----: | :---------------- | :-------------------------------------------------------------- | :-------- |

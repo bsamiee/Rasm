@@ -1,6 +1,6 @@
 # [RASM_COMPUTE_API_ONNX_EXTENSIONS]
 
-`Microsoft.ML.OnnxRuntime.Extensions` ships the native extension-operator runtime (`ortextensions`) and its per-TFM MSBuild copy targets, carrying no managed public assembly. Its sole managed entry `SessionOptions.RegisterOrtExtensions()` lives in `Microsoft.ML.OnnxRuntime` and P/Invokes the shipped native asset, registering the entirely-native tokenizer, preprocessing, and postprocessing custom ops in one call. A tokenizer/detokenizer op model crosses the managed boundary through the string-tensor round-trip on `OrtValue`.
+`Microsoft.ML.OnnxRuntime.Extensions` ships the native extension-operator runtime (`ortextensions`) and its per-TFM MSBuild copy targets, carrying no managed public assembly. One managed entry `SessionOptions.RegisterOrtExtensions()` lives in `Microsoft.ML.OnnxRuntime` and P/Invokes the shipped native asset, registering the entirely-native tokenizer, preprocessing, and postprocessing custom ops in one call. Every tokenizer/detokenizer op model crosses the managed boundary through the string-tensor round-trip on `OrtValue`.
 
 ## [01]-[PACKAGE_SURFACE]
 

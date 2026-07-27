@@ -6,10 +6,10 @@ This page is the lowering boundary: a `graph#MATERIAL_LIBRARY` `MaterialParamete
 
 ## [01]-[INDEX]
 
-- [01]-[SPECTRAL_UPSAMPLE]: the RGB→SPD coefficient kernel, the Unicolour `Spd`→XYZ composition, the measured-illuminant reduction, and scene-linear admission under a parameterized `GamutMap` strategy.
-- [02]-[TONE_MAP]: the `ToneOperator` table (ACES-fit, AgX, PBR Neutral, Reinhard, filmic, exposure) over one triple-valued `Grade` column, and the `DisplayEncoding` transfer-and-range egress rows.
-- [03]-[CONDUCTOR_IOR]: the `ConductorMetal` axis carrying the measured complex-IOR per RGB band on its rows, the wire `Resolve`, and the `Conductor` lobe grounding.
-- [04]-[OPENPBR_SLAB]: the `Slab` `[Union]` closed family (its four cases the slab discriminant, no parallel kind enum), the `OpenPbrSurface` vector and its one `Of` `MaterialParameters`→OpenPBR lowering, the `SlabStack` outermost-to-base layering algebra, and the `ToLayered` collapse the `bsdf#LAYERED_COMPOSITION` `LayeredBsdf` fold consumes.
+- [02]-[SPECTRAL_UPSAMPLE]: the RGB→SPD coefficient kernel, the Unicolour `Spd`→XYZ composition, the measured-illuminant reduction, and scene-linear admission under a parameterized `GamutMap` strategy.
+- [03]-[TONE_MAP]: the `ToneOperator` table (ACES-fit, AgX, PBR Neutral, Reinhard, filmic, exposure) over one triple-valued `Grade` column, and the `DisplayEncoding` transfer-and-range egress rows.
+- [04]-[CONDUCTOR_IOR]: the `ConductorMetal` axis carrying the measured complex-IOR per RGB band on its rows, the wire `Resolve`, and the `Conductor` lobe grounding.
+- [05]-[OPENPBR_SLAB]: the `Slab` `[Union]` closed family (its four cases the slab discriminant, no parallel kind enum), the `OpenPbrSurface` vector and its one `Of` `MaterialParameters`→OpenPBR lowering, the `SlabStack` outermost-to-base layering algebra, and the `ToLayered` collapse the `bsdf#LAYERED_COMPOSITION` `LayeredBsdf` fold consumes.
 
 ## [02]-[SPECTRAL_UPSAMPLE]
 

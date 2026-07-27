@@ -8,7 +8,7 @@ Wire posture: HOST-LOCAL. `ToolAssembly`, `ToolMagazine.Schedule`, and `ToolMaga
 
 ## [01]-[INDEX]
 
-- [01]-[TOOL_MAGAZINE]: `ToolKey`, `MetricDimension`, `ToolMetric`, `ToolAssembly`, `Magazine`, `MagazineLayout`, `SlotMap`, `MagazineBehavior`, `ToolSelection`, `MagazinePolicy`, `KittingReceipt`, `ToolChange`, `ToolCatalog`, and `ToolMagazine`.
+- [02]-[TOOL_MAGAZINE]: `ToolKey`, `MetricDimension`, `ToolMetric`, `ToolAssembly`, `Magazine`, `MagazineLayout`, `SlotMap`, `MagazineBehavior`, `ToolSelection`, `MagazinePolicy`, `KittingReceipt`, `ToolChange`, `ToolCatalog`, and `ToolMagazine`.
 
 ## [02]-[TOOL_MAGAZINE]
 

@@ -5,7 +5,7 @@ This catalog owns the host-fidelity freeform surface and curve construction boun
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: RhinoCommon surface-and-curve construction surface
-- host: `RhinoCommon` (Rhino host runtime, in-process)
+- host: Rhino host runtime, in-process (proprietary McNeel SDK)
 - assembly: `RhinoCommon`
 - namespaces: `Rhino.Geometry`
 - kernel: `Rasm` (host-neutral NURBS evaluation and numeric owners composed by altitude, never re-derived)

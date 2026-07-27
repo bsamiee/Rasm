@@ -1,6 +1,6 @@
 # [RASM_API_OTEL_RESOURCES]
 
-Resource detection folds host environment facts into semantic-convention attributes on the OpenTelemetry `Resource`: each package seats one `IResourceDetector` behind a single public `ResourceBuilder` extension contributing only the keys it resolves at provider build. A new detection dimension lands as one package record with its extension row.
+Resource detection folds host environment facts into semantic-convention attributes on the OpenTelemetry `Resource`: each package seats one `IResourceDetector` behind a single public `ResourceBuilder` extension contributing only the keys it resolves at provider build. Each new detection dimension lands as one package record with its extension row.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -60,14 +60,14 @@ Resource detection folds host environment facts into semantic-convention attribu
 
 - `AddContainerDetector`: `container.id` lands only where a cgroup v1 read, then a v2 mountinfo read, yields a valid id.
 - `AddHostDetector`: `host.name` always lands; `host.id` and `host.arch` drop where no machine id resolves or the architecture maps to nothing.
-- `AddOperatingSystemDetector`: a platform outside `windows`, `linux`, and `darwin` contributes nothing; the descriptive keys read the Windows registry, `os-release`, or the system plist.
+- `AddOperatingSystemDetector`: contributes nothing outside `windows`, `linux`, and `darwin`; `os.type` always lands and `os.description` reads the runtime description, while `os.build_id`/`os.name`/`os.version` read the Windows `CurrentVersion` registry key, the linux `os-release` beside `/proc/sys/kernel/osrelease`, or the darwin system plist. All five keys reach all three platforms — the linux arm falls `os.name` back to `Linux` where `os-release` names nothing, and an empty extraction drops its key rather than writing a blank.
 - `AddProcessDetector`: `process.creation.time` lands as a UTC ISO round-trip string, dropping where `Process.StartTime` faults.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `ResourceBuilder.Build` folds every registered detector's `Resource` through `Resource.Merge` in registration order, so the last extension chained wins any key two contributors share.
-- A detector resolving nothing contributes `Resource.Empty` and an extraction fault drops its key, so detection never throws out of `Build`.
+- Detectors resolving nothing contribute `Resource.Empty` and an extraction fault drops its key, so detection never throws out of `Build`.
 - Detected keys stay disjoint from the minted `service.*` identity, so detection adds placement dimensions without contending for the identity slots.
 
 [STACKING]:

@@ -6,7 +6,7 @@ Three exported folds stay stable across the solver plane: `status_of`, the one t
 
 ## [01]-[INDEX]
 
-- [01]-[RECEIPT]: the one method-discriminated solve receipt and the `SolveStatus` termination vocabulary the solver plane folds into.
+- [02]-[RECEIPT]: the one method-discriminated solve receipt and the `SolveStatus` termination vocabulary the solver plane folds into.
 
 ## [02]-[RECEIPT]
 

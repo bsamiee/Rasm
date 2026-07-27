@@ -6,7 +6,7 @@ Spine is `trimesh` and `numpy` — never a phantom `scipy` spine, since no geome
 
 ## [01]-[INDEX]
 
-- [01]-[SPATIAL]: query kinds under tagged union over the `trimesh`/`numpy` spine and the `rtree`/`python-fcl`/`manifold3d` native band, work-class-routed, returning `SpatialResult` union.
+- [02]-[SPATIAL]: query kinds under tagged union over the `trimesh`/`numpy` spine and the `rtree`/`python-fcl`/`manifold3d` native band, work-class-routed, returning `SpatialResult` union.
 
 ## [02]-[SPATIAL]
 

@@ -101,7 +101,7 @@
 
 - `UsedImplicitly`, `MeansImplicitUse`: a parameterless application takes `ImplicitUseKindFlags.Default` with `ImplicitUseTargetFlags.Default`.
 - `ValueRange`: `ulong` overloads mirror both `long` forms for unsigned domains, and the attribute repeats for non-intersecting intervals.
-- `MustDisposeResource`: a constructor inherits its declaring type's annotation, never the base constructor's it delegates to.
+- `MustDisposeResource`: reaches a constructor through its declaring type's annotation, never through the base constructor it delegates to.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -118,11 +118,11 @@
 - within-library: a native or `IDisposable` owner pairs `[MustDisposeResource]` at the factory with `[HandlesResourceDisposal]` at the field, property, or parameter that accepts the ownership, and `[RequireStaticDelegate]` closes the allocation path on a per-frame callback parameter.
 
 [LOCAL_ADMISSION]:
-- A public or generator-reachable declaration carries `[PublicAPI]`; a member only a host, reflection lane, or generator calls carries `[UsedImplicitly]` with the kind and target flags naming its reach.
-- A repo-owned marker attribute carries `[MeansImplicitUse]` for reachability and `[BaseTypeRequired(Type)]` for its target contract.
-- A factory returning an owned resource carries `[MustDisposeResource]`; the field, property, or parameter accepting that ownership carries `[HandlesResourceDisposal]`.
-- A rail combinator carries `[Pure]` or `[MustUseReturnValue]`, and a sequence or delegate parameter carries `[InstantHandle]` or `[NoEnumeration]` to fix its consumption point.
-- A string parameter carrying a foreign grammar carries `[RegexPattern]`, `[LanguageInjection]`, `[StringFormatMethod]`, or `[StructuredMessageTemplate]` at its declaration.
+- `[PublicAPI]` marks every public or generator-reachable declaration, and `[UsedImplicitly]` marks a member only a host, reflection lane, or generator calls, its kind and target flags naming that reach.
+- `[MeansImplicitUse]` lifts reachability onto a repo-owned marker attribute and `[BaseTypeRequired(Type)]` states that marker's target contract.
+- `[MustDisposeResource]` marks a factory returning an owned resource, and `[HandlesResourceDisposal]` marks the field, property, or parameter accepting that ownership.
+- `[Pure]` or `[MustUseReturnValue]` marks every rail combinator, while `[InstantHandle]` or `[NoEnumeration]` fixes a sequence or delegate parameter's consumption point.
+- `[RegexPattern]`, `[LanguageInjection]`, `[StringFormatMethod]`, and `[StructuredMessageTemplate]` declare a string parameter's foreign grammar at that parameter.
 
 [RAIL_LAW]:
 - Package: `JetBrains.Annotations`

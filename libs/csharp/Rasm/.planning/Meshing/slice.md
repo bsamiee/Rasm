@@ -6,7 +6,7 @@ Per-layer contours arrive oriented from the composed fold — intersect stores e
 
 ## [01]-[INDEX]
 
-- [01]-[SLICING]: the `Slicing.Apply` section fold — `LayerPlan` height-law generator over one `March`, the parallel per-plane `IntersectOp.PlaneMesh` fold, exact-parity nesting into the `SliceStack` SoA forest wire and its `Chain` projections.
+- [02]-[SLICING]: the `Slicing.Apply` section fold — `LayerPlan` height-law generator over one `March`, the parallel per-plane `IntersectOp.PlaneMesh` fold, exact-parity nesting into the `SliceStack` SoA forest wire and its `Chain` projections.
 
 ## [02]-[SLICING]
 

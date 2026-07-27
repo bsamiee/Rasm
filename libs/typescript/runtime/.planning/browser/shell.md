@@ -2,7 +2,7 @@
 
 The PWA shell plane: the web-app manifest as a typed VALUE the app constructs and the build encodes — never a hand-authored JSON asset — one `Workbox` instance held as a scoped resource owning registration and the update handshake, one `SwLifecycle` cell folded from the Workbox event target as the phase truth every affordance reads, the cache-strategy vocabulary as a closed row table projected type-only onto `workbox-build`'s `RuntimeCaching` shape for the app build to inject, the background-sync replay as one drain fold over `persist#DOMAIN_ROWS`'s `outbox` fed by every wake source at once, and the install/update affordance state as one owned cell. The altitude split is law: `workbox-build` emits the worker ASSET at app build, this module owns its RUNTIME lifecycle — a strategy row authored in the SW source, a raw `navigator.serviceWorker`/`caches` call outside this owner, a second `beforeinstallprompt` listener, or a second replay queue beside the outbox is the named two-owner defect. The update affordance distinguishes a genuine update from a first-install wait through the lifecycle event's own refinement flags, so a fresh install never renders a refresh prompt. The module is `runtime/src/browser/shell.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]         | [OWNS]                                                           | [PUBLIC]                                   |
 | :-----: | :---------------- | :--------------------------------------------------------------- | :----------------------------------------- |

@@ -6,7 +6,7 @@ Every source enters `LanePolicy.drain` as a SOURCE-keyed `Admit` whose `ContentK
 
 ## [01]-[INDEX]
 
-- [01]-[DAEMON]: tessellation-source ADT over the SOURCE-keyed lane cache and the offloaded IFC/CAD kernels, returning `RuntimeRail[Block[TessellationResult]]` with drain-on-harvest receipts on `contribute`.
+- [02]-[DAEMON]: tessellation-source ADT over the SOURCE-keyed lane cache and the offloaded IFC/CAD kernels, returning `RuntimeRail[Block[TessellationResult]]` with drain-on-harvest receipts on `contribute`.
 
 ## [02]-[DAEMON]
 

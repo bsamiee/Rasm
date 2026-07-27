@@ -6,7 +6,7 @@ One `SIGNAL_SPECS` fold owns the batched span/log pair; the meter stands beside 
 
 ## [01]-[INDEX]
 
-- [01]-[TELEMETRY]: the scope-keyed install custody over the generation-reserved pipeline mint, the `SIGNAL_SPECS` fold, the `EGRESS` transport table and `SIGNAL_PROFILE` gate, the detector-merged `RUNTIME_RESOURCE`, and the per-signal railed host drain.
+- [02]-[TELEMETRY]: the scope-keyed install custody over the generation-reserved pipeline mint, the `SIGNAL_SPECS` fold, the `EGRESS` transport table and `SIGNAL_PROFILE` gate, the detector-merged `RUNTIME_RESOURCE`, and the per-signal railed host drain.
 
 ## [02]-[TELEMETRY]
 

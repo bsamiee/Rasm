@@ -6,7 +6,7 @@ One rail composes `optimistix` over a `lineax` inner linear solve and an `optax`
 
 ## [01]-[INDEX]
 
-- [01]-[NONLINEAR]: the four nonlinear routes over Optimistix with a numpy central-difference floor, every solver a `NonlinearSolver` policy row on the profile-driven builder, the gated JAX modules folded into one `NonlinearEngine` carrier.
+- [02]-[NONLINEAR]: the four nonlinear routes over Optimistix with a numpy central-difference floor, every solver a `NonlinearSolver` policy row on the profile-driven builder, the gated JAX modules folded into one `NonlinearEngine` carrier.
 
 ## [02]-[NONLINEAR]
 

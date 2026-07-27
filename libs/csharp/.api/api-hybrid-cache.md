@@ -29,13 +29,13 @@
 
 - `HybridCacheEntryFlags`: `None` `DisableLocalCacheRead` `DisableLocalCacheWrite` `DisableLocalCache` `DisableDistributedCacheRead` `DisableDistributedCacheWrite` `DisableDistributedCache` `DisableUnderlyingData` `DisableCompression`.
 - `DisableUnderlyingData` skips the factory on a miss, turning the read into a cache peek; each read/write pair ORs to its combined tier member.
-- A call-site `Flags` value replaces the instance default's flags outright and ORs only with the runtime's forced flags, so an override states every lane it wants disabled.
+- `Flags` set at the call site replaces the instance default outright and ORs only with the runtime's forced flags, so an override states every lane it wants disabled.
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `HybridCache` operations, each closing on `(HybridCacheEntryOptions? = null, IEnumerable<string>? tags = null, CancellationToken = default)`
 - Each key shape carries the stateful `(key, TState, Func<TState, CancellationToken, ValueTask<T>>)` row below and a stateless `(key, Func<CancellationToken, ValueTask<T>>)` mirror; threading caller state through `TState` keeps the factory delegate static and closure-free.
-- A subclass overrides the `string`-key read, `SetAsync`, and the singular `RemoveAsync`/`RemoveByTagAsync`; the span-key read and both batch forms are virtual defaults folding onto them.
+- Subclasses override the `string`-key read, `SetAsync`, and the singular `RemoveAsync`/`RemoveByTagAsync`; the span-key read and both batch forms stay virtual defaults folding onto them.
 
 | [INDEX] | [SURFACE]                                                                         | [SHAPE]  | [CAPABILITY]                           |
 | :-----: | :-------------------------------------------------------------------------------- | :------- | :------------------------------------- |
@@ -85,7 +85,7 @@
 - L1 always binds; L2 binds a registered `IDistributedCache`, and the runtime drops a plain `MemoryDistributedCache` sitting behind the default in-process L1, leaving an L1-only cache.
 - Tag eviction stamps the tag with a timestamp and an entry minted before its tag's stamp reads expired, so evicting a group costs one write regardless of the entries it covers.
 - `HybridCacheEntryOptions` is a sealed `init`-only class, not a record — `with` does not compile, so per-call variation constructs a fresh options object seeded from the lane default.
-- A non-serializable L1-by-reference value rides `HybridCacheEntryFlags.DisableDistributedCache` (full L2 bypass, both legs), never `DisableDistributedCacheWrite` alone, which leaves every miss probing a permanently-empty L2.
+- `HybridCacheEntryFlags.DisableDistributedCache` carries every non-serializable L1-by-reference value (full L2 bypass, both legs); `DisableDistributedCacheWrite` alone leaves every miss probing a permanently-empty L2.
 
 [STACKING]:
 - `CommunityToolkit.HighPerformance`(`.api/api-highperformance.md`): `ArrayPoolBufferWriter<byte>` is the `IHybridCacheSerializer<T>.Serialize` target, and its `WrittenMemory` reads back as the `ReadOnlySequence<byte>` `Deserialize` consumes, so an L2 payload round-trips with no intermediate array.
@@ -99,9 +99,9 @@
 
 [LOCAL_ADMISSION]:
 - `HybridCache` enters as a resolved dependency, and cache keys, tags, entry options, and flags enter as call-site values.
-- A codec admits through `AddSerializer`/`AddSerializerFactory`; the runtime binds a directly registered `IHybridCacheSerializer<T>` first, then probes factories in reverse registration order, so the last factory admitted wins a contested type.
+- `AddSerializer`/`AddSerializerFactory` admit every codec; the runtime binds a directly registered `IHybridCacheSerializer<T>` first, then probes factories in reverse registration order, so the last factory admitted wins a contested type.
 - `AddHybridCache` seeds `TimeProvider.System`, an `IMemoryCache`, a JSON codec factory, and the inbuilt `string`/`byte[]` codecs through try-add, so a registration placed ahead of it displaces the seed.
-- An L2 contribution implements `IBufferDistributedCache` to reach the zero-copy path, and an admitted codec type keeps a public constructor for the trim and AOT annotation on the generic overloads.
+- `IBufferDistributedCache` is what an L2 contribution implements to reach the zero-copy path, and every admitted codec type keeps a public constructor for the trim and AOT annotation on the generic overloads.
 - Persistence owns the L2-store and serializer half while the AppHost runtime owns L1, stampede single-flight, and tag invalidation — one cache owner across both halves, never a second registration.
 
 [RAIL_LAW]:

@@ -2,7 +2,7 @@
 
 Overlay owns anchored floats, drag-dismissable sheets, command palettes, and presence cursors. Floating-ui positions anchors, vaul owns sheets, cmdk owns palette filtering, and RAC owns standard aria overlays. React-aria props and floating refs merge only where semantics meet geometry; each surface keeps one positioner and one focus owner. Module: `ui/src/view/overlay.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]         | [OWNS]                                                                                  | [PUBLIC]  |
 | :-----: | :---------------- | :-------------------------------------------------------------------------------------- | :-------- |

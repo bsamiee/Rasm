@@ -31,7 +31,7 @@
 - [01]-[DISPOSESCOPE]: `torch.NewDisposeScope()` enters it; `T MoveToOuter<T>(T)` and tuple overloads (up to 3) promote a result to the enclosing scope, `Detach<T>(T)`/`Attach(IDisposable)` re-parent, `MoveToOther(DisposeScope, …)` retargets, and `DisposeEverything()`/`DisposablesView`/`DisposablesCount` inspect — the single owner of intermediate-tensor reclamation.
 - [02]-[MANAGER]: `Statistics` → `ThreadDisposeScopeStatistics` is the leak-detection probe a `BlasReceipt`/`EstimatorModel` stamps to prove zero outstanding intermediates.
 - [03]-[STATS]: `CreatedOutsideScopeCount`/`DisposedOutsideScopeCount`/`ThreadTotalLiveCount` — the receipt-grade memory-discipline evidence.
-- [04]-[INFERENCEMODE]: `using var _ = torch.inference_mode(true);` brackets a no-grad forward region; `torch.no_grad()`/`torch.enable_grad(bool enabled = true)` toggle grad, and `torch.is_inference_mode_enabled()`/`torch.is_grad_enabled()` read state. A consumer never constructs the returned `internal InferenceMode : IDisposable` guard; the public `torch.*` factory is the sole entry.
+- [04]-[INFERENCEMODE]: `using var _ = torch.inference_mode(true);` brackets a no-grad forward region; `torch.no_grad()`/`torch.enable_grad(bool enabled = true)` toggle grad, and `torch.is_inference_mode_enabled()`/`torch.is_grad_enabled()` read state. Consumers never construct the returned `internal InferenceMode : IDisposable` guard; the public `torch.*` factory is the sole entry.
 - [05]-[DEVICE]: `new Device(DeviceType, int index)`/`Device("cpu")` (implicit `string`→`Device`); `torch.set_default_device(Device)` pins the floor.
 - [06]-[SCALARTYPE]: `Byte`/`Int8`/`Int16`/`Int32`/`Int64`/`Float16`/`Float32`(=6)/`Float64`(=7)/`ComplexFloat32`/`ComplexFloat64`/`Bool`/`QInt8`/`QUInt8`/`QInt32`/`BFloat16` — the dtype axis of every factory and `to_type`; estimator math uses `Float64` for IRLS/MLE stability.
 - [07]-[DEVICETYPE]: `CPU`=0, `CUDA`=1, `MKLDNN`, `OPENGL`, `OPENCL`, `IDEEP`, `HIP`, `FPGA`, `MSNPU`, `XLA`, … — the osx-arm64 rail is `CPU`-only.
@@ -207,7 +207,7 @@
 - `libtorch-cpu`(`api-libtorch-cpu.md`): every `torch.*` call P/Invokes the native floor through `libLibTorchSharp`.
 
 [LOCAL_ADMISSION]:
-- A `torch` computation enters Compute only wrapped in `using var scope = torch.NewDisposeScope();`, returning one promoted result through `Fin`; estimator math runs in `Float64` for IRLS/MLE stability.
+- Every `torch` computation enters Compute only wrapped in `using var scope = torch.NewDisposeScope();`, returning one promoted result through `Fin`; estimator math runs in `Float64` for IRLS/MLE stability.
 
 [RAIL_LAW]:
 - Package: `TorchSharp` (assembly `TorchSharp`; native floor `libtorch-cpu`)

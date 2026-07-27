@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[SHEET_DEVELOPMENT]: Generated admission, parameterized bend physics, panel and surface development, neutral-axis placement, sheet-feature evidence, relief topology, and result projection.
+- [02]-[SHEET_DEVELOPMENT]: Generated admission, parameterized bend physics, panel and surface development, neutral-axis placement, sheet-feature evidence, relief topology, and result projection.
 
 ## [02]-[SHEET_DEVELOPMENT]
 

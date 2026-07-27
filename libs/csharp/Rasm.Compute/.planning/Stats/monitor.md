@@ -6,7 +6,7 @@ Rasm.Compute stats monitor scores operational streams online: `StreamMonitor` is
 
 ## [01]-[INDEX]
 
-- [01]-[MONITOR_LANE]: stateful monitor capsules — EWMA control limits, P² quantile sketch, composed estimator detector; receipt-channel extraction rows; the drift verdict and the twin detector projection.
+- [02]-[MONITOR_LANE]: stateful monitor capsules — EWMA control limits, P² quantile sketch, composed estimator detector; receipt-channel extraction rows; the drift verdict and the twin detector projection.
 
 ## [02]-[MONITOR_LANE]
 

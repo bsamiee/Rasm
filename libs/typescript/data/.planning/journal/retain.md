@@ -2,7 +2,7 @@
 
 Lawful data aging without rewriting: the log is append-only forever, so this page owns the three ways data ages — retention-class windows (one policy table driving ledger expiry, outbox grooming, fact grooming, and partition drop behind the causal frontier), crypto-shredding (subject-bearing payload fields sealed under a per-subject data key whose wrapped form is the ONLY thing this folder stores; erasure is destroying the `WrappedKey`, after which unwrap fails, open becomes impossible, and every sealed read folds to a redaction marker, totally), and the per-subject DSAR export fold (one portability read over journal events and object references riding the same subject spine erasure uses). The stability frontier arrives from the core causality owner as a value; partitions at or below a snapshotted frontier drop through the `partition` grant — compaction is a capability, never a default.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                                          |
 | :-----: | :--------------- | :------------------------------------------------------------------------------ |

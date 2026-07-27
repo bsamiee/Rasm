@@ -8,8 +8,8 @@ The seam never re-opens the IFC-schema strata: the `IfcClass` roster and the `Pr
 
 ## [01]-[INDEX]
 
-- [01]-[CLASSIFICATION_AXIS]: the `Classification` `[ComplexValueObject]` (the `(System, Code, Edition)` identity under split comparer policy, the equality-excluded `Source`/`EditionDate`/`Title` annotation bundle), the railed `Of` admission, the relation-typed `ClassificationCrosswalk` data row, and the `AllClassifications`/`ClassificationsIn`/`ClassificationIn`/`TranslateTo`/`Parents`/`Ancestors`/`Within` reads over projector-supplied mappings.
-- [02]-[DISCIPLINE_AXIS]: the `Discipline` `[SmartEnum<string>]` sixteen-row analysis vocabulary keyed on a wire token with its `Title`/`Physical` columns and the railed `Parse` admission — the one axis the typed property, the assessment, and the analysis route share.
+- [02]-[CLASSIFICATION_AXIS]: the `Classification` `[ComplexValueObject]` (the `(System, Code, Edition)` identity under split comparer policy, the equality-excluded `Source`/`EditionDate`/`Title` annotation bundle), the railed `Of` admission, the relation-typed `ClassificationCrosswalk` data row, and the `AllClassifications`/`ClassificationsIn`/`ClassificationIn`/`TranslateTo`/`Parents`/`Ancestors`/`Within` reads over projector-supplied mappings.
+- [03]-[DISCIPLINE_AXIS]: the `Discipline` `[SmartEnum<string>]` sixteen-row analysis vocabulary keyed on a wire token with its `Title`/`Physical` columns and the railed `Parse` admission — the one axis the typed property, the assessment, and the analysis route share.
 
 ## [02]-[CLASSIFICATION_AXIS]
 

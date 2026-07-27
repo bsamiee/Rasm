@@ -2,7 +2,7 @@
 
 `Source` owns the bootstrap-axis source-control shell and static-distribution fold. Repository law, deployment environments aligned with `StackSpec.doppler.config`, public deploy keys, webhook configuration, and non-secret Actions variables share one tier. `Source.distribute` converges a built frontend into an arm's object cell and publishes caller-supplied artifact rows as content-addressed `served` outputs. `secretssync.GithubActions` alone fills secret values from the canonical config. Module `iac/src/program/source.ts` grows by one environment row, `_FOLDERS` dialect row, artifact row, or variable entry.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                               | [PUBLIC] |
 | :-----: | :--------------- | :------------------------------------------------------------------- | :------- |

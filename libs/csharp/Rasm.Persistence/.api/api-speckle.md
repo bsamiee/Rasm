@@ -174,7 +174,7 @@ Every overload is `IServiceCollection AddSpeckleSdk(this IServiceCollection, …
 - `Send`/`Receive` lift `ArgumentException`/`ArgumentNullException` on a null graph, missing `objectId`, or empty transport set, `OperationCanceledException` on the token, and `HttpRequestException` at the HTTP layer.
 
 [STACKING]:
-- `api-thinktecture-serialization`/`api-messagepack`: parallel codec rails, never composed inline. Speckle owns its own `Base`-graph serialiser (`SpeckleObjectSerializer`, the V2 pipeline, content hashing) and never routes through the snapshot codecs; a Rasm owner marshals to a Speckle `Base`/`DataObject` (or `displayValue` geometry) at the `Version/ledger#SYNC_TRANSPORTS` `SpeckleSend` seam, then Speckle's serialiser hashes and stores it — no double-encoding.
+- `api-thinktecture-json`/`api-thinktecture-messagepack`(`libs/csharp/.api/`) and `api-messagepack`(`.api/api-messagepack.md`): parallel codec rails, never composed inline. Speckle owns its own `Base`-graph serialiser (`SpeckleObjectSerializer`, the V2 pipeline, content hashing) and never routes through the snapshot codecs; a Rasm owner marshals to a Speckle `Base`/`DataObject` (or `displayValue` geometry) at the `Version/ledger#SYNC_TRANSPORTS` `SpeckleSend` seam, then Speckle's serialiser hashes and stores it — no double-encoding.
 - within-lib: the rail composes `Send` over a `ServerTransport` + `SQLiteTransport` pair for remote-plus-local-cache, or `Send2` for the URL pipeline; `SyncPump.Offer` maps the resulting `rootObjId` to the existing `UInt128 ContentKey`.
 
 [LOCAL_ADMISSION]:

@@ -167,7 +167,7 @@ Beyond the `ColourSpace` roster above, scalar and metadata accessors project der
 [LOCAL_ADMISSION]:
 - `GamutMap` is accepted only by `MapToRgbGamut`; `MapToPointerGamut` and `MapToMacAdamLimits` take no argument, and the four gamut predicates gate mapping.
 - Reflectance mixing enters through `Unicolour(Pigment[], double[])` under a `Spd` illuminant, distinct from the raw `Unicolour(Spd)` spectral ctor.
-- A colour value carries an explicit `Configuration` wherever the working space affects meaning.
+- Colour values carry an explicit `Configuration` wherever the working space affects meaning.
 
 [RAIL_LAW]:
 - Package: `Wacton.Unicolour`

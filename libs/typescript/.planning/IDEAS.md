@@ -1,6 +1,6 @@
 # [TYPESCRIPT_BRANCH_IDEAS]
 
-Branch-level cross-package concert — higher-order ideas coupling two or more TS folders, distilled from the folder registers, never folder-local concepts. A cross-language idea lives in `libs/.planning/IDEAS.md`; `[1]-[OPEN]` holds the live concert and `[2]-[CLOSED]` records a finished or dropped idea with a one-line disposition so it is never re-litigated.
+Branch-level cross-package concert — higher-order ideas coupling two or more TS folders, distilled from the folder registers, never folder-local concepts. Cross-language ideas live in `libs/.planning/IDEAS.md`; `[1]-[OPEN]` holds the live concert and `[2]-[CLOSED]` records a finished or dropped idea with a one-line disposition so it is never re-litigated.
 
 OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with.
 

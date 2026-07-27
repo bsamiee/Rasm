@@ -4,8 +4,8 @@ Rasm.Persistence answers authoritative topology synchronously from one kind-filt
 
 ## [01]-[INDEX]
 
-- [01]-[GRAPH_TOPOLOGY]: the neutral `EdgeFilter` kind vocabulary, the `TypedEdge` relationship-carrying QuikGraph edge, the kind-filtered view built off the seam-frozen edge set and incidence index, and the content-keyed memoized snapshot view boundary.
-- [02]-[TRAVERSAL]: the `TopologyQuery` request family, the `TopologyResult` typed receipt, the `TopologyFault` band, and the `Traversals` static surface composing the `AlgorithmExtensions` facade — containment ancestry/descent, connection adjacency, void resolution, nearest-common-container, shortest path, components, islands, topological order, anchors, and cycle detection — every result an `ElementSet`.
+- [02]-[GRAPH_TOPOLOGY]: the neutral `EdgeFilter` kind vocabulary, the `TypedEdge` relationship-carrying QuikGraph edge, the kind-filtered view built off the seam-frozen edge set and incidence index, and the content-keyed memoized snapshot view boundary.
+- [03]-[TRAVERSAL]: the `TopologyQuery` request family, the `TopologyResult` typed receipt, the `TopologyFault` band, and the `Traversals` static surface composing the `AlgorithmExtensions` facade — containment ancestry/descent, connection adjacency, void resolution, nearest-common-container, shortest path, components, islands, topological order, anchors, and cycle detection — every result an `ElementSet`.
 
 ## [02]-[GRAPH_TOPOLOGY]
 

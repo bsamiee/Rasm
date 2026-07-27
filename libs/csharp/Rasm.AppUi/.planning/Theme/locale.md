@@ -4,10 +4,10 @@ One locale law serves every AppUi surface: `LocaleRow` is the culture axis — t
 
 ## [01]-[INDEX]
 
-- [01]-[LOCALE_AXIS]: Culture rows: tag, source, typed flow, shaping, and format columns; message-level plural routes.
-- [02]-[STRING_TABLES]: Inbox resx vocabulary, nameof-derived keys, `PropertyGrid` bridge.
-- [03]-[CULTURE_COMPOSITION]: Resolve fold, atomic switch, pattern and format binding.
-- [04]-[RTL_MIRRORING]: Flow application at surface root, icon mirroring exemption.
+- [02]-[LOCALE_AXIS]: Culture rows: tag, source, typed flow, shaping, and format columns; message-level plural routes.
+- [03]-[STRING_TABLES]: Inbox resx vocabulary, nameof-derived keys, `PropertyGrid` bridge.
+- [04]-[CULTURE_COMPOSITION]: Resolve fold, atomic switch, pattern and format binding.
+- [05]-[RTL_MIRRORING]: Flow application at surface root, icon mirroring exemption.
 
 ## [02]-[LOCALE_AXIS]
 

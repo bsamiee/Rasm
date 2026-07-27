@@ -8,7 +8,7 @@ Semantic layer structure enters every layered writer through one `LayerPlan`. `L
 
 ## [01]-[INDEX]
 
-- [01]-[LAYER]: Closed `LayerNode` and `LayerContent` families, shared `LayerMeta`/`LayerState`, semantic `LayerPath` comp selection, complete AIA/ISO 13567/NCS/editorial naming policy, and the stack-safe parameterized `walked` projection plus fault-preserving `flattened` lowering form one layer owner.
+- [02]-[LAYER]: Closed `LayerNode` and `LayerContent` families, shared `LayerMeta`/`LayerState`, semantic `LayerPath` comp selection, complete AIA/ISO 13567/NCS/editorial naming policy, and the stack-safe parameterized `walked` projection plus fault-preserving `flattened` lowering form one layer owner.
 
 ## [02]-[LAYER]
 

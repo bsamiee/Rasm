@@ -58,7 +58,6 @@ Host assemblies admitted by this folder bind as `Directory.Build.props` host ref
 - `GrasshopperIO` — `IReader`/`IWriter` host-document persistence.
 - `RhinoCommon` — Rhino document and geometry carriers with the getter and dialog handoff.
 - `Rhino.UI` — Rhino styling and the native UI bridge.
-- `System.Drawing.Common` — compile-time GDI carrier interop at the GH1 icon boundary.
 
 [UI_TOOLKIT]:
 - `Eto` — carries the cross-platform UI toolkit: forms, drawing, binding, dispatch, controls, windows, and input.
@@ -81,3 +80,6 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 
 [OBSERVABILITY]:
 - `Microsoft.Extensions.Logging.Abstractions` — app-neutral logger admission for the `GhTelemetry` capsule; the metric surface ships BCL in-box.
+
+[DEPENDENCY_FLOORS]:
+- `System.Drawing.Common` — compile-time GDI carrier interop at the GH1 icon boundary.

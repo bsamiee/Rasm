@@ -6,7 +6,7 @@ Operands admit through `numerics/array#PAYLOAD` for the finite gate and the oper
 
 ## [01]-[INDEX]
 
-- [01]-[TRANSFORM]: the `TransformOp` Fourier/trigonometric/Hankel/analytic rows folded through one `apply` entry, evidence discriminated over `TransformEvidence`, the dominant-band read folding the `SpectralReadout` axis.
+- [02]-[TRANSFORM]: the `TransformOp` Fourier/trigonometric/Hankel/analytic rows folded through one `apply` entry, evidence discriminated over `TransformEvidence`, the dominant-band read folding the `SpectralReadout` axis.
 
 ## [02]-[TRANSFORM]
 

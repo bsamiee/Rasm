@@ -4,8 +4,8 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `RhinoCommon`
-- package: `RhinoCommon` (Rhino host runtime, in-process)
+[PACKAGE_SURFACE]: RhinoCommon drafting-resource surface
+- host: Rhino host runtime, in-process (proprietary McNeel SDK)
 - assembly: `RhinoCommon`
 - namespace: `Rhino.Geometry`, `Rhino.DocObjects`, `Rhino.DocObjects.Tables`
 - rail: drafting-resource boundary

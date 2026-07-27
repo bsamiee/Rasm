@@ -6,7 +6,7 @@ It composes the container decode/fault surface, audio `_decode_audio`, filter ca
 
 ## [01]-[INDEX]
 
-- [01]-[ANALYSIS]: the `Analysis` owner over the closed `AnalysisOp` family — image, loudness, span, scene, thumbnail, and generated `AudioMetric` operations — each capability-routed native-or-substitute and folding into one `AnalysisEvidence` carrier.
+- [02]-[ANALYSIS]: the `Analysis` owner over the closed `AnalysisOp` family — image, loudness, span, scene, thumbnail, and generated `AudioMetric` operations — each capability-routed native-or-substitute and folding into one `AnalysisEvidence` carrier.
 
 ## [02]-[ANALYSIS]
 

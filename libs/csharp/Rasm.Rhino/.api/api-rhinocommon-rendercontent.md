@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: RhinoCommon RDK content surface
-- host: `RhinoCommon` (Rhino host runtime, in-process)
+- host: Rhino host runtime, in-process (proprietary McNeel SDK)
 - assembly: `RhinoCommon`
 - namespaces: `Rhino.Render`, `Rhino.Render.Fields`
 - kernel: `Rasm` (host-agnostic color, vector, and unit owners composed, never re-derived)

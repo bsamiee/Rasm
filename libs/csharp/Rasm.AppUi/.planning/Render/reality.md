@@ -4,11 +4,11 @@ The reality-capture rail projects scanned existing-conditions geometry into the 
 
 ## [01]-[INDEX]
 
-- [01]-[SPLAT_SOURCE]: SOG/PLY ellipsoid set off the Compute splat payload; radix-sort residency.
-- [02]-[POINT_SOURCE]: LAZ-decoded point set off the Compute point payload; octree residency.
-- [03]-[CAPTURE_PASS]: Splat and point `RenderPass` cases over the active render-graph target.
-- [04]-[MEASURE_OVERLAY]: LiDAR-anchored measurable annotation bound to the `Viewpoint`.
-- [05]-[CAPTURE_CLIP]: Time-based capture-frame playback on the animation playhead.
+- [02]-[SPLAT_SOURCE]: SOG/PLY ellipsoid set off the Compute splat payload; radix-sort residency.
+- [03]-[POINT_SOURCE]: LAZ-decoded point set off the Compute point payload; octree residency.
+- [04]-[CAPTURE_PASS]: Splat and point `RenderPass` cases over the active render-graph target.
+- [05]-[MEASURE_OVERLAY]: LiDAR-anchored measurable annotation bound to the `Viewpoint`.
+- [06]-[CAPTURE_CLIP]: Time-based capture-frame playback on the animation playhead.
 
 ## [02]-[SPLAT_SOURCE]
 

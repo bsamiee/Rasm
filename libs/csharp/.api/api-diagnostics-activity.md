@@ -97,6 +97,7 @@ Every `tags` parameter resolves to `IEnumerable<KeyValuePair<string, object?>>?`
 - One `ActivitySource` per instrumentation scope owns every span that scope emits, minted at composition and disposed with it.
 - `StartActivity` yields `null` under listener absence, so a `using`-scoped bracket costs one null test on the unobserved path and a span body never guards emission.
 - `HasListeners()` gates the whole payload build ahead of the open; `IsAllDataRequested` gates per-span tag cost once a listener admits the span.
+- `SetTag` is set-or-replace, so two producers sharing one open span collapse onto a last-wins row under a shared key; per-item evidence rides `AddEvent` or its own instrument, and each stamped key carries exactly one semantic.
 - Failed typed rails stamp `ActivityStatusCode.Error` with the error message and record the exception through `AddException` over a stack-allocated `TagList`; the typed verdict stays domain truth, never a tag.
 - Parent context, causal links, and a backdated start ride the parent-bearing `StartActivity` overload; the name-and-kind form parents on `Activity.Current`.
 - `Activity.Current` is the Activity-visible baggage store — a BCL-only reader reaches only this chain, never the OTel SDK `Baggage.Current` store; app-tier propagation promotes allowed keys through `AddBaggage` or the extraction path before library instruments read them.
@@ -107,11 +108,11 @@ Every `tags` parameter resolves to `IEnumerable<KeyValuePair<string, object?>>?`
 - `System.Diagnostics.Metrics`(`.api/api-diagnostics-metrics.md`): one scope name and version spells both this `ActivitySource` mint and the `Meter` mint, so span and instrument admit together at the composition root.
 - `OpenTelemetry`(`.api/api-opentelemetry.md`): `TracerProviderBuilder.AddSource(params string[])` admits these source names and seats the sampler and processor chain an emitting library never references.
 - `SpanBand`: freezes one `ActivitySource` per `KernelDomain` trace scope, and `Traced` folds `HasListeners`, the `using` open, and `MapFail`-driven `SetStatus` into one `Fin` bracket every measured kernel entry composes.
-- `Rasm.Element`: `GraphInstrument.Traced` composes the general bracket — `StartActivity(name, ActivityKind.Internal)` over a rail-valued fold, `SetStatus(ActivityStatusCode.Error, error.Message)` on the fail side.
-- `Rasm.Bim`: `BimTelemetry.Attributed` reads `rasm.tenant`/`rasm.model` off `GetBaggageItem` once per fact; an absent key omits its tag, so no empty-string series mints and no domain signature grows a tenant slot.
+- `Rasm.Element`: `ElementPoint.Plane` derives one `TraceScope` per point off the hook id's own `rasm.<pkg>.<domain>` head and `ElementHookRail.Spanned` brackets every decoration in the band, so the package owns no source; `ElementFact.Marks` stamps identifier-grade content keys through `SetTag` on the open span, one slot per semantic because set-or-replace collapses two facts sharing a span.
+- `Rasm.Bim`: `BimPoint.Plane` derives the same way and `BimTelemetry.Traced` stamps caller-supplied identifier-grade marks — `rasm.bim.model` chief among them — post-start, so no mark reaches the sampling verdict and a mark-less call stamps nothing; metric-plane tenancy rides the kernel `TenantContext` projection and span-plane tenancy the app root's baggage promotion, so no emitting page reads a baggage store.
 
 [LOCAL_ADMISSION]:
-- Span opens live inside a package's declared telemetry-spine fence; an emitting page declares its trace scopes and the spine owns every `StartActivity` call.
+- Span opens live inside a package's declared telemetry-spine fence; a library-tier page declares its `TraceScope` rows and the kernel `SpanBand` owns every `StartActivity` call, so only a composition root mints an `ActivitySource`.
 
 [RAIL_LAW]:
 - Package: `System.Diagnostics.DiagnosticSource`

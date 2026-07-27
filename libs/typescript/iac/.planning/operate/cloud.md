@@ -2,7 +2,7 @@
 
 `CloudPlane` materializes only when `StackSpec.backend` is `cloud`. Its deployment settings, schedules, drift webhook, team RBAC, stack token, and ESC `Environment` are hosted twins of local owners under one-clock law. `Environments` wraps `EscApi` once on the Effect rail for open, read, check-gated write, and revision-tag pin operations. Doppler stays canonical; ESC composes dynamic-provider projections and short-lived OIDC credentials for cloud arms. Growth is one resource row, revision-tag pin, or webhook row.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]           | [OWNS]                                                             | [PUBLIC]       |
 | :-----: | :------------------ | :----------------------------------------------------------------- | :------------- |

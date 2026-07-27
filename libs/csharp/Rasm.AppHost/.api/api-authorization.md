@@ -113,7 +113,7 @@
 
 [LOCAL_ADMISSION]:
 - AppHost binds the evaluation core through `AddAuthorizationCore`; the HTTP-coupled `AddAuthorization` and middleware surface stay out of the host.
-- A custom requirement implements `IAuthorizationRequirement` and pairs with an `AuthorizationHandler<TRequirement>` (or the resource-typed arity) registered as `IAuthorizationHandler`.
+- Custom requirements implement `IAuthorizationRequirement` and pair with an `AuthorizationHandler<TRequirement>` (or the resource-typed arity) registered as `IAuthorizationHandler`.
 - Decisions read `AuthorizationResult.Succeeded` and project `AuthorizationFailure.FailureReasons`; the typed result flows through handler callbacks that never throw.
 - AppHost's resource-bound rail binds explicit `AuthorizationPolicy` values and `OperationAuthorizationRequirement` ahead of string policy names, which register through `AuthorizationOptions`/`AuthorizationBuilder`.
 

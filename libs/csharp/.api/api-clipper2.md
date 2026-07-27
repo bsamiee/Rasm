@@ -84,7 +84,7 @@
 |  [13]   | `Clipper.BooleanOp(ClipType, Paths64, Paths64, PolyTree64, FillRule)`   | static  | int64 overlay into a tree   |
 |  [14]   | `Clipper.BooleanOp(ClipType, PathsD, PathsD, PolyTreeD, FillRule, int)` | static  | double overlay into a tree  |
 
-- `Clipper.BooleanOp`: a null subject yields an empty result and leaves a supplied tree untouched; a null clip runs the arm against the subject alone.
+- `Clipper.BooleanOp`: yields an empty result on a null subject and leaves a supplied tree untouched; a null clip runs the arm against the subject alone.
 
 [ENTRYPOINT_SCOPE]: offset, window, morphology, construction — `Clipper` and `Minkowski`
 
@@ -320,9 +320,9 @@
 - Within-library: one `ClipperD` engine folds Boolean, rectangle window, containment, and `PolyTreeD` topology at one bound precision; one `ClipperOffset` engine folds both the constant-delta and the `DeltaCallback64` arities so `MergeGroups`, `PreserveCollinear`, and `ReverseSolution` bind identically on either; `ReuseableDataContainer64` precomputes a recurring part set once and every per-position `Clipper64.Execute` folds over it; `Rect64.Intersects` and `Rect64.Contains` reject a non-overlapping pair before any overlay runs.
 
 [LOCAL_ADMISSION]:
-- A one-shot operation folds through the `Clipper` facade; subject or clip state reused across more than one `Execute` selects `Clipper64` or `ClipperD`, and a subject set recurring across a placement scan selects `ReuseableDataContainer64` beside it.
+- One-shot operations fold through the `Clipper` facade; subject or clip state reused across more than one `Execute` selects `Clipper64` or `ClipperD`, and a subject set recurring across a placement scan selects `ReuseableDataContainer64` beside it.
 - Double-coordinate work names its precision once — at the `ClipperD` constructor or the static's `precision` argument — and that one value governs every scale-in on the path.
-- A hole-aware or nesting result takes the `PolyTree64` or `PolyTreeD` `Execute` arm and reads `Area()`, `IsHole`, and `Level` off the tree; `Clipper.PolyTreeToPaths64` and `Clipper.PolyTreeToPathsD` flatten only where nesting decides nothing downstream.
+- Hole-aware and nesting results take the `PolyTree64` or `PolyTreeD` `Execute` arm and read `Area()`, `IsHole`, and `Level` off the tree; `Clipper.PolyTreeToPaths64` and `Clipper.PolyTreeToPathsD` flatten only where nesting decides nothing downstream.
 - Double morphology enters through `Minkowski.Sum` and `Minkowski.Diff` carrying the owner's `decimalPlaces`, since the `Clipper.MinkowskiSum` and `Clipper.MinkowskiDiff` double pair pins precision at `2`.
 - `DeltaCallback64` receives the source path, its per-vertex normals, and the current and previous vertex indices, and returns that vertex's signed delta.
 

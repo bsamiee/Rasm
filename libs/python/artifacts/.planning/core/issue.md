@@ -6,7 +6,7 @@ Construction for every modality lives here alone, so no producer schedules a sib
 
 ## [01]-[INDEX]
 
-- [01]-[ISSUE]: the polymorphic construction root — `IssueRequest` in, `RuntimeRail[Block[ArtifactReceipt]]` out, over the closed deliverable-modality union with its two-tier mints, the `severed` gate, the front-drain fold, the issue-scope attribution bracket, and the production-fact fire seams.
+- [02]-[ISSUE]: the polymorphic construction root — `IssueRequest` in, `RuntimeRail[Block[ArtifactReceipt]]` out, over the closed deliverable-modality union with its two-tier mints, the `severed` gate, the front-drain fold, the issue-scope attribution bracket, and the production-fact fire seams.
 
 ## [02]-[ISSUE]
 

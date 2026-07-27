@@ -4,9 +4,9 @@ The transactional-outbox and dead-letter owner for the runtime spine: a `DomainE
 
 ## [01]-[INDEX]
 
-- [01]-[OUTBOX_FABRIC]: The transactional `OutboxRow`, the dispatch status, and the dead-letter lane.
-- [02]-[DISPATCH_SWEEP]: The one `SchedulePort` sweep relaying pending rows over the watermark.
-- [03]-[TS_PROJECTION]: Outbox-row and dead-letter wire shapes the dashboard consumes.
+- [02]-[OUTBOX_FABRIC]: The transactional `OutboxRow`, the dispatch status, and the dead-letter lane.
+- [03]-[DISPATCH_SWEEP]: The one `SchedulePort` sweep relaying pending rows over the watermark.
+- [04]-[TS_PROJECTION]: Outbox-row and dead-letter wire shapes the dashboard consumes.
 
 ## [02]-[OUTBOX_FABRIC]
 
@@ -192,7 +192,7 @@ sequenceDiagram
 - Growth: one wire-member row per new outbox or dead-letter field; the dispatch status crosses as its smart-enum key; zero new surface.
 - Boundary: the dispatch status crosses as its smart-enum string key; the HLC stamp crosses through the existing `HlcStampWire` so outbox ordering reads the same causal primitive the receipt envelope carries; instants cross as extended-ISO text; the dead-letter row carries the last fault and attempt count so the dashboard surfaces poison evidence without promising an absent replay command.
 
-```ts contract
+```ts signature
 type DispatchStatusKey = "pending" | "dispatched" | "dead-lettered";
 
 interface OutboxRowWire {

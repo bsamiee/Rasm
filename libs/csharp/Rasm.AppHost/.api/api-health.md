@@ -52,15 +52,18 @@
 
 [ENTRYPOINT_SCOPE]: evaluation and result operations
 
-| [INDEX] | [SURFACE]                       | [SHAPE]  | [CAPABILITY]                        |
-| :-----: | :------------------------------ | :------- | :---------------------------------- |
-|  [01]   | `CheckHealthAsync()`            | instance | full evaluation                     |
-|  [02]   | `CheckHealthAsync(predicate)`   | instance | evaluation filtered by registration |
-|  [03]   | `IHealthCheck.CheckHealthAsync` | instance | one contributor probe               |
-|  [04]   | `PublishAsync`                  | instance | publisher callback on cadence       |
-|  [05]   | `HealthCheckResult.Healthy`     | factory  | healthy result                      |
-|  [06]   | `HealthCheckResult.Degraded`    | factory  | degraded result                     |
-|  [07]   | `HealthCheckResult.Unhealthy`   | factory  | unhealthy result                    |
+| [INDEX] | [SURFACE]                                                                             | [SHAPE]  | [CAPABILITY]                        |
+| :-----: | :------------------------------------------------------------------------------------ | :------- | :---------------------------------- |
+|  [01]   | `CheckHealthAsync(CancellationToken = default)`                                       | instance | full evaluation                     |
+|  [02]   | `CheckHealthAsync(Func<HealthCheckRegistration, bool>?, CancellationToken = default)` | abstract | evaluation filtered by registration |
+|  [03]   | `IHealthCheck.CheckHealthAsync`                                                       | instance | one contributor probe               |
+|  [04]   | `PublishAsync`                                                                        | instance | publisher callback on cadence       |
+|  [05]   | `HealthCheckResult.Healthy`                                                           | factory  | healthy result                      |
+|  [06]   | `HealthCheckResult.Degraded`                                                          | factory  | degraded result                     |
+|  [07]   | `HealthCheckResult.Unhealthy`                                                         | factory  | unhealthy result                    |
+
+- Row [02] is the one abstract member; row [01] is a concrete forward passing a null predicate, so a filtered evaluation and a full one share one drain token path and a keyed liveness or readiness projection carries its cancellation whole.
+- `CheckHealthAsync(tagFilter, token)` takes a nullable predicate and an optional token, so the call site needs no overload-selection ceremony.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

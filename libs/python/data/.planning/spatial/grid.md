@@ -6,7 +6,7 @@ The two-H3-substrate boundary is law: in-frame vectorized cell algebra lives her
 
 ## [01]-[INDEX]
 
-- [01]-[GRID]: the `GridSystem` DGG owner — the `GridOp` cell-algebra axis, the `CellKind` collapse, the `raster` bridge, the `GeoLift`/`GeoFrameOp` frame-geometry vocabulary, the `engine_bin` in-DB composition.
+- [02]-[GRID]: the `GridSystem` DGG owner — the `GridOp` cell-algebra axis, the `CellKind` collapse, the `raster` bridge, the `GeoLift`/`GeoFrameOp` frame-geometry vocabulary, the `engine_bin` in-DB composition.
 
 ## [02]-[GRID]
 

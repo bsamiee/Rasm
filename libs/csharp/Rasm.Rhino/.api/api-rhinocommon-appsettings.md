@@ -4,8 +4,8 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `RhinoCommon`
-- package: `RhinoCommon` (proprietary McNeel host SDK)
+[PACKAGE_SURFACE]: RhinoCommon application-settings surface
+- host: Rhino host runtime, in-process (proprietary McNeel SDK)
 - assembly: `RhinoCommon.dll` — in-process managed host runtime, host-resolved
 - namespace: `Rhino.ApplicationSettings`; `Rhino` (`PersistentSettings` custody, cross-referenced)
 - rail: host

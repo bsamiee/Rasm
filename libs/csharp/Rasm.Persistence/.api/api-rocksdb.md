@@ -147,7 +147,7 @@
 - Consistency rides `Snapshot` (cheap in-memory read view), `Checkpoint` (durable hard-linked clone, the backup form), and `GetUpdatesSince`→`TransactionLogIterator` (the WAL changefeed).
 
 [STACKING]:
-- snapshot codec: a `[ValueObject]`/`[SmartEnum]` owner projects to its physical key through `api-thinktecture-serialization`; the bytes write via span `Put`/`Merge` and decode via `Get<T>(ISpanDeserializer<T>)`, the deserializer the seam where `api-messagepack`/`api-cbor` decode the value span with no managed copy.
+- snapshot codec: a `[ValueObject]`/`[SmartEnum]` owner projects to its physical key through its generated `IConvertible<TKey>` (`libs/csharp/.api/api-thinktecture-runtime-extensions.md`); the bytes write via span `Put`/`Merge` and decode via `Get<T>(ISpanDeserializer<T>)`, the deserializer the seam where `api-messagepack`/`api-cbor` decode the value span with no managed copy.
 - compression: `Compression.Zstd`/`Lz4` are the native block codecs applied per level via `SetCompressionPerLevel`/`SetMinLevelToCompress`; the standalone `ZstdSharp.Port`/`K4os.Compression.LZ4` codecs stay orthogonal (snapshot/blob), so an engine value is block-compressed once.
 - merge-operator CRDT: a counter/register/set installs a custom `MergeOperator` via `MergeOperators.Create` whose `FullMergeFunc`/`PartialMergeFunc` fold operands over a `ReadOnlySpan<byte>` — native resolution at compaction, the canonical form for high-write-rate counters over a read-modify-write loop.
 - WAL→egress: `GetUpdatesSince` taps the WAL as a sequence-numbered changefeed; each batch frames through `api-redaction` and publishes to the `api-kafka`/`api-rabbitmq` egress, keyed by the WAL sequence number over the same lane as the relational tier.
@@ -156,7 +156,7 @@
 
 [LOCAL_ADMISSION]:
 - RocksDB enters behind the shared `Store/provisioning` store-backend vocabulary as the embedded write-optimized log/KV class; SQLite (`api-sqlite`) stays the relational floor and LMDB (`LightningDB`) the read-optimized MVCC lane — three distinct backend rows, never collapsed.
-- a `[ValueObject]`/`[SmartEnum]` owner crosses into a cell through the span `Put`/`Get<T>(ISpanDeserializer<T>)` codec seam — no per-cell boxing, no hand-rolled byte framing.
+- `[ValueObject]`/`[SmartEnum]` owners cross into a cell through the span `Put`/`Get<T>(ISpanDeserializer<T>)` codec seam — no per-cell boxing, no hand-rolled byte framing.
 - multi-entity layouts use column families (one family per logical stream/index) opened together via `ColumnFamilies`; the family handle is the operation target, never a key-prefix hack.
 - atomic multi-key transitions use `WriteBatch` (or `WriteBatchWithIndex` for read-your-writes) under one `Write`, never a sequence of single `Put`s on the durable path.
 - `GetUpdatesSince`/`TransactionLogIterator` is the admitted CDC tap; durable cross-process replication stays on the PostgreSQL tier and the messaging-protocol egress.

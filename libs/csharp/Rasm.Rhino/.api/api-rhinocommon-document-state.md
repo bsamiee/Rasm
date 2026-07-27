@@ -5,7 +5,7 @@ This catalog owns the document-scoped saved-state presets — named construction
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: RhinoCommon document-state surface
-- host: `RhinoCommon` (Rhino host runtime, in-process)
+- host: Rhino host runtime, in-process (proprietary McNeel SDK)
 - assembly: `RhinoCommon`
 - namespaces: `Rhino.DocObjects`, `Rhino.DocObjects.Tables`, `Rhino.DocObjects.SnapShots`
 - kernel: `Rasm` (host-agnostic vocabularies and numeric owners composed, never re-derived)

@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[MATH]: the ziamath layout owner over the closed `FormulaSpec` source union — `mathml`/`latex`/`mixed` folded by one `_laid` kernel, composed inline through `laid()`, offloaded through `render()`, and lowered to the standalone `Document` node by `emit()`, with the uharfbuzz `MathConstants` MATH-tier value consumers seat equations against.
+- [02]-[MATH]: the ziamath layout owner over the closed `FormulaSpec` source union — `mathml`/`latex`/`mixed` folded by one `_laid` kernel, composed inline through `laid()`, offloaded through `render()`, and lowered to the standalone `Document` node by `emit()`, with the uharfbuzz `MathConstants` MATH-tier value consumers seat equations against.
 
 ## [02]-[MATH]
 

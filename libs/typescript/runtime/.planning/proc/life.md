@@ -2,7 +2,7 @@
 
 Lifecycle and health are one owner because they are one skeleton: register ranked rows at Layer construction, run each row under its own budget on a severed fiber, convert every outcome to evidence, fold the evidence into a graded receipt. `Life` holds the closed phase spine — `booting → running → draining → halted` — in one `SubscriptionRef` every lifecycle question projects from, the ranked drain registry whose fold runs on interrupt before the graph's finalizers release resources, and the probe registry whose kind rows — `started`, `ready`, `live`, each carrying its canonical k8s route — feed a memoized concurrent report fold. The budgeted row executor is spelled exactly once: drain rows and probe rows are two registries over one `_bounded` fold, their verdicts two graders of one `Exit`-of-`Option` evidence shape. Readiness composes the phase — outside `running` the ready report fails by fold, so the drain flip stops traffic instantly — while liveness ignores it so an orderly drain is never mistaken for a hang. The drain total budget is the number `iac` mirrors into `terminationGracePeriod`; a `process.on("SIGTERM")` listener, an exit-hook library, and teardown-as-ordinary-step are unspellable because the runtime row's `runMain` already owns the signal edge. The module is `runtime/src/proc/life.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]      | [OWNS]                                                                    | [PUBLIC] |
 | :-----: | :------------- | :------------------------------------------------------------------------ | :------- |

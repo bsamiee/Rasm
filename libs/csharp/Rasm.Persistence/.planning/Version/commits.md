@@ -4,9 +4,9 @@
 
 ## [01]-[INDEX]
 
-- [01]-[COMMIT_DAG]: content-addressed commit-DAG with commit messages, named branches, annotated tags, maximal-antichain merge-base, and version vectors.
-- [02]-[CRDT_ALGEBRA]: RGA, OR-set, MV-register, PN-counter, LWW, and ephemeral-presence convergent CRDT.
-- [03]-[CRDT_WIRE]: HLC stamp, `CrdtOp` codec, `CrdtOpWire` op-log payload amendment, and the cross-runtime parity corpus.
+- [02]-[COMMIT_DAG]: content-addressed commit-DAG with commit messages, named branches, annotated tags, maximal-antichain merge-base, and version vectors.
+- [03]-[CRDT_ALGEBRA]: RGA, OR-set, MV-register, PN-counter, LWW, and ephemeral-presence convergent CRDT.
+- [04]-[CRDT_WIRE]: HLC stamp, `CrdtOp` codec, `CrdtOpWire` op-log payload amendment, and the cross-runtime parity corpus.
 
 ## [02]-[COMMIT_DAG]
 

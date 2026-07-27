@@ -230,11 +230,11 @@ Every graph interface named in a signature is `<TVertex, TEdge>`-parameterized a
 [TOPOLOGY]:
 - `AddVerticesAndEdge` admits both endpoints where `AddEdge` requires them present, and `AddVertexRange` preserves the isolated vertices a later fold reads.
 - Direction is a container choice: `IVertexListGraph` serves outgoing traversal, `IBidirectionalGraph` predecessor access, `IUndirectedGraph` symmetric adjacency, and `GraphExtensions` converts between them.
-- A `TryFunc` accessor signals an unreachable target as a `false` return, never a fault.
+- `TryFunc` accessors signal an unreachable target as a `false` return, never a fault.
 - Every algorithm object folds through `AlgorithmBase<TGraph>`: `Compute()` runs it, `State` and the `Started`/`Finished`/`Aborted` events report it, and `Services` carries the `ICancelManager` an `Abort()` trips.
-- An observer scopes to the `IDisposable` its `Attach(...)` returns, so a recorder composes onto one traversal instead of subclassing it.
+- Observers scope to the `IDisposable` their `Attach(...)` returns, so a recorder composes onto one traversal instead of subclassing it.
 - `IDistanceRelaxer` decides accumulation, and `DistanceRelaxers` carries one static relaxer per rule: `ShortestDistance` sums, `CriticalDistance` takes the longest path, `EdgeShortestDistance` relaxes per edge, `Prim` keeps the single edge weight.
-- A materialized graph keys on domain content; a memoized algorithm result also keys on every weight, capacity, root, partition, and factory input.
+- Materialized graphs key on domain content; a memoized algorithm result also keys on every weight, capacity, root, partition, and factory input.
 
 [STACKING]:
 - `CSparse`(`.api/api-csparse.md`): pattern-graph decomposition stays on `SymbolicColumnStorage` through its own `DulmageMendelsohn` and `StronglyConnectedComponents`, so a sparse matrix never round-trips into a vertex-and-edge container and this rail takes only graphs the domain already folds.

@@ -6,7 +6,7 @@ Container/codec spine of the media plane: the one `Media` owner over the closed-
 
 ## [01]-[INDEX]
 
-- [01]-[CONTAINER]: the `Media` owner over the closed-payload `MediaOp` family — `EncodeVideo`/`EncodeAudio`/`Mux`/`Transcode`/`Remux` folding into the `emit`/`_emit` node contract keyed over the muxed container (or read-back manifest) bytes.
+- [02]-[CONTAINER]: the `Media` owner over the closed-payload `MediaOp` family — `EncodeVideo`/`EncodeAudio`/`Mux`/`Transcode`/`Remux` folding into the `emit`/`_emit` node contract keyed over the muxed container (or read-back manifest) bytes.
 
 ## [02]-[CONTAINER]
 

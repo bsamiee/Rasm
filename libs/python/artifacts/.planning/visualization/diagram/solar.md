@@ -6,7 +6,7 @@ Furniture is owned geometry over the vector plane, generated under one `Furnitur
 
 ## [01]-[INDEX]
 
-- [01]-[SOLAR]: the ephemeris and furniture owner — `Site` the geodetic-plus-atmosphere anchor lowered once to the pvlib `Location`, `positions()` the SPA-frame-plus-distance sampler, `day_arc()`/`analemma()`/`hour_line()`/`solstices()` the date-geometry solvers, `SolarProjection` the closed hemisphere-projection family with its `project()` fold, and `furniture()` the `FurniturePolicy`-seeded sun-path backdrop as vector fragments — composed by layout's `SUN_PATH` arm, drawn by draw, minting nothing.
+- [02]-[SOLAR]: the ephemeris and furniture owner — `Site` the geodetic-plus-atmosphere anchor lowered once to the pvlib `Location`, `positions()` the SPA-frame-plus-distance sampler, `day_arc()`/`analemma()`/`hour_line()`/`solstices()` the date-geometry solvers, `SolarProjection` the closed hemisphere-projection family with its `project()` fold, and `furniture()` the `FurniturePolicy`-seeded sun-path backdrop as vector fragments — composed by layout's `SUN_PATH` arm, drawn by draw, minting nothing.
 
 ## [02]-[SOLAR]
 

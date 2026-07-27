@@ -6,7 +6,7 @@ Operands admit through `numerics/array#PAYLOAD` for the finite gate and the oper
 
 ## [01]-[INDEX]
 
-- [01]-[DSP]: the stationary `scipy.signal` rows beside the `pywt` wavelet rows on one `SignalOp` owner, evidence discriminated over `SignalEvidence`.
+- [02]-[DSP]: the stationary `scipy.signal` rows beside the `pywt` wavelet rows on one `SignalOp` owner, evidence discriminated over `SignalEvidence`.
 
 ## [02]-[DSP]
 

@@ -6,18 +6,8 @@
 
 ## [01]-[INDEX]
 
-| [INDEX] | [OWNER]            | [OWNS]                                                    |
-| :-----: | :----------------- | :-------------------------------------------------------- |
-|  [01]   | `SteelSource`      | path, text, and byte ingress preserving received bytes    |
-|  [02]   | `SteelProfileCode` | DSTV profile vocabulary and its admitted face set         |
-|  [03]   | `SteelFace`        | DSTV face vocabulary and the face-to-part placement frame |
-|  [04]   | `SteelBlockKind`   | block identity, contour correspondence, and topology sign |
-|  [05]   | `SteelParseKind`   | parser-failure classification over exception-type rows    |
-|  [06]   | `SteelHeader`      | the complete admitted `ST` descriptor                     |
-|  [07]   | `SteelFeature`     | every readable DSTV feature payload                       |
-|  [08]   | `SteelPart`        | admitted header, features, topology, and placement        |
-|  [09]   | `SteelImport`      | source, parse, and admission rails                        |
-|  [10]   | `SteelView`        | parameterized projection over the admitted receipt        |
+- [02]-[STEEL_EXCHANGE]: `SteelSource` path, text, and byte ingress preserving received bytes, the `SteelProfileCode`/`SteelFace`/`SteelBlockKind`/`SteelParseKind` DSTV vocabularies carrying face admissibility, contour correspondence, topology sign, and exception-type classification, and `SteelImport.Read` admitting one `SteelPart` over `SteelHeader` and `SteelFeature` into a `SteelImportReceipt`.
+- [03]-[LIFECYCLE]: header-before-feature admission over stable bytes, deferred `Eff` parse effects accumulating independent feature faults on `Validation`, and `SteelView`/`SteelProjection` selecting part, boundary, feature, placement, topology, or identity egress through one generated behavior row.
 
 ## [02]-[STEEL_EXCHANGE]
 

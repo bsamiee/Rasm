@@ -4,17 +4,17 @@ ONNX C-data residency classifies every `OrtValue` by backing location and owners
 
 ## [01]-[INDEX]
 
-- [01]-[ORT_BRIDGE]: `OrtResidency` lattice; carrier-keyed C-data ingress and dtype-keyed egress; `DeviceMemory` shared-allocator descriptor and residency probe; `BoundFlow` gate-aware `OrtIoBinding` steady-state.
-- [02]-[GEOMETRY_ENCODING]: the kernel `EncodedGeometry` wrap; `EncodedTensor` carrier; per-channel slice view; `PackKind` → wire-shape/layout/free-dimension model vocabulary; host-neutral, never a re-pack.
+- [02]-[ORT_BRIDGE]: `OrtResidency` lattice; carrier-keyed C-data ingress and dtype-keyed egress; `DeviceMemory` shared-allocator descriptor and residency probe; `BoundFlow` gate-aware `OrtIoBinding` steady-state.
+- [03]-[GEOMETRY_ENCODING]: `EncodedGeometry` wraps the kernel payload host-neutral; `EncodedTensor` slices per channel and `PackKind` fixes wire shape, layout, and free-dimension names.
 
 ## [02]-[ORT_BRIDGE]
 
 - Owner: `OrtResidency` `[SmartEnum<string>]` the five-gate residency lattice; `TensorBridge` the static `OrtValue` C-data factory surface (carrier-keyed ingress, dtype-keyed egress, the device descriptor, the residency probe); `BoundFlow` the ONE `OrtIoBinding` steady-state residency capsule the `Model/inference#INFERENCE_MODES` run-mode fold composes.
 - Entry: `public static Fin<OrtValue> Ingress<T>(Tensor<T> source)` and its `MemoryOwner<T>`, foreign-pointer, and `Microsoft.ML.OnnxRuntime.Tensors.Tensor<string>` overloads discriminate ingress by carrier shape; `public static Fin<(OrtAllocator Allocator, OrtValue Sink)> Allocate(DeviceMemory device, TensorDtype row, ReadOnlySpan<long> shape)` mints a device sink; `public static Fin<Unit> Egress<T>(OrtValue value, in TensorSpan<T> destination)` and its flat `Span<T>` overload project an output by the dtype row; `public static Fin<BoundFlow> Bind(InferenceSession session, string inputName, string outputName, ReadOnlySpan<long> shape, OrtAllocator arena)` leases the steady-state capsule (the bound input and sink allocate from the supplied shared arena — the `Model/sessions#SESSION_CAPSULE` `SharedAllocator` for the model lane — never a managed staging plane), with the `TensorDtype`-row overload binding any dtype the vocabulary admits so the capsule is dtype-polymorphic and the row-less form is the float32 convenience — `Fin<T>` aborts when the egress destination is undersized against the `GetTensorSizeInBytes` count, ingress shape volume fails to cover its payload (`ingress-cover-gap`), or a native mint rejects (`ingress-rejected` — every C-data factory call crosses `Try.lift` once); the leased flow is a disposable capsule whose `Dispose` is the bound backing's release point, and `Lease` releases every already-acquired native handle on its own failure path so a `lease-rejected` fault strands nothing.
 - Receipt: `CopyPoint` stamps the `OrtResidency` gate, native byte count, device name, instant, and `CorrelationId`; `CopyPoint.Receipt` projects that evidence onto `ComputeReceipt.Copy`, and `ReceiptFolds.Crossings` aggregates it by gate.
-- Packages: Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
-- Growth: a new accelerator is one `DeviceMemory` descriptor over its `OrtEpDevice` plus the existing `Allocate`/device-pointer ingress, never a per-call marshal helper; a new carrier is one `TensorBridge.Ingress` overload discriminating by carrier shape (the `Model/inference#INFERENCE_MODES` `RunInput` cases compose these overloads, never re-spelling a factory); the `DeviceResident` row is the one residency gate the `Runtime/admission#SUBSTRATE_AXIS` `Substrate.DeviceWgpu` row and the `Tensor/dispatch#DEVICE_KERNELS` `DeviceDispatch` both bind — a WGPU compute buffer and an ORT device value share this one residency row so device-ness is a residency discriminant, never a second tensor owner or a parallel device-residency lattice; the resolved shared `ONE_WGPU_DEVICE` adapter is what a composition root folds into the `device-wgpu` substrate-capability key on `Runtime/admission#SUBSTRATE_AXIS` `SelectionContext.Providers` (present iff the adapter resolves), so the same device-presence fact the `DeviceResident` gate observes contributes the substrate key the `Substrate.DeviceWgpu` `!Providers.Contains(Key)` gate reads, never a raw `Device`/adapter handle pushed into `Providers`; zero new surface.
-- Boundary: `OrtValue` is the sole model-boundary carrier. Every ingress shape proves non-negative extents, checked volume, payload coverage, and native construction on `Fin`; zero-sized tensors remain representable. Every egress proves dtype identity, native byte count, and destination density where raw-byte projection requires it. `BoundFlow.Write<T>` and framed-byte `Write` return `Fin<Unit>`, enforce exact dtype and length, and let `Flow` abort before `Drive`. Rebind operations allocate replacements before clearing current bindings, restore prior CPU bindings on failure, and transfer ownership only after successful binding. `Dispose` releases each owned native handle once.
+- Packages: Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project, kernel signal capsule)
+- Growth: a new accelerator is one `DeviceMemory` descriptor over its `OrtEpDevice` reaching the existing `Allocate`/device-pointer ingress, never a per-call marshal helper; a new carrier is one `TensorBridge.Ingress` overload discriminating by carrier shape (the `Model/inference#INFERENCE_MODES` `RunInput` cases compose these overloads, never re-spelling a factory); the `DeviceResident` row is the one residency gate the `Runtime/admission#SUBSTRATE_AXIS` `Substrate.DeviceWgpu` row and the `Tensor/dispatch#DEVICE_KERNELS` `DeviceDispatch` both bind — a WGPU compute buffer and an ORT device value share this one residency row so device-ness is a residency discriminant, never a second tensor owner or a parallel device-residency lattice; the resolved shared `ONE_WGPU_DEVICE` adapter is what a composition root folds into the `device-wgpu` substrate-capability key on `Runtime/admission#SUBSTRATE_AXIS` `SelectionContext.Providers` (present iff the adapter resolves), so the same device-presence fact the `DeviceResident` gate observes contributes the substrate key the `Substrate.DeviceWgpu` `!Providers.Contains(Key)` gate reads, never a raw `Device`/adapter handle pushed into `Providers`; zero new surface.
+- Boundary: `OrtValue` is the sole model-boundary carrier. Every ingress shape proves non-negative extents, checked volume, payload coverage, and native construction on `Fin`; zero-sized tensors remain representable. Every egress proves dtype identity, native byte count, and destination density where raw-byte projection requires it. `BoundFlow.Write<T>` and framed-byte `Write` return `Fin<Unit>`, enforce exact dtype and length, and let `Flow` abort before `Drive`. Rebind operations allocate replacements before clearing current bindings, restore prior CPU bindings on failure, and transfer ownership only after successful binding. `Dispose` releases each owned native handle once. Gate selection derives from the session's own `OrtMemoryInfo` through `OrtResidency.Classify` — a caller-declared gate the model contradicts is the deleted form, and the allocator name stays receipt evidence rather than a discriminant.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -32,6 +32,15 @@ public sealed partial class OrtResidency {
     public bool Device { get; }
     public bool ProjectsInPlace { get; }
     public bool Foreign { get; }
+
+    // OrtResidency owns its own native discriminant: OrtMemType.CpuOutput marks a session-minted output whatever
+    // its allocator, an arena over HOST_ACCESSIBLE memory stays host-side, and every other device memory class is
+    // device-resident. Reading the allocator NAME instead reads a vendor string, never a class.
+    public static OrtResidency Classify(OrtMemoryInfo info) =>
+        info.GetMemoryType() is OrtMemType.CpuOutput ? OutputValue
+        : info.GetDeviceMemoryType() is OrtDeviceMemoryType.HOST_ACCESSIBLE
+          || info.GetAllocatorType() is OrtAllocatorType.ArenaAllocator && info.GetMemoryType() is OrtMemType.Cpu or OrtMemType.CpuInput ? MemoryBacked
+        : DeviceResident;
 }
 
 // --- [MODELS] ------------------------------------------------------------------------------
@@ -113,8 +122,8 @@ public static class TensorBridge {
     private static Fin<OrtValue> Minted(Func<OrtValue> mint) =>
         Try.lift(mint).Run().MapFail(static error => TensorFault.Symbol("ingress-rejected", error.Message));
 
-    // A ref-struct destination cannot cross a lambda, so the projection body is the named REF_SAFE statement
-    // seam: admission stays on the rail, the copy runs in place, and a native rejection converts once.
+    // Ref-struct destinations cross no lambda, so the projection body is the named REF_SAFE statement seam:
+    // admission stays on the rail, the copy runs in place, and a native rejection converts once.
     public static Fin<Unit> Egress<T>(OrtValue value, in TensorSpan<T> destination) where T : unmanaged {
         long flattened = destination.FlattenedLength;
         Fin<TensorDtype> admitted = TensorVocabulary.Admit(value.GetTensorTypeAndShape().ElementDataType).Bind(row =>
@@ -145,10 +154,13 @@ public static class TensorBridge {
     public static CopyPoint Stamp(OrtValue value, OrtResidency gate, IClock clock, CorrelationId correlation) =>
         new(gate, value.GetTensorSizeInBytes(), value.GetTensorMemoryInfo().Name, clock.GetCurrentInstant(), correlation);
 
-    public static (Seq<string> Inputs, Seq<string> Outputs) Residency(InferenceSession session) {
+    // Residency reports the CLASSIFIED gate per I/O, so a caller binds off the session's own descriptors rather
+    // than declaring a gate the model then contradicts; Name rides along as the arena the Copy receipt stamps.
+    public static (Seq<(string Name, OrtResidency Gate)> Inputs, Seq<(string Name, OrtResidency Gate)> Outputs) Residency(InferenceSession session) {
         using IDisposableReadOnlyCollection<OrtMemoryInfo> inputs = session.GetMemoryInfosForInputs();
         using IDisposableReadOnlyCollection<OrtMemoryInfo> outputs = session.GetMemoryInfosForOutputs();
-        return (toSeq(inputs).Map(static info => info.Name), toSeq(outputs).Map(static info => info.Name));
+        return (toSeq(inputs).Map(static info => (info.Name, OrtResidency.Classify(info))),
+                toSeq(outputs).Map(static info => (info.Name, OrtResidency.Classify(info))));
     }
 
     public static Fin<BoundFlow> Bind(InferenceSession session, string inputName, string outputName, ReadOnlySpan<long> shape, OrtAllocator arena) =>
@@ -342,7 +354,7 @@ public sealed class BoundFlow : IDisposable {
 - Entry: `Of(EncodedGeometry, PackKind)` derives only provable dimensions (`N`, point/mesh `V`, channel `C`, and indexed-face `F`), while `Of(EncodedGeometry, PackKind, Option<Seq<(string Name, long Extent)>>, Option<Tensor<long>>)` carries explicit spatial dimensions without default ghosts. `Fin<T>` rejects lossy witnesses, absent wire rows, non-positive or mismatched dimensions, underivable `U`/`V` and `H`/`W` grids, invalid channel ranges, and overflowed interleaving shapes.
 - Receipt: the kernel `EncodedGeometry.Witness` is the lossless-round-trip proof keyed by the `Spatial/reconciliation#RECONCILIATION_BRIDGE` content hash; `Of` admits only a lossless payload, so the residency wrap carries no second witness and mints no second content key.
 - Packages: Rasm (project), Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new representation lands as one kernel `PackKind` row (the kernel `Rasm.Drawing` owner adds it with its active-channel column) plus one `Wire` row here carrying its `LayoutForm`/`WireShape`/free-dimension names — the `Field` (`geodesic`+`weight` lanes, positions omitted because the witness digest binds the source mesh) and `Toolpath` (`position`+`weight`, stored order is content) rows the `Rasm.AppHost/Sandbox/solver#SOLVER_KIND` `EncodingKind` contract speaks are landed this way on `NxC`, closing the `Wire` table one-to-one over the kernel's six kinds, never a residency-side packer; a new feature channel is one kernel `EncodingChannel` row, read here through the descriptor set with zero residency edit; zero new surface.
+- Growth: a new representation lands as one kernel `PackKind` row (the kernel `Rasm.Drawing` owner adds it with its active-channel column) and one `Wire` row here carrying its `LayoutForm`/`WireShape`/free-dimension names — the `Field` (`geodesic`+`weight` lanes, positions omitted because the witness digest binds the source mesh) and `Toolpath` (`position`+`weight`, stored order is content) rows the `Rasm.AppHost/Sandbox/solver#SOLVER_KIND` `EncodingKind` contract speaks are landed this way on `NxC`, closing the `Wire` table one-to-one over the kernel's six kinds, never a residency-side packer; a new feature channel is one kernel `EncodingChannel` row, read here through the descriptor set with zero residency edit; zero new surface.
 - Boundary: geometry channel materialization remains in `Rasm.Drawing.Encode.Apply`; residency receives host-neutral `EncodedGeometry`. `EncodedTensor.Channel` returns an admitted zero-copy `ReadOnlyMemory<float>` slice, never a default ref-struct ghost. `ToTensor` validates each descriptor's `Offset`, `Floats`, `Count × Arity`, and aggregate shape before one array allocation interleaves channel-blocked SoA into point-major `[Count, FeatureWidth]`; `Tensor/layout#LAYOUT_ALGEBRA` owns later rank edits. `Wire` maps model shape names to the remote geometry family, and free-dimension rows feed `AddFreeDimensionOverrideByName`. Mesh face indices ride optional `Tensor<long>` topology. `U`/`V` and `H`/`W` never derive by assigning the same flat `Count` to both axes.
 
 ```csharp signature
@@ -441,4 +453,4 @@ public sealed record EncodedTensor(
 
 ## [04]-[RESEARCH]
 
-- [DEVICE_STEADY_STATE]: `BoundFlow.RebindDevice`, `RebindExternal`, and `RebindDevicePointer` form the `DeviceDispatch` host-free chaining surface; `TensorBridge.Residency` remains the open automatic gate-selection leaf.
+(none)

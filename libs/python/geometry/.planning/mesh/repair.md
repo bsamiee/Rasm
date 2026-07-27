@@ -6,7 +6,7 @@ Robust mesh algebra: the canonical owner of the `manifold3d.Manifold` 3D boolean
 
 ## [01]-[INDEX]
 
-- [01]-[MESH]: conditioning and boolean operations under one union over the `trimesh.repair` step table and the `manifold3d` `batch_boolean` kernel, offloaded to the warm process lane, returning `RuntimeRail[MeshResult]`.
+- [02]-[MESH]: conditioning and boolean operations under one union over the `trimesh.repair` step table and the `manifold3d` `batch_boolean` kernel, offloaded to the warm process lane, returning `RuntimeRail[MeshResult]`.
 
 ## [02]-[MESH]
 

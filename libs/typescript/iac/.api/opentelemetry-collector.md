@@ -1,0 +1,149 @@
+# [TS_IAC_API_OPENTELEMETRY_COLLECTOR]
+
+`opentelemetry-collector` is the ingest gateway the deploy plane installs as one Helm chart and configures as one YAML document. One row carries two contracts: CHART values decide rendered names, image distribution, k8s-side obligations, and env plumbing, and the CONFIG document the chart plants in its ConfigMap types the pipelines. Both resolve as wire data — the chart at `helm.v4.Chart` render time, the config at tier decode — so a fence spells each contract rather than importing it.
+
+## [01]-[PACKAGE_SURFACE]
+
+[PACKAGE_SURFACE]: `opentelemetry-collector`
+- chart: `opentelemetry-collector` (Apache-2.0)
+- distribution: `otel/opentelemetry-collector-contrib` — every contrib component a pipeline names binds this image, and `otel/opentelemetry-collector` narrows to the core roster under `command.name: otelcol`
+- asset: one Deployment/DaemonSet/StatefulSet, its Service, ConfigMap, ServiceAccount, and the ClusterRole a preset earns
+- plane: `plane:deploy` — rendered by `@pulumi/kubernetes` `helm.v4.Chart`, depended on by nothing at runtime
+- rail: deployment / telemetry-ingest
+
+## [02]-[CHART_VALUES]
+
+Values merge as maps and REPLACE as lists, so an explicit `null` row deletes a chart-default component the tier does not own and naming a pipeline list overwrites it whole. `presets` own the k8s-side obligations a config document cannot express — RBAC rules, host volumes, security context — and `config` extends a preset's components without deleting them.
+
+| [INDEX] | [KEY]                              | [SHAPE]                                    | [CAPABILITY]                                          |
+| :-----: | :--------------------------------- | :----------------------------------------- | :---------------------------------------------------- |
+|  [01]   | `mode`                             | `deployment` / `daemonset` / `statefulset` | workload kind; empty is a render error                |
+|  [02]   | `fullnameOverride`                 | `string`                                   | pins every rendered name past the chart-name collapse |
+|  [03]   | `nameOverride` `namespaceOverride` | `string`                                   | chart-name and namespace on the same helper chain     |
+|  [04]   | `config`                           | `[03]-[CONFIG_DOCUMENT]`                   | merged onto the chart's default config                |
+|  [05]   | `alternateConfig`                  | `[03]-[CONFIG_DOCUMENT]`                   | replaces `config` whole, no merge; subchart use       |
+|  [06]   | `image.*`                          | `string`                                   | distribution selection; `digest` outranks `tag`       |
+|  [07]   | `command.*`                        | `string` / `string[]`                      | binary and argv; `otelcol` selects core               |
+|  [08]   | `presets.<preset>`                 | `{ enabled, … }`                           | components with the RBAC and volumes they earn        |
+|  [09]   | `configMap.*`                      | `boolean` / `string`                       | an external ConfigMap keys the config `relay`         |
+|  [10]   | `extraEnvs` `extraEnvsFrom`        | `EnvVar[]` / `EnvFromSource[]`             | the one credential path `${env:NAME}` reads           |
+|  [11]   | `extraVolumes` `extraVolumeMounts` | `Volume[]` / `VolumeMount[]`               | the persistent-queue PVC and its mount                |
+|  [12]   | `ports.<name>`                     | rows                                       | per-port publication; `metrics` ships off             |
+|  [13]   | `service.*`                        | `boolean` / `string`                       | daemonset mode defaults the policy `Local`            |
+|  [14]   | `resources` `useGOMEMLIMIT`        | `ResourceRequirements` / `boolean`         | the ceiling `memory_limiter` reads; GOMEMLIMIT 80%    |
+|  [15]   | `clusterRole.*`                    | `boolean` / `PolicyRule[]`                 | additive to whatever a preset created                 |
+|  [16]   | `internalTelemetryViaOTLP`         | `{ endpoint, headers, <signal> }`          | drops the default prometheus receiver                 |
+|  [17]   | `rewriteDeprecatedComponentNames`  | `boolean`                                  | rewrites retired component spellings                  |
+|  [18]   | `<scheduling>`                     | rows                                       | placement, disruption, and escape hatches             |
+
+[image]: `repository` `tag` `digest` `pullPolicy` — beside `imagePullSecrets`; the contrib repository is the standing value
+[command]: `name` `extraArgs`
+[configMap]: `create` `existingName` `existingPath` — an existing ConfigMap must key the config `relay`
+[service]: `enabled` `type` `trafficDistribution` `externalTrafficPolicy` `internalTrafficPolicy` `annotations` — beside `ingress`, `httproute`, and `networkPolicy` for reachability
+[clusterRole]: `create` `rules` `annotations` `name` `clusterRoleBinding.{annotations,name}`
+[ports.<name>]: `enabled` `containerPort` `servicePort` `hostPort` `nodePort` `protocol` `appProtocol` — `otlp` 4317, `otlp-http` 4318, and `metrics` 8888 which ships disabled and both monitor blocks need
+[presets]: `logsCollection` `hostMetrics` `kubernetesAttributes` `kubeletMetrics` `kubernetesEvents` `kubernetesObjects` `clusterMetrics` `annotationDiscovery` `profiling` `resourceDetection` — `kubernetesAttributes` (`extractAllPodLabels`, `extractAllPodAnnotations`) adds `k8s_attributes` to every pipeline with its minimum ClusterRole, `resourceDetection` (`env`, `k8s_api`, `eks`, `aks`, `gcp`, each `{ enabled }`) adds `resourcedetection/env` with `env` and `k8s_api` as the base pair, `clusterMetrics` adds `k8s_cluster` with leader election past one replica, and each remaining row earns its own RBAC and host volumes
+[internalTelemetryViaOTLP]: `endpoint` `headers` `traces` `metrics` `logs` — each signal row overriding the shared `endpoint`/`headers` pair
+[rewriteDeprecatedComponentNames]: rewrites `k8sattributes` to `k8s_attributes` and the `k8snode` detector to `k8s_api`; a fence authors the live names and never leans on the rewrite
+[scheduling]: `replicaCount` `autoscaling` `rollout` `podDisruptionBudget` `statefulset.{volumeClaimTemplates,podManagementPolicy,persistentVolumeClaimRetentionPolicy}` `hostNetwork` `hostPID` `hostAliases` `dnsPolicy` `dnsConfig` `schedulerName` `priorityClassName` `runtimeClassName` `nodeSelector` `tolerations` `affinity` `topologySpreadConstraints` `resizePolicy` `terminationGracePeriodSeconds` `lifecycleHooks` `initContainers` `extraContainers` `extraManifests` `livenessProbe` `readinessProbe` `startupProbe` `podMonitor` `serviceMonitor` `prometheusRule` `shareProcessNamespace`
+
+[FULLNAME]: `fullnameOverride` pins the rendered object name whole; absent it the chart helper renders `.Release.Name` when the release name CONTAINS the chart name and `<release>-<chart>` otherwise, so a release named for a signal rather than its chart renders a name no projection guesses.
+
+## [03]-[CONFIG_DOCUMENT]
+
+Component maps ride beside `service`, each key spelling `<type>` or `<type>/<name>`. `service.pipelines` decides liveness: a definition no pipeline names parses and stays inert, and a pipeline naming an undefined component fails the load.
+
+[RECEIVERS]: `collection_interval`, `initial_delay`, and `timeout` ride every scraper-controller receiver as duration strings; `timeout` ships zero, which is no deadline
+- `otlp.protocols.http`: `endpoint`, `max_request_body_size` (default `20971520`), `include_metadata` (default `false`), `compression_algorithms`, `cors.{allowed_origins,allowed_headers,exposed_headers,max_age}`, `read_timeout`, `read_header_timeout`, `write_timeout`, `idle_timeout`, `keep_alives_enabled`, `response_headers`, `middlewares`, `tls`, `auth`, `traces_url_path`, `metrics_url_path`, `logs_url_path`
+- `otlp.protocols.grpc`: `endpoint`, `transport`, `max_recv_msg_size_mib`, `max_concurrent_streams`, `read_buffer_size`, `write_buffer_size`, `keepalive`, `include_metadata`, `compression`, `middlewares`, `tls`, `auth`; at least one protocol block is required, and an absent block leaves that door shut rather than defaulted
+- `postgresql`: `endpoint` (`host:port`, NEVER a DSN), `transport` (`tcp`/`unix`), `username`, `password`, `databases[]`, `exclude_databases[]`, `collection_interval`, `initial_delay`, `timeout`, `tls.{insecure,insecure_skip_verify,ca_file,cert_file,key_file}`, `connection_pool.{max_idle_time,max_lifetime,max_idle,max_open}`, `metrics.<metric>.enabled`, `events.<event>.enabled`, `query_sample_collection.max_rows_per_query`, `top_query_collection.{max_rows_per_query,top_n_query,max_explain_each_interval,query_plan_cache_size,query_plan_cache_ttl,collection_interval}`
+- `sqlquery`: `driver`, `datasource`, `host`, `port`, `database`, `username`, `password`, `additional_params`, `collection_interval`, `initial_delay`, `timeout`, `max_open_conn`, `storage`, `telemetry.logs.query`, `queries[]`
+- `sqlquery.queries[]`: `sql`, `metrics[]`, `logs[]`, `tracking_column`, `tracking_start_value`, `ignore_null_values`
+- `sqlquery.queries[].metrics[]`: `metric_name`, `value_column`, `value_type`, `data_type`, `monotonic`, `aggregation`, `unit`, `description`, `attribute_columns`, `static_attributes`, `start_ts_column`, `ts_column`, `row_condition.{column,value}`
+- `sqlquery.queries[].logs[]`: `body_column`, `attribute_columns`
+- `prometheus`: `config.{scrape_configs[],scrape_config_files[],global}`, `trim_metric_suffixes`, `target_allocator`, `api_server`, `scrape_on_shutdown`, `discovery_reload_on_startup`, `initial_scrape_offset`; a scrape config spells the Prometheus grammar verbatim — `job_name`, `static_configs`, `kubernetes_sd_configs`, `relabel_configs`, `scrape_interval`
+- `kafka`: `brokers[]`, `protocol_version`, `client_id`, `auth.{plain_text,sasl,kerberos,tls}`, `tls`, `metadata.{full,refresh_interval,retry}`, `group_id`, `initial_offset`, `autocommit.{enable,interval}`, `min_fetch_size`, `max_fetch_size`, `max_fetch_wait`, `session_timeout`, `heartbeat_interval`, `group_rebalance_strategy`
+
+[RECEIVER_REFUSALS]: each row lands its verdict at config load
+- `postgresql` requires `username` and `password`, parses `endpoint` through host/port splitting whatever the transport, and rejects `tls.server_name`, `tls.min_version`, and `tls.max_version` because its driver cannot honour them.
+- `sqlquery.datasource` is mutually exclusive with every one of `host`, `port`, `database`, `username`, `password`, `additional_params`; absent it, `host` and `database` become required and `port` too on every driver but sqlserver.
+- `sqlquery.queries` refuses empty, each query refuses an empty `sql`, and each query needs at least one `metrics` or `logs` row.
+- `metrics[].value_type` is `int | double`, `data_type` is `gauge | sum`, `aggregation` is `cumulative | delta`, and an `aggregation` set beside `data_type: gauge` refuses; `attribute_columns` rides the metric row, so two metrics off one query may carry different grains.
+- `metrics[].start_ts_column` parses an integer nanosecond epoch, so a rendered timestamp fails the datapoint rather than the load.
+- `prometheus.config` rejects `remote_write`, `remote_read`, `rule_files`, and both `alerting` sections outright — the receiver enforces the one-ingress posture rather than trusting it.
+
+[PROCESSORS]:
+- `memory_limiter`: `check_interval`, `limit_percentage` + `spike_limit_percentage` (cgroup-derived) or `limit_mib` + `spike_limit_mib`, `min_gc_interval_when_soft_limited`, `min_gc_interval_when_hard_limited`, `max_gc_interval_when_soft_limited`, `max_gc_interval_when_hard_limited`; first in every pipeline or the guard never runs
+- `batch`: `timeout`, `send_batch_size`, `send_batch_max_size`, `metadata_keys[]`, `metadata_cardinality_limit`
+- `k8s_attributes`: `auth_type`, `passthrough`, `wait_for_metadata`, `wait_for_metadata_timeout`, `watch_sync_period`, `pod_delete_grace_period`, `filter.{node,node_from_env_var,namespace,fields[],labels[]}`, `extract.{metadata[],labels[],annotations[],otel_annotations}`, `pod_association[].sources[].{from,name}`, `exclude.pods[].name`
+- `k8s_attributes.extract.{labels,annotations}[]`: `tag_name`, `key`, `key_regex`, `from` — `from` is `pod | namespace | node | deployment | statefulset | daemonset | job`, `key` beside `key_regex` refuses, and `metadata[]` admits only the semconv keys the processor enumerates
+- `resourcedetection`: `detectors[]`, `timeout`, `override`, `refresh_interval`, and one block per detector name; `env` and `k8s_api` need no cloud credential
+- `transform`: `error_mode`, `{trace,metric,log,profile}_statements[]`, `flatten_data` — each list takes bare OTTL strings or `{ context, statements[] }` rows, never both shapes in one list
+- `filter`: `error_mode`, `{trace,metric,log,profile}_conditions[]` — each takes bare OTTL condition strings or `{ context, conditions[] }` rows; the per-signal `spans`/`metrics`/`logs`/`traces`/`profiles` blocks are the superseded spelling and refuse alongside the condition lists
+- `tail_sampling`: `decision_wait`, `decision_wait_after_root_received`, `num_traces`, `expected_new_traces_per_sec`, `block_on_overflow`, `policies[]`, `decision_cache.{sampled_cache_size,non_sampled_cache_size}`, `sample_on_first_match`, `sampling_strategy` (`trace-complete | span-ingest`, anything else refuses at load), `drop_pending_traces_on_shutdown`, `maximum_trace_size_bytes`
+- `tail_sampling.policies[]`: `name`, `type`, and the type's own block — `always_sample` `latency` `numeric_attribute` `probabilistic` `status_code` `string_attribute` `rate_limiting` `bytes_limiting` `span_count` `trace_state` `boolean_attribute` `ottl_condition` `trace_flags` `and` `not` `drop` `composite`
+
+[CONNECTORS]: each connector exports on one pipeline and receives on another, so its type name rides both lists
+- `spanmetrics`: `histogram.{disable,unit,explicit.buckets,exponential.max_size,dimensions}`, `dimensions[].{name,default,glob}`, `calls_dimensions[]`, `exclude_dimensions[]`, `exemplars.{enabled,max_per_data_point}`, `aggregation_temporality`, `aggregation_cardinality_limit`, `metrics_flush_interval`, `metrics_expiration`, `series_expiration`, `metric_timestamp_cache_size`, `resource_metrics_cache_size`, `events.{enabled,dimensions}`, `resource_metrics_key_attributes[]`, `include_instrumentation_scope[]`, `add_resource_attributes`, `enable_metrics_sampling_method`, `namespace`
+- `servicegraph`: `latency_histogram_buckets[]` XOR `exponential_histogram_max_size`, `dimensions[]`, `store.{ttl,max_items}`, `cache_loop`, `store_expiration_loop`, `virtual_node_peer_attributes[]`, `virtual_node_extra_label`, `database_name_attributes[]`, `metrics_flush_interval`, `metrics_timestamp_offset`; emits `traces_service_graph_request_total`, `_failed_total`, `_server`, `_client`, `_unpaired_spans_total`, `_dropped_spans_total` under `client`/`server`/`connection_type`
+- `spanmetrics.aggregation_temporality` takes the protobuf spellings `AGGREGATION_TEMPORALITY_DELTA` and `AGGREGATION_TEMPORALITY_CUMULATIVE`, and anything else silently reads as cumulative rather than refusing; `service.name`, `span.name`, `span.kind`, and `status.code` are stamped by the connector, so naming one in `dimensions` refuses as a duplicate, and a dimension row sets exactly one of `name` or `glob` with `default` rejected on the glob form.
+
+[EXPORTERS]: `otlphttp` carries `endpoint`, `traces_endpoint`/`metrics_endpoint`/`logs_endpoint`/`profiles_endpoint`, `encoding` (`proto`/`json`), `headers`, `compression` (`gzip` default), `compression_params.level`, `tls`, `auth`, `timeout`, `proxy_url`, `disable_keep_alives`, `idle_conn_timeout`, `max_idle_conns`, `max_idle_conns_per_host`, `max_conns_per_host`, `read_buffer_size`, `write_buffer_size`, `http2_read_idle_timeout`, `http2_ping_timeout`, `force_attempt_http2`, `cookies`, `middlewares`, beside the two shared policy blocks
+- `sending_queue`: `enabled`, `wait_for_result`, `queue_size`, `num_consumers`, `sizer` (`requests`/`items`/`bytes`), `block_on_overflow`, `storage` (a `file_storage` component id), `batch.{flush_timeout,sizer,min_size,max_size,partition.metadata_keys}`
+- `retry_on_failure`: `enabled`, `initial_interval`, `randomization_factor`, `multiplier`, `max_interval`, `max_elapsed_time`
+- `kafka`: exporter rows carry the `[RECEIVERS]` kafka client keys and add `producer.{max_message_bytes,max_broker_write_bytes,required_acks,compression,compression_params,flush_max_messages,allow_auto_topic_creation,linger}`, `{traces,metrics,logs,profiles}.{topic,topic_from_metadata_key,message_key_from_metadata_key,encoding}`, `topic_from_attribute`, `include_metadata_keys[]`, `record_headers[]`, `record_partitioner`, `partition_traces_by_id`, `partition_metrics_by_resource_attributes`, `partition_logs_by_resource_attributes`, `partition_logs_by_trace_id`, `timeout`
+
+[EXPORTER_REFUSALS]:
+- `sending_queue.enabled` is synthesized by the optional wrapper rather than declared on the queue config, so `enabled: false` discards the whole block and every sibling key in it goes unread; the block's own presence is what turns queueing on.
+- `storage` and `wait_for_result` refuse together — a persistent queue never blocks its caller for a result — and `queue_size` and `num_consumers` both refuse zero or negative.
+- `batch.sizer` narrows to `items | bytes` where the queue `sizer` also admits `requests`, and `batch.min_size` above `queue_size` deadlocks and refuses; an unset `batch.sizer` inherits the queue's.
+- `otlphttp` refuses a config with no endpoint on any axis; a bare `endpoint` derives `/v1/traces`, `/v1/metrics`, `/v1/logs`, and `/v1development/profiles`, and each per-signal key overrides the whole URL rather than the path.
+- `retry_on_failure.max_elapsed_time` at zero retries unbounded; any positive value refuses to sit below `initial_interval` or `max_interval`.
+
+[EXTENSIONS]:
+- `file_storage`: `directory`, `timeout`, `max_size`, `recreate`, `fsync`, `create_directory`, `directory_permissions`, `compaction.{on_start,on_rebound,directory,max_transaction_size,check_interval,cleanup_on_start,rebound_needed_threshold_mib,rebound_trigger_threshold_mib}`
+- `health_check`: `endpoint`, `path`, `response_body.{healthy,unhealthy}`, `use_v2`, and the `http.{endpoint,status,config}` / `grpc.endpoint` / `component_health` shape the `extension.healthcheck.useComponentStatus` gate admits — MANDATORY for the chart, whose readiness and liveness probes dial it on `13133`
+- `pprof`: `endpoint`, `block_profile_fraction`, `mutex_profile_fraction`, `save_to_file`
+- `zpages`: `endpoint`, `expvar.enabled`
+- `file_storage` validates at start: a missing `directory` fails the extension unless `create_directory` holds, `create_directory` then demands `directory_permissions` as an octal string carrying only file-access bits, `on_rebound` demands a positive `check_interval` and refuses either rebound threshold above `max_size`, and the compaction `directory` joins the existence check whenever either compaction mode holds.
+- `health_check.check_collector_pipeline` is accepted and then ignored — the extension never wired it, so `enabled: true` buys a pipeline gate that does not exist and export health reads off the `service.telemetry` series instead.
+
+[SERVICE]:
+- `service.extensions[]`: collector starts every id this list names and REPLACES the chart default `["health_check"]`, so an unlisted extension never runs and an omitted list renders a workload that never passes readiness
+- `service.pipelines.<signal>[/<name>].{receivers[],processors[],exporters[]}`; signals are `traces`, `metrics`, `logs`, `profiles`
+- `service.telemetry.resource`: two shapes refuse together — a string map merging onto the auto-stamped `service.name`/`service.version`/`service.instance.id` where a `null` value drops an auto attribute, and the declarative `attributes[].{name,value,type}` / `schema_url` / `detectors.attributes.{included,excluded}` form; `attributes_list` never resolves
+- `service.telemetry.metrics`: `level` (`none`/`basic`/`normal`/`detailed`), `readers[]`, `views[].{selector.{instrument_name,instrument_type,meter_name,meter_version,meter_schema_url,unit},stream.{name,description,aggregation,attribute_keys}}`
+- `service.telemetry.metrics.readers[]`: exactly one of `periodic.{interval,timeout,exporter.{otlp,console}}` or `pull.exporter.prometheus.{host,port,without_scope_info,without_units,without_type_suffix,with_resource_constant_labels}`, beside `producers[]`
+- `readers[].periodic.exporter.otlp`: `protocol`, `endpoint`, `insecure`, `certificate`, `client_certificate`, `client_key`, `headers[].{name,value}`, `headers_list`, `compression`, `timeout`, `temporality_preference`, `default_histogram_aggregation` (`base2_exponential_bucket_histogram` / `explicit_bucket_histogram`)
+- `service.telemetry.logs`: `level`, `development`, `encoding`, `disable_caller`, `disable_stacktrace`, `disable_zap_resource`, `sampling.{enabled,tick,initial,thereafter}`, `output_paths[]`, `error_output_paths[]`, `initial_fields`, `processors[]` (`batch.{exporter,schedule_delay,export_timeout,max_queue_size,max_export_batch_size}` or `simple.exporter`)
+- `service.telemetry.traces`: `level`, `propagators[]`, `processors[]` on the same shape, `sampler.{always_on,always_off,trace_id_ratio_based.ratio,parent_based,jaeger_remote}`, `limits`
+
+[TELEMETRY_DIALECT]: `service.telemetry` speaks the declarative-configuration schema, not the component grammar one key away, and the traps below all follow from that split
+- Every duration here is an INTEGER OF MILLISECONDS — `interval`, `timeout`, `schedule_delay`, `export_timeout` — where every component key one level up takes a duration string.
+- `readers` is a list, so declaring one reader replaces the chart's default Prometheus `pull` reader whole: the `metrics` port stops serving and both `serviceMonitor` and `podMonitor` go blind with it.
+- `views` admits only at `level: detailed`, and a non-`none` level with an empty `readers` list refuses the config; `instrument_type` is `counter | up_down_counter | histogram | observable_counter | observable_up_down_counter | observable_gauge`.
+- `temporality_preference` and `default_histogram_aggregation` are what make the gateway's own series match the estate's wire defaults by explicit pin rather than by SDK accident.
+
+[ENV_EXPANSION]: `${env:NAME}` expands anywhere in the config document from the process environment, so a credential reaches a receiver through `extraEnvsFrom` and never through a values literal; the chart's own defaults use it for `MY_POD_IP` and the `OTEL_K8S_*` resource attributes.
+
+## [04]-[IMPLEMENTATION_LAW]
+
+[TOPOLOGY]:
+- One collector owns ingress for every signal, and `service.pipelines` is the whole wiring: a component absent from a pipeline costs nothing past its parse, and every reference resolves at load rather than at first datapoint. Every second reach — a store-side scrape, a second gateway, an SDK dialing a backend directly — forks the ingest the pipeline graph exists to make total, so a new source lands as one receiver row on an existing pipeline.
+
+[STACKING]:
+- `@pulumi/kubernetes`(`.api/pulumi-kubernetes.md`): `helm.v4.Chart` renders the chart as parented children under Pulumi diff and CrossGuard, so a values edit reads as a per-object plan rather than an opaque release; `chart.resources` returns that rendered child set, making the Service name render evidence a downstream endpoint reads rather than chart-name arithmetic, and the credential the receivers read rides a `k8s.core.v1.Secret` referenced by `extraEnvsFrom`, never a values literal that renders into the ConfigMap.
+- `@pulumi/pulumi`(`.api/pulumi-pulumi.md`): `pulumi.all(...).apply(...)` is the one seam folding resolved backend URLs into the config document, `pulumi.interpolate` weaves the service DNS `fullnameOverride` pins, and `pulumi.asset.Asset` carries the chart keyring the provenance row verifies against.
+- `operate/observe#CHART_ROWS`: `_charts.collector` supplies chart and repo, `Lgtm.Versions.collector` the pin, and `config` carries the whole `[03]` document; `effect` `Schema.Class` decodes it once at that seam so a malformed pipeline fails where the coordinate is still loggable rather than inside a collector the operator already accepted.
+- `operate/observe#SCRAPE_ROWS`: `_pg` selects `prometheus` alone on the scrape arm and `postgresql` beside `sqlquery` and `prometheus` on the native arm, and `_pgReceivers` names those same ids on the metrics pipeline — the two must agree or the pipeline reference fails at load.
+- `operate/observe#ENDPOINT_PROJECTION`: `_stores` drives egress — the selected row's `write` projection fills `exporters.otlphttp/metrics.endpoint` and its `tenancy` column decides the org header, so a store swap re-points egress with no collector edit.
+
+[LOCAL_ADMISSION]:
+- Only the k8s arm admits these keys: `operate/observe#DEV_ROW` publishes the same OTLP door from an all-in-one image accepting none of them, so a dev-loop parity claim rests on the endpoint shape rather than a shared values tree.
+- Chart versions arrive as `Lgtm.Versions` args rather than a workspace-manifest row, because a Helm chart is a deploy-time reference and not a build dependency.
+
+[RAIL_LAW]:
+- Contract: `opentelemetry-collector` chart values + collector config document
+- Owns: the one ingest door — OTLP admission, gateway-side enrichment and shaping, span-derived RED and topology series, per-signal fan-out to the backend rows, and the persistent queue that survives a backend restart
+- Accept: the contrib distribution as a standing fact; `fullnameOverride` on every install; presets for k8s-side obligations with the typed config extending them; `${env:NAME}` for every credential; `memory_limiter` first and `batch` last in every pipeline; `file_storage` on a PVC with an explicit `directory`; `sending_queue` and `retry_on_failure` spelled per exporter
+- Reject: a DSN in `receivers.postgresql.endpoint`; a credential in `config` or in a chart values literal; `alternateConfig` on a direct install; a pipeline built from chart defaults the tier never named; `internalTelemetryViaOTLP`, which deletes the default prometheus receiver both monitor blocks scrape

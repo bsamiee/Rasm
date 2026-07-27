@@ -2,7 +2,7 @@
 
 ONE resumable content-addressed rail moves bounded chunks, resumes at verified offsets, and proves one identity from first byte to durable key. Pull-based Web Streams enter BYOB; FastCDC mints chunk sub-keys under the core digest; an incremental digest fold bounds memory. Tus maps offsets onto staged S3 parts, and finalize re-homes bytes through conditional object legs where 412 is dedup success. Ranged reads remain stable because content keys cannot change.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]       | [OWNS]                                                                             |
 | :-----: | :-------------- | :--------------------------------------------------------------------------------- |

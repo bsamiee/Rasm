@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[DETECT]: the dual-engine format-ID owner — `puremagic` in-process default and `libmagic` process-crossing fallback under one `DetectEngine` axis over the caller-threaded `LanePolicy` seam — sniffing a `Source` into the typed `DetectIdentity` the consumers route on.
+- [02]-[DETECT]: the dual-engine format-ID owner — `puremagic` in-process default and `libmagic` process-crossing fallback under one `DetectEngine` axis over the caller-threaded `LanePolicy` seam — sniffing a `Source` into the typed `DetectIdentity` the consumers route on.
 
 ## [02]-[DETECT]
 

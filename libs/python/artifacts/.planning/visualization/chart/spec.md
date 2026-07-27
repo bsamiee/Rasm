@@ -6,7 +6,7 @@ Color arrives from `graphic/color/derive#DERIVE` as the `Derivation.coords` arra
 
 ## [01]-[INDEX]
 
-- [01]-[CHART]: the `ChartSpec` union over host-free charting engines, each case threading the derived palette through one `ChartSpec.of` composer keyed on the admitted altair builder roots and the typed engine classes.
+- [02]-[CHART]: the `ChartSpec` union over host-free charting engines, each case threading the derived palette through one `ChartSpec.of` composer keyed on the admitted altair builder roots and the typed engine classes.
 
 ## [02]-[CHART]
 

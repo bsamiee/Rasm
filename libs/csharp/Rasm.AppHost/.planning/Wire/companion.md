@@ -4,12 +4,12 @@ The inbound serving counterpart to the outbound boundary: one `ProcessModality` 
 
 ## [01]-[INDEX]
 
-- [01]-[PROCESS_MODALITY]: Three modality rows and lease-epoch attached-peer roster on the serving side.
-- [02]-[CONTROL_SERVICE]: Three wire verbs folded onto degradation, options, and support owners.
-- [03]-[SERVICE_HOST]: gRPC server registration over a Unix domain socket.
-- [04]-[DEGRADATION_CASCADE]: Parent floor written to the child cell over the control hop.
-- [05]-[PEER_ADMISSION]: Accept-side peer-credential read over the managed raw-socket-option route.
-- [06]-[HOST_BINDING]: OS x activation-source x address bind acquisition, reuse, and override.
+- [02]-[PROCESS_MODALITY]: Three modality rows and lease-epoch attached-peer roster on the serving side.
+- [03]-[CONTROL_SERVICE]: Three wire verbs folded onto degradation, options, and support owners.
+- [04]-[SERVICE_HOST]: gRPC server registration over a Unix domain socket.
+- [05]-[DEGRADATION_CASCADE]: Parent floor written to the child cell over the control hop.
+- [06]-[PEER_ADMISSION]: Accept-side peer-credential read over the managed raw-socket-option route.
+- [07]-[HOST_BINDING]: OS x activation-source x address bind acquisition, reuse, and override.
 
 ## [02]-[PROCESS_MODALITY]
 

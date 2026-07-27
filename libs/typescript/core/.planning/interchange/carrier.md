@@ -4,7 +4,7 @@ W3C propagation crosses the interchange plane as ONE typed `traceparent`/`traces
 
 `Carrier` composes only the `value` floor's `TenantContext` and hands dialect frames to the runtime wave as data. Kafka, NATS, MQTT, and CloudEvents realize their rows, while `interchange/invoke` composes Connect. Frame values recover the dialect discriminant, so one mapped handler record owns dispatch.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                                         | [PUBLIC]  |
 | :-----: | :--------------- | :----------------------------------------------------------------------------- | :-------- |

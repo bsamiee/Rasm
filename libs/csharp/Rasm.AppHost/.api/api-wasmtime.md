@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_WASMTIME]
 
-`Wasmtime` binds the native WebAssembly runtime (`libwasmtime`) as the sandbox rail's plugin-isolation core: an `Engine` compiles a `Module`, a `Store` executes it under fuel, epoch, and memory limits, and a `Linker` resolves the capability-scoped import table. A guest reaches host authority only through the linker's granted imports over WASI-Preview-1.
+`Wasmtime` binds the native WebAssembly runtime (`libwasmtime`) as the sandbox rail's plugin-isolation core: an `Engine` compiles a `Module`, a `Store` executes it under fuel, epoch, and memory limits, and a `Linker` resolves the capability-scoped import table. Guests reach host authority only through the linker's granted imports over WASI-Preview-1.
 
 ## [01]-[PACKAGE_SURFACE]
 

@@ -6,9 +6,9 @@ Every transcode rides the one `Decode` aspect — a direction-parameterized OTel
 
 ## [01]-[INDEX]
 
-- [01]-[WIRE_RAIL]: the traced-railed `Decode` aspect every wire boundary composes.
-- [02]-[PROTO_TRANSCODE]: the registry-driven `Struct`-to-`Message` codec and its length-prefixed frame pair.
-- [03]-[CRDT_DECODE]: the MessagePack op-log union with derived causal views and the injected decompress seam.
+- [02]-[WIRE_RAIL]: the traced-railed `Decode` aspect every wire boundary composes.
+- [03]-[PROTO_TRANSCODE]: the registry-driven `Struct`-to-`Message` codec and its length-prefixed frame pair.
+- [04]-[CRDT_DECODE]: the MessagePack op-log union with derived causal views and the injected decompress seam.
 
 ## [02]-[WIRE_RAIL]
 

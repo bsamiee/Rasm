@@ -2,7 +2,7 @@
 
 Analytical throughput is distinct from transactional durability and owned by engine rows with scoped wraps. DuckDB serves node and browser acceleration, pgDuckDB keeps adjacent analytics in pg, ClickHouse enters only past its scale trigger, and Flight remains its ingress slice. Arrow is the ONE columnar wire; journal facts flow in and verdicts out, never back as authority. Boundary kernels lift promises, and tagged read cases dispatch ONE entry. Admitted evidence arms emit `Pg.Profile`; Convention instruments project gate pressure from receipt truth.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]     | [OWNS]                                                                              |
 | :-----: | :------------ | :---------------------------------------------------------------------------------- |

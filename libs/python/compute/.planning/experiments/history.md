@@ -6,7 +6,7 @@ Response caching is one `Map[ContentKey, np.ndarray]` keyed by `Study.spec_key` 
 
 ## [01]-[INDEX]
 
-- [01]-[RUN_HISTORY]: content-keyed run persistence, `ResumePlan`-discriminated resume, and `CrossStat` cohort comparison on one `RunHistory` owner.
+- [02]-[RUN_HISTORY]: content-keyed run persistence, `ResumePlan`-discriminated resume, and `CrossStat` cohort comparison on one `RunHistory` owner.
 
 ## [02]-[RUN_HISTORY]
 

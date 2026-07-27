@@ -2,7 +2,7 @@
 
 ONE sqlite lane runs journal, projection, tenancy, and capability contracts across node, bun, wasm-OPFS, libSQL, and D1. A TOTAL degradation table keys the spine's `Pg.Grant` union in both directions, so new or foreign grants fail its declaration. Runtime-subpath Layer rows select drivers; neutral statements use `sql.onDialectOrElse`. Server profiles use WAL and one writer, OPFS narrows to one tab, and edge profiles serialize at the primary.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]           | [OWNS]                                                                              |
 | :-----: | :------------------ | :---------------------------------------------------------------------------------- |

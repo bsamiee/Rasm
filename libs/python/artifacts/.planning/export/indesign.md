@@ -6,7 +6,7 @@ SimpleIDML is pure-Python over `zipfile`+`lxml`, so the mutation fold crosses th
 
 ## [01]-[INDEX]
 
-- [01]-[INDESIGN]: the one IDML template-mutation owner — a frozen `Idml` folding `steps: tuple[IdmlStep, ...]` over one running `IDMLPackage` through SimpleIDML's verified `@use_working_copy` algebra, drained across the process worker into an `ArtifactReceipt.Office` production the `ArtifactPipeline` schedules.
+- [02]-[INDESIGN]: the one IDML template-mutation owner — a frozen `Idml` folding `steps: tuple[IdmlStep, ...]` over one running `IDMLPackage` through SimpleIDML's verified `@use_working_copy` algebra, drained across the process worker into an `ArtifactReceipt.Office` production the `ArtifactPipeline` schedules.
 
 ## [02]-[INDESIGN]
 

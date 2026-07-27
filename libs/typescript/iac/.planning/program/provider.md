@@ -4,7 +4,7 @@ Provider dispatch and the service surface as ONE owner keyed by one union: the `
 
 Each arm is a total function from spec, host material, and pins to a `PulumiFn`: `_proven`, `_coord`, and `_staged` prove every spec-derived coordinate as typed `DeployFault`s before the program body is entered. `_estate` is the single k8s-estate builder — the selfhosted arm feeds it a `Bootstrap` kubeconfig provider, the aws `cluster` row an `eks.Cluster.kubeconfigJson` provider — so promoting a cloud swaps one provider seam. Every estate builder rides `Effect` over `Dispatch.EstateFault`, and `_bodied` runs that rail at the `PulumiFn` seam where the engine's error contract takes over.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]           | [OWNS]                                                                | [PUBLIC]    |
 | :-----: | :------------------ | :-------------------------------------------------------------------- | :---------- |
@@ -463,8 +463,8 @@ const _estate = (
       namespace: ns.metadata.name,
       versions: pins.observe,
       auth: secrets.read("GRAFANA_PASSWORD"),
-      // pg-server metrics endpoint: in-graph woven, never a published output
-      dsn: pulumi.interpolate`postgresql://${data.role}:${secrets.read(_scoped("DB_PASSWORD", "data"))}@${data.host}:${data.port}/${data.database}`,
+      // pg-server metrics coordinates: discrete because the two pg receivers take opposite credential shapes; in-graph, never a published output
+      data: { host: data.host, port: data.port, database: data.database, user: data.role, password: secrets.read(_scoped("DB_PASSWORD", "data")) },
       objects: { endpoint: objects.endpoint, bucket: objects.bucket }, // one storage truth: the mimir escalation binds the object plane's own coordinates
     }, bound)
     const boards = new Boards("boards", {

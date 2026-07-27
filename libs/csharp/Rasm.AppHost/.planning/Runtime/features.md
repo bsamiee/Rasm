@@ -4,10 +4,10 @@ One feature-flag, progressive-rollout, and experimentation owner for the runtime
 
 ## [01]-[INDEX]
 
-- [01]-[FLAG_DEFINITION]: Frozen flag-row family with targeting rules, segments, and variants compiled into one config-backed provider.
-- [02]-[STICKY_BUCKETING]: Deterministic `XxHash3` subject-plus-flag bucketing seating each subject in a stable rollout segment.
-- [03]-[VERDICT_PROJECTION]: One `FlagVerdict` projection over `FlagEvaluationDetails<Value>` the model-routing and fleet-roll consumers read.
-- [04]-[KILL_SWITCH_FOLD]: The operator kill-switch collapsing `OperatorOverride` onto the flag row's `Disabled` column over the reload transition.
+- [02]-[FLAG_DEFINITION]: Frozen flag-row family with targeting rules, segments, and variants compiled into one config-backed provider.
+- [03]-[STICKY_BUCKETING]: Deterministic `XxHash3` subject-plus-flag bucketing seating each subject in a stable rollout segment.
+- [04]-[VERDICT_PROJECTION]: One `FlagVerdict` projection over `FlagEvaluationDetails<Value>` the model-routing and fleet-roll consumers read.
+- [05]-[KILL_SWITCH_FOLD]: The operator kill-switch collapsing `OperatorOverride` onto the flag row's `Disabled` column over the reload transition.
 
 ## [02]-[FLAG_DEFINITION]
 
@@ -225,7 +225,7 @@ flowchart LR
 - Growth: one field on the verdict, zero new surface.
 - Boundary: only the `FlagVerdict` projection crosses — flag key, assigned variant, enabled flag, and reason — mirroring `FlagVerdict`; the targeting rules, the segment bands, and the subject attributes stay host-side so a targeting predicate never leaves the host; the reason crosses as the OpenFeature `Reason` string so the edge client reads the same evaluation vocabulary; the TS/edge leg runs its own OpenFeature client over the same evaluation contract (`libs/.planning` `[ONE_FEATURE_FLAG_PROJECTION]`), consuming this verdict shape, never a second contract.
 
-```ts contract
+```ts signature
 interface FlagVerdictWire {
   readonly key: string;
   readonly variant: string;

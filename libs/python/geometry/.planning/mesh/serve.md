@@ -6,7 +6,7 @@ Geometry authors NO wire vocabulary: `TessellationRequest`/`TessellationReceipt`
 
 ## [01]-[INDEX]
 
-- [01]-[SERVE]: geometry servicer composition root — route registration, request decode, daemon drive, receipt-floor answer, and the 64 KiB `ArtifactFrame` fold.
+- [02]-[SERVE]: geometry servicer composition root — route registration, request decode, daemon drive, receipt-floor answer, and the 64 KiB `ArtifactFrame` fold.
 
 ## [02]-[SERVE]
 

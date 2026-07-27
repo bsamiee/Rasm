@@ -311,7 +311,7 @@
 
 [TOPOLOGY]:
 - Every client contract extends `IDisposable`, pairs a `Task` call with an `IAsyncEnumerable` streaming twin, and resolves `GetService(Type, object?)` by walking its own delegating chain, so metadata and the raw provider object surface through one traversal.
-- A delegating base wraps one inner client and forwards every member, so middleware composes by nesting and adds no interface variation.
+- Delegating bases wrap one inner client and forward every member, so middleware composes by nesting and adds no interface variation.
 - Client members are thread-safe, and an implementation may mutate the options instance handed to a call, so one options object never crosses concurrent requests.
 - `AIContent` discriminates every message and response part; a tool round trip pairs call and result on one identity, `FunctionCallContent.CallId` matching `FunctionResultContent.CallId`, and each hosted family repeats that shape.
 - `AIFunction` extends `AIFunctionDeclaration` with `InvokeAsync`, so a bare declaration is a manifest a provider reads with no local body.
@@ -321,7 +321,7 @@
 [STACKING]:
 - `Microsoft.Extensions.Caching.Hybrid`(`.api/api-hybrid-cache.md`): `AIJsonUtilities.HashDataToString` mints the request key and a folded `ChatResponse` lands through `HybridCache.GetOrCreateAsync` under an `IHybridCacheSerializer<ChatResponse>`; host chat-caching middleware binds the same `IDistributedCache` L2 the hybrid cache fronts, so one profile serves both lanes.
 - `System.Numerics.Tensors`(`.api/api-tensors.md`): `EmbeddingGeneratorExtensions.GenerateVectorAsync` yields a `ReadOnlyMemory<float>` whose span feeds `TensorPrimitives.CosineSimilarity` uncopied, and `BinaryEmbedding.Vector` packs the same generation into a `BitArray` for bit-distance ranking.
-- `System.Text.Json`(`.api/api-json-schema.md`): `AIJsonUtilities.CreateJsonSchema` and `CreateFunctionJsonSchema` project one `JsonSerializerOptions` contract into the `JsonElement` that `ChatResponseFormat.ForJsonSchema` and `AIFunctionDeclaration.JsonSchema` both bind, so wire, tool manifest, and structured-output schema cannot drift.
+- `System.Text.Json`(`.api/api-system-text-json.md`): `AIJsonUtilities.CreateJsonSchema` and `CreateFunctionJsonSchema` project one `JsonSerializerOptions` contract into the `JsonElement` that `ChatResponseFormat.ForJsonSchema` and `AIFunctionDeclaration.JsonSchema` both bind, so wire, tool manifest, and structured-output schema cannot drift.
 - `OpenTelemetry`(`.api/api-opentelemetry.md`): host chat middleware emits GenAI spans and `UsageDetails` token counts onto the `ActivitySource` and `Meter` names the provider builders admit.
 - `Microsoft.Extensions.AI`(`Rasm.AppHost/.api/api-extensions-ai-middleware.md`): `ChatClientBuilder` and `EmbeddingGeneratorBuilder` decorate and build the injected contracts, holding the abstraction-to-concrete split at the DI seam.
 - `ModelContextProtocol`(`Rasm.AppHost/.api/api-mcp.md`): `McpClientTool : AIFunction` surfaces each federated server tool as an `AIFunction` row in `ChatOptions.Tools`.

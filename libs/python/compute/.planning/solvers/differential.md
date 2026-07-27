@@ -6,7 +6,7 @@ This solve is adjoint-differentiable, so a parametric study reads sensitivities 
 
 ## [01]-[INDEX]
 
-- [01]-[DIFFERENTIAL]: ODE/SDE/CDE integration over Diffrax — table-dispatched solver/Levy/term/path selection, adjoint-differentiable and batched-vmap solves, a pytree-total terminal residual, and a numpy explicit-Euler ODE floor on one `DifferentialIntent` owner.
+- [02]-[DIFFERENTIAL]: ODE/SDE/CDE integration over Diffrax — table-dispatched solver/Levy/term/path selection, adjoint-differentiable and batched-vmap solves, a pytree-total terminal residual, and a numpy explicit-Euler ODE floor on one `DifferentialIntent` owner.
 
 ## [02]-[DIFFERENTIAL]
 

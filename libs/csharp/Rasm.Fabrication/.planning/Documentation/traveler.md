@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[TRAVELER]: scalar owners and `TravelerReceiptCorpus` admit fan-in; `TravelerControl` owns instructions; `TravelerSection.Outputs` preserves every result; `TravelerAmendment` owns the `TravelerStepState` arrow; `Traveler.Assemble` builds, encodes, keys, chains, and projects one artifact.
+- [02]-[TRAVELER]: scalar owners and `TravelerReceiptCorpus` admit fan-in; `TravelerControl` owns instructions; `TravelerSection.Outputs` preserves every result; `TravelerAmendment` owns the `TravelerStepState` arrow; `Traveler.Assemble` builds, encodes, keys, chains, and projects one artifact.
 
 ## [02]-[TRAVELER]
 

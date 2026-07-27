@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[PLAN]: the content-keyed production-planning-and-scheduling axis folding the `ArtifactWork` producer graph into the `runtime/execution/lanes#LANE` admission shape, scheduling it by CPM, and surfacing the coverage evidence the lane does not own.
+- [02]-[PLAN]: the content-keyed production-planning-and-scheduling axis folding the `ArtifactWork` producer graph into the `runtime/execution/lanes#LANE` admission shape, scheduling it by CPM, and surfacing the coverage evidence the lane does not own.
 
 ## [02]-[PLAN]
 

@@ -17,21 +17,26 @@
 
 [ROOT_TYPES]: SDK roots, provider handles, and resource identity
 
-| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]  | [CAPABILITY]                                      |
-| :-----: | :---------------------- | :------------- | :------------------------------------------------ |
-|  [01]   | `OpenTelemetrySdk`      | sealed class   | one disposable root over all three providers      |
-|  [02]   | `IOpenTelemetryBuilder` | interface      | `Services` seat every cross-cutting verb extends  |
-|  [03]   | `Sdk`                   | static class   | hostless builder mint and default-propagator seat |
-|  [04]   | `BaseProvider`          | abstract class | disposable base of the three provider handles     |
-|  [05]   | `TracerProvider`        | class          | tracer mint and span drain root                   |
-|  [06]   | `MeterProvider`         | class          | metric drain root                                 |
-|  [07]   | `LoggerProvider`        | class          | log drain root                                    |
-|  [08]   | `TracerProviderBuilder` | abstract class | source and instrumentation admission base         |
-|  [09]   | `MeterProviderBuilder`  | abstract class | meter and instrumentation admission base          |
-|  [10]   | `LoggerProviderBuilder` | abstract class | instrumentation admission base                    |
-|  [11]   | `Resource`              | class          | immutable attribute set folding through `Merge`   |
-|  [12]   | `ResourceBuilder`       | class          | detector chain resolving one `Resource`           |
-|  [13]   | `IResourceDetector`     | interface      | one `Detect()` attribute contribution             |
+| [INDEX] | [SYMBOL]                         | [TYPE_FAMILY]  | [CAPABILITY]                                           |
+| :-----: | :------------------------------- | :------------- | :----------------------------------------------------- |
+|  [01]   | `OpenTelemetrySdk`               | sealed class   | one disposable root over all three providers           |
+|  [02]   | `IOpenTelemetryBuilder`          | interface      | `Services` seat every cross-cutting verb extends       |
+|  [03]   | `Sdk`                            | static class   | hostless builder mint and default-propagator seat      |
+|  [04]   | `BaseProvider`                   | abstract class | disposable base of the three provider handles          |
+|  [05]   | `TracerProvider`                 | class          | tracer mint and span drain root                        |
+|  [06]   | `MeterProvider`                  | class          | metric drain root                                      |
+|  [07]   | `LoggerProvider`                 | class          | log drain root                                         |
+|  [08]   | `TracerProviderBuilder`          | abstract class | source and instrumentation admission base              |
+|  [09]   | `MeterProviderBuilder`           | abstract class | meter and instrumentation admission base               |
+|  [10]   | `LoggerProviderBuilder`          | abstract class | instrumentation admission base                         |
+|  [11]   | `Resource`                       | class          | immutable attribute set folding through `Merge`        |
+|  [12]   | `ResourceBuilder`                | class          | detector chain resolving one `Resource`                |
+|  [13]   | `IResourceDetector`              | interface      | one `Detect()` attribute contribution                  |
+|  [14]   | `IDeferredTracerProviderBuilder` | interface      | defers a trace-builder callback to service resolution  |
+|  [15]   | `IDeferredMeterProviderBuilder`  | interface      | defers a metric-builder callback to service resolution |
+|  [16]   | `IDeferredLoggerProviderBuilder` | interface      | defers a log-builder callback to service resolution    |
+
+- Deferred interfaces let an instrumentation package register a builder callback before the `IServiceProvider` exists, and a builder implementing one hands the callback its resolved services at `Build`.
 
 [VOLUME_TYPES]: head sampling, the processor chain, and exporter authoring
 
@@ -99,6 +104,24 @@
 
 - `MetricPoint`: each value accessor binds one instrument shape — `MetricType` selects the legal call and a mismatch faults.
 
+[SPAN_API_TYPES]: the contract-assembly span shim over `Activity`
+
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]   | [CAPABILITY]                                       |
+| :-----: | :-------------------------- | :-------------- | :------------------------------------------------- |
+|  [01]   | `Tracer`                    | class           | scope-keyed span mint off a `TracerProvider`       |
+|  [02]   | `TelemetrySpan`             | class           | disposable span handle wrapping one `Activity`     |
+|  [03]   | `SpanContext`               | readonly struct | trace and span id pair with flags and trace state  |
+|  [04]   | `SpanAttributes`            | class           | initial-attribute bag a start call takes           |
+|  [05]   | `SpanKind`                  | enum            | `Internal` `Server` `Client` `Producer` `Consumer` |
+|  [06]   | `Link`                      | readonly struct | one causal link to a foreign span context          |
+|  [07]   | `Status`                    | readonly struct | `StatusCode` with an optional description          |
+|  [08]   | `StatusCode`                | enum            | `Unset` `Ok` `Error`                               |
+|  [09]   | `ActivityExtensions`        | static class    | `SetStatus`/`GetStatus` over a raw `Activity`      |
+|  [10]   | `ActivityContextExtensions` | static class    | `IsValid` over a raw `ActivityContext`             |
+
+- Shim types wrap `Activity`, so a span minted here and one minted from an `ActivitySource` land in the same pipeline, while `api-diagnostics-activity.md` owns the in-box surface every emitting library binds instead.
+- `TelemetrySpan.Context` `IsRecording` `ParentSpanId` read the wrapped activity, and `End()` closes it — a span left unended never exports.
+
 [LOG_TYPES]: the `ILogger` bridge
 
 | [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]   | [CAPABILITY]                               |
@@ -120,14 +143,15 @@
 |  [02]   | `TextMapPropagator`                | abstract class  | inject and extract over carrier adapters |
 |  [03]   | `TraceContextPropagator`           | class           | W3C `traceparent` and `tracestate` leg   |
 |  [04]   | `BaggagePropagator`                | class           | W3C `baggage` leg                        |
-|  [05]   | `CompositeTextMapPropagator`       | class           | one composite over ordered legs          |
-|  [06]   | `PropagationContext`               | readonly struct | activity context paired with baggage     |
-|  [07]   | `Propagators`                      | static class    | resolved process default propagator      |
-|  [08]   | `RuntimeContext`                   | static class    | named ambient slot registry              |
-|  [09]   | `RuntimeContextSlot<T>`            | abstract class  | one named typed ambient slot             |
-|  [10]   | `AsyncLocalRuntimeContextSlot<T>`  | class           | slot flowing across async continuations  |
-|  [11]   | `ThreadLocalRuntimeContextSlot<T>` | class           | slot pinned to the emitting thread       |
-|  [12]   | `IRuntimeContextSlotValueAccessor` | interface       | untyped read of a slot's value           |
+|  [05]   | `B3Propagator`                     | class           | single- or multi-header B3 legacy leg    |
+|  [06]   | `CompositeTextMapPropagator`       | class           | one composite over ordered legs          |
+|  [07]   | `PropagationContext`               | readonly struct | activity context paired with baggage     |
+|  [08]   | `Propagators`                      | static class    | resolved process default propagator      |
+|  [09]   | `RuntimeContext`                   | static class    | named ambient slot registry              |
+|  [10]   | `RuntimeContextSlot<T>`            | abstract class  | one named typed ambient slot             |
+|  [11]   | `AsyncLocalRuntimeContextSlot<T>`  | class           | slot flowing across async continuations  |
+|  [12]   | `ThreadLocalRuntimeContextSlot<T>` | class           | slot pinned to the emitting thread       |
+|  [13]   | `IRuntimeContextSlotValueAccessor` | interface       | untyped read of a slot's value           |
 
 - `Baggage`: every mutation returns a new value, so a discarded `SetBaggage` return changes nothing and `Baggage.Current` is the one write surface.
 
@@ -152,48 +176,71 @@ Extension verbs list the arguments past their receiver.
 
 [BUILDER_ENTRY]: admission and shaping on the three provider builders
 
-| [INDEX] | [SURFACE]                                                                   | [SHAPE]  | [CAPABILITY]                       |
-| :-----: | :-------------------------------------------------------------------------- | :------- | :--------------------------------- |
-|  [01]   | `TracerProviderBuilder.AddSource(string[])`                                 | instance | admits `ActivitySource` names      |
-|  [02]   | `TracerProviderBuilder.AddInstrumentation<T>(Func<T>)`                      | instance | binds an instrumentation lifetime  |
-|  [03]   | `TracerProviderBuilder.SetSampler(Sampler)`                                 | instance | seats the one head sampler         |
-|  [04]   | `TracerProviderBuilder.SetSampler<T>()`                                     | instance | sampler type the SDK constructs    |
-|  [05]   | `TracerProviderBuilder.SetSampler(Func<IServiceProvider, Sampler>)`         | instance | sampler resolved from services     |
-|  [06]   | `TracerProviderBuilder.SetErrorStatusOnException(bool)`                     | instance | stamps error status on span escape |
-|  [07]   | `TracerProviderBuilder.AddProcessor(BaseProcessor<Activity>)`               | instance | appends one span processor         |
-|  [08]   | `MeterProviderBuilder.AddMeter(string[])`                                   | instance | admits `Meter` names               |
-|  [09]   | `MeterProviderBuilder.AddView(string, string)`                              | instance | renames one instrument's stream    |
-|  [10]   | `MeterProviderBuilder.AddView(string, MetricStreamConfiguration)`           | instance | shapes one named instrument        |
-|  [11]   | `MeterProviderBuilder.AddView(Func<Instrument, MetricStreamConfiguration>)` | instance | shapes by instrument predicate     |
-|  [12]   | `MeterProviderBuilder.AddReader(MetricReader)`                              | instance | appends one collect-export reader  |
-|  [13]   | `MeterProviderBuilder.SetExemplarFilter(ExemplarFilterType)`                | instance | one exemplar policy per provider   |
-|  [14]   | `MeterProviderBuilder.SetMaxMetricStreams(int)`                             | instance | caps distinct streams per provider |
-|  [15]   | `LoggerProviderBuilder.AddProcessor(BaseProcessor<LogRecord>)`              | instance | appends one log processor          |
-|  [16]   | `ILoggingBuilder.AddOpenTelemetry(Action<OpenTelemetryLoggerOptions>)`      | instance | in-box `ILogger` bridge            |
+| [INDEX] | [SURFACE]                                                                   | [SHAPE]  | [CAPABILITY]                        |
+| :-----: | :-------------------------------------------------------------------------- | :------- | :---------------------------------- |
+|  [01]   | `TracerProviderBuilder.AddSource(string[])`                                 | instance | admits `ActivitySource` names       |
+|  [02]   | `TracerProviderBuilder.AddLegacySource(string)`                             | instance | admits a sourceless `Activity` name |
+|  [03]   | `TracerProviderBuilder.AddInstrumentation<T>(Func<T>)`                      | instance | binds an instrumentation lifetime   |
+|  [04]   | `TracerProviderBuilder.SetSampler(Sampler)`                                 | instance | seats the one head sampler          |
+|  [05]   | `TracerProviderBuilder.SetSampler<T>()`                                     | instance | sampler type the SDK constructs     |
+|  [06]   | `TracerProviderBuilder.SetSampler(Func<IServiceProvider, Sampler>)`         | instance | sampler resolved from services      |
+|  [07]   | `TracerProviderBuilder.SetErrorStatusOnException(bool)`                     | instance | stamps error status on span escape  |
+|  [08]   | `TracerProviderBuilder.AddProcessor(BaseProcessor<Activity>)`               | instance | appends one span processor          |
+|  [09]   | `MeterProviderBuilder.AddMeter(string[])`                                   | instance | admits `Meter` names                |
+|  [10]   | `MeterProviderBuilder.AddView(string, string)`                              | instance | renames one instrument's stream     |
+|  [11]   | `MeterProviderBuilder.AddView(string, MetricStreamConfiguration)`           | instance | shapes one named instrument         |
+|  [12]   | `MeterProviderBuilder.AddView(Func<Instrument, MetricStreamConfiguration>)` | instance | shapes by instrument predicate      |
+|  [13]   | `MeterProviderBuilder.AddReader(MetricReader)`                              | instance | appends one collect-export reader   |
+|  [14]   | `MeterProviderBuilder.SetExemplarFilter(ExemplarFilterType)`                | instance | one exemplar policy per provider    |
+|  [15]   | `MeterProviderBuilder.SetMaxMetricStreams(int)`                             | instance | caps distinct streams per provider  |
+|  [16]   | `LoggerProviderBuilder.AddProcessor(BaseProcessor<LogRecord>)`              | instance | appends one log processor           |
+|  [17]   | `ILoggingBuilder.AddOpenTelemetry(Action<OpenTelemetryLoggerOptions>)`      | instance | in-box `ILogger` bridge             |
 
 - `AddProcessor` and `AddReader`: each carries generic and `Func<IServiceProvider, …>` overloads beside the instance form, and registration order is execution order.
 - Every provider builder carries `ConfigureResource(Action<ResourceBuilder>)`, `SetResourceBuilder(ResourceBuilder)`, and `Build()`; `SetResourceBuilder` discards earlier identity where `ConfigureResource` augments it.
 
 [IDENTITY_ENTRY]: resource identity, provider drain, and the metric read path
 
-| [INDEX] | [SURFACE]                                                          | [SHAPE]  | [CAPABILITY]                           |
-| :-----: | :----------------------------------------------------------------- | :------- | :------------------------------------- |
-|  [01]   | `ResourceBuilder.CreateDefault()`                                  | factory  | telemetry-SDK and env-seeded builder   |
-|  [02]   | `ResourceBuilder.CreateEmpty()`                                    | factory  | unseeded builder                       |
-|  [03]   | `ResourceBuilder.AddService(string, string, string, bool, string)` | instance | the service identity triple            |
-|  [04]   | `ResourceBuilder.AddAttributes(IEnumerable<KeyValuePair<…>>)`      | instance | caller attribute rows                  |
-|  [05]   | `ResourceBuilder.AddTelemetrySdk()`                                | instance | `telemetry.sdk.*` attributes           |
-|  [06]   | `ResourceBuilder.AddEnvironmentVariableDetector()`                 | instance | environment-declared attribute rows    |
-|  [07]   | `ResourceBuilder.AddDetector(IResourceDetector)`                   | instance | appends one detector                   |
-|  [08]   | `ResourceBuilder.Build()`                                          | instance | folds every detector into one resource |
-|  [09]   | `Resource.Merge(Resource)`                                         | fold     | joins two attribute sets               |
-|  [10]   | `ProviderExtensions.GetResource(BaseProvider)`                     | static   | reads a provider's resolved resource   |
-|  [11]   | `TracerProvider.ForceFlush(int)`                                   | instance | drains pending signal                  |
-|  [12]   | `TracerProvider.Shutdown(int)`                                     | instance | terminal drain                         |
-|  [13]   | `Metric.GetMetricPoints()`                                         | instance | allocation-free point enumeration      |
-|  [14]   | `MetricPoint.TryGetExemplars(out ReadOnlyExemplarCollection)`      | instance | span-linked samples off one point      |
+| [INDEX] | [SURFACE]                                                          | [SHAPE]  | [CAPABILITY]                            |
+| :-----: | :----------------------------------------------------------------- | :------- | :-------------------------------------- |
+|  [01]   | `ResourceBuilder.CreateDefault()`                                  | factory  | telemetry-SDK and env-seeded builder    |
+|  [02]   | `ResourceBuilder.CreateEmpty()`                                    | factory  | unseeded builder                        |
+|  [03]   | `ResourceBuilder.AddService(string, string, string, bool, string)` | instance | the service identity triple             |
+|  [04]   | `ResourceBuilder.AddAttributes(IEnumerable<KeyValuePair<…>>)`      | instance | caller attribute rows                   |
+|  [05]   | `ResourceBuilder.AddTelemetrySdk()`                                | instance | `telemetry.sdk.*` attributes            |
+|  [06]   | `ResourceBuilder.AddEnvironmentVariableDetector()`                 | instance | environment-declared attribute rows     |
+|  [07]   | `ResourceBuilder.AddDetector(IResourceDetector)`                   | instance | appends one detector                    |
+|  [08]   | `ResourceBuilder.Build()`                                          | instance | folds every detector into one resource  |
+|  [09]   | `Resource.Merge(Resource)`                                         | fold     | joins two attribute sets                |
+|  [10]   | `ProviderExtensions.GetResource(BaseProvider)`                     | static   | reads a provider's resolved resource    |
+|  [11]   | `TracerProvider.ForceFlush(int)`                                   | instance | drains pending signal                   |
+|  [12]   | `TracerProvider.Shutdown(int)`                                     | instance | terminal drain                          |
+|  [13]   | `Metric.GetMetricPoints()`                                         | instance | allocation-free point enumeration       |
+|  [14]   | `MetricPoint.TryGetExemplars(out ReadOnlyExemplarCollection)`      | instance | span-linked samples off one point       |
+|  [15]   | `MetricReader.Collect(int)`                                        | instance | on-demand collect outside the cadence   |
+|  [16]   | `MetricReader.TemporalityPreference`                               | property | the reader's per-instrument temporality |
 
 - `ForceFlush(int)` and `Shutdown(int)`: all three providers carry both, and `TracerProvider` and `LoggerProvider` add `AddProcessor`.
+- `MetricReader.Collect` is the one pull seat — a test rail and a scrape exporter drive it, and a periodic reader drives the same call on its interval.
+
+[SPAN_API_ENTRY]: the contract-assembly span shim
+
+| [INDEX] | [SURFACE]                                                             | [SHAPE]  | [CAPABILITY]                         |
+| :-----: | :-------------------------------------------------------------------- | :------- | :----------------------------------- |
+|  [01]   | `TracerProvider.GetTracer(string, string?, string?, IEnumerable<…>?)` | instance | name, version, schema url, and tags  |
+|  [02]   | `Tracer.StartSpan(string, SpanKind, in TelemetrySpan?, …)`            | instance | inactive span off an explicit parent |
+|  [03]   | `Tracer.StartRootSpan(string, SpanKind, SpanAttributes?, …)`          | instance | parentless root span                 |
+|  [04]   | `Tracer.WithSpan(TelemetrySpan?)`                                     | static   | seats a span as ambient current      |
+|  [05]   | `TelemetrySpan.SetAttribute(string, …)`                               | instance | scalar and array attribute arms      |
+|  [06]   | `TelemetrySpan.AddEvent(string, DateTimeOffset, SpanAttributes?)`     | instance | one timestamped span event           |
+|  [07]   | `TelemetrySpan.AddLink(SpanContext, SpanAttributes?)`                 | instance | one causal link post-start           |
+|  [08]   | `TelemetrySpan.SetStatus(Status)`                                     | instance | terminal status projection           |
+|  [09]   | `TelemetrySpan.UpdateName(string)`                                    | instance | renames a started span               |
+|  [10]   | `TelemetrySpan.End(DateTimeOffset)`                                   | instance | closes the wrapped activity          |
+|  [11]   | `ActivityExtensions.SetStatus(Activity?, Status)`                     | static   | shim status onto a raw activity      |
+
+- `GetTracer`'s `schemaUrl` argument is where the semconv coordinate binds, so tracer, meter, and logger scopes bump on one constant.
+- Shim types carry no exception recorder, so `Activity.AddException`(`api-diagnostics-activity.md`) holds the one exception path.
 
 [CONTEXT_ENTRY]: propagation, baggage, and ambient slots
 
@@ -243,7 +290,7 @@ Extension verbs list the arguments past their receiver.
 - Latency families take the base2 exponential histogram, and `ExplicitBucketHistogramConfiguration.Boundaries` carries the row where the backend consumes explicit buckets, paired with the library-side `InstrumentAdvice<T>` hint.
 - `SetExemplarFilter(ExemplarFilterType.TraceBased)` composes on every meter provider, so a metric point inside a sampled span carries its trace and span link.
 - Propagation registers explicitly at every root: `Sdk.SetDefaultTextMapPropagator(new CompositeTextMapPropagator([new TraceContextPropagator(), new BaggagePropagator()]))`.
-- A metric exporter declares cadence through the reader it rides — `PeriodicExportingMetricReader` for push egress, `IPullMetricExporter` where the backend scrapes.
+- Metric exporters declare cadence through the reader they ride — `PeriodicExportingMetricReader` for push egress, `IPullMetricExporter` where the backend scrapes.
 
 [RAIL_LAW]:
 - Package: `OpenTelemetry`

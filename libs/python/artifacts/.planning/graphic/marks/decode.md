@@ -6,7 +6,7 @@ Machine-readable-mark decode substrate owns the rich zxing-cpp `read_barcodes` i
 
 ## [01]-[INDEX]
 
-- [01]-[DECODE]: zxing-cpp `read_barcodes` substrate — `DecodeScope` owns detector policy, format scope, capability query, and scan; `DecodedSymbol` owns per-symbol admission and recovery; `TAXONOMY` derives explicit format scopes with typed `unscannable` refusal; `graphic/marks/encode#MARK` composes the shared `RasterFact`/`MarkFault` rail.
+- [02]-[DECODE]: zxing-cpp `read_barcodes` substrate — `DecodeScope` owns detector policy, format scope, capability query, and scan; `DecodedSymbol` owns per-symbol admission and recovery; `TAXONOMY` derives explicit format scopes with typed `unscannable` refusal; `graphic/marks/encode#MARK` composes the shared `RasterFact`/`MarkFault` rail.
 
 ## [02]-[DECODE]
 

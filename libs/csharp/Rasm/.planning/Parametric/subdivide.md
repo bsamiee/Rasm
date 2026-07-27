@@ -6,7 +6,7 @@ Refinement is the only Parametric surface that outputs a mesh, published through
 
 ## [01]-[INDEX]
 
-- [01]-[SUBDIVISION]: `SubdivisionScheme` stencil-row schemes, one `Apply` fold emitting the sparse subdivision operator, and the Stam limit lane.
+- [02]-[SUBDIVISION]: `SubdivisionScheme` stencil-row schemes, one `Apply` fold emitting the sparse subdivision operator, and the Stam limit lane.
 
 ## [02]-[SUBDIVISION]
 

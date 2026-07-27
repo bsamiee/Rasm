@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_SILK_WEBGPU_WGPU]
 
-`Wgpu : NativeExtension<WebGPU>` mints the wgpu-native (`wgpu.h`) function table layered over the portable `Silk.NET.WebGPU` core (`webgpu.h`) — the native-only entrypoints a desktop render loop demands past the WebGPU standard. `new Wgpu(webgpu.Context)` or `webgpu.TryGetExtension(out Wgpu)` loads it against the live core as a second function-table view over the one loaded `wgpu_native` runtime, so a call site holds one `WebGPU` core and one `Wgpu` extension and never a second binding. It feeds the viewport rail.
+`Wgpu : NativeExtension<WebGPU>` mints the wgpu-native (`wgpu.h`) function table layered over the portable `Silk.NET.WebGPU` core (`webgpu.h`) — the native-only entrypoints a desktop render loop demands past the WebGPU standard. One call site holds one `WebGPU` core and one `Wgpu` view over the one loaded `wgpu_native` runtime, never a second binding.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -93,7 +93,7 @@ Every `*Extras` opens with a `Chain:ChainedStruct` header.
 - `WrappedSubmissionIndex`: `Queue:Queue*` `SubmissionIndex:ulong` — `QueueSubmitForIndex` mints it, `DevicePoll` waits on it
 - `InstanceEnumerateAdapterOptions`: `NextInChain:ChainedStruct*` `Backends:InstanceBackend`
 - `GlobalReport`: `Surfaces:RegistryReport` `BackendType` and a `HubReport` per backend (`Vulkan` `Metal` `Dx12` `Gl`)
-- `HubReport`: a `RegistryReport` per resource kind (`Adapters` `Devices` `Queues` `Buffers` `Textures` and eleven more)
+- `HubReport`: `RegistryReport` fields, one per wgpu resource-registry kind the backend hub tracks
 - `RegistryReport`: `NumAllocated` `NumKeptFromUser` `NumReleasedFromUser` `NumError` `ElementSize` — all `nuint`
 - `NativeLimits`: `MaxPushConstantSize:uint` `MaxNonSamplerBindings:uint`
 
@@ -101,35 +101,34 @@ Every `*Extras` opens with a `Chain:ChainedStruct` header.
 
 [ENTRYPOINT_SCOPE]: extension load, non-blocking poll, diagnostics, adapter enumeration, GPU-driven draw, and pipeline-statistics queries
 
-Construction binds the core `WebGPU`; every other entrypoint is an instance method on the loaded `Wgpu` table, and each pass-encoder op takes its `RenderPassEncoder*`/`ComputePassEncoder*` receiver as its first argument.
+`WebGPU.TryGetDeviceExtension<Wgpu>` at `api-silk-webgpu.md` is the loader; every entrypoint below is an instance method on the loaded table, and each pass-encoder op takes its `RenderPassEncoder*`/`ComputePassEncoder*` receiver as its first argument.
 
 | [INDEX] | [SURFACE]                                                                                    | [SHAPE]  | [CAPABILITY]               |
 | :-----: | :------------------------------------------------------------------------------------------- | :------- | :------------------------- |
-|  [01]   | `Wgpu(WebGPU)`                                                                               | ctor     | load over live core        |
-|  [02]   | `TryGetExtension(out Wgpu)`                                                                  | factory  | lookup and load            |
-|  [03]   | `DevicePoll(Device*, Bool32, WrappedSubmissionIndex*) -> Bool32`                             | instance | non-blocking queue advance |
-|  [04]   | `SetLogCallback(PfnLogCallback, void*)`                                                      | instance | native log routing         |
-|  [05]   | `SetLogCallback<T0>(PfnLogCallback, ref T0)`                                                 | instance | typed-userdata log route   |
-|  [06]   | `SetLogLevel(LogLevel)`                                                                      | instance | verbosity floor            |
-|  [07]   | `GetVersion() -> uint`                                                                       | instance | runtime version            |
-|  [08]   | `GenerateReport(Instance*, ref GlobalReport)`                                                | instance | allocation snapshot        |
-|  [09]   | `InstanceEnumerateAdapters(Instance*, InstanceEnumerateAdapterOptions*, Adapter**) -> nuint` | instance | all physical adapters      |
-|  [10]   | `QueueSubmitForIndex(Queue*, nuint, CommandBuffer**) -> ulong`                               | instance | submit minting the index   |
-|  [11]   | `RenderPassEncoderMultiDrawIndirect(Buffer*, ulong, uint)`                                   | instance | indirect multi-draw        |
-|  [12]   | `RenderPassEncoderMultiDrawIndexedIndirect(Buffer*, ulong, uint)`                            | instance | indexed multi-draw         |
-|  [13]   | `RenderPassEncoderMultiDrawIndirectCount(Buffer*, ulong, Buffer*, ulong, uint)`              | instance | count-buffer draw          |
-|  [14]   | `RenderPassEncoderMultiDrawIndexedIndirectCount(Buffer*, ulong, Buffer*, ulong, uint)`       | instance | indexed count-buffer draw  |
-|  [15]   | `RenderPassEncoderSetPushConstants(ShaderStage, uint, uint, void*)`                          | instance | push constants             |
-|  [16]   | `RenderPassEncoderSetPushConstants<T0>(ShaderStage, uint, uint, ref readonly T0)`            | instance | typed push constants       |
-|  [17]   | `RenderPassEncoderBeginPipelineStatisticsQuery(QuerySet*, uint)`                             | instance | render stats begin         |
-|  [18]   | `RenderPassEncoderEndPipelineStatisticsQuery()`                                              | instance | render stats end           |
-|  [19]   | `ComputePassEncoderBeginPipelineStatisticsQuery(QuerySet*, uint)`                            | instance | compute stats begin        |
-|  [20]   | `ComputePassEncoderEndPipelineStatisticsQuery()`                                             | instance | compute stats end          |
+|  [01]   | `Wgpu(INativeContext)`                                                                       | ctor     | load over live core        |
+|  [02]   | `DevicePoll(Device*, Bool32, WrappedSubmissionIndex*) -> Bool32`                             | instance | non-blocking queue advance |
+|  [03]   | `SetLogCallback(PfnLogCallback, void*)`                                                      | instance | native log routing         |
+|  [04]   | `SetLogCallback<T0>(PfnLogCallback, ref T0)`                                                 | instance | typed-userdata log route   |
+|  [05]   | `SetLogLevel(LogLevel)`                                                                      | instance | verbosity floor            |
+|  [06]   | `GetVersion() -> uint`                                                                       | instance | runtime version            |
+|  [07]   | `GenerateReport(Instance*, GlobalReport*)`                                                   | instance | allocation snapshot        |
+|  [08]   | `InstanceEnumerateAdapters(Instance*, InstanceEnumerateAdapterOptions*, Adapter**) -> nuint` | instance | all physical adapters      |
+|  [09]   | `QueueSubmitForIndex(Queue*, nuint, CommandBuffer**) -> ulong`                               | instance | submit minting the index   |
+|  [10]   | `RenderPassEncoderMultiDrawIndirect(Buffer*, ulong, uint)`                                   | instance | indirect multi-draw        |
+|  [11]   | `RenderPassEncoderMultiDrawIndexedIndirect(Buffer*, ulong, uint)`                            | instance | indexed multi-draw         |
+|  [12]   | `RenderPassEncoderMultiDrawIndirectCount(Buffer*, ulong, Buffer*, ulong, uint)`              | instance | count-buffer draw          |
+|  [13]   | `RenderPassEncoderMultiDrawIndexedIndirectCount(Buffer*, ulong, Buffer*, ulong, uint)`       | instance | indexed count-buffer draw  |
+|  [14]   | `RenderPassEncoderSetPushConstants(ShaderStage, uint, uint, void*)`                          | instance | push constants             |
+|  [15]   | `RenderPassEncoderSetPushConstants<T0>(ShaderStage, uint, uint, ref readonly T0)`            | instance | typed push constants       |
+|  [16]   | `RenderPassEncoderBeginPipelineStatisticsQuery(QuerySet*, uint)`                             | instance | render stats begin         |
+|  [17]   | `RenderPassEncoderEndPipelineStatisticsQuery()`                                              | instance | render stats end           |
+|  [18]   | `ComputePassEncoderBeginPipelineStatisticsQuery(QuerySet*, uint)`                            | instance | compute stats begin        |
+|  [19]   | `ComputePassEncoderEndPipelineStatisticsQuery()`                                             | instance | compute stats end          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `Wgpu` loads through the `NativeExtension<WebGPU>` convention against the live core — `new Wgpu(webgpu.Context)` or `webgpu.TryGetExtension(out Wgpu)` yields a second function-table view over the one loaded `wgpu_native` runtime.
+- `Wgpu` loads through the `NativeExtension<WebGPU>` convention against the live core — `webgpu.TryGetDeviceExtension<Wgpu>(device, out var wgpu)` gates on the `wgpu.h` probe and constructs, and `new Wgpu(webgpu.Context)` binds the same context directly; either yields a second function-table view over the one loaded `wgpu_native` runtime.
 - `DevicePoll(device, wait:false, submissionIndex)` advances submission completion once per frame, retires command buffers, and runs mapped-buffer callbacks off the UI thread; `wait:true` drains at teardown.
 - `SetLogCallback` binds a `PfnLogCallback` over the native diagnostic stream — adapter selection, validation errors, device-lost — so a wgpu validation error is a counted evidence row, not a swallowed native print.
 - `MultiDrawIndirect`/`MultiDrawIndexedIndirect` issue one indirect multi-draw over the visible meshlet set; the `*Count` variants read the live draw count a GPU compute-culling pass wrote, so the surviving-cluster count drives the draw with zero CPU round-trip.
@@ -148,5 +147,5 @@ Construction binds the core `WebGPU`; every other entrypoint is an instance meth
 [RAIL_LAW]:
 - Package: `Silk.NET.WebGPU.Extensions.WGPU`
 - Owns: the wgpu-native vendor surface over the standard binding — non-blocking `DevicePoll`, native log routing through `PfnLogCallback`, full-adapter enumeration, indirect/count-buffer multi-draw and push constants, bindless descriptor arrays via the `Extras` chain, pipeline-statistics profiling, the `GenerateReport` residency snapshot, and the submission-index handshake.
-- Accept: `new Wgpu(webgpu.Context)`/`TryGetExtension` second function-table view; `DevicePoll` per-frame non-blocking advance; native log via `PfnLogCallback.From` into the receipt sink; `InstanceEnumerateAdapters` LUID-matched select; the `Extras` native `next`-chain on the standard descriptors; count-buffer GPU-driven draw counts.
-- Reject: a second wgpu binding beside the core; `Wgpu.GetApi` (the core static, not an extension load); `SetLogCallback` bound to a bare `LogCallback` in place of `PfnLogCallback`; a blocking fence busy-spin where `DevicePoll` advances; a power-preference single-adapter select ignoring the compositor LUID; N per-meshlet draws where one indirect multi-draw issues; a per-meshlet rebind where a bindless array binds once. `BufferDestroy`/`TextureDestroy` release lives on the core binding.
+- Accept: `TryGetDeviceExtension<Wgpu>`/`new Wgpu(webgpu.Context)` second function-table view; `DevicePoll` per-frame non-blocking advance; native log via `PfnLogCallback.From` into the receipt sink; `InstanceEnumerateAdapters` LUID-matched select; the `Extras` native `next`-chain on the standard descriptors; count-buffer GPU-driven draw counts.
+- Reject: a second wgpu binding beside the core; a `GetApi()` static on this table, which carries none — `GetApi` is the core's alone; `SetLogCallback` bound to a bare `LogCallback` in place of `PfnLogCallback`; a blocking fence busy-spin where `DevicePoll` advances; a power-preference single-adapter select ignoring the compositor LUID; N per-meshlet draws where one indirect multi-draw issues; a per-meshlet rebind where a bindless array binds once. `BufferDestroy`/`TextureDestroy` release lives on the core binding.

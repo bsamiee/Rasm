@@ -6,8 +6,8 @@ Geospatial CLAIMS plane — one third of the spatial triptych, beside the `spati
 
 ## [01]-[INDEX]
 
-- [01]-[GEO]: the `VectorGeoClaim`/`RasterGeoClaim` claim owners — the `VectorOp`/`RasterOp` axes, the `VectorIngress` pushdown row, the `EgressFormat` egress, the `geoarrow_wire` hand-off.
-- [02]-[COVERAGE]: the `rioxarray` CF bridge — georeferenced read, the bare-ndarray lift onto the CF plane, the CF-side COG write.
+- [02]-[GEO]: the `VectorGeoClaim`/`RasterGeoClaim` claim owners — the `VectorOp`/`RasterOp` axes, the `VectorIngress` pushdown row, the `EgressFormat` egress, the `geoarrow_wire` hand-off.
+- [03]-[COVERAGE]: the `rioxarray` CF bridge — georeferenced read, the bare-ndarray lift onto the CF plane, the CF-side COG write.
 
 ## [02]-[GEO]
 

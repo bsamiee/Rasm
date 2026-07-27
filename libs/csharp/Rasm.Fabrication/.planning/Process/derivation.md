@@ -12,7 +12,7 @@ Wire posture: HOST-LOCAL. `FabricationPlan` crosses to the caller and `Verify/es
 
 ## [01]-[INDEX]
 
-- [01]-[DERIVATION]: `DerivationStage`, `PlanIdentitySchema`, `CapabilityGate`, `WorkAxis`, `JoinRouting`, `LotPolicy`, `CapabilityRequirement`, `LotReceipt`, `WorkKind`, `OperationDemand`, `OperationTopology`, `DerivePolicy`, `PlanDraft`, `Derivation.Plan`, and `FabricationProjector`.
+- [02]-[DERIVATION]: `DerivationStage`, `PlanIdentitySchema`, `CapabilityGate`, `WorkAxis`, `JoinRouting`, `LotPolicy`, `CapabilityRequirement`, `LotReceipt`, `WorkKind`, `OperationDemand`, `OperationTopology`, `DerivePolicy`, `PlanDraft`, `Derivation.Plan`, and `FabricationProjector`.
 
 ## [02]-[DERIVATION]
 

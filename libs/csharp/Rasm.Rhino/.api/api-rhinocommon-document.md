@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: RhinoCommon document surface
-- host: `RhinoCommon` (Rhino host runtime, in-process)
+- host: Rhino host runtime, in-process (proprietary McNeel SDK)
 - assembly: `RhinoCommon.dll` — verified by direct decompile
 - namespaces: `Rhino`, `Rhino.DocObjects`, `Rhino.DocObjects.Tables`, `Rhino.DocObjects.Custom`, `Rhino.Collections`
 - kernel: `Rasm` (host-agnostic vocabularies and numeric owners composed, never re-derived)

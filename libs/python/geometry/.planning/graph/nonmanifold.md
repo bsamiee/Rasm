@@ -6,7 +6,7 @@ Non-manifold topological modeling over the stateless `topologicpy` static-method
 
 ## [01]-[INDEX]
 
-- [01]-[TOPOLOGY]: `TopologyOp` union, its `_CONSTRUCT`/`_BOOLEAN`/`_ANALYSIS`/`GRAPH_ANALYTIC` tables over the cached AGPL facades, and the `run`/`bridged` pair under one `ReceiptContributor`.
+- [02]-[TOPOLOGY]: `TopologyOp` union, its `_CONSTRUCT`/`_BOOLEAN`/`_ANALYSIS`/`GRAPH_ANALYTIC` tables over the cached AGPL facades, and the `run`/`bridged` pair under one `ReceiptContributor`.
 
 ## [02]-[TOPOLOGY]
 

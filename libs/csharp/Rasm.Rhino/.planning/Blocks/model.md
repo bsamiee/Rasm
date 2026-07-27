@@ -4,11 +4,10 @@ Block state vocabulary (`Rasm.Rhino.Blocks`) owns one live address, one whole-st
 
 ## [01]-[INDEX]
 
-| [INDEX] | [OWNER]         | [CONTRACT]                                                       |
-| :-----: | :-------------- | :--------------------------------------------------------------- |
-|  [01]   | `Definitions`   | folder `ResourceLens<InstanceDefinition>` row                    |
-|  [02]   | `BlockSnapshot` | whole-state evidence and dependency probes                       |
-|  [03]   | policy values   | authoring, deletion, explosion, placement, and preview decisions |
+- [02]-[ADDRESS]: `Definitions.Lens` this folder's one `ResourceLens<InstanceDefinition>` row over the document spine's `ResourceRef`, resolution re-entering the mutable table per use so no native definition escapes its owning document window.
+- [03]-[SNAPSHOT]: `BlockSnapshot` capturing identity, normalized source state, member order, placement evidence, usage, containers, and both change probes in one host read, `BlockDependency` folding the native table probes, and `LinkState` normalizing obsolete embedded definitions.
+- [04]-[POLICY_VALUES]: closed `ConflictPolicy`, `DeletionPolicy`, `ExplodePolicy`, `Placement`, and `BlockPreview` owners carrying host arguments as data, `PreviewFrame` admitting projection, extent, and raster scale once for every modality.
+- [05]-[SURFACE_LEDGER]: owner-to-kind-to-ingress-to-egress roster across the lens row, snapshot, link state, policy owners, and preview union.
 
 ## [02]-[ADDRESS]
 

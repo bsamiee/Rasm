@@ -304,9 +304,13 @@ VERSION_BAND = re.compile(r"\b[A-Z][A-Za-z]*\s+\d{1,3}\+(?![+\d])")
 CITATION_LEAD = re.compile(r"(?:Table|Clause|Section|Annex|Figure|Chapter|Note|Part|§)\s*$")
 # Spaced double or triple hyphens ride prose as an em dash; the spelled character is the only legal interrupter.
 EM_DASH_ASCII = re.compile(r"(?<=\s)-{2,3}(?=\s)")
-# Section-anchored pointers couple prose to a sibling's interior; a bare owner mention stays the legal one-line pointer form.
+# Interior-anchored pointers couple prose to a sibling's internals. Two shapes qualify: a file pointer carrying the
+# `.md` extension, which pins a physical path a move invalidates, and a path pointer whose anchor is not an
+# UPPERCASE_SNAKE section token, which reaches for a code symbol or a slug the target renumbers out from under it.
+# An extensionless `<path>/<page>#SECTION_TOKEN` reference names a public section header \u2014 the integration-point
+# notation a design corpus fixes as its one cross-owner form \u2014 so it stays legal and a bare owner mention always does.
 STRATA_ROW_KEY = re.compile(r"^- S\d+(?:\u2013S?\d+)?\s")
-POINTER = re.compile(r"[\w./-]*\w\.md#[\w.-]+|\b[\w./-]+/[\w.-]+#[A-Z][A-Z0-9_]+\b")
+POINTER = re.compile(r"[\w./-]*\w\.md#[\w.-]+|\b[\w./-]+/[\w.-]+#(?![A-Z][A-Z0-9_]*(?![\w-]))[\w.-]+\b")
 # Deictic freshness and permission verbs warn: both admit context-legal uses review adjudicates.
 FRESHNESS_DEICTIC = re.compile(r"\b(?:currently|recently|nowadays|at\s+present|these\s+days|going\s+forward|modern)\b", re.IGNORECASE)
 WEAK_VERB = re.compile(r"\b(?:supports|provides|offers|allows|enables)\b", re.IGNORECASE)

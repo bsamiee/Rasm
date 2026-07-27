@@ -138,7 +138,7 @@ Vocabulary and enum leaf types carry closed value rosters:
 - `Analysis/lifecycle`: sums the EN 15978 module `Measurement` values through the closed-form A1-A3/A4/A5/B/C/D fold, `product_service_life_years`/`Bn_years` feeding the B-stage replacement-count fold; the AppHost-owned `Microsoft.Extensions.Http.Resilience` handler honors `429`/`Retry-After` as the backoff floor, retries transient `5xx`, and fails `4xx` fast onto the typed fault rail.
 
 [LOCAL_ADMISSION]:
-- A category + spec OMF query enters at the EN 15978 LCA boundary and returns kgCO2e-per-declared-unit measurements decoded once into typed domain scalars; `meta.warnings[]` fold into the `Assessment` receipt as soft notes, never faults.
+- Every category + spec OMF query enters at the EN 15978 LCA boundary and returns kgCO2e-per-declared-unit measurements decoded once into typed domain scalars; `meta.warnings[]` fold into the `Assessment` receipt as soft notes, never faults.
 
 [RAIL_LAW]:
 - Package: `EC3` / openEPD REST (Building Transparency)

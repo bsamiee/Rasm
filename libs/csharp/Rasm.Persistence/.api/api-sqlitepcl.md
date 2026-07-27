@@ -62,7 +62,7 @@
 |  [04]   | `raw.FreezeProvider(bool)`             | static  | locks the bound provider against a later rebind             |
 |  [05]   | `raw.GetNativeLibraryName() -> string` | static  | the resolved native library basename                        |
 
-- `raw.SetProvider`: an unbound `raw` call throws; `Microsoft.Data.Sqlite` runs the same init internally, so the embedded profile shares one bound provider with the raw rail.
+- `raw.SetProvider`: unbound `raw` calls throw; `Microsoft.Data.Sqlite` runs the same init internally, so the embedded profile shares one bound provider with the raw rail.
 
 [ENTRYPOINT_SCOPE]: engine operations over the shared `sqlite3` handle — backup, snapshot, checkpoint, image moves, and blob cursors.
 
@@ -112,7 +112,7 @@
 
 [DB_CONFIG_OPS]: `SQLITE_DBCONFIG_DEFENSIVE` `SQLITE_DBCONFIG_DQS_DML` `SQLITE_DBCONFIG_DQS_DDL` `SQLITE_DBCONFIG_TRUSTED_SCHEMA` `SQLITE_DBCONFIG_ENABLE_FKEY` `SQLITE_DBCONFIG_ENABLE_TRIGGER` `SQLITE_DBCONFIG_ENABLE_VIEW` `SQLITE_DBCONFIG_ENABLE_QPSG` `SQLITE_DBCONFIG_ENABLE_LOAD_EXTENSION` `SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE` `SQLITE_DBCONFIG_WRITABLE_SCHEMA` `SQLITE_DBCONFIG_RESET_DATABASE`
 [LIMIT_IDS]: `SQLITE_LIMIT_LENGTH` `SQLITE_LIMIT_SQL_LENGTH` `SQLITE_LIMIT_COLUMN` `SQLITE_LIMIT_EXPR_DEPTH` `SQLITE_LIMIT_COMPOUND_SELECT` `SQLITE_LIMIT_VDBE_OP` `SQLITE_LIMIT_FUNCTION_ARG` `SQLITE_LIMIT_ATTACHED` `SQLITE_LIMIT_LIKE_PATTERN_LENGTH` `SQLITE_LIMIT_VARIABLE_NUMBER` `SQLITE_LIMIT_TRIGGER_DEPTH` `SQLITE_LIMIT_WORKER_THREADS`
-- `raw.sqlite3_limit`: a negative `newVal` reads the cap without changing it, and every call returns the prior value.
+- `raw.sqlite3_limit`: negative `newVal` reads the cap without changing it, and every call returns the prior value.
 
 [ENTRYPOINT_SCOPE]: status, introspection, and diagnostics feeding typed receipts.
 
@@ -150,7 +150,7 @@
 [DB_STATUS_OPS]: `SQLITE_DBSTATUS_CACHE_USED` `SQLITE_DBSTATUS_SCHEMA_USED` `SQLITE_DBSTATUS_STMT_USED` `SQLITE_DBSTATUS_CACHE_HIT` `SQLITE_DBSTATUS_CACHE_MISS` `SQLITE_DBSTATUS_CACHE_WRITE` `SQLITE_DBSTATUS_DEFERRED_FKS` `SQLITE_DBSTATUS_LOOKASIDE_USED` `SQLITE_DBSTATUS_LOOKASIDE_HIT` `SQLITE_DBSTATUS_LOOKASIDE_MISS_SIZE` `SQLITE_DBSTATUS_LOOKASIDE_MISS_FULL`
 [STMT_STATUS_OPS]: `SQLITE_STMTSTATUS_FULLSCAN_STEP` `SQLITE_STMTSTATUS_SORT` `SQLITE_STMTSTATUS_AUTOINDEX` `SQLITE_STMTSTATUS_VM_STEP`
 [RESULT_CODES]: `SQLITE_OK` `SQLITE_DONE` `SQLITE_ERROR` `SQLITE_BUSY` `SQLITE_LOCKED` `SQLITE_READONLY` `SQLITE_IOERR` `SQLITE_FULL` `SQLITE_CORRUPT` `SQLITE_NOTADB` `SQLITE_BUSY_SNAPSHOT` `SQLITE_BUSY_RECOVERY`
-- `sqlite3.enable_sqlite3_next_stmt`: an unarmed connection throws at the walk, so arming rides the open path.
+- `sqlite3.enable_sqlite3_next_stmt`: arming builds the native-pointer map, so the walk throws on an unarmed connection AND on any handle prepared before the arm — arming rides the open path ahead of the first statement, never the harvest.
 - `raw.sqlite3_stmt_status`: `SQLITE_STMTSTATUS_FULLSCAN_STEP` is the plan-regression tell across a harvest window.
 - `raw.sqlite3_compileoption_used`: `SQLITE_ENABLE_DBSTAT_VTAB` is absent from this `e_sqlite3` build, so the probe gates any `dbstat` metric.
 
@@ -173,16 +173,16 @@
 
 [TOPOLOGY]:
 - `raw` dispatches every member through the one `ISQLite3Provider` bound at init, so provider selection is a process fact and never a per-connection knob.
-- A raw member returns an `int` status matched against the result codes; `SQLITE_BUSY` and `SQLITE_LOCKED` are retry receipts, never faults.
-- A status receipt widens as one row when the interop admits a further `SQLITE_DBSTATUS_*` or `SQLITE_STMTSTATUS_*` constant.
-- A `utf8z` return is an unmaterialized span over engine memory; `utf8_to_string()` copies it at the boundary.
+- Raw members return an `int` status matched against the result codes; `SQLITE_BUSY` and `SQLITE_LOCKED` are retry receipts, never faults.
+- Status receipts widen as one row when the interop admits a further `SQLITE_DBSTATUS_*` or `SQLITE_STMTSTATUS_*` constant.
+- `utf8z` returns an unmaterialized span over engine memory; `utf8_to_string()` copies it at the boundary.
 
 [STACKING]:
 - `api-sqlite`(`.api/api-sqlite.md`): `SqliteConnection.Handle` hands the `sqlite3` every call here takes; the paged `sqlite3_backup_*` session subsumes `BackupDatabase` by adding `_remaining`/`_pagecount` progress facts, and one `sqlite3_blob_*` cursor scans a rowid sequence where the ADO blob stream allocates per cell.
 - `api-sqlitepclmc`(`.api/api-sqlitepclmc.md`): its cipher provider swaps in under this same surface, so the encrypted floor inherits every call here and adds only the keying delta.
 - `Store/provisioning#EMBEDDED_FLOOR` folds the open ritual through the int-flag `sqlite3_db_config` overload — `SQLITE_DBCONFIG_DEFENSIVE` armed, `SQLITE_DBCONFIG_DQS_DDL`/`DQS_DML` cleared, the loader op absent — once per physical open before any user statement, so defensive posture and double-quoted-literal rejection are connection policy rather than connection-string knobs.
 - `Store/provisioning#ENGINE_OPERATIONS` brackets a consistent multi-transaction read: `sqlite3_snapshot_get`, one `sqlite3_snapshot_recover` retry on a refused pin, a `sqlite3_snapshot_cmp` monotonic-floor guard so a reader never regresses across brackets, `sqlite3_snapshot_open`, and `sqlite3_snapshot_free` of only a held handle; the `sqlite3_wal_checkpoint_v2` out-params carry log-frame and checkpointed-frame counts into the typed `EmbeddedFact`, and a `SQLITE_BUSY` return receipts a retry.
-- `Store/observability#SQLITE_STATUS_HARVEST` arms the statement registry at open, walks `sqlite3_next_stmt` over the shared handle, and folds the read-and-reset `sqlite3_stmt_status` counters with the `sqlite3_db_status` gauges into the `store.stat.sqlite.statements`/`store.stat.sqlite.connection` receipts over that one native connection.
+- `Store/observability#SQLITE_STATUS_HARVEST` owns `SqliteStatHarvest.Arm`, which `Store/provisioning#EMBEDDED_FLOOR` mounts as the LEADING `EmbeddedRitual.Capabilities` grant so the registry arms ahead of the first statement; the harvest then walks `sqlite3_next_stmt` over the shared handle and folds the read-and-reset `sqlite3_stmt_status` counters with the `sqlite3_db_status` gauges into the `store.stat.sqlite.statements`/`store.stat.sqlite.connection` receipts over that one native connection.
 - `sqlite3_serialize`/`sqlite3_deserialize` move a whole-schema image between memory and a store without file IO, the snapshot rail's path for a memory-backed image distinct from the `byte[]` content-chunk frame.
 
 [LOCAL_ADMISSION]:

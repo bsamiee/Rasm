@@ -4,11 +4,11 @@ One typographic law serves every AppUi surface: `TypographyRole` is the ten-row 
 
 ## [01]-[INDEX]
 
-- [01]-[ROLE_AXIS]: Ten role rows; every text appearance literal traces here.
-- [02]-[FONT_ADMISSION]: Deterministic embedded-Inter admission; ranked per-platform fallback chains.
-- [03]-[SHAPING_RAIL]: One HarfBuzz shaping rail before every Skia glyph draw.
-- [04]-[MARKDOWN_PROJECTION]: Markdig AST folds to role-keyed rows and inline runs.
-- [05]-[TEXT_METRICS]: Baseline-grid math, measurement, trimming, tabular-numeral proof.
+- [02]-[ROLE_AXIS]: Ten role rows; every text appearance literal traces here.
+- [03]-[FONT_ADMISSION]: Deterministic embedded-Inter admission; ranked per-platform fallback chains.
+- [04]-[SHAPING_RAIL]: One HarfBuzz shaping rail before every Skia glyph draw.
+- [05]-[MARKDOWN_PROJECTION]: Markdig AST folds to role-keyed rows and inline runs.
+- [06]-[TEXT_METRICS]: Baseline-grid math, measurement, trimming, tabular-numeral proof.
 
 ## [02]-[ROLE_AXIS]
 

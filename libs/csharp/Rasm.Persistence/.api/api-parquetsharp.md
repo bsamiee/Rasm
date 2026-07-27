@@ -113,7 +113,7 @@ For a runtime-only element type, `ColumnDescriptor.Apply<TReturn>(LogicalTypeFac
 
 [PUBLIC_TYPE_SCOPE]: partitioning family (`ParquetSharp.Dataset.Partitioning`)
 
-A `DatasetReader` ctor takes either a concrete `IPartitioning` or an `IPartitioningFactory` that infers one from the directory tree; each scheme carries a nested `Factory : IPartitioningFactory`.
+`DatasetReader` ctors take either a concrete `IPartitioning` or an `IPartitioningFactory` inferring one from the directory tree; each scheme carries a nested `Factory : IPartitioningFactory`.
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY]   | [CAPABILITY]                                                                      |
 | :-----: | :--------------------- | :-------------- | :-------------------------------------------------------------------------------- |
@@ -207,7 +207,7 @@ A `DatasetReader` ctor takes either a concrete `IPartitioning` or an `IPartition
 [STACKING]:
 - `api-arrow`(`.api/api-arrow.md`): Parquet ↔ `RecordBatch` is the load-bearing stack — the analytical lane reads a Parquet file as an `IArrowArrayStream`, feeds it to a DuckDB query or an ADBC consumer (`Apache.Arrow.Adbc`), and writes the result back through `Arrow.FileWriter`, one Arrow batch type crossing all three codecs.
 - `api-duckdb`(`.api/api-duckdb.md`): the symmetric counterpart to its `ARROW_BOUNDARY` — DuckDB exposes no Arrow type so its Arrow path is a native ADBC bridge, while `ParquetSharp.Arrow` exposes `RecordBatch` as a first-class managed call; a Parquet file is the durable form DuckDB queries and this codec writes/reads.
-- `api-thinktecture-serialization`(`.api/api-thinktecture-serialization.md`): the per-column CLR→physical mapping for a `[ValueObject]`/`[SmartEnum]` owner reuses its key projection; the projected key writes through `LogicalColumnWriter<TValue>.WriteBatch`, and a custom `LogicalWriteConverterFactory`/`LogicalReadConverterFactory` is the seam for a non-default physical encoding.
+- `Thinktecture.Runtime.Extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): the per-column CLR→physical mapping for a `[ValueObject]`/`[SmartEnum]` owner reuses its generated key projection; the projected key writes through `LogicalColumnWriter<TValue>.WriteBatch`, and a custom `LogicalWriteConverterFactory`/`LogicalReadConverterFactory` is the seam for a non-default physical encoding.
 - `api-aws-kms`/`api-azure-keyvault`/`api-google-kms`: `CryptoFactory(KmsClientFactory)` binds an `IKmsClient` whose `WrapKey`/`UnwrapKey` delegate to the admitted KMS clients; `KmsConnectionConfig.RefreshKeyAccessToken` rotates the access token in place, and the tenant KEK id binds the file to the `Element/identity#KMS_CUSTODY` row.
 - `api-zstd`/`api-lz4`: `Compression.Zstd`/`Lz4` are C++-core codecs Parquet applies internally, orthogonal to the standalone `ZstdSharp.Port`/`K4os.Compression.LZ4` blob snapshot codecs, so a Parquet extract is compressed once by the writer, never double-compressed.
 - `api-ara3d-bimopenschema`(`.api/api-ara3d-bimopenschema.md`): its managed `Parquet.Net` writer (`WriteToParquetZip`) emits one Brotli-compressed `.parquet` per BIM table inside a zip; this native reader consumes those standard-format files at the format boundary (managed writer / native libparquet-cpp reader interoperate at the format, never the assembly) and streams them as `RecordBatch` through `Arrow.FileReader` into the columnar query rail.

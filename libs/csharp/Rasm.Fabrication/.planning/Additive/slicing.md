@@ -4,7 +4,7 @@ Additive slicing consumes kernel `SliceStack` truth once, materializes the layer
 
 ## [01]-[INDEX]
 
-- [01]-[SLICING]: owns `SliceRegion`, `InfillPolicy`, seed-driven `InfillPattern`, `BeadGeometry`/`ShellPolicy`/`FeedPolicy` deposition policy, shell/bridge/skin/gap-fill/support partitioning, `DepositionSeed`, `AdditivePolicy`, `Slice.Solve`, and `Slice.Layers`.
+- [02]-[SLICING]: owns `SliceRegion`, `InfillPolicy`, seed-driven `InfillPattern`, `BeadGeometry`/`ShellPolicy`/`FeedPolicy` deposition policy, shell/bridge/skin/gap-fill/support partitioning, `DepositionSeed`, `AdditivePolicy`, `Slice.Solve`, and `Slice.Layers`.
 
 ## [02]-[SLICING]
 

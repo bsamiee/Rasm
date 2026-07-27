@@ -2,7 +2,7 @@
 
 Probe owns render evidence. Its benchmark lane folds Deck and renderer counters through one bounded projection algebra, mirrors the host fingerprint, and joins local rows to identity-admitted claims by label. Its receipt lane captures a fixed-extent framebuffer, delegates content minting, and compares the result with `RenderReceipt`. Both lanes render evidence and never gate. Module: `ui/viewer/src/probe.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]       | [OWNS]                                                                     | [PUBLIC] |
 | :-----: | :-------------- | :------------------------------------------------------------------------- | :------- |

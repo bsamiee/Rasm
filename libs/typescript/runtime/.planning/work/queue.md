@@ -4,7 +4,7 @@ Durable-work intake: restart-surviving job families on the native `DurableQueue`
 
 Decomposition is ruled: `@effect/cluster` and `@effect/workflow` natively own persistence, dedup, and worker execution; the ordering-and-parking layer is pg-composed — the journal's `SKIP LOCKED` claim with an `ORDER BY` urgency term carries the queue engines' visibility-timeout and archive semantics as lease and park columns, the engines rejected as a second job-table paradigm — and no third layer exists. Dead-lettering lives here alone: a parked deliverable is typed evidence on the fact journal, replay an operator fold re-minting deliverables from that evidence. Its module ships on the `./server` subpath as `runtime/src/work/queue.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]     | [OWNS]                                                                        | [PUBLIC]   |
 | :-----: | :------------ | :---------------------------------------------------------------------------- | :--------- |

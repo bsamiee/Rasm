@@ -89,11 +89,19 @@ Every shape crossing a branch boundary carries a `MANIFEST.md` entry; a conventi
 
 ## [08]-[OBSERVABILITY_CONFORMANCE]
 
-Four-signal telemetry — metrics, logs, traces, profiles — correlates across the three runtimes through rows each branch transcribes identically in meaning: canonical here, transcribed at `csharp:Rasm.AppHost/Observability/telemetry`, `python:runtime/observability/telemetry`, and `typescript:runtime/otel/emit`, the name vocabulary at `typescript:core/observe/convention`. Drifted rows repair at their owning branch page, never through a shared library — transcription is the conformance mechanism because the three SDK trains move on split maturity channels.
+Four-signal telemetry — metrics, logs, traces, profiles — correlates across the three runtimes through rows each branch transcribes identically in meaning: canonical here, transcribed at `csharp:Rasm.AppHost/Observability/telemetry`, `python:runtime/observability/telemetry`, and `typescript:runtime/otel/emit`, the name vocabulary at `typescript:core/observe/convention`. Drifted rows repair at their owning branch page, never through a shared library, because the three SDK trains move on split maturity channels.
+
+Transcription SPELLS the rows per branch; `tests/contracts/` `TELEMETRY_CONVENTION` PROVES the three spellings agree, so a drifted row fails parity rather than a reading.
 
 - Resource triple: `service.namespace` `rasm`, `service.name` the service row, `service.instance.id` a per-process mint.
 - Detector rows enrich the minted triple, never replace it; deployment-time resource overrides win the merge.
 - Metric names: dotted `rasm.<domain>.<measure>` under UCUM units, no baked `_total` or unit suffixes.
+- `<domain>` names the capability subject a query joins on, never the package, host, or verb emitting it.
+- Runtimes serving one subject share the segment and `service.name` separates the emitters; a package spanning two subjects emits under both.
+- Domain rows stay branch-declared — segment, admitted subject, emitting packages — at each branch's conformance minter, since fixing the instances here re-anchors the vocabulary to whatever segments exist today.
+- Gate: every segmented `rasm.` name a branch mints — instrument, metric dimension, resource, span, and log attribute alike — resolves against that roster, and an unresolved segment refuses at the declaration owner.
+- Two branches projecting one segment under different subjects fail corpus parity, which is what makes the roster one vocabulary rather than three.
+- Grammar carve: estate identity dimensions carry no segment, and package-keyed hook-point ids beside a runtime's own module namespace sit outside the grammar whole.
 - Metrics-store OTLP receiver pins `NoUTF8EscapingWithSuffixes`, so dotted names survive byte-identical from every runtime.
 - Scope: the emitting package id, version-stamped, one semconv coordinate on tracer, meter, and logger; a branch spells it once, all bump together.
 - Egress: OTLP over HTTP+protobuf with gzip, one collector base endpoint fanned per signal on `/v1/<signal>`.

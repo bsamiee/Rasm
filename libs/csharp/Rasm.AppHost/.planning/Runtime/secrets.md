@@ -4,9 +4,9 @@ The credential-material lifecycle owner: a `SecretLease` row family acquires, re
 
 ## [01]-[INDEX]
 
-- [01]-[SECRET_LEASE]: Acquire-renew-zeroize credential lifecycle extending the `SecretsStore` source row.
-- [02]-[CREDENTIAL_PEM]: Canonical RFC-7468 PEM bundle encoding and the redacted cross-language carrier.
-- [03]-[TS_PROJECTION]: The redacted credential-bundle wire shape.
+- [02]-[SECRET_LEASE]: Acquire-renew-zeroize credential lifecycle extending the `SecretsStore` source row.
+- [03]-[CREDENTIAL_PEM]: Canonical RFC-7468 PEM bundle encoding and the redacted cross-language carrier.
+- [04]-[TS_PROJECTION]: The redacted credential-bundle wire shape.
 
 ## [02]-[SECRET_LEASE]
 
@@ -224,7 +224,7 @@ public static class CredentialPem {
 - Growth: one wire-member row per new carrier field; the label set crosses as a string array of the closed RFC-7468 labels; zero new surface.
 - Boundary: the PEM bundle text crosses as the standard RFC-7468 armored string so a consumer's own PEM parser (`jose` `importPKCS8`/`importSPKI`/`importX509` on TS, `cryptography.hazmat` `load_pem_*` on Python) reads the same bytes the BCL `PemEncoding` wrote, never a re-minted base64 envelope; the carrier never carries a private-key block's content — only the label set, the per-block kernel content digests, and the redacted key-id cross — so the TS and Python verifiers read the credential's public identity off the wire while the private material stays host-side; the bundle separator is the RFC-7468 armor itself, so a consumer splits blocks on the `-----BEGIN-----`/`-----END-----` boundary its PEM parser already owns, never a `--SEP--` token.
 
-```ts contract
+```ts signature
 type PemLabelKey =
   | "CERTIFICATE"
   | "PUBLIC KEY"

@@ -4,7 +4,7 @@ Durable fact journal: audit evidence and usage metering as rows of ONE polymorph
 
 Journal append is the system of record — a missing metric point is a dashboard gap, a missing journal row is an evidence or billing defect — so appends retry and suspend while the metric emission beside them never blocks the drain. Rating is exact `BigDecimal` arithmetic — a float never touches money — and the engine-level session audit is the spine's `audit` grant running beside this stream, never replacing it.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]     | [OWNS]                                                                         |
 | :-----: | :------------ | :----------------------------------------------------------------------------- |

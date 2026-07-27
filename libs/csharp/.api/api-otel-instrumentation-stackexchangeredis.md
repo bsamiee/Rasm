@@ -45,8 +45,8 @@
 
 - `StackExchangeRedisInstrumentationOptions`: `FlushInterval` defaults to ten seconds and `EnrichActivityWithTimingEvents` to on; every other slot arrives unset.
 - `StackExchangeRedisInstrumentation.AddConnection`: disposing the returned registration unhooks that one connection, and disposing the instrumentation handle unhooks every bound multiplexer.
-- `ConfigureRedisInstrumentation`: a builder outside `IDeferredTracerProviderBuilder` throws `NotSupportedException`.
-- `StackExchangeRedisInstrumentationOptions.Filter`: a `false` return and a thrown exception both drop the command.
+- `ConfigureRedisInstrumentation`: throws `NotSupportedException` on a builder outside `IDeferredTracerProviderBuilder`.
+- `StackExchangeRedisInstrumentationOptions.Filter`: drops the command on both a `false` return and a thrown exception.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

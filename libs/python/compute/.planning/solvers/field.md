@@ -6,7 +6,7 @@ One finite-element-and-grid field readout owner beside the FEM assemble and solv
 
 ## [01]-[INDEX]
 
-- [01]-[FIELD]: the interpolate/project/resample postprocessing operations on one `FieldQuery` owner, verdicts folded through the `SolveStatus` floor into one `_SLOTS`-driven `FieldReceipt`.
+- [02]-[FIELD]: the interpolate/project/resample postprocessing operations on one `FieldQuery` owner, verdicts folded through the `SolveStatus` floor into one `_SLOTS`-driven `FieldReceipt`.
 
 ## [02]-[FIELD]
 

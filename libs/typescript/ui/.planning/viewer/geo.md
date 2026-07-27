@@ -2,7 +2,7 @@
 
 The one geospatial surface-and-camera owner: one maplibre `Map` owns the WebGL context, camera, and declarative style; one `MapboxOverlay` interleaves deck.gl layers into that same context through the `IControl` rail; the layer tree is a pure value derived from the atom fold and pushed at the single `setProps` sink; and camera authority is this page's `Camera` vocabulary — one `Camera.State` across every render backend, a closed intent family as the only write path, pure screen↔world math for derived anchors. GeoArrow layers stream `apache-arrow` columns zero-copy from the explicit IPC decode seam — the decoded `Table` doubling as the multi-surface bus the chart owner consumes — tile streaming rides one engine with vector/terrain/3D-tile payload rows behind a resilient TTL cache, the discrete-global-grid cell family is one scheme-keyed table, the extension pack is an eight-capability roster on any layer, 3D relief/sky/globe are scene-config rows on the map, position capability enters through the folder-declared `Position`/`Grant` ports, and `@turf/turf` runs planar ops as the NTS-equivalent browser peer over already-decoded GeoJSON — WKB decode stays behind `core/interchange/codec`'s `WkbParser` port, and this module never parses a geometry byte. The module is `ui/viewer/src/geo.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                                                       | [PUBLIC] |
 | :-----: | :--------------- | :------------------------------------------------------------------------------------------- | :------- |

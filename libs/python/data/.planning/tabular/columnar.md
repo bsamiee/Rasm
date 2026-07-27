@@ -6,8 +6,8 @@ The dataset-reference identity owner and the folder's scan base: one polymorphic
 
 ## [01]-[INDEX]
 
-- [01]-[DATASET]: the `DatasetRef` identity owner discriminating the columnar source shapes.
-- [02]-[SCAN]: the DuckDB session rail, the engine scan plans, the typed egress, the public `arrow_bytes` fold, and the content-keyed query receipt.
+- [02]-[DATASET]: the `DatasetRef` identity owner discriminating the columnar source shapes.
+- [03]-[SCAN]: the DuckDB session rail, the engine scan plans, the typed egress, the public `arrow_bytes` fold, and the content-keyed query receipt.
 
 ## [02]-[DATASET]
 

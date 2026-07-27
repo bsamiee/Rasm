@@ -87,7 +87,7 @@ Each async op mirrors its sync member with a trailing `CancellationToken = defau
 - `ReadHoldingRegisters<T>` reinterprets each `T : unmanaged` register window as a `Span<T>` over `short`, `ushort`, `int`, `float`, or `double`, decoded to one `ExternalValue`; the async mirror returns `Task<Memory<T>>` for storage that outlives `await`.
 - `unitIdentifier` is the slave address and the address window (`startingAddress`, `count`) is binding-spec policy data, never a parallel poller.
 - one `ModbusClient` register and coil surface serves the TCP, RTU, and RTU-over-TCP transports alike.
-- a `ModbusException` carrying a `ModbusExceptionCode` projects to `WireFault.ReadFailed`/`WriteRejected` at the boundary, never propagating into the interior.
+- `ModbusException` carrying a `ModbusExceptionCode` projects to `WireFault.ReadFailed`/`WriteRejected` at the boundary, never propagating into the interior.
 
 [STACKING]:
 - `System.IO.Ports`(`.api/api-serialport.md`): `ModbusRtuClient` binds a `SerialPort` line for RTU/ASCII fieldbus, its `Parity`/`StopBits`/`Handshake` line policy carried by that owner.

@@ -6,7 +6,7 @@ Capture starts nothing and serializes whole-capsule cost through one in-flight b
 
 ## [01]-[INDEX]
 
-- [01]-[BUNDLE]: the fenced collectors table, the redaction-then-encode archive fold, the content-keyed `Bundle` evidence, and the serve-facing handler.
+- [02]-[BUNDLE]: the fenced collectors table, the redaction-then-encode archive fold, the content-keyed `Bundle` evidence, and the serve-facing handler.
 
 ## [02]-[BUNDLE]
 

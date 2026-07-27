@@ -2,7 +2,7 @@
 
 The one clock owner of the branch: `Hlc` is the hybrid-logical stamp — one `Schema.Class` of two branded non-negative bigint halves, `physical` then `logical`, whose compose order is byte-identical to the C# port law (physical half first, logical half second, both little-endian), asserted bit-level by the `tests/contracts` `HLC_TWO_HALF` parity vectors — and `Uncertainty` is the honest wall-clock window on the same physical axis, carrying the sync-posture grade ladder that prices how wide an unproven clock must claim. Stamp algebra (order, tick, receive, the sixteen-byte layout twin, the single epoch unit-site) and window algebra (the join semilattice, precedence verdicts, meet, containment) are two clusters of one module because they share one branded axis: `state/causal` orders stamps through `Hlc.Order` and folds happened-before verdicts over windows, and a definite order is claimed only when the windows prove it. The module is `core/src/value/clock.ts`; a new clock fold is one static, a new sync posture is one grade row.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]         | [OWNS]                                                                  | [PUBLIC]             |
 | :-----: | :---------------- | :---------------------------------------------------------------------- | :------------------- |

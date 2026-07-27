@@ -6,7 +6,7 @@ External-API and structural-parsing evidence ride one tagged-union fact stream t
 
 ## [01]-[INDEX]
 
-- [01]-[EVIDENCE]: the value-object evidence union, the compile-once grammar registry with its one polymorphic `scan`, the member-level API catalogue, the drift fold, and the `EvidenceScan` receipt seam.
+- [02]-[EVIDENCE]: the value-object evidence union, the compile-once grammar registry with its one polymorphic `scan`, the member-level API catalogue, the drift fold, and the `EvidenceScan` receipt seam.
 
 ## [02]-[EVIDENCE]
 

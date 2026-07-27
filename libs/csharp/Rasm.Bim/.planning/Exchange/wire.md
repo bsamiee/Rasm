@@ -6,7 +6,7 @@ Seam-graph interchange stays out of Bim: the `ElementGraph`/`GraphDelta` snapsho
 
 ## [01]-[INDEX]
 
-- [01]-[WIRE_PROJECTION]: `IfcWire`, the content-keyed IFC interchange artifact (`Seal` egress, `Admit` ingress, `Negotiate` serialization selection) composing `SemanticProjector.Emit`/`Project` and `ProjectionAssembly.Assemble`, with the `WireParity` cross-runtime golden-corpus leg.
+- [02]-[WIRE_PROJECTION]: `IfcWire`, the content-keyed IFC interchange artifact (`Seal` egress, `Admit` ingress, `Negotiate` serialization selection) composing `SemanticProjector.Emit`/`Project` and `ProjectionAssembly.Assemble`, with the `WireParity` cross-runtime golden-corpus leg.
 
 ## [02]-[WIRE_PROJECTION]
 

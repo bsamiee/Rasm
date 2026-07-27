@@ -92,7 +92,7 @@
 [LOCAL_ADMISSION]:
 - Policy enters AppHost only as a bounded named `OptionsBuilder`; an open-ended setting is a typed record, never an options name.
 - Runtime-critical policy binds `ValidateOnStart`; deferred first-access validation is rejected.
-- A reload is an explicit `IOptionsMonitor.OnChange` transition; ambient re-read of a mutable value is rejected.
+- Reloads ride an explicit `IOptionsMonitor.OnChange` transition; ambient re-read of a mutable value rejects.
 - Configure and post-configure actions run at composition roots.
 
 [RAIL_LAW]:

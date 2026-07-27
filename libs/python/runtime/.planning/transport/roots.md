@@ -6,7 +6,7 @@ Every acquisition rides one `Transfer` aspect fusing the `reliability/resilience
 
 ## [01]-[INDEX]
 
-- [01]-[RESOURCE]: the `Transfer` acquisition aspect over resource roots, references, and transport resources.
+- [02]-[RESOURCE]: the `Transfer` acquisition aspect over resource roots, references, and transport resources.
 
 ## [02]-[RESOURCE]
 

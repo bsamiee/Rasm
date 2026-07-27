@@ -2,7 +2,7 @@
 
 The typed CRUD engine of the read side: every row that leaves a relation enters domain code as a decoded value and every request that reaches a statement is schema-proven first. `SqlSchema` is the one polymorphic query surface — arity is the combinator (`findAll`, `findOne`, `single`, `void`), never a sibling name — and `SqlResolver` is its batched form, collapsing keyed N+1 fan-out into one round trip per window with write-through cache verbs riding the same resolver value. `Model.Class` is the one shape authority for every mutable relation: one field record derives all six wire variants through the field families, so the per-variant struct spam the naive read side mints is unspellable, and every embedded payload column carries its own schema authority — `Schema.Unknown` never stands where a consumer needs structure. `Query.Relation` owns the read side's identifier evidence, span identity, and batch timing as one admitted value; every relation, column, and facet name reaching an identifier position in DDL or a fragment derives its scalar evidence from that owner. `Query.table(model, spec)` binds a model to its whole bound surface once at service construction — typed reads, the repository, the windowed loaders, and the batch resolvers share one identity so the batch window and the resolver cache survive across calls. The record of truth is exempt by law: the journal never takes a repository, and this engine serves projection tables, ledgers, snapshots, and read models only.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]       | [OWNS]                                                                                 |
 | :-----: | :-------------- | :------------------------------------------------------------------------------------- |

@@ -6,7 +6,7 @@ Dragonfly's AGPL-3.0 band rides the standing companion-lane charter — function
 
 ## [01]-[INDEX]
 
-- [01]-[DISTRICT]: one polymorphic district owner — admission under one `check_all` gate, ordered zoning, the explosion seam, the translation union — under one `DistrictReceipt`.
+- [02]-[DISTRICT]: one polymorphic district owner — admission under one `check_all` gate, ordered zoning, the explosion seam, the translation union — under one `DistrictReceipt`.
 
 ## [02]-[DISTRICT]
 

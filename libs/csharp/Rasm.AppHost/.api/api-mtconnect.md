@@ -84,7 +84,7 @@ Decode traverses `StreamsResponseDocument` through `DeviceStream` and `Component
 - within-lib: the `mtconnect` row is one `ExternalTransport` `[SmartEnum<string>]` case with its `TransportRow` (`ReadShape.Poll` over an `OutboundHop.HttpApi` for the `/sample` cursor poll, `Subscribe` for an MQTT-relay agent, `Writable: false` for pure consume) and one `LiveClient` case wrapping the poll-decode-cursor loop, no bespoke poller beyond the `OutboundHop`; the SHDR relay case binds `Writable: true` over the same row.
 
 [LOCAL_ADMISSION]:
-- A data-item map (device key, data-item keys, poll interval, sequence cursor) is binding-spec policy data; the per-row retry is the `OutboundHop` breaker, never an MTConnect re-poll loop.
+- Data-item maps (device key, data-item keys, poll interval, sequence cursor) carry binding-spec policy data; the per-row retry is the `OutboundHop` breaker, never an MTConnect re-poll loop.
 - Fabrication `Tooling/magazine` mid-job tool-life reload decodes `CuttingToolAsset` life/wear observations, and `Verify/probing` binds measured-feature/work-offset observations; both pin the `-Common` model slice and firewall transport to the `OutboundHop`. OPC-UA/umati machine data stays on the `OPCFoundation` runtime, never re-homed here.
 
 [RAIL_LAW]:

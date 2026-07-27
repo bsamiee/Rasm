@@ -6,10 +6,10 @@
 
 ## [01]-[INDEX]
 
-- [01]-[DOMAIN]: Generated owners admit stock, part rules, constraints, search policy, and NFP evidence.
-- [02]-[CONFIGURATION_SPACE]: Arc-witnessed Minkowski proposals, exact feasibility, and parallel pair materialization.
-- [03]-[SEARCH]: Constraint closure, candidate generation, parameterized search programs, and stock scheduling.
-- [04]-[DELIVERY]: Rectangular-plan honor, remnant minting, placement evidence, and content identity.
+- [02]-[DOMAIN]: Generated owners admit stock, part rules, constraints, search policy, and NFP evidence.
+- [03]-[CONFIGURATION_SPACE]: Arc-witnessed Minkowski proposals, exact feasibility, and parallel pair materialization.
+- [04]-[SEARCH]: Constraint closure, candidate generation, parameterized search programs, and stock scheduling.
+- [05]-[DELIVERY]: Rectangular-plan honor, remnant minting, placement evidence, and content identity.
 
 ## [02]-[DOMAIN]
 

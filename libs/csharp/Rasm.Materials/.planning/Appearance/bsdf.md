@@ -4,11 +4,11 @@ THE FRAME-LOCAL SHADING KERNEL. The closed BSDF lobe family and its frame-local 
 
 ## [01]-[INDEX]
 
-- [01]-[SHADING_FRAME]: the `ShadingFrame` local-frame transform, the `LocalVector` z-up triple, the `SpectralBand` band-centre vocabulary, the `MaterialFault` union on the `FaultBand.Material` registry row, and the folder's `ComparerAccessors.StringOrdinal` ordinal-key pin.
-- [02]-[MICROFACET_KERNEL]: Fresnel (Schlick plus exact dielectric/conductor), the GGX/Trowbridge-Reitz NDF, and Smith height-correlated masking.
-- [03]-[LOBE_FAMILY]: the `BsdfLobe` `[Union]`, the validated `RgbSpectrum`/`ComplexIor` carriers, the per-lobe `Evaluate`/`Sample`/`Pdf` contract, and the Kulla-Conty multi-scatter compensation.
-- [04]-[LAYERED_COMPOSITION]: the `LayeredBsdf` weighted-lobe fold, the MIS-balanced sample/pdf, and the material-is-a-row seam.
-- [05]-[KERNEL_SEAMS]: the `surface#SPECTRAL_UPSAMPLE`/`#TONE_MAP`/`#CONDUCTOR_IOR`/`#OPENPBR_SLAB` lowering page that composes this kernel's `MaterialFault`/`ComparerAccessors.StringOrdinal`/`SpectralBand`/carriers/`LayeredBsdf.Of`.
+- [02]-[SHADING_FRAME]: the `ShadingFrame` local-frame transform, the `LocalVector` z-up triple, the `SpectralBand` band-centre vocabulary, the `MaterialFault` union on the `FaultBand.Material` registry row, and the folder's `ComparerAccessors.StringOrdinal` ordinal-key pin.
+- [03]-[MICROFACET_KERNEL]: Fresnel (Schlick plus exact dielectric/conductor), the GGX/Trowbridge-Reitz NDF, and Smith height-correlated masking.
+- [04]-[LOBE_FAMILY]: the `BsdfLobe` `[Union]`, the validated `RgbSpectrum`/`ComplexIor` carriers, the per-lobe `Evaluate`/`Sample`/`Pdf` contract, and the Kulla-Conty multi-scatter compensation.
+- [05]-[LAYERED_COMPOSITION]: the `LayeredBsdf` weighted-lobe fold, the MIS-balanced sample/pdf, and the material-is-a-row seam.
+- [06]-[KERNEL_SEAMS]: the `surface#SPECTRAL_UPSAMPLE`/`#TONE_MAP`/`#CONDUCTOR_IOR`/`#OPENPBR_SLAB` lowering page that composes this kernel's `MaterialFault`/`ComparerAccessors.StringOrdinal`/`SpectralBand`/carriers/`LayeredBsdf.Of`.
 
 ## [02]-[SHADING_FRAME]
 
@@ -69,7 +69,7 @@ public sealed partial class SpectralBand {
 // type-enforced in Rasm.Element) and a typed case lifts BARE onto Fin<T>/Validation<Error,T> with no .ToError() hop —
 // Fin.Fail accepts an Expected-derived Error directly. The kernel Expected base ctor is PARAMETERLESS (Expected() {});
 // Code is a virtual Error member (the kernel Fault.Unsupported proves it overridable), Message abstract, Category a
-// virtual Expected member defaulting to "Fault" and read by FaultExtensions.Category(error). So the band is the one-line
+// virtual Expected member defaulting to "Fault" and read by the FaultExtensions extension property error.Category. So the band is the one-line
 // `Code => FaultBand.Material` registry read, Message and Category are ONE total generated Switch each (the canonical
 // production UiFault shape — three near-identical per-case `override Category` bodies are the collapse trigger this
 // Switch closes). No [GenerateUnionOps]: the kernel union-ops source-gen is strictly opt-in and emits only per-case

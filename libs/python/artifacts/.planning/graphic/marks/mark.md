@@ -6,7 +6,7 @@ Machine-readable-mark vocabulary owns every creatable and readable identity the 
 
 ## [01]-[INDEX]
 
-- [01]-[MARK]: `Symbology`, `TAXONOMY`, factory-specific option bands, `DecodeSource`, `PixelFormat`, and `MarkFault` form the neutral marks vocabulary.
+- [02]-[MARK]: `Symbology`, `TAXONOMY`, factory-specific option bands, `DecodeSource`, `PixelFormat`, and `MarkFault` form the neutral marks vocabulary.
 
 ## [02]-[MARK]
 

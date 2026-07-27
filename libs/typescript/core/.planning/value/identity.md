@@ -2,7 +2,7 @@
 
 The app-identity value vocabulary: `AppIdentity` spans the eleven cross-cutting dimensions — app, tenant, namespace, build, instance, host-fingerprint, environment, ring, region, zone, cluster — as ONE decoded value, and `TenantContext` is the per-scope tenancy value whose derived `scope` key partitions everything tenant-bounded, with the inverse decode riding the same owner. The `observe` convention projection, the runtime boot identity, and the data per-tenant store scopes all derive from these values — a per-folder identity re-declaration is the named defect, and every app emits, boots, and partitions through this one spine; the Resource identity spine reads settled owner fields, never a consumer-minted dimension. `TenantContext` is an adopted-verbatim decode-boundary name: the C# wire mints it, the interchange codec decodes it into this owner, and no second tenancy notion exists TS-side. The module is `core/src/value/identity.ts`; a new identity dimension is one field on the owning class, never a sibling shape.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]          | [OWNS]                                                  | [PUBLIC]        |
 | :-----: | :----------------- | :------------------------------------------------------ | :-------------- |

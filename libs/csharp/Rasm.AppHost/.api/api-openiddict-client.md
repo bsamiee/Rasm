@@ -64,7 +64,7 @@
 
 [ENTRYPOINT_SCOPE]: token-acquisition verbs — instance methods on `OpenIddictClientService`
 
-A challenge verb emits a nonce-bearing handle the matching authentication verb redeems; client-credentials, refresh, exchange, custom, and password flows are single-call. Each request record targets one registration by `Issuer`, `ProviderName`, or `RegistrationId`, and `RegistrationId` is required to disambiguate registrations sharing an issuer or provider.
+Challenge verbs emit a nonce-bearing handle the matching authentication verb redeems; client-credentials, refresh, exchange, custom, and password flows are single-call. Each request record targets one registration by `Issuer`, `ProviderName`, or `RegistrationId`, and `RegistrationId` is required to disambiguate registrations sharing an issuer or provider.
 
 | [INDEX] | [SURFACE]                                                                        | [CAPABILITY]                          |
 | :-----: | :------------------------------------------------------------------------------- | :------------------------------------ |

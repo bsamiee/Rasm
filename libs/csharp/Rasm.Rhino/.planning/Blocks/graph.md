@@ -4,11 +4,10 @@ Definition topology (`Rasm.Rhino.Blocks`) owns one graph-source union, one evide
 
 ## [01]-[INDEX]
 
-| [INDEX] | [OWNER]                    | [CONTRACT]                                     |
-| :-----: | :------------------------- | :--------------------------------------------- |
-|  [01]   | `GraphSource` · `Topology` | live and archive evidence admission            |
-|  [02]   | `BlockGraph.Ask`           | topology, path, component, and usage questions |
-|  [03]   | `ClosureReport`            | linked-archive closure evidence                |
+- [02]-[SOURCE_AND_TOPOLOGY]: `GraphSource` admitting a live session, a borrowed archive, or a stored archive opened inside the fold, `Topology` carrying nodes, dependency-first edges, and placement evidence, and `GraphFold` canonicalizing vertices so equivalent graphs emit identical sequences.
+- [03]-[ASK_FAMILY]: `BlockGraphAsk` closing host queries, whole-topology projections, and structural algorithms under one entry over the one vertex-generic `QuikGraph` fold, `BlockGraphAnswer` preserving result meaning against key, path, and completeness confusion.
+- [04]-[ARCHIVE_CLOSURE]: `ClosureReport` the bounded linked-archive walk — raw and resolved edges, source-aware broken links, self-inclusive cycle groups, unit facts, native read logs, and typed completion evidence under a closure budget.
+- [05]-[SURFACE_LEDGER]: owner-to-ingress-to-algorithm-to-egress roster across `BlockGraph`, `GraphFold`, and `ClosureReport`.
 
 ## [02]-[SOURCE_AND_TOPOLOGY]
 

@@ -4,7 +4,7 @@
 
 Two policy seams close at the same altitude: `verbosity` wires the config tier table into `Logger.minimumLogLevel` so the declared `verbose` column governs the process log floor, and `tenants` contributes the tenant metric-stream view row through the `Hooks` registry the export lanes drain — an allow-list attributes processor under the cardinality ceiling, so per-tenant series ride the same governor every reader inherits. `engine` is the same contribution shape guarding the runtime-node series fan with a deny list, and `board` projects the instrument and budget rows into the typed `Pulse.Board` deploy-feed value whose rows fill the core `DashboardModel` pack payloads at the app's deploy-feed seam — so a budget edit moves the emission grade and the board panel in one place. Its module is `runtime/src/otel/meter.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]    | [OWNS]                                                               | [PUBLIC] |
 | :-----: | :----------- | :------------------------------------------------------------------- | :------- |

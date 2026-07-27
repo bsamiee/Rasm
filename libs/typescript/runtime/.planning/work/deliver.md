@@ -4,7 +4,7 @@ Outbound delivery is ONE owner: mail and webhook egress are channel rows of one 
 
 Claim admission, lease, urgency order, park ceiling, tenant egress quota, and replay arrive settled from `queue#LANE_POLICY` and `queue#THROTTLE`. Signing splits into two domains that never merge — the `Crypto` service signs webhook bodies byte-identical, the mail plane signs DKIM in-transport. Suppression is evidence on the record of truth: a bounce or gone endpoint appends a fact row, and the relay's lane rows compose the gate between admission and the wire, so a suppressed destination cannot reach a transport and the ledger stays history, never a mutable blocklist. Its module ships on the `./server` subpath as `runtime/src/work/deliver.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                                             | [PUBLIC]  |
 | :-----: | :--------------- | :--------------------------------------------------------------------------------- | :-------- |

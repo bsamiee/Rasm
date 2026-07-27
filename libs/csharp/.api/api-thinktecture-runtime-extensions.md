@@ -171,7 +171,7 @@
 
 [GENERATION_POLICY]: properties on the declaration attribute, each naming or narrowing what the generator emits.
 - `[SmartEnumAttribute<TKey>]`: `KeyMemberType` `KeyMemberName` `KeyMemberKind` `KeyMemberAccessModifier` `ComparisonOperators` `EqualityComparisonOperators` `ConversionFromKeyMemberType` `ConversionToKeyMemberType` `SwitchMethods` `MapMethods` `SwitchMapStateParameterName` `SerializationFrameworks` `DisableSpanBasedJsonConversion` `SkipIComparable` `SkipIParsable` `SkipISpanParsable` `SkipIFormattable` `SkipToString`
-- `[ValueObjectAttribute<TKey>]`: shares the key-member and conversion set, adds `SkipKeyMember` `UnsafeConversionToKeyMemberType` `NullInFactoryMethodsYieldsNull` `EmptyStringInFactoryMethodsYieldsNull` `AdditionOperators` `SubtractionOperators` `MultiplyOperators` `DivisionOperators`
+- `[ValueObjectAttribute<TKey>]`: shares the key-member, conversion, and interface-opt-out set — `SkipIComparable` `SkipIParsable` `SkipISpanParsable` `SkipIFormattable` — and adds `SkipKeyMember` `UnsafeConversionToKeyMemberType` `NullInFactoryMethodsYieldsNull` `EmptyStringInFactoryMethodsYieldsNull` `AdditionOperators` `SubtractionOperators` `MultiplyOperators` `DivisionOperators`
 - `[ValueObjectAttributeBase]`: `SkipFactoryMethods` `ConstructorAccessModifier` `CreateFactoryMethodName` `TryCreateFactoryMethodName` `DefaultInstancePropertyName` `AllowDefaultStructs` `SkipToString` `SkipEqualityComparison` `SerializationFrameworks`
 - `[ComplexValueObjectAttribute]`: `DefaultStringComparison`
 - `[UnionAttribute]`: `ConversionFromValue` `NestedUnionParameterNames` `SwitchMethods` `MapMethods` `SwitchMapStateParameterName`
@@ -180,7 +180,10 @@
 
 - `SkipISpanParsable` follows `SkipIParsable`, `SkipIParsable` follows `SkipFactoryMethods`, and `NullInFactoryMethodsYieldsNull` follows `EmptyStringInFactoryMethodsYieldsNull`, so narrowing one property silently narrows its dependents.
 - `EqualityComparisonOperators` floors at `ComparisonOperators`, so an ordering operator set drags equality operators up with it.
-- `KeyMemberName` defaults to `Key` or `Value` for a public or property member and to `_key` or `_value` for a private field; `ConstructorAccessModifier` defaults to `Private` and `SerializationFrameworks` to `All`.
+- `[SmartEnum<TKey>]` defaults its key member to a PUBLIC PROPERTY named `Key`, so every smart-enum row reads `.Key` bare and `.Value` on one resolves nothing — including a `[SmartEnum<int>]` whose key IS a rank.
+- `[ValueObject<T>]` defaults its key member to a PRIVATE FIELD named `_value`, so a value object exposing its key by name declares `KeyMemberName = "Value"` beside `KeyMemberAccessModifier = AccessModifier.Public`; left at the default, the key reaches a caller only through the generated conversion operator.
+- `KeyMemberName` falls back to `_key` or `_value` exactly when access is `Private` AND kind is `Field`, and to `Key` or `Value` otherwise; `ConstructorAccessModifier` defaults to `Private` and `SerializationFrameworks` to `All`.
+- `SkipIFormattable` defaults FALSE and the `IFormattable` leg emits whenever the key member is itself `IFormattable`, so a `[ValueObject<Guid>]` or `[SmartEnum<string>]` partial already carries `public string ToString(string? format, IFormatProvider? formatProvider = null)` and a hand-written twin collides at CS0111; the generator emits no `ISpanFormattable` and no `IUtf8SpanFormattable` leg at all, so every `TryFormat` writer is the declaration's own.
 
 [ENTRYPOINT_SCOPE]: metadata discovery and static-abstract admission — the surface a companion adapter and a boundary codec bind.
 
@@ -206,12 +209,12 @@
 
 - `MetadataLookup.FindMetadataForConversion`: takes an `ObjectFactoryMetadata` filter and a `Metadata.Keyed` filter, so a codec selects only the conversion its own plane admits.
 - `StaticAbstractInvoker.Validate` and `ParseValue`: each carries a `ReadOnlySpan<char>` arity beside the `TKey`/`string` one and a `TryParseValue` counterpart returning `bool`, so a UTF-8 wire read validates without materializing a `string`.
-- `TrimOrNullify`: a bare arity omits the length bound.
+- `TrimOrNullify` omits the length bound at its bare arity.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- A single-key domain owner declares `[ValueObject<T>]` or `[SmartEnum<TKey>]` and derives its equality, conversion, validation, and codec metadata from the key; a multi-member owner declares `[ComplexValueObject]`, and a closed case set declares `[Union]` so exhaustive dispatch and codec metadata generate together.
+- Single-key domain owners declare `[ValueObject<T>]` or `[SmartEnum<TKey>]` and derive equality, conversion, validation, and codec metadata from the key; a multi-member owner declares `[ComplexValueObject]`, and a closed case set declares `[Union]` so exhaustive dispatch and codec metadata generate together.
 - `Generator.Equals` owns multi-member structural equality, so stacking both ownership models on one type mints two comparers over the same members.
 - `SerializationFrameworks` on the declaration filters which generated factories a codec sees, so a codec that rediscovers declaration attributes picks up owners the declaration excluded.
 - `Empty` and `SingleItem` mint allocation-free zero- and one-item `IReadOnlyList`, `IReadOnlySet`, `IReadOnlyDictionary`, and `ILookup` instances, so a degenerate collection result costs neither an array nor a hash table.
@@ -228,8 +231,8 @@
 - `Directory.Build.props` injects the package under one central identity for every workspace library, so generated owners and every adapter agree on one attribute and contract set.
 - `ThinktectureRuntimeExtensions_SourceGenerator_GenerateJetBrainsAnnotations` stays off and `JetBrains.Annotations` binds as a package, so the generator's internal polyfill never collides across projects.
 - Each vocabulary declares once in the package owning it, and downstream code consumes its generated key projection, validation, conversion, and dispatch.
-- An owning vocabulary lifts `TryGet` onto `Option<T>` where its domain rail requires optional lookup, so the throwing `Get` stays behind that lift.
-- A hand-written parse, validate, switch, or key-conversion helper beside a generated owner is a defect unless it is the `ValidateFactoryArguments` partial the generator calls.
+- Owning vocabularies lift `TryGet` onto `Option<T>` where a domain rail requires optional lookup, so the throwing `Get` stays behind that lift.
+- Hand-written parse, validate, switch, and key-conversion helpers beside a generated owner are defects unless they are the `ValidateFactoryArguments` partial the generator calls.
 
 [RAIL_LAW]:
 - Package: `Thinktecture.Runtime.Extensions`

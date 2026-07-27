@@ -6,9 +6,9 @@ Composition is settled: the thread and subinterpreter crossing arms stay `execut
 
 ## [01]-[INDEX]
 
-- [01]-[CROSSING]: `Kernel` owns every isolation crossing — the `WorkerKind` family and its policy rows, the `KernelTrait` isolation classifier, shipping, wire, deadline, and enforcement as fields, the shared-memory span channel, the parented-emitter worker gate (kernel span, profiler phase, and cost bracket over the stitch-and-resolve pair), the remote-floor entry, the guest sandbox arm with its epoch pacer, and the tblib fidelity latch.
-- [02]-[POOL]: the warm reusable `WorkerPool` capsule — loky, pebble, and per-device arms under one lifecycle vocabulary, the `WorkerBoot` install seam and its exit-owned flush law, band-bounded settle, in-band worker-death retry, and the asyncssh remote arm crossing the sealed kernel to a fleet host.
-- [03]-[LEASE]: one fenced claim, heartbeat, settlement, and drain algebra over an admitted backend generation.
+- [02]-[CROSSING]: `Kernel` owns every isolation crossing — the `WorkerKind` family and its policy rows, the `KernelTrait` isolation classifier, shipping, wire, deadline, and enforcement as fields, the shared-memory span channel, the parented-emitter worker gate (kernel span, profiler phase, and cost bracket over the stitch-and-resolve pair), the remote-floor entry, the guest sandbox arm with its epoch pacer, and the tblib fidelity latch.
+- [03]-[POOL]: the warm reusable `WorkerPool` capsule — loky, pebble, and per-device arms under one lifecycle vocabulary, the `WorkerBoot` install seam and its exit-owned flush law, band-bounded settle, in-band worker-death retry, and the asyncssh remote arm crossing the sealed kernel to a fleet host.
+- [04]-[LEASE]: one fenced claim, heartbeat, settlement, and drain algebra over an admitted backend generation.
 - `[04]-[SUPERVISION]`: kind-scoped psutil verdicts, restart budget and escalation, serving health, and bundle verdict projection.
 
 ## [02]-[CROSSING]

@@ -23,6 +23,7 @@ using Rasm.Numerics;                  // PositiveMagnitude — the kernel value-
 using Rasm.Domain;                   // Op, Context, AcceptValidated
 using Rasm.Element.Composition;                  // MaterialId, PropertyBag, DetailSchema, Dimension, PropertyName, PropertyValue (the seam bag currencies PanelDetail composes)
 using Rasm.Element.Properties;
+using Dimension = Rasm.Element.Properties.Dimension;   // the SI-dimension axis — disambiguated from the Rasm.Numerics discrete count
 using Thinktecture;                  // [SmartEnum]/[ComplexValueObject]/[UseDelegateFromConstructor]/[KeyMemberEqualityComparer]/[KeyMemberComparer]
 using static LanguageExt.Prelude;
 

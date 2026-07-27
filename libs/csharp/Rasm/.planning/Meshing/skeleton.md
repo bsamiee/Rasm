@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[SKELETONIZATION]: ONE `Skeletonize.Apply` folding implicit-MCF contraction, cost-ordered surgery to 1D, and QuikGraph tree/branch extraction into the `CurveSkeleton` SoA wire that composes offset's clearance family.
+- [02]-[SKELETONIZATION]: ONE `Skeletonize.Apply` folding implicit-MCF contraction, cost-ordered surgery to 1D, and QuikGraph tree/branch extraction into the `CurveSkeleton` SoA wire that composes offset's clearance family.
 
 ## [02]-[SKELETONIZATION]
 

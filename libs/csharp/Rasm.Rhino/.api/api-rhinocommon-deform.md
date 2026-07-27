@@ -5,7 +5,7 @@ This catalog owns the host-fidelity nonlinear deformation and flattening boundar
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: RhinoCommon deformation-and-flattening surface
-- host: `RhinoCommon` (Rhino host runtime, in-process)
+- host: Rhino host runtime, in-process (proprietary McNeel SDK)
 - assembly: `RhinoCommon`
 - namespaces: `Rhino.Geometry`, `Rhino.Geometry.Morphs`
 - kernel: `Rasm` (host-neutral DEC flattening and linear-motion owners composed by altitude, never re-derived)

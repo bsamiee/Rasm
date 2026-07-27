@@ -6,7 +6,7 @@ The egress is the round-trip authority for the `Model/elements#IFC_CLASS` egress
 
 ## [01]-[INDEX]
 
-- [01]-[IFC_EGRESS]: `SemanticProjector.Emit` the Bim-internal `ElementGraph` → IFC bytes re-author — the railed `ReleaseRaise` schema target, the `EmitContext` carrier (diff-prior, the `Closure`-hulled partial-export scope, the declared unit regime whose inverse `UnitScale.Factor` folds every raised magnitude), the `IfcClass` egress gate, the `GlobalId` and diff-derived `OwnerHistory` stamps, `ReauthorMaterials`, the complete typed `PropertyValue`/`MeasureValue` inverse, `ReauthorClassifications`, and the row-driven `ReauthorRelationships` inverse including ordered nesting, realizing sets, and eccentric constraints — plus the railed `Sniff` schema admission and the egress half of the `FidelityReceipt` drop ledger.
+- [02]-[IFC_EGRESS]: `SemanticProjector.Emit` the Bim-internal `ElementGraph` → IFC bytes re-author — the railed `ReleaseRaise` schema target, the `EmitContext` carrier (diff-prior, the `Closure`-hulled partial-export scope, the declared unit regime whose inverse `UnitScale.Factor` folds every raised magnitude), the `IfcClass` egress gate, the `GlobalId` and diff-derived `OwnerHistory` stamps, `ReauthorMaterials`, the complete typed `PropertyValue`/`MeasureValue` inverse, `ReauthorClassifications`, and the row-driven `ReauthorRelationships` inverse including ordered nesting, realizing sets, and eccentric constraints — plus the railed `Sniff` schema admission and the egress half of the `FidelityReceipt` drop ledger.
 
 ## [02]-[IFC_EGRESS]
 

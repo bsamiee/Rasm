@@ -33,7 +33,7 @@
 |  [01]   | `AddNats(Func<IServiceProvider, INatsConnection>?)`                       | static   | connection admission |
 |  [02]   | `NatsHealthCheck.CheckHealthAsync(HealthCheckContext, CancellationToken)` | instance | reachability probe   |
 
-- `AddNats`: a null `clientFactory` resolves the concrete `NatsConnection` from DI, else falls back to `INatsConnection`, so the probe shares the app's pooled connection; `failureStatus` null defaults to `Unhealthy`.
+- `AddNats`: resolves the concrete `NatsConnection` from DI on a null `clientFactory`, falling back to `INatsConnection`, so the probe shares the app's pooled connection; `failureStatus` null defaults to `Unhealthy`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -47,7 +47,7 @@
 
 [LOCAL_ADMISSION]:
 - Admitted as one `Remote`-tagged contributor row over the shared pooled `INatsConnection` — the `DriverProbe.Nats` row, never a parallel `AddNats` registration face or a second connection vocabulary; `NatsOpts` (URL, TLS, auth, ping cadence) is defined once on the app's connection.
-- A connect failure crosses the fold as a typed `HealthCheckResult`, never a thrown exception; the message-less `Unhealthy()` is enriched with name and tag at the row since the package attaches no detail.
+- Connect failures cross the fold as a typed `HealthCheckResult`, never a thrown exception; the message-less `Unhealthy()` gains name and tag at the row since the package attaches no detail.
 
 [RAIL_LAW]:
 - Package: `AspNetCore.HealthChecks.Nats`

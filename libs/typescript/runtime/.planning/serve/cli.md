@@ -2,7 +2,7 @@
 
 The terminal entry family under the one front-door assembly law: a verb family is a `Command` VALUE a domain contributes as data, the APP folds selected families through `Command.withSubcommands` into exactly one root — the same posture as the assembled `HttpApi`, so the god-CLI has no lib-side existence — and `Verb.main` is the run rail that folds `--help`/`--version` to clean exits instead of failures. The flag-config bridge is law: a flag and its environment variable are one declaration (`Options.withFallbackConfig`), a flag decodes into a branded value at the terminal boundary (`Options.withSchema`) exactly as the wire and route boundaries decode once, a missing interactive input prompts instead of failing (`Options.withFallbackPrompt`), and shell completion is a derivation of the root, never a maintained script. Output is one algebra: every verb's output is a composed `Doc<Ansi>` — structure through the printer's layout combinators, semantic markup through one role table, decoded values through the Schema-derived `Pretty` printer — folded to a string at exactly one render seam whose ambient mode row decides styled, plain, or machine form, with live redraw as directive rows over the same seam. `Ops` ships the lib runbook family — doctor, replay, inspect — as code executing over `proc` and `net` owners, never documents. The module ships on the `./server` exports subpath as `runtime/src/serve/cli.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                                         | [PUBLIC] |
 | :-----: | :--------------- | :----------------------------------------------------------------------------- | :------- |

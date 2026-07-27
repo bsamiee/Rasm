@@ -1,13 +1,13 @@
 # [RASM_API_MATHNET_NUMERICS]
 
-`MathNet.Numerics` owns the branch's analytic numeric kernel, each domain a static owner folding plain `double[]`, `Func`, and `Complex[]` carriers. Every surface runs on the managed provider; native-kernel selection and the dense factorization lane bind at their own owners, and `Vector<double>` enters only as the minimizer's carrier.
+`MathNet.Numerics` owns the branch's analytic numeric kernel and its linear-algebra plane, each domain a static owner folding plain `double[]`, `Func`, `Complex[]`, and `Matrix<double>`/`Vector<double>` carriers. Provider selection, dense factorization, sparse ingestion, and Krylov iteration are members of this one assembly; the MKL and OpenBLAS adapter packages supply native kernels behind that selection and own no algebra of their own.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MathNet.Numerics`
 - package: `MathNet.Numerics` (MIT)
 - assembly: `MathNet.Numerics`
-- namespace: `MathNet.Numerics`, `.Distributions`, `.Integration`, `.IntegralTransforms`, `.Interpolation`, `.RootFinding`, `.Optimization`, `.Differentiation`, `.Statistics`, `.OdeSolvers`, `.Random`, `.LinearAlgebra`
+- namespace: `MathNet.Numerics`, `.Distributions`, `.Integration`, `.IntegralTransforms`, `.Interpolation`, `.RootFinding`, `.Optimization`, `.Differentiation`, `.Statistics`, `.OdeSolvers`, `.Random`, `.LinearAlgebra`, `.LinearAlgebra.Double`, `.LinearAlgebra.Storage`, `.LinearAlgebra.Factorization`, `.LinearAlgebra.Solvers`, `.LinearAlgebra.Double.Solvers`, `.Providers.LinearAlgebra`
 - asset: managed runtime library; MKL and OpenBLAS kernels ride sibling provider packages
 - rail: numeric
 
@@ -82,6 +82,29 @@
 |  [18]   | `Vector<T>`                   | abstract class | vector carrier the minimizer takes and returns         |
 
 [RANDOM_SOURCE]: `SystemRandomSource` `MersenneTwister` `Xoshiro256StarStar` `Mrg32k3a` `Mcg31m1` `Mcg59` `Palf` `WH1982` `WH2006` `Xorshift` `CryptoRandomSource`
+
+[PUBLIC_TYPE_SCOPE]: provider control, sparse storage, and the iterative-solve carriers of the linear-algebra plane
+
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY] | [CAPABILITY]                                              |
+| :-----: | :------------------------------------ | :------------ | :-------------------------------------------------------- |
+|  [01]   | `Control`                             | static class  | package-wide provider, threading, and diagnostic façade   |
+|  [02]   | `LinearAlgebraControl`                | static class  | linear-algebra provider selection and native probe path   |
+|  [03]   | `ILinearAlgebraProvider`              | interface     | the BLAS-class kernel every dense product routes through  |
+|  [04]   | `ManagedLinearAlgebraProvider`        | class         | the pure-managed provider carrying `Instance`             |
+|  [05]   | `SparseMatrix`                        | class         | double-precision sparse carrier over CSR storage          |
+|  [06]   | `SparseCompressedRowMatrixStorage<T>` | class         | the one native sparse form; every other layout ingests    |
+|  [07]   | `Iterator<T>`                         | sealed class  | stop-criteria fold carrying `IterationStatus`             |
+|  [08]   | `IIterationStopCriterion<T>`          | interface     | one stop criterion the iterator composes                  |
+|  [09]   | `IIterativeSolver<T>`                 | interface     | Krylov solver seam writing into a caller result vector    |
+|  [10]   | `IPreconditioner<T>`                  | interface     | left preconditioner the solver applies per iteration      |
+|  [11]   | `DiagonalPreconditioner`              | sealed class  | Jacobi preconditioner for the Krylov lane                 |
+|  [12]   | `QRMethod`                            | enum          | `Full` or `Thin` QR shape                                 |
+|  [13]   | `IterationStatus`                     | enum          | per-iteration verdict the iterator settles on             |
+
+[ITERATION_STATUS]: `Continue` `Converged` `Diverged` `StoppedWithoutConvergence` `Cancelled` `Failure`
+[DENSE_FACTORIZATION]: `LU<T>` `QR<T>` `Cholesky<T>` `Svd<T>` `Evd<T>` `GramSchmidt<T>` — each an `MathNet.Numerics.LinearAlgebra.Factorization` owner a `Matrix<T>` instance member builds.
+[ITERATIVE_SOLVER]: `BiCgStab` `GpBiCg` `TFQMR` `MlkBiCgStab` — `MathNet.Numerics.LinearAlgebra.Double.Solvers` owners; each precision plane (`Single`, `Double`, `Complex`, `Complex32`) carries its own closed set, so the solver and its preconditioner spell the plane's namespace and never a shared generic.
+[STOP_CRITERION]: `IterationCountStopCriterion<T>` `ResidualStopCriterion<T>` `DivergenceStopCriterion<T>` `FailureStopCriterion<T>` `DelegateStopCriterion<T>`
 
 ## [03]-[ENTRYPOINTS]
 
@@ -255,6 +278,69 @@
 [SINGLE_TAPER]: `Blackman` `BlackmanHarris` `BlackmanNuttall` `Nuttall` `FlatTop` `Bartlett` `BartlettHann` `Triangular` `Dirichlet`
 [SHAPED_TAPER]: `Gauss(width, sigma)` `Tukey(width, r)`
 
+[ENTRYPOINT_SCOPE]: provider selection — `Control` sets every provider class at once, `LinearAlgebraControl` the linear-algebra class alone; each `Use*` throws on a missing native asset where its `Try*` twin returns `false`
+
+| [INDEX] | [SURFACE]                                             | [SHAPE] | [CAPABILITY]                                       |
+| :-----: | :---------------------------------------------------- | :------ | :------------------------------------------------- |
+|  [01]   | `Control.UseManaged()`                                | static  | pin every class to the pure-managed kernel         |
+|  [02]   | `Control.UseDefaultProviders()`                       | static  | environment-variable-directed selection            |
+|  [03]   | `Control.UseBestProviders()`                          | static  | best available native, managed on none             |
+|  [04]   | `Control.TryUseNative() -> bool`                      | static  | any native provider, `false` on none               |
+|  [05]   | `Control.TryUseNativeMKL() -> bool`                   | static  | MKL selection verdict                              |
+|  [06]   | `Control.TryUseNativeOpenBLAS() -> bool`              | static  | OpenBLAS selection verdict                         |
+|  [07]   | `Control.TryUseNativeCUDA() -> bool`                  | static  | CUDA selection verdict                             |
+|  [08]   | `Control.NativeProviderPath`                          | static  | probe root for every native binary                 |
+|  [09]   | `Control.MaxDegreeOfParallelism`                      | static  | worker cap over the managed parallel folds         |
+|  [10]   | `Control.TaskScheduler`                               | static  | scheduler the parallel folds queue onto            |
+|  [11]   | `Control.UseSingleThread()` / `UseMultiThreading()`   | static  | parallelism policy without touching provider class |
+|  [12]   | `Control.FreeResources()`                             | static  | release native provider handles                    |
+|  [13]   | `Control.Describe() -> string`                        | static  | active provider and threading receipt line         |
+|  [14]   | `LinearAlgebraControl.Provider`                       | static  | read or set `ILinearAlgebraProvider` directly      |
+|  [15]   | `LinearAlgebraControl.TryUse(ILinearAlgebraProvider)` | static  | admit a caller-built provider, verified            |
+|  [16]   | `LinearAlgebraControl.HintPath`                       | static  | class-local probe root overriding `Control`        |
+|  [17]   | `ManagedLinearAlgebraProvider.Instance`               | static  | the managed provider singleton                     |
+
+- `Control.CheckDistributionParameters` and `ThreadSafeRandomNumberGenerators` are the two admission switches: the first gates every distribution constructor's parameter validation, the second decides whether `SystemRandomSource.Default` is shared or per-thread.
+- `LinearAlgebraControl.Provider`'s setter runs `InitializeVerify()` on the incoming provider, so an unusable native provider faults at assignment rather than at first GEMM.
+
+[ENTRYPOINT_SCOPE]: dense factorization and solve — every builder is a `Matrix<T>` instance member, every solve a factorization instance member
+
+| [INDEX] | [SURFACE]                                          | [SHAPE]  | [CAPABILITY]                                      |
+| :-----: | :------------------------------------------------- | :------- | :------------------------------------------------ |
+|  [01]   | `Matrix<T>.QR(QRMethod)`                           | instance | QR, `Thin` by default                             |
+|  [02]   | `Matrix<T>.Cholesky() -> Cholesky<T>`              | instance | SPD factorization                                 |
+|  [03]   | `Matrix<T>.LU() -> LU<T>`                          | instance | pivoted LU                                        |
+|  [04]   | `Matrix<T>.GramSchmidt() -> GramSchmidt<T>`        | instance | modified Gram-Schmidt QR                          |
+|  [05]   | `Matrix<T>.Svd(bool computeVectors)`               | instance | singular values, vectors optional                 |
+|  [06]   | `Matrix<T>.Evd(Symmetricity)`                      | instance | eigen decomposition under a symmetry hint         |
+|  [07]   | `QR<T>.Solve(Vector<T>) -> Vector<T>`              | instance | least-squares solve allocating the result         |
+|  [08]   | `QR<T>.Solve(Vector<T>, Vector<T>)`                | instance | the same solve into a caller-owned result         |
+|  [09]   | `QR<T>.Solve(Matrix<T>)` / `Solve(Matrix, Matrix)` | instance | multi-right-hand-side pair                        |
+|  [10]   | `QR<T>.Q` / `.R` / `.Determinant`                  | property | the standing factors and the determinant          |
+|  [11]   | `Matrix<T>.TransposeThisAndMultiply(Matrix<T>)`    | instance | Gram product with no explicit transpose allocated |
+
+- Every factorization owner mirrors the four `Solve` shapes; the allocating forms are `virtual` over the `abstract` result-writing pair, so a hot loop reuses one result carrier.
+
+[ENTRYPOINT_SCOPE]: sparse ingestion and Krylov solve — `SparseCompressedRowMatrixStorage<T>` (namespace `MathNet.Numerics.LinearAlgebra.Storage`) is the one storage form, and each `Of*` static converts its layout into it
+
+| [INDEX] | [SURFACE]                                                                 | [SHAPE]  | [CAPABILITY]                            |
+| :-----: | :------------------------------------------------------------------------ | :------- | :-------------------------------------- |
+|  [01]   | `OfCompressedSparseRowFormat(r, c, nnz, rowPointers, columnIndices, v)`   | static   | admit CSR                               |
+|  [02]   | `OfCompressedSparseColumnFormat(r, c, nnz, rowIndices, columnPointers, v)` | static   | admit CSC                               |
+|  [03]   | `OfCoordinateFormat(r, c, nnz, rowIndices, columnIndices, v)`             | static   | admit COO triplets                      |
+|  [04]   | `OfIndexedEnumerable(r, c, IEnumerable<(int, int, T)>)`                   | static   | admit an indexed triplet sequence       |
+|  [05]   | `SparseMatrix.OfIndexed(r, c, IEnumerable<(int, int, double)>)`           | static   | the same admission returning the matrix |
+|  [06]   | `new SparseMatrix(SparseCompressedRowMatrixStorage<double>)`              | ctor     | wrap prepared storage as the carrier    |
+|  [07]   | `IIterativeSolver<T>.Solve(A, b, x, Iterator<T>, IPreconditioner<T>)`     | instance | Krylov solve into a caller result       |
+|  [08]   | `new Iterator<T>(params IIterationStopCriterion<T>[])`                    | ctor     | compose the stop-criteria set           |
+|  [09]   | `Iterator<T>.DetermineStatus(int, Vector<T>, Vector<T>, Vector<T>)`       | instance | per-iteration verdict off the residual  |
+|  [10]   | `Iterator<T>.Status` / `Reset()` / `Cancel()` / `Clone()`                 | instance | verdict read, re-arm, abort, reuse      |
+
+- `A`, `b`, and `x` abbreviate the coefficient `Matrix<T>`, the source `Vector<T>`, and the result `Vector<T>`; rows [01]-[04] are `SparseCompressedRowMatrixStorage<T>` statics and `v` abbreviates the `T[]` value buffer.
+
+- `OfCompressedSparseColumnFormat`: row INDICES precede column POINTERS — the argument-order trap CSR inverts; `OfIndexedEnumerable` carries a `Tuple<int, int, T>` twin beside the value-tuple form.
+- `IIterativeSolver<T>.Solve` returns `void` and writes into the `result` vector, so the convergence verdict reads from `Iterator<T>.Status` alone; the solver, its preconditioner, and its stop criteria all bind at one precision, and a plane switch re-spells the whole triple.
+
 [ENTRYPOINT_SCOPE]: statistics, differentiation, and the numeric-utility owners
 
 [STATISTICS]: `Mean` `Variance` `StandardDeviation` `PopulationVariance` `Covariance` `Skewness` `Kurtosis` `Median` `Quantile` `QuantileCustom` `Percentile` `InterquartileRange` `FiveNumberSummary` `Ranks` `QuantileRank` `EmpiricalCDF` `EmpiricalInvCDF` `RootMeanSquare` `GeometricMean` `HarmonicMean` `Entropy` `MovingAverage` `OrderStatistic`
@@ -282,14 +368,19 @@
 - Every `Fourier` transform mutates the caller-owned buffer: `Default` applies symmetric scaling, `AsymmetricScaling` scales the inverse by `1/N`, and `NoScaling` omits it, so a forward-inverse round trip is identity under the first two and carries a factor of `N` under the third.
 - `Forward*` and `Inverse*` mirror at one signature across both transform owners, and each `Complex`/`double[]` carrier mirrors a `Complex32`/`float[]` twin: the split `double[] real, double[] imaginary` form keeps contiguous scalar spans for a vectorized magnitude-phase pass, and the packed `ForwardReal`/`InverseReal` form stores the conjugate-even half-spectrum in an `N+2` (even `N`) or `N+1` (odd `N`) buffer.
 - `FrequencyScale(length, sampleRate)` returns the per-bin axis: positive bins over the first `⌊N/2⌋+1` entries then the wrapped negative bins, spaced `sampleRate/length`.
-- A paired taper's bare name is the symmetric filter-design form and its `*Periodic` twin the FFT-framing form; `Gauss` takes sigma relative to the half-width and `Tukey` the tapered fraction.
+- Paired tapers name the symmetric filter-design form bare and the FFT-framing form `*Periodic`; `Gauss` takes sigma relative to the half-width and `Tukey` the tapered fraction.
 - `*Scaled` forms hold large-argument stability and `*Prime` forms give the derivative across the Bessel, Hankel, Airy, and Kelvin families.
 - Dense least squares routes an overdetermined `m > n` system through `Matrix<double>.QR(QRMethod.Thin)` then `QR<double>.Solve(b)` — the `argmin‖Ax−b‖₂` minimizer — with `Svd(true)` the truncated pseudo-inverse conditioning fallback; the `A.TransposeThisAndMultiply(A)` Gram path (`Cholesky().Solve(Aᵀb)`, no explicit transpose allocation) squares the condition number and stays the SPD-only fallback.
-- A near-zero column norm divides through and fills `Q`/`R` with `NaN` while `IsFullRank` returns `true`, so admission gates the design matrix all-finite before factoring and probes the factor output all-finite after.
+- Near-zero column norms divide through and fill `Q`/`R` with `NaN` while `IsFullRank` returns `true`, so admission gates the design matrix all-finite before factoring and probes the factor output all-finite after.
+- Provider selection is process-wide static state resolved once at composition: `Control` sets every provider class and `LinearAlgebraControl` the linear-algebra class alone, `Provider`'s setter verifies through `InitializeVerify()`, and every dense `Multiply` thereafter routes the active `ILinearAlgebraProvider`. Each `Try*` form returns `false` on a missing native asset where its `Use*` twin throws, so admission reads the verdict rather than trapping.
+- Native adapters are separate x64-only companion packages probed by assembly-qualified type name off `NativeProviderPath` or the class-local `HintPath`, so osx-arm64 resolves no asset and rides `ManagedLinearAlgebraProvider.Instance`.
+- `SparseCompressedRowMatrixStorage<T>` is the one native sparse form; CSC, COO, and indexed-triplet layouts are ingestion conversions through the `Of*` statics rather than separate storage types, and the CSC form inverts the CSR argument order.
+- Krylov solves write into their caller-owned result vector and return `void`, so `Iterator<T>.Status` carries the convergence verdict; solver, preconditioner, and stop criteria bind at one precision plane, and a plane switch re-spells all three.
 
 [STACKING]:
 - `LanguageExt.Core`(`.api/api-languageext.md`): `Brent.TryFindRoot`'s `bool`/`out` pair and `NonlinearMinimizationResult.ReasonForExit` lift to `Fin<double>` and `Fin<Vector<double>>` at the seam, so non-convergence lands as a typed failure row instead of an exception crossing the receipt path.
-- `CSparse`(`.api/api-csparse.md`): a residual Jacobian assembled as `CompressedColumnStorage<double>` factors on the direct sparse lane and steps through `ISolver<double>.Solve`, while this package keeps the model, the tolerances, and the exit condition.
+- `CSparse`(`.api/api-csparse.md`): a residual Jacobian assembled as `CompressedColumnStorage<double>` factors on the direct sparse lane and steps through `ISolver<double>.Solve`, while this package keeps the model, the tolerances, and the exit condition; matrix density and factor reuse select between that direct lane and the Krylov solvers under an `Iterator<T>` stop-criteria control.
+- `MathNet.Numerics.Providers.MKL` and `.Providers.OpenBLAS`(`Rasm.Compute/.api/api-mathnet-providers.md`): the two native adapter packages this assembly probes by type name, each carrying its own control class and native asset matrix and no algebra of its own; that catalogue also owns how `Rasm.Compute` folds this plane onto its solve receipt.
 - `System.Numerics.Tensors`(`.api/api-tensors.md`): `TensorPrimitives` folds the split `double[] real, double[] imaginary` spectral spans and the `Generate`/`Window` axes in place, so magnitude, phase, and taper application vectorize with no `Complex` marshalling.
 - `UnitsNet`(`.api/api-unitsnet.md`): a quantity-typed integrand or sample set enters through `IQuantity.As(Enum)` as a base-unit `double` and the returned scalar re-enters its quantity type, so dimensional identity rides the caller and never the kernel.
 - Numeric-rail fold: one `Generate.LinearSpaced` axis threads `Interpolate` fitting the sampled response, `IInterpolation.Differentiate` and `Differentiate` supplying the Jacobian column, `Integrate` reducing over the domain, and `Fourier` under a `Window` taper reading the spectrum.
@@ -302,6 +393,6 @@
 
 [RAIL_LAW]:
 - Package: `MathNet.Numerics`
-- Owns: provider-free analytic numeric kernel — probability, quadrature, interpolation, root finding, nonlinear least squares, special functions, spectral transform, metric reduction, and descriptive statistics
-- Accept: `Func<double,double>` integrands and root targets, `double[]` sample and signal axes, the distribution seams, `IInterpolation` results, the no-throw `TryFindRoot` rail, in-place `Complex[]` and split `double[]` spectral buffers under a `FourierOptions` scaling
-- Reject: a hand-rolled analytic kernel — quadrature, FFT, taper, CDF, or special-function series — beside the static owner already carrying it, a hand-rolled Levenberg-Marquardt or normal-equations loop, and a Gram-plus-ridge squaring `κ` where thin-QR avoids it
+- Owns: the analytic numeric kernel — probability, quadrature, interpolation, root finding, nonlinear least squares, special functions, spectral transform, metric reduction, descriptive statistics — and the linear-algebra plane's provider selection, dense factorization, sparse ingestion, and Krylov solve
+- Accept: `Func<double,double>` integrands and root targets, `double[]` sample and signal axes, the distribution seams, `IInterpolation` results, the no-throw `TryFindRoot` rail, in-place `Complex[]` and split `double[]` spectral buffers under a `FourierOptions` scaling, `Matrix<double>`/`Vector<double>` dense work, CSR ingestion through the `Of*` statics, and one composition-time provider selection
+- Reject: a hand-rolled analytic kernel — quadrature, FFT, taper, CDF, or special-function series — beside the static owner already carrying it, a hand-rolled Levenberg-Marquardt or normal-equations loop, a Gram-plus-ridge squaring `κ` where thin-QR avoids it, a package-local matrix wrapper, and a per-call-site provider switch beside the one composition selection

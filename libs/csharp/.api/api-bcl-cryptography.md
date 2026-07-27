@@ -89,7 +89,7 @@
 |  [07]   | `IsSupported -> bool`                                                                                 | static   | platform probe   |
 
 - `AesGcm.Encrypt`: nonce is 12 bytes, ciphertext length equals plaintext length, and the tag rides its own span.
-- `AesGcm.Decrypt`: a forged tag raises `AuthenticationTagMismatchException`, converted once at the boundary.
+- `AesGcm.Decrypt`: raises `AuthenticationTagMismatchException` on a forged tag, converted once at the boundary.
 
 [ENTRYPOINT_SCOPE]: entropy (`RandomNumberGenerator`)
 
@@ -139,7 +139,7 @@
 [LOCAL_ADMISSION]:
 - Certificates enter through `X509CertificateLoader` or `CreateFromPem` and leave through `ExportCertificatePem` or `RawDataMemory`.
 - `CryptographicOperations` MAC and digest members serve authenticity claims; identity and cache keys ride the `api-hashing` non-cryptographic digest.
-- A secret buffer is rented, filled once, and overwritten through `ZeroMemory` at its owning lifecycle's terminal.
+- Secret buffers rent, fill once, and overwrite through `ZeroMemory` at their owning lifecycle's terminal.
 
 [RAIL_LAW]:
 - Package: `System.Security.Cryptography`

@@ -6,7 +6,7 @@ Every visual plane composes a typed per-plane binding: `composition/sheet#SHEET`
 
 ## [01]-[INDEX]
 
-- [01]-[STYLE]: the `Theme` row set — the `TypeSystem` modular scale with a multi-script fallback stack, regime-keyed `StrokeHierarchy`, the `ThemeMode`-keyed `ColorScheme` carrying `ColorRole` seed tokens plus the derive-consumable `PaletteSpec`, figure-ground `GroundRow`, `Entourage` silhouettes, `PageMaster`/`SheetFamily` grid rows, the typed `ChartBinding`/`DiagramBinding`/`TableBinding` per-plane rows, and the `role`/`pen`/`seed`/`size` SELECT projections every consumer keys.
+- [02]-[STYLE]: the `Theme` row set — the `TypeSystem` modular scale with a multi-script fallback stack, regime-keyed `StrokeHierarchy`, the `ThemeMode`-keyed `ColorScheme` carrying `ColorRole` seed tokens plus the derive-consumable `PaletteSpec`, figure-ground `GroundRow`, `Entourage` silhouettes, `PageMaster`/`SheetFamily` grid rows, the typed `ChartBinding`/`DiagramBinding`/`TableBinding` per-plane rows, and the `role`/`pen`/`seed`/`size` SELECT projections every consumer keys.
 
 ## [02]-[STYLE]
 

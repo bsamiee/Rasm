@@ -2,7 +2,7 @@
 
 The one motion-and-interaction owner across five planes: `react-aria` owns every DISCRETE accessible interaction — press, hover-intent, focus, keyboard, cross-input-normalized events, focus scoping — `@use-gesture/react` owns every CONTINUOUS analog gesture — drag deltas, pinch scale/rotate, wheel zoom, swipe momentum — the `Motion` vocabulary owns element enter/exit motion as named class-row compositions over `tw-animate-css`'s one keyframe mechanism, the `Motion` physical plane owns springs, motion values, scroll linkage, layout morphs, and exit choreography over the `motion` engine, and `Transition` owns document-level motion as a three-tier ladder — native `startViewTransition`, `animateView` spring physics, canary `<ViewTransition>` — with a total degrade chain to bare `flushSync`. Five planes, one page, so motion authority never fractures: a discrete press routed through a pointer handler, a raw DOM listener where a hook exists, a second gesture hook stacked on one element, a bespoke `@keyframes` an axis row expresses, a second scroll-animation engine beside `useScroll`, or a per-element JS lifecycle where an `entering:`/`exiting:` variant suffices — each is the named defect. The module is `ui/src/system/act.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]           | [OWNS]                                                                                | [PUBLIC]     |
 | :-----: | :------------------ | :------------------------------------------------------------------------------------ | :----------- |

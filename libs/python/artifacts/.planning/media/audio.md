@@ -6,7 +6,7 @@ It composes the `media/container#CONTAINER` `Media`/`MediaProfile`/`MediaEvidenc
 
 ## [01]-[INDEX]
 
-- [01]-[MEDIA]: the audio arm of the closed-payload `MediaOp` family — the `_encode_audio` worker plus the standalone railed `_decode_audio`/`_mix_audio` primitives — lifting, mastering, and resampling a `tuple[Pcm, ...]` sequence into one audio container keyed over the muxed bytes.
+- [02]-[MEDIA]: the audio arm of the closed-payload `MediaOp` family — the `_encode_audio` worker plus the standalone railed `_decode_audio`/`_mix_audio` primitives — lifting, mastering, and resampling a `tuple[Pcm, ...]` sequence into one audio container keyed over the muxed bytes.
 
 ## [02]-[MEDIA]
 

@@ -6,10 +6,10 @@ Brokered dry-runs price tool calls before invocation, dispatch routes through th
 
 ## [01]-[INDEX]
 
-- [01]-[METHOD_AXIS]: MCP method vocabulary with tool, resource, and prompt projection from the registry.
-- [02]-[TOOL_DISPATCH]: Dry-run cost preview, brokered dispatch, and structured tool result.
-- [03]-[STREAM_PROGRESS]: Server-stream progress fan with cancellation, backpressure, and resumable handles.
-- [04]-[TS_PROJECTION]: MCP tool-catalog and progress-frame wire shapes the agent transport consumes.
+- [02]-[METHOD_AXIS]: MCP method vocabulary with tool, resource, and prompt projection from the registry.
+- [03]-[TOOL_DISPATCH]: Dry-run cost preview, brokered dispatch, and structured tool result.
+- [04]-[STREAM_PROGRESS]: Server-stream progress fan with cancellation, backpressure, and resumable handles.
+- [05]-[TS_PROJECTION]: MCP tool-catalog and progress-frame wire shapes the agent transport consumes.
 
 ## [02]-[METHOD_AXIS]
 
@@ -290,7 +290,7 @@ stateDiagram-v2
 - Growth: one wire-member row per new tool annotation or frame field; the frame sequence crosses as a literal-discriminated union; zero new surface.
 - Boundary: the tool input schema crosses as the standard JSON Schema the descriptor resolves, so an MCP client's schema validation reads the same schema the host binder reads; effect annotations cross as the MCP `readOnlyHint`/`destructiveHint` booleans the projection sets from `EffectClass`; the wire the SDK transport actually emits for progress is the standard MCP `notifications/progress` `ProgressNotificationValue` shape (`progress`/`total`/`message`), so `ProgressNotificationWire` is the contract the agent transport reads off the SSE stream, while `ProgressFrameWire` is the interior frame reconstruction the host buffers and replays — the `ToNotification` seam is where the interior frame becomes the wire value, so the TS side never reconstructs the frame union from the SDK notification, it reads the notification directly; the resume token crosses as the session/tool/logical/physical tuple so an agent reattaches by replaying the same cursor through the SDK's `Last-Event-ID` resumption; the structured tool result is `ToolResultWire` (the `ToolResult` `Tool`/`Content`/`IsError`/`Correlation` projection) ridden as the `TPayload` of the `Runtime/ports#TS_PROJECTION` `ReceiptEnvelopeWire`, single-minted here so the agent transport decodes the payload shape rather than re-authoring it — a branch-side `ToolResultWire` mint is the named drift defect this projection deletes.
 
-```ts contract
+```ts signature
 interface McpToolWire {
   readonly name: string;
   readonly title: string;

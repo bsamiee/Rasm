@@ -6,7 +6,7 @@ Security-and-navigation finishing closes over an emitted PDF or Office container
 
 ## [01]-[INDEX]
 
-- [01]-[FINISH]: one finishing close discriminating `EgressStep` over the `FINISHERS` totality table under the `LicenseLane` footing.
+- [02]-[FINISH]: one finishing close discriminating `EgressStep` over the `FINISHERS` totality table under the `LicenseLane` footing.
 
 ## [02]-[FINISH]
 

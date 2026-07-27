@@ -4,8 +4,8 @@ The BCF 2.1/3.0 issue-exchange owner: one closed `BcfFile`/`BcfTopic`/`BcfCommen
 
 ## [01]-[INDEX]
 
-- [01]-[BCF_ARCHIVE]: the `BcfFile` archive root (`BcfTopic`/`BcfComment`/`BcfViewpoint` family, `BcfCamera` union, `BcfProject`/`BcfVocabulary`/`BcfDocument` archive members), the `.bcfzip` codec over the `Smino.Bcf.Toolkit` `BcfExtensions`/`Worker`/`BcfBuilder` surface.
-- [02]-[TS_PROJECTION]: the `BcfWire` host-free JSON producer the TS UI BCF anchor and live-binding decode — the Mapperly-generated wire projection over the self-owned source-generated `BcfWireContext` with the `BcfStatus` string discriminant and the `IfcGuid` component anchor, plus the `BcfApi` BCF-API 3.0 resource union covering the full project-scoped conversation with spec-dialect snake_case write bodies (`BcfApiContext`).
+- [02]-[BCF_ARCHIVE]: the `BcfFile` archive root (`BcfTopic`/`BcfComment`/`BcfViewpoint` family, `BcfCamera` union, `BcfProject`/`BcfVocabulary`/`BcfDocument` archive members), the `.bcfzip` codec over the `Smino.Bcf.Toolkit` `BcfExtensions`/`Worker`/`BcfBuilder` surface.
+- [03]-[TS_PROJECTION]: the `BcfWire` host-free JSON producer the TS UI BCF anchor and live-binding decode — the Mapperly-generated wire projection over the self-owned source-generated `BcfWireContext` with the `BcfStatus` string discriminant and the `IfcGuid` component anchor, plus the `BcfApi` BCF-API 3.0 resource union covering the full project-scoped conversation with spec-dialect snake_case write bodies (`BcfApiContext`).
 
 ## [02]-[BCF_ARCHIVE]
 

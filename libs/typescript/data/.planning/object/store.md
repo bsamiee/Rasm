@@ -2,7 +2,7 @@
 
 Content-addressed object identity is core `ContentKey`; this page delegates minting and uses its `:x32` spelling as S3 `Key`. Conditional writes make repeated bytes a proven noop. One `ObjectStore` owns scoped client, abort-bridged sends, typed faults, shape-dispatched puts, verified reads, grants, and lifecycle. A SQL reference ledger drives `If-Match` GC. Provider `Config` must satisfy the conformance table; engines lacking `If-None-Match: *` cannot host the plane.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]         | [OWNS]                                                                                         |
 | :-----: | :---------------- | :--------------------------------------------------------------------------------------------- |

@@ -2,7 +2,7 @@
 
 Panel materializes three shell vocabularies the AppUi shell produces: livewire events, `ControlIntent`, and `LayoutProgram`. `Panel.fold` builds receipt-reconciled binding rows, `Panel.route` exhaustively dispatches controls, and `Panel.solve` preserves Cassowary insertion order and strengths. Payloads remain verbatim carriage; missing wire cases fail at their row. Module: `ui/viewer/src/panel.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]       | [OWNS]                                                                            | [PUBLIC] |
 | :-----: | :-------------- | :-------------------------------------------------------------------------------- | :------- |

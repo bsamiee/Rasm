@@ -2,7 +2,7 @@
 
 The tool vocabulary and both MCP lanes in one owner: tools are `Schema`-typed data (`Tool.make` declarations collected by `Toolkit.make`, merged by `Toolkit.merge`, handled by `toLayer` — a god-toolkit is structurally impossible because assembly happens at the consumer), the `Safety` partition is the ONE blast-radius admission every generation gate and agent turn consumes — with one hint-admission constructor both the local annotation band and the remote MCP hint band fold through, so the fail-closed default is a single spelling — the `Arsenal` ledger types the four provider packages that expose provider-defined tools as rows of one name-keyed table, and MCP is a duality with a hard boundary: hosting is NATIVE (`McpServer`/`McpSchema` from `@effect/ai` — toolkits, resources, prompts, and elicitation served over stdio or HTTP transports), consumption is the reference SDK's client lane ONLY (`@modelcontextprotocol/sdk` `Client` transcribed at the seam — Promise lifted, every result re-parsed through the native `McpSchema` classes, hints graded onto `Safety` — the `./server` subpath has no import site). A remote server's tools enter an app toolkit as ordinary declared rows, so the language model treats local, provider-defined, and remote tools identically and no raw wire value escapes the client seam. The module is `runtime/src/ai/tool.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]  | [OWNS]                                                                               | [PUBLIC]  |
 | :-----: | :--------- | :----------------------------------------------------------------------------------- | :-------- |

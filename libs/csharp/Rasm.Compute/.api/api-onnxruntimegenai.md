@@ -10,13 +10,7 @@
 - namespace: `Microsoft.ML.OnnxRuntimeGenAI`
 - asset: native-only meta-package (`build/native` props/targets, `ort_genai.h`) with the managed facade
 - depends: `Microsoft.ML.OnnxRuntime` — the genai native payload co-locates per-RID beside the base `libonnxruntime` payload; `api-onnxruntime` owns the base ABI matrix and EP roster
-- rail: model
-
-[PACKAGE_SURFACE]: `Microsoft.Extensions.AI.Abstractions`
-- package: `Microsoft.Extensions.AI.Abstractions` (MIT)
-- assembly: `Microsoft.Extensions.AI.Abstractions`; the `net10.0` consumer binds `lib/net10.0`
-- namespace: `Microsoft.Extensions.AI`
-- asset: managed abstractions; `IChatClient` resolves here for the M.E.AI streaming consumer
+- depends: `Microsoft.Extensions.AI.Abstractions` — the managed facade's `OnnxRuntimeGenAIChatClient` implements its `IChatClient`; `libs/csharp/.api/api-extensions-ai.md` owns that contract surface whole
 - rail: model
 
 ## [02]-[PUBLIC_TYPES]
@@ -258,7 +252,7 @@
 - `OnnxRuntimeGenAIChatClient : IChatClient` is the admitted M.E.AI projection over the shared handle chain, never a hand-rolled one.
 
 [RAIL_LAW]:
-- Package: `Microsoft.ML.OnnxRuntimeGenAI` + `Microsoft.Extensions.AI.Abstractions`
+- Package: `Microsoft.ML.OnnxRuntimeGenAI`
 - Owns: generative token-streaming runtime, multimodal encoding, streaming audio, `Utils` GPU-device/native-log control, and the `OnnxRuntimeGenAIChatClient` `IChatClient` projection
 - Accept: model-dir generative runs over the LIFO handle chain; `Images`/`Audios` + `MultiModalProcessor` multimodal pipelines; incremental `StreamingProcessor` audio; M.E.AI streaming through the three admitted ctors staged onto the `api-recyclable-stream` pool
 - Reject: chat-client/conversation/prompt service families; managed output validators; a second managed chat-message model beside `ChatMessage`; the phantom `(Model, options)` ctor; `System.Numerics.Tensors.Tensor<T>` confused with the GenAI `Tensor`; a model run with no matching native RID payload

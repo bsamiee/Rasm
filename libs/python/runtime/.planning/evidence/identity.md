@@ -6,7 +6,7 @@ One span-fold core serves both entries — `_derive_span` the sole `content.deri
 
 ## [01]-[INDEX]
 
-- [01]-[IDENTITY]: the `ContentKey` value object with its `project` output axis, the `Tolerance`-folded seed, the closed `IdentitySource` modality ADT, the span-fold core, and the railed `of` beside the bare `key`.
+- [02]-[IDENTITY]: the `ContentKey` value object with its `project` output axis, the `Tolerance`-folded seed, the closed `IdentitySource` modality ADT, the span-fold core, and the railed `of` beside the bare `key`.
 
 ## [02]-[IDENTITY]
 

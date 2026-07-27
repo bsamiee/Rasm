@@ -113,7 +113,7 @@
 [LOCAL_ADMISSION]:
 - AppHost `ControlService` binds `ServerCallContext`, `IServerStreamWriter<T>`, and `Metadata` directly as the server-side call surface.
 - Compression-provider registration stays explicit at channel (`GrpcChannelOptions.CompressionProviders`) and service (`GrpcServiceOptions.CompressionProviders`) composition.
-- A binary metadata key carries the `-bin` suffix contract, never an ad hoc encoding.
+- Every binary metadata key carries the `-bin` suffix contract, never an ad hoc encoding.
 - `ConnectivityState` is read-only channel evidence, not a client-driven state machine.
 
 [RAIL_LAW]:

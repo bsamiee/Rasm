@@ -6,7 +6,7 @@ Each `Backend` row binds its arm to its runtime `Band`, so the runtime/worker sp
 
 ## [01]-[INDEX]
 
-- [01]-[DOCUMENT]: document-mode dispatch over the band-bound `BACKENDS` policy table, every arm lowering from the `DocumentNode` tree.
+- [02]-[DOCUMENT]: document-mode dispatch over the band-bound `BACKENDS` policy table, every arm lowering from the `DocumentNode` tree.
 
 ## [02]-[DOCUMENT]
 

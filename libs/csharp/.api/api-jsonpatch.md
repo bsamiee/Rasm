@@ -73,7 +73,7 @@
 |  [08]   | `Operation<TModel>.Apply(TModel, IObjectAdapter)`               | instance | typed single-op dispatch                     |
 
 - `ApplyTo(object, IObjectAdapter)`: `IObjectAdapter` is the one public extension seam; every built-in list, dictionary, `JsonObject`, and POCO adapter is assembly-internal, reached through the adapter-free overloads.
-- `Operation.Apply`: a `Test` op against a bare `IObjectAdapter` throws `NotSupportedException`, and an `Invalid` verb matches no dispatch arm, so an unrecognized `op` applies silently.
+- `Operation.Apply`: throws `NotSupportedException` on a `Test` op against a bare `IObjectAdapter`, and matches no dispatch arm on an `Invalid` verb, so an unrecognized `op` applies silently.
 - `IJsonPatchDocument.GetOperations`: explicit interface implementation on both documents, reachable only through an `IJsonPatchDocument` reference.
 
 [ENTRYPOINT_SCOPE]: adapter contract — each verb takes `(Operation, object)` and mutates the target in place
@@ -106,10 +106,10 @@
 [TOPOLOGY]:
 - Both documents carry an internal `[JsonConverter]`, so STJ round-trips the wire form unregistered, and both implement `IEndpointParameterMetadataProvider`, registering `application/json-patch+json` accepts-metadata for a minimal-API body parameter.
 - Apply breaks on the first failing operation, so an all-or-nothing patch is a caller obligation: patch a clone and swap on full success.
-- An adapter-free apply dispatches the target by shape — `Dictionary<,>`, `JsonObject`, `JsonArray`, any `IList`, then POCO — through an internal factory whose adapter implements `IObjectAdapterWithTest`, so a default apply executes `Test`.
+- Adapter-free applies dispatch the target by shape — `Dictionary<,>`, `JsonObject`, `JsonArray`, any `IList`, then POCO — through an internal factory whose adapter implements `IObjectAdapterWithTest`, so a default apply executes `Test`.
 
 [STACKING]:
-- `System.Text.Json`(`.api/api-json-schema.md`): one `JsonSerializerOptions` drives both seams, so schema export describes the record this surface patches and contract projection stays split from structured edit.
+- `System.Text.Json`(`.api/api-system-text-json.md`): one `JsonSerializerOptions` drives both seams, so schema export describes the record this surface patches and contract projection stays split from structured edit.
 - `Generator.Equals`(`.api/api-generator-equals.md`): `Inequalities(T, T, MemberPath)` yields the `Inequality.Path` each `Replace` targets, so a changed leaf lands one member-granular pointer rather than a whole-node replace.
 - `LanguageExt.Core`(`.api/api-languageext.md`): the `Action<JsonPatchError>` collector projects each failure onto `Validation<F, A>`, so a rejected patch accumulates typed faults instead of unwinding through a catch.
 - `Rasm.Persistence` `Version/merge` folds a resolved edit script into one chained `JsonPatchDocument` as the `EntityEdit.Members` payload, and `Rasm.AppHost` `Runtime/config` applies that document to a live `JsonObject` section under `logErrorAction`, gating re-publication on the typed fold.
@@ -117,7 +117,7 @@
 [LOCAL_ADMISSION]:
 - Intake deserializes `application/json-patch+json` into the untyped `JsonPatchDocument`; `JsonPatchDocument<TModel>` is the authoring shape, its `Expression` paths breaking the build on a renamed member.
 - Every apply passes a `logErrorAction` collector, so a failed operation lands on the typed failure rail with prior state intact.
-- A non-POCO target injects a consumer `IObjectAdapterWithTest` through the adapter overloads.
+- Non-POCO targets inject a consumer `IObjectAdapterWithTest` through the adapter overloads.
 
 [RAIL_LAW]:
 - Package: `Microsoft.AspNetCore.JsonPatch.SystemTextJson`

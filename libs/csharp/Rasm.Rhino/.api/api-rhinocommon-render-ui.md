@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: RhinoCommon render-editor-UI surface
-- host: `RhinoCommon` (Rhino host runtime, in-process)
+- host: Rhino host runtime, in-process (proprietary McNeel SDK)
 - assembly: `RhinoCommon`
 - namespaces: `Rhino.Render.DataSources`, `Rhino.Render.UI`, `Rhino.Render.ParameterNames`, `Rhino.Render.ChildSlotNames`, `Rhino.Render`
 - kernel: `Rasm` (host-agnostic size and color owners composed, never re-derived)

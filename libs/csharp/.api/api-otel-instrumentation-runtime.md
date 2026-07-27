@@ -39,7 +39,7 @@
 [STACKING]:
 - `OpenTelemetry`(`api-opentelemetry.md`): one builder row inside `WithMetrics`, where `AddView` shapes or drops a series by meter name or instrument name.
 - `System.Diagnostics.Metrics`(`api-diagnostics-metrics.md`): the runtime mints `System.Runtime` through that surface, so every series obeys its instrument-identity and observable-collection law.
-- `Microsoft.Extensions.Diagnostics.ResourceMonitoring`(`api-resourcemonitoring.md`): `dotnet.process.*` carries raw process CPU time, processor count, and working set; limit-relative container utilization rides that meter alone.
+- `Microsoft.Extensions.Diagnostics.ResourceMonitoring`(`Rasm.AppHost/.api/api-resource-monitoring.md`): `dotnet.process.*` carries raw process CPU time, processor count, and working set; limit-relative container utilization rides that meter alone.
 - `Rasm.AppHost` telemetry spine: `TelemetrySource.SystemRuntime` holds `System.Runtime` as an unminted vocabulary row and the meter fold admits every row key in one `AddMeter` span, so the verb never enters the composition fence.
 
 [LOCAL_ADMISSION]:

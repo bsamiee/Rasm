@@ -4,7 +4,7 @@ Projection plane: the durable altitude of the core fold contract. A lane binds o
 
 Poison never wedges a lane: a failing event diverts to a typed quarantine and the checkpoint advances past it. Every persisted row carries its full time coordinate — the event's `Hlc` halves beside the journal's global sequence — and leaves this folder only as the core-owned `AsOf` minted through `AsOf.at`, so upstream reads and resume tokens coordinate against real durable positions and a bare position tuple is unspellable.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]     | [OWNS]                                                                          |
 | :-----: | :------------ | :------------------------------------------------------------------------------ |

@@ -59,10 +59,14 @@
 |  [12]   | `new ParentBasedSampler({ root, ... })`                          | ctor     | parent-decision combinator over `root`      |
 |  [13]   | `sampler.shouldSample(Context, ...) -> SamplingResult`           | instance | the custom-sampler decision hook            |
 |  [14]   | `idGenerator.generateTraceId()` / `.generateSpanId() -> string`  | instance | 32/16-hex id source                         |
+|  [15]   | `processor.onEnding?(Span)`                                      | instance | the last mutable hook before a span freezes |
 
 - `BasicTracerProvider`: carries no `register()` — the global propagator/context install is the `NodeTracerProvider`/`WebTracerProvider` subclass op that `SDKRegistrationConfig` types.
 - `Sampler.shouldSample`: takes `(Context, traceId, spanName, SpanKind, Attributes, Link[])`; `TraceIdRatioBasedSampler` reads only `(context, traceId)` despite the six-argument interface.
 - `ParentBasedSampler`: config carries `root` required with `remoteParentSampled?`/`remoteParentNotSampled?`/`localParentSampled?`/`localParentNotSampled?` overrides.
+- `onEnding` sits OPTIONAL on the interface and carries the upstream `@experimental` marker — it may break in a minor of `@opentelemetry/sdk-trace`. It receives the mutable `Span`, so an export-boundary scrub that rewrites attributes runs here while `onEnd` receives the frozen `ReadableSpan` and can only read. Omitting the method stays legal, so the SDK calls it through an optional-chain and a scrub seated on `onEnd` silently writes nothing.
+- `BufferConfig`: `maxExportBatchSize?` 512, `scheduledDelayMillis?` 5000, `exportTimeoutMillis?` 30000, `maxQueueSize?` 2048; `maxExportBatchSize` must be at or below `maxQueueSize`. `BatchSpanProcessorBrowserConfig` extends it with `disableAutoFlushOnDocumentHide?`.
+- `SpanLimits`: `attributeValueLengthLimit?`, `attributeCountLimit?`, `linkCountLimit?`, `eventCountLimit?`, `attributePerEventCountLimit?`, `attributePerLinkCountLimit?`. `GeneralLimits` carries the first two alone and applies provider-wide.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

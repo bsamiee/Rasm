@@ -4,8 +4,8 @@ THE NODE-GRAPH APPEARANCE ENGINE and THE POLYMORPHIC MATERIAL LIBRARY. One `Appe
 
 ## [01]-[INDEX]
 
-- [01]-[MATERIAL_GRAPH]: the `PortId`/`MathOp`/`MixOp` graph vocabulary (`MixOp` the 16-row `BlendMode` table), the `PortValue` channel set, the `GraphContext` tolerant-`Context` carrier, the `AppearanceNode` node union, the `ShadePoint`/`PortEnvironment`/`CompiledGraph`/`MaterialGraph` QuikGraph-ordered evaluation fold, and the `SurfaceShade` sink.
-- [02]-[MATERIAL_LIBRARY]: the `SubsurfaceRadius` mean-free-path and `ThinFilm` interference carriers, the `MaterialParameters` canonical row, the seam `MaterialId` key, the catalog table, the profile-assignment generalization, the `NearestChecker`/`HueConstant`/`Named` Datasets validation seam over the reflection-derived reference tables, the three physical-reproducibility gates by domain — display RGB (`SurfaceShade.InGamut`), Pointer real-surface (`PointerAdmit`/`MapToPointer`), and MacAdam spectral-limit (`SpectralAdmit`/`MapToSpectral`) — plus the `CvdPreview`/`Contrast`/`NearestIscc` accessibility and designation projections.
+- [02]-[MATERIAL_GRAPH]: the `PortId`/`MathOp`/`MixOp` graph vocabulary (`MixOp` the 16-row `BlendMode` table), the `PortValue` channel set, the `GraphContext` tolerant-`Context` carrier, the `AppearanceNode` node union, the `ShadePoint`/`PortEnvironment`/`CompiledGraph`/`MaterialGraph` QuikGraph-ordered evaluation fold, and the `SurfaceShade` sink.
+- [03]-[MATERIAL_LIBRARY]: the `SubsurfaceRadius` mean-free-path and `ThinFilm` interference carriers, the `MaterialParameters` canonical row, the seam `MaterialId` key, the catalog table, the profile-assignment generalization, the `NearestChecker`/`HueConstant`/`Named` Datasets validation seam over the reflection-derived reference tables, the three physical-reproducibility gates by domain — display RGB (`SurfaceShade.InGamut`), Pointer real-surface (`PointerAdmit`/`MapToPointer`), and MacAdam spectral-limit (`SpectralAdmit`/`MapToSpectral`) — plus the `CvdPreview`/`Contrast`/`NearestIscc` accessibility and designation projections.
 
 ## [02]-[MATERIAL_GRAPH]
 

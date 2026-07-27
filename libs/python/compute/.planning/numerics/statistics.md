@@ -6,7 +6,7 @@ One in-memory classical-statistics owner producing hypothesis-test and distribut
 
 ## [01]-[INDEX]
 
-- [01]-[STATISTICS]: hypothesis tests and MLE distribution fit over `scipy.stats`, one `_STAT_ROUTES` row per route folding one `StatReport` on the `TestIntent` owner.
+- [02]-[STATISTICS]: hypothesis tests and MLE distribution fit over `scipy.stats`, one `_STAT_ROUTES` row per route folding one `StatReport` on the `TestIntent` owner.
 
 ## [02]-[STATISTICS]
 

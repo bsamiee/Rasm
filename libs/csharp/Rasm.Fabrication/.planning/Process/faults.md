@@ -12,7 +12,7 @@ Wire posture: HOST-LOCAL. `FabricationFault` rides `Fin<T>`, while frozen intege
 
 ## [01]-[INDEX]
 
-- [01]-[FAULT_BAND]: `FabConcern`, `EquipmentFault`, `DeriveFault`, `SubjectKind`, `JointFault`, `CollisionContact`, `NestFault`, `SourceKind`, `AxisKind`, `MachineAxis`, `IWitnessKind`, `IWitness`, `Witness`, `FaultSubject`, `EquipmentWitness`, `DeriveWitness`, `CollisionZone`, `JointDiagnostic`, `NestWitness`, `VoxelBudget`, `SourceLocus`, `RelationFault`, `KerfWitness`, and `FabricationFault`.
+- [02]-[FAULT_BAND]: `FabConcern`, `EquipmentFault`, `DeriveFault`, `SubjectKind`, `JointFault`, `CollisionContact`, `NestFault`, `SourceKind`, `AxisKind`, `MachineAxis`, `IWitnessKind`, `IWitness`, `Witness`, `FaultSubject`, `EquipmentWitness`, `DeriveWitness`, `CollisionZone`, `JointDiagnostic`, `NestWitness`, `VoxelBudget`, `SourceLocus`, `RelationFault`, `KerfWitness`, and `FabricationFault`.
 
 ## [02]-[FAULT_BAND]
 

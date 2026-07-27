@@ -2,7 +2,7 @@
 
 Reactivity-keyed reactive reads: read-your-writes is one coordinate vocabulary written at the mutation and consumed at the query, never a poll and never a cache to bust by hand. The journal's publish transaction stamps invalidation keys through its slots; this page owns the read half — `Live.of(spec)` binds a keyed, schema-decoded query into a one-shot `read`, a push `changes` stream that re-runs on every overlapping mutation, and a pull `mailbox` twin — plus the foreign-write edge, the one road by which a mutation that bypassed the publish transaction still wakes exactly the readers its coordinates name. `Live.Keys` is the identity-rich coordinate owner: its `coordinates` field carries the pattern-proven band and member refinements, and `Live.band`/`Live.cells`/`Live.merged` are its only admissions. The embedded record scopes `{ band: cells }`, an empty cell list names the whole band, and a member mutation wakes member readers and whole-band readers both.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]         | [OWNS]                                                                             |
 | :-----: | :---------------- | :--------------------------------------------------------------------------------- |

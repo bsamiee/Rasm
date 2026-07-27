@@ -54,7 +54,7 @@
 
 - `ConsumeAndProcessMessageAsync`: binds only a consumer `InstrumentedConsumerBuilder.Build()` minted; any other instance faults at the call.
 - `AddKafkaProducerInstrumentation`: builder-less overloads resolve the instrumented builder from DI, keyed when the `name` argument rides.
-- `TryExtractPropagationContext`: a header-free message returns `true` on the default context, so callers discriminate on the extracted `ActivityContext`.
+- `TryExtractPropagationContext`: returns `true` on the default context for a header-free message, so callers discriminate on the extracted `ActivityContext`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

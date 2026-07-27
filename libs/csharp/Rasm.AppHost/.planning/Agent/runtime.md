@@ -4,9 +4,8 @@ The named command-dispatch owner the runtime spine referenced but nowhere declar
 
 ## [01]-[INDEX]
 
-- [01]-[DISPATCH_FRONT_DOOR]: One `Run(ComputeIntent) -> CommandReceipt` entry the three front doors and the orchestration steps share.
-- [02]-[ADOPTION_SEAM]: The one brokered `CommandAIFunction` tool-adoption seam MCP serving and the reasoning loop both reuse.
-- [03]-[RECEIPT_CHAIN]: `CommandReceipt` projection and the `EventLog` chain advance every dispatch lands on.
+- [02]-[DISPATCH_FRONT_DOOR]: One `Run(ComputeIntent) -> CommandReceipt` entry the three front doors and the orchestration steps share, chaining every committed receipt into the one `EventLog` and projecting it through the single upstream `ToolResult` fold.
+- [03]-[ADOPTION_SEAM]: The one brokered `CommandAIFunction` tool-adoption seam MCP serving and the reasoning loop both reuse.
 
 ## [02]-[DISPATCH_FRONT_DOOR]
 

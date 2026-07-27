@@ -6,7 +6,7 @@ Glyph fold is one total dispatch over the closed `DiagramGlyph` case. SVG lowers
 
 ## [01]-[INDEX]
 
-- [01]-[DRAW]: `DiagramDraw`'s glyph-to-artifact fold over the `DrawTarget`-selected arm — the `drawsvg` SVG arm bucketing each mark into its `GlyphStyle.layer` `Group` under its `_INTENT` class and outlining labels through `ziafont`/`Formula.laid()`, or the `drawpyo` `.drawio` arm lowering the same grammar to editable mxGraph with port seats, container parenting, and rotated markers — both threading the palette hex, refusing unspellable payloads as `DrawFault`, and contributing the `ArtifactReceipt.Diagram` facts.
+- [02]-[DRAW]: `DiagramDraw`'s glyph-to-artifact fold over the `DrawTarget`-selected arm — the `drawsvg` SVG arm bucketing each mark into its `GlyphStyle.layer` `Group` under its `_INTENT` class and outlining labels through `ziafont`/`Formula.laid()`, or the `drawpyo` `.drawio` arm lowering the same grammar to editable mxGraph with port seats, container parenting, and rotated markers — both threading the palette hex, refusing unspellable payloads as `DrawFault`, and contributing the `ArtifactReceipt.Diagram` facts.
 
 ## [02]-[DRAW]
 

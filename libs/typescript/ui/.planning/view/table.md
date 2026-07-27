@@ -2,7 +2,7 @@
 
 The one data-grid owner: TanStack Table models — rows, headers, facets, grouping, aggregation, pinning — TanStack Virtual windows, react-aria supplies the grid semantics, and ONE atom holds the whole `TableState` so every slice persists, derives, and echoes through the store. Columns type against the wire-decoded row Schema through `createColumnHelper`, or fold dynamically from a `Feed.Document` column band so a producer-opaque tabular artifact renders with zero static row Schema and zero producer branching. RAC `Table` remains the owner for interactive accessible collections WITHOUT heavy derivation — the TanStack fold is earned by faceting/grouping/virtual scale, and one collection never runs both engines. The module is `ui/src/view/table.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                                        | [PUBLIC] |
 | :-----: | :--------------- | :---------------------------------------------------------------------------- | :------- |

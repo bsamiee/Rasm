@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[PROJECTION]: `ProjectionPolicy` admits source, view roster, drafting convention, exactness, spatial, and characteristic policy once; `ProjectionSource` generates model and boolean modalities; `ProjectionView` carries authored view identity, direction, and kernel operation; `ProjectionReceipt` carries per-view runs, poses, sheet convention, anchors, composition, and source identity; `Hlr.Solve` lowers the policy through one flat `Fin` rail over an accumulating view traversal.
+- [02]-[PROJECTION]: `ProjectionPolicy` admits source, view roster, drafting convention, exactness, spatial, and characteristic policy once; `ProjectionSource` generates model and boolean modalities; `ProjectionView` carries authored view identity, direction, and kernel operation; `ProjectionReceipt` carries per-view runs, poses, sheet convention, anchors, composition, and source identity; `Hlr.Solve` lowers the policy through one flat `Fin` rail over an accumulating view traversal.
 
 ## [02]-[PROJECTION]
 

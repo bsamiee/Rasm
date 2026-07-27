@@ -8,18 +8,18 @@ Wire posture: HOST-LOCAL. `WearState`, `ConsumableRow`, and `CriticalWear` remai
 
 ## [01]-[INDEX]
 
-- [01]-[TOOL_WEAR]: `WearMechanism`, `WearScope`, `WearValueKind`, `ConditionSignal`, `WearChannel`, `WearCriterion`, `ConsumableKind`, `WearApplicability`, `WearRegistry`, `WearPolicy`, `ModelDiagnostic`, `WearState`, `ConsumableRow`, `CriticalWear`, `WearReceipt`, and `ToolWear`.
+- [02]-[TOOL_WEAR]: `WearMechanism`, `WearScope`, `WearValueKind`, `ConditionSignal`, `WearChannel`, `WearCriterion`, `ConsumableKind`, `MaintenanceDisposition`, `WearApplicability`, `WearRegistry`, `WearPolicy`, `ModelDiagnostic`, `WearState`, `ConsumableRow`, `CriticalWear`, `WearReceipt`, and `ToolWear`.
 
 ## [02]-[TOOL_WEAR]
 
-- Owner: `ConditionSignal` owns measured condition; `WearChannel` rows own the signal-component projection and its canonical unit; `WearCriterion` owns terminal and threshold criteria; `WearRegistry` owns process applicability; `TaylorModel` and `ModelDiagnostic` own phase-aware evolution; `WearReceipt` owns forecast and maintenance truth.
-- Cases: `ConditionSignal` distinguishes geometry, load, vibration, acoustic, thermal, composition, surface, dimensional, and terminal evidence; `WearCriterion` distinguishes one channel-typed `Threshold` from `TerminalStatus`, the channel row fixing the value kind; `WearApplicability` distinguishes `Tracked` from reasoned `Untracked`; `WearState` distinguishes tool, consumable, status, and unconsumed evidence; `MaintenanceAction` distinguishes continue, monitor, inspect, rotate, replace, recondition, retire, and not-applicable.
+- Owner: `ConditionSignal` owns measured condition; `WearChannel` rows own the signal-component projection and its canonical unit; `WearCriterion` owns terminal and threshold criteria; `WearRegistry` owns process applicability; `TaylorModel` and `ModelDiagnostic` own phase-aware evolution; `MaintenanceDisposition` owns the wire-keyed disposition vocabulary and its serviceability column; `WearReceipt` owns forecast and maintenance truth.
+- Cases: `ConditionSignal` distinguishes geometry, load, vibration, acoustic, thermal, composition, surface, dimensional, and terminal evidence; `WearCriterion` distinguishes one channel-typed `Threshold` from `TerminalStatus`, the channel row fixing the value kind; `WearApplicability` distinguishes `Tracked` from reasoned `Untracked`; `WearState` distinguishes tool, consumable, status, and unconsumed evidence; `MaintenanceAction` distinguishes continue, monitor, inspect, rotate, replace, recondition, retire, and not-applicable, each case projecting onto the `MaintenanceDisposition` row of the same name through one total `Disposition` arm.
 - Entry: `ToolWear.Apply(WearRequest)` is the one polymorphic entry over assessment and Taylor calibration; `ConditionSignal.Of` lowers a decoded `Kinematics/observation.md` case into the signal family where the mapping is lossless, so streamed telemetry and inspected measurements enter one admission.
 - Auto: admission accumulates malformed signal, time, target, channel-kind, registry, and budget rows; count channels reject fractional thresholds and Taylor currents. Taylor fallback carries the criterion's channel through condition, state, and evidence, and a channel mismatch fails typed. Assessment groups by target, projects through the declared channel row, removes policy-defined outliers, fits the exposure trajectory, and classifies phase jointly from consumed fraction and the monotone spline's start-to-end derivative ratio, so a curve that steepens reads accelerated before its limit fraction says so. Missing specification, missing reading, untracked-process readings, stale windows, and terminal status fail typed.
-- Receipt: `WearReceipt` carries all states, consumable rows, critical row, maintenance action, model diagnostics, and window-bounded `LifeProjection`; projection groups tool states by target and life basis, then retains the most conservative whole forecast per key; `ModelDiagnostic` carries slope, intercept, residual, determination, sample domain, last observed value, and both endpoint derivatives; `TaylorCalibrationReceipt` narrows one `PowerLawReceipt` to the fitted speed coefficient under admitted feed/depth/load exponents. `FabricationFact.ToolWear.Of` projects the critical state onto `rasm.fabrication.tool.wear` and `rasm.fabrication.fit.residual` through `Process/telemetry#FACT_PROJECTION` as kind `tool-wear`, and a receipt without a critical state projects nothing.
+- Receipt: `WearReceipt` carries all states, consumable rows, critical row, maintenance action, model diagnostics, and window-bounded `LifeProjection`; projection groups tool states by target and life basis, then retains the most conservative whole forecast per key; `ModelDiagnostic` carries slope, intercept, residual, determination, sample domain, last observed value, and both endpoint derivatives; `TaylorCalibrationReceipt` narrows one `PowerLawReceipt` to the fitted speed coefficient under admitted feed/depth/load exponents. `FabricationFact.ToolWear.Of` projects the critical state onto `rasm.fabrication.tool.wear`, `rasm.fabrication.tool.assessments`, and `rasm.fabrication.fit.residual` through `Process/telemetry#FACT_PROJECTION` as kind `tool-wear`, carrying the `Disposition` key as the assessment population's outcome dimension so the in-service share reads off that one series, and a receipt without a critical state projects nothing.
 - Packages: `NodaTime` `Instant`, `Duration`, and `Interval.Contains`; MathNet.Numerics `Fit.Line` and `IInterpolation.Differentiate` over monotone cubic interpolation; `TensorPrimitives` finite/statistical reductions; `PowerLawFit`; LanguageExt.Core folds/traversals; Thinktecture.Runtime.Extensions; `UnitsNet`; and MTConnect-derived status through `ToolAssembly` compose directly.
-- Growth: a mechanism is one `WearMechanism`; a signal is one `ConditionSignal` case with its `WearChannel` projection rows; a consumable taxonomy item is one `ConsumableKind`; process applicability is one registry row; a maintenance disposition is one `MaintenanceAction` case.
-- Boundary: mechanism-to-signal guesswork, a hand-written channel-by-signal switch beside the generated channel vocabulary, value-kind-per-criterion sibling cases, applicability cases that differ only by which half is empty, hardcoded consumable limits, uncovered-process empty success, invented zero budgets, infinite fallback life, one global flank criterion, phase read from the limit fraction alone while the page claims trajectory classification, a line fitted to a resampled spline rather than the observations, a current value taken outside the admitted rows, point-estimate scheduling, zero-filled modality fields, untyped edges, bare `Seq.Last`, swallowed fit failures, and status-only spent inference are deleted forms.
+- Growth: a mechanism is one `WearMechanism`; a signal is one `ConditionSignal` case with its `WearChannel` projection rows; a consumable taxonomy item is one `ConsumableKind`; process applicability is one registry row; a maintenance disposition is one `MaintenanceAction` case beside one `MaintenanceDisposition` row answering the serviceability column, so every consumer partitioning on the disposition moves with it.
+- Boundary: mechanism-to-signal guesswork, a hand-written channel-by-signal switch beside the generated channel vocabulary, value-kind-per-criterion sibling cases, applicability cases that differ only by which half is empty, hardcoded consumable limits, uncovered-process empty success, invented zero budgets, infinite fallback life, one global flank criterion, phase read from the limit fraction alone while the page claims trajectory classification, a line fitted to a resampled spline rather than the observations, a current value taken outside the admitted rows, point-estimate scheduling, zero-filled modality fields, untyped edges, bare `Seq.Last`, swallowed fit failures, a consumer-side serviceability dispatch beside the disposition column, a CLR case-type name serving as a wire or dimension key, and status-only spent inference are deleted forms.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
@@ -106,13 +106,39 @@ public sealed partial class ConsumableKind {
     public static readonly ConsumableKind BrakeTooling = new("brake-tooling");
 }
 
+// Dispositions carry the wire-keyed half of the maintenance decision, and `Serviceable` decides whether the edge
+// stays cutting: retirement and replacement end an edge's service, every other row leaves it in service. That column
+// makes the good half of a disposition-keyed population derivable from the population itself, so a ninth disposition
+// answers serviceability once here and no consumer enumerates which rows count as good.
+[SmartEnum<string>]
+public sealed partial class MaintenanceDisposition {
+    public static readonly MaintenanceDisposition Continue = new("continue", serviceable: true);
+    public static readonly MaintenanceDisposition Monitor = new("monitor", serviceable: true);
+    public static readonly MaintenanceDisposition Inspect = new("inspect", serviceable: true);
+    public static readonly MaintenanceDisposition Rotate = new("rotate", serviceable: true);
+    public static readonly MaintenanceDisposition Recondition = new("recondition", serviceable: true);
+    public static readonly MaintenanceDisposition Replace = new("replace", serviceable: false);
+    public static readonly MaintenanceDisposition Retire = new("retire", serviceable: false);
+    public static readonly MaintenanceDisposition NotApplicable = new("not-applicable", serviceable: true);
+
+    public bool Serviceable { get; }
+
+    // Items-derived set materializes on first read, so a consumer partitioning a disposition-keyed series reads this
+    // column instead of carrying a roster copy that strands on the next row.
+    private static readonly Lazy<Seq<string>> InService = new(
+        static () => toSeq(Items).Filter(static row => row.Serviceable).Map(static row => row.Key).Strict(),
+        LazyThreadSafetyMode.ExecutionAndPublication);
+
+    public static Seq<string> ServiceableKeys => InService.Value;
+}
+
 // --- [SIGNALS] ------------------------------------------------------------------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ConditionSignal {
     private ConditionSignal() { }
 
     // Decoded machine telemetry lowers into the channel family only where a case maps losslessly — thermal is
-    // the slice-supplied signal; an unmapped observation projects None, never a zero-filled modality row.
+    // its slice-supplied signal; an unmapped observation projects None, never a zero-filled modality row.
     public static Option<ConditionSignal> Of(MachineObservation observation) =>
         observation is MachineObservation.Temperature thermal
             ? Some((ConditionSignal)new Thermal(UnitsNet.Temperature.FromDegreesCelsius(thermal.Celsius)))
@@ -402,6 +428,19 @@ public abstract partial record MaintenanceAction {
     public sealed record Recondition(ConsumableKey Key, int NextCycle, CriticalWear Critical) : MaintenanceAction;
     public sealed record Retire(CriticalWear Critical) : MaintenanceAction;
     public sealed record NotApplicable(ProcessKind Process, string Reason) : MaintenanceAction;
+
+    // Case identity IS the disposition, so this total projection is the one place the payload family and the wire-keyed
+    // vocabulary meet: a ninth case breaks here at compile time rather than reaching a consumer as an unadmitted key,
+    // and serviceability rides the disposition's own column rather than a second dispatch at every reader.
+    public MaintenanceDisposition Disposition => Switch(
+        @continue: static _ => MaintenanceDisposition.Continue,
+        monitor: static _ => MaintenanceDisposition.Monitor,
+        inspect: static _ => MaintenanceDisposition.Inspect,
+        rotate: static _ => MaintenanceDisposition.Rotate,
+        replace: static _ => MaintenanceDisposition.Replace,
+        recondition: static _ => MaintenanceDisposition.Recondition,
+        retire: static _ => MaintenanceDisposition.Retire,
+        notApplicable: static _ => MaintenanceDisposition.NotApplicable);
 }
 
 public sealed record WearReceipt(Seq<WearState> States, Seq<ConsumableRow> Consumables,

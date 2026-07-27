@@ -4,7 +4,7 @@ The intrinsic single-material acoustic owner: the `AcousticBand` `[SmartEnum<int
 
 ## [01]-[INDEX]
 
-- [01]-[ACOUSTIC_FOLDS]: the `AcousticBand` one-third-octave vocabulary, the banded `Acoustic` carrier (the two spectra plus the `DynamicStiffnessMNPerM3`/`FlowResistivityPaSPerM2`/`LossFactor` intrinsic constants) and its `Of` admission, the `RatingContour` `[SmartEnum<string>]` contour-fit family sharing one `Fit` kernel, the `AbsorptionClass` ISO 11654 A-E vocabulary, the `Nrc`/`Saa`/`AlphaW`/`AlphaWShape`/`StcWeighted`/`Rw`/`C`/`Ctr` projection folds, and the `CanonicalBytes` content contribution.
+- [02]-[ACOUSTIC_FOLDS]: the `AcousticBand` one-third-octave vocabulary, the banded `Acoustic` carrier (the two spectra plus the `DynamicStiffnessMNPerM3`/`FlowResistivityPaSPerM2`/`LossFactor` intrinsic constants) and its `Of` admission, the `RatingContour` `[SmartEnum<string>]` contour-fit family sharing one `Fit` kernel, the `AbsorptionClass` ISO 11654 A-E vocabulary, the `Nrc`/`Saa`/`AlphaW`/`AlphaWShape`/`StcWeighted`/`Rw`/`C`/`Ctr` projection folds, and the `CanonicalBytes` content contribution.
 
 ## [02]-[ACOUSTIC_FOLDS]
 

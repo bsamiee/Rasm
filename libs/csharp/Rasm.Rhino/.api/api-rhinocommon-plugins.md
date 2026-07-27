@@ -4,8 +4,8 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `RhinoCommon`
-- package: `RhinoCommon` (proprietary host SDK)
+[PACKAGE_SURFACE]: RhinoCommon plug-in binding surface
+- host: Rhino host runtime, in-process (proprietary McNeel SDK)
 - namespace: `Rhino.PlugIns`, `Rhino.FileIO` (`FileType`)
 - asset: `RhinoCommon.dll` — the in-process managed host assembly
 - rail: host

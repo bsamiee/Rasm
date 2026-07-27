@@ -6,9 +6,9 @@ Multi-domain graduation HUB of the Python branch — the tier-0 page every evide
 
 ## [01]-[INDEX]
 
-- [01]-[GRADUATION]: the receipt, the `HandoffAxis` union with the inherited geometry contract block, the two-stage `_admit`/`_clear` admission rail, and the producer registry.
-- [02]-[EVIDENCE_WEAVE]: the shared `evidence_run` fold every compute evidence owner composes in place of page-local tracers and inline span opens.
-- [03]-[CROSS_OWNER]: the routing rules gating each axis to its managed owner.
+- [02]-[GRADUATION]: the receipt, the `HandoffAxis` union with the inherited geometry contract block, the two-stage `_admit`/`_clear` admission rail, and the producer registry.
+- [03]-[EVIDENCE_WEAVE]: the shared `evidence_run` fold every compute evidence owner composes in place of page-local tracers and inline span opens.
+- [04]-[CROSS_OWNER]: the routing rules gating each axis to its managed owner.
 
 ## [02]-[GRADUATION]
 

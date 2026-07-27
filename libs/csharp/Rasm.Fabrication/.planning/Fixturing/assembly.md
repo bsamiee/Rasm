@@ -6,9 +6,9 @@
 
 ## [01]-[INDEX]
 
-- [01]-[JOINS]: method payloads, phases, access, fit, resources, and inspection.
-- [02]-[PLANNING]: typed precedence, physical connectivity, stability, clearance, scheduling, and receipts.
-- [03]-[PROJECTION]: joining, traveler, inspection, handling, service, and evidence egress.
+- [02]-[JOINS]: method payloads, phases, access, fit, resources, and inspection.
+- [03]-[PLANNING]: typed precedence, physical connectivity, stability, clearance, scheduling, and receipts.
+- [04]-[PROJECTION]: joining, traveler, inspection, handling, service, and evidence egress.
 
 ## [02]-[JOINS]
 

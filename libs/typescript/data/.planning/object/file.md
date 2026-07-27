@@ -2,7 +2,7 @@
 
 Filesystem and derivative-codec planes share one content identity. Platform `FileSystem` streams intake through digest and conditional put, scopes temp staging, and exposes watched admissions. Image fan-out decodes once, clones per roster row, dispatches `toFormat`, mints each derivative `ContentKey`, conditionally re-puts, and returns grants. Gates bound hostile input before native sharp decode. A rendition is a roster row; an intake source is a lift; no per-format ladder or second address exists.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]         | [OWNS]                                                                  |
 | :-----: | :---------------- | :---------------------------------------------------------------------- |

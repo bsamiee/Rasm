@@ -1,8 +1,8 @@
 # [COMPUTE_SOLVER_SATISFY]
 
-Rasm.Compute rule satisfaction: the SMT owner beside the optimizer — Z3 VERIFIES-AND-EXPLAINS where CP-SAT OPTIMIZES, orthogonal concerns on two admitted engines, one page each. A typed `ComplianceRule` set lowers to `Microsoft.Z3` assertions from the CAS — each rule an AngouriMath `Entity.Statement` walked term-by-term onto `Context.Mk*` terms (the nonlinear NRA/NIA arithmetic CP-SAT cannot reach), asserted through `Solver.AssertAndTrack` under one tracking literal PER RULE so an UNSATISFIABLE `UnsatCore` names the EXACT violated rules, never an opaque refusal. Verdict is the three-way `SatisfyVerdict` — SATISFIABLE carries the `Model` witness, UNSATISFIABLE the unsat-core rule names, UNKNOWN a typed `(Solve, Numeric)` shortfall — surfacing as an `AssessmentResult` a discipline route carries.
+Rasm.Compute rule satisfaction: the SMT owner beside the optimizer — Z3 VERIFIES-AND-EXPLAINS where CP-SAT OPTIMIZES, orthogonal concerns on two admitted engines, one page each. Every typed `ComplianceRule` set lowers to `Microsoft.Z3` assertions from the CAS — each rule an AngouriMath `Entity.Statement` walked term-by-term onto `Context.Mk*` terms (the nonlinear NRA/NIA arithmetic CP-SAT cannot reach), asserted through `Solver.AssertAndTrack` under one tracking literal PER RULE so an UNSATISFIABLE `UnsatCore` names the EXACT violated rules, never an opaque refusal. Verdict is the three-way `SatisfyVerdict` — SATISFIABLE carries the `Model` witness, UNSATISFIABLE the unsat-core rule names, UNKNOWN a typed `(Solve, Numeric)` shortfall — surfacing as an `AssessmentResult` a discipline route carries.
 
-Ownership is ONE `Context` per `Runtime/scheduling#JOB_GRAPH` sweep worker — the AST factory and arena (`IDisposable`; every `Expr`/`Sort`/`Solver` it mints dies with it), disposed at the `AssessmentResult` boundary, never a shared global nor a context outliving its verdict. Osx-arm64 `libz3` provisions through the Forge nix lane (NuGet stable ships win-x64/osx-x64 natives only); a `Context` operation without the native FAULTS AT INIT, never a silent degrade. A `Discipline.Compliance` seam row mints ONLY when a verdict must persist as its own content-keyed `Node.Assessment` the `Analysis/assessment` Sweep dispatches — a verdict enriching an existing discipline's `AssessmentResult` rides that route, no `Compliance` row minted this campaign.
+Ownership is ONE `Context` per `Runtime/scheduling#JOB_GRAPH` sweep worker — the AST factory and arena (`IDisposable`; every `Expr`/`Sort`/`Solver` it mints dies with it), disposed at the `AssessmentResult` boundary, never a shared global nor a context outliving its verdict. Osx-arm64 `libz3` provisions through the Forge nix lane (NuGet stable ships win-x64/osx-x64 natives only); a `Context` operation without the native FAULTS AT INIT, never a silent degrade. One `Discipline.Compliance` seam row mints ONLY when a verdict must persist as its own content-keyed `Node.Assessment` the `Analysis/assessment` Sweep dispatches — a verdict enriching an existing discipline's `AssessmentResult` rides that route, no `Compliance` row minted this campaign.
 
 ## [01]-[INDEX]
 
@@ -78,7 +78,7 @@ public static class RuleSatisfaction {
                 : Option<SatisfyVerdict>.None);
     }
 
-    // A comparison statement adapts to the g(x) ≤ 0 enclosure form; any other statement shape is exact-rail-only.
+    // Comparison statements adapt to the g(x) ≤ 0 enclosure form; any other statement shape is exact-rail-only.
     static Option<SymbolicExpr> Gform(SymbolicExpr constraint) => constraint.Entity switch {
         Entity.LessOrEqualf le => Some(SymbolicExpr.Of(le.Left - le.Right)),
         Entity.Lessf lt => Some(SymbolicExpr.Of(lt.Left - lt.Right)),

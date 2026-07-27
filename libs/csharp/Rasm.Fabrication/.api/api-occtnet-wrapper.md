@@ -85,6 +85,8 @@ Every operation returns a NEW disposable `OcctShape`; the source is unmodified.
 |  [07]   | `shape.BoundingBox`                              | property | `OcctBoundingBox` extents and sizes                |
 |  [08]   | `shape.IsNull`                                   | property | null-shape guard                                   |
 
+`OcctBoundingBox` declares `readonly record struct OcctBoundingBox(double MinX, double MinY, double MinZ, double MaxX, double MaxY, double MaxZ)` beside derived `SizeX`/`SizeY`/`SizeZ`; consumers read the six components directly, and no `Corner`/`Size` pair or accessor adapter exists to bridge.
+
 [ENTRYPOINT_SCOPE]: tessellation — `OcctShape` to `OcctMesh`
 Tessellation bridges the exact B-rep to an indexed triangle mesh; `linearDeflection` defaults `0.1` and `angularDeflection` defaults `0.5`, smaller values refining chord and angle accuracy.
 
@@ -110,7 +112,7 @@ Tessellation bridges the exact B-rep to an indexed triangle mesh; `linearDeflect
 [TOPOLOGY]:
 - `OcctShape` and `OcctPoint3d` own native `SafeHandle`s and are `IDisposable` — wrap every shape (imported, constructed, operation-result) in `using`, and treat a boolean/sweep/translate result as a fresh disposable distinct from its operands; a leaked shape leaks native OCCT memory.
 - value types are managed and copyable, not disposable — use `OcctPointCoordinates` for edge endpoints and axis origins, reserving the disposable `OcctPoint3d` for the native distance query.
-- a native failure surfaces as `OcctException` carrying `StatusCode`; a consumer catches `OcctException` and lowers it to the fabrication fault rail, never reading the internal `OcctStatus` enum.
+- `OcctException` carries `StatusCode` on every native failure; consumers catch it and lower to the fabrication fault rail, never reading the internal `OcctStatus` enum.
 - gate startup on `OcctRuntime.TryGetNativeVersion` and lower a load failure to a typed capability-miss so the portable-fabrication owner degrades gracefully, never letting a `DllNotFoundException` escape.
 - managed binding covers import/export, primitives, boolean, extrude/revolve/translate, and tessellation only; `OcctEdge` is straight point-to-point, so a curved profile is imported (STEP/IGES), never authored edge-by-edge with curvature.
 

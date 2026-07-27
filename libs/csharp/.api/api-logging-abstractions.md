@@ -38,7 +38,7 @@
 |  [19]   | `IBufferedLogger`             | interface     | batch-replay seam a buffering provider implements      |
 |  [20]   | `BufferedLogRecord`           | class         | held record with trace, span, and thread identity      |
 
-`NullLogger`, `NullLogger<T>`, `NullLoggerFactory`, and `NullLoggerProvider` each expose a static `Instance` — the zero-provider default at every seam a host has not bound.
+`NullLogger`, `NullLogger<T>`, `NullLoggerFactory`, `NullLoggerProvider`, and `NullExternalScopeProvider` each expose a static `Instance` — the zero-provider default at every seam a host has not bound.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -55,11 +55,12 @@
 |  [07]   | `ILoggerFactory.CreateLogger(string)`                                                          | instance | category-keyed mint          |
 |  [08]   | `ILoggerFactory.AddProvider(ILoggerProvider)`                                                  | instance | provider registration        |
 |  [09]   | `LoggerFactoryExtensions.CreateLogger<T>(ILoggerFactory)`                                      | static   | type-derived category        |
-|  [10]   | `ILoggerProvider.CreateLogger(string)`                                                         | instance | provider category mint       |
-|  [11]   | `ISupportExternalScope.SetScopeProvider(IExternalScopeProvider)`                               | instance | seats the shared stack       |
-|  [12]   | `IExternalScopeProvider.Push(object?)`                                                         | instance | pushes one frame             |
-|  [13]   | `IExternalScopeProvider.ForEachScope<TState>(Action<object?, TState>, TState)`                 | instance | walks frames outermost-first |
-|  [14]   | `IBufferedLogger.LogRecords(IEnumerable<BufferedLogRecord>)`                                   | instance | batch replay of held records |
+|  [10]   | `LoggerFactoryExtensions.CreateLogger(ILoggerFactory, Type)`                                   | static   | runtime-typed category       |
+|  [11]   | `ILoggerProvider.CreateLogger(string)`                                                         | instance | provider category mint       |
+|  [12]   | `ISupportExternalScope.SetScopeProvider(IExternalScopeProvider)`                               | instance | seats the shared stack       |
+|  [13]   | `IExternalScopeProvider.Push(object?)`                                                         | instance | pushes one frame             |
+|  [14]   | `IExternalScopeProvider.ForEachScope<TState>(Action<object?, TState>, TState)`                 | instance | walks frames outermost-first |
+|  [15]   | `IBufferedLogger.LogRecords(IEnumerable<BufferedLogRecord>)`                                   | instance | batch replay of held records |
 
 - `LoggerMessageAttribute`: `EventId`, `EventName`, `Level`, `Message`, and `SkipEnabledCheck` are the settable rows the generator reads.
 
@@ -72,9 +73,11 @@
 - Scope state crosses to a provider through `ISupportExternalScope.SetScopeProvider`, so one `LoggerExternalScopeProvider` stack serves every provider on the pipeline.
 
 [STACKING]:
-- `Microsoft.Extensions.Telemetry.Abstractions`(`api-extensions-telemetry.md`): `[LogProperties]`, `[TagProvider]`, and `[TagName]` ride the same generated `[LoggerMessage]` method, so emission grammar and tag classification land on one declaration; every governance verb extends `ILoggingBuilder`.
+- `Microsoft.Extensions.Telemetry.Abstractions`(`api-telemetry-abstractions.md`): `[LogProperties]`, `[TagProvider]`, and `[TagName]` ride the same generated `[LoggerMessage]` method, so emission grammar and tag classification land on one declaration, and `LoggingSampler.ShouldSample` reads this package's `LogEntry<TState>`.
 - `Microsoft.Extensions.Compliance.Redaction`(`api-redaction.md`): properties the generated method expands reach `Redactor` selection by classification before any provider observes the tag.
 - `OpenTelemetry`(`api-opentelemetry.md`): `AddOpenTelemetry(ILoggingBuilder)` seats the OTel logger provider on this contract, and `OpenTelemetryLoggerOptions.IncludeScopes` reads `BeginScope` state as record attributes.
+- `Microsoft.Extensions.Hosting`(`Rasm.AppHost/.api/api-hosting.md`): `ConfigureLogging` admits `ILoggingBuilder`, and the built `IHost` resolves `ILoggerFactory` and `ILogger<T>` into hosted services and runtime ports.
+- `Microsoft.Extensions.Diagnostics.Testing`(`Rasm.AppHost/.api/api-testing-seams.md`): `FakeLogger` implements `ILogger` and `IBufferedLogger`, folding every emission into `FakeLogCollector` records without a provider.
 - `Rasm.AppHost` observability: `TelemetryIdentity` stamps scope identity, and the one `ILogger` pipeline fans to the Serilog and OTLP providers at composition.
 - `Rasm.Rhino` `ObjectsTelemetry`: `Configure` admits one `(PluginKey, ILogger)` row per plugin and `Publish` fans generated events across the live rows, an empty roster composing `NullLogger`.
 

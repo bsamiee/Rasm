@@ -6,7 +6,7 @@ Two injected ports carry the policy: the content-addressed `TessellationStore` o
 
 ## [01]-[INDEX]
 
-- [01]-[TESSELLATION_BRIDGE]: imported IFC/STEP/IGES geometry crosses to the companion rail and re-imports as GLB; the dual-key `TessellationOutcome` receipt.
+- [02]-[TESSELLATION_BRIDGE]: imported IFC/STEP/IGES geometry crosses to the companion rail and re-imports as GLB; the dual-key `TessellationOutcome` receipt.
 
 ## [02]-[TESSELLATION_BRIDGE]
 

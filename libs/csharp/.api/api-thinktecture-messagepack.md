@@ -39,7 +39,7 @@
 |  [10]   | `IMessagePackFormatter<T?>.Deserialize(ref MessagePackReader) -> T?`             | instance | value arm's nullable read, nil to null |
 
 - Both `Deserialize` arms throw `ValidationException` when the generated `Validate` returns an error, so no wire value materializes an owner past its invariant.
-- `ThinktectureStructMessagePackFormatter.Deserialize`: a nil key throws `MessagePackSerializationException` for an `IDisallowDefaultValue` owner and yields `default(T)` otherwise, where the reference arm returns null.
+- `ThinktectureStructMessagePackFormatter.Deserialize`: throws `MessagePackSerializationException` on a nil key for an `IDisallowDefaultValue` owner and yields `default(T)` otherwise, where the reference arm returns null.
 - `ThinktectureMessageFormatterResolver.GetFormatter<T>`: throws when the metadata-selected formatter type fails to instantiate.
 
 ## [04]-[IMPLEMENTATION_LAW]
@@ -52,11 +52,13 @@
 [STACKING]:
 - `Thinktecture.Runtime.Extensions`(`.api/api-thinktecture-runtime-extensions.md`): `MetadataLookup.FindMetadataForConversion` yields the `ConversionMetadata` triple both arms close over, and every op crosses the generated contracts — `IConvertible<TKey>.ToValue()` outbound, static `IObjectFactory<T, TKey, TValidationError>.Validate` inbound, `IDisallowDefaultValue` deciding the value arm's nil-key verdict.
 - `MessagePack`: `Instance` is an `IFormatterResolver` the engine composes — `CompositeResolver.Create(params IFormatterResolver[])` fixes its precedence ahead of `StandardResolver`, and each op reaches the key's own codec through `FormatterResolverExtensions.GetFormatterWithVerify<TKey>` over `MessagePackSerializerOptions.Resolver`.
+- `Thinktecture.Runtime.Extensions.Json`(`.api/api-thinktecture-json.md`) and `.EntityFrameworkCore10`(`Rasm.Persistence/.api/api-thinktecture-ef.md`): the JSON converter factory and the EF value converter close over the same generated `ToValue` projection and static `Validate` admission both formatter arms bind, so one declaration carries the binary wire, the text wire, and the stored key column.
+- `Rasm.Element`: `codec#CODEC_AXIS` seats `ThinktectureMessageFormatterResolver.Instance` on `SnapshotCodec.Binary` ahead of `GeneratedMessagePackResolver.Instance` and `StandardResolver.Instance`, under `MessagePackSecurity.UntrustedData` and `MessagePackCompression.Lz4BlockArray`.
 - within-lib: one `MessagePackSerializerOptions` carries the whole wire profile — `WithResolver` seats the composed chain covering reference and value owners from a single registration, a generated owner keyed by another generated owner nests through that same chain, and security and compression policy ride the one options value.
 
 [LOCAL_ADMISSION]:
-- A wire profile registers one resolver chain, and every generated owner's formatter derives from its metadata rather than standing beside the value object or smart enum.
-- An owner carrying `[MessagePackFormatter]` keeps that explicit formatter under the default ctor's skip policy; `ThinktectureMessageFormatterResolver(false)` overrides it where the generated projection wins.
+- Each wire profile registers one resolver chain, and every generated owner's formatter derives from its metadata rather than standing beside the value object or smart enum.
+- Owners carrying `[MessagePackFormatter]` keep that explicit formatter under the default ctor's skip policy; `ThinktectureMessageFormatterResolver(false)` overrides it where the generated projection wins.
 
 [RAIL_LAW]:
 - Package: `Thinktecture.Runtime.Extensions.MessagePack`

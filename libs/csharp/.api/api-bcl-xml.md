@@ -376,7 +376,7 @@ Every emit member carries a `*Async` mirror, `WriteNodeAsync` included.
 ## [10]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- An owned document is an `XDocument`; `XmlDocument` enters only where a host API hands one back, and `XmlNodeReader` returns it to the owned surface.
+- `XDocument` carries every owned document; `XmlDocument` enters only where a host API hands one back, and `XmlNodeReader` returns it to the owned surface.
 - Untrusted foreign bytes parse under `XmlReaderSettings.DtdProcessing = Prohibit` with a null `XmlResolver`, so no external entity resolves.
 - `XmlReaderSettings.Async` and `XmlWriterSettings.Async` admit the `*Async` member family; a reader or writer built without them carries the sync surface alone.
 - File and stream egress is an explicit boundary act — an interior signature carries the owned tree, never a reader, writer, or file name.

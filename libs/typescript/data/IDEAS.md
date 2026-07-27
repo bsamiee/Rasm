@@ -8,7 +8,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 <!-- source-only: open idea card template:
 [ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
-- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Capability: <the higher-order invariant, owner capability, or concept established — concept grain only, never a page path, row list, or member spelling>.
 - Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
 - Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
 - Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
@@ -21,7 +21,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 
 [LAYER_TOPOLOGY_GRAPH_FACTS]-[QUEUED]: Decoded `LayerTopologyFact` rows land as read-side query-store relations for transport and visualization.
 - Capability: Wire-carried layer and relation keys decode into `Model.Class` relations — layer identity, layer-path nesting, membership, and per-viewport overrides as decoded rows — so the read side serves host organization to transport and visualization consumers keyed by the one `ContentKey`, with no host handle.
-- Shape: A boundary decoder folds the detached fact rows into the read side's projection tables; `SqlSchema` typed reads and `SqlResolver` batched loaders serve layer organization over `Query.table`, the object and journal planes carry the rows across runtimes under the one `ContentKey`, and the decoded relations feed the layer-visualization surface; lands in `libs/typescript/data/.planning/read/query.md` with the projection lane binding in `libs/typescript/data/.planning/read/fold.md`.
+- Shape: `libs/typescript/data/.planning/read/query.md` gains the boundary decoder folding the detached fact rows into the read side's projection tables; `SqlSchema` typed reads and `SqlResolver` batched loaders serve layer organization over `Query.table`, the object and journal planes carry the rows across runtimes under the one `ContentKey`, the decoded relations feed the layer-visualization surface, and the projection lane binds in `libs/typescript/data/.planning/read/fold.md`.
 - Unlocks: Host-organized read-side queries, cross-runtime layer transport, and a visualization-ready organizational axis every peer reads by content identity.
 - Anchors: `read/query.md` `Model.Class`/`SqlSchema`/`SqlResolver`/`Query.table`; the one `ContentKey` content-identity wire; `README.md` durable-persistence plane and the bit-identical content-identity demand across wire peers.
 - Tension: Wire schema and codec mint in C#; this plane decodes and never re-mints, and the query-store relations carry only detached fact rows, never a host layer handle.
@@ -58,7 +58,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 
 [AUDIT_JOURNAL_SATISFACTION]-[QUEUED]: Security `AuditJournal` port lands on the durable plane — append-only audit-fact store with retention rows and per-subject crypto-shred integration.
 - Capability: Security-published fact rows persist through an append-only port satisfaction keyed by the standing `(app, tenant, subject)` custody spine — retention classes from the one policy table, subject-bearing fields sealed under the `SealedEnvelope`/`WrappedKey` algebra the retain page already composes, DSAR export and erasure riding the same subject spine — so breach evidence is durable receipt-truth aging under the same law as every journal fact.
-- Shape: An `AuditJournal` port-satisfaction row in `libs/typescript/data/.planning/journal/append.md` beside the existing port grammar, with the audit retention-class row and crypto-shred wiring in `libs/typescript/data/.planning/journal/retain.md`.
+- Shape: `libs/typescript/data/.planning/journal/append.md` gains the `AuditJournal` port-satisfaction row beside the existing port grammar, and `libs/typescript/data/.planning/journal/retain.md` gains the audit retention-class row with its crypto-shred wiring.
 - Unlocks: Compliance export, session forensics, and the security board pack read one durable audit plane; erasing a subject shreds audit payloads without breaking the append-only log.
 - Anchors: security `access/audit.md` `AuditJournal` port (carded); `journal/retain.md` `SubjectKey` custody and `WrappedKey` erasure folds; `journal/append.md` publish transaction; `ARCHITECTURE.md` `[SHAPE]: SealedEnvelope` seam.
 - Tension: Audit facts are security's mint — this plane persists and ages them, never re-derives or reinterprets a fact.

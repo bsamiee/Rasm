@@ -48,7 +48,7 @@
 |  [07]   | `MathS.Equations(params Entity[])` -> `EquationSystem`                      | static  | multi-equation solve input          |
 
 - `Entity.TryParse`: `BuildSpec` admission binds here; `IFormatProvider` takes `CultureInfo.InvariantCulture`.
-- `MathS.Taylor`: a `(exprVariable, polyVariable, point)` triple overload and `TaylorTerms` sit beside the `params` form.
+- `MathS.Taylor`: one `(exprVariable, polyVariable, point)` triple overload and `TaylorTerms` sit beside the `params` form.
 - `MathS.Utils.TryGetPolynomial`: `out Dictionary<EInteger, Entity>` carries the coefficient projection.
 
 [ENTRYPOINT_SCOPE]: symbolic operations — `Entity`
@@ -72,8 +72,8 @@
 |  [15]   | `entity.Nodes` -> `IEnumerable<Entity>`                           | property | full-tree node census                           |
 |  [16]   | `entity.Vars` -> `IReadOnlyList<Entity.Variable>`                 | property | free-symbol census (pi/e excluded)              |
 
-- `entity.Differentiate`: a `(Entity.Variable, int power)` order overload; `Derivativef` is the deferred-residue node.
-- `entity.Integrate`: a `(Entity.Variable, Entity from, Entity to)` definite overload; `Integralf` is the residue node.
+- `entity.Differentiate`: one `(Entity.Variable, int power)` order overload; `Derivativef` is the deferred-residue node.
+- `entity.Integrate`: one `(Entity.Variable, Entity from, Entity to)` definite overload; `Integralf` is the residue node.
 - `entity.Solve`: `MathS.SolveEquation(Entity, Entity.Variable)` is the equation-system path the AEC formula consumers reach.
 - `entity.Compile`: typed generic overloads (arity 1..8, `Linq.Expressions` IL) are the fast lane; the non-generic `FastExpression` interpreter (`Call(Complex[])`) is the variadic fall.
 - `entity.Evaled`: leaves an unbound symbol symbolic where `EvalNumerical()` throws.

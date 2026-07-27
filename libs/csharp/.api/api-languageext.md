@@ -56,6 +56,7 @@
 |  [15]   | `Memo<A>`               | class           | resettable memoized thunk                |
 |  [16]   | `Lens<A, B>`            | readonly struct | composable get and immutable set         |
 |  [17]   | `Range<A>`              | record          | generated bounded sequence               |
+|  [18]   | `AtomChangedEvent<A>`   | delegate        | `Atom.Change` handler over the new value |
 
 [PUBLIC_TYPE_SCOPE]: traits and monad transformers (`LanguageExt.Traits`)
 
@@ -143,10 +144,11 @@
 |  [09]   | `Option.ToValidation(L)`                           | instance | accumulation ingress            |
 |  [10]   | `Option.ToSeq()`                                   | instance | collection egress               |
 |  [11]   | `Option.ToEither(L)`                               | instance | disjoint-union egress           |
-|  [12]   | `OptionExtensions.Somes(Seq<Option<A>>)`           | static   | drop absent members in one pass |
-|  [13]   | `Prelude.guard(bool, Error)`                       | static   | predicate refusal literal       |
-|  [14]   | `FinGuardExtensions.ToFin(Guard<Error,Unit>)`      | static   | standalone gate to the rail     |
-|  [15]   | `FinGuardExtensions.SelectMany(Func<Unit,Fin<B>>)` | static   | gate as a LINQ `from` clause    |
+|  [12]   | `Option.TraverseM(Func<A,K<M,B>>)`                 | instance | absence-total effect inversion  |
+|  [13]   | `OptionExtensions.Somes(Seq<Option<A>>)`           | static   | drop absent members in one pass |
+|  [14]   | `Prelude.guard(bool, Error)`                       | static   | predicate refusal literal       |
+|  [15]   | `FinGuardExtensions.ToFin(Guard<Error,Unit>)`      | static   | standalone gate to the rail     |
+|  [16]   | `FinGuardExtensions.SelectMany(Func<Unit,Fin<B>>)` | static   | gate as a LINQ `from` clause    |
 
 [ENTRYPOINT_SCOPE]: `Validation<F, A>` accumulation and the `Error` vocabulary
 
@@ -208,22 +210,26 @@
 |  [17]   | `IO.pure(A)`                                                  | static   | lifted-value construction            |
 |  [18]   | `IO.fail(Error)`                                              | static   | failed-effect construction           |
 |  [19]   | `IO.lift(Func<A>)`                                            | static   | thunk admission                      |
-|  [20]   | `IO.Run()`                                                    | instance | synchronous execution                |
-|  [21]   | `IO.RunAsync()`                                               | instance | `ValueTask` execution                |
-|  [22]   | `IO.Bracket(Func<A,IO<C>>, Func<A,IO<B>>)`                    | instance | acquire-use-release scope            |
-|  [23]   | `IO.Bracket(Func<A,IO<C>>, Func<Error,IO<C>>, Func<A,IO<B>>)` | instance | scope with a failure arm             |
-|  [24]   | `IO.Finally(K<IO,X>)`                                         | instance | unconditional release                |
-|  [25]   | `IO.Repeat(Schedule)`                                         | instance | policy-driven repetition             |
-|  [26]   | `IO.RepeatUntil(Func<A,bool>)`                                | instance | predicate-bounded repetition         |
-|  [27]   | `IO.Retry(Schedule)`                                          | instance | policy-driven retry                  |
-|  [28]   | `IO.RetryUntil(Func<Error,bool>)`                             | instance | predicate-bounded retry              |
-|  [29]   | `IO.Fork(Option<TimeSpan>)`                                   | instance | concurrent execution handle          |
-|  [30]   | `IO.Timeout(TimeSpan)`                                        | instance | bounded execution                    |
-|  [31]   | `IO.Catch(Func<Error,bool>, Func<Error,K<IO,A>>)`             | instance | predicate-selected recovery          |
-|  [32]   | `IO.Uninterruptible()`                                        | instance | cancellation masking                 |
-|  [33]   | `Prelude.@catch(Func<Error,bool>, K<M,A>)`                    | static   | rail-generic recovery handler        |
-|  [34]   | `Prelude.use(Func<A>, Action<A>)`                             | static   | resource-scoped acquisition          |
-|  [35]   | `Prelude.tail(IO<A>)`                                         | static   | tail-recursion marker for deep binds |
+|  [20]   | `IO.lift(Func<Fin<A>>)`                                       | static   | railed thunk onto the error channel  |
+|  [21]   | `IO.lift(Fin<A>)`                                             | static   | settled rail lifted whole            |
+|  [22]   | `IO.liftAsync(Func<Task<A>>)`                                 | static   | `Task` thunk admission               |
+|  [23]   | `IO.liftVAsync(Func<ValueTask<A>>)`                           | static   | `ValueTask` thunk admission          |
+|  [24]   | `IO.Run()`                                                    | instance | synchronous execution                |
+|  [25]   | `IO.RunAsync()`                                               | instance | `ValueTask` execution                |
+|  [26]   | `IO.Bracket(Func<A,IO<C>>, Func<A,IO<B>>)`                    | instance | acquire-use-release scope            |
+|  [27]   | `IO.Bracket(Func<A,IO<C>>, Func<Error,IO<C>>, Func<A,IO<B>>)` | instance | scope with a failure arm             |
+|  [28]   | `IO.Finally(K<IO,X>)`                                         | instance | unconditional release                |
+|  [29]   | `IO.Repeat(Schedule)`                                         | instance | policy-driven repetition             |
+|  [30]   | `IO.RepeatUntil(Func<A,bool>)`                                | instance | predicate-bounded repetition         |
+|  [31]   | `IO.Retry(Schedule)`                                          | instance | policy-driven retry                  |
+|  [32]   | `IO.RetryUntil(Func<Error,bool>)`                             | instance | predicate-bounded retry              |
+|  [33]   | `IO.Fork(Option<TimeSpan>)`                                   | instance | concurrent execution handle          |
+|  [34]   | `IO.Timeout(TimeSpan)`                                        | instance | bounded execution                    |
+|  [35]   | `IO.Catch(Func<Error,bool>, Func<Error,K<IO,A>>)`             | instance | predicate-selected recovery          |
+|  [36]   | `IO.Uninterruptible()`                                        | instance | cancellation masking                 |
+|  [37]   | `Prelude.@catch(Func<Error,bool>, K<M,A>)`                    | static   | rail-generic recovery handler        |
+|  [38]   | `Prelude.use(Func<A>, Action<A>)`                             | static   | resource-scoped acquisition          |
+|  [39]   | `Prelude.tail(IO<A>)`                                         | static   | tail-recursion marker for deep binds |
 
 [ENTRYPOINT_SCOPE]: `Seq`, `Arr`, `HashMap`, `Set` — immutable carriers
 
@@ -237,46 +243,49 @@
 |  [06]   | `Seq.Bind(Func<A,Seq<B>>)`                                       | instance | monadic expansion                   |
 |  [07]   | `Seq.Filter(Func<A,bool>)`                                       | instance | predicate narrowing                 |
 |  [08]   | `Seq.Partition(Func<A,bool>)`                                    | instance | one-pass two-way split              |
-|  [09]   | `SeqExtensions.Choose(Func<A,Option<B>>)`                        | static   | one-pass filter-map                 |
-|  [10]   | `SeqExtensions.Choose(Func<int,A,Option<B>>)`                    | static   | indexed one-pass filter-map         |
-|  [11]   | `SeqExtensions.Zip(Seq<B>, Func<A,B,C>)`                         | static   | projected pairwise join             |
-|  [12]   | `SeqExtensions.Scan(S, Func<S,A,S>)`                             | static   | running-state projection            |
-|  [13]   | `Seq.Head`                                                       | property | `Option<A>` first read              |
-|  [14]   | `Seq.Last`                                                       | property | `Option<A>` final read              |
-|  [15]   | `Seq.Tail`                                                       | property | all but the first member            |
-|  [16]   | `Seq.Init`                                                       | property | all but the final member            |
-|  [17]   | `Seq.Tails`                                                      | property | every suffix                        |
-|  [18]   | `Seq.Inits`                                                      | property | every prefix                        |
-|  [19]   | `Seq.Add(A)`                                                     | instance | append one member                   |
-|  [20]   | `Seq.Concat(Seq<A>)`                                             | instance | cross-collection join               |
-|  [21]   | `Seq.Intersperse(A)`                                             | instance | separator weave                     |
-|  [22]   | `Seq.Strict()`                                                   | instance | force a lazily-built sequence       |
-|  [23]   | `Seq.AsSpan()`                                                   | instance | zero-copy contiguous read           |
-|  [24]   | `Seq.AsIterable()`                                               | instance | lazy-seam lift                      |
-|  [25]   | `Seq.Traverse(Func<A,K<F,B>>)`                                   | instance | applicative shape inversion         |
-|  [26]   | `Seq.TraverseM(Func<A,K<M,B>>)`                                  | instance | short-circuiting shape inversion    |
-|  [27]   | `FoldableExtensions.Fold(S, Func<S,A,S>)`                        | fold     | carrier-generic state fold          |
-|  [28]   | `FoldableExtensions.FoldM(S, Func<S,A,K<M,S>>)`                  | fold     | monadic state fold                  |
-|  [29]   | `FoldableExtensions.FoldWhile(S, Func<S,A,S>, Func<(S,A),bool>)` | fold     | predicate-bounded fold              |
-|  [30]   | `FoldableExtensions.FoldMap(Func<A,B>)`                          | fold     | monoidal aggregation                |
-|  [31]   | `FoldableExtensions.Find(Func<A,bool>)`                          | static   | `Option`-shaped search              |
-|  [32]   | `FoldableExtensions.FindAll(Func<A,bool>)`                       | static   | every match as a `Seq`              |
-|  [33]   | `Arr.create(A[])`                                                | static   | immutable-array construction        |
-|  [34]   | `Arr.createRange(IEnumerable<A>)`                                | static   | immutable-array admission           |
-|  [35]   | `HashMap.Find(K)`                                                | instance | `Option<V>` lookup                  |
-|  [36]   | `HashMap.Find(K, Func<V,R>, Func<R>)`                            | instance | matched lookup fold                 |
-|  [37]   | `HashMap.FindOrAdd(K, Func<V>)`                                  | instance | lookup with insert-on-miss          |
-|  [38]   | `HashMap.Add(K, V)`                                              | instance | persistent insert                   |
-|  [39]   | `HashMap.AddOrUpdate(K, Func<V,V>, Func<V>)`                     | instance | persistent matched upsert           |
-|  [40]   | `HashMap.SetItem(K, V)`                                          | instance | persistent replace                  |
-|  [41]   | `HashMap.Remove(K)`                                              | instance | persistent delete                   |
-|  [42]   | `HashMap.Union(IEnumerable<(K,V)>, WhenMatched<K,V,V,V>)`        | instance | merge with a collision rule         |
-|  [43]   | `HashMap.ContainsKey(K)`                                         | instance | total key membership                |
-|  [44]   | `HashMap.ToTrackingHashMap()`                                    | instance | change-logged map lift              |
-|  [45]   | `Set.Add(A)`                                                     | instance | persistent set insertion            |
-|  [46]   | `Set.TryAdd(A)`                                                  | instance | insertion tolerating a duplicate    |
-|  [47]   | `IterableExtensions.AsIterable(IEnumerable<A>)`                  | static   | lazy sync lift                      |
-|  [48]   | `IterableExtensions.AsIterable(IAsyncEnumerable<A>)`             | static   | lazy async lift                     |
+|  [09]   | `Seq.Exists(Func<A,bool>)`                                       | instance | any-member predicate probe          |
+|  [10]   | `Seq.ForAll(Func<A,bool>)`                                       | instance | every-member predicate probe        |
+|  [11]   | `SeqExtensions.Choose(Func<A,Option<B>>)`                        | static   | one-pass filter-map                 |
+|  [12]   | `SeqExtensions.Choose(Func<int,A,Option<B>>)`                    | static   | indexed one-pass filter-map         |
+|  [13]   | `SeqExtensions.Zip(Seq<B>, Func<A,B,C>)`                         | static   | projected pairwise join             |
+|  [14]   | `SeqExtensions.Scan(S, Func<S,A,S>)`                             | static   | running-state projection            |
+|  [15]   | `Seq.Head`                                                       | property | `Option<A>` first read              |
+|  [16]   | `Seq.Last`                                                       | property | `Option<A>` final read              |
+|  [17]   | `Seq.Tail`                                                       | property | all but the first member            |
+|  [18]   | `Seq.Init`                                                       | property | all but the final member            |
+|  [19]   | `Seq.Tails`                                                      | property | every suffix                        |
+|  [20]   | `Seq.Inits`                                                      | property | every prefix                        |
+|  [21]   | `Seq.Add(A)`                                                     | instance | append one member                   |
+|  [22]   | `Seq.Concat(Seq<A>)`                                             | instance | cross-collection join               |
+|  [23]   | `Seq.Intersperse(A)`                                             | instance | separator weave                     |
+|  [24]   | `Seq.Strict()`                                                   | instance | force a lazily-built sequence       |
+|  [25]   | `Seq.AsSpan()`                                                   | instance | zero-copy contiguous read           |
+|  [26]   | `Seq.AsIterable()`                                               | instance | lazy-seam lift                      |
+|  [27]   | `Seq.Traverse(Func<A,K<F,B>>)`                                   | instance | applicative shape inversion         |
+|  [28]   | `Seq.TraverseM(Func<A,K<M,B>>)`                                  | instance | short-circuiting shape inversion    |
+|  [29]   | `FoldableExtensions.Fold(S, Func<S,A,S>)`                        | fold     | carrier-generic state fold          |
+|  [30]   | `FoldableExtensions.FoldM(S, Func<S,A,K<M,S>>)`                  | fold     | monadic state fold                  |
+|  [31]   | `FoldableExtensions.FoldWhile(S, Func<S,A,S>, Func<(S,A),bool>)` | fold     | predicate-bounded fold              |
+|  [32]   | `FoldableExtensions.FoldMap(Func<A,B>)`                          | fold     | monoidal aggregation                |
+|  [33]   | `FoldableExtensions.Find(Func<A,bool>)`                          | static   | `Option`-shaped search              |
+|  [34]   | `FoldableExtensions.FindAll(Func<A,bool>)`                       | static   | every match as a `Seq`              |
+|  [35]   | `Arr.create(A[])`                                                | static   | immutable-array construction        |
+|  [36]   | `Arr.createRange(IEnumerable<A>)`                                | static   | immutable-array admission           |
+|  [37]   | `HashMap.Find(K)`                                                | instance | `Option<V>` lookup                  |
+|  [38]   | `HashMap.Find(K, Func<V,R>, Func<R>)`                            | instance | matched lookup fold                 |
+|  [39]   | `HashMap.FindOrAdd(K, Func<V>)`                                  | instance | lookup with insert-on-miss          |
+|  [40]   | `HashMap.Add(K, V)`                                              | instance | persistent insert                   |
+|  [41]   | `HashMap.AddOrUpdate(K, Func<V,V>, Func<V>)`                     | instance | persistent matched upsert           |
+|  [42]   | `HashMap.SetItem(K, V)`                                          | instance | persistent replace                  |
+|  [43]   | `HashMap.Remove(K)`                                              | instance | persistent delete                   |
+|  [44]   | `HashMap.Union(IEnumerable<(K,V)>, WhenMatched<K,V,V,V>)`        | instance | merge with a collision rule         |
+|  [45]   | `HashMap.ContainsKey(K)`                                         | instance | total key membership                |
+|  [46]   | `HashMap.ToTrackingHashMap()`                                    | instance | change-logged map lift              |
+|  [47]   | `Set.Add(A)`                                                     | instance | persistent set insertion            |
+|  [48]   | `Set.TryAdd(A)`                                                  | instance | insertion tolerating a duplicate    |
+|  [49]   | `IterableExtensions.AsIterable(IEnumerable<A>)`                  | static   | lazy sync lift                      |
+|  [50]   | `IterableExtensions.AsIterable(IAsyncEnumerable<A>)`             | static   | lazy async lift                     |
+|  [51]   | `Iterable<A>.FromSpan(ReadOnlySpan<A>)`                          | static   | `params` span into the carrier rail |
 
 [ENTRYPOINT_SCOPE]: state, optics, and the prelude vocabulary
 
@@ -286,7 +295,7 @@
 |  [02]   | `Atom.Swap(Func<A,A>)`                   | instance | CAS update                       |
 |  [03]   | `Atom.SwapMaybe(Func<A,Option<A>>)`      | instance | CAS update with refusal          |
 |  [04]   | `Atom.SwapIO(Func<A,A>)`                 | instance | CAS update on the effect rail    |
-|  [05]   | `Atom.Change`                            | property | accepted-swap notification       |
+|  [05]   | `Atom.Change`                            | event    | accepted-swap notification       |
 |  [06]   | `Prelude.AtomHashMap(HashMap<K,V>)`      | static   | lock-free keyed cell             |
 |  [07]   | `Prelude.Ref(A, Func<A,bool>)`           | static   | transactional cell construction  |
 |  [08]   | `Prelude.atomic(Func<R>, Isolation)`     | static   | multi-`Ref` transaction          |
@@ -317,9 +326,11 @@
 - `guard(condition, error)` is the admission form: it composes inside a `Fin` or `Validation` LINQ body through the `SelectMany` overload over `Guard<E, Unit>`, and stands alone through `ToFin`.
 - `Seq<A>` crosses rail seams as `Fin<Seq<A>>`, and `AsSpan` is its zero-copy contiguous read.
 - `Arr<A>` is the indexed carrier collection expressions build; `Iterable<A>` is the lazy sync-or-async seam materializing through `ToSeq`.
+- `Iterable<A>.FromSpan` is the one lift a `params ReadOnlySpan<A>` parameter takes to reach the carrier rail, because a span cannot cross into a lambda or an iterator; it copies at the call, so the returned carrier outlives the frame.
 - Lookups return `Option`: `HashMap.Find`, `Seq.Head`, `Seq.Last`.
 - Indexed enumeration is the instance `Map((value, index) => …)`; the module `Seq.map(seq, (index, value) => …)` transposes, so a mechanical rewrite between the two silently swaps the lambda arguments.
 - `Traverse` inverts effect and shape applicatively (`Seq<Fin<A>>` to `Fin<Seq<A>>`); `TraverseM` inverts monadically and short-circuits on the first failure; `Partition` inverts without exiting, keeping both branches.
+- `Option : Traversable<Option>`, so traversing an optional value is total over absence — `None` yields the applicative's own `Pure`, which makes `option.TraverseM(f).As()` the fold an optional payload's conditional effect takes and deletes the `Match` arm pair a rail forbids mid-pipeline.
 - `Error : Monoid<Error>` is why `Validation<Error, A>` accumulates: `Combine` and `+` join failures into one carrier that `Head`, `Tail`, `Count`, and `AsIterable` re-enumerate.
 - `Atom<A>.Swap` owns lock-free shared state and publishes each accepted swap on `Change`; `Ref<A>` owns the transactional cell that `atomic` commits across several refs in one isolation scope.
 
@@ -331,7 +342,7 @@
 - `System.Runtime.InteropServices`(`.api/api-bcl-interop.md`): throwing `Create`, `Load`, and `GetExport` enter `Try` or `Eff` and land on `Fin<A>`; registered handles collect in an `Atom<Seq<IDisposable>>` released in reverse-registration order.
 - Within-library composition runs at operator depth: `+ma` re-anchors a `K<F, A>`, `ma | mb` chooses, `mf * ma` applies, `ma >> f` binds, and `ma | @catch(pred, recover)` recovers by predicate.
 - Lifetime and cadence are values: a resource acquires through `use` or `IO.Bracket`, and a repeat or retry composes an `IO` with a `Schedule`.
-- A rail stacks over another carrier through `FinT<M, A>` or `ReaderT<Env, M, A>`, so a nested generic never needs a hand fold.
+- `FinT<M, A>` and `ReaderT<Env, M, A>` stack a rail over another carrier, so a nested generic never needs a hand fold.
 
 [LOCAL_ADMISSION]:
 - Rails, collections, traits, and transformers compose directly; a domain failure type derives `Error` so it rides `Fin` and `Validation` natively.

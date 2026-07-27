@@ -2,7 +2,7 @@
 
 This process substrate: a runtime is a row, a bun swap is a Layer selection in the app root, and a child process is a declarative value. This keyed `node | bun` binding table carries the full surface a process needs — the `runMain` boot edge, the aggregate platform context, the HTTP client and server bindings, the worker pool and runner bindings, the leaderless cluster runner, the filesystem key-value binding — every member satisfying the same abstract `@effect/platform` Tags, so every service types against the contract and only the boot module reads a row. Subprocess execution is one `Proc.Spec` Schema class — command, arguments, environment, working directory, shell posture, stdin feed, pipeline stages, budget, exit demand, and a closed defaulted `capture` vocabulary — with one entry whose return follows the capture discriminant, and the scoped live-handle modality for interactive children. Signals are structural, never handled: process-level `SIGINT`/`SIGTERM` drain is the row's `runMain` fact, and a child's teardown is the executor's bracket — a budget expiry interrupts the fiber and the interrupt kills the child, so no kill call, signal listener, or orphan process is spellable. This module ships on the `./server` subpath — browser resolution never reaches a row. This module is `runtime/src/proc/exec.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]      | [OWNS]                                                                              | [PUBLIC]            |
 | :-----: | :------------- | :---------------------------------------------------------------------------------- | :------------------ |

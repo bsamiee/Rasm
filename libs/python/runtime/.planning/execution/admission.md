@@ -6,9 +6,9 @@ Caller-owned context and settings admission: one immutable `RuntimeContext` carr
 
 ## [01]-[INDEX]
 
-- [01]-[CONTEXT]: six-axis `ConsumptionProfile` row with its refusal, adopted W3C correlation, clock-consumed causal frame.
-- [02]-[BACKEND_CONTRACT]: local contract composition, the deterministic branch merge, generation proof, and realized-evidence admission.
-- [03]-[SETTINGS]: the `pydantic-settings` admission, the `SECRET_LADDER` tier table, and the output-parameterized `SecretBoundary.resolve`.
+- [02]-[CONTEXT]: six-axis `ConsumptionProfile` row with its refusal, adopted W3C correlation, clock-consumed causal frame.
+- [03]-[BACKEND_CONTRACT]: local contract composition, the deterministic branch merge, generation proof, and realized-evidence admission.
+- [04]-[SETTINGS]: the `pydantic-settings` admission, the `SECRET_LADDER` tier table, and the output-parameterized `SecretBoundary.resolve`.
 
 ## [02]-[CONTEXT]
 

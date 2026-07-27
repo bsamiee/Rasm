@@ -4,7 +4,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[ACQUISITION]: the `CaptureSource` `[Union]` capture family, the `BrdfSample` angular-reflectance record, the `Provenance` measured-capture receipt over the `CaptureMethod` `[SmartEnum]` instrument discriminant (counts, conditioning, and chromaticity columns beside the residual), the `Microfacet`-composed anisotropic conductor/dielectric forward model over reconstructed `LocalVector` directions, the thin-`QR` Gauss-Newton `Acquisition.Import` fit-and-ground fold over the bounded `(αx, αy[, η])` parameter vector producing a `MaterialParameters` row, and the per-texel SVBRDF field average.
+- [02]-[ACQUISITION]: the `CaptureSource` `[Union]` capture family, the `BrdfSample` angular-reflectance record, the `Provenance` measured-capture receipt over the `CaptureMethod` `[SmartEnum]` instrument discriminant (counts, conditioning, and chromaticity columns beside the residual), the `Microfacet`-composed anisotropic conductor/dielectric forward model over reconstructed `LocalVector` directions, the thin-`QR` Gauss-Newton `Acquisition.Import` fit-and-ground fold over the bounded `(αx, αy[, η])` parameter vector producing a `MaterialParameters` row, and the per-texel SVBRDF field average.
 
 ## [02]-[ACQUISITION]
 

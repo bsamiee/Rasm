@@ -6,7 +6,7 @@ Runs ride the `EvidenceScope.STUDY` weave — span, `boundary` fence, beartype g
 
 ## [01]-[INDEX]
 
-- [01]-[STUDY]: DOE sampling, SALib sensitivity, and surrogate fitting on one `Study` owner — the union-owned folds, the `SALIB_ROUTES` table, the live `Measured` measurement discriminant, and its projection onto the runtime bench fabric.
+- [02]-[STUDY]: DOE sampling, SALib sensitivity, and surrogate fitting on one `Study` owner — the union-owned folds, the `SALIB_ROUTES` table, the live `Measured` measurement discriminant, and its projection onto the runtime bench fabric.
 
 ## [02]-[STUDY]
 

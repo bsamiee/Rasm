@@ -6,7 +6,7 @@ Reducer-return vocabulary (`AnalyticValue`, `ranked`, the census projections) im
 
 ## [01]-[INDEX]
 
-- [01]-[FEATURES]: `FEATURE_OPS` detect/project table, `MARK_PROJECT` projection algebra, `ANALYTICS` reducer table, and the `run`/`bridged` pair under one `ReceiptContributor`.
+- [02]-[FEATURES]: `FEATURE_OPS` detect/project table, `MARK_PROJECT` projection algebra, `ANALYTICS` reducer table, and the `run`/`bridged` pair under one `ReceiptContributor`.
 
 ## [02]-[FEATURES]
 

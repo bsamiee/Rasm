@@ -4,13 +4,13 @@ The reproducibility kernel for the runtime spine: one determinism context pins t
 
 ## [01]-[INDEX]
 
-- [01]-[DETERMINISM_KERNEL]: Pinned RNG, float mode, and environment fingerprint for reproducible runs.
-- [02]-[EVENT_LOG]: Hash-chained content-addressed command log with append and verify-chain operations.
-- [03]-[REPLAY_VERIFY]: Re-executes a recorded log and proves per-step content-hash identity.
-- [04]-[MACRO_ENGINE]: Records a command sequence and replays it as a reusable parameterized unit.
-- [05]-[RECOMPUTE_GRAPH]: Content-addresses dependency edges for partial downstream recompute.
-- [06]-[ADVERSARIAL_PROBE]: Chaos-fault replay, log-time divergence bisection, and counterfactual replay.
-- [07]-[TS_PROJECTION]: Event-log entry and replay-result wire shapes the dashboard consumes.
+- [02]-[DETERMINISM_KERNEL]: Pinned RNG, float mode, and environment fingerprint for reproducible runs.
+- [03]-[EVENT_LOG]: Hash-chained content-addressed command log with append and verify-chain operations.
+- [04]-[REPLAY_VERIFY]: Re-executes a recorded log and proves per-step content-hash identity.
+- [05]-[MACRO_ENGINE]: Records a command sequence and replays it as a reusable parameterized unit.
+- [06]-[RECOMPUTE_GRAPH]: Content-addresses dependency edges for partial downstream recompute.
+- [07]-[ADVERSARIAL_PROBE]: Chaos-fault replay, log-time divergence bisection, and counterfactual replay.
+- [08]-[TS_PROJECTION]: Event-log entry and replay-result wire shapes the dashboard consumes.
 
 ## [02]-[DETERMINISM_KERNEL]
 
@@ -421,7 +421,7 @@ public static class AdversarialProbe {
 - Growth: one wire-member row per new entry or outcome field; the replay outcome crosses as a literal-discriminated union; zero new surface.
 - Boundary: content hashes cross as their hex-string value-object keys; the float mode crosses as its smart-enum key; the replay outcome reconstructs in TS as a literal-discriminated union on the disposition kind; the HLC stamp crosses through the existing `HlcStampWire` so the event log's ordering reads the same causal primitive the receipt envelope carries, never a re-minted timeline.
 
-```ts contract
+```ts signature
 type FloatModeKey = "strict" | "fast" | "cross-platform";
 
 interface DeterminismContextWire {

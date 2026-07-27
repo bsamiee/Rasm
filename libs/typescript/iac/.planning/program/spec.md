@@ -4,7 +4,7 @@
 
 `Connection` owns the SSH coordinate product, and its `ssh` projection is the only spelling of the daemon URL. `Tier` adapts Pulumi's class model with one option fold and one terminal output registration, `StackOutputs` is the typed exit whose secret-refusal gate holds the raw `OutputMap` and whose `pairsOf` owns the one `<plane>.<field>` flatten, and `sharding` is the sole plane crossing back into the runtime graph — the two planes meet at the process boundary and never import each other.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                               | [PUBLIC]       |
 | :-----: | :--------------- | :------------------------------------------------------------------- | :------------- |

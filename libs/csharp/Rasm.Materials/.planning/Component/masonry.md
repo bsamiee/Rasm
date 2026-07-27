@@ -23,6 +23,7 @@ using Rasm.Domain;                              // Context, Op, AcceptValidated
 using Rasm.Element.Composition;                             // MaterialId, PropertyBag, DetailSchema, Dimension (the seam bag currencies MasonryDetail composes)
 using Rasm.Element.Graph;
 using Rasm.Element.Properties;
+using Dimension = Rasm.Element.Properties.Dimension;   // the SI-dimension axis — disambiguated from the Rasm.Numerics discrete count
 using Thinktecture;                             // [SmartEnum]/[ComplexValueObject]/[UseDelegateFromConstructor]/[KeyMemberEqualityComparer]/[KeyMemberComparer], ComparerAccessors
 using static LanguageExt.Prelude;               // Seq, toSeq, Some, None
 

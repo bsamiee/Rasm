@@ -36,9 +36,9 @@
 
 [CAPACITY_SCOPE]: node groups and addons — managed first
 
-Every node group and addon is `new X(name, args, opts?)` binding `cluster` (required). A node group carries the scaling axis (`instanceTypes`/`scalingConfig`/`capacityType`/`amiType`/`operatingSystem`/`launchTemplate`); `NodeGroupV2` adds `minRefreshPercentage`/`launchTemplateTagSpecifications`.
+Every node group and addon is `new X(name, args, opts?)` binding `cluster` (required). Node groups carry the scaling axis (`instanceTypes`/`scalingConfig`/`capacityType`/`amiType`/`operatingSystem`/`launchTemplate`); `NodeGroupV2` adds `minRefreshPercentage`/`launchTemplateTagSpecifications`.
 
-An addon binds `resolveConflictsOnCreate`/`resolveConflictsOnUpdate`, `VpcCniAddon` adds the CNI knobs (`enableNetworkPolicy`/`enablePrefixDelegation`/`enablePodEni`/`warm*Target`), and `Addon` carries `addonVersion`/`configurationValues`/`serviceAccountRoleArn`. `createManagedNodeGroup`/`createNodeGroupSecurityGroup`/`createStorageClass`/`getRoleProvider` compose the component rows in `.apply` folds.
+Addons bind `resolveConflictsOnCreate`/`resolveConflictsOnUpdate`, `VpcCniAddon` adds the CNI knobs (`enableNetworkPolicy`/`enablePrefixDelegation`/`enablePodEni`/`warm*Target`), and `Addon` carries `addonVersion`/`configurationValues`/`serviceAccountRoleArn`. `createManagedNodeGroup`/`createNodeGroupSecurityGroup`/`createStorageClass`/`getRoleProvider` compose the component rows in `.apply` folds.
 
 [NODE_ENUMS]: `AmiType` `OperatingSystem` `ClusterNodePools` `ResolveConflictsOnCreate` `ResolveConflictsOnUpdate`
 

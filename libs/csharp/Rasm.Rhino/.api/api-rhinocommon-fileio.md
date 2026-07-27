@@ -4,8 +4,8 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `RhinoCommon`
-- package: `RhinoCommon` (proprietary host SDK)
+[PACKAGE_SURFACE]: RhinoCommon archive and file-IO surface
+- host: Rhino host runtime, in-process (proprietary McNeel SDK)
 - assembly: `RhinoCommon.dll` — in-process managed host assembly
 - namespace: `Rhino.FileIO`, `Rhino.DocObjects` (`EarthAnchorPoint`), `Rhino` (`RhinoDoc` document-attached I/O)
 - rail: host

@@ -110,7 +110,6 @@ Host assemblies admitted by this folder bind as `Directory.Build.props` host ref
 [RHINO_HOST]:
 - `RhinoCommon` — core Rhino host object model behind every document, command, geometry, and exchange surface.
 - `Rhino.UI` — Rhino shell bridge for Eto hosting, panels, pages, dialogs, and RUI chrome.
-- `System.Drawing.Common` — compile-time GDI carriers crossing host bitmap, icon, printer, and screen seams.
 
 [NATIVE_UI]:
 - `Eto` — cross-platform control, layout, binding, drawing, and window framework.
@@ -133,3 +132,6 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 
 [GRAPH_ALGORITHM]:
 - `QuikGraph` — transient block-graph topology, reachability, and source-first ordering.
+
+[DEPENDENCY_FLOORS]:
+- `System.Drawing.Common` — compile-time GDI carriers crossing host bitmap, icon, printer, and screen seams.

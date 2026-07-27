@@ -7,7 +7,7 @@ Substrate `api-rhinocommon` owns the `Transform` factory/decomposition/inverse a
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: RhinoCommon geometry-crossing surface
-- host: `RhinoCommon` (Rhino host runtime, in-process)
+- host: Rhino host runtime, in-process (proprietary McNeel SDK)
 - assembly: `RhinoCommon`
 - namespaces: `Rhino.Geometry`, `Rhino.Geometry.Intersect`, `Rhino.Collections`
 - kernel: `Rasm` (host-agnostic geometry and numeric owners composed, never re-derived)

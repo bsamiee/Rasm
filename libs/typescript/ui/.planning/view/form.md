@@ -2,7 +2,7 @@
 
 Form owns Schema-driven input, submission, and resumable upload. One kernel `Schema` projects through `standardSchemaV1`; live and server faults share field-path rows. RAC fields bind schema rows, Form's observed submit trip awaits the store, and large byte payloads ride one tus session. No parallel validator or field store exists. Module: `ui/src/view/form.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                                 | [PUBLIC] |
 | :-----: | :--------------- | :--------------------------------------------------------------------- | :------- |

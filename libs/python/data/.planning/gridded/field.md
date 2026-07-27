@@ -6,9 +6,9 @@ Import gating is tri-state: `xarray` is banned-module-level, so every call binds
 
 ## [01]-[INDEX]
 
-- [01]-[FIELD]: the `FieldDataset` owner over the `FieldEngine` axis — one CF open/read/write entrypoint.
-- [02]-[SELECT]: the `FieldSelection` selection/reduction/scan axis threaded by one `ReductionPolicy` through one lowering per kernel.
-- [03]-[EGRESS]: the `FieldReceipt` content-keyed `pyarrow`/Zarr egress fold.
+- [02]-[FIELD]: the `FieldDataset` owner over the `FieldEngine` axis — one CF open/read/write entrypoint.
+- [03]-[SELECT]: the `FieldSelection` selection/reduction/scan axis threaded by one `ReductionPolicy` through one lowering per kernel.
+- [04]-[EGRESS]: the `FieldReceipt` content-keyed `pyarrow`/Zarr egress fold.
 
 ## [02]-[FIELD]
 

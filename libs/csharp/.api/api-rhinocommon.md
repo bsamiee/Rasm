@@ -4,8 +4,8 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `RhinoCommon`
-- host: Rhino host runtime, in-process
+[PACKAGE_SURFACE]: RhinoCommon geometry value substrate
+- host: Rhino host runtime, in-process (proprietary McNeel SDK)
 - assembly: `RhinoCommon`
 - namespace: `Rhino.Geometry`
 - rail: Rhino-native geometry
@@ -120,8 +120,11 @@
 |  [22]   | `Plane.Transform(Transform)`                                          | instance | in-place affine mapping                 |
 |  [23]   | `Plane.Flip()`                                                        | instance | in-place x-y swap inverting the normal  |
 |  [24]   | `Plane.ExtendThroughBox(BoundingBox, out Interval, out Interval)`     | instance | frame-space span covering an extent     |
+|  [25]   | `Plane.CreateFromNormal(Point3d, Vector3d)`                           | static   | frame from origin and normal            |
+|  [26]   | `Plane.CreateFromFrame(Point3d, Vector3d, Vector3d)`                  | static   | frame from origin and two directions    |
 
 - `Plane.Rotate(double, Vector3d)`: mutates the receiver and returns `bool`; frame coherence reads from `Plane.IsValid`.
+- `CreateFrom*` statics return an invalid `Plane` where the constructor over the same arguments leaves the receiver invalid, so admission gates on `IsValid` either way.
 
 [ENTRYPOINT_SCOPE]: line projection
 
@@ -210,6 +213,30 @@
 |  [08]   | `Transform.DecomposeAffine(out Vector3d, out Transform, out Transform, out Vector3d)` | instance | rotation, orthogonal, scale split |
 |  [09]   | `Transform.GetQuaternion(out Quaternion)`                                             | instance | rotation as a quaternion          |
 |  [10]   | `Transform.GetYawPitchRoll(out double, out double, out double)`                       | instance | Euler-angle extraction            |
+|  [11]   | `Transform.GetEulerZYZ(out double, out double, out double)`                           | instance | ZYZ Euler-angle extraction        |
+|  [12]   | `Transform.DecomposeAffine(out Vector3d, out Transform)`                              | instance | translation and linear part       |
+|  [13]   | `Transform.Orthogonalize(double)`                                                     | instance | Gram-Schmidt a drifted basis      |
+|  [14]   | `Transform.IsUniformlyScaled()`                                                       | instance | uniform-dilation admission        |
+
+- Every decomposition and classification member returns `bool`, so a failed factoring reads off the return while the `out` carriers stay at their defaults; `DecomposeAffine` carries a two-argument translation-and-linear form beside the four-argument split, and an argument-order twin swapping the two.
+
+[ENTRYPOINT_SCOPE]: rotor algebra
+
+| [INDEX] | [SURFACE]                                                  | [SHAPE]  | [CAPABILITY]                      |
+| :-----: | :--------------------------------------------------------- | :------- | :-------------------------------- |
+|  [01]   | `Quaternion.CreateFromRotationZYX(double, double, double)` | static   | yaw-pitch-roll rotor              |
+|  [02]   | `Quaternion.CreateFromRotationZYZ(double, double, double)` | static   | ZYZ Euler rotor                   |
+|  [03]   | `Quaternion.RotateTowards(Quaternion, Quaternion, double)` | static   | angle-capped rotor step           |
+|  [04]   | `Quaternion.GetRotation(out double, out Vector3d)`         | instance | rotor as angle and axis           |
+|  [05]   | `Quaternion.GetRotation(out Plane)`                        | instance | rotor as an oriented frame        |
+|  [06]   | `Quaternion.GetRotation(out Transform)`                    | instance | rotor as a rotation matrix        |
+|  [07]   | `Quaternion.Rotate(Vector3d)`                              | instance | apply the rotor to one direction  |
+|  [08]   | `Quaternion.MatrixForm()`                                  | instance | quaternion-product 4x4 matrix     |
+|  [09]   | `Quaternion.Conjugate` / `.Inverse`                        | property | conjugate and multiplicative twin |
+|  [10]   | `Quaternion.Unitize()`                                     | instance | in-place unit projection, `bool`  |
+
+- `MatrixForm()` is NOT the rotation: it lays the rotor's components into the 4x4 left-multiplication matrix of quaternion algebra and returns unconditionally, while `GetRotation(out Transform)` is the rotation matrix and writes `Transform.Unset` on its `false` return. `MatrixForm` behind a placement silently rotates nothing recognizable.
+- Every `GetRotation` overload returns `bool` and the matrix form satisfies `xform * v == q.Rotate(v)`, so a rotor and its matrix agree by construction; the axis-angle form is the one arm writing no sentinel on failure — it leaves a zero angle beside the raw imaginary triple, so a caller reads the `bool` rather than probing the axis.
 
 [ENTRYPOINT_SCOPE]: bounding-box extent
 
@@ -262,9 +289,9 @@
 - Within-library: `Rasm` kernel owners consume these structs as the sole host-crossing carrier — a frame lands as one `Plane`, a placement as one `Transform` folded from its factories, and a spatial extent as one `BoundingBox` accumulated from the `Empty` seed.
 
 [LOCAL_ADMISSION]:
-- A frame enters as one `Plane` and reads world-space through `PointAt`, `ClosestParameter`, and `RemapToPlaneSpace`.
-- An accumulating extent seeds from `BoundingBox.Empty` and folds the instance `Union`; a two-extent merge in expression position takes the static overload.
-- A placement composes `Transform` factories under `operator *` and inverts through `TryGetInverse`; a rebasing between frames takes `ChangeBasis` and an object re-orientation takes `PlaneToPlane`.
+- Frames enter as one `Plane` and read world-space through `PointAt`, `ClosestParameter`, and `RemapToPlaneSpace`.
+- Accumulating extents seed from `BoundingBox.Empty` and fold the instance `Union`; a two-extent merge in expression position takes the static overload.
+- Placements compose `Transform` factories under `operator *` and invert through `TryGetInverse`; a rebasing between frames takes `ChangeBasis` and an object re-orientation takes `PlaneToPlane`.
 - Angle work takes `Vector3d.VectorAngle`, the frame overload carrying the sign; parallelism and perpendicularity read the `IsParallelTo` and `IsPerpendicularTo` verdicts.
 - Point-set hygiene runs through `CullDuplicates` and `SortAndCullPointList`, and set-level planarity through `ArePointsCoplanar`.
 

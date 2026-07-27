@@ -44,7 +44,7 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- An out-of-range value throws `ArgumentOutOfRangeException`; a malformed or null message throws `ArgumentException` or `ArgumentNullException`.
+- Out-of-range values throw `ArgumentOutOfRangeException`; a malformed or null message throws `ArgumentException` or `ArgumentNullException`.
 - `Google.Api.CommonProtos` owns the `Google.Type` calendar messages this surface converts.
 - Inward dates land in the ISO calendar.
 - `IsoDayOfWeek.None` and `DayOfWeek.Unspecified` map to each other, so an unset weekday field round-trips without an option wrapper.

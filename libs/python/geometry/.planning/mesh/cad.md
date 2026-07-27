@@ -6,7 +6,7 @@ One ISO 10303 STEP and IGES tessellation hop — the CAD source formats the `mes
 
 ## [01]-[INDEX]
 
-- [01]-[BRIDGE]: STEP/IGES reader-to-GLB hop over the `READERS` table and the `_APPLY` metadata cascade, `boundary`-fenced, output-parameterized over `BridgeView`.
+- [02]-[BRIDGE]: STEP/IGES reader-to-GLB hop over the `READERS` table and the `_APPLY` metadata cascade, `boundary`-fenced, output-parameterized over `BridgeView`.
 
 ## [02]-[BRIDGE]
 

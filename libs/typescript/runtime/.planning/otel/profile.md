@@ -4,7 +4,7 @@
 
 `Profile.live(policy)` seats identity, backend, auth, symbolication, sampling, and path posture once at the node root; its ranked `Life` row drains the final profile. `Profile.banded(vocabulary, labels, work)` admits bounded channel and step labels before cpu attribution joins the span identity. Module: `runtime/src/otel/profile.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]   | [OWNS]                                                                         | [PUBLIC]  |
 | :-----: | :---------- | :----------------------------------------------------------------------------- | :-------- |

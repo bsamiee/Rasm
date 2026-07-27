@@ -6,7 +6,7 @@ Three polymorphic surfaces carry every variation: `Distribution` over the `pymc`
 
 ## [01]-[INDEX]
 
-- [01]-[BAYESIAN]: the prior/likelihood/posterior graph on one `Inference` owner — the `Distribution` and `SamplerBackend` unions, the `arviz` diagnostic fold, and the graduation-rail convergence gate.
+- [02]-[BAYESIAN]: the prior/likelihood/posterior graph on one `Inference` owner — the `Distribution` and `SamplerBackend` unions, the `arviz` diagnostic fold, and the graduation-rail convergence gate.
 
 ## [02]-[BAYESIAN]
 

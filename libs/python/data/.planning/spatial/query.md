@@ -6,7 +6,7 @@ The engine composes the `tabular/columnar#SCAN` `DuckDbSession` rail downward �
 
 ## [01]-[INDEX]
 
-- [01]-[SPATIAL]: the DuckDB join/transform/H3 spatial engine — one `QueryPlan` projection per `SpatialQuery` case over the shared session rail.
+- [02]-[SPATIAL]: the DuckDB join/transform/H3 spatial engine — one `QueryPlan` projection per `SpatialQuery` case over the shared session rail.
 
 ## [02]-[SPATIAL]
 

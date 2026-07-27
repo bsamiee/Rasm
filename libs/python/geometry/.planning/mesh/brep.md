@@ -6,7 +6,7 @@ Exact B-rep evaluation on one `BrepOp` union: parametric solid construction, n-a
 
 ## [01]-[INDEX]
 
-- [01]-[BREP]: B-rep operation union over OCCT and `manifold3d.CrossSection`, offloaded to the warm process lane over sealed-brep crossings, returning `RuntimeRail[BrepResult]`.
+- [02]-[BREP]: B-rep operation union over OCCT and `manifold3d.CrossSection`, offloaded to the warm process lane over sealed-brep crossings, returning `RuntimeRail[BrepResult]`.
 
 ## [02]-[BREP]
 

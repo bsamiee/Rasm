@@ -6,9 +6,9 @@
 
 ## [01]-[INDEX]
 
-- [01]-[ELEMENTS]: locating, support, clamp, contact, and actuation families.
-- [02]-[FIXTURE]: aggregate admission, state, keep-outs, and datum evidence.
-- [03]-[EVALUATION]: conditioning, clearance, restraint, projection, and receipt folds.
+- [02]-[ELEMENTS]: locating, support, clamp, contact, and actuation families.
+- [03]-[FIXTURE]: aggregate admission, state, keep-outs, and datum evidence.
+- [04]-[EVALUATION]: conditioning, clearance, restraint, projection, and receipt folds.
 
 ## [02]-[ELEMENTS]
 

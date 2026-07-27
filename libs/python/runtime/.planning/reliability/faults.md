@@ -6,7 +6,7 @@ One fault-lift core backs every application shape — the explicit-thunk `bounda
 
 ## [01]-[INDEX]
 
-- [01]-[FAULT]: the closed fault family, the classification table, the rail carriers and disposition-parameterized traversal, the three fault-lift shapes, the install latch, and the instrumentation-scope vocabulary.
+- [02]-[FAULT]: the closed fault family, the classification table, the rail carriers and disposition-parameterized traversal, the three fault-lift shapes, the install latch, and the instrumentation-scope vocabulary.
 
 ## [02]-[FAULT]
 

@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[ROBOT_CELL]: owns generated cell admission, target-plan and placement-space generation, the Rhino3dm boundary, `Robots` batch kinematics and compilation, typed diagnostics, online-library custody, controller drive, and the modality-polymorphic `RobotProgram.Run`.
+- [02]-[ROBOT_CELL]: owns generated cell admission, target-plan and placement-space generation, the Rhino3dm boundary, `Robots` batch kinematics and compilation, typed diagnostics, online-library custody, controller drive, and the modality-polymorphic `RobotProgram.Run`.
 
 ## [02]-[ROBOT_CELL]
 

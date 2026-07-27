@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[PIPELINE]: the shared processor chain, the `LogShip` policy, the trace-context and redaction processors, the stdout ship, and the stdlib bridge.
+- [02]-[PIPELINE]: the shared processor chain, the `LogShip` policy, the trace-context and redaction processors, the stdout ship, and the stdlib bridge.
 
 ## [02]-[PIPELINE]
 

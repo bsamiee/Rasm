@@ -71,9 +71,9 @@
 
 [TOPOLOGY]:
 - Every block is `ITargetBlock<T>`, `ISourceBlock<T>`, or both through `IPropagatorBlock<TInput,TOutput>`; `LinkTo` wires a source into a target.
-- A bounded block back-pressures at `BoundedCapacity`: `SendAsync` awaits a slot, `Post` refuses when full, `Unbounded = -1` opts out.
+- Bounded blocks back-pressure at `BoundedCapacity`: `SendAsync` awaits a slot, `Post` refuses when full, `Unbounded = -1` opts out.
 - Completion flows down a link only under `DataflowLinkOptions.PropagateCompletion`; `Completion` faults when the block faults.
-- A message offer resolves to `DataflowMessageStatus` under a `DataflowMessageHeader` identity; a source reservation runs reserve, consume, release.
+- Each message offer resolves to `DataflowMessageStatus` under a `DataflowMessageHeader` identity; a source reservation runs reserve, consume, release.
 - `NullTarget<T>` absorbs and discards a message; `AsObservable` and `AsObserver` bridge a block to Rx.
 
 [STACKING]:

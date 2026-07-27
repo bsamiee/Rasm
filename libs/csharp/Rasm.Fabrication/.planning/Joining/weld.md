@@ -10,7 +10,7 @@ Bead placement is a two-dimensional lattice, not a vertical stack: `FillProfile`
 
 ## [01]-[INDEX]
 
-- [01]-[WELD_PLAN]: owns admitted joint and policy input, preparation demand, process and bead policy, pass generation, transported torch frames, preparation actions, qualification evidence, projections, and the `WeldPlan` receipt.
+- [02]-[WELD_PLAN]: owns admitted joint and policy input, preparation demand, process and bead policy, pass generation, transported torch frames, preparation actions, qualification evidence, projections, and the `WeldPlan` receipt.
 
 ## [02]-[WELD_PLAN]
 

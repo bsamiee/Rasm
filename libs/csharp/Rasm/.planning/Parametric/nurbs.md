@@ -6,7 +6,7 @@ Fitting solves compose the `matrix.md` sparse owners, and arc-length composes `M
 
 ## [01]-[INDEX]
 
-- [01]-[NURBS_ENGINE]: `KnotVector` the normalized-clamped knot algebra with `KnotForm`/`ParametricDirection` vocabularies; `NurbsWire` the admission `[Union]` with `FitKind`/`FitPolicy` fitting rows; `NurbsForm` the curve/surface carrier `[Union]` holding the full evaluation surface; `NurbsPolicy` the engine knob row; `Nurbs.Of` the ONE admission.
+- [02]-[NURBS_ENGINE]: `KnotVector` the normalized-clamped knot algebra with `KnotForm`/`ParametricDirection` vocabularies; `NurbsWire` the admission `[Union]` with `FitKind`/`FitPolicy` fitting rows; `NurbsForm` the curve/surface carrier `[Union]` holding the full evaluation surface; `NurbsPolicy` the engine knob row; `Nurbs.Of` the ONE admission.
 
 ## [02]-[NURBS_ENGINE]
 

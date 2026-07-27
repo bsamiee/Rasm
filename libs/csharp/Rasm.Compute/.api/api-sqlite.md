@@ -40,7 +40,7 @@ Compute reads one slice of `Microsoft.Data.Sqlite`: a read-only ADO.NET fold ove
 |  [07]   | `Default Timeout` / `DefaultTimeout`                         | property | busy-timeout seconds (default 30)             |
 
 - [03]-[READONLY]: `Mode=ReadOnly` throws `SqliteException` (error 14) on a missing file, where the default `ReadWriteCreate` silently creates an empty database — the fold needs the loud failure.
-- [04]-[IMMUTABLE]: a `file:`-prefixed source arms `SQLITE_OPEN_URI`; `immutable=1` skips locking and change detection over a sealed post-run artifact.
+- [04]-[IMMUTABLE]: each `file:`-prefixed source arms `SQLITE_OPEN_URI`; `immutable=1` skips locking and change detection over a sealed post-run artifact.
 - [05]-[POOLING]: pooling defaults on keyed by exact string; `Pooling=False` or `ClearPool`/`ClearAllPools` drops the physical handle with the bracket, before the scratch source is deleted.
 - [07]-[TIMEOUT]: busy-timeout is moot under `immutable=1`, load-bearing when EnergyPlus still holds the artifact.
 

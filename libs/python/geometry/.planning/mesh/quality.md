@@ -6,7 +6,7 @@ Mesh-topology conditioning and metrology over an in-memory triangulation: `MeshQ
 
 ## [01]-[INDEX]
 
-- [01]-[QUALITY]: decimate, subdivide, smooth, and metrics on one tagged union over the `trimesh`/`numpy` spine with the `manifold3d` exact-topology tier, returning one `MeshQualityResult` union.
+- [02]-[QUALITY]: decimate, subdivide, smooth, and metrics on one tagged union over the `trimesh`/`numpy` spine with the `manifold3d` exact-topology tier, returning one `MeshQualityResult` union.
 
 ## [02]-[QUALITY]
 

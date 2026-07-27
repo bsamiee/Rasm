@@ -2,7 +2,7 @@
 
 Hook owns the `rasm.ui.<domain>.<point>` fact rail. Each plane contributes one typed `Points` row and one runtime policy; `veto` consults selected pre-commit facts, `observe` fans live facts, and `replay` warms late taps from a bounded window. Per-app registries isolate channels and tap faults. Existing broadcasts enter as adopted sources, so owners publish once. Module: `ui/src/system/hook.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                                         | [PUBLIC] |
 | :-----: | :--------------- | :----------------------------------------------------------------------------- | :------- |

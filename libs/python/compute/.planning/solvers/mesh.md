@@ -6,8 +6,8 @@ Each operation folds into one `MeshReceipt` whose `Literal` `tag` IS the operati
 
 ## [01]-[INDEX]
 
-- [01]-[MESH_FIELD]: the FEM element axis owned here, the frozen mesh-and-field value object, the one public `CTOR` `(Mesh*, Element*, cell-type)` triple every route resolves through, and the `ContentIdentity` content key over its array buffers.
-- [02]-[EXCHANGE]: the `assemble`/`read`/`write` operations on one `MeshExchange`, the lane-offloaded scikit-fem lowering, the meshio round-trip with physical-group transfer, and the `_SLOTS`-driven `MeshReceipt`.
+- [02]-[MESH_FIELD]: the FEM element axis owned here, the frozen mesh-and-field value object, the one public `CTOR` `(Mesh*, Element*, cell-type)` triple every route resolves through, and the `ContentIdentity` content key over its array buffers.
+- [03]-[EXCHANGE]: the `assemble`/`read`/`write` operations on one `MeshExchange`, the lane-offloaded scikit-fem lowering, the meshio round-trip with physical-group transfer, and the `_SLOTS`-driven `MeshReceipt`.
 
 ## [02]-[MESH_FIELD]
 

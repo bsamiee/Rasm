@@ -4,10 +4,10 @@ One surface-agnostic virtualization fabric materializes only the visible window 
 
 ## [01]-[INDEX]
 
-- [01]-[WINDOW_OWNER]: The window spec and the viewport-range-to-realized-item fold over `IChangeSet`.
-- [02]-[EXTENT_MEASURE]: Variable-extent measurement; fixed and measured row-height modes; scroll-offset math.
-- [03]-[STICKY_HEADERS]: Group-header and pinned-row projection over the windowed stream.
-- [04]-[HIERARCHY_FLATTEN]: The one tree-flatten bridge every hierarchical surface routes through.
+- [02]-[WINDOW_OWNER]: The window spec and the viewport-range-to-realized-item fold over `IChangeSet`.
+- [03]-[EXTENT_MEASURE]: Variable-extent measurement; fixed and measured row-height modes; scroll-offset math.
+- [04]-[STICKY_HEADERS]: Group-header and pinned-row projection over the windowed stream.
+- [05]-[HIERARCHY_FLATTEN]: The one tree-flatten bridge every hierarchical surface routes through.
 
 ## [02]-[WINDOW_OWNER]
 

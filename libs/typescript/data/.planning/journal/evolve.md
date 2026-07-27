@@ -2,7 +2,7 @@
 
 Schema evolution without migrations and its read accelerator in one owner: every persisted payload carries the `eventVersion` its author stamped, reads lift it to the current shape through a total per-tag step chain — array-indexed so completeness is a construction fact — before one decode through the live family proves the landing, and the snapshot store is nothing but that same lift applied to a latest-per-stream projection row. The raw log is never rewritten; a new event shape is one step appended plus the bumped `latest`, a state reshape is one step on the snapshot's single-shape chain, and every journal read, projection lane, and hydrate fold inherits the lift through the one plan value. A snapshot is always discardable evidence, never truth — dropping the table costs a replay, nothing more — and the monotonic upsert guard makes concurrent snapshotters harmless without coordination.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]          | [OWNS]                                                                          |
 | :-----: | :----------------- | :------------------------------------------------------------------------------ |

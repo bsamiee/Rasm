@@ -6,7 +6,7 @@ A registered transform from `scan/registration#REGISTRATION` is the precondition
 
 ## [01]-[INDEX]
 
-- [01]-[DEVIATION]: plane/primitive segmentation, `PrimitiveClass` classification, and the folded signed `DeviationBand` under one stage-discriminated `async` owner over the open3d RANSAC and trimesh `ProximityQuery` surfaces.
+- [02]-[DEVIATION]: plane/primitive segmentation, `PrimitiveClass` classification, and the folded signed `DeviationBand` under one stage-discriminated `async` owner over the open3d RANSAC and trimesh `ProximityQuery` surfaces.
 
 ## [02]-[DEVIATION]
 

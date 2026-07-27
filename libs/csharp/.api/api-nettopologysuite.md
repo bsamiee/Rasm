@@ -284,12 +284,18 @@
 |  [12]   | `WKBWriter.Write(Geometry) -> byte[]`          | instance | WKB emission                   |
 |  [13]   | `WKBWriter.Write(Geometry, Stream)`            | instance | WKB stream emission            |
 |  [14]   | `WKBWriter.ToHex(byte[]) -> string`            | static   | hex encode                     |
+|  [15]   | `WKTWriter.Write(Geometry, Stream)`            | instance | WKT stream emission            |
+|  [16]   | `WKTWriter(int outputDimension)`               | ctor     | fixes the written dimension    |
+|  [17]   | `WKTWriter.ForMicrosoftSqlServer()`            | static   | SQL Server WKT point dialect   |
 
 [`WKTReader`]: `Factory` `DefaultSRID` `IsStrict` `FixStructure`
+[`WKTWriter`]: `OutputOrdinates` `Formatted` `Tab` `MaxCoordinatesPerLine`
 [`WKBReader`]: `HandleSRID` `HandleOrdinates` `AllowedOrdinates` `IsStrict` `RepairRings`
 [`WKBWriter`]: `EncodingType` `HandleSRID` `HandleOrdinates` `Strict`
 
 - `WKTReader` and `WKBReader` construct from `NtsGeometryServices`, so parsed geometry inherits its SRID, precision model, and coordinate-sequence policy.
+- `WKTWriter` writes OGC and extended WKT: `OutputOrdinates` selects the dimensions, the `PrecisionModel` fixes the decimal digits, and `Formatted` with `Tab` and `MaxCoordinatesPerLine` governs indentation.
+- `WKBWriter.EncodingType` selects ISO WKB against EWKB, `ByteOrder` defaults little-endian, and `HandleSRID` embeds and reads the SRID over the EWKB extension.
 
 [ENTRYPOINT_SCOPE]: coordinate rewrite and affine mapping
 

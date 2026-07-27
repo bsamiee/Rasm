@@ -4,7 +4,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[STRUCTURAL_DIFF]: the re-ingest `Reconcile` GlobalId alignment, the `Inequalities` change-set, the Merkle-pruned `Object`-forest match, the non-topologized content-node axis, the base-relative three-way merge, the typed conflict classes, and the RFC 6902 patch egress.
+- [02]-[STRUCTURAL_DIFF]: the re-ingest `Reconcile` GlobalId alignment, the `Inequalities` change-set, the Merkle-pruned `Object`-forest match, the non-topologized content-node axis, the base-relative three-way merge, the typed conflict classes, and the RFC 6902 patch egress.
 
 ## [02]-[STRUCTURAL_DIFF]
 

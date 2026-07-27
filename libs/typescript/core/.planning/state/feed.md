@@ -2,7 +2,7 @@
 
 The evidence timeline aggregator: one process-local `Entry` family wrapping the evidence vocabularies — receipt envelopes, progress marks, availability shifts, and the page-owned content-keyed `DocumentRef` — and the `Feed` fold that maintains an `Hlc`-ordered, capacity-bounded, coalescing timeline per tenant lane. The feed is the evidence-timeline projection the C# AppUi renders, re-owned as a fold: insertion is a `SortedMap` write under a composed event-time order — never an array re-sort — eviction is a single head drop under the cap, absorption geometry is a posture row (`stack` appends, `coalesce` replaces per subject-and-kind, `latest` compacts per subject) whose slot projection is data, and the whole feed is one more `fold#PLAN_CONTRACT` plan row so live views and durable projections consume it like any other fold. `DocumentRef` is the result-document evidence: a `ContentKey` reference plus a media row and an optional column band, producer-opaque by construction — the same shape carries any runtime's result artifact, and a `tabular` band types what charts, tables, and views bind against the self-describing payload. The module is `core/src/state/feed.ts`; a new evidence vocabulary joins as one entry case, a new media kind is one literal row, a new read is one projection member.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]           | [OWNS]                                                                  | [PUBLIC]                               |
 | :-----: | :------------------ | :---------------------------------------------------------------------- | :------------------------------------- |

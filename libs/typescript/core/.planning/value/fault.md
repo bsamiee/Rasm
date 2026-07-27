@@ -4,7 +4,7 @@ One fault-policy owner serves the branch: `FaultClass` is the severity-ordered c
 
 Taxonomy, evidence, retry, and degradation remain clusters of one recovery-policy module, the temporal policies composing at rail and stream definition seams. Three fault altitudes stay distinct — interchange reconstruction, per-folder `Data.TaggedError` rails, outbound status mapping — and this floor imports none of them. Its module is `core/src/value/fault.ts`; a new fault class is one tuple entry with its row, a new budget one row, a new degradation posture one ladder rung.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]           | [OWNS]                                                          | [PUBLIC]                        |
 | :-----: | :------------------ | :-------------------------------------------------------------- | :------------------------------ |

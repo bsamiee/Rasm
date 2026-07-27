@@ -17,6 +17,7 @@ Every reopen predicate rides the license gate.
 ## [02]-[SHAPE]
 
 - `Domain/telemetry` mints the ONE hook capsule type — an effect-rail caller lifts `Fire` at its own seam, never a second effect-threaded capsule.
+- `Buckets` rows carry real boundary values alone and `Advised<T>` saturates them into the instrument's measurement type — a per-type bound array re-mints one policy twice and strands whichever copy a retune misses.
 - Packed-upper layout is one untyped contract — `CovarianceOf` feeds `SymmetricMatrix.Of` repack-free; a repack corrupts type-invisibly.
 - Packed-upper index arithmetic mirrors across `SymmetricMatrix`, `SampleMoment`, and `Lm` — the formula moves only as one all-owner edit.
 - `Analysis/relations` owns host-native intersection, `Meshing/intersect` the predicate-exact tier — the consumer's tolerance source decides.

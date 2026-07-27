@@ -6,7 +6,7 @@ Bounded structured-concurrency lanes and stage orchestration: `LanePolicy.drain`
 
 ## [01]-[INDEX]
 
-- [01]-[LANE]: the bounded `drain` over the `Admit[T]` union, the `Kernel`-crossing `offload`, the concurrent-front `StagePlan`, the `LaneSource` feeder union under one `drained` aspect, and the `PulseConduit` mid-operation fact spine.
+- [02]-[LANE]: the bounded `drain` over the `Admit[T]` union, the `Kernel`-crossing `offload`, the concurrent-front `StagePlan`, the `LaneSource` feeder union under one `drained` aspect, and the `PulseConduit` mid-operation fact spine.
 
 ## [02]-[LANE]
 

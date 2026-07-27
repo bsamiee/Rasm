@@ -8,9 +8,9 @@ A typed read folds each header-keyed `dynamic` row through the ONE STJ wire proj
 
 ## [01]-[INDEX]
 
-- [01]-[TABULAR_SOURCE]: the format vocabulary with its policy behavior column, the frozen transcode table, the `TabularSpec` source discriminant (wire columns and report style as policy DATA), the spec-dispatched typed/dynamic/reader/probe ingress with the header-contract check and per-row fault accumulation, the row-boundary fault fold over both legs, the wire-converter and redaction projections, and the egress/template/adorn/transcode surface with its typed fact stream.
-- [02]-[DELIMITED_SOURCE]: the `Sep` SIMD delimited owner — the `DelimitedSpec` parse-policy value hardening reader and writer as one strict pair, the `Enumerate`/`EnumerateAsync`/`ParallelEnumerate` record-rail materialization, and the reader→writer redaction/projection bridge.
-- [03]-[BULK_LANE]: the linq2db EF-model-mapped bulk-copy fence over the V6 identity `DbContext`, the `BulkCopyRowsCopied` typed receipt, and the three-row bulk-ingress boundary law.
+- [02]-[TABULAR_SOURCE]: the format vocabulary with its policy behavior column, the frozen transcode table, the `TabularSpec` source discriminant (wire columns and report style as policy DATA), the spec-dispatched typed/dynamic/reader/probe ingress with the header-contract check and per-row fault accumulation, the row-boundary fault fold over both legs, the wire-converter and redaction projections, and the egress/template/adorn/transcode surface with its typed fact stream.
+- [03]-[DELIMITED_SOURCE]: the `Sep` SIMD delimited owner — the `DelimitedSpec` parse-policy value hardening reader and writer as one strict pair, the `Enumerate`/`EnumerateAsync`/`ParallelEnumerate` record-rail materialization, and the reader→writer redaction/projection bridge.
+- [04]-[BULK_LANE]: the linq2db EF-model-mapped bulk-copy fence over the V6 identity `DbContext`, the `BulkCopyRowsCopied` typed receipt, and the three-row bulk-ingress boundary law.
 
 ## [02]-[TABULAR_SOURCE]
 

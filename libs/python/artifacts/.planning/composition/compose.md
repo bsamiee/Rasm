@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[COMPOSE]: the post-render placement owner discriminating a closed `FigureOp` `tagged_union` — vector placement (`ScaleFit`/`Tile`/`Arrange`/`Crop`/`Merge`/`Matte`/`Rotate`/`Overlay`), the `Pdf` SVG-to-PDF projection, and the gated raster `Annotate`/`Metadata` arms — over the imported `graphic/vector/path#PATH` and `graphic/vector/region#REGION` surfaces and the `kiwisolver` constraint solve, railed `RuntimeRail[ArtifactReceipt]` over `async_boundary(catch=_FAULTS)`, its one render landing on the `rendered()` evidence successor every projection reads.
+- [02]-[COMPOSE]: the post-render placement owner discriminating a closed `FigureOp` `tagged_union` — vector placement (`ScaleFit`/`Tile`/`Arrange`/`Crop`/`Merge`/`Matte`/`Rotate`/`Overlay`), the `Pdf` SVG-to-PDF projection, and the gated raster `Annotate`/`Metadata` arms — over the imported `graphic/vector/path#PATH` and `graphic/vector/region#REGION` surfaces and the `kiwisolver` constraint solve, railed `RuntimeRail[ArtifactReceipt]` over `async_boundary(catch=_FAULTS)`, its one render landing on the `rendered()` evidence successor every projection reads.
 
 ## [02]-[COMPOSE]
 

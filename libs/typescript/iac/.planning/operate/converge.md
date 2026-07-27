@@ -2,7 +2,7 @@
 
 `Converge` realizes one `Backend.Projection` as an unpublished target whichever branch minted it, orders native materialization, hydration, and proof runners, and publishes only after Kubernetes reports the proof Job complete. Generated contract files remain immutable inputs; provider runners retain EF, Marten, SQL, replay, copy, and replication execution. Stable pointer names retain generation evidence; one Automation stack serializes its atomic pointer writes.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]     | [OWNS]                                                       | [PUBLIC]   |
 | :-----: | :------------ | :----------------------------------------------------------- | :--------- |

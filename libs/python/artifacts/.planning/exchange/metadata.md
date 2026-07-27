@@ -6,7 +6,7 @@ Each carrier rides its admitted owner through the caller-threaded `LanePolicy.of
 
 ## [01]-[INDEX]
 
-- [01]-[METADATA]: the one descriptive-metadata owner — a two-case `read`/`write` `tagged_union` folding EXIF/IPTC/XMP/ICC plus raster/media container structure into one `MetaFacts` per the `_FIELD_KEYS` correspondence, egressing the `(ContentKey, bytes, MetaFacts)` triple through `close` and projecting `ArtifactReceipt.Metadata` through `emit`.
+- [02]-[METADATA]: the one descriptive-metadata owner — a two-case `read`/`write` `tagged_union` folding EXIF/IPTC/XMP/ICC plus raster/media container structure into one `MetaFacts` per the `_FIELD_KEYS` correspondence, egressing the `(ContentKey, bytes, MetaFacts)` triple through `close` and projecting `ArtifactReceipt.Metadata` through `emit`.
 
 ## [02]-[METADATA]
 

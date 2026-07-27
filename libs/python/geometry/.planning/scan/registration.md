@@ -6,7 +6,7 @@ Point-cloud and 3D-scan registration over an N-cloud session, not a fixed pair: 
 
 ## [01]-[INDEX]
 
-- [01]-[REGISTRATION]: mode-discriminated alignment over an N-cloud session — global bootstrap, coarse-to-fine and colored ICP, VGICP fine-refinement, and multiway pose-graph — behind one `async` graduation-weave entry.
+- [02]-[REGISTRATION]: mode-discriminated alignment over an N-cloud session — global bootstrap, coarse-to-fine and colored ICP, VGICP fine-refinement, and multiway pose-graph — behind one `async` graduation-weave entry.
 
 ## [02]-[REGISTRATION]
 

@@ -6,7 +6,7 @@ Content keys derive from operation bytes through one `ContentIdentity.of`, schem
 
 ## [01]-[INDEX]
 
-- [01]-[EGRESS]: the object-store egress owner routing one `StoreOp` axis through one `_ROUTE` fold for the synchronous `run` and awaitable `run_async`.
+- [02]-[EGRESS]: the object-store egress owner routing one `StoreOp` axis through one `_ROUTE` fold for the synchronous `run` and awaitable `run_async`.
 
 ## [02]-[EGRESS]
 

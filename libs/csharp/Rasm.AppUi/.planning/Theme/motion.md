@@ -4,10 +4,10 @@ Rasm.AppUi motion is one six-row `MotionToken` vocabulary: each row carries one 
 
 ## [01]-[INDEX]
 
-- [01]-[MOTION_AXIS]: Six token rows; durations, curves, springs, reduced delegates, pacing.
-- [02]-[MOTION_APPLICATION]: Plan rows with stagger, pacing folds, projections binding transitions, charts, zoom, clocks.
-- [03]-[PHASE_MAPPING]: Frozen nine-row `ProgressPhase`-to-token map; one resolve entrypoint.
-- [04]-[REDUCED_MOTION]: Host-agnostic probe rows; one global degrade switch; conformance.
+- [02]-[MOTION_AXIS]: Six token rows; durations, curves, springs, reduced delegates, pacing.
+- [03]-[MOTION_APPLICATION]: Plan rows with stagger, pacing folds, projections binding transitions, charts, zoom, clocks.
+- [04]-[PHASE_MAPPING]: Frozen nine-row `ProgressPhase`-to-token map; one resolve entrypoint.
+- [05]-[REDUCED_MOTION]: Host-agnostic probe rows; one global degrade switch; conformance.
 
 ## [02]-[MOTION_AXIS]
 

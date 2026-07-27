@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[FORMAT_AXIS]: format/codec/extension rows; capability, companion, and `Frame` basis-change columns.
+- [02]-[FORMAT_AXIS]: format/codec/extension rows; capability, companion, and `Frame` basis-change columns.
 
 ## [02]-[FORMAT_AXIS]
 

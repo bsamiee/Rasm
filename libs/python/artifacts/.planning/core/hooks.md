@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[POINTS]: the `ArtifactHook` id vocabulary, the seven payload projections, the `ARTIFACT_POINTS` row table, the `scoped` baggage read, and the latched `Production` register/fire/subscribe surface.
+- [02]-[POINTS]: the `ArtifactHook` id vocabulary, the seven payload projections, the `ARTIFACT_POINTS` row table, the `scoped` baggage read, and the latched `Production` register/fire/subscribe surface.
 
 ## [02]-[POINTS]
 

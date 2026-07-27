@@ -6,7 +6,7 @@ A reconstructed body's watertight/winding/euler/volume/area/components algebra r
 
 ## [01]-[INDEX]
 
-- [01]-[RECONSTRUCTION]: method-discriminated surface reconstruction over the `_CONSTRUCT` constructor table, composing `mesh/quality`'s `closure_fold` and graduating the watertight solid to compute.
+- [02]-[RECONSTRUCTION]: method-discriminated surface reconstruction over the `_CONSTRUCT` constructor table, composing `mesh/quality`'s `closure_fold` and graduating the watertight solid to compute.
 
 ## [02]-[RECONSTRUCTION]
 

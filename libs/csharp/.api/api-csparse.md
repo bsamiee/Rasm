@@ -175,7 +175,7 @@
 - `ParallelMultiply` falls back to serial for small problems or one processor, and `ParallelOptions.MaxDegreeOfParallelism` caps the fan.
 
 [STACKING]:
-- `MathNet.Numerics`(`Rasm.Compute/.api/api-mathnet-providers.md`): CSR storage, dense factorization, and Krylov iteration are the peer lanes; matrix density and factor reuse select among the three, and all exit on one solve receipt.
+- `MathNet.Numerics`(`.api/api-mathnet-numerics.md`): CSR storage, dense factorization, and Krylov iteration are the peer lanes; matrix density and factor reuse select among the three, and all exit on one solve receipt.
 - `LanguageExt.Core`(`.api/api-languageext.md`): `Try.lift(...).Run()` traps a singular or indefinite factorization onto `Fin<A>` with a domain `Error` payload, so every `Create` and `Solve` crosses one rail seam.
 - `System.Numerics.Tensors`(`.api/api-tensors.md`): `TensorPrimitives` folds over the same `Span<double>` GEMV and `Solve` write, so residual, axpy, and norm passes vectorize on the solve buffers with no copy.
 - `QuikGraph`(`.api/api-quikgraph.md`): pattern-graph work stays on `SymbolicColumnStorage` — `DulmageMendelsohn` and `StronglyConnectedComponents` decompose the CSC directly, so a matrix never round-trips through a vertex-and-edge container.

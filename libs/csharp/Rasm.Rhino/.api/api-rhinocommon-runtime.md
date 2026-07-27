@@ -4,8 +4,8 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `RhinoCommon`
-- package: `RhinoCommon` (proprietary host SDK)
+[PACKAGE_SURFACE]: RhinoCommon host-runtime surface
+- host: Rhino host runtime, in-process (proprietary McNeel SDK)
 - assembly: `RhinoCommon.dll` — in-process managed host runtime
 - namespaces: `Rhino.Runtime`, `Rhino.Runtime.InProcess`, `Rhino.Runtime.InteropWrappers`, `Rhino.Runtime.Notifications`, `Rhino.Runtime.RhinoAccounts`, `Rhino.NodeInCode`
 - rail: host
@@ -190,7 +190,7 @@
 [LOCAL_ADMISSION]:
 - native-pointer traffic enters through `Interop` and the `InteropWrappers` disposable family; a raw `nint` never appears in domain code, and every marshal wrapper is disposed on its owning scope
 - platform capability enters through `HostUtils.GetPlatformService<T>`, never a direct service construction
-- a headless runtime enters through one `RhinoCore` owner with host-context marshalling, never a per-call thread hop
+- headless runtimes enter through one `RhinoCore` owner with host-context marshalling, never a per-call thread hop
 - `CommonObject.UserData`/`UserDictionary` custody routes to `api-rhinocommon-persistence.md`; text-field evaluation to `api-rhinocommon-annotation.md` and block-attribute fields to `api-rhinocommon-blocks.md`
 
 [RAIL_LAW]:

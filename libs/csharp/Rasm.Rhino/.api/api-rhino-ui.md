@@ -4,8 +4,8 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `RhinoCommon` + `Rhino.UI` (host UI bridge)
-- package: `RhinoCommon` (with `Rhino.UI` companion assembly) (proprietary McNeel SDK)
+[PACKAGE_SURFACE]: RhinoCommon host-UI-bridge surface (`Rhino.UI` companion)
+- host: Rhino host runtime, in-process (proprietary McNeel SDK); `Rhino.UI` is the companion assembly
 - assembly: `Rhino.UI.dll` (`RhinoEtoApp`, `EtoExtensions`, dialog and control hosts)
 - assembly: `RhinoCommon.dll` (`Panels`, `StatusBar`, `StackedDialogPage`, `DrawingUtilities`, gumball, mouse, toolbar, UI-thread)
 - namespace: `Rhino.UI` (panels, dialogs, pages, mouse, status, toolbar, resources, in-viewport UI objects)

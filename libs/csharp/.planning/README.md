@@ -62,9 +62,7 @@ Cross-folder substrate every C# package composes. Libraries emit telemetry throu
 
 [OBSERVABILITY]:
 - `Microsoft.Extensions.Logging.Abstractions` — `ILogger` emission contract and the `[LoggerMessage]` generator.
-- `Microsoft.Extensions.Telemetry` — log sampling, buffering, enrichment rows, and the latency-context ledger.
-- `Microsoft.Extensions.Telemetry.Abstractions` — `[LogProperties]`/`[TagProvider]` emission grammar and enricher contracts.
-- `Microsoft.Extensions.Diagnostics.ResourceMonitoring` — process and container utilization source behind the health fold.
+- `Microsoft.Extensions.Telemetry.Abstractions` — `[LogProperties]`/`[TagProvider]` emission grammar, metric-factory attributes, enricher contracts, and the latency ledger.
 
 [AI_CONTRACTS]:
 - `Microsoft.Extensions.AI` — provider-neutral chat, embedding, and tool-call contracts; runtime `Microsoft.Extensions.AI.Abstractions`.
@@ -84,7 +82,7 @@ Cross-folder substrate every C# package composes. Libraries emit telemetry throu
 - `System.Security.Cryptography` — PEM, X.509, and ECDSA custody with zeroization at credential and receipt boundaries.
 - `System.Runtime.InteropServices` — POSIX signal registration behind drain traps and reload.
 - `System.Xml` — LINQ-to-XML, streaming reader/writer, schema, and XSLT behind MaterialX, BCF, and SVG payloads.
-- `System.Text.Json.Schema` — schema exporter behind contract self-description.
+- `System.Text.Json` — contract-frozen JSON wire: source-generated contracts, converter dispatch, node and document models, and the schema exporter behind contract self-description.
 
 [DEPENDENCY_FLOORS]:
 - `System.Configuration.ConfigurationManager` — transitive XML-configuration floor under log4net and PerformanceCounter, never a direct reference.

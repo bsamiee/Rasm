@@ -6,9 +6,9 @@ The data-contract owner: a quality gate, a structural admission path, and a cros
 
 ## [01]-[INDEX]
 
-- [01]-[QUALITY]: the pandera data-quality gate, the recorded non-enforcing schema claim.
-- [02]-[ADMISSION]: structural field shapes, the narwhals frame-admission route into the gate.
-- [03]-[COLLECTION]: the dataframely cross-frame referential covenant, the Merkle-keyed collection claim.
+- [02]-[QUALITY]: the pandera data-quality gate, the recorded non-enforcing schema claim.
+- [03]-[ADMISSION]: structural field shapes, the narwhals frame-admission route into the gate.
+- [04]-[COLLECTION]: the dataframely cross-frame referential covenant, the Merkle-keyed collection claim.
 
 ## [02]-[QUALITY]
 

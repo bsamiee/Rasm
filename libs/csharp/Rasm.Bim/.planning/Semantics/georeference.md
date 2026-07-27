@@ -8,7 +8,7 @@ Seam `GeoReference` rides `Header`/`Coverage` only, never the `Object` node, car
 
 ## [01]-[INDEX]
 
-- [01]-[GEO_PROJECTION]: `GeoReferenceProjector.Project` folds the model georeferencing level onto the seam `GeoReference` — the `HasCoordinateOperation` switch over `IfcMapConversion`/`IfcMapConversionScaled` or the translation-only `IfcRigidOperation`, else the `IfcSite` WGS84 fallback, else `Identity` — composing the seam `GeoReference.Admit`; `Author` the egress inverse `Projection/egress#IFC_EGRESS` `Emit` composes so an ingested LoGeoRef level round-trips instead of exporting geo-stripped [M1].
+- [02]-[GEO_PROJECTION]: `GeoReferenceProjector.Project` folds the model georeferencing level onto the seam `GeoReference` — the `HasCoordinateOperation` switch over `IfcMapConversion`/`IfcMapConversionScaled` or the translation-only `IfcRigidOperation`, else the `IfcSite` WGS84 fallback, else `Identity` — composing the seam `GeoReference.Admit`; `Author` the egress inverse `Projection/egress#IFC_EGRESS` `Emit` composes so an ingested LoGeoRef level round-trips instead of exporting geo-stripped [M1].
 - [03]-[GEODETIC_TRANSFORM]: `GeoTransform.Reproject` the `ProjNET`-first datum leg over two seam frames returning the typed `Reprojection` receipt, escalating a transform `ProjNET` cannot express to the `MaxRev.Gdal.Core` OSR engine; `GeoTransform.Preflight` the federation alignment matrix of typed `FrameVerdict` rows a `Review/coordination` rule engine gates its GlobalId joins on.
 
 ## [02]-[GEO_PROJECTION]

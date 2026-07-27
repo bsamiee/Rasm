@@ -6,7 +6,7 @@ One validated-numerics owner producing certified enclosures over a layered floor
 
 ## [01]-[INDEX]
 
-- [01]-[ENCLOSURE]: certified evaluate/certify/refine/roots on one `IntervalNumerics` owner over the Arb-to-mpmath-to-numpy floor ladder.
+- [02]-[ENCLOSURE]: certified evaluate/certify/refine/roots on one `IntervalNumerics` owner over the Arb-to-mpmath-to-numpy floor ladder.
 
 ## [02]-[ENCLOSURE]
 

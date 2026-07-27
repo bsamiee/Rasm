@@ -6,7 +6,7 @@ Layout-dominant ops default to `LensProvider.PDFOXIDE` — the MIT/Apache Rust-c
 
 ## [01]-[INDEX]
 
-- [01]-[LENS]: one recovery owner discriminating `LensOp` over the `_ROUTES` `Route` rows under provider-keyed bands and path-keyed node identity.
+- [02]-[LENS]: one recovery owner discriminating `LensOp` over the `_ROUTES` `Route` rows under provider-keyed bands and path-keyed node identity.
 
 ## [02]-[LENS]
 

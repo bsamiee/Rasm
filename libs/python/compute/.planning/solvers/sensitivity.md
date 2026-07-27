@@ -6,7 +6,7 @@ Every mode resolves through one engine stacking `jax`, `equinox`, and `findiff`:
 
 ## [01]-[INDEX]
 
-- [01]-[SENSITIVITY]: the `Differentiation` AD owner discriminating eight `DiffModeTag` cases over the `_SPEC` `(DiffTarget, DiffModeTag)` table, folding JAX/Equinox at float64 and the `findiff` accuracy-scaled floor into one weave-harvested `DiffReceipt` rail.
+- [02]-[SENSITIVITY]: the `Differentiation` AD owner discriminating eight `DiffModeTag` cases over the `_SPEC` `(DiffTarget, DiffModeTag)` table, folding JAX/Equinox at float64 and the `findiff` accuracy-scaled floor into one weave-harvested `DiffReceipt` rail.
 
 ## [02]-[SENSITIVITY]
 

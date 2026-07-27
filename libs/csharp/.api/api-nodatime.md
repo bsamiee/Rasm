@@ -174,7 +174,7 @@
 |  [16]   | `XmlSerializationSettings.DateTimeZoneProvider`                | property | zone provider XML round-trip binds  |
 |  [17]   | `TypeConverterSettings.DateTimeZoneProvider`                   | property | zone provider `TypeConverter` binds |
 
-A pattern type mints through its own static family and reconfigures through instance transforms returning a new pattern, each transform riding the types whose fields admit it.
+Pattern types mint through their own static family and reconfigure through instance transforms returning a new pattern, each transform riding the types whose fields admit it.
 
 - `ZonedDateTimePattern`: every mint takes an `IDateTimeZoneProvider`, and `Create` takes `(string, CultureInfo, ZoneLocalMappingResolver, IDateTimeZoneProvider, ZonedDateTime)`.
 - `PeriodPattern`: singletons only, carrying no mint or transform family.
@@ -188,8 +188,8 @@ A pattern type mints through its own static family and reconfigures through inst
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- An instant is the only persisted time value; every local, offset, and zoned form projects from it or resolves back to it.
-- A local value reaches an instant only through an explicit `DateTimeZone` and a `ZoneLocalMappingResolver`, so a gap or an overlap is a decided outcome.
+- `Instant` is the only persisted time value; every local, offset, and zoned form projects from it or resolves back to it.
+- Local values reach an instant only through an explicit `DateTimeZone` and a `ZoneLocalMappingResolver`, so a gap or an overlap is a decided outcome.
 - Every parse folds through `ParseResult<T>`; text throws only where the caller reaches `GetValueOrThrow`.
 - `CalendarSystem` travels inside the value, so a calendar change is a projection on the value rather than ambient state.
 
@@ -200,6 +200,7 @@ A pattern type mints through its own static family and reconfigures through inst
 - Clock rail: `TimeProvider.ToClock` lifts the BCL clock onto `IClock`, `ClockExtensions.InZone` binds zone and calendar into a `ZonedClock`, and `Resolvers.CreateMappingResolver` supplies the mapping policy every local-to-zoned projection under that clock takes; `TimeProvider.System` is the process default, and `GetTimestamp()` with `GetElapsedTime(long)` supply the monotonic timestamp pair every timed seam derives elapsed truth from — never a wall-clock diff.
 - Arithmetic rail: `Instant`, `Duration`, and `Period` carry the `System.Numerics` operator interfaces, so each slots into a generic-constrained numeric fold with `IMinMaxValue` saturation, and `NodaTime.HighPerformance` supplies the long-backed `Instant64`/`Duration64` pair converting through `ToInstant`/`FromInstant` — an interior arithmetic accelerator crossing to `Instant`/`Duration` only at the receipt boundary, never the wire shape.
 - `System.IO.Hashing`(`.api/api-hashing.md`): a persisted clock fact entering a snapshot fingerprint formats through the invariant `InstantPattern.ExtendedIso`/`PeriodPattern.Roundtrip` before the `XxHash3.Append`, so the identity hash is culture- and machine-stable — never a culture-ambient `ToString()`.
+- `Rasm`: `ReceiptSinkPort` takes `IClock` as constructor material and never reaches an ambient clock — `Advance` folds the wall `Instant` into the HLC two-half pair and derives `SkewBound` as a `Duration` at stamp time, while `Duration.FromMinutes` builds every burn window and `Duration.TotalSeconds` the budget-share denominator, so objective arithmetic reads one span type end to end.
 - `Rasm.Element`: `ElementHookRail` carries the injected `TimeProvider` and `ElementTap.Timed` is the one timing kernel — the timestamp read precedes the body, elapsed derives from the rail's clock, and a test host swaps the provider without touching a seam.
 - `Rasm.Bim`: wire adapters register once on the STJ options the Bim wire codec owns, so one authored `Instant`/`ZonedDateTime`/`Duration` crosses the JSON and protobuf boundaries with an identity-preserving round-trip, never a per-boundary converter; `CompositePatternBuilder` owns multi-format intake as one format-dispatched parser, not a try/catch ladder over sibling `IPattern<T>` instances.
 - `Rasm.Compute`: `Instant.Plus(Duration)`/`Minus(Duration)` own the hot-path deadline math interior to the receipt boundary — `Instant.MaxValue` the never-expire latch the `Model/sessions` idle-unload sweep reads, `Duration.Zero` the identity elapsed span — `Instant.ToDateTimeUtc()` is the one BCL crossing at the gRPC `CallOptions.WithDeadline` edge with the semantic `Instant` staying interior truth on both sides, and `Provenance.At` age is `clock.GetCurrentInstant() - row.Provenance.At` compared as `Duration` against the `RetryPolicy` backoff schedule, never a `DateTime` subtraction.

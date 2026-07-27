@@ -6,7 +6,7 @@ Backend-agnostic array admission over the Array API standard: `ArrayPayload.admi
 
 ## [01]-[INDEX]
 
-- [01]-[PAYLOAD]: one `ArrayPayload.admit` over the `ArraySource`/`AdmitMode`/`FiniteGate` axes, railed content identity, and the `array_layout` graduation producer.
+- [02]-[PAYLOAD]: one `ArrayPayload.admit` over the `ArraySource`/`AdmitMode`/`FiniteGate` axes, railed content identity, and the `array_layout` graduation producer.
 
 ## [02]-[PAYLOAD]
 

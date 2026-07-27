@@ -4,7 +4,7 @@
 
 `Redaction` is the one ambient scrub owner: rules ride a `Context.Reference` every capture seam reads — export-boundary span scrub here, capture seams in `crash`, baggage annotations inside the ingress transformer — one rule shape, one override at the root. `Hooks` is the consumer hook plane: taps, processors, exporters, views, and detectors contribute through append-only registry rows one SDK drain collects. `Instrument` registers the browser auto-instrumentation rows on the web lane's own tracer provider. `@opentelemetry` sdk/exporter machinery behind the SDK lanes is the `[OTEL_PIN_BLOCK]` pin block, collapsing as one unit when native `Otlp` parity closes — only the propagation codecs, `resources`, and `semantic-conventions` survive; the `plane:dev` DevTools row ships as its own `./dev` subpath module. Its module is `runtime/src/otel/emit.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]      | [OWNS]                                                                                            | [PUBLIC]            |
 | :-----: | :------------- | :------------------------------------------------------------------------------------------------ | :------------------ |

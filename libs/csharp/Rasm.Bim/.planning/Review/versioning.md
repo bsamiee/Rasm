@@ -8,7 +8,7 @@ The durable commit-DAG storage, the governed branch ACL/tag refs, and the maxima
 
 ## [01]-[INDEX]
 
-- [01]-[VERSION_GRAPH]: `BimCommit` the content-addressed commit, `BimBranch` the working ref, the in-memory `BimRepository` commit-DAG with the `QuikGraph`-folded `Commit`/`History`/`CommonAncestor`/`Merge`/`CommitMerge`, the `MergeConflict` `[Union]`, the `MergeOutcome` receipt, and the `Version` three-way merge algebra (merge-base virtualization + content-and-placement divergence) over the `Review/diff#MODEL_DIFF` `ElementFingerprint`.
+- [02]-[VERSION_GRAPH]: `BimCommit` the content-addressed commit, `BimBranch` the working ref, the in-memory `BimRepository` commit-DAG with the `QuikGraph`-folded `Commit`/`History`/`CommonAncestor`/`Merge`/`CommitMerge`, the `MergeConflict` `[Union]`, the `MergeOutcome` receipt, and the `Version` three-way merge algebra (merge-base virtualization + content-and-placement divergence) over the `Review/diff#MODEL_DIFF` `ElementFingerprint`.
 
 ## [02]-[VERSION_GRAPH]
 

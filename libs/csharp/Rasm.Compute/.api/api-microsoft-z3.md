@@ -1,6 +1,6 @@
 # [RASM_COMPUTE_API_MICROSOFT_Z3]
 
-`Microsoft.Z3` binds the Z3 SMT theorem prover: a first-order satisfiability engine over combined theories of real and integer arithmetic (NRA/NIA), booleans, bit-vectors, arrays, and uninterpreted functions. A typed rule set lowers to assertions and the solver returns `SATISFIABLE` with a witnessing `Model`, `UNSATISFIABLE` with an `UnsatCore` naming the exact conflicting constraints, or `UNKNOWN` — the verify-and-explain complement of the `Google.OrTools` CP-SAT lane that optimizes.
+`Microsoft.Z3` binds the Z3 SMT theorem prover: a first-order satisfiability engine over combined theories of real and integer arithmetic (NRA/NIA), booleans, bit-vectors, arrays, and uninterpreted functions. Typed rule sets lower to assertions and the solver returns `SATISFIABLE` with a witnessing `Model`, `UNSATISFIABLE` with an `UnsatCore` naming the exact conflicting constraints, or `UNKNOWN` — the verify-and-explain complement of the `Google.OrTools` CP-SAT lane that optimizes.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -65,14 +65,14 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- ONE `Context` owns every `Expr`/`Sort`/`Solver`/`Model` for a solve and disposes at the boundary, releasing the native AST arena; a term minted by one context never mixes into another. A rule-verify pass builds a fresh context per content-keyed request, asserts, checks, projects the verdict, and disposes, so the native handles never outlive the `AssessmentResult`.
+- ONE `Context` owns every `Expr`/`Sort`/`Solver`/`Model` for a solve and disposes at the boundary, releasing the native AST arena; a term minted by one context never mixes into another. Each rule-verify pass builds a fresh context per content-keyed request, asserts, checks, projects the verdict, and disposes, so the native handles never outlive the `AssessmentResult`.
 - Z3 is single-threaded per context, so a parallel sweep runs one context per worker over the `Analysis/assessment` Sweep `JobGraph` fan-out.
 
 [STACKING]:
 - `Symbolic/expression`(`api-angourimath.md`): the lowering source — a `SymbolicExpr` constraint (`==`/`<=`/`>=` over a units-checked expression) lowers term-by-term to `MkEq`/`MkLe`/`MkGe`, its `Entity` tree walked to `Context.Mk*` terms, and nonlinear `MkMul`/`MkPower` reach the NRA/NIA theory the CP-SAT lane cannot express.
 - `Google.OrTools`(`api-ortools.md`): the disjoint sibling — CP-SAT/MILP finds an optimal feasible assignment where Z3 proves a fixed assignment satisfies or names why not; a compliance check that must explain its failure is Z3's, an objective to minimize is OrTools'.
 - `Solver/satisfy`: composes the folder rule-verify — a typed rule set lowers to assertions, `AssertAndTrack` pairs each constraint with a rule-named literal, and the verdict projects to `AssessmentResult` (`Model` witness on SAT, `UnsatCore` rule names on UNSAT, a typed `(Solve, Numeric)` shortfall on UNKNOWN).
-- `Runtime/scheduling`: a rule-verify job is a `JobGraph` node keyed by the rule-set and input content key, one `Context` per job disposed at completion.
+- `Runtime/scheduling`: each rule-verify job is a `JobGraph` node keyed by the rule-set and input content key, one `Context` per job disposed at completion.
 
 [LOCAL_ADMISSION]:
 - `Solver/satisfy` owns rule satisfaction: a verdict enriches an existing discipline's `AssessmentResult` on that discipline's route, or persists as its own content-keyed `Node.Assessment` the `Analysis/assessment` Sweep dispatches under a seam `Discipline.Compliance` row.

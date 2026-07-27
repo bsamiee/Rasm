@@ -109,7 +109,7 @@
 [PAYLOAD]: `MaxSendMessageSize` `MaxReceiveMessageSize` `CompressionProviders`
 - `GrpcChannelOptions.MaxReceiveMessageSize`: 4 MiB by construction while `MaxSendMessageSize` stays null and unbounded, so the asymmetry bites the receive leg first.
 - `GrpcChannelOptions.MaxReconnectBackoff`: both backoff setters throw `ArgumentException` on a value at or below zero.
-- `GrpcChannelOptions.UnsafeUseInsecureChannelCallCredentials`: an insecure channel silently ignores a call's `CallCredentials` until this is set.
+- `GrpcChannelOptions.UnsafeUseInsecureChannelCallCredentials`: unblocks a call's `CallCredentials` on an insecure channel, which silently ignores them until this is set.
 - `GrpcChannelOptions.ServiceProvider`: custom `ResolverFactory` and `LoadBalancerFactory` instances resolve from it and union with the built-in set.
 
 [ENTRYPOINT_SCOPE]: `Grpc.Net.Client.Configuration` rows, each a `ConfigObject` over a JSON-shaped map reachable as `Inner`
@@ -175,7 +175,7 @@
 [CompletionContext]: `Address` `Error`
 [LoadBalancerOptions]: `Controller` `LoggerFactory` `Configuration`
 
-- `ResolverResult.ForResult`: a second overload appends `ServiceConfig?` with `Status?` to carry resolver-published config beside the addresses.
+- `ResolverResult.ForResult`: appends `ServiceConfig?` with `Status?` on its second overload to carry resolver-published config beside the addresses.
 - `SubchannelsLoadBalancer`: subclassing it against `PollingResolver` and `IChannelControlHelper` is the whole custom-balancer surface — the base owns one `Subchannel` per address and exposes `Controller` with `State` to the subclass.
 - `PickFirstBalancerFactory.Name`: `"pick_first"`, and `RoundRobinBalancerFactory.Name` is `"round_robin"`; a custom factory arrives under its own name and takes precedence over the built-in of that name.
 

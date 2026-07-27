@@ -6,7 +6,7 @@ No `ezdxf` lowering crosses this owner. `Standard` consumes the vocabulary rows 
 
 ## [01]-[INDEX]
 
-- [01]-[REGIME]: Closed drafting vocabulary, inverse name codecs, ISO 216/5455 derivations, and the `HATCH_BIND`/`PENS`/`lettering()` BIND rows form one owner.
+- [02]-[REGIME]: Closed drafting vocabulary, inverse name codecs, ISO 216/5455 derivations, and the `HATCH_BIND`/`PENS`/`lettering()` BIND rows form one owner.
 
 ## [02]-[REGIME]
 

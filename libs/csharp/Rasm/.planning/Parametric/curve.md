@@ -6,7 +6,7 @@ Every reachable failure routes `GeometryFault.ParametricFault(stage, carrier, wi
 
 ## [01]-[INDEX]
 
-- [01]-[PARAMETRIC]: `ParametricOp` request `[Union]` folds through ONE `Apply` into typed `ParametricResult`, over the division/measure/crossing vocabularies and the shared deviation-refinement driver.
+- [02]-[PARAMETRIC]: `ParametricOp` request `[Union]` folds through ONE `Apply` into typed `ParametricResult`, over the division/measure/crossing vocabularies and the shared deviation-refinement driver.
 
 ## [02]-[PARAMETRIC]
 

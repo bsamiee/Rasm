@@ -4,10 +4,10 @@ One temporal law serves the whole suite: `TimeProvider` owns elapsed measurement
 
 ## [01]-[INDEX]
 
-- [01]-[CLOCK_SPLIT]: One injected clock pair; elapsed versus semantic time with sentinel admission.
-- [02]-[DEADLINE_TAXONOMY]: Nine deadline rows; every suite duration literal traces here.
-- [03]-[SCHEDULE_PORT]: The suite scheduler with cron and period rows and lease values.
-- [04]-[FENCING_TOKEN]: Decoded store-issued token carrier; the store's CAS predicate is the fence.
+- [02]-[CLOCK_SPLIT]: One injected clock pair; elapsed versus semantic time with sentinel admission.
+- [03]-[DEADLINE_TAXONOMY]: Nine deadline rows; every suite duration literal traces here.
+- [04]-[SCHEDULE_PORT]: The suite scheduler with cron and period rows and lease values.
+- [05]-[FENCING_TOKEN]: Decoded store-issued token carrier; the store's CAS predicate is the fence.
 
 ## [02]-[CLOCK_SPLIT]
 

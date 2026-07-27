@@ -7,7 +7,7 @@ Object read/mutate and history route to the objects catalog, placement and event
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: RhinoCommon custom-object and grip authoring
-- host: `RhinoCommon` (Rhino host runtime, in-process)
+- host: Rhino host runtime, in-process (proprietary McNeel SDK)
 - assembly: `RhinoCommon.dll`
 - namespaces: `Rhino.DocObjects`, `Rhino.DocObjects.Custom`, `Rhino.UI`
 - kernel: `Rasm` (host-agnostic vocabularies and numeric owners composed, never re-derived)

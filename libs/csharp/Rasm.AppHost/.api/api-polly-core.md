@@ -111,7 +111,7 @@
 - Execution captures every result and exception as `Outcome<T>`; `PredicateBuilder<T>` composes `ShouldHandle` and strategy callbacks read the outcome without throwing.
 - Each strategy ships a generic `…StrategyOptions<T>`; circuit-breaker also ships a non-generic `CircuitBreakerStrategyOptions : <object>` for the non-generic builder.
 - One `ResiliencePipelineRegistry<TKey>` owns pipeline identity; `ResiliencePipelineProvider<TKey>` resolves a built pipeline by policy key.
-- A pooled `ResilienceContext` carries operation key, cancellation, typed `Properties`, and telemetry identity; `ResilienceContextPool.Shared` is the default pool.
+- Pooled `ResilienceContext` instances carry operation key, cancellation, typed `Properties`, and telemetry identity; `ResilienceContextPool.Shared` is the default pool.
 
 [STACKING]:
 - `Microsoft.Extensions.Http.Resilience`(`.api/api-resilience.md`): outbound handlers build their standard and hedging pipelines on `ResiliencePipelineBuilder`, and request metadata bridges into `ResilienceContext.Properties` through the request-context extensions.

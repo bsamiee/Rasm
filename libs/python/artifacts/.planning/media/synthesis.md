@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[SYNTHESIS]: `Synthesis` owns the closed audio and calibration-video `SynthOp` family, admits every payload once, encodes through the media spine, and folds full generation parameters into `ArtifactReceipt.Media`.
+- [02]-[SYNTHESIS]: `Synthesis` owns the closed audio and calibration-video `SynthOp` family, admits every payload once, encodes through the media spine, and folds full generation parameters into `ArtifactReceipt.Media`.
 
 ## [02]-[SYNTHESIS]
 

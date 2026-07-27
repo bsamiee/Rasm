@@ -6,8 +6,8 @@ Every payload keys by runtime `ContentIdentity` over the canonical `float64` poi
 
 ## [01]-[INDEX]
 
-- [01]-[MESH]: the `MeshPayload` owner over the `_BACKEND` behavior table — topology, named arrays, time-series, preview, write.
-- [02]-[POINTCLOUD]: the `PointCloud` LAS/LAZ/COPC row — octree subset, the columnar point-record bridge, the remote resilience envelope.
+- [02]-[MESH]: the `MeshPayload` owner over the `_BACKEND` behavior table — topology, named arrays, time-series, preview, write.
+- [03]-[POINTCLOUD]: the `PointCloud` LAS/LAZ/COPC row — octree subset, the columnar point-record bridge, the remote resilience envelope.
 
 ## [02]-[MESH]
 

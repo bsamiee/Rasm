@@ -138,6 +138,11 @@
 |  [12]   | `ExecuteReader`                     | command/batch call | reads rows                                     |
 |  [13]   | `ExecuteNonQuery`                   | command/batch call | writes changes                                 |
 |  [14]   | `ExecuteScalar`                     | command/batch call | reads scalar value                             |
+|  [15]   | `Parameters.Add`                    | collection call    | adds a constructed `NpgsqlParameter`           |
+|  [16]   | `Parameters.AddWithValue`           | collection call    | adds by value, named or positional             |
+
+- `Parameters.AddWithValue`: two-argument forms name a `@placeholder`, one-argument forms bind positionally against `$n`, and every form boxes its value — `NpgsqlParameter<T>` binds unboxed.
+- `NpgsqlParameterCollection`: first admitted parameter fixes the collection's placeholder dialect, and a named bind meeting a positional one marks it mixed, which execution refuses.
 
 [ENTRYPOINT_SCOPE]: binary COPY
 

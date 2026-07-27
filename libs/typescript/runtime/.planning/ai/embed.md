@@ -2,7 +2,7 @@
 
 The embedding corpus pipeline and the retrieval port's satisfying side: deterministic chunking (one normalization anchor, three cut lanes as policy rows folding into `Piece` receipts), embedding capability rows on the native engine (`EmbeddingModel.make` with its built-in batch-and-cache, `makeDataLoader` with wall-clock window coalescing, the OpenAI rows as the shipped reference, the Google row over the raw `BatchEmbedContents` client, a `custom` row for any remaining raw provider), a two-tier cache whose durable band survives restart through the persisted request-resolver family, and the `Embedder` Layer that satisfies the data wave's retrieval port at app composition — publishing the admitted `Search.Embedding.fingerprint`, batching through the data wave's `Batch.Engine` on both postures, and folding the provider error union into the port's typed fault through one total tag table. The optional `Reranker` port is satisfied here too: a gated structured-output scoring fold over the window the retrieval fusion hands across, its answer re-admitted against the presented cells before it leaves. Determinism is the spine: the NFC scrub is the identity anchor — equal text yields equal pieces, equal pieces yield equal cache hits and equal fingerprint rows in every process and every language. The module is `runtime/src/ai/embed.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER] | [OWNS]                                                                          | [PUBLIC]    |
 | :-----: | :-------- | :------------------------------------------------------------------------------ | :---------- |

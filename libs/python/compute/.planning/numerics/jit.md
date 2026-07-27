@@ -6,7 +6,7 @@ This owner mints the `LoweredSpec` vocabulary of the symbolic-to-jit-to-consumer
 
 ## [01]-[INDEX]
 
-- [01]-[JIT]: numba and jax compile routes on one `JitBackend` owner over the `_JIT_ROUTES` table, evidence discriminated over `JitEvidence`, and the jit-minted `LoweredSpec` bridge vocabulary.
+- [02]-[JIT]: numba and jax compile routes on one `JitBackend` owner over the `_JIT_ROUTES` table, evidence discriminated over `JitEvidence`, and the jit-minted `LoweredSpec` bridge vocabulary.
 
 ## [02]-[JIT]
 

@@ -4,12 +4,11 @@ Block operations (`Rasm.Rhino.Blocks`) own one closed mutation family, one close
 
 ## [01]-[INDEX]
 
-| [INDEX] | [OWNER]                       | [CONTRACT]                           |
-| :-----: | :---------------------------- | :----------------------------------- |
-|  [01]   | operation values · `BlockOp`  | admitted mutation program            |
-|  [02]   | `BlockAsk` · `BlockAnswer`    | detached read and projection program |
-|  [03]   | `BlockTransaction` · `Blocks` | transaction admission and execution  |
-|  [04]   | `BlockReceipt`                | consequence fact stream              |
+- [02]-[OPERATION_FAMILY]: `BlockOp` carrying every verified definition mutation and block-specific instance operation as generated values, `BlockMember` pairing one admitted `GeometryIntake` with one attribute set under a lease that closes on every exit.
+- [03]-[READ_FAMILY]: `BlockAsk`/`BlockAnswer` closing state, dependency, preview, field extraction, token composition, name minting, and instance explosion, `ExplodedPiece` owning its detached geometry and attribute custody.
+- [04]-[COMMIT_SPINE]: `BlockTransaction` admitting one homogeneous program through `BlockTrait`-derived undo and kernel-context requirements, and `Blocks.Commit` walking the one `DocumentCommit.Sealed` envelope.
+- [05]-[RECEIPTS]: `BlockReceipt` the consequence fact stream with no default state, path, tally, signal, and undo facts sharing one closed payload family and slot projections deriving from `Facts`.
+- [06]-[SURFACE_LEDGER]: owner-to-ingress-to-rail-to-egress roster across `BlockOp`, `BlockTransaction`, `Blocks`, and `BlockReceipt`.
 
 ## [02]-[OPERATION_FAMILY]
 

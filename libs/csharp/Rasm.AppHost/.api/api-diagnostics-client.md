@@ -74,7 +74,7 @@
 
 [TOPOLOGY]:
 - `DiagnosticsClient` targets one process's runtime diagnostics IPC endpoint — a Unix domain socket or named pipe published by the runtime; `GetPublishedProcesses` enumerates locally diagnosable runtimes. AppHost targets the host process itself, or a companion child whose pid the companion control host owns.
-- `WriteDump` blocks while the runtime serializes the minidump: `Triage` redacts PII by construction, `Normal` is stacks-only, `WithHeap`/`Full` carry managed and native heap; `WriteDumpFlags.CrashReportEnabled` emits the companion crash-report JSON beside the dump. A missing endpoint throws `ServerNotAvailableException`, mapped at the boundary.
+- `WriteDump` blocks while the runtime serializes the minidump: `Triage` redacts PII by construction, `Normal` is stacks-only, `WithHeap`/`Full` carry managed and native heap; `WriteDumpFlags.CrashReportEnabled` emits the companion crash-report JSON beside the dump. Missing endpoints throw `ServerNotAvailableException`, mapped at the boundary.
 - `EventPipeSession.EventStream` is a forward-only nettrace `Stream` a parser consumes live; the stream drains on a dedicated pump, never the trigger thread, and the session is `IDisposable`. `circularBufferMB` bounds the in-runtime buffer so a slow consumer drops events rather than growing unbounded.
 
 [STACKING]:

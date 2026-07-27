@@ -6,7 +6,7 @@ Authoring is DATA over the closed grammar: a `SchematicSpec` carries `SymbolRow`
 
 ## [01]-[INDEX]
 
-- [01]-[SCHEMATIC]: the schemdraw catalog owner — `SchematicSpec` the closed authoring union (circuit/flow/dsp symbol rows, a logic boolean expression, kmap/timing/bitfield/truth-table data payloads), `SymbolRow`/`PinRow` the relative-placement grammar as data, `Schematic` the producer minting `ArtifactReceipt.Diagram`, and the fully-constructed `SchematicFault` rail; consumed through `core/issue#ISSUE`'s `works` arm as one `emit()` node.
+- [02]-[SCHEMATIC]: the schemdraw catalog owner — `SchematicSpec` the closed authoring union (circuit/flow/dsp symbol rows, a logic boolean expression, kmap/timing/bitfield/truth-table data payloads), `SymbolRow`/`PinRow` the relative-placement grammar as data, `Schematic` the producer minting `ArtifactReceipt.Diagram`, and the fully-constructed `SchematicFault` rail; consumed through `core/issue#ISSUE`'s `works` arm as one `emit()` node.
 
 ## [02]-[SCHEMATIC]
 

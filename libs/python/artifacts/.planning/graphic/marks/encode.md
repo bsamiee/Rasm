@@ -6,7 +6,7 @@ Every provider boundary maps named raises into `MarkFault`. `_QR_BANDS` selects 
 
 ## [01]-[INDEX]
 
-- [01]-[MARK]: `MarkOp`, `Mark`, `Content`, taxonomy-derived provider dispatch, factory-specific QR admission, and the composed scan/verify inverse form one marks operation rail.
+- [02]-[MARK]: `MarkOp`, `Mark`, `Content`, taxonomy-derived provider dispatch, factory-specific QR admission, and the composed scan/verify inverse form one marks operation rail.
 
 ## [02]-[MARK]
 

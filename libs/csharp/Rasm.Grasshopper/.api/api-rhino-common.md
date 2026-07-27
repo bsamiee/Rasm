@@ -4,8 +4,8 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: host assembly `RhinoCommon`
-- package: `RhinoCommon` (RhinoWIP host managed API)
+[PACKAGE_SURFACE]: RhinoCommon Grasshopper-boundary surface
+- host: Rhino host runtime, in-process (proprietary McNeel SDK)
 - assembly: `RhinoCommon`
 - namespace: `Rhino`, `Rhino.UI`, `Rhino.Geometry`
 - asset: in-process `RhinoCommon.dll` from the installed RhinoWIP bundle at `/Applications/RhinoWIP.app/Contents/Frameworks/RhCore.framework/Versions/Current/Resources/RhinoCommon.dll`
@@ -19,36 +19,25 @@
 | :-----: | :--------- | :------------ | :-------------------------------------------- |
 |  [01]   | `RhinoDoc` | class         | active model, getter target, identity carrier |
 
-[PUBLIC_TYPE_SCOPE]: `Rhino.Geometry` value carriers
+[PUBLIC_TYPE_SCOPE]: `Rhino.Geometry` port-carrier roster — the typing vocabulary a `PortRow` declares and `GardenData` transports
 
-| [INDEX] | [SYMBOL]      | [TYPE_FAMILY] | [CAPABILITY]                        |
-| :-----: | :------------ | :------------ | :---------------------------------- |
-|  [01]   | `Point3d`     | struct        | 3D model-space point                |
-|  [02]   | `Vector3d`    | struct        | 3D direction and displacement       |
-|  [03]   | `Point2d`     | struct        | 2D parameter and screen-plane point |
-|  [04]   | `Line`        | struct        | finite from/to segment              |
-|  [05]   | `Arc`         | struct        | circular arc                        |
-|  [06]   | `Circle`      | struct        | planar circle                       |
-|  [07]   | `Rectangle3d` | struct        | oriented planar rectangle           |
-|  [08]   | `Box`         | struct        | oriented bounding box               |
-|  [09]   | `Sphere`      | struct        | analytic sphere                     |
-|  [10]   | `Plane`       | struct        | origin and axis-frame plane         |
-|  [11]   | `Transform`   | struct        | 4×4 affine transform matrix         |
-|  [12]   | `Quaternion`  | struct        | rotation quaternion                 |
-|  [13]   | `Interval`    | struct        | 1D numeric domain                   |
-|  [14]   | `MeshFace`    | struct        | triangle or quad face index quad    |
+| [INDEX] | [SYMBOL]      | [TYPE_FAMILY] | [CAPABILITY]                                 |
+| :-----: | :------------ | :------------ | :------------------------------------------- |
+|  [01]   | `Point2d`     | struct        | 2D parameter and screen-plane point          |
+|  [02]   | `Rectangle3d` | struct        | oriented planar rectangle                    |
+|  [03]   | `Arc`         | struct        | circular arc                                 |
+|  [04]   | `Circle`      | struct        | planar circle                                |
+|  [05]   | `Sphere`      | struct        | analytic sphere                              |
+|  [06]   | `Curve`       | class         | abstract `GeometryBase` curve base           |
+|  [07]   | `Surface`     | class         | abstract `GeometryBase` surface base         |
+|  [08]   | `Brep`        | class         | `GeometryBase` boundary-representation solid |
+|  [09]   | `SubD`        | class         | `GeometryBase` subdivision surface           |
+|  [10]   | `Mesh`        | class         | `GeometryBase` polygon mesh                  |
+|  [11]   | `TextDot`     | class         | `GeometryBase` annotation dot                |
+|  [12]   | `Polyline`    | class         | open or closed `Point3dList` vertex chain    |
 
-[PUBLIC_TYPE_SCOPE]: `Rhino.Geometry` reference geometry
-
-| [INDEX] | [SYMBOL]   | [TYPE_FAMILY] | [CAPABILITY]                                 |
-| :-----: | :--------- | :------------ | :------------------------------------------- |
-|  [01]   | `Curve`    | class         | abstract `GeometryBase` curve base           |
-|  [02]   | `Surface`  | class         | abstract `GeometryBase` surface base         |
-|  [03]   | `Brep`     | class         | `GeometryBase` boundary-representation solid |
-|  [04]   | `SubD`     | class         | `GeometryBase` subdivision surface           |
-|  [05]   | `Mesh`     | class         | `GeometryBase` polygon mesh                  |
-|  [06]   | `TextDot`  | class         | `GeometryBase` annotation dot                |
-|  [07]   | `Polyline` | class         | open or closed `Point3dList` vertex chain    |
+- Registers `RhinoCommon` value substrate(`libs/csharp/.api/api-rhinocommon.md`): `Point3d`, `Vector3d`, `Plane`, `Line`, `BoundingBox`, `Transform`, `MeshFace`, `Quaternion`, `Interval`, `Box`, and `GeometryBase` carry their algebra there and type ports by that spelling; the rows above are the carriers this boundary adds beyond it.
+- Every row is an opaque port payload here — the folder types against it and never operates on it, so a carrier's members are read at its owning catalogue alone.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -95,7 +84,7 @@ Each prompt settles a value through the Rhino-native fast lane, the accepted-ver
 - native input is `Dialogs.ShowEditBox`/`ShowNumberBox` through the `PickerSpec` fast lane; a hand-rolled edit or number dialog is the deleted form
 
 [RAIL_LAW]:
-- Package: `RhinoCommon` (Rhino document and geometry carriers)
-- Owns: the `RhinoDoc` getter-handoff payload, the `Rhino.UI.Dialogs` edit and number prompts, and the `Rhino.Geometry` value and reference port carriers
+- Partition: RhinoCommon Grasshopper boundary (`Rhino`, `Rhino.UI`, `Rhino.Geometry` port carriers)
+- Owns: the `RhinoDoc` getter-handoff payload, the `Rhino.UI.Dialogs` edit and number prompts, and the boundary-added `Rhino.Geometry` port carriers over the registered value substrate
 - Accept: active-document access at the editor getter seam, native edit and number input prompts, geometry-carrier typing at ports and data transfer
-- Reject: Rhino document mutation and semantics (`Rasm.Rhino`), Eto and Rhino UI styling (`api-rhino-ui`), the GH2 document graph (`api-gh2-document`)
+- Reject: Rhino document mutation and semantics (`Rasm.Rhino`), Eto and Rhino UI styling (`api-rhino-ui`), the GH2 document graph (`api-gh2-document`), a re-tabling of the substrate carrier algebra

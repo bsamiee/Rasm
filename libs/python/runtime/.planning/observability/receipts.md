@@ -6,7 +6,7 @@ This owner produces local evidence â€” typed receipts and structured log facts â
 
 ## [01]-[INDEX]
 
-- [01]-[RECEIPT]: the minted drain taxonomy and composition-scope vocabulary, the bracket-cheap `Cost` process-spend evidence, the self-projecting receipt union, the contributor port, the `@receipted` aspect and the `measured` weave, the `emit`/`emit_async` sink pair, the emit-bound redaction policy, and the inbound trace-context pair.
+- [02]-[RECEIPT]: the minted drain taxonomy and composition-scope vocabulary, the bracket-cheap `Cost` process-spend evidence, the self-projecting receipt union, the contributor port, the `@receipted` aspect and the `measured` weave, the `emit`/`emit_async` sink pair, the emit-bound redaction policy, and the inbound trace-context pair.
 
 ## [02]-[RECEIPT]
 

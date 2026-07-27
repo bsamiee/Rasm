@@ -6,8 +6,8 @@ Every ingested feature lands as ONE `GeoFeatureRow`: decoded `Geometry`, canonic
 
 ## [01]-[INDEX]
 
-- [01]-[GEO_SOURCE]: the four-format capability axis under one shared factory, the `GeoSpec` descriptor carrying the admission posture, the closed ingest/egress/probe op family with arity-honest binary egress, the CRS and validity gates, the H3 bucket derivation, and the typed fact stream.
-- [02]-[FEATURE_ROWS]: the `GeoFeatureRow` currency — canonical WKB + content key + cell set + deferred properties — the one `Bind<T>` reify seam, and the GeoPackage container spine read and attributed write.
+- [02]-[GEO_SOURCE]: the four-format capability axis under one shared factory, the `GeoSpec` descriptor carrying the admission posture, the closed ingest/egress/probe op family with arity-honest binary egress, the CRS and validity gates, the H3 bucket derivation, and the typed fact stream.
+- [03]-[FEATURE_ROWS]: the `GeoFeatureRow` currency — canonical WKB + content key + cell set + deferred properties — the one `Bind<T>` reify seam, and the GeoPackage container spine read and attributed write.
 
 ## [02]-[GEO_SOURCE]
 

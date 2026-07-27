@@ -6,4 +6,9 @@
     <ItemGroup Label="Project References">
         <ProjectReference Include="../../../../libs/csharp/Rasm.AppHost/Rasm.AppHost.csproj" />
     </ItemGroup>
+    <ItemGroup Label="Telemetry Observation Rail">
+        <!-- Suite-owned doubles: the observation rail asserts instrument writes on one injected clock. -->
+        <PackageReference Include="Microsoft.Extensions.Diagnostics.Testing" />
+        <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    </ItemGroup>
 </Project>

@@ -8,7 +8,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 <!-- source-only: open idea card template:
 [ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
-- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Capability: <the higher-order invariant, owner capability, or concept established — concept grain only, never a page path, row list, or member spelling>.
 - Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
 - Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
 - Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
@@ -25,12 +25,14 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Unlocks: bidirectional MQTT crossings under the one carrier adapter family.
 - Anchors: the settled gRPC, generic, and MQTT publish adapters; `libs/csharp/Rasm.AppHost/.api/api-mqtt.md`; `libs/csharp/.api/`.
 - Arms: `libs/csharp/Rasm.AppHost/.api/api-mqtt.md` or `libs/csharp/.api/` carries the exact `MqttApplicationMessage` user-property collection and entry accessors.
+
 [TELEMETRY_OFFLINE_SPINE]-[BLOCKED]: Telemetry survives disconnection through a per-signal disk-retry spine.
 - Capability: an `OfflineQueue`-backed exporter retry binding holds every signal through an outage, so a field machine ships complete history on reconnect.
 - Shape: the offline-retry binding on the AppHost telemetry exporter owners.
 - Unlocks: lossless telemetry from disconnected sites.
-- Anchors: `libs/csharp/Rasm.AppHost/.api/api-otel-exporter.md`; `libs/csharp/.api/api-opentelemetry-exporter-otlp.md`.
+- Anchors: `libs/csharp/.api/api-opentelemetry-exporter-otlp.md`; `libs/csharp/Rasm.AppHost/.api/api-otel-persistent-storage.md`.
 - Arms: either catalog carries an exact per-signal disk-retry member or environment binding and its `FileBlobProvider` composition law.
+
 [CORPUS_GATE_INGEST]-[BLOCKED]: One corpus gate ingests benchmark claim projections from every producer.
 - Capability: kernel, Bim, Persistence, and Rhino projections — all settled — complete with Materials and Grasshopper, estate-wide claims grading through one gate.
 - Shape: the Materials and Grasshopper projections routed by `Observability/benchmarks.md#[CLAIM_FAMILY_ADMISSION]`.
@@ -51,5 +53,5 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [DOMAIN_INSTRUMENT_CATALOG]-[COMPLETE]: Domain-instrument catalog over the receipt fan — landed as `.planning/Observability/instruments.md` with the roster, projection fold, per-ALC provider capsule, and observation rail.
 [TYPED_HOOK_RAIL]-[COMPLETE]: Typed hook rail over the existing bus, lifecycle, and receipt seams — landed as `.planning/Observability/hooks.md` with id grammar, modality rows, registry, and fault isolation.
 [BENCHMARK_RECEIPT_FAMILY]-[COMPLETE]: Benchmark receipt family and corpus-gate ownership — landed as `.planning/Observability/benchmarks.md` with the gate fold, bundle capture seam, and span-profile correlation.
-[PARTITIONED_OBSERVABLE_LEVELS]-[COMPLETE]: realized kernel-side per the substrate-homing collapse — keyed `LevelCells` families with `Reader` project per-key levels as tagged `Measurement<long>` rows through the multi-measurement observe overload at `libs/csharp/Rasm/.planning/Domain/telemetry.md` `[03]-[INSTRUMENT_MECHANISM]`, so a bespoke per-partition gauge is the deleted form.
+[PARTITIONED_OBSERVABLE_LEVELS]-[COMPLETE]: realized kernel-side per the substrate-homing collapse — keyed `LevelCells` families with `Reader` project per-key levels as tagged `Measurement<long>` rows through the multi-measurement observe overload at `libs/csharp/Rasm/.planning/Domain/telemetry.md` `[04]-[INSTRUMENT_MECHANISM]`, so a bespoke per-partition gauge is the deleted form.
 [CONTRIBUTED_ARM_ROSTER]-[COMPLETE]: the `[CONTRIBUTED_ARMS]` table landed at `Observability/instruments.md` `[03]-[RECEIPT_PROJECTION]` with all ten contributor rows — each domain package's projection, port mint, and custody named.

@@ -76,7 +76,7 @@
 [LOCAL_ADMISSION]:
 - Configuration sources enter bootstrap composition as ordered inputs in explicit precedence.
 - Runtime policy consumes typed projections, never a raw `IConfigurationSection`.
-- A reload replaces policy only through an owned state transition, never an ambient re-read.
+- Reloads replace policy only through an owned state transition, never an ambient re-read.
 
 [RAIL_LAW]:
 - Package: `Microsoft.Extensions.Configuration`

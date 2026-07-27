@@ -2,7 +2,7 @@
 
 `Workload` lowers one service or worker row into shared identity, pod, sizing, lifecycle, and optional network cells. Service rows own rolling replacement, CPU elasticity, and a `Service`; worker rows own claim-safe `Recreate` replacement and no network surface. `_KEYS` owns environment spellings, one Kubernetes `Secret` carries `DOPPLER_TOKEN`, and `doppler run --` is the injection edge. `_LIFE` mirrors runtime drain and probe facts into pod grace and health gates. `_scale` interprets `StackSpec.profile.scale`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]       | [OWNS]                                                                  | [PUBLIC]   |
 | :-----: | :-------------- | :---------------------------------------------------------------------- | :--------- |

@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[VOCABULARY]: `FeatureCharacteristic`, `FeatureScope`, and symbol-bearing modifier and material rows; payload-shaped `ToleranceZone`; datum, texture, and stackup families; generated `ItGradeName`; validated fit and general-tolerance seed laws; the `Tolerance.Apply` fold over `ToleranceRequest` into `ToleranceReceipt`.
+- [02]-[VOCABULARY]: `FeatureCharacteristic`, `FeatureScope`, and symbol-bearing modifier and material rows; payload-shaped `ToleranceZone`; datum, texture, and stackup families; generated `ItGradeName`; validated fit and general-tolerance seed laws; the `Tolerance.Apply` fold over `ToleranceRequest` into `ToleranceReceipt`.
 
 ## [02]-[VOCABULARY]
 

@@ -2,7 +2,7 @@
 
 Interchange capability owns both directions of the command contract. Outbound `CapabilityDescriptor` admits content-keyed command identity at bind time, while `Dial` derives its Connect protocol axis and failover `ExecutionPlan` from policy rows. Per-call lifts carry interruption, typed ambient values, W3C context, classified retry budgets, reconstructed `FaultDetail`, and `observe/convention` telemetry on one Effect rail. Inbound `Gateway` folds each verb row's body, receipt, handler, and duplex frame into one total dispatch surface that refuses unknown verbs as drift. Fused MsgPack and NDJSON transformers preserve the asymmetric schema seam from socket to typed duplex. Module `core/src/interchange/invoke.ts` admits a protocol as one lane row, a verb as one app-table row, and retry posture as one bind-time budget row.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]         | [OWNS]                                                                           | [PUBLIC]                   |
 | :-----: | :---------------- | :------------------------------------------------------------------------------- | :------------------------- |

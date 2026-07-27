@@ -409,7 +409,7 @@ Base assets ship the `win-{x64,arm64}` payloads inline; every other RID resolves
 [TOPOLOGY]:
 - session/policy/run roots are `InferenceSession`/`SessionOptions`/`RunOptions`; model, node, tensor, and element classifiers own metadata; native handles release through deterministic disposal.
 - EP append order is fallback priority; the autoEP loop is `OrtEnv.GetEpDevices()` → device rank → `AppendExecutionProvider(env, devices, …)` → `InferenceSession.GetEpDeviceForInputs()` reading back the device per input. `SetEpSelectionPolicy`/`SetEpSelectionPolicyDelegate` drive enum or callback ranking; `OrtEnv.RegisterExecutionProviderLibrary` admits an out-of-tree EP.
-- a bare `"CoreML"` faults `InvalidArgument`; the registered provider name is `"CoreMLExecutionProvider"`.
+- bare `"CoreML"` faults `InvalidArgument`; the registered provider name is `"CoreMLExecutionProvider"`.
 - warm-start admissibility is a two-step enum contract: `GetCompatibilityInfoFromModel(modelPath, epType) -> string`, then `GetModelCompatibilityForEpDevices(devices, info) -> OrtCompiledModelCompatibility`; branch on the enum, never a substring.
 - `EP_UNSUPPORTED`/`EP_SUPPORTED_PREFER_RECOMPILATION` force a fresh compile clearing the `ep.context_*` keys, `EP_SUPPORTED_OPTIMAL` keeps the warm-start read, `EP_NOT_APPLICABLE` means the device is not EP-context-aware; a rejected device populates a receipt through `GetHardwareDeviceEpIncompatibilityDetails`.
 - IO binding amortizes input and output allocation across repeated runs and is the measured hot-loop path; `SynchronizeBoundInputs`/`SynchronizeBoundOutputs` flush device transfers around the bound run.

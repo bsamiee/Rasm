@@ -2,7 +2,7 @@
 
 The commit-graph anti-entropy owner: `Commit` — the content-keyed commit class carrying its parents, causal vector, stamp, and author — with the branch head shape and the Merkle summary machinery riding it as statics, so the whole commit-graph vocabulary travels one import and the interchange decode seam targets one owner family. The commit/branch/Merkle wire shapes C# mints at its persistence version plane decode INTO these owners, and the interior speaks exactly this vocabulary with zero TS re-mints. Merkle comparison is a tier-descent fold that touches only the buckets whose digests differ — comparison cost proportional to the divergence — and summary construction canonicalizes the leaf set (sorted, deduplicated) then folds bottom-up delegating every tier digest to the `value/contentKey` mint, so building and comparing summaries share one identity, one canonical order, and one fanout law. The module is `core/src/state/commit.ts`; a deeper anti-entropy question is a field row on the summary plus a projection, never a second summary shape.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]      | [OWNS]                                                                | [PUBLIC]                                      |
 | :-----: | :------------- | :-------------------------------------------------------------------- | :-------------------------------------------- |

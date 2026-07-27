@@ -2,7 +2,7 @@
 
 Hook-rail vocabulary of the observe plane, the fourth owner beside `convention`, `slo`, and `board`: every branch hook point is a `rasm.<pkg>.<domain>.<point>` name row on ONE typed registry — the `TapPoint` brand admits the spelling once, the closed veto/observe/replay modality table fixes dispatch semantics as data columns, the subscription contract types every subscriber against its point's fact schema, and subscriber failure isolates onto the `value` `FaultClass` lattice as `Breach` evidence, so a publisher can never be broken by its inspectors. Core defines every shape the rail runs and executes none of it — fibers, scheduling, and delivery live in the runtime wave — and the telemetry-as-tap law closes the plane: a signal emitter is an observe subscription over domain facts, never an emit call inside a domain fold, so the zero-exporter boundary holds by construction. Rails scope through the `AppIdentity.Key` app brand, so two apps composing identical point names occupy distinct rails; tenancy partitioning stays `TenantContext.scope` and never enters the hook plane. Its module is `core/src/observe/tap.ts`; a new hook point is one name row, a new modality is one tuple entry with its row, a new signal emitter is one subscription value.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]          | [OWNS]                                                                            | [PUBLIC]               |
 | :-----: | :----------------- | :-------------------------------------------------------------------------------- | :--------------------- |

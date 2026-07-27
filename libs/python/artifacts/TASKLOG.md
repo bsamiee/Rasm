@@ -8,7 +8,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 <!-- source-only: open task card template:
 [ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
-- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Capability: <the higher-order invariant, owner capability, or concept established — concept grain only, never a page path, row list, or member spelling>.
 - Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
 - Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
 - Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
@@ -21,7 +21,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 -->
 
 [MEDIA_CANON_SEAM]-[QUEUED]: the media canonical-encoder seam resolves to one spelling.
-- Capability: every media sibling imports the canonical encoder trio by names the source module actually exports, and the test-pattern painter stops shadowing the encoder helper's name.
+- Capability: every media sibling imports the canonical encoder trio by names the source module exports, and the test-pattern painter stops shadowing the encoder helper's name.
 - Shape: `libs/python/artifacts/.planning/media/container.md` re-exports `CANON`/`framed`/`_lapsed` under one canonical spelling; the sibling import blocks on `media/timeline.md`, `media/subtitle.md`, `media/analysis.md`, and `media/synthesis.md` align to it, and `media/synthesis.md` renames its local `_framed` test-pattern painter.
 - Unlocks: the four sibling pages stop importing names container never defines — the seam compiles as written.
 - Anchors: container's import of `CANON`/`framed` from the scene spec; the four sibling underscore-form import blocks.

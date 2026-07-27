@@ -90,10 +90,10 @@
 
 [TOPOLOGY]:
 - Each registration mints one `ServiceDescriptor` selecting a `ServiceLifetime` — singleton, scoped, or transient — on an axis orthogonal to the `object` service key; the root provider owns singleton state and every created scope owns its scoped disposal.
-- A descriptor carries one construction form — implementation type, factory, or singleton instance — the keyed axis mirroring each form behind the service key.
+- Each descriptor carries one construction form — implementation type, factory, or singleton instance — the keyed axis mirroring each form behind the service key.
 - `ValidateScopes` guards scoped-from-root capture and `ValidateOnBuild` forces eager provider construction, both `ServiceProviderOptions` policy proven at `BuildServiceProvider`.
 - `ActivatorUtilities` constructs a boundary object from unregistered constructor dependencies, never a hidden service-locator lookup.
-- A keyed factory receives `IServiceProvider` and the `object` key; `FromKeyedServicesAttribute` selects a keyed constructor dependency, `ServiceKeyAttribute` injects the ambient key, and `ServiceKeyLookupMode` decides key inheritance.
+- Keyed factories receive `IServiceProvider` and the `object` key; `FromKeyedServicesAttribute` selects a keyed constructor dependency, `ServiceKeyAttribute` injects the ambient key, and `ServiceKeyLookupMode` decides key inheritance.
 - `KeyedService.AnyKey` selects the keyed enumerable and never resolves a single service.
 
 [STACKING]:

@@ -6,7 +6,7 @@ Honeybee's AGPL-3.0 band rides the standing companion-lane charter — function-
 
 ## [01]-[INDEX]
 
-- [01]-[MODEL]: one polymorphic model owner — two-modality admission under one `check_all` gate, the assignment fold over the standards backends, the content-keyed wire egress — under one `ModelReceipt`.
+- [02]-[MODEL]: one polymorphic model owner — two-modality admission under one `check_all` gate, the assignment fold over the standards backends, the content-keyed wire egress — under one `ModelReceipt`.
 
 ## [02]-[MODEL]
 

@@ -113,7 +113,7 @@ Every `Use*`/`ConfigureOptions`/`AsBuilder` returns its builder for chaining; a 
 
 [STACKING]:
 - `Microsoft.Extensions.AI.Abstractions`(`libs/csharp/.api/api-extensions-ai.md`): the abstractions tier owns `IChatClient`, `IEmbeddingGenerator`, `AIFunction`, `DelegatingChatClient`, `IChatReducer`, and `AIJsonUtilities`; every decorator subclasses `DelegatingChatClient`, `Build` emits an `IChatClient`, and structured output reads its schema from `AIJsonUtilities`.
-- `api-otel.md`(`.api/api-otel.md`): `UseOpenTelemetry(source)` emits the `gen_ai.*` GenAI span and metric conventions on the `ActivitySource`/`Meter` the OTel composition root admits through `AddSource`/`AddMeter`.
+- `OpenTelemetry`(`libs/csharp/.api/api-opentelemetry.md`): `UseOpenTelemetry(source)` emits the `gen_ai.*` GenAI span and metric conventions on the `ActivitySource`/`Meter` the OTel composition root admits through `AddSource`/`AddMeter`.
 - `api-hybrid-cache.md`(`libs/csharp/.api/api-hybrid-cache.md`): `UseDistributedCache` binds the resources-lane `HybridCache` surfaced as `IDistributedCache`, so the model response cache and the suite content cache share one store.
 - `api-mcp.md`(`.api/api-mcp.md`): `McpClientTool : AIFunction` registers in `ChatOptions.Tools`, and `FunctionInvokingChatClient` runs the tool-call loop over each, routing through the brokered `CommandAIFunction` the governance fold supplies.
 - within-fold: the governance fold composes the stack once at the capability-agent edge — `AddChatClient(sp => provider, lifetime).UseOpenTelemetry(...).UseDistributedCache(...).UseChatReducer(...).UseFunctionInvocation(...)` — reading every bound off the agent options row.

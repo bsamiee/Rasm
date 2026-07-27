@@ -78,8 +78,8 @@
 - Richest composition: `ReadAllAsync` feeds `Parallel.ForEachAsync` under a declared degree, `Channel<TWrite, TRead>` carries a decode-on-read transform lane, and `UnboundedPrioritizedChannelOptions<T>.Comparer` re-orders a drain by rank instead of arrival.
 
 [LOCAL_ADMISSION]:
-- A producer-consumer hand-off composes this surface; the owner retains the `ChannelWriter<T>` and publishes only the `ChannelReader<T>`, so a consumer cannot write or complete the lane it drains.
-- A custom transport subclasses `Channel<TWrite, TRead>`; the implicit half operators foreclose a wrapper type that re-exposes reader members.
+- Producer-consumer hand-offs compose this surface: the owner retains the `ChannelWriter<T>` and publishes only the `ChannelReader<T>`, so a consumer cannot write or complete the lane it drains.
+- Custom transports subclass `Channel<TWrite, TRead>`; the implicit half operators foreclose a wrapper type that re-exposes reader members.
 
 [RAIL_LAW]:
 - Package: `System.Threading.Channels`

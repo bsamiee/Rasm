@@ -6,8 +6,8 @@ This codec NEVER knows the element graph and NEVER computes schedule math: the p
 
 ## [01]-[INDEX]
 
-- [01]-[SCHEDULE_SOURCE]: the one parse/serialize/probe op family over `ScheduleSpec`, the seven-member `ScheduleFormat` egress axis, the `DependencyKind`/`ConstraintKind` seam vocabularies, the always-`ReadAll` container law, the row-boundary fault fold on both legs, and the typed fact stream.
-- [02]-[DURABLE_NETWORK]: the persisted activity/relation/calendar/resource rows at full MPXJ axis depth, the unit-tagged `Option<ScheduleSpan>` crossing, the `ProjectRows.Of`/`Synthesis.Fold` round-trip seam, and the `ScheduleRows.Reconcile` baseline/update variance owner.
+- [02]-[SCHEDULE_SOURCE]: the one parse/serialize/probe op family over `ScheduleSpec`, the seven-member `ScheduleFormat` egress axis, the `DependencyKind`/`ConstraintKind` seam vocabularies, the always-`ReadAll` container law, the row-boundary fault fold on both legs, and the typed fact stream.
+- [03]-[DURABLE_NETWORK]: the persisted activity/relation/calendar/resource rows at full MPXJ axis depth, the unit-tagged `Option<ScheduleSpan>` crossing, the `ProjectRows.Of`/`Synthesis.Fold` round-trip seam, and the `ScheduleRows.Reconcile` baseline/update variance owner.
 
 ## [02]-[SCHEDULE_SOURCE]
 

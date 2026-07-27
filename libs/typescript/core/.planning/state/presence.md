@@ -2,7 +2,7 @@
 
 The actor-presence CRDT: the wire-carried op family — `Join` carrying the typed profile and device, `Beat` heartbeats sampling connection quality, `Move` carrying the ephemeral-axes patch (cursor, selection, view, focus, input) as data so every collaborative axis rides ONE op, `Leave` departures — merged per actor into one `Merge.struct` product whose every row is a proven instance: the durable stamps (`joined`/`last`/`gone`) plus one stamped-LWW `Worn` row per axis, and the ephemeral-axis roster is ONE `_AXES` schema-row anchor from which the `Move` patch fields, the product rows, and the op lift all derive — presence converges across feeds and replicas like any lattice and a new axis is one anchor row, never three synchronized edits and never an op case. Status is a read-time verdict over a caller-supplied horizon so liveness policy is a value and the fold never reads an ambient clock. A serving edge decodes client frames INTO this family and forwards rosters; the fold below is the only presence authority, one more `fold#PLAN_CONTRACT` plan row every altitude runs unchanged — the browser roster is the fold's in-memory handle, the ordered roster board is the fractional-index lane, and no second presence table exists anywhere. The module is `core/src/state/presence.ts`; a new ephemeral axis is one `_AXES` row, a new roster read is one projection member.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]       | [OWNS]                                                           | [PUBLIC]                                         |
 | :-----: | :-------------- | :--------------------------------------------------------------- | :----------------------------------------------- |

@@ -6,7 +6,7 @@ Ladybug's AGPL-3.0 network-copyleft band rides the standing companion-lane chart
 
 ## [01]-[INDEX]
 
-- [01]-[CLIMATE]: one polymorphic weather owner — EPW admission, series algebra, derived projections, sun geometry, point comfort — under one `ClimateReceipt`.
+- [02]-[CLIMATE]: one polymorphic weather owner — EPW admission, series algebra, derived projections, sun geometry, point comfort — under one `ClimateReceipt`.
 
 ## [02]-[CLIMATE]
 

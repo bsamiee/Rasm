@@ -6,7 +6,7 @@ Every selecting verb admits its query through `IfcSelector` (`ifc/selector#SELEC
 
 ## [01]-[INDEX]
 
-- [01]-[ANALYSIS]: analysis verbs over one `AnalysisRow` algebra, the `IfcSelector` gate, the `OCC_NATIVE` retry row, and kind-specific graduation evidence under `BIM_COMPLIANCE`.
+- [02]-[ANALYSIS]: analysis verbs over one `AnalysisRow` algebra, the `IfcSelector` gate, the `OCC_NATIVE` retry row, and kind-specific graduation evidence under `BIM_COMPLIANCE`.
 
 ## [02]-[ANALYSIS]
 

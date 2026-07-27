@@ -6,7 +6,7 @@ Vector parse, query, affine, point-relation, measure, and sample behavior lives 
 
 ## [01]-[INDEX]
 
-- [01]-[PATH]: the SVG parse/query/affine/measure/sample substrate over the closed `PathOp` family — the memoized `_parsed` core, the `Matrix` affine, the `Viewbox` fit, the metric arc-length kernels (`point_at`/`curvature`/`decimate`/`centroid` over one numpy sweep), and the `Length` unit egress — the composable surface region/pattern/compose/solar import one hop, on the `Path.over`/`of` modal rail over `Block[PathResult]`.
+- [02]-[PATH]: the SVG parse/query/affine/measure/sample substrate over the closed `PathOp` family — the memoized `_parsed` core, the `Matrix` affine, the `Viewbox` fit, the metric arc-length kernels (`point_at`/`curvature`/`decimate`/`centroid` over one numpy sweep), and the `Length` unit egress — the composable surface region/pattern/compose/solar import one hop, on the `Path.over`/`of` modal rail over `Block[PathResult]`.
 
 ## [02]-[PATH]
 

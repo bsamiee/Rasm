@@ -6,7 +6,7 @@ Stress is `∂W/∂ε` and the algorithmic tangent is `∂²W/∂ε²` through t
 
 ## [01]-[INDEX]
 
-- [01]-[CONSTITUTIVE]: per-Gauss-point plasticity/hyperelasticity/viscoelasticity/damage energy axis and regularized normal-contact potential with exact local hyper-dual derivatives.
+- [02]-[CONSTITUTIVE]: per-Gauss-point plasticity/hyperelasticity/viscoelasticity/damage energy axis and regularized normal-contact potential with exact local hyper-dual derivatives.
 
 ## [02]-[CONSTITUTIVE]
 

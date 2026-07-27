@@ -2,7 +2,7 @@
 
 Feature evaluation is one owner over the real OpenFeature server SDK: targeting is data — a closed recursive rule family decoded from the provider document and folded by one total `decide` whose percentage bucket derives from the kernel content-key mint, so the same subject lands in the same bucket in every language — and evaluation is the SDK's own lifecycle: this page's provider implements the SDK `Provider` contract over the live ruleset cell, registers through `OpenFeature.setProviderAndWait`, emits `ConfigurationChanged` on every accepted patch, and answers through the SDK client so hooks and evaluation context ride the standard seam. `Verdict` is the branch projection of the shared evaluation contract — flag, kind-typed value (the object kind is a real arm over one recursive JSON schema), variant, reason, error code, error message, metadata, instant — the single shape the C#-evaluated `FlagVerdictWire` decodes into and local evaluation mints. Stickiness and memoization are policy rows: a held variant is a ledger fact with an epoch and a lease, a memoized verdict expires by its own reason, and `evaluate` never fails — a missing flag, a malformed rule, and a cold provider are verdict evidence, never channel faults. The `security` `FlagGate` port is satisfied here. The module is `runtime/src/proc/flag.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]          | [OWNS]                                                                          | [PUBLIC]  |
 | :-----: | :----------------- | :------------------------------------------------------------------------------ | :-------- |

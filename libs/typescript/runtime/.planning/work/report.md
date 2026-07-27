@@ -2,7 +2,7 @@
 
 Document egress as one folded `Report.Spec` family: the format discriminant selects CSV, XLSX, or PDF while each column owns its value projection, and every render answers one single-subscription `Report.Artifact` with a chunked body and a receipt settled by that drain. Mutation-heavy Promise and synchronous engines remain inside one `Effect` boundary and one `ReportFault` family. Unbounded CSV and streaming-XLSX modes flow end to end; rich XLSX and PDF declare row ceilings before materializing the engine model, with oversized PDF routed to the render worker. `Report.gathered` is the only bytes-in-memory consumer fold and requires a ceiling. Pinned instants, fixed compression, and stable column order make equal renders byte-stable so the data object plane mints identical content identity at landing; runtime never mints that identity. The module is node-lane egress on `./server` as `runtime/src/work/report.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]   | [OWNS]                                                                         | [PUBLIC] |
 | :-----: | :---------- | :----------------------------------------------------------------------------- | :------- |

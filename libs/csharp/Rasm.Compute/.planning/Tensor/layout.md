@@ -6,7 +6,7 @@ Layout members ride `System.Numerics.Tensors`; `TensorDtype`/`TensorFault` arriv
 
 ## [01]-[INDEX]
 
-- [01]-[LAYOUT_ALGEBRA]: named-shape `LayoutForm` vocabulary, contiguity classification, and the `ReshapeOp<T>` shape-edit verb union under one total `Switch`.
+- [02]-[LAYOUT_ALGEBRA]: named-shape `LayoutForm` vocabulary, contiguity classification, and the `ReshapeOp<T>` shape-edit verb union under one total `Switch`.
 
 ## [02]-[LAYOUT_ALGEBRA]
 

@@ -6,7 +6,7 @@ Substitute arms are the live path where a build lacks a filter or the filter can
 
 ## [01]-[INDEX]
 
-- [01]-[FILTER]: the closed `FilterNode` family over the logical media operations — `Scale`/`Crop`/`Fps`/`Format`/`ColorGrade`/`Denoise`/`Sharpen`/`Transpose`/`Pad`/`Deinterlace`/`Speed`/`TextBurn`/`SubtitleBurn`/`Xfade`/`Overlay`/`Concat`/`Amix`/`Acrossfade` — routed native-or-substitute by the `media_filters` probe through the one `wired` dispatcher, plus the `AudioGraph` mastering/mixing capsule.
+- [02]-[FILTER]: the closed `FilterNode` family over the logical media operations — `Scale`/`Crop`/`Fps`/`Format`/`ColorGrade`/`Denoise`/`Sharpen`/`Transpose`/`Pad`/`Deinterlace`/`Speed`/`TextBurn`/`SubtitleBurn`/`Xfade`/`Overlay`/`Concat`/`Amix`/`Acrossfade` — routed native-or-substitute by the `media_filters` probe through the one `wired` dispatcher, plus the `AudioGraph` mastering/mixing capsule.
 
 ## [02]-[FILTER]
 

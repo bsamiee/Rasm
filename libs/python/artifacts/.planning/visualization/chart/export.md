@@ -6,8 +6,8 @@
 
 ## [01]-[INDEX]
 
-- [01]-[EXPORT]: host-free static-and-interactive export over the typed `ChartRenderPolicy` and the per-engine `VL_RENDER`/`LP_RENDER` format tables, minting `ArtifactReceipt.Chart` across the runtime offload bound inside one span, with the `layered()` semantic-layer hand-off to `export/layered#LAYERED`.
-- [02]-[PREPASS]: in-page `VegaTransform` pre-pass over the gated vegafusion runtime — `Passthrough`/`Inline`/`State` by transform presence and interactivity, each returning the self-contained spec with its `PrePassEvidence`.
+- [02]-[EXPORT]: host-free static-and-interactive export over the typed `ChartRenderPolicy` and the per-engine `VL_RENDER`/`LP_RENDER` format tables, minting `ArtifactReceipt.Chart` across the runtime offload bound inside one span, with the `layered()` semantic-layer hand-off to `export/layered#LAYERED`.
+- [03]-[PREPASS]: in-page `VegaTransform` pre-pass over the gated vegafusion runtime — `Passthrough`/`Inline`/`State` by transform presence and interactivity, each returning the self-contained spec with its `PrePassEvidence`.
 
 ## [02]-[EXPORT]
 

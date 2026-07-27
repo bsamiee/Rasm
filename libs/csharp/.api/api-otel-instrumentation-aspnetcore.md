@@ -43,7 +43,7 @@
 |  [06]   | `EnableAspNetCoreSignalRSupport -> bool`                    | property | SignalR hub activity recording         |
 |  [07]   | `EnableRazorComponentsSupport -> bool`                      | property | Razor component activity recording     |
 
-- `Filter`: a `false` return or a thrown delegate drops the request; SignalR and Razor recording start on, exception recording off.
+- `Filter`: drops the request on a `false` return or a thrown delegate; SignalR and Razor recording start on, exception recording off.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -57,7 +57,8 @@
 - `OpenTelemetry.Instrumentation.Http`(`api-otel-instrumentation-http.md`): outbound client spans nest inside the request span, so one server-root sampler verdict decides the whole fan-out and neither leg doubles the other.
 - `Grpc.AspNetCore`(`api-grpc-aspnetcore.md`): server endpoints gain spans through this subscription, never a service-side interceptor shim.
 - `OpenTelemetry.Instrumentation.GrpcNetClient`(`api-otel-instrumentation-grpcnetclient.md`): the outbound counterpart partitions gRPC by direction, its `SuppressDownstreamInstrumentation` collapsing the client HTTP leg alone.
-- `SignalGovernance.Govern`: AppHost's service-root fold composes the trace verb inside its `WithTracing` delegate beside the baggage and profile processors, one registration covering HTTP and gRPC server spans.
+- `Microsoft.Extensions.Telemetry.Abstractions`(`api-telemetry-abstractions.md`): `HttpRouteParameterRedactionMode` and the `RequestMetadata` route vocabulary decide how a route segment survives onto the span, so an inbound span never carries an unredacted parameter.
+- `SignalGovernance.Govern`: AppHost's service-root fold composes the trace verb inside its `WithTracing` delegate beside the baggage and profile processors, one registration covering HTTP and gRPC server spans; inbound gRPC on the companion control service carries rpc semconv only under the gRPC env switch.
 
 [LOCAL_ADMISSION]:
 - Service roots terminating HTTP or gRPC admit the package; a plugin or desktop profile hosts no server surface and never references it.

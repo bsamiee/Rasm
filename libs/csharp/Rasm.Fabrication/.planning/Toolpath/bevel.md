@@ -6,9 +6,9 @@
 
 ## [01]-[INDEX]
 
-- [01]-[ADMISSION]: `BevelDemand` composes admitted dimensions once; generated owners admit preparation, compensation, kinematics, height control, and passes.
-- [02]-[CONDITIONING]: `Bevel.Condition` offsets the source edge, samples arc length adaptively, evaluates the preparation field, resolves tool-axis compensation, lowers moves, and guards each pass.
-- [03]-[EGRESS]: `Beveled` projects through a caller-supplied arrow while preserving coupled `BevelPass` sections and quality evidence.
+- [02]-[ADMISSION]: `BevelDemand` composes admitted dimensions once; generated owners admit preparation, compensation, kinematics, height control, and passes.
+- [03]-[CONDITIONING]: `Bevel.Condition` offsets the source edge, samples arc length adaptively, evaluates the preparation field, resolves tool-axis compensation, lowers moves, and guards each pass.
+- [04]-[EGRESS]: `Beveled` projects through a caller-supplied arrow while preserving coupled `BevelPass` sections and quality evidence.
 
 ## [02]-[ADMISSION]
 

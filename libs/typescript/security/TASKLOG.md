@@ -8,7 +8,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 <!-- source-only: open task card template:
 [ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
-- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Capability: <the higher-order invariant, owner capability, or concept established — concept grain only, never a page path, row list, or member spelling>.
 - Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
 - Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
 - Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
@@ -70,7 +70,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [CSRF_HEADER_FIELD]-[QUEUED]: CSRF echo's header name becomes a `CookieSpec`-owned field — the fail-closed mismatch dies.
 - Capability: the double-submit header spelling is one spec field both runtime ends read, so the serve gate's read and the browser stamp provably agree and an always-absent header read cannot recur.
 - Shape: a `header` field on the `CookieSpec.csrf` row in `libs/typescript/security/.planning/authn/session.md`; runtime `serve/route.md`'s `_CSRF_HEADER` literal deletes in favor of the spec read, and `browser/route.md`'s echo pair returns the spec header name instead of the cookie name.
-- Unlocks: every mutating ceremony — webauthn finish, refresh, logout — actually passes the CSRF gate; the branch header-contract ruling holds structurally.
+- Unlocks: every mutating ceremony — webauthn finish, refresh, logout — passes the CSRF gate; the branch header-contract ruling holds structurally.
 - Anchors: `session.md` `CookieSpec` csrf row (`__Host-csrf`); runtime `serve/route.md` `x-csrf-token` literal and its `_csrfed` fold; runtime `browser/route.md` cookie-name echo; the header ruling at `libs/typescript/.planning/RULINGS.md` `[01]-[SHAPE]`.
 
 [APIKEY_SUBJECT_DIMENSION]-[QUEUED]: `ApiKeyStore` gains the subject dimension every peer store carries.

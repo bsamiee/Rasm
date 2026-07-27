@@ -5,7 +5,7 @@ This catalog owns the interactive command boundary: the `Rhino.Commands.Command`
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: RhinoCommon command surface
-- host: `RhinoCommon` (Rhino host runtime, in-process)
+- host: Rhino host runtime, in-process (proprietary McNeel SDK)
 - assembly: `RhinoCommon`
 - namespaces: `Rhino.Commands`, `Rhino`, `Rhino.Input`, `Rhino.Input.Custom`, `Rhino.DocObjects`, `Rhino.DocObjects.Tables`, `Rhino.UI`
 - kernel: `Rasm` (host-agnostic vocabularies and numeric owners composed, never re-derived)

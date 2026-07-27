@@ -32,7 +32,7 @@
 
 ## [03]-[ENTRYPOINTS]
 
-Pointer parameters carry `uint*` (indices, remap), `void*` (interleaved vertices), `float*` (positions, attributes), or `byte*` (triangle, codec, and lock buffers); `nuint` carries every size and count in bytes. An `nuint` return is a written element count, an `int` return a status code (`0` = ok).
+Pointer parameters carry `uint*` (indices, remap), `void*` (interleaved vertices), `float*` (positions, attributes), or `byte*` (triangle, codec, and lock buffers); `nuint` carries every size and count in bytes. Every `nuint` return is a written element count and every `int` return a status code (`0` = ok).
 
 [ENTRYPOINT_SCOPE]: remap, indexing, and topology generation
 - call: index ops take the head `(dst, indices, index_count)`—`…` in a row—then a vertex source: `void* vertices`, `float* positions`, or `Stream* streams`.
@@ -148,7 +148,7 @@ Pointer parameters carry `uint*` (indices, remap), `void*` (interleaved vertices
 - One `static class Meshopt`; each method carries both `[DllImport]` and `[LibraryImport]` source-generated marshalling, so the native name resolves per-OS and a `Meshopt.ResolveLibrary` handler registered before the first call routes embedded or self-contained loads.
 - `Stream` `(void* data, nuint size, nuint stride)` points `data` at the first attribute of a de-interleaved stream, `size` the per-vertex byte span the remap hashes, `stride` the advance; multi-stream remap builds one table covering every stream.
 - Codec versioning is process-global: `EncodeIndexVersion`/`EncodeVertexVersion` set the format the next encode emits, so encode and decode versions pair across the wire and `Decode*Version` probes an unknown blob before its decode target is allocated.
-- A `delegate* unmanaged<...>` parameter (`GenerateVertexRemapCustom`, `SetAllocator`) binds a `[UnmanagedCallersOnly]` static address; a closure cannot cross the boundary.
+- Each `delegate* unmanaged<...>` parameter (`GenerateVertexRemapCustom`, `SetAllocator`) binds a `[UnmanagedCallersOnly]` static address, so no closure crosses the boundary.
 - Canonical GPU-ready order, each stage feeding the next:
     1. Dedup: `GenerateVertexRemap{,Multi,Custom}` → `RemapVertexBuffer` + `RemapIndexBuffer`.
     2. Locality: `OptimizeVertexCache` → `OptimizeOverdraw` → `OptimizeVertexFetch{,Remap}`.

@@ -6,7 +6,7 @@ Each acceptor is a pure NumPy/PIL transform. `graphic/raster/io#IO` owns its `(V
 
 ## [01]-[INDEX]
 
-- [01]-[PROCESS]: Raster vocabulary plus the produced-raster engine; `TRANSFORMS` binds typed `TransformPolicy` seeds to pillow and scikit-image acceptors, and every diagnostic lands on `RasterFact.score`.
+- [02]-[PROCESS]: Raster vocabulary plus the produced-raster engine; `TRANSFORMS` binds typed `TransformPolicy` seeds to pillow and scikit-image acceptors, and every diagnostic lands on `RasterFact.score`.
 
 ## [02]-[PROCESS]
 

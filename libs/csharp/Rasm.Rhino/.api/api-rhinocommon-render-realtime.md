@@ -4,8 +4,8 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `RhinoCommon`
-- package: `RhinoCommon` (proprietary McNeel SDK)
+[PACKAGE_SURFACE]: RhinoCommon realtime-render surface
+- host: Rhino host runtime, in-process (proprietary McNeel SDK)
 - assembly: `RhinoCommon.dll` (host-resolved from the installed Rhino app, never NuGet-pinned)
 - namespace: `Rhino.Render.ChangeQueue` (scene-change queue and immutable payload family)
 - namespace: `Rhino.Render` (realtime engine, async context, light manager)

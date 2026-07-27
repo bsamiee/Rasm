@@ -6,7 +6,7 @@ Input is `surface.md`'s `SurfaceResult.UvTessellation` — mesh + per-vertex `(u
 
 ## [01]-[INDEX]
 
-- [01]-[PATTERNING]: `PatternLattice` the five-row basis-law vocabulary; `PatternSeat` + `WallpaperGroup` the 17 theorem-closed Seitz rows over ONE seat generator; `PatternPlan`/`PatternPolicy` the orbit and mapping rows; `PatternOp` the two-case request `[Union]` folded by ONE `Apply`; `InstanceStream` the planar/mapped result `[Union]`; `PatternReceipt` the honesty evidence; the orbit, log-field, locate, and transport kernels.
+- [02]-[PATTERNING]: `PatternLattice` the five-row basis-law vocabulary; `PatternSeat` + `WallpaperGroup` the 17 theorem-closed Seitz rows over ONE seat generator; `PatternPlan`/`PatternPolicy` the orbit and mapping rows; `PatternOp` the two-case request `[Union]` folded by ONE `Apply`; `InstanceStream` the planar/mapped result `[Union]`; `PatternReceipt` the honesty evidence; the orbit, log-field, locate, and transport kernels.
 
 ## [02]-[PATTERNING]
 

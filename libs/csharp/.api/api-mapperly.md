@@ -45,7 +45,7 @@
 |  [27]   | `MapperIgnoreSourceValueAttribute(object)`                            | repeatable attribute | source enum-value exclusion      |
 |  [28]   | `MapperIgnoreTargetValueAttribute(object)`                            | repeatable attribute | target enum-value exclusion      |
 
-A paired constructor orders its arguments source then target. Each path-carrying attribute splits a `string` argument on `.` into segments while the `string[]` overload takes segments verbatim, exposing them as `Source`/`Target` and the rejoined path as `SourceFullName`/`TargetFullName`. Settable properties an author sets past the constructor:
+Paired constructors order their arguments source then target. Each path-carrying attribute splits a `string` argument on `.` into segments while the `string[]` overload takes segments verbatim, exposing them as `Source`/`Target` and the rejoined path as `SourceFullName`/`TargetFullName`. Settable properties an author sets past the constructor:
 
 [MapPropertyAttribute]: `StringFormat` `FormatProvider` `Use` `SuppressNullMismatchDiagnostic`
 [MapPropertyFromSourceAttribute]: `StringFormat` `FormatProvider` `Use`
@@ -114,7 +114,7 @@ Null-return mismatch throws when enabled and otherwise returns a default; null-p
 |  [09]   | `Map(TSource, TContext) -> TTarget`                             | instance | additional-value mapping       |
 |  [10]   | `[MapDerivedType<TSource, TTarget>] Map(TBase) -> TBaseTarget`  | instance | derived-type switch            |
 
-- `Map(TSource, TContext)`: an additional parameter maps to a same-name target member after explicit `[MapProperty]` configuration and before source-member matching.
+- `Map(TSource, TContext)`: maps its additional parameter to a same-name target member after explicit `[MapProperty]` configuration and before source-member matching.
 
 [ENTRYPOINT_SCOPE]: mapper declaration, delegation, and activation forms.
 
@@ -135,9 +135,9 @@ Null-return mismatch throws when enabled and otherwise returns a default; null-p
 
 [TOPOLOGY]:
 - Every attribute carries `[Conditional("MAPPERLY_ABSTRACTIONS_SCOPE_RUNTIME")]`, so the compiler reads its syntax and elides it from consumer IL.
-- A `partial` mapping method's body is ordinary inspectable C# — direct assignment, object initialization, element loops, derived-type switches — leaving no mapping engine, runtime expression compilation, or reflection; target construction owns per-map allocation.
+- Every `partial` mapping method's body generates as ordinary inspectable C# — direct assignment, object initialization, element loops, derived-type switches — leaving no mapping engine, runtime expression compilation, or reflection; target construction owns per-map allocation.
 - `ProjectTo` emits a static expression tree the LINQ provider translates, so a projection never materializes the source graph; reference handling and projection are mutually exclusive by construction.
-- An unmapped member raises an `RMG` build diagnostic: `RequiredMappingStrategy` and `MapperRequiredMappingAttribute` set severity, `MapperIgnoreSourceAttribute` and `MapperIgnoreTargetAttribute` waive one member explicitly.
+- Unmapped members raise an `RMG` build diagnostic: `RequiredMappingStrategy` and `MapperRequiredMappingAttribute` set severity, `MapperIgnoreSourceAttribute` and `MapperIgnoreTargetAttribute` waive one member explicitly.
 - Configuration resolves outward-in — assembly defaults, then class policy, then method attributes — so the narrowest declaration wins.
 
 [STACKING]:
@@ -153,7 +153,7 @@ Null-return mismatch throws when enabled and otherwise returns a default; null-p
 
 [LOCAL_ADMISSION]:
 - Mapperly owns boundary transcription alone — `ElementGraph`, `Node`, `Relationship`, and `PropertyValue` against protobuf DTOs, store row shapes, and import/export records. Identity and content hashing stay in the kernel, equality in `Generator.Equals`, the failure rail in LanguageExt.
-- A mapper is a generated capsule whose declared partial shapes are its whole implementation; a domain decision inside a mapper body belongs to its owner.
+- Each mapper generates as a capsule whose declared partial shapes are its whole implementation; a domain decision inside a mapper body belongs to its owner.
 - Boundary policy declares on the mapper attribute: `[FormatProvider(Default = true)]` carries the culture, `ThrowOnPropertyMappingNullMismatch` and `AllowNullPropertyAssignment` carry the null contract, `EnumNamingStrategy.SerializationEnumMemberAttribute` aligns enum strings with the wire schema.
 - `EnabledConversions` narrows the automatic set where an implicit conversion masks a real mismatch — `All & ~ToStringMethod` keeps every conversion but the silent `ToString` fallback.
 

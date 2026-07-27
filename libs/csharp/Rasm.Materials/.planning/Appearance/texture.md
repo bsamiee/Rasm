@@ -4,7 +4,7 @@ THE UV-AND-SOLID SAMPLING ENGINE. One `TextureUv` static sampling fold over the 
 
 ## [01]-[INDEX]
 
-- [01]-[TEXTURE_UV]: the `AddressMode`/`FilterMode`/`NoiseBasis`/`FractalMode`/`CellularDistance`/`CellularReturn` bands, the `ShadeVec4` four-lane field register, the `TextureSource` union, the `ProceduralNoise` author-kernel, the one `TextureUv.Sample` fold, and the `TextureUv.Port` graph-node bridge.
+- [02]-[TEXTURE_UV]: the `AddressMode`/`FilterMode`/`NoiseBasis`/`FractalMode`/`CellularDistance`/`CellularReturn` bands, the `ShadeVec4` four-lane field register, the `TextureSource` union, the `ProceduralNoise` author-kernel, the one `TextureUv.Sample` fold, and the `TextureUv.Port` graph-node bridge.
 
 ## [02]-[TEXTURE_UV]
 

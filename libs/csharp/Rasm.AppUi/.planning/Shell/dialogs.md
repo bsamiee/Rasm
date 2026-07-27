@@ -4,10 +4,10 @@ Rasm.AppUi presents every modal and transient surface through one `DialogIntent`
 
 ## [01]-[INDEX]
 
-- [01]-[DIALOG_INTENTS]: One modal vocabulary; typed `Fin` results; dismissal is a value.
-- [02]-[SESSION_ALGEBRA]: Topology rows bind sessions, stacking, styling, registration.
-- [03]-[NOTIFICATIONS]: Toast rows, suppression fold over phase and level, receipts.
-- [04]-[PICKERS_HOST_MODALITY]: Pick rows, format-derived filters, host modality law.
+- [02]-[DIALOG_INTENTS]: One modal vocabulary; typed `Fin` results; dismissal is a value.
+- [03]-[SESSION_ALGEBRA]: Topology rows bind sessions, stacking, styling, registration.
+- [04]-[NOTIFICATIONS]: Toast rows, suppression fold over phase and level, receipts.
+- [05]-[PICKERS_HOST_MODALITY]: Pick rows, format-derived filters, host modality law.
 
 ## [02]-[DIALOG_INTENTS]
 

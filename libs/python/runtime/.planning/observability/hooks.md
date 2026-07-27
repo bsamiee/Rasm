@@ -6,7 +6,7 @@ This registry formalizes the standing contributor fold: `@receipted` remains the
 
 ## [01]-[INDEX]
 
-- [01]-[HOOKS]: the point row, the modality vocabulary, the composition-unique registry, the polymorphic fire, the isolation fence, and the built-in telemetry taps.
+- [02]-[HOOKS]: the point row, the modality vocabulary, the composition-unique registry, the polymorphic fire, the isolation fence, and the built-in telemetry taps.
 
 ## [02]-[HOOKS]
 

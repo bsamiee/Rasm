@@ -6,7 +6,7 @@ Dual-certificate proof of global optimality the first-order design loop and the 
 
 ## [01]-[INDEX]
 
-- [01]-[CONVEX]: five cone families on one `ConvexProgram` owner over the `_CONE_ROWS`/`_CONE_KKT` tables, folding one content-keyed `ConvexReceipt` KKT certificate per `ParamBind` row.
+- [02]-[CONVEX]: five cone families on one `ConvexProgram` owner over the `_CONE_ROWS`/`_CONE_KKT` tables, folding one content-keyed `ConvexReceipt` KKT certificate per `ParamBind` row.
 
 ## [02]-[CONVEX]
 

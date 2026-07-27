@@ -6,9 +6,9 @@
 
 ## [01]-[INDEX]
 
-- [01]-[APPEARANCE]: `Appearance` folds complete concern values over the live mode editor.
-- [02]-[MODE_FAMILY]: `ModeKind`, `ModePolicy`, and `ModePlan` own identity, policy, and derivation.
-- [03]-[CONFIGURE]: `ModeRequest` closes every mode, viewport, capture, and analysis modality behind `Modes.Configure`.
+- [02]-[APPEARANCE]: `Appearance` folds complete concern values over the live mode editor.
+- [03]-[MODE_FAMILY]: `ModeKind`, `ModePolicy`, and `ModePlan` own identity, policy, and derivation.
+- [04]-[CONFIGURE]: `ModeRequest` closes every mode, viewport, capture, and analysis modality behind `Modes.Configure`.
 
 ## [02]-[APPEARANCE]
 

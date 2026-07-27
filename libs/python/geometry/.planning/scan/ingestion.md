@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[INGESTION]: source-discriminated raw-scan preprocessing — the `ScanSource` intake folded through one policy-ordered `pdal` `|` filter graph to the registration-ready `Cloud` carrier, offloaded to the warm process pool under the graduation weave.
+- [02]-[INGESTION]: source-discriminated raw-scan preprocessing — the `ScanSource` intake folded through one policy-ordered `pdal` `|` filter graph to the registration-ready `Cloud` carrier, offloaded to the warm process pool under the graduation weave.
 
 ## [02]-[INGESTION]
 

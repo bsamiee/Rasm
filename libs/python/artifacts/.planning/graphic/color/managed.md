@@ -6,7 +6,7 @@ pyvips carries the native ICC apply through `_icc_apply`; Pillow `ImageCms.build
 
 ## [01]-[INDEX]
 
-- [01]-[MANAGED]: the ICC/LUT/CCTF color-managed raster-egress owner over the closed `ManageOp` family — `Managed` the pyvips `icc_transform` leg under one `IccTransform` bundle on the `HOSTILE` process kernel, `Export` the grade chain plus `colour.write_image` on a `RELEASING` thread kernel, and the `Plate`/`Lut`/`Swatch`/`Separate` terminals minting `ArtifactReceipt.Color` (the last measuring the finished PDF's per-ink coverage) into the settled `core/receipt#RECEIPT` cases under the closed `ManagedFact` vocabulary, every arm crossing `self.lane.offload` and threading one `RuntimeRail`.
+- [02]-[MANAGED]: the ICC/LUT/CCTF color-managed raster-egress owner over the closed `ManageOp` family — `Managed` the pyvips `icc_transform` leg under one `IccTransform` bundle on the `HOSTILE` process kernel, `Export` the grade chain plus `colour.write_image` on a `RELEASING` thread kernel, and the `Plate`/`Lut`/`Swatch`/`Separate` terminals minting `ArtifactReceipt.Color` (the last measuring the finished PDF's per-ink coverage) into the settled `core/receipt#RECEIPT` cases under the closed `ManagedFact` vocabulary, every arm crossing `self.lane.offload` and threading one `RuntimeRail`.
 
 ## [02]-[MANAGED]
 

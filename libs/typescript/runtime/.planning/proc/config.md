@@ -2,7 +2,7 @@
 
 The one config owner of the process plane: an ordered provider chain answers every `Config` read, and one boot-validated `Setting` contract resolves against it exactly once. A source is a case of one closed `Stage` family — process env (where `doppler run` injection lands), dotenv file, K8s file tree, remote document, literal table — folded left through `ConfigProvider.orElse` into one provider installed once beneath the whole graph, so precedence is tuple order and the empty chain is unspellable. Construction faults keep their channel: only a dotenv file's verified absence (`SystemError` with `reason: "NotFound"`) folds to a skipped stage, and every other construction failure rides the layer's typed error channel to the root proof. `Setting` is the runtime folder's environment contract, the config-family form every folder and app instantiates, and the seat where the supplied `Profile` consumption row admits: described rows, structural parsers, `Schema.Config` shaped scalars, sealed secrets, `Config.nested` namespaces, the whole record resolved at Layer construction so a malformed environment fails the root's wiring proof at the boot line. A scattered `process.env` read, a per-site `Config.string`, a second resolve, a second `setConfigProvider` altitude, and a blanket construction-fault-to-absence fold are the named defects. The module is `runtime/src/proc/config.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                                    | [PUBLIC]   |
 | :-----: | :--------------- | :------------------------------------------------------------------------ | :--------- |

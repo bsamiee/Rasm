@@ -39,7 +39,7 @@
 
 [TOPOLOGY]:
 - `Analysis/energy` owns the recipe-run dispatch policy — which recipe, which inputs, and whether `EnergyRoute.Cloud` or the local `EnergyToolchain` subprocess runs — while auth, REST, and artifact upload stay Persistence's.
-- A cloud-route failure surfaces as the typed `ComputeFault.AnalysisFailed` row (`(Solve, Foreign)` / `(Admission, Timeout)`) with the HTTP status on `Diagnostic.Code`, never a stringly interpolated arm.
+- Every cloud-route failure surfaces as the typed `ComputeFault.AnalysisFailed` row (`(Solve, Foreign)` / `(Admission, Timeout)`) with the HTTP status on `Diagnostic.Code`, never a stringly interpolated arm.
 - `LBT.RestSharp` and `LBT.Newtonsoft.Json` — the vendored SDK fork closure — load OUTSIDE-RHINO on the sidecar, never in the in-Rhino plugin assembly.
 
 [STACKING]:

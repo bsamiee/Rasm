@@ -6,8 +6,8 @@ This is the core solver route with a gating law per backend: `sympy` is pure-Pyt
 
 ## [01]-[INDEX]
 
-- [01]-[OP]: the `SymbolicOp` bounded vocabulary — staging expression-to-expression rows composing ahead of one terminal artifact row, with the `GroundDomain` and `Precision` accelerator axes.
-- [02]-[DERIVATION]: `SymbolicDerivation.derive` left-folding a `Block[SymbolicOp]` over an `ExprForm` to one content-keyed `SymbolicReceipt`.
+- [02]-[OP]: the `SymbolicOp` bounded vocabulary — staging expression-to-expression rows composing ahead of one terminal artifact row, with the `GroundDomain` and `Precision` accelerator axes.
+- [03]-[DERIVATION]: `SymbolicDerivation.derive` left-folding a `Block[SymbolicOp]` over an `ExprForm` to one content-keyed `SymbolicReceipt`.
 
 ## [02]-[OP]
 

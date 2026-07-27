@@ -6,7 +6,7 @@ Break boundaries and HarfBuzz clusters normalize onto code-point indices. `_icu_
 
 ## [01]-[INDEX]
 
-- [01]-[LAYOUT]: uniseg/PyICU line breaking, pyphen hyphenation, east-asian measure, PyICU collation, and Knuth-Plass total fit over one closed `LayoutRequest` family.
+- [02]-[LAYOUT]: uniseg/PyICU line breaking, pyphen hyphenation, east-asian measure, PyICU collation, and Knuth-Plass total fit over one closed `LayoutRequest` family.
 
 ## [02]-[LAYOUT]
 

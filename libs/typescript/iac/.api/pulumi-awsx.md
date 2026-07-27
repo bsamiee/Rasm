@@ -83,7 +83,7 @@ One shape owns every family: `new X(name, XArgs, opts?: pulumi.ComponentResource
 
 [LOCAL_ADMISSION]:
 - awsx carries no provider credential of its own — the empty `ProviderArgs` marks that every composition rides the arm's single `aws.Provider` via `opts.provider`.
-- an `ecr.Image` push and a direct `docker-build.Image` build are the two arm-specific build egresses one buildx-native builder feeds — the mixed stack selects between them by dispatch arm.
+- One buildx-native builder feeds both arm-specific build egresses — an `ecr.Image` push and a direct `docker-build.Image` build — and the mixed stack selects between them by dispatch arm.
 
 [RAIL_LAW]:
 - Package: `@pulumi/awsx`

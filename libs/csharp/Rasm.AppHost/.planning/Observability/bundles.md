@@ -4,10 +4,10 @@ Support capture owns the runtime spine's bounded diagnostic evidence surface: on
 
 ## [01]-[INDEX]
 
-- [01]-[TRIGGER_UNION]: Six capture causes as one sealed union with typed reason payloads.
-- [02]-[CAPTURE_PIPELINE]: Window freeze, ordered fan-in, redaction before write, and caps.
-- [03]-[MANIFEST_RECEIPT]: Zip assembly, wire manifest, receipt union, retention, and process law.
-- [04]-[TS_PROJECTION]: Manifest and receipt wire shapes the TS dashboard ingests.
+- [02]-[TRIGGER_UNION]: Six capture causes as one sealed union with typed reason payloads.
+- [03]-[CAPTURE_PIPELINE]: Window freeze, ordered fan-in, redaction before write, and caps.
+- [04]-[MANIFEST_RECEIPT]: Zip assembly, wire manifest, receipt union, retention, and process law.
+- [05]-[TS_PROJECTION]: Manifest and receipt wire shapes the TS dashboard ingests.
 
 ## [02]-[TRIGGER_UNION]
 

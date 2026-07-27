@@ -6,7 +6,7 @@ Frame arrives settled; `TablePlan` reshapes-to-display, styles, and content-keys
 
 ## [01]-[INDEX]
 
-- [01]-[TABLE]: great-tables styled-table owner over HTML/LaTeX/PDF, one closed `TableOp` family folded over an ordered op sequence, preceded by the closed `Reshape` polars display-shaping pre-pass and content-keyed for a byte-stable render.
+- [02]-[TABLE]: great-tables styled-table owner over HTML/LaTeX/PDF, one closed `TableOp` family folded over an ordered op sequence, preceded by the closed `Reshape` polars display-shaping pre-pass and content-keyed for a byte-stable render.
 
 ## [02]-[TABLE]
 

@@ -25,6 +25,7 @@ using Rasm.Numerics;                                // PositiveMagnitude — the
 using Rasm.Domain;                                 // Op (the boundary-admission key), AcceptValidated, Context
 using Rasm.Element.Composition;                                // MaterialId; PropertyBag/DetailSchema/Dimension (the seam detail-bag currencies RebarDetail composes)
 using Rasm.Element.Properties;
+using Dimension = Rasm.Element.Properties.Dimension;   // the SI-dimension axis — disambiguated from the Rasm.Numerics discrete count
 using Thinktecture;
 using VividOrange.Sections.Reinforcement;          // BarDiameter (the EN-10080 D6..D50 catalogue the EN BarRow rows VENDOR-key)
 using VividOrange.Materials.StandardMaterials.En;  // EnRebarGrade, EnRebarFactory (the registered yield + ductility-class ultimate)

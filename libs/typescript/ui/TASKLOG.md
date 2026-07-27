@@ -8,7 +8,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 <!-- source-only: open task card template:
 [ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
-- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Capability: <the higher-order invariant, owner capability, or concept established — concept grain only, never a page path, row list, or member spelling>.
 - Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
 - Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
 - Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
@@ -37,7 +37,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 
 [CAMERA_INTENT_SEAM]-[QUEUED]: Gesture camera writes speak the viewer's intent vocabulary across the strata boundary.
 - Capability: one camera vocabulary — the gesture recognizer's writes and the viewer's camera authority reconcile: the floor emits intent-shaped values, or a minimal camera-state shape homes at the floor, replacing the local `Camera` type that spells `center` differently and omits `pitch`.
-- Shape: the `Gesture` namespace `Camera` type in `libs/typescript/ui/.planning/system/act.md` re-shapes to the seam contract; `geo.md`'s law naming the gesture owner an intent producer aligns with what the floor actually writes.
+- Shape: the `Gesture` namespace `Camera` type in `libs/typescript/ui/.planning/system/act.md` re-shapes to the seam contract; `geo.md`'s law naming the gesture owner an intent producer aligns with what the floor writes.
 - Unlocks: gesture-driven camera motion replays through the one intent write path; no un-reconcilable shape pair spans the strata boundary.
 - Anchors: `act.md` `Gesture` `Camera` (`center: Vector2`, no `pitch`); `geo.md` `Camera.State` (`[lng, lat]` tuple, `pitch`) and its intents-only write-path law; `act.md`'s boundary line already deferring the shape to the viewer plane.
 

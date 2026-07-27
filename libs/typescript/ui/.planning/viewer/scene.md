@@ -2,7 +2,7 @@
 
 Glb owns content-keyed scene residency behind a `three` or `<model-viewer>` backend discriminant. One `GlbViewport` port supplies verified bytes and ledger facts; one renderer acquisition shares its `GPUDevice`; one graft ledger owns subtrees, mixers, disposal, and typed residency evidence. OpenPBR binding carries the C# algebra verbatim, and georeferenced instances remain deck layer values. Scoped GPU resources, a parked hidden loop, one lifecycle machine, and one `GlbFault` family close the plane. Module: `ui/viewer/src/scene.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]         | [OWNS]                                                                             | [PUBLIC]      |
 | :-----: | :---------------- | :--------------------------------------------------------------------------------- | :------------ |

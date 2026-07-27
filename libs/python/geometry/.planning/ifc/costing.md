@@ -6,7 +6,7 @@ Every selecting phase admits its query through `IfcSelector` (`ifc/selector#SELE
 
 ## [01]-[INDEX]
 
-- [01]-[LIFECYCLE]: the quantity, cost, schedule, patch, and diff phases under one `LifecyclePhase`-discriminated owner folding the four IfcOpenShell ecosystem siblings, the `IfcSelector` gate, and kind-specific graduation evidence under `BIM_LIFECYCLE`.
+- [02]-[LIFECYCLE]: the quantity, cost, schedule, patch, and diff phases under one `LifecyclePhase`-discriminated owner folding the four IfcOpenShell ecosystem siblings, the `IfcSelector` gate, and kind-specific graduation evidence under `BIM_LIFECYCLE`.
 
 ## [02]-[LIFECYCLE]
 

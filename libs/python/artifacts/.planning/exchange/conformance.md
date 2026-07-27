@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[CONFORMANCE]: the PDF cryptographic-conformance owner that IS the closed `Conformance` union (`sign`/`stamp`/`augment`/`reserve`/`audit`) over the `SignerSource` credential union, the `Appearance`/`FieldPlacement`/`PadesLevel`/`Digest` policy vocabularies, and the resilient multi-signature audit folding the `core/receipt#RECEIPT`-declared `ConformanceVerdict`, egressed as the `(ContentKey, bytes, ConformanceVerdict)` triple through `close`.
+- [02]-[CONFORMANCE]: the PDF cryptographic-conformance owner that IS the closed `Conformance` union (`sign`/`stamp`/`augment`/`reserve`/`audit`) over the `SignerSource` credential union, the `Appearance`/`FieldPlacement`/`PadesLevel`/`Digest` policy vocabularies, and the resilient multi-signature audit folding the `core/receipt#RECEIPT`-declared `ConformanceVerdict`, egressed as the `(ContentKey, bytes, ConformanceVerdict)` triple through `close`.
 
 ## [02]-[CONFORMANCE]
 

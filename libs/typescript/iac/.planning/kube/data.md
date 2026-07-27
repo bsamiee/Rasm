@@ -2,7 +2,7 @@
 
 `ObjectStore`, `Nats`, and `Postgres` own k8s durability — conditional-put object engines through typed chart values, the JetStream endpoint with websocket, persistence, and quorum, and CNPG archiving, backup, recovery, PgBouncer, and database targets behind one `admit` rail whose `DataRefused` faults name the extension, pooling, and recovery axes. `_TENANCY` selects the tenant escalation and `_custody` gives each realized cluster its own credential triple and archive prefix. Growth is one matrix, engine, tenancy, pooling, or recovery row.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]      | [OWNS]                                                                      | [PUBLIC]      |
 | :-----: | :------------- | :-------------------------------------------------------------------------- | :------------ |

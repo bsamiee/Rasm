@@ -8,7 +8,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 <!-- source-only: open idea card template:
 [ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
-- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Capability: <the higher-order invariant, owner capability, or concept established — concept grain only, never a page path, row list, or member spelling>.
 - Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
 - Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
 - Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
@@ -28,7 +28,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 
 [LAYER_TOPOLOGY_GRAPH_FACTS]-[QUEUED]: Decoded `LayerTopologyFact` rows fold into a containment graph the graph plane analyzes for host organization.
 - Capability: Wire-carried layer and relation keys decode into a `GraphPayload` whose nodes are layer identities and whose edges are layer-path nesting and membership, so topology analysis — containment ancestry, nesting depth, membership closure — answers layer organization over the decoded graph with no host handle; per-viewport overrides ride the decoded rows as detached facts.
-- Shape: A boundary decoder folds the detached fact rows into the `graph/graph` plane's node-link source; `GraphPayload.analyze` runs the containment and nesting queries on the one `rustworkx` kernel keyed by the stable `NodeId` index, and the node-keyed `GraphResult.frame` left-joins layer organization onto the `tabular/columnar` scan plane by `node`.
+- Shape: `graph/graph.md` gains the boundary decoder folding the detached fact rows into the graph plane's node-link source; `GraphPayload.analyze` runs the containment and nesting queries on the one `rustworkx` kernel keyed by the stable `NodeId` index, and the node-keyed `GraphResult.frame` left-joins layer organization onto the `tabular/columnar` scan plane by `node`.
 - Unlocks: Host-organized element queries over the graph plane, layer-scoped dataset slicing, and one decoded organizational axis every interchange consumer reads by name.
 - Anchors: `graph/graph.md` `GraphPayload`/`analyze`/`NodeId`/`GraphResult.frame`; `rasm.runtime.identity` `ContentIdentity`/`ContentKey` for the stable wire identity; `README.md` host-free interchange role meeting C# only at the content-identity wire.
 - Tension: Wire schema and codec mint in C#; this plane decodes and never re-mints, and the containment graph carries only detached fact rows, never a host layer handle.

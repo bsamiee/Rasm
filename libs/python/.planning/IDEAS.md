@@ -1,6 +1,6 @@
 # [PYTHON_IDEAS]
 
-Cross-package Python concert: higher-order concepts coupling two or more branch packages or deepening a shared owner the whole branch inherits, distilled from the folder pools. A concept grounded in one folder stays in that folder's pool; a concept crossing a language boundary lives in the cross-`libs/` pool and is referenced as a wire seam, never restated. Each idea is a card — a bracketed slug leader with the capability, what it unlocks, and the gap it draws on.
+Cross-package Python concert: higher-order concepts coupling two or more branch packages or deepening a shared owner the whole branch inherits, distilled from the folder pools. Concepts grounded in one folder stay in that folder's pool; a concept crossing a language boundary lives in the cross-`libs/` pool and rides a wire-seam reference, never a restatement. Each idea is a card — a bracketed slug leader with the capability, what it unlocks, and the gap it draws on.
 
 OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with.
 

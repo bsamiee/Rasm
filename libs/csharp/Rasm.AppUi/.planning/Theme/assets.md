@@ -4,10 +4,10 @@ Rasm.AppUi sources every icon and bundled asset through one nameof-derived `Asse
 
 ## [01]-[INDEX]
 
-- [01]-[ICON_AXIS]: Five-case icon union, case-derived fallback walk, one materialize dispatch.
-- [02]-[SVG_PIPELINE]: Retained SVG documents, scene graph, dirty-region mutation, animation leases, hit testing.
-- [03]-[RASTER_ASSETS]: Async raster loaders, cache scope, fallbacks, DPI-variant selection.
-- [04]-[ASSET_CATALOG]: Avares admission rows, key vocabulary, preload receipts, geo assets.
+- [02]-[ICON_AXIS]: Five-case icon union, case-derived fallback walk, one materialize dispatch.
+- [03]-[SVG_PIPELINE]: Retained SVG documents, scene graph, dirty-region mutation, animation leases, hit testing.
+- [04]-[RASTER_ASSETS]: Async raster loaders, cache scope, fallbacks, DPI-variant selection.
+- [05]-[ASSET_CATALOG]: Avares admission rows, key vocabulary, preload receipts, geo assets.
 
 ## [02]-[ICON_AXIS]
 

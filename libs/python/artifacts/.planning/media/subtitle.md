@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[SUBTITLE]: the `Subtitle` owner over the closed `SubtitleOp` family — `Whisper` admission, `Convert`/`Retime`/`Restyle` document edits, `Mux` timed-packet passthrough, and `BurnIn` styled overlay — folding into the shared `ArtifactReceipt.Media` case.
+- [02]-[SUBTITLE]: the `Subtitle` owner over the closed `SubtitleOp` family — `Whisper` admission, `Convert`/`Retime`/`Restyle` document edits, `Mux` timed-packet passthrough, and `BurnIn` styled overlay — folding into the shared `ArtifactReceipt.Media` case.
 
 ## [02]-[SUBTITLE]
 

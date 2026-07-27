@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[REMNANT_LIFECYCLE]: owns offcut admission, topology, lineage, policy, optimistic reservation, physical reconciliation, retirement evidence, and stock projection.
+- [02]-[REMNANT_LIFECYCLE]: owns offcut admission, topology, lineage, policy, optimistic reservation, physical reconciliation, retirement evidence, and stock projection.
 
 ## [02]-[REMNANT_LIFECYCLE]
 

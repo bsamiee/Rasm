@@ -86,10 +86,10 @@
 - `EqualsGenerator` matches `Generator.Equals.EquatableAttribute` through `ForAttributeWithMetadataName`, transforms class, record, struct, and record-struct declarations, and emits one `<FullName>.Generator.Equals.g.cs` partial per type.
 - Every attribute carries `[Conditional("GENERATOR_EQUALS")]`, so the compiler reads its syntax and elides it from consumer IL.
 - `Explicit` narrows admission to `[DefaultEquality]`-marked members; `[IgnoreEquality]` drops a member from `Equals`, `GetHashCode`, and `Inequalities` under every mode.
-- With `IgnoreInheritedMembers` unset the generator walks the ancestor chain: the nearest ancestor carrying `[Equatable]` or a hand-written nested `EqualityComparer : IEqualityComparer<T>` takes a `base.Equals` delegation, and every ancestor above an unowned base folds its properties into this type's comparison. An overriding property inherits its base member's equality attribute.
+- With `IgnoreInheritedMembers` unset the generator walks the ancestor chain: the nearest ancestor carrying `[Equatable]` or a hand-written nested `EqualityComparer : IEqualityComparer<T>` takes a `base.Equals` delegation, and every ancestor above an unowned base folds its properties into this type's comparison. Overriding properties inherit their base member's equality attribute.
 - Hashing diverges from equality by design: `[PrecisionEquality]` members leave `GetHashCode` entirely and `[SetEquality]` members contribute the set comparer's constant zero.
 - `[OrderedEquality]`, `[UnorderedEquality]`, and `[SetEquality]` require an `IEnumerable<T>` member; an `IDictionary<TKey, TValue>` member under `[UnorderedEquality]` routes to `DictionaryEqualityComparer<TKey, TValue>`.
-- A `partial class` implements `IEquatable<TSelf>` explicitly while record and struct declarations expose typed equality publicly; the nested `EqualityComparer` is `sealed` and shadows an equatable base's comparer with `new`.
+- `partial class` declarations implement `IEquatable<TSelf>` explicitly while record and struct declarations expose typed equality publicly; the nested `EqualityComparer` is `sealed` and shadows an equatable base's comparer with `new`.
 
 [STACKING]:
 - `System.IO.Hashing`(`.api/api-hashing.md`): `GetHashCode` stays process-salted in-memory state and `Inequalities` stays a diff rail, so cross-runtime content identity rides the seed-zero `XxHash128` digest over canonical bytes; both rails read the same canonical member set.
@@ -98,7 +98,7 @@
 - within-library: element-comparer ctors nest generated comparers — `new OrderedEqualityComparer<Layer>(Layer.EqualityComparer.Default)` composes deep equality over `[Equatable]` elements — and the same comparers key LINQ `Distinct`/`GroupBy`, `HashSet`, and `ImmutableDictionary` outside generated code at the exact sequence, multiset, set, and dictionary semantics the generated members apply.
 
 [LOCAL_ADMISSION]:
-- A graph node or record needing structural equality is `partial` and carries `[Equatable]`; equality reads through `T.EqualityComparer.Default`.
+- Graph nodes and records needing structural equality declare `partial` and carry `[Equatable]`; equality reads through `T.EqualityComparer.Default`.
 - Every value-bearing collection member declares `[OrderedEquality]`, `[UnorderedEquality]`, or `[SetEquality]`; an unattributed collection compares by reference.
 - Member-granular change detection flows through `Inequalities`, whose `MemberPath` anchors the exact member a structural merge or version diff reconciles and whose terminal `MemberPathSegmentKind` carries the change shape.
 

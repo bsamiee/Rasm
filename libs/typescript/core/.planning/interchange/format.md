@@ -2,7 +2,7 @@
 
 The four format engines of the interchange plane — one arm per contract byte dialect, each a configured-once pure engine behind one `Schema.transformOrFail` fold so every malformed payload is a `ParseError` on the one admission rail and no second codec fault vocabulary exists. `Proto` is the protobuf-es engine: read/write posture, the census-guarded `GenMessage` suite table, the singular type registry, the size-delimited frame stream both directions, and the custom-option read. `Cbor` is the canonical RFC 8949 decoder with the interop posture no cross-language byte can bypass, the `setSizeLimits` DoS gate, and the chunked `decodeIter` lane for multi-segment payloads. `Pack` is the MessagePack engine carrying the sixteen-byte `Hlc` extension row, the interner context thread, i64 fidelity, and the `ExtData` foreign-ext seam. `Patch` is the RFC 6902 engine: the six-op `Operation` union over the branch pointer brand, the `Pointer` traversal codec, the clone-fenced value-rail apply, the content-key-reconciled minimal diff, and the OCC test-guard egress. Engines are format mechanics only — which family decodes through which arm, what a decoded value lands as, and every verification are the codec registry's concern. The module is `core/src/interchange/format.ts`; a new proto family is one suite row, a new engine posture axis is one policy field, and a fifth dialect is a new engine owner beside these four, never a widening of one.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]          | [OWNS]                                                                      | [PUBLIC] |
 | :-----: | :----------------- | :-------------------------------------------------------------------------- | :------- |

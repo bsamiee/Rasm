@@ -2,7 +2,7 @@
 
 Tenancy enforcement and the per-scope store family in one owner: `Tenancy` discriminates row-scoped RLS, schema-per-app, and database-per-app as tagged cases whose locus derives from the app key; `Tenant` is the per-scope service whose `within` member is the ONLY road to a `SqlClient` under a scope — it opens the transaction, folds the security-declared `SessionCoordinate` table over the bound principal so tenant, scope, subject, and search path pin transaction-locally, and only then provides the client into the work, so a tenant relation statement outside the pinned boundary is unspellable rather than undisciplined; and `Stores` is the `LayerMap` family that turns a `ScopeKey` into a verified per-scope `Tenant | Capability` subgraph, sharing one app-owned pool across row- and schema-isolated scopes through the pool-adoption row while the raw client stays interior to the lookup. The same scopes satisfy every security state port at the app root — the port-satisfaction table is this page's contract, and hundreds of apps under mixed isolation are rows in the map, never deployments of different code.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]           | [OWNS]                                                                          |
 | :-----: | :------------------ | :------------------------------------------------------------------------------ |

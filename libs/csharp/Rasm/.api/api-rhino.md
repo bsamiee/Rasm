@@ -1,11 +1,11 @@
 # [RASM_API_RHINO]
 
-`Rhino.Geometry` is the host-ABI value-type geometry vocabulary the kernel reads, composes through `Rasm.Numerics`, and re-emits at the seam: value structs, primitive solids, curves, and meshes with typed topology. Host code owns the `Intersection` parametric curve/surface path for the `Analysis` layer; kernel code authors discrete predicate-exact crossing and broad-phase acceleration itself, and the two meet at no interior.
+This catalogue is the kernel's `RhinoCommon` partition: the host-ABI surface `Rasm` composes above the branch value substrate — the single-precision mesh carriers, the analytic primitive solids, the curve and mesh reference geometry with its typed topology, the native remesh and unwrap seam, the `Intersection` parametric lattice the `Analysis` layer folds, and the `RTree` point-neighborhood index. Kernel code authors discrete predicate-exact crossing and broad-phase acceleration itself, so host parametric intersection and kernel crossing meet at no interior.
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `RhinoCommon`
-- package: `RhinoCommon` (McNeel, host bundle)
+[PACKAGE_SURFACE]: RhinoCommon kernel-crossing surface
+- host: Rhino host runtime, in-process (proprietary McNeel SDK)
 - assembly: `RhinoCommon`
 - namespace: `Rhino.Geometry`, `Rhino.Geometry.Intersect`, `Rhino.Geometry.Collections`
 - asset: in-process `RhinoCommon.dll` from the RhinoWIP host bundle; managed structs wrap the `opennurbs` C++ core through `UnsafeNativeMethods` P/Invoke
@@ -13,66 +13,41 @@
 - runtime: net48 in-Rhino ALC; the geometry-only slice below the document stratum is the sole kernel-admitted surface
 - rail: host-rhino
 
+- Registers `RhinoCommon` value substrate(`libs/csharp/.api/api-rhinocommon.md`): `Point3d`, `Vector3d`, `Plane`, `Line`, `BoundingBox`, `Transform`, `MeshFace`, `Quaternion`, `Interval`, `Box`, and the `GeometryBase` bounds triple carry their whole member algebra there — the point, vector, frame, segment, extent, affine, and rotor entrypoint families included — and this partition never re-tables them.
+
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: point, vector, frame, and rotation value structs
+[PUBLIC_TYPE_SCOPE]: single-precision mesh carriers and the analytic primitive solids the substrate does not carry
 
-| [INDEX] | [SYMBOL]     | [TYPE_FAMILY]    | [CAPABILITY]             |
-| :-----: | :----------- | :--------------- | :----------------------- |
-|  [01]   | `Point3d`    | blittable struct | double-precision point   |
-|  [02]   | `Point3f`    | blittable struct | mesh-vertex point        |
-|  [03]   | `Vector3d`   | blittable struct | kernel direction carrier |
-|  [04]   | `Vector3f`   | blittable struct | mesh-normal vector       |
-|  [05]   | `Transform`  | 4x4 struct       | affine transform         |
-|  [06]   | `Quaternion` | struct           | rotation rotor           |
-|  [07]   | `Interval`   | struct           | scalar span              |
-|  [08]   | `Plane`      | struct           | oriented frame           |
+| [INDEX] | [SYMBOL]   | [TYPE_FAMILY]    | [CAPABILITY]                          |
+| :-----: | :--------- | :--------------- | :------------------------------------ |
+|  [01]   | `Point3f`  | blittable struct | mesh-vertex point, single precision   |
+|  [02]   | `Vector3f` | blittable struct | mesh-normal vector, single precision  |
+|  [03]   | `Sphere`   | struct           | analytic sphere                       |
+|  [04]   | `Cylinder` | struct           | axis circle with a height             |
+|  [05]   | `Cone`     | struct           | apex, axis, and radius                |
+|  [06]   | `Torus`    | struct           | major and minor radii on a frame      |
+|  [07]   | `Circle`   | struct           | planar circle on a `Plane` and radius |
+|  [08]   | `Arc`      | struct           | `Circle` under an angle `Interval`    |
+|  [09]   | `Ray3d`    | struct           | origin-and-direction ray              |
 
-- `Point3d`: `X` `Y` `Z` `Origin` `DistanceTo` `DistanceToSquared`, ordered comparison and arithmetic operators, implicit `Point3f` interop.
-- `Vector3d`: `Length` `SquareLength` `Zero` `XAxis` `YAxis` `ZAxis`.
-- `Point3f`/`Vector3f`: single-precision mesh-vertex/normal structs implicitly widening to `Point3d`/`Vector3d`.
-- `Transform`: row-major `M00`..`M33` fields.
-- `Quaternion`: `CreateFromRotationZYX` `CreateFromRotationZYZ` rotor constructors.
-- `Interval`: `Min` `Max` `Mid` `Length` `FromUnion` `FromIntersection`.
-- `Plane`: `Origin` `OriginX` `OriginY` `OriginZ` `Normal` `XAxis` `YAxis` `ZAxis`.
-
-[PUBLIC_TYPE_SCOPE]: bounding, primitive-solid, and ray value structs
-
-| [INDEX] | [SYMBOL]      | [TYPE_FAMILY] | [CAPABILITY]       |
-| :-----: | :------------ | :------------ | :----------------- |
-|  [01]   | `BoundingBox` | struct        | axis-aligned box   |
-|  [02]   | `Box`         | struct        | oriented box       |
-|  [03]   | `Sphere`      | struct        | sphere primitive   |
-|  [04]   | `Cylinder`    | struct        | cylinder primitive |
-|  [05]   | `Cone`        | struct        | cone primitive     |
-|  [06]   | `Torus`       | struct        | torus primitive    |
-|  [07]   | `Circle`      | struct        | circle primitive   |
-|  [08]   | `Arc`         | struct        | arc primitive      |
-|  [09]   | `Ray3d`       | struct        | ray primitive      |
-|  [10]   | `Line`        | struct        | segment primitive  |
-
-- `BoundingBox`: `Min` `Max` `Empty`.
-- `Sphere`: `Center` `Radius` `Diameter` `ClosestPoint` `PointAt(lon,lat)`.
-- `Circle`: `ClosestParameter` `PointAt` over a `Plane` and radius.
-- `Line`: `From` `To` `Length` `Direction` `PointAt` `ClosestPoint` `MinimumDistanceTo` `ExtendThroughBox`.
-- `Box` (`Plane` + three `Interval` extents), `Cylinder` (axis circle + height), `Cone` (apex, axis, radius), `Torus` (major/minor radii), and `Arc` (`Circle` + angle `Interval`) are their named-part compositions.
+- `Point3f`/`Vector3f` widen implicitly to their double-precision substrate twins, so a mesh buffer read crosses into kernel algebra with no explicit conversion and a write back is the narrowing the caller states.
+- `Sphere`: `Center` `Radius` `Diameter` `ClosestPoint` `PointAt(lon,lat)`; `Circle`: `ClosestParameter` `PointAt`.
+- `Cylinder`, `Cone`, `Torus`, and `Arc` are named-part compositions over the substrate carriers, so each reads its frame, extent, and parameter span from types the substrate already owns.
 
 [PUBLIC_TYPE_SCOPE]: curve, mesh, brep reference geometry and topology accessors
 
 | [INDEX] | [SYMBOL]        | [TYPE_FAMILY]           | [CAPABILITY]      |
 | :-----: | :-------------- | :---------------------- | :---------------- |
-|  [01]   | `GeometryBase`  | abstract reference root | geometry root     |
-|  [02]   | `Curve`         | abstract reference      | curve geometry    |
-|  [03]   | `NurbsCurve`    | reference               | NURBS curve       |
-|  [04]   | `PolylineCurve` | reference               | polyline curve    |
-|  [05]   | `Polyline`      | `List<Point3d>` value   | polyline geometry |
-|  [06]   | `Mesh`          | reference               | mesh geometry     |
-|  [07]   | `MeshFace`      | blittable struct        | mesh-face record  |
-|  [08]   | `Brep`          | reference               | boundary geometry |
+|  [01]   | `Curve`         | abstract reference      | curve geometry    |
+|  [02]   | `NurbsCurve`    | reference               | NURBS curve       |
+|  [03]   | `PolylineCurve` | reference               | polyline curve    |
+|  [04]   | `Polyline`      | `List<Point3d>` value   | polyline geometry |
+|  [05]   | `Mesh`          | reference               | mesh geometry     |
+|  [06]   | `Brep`          | reference               | boundary geometry |
 
-- `GeometryBase`: `IDisposable`; `GetBoundingBox(bool)` `GetBoundingBox(Plane,out Box)` `Transform` `Duplicate` `ObjectType` — the polymorphic root `RayShoot` consumes.
+- Reference geometry descends from the substrate's `GeometryBase`, so identity, duplication, `ObjectType`, disposal, and the bounds triple read there; this partition owns what each concrete type adds.
 - `NurbsCurve` exposes control-point and knot access, the densest `Curve` realization; `PolylineCurve` lowers a polyline to `Curve`, bridging `Curve.TryGetPolyline`.
-- `MeshFace`: `A` `B` `C` `D` vertex indices, `IsTriangle` `IsQuad`.
 - `Brep`: `Faces` `Edges` — the parametric solid the `Analysis` layer intersects.
 
 [PUBLIC_TYPE_SCOPE]: mesh restructure and unwrap types (the `Processing/segment` host-restructure seam)
@@ -109,7 +84,7 @@
 - `IntersectionEvent`: `IsPoint` `IsOverlap` `PointA` `PointB` `ParameterA` `ParameterB` `OverlapA` `OverlapB`.
 - `LineCircleIntersection` / `LineSphereIntersection` / `LineCylinderIntersection`: `None` `Single` `Multiple` cardinality the `Analysis` switch reads.
 - `PlaneCircleIntersection`: `None` `Tangent` `Secant`; `PlaneSphere` and `SphereSphere` return a `Circle` directly via `out`.
-- `RTreeEventArgs`: an `EventHandler<RTreeEventArgs>` reads `Id`/`IdB` and sets `Cancel`.
+- `RTreeEventArgs`: `EventHandler<RTreeEventArgs>` reads `Id`/`IdB` and sets `Cancel`.
 
 [RTREE]: the host point-neighborhood index the `Spatial/neighbors` `NeighborIndex` composes.
 - Construction: `RTree.CreateFromPointArray(points)` `CreatePointCloudTree(cloud)` `CreateMeshFaceTree(mesh)` `Insert(box,elementId)`.
@@ -118,40 +93,11 @@
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: vector, transform, quaternion, and interval algebra the kernel composes through `Rasm.Numerics`
+[ENTRYPOINT_SCOPE]: analytic primitive sampling and ray parameterization; instance members unless the surface names `static`
 
-| [INDEX] | [SURFACE]                       | [SHAPE]  | [CAPABILITY]                     |
-| :-----: | :------------------------------ | :------- | :------------------------------- |
-|  [01]   | `Vector3d.CrossProduct(a,b)`    | static   | cross product                    |
-|  [02]   | `Vector3d * Vector3d`           | operator | dot product                      |
-|  [03]   | `Vector3d.Unitize()`            | instance | in-place normalize, `bool`       |
-|  [04]   | `Vector3d.IsParallelTo(v)`      | instance | parallelism `-1`/`0`/`1`         |
-|  [05]   | `Vector3d.IsPerpendicularTo(v)` | instance | perpendicularity under tolerance |
-|  [06]   | `Vector3d.VectorAngle(a,b)`     | static   | signed or unsigned angle         |
-|  [07]   | `Vector3d.PerpendicularTo(v)`   | instance | build a perpendicular vector     |
-|  [08]   | `Vector3d.Rotate(angle,axis)`   | instance | in-place axis rotation           |
-|  [09]   | `Transform.Multiply(a,b)`       | static   | transform composition            |
-|  [10]   | `Transform * Point3d`           | operator | apply transform to a point       |
-|  [11]   | `Transform.TryGetInverse(out)`  | instance | fallible inverse, `bool`         |
-|  [12]   | `Interval.ParameterAt(t)`       | instance | normalized parameter remap       |
+[PRIMITIVE_SAMPLING]: `Sphere.PointAt(lonRadians, latRadians)` `Sphere.ClosestPoint` `Sphere.ClosestParameter(pt, out lon, out lat)` `Circle.PointAt(t)` `Circle.ClosestPoint` `Circle.ClosestParameter(pt, out t)` `Arc.PointAt(t)` `Arc.ClosestParameter(pt)` — evaluate a primitive at its own parameterization, the `Analysis` cardinality switch reading the result beside the crossing verdict.
 
-- `Vector3d.Unitize`: `IsUnitVector`/`IsTiny`/`IsZero` guard a degenerate direction, and `VectorAngle` takes an optional `plane` or `vNormal` for a signed result.
-- `Transform.TryGetInverse`: `Fin` routes the singular inverse failure.
-- `Interval.ParameterAt`: `NormalizedParameterAt`/`IncludesParameter` complete the remap and containment surface.
-
-[AFFINE_FACTORY]: `Transform.Rotation` `Mirror` `PlaneToPlane` `ChangeBasis` `ProjectAlong` `PlanarProjection` `Scale` `Translation` `Diagonal` `RotationZYX` — one static named constructor per affine kind, never reminted by the kernel.
-[AFFINE_DECOMPOSITION]: `Transform.DecomposeAffine` `DecomposeSymmetric` `GetEulerZYZ` `GetYawPitchRoll` `GetQuaternion` — factor a transform into translation, rotation, scale, Euler angles, or a rotor.
-[AFFINE_INVARIANTS]: `Transform.Determinant` `IsAffine` `IsUniformlyScaled` `Orthogonalize` — classify a transform and Gram-Schmidt re-orthogonalize a drifted basis.
-[ROTOR_OPERATIONS]: `Quaternion.GetRotation(out)` `Conjugate` `Inverse` `Unitize` `operator *` — read the rotor as axis-angle, oriented frame, or matrix and compose rotors.
-
-[ENTRYPOINT_SCOPE]: plane projection and framing, AABB composition and query, and ray sampling; instance members unless the surface names `static`
-
-[PLANE_PROJECTION]: `Plane.ClosestPoint` `RemapToPlaneSpace` `ClosestParameter` `ValueAt` `DistanceTo` — project a frame, remap world and plane space, and return the signed plane distance the `PlaneMesh` straddle reads.
-[PLANE_REFRAMING]: `Plane.GetPlaneEquation` `Rotate` `Transform` `Translate` `Flip` — return `[a,b,c,d]` and reframe in place.
-[PLANE_CONSTRUCTION]: `Plane.CreateFromNormal` `CreateFromPoints` `CreateFromFrame` `FitPlaneToPoints` — static frame constructors, the `Spatial/cloud` best-fit fold composing the least-squares `FitPlaneToPoints`.
-[BOUNDS_COMPOSITION]: `BoundingBox.Union(a,b)` `Union(box,point)` `Intersection(a,b)` — static and in-place AABB merge and overlap.
-[BOUNDS_QUERY]: `BoundingBox.Contains` `ClosestPoint` `FurthestPoint` `Corner` `GetCorners` `PointAt` — containment, nearest and farthest points, the eight corners, and parametric sampling.
-[BOUNDS_MUTATION]: `BoundingBox.Inflate` `Transform` `MakeValid` `IsDegenerate` `Volume` `Area` `Diagonal` — grow, transform, and classify validity, degeneracy, and extent.
+- Projection arity forks across the family: `Sphere` and `Circle` return `bool` with the parameters on `out` channels, while `Arc.ClosestParameter` returns the `double` directly and carries no failure verdict — a fold treating the three uniformly drops the `Arc` case or invents a verdict it never gets.
 [RAY_SAMPLING]: `Ray3d.PointAt(t)` `Position` `Direction` — parametric ray sampling driving `SpatialQuery.Ray` and `MeshRay`.
 
 [ENTRYPOINT_SCOPE]: curve evaluation, projection, division, classification, and transformation, and the polyline chain surface; instance members
@@ -221,8 +167,9 @@ Instance forms return a new `Mesh`, null on failure — the kernel `Fin`-routes 
 - Every kernel op reads a `Rhino.Geometry` value type's full member surface and composes it through `Rasm.Numerics`, never re-deriving the operation nor re-minting the type.
 
 [STACKING]:
-- `Rasm.Numerics`: value structs (`Vector3d`/`Transform`/`BoundingBox`/`Plane`) cross into the numeric floor as its carriers, and the kernel reads `SquareLength`/`DecomposeAffine`/`Union`/`TopologyVertices` rather than re-deriving; the structure-of-arrays frame store reads and writes `Plane.OriginX`/`OriginY`/`OriginZ`, and the degeneracy guard reads `Vector3d.SquareLength`.
-- `Spatial/index` SAH-BVH: `BoundingBox.Empty` seeds and `Union` accumulates the broad-phase AABB the `NodeStore` holds.
+- `RhinoCommon` value substrate(`libs/csharp/.api/api-rhinocommon.md`): the point, vector, frame, segment, extent, affine, and rotor algebra resolves there whole; this partition composes it — `Point3f`/`Vector3f` widen into it, every primitive solid is a named-part composition over its carriers, and every reference type inherits its `GeometryBase` bounds and identity.
+- `Rasm.Numerics`: substrate value structs cross into the numeric floor as its carriers, and the kernel reads `SquareLength`/`DecomposeAffine`/`Union` beside this partition's `Mesh.TopologyVertices` rather than re-deriving; the structure-of-arrays frame store reads and writes `Plane.OriginX`/`OriginY`/`OriginZ`, and the degeneracy guard reads `Vector3d.SquareLength`.
+- `Spatial/index` SAH-BVH: the substrate `BoundingBox.Empty` seeds and `Union` accumulates the broad-phase AABB the `NodeStore` holds.
 - `Meshing/intersect` narrow phase: `MeshFace` triangle-soup indices and `Mesh.TopologyVertices` welded adjacency back the Guigue-Devillers predicate-exact straddle, and `Polyline` re-emits the crossing chains.
 - `Spatial/neighbors` `NeighborIndex`: composes host `RTree` construction, callback search, and the hay-by-needle batches inside its callback capsule.
 - `Analysis/Intersect` lattice: folds `Intersection` parametric primitive-pair crossings and disposes each `CurveIntersections` under a lease.
@@ -231,9 +178,10 @@ Instance forms return a new `Mesh`, null on failure — the kernel `Fin`-routes 
 [LOCAL_ADMISSION]:
 - Reference geometry is the kernel's disposable native-handle owner, released at the seam.
 - Geometry values cross the seam as `Rasm.Numerics` carriers, the robust core re-emitting `Polyline`/`Point3d`/`Mesh` at the boundary.
+- Substrate carriers read their members from the branch catalogue, and a row for one lands there rather than here, so the kernel and both host boundaries meet one spelling.
 
 [RAIL_LAW]:
-- Package: `RhinoCommon` (`Rhino.Geometry`, `Rhino.Geometry.Intersect`)
-- Owns: the value-type geometry vocabulary the kernel reads, composes through `Rasm.Numerics`, and re-emits at the seam; the host parametric intersection (`Intersection.Curve*`/`Brep*`/`Ray*`) the `Analysis` layer composes; the host `RTree` point-neighborhood tier the `Spatial/neighbors` `NeighborIndex` composes.
-- Accept: `Rhino.Geometry` value types read through their full member surface; the `Analysis/Intersect` parametric lattice disposing each `CurveIntersections` under a lease; the geometry-only surface below the document, view, command, and display strata.
-- Reject: a kernel-local re-mint of a Rhino value type (a domain `Aabb`/`Ray`/`Vec3` duplicating `BoundingBox`/`Ray3d`/`Vector3d`); an epsilon-snapped coordinate where the robust core owns an exact construction; a kernel discrete crossing or primitive broad-phase routed through host `Intersection.Mesh*` or `RTree` where the predicate-exact straddle is required; a `RhinoDoc`/`RhinoApp`/`RhinoView`/`DisplayConduit`/`ObjectTable` reach from the kernel.
+- Partition: RhinoCommon kernel crossing (`Rhino.Geometry`, `Rhino.Geometry.Intersect`, `Rhino.Geometry.Collections`)
+- Owns: the single-precision mesh carriers and analytic primitive solids, the curve, polyline, mesh, and brep reference geometry with its typed topology, the native remesh/reduce/unwrap seam, the host parametric intersection (`Intersection.Curve*`/`Brep*`/`Ray*`) the `Analysis` layer composes, and the host `RTree` point-neighborhood tier the `Spatial/neighbors` `NeighborIndex` composes.
+- Accept: reference geometry read through its full member surface over the registered substrate carriers; the `Analysis/Intersect` parametric lattice disposing each `CurveIntersections` under a lease; the geometry-only surface below the document, view, command, and display strata.
+- Reject: a kernel-local re-mint of a Rhino value type (a domain `Aabb`/`Ray`/`Vec3` duplicating `BoundingBox`/`Ray3d`/`Vector3d`); a re-tabling of the substrate carrier algebra; an epsilon-snapped coordinate where the robust core owns an exact construction; a kernel discrete crossing or primitive broad-phase routed through host `Intersection.Mesh*` or `RTree` where the predicate-exact straddle is required; a `RhinoDoc`/`RhinoApp`/`RhinoView`/`DisplayConduit`/`ObjectTable` reach from the kernel.

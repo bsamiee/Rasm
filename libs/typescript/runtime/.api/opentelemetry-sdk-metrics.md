@@ -35,7 +35,8 @@
 |  [14]   | `TimeoutError`                            | class                | collection/flush deadline fault                        |
 
 - `MetricReaderOptions`: `aggregationSelector?`/`aggregationTemporalitySelector?`/`cardinalitySelector?` are pure `(InstrumentType) => X` fns; `metricProducers?` adds external aggregate sources whose resource the SDK ignores.
-- `PeriodicExportingMetricReaderOptions`: `exporter` required; `exportIntervalMillis?`/`exportTimeoutMillis?`/`metricProducers?`/`cardinalityLimits?` (per-instrument-type record)/`maxExportBatchSize?` optional.
+- `PeriodicExportingMetricReaderOptions`: `exporter` required; `exportIntervalMillis?`/`exportTimeoutMillis?`/`metricProducers?`/`cardinalityLimits?`/`maxExportBatchSize?` optional, the last two `@experimental`.
+- `cardinalityLimits` keys a lowercase-camel instrument-kind record — `counter?`/`gauge?`/`histogram?`/`upDownCounter?`/`observableCounter?`/`observableGauge?`/`observableUpDownCounter?`/`default?` — never an `InstrumentType` enum keying. `default` catches every unnamed kind, so one budget across the whole instrument space spells `{ default: n }` alone; unconfigured, the SDK caps at 2000 time series per instrument. Internally the record wraps into a `cardinalitySelector`, so reader-level and per-view ceilings compose rather than replace.
 - `PushMetricExporter`: `selectAggregationTemporality?` and `selectAggregation?` are optional per-`InstrumentType` policy the reader defers to when present.
 
 [PUBLIC_TYPE_SCOPE]: the `View` algebra reshaping matched instruments before export
@@ -89,7 +90,7 @@
 |  [05]   | `InMemoryMetricExporter.getMetrics() -> ResourceMetrics[]`                | instance | read buffered collections       |
 |  [06]   | `InMemoryMetricExporter.reset()`                                          | instance | clear the buffer                |
 
-- `MetricReader.collect`: a throwing observable callback aggregates into `CollectionResult.errors` while successfully collected metrics still return — collection never throws on a single-callback fault.
+- `MetricReader.collect`: throwing observable callbacks aggregate into `CollectionResult.errors` while successfully collected metrics still return — collection never throws on a single-callback fault.
 - `MetricReader.shutdown`/`forceFlush`: the operation MAY keep running after the returned promise rejects on timeout.
 
 [ENTRYPOINT_SCOPE]: view attribute-processor constructors for cardinality control
@@ -103,7 +104,7 @@
 
 [TOPOLOGY]:
 - Aggregation temporality is per-instrument policy: an `AggregationTemporalitySelector` maps each `InstrumentType` to `DELTA` or `CUMULATIVE`, defaulting to `CUMULATIVE` for every instrument when unset, and a `PushMetricExporter.selectAggregationTemporality` overrides the reader's selection.
-- A `ViewOptions` matches instruments by `instrumentType`, wildcard `instrumentName`, and exact `meterName`/`meterVersion`/`meterSchemaUrl`, then reshapes the matched stream — rename, `AggregationType.DROP`, re-aggregate, attribute-filter, `aggregationCardinalityLimit` — and `attributesProcessors` apply in list order.
+- `ViewOptions` matches instruments by `instrumentType`, wildcard `instrumentName`, and exact `meterName`/`meterVersion`/`meterSchemaUrl`, then reshapes the matched stream — rename, `AggregationType.DROP`, re-aggregate, attribute-filter, `aggregationCardinalityLimit` — and `attributesProcessors` apply in list order.
 - Aggregation is a discriminated `AggregationOption` value keyed on `AggregationType`, so a bespoke histogram bucketing is an `options` object, never a reader or aggregator subclass.
 - Collection nests `ResourceMetrics -> ScopeMetrics[] -> MetricData[]`; `MetricData` discriminates on `dataPointType` and `DataPoint<T>` parameterizes the point value, so one union carries every instrument shape.
 

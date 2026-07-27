@@ -2,7 +2,7 @@
 
 PostgreSQL's guarantee-lane spine owns first-party capabilities, concurrency primitives with explicit denials, ruled extensions, and driver Layers binding neutral `SqlClient` to pg. Rows and Layer mints carry every fact; `lane/capability.md` probes, `lane/tenant.md` scopes, and journal statements consume the grant vocabulary. ONE derived union binds spine, primitives, extensions, sqlite degradation, gates, and deployment image. A capability is one row; pruning an extension deletes its row and image fact.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]          | [OWNS]                                                                                 |
 | :-----: | :----------------- | :------------------------------------------------------------------------------------- |

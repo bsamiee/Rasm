@@ -6,7 +6,7 @@ One retry-policy table rules the whole branch: `RetryClass` is the single behavi
 
 ## [01]-[INDEX]
 
-- [01]-[RESILIENCE]: the `RetryClass` policy table, the import-free backoff discriminators, the `guard`/`guarded`/`retrying` family over one row, and the installed retry-hook stack.
+- [02]-[RESILIENCE]: the `RetryClass` policy table, the import-free backoff discriminators, the `guard`/`guarded`/`retrying` family over one row, and the installed retry-hook stack.
 
 ## [02]-[RESILIENCE]
 

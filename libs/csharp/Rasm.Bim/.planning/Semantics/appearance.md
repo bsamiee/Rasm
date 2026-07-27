@@ -8,7 +8,7 @@ The page is HOST-NEUTRAL — no `Rhino.Geometry`, no `Unicolour`, no `System.Dra
 
 ## [01]-[INDEX]
 
-- [01]-[APPEARANCE_PROJECTION]: `AppearanceProjection.Project` the `IfcStyledItem`→seam `Node.Appearance` ingress fold over the presentation graph, the `ReflectanceModel` `[SmartEnum<string>]` IFC reflectance-method roster carrying the typed PBR bias (`Metalness`/`RoughnessHint`/`Transmissive`) plus the `ForPbr` reverse classifier, the sRGB `Linearize`/`Encode` transfer pair, the `AppearanceKey` content-key derivation shared with `Rasm.Materials`, and the inverse `AppearanceProjection.Author` egress re-authoring the `IfcSurfaceStyleRendering`+`IfcSurfaceStyleRefraction` surface style the `Projection/egress#IFC_EGRESS` `Emit` composes per `Object` node.
+- [02]-[APPEARANCE_PROJECTION]: `AppearanceProjection.Project` the `IfcStyledItem`→seam `Node.Appearance` ingress fold over the presentation graph, the `ReflectanceModel` `[SmartEnum<string>]` IFC reflectance-method roster carrying the typed PBR bias (`Metalness`/`RoughnessHint`/`Transmissive`) plus the `ForPbr` reverse classifier, the sRGB `Linearize`/`Encode` transfer pair, the `AppearanceKey` content-key derivation shared with `Rasm.Materials`, and the inverse `AppearanceProjection.Author` egress re-authoring the `IfcSurfaceStyleRendering`+`IfcSurfaceStyleRefraction` surface style the `Projection/egress#IFC_EGRESS` `Emit` composes per `Object` node.
 
 ## [02]-[APPEARANCE_PROJECTION]
 

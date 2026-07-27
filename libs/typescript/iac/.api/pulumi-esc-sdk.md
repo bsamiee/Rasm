@@ -33,7 +33,7 @@
 |  [15]   | `CloneEnvironmentOptions`       | interface     | clone preserve flags          |
 
 - `EnvironmentDefinition`: `imports` is the merge DAG, `values` the projection payload over `pulumiConfig`/`environmentVariables`/`files` with free string keys.
-- `Value`: a set `secret` flag lifts the property to `Redacted` at the boundary; `trace` carries source spans.
+- `Value`: `secret` set lifts the property to `Redacted` at the boundary, and `trace` carries source spans.
 
 ## [03]-[ENTRYPOINTS]
 

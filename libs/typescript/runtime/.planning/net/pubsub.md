@@ -6,7 +6,7 @@ Guarantee rows declare at-least-once handler consumption with ack-after-success,
 
 Retention makes replay a warm-up and recovery window, never the system of record; consumers needing full history read the data journal. Deployment owns NATS fsync and replica quorum. JetStream ships on `./server`, local stays runtime-neutral, and tab stays browser-bound. Module: `runtime/src/net/pubsub.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]       | [OWNS]                                                                               | [PUBLIC]                     |
 | :-----: | :-------------- | :----------------------------------------------------------------------------------- | :--------------------------- |

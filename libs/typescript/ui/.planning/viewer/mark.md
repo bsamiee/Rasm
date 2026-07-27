@@ -2,7 +2,7 @@
 
 Selection owns one `HashSet<GlobalId>` written through `Replace`, `Add`, `Toggle`, `Subtract`, and `Clear`. Every backend pick decodes to `GlobalId` before the fold, and every visual echo reads that set. BCF topics and viewpoints share the plane through pure pin, restore, and lifecycle projections; missing anchors remain evidence. Module: `ui/viewer/src/mark.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]           | [OWNS]                                                                    | [PUBLIC]    |
 | :-----: | :------------------ | :------------------------------------------------------------------------ | :---------- |

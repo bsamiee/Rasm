@@ -6,7 +6,7 @@ Relational query owner over one `QuerySpec` axis materializing to uniform Arrow.
 
 ## [01]-[INDEX]
 
-- [01]-[QUERY]: the relational query engine over one `QuerySpec` axis materializing to uniform Arrow, with the `columnar`-shared receipt extended by column-level lineage.
+- [02]-[QUERY]: the relational query engine over one `QuerySpec` axis materializing to uniform Arrow, with the `columnar`-shared receipt extended by column-level lineage.
 
 ## [02]-[QUERY]
 

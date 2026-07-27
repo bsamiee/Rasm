@@ -2,7 +2,7 @@
 
 The SI quantity law: a physical measure is one `Quantity` — SI-coherent magnitude plus a seven-axis `Dimension` exponent vector — canonicalized exactly once at the C# admission and carried dimension-checked everywhere in TS. A `{value, unit}` shape never exists in this branch: unit conversion happened before the wire, so the interchange codec decodes the C# `QuantityFamily` SI scalar straight into this owner, and every downstream fold reads magnitudes it can lawfully combine. Dimension algebra is total, magnitude algebra is honestly partial — a dimension mismatch, a non-finite result, or a power the JavaScript scalar plane cannot represent exactly is a typed `QuantityFault` on the `Either` rail, never a `NaN` or silently rounded exponent escaping into a report. The module is `core/src/value/quantity.ts`; a new named dimension is one static row, a new operation is one member on the owning class.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]          | [OWNS]                                                         | [PUBLIC]                    |
 | :-----: | :----------------- | :------------------------------------------------------------- | :-------------------------- |

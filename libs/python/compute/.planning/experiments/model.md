@@ -6,7 +6,7 @@ Input and output are both parameterized: `ExportSource` discriminates the `to_on
 
 ## [01]-[INDEX]
 
-- [01]-[ASSET]: the sklearn-to-ONNX export over `ExportSource`, the `ValidationCheck` fold to `ValidationEvidence` verdicts, and the graduation rail on one `ModelAsset` owner.
+- [02]-[ASSET]: the sklearn-to-ONNX export over `ExportSource`, the `ValidationCheck` fold to `ValidationEvidence` verdicts, and the graduation rail on one `ModelAsset` owner.
 
 ## [02]-[ASSET]
 

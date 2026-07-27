@@ -82,7 +82,7 @@ Each source ships a dual — an eager `get*(args, opts?): Promise<Result>` and a
 [PUBLIC_TYPE_SCOPE]: the connection boundary
 - rail: iac / data-provisioning
 
-An explicit `Provider` carries the DSN and binds every resource in the arm to the CNPG cluster; pass it via `opts.provider`, never ambient package `config`. Auth is polymorphic — one shape, mode chosen by which fields are set.
+Explicit `Provider` carries the DSN and binds every resource in the arm to the CNPG cluster, reaching each through `opts.provider` rather than ambient package `config`. Auth is polymorphic — one shape, mode chosen by which fields are set.
 
 | [INDEX] | [MEMBER]              | [SIGNATURE_FIELD]                                                                                          |
 | :-----: | :-------------------- | :--------------------------------------------------------------------------------------------------------- |

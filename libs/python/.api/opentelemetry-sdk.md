@@ -114,49 +114,61 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: TracerProvider construction and lifecycle
-- `TracerProvider(sampler=None, resource=Resource.create(), shutdown_on_exit=True, active_span_processor=None, id_generator=None, span_limits=None)` — provider constructor
+- `TracerProvider(sampler=None, resource=None, shutdown_on_exit=True, active_span_processor=None, id_generator=None, span_limits=None, *, meter_provider=None)` — provider constructor
 - `ParentBased(root, remote_parent_sampled=ALWAYS_ON, remote_parent_not_sampled=ALWAYS_OFF, local_parent_sampled=ALWAYS_ON, local_parent_not_sampled=ALWAYS_OFF)` — parent-state routing sampler
 - `SpanLimits(max_attributes, max_events, max_links, max_span_attributes, max_event_attributes, max_link_attributes, max_attribute_length, max_span_attribute_length)` — per-span/event/link count and value-length caps
+- `BatchSpanProcessor(span_exporter, max_queue_size=None, schedule_delay_millis=None, max_export_batch_size=None, export_timeout_millis=None, *, meter_provider=None)` — four burst knobs ride it beside the self-observability meter
 
-| [INDEX] | [SURFACE]                                                   | [SHAPE]  | [CAPABILITY]                              |
-| :-----: | :---------------------------------------------------------- | :------- | :---------------------------------------- |
-|  [01]   | `TracerProvider(...)`                                       | ctor     | provider with sampler/resource/limits     |
-|  [02]   | `TracerProvider.add_span_processor(span_processor)`         | instance | attach a span processor (fans into multi) |
-|  [03]   | `TracerProvider.get_tracer(instrumenting_module_name, ...)` | factory  | obtain a `Tracer`                         |
-|  [04]   | `TracerProvider.force_flush(timeout_millis=30000) -> bool`  | instance | flush all processors                      |
-|  [05]   | `TracerProvider.shutdown()`                                 | instance | flush + shut down all processors          |
-|  [06]   | `BatchSpanProcessor(span_exporter, ...)`                    | ctor     | batching processor with capacity config   |
-|  [07]   | `SimpleSpanProcessor(span_exporter)`                        | ctor     | synchronous single-span processor         |
-|  [08]   | `TraceIdRatioBased(rate)`                                   | ctor     | sampler for given fraction of traces      |
-|  [09]   | `ParentBased(root, ...)`                                    | ctor     | parent-decision-routed sampler            |
-|  [10]   | `SpanLimits(...)`                                           | ctor     | per-span/event/link caps                  |
+| [INDEX] | [SURFACE]                                                                         | [SHAPE]  | [CAPABILITY]                              |
+| :-----: | :-------------------------------------------------------------------------------- | :------- | :---------------------------------------- |
+|  [01]   | `TracerProvider(...)`                                                             | ctor     | provider with sampler/resource/limits     |
+|  [02]   | `TracerProvider.add_span_processor(span_processor)`                               | instance | attach a span processor (fans into multi) |
+|  [03]   | `TracerProvider.get_tracer(name, version=None, schema_url=None, attributes=None)` | factory  | scope-coordinate tracer mint              |
+|  [04]   | `TracerProvider.force_flush(timeout_millis=30000) -> bool`                        | instance | flush all processors                      |
+|  [05]   | `TracerProvider.shutdown()`                                                       | instance | flush + shut down all processors          |
+|  [06]   | `BatchSpanProcessor(span_exporter, ...)`                                          | ctor     | batching processor with capacity config   |
+|  [07]   | `SimpleSpanProcessor(span_exporter)`                                              | ctor     | synchronous single-span processor         |
+|  [08]   | `TraceIdRatioBased(rate)`                                                         | ctor     | sampler for given fraction of traces      |
+|  [09]   | `ParentBased(root, ...)`                                                          | ctor     | parent-decision-routed sampler            |
+|  [10]   | `SpanLimits(...)`                                                                 | ctor     | per-span/event/link caps                  |
 
 [ENTRYPOINT_SCOPE]: MeterProvider construction and lifecycle
 - `MeterProvider(metric_readers=(), resource=None, exemplar_filter=None, shutdown_on_exit=True, views=())` — provider constructor
-- `PeriodicExportingMetricReader(exporter, export_interval_millis=None, export_timeout_millis=None, preferred_temporality=None, preferred_aggregation=None)` — push-reader constructor
+- `PeriodicExportingMetricReader(exporter, export_interval_millis=None, export_timeout_millis=None)` — push-reader constructor, three parameters whole
+- `MetricReader(preferred_temporality=None, preferred_aggregation=None, *, otel_component_type=None)` — this base constructor owns both preference maps, keyed `type[Instrument] -> AggregationTemporality | Aggregation`
+- `View(instrument_type=None, instrument_name=None, meter_name=None, meter_version=None, meter_schema_url=None, name=None, description=None, attribute_keys=None, aggregation=None, exemplar_reservoir_factory=None, instrument_unit=None)` — eleven fields match and shape one instrument set
 
-| [INDEX] | [SURFACE]                                                                  | [SHAPE]  | [CAPABILITY]                               |
-| :-----: | :------------------------------------------------------------------------- | :------- | :----------------------------------------- |
-|  [01]   | `MeterProvider(...)`                                                       | ctor     | provider with readers/views/filter         |
-|  [02]   | `MeterProvider.force_flush(timeout_millis=10_000) -> bool`                 | instance | collect + export all readers               |
-|  [03]   | `MeterProvider.shutdown(timeout_millis=30_000)`                            | instance | flush + stop all readers                   |
-|  [04]   | `PeriodicExportingMetricReader(exporter, ...)`                             | ctor     | push reader on timer (default 60s)         |
-|  [05]   | `InMemoryMetricReader(preferred_temporality, preferred_aggregation)`       | ctor     | pull reader exposing `.get_metrics_data()` |
-|  [06]   | `View(...)`                                                                | ctor     | instrument filter + aggregation routing    |
-|  [07]   | `ExplicitBucketHistogramAggregation(boundaries=None, record_min_max=True)` | ctor     | fixed-bucket histogram strategy            |
-|  [08]   | `ExponentialBucketHistogramAggregation(max_size=160, max_scale=20)`        | ctor     | exponential histogram strategy             |
+| [INDEX] | [SURFACE]                                                                                | [SHAPE]  | [CAPABILITY]                       |
+| :-----: | :--------------------------------------------------------------------------------------- | :------- | :--------------------------------- |
+|  [01]   | `MeterProvider(...)`                                                                     | ctor     | provider with readers/views/filter |
+|  [02]   | `MeterProvider.get_meter(name, version=None, schema_url=None, attributes=None)`          | factory  | scope-coordinate meter mint        |
+|  [03]   | `MeterProvider.force_flush(timeout_millis=10_000) -> bool`                               | instance | collect + export all readers       |
+|  [04]   | `MeterProvider.shutdown(timeout_millis=30_000)`                                          | instance | flush + stop all readers           |
+|  [05]   | `PeriodicExportingMetricReader(exporter, ...)`                                           | ctor     | push reader on timer (default 60s) |
+|  [06]   | `InMemoryMetricReader(preferred_temporality=None, preferred_aggregation=None)`           | ctor     | pull reader; `.get_metrics_data()` |
+|  [07]   | `MetricReader.collect(timeout_millis=10_000)`                                            | instance | drive one collection cycle         |
+|  [08]   | `View(...)`                                                                              | ctor     | instrument filter + aggregation    |
+|  [09]   | `ExplicitBucketHistogramAggregation(boundaries=None, record_min_max=True)`               | ctor     | fixed-bucket histogram             |
+|  [10]   | `ExponentialBucketHistogramAggregation(max_size=160, max_scale=20, record_min_max=True)` | ctor     | base-2 exponential histogram       |
+|  [11]   | `SimpleFixedSizeExemplarReservoir(size=1, **kwargs)`                                     | ctor     | fixed-size random reservoir        |
+|  [12]   | `AlignedHistogramBucketExemplarReservoir(boundaries, **kwargs)`                          | ctor     | one exemplar per bucket            |
 
 [ENTRYPOINT_SCOPE]: LoggerProvider construction and lifecycle
-- `LoggerProvider(resource=None, shutdown_on_exit=True, multi_log_record_processor=None)` — provider constructor
+- `LoggerProvider(resource=None, shutdown_on_exit=True, multi_log_record_processor=None, *, meter_provider=None)` — provider constructor
+- `LogLimits(max_attributes=None, max_attribute_length=None, max_log_record_attributes=None, max_log_record_attribute_length=None)` — four log-record caps mirror `SpanLimits` on the log leg
+- `BatchLogRecordProcessor(exporter, schedule_delay_millis=None, max_export_batch_size=None, export_timeout_millis=None, max_queue_size=None, *, meter_provider=None)` — burst knobs run in log-side parameter order, which differs from `BatchSpanProcessor`'s
 
-| [INDEX] | [SURFACE]                                                       | [SHAPE]  | [CAPABILITY]                         |
-| :-----: | :-------------------------------------------------------------- | :------- | :----------------------------------- |
-|  [01]   | `LoggerProvider(...)`                                           | ctor     | SDK logger provider with resource    |
-|  [02]   | `LoggerProvider.add_log_record_processor(log_record_processor)` | instance | attach a log-record processor        |
-|  [03]   | `LoggerProvider.force_flush(timeout_millis=30000) -> bool`      | instance | flush all log processors             |
-|  [04]   | `LoggerProvider.shutdown()`                                     | instance | flush + shut down all log processors |
-|  [05]   | `BatchLogRecordProcessor(exporter, ...)`                        | ctor     | batching log-record processor        |
-|  [06]   | `LoggingHandler(level=NOTSET, logger_provider=None)`            | ctor     | stdlib `logging.Handler` bridge      |
+| [INDEX] | [SURFACE]                                                       | [SHAPE]  | [CAPABILITY]                             |
+| :-----: | :-------------------------------------------------------------- | :------- | :--------------------------------------- |
+|  [01]   | `LoggerProvider(...)`                                           | ctor     | SDK logger provider with resource        |
+|  [02]   | `LoggerProvider.add_log_record_processor(log_record_processor)` | instance | attach a log-record processor            |
+|  [03]   | `LoggerProvider.force_flush(timeout_millis=30000) -> bool`      | instance | flush all log processors                 |
+|  [04]   | `LoggerProvider.shutdown()`                                     | instance | flush + shut down all log processors     |
+|  [05]   | `BatchLogRecordProcessor(exporter, ...)`                        | ctor     | batching log-record processor            |
+|  [06]   | `SimpleLogRecordProcessor(exporter, *, meter_provider=None)`    | ctor     | synchronous processor for the test rail  |
+|  [07]   | `InMemoryLogExporter()`                                         | ctor     | zero-argument capture exporter for tests |
+|  [08]   | `LogLimits(...)`                                                | ctor     | log-record attribute count/length caps   |
+|  [09]   | `LoggingHandler(level=NOTSET, logger_provider=None)`            | ctor     | stdlib `logging.Handler` bridge          |
 
 [ENTRYPOINT_SCOPE]: Resource construction and detection
 
@@ -186,7 +198,7 @@
 
 [STACKING]:
 - `opentelemetry-api`(`.api/opentelemetry-api.md`): SDK providers implement the API's abstract `TracerProvider`/`MeterProvider`/`LoggerProvider` and register through `trace.set_tracer_provider(...)` at startup; instrumentation binds the no-op API surface, so a live SDK is a composition-root swap invisible to library code.
-- `opentelemetry-exporter-otlp-proto-http`(`.api/opentelemetry-exporter-otlp-proto-http.md`): its `OTLPSpanExporter`/`OTLPMetricExporter`/`OTLPLogExporter` are the terminal sink wired into `BatchSpanProcessor`/`PeriodicExportingMetricReader`/`BatchLogRecordProcessor`; SDK processors own batching/aggregation/sampling/resource, the exporter owns transport, and reader `preferred_temporality` must match the exporter's.
+- `opentelemetry-exporter-otlp-proto-http`(`.api/opentelemetry-exporter-otlp-proto-http.md`): its `OTLPSpanExporter`/`OTLPMetricExporter`/`OTLPLogExporter` are the terminal sink wired into `BatchSpanProcessor`/`PeriodicExportingMetricReader`/`BatchLogRecordProcessor`; SDK processors own batching/sampling/resource, the exporter owns transport, and the wire temporality and aggregation preferences ride the METRIC EXPORTER constructor — `PeriodicExportingMetricReader` accepts neither, so a composition passing them to the reader raises `TypeError` at construction.
 - `psutil`(`.api/psutil.md`): a process-health gauge or observable counter fed by `psutil.Process(...).memory_info()`/`cpu_percent()` registers through the API `Meter` and takes shape from an SDK `View`; SDK aggregation is the only place a raw psutil reading becomes a temporality-correct metric point.
 - within-lib test rail: `InMemorySpanExporter`/`InMemoryMetricReader`/`InMemoryLogExporter` capture `ReadableSpan`/`MetricsData`/`ReadableLogRecord` for assertion without a live collector.
 
@@ -194,10 +206,11 @@
 - SDK providers construct at the composition root only; instrumentation and library code bind the no-op API surface and never import `opentelemetry.sdk`.
 - providers and `Batch*Processor` require `shutdown()` on exit (`shutdown_on_exit=True` is the default); short-lived processes `force_flush()` before exit.
 - `PeriodicExportingMetricReader` defaults to a 60_000 ms interval; tune via `export_interval_millis` or `OTEL_METRIC_EXPORT_INTERVAL`.
+- Temporality and aggregation preference homes at the constructing surface that owns the wire: an exporting composition sets both on the OTLP metric exporter, and a reader-side preference exists only on `MetricReader` subclasses that carry no exporter — `InMemoryMetricReader` on the test rail.
 - pass explicit `service.name` via `Resource.create({SERVICE_NAME: ...})` at startup; an unset name degrades to `unknown_service`.
 
 [RAIL_LAW]:
 - Package: `opentelemetry-sdk`
 - Owns: concrete provider implementations, batch/simple processors, samplers, id generators, metric readers, view/aggregation/exemplar machinery, resource detection, and in-memory/console exporters
 - Accept: one SDK provider per signal at the composition root, `Resource.create()` with `SERVICE_NAME`, `Batch*Processor` + `PeriodicExportingMetricReader` for production, `View`/`Aggregation` for metric shaping, `LoggingHandler` stdlib bridge, in-memory exporters for tests
-- Reject: SDK imports in library code, metric readers added after `MeterProvider` construction, `Simple*Processor` in production, missing `shutdown()`/`force_flush()` on exit, hand-built `MetricsData` trees
+- Reject: SDK imports in library code, metric readers added after `MeterProvider` construction, `Simple*Processor` in production, missing `shutdown()`/`force_flush()` on exit, hand-built `MetricsData` trees, temporality or aggregation preferences passed to `PeriodicExportingMetricReader`

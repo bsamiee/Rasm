@@ -6,7 +6,7 @@ Each dimension DUAL-lowers over the `DimTarget` policy value. `ezdxf`'s native p
 
 ## [01]-[INDEX]
 
-- [01]-[DIMENSION]: the `Dimension` owner over the closed `DimOp` union (`Linear`/…/`Baseline`/`Fcf`/`DatumFeature`), dual-lowering over `DimTarget` into the `ezdxf`-native render (DXF/SVG/PDF) or the `LAYERED` decomposition of named `graphic/layer#LAYER` rows.
+- [02]-[DIMENSION]: the `Dimension` owner over the closed `DimOp` union (`Linear`/…/`Baseline`/`Fcf`/`DatumFeature`), dual-lowering over `DimTarget` into the `ezdxf`-native render (DXF/SVG/PDF) or the `LAYERED` decomposition of named `graphic/layer#LAYER` rows.
 
 ## [02]-[DIMENSION]
 

@@ -46,7 +46,7 @@ Every `AddRedis` overload is a static `IHealthChecksBuilder` extension appending
 [LOCAL_ADMISSION]:
 - `HealthContributorRow.Driver(DriverProbe.Redis, cadence, check)` adapts the probe into one deploy-gated `Store`-tagged sink-tracking row, registering only when the redis sink is bound — never a `Peer` row, never a parallel `AddRedis` registration face; the degradation rule, gRPC projection, and probe deadline stay owned by the health fold.
 - It binds the redis sink's shared `IConnectionMultiplexer`, so the connection-string overloads that open a second probe-only multiplexer are the rejected form here.
-- A ping failure, an off-`ok` cluster node, or a connect timeout folds into a `HealthSnapshot.Entry` as a typed `HealthCheckResult`, never a thrown exception crossing the fold.
+- Ping failures, off-`ok` cluster nodes, and connect timeouts fold into a `HealthSnapshot.Entry` as a typed `HealthCheckResult`, never a thrown exception crossing the fold.
 
 [RAIL_LAW]:
 - Package: `AspNetCore.HealthChecks.Redis`

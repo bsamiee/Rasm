@@ -27,28 +27,35 @@
 
 [ENTRYPOINT_SCOPE]: span-side registration and the seats it takes
 
-| [INDEX] | [SURFACE]                                                  | [SHAPE]  | [CAPABILITY]                                        |
-| :-----: | :--------------------------------------------------------- | :------- | :-------------------------------------------------- |
-|  [01]   | `AddBaggageActivityProcessor(Predicate<string>)`           | static   | seat baggage-to-span promotion                      |
-|  [02]   | `AddAutoFlushActivityProcessor(Func<Activity, bool>, int)` | static   | flush the provider on a matched activity            |
-|  [03]   | `BaggageActivityProcessor.AllowAllBaggageKeys`             | property | promote-everything key predicate                    |
-|  [04]   | `RateLimitingSampler(int)`                                 | ctor     | mint the per-second head cap                        |
-|  [05]   | `RateLimitingSampler.ShouldSample(in SamplingParameters)`  | instance | verdict carrying `sampler.type` and `sampler.param` |
+| [INDEX] | [SURFACE]                                                          | [SHAPE]  | [CAPABILITY]                                        |
+| :-----: | :----------------------------------------------------------------- | :------- | :-------------------------------------------------- |
+|  [01]   | `AddBaggageActivityProcessor(Predicate<string>)`                   | static   | seat baggage-to-span promotion                      |
+|  [02]   | `AddAutoFlushActivityProcessor(Func<Activity, bool>, int = 10000)` | static   | flush the provider on a matched activity            |
+|  [03]   | `BaggageActivityProcessor.AllowAllBaggageKeys`                     | property | promote-everything key predicate                    |
+|  [04]   | `RateLimitingSampler(int)`                                         | ctor     | mint the per-second head cap                        |
+|  [05]   | `RateLimitingSampler.ShouldSample(in SamplingParameters)`          | instance | verdict carrying `sampler.type` and `sampler.param` |
 
 - `AddAutoFlushActivityProcessor`: registers after every exporter-bound processor.
 - Predicate seats read a throw as false: the baggage key drops and the flush is skipped.
+- `RateLimitingSampler(int maxTracesPerSecond)` throws `ArgumentOutOfRangeException` at or below zero, and its `Description` reads `RateLimitingSampler{<rate:0.00>}` — the string a sampling-posture receipt carries verbatim.
+- Both verdicts stamp `sampler.type` = `ratelimiting` beside `sampler.param` = the rate as a `double`, so a dropped trace and a kept one are distinguishable by decision alone, never by attribute presence.
 
 [ENTRYPOINT_SCOPE]: log-side registration and the conversion seats it configures
 
 | [INDEX] | [SURFACE]                                                                                        | [SHAPE]  | [CAPABILITY]              |
 | :-----: | :----------------------------------------------------------------------------------------------- | :------- | :------------------------ |
-|  [01]   | `AttachLogsToActivityEvent(Action<LogToActivityEventConversionOptions>)`                         | static   | attach records as events  |
+|  [01]   | `AttachLogsToActivityEvent(Action<LogToActivityEventConversionOptions>? = null)`                 | static   | attach records as events  |
 |  [02]   | `AddBaggageProcessor(Predicate<string>)`                                                         | static   | copy baggage onto records |
-|  [03]   | `StateConverter -> Action<ActivityTagsCollection, IReadOnlyList<KeyValuePair<string, object?>>>` | property | record state onto tags    |
-|  [04]   | `ScopeConverter -> Action<ActivityTagsCollection, int, LogRecordScope>`                          | property | each scope onto tags      |
-|  [05]   | `Filter -> Func<LogRecord, bool>?`                                                               | property | admit a record            |
+|  [03]   | `AddBaggageProcessor()`                                                                          | static   | copy every baggage entry  |
+|  [04]   | `StateConverter -> Action<ActivityTagsCollection, IReadOnlyList<KeyValuePair<string, object?>>>` | property | record state onto tags    |
+|  [05]   | `ScopeConverter -> Action<ActivityTagsCollection, int, LogRecordScope>`                          | property | each scope onto tags      |
+|  [06]   | `Filter -> Func<LogRecord, bool>?`                                                               | property | admit a record            |
 
-- `AddBaggageProcessor`: overloads ride `OpenTelemetryLoggerOptions` and `LoggerProviderBuilder`; each predicate-free overload copies every entry.
+- `AddBaggageProcessor`: four overloads, the predicate and predicate-free forms each extending `OpenTelemetryLoggerOptions` and `LoggerProviderBuilder`; a predicate-free overload substitutes the internal allow-all predicate.
+- Log-side promotion exposes no processor type and no `AllowAllBaggageKeys` seat — its `BaggageLogRecordProcessor` is internal, so the predicate-free overload is the only allow-all spelling on the log leg while the span leg reaches `BaggageActivityProcessor.AllowAllBaggageKeys` directly.
+- `AttachLogsToActivityEvent` extends `OpenTelemetryLoggerOptions` alone and returns it for chaining; no `LoggerProviderBuilder` overload exists, so the log-to-event leg composes on the options delegate of `WithLogging`, never its builder delegate.
+- `StateConverter` and `ScopeConverter` default to `DefaultLogStateConverter.ConvertState`/`ConvertScope`, so a composition overriding one seat keeps the shipped projection on the other.
+- `Filter` reads a throw as `false` — the record is dropped from the span, never surfaced as a conversion fault.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

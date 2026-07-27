@@ -6,7 +6,7 @@ One fault-combining fold carries the suite — `reliability/faults#FAULT` `trave
 
 ## [01]-[INDEX]
 
-- [01]-[SEED_REPRODUCTION]: `_CORPUS` fixtures grade through the `ParityAspect` vocabulary over one accumulate fold, every `KeyView` member proven.
+- [02]-[SEED_REPRODUCTION]: `_CORPUS` fixtures grade through the `ParityAspect` vocabulary over one accumulate fold, every `KeyView` member proven.
 
 ## [02]-[SEED_REPRODUCTION]
 

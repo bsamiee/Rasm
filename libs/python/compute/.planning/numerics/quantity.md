@@ -6,7 +6,7 @@ One read-only frozen application registry owns the unit vocabulary, shared throu
 
 ## [01]-[INDEX]
 
-- [01]-[QUANTITY]: correlated first-order uncertainty through the pint unit algebra on one `UncertainQuantity` owner over the `Magnitude`/`Covariance`/`Propagation`/`CohortView` policies.
+- [02]-[QUANTITY]: correlated first-order uncertainty through the pint unit algebra on one `UncertainQuantity` owner over the `Magnitude`/`Covariance`/`Propagation`/`CohortView` policies.
 
 ## [02]-[QUANTITY]
 

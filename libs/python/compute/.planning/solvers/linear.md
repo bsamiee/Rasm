@@ -6,7 +6,7 @@ Reused axes and seams a rebuild composes without re-derivation: `SolverReceipt` 
 
 ## [01]-[INDEX]
 
-- [01]-[LINEAR]: dense/sparse/eigen/operator routes on one `LinearIntent` reading one `LinearMap` operand and one `MatrixStructure` axis, the gated `lineax` tier folded into `LinearEngine`.
+- [02]-[LINEAR]: dense/sparse/eigen/operator routes on one `LinearIntent` reading one `LinearMap` operand and one `MatrixStructure` axis, the gated `lineax` tier folded into `LinearEngine`.
 
 ## [02]-[LINEAR]
 

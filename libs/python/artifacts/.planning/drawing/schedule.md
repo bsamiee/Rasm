@@ -6,7 +6,7 @@ AEC schedule vocabulary lives in `frozendict` template rows with domain-scale co
 
 ## [01]-[INDEX]
 
-- [01]-[SCHEDULE]: the `Schedule` owner over tabular, regime-legend, discipline-legend, and authored-legend `ScheduleContent` cases lowering into `visualization/table#TABLE`.
+- [02]-[SCHEDULE]: the `Schedule` owner over tabular, regime-legend, discipline-legend, and authored-legend `ScheduleContent` cases lowering into `visualization/table#TABLE`.
 
 ## [02]-[SCHEDULE]
 

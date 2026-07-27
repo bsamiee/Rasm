@@ -8,12 +8,12 @@ Controller syntax is posting-owned: `MacroGrammar` is the control-language discr
 
 ## [01]-[INDEX]
 
-- [01]-[EMISSION]: `Dialect.Emit` lowers, renders, frames, seals, and keys one program.
-- [02]-[PROJECTION]: `GWord.Render` derives emitted records, modal state, nested bodies, faults, and record count together.
-- [03]-[FRAMING]: `BlockFrame` structure, `SequenceCounter` numbering, and `ChecksumRule` digests survive to the byte stream.
-- [04]-[COORDINATES]: `GNode.CoordinateFrame` lowers the assigned `WcsSlot` into an offset write and its selection word.
-- [05]-[NC1]: `Nc1Canonical` projects the admitted steel owner into canonical DSTV records.
-- [06]-[DELIVERY]: `ProgramDelivery` binds an emitted image to its acknowledged controller hand-off with a verified digest.
+- [02]-[EMISSION]: `Dialect.Emit` lowers, renders, frames, seals, and keys one program.
+- [03]-[PROJECTION]: `GWord.Render` derives emitted records, modal state, nested bodies, faults, and record count together.
+- [04]-[FRAMING]: `BlockFrame` structure, `SequenceCounter` numbering, and `ChecksumRule` digests survive to the byte stream.
+- [05]-[COORDINATES]: `GNode.CoordinateFrame` lowers the assigned `WcsSlot` into an offset write and its selection word.
+- [06]-[NC1]: `Nc1Canonical` projects the admitted steel owner into canonical DSTV records.
+- [07]-[DELIVERY]: `ProgramDelivery` binds an emitted image to its acknowledged controller hand-off with a verified digest.
 
 ## [02]-[EMISSION]
 

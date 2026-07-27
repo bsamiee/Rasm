@@ -6,16 +6,16 @@ Discipline lanes own their own typed entry folds — `Solver/contract` `Solve`, 
 
 ## [01]-[INDEX]
 
-- [01]-[INTENT_FAMILY]: seven intent cases, one shared `Spec` record, one boundary admission fold.
-- [02]-[SUBSTRATE_AXIS]: five substrate rows (incl. device-wgpu GPGPU); capability needs, browser exclusion, provider gates, ranks, caps, load as columns.
-- [03]-[DISPATCH_SPINE]: fault band 2200, ordered selection fold, total dispatch, selection receipt.
+- [02]-[INTENT_FAMILY]: seven intent cases, one shared `Spec` record, one boundary admission fold.
+- [03]-[SUBSTRATE_AXIS]: five substrate rows (incl. device-wgpu GPGPU); capability needs, browser exclusion, provider gates, ranks, caps, load as columns.
+- [04]-[DISPATCH_SPINE]: fault band 2200, ordered selection fold, total dispatch, selection receipt.
 
 ## [02]-[INTENT_FAMILY]
 
 - Owner: `ComputeIntent` `[Union]` cases with the nested `Spec` shared-policy record; `AdmittedIntent` the evidence carrier whose private constructor makes `Admit` the only mint — the admission fold lives ON the carrier, so an unadmitted intent structurally cannot reach `Plan`, `Enqueue`, or `DispatchTable.Run`, which all take `AdmittedIntent`.
 - Cases: TensorOp | ModelInfer | RemoteCall | UnitProject | SymbolicProject | Pipeline | Generate; `Spec` carries deadline row, lane row, allocation row, cache-policy row, payload caps, forced-substrate `Option`, progress-subscription `Option`, and one inseparable `(Allotted, Provenance)` override.
 - Entry: `public static Fin<AdmittedIntent> AdmittedIntent.Admit(ComputeIntent intent, ComputeIntent.Spec spec, CorrelationId correlation, CancelScope parent, IClock clock, TimeProvider time)` — `Fin<T>` aborts; admission runs exactly once at the boundary and interiors never re-validate; the byte and element caps are independent gates, so `Bounded` accumulates both violations through the `Validation` applicative pair before `ToFin` widens once — a first-fail cap gate that hides the second breach is the rejected form.
-- Auto: the intent digest derives from the operation symbol plus payload bytes and feeds every selection receipt; the admitted `CancelScope` child binds the allotted deadline so expiry rides the linked token.
+- Auto: the intent digest derives from the operation symbol and payload bytes and feeds every selection receipt; the admitted `CancelScope` child binds the allotted deadline so expiry rides the linked token.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, System.IO.Hashing, BCL inbox
 - Growth: one intent case breaks every total Switch at compile time; one shared policy value lands as one `Spec` field; zero new surface.
 - Boundary: arity discriminates on the case payload shape — one value, a buffered span handle, or a stream handle — so name suffixes and mode flags never arise; payload spans admit at the edge into `ReadOnlyMemory<byte>` handles owned by the declared allocation row; `Budget` couples every deadline override to non-empty provenance and admission rejects non-positive durations; a pipeline shares one `Spec`, digest, deadline, scope, and correlation while `Projected` re-measures each child for substrate payload gates without minting new boundary evidence; the intent's model field is the XxHash128 checksum, its rich identity record a model-lane concern; `Generate` carries that checksum, the prompt, and the model-lane `GenerationPolicy` (search options, guidance constraint, prompt-assembly inputs) so token streaming admits through the one fold like every intent — a separate `GenerateRequest` path or a chat-client surface never arises; `IClock` and `TimeProvider` cross from the app composition as neutral clock primitives because the App-owned `ClockPolicy` record never crosses downward into this APP-PLATFORM owner.
@@ -278,7 +278,7 @@ public sealed partial class Substrate {
 ## [04]-[DISPATCH_SPINE]
 
 - Owner: `ComputeFault` fault family on the doctrine `Expected` shape with the dual-tier `Create` contract in the 2200 code band beside LifecycleFault 1200 and HopFault 4500; `SelectionHop` and `SelectionReceipt` evidence records; `SubstrateSelection` ordered-predicate fold; `DispatchTable` total row dispatch.
-- Cases: Text plus the twelve domain cases SubstrateUnavailable | PayloadOverBounds | DeadlineExpired | Cancelled | ShutdownDrained | ModelRejected | ExtensionAssetMissing | EndpointUnreachable | RetryOwnerConflict | AllocationOverClass | EquivalenceMiss | CacheCorrupt — this owner declares the 2200..2212 core; discipline pages extend the SAME band as partial `ComputeFault` records on this owner, never a parallel fault union.
+- Cases: Text with the twelve domain cases SubstrateUnavailable | PayloadOverBounds | DeadlineExpired | Cancelled | ShutdownDrained | ModelRejected | ExtensionAssetMissing | EndpointUnreachable | RetryOwnerConflict | AllocationOverClass | EquivalenceMiss | CacheCorrupt — this owner declares the 2200..2212 core; discipline pages extend the SAME band as partial `ComputeFault` records on this owner, never a parallel fault union.
 - Band custody: 2200..2212 core (here); 2213..2216 Symbolic lane (`Symbolic/expression` `SymbolicFault` ParseRejected/SymbolUndefined/NonDifferentiable 2213..2215 + `Symbolic/dimensional` DimensionMismatch 2216); 2217..2219 analysis lane (`Analysis/assessment` AssessmentInputMissing/ToolchainUnresolved/AnalysisFailed); 2220..2223 scheduling lane (`Runtime/scheduling` GraphCyclic/GraphRejected/GraphStalled/CheckpointRejected); next-free 2224. `Runtime/wire#FAULT_PROJECTION` mirrors every band row.
 - Second custody: the Remote `WireFault` 4520..4532 wire sub-band (`Runtime/wire#FAULT_PROJECTION`) is Compute's SECOND custody — distinct from this 2200 band and from the AppHost `HopFault` 4500 hop band — recorded here beside the primary map and pinned reciprocally in the sibling registries.
 - Foreign neighborhoods (PINNED mirror rows — a foreign band change is a row edit on both ends, never prose): AppHost 1xxx lifecycle + 4100..4810 wire/coordination (its `CoordinationFault` re-banded to 4540 around Compute's 4520..4532); AppUi 6xxx; Persistence 5xxx / 771x / 82xx..83xx; the AEC 23xx..27xx registry — each registry pins Compute's two custodies (2200..2223, 4520..4532), so cross-package band disjointness is checkable from both ends.
@@ -402,7 +402,16 @@ public sealed record DispatchTable(
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
+    accTitle: Compute intent admission and substrate selection
+    accDescr: Admitted intents plan through the hook rail into a substrate selection, and every bound refusal rails a compute fault.
     ComputeIntent -- Admit --> AdmittedIntent
     AdmittedIntent -- PayloadOverBounds --> ComputeFault
     AdmittedIntent -- Planned --> ComputeHookRail

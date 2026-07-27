@@ -92,41 +92,49 @@
 
 [ENTRYPOINT_SCOPE]: curve sampling, bulge-to-arc factories, block flatten, and hatch boundaries (ACadSharp-owned tessellation)
 
-| [INDEX] | [SURFACE]                                                        | [SHAPE]  | [CAPABILITY]             |
-| :-----: | :--------------------------------------------------------------- | :------- | :----------------------- |
-|  [01]   | `Arc.CreateFromBulge(XY, XY, double) -> Arc`                     | static   | mint bulge arc           |
-|  [02]   | `Arc.GetCenter(XY, XY, double) -> XY`                            | static   | center without radius    |
-|  [03]   | `Arc.GetCenter(XY, XY, double, out double) -> XY`                | static   | center and radius        |
-|  [04]   | `Arc.GetEndVertices(out XYZ, out XYZ)`                           | instance | WCS endpoints            |
-|  [05]   | `Arc.PolygonalVertexes(int) -> List<XYZ>`                        | instance | sample arc               |
-|  [06]   | `Circle.PolygonalVertexes(int) -> List<XYZ>`                     | instance | sample circle            |
-|  [07]   | `Circle.GetBoundingBox() -> BoundingBox`                         | instance | circle extent            |
-|  [08]   | `Arc.GetBoundingBox() -> BoundingBox`                            | instance | arc extent               |
-|  [09]   | `Ellipse.PolygonalVertexes(int) -> List<XYZ>`                    | instance | sample ellipse           |
-|  [10]   | `Ellipse.IsFullEllipse -> bool`                                  | property | closure discriminator    |
-|  [11]   | `Spline.PolygonalVertexes(int) -> List<XYZ>`                     | instance | sample native NURBS      |
-|  [12]   | `Spline.TryPolygonalVertexes(int, out List<XYZ>) -> bool`        | instance | probe tessellator        |
-|  [13]   | `Spline.PointOnSpline(double) -> XYZ`                            | instance | evaluate spline point    |
-|  [14]   | `Spline.TryPointOnSpline(double, out XYZ) -> bool`               | instance | probe spline point       |
-|  [15]   | `Spline.UpdateFromFitPoints(uint) -> bool`                       | instance | rebuild fit-point spline |
-|  [16]   | `Insert.Explode() -> IEnumerable<Entity>`                        | instance | flatten placed block     |
-|  [17]   | `Insert.GetTransform() -> Transform`                             | instance | composed affine          |
-|  [18]   | `Insert.ApplyTransform(Transform) -> void`                       | instance | apply affine in place    |
-|  [19]   | `Matrix3.ArbitraryAxis(XYZ) -> Matrix3`                          | static   | OCS-to-WCS basis         |
-|  [20]   | `Matrix3.RotationZ(double) -> Matrix3`                           | static   | in-plane rotation        |
-|  [21]   | `Matrix3.operator *(Matrix3, XYZ) -> XYZ`                        | operator | apply basis to a point   |
-|  [22]   | `Matrix3.Transpose() -> Matrix3`                                 | instance | invert orthonormal basis |
-|  [23]   | `Hatch.Paths -> List<BoundaryPath>`                              | property | enumerate hatch loops    |
-|  [24]   | `Hatch.BoundaryPath.Edges -> ObservableCollection<Edge>`         | property | typed edge leaves        |
-|  [25]   | `Hatch.BoundaryPath.GetPoints(int) -> IEnumerable<XYZ>`          | instance | sample one boundary      |
-|  [26]   | `Hatch.BoundaryPath.Edge.Type -> EdgeType`                       | property | discriminate edges       |
-|  [27]   | `Hatch.BoundaryPath.Line.Start` / `.End` -> `XY`                 | property | OCS line endpoints       |
-|  [28]   | `Hatch.BoundaryPath.Arc.Center` / `.Radius` -> `XY`/`double`     | property | OCS circle               |
-|  [29]   | `Hatch.BoundaryPath.Arc.StartAngle` / `.EndAngle` -> `double`    | property | angular interval         |
-|  [30]   | `Hatch.BoundaryPath.Arc.CounterClockWise -> bool`                | property | sweep sense              |
-|  [31]   | `Hatch.BoundaryPath.Ellipse.PolygonalVertexes(int) -> List<XYZ>` | instance | conic sampling           |
-|  [32]   | `Hatch.BoundaryPath.Polyline.Vertices` / `.Bulges` / `.IsClosed` | property | bulge path               |
-|  [33]   | `Hatch.BoundaryPath.Spline.PolygonalVertexes(int) -> List<XYZ>`  | instance | spline sampling          |
+| [INDEX] | [SURFACE]                                                        | [SHAPE]  | [CAPABILITY]                 |
+| :-----: | :--------------------------------------------------------------- | :------- | :--------------------------- |
+|  [01]   | `Arc.CreateFromBulge(XY, XY, double) -> Arc`                     | static   | mint bulge arc               |
+|  [02]   | `Arc.GetCenter(XY, XY, double) -> XY`                            | static   | center without radius        |
+|  [03]   | `Arc.GetCenter(XY, XY, double, out double) -> XY`                | static   | center and radius            |
+|  [04]   | `Arc.GetEndVertices(out XYZ, out XYZ)`                           | instance | WCS endpoints                |
+|  [05]   | `Arc.Sweep -> double`                                            | property | NEGATED included angle       |
+|  [06]   | `Arc.PolygonalVertexes(int) -> List<XYZ>`                        | instance | sample arc                   |
+|  [07]   | `Circle.PolygonalVertexes(int) -> List<XYZ>`                     | instance | sample circle                |
+|  [08]   | `Circle.GetBoundingBox() -> BoundingBox`                         | instance | circle extent                |
+|  [09]   | `Arc.GetBoundingBox() -> BoundingBox`                            | instance | arc extent                   |
+|  [10]   | `Ellipse.PolygonalVertexes(int) -> List<XYZ>`                    | instance | sample ellipse               |
+|  [11]   | `Ellipse.IsFullEllipse -> bool`                                  | property | closure discriminator        |
+|  [12]   | `Ellipse.RadiusRatio` / `.MajorAxisEndPoint` -> `double`/`XYZ`   | property | conic form and major axis    |
+|  [13]   | `Spline.PolygonalVertexes(int) -> List<XYZ>`                     | instance | sample native NURBS          |
+|  [14]   | `Spline.TryPolygonalVertexes(int, out List<XYZ>) -> bool`        | instance | probe tessellator            |
+|  [15]   | `Spline.PointOnSpline(double) -> XYZ`                            | instance | evaluate spline point        |
+|  [16]   | `Spline.TryPointOnSpline(double, out XYZ) -> bool`               | instance | probe spline point           |
+|  [17]   | `Spline.UpdateFromFitPoints(uint iterationLimit = 255) -> bool`  | instance | rebuild fit-point spline     |
+|  [18]   | `Insert.Explode() -> IEnumerable<Entity>`                        | instance | flatten placed block         |
+|  [19]   | `Insert.GetTransform() -> Transform`                             | instance | composed affine              |
+|  [20]   | `Insert.ApplyTransform(Transform) -> void`                       | instance | apply affine in place        |
+|  [21]   | `Insert.Block -> Tables.BlockRecord`                             | property | referenced block record      |
+|  [22]   | `Insert.RowCount` / `.ColumnCount` -> `ushort`                   | property | MINSERT array extent         |
+|  [23]   | `Insert.RowSpacing` / `.ColumnSpacing` -> `double`               | property | MINSERT array pitch          |
+|  [24]   | `Insert.Rotation` / `.Normal` -> `double`/`XYZ`                  | property | placement frame              |
+|  [25]   | `Insert.IsMultiple -> bool`                                      | property | MINSERT discriminator        |
+|  [26]   | `Matrix3.ArbitraryAxis(XYZ) -> Matrix3`                          | static   | OCS-to-WCS basis             |
+|  [27]   | `Matrix3.RotationZ(double) -> Matrix3`                           | static   | in-plane rotation            |
+|  [28]   | `Matrix3.operator *(Matrix3, XYZ) -> XYZ`                        | operator | apply basis to a point       |
+|  [29]   | `Matrix3.Transpose() -> Matrix3`                                 | instance | invert orthonormal basis     |
+|  [30]   | `Hatch.Paths -> List<BoundaryPath>`                              | property | enumerate hatch loops        |
+|  [31]   | `Hatch.Elevation` / `.Normal` -> `double`/`XYZ`                  | property | OCS plane of every edge leaf |
+|  [32]   | `Hatch.BoundaryPath.Edges -> ObservableCollection<Edge>`         | property | typed edge leaves            |
+|  [33]   | `Hatch.BoundaryPath.GetPoints(int) -> IEnumerable<XYZ>`          | instance | sample one boundary          |
+|  [34]   | `Hatch.BoundaryPath.Edge.Type -> EdgeType`                       | property | discriminate edges           |
+|  [35]   | `Hatch.BoundaryPath.Line.Start` / `.End` -> `XY`                 | property | OCS line endpoints           |
+|  [36]   | `Hatch.BoundaryPath.Arc.Center` / `.Radius` -> `XY`/`double`     | property | OCS circle                   |
+|  [37]   | `Hatch.BoundaryPath.Arc.StartAngle` / `.EndAngle` -> `double`    | property | angular interval             |
+|  [38]   | `Hatch.BoundaryPath.Arc.CounterClockWise -> bool`                | property | sweep sense                  |
+|  [39]   | `Hatch.BoundaryPath.Ellipse.PolygonalVertexes(int) -> List<XYZ>` | instance | conic sampling               |
+|  [40]   | `Hatch.BoundaryPath.Polyline.Vertices` / `.Bulges` / `.IsClosed` | property | bulge path                   |
+|  [41]   | `Hatch.BoundaryPath.Spline.PolygonalVertexes(int) -> List<XYZ>`  | instance | spline sampling              |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

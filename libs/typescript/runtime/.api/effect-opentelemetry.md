@@ -38,6 +38,11 @@
 |  [04]   | `OtlpResource.make` / `OtlpResource.fromConfig(...)`              | resource      | native resource; `fromConfig` reads a `Config`       |
 |  [05]   | `OtlpSerialization.layerJson` / `OtlpSerialization.layerProtobuf` | serialization | frame selector `Otlp.layer` requires                 |
 
+- One option bag serves all three `Otlp` layers: `baseUrl` required; `resource?` (`{ serviceName?, serviceVersion?, attributes? }`), `headers?` (`Headers.Input`), `maxBatchSize?`, `replaceLogger?` (`Logger.Logger<any, any>`), `tracerContext?` (`<X>(f: () => X, span: Tracer.AnySpan) => X`), `loggerExportInterval?`, `loggerExcludeLogSpans?`, `metricsExportInterval?`, `tracerExportInterval?`, and `shutdownTimeout?` — every interval a `Duration.DurationInput`.
+- That bag carries NO compression, no protocol, and no per-signal endpoint: the native lane posts to `<baseUrl>/v1/<signal>` uncompressed over the ambient `HttpClient`, so wire compression is an `HttpClient` middleware row on the net-client policy, never an exporter option. Compositions demanding gzip on the native lane install it at the client, or select the SDK-bridge exporter carrying `compression`.
+- `layer` leaves `OtlpSerialization` in the layer's requirements; `layerJson`/`layerProtobuf` bundle it, so all three require `HttpClient` alone past that choice.
+- One bag configures all three signals — a per-signal batch or interval divergence composes `OtlpTracer`/`OtlpMetrics`/`OtlpLogger` separately, never a second `Otlp.layer`.
+
 [ENTRYPOINT_SCOPE]: SDK-bridge composition — `NodeSdk`/`WebSdk` wire concrete `@opentelemetry/sdk-*` rows, selected only for an SDK-only exporter
 
 | [INDEX] | [SURFACE]                                                                | [SHAPE] | [CAPABILITY]                                 |
@@ -48,7 +53,11 @@
 |  [04]   | `Metrics.makeProducer` / `.registerProducer` / `.layer`                  | bridge  | feed Effect metrics to SDK `MetricReader`    |
 |  [05]   | `Logger.layerLoggerAdd` / `.layerLoggerReplace` / `.layerLoggerProvider` | bridge  | route / replace / provide the SDK logger     |
 
-- `NodeSdk.layer` / `WebSdk.layer`: output a `Layer<Resource>` concealing the tracer provider behind `Layer.provide`; `layerTracerProvider` is the leg exposing the `Tracer.OtelTracerProvider` Tag for instrumentation registration.
+- `NodeSdk.layer` / `WebSdk.layer`: output a `Layer<Resource>` concealing the tracer provider behind `Layer.provide`; `layerTracerProvider` is the leg exposing the `Tracer.OtelTracerProvider` Tag for instrumentation registration. Each overloads on a `LazyArg<Configuration>` and on an `Effect<Configuration, E, R>`, so a config resolved from `Config` or a service composes without a synchronous escape.
+- `NodeSdk.Configuration` fields, every one optional: `spanProcessor?` (`SpanProcessor | ReadonlyArray<SpanProcessor>`), `tracerConfig?` (`Omit<TracerConfig, "resource">`), `metricReader?` (`MetricReader | ReadonlyArray<MetricReader>`), `logRecordProcessor?` (`LogRecordProcessor | ReadonlyArray<LogRecordProcessor>`), `loggerProviderConfig?` (`Omit<LoggerProviderConfig, "resource">`), `resource?` (`{ serviceName, serviceVersion?, attributes? }` — `serviceName` required inside it), and `shutdownTimeout?` (`DurationInput`). Each of the three signal seats takes the array form, so one config mounts a redaction processor beside the exporting one on any signal.
+- `layerTracerProvider(processor, config?)` takes a `SpanProcessor | NonEmptyReadonlyArray<SpanProcessor>` positionally and its config is `Omit<TracerConfig, "resource"> & { shutdownTimeout? }` — the drain bound rides the trace-only leg too.
+- `Metrics.layer(evaluate, options?)` takes a `LazyArg<MetricReader | NonEmptyReadonlyArray<MetricReader>>` beside `{ shutdownTimeout? }`, so the reader constructs inside the layer's scope; `Metrics.makeProducer` is the `Effect<MetricProducer, never, Resource>` feeding `registerProducer(producer, readers)` where the reader set is already mounted.
+- `resource.serviceName` is required once `resource` is present, so an identity-less bridge omits the key whole rather than passing an empty string.
 
 [ENTRYPOINT_SCOPE]: span-context bridge + shared `Resource` — inbound `traceparent` continuation and the one identity resource both lanes mint
 

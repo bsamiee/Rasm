@@ -4,7 +4,7 @@ Crash capture is one total fold from any settled `Cause` to a structured fatal e
 
 Breadcrumb history attaches as replay evidence redacted at the moment of capture, so raw PII never sits in memory waiting for a crash; the scrub authority is one ambient rule set — `Redaction.Current` — applied at BOTH crash seams: breadcrumbs scrub when recorded, the enriched forensic band scrubs at the fatal emission. Fiber-external failure sources register as a `Layer` whose hook arrives as a runtime-supplied value, keeping this module runtime-neutral while the `./browser`/`./server` subpaths each contribute a one-line hook row. Its module is `runtime/src/otel/crash.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER] | [OWNS]                                                                         | [PUBLIC] |
 | :-----: | :-------- | :----------------------------------------------------------------------------- | :------- |

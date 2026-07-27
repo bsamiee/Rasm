@@ -6,7 +6,7 @@ Tenant attribution reads the `rasm.tenant` baggage entry at harvest through the 
 
 ## [01]-[INDEX]
 
-- [01]-[COST]: the receipt-derived cost fact, the slot-grouped ledger fold, the rate policy, and the priced Arrow frame egress.
+- [02]-[COST]: the receipt-derived cost fact, the slot-grouped ledger fold, the rate policy, and the priced Arrow frame egress.
 
 ## [02]-[COST]
 

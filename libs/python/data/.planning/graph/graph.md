@@ -6,7 +6,7 @@ Payload identity is the railed `ContentIdentity` fingerprint over the canonical 
 
 ## [01]-[INDEX]
 
-- [01]-[GRAPH]: the `GraphPayload` owner — one rustworkx kernel over `_as_rx`-coerced sources, family-folded algorithm intent, typed result receipts, content-keyed egress.
+- [02]-[GRAPH]: the `GraphPayload` owner — one rustworkx kernel over `_as_rx`-coerced sources, family-folded algorithm intent, typed result receipts, content-keyed egress.
 
 ## [02]-[GRAPH]
 

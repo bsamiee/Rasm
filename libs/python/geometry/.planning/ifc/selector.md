@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[SELECTOR]: one `lark`-grammar selector surface — upstream-faithful EBNF, the `Facet` row algebra whose case renders back to the `filter_elements` string, the `parse` boundary lifting `UnexpectedInput` into the `RuntimeRail`, and the `filter` leg driving `filter_elements`.
+- [02]-[SELECTOR]: one `lark`-grammar selector surface — upstream-faithful EBNF, the `Facet` row algebra whose case renders back to the `filter_elements` string, the `parse` boundary lifting `UnexpectedInput` into the `RuntimeRail`, and the `filter` leg driving `filter_elements`.
 
 ## [02]-[SELECTOR]
 

@@ -6,7 +6,7 @@ Admission is trusted layer material plus one optional untrusted blob: `Layer.iss
 
 ## [01]-[INDEX]
 
-- [01]-[LAYERED]: the one editable named-layer export owner — `LayeredExport` discriminating the editor family over the closed `ExportTarget` (`SVG`/`PDF`/`ORA`/`PSD`/`PSB`/`TIFF`) keyed to the `ENGINES` modality-dispatched table, each arm authoring the layer structure the flat egress omits and returning `ArtifactReceipt.Preview` or `ArtifactReceipt.Egress`.
+- [02]-[LAYERED]: the one editable named-layer export owner — `LayeredExport` discriminating the editor family over the closed `ExportTarget` (`SVG`/`PDF`/`ORA`/`PSD`/`PSB`/`TIFF`) keyed to the `ENGINES` modality-dispatched table, each arm authoring the layer structure the flat egress omits and returning `ArtifactReceipt.Preview` or `ArtifactReceipt.Egress`.
 
 ## [02]-[LAYERED]
 

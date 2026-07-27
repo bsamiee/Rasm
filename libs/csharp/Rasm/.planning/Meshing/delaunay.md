@@ -6,8 +6,8 @@
 
 ## [01]-[INDEX]
 
-- [01]-[TESSELLATION]: one `Build(TessellationOp, Op?)` entry; `Tessellation` `[Union]` over one `SimplexStore` arena of `Implicit` rows; cavity-flood or split-insert by mode; constraint recovery with defining-entity Steiner re-anchoring; `ToMesh`/`Triangles`/`VoronoiDual`/`LowerHull` projections.
-- [02]-[DENSITY_BAR]: one owner per axis-concern, each a case, row, or fold arm over the one store.
+- [02]-[TESSELLATION]: one `Build(TessellationOp, Op?)` entry; `Tessellation` `[Union]` over one `SimplexStore` arena of `Implicit` rows; cavity-flood or split-insert by mode; constraint recovery with defining-entity Steiner re-anchoring; `ToMesh`/`Triangles`/`VoronoiDual`/`LowerHull` projections.
+- [03]-[DENSITY_BAR]: one owner per axis-concern, each a case, row, or fold arm over the one store.
 
 ## [02]-[TESSELLATION]
 

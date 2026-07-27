@@ -8,7 +8,7 @@
 
 ## [02]-[SHAPE]
 
-- (none)
+- Telemetry conformance proves through the `telemetry-convention` corpus entry, and transcription spells the rows per branch rather than proving them — an entry carries a schema beside frozen assets, never a shared library, so the split-maturity reason holding the three SDK trains apart never reached the proof surface. Every branch mints the row values from its own composition inputs; which counter, level, or histogram a branch mounts stays that branch's roster.
 
 ## [03]-[COLLAPSE]
 

@@ -2,7 +2,7 @@
 
 Tenant isolation on the `selfhosted-k8s` arm is one tier over one dispatch: `Tenants` realizes the spec's tenancy mode through the `_MODES` handler record — `namespace` installs Capsule once and mints one typed `Tenant` CR per tenant slug with ownership, namespace-count quota, and propagated `NetworkPolicy` rows; `vcluster` realizes one virtual control plane per tenant for workloads needing an independent API surface, CRD estate, or version line. Capsule classes are committed `crd2pulumi` output, and each vcluster is one chart. `Tenants.platform` wraps `StackReference` so a tenant stack reads the platform stack's published planes through the same `StackOutputs` channel vocabulary. Data isolation is `kube/data.md`'s `_TENANCY` record, secret access is `operate/secret.md`'s `_ACCESS` rows, boards are `operate/observe.md`'s per-tenant organizations, and vanity hostnames are `kube/traffic.md`'s rows. Module `iac/src/kube/tenant.ts` grows by one `_MODES` row per isolation mode and one spec slug per tenant.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]         | [OWNS]                                                      | [PUBLIC]  |
 | :-----: | :---------------- | :---------------------------------------------------------- | :-------- |

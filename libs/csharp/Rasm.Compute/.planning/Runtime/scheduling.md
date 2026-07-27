@@ -1,16 +1,16 @@
 # [COMPUTE_RUNTIME]
 
-Rasm.Compute schedules every admitted intent through bounded `WorkLane` channel rows behind one `LaneRuntime` enqueue capsule: lane choice is an intent field, full-mode and backpressure are row data, drops emit a correlated `Backpressure` receipt, queue depth reads `ChannelReader.Count`, and solve-path dispatch structurally returns a `LaneHandle` instead of executing work. A `JobGraph` dependency-DAG scheduler layers speculative, preemptible, fair-share, accelerator-affinity, and spill-to-store orchestration bounded by the shared `CpuBudget`, keys every node on its admitted-intent and input-content digest so a re-run reconciles semantic changes and recomputes only the moved subgraph, and rolls subscribed node cells into one live parent `ProgressCell`.
+Rasm.Compute schedules every admitted intent through bounded `WorkLane` channel rows behind one `LaneRuntime` enqueue capsule: lane choice is an intent field, full-mode and backpressure are row data, drops emit a correlated `Backpressure` receipt, queue depth reads `ChannelReader.Count`, and solve-path dispatch structurally returns a `LaneHandle` instead of executing work. One `JobGraph` dependency-DAG scheduler layers speculative, preemptible, fair-share, accelerator-affinity, and spill-to-store orchestration bounded by the shared `CpuBudget`, keys every node on its admitted-intent and input-content digest so a re-run reconciles semantic changes and recomputes only the moved subgraph, and rolls subscribed node cells into one live parent `ProgressCell`.
 
 Clusters own the `WorkLane` axis, the work-item and handle shapes, the GH2 async-result ceiling, the `CpuBudget` record shared by lane, model, and tensor concurrency, and band-200 drain participation, composed over bounded System.Threading.Channels pipes, Thinktecture vocabulary, LanguageExt rails, NodaTime instants, and the AppHost drain, cancellation, clock, and schedule spine.
 
 ## [01]-[INDEX]
 
-- [01]-[LANE_AXIS]: bounded channel rows; capacity, full-mode, readers, rank as row data.
-- [02]-[SOLVE_GUARD]: one enqueue capsule; solve threads receive handles, never execute work.
-- [03]-[CPU_BUDGET]: one processor-budget record shared by lane, model, tensor, and optimizer concurrency; utilization-governed re-resolution at collection cadence.
-- [04]-[JOB_GRAPH]: batch-wave dependency scheduler; speculative run-ahead, QoS-weighted fair-share and gang admission, cooperative spill, content-key reactive reconcile, rolled-up live DAG progress aggregate.
-- [05]-[DRAIN_CANCEL]: band-200 drain participation; one linked cancellation chain with provenance.
+- [02]-[LANE_AXIS]: bounded channel rows; capacity, full-mode, readers, rank as row data.
+- [03]-[SOLVE_GUARD]: one enqueue capsule; solve threads receive handles, never execute work.
+- [04]-[CPU_BUDGET]: one processor-budget record shared by lane, model, tensor, and optimizer concurrency; utilization-governed re-resolution at collection cadence.
+- [05]-[JOB_GRAPH]: batch-wave dependency scheduler; speculative run-ahead, QoS-weighted fair-share and gang admission, cooperative spill, content-key reactive reconcile, rolled-up live DAG progress aggregate.
+- [06]-[DRAIN_CANCEL]: band-200 drain participation; one linked cancellation chain with provenance.
 
 ## [02]-[LANE_AXIS]
 
@@ -143,7 +143,16 @@ public sealed class LaneRuntime(
 ```
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
+    accTitle: Lane runtime enqueue, pump, and drain
+    accDescr: Admitted intents enqueue onto the lane runtime, which mints a handle, pumps work items, and drains through the participant port.
     AdmittedIntent -->|Enqueue| LaneRuntime
     LaneRuntime -->|Mint| LaneHandle
     LaneRuntime -->|Write| WorkLane
@@ -160,7 +169,7 @@ flowchart LR
 - Receipt: Governor — cpu and memory percentages, the re-resolved `Workers`/`ReaderCeiling`/`PartitionCap`, the effective memory scale, and the spill-pressure flag, process-scoped and emitted only when an adjustment or spill transition lands, so a steady host stays silent.
 - Packages: BCL inbox, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
 - Growth: one posture row per new host-profile row, one policy value per new concurrency axis, and one `GovernorPolicy` column per new pressure axis; zero new surface — a second scheduler, a `LoadShedder` sibling, or a governor mutating lane rows directly is the rejected form because every consumer already reads the one budget record.
-- Boundary: every concurrency axis derives from this record, but binding cadence stays honest: `JobGraph.Run` and `Optimizer.Optimize` read the governed value per invocation; `LaneRuntime`, the ORT global pool, and tensor partitions read it when their owning capsule constructs. AppHost rebuilds those capsules after a transition when live rebinding is required. A `ParallelHelper.For` degree, a second `Partitioner`/`ParallelRunner` owner, or a `Parallel.For` partition sized off the host total rejects because `PartitionCap` owns tensor fan-out. Plugin rows reserve host cores for Rhino UI and solver threads; service rows own the machine. `ReaderCeiling` halves the worker pool because readers park on kernel and remote completions while the global pool carries arithmetic. `SpinControl` derives from `HostReserve`: co-tenanted hosts surrender ORT spin, while machine-owning service rows retain it. `processors` comes from the AppHost `PressurePolicy` container-limit grade when present, so one constraint re-caps every axis. Governance moves the effective reserve and memory scale — `Steer` widens reserve one `ReserveStep` at or above `ShedCpuPercent`, decays it toward the posture reserve at or below `RestoreCpuPercent`, and holds inside the CPU hysteresis band; memory enters spill posture at `SpillMemoryPercent`, holds that posture through the memory hysteresis band, and restores at or below `RestoreMemoryPercent`. `JobGraph` seals the scaled `MemoryBudgetBytes` onto each `JobRun`, so its runner receives the effective limit that triggers an earlier `JobSignal.Spilled`. Mid-wave budget stays stable; a running wave completes under its planned value, and the next invocation rebinds.
+- Boundary: every concurrency axis derives from this record, but binding cadence stays honest: `JobGraph.Run` and `Optimizer.Optimize` read the governed value per invocation; `LaneRuntime`, the ORT global pool, and tensor partitions read it when their owning capsule constructs. AppHost rebuilds those capsules after a transition when live rebinding is required. Any `ParallelHelper.For` degree, a second `Partitioner`/`ParallelRunner` owner, or a `Parallel.For` partition sized off the host total rejects because `PartitionCap` owns tensor fan-out. Plugin rows reserve host cores for Rhino UI and solver threads; service rows own the machine. `ReaderCeiling` halves the worker pool because readers park on kernel and remote completions while the global pool carries arithmetic. `SpinControl` derives from `HostReserve`: co-tenanted hosts surrender ORT spin, while machine-owning service rows retain it. `processors` comes from the AppHost `PressurePolicy` container-limit grade when present, so one constraint re-caps every axis. Governance moves the effective reserve and memory scale — `Steer` widens reserve one `ReserveStep` at or above `ShedCpuPercent`, decays it toward the posture reserve at or below `RestoreCpuPercent`, and holds inside the CPU hysteresis band; memory enters spill posture at `SpillMemoryPercent`, holds that posture through the memory hysteresis band, and restores at or below `RestoreMemoryPercent`. `JobGraph` seals the scaled `MemoryBudgetBytes` onto each `JobRun`, so its runner receives the effective limit that triggers an earlier `JobSignal.Spilled`. Mid-wave budget stays stable; a running wave completes under its planned value, and the next invocation rebinds.
 
 ```csharp signature
 public sealed record CpuBudget {
@@ -257,7 +266,7 @@ public sealed class ResourceGovernor(CpuBudget posture, GovernorPolicy policy) {
 }
 ```
 
-A posture row supplies `hostReserve` per host-profile row at composition:
+Each posture row supplies `hostReserve` per host-profile row at composition:
 
 | [INDEX] | [PROFILE_ROW]      | [HOST_RESERVE] |
 | :-----: | :----------------- | :------------: |
@@ -275,7 +284,7 @@ A posture row supplies `hostReserve` per host-profile row at composition:
 - Owner: `JobNode` the dependency-graph node keyed on its input content seed; `JobState` `[SmartEnum<string>]` the node-lifecycle rows with `Terminal`, `Resumable`, and `Phase` (the `Runtime/progress#PROGRESS_CELL` `ProgressPhase` projection) columns; `JobSignal` `[Union]` the per-node execution outcome the runner returns; `CheckpointPort` the spill-to-store persist/resume pair over the Persistence blob lane; `JobLedger` the orchestration result; `JobGraph` the batch-wave dependency scheduler driving speculative run-ahead, QoS-weighted fair-share and gang admission, accelerator-affinity ordering, and cooperative memory-spill bounded by the shared `CpuBudget`, executing each node through the injected `runner`, keying every node on the suite `XxHash128` input digest so a re-run recomputes only the moved subgraph, and folding one coarse per-node `ProgressCell` through `ProgressCell.Aggregate` into one rolled parent cell so the whole DAG surfaces a single live monotonic `ProgressMark`.
 - Cases: `JobState` rows pending · ready · running · speculative · preempted · spilled · completed · faulted; `JobSignal` cases completed · faulted · spilled.
 - Entry: `public (Option<ProgressCell> Progress, IO<Fin<JobLedger>> Ledger) Run(Seq<JobNode> nodes, CpuBudget budget, CorrelationId correlation, CancelScope scope, IClock clock, TimeProvider time)` — `Progress` is absent when no admitted node requested observation, while `Ledger` carries graph admission and execution; `GraphRejected`, `GraphCyclic`, and `GraphStalled` abort on the typed rail, and `Reconcile` mirrors the pair shape.
-- Auto: `Run` admits graph invariants before execution, then `Fill` repeatedly chooses the highest-ranked currently eligible gang unit against the evolving wave state, so launching an upstream node makes its speculative descendants eligible in the same wave; each unit admits all-or-none under the global and tenant shares, and an empty launch frontier with nonterminal nodes faults `GraphStalled` instead of recurring. `affinityRank` resolves each `AcceleratorAffinity` key against the composition-owned device roster instead of treating every present key alike. Each launch carries its computed `NodeKey`; resume accepts only a checkpoint with the same node id and content key, and a runner-emitted mismatched checkpoint becomes `CheckpointRejected` before persistence. Each wave projects `JobState.Phase` onto subscribed cells, forks admitted runners, advances reports, and poisons fault cones.
+- Auto: `Run` admits graph invariants before execution, then `Fill` repeatedly chooses the highest-ranked eligible gang unit against the evolving wave state, so launching an upstream node makes its speculative descendants eligible in the same wave; each unit admits all-or-none under the global and tenant shares, and an empty launch frontier with nonterminal nodes faults `GraphStalled` instead of recurring. `affinityRank` resolves each `AcceleratorAffinity` key against the composition-owned device roster instead of treating every present key alike. Each launch carries its computed `NodeKey`; resume accepts only a checkpoint with the same node id and content key, and a runner-emitted mismatched checkpoint becomes `CheckpointRejected` before persistence. Each wave projects `JobState.Phase` onto subscribed cells, forks admitted runners, advances reports, and poisons fault cones.
 - Receipt: the graph emits no `ComputeReceipt` case of its own — each node's execution rides its lane's existing receipts (`Backpressure` and the substrate-lane facts the runner emits), and the `JobLedger` carries the graph-level fact: node count, the completed/faulted split, and the speculated/preempted/spilled tally with elapsed; a `Sweep`/`JobReceipt` case on the per-execution receipt union — whose required `(Lane, Substrate)` spine no whole graph carries — is the rejected form, and the live DAG progress rides the rolled-up parent `ProgressCell` (a monotonic `ProgressMark`, not a receipt fact) orthogonal to the post-hoc `JobLedger` count.
 - Packages: BCL inbox, System.IO.Hashing, LanguageExt.Core, NodaTime, Rasm.AppHost (project), Rasm.Persistence (project)
 - Growth: a new node lifecycle is one `JobState` row carrying its `Phase` column; a new scheduling policy is one column on `JobNode` the planning fold reads; the reactive recompute is the one `Reconcile` content-key diff over the existing edges; the transitive downstream closure is one `Closure` fixpoint shared by `MarkDirty` and `Poison`; the cycle test is `Cyclic` derived from the one `Topological` Kahn's kernel; zero new surface — a `JobScheduler`/`WorkflowEngine`/`DagRunner`/`IncrementalEngine` sibling surface is the rejected form collapsed onto the one `JobGraph` over the shared `CpuBudget` and the injected runner.
@@ -645,6 +654,8 @@ public abstract partial record ComputeFault {
 
 ```mermaid
 stateDiagram-v2
+    accTitle: Job node lifecycle across admission, preemption, and spill
+    accDescr: Nodes move from pending through ready, running, speculative, preempted, and spilled states into completed or faulted terminals.
     [*] --> Pending
     Pending --> Ready : deps completed
     Pending --> Speculative : run-ahead (deps in-flight)

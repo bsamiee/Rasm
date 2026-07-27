@@ -17,6 +17,7 @@
 ## [04]-[STRUCTURE]
 
 - Analytic arc geometry rides the kernel `PackOp.Toolpath` carrier alone — the kernel toolpath lane preserves line and circular spans with arc centre and sense, so geometry custody stays kernel-owned; a carrier shortfall surfaces as a typed refusal at the emission arm, never a folder-local arc channel routed around the kernel.
+- `IngressSource`, `AdmittedGeometry`, and `Ingress.Admit` seat on `Ingress/profile`, not a page of their own — a sub-domain fold whose every arm calls a sibling's published reader carries no owner state and mints no vocabulary, so an `Ingress.cs` node holds three declarations and four one-line arms; the fold seats beside the first-admitted source and earns its own page the moment an arm gains routing, policy, or receipt logic no sibling reader owns.
 
 ## [05]-[PROCESS]
 

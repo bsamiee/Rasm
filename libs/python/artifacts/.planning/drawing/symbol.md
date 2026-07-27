@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[SYMBOL]: the closed `SymbolKind` marker union dual-lowered over `SymbolTarget` into a `drawsvg` named-layer group or an `ezdxf` reusable block.
+- [02]-[SYMBOL]: the closed `SymbolKind` marker union dual-lowered over `SymbolTarget` into a `drawsvg` named-layer group or an `ezdxf` reusable block.
 
 ## [02]-[SYMBOL]
 

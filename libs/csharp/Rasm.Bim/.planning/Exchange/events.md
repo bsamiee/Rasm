@@ -8,7 +8,7 @@ Wire posture is HOST-LOCAL, envelope-only: `CloudNative.CloudEvents` and `CloudN
 
 ## [01]-[INDEX]
 
-- [01]-[EVENTS]: `BimEvent` the closed `[Union]` domain-fact family with per-case type and subject derivation, the host-free camelCase wire payloads over one source-generated `BimEventContext`, and `BimEnvelope` the CloudEvents projection — `Seal`/`Encode` out, `Open` back, traceparent/tracestate extension rows.
+- [02]-[EVENTS]: `BimEvent` the closed `[Union]` domain-fact family with per-case type and subject derivation, the host-free camelCase wire payloads over one source-generated `BimEventContext`, and `BimEnvelope` the CloudEvents projection — `Seal`/`Encode` out, `Open` back, traceparent/tracestate extension rows.
 
 ## [02]-[EVENTS]
 

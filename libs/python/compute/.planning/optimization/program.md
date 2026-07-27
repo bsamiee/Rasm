@@ -6,7 +6,7 @@ Every route folds the host termination verdict, the objective, and the maximum c
 
 ## [01]-[INDEX]
 
-- [01]-[PROGRAM]: linear/integer/global/constrained/assignment programs over `scipy.optimize`, one `_PROGRAM_ROUTES` row per route, folding the `program` case of the shared `OutcomeReceipt` on one `ProgramIntent` owner.
+- [02]-[PROGRAM]: linear/integer/global/constrained/assignment programs over `scipy.optimize`, one `_PROGRAM_ROUTES` row per route, folding the `program` case of the shared `OutcomeReceipt` on one `ProgramIntent` owner.
 
 ## [02]-[PROGRAM]
 

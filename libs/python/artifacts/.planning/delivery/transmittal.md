@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[TRANSMITTAL]: the ISO 19650 transmittal / issue-for-construction orchestrator over the closed `Transmittal` `tagged_union` — `Assemble` the press form, `Seal` the container, `Issue` the concurrent PAdES + C2PA sign, `Manifest` the issued index + record XML — gated by the purpose-keyed register audit, composed through the uniform `emit().work()` producer contract, folded once into the shared `TransmittalEvidence`, and scheduled as one `core/plan#PLAN` `ArtifactWork` minting the `ArtifactReceipt.Transmittal` case.
+- [02]-[TRANSMITTAL]: the ISO 19650 transmittal / issue-for-construction orchestrator over the closed `Transmittal` `tagged_union` — `Assemble` the press form, `Seal` the container, `Issue` the concurrent PAdES + C2PA sign, `Manifest` the issued index + record XML — gated by the purpose-keyed register audit, composed through the uniform `emit().work()` producer contract, folded once into the shared `TransmittalEvidence`, and scheduled as one `core/plan#PLAN` `ArtifactWork` minting the `ArtifactReceipt.Transmittal` case.
 
 ## [02]-[TRANSMITTAL]
 

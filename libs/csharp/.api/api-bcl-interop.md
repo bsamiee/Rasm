@@ -59,7 +59,7 @@
 |  [05]   | `new PosixSignalContext(PosixSignal)`                                     | ctor     | mints a delivery payload           |
 
 - `PosixSignalRegistration.Create`: throws `PlatformNotSupportedException` on a refused signal and `IOException` on a failed install; the handler runs on a thread-pool thread rather than the OS signal context, so it may block and allocate, and every registration for one signal fires.
-- `PosixSignalContext.Cancel`: a delivery left `false` runs the runtime's default action once every handler returns.
+- `PosixSignalContext.Cancel`: gates the default action — left `false`, the runtime runs that action once every handler returns.
 
 [ENTRYPOINT_SCOPE]: native-module resolution
 
@@ -96,7 +96,7 @@
 |  [15]   | `Marshal.GetFunctionPointerForDelegate(Delegate) -> nint` | static   | exposes a managed callback        |
 
 - `SafeHandle.DangerousAddRef`: pairs with `DangerousRelease` in one `finally`; the `ref bool` reports whether the count was taken.
-- `GCHandle.Free`: an unfreed handle roots its target for process life.
+- `GCHandle.Free`: releases the root, and an unfreed handle roots its target for process life.
 
 [ENTRYPOINT_SCOPE]: zero-copy projection
 
@@ -119,7 +119,7 @@
 |  [15]   | `ImmutableCollectionsMarshal.AsArray<T>(ImmutableArray<T>) -> T[]?`            | static  | unwraps to the backing array   |
 
 - `CollectionsMarshal.AsSpan` and `GetValueRefOrAddDefault`: the span and the ref die on the next structural edit of their collection.
-- `MemoryMarshal.GetReference`: an empty span yields a reference that is compared, never dereferenced.
+- `MemoryMarshal.GetReference`: yields a compare-only reference over an empty span, never a dereferenceable one.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -127,7 +127,7 @@
 - Every managed signal handler attaches through `PosixSignalRegistration.Create` and detaches through the returned registration's `Dispose`.
 - `PosixSignal` members carry abstract values the runtime maps to each platform's real signal number, so a handler never spells a numeric constant; a member marked `[UnsupportedOSPlatform("windows")]` registers on Unix hosts alone while `SIGHUP`/`SIGINT`/`SIGQUIT`/`SIGTERM` register everywhere.
 - One `DllImportResolver` per assembly owns native-module resolution; `LibraryImportAttribute` generates the stub and `StringMarshalling` fixes its transcoding.
-- A native resource lives in a `SafeHandle` subclass whose `ReleaseHandle` is its only free path, and the reference count guards the handle across every raw call.
+- `SafeHandle` subclasses own every native resource, `ReleaseHandle` standing as the only free path while the reference count guards the handle across every raw call.
 - Reinterpretation aliases rather than copies, so the storage owner outlives every span, memory, and ref this surface projects from it.
 
 [STACKING]:
@@ -135,15 +135,16 @@
 - `api-tensors`(`.api/api-tensors.md`): `MemoryMarshal.Cast`/`AsBytes` re-type a coordinate buffer in place and `TensorMarshal` lifts the same reference into `TensorSpan<T>`, so a tensor view is never re-declared here.
 - `api-highperformance`(`.api/api-highperformance.md`): `MemoryOwner<T>` and `ArrayPoolBufferWriter<T>` own the rented buffer while `MemoryMarshal.TryGetArray`/`CreateSpan` project it, keeping pooling and reinterpretation on separate owners.
 - `api-hosting-lifetimes`(`Rasm.AppHost/.api/api-hosting-lifetimes.md`): `SystemdLifetime` owns sd_notify state and the watchdog keep-alive, so this surface carries the signal trap alone.
+- `api-silk-webgpu`(`Rasm.Compute/.api/api-silk-webgpu.md`): `ShaderModuleWGSLDescriptor.Code` and `ProgrammableStageDescriptor.EntryPoint` bind a native UTF-8 `byte*`, so `Marshal.StringToCoTaskMemUTF8` mints the shader source and entry-point block and `Marshal.FreeCoTaskMem` retires both in the compile fold's `finally`; one interop owner marshals both directions across that boundary, `Marshal.PtrToStringUTF8` draining the error-scope message the same way.
 - `Rasm.AppHost` `Runtime/lifecycle`: the trap set is one `Create` per trapped signal folded into a LIFO detacher composite whose `Dispose` unwinds at drain, and the delivered `PosixSignal` rides the fault union's signalled case onto the wire.
 - within-lib: one resolver folds the whole native seam — `SetDllImportResolver` intercepts every `LibraryImport` stub in the assembly, `TryLoad` under an explicit `DllImportSearchPath` resolves the vendored module, `TryGetExport` binds each entry point, and the returned `nint` enters a `SafeHandleZeroOrMinusOneIsInvalid` subclass whose `ReleaseHandle` calls `NativeLibrary.Free`.
 
 [LOCAL_ADMISSION]:
 - Target-framework resolution alone admits every member here; the branch owns no manifest row for this surface.
-- A native entry point declares `LibraryImportAttribute` with an explicit `StringMarshalling`, so the source generator owns the stub body.
-- A native resource is held by a `SafeHandle` subclass; a bare `nint` lives only inside the call that produced it.
-- A managed callback handed across the boundary carries `[UnmanagedCallersOnly]` and stays rooted for the callback's whole lifetime.
-- A span or ref taken through a marshal projector is consumed before its owner is structurally edited.
+- `LibraryImportAttribute` with an explicit `StringMarshalling` declares every native entry point, so the source generator owns the stub body.
+- `nint` values live only inside the call that produced them; custody crossing that call transfers to a `SafeHandle` subclass.
+- `[UnmanagedCallersOnly]` marks every managed callback crossing the boundary, and that callback stays rooted for its whole lifetime.
+- Spans and refs taken through a marshal projector consume before their owner is structurally edited.
 
 [RAIL_LAW]:
 - Package: `System.Runtime.InteropServices`

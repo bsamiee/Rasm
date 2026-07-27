@@ -4,7 +4,7 @@ The neutral objectified-edge algebra: one `Relationship` `[Union]` over FIVE lib
 
 ## [01]-[INDEX]
 
-- [01]-[EDGE_ALGEBRA]: the `Relationship` `[Union]` five-neutral-case edge algebra plus the `Generic` passthrough, the `RelationshipKind` neutral CASE discriminant and the per-case `SubKind` vocabularies, the uniform consumer accessor surface (`Kind`/`Relating`/`Related`/`Members`/`DirectedPairs`/`IsContainment`/`Endpoints`/`Touches`/`ToCanonicalBytes(tolerance)`), and the `MaterialUsage` occurrence payload the `Associate` edge carries.
+- [02]-[EDGE_ALGEBRA]: the `Relationship` `[Union]` five-neutral-case edge algebra plus the `Generic` passthrough, the `RelationshipKind` neutral CASE discriminant and the per-case `SubKind` vocabularies, the uniform consumer accessor surface (`Kind`/`Relating`/`Related`/`Members`/`DirectedPairs`/`IsContainment`/`Endpoints`/`Touches`/`ToCanonicalBytes(tolerance)`), and the `MaterialUsage` occurrence payload the `Associate` edge carries.
 
 ## [02]-[EDGE_ALGEBRA]
 

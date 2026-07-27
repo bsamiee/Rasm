@@ -6,8 +6,8 @@ Wire posture is HOST-LOCAL, foreign types emit-confined: each lowered `Hb.Model`
 
 ## [01]-[INDEX]
 
-- [01]-[MODEL_DERIVE]: the `EnergyDerive` lower fold — graph → honeybee envelope + energy library (opaque AND glazing constructions, opening sub-faces with their own constructions) over the seam `GeometrySource` port, graph → dragonfly massing with the height/multiplier evidence read back.
-- [02]-[TRANSLATE_MATRIX]: the `EnergyTranslate` OSM-centric translator matrix (osm↔gbxml, osm↔idf, osm version-upgrade) as frozen row data over the OpenStudio translators.
+- [02]-[MODEL_DERIVE]: the `EnergyDerive` lower fold — graph → honeybee envelope + energy library (opaque AND glazing constructions, opening sub-faces with their own constructions) over the seam `GeometrySource` port, graph → dragonfly massing with the height/multiplier evidence read back.
+- [03]-[TRANSLATE_MATRIX]: the `EnergyTranslate` OSM-centric translator matrix (osm↔gbxml, osm↔idf, osm version-upgrade) as frozen row data over the OpenStudio translators.
 
 ## [02]-[MODEL_DERIVE]
 

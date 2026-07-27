@@ -50,8 +50,8 @@
 
 [TOPOLOGY]:
 - `AddMetrics` registers `IMeterFactory` through `TryAddSingleton`, so one built `ServiceProvider` owns one factory and every meter it mints.
-- A factory resolves one meter per name, version, and tag triple, so a repeated mint under one identity returns the held `Meter`.
-- A provider built per `AssemblyLoadContext` keeps co-resident plugins naming one meter identically on disjoint instruments.
+- `IMeterFactory` resolves one meter per name, version, and tag triple, so a repeated mint under one identity returns the held `Meter`.
+- Providers built per `AssemblyLoadContext` keep co-resident plugins naming one meter identically on disjoint instruments.
 - `MeterScope.Local` selects factory-minted meters and `Global` ctor-constructed ones, so an `InstrumentRule` targets the dependency-injected population alone.
 - Rule match resolves most-specific-first: meter name exact, else longest prefix, then instrument name, listener name, and scope.
 - `AddConfiguration` binds `MetricsOptions.Rules` to a configuration section under a change token, so a rule edit re-subscribes every listener live.
@@ -63,7 +63,7 @@
 - Within-lib: one `AddMetrics(IServiceCollection, Action<IMetricsBuilder>)` call folds configuration binding, enable and disable rows, and listener registration onto one `IMetricsBuilder`, so composition binds the whole graph in one pass.
 
 [LOCAL_ADMISSION]:
-- A host or per-ALC capsule calls `AddMetrics`; a library takes `IMeterFactory` by injection and composes its rule rows through `IMetricsBuilder`.
+- Hosts and per-ALC capsules call `AddMetrics`; a library takes `IMeterFactory` by injection and composes its rule rows through `IMetricsBuilder`.
 
 [RAIL_LAW]:
 - Package: `Microsoft.Extensions.Diagnostics`

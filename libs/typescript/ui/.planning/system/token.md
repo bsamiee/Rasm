@@ -2,7 +2,7 @@
 
 The design-token authority as TWO exports: `Theme` — OKLCH color computed in `colorjs.io` (perceptually-even ramps, gamut-fit, APCA contrast-gated at decode), the dimension vocabulary as its `Scale` sub-plane (one `--spacing` multiplier, a modular type scale with paired line-heights, radius/easing/shadow/z/breakpoint rows), and the theme stamp seam — plus `cn`, the folder's one class rail (`extendTailwindMerge` taught every custom group, over the `clsx` fold). Every token emits as Tailwind v4 `@theme` namespace rows through one CSS fold. Theme selection is a `data-theme` attribute the `@custom-variant` selectors read; no component branches on theme in JS, hardcodes a color, writes a raw pixel, or imports `clsx`/`twMerge` beside the one rail. The decoded color object feeds two sinks — the CSS custom-property plane here and the viewer render space through `Theme.linear` — so token color and rendered color are one color-space artifact. Motion class-row vocabulary lives at `system/act#MOTION_ROWS`; this page teaches the motion class GROUPS to the one merge table as data so those rows resolve conflicts deterministically. The module is `ui/src/system/token.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]         | [OWNS]                                                                           | [PUBLIC] |
 | :-----: | :---------------- | :------------------------------------------------------------------------------- | :------- |

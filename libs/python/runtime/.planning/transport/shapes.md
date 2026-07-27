@@ -6,8 +6,8 @@ Python's mint of the suite wire vocabulary: every canonical `msgspec.Struct` the
 
 ## [01]-[INDEX]
 
-- [01]-[VOCABULARY]: the wire slot types, the `GeometryPayload` envelope family, the canonical service shapes, and the tessellation pair.
-- [02]-[REGISTRY_AND_DRIFT]: the `PROTO_VOCABULARY` seed table, the static-codegen contract, and the `aligned` drift gate.
+- [02]-[VOCABULARY]: the wire slot types, the `GeometryPayload` envelope family, the canonical service shapes, and the tessellation pair.
+- [03]-[REGISTRY_AND_DRIFT]: the `PROTO_VOCABULARY` seed table, the static-codegen contract, and the `aligned` drift gate.
 
 ## [02]-[VOCABULARY]
 

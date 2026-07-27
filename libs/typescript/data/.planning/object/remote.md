@@ -2,7 +2,7 @@
 
 The remote-origin filesystem plane: ONE origin-addressed surface owning every non-local byte tree — SFTP and SSH-exec over the in-process `ssh2` root, FTP/FTPS over `basic-ftp`, WebDAV over `webdav`, the object plane reached as the `s3:` row — with capability flags as data so every polymorphic operation degrades by row, never by fork. An `Origin` value carries scheme, coordinate, and path; its scheme selects the backend row; the row's flags decide whether a copy is server-side or read-then-write, whether a watch pushes or polls, whether a transfer resumes by rsync delta, byte offset, or parallel chunks. Two transfer engines share one policy surface: the in-process ssh2 lane (boundary-adapted callbacks, `NodeStream`/`NodeSink` channel lifts) and the external `rsync`/`scp`/`ssh` binaries as `@effect/platform` `Command` processes. Connections pool through `lane/cache.md`'s bounded origin row; every remote read feeds the SAME content-addressed intake fold as local disk, so a cloud project grows zero new addressing vocabulary; the sync engine persists listings and reconciles deltas with resume and recover, and remote watch is a strategy row beside the local chokidar arm.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]          | [OWNS]                                                                                |
 | :-----: | :----------------- | :------------------------------------------------------------------------------------ |

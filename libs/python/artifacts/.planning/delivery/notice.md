@@ -6,7 +6,7 @@ Envelope bytes are the terminal product: `sealed` lowers the checked event throu
 
 ## [01]-[INDEX]
 
-- [01]-[NOTICE]: the `TransmittalNotice` envelope owner — receipt-and-register projection, extension-attribute vocabulary, W3C trace injection, the structured/binary binding rows, and the `issued` fold seam firing the hook registry.
+- [02]-[NOTICE]: the `TransmittalNotice` envelope owner — receipt-and-register projection, extension-attribute vocabulary, W3C trace injection, the structured/binary binding rows, and the `issued` fold seam firing the hook registry.
 
 ## [02]-[NOTICE]
 

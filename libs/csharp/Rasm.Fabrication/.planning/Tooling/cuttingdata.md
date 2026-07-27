@@ -8,7 +8,7 @@ Wire posture: HOST-LOCAL. `CuttingData.Of`, `FeedBasis`, `Feed`, and `Force` rem
 
 ## [01]-[INDEX]
 
-- [01]-[CUTTING_DATA]: `IsoClass`, `MaterialCutSpec`, `MaterialSource`, `OperationTrait`, `CuttingTable`, `CutRegime`, `CorrectionInputs`, `CuttingData`, `PowerLawFit`, `CuttingCalibration`, `CutterFormProjection`, and `ChatterStability`.
+- [02]-[CUTTING_DATA]: `IsoClass`, `MaterialCutSpec`, `MaterialSource`, `OperationTrait`, `CuttingTable`, `CutRegime`, `CorrectionInputs`, `CuttingData`, `PowerLawFit`, `CuttingCalibration`, `CutterFormProjection`, and `ChatterStability`.
 
 ## [02]-[CUTTING_DATA]
 

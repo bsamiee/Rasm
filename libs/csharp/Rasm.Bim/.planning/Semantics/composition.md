@@ -4,7 +4,7 @@ The IFC material PROJECTOR lowering the live GeometryGym `IfcMaterialSelect` sur
 
 ## [01]-[INDEX]
 
-- [01]-[MATERIAL_COMPOSITION]: `MaterialProjection.Project` the `IfcMaterialSelect`→seam `Node.Material` ingress fold, the per-modality `LayerSet`/`ProfileSet`/`ConstituentSet`/`Single` mapping onto the seam `MaterialComposition`, the `ProfileRef` content-keyer over the composite-or-primary `IfcProfileDef` STEP, the `LayersOf`/`ConstituentsOf` row folds, the content-keyed `Mint` of the seam `Node.Material`, AND the inverse `MaterialProjection.AuthorComposition`/`AuthorUsage` egress re-authoring a seam `Material` node onto the GeometryGym material-definition family + the `MaterialPropertySet`→`IfcMaterialProperties` `Pset_Material*` rows + the `Associate`-edge `MaterialUsage`→`IfcMaterialLayerSetUsage`/`IfcMaterialProfileSetUsage` occurrence binding [OCCURRENCE_USAGE_RULING].
+- [02]-[MATERIAL_COMPOSITION]: `MaterialProjection.Project` the `IfcMaterialSelect`→seam `Node.Material` ingress fold, the per-modality `LayerSet`/`ProfileSet`/`ConstituentSet`/`Single` mapping onto the seam `MaterialComposition`, the `ProfileRef` content-keyer over the composite-or-primary `IfcProfileDef` STEP, the `LayersOf`/`ConstituentsOf` row folds, the content-keyed `Mint` of the seam `Node.Material`, AND the inverse `MaterialProjection.AuthorComposition`/`AuthorUsage` egress re-authoring a seam `Material` node onto the GeometryGym material-definition family + the `MaterialPropertySet`→`IfcMaterialProperties` `Pset_Material*` rows + the `Associate`-edge `MaterialUsage`→`IfcMaterialLayerSetUsage`/`IfcMaterialProfileSetUsage` occurrence binding [OCCURRENCE_USAGE_RULING].
 
 ## [02]-[MATERIAL_COMPOSITION]
 

@@ -6,9 +6,9 @@
 
 ## [01]-[INDEX]
 
-- [01]-[STYLE]: `Stroke`, `Dash`, `FillStyle`, `TextStyle`, and `Quant` own backend projection.
-- [02]-[ASSETS]: `ScreenPath`, `Pose`, `SpriteSheet`, and `IsoBanding` own retained geometry, affine projection, and native resources.
-- [03]-[MARKS]: `Marks.Render`, `Marks.Hit`, and `Marks.Program` close draw, hit-test, and seam-export modalities over one `Mark` union.
+- [02]-[STYLE]: `Stroke`, `Dash`, `FillStyle`, `TextStyle`, and `Quant` own backend projection.
+- [03]-[ASSETS]: `ScreenPath`, `Pose`, `SpriteSheet`, and `IsoBanding` own retained geometry, affine projection, and native resources.
+- [04]-[MARKS]: `Marks.Render`, `Marks.Hit`, and `Marks.Program` close draw, hit-test, and seam-export modalities over one `Mark` union.
 
 ## [02]-[STYLE]
 

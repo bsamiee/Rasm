@@ -229,7 +229,7 @@ Wire operations take a codec and a `ref` cursor; `UnsafeCollectionOperations` ha
 
 [ENTRYPOINT_SCOPE]: extension handles and registry admission
 
-An extension is one handle over a field number and a codec; `ExtensionRegistry` admits handles to a parse and binds to a parser or a `CodedInputStream`.
+Extensions are one handle over a field number and a codec; `ExtensionRegistry` admits handles to a parse and binds to a parser or a `CodedInputStream`.
 
 | [INDEX] | [SURFACE]                                                         | [SHAPE]  | [CAPABILITY]                   |
 | :-----: | :---------------------------------------------------------------- | :------- | :----------------------------- |
@@ -465,7 +465,7 @@ Each `Value` factory is static and returns a `Value` over one named case; `ForLi
 |  [18]   | `JsonParser.Settings.WithRecursionLimit(int)`              | instance | bound nesting depth              |
 |  [19]   | `JsonParser.Settings.WithTypeRegistry(TypeRegistry)`       | instance | resolve `Any` payload types      |
 
-- `JsonFormatter.Settings.WithIndentation`: a non-null indentation inserts `Environment.NewLine` breaks, so a writer already emitting `\r\n` doubles them; `null` disables indentation and keeps the projection single-line.
+- `JsonFormatter.Settings.WithIndentation`: inserts `Environment.NewLine` breaks on a non-null indentation, so a writer already emitting `\r\n` doubles them; `null` disables indentation and keeps the projection single-line.
 
 [ENTRYPOINT_SCOPE]: coded-stream limits, determinism, and size costing
 
@@ -525,7 +525,7 @@ Each `CodedOutputStream.Compute<Kind>Size(value) -> int` costs one wire value, `
 - Remote Compute contracts enter through generated `IMessage<T>` surfaces, and this codec stack owns their binary payloads end to end.
 - JSON projection serves diagnostics, through one configured `JsonFormatter` or `JsonParser` carrying explicit `Settings` and `TypeRegistry`.
 - Reflection descriptors serve diagnostics, contract evolution, and read-only runtime dispatch.
-- A proto2 extension or an unknown field enters through the extension and unknown-field surfaces, keeping forward-compatible payloads intact across a re-emit.
+- Proto2 extensions and unknown fields enter through the extension and unknown-field surfaces, keeping forward-compatible payloads intact across a re-emit.
 
 [RAIL_LAW]:
 - Package: `Google.Protobuf`

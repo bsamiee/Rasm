@@ -193,7 +193,7 @@ Every `BitHelper` operation carries a `uint` and a `ulong` overload; the `ref` f
 [TOPOLOGY]:
 - Pooled owners bound the staging lifetime: a rental enters through `Allocate`, projects as span, memory, plane, or array segment while live, and returns to its pool on `Dispose`.
 - `AsStream` is the whole public stream surface over memory, owners, writers, and sequences; its implementations stay assembly-internal.
-- A `struct TAction` carries the parallel kernel and its captured state rides the `in` overload, so partitioning allocates nothing and the invoker inlines.
+- `struct TAction` carries the parallel kernel and its captured state rides the `in` overload, so partitioning allocates nothing and the invoker inlines.
 - Each `BitHelper` operation binds one machine width per call site, so a flag axis picks `uint` or `ulong` once and its accumulators stay that width.
 - Reinterpreting projections — `AsBytes`, `Cast`, `DangerousGetReferenceAt` — admit unmanaged elements and hand endianness ownership to the calling rail.
 
@@ -206,9 +206,9 @@ Every `BitHelper` operation carries a `uint` and a `ulong` overload; the `ref` f
 [LOCAL_ADMISSION]:
 - Compute staging binds these memory shapes before minting a package-local payload owner.
 - Ref carriers and plane views are implementation material inside a staging owner; domain types carry their own value vocabulary.
-- A parallel entrypoint becomes a default execution path on a benchmark receipt.
+- Parallel entrypoints become a default execution path only on a benchmark receipt.
 - Pooled text is a staging receipt value; a domain value carries its own string.
-- A byte projection declares codec and endianness ownership at the calling rail.
+- Byte projections declare codec and endianness ownership at the calling rail.
 
 [RAIL_LAW]:
 - Package: `CommunityToolkit.HighPerformance`

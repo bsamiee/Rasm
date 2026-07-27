@@ -6,7 +6,7 @@ Two ops derive a lossless-versus-re-encode strategy from the clip streams, never
 
 ## [01]-[INDEX]
 
-- [01]-[TIMELINE]: the `Timeline` owner over the closed `TimelineOp` family — structural edits plus one generated `Effect` case over ordered `FilterNode` values, all content-keyed DAG nodes projecting over the container capsule and the filtergraph `wired` entrypoint and folding into the shared `ArtifactReceipt.Media` case.
+- [02]-[TIMELINE]: the `Timeline` owner over the closed `TimelineOp` family — structural edits plus one generated `Effect` case over ordered `FilterNode` values, all content-keyed DAG nodes projecting over the container capsule and the filtergraph `wired` entrypoint and folding into the shared `ArtifactReceipt.Media` case.
 
 ## [02]-[TIMELINE]
 

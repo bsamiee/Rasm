@@ -6,7 +6,7 @@ Each case keys its `CASE` row for the `GeometrySubject` it crosses — `NUMERICA
 
 ## [01]-[INDEX]
 
-- [01]-[ALGEBRA]: `ComputationalGeometry` union, its `CASE`/`NUMERICAL`/`DATASTRUCTURE`/`_FORM` tables, and the sync/async `run`/`bridged` pair under one `ReceiptContributor`.
+- [02]-[ALGEBRA]: `ComputationalGeometry` union, its `CASE`/`NUMERICAL`/`DATASTRUCTURE`/`_FORM` tables, and the sync/async `run`/`bridged` pair under one `ReceiptContributor`.
 
 ## [02]-[ALGEBRA]
 

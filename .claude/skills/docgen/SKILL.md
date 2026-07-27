@@ -104,6 +104,7 @@ Routing is the one job that licenses linking and naming siblings; every other pa
 - Resolve every route in one hop: the charter phrase pitches what the target answers, and a target that only points onward is a dead route.
 - Leave navigation below the route pointer to disk truth: the tree is the page index, and adding a leaf costs zero router edits.
 - Never relink or re-teach siblings from a non-router page: mechanics at the owner, consequence at the consumer, the boundary fixed in one pointer line.
+- Anchor a cross-owner reference on the target's public section token, extensionless and scope-qualified by distance; a `.md` path pins a file a move invalidates, and a lowercase anchor reaches a code symbol or slug the target renumbers away.
 
 ## [08]-[EXAMPLE_CRAFT]
 

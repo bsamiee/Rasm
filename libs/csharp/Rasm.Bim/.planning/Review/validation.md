@@ -4,8 +4,8 @@ The two-tier model-QA owner — ONE model-health verdict surface over the frozen
 
 ## [01]-[INDEX]
 
-- [01]-[IDS_FACETS]: `IdsFacet` the closed `[Union]` of seam-lowered facets (each `ToPredicate()` a graph-free `ElementPredicate`, the value a `ValueMatch`), `PartOfRelation` the relation policy rows, `IdsRequirement`/`IdsSpecification` the spec records, `IdsSpecification.Parse`/`Publish` the bidirectional `Xids` boundary, `IdsSpecification.Audit` the total model-audit fold, `IdsSpecification.AuditFile` over `ids-lib` `Audit`, the `IdsSchema` offline schema authority, the `IdsAudit` receipt, and the `IdsAudit.Reconcile` -> `IdsParity` ifctester-oracle cross-tool diff over the Bim-owned `IdsVerdict` row.
-- [02]-[MODEL_HEALTH]: `ModelHealth` the two-tier model-QA receipt and its `Audit` entry — the baseline `TemplateFinding` stream composed beneath the authored per-spec `IdsAudit` fold — `ModelFinding` the closed two-case verdict family (the case the tier discriminant), `Findings` the one flattened verdict stream, `Coordinate` the per-finding report group key, `Conforms` the one model-health verdict.
+- [02]-[IDS_FACETS]: `IdsFacet` the closed `[Union]` of seam-lowered facets (each `ToPredicate()` a graph-free `ElementPredicate`, the value a `ValueMatch`), `PartOfRelation` the relation policy rows, `IdsRequirement`/`IdsSpecification` the spec records, `IdsSpecification.Parse`/`Publish` the bidirectional `Xids` boundary, `IdsSpecification.Audit` the total model-audit fold, `IdsSpecification.AuditFile` over `ids-lib` `Audit`, the `IdsSchema` offline schema authority, the `IdsAudit` receipt, and the `IdsAudit.Reconcile` -> `IdsParity` ifctester-oracle cross-tool diff over the Bim-owned `IdsVerdict` row.
+- [03]-[MODEL_HEALTH]: `ModelHealth` the two-tier model-QA receipt and its `Audit` entry — the baseline `TemplateFinding` stream composed beneath the authored per-spec `IdsAudit` fold — `ModelFinding` the closed two-case verdict family (the case the tier discriminant), `Findings` the one flattened verdict stream, `Coordinate` the per-finding report group key, `Conforms` the one model-health verdict.
 
 ## [02]-[IDS_FACETS]
 

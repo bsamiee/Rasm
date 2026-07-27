@@ -2,7 +2,7 @@
 
 Latency caching is correctness-neutral: losing a node costs one cold recompute. Tier-0 owns keyed single-flight, request deduplication, persisted lookups, and reference-counted pools. Stampede protection, TTL, and memoization are native. Valkey enters behind the same `KeyValueStore` port only when guarantees cross a process boundary, so escalation is a Layer swap. Write-behind belongs to the journal, never this lane.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]      | [OWNS]                                                                             |
 | :-----: | :------------- | :--------------------------------------------------------------------------------- |

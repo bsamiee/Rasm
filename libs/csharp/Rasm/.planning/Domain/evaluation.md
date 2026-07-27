@@ -6,7 +6,7 @@ A rebuild composes these seams unchanged: `ClosestHit` conforms to the `Domain/r
 
 ## [01]-[INDEX]
 
-- [01]-[EVALUATION]: the `ClosestHit` evidence receipt and the `Evaluation` lattice over closest-point, signed distance, frames, and sampling.
+- [02]-[EVALUATION]: the `ClosestHit` evidence receipt and the `Evaluation` lattice over closest-point, signed distance, frames, and sampling.
 
 ## [02]-[EVALUATION]
 

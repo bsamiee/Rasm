@@ -16,7 +16,7 @@
 
 ## [02]-[VOCABULARY_PATTERN]
 
-Every name is a literal-typed `const` binding `NAME` to its `"dotted.string"`, TYPE narrowed to the literal, so a mistyped key fails compile and the value discriminates dispatch. A new convention is a generated row in its family; `observe/convention` references the constant, never the literal, and the literal type flows to the OTLP attribute record.
+Every name is a literal-typed `const` binding `NAME` to its `"dotted.string"`, TYPE narrowed to the literal, so a mistyped key fails compile and the value discriminates dispatch. Each new convention generates one row in its family; `observe/convention` references the constant, never the literal, and the literal type flows to the OTLP attribute record.
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [CAPABILITY]                                                   |
 | :-----: | :--------------------- | :------------ | :------------------------------------------------------------- |
@@ -27,20 +27,26 @@ Every name is a literal-typed `const` binding `NAME` to its `"dotted.string"`, T
 
 [SURFACES]: `ATTR_HTTP_REQUEST_METHOD` `ATTR_URL_FULL` `ATTR_SERVICE_NAME` `METRIC_HTTP_SERVER_REQUEST_DURATION` `EVENT_EXCEPTION` `ATTR_ERROR_TYPE` `ATTR_EXCEPTION_MESSAGE` `ATTR_EXCEPTION_STACKTRACE` `ATTR_EXCEPTION_TYPE` `ATTR_CODE_FUNCTION_NAME` `ATTR_CODE_FILE_PATH` `ATTR_CODE_LINE_NUMBER` `ATTR_CODE_COLUMN_NUMBER` `HTTP_REQUEST_METHOD_VALUE_GET` `DB_SYSTEM_NAME_VALUE_POSTGRESQL`
 
+Generation owns the roster, so enumerating it here re-anchors the catalog to whatever names exist at one pin. Resolution runs mechanically instead: `build/src/index.d.ts` re-exports `trace`, `resource`, `stable_attributes`, `stable_metrics`, and `stable_events`, while `build/src/index-incubating.d.ts` re-exports those three `stable_*` modules beside `experimental_attributes`, `experimental_metrics`, and `experimental_events`.
+
+Names resolve from `./incubating` if and only if an `experimental_*` module declares them, and that barrel is a strict superset of the stable one — so a stable name imported from `./incubating` compiles and merely forfeits the tier signal.
+
 ## [03]-[TIER_SPLIT]
 
 Which entrypoint a namespace resolves from is the load-bearing decision. Stable (`.`) names are API-frozen — safe in durable dashboards, SLO rows, and cross-language parity. Incubating (`./incubating`) names are overlay, renamed or dropped between minor releases, so `observe/convention` imports them behind a Rasm alias row absorbing the churn at one seam.
 
+Promotion moves a name between the two module families, never between spellings, so an incubating-to-stable promotion breaks the IMPORT PATH alone and a rename breaks the identifier; the alias row absorbs the first mechanically and surfaces the second at compile.
+
 Stable (`.`) namespaces, imported by default:
 
-| [INDEX] | [NAMESPACE]                                                                   | [CONSUMER]                                               |
-| :-----: | :---------------------------------------------------------------------------- | :------------------------------------------------------- |
-|  [01]   | `service.*` (name/version/instance.id/namespace)                              | the `Resource` identity spine — `AppIdentity → resource` |
-|  [02]   | `telemetry.sdk.*`/`telemetry.distro.*`, `otel.*`, `network.*`                 | unrowed — consumer-earned admission law                  |
-|  [03]   | `http.request.*`/`http.response.*`/`http.route`, `user_agent.original`        | edge ingress http span attrs                             |
-|  [04]   | `url.*`, `server.*`/`client.*`                                                | `host/net` client span attrs                             |
-|  [05]   | `error.type`, `exception.*`, `EVENT_EXCEPTION`, `code.*`                      | `value/fault` `FaultCapture.Forensic` crash anchors      |
-|  [06]   | `deployment.environment.name`; `db.*` (`ATTR_DB_*`, `DB_SYSTEM_NAME_VALUE_*`) | env tag on resource; `db` rows feed `observe/board#QUERY` only   |
+| [INDEX] | [NAMESPACE]                                                                   | [CONSUMER]                                            |
+| :-----: | :---------------------------------------------------------------------------- | :---------------------------------------------------- |
+|  [01]   | `service.*` (name/version/instance.id/namespace)                              | `Resource` identity spine — `AppIdentity → resource`  |
+|  [02]   | `telemetry.sdk.*`/`telemetry.distro.*`, `otel.*`, `network.*`                 | unrowed — consumer-earned admission law               |
+|  [03]   | `http.request.*`/`http.response.*`/`http.route`, `user_agent.original`        | edge ingress http span attrs                          |
+|  [04]   | `url.*`, `server.*`/`client.*`                                                | `host/net` client span attrs                          |
+|  [05]   | `error.type`, `exception.*`, `EVENT_EXCEPTION`, `code.*`                      | `value/fault` `FaultCapture.Forensic` anchors         |
+|  [06]   | `deployment.environment.name`; `db.*` (`ATTR_DB_*`, `DB_SYSTEM_NAME_VALUE_*`) | env tag on resource; `db` feeds `observe/board#QUERY` |
 
 Incubating (`./incubating`) namespaces, imported behind the alias row:
 
@@ -48,6 +54,10 @@ Incubating (`./incubating`) namespaces, imported behind the alias row:
 | :-----: | :-------------------------------------------------------- | :---------------------------------------------------- |
 |  [01]   | `browser.*` (brands/language/mobile/platform), `device.*` | vital RUM enrichment through the `Convention` aliases |
 |  [02]   | `host.*`, `process.*`, `container.*`, `k8s.*`, `cloud.*`  | resource infra enrichment; iac correlation queries    |
+|  [03]   | `session.*`, `network.connection.type`                    | RUM session continuity and transport-class enrichment |
+|  [04]   | `feature_flag.*` with its `RESULT_REASON` value family    | flag-evaluation attributes on the flag decision span  |
+
+- `feature_flag.*` churns hardest of the incubating set: it carries `feature_flag.provider.name` and `feature_flag.result.reason` at this pin beside a nine-member `FEATURE_FLAG_RESULT_REASON_VALUE_*` family, and the alias row makes a rename one seam edit rather than a sweep of every flag site.
 
 ## [04]-[STACKING]
 

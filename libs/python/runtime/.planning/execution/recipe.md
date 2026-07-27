@@ -6,7 +6,7 @@ Recipe VOCABULARY stays queenbee's and the execution machinery stays `lbt-recipe
 
 ## [01]-[INDEX]
 
-- [01]-[RECIPE]: the one `RecipeExecution` owner — `RecipeSpec` request shape, `RECIPES` catalog, content-keyed lane execution with engine prechecks, and the luigi-evidence `RecipeReceipt`.
+- [02]-[RECIPE]: the one `RecipeExecution` owner — `RecipeSpec` request shape, `RECIPES` catalog, content-keyed lane execution with engine prechecks, and the luigi-evidence `RecipeReceipt`.
 
 ## [02]-[RECIPE]
 

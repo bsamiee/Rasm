@@ -8,7 +8,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 <!-- source-only: open task card template:
 [ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
-- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Capability: <the higher-order invariant, owner capability, or concept established — concept grain only, never a page path, row list, or member spelling>.
 - Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
 - Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
 - Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
@@ -58,7 +58,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: the classification sweep law and `HostSensitivity` roster on `Objects/authoring.md`; the app-root `DataClassification` value custody.
 - Tension: path redaction granularity is a redactor-map intent question — the taxonomy currently separates what the value space cannot express.
 
-[MARSHAL_STALL_GAUGE]-[QUEUED]: A stall watchdog on the Rhino marshal seam — hang evidence at parity with the GH dispatch pulse.
+[MARSHAL_STALL_GAUGE]-[QUEUED]: Rhino's marshal seam watches its own stalls, raising hang evidence at parity with the GH dispatch pulse.
 - Capability: UI-thread marshal stalls surface as typed pulse evidence with budgets and breach verdicts, beside the landed checkpoint-latency ledger, so a hung host thread is observable evidence rather than a silent freeze.
 - Shape: a pulse/stall band on `libs/csharp/Rasm.Rhino/.planning/HostUi/shell.md` beside `MarshalLatency` — budgets, stall policy, and last-stall evidence at the `UiThread` seat.
 - Unlocks: both host boundaries carry hang evidence; the app root reads one stall vocabulary across hosts.

@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[DXF]: the CAD-exchange owner over the closed `DxfOp` `tagged_union` (`New`/`Read`/`Recover`/`Render`/`Query`/`Transform`/`Diagram`/`Bridge`) admitted at `Dxf.of` and folded once into `DxfComposed`, thread-offloaded and rail-typed, `ezdxf` the sole read/write/recover/render surface.
+- [02]-[DXF]: the CAD-exchange owner over the closed `DxfOp` `tagged_union` (`New`/`Read`/`Recover`/`Render`/`Query`/`Transform`/`Diagram`/`Bridge`) admitted at `Dxf.of` and folded once into `DxfComposed`, thread-offloaded and rail-typed, `ezdxf` the sole read/write/recover/render surface.
 
 ## [02]-[DXF]
 

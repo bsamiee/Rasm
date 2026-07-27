@@ -6,8 +6,8 @@ Element references cross as IFC GlobalIds — exactly the `Element/identity#ELEM
 
 ## [01]-[INDEX]
 
-- [01]-[ISSUE_CODEC]: the `.bcfzip` container codec — the version gate, the per-topic zip layout, the runtime-sourced vocabulary registry, the closed ingest/egress/probe op family, the accumulating fault band, and the typed fact stream.
-- [02]-[ISSUE_ROWS]: the topic/comment/viewpoint row family at full BCF axis depth, the camera and component decode, the GlobalId→`NodeId` correlation and `ElementSet` projection, and the `Reconcile` issue-cycle diff.
+- [02]-[ISSUE_CODEC]: the `.bcfzip` container codec — the version gate, the per-topic zip layout, the runtime-sourced vocabulary registry, the closed ingest/egress/probe op family, the accumulating fault band, and the typed fact stream.
+- [03]-[ISSUE_ROWS]: the topic/comment/viewpoint row family at full BCF axis depth, the camera and component decode, the GlobalId→`NodeId` correlation and `ElementSet` projection, and the `Reconcile` issue-cycle diff.
 
 ## [02]-[ISSUE_CODEC]
 

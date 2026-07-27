@@ -4,10 +4,10 @@ One cluster-coordination owner for the runtime spine: a `ServiceEndpointResolver
 
 ## [01]-[INDEX]
 
-- [01]-[ENDPOINT_RESOLUTION]: `ServiceEndpointResolver` resolving a logical role to its live endpoint set and seating the outbound hop authority.
-- [02]-[MEMBERSHIP_VIEW]: Probe-driven liveness fold over the resolved endpoints into one attached-membership cell.
-- [03]-[ROLE_ELECTION]: Per-role fenced election over the one maintenance-lease minting a `FencingToken` per leader.
-- [04]-[DISTRIBUTED_LOCK]: Cross-process critical-section gate over the same fenced reject-lower lease.
+- [02]-[ENDPOINT_RESOLUTION]: `ServiceEndpointResolver` resolving a logical role to its live endpoint set and seating the outbound hop authority.
+- [03]-[MEMBERSHIP_VIEW]: Probe-driven liveness fold over the resolved endpoints into one attached-membership cell.
+- [04]-[ROLE_ELECTION]: Per-role fenced election over the one maintenance-lease minting a `FencingToken` per leader.
+- [05]-[DISTRIBUTED_LOCK]: Cross-process critical-section gate over the same fenced reject-lower lease.
 
 ## [02]-[ENDPOINT_RESOLUTION]
 
@@ -271,7 +271,7 @@ flowchart LR
 - Growth: one member row or one leadership field, zero new surface.
 - Boundary: only the membership view (node id, role, state, last-probe instant) and the leadership (role, leader node, lease deadline) cross — the `FencingToken` value never crosses the wire so a token cannot be forged from the dashboard; instants cross as extended-ISO text; the node state crosses as the `NodeState` key string; the lock holdings never cross because a lock is a host-internal critical-section gate, not a dashboard concern.
 
-```ts contract
+```ts signature
 interface MembershipViewWire {
   readonly members: readonly {
     readonly nodeId: number;

@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[DEVELOPMENT]: `DevelopOp` the two-case request `[Union]` folded by ONE `Apply` into strip decomposition, torsal rulings, and the exact unroll, `DevelopmentReceipt` carrying the `ddouble` isometry evidence.
+- [02]-[DEVELOPMENT]: `DevelopOp` the two-case request `[Union]` folded by ONE `Apply` into strip decomposition, torsal rulings, and the exact unroll, `DevelopmentReceipt` carrying the `ddouble` isometry evidence.
 
 ## [02]-[DEVELOPMENT]
 

@@ -6,11 +6,11 @@ Wire posture: HOST-LOCAL. `SliceStack` enters once; `Audit.Preflight` gates grow
 
 ## [01]-[INDEX]
 
-- [01]-[DOMAIN]: Generated support, state, role, contact, structural, thermal, removal, and drainage owners.
-- [02]-[DEMAND]: Layer relationships classify overhang, bridge, interface, load, heat, and powder-escape demand.
-- [03]-[PROJECTION]: `SupportProgram` closes planar, tree, hybrid, and generated modalities behind one entry.
-- [04]-[TOPOLOGY]: Relaxed point sites seed branches; QuikGraph owns ordering, ancestry, reduction, components, and weighted paths.
-- [05]-[IDENTITY]: One canonical codec covers every planar region, node, edge, physical value, policy identity, and receipt-bearing outcome.
+- [02]-[DOMAIN]: Generated support, state, role, contact, structural, thermal, removal, and drainage owners.
+- [03]-[DEMAND]: Layer relationships classify overhang, bridge, interface, load, heat, and powder-escape demand.
+- [04]-[PROJECTION]: `SupportProgram` closes planar, tree, hybrid, and generated modalities behind one entry.
+- [05]-[TOPOLOGY]: Relaxed point sites seed branches; QuikGraph owns ordering, ancestry, reduction, components, and weighted paths.
+- [06]-[IDENTITY]: One canonical codec covers every planar region, node, edge, physical value, policy identity, and receipt-bearing outcome.
 
 ## [02]-[DOMAIN]
 

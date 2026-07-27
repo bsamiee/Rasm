@@ -2,7 +2,7 @@
 
 Vital owns browser performance evidence. Core Web Vitals, LoAF/event/long-task entries, React commits, and compiler diagnostics project to one `label`/`value`/`unit` row. Runtime callbacks fold through bounded windows and publish on `rasm.ui.vital.row`; app taps own OTLP egress, while probe and chart surfaces render the same rows. Module: `ui/src/system/vital.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                                   | [PUBLIC] |
 | :-----: | :--------------- | :----------------------------------------------------------------------- | :------- |

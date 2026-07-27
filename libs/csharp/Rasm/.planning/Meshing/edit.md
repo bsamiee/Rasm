@@ -6,8 +6,8 @@
 
 ## [01]-[INDEX]
 
-- [01]-[ARENA]: `ArenaPolicy` the policy row; `MeshEdit` the single-writer SoA build arena over one polymorphic `Of`, span reads, dirty-bitset mutation verbs, partition-disjoint folds, and the `ToSpace` freeze; `Kernels` the weld/diagonal primitive family over the arena columns.
-- [02]-[ARENA_LAW]: store-mutability and arena-concurrency contract sibling stores compose by name.
+- [02]-[ARENA]: `ArenaPolicy` the policy row; `MeshEdit` the single-writer SoA build arena over one polymorphic `Of`, span reads, dirty-bitset mutation verbs, partition-disjoint folds, and the `ToSpace` freeze; `Kernels` the weld/diagonal primitive family over the arena columns.
+- [03]-[ARENA_LAW]: store-mutability and arena-concurrency contract sibling stores compose by name.
 
 ## [02]-[ARENA]
 

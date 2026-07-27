@@ -4,8 +4,8 @@ The suite's ONE supply-chain admission owner: a single `SupplyChainGate.Admit` p
 
 ## [01]-[INDEX]
 
-- [01]-[ADMISSION_SUBJECTS]: One subject union — release asset and plugin artifact on one admit shape.
-- [02]-[SUPPLY_CHAIN_GATE]: Offline Sigstore signature + SLSA provenance and SemVer-contract admission.
+- [02]-[ADMISSION_SUBJECTS]: One subject union — release asset and plugin artifact on one admit shape.
+- [03]-[SUPPLY_CHAIN_GATE]: Offline Sigstore signature + SLSA provenance and SemVer-contract admission.
 
 ## [02]-[ADMISSION_SUBJECTS]
 

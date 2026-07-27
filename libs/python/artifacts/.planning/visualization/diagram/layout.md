@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[LAYOUT]: `DiagramLayout`'s coordinate-assignment fold over a `data/graph/graph#GRAPH` adjacency frame — one typed column admission per `DiagramKind`, coordinates via the `LayoutPolicy` the kind selects (force, radial, four-engine layered, projected AEC transforms, plan-anchored constrained), the near-peer node-link kinds emitted through one `_standard` generator over `_EMIT` policy rows and the V15 area-law kinds through their own arms, composed solar furniture on the `SUN_PATH` arm, offloaded to the runtime thread lane.
+- [02]-[LAYOUT]: `DiagramLayout`'s coordinate-assignment fold over a `data/graph/graph#GRAPH` adjacency frame — one typed column admission per `DiagramKind`, coordinates via the `LayoutPolicy` the kind selects (force, radial, four-engine layered, projected AEC transforms, plan-anchored constrained), the near-peer node-link kinds emitted through one `_standard` generator over `_EMIT` policy rows and the V15 area-law kinds through their own arms, composed solar furniture on the `SUN_PATH` arm, offloaded to the runtime thread lane.
 
 ## [02]-[LAYOUT]
 

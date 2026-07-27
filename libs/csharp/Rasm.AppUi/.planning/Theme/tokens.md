@@ -4,11 +4,11 @@ Rasm.AppUi resolves every visual constant through one frozen token catalogue: a 
 
 ## [01]-[INDEX]
 
-- [01]-[TOKEN_CATALOG]: Role-keyed frozen token rows; one resolve fold with probe admission and accent re-seed.
-- [02]-[VARIANT_AXIS]: Variant rows with host-agnostic probe folding.
-- [03]-[DENSITY_AXIS]: Two density rows selecting metric columns orthogonally.
-- [04]-[CONTROL_THEMES]: One Styles rail, apply-then-publish swap, theme policy reload, token-diff receipts.
-- [05]-[RESEARCH]: Semi slot-key spellings pending verification.
+- [02]-[TOKEN_CATALOG]: Role-keyed frozen token rows; one resolve fold with probe admission and accent re-seed.
+- [03]-[VARIANT_AXIS]: Variant rows with host-agnostic probe folding.
+- [04]-[DENSITY_AXIS]: Two density rows selecting metric columns orthogonally.
+- [05]-[CONTROL_THEMES]: One Styles rail, apply-then-publish swap, theme policy reload, token-diff receipts.
+- [06]-[RESEARCH]: Semi slot-key spellings pending verification.
 
 ## [02]-[TOKEN_CATALOG]
 

@@ -6,7 +6,7 @@ Native signing and reading cross the caller-threaded `LanePolicy.offload` seam a
 
 ## [01]-[INDEX]
 
-- [01]-[CREDENTIAL]: the C2PA content-credential owner that IS the closed `Provenance` union (`Sign`/`Read`/`ReadFragment`/`Embed`/`ArchiveIngredient`) over the `SignerSpec` cert/callback policy and the `CredentialEvidence` receipt one `Reader.json()` STORE decode folds, egressing the `(ContentKey, bytes, CredentialEvidence)` triple through `close` and projecting `ArtifactReceipt.Credential` through `emit`.
+- [02]-[CREDENTIAL]: the C2PA content-credential owner that IS the closed `Provenance` union (`Sign`/`Read`/`ReadFragment`/`Embed`/`ArchiveIngredient`) over the `SignerSpec` cert/callback policy and the `CredentialEvidence` receipt one `Reader.json()` STORE decode folds, egressing the `(ContentKey, bytes, CredentialEvidence)` triple through `close` and projecting `ArtifactReceipt.Credential` through `emit`.
 
 ## [02]-[CREDENTIAL]
 

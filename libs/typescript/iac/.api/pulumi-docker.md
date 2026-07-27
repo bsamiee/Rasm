@@ -91,7 +91,7 @@
 
 [TOPOLOGY]:
 - One `Provider` decoded from the arm's `StackSpec` threads to every resource via `opts.provider`; a per-resource provider is rejected.
-- A workload pins `Container.image` and every downstream image ref to an immutable digest (`Image.repoDigest`), never a mutable tag; the build → run edge rides the `Output` reference as an implicit `dependsOn`.
+- Workloads pin `Container.image` and every downstream image ref to an immutable digest (`Image.repoDigest`), and the build → run edge rides the `Output` reference as an implicit `dependsOn`.
 - Existing daemon state reads through `getXOutput` when it feeds an `Input` and `getX` for an eager `async` read, never a shell probe.
 - Runtime workloads are `Container` + `Network` + `Volume` over typed `ports`/`mounts`/`networks` args; the folder authors zero compose YAML.
 

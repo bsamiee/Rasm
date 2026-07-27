@@ -6,7 +6,7 @@ Each arm's `KernelTrait` is one row on the frozen `_SHAPE_TABLE` — `RELEASING`
 
 ## [01]-[INDEX]
 
-- [01]-[SHAPE]: `ShapeRequest`'s 7-arm shaping/itemization/rasterization owner over the frozen `_SHAPE_TABLE`, each row a `(ShapeAcceptor, KernelTrait)` pair so the crossing trait is a row property — `NORMALIZE`/`BIDI`/`ITEMIZE`/`FALLBACK`/`SHAPE`/`RASTERIZE`/`QA`, `PositionedGlyphRun` the shaped-run value object, `ItemizedRun` the itemized span, `ShapeRun` the one shaping-input owner `SHAPE`/`RASTERIZE`/`QA` share.
+- [02]-[SHAPE]: `ShapeRequest`'s 7-arm shaping/itemization/rasterization owner over the frozen `_SHAPE_TABLE`, each row a `(ShapeAcceptor, KernelTrait)` pair so the crossing trait is a row property — `NORMALIZE`/`BIDI`/`ITEMIZE`/`FALLBACK`/`SHAPE`/`RASTERIZE`/`QA`, `PositionedGlyphRun` the shaped-run value object, `ItemizedRun` the itemized span, `ShapeRun` the one shaping-input owner `SHAPE`/`RASTERIZE`/`QA` share.
 
 ## [02]-[SHAPE]
 

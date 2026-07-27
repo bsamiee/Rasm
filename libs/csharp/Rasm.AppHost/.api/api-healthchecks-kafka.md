@@ -65,7 +65,7 @@ Every `AddKafka` overload extends `IHealthChecksBuilder` and closes with `string
 
 [LOCAL_ADMISSION]:
 - `ProducerConfig` carries the same broker/SASL/SSL configuration the CloudEvents-over-Kafka topics rail builds its `IProducer` from; the probe re-binds the admitted config rather than minting a second connection vocabulary, so a broker outage degrades the publish path and the probe in lockstep.
-- A non-`Persisted` delivery or a connect/auth exception is a typed `HealthCheckResult` carrying `FailureStatus`, folded into a `HealthSnapshot.Entry` rather than thrown across the fold.
+- Non-`Persisted` deliveries and connect/auth exceptions project as a typed `HealthCheckResult` carrying `FailureStatus`, folded into a `HealthSnapshot.Entry` rather than thrown across the fold.
 - Health writes target a dedicated `healthchecks` topic, never the production CloudEvents topics, so they never pollute the durable event log the outbox replays.
 
 [RAIL_LAW]:

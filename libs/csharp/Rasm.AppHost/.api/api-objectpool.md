@@ -54,8 +54,8 @@
 
 [TOPOLOGY]:
 - Provider policy caps retained instances, never total allocation.
-- A returned instance re-pools only when its policy `Return` accepts it, folding `IResettable.TryReset` first; a rejected instance is discarded.
-- A pool of `IDisposable` instances disposes each instance it declines to retain.
+- Returned instances re-pool only when their policy `Return` accepts them, folding `IResettable.TryReset` first; a rejected instance discards.
+- Pools of `IDisposable` instances dispose each instance they decline to retain.
 
 [STACKING]:
 - `Runtime/resources.md`: `PoolPolicy<T> : PooledObjectPolicy<T>` mints each row's pool once through `ObjectPool.Create<T>` and folds `IResettable.TryReset` in `Return`; `Pools` composes the `StringBuilderPooledObjectPolicy` text pool and `DefaultObjectPoolProvider.MaximumRetained` bounded pools.

@@ -6,7 +6,7 @@ A rebuild composes the broad phase from `Spatial.Apply`, the triangle soups from
 
 ## [01]-[INDEX]
 
-- [01]-[INTERSECTION]: one `Intersection.Apply` folding seven `IntersectOp` cases; `Crossing` = `Implicit` construction + `CrossKey` merge key over the `CrossingStore` arena; Guigue-Devillers narrow phase; key-connectivity chain walk with oriented loops and typed open chains.
+- [02]-[INTERSECTION]: one `Intersection.Apply` folding seven `IntersectOp` cases; `Crossing` = `Implicit` construction + `CrossKey` merge key over the `CrossingStore` arena; Guigue-Devillers narrow phase; key-connectivity chain walk with oriented loops and typed open chains.
 
 ## [02]-[INTERSECTION]
 

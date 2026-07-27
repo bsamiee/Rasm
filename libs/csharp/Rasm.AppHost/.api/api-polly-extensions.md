@@ -65,7 +65,7 @@
 
 [STACKING]:
 - `Polly.Core`(`.api/api-polly-core.md`): `ConfigureTelemetry<TBuilder>` binds any `ResiliencePipelineBuilder`/`ResiliencePipelineBuilder<T>`; `SeverityProviderArguments` carries the emitted `ResilienceEvent`/`ResilienceTelemetrySource`, and `AddResiliencePipelineRegistry<TKey>` wires the `ResiliencePipelineRegistry<TKey>`/`ResiliencePipelineProvider<TKey>` keyed-resolution surface.
-- `OpenTelemetry`(`.api/api-otel.md`): `MeteringEnricher.Enrich` appends `EnrichmentContext.Tags` as metric dimensions on the resilience `Meter`, projected through `MeterProvider`; `TelemetryOptions.LoggerFactory` binds the observability logging rail.
+- `OpenTelemetry`(`libs/csharp/.api/api-opentelemetry.md`): `MeteringEnricher.Enrich` appends `EnrichmentContext.Tags` as metric dimensions on the resilience `Meter`, projected through `MeterProvider`; `TelemetryOptions.LoggerFactory` binds the observability logging rail.
 - DI composition: `PollyServiceCollectionExtensions.AddResiliencePipeline*` folds every keyed pipeline into `IServiceCollection` (`.api/api-di.md`), resolved through the registry and configured by `AddOptions<TelemetryOptions>`.
 
 [LOCAL_ADMISSION]:

@@ -6,7 +6,7 @@ The Arrow bridge is the Arrow C Data Interface: `ak.to_arrow_table` materializes
 
 ## [01]-[INDEX]
 
-- [01]-[RAGGED]: the `RaggedArray` owner — one `RaggedSource` admission union, one `RaggedOp` transform axis over the `_AXIS_OP`/`_FOLD` tables, one `RaggedSink` egress keyed by `ContentIdentity`.
+- [02]-[RAGGED]: the `RaggedArray` owner — one `RaggedSource` admission union, one `RaggedOp` transform axis over the `_AXIS_OP`/`_FOLD` tables, one `RaggedSink` egress keyed by `ContentIdentity`.
 
 ## [02]-[RAGGED]
 

@@ -16,7 +16,7 @@ Wire posture: HOST-LOCAL. `ProcessBudget` cases and `MaterialSpec` cross only in
 
 ## [01]-[INDEX]
 
-- [01]-[CUT_PARAMETER]: `Coating`, `CoolantResponse`, `ProcessRange`, `RangeReceipt`, `EquipmentEnvelope`, `ToolClass`, `Tool`, `FeedLaw`, `Operation`, `ResponseAxis`, `ResponseInterpolation`, `ConstitutiveState`, `ResponseCurve`, `ConstitutiveLaw`, `ModalityPhysics`, `Material`, `CertificateClass`, `TemperState`, `MechanicalDatum`, `ThermalDatum`, `GradeIdentity`, `MaterialSpec`, `PhysicsRequest`, `BudgetEnergy`, `BudgetEvidence`, `ProcessBudget`, `PhysicsQuantity`, `PhysicsIngress`, `PhysicsAdmission`, and `ProcessPhysics`.
+- [02]-[CUT_PARAMETER]: `Coating`, `CoolantResponse`, `ProcessRange`, `RangeReceipt`, `EquipmentEnvelope`, `ToolClass`, `Tool`, `FeedLaw`, `Operation`, `ResponseAxis`, `ResponseInterpolation`, `ConstitutiveState`, `ResponseCurve`, `ConstitutiveLaw`, `ModalityPhysics`, `Material`, `CertificateClass`, `TemperState`, `MechanicalDatum`, `ThermalDatum`, `GradeIdentity`, `MaterialSpec`, `PhysicsRequest`, `BudgetEnergy`, `BudgetEvidence`, `ProcessBudget`, `PhysicsQuantity`, `PhysicsIngress`, `PhysicsAdmission`, and `ProcessPhysics`.
 
 ## [02]-[CUT_PARAMETER]
 

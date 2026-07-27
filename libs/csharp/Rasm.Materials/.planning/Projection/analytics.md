@@ -166,22 +166,11 @@ public static class AnalyticsProjection {
     public static Seq<CapacityCheckRow> Capacity(Seq<MaterialsFact> facts) =>
         facts.Choose(static fact => fact is MaterialsFact.CapacityCheck check
             ? Some(new CapacityCheckRow(
-                check.Key.ToString(), CapacityKindOf(check.Receipt), check.Verdict.Governing.Key,
+                check.Key.ToString(), check.Receipt.Kind, check.Verdict.Governing.Key,
                 check.Verdict.Adequate,
                 check.Verdict is Utilisation.Bounded bounded ? Some(bounded.Value) : Option<double>.None,
                 check.Elapsed.TotalSeconds))
             : Option<CapacityCheckRow>.None);
-
-    static string CapacityKindOf(CapacityReceipt receipt) => receipt.Switch(
-        steel: static _ => nameof(CapacityReceipt.Steel),
-        timber: static _ => nameof(CapacityReceipt.Timber),
-        masonry: static _ => nameof(CapacityReceipt.Masonry),
-        reinforcedMasonry: static _ => nameof(CapacityReceipt.ReinforcedMasonry),
-        glass: static _ => nameof(CapacityReceipt.Glass),
-        weld: static _ => nameof(CapacityReceipt.Weld),
-        adhesive: static _ => nameof(CapacityReceipt.Adhesive),
-        stud: static _ => nameof(CapacityReceipt.Stud),
-        connector: static _ => nameof(CapacityReceipt.Connector));
 }
 ```
 

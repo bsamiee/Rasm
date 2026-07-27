@@ -6,7 +6,7 @@ Both enrichments are one `Enrichment` `@tagged_union` on a single `SectionReceip
 
 ## [01]-[INDEX]
 
-- [01]-[STRUCTURAL]: section-integral spine and two gated enrichment tiers under one `EnrichmentTier` owner folding per-tier evidence into one `Enrichment` union, woven through the `evidence_run` graduation weave, emitting the `SECTION_PROPERTY` subject.
+- [02]-[STRUCTURAL]: section-integral spine and two gated enrichment tiers under one `EnrichmentTier` owner folding per-tier evidence into one `Enrichment` union, woven through the `evidence_run` graduation weave, emitting the `SECTION_PROPERTY` subject.
 
 ## [02]-[STRUCTURAL]
 

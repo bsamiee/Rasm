@@ -6,7 +6,7 @@ A rebuild composes ring simplicity and convolution crossings from `Meshing/inter
 
 ## [01]-[INDEX]
 
-- [01]-[OFFSETTING]: one `Offsetting.Apply` folding six `OffsetOp` cases over one wavefront; the `Edge`/`Split` event queue on the `WavefrontStore` arena; the minted `ClearanceNode` family and `Clearance(probe)` query; medial via the delaunay `VoronoiDual`; `JoinType`×`EndType` corner/cap generators; the support-vertex Minkowski walk; loop resolution through the arrangement.
+- [02]-[OFFSETTING]: one `Offsetting.Apply` folding six `OffsetOp` cases over one wavefront; the `Edge`/`Split` event queue on the `WavefrontStore` arena; the minted `ClearanceNode` family and `Clearance(probe)` query; medial via the delaunay `VoronoiDual`; `JoinType`×`EndType` corner/cap generators; the support-vertex Minkowski walk; loop resolution through the arrangement.
 
 ## [02]-[OFFSETTING]
 

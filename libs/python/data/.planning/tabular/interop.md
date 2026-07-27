@@ -6,8 +6,8 @@ Its axis spans the narwhals lazy set — `POLARS`/`PANDAS`/`PYARROW`/`MODIN` eag
 
 ## [01]-[INDEX]
 
-- [01]-[INTEROP]: the backend-agnostic translation owner over the seven-row eager/lazy `Backend` axis and `_BACKEND` table, the locally-declared `FieldShape`, the null-mask schema fold, and the content-keyed `InteropReceipt`.
-- [02]-[CARRIER]: the pyarrow-free Arrow C Data Interface carrier — `ArrowCStream.of` construction, `chunks` streaming consumption, `negotiate` schema-only folding, `device_of` the C Device array row.
+- [02]-[INTEROP]: the backend-agnostic translation owner over the seven-row eager/lazy `Backend` axis and `_BACKEND` table, the locally-declared `FieldShape`, the null-mask schema fold, and the content-keyed `InteropReceipt`.
+- [03]-[CARRIER]: the pyarrow-free Arrow C Data Interface carrier — `ArrowCStream.of` construction, `chunks` streaming consumption, `negotiate` schema-only folding, `device_of` the C Device array row.
 
 ## [02]-[INTEROP]
 

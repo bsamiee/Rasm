@@ -2,7 +2,7 @@
 
 The localization plane with zero i18n package: one locale spine (react-aria's `I18nProvider` carrying the kernel `Refined.Locale` brand as the single ambient locale), one interior per-locale native-`Intl` instance cache shared by every formatter this page constructs itself, the `Format` value-formatting vocabulary (option-row tables for date/number/list, the relative-time granularity ladder, the single epoch crossing, collation `Order` and the picker filter), and the `Message` authority (Schema-decoded catalogs as app data, a closed three-case spec family, a total plural/select/interpolation fold, and the BCP-47 fallback chain with the key itself as visible missing-message evidence). No `Intl.*` constructor at a call site, no wall-clock `Date` in domain flow, no format options object authored inline, no ICU engine, no translation runtime. The module is `ui/src/system/intl.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                                           | [PUBLIC]  |
 | :-----: | :--------------- | :------------------------------------------------------------------------------- | :-------- |

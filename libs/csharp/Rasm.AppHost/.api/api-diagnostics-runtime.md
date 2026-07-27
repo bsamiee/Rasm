@@ -100,8 +100,8 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- A triage pass opens the minidump read-only through `DataTarget.LoadDump`, then `ClrInfo.CreateRuntime()` binds the matching DAC to a live `ClrRuntime` view.
-- A heap census streams through `ClrHeap.EnumerateObjects`: `ClrObject` is a `readonly struct` over an address and its `ClrType`, so the walk allocates nothing per object.
+- Triage passes open the minidump read-only through `DataTarget.LoadDump`, then `ClrInfo.CreateRuntime()` binds the matching DAC to a live `ClrRuntime` view.
+- Heap censuses stream through `ClrHeap.EnumerateObjects`: `ClrObject` is a `readonly struct` over an address and its `ClrType`, so the walk allocates nothing per object.
 - `ClrRuntime.Threads` with `EnumerateStackTrace` and `CurrentException` is the crash-summary spine — ordered stack frames and the in-flight `ClrException` per thread.
 - `DataTarget`, `ClrRuntime`, and the DAC service graph are `IDisposable`: a pass materializes, drains the enumerations, and disposes, so the dump handle never spans a capture window.
 

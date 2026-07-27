@@ -6,7 +6,7 @@ The plan rides the agnostic `tabular/interop#INTEROP` frame and the DuckDB/parqu
 
 ## [01]-[INDEX]
 
-- [01]-[PROFILE]: the graded data-quality observability owner over `pointblank` — the `ProbeStep` plan axis, the `Thresholds`/`Actions`-graded single interrogation, the `ProfileReport` `GT`/wire axis through one `report` entrypoint, and the plan-content-keyed `ProfileReceipt`.
+- [02]-[PROFILE]: the graded data-quality observability owner over `pointblank` — the `ProbeStep` plan axis, the `Thresholds`/`Actions`-graded single interrogation, the `ProfileReport` `GT`/wire axis through one `report` entrypoint, and the plan-content-keyed `ProfileReceipt`.
 
 ## [02]-[PROFILE]
 

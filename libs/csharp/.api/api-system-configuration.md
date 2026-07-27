@@ -201,7 +201,7 @@
 
 [TOPOLOGY]:
 - `ConfigurationManager` opens one `Configuration` per file map and user level; every section read, element mutation, and save below it addresses that handle, never ambient process state.
-- A custom section declares its shape once: each `ConfigurationProperty` binds type, default, `TypeConverter`, and `ConfigurationValidatorBase` together, and deserialization, validation, and serialization fold over the resulting `ConfigurationPropertyCollection`.
+- Custom sections declare their shape once: each `ConfigurationProperty` binds type, default, `TypeConverter`, and `ConfigurationValidatorBase` together, and deserialization, validation, and serialization fold over the resulting `ConfigurationPropertyCollection`.
 - `SectionInformation` carries the policy a section enforces on child documents — definition level, override mode, lock state, protection provider — so inheritance is section metadata rather than caller branching.
 
 [STACKING]:
@@ -211,7 +211,7 @@
 - `SectionInformation.ProtectSection` encrypts whatever that declaration serializes, so protection composes over any section body without a second write path.
 
 [LOCAL_ADMISSION]:
-- A non-default XML configuration document opens through a file map; the running executable's own opens through `ConfigurationManager.OpenExeConfiguration`.
+- Non-default XML configuration documents open through a file map; the running executable's own opens through `ConfigurationManager.OpenExeConfiguration`.
 - New application settings route through the active host configuration owner.
 
 [RAIL_LAW]:

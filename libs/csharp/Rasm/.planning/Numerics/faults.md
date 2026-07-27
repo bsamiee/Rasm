@@ -6,7 +6,7 @@ Each payload discriminant composes from its owning sibling's vocabulary — the 
 
 ## [01]-[INDEX]
 
-- [01]-[FAULT_BAND]: `GeometryFault` closed `[Union]`, `FaultCluster` stride taxonomy, and the `ParametricStage`/`DevelopmentStage` stage vocabularies — typed payloads, `Code`/`Message`/`Cluster` folds, `ToError()` lowering.
+- [02]-[FAULT_BAND]: `GeometryFault` closed `[Union]`, `FaultCluster` stride taxonomy, and the `ParametricStage`/`DevelopmentStage` stage vocabularies — typed payloads, `Code`/`Message`/`Cluster` folds, `ToError()` lowering.
 
 ## [02]-[FAULT_BAND]
 

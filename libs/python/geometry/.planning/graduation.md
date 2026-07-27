@@ -6,7 +6,7 @@ Compute is the named demanding consumer: its `HandoffAxis` hub and `GraduationRe
 
 ## [01]-[INDEX]
 
-- [01]-[GRADUATION]: the `GeometrySubject` union, the `EvidenceScope` scope table, the `GeometryHandoff` carrier with its residual-over-ceiling admission and `wire()` crossing, the `CHARTER` measure authority, the `GeometryPulse`/`PulseBeat` mid-operation vocabulary with its `pulse_points` registration, the `EvidenceCost` bracket and `EvidenceFrame` port, the one `evidence_run` weave, the `bench_seam` entry-seam macro-bench fold, and its `bench_terminal` process-terminal envelope.
+- [02]-[GRADUATION]: the `GeometrySubject` union, the `EvidenceScope` scope table, the `GeometryHandoff` carrier with its residual-over-ceiling admission and `wire()` crossing, the `CHARTER` measure authority, the `GeometryPulse`/`PulseBeat` mid-operation vocabulary with its `pulse_points` registration, the `EvidenceCost` bracket and `EvidenceFrame` port, the one `evidence_run` weave, the `bench_seam` entry-seam macro-bench fold, and its `bench_terminal` process-terminal envelope.
 
 ## [02]-[GRADUATION]
 

@@ -6,7 +6,7 @@ Kernels follow the runtime lane law — a caller supplies its kernel, the corpus
 
 ## [01]-[INDEX]
 
-- [01]-[CORPUS]: the `BenchSubject` roster and threshold policy, the seeded recipe pair, the kernel-coverage law, and the `benched` grade fold over the runtime bench tier.
+- [02]-[CORPUS]: the `BenchSubject` roster and threshold policy, the seeded recipe pair, the kernel-coverage law, and the `benched` grade fold over the runtime bench tier.
 
 ## [02]-[CORPUS]
 

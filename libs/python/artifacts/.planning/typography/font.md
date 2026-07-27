@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[FONT]: fontTools + opentype-feature-freezer font-binary owner over the closed per-mode `FontJob` union, one total `apply` match folding every mode and `FontJob.receipt` projecting the one rendered payload onto its `ArtifactReceipt` case.
+- [02]-[FONT]: fontTools + opentype-feature-freezer font-binary owner over the closed per-mode `FontJob` union, one total `apply` match folding every mode and `FontJob.receipt` projecting the one rendered payload onto its `ArtifactReceipt` case.
 
 ## [02]-[FONT]
 

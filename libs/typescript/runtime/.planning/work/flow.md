@@ -2,7 +2,7 @@
 
 Durable execution as suspend-and-replay: a `Workflow` is a Schema-typed, idempotency-keyed computation whose recorded activities replay without re-running side effects, and this page owns the whole altitude — the `Step` mint that gives every activity its budget geometry from the one `core/value/fault#RETRY_BUDGET` table, the definition law with deterministic execution identity and the engine Tag the root satisfies from `entity#GRID`, the saga compensation fold, the `Signal` external-signal owner (token-addressed `DurableDeferred` plus the branch's ONE durable timer over `DurableClock`), and the `WorkflowProxy` projection that mounts a workflow set on the serving plane. The altitude ruling arrives settled from the core machine page: an in-process transition system is the `Machine` actor; a computation demanding replay, activity memoization, compensation, or cross-process sharding lives here — promotion re-homes the vocabulary, never re-shapes it. A definition never names its engine: `WorkflowEngine.layerMemory` runs specs, `ClusterWorkflowEngine.layer` (composed at `entity#GRID`) runs production, and the swap is one root Layer. The module ships on the `./server` exports subpath as `runtime/src/work/flow.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]     | [OWNS]                                                                          | [PUBLIC] |
 | :-----: | :------------ | :------------------------------------------------------------------------------ | :------- |

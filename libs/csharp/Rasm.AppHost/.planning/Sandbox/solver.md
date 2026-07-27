@@ -4,10 +4,10 @@ The extensibility contract for third-party compute extensions: one solver-kind a
 
 ## [01]-[INDEX]
 
-- [01]-[SOLVER_KIND]: Seven extension-category rows with per-kind contract shape.
-- [02]-[GEOMETRY_PACKING]: The kernel pack-wire capsule — `EncodingKind` locked 1:1 on `PackKind`.
-- [03]-[PLUGIN_CONTRACT]: Declared representation, ops, and capability descriptors a plugin ships.
-- [04]-[SOLVER_HOSTING]: Sandboxed load, registry projection, and representation negotiation.
+- [02]-[SOLVER_KIND]: Seven extension-category rows with per-kind contract shape.
+- [03]-[GEOMETRY_PACKING]: The kernel pack-wire capsule — `EncodingKind` locked 1:1 on `PackKind`.
+- [04]-[PLUGIN_CONTRACT]: Declared representation, ops, and capability descriptors a plugin ships.
+- [05]-[SOLVER_HOSTING]: Sandboxed load, registry projection, and representation negotiation.
 
 ## [02]-[SOLVER_KIND]
 

@@ -4,9 +4,9 @@ The set-algebraic element query is one `ElementSet.Query(ElementGraph, ElementPr
 
 ## [01]-[INDEX]
 
-- [01]-[ELEMENT_SET]: the `ElementPredicate` closed union over the full five-kind seam edge algebra, the `NodeMatch` incidence-target restriction, the `SpatialReach` containment-reach discriminant, the `ObjectAttribute`/`ValueMatch` value-restriction vocabulary, and the invariant-held `ElementSet` fold over the seam `ElementGraph`.
-- [02]-[PREDICATE_WIRE]: the `PredicateWire` typed versionable wire form of the closed predicate union — `[JsonDerivedType]`-discriminated wire records mirroring every arm with primitive payloads — and the `PredicateCodec` one-owner correspondence (`Seal` the total lowering, `Admit` the railed re-admission through the standing gates), so a UI-authored filter, a saved view, and a coordination rule travel as data and evaluate in C#.
-- [03]-[PREDICATE_PUSHDOWN]: the `StorePlan` predicate-to-SQL lowering over the persisted BimOpenSchema flat projection — the store-expressible subset lowered to one parameterized DuckDB statement over the suffixed fact tables, the residue folded in-process over the returned candidates — so the SAME selection language spans the live graph and the durable estate under the two-phase broad/narrow law.
+- [02]-[ELEMENT_SET]: the `ElementPredicate` closed union over the full five-kind seam edge algebra, the `NodeMatch` incidence-target restriction, the `SpatialReach` containment-reach discriminant, the `ObjectAttribute`/`ValueMatch` value-restriction vocabulary, and the invariant-held `ElementSet` fold over the seam `ElementGraph`.
+- [03]-[PREDICATE_WIRE]: the `PredicateWire` typed versionable wire form of the closed predicate union — `[JsonDerivedType]`-discriminated wire records mirroring every arm with primitive payloads — and the `PredicateCodec` one-owner correspondence (`Seal` the total lowering, `Admit` the railed re-admission through the standing gates), so a UI-authored filter, a saved view, and a coordination rule travel as data and evaluate in C#.
+- [04]-[PREDICATE_PUSHDOWN]: the `StorePlan` predicate-to-SQL lowering over the persisted BimOpenSchema flat projection — the store-expressible subset lowered to one parameterized DuckDB statement over the suffixed fact tables, the residue folded in-process over the returned candidates — so the SAME selection language spans the live graph and the durable estate under the two-phase broad/narrow law.
 
 ## [02]-[ELEMENT_SET]
 

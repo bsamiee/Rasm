@@ -2,7 +2,7 @@
 
 Retrieval is one bound owner: five data-driven lanes — FTS, trigram, phonetic, fuzzy, semantic — emit ranked rows and fuse through reciprocal-rank fusion (`Σ 1/(k + rank)`) inside one database statement. The lane roster intersects request intent with the scope's grants and reports every exclusion. The FTS floor owns a provisioned artifact on every dialect, `Search.Embedding` admits provider identity, and `Search.Corpus` composes that identity with its distinct relation coordinate. The semantic seam validates the provider vector against the admitted embedding before the lane can run. `Search.of(corpus)` binds fused search, facets, snippets, keyset cursor, scoped filters, and the provision roster once; the runtime never executes schema statements.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]      | [OWNS]                                                                               |
 | :-----: | :------------- | :----------------------------------------------------------------------------------- |

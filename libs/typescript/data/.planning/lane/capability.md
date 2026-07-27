@@ -2,7 +2,7 @@
 
 This folder's fail-closed capability rail: one closed row/ensure vocabulary, one `Capability` service that proves every extension row, every declared relation, and every dependency demand at Layer construction through two roster-batched probes, and one fault family for everything a probe refuses. Nothing in the folder assumes an extension, a version floor, or a relation — presence is proven or the capability does not exist, and the granted set is a value siblings gate on: `require` fails typed, `when` degrades to `Option`. Extension proof is one `RequestResolver`-batched dialect-honest catalog lookup; relation proof is one schema-qualified census over the complete ensure roster. This same rail carries the DDL split: the provisioning plane applies the idempotent ensure rows, this service proves them at startup, runtime never mutates schema.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                                                  |
 | :-----: | :--------------- | :-------------------------------------------------------------------------------------- |

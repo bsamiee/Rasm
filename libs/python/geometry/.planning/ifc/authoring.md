@@ -6,7 +6,7 @@ Each script is an immutable left-fold over a frozen `AuthorCarry` short-circuiti
 
 ## [01]-[INDEX]
 
-- [01]-[AUTHORING]: the `IfcApiVerb`-table authoring surface — the closed verb vocabulary, the typed `AuthorPayload` union, the `AuthorCarry` transaction fold under the `@transactional`/`@stamped` aspects, and the `AuthorReceipt`/`MutationFact` receipt that is itself the `ReceiptContributor`.
+- [02]-[AUTHORING]: the `IfcApiVerb`-table authoring surface — the closed verb vocabulary, the typed `AuthorPayload` union, the `AuthorCarry` transaction fold under the `@transactional`/`@stamped` aspects, and the `AuthorReceipt`/`MutationFact` receipt that is itself the `ReceiptContributor`.
 
 ## [02]-[AUTHORING]
 

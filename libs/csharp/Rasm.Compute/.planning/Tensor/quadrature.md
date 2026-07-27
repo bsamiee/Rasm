@@ -7,8 +7,8 @@ MathNet ships the kernels but no gate: no route inspects a return for non-finite
 ## [01]-[INDEX]
 
 - [02]-[QUADRATURE_ROUTE]: accuracy-routed `QuadratureRoute` `[SmartEnum<string>]` over the `IntegrationDomain` `[Union]` arity (line · rectangle · cuboid · Smolyak sparse-grid); the one finite-guard-then-admit combinator with the error-budget and `L1` cancellation gates.
-- [03]-[INTEGRATOR_TABLEAU]: the embedded-pair `StepTableau` with the `RootedTree` uncapped Butcher-tree order proof, the `IModule<TSelf>` additive-module carrier, the frozen `AdaptiveControl` policy, and the `IntegratorTerminal` partition.
-- [04]-[SPECTRAL_OPERATOR]: the `SpectralSymbol` `[SmartEnum<string>]` multiplier vocabulary composed through `Spectral`, applied pointwise with parity-derived Nyquist zeroing — the packed-real `ForwardReal`/`InverseReal` leg on even lengths, the complex leg with its imaginary-residual gate on odd.
+- [03]-[INTEGRATOR_TABLEAU]: `StepTableau` carries the embedded pair its `RootedTree` order proof certifies, over the `IModule<TSelf>` carrier, the frozen `AdaptiveControl` policy, and the `IntegratorTerminal` partition.
+- [04]-[SPECTRAL_OPERATOR]: `Spectral` applies each `SpectralSymbol` multiplier pointwise under parity-derived Nyquist zeroing — the packed-real `ForwardReal`/`InverseReal` leg on even lengths, the complex leg with its imaginary-residual gate on odd.
 
 ## [02]-[QUADRATURE_ROUTE]
 
@@ -19,7 +19,7 @@ MathNet ships the kernels but no gate: no route inspects a return for non-finite
 - Packages: MathNet.Numerics, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new accuracy kernel is one `QuadratureRoute` row with its delegate and infinite-bound capability; a new arity is one `IntegrationDomain` case; a new sparse-grid 1-D rule family (nested Gauss-Patterson) or dimension-adaptive refinement is a policy row on `SmolyakCubature`, never a sibling integrator; zero new surface.
 - Boundary — accuracy is the primary decision with order secondary: double-exponential, fixed Gauss-Legendre, and adaptive Gauss-Kronrod bind `Integrate.DoubleExponential`/`GaussLegendre`/`GaussKronrod` as `QuadratureRoute` rows, never three sibling factories, and the finite-guard-then-admit combinator applies once over the uniform `KernelOutcome` column, never re-spelled per kernel.
-- Boundary — infinite bounds route only into `DoubleExponential`/`GaussLegendre`, whose MathNet entries substitute infinity through a baked-in abscissa transform; `GaussKronrod` and the cubature rules integrate the raw interval and fault on an infinite bound rather than yielding `NaN` weights, so `InfiniteBounds` is load-bearing. A 1-D delegate forced through a 2-D rule integrates `(b−a)·∫f` and is rejected.
+- Boundary — infinite bounds route only into `DoubleExponential`/`GaussLegendre`, whose MathNet entries substitute infinity through a baked-in abscissa transform; `GaussKronrod` and the cubature rules integrate the raw interval and fault on an infinite bound rather than yielding `NaN` weights, so `InfiniteBounds` is load-bearing. Any 1-D delegate forced through a 2-D rule integrates `(b−a)·∫f` and is rejected.
 - Boundary — `error`/`L1Norm`/`Ratio` are `Option<double>` because only the adaptive Kronrod row yields them; a `NaN` sentinel posing as a value is rejected. Cancellation ratio `|value/L1|` is the free conditioning diagnostic the short `GaussKronrod` overload discards, read here from the out-param overload so a gate rejects ill-conditioned cancellation, not a converged small result.
 
 ```csharp signature

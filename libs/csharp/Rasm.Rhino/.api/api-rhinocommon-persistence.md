@@ -4,8 +4,8 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `RhinoCommon` persistence surface
-- package: `RhinoCommon`
+[PACKAGE_SURFACE]: RhinoCommon persistence surface
+- host: Rhino host runtime, in-process (proprietary McNeel SDK)
 - assembly: `RhinoCommon.dll` — in-process managed host runtime
 - namespaces: `Rhino`, `Rhino.Collections`, `Rhino.DocObjects`, `Rhino.DocObjects.Custom`, `Rhino.DocObjects.Tables`
 - rail: custody-boundary

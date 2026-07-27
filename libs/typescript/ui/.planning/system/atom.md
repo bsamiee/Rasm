@@ -2,7 +2,7 @@
 
 The ONE_FOLD_ONE_BINDING law made code: `@effect-atom` is the single state binding of the folder, and this module owns the whole bridge — one `Store.make` standing the app's Layer graph behind the atom registry with a shared `MemoMap`, one registry policy row, the persisted-atom rows (`Atom.kvs`/`Atom.searchParam` with kernel `Schema` codecs), the `Hydration` SSR handoff pair, the `AtomHttpApi`/`AtomRpc` contract-binding rows with the typed `reactivityKeys` invalidation graph, the derivation plane (selectors, `family`, `debounce`, refresh triggers, the `AtomRef` fine-grained cursor, the live `Subscribable`/`SubscriptionRef` bridge — `Machine` actors included — paged `pull`, stream egress), the write-modality and async-fold laws every view row obeys, and the `History` undo/redo command fold. Components are projection surfaces: they reach the Effect graph only through this bridge — never running effects, never owning Layers, never holding a second copy of domain state in `useState`; derived state is computed, never mirrored. The module is `ui/src/system/atom.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                                                | [PUBLIC]  |
 | :-----: | :--------------- | :------------------------------------------------------------------------------------ | :-------- |

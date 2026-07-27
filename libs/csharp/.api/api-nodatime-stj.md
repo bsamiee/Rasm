@@ -87,13 +87,13 @@
 [STACKING]:
 - `NodaTime`(`.api/api-nodatime.md`): `NodaPatternConverter<T>(IPattern<T>, Action<T>)` admits any `NodaTime.Text` pattern with a pre-write validator, so a wire needing a non-default text shape assigns one converter instance into the matching `NodaJsonSettings` slot rather than subclassing; the same catalog's `IDateTimeZoneProvider` feeds both zone factories.
 - `Thinktecture.Runtime.Extensions.Json`(`.api/api-thinktecture-json.md`): `ThinktectureJsonConverterFactory` and `ConfigureForNodaTime` append to one `JsonSerializerOptions.Converters` list under first-claim-wins order, the factory placed ahead of the per-type converters; the two claim disjoint type spaces, so order never contests.
-- `System.Text.Json`(`.api/api-json-schema.md`): a NodaTime converter describes no schema, so `JsonSchemaExporter` emits the unconstrained node for a converted type until a `TransformSchemaNode` arm keyed on `JsonSchemaExporterContext.TypeInfo` writes the string form the pattern produces.
+- `System.Text.Json`(`.api/api-system-text-json.md`): a NodaTime converter describes no schema, so `JsonSchemaExporter` emits the unconstrained node for a converted type until a `TransformSchemaNode` arm keyed on `JsonSchemaExporterContext.TypeInfo` writes the string form the pattern produces.
 - Within the branch, one app-root `SuiteContracts.Wire` expression owns the merge: the Thinktecture factory registers, `NodaJsonSettings` takes its per-type replacements, `ConfigureForNodaTime` folds the slot set last, and the interval swaps run over the merged list.
 
 [LOCAL_ADMISSION]:
-- A wire profile registers semantic time once through `ConfigureForNodaTime` on the shared options object, its zone provider supplied by the host rather than taken from the parameterless settings constructor.
-- A non-default text shape enters as one `NodaPatternConverter<T>` assigned into its settings slot; a member-local shape enters as `NodaTimeDefaultJsonConverterAttribute` or a `DelegatingConverterBase<T>` subclass, since `[JsonConverter]` identifies a converter by type alone.
-- A type the profile carries elsewhere leaves its slot null, so the registration and the owning converter never double-bind.
+- `ConfigureForNodaTime` on the shared options object registers semantic time once per wire profile, its zone provider supplied by the host rather than taken from the parameterless settings constructor.
+- `NodaPatternConverter<T>` assigned into its settings slot carries every non-default text shape; a member-local shape enters as `NodaTimeDefaultJsonConverterAttribute` or a `DelegatingConverterBase<T>` subclass, since `[JsonConverter]` identifies a converter by type alone.
+- Types the profile carries elsewhere leave their slot null, so the registration and the owning converter never double-bind.
 
 [RAIL_LAW]:
 - Package: `NodaTime.Serialization.SystemTextJson`

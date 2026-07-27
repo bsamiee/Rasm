@@ -4,11 +4,10 @@ Preview lifecycle (`Rasm.Rhino.Blocks`) owns bitmap custody, versioned grants, d
 
 ## [01]-[INDEX]
 
-| [INDEX] | [OWNER]                             | [CONTRACT]                                       |
-| :-----: | :---------------------------------- | :----------------------------------------------- |
-|  [01]   | `RefreshPolicy` · `LinkWatchPolicy` | invalidation and observation policy              |
-|  [02]   | `PreviewGrant`                      | versioned bitmap custody window                  |
-|  [03]   | `BlockLifecycle`                    | observation, lease, eviction, and linked refresh |
+- [02]-[REFRESH_POLICY]: `RefreshPolicy` and `LinkWatchPolicy` partitioning matching versions by grant state across the lazy, eager, and drop rows.
+- [03]-[PREVIEW_CUSTODY]: `PreviewKey` structural request identity and `PreviewGrant` the only public bitmap window, superseded versions moving atomically to retirement and `VaultOutcome` carrying transition products without captured mutation.
+- [04]-[LIFECYCLE]: `BlockLifecycle` observing definition-table, worksession, and document-close facts through one atom transition owning invalidation and eviction, and `Lease` reserving or rendering outside the atom before committing with its first grant.
+- [05]-[SURFACE_LEDGER]: owner-to-ingress-to-state-to-egress roster across `BlockLifecycle`, `PreviewGrant`, and the policy owners.
 
 ## [02]-[REFRESH_POLICY]
 

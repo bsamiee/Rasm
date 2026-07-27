@@ -6,7 +6,7 @@ Each point set admits through `numerics/array#PAYLOAD` for the finite gate and t
 
 ## [01]-[INDEX]
 
-- [01]-[SPATIAL]: the `SpatialQuery` cases over one point set, evidence discriminated over `SpatialEvidence`, the two KD-tree routes degrading through the data-driven `NEIGHBOUR_FLOOR`.
+- [02]-[SPATIAL]: the `SpatialQuery` cases over one point set, evidence discriminated over `SpatialEvidence`, the two KD-tree routes degrading through the data-driven `NEIGHBOUR_FLOOR`.
 
 ## [02]-[SPATIAL]
 

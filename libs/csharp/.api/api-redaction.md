@@ -79,7 +79,7 @@
 |  [10]   | `AppendRedacted(Redactor, ReadOnlySpan<char>) -> StringBuilder`              | static   | appends off a rented buffer         |
 |  [11]   | `AppendRedacted(Redactor, string?) -> StringBuilder`                         | static   | string arm of the same append       |
 
-- `Redact<T>`: an `ISpanFormattable` value formats into a 256-char stack buffer and redacts at its rendered value; a longer rendering falls to the string path.
+- `Redact<T>`: formats an `ISpanFormattable` value into a 256-char stack buffer and redacts at its rendered value; a longer rendering falls to the string path.
 - `TryRedact<T>`: returns `false` with `charsWritten` at zero when the destination is shorter than the redacted length.
 
 [ENTRYPOINT_SCOPE]: classification keys and set composition
@@ -113,7 +113,8 @@
 - Provider construction throws when the fallback type resolves to no registered instance, so a fallback row and its redactor registration land together.
 
 [STACKING]:
-- `Microsoft.Extensions.Telemetry`(`api-extensions-telemetry.md`): `EnableRedaction` binds this provider onto the `ILogger` seam, and `LoggerRedactionOptions.ApplyDiscriminator` folds the tag name into the value before redaction, so one raw value yields a distinct token per tag name.
+- `Microsoft.Extensions.Telemetry`(`Rasm.AppHost/.api/api-telemetry.md`): `EnableRedaction` binds this provider onto the `ILogger` seam, and `LoggerRedactionOptions.ApplyDiscriminator` folds the tag name into the value before redaction, so one raw value yields a distinct token per tag name.
+- `Microsoft.Extensions.Telemetry.Abstractions`(`api-telemetry-abstractions.md`): the classified-tag overloads on `ITagCollector` and `LoggerMessageState` carry the `DataClassificationSet` this package's `IRedactorProvider` resolves a `Redactor` from.
 - `Microsoft.Extensions.Logging.Abstractions`(`api-logging-abstractions.md`): `[LogProperties]` and `[TagProvider]` generated methods carry each expanded member's `DataClassificationSet` to the provider before a sink observes the tag.
 - `OpenTelemetry.Instrumentation.Http`(`api-otel-instrumentation-http.md`): the rosters partition at the value boundary — URL-query redaction rides that package's own environment row, annotated values ride this provider.
 - `Rasm.AppHost` `Observability/telemetry#REDACTION_TAXONOMY`: `RedactionRegistration.Bind` folds each taxonomy row's `RedactorKind` onto `SetHmacRedactor` or `SetRedactor<ErasingRedactor>` and closes on `SetFallbackRedactor<ErasingRedactor>()`; `DataClassification.Marker` mints the compliance key.

@@ -6,7 +6,7 @@ CAM motion closes the admitted `(ProcessModality, CutStrategy)` cross-product un
 
 ## [01]-[INDEX]
 
-- [01]-[CAM_MOTION]: owns `EngagementPolicy`, `HoleLaw`, `AxialPass`, `MotionMounts`, seam/hole/lathe policy rows, `MotionRun`, pair-total strategy dispatch, element linking, workholding/guard conditioning, and the machine/cell solve boundary.
+- [02]-[CAM_MOTION]: owns `EngagementPolicy`, `HoleLaw`, `AxialPass`, `MotionMounts`, seam/hole/lathe policy rows, `MotionRun`, pair-total strategy dispatch, element linking, workholding/guard conditioning, and the machine/cell solve boundary.
 
 ## [02]-[CAM_MOTION]
 

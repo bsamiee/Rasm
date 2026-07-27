@@ -2,7 +2,7 @@
 
 Chart owns declared statistics, streaming series, and user-driven pivots behind one data-shape discriminant. Observable Plot and visx render declared charts, uPlot renders streaming columns, and Perspective owns pivot aggregation. One Arrow table is their columnar bus; each surface brackets one engine, derives specs from atoms, and resolves color through tokens. Module: `ui/src/view/chart.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]          | [OWNS]                                                                           | [PUBLIC] |
 | :-----: | :----------------- | :------------------------------------------------------------------------------- | :------- |

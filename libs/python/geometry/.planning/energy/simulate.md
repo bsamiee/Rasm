@@ -6,7 +6,7 @@ Frame column discipline is load-bearing: `output`/`unit`/`period`/`zone`/`step`/
 
 ## [01]-[INDEX]
 
-- [01]-[SIMULATE]: one simulation owner — the format-row translate offload, the runtime recipe binding, the self-describing result decode with the Arrow crossing — under one `SimulationReceipt`.
+- [02]-[SIMULATE]: one simulation owner — the format-row translate offload, the runtime recipe binding, the self-describing result decode with the Arrow crossing — under one `SimulationReceipt`.
 
 ## [02]-[SIMULATE]
 

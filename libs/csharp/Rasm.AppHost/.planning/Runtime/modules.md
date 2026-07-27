@@ -4,10 +4,10 @@ One composition root per process folds a frozen module table into the service gr
 
 ## [01]-[INDEX]
 
-- [01]-[MODULE_TABLE]: Frozen contribution rows with one descriptor algebra for every fan-in seam.
-- [02]-[SCAN_AND_DECORATE]: One-pass scan, decoration, and keyed registration fold with receipted freeze.
-- [03]-[BOUNDARY_ACTIVATION]: Activation plans, availability probes, async scopes, keyed decoration, and validators.
-- [04]-[APP_ROOT_VERBS]: The `System.CommandLine` verb table — seed DATA projecting `ParseResult` onto existing owners.
+- [02]-[MODULE_TABLE]: Frozen contribution rows with one descriptor algebra for every fan-in seam.
+- [03]-[SCAN_AND_DECORATE]: One-pass scan, decoration, and keyed registration fold with receipted freeze.
+- [04]-[BOUNDARY_ACTIVATION]: Activation plans, availability probes, async scopes, keyed decoration, and validators.
+- [05]-[APP_ROOT_VERBS]: The `System.CommandLine` verb table — seed DATA projecting `ParseResult` onto existing owners.
 
 ## [02]-[MODULE_TABLE]
 

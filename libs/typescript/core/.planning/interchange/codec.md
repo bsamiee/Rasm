@@ -2,7 +2,7 @@
 
 The keyed-decode engine of the interchange plane: ONE closed census of every contract wire family — arm, mint source, consuming surface, and owning page as data columns — and ONE polymorphic registry whose mapped landing table resolves each codec-homed family to its decoded type, so `Wire.decode(family, octets)` is the single decode entry the branch owns and a per-family codec page is unspellable. Families landing in core vocabulary decode INTO the `value`/`state` owners with zero local twins; families whose consumers live in later waves land wire-owned shapes declared here once, adopted-verbatim on the decode-boundary names the C# side mints. Beside the registry sit the four cross-cutting mechanics every row shares, each spelled once: the reason-discriminated `WireFault` rail with its bounded, replayable poison quarantine; the `Parity` combinator family — content-key mint-and-compare, golden-byte roundtrip, and the reflection walk over key cells; the divert-and-dedup `feed` combinator whose per-family transition policy is a row; and the sequence-gap Mealy the oplog watermark and the frame ordinal chain both mint evidence through. The module is `core/src/interchange/codec.ts`; a new wire family is one census row plus one landing row, a new failure cause is one policy row, and a new feed is one `_feeds` row — never a sibling page, never a second rail.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]          | [OWNS]                                                                      | [PUBLIC]                  |
 | :-----: | :----------------- | :-------------------------------------------------------------------------- | :------------------------ |

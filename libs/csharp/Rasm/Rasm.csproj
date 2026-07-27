@@ -23,6 +23,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Bounded Lanes">
+        <PackageReference Include="NodaTime" />
         <PackageReference Include="QuikGraph" />
         <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="Wacton.Unicolour" />

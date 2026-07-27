@@ -13,6 +13,7 @@ This planning corpus widens by scope: a folder owns one package, a branch aggreg
 - Folder (`<pkg>/`): branch index docs at root; design pages in `.planning/` use `<sub-domain>/<page>.md`, or `<page>.md` for a single-page concept.
 
 [API_TIERS] — this section owns the two-tier catalogue law; every other surface points here:
+- Catalogues document external distributions and host SDK assemblies alone; a sibling package inside this corpus declares its own members on its design pages, so a member crossing a folder boundary verifies at that owning page under `docs/laws/topology.md` `[FENCE_SEAM]` and a `.api/` file named for a corpus package never exists.
 - Branch `.api/` (`libs/<lang>/.api/`): one catalogue per language-wide substrate package.
 - Folder `.api/`: exists in two tiers, Domain and Substrate, the former being specific to a package, and the latter being language branch wide.
 - Every folder consuming a substrate package reads the branch catalogue and lists the package in its README `## [03]-[SUBSTRATE_PACKAGES]` section.
@@ -72,7 +73,8 @@ Design pages live at `<pkg>/.planning/<sub-domain>/<page>.md`, one sub-domain fo
 - Card fields are a closed vocabulary — `Owner`, `Cases`, `Entry`, `Auto`, `Output`, `Receipt`, `Packages`, `Growth`, `Boundary`, in that order.
 - Each card field is earned: a field that decides nothing for the cluster is omitted.
 - Card bullets carry only what the fence cannot show — the decision, invariant, boundary, ownership ruling, trap, or rejection-with-reason.
-- `[01]-[INDEX]` is one line per cluster, never a card restatement.
+- `[01]-[INDEX]` indexes the page's clusters in section order, one entry per cluster and never an owner roster or a card restatement.
+- Each index entry leads `[NN]-[CLUSTER]` restating that cluster's own header number, so a leader list is the only conforming form — a table seats its ordinal in `[INDEX]` and strands the coordinate.
 - Signature fences are transcription-complete: every generated-owner knob, closed-family key, union case, and entrypoint signature copies verbatim.
 - Fence bodies land only where the body is the law.
 - Fence comments carry one in-situ constraint the code cannot show, never a duplicate of a card line; cluster invariants live on the card.

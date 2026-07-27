@@ -90,10 +90,10 @@ One `Provider` per arm carries the credential and threads through `opts.provider
 ## [05]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- A Cloudflare resource is `new X(name, XArgs, opts?)` on the one ABI; a new capability lands as a row on a seeded family, never a bespoke shape.
+- Every Cloudflare resource constructs as `new X(name, XArgs, opts?)` on the one ABI, so a new capability lands as a row on a seeded family.
 - `Match.exhaustive` dispatch (`provider/dispatch`, `libs/typescript/.api/effect.md`) constructs the `cloudflare` arm's one `Provider` from a `Schema`-decoded `StackSpec` `apiToken` ref and threads it via `opts.provider`; per-resource providers are rejected.
 - `ZeroTrustTunnelCloudflared` + `…Config` route the selfhosted-k8s ingress to the in-cluster service, fronted by `ZeroTrustAccessApplication`/`…Policy`; a `DnsRecord` CNAMEs the hostname to `<id>.cfargotunnel.com`, so the cluster needs no public IP.
-- An existing zone, record, or bucket reads through `getXOutput` when it feeds an `Input` and `getX` for an eager `async` read, never an out-of-band Cloudflare-state re-derivation.
+- `getXOutput` reads an existing zone, record, or bucket into an `Input` and `getX` serves the eager `async` read, so Cloudflare state never re-derives out of band.
 
 [STACKING]:
 - `@pulumiverse/doppler`(`.api/pulumiverse-doppler.md`): `Provider.apiToken` binds a single-key `getSecretsOutput({ project, config }).apply(r => r.map["CLOUDFLARE_TOKEN"])` `Output<string>` — the in-graph credential bind the Doppler provider-credential fan-in names for this row; `WorkersScript` secret bindings draw from the same canonical store.

@@ -2,7 +2,7 @@
 
 `Guard`, `Drift`, and `Reconcile` own the policy plane's verdict directions. `Guard` judges desired state before apply through one `PolicyPackArgs` value of policies-as-data rows attached by `Automation.Options.policyPacks`. Typed helpers narrow each policy onto the resource class its tier constructs: digest-pinned images, non-superuser Postgres roles, TLS edges, protected data with scheduled backups, namespace fences, and managed-by stamps. `Drift` projects `Automation.reconcile` receipts into `DriftReport` rows with docker-cell store conformance. `Reconcile` carries typed `Stack` CR rows through the Pulumi Kubernetes Operator. `Evidence` unifies run settlement, drift, rotation, secret-change, and hosted-webhook deliveries under one tagged union and never-failing sink. Growth is one policy row, report field, evidence case, or `Stack` CR row.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                               | [PUBLIC]    |
 | :-----: | :--------------- | :------------------------------------------------------------------- | :---------- |

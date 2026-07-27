@@ -8,7 +8,7 @@ The overlay is the orthogonal companion to the single-parent `Model/spatial#SPAT
 
 ## [01]-[INDEX]
 
-- [01]-[ZONE_GRAPH]: the `BimZoneKind` `[SmartEnum<string>]` grouping-interpretation vocabulary (the `IsSpatial` modality flag plus the `Taxonomy` derivation onto the generated roster row — `Domain`/`Span`/`ValidPredefined` read THERE, never restated; the `Resolve` strict view-side lookup + `TryGet(...).IfNone(Group)` permissive read), the `BimZone` derived group-centric overlay record with its member-overlap projection, and the `ZoneProjection.Of`/`All`/`Aggregate`/`Values`/`Uncovered`/`Adjacencies` surface — membership, semantic and quantity reads, coverage audit, and boundary-derived zone adjacency off the seam `ElementGraph`.
+- [02]-[ZONE_GRAPH]: the `BimZoneKind` `[SmartEnum<string>]` grouping-interpretation vocabulary (the `IsSpatial` modality flag plus the `Taxonomy` derivation onto the generated roster row — `Domain`/`Span`/`ValidPredefined` read THERE, never restated; the `Resolve` strict view-side lookup + `TryGet(...).IfNone(Group)` permissive read), the `BimZone` derived group-centric overlay record with its member-overlap projection, and the `ZoneProjection.Of`/`All`/`Aggregate`/`Values`/`Uncovered`/`Adjacencies` surface — membership, semantic and quantity reads, coverage audit, and boundary-derived zone adjacency off the seam `ElementGraph`.
 
 ## [02]-[ZONE_GRAPH]
 

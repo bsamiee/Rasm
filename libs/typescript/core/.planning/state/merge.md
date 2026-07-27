@@ -2,7 +2,7 @@
 
 The one lawful merge owner of the branch and its law surface in one module: every convergent combination — CRDT register, counter, flag, grow-only set, keyed map, record product, bounded lattice, wrapper re-landing — is a `Merge.Instance<A>` value composing `@effect/typeclass` `Semigroup` atoms with a declared law posture, a shared `Equivalence`, and an optional identity, and every instance's proof obligations — associativity always, commutativity and idempotence exactly when the posture claims them, identity exactly when an `empty` exists — live beside it as `Converge` witness values. An instance with a lawful `empty` projects the lawful `Monoid` whose `combineAll` is the state-vector fold, a `Bounded` scale derives its lattice pair with `empty` from the bounds, and a keyed live table whose multi-key batches commit all-or-nothing is one STM cell family on the same instance vocabulary. The merge law, the incremental reducer law the fold engines apply, and the convergence proofs are one declaration read three ways; ordered-sequence convergence is `fold`'s fractional-index lane by construction, so no sequence instance exists here. The module is `core/src/state/merge.ts`; a new merge semantic is a constructor row, a new law is a witness row, and a bespoke lawful merge enters through `Merge.instance` with its obligations proven at the law surface.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 The `[PUBLIC]` column drops the shared `Merge.` prefix; `Converge` and `Breach` spell whole.
 

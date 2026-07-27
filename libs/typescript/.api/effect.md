@@ -156,29 +156,33 @@
 |  [10]   | `TQueue` / `TSemaphore` / `TReentrantLock`              | transaction   | transactional queue, semaphore, reentrant lock            |
 
 - `PubSub.publish` / `Queue.offer`: answer delivery as `boolean`, never a fault — a discarded return is a deliberate drop.
-- `SubscriptionRef.changes`: an interface property (a `Stream`), not a module function — the feed `Reloadable.auto` consumes.
+- `SubscriptionRef.changes`: interface property carrying a `Stream`, never a module function — `Reloadable.auto` consumes that feed.
 
 [ENTRYPOINT_SCOPE]: schedule, config, time, and observability signals
 - rail: system-apis
 
-| [INDEX] | [SURFACE]                                                  | [SHAPE]        | [CAPABILITY]                                             |
-| :-----: | :--------------------------------------------------------- | :------------- | :------------------------------------------------------- |
-|  [01]   | `Schedule.exponential` / `jittered` / `resetAfter`         | recurrence     | policy as a value; `resetAfter` re-arms after quiet      |
-|  [02]   | `Schedule.intersect` / `recurs` / `upTo`                   | recurrence     | compose schedules; `upTo` bounds total elapsed           |
-|  [03]   | `Schedule.whileInput` / `recurWhile` / `cron`              | recurrence     | gate re-drive on the fault value; `work/queue` cron      |
-|  [04]   | `Config.string` / `redacted` / `integer`                   | config schema  | `proc/config` typed ingress; `redacted` keeps secrets    |
-|  [05]   | `Config.withDefault` / `Config.nested`                     | config schema  | defaults + nested config sections                        |
-|  [06]   | `ConfigProvider.fromEnv` / `fromJson` / `constantCase`     | provider chain | env→file→remote; `.orElse` chains; case adapters         |
-|  [07]   | `Duration.seconds` / `Duration.decode` / `Cron.parse`      | time           | `core/value/clock` HLC, `work` deadlines, `data` windows |
-|  [08]   | `DateTime.now` / `DateTime.addDuration`                    | time           | wall-clock evidence over the HLC composition             |
-|  [09]   | `Metric.counter` / `histogram` / `gauge`                   | metric         | `otel` `(app, tenant)`-tagged instruments                |
-|  [10]   | `Metric.timerWithBoundaries` / `increment` / `incrementBy` | metric         | `incrementBy` charges batch counts (`data/journal`)      |
-|  [11]   | `Logger.make` / `replace` / `batched`                      | logger         | structured logging; `batched` buffered export            |
-|  [12]   | `Metric.snapshot` / `Tracer.externalSpan`                  | signal read    | `core/observe/board` reads; `externalSpan` continues W3C |
-|  [13]   | `Effect.makeSpanScoped`                                    | signal read    | a scoped span the algorithm owns                         |
+| [INDEX] | [SURFACE]                                                    | [SHAPE]        | [CAPABILITY]                                             |
+| :-----: | :----------------------------------------------------------- | :------------- | :------------------------------------------------------- |
+|  [01]   | `Schedule.exponential` / `jittered` / `resetAfter`           | recurrence     | policy as a value; `resetAfter` re-arms after quiet      |
+|  [02]   | `Schedule.intersect` / `recurs` / `upTo`                     | recurrence     | compose schedules; `upTo` bounds total elapsed           |
+|  [03]   | `Schedule.whileInput` / `recurWhile` / `cron`                | recurrence     | gate re-drive on the fault value; `work/queue` cron      |
+|  [04]   | `Config.string` / `redacted` / `integer`                     | config schema  | `proc/config` typed ingress; `redacted` keeps secrets    |
+|  [05]   | `Config.withDefault` / `Config.nested`                       | config schema  | defaults + nested config sections                        |
+|  [06]   | `ConfigProvider.fromEnv` / `fromJson` / `constantCase`       | provider chain | env→file→remote; `.orElse` chains; case adapters         |
+|  [07]   | `Duration.seconds` / `Duration.decode` / `Cron.parse`        | time           | `core/value/clock` HLC, `work` deadlines, `data` windows |
+|  [08]   | `DateTime.now` / `DateTime.addDuration`                      | time           | wall-clock evidence over the HLC composition             |
+|  [09]   | `Metric.counter` / `histogram` / `gauge`                     | metric         | `otel` `(app, tenant)`-tagged instruments                |
+|  [10]   | `Metric.timerWithBoundaries` / `increment` / `incrementBy`   | metric         | `incrementBy` charges batch counts (`data/journal`)      |
+|  [11]   | `Logger.make` / `replace` / `batched`                        | logger         | structured logging; `batched` buffered export            |
+|  [12]   | `Metric.snapshot` / `Tracer.externalSpan`                    | signal read    | `core/observe/board` reads; `externalSpan` continues W3C |
+|  [13]   | `Effect.makeSpanScoped`                                      | signal read    | a scoped span the algorithm owns                         |
+|  [14]   | `MetricBoundaries.linear` / `.exponential` / `.fromIterable` | boundaries     | generated bucket edges; a literal array is last resort   |
+|  [15]   | `MetricPair` / `MetricState` / `MetricKey`                   | snapshot shape | `Metric.snapshot` output, read per state kind            |
 
 - `Metric.tagged`: returns a NEW metric value — `Metric.increment(Metric.tagged(counter, key, value))` is the per-dispatch tagged-increment spelling.
-- `Metric.snapshot`: reads the whole global registry; a filtered read is a caller-side projection over it.
+- `Metric.histogram(name, boundaries, description?)`: three arguments, `boundaries` a `MetricBoundaries` value and never a bare number array. `MetricBoundaries.linear({ start, width, count })` and `.exponential({ start, factor, count })` GENERATE the edge set from three scalars, so an explicit-bucket row parameterizes rather than enumerating; `.fromIterable(numbers)` is the escape for edges an algorithm already holds.
+- `Metric.snapshot`: reads the whole global registry as `MetricPair.Untyped[]`, each pair a `MetricKey` beside a `MetricState`; a filtered read is a caller-side projection over it.
+- `MetricState` closes over five cases — `Counter<number | bigint>`, `Gauge<number | bigint>`, `Frequency`, `Histogram`, `Summary` — each with its own `is*State` refinement, so a snapshot fold dispatches on the guard and never on a shape probe.
 - `Schedule`: values compose — `exponential |> jittered |> intersect(recurs(n))` is one recurrence value, never a hand-rolled retry loop.
 
 [ENTRYPOINT_SCOPE]: immutable collections, equality, and caching
@@ -206,8 +210,8 @@
 - `Effect<A, E, R>` is a description, not a running computation; nothing executes until `Effect.runFork`/`runPromise`/`runSync` at the one imperative edge, or `Layer.launch`/`ManagedRuntime` at a composition root. Dependent steps compose through `Effect.flatMap`/`Effect.gen`; independent operands accumulate through `Effect.all`/`Effect.forEach` where the `mode`/`concurrency` option — never a flag on the value — selects abort-on-first-failure versus validate-all.
 - Three type parameters are the whole contract: `A` success, `E` the typed error channel (a tagged union, discriminated by `catchTag`/`catchTags`), `R` the requirement set of `Context.Tag`s the app root must satisfy. `R` reaching `never` at the composition root is the proof that every dependency is wired; an unsatisfied Tag is a compile error, not a runtime `undefined`.
 - `Schema` is the one boundary codec: `Type` is the decoded interior value, `Encoded` the wire shape, and every secondary surface (`Arbitrary`, `JSONSchema`, `Pretty`, `Equivalence`, `standardSchemaV1`) derives from the same AST so it cannot drift. Decode once at ingress with `Schema.decodeUnknown`; the interior never re-validates and never sees `null`/`undefined`/provider shapes.
-- `Context.Tag`/`Effect.Service` are the DI primitives; `Layer` builds the acyclic dependency graph with memoized construction, `scoped` construction for resource lifetime, and `provide`/`provideMerge` for wiring. A `Layer` is a value — folders export Layer families and the thin app `main.ts` selects and composes them with zero lib edits.
-- Cross-cutting capability attaches at its seam as an effect transformer: decode+brand at the single Schema, `Effect.withSpan`/`annotateLogs`/`withMetric` for observability, `Effect.retry(Schedule)` for resilience, `Effect.acquireRelease`+`Layer.scoped` for lifetime. `Effect.fn("name")(body, ...pipeline)` is the seam where the body runs once per attempt and the pipeline carries the policy — resilience is recoverable from the declaration, never buried inside the body.
+- `Context.Tag`/`Effect.Service` are the DI primitives; `Layer` builds the acyclic dependency graph with memoized construction, `scoped` construction for resource lifetime, and `provide`/`provideMerge` for wiring. `Layer` values compose — folders export Layer families and the thin app `main.ts` selects and composes them with zero lib edits.
+- Cross-cutting capability attaches at its seam as an effect transformer: decode+brand at the single Schema, `Effect.withSpan`/`annotateLogs`/`withMetric` for observability, `Effect.retry(Schedule)` for resilience, `Effect.acquireRelease`+`Layer.scoped` for lifetime. `Effect.fn("name")(body, ...pipeline)` seats that seam — body runs once per attempt and the pipeline carries the policy, so resilience stays recoverable from the declaration rather than buried inside the body.
 - Interruption is structural: `Effect.forkScoped` fibers are interrupted when their `Scope` closes, finalizers run on success, failure, and interrupt alike, and `Cause` retains the full failure tree (typed error + defect + interrupt + parallel causes) so `core/value/fault` and `otel/crash` reconstruct rather than flatten.
 
 [STACKING]:

@@ -6,16 +6,8 @@
 
 ## [01]-[INDEX]
 
-| [INDEX] | [OWNER]              | [OWNS]                                                   |
-| :-----: | :------------------- | :------------------------------------------------------- |
-|  [01]   | `RepresentationSlot` | representation identifiers and their graph-key accessors |
-|  [02]   | `ElementGeometry`    | the resolved carrier a slot admits                       |
-|  [03]   | `ElementPayload`     | the distinct-slot part roster and its combined identity  |
-|  [04]   | `ElementSource`      | one graph, a distinct-subject roster, and the derive key |
-|  [05]   | `ElementFact`        | numeric, symbolic, and typed-property evidence rows      |
-|  [06]   | `ElementReceipt`     | component, topology, facts, canonical bytes, and locus   |
-|  [07]   | `ElementImport`      | admission, fact folding, connection lowering, and egress |
-|  [08]   | `ElementEgress`      | the parameterized projection request                     |
+- [02]-[ELEMENT_INGRESS]: `RepresentationSlot` identifiers with their graph-key accessors, the `ElementGeometry`/`ElementPayload` carrier a slot admits, `ElementSource` graph-bearing ingress, `ElementFact` evidence rows, and the `ElementReceipt` sealing component, topology, canonical bytes, and fault locus.
+- [03]-[LIFECYCLE]: `ElementImport.Admit` baking each distinct subject once under graph tolerance with arity-selected singular or batch admission, and `ElementEgress` projection reading the receipt alone.
 
 ## [02]-[ELEMENT_INGRESS]
 

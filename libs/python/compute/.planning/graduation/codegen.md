@@ -6,7 +6,7 @@ Descriptor descent is ONE `_fold` recursion schema run by three `FieldAlgebra` i
 
 ## [01]-[INDEX]
 
-- [01]-[STUB_CODEGEN]: the wire-decoded `FieldNode` union, the one `_fold` catamorphism under three interpreters, the format-and-target-polymorphic `emit` rail, and the `drift` round-trip gate on one `StubCodegen` owner.
+- [02]-[STUB_CODEGEN]: the wire-decoded `FieldNode` union, the one `_fold` catamorphism under three interpreters, the format-and-target-polymorphic `emit` rail, and the `drift` round-trip gate on one `StubCodegen` owner.
 
 ## [02]-[STUB_CODEGEN]
 

@@ -4,10 +4,10 @@ The drafting rail produces 2D documentation from 3D geometry: `SheetSet` owns a 
 
 ## [01]-[INDEX]
 
-- [01]-[SHEET_SET]: Sheet collection, locale-aware ISO/ANSI/JIS title-block templating.
-- [02]-[PROJECTION]: 3D-to-2D hidden-line viewport frame, scale, projection basis.
-- [03]-[DIMENSIONING]: Dimension and GD&T annotation vocabulary as typed records.
-- [04]-[DRAFT_EMIT]: DWG/DXF/PDF/SVG multi-format emit over the document rail.
+- [02]-[SHEET_SET]: Sheet collection, locale-aware ISO/ANSI/JIS title-block templating.
+- [03]-[PROJECTION]: 3D-to-2D hidden-line viewport frame, scale, projection basis.
+- [04]-[DIMENSIONING]: Dimension and GD&T annotation vocabulary as typed records.
+- [05]-[DRAFT_EMIT]: DWG/DXF/PDF/SVG multi-format emit over the document rail.
 
 ## [02]-[SHEET_SET]
 

@@ -110,7 +110,7 @@ Only an attribute-carrying wire type enters this row; an attribute-free seam gra
 
 - `ReadAsync` returns `ValueTask<ReadOnlySequence<byte>?>` and `ReadArrayAsync` an `IAsyncEnumerable<ReadOnlySequence<byte>>`; each result stays valid until `Dispose` or the next read on the same reader.
 - `MessagePackStreamReader` is not thread-safe: one call completes, including its asynchronous tail, before the next begins.
-- A null `SequencePool` argument throws `ArgumentNullException`; `SequencePool.Shared` is the default rental.
+- `SequencePool` throws `ArgumentNullException` on a null argument; `SequencePool.Shared` is the default rental.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -120,11 +120,11 @@ Only an attribute-carrying wire type enters this row; an attribute-free seam gra
 - Compression rides inside the codec, `Lz4BlockArray` framing chunk-wise across the payload, so an outer compressor over the same bytes double-frames them.
 - `MessagePackReader` and `MessagePackWriter` are `ref struct` cursors threaded by `ref` through formatter calls, which confines them to the synchronous stack frame.
 - Untrusted decode composes three ceilings: `UntrustedData` collision-resistant hashing, `WithMaximumObjectGraphDepth` against a recursion bomb, and `WithMaximumDecompressedSize` against an LZ4 expansion bomb.
-- A typeless payload carries a CLR type header, so `LoadType` and `ThrowIfDeserializingTypeIsDisallowed` override to a profile-local allowlist before an untrusted header names a type.
+- Typeless payloads carry a CLR type header, so `LoadType` and `ThrowIfDeserializingTypeIsDisallowed` override to a profile-local allowlist before an untrusted header names a type.
 
 [STACKING]:
 - `api-messagepack-analyzer`: its generator emits the `[GeneratedMessagePackResolver]` partial and its `MsgPack###` diagnostics reject an unattributed, unkeyed, or key-colliding contract at build, so `[Key]` drift breaks the compile rather than the decode.
-- `api-thinktecture-serialization`: `ThinktectureMessageFormatterResolver.Instance` sits in the composed chain and derives one formatter per generated `[ValueObject]`, `[SmartEnum]`, and `[Union]` owner, so a `NodeId` or `ContentAddress` crosses as its bare key with no hand-written codec.
+- `api-thinktecture-messagepack`(`libs/csharp/.api/api-thinktecture-messagepack.md`): `ThinktectureMessageFormatterResolver.Instance` sits in the composed chain and derives one formatter per generated `[ValueObject]`, `[SmartEnum]`, and `[Union]` owner, so a `NodeId` or `ContentAddress` crosses as its bare key with no hand-written codec.
 - `api-hashing`: `Version/commits#CRDT_WIRE` `CrdtWire.ContentKey` hashes the `None`-compression companion encoding through the kernel `ContentHash.Of` entry, so the at-rest `Lz4BlockArray` framing stays out of the key and the Python and TypeScript replicas reproduce it byte-for-byte.
 - `api-cbor` and `api-chr-avro`: codec-selection peers — MessagePack owns the schemaless evolving record, CBOR the content-stable self-describing blob, Avro the schema-governed leg.
 - `api-objectstore`: `MessagePackStreamReader.ReadArrayAsync` is the framed-ingest seam over a length-delimited multi-snapshot blob body, yielding one sequence per element under the codec's own `SequencePool`.
@@ -134,7 +134,7 @@ Only an attribute-carrying wire type enters this row; an attribute-free seam gra
 [LOCAL_ADMISSION]:
 - MessagePack is a codec inside snapshot profiles, never public Persistence vocabulary; contract keys, union tags, resolver composition, compression, and security are profile data.
 - Only a type carrying `[MessagePackObject]` or `[MessagePack.Union]` enters the row — negotiation tests the attribute before admission, so a seam graph without it routes to its own codec.
-- A stored binary payload carries receipt projection for codec, schema, compression, and redaction class.
+- Stored binary payloads carry receipt projection for codec, schema, compression, and redaction class.
 - JSON projection is diagnostic output and never owns a snapshot payload.
 
 [RAIL_LAW]:

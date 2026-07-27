@@ -6,9 +6,9 @@ Discovered collections encode as a `stac-geoparquet` columnar Arrow `RecordBatch
 
 ## [01]-[INDEX]
 
-- [01]-[CATALOG]: the `StacCatalog` discovery owner over `pystac-client`, the `StacQuery` search axis with the `Surface` discriminant routing item-vs-collection search, emitting one `StacDiscovery`.
-- [02]-[TABLE]: the discovered collection encoded as a `stac-geoparquet` Arrow `RecordBatchReader` with the re-homed `StacGeoClaim` NDJSON-interchange claim, sinks split across table-in and source-to-disk entrypoints.
-- [03]-[ASSETS]: the one awaitable `AssetFold` routing signed hrefs into egress byte-windows, virtual cube chunks, or the `odc-stac` COG datacube.
+- [02]-[CATALOG]: the `StacCatalog` discovery owner over `pystac-client`, the `StacQuery` search axis with the `Surface` discriminant routing item-vs-collection search, emitting one `StacDiscovery`.
+- [03]-[TABLE]: the discovered collection encoded as a `stac-geoparquet` Arrow `RecordBatchReader` with the re-homed `StacGeoClaim` NDJSON-interchange claim, sinks split across table-in and source-to-disk entrypoints.
+- [04]-[ASSETS]: the one awaitable `AssetFold` routing signed hrefs into egress byte-windows, virtual cube chunks, or the `odc-stac` COG datacube.
 
 ## [02]-[CATALOG]
 

@@ -6,7 +6,7 @@ Every vocabulary lowered here imports DOWN from `drawing/regime#REGIME` (`Discip
 
 ## [01]-[INDEX]
 
-- [01]-[STANDARD]: one drawing-profile admission lowering regime vocabulary onto live DXF resources.
+- [02]-[STANDARD]: one drawing-profile admission lowering regime vocabulary onto live DXF resources.
 
 ## [02]-[STANDARD]
 

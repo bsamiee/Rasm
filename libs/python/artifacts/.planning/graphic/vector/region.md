@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[REGION]: the boolean/offset/outline/serialization owner over the closed `RegionOp` family — the `pathops` boolean/stroke/warp/wind/facts/contains spine under an explicit per-query `WindingRule`, the metric TEXT-ON-PATH threading, the drawsvg document assembly with `PaintSpec` paint, and the `resvg_py` raster floor under one `RenderPolicy` — one entrypoint family: `applied(op)` the in-process dispatch siblings compose, `Region.over`/`of` the batch rail over `Block[RegionResult]`.
+- [02]-[REGION]: the boolean/offset/outline/serialization owner over the closed `RegionOp` family — the `pathops` boolean/stroke/warp/wind/facts/contains spine under an explicit per-query `WindingRule`, the metric TEXT-ON-PATH threading, the drawsvg document assembly with `PaintSpec` paint, and the `resvg_py` raster floor under one `RenderPolicy` — one entrypoint family: `applied(op)` the in-process dispatch siblings compose, `Region.over`/`of` the batch rail over `Block[RegionResult]`.
 
 ## [02]-[REGION]
 

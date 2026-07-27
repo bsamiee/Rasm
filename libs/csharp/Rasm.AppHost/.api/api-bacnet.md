@@ -74,7 +74,7 @@
 - `BacnetClient` binds one `IBacnetTransport` and is `IDisposable`; the AppHost binding holds it in the token-gated state cell the OPC-UA/MQTT/serial clients share, so a reconnect replaces the whole cell.
 - Read shape is dual: `ReadPropertyRequest` is the confirmed poll path returning `IList<BacnetValue>`, and `SubscribeCOVRequest` with the `OnCOVNotification` event is the push path — COV binds metered points, poll binds on-demand reads.
 - One property read projects to one `ExternalValue` (raw value, declared unit from `PROP_UNITS`, good flag from the read status, source instant); the boxed `BacnetValue` tag never enters the interior.
-- A confirmed-request failure (`bool false`, timeout, or a BACnet Error/Reject/Abort) surfaces at the boundary as `WireFault.ReadFailed`/`WriteRejected`, never into the interior; `RegisterAsForeignDevice` routes BBMD networks off the local broadcast domain.
+- Confirmed-request failures (`bool false`, timeout, or a BACnet Error/Reject/Abort) surface at the boundary as `WireFault.ReadFailed`/`WriteRejected`, never into the interior; `RegisterAsForeignDevice` routes BBMD networks off the local broadcast domain.
 - `OnCOVNotification`/`OnIam` fire on a transport thread; the handler decodes the notification and `TryWrite`s one `ExternalValue` into the bounded lane at the boundary, never running the interior on the callback thread.
 
 [STACKING]:
@@ -83,8 +83,8 @@
 - within-lib: the `bacnet` row is one `ExternalTransport` `[SmartEnum<string>]` case with its `TransportRow` (`ReadShape.Poll` with COV subscribe, `Writable: true`, an `OutboundHop` hop) and one `LiveClient` case wrapping `BacnetClient`, no bespoke poller beyond the client's confirmed-request retry.
 
 [LOCAL_ADMISSION]:
-- A point map (object id, property id, COV lifetime, unit id) is binding-spec policy data, never a parallel BACnet loop; the per-row retry is the `OutboundHop` breaker.
-- A host owning the native UDP line binds `BacnetIpUdpProtocolTransport` directly; a host lacking the libpcap or serial line selects the `OutboundHop.CompanionSpawn` hop, and the raw-Ethernet and MS/TP transports are peer rows that host fact selects.
+- Point maps (object id, property id, COV lifetime, unit id) carry binding-spec policy data, never a parallel BACnet loop; the per-row retry is the `OutboundHop` breaker.
+- Hosts owning the native UDP line bind `BacnetIpUdpProtocolTransport` directly; a host lacking the libpcap or serial line selects the `OutboundHop.CompanionSpawn` hop, and the raw-Ethernet and MS/TP transports are peer rows that host fact selects.
 
 [RAIL_LAW]:
 - Package: `BACnet`

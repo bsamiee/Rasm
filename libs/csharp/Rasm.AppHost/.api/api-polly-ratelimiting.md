@@ -76,8 +76,8 @@ Each options value carries its settable members, and `AutoReplenishment` default
 
 [TOPOLOGY]:
 - Rate limiting folds onto the resilience-pipeline head as one admission strategy binding `PermitLimit`, `QueueLimit`, and `QueueProcessingOrder` from policy.
-- A null `RateLimiterStrategyOptions.RateLimiter` runs the built-in `ConcurrencyLimiter` over `DefaultRateLimiterOptions` (a `ConcurrencyLimiterOptions`); a non-null delegate binds any `System.Threading.RateLimiting` limiter per lease request.
-- A denied lease raises `RateLimiterRejectedException`; `RetryAfter` projects the lease `MetadataName.RetryAfter` hint into the retry `DelayGenerator`.
+- `RateLimiterStrategyOptions.RateLimiter` left null runs the built-in `ConcurrencyLimiter` over `DefaultRateLimiterOptions` (a `ConcurrencyLimiterOptions`); a non-null delegate binds any `System.Threading.RateLimiting` limiter per lease request.
+- Denied leases raise `RateLimiterRejectedException`; `RetryAfter` projects the lease `MetadataName.RetryAfter` hint into the retry `DelayGenerator`.
 
 [STACKING]:
 - `api-polly-core.md` (`ResiliencePipelineBuilder`): `AddRateLimiter`/`AddConcurrencyLimiter` append the limiter strategy onto `ResiliencePipelineBuilderBase`, and `RateLimiterRejectedException` extends its `ExecutionRejectedException` rail.

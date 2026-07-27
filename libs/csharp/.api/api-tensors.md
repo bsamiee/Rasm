@@ -52,7 +52,7 @@
 
 [ENTRYPOINT_SCOPE]: `Tensor` shape, remap, and composition
 - Each op mints a `Tensor<T>`; `Reshape`, `Squeeze`, `SqueezeDimension`, and `Unsqueeze` also re-window a span view with no allocation, and the composition family mirrors a `ref readonly TensorSpan<T>` destination overload.
-- A bare form acts on the default axis where its axis twin takes the `int` dimension — [AXIS_TWIN]: `SqueezeDimension` `ReverseDimension` `ConcatenateOnDimension` `StackAlongDimension`.
+- Each bare form acts on the default axis where its axis twin takes the `int` dimension — [AXIS_TWIN]: `SqueezeDimension` `ReverseDimension` `ConcatenateOnDimension` `StackAlongDimension`.
 
 | [INDEX] | [SURFACE]                                                                        | [SHAPE] | [CAPABILITY]                             |
 | :-----: | :------------------------------------------------------------------------------- | :------ | :--------------------------------------- |
@@ -124,10 +124,10 @@
 - [BITWISE]: `OnesComplement` `PopCount` `LeadingZeroCount` `TrailingZeroCount`
 
 [ENTRYPOINT_SCOPE]: `TensorPrimitives` binary, ternary, and shaped operators
-- A binary operator takes `(ReadOnlySpan<T> x, ReadOnlySpan<T>|T y, Span<T> destination)` and a ternary operator admits a span or a scalar in every operand slot.
+- Binary operators take `(ReadOnlySpan<T> x, ReadOnlySpan<T>|T y, Span<T> destination)`, and ternary operators admit a span or a scalar in every operand slot.
 - [BINARY]: `Add` `Subtract` `Multiply` `Divide` `Remainder` `Pow` `Log` `Atan2` `Atan2Pi` `Ieee754Remainder` `CopySign` `Max` `Min` `MaxNumber` `MinNumber` `MaxMagnitude` `MinMagnitude` `MaxMagnitudeNumber` `MinMagnitudeNumber` `BitwiseAnd` `BitwiseOr` `Xor`
 - [TERNARY]: `MultiplyAdd` `MultiplyAddEstimate` `FusedMultiplyAdd` `AddMultiply` `Lerp` `Clamp`
-- An integer-parameter operator takes `(ReadOnlySpan<T> x, int, Span<T> destination)` — [INT_PARAM]: `RootN` `ScaleB` `ShiftLeft` `ShiftRightArithmetic` `ShiftRightLogical` `RotateLeft` `RotateRight`; `ShiftRightArithmetic` extends the sign bit where `ShiftRightLogical` fills with zero.
+- Integer-parameter operators take `(ReadOnlySpan<T> x, int, Span<T> destination)` — [INT_PARAM]: `RootN` `ScaleB` `ShiftLeft` `ShiftRightArithmetic` `ShiftRightLogical` `RotateLeft` `RotateRight`; `ShiftRightArithmetic` extends the sign bit where `ShiftRightLogical` fills with zero.
 
 | [INDEX] | [SURFACE]                                                | [SHAPE] | [CAPABILITY]                          |
 | :-----: | :------------------------------------------------------- | :------ | :------------------------------------ |
@@ -140,7 +140,7 @@
 |  [07]   | `ILogB(ReadOnlySpan<T>, Span<int>)`                      | static  | write the binary exponent             |
 
 [ENTRYPOINT_SCOPE]: `TensorPrimitives` reductions and searches
-- A reduction returns a scalar over caller-owned spans: the single-span family takes `(ReadOnlySpan<T>) -> T`, the paired family `(ReadOnlySpan<T>, ReadOnlySpan<T>) -> T`, and the search family `(ReadOnlySpan<T>) -> int`.
+- Reductions return a scalar over caller-owned spans: the single-span family takes `(ReadOnlySpan<T>) -> T`, the paired family `(ReadOnlySpan<T>, ReadOnlySpan<T>) -> T`, and the search family `(ReadOnlySpan<T>) -> int`.
 - [SPAN_REDUCE]: `Sum` `SumOfSquares` `SumOfMagnitudes` `Product` `Average` `StdDev` `Norm` `Max` `Min` `MaxNumber` `MinNumber` `MaxMagnitude` `MinMagnitude` `MaxMagnitudeNumber` `MinMagnitudeNumber`
 - [PAIR_REDUCE]: `Dot` `CosineSimilarity` `Distance` `ProductOfSums` `ProductOfDifferences`
 - [INDEX_SEARCH]: `IndexOfMax` `IndexOfMin` `IndexOfMaxMagnitude` `IndexOfMinMagnitude`
@@ -172,7 +172,7 @@
 
 [TOPOLOGY]:
 - Each `TensorPrimitives` operator lowers to the widest `System.Runtime.Intrinsics` ISA the target carries and falls back to a scalar loop, so the operator is correct on every target and vectorized wherever the hardware admits.
-- An elementwise `destination` may alias its input, so a fused chain reuses one buffer across every stage.
+- Every elementwise `destination` aliases its input legally, so a fused chain reuses one buffer across every stage.
 - Generic-math constraints select the admitted element type per family — `INumberBase<T>`, `IFloatingPointIeee754<T>`, `IRootFunctions<T>`, `IBinaryInteger<T>`, `IBitwiseOperators<T,T,T>`, `IShiftOperators<T,int,T>` — so an integer-only family rejects a floating element at the constraint.
 - `Tensor<T>` and both span views conform to `ITensor<TSelf,T>`, so one algorithm generic over `TSelf` binds the heap owner and either borrowed window without an overload family.
 - `Tensor` carries the arithmetic, bitwise, and shift operator set (`+` `-` `*` `/` `&` `|` `^` `~` `<<` `>>` `>>>`) as C# extension blocks over `Tensor<T>`, `TensorSpan<T>`, and `ReadOnlyTensorSpan<T>`, each operator constrained on its matching generic-math interface and minting a fresh `Tensor<T>`.

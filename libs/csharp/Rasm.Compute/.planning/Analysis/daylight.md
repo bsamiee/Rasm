@@ -2,12 +2,12 @@
 
 Rasm.Compute daylight runner owns the `Discipline.Daylight` assessment arm. C# derives direct sun-hours, shadow fraction, sky-view factor, and Perez diffuse irradiance from one package solar-position kernel; climate-based CBDM and glare stay with the Python companion. Weather-less requests require an explicit site, and present weather failures remain typed failures rather than silently degrading.
 
-Site and hourly direct-normal/diffuse-horizontal irradiance arrive through the energy lane's own `WeatherRef` surface read by the admitted OpenStudio `EpwFile` reader (`latitude()`/`longitude()`/`timeZone()`/`elevation()` headers, `data()` → `EpwDataPoint.directNormalRadiation()`/`diffuseHorizontalRadiation()` hourly reads); shadow and obstruction rays reuse the clash BVH through `ClashScale.Occluded` over the `AccelerationStructure` the kernel `Spatial.Apply(SpatialOp.Wire)` node-link wire decodes (`Solver/clash` owns the decode; the retired `ToAcceleration` member is never named) — one ray engine, never a daylight-local walk; the app stages that decoded scene on the request as `ObstructionScene`, its content key riding the assessment content-key fold so a re-shaded site re-keys. `SolarPosition` exports across the package boundary as the branch's one solar kernel: `Rasm.AppUi` viewport sun-light composes its `At`/`SunPath` from site plus instant, foreclosing an AppUi-side duplicate. Zero new central pins — `EpwFile` and the clash BVH are admitted substrate.
+Site and hourly direct-normal/diffuse-horizontal irradiance arrive through the energy lane's own `WeatherRef` surface read by the admitted OpenStudio `EpwFile` reader (`latitude()`/`longitude()`/`timeZone()`/`elevation()` headers, `data()` → `EpwDataPoint.directNormalRadiation()`/`diffuseHorizontalRadiation()` hourly reads); shadow and obstruction rays reuse the clash BVH through `ClashScale.Occluded` over the `AccelerationStructure` the kernel `Spatial.Apply(SpatialOp.Wire)` node-link wire decodes (`Solver/clash` owns the decode; the retired `ToAcceleration` member is never named) — one ray engine, never a daylight-local walk; the app stages that decoded scene on the request as `ObstructionScene`, its content key riding the assessment content-key fold so a re-shaded site re-keys. `SolarPosition` exports across the package boundary as the branch's one solar kernel: `Rasm.AppUi` viewport sun-light composes its `At`/`SunPath` from site and instant, foreclosing an AppUi-side duplicate. Zero new central pins — `EpwFile` and the clash BVH are admitted substrate.
 
 ## [01]-[INDEX]
 
-- [01]-[SOLAR_POSITION]: the owned apparent-solar closed form — package-boundary azimuth/altitude from admitted site + instant.
-- [02]-[SKY_AND_SHADOW]: the Perez all-weather sky rows over the EPW ingress, the clash-BVH shadow-ray fold, and the daylight runner.
+- [02]-[SOLAR_POSITION]: `SolarPosition` derives apparent azimuth/altitude from an admitted site and instant through the owned closed form.
+- [03]-[SKY_AND_SHADOW]: `RunDaylight` folds the Perez all-weather sky rows over the EPW ingress against the clash-BVH shadow-ray cast.
 
 ## [02]-[SOLAR_POSITION]
 

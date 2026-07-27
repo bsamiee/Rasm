@@ -6,7 +6,7 @@ Reproducible-report composition binds data and visual outputs into one `document
 
 ## [01]-[INDEX]
 
-- [01]-[REPORT]: the one composition axis over the section/template/notebook/reflow/author kinds, dispatched by the `COMPOSE_ARMS` coroutine-row table into one `DocumentNode` interior.
+- [02]-[REPORT]: the one composition axis over the section/template/notebook/reflow/author kinds, dispatched by the `COMPOSE_ARMS` coroutine-row table into one `DocumentNode` interior.
 
 ## [02]-[REPORT]
 

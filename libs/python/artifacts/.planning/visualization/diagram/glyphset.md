@@ -6,7 +6,7 @@ Topology axes give the admitted packages typed fields to key onto: a `NodeMark` 
 
 ## [01]-[INDEX]
 
-- [01]-[GLYPHSET]: `DiagramGlyph`'s closed mark vocabulary over the `DiagramKind` class axis — each mark a named frozen payload carrying its laid-out geometry, its topology axes, and a palette-indexed `GlyphStyle` with layer binding and `TextRun` typography.
+- [02]-[GLYPHSET]: `DiagramGlyph`'s closed mark vocabulary over the `DiagramKind` class axis — each mark a named frozen payload carrying its laid-out geometry, its topology axes, and a palette-indexed `GlyphStyle` with layer binding and `TextRun` typography.
 
 ## [02]-[GLYPHSET]
 

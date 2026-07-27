@@ -58,10 +58,15 @@
 
 [BRIDGE_SCOPE]: processor lifecycle hooks, namespace `Pyroscope.OpenTelemetry`
 
-| [INDEX] | [SURFACE]                                  | [SHAPE]  | [CAPABILITY]                        |
-| :-----: | :----------------------------------------- | :------- | :---------------------------------- |
-|  [01]   | `PyroscopeSpanProcessor.OnStart(Activity)` | instance | root-span context into the profiler |
-|  [02]   | `PyroscopeSpanProcessor.OnEnd(Activity)`   | instance | clears the profiler context         |
+| [INDEX] | [SURFACE]                                  | [SHAPE]  | [CAPABILITY]                                    |
+| :-----: | :----------------------------------------- | :------- | :---------------------------------------------- |
+|  [01]   | `PyroscopeSpanProcessor()`                 | ctor     | knob-free construction, one per tracer provider |
+|  [02]   | `PyroscopeSpanProcessor.OnStart(Activity)` | instance | root-span context into the profiler             |
+|  [03]   | `PyroscopeSpanProcessor.OnEnd(Activity)`   | instance | clears the profiler context                     |
+
+- `OnStart` root selection reads `Activity.Parent?.HasRemoteParent ?? true`, so a parentless span and a span whose parent is remote-parented both qualify; a fault inside the hook is caught and the span exits untagged.
+- `OnEnd` zeroes under the same root predicate, so an interior span never clears the context its root installed.
+- Only the two hooks override the base, so the join buffers nothing through drain, dispose, or an options surface.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -73,11 +78,13 @@
 
 [STACKING]:
 - `PyroscopeSpanProcessor` writes span context into the `Pyroscope` agent through `Profiler.Instance.SetSpanContext`; the bridge holds no profiler of its own, and the agent package runs standalone without an OpenTelemetry reference.
-- `OpenTelemetry`(`.api/api-otel.md`): the processor registers on `TracerProviderBuilder` through `AddProcessor` beside the OTLP exporter.
+- `OpenTelemetry`(`libs/csharp/.api/api-opentelemetry.md`): one `TracerProviderBuilder.AddProcessor(BaseProcessor<Activity>)` row seats the processor ahead of every exporting processor so the tag exists at export; the `AddProcessor<T>()` overload resolves through `GetRequiredService<T>` and binds only where the type is also a service registration.
+- `SignalGovernance` seats the row on its `Profile` signal, so the processor and the agent enter at the one service root resolving the profiler endpoint.
 
 [LOCAL_ADMISSION]:
 - `PyroscopeSpanProcessor` registers on the tracer provider as an added processor beside the OTLP exporter; it carries no configuration and stays stateless past its lifecycle hooks.
 - Agent configuration — tracking toggles, dynamic tags, ingest auth — enters through `Profiler.Instance` at the composition root, and `SetSpanContext` stays owned by the processor alone.
+- Correlation lands only on a Linux or Windows x64 process with `PYROSCOPE_PROFILING_ENABLED` set, where the CLR profiler attaches; elsewhere the profiler write no-ops while the span keeps its tag.
 
 [RAIL_LAW]:
 - Package: `Pyroscope`, `Pyroscope.OpenTelemetry`

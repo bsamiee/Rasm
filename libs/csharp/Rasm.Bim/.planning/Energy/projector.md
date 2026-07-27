@@ -10,7 +10,7 @@ Wire posture is HOST-LOCAL, foreign types decode-confined: `Model.FromJson` gate
 
 ## [01]-[INDEX]
 
-- [01]-[ENERGY_PROJECTOR]: `EnergyProjector : IElementProjection` — five format arms onto one raise fold landing the Compute-readable seam shape from the `EnergyClassRows` correspondence table.
+- [02]-[ENERGY_PROJECTOR]: `EnergyProjector : IElementProjection` — five format arms onto one raise fold landing the Compute-readable seam shape from the `EnergyClassRows` correspondence table.
 
 ## [02]-[ENERGY_PROJECTOR]
 

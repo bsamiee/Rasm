@@ -121,7 +121,7 @@ Every `MapGrpcService` overload returns `GrpcServiceEndpointConventionBuilder`; 
 |  [15]   | `InterceptorRegistration.Arguments -> IReadOnlyList<object>`             | property | the stored ctor arguments        |
 
 - `GrpcServiceOptions.MaxSendMessageSize`: assignment flips `MaxSendMessageSizeSpecified` true, and clearing that flag nulls the size; the receive pair behaves identically.
-- `GrpcServiceOptions.CompressionProviders`: a read materializes an empty list, so the getter never returns null and appending needs no assignment.
+- `GrpcServiceOptions.CompressionProviders`: materializes an empty list on read, so the getter never returns null and appending needs no assignment.
 - `GrpcServiceOptions.ResponseCompressionAlgorithm`: compression applies only where the request's `grpc-accept-encoding` advertises this algorithm.
 
 [ENTRYPOINT_SCOPE]: service model and activation

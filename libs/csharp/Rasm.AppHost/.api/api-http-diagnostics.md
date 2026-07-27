@@ -66,7 +66,7 @@
 [STACKING]:
 - `OpenTelemetry.Instrumentation.Http`: owns the outbound client SPAN; these latency checkpoints are a stage breakdown inside the request, never a second span, so the two never emit duplicate client traces.
 - `Microsoft.Extensions.Telemetry`(`api-telemetry.md`): supplies the latency-context ledger the breakdown checkpoints write into.
-- `Microsoft.Extensions.Telemetry.Abstractions`(`api-telemetry-abstractions.md`): owns the `IEnrichmentTagCollector` the enricher fills and the `HttpRouteParameterRedactionMode` and classified-tag redaction the `DataClassification` maps resolve against before any sink observes them.
+- `Microsoft.Extensions.Telemetry.Abstractions`(`libs/csharp/.api/api-telemetry-abstractions.md`): owns the `IEnrichmentTagCollector` the enricher fills and the `HttpRouteParameterRedactionMode` and classified-tag redaction the `DataClassification` maps resolve against before any sink observes them.
 - `Microsoft.Extensions.Http.Resilience`(`api-resilience.md`): resilience, service-discovery, and these diagnostics handlers share one named-client pipeline; `wrapHandlersPipeline` decides whether logging observes pre- or post-retry attempts.
 
 [LOCAL_ADMISSION]:

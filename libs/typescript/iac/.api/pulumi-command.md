@@ -19,7 +19,7 @@
 
 [LIFECYCLE_SCOPE]: the one polymorphic command surface
 
-`local.Command` and `remote.Command` are one lifecycle shape — the remote arm adds only the required `connection`, so transport is an axis, not a second resource kind. Independent shell strings fill the CRUD slots, so one resource owns create/update/delete. A `triggers` change updates when `update` is set, else replaces via `create`; `logging` gates the CLI echo while `stdout`/`stderr` capture unconditionally.
+`local.Command` and `remote.Command` are one lifecycle shape — the remote arm adds only the required `connection`, so transport is an axis, not a second resource kind. Independent shell strings fill the CRUD slots, so one resource owns create/update/delete. `triggers` updates on change when `update` is set and replaces via `create` otherwise; `logging` gates the CLI echo while `stdout`/`stderr` capture unconditionally.
 
 | [INDEX] | [SYMBOL]                                      | [SLOT]        | [SHAPE_BOUNDARY]                                                         |
 | :-----: | :-------------------------------------------- | :------------ | :----------------------------------------------------------------------- |
@@ -68,7 +68,7 @@ Unconditional shell reads run on every preview/up with no CRUD lifecycle or stat
 
 [TOPOLOGY]:
 - `remote.Command` over `ConnectionArgs` boots the `selfhosted-k8s` row: its `create` installs the control plane (k3s/kubeadm) and its `stdout` is the kubeconfig; ordering is graph-derived through `opts.dependsOn`/`parent`.
-- An unconditional shell read is `local.runOutput` when its result threads the graph, `local.run` for an eager `Promise` in an `async` body; a lifecycle side effect is `Command`.
+- `local.runOutput` reads a shell result threading the graph, `local.run` serves an eager `Promise` in an `async` body, and `Command` owns every lifecycle side effect.
 
 [STACKING]:
 - `@pulumi/kubernetes`(`.api/pulumi-kubernetes.md`): the bootstrap `stdout` kubeconfig threads via `.apply`/`pulumi.interpolate` into `Provider.kubeconfig`; `command` provisions the metal and the k8s provider owns every workload thereafter.
@@ -79,7 +79,7 @@ Unconditional shell reads run on every preview/up with no CRUD lifecycle or stat
 - within-lib: `provider/surface` cluster-bootstrap and the `provider/dispatch` `selfhosted-k8s` arm compose `remote.Command` + `CopyToRemote`, staging a `FileArchive` of rendered install artifacts with `tls` cert material and `doppler` secrets.
 
 [LOCAL_ADMISSION]:
-- `command` is the escape hatch, admitted only where no typed provider owns the concern — bare-metal control-plane install, one-shot host mutation; a literal key or inline password in `ConnectionArgs` is rejected for an Output-bound ref. A shell command duplicating a `@pulumi/kubernetes`, `@pulumi/docker`, or cloud-provider resource is rejected for the typed resource.
+- `command` is the escape hatch, admitted only where no typed provider owns the concern — bare-metal control-plane install, one-shot host mutation; a literal key or inline password in `ConnectionArgs` is rejected for an Output-bound ref. Typed resources outrank a shell command duplicating a `@pulumi/kubernetes`, `@pulumi/docker`, or cloud-provider concern.
 
 [RAIL_LAW]:
 - Package: `@pulumi/command`

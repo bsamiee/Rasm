@@ -4,9 +4,9 @@ The capability-brokered plugin sandbox for the runtime spine: a two-row isolatio
 
 ## [01]-[INDEX]
 
-- [01]-[ISOLATION_AXIS]: WASM core-module and process isolation rows with no-ambient-authority load law.
-- [02]-[GRANT_HANDLE]: Capability-brokered grant handle with per-call authority mediation.
-- [03]-[QUOTA_CONTROL]: CPU/memory/wall/egress quota cell with kill and quarantine rail.
+- [02]-[ISOLATION_AXIS]: WASM core-module and process isolation rows with no-ambient-authority load law.
+- [03]-[GRANT_HANDLE]: Capability-brokered grant handle with per-call authority mediation.
+- [04]-[QUOTA_CONTROL]: CPU/memory/wall/egress quota cell with kill and quarantine rail.
 
 ## [02]-[ISOLATION_AXIS]
 
@@ -171,7 +171,7 @@ public static class GrantHandleSurface {
             McpDispatch.Call(new McpRuntime(command.Registry, command, command.Broker, () => DegradationLevel.Full, _ => JsonValue.Create(string.Empty)!, command.Clocks, command.Sink, command.Wire), descriptorId, arguments));
 
     static string Subject(CallerModality caller, CommandArguments arguments) =>
-        caller == CallerModality.Plugin ? arguments.Correlation.ToString() : arguments.Tenant.TenantId.ToString();
+        caller == CallerModality.Plugin ? arguments.Correlation.ToString() : arguments.Tenant.Entry;
 }
 ```
 

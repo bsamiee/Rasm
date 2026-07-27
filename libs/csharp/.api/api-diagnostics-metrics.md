@@ -34,6 +34,7 @@
 |  [16]   | `Measurement<T>`             | struct        | one observed value with its tags             |
 |  [17]   | `TagList`                    | struct        | stack-allocated tag set                      |
 |  [18]   | `MeasurementCallback<T>`     | delegate      | listener-side measurement receiver           |
+|  [19]   | `MeterListener`              | sealed class  | in-process measurement subscription          |
 
 [MeterOptions]: `Name` `Version` `Tags` `Scope` `TelemetrySchemaUrl`
 
@@ -64,9 +65,21 @@
 |  [19]   | `Instrument.Enabled`                                                          | property | listener gate before a tag build          |
 |  [20]   | `Instrument<T>.Advice`                                                        | property | the bucket advice the create bound        |
 
+[ENTRYPOINT_SCOPE]: in-process subscription — the read path an SDK-less consumer binds against a published meter
+
+| [INDEX] | [SURFACE]                                                          | [SHAPE]  | [CAPABILITY]                              |
+| :-----: | :----------------------------------------------------------------- | :------- | :---------------------------------------- |
+|  [01]   | `MeterListener.InstrumentPublished`                                | property | per-instrument admission callback         |
+|  [02]   | `MeterListener.EnableMeasurementEvents(Instrument, object?)`       | instance | subscribe one admitted instrument         |
+|  [03]   | `MeterListener.SetMeasurementEventCallback<T>(MeasurementCallback<T>?)` | instance | typed receiver per measurement type   |
+|  [04]   | `MeterListener.Start()`                                            | instance | publish existing instruments, observe none |
+|  [05]   | `MeterListener.RecordObservableInstruments()`                      | instance | observe every subscribed observable once  |
+|  [06]   | `MeterListener.MeasurementsCompleted`                              | property | instrument or meter disposal callback     |
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
+- `MeterListener.Start()` replays `InstrumentPublished` over already-published instruments and observes nothing; an observable bind delivers only from `RecordObservableInstruments()`, which the caller drives on its own cadence and which aggregates every throwing callback into one `AggregateException`, so a bare started listener over observable instruments reads its cell forever unchanged.
 - Instrument identity de-duplicates by name inside one meter, so a drifted unit or description forks the stream into two series.
 - Every meter reaches a process through `IMeterFactory.Create`, so provider disposal owns instrument lifetime.
 - `MeterOptions` is the only mint slot carrying `Scope` and `TelemetrySchemaUrl`.
@@ -77,8 +90,12 @@
 - `ActivitySource`(`api-diagnostics-activity.md`): the sibling span surface in this assembly, so one scope name and version stamp the `Meter` and `ActivitySource` mints together.
 - `Microsoft.Extensions.Diagnostics`(`api-extensions-diagnostics.md`): `AddMetrics` registers the `IMeterFactory` every mint here resolves, and `InstrumentRule` rows gate instrument publication.
 - `Microsoft.Extensions.Diagnostics.Testing`(`tests/csharp/.api/diagnostics-testing.md`): `MetricCollector<T>` binds an `Instrument<T>` by handle or by meter-plus-name and drives `RecordObservableInstruments` over the observable binds.
-- `Rasm.AppUi`: `TelemetryIdentity.Mint` is the only meter mint and `InstrumentRow.Bind` the delegate slot every create call lives in; `AppUiTelemetry.Mount` freezes contributions with duplicate-name collision at build, and `InstrumentKind` derives each `InstrumentSpec` row into its bind delegate — `Count`, `Distribution` over kernel `Buckets` advice, `Level` over scalar `LevelCells` readers, `Levels` over keyed families projected as tagged `Measurement<long>` batches — so the `Diagnostics/evidence.md` emitting pages declare `InstrumentSpec` rows and never spell a create or write call; `ProofLaw.InstrumentFold` is the `MetricCollector<T>` proof rail.
-- `Rasm` telemetry spine: `TelemetryIdentity.Mint` folds the `MeterOptions` mint, `Buckets.Advised` the advice-bearing histogram create, `InstrumentRow.Observable` the gauge callback, `InstrumentSet.Count`/`Record` the span writes, and `LevelCells.Reader` both the scalar and `Func<IEnumerable<Measurement<long>>>` families; every contributing package reaches the surface as a `TelemetryContributorPort` row.
+- `Rasm.AppUi`: `AppUiTelemetry.Mount` freezes contributions on a rail carrying both the duplicate-name collision at build and any contributed pack's descriptor refusal, and declares `InstrumentSpec` rows through the kernel factories, so a `Diagnostics/evidence.md` emitting page never spells a create or write call; `ProofLaw.InstrumentFold` is the `MetricCollector<T>` proof rail.
+- `Rasm.Bim`: `BimTelemetry.Rows` declares the `rasm.bim.*` roster through the kernel factories with `TenantContext.TenantSlot` its leading dimension and `rasm.bim.<dimension>` slots beside it, and `BimTelemetry.Tap` mounts every write as a hook subscription off `BimHooks`, so a codec arm, projector, or review fold reaches the meter through a fired fact and never a create or write call.
+- `Rasm.Element`: `ElementInstruments.Rows` declares the closed `rasm.element.*` roster through the kernel factories over `rasm.element.<dimension>` slots, and `GraphInstrument.Project` is the one generated-`Switch` fold where each `ElementFact` case meets an `InstrumentSet.Write` — the mounted `LevelCells` stays empty because the seam owns no pulled level, so an unprojected fact breaks the tap at compile time rather than dropping a series.
+- Both AEC rows band their fault dimension on the kernel `KernelInstruments.CategorySlot` rather than a package const, so one query answers which failure class burns across every emitting package.
+- `Rasm.Persistence`: `StoreInstruments.Rows` is a static `InstrumentSpec` roster whose bounds read the kernel `Buckets` policy rows, and `StoreInstruments.Arms` is the slot-keyed table where every receipt wire name meets an `InstrumentSet.Write` or an `InstrumentSet.Level` — both cell families in one page, the scalar for engine hit ratios and the keyed for embedded memory regions beside the per-tenant usage census, whose entries mount for a partitioning tenant alone; two slots carrying one receipt shape bind one parameterized arm mint under distinct tag values rather than a second body, and a receipt column family — step tells, memory regions, profile phases, I/O events — rides one instrument under a `(wire field, tag value)` row table, so the write set stays single-owned while the series separate and declared cardinality equals stamped cardinality.
+- `Rasm` telemetry spine: `TelemetryIdentity.Metered` folds the `MeterOptions` mint (its `Mint` sibling adding the paired `ActivitySource` a composing root admits into a band) and `InstrumentSpec.Bind` is the one delegate slot every create lives in — `InstrumentKind` names the family and `MeasureForm` closes the measurement type, so a single generic body spells `CreateCounter`, `CreateUpDownCounter`, `CreateHistogram` (advised through `Buckets.Advised` or plain for the exponential default), `CreateGauge`, `CreateObservableCounter`, `CreateObservableUpDownCounter`, and both `CreateObservableGauge` overloads exactly once; `InstrumentSet.Write` is the one pushed measurement entry, discriminating `Counter<T>`/`UpDownCounter<T>`/`Histogram<T>`/`Gauge<T>` off the bound handle onto a typed rail, `InstrumentSet.Level` its pulled peer gating each write on the mounted row's `InstrumentKind.Pulled` column, and `LevelCells.Reader<T>` serves both the scalar and the `Func<IEnumerable<Measurement<T>>>` keyed families; every contributing package reaches the surface as a `TelemetryContributorPort` row carrying its instrument roster beside whatever `BoardPack` those rows declare, and `TelemetryContributorPort.Admit` proves that pack against the set a root just mounted.
 
 [LOCAL_ADMISSION]:
 - Create and write calls live inside a package's declared telemetry-spine fences; an emitting page declares instrument rows.

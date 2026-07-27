@@ -6,7 +6,7 @@ Color arity is ruled at two pages: measurement, the `Metric` family, and spectra
 
 ## [01]-[INDEX]
 
-- [01]-[DERIVE]: the two-engine `Colorimetry` owner over the closed-payload `ColorOp` family — `convert`/`adapt`/`gamut`/`filter`/`simulate`/`palette`/`compose`/`temperature`/`measure`/`correct`/`spot`/`recover`/`notate` fold into the closed `Derivation` result family whose cases carry operation-specific evidence and whose `coords` projection is total; the dual-name `ColorModel` vocabulary, the `Metric`/`_METRIC` measure table, the canonical `BlendMode`/`PorterDuff` policy vocabularies, and the shared `Palette` carrier plus the `hex_ramp` and `cxf_book` egress projections.
+- [02]-[DERIVE]: the two-engine `Colorimetry` owner over the closed-payload `ColorOp` family — `convert`/`adapt`/`gamut`/`filter`/`simulate`/`palette`/`compose`/`temperature`/`measure`/`correct`/`spot`/`recover`/`notate` fold into the closed `Derivation` result family whose cases carry operation-specific evidence and whose `coords` projection is total; the dual-name `ColorModel` vocabulary, the `Metric`/`_METRIC` measure table, the canonical `BlendMode`/`PorterDuff` policy vocabularies, and the shared `Palette` carrier plus the `hex_ramp` and `cxf_book` egress projections.
 
 ## [02]-[DERIVE]
 

@@ -6,9 +6,9 @@ Install custody is two-tier — per-composition `ProfilesReceipt`s key by the re
 
 ## [01]-[INDEX]
 
-- [01]-[PROFILES]: the scope-keyed, profile-gated pyroscope push install and the span-profile link.
-- [02]-[BENCH]: the benchmark-receipt family and its instrument projection.
-- [03]-[JOB]: the offline-job envelope — hand-built resource, high-interval safety net, and the flush-then-shutdown boundary.
+- [02]-[PROFILES]: the scope-keyed, profile-gated pyroscope push install and the span-profile link.
+- [03]-[BENCH]: the benchmark-receipt family and its instrument projection.
+- [04]-[JOB]: the offline-job envelope — hand-built resource, high-interval safety net, and the flush-then-shutdown boundary.
 
 ## [02]-[PROFILES]
 

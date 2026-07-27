@@ -2,7 +2,7 @@
 
 Calendar recurrence as a vocabulary: a scheduled job is one `Cadence` row — cron expression with intrinsic timezone, anchor policy, misfire window, catch-up posture, service class, shard group — and one registration fold mints the whole table into `ClusterCron` singletons that fire exactly once per cluster tick. The page owns the three decisions a cron engine leaves open and every hand-rolled scheduler re-invents: what a tick's successor is anchored to (wall clock versus previous completion — `calculateNextRunFromPrevious` as a row column), what happens to a tick that fired while no runner lived (the misfire window — `skipIfOlderThan` bounds how stale a tick still executes), and what happens to ticks beyond that window (the bounded catch-up posture computed newest-first through `Cron.sequenceReverse`, then executed in chronological order with each replayed tick an idempotent step keyed by its instant). Durable pauses arrive settled from `flow#SIGNAL_GATE` — this page composes `Signal.pause` and mints no timer. The same row table drives the host fallback: a single-node process or a scope whose in-database cron grant is refused runs identical rows through a schedule driver, so degradation is an engine swap, never a second table. The module ships on the `./server` exports subpath as `runtime/src/work/schedule.ts`.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]      | [OWNS]                                                                    | [PUBLIC]  |
 | :-----: | :------------- | :------------------------------------------------------------------------ | :-------- |

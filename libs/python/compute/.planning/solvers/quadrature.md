@@ -6,7 +6,7 @@ Reused `Readout` axis spans both numeric routes; the FEM route consumes the `Ass
 
 ## [01]-[INDEX]
 
-- [01]-[QUADRATURE]: 1-D quadrature, 1-D interpolation, and the weak-form FEM condense fold on one `QuadratureIntent` owner over a three-floor quadax/scipy/numpy ladder into one `SolverReceipt`.
+- [02]-[QUADRATURE]: 1-D quadrature, 1-D interpolation, and the weak-form FEM condense fold on one `QuadratureIntent` owner over a three-floor quadax/scipy/numpy ladder into one `SolverReceipt`.
 
 ## [02]-[QUADRATURE]
 

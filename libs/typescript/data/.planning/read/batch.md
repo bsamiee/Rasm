@@ -4,7 +4,7 @@ General request-batching engine: N identical lookups anywhere in a flow are one 
 
 A request family is one deep owner — the class carries its dedup identity in its fields AND its resolver mint, window upgrade, and provider seam as statics, so the family resolves from one name. Three window geometries ride one resolver value — same-traversal collapse, wall-clock collapse across unrelated fibers, and the durable result band — with the per-flow dedup tier `Effect.withRequestCaching` over `lane/cache.md`'s request-cache Layer. A resolver is built once and travels as a value: identity is the window, so a resolver minted per call site is the structural defeat.
 
-## [01]-[CLUSTERS]
+## [01]-[INDEX]
 
 | [INDEX] | [CLUSTER]         | [OWNS]                                                                            |
 | :-----: | :---------------- | :-------------------------------------------------------------------------------- |

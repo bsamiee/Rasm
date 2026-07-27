@@ -6,7 +6,7 @@ Wire posture is host-local. `Voxels`, `Lattice`, `Mesh`, `ScalarField`, `VectorF
 
 ## [01]-[INDEX]
 
-- [01]-[IMPLICIT]: owns `FieldExpression`, `FieldDefinition`, `FieldKind`, `TpmsForm`, `ImplicitCell`, `FieldCalibration`, `VoxelMorphologyStep`, `CliMode`, `ImplicitPolicy`, `VoxelWire`, `VoxelScope`, `CliStack`, `CliImport`, `ImplicitOp`, `VoxelRuntime`, `PeriodicImplicit`, `ImplicitCanonical`, `Implicit.Voxelize`, and `Implicit.Cli`.
+- [02]-[IMPLICIT]: owns `FieldExpression`, `FieldDefinition`, `FieldKind`, `TpmsForm`, `ImplicitCell`, `FieldCalibration`, `VoxelMorphologyStep`, `CliMode`, `ImplicitPolicy`, `VoxelWire`, `VoxelScope`, `CliStack`, `CliImport`, `ImplicitOp`, `VoxelRuntime`, `PeriodicImplicit`, `ImplicitCanonical`, `Implicit.Voxelize`, and `Implicit.Cli`.
 
 ## [02]-[IMPLICIT]
 

@@ -96,7 +96,7 @@
 [STACKING]:
 - `Microsoft.Extensions.DependencyInjection`(`.api/api-di.md`): `HostApplicationBuilder.Services` and `ConfigureServices` expose the `IServiceCollection`, `UseServiceProviderFactory`/`ConfigureContainer<TBuilder>` bind an `IServiceProviderFactory<TBuilder>`, and `Build` runs `BuildServiceProvider` into the host root provider.
 - `Microsoft.Extensions.Configuration`(`.api/api-config.md`): `ConfigureHostConfiguration` and `ConfigureAppConfiguration` admit `IConfigurationBuilder` sources, and `HostApplicationBuilder.Configuration` is the `IConfigurationManager` every downstream binding reads.
-- `Microsoft.Extensions.Logging.Abstractions`(`.api/api-logging.md`): `ConfigureLogging` admits `ILoggingBuilder`, and the built `IHost` resolves `ILoggerFactory` and `ILogger<T>` into hosted services.
+- `Microsoft.Extensions.Logging.Abstractions`(`libs/csharp/.api/api-logging-abstractions.md`): `ConfigureLogging` admits `ILoggingBuilder`, and the built `IHost` resolves `ILoggerFactory` and `ILogger<T>` into hosted services.
 - `Microsoft.Extensions.Options`(`.api/api-options.md`): `ConfigureHostOptions` binds `HostOptions` through the options pattern on `Services`, and lifecycle policy resolves as `IOptions<HostOptions>`.
 - `Microsoft.Extensions.Hosting.Systemd`(`.api/api-hosting-lifetimes.md`): `UseConsoleLifetime` and `UseSystemd` install the `IHostLifetime` bridging process signals to `StopApplication`, the systemd row gated by its environment probe.
 - within-lib: AppHost's bootstrap root mints one `HostApplicationBuilder`, folds the config, service, logging, and host-option rails onto it, and `Build` freezes the `IHost` the environment-selected `IHostLifetime` runs.

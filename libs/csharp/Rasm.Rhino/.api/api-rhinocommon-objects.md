@@ -5,7 +5,7 @@ This catalog owns the live document-object surface: `RhinoObject` read and stage
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: RhinoCommon live-object surface
-- host: `RhinoCommon` (Rhino host runtime, in-process)
+- host: Rhino host runtime, in-process (proprietary McNeel SDK)
 - assembly: `RhinoCommon.dll`
 - namespaces: `Rhino.DocObjects`, `Rhino.Geometry`, `Rhino.Render`, `Rhino.Render.CustomRenderMeshes`, `Rhino.Commands`, `Rhino.UI.Gumball`, `Rhino.FileIO`
 - kernel: `Rasm` (host-agnostic vocabularies and numeric owners composed, never re-derived)

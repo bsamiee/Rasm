@@ -6,7 +6,7 @@ The CRS is a THREE-STATE concept, not the two-state EPSG/none slice the migratio
 
 ## [01]-[INDEX]
 
-- [01]-[GEO_REFERENCE]: the `GeoReference` map-conversion-and-CRS record, the `ProjectedCrs` `[ComplexValueObject]` three-state CRS identity (authority `Name`+parsed `Epsg`, inline `Wkt`, `MapProjection`/`MapZone`), the `CrsResolution` `[SmartEnum<string>]` resolution-mode policy column, the accumulating `Admit` factory (finite-translation / non-degenerate-direction / positive-scale metre-frame gates + the fault-on-fully-unresolvable CRS leg), and the `RotationRadians` direction-cosine projection.
+- [02]-[GEO_REFERENCE]: the `GeoReference` map-conversion-and-CRS record, the `ProjectedCrs` `[ComplexValueObject]` three-state CRS identity (authority `Name`+parsed `Epsg`, inline `Wkt`, `MapProjection`/`MapZone`), the `CrsResolution` `[SmartEnum<string>]` resolution-mode policy column, the accumulating `Admit` factory (finite-translation / non-degenerate-direction / positive-scale metre-frame gates + the fault-on-fully-unresolvable CRS leg), and the `RotationRadians` direction-cosine projection.
 
 ## [02]-[GEO_REFERENCE]
 
