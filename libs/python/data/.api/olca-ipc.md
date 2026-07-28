@@ -141,4 +141,3 @@
 - Owns: the openLCA IPC/REST/proto client — model CRUD, product-system construction, calculate/simulate, and the full result-query surface — and, via `olca_schema`, the typed model graph with `new_*` factories and dict/JSON codecs.
 - Accept: `import olca_ipc as ipc` + `import olca_schema as o`; `ProtoClient`-typed transport-agnostic code; the `setup → calculate → wait_until_ready → query → dispose` lifecycle with the result disposed in a `finally`; result rows projected into the tabular rail; models authored offline via factories and pushed with `put_all`.
 - Reject: hand-rolled JSON-RPC against the openLCA socket when a client method exists; treating `Result` as a materialized table when it is a lazy server handle; skipping `dispose()`; re-implementing the LCA solver openLCA owns or holding the model as the system of record.
-</content>

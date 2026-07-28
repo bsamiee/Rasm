@@ -154,6 +154,7 @@ flowchart LR
     Composition <-->|"[SHAPE]: ProfileRef"| Materials
     Composition <-->|"[SHAPE]: MaterialPropertySet"| Materials
     Materials -->|"[CONTENT_KEY]: AppearanceSummary"| Graph
+    Bim -->|"[CONTENT_KEY]: AppearanceSummary"| Graph
     Properties <-->|"[SHAPE]: DetailSchema"| Bim
     Properties <-->|"[SHAPE]: DetailSchema"| Materials
     Bim -->|"[PROJECTION]: GeoReference"| Geospatial

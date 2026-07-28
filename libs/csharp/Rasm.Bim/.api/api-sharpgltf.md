@@ -211,9 +211,9 @@
 |  [02]   | `ChannelBuilder`      | class         | material channel; `TextureBuilder` and scalar parameters              |
 |  [03]   | `TextureBuilder`      | class         | texture reference; primary/fallback images, transform, coord set      |
 |  [04]   | `ImageBuilder`        | class         | in-memory image content with optional alternate write file name       |
-|  [05]   | `AlphaMode`           | enum          | `Opaque`, `Mask`, `Blend` (Toolkit-local mirror of the Schema2 enum)  |
-|  [06]   | `KnownChannel`        | enum          | typed channel key the channel mutators discriminate on                |
-|  [07]   | `KnownProperty`       | enum          | channel parameter key (`BaseColor`, `Metallic`, …)                    |
+|  [05]   | `AlphaMode`           | enum          | `OPAQUE`, `MASK`, `BLEND` — UPPERCASE members, not Pascal-cased      |
+|  [06]   | `KnownChannel`        | enum          | typed channel key; `Diffuse`/`SpecularGlossiness` marked obsolete     |
+|  [07]   | `KnownProperty`       | enum          | typed channel parameter key (`RGB`, `RGBA`, `MetallicFactor`, …)      |
 |  [08]   | `IMorphTargetBuilder` | interface     | per-vertex morph-delta contract                                       |
 |  [09]   | `MorphTargetBuilder`  | class         | mesh-level morph target; `SetVertexDelta` by position or geometry key |
 |  [10]   | `CameraBuilder`       | class         | perspective or orthographic camera; `ZNear`, `ZFar`, `VerticalFOV`    |
@@ -341,16 +341,60 @@
 | [INDEX] | [SURFACE]                                               | [SHAPE]  | [CAPABILITY]                           |
 | :-----: | :------------------------------------------------------ | :------- | :------------------------------------- |
 |  [01]   | `WithMetallicRoughnessShader()`                         | instance | selects PBR metallic-roughness shader  |
-|  [02]   | `WithSpecularGlossinessShader()`                        | instance | selects KHR specular-glossiness shader |
+|  [02]   | `WithSpecularGlossinessShader()`                        | instance | OBSOLETE — Khronos deprecated the ext  |
 |  [03]   | `WithUnlitShader()`                                     | instance | selects KHR_materials_unlit shader     |
 |  [04]   | `WithShader(string)`                                    | instance | selects a shader by name               |
-|  [05]   | `UseChannel(KnownChannel/string) -> ChannelBuilder`     | instance | gets or creates a channel for mutation |
-|  [06]   | `WithChannelParam(KnownChannel, KnownProperty, object)` | instance | sets a channel scalar parameter        |
-|  [07]   | `WithChannelParam(KnownChannel, Vector4)`               | instance | sets a channel vector parameter        |
-|  [08]   | `WithChannelImage(KnownChannel, ImageBuilder)`          | instance | binds a channel texture image          |
-|  [09]   | `WithAlpha(AlphaMode = OPAQUE, float alphaCutoff)`      | instance | sets alpha mode and mask cutoff        |
-|  [10]   | `WithDoubleSide(bool)`                                  | instance | enables back-face rendering            |
-|  [11]   | `WithFallback(MaterialBuilder)`                         | instance | chains a fallback material             |
+|  [05]   | `UseChannel(KnownChannel) -> ChannelBuilder`            | instance | gets or creates a channel for mutation |
+|  [06]   | `UseChannel(string) -> ChannelBuilder`                  | instance | OBSOLETE — prefer the typed overload   |
+|  [07]   | `WithChannelParam(KnownChannel, KnownProperty, object)` | instance | sets a channel scalar parameter        |
+|  [08]   | `WithChannelParam(KnownChannel, Vector4)`               | instance | OBSOLETE — use the typed-property form |
+|  [09]   | `WithChannelImage(KnownChannel, ImageBuilder)`          | instance | binds a channel texture image          |
+|  [10]   | `WithChannelImage(string, ImageBuilder)`                | instance | OBSOLETE — use the typed overload      |
+|  [11]   | `WithAlpha(AlphaMode = OPAQUE, float alphaCutoff)`      | instance | sets alpha mode and mask cutoff        |
+|  [12]   | `WithDoubleSide(bool)`                                  | instance | enables back-face rendering            |
+|  [13]   | `WithFallback(MaterialBuilder)`                         | instance | chains a fallback material             |
+
+[OBSOLETE_MATERIAL_SPELLINGS]: the `[Obsolete]` rows above are the live compiler's own verdict, not a style note — `WithChannelParam(KnownChannel, Vector4)` and `WithChannelImage(string, …)` both redirect to their typed successors, and `WithSpecularGlossinessShader` beside the `KnownChannel.Diffuse`/`SpecularGlossiness` members carries Khronos's own deprecation of `KHR_materials_pbrSpecularGlossiness`. A composing fence takes `WithBaseColor`/`WithMetallicRoughness`/`WithSpecularColor` or the typed `WithChannelParam(KnownChannel, KnownProperty, object)`.
+
+[ENTRYPOINT_SCOPE]: MaterialBuilder — per-channel binders
+
+| [INDEX] | [SURFACE]                                                        | [SHAPE]  | [CAPABILITY]                              |
+| :-----: | :--------------------------------------------------------------- | :------- | :---------------------------------------- |
+|  [01]   | `WithBaseColor(Vector4)` · `WithBaseColor(ImageBuilder, Vector4?)` | instance | base-colour factor and/or map            |
+|  [02]   | `WithMetallicRoughness(float?, float?)` · `(ImageBuilder, …)`      | instance | metallic/roughness factors and/or map    |
+|  [03]   | `WithNormal(ImageBuilder, float scale = 1)`                        | instance | normal map with scale                    |
+|  [04]   | `WithOcclusion(ImageBuilder, float strength = 1)`                  | instance | occlusion map with strength              |
+|  [05]   | `WithEmissive(Vector3, float)` · `(ImageBuilder, Vector3?, float)` | instance | emissive factor and/or map with strength |
+|  [06]   | `WithTransmission(ImageBuilder, float intensity)`                  | instance | KHR_materials_transmission               |
+|  [07]   | `WithClearCoat(ImageBuilder, float)` · `…Normal` · `…Roughness`    | instance | KHR_materials_clearcoat channel trio     |
+|  [08]   | `WithSpecularColor(ImageBuilder, Vector3?)` · `WithSpecularFactor` | instance | KHR_materials_specular pair              |
+|  [09]   | `WithVolumeThickness(ImageBuilder, float)` · `WithVolumeAttenuation` | instance | KHR_materials_volume pair              |
+|  [10]   | `WithIridescence(ImageBuilder, float, float)` · `…Thickness`       | instance | KHR_materials_iridescence pair           |
+|  [11]   | `WithAnisotropy(ImageBuilder, float strength, float rotation)`     | instance | KHR_materials_anisotropy                 |
+|  [12]   | `WithDiffuseTransmissionFactor` · `WithDiffuseTransmissionColor`   | instance | KHR_materials_diffuse_transmission pair  |
+|  [13]   | `WithMetallicRoughnessFallback(ImageBuilder, Vector4?, …)`         | instance | specular-glossiness compatibility path   |
+
+[MATERIAL_STATE_MEMBERS]: `MaterialBuilder` carries `AlphaMode`, `AlphaCutoff` (default `0.5f`), `DoubleSided`, `ShaderStyle`, `IndexOfRefraction` (default `1.5f`), `Dispersion`, `Channels` (`IReadOnlyCollection<ChannelBuilder>`), and `CompatibilityFallback`; the shader-style constants are `SHADERUNLIT`, `SHADERPBRMETALLICROUGHNESS`, and `SHADERPBRSPECULARGLOSSINESS`. Equality is REFERENCE by default — `AreEqualByContent`/`ContentComparer` is the content form — so a pool keyed on material identity supplies its own key rather than trusting `Equals`.
+
+[ENTRYPOINT_SCOPE]: ChannelBuilder and TextureBuilder — texture binding
+
+| [INDEX] | [SURFACE]                                                                   | [SHAPE]  | [CAPABILITY]                            |
+| :-----: | :-------------------------------------------------------------------------- | :------- | :-------------------------------------- |
+|  [01]   | `ChannelBuilder.Key` · `.Parameters` · `.Texture`                            | instance | channel key, parameter set, bound texture |
+|  [02]   | `ChannelBuilder.UseTexture() -> TextureBuilder`                              | instance | gets or creates the channel's texture   |
+|  [03]   | `ChannelBuilder.GetValidTexture()` · `.RemoveTexture()`                      | instance | image-bearing probe; unbind             |
+|  [04]   | `TextureBuilder.WithPrimaryImage(ImageBuilder)` · `.WithFallbackImage(…)`    | instance | primary and fallback image content      |
+|  [05]   | `TextureBuilder.WithCoordinateSet(int)`                                      | instance | selects the sampled UV set              |
+|  [06]   | `TextureBuilder.WithSampler(TextureWrapMode ws, wt, min, mag)`               | instance | wrap pair and filter pair               |
+|  [07]   | `TextureBuilder.WithTransform(Vector2 offset, Vector2 scale, float, int?)`   | instance | KHR_texture_transform frame             |
+|  [08]   | `TextureBuilder.WithTransform(float ox, float oy, float sx, float sy, …)`    | instance | the scalar-argument transform form      |
+|  [09]   | `ImageBuilder.From(MemoryImage, string name)` · implicit from `byte[]`/path  | factory  | in-memory image content                 |
+
+[TEXTURE_BINDING_MEMBERS]: `TextureBuilder` carries `CoordinateSet`, `MinFilter`, `MagFilter`, `WrapS`/`WrapT` (both defaulting to `TextureWrapMode.REPEAT`), `PrimaryImage`, `FallbackImage`, and `Transform` (`TextureTransformBuilder` with `Offset`, `Scale`, `Rotation`, `CoordinateSetOverride`). `PrimaryImage` reads PNG, JPG, DDS, WEBP, and KTX2 while `FallbackImage` reads PNG and JPG alone, so a `KHR_texture_basisu`/`EXT_texture_webp`/`MSFT_texture_dds` primary pairs with a core-format fallback for a consumer lacking the extension. `MemoryImage` wraps an `ArraySegment<byte>` with no copy and exposes `FileExtension`, `MimeType`, `IsValid`, and `IsImageOfType(string)`; `KnownProperty` keys the channel parameter set (`Unknown`, `RGB`, `RGBA`, `Minimum`, `Maximum`, `NormalScale`, `OcclusionStrength`, `EmissiveStrength`, `IndexOfRefraction`, `MetallicFactor`, `RoughnessFactor`, `SpecularFactor`, `GlossinessFactor`, `ClearCoatFactor`, `ThicknessFactor`, `TransmissionFactor`, `IridescenceFactor`, `AttenuationDistance`, `DiffuseTransmissionFactor`, `AnisotropyStrength`, `AnisotropyRotation`). SharpGLTF encodes no image: the bytes arrive already sealed in their container.
+
+[CHANNEL_KEY_ROSTER]: `KnownChannel` is the closed channel vocabulary `UseChannel`/`GetChannel`/`WithChannelParam`/`WithChannelImage` key on — `Normal`, `Occlusion`, `Emissive`, `BaseColor`, `MetallicRoughness`, `Diffuse` (`[Obsolete]`), `SpecularGlossiness` (`[Obsolete]`), `ClearCoat`, `ClearCoatNormal`, `ClearCoatRoughness`, `Transmission`, `SheenColor`, `SheenRoughness`, `SpecularColor`, `SpecularFactor`, `VolumeThickness`, `VolumeAttenuation`, `Iridescence`, `IridescenceThickness`, `Anisotropy`, `DiffuseTransmissionColor`, `DiffuseTransmissionFactor`. Each member is a distinct glTF texture and factor slot, so one source image feeding two slots — an occlusion-roughness-metalness pack reaching `Occlusion` beside `MetallicRoughness` — binds ONE `ImageBuilder` through two `UseChannel` calls rather than duplicating the bytes; the two obsolete members carry Khronos's `KHR_materials_pbrSpecularGlossiness` deprecation and are read-only import vocabulary.
+
+[MATERIAL_STATE_WRITES]: the scalar material state writes through properties rather than `With*` members — `AlphaMode` and `AlphaCutoff` (`WithAlpha(AlphaMode = OPAQUE, float alphaCutoff = 0.5f)` is the fluent form), `DoubleSided` (`WithDoubleSide(bool)`), `IndexOfRefraction` (default `1.5f`, so writing that value serializes a `KHR_materials_ior` block asserting the default), and `Dispersion`. The factor defaults are the glTF spec's, NOT neutral: an unwritten `MetallicRoughness` channel renders metallic `1.0` and roughness `1.0`, so `WithMetallicRoughness(float?, float?)` is written on every dielectric material rather than left to the format.
 
 [ENTRYPOINT_SCOPE]: SceneTemplate and ArmatureInstance — runtime decode
 

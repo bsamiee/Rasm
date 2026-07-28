@@ -25,9 +25,9 @@ One intent rail admits every execution request once, a substrate axis routes it 
 
 [MODEL]:
 - [14]-[IDENTITY](.planning/Model/identity.md): Checksum model identity with acquisition, schema-snapshot, and drift-sentinel evidence.
-- [15]-[SESSIONS](.planning/Model/sessions.md): One shared session per checksum with warm-start.
-- [16]-[PROVIDERS](.planning/Model/providers.md): Execution-provider axis with discovery and quantization posture.
-- [17]-[INFERENCE](.planning/Model/inference.md): Run-mode inference fold, cross-request batching gate, and result cache.
+- [15]-[SESSIONS](.planning/Model/sessions.md): One shared session per checksum with warm-start and its per-bucket warm roster.
+- [16]-[PROVIDERS](.planning/Model/providers.md): Execution-provider axis with discovery, quantization posture, and the guaranteed floor.
+- [17]-[INFERENCE](.planning/Model/inference.md): Run-mode inference fold, batching gate, tiled mosaic, stage-execution wire, and result cache.
 - [18]-[EMBEDDING](.planning/Model/embedding.md): Embedding-and-retrieval owner.
 - [19]-[GENERATIVE](.planning/Model/generative.md): Token-streaming generation with the tool-call arm.
 - [20]-[EXTENSION](.planning/Model/extension.md): Custom-op registration at the string-tensor boundary.

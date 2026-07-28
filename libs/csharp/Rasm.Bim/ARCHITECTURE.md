@@ -19,7 +19,7 @@ Rasm.Bim/
 │   ├── Properties.cs      # Pset/Qto template authority and bSDD-typed property classifier
 │   ├── Classification.cs  # bSDD-bound classification axis over a live dictionary
 │   ├── Composition.cs     # Bidirectional material projector across the seam graph
-│   ├── Appearance.cs      # Surface-style lowering onto the seam appearance summary
+│   ├── Appearance.cs      # Surface-style lowering onto the seam summary beside its texture roster
 │   ├── Connection.cs      # Realizing-element surface lowered onto seam detail bags
 │   ├── GeoReference.cs    # Map-conversion and CRS lowering into the seam georeference
 │   └── Geospatial.cs      # NTS simple-features algebra with GDAL/OGR vector and raster ingest
@@ -145,6 +145,7 @@ flowchart LR
     Projection -->|"[PORT]: IGraphConstraint"| Element
     Semantics <-->|"[SHAPE]: DetailSchema"| Element
     Semantics <-->|"[SHAPE]: MaterialComposition"| Element
+    Semantics -->|"[CONTENT_KEY]: AppearanceSummary"| Element
     Semantics -->|"[PROJECTION]: GeoReference"| Element
     Materials -->|"[PORT]: IIfcTypeReconciler"| Projection
     Materials -->|"[SHAPE]: DetailSchema"| Semantics

@@ -183,10 +183,33 @@ Every graph interface named in a signature is `<TVertex, TEdge>`-parameterized a
 |  [08]   | `MinimumSpanningTreeKruskal(IUndirectedGraph, Func<TEdge, double>)`                                | static  | Kruskal forest           |
 |  [09]   | `OfflineLeastCommonAncestor(IVertexListGraph, TVertex, IEnumerable<SEquatableEdge<TVertex>>)`      | static  | rooted-tree LCA          |
 |  [10]   | `ComputePredecessorCost(IDictionary<TVertex, TEdge>, IDictionary<TEdge, double>, TVertex)`         | static  | recovered-path cost      |
+|  [11]   | `MaximumFlow(IMutableVertexAndEdgeListGraph, Func<TEdge, double>, TVertex, TVertex)`               | static  | Edmonds-Karp max flow    |
 
 - `AlgorithmExtensions.RankedShortestPathHoffmanPavley`: returns `IEnumerable<IEnumerable<TEdge>>` and defaults `maxCount` to `3`.
 - `AlgorithmExtensions.OfflineLeastCommonAncestor`: returns `TryFunc<SEquatableEdge<TVertex>, TVertex>` keyed on the pairs supplied up front.
-- `AlgorithmExtensions.MaximumFlow`: returns the max flow as `double` over a capacity fold, requires the passed `ReversedEdgeAugmentorAlgorithm` to have run `AddReversedEdges()`, and leaves the auxiliary edges until `RemoveReversedEdges()`.
+- `AlgorithmExtensions.MaximumFlow`: closes on `out TryFunc<TVertex, TEdge>`, `EdgeFactory<TVertex, TEdge>`, and a constructed `ReversedEdgeAugmentorAlgorithm<TVertex, TEdge>`; it returns the max flow as `double` over a capacity fold, requires that augmentor to have run `AddReversedEdges()`, and leaves the auxiliary edges until `RemoveReversedEdges()`. It constructs the algorithm object internally and surfaces only the flow value and the predecessor accessor, so a caller needing the CUT binds the object below.
+
+[ENTRYPOINT_SCOPE]: maximum-flow objects — the augmentation lifecycle and the residual state a minimum cut reads; the solver constructor closes on `EdgeFactory<TVertex, TEdge>` and a constructed `ReversedEdgeAugmentorAlgorithm<TVertex, TEdge>` after its capacity fold
+
+| [INDEX] | [SURFACE]                                                                                     | [SHAPE]  | [CAPABILITY]              |
+| :-----: | :-------------------------------------------------------------------------------------------- | :------- | :------------------------ |
+|  [01]   | `ReversedEdgeAugmentorAlgorithm(IMutableVertexAndEdgeListGraph, EdgeFactory<TVertex, TEdge>)` | ctor     | augmentor over one graph  |
+|  [02]   | `ReversedEdgeAugmentorAlgorithm.AddReversedEdges()`                                           | instance | mint the missing reverses |
+|  [03]   | `ReversedEdgeAugmentorAlgorithm.RemoveReversedEdges()`                                        | instance | retire the auxiliaries    |
+|  [04]   | `ReversedEdgeAugmentorAlgorithm.ReversedEdges -> IDictionary<TEdge, TEdge>`                   | instance | forward-to-reverse map    |
+|  [05]   | `ReversedEdgeAugmentorAlgorithm.Augmented -> bool`                                            | instance | augmentation state        |
+|  [06]   | `EdmondsKarpMaximumFlowAlgorithm(graph, Func<TEdge, double>, EdgeFactory, ReversedEdgeAugmentorAlgorithm)` | ctor | augmenting solver |
+|  [07]   | `MaximumFlowAlgorithm.Compute(TVertex, TVertex)`                                              | instance | run source to sink        |
+|  [08]   | `MaximumFlowAlgorithm.MaxFlow -> double`                                                      | instance | the flow value            |
+|  [09]   | `MaximumFlowAlgorithm.ResidualCapacities -> Dictionary<TEdge, double>`                        | instance | residual state per edge   |
+|  [10]   | `MaximumFlowAlgorithm.Predecessors -> Dictionary<TVertex, TEdge>`                             | instance | augmenting-path parents   |
+|  [11]   | `MaximumFlowAlgorithm.VerticesColors -> IDictionary<TVertex, GraphColor>`                     | instance | last traversal colouring  |
+
+- `ReversedEdgeAugmentorAlgorithm` is `IDisposable` and its dispose runs `RemoveReversedEdges()`, so a `using` scope bounds the auxiliary edges to the solve.
+- `EdmondsKarpMaximumFlowAlgorithm` throws `ArgumentException` when the augmentor targets a different graph instance, so both take the SAME container reference.
+- `ResidualCapacities` derives the MINIMUM CUT from published state: a breadth-first walk from the source over out-edges holding positive residual capacity yields the source side, while `VerticesColors` reports only the last traversal's own colouring.
+- `ReversedEdgeAugmentorAlgorithm` mints one reverse per edge, so a graph whose domain already carries both directions constructs with `allowParallelEdges: true`; `false` silently drops half the residual capacity and the solve cuts the wrong edges.
+- `Edge<TVertex>` declares `Source`, `Target`, and `ToString` alone, so its identity is its INSTANCE — a capacity or weight map keyed by it under `ReferenceEqualityComparer` distinguishes an augmentor-minted reverse from the arc it duplicates. `SEdge<TVertex>` and `EquatableEdge<TVertex>` carry value identity, so the same map collapses those two onto one entry and hands the solver twice the residual capacity it should have.
 
 [ENTRYPOINT_SCOPE]: `GraphExtensions` container projection — every conversion mints a new container over the source's vertices and edges
 
@@ -242,7 +265,7 @@ Every graph interface named in a signature is `<TVertex, TEdge>`-parameterized a
 - `LanguageExt.Core`(`.api/api-languageext.md`): `Try.lift(...).Run()` traps `NonAcyclicGraphException`, `NegativeCycleGraphException`, `NoPathFoundException`, and `VertexNotFoundException` onto `Fin<A>`, and a `TryFunc` `bool`-plus-`out` result converts on the same seam.
 - `NetTopologySuite`(`.api/api-nettopologysuite.md`): `STRtree<T>.Query(Envelope)` mints the candidate pairs a domain fold turns into edges; NTS owns planar predicate topology and this package the incidence algebra over the resulting graph.
 - `Thinktecture.Runtime.Extensions`(`.api/api-thinktecture-runtime-extensions.md`): `[SmartEnum<TKey>]` vertex keys and `[ValueObject<T>]` weights cross in as `TVertex` and `Func<TEdge, double>`, and every ordering, component map, and path leaves onto a generated receipt.
-- Within-library: one domain fold mints `AdjacencyGraph` or `BidirectionalGraph` per owner, `ToArrayBidirectionalGraph` freezes the content-keyed snapshot the memo binds, `FilteredBidirectionalGraph` scopes a subproblem without a second materialization, `DelegateVertexAndEdgeListGraph` serves a lazily-adjacent domain index outright, and one attached observer set projects the traversal onto the typed receipt.
+- Within-library: one domain fold mints `AdjacencyGraph` or `BidirectionalGraph` per owner, `ToArrayBidirectionalGraph` freezes the content-keyed snapshot the memo binds, `FilteredBidirectionalGraph` scopes a subproblem without a second materialization, `DelegateVertexAndEdgeListGraph` serves a lazily-adjacent domain index outright, and one attached observer set projects the traversal onto the typed receipt. `Rasm.Materials/Appearance/graph#MATERIAL_GRAPH` folds the appearance DAG onto `IsDirectedAcyclicGraph` and `SourceFirstTopologicalSort`, and `Rasm.Materials/Raster/tile#TILE_SYNTH` binds the flow objects directly — the seam cut needs `ResidualCapacities`, which the `AlgorithmExtensions.MaximumFlow` entry does not surface.
 
 [LOCAL_ADMISSION]:
 - `AlgorithmExtensions` is the entry rail over a domain-folded graph; an algorithm object binds only where traversal events, mutable component state, or augmentation lifecycle are part of the result contract.

@@ -1,19 +1,20 @@
 # [MATERIALS_TEXTURE]
 
-THE UV-AND-SOLID SAMPLING ENGINE. One `TextureUv` static sampling fold over the closed `TextureSource` `[Union]` (noise · checker · gradient · image · triplanar), addressed by the closed `AddressMode` band, reconstructed by the closed `FilterMode` band, and seeded by the author-kernel `ProceduralNoise` over the closed `NoiseBasis` band (`Perlin` gradient · `Simplex` OpenSimplex2 · `Value` lattice · `Worley` cellular) — each basis carrying its 2D AND 3D arm so triplanar and solid texturing sample the same lattice — with the fractal trajectory carried by the closed `FractalMode` axis (`FBm` · `Ridged` · `PingPong`) and the cellular feature algebra by the orthogonal `CellularDistance` × `CellularReturn` bands, all vendored inline from the FastNoiseLite algorithm. A texture variation is a `TextureSource` CASE, a sampling mode is an `AddressMode`/`FilterMode`/`NoiseBasis`/`FractalMode`/`CellularDistance`/`CellularReturn` ROW, a color is the one `Unicolour` carrier and a sampled field the one `ShadeVec4` register — never a parallel sampler, a per-filter method, a parallel fractal-vs-basis enum, a `NoiseSampler3D` surface, or a second color register. The page composes the kernel `bsdf#SHADING_FRAME` `MaterialFault` band-2450 rail, the `graph#MATERIAL_GRAPH` `PortValue`/`PortId`/`ShadePoint` carriers the node DAG threads, the Rasm.Numerics `UnitInterval`/`Dimension` value-objects for UV coordinates and image extents plus the host `Vector3d` for world position and normal at the shading edge, and Wacton.Unicolour directly as the scene-linear color owner for every color literal — never re-minting a color space, a coordinate primitive, or a fault. The terminal seam is the `graph#MATERIAL_GRAPH` `AppearanceNode.Texture(Func<double,double,PortValue> Sample)` node: `TextureUv.Port` mints that total `(u,v)→PortValue` closure from a `TextureSource`, so a sampled texture drives a node DAG without a second sampler API; the deep `Sample` rail stays for the wire and the masked-aging consumer that wants the `Fin`.
+THE UV-AND-SOLID SAMPLING ENGINE. One `TextureUv` static sampling fold over the closed `TextureSource` `[Union]` (noise · checker · gradient · image · triplanar), addressed by the closed `AddressMode` band, reconstructed by the closed `FilterMode` band, and seeded by the author-kernel `ProceduralNoise` over the closed `NoiseBasis` band (`Perlin` gradient · `Simplex` OpenSimplex2 · `Value` lattice · `Worley` cellular) — each basis carrying its 2D AND 3D arm so triplanar and solid texturing sample the same lattice — with the fractal trajectory carried by the closed `FractalMode` axis (`FBm` · `Ridged` · `PingPong`) and the cellular feature algebra by the orthogonal `CellularDistance` × `CellularReturn` bands, all vendored inline from the FastNoiseLite algorithm and made SEAMLESS by the `NoisePeriod` lattice wrap every wrappable basis carries — a `Noise.Of` admission proving basis, lacunarity, frequency, and warp frequency integral against the declared period, so a tiling procedural is periodic by construction rather than healed after the fact. A texture variation is a `TextureSource` CASE, a sampling mode is an `AddressMode`/`FilterMode`/`NoiseBasis`/`FractalMode`/`CellularDistance`/`CellularReturn` ROW, a color is the one `Unicolour` carrier and a sampled field the one `ShadeVec4` register — never a parallel sampler, a per-filter method, a parallel fractal-vs-basis enum, a `NoiseSampler3D` surface, or a second color register. The page composes the kernel `bsdf#SHADING_FRAME` `MaterialFault` band-2450 rail, the `graph#MATERIAL_GRAPH` `PortValue`/`PortId`/`ShadePoint` carriers the node DAG threads, the Rasm.Numerics `UnitInterval`/`Dimension` value-objects for UV coordinates and image extents plus the host `Vector3d` for world position and normal at the shading edge, and Wacton.Unicolour directly as the scene-linear color owner for every color literal — never re-minting a color space, a coordinate primitive, or a fault. The terminal seam is the `graph#MATERIAL_GRAPH` `AppearanceNode.Texture(Func<double,double,PortValue> Sample)` node: `TextureUv.Port` mints that total `(u,v)→PortValue` closure from a `TextureSource`, so a sampled texture drives a node DAG without a second sampler API; the deep `Sample` rail stays for the wire and the masked-aging consumer that wants the `Fin`.
 
 ## [01]-[INDEX]
 
-- [02]-[TEXTURE_UV]: the `AddressMode`/`FilterMode`/`NoiseBasis`/`FractalMode`/`CellularDistance`/`CellularReturn` bands, the `ShadeVec4` four-lane field register, the `TextureSource` union, the `ProceduralNoise` author-kernel, the one `TextureUv.Sample` fold, and the `TextureUv.Port` graph-node bridge.
+- [02]-[TEXTURE_UV]: the `AddressMode`/`FilterMode`/`NoiseBasis`/`FractalMode`/`CellularDistance`/`CellularReturn` bands, the `ShadeVec4` four-lane field register, the `NoisePeriod`/`NoiseLattice` seamless-lattice carriers, the `TextureSource` union with its `Noise.Of` admission, the `ProceduralNoise` author-kernel, the one `TextureUv.Sample` fold, and the `TextureUv.Port` graph-node bridge.
+- [03]-[PERIOD_GOLDEN]: the `PeriodGolden` fixture row and the `PeriodProof` roster proving each periodic source repeats under its own shift and each unwrappable source refuses at admission.
 
 ## [02]-[TEXTURE_UV]
 
 - Owner: `TextureUv` static sampling fold; `AddressMode`/`FilterMode`/`NoiseBasis`/`FractalMode`/`CellularDistance`/`CellularReturn` `[SmartEnum<int>]` bands; `ShadeVec4` field register; `ProceduralNoise` author-kernel; `TextureSource` `[Union]`.
-- Cases: address {`Repeat`, `Clamp`, `Mirror`} · filter {`Nearest`, `Bilinear`, `Bicubic`, `Trilinear`} · noise-basis {`Perlin`, `Simplex`, `Value`, `Worley`} (fBm is octave-summation over a basis, `Octaves > 1`, never a fifth basis) · fractal {`FBm`, `Ridged`, `PingPong`} · cellular-distance {`EuclideanSq`, `Euclidean`, `Manhattan`, `Hybrid`} · cellular-return {`CellValue`, `Distance`, `Distance2`, `Distance2Sub`, `Distance2Add`, `Distance2Mul`, `Distance2Div`} · source {`Noise`, `Checker`, `Gradient`, `Image`, `Triplanar`}.
-- Entry: `public static Fin<ShadeVec4> Sample(TextureSource source, UvSample point, SamplerState sampler, Op key)` is the deep field rail and `public static Func<double, double, PortValue> Port(TextureSource source, UvSample anchor, SamplerState sampler, Channel channel, Op key)` is the `graph#MATERIAL_GRAPH` `AppearanceNode.Texture` bridge — `Port` captures the source/sampler/key and returns the TOTAL `(u,v)→PortValue` closure the node fold reads (`Channel` projects the field to `PortValue.Color`, `.Scalar`, or `.Vector`), a stopless-gradient/empty-pyramid/degenerate-normal/non-finite-field sample folding to the channel's neutral `PortValue` so the graph arm stays total while the deep `Sample` rail carries the `Op key`-correlated `MaterialFault` — the UV lanes themselves are `UnitInterval` value-objects, finite-in-[0,1] by construction, so no interior re-validation exists on the coordinate path; arity is one — a texture variation discriminates on the `TextureSource` union case and a sample modality on `Channel`, never on a sibling sampler method.
+- Cases: address {`Repeat`, `Clamp`, `Mirror`} · filter {`Nearest`, `Bilinear`, `Bicubic`, `Trilinear`} · noise-basis {`Perlin`, `Simplex`, `Value`, `Worley`} (fBm is octave-summation over a basis, `Octaves > 1`, never a fifth basis; `Wrappable` is the per-row seamless-lattice column) · fractal {`FBm`, `Ridged`, `PingPong`} · cellular-distance {`EuclideanSq`, `Euclidean`, `Manhattan`, `Hybrid`} · cellular-return {`CellValue`, `Distance`, `Distance2`, `Distance2Sub`, `Distance2Add`, `Distance2Mul`, `Distance2Div`} · source {`Noise`, `Checker`, `Gradient`, `Image`, `Triplanar`}.
+- Entry: `public static Fin<Noise> Noise.Of(Noise candidate, Op key)` is the noise-source admission the seamless period exists for — an aperiodic draft passes on one predicate, a periodic one proves its basis wrappable, its lacunarity and frequency integral against the period, and its warp frequency integral, so a source that would seam at the tile edge is unrepresentable rather than rendered; `public static Fin<ShadeVec4> Sample(TextureSource source, UvSample point, SamplerState sampler, Op key)` is the deep field rail and `public static Func<double, double, PortValue> Port(TextureSource source, UvSample anchor, SamplerState sampler, Channel channel, Op key)` is the `graph#MATERIAL_GRAPH` `AppearanceNode.Texture` bridge — `Port` captures the source/sampler/key and returns the TOTAL `(u,v)→PortValue` closure the node fold reads (`Channel` projects the field to `PortValue.Color`, `.Scalar`, or `.Vector`), a stopless-gradient/empty-pyramid/degenerate-normal/non-finite-field sample folding to the channel's neutral `PortValue` so the graph arm stays total while the deep `Sample` rail carries the `Op key`-correlated `MaterialFault` — the UV lanes themselves are `UnitInterval` value-objects, finite-in-[0,1] by construction, so no interior re-validation exists on the coordinate path; arity is one — a texture variation discriminates on the `TextureSource` union case and a sample modality on `Channel`, never on a sibling sampler method.
 - Packages: Rasm.Materials.Appearance.Bsdf (`MaterialFault` band-2450), Rasm (project — `UnitInterval`/`Dimension`), Rhino.Geometry (`Vector3d`/`Point3d` at the shading edge, the graph-page host-geometry convention), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<int>]` at the deepest surface — generated total `Switch`, `[UseDelegateFromConstructor]` behavior columns), LanguageExt.Core (`Fin`/`Seq`/`Bind`/`Fold`/`Traverse`), Wacton.Unicolour (scene-linear color owner; `Mix` in `ColourSpace.Oklch` the perceptual gradient resolve), CommunityToolkit.HighPerformance (`ReadOnlyMemory2D<ShadeVec4>`/`ReadOnlySpan2D` — the mip-plane owner, admitted once per level through `AsMemory2D(height, width)`), BCL inbox.
-- Growth: a new addressing rule is one `AddressMode` row, a new reconstruction filter one `FilterMode` row, a new leaf noise basis one `NoiseBasis` row binding one `ProceduralNoise.Sample2D`/`Sample3D` arm pair, a new fractal trajectory one `FractalMode` row, a new cellular feature one `CellularReturn`/`CellularDistance` row, a new texture one `TextureSource` case carrying its `MtlxCategory`, a new sampled-channel modality one `Channel` row — never a parallel `BilinearSampler`/`PerlinTexture`/`NoiseSampler3D` surface and never a parallel fractal-kind enum since the fractal trajectory is a `FractalMode` row over the basis octave-sum. The `NoiseBasis` set is the FastNoiseLite leaf-basis family (the `Perlin`/`Simplex`/`Value`/`Worley` gradient·simplex·lattice·cellular quartet) projecting onto the MaterialX 1.39 `noise2d`/`fractal2d`/`cellnoise2d`/`worleynoise2d` categories; `ValueCubic` is one `NoiseBasis` row binding one `ProceduralNoise` arm and one `MtlxNode`, not a new noise class. The MaterialX-1.39 node-category parity is REALIZED at `[MATERIALX_NODE_PARITY]` — the `TextureSource.MtlxCategory`/`NoiseBasis.MtlxNode`/`AddressMode.MtlxAddress`/`FilterMode.MtlxFilter` projections the `interchange#MATERIALX_DOCUMENT` `Mtlx.CategoryOf` resolves against the closed `NodeCategory` set.
-- Boundary: UV coordinates enter as Rasm.Numerics `UnitInterval` pairs (the `[0,1]` validated value-object), image extents as `Dimension` (the `>=1` int-backed value-object), world position and normal as host `Vector3d`; the sampler NEVER re-mints a coordinate or extent primitive. The interior noise/checker/gradient/image/triplanar algebra runs over the one `ShadeVec4` four-lane field register (`X`/`Y`/`Z` the scalar-field/color lanes, `W` the texel alpha the `Image` reconstruction premultiplies and `Channel.Scalar`/`Channel.Mask` reads) — `ShadeVec4` is the texture field carrier distinct from the `bsdf#LOBE_FAMILY` `RgbSpectrum` validated reflectance: a noise field is signed, a normal-map decode is `[-1,1]`, and a texel carries alpha, none of which the non-negative-validated `RgbSpectrum` admits, so the field stays the raw register and crosses to the validated reflectance only through `ShadeVec4.AsColor`. Color crosses the axis exactly once: color literals on `TextureSource` rows (`Low`/`High`, `Even`/`Odd`, gradient `Stops`) enter as `Unicolour` and decompose to `ShadeVec4` through `ShadeVec4.FromColor` for the field math — the gradient additionally canonicalizes its authored stops sorted-by-position and pre-resolves them through `Unicolour.Mix(other, ColourSpace.Oklch, amount, HueSpan.Shorter)` into the `Lut` texel run at `Gradient.Of` construction, so the perceptual hue path (never the linear-RGB lerp that bends hue through the grey dead zone) is priced ONCE off the hot path, an unsorted authored list cannot mangle the bracketing walk, and the per-sample read is an index-lerp between adjacent resolved texels — and the single `ShadeVec4.AsColor` adapter constructs the canonical scene-linear `Unicolour(PortValue.SceneLinear, ColourSpace.RgbLinear, X, Y, Z)` at the projection tail — the sampler NEVER mints a second color register. `AddressMode.Apply` folds a raw continuous UV into `[0,1)` once before any non-image filter touches a coordinate, and image reconstruction addresses exclusively through the discrete `AddressMode.Texel` companion so the wrap arithmetic is consulted once per axis, not double-applied at the mip seam; `FilterMode` reconstructs through one weight algebra (`Nearest` snaps by `Floor(u·w)`, `Bilinear` is the unit-square lerp, `Bicubic` is the separable Catmull-Rom 4×4 convolution, `Trilinear` blends two `ReconstructLevel` taps across the mip pyramid by the fractional level `SampleImage` decomposes — `ReconstructLevel` itself dispatches only the spatial `Nearest`/`Bilinear`/`Bicubic` kernels, each snapped to the `MipLevel`-nearest plane so the supplied level is dead for no filter row, the cross-level blend the `Trilinear` arm's own concern); the FastNoiseLite gradient/simplex/value/cellular kernels are author-folds over the hashed lattice (no managed lib owns 2D/3D coherent noise, the `LIBRARY_DEPTH` NOT_COVERED carve-out) with the published FNL anchors — `PrimeX`/`PrimeY`/`PrimeZ` lattice primes and the `0x27d4eb2d` hash multiplier, the quintic fade `6t⁵−15t⁴+10t³` (Perlin) and the Hermite `t²(3−2t)` (Value), the 2D simplex skew `(√3−1)/2` / unskew `(3−√3)/6` with the `99.83685446303647` bound, the 3D OpenSimplex2 rotation `r=(x+y+z)·2/3` two-cell fold with the `32.69428253173828125` bound, the Perlin normalizers `1.4247691104677813` (2D) and `0.964921414852142333984375` (3D), the 24-direction 2D and 12-edge-plus-published-tail 3D gradient cycles, and `ValCoord`'s square-then-`^ << 19` hash→`[-1,1]` projection — every table GENERATED from its defining sequence, never a transcribed literal blob; the fractal trajectory is the `FractalMode` per-octave `Step` row (`FBm` the signed `n·amp` sum damping by `(n+1)/2`, `Ridged` the `(1−2|n|)·amp` fold damping by `1−|n|`, `PingPong` the centred `(p−0.5)·2·amp` triangle fold at the source's `PingPongStrength` damping by `p`) under FNL's `Lerp(1, damp, WeightedStrength)·Gain` amplitude cascade opening at the fractal bounding `1/Σ Gainⁱ` — never a hardcoded linear sum, never a post-hoc normalize — and the `Fbm` self-base is unrepresentable, `NoiseBasis` excludes it; the cellular kernel folds the `CellularDistance` metric over the 3×3 (2D) or 3×3×3 (3D) feature neighbourhood displaced by unit offset vectors at the FNL jitter radii `0.43701595` (2D) / `0.39614353` (3D) scaled by `CellularParams.Jitter`, and projects the `CellularReturn` feature (`Distance` the F1 nearest, `Distance2` the F2, `Distance2Sub` the F2−F1 vein, `Distance2Add`/`Distance2Mul`/`Distance2Div` the FNL blend trio, `CellValue` the per-cell hash), so the `Worley` arm spans the full cellular family rather than the single F1 distance; the `ProceduralNoise` hash-lattice fills, the fixed neighbourhood / three-corner (2D) and rotated two-cell (3D) simplex loops, the span tap kernels (`NearestTap`/`BilinearTap`/`BicubicTap`), and the per-source sampling folds (`SampleImage`/`SampleTriplanar`/`Gradient.Resolve`) are the page's `[EXPRESSION_SPINE]` kernel exemption, in-place by index over the per-shade hot path; triplanar projects a world point onto the three axis planes, wraps each through the sampler's `AddressMode.Apply` (never a parallel `Frac`), and blends by the squared-normal weight so the same `TextureSource` evaluates without a UV unwrap, and a `Noise` source under triplanar samples the 3D basis arm directly so solid noise needs no plane projection; the image pyramid admits ONCE at `Image.Of` — each flat level lifts through `AsMemory2D(height, width)` into a `ReadOnlyMemory2D<ShadeVec4>` plane whose `Height`/`Width` are structural facts, a payload/extent mismatch faulting at admission so the per-tap reconstruction carries no re-check and the prior per-sample undersized fault is unrepresentable; a stopless gradient, an empty pyramid, or a degenerate triplanar normal rails to `MaterialFault` through the deep `Sample` rail, a non-finite field lane rails at `ShadeVec4.AsColor` (`IsFinite` spans all four lanes — a corrupt coverage lane is as degenerate as a corrupt color lane), and the `Port` closure folds any fault OR non-finite field to the `Channel` neutral so the graph arm never sees a sentinel or NaN texel — the raw host `World`/`Normal` doubles are the one lane the `UnitInterval` coordinate admission cannot gate, so the finite fold at the projection tail is the boundary that keeps the graph closure total over them.
+- Growth: a new addressing rule is one `AddressMode` row, a new reconstruction filter one `FilterMode` row, a new leaf noise basis one `NoiseBasis` row binding one `ProceduralNoise.Sample2D`/`Sample3D` arm pair and answering the `Wrappable` column, a new per-octave lattice policy one `NoiseLattice` column rather than a widened arm signature, a new fractal trajectory one `FractalMode` row, a new cellular feature one `CellularReturn`/`CellularDistance` row, a new texture one `TextureSource` case carrying its `MtlxCategory`, a new sampled-channel modality one `Channel` row — never a parallel `BilinearSampler`/`PerlinTexture`/`NoiseSampler3D` surface and never a parallel fractal-kind enum since the fractal trajectory is a `FractalMode` row over the basis octave-sum. The `NoiseBasis` set is the FastNoiseLite leaf-basis family (the `Perlin`/`Simplex`/`Value`/`Worley` gradient·simplex·lattice·cellular quartet) projecting onto the MaterialX 1.39 `noise2d`/`fractal2d`/`cellnoise2d`/`worleynoise2d` categories; `ValueCubic` is one `NoiseBasis` row binding one `ProceduralNoise` arm and one `MtlxNode`, not a new noise class. The MaterialX-1.39 node-category parity is REALIZED at `[MATERIALX_NODE_PARITY]` — the `TextureSource.MtlxCategory`/`NoiseBasis.MtlxNode`/`AddressMode.MtlxAddress`/`FilterMode.MtlxFilter` projections the `interchange#MATERIALX_DOCUMENT` `Mtlx.CategoryOf` resolves against the closed `NodeCategory` set.
+- Boundary: UV coordinates enter as Rasm.Numerics `UnitInterval` pairs (the `[0,1]` validated value-object), image extents as `Dimension` (the `>=1` int-backed value-object), world position and normal as host `Vector3d`; the sampler NEVER re-mints a coordinate or extent primitive. The interior noise/checker/gradient/image/triplanar algebra runs over the one `ShadeVec4` four-lane field register (`X`/`Y`/`Z` the scalar-field/color lanes, `W` the texel alpha the `Image` reconstruction premultiplies and `Channel.Scalar`/`Channel.Mask` reads) — `ShadeVec4` is the texture field carrier distinct from the `bsdf#LOBE_FAMILY` `RgbSpectrum` validated reflectance: a noise field is signed, a normal-map decode is `[-1,1]`, and a texel carries alpha, none of which the non-negative-validated `RgbSpectrum` admits, so the field stays the raw register and crosses to the validated reflectance only through `ShadeVec4.AsColor`. Color crosses the axis exactly once: color literals on `TextureSource` rows (`Low`/`High`, `Even`/`Odd`, gradient `Stops`) enter as `Unicolour` and decompose to `ShadeVec4` through `ShadeVec4.FromColor` for the field math — the gradient canonicalizes its authored stops sorted-by-position and pre-resolves them through `Unicolour.Mix(other, ColourSpace.Oklch, amount, HueSpan.Shorter)` into the `Lut` texel run at `Gradient.Of` construction, so the perceptual hue path (never the linear-RGB lerp that bends hue through the grey dead zone) is priced ONCE off the hot path, an unsorted authored list cannot mangle the bracketing walk, and the per-sample read is an index-lerp between adjacent resolved texels — and the single `ShadeVec4.AsColor` adapter constructs the canonical scene-linear `Unicolour(PortValue.SceneLinear, ColourSpace.RgbLinear, X, Y, Z)` at the projection tail — the sampler NEVER mints a second color register. `AddressMode.Apply` folds a raw continuous UV into `[0,1)` once before any non-image filter touches a coordinate, and image reconstruction addresses exclusively through the discrete `AddressMode.Texel` companion so the wrap arithmetic is consulted once per axis, not double-applied at the mip seam; `FilterMode` reconstructs through one weight algebra (`Nearest` snaps by `Floor(u·w)`, `Bilinear` is the unit-square lerp, `Bicubic` is the separable Catmull-Rom 4×4 convolution, `Trilinear` blends two `ReconstructLevel` taps across the mip pyramid by the fractional level `SampleImage` decomposes — `ReconstructLevel` itself dispatches only the spatial `Nearest`/`Bilinear`/`Bicubic` kernels, each snapped to the `MipLevel`-nearest plane so the supplied level is dead for no filter row, the cross-level blend the `Trilinear` arm's own concern); a `NoisePeriod` on the `Noise` row makes the lattice SEAMLESS by wrapping the integer cell index modulo the period before the prime multiply — the fractional position inside the cell is untouched, so the interpolant stays continuous across the wrap where a coordinate modulo would cut it — and the period rides the octave ladder through `NoisePeriod.Scaled`, multiplying by the same integral lacunarity the frequency does, so octave three wraps where octave three's own lattice repeats; the `NoiseLattice` carrier threads `(seed, period, cellular)` into every basis arm as ONE column set, the cellular fold hashes the WRAPPED neighbour while displacing the feature point at its UNWRAPPED coordinate (a wrapped displacement would collapse every period boundary onto one point), and a warped periodic source displaces through the wrappable `Perlin` arm at the warp's own scaled period so the displacement field shares the tile; `Raster/tile#TILE_SYNTH` is the ORTHOGONAL owner — it heals an already-authored plane whose source could not be made periodic, where this period makes the source periodic BY CONSTRUCTION, and a procedurally periodic field needs no heal; the FastNoiseLite gradient/simplex/value/cellular kernels are author-folds over the hashed lattice (no managed lib owns 2D/3D coherent noise, the `LIBRARY_DEPTH` NOT_COVERED carve-out) with the published FNL anchors — `PrimeX`/`PrimeY`/`PrimeZ` lattice primes and the `0x27d4eb2d` hash multiplier, the quintic fade `6t⁵−15t⁴+10t³` (Perlin) and the Hermite `t²(3−2t)` (Value), the 2D simplex skew `(√3−1)/2` / unskew `(3−√3)/6` with the `99.83685446303647` bound, the 3D OpenSimplex2 rotation `r=(x+y+z)·2/3` two-cell fold with the `32.69428253173828125` bound, the Perlin normalizers `1.4247691104677813` (2D) and `0.964921414852142333984375` (3D), the 24-direction 2D and 12-edge-plus-published-tail 3D gradient cycles, and `ValCoord`'s square-then-`^ << 19` hash→`[-1,1]` projection — every table GENERATED from its defining sequence, never a transcribed literal blob; the fractal trajectory is the `FractalMode` per-octave `Step` row (`FBm` the signed `n·amp` sum damping by `(n+1)/2`, `Ridged` the `(1−2|n|)·amp` fold damping by `1−|n|`, `PingPong` the centred `(p−0.5)·2·amp` triangle fold at the source's `PingPongStrength` damping by `p`) under FNL's `Lerp(1, damp, WeightedStrength)·Gain` amplitude cascade opening at the fractal bounding `1/Σ Gainⁱ` — never a hardcoded linear sum, never a post-hoc normalize — and the `Fbm` self-base is unrepresentable, `NoiseBasis` excludes it; the cellular kernel folds the `CellularDistance` metric over the 3×3 (2D) or 3×3×3 (3D) feature neighbourhood displaced by unit offset vectors at the FNL jitter radii `0.43701595` (2D) / `0.39614353` (3D) scaled by `CellularParams.Jitter`, and projects the `CellularReturn` feature (`Distance` the F1 nearest, `Distance2` the F2, `Distance2Sub` the F2−F1 vein, `Distance2Add`/`Distance2Mul`/`Distance2Div` the FNL blend trio, `CellValue` the per-cell hash), so the `Worley` arm spans the full cellular family rather than the single F1 distance; the `ProceduralNoise` hash-lattice fills, the fixed neighbourhood / three-corner (2D) and rotated two-cell (3D) simplex loops, the span tap kernels (`NearestTap`/`BilinearTap`/`BicubicTap`), and the per-source sampling folds (`SampleImage`/`SampleTriplanar`/`Gradient.Resolve`) are the page's `[EXPRESSION_SPINE]` kernel exemption, in-place by index over the per-shade hot path; triplanar projects a world point onto the three axis planes, wraps each through the sampler's `AddressMode.Apply` (never a parallel `Frac`), and blends by the squared-normal weight so the same `TextureSource` evaluates without a UV unwrap, and a `Noise` source under triplanar samples the 3D basis arm directly so solid noise needs no plane projection; the image pyramid admits ONCE at `Image.Of` — each flat level lifts through `AsMemory2D(height, width)` into a `ReadOnlyMemory2D<ShadeVec4>` plane whose `Height`/`Width` are structural facts, a payload/extent mismatch faulting at admission so the per-tap reconstruction carries no re-check and the prior per-sample undersized fault is unrepresentable; a stopless gradient, an empty pyramid, or a degenerate triplanar normal rails to `MaterialFault` through the deep `Sample` rail, a non-finite field lane rails at `ShadeVec4.AsColor` (`IsFinite` spans all four lanes — a corrupt coverage lane is as degenerate as a corrupt color lane), and the `Port` closure folds any fault OR non-finite field to the `Channel` neutral so the graph arm never sees a sentinel or NaN texel — the raw host `World`/`Normal` doubles are the one lane the `UnitInterval` coordinate admission cannot gate, so the finite fold at the projection tail is the boundary that keeps the graph closure total over them.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -66,18 +67,24 @@ public sealed partial class FilterMode {
 // gradient (Perlin→noise2d), simplex (Simplex→fractal2d — MaterialX folds simplex under the fractal node; the vendored kernel
 // is FNL OpenSimplex2, the LIBRARY_DEPTH NOT_COVERED carve-out), lattice/value (Value→cellnoise2d, the value-noise
 // analogue interchange#MATERIALX_DOCUMENT enumerates), and cellular (Worley→worleynoise2d) families; ValueCubic is one more row.
+// Wrappable is the SEAMLESS-TILING column: a lattice basis (Perlin gradient, Value hash, Worley cellular) evaluates
+// on the integer grid, so wrapping the CELL INDEX modulo a period makes the field exactly periodic; OpenSimplex2
+// evaluates on a SKEWED simplex grid whose cells do not align with any integer wrap, so the same modulo would seam
+// along the skew diagonal — a periodic Simplex source is refused at admission rather than sold as approximately
+// seamless. The column is data, so a future lattice basis answers it rather than growing a branch in the gate.
 [SmartEnum<int>]
 public sealed partial class NoiseBasis {
-    public static readonly NoiseBasis Perlin  = new(0, mtlxNode: "noise2d",        sample2D: ProceduralNoise.Perlin2D,  sample3D: ProceduralNoise.Perlin3D);
-    public static readonly NoiseBasis Simplex = new(1, mtlxNode: "fractal2d",      sample2D: ProceduralNoise.Simplex2D, sample3D: ProceduralNoise.Simplex3D);
-    public static readonly NoiseBasis Value   = new(2, mtlxNode: "cellnoise2d",    sample2D: ProceduralNoise.Value2D,   sample3D: ProceduralNoise.Value3D);
-    public static readonly NoiseBasis Worley  = new(3, mtlxNode: "worleynoise2d",  sample2D: ProceduralNoise.Worley2D,  sample3D: ProceduralNoise.Worley3D);
+    public static readonly NoiseBasis Perlin  = new(0, mtlxNode: "noise2d",        wrappable: true,  sample2D: ProceduralNoise.Perlin2D,  sample3D: ProceduralNoise.Perlin3D);
+    public static readonly NoiseBasis Simplex = new(1, mtlxNode: "fractal2d",      wrappable: false, sample2D: ProceduralNoise.Simplex2D, sample3D: ProceduralNoise.Simplex3D);
+    public static readonly NoiseBasis Value   = new(2, mtlxNode: "cellnoise2d",    wrappable: true,  sample2D: ProceduralNoise.Value2D,   sample3D: ProceduralNoise.Value3D);
+    public static readonly NoiseBasis Worley  = new(3, mtlxNode: "worleynoise2d",  wrappable: true,  sample2D: ProceduralNoise.Worley2D,  sample3D: ProceduralNoise.Worley3D);
     public string MtlxNode { get; }
+    public bool Wrappable { get; }
 
     [UseDelegateFromConstructor]
-    public partial double Sample2D(double x, double y, int seed, CellularParams cellular);
+    public partial double Sample2D(double x, double y, NoiseLattice lattice);
     [UseDelegateFromConstructor]
-    public partial double Sample3D(double x, double y, double z, int seed, CellularParams cellular);
+    public partial double Sample3D(double x, double y, double z, NoiseLattice lattice);
 }
 
 // The fractal octave trajectory (FastNoiseLite FractalType), FNL-exact: FBm sums signed n·amp damping by (n+1)/2
@@ -152,11 +159,37 @@ public abstract partial record TextureSource {
     // A noise source carries its leaf basis, fractal trajectory, and cellular feature algebra as rows — frequency/octaves/lacunarity/gain
     // the fBm spectrum, FractalMode the octave fold, WeightedStrength the octave damp, PingPongStrength the FNL triangle-fold scale (the
     // FBm/Ridged rows carry it unread, the CellularParams precedent), CellularParams the Worley feature family, Warp the pre-sample
-    // domain-warp displacement, Solid the 3D-vs-2D arm. A new procedural variation is a parameter change, never a second source.
+    // domain-warp displacement, Solid the 3D-vs-2D arm, Period the seamless lattice wrap. A new procedural variation is a parameter
+    // change, never a second source. Of is the ONE admission and it exists FOR the period: every other column is total on its own
+    // domain, while a period couples the basis, the lacunarity, the frequency, and the warp frequency into one integrality contract
+    // no single column can hold — an unadmitted periodic source would render a plausible field that seams at the tile edge.
     public sealed record Noise(
         NoiseBasis Base, double Frequency, int Octaves, double Lacunarity, double Gain, int Seed,
         FractalMode Fractal, double WeightedStrength, double PingPongStrength, CellularParams Cellular, DomainWarp Warp, bool Solid,
-        Unicolour Low, Unicolour High) : TextureSource;
+        NoisePeriod Period, Unicolour Low, Unicolour High) : TextureSource {
+
+        // Aperiodic sources admit unconditionally — the gates below all read Period.Periodic, so the FNL default
+        // path pays one predicate. Every reason token is the exact string the [PERIOD_GOLDEN] refusal rows assert.
+        public static Fin<Noise> Of(Noise candidate, Op key) =>
+            !candidate.Period.Periodic
+                ? Fin.Succ(candidate)
+                : from _ in guard(candidate.Base.Wrappable, MaterialFault.Parameter(key, $"<noise-period-unwrappable-basis:{candidate.Base.MtlxNode}>"))
+                  // A fractional lacunarity multiplies the lattice period by a non-integer at every octave, so
+                  // octave 1 onward wraps at a cell boundary the grid does not have and the sum seams.
+                  from __ in guard(Integral(candidate.Lacunarity), MaterialFault.Parameter(key, $"<noise-period-fractional-lacunarity:{candidate.Lacunarity:R}>"))
+                  // The UV unit square spans Frequency lattice units; the field repeats every Period units, so the
+                  // tile closes only when the span is a whole number of periods. 4.5 periods per tile is a seam.
+                  from ___ in guard(Integral(candidate.Frequency) && (int)candidate.Frequency % candidate.Period.Value is 0,
+                          MaterialFault.Parameter(key, $"<noise-period-frequency-not-multiple:{candidate.Frequency:R}:{candidate.Period.Value}>"))
+                  // A warped periodic source displaces by a field that must share the tile: an integral warp
+                  // frequency keeps the displacement periodic on the same domain, and the warp then rides the
+                  // periodic Perlin arm rather than the unwrappable Simplex one.
+                  from ____ in guard(candidate.Warp.Amplitude <= 0.0 || Integral(candidate.Warp.Frequency),
+                          MaterialFault.Parameter(key, $"<noise-period-fractional-warp-frequency:{candidate.Warp.Frequency:R}>"))
+                  select candidate;
+
+        static bool Integral(double v) => double.IsInteger(v) && v is > 0.0 and <= int.MaxValue;
+    }
     public sealed record Checker(int Repeats, Unicolour Even, Unicolour Odd) : TextureSource;
 
     // The gradient pre-resolves its stops ONCE at Of: stops canonicalize SORTED by position (Resolve walks bracketing
@@ -256,10 +289,38 @@ public readonly record struct CellularParams(CellularDistance Distance, Cellular
     public static readonly CellularParams Default = new(CellularDistance.EuclideanSq, CellularReturn.Distance, 1.0);
 }
 
-// The domain-warp pre-displacement (FastNoiseLite DomainWarp): a non-zero Amp offsets the sample coordinate by a Simplex-warp vector
+// The domain-warp pre-displacement (FastNoiseLite DomainWarp): a non-zero Amp offsets the sample coordinate by a warp vector
 // before the basis samples, so a procedural pattern flows and swirls rather than reads on an axis grid. Amp 0 is the identity (no warp).
 public readonly record struct DomainWarp(double Amplitude, double Frequency, int Seed) {
     public static readonly DomainWarp None = new(0.0, 1.0, 0);
+}
+
+// The seamless-tiling lattice period, in LATTICE CELLS. Zero is aperiodic — the FNL default and the whole prior
+// behaviour — and a positive value wraps every integer cell index modulo itself before the hash reads it, so the
+// hashed corner of cell P is the hashed corner of cell 0 and the field is exactly periodic rather than blended
+// toward seamlessness. Wrapping the INDEX (never the coordinate) is what keeps the interpolant continuous across
+// the wrap: the fractional position inside the cell is untouched, so no gradient discontinuity appears at the seam
+// the way a coordinate modulo would introduce one. Scaled carries the period up the octave ladder, where lacunarity
+// multiplies the coordinate and therefore multiplies the period the same whole number of times.
+[ValueObject<int>]
+public readonly partial struct NoisePeriod {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) {
+        if (value < 0) { validationError = new ValidationError($"<noise-period-negative:{value}>"); }
+    }
+
+    public static readonly NoisePeriod Aperiodic = Create(0);
+    public static NoisePeriod Of(int value) => Create(value);
+    public bool Periodic => Value > 0;
+    public NoisePeriod Scaled(int lacunarity) => Value > 0 ? Create(Value * Math.Max(1, lacunarity)) : this;
+    public int Wrap(int cell) => Value > 0 ? ((cell % Value) + Value) % Value : cell;
+}
+
+// The per-octave lattice policy ONE carrier threads into every basis arm: the octave seed, the octave period, and
+// the cellular feature algebra. The prior (seed, cellular) pair could not carry a period without widening every
+// arm signature a second time, so the carrier is the collapse that makes the next lattice knob a COLUMN rather
+// than another parameter on eight kernels — and every arm reads exactly the columns its own lattice needs.
+public readonly record struct NoiseLattice(int Seed, NoisePeriod Period, CellularParams Cellular) {
+    public static NoiseLattice Of(int seed) => new(seed, NoisePeriod.Aperiodic, CellularParams.Default);
 }
 
 // The one texture field register: X/Y/Z the scalar-field/color/vector lanes, W the texel alpha (coverage) the Image reconstruction
@@ -321,6 +382,8 @@ public static class ProceduralNoise {
     private static int Hash(int seed, int xPrimed, int yPrimed, int zPrimed) { int h = seed ^ xPrimed ^ yPrimed ^ zPrimed; h *= 0x27d4eb2d; return h; }
     private static double ValCoord(int hash) { hash *= hash; hash ^= hash << 19; return hash * (1.0 / 2147483648.0); }   // FNL square-xor hash → [-1,1]
     private static int Round(double v) => v >= 0.0 ? (int)(v + 0.5) : (int)(v - 0.5);   // FNL FastRound — half-away-from-zero, never banker's
+    private static int Cell(int index, NoisePeriod period) => period.Wrap(index);       // the ONE wrap site every lattice kernel primes through
+    private const double WarpDecorrelation = 1000.0;                                     // the constant offset decorrelating the warp's second and third reads; a constant shift preserves periodicity
 
     private static double GradCoord(int seed, int xPrimed, int yPrimed, double xd, double yd) {
         int hash = Hash(seed, xPrimed, yPrimed); hash ^= hash >> 15; hash &= 127 << 1;
@@ -336,20 +399,28 @@ public static class ProceduralNoise {
     private static double Lerp(double a, double b, double t) => a + t * (b - a);
 
     // --- [PERLIN]
-    public static double Perlin2D(double x, double y, int seed, CellularParams _) {
+    // Every lattice kernel primes the WRAPPED cell index: Cell(i, period) folds the index into [0, period) before the
+    // prime multiply, so the hash of cell P is the hash of cell 0 and the field repeats exactly. The wrap is applied
+    // to i and i+1 INDEPENDENTLY (never to a pre-multiplied prime), which is what makes the last cell of a period
+    // interpolate into the first rather than off the end of the lattice.
+    public static double Perlin2D(double x, double y, NoiseLattice lattice) {
         int x0 = (int)Math.Floor(x), y0 = (int)Math.Floor(y);
         double xd0 = x - x0, yd0 = y - y0, xd1 = xd0 - 1.0, yd1 = yd0 - 1.0;
         double xs = Fade(xd0), ys = Fade(yd0);
-        int xp0 = x0 * PrimeX, yp0 = y0 * PrimeY, xp1 = xp0 + PrimeX, yp1 = yp0 + PrimeY;
+        int xp0 = Cell(x0, lattice.Period) * PrimeX, yp0 = Cell(y0, lattice.Period) * PrimeY;
+        int xp1 = Cell(x0 + 1, lattice.Period) * PrimeX, yp1 = Cell(y0 + 1, lattice.Period) * PrimeY;
+        int seed = lattice.Seed;
         double n00 = GradCoord(seed, xp0, yp0, xd0, yd0), n10 = GradCoord(seed, xp1, yp0, xd1, yd0);
         double n01 = GradCoord(seed, xp0, yp1, xd0, yd1), n11 = GradCoord(seed, xp1, yp1, xd1, yd1);
         return Lerp(Lerp(n00, n10, xs), Lerp(n01, n11, xs), ys) * 1.4247691104677813;
     }
-    public static double Perlin3D(double x, double y, double z, int seed, CellularParams _) {
+    public static double Perlin3D(double x, double y, double z, NoiseLattice lattice) {
         int x0 = (int)Math.Floor(x), y0 = (int)Math.Floor(y), z0 = (int)Math.Floor(z);
         double xd0 = x - x0, yd0 = y - y0, zd0 = z - z0, xd1 = xd0 - 1.0, yd1 = yd0 - 1.0, zd1 = zd0 - 1.0;
         double xs = Fade(xd0), ys = Fade(yd0), zs = Fade(zd0);
-        int xp0 = x0 * PrimeX, yp0 = y0 * PrimeY, zp0 = z0 * PrimeZ, xp1 = xp0 + PrimeX, yp1 = yp0 + PrimeY, zp1 = zp0 + PrimeZ;
+        int xp0 = Cell(x0, lattice.Period) * PrimeX, yp0 = Cell(y0, lattice.Period) * PrimeY, zp0 = Cell(z0, lattice.Period) * PrimeZ;
+        int xp1 = Cell(x0 + 1, lattice.Period) * PrimeX, yp1 = Cell(y0 + 1, lattice.Period) * PrimeY, zp1 = Cell(z0 + 1, lattice.Period) * PrimeZ;
+        int seed = lattice.Seed;
         double n000 = GradCoord(seed, xp0, yp0, zp0, xd0, yd0, zd0), n100 = GradCoord(seed, xp1, yp0, zp0, xd1, yd0, zd0);
         double n010 = GradCoord(seed, xp0, yp1, zp0, xd0, yd1, zd0), n110 = GradCoord(seed, xp1, yp1, zp0, xd1, yd1, zd0);
         double n001 = GradCoord(seed, xp0, yp0, zp1, xd0, yd0, zd1), n101 = GradCoord(seed, xp1, yp0, zp1, xd1, yd0, zd1);
@@ -362,8 +433,11 @@ public static class ProceduralNoise {
     // FNL OpenSimplex2: the 2D arm is the three-corner skewed simplex at the FNL 99.83685446303647 bound (the skew is
     // linear, so the in-kernel spelling equals FNL's hoisted TransformNoiseCoordinate under per-octave lacunarity);
     // the 3D arm is FNL's rotated two-cell fold (r = (x+y+z)·2/3, never the classic four-corner skew).
-    public static double Simplex2D(double x, double y, int seed, CellularParams _) {
+    // The simplex arms read the octave SEED alone: the period column is unreachable here because Noise.Of refuses a
+    // periodic Simplex source outright, and wrapping the unskewed cell index would seam along the skew diagonal.
+    public static double Simplex2D(double x, double y, NoiseLattice lattice) {
         const double F2 = 0.3660254037844386, G2 = 0.21132486540518713;
+        int seed = lattice.Seed;
         double s = (x + y) * F2;
         int i = (int)Math.Floor(x + s), j = (int)Math.Floor(y + s);
         double t = (i + j) * G2, x0 = x - (i - t), y0 = y - (j - t);
@@ -373,7 +447,8 @@ public static class ProceduralNoise {
         double Corner(double dx, double dy, int xp, int yp) { double a = 0.5 - dx * dx - dy * dy; if (a <= 0.0) { return 0.0; } a *= a; a *= a; return a * GradCoord(seed, xp, yp, dx, dy); }
         return 99.83685446303647 * (Corner(x0, y0, ip, jp) + Corner(x1, y1, ip + i1 * PrimeX, jp + j1 * PrimeY) + Corner(x2, y2, ip + PrimeX, jp + PrimeY));
     }
-    public static double Simplex3D(double x, double y, double z, int seed, CellularParams _) {
+    public static double Simplex3D(double x, double y, double z, NoiseLattice lattice) {
+        int seed = lattice.Seed;
         double r = (x + y + z) * (2.0 / 3.0);
         double xr = r - x, yr = r - y, zr = r - z;
         int i = Round(xr), j = Round(yr), k = Round(zr);
@@ -400,18 +475,20 @@ public static class ProceduralNoise {
 
     // --- [VALUE]
     // FNL Value noise interpolates with the Hermite t²(3−2t), NOT the Perlin quintic — the softer basis is the anchor.
-    public static double Value2D(double x, double y, int seed, CellularParams _) {
-        int x0 = (int)Math.Floor(x), y0 = (int)Math.Floor(y);
+    public static double Value2D(double x, double y, NoiseLattice lattice) {
+        int x0 = (int)Math.Floor(x), y0 = (int)Math.Floor(y), seed = lattice.Seed;
         double xs = Hermite(x - x0), ys = Hermite(y - y0);
-        int xp0 = x0 * PrimeX, yp0 = y0 * PrimeY, xp1 = xp0 + PrimeX, yp1 = yp0 + PrimeY;
+        int xp0 = Cell(x0, lattice.Period) * PrimeX, yp0 = Cell(y0, lattice.Period) * PrimeY;
+        int xp1 = Cell(x0 + 1, lattice.Period) * PrimeX, yp1 = Cell(y0 + 1, lattice.Period) * PrimeY;
         double v00 = ValCoord(Hash(seed, xp0, yp0)), v10 = ValCoord(Hash(seed, xp1, yp0));
         double v01 = ValCoord(Hash(seed, xp0, yp1)), v11 = ValCoord(Hash(seed, xp1, yp1));
         return Lerp(Lerp(v00, v10, xs), Lerp(v01, v11, xs), ys);
     }
-    public static double Value3D(double x, double y, double z, int seed, CellularParams _) {
-        int x0 = (int)Math.Floor(x), y0 = (int)Math.Floor(y), z0 = (int)Math.Floor(z);
+    public static double Value3D(double x, double y, double z, NoiseLattice lattice) {
+        int x0 = (int)Math.Floor(x), y0 = (int)Math.Floor(y), z0 = (int)Math.Floor(z), seed = lattice.Seed;
         double xs = Hermite(x - x0), ys = Hermite(y - y0), zs = Hermite(z - z0);
-        int xp0 = x0 * PrimeX, yp0 = y0 * PrimeY, zp0 = z0 * PrimeZ, xp1 = xp0 + PrimeX, yp1 = yp0 + PrimeY, zp1 = zp0 + PrimeZ;
+        int xp0 = Cell(x0, lattice.Period) * PrimeX, yp0 = Cell(y0, lattice.Period) * PrimeY, zp0 = Cell(z0, lattice.Period) * PrimeZ;
+        int xp1 = Cell(x0 + 1, lattice.Period) * PrimeX, yp1 = Cell(y0 + 1, lattice.Period) * PrimeY, zp1 = Cell(z0 + 1, lattice.Period) * PrimeZ;
         double v000 = ValCoord(Hash(seed, xp0, yp0, zp0)), v100 = ValCoord(Hash(seed, xp1, yp0, zp0));
         double v010 = ValCoord(Hash(seed, xp0, yp1, zp0)), v110 = ValCoord(Hash(seed, xp1, yp1, zp0));
         double v001 = ValCoord(Hash(seed, xp0, yp0, zp1)), v101 = ValCoord(Hash(seed, xp1, yp0, zp1));
@@ -425,12 +502,17 @@ public static class ProceduralNoise {
     // (radius < 0.5, so F1/F2 correctness inside the fixed neighbourhood holds) — into the two nearest distances F1/F2
     // and the F1 cell hash (FNL CellValue: closestHash·2⁻³¹), then project the CellularReturn feature. The closed
     // cellular family is one neighbourhood loop, never a per-return kernel.
-    public static double Worley2D(double x, double y, int seed, CellularParams cellular) {
-        int xr = Round(x), yr = Round(y);
+    // The cellular wrap hashes the WRAPPED neighbour but displaces the feature point at its UNWRAPPED coordinate, so
+    // the distance metric still measures against the neighbour actually beside this texel while the jitter offset it
+    // reads is the one cell 0 reads — a wrapped displacement would collapse every period boundary onto one point.
+    public static double Worley2D(double x, double y, NoiseLattice lattice) {
+        int xr = Round(x), yr = Round(y), seed = lattice.Seed;
+        CellularParams cellular = lattice.Cellular;
         double f1 = double.MaxValue, f2 = double.MaxValue, cell = 0.0, jitter = CellJitter2D * cellular.Jitter;
         for (int dy = -1; dy <= 1; dy++) {
             for (int dx = -1; dx <= 1; dx++) {
-                int cx = xr + dx, cy = yr + dy, h = Hash(seed, cx * PrimeX, cy * PrimeY), idx = h & (255 << 1);
+                int cx = xr + dx, cy = yr + dy;
+                int h = Hash(seed, Cell(cx, lattice.Period) * PrimeX, Cell(cy, lattice.Period) * PrimeY), idx = h & (255 << 1);
                 double fx = cx + RandVecs2D[idx] * jitter, fy = cy + RandVecs2D[idx | 1] * jitter;
                 double d = cellular.Distance.Metric(fx - x, fy - y, 0.0);
                 if (d < f1) { f2 = f1; f1 = d; cell = h * (1.0 / 2147483648.0); } else if (d < f2) { f2 = d; }
@@ -438,13 +520,15 @@ public static class ProceduralNoise {
         }
         return Math.Clamp(cellular.Return.Project(f1, f2, cell), -1.0, 1.0);
     }
-    public static double Worley3D(double x, double y, double z, int seed, CellularParams cellular) {
-        int xr = Round(x), yr = Round(y), zr = Round(z);
+    public static double Worley3D(double x, double y, double z, NoiseLattice lattice) {
+        int xr = Round(x), yr = Round(y), zr = Round(z), seed = lattice.Seed;
+        CellularParams cellular = lattice.Cellular;
         double f1 = double.MaxValue, f2 = double.MaxValue, cell = 0.0, jitter = CellJitter3D * cellular.Jitter;
         for (int dz = -1; dz <= 1; dz++) {
             for (int dy = -1; dy <= 1; dy++) {
                 for (int dx = -1; dx <= 1; dx++) {
-                    int cx = xr + dx, cy = yr + dy, cz = zr + dz, h = Hash(seed, cx * PrimeX, cy * PrimeY, cz * PrimeZ), idx = h & (255 << 2);
+                    int cx = xr + dx, cy = yr + dy, cz = zr + dz;
+                    int h = Hash(seed, Cell(cx, lattice.Period) * PrimeX, Cell(cy, lattice.Period) * PrimeY, Cell(cz, lattice.Period) * PrimeZ), idx = h & (255 << 2);
                     double fx = cx + RandVecs3D[idx] * jitter, fy = cy + RandVecs3D[idx | 1] * jitter, fz = cz + RandVecs3D[idx | 2] * jitter;
                     double d = cellular.Distance.Metric(fx - x, fy - y, fz - z);
                     if (d < f1) { f2 = f1; f1 = d; cell = h * (1.0 / 2147483648.0); } else if (d < f2) { f2 = d; }
@@ -459,29 +543,37 @@ public static class ProceduralNoise {
     // [-1,1] with NO post-normalize), the FractalMode row yields the per-octave contribution and damp base, and the
     // cascade is amp *= Lerp(1, damp, WeightedStrength) · Gain — FNL's loop verbatim. Domain warp pre-displaces the
     // frequency-scaled coordinate when Amplitude > 0 so the pattern flows; octave o samples at seed + o (FNL seed++).
+    // The octave ladder carries the PERIOD alongside the frequency: octave o samples at freq·lacunarityᵒ, so its
+    // lattice repeats every period·lacunarityᵒ cells and the two scale in lockstep. Noise.Of proved the lacunarity
+    // integral for a periodic source, so the cast is exact there and dead on the aperiodic path where Scaled is the
+    // identity — one ladder serves both, with no periodic-vs-aperiodic fold and no second Evaluate.
     public static double Evaluate(TextureSource.Noise n, double u, double v) {
         (double x, double y) = (u * n.Frequency, v * n.Frequency);
-        if (n.Warp.Amplitude > 0.0) { (x, y) = Warp2D(x, y, n.Warp); }
-        int octaves = Math.Max(1, n.Octaves);
+        if (n.Warp.Amplitude > 0.0) { (x, y) = Warp2D(x, y, n.Warp, n.Period); }
+        int octaves = Math.Max(1, n.Octaves), step = (int)n.Lacunarity;
         double sum = 0.0, amp = FractalBounding(n.Gain, octaves), freq = 1.0;
+        NoisePeriod period = n.Period;
         for (int o = 0; o < octaves; o++) {
-            (double c, double damp) = n.Fractal.Step(n.Base.Sample2D(x * freq, y * freq, n.Seed + o, n.Cellular), amp, n.PingPongStrength);
+            (double c, double damp) = n.Fractal.Step(n.Base.Sample2D(x * freq, y * freq, new NoiseLattice(n.Seed + o, period, n.Cellular)), amp, n.PingPongStrength);
             sum += c;
             amp *= (1.0 + (damp - 1.0) * n.WeightedStrength) * n.Gain;
             freq *= n.Lacunarity;
+            period = period.Scaled(step);
         }
         return sum;
     }
     public static double Evaluate(TextureSource.Noise n, double px, double py, double pz) {
         (double x, double y, double z) = (px * n.Frequency, py * n.Frequency, pz * n.Frequency);
-        if (n.Warp.Amplitude > 0.0) { (x, y, z) = Warp3D(x, y, z, n.Warp); }
-        int octaves = Math.Max(1, n.Octaves);
+        if (n.Warp.Amplitude > 0.0) { (x, y, z) = Warp3D(x, y, z, n.Warp, n.Period); }
+        int octaves = Math.Max(1, n.Octaves), step = (int)n.Lacunarity;
         double sum = 0.0, amp = FractalBounding(n.Gain, octaves), freq = 1.0;
+        NoisePeriod period = n.Period;
         for (int o = 0; o < octaves; o++) {
-            (double c, double damp) = n.Fractal.Step(n.Base.Sample3D(x * freq, y * freq, z * freq, n.Seed + o, n.Cellular), amp, n.PingPongStrength);
+            (double c, double damp) = n.Fractal.Step(n.Base.Sample3D(x * freq, y * freq, z * freq, new NoiseLattice(n.Seed + o, period, n.Cellular)), amp, n.PingPongStrength);
             sum += c;
             amp *= (1.0 + (damp - 1.0) * n.WeightedStrength) * n.Gain;
             freq *= n.Lacunarity;
+            period = period.Scaled(step);
         }
         return sum;
     }
@@ -493,14 +585,29 @@ public static class ProceduralNoise {
     }
 
     // The one named non-FNL kernel: FNL warps through a gradient dual-lookup (GradCoordDual over RandVecs); this page
-    // vendors the offset-sample form — three decorrelated Simplex reads displace the coordinate — same capability,
-    // one basis reused, no second gradient table pathway.
-    private static (double, double) Warp2D(double x, double y, in DomainWarp w) =>
-        (x + w.Amplitude * Simplex2D(x * w.Frequency, y * w.Frequency, w.Seed, CellularParams.Default), y + w.Amplitude * Simplex2D(x * w.Frequency + 1000.0, y * w.Frequency, w.Seed, CellularParams.Default));
-    private static (double, double, double) Warp3D(double x, double y, double z, in DomainWarp w) =>
-        (x + w.Amplitude * Simplex3D(x * w.Frequency, y * w.Frequency, z * w.Frequency, w.Seed, CellularParams.Default),
-         y + w.Amplitude * Simplex3D(x * w.Frequency + 1000.0, y * w.Frequency, z * w.Frequency, w.Seed, CellularParams.Default),
-         z + w.Amplitude * Simplex3D(x * w.Frequency, y * w.Frequency + 1000.0, z * w.Frequency, w.Seed, CellularParams.Default));
+    // vendors the offset-sample form — decorrelated reads of ONE basis displace the coordinate — same capability, one
+    // basis reused, no second gradient table pathway. Under a PERIOD the displacement rides the wrappable Perlin arm
+    // at the warp's own scaled period (Noise.Of proved the warp frequency integral), so the displacement field shares
+    // the tile and the warped source stays exactly periodic; an unwarped-period source and an aperiodic warp both
+    // reach their FNL-default behaviour through the same two expressions, never a periodic-only sibling kernel.
+    private static (double, double) Warp2D(double x, double y, in DomainWarp w, NoisePeriod period) {
+        NoiseLattice lattice = new(w.Seed, period.Scaled((int)w.Frequency), CellularParams.Default);
+        (double wx, double wy) = (x * w.Frequency, y * w.Frequency);
+        return period.Periodic
+            ? (x + w.Amplitude * Perlin2D(wx, wy, lattice), y + w.Amplitude * Perlin2D(wx + WarpDecorrelation, wy, lattice))
+            : (x + w.Amplitude * Simplex2D(wx, wy, lattice), y + w.Amplitude * Simplex2D(wx + WarpDecorrelation, wy, lattice));
+    }
+    private static (double, double, double) Warp3D(double x, double y, double z, in DomainWarp w, NoisePeriod period) {
+        NoiseLattice lattice = new(w.Seed, period.Scaled((int)w.Frequency), CellularParams.Default);
+        (double wx, double wy, double wz) = (x * w.Frequency, y * w.Frequency, z * w.Frequency);
+        return period.Periodic
+            ? (x + w.Amplitude * Perlin3D(wx, wy, wz, lattice),
+               y + w.Amplitude * Perlin3D(wx + WarpDecorrelation, wy, wz, lattice),
+               z + w.Amplitude * Perlin3D(wx, wy + WarpDecorrelation, wz, lattice))
+            : (x + w.Amplitude * Simplex3D(wx, wy, wz, lattice),
+               y + w.Amplitude * Simplex3D(wx + WarpDecorrelation, wy, wz, lattice),
+               z + w.Amplitude * Simplex3D(wx, wy + WarpDecorrelation, wz, lattice));
+    }
 
     // --- [TABLES]
     // Every lattice table GENERATES from its defining sequence — never a transcribed literal blob. Gradients2D is the
@@ -672,12 +779,100 @@ public static class TextureUv {
 }
 ```
 
-## [03]-[RESEARCH]
+## [03]-[PERIOD_GOLDEN]
+
+- Owner: `PeriodGolden` the per-source fixture row; `PeriodProof` the fixture table and its one verdict fold.
+- Cases: an ADMITTED row carries the shift at which its field must repeat; a REFUSED row carries the reason token `Noise.Of` must produce. One table, two verdicts on one column, so a refusal fixture cannot drift into a second roster nobody iterates.
+- Entry: `public static Fin<Unit> Prove(PeriodGolden row, Op key)` runs the row's own verdict — admit-then-shift or refuse-with-reason — and `PeriodProof.All` is the roster the proof estate and the `Projection/benchmarks#WORKLOAD_ROWS` parity read both iterate, so a new periodic capability reaches both with no further edit.
+- Law: the expected value is the SHIFT EQUALITY itself, never a transcribed constant — `f(u + Δ, v) = f(u, v)` is exactly what periodicity means, so a regenerated gradient table, a re-tuned normalizer, or a widened basis roster cannot invalidate the fixture while a real seam always breaks it. The tolerance is a ROW column and its floor is arithmetic rather than algorithmic: the shift adds a whole number of lattice units to a coordinate whose fractional part then re-derives at a larger exponent, so the interpolant's own input loses low mantissa bits even where the wrapped cell index is bit-identical. A row demanding exact equality would be asserting a property IEEE arithmetic does not have.
+- Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
+- Growth: a new periodic capability is one admitted row; a new admission gate is one refused row carrying its reason token — never a second proof entry and never a fixture file, since every row's source is authored inline from its own columns.
+- Boundary: the fixture sweeps a DETERMINISTIC stratified lattice — sample `i` reads `u = (i + ½)/n` against a coprime-strided `v`, so the sweep needs no RNG, carries no state outside `(row, n)`, and covers both axes of every cell in the period. The proof reads the `ProceduralNoise.Evaluate` fold rather than a basis arm directly, so it grades the WHOLE evaluation chain — octave ladder, amplitude cascade, domain warp, cellular projection — exactly as a bake would drive it; a fixture over one basis call would pass while the ladder seamed at octave two.
+
+```csharp signature
+// (Continues the Rasm.Materials.Appearance.Texture compilation unit — the [02] prelude is in scope.)
+
+// --- [MODELS] ------------------------------------------------------------------------------
+// One row states EITHER the shift a periodic source must repeat under OR the reason token its admission must
+// refuse with. Refusal is Option-typed rather than a boolean beside a nullable string, so a row cannot declare a
+// reason it does not assert or assert a shift it never admits to measure.
+public readonly record struct PeriodGolden(
+    string Name, TextureSource.Noise Draft, double ShiftU, double ShiftV, int Samples, double Tolerance, Option<string> Refusal);
+
+// --- [OPERATIONS] --------------------------------------------------------------------------
+public static class PeriodProof {
+    // Reference-typed rows carry no constant default, so the optional columns arrive null and resolve to their own
+    // roster defaults here — one authoring helper rather than eleven positional arguments per fixture row.
+    static TextureSource.Noise Row(NoiseBasis basis, double frequency, int octaves, double lacunarity, int period,
+        FractalMode? fractal = null, CellularParams? cellular = null, DomainWarp? warp = null, bool solid = false) =>
+        new(basis, frequency, octaves, lacunarity, Gain: 0.5, Seed: 1337,
+            Fractal: fractal ?? FractalMode.FBm, WeightedStrength: 0.0, PingPongStrength: 2.0,
+            Cellular: cellular ?? CellularParams.Default, Warp: warp ?? DomainWarp.None, Solid: solid,
+            Period: NoisePeriod.Of(period), Low: Grey(0.0), High: Grey(1.0));
+
+    static Unicolour Grey(double v) => new(PortValue.SceneLinear, ColourSpace.RgbLinear, v, v, v);
+
+    // Every admitted row shifts by ONE UV tile: the source's frequency is a whole multiple of its period, so one
+    // unit of u advances the lattice by that whole number of periods and the field must return. The 4-period rows
+    // additionally prove the ladder — a lacunarity-2 fourth octave wraps at 32 cells, which a per-octave period
+    // that failed to scale would miss while octave zero still matched.
+    public static readonly Seq<PeriodGolden> All = Seq(
+        new PeriodGolden("perlin.single",   Row(NoiseBasis.Perlin, frequency: 4.0,  octaves: 1, lacunarity: 2.0, period: 4),  ShiftU: 1.0, ShiftV: 0.0, Samples: 512, Tolerance: 1e-12, Refusal: None),
+        new PeriodGolden("perlin.fbm4",     Row(NoiseBasis.Perlin, frequency: 4.0,  octaves: 4, lacunarity: 2.0, period: 4),  ShiftU: 1.0, ShiftV: 0.0, Samples: 512, Tolerance: 1e-12, Refusal: None),
+        new PeriodGolden("perlin.ridged",   Row(NoiseBasis.Perlin, frequency: 8.0,  octaves: 3, lacunarity: 2.0, period: 4, fractal: FractalMode.Ridged),   ShiftU: 0.5, ShiftV: 0.5, Samples: 512, Tolerance: 1e-12, Refusal: None),
+        new PeriodGolden("value.pingpong",  Row(NoiseBasis.Value,  frequency: 6.0,  octaves: 2, lacunarity: 3.0, period: 3, fractal: FractalMode.PingPong), ShiftU: 0.0, ShiftV: 1.0, Samples: 512, Tolerance: 1e-12, Refusal: None),
+        // The cellular row proves the wrapped-hash / unwrapped-displacement split: a wrapped feature point would
+        // collapse the period boundary onto one cell and this shift would read a different F1 there.
+        new PeriodGolden("worley.vein",     Row(NoiseBasis.Worley, frequency: 4.0,  octaves: 1, lacunarity: 2.0, period: 4, cellular: new CellularParams(CellularDistance.Euclidean, CellularReturn.Distance2Sub, 1.0)), ShiftU: 1.0, ShiftV: 0.0, Samples: 512, Tolerance: 1e-12, Refusal: None),
+        // The warped row proves the displacement rides the periodic Perlin arm at its own scaled period.
+        new PeriodGolden("perlin.warped",   Row(NoiseBasis.Perlin, frequency: 4.0,  octaves: 2, lacunarity: 2.0, period: 4, warp: new DomainWarp(0.35, 2.0, 99)), ShiftU: 1.0, ShiftV: 1.0, Samples: 512, Tolerance: 1e-12, Refusal: None),
+        // The solid row proves the 3D arm wraps every axis: a Z-unwrapped lattice tiles in UV and seams in depth.
+        new PeriodGolden("value.solid",     Row(NoiseBasis.Value,  frequency: 4.0,  octaves: 1, lacunarity: 2.0, period: 4, solid: true), ShiftU: 1.0, ShiftV: 0.0, Samples: 512, Tolerance: 1e-12, Refusal: None),
+        new PeriodGolden("refuse.simplex",  Row(NoiseBasis.Simplex, frequency: 4.0, octaves: 1, lacunarity: 2.0, period: 4),  ShiftU: 0.0, ShiftV: 0.0, Samples: 0, Tolerance: 0.0, Refusal: Some("<noise-period-unwrappable-basis")),
+        new PeriodGolden("refuse.lacunarity", Row(NoiseBasis.Perlin, frequency: 4.0, octaves: 3, lacunarity: 2.5, period: 4), ShiftU: 0.0, ShiftV: 0.0, Samples: 0, Tolerance: 0.0, Refusal: Some("<noise-period-fractional-lacunarity")),
+        new PeriodGolden("refuse.frequency",  Row(NoiseBasis.Perlin, frequency: 6.0, octaves: 1, lacunarity: 2.0, period: 4), ShiftU: 0.0, ShiftV: 0.0, Samples: 0, Tolerance: 0.0, Refusal: Some("<noise-period-frequency-not-multiple")),
+        new PeriodGolden("refuse.warpfreq",   Row(NoiseBasis.Perlin, frequency: 4.0, octaves: 1, lacunarity: 2.0, period: 4, warp: new DomainWarp(0.35, 1.5, 99)), ShiftU: 0.0, ShiftV: 0.0, Samples: 0, Tolerance: 0.0, Refusal: Some("<noise-period-fractional-warp-frequency")));
+
+    // The ONE verdict: the row's own Refusal column decides which proof runs, so an admitted row that ought to
+    // refuse and a refused row that admits are both failures with the row named, never a silent pass.
+    public static Fin<Unit> Prove(PeriodGolden row, Op key) =>
+        TextureSource.Noise.Of(row.Draft, key).Match(
+            Succ: source => row.Refusal.Match(
+                Some: reason => Fin.Fail<Unit>(MaterialFault.Parameter(key, $"<period-golden-admitted-refusable:{row.Name}:{reason}>")),
+                None: () => Shifted(source, row, key)),
+            Fail: error => row.Refusal.Match(
+                Some: reason => error.Message.Contains(reason, StringComparison.Ordinal)
+                    ? Fin.Succ(unit)
+                    : Fin.Fail<Unit>(MaterialFault.Parameter(key, $"<period-golden-wrong-refusal:{row.Name}:{error.Message}>")),
+                None: () => Fin.Fail<Unit>(error)));
+
+    // Stratified sweep with a coprime v-stride: no RNG, no fixture file, both axes of every cell covered. A solid
+    // source reads the 3D fold at the same coordinates lifted to a plane so the Z axis carries the shift too.
+    static Fin<Unit> Shifted(TextureSource.Noise source, PeriodGolden row, Op key) =>
+        toSeq(Enumerable.Range(0, row.Samples))
+            .Map(i => (U: (i + 0.5) / row.Samples, V: ((i * 7919) % row.Samples + 0.5) / row.Samples))
+            .Map(at => (At: at, Delta: Math.Abs(Field(source, at.U, at.V) - Field(source, at.U + row.ShiftU, at.V + row.ShiftV))))
+            .Filter(probe => !(probe.Delta <= row.Tolerance))
+            .HeadOrNone()
+            .Match(
+                Some: probe => Fin.Fail<Unit>(MaterialFault.Parameter(key,
+                    $"<period-golden-seam:{row.Name}:u={probe.At.U:R}:v={probe.At.V:R}:delta={probe.Delta:R}>")),
+                None: static () => Fin.Succ(unit));
+
+    static double Field(TextureSource.Noise source, double u, double v) =>
+        source.Solid
+            ? ProceduralNoise.Evaluate(source, u, v, u + v)
+            : ProceduralNoise.Evaluate(source, u, v);
+}
+```
+
+## [04]-[RESEARCH]
 
 - [SIMPLEX_PATENT]: the noise kernel is FastNoiseLite OpenSimplex2, not Perlin's patented Simplex — the patent (US 6,867,776, expired 2022) is moot regardless. The 2D arm is FNL's `SingleSimplex` (FNL's own note: the 2D OpenSimplex2 case IS the ordinary-simplex algorithm) — skew `(√3−1)/2`, unskew `(3−√3)/6`, three `a⁴·grad` corners, the `99.83685446303647` bound tuned to FNL's 24-direction unit-gradient table; the 3D arm is FNL's rotated two-cell fold — `r=(x+y+z)·2/3` coordinate rotation (never the classic four-corner skew), `FastRound` cell anchors, the sign-flip second cell, the `32.69428253173828125` bound. Both in-kernel coordinate transforms are linear, so per-octave application under lacunarity equals FNL's hoisted `TransformNoiseCoordinate`. `ValueCubic` and `OpenSimplex2S` stay the two named deferred rows — each one `NoiseBasis` row binding one `ProceduralNoise.Sample2D`/`Sample3D` arm pair, admitted when a consumer contract demands the smoother lattice.
 - [NOISE_DIMENSIONALITY]: REALIZED — every `NoiseBasis` carries both a `Sample2D` and a `Sample3D` arm, so the 3D gradient/value/simplex/cellular lattice is live rather than a built-unused table. A `Noise` source with `Solid = true` samples the 3D arm from the `UvSample.World` position (solid wood/marble/stone that flows through a carved surface rather than smearing at a UV seam), and triplanar samples the 2D arm on each axis plane; the normalizers are the FNL source constants — `1.4247691104677813` (Perlin 2D), `0.964921414852142333984375` (Perlin 3D) — and the gradient tables generate the FNL sequences exactly: the 24-direction 2D cycle at `82.5° − 15°·k`, the 12-edge-vector 3D cycle plus FNL's published 4-entry tail. The MaterialX `noise3d` (`NodeCategory.Perlin3D`) category is the solid-noise wire target the `interchange#MATERIALX_DOCUMENT` resolves.
 - [CELLULAR_FEATURE_FAMILY]: REALIZED — the `Worley` arm is the full FastNoiseLite cellular family rather than the single F1 distance: `CellularDistance` (`EuclideanSq`/`Euclidean`/`Manhattan`/`Hybrid`) is the metric the neighbourhood fold accumulates, `CellularReturn` the complete seven-row `CellularReturnType` set (`CellValue`/`Distance`/`Distance2`/`Distance2Add`/`Distance2Sub`/`Distance2Mul`/`Distance2Div` — `Mul` at FNL's `·0.5` product scale, `Div` the F1/F2 ratio), and `CellularParams.Jitter` the feature-point displacement scaling FNL's unit-offset radii `0.43701595` (2D) / `0.39614353` (3D) — radii below 0.5, so F1/F2 correctness inside the fixed 3×3/3×3×3 neighbourhood holds by construction. The classic Worley crack pattern is `Distance2Sub` over `Euclidean`, a cobblestone `CellValue` (FNL's `closestHash·2⁻³¹`), a Voronoi-cell border `Distance` — all rows of one neighbourhood loop, never a per-return kernel. The offset vectors regenerate FNL's 256 hardcoded random unit vectors as golden-angle (2D) / spherical-Fibonacci (3D) sets — same table shape, same `hash & (255<<1|2)` lookup, deterministic spread; the one generated-table deviation.
 - [FRACTAL_TRAJECTORY]: REALIZED FNL-exact — the fractal accumulation opens at the fractal bounding `1/Σ Gainⁱ` (the octave sum lands in [-1,1] with no post-hoc normalize; the prior running-norm divide was dead for every `Gain < 1`) and folds the closed `FractalMode` axis per octave: `FBm` sums `n·amp` damping by `min(n+1, 2)·0.5`, `Ridged` sums `(1−2|n|)·amp` damping by `1−|n|` for sharp ridgelines, `PingPong` sums the centred `(p−0.5)·2·amp` triangle fold at the source's `PingPongStrength` (FNL `SetFractalPingPongStrength`, default 2) damping by `p` — each damp entering as `amp *= Lerp(1, damp, WeightedStrength)·Gain`, the two per-octave outputs one `Step` row delegate. The `MtlxCategory` projects a fractal noise (`Octaves > 1` over a gradient/value basis) to the MaterialX `fractal2d` node for every basis, `Worley` staying `worleynoise2d`; the trajectory itself has no MaterialX enum — a `Ridged`/`PingPong` row renders host-side and crosses the wire as `fractal2d`, the named lossy edge.
+- [SEAMLESS_PERIOD]: REALIZED — `NoisePeriod` is the FNL capability FastNoiseLite itself never shipped: the upstream lattice is unbounded, so an authored procedural could only be tiled by healing the rendered plane afterwards. Wrapping the integer CELL INDEX modulo a period before the prime multiply makes the hashed corner of cell `P` the hashed corner of cell `0` while the fractional in-cell position stays untouched, so the field is exactly periodic AND the interpolant stays continuous — a coordinate-space modulo would achieve the first and destroy the second. Periodicity is a chain property, not a basis property, which is what `Noise.Of` exists to prove: the octave ladder multiplies the period by the lacunarity, so a fractional lacunarity wraps octave one at a cell boundary the grid does not have; the UV unit square spans `Frequency` lattice units, so the tile closes only where that span is a whole number of periods; and a domain warp displaces by a second field that must share the same tile, which routes the displacement onto the wrappable `Perlin` arm at the warp's own scaled period. OpenSimplex2 is the one refused basis — its cells are a SKEWED triangulation whose boundaries meet no integer wrap, so the same modulo seams along the skew diagonal and a periodic `Simplex` source refuses rather than rendering approximate seamlessness under an exact name. `Raster/tile#TILE_SYNTH` stays the orthogonal owner for planes whose source cannot be made periodic — an ingested photograph, an image source, a Simplex field — and a procedurally periodic source needs no heal at all; `Raster/gpu#WGSL_KERNEL` `noiseField` lowers the same wrap at `f32`, so the preview tiles where the bake tiles. `[03]-[PERIOD_GOLDEN]` grades the whole evaluation chain rather than a basis call.
 - [DOMAIN_WARP]: the `DomainWarp` field on the `Noise` source pre-displaces the frequency-scaled coordinate by a Simplex-warp vector (`x + amp·simplex(x·freq, y·freq)`) when `Amplitude > 0`, so a procedural pattern flows and swirls rather than reading on an axis grid; `Amplitude = 0` (`DomainWarp.None`) is the identity. This is the ONE named non-FNL kernel: FNL warps through the `GradCoordDual` gradient dual-lookup, this page through three decorrelated offset Simplex reads — the same `DomainWarp`/`DomainWarpAmp` capability with one basis reused and no second gradient pathway, vendored as the inline `Warp2D`/`Warp3D` displacement the `Evaluate` fold consumes, never a second sampler instance.
 - [MIP_GENERATION]: the `Image` case carries a pre-built mip pyramid admitted ONCE at `Image.Of` — each flat level lifts through `AsMemory2D(height, width)` into a `ReadOnlyMemory2D<ShadeVec4>` plane, a payload/extent mismatch railing `<texture-level-extent>` at admission, so `ReconstructLevel` is total over structurally-true planes and the prior per-sample `<texture-level-undersized>` recheck is unrepresentable; the box-filter downsample that generates the pyramid is the consumer's responsibility at texture import, not a sampler concern. The texel `W` lane is the coverage alpha the `Bilinear`/`Bicubic` reconstruction premultiplies and un-premultiplies so a transparent texel never bleeds opaque color across a coverage edge, and `Channel.Mask` reads it as the per-texel coverage a `graph#MATERIAL_GRAPH` `Mix` factor or a `weathering#WEATHERING` cavity mask consumes.
 - [GRAPH_NODE_BRIDGE]: REALIZED — the `graph#MATERIAL_GRAPH` `AppearanceNode.Texture(Func<double,double,PortValue> Sample)` node binds the `TextureUv.Port` closure: `Port` mints the TOTAL `(u,v)→PortValue` closure from a `TextureSource` + `SamplerState` + `Channel` + `Op key`, the deep `TextureUv.Sample` rail carrying the `MaterialFault` and the closure folding a fault or a non-finite field (`ShadeVec4.IsFinite`, all four lanes) to the `Channel` neutral so the graph arm never propagates a sentinel or a NaN. `Channel` (`Color`/`Scalar`/`Mask`/`Vector`) is the sample modality — a color texture drives `Color`, a roughness/AO mask `Scalar` or `Mask`, a normal map `Vector` — so one bridge serves every `Texture` node without a per-channel `Port` overload; the `weathering#WEATHERING` `ApplySlab` cavity-occlusion `UnitInterval` is the `Channel.Mask`/`Channel.Scalar` read of a cavity/AO `Texture` node. The remaining calibration is the per-input port-name alignment per MaterialX node, the `System.Xml.Linq` `.mtlx` serialize at the host boundary the `interchange#MATERIALX_DOCUMENT` owns, not a re-architecture of the sampling fold.

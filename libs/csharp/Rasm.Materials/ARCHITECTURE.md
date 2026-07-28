@@ -30,7 +30,17 @@ Rasm.Materials/            # AEC-DOMAIN materials projector; refs {Rasm, Rasm.El
 │   ├── Weathering.cs      # Aging fold over the closed weathering-effect union
 │   ├── Acquisition.cs     # Capture-import fold over the closed capture-source union
 │   ├── Finish.cs          # Kubelka-Munk pigment-reflectance finish engine
-│   └── Interchange.cs     # MaterialWire and MaterialX .mtlx interchange projection
+│   ├── Interchange.cs     # MaterialWire and MaterialX .mtlx interchange projection
+│   ├── Environment.cs     # Sky synthesis, environment-map admission, IBL prefilter, and the environment-light row
+│   └── Neural.cs          # Photo-to-PBR model registry and the inference stage plan
+├── Raster/                # Texture-map generation — the plane substrate, the bake engine, and its container estate
+│   ├── Plane.cs           # Typed-texel plane arena, the decoded row rails, and the mip chain with its sampler bridge
+│   ├── Codec.cs           # Container roster, the band-2460 RasterFault, and the KTX gate over its CLI floor
+│   ├── Filter.cs          # Plane-transform algebra, the stage scheduler, and the height-field correspondence
+│   ├── Tile.cs            # Set-coherent tiling synthesizer and the deterministic tileability gate
+│   ├── Set.cs             # Channel roster, the content-keyed baked set, ingest classification, and the appearance rebind
+│   ├── Press.cs           # Bake engine over the batched plane evaluator and its content-identity veto
+│   └── Gpu.cs             # Surfaceless bake device and the closed WGSL module table with its golden vectors
 ├── Properties/            # Typed engineering-property source lowered onto the seam property sets
 │   ├── Properties.cs      # Intrinsic mechanical, thermal, acoustic, and fire measurements
 │   └── Sustainability.cs  # Lifecycle impact, unit-cost basis, and classification rows
@@ -41,18 +51,22 @@ Rasm.Materials/            # AEC-DOMAIN materials projector; refs {Rasm, Rasm.El
     └── Analytics.cs       # DatasetWire declarations over ColumnToken and the catalogue-to-row projection folds
 ```
 
-VividOrange grounds the structural section, capacity, and rebar data in-folder, never a hand-keyed literal; the per-page consumption law lives on the owning pages. Return type names the rail: a `SurfaceShade`/`Unicolour` carrier where the result is total, `Fin<T>` where a banded fault routes, the seam `Fin<GraphDelta>` from the projector. C# is the sole producer of the material wire — `Appearance/Interchange` mints the OpenPBR-vector `MaterialWire` and the MaterialX `.mtlx` document once, and the TypeScript and Python peers decode both.
+VividOrange grounds the structural section, capacity, and rebar data in-folder, never a hand-keyed literal; the per-page consumption law lives on the owning pages. Return type names the rail: a `SurfaceShade`/`Unicolour` carrier where the result is total, `Fin<T>` where a banded fault routes, the seam `Fin<GraphDelta>` from the projector. C# is the sole producer of the appearance wire vocabulary — `Appearance/Interchange` mints the OpenPBR-vector `MaterialWire`, the baked `TextureSetWire`, the `EnvironmentLightWire` dome mirror, the photo-to-PBR `StageRequestWire`/`StageResultWire` crossing, and the MaterialX `.mtlx` document once, each an `IAppearanceWire` whose `CorpusBorne` column states whether a `tests/contracts/MANIFEST.md` entry is owed; the TypeScript and Python peers decode the corpus-borne pair.
 
 ## [02]-[STRATA]
 
-Three strata order the four sub-domains; `Component` and `Appearance` are true peers sharing only the seam `MaterialId`, so every consumption edge points down.
+Four strata order the five sub-domains. `Appearance` SPANS two of them: its core is a peer of `Component`, while its frontier — the environment, neural, acquisition, and interchange owners — composes `Raster` products and therefore sits above the plane estate that reads the core. The split is the folder's own dependency truth rather than a folder boundary: `Appearance/neural` already reads `TextureChannel`, `Appearance/environment` reads `TexturePlane`, `Appearance/acquisition` binds an admitted `TextureSet`, and `Appearance/interchange` projects one to a wire — a flat `Appearance` stratum would make each of those an upward edge the strata forbid.
 
 - S0 `Component` — `ComponentFamily`, `ComponentClass`, `QuantityRow`, and the `SectionCapacity` rail, consuming no sibling.
-- S0 `Appearance` — `MaterialGraph`, `MaterialLibrary`, `BsdfLobe`, and the `MaterialWire` mint.
+- S0 `Appearance` core — `MaterialGraph`, `MaterialLibrary`, `BsdfLobe`, `OpenPbrSurface`, and `TextureUv`, consuming no sibling.
 - S1 `Properties` — `MaterialPropertyCatalogue`, `SustainabilityCatalogue`, and `Published<T>` source rows.
+- S1 `Raster` — `TexturePlane`, `TextureChannel`, `TextureSet`, `TexturePress`, and the `PressDevice` bake seam.
 - S1 flow — engineering dimensional mints pass through the S0 `QuantityRow`; sustainability lowers basis-relative scalars to the seam factories.
-- S2 `Projection` — the one `ComponentProjector : IElementProjection` folds `Component`, `Properties`, and `Appearance` into `Fin<GraphDelta>`.
-- S2 `Projection` — the `MaterialsFact` signal tap, benchmark corpus, and analytics projection read every lower owner; nothing composes S2.
+- S1 flow — `Raster` reads the core graph, sampler, and vector, writing back through `SetBind` alone on a `MaterialGraph` VALUE counter-edge.
+- S2 `Appearance` frontier — `EnvironmentLight`, `ModelRegistry`, `Acquisition`, and the wire mint over `Raster` planes and sets.
+- S2 flow — the frontier reads DOWN into `Raster` and the core alike; `Raster` names no frontier type, so the plane estate stands alone.
+- S3 `Projection` — the one `ComponentProjector : IElementProjection` folds `Component`, `Properties`, and `Appearance` into `Fin<GraphDelta>`.
+- S3 `Projection` — the `MaterialsFact` signal tap, benchmark corpus, and analytics projection read every lower owner; nothing composes S3.
 
 ```mermaid
 ---
@@ -64,15 +78,20 @@ config:
 ---
 flowchart TB
     accTitle: Rasm.Materials interior strata
-    accDescr: Three stacked strata from the one component projector through the property catalogues onto the peer component and appearance owners, every consumption edge downward naming one sourced type, and one forbidden upward edge marked.
-    subgraph S2["S2 PROJECTION"]
+    accDescr: Four stacked strata from the one component projector through the appearance frontier and the property and raster plane onto the peer component and appearance-core owners, every consumption edge downward naming one sourced type, and one forbidden upward edge marked.
+    subgraph S3["S3 PROJECTION"]
         Projector[ComponentProjector]
     end
-    subgraph S1["S1 PROPERTIES"]
+    subgraph S2["S2 APPEARANCE FRONTIER"]
+        Wire[MaterialWire]
+        Environment[EnvironmentLight]
+    end
+    subgraph S1["S1 PROPERTIES + RASTER"]
         Catalogue[MaterialPropertyCatalogue]
         Sustainability[SustainabilityCatalogue]
+        Raster[TextureSet]
     end
-    subgraph S0["S0 COMPONENT + APPEARANCE"]
+    subgraph S0["S0 COMPONENT + APPEARANCE CORE"]
         Component[Component]
         QuantityRow[QuantityRow]
         Library[MaterialLibrary]
@@ -80,9 +99,14 @@ flowchart TB
     Projector e1@-->|"[IMPORT]: MaterialPropertyCatalogue"| Catalogue
     Projector e2@-->|"[IMPORT]: SustainabilityCatalogue"| Sustainability
     Projector e3@-->|"[IMPORT]: Component"| Component
-    Projector e4@-->|"[IMPORT]: MaterialLibrary"| Library
+    Projector e4@-->|"[IMPORT]: AppearanceSummary"| Wire
     Catalogue e5@-->|"[IMPORT]: QuantityRow"| QuantityRow
-    Component f1@-->|"forbidden: owner upward"| S2
+    Raster e6@-->|"[IMPORT]: MaterialGraph"| Library
+    Raster e7@-->|"[COUNTER]: MaterialGraph value"| Library
+    Wire e8@-->|"[IMPORT]: TextureSet"| Raster
+    Wire e9@-->|"[IMPORT]: MaterialParameters"| Library
+    Environment e10@-->|"[IMPORT]: TexturePlane"| Raster
+    Component f1@-->|"forbidden: owner upward"| S3
 ```
 
 ## [03]-[SEAMS]
@@ -144,7 +168,9 @@ flowchart LR
     Component e1@-->|"[WIRE]: SectionCapacity"| Compute
     Properties e2@-->|"[WIRE]: MaterialPropertySet"| Compute
     DataPeer e3@-->|"[WIRE]: Assessment"| Properties
-    Appearance e4@-->|"[BOUNDARY]: LayeredBsdf + SurfaceShade"| AppUi
+    Appearance e11@-->|"[WIRE]: StageRequest"| Compute
+    Compute e12@-->|"[WIRE]: StageResult"| Appearance
+    Appearance e4@-->|"[BOUNDARY]: LayeredBsdf + SurfaceShade + EnvironmentLight"| AppUi
     Appearance e5@-->|"[WIRE]: MaterialWire"| Core
     Appearance e6@-->|"[WIRE]: OpenPbrGroupsWire"| Ui
     Host e7@-->|"[WIRE]: CaptureSource"| Appearance
@@ -155,27 +181,39 @@ flowchart LR
 
 ## [04]-[ROUTING]
 
-| [INDEX] | [CHANGE]                              | [OWNER_SURFACE]              | [SHAPE_OF_THE_EDIT]                                               |
-| :-----: | :------------------------------------ | :--------------------------- | :---------------------------------------------------------------- |
-|  [01]   | a new standardized component family   | `Component/component.md`     | one `ComponentFamily` row carrying its `ComponentClass`           |
-|  [02]   | a new anchor, panel, or board product | `Component/connector.md`     | one `FastenerKind` arm or `PanelKind` row                         |
-|  [03]   | a new scattering lobe                 | `Appearance/bsdf.md`         | one `BsdfLobe` case, admitted only where no parameterization fits |
-|  [04]   | a new material or finish              | `Appearance/graph.md`        | one `MaterialLibrary` row over the one `MaterialGraph`            |
-|  [05]   | a new standards table                 | the owning catalogue page    | one `SEED_ROW_LAW` table with per-column provenance               |
-|  [06]   | a new fault case                      | the owning owner page        | one arm at its `FaultBand` free frontier                          |
-|  [07]   | a new seam payload                    | `Rasm.Element` composition   | seam growth the projector composes, never a local remint          |
+| [INDEX] | [CHANGE]                            | [OWNER_SURFACE]             | [SHAPE_OF_THE_EDIT]                                               |
+| :-----: | :---------------------------------- | :-------------------------- | :---------------------------------------------------------------- |
+|  [01]   | new standardized component family   | `Component/component.md`    | one `ComponentFamily` row carrying its `ComponentClass`           |
+|  [02]   | new anchor, panel, or board product | `Component/connector.md`    | one `FastenerKind` arm or `PanelKind` row                         |
+|  [03]   | new scattering lobe                 | `Appearance/bsdf.md`        | one `BsdfLobe` case, admitted only where no parameterization fits |
+|  [04]   | new material or finish              | `Appearance/graph.md`       | one `MaterialLibrary` row over the one `MaterialGraph`            |
+|  [05]   | new standards table                 | the owning catalogue page   | one `SEED_ROW_LAW` table with per-column provenance               |
+|  [06]   | new fault case                      | the owning owner page       | one arm at its `FaultBand` free frontier                          |
+|  [07]   | new seam payload                    | `Rasm.Element` composition  | seam growth the projector composes, never a local remint          |
+|  [08]   | new standard sky or daylight model  | `Appearance/environment.md` | one `CieSkyType` row over the group pair, or one `SkyModel` case  |
+|  [09]   | new photo-to-PBR model              | `Appearance/neural.md`      | one `ModelCard` row carrying its licence class and contract       |
+|  [10]   | new bakeable appearance field       | `Raster/set.md`             | one `TextureChannel` row carrying its twelve columns              |
+|  [11]   | new plane container or block format | `Raster/codec.md`           | one `RasterFormat` row naming its engine, storage, and extension  |
+|  [12]   | new plane transform or curve        | `Raster/filter.md`          | one `PlaneOp`, `RemapCurve`, or `HeightDerivative` case           |
+|  [13]   | new tiling method                   | `Raster/tile.md`            | one `TileStrategy` row carrying its `Solve` delegate              |
+|  [14]   | new GPU compute kernel              | `Raster/gpu.md`             | one `WgslKernel` row carrying source, layout, reduce, and golden  |
+|  [15]   | new appearance wire document        | `Appearance/interchange.md` | one `IAppearanceWire` record with its `CorpusBorne` verdict       |
+|  [16]   | new seamless procedural lattice     | `Appearance/texture.md`     | one `NoiseBasis` row answering `Wrappable` plus its golden row    |
+|  [17]   | new photo-to-PBR capture modality   | `Appearance/acquisition.md` | one `CaptureSource` case and its `CaptureMethod` receipt row      |
 
 ## [05]-[BOUNDARIES]
 
 Boundaries state one positive ownership line each at the folder's own grain — one owner per axis, one entrypoint family per rail, growth by data; per-page boundary cards carry the concrete seams.
 
-- Materials owns architectural substance, appearance, and buildable component type: one `Component` over the closed profile algebra and one capacity rail, one `MaterialGraph` under a physically based appearance plane.
-- `ComponentFamily` is a closed axis over the Primary, Panel, and Minor rows, each family carrying its `ComponentClass` discriminant; a per-family type, a second projector, or a generic material abstraction is the named drift.
-- Standards data is in-fence C# under `SEED_ROW_LAW` — a table is `REFLECTED`, `DELEGATED`, or `AUTHORED`, every seed column carries `VENDOR`, `DEFINED`, or `PUBLISHED` provenance, policy vocabularies stay `[SmartEnum]` while standards enums become frozen row tables, and every seed row flows the one catalogue-to-solver rail.
-- One `ComponentProjector.Project` carries the whole material-and-Type subgraph onto `Rasm.Element`, minting the deterministic-rooted Type `Object` from exclusion-seeded canonical bytes and stamping `Classification`/`PredefinedType` off the stored `IfcBinding` row, so a later geometry attach never re-keys it.
+- Materials owns substance, appearance, and buildable type: one `Component` over the closed profile algebra, one capacity rail, one `MaterialGraph`, one `TextureSet`.
+- The appearance CORE is pointwise and the plane algebra is neighbourhood: a DAG node has no neighbours to read, so every filter, integration, and tiling kernel is `Raster/filter`'s or `Raster/tile`'s and never a node case.
+- Persisted plane bytes are CPU-minted; the GPU lane is an accelerator whose product carries no set and therefore no content key.
+- `ComponentFamily` closes the family axis and `ComponentClass` the structural-class axis, each family row carrying its class discriminant.
+- `SEED_ROW_LAW` seats standards data as in-fence C# under per-column provenance, and every seed row flows the one catalogue-to-solver rail.
+- `ComponentProjector.Project` stamps `Classification`/`PredefinedType` off its `IfcBinding` row, seed-excluded so a later attach never re-keys.
 - Model authors mint Occurrence `Object`s and `Rasm.Bim` ingests `IfcElementType` into the same Type; the `Bake` inheritance is the seam's.
 - Model owners stay host-neutral: none holds a host curve or transform, and run and layout geometry lands in `Rasm.Generation` at the app root.
-- `Rasm.Element` owns material-composition vocabulary, the admitted perceptual owner owns color, and UnitsNet admits once at each declared edge riding the seam `MeasureValue`; Materials re-mints none of them.
-- Only the documented author-kernel set — RGB-to-SPD, scene-referred tone-map, BSDF microfacet, noise, the capacity hull ray-cast — is hand-authored; every other concern composes its admitted engine.
+- `Rasm.Element` owns material-composition vocabulary, the perceptual owner color, and UnitsNet admits once per declared edge riding `MeasureValue`.
+- Each concern composes its admitted engine, and a kernel the ecosystem leaves unowned lands hand-authored at its owning page.
 - Every out-of-gamut, non-finite, or degenerate result rails to its banded fault, never a propagated NaN or sentinel.
-- Telemetry is a tap: composition-root decorators fire typed `MaterialsFact` cases onto the `MaterialsHooks` rail, so domain owners emit nothing; reliability policy is `MaterialsDescriptors` objectives over the kernel SLO algebra, benchmark truth a gate-stamped `BenchmarkReceipt`, and analytics truth a columnar projection of registered rows and typed facts.
+- Composition-root decorators tap `MaterialsFact` onto `MaterialsHooks`, so owners emit nothing; `MaterialsDescriptors` rides the kernel SLO algebra.

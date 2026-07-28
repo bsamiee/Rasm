@@ -1,8 +1,8 @@
 # [COMPUTE_PROVIDERS]
 
-Rasm.Compute model execution-provider axis: `ExecutionProvider` rows span every admitted ONNX Runtime registration family, autoEP `OrtEpDevice` discovery ranks hardware deterministically by each row's affinity, and row-owned `HostGate` predicates compose provider discovery with OS capability. `ProviderLibrary` brackets and content-keys an out-of-tree EP registration, and `External` mints its row on the same axis. `ModelPrecision` folds fp16/bf16/int8/int4 policy into provider and EP-agnostic session options. One two-step typed `OrtCompiledModelCompatibility` probe reads the compatibility info a COMPILED EP-context artifact embeds against the same device snapshot registration uses, and gates warm-start only when that artifact exists and the selected device reports `EP_SUPPORTED_OPTIMAL` — probing the uncompiled source model carries no embedded compat info and answers `EP_NOT_APPLICABLE`, the dead-warm-start defect.
+`ExecutionProvider` rows select ONNX Runtime registration through host-gated device discovery and deterministic affinity. `ProviderLibrary` owns external EP lifetime, `ModelPrecision` owns execution posture, and compiled-context compatibility admits warm starts only on `EP_SUPPORTED_OPTIMAL`.
 
-`ExecutionProvider` rows, `ModelPrecision` rows, and the `Devices`/`AutoSelect`/`Veto`/`OptionsFor`/`Register`/`Compatible`/`WarmStartAdmissible`/`ResultKey` fold are the owned surface; the Thinktecture `ComparerAccessors.StringOrdinal` key accessor arrives settled. Provider, device, and compatibility members ride `Microsoft.ML.OnnxRuntime`; option identity composes `ModelFingerprint.Of`, and negative-cache posture uses `NodaTime.Duration`. `ExecutionProvider` and `ModelPrecision` cross to sessions, inference, and generative owners as settled vocabulary.
+`ExecutionProvider` and `ModelPrecision` own discovery, registration, compatibility, resolution, and result identity. ONNX Runtime supplies provider members, `ModelFingerprint` keys behavior, and NodaTime owns negative-cache duration.
 
 ## [01]-[INDEX]
 
@@ -10,12 +10,16 @@ Rasm.Compute model execution-provider axis: `ExecutionProvider` rows span every 
 
 ## [02]-[EP_AXIS]
 
-- Owner: `ExecutionProvider` `[SmartEnum<string>]` rows (provider name, host gate, precision-keyed EP options, location options, session keys, device policy, hardware affinity, register delegate); `ModelPrecision` `[SmartEnum<string>]` rows (low-precision accumulation, BF16 fast math, `session.qdq_matmulnbits_accuracy_level`, negative TTL); the `Devices`/`AutoSelect`/`Veto`/`OptionsFor`/`Register`/`Compatible`/`WarmStartAdmissible`/`ResultKey` fold over `OrtEpDevice`.
+- Owner: `ExecutionProvider` `[SmartEnum<string>]` rows (provider name, wire spelling, host gate, precision-keyed EP options, location options, session keys, device policy, hardware affinity, register delegate); `ModelPrecision` `[SmartEnum<string>]` rows (wire spelling, low-precision accumulation, BF16 fast math, `session.qdq_matmulnbits_accuracy_level`, negative TTL); the `Devices`/`AutoSelect`/`Veto`/`OptionsFor`/`Register`/`Compatible`/`WarmStartAdmissible`/`Resolve`/`FromWire`/`ResultKey` fold over `OrtEpDevice`.
 - Cases: `ExecutionProvider` rows `Cpu`, `Cuda`, `DirectMl`, `TensorRt`, `Rocm`, `CoreMl`, `OpenVino`, `MiGraphX`, `Nnapi`, `Dnnl`; `ModelPrecision` rows `Full`, `Fp16`, `Bf16`, `Int8`, `Int4`.
-- Auto: `Available` short-circuits on `HostGate` before `GetAvailableProviders`; `AutoSelect` ranks devices by row-owned `HardwareAffinity`, then CPU last, then provider/vendor/device identity for deterministic ties. One selected-device snapshot passes through `Register`, `Compatible`, and `WarmStartAdmissible`. `Register` folds session keys and precision `QdqKeys`, composes row-owned EP and location option tables, then uses direct autoEP registration when the snapshot is non-empty or the row's verified fallback registration otherwise. Only `CoreMl.LocationOptions` contributes `ModelCacheDirectory`; no foreign provider receives that key. `Compatible` runs the two-step probe over the same snapshot against the compiled artifact's embedded compat info. `WarmStartAdmissible` requires an existing context artifact and exactly `EP_SUPPORTED_OPTIMAL` read from that artifact; `EP_UNSUPPORTED`, `EP_SUPPORTED_PREFER_RECOMPILATION`, and `EP_NOT_APPLICABLE` compile fresh. `Veto` folds incompatibility reason, notes, and code per hardware device. `ResultKey` stamps provider, runtime, precision, and the shared behavior-option fingerprint; external-library bytes participate through `ProviderLibrary.ContentKey`.
+- Law: `Cpu` is the GUARANTEED FLOOR and every other row a POLICY THAT MAY REFUSE. `CPUExecutionProvider` ships with every runtime under a host gate that never closes, so `Resolve` degrades a key naming no row — or a row whose native provider the host never loaded — onto the floor rather than faulting a caller holding no alternative. `IsFloor` derives that identity instead of a column, so exactly one row answers it and no construction forks the answer.
+- Law: each row carries its OWN wire spelling. `WireKey` is a row column and `FromWire` the one projection, so a cross-boundary record naming a provider or a precision holds no translation table of its own and an accelerator landing later crosses every wire by declaring one string. Rows spelling `None` never cross, which keeps a posture demanding settled pre-quantized bytes unreachable from a wire carrying only an execution preference.
+- Law: an unresolvable PROVIDER degrades and an unresolvable PRECISION refuses. `ExecutionProvider.FromWire` answers `Floor` for a spelling this roster cannot honour because the consuming record reports what ran and a caller reads the substitution off that column; `ModelPrecision.FromWire` answers `None` because precision carries no such report, so the consumer refuses — an fp16 request silently executing fp32 is the exact substitution the `CoreMl` row's `ModelFormat` pin exists to foreclose, and a default there reopens it one layer up.
+- Law: accelerated rows answer to the floor by MEASUREMENT. Every non-floor row produces a result whose residual against a floor-provider run over the same input is measured at the run and reported outward, because a provider drawing its speed from lower internal precision degrades silently and by construction raises nothing; this axis declares the obligation and `Model/inference#STAGE_EXECUTION` performs the comparison, so tolerance lives with the consumer owning admission rather than here.
+- Auto: `Available` short-circuits on `HostGate` before `GetAvailableProviders`; `FromWire` scans the row roster rather than caching a frozen inverse, because a static table folded from `Items` beside the row fields reads an empty roster whenever its initializer wins the ordering race — and a ten-row ordinal scan disappears beside the session lease it precedes. `AutoSelect` ranks devices by row-owned `HardwareAffinity`, then CPU last, then provider/vendor/device identity for deterministic ties. One selected-device snapshot passes through `Register`, `Compatible`, and `WarmStartAdmissible`. `Register` folds session keys and precision `QdqKeys`, composes row-owned EP and location option tables, then uses direct autoEP registration when the snapshot is non-empty or the row's verified fallback registration otherwise. Only `CoreMl.LocationOptions` contributes `ModelCacheDirectory`; no foreign provider receives that key. `Compatible` runs the two-step probe over the same snapshot against the compiled artifact's embedded compat info. `WarmStartAdmissible` requires an existing context artifact and exactly `EP_SUPPORTED_OPTIMAL` read from that artifact; `EP_UNSUPPORTED`, `EP_SUPPORTED_PREFER_RECOMPILATION`, and `EP_NOT_APPLICABLE` compile fresh. `Veto` folds incompatibility reason, notes, and code per hardware device. `Resolve` reads the row roster by key, proves the native provider loaded through `Available`, and answers `Floor` otherwise. `ResultKey` stamps provider, runtime, precision, and the shared behavior-option fingerprint; external-library bytes participate through `ProviderLibrary.ContentKey`.
 - Packages: Microsoft.ML.OnnxRuntime, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project, `Domain.ContentHash`), BCL inbox
-- Growth: a built-in accelerator is one `ExecutionProvider` row with its provider name, OS gate, `HardwareAffinity`, EP-option/session-key projections, and register delegate. Out-of-tree accelerators enter through `External`, which brackets `RegisterExecutionProviderLibrary`/`UnregisterExecutionProviderLibrary` in one `ProviderLibrary` and returns a row using the same generic registration path. Each quantization posture is one `ModelPrecision` row folded into the same registration and fingerprint rails; a custom device-rank strategy is one `SetEpSelectionPolicyDelegate` arm on `AutoSelect`.
-- Boundary: each row owns one provider-specific fallback registration and one autoEP device registration path selected by a caller-held device snapshot, so one lease appends one provider. `CoreMl` alone uses the generic `AppendExecutionProvider("CoreMLExecutionProvider", options)` spelling because its row owns `ModelFormat`, compute units, specialization, cache directory, and precision; the flags overload never runs beside it. Location options affect native artifact placement but stay out of result identity, while EP/session/precision options enter `OptionsFor`. `ProviderLibrary` rejects blank identities or an absent asset, hashes the registered bytes, unregisters once through `Interlocked.Exchange`, and threads its content identity into the dynamic row's behavior options. `HostGate` expresses row-specific OS capability while `GetAvailableProviders` proves the loaded native provider. `Full` leaves `mlas.enable_gemm_fastmath_arm64_bfloat16` disabled; `Bf16` alone sets it. Precision also reaches CoreML low-precision accumulation and MatMulNBits accuracy, and every behavior option participates in `ModelFingerprint.Of`. Compatibility consumes `OrtCompiledModelCompatibility` directly and admits reuse only for an existing `EP_SUPPORTED_OPTIMAL` artifact.
+- Growth: a built-in accelerator is one `ExecutionProvider` row with its provider name, OS gate, `HardwareAffinity`, EP-option/session-key projections, and register delegate — including an accelerator whose native provider this platform's runtime may not carry, because `Available` and `Resolve` already answer absence and no caller-facing surface moves. That row reaches every wire the moment it declares a `WireKey`; before it declares one, `FromWire` degrades the spelling it answers to onto the floor exactly as it degrades an unloaded provider. Out-of-tree accelerators enter through `External`, which brackets `RegisterExecutionProviderLibrary`/`UnregisterExecutionProviderLibrary` in one `ProviderLibrary` and returns a row using the same generic registration path. Each quantization posture is one `ModelPrecision` row folded into the same registration and fingerprint rails; a custom device-rank strategy is one `SetEpSelectionPolicyDelegate` arm on `AutoSelect`.
+- Boundary: each row owns one provider-specific fallback registration and one autoEP device registration path selected by a caller-held device snapshot, so one lease appends one provider. `CoreMl` alone uses the generic `AppendExecutionProvider("CoreMLExecutionProvider", options)` spelling because its row owns `ModelFormat`, compute units, specialization, cache directory, and precision; the flags overload never runs beside it. `WireKey` stays out of `OptionsFor` and out of `ResultKey`: it names the row for a boundary record and reaches nothing the built session does, so a rename changing no execution re-keys no cached result. Location options affect native artifact placement but stay out of result identity, while EP/session/precision options enter `OptionsFor`. `ProviderLibrary` rejects blank identities or an absent asset, hashes the registered bytes, unregisters once through `Interlocked.Exchange`, and threads its content identity into the dynamic row's behavior options. `HostGate` expresses row-specific OS capability while `GetAvailableProviders` proves the loaded native provider. `Full` leaves `mlas.enable_gemm_fastmath_arm64_bfloat16` disabled; `Bf16` alone sets it. Precision also reaches CoreML low-precision accumulation and MatMulNBits accuracy, and every behavior option participates in `ModelFingerprint.Of`. Compatibility consumes `OrtCompiledModelCompatibility` directly and admits reuse only for an existing `EP_SUPPORTED_OPTIMAL` artifact.
 
 ```csharp signature
 
@@ -26,17 +30,25 @@ public sealed partial class ModelPrecision {
     // Precision rows carry EXECUTION POSTURE, never a graph transform: Int8/Int4 demand settled pre-quantized
     // model bytes (the quantized graph is its own checksum identity) and select the MatMulNBits accuracy floor
     // with the accumulation posture; `QuantizedGraph` is the admission evidence session `Options` gates on.
-    public static readonly ModelPrecision Full = new("full", lowPrecisionAccumulation: false, bfloat16FastMath: false, accuracyLevel: Option<int>.None, quantizedGraph: false, negativeTtl: Duration.FromMinutes(15));
-    public static readonly ModelPrecision Fp16 = new("fp16", lowPrecisionAccumulation: true, bfloat16FastMath: false, accuracyLevel: Option<int>.None, quantizedGraph: false, negativeTtl: Duration.FromMinutes(10));
-    public static readonly ModelPrecision Bf16 = new("bf16", lowPrecisionAccumulation: true, bfloat16FastMath: true, accuracyLevel: Option<int>.None, quantizedGraph: false, negativeTtl: Duration.FromMinutes(10));
-    public static readonly ModelPrecision Int8 = new("int8", lowPrecisionAccumulation: true, bfloat16FastMath: false, accuracyLevel: 4, quantizedGraph: true, negativeTtl: Duration.FromMinutes(5));
-    public static readonly ModelPrecision Int4 = new("int4", lowPrecisionAccumulation: true, bfloat16FastMath: false, accuracyLevel: 4, quantizedGraph: true, negativeTtl: Duration.FromMinutes(2));
+    // Each row's wire spelling is its own column, and rows demanding settled quantized bytes carry NONE — nothing a
+    // caller states as a preference selects a posture that is a property of the model file it did not supply.
+    public static readonly ModelPrecision Full = new("full", wireKey: "fp32", lowPrecisionAccumulation: false, bfloat16FastMath: false, accuracyLevel: Option<int>.None, quantizedGraph: false, negativeTtl: Duration.FromMinutes(15));
+    public static readonly ModelPrecision Fp16 = new("fp16", wireKey: "fp16", lowPrecisionAccumulation: true, bfloat16FastMath: false, accuracyLevel: Option<int>.None, quantizedGraph: false, negativeTtl: Duration.FromMinutes(10));
+    public static readonly ModelPrecision Bf16 = new("bf16", wireKey: Option<string>.None, lowPrecisionAccumulation: true, bfloat16FastMath: true, accuracyLevel: Option<int>.None, quantizedGraph: false, negativeTtl: Duration.FromMinutes(10));
+    public static readonly ModelPrecision Int8 = new("int8", wireKey: Option<string>.None, lowPrecisionAccumulation: true, bfloat16FastMath: false, accuracyLevel: 4, quantizedGraph: true, negativeTtl: Duration.FromMinutes(5));
+    public static readonly ModelPrecision Int4 = new("int4", wireKey: Option<string>.None, lowPrecisionAccumulation: true, bfloat16FastMath: false, accuracyLevel: 4, quantizedGraph: true, negativeTtl: Duration.FromMinutes(2));
 
+    public Option<string> WireKey { get; }
     public bool LowPrecisionAccumulation { get; }
     public bool Bfloat16FastMath { get; }
     public Option<int> AccuracyLevel { get; }
     public bool QuantizedGraph { get; }
     public Duration NegativeTtl { get; }
+
+    // NONE refuses at the consumer. A precision the roster cannot honour has no report column on any result, so
+    // substituting a default here would run one posture while the receipt names another.
+    public static Option<ModelPrecision> FromWire(string wire) =>
+        toSeq(Items).Find(row => row.WireKey.Case is string key && StringComparer.Ordinal.Equals(key, wire));
 
     public FrozenDictionary<string, string> QdqKeys =>
         AccuracyLevel.Match(
@@ -75,6 +87,11 @@ public sealed partial class ExecutionProvider {
         }
     }
 
+    // ModelFormat is PINNED to MLProgram: the NeuralNetwork format the row would otherwise default to executes an
+    // fp32 graph at fp16 on the ANE without saying so, so the pin is what keeps precision a declared posture rather
+    // than a silent host decision — and it is why AllowLowPrecisionAccumulationOnGPU tracks the precision row
+    // instead of standing open. Every claim this row makes about numeric agreement is answerable to a floor-provider
+    // residual measured at the run.
     static readonly FrozenDictionary<string, string> CoreMlRows = new Dictionary<string, string>(StringComparer.Ordinal) {
         ["ModelFormat"] = "MLProgram",
         ["MLComputeUnits"] = "ALL",
@@ -96,7 +113,7 @@ public sealed partial class ExecutionProvider {
         }.ToFrozenDictionary(StringComparer.Ordinal);
 
     public static readonly ExecutionProvider Cpu = new(
-        "cpu", providerName: "CPUExecutionProvider", hostGate: static () => true,
+        "cpu", providerName: "CPUExecutionProvider", wireKey: "cpu", hostGate: static () => true,
         epOptions: static _ => FrozenDictionary<string, string>.Empty, locationOptions: static _ => FrozenDictionary<string, string>.Empty,
         sessionKeys: CpuSessionKeys,
         devicePolicy: Option<ExecutionProviderDevicePolicy>.None, hardwareAffinity: OrtHardwareDeviceType.CPU,
@@ -119,7 +136,8 @@ public sealed partial class ExecutionProvider {
         static options => options.AppendExecutionProvider_ROCm(0));
 
     public static readonly ExecutionProvider CoreMl = new(
-        "coreml", providerName: "CoreMLExecutionProvider", hostGate: static () => OperatingSystem.IsMacOSVersionAtLeast(12),
+        "coreml", providerName: "CoreMLExecutionProvider", wireKey: "coreMl",
+        hostGate: static () => OperatingSystem.IsMacOSVersionAtLeast(12),
         epOptions: CoreMlOptions,
         locationOptions: static cacheDir => new Dictionary<string, string>(StringComparer.Ordinal) { ["ModelCacheDirectory"] = cacheDir }.ToFrozenDictionary(StringComparer.Ordinal),
         sessionKeys: static _ => FrozenDictionary<string, string>.Empty,
@@ -144,6 +162,7 @@ public sealed partial class ExecutionProvider {
         static options => options.AppendExecutionProvider_Dnnl(1));
 
     public string ProviderName { get; }
+    public Option<string> WireKey { get; }
     public Func<bool> HostGate { get; }
     public Func<ModelPrecision, FrozenDictionary<string, string>> EpOptions { get; }
     public Func<string, FrozenDictionary<string, string>> LocationOptions { get; }
@@ -155,6 +174,29 @@ public sealed partial class ExecutionProvider {
     public bool Available =>
         HostGate()
         && OrtEnv.Instance().GetAvailableProviders().Contains(ProviderName, StringComparer.Ordinal);
+
+    // Floor identity is DERIVED, never a column: exactly one row can answer true and no construction can fork it.
+    public bool IsFloor => ReferenceEquals(this, Cpu);
+
+    public static ExecutionProvider Floor => Cpu;
+
+    // Degradation happens HERE and nowhere else: a caller states a preference, this answer decides, and the run
+    // reports it back as evidence — so an unshipped or host-refused provider never becomes a caller-facing fault.
+    public static ExecutionProvider Resolve(string key) =>
+        TryGet(key, out ExecutionProvider? row) && row.Available ? row : Floor;
+
+    // Wire values name a PREFERENCE and this answer names what runs. Spellings no row claims and rows whose native
+    // provider never loaded reach the floor by one route, because from this end they are one fact: a provider this
+    // host cannot offer. Consuming records report the answer, so the substitution is never silent. Resolution scans
+    // rather than folding a cached inverse — static tables built from `Items` beside the row initializers race them
+    // and can freeze an empty roster.
+    public static ExecutionProvider FromWire(string wire) =>
+        toSeq(Items)
+            .Find(row => row.WireKey.Case is string key && StringComparer.Ordinal.Equals(key, wire))
+            .Match(Some: static row => Resolve(row.Key), None: static () => Floor);
+
+    // Results report this spelling; rows with no wire column reach a result only as the floor's own answer.
+    public string ReportKey => WireKey.IfNone(Key);
 
     public Seq<OrtEpDevice> Devices =>
         toSeq(OrtEnv.Instance().GetEpDevices()).Filter(device => StringComparer.Ordinal.Equals(device.EpName, ProviderName));
@@ -216,6 +258,7 @@ public sealed partial class ExecutionProvider {
                 new ExecutionProvider(
                     key,
                     providerName,
+                    Option<string>.None,
                     static () => true,
                     _ => new Dictionary<string, string>(StringComparer.Ordinal) {
                         ["external.library.content"] = library.ContentKey.ToString("x32", CultureInfo.InvariantCulture),
@@ -228,15 +271,20 @@ public sealed partial class ExecutionProvider {
                         providerName, new Dictionary<string, string>(rows, StringComparer.Ordinal))),
                 library));
 
+    // Built-in accelerators carry NO wire spelling until a boundary record names one: rows exist so `Available`
+    // answers for the host, and a spelling nobody sends puts an unreachable key on every wire reading this roster.
+    // `wireKey` defaults to `None`, so admitting a row to a wire is one argument.
     static ExecutionProvider Accelerator(
         string key,
         string providerName,
         OrtHardwareDeviceType affinity,
         Func<bool> hostGate,
-        Action<SessionOptions> register) =>
+        Action<SessionOptions> register,
+        Option<string> wireKey = default) =>
         new(
             key,
             providerName,
+            wireKey,
             hostGate,
             static _ => FrozenDictionary<string, string>.Empty,
             static _ => FrozenDictionary<string, string>.Empty,
@@ -275,4 +323,5 @@ public sealed partial class ExecutionProvider {
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-(none)
+- [WEBGPU_PROVIDER]-[OPEN]: does the pinned `osx-arm64` runtime ship WebGPU, and under which `GetAvailableProviders()` registration name; assay inspects restored native-package contents, enumerates `GetAvailableProviders()` and `GetEpDevices()`, then records `OrtEpDevice.EpOptions` before a row admits. One `Accelerator` row carrying `wireKey: "webGpu"` is the whole landing; until it lands `FromWire` reaches `Floor` there, and `Cpu` remains the guaranteed floor.
+- [COREML_PRECISION_RESIDUAL]-[OPEN]: what residual does the `CoreMl` row's MLProgram path reach against a `Cpu` run of the same graph at `ModelPrecision.Full`, per stage class; measure through the `Model/inference#STAGE_EXECUTION` canary comparison on the ORT host and record the observed band per model family rather than asserting a tolerance here.

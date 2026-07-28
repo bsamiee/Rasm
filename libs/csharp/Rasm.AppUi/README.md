@@ -23,8 +23,8 @@ Its shell mounts onto any admitted substrate through the `SurfaceMount` and host
 [RENDER]:
 - [11]-[PIPELINE](.planning/Render/pipeline.md): Render-graph pass-DAG with per-backend targets and a resolve ladder.
 - [12]-[MESHLETS](.planning/Render/meshlets.md): Compute residency-cluster consumption with hysteresis LOD and a cull cut.
-- [13]-[PATHTRACE](.planning/Render/pathtrace.md): BVH, ReSTIR, and denoise oracle over the one light rig.
-- [14]-[SHADING](.planning/Render/shading.md): Per-backend GPU shader cache feeding the layered-BSDF shade pass.
+- [13]-[PATHTRACE](.planning/Render/pathtrace.md): BVH, ReSTIR, ray-cone LOD, and denoise oracle over the light rig and its resolved dome.
+- [14]-[SHADING](.planning/Render/shading.md): Per-backend GPU shader and budgeted plane residency under the layered-BSDF shade pass.
 - [15]-[IMMERSIVE](.planning/Render/immersive.md): OpenXR stereo design-review and passthrough over the shared device.
 - [16]-[REALITY](.planning/Render/reality.md): Gaussian-splat and point-cloud capture over the one residency carrier.
 - [17]-[CAPTURE](.planning/Render/capture.md): Raster capsule, color-policy owner, and vector-print encode rows.

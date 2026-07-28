@@ -1,6 +1,6 @@
 # [RASM_APPUI_ARCHITECTURE]
 
-`Rasm.AppUi` maps the APP-PLATFORM Avalonia product-UI engine over the settled receipt spine and the GPU render surface: each sub-domain page is a UI capability unit lowering onto the one 6xxx `AppUiFaultBand`. S4 seats it as the consuming leaf: it references `{Rasm, Rasm.AppHost, Rasm.Compute, Rasm.Persistence}` downward, re-owns none of their capability, and never becomes the composition root.
+`Rasm.AppUi` maps the APP-PLATFORM Avalonia product-UI engine over the settled receipt spine and the GPU render surface: each sub-domain page is a UI capability unit lowering onto the one 6xxx `AppUiFaultBand`. S4 seats it as the consuming leaf: it references `{Rasm, Rasm.AppHost, Rasm.Compute, Rasm.Materials, Rasm.Persistence}` downward, re-owns none of their capability, and never becomes the composition root.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -20,8 +20,8 @@ Rasm.AppUi/
 ├── Render/               # Pure GPU-viewport and temporal plane
 │   ├── Pipeline.cs       # Render-graph pass-DAG over per-backend GPU targets and the resolve ladder
 │   ├── Meshlets.cs       # Compute residency cluster consumption with hysteresis LOD and cull cut
-│   ├── PathTrace.cs      # BVH, ReSTIR, denoise oracle, and sun study over the one light rig
-│   ├── Shading.cs        # GPU shader cache per backend feeding the layered-BSDF shade pass
+│   ├── PathTrace.cs      # BVH, ReSTIR, ray-cone LOD, denoise oracle, and the resolved environment dome
+│   ├── Shading.cs        # Admitted shader roster, budgeted plane residency, and the layered-BSDF plus prefiltered-dome shade pass
 │   ├── Immersive.cs      # OpenXR stereo design-review and passthrough over the shared device
 │   ├── Reality.cs        # Gaussian-splat and point-cloud capture over the one residency carrier
 │   ├── Capture.cs        # Raster capsule, color-policy owner, vector-print arm, and encode rows
@@ -149,7 +149,7 @@ flowchart LR
     Render <-->|"[SHAPE]: WgpuDevice"| Compute
     Compute -->|"[SHAPE]: SolarPosition"| Render
     Fabrication -->|"[RECEIPT]: HiddenLineResult"| Render
-    Materials -->|"[BOUNDARY]: LayeredBsdf + SurfaceShade"| Render
+    Materials -->|"[BOUNDARY]: LayeredBsdf + SurfaceShade + EnvironmentLight + TextureSet"| Render
     Rasm -->|"[CONTENT_KEY]: ContentHash"| Render
     Bim -->|"[SHAPE]: GeoTiles"| Charts
     Bim -->|"[RECEIPT]: CostSchedule"| Charts
@@ -199,6 +199,7 @@ flowchart LR
     Collab <-->|"[TRANSPORT]: CollabWireContext"| AppHost
 ```
 
+- `[BOUNDARY]: LayeredBsdf + SurfaceShade + EnvironmentLight + TextureSet` into `Render` — the appearance edge, VALUES only: Materials lowers the layered BSDF and the channel-value closure, presses or ingests the plane set, and prefilters the dome, while `Render/pathtrace` shades and draws the dome and `Render/shading` uploads planes and binds the prefiltered products. Every plane read, transfer decode, mip fold, sampler law, channel name, equirect projection, SH band, and prefilter integral stays Materials-side; Render supplies the point, the UV, the mip level, and the device.
 - `[PORT]: DeterminismContext` into `Document` — the AppHost runtime port spine composed at app composition; `CapabilityPin` anchors it.
 - `[PORT]` into `Diagnostics` — observability spine: owners seal evidence through the kernel `ReceiptSinkPort`, declare instruments as kernel `InstrumentSpec` rows, and bind objectives through the kernel SLO algebra; telemetry projects facts, never produces them, and the AppHost half of the edge is the `HookRail` receipt point the fan taps.
 - Instrument rows contribute through `TelemetryContributorPort` on the `TelemetrySource.AppUi` meter.
@@ -242,3 +243,5 @@ flowchart LR
 - `Rasm.Bim` owns openBIM and coordination semantics; AppUi keeps the `Viewpoint` board projection alone.
 - Every AppUi content hash composes the one kernel `ContentHash.Of` seed-zero entry, the branch's frozen content-key entry.
 - Bim, Compute, and the AppHost `RecomputeGraph` own geodesy, solar position, clustering, and recompute.
+- `Rasm.Materials` owns appearance whole — the channel roster, plane storage and its decode ladder, sampler reconstruction, set admission, and the prefiltered environment — so a Render-side channel vocabulary, texture sampler, transfer curve, mip fold, SH reconstruction, or prefilter integral has no seam to enter; Render binds the values and holds the device.
+- Texture-plane VRAM is budgeted at `Render/shading` under the byte-ceiling and least-recently-touched law `Render/meshlets` `ResidencyBudget` holds for geometry VRAM; an unbounded native-handle cache is the rejected form on either plane.

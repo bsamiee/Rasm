@@ -50,7 +50,7 @@
 |  [09]   | `TileDescription`                                                 | sealed class    | tile extent, level mode, rounding mode           |
 |  [10]   | `Box2i`                                                           | readonly struct | data and display window                          |
 |  [11]   | `Chromaticities`                                                  | readonly struct | RGB primaries and white point                    |
-|  [12]   | `InterleavedFloatImage`                                           | sealed class    | channel-interleaved float view of a part         |
+|  [12]   | `InterleavedFloatImage`                                           | sealed class    | `Width`/`Height`/`Channels`/`Data`/`GetSample`   |
 |  [13]   | `SpectralImage`                                                   | sealed class    | wavelength-sampled part carrier                  |
 |  [14]   | `DeepSampleRange` / `DeepChannelDestination` / `DeepEncodedBlock` | struct, class   | deep sample addressing                           |
 |  [15]   | `PartType`                                                        | enum            | `Scanline` `Tiled` `DeepScanline` `DeepTiled`    |
@@ -184,7 +184,7 @@
 |  [02]   | `PixelConversion.FloatToHalf(ReadOnlySpan<float>, Span<ushort>)`                          | static   | float to half         |
 |  [03]   | `PixelConversion.ByteToFloat(ReadOnlySpan<byte>, Span<float>, PixelConversionMode)`       | static   | byte to float         |
 |  [04]   | `PixelConversion.FloatToUInt(ReadOnlySpan<float>, Span<uint>, PixelConversionMode)`       | static   | float to uint         |
-|  [05]   | `ImageProcessing.Resize(ReadOnlySpan<float>, …, ResizeFilter, EdgeMode, …)`               | static   | separable resample    |
+|  [05]   | `ImageProcessing.Resize(ReadOnlySpan<float>, int, int, Span<float>, int, int, int, …)`    | static   | separable resample    |
 |  [06]   | `ImageProcessing.ToneMap(ReadOnlySpan<float>, Span<float>, int, ToneMapOperator, …)`      | static   | operator tone map     |
 |  [07]   | `ImageProcessing.ApplyColorMatrix(ReadOnlySpan<float>, Span<float>, int, ColorMatrix3x3)` | static   | primaries transform   |
 |  [08]   | `ImageProcessing.EncodeTransfer(ReadOnlySpan<float>, Span<float>, TransferFunction)`      | static   | linear to encoded     |
@@ -193,7 +193,7 @@
 |  [11]   | `Lut3D.TryParseCube(string?, out Lut3D?) -> ExrResult`                                    | static   | parse a `.cube` LUT   |
 |  [12]   | `Lut3D.Apply(ReadOnlySpan<float>, Span<float>, int, LutInterpolation)`                    | instance | apply the LUT         |
 |  [13]   | `PartConversion.ToInterleavedFloat(Part) -> InterleavedFloatImage`                        | static   | planar to interleaved |
-|  [14]   | `PartConversion.FromInterleavedFloat(ReadOnlySpan<float>, int ×3, …) -> Part`             | static   | interleaved to a part |
+|  [14]   | `PartConversion.FromInterleavedFloat(ReadOnlySpan<float>, int, int, int, …) -> Part`      | static   | interleaved to a part |
 |  [15]   | `PartConversion.LuminanceChromaToRgbaFloat(Part) -> InterleavedFloatImage`                | static   | chroma expansion      |
 
 [ENTRYPOINT_SCOPE]: spectral channels — `TinyEXR.V3.Spectral`
@@ -236,6 +236,9 @@
 - Deep parts are two reads: `DecodeDeepCounts` fills the per-pixel sample counts, then `DecodeDeepSamples` fills the destinations those counts size. Reversing the order sizes nothing.
 - Compression is per part on `Header.Compression`, spanning the whole roster through DWAA, DWAB, and the HTJ2K rows; `PIZ` and `B44` are lossless-for-half and lossy-for-half respectively, and `PXR24` truncates float to 24 bits — a solver-grade plane takes `ZIP` or `ZIPS`.
 - Processing folds operate on interleaved float spans, never on the container: `Resize`, `ToneMap`, `ApplyColorMatrix`, `EncodeTransfer`/`DecodeTransfer`, and `Lut3D.Apply` all take a `ReadOnlySpan<float>` and a channel count, so they compose over any float plane the estate holds.
+- Fold arities, each with defaulted tails: `Resize(source, sourceWidth, sourceHeight, destination, destinationWidth, destinationHeight, channels, ResizeFilter = Mitchell, EdgeMode = Clamp, alphaChannel = -1, …)` — the extent groups bracket the two spans and the channel count follows BOTH, so a source-extent-then-channel-count spelling silently transposes the destination; `ToneMap(source, destination, channels, ToneMapOperator, ToneMapParameters? = null)`; `EncodeTransfer`/`DecodeTransfer(source, destination, TransferFunction)`; `Lut3D.Apply(source, destination, channels, LutInterpolation = Trilinear)`; `PartConversion.FromInterleavedFloat(source, width, height, channels, PixelType = Half, Compression = ZIP)` — leaving `destinationType` defaulted narrows a solver-grade plane to half at the container edge.
+- Every span fold admits a destination aliasing its source at the SAME start and refuses a partial overlap, so one scratch span threads a whole row rail; the refusal is an `ArgumentException`, never a silent miscompute.
+- Result values carry `IsSuccess` beside `Status`, and `ReaderResult<T>`/`WriterResult<T>` expose `Value` as `T?`, so a success arm pattern-matches `{ IsSuccess: true, Value: { } payload }` rather than dereferencing after a status compare.
 
 [STACKING]:
 - `SixLabors.ImageSharp`(`.api/api-imagesharp.md`): the container split — that surface carries no EXR codec at the held major, so this one is the SOLE EXR owner across every shape, flat scanline included, and the peer owns PNG, TIFF, WebP, QOI, and JPEG alone; a plane crosses as raw bytes between an `Image<RgbaVector>` and a `ChannelBuffer`, both reading one pooled arena, and `ExrFile.SaveToStream(image, stream, Compression.ZIP)` writes the flat per-channel file every cross-branch parity fixture reads.

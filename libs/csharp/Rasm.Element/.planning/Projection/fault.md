@@ -47,6 +47,7 @@ public sealed partial class FaultBand {
     public static readonly FaultBand Generation  = new(2350, owner: "Rasm.Generation", mirror: false);
     public static readonly FaultBand Geometry    = new(2400, owner: "Rasm", mirror: true);
     public static readonly FaultBand Material    = new(2450, owner: "Rasm.Materials/Appearance", mirror: false);
+    public static readonly FaultBand Raster      = new(2460, owner: "Rasm.Materials/Raster", mirror: false);
     public static readonly FaultBand Projection  = new(2470, owner: "Rasm.Materials/Projection", mirror: false);
     public static readonly FaultBand Element     = new(2500, owner: "Rasm.Element", mirror: false);
     public static readonly FaultBand Bim         = new(2600, owner: "Rasm.Bim", mirror: false);

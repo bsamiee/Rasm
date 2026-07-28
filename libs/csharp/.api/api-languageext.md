@@ -285,11 +285,13 @@
 |  [44]   | `HashMap.Union(IEnumerable<(K,V)>, WhenMatched<K,V,V,V>)`        | instance | merge with a collision rule         |
 |  [45]   | `HashMap.ContainsKey(K)`                                         | instance | total key membership                |
 |  [46]   | `HashMap.ToTrackingHashMap()`                                    | instance | change-logged map lift              |
-|  [47]   | `Set.Add(A)`                                                     | instance | persistent set insertion            |
-|  [48]   | `Set.TryAdd(A)`                                                  | instance | insertion tolerating a duplicate    |
-|  [49]   | `IterableExtensions.AsIterable(IEnumerable<A>)`                  | static   | lazy sync lift                      |
-|  [50]   | `IterableExtensions.AsIterable(IAsyncEnumerable<A>)`             | static   | lazy async lift                     |
-|  [51]   | `Iterable<A>.FromSpan(ReadOnlySpan<A>)`                          | static   | `params` span into the carrier rail |
+|  [47]   | `HashMap.AddOrUpdate(K, V)`                                      | instance | persistent unconditional upsert     |
+|  [48]   | `HashMap.AsIterable()`                                           | instance | `(K Key, V Value)` pair carrier     |
+|  [49]   | `Set.Add(A)`                                                     | instance | persistent set insertion            |
+|  [50]   | `Set.TryAdd(A)`                                                  | instance | insertion tolerating a duplicate    |
+|  [51]   | `IterableExtensions.AsIterable(IEnumerable<A>)`                  | static   | lazy sync lift                      |
+|  [52]   | `IterableExtensions.AsIterable(IAsyncEnumerable<A>)`             | static   | lazy async lift                     |
+|  [53]   | `Iterable<A>.FromSpan(ReadOnlySpan<A>)`                          | static   | `params` span into the carrier rail |
 
 [ENTRYPOINT_SCOPE]: state, optics, and the prelude vocabulary
 
@@ -334,6 +336,7 @@
 - `Arr<A>` is the indexed carrier collection expressions build; `Iterable<A>` is the lazy sync-or-async seam materializing through `ToSeq`.
 - `Iterable<A>.FromSpan` is the one lift a `params ReadOnlySpan<A>` parameter takes to reach the carrier rail, because a span cannot cross into a lambda or an iterator; it copies at the call, so the returned carrier outlives the frame.
 - Lookups return `Option`: `HashMap.Find`, `Seq.Head`, `Seq.Last`.
+- `HashMap<K, V>` declares NO fold of its own; the carrier-generic `Fold` reaches it through `K<HashMap<K>, V>`, whose element is `V` ALONE. A fold needing the key runs over `AsIterable()`, whose element is the `(K Key, V Value)` pair — `map.Fold(seed, (state, pair) => … pair.Key …)` does not type, and the three-argument `Fold(S, Func<S,K,V,S>)` belongs to the `Eq`-parameterized `HashMap<EqK, K, V>`, not to the two-parameter map.
 - Indexed enumeration is the instance `Map((value, index) => …)`; the module `Seq.map(seq, (index, value) => …)` transposes, so a mechanical rewrite between the two silently swaps the lambda arguments.
 - `Traverse` inverts effect and shape applicatively (`Seq<Fin<A>>` to `Fin<Seq<A>>`); `TraverseM` inverts monadically and short-circuits on the first failure; `Partition` inverts without exiting, keeping both branches.
 - `Option : Traversable<Option>`, so traversing an optional value is total over absence — `None` yields the applicative's own `Pure`, which makes `option.TraverseM(f).As()` the fold an optional payload's conditional effect takes and deletes the `Match` arm pair a rail forbids mid-pipeline.

@@ -22,24 +22,35 @@ Component rows feed generated assemblies and fabrication physics, capacity recei
 
 [APPEARANCE]:
 - [13]-[BSDF](.planning/Appearance/bsdf.md): Closed BSDF lobe family and the microfacet kernel.
-- [14]-[GRAPH](.planning/Appearance/graph.md): Material node-DAG program and the material-library table.
+- [14]-[GRAPH](.planning/Appearance/graph.md): Material node-DAG program, its batched plane evaluator, and the material-library table.
 - [15]-[SURFACE](.planning/Appearance/surface.md): OpenPBR color-science lowering and the layered slab stack.
-- [16]-[TEXTURE](.planning/Appearance/texture.md): Texture-sampling fold over the closed texture-source union.
+- [16]-[TEXTURE](.planning/Appearance/texture.md): Texture-sampling fold over the closed texture-source union and its seamless lattice period.
 - [17]-[PHOTOMETRIC](.planning/Appearance/photometric.md): Light-unit admission fold and the in-folder UnitsNet boundary.
 - [18]-[WEATHERING](.planning/Appearance/weathering.md): Aging fold over the closed weathering-effect union.
-- [19]-[ACQUISITION](.planning/Appearance/acquisition.md): Capture-import fold over the closed capture-source union.
+- [19]-[ACQUISITION](.planning/Appearance/acquisition.md): Capture-import fold over the closed capture-source union and the acquired plane set.
 - [20]-[FINISH](.planning/Appearance/finish.md): Kubelka-Munk pigment-reflectance finish engine.
-- [21]-[INTERCHANGE](.planning/Appearance/interchange.md): Material wire and MaterialX .mtlx interchange projection.
+- [21]-[INTERCHANGE](.planning/Appearance/interchange.md): Appearance wire family, texture egress, and the MaterialX .mtlx projection.
+- [22]-[ENVIRONMENT](.planning/Appearance/environment.md): Sky synthesis, environment-map admission, IBL prefilter, and the environment-light row.
+- [23]-[NEURAL](.planning/Appearance/neural.md): Photo-to-PBR model registry and the inference stage plan.
+
+[RASTER]:
+- [24]-[PLANE](.planning/Raster/plane.md): Typed-texel plane arena, the decoded row rails, and the mip chain with its sampler bridge.
+- [25]-[CODEC](.planning/Raster/codec.md): Container roster, the band-2460 raster fault, and the KTX gate over its CLI floor.
+- [26]-[FILTER](.planning/Raster/filter.md): Plane-transform algebra, the stage scheduler, and the height-field correspondence.
+- [27]-[TILE](.planning/Raster/tile.md): Set-coherent tiling synthesizer and the deterministic tileability gate.
+- [28]-[SET](.planning/Raster/set.md): Channel roster, the content-keyed baked set, ingest classification, and the appearance rebind.
+- [29]-[PRESS](.planning/Raster/press.md): Bake engine over the batched plane evaluator and its content-identity veto.
+- [30]-[GPU](.planning/Raster/gpu.md): Surfaceless bake device and the closed WGSL module table with its golden vectors.
 
 [PROPERTIES]:
-- [22]-[PROPERTIES](.planning/Properties/properties.md): Intrinsic mechanical, thermal, acoustic, and fire measurements.
-- [23]-[SUSTAINABILITY](.planning/Properties/sustainability.md): Lifecycle impact, unit-cost basis, and classification rows.
+- [31]-[PROPERTIES](.planning/Properties/properties.md): Intrinsic mechanical, thermal, acoustic, and fire measurements.
+- [32]-[SUSTAINABILITY](.planning/Properties/sustainability.md): Lifecycle impact, unit-cost basis, and classification rows.
 
 [PROJECTION]:
-- [24]-[PROJECTION](.planning/Projection/component.md): `ComponentProjector` mints Type Objects and material subgraphs.
-- [25]-[OBSERVABILITY](.planning/Projection/observability.md): `MaterialsFact`, the instrument tap, the fault log, and the descriptor pack.
-- [26]-[BENCHMARKS](.planning/Projection/benchmarks.md): Content-bound `BenchKernel` workload corpus with receipt gating.
-- [27]-[ANALYTICS](.planning/Projection/analytics.md): Composite-key schemas and parameterized folds.
+- [33]-[PROJECTION](.planning/Projection/component.md): `ComponentProjector` mints Type Objects and material subgraphs.
+- [34]-[OBSERVABILITY](.planning/Projection/observability.md): `MaterialsFact`, the instrument tap, the fault log, and the descriptor pack.
+- [35]-[BENCHMARKS](.planning/Projection/benchmarks.md): Content-bound `BenchKernel` workload corpus with receipt gating.
+- [36]-[ANALYTICS](.planning/Projection/analytics.md): Composite-key schemas and parameterized folds.
 
 ## [02]-[DOMAIN_PACKAGES]
 

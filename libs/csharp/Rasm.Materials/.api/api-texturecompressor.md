@@ -93,7 +93,9 @@
 |  [18]   | `PlanarYuv`/`PackedYuv422`/`PackedYuva444`/`PackedRgb422` coders | sealed class  | video chroma layouts                               |
 |  [19]   | `TextureArrayCoder` / `PitchTextureArrayCoder`                   | sealed class  | array-layer coding over a per-slice coder          |
 
-- `BasisEtc1sTextureCoder` and `BasisUastcLdr4x4TextureCoder`: `RGBA_BASIS_ETC1S_*` and `RGBA_BASIS_UASTC_LDR_4X4_*` are the two `TextureFormats` rows the KTX2 wire-legal payload classes ride.
+- `BasisEtc1sTextureCoder` and `BasisUastcLdr4x4TextureCoder`: `TextureFormats.RgbaBasisEtc1sUNorm`/`RgbaBasisEtc1sSrgb` and `TextureFormats.RgbaBasisUastcLdr4x4UNorm`/`RgbaBasisUastcLdr4x4Srgb` are the four `TextureFormats` fields the KTX2 wire-legal payload classes ride.
+- `BptcTextureCoder`, `S3tcTextureCoder`, and `RgtcLatcTextureCoder` bind these `TextureFormats` fields: `Bc1Rgb` `Bc1RgbSrgb` `Bc1Rgba` `Bc1RgbaSrgb` `Bc2Rgba` `Bc2RgbaSrgb` `Bc3Rgba` `Bc3RgbaSrgb` `Bc4UNorm` `Bc4SNorm` `Bc5UNorm` `Bc5SNorm` `Bc6HUFloat` `Bc6HSFloat` `Bc7UNorm` `Bc7Srgb` — the field name, never a `BC1_RGB_UNORM_BLOCK`-style token, is what a static reference spells.
+- `TextureFormatCatalog.TryGet(string, out TextureFormat)` matches EITHER the declaring field name or the format's own `Name`, ordinal-ignore-case, so a caller holding either spelling resolves; binding the static field directly is the compile-checked form and the lookup serves a runtime-sourced name alone.
 
 [PUBLIC_TYPE_SCOPE]: conversion facade, options, and file-format registry
 

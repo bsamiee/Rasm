@@ -23,9 +23,9 @@ Rasm.Compute/
 │   └── Units.cs           # Units boundary admitting unit-bearing input
 ├── Model/                 # ONNX model identity, sessions, inference, and generative runs
 │   ├── Identity.cs        # Checksum identity, acquisition union, schema snapshot, and drift sentinel
-│   ├── Sessions.cs        # One shared session per checksum with warm-start
-│   ├── Providers.cs       # Execution-provider axis with discovery and quantization posture
-│   ├── Inference.cs       # Run-mode inference fold, batching gate, and result cache
+│   ├── Sessions.cs        # One shared session per checksum with warm-start and its per-bucket warm roster
+│   ├── Providers.cs       # Execution-provider axis with discovery, quantization posture, and the floor ladder
+│   ├── Inference.cs       # Run-mode inference fold, batching gate, tiled mosaic, stage-execution wire, result cache
 │   ├── Embedding.cs       # Embedding-and-retrieval owner
 │   ├── Generative.cs      # Token-streaming generation with the tool-call arm
 │   └── Extension.cs       # Custom-op registration at the string-tensor boundary
@@ -180,6 +180,8 @@ flowchart LR
     Element e10@-->|"[SHAPE]: AssemblyAggregator"| Analysis
     Materials e9@-->|"[WIRE]: MaterialPropertySet"| Analysis
     Materials e23@-->|"[WIRE]: SectionCapacity"| Analysis
+    Materials e31@-->|"[WIRE]: StageRequest"| Model
+    Model e32@-->|"[WIRE]: StageResult"| Materials
     Fabrication e12@-->|"[PROJECTION]: NestYield"| Analysis
     Bim e11@<-->|"[TESSELLATION]: TessellationOutcome"| Runtime
     Bim e24@<-->|"[TRANSPORT]: IdsVerdict"| Runtime
@@ -272,15 +274,17 @@ Spine admits once, selects substrate over row data, enqueues on bounded lanes, d
 
 ## [05]-[ROUTING]
 
-| [INDEX] | [CHANGE]                          | [OWNER_SURFACE]          | [SHAPE_OF_THE_EDIT]                                         |
-| :-----: | :-------------------------------- | :----------------------- | :---------------------------------------------------------- |
-|  [01]   | a new execution device or backend | `Tensor/residency.md`    | one `Substrate` row                                         |
-|  [02]   | a new sparse tensor operation     | `Tensor/factor.md`       | one `SparseTensorOpFamily` row                              |
-|  [03]   | a new differentiable primitive    | `Tensor/autodiff.md`     | one `DifferentiableOp` case beside its `Forward` arm        |
-|  [04]   | a new estimator, optimizer, or UQ | `Solver/optimizer.md`    | one `EstimatorKind`/`OptimizerKind`/`UncertaintyMethod` row |
-|  [05]   | a new material stress-update law  | `Solver/constitutive.md` | one `ConstitutiveModel` case                                |
-|  [06]   | a new discipline assessment       | `Analysis/assessment.md` | one `AssessmentResult` runner over the shared fact stream   |
-|  [07]   | a new fault arm                   | `Runtime/admission.md`   | one arm at the 2200-band free frontier on its custody lane  |
+| [INDEX] | [CHANGE]                           | [OWNER_SURFACE]          | [SHAPE_OF_THE_EDIT]                                            |
+| :-----: | :--------------------------------- | :----------------------- | :------------------------------------------------------------- |
+|  [01]   | a new execution device or backend  | `Tensor/residency.md`    | one `Substrate` row                                            |
+|  [02]   | a new sparse tensor operation      | `Tensor/factor.md`       | one `SparseTensorOpFamily` row                                 |
+|  [03]   | a new differentiable primitive     | `Tensor/autodiff.md`     | one `DifferentiableOp` case beside its `Forward` arm           |
+|  [04]   | a new estimator, optimizer, or UQ  | `Solver/optimizer.md`    | one `EstimatorKind`/`OptimizerKind`/`UncertaintyMethod` row    |
+|  [05]   | a new material stress-update law   | `Solver/constitutive.md` | one `ConstitutiveModel` case                                   |
+|  [06]   | a new discipline assessment        | `Analysis/assessment.md` | one `AssessmentResult` runner over the shared fact stream      |
+|  [07]   | a new fault arm                    | `Runtime/admission.md`   | one arm at the 2200-band free frontier on its custody lane     |
+|  [08]   | a new execution provider           | `Model/providers.md`     | one `ExecutionProvider` row; `Resolve` already answers absence |
+|  [09]   | a new tile border, seam, or layout | `Model/inference.md`     | one `PadMode`, `TileBlend`, or `TileLayout` row                |
 
 ## [06]-[BOUNDARIES]
 
@@ -292,6 +296,7 @@ Seam graph carries which owner exchanges which shape; the load-bearing cross-bou
 - Strata run one direction: the AEC peers admit `UnitsNet` in-folder rather than reference the app-platform unit and solve owners downward.
 - `Analysis` reads the concrete `ElementGraph` upward and writes a content-keyed assessment `GraphDelta` the caller applies; it mutates nothing.
 - C# owns inference and classical fit; Python compute owns offline-learned models exchanged by content key over graduation evidence.
+- `Rasm.Materials` SPECIFIES photo-to-PBR inference and `Model/inference` EXECUTES it: stage, model-card, licence, and role identities cross as opaque KEYS this side dispatches on none of, every plane crosses as a content address injected ports resolve, and the strata forbid a reference in either direction — so admitting a model at the specifying end moves no Compute surface and the wire mints no corpus contract entry.
 - `EnergyToolchain` resolves EnergyPlus by env var, configured path, or bundle; no hardcoded path or token column enters the policy.
 - `EnergyRoute` converges local and cloud runs on the one `SqlFile` fold.
 - Closed-form ISO/EN folds and the multi-ply `AssemblyAggregator` live in `Analysis`; single-material folds stay seam-owned, composed here.

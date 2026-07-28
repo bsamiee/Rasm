@@ -1,20 +1,20 @@
 # [MATERIALS_GRAPH]
 
-THE NODE-GRAPH APPEARANCE ENGINE and THE POLYMORPHIC MATERIAL LIBRARY. One `AppearanceNode` `[Union]` closes the node-kind family — `Input`, `Texture`, `Math`, `Mix`, `Normal`, `BsdfOutput` — over the typed `PortValue` channel set; one `MaterialGraph.Compile` fold orders the node DAG ONCE on the shared QuikGraph substrate (`IsDirectedAcyclicGraph` gate, `SourceFirstTopologicalSort` order) and freezes it, and the per-sample `CompiledGraph.Shade` folds each node's arm into a `PortEnvironment` terminating at the single `BsdfOutput` node that assembles a `SurfaceShade`. One `MaterialParameters` record is the canonical Disney-principled parameter vector — sixteen positional columns plus the init-defaulted `Film` thin-film carrier — every measured material parameterizes, and one `MaterialLibrary` `FrozenDictionary<MaterialId, MaterialParameters>` is the catalog as DATA ROWS — metal, glass, liquid, gas, gem, stone, plastic, rubber, polymer, skin, fabric, paint, ceramic, wax, wood, coat — so a new material is `MaterialLibrary.Rows[MaterialId.Of("metal.titanium")] = new MaterialParameters(...)`, a row of values, NEVER a `TitaniumMaterial` type. The page OWNS the `PortId`/`MathOp`/`MixOp`/`PortValue`/`GraphContext` graph vocabulary (the `MixOp` table one `BlendMode` row per W3C compositing member, the blend behavior a DATA column, never sixteen delegates), the `ShadePoint`/`AppearanceNode`/`SurfaceShade`/`PortEnvironment`/`CompiledGraph`/`MaterialGraph` evaluation surfaces, the `SubsurfaceRadius` mean-free-path and `ThinFilm` interference carriers, the `MaterialParameters` row, and the `MaterialLibrary` catalog/admission/reference folds; it COMPOSES the SEAM `Rasm.Element` `MaterialId` identity (never re-minting a `family.name` key), the `bsdf#SHADING_FRAME` `MaterialFault` band-2450 rail (never a second fault), the Rasm.Numerics `Direction`/`VectorFrame`/`Context` shading frame (never re-minting a vector or a tolerance), the `texture#TEXTURE_UV` `TextureUv.Port` closure for the `Texture` arm (never re-implementing sampling), QuikGraph as the one graph-algorithm substrate the whole stack folds transient graphs onto (never a hand-rolled Kahn walk), and Wacton.Unicolour directly as the scene-linear/spectral/compositing color owner under the one `Acescg` working space (never re-minting a `ColourSpace`). The terminal `SurfaceShade` is the resolved parameter snapshot the `surface#OPENPBR_SLAB` `SlabStack.ToLayered` lowers to the `bsdf#LAYERED_COMPOSITION` `LayeredBsdf` the integrator shades — the graph resolves the parameters, the lobe math lives on the `bsdf`/`surface` pages and is never re-derived here. The masonry-assignment consumer generalizes through the `MaterialId` row: a masonry `Component` maps to a `MaterialId`, never to a component-specific material type.
+THE NODE-GRAPH APPEARANCE ENGINE and THE POLYMORPHIC MATERIAL LIBRARY. One `AppearanceNode` `[Union]` closes the node-kind family — `Input`, `Texture`, `Math`, `Mix`, `Normal`, `BsdfOutput` — over the typed `PortValue` channel set; one `MaterialGraph.Compile` fold orders the node DAG ONCE on the shared QuikGraph substrate (`IsDirectedAcyclicGraph` gate, `SourceFirstTopologicalSort` order), resolves its sink and its two rentals, and freezes the whole result, and `CompiledGraph.ShadeSpan` re-enters that frozen order over a caller-rented index-addressed scratch whose slot order IS the sort — the per-sample `CompiledGraph.Shade` being that SAME rail over a one-element window, so ONE representation, ONE `NodeEvaluator.Apply` algebra over pre-resolved operands, and ONE `Assemble` gamut gate carry both the integrator and the bake, a plane pays one allocation-free pass per row, and the per-node immutable-map rebuild the per-point rail once paid is gone from the hot path too — and the node algebra is POINTWISE by construction with every neighbourhood kernel owned by `Raster/filter#PLANE_OP` over a whole plane. One `MaterialParameters` record is the canonical Disney-principled parameter vector — sixteen positional columns plus the init-defaulted `Film` thin-film carrier — every measured material parameterizes, and one `MaterialLibrary` `FrozenDictionary<MaterialId, MaterialParameters>` is the catalog as DATA ROWS — metal, glass, liquid, gas, gem, stone, plastic, rubber, polymer, skin, fabric, paint, ceramic, wax, wood, coat — so a new material is `MaterialLibrary.Rows[MaterialId.Of("metal.titanium")] = new MaterialParameters(...)`, a row of values, NEVER a `TitaniumMaterial` type. The page OWNS the `PortId`/`MathOp`/`MixOp`/`PortValue`/`GraphContext` graph vocabulary (the `MixOp` table one `BlendMode` row per W3C compositing member, the blend behavior a DATA column, never sixteen delegates), the `ShadePoint`/`AppearanceNode`/`SurfaceShade`/`PortSlot`/`CompiledGraph`/`MaterialGraph` evaluation surfaces, the `SubsurfaceRadius` mean-free-path and `ThinFilm` interference carriers, the `MaterialParameters` row, and the `MaterialLibrary` catalog/admission/reference folds; it COMPOSES the SEAM `Rasm.Element` `MaterialId` identity (never re-minting a `family.name` key), the `bsdf#SHADING_FRAME` `MaterialFault` band-2450 rail (never a second fault), the Rasm.Numerics `Direction`/`VectorFrame`/`Context` shading frame (never re-minting a vector or a tolerance), the `texture#TEXTURE_UV` `TextureUv.Port` closure for the `Texture` arm (never re-implementing sampling), QuikGraph as the one graph-algorithm substrate the whole stack folds transient graphs onto (never a hand-rolled Kahn walk), and Wacton.Unicolour directly as the scene-linear/spectral/compositing color owner under the one `Acescg` working space (never re-minting a `ColourSpace`). The terminal `SurfaceShade` is the resolved parameter snapshot the `surface#OPENPBR_SLAB` `SlabStack.ToLayered` lowers to the `bsdf#LAYERED_COMPOSITION` `LayeredBsdf` the integrator shades — the graph resolves the parameters, the lobe math lives on the `bsdf`/`surface` pages and is never re-derived here. The masonry-assignment consumer generalizes through the `MaterialId` row: a masonry `Component` maps to a `MaterialId`, never to a component-specific material type.
 
 ## [01]-[INDEX]
 
-- [02]-[MATERIAL_GRAPH]: the `PortId`/`MathOp`/`MixOp` graph vocabulary (`MixOp` the 16-row `BlendMode` table), the `PortValue` channel set, the `GraphContext` tolerant-`Context` carrier, the `AppearanceNode` node union, the `ShadePoint`/`PortEnvironment`/`CompiledGraph`/`MaterialGraph` QuikGraph-ordered evaluation fold, and the `SurfaceShade` sink.
+- [02]-[MATERIAL_GRAPH]: the `PortId`/`MathOp`/`MixOp` graph vocabulary (`MixOp` the 16-row `BlendMode` table), the `PortValue` channel set, the `GraphContext` tolerant-`Context` carrier, the `AppearanceNode` node union over its `Produces` column, the `ShadePoint`/`PortSlot`/`CompiledGraph`/`MaterialGraph` QuikGraph-ordered evaluation fold over the one slot-addressed `ShadeSpan` rail its per-point `Shade` window re-enters, and the `SurfaceShade` sink.
 - [03]-[MATERIAL_LIBRARY]: the `SubsurfaceRadius` mean-free-path and `ThinFilm` interference carriers, the `MaterialParameters` canonical row, the seam `MaterialId` key, the catalog table, the profile-assignment generalization, the `NearestChecker`/`HueConstant`/`Named` Datasets validation seam over the reflection-derived reference tables, the three physical-reproducibility gates by domain — display RGB (`SurfaceShade.InGamut`), Pointer real-surface (`PointerAdmit`/`MapToPointer`), and MacAdam spectral-limit (`SpectralAdmit`/`MapToSpectral`) — plus the `CvdPreview`/`Contrast`/`NearestIscc` accessibility and designation projections.
 
 ## [02]-[MATERIAL_GRAPH]
 
-- Owner: `MaterialGraph`/`CompiledGraph` over `AppearanceNode`; the `PortId`/`MathOp`/`MixOp`/`PortValue` graph vocabulary; the `GraphContext` tolerant-`Context` carrier; the `ShadePoint`/`SurfaceShade`/`PortEnvironment` evaluation models.
+- Owner: `MaterialGraph`/`CompiledGraph` over `AppearanceNode`; the `PortId`/`MathOp`/`MixOp`/`PortValue` graph vocabulary; the `GraphContext` tolerant-`Context` carrier; the `ShadePoint`/`SurfaceShade`/`PortSlot` evaluation models.
 - Cases: `Input` (constant/parameter source) · `Texture` (UV-sampled source — the `texture#TEXTURE_UV` `TextureUv.Port` closure) · `Math` (closed scalar/vector op over upstream ports) · `Mix` (parameterized `BlendMode` composite of two ports) · `Normal` (tangent-space perturbation of the shading frame) · `BsdfOutput` (the single sink assembling the closed lobe set into a `SurfaceShade`)
-- Entry: `public Fin<SurfaceShade> Evaluate(ShadePoint point, MaterialParameters parameters, Op key)` is the ONE-SHOT convenience (Compile + Shade for a single sample); the PER-SAMPLE path `Compile` resolves the topological order ONCE into a frozen `CompiledGraph` and `Shade` re-enters over that compiled order per sample, so the integrator hot loop pays the sort once per material, never per ray, and `Evaluate`'s per-call re-sort never reaches the inner loop. `Fin<T>` aborts on a cyclic DAG (`MaterialFault.Graph`, key-correlated), a duplicate node id, an unbound port reference, a non-`BsdfOutput` sink, or an out-of-gamut assembled shade (a port-TYPE mismatch cannot fault — the `PortValue.AsScalar`/`AsColor`/`AsVector` projections are total by construction); `MaterialGraph.Default` is the canonical Disney-principled wiring every library row drives through.
+- Entry: `public Fin<Unit> ShadeSpan(ReadOnlySpan<ShadePoint> points, MaterialParameters parameters, Span<PortValue> scratch, Span<SurfaceShade> shades, Op key)` is the ONE evaluation rail — `Raster/press#TEXTURE_PRESS` drives it per band, and the per-point `public Fin<SurfaceShade> Shade(ShadePoint point, MaterialParameters parameters, Op key)` the integrator holds re-enters it over a one-element window, so no second environment representation exists to drift from — with `ScratchWidth` and `OperandWidth` the two `Compile`-resolved rentals a batched caller sizes against; `public Fin<SurfaceShade> Evaluate(ShadePoint point, MaterialParameters parameters, Op key)` is the ONE-SHOT convenience (Compile + Shade for a single sample), while the per-sample path `Compile`s ONCE into a frozen `CompiledGraph` and re-enters it per sample, so the hot loop pays the sort once per material, never per ray. `Fin<T>` aborts at COMPILE on a cyclic DAG (`MaterialFault.Graph`, key-correlated), a duplicate node id, a dangling port reference, a dependency on a non-producing port, or a missing/non-`BsdfOutput` sink, and at SHADE on a short span rental, a degenerate frame perturbation, or an out-of-gamut assembled shade — each shade-time failure re-wrapped with the failing TEXEL INDEX, since a plane fails at one of sixteen million points that all ran the same program (a port-TYPE mismatch cannot fault at all — the `PortValue.AsScalar`/`AsColor`/`AsVector` projections are total by construction); `MaterialGraph.Default` is the canonical Disney-principled wiring every library row drives through.
 - Packages: QuikGraph (composed — `AdjacencyGraph<PortId, SEdge<PortId>>` with `allowParallelEdges: false`, `AddVertexRange` admitting isolates, `AddVerticesAndEdge` per dependency edge, `AlgorithmExtensions.IsDirectedAcyclicGraph` the cheap cycle pre-gate, `AlgorithmExtensions.SourceFirstTopologicalSort` the Kahn order — the one graph-algorithm substrate `Rasm.Element`/`Rasm.Persistence`/`Rasm.Bim` already fold onto, admitted folder-locally against the central pin), Rasm (project — `Direction`/`VectorFrame`/`Context`/`Op`, `Rhino.Geometry.Point3d`/`Vector3d`/`Plane` at the host edge), Rasm.Element (the SEAM `MaterialId`, composed not re-declared), Rasm.Materials.Appearance.Bsdf (the `MaterialFault` band-2450 rail composed from `bsdf#SHADING_FRAME`), Wacton.Unicolour (color/spectral/compositing compose — `Mix`, `Blend(backdrop, BlendMode)`, the 16-member `BlendMode` vocabulary), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`FrozenDictionary`). The `Texture` arm's closure is the `texture#TEXTURE_UV` `TextureUv.Port` product — `texture` COMPOSES this page's `PortValue`/`PortId`/`ShadePoint`, so graph stays the LOWER owner and the `Texture` case carries only a host-free `Func<double,double,PortValue>`, never a `texture`-namespace type (no cyclic namespace dependency).
 - Growth: a new appearance operation is one `MathOp` row (the operation behavior rides the SmartEnum row's `[UseDelegateFromConstructor]` delegate — the roster spans arithmetic incl. floored `modulo`, the unary transcendentals `sqrt`/`abs`/`sin`/`cos`, min/max, the vector `dot`/`cross`/`normalize`, unit clamps, and the Schlick weight, each keyed to its MaterialX standard math category) or one `MixOp` row naming its `BlendMode` member (the blend behavior IS the `Mode` data column the ONE `Apply` derivation reads — never a new arm, never a hand-rolled channel composite); a genuinely new node KIND with no parameterization of the six is one `AppearanceNode` case; a new port channel is one `PortValue` case carrying its CLR carrier; a new lobe assembled at the sink is one `BsdfLobe` `[Union]` case on the `bsdf` page — never a per-effect graph variant and never a sibling node type. The `AppearanceNode` union and `PortValue` set are the MaterialX 1.39 node-graph alignment target the `interchange#MATERIALX_DOCUMENT` `NodeCategory`/`MtlxPort` map projects onto, framed at `[4]-[RESEARCH]`.
-- Boundary: the node DAG is the only appearance-program shape — a per-material hand-written shade function is the deleted form; `PortValue` is the only inter-node channel and carries scalar/`Unicolour`/`Vector3d`/`VectorFrame` polarities so a node arm reads typed ports and never `object`; the `Color`→`Scalar` projection is the AP1 scene-linear luminance dot `0.2722287 R + 0.6740818 G + 0.0536895 B` (the AP1-primary luminance row consistent with the declared `Acescg` working space and the `bsdf#LOBE_FAMILY` `RgbSpectrum.Luminance` weights — a Rec709 weight on AP1-linear channels is the colorimetric defect, biasing a green-heavy mask), never a red-channel read, so a mask pulled from a color is photometrically weighted and cannot silently bias to red; the `Texture` arm carries the TOTAL `Func<double,double,PortValue>` closure the `texture#TEXTURE_UV` `TextureUv.Port(TextureSource, UvSample, SamplerState, Channel, Op)` mints — the node holds the delegate, the sampling fold lives on the `texture` page, and the arm never re-implements a sampler nor admits a raw caller-supplied lambda that bypasses the `Channel`-neutralized fault rail; the `Normal` arm perturbs the composed Rasm.Numerics `VectorFrame` (tangent·bitangent·normal) and never re-mints a basis; the `BsdfOutput` arm assembles the `SurfaceShade` parameter snapshot (resolved base color, metalness, roughness, perturbed shading frame, emission) the renderer reads — the lobe WEIGHTING is the downstream `surface#OPENPBR_SLAB` `SlabStack.ToLayered` lowering of the `MaterialParameters` row to the `bsdf#LAYERED_COMPOSITION` `LayeredBsdf` the integrator shades, the graph sink being the resolved parameter shade and the lobe math living wholly on the `bsdf`/`surface` pages, never re-derived here, color resolved through the directly-consumed Wacton.Unicolour `RgbConfiguration.Acescg` scene-linear owner; the `BsdfOutput` sink resolves through `Assemble` behind a pattern-matched sink probe (a non-`BsdfOutput` sink rails `MaterialFault.Graph`, never an unchecked cast), never a port write, so the environment carries no dead entry under the sink id and a downstream node cannot read a phantom `Scalar(1.0)`; the `Math` arm folds over its `MathOp` SmartEnum by delegate row so a new operation is a row, never a new arm, and the `MathOp.Fresnel` row supplies only the Schlick angular weight `(1−cosθ)⁵` for a `Mix` lobe blend — the full Fresnel term lives on `bsdf#MICROFACET_KERNEL`, never re-derived here; the `Mix` arm dispatches `b.AsColor.Blend(a.AsColor, Mode)` — the W3C separable/non-separable compositing algebra Unicolour owns, `a` the backdrop, `b` the source, the factor the blend opacity lerped in scene-linear `RgbLinear` — so all sixteen W3C modes are one data column and the prior three-mode hand-rolled `ChannelCompose` channel math is the deleted form; the `Lerp` row IS `BlendMode.Normal` spelled as the HDR-safe scene-linear `Unicolour.Mix` (the blend algebra clips to the `[0,1]` W3C reflectance domain; an over-unity INTERMEDIATE — a scaled mask, a `Math` product — keeps its `>1` channels through the linear arm, while a sink-bound emission port is NORMALIZED chromaticity by construction, `MaterialParameters.EmissionLuminance` carrying the energy, so the `Assemble` `InGamut` gate holds); `Compile` folds the DAG onto the QuikGraph substrate ONCE — `AddVertexRange` admits every node so an isolate still orders, `AddVerticesAndEdge` adds one dependency→dependent `SEdge<PortId>` per KNOWN dependency (a dangling port reference stays out of the graph and faults at `Shade`'s `env.Read`, `allowParallelEdges: false` deduplicating an authored `Lhs == Rhs` double edge), `IsDirectedAcyclicGraph` pre-gates a cycle onto `MaterialFault.Graph` before `SourceFirstTopologicalSort` would throw `NonAcyclicGraphException`, and `Shade` re-enters over the frozen `CompiledGraph` order so per-sample evaluation never re-sorts — the prior hand-rolled indegree/`Queue`/`CollectionsMarshal` Kahn kernel and its `[EXPRESSION_SPINE]` exemption are DELETED, the mutable `AdjacencyGraph` build being the substrate's own catalogued construction seam, and the page now carries no imperative kernel; the `PortEnvironment` fold projects a new immutable `HashMap` per resolved node and never mutates a dictionary; `GraphContext.Tolerant` is the one tolerant `Context` the `Normal`/`ShadePoint` arms construct the `VectorFrame` through (a millimetre-scale model `Context` whose `Fin` admission the page resolves once, so a near-degenerate perturbation re-seeds a perpendicular tangent through the `Rasm.Numerics` owner rather than faulting mid-shade); `MaterialGraph.Default` carries the geometric frame unperturbed through one `Normal` node at `Strength 0` whose identity tangent-space sample `(0.5,0.5,1.0)` decodes to `+Z`, so a library row is parameters evaluated through this one standard graph, never a per-row graph type; a cycle, a dangling port, a duplicate node id, or a non-`BsdfOutput` sink rails `Fin.Fail` and never propagates a NaN shade outward.
+- Boundary: the node DAG is the only appearance-program shape — a per-material hand-written shade function is the deleted form; `PortValue` is the only inter-node channel and carries scalar/`Unicolour`/`Vector3d`/`VectorFrame` polarities so a node arm reads typed ports and never `object`; the `Color`→`Scalar` projection is the AP1 scene-linear luminance dot `0.2722287 R + 0.6740818 G + 0.0536895 B` (the AP1-primary luminance row consistent with the declared `Acescg` working space and the `bsdf#LOBE_FAMILY` `RgbSpectrum.Luminance` weights — a Rec709 weight on AP1-linear channels is the colorimetric defect, biasing a green-heavy mask), never a red-channel read, so a mask pulled from a color is photometrically weighted and cannot silently bias to red; the `Texture` arm carries the TOTAL `Func<double,double,PortValue>` closure the `texture#TEXTURE_UV` `TextureUv.Port(TextureSource, UvSample, SamplerState, Channel, Op)` mints — the node holds the delegate, the sampling fold lives on the `texture` page, and the arm never re-implements a sampler nor admits a raw caller-supplied lambda that bypasses the `Channel`-neutralized fault rail; the `Normal` arm perturbs the composed Rasm.Numerics `VectorFrame` (tangent·bitangent·normal) and never re-mints a basis; the `BsdfOutput` arm assembles the `SurfaceShade` parameter snapshot (resolved base color, metalness, roughness, perturbed shading frame, emission) the renderer reads — the lobe WEIGHTING is the downstream `surface#OPENPBR_SLAB` `SlabStack.ToLayered` lowering of the `MaterialParameters` row to the `bsdf#LAYERED_COMPOSITION` `LayeredBsdf` the integrator shades, the graph sink being the resolved parameter shade and the lobe math living wholly on the `bsdf`/`surface` pages, never re-derived here, color resolved through the directly-consumed Wacton.Unicolour `RgbConfiguration.Acescg` scene-linear owner; the `BsdfOutput` sink resolves through `Assemble` behind a pattern-matched sink probe (a non-`BsdfOutput` sink rails `MaterialFault.Graph`, never an unchecked cast), never a port write, so the environment carries no dead entry under the sink id and a downstream node cannot read a phantom `Scalar(1.0)`; the `Math` arm folds over its `MathOp` SmartEnum by delegate row so a new operation is a row, never a new arm, and the `MathOp.Fresnel` row supplies only the Schlick angular weight `(1−cosθ)⁵` for a `Mix` lobe blend — the full Fresnel term lives on `bsdf#MICROFACET_KERNEL`, never re-derived here; the `Mix` arm dispatches `b.AsColor.Blend(a.AsColor, Mode)` — the W3C separable/non-separable compositing algebra Unicolour owns, `a` the backdrop, `b` the source, the factor the blend opacity lerped in scene-linear `RgbLinear` — so all sixteen W3C modes are one data column and the prior three-mode hand-rolled `ChannelCompose` channel math is the deleted form; the `Lerp` row IS `BlendMode.Normal` spelled as the HDR-safe scene-linear `Unicolour.Mix` (the blend algebra clips to the `[0,1]` W3C reflectance domain; an over-unity INTERMEDIATE — a scaled mask, a `Math` product — keeps its `>1` channels through the linear arm, while a sink-bound emission port is NORMALIZED chromaticity by construction, `MaterialParameters.EmissionLuminance` carrying the energy, so the `Assemble` `InGamut` gate holds); the node algebra is POINTWISE by construction and the `AppearanceNode` union admits no neighbourhood operation — a blur, a normal-from-height integration, an ambient-occlusion sweep, or any other kernel reading a texel's neighbours lives at `Raster/filter#PLANE_OP` over a whole `Raster/plane#TEXTURE_PLANE`, because a DAG node evaluated per shading point has no neighbours to read and a node kind that pretended otherwise would either fabricate them or force every sample to carry a plane; the press bakes the DAG's pointwise field first and folds the plane algebra AFTER, so the two owners compose in one direction and neither re-implements the other; `Compile` folds the DAG onto the QuikGraph substrate ONCE — `AddVertexRange` admits every node so an isolate still orders, `AddVerticesAndEdge` adds one dependency→dependent `SEdge<PortId>` per KNOWN dependency (`allowParallelEdges: false` deduplicating an authored `Lhs == Rhs` double edge), and one `ANSWERABILITY` sweep railing `MaterialFault.Graph` at COMPILE over the two failures a slot-addressed read cannot distinguish at runtime — a port no node declares (`<dangling-port>`) and a port whose node `Produces` nothing (`<non-producing-port>`, the sink a dependent named) — because both would read an UNWRITTEN scratch cell carrying the previous texel's value rather than faulting, where the per-point map read once railed cleanly, so the proof is what keeps one rail total and a per-texel liveness check is exactly the cost the frozen order exists to delete; `IsDirectedAcyclicGraph` pre-gates a cycle onto `MaterialFault.Graph` before `SourceFirstTopologicalSort` would throw `NonAcyclicGraphException`, and the sink resolves to its `BsdfOutput` at COMPILE so no rail re-probes a cast per sample; `ShadeSpan` then re-enters the frozen order against a caller-rented `Span<PortValue>` scratch and `Shade` re-enters `ShadeSpan` over a one-element window, so ONE `NodeEvaluator.Apply` algebra over pre-resolved operands and ONE `Assemble` reading that scratch DIRECTLY close every evaluation at the same gamut gate — a `Func<PortId, Fin<PortValue>>` port reader cannot exist here at all, since a lambda may not capture a `Span<T>`, and a second environment shape minted to dodge that is the divergence this collapse forecloses; the prior hand-rolled indegree/`Queue`/`CollectionsMarshal` Kahn kernel is DELETED for the substrate's own catalogued `AdjacencyGraph` construction seam, and the page's ONE `[EXPRESSION_SPINE]` exemption is the `ShadeSpan` span kernel — a fixed-extent index walk over caller-owned buffers, the doctrine's named span-loop carve — while every admission, dispatch, and egress surface on the page is expression-bodied; `GraphContext.Tolerant` is the one tolerant `Context` the `Normal`/`ShadePoint` arms construct the `VectorFrame` through (a millimetre-scale model `Context` whose `Fin` admission the page resolves once, so a near-degenerate perturbation re-seeds a perpendicular tangent through the `Rasm.Numerics` owner rather than faulting mid-shade); `MaterialGraph.Default` carries the geometric frame unperturbed through one `Normal` node at `Strength 0` whose identity tangent-space sample `(0.5,0.5,1.0)` decodes to `+Z`, so a library row is parameters evaluated through this one standard graph, never a per-row graph type; a cycle, a dangling port, a duplicate node id, or a non-`BsdfOutput` sink rails `Fin.Fail` and never propagates a NaN shade outward.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -182,6 +182,19 @@ public abstract partial record AppearanceNode {
             mix: static x => Seq(x.A, x.B, x.Factor),
             normal: static n => Seq(n.Source),
             bsdfOutput: static o => Seq(o.BaseColor, o.Metalness, o.Roughness, o.NormalFrame, o.Emission));
+
+    // Whether the arm yields a port value a dependent can read. The sink alone does not — it consumes five ports and
+    // writes nothing — so a node naming the sink as a dependency is a graph whose slot read has no cell to answer
+    // from, and Compile refuses it against THIS column rather than against a hardcoded `is BsdfOutput` probe. A
+    // second terminal kind therefore answers one column instead of growing a branch in the admission fold.
+    public bool Produces =>
+        Switch(
+            input: static _ => true,
+            texture: static _ => true,
+            math: static _ => true,
+            mix: static _ => true,
+            normal: static _ => true,
+            bsdfOutput: static _ => false);
 }
 
 public sealed record SurfaceShade(Unicolour BaseColorLinear, double Metalness, double Roughness, VectorFrame ShadingFrame, Unicolour EmissionLinear) {
@@ -189,38 +202,35 @@ public sealed record SurfaceShade(Unicolour BaseColorLinear, double Metalness, d
 }
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
-public sealed record PortEnvironment(HashMap<PortId, PortValue> Resolved) {
-    public static readonly PortEnvironment Empty = new(HashMap<PortId, PortValue>.Empty);
-    public Fin<PortValue> Read(PortId id, Op key) => Resolved.Find(id).ToFin(MaterialFault.Graph(key, $"<unbound-port:{id.Value}>"));
-    public PortEnvironment With(PortId id, PortValue value) => this with { Resolved = Resolved.AddOrUpdate(id, value) };
+// The per-node production: a value, or the SINK's typed absence — the Produced flag being the runtime witness of
+// the AppearanceNode.Produces column Compile already proved. An Option<PortValue> is unspellable on this rail: a
+// Span-addressed scratch cell cannot hold one through the generated Switch's state parameter.
+public readonly record struct PortSlot(bool Produced, PortValue Value) {
+    public static readonly PortSlot Sink = new(false, ZeroScalar);
+    public static PortSlot Of(PortValue value) => new(true, value);
+    internal static readonly PortValue ZeroScalar = new PortValue.Scalar(0.0);
 }
 
 public static class NodeEvaluator {
-    public static Fin<Option<PortValue>> Evaluate(AppearanceNode node, ShadePoint point, MaterialParameters parameters, PortEnvironment env, Op key) =>
+    // The ONE node algebra. Operands arrive PRE-RESOLVED in `Dependencies` order, so the evaluator reads no
+    // environment at all and the rail alone owns the fill. The buffer is a PortValue[] rather than a Span because
+    // the generated total Switch threads its state as a type argument and a ref struct is not one; the rail rents
+    // it ONCE per fold, so no texel allocates. Arms stay static (the closure-free per-sample law) and the Normal
+    // arm carries the only fault — every other production is total.
+    public static Fin<PortSlot> Apply(AppearanceNode node, ShadePoint point, MaterialParameters parameters, PortValue[] operands, Op key) =>
         node.Switch(
-            input: i => Fin.Succ(Some(i.Pull(parameters))),
-            texture: t => Fin.Succ(Some(t.Sample(point.U, point.V))),
-            math: m => EvaluateMath(m, env, key).Map(Some),
-            mix: x => EvaluateMix(x, env, key).Map(Some),
-            normal: n => EvaluateNormal(n, point, env, key).Map(Some),
-            bsdfOutput: _ => Fin.Succ(Option<PortValue>.None));
-
-    static Fin<PortValue> EvaluateMath(AppearanceNode.Math m, PortEnvironment env, Op key) =>
-        from lhs in env.Read(m.Lhs, key)
-        from rhs in m.Rhs.Match(Some: r => env.Read(r, key), None: () => Fin.Succ<PortValue>(new PortValue.Scalar(0.0)))
-        select m.Op.Apply(lhs, rhs);
+            state:      (Point: point, Parameters: parameters, Operands: operands, Key: key),
+            input:      static (s, i) => Fin.Succ(PortSlot.Of(i.Pull(s.Parameters))),
+            texture:    static (s, t) => Fin.Succ(PortSlot.Of(t.Sample(s.Point.U, s.Point.V))),
+            math:       static (s, m) => Fin.Succ(PortSlot.Of(m.Op.Apply(s.Operands[0], m.Rhs.IsSome ? s.Operands[1] : PortSlot.ZeroScalar))),
+            mix:        static (s, x) => Fin.Succ(PortSlot.Of(x.Op.Apply(s.Operands[0], s.Operands[1], System.Math.Clamp(s.Operands[2].AsScalar, 0.0, 1.0)))),
+            normal:     static (s, n) => Perturb(n, s.Point, s.Operands[0], s.Key).Map(PortSlot.Of),
+            bsdfOutput: static (_, _) => Fin.Succ(PortSlot.Sink));
 
     internal static double SchlickWeight(double cosTheta) { double m = System.Math.Clamp(1.0 - cosTheta, 0.0, 1.0); double m2 = m * m; return m2 * m2 * m; }
 
-    static Fin<PortValue> EvaluateMix(AppearanceNode.Mix x, PortEnvironment env, Op key) =>
-        from a in env.Read(x.A, key)
-        from b in env.Read(x.B, key)
-        from f in env.Read(x.Factor, key)
-        select x.Op.Apply(a, b, System.Math.Clamp(f.AsScalar, 0.0, 1.0));
-
-    static Fin<PortValue> EvaluateNormal(AppearanceNode.Normal n, ShadePoint point, PortEnvironment env, Op key) =>
-        from sample in env.Read(n.Source, key)
-        let raw = sample.AsVector
+    static Fin<PortValue> Perturb(AppearanceNode.Normal n, ShadePoint point, PortValue sample, Op key) =>
+        from raw in Fin.Succ(sample.AsVector)
         let tangentSpace = new Vector3d((2.0 * raw.X - 1.0) * n.Strength, (2.0 * raw.Y - 1.0) * n.Strength, 2.0 * raw.Z - 1.0)
         let basis = point.Frame.Value
         let world = (basis.XAxis * tangentSpace.X) + (basis.YAxis * tangentSpace.Y) + (basis.ZAxis * tangentSpace.Z)
@@ -230,24 +240,45 @@ public static class NodeEvaluator {
 
 public sealed record MaterialGraph(Seq<AppearanceNode> Nodes, PortId Sink) {
     // The compile fold on the shared QuikGraph substrate: AddVertexRange admits every node so an isolate still orders,
-    // AddVerticesAndEdge adds one dependency->dependent SEdge per KNOWN dependency (a dangling port stays out of the
-    // graph and faults at Shade's env.Read; allowParallelEdges: false deduplicates an authored Lhs==Rhs double edge),
-    // IsDirectedAcyclicGraph pre-gates a cycle onto MaterialFault.Graph before SourceFirstTopologicalSort (Kahn) would
-    // throw NonAcyclicGraphException. A colliding node id faults FIRST — AddOrUpdate would otherwise silently drop the
-    // earlier node's semantics from the compiled order. The hand-rolled indegree/Queue/CollectionsMarshal kernel is the
-    // deleted form; the mutable AdjacencyGraph build is the substrate's own catalogued construction seam, not a page kernel.
+    // AddVerticesAndEdge adds one dependency->dependent SEdge per KNOWN dependency (allowParallelEdges: false
+    // deduplicates an authored Lhs==Rhs double edge), IsDirectedAcyclicGraph pre-gates a cycle onto MaterialFault.Graph
+    // before SourceFirstTopologicalSort (Kahn) would throw NonAcyclicGraphException. A colliding node id faults FIRST —
+    // AddOrUpdate would otherwise silently drop the earlier node's semantics from the compiled order. The hand-rolled
+    // indegree/Queue/CollectionsMarshal kernel is the deleted form; the mutable AdjacencyGraph build is the substrate's
+    // own catalogued construction seam, not a page kernel. Compile also resolves what the rail must never re-derive:
+    // the sink's own BsdfOutput, the two rentals, and the node -> scratch-cell slot map at the frozen order.
     public Fin<CompiledGraph> Compile(Op key) {
         HashMap<PortId, AppearanceNode> byId = Nodes.Fold(HashMap<PortId, AppearanceNode>.Empty, static (m, n) => m.AddOrUpdate(n.Id, n));
         AdjacencyGraph<PortId, SEdge<PortId>> dag = new(allowParallelEdges: false);
         dag.AddVertexRange(Nodes.Map(static n => n.Id));
         Nodes.Iter(n => n.Dependencies.Filter(byId.ContainsKey).Iter(d => dag.AddVerticesAndEdge(new SEdge<PortId>(d, n.Id))));
-        return byId.Count != Nodes.Count
-            ? Fin.Fail<CompiledGraph>(MaterialFault.Graph(key, "<duplicate-node-id>"))
-            : !byId.Find(Sink).Map(static n => n is AppearanceNode.BsdfOutput).IfNone(false)
-                ? Fin.Fail<CompiledGraph>(MaterialFault.Graph(key, "<sink-not-bsdf-output>"))
-                : !dag.IsDirectedAcyclicGraph()
-                    ? Fin.Fail<CompiledGraph>(MaterialFault.Graph(key, "<cyclic-appearance-graph>"))
-                    : Fin.Succ(new CompiledGraph(toSeq(dag.SourceFirstTopologicalSort()).Map(id => byId[id]), Sink, byId));
+        return from _ in guard(byId.Count == Nodes.Count, MaterialFault.Graph(key, "<duplicate-node-id>"))
+               // ANSWERABILITY, one sweep over the two ways a slot read has no cell to answer from: a port no node
+               // declares, and a port whose node PRODUCES nothing (the sink a dependent named). The rail addresses
+               // its scratch by SLOT, so either would read the PREVIOUS texel's value in that cell rather than
+               // railing, and a per-texel liveness re-check is exactly the cost the frozen order exists to delete.
+               // Both reasons are distinct because they are distinct authoring mistakes, and the sweep reads the
+               // Produces COLUMN, so a second non-producing node kind needs no edit here.
+               from __ in Nodes.Bind(n => n.Dependencies.Map(d => (Consumer: n.Id, Port: d, Source: byId.Find(d))))
+                   .Filter(static edge => edge.Source.Map(static node => node.Produces).IfNone(false) is false)
+                   .HeadOrNone()
+                   .Match(
+                       Some: edge => Fin.Fail<Unit>(MaterialFault.Graph(key, edge.Source.IsSome
+                           ? $"<non-producing-port:{edge.Consumer.Value}<-{edge.Port.Value}>"
+                           : $"<dangling-port:{edge.Consumer.Value}<-{edge.Port.Value}>")),
+                       None: static () => Fin.Succ(unit))
+               // The sink resolves to its OWN case ONCE, so no rail re-probes a cast per sample and the two sink
+               // malformations keep the two reasons an author needs to tell them apart.
+               from output in byId.Find(Sink).ToFin(MaterialFault.Graph(key, "<sink-missing>"))
+                   .Bind(node => node is AppearanceNode.BsdfOutput sink
+                       ? Fin.Succ(sink)
+                       : Fin.Fail<AppearanceNode.BsdfOutput>(MaterialFault.Graph(key, "<sink-not-bsdf-output>")))
+               from ___ in guard(dag.IsDirectedAcyclicGraph(), MaterialFault.Graph(key, "<cyclic-appearance-graph>"))
+               let order = toSeq(dag.SourceFirstTopologicalSort()).Map(id => byId[id])
+               // Slots freeze the node -> scratch-cell correspondence at the compiled order: the rail writes cell n
+               // for order position n and reads an operand at Slots[dependency]. One sort, one index.
+               select new CompiledGraph(order, output,
+                   order.Map(static (node, index) => KeyValuePair.Create(node.Id, index)).ToFrozenDictionary());
     }
 
     // The ONE-SHOT convenience: Compile + Shade in one call for a single sample (a preview, a wire-egress shade). It
@@ -271,24 +302,76 @@ public sealed record MaterialGraph(Seq<AppearanceNode> Nodes, PortId Sink) {
     }
 }
 
-public sealed record CompiledGraph(Seq<AppearanceNode> Order, PortId Sink, HashMap<PortId, AppearanceNode> ById) {
-    public Fin<SurfaceShade> Shade(ShadePoint point, MaterialParameters parameters, Op key) =>
-        Order.Fold(Fin.Succ(PortEnvironment.Empty), (acc, node) => acc.Bind(env => NodeEvaluator.Evaluate(node, point, parameters, env, key).Map(value => value.Match(Some: v => env.With(node.Id, v), None: () => env))))
-            .Bind(env => ById.Find(Sink).ToFin(MaterialFault.Graph(key, "<sink-missing>"))
-                .Bind(sink => sink is AppearanceNode.BsdfOutput output
-                    ? Assemble(output, point, env, key)
-                    : Fin.Fail<SurfaceShade>(MaterialFault.Graph(key, "<sink-not-bsdf-output>"))));
+public sealed record CompiledGraph(Seq<AppearanceNode> Order, AppearanceNode.BsdfOutput Output, FrozenDictionary<PortId, int> Slots) {
+    // The two rentals a batched caller sizes against, RESOLVED AT COMPILE: one scratch cell per compiled node, one
+    // operand cell per widest dependency list. Both derive from the frozen order, so a widened sink or a new node
+    // kind moves the rental with no caller edit — a hardcoded five would overflow the day BsdfOutput takes a sixth
+    // port — and neither re-folds the order on a per-sample read the way a computed property would.
+    public int ScratchWidth { get; } = Order.Count;
+    public int OperandWidth { get; } = Order.Fold(1, static (widest, node) => System.Math.Max(widest, node.Dependencies.Count));
 
-    static Fin<SurfaceShade> Assemble(AppearanceNode.BsdfOutput sink, ShadePoint point, PortEnvironment env, Op key) =>
-        from baseColor in env.Read(sink.BaseColor, key)
-        from metalness in env.Read(sink.Metalness, key)
-        from roughness in env.Read(sink.Roughness, key)
-        from normalFrame in env.Read(sink.NormalFrame, key)
-        from emission in env.Read(sink.Emission, key)
-        let frame = normalFrame switch { PortValue.Frame f => f.Value, _ => point.Frame }
-        let shade = new SurfaceShade(baseColor.AsColor, System.Math.Clamp(metalness.AsScalar, 0.0, 1.0), System.Math.Clamp(roughness.AsScalar, 0.0, 1.0), frame, emission.AsColor)
-        from valid in guard(shade.InGamut, MaterialFault.Gamut(key, $"<shade-out-of-gamut:{shade.BaseColorLinear.Hex}>"))
-        select shade;
+    // The PER-POINT entry IS the batched rail over a one-element window: the integrator and the press therefore
+    // fold ONE representation, ONE order, and ONE gamut gate, and a semantic divergence between them is
+    // unrepresentable rather than guarded by review. The two rentals are per-CALL and never per-node — strictly
+    // less allocation than the persistent map the prior per-point rail rebuilt once per node per sample.
+    public Fin<SurfaceShade> Shade(ShadePoint point, MaterialParameters parameters, Op key) {
+        SurfaceShade[] shaded = new SurfaceShade[1];
+        return ShadeSpan([point], parameters, new PortValue[ScratchWidth], shaded, key).Map(_ => shaded[0]);
+    }
+
+    // THE rail press#TEXTURE_PRESS drives per band: the port environment resolves into an index-addressed scratch
+    // whose slot order IS the frozen compiled sort, so a plane costs one allocation-free pass per row — the
+    // difference between minutes and days at four thousand square. Compile proved every dependency both KNOWN and
+    // PRODUCING, so every slot read below is TOTAL and no per-texel liveness check exists. Scratch and shades are
+    // CALLER-OWNED spans (the press rents them per band) and the one operand buffer is rented per CALL, never per
+    // texel; a short rental refuses rather than truncating. The scratch needs no per-texel clear: the topological
+    // order writes every producing cell before any dependent reads it. This walk is the page's named
+    // [EXPRESSION_SPINE] span-kernel exemption — a Span may cross no lambda, so the fold has no expression form.
+    public Fin<Unit> ShadeSpan(ReadOnlySpan<ShadePoint> points, MaterialParameters parameters, Span<PortValue> scratch, Span<SurfaceShade> shades, Op key) {
+        if (scratch.Length < ScratchWidth || shades.Length < points.Length) {
+            return Fin.Fail<Unit>(MaterialFault.Graph(key, $"<shade-span-rental-short:{scratch.Length}/{ScratchWidth}:{shades.Length}/{points.Length}>"));
+        }
+        PortValue[] operands = new PortValue[OperandWidth];
+        for (int p = 0; p < points.Length; p++) {
+            for (int n = 0; n < Order.Count; n++) {
+                AppearanceNode node = Order[n];
+                for (int d = 0; d < node.Dependencies.Count; d++) { operands[d] = scratch[Slots[node.Dependencies[d]]]; }
+                Fin<PortSlot> produced = NodeEvaluator.Apply(node, points[p], parameters, operands, key);
+                if (produced.IsFail) { return Indexed(produced, p, key).Map(static _ => unit); }
+                PortSlot slot = produced.IfFail(PortSlot.Sink);
+                if (slot.Produced) { scratch[n] = slot.Value; }
+            }
+            Fin<SurfaceShade> shade = Assemble(Output, points[p], scratch, Slots, key);
+            if (shade.IsFail) { return Indexed(shade, p, key).Map(static _ => unit); }
+            shades[p] = shade.IfFail(default(SurfaceShade)!);
+        }
+        return Fin.Succ(unit);
+    }
+
+    // A plane fails at ONE of sixteen million points that all ran the same program, so the rail names WHICH: the
+    // arm's own reason with its window index appended. A bare out-of-gamut or degenerate-frame message is
+    // undiagnosable at bake scale, where the coordinate is the whole difference between a broken graph and one
+    // bad input value; the press then joins the band origin to reach the texel.
+    static Fin<T> Indexed<T>(Fin<T> failed, int index, Op key) =>
+        failed.Match(
+            Succ: static value => Fin.Succ(value),
+            Fail: error => Fin.Fail<T>(MaterialFault.Graph(key, $"<shade-span-point:{index}:{error.Message}>")));
+
+    // ONE assembly, reading the scratch DIRECTLY. A Func<PortId, Fin<PortValue>> port reader is unspellable here —
+    // a lambda may not capture a Span<T> — and minting a second environment shape to dodge that is exactly the
+    // divergence the single rail forecloses. Compile proved each of the five sink ports known and producing, so
+    // the reads are total and the gamut gate is the one failure this fold can carry.
+    static Fin<SurfaceShade> Assemble(AppearanceNode.BsdfOutput sink, ShadePoint point, ReadOnlySpan<PortValue> scratch, FrozenDictionary<PortId, int> slots, Op key) {
+        SurfaceShade shade = new(
+            scratch[slots[sink.BaseColor]].AsColor,
+            System.Math.Clamp(scratch[slots[sink.Metalness]].AsScalar, 0.0, 1.0),
+            System.Math.Clamp(scratch[slots[sink.Roughness]].AsScalar, 0.0, 1.0),
+            scratch[slots[sink.NormalFrame]] switch { PortValue.Frame f => f.Value, _ => point.Frame },
+            scratch[slots[sink.Emission]].AsColor);
+        return shade.InGamut
+            ? Fin.Succ(shade)
+            : Fin.Fail<SurfaceShade>(MaterialFault.Gamut(key, $"<shade-out-of-gamut:{shade.BaseColorLinear.Hex}>"));
+    }
 }
 ```
 

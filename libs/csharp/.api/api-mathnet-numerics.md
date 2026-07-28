@@ -271,6 +271,7 @@
 |  [06]   | `Fourier.Forward2D(Matrix<Complex>, FourierOptions)`         | static  | `Matrix<T>` carrier transform       |
 |  [07]   | `Fourier.FrequencyScale(int, double) -> double[]`            | static  | per-bin frequency axis              |
 |  [08]   | `Hartley.NaiveForward(double[], HartleyOptions) -> double[]` | static  | real-valued Hartley transform       |
+|  [09]   | `ComplexExtensions.MagnitudeSquared(this Complex) -> double` | ext     | per-bin power with no square root   |
 
 [ENTRYPOINT_SCOPE]: window tapers via `Window`, every factory returning a `double[]` of the requested width
 

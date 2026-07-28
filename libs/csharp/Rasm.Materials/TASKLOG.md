@@ -60,6 +60,45 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: `Published<T>` evidence rows, `glazing#GLAZING_FAMILY` `GlazingGwp`/`GenericEpd`.
 - Arms: arm when the `python:data` peer declares the record schema and transport its Assessment wire carries.
 
+[SHADESPAN_RESEARCH_CLOSE]-[QUEUED]: Close the press page's batched-evaluator research row against the landed signature and delete the debt.
+- Capability: the press band kernel binds a signature its owner actually declares, so the one open question between the bake fold and the graph evaluator resolves into fence law rather than staying an assumption two pages hold separately.
+- Shape: the `[SHADESPAN_SIGNATURE]` research row and its two call sites in `libs/csharp/Rasm.Materials/.planning/Raster/press.md`.
+- Unlocks: `IDEAS.md [MESH_SPACE_BAKE]` — a widened bake subject inherits a settled band kernel rather than an open one.
+- Anchors: `graph#MATERIAL_GRAPH` `CompiledGraph.ShadeSpan(ReadOnlySpan<ShadePoint>, MaterialParameters, Span<PortValue>, Span<SurfaceShade>, Op)` with `ScratchWidth` and `OperandWidth` the two `Compile`-resolved rentals; the compile-time ANSWERABILITY proof — dangling and non-producing dependencies both — that makes the slot read total, and the per-point `Shade` re-entering this same rail over a one-element window so the press binds the only evaluation shape there is.
+- Ripple: follows the graph owner's mint; the press page owns the deletion.
+- Atomic: one research-row deletion and a rental-name check at two call sites.
+
+[GPU_PERIOD_ARM_TRUTH]-[QUEUED]: State the GPU noise kernel's simplex period arm as unreachable rather than leaving it readable as capability.
+- Capability: the preview kernel's own source says what admission allows, so an operator reading the WGSL does not infer that a periodic Simplex source previews when the CPU refuses to author one.
+- Shape: the simplex wrap arm and its surrounding note in `libs/csharp/Rasm.Materials/.planning/Raster/gpu.md` `[WGSL_KERNEL]`.
+- Unlocks: the preview-covers-its-subject's-full-algebra ruling holds without an arm that covers something the algebra excludes.
+- Anchors: `texture#TEXTURE_UV` `NoiseBasis.Wrappable` is false on `Simplex` and `Noise.Of` refuses a periodic Simplex source, so no admitted source reaches that arm; the kernel's own golden vector grades the wrappable bases alone.
+- Ripple: follows the texture owner's `NoisePeriod` mint; the gpu page owns the edit.
+- Atomic: one arm note.
+
+[BIM_SUMMARY_ARITY]-[QUEUED]: Repair the BIM appearance lowering against the seam factory's real fallible signature.
+- Capability: both appearance producers compose ONE factory at its actual arity, so the shared content key stays a shared derivation rather than two call shapes that only one compiler proves.
+- Shape: the `AppearanceSummary.Of` call and its surrounding rail in `libs/csharp/Rasm.Bim/.planning/Semantics/appearance.md` `[APPEARANCE_PROJECTION]`.
+- Unlocks: `IDEAS.md [ASSESSMENT_WIRE_INGESTION]` — the dedup key both peers mint stops being an unverified assumption.
+- Anchors: the seam `Rasm.Element/Graph/element#NODE_MODEL` factory is `Of(double r, double g, double b, double metallic, double roughness, double opacity, bool transmissive, Op key) -> Fin<AppearanceSummary>`; it gates every channel to the unit range and seeds its own canonical writer at zero, so no caller passes a tolerance.
+- Ripple: mirrors the Materials interchange repair; the Bim page owns its own call.
+- Atomic: one call-shape repair and its rail thread.
+
+[TEXTURE_WIRE_CORPUS_ENTRIES]-[QUEUED]: Seat the two corpus-borne appearance documents in the contract manifest with their shared vocabulary fragment.
+- Capability: every document declaring itself corpus-borne has a manifest entry to answer for it, so the census the wire family's own column implies is real rather than aspirational, and a peer decoding either document reads one frozen vocabulary instead of a transcription each branch spelled itself.
+- Shape: the appearance entries and the shared schema fragment at `tests/contracts/MANIFEST.md`.
+- Unlocks: `IDEAS.md [UDIM_STREAMING]` — a per-tile widening lands against a pinned document rather than an unpinned one.
+- Anchors: `interchange#TEXTURE_EGRESS` `IAppearanceWire.CorpusBorne` is true on `MaterialWire` and `TextureSetWire` and false on the environment and stage documents; the wire ids are `rasm.materials.material.v1` and `rasm.materials.textureset.v1`.
+- Ripple: precedes the peer decode landings; the cross-tier writer owns the manifest.
+
+[PEER_TEXTURE_SET_DECODE]-[BLOCKED]: Land the peer decode ends for the baked set document.
+- Capability: the TypeScript and Python peers decode the baked set the way they already decode the material vector — structurally, against the producer's own field order — so a texture consumer in either runtime reads channels, payload classes, and blob addresses without re-deriving an egress grammar.
+- Shape: the census and landing rows in `libs/typescript/core/.planning/interchange/codec.md` and the protocol vocabulary row in `libs/python/artifacts` runtime transport.
+- Unlocks: `IDEAS.md [ATLAS_PACKER]` — a shared-plane atlas is legible to the viewer that would render it.
+- Anchors: the document's field order and every enum column's key spelling are frozen on the producer page; the asset address join is `assets/<digest>/<file>` with the digest the LOWERED set key.
+- Arms: arm when the corpus entries land, since a landing row without an entry is a contract a census cannot check.
+- Ripple: follows `[TEXTURE_WIRE_CORPUS_ENTRIES]`; each peer branch owns its own end.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:

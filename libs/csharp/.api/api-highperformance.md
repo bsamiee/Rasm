@@ -201,6 +201,7 @@ Every `BitHelper` operation carries a `uint` and a `ulong` overload; the `ref` f
 - `Microsoft.Extensions.Caching.Hybrid`(`.api/api-hybrid-cache.md`): `ArrayPoolBufferWriter<byte>` is the `IHybridCacheSerializer<T>` serialize target, and its `WrittenMemory` feeds the paired deserialize read, so an L2 payload never materializes an intermediate array.
 - `Google.Protobuf`(`.api/api-protobuf.md`): `MemoryOwner<byte>.DangerousGetArray` hands its rented `ArraySegment<byte>` to `UnsafeByteOperations.UnsafeWrap`, and the owner disposes after the send it backs.
 - `System.IO.Hashing`(`.api/api-hashing.md`): `XxHash128.HashToUInt128(writer.WrittenSpan)` fingerprints a committed payload straight off the pooled writer.
+- `Rasm.Compute` `Model/inference`: the tiled-mosaic fold rents one `MemoryOwner<float>` per role — accumulation plane, weight plane, tile staging, and the per-row weight scratch — with `AllocationMode.Clear` on the two the overlap-add reads back, and the mosaic capsule transfers the accumulation rental outward so its `Dispose` is the release point rather than the fold's exit.
 - Staging rail: one `MemoryOwner<T>` rental backs a `Memory2D<T>` plane, `ParallelHelper.ForEach` partitions that plane over a state-carrying `IRefAction<T>`, and the same rental emits through `ArrayPoolBufferWriter<byte>` into the codec, so one allocation spans compute and emit.
 
 [LOCAL_ADMISSION]:

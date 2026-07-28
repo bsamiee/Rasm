@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGES]
 
-- (none)
+- `Silk.NET.WebGPU` and its `Native.WGPU` train are branch substrate — the three-consumer census (`Rasm.AppUi` display rendering, `Rasm.Compute` tensor dispatch, `Rasm.Materials` bake backend) seats the catalogs at `libs/csharp/.api` under the `[04]-[STRUCTURE]` tier law, and each consumer composes the surface behind one narrow folder seam, `Raster/gpu.md` the sole Materials composer; the maintenance-mode train's successor-major swap therefore lands as one row edit per seam owner, never a consumer-wide sweep.
 
 ## [02]-[SHAPE]
 
@@ -45,6 +45,7 @@
 - Streaming-quantile machinery stays three-formed — Compute `StreamMonitor.Quantile` is the P² sketch over the live `ComputeReceipt` stream, AppUi's bench statistics are exact nearest-rank over a bounded materialized sample with histogram bucket-edge burn, and the kernel `Distribution.Of` policy row is the anticipated geometry-sample sketch; folding the three on a shared p95/P² reading lossifies the exact bench figure or ships an estimator to a bucket-edge lane, and a new operational latency-quantile consumer taps `MonitorChannel.RemoteSeconds`, never a new sketch.
 - Mounted sets fold over any number of meters — `InstrumentSet.Of(LevelCells, params (Meter, Seq<InstrumentSpec>))` binds every contributor's rows against its own meter into one frozen `ByName`/`Rows`/`Cells` product, so a one-meter package is the one-element call and a composition root mounting one meter per contributor port composes the same entry. Roots re-folding pre-bound `(row, handle)` pairs into a positional `InstrumentSet` construction re-mint the derivation the capsule owns and drifts the moment the record grows a field.
 - Dimension-key materialization homes at the write entry — `InstrumentSet.Tags` projects `(slot, value)` pairs into the BCL measurement shape once, so a folder re-spelling that fold mints a per-package copy of the one materialization every arm needs when a tag set spans two writes.
+- Raster-encode owners stay plural per stratum — `Rasm.Rhino` `RasterPolicy` owns viewport capture at the host boundary, `Rasm.AppUi` `VisualCodec` owns UI capture at the leaf, and `Rasm.Materials` `RasterCodec` owns content-keyed texture-grade asset encoding at the domain rank; a shared codec owner forces a cross-stratum reference or seats an app concern below its consumers, so a new encoder is earned only by a product class no seated stratum reaches.
 - Per-folder benchmark claim rosters stay plural — the central `BenchmarkGate`/`BenchmarkReceipt` and its field map are the sanctioned collapse, while each folder's closed claim roster (`BimBenchClaim`, kernel `BenchClaim`, `FabricationBench`, the Materials `BenchKernel`/`BenchWorkload`/`BenchInput` roster) stays its own compile-time closed enum; folding them into one parameterized row erases each folder's closed-roster guard and mints a god-enum, so a new benchmark claim lands as a case on its owning folder roster and the central gate reads it through the field map. Compute's `BenchmarkClaim` family — the corpus `BENCHMARK_CLAIM` wire's minting form — admits identically through one field-map row, so the rail's totality survives the wire family with no sibling verdict grammar beside it.
 
 ## [04]-[STRUCTURE]

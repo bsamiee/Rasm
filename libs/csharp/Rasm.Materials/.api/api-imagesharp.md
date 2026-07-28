@@ -53,7 +53,7 @@ Six Labors' Split License grants Apache-2.0 unconditionally to an open-source co
 | [INDEX] | [SYMBOL]                      | [TYPE_FAMILY] | [CAPABILITY]                                   |
 | :-----: | :---------------------------- | :------------ | :--------------------------------------------- |
 |  [01]   | `PngDecoder` / `PngEncoder`   | codec pair    | PNG through 16-bit gray, color, and alpha      |
-|  [02]   | `TiffDecoder` / `TiffEncoder` | codec pair    | TIFF through 16-bit and float sample formats   |
+|  [02]   | `TiffDecoder` / `TiffEncoder` | codec pair    | TIFF through 16-bit integer sample formats     |
 |  [03]   | `WebpDecoder` / `WebpEncoder` | codec pair    | WebP lossy, lossless, near-lossless, animated  |
 |  [04]   | `QoiDecoder` / `QoiEncoder`   | codec pair    | Quite OK Image fast lossless 8-bit             |
 |  [05]   | `JpegDecoder` / `JpegEncoder` | codec pair    | baseline and progressive JPEG                  |
@@ -129,7 +129,9 @@ Six Labors' Split License grants Apache-2.0 unconditionally to an open-source co
 |  [06]   | `new QoiEncoder { … }`                                      | ctor     | QOI lossless encode          |
 |  [07]   | `new JpegEncoder { … }`                                     | ctor     | JPEG quality and subsampling |
 
-- Encoder init-only knobs: `PngEncoder` carries `BitDepth`, `ColorType`, `CompressionLevel`, `FilterMethod`, `Gamma`, `InterlaceMethod`, `ChunkFilter`, `TransparentColorMode`, `Threshold`; `TiffEncoder` carries `BitsPerPixel`, `Compression`, `CompressionLevel`, `PhotometricInterpretation`, `HorizontalPredictor`; `WebpEncoder` carries `FileFormat`, `Quality`, `Method`, `NearLossless`, `NearLosslessQuality`, `UseAlphaCompression`, `EntropyPasses`, `SpatialNoiseShaping`, `FilterStrength`, `TransparentColorMode`.
+- Encoder init-only knobs: `PngEncoder` carries `BitDepth`, `ColorType`, `CompressionLevel`, `FilterMethod`, `Gamma`, `InterlaceMethod`, `ChunkFilter`, `TransparentColorMode`, `Threshold`, `TextCompressionThreshold`; `TiffEncoder` carries `BitsPerPixel`, `Compression`, `CompressionLevel`, `PhotometricInterpretation`, `HorizontalPredictor`; `WebpEncoder` carries `FileFormat`, `Quality`, `Method`, `NearLossless`, `NearLosslessQuality`, `UseAlphaCompression`, `EntropyPasses`, `SpatialNoiseShaping`, `FilterStrength`, `TransparentColorMode`.
+- Depth-knob vocabularies, each nullable on its encoder so an unset knob infers from the pixel type: `PngBitDepth` `Bit1` `Bit2` `Bit4` `Bit8` `Bit16`; `PngColorType` `Grayscale` `Rgb` `Palette` `GrayscaleWithAlpha` `RgbWithAlpha`; `TiffBitsPerPixel` `Bit1` `Bit4` `Bit6` `Bit8` `Bit10` `Bit12` `Bit14` `Bit16` `Bit24` `Bit30` `Bit32` `Bit36` `Bit42` `Bit48`; `TiffPhotometricInterpretation` `WhiteIsZero` `BlackIsZero` `Rgb` `PaletteColor` `TransparencyMask` `Separated` `YCbCr` `CieLab` `IccLab` `ItuLab` `ColorFilterArray` `LinearRaw`.
+- `TiffBitsPerPixel` tops out at `Bit48` and carries NO float row, so this encoder writes no float TIFF and no 16-bit-plus-alpha TIFF; a four-component 16-bit plane routed here drops its alpha lane rather than refusing, and a float plane belongs to the OpenEXR peer.
 
 [ENTRYPOINT_SCOPE]: configuration, metadata, and color conversion
 
@@ -155,7 +157,7 @@ Six Labors' Split License grants Apache-2.0 unconditionally to an open-source co
 - Depth rides the pixel type — `L8`/`L16` scalar, `Rgba32`/`Rgba64` integer color, `HalfVector4`/`RgbaVector` float HDR — and `CloneAs<TPixel2>` is the one conversion, so a float plane narrows to `Rgba64` for PNG16 egress through the same member a `Rgba64` widens to `RgbaVector` through.
 - `Image.WrapMemory` inverts ownership: the codec reads and writes the caller's pooled plane in place, so an encode of an already-materialized plane costs one header and the compressed body, never a second full-plane allocation. Its `IMemoryOwner<TPixel>` form hands the rental to the image; its `Memory<TPixel>` form leaves it with the caller.
 - `ProcessPixelRows` is the only sanctioned bulk access — the accessor hands back `Span<TPixel>` per row under a scope that pins the discontiguous group layout, so a fold over rows is safe where a whole-image span is not.
-- Depth is a per-encoder policy: `PngEncoder.BitDepth`/`ColorType` and `TiffEncoder.BitsPerPixel`/`PhotometricInterpretation` decide what the file carries, and leaving either null lets the encoder infer from the pixel type — an inference that silently narrows where the plane's depth exceeds the encoder's default.
+- Depth is a per-encoder policy: `PngEncoder.BitDepth`/`ColorType` and `TiffEncoder.BitsPerPixel`/`PhotometricInterpretation` decide what the file carries, and leaving either null lets the encoder infer from the pixel type — an inference that silently narrows where the plane's depth exceeds the encoder's own roster, which is exactly where a float plane meets `TiffBitsPerPixel`.
 - Color management is explicit and carried, never applied: an `IccProfile` on `ImageMetadata` rides the file, and `ColorSpaceConverter` over `ColorSpaceConverterOptions` is the one place a space transform runs — a decode never silently color-manages.
 - Codecs throw: `ImageFormatException` for a malformed payload and `UnknownImageFormatException` where no detector claims the bytes, both lowered at the folder boundary onto the typed fault rail rather than escaping as exceptions.
 
@@ -176,6 +178,6 @@ Six Labors' Split License grants Apache-2.0 unconditionally to an open-source co
 
 [RAIL_LAW]:
 - Package: `SixLabors.ImageSharp`
-- Owns: the managed raster container estate — format detection, decode and encode across PNG through 16-bit, TIFF through 16-bit and float, WebP, QOI, JPEG, BMP, GIF, TGA, and Netpbm; the `IPixel` depth ladder from `L8` to `RgbaVector`; ICC, EXIF, and XMP metadata carriage; and the `ColorSpaceConverter` space and chromatic-adaptation transform.
+- Owns: the managed raster container estate — format detection, decode and encode across PNG through 16-bit, TIFF through 16-bit integer, WebP, QOI, JPEG, BMP, GIF, TGA, and Netpbm; the `IPixel` depth ladder from `L8` to `RgbaVector`; ICC, EXIF, and XMP metadata carriage; and the `ColorSpaceConverter` space and chromatic-adaptation transform.
 - Accept: `Load<TPixel>` naming the demanded plane depth; `WrapMemory` over a pooled `MemoryOwner<T>` arena with the ownership form chosen deliberately; `ProcessPixelRows` for bulk access; one reused `Configuration` per encode profile; encoder instances declaring depth, compression, and filter policy explicitly; `CloneAs<TPixel2>` as the one depth conversion.
 - Reject: an 8-bit pixel type on a texture channel plane; an inferred encoder depth on a 16-bit or float plane; a second arena where `WrapMemory` binds the existing one; `DangerousTryGetSinglePixelMemory` without `PreferContiguousImageBuffers`; an EXR expectation against this surface; a hand-rolled block-compression or KTX2 writer over it; a decode assumed to have color-managed anything.

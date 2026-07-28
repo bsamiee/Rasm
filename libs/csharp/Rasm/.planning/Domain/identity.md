@@ -11,11 +11,13 @@ Identity and derivation never cross: a content key built from a `Deterministic` 
 
 ## [02]-[CONTENT_KEY]
 
-- Owner: `ContentHash` static class — one member, one algorithm, seed zero; THE federation content key every partner composes. Caller owns the canonical byte projection, this owns the digest, so identity is byte-stable across packages and runtimes.
-- Entry: `Of(ReadOnlySpan<byte> canonicalBytes)` → `XxHash128.HashToUInt128(canonicalBytes)` → `UInt128`; seed is the `HashToUInt128` default zero.
+- Owner: `ContentHash` static class — one algorithm, seed zero; THE federation content key every partner composes. Caller owns the canonical byte projection, this owns the digest, so identity is byte-stable across packages and runtimes.
+- Entry: one name over two input shapes — `Of(ReadOnlySpan<byte> canonicalBytes)` folds a payload one span spans, `Of<TState>(TState state, Action<TState, XxHash128> chunks)` folds an ordered chunk stream through one seeded accumulator; both close on `UInt128` at seed zero, so the streaming leg is the same identity space and never a second key.
 - Law: canonicalization is the caller's proof — this entry hashes the bytes it is handed, so byte-stable member order, numeric normalization, and encoding are the projecting owner's obligation, and two semantically equal values with divergent canonical projections are two identities.
-- Packages: `System.IO.Hashing` (`XxHash128.HashToUInt128` — the static one-shot; MIT, managed, no native asset).
-- Growth: streaming identity over large payloads is the same algorithm's incremental lifecycle (`XxHash128.Append` + `GetCurrentHashAsUInt128`, seed zero), landing as one member on this owner.
+- Law: chunk ORDER is the streaming leg's canonical projection — the accumulator is order-sensitive, so a producer emits its chunks under one declared traversal and a reordered emission is a different identity, exactly as a reordered span is.
+- Law: a payload whose byte length exceeds `int` range reaches no `ReadOnlySpan<byte>` at all, so the streaming leg is the only spelling for a large plane, tile arena, or segmented artifact; picking the one-shot there is unrepresentable rather than slow.
+- Packages: `System.IO.Hashing` (`XxHash128.HashToUInt128` static one-shot, `XxHash128(long)` seeded construction, `Append`, `GetCurrentHashAsUInt128`; MIT, managed, no native asset).
+- Growth: a new ingress shape lands as one overload on this entry name; a second hashing owner beside it forks the federation seed every partner reproduces.
 - Boundary: `UInt128` is the identity currency; wire and storage encodings (hex, two-lane `ulong`, byte order) are boundary projections at the consuming seam.
 
 ```csharp signature
@@ -28,6 +30,15 @@ namespace Rasm.Domain;
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class ContentHash {
     [BoundaryAdapter] public static UInt128 Of(ReadOnlySpan<byte> canonicalBytes) => XxHash128.HashToUInt128(canonicalBytes);
+
+    // Chunk legs spell seed zero explicitly because the accumulator's construction takes it, where the one-shot
+    // defaults it — one seed, two spellings, and a divergence here forks every partner's reproduction of the key.
+    [BoundaryAdapter]
+    public static UInt128 Of<TState>(TState state, Action<TState, XxHash128> chunks) {
+        XxHash128 accumulator = new(seed: 0L);
+        chunks(state, accumulator);
+        return accumulator.GetCurrentHashAsUInt128();
+    }
 }
 ```
 

@@ -39,7 +39,7 @@ Rank is reference depth, never domain family: two packages share a rank only whe
 - S3 reads — `Rasm.Compute` references `{Rasm, Rasm.Element, Rasm.AppHost, Rasm.Persistence}` and reads the system of record one-way.
 - S3 generation — `Rasm.Generation` depends up on the kernel, the seam, and the AEC peers, and nothing references it downward.
 - S3 law — the two S3 members never reference each other, and generation composes the kernel's geometry operations rather than owning primitives.
-- S4 leaf — `Rasm.AppUi` references `{Rasm, Rasm.AppHost, Rasm.Compute, Rasm.Persistence}` and stays the consuming leaf, never the composition root.
+- S4 leaf — `Rasm.AppUi` references `{Rasm, Rasm.AppHost, Rasm.Compute, Rasm.Materials, Rasm.Persistence}` and stays the consuming leaf.
 - S5 app shell — `apps/<host>/<Plugin>/` shells seat outside `libs/csharp` and compose the app platform with the host boundary.
 - S5 shell law — composition-root surfaces home at the app shell; a package blocked on the shell waits rather than pulling composition down.
 
@@ -98,6 +98,7 @@ flowchart TB
     AppUi -->|"[IMPORT]: ContentHash"| Rasm
     AppUi -->|"[IMPORT]: DeterminismContext"| AppHost
     AppUi -->|"[IMPORT]: ResidencyPayload"| Compute
+    AppUi -->|"[IMPORT]: LayeredBsdf"| Materials
     AppUi -->|"[IMPORT]: DuckProfileReceipt"| Persistence
     Rasm -->|"forbidden: host-neutral upward"| HOST
 ```
