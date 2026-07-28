@@ -226,11 +226,7 @@ class Simulation(Struct, frozen=True):
                     # charter row at the producing fold, spelling derived from BUILDING_ENERGY: total EUI is the
                     # end-use sum by definition, so no second parser member is claimed; the record runs parent-side
                     # inside the sync evidence weave.
-                    charter_record(
-                        GeometrySubject.BUILDING_ENERGY,
-                        {"eui_total": sum(row[5] for row in rows)},
-                        EvidenceScope.ENERGY_SIMULATE.value,
-                    )
+                    charter_record(GeometrySubject.BUILDING_ENERGY, {"eui_total": sum(row[5] for row in rows)})
                 case ResultQuery(tag="tabular", tabular=name):
                     rows = tuple((name, "", "", str(key), 0, value) for key, values in reader.tabular_data_by_name(name).items() for value in values)
                 case ResultQuery(tag="outputs", outputs=None):

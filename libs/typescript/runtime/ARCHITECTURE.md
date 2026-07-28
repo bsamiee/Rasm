@@ -20,12 +20,13 @@ runtime/
     │   └── coordinate.ts      # Accord — the engine-blind lease, elect, and CAS coordination port
     ├── otel/                  # OTLP wire: egress, W3C continuation, crash capture, browser RUM
     │   ├── emit.ts            # One OTLP egress Layer and the W3C continuation ingress under the redaction scrub
-    │   ├── instrument.ts      # Browser auto-instrumentation registration on the web lane's exposed provider
+    │   ├── instrument.ts      # Browser-condition registration node: request, document, and interaction rows over the zone manager
+    │   ├── server.ts          # Server-condition registration node: engine vitals and http/undici/pg rows over the async-local manager
     │   ├── dev.ts             # plane:dev DevTools registration node on the ./dev subpath; the gauge fails any runtime import
     │   ├── crash.ts           # Total Cause-to-fatal-emission fold through the core forensic fault band
     │   ├── meter.ts           # Work-plane fact-to-instrument bridge, census gauges, log floor, tenant views
     │   ├── profile.ts         # Continuous-profiling lane: Pyroscope push lifecycle under the identity projection
-    │   └── vital.ts           # RUM vital rows over one scoped PerformanceObserver bridge
+    │   └── vital.ts           # The estate's one CWV owner: web-vitals capture, graded facts, the render-report intake
     ├── serve/                 # One public front door
     │   ├── api.ts             # Assembly law: sub-domains export group data, the app assembles one HttpApi
     │   ├── route.ts           # HttpLayerRouter serving fold: api mount, upload dispatch, and intake verify
@@ -79,7 +80,7 @@ flowchart TB
     end
     subgraph S2["S2 CARRIERS + WORK"]
         Fanout["pubsub · coordinate"]
-        Otel["emit · crash · dev · instrument · meter · profile · vital"]
+        Otel["emit · crash · dev · instrument · meter · profile · server · vital"]
         Browser["boot · shell · persist · route · fetch"]
         Work["entity · flow · queue · schedule · deliver · report"]
     end
@@ -154,6 +155,7 @@ flowchart LR
     Data e20@-->|"[SHAPE]: Journal.envelope"| Work
     Core e21@-->|"[SHAPE]: Carrier.Context"| Otel
     Data e22@-->|"[SHAPE]: Backend.Generation"| Net
+    Core e23@-->|"[SHAPE]: Convention"| Proc
 ```
 
 ```mermaid
@@ -187,6 +189,7 @@ flowchart LR
     Otel e8@-->|"[TRANSPORT]: Export.live"| Iac
     Ui e9@-->|"[SHAPE]: Tap.Registry"| Otel
     Otel e10@-->|"[TRANSPORT]: Profile.live"| Iac
+    Otel e11@-->|"[PORT]: Vital.Report"| Ui
 ```
 
 ## [04]-[INTERNAL]

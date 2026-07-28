@@ -71,7 +71,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `tus-js-client`
 
 [TELEMETRY]:
-- `web-vitals`
+- `web-vitals` — admitted for its DOM performance-global augmentation alone; `runtime` composes the capture functions and holds the catalogue.
 
 [SPATIAL]:
 - `three`

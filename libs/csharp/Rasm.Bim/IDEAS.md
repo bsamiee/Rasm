@@ -8,7 +8,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 <!-- source-only: open idea card template:
 [ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
-- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Capability: <the higher-order invariant, owner capability, or concept established — concept grain only, never a page path, row list, or member spelling>.
 - Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
 - Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
 - Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
@@ -75,7 +75,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 -->
 
 [BIM_HOOK_RAIL]-[COMPLETE]: `Model/observability#HOOK_RAIL` landed — `BimHooks` per-composition registry record and the `BimFact` payload family over the kernel point capsule, with modality rows, id grammar, and subscriber-fault isolation arriving settled from the kernel signal capsule; progress points wired at `Exchange/import#IMPORT_RAIL` (ACadSharp `OnProgress`) and `Energy/derive#TRANSLATE_MATRIX` (OpenStudio `ProgressBar`).
-[BIM_TELEMETRY_TAP]-[COMPLETE]: `Model/observability#TELEMETRY_TAP` landed — `BimTelemetry` roster-and-projection owner over kernel `InstrumentRow`/`InstrumentSet`/`Buckets`, the kernel identity mint and contributor port, the `ActivitySource` span law, and baggage-sourced tenant/model attribution, zero OTel reference.
+[BIM_TELEMETRY_TAP]-[COMPLETE]: `Model/observability#TELEMETRY_TAP` landed — `BimTelemetry` roster-and-projection owner over kernel `InstrumentSpec`/`InstrumentSet`/`Buckets`, the contributor port an app fan materializes, the kernel `SpanBand` bracket over `BimPoint`-derived trace planes, and the kernel `TenantContext` metric partition beside the span-only model slot, zero OTel reference and zero folder-local source.
 [BIM_EVENT_FABRIC]-[COMPLETE]: `Exchange/events#EVENTS` landed — `BimEvent` closed union over the five model-mutating facts, `BimEnvelope` CloudEvents projection (`Seal`/`Encode`/`Open`, traceparent/tracestate extension rows), mint rows pinned on versioning, issues, validation, export, and energy exchange.
 [BIM_BENCH_RECEIPTS]-[COMPLETE]: `Model/observability#BENCH_RECEIPTS` landed — `BimBenchClaim` per-op claim roster with corpus columns and the `BimBenchReceipt` evidence record under the AppHost corpus-gate admission row.
 [TEMPLATE_AUDIT_VALIDATION_TIER]-[COMPLETE]: Ruled — `Review/validation` widened to the two-tier QA owner: `ModelHealth`/`ModelFinding` compose the `TemplateFinding` stream as the baseline tier beneath authored IDS, the case the tier discriminant, one verdict surface for `Rasm.AppUi` and the review pipeline

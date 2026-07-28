@@ -704,7 +704,7 @@ public abstract partial record Element {
 - Owner: `GridPlan<TRow>` retains typed rows through flat or tree shape, lowers to host `object[]` only at `GridItem` construction, and routes callback faults through its injected error sink.
 - Cases: `GridRows<TRow>` distinguishes flat rows from a tree carrying child projection, expansion policy, node budget, and identity equality; `CellSpec` covers host cell modalities through one guarded callback sink.
 - Entry: `IGridPlan.Realize` rejects default expansion limits, absent equality, repeated identities, and budget exhaustion before returning a host tree.
-- Egress: grid realization returns one unadmitted host control; `ElementReceipt.Create` applies the caller's `ElementSpec` exactly once, and `GridPlan.Failures` retains callback plus reporter faults.
+- Output: grid realization returns one unadmitted host control; `ElementReceipt.Create` applies the caller's `ElementSpec` exactly once, and `GridPlan.Failures` retains callback and reporter faults.
 - Growth: another cell is one `CellSpec` case, another topology is one `GridRows<TRow>` case, and another host column capability is one `GridColumnFeature` row folded through `Features`.
 
 ```csharp signature

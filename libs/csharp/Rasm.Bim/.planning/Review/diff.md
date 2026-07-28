@@ -6,8 +6,8 @@ The diff is the cross-party twin of two same-lineage owners and re-derives neith
 
 ## [01]-[INDEX]
 
-- [01]-[MODEL_DIFF]: the `ModelDiff` change-set, the `ElementChange` closed `[Union]` (Added/Removed/Modified/Moved) with the `ChangeKind` token projection, the `ElementFingerprint` content/placement keys the join dedups on, the `Generator.Equals` `Inequalities` `AspectDelta` member-level delta the `Modified` arm carries (each delta shaped by the `DeltaShape` terminal-segment-kind token), and the `ModelDiff.Encode`/`Decode` host-free cross-runtime projection.
-- [02]-[AUDIT]: the chained content-addressed `AuditEntry` log folding `ModelDiff` change-sets across a version sequence into a tamper-evident per-element mutation trail, the `AuditTrail.For(globalId)` lifecycle query, and `AuditTrail.Verify()`.
+- [02]-[MODEL_DIFF]: the `ModelDiff` change-set, the `ElementChange` closed `[Union]` (Added/Removed/Modified/Moved) with the `ChangeKind` token projection, the `ElementFingerprint` content/placement keys the join dedups on, the `Generator.Equals` `Inequalities` `AspectDelta` member-level delta the `Modified` arm carries (each delta shaped by the `DeltaShape` terminal-segment-kind token), and the `ModelDiff.Encode`/`Decode` host-free cross-runtime projection.
+- [03]-[AUDIT]: the chained content-addressed `AuditEntry` log folding `ModelDiff` change-sets across a version sequence into a tamper-evident per-element mutation trail, the `AuditTrail.For(globalId)` lifecycle query, and `AuditTrail.Verify()`.
 
 ## [02]-[MODEL_DIFF]
 

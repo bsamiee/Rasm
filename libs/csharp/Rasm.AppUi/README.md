@@ -56,7 +56,7 @@ Its shell mounts onto any admitted substrate through the `SurfaceMount` and host
 - [35]-[TOUR](.planning/Collab/tour.md): Review tour as a camera-track projection with presenter-follow presence.
 
 [DIAGNOSTICS]:
-- [36]-[EVIDENCE](.planning/Diagnostics/evidence.md): Evidence-receipt union, telemetry spine, correlation join, and the 6xxx fault registry.
+- [36]-[EVIDENCE](.planning/Diagnostics/evidence.md): Evidence union, telemetry spine with viewport objectives, correlation join, 6xxx faults.
 - [37]-[PROOF](.planning/Diagnostics/proof.md): Capture lanes, the headless proof matrix, frame-bench lanes, goldens, and a typed proof fault.
 - [38]-[DEVLOOP](.planning/Diagnostics/devloop.md): Hot-reload knobs, inspector HUD, flamegraph, solve scrub, and a REPL.
 - [39]-[GOVERNOR](.planning/Diagnostics/governor.md): Perf-budget quality governor with timestamp attribution.
@@ -183,3 +183,5 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 
 [RUNTIME_INBOX]:
 - `System.Diagnostics.Metrics` — in-box instrument surface behind the `rasm.appui.*` telemetry spine.
+- `System.Net.Http` — asset-fetch client behind theme and remote resource loading.
+- `System.Text.Json` — generated wire contexts behind shell persistence, command payloads, and the evidence projection.

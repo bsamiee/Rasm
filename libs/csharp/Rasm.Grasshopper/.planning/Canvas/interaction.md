@@ -449,12 +449,13 @@ public sealed class EdgeResize {
 
 ## [05]-[MOMENTS]
 
-- Composition: dwell timing writes call `CanvasOperator.Apply(op: new CanvasOp.DwellCase(Delay: delay), timeline: timeline, key: op)` and consume the resulting `CanvasReceipt`; `timeline` is the caller's shared `MonotonicTimeline`, never minted here. Reads call `CanvasOperator.Read(query: new CanvasQuery.StateCase(), key: op)` and accept only `CanvasProjection.StateCase { Value: var state }` before projecting `state.DwellDelay`. Zero or negative delay preserves the host disable convention. Dwell facts remain `Shell/events.md`; tooltip content remains `Shell/chrome.md`.
 - Owner: `MenuMount` — the synchronous population seam over `PopulateContextMenu`: `Mount(Action<MenuMoment> fill, Op? key = null)` → `Fin<Lease<InteractionMount>>`. Its handler runs inside the host raise because the live menu must be filled before return; the filler runs through `Op.Catch`, and any fault records on `InteractionMount.LastFault` without escaping into the host event chain.
 - Law: a filler adds items and returns — presenting, styling, and command wiring for menu items are `Eto`-tier and chrome concerns; a filler that opens its own menu beside the host's is the double-menu defect.
 - Law: whether ANY context menu opens is `Canvas/canvas.md`'s `ActionGate` rows (`WireMenu`/`ObjectMenu`/`CanvasMenu`) — the fill seam runs only when the gate admitted the raise.
+- Entry: dwell timing writes call `CanvasOperator.Apply(op: new CanvasOp.DwellCase(Delay: delay), timeline: timeline, key: op)` and consume the resulting `CanvasReceipt`; `timeline` is the caller's shared `MonotonicTimeline`, never minted here. Reads call `CanvasOperator.Read(query: new CanvasQuery.StateCase(), key: op)` and accept only `CanvasProjection.StateCase { Value: var state }` before projecting `state.DwellDelay`. Zero or negative delay preserves the host disable convention.
 - Packages: Grasshopper2 (`FlexControl.PopulateContextMenu`, `PopulateContextMenuEventArgs.Control`/`MouseEvent`/`Menu`/`IsMenu`), Eto.Forms (`ContextMenu`, `MouseEventArgs`), LanguageExt.Core, `Rasm.Domain`, `Shell/session.md` (`GhSession`, `ScopeTarget`), `Canvas/canvas.md` (`CanvasOp.DwellCase`, `CanvasQuery.StateCase`, `CanvasProjection.StateCase`, `CanvasState.DwellDelay`, `CanvasReceipt`).
 - Growth: a new synchronous host moment (a populate-shaped event whose args demand in-raise mutation) is one moment record with one mount; observation-shaped events stay `Shell/events.md` rows.
+- Boundary: dwell facts remain `Shell/events.md`; tooltip content remains `Shell/chrome.md`.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------

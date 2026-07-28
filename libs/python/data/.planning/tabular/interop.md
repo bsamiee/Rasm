@@ -96,8 +96,17 @@ class InteropReceipt(Struct, frozen=True):
         return cls(source=source, target=target, rows=frame.shape[0], columns=len(frame.columns), content_key=key)
 
     def contribute(self) -> Iterable[Receipt]:
+        # `domain`/`kind`/`key` are the lifted evidence contract the `tabular/lakehouse#LAKEHOUSE` residence reads, and
+        # `domain` is that plane's partition column — a contributor omitting it lands every translation row in one
+        # nameless partition no predicate ever prunes. The TARGET backend keys the row: a translation is named by
+        # where it lands, and the source survives in the subject beside it.
         yield Receipt.of(
-            "frame-interop", ("emitted", f"{self.source}->{self.target}", {"rows": self.rows, "columns": self.columns, "key": self.content_key.hex})
+            "frame-interop",
+            (
+                "emitted",
+                f"{self.source}->{self.target}",
+                {"domain": "interop", "kind": self.target, "key": self.content_key.hex, "rows": self.rows, "columns": self.columns},
+            ),
         )
 
 

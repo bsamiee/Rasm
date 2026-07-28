@@ -194,9 +194,10 @@ class LifecycleReceipt(Struct, frozen=True, gc=False):
         # local carrier residual-over-ceiling `admitted` verdict gates; `wire()` is the compute crossing.
         return GeometryHandoff.of(LIFECYCLE_SUBJECT, evidence_key, self.evidence(), ceiling)
 
-    def frame(self, evidence_key: ContentKey) -> EvidenceFrame:
+    def frame(self, evidence_key: ContentKey) -> "RuntimeRail[EvidenceFrame]":
         # phase rows are homogeneous, so the first row's fact keys ARE the column set; the rollup crosses the
-        # geometry-to-data seam as one columnar frame per run — an empty phase frames zero rows, never a fault.
+        # geometry-to-data seam as one columnar frame per run — an empty phase frames zero rows, never a fault, and a
+        # row set that is NOT homogeneous rails on the port's own width check rather than raising past this producer.
         names = tuple(self.rows[0].facts) if self.rows else ()
         table: dict[str, list[object]] = {
             "phase": [self.phase.value] * len(self.rows),

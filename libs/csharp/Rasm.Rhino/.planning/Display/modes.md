@@ -322,7 +322,7 @@ public abstract partial record Appearance {
 ## [03]-[MODE_FAMILY]
 
 - Owner: `ModeKind` carries built-in identity; `ModePlan` distinguishes editing an existing descriptor from deriving and persisting a copy.
-- Policy: each `ModePolicy` case carries one descriptor decision; a request sequence composes any unique subset independently from appearance concerns.
+- Law: each `ModePolicy` case carries one descriptor decision; a request sequence composes any unique subset independently from appearance concerns.
 - Law: `ModeOp.FindCase` yields a detached host copy; appearance and policy writes remain local until `ModeOp.UpdateCase` persists the descriptor.
 - Law: copied modes always pass through `ModeOp.UpdateCase`; an in-memory copy never becomes a successful receipt.
 - Growth: a built-in mode is one `ModeKind` row; a descriptor property is one `ModePolicy` case.

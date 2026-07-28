@@ -110,7 +110,6 @@ Shared substrate consumed from the Py registry; the registry and its charters ow
 
 [OBSERVABILITY]:
 - `opentelemetry-api` — graduation-spine tracer surface.
-- `psutil` — graduation cost bracket: one `oneshot` cpu/rss sample pair per evidence crossing.
 
 [NUMERIC_SUBSTRATE]:
 - `numpy`

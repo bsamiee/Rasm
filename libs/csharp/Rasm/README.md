@@ -14,7 +14,7 @@
 - [05]-[NORMALIZATION](.planning/Domain/normalization.md): Rhino-kind taxonomy and coercion owner — coercion lattice and its projection carrier.
 - [06]-[EVALUATION](.planning/Domain/evaluation.md): Closest-point evaluation lattice — `ClosestHit` over frames, sampling, signed distance.
 - [07]-[STATS](.planning/Domain/stats.md): Statistics substrate — streaming moments, tolerance-banded extrema, and distribution quantiles.
-- [08]-[TELEMETRY](.planning/Domain/telemetry.md): Kernel signal owner — the OTel-free capsule, receipt-tap fabric, and bench-claim ledger.
+- [08]-[TELEMETRY](.planning/Domain/telemetry.md): Kernel signal owner — OTel-free capsule, causal frame, receipt tap, SLO algebra, bench ledger.
 
 [NUMERICS]:
 - [09]-[PREDICATES](.planning/Numerics/predicates.md): Exact-predicate floor — orientation, in-circle, and constructed-point tests up the ladder.
@@ -115,6 +115,7 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 
 [TIME_IDENTITY]:
 - `System.IO.Hashing` — reached only through the seed-zero content-hash mint.
+- `NodaTime` — semantic instants and spans on the causal frame, receipt envelope, and objective windows.
 
 [NUMERIC_SUBSTRATE]:
 - `MathNet.Numerics` — dense linear-algebra and distribution substrate under the matrix owner.
@@ -127,3 +128,6 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 
 [COLOR_SCIENCE]:
 - `Wacton.Unicolour` — perceptual color model behind the one atoms color owner.
+
+[RUNTIME_INBOX]:
+- `System.Text.Json` — `[JsonDerivedType]` receipt-union roster and the frozen evidence-wire options identity.

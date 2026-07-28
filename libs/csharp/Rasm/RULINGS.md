@@ -17,6 +17,8 @@ Every reopen predicate rides the license gate.
 ## [02]-[SHAPE]
 
 - `Domain/telemetry` mints the ONE hook capsule type — an effect-rail caller lifts `Fire` at its own seam, never a second effect-threaded capsule.
+- `SignalRail` governs EMISSION alone — `SignalFact` holds evidence over live resources, so a kernel gate guarding an action declares its own `HookPoint<TFact>` on a fact carrying that value.
+- `SpanEdge` is the ONE bracket carriage — kind, adopted parent, and fan-in links ride one value, so a bracket gains a coordinate without a second trailing knob per rail shape.
 - `Buckets` rows carry real boundary values alone and `Advised<T>` saturates them into the instrument's measurement type — a per-type bound array re-mints one policy twice and strands whichever copy a retune misses.
 - Packed-upper layout is one untyped contract — `CovarianceOf` feeds `SymmetricMatrix.Of` repack-free; a repack corrupts type-invisibly.
 - Packed-upper index arithmetic mirrors across `SymmetricMatrix`, `SampleMoment`, and `Lm` — the formula moves only as one all-owner edit.

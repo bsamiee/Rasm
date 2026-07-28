@@ -36,7 +36,7 @@ from expression.collections import Block, Map
 from msgspec import Struct
 from opentelemetry import trace
 
-from rasm.runtime.faults import BoundaryFault, Disposition, RuntimeRail, boundary, traversed
+from rasm.runtime.faults import BoundaryFault, Disposition, RuntimeRail, boundary, scoped, traversed
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import Receipt
@@ -51,7 +51,7 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-_TRACER: Final = trace.get_tracer("rasm.data.graph")
+_TRACER: Final = scoped(trace.get_tracer, "rasm.data.graph")
 
 type NodeId = int
 type RxGraph = rx.PyGraph | rx.PyDiGraph

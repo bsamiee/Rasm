@@ -6,7 +6,7 @@ Ingress is one accumulating boundary: `Register.admit(*sources)` is the ONE poly
 
 ## [01]-[INDEX]
 
-- [01]-[REGISTER]: the ISO 19650 delivery-register axis — the exact-NA-cardinality suitability/revision/state vocabularies over the one `_SUITABILITY` correspondence, the dialect-profiled container XML, the rule-row audit policy, the `InformationContainer` and `Register` owners with the one polymorphic accumulating `admit` ingress, and the closed `RegisterOp` folded once through the lane-offloaded `_composed` into the `ArtifactReceipt.Register` case.
+- [02]-[REGISTER]: the ISO 19650 delivery-register axis — the exact-NA-cardinality suitability/revision/state vocabularies over the one `_SUITABILITY` correspondence, the dialect-profiled container XML, the rule-row audit policy, the `InformationContainer` and `Register` owners with the one polymorphic accumulating `admit` ingress, and the closed `RegisterOp` folded once through the lane-offloaded `_composed` into the `ArtifactReceipt.Register` case.
 
 ## [02]-[REGISTER]
 

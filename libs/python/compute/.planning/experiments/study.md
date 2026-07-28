@@ -570,4 +570,4 @@ class Study(Struct, frozen=True):
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [STUDY_FRAME_RENDER]-[BLOCKED]: which data-owned public projection serializes a study design/response cohort to canonical Arrow IPC bytes without importing uncataloged `pyarrow` members in compute; `libs/python/data/.planning/tabular/columnar.md` `arrow_bytes` ownership, `libs/python/data/.planning/tabular/interop.md` frame construction, and the data counterpart card `[COHORT_ARROW_PROJECTION]` on `libs/python/data/TASKLOG.md`.
+(none)

@@ -29,7 +29,7 @@ from expression.extra.result import traverse
 from msgspec import Struct
 from opentelemetry import trace
 
-from rasm.runtime.faults import SCOPES, BoundaryFault, RuntimeRail, Scope
+from rasm.runtime.faults import SCOPES, BoundaryFault, RuntimeRail, Scope, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import Admit, LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -41,6 +41,10 @@ if TYPE_CHECKING:  # the AGPL lbt tree loads function-local at the execution bou
     from lbt_recipes.recipe import Recipe
     from lbt_recipes.settings import RecipeSettings
     from queenbee.recipe.recipe import RecipeInterface
+
+# execution tracer minted once: the API caches no handle, so a per-execute mint allocates on the boundary the
+# recipe run already pays a process hop for, and the pre-install proxy upgrades in place at the telemetry install.
+_TRACER: Final[trace.Tracer] = scoped(trace.get_tracer, SCOPES[Scope.RECIPE])
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -233,7 +237,7 @@ class RecipeExecution(Struct, frozen=True):
     async def _observed(self, staged: _Staged) -> "RuntimeRail[RecipeProduct]":
         # blocking child-process wait crosses on the RELEASING trait under the lane's deadline and limiter; the flatten joins the
         # offload rail onto the kernel rail, and `_emit` harvests the receipt.
-        with trace.get_tracer(SCOPES[Scope.RECIPE]).start_as_current_span("recipe.execute"):
+        with _TRACER.start_as_current_span("recipe.execute"):
             return (await self.lane.offload(Kernel.of(_execute, KernelTrait.RELEASING), staged)).bind(lambda rail: rail).map(_emit)
 
 

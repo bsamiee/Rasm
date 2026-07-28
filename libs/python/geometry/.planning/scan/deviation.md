@@ -222,9 +222,10 @@ class DeviationResult(Struct, frozen=True):
             {"max_distance": policy.tolerance, "noncompliant_fraction": policy.fraction},
         )
 
-    def frame(self, evidence_key: ContentKey) -> EvidenceFrame:
+    def frame(self, evidence_key: ContentKey) -> "RuntimeRail[EvidenceFrame]":
         # one columnar row per evaluated element — band facts + classification census — through the graduation
-        # frame port; the data plane aggregates across elements, so per-face attribution stays overlay evidence.
+        # frame port; the data plane aggregates across elements, so per-face attribution stays overlay evidence, while
+        # port rail returns a width mismatch to this producer rather than raising past its consumer.
         kinds = {f"class.{c.value}": [sum(s.kind is c for s in self.segments)] for c in PrimitiveClass}
         table: dict[str, list[object]] = {
             "element": [self.element],
@@ -299,7 +300,7 @@ def _distributed(result: DeviationResult) -> DeviationResult:
     # charter rows record here off the returned band — spellings derived, never hand-picked; a SEGMENT identity
     # band records nothing.
     if result.stage is not DeviationStage.SEGMENT:
-        charter_record(GeometrySubject.SCAN_DEVIATION, result.band.facts(), EvidenceScope.SCAN_DEVIATION.value)
+        charter_record(GeometrySubject.SCAN_DEVIATION, result.band.facts())
     return result
 
 

@@ -6,7 +6,7 @@ Tier-0 graph-analytics substrate owning the reducer-return algebra both graph-an
 
 ## [01]-[INDEX]
 
-- [01]-[ANALYTIC]: `AnalyticValue` union with its scalar, peak, and columnar projections, the polymorphic `ranked` fold, and the `peak_of`/`scalar_of` census projections.
+- [02]-[ANALYTIC]: `AnalyticValue` union with its scalar, peak, and columnar projections, the polymorphic `ranked` fold, and the `peak_of`/`scalar_of` census projections.
 
 ## [02]-[ANALYTIC]
 

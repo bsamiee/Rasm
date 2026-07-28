@@ -12,7 +12,7 @@ Its self-describing eight-column frame crosses to the C# AEC domain as the seam 
 
 - Owner: `MaterialImpact` reuses the `openepd` `LCIAMethod` value vocabulary as the canonical method axis, never re-declared; `Spread` gives mined dispersion a typed home on every `ImpactCell` (`rsd` declared, `std` sampled), so uncertainty is a carried slot, never an afterthought.
 - Cases: the provider is recovered from the payload shape and the arity from the payload value; the `openepd` method selector `""` picks the deterministic minimum of the available `LCIAMethod`s.
-- Entry: `gated(*rules)` composes the `tabular/contract#ADMISSION` gate downward over the eight-column frame and `profiled(profile)` grades the same frame through the `tabular/profile#PROFILE` plan; `wire` composes the consumer-edge crossing over the `tabular/columnar` public Arrow-bytes fold with the carrier's `ContentKey`.
+- Entry: `gated(*rules)` composes the `tabular/contract#ADMISSION` gate downward over the eight-column frame and `profiled(profile)` grades the same frame through the `tabular/profile#PROFILE` plan and hands back the whole `Interrogation` so a downstream report reuses the graded plan; `wire` composes the consumer-edge crossing over the `tabular/columnar` public Arrow-bytes fold with the carrier's `ContentKey`.
 - Auto: `premise` supplies the future-year background LCI and never an LCIA of its own — the `premise_background` case scores through the same Brightway solve arm, keyed by its scenario tuple so identical prospective builds dedupe; a demand×method sweep rides the `Block` arity with each solve content-keyed, never a second arm.
 - Receipt: source identity keys the receipt — declaration id+version, solve fingerprint, setup identity, scenario tuple — so re-ingestion or recompute of the same declaration dedupes in the `Rasm.Persistence` reuse ledger rather than recomputing; structured evidence on the one runtime rail, never product LCA state. `contribute` projects the one fixed-unit measure — the GWP A1A3 score — onto the runtime `Metrics.record` arm under `domain="impact"`, keyed by source; mixed-unit indicators stay receipt evidence, never a metric with an incoherent unit. `_one`'s normalize span is the solver's only trace surface — embedded LCA engines carry no scrape surface, the `query`-plane law applied here.
 - Packages: `bw2io`/`bw-processing` are the cluster's ingestion and matrix-datapackage substrate, composed by the graph owners; `pyarrow` binds function-local per the module-level ban.
@@ -34,8 +34,8 @@ from opentelemetry import trace
 from rasm.data.tabular.columnar import arrow_bytes
 from rasm.data.tabular.contract import ContractClaim, FrameAdmission, QualityRule
 from rasm.data.tabular.interop import Backend, FieldShape, FrameInterop
-from rasm.data.tabular.profile import ProfileReceipt, QualityProfile
-from rasm.runtime.faults import Disposition, RuntimeRail, boundary, traversed
+from rasm.data.tabular.profile import Interrogation, QualityProfile
+from rasm.runtime.faults import Disposition, RuntimeRail, boundary, scoped, traversed
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import on_thread
 from rasm.runtime.metrics import Metrics
@@ -52,7 +52,7 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-_TRACER: Final = trace.get_tracer("rasm.data.impact")
+_TRACER: Final = scoped(trace.get_tracer, "rasm.data.impact")
 
 
 class Stage(StrEnum):  # EN 15804 life-cycle modules (epdx ImpactCategory / openepd ScopeSet stage axis)
@@ -295,11 +295,12 @@ class MaterialImpact(Struct, frozen=True):
         admission = FrameAdmission.of(FrameInterop.of(Backend.PYARROW), _WIRE_SHAPES, *rules)
         return self.frame().bind(lambda table: admission.admit(table).bind(admission.enforce))
 
-    async def profiled(self, profile: QualityProfile) -> "RuntimeRail[ProfileReceipt]":
+    async def profiled(self, profile: QualityProfile) -> "RuntimeRail[Interrogation]":
         # caller-tuned pointblank plan grades the frame above the gate — pointblank's Narwhals engine admits the pa.Table
         # directly. The synchronous Arrow lowering crosses the band-bounded `on_thread` hop so the loop never hosts the
         # materialization; the frame rail short-circuits before the awaited interrogation and the composed signature
-        # stays one rail, never a coroutine smuggled through `bind`.
+        # stays one rail, never a coroutine smuggled through `bind`. The whole `Interrogation` rides out, not its receipt
+        # alone, so a caller driving a report threads the graded plan back in rather than re-interrogating the frame.
         match await on_thread(self.frame):
             case Result(tag="error") as refused:
                 return refused

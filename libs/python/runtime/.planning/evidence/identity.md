@@ -30,7 +30,7 @@ from msgspec.msgpack import Encoder
 from opentelemetry import trace
 from opentelemetry.trace import Span, Status, StatusCode
 
-from rasm.runtime.faults import SCOPES, RuntimeRail, Scope, boundary
+from rasm.runtime.faults import SCOPES, RuntimeRail, Scope, boundary, scoped
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -140,7 +140,7 @@ class IdentitySource:
 # --- [SERVICES] -------------------------------------------------------------------------
 
 _ENCODER: Final[Encoder] = Encoder(order="deterministic")
-_TRACER: Final[trace.Tracer] = trace.get_tracer(SCOPES[Scope.IDENTITY])
+_TRACER: Final[trace.Tracer] = scoped(trace.get_tracer, SCOPES[Scope.IDENTITY])
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

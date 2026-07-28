@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[AUDIT]: owns `AuditRisk`, `AuditModality`, `AuditEnvelope`, `AuditPolicy`, `AuditDefect`, layer/component/risk receipts, pooled raster execution, and `Audit.Preflight`.
+- [02]-[AUDIT]: owns `AuditRisk`, `AuditModality`, `AuditEnvelope`, `AuditPolicy`, `AuditDefect`, layer/component/risk receipts, pooled raster execution, and `Audit.Preflight`.
 
 ## [02]-[AUDIT]
 

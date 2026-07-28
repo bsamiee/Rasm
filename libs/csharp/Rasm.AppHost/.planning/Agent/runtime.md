@@ -9,10 +9,10 @@ The named command-dispatch owner the runtime spine referenced but nowhere declar
 
 ## [02]-[DISPATCH_FRONT_DOOR]
 
-- Owner: `CommandIntent` the front-door request carrier (descriptor id, arguments, caller modality); `CommandDispatch` the static command-dispatch front-door surface over the one `CommandAlgebra.Run` transaction; `DispatchRuntime` the dependency record threading the `CommandRuntime`, the `EventLog` chain cell, and the determinism context.
+- Owner: `CommandIntent` the front-door request carrier (descriptor id, arguments, caller modality); `CommandDispatch` the static command-dispatch front-door surface over the one `CommandAlgebra.Run` transaction; `DispatchRuntime` the dependency record threading the `CommandRuntime`, the `EventLog` chain cell, the determinism context, and the `Observability/hooks#HOOK_RAIL` rail whose `Command` row this entry admits through.
 - Cases: three front doors map to one transaction — `CallerModality.Agent` for the MCP tool call and the in-process reasoning loop, `CallerModality.Operator` for the interactive host command, `CallerModality.Plugin` for the sandboxed-plugin `GrantHandle` route; one orchestration consumer — the durable workflow step and the event-bus subscription both invoke the same `Run`.
 - Entry: `Run(DispatchRuntime runtime, CommandIntent intent)` returns `IO<CommandReceipt>` — the one front-door entry routes the command through `CommandAlgebra.Run`, chains the resulting `CommandReceipt` into the `EventLog`, and returns the receipt; `Project(CommandReceipt receipt, Option<string> tool = default)` returns `ToolResult` — THE one structured projection every front door reads; it delegates to the upstream `Agent/mcp#TOOL_DISPATCH` `McpDispatch.Project` fold with the descriptor as the tool key, so exactly one physical fold exists.
-- Auto: `Run` resolves the descriptor through `CapabilityRegistry.Resolve` and dispatches through `CommandAlgebra.Run` so the transaction, grant brokerage, cost metering, and Compute dispatch are the command algebra's exactly as a direct `CommandAlgebra.Run` call — this surface adds no second transaction, it names the front door the orchestration and bus drive through; every committed dispatch chains its `CommandReceipt` into the `EventLog` through `EventLog.Append` under the determinism context so a dispatched command is on the same hash-chained content-addressed log a reasoning transcript chains into, advancing the one chain cell; the caller modality rides the `CommandIntent` so an operator, agent, and plugin call land one transaction discriminated only by the `BrokeredCall` modality the `Sandbox/isolation#GRANT_HANDLE` mediation records, never a parallel dispatcher per caller; the orchestration step and the bus subscription pass a `CommandIntent` carrying the step's descriptor and the resume-cursor arguments so a durable step's execution is one `Run` call the workflow chains.
+- Auto: `Run` fires the rail's `Command` veto row ahead of everything else, so an app-composed admission policy transforms or refuses on the caller's own rail before a transaction opens, a grant is brokered, or a cost is metered — the fire is the rail's `Admitted` member, so this page names no point id and no modality; `Run` then resolves the descriptor through `CapabilityRegistry.Resolve` and dispatches through `CommandAlgebra.Run` so the transaction, grant brokerage, cost metering, and Compute dispatch are the command algebra's exactly as a direct `CommandAlgebra.Run` call — this surface adds no second transaction, it names the front door the orchestration and bus drive through; every committed dispatch chains its `CommandReceipt` into the `EventLog` through `EventLog.Append` under the determinism context so a dispatched command is on the same hash-chained content-addressed log a reasoning transcript chains into, advancing the one chain cell; the caller modality rides the `CommandIntent` so an operator, agent, and plugin call land one transaction discriminated only by the `BrokeredCall` modality the `Sandbox/isolation#GRANT_HANDLE` mediation records, never a parallel dispatcher per caller; the orchestration step and the bus subscription pass a `CommandIntent` carrying the step's descriptor and the resume-cursor arguments so a durable step's execution is one `Run` call the workflow chains.
 - Receipt: each dispatch mints one `CommandReceipt` (the command algebra's own receipt) and one `EventLog.LogEntry` (the chain advance), fanned through the command algebra's `ReceiptSinkPort.Send` under the `Rasm.AppHost` package key — no parallel dispatch receipt.
 - Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: a new front door is the SAME `Run` entry a new caller invokes carrying its `CallerModality`, never a new dispatcher; a new orchestration consumer drives the same `Run`; zero new surface.
@@ -38,12 +38,16 @@ public sealed record DispatchRuntime(
     CommandRuntime Command,
     Atom<EventLog.Chain> Chain,
     DeterminismContext Context,
-    ClockPolicy Clocks);
+    ClockPolicy Clocks,
+    HookRail Rail);
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
 public static class CommandDispatch {
+    // The admission gate runs BEFORE the transaction and its verdict IS this entry's: a refusal never reaches
+    // CommandAlgebra, and a transforming gate's intent — never the caller's — supplies descriptor and arguments.
     public static IO<CommandReceipt> Run(DispatchRuntime runtime, CommandIntent intent) =>
-        from receipt in CommandAlgebra.Run(runtime.Command, intent.Descriptor, intent.Arguments)
+        from admitted in IO.lift(() => runtime.Rail.Admitted(intent))
+        from receipt in CommandAlgebra.Run(runtime.Command, admitted.Descriptor, admitted.Arguments)
         from _chained in Chain(runtime, receipt)
         select receipt;
 

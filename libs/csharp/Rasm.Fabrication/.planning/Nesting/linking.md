@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[CUT_LINKING]: owns cut-graph admission, common-line matching, precedence-safe chains, bridge gaps, point-site waste partitioning, objective selection, and posting topology.
+- [02]-[CUT_LINKING]: owns cut-graph admission, common-line matching, precedence-safe chains, bridge gaps, point-site waste partitioning, objective selection, and posting topology.
 
 ## [02]-[CUT_LINKING]
 

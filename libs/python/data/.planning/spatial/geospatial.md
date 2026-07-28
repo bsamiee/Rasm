@@ -29,7 +29,7 @@ from opentelemetry import trace
 from opentelemetry.trace import SpanKind
 
 from rasm.data.tabular.columnar import QueryReceipt
-from rasm.runtime.faults import RuntimeRail, async_boundary, boundary
+from rasm.runtime.faults import RuntimeRail, async_boundary, boundary, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import on_thread
 from rasm.runtime.resilience import RetryClass, guarded
@@ -42,7 +42,7 @@ if TYPE_CHECKING:
     from geopandas import GeoDataFrame, GeoSeries
     from rasterio import DatasetReader
 
-_TRACER: Final = trace.get_tracer("rasm.data.spatial.geospatial")
+_TRACER: Final = scoped(trace.get_tracer, "rasm.data.spatial.geospatial")
 
 
 type SetOp = Literal["intersection", "union", "difference", "symmetric_difference", "identity"]

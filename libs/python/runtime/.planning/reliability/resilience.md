@@ -33,7 +33,7 @@ from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 from stamina.instrumentation import RetryDetails, RetryHook, RetryHookFactory, StructlogOnRetryHook, get_on_retry_hooks, set_on_retry_hooks
 
-from rasm.runtime.faults import SCOPES, RuntimeRail, Scope, async_boundary, boundary
+from rasm.runtime.faults import SCOPES, RuntimeRail, Scope, async_boundary, boundary, scoped
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import OPEN, Receipt, Signals
 
@@ -120,7 +120,7 @@ class Policy(Struct, frozen=True):
 # --- [SERVICES] -------------------------------------------------------------------------
 
 # minted from the faults-owned scope row off the proxy-until-install provider.
-_TRACER: Final = trace.get_tracer(SCOPES[Scope.RESILIENCE])
+_TRACER: Final = scoped(trace.get_tracer, SCOPES[Scope.RESILIENCE])
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

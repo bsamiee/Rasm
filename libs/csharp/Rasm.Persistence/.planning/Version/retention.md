@@ -4,8 +4,8 @@
 
 ## [01]-[INDEX]
 
-- [01]-[RETENTION_CLASSES]: the closed class axis, the five-decision class row, the seam-local classification-ceiling rank table, identity-scheme behavioral families, and the budget/loss policies.
-- [02]-[SWEEP_AND_GC]: the pure state-threaded verdict fold, first-class holds, the full-history reachability GC, and the one receipted deletion executor every lane routes through.
+- [02]-[RETENTION_CLASSES]: the closed class axis, the five-decision class row, the seam-local classification-ceiling rank table, identity-scheme behavioral families, and the budget/loss policies.
+- [03]-[SWEEP_AND_GC]: the pure state-threaded verdict fold, first-class holds, the full-history reachability GC, and the one receipted deletion executor every lane routes through.
 
 ## [02]-[RETENTION_CLASSES]
 
@@ -65,7 +65,7 @@ public sealed partial class IdentityScheme {
 // override) is the deleted form. Band membership derives `Code => FaultBand.Retention + n` through the registry row
 // (`Element/graph#FAULT_TABLES` — a bare integer literal is the deleted form), `Message`/`Category` projecting
 // through the generated `Switch`, so the typed case lifts BARE onto `Fin<T>` with no `.ToError()` hop and a recovery
-// reads `error.IsType<RetentionFault.Unstamped>()` / `error.HasCode(8283)` / `error.Category()`, never a message
+// reads `error.IsType<RetentionFault.Unstamped>()` / `error.HasCode(8283)` / `error.Category`, never a message
 // substring. No `[GenerateUnionOps]` — the kernel union-ops generator is strictly opt-in, so the band carries no
 // generated per-case `SelfOp`. `Create` is the IValidationError admission the
 // generated converter bridge calls on a deserialization reject — `Unclassed` (an admitted artifact never mints it
@@ -274,7 +274,7 @@ public abstract partial record ReachabilitySource {
     public sealed record Tags(EventTagQuery Query, Func<EventTagQuery, IO<Seq<ContentAddress>>> QueryByTags) : ReachabilitySource;
 }
 
-public readonly record struct SweepReceipt(RetentionClass Class, int Inventory, int Kept, int Held, int Cooled, int Evicted, long EvictedBytes, Instant At, Guid Correlation) {
+public readonly record struct SweepReceipt(RetentionClass Class, int Inventory, int Kept, int Held, int Cooled, int Evicted, long EvictedBytes, Instant At, CorrelationId Correlation) {
     // A cooled artifact is RETAINED (demoted, not collected), so it partitions with kept/held — the conservation identity
     // closes over all four retention-side counts plus the evicted count, never silently dropping the cold-tiering rung.
     public bool Conserves => Inventory == (Kept + Held + Cooled + Evicted);

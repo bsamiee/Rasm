@@ -8,8 +8,8 @@ Identity follows the seam law [H6]: the graph is keyed by the neutral `Rasm.Elem
 
 ## [01]-[INDEX]
 
-- [01]-[COORDINATION]: the `CoordinationRule` `[Union]` (the five model-check modalities — `Require`/`Prohibit`/`Cardinality`/`Unique`/`Reachable`, severity the abstract axis), the `Resolution` `[Union]`, the `RuleVerdict` `NodeId`-partition receipt, the `ClashProposalRow`, the `ImpactReport` transitive-closure impact receipt, and the `Coordination` fold owner (`Check`/`Propose`/`Between`/`Raise`) over the seam `ElementGraph`.
-- [02]-[SIGN_OFF]: the `SignOff` `[SmartEnum<string>]` lifecycle over the `Review/issues#BCF_ARCHIVE` `BcfStatus`, and the `IssueBoard` host-neutral board projection the `csharp:Rasm.AppUi/Collab/issues` relocation grounds here.
+- [02]-[COORDINATION]: the `CoordinationRule` `[Union]` (the five model-check modalities — `Require`/`Prohibit`/`Cardinality`/`Unique`/`Reachable`, severity the abstract axis), the `Resolution` `[Union]`, the `RuleVerdict` `NodeId`-partition receipt, the `ClashProposalRow`, the `ImpactReport` transitive-closure impact receipt, and the `Coordination` fold owner (`Check`/`Propose`/`Between`/`Raise`) over the seam `ElementGraph`.
+- [03]-[SIGN_OFF]: the `SignOff` `[SmartEnum<string>]` lifecycle over the `Review/issues#BCF_ARCHIVE` `BcfStatus`, and the `IssueBoard` host-neutral board projection the `csharp:Rasm.AppUi/Collab/issues` relocation grounds here.
 
 ## [02]-[COORDINATION]
 

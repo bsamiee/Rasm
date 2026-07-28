@@ -30,9 +30,9 @@ from opentelemetry import trace
 from sqlglot import exp
 
 from rasm.data.tabular.columnar import DuckDbExtension, DuckDbSession, QueryReceipt
-from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary
+from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary, scoped
 
-_TRACER: Final = trace.get_tracer("rasm.data.spatial.query")
+_TRACER: Final = scoped(trace.get_tracer, "rasm.data.spatial.query")
 
 type SpatialPredicate = Literal["ST_Intersects", "ST_Contains", "ST_Within", "ST_DWithin"]
 

@@ -705,4 +705,4 @@ __all__ = [
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [PSAPI_CP315]-[BLOCKED]: `PhotoshopAPI` publishes `cp38`–`cp313` wheels only and the manifest gates `PhotoshopAPI; python_version<'3.15'`, so the PSD/PSB arms have no admitted runtime provider on this interpreter; re-verify the wheel tags each release via `uv run python -m tools.assay api resolve photoshopapi` and drop the gate the moment a `cp315` wheel or source-build provision lands.
+- [PSAPI_CP315]-[BLOCKED]: which `PhotoshopAPI` release publishes a cp315 wheel, re-admitting the PSD/PSB arms; re-read the PyPI wheel-tag roster each release, where the newest carries `cp38`–`cp314` with no abi3 tag and no sdist, and every sdist-bearing release ships a metadata-only stub missing `CMakeLists.txt` — the source-build route dies at every interpreter version, so the gate lifts on a published wheel alone.

@@ -75,7 +75,7 @@ class Descriptor extends Schema.TaggedRequest<Descriptor>()("Descriptor", {
 - Owner: `Batch.Engine` and `Batch.of(engine, settle)` — one admitted resolver policy and one mint over `RequestResolver.makeBatched` with the settlement law enforced in its shape — and the combinator tail every resolver composes: `batchN` width caps under the engine's refined field and the `aroundRequests` timing bracket; identity baking is `RequestResolver.contextFromServices` consumed at the package surface directly, because a forwarding wrapper adds no domain value and cannot state the variadic tag contract more honestly than the package signature.
 - Packages: `effect` (`RequestResolver` — `makeBatched`, `fromEffectTagged`, `batchN`, `aroundRequests`, `contextFromServices`; `Request` — `completeEffect`, `succeed`, `fail`; `Clock`, `Schema`).
 - Entry: the owning service mints its resolver once at construction and publishes `execute`-shaped members that close over it; a capability-consuming resolver bakes its services through `contextFromServices(...tags)` at the same construction, yielding the context-free, identity-stable value the window groups on.
-- Receipt: the timing bracket's evidence pair — `aroundRequests`' `before` receives the window and its result feeds `after` — carries window size and wall span onto the span AND updates the `Convention.instrument.batchDuration` histogram, so batch efficiency is observable per window and queryable as a duration distribution with zero body wiring; name and description read off that instrument row, and the `Convention.duration` projection converts its millisecond span wherever an SLO or board consumes it.
+- Receipt: the timing bracket's evidence pair — `aroundRequests`' `before` receives the window and its result feeds `after` — carries window size and wall span onto the span AND updates the `Convention.metric.batchDuration` distribution, so batch efficiency is observable per window and queryable as a duration distribution with zero body wiring; the mount carries name, description, bucket ladder, and UCUM code off that row, and the `Convention.duration` projection converts its millisecond span wherever an SLO or board consumes it.
 - Growth: a resolver policy axis (width, bracket, context) is a combinator on the one value; a family growing a new tag lands a handler row on the `fromEffectTagged` record, never a sibling resolver.
 - Law: the SQL-provider spans are catalogued vocabulary — every statement runs inside a `sql.execute` client span and every `SqlResolver` window inside its `sql.Resolver.batch <tag>` span — so board queries key on those names beside the `spanPrefix` attributes, never a re-derived spelling.
 - Law: the bracket holds two `Clock` instants across separate `aroundRequests` hooks, so the histogram updates from their difference — `Metric.trackDuration` demands the window run as one wrappable effect the hook pair never holds.
@@ -85,16 +85,12 @@ class Descriptor extends Schema.TaggedRequest<Descriptor>()("Descriptor", {
 - Law: the tagged-family resolver answers positionally — `fromEffectTagged` hands each handler its tag's whole window and index `i` resolves request `i`, so family growth is a handler row.
 
 ```typescript signature
-import { Array, Clock, Duration, Effect, Metric, MetricBoundaries, RequestResolver, Schema } from "effect"
+import { Array, Clock, Duration, Effect, Metric, RequestResolver, Schema } from "effect"
 import { Convention } from "@rasm/ts/core"
 
 const _Width = Schema.Int.pipe(Schema.between(1, 1024), Schema.brand("BatchWidth"))
 
-const _wall = Metric.histogram(
-  Convention.instrument.batchDuration.name,
-  MetricBoundaries.exponential({ start: 1, factor: 2, count: 12 }),
-  Convention.instrument.batchDuration.description,
-)
+const _wall = Convention.mount(Convention.metric.batchDuration)
 
 class _Engine extends Schema.Class<_Engine>("Batch.Engine")({
   width: _Width,
@@ -130,7 +126,8 @@ const _of = <Req extends Request.Request<unknown, unknown>, R>(
       (window) => Effect.tap(Clock.currentTimeMillis, () => Effect.annotateCurrentSpan("batch.window", window.length)),
       (_, opened) =>
         Effect.flatMap(Clock.currentTimeMillis, (closed) =>
-          Effect.zipRight(Metric.update(_wall, closed - opened), Effect.annotateCurrentSpan("batch.millis", closed - opened))),
+          // the mounted distribution takes an elapsed span and scales it into its row's own code, so the raw difference lifts once here
+          Effect.zipRight(Metric.update(_wall, Duration.millis(closed - opened)), Effect.annotateCurrentSpan("batch.millis", closed - opened))),
     ),
   )
 ```

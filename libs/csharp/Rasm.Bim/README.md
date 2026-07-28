@@ -23,7 +23,7 @@ It projects GeometryGym models into canonical `ElementGraph` deltas over the `Ra
 [MODEL]:
 - [11]-[ELEMENTS](.planning/Model/elements.md): Generated `IfcClass` taxonomy with release map, domain partition, and predefined egress gate.
 - [12]-[FAULTS](.planning/Model/faults.md): `BimFault` closed union lifting every rejection onto the seam fault band's typed rail.
-- [13]-[OBSERVABILITY](.planning/Model/observability.md): `BimHooks` rail, `BimTelemetry` receipt-projected instruments, corpus-gated bench claims.
+- [13]-[OBSERVABILITY](.planning/Model/observability.md): `BimPoint` roster, `BimHooks` rail, `BimTelemetry` instruments, corpus bench claims.
 - [14]-[QUERY](.planning/Model/query.md): Set-algebraic `ElementSet` query over a closed predicate union, `PredicateWire`, `StorePlan` push-down.
 - [15]-[SPATIAL](.planning/Model/spatial.md): Spatial rank vocabulary, containment tree over seam compose edges, adjacency, and linear positioning.
 - [16]-[STRUCTURAL](.planning/Model/structural.md): Structural-analysis reader lowering restraints, loads, and topology onto seam payloads.
@@ -151,3 +151,6 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 [WIRE_CODEGEN]:
 - `Riok.Mapperly` — compile-time boundary transcription over the seam unions.
 - `Generator.Equals` — structural equality and member diff behind the emit change derivation.
+
+[RUNTIME_INBOX]:
+- `System.Text.Json` — generated wire contexts behind the exchange envelopes, review records, and the GeoJSON seam.

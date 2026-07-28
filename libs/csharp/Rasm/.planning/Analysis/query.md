@@ -461,7 +461,6 @@ Each concern homes at one owner returning on the rail its row names.
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-- [EFF_RUNTIME_CATALOG]-[BLOCKED]: does the languageext `.api` tier catalog `public static Eff<RT, RT> runtime<RT>()`; verify against `libs/csharp/.api/api-languageext.md`.
 - [REQUEST_UNIFICATION]-[OPEN]: does each absorbed factory produce the same `Key`, `Requirement`, output gate, and operation as its band case with wrong-arity `Single`/`Pair` calls routing `Fault.Unsupported`; verify through the bridge scenario rail.
 - [OPERATION_MONAD]-[OPEN]: does `Operation` admit every input through `Prepare` before evaluation and preserve per-item distribution (`Apply(a ++ b) == Apply(a) ++ Apply(b)` for a pure `PerItem`); verify through the bridge scenario rail.
 - [ONE_ORACLE]-[OPEN]: does `Op.AcceptValue` succeed exactly when a receipt's `IValidityEvidence.IsValid` holds and reject through `Fault.InvalidResult` otherwise; verify against the `Domain/validation` oracle.

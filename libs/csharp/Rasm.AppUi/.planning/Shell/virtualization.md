@@ -13,8 +13,9 @@ One surface-agnostic virtualization fabric materializes only the visible window 
 
 - Owner: `VirtualWindowSpec` the window request shape; `VirtualWindow<TItem, TKey>` the range-to-realized-item owner; `RealizedItem<TItem>` the windowed item with its extent and offset; `VirtualFault` the fault family — codes derive through the `AppUiFaultBand.Virtual` registry row (6030).
 - Cases: `VirtualFault` = Text | RangeInverted | ExtentUnmeasured | KeyAbsent — codes derive through the `AppUiFaultBand.Virtual` registry row (6030).
+- Law: a structural source-order change rebuilds the `ExtentLedger` ordinal projection once from the composition-owned ordered snapshot before `Virtualise` emits the affected window.
 - Entry: `public IObservable<IChangeSet<RealizedItem<TItem>, TKey>> Realize(IObservable<IChangeSet<TItem, TKey>> source, IObservable<ViewportRange> viewport, Func<TItem, TKey> key)` — folds the source change-set against the live viewport range into exactly the realized items the window shows, the `key` projection threading the item identity through the `ExtentLedger`; the realized set re-emits incrementally as the viewport scrolls or the source changes, never a full re-window.
-- Auto: `VirtualWindowSpec` carries the viewport extent (pixels), the scroll offset, the overscan margin, and the extent mode (fixed-height or measured), so a window request is one shape every windowed surface authors; the range fold composes `DynamicData` `Virtualise(IObservable<VirtualRequest>)` over the source so windowing is the settled `LiveData` operator, never a hand-sliced list — the `VirtualRequest` start index and size derive from the scroll offset divided by the extent, and the `VirtualResponse` realized bounds feed back into the `RealizedItem` offset; control recycling rides the `ControlFactory` `RecycleScope` pool (`Shell/controls`) so a scrolled-out control parks and a scrolled-in control reuses it; the realized count tracks the viewport extent so the window never realizes more items than fit plus overscan.
+- Auto: `VirtualWindowSpec` carries the viewport extent (pixels), the scroll offset, the overscan margin, and the extent mode (fixed-height or measured), so a window request is one shape every windowed surface authors; the range fold composes `DynamicData` `Virtualise(IObservable<VirtualRequest>)` over the source so windowing is the settled `LiveData` operator, never a hand-sliced list — the `VirtualRequest` start index and size derive from the scroll offset divided by the extent, and the `IVirtualResponse.StartIndex`/`Size`/`TotalSize` realized bounds feed back into the `RealizedItem` offset; control recycling rides the `ControlFactory` `RecycleScope` pool (`Shell/controls`) so a scrolled-out control parks and a scrolled-in control reuses it; the realized count is the viewport extent over the item extent with overscan, so a million-row source realizes a constant window.
 - Packages: DynamicData, System.Reactive, Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new windowed surface is one `VirtualWindowSpec`; a new extent mode is one `ExtentMode` value; zero new surface — the one `VirtualWindow` owner is the absorbing fabric.
 - Boundary: `VirtualWindow` is the one windowing owner every list/tree/grid/canvas consumes — a tables-local, notebook-local, dashboard-local, or canvas-local virtualizer is the `[04]-[BOUNDARIES]` per-surface-virtualizer rejected form, so `Editing/tables` tree-flatten, the notebook cell list, the dashboard tile grid, and the drafting canvas all route here; windowing is incremental over `IChangeSet` so a source insert or remove re-emits one change-set delta, never a full re-realize; the `VirtualRequest`/`VirtualResponse` realized bounds construct the `Editing/tables` `WindowState` snapshot field (`Editing/tables#VIEW_STATE`) so restore re-requests the exact viewport with zero re-query; the scroll offset crosses through the `Avalonia` `ScrollViewer.Offset` at the surface edge and the window owner reads it as a pure value, never owns the scroll control; the `Page` operator serves the discrete-page mode and `Virtualise` the continuous-scroll mode, both folding to one `RealizedItem` stream so a paged grid and a scrolled tree share one realized vocabulary; an unmeasured extent in measured mode faults so a window can never realize against an unknown extent.
@@ -85,13 +86,6 @@ public sealed record VirtualWindow<TItem, TKey>(VirtualWindowSpec Spec, ExtentLe
             .Transform((item, k) => new RealizedItem<TItem>(item, Ledger.IndexOf(k), Ledger.OffsetOf(k, Spec), Ledger.ExtentOf(k, Spec)));
 }
 ```
-
-[WINDOW_LAW]:
-- One operator: windowing composes `DynamicData.Virtualise`/`Page` — a hand-sliced `Skip`/`Take` over a materialized list is the deleted form.
-- Incremental: measurement updates are Fenwick point updates; a structural source-order change rebuilds the ordinal projection once from the composition-owned ordered snapshot before `Virtualise` emits the affected window.
-- Bounded realization: the realized count is the viewport extent over the item extent plus overscan, so a million-row source realizes a constant window.
-- Recycling: scrolled-out controls park in the `RecycleScope` pool and scrolled-in indices reuse them.
-- Restore: the realized bounds construct the `WindowState` snapshot field so restore re-requests the exact viewport.
 
 ## [03]-[EXTENT_MEASURE]
 
@@ -397,4 +391,4 @@ flowchart LR
 
 ## [06]-[RESEARCH]
 
-- [VIRTUAL_RESPONSE_FIELDS]: the `DynamicData` `VirtualResponse` realized-bounds accessors the `RealizedItem` offset and the `WindowState` snapshot consume — the realized start index, size, and total-count members beyond the catalogued `Virtualise`/`Page` operators and the `VirtualResponse`/`PageContext` types themselves — shared with the `Editing/tables#RESEARCH` `[PAGE_RESPONSE_FIELDS]` row; the `VirtualWindowSpec`, the range-to-realized fold, the `ExtentLedger` measurement model, the sticky projection, and the `TransformToTree` flatten are settled, the `VirtualResponse` field spellings are the unverified surface resolved at implementation against the decompiled DynamicData surface.
+(none)

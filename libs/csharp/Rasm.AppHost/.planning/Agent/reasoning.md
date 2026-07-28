@@ -598,4 +598,5 @@ interface IntentMatchWire {
 
 ## [08]-[RESEARCH]
 
-- [TOOL_RECEIPT_JOIN]-[BLOCKED]: Which `CommandAIFunction` result shape carries the exact `CommandReceipt` through `FunctionResultContent.Result` without changing the MCP `ToolResult` wire contract? Route: `libs/csharp/Rasm.AppHost/.planning/Agent/mcp.md#[METHOD_AXIS]`, then `libs/csharp/Rasm.AppHost/.planning/Agent/reasoning.md#[REASONING_LOOP]`; keep missing receipts as `None` and exclude them from `EventLog` and macro projection until the join lands.
+- [TOOL_RECEIPT_JOIN]-[BLOCKED]: Does `McpServerTool.Create` preserve an `AIFunction` return other than `ToolResult`, so the exact `CommandReceipt` rides `FunctionResultContent.Result` rather than a session collector resolved from `AIFunctionArguments.Services`? Route: package `ModelContextProtocol`, `libs/csharp/Rasm.AppHost/.api/api-mcp.md` `McpServerTool` rows; keep missing receipts as `None` and out of `EventLog` and macro projection until the join lands.
+- [TOOL_RECEIPT_CARRIER]-[OPEN]: `FunctionInvokingChatClient` mints its own `AIFunctionArguments` seeding `Services` alone and never `Context`, and `FunctionInvocationServices` is `protected`, so a collector binds at client construction; confirm `ModelGovernance`'s `UseFunctionInvocation` composition supplies that provider.

@@ -110,7 +110,6 @@ Shared substrate consumed from the Py registry; the registry and its charters ow
 
 [OBSERVABILITY]:
 - `opentelemetry-api` — hub-only trace surface folding the geometry producer context as a span `Link`.
-- `psutil` — two-block `oneshot` resource band beneath the hub weave, own-process handle only.
 
 [NUMERIC_SUBSTRATE]:
 - `numpy`

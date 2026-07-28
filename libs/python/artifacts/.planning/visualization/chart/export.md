@@ -14,7 +14,7 @@
 - Owner: `ChartExport` dispatches over the chart case, the typed `ChartRenderPolicy`, and `ExportFormat` resolving the `VlRow` converter pair; `VL_RENDER` rows the per-format axis as one `frozendict` table, never a per-format arm, and each row calls its provider with explicit typed keywords — no string field-name tuple, dynamic spread, or erased callable. `_rendered` is the engine selection over the three chart cases, each engine's format axis one table total over `ExportFormat`. No parallel engine enum, no Chrome path, no plotly/kaleido.
 - Entry: `emit()` returns one `ArtifactWork` — `key` minted PRE-RUN through `ContentIdentity.key` over the length-framed canonical preimage: engine tag, the case's canonical bytes (the deterministic-encoded spec dict; protocol-5 pickle for a live figure, the picklability the matplotlib `PROCESS` offload already demands), the encoded `(fmt, policy, resolved transform, retention)` bundle, and each inline dataset's name and `hash_rows` digest. Vega's case lowers `Admission(keyed=None)` so keyed admission probes the warm seed; the lets-plot/matplotlib cases lower `Admission(bare=None)` — pickle bytes identify the node but are not cross-host canonical, so a live figure is forced-live rather than trusted to elide. `_emit` computes once inside the span — pre-pass evidence lands as one `chart.prepass` span event at the stage boundary and rides the structlog event — and mints `ArtifactReceipt.Chart(key, engine, format, scale, theme, byte_len)` as flat scalars, `receipt.slot == node.key`.
 - Auto: `_resolved` pins the pre-pass `local_tz` to `vlc.get_local_tz()` when unset — vl-convert exposes no `local_tz=` render override, so the pin makes a time-axis chart's content key host-stable and one resolution feeds key and render; `_vl_render` registers every `ChartRenderPolicy.fonts` directory through `register_font_directory`, resolves `vl_version` against `get_vegalite_versions()`, and selects a converter whose typed row omits the Vega-Lite-only `theme`/`vl_version` knobs from the full-Vega twin; `_dialect` reads the admitted spec's `$schema` once.
-- Layers: `layered()` is the editorial hand-off — the Vega case renders ONE SVG, `_split_layers` partitions the root graphics group's children by their Vega `role-*` class token through `lxml`, and each semantic group (axes, gridlines, legends, mark groups, titles) becomes one `export/layered#LAYERED` `Layer(name, svg_bytes, bbox, intent=OcgIntent.FIGURE, group="chart")` sharing the chart's viewBox, so a designer restyles axes and marks as separate named layers without re-plotting; its pre-pass and split crossings run inside one `chart.layers` span carrying the `chart.prepass` stage event and the charter Error fold; the live-figure cases rail `<vega-only>` — their engines own no semantic scenegraph to split.
+- Output: `layered()` is the editorial hand-off — the Vega case renders ONE SVG, `_split_layers` partitions the root graphics group's children by their Vega `role-*` class token through `lxml`, and each semantic group (axes, gridlines, legends, mark groups, titles) becomes one `export/layered#LAYERED` `Layer(name, svg_bytes, bbox, intent=OcgIntent.FIGURE, group="chart")` sharing the chart's viewBox, so a designer restyles axes and marks as separate named layers without re-plotting; its pre-pass and split crossings run inside one `chart.layers` span carrying the `chart.prepass` stage event and the charter Error fold; the live-figure cases rail `<vega-only>` — their engines own no semantic scenegraph to split.
 - Growth: a new export format is one `ExportFormat` member, one `VL_RENDER` row, and one `LP_RENDER` row; a new render knob is one `ChartRenderPolicy` field read by the exact converter rows that admit it; a new pre-pass mode is one `VegaTransform` case, an `apply` arm, and an `of` branch; a new host-free engine is one `ChartSpec` case and one `_rendered` arm carrying its format table.
 - Boundary: no chart authoring (`visualization/chart/spec#CHART` owns the grammar); no palette derivation (`graphic/color/derive#DERIVE` owns `Palette`/`hex_ramp`); no figure placement (`composition/compose#COMPOSE` consumes bytes as DATA parents); no Arrow-IPC extract side channel — vl-convert accepts no external dataset, so the reduction crosses inside the spec, and `get_column_usage`/`pre_transform_extract` stay the `data/tabular/columnar#SCAN` egress owner's (the runtime already prunes inline frames internally through `get_inline_column_usage` on every call, so no chart-side column read exists); no folder-minted limiter or retry — the offload rides the owned `lane: LanePolicy`. A Chrome/kaleido path, a hand-written Vega-Lite dict downstream of the grammar, a per-format render variant, a string-keyed policy spread, and a raise standing in for a typed rail fault are the rejected forms.
 
@@ -49,7 +49,7 @@ from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.export.layered import Layer, OcgIntent
 from rasm.artifacts.graphic.color.derive import Palette, hex_ramp
 from rasm.artifacts.visualization.chart.spec import ChartSpec
-from rasm.runtime.faults import BoundaryFault, RuntimeRail
+from rasm.runtime.faults import BoundaryFault, RuntimeRail, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -95,7 +95,7 @@ type LpRender = Callable[[PlotSpec | SupPlotsSpec], bytes]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 _LOG: Final = structlog.get_logger()
-_TRACER: Final = trace.get_tracer(__name__)
+_TRACER: Final = scoped(trace.get_tracer, "rasm.artifacts.visualization.chart.export")
 _CANON: Final = json.Encoder(order="deterministic")
 
 
@@ -390,7 +390,7 @@ def _plan(plan: PreTransformSpecPlan) -> PrePassPlan:
     )
 
 
-def _pin_version(requested: str | None) -> str:
+def pin_version(requested: str | None) -> str:
     # `vl_version` admits both `'6.4'` and `'v6.4'` spellings; the pin normalizes before the membership test.
     available = vlc.get_vegalite_versions()
     bare = (requested or "").removeprefix("v")
@@ -400,7 +400,7 @@ def _pin_version(requested: str | None) -> str:
 def _vl_render(spec: Spec, fmt: ExportFormat, policy: ChartRenderPolicy) -> bytes:
     tuple(map(vlc.register_font_directory, policy.fonts))
     row, dialect = VL_RENDER[fmt], _dialect(spec)
-    pinned = structs.replace(policy, vl_version=_pin_version(policy.vl_version))
+    pinned = structs.replace(policy, vl_version=pin_version(policy.vl_version))
     output = (row.vl if dialect == "vega-lite" else row.vega)(spec, pinned)
     return output.encode() if row.text else output
 

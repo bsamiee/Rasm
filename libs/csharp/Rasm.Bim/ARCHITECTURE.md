@@ -57,7 +57,7 @@ Sub-domain dependency graph is acyclic: every sub-domain projects onto or reads 
 Strata order the sub-domains under the acyclic law — every cross-stratum consumption edge points down; `Review` and `Planning` co-seat on the delivery stratum, coordination reading the estimate and the schedule as same-stratum input, never a return edge.
 
 - S0 `Model` — settled vocabulary consuming no sibling: the `BimFault` band-2600 union, the `ElementPredicate`/`ElementSet` query algebra.
-- S0 `Model` — the generated `IfcClass` roster, the `IfcRepresentation` content key, and the `BimHooks`/`BimTelemetry`/`BimBenchClaim` rail.
+- S0 `Model` — the generated `IfcClass` roster, the `IfcRepresentation` key, and the `BimPoint`/`BimHooks`/`BimTelemetry`/`BimBenchClaim` rail.
 - S0 law — `BimFact` payloads carry closed-vocabulary KEY strings, so no upper-stratum type leaks down.
 - S1 `Semantics` — element-bound enrichment: `MaterialProjection`, `QuantityDerivation`, the bSDD `ClassificationSystem` axis, `GeoModel`.
 - S2 `Projection` — the seam arm: `SemanticProjector : IElementProjection` and `IfcLegality : IGraphConstraint` compose model and semantics.
@@ -173,7 +173,7 @@ config:
 ---
 flowchart LR
     accTitle: Bim cross-runtime, presentation, and host seams
-    accDescr: Bim owners exchanging wires, shapes, receipts, and boundaries with the cross-runtime peers, the app platform, and the host boundary.
+    accDescr: Bim owners exchanging wires, shapes, ports, receipts, content keys, and boundaries with the cross-runtime peers, the app platform, and the host boundary.
     subgraph bim[RASM.BIM]
         Model[Object model]
         Semantics[Semantic enrichment]
@@ -199,7 +199,7 @@ flowchart LR
     Planning -->|"[RECEIPT]: ConstructionState"| AppUi
     Review -->|"[PORT]: IssueBoard"| AppUi
     Review -->|"[BOUNDARY]: BcfViewpoint"| AppUi
-    Model -->|"[SHAPE]: BimHooks"| AppHost
+    Model -->|"[PORT]: BimHooks"| AppHost
     Model -->|"[RECEIPT]: BimBenchReceipt"| AppHost
     Exchange -->|"[WIRE]: BimEvent"| AppHost
     Host -->|"[BOUNDARY]: GlobalId"| Exchange
@@ -210,12 +210,12 @@ flowchart LR
     Review -->|"[WIRE]: BcfTopicWire"| Ui
     Review -->|"[WIRE]: BcfViewpointWire"| Ui
     Semantics -->|"[WIRE]: GeoFeatureWire"| Ui
-    Review -->|"[WIRE]: DiffWire"| Ui
+    Review -->|"[WIRE]: ModelDiff"| Ui
 ```
 
 Two fences partition by counterpart role: the same-branch AEC peers with Compute and Persistence carry domain construction, analysis, and storage; the Python geometry and data runtimes, the TypeScript peers, the app shell, the app composition root, and the host boundary carry cross-runtime wire, presentation, and host interchange. Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind, and the owning pages enumerate the rest.
 
-`Rasm.AppHost` composes the `BimHooks` rail per instance, admits the `Rasm.Bim` meter and source at its telemetry root, and binds the sealed `BimEvent` envelope onto its broker transports.
+`Rasm.AppHost` composes the `BimHooks` rail per instance, admits the `Rasm.Bim` meter and the `BimPoint.Scopes` trace planes at its telemetry root, and binds the sealed `BimEvent` envelope onto its broker transports; span custody stays the kernel `SpanBand` that root owns, and the meter scope stays `TelemetrySource.Bim` — a `TraceScope` and a meter scope are distinct grammars and neither derives from the other.
 
 `GeoWire` owns both `GeoFeature` wire projections — the GeoJSON text the Python and TypeScript peers decode and the GeoPackage blob the Persistence geo-store persists; `GeoWkb` stays the interior OGR-to-NTS bridge, never a seam wire.
 

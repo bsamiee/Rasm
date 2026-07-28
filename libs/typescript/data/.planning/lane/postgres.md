@@ -1,6 +1,6 @@
 # [DATA_POSTGRES]
 
-PostgreSQL's guarantee-lane spine owns first-party capabilities, concurrency primitives with explicit denials, ruled extensions, and driver Layers binding neutral `SqlClient` to pg. Rows and Layer mints carry every fact; `lane/capability.md` probes, `lane/tenant.md` scopes, and journal statements consume the grant vocabulary. ONE derived union binds spine, primitives, extensions, sqlite degradation, gates, and deployment image. A capability is one row; pruning an extension deletes its row and image fact.
+PostgreSQL's guarantee-lane spine owns first-party capabilities, concurrency primitives with explicit denials, ruled extensions, and driver Layers binding neutral `SqlClient` to pg. Rows and Layer mints carry every fact; `lane/capability.md` probes, `lane/tenant.md` scopes, and journal statements consume the grant vocabulary. ONE derived union binds spine, primitives, extensions, sqlite degradation, gates, and deployment image. Capability is one row; pruning an extension deletes its row and image fact.
 
 ## [01]-[INDEX]
 
@@ -231,7 +231,7 @@ import { SqlSchema } from "@effect/sql"
 // instead of borrowing `pg`.
 const _PG_DIALECT = ["pg", "pglite"] as const
 
-const _PROFILE_ENGINES = [..._PG_DIALECT, "sqliteServer", "sqliteWasm", "libsql", "d1", "duckdbNode"] as const
+const _PROFILE_ENGINES = [..._PG_DIALECT, "sqliteServer", "sqliteWasm", "libsql", "d1", "duckdbNode", "duckdbWasm", "clickhouse"] as const
 
 class _Profile extends Schema.Class<_Profile>("Pg.Profile")({
   engine: Schema.Literal(..._PROFILE_ENGINES),

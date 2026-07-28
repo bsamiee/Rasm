@@ -6,8 +6,8 @@ One deterministic `msgspec` codec round-trips the tree, so a multi-PDF corpus is
 
 ## [01]-[INDEX]
 
-- [01]-[NODE]: the recursive tagged-union tree, its `StructRole` PDF/UA vocabulary, and the projection algebra every backend lowers from.
-- [02]-[DELTA]: the five-variant edit algebra with `diff`/`merge`/`invert` defined once over the tree.
+- [02]-[NODE]: the recursive tagged-union tree, its `StructRole` PDF/UA vocabulary, and the projection algebra every backend lowers from.
+- [03]-[DELTA]: the five-variant edit algebra with `diff`/`merge`/`invert` defined once over the tree.
 
 ## [02]-[NODE]
 

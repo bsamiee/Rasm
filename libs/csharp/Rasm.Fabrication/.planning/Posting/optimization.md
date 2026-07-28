@@ -6,11 +6,11 @@
 
 ## [01]-[INDEX]
 
-- [01]-[ADMISSION]: `OptimizationIngress` selects raw evidence or an admitted policy.
-- [02]-[OPTIMIZATION]: `Optimize.Apply` executes the selected generated pass rows and returns one result.
-- [03]-[TRACE]: `Post.Interpret` derives effective position, feed, units, distance mode, and nested execution in one fold.
-- [04]-[OBJECTIVE]: `MotionDynamics` turns the trace into accel-limited machine minutes over every motion, not cutting alone.
-- [05]-[PASSES]: `OptimizationCore` owns feed adaptation, corner blending, compaction, and pattern folding.
+- [02]-[ADMISSION]: `OptimizationIngress` selects raw evidence or an admitted policy.
+- [03]-[OPTIMIZATION]: `Optimize.Apply` executes the selected generated pass rows and returns one result.
+- [04]-[TRACE]: `Post.Interpret` derives effective position, feed, units, distance mode, and nested execution in one fold.
+- [05]-[OBJECTIVE]: `MotionDynamics` turns the trace into accel-limited machine minutes over every motion, not cutting alone.
+- [06]-[PASSES]: `OptimizationCore` owns feed adaptation, corner blending, compaction, and pattern folding.
 
 ## [02]-[ADMISSION]
 

@@ -12,9 +12,9 @@ Geometry authors NO wire vocabulary: `TessellationRequest`/`TessellationReceipt`
 
 - Owner: `GeometryServe` — the composition root holding the daemon and its lane; serve holds NO cache, NO kernel, and NO wire shape of its own.
 - Cases: one route row per served method — `Tessellate` answers the receipt floor, the `ArtifactSync` `Sync` leg folds a parked GLB back as its framed rows; a new geometry-served method is one route row binding an existing registry codec pair to a railed handler — a new field floor is the runtime registry's one contract row-pair growth, never a geometry-authored shape.
+- Law: `bench` rides the graduation `bench_seam` fold over the whole `_tessellate` entry — decode, daemon drive, receipt floor, the real tessellation seam the C# rail pays — under subject `rasm.geometry.mesh.serve.tessellate`; latency and throughput rows land beside the per-call evidence-duration histogram with zero instrument rows, and graduation's `bench_terminal` wraps the fold in the runtime `JobRun.bounded` envelope for a process-terminal run.
 - Entry: `mount` is the runtime `Entrypoint` fold's install step, so lifecycle — bind, credentials, health, graceful drain — stays runtime-owned and geometry contributes only rows; `_tessellate` returns through the graduation weave seeded `EvidenceScope.MESH_SERVE`, its span nested INTERNAL under the host interceptor's SERVER span, so serve latency is the geometry evidence-duration row and pool depth stays the lane spine's own gauges.
 - Receipt: serve emits nothing of its own — the `@receipted` harvest reads the daemon's accumulated `contribute` stream once per drive, so the chain carries every tessellation fact exactly once; serve mints no graduation subject, since the daemon's product is wire geometry, not evidence.
-- Bench: `bench` rides the graduation `bench_seam` fold over the whole `_tessellate` entry — decode, daemon drive, receipt floor, the real tessellation seam the C# rail pays — under subject `rasm.geometry.mesh.serve.tessellate`; latency and throughput rows land beside the per-call evidence-duration histogram with zero instrument rows, and graduation's `bench_terminal` wraps the fold in the runtime `JobRun.bounded` envelope for a process-terminal run.
 - Packages: the daemon, cad, and graduation-weave vocabulary from geometry, the wire shapes and serve surface from runtime, `msgspec.to_builtins`, `zlib.crc32`, and `expression` per the fence imports.
 - Growth: a new framed artifact class is the runtime registry's one row pair and one `sync`-style producer here; a per-element streaming fan is one `create_memory_object_stream` composition over the same `_frames` fold.
 - Boundary: the C# `Rasm.Compute/Runtime` owns the `ComputeService`/`ArtifactSync` proto contract both ends compile; the daemon owns the cache and the kernel.
@@ -178,7 +178,7 @@ class GeometryServe:
             .default_value(Error(BoundaryFault(wire=(f"serve.sync.{artifact_id.hex()}", 0))))
         )
 
-    def bench(self, request: TessellationRequest, context: RuntimeContext, *, rounds: int = 32, warmup: int = 4) -> BenchmarkReceipt:
+    def bench(self, request: TessellationRequest, context: RuntimeContext, *, rounds: int = 32, warmup: int = 4) -> "RuntimeRail[BenchmarkReceipt]":
         # macro-bench over the real tessellation entry — _tessellate whole: decode, daemon drive, receipt floor — the
         # same seam the C# rail pays; the canonical daemon stays warm across rounds, so the cache tier prices in.
         return bench_seam(f"{EvidenceScope.MESH_SERVE.value}.tessellate", partial(self._tessellate, request, context), rounds=rounds, warmup=warmup)

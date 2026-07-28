@@ -35,7 +35,7 @@ from opentelemetry import trace
 from opentelemetry.trace import SpanKind
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import RuntimeRail
+from rasm.runtime.faults import RuntimeRail, scoped
 from rasm.runtime.lanes import on_thread
 from rasm.runtime.receipts import Receipt
 from rasm.runtime.resilience import RetryClass, guarded
@@ -46,7 +46,7 @@ if TYPE_CHECKING:
     from pystac import Collection, ItemCollection
     from pystac_client import ItemSearch
 
-_TRACER: Final = trace.get_tracer("rasm.data.spatial.catalog")
+_TRACER: Final = scoped(trace.get_tracer, "rasm.data.spatial.catalog")
 
 type Bound = tuple[float, float, float, float]
 type Geometry = dict[str, object]

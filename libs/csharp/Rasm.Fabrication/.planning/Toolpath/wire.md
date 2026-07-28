@@ -27,6 +27,7 @@
 
 `WireCycle` separates payload timing while `WireEdm.Generate` remains the one operation. `Contour`, `TaperContour`, `Collar`, and `VariableTaper` share the boundary-pass algebra; `FourAxis` supplies an independent upper profile with registered correspondence; `NoCorePocket` supplies recession; `Rotary` supplies a cylindrical station map; `Cutoff` supplies a terminal slug handoff.
 
+- Exemption: vertex-station folding, span-frame normalization, and receipt reduction are measured kernel statement boundaries.
 - Entry: `Generate<TOut>` fixes ingress as `WireDemand?` and parameterizes the egress projection result.
 - Auto: every pass derives compound offset, vertex, bridge, taper, correspondence, access, and handoff stations, corner-control transitions, and simultaneous lower/upper samples.
 - Auto: four-axis pairing maps registered physical stations rather than incidental indices or normalized-length coincidence.
@@ -34,16 +35,15 @@
 - Auto: `TaperCornerMode` applies every taper shift at full magnitude and owns only the upper corner radius, so no mode can silently flatten a taper.
 - Auto: access precedes cutting, recovery checkpoints preserve restart custody, and pass quality derives from schedule data.
 - Packages: `ArcAlgebra.Apply` owns offset topology; `Polyline<double>.PathLength`, `FindPointAtPathLength`, `PlineSeg.SegTangentVector`, `PrevWrappingIndex`, and `NextWrappingIndex` own arc-native stationing and turn measurement; `LanguageExt` `TraverseM`, `Fold`, and query syntax keep the rail flat.
-- Exemption: vertex-station folding, span-frame normalization, and receipt reduction are measured kernel statement boundaries.
 - Boundary: `FabricationFault.WireTaperExceeded` refuses guide demand without clamping, and offset failures remain typed.
 
 ## [04]-[EGRESS]
 
 `WireProgram` is the inverse-sufficient receipt: every block carries simultaneous guides, physical station, traversed arc length, traversal progress, payload-timed action, wire bow, upper corner radius, and optional rotary position; program custody preserves access, retention, correspondence, context, and recovery beside pass quality evidence. `WireCycle` owns `Correspondence` and `Spindle` beside `Stations` and `TaperDemand`, so program custody reads occurrence evidence from the case rather than re-deriving it through a parallel dispatch.
 
+- Law: posting retains guide-pair simultaneity, simulation retains specialized rows and duration, and estimation consumes that simulation receipt.
+- Output: `WireProgram.PostingSource` carries the typed envelope into canonical posting; the caller arrow retains other result projections.
 - Receipt: `WirePassReceipt` preserves schedule identity, quality, removed offset, arc-true cut length, consumed wire, peak wire bow, bridge count, and recovery budget; cut length folds `TraversedMm` deltas, never chord distance between sampled guides.
-- Projection: `WireProgram.PostingSource` carries the typed envelope into canonical posting; the caller arrow retains other result projections.
-- Consumer: posting retains guide-pair simultaneity, simulation retains specialized rows and duration, and estimation consumes that simulation receipt.
 - Growth: a machine-book capability is one `WirePass` row; a new occurrence payload is one `WireCycle` case; a new projection changes only the supplied arrow.
 - Boundary: sequential lower/upper `Move` rows cannot represent `WireBlock` and never cross this seam.
 

@@ -1,12 +1,12 @@
 # [PY_RUNTIME_CLOCK]
 
-One logical-time owner serves the whole branch: the `Hlc` two-half cell, the sign-carrying `Ordering` verdict, the content-stable `ElementId`, the `Tenant` partition, the `SLOTS` slot/attribute vocabulary table, and the `CausalFrame` inbound frame. This owner stamps the branch's own causal frames under the `hlc-two-half` corpus layout — physical half first, logical half second — so it mints the layout in its own types rather than reading a peer's, decodes an inbound stamp on the `reliability/faults#FAULT` rail, and holds the compare/merge/successor algebra interior code reads; parity against `csharp:Rasm.AppHost/Runtime/ports#PORT_RECORDS` and the typescript peer is the conformance, never a mint ranking.
+One logical-time owner serves the whole branch: the `Hlc` two-half cell, the sign-carrying `Ordering` verdict, the content-stable `ElementId`, the `Tenant` partition, the `SLOTS` slot/attribute vocabulary table, and the `CausalFrame` inbound frame. This owner stamps the branch's own causal frames under the `hlc-two-half` corpus layout — physical half first, logical half second — so it mints the layout in its own types rather than reading a peer's, decodes an inbound stamp on the `reliability/faults#FAULT` rail, and holds the compare/merge/successor algebra interior code reads; parity against `csharp:Rasm/Domain/telemetry#CAUSAL_FRAME` and the typescript peer is the conformance, never a mint ranking.
 
 `CausalFrame.decode` is the canonical inbound carrier reader `transport/serve#SERVE` `ServerHost.inbound` folds inside this owner's one `boundary("wire", ...)` fence, and `CausalFrame.attributes` the canonical projection `execution/admission#CONTEXT` `RuntimeContext.attribute` and the serve enricher compose — consumers select a shape and re-spell nothing, so the two attribute layouts cannot drift. Admission's context threads the inbound carry as `Option[CausalFrame]` (`Nothing` locally minted, `Some(frame)` the host stamp), and the two-half pack/unpack layout rides the `evidence/reproduction#SEED_REPRODUCTION` `HLC_TWO_HALF` design pin, a value-level layout distinct from a byte serialization.
 
 ## [01]-[INDEX]
 
-- [01]-[CLOCK]: the `Hlc` cell, `Ordering` verdict, `ElementId`, `Tenant`, the `SLOTS` table, and the railed `CausalFrame` decode/attributes pair on one owner.
+- [02]-[CLOCK]: `Hlc` cell, `Ordering` verdict, `ElementId`, `Tenant`, `SLOTS` table, and the railed `CausalFrame` decode/attributes pair on one owner.
 
 ## [02]-[CLOCK]
 

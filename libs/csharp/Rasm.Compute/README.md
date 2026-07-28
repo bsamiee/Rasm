@@ -107,7 +107,6 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `SharpGLTF.Toolkit` — mesh-building toolkit.
 - `Alimer.Bindings.MeshOptimizer` — meshoptimizer simplification and cluster-LOD bindings.
 - `CloudNative.CloudEvents.Mqtt` — structured-mode CloudEvents MQTT binding decoding typed twin sensor envelopes.
-- `MQTTnet` — MQTT v5 carrier beneath the admitted CloudEvents message decoder.
 - `NATS.Net` — NATS Core subscription seam for broker sensor ingest.
 - `Apache.Arrow` — columnar `RecordBatch` construction for surrogate-training and billing egress; IPC/ADBC/Flight egress stays Persistence-side.
 - `Microsoft.IO.RecyclableMemoryStream` — pooled-buffer stream behind the artifact frames.
@@ -117,6 +116,9 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 ## [03]-[SUBSTRATE_PACKAGES]
 
 Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
+
+[MACHINE_CONNECTIVITY]:
+- `MQTTnet` — MQTT v5 carrier beneath the admitted CloudEvents message decoder.
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`
@@ -158,6 +160,7 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `Grpc.Tools`
 
 [RUNTIME_INBOX]:
+- `System.Net.Http` — `SocketsHttpHandler` policy the remote transport binds beneath its gRPC channel and probe legs.
 - `System.Text.Json` — generated wire contexts and hand-written `Utf8JsonWriter` codecs beside protobuf on the receipt and descriptor lanes.
 
 [TEST_SUBSTRATE]: Rows bind in branch test and benchmark projects, never the package csproj.

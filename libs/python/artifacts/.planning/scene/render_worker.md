@@ -370,4 +370,4 @@ if (_COVERAGE := covered(WORKER_MODULE, _KERNELS)).is_error():
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [WORKER_PROVIDERS_CP315]-[BLOCKED]: which `vtk` and `usd-core` releases publish cp315 wheels, admitting the `PROCESS` worker floor (the spawned 3.15 interpreter) to import both natives; verify the PyPI wheel tags per release, then drop the two `python_version<'3.15'` manifest gates.
+- [WORKER_PROVIDERS_CP315]-[BLOCKED]: which `vtk` and `usd-core` releases publish a cp315 wheel, admitting the `PROCESS` worker floor to import both natives; re-read the PyPI wheel-tag roster per release, where both top out at `cp314` with no `abi3` tag, `usd-core` additionally caps `requires_python` below 3.15 while `vtk` declares none, and neither project has ever published an sdist — so the two manifest gates drop against a newly published tag alone, never a re-probe of the same releases.

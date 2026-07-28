@@ -6,8 +6,8 @@ Rasm.Persistence routes every read by its consistency demand: interactive-correc
 
 ## [01]-[INDEX]
 
-- [01]-[READ_ROUTING]: the consistency-demand routing law, the lane axis, the staleness watermark, and the daemon non-stale wait gate.
-- [02]-[ELEMENT_SET_ALGEBRA]: the composable content-addressed selection currency, the typed leaf algebra, and the stable receipt fold.
+- [02]-[READ_ROUTING]: the consistency-demand routing law, the lane axis, the staleness watermark, and the daemon non-stale wait gate.
+- [03]-[ELEMENT_SET_ALGEBRA]: the composable content-addressed selection currency, the typed leaf algebra, and the stable receipt fold.
 
 ## [02]-[READ_ROUTING]
 
@@ -23,7 +23,6 @@ Rasm.Persistence routes every read by its consistency demand: interactive-correc
 ```csharp signature
 using System.Buffers;
 using System.Buffers.Binary;
-using System.Globalization;
 using System.IO.Hashing;
 using System.Linq;
 using System.Text;
@@ -36,6 +35,7 @@ using NetTopologySuite.Geometries;
 using NodaTime;
 using Npgsql;
 using NpgsqlTypes;
+using Rasm.Domain;                                // TenantContext — the S0 tenancy the frame seats
 using Rasm.Element.Graph;
 using Thinktecture;
 using Rasm.Persistence.Element;                   // FaultBand — the one band registry (graph#FAULT_TABLES); H3Cell — the identity cell
@@ -139,8 +139,10 @@ public static class ReflectedRead {
             try {
                 await using NpgsqlBatch batch = lane.CreateBatch();
                 NpgsqlBatchCommand role = new($"SET LOCAL ROLE {ReadRole}");
-                NpgsqlBatchCommand pin = new("SELECT set_config('rasm.tenant', @tenant, true)");
-                _ = pin.Parameters.AddWithValue("tenant", frame.Tenant.ToString("x32", CultureInfo.InvariantCulture));
+                // The GUC key is the kernel `TenantContext.TenantSlot` and the value its one `Entry` text, so
+                // the RLS policy compares the same canonical spelling the durable column stores.
+                NpgsqlBatchCommand pin = new($"SELECT set_config('{TenantContext.TenantSlot}', @tenant, true)");
+                _ = pin.Parameters.AddWithValue("tenant", frame.Tenant.Entry);
                 NpgsqlBatchCommand door = new("SELECT graphql.resolve(@query, @variables, @operation, NULL)");
                 _ = door.Parameters.AddWithValue("query", (string)query);
                 door.Parameters.Add(new NpgsqlParameter("variables", NpgsqlDbType.Jsonb) { Value = variables.GetRawText() });

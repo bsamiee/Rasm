@@ -2,7 +2,7 @@
 
 `Rasm.Materials` owns architectural substance, appearance, and buildable component type — what a building is made of, how it performs, and how it renders. One polymorphic `Component` carries every standardized family as policy rows over one section-profile algebra and one capacity rail, so a new family, section shape, or unit is a data row and every standards value traces to its published source or vendor factory. Its appearance plane is physically based end to end — BSDF lobes, OpenPBR lowering, spectral and perceptual color science, Kubelka-Munk finishes — held at render grade.
 
-Component rows feed generated assemblies and fabrication physics, capacity receipts feed structural assessment, and appearance feeds path-traced viewports and MaterialX interchange. It composes the `Rasm` admission floor and the `Rasm.AppHost` observability spine. It projects property catalogues, the component-family axis, section profiles, and capacity receipts onto the `Rasm.Element` seam through the one `ComponentProjector`, reminting no vector, color, unit, or seam type.
+Component rows feed generated assemblies and fabrication physics, capacity receipts feed structural assessment, and appearance feeds path-traced viewports and MaterialX interchange. It composes the `Rasm` admission floor, reaches the signal plane through the kernel capsule, and references `Rasm.AppHost` for the benchmark gate alone. It projects property catalogues, the component-family axis, section profiles, and capacity receipts onto the `Rasm.Element` seam through the one `ComponentProjector`, reminting no vector, color, unit, or seam type.
 
 ## [01]-[ROUTER]
 
@@ -37,7 +37,7 @@ Component rows feed generated assemblies and fabrication physics, capacity recei
 
 [PROJECTION]:
 - [24]-[PROJECTION](.planning/Projection/component.md): `ComponentProjector` mints Type Objects and material subgraphs.
-- [25]-[OBSERVABILITY](.planning/Projection/observability.md): `MaterialsFact`, latency, and descriptor policy.
+- [25]-[OBSERVABILITY](.planning/Projection/observability.md): `MaterialsFact`, the instrument tap, the fault log, and the descriptor pack.
 - [26]-[BENCHMARKS](.planning/Projection/benchmarks.md): Content-bound `BenchKernel` workload corpus with receipt gating.
 - [27]-[ANALYTICS](.planning/Projection/analytics.md): Composite-key schemas and parameterized folds.
 
@@ -95,3 +95,6 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 
 [WIRE_CODEGEN]:
 - `Riok.Mapperly` — source-generated boundary transcription under the completeness gate.
+
+[RUNTIME_INBOX]:
+- `System.Text.Json` — options identity behind the MaterialX and appearance interchange payloads.

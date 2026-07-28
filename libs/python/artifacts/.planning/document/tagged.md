@@ -6,7 +6,7 @@ Structure vocabulary is consumed from `document/model#NODE`: `DocumentNode`, the
 
 ## [01]-[INDEX]
 
-- [01]-[ACCESS]: the tag/audit/archive/preflight conformance close over `_ARM`, every verdict combining local clauses with an independent validation observation.
+- [02]-[ACCESS]: the tag/audit/archive/preflight conformance close over `_ARM`, every verdict combining local clauses with an independent validation observation.
 
 ## [02]-[ACCESS]
 

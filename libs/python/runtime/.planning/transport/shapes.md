@@ -6,13 +6,13 @@ Python's mint of the suite wire vocabulary: every canonical `msgspec.Struct` the
 
 ## [01]-[INDEX]
 
-- [02]-[VOCABULARY]: the wire slot types, the `GeometryPayload` envelope family, the canonical service shapes, and the tessellation pair.
-- [03]-[REGISTRY_AND_DRIFT]: the `PROTO_VOCABULARY` seed table, the static-codegen contract, and the `aligned` drift gate.
+- [02]-[VOCABULARY]: wire slot types, the `GeometryPayload` envelope family, the canonical service shapes, and the tessellation pair.
+- [03]-[REGISTRY_AND_DRIFT]: `PROTO_VOCABULARY` seed table, the static-codegen contract, and the `aligned` drift gate.
 
 ## [02]-[VOCABULARY]
 
 - Owner: field names are the producer's snake_case proto names verbatim — `MessageToDict(preserving_proto_field_name=True)` keys the mapping by them — so no `rename=` layer exists and the struct declaration IS the wire contract.
-- Cases: every scalar slot carries its proto3 zero default because `MessageToDict` omits a field at its default value — a default-less slot rejects the producer's legitimate zero, so presence is the proto3 no-presence contract, never a required-field re-mint. A nested message slot is `T | None = None` — proto message absence is a real wire value, the one place `None` crosses inward, collapsed by the consuming owner at its seam. `SolveRequest` deliberately carries bare column-major `float64` bytes, never a tensor envelope, per the producer's no-geometry-envelope law.
+- Cases: every scalar slot carries its proto3 zero default because `MessageToDict` omits a field at its default value — a default-less slot rejects the producer's legitimate zero, so presence is the proto3 no-presence contract, never a required-field re-mint. Nested message slots spell `T | None = None` — proto message absence is a real wire value, the one place `None` crosses inward, collapsed by the consuming owner at its seam. `SolveRequest` deliberately carries bare column-major `float64` bytes, never a tensor envelope, per the producer's no-geometry-envelope law.
 - Auto: no shape lifts the causal halves to `Hlc` — the `clock/clock#CLOCK` owner reconstructs causal cells at full 100-ns tick fidelity from the carrier slots, and a `datetime`-mediated lift here truncates to microseconds. `Packed` types the two producer-open envelopes, open within the additive-only contract by the producer's own design and never widened past the declared slots. `TessellationRequest`/`TessellationReceipt` are contract rows this registry mints and streams over the existing `artifact_frame` leg — geometry `mesh/serve` binds the field floor by symbol, minting no wire shape.
 - Receipt: `FaultDetail` is the typed conflict the whole suite converges on, riding the `TransactionReceipt.conflict` slot in band and the `grpc-status-details-bin` trailer out of band; `transport/serve#SERVE` owns the Python trailer egress and ingress — this page owns only the shape.
 - Packages: `msgspec`, `protobuf`, and the faults rail per the fence imports; `transport/wire#PROTO_TRANSCODE` runs the `convert(strict=False)` decimal-string coercion leg.
@@ -221,7 +221,7 @@ class SupportBundleReply(Struct, frozen=True):
 - Auto: the codegen contract is static and build-time — `grpc_tools.protoc.main(["-I<proto-root>", "--python_out=<pkg>", "--pyi_out=<pkg>", "rasm/channels.proto"])` mints `rasm.runtime._pb2.channels_pb2` from the corpus-homed `.proto`, with `command.build_package_protos(package_root, strict_mode=True)` the CI form failing on the first compile error. `GRPC_PYTHON_DISABLE_DYNAMIC_STUBS=1` seals off the `sys.meta_path` dynamic-stub path backing `grpc.protos(...)` — the runtime imports the generated module, never generates at import time.
 - Packages: `protobuf`, `msgspec.inspect`, `grpcio-tools`, and `expression` per the fence imports.
 - Growth: a new wire pair is one `PROTO_VOCABULARY` row the gate proves and wire transcodes; a new structural assertion is one arm in `_drift`, never a second gate; a new sibling consumer binds existing rows by symbol.
-- Boundary: the gate proves structure, not values — byte-level round-trip parity is the `evidence/reproduction#SEED_REPRODUCTION` corpus's, and the additive-drift admission rule is the contract's, applied by this branch's own gate rather than read off a peer's classifier. An extra compiled field the struct lacks IS flagged here: this branch dropping a contract field is a decode gap even when the contract admits the addition.
+- Boundary: the gate proves structure, not values — byte-level round-trip parity is the `evidence/reproduction#SEED_REPRODUCTION` corpus's, and the additive-drift admission rule is the contract's, applied by this branch's own gate rather than read off a peer's classifier. Extra compiled fields the struct lacks stay flagged here: this branch dropping a contract field is a decode gap even when the contract admits the addition.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -275,6 +275,8 @@ PROTO_VOCABULARY: Final[tuple[tuple[str, type[Struct], type[Message]], ...]] = (
     ("symbolic_dim", SymbolicDim, channels_pb2.SymbolicDim),
     ("tessellate", TessellationRequest, channels_pb2.TessellationRequest),
     ("tessellation_receipt", TessellationReceipt, channels_pb2.TessellationReceipt),
+    ("support_bundle", SupportBundleRequest, channels_pb2.SupportBundleRequest),
+    ("support_bundle_reply", SupportBundleReply, channels_pb2.SupportBundleReply),
 )
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -313,7 +315,5 @@ def aligned() -> RuntimeRail[int]:
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
-
-BUNDLE_PROTO-[BLOCKED]: Which generated messages bind `SupportBundleRequest` and `SupportBundleReply` onto the standing diagnostic RPC? Mint both messages and `CaptureBundle` at `libs/csharp/Rasm.Compute/.planning/Runtime/wire.md`, regenerate `rasm.runtime._pb2.channels_pb2`, then restore the two `PROTO_VOCABULARY` rows here.
 
 (none)

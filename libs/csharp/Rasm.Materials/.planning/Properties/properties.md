@@ -81,8 +81,15 @@ public static class Published {
     public static ReadOnlyMemory<double> Centrals(ImmutableArray<Published<double>> values) =>
         values.Select(static datum => datum.Central).ToArray();
 
+    // Central is ONE member name over both carriers — the scalar block reads the raw double and the
+    // dimensioned block returns the QUANTITY, so a consumer selects its SI unit off the quantity's own
+    // accessor instead of re-deriving a scale. `double` satisfies no IQuantity, so the two never overlap.
     extension(Published<double> datum) {
         public double Central => datum.Value.CentralValue;
+    }
+
+    extension<TQuantity>(Published<TQuantity> datum) where TQuantity : IQuantity {
+        public TQuantity Central => datum.Value.CentralValue;
     }
 }
 

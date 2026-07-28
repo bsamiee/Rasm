@@ -4,8 +4,8 @@
 
 ## [01]-[INDEX]
 
-- [01]-[RECOVERY_ROUTES]: the backup-substrate × objective axis, the per-substrate backup leg, the real `RecoveryPoint` coordinate, and the RPO/RTO measured fact.
-- [02]-[POINT_IN_TIME_RESTORE]: the verified restore choreography, the `Snapshots.Verify` ladder in reverse, WAL-replay-to-`RecoveryPoint`, the head-caught-up projection rebuild, the re-attest content-identity proof, and the `StepFact` ledger.
+- [02]-[RECOVERY_ROUTES]: the backup-substrate × objective axis, the per-substrate backup leg, the real `RecoveryPoint` coordinate, and the RPO/RTO measured fact.
+- [03]-[POINT_IN_TIME_RESTORE]: the verified restore choreography, the `Snapshots.Verify` ladder in reverse, WAL-replay-to-`RecoveryPoint`, the head-caught-up projection rebuild, the re-attest content-identity proof, and the `StepFact` ledger.
 
 ## [02]-[RECOVERY_ROUTES]
 
@@ -71,7 +71,7 @@ public sealed partial class RecoveryPoint {
 // is the deleted form. Band membership derives `Code => FaultBand.Recovery + n` through the registry row
 // (`Element/graph#FAULT_TABLES` — a bare integer literal is the deleted form) and `Message`/`Category` project through the
 // generated `Switch`, so the typed case lifts BARE onto `Fin<T>`/`IO<T>` with no `.ToError()` hop and a recovery reads
-// `error.IsType<RecoveryFault.TimelineDivergence>()` / `error.HasCode(8295)` / `error.Category()`, never a message
+// `error.IsType<RecoveryFault.TimelineDivergence>()` / `error.HasCode(8295)` / `error.Category`, never a message
 // substring. No `[GenerateUnionOps]` — the kernel union-ops generator is strictly opt-in, so the band carries no
 // generated per-case `SelfOp`; the `[Union]`-generated `Switch`/`Map` is untouched. `Create` is the IValidationError
 // admission the generated converter bridge calls on a deserialization reject.
@@ -131,7 +131,7 @@ public readonly record struct RecoveryContext(
 // objective is the deleted conflation, so the backup mint carries `MeasuredRto: None`.
 public readonly record struct RecoveryFact(
     RecoveryRoute Route, RecoveryPoint Point, Duration MeasuredRpo, Duration BackupDuration, Option<Duration> MeasuredRto,
-    bool MeetsObjective, Instant At, Guid Correlation) : IValidityEvidence {
+    bool MeetsObjective, Instant At, CorrelationId Correlation) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Of(MeasuredRpo >= Duration.Zero),
         ValidityClaim.Of(BackupDuration >= Duration.Zero),

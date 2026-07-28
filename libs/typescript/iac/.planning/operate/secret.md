@@ -420,4 +420,4 @@ export { Certs, SecretAbsent, Secrets }
 
 ## [05]-[RESEARCH]
 
-- [LEASE_SPEC]-[BLOCKED]: Which encoded `LeaseSpec` fields own scope, keys, TTL, renewal, and epoch rotation? Route `libs/typescript/security/.planning/crypt/secret.md`, `libs/typescript/security/IDEAS.md` `[LEASE_SPEC_CONTRACT]`, and `libs/typescript/security/TASKLOG.md` `[LEASE_SPEC_SCHEMA]`; restore a `Secrets` lease member only after its encoded owner exists on disk.
+(none)

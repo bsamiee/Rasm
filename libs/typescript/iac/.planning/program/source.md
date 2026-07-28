@@ -196,4 +196,4 @@ export { Source }
 
 ## [04]-[RESEARCH]
 
-- [ASSET_IDENTITY_ROSTER]-[BLOCKED]: Which UI-owned encoded roster binds codec identity to `{ slug, digest, file }` and arms `codec-absent` from the sealed `served` plane?; route through `libs/typescript/ui/.planning/viewer/scene.md`, `libs/typescript/ui/IDEAS.md` `[ASSET_IDENTITY]`, and `libs/typescript/ui/TASKLOG.md` `[ASSET_IDENTITY_ROSTER]`; replace `Source.AssetRow` only after that owner exists.
+(none)

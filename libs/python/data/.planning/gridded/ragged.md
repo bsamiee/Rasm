@@ -30,7 +30,7 @@ from opentelemetry import trace
 
 from rasm.data.tabular.interop import ArrowCStream
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
+from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary, scoped
 from rasm.runtime.receipts import Receipt
 from rasm.runtime.roots import ResourceRef
 
@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     import numpy as np
 
 
-_TRACER: Final = trace.get_tracer("rasm.data.gridded.ragged")
+_TRACER: Final = scoped(trace.get_tracer, "rasm.data.gridded.ragged")
 
 type Backend = Literal["cpu", "cuda", "jax"]
 type AxisOp = Literal["flatten", "num", "firsts", "local_index", "singletons", "drop", "is_none"]

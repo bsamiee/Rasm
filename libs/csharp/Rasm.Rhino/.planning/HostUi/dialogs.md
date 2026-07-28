@@ -17,8 +17,8 @@
 - Law: `FileInquiry` carries filter text, every selected path crosses as `FileLocation`, and no exchange package enters the Host UI surface.
 - Law: `MessagePolicy` is the only foreign message-enum seam, and `MenuMode` keys derive the host context-menu mode array.
 - Law: `MessagePolicy` admits only an existing default button and one mutually exclusive delivery target; decorative flags remain an independent frozen set.
+- Boundary: typed Eto dialogs use `ShellWindows.Present`; this owner retains host-native and platform chooser intents only.
 - Boundary: native `ref`/`out` calls remain statement-shaped inside the terminal fold; color-preview faults accumulate and replace any nominal dialog result with typed failure.
-- Seam: typed Eto dialogs use `ShellWindows.Present`; this owner retains host-native and platform chooser intents only.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -883,7 +883,7 @@ public static class Inquiries {
 
 - Owner: `AssetRequest` combines resource and preview production because every case consumes host display policy and yields a disposable native asset, a detached metric, a pixel plane, or immutable stroke geometry.
 - Entry: `HostAssets.Render` admits the complete request before document projection; only `MeshPreview` carries a `DocumentSession` and demands `SessionNeed.Read`.
-- Seam: text shaping and metrics are the Eto `GlyphBlock` owner — `TextMeasure` carries a block and answers its memoized `Measure`, `FontSeed.System` carries the Eto `TypeRole` with an optional point size, and no `FormattedText` or font-role table is minted on this surface.
+- Law: text shaping and metrics are the Eto `GlyphBlock` owner — `TextMeasure` carries a block and answers its memoized `Measure`, `FontSeed.System` carries the Eto `TypeRole` with an optional point size, and no `FormattedText` or font-role table is minted on this surface.
 - Law: `MeshPreview` accepts zero colors to derive the document display color, one color to broadcast, or one color per mesh; every other cardinality is invalid.
 - Law: `LinetypePreview` carries `PreviewChannel` and positive pattern scale, so host paint semantics remain data rather than an unbounded integer.
 - Law: `AssetSource`, `AssetSize`, and `PreviewScale` reject invalid ingress once; `AssetSize` admits both a maximum dimension and an overflow-safe pixel budget before provider allocation.

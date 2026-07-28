@@ -12,8 +12,8 @@
 ## [02]-[ELEMENT_INGRESS]
 
 - Owner: `ElementSource` owns graph-bearing ingress; `ElementSubject` owns element identity with resolved representation; `ElementReceipt` owns the admitted carrier, canonical relationship rows, typed facts, canonical property bytes, and fault locus; `ElementImport` owns admission and egress.
-- Rows: `RepresentationSlot` closes `Body` · `Axis` · `Box` · `FootPrint`, each row carrying the `RepresentationContentHash` accessor its key names, so a new identifier is one row and no arm re-spells an identifier string.
 - Cases: `ElementGeometry` closes mesh, profile, and axis carriers; `ElementFact.Property` preserves every `PropertyValue` case; `ElementAdmission` preserves singular and batch cardinality; `ElementEgress` selects `Component` · `Topology` · `Facts` · `CanonicalProperties`; `ElementProjection` returns the matching result or committed byte count.
+- Law: `RepresentationSlot` closes `Body` · `Axis` · `Box` · `FootPrint`, each row carrying the `RepresentationContentHash` accessor its key names, so a new identifier is one row and no arm re-spells an identifier string.
 - Entry: `ElementImport.Admit(ElementSource)` bakes each subject once and returns `Fin<ElementAdmission>`; `ElementImport.Project(ElementReceipt, ElementEgress)` returns `Fin<ElementProjection>` without graph access.
 - Auto: generated `Switch` members keep every closed family total; `ElementSource` and `ElementPayload` admit non-empty distinct rosters through their generated factories; `Validation<Error, _>` accumulates independent batch and duplicate-path faults; `CanonicalWriter` owns value bytes and `ArrayPoolBufferWriter<byte>` owns the caller-scoped pooled egress buffer.
 - Receipt: `ElementReceipt` carries `AdmittedComponent`, `Seq<Relationship>`, `ElementFactSet`, count-prefixed canonical property bytes, and the element content locus; `ElementAdmission` preserves one or many receipts.

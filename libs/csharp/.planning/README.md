@@ -76,9 +76,14 @@ Cross-folder substrate every C# package composes. Libraries emit telemetry throu
 - `Microsoft.AspNetCore.JsonPatch.SystemTextJson` — RFC 6902 document mutation over the STJ wire.
 - `Riok.Mapperly` — compile-time graph↔DTO/proto/record mapping; runtime `Riok.Mapperly.Abstractions`.
 
+[MACHINE_CONNECTIVITY]:
+- `MTConnect.NET-Common` — MTConnect observation/streams/agent model and the ISO-13399 cutting-tool asset graph, two disjoint namespace partitions under one catalogue.
+- `MQTTnet` — MQTT v5 broker-client transport in both directions behind the live-wire row, the egress sink, and the sensor-ingest pump.
+
 [RUNTIME_INBOX]:
 - `System.Diagnostics.Metrics` — in-box `Meter`/`Instrument` emission surface behind every minted meter.
 - `System.Threading.Channels` — bounded producer-consumer transport behind host callbacks and work lanes.
+- `System.Net.Http` — outbound handler chain, message pair, and connection pool behind every dial-out hop and exporter egress.
 - `System.Security.Cryptography` — PEM, X.509, and ECDSA custody with zeroization at credential and receipt boundaries.
 - `System.Runtime.InteropServices` — POSIX signal registration behind drain traps and reload.
 - `System.Xml` — LINQ-to-XML, streaming reader/writer, schema, and XSLT behind MaterialX, BCF, and SVG payloads.

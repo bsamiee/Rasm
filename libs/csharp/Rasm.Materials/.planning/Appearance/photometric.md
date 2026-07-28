@@ -4,7 +4,7 @@ ONE `Photometric` static admission fold over the closed `PhotometricQuantity` ba
 
 ## [01]-[INDEX]
 
-- [01]-[PHOTOMETRIC]: the `PhotometricQuantity` band over the closed `Coercion` gate/rescale discriminant, the in-folder `MaterialUnits` UnitsNet boundary (`UnitSystem.SI` coercion + per-row family gate + `UnitEvidence` receipt), the unified gate-then-radiometric-divide `Admit` on the band row, the `EmissionSpectrum` blackbody/illuminant/chromaticity/spectral/constant family resolved scene-linear config-explicit, the `PhotometricPolicy` light→emission map with the observer policy column, and the `EmissionInput` payload carrying radiance, intensity, the CCT+Duv `Temperature` readout, chromaticity, and unit provenance.
+- [02]-[PHOTOMETRIC]: the `PhotometricQuantity` band over the closed `Coercion` gate/rescale discriminant, the in-folder `MaterialUnits` UnitsNet boundary (`UnitSystem.SI` coercion + per-row family gate + `UnitEvidence` receipt), the unified gate-then-radiometric-divide `Admit` on the band row, the `EmissionSpectrum` blackbody/illuminant/chromaticity/spectral/constant family resolved scene-linear config-explicit, the `PhotometricPolicy` light→emission map with the observer policy column, and the `EmissionInput` payload carrying radiance, intensity, the CCT+Duv `Temperature` readout, chromaticity, and unit provenance.
 
 ## [02]-[PHOTOMETRIC]
 
@@ -19,7 +19,7 @@ ONE `Photometric` static admission fold over the closed `PhotometricQuantity` ba
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
 using LanguageExt;
-using Rasm.Domain;                       // Op (the boundary-admission key)
+using Rasm.Domain;                       // Op the boundary-admission key; CorrelationId the S0 causal half
 using Rasm.Materials.Appearance.Bsdf;    // MaterialFault (band 2450) declared on bsdf#SHADING_FRAME, composed here
 using Rasm.Materials.Appearance.Graph;   // PortValue (the scene-linear Acescg Configuration owner — PortValue.SceneLinear)
 using UnitsNet;
@@ -118,7 +118,7 @@ public static class Radiometry {
 // crosses an interior signature or a wire. CanonicalUnit/CanonicalValue are the faithful SI-base UNIT magnitude
 // (lux/cd·m⁻²/lm/cd/W·m⁻²/W); RadiometricSi is the radiometric magnitude the row derives, kept distinct so the
 // receipt never contradicts itself (unit names value).
-public readonly record struct UnitEvidence(string Family, string OriginalUnit, double OriginalValue, string CanonicalUnit, double CanonicalValue, double RadiometricSi, Guid CorrelationId) {
+public readonly record struct UnitEvidence(string Family, string OriginalUnit, double OriginalValue, string CanonicalUnit, double CanonicalValue, double RadiometricSi, CorrelationId Correlation) {
     // Gated receipt: ONE ToUnit(UnitSystem.SI) derives the SI magnitude AND the canonical-unit witness — the
     // published family's SI base IS the receipt's unit, so no per-row canonical-unit column exists for gated rows.
     public static UnitEvidence From(IQuantity quantity, Guid correlation) {

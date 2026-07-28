@@ -380,9 +380,9 @@ public sealed class ShellReceipt : UiLease {
 
 - Owner: `Prompt<TResult>` builds one `Dialog<Option<Fin<TResult>>>`; `PromptLease<TResult>` owns its dialog and content receipt without a parallel verdict store.
 - Entry: `Ask` admits the prompt before realizing content and guards either the owner-bound `ShowModal` presenter or an injected presenter; `AskAsync` marshals construction, presentation, cancellation close, and release through awaitable UI crossings.
-- Seam: presentation is the presenter value — a host boundary hands its own modal presenter (`ShellWindows.Present` at the Rhino boundary), so the semi-modal host contract owns every host-parented prompt and raw `ShowModal` reaches only host-free shells.
 - Receipt: choices and cancellation close with an explicit `Fin<TResult>`, while native dismissal projects `Option.None` to `UiFault.Dismissed` without a result sentinel.
 - Growth: another affirmative outcome is one `PromptChoice<TResult>` row; cancellation and dismissal remain distinct faults.
+- Boundary: presentation is the presenter value — a host boundary hands its own modal presenter (`ShellWindows.Present` at the Rhino boundary), so the semi-modal host contract owns every host-parented prompt and raw `ShowModal` reaches only host-free shells.
 
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------
@@ -530,7 +530,7 @@ internal sealed class PromptLease<TResult>(Dialog<Option<Fin<TResult>>> dialog, 
 - Owner: `PrintPlan` admits and defers one `PrintDocument` run; `PrintPage` replays a mounted `PaintProgram` under one `ScenePolicy` and host, bounded, or `PageSettings.PrintableArea` framing.
 - Entry: `Run` returns `IO<Fin<PrintReceipt>>`; printer interaction and document lifetime begin only when the caller executes the effect.
 - Receipt: every attempted page normalizes Eto's selected-range page number to a zero-based source and scope ordinal; `PrintReceipt.Completed` requires one in-range fact per expected page plus host completion and zero failed facts, while `PresenceFailures` preserves taskbar projection faults.
-- Seam: `PrintReceipt` is this driver's raw run outcome only — printer-evidence vocabulary is the Exchange publish receipt family, and the composing app root folds these facts into it.
+- Boundary: `PrintReceipt` is this driver's raw run outcome only — printer-evidence vocabulary is the Exchange publish receipt family, and the composing app root folds these facts into it.
 - Growth: a route is one `PrintRoute` case, a frame source is one `PageFrame` case, and a job option is one `PrintSpec` field.
 - Boundary: `PrintPage` stores render failure because Eto's page event cannot return it; `Run` never converts that failure into successful completion.
 

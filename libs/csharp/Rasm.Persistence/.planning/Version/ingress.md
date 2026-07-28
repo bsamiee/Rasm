@@ -4,7 +4,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[INGRESS_PUMP]: the instrumented consume leg, the envelope decode and source gate, the content-key dedup against the op-log, the durable apply-then-commit law, the `IngressReceipt` conservation fold, and the 8500 fault band.
+- [02]-[INGRESS_PUMP]: the instrumented consume leg, the envelope decode and source gate, the content-key dedup against the op-log, the durable apply-then-commit law, the `IngressReceipt` conservation fold, and the 8500 fault band.
 
 ## [02]-[INGRESS_PUMP]
 
@@ -15,7 +15,7 @@
 - Receipt: a consume batch rides `store.ingress.consume` carrying the topic, group, consumed/applied/duplicate/dead-lettered counts, and elapsed duration; a dead-letter rides `store.ingress.deadletter` carrying the envelope id and the fault.
 - Packages: Confluent.Kafka (`ConsumerBuilder<TKey,TValue>`/`ConsumerConfig`/`IConsumer<TKey,TValue>`/`ConsumeResult<TKey,TValue>`/`StoreOffset`/`Commit`/`Subscribe`), OpenTelemetry.Instrumentation.ConfluentKafka (`AsInstrumentedConsumerBuilder` + `ConfluentKafkaInstrumentedConsumerBuilderOptions` at the bind seam; `ConsumeAndProcessMessageAsync` owns context extraction and the receive/process spans; `AddKafkaConsumerInstrumentation` registers at the AppHost root), CloudNative.CloudEvents (+`.Kafka` `ToCloudEvent`/`IsCloudEvent`, +`.SystemTextJson` `JsonEventFormatter`), Rasm (`IValidityEvidence`/`ValidityClaim`), Rasm.Persistence (`Element/graph#FAULT_TABLES` `FaultBand`, `Version/ledger` `OpLogEntry`), LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: a new foreign topic is one `IngressSource` row at composition — zero fold edits; a new admission predicate is one gate row on the source binding; a new ingress transport is one sibling consume leg over the same ports frame, never a second dedup or apply path; zero new surface — an ingress case on the egress `EgressSink` family, an auto-committed consumer, a per-topic apply fold, a dedup keyed on broker offset instead of content identity, or a raw `ConsumeResult` crossing into the apply arrow is the deleted form because the sink family stays egress-only, the offset law is store-first, and the envelope `id` is the one replay identity.
-- Boundary: the `EgressSink` family stays egress-only; consumer construction is Persistence's `Bind` seam while instrumentation registration rides the AppHost root; `TryApply` hands the content key and admitted op to the changefeed owner as one atomic conditional operation, so no read-then-write dedup window exists; `IngressPorts.Extensions` feeds the typed `ToCloudEvent` overload; binary data folds through the CloudEvents byte glue; the processing token reaches every port effect and gates offset storage and batch commit.
+- Boundary: the producer-to-consumer causal edge is the INSTRUMENTATION's, never this fence's — `ConsumeAndProcessMessageAsync` extracts each record's W3C context and attaches it to that record's process span as an `ActivityLink`, so a hand-composed `TraceCarrier.Link` here mints a second edge for one cause and re-implements shipped capability; the batch commit unit takes no link of its own because a poll-driven fold learns its members only after the span would have opened and links bind at creation, so batch-to-record causality rides the store-first offset law and the `IngressReceipt` counts rather than a fabricated edge set — the kernel fan-in bracket is for a drain whose members are read BEFORE it opens, which the `Wire/outbox#DISPATCH_SWEEP` relay is and this consume loop is not; the `EgressSink` family stays egress-only; consumer construction is Persistence's `Bind` seam while instrumentation registration rides the AppHost root; `TryApply` hands the content key and admitted op to the changefeed owner as one atomic conditional operation, so no read-then-write dedup window exists; `IngressPorts.Extensions` feeds the typed `ToCloudEvent` overload; binary data folds through the CloudEvents byte glue; the processing token reaches every port effect and gates offset storage and batch commit.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -24,6 +24,7 @@ using CloudNative.CloudEvents.Core;
 using CloudNative.CloudEvents.Kafka;
 using CloudNative.CloudEvents.SystemTextJson;
 using Confluent.Kafka;
+using Rasm.Domain;                                // CorrelationId — the S0 causal half the frame seats
 using Rasm.Persistence.Element;                   // FaultBand — the one band registry (graph#FAULT_TABLES)
 
 namespace Rasm.Persistence.Version;
@@ -45,7 +46,7 @@ public sealed record IngressPorts(
 
 // Per-drain evidence on the kernel validity floor: every consumed record is applied, deduplicated, or
 // dead-lettered, exactly once.
-public sealed record IngressReceipt(string Topic, string Group, int Consumed, int Applied, int Duplicates, int DeadLettered, Duration Elapsed, Instant At, Guid Correlation) : IValidityEvidence {
+public sealed record IngressReceipt(string Topic, string Group, int Consumed, int Applied, int Duplicates, int DeadLettered, Duration Elapsed, Instant At, CorrelationId Correlation) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountExactly(Applied + Duplicates + DeadLettered, Consumed));
 }

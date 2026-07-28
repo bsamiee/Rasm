@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [01]-[IMPOSE]: the press-imposition owner discriminating a closed `ImposeOp` `tagged_union` — `Impose` (locally-placeable n-up/booklet/signature/work-and-turn/cut-and-stack/come-and-go/perfect-bind/sheetwise plus provider-native wire/hardcover/cards/zine, route-admitted through the derived `_ENGINES` table) and `Proof` (the RGB/CMYK/GRAY raster proof) — folded once into the imported `Composed` evidence struct the `folded()` successor threads, railed `RuntimeRail[ArtifactReceipt]` over `async_boundary(catch=_FAULTS)`, dispatched to the local `pymupdf.show_pdf_page` engine or the `pdfimpose` schema wrappers; `planned` is the compute-only pre-flight over the `Impose` payload.
+- [02]-[IMPOSE]: the press-imposition owner discriminating a closed `ImposeOp` `tagged_union` — `Impose` (locally-placeable n-up/booklet/signature/work-and-turn/cut-and-stack/come-and-go/perfect-bind/sheetwise plus provider-native wire/hardcover/cards/zine, route-admitted through the derived `_ENGINES` table) and `Proof` (the RGB/CMYK/GRAY raster proof) — folded once into the imported `Composed` evidence struct the `folded()` successor threads, railed `RuntimeRail[ArtifactReceipt]` over `async_boundary(catch=_FAULTS)`, dispatched to the local `pymupdf.show_pdf_page` engine or the `pdfimpose` schema wrappers; `planned` is the compute-only pre-flight over the `Impose` payload.
 
 ## [02]-[IMPOSE]
 

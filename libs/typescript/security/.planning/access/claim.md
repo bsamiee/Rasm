@@ -206,10 +206,7 @@ class FlagGate extends Context.Tag("security/access/FlagGate")<FlagGate, {
 ```typescript
 const _PolicyDecision = Data.taggedEnum<PolicyDecision>()
 
-const _deny = Metric.counter(Convention.instrument.securityPolicyDeny.name, {
-  description: Convention.instrument.securityPolicyDeny.description,
-  incremental: true,
-})
+const _deny = Convention.mount(Convention.metric.securityPolicyDeny)
 
 const _closure = (role: Role.Kind, seen: HashSet.HashSet<Role.Kind>): HashSet.HashSet<Role.Kind> =>
   HashSet.has(seen, role)

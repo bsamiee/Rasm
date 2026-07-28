@@ -39,7 +39,7 @@ from opentelemetry.trace import Status, StatusCode
 
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
-from rasm.runtime.faults import BoundaryFault, RuntimeRail
+from rasm.runtime.faults import BoundaryFault, RuntimeRail, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -71,7 +71,7 @@ _WIDE: Final[frozenset[str]] = frozenset({"W", "F"})
 _CANON: Final = msgspec.msgpack.Encoder(order="deterministic")  # the stable preimage encoding the bare `ContentIdentity.key` mint addresses
 _RUN_ENCODER: Final = msgspec.msgpack.Encoder()
 _LOG: Final = structlog.get_logger()
-_TRACER: Final = trace.get_tracer(__name__)
+_TRACER: Final = scoped(trace.get_tracer, "rasm.artifacts.typography.layout")
 _TAILOR_TABLE: Final[Map[str, TailorFunction]] = Map.empty()
 
 # --- [MODELS] --------------------------------------------------------------------------

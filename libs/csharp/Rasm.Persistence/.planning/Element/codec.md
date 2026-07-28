@@ -309,7 +309,7 @@ public sealed partial class RejectTier {
 // `+10 + Tier.Rank` off the carried `RejectTier` (the band WRAPS the tier, never re-enumerates the tier
 // ranks as union cases) — so the typed case lifts BARE onto `Fin<T>`/`Validation<Error,T>` with no `.ToError()` hop
 // and a recovery reads `error.IsType<CodecFault.SnapshotRejected>()` / `error.HasCode(8326)` /
-// `error.Category()`, never the bare `Error.New(8310/8330)` a codec/reassembly miss would otherwise spell.
+// `error.Category`, never the bare `Error.New(8310/8330)` a codec/reassembly miss would otherwise spell.
 // No `[GenerateUnionOps]` — the kernel union-ops generator is strictly opt-in.
 [Union]
 public abstract partial record CodecFault : Expected, IValidationError<CodecFault> {
@@ -377,7 +377,7 @@ public readonly record struct SnapshotHeader(
 public sealed record SnapshotCatalogRow(
     Guid Id, string Kind, SnapshotCodec Codec, CompressionPolicy Compression, ContentAddress Hash,
     long PlainLength, long StoredLength, ulong SchemaFingerprint, ulong Epoch, Option<ContentAddress> Lineage,
-    string RetentionClass, DataClassification Classification, Instant HlcPhysical, ulong HlcLogical, Guid Correlation) {
+    string RetentionClass, DataClassification Classification, Instant HlcPhysical, ulong HlcLogical, CorrelationId Correlation) {
     public Instant WrittenAt => HlcPhysical;
 }
 
@@ -428,9 +428,10 @@ public static class Snapshots {
             .Bind(encoded => encoded.LongLength > route.MaxPlainLength
                 ? IO.fail<(Guid Id, SnapshotHeader Header)>(RejectTier.SizeExceeded.Reject($"plain:{encoded.LongLength}>{route.MaxPlainLength}"))
                 : IO.lift(() => Seal(route, Guid.CreateVersion7(), encoded)))
-            // Port edge conversion: ReceiptSinkPort.Send requires CorrelationId and TenantContext — the raw
-            // Guid/UInt128 frame values convert HERE exactly as the timetravel Folded edge does.
-            .Bind(file => sink.Send(CorrelationId.Create(frame.Correlation), TenantContext.Current, "Rasm.Persistence", route.Kind, JsonSerializer.SerializeToElement(file.Header, ElementJson.Options))
+            // `ReceiptSinkPort.Send` takes the kernel causal pair the frame already seats, so emission passes
+            // the frame values through — an ambient `TenantContext.Current` read here would attribute the seal
+            // to the calling thread's tenancy rather than the one the write ran under.
+            .Bind(file => sink.Send(frame.Correlation, frame.Tenant, TelemetrySource.Persistence.Key, route.Kind, JsonSerializer.SerializeToElement(file.Header, ElementJson.Options))
                 .Map(envelope => new SnapshotCatalogRow(file.Id, route.Kind, route.Format.Codec, route.Format.Compression, ContentAddress.Of(file.Header.ContentHash), file.Header.PlainLength, file.Header.StoredLength, route.SchemaFingerprint, route.Epoch, route.Lineage, route.RetentionClass, route.Classification, envelope.Physical, envelope.Logical, frame.Correlation)))
             .Bind(row => persist(row).Map(_ => row));
 

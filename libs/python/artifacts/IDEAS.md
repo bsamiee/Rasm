@@ -32,18 +32,13 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Unlocks: an issue that cannot ship a failing sheet; one graded quality surface over the folder's scattered verdict producers.
 - Anchors: `graphic/raster/measure.md` perceptual scores; `document/tagged.md` `UaCheck` and preflight; `exchange/conformance.md` `ConformanceVerdict`; `pdfplumber` `Page.debug_tablefinder`; the data `QualityProfile` seam.
 
-[DASHBOARD_ARTIFACT]-[QUEUED]: Self-contained interactive HTML dashboard as a first-class artifact kind.
-- Capability: multi-pane chart, table, and diagram composition into one offline single-file HTML document — filterable charts, sortable schedule tables, register indexes — produced host-free and theme-graded, never a live UI.
-- Shape: one new page `libs/python/artifacts/.planning/visualization/dashboard.md` owning `DashboardPlan`; `libs/python/artifacts/.planning/visualization/chart/export.md` gains the interactive-HTML format row.
-- Unlocks: receipts, QTO, and delivery registers readable as one shareable file; the folder's dashboards-axis answer inside the no-UI charter.
-- Anchors: `altair` `JupyterChart` and HTML export; `vl-convert-python`; `TablePlan` HTML arm; `DiagramDraw` layered SVG; `Theme` rows.
-
 ## [02]-[CLOSED]
 
 <!-- source-only: closed idea card template:
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[DASHBOARD_ARTIFACT]-[COMPLETE]: landed as `visualization/dashboard.md` — `DashboardPlan` folds a `DashPane` deck (chart/table/figure) into one offline document over ONE `vl_convert.javascript_bundle(vl_version=…)` runtime with per-pane `vegaEmbed` mounts, markup assembled through `string.templatelib.Template` under the destination-keyed `_ESCAPE` fold, minting the new banded `ArtifactReceipt.Dashboard` kind; the carded claim that `javascript_bundle` takes `snippet` positionally with no default is REFUTED — both parameters default `None` and the default snippet publishes `vegaEmbed`/`vega`/`vegaLite` onto `window`, which is what makes one shared bundle serve every pane.
 [PRODUCTION_HOOKS]-[COMPLETE]: landed as `core/hooks.md` — `ArtifactHook`/`ARTIFACT_POINTS` over the runtime `Hooks` registry with the scope-keyed `Production` register/fire/subscribe surface, fire seams live in `core/issue.md` (`_issued`/`_planned`/`_driven`) and `core/receipt.md` `contribute`.
 [ISSUE_ATTRIBUTION]-[COMPLETE]: landed as the `ArtifactIssue._scoped` bracket — issue scope with parent-respecting tenant baggage under `ISSUE_BAGGAGE`/`TENANT_BAGGAGE` with `bound_contextvars` log keys; tenant metric promotion stays runtime-owned per `core/receipt.md` `[METRIC_SIGNALS]`, the issue scope a log/baggage dimension by cardinality law.
 [TRANSMITTAL_NOTICE]-[COMPLETE]: landed as `delivery/notice.md` `TransmittalNotice` — validated CloudEvents envelope with W3C trace injection and structured/binary rows — folded into `delivery/transmittal.md` `_emit` as the soft terminal notice firing `NOTICE_ISSUED`.

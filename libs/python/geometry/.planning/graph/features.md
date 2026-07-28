@@ -194,9 +194,10 @@ class FeatureResult(Struct, frozen=True):
         spec = CASE[self.kind]
         return GeometryHandoff.of(self.graduation_subject, evidence_key, spec.ledger(self.census), spec.ceiling)
 
-    def frame(self, evidence_key: ContentKey, op: AnalyticOp) -> EvidenceFrame:
+    def frame(self, evidence_key: ContentKey, op: AnalyticOp) -> "RuntimeRail[EvidenceFrame]":
         # analytic-board columnar egress through the graduation frame port: the substrate's `tabled` projection keys
-        # the columns, this producing page keys the subject — an unheld op frames the empty board, never a fault.
+        # columns, this producing page keys the subject — an unheld op frames the empty board, never a fault, while a
+        # ragged `tabled` projection rails at the port instead of raising past this producer.
         board = self.census.values.try_find(op).default_value(AnalyticValue.Leaderboard(())).tabled()
         return EvidenceFrame.of(self.graduation_subject, evidence_key, board)
 

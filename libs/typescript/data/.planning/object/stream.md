@@ -241,7 +241,7 @@ const _identity = (
 - Law: staging and content never share keys — tus ids are random staging identity, `namingFunction` prefixes the staging band, and identity exists only after the finalize fold; a staging key leaking as a content coordinate is the named defect.
 - Law: the hook seams are the admission and gate rows — `onUploadCreate` stamps the staging owner into the upload metadata before creation, `onIncomingRequest` runs the spec's `gate` (the serving plane's admission handoff) per request, `onResponseError` folds every error reply into one structured log, and `postReceiveInterval` paces the progress events the `EVENTS` taps observe — every seam a `Rail.Spec` value, never a fork of the handler classes.
 - Law: the create seam IS the `rasm.data.object.admit` veto point — after the spec's `admit` enriches metadata, `Hook.gated("objectAdmit", ...)` runs the app-armed veto with the staging id, resolved owner, and declared length (`Option`-carried because a deferred-length upload declares none), and a refusal rejects the bridge as the tus-conformant error reply; the finalize fold fans the same point's observe taps with the landed content key AFTER the conditional re-home and reference row commit, so no subscriber sees a key that is not yet durable.
-- Law: resumable-upload throughput projects from the finalize receipt — the landed span increments `streamBytes` once per completed upload, so the rate is throughput; a per-PATCH meter double-counts retries.
+- Law: resumable-upload throughput projects from the finalize receipt — the landed span increments `streamSize` once per completed upload, so the rate is throughput; a per-PATCH meter double-counts retries.
 - Law: finalize is fold-then-conditional — read the staged object as a stream, run the chunk stage and the identity fold, re-home through the streaming conditional put (`putKeyed` carrying the proven span), record the reference row through `store.refer` (the derived retention tag lands with it), remove the staging upload; the whole fold is idempotent because the re-home lands 412 on replay, the reference upsert re-arms, and the staging removal is the only destructive step, ordered last and best-effort — once `store.refer` commits, the receipt is settled truth, a failed staging delete logs as cleanup debt, and groom's `deleteExpired` retires the orphan, so no delete failure can fail `onUploadFinish` after durability.
 - Law: finalize is TWO bounded staging reads by the same law that governs disk intake — the content key cannot exist before the last byte is hashed, so the identity pass precedes the re-home pass and memory stays constant at any size; a buffering tee that halves staging egress buys bytes with unbounded memory and is the rejected trade.
 - Law: every provider promise on the resume rail converts through `Effect.tryPromise` into `ObjectFault` — the staged read, the re-home, the staging removal, the dispatch members, and the groom alike — so a failed staging read or removal is a typed rail outcome, never a bare rejection; `Effect.promise` is unspellable on this page because no tus or store promise is rejection-free.
@@ -287,10 +287,7 @@ import { Hook } from "../journal/append.ts"
 import { ObjectStore } from "./store.ts"
 import type { Retain } from "../journal/retain.ts"
 
-const _streamed = Metric.counter(Convention.instrument.streamBytes.name, {
-  description: Convention.instrument.streamBytes.description,
-  incremental: true,
-})
+const _streamed = Convention.mount(Convention.metric.streamSize)
 
 declare namespace Rail {
   type Admission = { readonly id: string; readonly metadata: Readonly<Record<string, string | null>> }

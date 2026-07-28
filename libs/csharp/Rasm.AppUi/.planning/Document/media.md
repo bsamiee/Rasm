@@ -112,7 +112,7 @@ public static class MarkdownInlineRenderer {
 - Auto: the `Image` case assigns `AdvancedImage.Source` and the global `ImageLoader.AsyncImageLoader`, so intake uses the one shared cache; `FallbackImage`, `IsLoading`, and `CurrentImage` remain host-bindable control projections rather than fabricated receipt fields. The `Svg` case assigns the catalogued `Path`, and video/audio compose `MpvView` on `VideoRenderer.OpenGl`.
 - Receipt: `MediaReceipt` — surface key, codec kind, source identity, mount outcome, `Instant`; the mounted and failed instruments contribute inward through `MediaSurfaces.TelemetryRow`, and the receipt seals through its `Diagnostics/evidence#RECEIPT_UNION` `EvidenceReceipt.Media` case.
 - Packages: AsyncImageLoader.Avalonia, Svg.Controls.Skia.Avalonia, HanumanInstitute.LibMpv, HanumanInstitute.LibMpv.Avalonia, Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
-- Growth: a new codec is one `MediaSurface` case with one `Materialize` arm; one media instrument is one `InstrumentRow` on `MediaSurfaces.TelemetryRow`; zero new surface.
+- Growth: a new codec is one `MediaSurface` case with one `Materialize` arm; one media instrument is one `InstrumentSpec` row on `MediaSurfaces.TelemetryRow`; zero new surface.
 - Boundary: the media vocabulary is the one `MediaSurface` union — a per-surface codec, a second image cache, and a parallel video player are the rejected forms; the materialized control crosses to its host through the ONE `Shell/hosts.md` `Surfaces.Mount(ConsumptionProfile, SurfaceMount, SurfaceSeam, Control, ClockPolicy, CorrelationId)` rail composed at the shell edge — `SurfaceSeam` carries mount delegate COLUMNS, not a mount method, so a media-local `seam.Mount(view)` spelling is a phantom and the host crossing is never re-derived here; source intake runs on the IO rail BEFORE the control returns — a mid-pipeline `.Run()` whose `Fin` is discarded is the deleted form, so a load failure reaches the caller as `ContentFault` and a mounted control never represents a failed intake; the video/audio row is `HanumanInstitute.LibMpv.Avalonia` on the OpenGL render path so a bundled libmpv native binary and a `NativeControlHost` airspace embedding are the rejected forms (`.api/api-libmpv.md` reject law), the libmpv native provisioning at the app-host distribution layer; the media surface never owns an `SKSurface` — its render rides the libmpv GL path, the `Svg` control's engine, and the image cache, so an `SKSurface` outside the `Offscreen` capsule is the `[04]-[BOUNDARIES]` rejected form; playback control flows through the `MpvContext` the bound `IVideoView` exposes, never a hand-rolled mpv command marshaller (`.api/api-libmpv.md` reject); every `MpvContext`/view/overlay disposes through `IVideoView.Dispose` at teardown so the render context releases.
 
 ```csharp signature
@@ -184,10 +184,10 @@ public static class MediaSurfaces {
     public const string MountedInstrument = "rasm.appui.media.mounted";
     public const string FailedInstrument = "rasm.appui.media.failed";
 
-    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
-        AppUiTelemetry.Contribute(version, schemaUrl,
-            new(MountedInstrument, InstrumentKind.Count, "{mount}", "media surfaces mounted by codec"),
-            new(FailedInstrument, InstrumentKind.Count, "{mount}", "media mounts failed by codec"));
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version,
+            InstrumentSpec.Count(MountedInstrument, "{mount}", "media surfaces mounted by codec", MeasureForm.Whole, AppUiTelemetry.CodecSlot),
+            InstrumentSpec.Count(FailedInstrument, "{mount}", "media mounts failed by codec", MeasureForm.Whole, AppUiTelemetry.CodecSlot));
 
     // The one codec dispatch: intake runs ON the rail — a video/audio load failure folds before the
     // control exists, and the receipt seals mounted and failed alike through the composition-bound sink.

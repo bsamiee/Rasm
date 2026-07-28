@@ -245,12 +245,12 @@ const Proc = { Spec, Receipt, run, open: _opened } as const;
 
 [MEASURED_RUN]:
 - Owner: `Trial` — the in-product benchmark owner minting the core wire claim directly: `Trial.Spec` owns suite, label, modality, and positive warmup and iteration rows; `Trial.run(host, spec, body)` brackets the declared iterations at `Proc.Receipt`-grade timing (`Clock.currentTimeNanos` around every sample, so wall-clock adjustment cannot skew a duration) and folds the sample set through one quantile kernel into the imported `Claim` authority.
-- Law: the claim shape has one owner — `Trial.Claim` is core `Claim`, not a runtime twin; its `Host`, `Band`, metric modality, raw samples, full percentile ladder, and mint instant therefore cross `BenchmarkClaimWire` without a projection or parallel schema. `Trial.Host` is required input from the selected runtime row, so Node and Bun report the core fingerprint fields and this owner reads no ambient process globals.
+- Law: the claim shape has one owner — `Trial.Claim` is core `Claim`, not a runtime twin; its `Host`, `Band`, metric modality, raw samples, measured rungs, and mint instant therefore cross `BenchmarkClaimWire` without a projection or parallel schema, and the quantile kernel writes exactly the rungs it computed so a grader never reads a fabricated statistic. `Trial.Host` is required input from the selected runtime row, so Node and Bun report the core fingerprint fields and this owner reads no ambient process globals.
 - Law: warmup is discarded by construction — the bracket runs `spec.warmup` unrecorded iterations before the first sample, so cold-path jit noise never enters a quantile; the quantile kernel sorts once and reads rank positions, a marked measured kernel.
 - Law: bodies execute on the calling fiber and must be trusted non-blocking effects. Blocking kernels sit outside this API and enter through the worker plane's `Bench` protocol before a caller measures that round-trip as the body.
 - Boundary: the tests tier owns corpus benchmarking — this owner mints in-product claims on live workloads, and the two never share a harness; claim board join and rendering are the ui viewer probe's.
 - Entry: `Trial.run(host, spec, body)`.
-- Growth: a new measured case is one `Trial.Spec`; optional GC, heap, and counter enrichments remain absent until `[06]-[RESEARCH]` settles the engine declarations that produce them.
+- Growth: a new measured case is one `Trial.Spec`; GC, heap, and hardware-counter enrichment stays absent by ownership, since those bands ride a sampling engine's own registration surface while this owner brackets a caller's effect on the calling fiber, and the corpus lane already owns that harness.
 - Packages: `effect` (`Clock`, `DateTime`, `Effect`, `Option`, `Schema`), `@rasm/ts/core` (`Claim`).
 
 ```typescript signature
@@ -317,4 +317,4 @@ export { ExecFault, Proc, Runtime, Trial };
 
 ## [06]-[RESEARCH]
 
-- [TRIAL_ENGINE]-[BLOCKED]: which exact `measure` and `do_not_optimize` declarations, result fields, batch controls, and GC controls support a typed deep-sampling modality without an `Unknown` evidence bag; route first through `libs/typescript/runtime/.api/mitata.md`, then `libs/typescript/.api/mitata.md`; arm only when either catalog carries exact rows for every composed member.
+(none)

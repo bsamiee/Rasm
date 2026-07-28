@@ -30,7 +30,7 @@ from msgspec import Struct, structs
 from opentelemetry import trace
 
 from rasm.data.gridded.field import FieldReceipt
-from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
+from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary, scoped
 from rasm.runtime.identity import ContentIdentity
 from rasm.runtime.roots import ResourceRef
 from virtualizarr.parsers import (
@@ -51,7 +51,7 @@ if TYPE_CHECKING:
     from icechunk import Session
 
 
-_TRACER: Final = trace.get_tracer("rasm.data.gridded.virtual")
+_TRACER: Final = scoped(trace.get_tracer, "rasm.data.gridded.virtual")
 
 type Combine = Literal["by_coords", "nested"]
 type Coordinates = tuple[int, ...]
@@ -361,7 +361,7 @@ from expression.collections import Map
 from icechunk import VirtualChunkSpec
 from msgspec import Struct
 
-from rasm.runtime.faults import RuntimeRail, boundary, railed
+from rasm.runtime.faults import RuntimeRail, boundary, railed, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.receipts import Receipt
 from rasm.runtime.roots import ResourceRef

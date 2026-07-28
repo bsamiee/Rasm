@@ -328,10 +328,7 @@ declare namespace Reject {
   type _Keys<K extends Kind = keyof typeof _REJECTS> = K
 }
 
-const _rejects = Metric.counter(Convention.instrument.securityRejects.name, {
-  description: Convention.instrument.securityRejects.description,
-  incremental: true,
-})
+const _rejects = Convention.mount(Convention.metric.securityRejects)
 
 const Reject = {
   kinds: _REJECTS,

@@ -33,7 +33,7 @@ from tree_sitter import Language, Node, Parser, Point, Query, QueryCursor
 import tree_sitter_python as ts_py
 import tree_sitter_typescript as ts_ts
 
-from rasm.runtime.faults import SCOPES, BoundaryFault, Disposition, RuntimeRail, Scope, trapped, traversed
+from rasm.runtime.faults import SCOPES, BoundaryFault, Disposition, RuntimeRail, Scope, scoped, trapped, traversed
 from rasm.runtime.receipts import Receipt
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -175,7 +175,7 @@ _BINDING_NAME_ID: Final[Map[Lang, int]] = PROBES["binding"].captures.map(lambda 
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
-_TRACER: Final[trace.Tracer] = trace.get_tracer(SCOPES[Scope.EVIDENCE])
+_TRACER: Final[trace.Tracer] = scoped(trace.get_tracer, SCOPES[Scope.EVIDENCE])
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

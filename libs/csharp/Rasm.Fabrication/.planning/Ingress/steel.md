@@ -644,10 +644,10 @@ internal static partial class DstvMap {
 
 ## [03]-[LIFECYCLE]
 
-- Admission: `SteelSource` normalizes every source to stable bytes before `DstvReader.ParseAsync` runs; the header admits before any feature so profile-code face admissibility gates each located element.
 - Owner: `SteelHeader`, `SteelFeature`, and `SteelPart` retain the complete readable NC1 program without provider shapes; `SteelContour` exposes arc-aware measure evidence, `SteelPart.Topology` owns the normalized `AK` minus `IK` hierarchy, and `SteelPart.Placed` owns face-to-part resolution with contour bulges beside transformed vertices.
-- Rail: parse and source effects remain deferred on `Eff`; independent feature faults accumulate on `Validation<Error, Seq<SteelFeature>>` and collapse once into the ingress rail.
-- Projection: `SteelView` selects part, boundary, feature, placement, topology, or identity egress through one generated behavior row, and `SteelProjection` preserves each result shape including `TopologyReceipt`.
+- Law: parse and source effects remain deferred on `Eff`; independent feature faults accumulate on `Validation<Error, Seq<SteelFeature>>` and collapse once into the ingress rail.
+- Entry: `SteelSource` normalizes every source to stable bytes before `DstvReader.ParseAsync` runs; the header admits before any feature so profile-code face admissibility gates each located element.
+- Output: `SteelView` selects part, boundary, feature, placement, topology, or identity egress through one generated behavior row, and `SteelProjection` preserves each result shape including `TopologyReceipt`.
 - Boundary: path cancellation remains source data, contour geometry is the named statement kernel, one `Fault` mint floors every locus at the `ST` line so `SourceKind.Steel` admits it, and every unreadable block fails with its block key and one-based line.
 
 ## [04]-[RESEARCH]

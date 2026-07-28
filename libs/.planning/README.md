@@ -40,6 +40,7 @@ Each index doc opens on its own charter law, then its content. Keep each load-be
 - Every seam appears at both endpoint folders with identical kind and direction; a new kind amends this standard before use.
 - Settled architecture contains no owner-state registry or transient build order; task cards own construction order.
 - `[<KIND>]: <shape>`; `KIND = WIRE | CONTRACT | SHAPE | PROJECTION | PORT | BOUNDARY | RECEIPT | CONTENT_KEY | TRANSPORT | TESSELLATION | GRADUATION | FAULT`.
+- Codemap edges carry `IMPORT` — a sub-domain composing a sibling owner — and `COUNTER` — the strata counter-edge — under the same label grammar.
 
 [RULINGS] — the folder's permanent decision registry:
 - `RULINGS.md` are leaf specific source of truth, prevents re-litigation; with README and ARCHITECTURE it forms the folder's core.
@@ -70,7 +71,7 @@ Design pages live at `<pkg>/.planning/<sub-domain>/<page>.md`, one sub-domain fo
 - Research rows record epistemic debt in place of a guessed spelling; `(none)` marks the empty section, and a resolved row is deleted whole.
 - SPIKE markers name a design element whose convergence only live-host evidence finalizes; the page ships its deterministic floor beside it.
 - Each cluster carries a card, then transcription-complete signature fences, then at most one Mermaid diagram.
-- Card fields are a closed vocabulary — `Owner`, `Cases`, `Entry`, `Auto`, `Output`, `Receipt`, `Packages`, `Growth`, `Boundary`, in that order.
+- Card fields are a closed vocabulary — `Owner`, `Cases`, `Law`, `Exemption`, `Entry`, `Auto`, `Output`, `Receipt`, `Packages`, `Growth`, `Boundary`, in that order.
 - Each card field is earned: a field that decides nothing for the cluster is omitted.
 - Card bullets carry only what the fence cannot show — the decision, invariant, boundary, ownership ruling, trap, or rejection-with-reason.
 - `[01]-[INDEX]` indexes the page's clusters in section order, one entry per cluster and never an owner roster or a card restatement.

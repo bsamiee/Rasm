@@ -30,14 +30,14 @@ from opentelemetry import trace
 
 from rasm.data.spatial.query import SpatialEngine, SpatialQuery, SpatialResult
 from rasm.data.tabular.columnar import QueryReceipt
-from rasm.runtime.faults import RuntimeRail, boundary
+from rasm.runtime.faults import RuntimeRail, boundary, scoped
 
 if TYPE_CHECKING:
     import numpy as np
     import polars as pl
     import pyarrow as pa
 
-_TRACER: Final = trace.get_tracer("rasm.data.spatial.grid")
+_TRACER: Final = scoped(trace.get_tracer, "rasm.data.spatial.grid")
 
 
 type ResolutionShape = Literal["single", "list", "paired"]

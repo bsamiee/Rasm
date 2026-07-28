@@ -4,7 +4,7 @@ The generic analysis-receipt owner: one `AssessmentPayload` the `Graph/element#N
 
 ## [01]-[INDEX]
 
-- [01]-[ASSESSMENT_NODE]: the `AssessmentPayload` generic receipt keyed by `Discipline`+`AnalysisRoute`+`InputKey`, the `AnalysisRoute` opaque route token, the `AssessmentOutcome` eight-row `Usable`/`Terminal`/`Dispatchable`/`Coherent` lifecycle with its `Next()` flip adjacency, the one `Advance` transition and the coherence-gated `Rehydrate` decoder rail, the typed `Results` bag with the `Result`/`ResultMeasure` flat reads, the `Diagnostic` typed failure carrier over the `SolvePhase`/`FailureKind` axes, the `ResultBlob` heavy-artifact reference, the `DependsOn` upstream-receipt DAG set, and the enriched `Provenance`.
+- [02]-[ASSESSMENT_NODE]: the `AssessmentPayload` generic receipt keyed by `Discipline`+`AnalysisRoute`+`InputKey`, the `AnalysisRoute` opaque route token, the `AssessmentOutcome` eight-row `Usable`/`Terminal`/`Dispatchable`/`Coherent` lifecycle with its `Next()` flip adjacency, the one `Advance` transition and the coherence-gated `Rehydrate` decoder rail, the typed `Results` bag with the `Result`/`ResultMeasure` flat reads, the `Diagnostic` typed failure carrier over the `SolvePhase`/`FailureKind` axes, the `ResultBlob` heavy-artifact reference, the `DependsOn` upstream-receipt DAG set, and the enriched `Provenance`.
 
 ## [02]-[ASSESSMENT_NODE]
 
@@ -148,13 +148,13 @@ public readonly partial struct Diagnostic {
 // folds (the graph-altitude OwnerHistory/StepHeader exclusion): Elapsed is the solver-reported compute cost
 // (Duration.Zero is the request-time empty span until a solve lands), Window the optional wall-clock start→end
 // Interval (staging + solve + extraction — distinct from Elapsed, which excludes queue/IO), Correlation the
-// Projection/projection#PROJECTION_CONTRACT ProjectionContext.CorrelationId the write-back projection ran under.
+// Projection/projection#PROJECTION_CONTRACT ProjectionContext.Correlation the write-back projection ran under.
 // Attempt is the additive retry-audit ordinal the Rasm.Compute bounded Transient gate reads and increments —
 // content-key-inert BY CONSTRUCTION because the CanonicalBytes projection folds only the (Discipline, Route,
 // InputKey) triple and excludes the whole Provenance record.
 public readonly record struct Provenance(
  string Author, string Tool, string Version, Instant At,
- Duration Elapsed = default, Option<Interval> Window = default, Option<Guid> Correlation = default, int Attempt = default);
+ Duration Elapsed = default, Option<Interval> Window = default, Option<CorrelationId> Correlation = default, int Attempt = default);
 
 // --- [MODELS] -----------------------------------------------------------------------------
 // [Equatable] is LOAD-BEARING ([STRUCTURAL_EQUALITY]): the diff drills into a node member only when the member is

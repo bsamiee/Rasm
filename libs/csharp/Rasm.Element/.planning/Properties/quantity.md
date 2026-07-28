@@ -49,6 +49,7 @@ public sealed partial class Dimension {
  public static readonly Dimension ForceDim = Create(1, 1, -2, 0, 0, 0, 0);
  public static readonly Dimension PressureDim = Create(-1, 1, -2, 0, 0, 0, 0);
  public static readonly Dimension DensityDim = Create(-3, 1, 0, 0, 0, 0, 0);
+ public static readonly Dimension LinearDensityDim = Create(-1, 1, 0, 0, 0, 0, 0);
  public static readonly Dimension IrradianceDim = Create(0, 1, -3, 0, 0, 0, 0);
  public static readonly Dimension ThermalTransmittanceDim = Create(0, 1, -3, 0, -1, 0, 0);
 
@@ -69,6 +70,7 @@ public sealed partial class Dimension {
  static readonly FrozenDictionary<Dimension, string> SiSymbols = new Dictionary<Dimension, string> {
   [Dimensionless] = "", [LengthDim] = "m", [AreaDim] = "m2", [VolumeDim] = "m3", [MassDim] = "kg",
   [DurationDim] = "s", [ForceDim] = "N", [PressureDim] = "Pa", [DensityDim] = "kg/m3",
+  [LinearDensityDim] = "kg/m",
   [IrradianceDim] = "W/m2", [ThermalTransmittanceDim] = "W/(m2.K)",
  }.ToFrozenDictionary();
 

@@ -2,6 +2,8 @@
 
 `Rasm.Materials` is the host-neutral AEC-domain projector onto the `Rasm.Element` seam. `Component`, `Appearance`, `Properties`, and `Projection` collapse to one owner per axis; the one `ComponentProjector : IElementProjection` lowers every owner into the shared `ElementGraph`. Its `Project` fold splits the `Substance` and Type-minting `Type` arms, mints the deterministic-rooted Type `Object` from canonical content, and authors the content-keyed `Material`/`Appearance` subgraph the seam `Assemble` fold merges. AEC peers depend up on `{Rasm, Rasm.Element}` and align by seam contract.
 
+`Rasm.Materials` also references `Rasm.AppHost` by name under the branch benchmark-peer ruling, and `Projection/benchmarks#GATE_COMPOSITION` is that reference's one compile consumer.
+
 ## [01]-[DOMAIN_MAP]
 
 ```text codemap
@@ -34,9 +36,9 @@ Rasm.Materials/            # AEC-DOMAIN materials projector; refs {Rasm, Rasm.El
 │   └── Sustainability.cs  # Lifecycle impact, unit-cost basis, and classification rows
 └── Projection/            # One IElementProjection onto the Rasm.Element seam + the observability, benchmark, and analytics projections
     ├── Component.cs       # ComponentProjector minting Type Objects and material subgraphs
-    ├── Observability.cs   # MaterialsFact tap, MaterialsHookRail roster, MaterialsInstrumentFan, banded fault log, descriptor rows
+    ├── Observability.cs   # MaterialsFact union, MaterialsHooks roster, MaterialsInstruments tap, MaterialsLog band, MaterialsDescriptors pack
     ├── Benchmarks.cs      # BenchKernel workload corpus and the gated BenchmarkReceipt composition
-    └── Analytics.cs       # AnalyticsSchema column rows and the catalogue-to-row projection folds
+    └── Analytics.cs       # DatasetWire declarations over ColumnToken and the catalogue-to-row projection folds
 ```
 
 VividOrange grounds the structural section, capacity, and rebar data in-folder, never a hand-keyed literal; the per-page consumption law lives on the owning pages. Return type names the rail: a `SurfaceShade`/`Unicolour` carrier where the result is total, `Fin<T>` where a banded fault routes, the seam `Fin<GraphDelta>` from the projector. C# is the sole producer of the material wire — `Appearance/Interchange` mints the OpenPBR-vector `MaterialWire` and the MaterialX `.mtlx` document once, and the TypeScript and Python peers decode both.
@@ -176,4 +178,4 @@ Boundaries state one positive ownership line each at the folder's own grain — 
 - `Rasm.Element` owns material-composition vocabulary, the admitted perceptual owner owns color, and UnitsNet admits once at each declared edge riding the seam `MeasureValue`; Materials re-mints none of them.
 - Only the documented author-kernel set — RGB-to-SPD, scene-referred tone-map, BSDF microfacet, noise, the capacity hull ray-cast — is hand-authored; every other concern composes its admitted engine.
 - Every out-of-gamut, non-finite, or degenerate result rails to its banded fault, never a propagated NaN or sentinel.
-- Telemetry is a tap: `MaterialsTap` decorators fire typed `MaterialsFact` cases at composition, so domain owners emit nothing; benchmark truth is a gate-stamped `BenchmarkReceipt` and analytics truth a columnar projection of registered rows and typed facts.
+- Telemetry is a tap: composition-root decorators fire typed `MaterialsFact` cases onto the `MaterialsHooks` rail, so domain owners emit nothing; reliability policy is `MaterialsDescriptors` objectives over the kernel SLO algebra, benchmark truth a gate-stamped `BenchmarkReceipt`, and analytics truth a columnar projection of registered rows and typed facts.

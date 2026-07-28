@@ -18,6 +18,7 @@ artifacts/
 │   │   ├── spec.py      # ChartSpec engine union, derive-palette-threaded
 │   │   └── export.py    # host-free chart render and format dispatch with the in-page VegaTransform pre-pass
 │   ├── table.py         # great-tables publication-table owner exporting HTML/LaTeX/PDF
+│   ├── dashboard.py     # offline single-file HTML deck composing sibling panes over ONE shared Vega runtime
 │   └── diagram/
 │       ├── layout.py    # diagram coordinate assignment over the layout engines, emitting the DiagramKind rows
 │       ├── draw.py      # named-layer SVG and editable .drawio emission over the DrawTarget selector

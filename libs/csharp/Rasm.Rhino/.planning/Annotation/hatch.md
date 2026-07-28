@@ -454,7 +454,7 @@ public static class Hatches {
 ## [05]-[PROJECTION]
 
 - Owner: `PatternSnapshot` and `HatchState` preserve the complete detached definition and every mutable placed-hatch parameter.
-- Policy: `LoopKind` and `LoopFrame` replace independent boolean switches with named perimeter and coordinate-frame values.
+- Law: `LoopKind` and `LoopFrame` replace independent boolean switches with named perimeter and coordinate-frame values.
 - Boundary: loops, display bounds, solid regions, and exploded pieces cross through `GeometryCrossing`; answer cases expose only `GeometryHandle` custody.
 - Boundary: one harvest fold releases accepted handles on crossing refusal and raw products on every exit.
 - Law: default-pattern projection returns full `PatternDef` rows rather than a name census, so built-in capability remains authorable without a second lookup grammar.

@@ -38,9 +38,9 @@
 
 `BevelPass` is inverse-sufficient: every `BevelBlock` carries source span, bulge, station, path distance, preparation offset, tool axis, pivot, angle, angle rate, feed, and compensation; its own `ThcSpan` rows cover the same block range, and `BevelReceipt.Passes` remains the single pass owner for every projection.
 
+- Law: posting and simulation retain axis, pivot, inspection, process, and duration evidence, and estimation consumes that simulation receipt.
+- Output: `Beveled.PostingSource` carries the typed envelope into canonical posting; the caller arrow retains other result projections.
 - Receipt: `BevelReceipt` preserves standard/custom law, extrema, conditioned length, head measurements, pass evidence, and guard count.
-- Projection: `Beveled.PostingSource` carries the typed envelope into canonical posting; the caller arrow retains other result projections.
-- Consumer: posting and simulation retain axis, pivot, inspection, process, and duration evidence, and estimation consumes that simulation receipt.
 - Growth: a standard groove is one `PrepStandard` seed value; a novel section is one `PrepSection.Custom` payload; a new sensor is one `HeightSource` case, and `ThcDirective.Regulating` carries it without a mirrored directive arm.
 - Boundary: `ThcSpan` rows neither overlap nor gap, and every non-`Off` terminal closes inside the admitted schedule.
 

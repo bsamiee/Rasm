@@ -64,6 +64,7 @@ const _errors = <A, I>(schema: Schema.Schema<A, I>) =>
 - Boundary: the async action body is the React-19 form-action platform seam — React runs it inside its own transition (`useFormStatus`/`requestFormReset` are Promise-shaped); `Effect.promise` lifts the non-rejecting `Promise<Exit>` from `promiseExit`, `Exit.match` restores its Cause rail, and `Effect.runPromiseExit(Form.observed(...))` returns the one settled outcome the form folds; the write, hook registry, form id, form element, draft reader, and error sink arrive from the consuming row.
 
 ```typescript
+import { Convention } from "@rasm/ts/core"
 import { Cause, Effect, Exit, Metric, Option, pipe } from "effect"
 import { requestFormReset } from "react-dom"
 import { Hook } from "../system/hook.ts"
@@ -82,7 +83,8 @@ declare namespace Submit {
   type Write = (draft: Draft) => Promise<Exit.Exit<void, Submit.Refusal>>
 }
 
-const _SUBMITTED = Metric.counter("rasm.ui.form.submit", { description: "settled submit trips", incremental: true })
+// Hook-point ids keep their package-keyed spelling under the Tier-0 grammar carve; this SERIES resolves to the form domain
+const _SUBMITTED = Convention.mount(Convention.metric.formSubmit)
 
 const _submitHook: Hook.Row<"rasm.ui.form.submit"> = {
   modality: "veto",
@@ -111,7 +113,7 @@ const _observed = Effect.fn("Form.observed")(function* <A, E, R>(
         (stage) =>
           Effect.zipRight(
             Effect.asVoid(Hook.publish(registry, "rasm.ui.form.submit", { form, stage })),
-            Effect.asVoid(Effect.withMetric(Effect.succeed(1), Metric.tagged(_SUBMITTED, "outcome", stage))), // one stage value drives the hook fact and metric tag
+            Effect.asVoid(Effect.withMetric(Effect.succeed(1), Metric.tagged(_SUBMITTED, Convention.rasm.formOutcome, stage))), // one stage value drives the hook fact and metric tag
           ),
       )),
     Effect.annotateLogs({ form }),

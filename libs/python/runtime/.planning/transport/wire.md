@@ -28,9 +28,9 @@ from expression.collections import Block
 from opentelemetry import trace
 from opentelemetry.trace import Span, SpanKind
 
-from rasm.runtime.faults import SCOPES, RuntimeRail, Scope, boundary
+from rasm.runtime.faults import SCOPES, RuntimeRail, Scope, boundary, scoped
 
-_TRACER = trace.get_tracer(SCOPES[Scope.WIRE])
+_TRACER = scoped(trace.get_tracer, SCOPES[Scope.WIRE])
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 

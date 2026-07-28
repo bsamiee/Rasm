@@ -14,7 +14,7 @@ iac/
     │   └── source.ts     # Source-control shells the Doppler mirror fills, with the distribution leg
     ├── operate/          # Secrets, observability, policy, backend convergence, and hosted control plane
     │   ├── secret.ts     # Doppler hierarchy, mirror fan-out, access RBAC, and the three-lane cert axis
-    │   ├── observe.ts    # Store-row metrics family, signal backends, collector ingest, dev estate, board compile
+    │   ├── observe.ts    # Store-row and residence families, collector ingest, dev estate, board compile
     │   ├── policy.ts     # Guard policies, drift projection, the evidence sink spine, in-cluster PKO reconcile
     │   ├── converge.ts   # Immutable generation construction, hydration, proof, cutover, and retention
     │   └── cloud.ts      # Hosted control-plane twin set, gated on the cloud backend
@@ -104,6 +104,9 @@ flowchart LR
     Core e7@-->|"[PROJECTION]: DashboardModel"| Operate
     Core e8@-->|"[PROJECTION]: Alert.Spec"| Operate
     Core e9@-->|"[PROJECTION]: Slo.Objective"| Operate
+    Core e15@-->|"[SHAPE]: Convention"| Operate
+    Operate e16@-->|"[PORT]: analytics residence"| Data
+    Operate e17@-->|"[PROJECTION]: Lgtm.Targets"| Core
     Runtime e10@-->|"[TRANSPORT]: Export.live"| Program
     Runtime e11@-->|"[TRANSPORT]: Profile.live"| Operate
     Core e12@-->|"[SHAPE]: Tap.Point"| Program
@@ -121,6 +124,7 @@ Growth is one row on the owning surface — a cloud, capability, credential, ten
 - Nothing imports this package at runtime; values cross back only as typed stack outputs read from env at boot.
 - Coordinates publish and material never does: the output gate refuses any secret-flagged value, and the one secret source of truth reaches external stores only as mirrors.
 - IaC builds unpublished generations and re-runs convergence on deployment fences; data admits the published generation read-only.
+- Telemetry residences provision here and read nowhere: the deploy plane plants the schema and publishes the door on the `analytics` output plane, and the data planes bind that door as an ordinary query end.
 - Convergence treats recovery as clean-target materialization and returns it through the normal publication path.
 - Every workload role mounts the proved contract and active-generation pointer before scheduling.
 - Object-engine admission requires conditional-create semantics; `minio | ceph` are the conforming rows.

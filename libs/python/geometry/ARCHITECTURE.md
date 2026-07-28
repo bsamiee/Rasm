@@ -83,7 +83,7 @@ flowchart TB
 
 ## [03]-[SEAMS]
 
-Seam map splits by counterpart role — the C# cross-runtime peers on one fence, the Python siblings on the other. An in-package relation between two geometry sub-domains is never a seam; it lives in the codemap, and the `graph` sub-domain projects only onto the home `graduation` spine, so it carries no cross-boundary edge.
+Seam map splits by counterpart role — the C# cross-runtime peers on one fence, the Python siblings on the other. In-package relations between two geometry sub-domains are never seams; each lives in the codemap, and the `graph` sub-domain projects only onto the home `graduation` spine, so it carries no cross-boundary edge.
 
 ```mermaid
 ---
@@ -148,11 +148,13 @@ flowchart LR
     Graduation e11@-->|"[RECEIPT]: BenchmarkReceipt"| Runtime
     Runtime e12@-->|"[PORT]: Kernel"| Mesh
     Runtime e13@-->|"[PORT]: Kernel"| Scan
+    Runtime e14@-->|"[PORT]: measured"| Graduation
+    Runtime e15@-->|"[PORT]: Hooks"| Graduation
 ```
 
 Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind — the streaming GLB transport, the IFC projection, and the payload shapes fold into the one labeled rail, per-contract wiring on the owning implementation pages. `GlbContentHash` spells from its Rasm.Element owner and `RepresentationContentHash` from its Rasm.Bim owner; geometry interior pages spell only the `ContentKey` mint beneath both. Scene facts cross one-way as GLB bytes the artifacts `SceneGrid.of_glb` admits; nothing returns.
 
-Both `arrow_bytes` edges name the data-owned crossing: `EvidenceFrame` and the energy `ResultFrame` are the geometry-side columnar carriers, each converted to one `pyarrow` Table at its crossing edge and serialized through the data `tabular/columnar` `arrow_bytes` fold, so the data end holds one Arrow entry and no geometry frame type crosses as a foreign shape.
+Both `arrow_bytes` edges name the data-owned crossing: `EvidenceFrame` and the energy `ResultFrame` are the geometry-side columnar carriers, each crossing as its declared column roster beside its sealed arrays, admitted by the data `tabular/columnar` `arrow_columns` entry and serialized through the `arrow_bytes` fold beside it, so the data end holds one Arrow entry and no geometry frame type crosses as a foreign shape.
 
 `BenchmarkReceipt` carries the whole bench observability contract on one rail — the `Bench.run` measurement tier, the `Signals`-harvested receipt row, and the `bench_terminal` `JobRun.bounded` process-terminal envelope. `Kernel` carries the HOSTILE process-offload contract every compiled mesh and scan kernel crosses through `LanePolicy.offload`; the lane conduit's pickled pulse tap rides it, so `GeometryPulse` beats reach the runtime `Hooks` registry through the parent-side drain.
 

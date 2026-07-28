@@ -14,8 +14,8 @@
 ## [02]-[PROGRAM]
 
 - Owner: `ConduitStep` carries culling, draw suppression, bounds, per-object draw, and frame draw as one closed phase family.
-- Policy: `RenderAspect` is a push/pop pair folded in declaration order and compensated in reverse order after every completed push.
-- Filter: `ConduitCriterion` turns every host filter axis into one case-unique row inside the mount request; case runtime type is the uniqueness key, so no parallel criterion-kind vocabulary exists.
+- Law: `RenderAspect` is a push/pop pair folded in declaration order and compensated in reverse order after every completed push.
+- Law: `ConduitCriterion` turns every host filter axis into one case-unique row inside the mount request; case runtime type is the uniqueness key, so no parallel criterion-kind vocabulary exists.
 - Law: veto is host truth — `Cull` can only widen the incoming `CullObjectEventArgs.CullObject` in the `ObjectCulling` callback and `Suppress` can only narrow the incoming `DrawObjectEventArgs.DrawObject` in `PreDrawObject`, the only two suppression flags the display contract admits; a prior host veto remains set, each decide answers per object per frame, and any deciding step voting to suppress wins.
 - Law: world-space draw steps require a bounds step before the adapter is constructed.
 - Boundary: callback failures append to the lease fault cell; a host callback never discards a failed rail.
@@ -462,8 +462,8 @@ public static class ConduitHooks {
         Op op = key.OrDefault();
         return MountRegistry.MountAll(
             mounts: Seq(
-                (Point: HookPoint.DisplayCull, Carries: (Func<ConduitStep, bool>)(static step => step is ConduitStep.Cull)),
-                (Point: HookPoint.DisplayDrawObject, Carries: (Func<ConduitStep, bool>)(static step => step is ConduitStep.Suppress)))
+                (Point: RhinoPoint.DisplayCull, Carries: (Func<ConduitStep, bool>)(static step => step is ConduitStep.Cull)),
+                (Point: RhinoPoint.DisplayDrawObject, Carries: (Func<ConduitStep, bool>)(static step => step is ConduitStep.Suppress)))
             .Map(row => (Func<Fin<IDisposable>>)(() => MountRegistry.Mount(
                 mount: new HookMount(
                     Point: row.Point,

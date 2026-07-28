@@ -46,7 +46,7 @@ from opentelemetry.trace import Status, StatusCode
 
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
-from rasm.runtime.faults import BoundaryFault, RuntimeRail
+from rasm.runtime.faults import BoundaryFault, RuntimeRail, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -184,7 +184,7 @@ _IDEOGRAPHIC_SCRIPTS: Final[frozenset[str]] = frozenset({
     "hans",
 })
 _LOG: Final = structlog.get_logger()
-_TRACER: Final = trace.get_tracer(__name__)
+_TRACER: Final = scoped(trace.get_tracer, "rasm.artifacts.typography.shape")
 _HB_DIRECTION: Final[Map[WritingDirection, str | None]] = Map.of_seq([
     (WritingDirection.AUTO, None),
     (WritingDirection.LTR, "ltr"),

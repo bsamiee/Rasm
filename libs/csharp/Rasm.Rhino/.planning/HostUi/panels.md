@@ -513,7 +513,7 @@ public static class PanelHooks {
     public static Fin<IDisposable> Mount(PluginKey plugin, Op? key = null) =>
         MountRegistry.Mount(
             mount: new HookMount(
-                Point: HookPoint.HostUiPanel,
+                Point: RhinoPoint.HostUiPanel,
                 Plugin: plugin,
                 Ask: typeof(CallbackObserver<PanelFact>),
                 Grant: typeof(Subscription),

@@ -8,7 +8,7 @@
 
 ## [02]-[SHAPE]
 
-- Telemetry conformance proves through the `telemetry-convention` corpus entry, and transcription spells the rows per branch rather than proving them — an entry carries a schema beside frozen assets, never a shared library, so the split-maturity reason holding the three SDK trains apart never reached the proof surface. Every branch mints the row values from its own composition inputs; which counter, level, or histogram a branch mounts stays that branch's roster.
+- `TELEMETRY_CONVENTION` parity covers the projected row VALUES alone — two minters answering one scope, temporality, aggregation, exemplar, propagation, tenant, translation, or egress row differently fail the digest, as do two claiming one domain segment under different subject text. Role and capability absence are row values under the disposition column, so a plane that cannot carry a signal projects its stated ceiling and the digest compares it — absence is parity-proved, never exempted. Mounted instrument rosters, emitter rosters, and the SDK member spelling a row stay branch-owned and cross no digest, so a claim over any of them earns its own gate at its owning branch.
 
 ## [03]-[COLLAPSE]
 

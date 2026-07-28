@@ -8,7 +8,7 @@
 
 ## [02]-[SHAPE]
 
-- (none)
+- `charter_record` reads its `GeometrySubject` and the weave close-out reads its `EvidenceScope`, so a charter measure records under a discriminant the fold already holds and neither entry takes a `kind` argument — an engine page owning no scope member otherwise invents a string no vocabulary owns, and a rename strands it on a live series. Recurring wrong move: a producing fold widening its signature to carry the discriminant it was handed.
 
 ## [03]-[COLLAPSE]
 
@@ -20,5 +20,5 @@
 
 ## [05]-[PROCESS]
 
-- Domain refusal raises a typed structured fault into the converting fence — `BrepFault`-class kwargs lift into the boundary fault whole, and the lane's worker seam re-wraps a bare exception to its string; a bare `ValueError` f-string flattens the refusal either way and forks the vocabulary across peer subsystems.
+- Domain refusal raises a typed structured fault into the converting fence — `BrepFault`-class kwargs lift into the boundary fault whole, and the lane's worker seam re-wraps a bare exception to its string; a bare `ValueError` f-string flattens the refusal either way and forks the vocabulary across peer subsystems. Fence coverage is the precondition — a factory or projection reachable outside `evidence_run` returns the rail, since a raise no enclosing fence converts escapes to its caller.
 - Capsule fencing is `FAULT_CONF` on the one innermost untrusted seam — `_dispatch` for a rail-returning capsule, the numeric leaf for an effect-result capsule — and the public `run` head carries no decorator, because a head fence double-guards the seam and forks the fence idiom across peer capsules.

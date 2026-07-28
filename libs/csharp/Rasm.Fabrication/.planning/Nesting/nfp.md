@@ -14,10 +14,10 @@
 ## [02]-[DOMAIN]
 
 - Owner: `Stock` closes physical inventory modalities while `StockBody` carries common material, topology, exclusion, piece-and-lot trace, and cost facts.
-- Law: one `StockFacts` projection derives common body facts, and one `StockTraits` projection derives physicality, nestability, rectangular extent policy, gauge, and grain; a new modality answers remnant and stock consumers through one case arm.
 - Owner: `NestPolicy` admits search, clearance, kerf, edge allowance, objective, candidate, constraint, evaluation budget, and batch policy once.
 - Cases: `PlacementMode` carries greedy, beam, evolutionary, annealed, Voronoi, and rectangular programs with case-local evidence; rectangular strategy count and depth remain explicit policy.
 - Cases: `PlacementConstraint` carries precedence, grouping, separation, adjacency, containment, stock eligibility, and keep-out facts, each occurrence carrying its own `ConstraintForce`.
+- Law: one `StockFacts` projection derives common body facts, and one `StockTraits` projection derives physicality, nestability, rectangular extent policy, gauge, and grain; a new modality answers remnant and stock consumers through one case arm.
 - Law: `ConstraintForce.Required` rejects a candidate and fails delivery; `ConstraintForce.Preferred` admits the candidate and rides `NestObjective` as weighted penalty.
 - Growth: a stock modality, constraint, candidate source, objective, or search algorithm lands as one case or row consumed by the existing folds.
 
@@ -29,8 +29,8 @@
 - Law: `PolygonAlgebra.Apply(new PolygonOp.Morphology(...))` proposes line-space candidates; `ArcAlgebra.Apply(new ArcOp.Inspect(...))` decides containment, exclusion, and collision on the original bulged loops.
 - Law: pair identity includes canonical loop geometry, tolerance, rotation, clearance, and chord error; inner-fit identity substitutes stock identity and edge allowance.
 - Law: collision envelopes carry half the combined clearance and kerf; stock-boundary feasibility adds edge allowance without weakening part-part or exclusion checks.
+- Law: `PairMemo` content-keys the pair matrix under the same `PairTable.Key` identities through the branch `HybridCache` surface — the runtime-carried instance is the in-process tier, a durable L2 federates at the Persistence cache seam, hit and miss counts settle on `NestEvidence` and fire as the engine memo rows, and a failed build throws through the awaited factory so a fault never caches; the runtime cancellation token rides `GetOrBuild` into the awaited cache call, and a cancelled solve rethrows `OperationCanceledException` rather than caching or fault-converting; inner-fit rows stay direct because an empty locus is a verdict, not a cacheable polygon.
 - Auto: `ParallelHelper.For2D` fills uncached independent pair slots; memoized rows await one `HybridCache` task per identity outside the synchronous kernel, and `TraverseM` returns the first typed geometry failure without partial cache publication.
-- Memo: `PairMemo` content-keys the pair matrix under the same `PairTable.Key` identities through the branch `HybridCache` surface — the runtime-carried instance is the in-process tier, a durable L2 federates at the Persistence cache seam, hit and miss counts settle on `NestEvidence` and fire as the engine memo rows, and a failed build throws through the awaited factory so a fault never caches; the runtime cancellation token rides `GetOrBuild` into the awaited cache call, and a cancelled solve rethrows `OperationCanceledException` rather than caching or fault-converting; inner-fit rows stay direct because an empty locus is a verdict, not a cacheable polygon.
 - Boundary: an empty pair morphology remains a typed fault, an empty inner-fit locus is the absent-key verdict that no position admits the part, and every returned topology component survives the projection.
 
 ## [04]-[SEARCH]
@@ -44,11 +44,11 @@
 
 ## [05]-[DELIVERY]
 
+- Law: the content preimage covers every `PartTransform` member including `Instance`, so two placements differing only by instance never collide on one key.
 - Entry: `Nest.Solve` admits profiles, inventory, and policy, then dispatches resolved rectangular plans or true-shape search on one `Fin` rail; the run spine passes the `FabricationTap`, defaulting silent for headless callers, and threads the runtime `CancellationToken` through the pair-memo lane into `HybridCache.GetOrCreateAsync`, so an in-flight cancel surfaces as cancellation on the async channel, never a geometry fault.
 - Entry: `Nest.Charts` admits atlas distortion and reconstructs every island boundary cycle.
 - Receipt: `NestEvidence` retains solver, objective, inventory multiplicity, pair witnesses, constraint verdicts, candidate census, unplaced reasons, consumed cost, and the used-to-stock area basis; the settled evidence fires the `FabricationFact.Engine.Of` candidate, evaluated, rejected, memo-hit, and memo-miss rows through `Process/telemetry#FACT_PROJECTION` as kind `engine`.
 - Receipt: `FabricationResult.Placement` projects transforms, utilization, unplaced count, remnants, and the evidence-derived content key.
-- Law: the content preimage covers every `PartTransform` member including `Instance`, so two placements differing only by instance never collide on one key.
 - Boundary: remnant difference uses true profiles and the combined clearance-and-kerf offset; feasibility uses collision envelopes; only consumed stock enters the area and cost denominators.
 
 ```csharp signature

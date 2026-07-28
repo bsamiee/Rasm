@@ -5,6 +5,8 @@
 ## [01]-[PACKAGES]
 
 - `jax` and its solver family stay interpreter-marker-gated in the root manifest — an assay `unsupported` probe against `jax` is the INTENDED gated state on the estate interpreter, never a missing admission to re-process; the gate is a wheel-absence fact for the manifest's interpreter floor, and it lifts only when the upstream `jaxlib` wheel for that floor publishes, never by dropping the marker.
+- Markers seat on `jax` and each ecosystem sibling rather than on `jaxlib`, because `jax` pins `jaxlib` at an exact equality as a mandatory runtime dependency and four siblings depend on `jaxlib` directly, so no marker confined to the binary half is expressible; `jaxtyping` declares no jax dependency at all and therefore stays unmarked, and a sweep marking it mistakes a naming family for a dependency edge.
+- `jaxlib` publishes wheels ONLY, with zero sdists at every release, so the Forge scientific-source-build lane can never lift this gate — the resolver has no source to hand the wrapper, a missing-native-library row buys nothing, and upstream builds it under bazel from its own repo outside any manifest-resolvable path; reading this gate as the `geopandas`/`shapely` source-build class proposes a build that cannot start.
 
 ## [02]-[SHAPE]
 

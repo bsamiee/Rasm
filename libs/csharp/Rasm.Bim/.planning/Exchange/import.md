@@ -6,9 +6,9 @@
 
 ## [01]-[INDEX]
 
-- [01]-[IMPORT_RAIL]: foreign-bytes ingest — managed mesh to pooled `ImportedGeometry`, IFC to live `DatabaseIfc`, STEP to `StepSemanticModel`.
-- [02]-[SPECKLE_SEAM]: Speckle `Base` object-graph — display-mesh decode to `ImportedGeometry`, host-object projection to a seam `GraphDelta`.
-- [03]-[REIMPORT]: projector-polymorphic re-ingest — reconcile a re-projected source to prior `ElementGraph` by `ExternalId`, emit the delta `GraphDelta`.
+- [02]-[IMPORT_RAIL]: foreign-bytes ingest — managed mesh to pooled `ImportedGeometry`, IFC to live `DatabaseIfc`, STEP to `StepSemanticModel`.
+- [03]-[SPECKLE_SEAM]: Speckle `Base` object-graph — display-mesh decode to `ImportedGeometry`, host-object projection to a seam `GraphDelta`.
+- [04]-[REIMPORT]: projector-polymorphic re-ingest — reconcile a re-projected source to prior `ElementGraph` by `ExternalId`, emit the delta `GraphDelta`.
 
 ## [02]-[IMPORT_RAIL]
 

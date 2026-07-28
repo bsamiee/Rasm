@@ -413,7 +413,7 @@ public static class Linetypes {
 - Boundary: `Linetype` exposes no embedded-shape getter, so projection records host aggregate shape evidence and never fabricates a reconstructable `ShapeRow` roster.
 - Law: `PatternMeasure` names the unit regime consumed by both `CreateFromPatternString` and `PatternString`; a raw `bool` never escapes the edge.
 - Law: unused-name minting carries no deleted-row policy because the live host overload ignores that discriminant; `DeletedRows` remains the `LoadDefaults` policy.
-- Consumer: `ForObject` delegates layer and parent inheritance to `LinetypeIndexForObject` and returns the canonical `ResourceRef` address.
+- Law: `ForObject` delegates layer and parent inheritance to `LinetypeIndexForObject` and returns the canonical `ResourceRef` address.
 
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------

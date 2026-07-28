@@ -125,8 +125,8 @@ const _entrypoint = (command: ReadonlyArray<string>): ReadonlyArray<string> => [
 
 [WORKLOAD_TIER]:
 - Owner: `Workload` lowers the `role` discriminant through one constructor; identity, pod, sizing, probes, placement, and drain remain shared.
-- Service: rolling replacement, CPU HPA where the scale row admits it, and one label-derived `Service`.
-- Worker: `Recreate` prevents claim overlap, replica count remains explicit, and the network surface is absent.
+- Law: rolling replacement, CPU HPA where the scale row admits it, and one label-derived `Service`.
+- Law: `Recreate` prevents claim overlap, replica count remains explicit, and the network surface is absent.
 - Law: the image is a digest ref — `Workload.Args.image` receives a `docker-build.Image` `ref`/`digest` value or an app-supplied `...@sha256:...` string; a mutable tag is admitted nowhere on this tier, and the compile-time gate is `operate/policy.md`'s digest policy over exactly this resource class.
 - Law: labels are one derivation — `_labels(name)` stamps `app.kubernetes.io/name` and `app.kubernetes.io/managed-by`, and selector, template, and service all read the same value; a hand-written selector beside the derived labels is the drift this collapse deletes.
 - Law: `Workload.rows` owns application settings; the backend projection adds only generated-file paths beside those rows.
@@ -134,9 +134,9 @@ const _entrypoint = (command: ReadonlyArray<string>): ReadonlyArray<string> => [
 - Law: namespace is a parameter — the arm constructs one `core/v1.Namespace` and threads `metadata.name` here; the tier never mints its own namespace, so every arm resource shares one blast-radius scope.
 - Law: the cron verb is the host-schedule surface — `Workload.cron(name, args)` is one `batch/v1.CronJob` member reading the same labels, env assembly, and entrypoint wrap; it exists for schedules a database grant refusal pushes out of `pg_cron` and for deploy-plane maintenance verbs, and its schedule string is the caller's cron dialect fact.
 - Entry: `new Workload("app", { spec, namespace, image, role, env }, opts)` inside the k8s arm.
+- Packages: `@pulumi/kubernetes` (`core.v1`, `apps.v1`, `batch.v1`); `@pulumi/pulumi` (`Input`, `Output`); `../program/spec.ts` (`StackSpec`, `Tier`).
 - Growth: a new elasticity or availability posture is one `_scale` row column; an API grant is one `rbac` rule row; a second exposed port is one field consumed at the one construction site.
 - Boundary: runtime owns claims, leases, backlog evidence, handlers, and generation admission; this tier only lowers carrier facts.
-- Packages: `@pulumi/kubernetes` (`core.v1`, `apps.v1`, `batch.v1`); `@pulumi/pulumi` (`Input`, `Output`); `../program/spec.ts` (`StackSpec`, `Tier`).
 
 ```typescript signature
 import * as random from "@pulumi/random"
@@ -380,4 +380,4 @@ export { Workload }
 
 ## [06]-[RESEARCH]
 
-- [LEASE_SPEC]-[BLOCKED]: Which encoded `LeaseSpec` fields own scope, keys, TTL, renewal, and epoch rotation, and which app-root fold converts that value into a Doppler token with a namespace custody cell?; route through `libs/typescript/security/.planning/crypt/secret.md`, `libs/typescript/security/IDEAS.md` `[LEASE_SPEC_CONTRACT]`, and `libs/typescript/security/TASKLOG.md` `[LEASE_SPEC_SCHEMA]`; arm `Workload.Args.leases` only after the encoded owner and composition fold exist.
+(none)

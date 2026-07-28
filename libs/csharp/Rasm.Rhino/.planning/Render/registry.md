@@ -1463,7 +1463,7 @@ public static class ContentHooks {
     public static Fin<IDisposable> Mount(PluginKey plugin, Op? key = null) =>
         MountRegistry.Mount(
             mount: new HookMount(
-                Point: HookPoint.RenderContent,
+                Point: RhinoPoint.RenderContent,
                 Plugin: plugin,
                 Ask: typeof(ContentObservation),
                 Grant: typeof(ContentStream),

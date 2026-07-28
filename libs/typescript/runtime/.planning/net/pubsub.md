@@ -891,16 +891,17 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
 
 [KAFKA_ROW]:
 - Owner: `Fanout.kafka(topics, contracts, generation)` — one scoped client pair over the topic-contract roster, with the backend-generation port arriving as an axis value the composition root binds and defaulting unbound.
-- Admission: boot proves a total topic-contract map, an inhabited broker roster, exact subject identity, compatibility, writer schema, and rule coverage; a contract naming its backend artifact demands the bound generation port too and refuses by axis name when the root leaves it unbound, while a contract naming none admits and claims no attestation.
+- Law: boot proves a total topic-contract map, an inhabited broker roster, exact subject identity, compatibility, writer schema, and rule coverage; a contract naming its backend artifact demands the bound generation port too and refuses by axis name when the root leaves it unbound, while a contract naming none admits and claims no attestation.
 - Law: every admission refusal reports the axes that decided it — the roster drift names both key sets, the identity sweep folds one row per proven axis into a `<contract-drift:…>` list, and the artifact read names the unproven artifact.
-- Codec: one matched JSON pair per topic carries exact `useSchemaId`, explicit subject selection, validation, and a local `RuleRegistry`.
+- Law: one matched JSON pair per topic carries exact `useSchemaId`, explicit subject selection, validation, and a local `RuleRegistry`.
 - Law: the guarantee ledger reads honestly per column — at-least-once holds on the sequential manual-commit lane (`consumer.run({ eachBatch })` with auto-resolve disabled): each record retries under the topic row, resolution and commit follow handler success, and exhaustion stops the run before a higher offset. Kafka keys select partitions, never deduplicate, so every receipt answers `duplicate: false` with its exact partition-offset position; positional consume anchors, ordered replay, warm subscription, and blob carriage answer `horizon` because `Fanout.Anchor` carries no partition coordinate and this row carries no object store. `Window` alone selects the unpositioned consumer-group flow.
 - Law: registry framing owns key and base64 body; trace and application headers remain Kafka headers.
 - Law: `autoRegisterSchemas: false` keeps registration out of the producer path; exact identity admits before `Fanout` exists.
 - Law: the consumer identity derives exactly as the durable lane's — `groupId` is `${topic}:${consumer}`, so independent logical subscribers hold independent groups and replicas sharing one identity load-balance; `subscribe({ topic: row.subject })` precedes `run`, and the handler continues any caller-supplied parent through `Carrier.extract('kafka', ...)` and `Propagation.ingress`.
 - Law: the header band is the message's `headers` record both directions — publish projects caller-supplied string values to broker bytes, ingress normalizes repeated broker values once and extracts through the Kafka row, and no NATS dialect impersonates Kafka; causal injection remains blocked in `[08]-[RESEARCH]`.
-- Boundary: broker deployment — partitions, replication, retention, SASL/TLS posture — is the deploy plane's; the bootstrap roster and security rows are `Setting` rows, and no broker literal exists in the engine.
+- Law: replay stays engine-neutral — `Fanout.Anchor` gains no partition coordinate, since a partition-and-offset pair is broker-local and leaks this engine's shape onto every row; this row resolves `Instant.at` through `offsetsForTimes` and `Window`/`Sequence.seq` against `queryWatermarkOffsets`, fans one bounded read per partition, and merges them into the single `Replayed` stream. Each read runs on a group-less native `KafkaConsumer` — `assign`, `seek(toppar, timeout, cb)`, `consume(count, cb)` to the watermark, `unassign` — never the promise surface's `consumer.seek(topicPartitionOffset)`, whose `void` return repositions the durable consume group the `consume` lane owns; `TopicPartitionOffset.offset` is a `string` there and a `number` natively, so the coordinate converts at the seam.
 - Packages: `@confluentinc/kafka-javascript`; `@confluentinc/schemaregistry`; `effect`; `../proc/config.ts`.
+- Boundary: broker deployment — partitions, replication, retention, SASL/TLS posture — is the deploy plane's; the bootstrap roster and security rows are `Setting` rows, and no broker literal exists in the engine.
 
 ```typescript signature
 const _kafka = (
@@ -1292,4 +1293,4 @@ export { Broker, Envelope, Fanout, FanoutFault };
 
 ## [08]-[RESEARCH]
 
-- [KAFKA_PARTITION_REPLAY]-[BLOCKED]: which partition-bearing anchor extends `Fanout.Anchor` without inventing a broker-local sequence and how `consumer.seek(topicPartitionOffset)` yields a bounded replay stream rather than mutating a durable consume group; route through `libs/typescript/runtime/.api/confluentinc-kafka-javascript.md` `[03]-[ENTRYPOINTS]` row `[06]`; arm when the port owns a partition coordinate and both `consume` and `replay` can honor it.
+(none)

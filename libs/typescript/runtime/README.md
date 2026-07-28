@@ -44,7 +44,9 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `@effect/opentelemetry` — Effect-signal bridge both export lanes compose; imported nowhere outside this folder.
 - `@opentelemetry/api`
 - `@opentelemetry/api-logs` — peer contract the sdk-logs processors type against; log records mint through `Effect.log*`, never this API.
-- `@opentelemetry/core`
+- `@opentelemetry/core` — W3C propagator pair and composite the export lane registers globally for foreign libraries.
+- `@opentelemetry/context-async-hooks` — `AsyncLocalStorageContextManager`, the server condition's ambient context seat.
+- `@opentelemetry/otlp-exporter-base` — shared OTLP exporter config base carrying compression, timeout, and concurrency.
 - `@opentelemetry/resources`
 - `@opentelemetry/resource-detector-aws`
 - `@opentelemetry/resource-detector-container`
@@ -64,13 +66,17 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `@opentelemetry/exporter-logs-otlp-http`
 - `@opentelemetry/exporter-logs-otlp-proto` — protobuf log leg of the SDK bridge.
 - `@opentelemetry/context-zone`
-- `@opentelemetry/instrumentation` — `registerInstrumentations` activation and the `InstrumentationBase` contract under the browser rows.
+- `@opentelemetry/instrumentation` — `registerInstrumentations` activation and the `InstrumentationBase` contract under both condition nodes.
+- `@opentelemetry/instrumentation-http` — inbound and outbound node HTTP spans covering foreign libraries the Effect seams never reach.
+- `@opentelemetry/instrumentation-undici` — `fetch` and undici client spans on the node condition under the parent-presence gate.
+- `@opentelemetry/instrumentation-pg` — PostgreSQL client spans under the parent-presence gate and the statement-capture posture row.
 - `@opentelemetry/instrumentation-runtime-node` — event-loop, GC, and V8 heap series on the node lane's meter provider.
 - `@opentelemetry/instrumentation-fetch`
 - `@opentelemetry/instrumentation-document-load`
 - `@opentelemetry/instrumentation-user-interaction`
 - `@opentelemetry/instrumentation-xml-http-request`
 - `@pyroscope/nodejs` — continuous-profiling push; `otel/profile.md` owns the lifecycle, composed only at the node root.
+- `web-vitals` — estate-wide Core Web Vitals source; `otel/vital.md` registers the enriched-build capture functions and owns the cutoff pairs.
 
 [BENCH]:
 - `mitata` — `proc/exec.md` owns the trial-engine route.

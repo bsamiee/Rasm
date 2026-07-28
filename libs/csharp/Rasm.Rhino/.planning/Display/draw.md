@@ -271,7 +271,7 @@ internal static class Quant {
 ## [03]-[ASSETS]
 
 - Owner: `ScreenPath` builds and hit-tests one retained path; `Pose` brackets affine projection through host matrices; `SpriteSheet` owns both native bitmap caches; `IsoBanding` owns banded-shading data.
-- Admission: sprite bytes or assets admitted by `ISpriteFiles` enter once through `SpriteRef.Of` with a stable key; raw paths never cross the asset boundary.
+- Law: sprite bytes or assets admitted by `ISpriteFiles` enter once through `SpriteRef.Of` with a stable key; raw paths never cross the asset boundary.
 - Law: path paint and hit-testing use the same `GraphicsPath`; sprite caches key source identity and blend policy together.
 - Law: `Pose.Use` brackets every materialized `IMatrix` — `Stacked` appends each bracketed child onto one owned identity matrix, `Inverted` disposes its source after `Matrix.Inverse`, and no matrix escapes its projection.
 - Law: rounded corners carry four independent radii on both backends — the Eto arm folds through the host `GetRoundRect` factory, the Rhino arm folds one corner table into line-arc pairs, and a zero radius drops its arc.

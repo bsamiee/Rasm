@@ -177,8 +177,8 @@ public sealed partial class MachineObservations {
                 static (edge, until) => edge.State.Producing ? (until - edge.At).TotalSeconds : 0.0).Sum() / total
             : 0.0;
 
-    // A fault episode opens on a FAULT alarm and closes on the next non-faulted alarm sharing its condition id;
-    // an unclosed episode runs to the window end, never drops.
+    // Each episode opens on a FAULT alarm and closes on the next non-faulted alarm sharing its condition id;
+    // an episode still open at the window end runs to that edge rather than dropping.
     public Seq<NodaTime.Interval> FaultEpisodes =>
         Rows.Choose(static row => row is Alarm alarm ? Some(alarm) : Option<Alarm>.None)
             .Fold((Open: HashMap<string, Instant>(), Closed: Seq<NodaTime.Interval>()), (state, alarm) =>
@@ -222,11 +222,5 @@ public sealed partial class MachineObservations {
 ```
 
 ## [03]-[RESEARCH]
-
-| [QUESTION]                                                | [ROUTE]             |
-| :-------------------------------------------------------- | :------------------ |
-| Which exact MTConnect observation members map to ingress? | `CATALOG → ADAPTER` |
-
-`CATALOG` = `libs/csharp/Rasm.Fabrication/.api/api-mtconnect-net-common.md`; `ADAPTER` = `libs/csharp/Rasm.AppHost`.
 
 (none)

@@ -6,8 +6,8 @@ Reconstruction is BIM-semantics-only and CONSUME-BY-REFERENCE: `Themis.Las`/`Uno
 
 ## [01]-[INDEX]
 
-- [01]-[RECONSTRUCTION]: `ReconstructionProjector` folds segmented clouds into a `GraphDelta` of classified occurrence nodes with typed fit evidence.
-- [02]-[LAS_INGEST]: `LasIngest.Decode` sniffs compression and folds `.las`/`.laz` bytes into one `LasCloud` the kernel registration consumes.
+- [02]-[RECONSTRUCTION]: `ReconstructionProjector` folds segmented clouds into a `GraphDelta` of classified occurrence nodes with typed fit evidence.
+- [03]-[LAS_INGEST]: `LasIngest.Decode` sniffs compression and folds `.las`/`.laz` bytes into one `LasCloud` the kernel registration consumes.
 
 ## [02]-[RECONSTRUCTION]
 

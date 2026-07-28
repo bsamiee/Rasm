@@ -27,7 +27,7 @@ from msgspec.structs import asdict
 from opentelemetry import trace
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
+from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary, scoped
 from rasm.runtime.roots import ResourceRef
 
 if TYPE_CHECKING:
@@ -36,7 +36,7 @@ if TYPE_CHECKING:
     import xarray as xr
 
 
-_TRACER: Final = trace.get_tracer("rasm.data.gridded.field")
+_TRACER: Final = scoped(trace.get_tracer, "rasm.data.gridded.field")
 
 type FieldDims = tuple[str, ...]
 type FieldCoords = tuple[str, ...]
@@ -383,7 +383,7 @@ from beartype import beartype
 from msgspec import Struct
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
+from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary, scoped
 from rasm.runtime.receipts import Receipt
 from rasm.runtime.roots import ResourceRef
 

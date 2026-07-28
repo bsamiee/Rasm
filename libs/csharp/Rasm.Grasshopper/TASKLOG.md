@@ -37,7 +37,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 
 [PLUGIN_IDENTITY_ADMISSION]-[QUEUED]: Telemetry's plugin discriminator admits through the typed plugin key.
 - Capability: one typed plugin identity feeds every per-plugin surface — hook namespaces and the telemetry resource discriminator share one key space by construction.
-- Shape: `libs/csharp/Rasm.Grasshopper/.planning/Platform/composition.md` `[07]` — `PlatformTelemetry.Open`'s raw `string plugin` parameter re-types to `HookScope` admission, projecting its value into the `rasm.plugin` resource attribute.
+- Shape: `libs/csharp/Rasm.Grasshopper/.planning/Platform/composition.md` `[07]` — `PlatformTelemetry.Open`'s raw `string plugin` parameter re-types to `HookScope` admission, projecting its value into the `TelemetryDomain.Host.Measure("plugin")` resource attribute.
 - Unlocks: `RULINGS.md` single-typed plugin-identity row holds with zero raw-string surfaces.
 - Anchors: `Shell/hooks.md` `HookScope` `[ValueObject<string>]`; the Rhino `PluginKey` sibling discipline.
 - Atomic: one parameter re-type.

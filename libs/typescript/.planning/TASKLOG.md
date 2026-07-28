@@ -20,13 +20,6 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[VARIANT_FAMILY_CENSUS]-[QUEUED]: Parallel-spelling census pins the first `VariantSchema` adopters.
-- Capability: a census of families spelling wire/domain/patch variants by hand, each pinned to its owning page by repo-relative path with the variant keys it derives; the first adoption rows land on the census verdict.
-- Shape: census rows riding `[BRANCH_SCHEMA_VARIANTS]`'s adoption law; owners pinned before any derivation lands.
-- Unlocks: IDEAS.md [BRANCH_SCHEMA_VARIANTS] — the first `VariantSchema` adopters land on named owners, parallel hand-spelled variants collapsing to one declaration.
-- Anchors: `VariantSchema.*` (`libs/typescript/.api/effect-experimental.md`); data `read/query.md` relation models; core `interchange/codec.md` wire families.
-- Atomic: census and first adoption pins.
-
 [FOLDER_INTERNAL_SPINE_DIAGRAMS]-[QUEUED]: Every folder `ARCHITECTURE.md` renders its interior flow, so the crossing law reads as a graph beside its prose.
 - Capability: each package's `[04]-[INTERNAL]` carries the archetype flowchart its own subsystem spine earns — entry, transform, egress with edge labels naming the carried fact — so a cold reader derives interior order from the map instead of reconstructing it from paragraph clauses; the branch tier already renders both of its spines and the folder tier alone lags.
 - Shape: one `[04]-[INTERNAL]` flowchart per genuine spine on each of the six `libs/typescript/<pkg>/ARCHITECTURE.md` files, seated above the existing crossing-law prose.
@@ -39,6 +32,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[VARIANT_FAMILY_CENSUS]-[COMPLETE]: the census resolves the adoption question rather than opening it — `@effect/sql` `Model.Class` IS `VariantSchema.make` over the `select`/`insert`/`update`/`json`/`jsonCreate`/`jsonUpdate` variant set, so every relation family already derives (`data/read/query.md`, `data/journal/append.md`, `data/journal/retain.md`) and a bespoke `VariantSchema.make` earns a seat only where the variant axis is NOT the SQL one; the branch catalogue now carries the full constructor surface so the next adopter reads it there.
 [SIGNAL_PLANE_CLOSURE]-[COMPLETE]: spellings reconcile across the five legs — meter `Pulse.Board` projects through the app deploy-feed into iac's `runtime.pulse` pack row, the mirror-less direct `Pulse.Board` seam is absent, and tap labels align; `Convention` and `AppIdentity` rule every leg, while uncataloged Foundation panel members remain explicit terminal research rather than confirmed claims.
 [TAP_GRAMMAR_CONFORMANCE]-[COMPLETE]: every data point name re-proves the core `TapPoint` brand through `Tap.point` mints in `data/journal/append#HOOK_POINTS`; seam edges landed with identical `[KIND]` labels — `[SHAPE]: Tap.Registry` at data/ui/security↔runtime, `[SHAPE]: Tap.Point` at core↔data and core↔iac.
 [EXTERNAL_SPAN_CONTINUATION]-[COMPLETE]: HTTP, NATS, Kafka, MQTT, Connect, and CloudEvents cross core `Carrier.extract`/`inject` rows; `runtime/otel/emit#CONTINUATION` scopes scrubbed context through `Carrier.Current`, continues `Tracer.ExternalSpan`, and exposes the carried live context to every egress; `Journal.carrier` restores `rasmtenant` as `rasm.tenant` baggage.

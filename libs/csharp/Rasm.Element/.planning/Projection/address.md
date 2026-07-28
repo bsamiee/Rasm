@@ -122,7 +122,10 @@ public sealed partial class ContentAddress {
    Node.Object o => NodeId.RootedType(o.ToTypeSeedBytes(tolerance).Span) == o.Id
     ? Fin.Succ(unit)
     : ElementFault.AddressUnstable(key, $"<type-id-mismatch:{o.Id.Value}>"),
-   Node.Material or Node.PropertySet or Node.QuantitySet or Node.Assessment or Node.Appearance or Node.Coverage => VerifyContent(node, tolerance, key)
+   // Every non-rooted case verifies by content, so a new Node case lands on this list or Verify throws
+   // SwitchExpressionException at runtime — the arm is deliberately default-free to force that landing.
+   Node.Material or Node.PropertySet or Node.QuantitySet or Node.Assessment or Node.Appearance
+    or Node.Coverage or Node.Observation => VerifyContent(node, tolerance, key)
   };
 
  private static Fin<Unit> VerifyContent(Node node, double tolerance, Op key) =>

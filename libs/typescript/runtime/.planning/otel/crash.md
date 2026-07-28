@@ -65,7 +65,7 @@ const _crumb = (
 - Packages: `effect` (`Cause`, `Match`, `FiberSet`, `Metric`), `@rasm/ts/core` (`AppIdentity`, `FaultCapture`, `FaultClass`, `FaultEnricher`).
 
 ```typescript signature
-const _captured = Metric.counter(Convention.metric.crashCaptured, { incremental: true })
+const _captured = Convention.mount(Convention.metric.crashCaptured)
 
 const _shaped: (squashed: unknown) => { readonly name: string; readonly note: string; readonly stack: string } = pipe(
   Match.type<unknown>(),

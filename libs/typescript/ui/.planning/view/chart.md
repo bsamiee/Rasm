@@ -158,6 +158,7 @@ import "@perspective-dev/viewer-datagrid"
 import "@perspective-dev/viewer-charts"
 import type { ViewConfigUpdate } from "@perspective-dev/client"
 import type { HTMLPerspectiveViewerElement } from "@perspective-dev/viewer"
+import { Convention } from "@rasm/ts/core"
 import { Effect, Metric, Stream } from "effect"
 
 declare namespace Chart {
@@ -208,7 +209,7 @@ const _pivot = (element: HTMLPerspectiveViewerElement, frame: ArrayBuffer, optio
       }),
   )
 
-const _FRAMES = Metric.counter("rasm.ui.chart.frames", { description: "pivot delta frames delivered", incremental: true })
+const _FRAMES = Convention.mount(Convention.metric.chartFrames)
 
 const _derive = (pivot: Chart.Pivot, config: ViewConfigUpdate): Stream.Stream<Uint8Array> =>
   Stream.asyncScoped<Uint8Array>((emit) =>

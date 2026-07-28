@@ -31,9 +31,9 @@ core/
     │   ├── carrier.ts    # W3C propagation-context value, its total folds, and the closed per-transport dialect table
     │   └── invoke.ts     # Capability dial and both directions of the command contract
     └── observe/          # Observability vocabulary and derivation; zero exporters live here
-        ├── convention.ts # Typed semconv attribute, metric, and event vocabulary
+        ├── convention.ts # Typed semconv, metric, and event vocabulary with wire-name translation, the metric-plane roster, and one instrument mount
         ├── slo.ts        # Objective/SLI algebra and the burn-rate alert derivation
-        ├── board.ts      # Dashboard model, query, pack/suite dispatch, and the live metric snapshot
+        ├── board.ts      # Dashboard model, the query algebra with its render targets, pack dispatch, metric snapshot
         └── tap.ts        # Hook-point name rows, the veto/observe/replay modality table, and the tap contract
 ```
 
@@ -169,7 +169,7 @@ config:
 ---
 flowchart LR
     accTitle: Core TypeScript sibling seam registry
-    accDescr: Core owners handing content identity and decoded shapes to the data, runtime, ui, security, and iac siblings.
+    accDescr: Core owners handing content identity and decoded shapes to the data, runtime, ui, security, and iac siblings, and taking the minted render target back from the data lane and the selected render coordinates back from the deploy plane.
     subgraph core[CORE]
         ContentKey[Content key]
         Codec[Wire codec]
@@ -201,6 +201,7 @@ flowchart LR
     Convention e10@-->|"[SHAPE]: Convention"| Runtime
     Convention e12@-->|"[SHAPE]: Convention"| Data
     Convention e13@-->|"[SHAPE]: Convention"| Security
+    Convention e22@-->|"[SHAPE]: Convention"| Iac
     Board e11@-->|"[PROJECTION]: DashboardModel"| Iac
     Slo e14@-->|"[PROJECTION]: Alert.Spec"| Iac
     Frame e15@-->|"[SHAPE]: Residency.Ledger"| Ui
@@ -210,6 +211,11 @@ flowchart LR
     Carrier e18@-->|"[SHAPE]: Carrier.Context"| Runtime
     Tap e19@-->|"[SHAPE]: Tap.Point"| Data
     Tap e20@-->|"[SHAPE]: Tap.Point"| Iac
+    Board e23@-->|"[SHAPE]: Query.Residence"| Data
+    Codec e24@-->|"[SHAPE]: Hops"| Data
+    Data e25@-->|"[SHAPE]: Query.Target"| Board
+    Board e26@-->|"[PROJECTION]: DashboardModel.Signal"| Data
+    Iac e27@-->|"[PROJECTION]: Lgtm.Targets"| Board
 ```
 
 ## [04]-[INTERNAL]

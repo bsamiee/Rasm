@@ -19,8 +19,8 @@ Wire posture: HOST-LOCAL. `SliceStack` enters once; `Audit.Preflight` gates grow
 - Owner: `TreeRole` carries radius and load factors for roots, trunks, junctions, branches, and contacts.
 - Owner: `SupportProgram` is the sole modality family; generated support returns the same `SupportProjection` as built-in programs.
 - Law: occupancy resolves through `SliceRegion.Covers`, never a bounding box, so a concave layer does not read as solid across its own voids.
-- Boundary: `TreeSeed` exists only before global identity and parent admission; every published topology value is one `TreeNode`.
 - Growth: a support family is a row, a modality is a union case, a physical constraint is a policy value, and a result is one existing projection.
+- Boundary: `TreeSeed` exists only before global identity and parent admission; every published topology value is one `TreeNode`.
 
 ## [03]-[DEMAND]
 
@@ -34,20 +34,20 @@ Wire posture: HOST-LOCAL. `SliceStack` enters once; `Audit.Preflight` gates grow
 
 ## [04]-[PROJECTION]
 
-- Entry: `SupportProgram` closes planar, tree, hybrid, and generated modalities; every case returns the same `SupportProjection`, so no consumer learns which modality produced it.
 - Law: `Hybrid` scales planar density by its `PlanarShare` and grows the full tree beside it; a branching modality is refused outright when the selected `SupportFamily` does not branch.
 - Law: `Complete` derives one `SupportCoverage` row per demand, and `AdmitProjection` requires exact planar-region or tree-area/load/heat completion, unique coverage, no extra contacts, exact bridges, layer bounds, physical signs, and node caps for every program case.
 - Law: generated callback faults enter the shared `Try.lift` rail before projection admission; an admitted generated projection is indistinguishable from a built-in one downstream.
+- Entry: `SupportProgram` closes planar, tree, hybrid, and generated modalities; every case returns the same `SupportProjection`, so no consumer learns which modality produced it.
 
 ## [05]-[TOPOLOGY]
 
-- Boundary: `VoronoiPlane.SetSites`, `Tessellate`, `Relax`, `MergeSites`, and `GetNearestSiteTo(..., KDTree)` distribute tips and attract parents deterministically.
-- Boundary: `BidirectionalGraph<int, SEquatableEdge<int>>` validates global identifiers before topological order, roots, sinks, components, closure intersection, reduction, breadth-first reachability, and DAG paths project evidence.
 - Law: node identifiers are minted once after spatial merge; no child plan carries a private ordinal into composition.
 - Law: every structural rejection — duplicate, non-contiguous, unresolved, or repeated identity, cycle, terminals, order, redundant parent — is an accumulated typed gate; only genuine QuikGraph faults ride `Try.lift`.
 - Law: common ancestry reads `ComputeTransitiveClosure` through `InEdges` per sink and intersects the resulting sets; no edge sequence is rescanned per query pair.
 - Law: `GraphEvidence.MaximumLoadPath` is the longest root-to-sink route, taken by negating the DAG relaxation weights, because a multi-parent junction's governing load path is its most slender chain.
 - Law: demand accumulation folds one keyed `HashMap` in descending identity — reverse topological order for a strictly layered parent edge — so no node is rescanned per parent link.
+- Boundary: `VoronoiPlane.SetSites`, `Tessellate`, `Relax`, `MergeSites`, and `GetNearestSiteTo(..., KDTree)` distribute tips and attract parents deterministically.
+- Boundary: `BidirectionalGraph<int, SEquatableEdge<int>>` validates global identifiers before topological order, roots, sinks, components, closure intersection, reduction, breadth-first reachability, and DAG paths project evidence.
 
 ## [06]-[IDENTITY]
 
@@ -55,7 +55,7 @@ Wire posture: HOST-LOCAL. `SliceStack` enters once; `Audit.Preflight` gates grow
 - Law: every width writes little-endian explicitly through `BinaryPrimitives` into one pooled `ArrayPoolBufferWriter<byte>`, so the key reproduces bit-identically wherever the wire lands.
 - Law: every `SliceRegion` writes sorted outer and hole loops from their least cyclic station with closure, tolerance, points, and aligned bulges; winding remains material identity. Every node writes sorted parents beside global identity, role, radius, load, heat, area, and avoidance state.
 - Law: offset, program, family, contact, growth, structural, thermal, removal, drainage, and every realized geometry value enter the canonical payload under canonical row, node, bridge, and loop order.
-- Egress: `ContentKey.Of(EgressKind.Plan, bytes)` mints once over stored bytes and `SupportReceipt.CanonicalBytes` records the same payload.
+- Output: `ContentKey.Of(EgressKind.Plan, bytes)` mints once over stored bytes and `SupportReceipt.CanonicalBytes` records the same payload.
 
 ```csharp signature
 extern alias Voronoi;

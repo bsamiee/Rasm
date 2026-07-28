@@ -15,7 +15,8 @@ data/
 │   ├── contract.py       # Structural admission, covenant, and quality gate folded on one ContractClaim
 │   ├── profile.py        # Quality-profile owner grading a frame the artifacts renderer renders
 │   ├── egress.py         # Object-store egress owner over one StoreOp axis keyed by content identity
-│   └── cost.py           # Cost ledger folding the receipt families into the priced tenant-attributed frame
+│   ├── cost.py           # Cost ledger folding the receipt families into the priced tenant-attributed frame
+│   └── journal.py        # Ledger implementer landing runtime audit and meter facts across commit and scan
 ├── spatial/              # Vector and raster claims, the DuckDB-spatial engine, the DGG plane, STAC catalog, mesh exchange
 │   ├── geospatial.py     # Vector and raster geo claims over the VectorOp and RasterOp axes
 │   ├── query.py          # DuckDB-spatial join, transform, and H3 engine on the shared session rail
@@ -57,6 +58,7 @@ flowchart TB
         Gridded[gridded]
     end
     subgraph D0["S0 TABULAR"]
+        Journal[journal]
         Cost[cost]
         Egress[egress]
         Materialize[materialize]
@@ -76,8 +78,11 @@ flowchart TB
     Impact s7@-->|"[IMPORT]: FrameInterop"| Interop
     Impact s8@-->|"[IMPORT]: arrow_bytes"| Columnar
     Graph s9@-.->|"[WIRE]: GraphResult"| Columnar
+    Journal s26@-->|"[IMPORT]: LakeOp"| Lakehouse
+    Journal s27@-->|"[IMPORT]: ScanPlan"| Columnar
     Materialize s10@-->|"[IMPORT]: QuerySpec"| Query
     Materialize s11@-->|"[IMPORT]: TableFormat"| Lakehouse
+    Materialize s25@-->|"[IMPORT]: LakeOp"| Lakehouse
     Materialize s12@-->|"[IMPORT]: LAKE_COMMIT_POINT"| Lakehouse
     Materialize s13@-->|"[IMPORT]: VERDICT_POINT"| Contract
     Materialize s14@-->|"[IMPORT]: PUT_POINT"| Egress
@@ -98,6 +103,8 @@ flowchart TB
 
 - S0 `tabular` — `interop` and `columnar` form the floor; `contract`, `profile`, `query`, `lakehouse`, and `egress` own independent branches.
 - S0 `materialize` closes the operational apex, folding every hook point through one scope-keyed registration rail.
+- S0 `materialize` threads the root-bound `BackendGeneration` into every per-partition query, so one refresh reads one contract generation.
+- S0 `materialize` reads the change feed through the `lakehouse` `LakeOp.ChangeFeed` receipt payload, never a CDF provider of its own.
 - S0 `cost` closes the evidence apex, folding sibling receipt families into the priced frame.
 - S1 `gridded` + `impact` — both compose the tabular floor alone; the fence carries impact's floor imports.
 - S1 `gridded` rides the interop `ArrowCStream` carrier for its ragged Arrow bridge; `virtual` mints the field `FieldReceipt` family in-folder.
@@ -117,7 +124,7 @@ config:
 ---
 flowchart LR
     accTitle: Data package Python host-runtime seam registry
-    accDescr: Data sub-domain owners exchanging content identity, transport, receipts, and thread boundaries with the Python host runtime sibling.
+    accDescr: Data sub-domain owners exchanging content identity, transport, receipts, thread boundaries, and the durable evidence port with the Python host runtime sibling.
     subgraph data[DATA]
         Tabular[Tabular interchange]
         Egress[Object egress]
@@ -136,10 +143,12 @@ flowchart LR
     Gridded e19@-->|"[RECEIPT]: TensorReceipt"| Runtime
     Mesh e2@-->|"[CONTENT_KEY]: ContentIdentity"| Runtime
     Runtime e4@-->|"[TRANSPORT]: ResourceRef"| Tabular
+    Runtime e28@-->|"[PORT]: Ledger"| Tabular
     Runtime e20@-->|"[TRANSPORT]: ResourceRef"| Egress
     Runtime e11@-->|"[BOUNDARY]: on_thread"| Query
     Runtime e26@-->|"[SHAPE]: BackendGeneration"| Query
     Runtime e17@-->|"[BOUNDARY]: LanePolicy"| Materialize
+    Runtime e27@-->|"[SHAPE]: BackendGeneration"| Materialize
     Runtime e23@-->|"[TRANSPORT]: ResourceRef"| Catalog
     Runtime e18@-->|"[BOUNDARY]: on_thread"| Catalog
     Runtime e21@-->|"[TRANSPORT]: ResourceRef"| Gridded

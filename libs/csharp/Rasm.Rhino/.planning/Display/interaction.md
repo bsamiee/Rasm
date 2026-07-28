@@ -911,7 +911,7 @@ public static class DisplayHooks {
             mounts: Seq(
                 (Func<Fin<IDisposable>>)(() => MountRegistry.Mount(
                     mount: new HookMount(
-                    Point: HookPoint.DisplayPointer,
+                    Point: RhinoPoint.DisplayPointer,
                     Plugin: plugin,
                     Ask: typeof(PointerRequest.Mount),
                     Grant: typeof(PointerLease),
@@ -925,7 +925,7 @@ public static class DisplayHooks {
                     key: op)),
                 () => MountRegistry.Mount(
                     mount: new HookMount(
-                    Point: HookPoint.DisplayWidget,
+                    Point: RhinoPoint.DisplayWidget,
                     Plugin: plugin,
                     Ask: typeof(PointerRequest.Mount),
                     Grant: typeof(WidgetHost),

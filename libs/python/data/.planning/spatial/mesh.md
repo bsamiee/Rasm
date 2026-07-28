@@ -33,12 +33,12 @@ from opentelemetry import trace
 
 from rasm.data.tabular.columnar import QueryReceipt
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import RuntimeRail, async_boundary
+from rasm.runtime.faults import RuntimeRail, async_boundary, scoped
 from rasm.runtime.lanes import on_thread
 from rasm.runtime.receipts import Receipt
 from rasm.runtime.roots import ResourceRef
 
-_TRACER: Final = trace.get_tracer("rasm.data.spatial.mesh")
+_TRACER: Final = scoped(trace.get_tracer, "rasm.data.spatial.mesh")
 
 type Engine = meshio.Mesh | trimesh.Trimesh | rhino3dm.File3dm
 type Arrays = Mapping[str, np.ndarray]
@@ -380,13 +380,13 @@ from opentelemetry import trace
 from opentelemetry.trace import SpanKind
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import RuntimeRail, async_boundary, boundary
+from rasm.runtime.faults import RuntimeRail, async_boundary, boundary, scoped
 from rasm.runtime.lanes import on_thread
 from rasm.runtime.receipts import Receipt
 from rasm.runtime.resilience import RetryClass, guarded
 from rasm.runtime.roots import ResourceRef
 
-_TRACER: Final = trace.get_tracer("rasm.data.spatial.mesh")
+_TRACER: Final = scoped(trace.get_tracer, "rasm.data.spatial.mesh")
 
 type Record = laspy.LasData | laspy.ScaleAwarePointRecord
 type Selection = laspy.DecompressionSelection | None

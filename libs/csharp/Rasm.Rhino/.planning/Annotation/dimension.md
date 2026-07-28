@@ -13,7 +13,7 @@
 
 - Owner: `DimFrame` enforces plane and coplanar horizontal-axis invariants through one generated construction gate.
 - Owner: `DimensionSpec` carries one payload per host construction form and admits every raw geometric value before native construction.
-- Policy: `AngularExtension` carries extension-point behavior as a value consumed by the line-pair constructor.
+- Law: `AngularExtension` carries extension-point behavior as a value consumed by the line-pair constructor.
 - Boundary: `DimensionSpec.Mint` captures the native constructor family through the one `Op.Catch` funnel, so a throwing constructor lands as the keyed `InvalidResult` carrying the caught detail.
 - Growth: a construction form lands as one `DimensionSpec` case and one total dispatch arm.
 

@@ -4,9 +4,9 @@ Rasm.AppHost owns post-fetch updates through one `UpdateManager` state machine: 
 
 ## [01]-[INDEX]
 
-- [01]-[UPDATE_RAIL]: Post-fetch state machine, fault band, per-phase receipt, and generated instruments.
-- [02]-[CHANNEL_AXIS]: Three feed rows binding explicit channel and downgrade policy onto options.
-- [03]-[ROLLOVER_DRAIN]: Drain-before-swap handshake and the canary/blue-green/linear-wave `RollStrategy` axis over a health-gated fleet-wide wave.
+- [02]-[UPDATE_RAIL]: Post-fetch state machine, fault band, per-phase receipt, and generated instruments.
+- [03]-[CHANNEL_AXIS]: Three feed rows binding explicit channel and downgrade policy onto options.
+- [04]-[ROLLOVER_DRAIN]: Drain-before-swap handshake and the canary/blue-green/linear-wave `RollStrategy` axis over a health-gated fleet-wide wave.
 
 ## [02]-[UPDATE_RAIL]
 
